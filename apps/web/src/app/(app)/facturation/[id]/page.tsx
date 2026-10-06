@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
+import { BadgePaiement } from "../../../../components/finance/BadgePaiement";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../components/ui/Carte";
@@ -23,7 +24,9 @@ import { estIdentifiant } from "../../../../lib/identifiant";
 import type { MissionDetaillee } from "../../../../lib/missions";
 import type { ParametresFacturation } from "../../../../lib/parametres-facturation";
 import { exigerPermission } from "../../../../lib/session";
+import type { PaiementFacture as Paiement } from "../../../../lib/encaissements";
 import { ActionsFacture } from "./ActionsFacture";
+import { PaiementFacture } from "./PaiementFacture";
 import { LignesFacture, TotauxFacture } from "./ContenuFacture";
 
 export const metadata: Metadata = { title: "Facture" };
@@ -49,10 +52,14 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
   }
   // Défense en profondeur : seuls les champs de facturation connus sont rendus.
   const f = factureDetailleeVisible(r.donnees);
-  const [mission, parametres] = await Promise.all([
+  const suiviPaiement = f.nature === "facture" && (f.statut === "emise" || f.statut === "annulee");
+  const [mission, parametres, paiement] = await Promise.all([
     chargerServeur<MissionDetaillee>(`/api/missions/${f.mission_id}`),
     aPermission(roles, "facture.emettre") && f.statut === "brouillon"
       ? chargerServeur<ParametresFacturation>("/api/parametres-facturation")
+      : Promise.resolve(null),
+    suiviPaiement
+      ? chargerServeur<Paiement>(`/api/factures/${f.id}/paiement`)
       : Promise.resolve(null),
   ]);
   const actions = actionsFacture(f, {
@@ -74,6 +81,12 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
           <>
             <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
             {f.envoyee_le ? <BadgeStatut tonalite="succes">Envoyée</BadgeStatut> : null}
+            {paiement?.ok && paiement.donnees.statut_paiement ? (
+              <BadgePaiement
+                statut={paiement.donnees.statut_paiement}
+                joursRetard={paiement.donnees.jours_retard}
+              />
+            ) : null}
           </>
         }
         soustitre={`${f.client_raison_sociale} · ${f.mission_intitule} · ${f.devise}`}
@@ -88,6 +101,13 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
       <Carte titre="Totaux">
         <TotauxFacture facture={f} />
       </Carte>
+      {paiement?.ok ? (
+        <PaiementFacture
+          paiement={paiement.donnees}
+          devise={f.devise}
+          gererEncaissements={aPermission(roles, "encaissement.gerer")}
+        />
+      ) : null}
       <Carte titre="Document">
         <div className="mp-pile">
           <p className="mp-texte-doux">

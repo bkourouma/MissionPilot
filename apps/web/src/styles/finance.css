@@ -1,0 +1,201 @@
+/* ---------- Fin de la finance V1 : indicateurs, encaissements, créances ---------- */
+
+/* Indicateurs du cabinet : grille de cartes, une par indicateur. */
+.mp-grille-indicateurs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--mp-esp-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-grille-indicateurs > li {
+  display: flex;
+  min-width: 0;
+}
+
+.mp-indicateur {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  box-shadow: var(--mp-ombre);
+}
+
+.mp-indicateur p {
+  margin: 0;
+}
+
+.mp-indicateur__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+}
+
+.mp-indicateur__definition,
+.mp-indicateur__meta {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-indicateur__meta {
+  margin-top: auto;
+  padding-top: var(--mp-esp-2);
+  font-size: var(--mp-taille-xs);
+}
+
+.mp-indicateur__valeur {
+  margin: 0;
+  font-size: var(--mp-taille-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-indicateur__detail {
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-indicateur__reserve {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  color: var(--mp-texte-doux);
+  font-style: italic;
+}
+
+.mp-indicateur-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-3);
+}
+
+.mp-indicateur--squelette {
+  min-height: 10rem;
+  border-radius: var(--mp-rayon-l);
+}
+
+/* Alertes de dérive (parcours C). */
+.mp-alertes-derive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-alertes-derive__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-alertes-derive__texte {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mp-alertes-derive__lien {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-ligne-icone {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+/* Imputation d'un encaissement sur les factures du client. */
+.mp-imputations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-imputations__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-imputations__facture {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+.mp-imputations__facture p {
+  margin: 0;
+}
+
+.mp-imputations__titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-imputations__saisie {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-2);
+}
+
+.mp-imputations__saisie .mp-champ {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* Valeur et badge côte à côte dans une cellule de tableau. */
+.mp-pile-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--mp-esp-2);
+}
+
+.mp-contre-passation p {
+  margin: 0;
+}
+
+.mp-contre-passation__texte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-contre-passation__texte p {
+  margin: 0;
+}

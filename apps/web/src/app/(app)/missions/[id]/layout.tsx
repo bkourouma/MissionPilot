@@ -59,6 +59,7 @@ export default async function LayoutMission({
     ...(aPermission(utilisateur.roles, "facture.lire")
       ? [{ id: "facturation", libelle: "Facturation", href: `${base}/facturation` }]
       : []),
+    ...(m.statut === "cloturee" ? [{ id: "bilan", libelle: "Bilan", href: `${base}/bilan` }] : []),
   ];
   return (
     <div className="mp-page">

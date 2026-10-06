@@ -4,6 +4,21 @@ import { libellesRoles } from "../../components/shell/CadreApplication";
 import { BadgeStatut } from "../../components/ui/BadgeStatut";
 import { Carte } from "../../components/ui/Carte";
 import { Icone } from "../../components/ui/Icone";
+import { aPermission } from "@missionpilot/shared";
+import {
+  GrilleIndicateurs,
+  ListeAlertesDerive,
+} from "../../components/indicateurs/GrilleIndicateurs";
+import { chargerServeur } from "../../lib/api-serveur";
+import { formaterDate } from "../../lib/format";
+import {
+  alertesDerive,
+  indicateursAffiches,
+  periodeParDefaut,
+  requeteIndicateurs,
+  type ElementMission,
+  type ReponseIndicateurs,
+} from "../../lib/indicateurs";
 import { entreesAutorisees } from "../../lib/navigation";
 import { obtenirSession } from "../../lib/session";
 
@@ -12,6 +27,13 @@ export const metadata: Metadata = { title: "Tableau de bord" };
 export default async function TableauDeBord() {
   const { utilisateur } = await obtenirSession();
   const modules = entreesAutorisees(utilisateur.roles).filter((e) => e.id !== "tableau-de-bord");
+  // Pilotage du cabinet (parcours C) : une seule requête de niveau « mission » sert à la fois
+  // les indicateurs du cabinet et les alertes de dérive.
+  const pilotage = aPermission(utilisateur.roles, "indicateurs.cabinet")
+    ? await chargerServeur<ReponseIndicateurs>(
+        `/api/indicateurs/cabinet?${requeteIndicateurs({ ...periodeParDefaut(), niveau: "mission" })}`,
+      )
+    : null;
 
   return (
     <div className="mp-page">
@@ -22,6 +44,34 @@ export default async function TableauDeBord() {
           {libellesRoles(utilisateur.roles)}.
         </p>
       </header>
+
+      {pilotage ? (
+        <section aria-labelledby="titre-pilotage" className="mp-pile">
+          <h2 id="titre-pilotage" className="mp-section__titre">
+            Pilotage du mois
+          </h2>
+          {pilotage.ok ? (
+            <>
+              <Carte titre="Alertes de dérive" niveauTitre={3}>
+                <ListeAlertesDerive
+                  alertes={alertesDerive(pilotage.donnees.elements as ElementMission[])}
+                  limite={5}
+                />
+              </Carte>
+              <p className="mp-texte-doux">
+                {`Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${pilotage.donnees.devise}. `}
+                <Link href="/indicateurs">Changer de période ou de niveau de lecture</Link>
+              </p>
+              <GrilleIndicateurs indicateurs={indicateursAffiches(pilotage.donnees)} />
+            </>
+          ) : (
+            <p className="mp-texte-doux">
+              {`Indicateurs indisponibles : ${pilotage.message}`}{" "}
+              <Link href="/indicateurs">Ouvrir les indicateurs</Link>
+            </p>
+          )}
+        </section>
+      ) : null}
 
       <section aria-labelledby="titre-modules">
         <h2 id="titre-modules" className="mp-section__titre">

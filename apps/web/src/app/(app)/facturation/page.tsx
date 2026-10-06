@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { aPermission } from "@missionpilot/shared";
+import { BadgePaiement } from "../../../components/finance/BadgePaiement";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
 import { classesBouton } from "../../../components/ui/Bouton";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
@@ -21,6 +22,7 @@ import {
   STATUT_FACTURE,
   type Facture,
 } from "../../../lib/factures";
+import { chargerPaiements } from "../../../lib/finance-serveur";
 import { formaterDate, formaterMontantMineur } from "../../../lib/format";
 import type { Mission } from "../../../lib/missions";
 import { chargerClientsActifs } from "../../../lib/referentiels-serveur";
@@ -61,6 +63,7 @@ export default async function PageFacturation({
     ? missions.donnees.elements.map((m) => ({ valeur: m.id, libelle: m.intitule }))
     : [];
   const factures = r.ok ? r.donnees.elements.map(factureVisible) : [];
+  const paiements = await chargerPaiements(factures);
 
   return (
     <div className="mp-page">
@@ -175,6 +178,18 @@ export default async function PageFacturation({
                     : STATUT_FACTURE[f.statut].libelle}
                 </BadgeStatut>
               ),
+            },
+            {
+              cle: "paiement",
+              entete: "Paiement",
+              rendu: (f) => {
+                const p = paiements.get(f.id);
+                return p?.statut_paiement ? (
+                  <BadgePaiement statut={p.statut_paiement} joursRetard={p.jours_retard} />
+                ) : (
+                  <span className="mp-texte-doux">{f.nature === "avoir" ? "Sans objet" : "—"}</span>
+                );
+              },
             },
           ]}
         />

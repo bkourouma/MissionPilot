@@ -43,6 +43,8 @@ const TRACES = {
   cloche: "M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0",
   nuage: "M7 18.5h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11 3.75 3.75 0 0 0 7 18.5z",
   envoyer: "M4 12 20 4l-5 16-3-7zM12 13l8-9",
+  monnaie: "M3 7h18v10H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 10v4M18 10v4",
+  telechargement: "M12 4v11M7 10l5 5 5-5M5 20h14",
 } as const;
 
 export type NomIcone = keyof typeof TRACES;

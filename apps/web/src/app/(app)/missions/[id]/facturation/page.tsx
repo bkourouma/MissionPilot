@@ -19,7 +19,10 @@ import {
   type Facture,
   type FactureDetaillee,
 } from "../../../../../lib/factures";
-import { formaterDate, formaterMontantMineur } from "../../../../../lib/format";
+import { BadgePaiement } from "../../../../../components/finance/BadgePaiement";
+import { chargerPaiements } from "../../../../../lib/finance-serveur";
+import { formaterDate, formaterJours, formaterMontantMineur } from "../../../../../lib/format";
+import { encoursValorise, type ReponseEncoursMission } from "../../../../../lib/rentabilite";
 import { estSignee } from "../../../../../lib/missions";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../lib/session";
@@ -75,15 +78,17 @@ export default async function PageFacturationMission({
   }
   const gerer = peutGererEcheancier(m, roles, utilisateur.id);
   const emettre = aPermission(roles, "facture.emettre");
-  const [echeancier, decoupage, factures, debours] = await Promise.all([
+  const [echeancier, decoupage, factures, debours, encours] = await Promise.all([
     chargerServeur<Echeancier>(`/api/missions/${m.id}/echeancier`),
     gerer ? chargerServeur<Decoupage>(`/api/missions/${m.id}/decoupage`) : Promise.resolve(null),
     chargerServeur<PageFactures>(`/api/factures?mission_id=${m.id}&limite=100`),
     emettre
       ? chargerServeur<PageDebours>(`/api/missions/${m.id}/debours?statut=valide&limite=100`)
       : Promise.resolve(null),
+    chargerServeur<ReponseEncoursMission>(`/api/missions/${m.id}/encours`),
   ]);
   const listeFactures = factures.ok ? factures.donnees.elements.map(factureVisible) : [];
+  const paiements = await chargerPaiements(listeFactures);
   const dejaFactures = emettre ? await deboursDejaFactures(listeFactures) : new Set<string>();
   const jalons = decoupage?.ok
     ? decoupage.donnees.jalons.map((j) => ({ valeur: j.id, libelle: j.libelle }))
@@ -151,11 +156,60 @@ export default async function PageFacturationMission({
                 <BadgeStatut tonalite={STATUT_FACTURE[f.statut].tonalite}>
                   {STATUT_FACTURE[f.statut].libelle}
                 </BadgeStatut>
+                {paiements.get(f.id)?.statut_paiement ? (
+                  <BadgePaiement
+                    statut={paiements.get(f.id)?.statut_paiement ?? "non_payee"}
+                    joursRetard={paiements.get(f.id)?.jours_retard}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
         )}
       </Carte>
+      {encours.ok ? <EncoursMissionCarte r={encours.donnees} /> : null}
     </div>
+  );
+}
+
+/** Encours de production de la mission ; valorisation seulement si l'API la sert (finance.lire). */
+function EncoursMissionCarte({ r }: { r: ReponseEncoursMission }) {
+  if (!r.signee) return null;
+  return (
+    <Carte titre={`Encours de production au ${formaterDate(r.date)}`}>
+      <ul className="mp-totaux">
+        <li className="mp-totaux__element">
+          <span className="mp-totaux__libelle">Jours validés</span>
+          <span className="mp-totaux__valeur">{formaterJours(r.jours_valides)}</span>
+        </li>
+        {encoursValorise(r) && r.devise ? (
+          <>
+            <li className="mp-totaux__element">
+              <span className="mp-totaux__libelle">Valeur produite</span>
+              <span className="mp-totaux__valeur">
+                {formaterMontantMineur(r.valeur_produite, r.devise)}
+              </span>
+            </li>
+            <li className="mp-totaux__element">
+              <span className="mp-totaux__libelle">Encours (non facturé)</span>
+              <span className="mp-totaux__valeur">
+                {formaterMontantMineur(r.encours_production, r.devise)}
+              </span>
+            </li>
+            <li className="mp-totaux__element">
+              <span className="mp-totaux__libelle">Facturé d&apos;avance</span>
+              <span className="mp-totaux__valeur">
+                {formaterMontantMineur(r.facture_d_avance, r.devise)}
+              </span>
+            </li>
+          </>
+        ) : null}
+      </ul>
+      {!encoursValorise(r) ? (
+        <p className="mp-texte-doux">
+          Valorisation de l&apos;encours réservée aux associés et gestionnaires.
+        </p>
+      ) : null}
+    </Carte>
   );
 }

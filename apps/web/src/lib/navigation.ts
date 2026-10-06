@@ -11,7 +11,8 @@ export interface SousPage {
   id: string;
   libelle: string;
   href: string;
-  permission: Permission;
+  /** Une permission, ou une liste dont l'une suffit. */
+  permission: Permission | readonly Permission[];
 }
 
 export interface EntreeNavigation {
@@ -175,19 +176,65 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "facturation",
     libelle: "Facturation",
     href: "/facturation",
-    permission: "facture.lire",
+    permission: ["facture.lire", "encaissement.gerer"],
     disponible: true,
     icone: "facture",
-    description: "Factures et avoirs : brouillons, approbation, émission et envoi.",
+    description:
+      "Factures et avoirs, encaissements et imputations, créances, balance âgée et relances.",
+    sousPages: [
+      { id: "factures", libelle: "Factures", href: "/facturation", permission: "facture.lire" },
+      {
+        id: "encaissements",
+        libelle: "Encaissements",
+        href: "/facturation/encaissements",
+        permission: "encaissement.gerer",
+      },
+      {
+        id: "creances",
+        libelle: "Créances",
+        href: "/facturation/creances",
+        permission: ["encaissement.gerer", "indicateurs.cabinet"],
+      },
+    ],
+  },
+  {
+    id: "finance",
+    libelle: "Finance",
+    href: "/finance",
+    permission: ["facture.lire", "indicateurs.cabinet", "finance.lire", "export.comptable"],
+    disponible: true,
+    icone: "monnaie",
+    description: "Encours de production, rentabilité des missions et export comptable.",
+    sousPages: [
+      {
+        id: "encours",
+        libelle: "Encours de production",
+        href: "/finance/encours",
+        permission: ["facture.lire", "indicateurs.cabinet"],
+      },
+      {
+        id: "rentabilite",
+        libelle: "Rentabilité",
+        href: "/finance/rentabilite",
+        permission: "finance.lire",
+      },
+      {
+        id: "export",
+        libelle: "Export comptable",
+        href: "/finance/export",
+        permission: "export.comptable",
+      },
+    ],
   },
   {
     id: "indicateurs",
     libelle: "Indicateurs",
     href: "/indicateurs",
     permission: "indicateurs.cabinet",
-    disponible: false,
+    disponible: true,
     icone: "courbe",
-    description: "Occupation, marge, carnet de commandes et encours du cabinet.",
+    description:
+      "Les onze indicateurs de pilotage : occupation, marge, encours, carnet de commandes, dérives.",
   },
   {
     id: "parametres",
@@ -285,7 +332,7 @@ export function estActive(entree: Pick<EntreeNavigation, "href">, chemin: string
 /** Sous-pages d'une rubrique visibles pour ces rôles. */
 export function sousPagesAutorisees(id: string, roles: readonly Role[]): SousPage[] {
   const entree = NAVIGATION.find((e) => e.id === id);
-  return (entree?.sousPages ?? []).filter((p) => aPermission(roles, p.permission));
+  return (entree?.sousPages ?? []).filter((p) => autorise(roles, p.permission));
 }
 
 /** Sous-page active : celle dont le chemin est le plus long préfixe du chemin courant. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ROLES, type Role } from "@missionpilot/shared";
+import { aPermission, ROLES, type Role } from "@missionpilot/shared";
 import {
   autorise,
   entreesAutorisees,
@@ -18,7 +18,7 @@ describe("table de navigation", () => {
     expect(new Set(NAVIGATION.map((e) => e.href)).size).toBe(NAVIGATION.length);
   });
 
-  it("contient les douze rubriques prévues, dans l'ordre", () => {
+  it("contient les treize rubriques prévues, dans l'ordre", () => {
     expect(NAVIGATION.map((e) => e.libelle)).toEqual([
       "Tableau de bord",
       "Mon planning",
@@ -30,26 +30,15 @@ describe("table de navigation", () => {
       "Catalogue",
       "Plan de charge",
       "Facturation",
+      "Finance",
       "Indicateurs",
       "Paramètres",
     ]);
   });
 
-  it("ne marque disponibles que les écrans livrés (indicateurs à venir)", () => {
-    expect(NAVIGATION.filter((e) => e.disponible).map((e) => e.id)).toEqual([
-      "tableau-de-bord",
-      "mon-planning",
-      "feuille-de-temps",
-      "missions",
-      "pipeline",
-      "clients",
-      "collaborateurs",
-      "catalogue",
-      "plan-de-charge",
-      "facturation",
-      "parametres",
-    ]);
-    expect(NAVIGATION.find((e) => e.id === "indicateurs")?.disponible).toBe(false);
+  it("marque disponibles tous les écrans de la V1, indicateurs compris", () => {
+    expect(NAVIGATION.every((e) => e.disponible)).toBe(true);
+    expect(NAVIGATION.find((e) => e.id === "indicateurs")?.disponible).toBe(true);
   });
 
   it("donne des sous-pages aux chemins uniques, rattachées à leur rubrique", () => {
@@ -245,5 +234,73 @@ describe("autorise", () => {
     expect(autorise(["consultant"], "temps.saisir")).toBe(true);
     expect(autorise(["consultant"], ["cabinet.gerer", "temps.importer"])).toBe(false);
     expect(autorise(["gestionnaire"], ["cabinet.gerer", "temps.importer"])).toBe(true);
+  });
+});
+
+describe("finance V1 : facturation, finance et indicateurs", () => {
+  const sous = (id: string, roles: Role[]) => sousPagesAutorisees(id, roles).map((p) => p.id);
+
+  it("ouvre les encaissements au gestionnaire et à l'associé seulement", () => {
+    for (const role of ROLES) {
+      expect(sous("facturation", [role]).includes("encaissements")).toBe(
+        role === "associe" || role === "gestionnaire",
+      );
+    }
+  });
+
+  it("ouvre les créances à qui gère les encaissements ou lit les indicateurs", () => {
+    expect(sous("facturation", ["directeur_mission"])).toEqual(["factures", "creances"]);
+    expect(sous("facturation", ["gestionnaire"])).toEqual([
+      "factures",
+      "encaissements",
+      "creances",
+    ]);
+    expect(sous("facturation", ["chef_mission"])).toEqual(["factures"]);
+    expect(sous("facturation", ["consultant"])).toEqual([]);
+  });
+
+  it("réserve la rentabilité à finance.lire et l'export à export.comptable", () => {
+    for (const role of ROLES) {
+      const pages = sous("finance", [role]);
+      expect(pages.includes("rentabilite")).toBe(role === "associe" || role === "gestionnaire");
+      expect(pages.includes("export")).toBe(role === "associe" || role === "gestionnaire");
+    }
+    expect(sous("finance", ["directeur_mission"])).toEqual(["encours"]);
+    expect(sous("finance", ["chef_mission"])).toEqual(["encours"]);
+    expect(sous("finance", ["consultant"])).toEqual([]);
+  });
+
+  it("n'ouvre l'export qu'à qui voit aussi toutes les missions (règle de l'API)", () => {
+    for (const role of ROLES) {
+      if (sous("finance", [role]).includes("export"))
+        expect(aPermission([role], "mission.lire_toutes")).toBe(true);
+    }
+  });
+
+  it("montre la rubrique Finance seulement avec une sous-page accessible", () => {
+    for (const role of ROLES) {
+      expect(ids([role]).includes("finance")).toBe(sous("finance", [role]).length > 0);
+    }
+  });
+
+  it("ouvre les indicateurs à l'associé, au directeur et au gestionnaire", () => {
+    for (const role of ROLES) {
+      expect(ids([role]).includes("indicateurs")).toBe(
+        ["associe", "directeur_mission", "gestionnaire"].includes(role),
+      );
+    }
+  });
+
+  it("active la bonne sous-page de la facturation et de la finance", () => {
+    const fact = sousPagesAutorisees("facturation", ["associe"]);
+    expect(sousPageActive(fact, "/facturation")).toBe("factures");
+    expect(sousPageActive(fact, "/facturation/0b6c2d1e-0000-4000-8000-000000000000")).toBe(
+      "factures",
+    );
+    expect(sousPageActive(fact, "/facturation/encaissements/abc")).toBe("encaissements");
+    expect(sousPageActive(fact, "/facturation/creances")).toBe("creances");
+    const fin = sousPagesAutorisees("finance", ["associe"]);
+    expect(sousPageActive(fin, "/finance/rentabilite")).toBe("rentabilite");
+    expect(sousPageActive(fin, "/finance/export")).toBe("export");
   });
 });
