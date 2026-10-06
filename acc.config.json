@@ -1,0 +1,56 @@
+{
+  "standardVersion": "0.1.0",
+  "project": {
+    "name": "MissionPilot",
+    "slug": "missionpilot",
+    "description": "",
+    "language": "fr"
+  },
+  "profiles": [
+    "base"
+  ],
+  "adapters": [
+    "claude"
+  ],
+  "stack": {
+    "packageManager": "none",
+    "workspaces": false,
+    "typescript": false,
+    "eslint": false,
+    "prettier": false,
+    "languages": []
+  },
+  "commands": {
+    "install": "",
+    "dev": "",
+    "build": "",
+    "typecheck": "",
+    "lint": "",
+    "test": ""
+  },
+  "ports": {},
+  "git": {
+    "mainBranch": "main",
+    "protectedBranches": [
+      "main",
+      "master"
+    ]
+  },
+  "hooks": {
+    "preCommit": []
+  },
+  "guard": {
+    "protectedPaths": [],
+    "destructiveCommands": [
+      {
+        "pattern": "\\bDROP\\s+DATABASE\\b",
+        "reason": "Suppression de base de données interdite aux agents."
+      }
+    ]
+  },
+  "options": {
+    "agentBus": true,
+    "demoInstance": false
+  },
+  "demo": {}
+}

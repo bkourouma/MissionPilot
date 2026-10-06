@@ -1,0 +1,178 @@
+{
+  "standardVersion": "0.1.0",
+  "sourceCommit": "81313c5",
+  "appliedAt": "2026-10-06T08:50:28.832Z",
+  "files": {
+    "AGENTS.md": {
+      "mode": "block",
+      "profile": "base",
+      "blocks": {
+        "agents-handoff": "cc8bd8dd06bdb0fb5d27c71f5b9ffa1dec6c9a017d24c94f5ffedc56e5257a2d",
+        "agents-workflows": "11696e13a4ae599cd6aa80aa9274e189b4d1eadc20340b95336222660914ecf3",
+        "agents-subagents": "d52f99d6574d86cde19c4196653bc52c71e7b46218bf8063d5c5dc4fe9847877",
+        "agents-safety": "25d4fc1456092d96d5a3bf35bbf4d43371672b801b60a3861c902debc6f568e4"
+      }
+    },
+    "CLAUDE.md": {
+      "mode": "block",
+      "profile": "base",
+      "blocks": {
+        "claude-tooling": "91dc2062fbf16bf021b08b364a7160b29998a01ddeff01cc3f044923803e49d3",
+        "claude-subagents": "c80feb509a66927a7806c1f4882bf100baff425d7a11c3ecfbf83c96ee02c0ba"
+      }
+    },
+    "docs/workflows/HANDOFF.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    "docs/workflows/LEAD_PROCESS.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "31e9f344b62332472978bd762dbdf437318c969a8d8c686a24c429eefbeab356"
+    },
+    "docs/workflows/DEV_PROCESS.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "5812ebaa311cf932f1029a157fe1c51c5f8d96c3e082e82575f8ce1307271451"
+    },
+    "docs/workflows/DEMO_DEBUG_PROCESS.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "3ce980f8b467785d93e70fac466bdb4d61327ed0b196017aecc097bdff138c25"
+    },
+    "docs/workflows/BUG_REPORT_TEMPLATE.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "6a271c1e6fed65fb365549ff8a4bbe66dfda4707331ec1fed3ce0f4c2087958c"
+    },
+    "docs/workflows/AGENT_ADAPTERS.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "68ea0251467950492e5a99d7f2ac502eda83551d9cdecfbcdf320cdb91411ee2"
+    },
+    "docs/workflows/RUNBOOK.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    "docs/governance/CODING_STANDARDS.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    "docs/governance/SECURITY.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    "docs/architecture/adr/ADR-000-template.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    ".claude/settings.json": {
+      "mode": "merge-json",
+      "profile": "base"
+    },
+    ".claude/hooks/validate-bash.sh": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "e2a4670bb3335d7c9cac5118ecfc9e96ea5dd54ed8930d6af771d60dc74bc9fb"
+    },
+    ".claude/hooks/pre-commit.sh": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "1280730ded9a136bf0b0904c0092718e98bc68a0970ca6428a5e9af6bdc5233d"
+    },
+    ".claude/agents/lead.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "5b8b89615f5296781f2b6e8d0687a03b1c81d8eaf212808ee135a44d4b77c9fc"
+    },
+    ".claude/agents/dev-orchestrator.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "1f0d2927471e5f1000153d981b19282714d7e0d72254173e629171914280c278"
+    },
+    ".claude/agents/dev-simple.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "93180daa671514207da005c2fe889e419b3fb87693cd1f01de0a72a2181b0ceb"
+    },
+    ".claude/agents/dev-complex.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "de3dba3e2903a6b8959b4e2f29538564e9d5c1702b9ac2db1be1114016fb1ec3"
+    },
+    ".claude/agents/demo-orchestrator.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "40ebfcb5c4af9f20e34126f358eb867a36846c4c222a8594f335163f5f61ae50"
+    },
+    ".claude/agents/ui-tester.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "e0b4c3ef7ca268d32c1e22e2d9292590a7a0c7e8e7d8e822a2ef2adac27b8614"
+    },
+    ".claude/agents/code-reviewer.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "dc048bd9c9698607a48781fab54052801ee46deae0689681b4497a0d002d3379"
+    },
+    ".claude/agents/security-auditor.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "4ba451ff834aa85d8b58659a64efad736a8858a133647a7a272a67b2d27edb96"
+    },
+    ".claude/rules/review-checklist.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    ".claude/skills/lead/SKILL.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "57763900b3fefd05c8647f3061a193d2ce8c15a04bc57688659e72a3ab8534cc"
+    },
+    ".claude/skills/audit/SKILL.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "0a9a1db9def83c59c58752deb7c0039676d23866f68483e7e4aa7b69960de32f"
+    },
+    ".claude/skills/acc-adapt/SKILL.md": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "9a1ecdc150cd3aaa990bc7e2dc6d103b9b46ce820142c9b35f0fa6de7f2e3825"
+    },
+    ".claude/skills/run-missionpilot/SKILL.md": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    "scripts/agent-bus.cjs": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "604ff8622a7047e6ae4cb03a536a0e9f861f45fbb46bf65ea68f1c44f055873f"
+    },
+    "scripts/pre-push-guard.cjs": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "360bcbd22cd7109307c5daba51916cd78ca85485ca835434da8e4242ff782dce"
+    },
+    "scripts/install-git-hooks.cjs": {
+      "mode": "managed",
+      "profile": "base",
+      "hash": "9e7a3159e41e37eceb1722d8cd72391aa1fa87c07d23bca5cab6efb8fdc52bd4"
+    },
+    ".lefthook.yml": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    ".gitignore": {
+      "mode": "merge-lines",
+      "profile": "base"
+    },
+    ".editorconfig": {
+      "mode": "seed",
+      "profile": "base"
+    },
+    ".gitattributes": {
+      "mode": "seed",
+      "profile": "base"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+# Hooks git (Lefthook), installés par node scripts/install-git-hooks.cjs.
+# Garde-fous communs à tous les agents et aux humains ; ne pas les contourner
+# (--no-verify, LEFTHOOK=0).
+pre-push:
+  jobs:
+    - name: protected-branches
+      run: node scripts/pre-push-guard.cjs
+      use_stdin: true
