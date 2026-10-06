@@ -174,17 +174,14 @@ existera, y ajouter le fichier qui l'illustre.
 
 ## Pièges connus
 
-- **Documents en désaccord.** `docs/DECISIONS.md` est intitulé « CapStrat V1 »
-  (ancien nom, remplacé par MissionPilot selon le PRD). Ses rôles
-  (`dirigeant`, `contributeur`, `expert`) et ses règles (notation, KPI, plan
-  stratégique) ne correspondent pas aux rôles du PRD (associé, directeur de
-  mission, consultant…) et concernent des services prévus en V2. Avant
-  d'implémenter quoi que ce soit qui en dépend, demander à l'utilisateur
-  lequel fait foi.
-- **Choix techniques contradictoires.** File de tâches : BullMQ (PRD) ou
-  table `jobs` PostgreSQL (`DECISIONS.md`). IA : Claude appelé par un
-  orchestrateur (PRD) ou OpenRouter avec modèle choisi par tâche
-  (`DECISIONS.md`). À trancher par un ADR avant le premier code.
+- **DECISIONS.md et PRD.** `docs/DECISIONS.md` a été réaligné le 2026-10-06 :
+  le PRD fait foi pour le périmètre et les rôles, DECISIONS.md pour les règles
+  de calcul de la V2 (notation, KPI, plan) et les choix techniques. Les
+  anciens rôles (`dirigeant`, `contributeur`, `expert`…) y sont rattachés à
+  ceux du PRD. Ordre : V1 (gestion de mission) puis V2 (services #1, #3, #4).
+- **Choix techniques tranchés** (ADR-001 à ADR-003) : monorepo pnpm, Fastify,
+  Next.js, PostgreSQL avec RLS ; file de tâches en table `jobs` PostgreSQL ;
+  IA via OpenRouter, hors V1. Toute entorse passe par un nouvel ADR.
 - **Hooks git inactifs.** Lefthook n'est pas installé : le hook `pre-push`
   qui protège `main` ne tourne pas tant qu'un `package.json` ne l'ajoute pas
   en dépendance de développement, puis que
