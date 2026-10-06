@@ -1,0 +1,141 @@
+import { z } from "zod";
+
+/** Rôles côté cabinet (SOC-02). Les rôles client (portail) arrivent en V2. */
+export const ROLES = [
+  "associe",
+  "directeur_mission",
+  "chef_mission",
+  "consultant",
+  "ressources",
+  "gestionnaire",
+  "expert_metier",
+  "expert_externe",
+] as const;
+
+export type Role = (typeof ROLES)[number];
+export const roleSchema = z.enum(ROLES);
+
+export const ROLE_LIBELLES: Record<Role, string> = {
+  associe: "Associé",
+  directeur_mission: "Directeur de mission",
+  chef_mission: "Chef de mission",
+  consultant: "Consultant",
+  ressources: "Responsable des ressources",
+  gestionnaire: "Gestionnaire administratif et financier",
+  expert_metier: "Expert métier",
+  expert_externe: "Expert externe",
+};
+
+/** Droits fins, nommés par capacité plutôt que par écran. */
+export const PERMISSIONS = [
+  "cabinet.gerer", // paramètres du cabinet, utilisateurs, invitations
+  "audit.lire",
+  "clients.lire",
+  "clients.ecrire",
+  "catalogue.lire",
+  "catalogue.ecrire",
+  "pipeline.gerer",
+  "proposition.valider",
+  "mission.lire",
+  "mission.creer",
+  "mission.planifier",
+  "budget.lire_jours",
+  "budget.ecrire",
+  "budget.reviser", // valider une révision (directeur de mission)
+  "finance.lire", // coûts journaliers, taux, marges (FIN-02) : associés et gestionnaires
+  "taux.gerer",
+  "affectation.gerer",
+  "charge.lire",
+  "conges.valider",
+  "temps.saisir",
+  "temps.valider",
+  "temps.cloturer",
+  "facture.lire",
+  "facture.emettre",
+  "facture.valider",
+  "encaissement.gerer",
+  "indicateurs.cabinet",
+] as const;
+
+export type Permission = (typeof PERMISSIONS)[number];
+
+const TOUS: readonly Permission[] = PERMISSIONS;
+
+export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
+  associe: TOUS,
+  directeur_mission: [
+    "clients.lire",
+    "clients.ecrire",
+    "catalogue.lire",
+    "pipeline.gerer",
+    "proposition.valider",
+    "mission.lire",
+    "mission.creer",
+    "mission.planifier",
+    "budget.lire_jours",
+    "budget.ecrire",
+    "budget.reviser",
+    "affectation.gerer",
+    "charge.lire",
+    "temps.saisir",
+    "temps.valider",
+    "facture.lire",
+    "facture.valider",
+    "indicateurs.cabinet",
+  ],
+  chef_mission: [
+    "clients.lire",
+    "catalogue.lire",
+    "pipeline.gerer",
+    "mission.lire",
+    "mission.creer",
+    "mission.planifier",
+    "budget.lire_jours",
+    "budget.ecrire",
+    "affectation.gerer",
+    "charge.lire",
+    "temps.saisir",
+    "temps.valider",
+    "facture.lire",
+  ],
+  consultant: [
+    "clients.lire",
+    "catalogue.lire",
+    "mission.lire",
+    "budget.lire_jours",
+    "temps.saisir",
+  ],
+  ressources: [
+    "clients.lire",
+    "catalogue.lire",
+    "mission.lire",
+    "budget.lire_jours",
+    "affectation.gerer",
+    "charge.lire",
+    "conges.valider",
+    "temps.saisir",
+  ],
+  gestionnaire: [
+    "clients.lire",
+    "clients.ecrire",
+    "catalogue.lire",
+    "mission.lire",
+    "budget.lire_jours",
+    "finance.lire",
+    "taux.gerer",
+    "facture.lire",
+    "facture.emettre",
+    "encaissement.gerer",
+    "temps.saisir",
+    "temps.cloturer",
+    "indicateurs.cabinet",
+    "charge.lire",
+  ],
+  expert_metier: ["catalogue.lire", "catalogue.ecrire", "mission.lire", "temps.saisir"],
+  expert_externe: ["temps.saisir"],
+};
+
+/** Les associés et gestionnaires seuls voient coûts, taux et marges (FIN-02). */
+export function aPermission(roles: readonly Role[], permission: Permission): boolean {
+  return roles.some((role) => PERMISSIONS_PAR_ROLE[role].includes(permission));
+}

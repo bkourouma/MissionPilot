@@ -33,34 +33,36 @@ pas de mise à jour.
 
 ## Structure réelle
 
-Le dépôt ne contient pas encore de code applicatif (ni `package.json`, ni
-`src/`) : seuls la spécification et l'outillage agentique existent.
-
 ```text
 acc.config.json   configuration du standard (commandes, ports, gardes)
 .acc/             manifeste du standard (géré : ne pas modifier)
 .claude/          agents, compétences, règles, hooks, settings.json
 docs/             PRD, décisions, workflows, gouvernance, ADR
 scripts/          bus d'agents, garde pre-push, installation des hooks git
+apps/api          API Fastify (migrations SQL, RLS, routes), tests Vitest sur vrai PostgreSQL
+apps/web          interface Next.js, en français
+packages/engines  moteurs de calcul purs (couverture ≥ 90 % imposée)
+packages/shared   rôles, droits, schémas Zod partagés
 ```
-
-Dossiers prévus, non créés : `packages/engines` (moteurs de calcul),
-voir `docs/DECISIONS.md`. Le reste de l'arborescence applicative (API, web)
-reste à décider : le PRD recommande un monorepo pnpm (Fastify, Next.js,
-PostgreSQL), sans que cela soit tranché.
 
 ## Commandes
 
 ```bash
-node scripts/agent-bus.cjs help      # bus d'agents (vérifié)
-node scripts/install-git-hooks.cjs   # hooks git ; exige Lefthook (absent du PATH ici)
+pnpm install         # dépendances
+pnpm db:up           # PostgreSQL de développement (conteneur missionpilot-postgres, port 55440)
+pnpm db:migrate      # migrations (rôle propriétaire) ; crée aussi le rôle applicatif
+pnpm dev             # API (4100) et web (3100)
+pnpm typecheck       # tsc dans chaque paquet
+pnpm lint            # eslint
+pnpm format          # prettier --check
+pnpm test            # Vitest ; l'API exige PostgreSQL (base missionpilot_test créée à la volée)
+node scripts/agent-bus.cjs help      # bus d'agents
 ```
 
-TODO(acc-adapt) : commandes du projet (installation, lancement, typecheck,
-lint, tests), à renseigner dans `acc.config.json` (`commands`) puis ici dès
-que le premier code et son `package.json` existent.
+Les valeurs de développement par défaut (`apps/api/src/config.ts`) reprennent
+`.env.example` : aucun fichier `.env` n'est nécessaire en développement, et ils
+sont refusés en production.
 
-<!-- acc:begin agents-workflows -->
 ## Flux de travail des agents et hooks
 
 Trois contrats réutilisables sont définis dans `docs/workflows/` :
