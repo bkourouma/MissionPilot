@@ -130,11 +130,27 @@ export const missionModeleSchema = z.object({ code: codeSchema, libelle: texte(1
 
 export const missionEquipeAjoutSchema = z.object({ utilisateur_id: z.string().uuid() }).strict();
 
+/**
+ * Listes « larges » paginées par curseur (missions, opportunités) : `limite` de 1 à
+ * 500, 100 par défaut ; `curseur` opaque rendu par la page précédente (`suivant`).
+ */
+export const LISTE_LARGE_LIMITE_DEFAUT = 100;
+export const LISTE_LARGE_LIMITE_MAX = 500;
+export const listeLargeLimiteSchema = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(LISTE_LARGE_LIMITE_MAX)
+  .default(LISTE_LARGE_LIMITE_DEFAUT);
+export const listeLargeCurseurSchema = z.string().max(500).optional();
+
 export const missionsListeQuerySchema = z
   .object({
     statut: z.enum(STATUTS_MISSION).optional(),
     client_id: z.string().uuid().optional(),
     q: z.string().trim().max(100).optional(),
+    limite: listeLargeLimiteSchema,
+    curseur: listeLargeCurseurSchema,
   })
   .strict();
 

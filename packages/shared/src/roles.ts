@@ -1,6 +1,25 @@
 import { z } from "zod";
 
-/** Rôles côté cabinet (SOC-02). Les rôles client (portail) arrivent en V2. */
+/*
+ * Modèle des rôles (SOC-02, SOC-09).
+ *
+ * Deux familles DISJOINTES (contrainte CHECK en base, migration 0110) :
+ * - `ROLES` : rôles du cabinet (les 8 rôles internes). Choix délibéré : la
+ *   constante historique reste la liste des rôles INTERNES, de sorte que tout
+ *   code qui l'itère (formulaire d'invitation, matrices de droits, schéma
+ *   `roleSchema` des invitations et modifications internes) reste interne
+ *   par défaut et ne propose jamais un rôle client par mégarde ;
+ * - `ROLES_CLIENT` : personnes de l'entreprise cliente invitées sur le portail
+ *   (SOC-09). Elles ne détiennent QUE des permissions `portail.*` : lecture
+ *   de leur entreprise et, pour le dirigeant et le contributeur, saisie des
+ *   KPI et réponses aux questionnaires sur désignation explicite du cabinet ;
+ *   l'investisseur est déclaré (lecture, V3) sans écran.
+ *
+ * Le type `Role` couvre les deux familles (une session porte l'une OU
+ * l'autre) ; `TOUS_LES_ROLES` les énumère toutes.
+ */
+
+/** Rôles côté cabinet (SOC-02). */
 export const ROLES = [
   "associe",
   "directeur_mission",
@@ -11,9 +30,37 @@ export const ROLES = [
   "expert_metier",
   "expert_externe",
 ] as const;
+/** Alias explicite de `ROLES`. */
+export const ROLES_CABINET = ROLES;
 
-export type Role = (typeof ROLES)[number];
+/** Rôles des utilisateurs du portail client (SOC-09), jamais cumulables avec un rôle interne. */
+export const ROLES_CLIENT = [
+  "client_dirigeant",
+  "client_contributeur",
+  "client_investisseur",
+] as const;
+
+export const TOUS_LES_ROLES = [...ROLES, ...ROLES_CLIENT] as const;
+
+export type RoleCabinet = (typeof ROLES)[number];
+export type RoleClient = (typeof ROLES_CLIENT)[number];
+export type Role = RoleCabinet | RoleClient;
+
+/** Rôle du CABINET (invitations et modifications internes : jamais un rôle client). */
 export const roleSchema = z.enum(ROLES);
+/** Rôle du portail client (invitations du portail). */
+export const roleClientSchema = z.enum(ROLES_CLIENT);
+/** Tout rôle connu (lecture d'une session). */
+export const roleQuelconqueSchema = z.enum(TOUS_LES_ROLES);
+
+export function estRoleClient(role: string): role is RoleClient {
+  return (ROLES_CLIENT as readonly string[]).includes(role);
+}
+
+/** Une session portant un rôle client est un utilisateur du portail (liste blanche stricte). */
+export function estUtilisateurPortail(roles: readonly string[]): boolean {
+  return roles.some(estRoleClient);
+}
 
 export const ROLE_LIBELLES: Record<Role, string> = {
   associe: "Associé",
@@ -24,6 +71,9 @@ export const ROLE_LIBELLES: Record<Role, string> = {
   gestionnaire: "Gestionnaire administratif et financier",
   expert_metier: "Expert métier",
   expert_externe: "Expert externe",
+  client_dirigeant: "Dirigeant client",
+  client_contributeur: "Contributeur client",
+  client_investisseur: "Investisseur",
 };
 
 /** Droits fins, nommés par capacité plutôt que par écran. */
@@ -77,11 +127,40 @@ export const PERMISSIONS = [
   "portail.gerer", // inviter et gérer les utilisateurs du portail client (V2, SOC-09)
   "commentaire.ecrire", // commenter une entité VISIBLE (SOC-08) ; l'expert externe : ses seules missions
   "tache.assigner", // assigner une tâche de collaboration à un collègue (SOC-08)
+  // --- V2 : plan stratégique, KPI, notation. Visibilité de la mission TOUJOURS exigée en plus ;
+  // ni ressources ni gestionnaire (la masse salariale et les états du client sont confidentiels).
+  "plan.lire", // lire un plan stratégique et son modèle financier (V2, PLA-01 à PLA-11)
+  "plan.ecrire", // rédiger les éléments du plan et calculer le modèle financier (V2)
+  "plan.valider", // valider un contenu du plan ou une version du modèle (V2, SOC-06)
+  "kpi.lire", // lire les KPI, le tableau de bord et l'export (V2, KPI-01 à KPI-05)
+  "kpi.gerer", // définir les KPI, cibles, contributeurs ; annuler une mesure du portail (V2)
+  "kpi.saisir", // saisir, corriger, annuler une mesure côté cabinet (V2, KPI-02)
+  "notation.lire", // lire une notation et son rapport (V2, NOT-01 à NOT-07)
+  // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
+  "portail.acceder", // son profil et son entreprise (/api/portail/moi)
+  "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
+  "portail.factures.lire", // factures ÉMISES partagées de son entreprise
+  "portail.jalons.valider", // valider un jalon partagé (dirigeant client)
+  "portail.kpi.saisir", // saisir les mesures des KPI dont on est contributeur désigné (V2, KPI-02)
+  "portail.questionnaires.repondre", // répondre aux questionnaires reçus (V2, SOC-10)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-const TOUS: readonly Permission[] = PERMISSIONS;
+/** Permissions propres aux utilisateurs du portail : aucun rôle interne ne les détient. */
+export const PERMISSIONS_PORTAIL_CLIENT = [
+  "portail.acceder",
+  "portail.missions.lire",
+  "portail.factures.lire",
+  "portail.jalons.valider",
+  "portail.kpi.saisir",
+  "portail.questionnaires.repondre",
+] as const satisfies readonly Permission[];
+
+/** Toutes les permissions du CABINET (l'associé les a toutes, aucune permission client). */
+const TOUS: readonly Permission[] = PERMISSIONS.filter(
+  (p) => !(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).includes(p),
+);
 
 export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   associe: TOUS,
@@ -119,8 +198,15 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "questionnaire.lire",
     "questionnaire.gerer",
     "notation.gerer",
+    "notation.lire",
     "ia.utiliser",
     "portail.gerer",
+    "plan.lire",
+    "plan.ecrire",
+    "plan.valider",
+    "kpi.lire",
+    "kpi.gerer",
+    "kpi.saisir",
   ],
   chef_mission: [
     "clients.lire",
@@ -147,8 +233,15 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "questionnaire.lire",
     "questionnaire.gerer",
     "notation.gerer",
+    "notation.lire",
     "ia.utiliser",
     "portail.gerer",
+    "plan.lire",
+    "plan.ecrire",
+    "plan.valider",
+    "kpi.lire",
+    "kpi.gerer",
+    "kpi.saisir",
   ],
   consultant: [
     "clients.lire",
@@ -163,7 +256,12 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "questionnaire.lire",
     "questionnaire.gerer",
     "notation.gerer",
+    "notation.lire",
     "ia.utiliser",
+    "plan.lire",
+    "plan.ecrire",
+    "kpi.lire",
+    "kpi.saisir",
   ],
   ressources: [
     "clients.lire",
@@ -219,9 +317,30 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "commentaire.ecrire",
     "questionnaire.lire",
     "notation.publier",
+    "notation.lire",
     "ia.utiliser",
+    "plan.lire",
+    "kpi.lire",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire"],
+  // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;
+  // saisie des KPI et réponses aux questionnaires sur désignation explicite (jamais l'investisseur).
+  client_dirigeant: [
+    "portail.acceder",
+    "portail.missions.lire",
+    "portail.factures.lire",
+    "portail.jalons.valider",
+    "portail.kpi.saisir",
+    "portail.questionnaires.repondre",
+  ],
+  client_contributeur: [
+    "portail.acceder",
+    "portail.missions.lire",
+    "portail.kpi.saisir",
+    "portail.questionnaires.repondre",
+  ],
+  // Investisseur (lecture d'une notation, V3) : profil seulement d'ici là.
+  client_investisseur: ["portail.acceder"],
 };
 
 /** Les associés et gestionnaires seuls voient coûts, taux et marges (FIN-02). */
