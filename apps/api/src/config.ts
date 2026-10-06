@@ -6,7 +6,11 @@ const DEV = {
     "postgres://missionpilot_owner:dev_only_owner_password@127.0.0.1:55440/missionpilot",
   DATABASE_URL: "postgres://missionpilot_app:dev_only_app_password@127.0.0.1:55440/missionpilot",
   SESSION_SECRET: "dev-only-change-me-dev-only-change-me",
+  TFA_MASTER_KEY: "dev-only-tfa-master-key-change-me-0000",
 };
+
+/** Hôtes admis pour une base de développement (valeurs par défaut autorisées). */
+const HOTES_LOCAUX = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 /** Adresse e-mail ASCII sans nom affiché ni caractère d'en-tête (SMTP sans SMTPUTF8). */
 export const ADRESSE_ASCII = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -18,6 +22,13 @@ const schema = z.object({
   DATABASE_OWNER_URL: z.string().url(),
   DATABASE_URL: z.string().url(),
   SESSION_SECRET: z.string().min(32),
+  /**
+   * Secret maître du chiffrement applicatif (secrets TOTP, codes de secours,
+   * e-mails en file), distinct de SESSION_SECRET. Rotation : l'ancienne valeur
+   * passe dans TFA_MASTER_KEY_PRECEDENTE le temps que les chiffrés soient repris.
+   */
+  TFA_MASTER_KEY: z.string().min(32),
+  TFA_MASTER_KEY_PRECEDENTE: z.string().min(32).optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   /** Worker de la file de tâches (ADR-002) : actif par défaut, sauf en test. */
   JOBS_WORKER: z.enum(["actif", "inactif"]).optional(),
@@ -43,9 +54,23 @@ export function workerActif(config: Pick<Config, "NODE_ENV" | "JOBS_WORKER">): b
   return (config.JOBS_WORKER ?? (config.NODE_ENV === "test" ? "inactif" : "actif")) === "actif";
 }
 
-/** Vrai en développement et en test : les seuls cas où les valeurs par défaut sont admises. */
+/**
+ * Vrai pour un NODE_ENV de développement ou de test (ou absent). Ne suffit
+ * PAS à admettre les valeurs de développement : loadConfig exige en plus une
+ * base locale (voir `baseLocale`), sinon il refuse de démarrer.
+ */
 export function estLocal(nodeEnv: string | undefined): boolean {
   return nodeEnv === undefined || ENVIRONNEMENTS_LOCAUX.includes(nodeEnv);
+}
+
+/** Vrai si l'hôte de l'URL PostgreSQL est la machine locale (localhost, 127.0.0.1, ::1). */
+export function baseLocale(url: string | undefined): boolean {
+  if (url === undefined) return true; // valeur de développement : 127.0.0.1
+  try {
+    return HOTES_LOCAUX.has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
 }
 
 /** Le cookie de session est « secure » partout sauf en développement et en test. */
@@ -53,9 +78,26 @@ export function cookieSecurise(config: Pick<Config, "NODE_ENV">): boolean {
   return !estLocal(config.NODE_ENV);
 }
 
+/**
+ * Charge et valide la configuration (point d'entrée unique).
+ *
+ * Valeurs de développement (constat M4) : admises seulement si NODE_ENV est
+ * absent, « development » ou « test » ET que DATABASE_URL et
+ * DATABASE_OWNER_URL désignent une base locale. Un serveur dont NODE_ENV a
+ * été oublié mais qui pointe vers une base distante refuse de démarrer, au
+ * lieu de tourner avec des secrets publics et des cookies non sécurisés.
+ */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const fournies = stripEmpty(env);
-  const withDefaults = estLocal(env.NODE_ENV) ? { ...DEV, ...fournies } : fournies;
+  const local = estLocal(fournies.NODE_ENV);
+  if (local && !(baseLocale(fournies.DATABASE_URL) && baseLocale(fournies.DATABASE_OWNER_URL))) {
+    throw new Error(
+      `NODE_ENV ${fournies.NODE_ENV ? `« ${fournies.NODE_ENV} »` : "absent"} avec une base distante : ` +
+        "les valeurs de développement ne sont admises qu'avec une base locale. " +
+        "Définir NODE_ENV=production (et tous les secrets) pour un serveur.",
+    );
+  }
+  const withDefaults = local ? { ...DEV, ...fournies } : fournies;
   const config = schema.parse(withDefaults);
   if (!estLocal(config.NODE_ENV)) {
     const dev: Record<string, string> = DEV;
@@ -65,8 +107,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       }
     }
   }
+  verifierSecrets(config);
   verifierConfigEmail(config);
   return config;
+}
+
+/** Les secrets maîtres sont distincts : une fuite de l'un n'ouvre pas les autres usages. */
+function verifierSecrets(config: Config): void {
+  if (config.TFA_MASTER_KEY === config.SESSION_SECRET) {
+    throw new Error("TFA_MASTER_KEY doit différer de SESSION_SECRET.");
+  }
+  if (config.TFA_MASTER_KEY_PRECEDENTE === config.TFA_MASTER_KEY) {
+    throw new Error("TFA_MASTER_KEY_PRECEDENTE doit différer de TFA_MASTER_KEY.");
+  }
 }
 
 /**

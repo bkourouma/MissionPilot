@@ -54,6 +54,7 @@ import {
   elementsDuModele,
 } from "../missions/decoupage.js";
 import { droitsBudget, slug } from "../missions/outils.js";
+import { enregistrerBilanCloture } from "../finance/bilan.js";
 
 const COLONNES = `m.id, m.intitule, m.client_id, cl.raison_sociale AS client_raison_sociale,
   m.type_mission_id, m.opportunite_id, m.proposition_id, m.mission_source_id, m.directeur_id, m.chef_id,
@@ -691,6 +692,8 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
            modifie_le = now() WHERE id = $1`,
         [id, auth.utilisateurId],
       );
+      // Bilan de rentabilité archivé (snapshot immuable, finance/bilan.ts).
+      await enregistrerBilanCloture(db, auth, id);
       await journaliser(db, {
         cabinetId: auth.cabinetId,
         utilisateurId: auth.utilisateurId,

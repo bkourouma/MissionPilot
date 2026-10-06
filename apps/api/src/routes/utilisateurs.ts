@@ -2,12 +2,14 @@ import type { FastifyPluginAsync } from "fastify";
 import {
   invitationAcceptationSchema,
   invitationCreationSchema,
+  reinitialisationTfaSchema,
   ROLE_LIBELLES,
   utilisateurModificationSchema,
   type Role,
 } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import { trousseauDepuisConfig } from "../auth/chiffrement.js";
+import { serviceIdentite } from "../auth/confirmer-identite.js";
 import { exiger } from "../auth/contexte.js";
 import { supprimerTfa } from "../auth/double-authentification.js";
 import { creerSession, poserCookieSession } from "../auth/ouvrir-session.js";
@@ -18,6 +20,7 @@ import { traduireErreursPg } from "../db/outils.js";
 import { AppError, conflit, introuvable } from "../errors.js";
 import { paramsId } from "../http/outils.js";
 import { envoyerOuDifferer } from "../notifications/file-email.js";
+import { associesActifs, notifierAvecEmailEnFile } from "../notifications/notifier.js";
 
 const COLONNES = "id, email, nom, roles, actif, cree_le";
 const COLONNES_INVITATION = "id, email, roles, expire_le, acceptee_le, cree_le";
@@ -50,6 +53,8 @@ async function verifierDernierAssocie(db: Db, avant: Utilisateur, apres: Utilisa
 }
 
 export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
+  const identite = serviceIdentite(app);
+
   app.get("/utilisateurs", async (request) => {
     const auth = exiger(request, "cabinet.gerer");
     return app.db.withTenant(auth.cabinetId, async (db) => {
@@ -115,10 +120,16 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
    * associé : secret, codes de secours et défis supprimés, sessions fermées,
    * action journalisée. Pour soi-même : /api/auth/2fa/desactiver (mot de passe
    * et second facteur exigés).
+   *
+   * Constat M3 : l'associé reconfirme son identité (`mot_de_passe` et `code`
+   * ou `code_secours` ; sa propre 2FA doit être active, 409 TFA_INACTIVE
+   * sinon) ; la personne ciblée et tous les associés actifs sont alertés par
+   * e-mail.
    */
   app.post("/utilisateurs/:id/2fa/reinitialiser", async (request) => {
     const auth = exiger(request, "cabinet.gerer");
     const { id } = paramsId.parse(request.params);
+    const confirmation = reinitialisationTfaSchema.parse(request.body ?? {});
     if (id === auth.utilisateurId) {
       throw new AppError(
         400,
@@ -126,9 +137,15 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
         "Pour votre propre compte, désactivez la double authentification depuis votre profil.",
       );
     }
-    return app.db.withTenant(auth.cabinetId, async (db) => {
-      const cible = await db.query("SELECT id FROM utilisateurs WHERE id = $1 FOR UPDATE", [id]);
+    // Cible inexistante : 404 avant toute reconfirmation (aucun code consommé en vain).
+    await app.db.withTenant(auth.cabinetId, async (db) => {
+      const cible = await db.query("SELECT 1 FROM utilisateurs WHERE id = $1", [id]);
       if (!cible.rowCount) throw introuvable("Utilisateur");
+    });
+    return identite.confirmerIdentite(auth, confirmation, "reinitialisation_2fa", async (db) => {
+      const cible = await db.query("SELECT nom FROM utilisateurs WHERE id = $1 FOR UPDATE", [id]);
+      if (!cible.rowCount) throw introuvable("Utilisateur");
+      const nomCible = cible.rows[0].nom as string;
       const avait = await supprimerTfa(db, id);
       await db.query("DELETE FROM sessions WHERE utilisateur_id = $1", [id]);
       await journaliser(db, {
@@ -139,6 +156,26 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
         entiteId: id,
         details: { tfa_etait_configuree: avait },
       });
+      const alerte = (destinataireId: string, soi: boolean) =>
+        notifierAvecEmailEnFile(db, identite.trousseau, {
+          cabinetId: auth.cabinetId,
+          destinataireId,
+          type: "securite_tfa_reinitialisee",
+          titre: soi
+            ? "Votre double authentification a été réinitialisée"
+            : `Double authentification de ${nomCible} réinitialisée`,
+          corps: [
+            soi
+              ? `${auth.nom} a réinitialisé votre double authentification ; vos sessions ont été fermées.`
+              : `${auth.nom} a réinitialisé la double authentification de ${nomCible}.`,
+            "Si ce changement n'est pas attendu, prévenez un associé du cabinet.",
+          ].join("\n"),
+          lien: soi ? "/compte" : "/parametres/utilisateurs",
+        });
+      await alerte(id, true);
+      for (const associe of await associesActifs(db)) {
+        if (associe !== id) await alerte(associe, false);
+      }
       return { ok: true };
     });
   });
@@ -212,8 +249,11 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
       });
       return { invitation: r.rows[0], nomCabinet: cabinet.rows[0].nom as string };
     });
-    // Après validation : en cas d'échec SMTP, l'e-mail est repris par la file de tâches.
-    await envoyerOuDifferer({
+    // Après validation, SANS attendre le serveur SMTP (constat F3) : la réponse ne
+    // dépend pas d'un relais lent ; en cas d'échec, l'e-mail est repris par la file
+    // de tâches (envoyerOuDifferer ne lève jamais). Choix documenté : un envoi en
+    // file systématique retarderait l'invitation jusqu'au passage du worker.
+    void envoyerOuDifferer({
       database: app.db,
       mailer: app.mailer,
       trousseau: trousseauDepuisConfig(app.config),

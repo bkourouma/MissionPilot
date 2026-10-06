@@ -67,6 +67,7 @@ export const PERMISSIONS = [
   "temps.importer", // importer l'historique des temps (TPS-10)
   "debours.saisir", // déclarer ses débours et notes de frais (FIN-05)
   "debours.valider", // valider les débours d'une mission dont on est chef ou directeur (FIN-05)
+  "export.comptable", // exporter les écritures comptables et régler le plan comptable (FIN-13)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -173,6 +174,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "budget.lire_montants",
     "conges.demander",
     "debours.saisir",
+    "export.comptable",
   ],
   expert_metier: [
     "catalogue.lire",

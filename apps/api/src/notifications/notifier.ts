@@ -1,5 +1,7 @@
 import { lienInterneSur } from "@missionpilot/shared";
+import type { Trousseau } from "../auth/chiffrement.js";
 import type { Db } from "../db/pool.js";
+import { differerEmail } from "./charge-email.js";
 import type { Mailer } from "./mailer.js";
 
 /**
@@ -87,6 +89,30 @@ export async function notifier(db: Db, n: NouvelleNotification): Promise<Notific
         }
       : null,
   };
+}
+
+/**
+ * Notification in-app doublée d'un e-mail MIS EN FILE dans la même
+ * transaction (job « envoyer_email », charge chiffrée) : l'e-mail ne part que
+ * si l'action est validée, ne retarde pas la réponse et survit à un
+ * redémarrage. Pour les alertes de sécurité (coordonnées bancaires, 2FA).
+ */
+export async function notifierAvecEmailEnFile(
+  db: Db,
+  trousseau: Trousseau,
+  n: Omit<NouvelleNotification, "email">,
+): Promise<NotificationCreee | null> {
+  const creee = await notifier(db, { ...n, email: true });
+  if (creee?.email) await differerEmail(db, trousseau, n.cabinetId, creee.email, 0);
+  return creee;
+}
+
+/** Identifiants des associés actifs du cabinet courant (RLS). */
+export async function associesActifs(db: Db): Promise<string[]> {
+  const r = await db.query(
+    "SELECT id FROM utilisateurs WHERE actif AND 'associe' = ANY (roles) ORDER BY id",
+  );
+  return r.rows.map((x) => x.id as string);
 }
 
 /**

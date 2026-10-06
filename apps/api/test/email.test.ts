@@ -94,6 +94,35 @@ async function serveurFactice(opts: OptionsFactice = {}) {
   };
 }
 
+/** Serveur TCP brut au comportement choisi par le test (constat F3). */
+async function serveurBrut(surConnexion: (socket: net.Socket) => void) {
+  const sockets = new Set<net.Socket>();
+  const serveur = net.createServer((socket) => {
+    sockets.add(socket);
+    socket.on("error", () => undefined);
+    surConnexion(socket);
+  });
+  await new Promise<void>((r) => serveur.listen(0, "127.0.0.1", r));
+  const port = (serveur.address() as net.AddressInfo).port;
+  return {
+    options: (o: Partial<OptionsSmtp> = {}): OptionsSmtp => ({
+      hote: "127.0.0.1",
+      port,
+      securite: "aucun",
+      expediteur: "noreply@missionpilot.test",
+      delaiMs: 5_000,
+      ...o,
+    }),
+    fermer: () =>
+      new Promise<void>((r) => {
+        for (const s of sockets) s.destroy();
+        serveur.close(() => r());
+      }),
+  };
+}
+
+const MESSAGE = { a: "dest@exemple.test", sujet: "x", texte: "x" };
+
 /** Décode le corps base64 et les en-têtes d'un message reçu. */
 function lire(brut: string) {
   const [entetes, corps] = brut.split("\r\n\r\n");
@@ -199,6 +228,67 @@ describe("transport SMTP (SOC-08)", () => {
     }
   });
 
+  it("F3 : des réponses injectées en clair après le 220 de STARTTLS sont refusées", async () => {
+    const s = await serveurBrut((socket) => {
+      socket.write("220 factice ESMTP\r\n");
+      socket.on("data", (d) => {
+        const ligne = d.toString("utf8");
+        if (ligne.startsWith("EHLO")) socket.write("250-factice\r\n250 STARTTLS\r\n");
+        // 220 suivi, dans le même paquet, d'une réponse que le client lirait « chiffrée ».
+        else if (ligne.startsWith("STARTTLS"))
+          socket.write("220 go\r\n250-AUTH PLAIN\r\n250 OK\r\n");
+      });
+    });
+    try {
+      await expect(
+        envoyerSmtp(s.options({ securite: "starttls", delaiMs: 2_000 }), MESSAGE),
+      ).rejects.toThrow("données inattendues après STARTTLS");
+    } finally {
+      await s.fermer();
+    }
+  });
+
+  it("F3 : délai posé avant la négociation TLS (serveur muet en TLS implicite)", async () => {
+    const s = await serveurBrut(() => undefined);
+    try {
+      const debut = Date.now();
+      await expect(
+        envoyerSmtp(s.options({ securite: "implicite", delaiMs: 200 }), MESSAGE),
+      ).rejects.toBeInstanceOf(ErreurSmtp);
+      expect(Date.now() - debut).toBeLessThan(3_000);
+    } finally {
+      await s.fermer();
+    }
+  }, 8_000);
+
+  it("F3 : délai global par envoi (serveur qui répond au compte-gouttes)", async () => {
+    let minuteur: NodeJS.Timeout | undefined;
+    const s = await serveurBrut((socket) => {
+      // Une ligne de continuation toutes les 40 ms : jamais inactif, jamais fini.
+      minuteur = setInterval(() => socket.write("220-patience\r\n"), 40);
+      socket.on("close", () => clearInterval(minuteur));
+    });
+    try {
+      await expect(
+        envoyerSmtp(s.options({ delaiMs: 1_000, delaiTotalMs: 300 }), MESSAGE),
+      ).rejects.toThrow("délai d'envoi dépassé");
+    } finally {
+      clearInterval(minuteur);
+      await s.fermer();
+    }
+  }, 8_000);
+
+  it("F3 : plafond du nombre de lignes d'une réponse", async () => {
+    const s = await serveurBrut((socket) => {
+      socket.write(`${"220-bavard\r\n".repeat(150)}220 fin\r\n`);
+    });
+    try {
+      await expect(envoyerSmtp(s.options(), MESSAGE)).rejects.toThrow("réponse trop longue");
+    } finally {
+      await s.fermer();
+    }
+  });
+
   it("serveur injoignable : erreur propre", async () => {
     const s = await serveurFactice();
     const options = s.options();
@@ -225,6 +315,7 @@ describe("configuration du transport e-mail", () => {
     DATABASE_OWNER_URL: "postgres://o:x@db.exemple.test:5432/mp",
     DATABASE_URL: "postgres://a:x@db.exemple.test:5432/mp",
     SESSION_SECRET: "un-secret-de-production-tres-long-0123",
+    TFA_MASTER_KEY: "une-cle-maitre-2fa-de-production-4567",
   };
 
   it("hors développement, refuse de démarrer sans SMTP ou sans TLS", () => {
@@ -306,6 +397,24 @@ describe("reprise des e-mails par la file de tâches", () => {
     await ctx.fermer();
   });
 
+  /** L'envoi de l'invitation n'est plus attendu par la route (F3) : la mise en file suit la réponse. */
+  async function attendreJobEmail(cabinetId: string): Promise<void> {
+    for (let i = 0; i < 100; i++) {
+      const n = await proprietaire(
+        async (cl) =>
+          (
+            await cl.query(
+              "SELECT count(*)::int AS n FROM jobs WHERE cabinet_id = $1 AND type = $2",
+              [cabinetId, TYPE_JOB_EMAIL],
+            )
+          ).rows[0].n as number,
+      );
+      if (n > 0) return;
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    throw new Error("Aucun e-mail mis en file.");
+  }
+
   it("SMTP indisponible : l'invitation est créée, l'e-mail est mis en file chiffré puis repris", async () => {
     const c = await creerCabinet(ctx, "Cabinet E-mail");
     const associe = api(ctxPanne, await connecter(ctxPanne, c.email));
@@ -313,6 +422,7 @@ describe("reprise des e-mails par la file de tâches", () => {
     const r = await associe.post("/api/invitations", { email, roles: ["consultant"] });
     expect(r.statusCode).toBe(201);
     expect(ctxPanne.pannes).toBe(1);
+    await attendreJobEmail(c.cabinetId);
 
     const job = await proprietaire(
       async (cl) =>
@@ -377,6 +487,7 @@ describe("reprise des e-mails par la file de tâches", () => {
       email: `x-${Date.now()}@exemple.test`,
       roles: ["consultant"],
     });
+    await attendreJobEmail(c1.cabinetId);
     // La charge chiffrée du cabinet 1 recopiée dans un job du cabinet 2.
     const id = await proprietaire(async (cl) => {
       const src = (

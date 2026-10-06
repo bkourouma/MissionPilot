@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Role } from "@missionpilot/shared";
+import { versionDeCle } from "../src/auth/chiffrement.js";
 import { base32Decoder, totp } from "../src/auth/totp.js";
 import { api, cabinetTest, type Api, type CabinetTest } from "./api.js";
 import {
@@ -19,7 +20,11 @@ beforeAll(async () => {
   a = await cabinetTest(ctx, "Cabinet 2FA A");
   b = await cabinetTest(ctx, "Cabinet 2FA B");
 });
-afterAll(() => ctx.fermer());
+afterAll(async () => {
+  // Alertes de sécurité mises en file (M3, M5) : base de test partagée, rien ne doit rester.
+  await proprietaire((cl) => cl.query("DELETE FROM jobs WHERE type = 'envoyer_email'"));
+  await ctx.fermer();
+});
 
 interface Compte {
   email: string;
@@ -105,7 +110,8 @@ describe("double authentification : activation (SOC-02)", () => {
           )
         ).rows[0],
     );
-    expect(ligne.cle_version).toBe(1);
+    // Chiffré par TFA_MASTER_KEY (constat M4), plus par SESSION_SECRET (version 1).
+    expect(ligne.cle_version).toBe(versionDeCle(ctx.config.TFA_MASTER_KEY));
     expect(ligne.active_le).toBeNull();
     expect((ligne.secret_chiffre as Buffer).includes(base32Decoder(secret))).toBe(false);
     // Pas encore active : la connexion reste en un temps.
@@ -243,7 +249,12 @@ describe("double authentification : connexion en deux temps", () => {
     const reponses = await Promise.all(
       defis.flatMap((defi) => [1, 2, 3].map(() => connexion2fa({ defi, code: "000000" }))),
     );
-    expect(reponses.filter((r) => r.statusCode === 429)).toHaveLength(8);
+    // Limiteur en mémoire : 8 refus exactement ; les codes faux qui le franchissent
+    // déclenchent ensuite le blocage persistant (TFA_BLOQUEE, constat M5).
+    const codes = reponses.map((r) => r.json().erreur?.code as string);
+    expect(codes.filter((c) => c === "TROP_DE_TENTATIVES")).toHaveLength(8);
+    expect(codes.filter((c) => c === "CODE_2FA_INVALIDE")).toHaveLength(5);
+    expect(codes.filter((c) => c === "TFA_BLOQUEE")).toHaveLength(5);
   });
 
   it("code de secours : ouvre la session une fois, puis est consommé", async () => {
@@ -337,6 +348,8 @@ describe("double authentification : politique du cabinet", () => {
   it("seul cabinet.gerer modifie la politique ; tfa_a_configurer selon le rôle", async () => {
     const c = await cabinetTest(ctx, "Cabinet 2FA Politique");
     const consultant = await c.avecRoles(["consultant"]);
+    // Associé avec 2FA active : la politique exige sa reconfirmation (constat M3).
+    const admin = await compteAvec2fa(c, ["associe"]);
     expect(
       (await consultant.put("/api/auth/2fa/politique", { roles_obligatoires: [] })).statusCode,
     ).toBe(403);
@@ -344,15 +357,21 @@ describe("double authentification : politique du cabinet", () => {
       (await c.associe.put("/api/auth/2fa/politique", { roles_obligatoires: ["consultant"] }))
         .statusCode,
     ).toBe(400);
-    const r = await c.associe.put("/api/auth/2fa/politique", {
+    const r = await admin.client.put("/api/auth/2fa/politique", {
       roles_obligatoires: ["associe", "gestionnaire"],
+      mot_de_passe: MOT_DE_PASSE_TEST,
+      code: codeActuel(admin.secret),
     });
     expect(r.statusCode).toBe(200);
     expect(r.json().roles_obligatoires).toEqual(["associe", "gestionnaire"]);
     expect((await c.associe.get("/api/auth/moi")).json().tfa_a_configurer).toBe(true);
     expect((await consultant.get("/api/auth/moi")).json().tfa_a_configurer).toBe(false);
-    // Routes sensibles non bloquées dans cette version.
-    expect((await c.associe.get("/api/utilisateurs")).statusCode).toBe(200);
+    // Politique appliquée (constat M2) : l'associé sans 2FA est arrêté, pas le consultant.
+    const bloque = await c.associe.get("/api/utilisateurs");
+    expect(bloque.statusCode).toBe(403);
+    expect(bloque.json().erreur.code).toBe("TFA_A_CONFIGURER");
+    expect((await admin.client.get("/api/utilisateurs")).statusCode).toBe(200);
+    expect((await consultant.get("/api/clients")).statusCode).toBe(200);
     // La politique d'un cabinet ne touche pas l'autre.
     expect((await b.associe.get("/api/auth/moi")).json().tfa_a_configurer).toBe(false);
     const journal = await proprietaire(
@@ -386,6 +405,7 @@ describe("double authentification : réinitialisation par un associé", () => {
   });
 
   it("l'associé réinitialise : sessions fermées, 2FA supprimée, action journalisée", async () => {
+    const admin = await compteAvec2fa(a, ["associe"]);
     const cible = await compteAvec2fa(a);
     const session = await connexion2fa({
       defi: await defiPour(cible.email),
@@ -398,7 +418,13 @@ describe("double authentification : réinitialisation par un associé", () => {
       liste.json().elements.find((u: { id: string }) => u.id === cible.utilisateurId).tfa_active,
     ).toBe(true);
 
-    const r = await a.associe.post(`/api/utilisateurs/${cible.utilisateurId}/2fa/reinitialiser`);
+    const r = await admin.client.post(
+      `/api/utilisateurs/${cible.utilisateurId}/2fa/reinitialiser`,
+      {
+        mot_de_passe: MOT_DE_PASSE_TEST,
+        code: codeActuel(admin.secret),
+      },
+    );
     expect(r.statusCode).toBe(200);
     expect((await clientCible.get("/api/auth/moi")).statusCode).toBe(401);
     expect((await connexion(cible.email)).json().etape).toBe("connecte");
@@ -411,7 +437,7 @@ describe("double authentification : réinitialisation par un associé", () => {
           )
         ).rows,
     );
-    expect(journal).toEqual([{ utilisateur_id: a.associeId }]);
+    expect(journal).toEqual([{ utilisateur_id: admin.utilisateurId }]);
   });
 
   it("un associé ne réinitialise pas sa propre 2FA par cette route", async () => {

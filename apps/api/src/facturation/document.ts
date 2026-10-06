@@ -4,7 +4,7 @@ import {
   oppose,
   type Devise,
 } from "@missionpilot/engines";
-import type { FactureDb, LigneDb } from "./factures.js";
+import type { FactureDb, LigneVue } from "./factures.js";
 
 /*
  * Rendu HTML imprimable d'une facture ou d'un avoir (FIN-07). Tout texte est
@@ -35,6 +35,10 @@ const multiligne = (v: unknown) => echapper(v).replace(/\r?\n/g, "<br>");
 const montantFr = (valeur: number, devise: Devise) =>
   echapper(formaterMontant(montantMoteur(valeur, devise)));
 
+/** Montant de ligne, ou tiret s'il est masqué. */
+const montantLigne = (valeur: number | null, devise: Devise) =>
+  valeur === null ? "—" : montantFr(valeur, devise);
+
 const nombreFr = (n: number) => echapper(String(n).replace(".", ","));
 
 const dateFr = (iso: string | null) =>
@@ -52,7 +56,8 @@ function bloc(titre: string, champs: [string, unknown][]): string {
 
 export interface DonneesDocument {
   facture: FactureDb;
-  lignes: readonly LigneDb[];
+  /** Lignes servies : montants unitaires de régie masqués (null) sans « finance.lire ». */
+  lignes: readonly LigneVue[];
   /** Mentions figées (émise) ou aperçu des paramètres actuels (brouillon). */
   mentions: Record<string, unknown>;
 }
@@ -70,8 +75,8 @@ export function rendreDocument({ facture: f, lignes, mentions }: DonneesDocument
   const corps = lignes
     .map(
       (l) => `<tr><td>${echapper(l.libelle)}</td><td class="n">${nombreFr(l.quantite)}</td>
-<td class="n">${montantFr(l.prix_unitaire, devise)}</td><td class="n">${nombreFr(l.taux_tva)} %</td>
-<td class="n">${montantFr(l.montant_ht, devise)}</td></tr>`,
+<td class="n">${montantLigne(l.prix_unitaire, devise)}</td><td class="n">${nombreFr(l.taux_tva)} %</td>
+<td class="n">${montantLigne(l.montant_ht, devise)}</td></tr>`,
     )
     .join("");
   const totaux = [

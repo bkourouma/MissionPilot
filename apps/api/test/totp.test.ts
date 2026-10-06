@@ -5,6 +5,8 @@ import {
   dechiffrer,
   empreinte,
   trousseauDepuisConfig,
+  VERSION_HERITEE,
+  versionDeCle,
 } from "../src/auth/chiffrement.js";
 import {
   genererCodesSecours,
@@ -141,11 +143,49 @@ describe("chiffrement des secrets (AES-256-GCM, HKDF)", () => {
     expect(empreinte(t2, "totp", 1, "u:code")).not.toBe(e1);
   });
 
-  it("trousseau de l'application : version 1 dérivée de SESSION_SECRET, mis en cache", () => {
-    const config = { SESSION_SECRET: "s".repeat(32) };
+  it("trousseau de l'application : TFA_MASTER_KEY chiffre, mis en cache", () => {
+    const config = { SESSION_SECRET: "s".repeat(32), TFA_MASTER_KEY: "k".repeat(32) };
     const t = trousseauDepuisConfig(config);
-    expect(t.versionActuelle).toBe(1);
+    expect(t.versionActuelle).toBe(versionDeCle("k".repeat(32)));
+    expect(t.versionActuelle).not.toBe(VERSION_HERITEE);
     expect(trousseauDepuisConfig(config)).toBe(t);
+  });
+
+  it("M4 : un chiffré dérivé de SESSION_SECRET (avant TFA_MASTER_KEY) reste lisible", () => {
+    // Avant la correction : trousseau à une seule clé, SESSION_SECRET en version 1.
+    const ancien = creerTrousseau({ 1: "s".repeat(32) }, 1);
+    const c = chiffrer(ancien, "totp", Buffer.from("secret-existant"), "totp:u1");
+    const t = trousseauDepuisConfig({
+      SESSION_SECRET: "s".repeat(32),
+      TFA_MASTER_KEY: "k".repeat(32),
+    });
+    expect(dechiffrer(t, "totp", c, "totp:u1").toString()).toBe("secret-existant");
+    // Les nouveaux chiffrés ne dépendent plus de SESSION_SECRET.
+    const nouveau = chiffrer(t, "totp", Buffer.from("nouveau"), "totp:u1");
+    expect(() => dechiffrer(ancien, "totp", nouveau, "totp:u1")).toThrow();
+    // Empreintes des codes de secours : toutes les versions sont essayées.
+    expect(t.versions()).toEqual(expect.arrayContaining([1, t.versionActuelle]));
+  });
+
+  it("M4 : rotation par TFA_MASTER_KEY_PRECEDENTE ; sans elle, l'ancienne clé ne déchiffre plus", () => {
+    const avant = trousseauDepuisConfig({
+      SESSION_SECRET: "s".repeat(32),
+      TFA_MASTER_KEY: "ancienne-cle-maitre-2fa-0123456789",
+    });
+    const c = chiffrer(avant, "totp", Buffer.from("x".repeat(20)), "totp:u1");
+    const apres = trousseauDepuisConfig({
+      SESSION_SECRET: "s".repeat(32),
+      TFA_MASTER_KEY: "nouvelle-cle-maitre-2fa-0123456789",
+      TFA_MASTER_KEY_PRECEDENTE: "ancienne-cle-maitre-2fa-0123456789",
+    });
+    expect(apres.versionActuelle).not.toBe(c.version);
+    expect(dechiffrer(apres, "totp", c, "totp:u1").toString()).toBe("x".repeat(20));
+    expect(chiffrer(apres, "totp", Buffer.from("y"), "a").version).toBe(apres.versionActuelle);
+    const oubliee = trousseauDepuisConfig({
+      SESSION_SECRET: "s".repeat(32),
+      TFA_MASTER_KEY: "nouvelle-cle-maitre-2fa-0123456789",
+    });
+    expect(() => dechiffrer(oubliee, "totp", c, "totp:u1")).toThrow();
   });
 });
 

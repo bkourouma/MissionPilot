@@ -30,7 +30,8 @@ describe("seed : facturation de démonstration", () => {
         ).rows[0].n,
       }));
     const premier = await compter();
-    expect(premier).toMatchObject({ echeances: 2, debours: 1, emises: 1, facturees: 1 });
+    // 2 factures émises : l'acompte (seed-facturation) et le débours en retard (seed-finance).
+    expect(premier).toMatchObject({ echeances: 2, debours: 1, emises: 2, facturees: 1 });
     await seed(ctx.db, { NODE_ENV: "test" });
     expect(await compter()).toEqual(premier);
   });

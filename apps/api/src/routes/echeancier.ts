@@ -1,12 +1,16 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
   appliquerPourcentage,
+  comparer,
   controlerEcheancierBudget,
   montant as montantMoteur,
   soustraire,
+  sommer,
   type Montant,
+  type RoleApprobateur,
 } from "@missionpilot/engines";
 import {
+  aPermission,
   echeanceCreationSchema,
   echeanceModificationSchema,
   echeancierGenerationSchema,
@@ -16,9 +20,15 @@ import { journaliser } from "../audit.js";
 import { exiger, type Auth } from "../auth/contexte.js";
 import { traduireErreursPg } from "../db/outils.js";
 import type { Db } from "../db/pool.js";
-import { conflit, interdit } from "../errors.js";
+import { AppError, conflit, interdit, introuvable } from "../errors.js";
 import { paramsId } from "../http/outils.js";
-import { exigerMissionVisible, STATUTS_SIGNES, type MissionAcces } from "../missions/acces.js";
+import {
+  estAssocie,
+  exigerMissionVisible,
+  STATUTS_SIGNES,
+  type MissionAcces,
+} from "../missions/acces.js";
+import { satisfaitRole } from "../missions/budget.js";
 import { aujourdhui } from "../missions/outils.js";
 import {
   calculerRegie,
@@ -32,11 +42,13 @@ import {
   rattacherTemps,
   type EcheanceDb,
 } from "../facturation/echeancier.js";
-import { peutGererEcheancier } from "../facturation/outils.js";
+import {
+  missionVisibleOuNull,
+  peutGererEcheancier,
+  roleSelonSeuils,
+} from "../facturation/outils.js";
 
-/** Mission signée (budget figé) dont l'utilisateur gère l'échéancier, verrouillée. */
-async function missionGeree(db: Db, auth: Auth, id: string): Promise<MissionAcces> {
-  const mission = await exigerMissionVisible(db, auth, id, true);
+function exigerGestion(auth: Auth, mission: MissionAcces): MissionAcces {
   if (!peutGererEcheancier(auth, mission)) throw interdit();
   if (!STATUTS_SIGNES.includes(mission.statut)) {
     throw conflit("L'échéancier se construit après la signature de la lettre de mission.");
@@ -44,7 +56,87 @@ async function missionGeree(db: Db, auth: Auth, id: string): Promise<MissionAcce
   return mission;
 }
 
-const vue = (e: EcheanceDb) => e;
+/** Mission signée (budget figé) dont l'utilisateur gère l'échéancier, verrouillée. */
+async function missionGeree(db: Db, auth: Auth, id: string): Promise<MissionAcces> {
+  return exigerGestion(auth, await exigerMissionVisible(db, auth, id, true));
+}
+
+/**
+ * Mission d'une échéance, gérée par l'utilisateur. Mission invisible : même
+ * réponse qu'une échéance inexistante (404 « Échéance », constat F7).
+ */
+async function missionGereeDeLEcheance(
+  db: Db,
+  auth: Auth,
+  missionId: string,
+): Promise<MissionAcces> {
+  const mission = await missionVisibleOuNull(db, auth, missionId, true);
+  if (!mission) throw introuvable("Échéance");
+  return exigerGestion(auth, mission);
+}
+
+/**
+ * Taux de vente de la régie (constat F6) : le montant d'une échéance de
+ * régie (jours × taux) permettrait, avec les jours validés, de déduire le
+ * taux journalier. Sans « finance.lire », il est masqué (null).
+ */
+const voitTauxVente = (auth: Auth) => aPermission(auth.roles, "finance.lire");
+
+type VueEcheance = Omit<EcheanceDb, "montant"> & { montant: number | null };
+
+const vue = (e: EcheanceDb, auth: Auth): VueEcheance =>
+  e.type === "regie" && !voitTauxVente(auth) ? { ...e, montant: null } : e;
+
+const LIBELLE_ROLE: Record<RoleApprobateur, string> = {
+  chef_mission: "le chef de la mission",
+  directeur_mission: "le directeur de la mission ou un associé",
+  associe: "un associé",
+};
+
+/**
+ * Baisse de l'échéancier (FIN-15, constat M1 b) : réduire ou supprimer une
+ * échéance revient à consentir une remise sur le budget signé. Le contrôle
+ * porte sur l'ÉCART CUMULÉ entre le budget signé et le total de l'échéancier
+ * après l'opération (une suite de petites baisses ne contourne donc pas le
+ * seuil), comparé aux paliers « remise » du moteur (roleApprobateur) :
+ * - palier « chef de mission » : quiconque gère l'échéancier ;
+ * - palier « directeur » : le directeur désigné de la mission ou un associé ;
+ * - palier « associé » : un associé.
+ * Sinon 403 APPROBATION_REQUISE. Choix documenté : l'acteur doit porter le
+ * rôle exigé (pas de circuit d'approbation différé). Une hausse, ou une
+ * échéance de régie (ses temps redeviennent facturables), n'est pas concernée.
+ */
+function exigerApprobationBaisse(
+  auth: Auth,
+  mission: MissionAcces,
+  budget: Montant,
+  totalAvant: Montant,
+  totalApres: Montant,
+): void {
+  if (comparer(totalApres, totalAvant) >= 0) return;
+  const ecart = soustraire(budget, totalApres);
+  if (ecart.valeur <= 0) return;
+  const requis = roleSelonSeuils("remise", ecart, mission);
+  if (requis === "chef_mission") return;
+  const autorise =
+    estAssocie(auth) ||
+    (requis === "directeur_mission" &&
+      mission.directeur_id === auth.utilisateurId &&
+      satisfaitRole(auth.roles, "directeur_mission"));
+  if (!autorise) {
+    throw new AppError(
+      403,
+      "APPROBATION_REQUISE",
+      `Cette baisse de l'échéancier (écart au budget signé) est décidée par ${LIBELLE_ROLE[requis]}.`,
+    );
+  }
+}
+
+const totalEcheances = (echeances: readonly EcheanceDb[], budget: Montant): Montant =>
+  sommer(
+    echeances.map((e) => montantMoteur(e.montant, budget.devise)),
+    budget.devise,
+  );
 
 const REFERENCE_JALON = "Jalon inconnu dans cette mission.";
 
@@ -62,19 +154,22 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
       const controle = budget
         ? controlerEcheancierBudget(echeancesMoteur(echeances), budget)
         : null;
+      // Avec une échéance de régie, le total la déduirait : masqué de même (F6).
+      const masquer = !voitTauxVente(auth) && echeances.some((e) => e.type === "regie");
       return {
         mission_id: id,
         devise: mission.devise,
         budget_signe: budget?.valeur ?? null,
-        total: controle?.total.valeur ?? null,
-        depassement: controle?.depassement.valeur ?? null,
-        reste_a_planifier:
-          budget && controle && controle.conforme
+        total: masquer ? null : (controle?.total.valeur ?? null),
+        depassement: masquer ? null : (controle?.depassement.valeur ?? null),
+        reste_a_planifier: masquer
+          ? null
+          : budget && controle && controle.conforme
             ? soustraire(budget, controle.total).valeur
             : budget
               ? 0
               : null,
-        echeances: echeances.map(vue),
+        echeances: echeances.map((e) => vue(e, auth)),
       };
     });
   });
@@ -118,7 +213,7 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
         entiteId: id,
         details: { echeances: nouvelles.length, mode: m.rows[0].mode_facturation },
       });
-      return chargerEcheances(db, id);
+      return (await chargerEcheances(db, id)).map((e) => vue(e, auth));
     });
     reply.status(201);
     return { elements: creees };
@@ -174,7 +269,9 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
           temps_rattaches: regies.reduce((n, r) => n + r.temps.length, 0),
         },
       });
-      return (await chargerEcheances(db, id)).filter((e) => ids.includes(e.id));
+      return (await chargerEcheances(db, id))
+        .filter((e) => ids.includes(e.id))
+        .map((e) => vue(e, auth));
     });
     reply.status(201);
     return { elements: creees };
@@ -229,7 +326,7 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
         entiteId: echeanceId,
         details: { mission_id: id, type: e.type, date_prevue: e.date_prevue },
       });
-      return exigerEcheance(db, echeanceId);
+      return vue(await exigerEcheance(db, echeanceId), auth);
     });
     reply.status(201);
     return creee;
@@ -242,7 +339,7 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
     const modif = echeanceModificationSchema.parse(request.body);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const lue = await exigerEcheance(db, id);
-      const mission = await missionGeree(db, auth, lue.mission_id);
+      const mission = await missionGereeDeLEcheance(db, auth, lue.mission_id);
       const e = await exigerEcheance(db, id, true);
       if (e.statut === "facturee") throw conflit("Échéance facturée : la corriger par un avoir.");
       if (e.facture_id) throw conflit("Échéance rattachée à une facture en cours.");
@@ -256,7 +353,17 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
           ? appliquerPourcentage(budget, modif.pourcentage).valeur
           : e.montant);
       const pourcentage = modif.montant !== undefined ? null : (modif.pourcentage ?? e.pourcentage);
-      const autres = (await chargerEcheances(db, e.mission_id)).filter((x) => x.id !== id);
+      const toutes = await chargerEcheances(db, e.mission_id);
+      const autres = toutes.filter((x) => x.id !== id);
+      if (e.type !== "regie") {
+        exigerApprobationBaisse(
+          auth,
+          mission,
+          budget,
+          totalEcheances(toutes, budget),
+          totalEcheances([...autres, { ...e, montant }], budget),
+        );
+      }
       exigerDansLeBudget(
         [
           ...echeancesMoteur(autres),
@@ -295,9 +402,10 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
           mission_id: e.mission_id,
           champs: Object.keys(modif),
           ...(modif.statut ? { statut: modif.statut } : {}),
+          ...(montant !== e.montant ? { montant_avant: e.montant, montant_apres: montant } : {}),
         },
       });
-      return exigerEcheance(db, id);
+      return vue(await exigerEcheance(db, id), auth);
     });
   });
 
@@ -307,7 +415,7 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
     const { id } = paramsId.parse(request.params);
     await app.db.withTenant(auth.cabinetId, async (db) => {
       const lue = await exigerEcheance(db, id);
-      await missionGeree(db, auth, lue.mission_id);
+      const mission = await missionGereeDeLEcheance(db, auth, lue.mission_id);
       const e = await exigerEcheance(db, id, true);
       if (e.statut === "facturee") throw conflit("Échéance facturée : suppression refusée.");
       if (e.facture_id) throw conflit("Échéance rattachée à une facture en cours.");
@@ -316,6 +424,20 @@ export const routesEcheancier: FastifyPluginAsync = async (app) => {
       ]);
       if (citee.rowCount) {
         throw conflit("Échéance citée par une facture annulée : la conserver pour l'historique.");
+      }
+      if (e.type !== "regie") {
+        const budget = await honorairesSignes(db, mission);
+        const toutes = await chargerEcheances(db, e.mission_id);
+        exigerApprobationBaisse(
+          auth,
+          mission,
+          budget,
+          totalEcheances(toutes, budget),
+          totalEcheances(
+            toutes.filter((x) => x.id !== id),
+            budget,
+          ),
+        );
       }
       await db.query("DELETE FROM echeances_facturation WHERE id = $1", [id]);
       await journaliser(db, {

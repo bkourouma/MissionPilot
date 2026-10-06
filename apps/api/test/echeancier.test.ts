@@ -119,7 +119,12 @@ describe("échéancier de facturation (FIN-06, MIS-10)", () => {
     expect(
       (await a.chef.patch(`/api/echeances/${e.json().id}`, { montant: 16_000_000 })).statusCode,
     ).toBe(409);
-    expect((await a.chef.delete(`/api/echeances/${e.json().id}`)).statusCode).toBe(204);
+    // Supprimer l'échéance creuse l'écart au budget signé (15,6 M) : palier « remise »
+    // associé (constat M1 b) ; le chef est refusé, un associé supprime.
+    const parChef = await a.chef.delete(`/api/echeances/${e.json().id}`);
+    expect(parChef.statusCode).toBe(403);
+    expect(parChef.json().erreur.code).toBe("APPROBATION_REQUISE");
+    expect((await a.associe.delete(`/api/echeances/${e.json().id}`)).statusCode).toBe(204);
   });
 
   it("une mission non signée n'a pas d'échéancier", async () => {

@@ -1,3 +1,17 @@
+/*
+ * DETTE DE SÉCURITÉ (audit du commit 6f28b95, constat F5) — justificatif.
+ *
+ * Le champ `justificatif` est aujourd'hui un simple chemin texte saisi par le
+ * client (validé par justificatifSchema : relatif, sans « .. », « \ » ni
+ * schéma), stocké et renvoyé tel quel ; aucun fichier n'est lu ni servi à
+ * partir de cette valeur. Quand le téléversement des pièces sera livré :
+ * - la clé de stockage sera GÉNÉRÉE PAR LE SERVEUR (identifiant aléatoire,
+ *   préfixée par le cabinet), jamais reprise du client ;
+ * - le fichier sera servi par une route authentifiée qui revérifie la
+ *   visibilité du débours (deboursVisible), jamais en statique ;
+ * - le type et la taille seront contrôlés à la réception ;
+ * - ce champ texte sera retiré du contrat d'écriture (lecture seule).
+ */
 import type { FastifyPluginAsync } from "fastify";
 import {
   deboursCreationSchema,

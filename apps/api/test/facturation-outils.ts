@@ -5,7 +5,7 @@ import {
   type ApiUtilisateur,
   type CabinetMissions,
 } from "./missions-outils.js";
-import type { Contexte } from "./helpers.js";
+import { MOT_DE_PASSE_TEST, proprietaire, type Contexte } from "./helpers.js";
 
 export function attendre(statut: number, r: { statusCode: number; body: string }, quoi: string) {
   if (r.statusCode !== statut) throw new Error(`${quoi} : ${r.statusCode} ${r.body}`);
@@ -33,9 +33,27 @@ export async function preparerFacturation(
 ): Promise<CabinetFacturation> {
   const c = await preparerCabinet(ctx, nom);
   if (mentions) {
-    attendre(200, await c.associe.patch("/api/parametres-facturation", MENTIONS_TEST), "mentions");
+    // L'IBAN exige une reconfirmation : mot de passe seul (associé sans 2FA active).
+    attendre(
+      200,
+      await c.associe.patch("/api/parametres-facturation", {
+        ...MENTIONS_TEST,
+        mot_de_passe: MOT_DE_PASSE_TEST,
+      }),
+      "mentions",
+    );
+    // Alerte e-mail des associés (M3) mise en file : retirée pour ne pas laisser de job
+    // "envoyer_email" aux fichiers suivants (base de test partagée, voir jobs.test.ts).
+    await viderEmailsEnFile(c.cabinetId);
   }
   return { ...c, gestionnaire: await c.avecRoles(["gestionnaire"]) };
+}
+
+/** Retire les e-mails en file d'un cabinet de test (alertes de sécurité). */
+export function viderEmailsEnFile(cabinetId: string) {
+  return proprietaire((cl) =>
+    cl.query("DELETE FROM jobs WHERE cabinet_id = $1 AND type = 'envoyer_email'", [cabinetId]),
+  );
 }
 
 export interface EcheanceTest {

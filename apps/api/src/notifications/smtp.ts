@@ -19,6 +19,12 @@ import { ADRESSE_ASCII } from "../config.js";
  *   ni de contrôle bidirectionnel, encodé RFC 2047 ; corps en base64.
  * - Erreurs : seul le code de réponse SMTP est cité, jamais le texte du
  *   serveur, l'adresse ni les identifiants.
+ * - STARTTLS (constat F3) : toute donnée reçue en clair après le « 220 » de
+ *   STARTTLS est refusée (injection de réponses avant la négociation), et les
+ *   tampons du lecteur sont remis à zéro sur la connexion chiffrée.
+ * - Délais (F3) : inactivité posée AVANT la connexion TCP et la négociation
+ *   TLS, délai global par envoi, plafond de lignes par réponse et de
+ *   réponses en attente : un serveur lent ou bavard ne bloque pas l'appelant.
  */
 
 export type SecuriteSmtp = "implicite" | "starttls" | "aucun";
@@ -32,8 +38,10 @@ export interface OptionsSmtp {
   expediteur: string;
   /** Nom affiché de l'expéditeur. */
   nomExpediteur?: string;
-  /** Délai d'inactivité de la connexion (défaut 30 s). */
+  /** Délai d'inactivité de la connexion, y compris connexion TCP et TLS (défaut 30 s). */
   delaiMs?: number;
+  /** Délai global d'un envoi, de la connexion au QUIT (défaut 60 s). */
+  delaiTotalMs?: number;
   /** Options TLS supplémentaires (ex. autorité de test). La vérification reste active. */
   tls?: Pick<tls.ConnectionOptions, "ca">;
 }
@@ -123,6 +131,10 @@ interface Reponse {
   lignes: string[];
 }
 
+/** Lignes d'une réponse (EHLO en compte une dizaine) et réponses en attente, au plus. */
+const LIGNES_MAX = 100;
+const REPONSES_EN_ATTENTE_MAX = 10;
+
 /** Lecture des réponses SMTP (multi-lignes « 250-… » puis « 250 … »). */
 class Lecteur {
   private tampon = "";
@@ -135,8 +147,17 @@ class Lecteur {
     this.brancher(socket);
   }
 
+  /** Rien n'a été reçu au-delà des réponses déjà lues. */
+  vide(): boolean {
+    return this.tampon === "" && this.lignes.length === 0 && this.prets.length === 0;
+  }
+
   brancher(socket: net.Socket): void {
     this.socket = socket;
+    // Nouvelle connexion (chiffrée après STARTTLS) : rien de l'ancienne n'est repris.
+    this.tampon = "";
+    this.lignes = [];
+    this.prets = [];
     socket.setEncoding("utf8");
     socket.on("data", (d: string) => this.recevoir(d));
     socket.on("error", () => this.echouer(new ErreurSmtp("SMTP : connexion interrompue.")));
@@ -160,6 +181,10 @@ class Lecteur {
       const ligne = this.tampon.slice(0, i).replace(/\r$/, "");
       this.tampon = this.tampon.slice(i + 1);
       this.lignes.push(ligne);
+      if (this.lignes.length > LIGNES_MAX) {
+        this.echouer(new ErreurSmtp("SMTP : réponse trop longue."));
+        return;
+      }
       if (!/^\d{3}-/.test(ligne)) {
         const code = Number(ligne.slice(0, 3));
         const r = { code: Number.isInteger(code) ? code : 0, lignes: this.lignes };
@@ -168,7 +193,13 @@ class Lecteur {
           const a = this.attente;
           this.attente = null;
           a.resoudre(r);
-        } else this.prets.push(r);
+        } else {
+          this.prets.push(r);
+          if (this.prets.length > REPONSES_EN_ATTENTE_MAX) {
+            this.echouer(new ErreurSmtp("SMTP : réponses inattendues."));
+            return;
+          }
+        }
       }
     }
   }
@@ -191,10 +222,10 @@ class Lecteur {
   }
 }
 
-function connecter(options: OptionsSmtp): Promise<net.Socket> {
+function connecter(options: OptionsSmtp, delai: number): Promise<net.Socket> {
   return new Promise((resoudre, rejeter) => {
     const surErreur = () => rejeter(new ErreurSmtp("SMTP : connexion impossible."));
-    const socket =
+    const socket: net.Socket =
       options.securite === "implicite"
         ? tls.connect(
             {
@@ -207,20 +238,31 @@ function connecter(options: OptionsSmtp): Promise<net.Socket> {
             },
             () => {
               socket.off("error", surErreur);
+              socket.setTimeout(0);
               resoudre(socket);
             },
           )
         : net.connect({ host: options.hote, port: options.port }, () => {
             socket.off("error", surErreur);
+            socket.setTimeout(0);
             resoudre(socket);
           });
     socket.once("error", surErreur);
+    // Délai posé AVANT la connexion TCP (et la négociation TLS implicite).
+    socket.setTimeout(delai, () => {
+      socket.destroy();
+      rejeter(new ErreurSmtp("SMTP : délai de connexion dépassé."));
+    });
   });
 }
 
-function passerEnTls(socket: net.Socket, options: OptionsSmtp): Promise<tls.TLSSocket> {
+function passerEnTls(
+  socket: net.Socket,
+  options: OptionsSmtp,
+  delai: number,
+): Promise<tls.TLSSocket> {
   return new Promise((resoudre, rejeter) => {
-    const s = tls.connect(
+    const s: tls.TLSSocket = tls.connect(
       {
         socket,
         servername: options.hote,
@@ -230,11 +272,18 @@ function passerEnTls(socket: net.Socket, options: OptionsSmtp): Promise<tls.TLSS
       },
       () => {
         s.off("error", surErreur);
+        s.setTimeout(0);
         resoudre(s);
       },
     );
     const surErreur = () => rejeter(new ErreurSmtp("SMTP : négociation TLS échouée."));
     s.once("error", surErreur);
+    // Délai posé AVANT la négociation TLS.
+    s.setTimeout(delai, () => {
+      s.destroy();
+      socket.destroy();
+      rejeter(new ErreurSmtp("SMTP : délai de négociation TLS dépassé."));
+    });
   });
 }
 
@@ -247,8 +296,40 @@ export async function envoyerSmtp(options: OptionsSmtp, message: MessageSmtp): P
   );
   const a = adresseSure(message.a);
   const de = adresseSure(options.expediteur);
-  let socket = await connecter(options);
   const delai = options.delaiMs ?? 30_000;
+  const delaiTotal = options.delaiTotalMs ?? 60_000;
+  let socket: net.Socket | null = null;
+  let expire = false;
+  // Délai global : la connexion en cours est détruite, l'attente en cours échoue.
+  const minuteur = setTimeout(() => {
+    expire = true;
+    socket?.destroy();
+  }, delaiTotal);
+  try {
+    socket = await connecter(options, Math.min(delai, delaiTotal));
+    if (expire) throw new ErreurSmtp("SMTP : délai d'envoi dépassé.");
+    await dialoguer(socket, options, contenu, a, de, delai, (s) => {
+      socket = s;
+      if (expire) s.destroy();
+    });
+  } catch (error) {
+    if (expire) throw new ErreurSmtp("SMTP : délai d'envoi dépassé.");
+    throw error;
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+async function dialoguer(
+  socketInitial: net.Socket,
+  options: OptionsSmtp,
+  contenu: string,
+  a: string,
+  de: string,
+  delai: number,
+  surNouvelleSocket: (s: net.Socket) => void,
+): Promise<void> {
+  let socket = socketInitial;
   socket.setTimeout(delai, () => socket.destroy());
   const lecteur = new Lecteur(socket);
   let chiffre = options.securite === "implicite";
@@ -276,8 +357,13 @@ export async function envoyerSmtp(options: OptionsSmtp, message: MessageSmtp): P
       if (!annonce("STARTTLS")) throw new ErreurSmtp("SMTP : STARTTLS non proposé par le serveur.");
       await commande("STARTTLS", "STARTTLS", [220]);
       lecteur.detacher();
+      // Des octets reçus en clair après le 220 seraient lus comme des réponses
+      // « chiffrées » : refus (injection STARTTLS, CVE-2011-0411 et suivantes).
+      if (!lecteur.vide()) throw new ErreurSmtp("SMTP : données inattendues après STARTTLS.");
       socket.on("error", () => undefined);
-      socket = await passerEnTls(socket, options);
+      socket.setTimeout(0);
+      socket = await passerEnTls(socket, options, delai);
+      surNouvelleSocket(socket);
       socket.setTimeout(delai, () => socket.destroy());
       lecteur.brancher(socket);
       chiffre = true;

@@ -1,0 +1,70 @@
+import { describe, expect, it } from "vitest";
+import { baseLocale, loadConfig } from "../src/config.js";
+
+/*
+ * Constat M4 (audit du commit 6f28b95) : NODE_ENV absent donnait accès aux
+ * valeurs de développement (secrets publics, cookies non sécurisés) sur
+ * n'importe quelle machine. Désormais : seulement avec une base locale.
+ */
+
+const DISTANTE = {
+  DATABASE_OWNER_URL: "postgres://o:x@db.exemple.test:5432/mp",
+  DATABASE_URL: "postgres://a:x@db.exemple.test:5432/mp",
+};
+
+const PROD = {
+  NODE_ENV: "production",
+  ...DISTANTE,
+  SESSION_SECRET: "un-secret-de-production-tres-long-0123",
+  TFA_MASTER_KEY: "une-cle-maitre-2fa-de-production-4567",
+  SMTP_HOST: "smtp.exemple.test",
+  MAIL_FROM: "noreply@exemple.test",
+};
+
+describe("configuration : valeurs de développement (M4)", () => {
+  it("NODE_ENV absent avec une base distante : refus de démarrer, message clair", () => {
+    expect(() => loadConfig({ ...DISTANTE })).toThrow(/NODE_ENV absent avec une base distante/);
+    // Même si les secrets sont fournis : le repli silencieux est fermé.
+    expect(() => loadConfig({ ...DISTANTE, SESSION_SECRET: PROD.SESSION_SECRET })).toThrow(
+      /base distante/,
+    );
+  });
+
+  it("NODE_ENV development ou test avec une base distante : refus", () => {
+    expect(() => loadConfig({ NODE_ENV: "development", ...DISTANTE })).toThrow(/base distante/);
+    expect(() => loadConfig({ NODE_ENV: "test", DATABASE_URL: DISTANTE.DATABASE_URL })).toThrow(
+      /base distante/,
+    );
+  });
+
+  it("base locale (127.0.0.1, localhost, ::1) : valeurs de développement admises", () => {
+    const c = loadConfig({});
+    expect(c.NODE_ENV).toBe("development");
+    expect(c.TFA_MASTER_KEY).not.toBe(c.SESSION_SECRET);
+    expect(
+      loadConfig({
+        DATABASE_URL: "postgres://missionpilot_app:x@localhost:55440/mp",
+        DATABASE_OWNER_URL: "postgres://missionpilot_owner:x@[::1]:55440/mp",
+      }).SESSION_SECRET,
+    ).toBe(c.SESSION_SECRET);
+    expect(baseLocale("postgres://a:b@127.0.0.1:5432/x")).toBe(true);
+    expect(baseLocale("postgres://a:b@127.0.0.1.exemple.test:5432/x")).toBe(false);
+    expect(baseLocale("pas une url")).toBe(false);
+  });
+
+  it("production : TFA_MASTER_KEY obligatoire, distincte de SESSION_SECRET, jamais la valeur de développement", () => {
+    expect(loadConfig(PROD).TFA_MASTER_KEY).toBe(PROD.TFA_MASTER_KEY);
+    expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY: undefined })).toThrow();
+    expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY: "court" })).toThrow();
+    expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY: PROD.SESSION_SECRET })).toThrow(
+      "TFA_MASTER_KEY doit différer de SESSION_SECRET.",
+    );
+    const dev = loadConfig({}).TFA_MASTER_KEY;
+    expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY: dev })).toThrow(
+      "TFA_MASTER_KEY utilise une valeur de développement hors développement.",
+    );
+    expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY_PRECEDENTE: PROD.TFA_MASTER_KEY })).toThrow(
+      "TFA_MASTER_KEY_PRECEDENTE doit différer de TFA_MASTER_KEY.",
+    );
+  });
+});

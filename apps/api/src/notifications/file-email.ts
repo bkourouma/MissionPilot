@@ -1,6 +1,5 @@
-import { z } from "zod";
-import { chiffrer, dechiffrer, type Trousseau } from "../auth/chiffrement.js";
-import type { Database, Db } from "../db/pool.js";
+import { dechiffrer, type Trousseau } from "../auth/chiffrement.js";
+import type { Database } from "../db/pool.js";
 import {
   creerRegistre,
   ErreurJobDefinitive,
@@ -8,6 +7,8 @@ import {
   type HandlerJob,
   type RegistreJobs,
 } from "../jobs/registre.js";
+import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
+import { aad, chargeSchema, differerEmail, messageSchema, TYPE_JOB_EMAIL } from "./charge-email.js";
 import type { Mailer, MessageEmail } from "./mailer.js";
 
 /*
@@ -20,46 +21,14 @@ import type { Mailer, MessageEmail } from "./mailer.js";
  * dès que l'envoi réussit. Jamais de contenu d'e-mail en clair en base.
  */
 
-export const TYPE_JOB_EMAIL = "envoyer_email";
-export const TENTATIVES_EMAIL = 5;
-
-const messageSchema = z.object({
-  a: z.string().min(3).max(254),
-  sujet: z.string().max(500),
-  texte: z.string().max(20_000),
-});
-
-const chargeSchema = z.object({ v: z.number().int().positive(), d: z.string().min(1) });
-
-const aad = (cabinetId: string) => `file_email:${cabinetId}`;
-
-/** Met un e-mail en file, dans la transaction courante (contexte RLS du cabinet). */
-export async function differerEmail(
-  db: Db,
-  trousseau: Trousseau,
-  cabinetId: string,
-  message: MessageEmail,
-  delaiMs = 60_000,
-): Promise<string> {
-  const c = chiffrer(
-    trousseau,
-    "file_email",
-    Buffer.from(JSON.stringify(messageSchema.parse(message)), "utf8"),
-    aad(cabinetId),
-  );
-  const r = await db.query(
-    `INSERT INTO jobs (cabinet_id, type, charge, tentatives_max, execute_a)
-     VALUES ($1, $2, $3, $4, now() + ($5 || ' milliseconds')::interval) RETURNING id`,
-    [
-      cabinetId,
-      TYPE_JOB_EMAIL,
-      JSON.stringify({ v: c.version, d: c.donnees.toString("base64") }),
-      TENTATIVES_EMAIL,
-      String(delaiMs),
-    ],
-  );
-  return r.rows[0].id as string;
-}
+export {
+  aad,
+  chargeSchema,
+  differerEmail,
+  messageSchema,
+  TENTATIVES_EMAIL,
+  TYPE_JOB_EMAIL,
+} from "./charge-email.js";
 
 /**
  * Envoie tout de suite (à appeler APRÈS la validation de la transaction) ;
@@ -131,5 +100,13 @@ export function registreAvecEmails(
   return creerRegistre({
     ...Object.fromEntries(base),
     [TYPE_JOB_EMAIL]: creerHandlerEmail(mailer, trousseau),
+    // Relances de factures : l'e-mail au client passe par la file chiffrée.
+    ...(base.has(TYPE_JOB_RELANCES)
+      ? {
+          [TYPE_JOB_RELANCES]: creerHandlerRelances((db, cabinetId, message) =>
+            differerEmail(db, trousseau, cabinetId, message, 0),
+          ),
+        }
+      : {}),
   });
 }

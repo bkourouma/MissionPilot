@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { demarrer, type Contexte } from "./helpers.js";
+import { demarrer, MOT_DE_PASSE_TEST, type Contexte } from "./helpers.js";
 import { creerMissionSignee, TOUS_LES_ROLES } from "./missions-outils.js";
-import { attendre, preparerFacturation, type CabinetFacturation } from "./facturation-outils.js";
+import {
+  attendre,
+  preparerFacturation,
+  viderEmailsEnFile,
+  type CabinetFacturation,
+} from "./facturation-outils.js";
 
 let ctx: Contexte;
 let a: CabinetFacturation;
@@ -12,7 +17,11 @@ beforeAll(async () => {
   a = await preparerFacturation(ctx, "Cabinet Paramètres A", false);
   b = await preparerFacturation(ctx, "Cabinet Paramètres B", false);
 });
-afterAll(() => ctx.fermer());
+afterAll(async () => {
+  // Alerte IBAN des associés mise en file (M3) : base de test partagée, rien ne doit rester.
+  await viderEmailsEnFile(a.cabinetId);
+  await ctx.fermer();
+});
 
 describe("paramètres de facturation (FIN-07)", () => {
   it("valeurs de départ : TVA 18 % à valider, retenue désactivée, numérotation FA/AV", async () => {
@@ -56,6 +65,8 @@ describe("paramètres de facturation (FIN-07)", () => {
     const id = await a.associe.patch("/api/parametres-facturation", {
       raison_sociale: "Cabinet A (fictif)",
       iban: "ci93 ci00 0000 0000 0000",
+      // Coordonnées bancaires : reconfirmation (mot de passe seul, la 2FA n'étant pas active).
+      mot_de_passe: MOT_DE_PASSE_TEST,
     });
     expect(id.statusCode).toBe(200);
     expect(id.json().iban).toBe("CI93CI00000000000000");

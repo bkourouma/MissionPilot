@@ -2,7 +2,7 @@ import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   connexion2faSchema,
-  politiqueTfaSchema,
+  politiqueTfaModificationSchema,
   ROLES_TFA_SENSIBLES,
   tfaActivationSchema,
   tfaConfirmationSchema,
@@ -10,7 +10,13 @@ import {
   type Role,
 } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
-import { trousseauDepuisConfig } from "../auth/chiffrement.js";
+import {
+  codeInvalide,
+  serviceIdentite,
+  tropDeTentatives,
+  type ContexteConfirmation,
+  type CorpsConfirmation,
+} from "../auth/confirmer-identite.js";
 import { exiger, type Auth } from "../auth/contexte.js";
 import {
   activer,
@@ -33,6 +39,7 @@ import { COOKIE_SESSION, hacherJeton, nouveauJeton } from "../auth/session.js";
 import { uriOtpauth, base32Encoder } from "../auth/totp.js";
 import type { Db } from "../db/pool.js";
 import { AppError, conflit } from "../errors.js";
+import { associesActifs, notifierAvecEmailEnFile } from "../notifications/notifier.js";
 
 const connexionSchema = z.object({
   email: z.string().email().max(254),
@@ -42,8 +49,6 @@ const connexionSchema = z.object({
 const FENETRE_MS = 15 * 60 * 1000;
 const ESSAIS_MAX = 10;
 
-const tropDeTentatives = () =>
-  new AppError(429, "TROP_DE_TENTATIVES", "Trop de tentatives. Réessayez dans quelques minutes.");
 const identifiantsInvalides = () =>
   new AppError(401, "IDENTIFIANTS_INVALIDES", "E-mail ou mot de passe incorrect.");
 const defiInvalide = () =>
@@ -52,10 +57,6 @@ const defiInvalide = () =>
     "DEFI_2FA_INVALIDE",
     "Vérification expirée ou déjà utilisée. Reconnectez-vous.",
   );
-const codeInvalide = () =>
-  new AppError(401, "CODE_2FA_INVALIDE", "Code de vérification incorrect.");
-const motDePasseInvalide = () =>
-  new AppError(401, "MOT_DE_PASSE_INVALIDE", "Mot de passe incorrect.");
 
 const facteurDe = (v: { code?: string; code_secours?: string }): Facteur =>
   v.code !== undefined ? { code: v.code } : { code_secours: v.code_secours! };
@@ -74,36 +75,35 @@ const sansCache = (reply: FastifyReply) =>
  *
  * Limitation de tentatives (en mémoire, bornée, réservée AVANT le calcul) :
  * - `limiteur` : mot de passe à la connexion, clé = e-mail ;
- * - `limiteurReauth` : mot de passe redemandé (initialisation, désactivation,
- *   régénération), clé = e-mail ;
- * - `limiteurFacteur` : tout code de second facteur, clé = e-mail, tous
- *   écrans confondus ; complété par un plafond par défi, en base.
+ * - mot de passe redemandé et codes de second facteur : limiteurs PARTAGÉS
+ *   par toute l'application (auth/confirmer-identite.ts), complétés par un
+ *   plafond par défi et par le compteur d'échecs persistant (verifierFacteur).
  *
  * Politique du cabinet : si la 2FA est obligatoire pour un rôle de
- * l'utilisateur et qu'il ne l'a pas activée, la session s'ouvre et /moi porte
- * `tfa_a_configurer: true`. Dans cette version, les routes sensibles ne sont
- * PAS bloquées : l'interface invite à configurer la 2FA.
+ * l'utilisateur et qu'il ne l'a pas activée, la session s'ouvre, /moi porte
+ * `tfa_a_configurer: true`, et le crochet global d'app.ts répond 403
+ * TFA_A_CONFIGURER sur toute route hors /api/auth/*, /api/sante et
+ * /api/invitations/accepter tant qu'elle n'est pas activée.
  */
 export const routesAuth: FastifyPluginAsync = async (app) => {
   const limiteur = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
-  const limiteurReauth = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
-  const limiteurFacteur = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
-  const trousseau = trousseauDepuisConfig(app.config);
+  const identite = serviceIdentite(app);
+  const { limiteurFacteur, trousseau } = identite;
+  const reverifierMotDePasse = identite.reverifierMotDePasse;
 
-  /** Revérifie le mot de passe de l'utilisateur connecté (limité, temps constant). */
-  async function reverifierMotDePasse(auth: Auth, motDePasse: string): Promise<void> {
-    const cle = auth.email.toLowerCase();
-    if (!limiteurReauth.reserver(cle)) throw tropDeTentatives();
-    const hash = await app.db.withTenant(auth.cabinetId, async (db) => {
-      const r = await db.query("SELECT mot_de_passe_hash FROM utilisateurs WHERE id = $1", [
-        auth.utilisateurId,
-      ]);
-      return r.rows[0]?.mot_de_passe_hash as string | undefined;
-    });
-    if (!(await verifyPassword(motDePasse, hash ?? FAUX_HASH)) || !hash) {
-      throw motDePasseInvalide();
+  /** Alerte e-mail (en file) de tous les associés actifs, dans la transaction courante. */
+  async function alerterAssocies(
+    db: Db,
+    auth: Auth,
+    alerte: { type: string; titre: string; corps: string; lien: string },
+  ): Promise<void> {
+    for (const id of await associesActifs(db)) {
+      await notifierAvecEmailEnFile(db, trousseau, {
+        cabinetId: auth.cabinetId,
+        destinataireId: id,
+        ...alerte,
+      });
     }
-    limiteurReauth.liberer(cle);
   }
 
   app.post("/connexion", async (request, reply) => {
@@ -298,44 +298,34 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     return { codes_secours: r.codes };
   });
 
-  /** Mot de passe ET second facteur ; journalise l'échec. Renvoie après validation. */
-  async function confirmerIdentite(
+  /** Mot de passe ET second facteur (auth/confirmer-identite.ts), dans la transaction de l'action. */
+  const confirmerIdentite = <T>(
     auth: Auth,
-    corps: { mot_de_passe: string; code?: string; code_secours?: string },
-    contexte: "desactivation" | "codes_secours",
-    action: (db: Db) => Promise<unknown>,
-  ): Promise<unknown> {
-    await reverifierMotDePasse(auth, corps.mot_de_passe);
-    const cle = auth.email.toLowerCase();
-    if (!limiteurFacteur.reserver(cle)) throw tropDeTentatives();
-    const r = await app.db.withTenant(auth.cabinetId, async (db) => {
-      if (!(await tfaActive(db, auth.utilisateurId))) return { statut: "inactive" as const };
-      const facteur = await verifierFacteur(db, trousseau, auth.utilisateurId, facteurDe(corps));
-      if (!facteur) {
-        await journaliser(db, {
-          cabinetId: auth.cabinetId,
-          utilisateurId: auth.utilisateurId,
-          action: "2fa_echec",
-          entite: "utilisateur",
-          entiteId: auth.utilisateurId,
-          details: { contexte },
-        });
-        return { statut: "code" as const };
-      }
-      return { statut: "ok" as const, valeur: await action(db) };
-    });
-    if (r.statut === "inactive") {
-      throw new AppError(409, "TFA_INACTIVE", "La double authentification n'est pas active.");
+    corps: CorpsConfirmation,
+    contexte: ContexteConfirmation,
+    action: (db: Db) => Promise<T>,
+  ): Promise<T> => identite.confirmerIdentite(auth, corps, contexte, (db) => action(db));
+
+  /** Refus (409) si la politique du cabinet impose la 2FA à l'un des rôles de l'utilisateur. */
+  async function exigerDesactivationPermise(db: Db, auth: Auth): Promise<void> {
+    const etat = await lireEtat(db, auth.cabinetId, auth.utilisateurId, auth.roles, app.config);
+    if (etat.obligatoire) {
+      throw new AppError(
+        409,
+        "TFA_OBLIGATOIRE",
+        "La double authentification est obligatoire pour votre rôle : elle ne se désactive pas.",
+      );
     }
-    if (r.statut === "code") throw codeInvalide();
-    limiteurFacteur.liberer(cle);
-    return r.valeur;
   }
 
   app.post("/2fa/desactiver", async (request, reply) => {
     const auth = exiger(request);
     const corps = tfaConfirmationSchema.parse(request.body);
+    // Avant la confirmation (aucun code consommé en vain), puis dans sa transaction.
+    await app.db.withTenant(auth.cabinetId, (db) => exigerDesactivationPermise(db, auth));
     await confirmerIdentite(auth, corps, "desactivation", async (db) => {
+      await db.query("SELECT 1 FROM cabinets WHERE id = $1 FOR SHARE", [auth.cabinetId]);
+      await exigerDesactivationPermise(db, auth);
       await supprimerTfa(db, auth.utilisateurId);
       await journaliser(db, {
         cabinetId: auth.cabinetId,
@@ -352,7 +342,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
   app.post("/2fa/codes-secours", async (request, reply) => {
     const auth = exiger(request);
     const corps = tfaConfirmationSchema.parse(request.body);
-    const codes = (await confirmerIdentite(auth, corps, "codes_secours", async (db) => {
+    const codes = await confirmerIdentite(auth, corps, "codes_secours", async (db) => {
       const c = await remplacerCodesSecours(db, trousseau, auth.cabinetId, auth.utilisateurId);
       await journaliser(db, {
         cabinetId: auth.cabinetId,
@@ -362,7 +352,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
         entiteId: auth.utilisateurId,
       });
       return c;
-    })) as string[];
+    });
     sansCache(reply);
     return { codes_secours: codes };
   });
@@ -385,14 +375,21 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     });
   });
 
+  /**
+   * Politique 2FA du cabinet : « cabinet.gerer », mot de passe ET second
+   * facteur de l'auteur (2FA active exigée), alerte e-mail de tous les associés.
+   */
   app.put("/2fa/politique", async (request) => {
     const auth = exiger(request, "cabinet.gerer");
-    const { roles_obligatoires } = politiqueTfaSchema.parse(request.body);
-    return app.db.withTenant(auth.cabinetId, async (db) => {
+    const { roles_obligatoires, ...confirmation } = politiqueTfaModificationSchema.parse(
+      request.body,
+    );
+    return confirmerIdentite(auth, confirmation, "politique_2fa", async (db) => {
       const avant = await db.query(
         "SELECT tfa_obligatoire FROM cabinets WHERE id = $1 FOR UPDATE",
         [auth.cabinetId],
       );
+      const rolesAvant = (avant.rows[0]?.tfa_obligatoire ?? []) as string[];
       await db.query("UPDATE cabinets SET tfa_obligatoire = $2 WHERE id = $1", [
         auth.cabinetId,
         roles_obligatoires,
@@ -403,10 +400,18 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
         action: "modification",
         entite: "politique_2fa",
         entiteId: auth.cabinetId,
-        details: {
-          avant: avant.rows[0]?.tfa_obligatoire ?? [],
-          apres: roles_obligatoires,
-        },
+        details: { avant: rolesAvant, apres: roles_obligatoires },
+      });
+      await alerterAssocies(db, auth, {
+        type: "securite_politique_tfa",
+        titre: "Politique de double authentification du cabinet modifiée",
+        corps: [
+          `Modifiée par ${auth.nom}.`,
+          `Rôles soumis avant : ${rolesAvant.join(", ") || "aucun"}.`,
+          `Rôles soumis après : ${roles_obligatoires.join(", ") || "aucun"}.`,
+          "Si ce changement n'est pas attendu, vérifiez le journal d'audit.",
+        ].join("\n"),
+        lien: "/parametres/utilisateurs",
       });
       return {
         roles_obligatoires,

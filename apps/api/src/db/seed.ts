@@ -220,6 +220,7 @@ export async function seed(database: Database, env = process.env): Promise<strin
     await (await import("./seed-planification.js")).semerPlanification(db, cabinetId, ids);
     await (await import("./seed-temps.js")).semerTemps(db, cabinetId, ids);
     await (await import("./seed-facturation.js")).semerFacturation(db, cabinetId, ids);
+    await (await import("./seed-finance.js")).semerFinance(db, cabinetId, ids);
   });
   return cabinetId;
 }

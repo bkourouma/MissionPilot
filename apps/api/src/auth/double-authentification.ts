@@ -2,6 +2,8 @@ import { randomInt } from "node:crypto";
 import { NOMBRE_CODES_SECOURS, ROLES_TFA_SENSIBLES, type Role } from "@missionpilot/shared";
 import type { Config } from "../config.js";
 import type { Db } from "../db/pool.js";
+import { AppError } from "../errors.js";
+import { notifierAvecEmailEnFile } from "../notifications/notifier.js";
 import { chiffrer, dechiffrer, empreinte, type Trousseau } from "./chiffrement.js";
 import { nouveauSecretTotp, verifierTotp } from "./totp.js";
 
@@ -134,10 +136,13 @@ export async function initialiser(
 }
 
 interface LigneTfa {
+  cabinet_id: string;
   secret_chiffre: Buffer;
   cle_version: number;
   dernier_pas: string | null;
   active_le: Date | null;
+  echecs: number;
+  bloque_jusqu_au: Date | null;
 }
 
 /** Vérifie un code TOTP sur la ligne verrouillée ; met à jour le dernier pas (et rechiffre si besoin). */
@@ -197,8 +202,8 @@ export async function activer(
   | { statut: "activee"; codes: string[] }
 > {
   const r = await db.query(
-    `SELECT secret_chiffre, cle_version, dernier_pas, active_le FROM utilisateurs_2fa
-     WHERE utilisateur_id = $1 AND active_le IS NULL
+    `SELECT cabinet_id, secret_chiffre, cle_version, dernier_pas, active_le, echecs, bloque_jusqu_au
+     FROM utilisateurs_2fa WHERE utilisateur_id = $1 AND active_le IS NULL
        AND cree_le > now() - make_interval(mins => $2)
      FOR UPDATE`,
     [utilisateurId, DELAI_INITIALISATION_MIN],
@@ -238,8 +243,70 @@ export async function remplacerCodesSecours(
 }
 
 /**
+ * Blocage progressif après des échecs CONSÉCUTIFS (constat M5), persistant en
+ * base : 5 échecs → 1 min, 8 → 15 min, 12 → 1 h (à chaque nouvel échec au-delà
+ * du palier). Remis à zéro par un succès.
+ */
+export function dureeBlocageMs(echecs: number): number | null {
+  if (echecs >= 12) return 60 * 60 * 1000;
+  if (echecs >= 8) return 15 * 60 * 1000;
+  if (echecs >= 5) return 60 * 1000;
+  return null;
+}
+
+/** Paliers à partir desquels l'utilisateur est prévenu par e-mail. */
+export const ECHECS_ALERTE = [8, 12] as const;
+
+export class ErreurTfaBloquee extends AppError {
+  constructor() {
+    super(
+      429,
+      "TFA_BLOQUEE",
+      "Trop de codes de vérification incorrects : réessayez dans quelques minutes.",
+    );
+  }
+}
+
+/** Enregistre un échec sur la ligne verrouillée ; alerte l'utilisateur à 8 et 12 échecs. */
+async function enregistrerEchec(
+  db: Db,
+  t: Trousseau,
+  utilisateurId: string,
+  ligne: LigneTfa,
+  maintenantMs: number,
+): Promise<void> {
+  const echecs = Math.min(ligne.echecs + 1, 10_000);
+  const duree = dureeBlocageMs(echecs);
+  await db.query(
+    "UPDATE utilisateurs_2fa SET echecs = $2, bloque_jusqu_au = $3 WHERE utilisateur_id = $1",
+    [utilisateurId, echecs, duree === null ? null : new Date(maintenantMs + duree)],
+  );
+  if ((ECHECS_ALERTE as readonly number[]).includes(echecs)) {
+    await notifierAvecEmailEnFile(db, t, {
+      cabinetId: ligne.cabinet_id,
+      destinataireId: utilisateurId,
+      type: "securite_tfa_echecs",
+      titre: "Codes de vérification incorrects répétés sur votre compte",
+      corps: [
+        `${echecs} codes de vérification incorrects ont été saisis à la suite sur votre compte.`,
+        "La vérification est temporairement bloquée.",
+        "Si ce n'était pas vous, votre mot de passe est connu d'un tiers : changez-le",
+        "et prévenez un associé du cabinet.",
+      ].join("\n"),
+      lien: "/compte",
+    });
+  }
+}
+
+/**
  * Vérifie un second facteur d'un utilisateur dont la 2FA est active. Un code
  * de secours reconnu est consommé. Renvoie le facteur reconnu, ou null.
+ *
+ * Sous le verrou de la ligne (FOR UPDATE) : refus sans vérification pendant
+ * un blocage (ErreurTfaBloquee, 429), compteur d'échecs consécutifs incrémenté
+ * à chaque code faux et remis à zéro au succès. L'appelant VALIDE la
+ * transaction après un échec (sinon le compteur ne serait pas enregistré).
+ * Le limiteur en mémoire des routes reste la première barrière.
  */
 export async function verifierFacteur(
   db: Db,
@@ -249,27 +316,41 @@ export async function verifierFacteur(
   maintenantMs = Date.now(),
 ): Promise<FacteurReconnu | null> {
   const r = await db.query(
-    `SELECT secret_chiffre, cle_version, dernier_pas, active_le FROM utilisateurs_2fa
-     WHERE utilisateur_id = $1 AND active_le IS NOT NULL FOR UPDATE`,
+    `SELECT cabinet_id, secret_chiffre, cle_version, dernier_pas, active_le, echecs, bloque_jusqu_au
+     FROM utilisateurs_2fa WHERE utilisateur_id = $1 AND active_le IS NOT NULL FOR UPDATE`,
     [utilisateurId],
   );
   const ligne = r.rows[0] as LigneTfa | undefined;
   if (!ligne) return null;
+  if (ligne.bloque_jusqu_au && ligne.bloque_jusqu_au.getTime() > maintenantMs) {
+    throw new ErreurTfaBloquee();
+  }
+  let reconnu: FacteurReconnu | null;
   if ("code" in facteur) {
-    return (await verifierCodeTotp(db, t, utilisateurId, ligne, facteur.code, maintenantMs))
+    reconnu = (await verifierCodeTotp(db, t, utilisateurId, ligne, facteur.code, maintenantMs))
       ? "totp"
       : null;
+  } else {
+    const empreintes = t
+      .versions()
+      .map((v) => empreinteCode(t, v, utilisateurId, facteur.code_secours));
+    const consomme = await db.query(
+      `UPDATE codes_secours_2fa SET utilise_le = now()
+       WHERE utilisateur_id = $1 AND utilise_le IS NULL AND code_hash = ANY ($2::text[])
+       RETURNING id`,
+      [utilisateurId, empreintes],
+    );
+    reconnu = consomme.rowCount ? "code_secours" : null;
   }
-  const empreintes = t
-    .versions()
-    .map((v) => empreinteCode(t, v, utilisateurId, facteur.code_secours));
-  const consomme = await db.query(
-    `UPDATE codes_secours_2fa SET utilise_le = now()
-     WHERE utilisateur_id = $1 AND utilise_le IS NULL AND code_hash = ANY ($2::text[])
-     RETURNING id`,
-    [utilisateurId, empreintes],
-  );
-  return consomme.rowCount ? "code_secours" : null;
+  if (reconnu === null) {
+    await enregistrerEchec(db, t, utilisateurId, ligne, maintenantMs);
+  } else if (ligne.echecs > 0 || ligne.bloque_jusqu_au) {
+    await db.query(
+      "UPDATE utilisateurs_2fa SET echecs = 0, bloque_jusqu_au = NULL WHERE utilisateur_id = $1",
+      [utilisateurId],
+    );
+  }
+  return reconnu;
 }
 
 /** Supprime la 2FA d'un utilisateur (secret, codes de secours, défis en cours). */

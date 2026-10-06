@@ -11,3 +11,4 @@ export * from "./schemas/missions";
 export * from "./schemas/planification";
 export * from "./schemas/temps";
 export * from "./schemas/facturation";
+export * from "./schemas/finance";

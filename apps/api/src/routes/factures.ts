@@ -27,11 +27,13 @@ import {
   COLONNES_FACTURE,
   creerAvoirBrouillon,
   creerBrouillon,
+  cumulHtAutresFactures,
   DEPUIS_FACTURE,
   emettre,
   exigerFactureVisible,
   lireFacture,
   lireLignes,
+  masquerLignes,
   mentionsAFiger,
   recalculer,
   roleApprobationFacture,
@@ -56,10 +58,15 @@ function exigerBrouillon(f: FactureDb): void {
   }
 }
 
-async function detail(db: Db, id: string): Promise<Record<string, unknown>> {
+/** Détail servi : lignes de régie masquées sans « finance.lire » (F6). */
+async function detail(db: Db, id: string, auth: Auth): Promise<Record<string, unknown>> {
   const f = await lireFacture(db, id);
-  return vueFacture(f, await lireLignes(db, id));
+  return vueFacture(f, masquerLignes(await lireLignes(db, id), auth));
 }
+
+/** Séparation des tâches (F2) : l'utilisateur est inscrit parmi les auteurs de modifications. */
+const AJOUTER_MODIFICATEUR = `modifie_par = CASE WHEN $7::uuid = ANY (modifie_par) THEN modifie_par
+  ELSE array_append(modifie_par, $7::uuid) END`;
 
 function journal(
   db: Db,
@@ -146,7 +153,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
           debours: demande.debours_ids.length,
         },
       );
-      return detail(db, factureId);
+      return detail(db, factureId, auth);
     });
     reply.status(201);
     return creee;
@@ -157,7 +164,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
     const { id } = paramsId.parse(request.params);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       await exigerFactureVisible(db, auth, id);
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 
@@ -168,7 +175,11 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
     const html = await app.db.withTenant(auth.cabinetId, async (db) => {
       const { facture } = await exigerFactureVisible(db, auth, id);
       const mentions = facture.mentions ?? (await mentionsAFiger(db, auth.cabinetId, facture));
-      return rendreDocument({ facture, lignes: await lireLignes(db, id), mentions });
+      return rendreDocument({
+        facture,
+        lignes: masquerLignes(await lireLignes(db, id), auth),
+        mentions,
+      });
     });
     return reply
       .header("content-type", "text/html; charset=utf-8")
@@ -193,7 +204,8 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
         throw conflit("Un avoir reprend sa facture : non modifiable.");
       await db.query(
         `UPDATE factures SET objet = $2, remise_globale_type = $3, remise_globale_valeur = $4,
-           retenue_active = $5, delai_paiement_jours = $6, motif_rejet = NULL, modifie_le = now()
+           retenue_active = $5, delai_paiement_jours = $6, motif_rejet = NULL, modifie_le = now(),
+           ${AJOUTER_MODIFICATEUR}
          WHERE id = $1`,
         [
           id,
@@ -206,11 +218,12 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
             : (modif.remise_globale?.valeur ?? null),
           modif.retenue_active ?? facture.retenue_active,
           modif.delai_paiement_jours ?? facture.delai_paiement_jours,
+          auth.utilisateurId,
         ],
       );
       await recalculer(db, id);
       await journal(db, auth, "modification", facture, { champs: Object.keys(modif) });
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 
@@ -246,12 +259,19 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
           modif.remise === undefined ? ligne.remise_valeur : (modif.remise?.valeur ?? null),
         ],
       );
+      await db.query(
+        `UPDATE factures SET modifie_le = now(),
+           modifie_par = CASE WHEN $2::uuid = ANY (modifie_par) THEN modifie_par
+             ELSE array_append(modifie_par, $2::uuid) END
+         WHERE id = $1`,
+        [id, auth.utilisateurId],
+      );
       await recalculer(db, id);
       await journal(db, auth, "modification_ligne", facture, {
         ligne_id: ligneId,
         champs: Object.keys(modif),
       });
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 
@@ -276,21 +296,26 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
       const { facture, mission } = await exigerFactureVisible(db, auth, id, true);
       exigerBrouillon(facture);
       if ((await lireLignes(db, id)).length === 0) throw conflit("La facture n'a aucune ligne.");
-      const requis = roleApprobationFacture(await calculEnregistre(db, facture), mission);
+      // Seuils FIN-15 sur la facture ET sur le cumul HT de la mission (mission verrouillée).
+      const requis = roleApprobationFacture(
+        await calculEnregistre(db, facture),
+        mission,
+        facture.nature === "facture" ? await cumulHtAutresFactures(db, facture) : undefined,
+      );
       await db.query(
         `UPDATE factures SET statut = 'a_approuver', role_approbateur = $2, soumise_par = $3,
            soumise_le = now(), motif_rejet = NULL, modifie_le = now() WHERE id = $1`,
         [id, requis, auth.utilisateurId],
       );
       await journal(db, auth, "soumission", facture, { role_approbateur: requis });
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 
   /**
    * Approbation (FIN-15) : « facture.valider » ; un associé, ou le directeur
    * désigné de la mission si le palier n'exige pas un associé ; jamais
-   * l'auteur ni le soumetteur, sauf associé.
+   * l'auteur, le soumetteur ni qui a modifié le brouillon (F2), sauf associé.
    */
   app.post("/factures/:id/approuver", async (request) => {
     const auth = exiger(request, "facture.valider");
@@ -309,7 +334,9 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
       }
       if (
         !associe &&
-        (facture.cree_par === auth.utilisateurId || facture.soumise_par === auth.utilisateurId)
+        (facture.cree_par === auth.utilisateurId ||
+          facture.soumise_par === auth.utilisateurId ||
+          (facture.modifie_par ?? []).includes(auth.utilisateurId))
       ) {
         throw new AppError(
           403,
@@ -330,7 +357,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
         [id, auth.utilisateurId],
       );
       await journal(db, auth, "approbation", facture, { role_approbateur: requis });
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 
@@ -355,7 +382,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
         [id, motif],
       );
       await journal(db, auth, "rejet", facture, { motif });
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 
@@ -371,7 +398,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
         numero: emise.numero,
         ...(facture.facture_origine_id ? { facture_annulee_id: facture.facture_origine_id } : {}),
       });
-      return vueFacture(emise, await lireLignes(db, id));
+      return vueFacture(emise, masquerLignes(await lireLignes(db, id), auth));
     });
   });
 
@@ -393,7 +420,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
           motif,
         },
       );
-      return detail(db, avoirId);
+      return detail(db, avoirId, auth);
     });
     reply.status(201);
     return cree;
@@ -412,7 +439,7 @@ export const routesFactures: FastifyPluginAsync = async (app) => {
       if (facture.envoyee_le) throw conflit("Facture déjà marquée envoyée.");
       await db.query("UPDATE factures SET envoyee_le = now() WHERE id = $1", [id]);
       await journal(db, auth, "envoi", facture, { numero: facture.numero });
-      return detail(db, id);
+      return detail(db, id, auth);
     });
   });
 };

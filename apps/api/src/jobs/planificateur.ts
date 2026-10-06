@@ -9,16 +9,37 @@ import type { Database } from "../db/pool.js";
  * (Bénin, Niger). La clé d'unicité `type:semaine` garantit qu'un rappel
  * n'est planifié qu'une fois par cabinet et par semaine, quel que soit le
  * nombre de passages du planificateur ou de workers.
+ * - Relance des factures échues (FIN-09) chaque jour à 18 h (UTC), pour les
+ *   seuls cabinets ayant une facture émise échue ; clé `relances_factures:jour`.
  */
 
 export const HEURE_RAPPEL_UTC = "16:00:00";
 export const HEURE_RELANCE_UTC = "08:00:00";
+/**
+ * Relances des factures échues (FIN-09) : chaque jour à 18 h UTC, en fin de
+ * journée de travail de la zone UEMOA (valeur à valider par le métier).
+ */
+export const HEURE_RELANCES_FACTURES_UTC = "18:00:00";
 
 export interface Planification {
   type: "rappel_feuilles" | "relance_feuilles";
   cle: string;
   executeA: Date;
   semaine: string;
+}
+
+/** Relance des factures du jour de `maintenant` : clé unique par cabinet et par jour. */
+export function planificationDuJour(maintenant: Date): {
+  cle: string;
+  executeA: Date;
+  jour: string;
+} {
+  const jour = maintenant.toISOString().slice(0, 10);
+  return {
+    cle: `relances_factures:${jour}`,
+    executeA: new Date(`${jour}T${HEURE_RELANCES_FACTURES_UTC}Z`),
+    jour,
+  };
 }
 
 /** Tâches récurrentes de la semaine de `maintenant`. */
@@ -53,6 +74,14 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
       ]);
       total += r.rows[0].n as number;
     }
+    // Relances de factures : seulement les cabinets ayant une facture émise échue.
+    const j = planificationDuJour(maintenant);
+    const r = await db.query("SELECT planifier_relances_factures($1, $2, $3) AS n", [
+      j.cle,
+      j.executeA,
+      j.jour,
+    ]);
+    total += r.rows[0].n as number;
     return total;
   });
 }

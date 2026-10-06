@@ -1,5 +1,6 @@
 import type { Db } from "../db/pool.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
+import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
 import { rappelFeuilles, relanceFeuilles } from "../temps/rappels.js";
 
 /** Contexte d'exécution d'un job : transaction ouverte dans le contexte RLS de son cabinet. */
@@ -33,8 +34,12 @@ export function creerRegistre(handlers: Record<string, HandlerJob>): RegistreJob
   return new Map(Object.entries(handlers));
 }
 
-/** Handlers de MissionPilot : rappels du vendredi et relances du lundi (TPS-04). */
+/**
+ * Handlers de MissionPilot : rappels du vendredi et relances du lundi
+ * (TPS-04), relances quotidiennes des factures échues (FIN-09).
+ */
 export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   rappel_feuilles: rappelFeuilles,
   relance_feuilles: relanceFeuilles,
+  [TYPE_JOB_RELANCES]: creerHandlerRelances(),
 });

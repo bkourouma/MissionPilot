@@ -80,6 +80,13 @@ export const CHAMPS_PARAMETRES_IDENTITE = [
   "chiffres_numero",
 ] as const;
 
+/**
+ * Coordonnées de paiement : leur MODIFICATION exige en plus une
+ * reconfirmation d'identité (`mot_de_passe`, et `code` ou `code_secours` si la
+ * 2FA est active) jointe au corps du PATCH (voir confirmationIdentiteSchema).
+ */
+export const CHAMPS_PARAMETRES_BANCAIRES = ["banque", "iban", "autres_coordonnees"] as const;
+
 /** Champs opérationnels (délai, TVA, retenue) : « facture.emettre ». */
 export const CHAMPS_PARAMETRES_OPERATIONNELS = [
   "delai_paiement_jours",

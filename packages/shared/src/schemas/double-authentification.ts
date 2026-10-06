@@ -64,6 +64,38 @@ export const politiqueTfaSchema = z
   })
   .strict();
 
+const auPlusUnFacteur = (v: { code?: string; code_secours?: string }) =>
+  v.code === undefined || v.code_secours === undefined;
+
+/** Champs de reconfirmation d'identité joints au corps d'une action à fort impact. */
+export const CHAMPS_CONFIRMATION = ["mot_de_passe", "code", "code_secours"] as const;
+
+const champsConfirmation = {
+  mot_de_passe: motDePasse.optional(),
+  code: codeTotpSchema.optional(),
+  code_secours: codeSecoursSchema.optional(),
+};
+
+/**
+ * Reconfirmation d'identité (actions à fort impact) : mot de passe, et code
+ * TOTP OU code de secours quand la 2FA de l'utilisateur est active. L'API
+ * répond 403 CONFIRMATION_REQUISE si un élément attendu manque.
+ */
+export const confirmationIdentiteSchema = z
+  .object(champsConfirmation)
+  .strict()
+  .refine(auPlusUnFacteur, MESSAGE_FACTEUR);
+
+/** Réinitialisation de la 2FA d'un autre utilisateur : reconfirmation de l'associé. */
+export const reinitialisationTfaSchema = confirmationIdentiteSchema;
+
+/** PUT /api/auth/2fa/politique : la politique et la reconfirmation de l'auteur. */
+export const politiqueTfaModificationSchema = politiqueTfaSchema
+  .extend(champsConfirmation)
+  .refine(auPlusUnFacteur, MESSAGE_FACTEUR);
+
+export type ConfirmationIdentite = z.infer<typeof confirmationIdentiteSchema>;
+
 export type Connexion2fa = z.infer<typeof connexion2faSchema>;
 export type TfaConfirmation = z.infer<typeof tfaConfirmationSchema>;
 export type PolitiqueTfa = z.infer<typeof politiqueTfaSchema>;

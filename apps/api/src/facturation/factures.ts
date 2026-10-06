@@ -1,15 +1,18 @@
 import {
+  additionner,
   ajouterJours,
   calculerFacture,
   creerAvoir,
   montant as montantMoteur,
+  sommer,
   type Devise,
   type FactureCalculee,
   type LigneFacture,
+  type Montant,
   type Remise,
   type RoleApprobateur,
 } from "@missionpilot/engines";
-import type { NatureFacture, StatutFacture } from "@missionpilot/shared";
+import { aPermission, type NatureFacture, type StatutFacture } from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { traduireErreursPg } from "../db/outils.js";
@@ -17,6 +20,7 @@ import { AppError, conflit, introuvable, requeteInvalide } from "../errors.js";
 import type { MissionAcces } from "../missions/acces.js";
 import { aujourdhui, nombre } from "../missions/outils.js";
 import { lireParametresFacturation, raisonSocialeEmetteur } from "./parametres.js";
+import { exigerSansEncaissementNet } from "../finance/paiements.js";
 import { missionVisibleOuNull, plusExigeant, roleSelonSeuils } from "./outils.js";
 
 /*
@@ -29,9 +33,11 @@ import { missionVisibleOuNull, plusExigeant, roleSelonSeuils } from "./outils.js
  *   validés de la mission ; chacun n'est rattaché qu'à une facture en cours
  *   (index unique sur facturation_liens).
  * - Circuit : brouillon → a_approuver (rôle exigé calculé par les seuils du
- *   moteur sur le HT et sur les remises) → approuvee (associé, ou directeur
- *   désigné de la mission si le palier le permet ; jamais l'auteur ni le
- *   soumetteur, sauf associé) → emise (numéro continu, mentions figées).
+ *   moteur sur le HT, sur le CUMUL HT des factures en cours ou émises de la
+ *   mission, et sur les remises) → approuvee (associé, ou directeur désigné
+ *   de la mission si le palier le permet ; jamais l'auteur, le soumetteur ni
+ *   qui a modifié le brouillon, sauf associé) → emise (numéro continu,
+ *   mentions figées).
  * - Une facture émise ne change plus (déclencheur SQL) ; un avoir total
  *   (creerAvoir) l'annule à son émission et libère ses échéances et débours.
  */
@@ -59,6 +65,8 @@ export interface FactureDb {
   role_approbateur: RoleApprobateur | null;
   cree_par: string;
   soumise_par: string | null;
+  /** Utilisateurs ayant modifié le brouillon (séparation des tâches, F2). */
+  modifie_par: string[];
   mentions: Record<string, unknown> | null;
   envoyee_le: string | null;
   [cle: string]: unknown;
@@ -80,7 +88,21 @@ export interface LigneDb {
   remise_ligne: number;
   part_remise_globale: number;
   montant_ht: number;
+  /** Ligne issue d'une échéance de régie (jours × taux de vente). */
+  regie: boolean;
 }
+
+/** Ligne telle que servie : montants masqués (null) pour une ligne de régie sans « finance.lire ». */
+export type LigneVue = Omit<
+  LigneDb,
+  "prix_unitaire" | "montant_brut" | "remise_ligne" | "part_remise_globale" | "montant_ht"
+> & {
+  prix_unitaire: number | null;
+  montant_brut: number | null;
+  remise_ligne: number | null;
+  part_remise_globale: number | null;
+  montant_ht: number | null;
+};
 
 const MONTANTS = [
   "total_brut",
@@ -101,13 +123,15 @@ export const COLONNES_FACTURE = `f.id, f.nature, f.facture_origine_id, f.mission
   f.total_remises, f.total_ht, f.total_tva, f.total_ttc, f.total_retenues, f.net_a_payer, f.tva,
   f.retenues, f.role_approbateur, f.motif_rejet, f.soumise_par, f.soumise_le, f.approuvee_par,
   f.approuvee_le, f.emise_par, f.emise_le, f.mentions, f.envoyee_le, f.annulee_le,
-  f.annulee_par_avoir_id, f.cree_par, f.cree_le, f.modifie_le`;
+  f.annulee_par_avoir_id, f.modifie_par, f.cree_par, f.cree_le, f.modifie_le`;
 export const DEPUIS_FACTURE = `factures f JOIN missions m ON m.id = f.mission_id
   JOIN clients cl ON cl.id = f.client_id`;
 
 const COLONNES_LIGNE = `id, ordre, origine, echeance_id, debours_id, libelle, quantite::float8 AS quantite,
   prix_unitaire, taux_tva::float8 AS taux_tva, remise_type, remise_valeur::float8 AS remise_valeur,
-  montant_brut, remise_ligne, part_remise_globale, montant_ht`;
+  montant_brut, remise_ligne, part_remise_globale, montant_ht,
+  COALESCE((SELECT e.type = 'regie' FROM echeances_facturation e
+            WHERE e.id = facture_lignes.echeance_id), false) AS regie`;
 
 function versFacture(r: Record<string, unknown>): FactureDb {
   const f = { ...r } as Record<string, unknown>;
@@ -141,8 +165,32 @@ export async function lireLignes(db: Db, factureId: string): Promise<LigneDb[]> 
 }
 
 /**
+ * Taux de vente de la régie (constat F6) : le prix d'une ligne de régie
+ * (jours × taux) livrerait, avec les jours validés connus du chef de mission,
+ * le taux journalier. Sans « finance.lire », ses montants unitaires sont
+ * masqués ; les totaux de la facture (donnée commerciale) restent servis.
+ */
+export function masquerLignes(lignes: readonly LigneDb[], auth: Pick<Auth, "roles">): LigneVue[] {
+  if (aPermission(auth.roles, "finance.lire")) return [...lignes];
+  return lignes.map((l) =>
+    l.regie
+      ? {
+          ...l,
+          prix_unitaire: null,
+          montant_brut: null,
+          remise_ligne: null,
+          part_remise_globale: null,
+          montant_ht: null,
+        }
+      : l,
+  );
+}
+
+/**
  * Facture visible : sa mission est visible (missions/acces.ts), sinon 404.
- * `verrouiller` verrouille la mission puis la facture (ordre constant).
+ * `verrouiller` verrouille la mission puis la facture (ordre constant) : les
+ * opérations sur les factures d'une même mission sont sérialisées (le cumul
+ * des seuils FIN-15 se calcule sans concurrence).
  */
 export async function exigerFactureVisible(
   db: Db,
@@ -151,7 +199,7 @@ export async function exigerFactureVisible(
   verrouiller = false,
 ): Promise<{ facture: FactureDb; mission: MissionAcces }> {
   const lue = await lireFacture(db, id);
-  const mission = await missionVisibleOuNull(db, auth, lue.mission_id);
+  const mission = await missionVisibleOuNull(db, auth, lue.mission_id, verrouiller);
   if (!mission) throw introuvable("Facture");
   return { facture: verrouiller ? await lireFacture(db, id, true) : lue, mission };
 }
@@ -403,6 +451,7 @@ export async function creerAvoirBrouillon(
     );
   }
   if (origine.statut !== "emise") throw conflit("Seule une facture émise s'annule par avoir.");
+  await exigerSansEncaissementNet(db, origine.id);
   const lignes = await lireLignes(db, origine.id);
   const avoir = creerAvoir(calculer(origine, lignes));
   const r = await traduireErreursPg(
@@ -465,14 +514,44 @@ export async function creerAvoirBrouillon(
 /* ----- Approbation (FIN-15) ----- */
 
 /**
- * Rôle exigé : le plus exigeant des paliers « facture » (sur le HT) et
+ * Rôle exigé : le plus exigeant des paliers « facture » (sur le HT de la
+ * facture ET sur le cumul HT de la mission, voir cumulHtAutresFactures) et
  * « remise » (sur le total des remises), par le moteur, après conversion au
  * taux figé (voir conversionSeuils : associé si aucun taux n'est connu).
+ *
+ * Le cumul (constat M1 a) ferme le contournement par fractionnement : deux
+ * factures de 20 M FCFA, chacune sous le palier « directeur », cumulent
+ * 40 M et exigent un associé.
  */
-export function roleApprobationFacture(c: FactureCalculee, mission: MissionAcces): RoleApprobateur {
+export function roleApprobationFacture(
+  c: FactureCalculee,
+  mission: MissionAcces,
+  cumulAutresHT?: Montant,
+): RoleApprobateur {
   const roles: RoleApprobateur[] = [roleSelonSeuils("facture", c.totalHT, mission)];
+  if (cumulAutresHT) {
+    roles.push(roleSelonSeuils("facture", additionner(cumulAutresHT, c.totalHT), mission));
+  }
   if (c.totalRemises.valeur !== 0) roles.push(roleSelonSeuils("remise", c.totalRemises, mission));
   return plusExigeant(roles);
+}
+
+/**
+ * Cumul HT (moteur) des AUTRES factures non annulées de la mission déjà
+ * soumises : à approuver, approuvées ou émises (les brouillons ne comptent
+ * qu'à leur propre soumission ; les avoirs annulent leur facture, exclue).
+ */
+export async function cumulHtAutresFactures(db: Db, f: FactureDb): Promise<Montant> {
+  const r = await db.query(
+    `SELECT total_ht FROM factures
+     WHERE mission_id = $1 AND id <> $2 AND nature = 'facture'
+       AND statut IN ('a_approuver', 'approuvee', 'emise')`,
+    [f.mission_id, f.id],
+  );
+  return sommer(
+    r.rows.map((x) => montantMoteur(nombre(x.total_ht), f.devise)),
+    f.devise,
+  );
 }
 
 /** Calcul de la facture tel qu'enregistré (avoir : opposé de la facture d'origine). */
@@ -535,6 +614,8 @@ export async function emettre(
   db: Db,
   auth: Pick<Auth, "cabinetId" | "utilisateurId">,
   f: FactureDb,
+  /** Date d'émission : aujourd'hui ; une autre date n'est passée que par le seed de démonstration. */
+  dateEmission: string = aujourdhui(),
 ): Promise<void> {
   if (f.statut !== "approuvee") throw conflit("Seule une facture approuvée s'émet.");
   const p = await lireParametresFacturation(db, auth.cabinetId);
@@ -550,8 +631,10 @@ export async function emettre(
   if (f.nature === "avoir") {
     origine = await lireFacture(db, f.facture_origine_id as string, true);
     if (origine.statut !== "emise") throw conflit("La facture d'origine n'est plus émise.");
+    // Encaissements imputés : à contre-passer avant l'annulation (finance/paiements.ts).
+    await exigerSansEncaissementNet(db, origine.id);
   }
-  const date = aujourdhui();
+  const date = dateEmission;
   const exercice = Number(date.slice(0, 4));
   await db.query(
     `INSERT INTO sequences_facturation (cabinet_id, nature, exercice) VALUES ($1, $2, $3)
@@ -623,6 +706,6 @@ export async function emettre(
 
 /* ----- Vue ----- */
 
-export function vueFacture(f: FactureDb, lignes?: readonly LigneDb[]): Record<string, unknown> {
+export function vueFacture(f: FactureDb, lignes?: readonly LigneVue[]): Record<string, unknown> {
   return { ...f, ...(lignes ? { lignes } : {}) };
 }
