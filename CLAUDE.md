@@ -17,7 +17,8 @@ Ne pas tout lire d'avance. Charger le document quand la tâche le demande :
 | Sécurité, modèle de menace               | [docs/governance/SECURITY.md](docs/governance/SECURITY.md)                   |
 | Une décision d'architecture              | [docs/architecture/adr/](docs/architecture/adr/ADR-000-template.md)          |
 | Piloter seul un objectif de bout en bout | [docs/workflows/LEAD_PROCESS.md](docs/workflows/LEAD_PROCESS.md)             |
-| TODO(acc-adapt)                          | TODO(acc-adapt) : architecture, modèle de données, spécifications…           |
+| Exigences, périmètre V1–V3, personas     | [PRD](<docs/PRD — MissionPilot, logiciel de planification stratégique.md>)   |
+| Règles métier et décisions techniques    | [docs/DECISIONS.md](docs/DECISIONS.md) — voir « Pièges connus » d'AGENTS.md |
 
 Les règles de `.claude/rules/` se chargent seules selon les fichiers touchés
 (frontmatter `paths:`).
