@@ -40,6 +40,9 @@ const TRACES = {
   deplacer: "M4 12h16M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4",
   drapeau: "M5 21V4M5 4h12l-2.5 4L17 12H5",
   signature: "M3 17c3-1 4-9 6-9s0 9 2 9 2-4 4-4 1 3 3 3M3 21h18",
+  cloche: "M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0",
+  nuage: "M7 18.5h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11 3.75 3.75 0 0 0 7 18.5z",
+  envoyer: "M4 12 20 4l-5 16-3-7zM12 13l8-9",
 } as const;
 
 export type NomIcone = keyof typeof TRACES;

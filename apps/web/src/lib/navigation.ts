@@ -20,8 +20,11 @@ export interface EntreeNavigation {
   /** Libellé de la barre basse du téléphone, si `libelle` est trop long. */
   libelleCourt?: string;
   href: string;
-  /** `null` : visible de tout utilisateur connecté. */
-  permission: Permission | null;
+  /**
+   * `null` : visible de tout utilisateur connecté ; une liste : visible avec l'une de ces
+   * permissions (rubrique dont les sous-pages relèvent de droits différents).
+   */
+  permission: Permission | readonly Permission[] | null;
   disponible: boolean;
   icone: NomIcone;
   /** Ce que l'écran permettra de faire, affiché sur le tableau de bord. */
@@ -46,9 +49,24 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelleCourt: "Planning",
     href: "/planning",
     permission: "temps.saisir",
-    disponible: false,
+    disponible: true,
     icone: "calendrier",
-    description: "Vos tâches et affectations de la semaine.",
+    description: "Vos tâches, jours alloués, absences et jours fériés de la semaine ; vos congés.",
+    sousPages: [
+      { id: "semaine", libelle: "Ma semaine", href: "/planning", permission: "temps.saisir" },
+      {
+        id: "conges",
+        libelle: "Mes congés",
+        href: "/planning/conges",
+        permission: "conges.demander",
+      },
+      {
+        id: "conges-validation",
+        libelle: "Congés à valider",
+        href: "/planning/conges/validation",
+        permission: "conges.valider",
+      },
+    ],
   },
   {
     id: "feuille-de-temps",
@@ -56,9 +74,30 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelleCourt: "Temps",
     href: "/temps",
     permission: "temps.saisir",
-    disponible: false,
+    disponible: true,
     icone: "horloge",
-    description: "Saisie des jours par tâche, reste à faire et débours.",
+    description: "Saisie hebdomadaire par tâche, reste à faire, validation et corrections.",
+    sousPages: [
+      { id: "feuille", libelle: "Ma feuille", href: "/temps", permission: "temps.saisir" },
+      {
+        id: "validation",
+        libelle: "À valider",
+        href: "/temps/validation",
+        permission: "temps.valider",
+      },
+      {
+        id: "corrections",
+        libelle: "Corrections",
+        href: "/temps/corrections",
+        permission: "temps.saisir",
+      },
+      {
+        id: "discipline",
+        libelle: "Discipline de saisie",
+        href: "/temps/discipline",
+        permission: "temps.saisir",
+      },
+    ],
   },
   {
     id: "missions",
@@ -121,7 +160,7 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelleCourt: "Charge",
     href: "/charge",
     permission: "charge.lire",
-    disponible: false,
+    disponible: true,
     icone: "barres",
     description: "Occupation des équipes, surcharges et disponibilités.",
   },
@@ -147,10 +186,10 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "parametres",
     libelle: "Paramètres",
     href: "/parametres",
-    permission: "cabinet.gerer",
+    permission: ["cabinet.gerer", "temps.cloturer", "temps.importer"],
     disponible: true,
     icone: "reglages",
-    description: "Cabinet, utilisateurs, invitations et journal d'audit.",
+    description: "Cabinet, utilisateurs, temps, clôture mensuelle, import et journal d'audit.",
     sousPages: [
       { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
       {
@@ -158,6 +197,19 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         libelle: "Utilisateurs",
         href: "/parametres/utilisateurs",
         permission: "cabinet.gerer",
+      },
+      { id: "temps", libelle: "Temps", href: "/parametres/temps", permission: "cabinet.gerer" },
+      {
+        id: "cloture",
+        libelle: "Clôture des temps",
+        href: "/parametres/cloture",
+        permission: "temps.cloturer",
+      },
+      {
+        id: "import",
+        libelle: "Import des temps",
+        href: "/parametres/import-temps",
+        permission: "temps.importer",
       },
       {
         id: "journal",
@@ -188,7 +240,17 @@ export function entreesAutorisees(
   roles: readonly Role[],
   table: readonly EntreeNavigation[] = NAVIGATION,
 ): EntreeNavigation[] {
-  return table.filter((e) => e.permission === null || aPermission(roles, e.permission));
+  return table.filter((e) => autorise(roles, e.permission));
+}
+
+/** `null` : tout utilisateur ; liste : l'une des permissions suffit. */
+export function autorise(
+  roles: readonly Role[],
+  permission: EntreeNavigation["permission"],
+): boolean {
+  if (permission === null) return true;
+  if (typeof permission === "string") return aPermission(roles, permission);
+  return permission.some((p) => aPermission(roles, p));
 }
 
 /** Entrée active pour un chemin : correspondance exacte pour « / », par préfixe sinon. */

@@ -8,8 +8,11 @@ import { Icone } from "../../../components/ui/Icone";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { anneeDemandee, type Cabinet, type Ferie } from "../../../lib/cabinet";
 import { formaterDate } from "../../../lib/format";
-import { exigerPermission } from "../../../lib/session";
-import { AjoutFerie, SuppressionFerie } from "./Feries";
+import { redirect } from "next/navigation";
+import { aPermission } from "@missionpilot/shared";
+import { sousPagesAutorisees } from "../../../lib/navigation";
+import { obtenirSession } from "../../../lib/session";
+import { AjoutFerie, FeriesParDefaut, SuppressionFerie, ValidationFerie } from "./Feries";
 import { FormulaireCabinet } from "./FormulaireCabinet";
 
 export const metadata: Metadata = { title: "Paramètres du cabinet" };
@@ -19,7 +22,11 @@ export default async function PageParametresCabinet({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigerPermission("cabinet.gerer");
+  const { utilisateur } = await obtenirSession();
+  if (!aPermission(utilisateur.roles, "cabinet.gerer")) {
+    // Gestionnaire (clôture, import) : première sous-page autorisée.
+    redirect(sousPagesAutorisees("parametres", utilisateur.roles)[0]?.href ?? "/acces-refuse");
+  }
   const annee = anneeDemandee((await searchParams).annee, new Date().getUTCFullYear());
   const [cabinet, feries] = await Promise.all([
     chargerServeur<Cabinet>("/api/cabinet"),
@@ -86,13 +93,18 @@ export default async function PageParametresCabinet({
                     <span className="mp-texte-doux">
                       {formaterDate(f.date)}
                       {f.nationale ? " · fête nationale" : " · propre au cabinet"}
+                      {f.a_valider ? " · proposé par défaut, à vérifier" : ""}
                     </span>
                   </div>
-                  <SuppressionFerie ferie={f} />
+                  <div className="mp-barre-actions mp-barre-actions--compacte">
+                    {f.a_valider ? <ValidationFerie ferie={f} /> : null}
+                    <SuppressionFerie ferie={f} />
+                  </div>
                 </li>
               ))}
             </ul>
           )}
+          <FeriesParDefaut annee={annee} />
           <AjoutFerie annee={annee} />
         </div>
       </Carte>

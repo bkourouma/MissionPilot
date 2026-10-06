@@ -1,0 +1,614 @@
+/* Temps et planification : Mon planning, feuille de temps, plan de charge, suivi,
+   notifications. Mobile d'abord (375 px sans débordement), cibles de 44 px, couleur jamais
+   seule (texte et icône l'accompagnent toujours). */
+
+ul.mp-badges {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* ---------- Navigation d'une semaine ---------- */
+.mp-semaine-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-3) var(--mp-esp-4);
+}
+
+.mp-semaine-nav__titre {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+}
+
+.mp-semaine-nav__liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-semaine-nav__saut {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+.mp-semaine-nav__libelle {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+}
+
+.mp-semaine-nav__ligne {
+  display: flex;
+  gap: var(--mp-esp-2);
+}
+.mp-semaine-nav__ligne .mp-champ__controle {
+  width: auto;
+  min-width: 0;
+}
+
+/* Téléphone : deux liens côte à côte, chacun la moitié de la largeur. */
+@media (max-width: 479px) {
+  .mp-semaine-nav__liens {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .mp-semaine-nav__liens .mp-pagination__lien {
+    width: 100%;
+    font-size: var(--mp-taille-s);
+  }
+  .mp-semaine-nav__saut {
+    width: 100%;
+  }
+}
+
+/* ---------- Mon planning : jour par jour ---------- */
+.mp-jours-semaine {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-jours-semaine__jour {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+.mp-jours-semaine__jour:last-child {
+  border-bottom: 0;
+}
+.mp-jours-semaine__jour--courant {
+  background: var(--mp-primaire-pale);
+  box-shadow: inset 4px 0 0 var(--mp-primaire);
+}
+
+.mp-jours-semaine__date {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  flex: 0 0 12rem;
+  font-weight: 650;
+}
+
+.mp-jours-semaine__marque {
+  padding: 0 var(--mp-esp-2);
+  color: var(--mp-sur-primaire);
+  background: var(--mp-primaire);
+  border-radius: 999px;
+  font-size: var(--mp-taille-xs);
+}
+
+.mp-jours-semaine__infos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+/* ---------- Feuille de temps ---------- */
+.mp-feuille {
+  overflow-x: auto;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-feuille__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-feuille__table th,
+.mp-feuille__table td {
+  position: relative; /* contient le texte masqué des en-têtes */
+  padding: var(--mp-esp-2);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-feuille__table thead th {
+  background: var(--mp-surface-2);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.mp-feuille__table thead th .mp-icone {
+  margin-left: var(--mp-esp-1);
+  vertical-align: -2px;
+}
+
+.mp-feuille__groupe th {
+  padding-top: var(--mp-esp-3);
+  color: var(--mp-primaire);
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+  background: var(--mp-surface);
+}
+
+.mp-feuille__libelle {
+  min-width: 10rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-feuille__case {
+  width: 4.75rem;
+  text-align: right;
+}
+
+.mp-feuille__saisie {
+  width: 100%;
+  min-width: 3rem;
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-1) var(--mp-esp-2);
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  font: inherit;
+  font-size: max(1rem, 16px);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.mp-feuille__saisie:focus-visible {
+  border-color: var(--mp-focus);
+  outline: 2px solid var(--mp-focus);
+  outline-offset: 1px;
+}
+.mp-feuille__saisie[aria-invalid="true"] {
+  border: 2px solid var(--mp-danger);
+}
+
+.mp-feuille__erreur {
+  display: block;
+  margin-top: 2px;
+  color: var(--mp-danger);
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.mp-feuille__valeur {
+  display: block;
+  text-align: center;
+}
+
+.mp-feuille__total {
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.mp-feuille__table tfoot th,
+.mp-feuille__table tfoot td {
+  background: var(--mp-surface-2);
+  border-bottom: 0;
+}
+
+/* Barre d'envoi : reste visible au-dessus de la barre basse du téléphone. */
+.mp-feuille__barre {
+  position: sticky;
+  bottom: calc(var(--mp-hauteur-barre-basse) + env(safe-area-inset-bottom) + var(--mp-esp-2));
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+  box-shadow: var(--mp-ombre-l);
+}
+.mp-feuille__barre .mp-bouton {
+  flex: 1 1 14rem;
+}
+
+.mp-feuille__synchro {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-1);
+  flex: 1 1 14rem;
+  margin: 0;
+  font-size: var(--mp-taille-s);
+}
+.mp-feuille__synchro .mp-icone {
+  flex: none;
+  margin-top: 0.1em;
+}
+.mp-feuille__synchro--a_jour {
+  color: var(--mp-succes);
+}
+.mp-feuille__synchro--hors_ligne {
+  color: var(--mp-attention);
+  font-weight: 600;
+}
+.mp-feuille__synchro--refuse {
+  color: var(--mp-danger);
+  font-weight: 600;
+}
+
+.mp-feuille__semaine {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 960px) {
+  .mp-feuille__barre {
+    bottom: var(--mp-esp-3);
+  }
+}
+
+/* Téléphone : une fiche par rangée, les jours en grille sous le libellé. */
+@media (max-width: 639px) {
+  .mp-feuille {
+    overflow: visible;
+    background: transparent;
+    border: 0;
+  }
+  .mp-feuille__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .mp-feuille__table,
+  .mp-feuille__table tbody,
+  .mp-feuille__table tfoot {
+    display: block;
+  }
+  .mp-feuille__table tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(3.6rem, 1fr));
+    gap: var(--mp-esp-2);
+    margin-bottom: var(--mp-esp-3);
+    padding: var(--mp-esp-3);
+    background: var(--mp-surface);
+    border: 1px solid var(--mp-bordure);
+    border-radius: var(--mp-rayon-l);
+  }
+  .mp-feuille__table tr.mp-feuille__groupe {
+    display: block;
+    margin-bottom: var(--mp-esp-2);
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
+  .mp-feuille__table th,
+  .mp-feuille__table td {
+    padding: 0;
+    border: 0;
+  }
+  .mp-feuille__table tbody th[scope="row"],
+  .mp-feuille__table tfoot th {
+    grid-column: 1 / -1;
+  }
+  .mp-feuille__case,
+  .mp-feuille__total {
+    width: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+  }
+  .mp-feuille__case::before,
+  .mp-feuille__total::before {
+    content: attr(data-jour);
+    color: var(--mp-texte-doux);
+    font-size: var(--mp-taille-xs);
+    font-weight: 600;
+  }
+  .mp-feuille__table tfoot tr {
+    background: var(--mp-surface-2);
+  }
+}
+
+/* ---------- Reste à faire ---------- */
+.mp-reste__saisie {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1);
+}
+.mp-reste__saisie .mp-feuille__saisie {
+  width: 5.5rem;
+}
+.mp-reste__saisie .mp-feuille__erreur {
+  flex-basis: 100%;
+}
+
+/* ---------- Plan de charge ---------- */
+.mp-charge__legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+.mp-charge__legende > li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  padding: 2px var(--mp-esp-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-charge--grille {
+  display: none;
+  overflow-x: auto;
+  max-width: 100%;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+.mp-charge--grille:focus-visible {
+  outline: 2px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-charge__table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.mp-charge__table th,
+.mp-charge__table td {
+  padding: var(--mp-esp-2);
+  border-bottom: 1px solid var(--mp-bordure);
+  text-align: center;
+  white-space: nowrap;
+}
+.mp-charge__table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--mp-surface-2);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-charge__nom {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 12rem;
+  max-width: 16rem;
+  background: var(--mp-surface);
+  border-right: 1px solid var(--mp-bordure);
+  text-align: left !important;
+  white-space: normal !important;
+}
+.mp-charge__table thead .mp-charge__nom {
+  z-index: 2;
+  background: var(--mp-surface-2);
+}
+.mp-charge__personne {
+  display: block;
+  font-weight: 650;
+}
+
+.mp-charge__cellule {
+  position: relative; /* contient le texte masqué (sinon il déborde de la page) */
+  min-width: 6.5rem;
+}
+.mp-charge__contenu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.mp-charge__taux {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 700;
+}
+.mp-charge__detail,
+.mp-charge__etat {
+  font-size: var(--mp-taille-xs);
+}
+
+.mp-charge__cellule--surcharge {
+  color: var(--mp-danger);
+  background: var(--mp-danger-fond);
+}
+.mp-charge__cellule--normal {
+  color: var(--mp-succes);
+  background: var(--mp-succes-fond);
+}
+.mp-charge__cellule--sous_occupation {
+  color: var(--mp-attention);
+  background: var(--mp-attention-fond);
+}
+.mp-charge__cellule--indisponible {
+  color: var(--mp-neutre);
+  background: var(--mp-neutre-fond);
+}
+
+.mp-charge__fiche {
+  padding: 0;
+}
+.mp-charge__fiche > .mp-liste-lignes {
+  border: 0;
+  border-top: 1px solid var(--mp-bordure);
+  border-radius: 0 0 var(--mp-rayon-l) var(--mp-rayon-l);
+}
+.mp-charge__resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  cursor: pointer;
+}
+
+.mp-charge__resume::-webkit-details-marker {
+  display: none;
+}
+.mp-charge__chevron {
+  flex: none;
+  transition: transform var(--mp-duree);
+}
+.mp-charge__fiche[open] .mp-charge__chevron {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mp-charge__chevron {
+    transition: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .mp-charge--grille {
+    display: block;
+  }
+  .mp-charge--liste {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .mp-charge__cellule {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ---------- Suivi ---------- */
+.mp-suivi__niveau {
+  display: inline-block;
+}
+.mp-suivi__niveau--1 {
+  padding-left: var(--mp-esp-4);
+}
+.mp-suivi__niveau--2 {
+  padding-left: var(--mp-esp-6);
+}
+
+/* ---------- Affectations ---------- */
+.mp-affectation .mp-liste-lignes__texte {
+  gap: 2px;
+  align-items: flex-start;
+}
+.mp-affectation > .mp-pile,
+.mp-affectation > .mp-formulaire {
+  flex: 1 1 100%;
+}
+
+/* ---------- Cloche de l'en-tête ---------- */
+.mp-cloche {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mp-cible);
+  height: var(--mp-cible);
+  color: var(--mp-texte);
+  border-radius: 999px;
+}
+.mp-cloche:hover,
+.mp-cloche[aria-current="page"] {
+  color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+}
+.mp-cloche__pastille {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 4px;
+  color: #ffffff;
+  background: #a4262c;
+  border: 2px solid var(--mp-surface);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+}
+
+/* ---------- Notifications ---------- */
+.mp-notification {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+.mp-notification--non-lue {
+  border-color: var(--mp-primaire);
+  box-shadow: inset 4px 0 0 var(--mp-primaire);
+}
+.mp-notification__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+.mp-notification__titre {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  overflow-wrap: anywhere;
+}
+.mp-notification__pastille {
+  padding: 0 var(--mp-esp-2);
+  color: var(--mp-sur-primaire);
+  background: var(--mp-primaire);
+  border-radius: 999px;
+  font-size: var(--mp-taille-xs);
+  font-weight: 700;
+}
+.mp-notification__corps {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}

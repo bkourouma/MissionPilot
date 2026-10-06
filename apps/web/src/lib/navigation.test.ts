@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ROLES, type Role } from "@missionpilot/shared";
 import {
+  autorise,
   entreesAutorisees,
   entreesBarreBasse,
   estActive,
@@ -34,14 +35,17 @@ describe("table de navigation", () => {
     ]);
   });
 
-  it("ne marque disponibles que les écrans livrés (référentiels, missions, pipeline)", () => {
+  it("ne marque disponibles que les écrans livrés (facturation et indicateurs à venir)", () => {
     expect(NAVIGATION.filter((e) => e.disponible).map((e) => e.id)).toEqual([
       "tableau-de-bord",
+      "mon-planning",
+      "feuille-de-temps",
       "missions",
       "pipeline",
       "clients",
       "collaborateurs",
       "catalogue",
+      "plan-de-charge",
       "parametres",
     ]);
   });
@@ -86,9 +90,11 @@ describe("entreesAutorisees", () => {
     ]);
   });
 
-  it("réserve les paramètres du cabinet à l'associé", () => {
+  it("ouvre les paramètres à l'associé et au gestionnaire (clôture et import des temps)", () => {
     for (const role of ROLES) {
-      expect(ids([role]).includes("parametres")).toBe(role === "associe");
+      expect(ids([role]).includes("parametres")).toBe(
+        role === "associe" || role === "gestionnaire",
+      );
     }
   });
 
@@ -124,11 +130,20 @@ describe("pipeline et barre basse", () => {
     expect(ids(["gestionnaire"])).not.toContain("pipeline");
   });
 
-  it("ne met dans la barre basse que des écrans disponibles", () => {
+  it("ne met dans la barre basse que des écrans disponibles, planning et temps d'abord", () => {
     const barre = entreesBarreBasse(entreesAutorisees(["chef_mission"]));
-    expect(barre.map((e) => e.id)).toEqual(["tableau-de-bord", "missions", "pipeline", "clients"]);
+    expect(barre.map((e) => e.id)).toEqual([
+      "tableau-de-bord",
+      "mon-planning",
+      "feuille-de-temps",
+      "missions",
+    ]);
     expect(barre.every((e) => e.disponible)).toBe(true);
-    expect(entreesBarreBasse(entreesAutorisees(["expert_externe"]))).toHaveLength(1);
+    expect(entreesBarreBasse(entreesAutorisees(["expert_externe"])).map((e) => e.id)).toEqual([
+      "tableau-de-bord",
+      "mon-planning",
+      "feuille-de-temps",
+    ]);
   });
 });
 
@@ -146,13 +161,52 @@ describe("estActive", () => {
 });
 
 describe("sous-pages", () => {
-  it("réserve le journal d'audit à qui a audit.lire", () => {
+  it("donne à chacun les sous-pages des paramètres de ses droits", () => {
     expect(sousPagesAutorisees("parametres", ["associe"]).map((p) => p.id)).toEqual([
       "cabinet",
       "utilisateurs",
+      "temps",
+      "cloture",
+      "import",
       "journal",
     ]);
-    expect(sousPagesAutorisees("parametres", ["gestionnaire"])).toEqual([]);
+    expect(sousPagesAutorisees("parametres", ["gestionnaire"]).map((p) => p.id)).toEqual([
+      "cloture",
+      "import",
+    ]);
+    expect(sousPagesAutorisees("parametres", ["consultant"])).toEqual([]);
+  });
+
+  it("donne les congés et la validation selon les droits", () => {
+    expect(sousPagesAutorisees("mon-planning", ["consultant"]).map((p) => p.id)).toEqual([
+      "semaine",
+      "conges",
+    ]);
+    expect(sousPagesAutorisees("mon-planning", ["ressources"]).map((p) => p.id)).toEqual([
+      "semaine",
+      "conges",
+      "conges-validation",
+    ]);
+    expect(sousPagesAutorisees("mon-planning", ["expert_externe"]).map((p) => p.id)).toEqual([
+      "semaine",
+    ]);
+  });
+
+  it("réserve la validation des feuilles à qui a temps.valider", () => {
+    expect(sousPagesAutorisees("feuille-de-temps", ["consultant"]).map((p) => p.id)).toEqual([
+      "feuille",
+      "corrections",
+      "discipline",
+    ]);
+    expect(sousPagesAutorisees("feuille-de-temps", ["chef_mission"]).map((p) => p.id)).toContain(
+      "validation",
+    );
+    const pages = sousPagesAutorisees("feuille-de-temps", ["chef_mission"]);
+    expect(sousPageActive(pages, "/temps")).toBe("feuille");
+    expect(sousPageActive(pages, "/temps/validation")).toBe("validation");
+    expect(sousPageActive(pages, "/temps/feuilles/0b6c2d1e-0000-4000-8000-000000000000")).toBe(
+      "feuille",
+    );
   });
 
   it("donne les types et les grades à tout lecteur du catalogue", () => {
@@ -169,5 +223,14 @@ describe("sous-pages", () => {
     expect(sousPageActive(pages, "/catalogue/0b6c2d1e-0000-4000-8000-000000000000")).toBe("types");
     expect(sousPageActive(pages, "/catalogue/grades")).toBe("grades");
     expect(sousPageActive(pages, "/clients")).toBeNull();
+  });
+});
+
+describe("autorise", () => {
+  it("accepte null, une permission, ou l'une d'une liste", () => {
+    expect(autorise([], null)).toBe(true);
+    expect(autorise(["consultant"], "temps.saisir")).toBe(true);
+    expect(autorise(["consultant"], ["cabinet.gerer", "temps.importer"])).toBe(false);
+    expect(autorise(["gestionnaire"], ["cabinet.gerer", "temps.importer"])).toBe(true);
   });
 });

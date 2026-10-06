@@ -74,8 +74,8 @@ export function SyntheseBudgetJours({ racine }: { racine: NoeudSynthese }) {
           ]}
         />
         <p className="mp-texte-doux">
-          Le réalisé proviendra des feuilles de temps validées (module à venir) ; d&apos;ici là,
-          l&apos;atterrissage égale le budget.
+          Le réalisé provient des feuilles de temps validées ; le détail par tâche, personne et
+          grade, avec le reste à faire déclaré, est dans l&apos;onglet Suivi.
         </p>
       </div>
     </Carte>

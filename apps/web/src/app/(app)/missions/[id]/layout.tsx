@@ -11,7 +11,7 @@ import { STATUT_MISSION } from "../../../../lib/missions";
 import { chargerMission } from "../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../lib/session";
 
-/** En-tête commun d'une mission et onglets Fiche / Découpage / Planning / Budget. */
+/** En-tête commun d'une mission et onglets Fiche / Découpage / Planning / Affectations / Suivi / Budget. */
 export default async function LayoutMission({
   children,
   params,
@@ -43,8 +43,12 @@ export default async function LayoutMission({
     { id: "fiche", libelle: "Fiche", href: base },
     { id: "decoupage", libelle: "Découpage", href: `${base}/decoupage` },
     { id: "planning", libelle: "Planning", href: `${base}/planning` },
+    { id: "affectations", libelle: "Affectations", href: `${base}/affectations` },
     ...(aPermission(utilisateur.roles, "budget.lire_jours")
-      ? [{ id: "budget", libelle: "Budget", href: `${base}/budget` }]
+      ? [
+          { id: "suivi", libelle: "Suivi", href: `${base}/suivi` },
+          { id: "budget", libelle: "Budget", href: `${base}/budget` },
+        ]
       : []),
   ];
   return (

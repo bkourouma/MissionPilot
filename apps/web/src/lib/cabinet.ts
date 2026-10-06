@@ -18,6 +18,8 @@ export interface Ferie {
   date: string;
   libelle: string;
   nationale: boolean;
+  /** Proposé par « jours fériés par défaut » : à vérifier par le cabinet. */
+  a_valider?: boolean;
 }
 
 /** Pays proposés : Afrique francophone d'abord, puis pays des clients européens. */

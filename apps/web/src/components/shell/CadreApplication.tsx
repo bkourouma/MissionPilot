@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ROLE_LIBELLES, type Role } from "@missionpilot/shared";
 import type { EntreeNavigation } from "../../lib/navigation";
 import { BoutonDeconnexion } from "./BoutonDeconnexion";
+import { ClocheNotifications } from "./ClocheNotifications";
 import { BarreNavigationBasse, NavigationLaterale } from "./Navigation";
 
 export function libellesRoles(roles: readonly Role[]): string {
@@ -47,6 +48,7 @@ export function CadreApplication({ nom, roles, entrees, children }: CadreApplica
           <span>MissionPilot</span>
         </Link>
         <div className="mp-entete__utilisateur">
+          <ClocheNotifications />
           <p className="mp-entete__identite">
             <span className="mp-entete__nom">{nom}</span>
             <span className="mp-entete__role">{libelles}</span>
