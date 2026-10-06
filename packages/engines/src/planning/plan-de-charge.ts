@@ -4,12 +4,14 @@
 import {
   type Absence,
   type Affectation,
+  type AffectationPreparee,
   type EtatCharge,
   type SeuilsCharge,
   SEUILS_CHARGE_DEFAUT,
   capacite,
   etatCharge,
-  joursAffectesSurPeriode,
+  joursAffectesPrepares,
+  preparerAffectation,
   tauxOccupation,
 } from "./capacite";
 import type { ParametresCalendrier } from "./calendrier";
@@ -69,15 +71,13 @@ export interface EntreePlanDeCharge {
 
 function cellule(
   c: CollaborateurCharge,
-  affectations: readonly Affectation[],
+  preparees: () => readonly AffectationPreparee[],
   semaine: Periode,
   calendrier: ParametresCalendrier,
   seuils: SeuilsCharge,
 ): CelluleCharge {
   const cap = capacite(semaine, calendrier, c.absences ?? [], c.tempsTravailPct ?? 100);
-  const affectes = sommerJours(
-    affectations.map((a) => joursAffectesSurPeriode(a, semaine, calendrier)),
-  );
+  const affectes = sommerJours(preparees().map((p) => joursAffectesPrepares(p, semaine)));
   return {
     semaine,
     capacite: cap,
@@ -87,16 +87,30 @@ function cellule(
   };
 }
 
-/** Construit la grille collaborateurs × semaines. */
+/**
+ * Construit la grille collaborateurs × semaines. Les jours ouvrés de chaque
+ * affectation sont listés une fois (au premier besoin, après le contrôle de
+ * la capacité, pour garder l'ordre des erreurs), puis chaque semaine se
+ * calcule par différence de cumuls.
+ */
 export function planDeCharge(entree: EntreePlanDeCharge): LigneCharge[] {
   const semaines = semainesCouvrant(entree.periode);
   const seuils = entree.seuils ?? SEUILS_CHARGE_DEFAUT;
+  const parPersonne = new Map<string, Affectation[]>();
+  for (const a of entree.affectations) {
+    const liste = parPersonne.get(a.personneId);
+    if (liste) liste.push(a);
+    else parPersonne.set(a.personneId, [a]);
+  }
   return entree.collaborateurs.map((c) => {
     const calendrier = c.calendrier ?? entree.calendrier ?? {};
-    const siennes = entree.affectations.filter((a) => a.personneId === c.id);
+    const siennes = parPersonne.get(c.id) ?? [];
+    let preparees: AffectationPreparee[] | undefined;
+    const lesPreparees = (): AffectationPreparee[] =>
+      (preparees ??= siennes.map((a) => preparerAffectation(a, calendrier)));
     return {
       collaborateurId: c.id,
-      cellules: semaines.map((s) => cellule(c, siennes, s, calendrier, seuils)),
+      cellules: semaines.map((s) => cellule(c, lesPreparees, s, calendrier, seuils)),
     };
   });
 }

@@ -21,17 +21,55 @@ interface CalendrierCompile {
   readonly feries: ReadonlySet<number>;
 }
 
-function compiler(params: ParametresCalendrier): CalendrierCompile {
-  const jours = params.joursTravailles ?? SEMAINE_DEFAUT;
+function compilerSansCache(
+  jours: readonly number[],
+  feries: readonly DateISO[],
+): CalendrierCompile {
   for (const j of jours) {
     if (!Number.isInteger(j) || j < 1 || j > 7) {
       throw new RangeError(`Jour de semaine invalide : ${j} (attendu 1 à 7)`);
     }
   }
-  return {
-    jours: new Set(jours),
-    feries: new Set((params.feries ?? []).map(versJourUTC)),
-  };
+  return { jours: new Set(jours), feries: new Set(feries.map(versJourUTC)) };
+}
+
+/** Calendrier compilé et copie des listes d'origine, pour détecter une mutation. */
+interface EntreeCache {
+  readonly jours: readonly number[];
+  readonly feries: readonly DateISO[];
+  readonly cal: CalendrierCompile;
+}
+
+const AUCUN_FERIE: readonly DateISO[] = [];
+/** Mémoïsation par listes (fériés, puis jours travaillés), indépendante de l'objet paramètres. */
+const cache = new WeakMap<readonly DateISO[], WeakMap<readonly number[], EntreeCache>>();
+
+function memesValeurs<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/**
+ * Compile un calendrier (ensembles des jours travaillés et des fériés) une
+ * seule fois par couple de listes. Le cache compare le contenu à une copie :
+ * une liste modifiée en place est recompilée.
+ */
+function compiler(params: ParametresCalendrier): CalendrierCompile {
+  const jours = params.joursTravailles ?? SEMAINE_DEFAUT;
+  const feries = params.feries ?? AUCUN_FERIE;
+  let parJours = cache.get(feries);
+  const connu = parJours?.get(jours);
+  if (connu && memesValeurs(connu.jours, jours) && memesValeurs(connu.feries, feries)) {
+    return connu.cal;
+  }
+  const cal = compilerSansCache(jours, feries);
+  if (!parJours) {
+    parJours = new WeakMap();
+    cache.set(feries, parJours);
+  }
+  parJours.set(jours, { jours: [...jours], feries: [...feries], cal });
+  return cal;
 }
 
 function ouvre(cal: CalendrierCompile, jourUTC: number): boolean {
@@ -44,15 +82,27 @@ export function estJourOuvre(date: DateISO, params: ParametresCalendrier = {}): 
   return ouvre(cal, versJourUTC(date));
 }
 
-/** Liste les jours ouvrés d'une période (bornes incluses ; vide si inversée). */
-export function listerJoursOuvres(periode: Periode, params: ParametresCalendrier = {}): DateISO[] {
+/**
+ * Jours ouvrés d'une période en numéros de jour UTC croissants (bornes
+ * incluses ; vide si inversée). Variante sans conversion en texte de
+ * `listerJoursOuvres`, pour les calculs répétés.
+ */
+export function listerJoursOuvresUTC(
+  periode: Periode,
+  params: ParametresCalendrier = {},
+): number[] {
   const cal = compiler(params);
-  const resultat: DateISO[] = [];
+  const resultat: number[] = [];
   const fin = versJourUTC(periode.fin);
   for (let j = versJourUTC(periode.debut); j <= fin; j++) {
-    if (ouvre(cal, j)) resultat.push(versDateISO(j));
+    if (ouvre(cal, j)) resultat.push(j);
   }
   return resultat;
+}
+
+/** Liste les jours ouvrés d'une période (bornes incluses ; vide si inversée). */
+export function listerJoursOuvres(periode: Periode, params: ParametresCalendrier = {}): DateISO[] {
+  return listerJoursOuvresUTC(periode, params).map(versDateISO);
 }
 
 /** Nombre de jours ouvrés entre deux dates, bornes incluses (0 si fin < début). */
@@ -61,7 +111,7 @@ export function joursOuvresEntre(
   fin: DateISO,
   params: ParametresCalendrier = {},
 ): number {
-  return listerJoursOuvres({ debut, fin }, params).length;
+  return listerJoursOuvresUTC({ debut, fin }, params).length;
 }
 
 /**
@@ -89,4 +139,13 @@ export function ajouterJoursOuvres(
     if (ouvre(cal, j)) restant--;
   }
   return versDateISO(j);
+}
+
+/**
+ * Identité stable du calendrier compilé (même objet tant que les jours
+ * travaillés et les fériés sont inchangés) : sert de clé aux mémoïsations des
+ * moteurs. Lève une `RangeError` si le calendrier est invalide.
+ */
+export function cleCalendrier(params: ParametresCalendrier = {}): object {
+  return compiler(params);
 }
