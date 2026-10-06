@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed-demo": "tsx src/db/seed-demo.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",
@@ -17,8 +18,12 @@
     "@fastify/multipart": "^10.1.2",
     "@missionpilot/engines": "workspace:*",
     "@missionpilot/shared": "workspace:*",
+    "docx": "^9.8.1",
+    "exceljs": "^4.4.0",
     "fastify": "^5.0.0",
     "pg": "^8.13.0",
+    "pptxgenjs": "^4.0.1",
+    "puppeteer-core": "^25.12.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
