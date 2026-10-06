@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
@@ -32,6 +33,35 @@ const schema = z.object({
   TFA_MASTER_KEY: z.string().min(32),
   TFA_MASTER_KEY_PRECEDENTE: z.string().min(32).optional(),
   OPENROUTER_API_KEY: z.string().optional(),
+  /**
+   * Point d'accès OpenRouter (ADR-003) : seule source de l'URL appelée (pas
+   * d'URL venue d'une requête : SSRF). HTTPS obligatoire ; HTTP admis pour
+   * la seule machine locale (serveur factice des tests).
+   */
+  OPENROUTER_BASE_URL: z
+    .string()
+    .url()
+    .refine(
+      (u) =>
+        u.startsWith("https://") ||
+        /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(u),
+      "OPENROUTER_BASE_URL doit être en HTTPS (HTTP réservé à la machine locale).",
+    )
+    .default("https://openrouter.ai/api/v1"),
+  /** Délai maximal d'un appel au modèle, en millisecondes (défaut 60 s). */
+  IA_TIMEOUT_MS: z.coerce.number().int().min(1000).max(300_000).default(60_000),
+  /**
+   * Plafond mensuel de coût IA par cabinet À LA CHARGE DE LA PLATEFORME (clé
+   * OPENROUTER_API_KEY), en micro-dollars US (défaut 50 USD, au plus
+   * 100 000 USD) : avec cette clé, le plafond effectif d'un cabinet est le plus
+   * petit de celui-ci et du sien (ia/parametres.ts, plafondEffectif).
+   */
+  IA_PLAFOND_PLATEFORME_MICRO_USD: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(100_000_000_000)
+    .default(50_000_000),
   /** Worker de la file de tâches (ADR-002) : actif par défaut, sauf en test. */
   JOBS_WORKER: z.enum(["actif", "inactif"]).optional(),
   /** Transport SMTP (SOC-08). Sans SMTP_HOST : journal local en développement et test. */
@@ -70,6 +100,15 @@ const schema = z.object({
     .min(1024 * 1024)
     .max(Number.MAX_SAFE_INTEGER)
     .default(2 * 1024 * 1024 * 1024),
+  /** Navigateur des rapports PDF (facultatif) : chemin absolu, existence vérifiée au démarrage. */
+  CHROMIUM_PATH: z
+    .string()
+    .max(500)
+    .refine(
+      (p) => path.isAbsolute(p) && existsSync(p),
+      "CHROMIUM_PATH doit être le chemin absolu d'un navigateur existant.",
+    )
+    .optional(),
 });
 
 export type Config = z.infer<typeof schema>;

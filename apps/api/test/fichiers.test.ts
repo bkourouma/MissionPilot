@@ -9,6 +9,7 @@ import {
   demarrerAvecStockage,
   ECHANTILLONS,
   marquerOrphelins,
+  multipart,
   televerser,
 } from "./fichiers-outils.js";
 import { proprietaire, type Contexte } from "./helpers.js";
@@ -205,6 +206,47 @@ describe("plafonds : taille par fichier et quota par cabinet", () => {
     } finally {
       await petit.fermer();
     }
+  });
+
+  it("corps annoncé au-delà du fichier maximal + 64 Kio : 413 avant toute lecture, même sans session", async () => {
+    // `bodyLimit` ne s'applique pas au multipart : le crochet onRequest lit content-length.
+    const petit = await demarrerAvecStockage({ FICHIER_TAILLE_MAX_OCTETS: 2048 });
+    try {
+      const c = await preparerCabinet(petit, "Cabinet Fichiers Annonce");
+      const m = multipart("gros.pdf", Buffer.alloc(2048 + 64 * 1024 + 1, 0x20));
+      // Débours inconnu : la garde répond avant la route (qui répondrait 401 ou 404).
+      const urls = [
+        "/api/fichiers",
+        "/api/debours/00000000-0000-4000-8000-000000000000/justificatif",
+      ];
+      for (const url of urls) {
+        for (const u of [api(petit), c.chef]) {
+          const r = await u.brut({ method: "POST", url, payload: m.payload, headers: m.headers });
+          expect(r.statusCode, `${url} ${r.body}`).toBe(413);
+          expect(r.json().erreur).toEqual({
+            code: "FICHIER_TROP_VOLUMINEUX",
+            message: "Fichier trop volumineux : 0 Mo au plus.",
+          });
+        }
+      }
+      // Fichier au plafond exact, enveloppe comprise sous le seuil : accepté.
+      const pdf = ECHANTILLONS.pdf();
+      const auPlafond = Buffer.concat([pdf, Buffer.alloc(2048 - pdf.length, 0x20)]);
+      const r = await televerser(c.chef, "/api/fichiers", "max.pdf", auPlafond);
+      expect(r.statusCode, r.body).toBe(201);
+      expect(r.json().taille).toBe(2048);
+      await marquerOrphelins([c.cabinetId]);
+    } finally {
+      await petit.fermer();
+    }
+  });
+
+  it("corps JSON sur une route de téléversement : plafond global (1 Mio), jamais relevé", async () => {
+    // Sous la taille annoncée admise (15 Mo) mais au-delà du plafond JSON : refusé sans analyse.
+    const r = await a.chef.post("/api/fichiers", { nom: "x".repeat(1_100_000) });
+    expect(r.statusCode).toBe(413);
+    // Petit corps JSON : la route exige du multipart.
+    expect((await a.chef.post("/api/fichiers", { nom: "x" })).statusCode).toBe(415);
   });
 
   it("plafond par défaut : 15 Mo par fichier, 2 Go par cabinet", () => {

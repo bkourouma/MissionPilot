@@ -1,11 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { creerRegistre, ErreurJobDefinitive } from "../src/jobs/registre.js";
-import { planificationsDeLaSemaine } from "../src/jobs/planificateur.js";
+import { ErreurJobDefinitive as ErreurNeutre } from "../src/jobs/erreurs.js";
+import { creerRegistre, ErreurJobDefinitive, REGISTRE_JOBS } from "../src/jobs/registre.js";
+import { planificationsDeLaSemaine, planifierRecurrents } from "../src/jobs/planificateur.js";
 import { WorkerJobs } from "../src/jobs/worker.js";
+import { TYPE_JOB_SUIVI_KPI } from "../src/kpi/suivi.js";
 import { MailerJournal } from "../src/notifications/mailer.js";
+import {
+  relanceQuestionnaire,
+  TYPE_JOB_RELANCE_QUESTIONNAIRE,
+} from "../src/questionnaires/relances.js";
 import { workerActif } from "../src/config.js";
-import { demarrer, type Contexte } from "./helpers.js";
-import { preparerCabinet, type CabinetMissions } from "./missions-outils.js";
+import { demarrer, proprietaire, type Contexte } from "./helpers.js";
+import { creerKpi } from "./kpi-outils.js";
+import { creerMission, preparerCabinet, type CabinetMissions } from "./missions-outils.js";
 import { consultantAffecte, missionTemps, saisirEtSoumettre } from "./temps-outils.js";
 
 let ctx: Contexte;
@@ -48,6 +55,15 @@ describe("worker de la file de tâches (ADR-002)", () => {
   });
 
   it("exécute dans le contexte RLS du cabinet du job, reprend sur échec puis abandonne", async () => {
+    // Base partagée entre fichiers : les jobs en attente d'autres cabinets (relances de
+    // questionnaires J+3/J+7…) seraient réservés par ce worker à registre réduit.
+    await proprietaire((c) =>
+      c.query(
+        `UPDATE jobs SET statut = 'termine'
+         WHERE statut = 'en_attente' AND cabinet_id <> $1 AND execute_a <= '2029-06-01T10:03:00Z'`,
+        [a.cabinetId],
+      ),
+    );
     const h = horloge("2029-06-01T10:00:00Z");
     let appels = 0;
     const vus: unknown[] = [];
@@ -123,6 +139,82 @@ describe("worker de la file de tâches (ADR-002)", () => {
     expect((await lireJob(id)).statut).toBe("en_attente");
     await ctx.db.withTenant(a.cabinetId, (db) =>
       db.query("UPDATE jobs SET statut = 'termine' WHERE id = $1", [id]),
+    );
+  });
+});
+
+describe("registre et planification de production", () => {
+  it("le registre inscrit les relances de questionnaires et le suivi des KPI", () => {
+    expect(REGISTRE_JOBS.get(TYPE_JOB_RELANCE_QUESTIONNAIRE)).toBe(relanceQuestionnaire);
+    expect(TYPE_JOB_SUIVI_KPI).toBe("kpi_suivi");
+    expect(REGISTRE_JOBS.get(TYPE_JOB_SUIVI_KPI)).toEqual(expect.any(Function));
+    // Une seule classe d'erreur définitive (module neutre, réexportée par le registre).
+    expect(ErreurJobDefinitive).toBe(ErreurNeutre);
+  });
+
+  it("planifie le suivi quotidien des KPI (7 h UTC) une seule fois par cabinet et par jour", async () => {
+    const m = await creerMission(a, { intitule: "Mission suivie par KPI" });
+    await creerKpi(a.chef, m.id);
+    const quand = new Date("2031-03-04T05:00:00Z");
+    try {
+      await planifierRecurrents(ctx.db, quand);
+      await planifierRecurrents(ctx.db, quand);
+      const jobs = await ctx.db.withTenant(
+        a.cabinetId,
+        async (db) =>
+          (
+            await db.query(
+              "SELECT type, statut, execute_a, charge FROM jobs WHERE cle = 'kpi_suivi:2031-03-04'",
+            )
+          ).rows,
+      );
+      expect(jobs).toEqual([
+        {
+          type: "kpi_suivi",
+          statut: "en_attente",
+          execute_a: new Date("2031-03-04T07:00:00Z"),
+          charge: { date: "2031-03-04" },
+        },
+      ]);
+    } finally {
+      // Base partagée entre fichiers : ces tâches de 2031 ne doivent pas s'exécuter ailleurs.
+      await proprietaire((c) =>
+        c.query(
+          `UPDATE jobs SET statut = 'termine'
+           WHERE execute_a >= '2031-03-01' AND execute_a < '2031-03-15' AND statut = 'en_attente'`,
+        ),
+      );
+    }
+  });
+
+  it("reprise des relances de questionnaire en échec (0148) : propriétaire seul, jobs visés seulement", async () => {
+    const inserer = (erreur: string) =>
+      ctx.db.withTenant(a.cabinetId, async (db) => {
+        const r = await db.query(
+          `INSERT INTO jobs (cabinet_id, type, charge, execute_a, statut, tentatives, erreur)
+           VALUES ($1, 'relance_questionnaire', '{}', '2029-01-01', 'echec', 1, $2) RETURNING id`,
+          [a.cabinetId, erreur],
+        );
+        return r.rows[0].id as string;
+      });
+    const vise = await inserer("Type de job inconnu : relance_questionnaire");
+    const autre = await inserer("Charge de relance de questionnaire invalide.");
+    await expect(
+      ctx.db.withoutTenant((db) => db.query("SELECT reprendre_relances_questionnaire()")),
+    ).rejects.toMatchObject({ code: "42501" });
+    const n = await proprietaire(
+      async (c) => (await c.query("SELECT reprendre_relances_questionnaire() AS n")).rows[0].n,
+    );
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(await lireJob(vise)).toMatchObject({
+      statut: "en_attente",
+      tentatives: 0,
+      erreur: null,
+      verrouille_le: null,
+    });
+    expect(await lireJob(autre)).toMatchObject({ statut: "echec", tentatives: 1 });
+    await ctx.db.withTenant(a.cabinetId, (db) =>
+      db.query("UPDATE jobs SET statut = 'termine' WHERE id = ANY($1::uuid[])", [[vise, autre]]),
     );
   });
 });

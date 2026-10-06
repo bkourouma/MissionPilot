@@ -22,12 +22,24 @@ import { associesActifs, notifierAvecEmailEnFile } from "../notifications/notifi
 const CHAMPS = [...CHAMPS_PARAMETRES_IDENTITE, ...CHAMPS_PARAMETRES_OPERATIONNELS] as const;
 const BANCAIRES: readonly string[] = CHAMPS_PARAMETRES_BANCAIRES;
 
-/** IBAN masqué pour le journal et les alertes : 2 premiers et 4 derniers caractères. */
+/** IBAN masqué (journal, alertes, lecture sans « facture.emettre ») : pays et 4 derniers caractères. */
 export function masquerIban(iban: string | null): string | null {
   if (!iban) return null;
   if (iban.length <= 6) return "…";
   return `${iban.slice(0, 2)}…${iban.slice(-4)}`;
 }
+
+/**
+ * Autres coordonnées de paiement (texte libre : Mobile Money, chèque…) rendues à un
+ * lecteur sans « facture.emettre » : rien n'en est montré. Valeur refusée en écriture.
+ */
+export const AUTRES_COORDONNEES_MASQUEES = "…";
+
+const enClair = (p: ParametresFacturation) => ({
+  ...p,
+  iban_masque: false,
+  autres_coordonnees_masquees: false,
+});
 
 const confirmationRequise = () =>
   new AppError(
@@ -39,7 +51,20 @@ const confirmationRequise = () =>
 /**
  * Paramètres de facturation du cabinet (FIN-07).
  *
- * Lecture : « facture.lire » ou « cabinet.gerer ».
+ * Lecture : « facture.lire » ou « cabinet.gerer ». Sur CET écran seulement, l'IBAN
+ * et les autres coordonnées de paiement ne sont rendus en clair qu'aux détenteurs
+ * de « facture.emettre » (et dans la réponse d'une écriture) ; les autres
+ * reçoivent l'IBAN masqué (pays + 4 derniers caractères, `masquerIban`,
+ * `iban_masque: true`) et les autres coordonnées remplacées par
+ * `AUTRES_COORDONNEES_MASQUEES` (`autres_coordonnees_masquees: true`). Le web ne
+ * renvoie jamais une valeur masquée (il l'omet si elle est inchangée).
+ *
+ * Ce masquage NE PROTÈGE PAS les coordonnées bancaires (choix assumé) : elles
+ * figurent sur les factures envoyées aux clients, et tout détenteur de
+ * « facture.lire » les lit sur une facture qu'il voit (GET /api/factures/:id,
+ * mentions figées ; GET /api/factures/:id/document, y compris sur un brouillon). Le
+ * directeur de mission (« facture.valider ») doit pouvoir les vérifier avant
+ * l'émission. La protection réelle porte sur leur MODIFICATION (ci-dessous).
  * Écriture, selon le champ (choix documenté) :
  * - identité légale, coordonnées de paiement (IBAN) et numérotation :
  *   « cabinet.gerer » (associé) — un IBAN ou un préfixe modifié engage le
@@ -62,7 +87,18 @@ export const routesParametresFacturation: FastifyPluginAsync = async (app) => {
     if (!aPermission(auth.roles, "facture.lire") && !aPermission(auth.roles, "cabinet.gerer")) {
       throw interdit();
     }
-    return app.db.withTenant(auth.cabinetId, (db) => lireParametresFacturation(db, auth.cabinetId));
+    const p = await app.db.withTenant(auth.cabinetId, (db) =>
+      lireParametresFacturation(db, auth.cabinetId),
+    );
+    // Coordonnées en clair pour « facture.emettre » seulement ; masquées sinon.
+    if (aPermission(auth.roles, "facture.emettre")) return enClair(p);
+    return {
+      ...p,
+      iban: masquerIban(p.iban),
+      iban_masque: p.iban !== null,
+      autres_coordonnees: p.autres_coordonnees === null ? null : AUTRES_COORDONNEES_MASQUEES,
+      autres_coordonnees_masquees: p.autres_coordonnees !== null,
+    };
   });
 
   app.patch("/parametres-facturation", async (request) => {
@@ -83,6 +119,12 @@ export const routesParametresFacturation: FastifyPluginAsync = async (app) => {
         ),
       ),
     );
+    // La valeur masquée renvoyée telle quelle n'écrase jamais les coordonnées enregistrées.
+    if (modif.autres_coordonnees === AUTRES_COORDONNEES_MASQUEES) {
+      throw requeteInvalide(
+        "Autres coordonnées : saisissez les coordonnées complètes, pas la valeur masquée.",
+      );
+    }
     const champs = Object.keys(modif).filter(
       (c) => (modif as Record<string, unknown>)[c] !== undefined,
     );
@@ -146,7 +188,8 @@ export const routesParametresFacturation: FastifyPluginAsync = async (app) => {
         },
       });
       if (bancaires.length > 0) await alerterAssocies(db, auth, bancaires, avant, apres);
-      return lireParametresFacturation(db, auth.cabinetId);
+      // Réponse à l'écriture : en clair (l'auteur a le droit de les modifier ou d'émettre).
+      return enClair(await lireParametresFacturation(db, auth.cabinetId));
     };
 
     // Lecture préalable (hors verrou) : la reconfirmation n'est demandée que pour un vrai changement.

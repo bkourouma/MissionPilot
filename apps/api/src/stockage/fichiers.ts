@@ -7,6 +7,7 @@ import type { Db } from "../db/pool.js";
 import { AppError, conflit, introuvable, requeteInvalide } from "../errors.js";
 import { deboursVisible } from "../facturation/debours.js";
 import { missionVisibleOuNull } from "../facturation/outils.js";
+import { peutLireNiveau, type NiveauRapport } from "../rapports/niveaux.js";
 import { detecterType } from "./detection.js";
 import { stockageDe } from "./index.js";
 import { assainirNom, extensionDe, nomAvecExtension } from "./nom.js";
@@ -18,6 +19,9 @@ import { assainirNom, extensionDe, nomAvecExtension } from "./nom.js";
  *
  * Accès à un fichier (404 dans tous les autres cas, y compris un autre
  * cabinet, par RLS) :
+ * - rapport généré (rapports_mission) : « mission.lire », mission visible ET
+ *   permissions du niveau du rapport (rapports/niveaux.ts), quel que soit
+ *   l'auteur ; vérifié AVANT toute autre règle ;
  * - rattaché à une version de document : « mission.lire » et mission visible ;
  * - justificatif d'un débours : débours visible (auteur, ou qui voit les
  *   débours de la mission) ;
@@ -222,6 +226,22 @@ async function lireFichier(db: Db, id: string): Promise<FichierDb> {
 export async function exigerFichierLisible(db: Db, auth: Auth, id: string): Promise<FichierDb> {
   const f = await lireFichier(db, id);
   if (f.supprime) throw introuvable("Fichier");
+  // Rapport généré : ses seules règles s'appliquent (jamais celles de l'orphelin ni de l'auteur).
+  const rapport = await db.query(
+    "SELECT mission_id, niveau FROM rapports_mission WHERE fichier_id = $1",
+    [id],
+  );
+  if (rapport.rows[0]) {
+    const { mission_id: missionId, niveau } = rapport.rows[0] as {
+      mission_id: string;
+      niveau: NiveauRapport;
+    };
+    if (!aPermission(auth.roles, "mission.lire") || !peutLireNiveau(auth.roles, niveau)) {
+      throw introuvable("Fichier");
+    }
+    if (!(await missionVisibleOuNull(db, auth, missionId))) throw introuvable("Fichier");
+    return f;
+  }
   const documents = await db.query(
     "SELECT mission_id FROM mission_documents WHERE fichier_id = $1",
     [id],

@@ -119,6 +119,57 @@ describe("garanties de la base", () => {
     expect(manquantes).toEqual([]);
   });
 
+  /*
+   * Portail client (SOC-09, migrations 0113-0114) : dans une transaction du
+   * portail, chaque table qui admet des lignes au rôle applicatif (politique
+   * permissive) est filtrée (`portail`, en lecture) ou vidée
+   * (`portail_interdit`) par une politique RESTRICTIVE. Aucune liste
+   * d'exceptions : une table à RLS sans politique permissive n'admet aucune
+   * ligne (échec sûr) et n'a pas besoin de politique du portail.
+   */
+  it("toute table à RLS porte une politique RESTRICTIVE portail ou portail_interdit (lecture)", async () => {
+    const manquantes = await proprietaire(async (c) => {
+      const r = await c.query(`
+        SELECT cl.relname FROM pg_class cl
+        WHERE cl.relnamespace = 'public'::regnamespace AND cl.relkind IN ('r', 'p')
+          AND cl.relrowsecurity
+          AND EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = cl.oid AND p.polpermissive)
+          AND NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = cl.oid
+                          AND NOT p.polpermissive AND p.polcmd IN ('r', '*')
+                          AND p.polname IN ('portail', 'portail_interdit'))
+        ORDER BY 1`);
+      return r.rows.map((x) => x.relname as string);
+    });
+    expect(manquantes).toEqual([]);
+  });
+
+  it("aucune politique du portail n'est permissive (elle élargirait l'accès)", async () => {
+    const permissives = await proprietaire(
+      async (c) =>
+        (
+          await c.query(
+            `SELECT tablename || '.' || policyname AS p FROM pg_policies
+             WHERE schemaname = 'public' AND policyname LIKE 'portail%' AND permissive = 'PERMISSIVE'`,
+          )
+        ).rows,
+    );
+    expect(permissives).toEqual([]);
+  });
+
+  it("toute table lisible par le rôle applicatif a RLS activée", async () => {
+    const sansRls = await ctx.db.withoutTenant(
+      async (db) =>
+        (
+          await db.query(`
+            SELECT cl.relname FROM pg_class cl
+            WHERE cl.relnamespace = 'public'::regnamespace AND cl.relkind IN ('r', 'p')
+              AND NOT cl.relrowsecurity AND has_table_privilege(cl.oid, 'SELECT')
+            ORDER BY 1`)
+        ).rows,
+    );
+    expect(sansRls).toEqual([]);
+  });
+
   it("le journal d'audit est en ajout seul pour le rôle applicatif", async () => {
     await ctx.db.withTenant(a.cabinetId, (db) =>
       db.query(`INSERT INTO journal_audit (cabinet_id, action, entite) VALUES ($1, 't', 't')`, [

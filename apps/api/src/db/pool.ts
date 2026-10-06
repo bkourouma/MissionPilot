@@ -1,5 +1,6 @@
 import pg from "pg";
 import type { Config } from "../config.js";
+import { contexteBasePortail } from "../portail/contexte.js";
 
 export type Db = pg.PoolClient;
 
@@ -19,11 +20,22 @@ export function createDatabase(config: Pick<Config, "DATABASE_URL">): Database {
   async function run<T>(cabinetId: string | null, fn: (db: Db) => Promise<T>): Promise<T> {
     if (cabinetId !== null && !UUID.test(cabinetId))
       throw new Error("Identifiant de cabinet invalide");
+    // Session du portail client : son contexte RLS est posé à CHAQUE transaction (portail/contexte.ts).
+    const portail = contexteBasePortail();
+    if (portail && !(UUID.test(portail.clientId) && UUID.test(portail.utilisateurId)))
+      throw new Error("Contexte du portail invalide");
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       if (cabinetId !== null) {
         await client.query("SELECT set_config('app.cabinet_id', $1, true)", [cabinetId]);
+      }
+      if (portail) {
+        await client.query(
+          `SELECT set_config('app.portail_client_id', $1, true),
+             set_config('app.portail_utilisateur_id', $2, true)`,
+          [portail.clientId, portail.utilisateurId],
+        );
       }
       const result = await fn(client);
       await client.query("COMMIT");

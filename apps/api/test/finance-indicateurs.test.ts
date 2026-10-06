@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Role } from "@missionpilot/shared";
+import type { RoleCabinet } from "@missionpilot/shared";
 import type { Api } from "./api.js";
 import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 import { attendre, preparerFacturation, type CabinetFacturation } from "./facturation-outils.js";
@@ -239,7 +239,7 @@ describe("indicateurs de pilotage du cabinet : jeu calculé à la main", () => {
     expect(r.cabinet).not.toHaveProperty("carnet_commandes");
     expect(r.cabinet.carnet_commandes_facture).toBe(2_000_000);
     expect(JSON.stringify(r)).not.toMatch(/480000|1020000|1300000|2200000|couts_internes/);
-    const attendus: Record<Role, number> = {
+    const attendus: Record<RoleCabinet, number> = {
       associe: 200,
       directeur_mission: 200,
       gestionnaire: 200,

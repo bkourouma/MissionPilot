@@ -3,7 +3,9 @@ import {
   invitationAcceptationSchema,
   invitationCreationSchema,
   reinitialisationTfaSchema,
+  estUtilisateurPortail,
   ROLE_LIBELLES,
+  ROLES_CLIENT,
   utilisateurModificationSchema,
   type Role,
 } from "@missionpilot/shared";
@@ -40,6 +42,31 @@ const invitationInvalide = () =>
 const estAssocieActif = (u: Pick<Utilisateur, "actif" | "roles">) =>
   u.actif && u.roles.includes("associe");
 
+/**
+ * Invitations encore en attente pour cet e-mail, avant une invitation INTERNE.
+ * Une invitation au portail client (client_id non NULL) n'est jamais annulée en
+ * silence (409 : la révoquer d'abord depuis le portail du client) ; seules les
+ * invitations internes (client_id NULL) sont remplacées. Symétrique de
+ * `remplacerInvitationsEnAttente` (routes/portail-gestion.ts).
+ */
+async function remplacerInvitationsInternesEnAttente(db: Db, email: string) {
+  const r = await db.query(
+    `SELECT client_id FROM invitations
+     WHERE lower(email) = $1 AND acceptee_le IS NULL AND expire_le > now() FOR UPDATE`,
+    [email],
+  );
+  if (r.rows.some((x) => x.client_id !== null)) {
+    throw conflit(
+      "Une invitation au portail client est en attente pour cet e-mail : révoquez-la d'abord.",
+    );
+  }
+  await db.query(
+    `UPDATE invitations SET expire_le = now()
+     WHERE lower(email) = $1 AND client_id IS NULL AND acceptee_le IS NULL AND expire_le > now()`,
+    [email],
+  );
+}
+
 /** Refuse de retirer le dernier associé actif (le cabinet deviendrait ingérable). */
 async function verifierDernierAssocie(db: Db, avant: Utilisateur, apres: Utilisateur) {
   if (!estAssocieActif(avant) || estAssocieActif(apres)) return;
@@ -62,7 +89,11 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
         `SELECT u.id, u.email, u.nom, u.roles, u.actif, u.cree_le,
            EXISTS (SELECT 1 FROM utilisateurs_2fa t
                    WHERE t.utilisateur_id = u.id AND t.active_le IS NOT NULL) AS tfa_active
-         FROM utilisateurs u ORDER BY lower(u.nom), u.id`,
+         FROM utilisateurs u
+         -- Les utilisateurs du portail client se gèrent par /api/portail/utilisateurs.
+         WHERE NOT (u.roles && $1::text[])
+         ORDER BY lower(u.nom), u.id`,
+        [ROLES_CLIENT],
       );
       return { elements: r.rows };
     });
@@ -77,7 +108,9 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
       await db.query("SELECT 1 FROM cabinets WHERE id = $1 FOR UPDATE", [auth.cabinetId]);
       const avant = (await db.query(`SELECT ${COLONNES} FROM utilisateurs WHERE id = $1`, [id]))
         .rows[0] as Utilisateur | undefined;
-      if (!avant) throw introuvable("Utilisateur");
+      // Un utilisateur du portail client n'est pas un utilisateur du cabinet (SOC-09) :
+      // il se gère par /api/portail/utilisateurs, jamais par cette route.
+      if (!avant || estUtilisateurPortail(avant.roles)) throw introuvable("Utilisateur");
       const apres: Utilisateur = {
         ...avant,
         nom: modif.nom ?? avant.nom,
@@ -185,7 +218,8 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const r = await db.query(
         `SELECT ${COLONNES_INVITATION} FROM invitations
-         WHERE acceptee_le IS NULL AND expire_le > now() ORDER BY cree_le DESC`,
+         WHERE client_id IS NULL AND acceptee_le IS NULL AND expire_le > now()
+         ORDER BY cree_le DESC`,
       );
       return { elements: r.rows };
     });
@@ -197,7 +231,8 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const r = await db.query(
         `UPDATE invitations SET expire_le = now()
-         WHERE id = $1 AND acceptee_le IS NULL AND expire_le > now() RETURNING id`,
+         WHERE id = $1 AND client_id IS NULL AND acceptee_le IS NULL AND expire_le > now()
+         RETURNING id`,
         [id],
       );
       if (!r.rowCount) throw introuvable("Invitation");
@@ -219,12 +254,8 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
     const { invitation, nomCabinet } = await app.db.withTenant(auth.cabinetId, async (db) => {
       const existe = await db.query("SELECT 1 FROM utilisateurs WHERE lower(email) = $1", [email]);
       if (existe.rowCount) throw conflit("Un utilisateur du cabinet utilise déjà cet e-mail.");
-      // Une nouvelle invitation remplace celles encore en attente pour cet e-mail.
-      await db.query(
-        `UPDATE invitations SET expire_le = now()
-         WHERE lower(email) = $1 AND acceptee_le IS NULL AND expire_le > now()`,
-        [email],
-      );
+      // Remplace les invitations INTERNES en attente ; 409 si une invitation au portail l'est.
+      await remplacerInvitationsInternesEnAttente(db, email);
       const r = await db.query(
         `INSERT INTO invitations (cabinet_id, email, roles, jeton_hash, expire_le, invite_par)
          VALUES ($1, $2, $3, $4, now() + make_interval(days => $5), $6)

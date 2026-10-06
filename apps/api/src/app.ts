@@ -3,7 +3,7 @@ import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import { ZodError } from "zod";
 import type { Role } from "@missionpilot/shared";
-import type { Config } from "./config.js";
+import { estLocal, type Config } from "./config.js";
 import type { Database } from "./db/pool.js";
 import { AppError } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
@@ -12,9 +12,12 @@ import { creerMailer, type Mailer } from "./notifications/mailer.js";
 import { routesAuth } from "./routes/auth.js";
 import { routesFacturation } from "./routes/facturation-routes.js";
 import { routesFinance } from "./routes/finance-routes.js";
+import { routesIa } from "./routes/ia-routes.js";
 import { routesDocumentsCollaboration } from "./routes/documents-routes.js";
 import { routesCycleMission } from "./routes/missions-routes.js";
 import { routesPlanification } from "./routes/planification-routes.js";
+import { installerGardePortail } from "./portail/garde.js";
+import { routesPortail } from "./routes/portail.js";
 import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
 import { routesTemps } from "./routes/temps-routes.js";
@@ -36,8 +39,63 @@ export function routeLibreSans2fa(motif: string | undefined): boolean {
   return (
     motif === "/api/sante" ||
     motif.startsWith("/api/auth/") ||
-    motif === "/api/invitations/accepter"
+    motif === "/api/invitations/accepter" ||
+    motif === "/api/portail/invitations/accepter"
   );
+}
+
+/** Méthodes qui modifient l'état : soumises à la garde d'origine. */
+const METHODES_MODIFIANTES = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/** Origine sérialisée (`schéma://hôte[:port]`) d'une URL de configuration (WEB_ORIGIN). */
+export function origineDe(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Garde d'origine (CSRF), en complément du cookie `SameSite=Lax` : vrai si une requête
+ * modifiante (POST, PUT, PATCH, DELETE) porte un en-tête `Origin` différent de l'origine du
+ * web, comparée telle quelle (ni préfixe, ni suffixe, ni casse). `null` (document sandboxé,
+ * redirection entre origines, fichier local) est toujours refusé, même si WEB_ORIGIN est
+ * illisible et sérialisé en « null ». Sans en-tête `Origin` (client hors navigateur, appel
+ * serveur du web, `inject` des tests), la requête suit : session et permission restent
+ * exigées par la route.
+ */
+export function origineRefusee(
+  methode: string,
+  origine: string | string[] | undefined,
+  origineWeb: string | ReadonlySet<string>,
+): boolean {
+  if (!METHODES_MODIFIANTES.has(methode) || origine === undefined) return false;
+  if (origine === "null" || Array.isArray(origine)) return true;
+  return typeof origineWeb === "string" ? origine !== origineWeb : !origineWeb.has(origine);
+}
+
+/**
+ * Origines acceptées : celle de WEB_ORIGIN et, en développement ou en test seulement, ses
+ * alias de boucle locale (localhost, 127.0.0.1, [::1]) au même schéma et au même port, pour que
+ * le web ouvert sur http://127.0.0.1:3100 ne soit pas refusé. Jamais d'alias en production.
+ */
+export function originesAcceptees(origineWeb: string, nodeEnv: string | undefined): Set<string> {
+  const acceptees = new Set([origineWeb]);
+  if (!estLocal(nodeEnv)) return acceptees;
+  try {
+    const u = new URL(origineWeb);
+    if (["localhost", "127.0.0.1", "[::1]"].includes(u.hostname)) {
+      for (const h of ["localhost", "127.0.0.1", "[::1]"]) {
+        const alias = new URL(origineWeb);
+        alias.hostname = h;
+        acceptees.add(alias.origin);
+      }
+    }
+  } catch {
+    // WEB_ORIGIN illisible : seule la valeur brute est acceptée.
+  }
+  return acceptees;
 }
 
 export async function buildApp(
@@ -57,6 +115,24 @@ export async function buildApp(
 
   await app.register(cors, { origin: config.WEB_ORIGIN, credentials: true });
   await app.register(cookie);
+
+  /*
+   * Garde d'origine (CSRF, `origineRefusee`), AVANT la session et toute lecture du corps :
+   * un formulaire d'un autre site poste du multipart, du texte ou de l'urlencodé sans
+   * pré-requête CORS, mais le navigateur joint toujours `Origin` à un POST, PUT, PATCH ou
+   * DELETE, même en même origine. Hypothèses : le relais Next (réécriture `/api/*`,
+   * http-proxy en `changeOrigin`) ne réécrit que `Host` et transmet l'`Origin` du
+   * navigateur ; les appels serveur du web (`lib/api-serveur.ts`, fetch de Node) n'en
+   * envoient pas. En production, le web doit être ouvert à
+   * l'adresse exacte de WEB_ORIGIN ; en développement et en test, localhost, 127.0.0.1 et
+   * [::1] (même port) sont équivalents (`originesAcceptees`).
+   */
+  const origineWeb = originesAcceptees(origineDe(config.WEB_ORIGIN), config.NODE_ENV);
+  app.addHook("onRequest", async (request) => {
+    if (origineRefusee(request.method, request.headers.origin, origineWeb)) {
+      throw new AppError(403, "ORIGINE_REFUSEE", "Requête refusée : origine non autorisée.");
+    }
+  });
 
   app.addHook("onRequest", async (request) => {
     const jeton = request.cookies[COOKIE_SESSION];
@@ -85,6 +161,9 @@ export async function buildApp(
         !tfa?.tfa_active && session.roles.some((role) => politique.includes(role));
     }
   });
+
+  // Portail client (SOC-09) : liste blanche stricte et contexte du client (portail/garde.ts).
+  installerGardePortail(app);
 
   /*
    * Politique 2FA APPLIQUÉE (SOC-02, constat M2) : un utilisateur soumis à la
@@ -151,5 +230,16 @@ export async function buildApp(
   await app.register(routesFacturation, { prefix: "/api" });
   await app.register(routesFinance, { prefix: "/api" });
   await app.register(routesDocumentsCollaboration, { prefix: "/api" });
+  await app.register((await import("./routes/rapports.js")).routesRapports, { prefix: "/api" });
+  await app.register(routesIa, { prefix: "/api" });
+  await app.register((await import("./routes/plans.js")).routesPlans, { prefix: "/api" });
+  await app.register((await import("./routes/kpi.js")).routesKpi, { prefix: "/api" });
+  await app.register((await import("./routes/questionnaires.js")).routesQuestionnaires, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/limiteur-admin.js")).routesLimiteurAdmin, {
+    prefix: "/api",
+  });
+  await app.register(routesPortail, { prefix: "/api/portail" });
   return app;
 }

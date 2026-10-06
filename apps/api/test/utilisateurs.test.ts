@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MailerJournal } from "../src/notifications/mailer.js";
 import { api, cabinetTest, type CabinetTest } from "./api.js";
-import { demarrer, proprietaire, type Contexte } from "./helpers.js";
+import { viderEmailsEnFile } from "./facturation-outils.js";
+import { demarrer, MOT_DE_PASSE_TEST, proprietaire, type Contexte } from "./helpers.js";
 
 let ctx: Contexte;
 let a: CabinetTest;
@@ -12,7 +13,12 @@ beforeAll(async () => {
   a = await cabinetTest(ctx, "Cabinet Utilisateurs A");
   b = await cabinetTest(ctx, "Cabinet Utilisateurs B");
 });
-afterAll(() => ctx.fermer());
+afterAll(async () => {
+  // Alertes e-mail des associés mises en file par les invitations au portail de ce
+  // fichier (base de test partagée, voir jobs.test.ts et isolation.test.ts).
+  if (a) await viderEmailsEnFile(a.cabinetId);
+  await ctx.fermer();
+});
 
 const boite = () => ctx.app.mailer as MailerJournal;
 const jetonDe = (email: string) => {
@@ -182,6 +188,85 @@ describe("invitations (SOC-02)", () => {
       mot_de_passe: "un-mot-de-passe-long",
     });
     expect(acc.statusCode).toBe(400);
+  });
+
+  describe("invitation au portail client en attente pour le même e-mail", () => {
+    let clientId: string;
+    beforeAll(async () => {
+      const c = await a.associe.post("/api/clients", {
+        raison_sociale: "Client Invitations (fictif)",
+      });
+      expect(c.statusCode).toBe(201);
+      clientId = c.json().id;
+    });
+    const inviterAuPortail = (email: string) =>
+      a.associe.post("/api/portail/invitations", {
+        email,
+        client_id: clientId,
+        roles: ["client_dirigeant"],
+      });
+
+    it("refuse l'invitation interne (409) sans toucher à l'invitation du portail", async () => {
+      const email = `portail-attente-${Date.now()}@client.test`;
+      const portail = await inviterAuPortail(email);
+      expect(portail.statusCode).toBe(201);
+      const jetonPortail = jetonDe(email);
+
+      const r = await a.associe.post("/api/invitations", { email, roles: ["consultant"] });
+      expect(r.statusCode).toBe(409);
+      expect(r.json().erreur.code).toBe("CONFLIT");
+      expect(r.json().erreur.message).toBe(
+        "Une invitation au portail client est en attente pour cet e-mail : révoquez-la d'abord.",
+      );
+      // Aucune invitation interne créée, aucun e-mail d'invitation interne envoyé.
+      const liste = await a.associe.get("/api/invitations");
+      expect(liste.json().elements.map((i: { email: string }) => i.email)).not.toContain(email);
+      expect(jetonDe(email)).toBe(jetonPortail);
+      // L'invitation du portail reste en attente, puis s'accepte normalement.
+      const etat = await proprietaire(
+        async (c) =>
+          (
+            await c.query(
+              "SELECT acceptee_le IS NULL AND expire_le > now() AS en_attente FROM invitations WHERE id = $1",
+              [portail.json().id],
+            )
+          ).rows[0]?.en_attente,
+      );
+      expect(etat).toBe(true);
+      const acc = await api(ctx).post("/api/portail/invitations/accepter", {
+        jeton: jetonPortail,
+        nom: "Dirigeant client",
+        mot_de_passe: MOT_DE_PASSE_TEST,
+      });
+      expect(acc.statusCode).toBe(201);
+    });
+
+    it("après révocation de l'invitation du portail, l'invitation interne passe et se remplace", async () => {
+      const email = `portail-revoque-${Date.now()}@client.test`;
+      const portail = await inviterAuPortail(email);
+      expect(portail.statusCode).toBe(201);
+      expect(
+        (await a.associe.delete(`/api/portail/invitations/${portail.json().id}`)).statusCode,
+      ).toBe(200);
+
+      const r1 = await a.associe.post("/api/invitations", { email, roles: ["consultant"] });
+      expect(r1.statusCode).toBe(201);
+      const ancien = jetonDe(email);
+      const r2 = await a.associe.post("/api/invitations", { email, roles: ["chef_mission"] });
+      expect(r2.statusCode).toBe(201);
+      const liste = await a.associe.get("/api/invitations");
+      const enAttente = liste
+        .json()
+        .elements.filter((i: { email: string }) => i.email === email)
+        .map((i: { id: string }) => i.id);
+      expect(enAttente).toEqual([r2.json().id]);
+      const acc = await api(ctx).post("/api/invitations/accepter", {
+        jeton: ancien,
+        nom: "X",
+        mot_de_passe: "un-mot-de-passe-long",
+      });
+      expect(acc.statusCode).toBe(400);
+    });
   });
 
   it("refuse d'inviter un e-mail déjà utilisé dans le cabinet", async () => {

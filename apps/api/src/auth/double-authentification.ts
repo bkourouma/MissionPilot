@@ -1,5 +1,10 @@
 import { randomInt } from "node:crypto";
-import { NOMBRE_CODES_SECOURS, ROLES_TFA_SENSIBLES, type Role } from "@missionpilot/shared";
+import {
+  estUtilisateurPortail,
+  NOMBRE_CODES_SECOURS,
+  ROLES_TFA_SENSIBLES,
+  type Role,
+} from "@missionpilot/shared";
 import type { Config } from "../config.js";
 import type { Db } from "../db/pool.js";
 import { AppError } from "../errors.js";
@@ -81,16 +86,22 @@ export async function lireEtat(
   const r = await db.query(
     `SELECT c.tfa_obligatoire, t.active_le,
        (SELECT count(*)::int FROM codes_secours_2fa s
-        WHERE s.utilisateur_id = $2 AND s.utilise_le IS NULL) AS restants
+        WHERE s.utilisateur_id = $2 AND s.utilise_le IS NULL) AS restants,
+       COALESCE((SELECT p.tfa_obligatoire FROM portail_parametres p WHERE p.cabinet_id = c.id),
+                false) AS tfa_portail
      FROM cabinets c
      LEFT JOIN utilisateurs_2fa t ON t.utilisateur_id = $2 AND t.active_le IS NOT NULL
      WHERE c.id = $1`,
     [cabinetId, utilisateurId],
   );
   const ligne = r.rows[0] as
-    { tfa_obligatoire: string[]; active_le: Date | null; restants: number } | undefined;
+    | { tfa_obligatoire: string[]; active_le: Date | null; restants: number; tfa_portail: boolean }
+    | undefined;
   const politique = rolesObligatoires(ligne?.tfa_obligatoire ?? [], config);
-  const obligatoire = roles.some((role) => politique.includes(role));
+  // Utilisateur du portail (SOC-09) : politique du portail du cabinet (portail_parametres).
+  const obligatoire = estUtilisateurPortail(roles)
+    ? ligne?.tfa_portail === true
+    : roles.some((role) => politique.includes(role));
   const active = Boolean(ligne?.active_le);
   return {
     active,

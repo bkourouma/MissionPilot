@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   fichierTelechargementQuerySchema,
   TYPES_FICHIER_EN_LIGNE,
@@ -7,7 +7,7 @@ import {
 import { journaliser } from "../audit.js";
 import { exiger, type Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { conflit, interdit, introuvable } from "../errors.js";
+import { AppError, conflit, interdit, introuvable } from "../errors.js";
 import { deboursVisible, exigerDebours, vueDebours } from "../facturation/debours.js";
 import { paramsId } from "../http/outils.js";
 import { FichierAbsent, stockageDe } from "../stockage/index.js";
@@ -34,8 +34,30 @@ import { contentDisposition } from "../stockage/nom.js";
 
 const STATUTS_JUSTIFIABLES = ["brouillon", "rejete"];
 
-/** Corps multipart : plafond du fichier + marge pour l'enveloppe. */
-const limiteCorps = (tailleMax: number) => tailleMax + 64 * 1024;
+/** Marge de l'enveloppe multipart (frontières, en-têtes de partie) au-delà du fichier. */
+export const MARGE_MULTIPART = 64 * 1024;
+
+/**
+ * Crochet `onRequest` d'une route multipart : une requête qui ANNONCE (Content-Length) plus
+ * que le fichier maximal et son enveloppe est refusée d'emblée (413), avant l'authentification
+ * et sans lire le corps. L'option `bodyLimit` de Fastify ne s'applique PAS au multipart :
+ * l'analyseur de @fastify/multipart ne lit pas le corps, lu ensuite en flux par
+ * `request.file()` et plafonné par `limits.fileSize` (`lireTeleversement`). Sans
+ * Content-Length (envoi « chunked »), seul ce plafond de flux s'applique.
+ */
+export function gardeTailleMultipart(tailleMax: number, erreur: () => AppError) {
+  return async (request: FastifyRequest) => {
+    if (Number(request.headers["content-length"]) > tailleMax + MARGE_MULTIPART) throw erreur();
+  };
+}
+
+/** Même réponse que le plafond lu en flux (`stockage/fichiers.ts`). */
+const fichierTropVolumineux = (tailleMax: number) =>
+  new AppError(
+    413,
+    "FICHIER_TROP_VOLUMINEUX",
+    `Fichier trop volumineux : ${Math.floor(tailleMax / (1024 * 1024))} Mo au plus.`,
+  );
 
 /** Débours de l'utilisateur, encore modifiable (brouillon ou rejeté), sinon 404/403/409. */
 async function exigerDeboursJustifiable(db: Db, auth: Auth, id: string, verrouiller: boolean) {
@@ -49,9 +71,12 @@ async function exigerDeboursJustifiable(db: Db, auth: Auth, id: string, verrouil
 
 export const routesFichiers: FastifyPluginAsync = async (app) => {
   const tailleMax = app.config.FICHIER_TAILLE_MAX_OCTETS;
+  /* Pas d'option `bodyLimit` sur ces routes : inopérante en multipart, elle ne ferait que
+     relever le plafond global (1 Mio) d'un corps JSON, refusé de toute façon (415). */
+  const gardeTaille = gardeTailleMultipart(tailleMax, () => fichierTropVolumineux(tailleMax));
 
   /** Téléverse un fichier, à rattacher ensuite (version de document) dans les 23 h. */
-  app.post("/fichiers", { bodyLimit: limiteCorps(tailleMax) }, async (request, reply) => {
+  app.post("/fichiers", { onRequest: gardeTaille }, async (request, reply) => {
     const auth = exiger(request, "document.ecrire");
     const recu = await lireTeleversement(request, tailleMax);
     const fichier = await enregistrerFichier(app, auth, recu);
@@ -111,7 +136,7 @@ export const routesFichiers: FastifyPluginAsync = async (app) => {
    * il repasse en brouillon, comme une modification). Remplace le précédent,
    * qui devient orphelin (purgé sous 24 h).
    */
-  app.post("/debours/:id/justificatif", { bodyLimit: limiteCorps(tailleMax) }, async (request) => {
+  app.post("/debours/:id/justificatif", { onRequest: gardeTaille }, async (request) => {
     const auth = exiger(request, "debours.saisir");
     const { id } = paramsId.parse(request.params);
     // Droits contrôlés AVANT de lire le corps, puis revérifiés sous verrou.

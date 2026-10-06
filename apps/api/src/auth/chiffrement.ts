@@ -10,7 +10,8 @@ import type { Config } from "../config.js";
 
 /*
  * Chiffrement applicatif des secrets stockés en base (secret TOTP, charge des
- * e-mails en file d'attente) et empreintes à clé (codes de secours).
+ * e-mails en file d'attente) et empreintes à clé (codes de secours, clés du
+ * limiteur de tentatives : e-mail normalisé, auth/limiteur.ts).
  *
  * - Clés dérivées par HKDF-SHA-256 d'un secret maître dédié (TFA_MASTER_KEY,
  *   distinct de SESSION_SECRET), avec un contexte dédié par usage : une clé ne
@@ -22,7 +23,9 @@ import type { Config } from "../config.js";
  *   trousseau peut contenir l'ancienne clé le temps de rechiffrer (rotation).
  */
 
-export type UsageCle = "totp" | "codes_secours" | "file_email";
+/** `ia_cle_api` : clé OpenRouter d'un cabinet ; `ia_entree` : entrée d'une génération IA (ia/). */
+export type UsageCle =
+  "totp" | "codes_secours" | "file_email" | "limiteur" | "ia_cle_api" | "ia_entree";
 
 export interface Trousseau {
   readonly versionActuelle: number;

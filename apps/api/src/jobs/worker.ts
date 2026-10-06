@@ -85,6 +85,7 @@ export class WorkerJobs {
           jobId: job.id,
           charge: job.charge ?? {},
           maintenant,
+          database: this.database,
         });
         await db.query(
           "UPDATE jobs SET statut = 'termine', progression = 100, erreur = NULL WHERE id = $1",

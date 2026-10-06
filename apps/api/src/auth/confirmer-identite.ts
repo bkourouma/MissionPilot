@@ -16,15 +16,17 @@ import { FAUX_HASH, verifyPassword } from "./password.js";
  * Actions concernées : désactivation de sa 2FA, régénération des codes de
  * secours, politique 2FA du cabinet, réinitialisation de la 2FA d'un autre
  * utilisateur, coordonnées bancaires du cabinet (IBAN, banque, autres
- * coordonnées). Pour ces dernières seulement, un utilisateur SANS 2FA active
- * confirme par son mot de passe seul (option `motDePasseSeulSiInactive`) :
- * le facteur « mot_de_passe » est alors journalisé et signalé aux associés ;
+ * coordonnées), déblocage de la connexion d'un utilisateur
+ * (routes/limiteur-admin.ts). Pour ces deux dernières seulement, un utilisateur
+ * SANS 2FA active confirme par son mot de passe seul (option `motDePasseSeulSiInactive`) :
+ * le facteur « mot_de_passe » est alors journalisé (et, pour les coordonnées
+ * bancaires, signalé aux associés) ;
  * la 2FA reste à configurer (elle devient obligatoire si la politique du
  * cabinet l'impose à ses rôles, voir le crochet global d'app.ts). Les autres
  * actions exigent une 2FA active (409 TFA_INACTIVE sinon).
  *
- * Limitation (en mémoire, bornée, réservée AVANT le calcul) PARTAGÉE par
- * toutes les routes de l'application (une instance par base de données) :
+ * Limitation (en base, partagée entre instances, bornée, réservée AVANT le
+ * calcul ; auth/limiteur.ts) PARTAGÉE par toutes les routes de l'application :
  * - `limiteurReauth` : mot de passe redemandé, clé = e-mail ;
  * - `limiteurFacteur` : tout code de second facteur, clé = e-mail, tous écrans
  *   confondus (connexion, activation, confirmations) ; complété par le
@@ -41,8 +43,13 @@ export type ContexteConfirmation =
   | "desactivation"
   | "codes_secours"
   | "politique_2fa"
+  | "politique_2fa_portail"
   | "reinitialisation_2fa"
-  | "coordonnees_bancaires";
+  | "coordonnees_bancaires"
+  | "deblocage_connexion"
+  // Clé API IA du cabinet ou relèvement du plafond IA (routes/ia-parametres.ts),
+  // mot de passe seul admis sans 2FA active, comme les coordonnées bancaires.
+  | "cle_api_ia";
 
 export type FacteurConfirme = FacteurReconnu | "mot_de_passe";
 
@@ -58,9 +65,6 @@ export interface ServiceIdentite {
     options?: { motDePasseSeulSiInactive?: boolean },
   ): Promise<T>;
 }
-
-const FENETRE_MS = 15 * 60 * 1000;
-const ESSAIS_MAX = 10;
 
 export const tropDeTentatives = () =>
   new AppError(429, "TROP_DE_TENTATIVES", "Trop de tentatives. Réessayez dans quelques minutes.");
@@ -91,14 +95,15 @@ export function serviceIdentite(app: FastifyInstance): ServiceIdentite {
 }
 
 function creerServiceIdentite(app: FastifyInstance): ServiceIdentite {
-  const limiteurReauth = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
-  const limiteurFacteur = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
   const trousseau = trousseauDepuisConfig(app.config);
+  // Plafond et fenêtre (10 essais par 15 min glissantes) : règles de l'espace, en base.
+  const limiteurReauth = creerLimiteur(app.db, "reauth", trousseau);
+  const limiteurFacteur = creerLimiteur(app.db, "facteur", trousseau);
 
   /** Revérifie le mot de passe de l'utilisateur connecté (limité, temps constant). */
   async function reverifierMotDePasse(auth: Auth, motDePasse: string): Promise<void> {
     const cle = auth.email.toLowerCase();
-    if (!limiteurReauth.reserver(cle)) throw tropDeTentatives();
+    if (!(await limiteurReauth.reserver(cle))) throw tropDeTentatives();
     const hash = await app.db.withTenant(auth.cabinetId, async (db) => {
       const r = await db.query("SELECT mot_de_passe_hash FROM utilisateurs WHERE id = $1", [
         auth.utilisateurId,
@@ -108,7 +113,7 @@ function creerServiceIdentite(app: FastifyInstance): ServiceIdentite {
     if (!(await verifyPassword(motDePasse, hash ?? FAUX_HASH)) || !hash) {
       throw motDePasseInvalide();
     }
-    limiteurReauth.liberer(cle);
+    await limiteurReauth.liberer(cle);
   }
 
   async function confirmerIdentite<T>(
@@ -137,7 +142,8 @@ function creerServiceIdentite(app: FastifyInstance): ServiceIdentite {
         return { statut: "ok" as const, valeur: await action(db, "mot_de_passe") };
       }
       if (!facteurFourni) return { statut: "facteur_requis" as const };
-      if (!limiteurFacteur.reserver(cle)) return { statut: "limite" as const };
+      // Dans la transaction en cours : pas de seconde connexion du pool.
+      if (!(await limiteurFacteur.reserver(cle, db))) return { statut: "limite" as const };
       reserve = true;
       const facteur = await verifierFacteur(db, trousseau, auth.utilisateurId, facteurFourni);
       if (!facteur) {
@@ -159,7 +165,7 @@ function creerServiceIdentite(app: FastifyInstance): ServiceIdentite {
     }
     if (r.statut === "limite") throw tropDeTentatives();
     if (r.statut === "code") throw codeInvalide();
-    if (reserve) limiteurFacteur.liberer(cle);
+    if (reserve) await limiteurFacteur.liberer(cle);
     return r.valeur;
   }
 

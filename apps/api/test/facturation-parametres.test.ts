@@ -83,6 +83,75 @@ describe("paramètres de facturation (FIN-07)", () => {
     }
   });
 
+  it("IBAN en clair pour facture.emettre seulement ; masqué (pays + 4 derniers) pour les autres lecteurs", async () => {
+    const IBAN = "CI93CI00000000000000"; // posé par le test précédent
+    for (const role of TOUS_LES_ROLES) {
+      const r = await (await a.avecRoles([role])).get("/api/parametres-facturation");
+      if (r.statusCode !== 200) continue;
+      const emet = ["associe", "gestionnaire"].includes(role);
+      expect(r.json().iban, role).toBe(emet ? IBAN : "CI…0000");
+      expect(r.json().iban_masque, role).toBe(!emet);
+      if (!emet) expect(r.body, role).not.toContain(IBAN);
+    }
+    // À l'écriture : en clair.
+    const ecrit = await a.gestionnaire.patch("/api/parametres-facturation", {
+      delai_paiement_jours: 45,
+    });
+    expect(ecrit.json()).toMatchObject({ iban: IBAN, iban_masque: false });
+    // Une valeur masquée renvoyée telle quelle n'est jamais enregistrée.
+    const masque = await a.associe.patch("/api/parametres-facturation", {
+      iban: "CI…0000",
+      mot_de_passe: MOT_DE_PASSE_TEST,
+    });
+    expect(masque.statusCode).toBe(400);
+    expect((await a.associe.get("/api/parametres-facturation")).json().iban).toBe(IBAN);
+    // Sans IBAN enregistré : null, non marqué masqué.
+    const vueB = (
+      await (await b.avecRoles(["chef_mission"])).get("/api/parametres-facturation")
+    ).json();
+    expect(vueB).toMatchObject({ iban: null, iban_masque: false });
+  });
+
+  it("autres coordonnées de paiement : en clair pour facture.emettre seulement, masquées sinon, jamais écrasées par le masque", async () => {
+    const AUTRES = "Orange Money +225 07 00 00 00 01";
+    const pose = await a.associe.patch("/api/parametres-facturation", {
+      autres_coordonnees: AUTRES,
+      mot_de_passe: MOT_DE_PASSE_TEST,
+    });
+    expect(pose.statusCode, pose.body).toBe(200);
+    expect(pose.json()).toMatchObject({
+      autres_coordonnees: AUTRES,
+      autres_coordonnees_masquees: false,
+    });
+    let masques = 0;
+    for (const role of TOUS_LES_ROLES) {
+      const r = await (await a.avecRoles([role])).get("/api/parametres-facturation");
+      if (r.statusCode !== 200) continue;
+      const emet = ["associe", "gestionnaire"].includes(role);
+      expect(r.json().autres_coordonnees, role).toBe(emet ? AUTRES : "…");
+      expect(r.json().autres_coordonnees_masquees, role).toBe(!emet);
+      if (!emet) {
+        masques += 1;
+        expect(r.body, role).not.toContain("07 00 00 00 01");
+      }
+    }
+    expect(masques).toBeGreaterThan(0); // directeur et chef de mission
+    // La valeur masquée renvoyée telle quelle est refusée ; la valeur enregistrée reste.
+    const masque = await a.associe.patch("/api/parametres-facturation", {
+      autres_coordonnees: "…",
+      mot_de_passe: MOT_DE_PASSE_TEST,
+    });
+    expect(masque.statusCode).toBe(400);
+    expect((await a.associe.get("/api/parametres-facturation")).json().autres_coordonnees).toBe(
+      AUTRES,
+    );
+    // Sans valeur enregistrée : null, non marquée masquée.
+    const vueB = (
+      await (await b.avecRoles(["directeur_mission"])).get("/api/parametres-facturation")
+    ).json();
+    expect(vueB).toMatchObject({ autres_coordonnees: null, autres_coordonnees_masquees: false });
+  });
+
   it("validation : IBAN, TVA par défaut hors des taux autorisés, préfixes identiques, champ inconnu", async () => {
     const p = (corps: unknown) => a.associe.patch("/api/parametres-facturation", corps);
     expect((await p({ iban: "pas un iban" })).statusCode).toBe(400);

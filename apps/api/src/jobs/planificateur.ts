@@ -1,5 +1,6 @@
 import { ajouterJours, lundiDeLaSemaine } from "@missionpilot/engines";
 import type { Database } from "../db/pool.js";
+import { planificationSuiviKpi } from "../kpi/suivi.js";
 
 /*
  * Planification récurrente (TPS-04), pour tous les cabinets :
@@ -11,6 +12,8 @@ import type { Database } from "../db/pool.js";
  * nombre de passages du planificateur ou de workers.
  * - Relance des factures échues (FIN-09) chaque jour à 18 h (UTC), pour les
  *   seuls cabinets ayant une facture émise échue ; clé `relances_factures:jour`.
+ * - Suivi des KPI (KPI-02, KPI-04) chaque jour à 7 h (UTC), pour les seuls
+ *   cabinets ayant un KPI actif ; clé `kpi_suivi:jour` (kpi/suivi.ts).
  */
 
 export const HEURE_RAPPEL_UTC = "16:00:00";
@@ -106,6 +109,11 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
       p.seuil,
     ]);
     total += purge.rows[0].n as number;
+    // Suivi des KPI : seulement les cabinets ayant un KPI actif.
+    const k = planificationSuiviKpi(maintenant);
+    total += (
+      await db.query("SELECT planifier_suivi_kpi($1, $2, $3) AS n", [k.cle, k.executeA, k.jour])
+    ).rows[0].n as number;
     return total;
   });
 }

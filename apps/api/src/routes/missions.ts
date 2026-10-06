@@ -27,7 +27,7 @@ import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { choisir, clauseSet, traduireErreursPg } from "../db/outils.js";
 import { AppError, conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
-import { motifContient, paramsId } from "../http/outils.js";
+import { decoderCurseur, motifContient, paginer, paramsId } from "../http/outils.js";
 import {
   estAssocie,
   exigerMissionModifiable,
@@ -63,6 +63,29 @@ const COLONNES = `m.id, m.intitule, m.client_id, cl.raison_sociale AS client_rai
   m.taux_change::float8 AS taux_change, m.devise_reference, m.cloturee_le, m.cloturee_par,
   m.cree_par, m.cree_le, m.modifie_le`;
 const DEPUIS = "missions m JOIN clients cl ON cl.id = m.client_id";
+/**
+ * Listes paginées par curseur, plus récentes d'abord (missions, opportunités) : tri
+ * `cree_le DESC, id DESC`, page suivante par comparaison de ligne
+ * `(cree_le, id) < (curseur)`, servis par l'index (cabinet_id, cree_le DESC, id DESC)
+ * (migration 0121). Le curseur porte l'horodatage ISO à la microseconde (UTC) et l'id.
+ * `alias` : alias SQL de la table (constante de code).
+ */
+export const cleTriCreation = (alias: "m" | "o") =>
+  `to_char(${alias}.cree_le AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+export type CleTri = { cle_tri: string; id: string };
+const HORODATAGE_CURSEUR = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})\d{3}Z$/;
+
+/** Curseur (horodatage ISO µs, id) ; 400 s'il est illisible ou si la date n'existe pas. */
+export function decoderCurseurCreation(curseur: string | undefined): [string, string] | null {
+  const cle = decoderCurseur(curseur);
+  if (!cle) return null;
+  const ms = HORODATAGE_CURSEUR.exec(cle[0])?.[1];
+  const date = ms ? new Date(`${ms}Z`) : null;
+  // Date réelle (pas de 31 février) et postérieure à 1970 : le transtypage SQL ne peut pas échouer.
+  const valide = date !== null && date.getTime() >= 0 && date.toISOString() === `${ms}Z`; // NaN >= 0 : faux
+  if (!valide) throw requeteInvalide("Curseur de pagination invalide.");
+  return cle;
+}
 const CHAMPS = [
   "intitule",
   "client_id",
@@ -448,22 +471,29 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
   app.get("/missions", async (request) => {
     const auth = exiger(request, "mission.lire");
     const q = missionsListeQuerySchema.parse(request.query);
+    const apres = decoderCurseurCreation(q.curseur);
+    // Pagination par curseur (plus récentes d'abord) : clé (date de création, id), stable.
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const r = await db.query(
-        `SELECT ${COLONNES} FROM ${DEPUIS}
+        `SELECT ${COLONNES}, ${cleTriCreation("m")} AS cle_tri FROM ${DEPUIS}
          WHERE ${filtreVisibilite(1, 2)}
            AND ($3::text IS NULL OR m.statut = $3) AND ($4::uuid IS NULL OR m.client_id = $4)
            AND ($5::text IS NULL OR m.intitule ILIKE $5 OR cl.raison_sociale ILIKE $5)
-         ORDER BY lower(m.intitule), m.id LIMIT 500`,
+           AND ($6::timestamptz IS NULL OR (m.cree_le, m.id) < ($6::timestamptz, $7::uuid))
+         ORDER BY m.cree_le DESC, m.id DESC LIMIT $8`,
         [
           voitToutesLesMissions(auth),
           auth.utilisateurId,
           q.statut ?? null,
           q.client_id ?? null,
           motifContient(q.q),
+          apres?.[0] ?? null,
+          apres?.[1] ?? null,
+          q.limite + 1,
         ],
       );
-      return { elements: r.rows };
+      const page = paginer(r.rows as (Record<string, unknown> & CleTri)[], q.limite);
+      return { elements: page.elements, suivant: page.curseur_suivant };
     });
   });
 

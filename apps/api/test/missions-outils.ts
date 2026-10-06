@@ -1,4 +1,4 @@
-import type { Role } from "@missionpilot/shared";
+import type { RoleCabinet } from "@missionpilot/shared";
 import { cabinetTest, type Api, type CabinetTest } from "./api.js";
 import type { Contexte } from "./helpers.js";
 
@@ -107,7 +107,7 @@ export async function creerMissionSignee(
   return { id: m.id, signature: s.json() };
 }
 
-export const TOUS_LES_ROLES: readonly Role[] = [
+export const TOUS_LES_ROLES: readonly RoleCabinet[] = [
   "associe",
   "directeur_mission",
   "chef_mission",

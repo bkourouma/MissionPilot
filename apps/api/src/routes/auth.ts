@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { z } from "zod";
 import {
   connexion2faSchema,
+  estUtilisateurPortail,
   politiqueTfaModificationSchema,
   ROLES_TFA_SENSIBLES,
   tfaActivationSchema,
@@ -46,9 +47,6 @@ const connexionSchema = z.object({
   mot_de_passe: z.string().min(1).max(200),
 });
 
-const FENETRE_MS = 15 * 60 * 1000;
-const ESSAIS_MAX = 10;
-
 const identifiantsInvalides = () =>
   new AppError(401, "IDENTIFIANTS_INVALIDES", "E-mail ou mot de passe incorrect.");
 const defiInvalide = () =>
@@ -73,8 +71,10 @@ const sansCache = (reply: FastifyReply) =>
  * base) SANS ouvrir de session ; POST /connexion/2fa ouvre la session avec un
  * code TOTP ou un code de secours.
  *
- * Limitation de tentatives (en mémoire, bornée, réservée AVANT le calcul) :
- * - `limiteur` : mot de passe à la connexion, clé = e-mail ;
+ * Limitation de tentatives (en base, partagée entre instances, bornée,
+ * réservée AVANT le calcul ; auth/limiteur.ts) :
+ * - `limiteur` : mot de passe à la connexion, clé = e-mail ; un gestionnaire du
+ *   cabinet peut débloquer un utilisateur (routes/limiteur-admin.ts) ;
  * - mot de passe redemandé et codes de second facteur : limiteurs PARTAGÉS
  *   par toute l'application (auth/confirmer-identite.ts), complétés par un
  *   plafond par défi et par le compteur d'échecs persistant (verifierFacteur).
@@ -86,9 +86,10 @@ const sansCache = (reply: FastifyReply) =>
  * /api/invitations/accepter tant qu'elle n'est pas activée.
  */
 export const routesAuth: FastifyPluginAsync = async (app) => {
-  const limiteur = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
   const identite = serviceIdentite(app);
   const { limiteurFacteur, trousseau } = identite;
+  // 10 essais par 15 min glissantes : règles de l'espace « connexion », en base (0120).
+  const limiteur = creerLimiteur(app.db, "connexion", trousseau);
   const reverifierMotDePasse = identite.reverifierMotDePasse;
 
   /** Alerte e-mail (en file) de tous les associés actifs, dans la transaction courante. */
@@ -109,7 +110,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
   app.post("/connexion", async (request, reply) => {
     const { email, mot_de_passe } = connexionSchema.parse(request.body);
     const cle = email.toLowerCase();
-    if (!limiteur.reserver(cle)) throw tropDeTentatives();
+    if (!(await limiteur.reserver(cle))) throw tropDeTentatives();
 
     const trouve = await app.db.withoutTenant(async (db) => {
       const r = await db.query("SELECT * FROM trouver_connexion($1)", [email]);
@@ -120,7 +121,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     // Toujours calculer un hachage : le temps de réponse ne révèle pas si l'e-mail existe.
     const valide = await verifyPassword(mot_de_passe, trouve?.mot_de_passe_hash ?? FAUX_HASH);
     if (!trouve || !valide || !trouve.actif) throw identifiantsInvalides();
-    limiteur.liberer(cle);
+    await limiteur.liberer(cle);
 
     const defi = nouveauJeton();
     const resultat = await app.db.withTenant(trouve.cabinet_id, async (db) => {
@@ -160,7 +161,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     });
     if (!defi) throw defiInvalide();
     const cle = defi.email.toLowerCase();
-    if (!limiteurFacteur.reserver(cle)) throw tropDeTentatives();
+    if (!(await limiteurFacteur.reserver(cle))) throw tropDeTentatives();
 
     // La transaction est toujours validée : un échec compte (tentative du défi, journal).
     const resultat = await app.db.withTenant(defi.cabinet_id, async (db) => {
@@ -191,7 +192,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     });
     if (resultat.statut === "defi") throw defiInvalide();
     if (resultat.statut === "code") throw codeInvalide();
-    limiteurFacteur.liberer(cle);
+    await limiteurFacteur.liberer(cle);
     sansCache(reply);
     poserCookieSession(reply, app.config, resultat.jeton);
     return { ok: true, etape: "connecte" };
@@ -218,6 +219,8 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
       cabinet_id: auth.cabinetId,
       tfa_active: etat.active,
       tfa_a_configurer: etat.a_configurer,
+      // Utilisateur du portail client (SOC-09) : le web l'oriente vers /api/portail/*.
+      portail: estUtilisateurPortail(auth.roles),
     };
   });
 
@@ -255,7 +258,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     const auth = exiger(request);
     const { code } = tfaActivationSchema.parse(request.body);
     const cle = auth.email.toLowerCase();
-    if (!limiteurFacteur.reserver(cle)) throw tropDeTentatives();
+    if (!(await limiteurFacteur.reserver(cle))) throw tropDeTentatives();
     const jetonCourant = request.cookies[COOKIE_SESSION];
     const r = await app.db.withTenant(auth.cabinetId, async (db) => {
       const res = await activer(db, trousseau, auth.cabinetId, auth.utilisateurId, code);
@@ -293,7 +296,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
       );
     }
     if (r.statut === "code_invalide") throw codeInvalide();
-    limiteurFacteur.liberer(cle);
+    await limiteurFacteur.liberer(cle);
     sansCache(reply);
     return { codes_secours: r.codes };
   });

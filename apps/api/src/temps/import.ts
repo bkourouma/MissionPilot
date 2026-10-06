@@ -9,17 +9,16 @@ import {
 import { IMPORT_TEMPS_COLONNES, IMPORT_TEMPS_MAX_LIGNES } from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { requeteInvalide } from "../errors.js";
+import { AppError, requeteInvalide } from "../errors.js";
 import { estAssocie } from "../missions/acces.js";
 import { depassementsCapacite, insererLignes, type LignePreparee } from "./feuilles.js";
 import { moisClotures, semaineDe, type ParametresTemps } from "./outils.js";
 
 /*
- * Import de l'historique des temps (TPS-10), au format CSV uniquement en V1
- * (voir le rapport de livraison : aucune bibliothèque .xlsx légère et sans
- * vulnérabilité connue n'a été retenue). Colonnes : collaborateur, mission,
- * tâche, date, jours. Séparateur « ; » ou « , », décimales « , » ou « . »,
- * dates AAAA-MM-JJ ou JJ/MM/AAAA.
+ * Import de l'historique des temps (TPS-10), depuis un CSV (ci-dessous) ou un
+ * classeur Excel .xlsx (`import-excel.ts`, qui produit le même tableau).
+ * Colonnes : collaborateur, mission, tâche, date, jours. Séparateur « ; » ou
+ * « , », décimales « , » ou « . », dates AAAA-MM-JJ ou JJ/MM/AAAA.
  *
  * Chaque ligne est validée (collaborateur actif, mission et tâche du cabinet
  * résolues par libellé exact sans ambiguïté, date hors période clôturée, pas
@@ -29,6 +28,12 @@ import { moisClotures, semaineDe, type ParametresTemps } from "./outils.js";
  * forment des feuilles validées d'origine « import », dont l'importateur est
  * le valideur (jamais ses propres temps, sauf associé). Une tâche n'a pas à
  * être affectée : l'historique précède les affectations.
+ *
+ * Concurrence : les exécutions (hors simulation) d'un même cabinet sont
+ * sérialisées par un verrou consultatif de transaction, pris AVANT les
+ * lectures : la seconde voit les feuilles de la première et répond par le
+ * rapport (« existe déjà »). Une feuille créée par une saisie entre la
+ * vérification et l'écriture répond 409 `IMPORT_CONCURRENT`, jamais 500.
  */
 
 export interface ErreurImport {
@@ -141,27 +146,86 @@ function indexer<T>(
   return m;
 }
 
+/** Ligne de données lue d'un fichier : numéro affiché à l'utilisateur et cellules en texte. */
+export interface LigneTableau {
+  numero: number;
+  valeurs: string[];
+  /**
+   * Erreurs de lecture par cellule (alignées sur `valeurs`, classeur Excel) :
+   * une erreur dans une colonne attendue rejette la ligne avec ce message.
+   */
+  erreurs?: (string | undefined)[];
+}
+
+/** Contenu d'un fichier d'import : en-tête et lignes de données non vides. */
+export interface TableauImport {
+  entete: string[];
+  lignes: LigneTableau[];
+}
+
+/** Violation d'unicité sur feuilles_temps (collaborateur, semaine) → 409, sinon l'erreur telle quelle. */
+function traduireConcurrence(error: unknown): unknown {
+  const e = error as { code?: unknown; table?: unknown } | null;
+  if (e?.code === "23505" && e.table === "feuilles_temps") {
+    return new AppError(
+      409,
+      "IMPORT_CONCURRENT",
+      "Une feuille de temps a été créée pendant l'import pour l'une de ces semaines : " +
+        "rien n'a été importé, relancer la simulation.",
+    );
+  }
+  return error;
+}
+
+/** Tableau d'un CSV : première ligne non vide en en-tête, numéros comptés après elle. */
+export function tableauCsv(csv: string): TableauImport {
+  const tableau = lireCsv(csv);
+  return {
+    entete: tableau[0] ?? [],
+    lignes: tableau.slice(1).map((valeurs, i) => ({ numero: i + 2, valeurs })),
+  };
+}
+
 /**
  * Valide le CSV dans le cabinet courant (RLS) et, hors simulation et sans
  * erreur, crée les feuilles validées. Renvoie le rapport.
  */
-export async function importerTemps(
+export function importerTemps(
   db: Db,
   auth: Auth,
   csv: string,
   p: ParametresTemps,
   simulation: boolean,
 ): Promise<{ rapport: RapportImport; missions: string[] }> {
-  const tableau = lireCsv(csv);
-  const entete = (tableau[0] ?? []).map(normaliser);
+  return importerTableau(db, auth, tableauCsv(csv), p, simulation);
+}
+
+/**
+ * Valide un tableau (CSV ou Excel) dans le cabinet courant (RLS) et, hors
+ * simulation et sans erreur, crée les feuilles validées. Renvoie le rapport.
+ */
+export async function importerTableau(
+  db: Db,
+  auth: Auth,
+  tableau: TableauImport,
+  p: ParametresTemps,
+  simulation: boolean,
+): Promise<{ rapport: RapportImport; missions: string[] }> {
+  const entete = tableau.entete.map(normaliser);
   const colonnes = IMPORT_TEMPS_COLONNES.map((c) => entete.indexOf(c));
   const manquantes = IMPORT_TEMPS_COLONNES.filter((_, i) => colonnes[i] === -1);
   if (manquantes.length > 0) {
     throw requeteInvalide(`Colonnes manquantes dans l'en-tête : ${manquantes.join(", ")}.`);
   }
-  const donnees = tableau.slice(1);
+  const donnees = tableau.lignes;
   if (donnees.length > IMPORT_TEMPS_MAX_LIGNES) {
     throw requeteInvalide(`L'import est limité à ${IMPORT_TEMPS_MAX_LIGNES} lignes.`);
+  }
+  if (!simulation) {
+    // Avant toute lecture : une exécution concurrente du cabinet attend la fin de celle-ci.
+    await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `import_temps:${auth.cabinetId}`,
+    ]);
   }
 
   const collaborateurs = await db.query(
@@ -203,9 +267,10 @@ export async function importerTemps(
     return ids[0] as string;
   };
 
-  donnees.forEach((ligne, i) => {
-    const numero = i + 2;
+  donnees.forEach(({ numero, valeurs: ligne, erreurs: erreursLecture }) => {
     try {
+      const erreurLecture = colonnes.map((c) => erreursLecture?.[c as number]).find(Boolean);
+      if (erreurLecture) throw new Error(erreurLecture);
       const [nomCollaborateur, intitule, libelleTache, texteDate, texteJours] = [0, 1, 2, 3, 4].map(
         (c) => val(ligne, c),
       ) as [string, string, string, string, string];
@@ -313,11 +378,15 @@ export async function importerTemps(
 
   for (const [cle, lignes] of feuilles) {
     const [collaborateurId, semaine] = cle.split("|") as [string, string];
-    const r = await db.query(
-      `INSERT INTO feuilles_temps (cabinet_id, collaborateur_id, auteur_id, semaine, origine, importee_par)
-       VALUES ($1, $2, $3, $4, 'import', $5) RETURNING id`,
-      [auth.cabinetId, collaborateurId, lignes[0]?.auteurId ?? null, semaine, auth.utilisateurId],
-    );
+    const r = await db
+      .query(
+        `INSERT INTO feuilles_temps (cabinet_id, collaborateur_id, auteur_id, semaine, origine, importee_par)
+         VALUES ($1, $2, $3, $4, 'import', $5) RETURNING id`,
+        [auth.cabinetId, collaborateurId, lignes[0]?.auteurId ?? null, semaine, auth.utilisateurId],
+      )
+      .catch((error: unknown) => {
+        throw traduireConcurrence(error);
+      });
     const feuilleId = r.rows[0].id as string;
     await insererLignes(
       db,

@@ -16,6 +16,8 @@ import {
 } from "@missionpilot/engines";
 import {
   ETAPES_OPPORTUNITE,
+  listeLargeCurseurSchema,
+  listeLargeLimiteSchema,
   opportuniteCreationSchema,
   opportuniteEtapeSchema,
   opportuniteIssueSchema,
@@ -27,7 +29,8 @@ import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { choisir, clauseSet, montant, traduireErreursPg } from "../db/outils.js";
 import { conflit, introuvable, requeteInvalide } from "../errors.js";
-import { paramsId } from "../http/outils.js";
+import { paginer, paramsId } from "../http/outils.js";
+import { cleTriCreation, decoderCurseurCreation, type CleTri } from "./missions.js";
 
 const COLONNES = `o.id, o.client_id, cl.raison_sociale AS client_raison_sociale, o.intitule,
   o.type_mission_id, o.montant_estime, o.devise, o.probabilite, o.etape, o.statut, o.motif_perte,
@@ -51,6 +54,8 @@ const listeQuery = z
     statut: z.enum(STATUTS_OPPORTUNITE).optional(),
     etape: z.enum(ETAPES_OPPORTUNITE).optional(),
     client_id: z.string().uuid().optional(),
+    limite: listeLargeLimiteSchema,
+    curseur: listeLargeCurseurSchema,
   })
   .strict();
 
@@ -135,15 +140,27 @@ export const routesOpportunites: FastifyPluginAsync = async (app) => {
   app.get("/opportunites", async (request) => {
     const auth = exiger(request, "pipeline.gerer");
     const q = listeQuery.parse(request.query);
+    const apres = decoderCurseurCreation(q.curseur);
+    // Pagination par curseur (plus récentes d'abord) : clé (date de création, id), stable,
+    // servie par l'index (cabinet_id, cree_le DESC, id DESC) ; voir routes/missions.ts.
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const r = await db.query(
-        `SELECT ${COLONNES} FROM ${DEPUIS}
+        `SELECT ${COLONNES}, ${cleTriCreation("o")} AS cle_tri FROM ${DEPUIS}
          WHERE ($1::text IS NULL OR o.statut = $1) AND ($2::text IS NULL OR o.etape = $2)
            AND ($3::uuid IS NULL OR o.client_id = $3)
-         ORDER BY o.date_cloture_prevue NULLS LAST, lower(o.intitule), o.id LIMIT 500`,
-        [q.statut ?? null, q.etape ?? null, q.client_id ?? null],
+           AND ($4::timestamptz IS NULL OR (o.cree_le, o.id) < ($4::timestamptz, $5::uuid))
+         ORDER BY o.cree_le DESC, o.id DESC LIMIT $6`,
+        [
+          q.statut ?? null,
+          q.etape ?? null,
+          q.client_id ?? null,
+          apres?.[0] ?? null,
+          apres?.[1] ?? null,
+          q.limite + 1,
+        ],
       );
-      return { elements: r.rows.map(enMontant) };
+      const page = paginer(r.rows as (Record<string, unknown> & CleTri)[], q.limite);
+      return { elements: page.elements.map(enMontant), suivant: page.curseur_suivant };
     });
   });
 

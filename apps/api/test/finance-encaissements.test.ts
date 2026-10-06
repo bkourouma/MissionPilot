@@ -1,7 +1,7 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ajouterJours } from "@missionpilot/engines";
-import type { Role } from "@missionpilot/shared";
+import type { Role, RoleCabinet } from "@missionpilot/shared";
 import { aujourdhui } from "../src/missions/outils.js";
 import { configTest, demarrer, proprietaire, type Contexte } from "./helpers.js";
 import { attendre, preparerFacturation, type CabinetFacturation } from "./facturation-outils.js";
@@ -439,7 +439,7 @@ describe("créances et balance âgée (FIN-09)", () => {
     const creances = (await c.gestionnaire.get("/api/finance/creances")).json();
     expect(creances.elements).toHaveLength(4);
 
-    const roles: Record<Role, number> = {
+    const roles: Record<RoleCabinet, number> = {
       associe: 200,
       directeur_mission: 200,
       gestionnaire: 200,
