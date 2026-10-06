@@ -1,5 +1,7 @@
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { baseLocale, loadConfig } from "../src/config.js";
+import { baseLocale, dossierStockage, loadConfig } from "../src/config.js";
 
 /*
  * Constat M4 (audit du commit 6f28b95) : NODE_ENV absent donnait accès aux
@@ -19,6 +21,7 @@ const PROD = {
   TFA_MASTER_KEY: "une-cle-maitre-2fa-de-production-4567",
   SMTP_HOST: "smtp.exemple.test",
   MAIL_FROM: "noreply@exemple.test",
+  STORAGE_DIR: "/srv/missionpilot/stockage",
 };
 
 describe("configuration : valeurs de développement (M4)", () => {
@@ -66,5 +69,35 @@ describe("configuration : valeurs de développement (M4)", () => {
     expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY_PRECEDENTE: PROD.TFA_MASTER_KEY })).toThrow(
       "TFA_MASTER_KEY_PRECEDENTE doit différer de TFA_MASTER_KEY.",
     );
+  });
+});
+
+describe("configuration : stockage des fichiers (SOC-05)", () => {
+  it("valeurs par défaut : disque, 15 Mo par fichier, 2 Go par cabinet, dossier hors dépôt", () => {
+    const c = loadConfig({ NODE_ENV: "development" });
+    expect(c.STORAGE_DRIVER).toBe("disque");
+    expect(c.FICHIER_TAILLE_MAX_OCTETS).toBe(15 * 1024 * 1024);
+    expect(c.QUOTA_STOCKAGE_CABINET_OCTETS).toBe(2 * 1024 * 1024 * 1024);
+    expect(dossierStockage(c)).toBe(path.join(os.homedir(), ".missionpilot", "stockage"));
+    expect(dossierStockage({ NODE_ENV: "test" })).toBe(
+      path.join(os.tmpdir(), "missionpilot-stockage-test"),
+    );
+    expect(dossierStockage({ NODE_ENV: "test", STORAGE_DIR: PROD.STORAGE_DIR })).toBe(
+      path.resolve(PROD.STORAGE_DIR),
+    );
+  });
+
+  it("production : STORAGE_DIR obligatoire et absolu ; S3 pas encore disponible ; plafonds bornés", () => {
+    expect(loadConfig(PROD).STORAGE_DIR).toBe(PROD.STORAGE_DIR);
+    expect(() => loadConfig({ ...PROD, STORAGE_DIR: undefined })).toThrow(/STORAGE_DIR/);
+    expect(() => loadConfig({ ...PROD, STORAGE_DIR: "relatif/stockage" })).toThrow(/absolu/);
+    expect(() => loadConfig({ ...PROD, STORAGE_DRIVER: "s3" })).toThrow(
+      /non implémenté|pas encore/,
+    );
+    expect(() => loadConfig({ ...PROD, FICHIER_TAILLE_MAX_OCTETS: "10" })).toThrow();
+    expect(
+      loadConfig({ ...PROD, QUOTA_STOCKAGE_CABINET_OCTETS: "5368709120" })
+        .QUOTA_STOCKAGE_CABINET_OCTETS,
+    ).toBe(5 * 1024 * 1024 * 1024);
   });
 });

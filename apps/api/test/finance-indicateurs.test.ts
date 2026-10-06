@@ -177,6 +177,8 @@ describe("indicateurs de pilotage du cabinet : jeu calculé à la main", () => {
       taux_realisation: 0.6818,
       encours: { encours_production: 700_000, facture_d_avance: 0 },
       carnet_commandes: 1_300_000,
+      // Signé 3 500 000 − facturé 1 500 000.
+      carnet_commandes_facture: 2_000_000,
       delai_moyen_encaissement: 2,
       factures_soldees: 1,
     });
@@ -233,8 +235,10 @@ describe("indicateurs de pilotage du cabinet : jeu calculé à la main", () => {
     expect(r.cabinet).not.toHaveProperty("taux_realisation");
     expect(r.cabinet).not.toHaveProperty("encours");
     expect(r.cabinet.ecart_terminaison).toEqual({ jours: 1, relatif_jours: 0.0667 });
-    expect(r.cabinet.carnet_commandes).toBe(1_300_000);
-    expect(JSON.stringify(r)).not.toMatch(/480000|1020000|couts_internes/);
+    // Carnet valorisé (dérivé des taux de vente) ABSENT ; carnet sur le facturé servi.
+    expect(r.cabinet).not.toHaveProperty("carnet_commandes");
+    expect(r.cabinet.carnet_commandes_facture).toBe(2_000_000);
+    expect(JSON.stringify(r)).not.toMatch(/480000|1020000|1300000|2200000|couts_internes/);
     const attendus: Record<Role, number> = {
       associe: 200,
       directeur_mission: 200,
@@ -256,6 +260,52 @@ describe("indicateurs de pilotage du cabinet : jeu calculé à la main", () => {
       `du=${DU}&au=${AU}&niveau=x`,
     ]) {
       expect((await c.gestionnaire.get(`/api/indicateurs/cabinet?${q}`)).statusCode, q).toBe(400);
+    }
+  });
+
+  it("M2 : directeur sans finance.lire : aucun champ dérivé des taux, rien ne se déduit jour par jour", async () => {
+    // Le senior a 1 j validé le 2026-09-15 (taux de vente 200 000) : avant le
+    // correctif, carnet_commandes(au=15/09) − carnet_commandes(au=14/09) = 200 000.
+    const NON_MONETAIRES = new Set([
+      "nombre_missions",
+      "consommation_budgetaire",
+      "ecart_terminaison",
+      "respect_jalons",
+      "taux_occupation",
+      "taux_facturabilite",
+      "discipline_saisie",
+      "delai_moyen_encaissement",
+      "factures_soldees",
+      "mission_id",
+      "intitule",
+      "client_id",
+      "directeur_id",
+      "devise_mission",
+      "nom",
+    ]);
+    const montants = (o: Record<string, unknown>) =>
+      Object.fromEntries(
+        Object.entries(o).filter(([k]) => !k.startsWith("jours_") && !NON_MONETAIRES.has(k)),
+      );
+    const lire = async (au: string, niveau: string) => {
+      const r = await c.directeur.get(
+        `/api/indicateurs/cabinet?du=${DU}&au=${au}&niveau=${niveau}`,
+      );
+      expect(r.statusCode, r.body).toBe(200);
+      return r.json();
+    };
+    for (const niveau of ["cabinet", "mission", "associe"]) {
+      const [j14, j15] = [await lire("2026-09-14", niveau), await lire("2026-09-15", niveau)];
+      for (const r of [j14, j15]) {
+        expect(JSON.stringify(r)).not.toMatch(
+          /"carnet_commandes"|valeur_produite|taux_realisation|encours|marge|couts_/,
+        );
+      }
+      // Le temps a bien changé (jours visibles), mais aucun montant.
+      expect(j15.cabinet.jours_facturables).toBeGreaterThan(j14.cabinet.jours_facturables);
+      expect(montants(j15.cabinet)).toEqual(montants(j14.cabinet));
+      expect(j15.elements.map(montants)).toEqual(j14.elements.map(montants));
+      expect(montants(j14.cabinet)).toEqual({ carnet_commandes_facture: 3_500_000 });
     }
   });
 
@@ -297,6 +347,10 @@ describe("indicateurs de pilotage du cabinet : jeu calculé à la main", () => {
     expect((await c.gestionnaire.get("/api/finance/rentabilite?du=2026-01-01")).statusCode).toBe(
       400,
     );
+    // Période bornée à 366 jours (audit M3).
+    expect(
+      (await c.gestionnaire.get("/api/finance/rentabilite?du=2000-01-01&au=2026-10-04")).statusCode,
+    ).toBe(400);
   });
 
   it("encours de production (FIN-11) : valorisé avec finance.lire, jours seuls sinon", async () => {

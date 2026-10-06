@@ -221,13 +221,41 @@ describe("relances des factures échues (FIN-09)", () => {
     // Sans contact e-mail (cabinet B).
     const mb = (await creerMissionSignee(b, { mode_facturation: "forfait" })).id;
     const fb = await factureDatee(ctx, b, mb, 10_000, il(35));
-    expect((await b.gestionnaire.post(`/api/factures/${fb.id}/relances`, {})).statusCode).toBe(400);
+    expect(
+      (await b.gestionnaire.post(`/api/factures/${fb.id}/relances`, { envoyer_email: true }))
+        .statusCode,
+    ).toBe(400);
     expect(
       (await b.gestionnaire.post(`/api/factures/${fb.id}/relances`, { envoyer_email: false }))
         .statusCode,
     ).toBe(201);
     // Isolation : la facture de A n'existe pas pour B.
     expect((await b.gestionnaire.post(`/api/factures/${f.id}/relances`, {})).statusCode).toBe(404);
+  });
+
+  it("F3 : relance manuelle sans e-mail par défaut ; une seule avec e-mail par facture et par jour", async () => {
+    const f = await factureDatee(ctx, a, missionA, 20_000, il(20));
+    const sansCorps = await a.gestionnaire.post(`/api/factures/${f.id}/relances`, {});
+    expect(sansCorps.statusCode).toBe(201);
+    expect(sansCorps.json()).toMatchObject({ mode: "manuelle", email_envoye: false });
+    const premiere = await a.gestionnaire.post(`/api/factures/${f.id}/relances`, {
+      envoyer_email: true,
+    });
+    expect(premiere.statusCode).toBe(201);
+    expect(premiere.json().email_envoye).toBe(true);
+    const seconde = await a.gestionnaire.post(`/api/factures/${f.id}/relances`, {
+      envoyer_email: true,
+      niveau: 3,
+    });
+    expect(seconde.statusCode).toBe(409);
+    expect(seconde.json().erreur.code).toBe("RELANCE_DEJA_ENVOYEE");
+    // Sans e-mail, la relance reste possible (trace interne).
+    expect(
+      (await a.gestionnaire.post(`/api/factures/${f.id}/relances`, { envoyer_email: false }))
+        .statusCode,
+    ).toBe(201);
+    const envoyes = (await relancesDe(f.id)).filter((r) => r.email_envoye);
+    expect(envoyes).toHaveLength(1);
   });
 
   it("paramètres : validation, matrice des rôles, isolation", async () => {

@@ -12,3 +12,4 @@ export * from "./schemas/planification";
 export * from "./schemas/temps";
 export * from "./schemas/facturation";
 export * from "./schemas/finance";
+export * from "./schemas/documents";

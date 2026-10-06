@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ajouterJours } from "@missionpilot/engines";
-import type { Role } from "@missionpilot/shared";
-import { champCsv, montantExport } from "../src/finance/export.js";
+import { PERMISSIONS_PAR_ROLE, type Permission, type Role } from "@missionpilot/shared";
+import { champCsv, ecrituresComptables, montantExport } from "../src/finance/export.js";
+import { lirePlanComptable } from "../src/finance/plan-comptable.js";
 import { aujourdhui } from "../src/missions/outils.js";
 import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 import { attendre, preparerFacturation, type CabinetFacturation } from "./facturation-outils.js";
-import { factureDatee } from "./finance-outils.js";
+import { acteur, factureDatee } from "./finance-outils.js";
 import { creerMissionSignee, TOUS_LES_ROLES } from "./missions-outils.js";
 
 let ctx: Contexte;
@@ -211,6 +212,35 @@ describe("export comptable (FIN-13)", () => {
     // Le chèque passe désormais au journal BQ1 (compte 513 inchangé).
     expect(lignes.some((l) => l.journal === "BQ1" && l.compte === "513")).toBe(true);
     expect(lignes.some((l) => l.journal === "BQ")).toBe(false);
+  });
+
+  it("F4 : l'export porte sur tout le cabinet et exige mission.lire_toutes", async () => {
+    // Module : un lecteur qui ne voit pas toutes les missions est refusé (aucun filtre partiel).
+    const plan = await ctx.db.withTenant(c.cabinetId, (db) => lirePlanComptable(db));
+    await expect(
+      ctx.db.withTenant(c.cabinetId, (db) =>
+        ecrituresComptables(
+          db,
+          acteur(c.cabinetId, c.chef.utilisateurId, "chef_mission"),
+          il(60),
+          jour,
+          plan,
+        ),
+      ),
+    ).rejects.toMatchObject({ statut: 403 });
+    // Route : un rôle qui recevrait « export.comptable » sans « mission.lire_toutes » → 403.
+    const droits = PERMISSIONS_PAR_ROLE.chef_mission as Permission[];
+    droits.push("export.comptable");
+    try {
+      const r = await c.chef.get(`/api/finance/export-comptable?du=${il(60)}&au=${jour}`);
+      expect(r.statusCode, r.body).toBe(403);
+    } finally {
+      droits.splice(droits.indexOf("export.comptable"), 1);
+    }
+    // Lecteur autorisé : factures ET encaissements de tous les clients du cabinet.
+    const lignes = lire((await exporter()).body);
+    expect(lignes.some((l) => l.tiers === `'${CLIENT_PIEGE}` && l.compte === "552")).toBe(true);
+    expect(lignes.some((l) => l.tiers === `'${CLIENT_PIEGE}` && l.journal === "VE")).toBe(true);
   });
 
   it("matrice des 8 rôles (export.comptable) et isolation", async () => {

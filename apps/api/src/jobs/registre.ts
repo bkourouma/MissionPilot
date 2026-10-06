@@ -1,6 +1,9 @@
 import type { Db } from "../db/pool.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
+import { loadConfig } from "../config.js";
 import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
+import { stockageDe } from "../stockage/index.js";
+import { creerHandlerPurgeFichiers, TYPE_JOB_PURGE_FICHIERS } from "../stockage/purge.js";
 import { rappelFeuilles, relanceFeuilles } from "../temps/rappels.js";
 
 /** Contexte d'exécution d'un job : transaction ouverte dans le contexte RLS de son cabinet. */
@@ -36,10 +39,25 @@ export function creerRegistre(handlers: Record<string, HandlerJob>): RegistreJob
 
 /**
  * Handlers de MissionPilot : rappels du vendredi et relances du lundi
- * (TPS-04), relances quotidiennes des factures échues (FIN-09).
+ * (TPS-04), relances quotidiennes des factures échues (FIN-09), purge des
+ * fichiers orphelins (SOC-05). Le stockage de la purge est celui de la
+ * configuration de l'environnement ; server.ts le fournit explicitement
+ * (`registreAvecStockage`).
  */
 export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   rappel_feuilles: rappelFeuilles,
   relance_feuilles: relanceFeuilles,
   [TYPE_JOB_RELANCES]: creerHandlerRelances(),
+  [TYPE_JOB_PURGE_FICHIERS]: creerHandlerPurgeFichiers(() => stockageDe(loadConfig())),
 });
+
+/** Registre dont la purge des fichiers utilise ce stockage (configuration du serveur). */
+export function registreAvecStockage(
+  base: RegistreJobs,
+  stockage: () => ReturnType<typeof stockageDe>,
+): RegistreJobs {
+  return creerRegistre({
+    ...Object.fromEntries(base),
+    [TYPE_JOB_PURGE_FICHIERS]: creerHandlerPurgeFichiers(stockage),
+  });
+}

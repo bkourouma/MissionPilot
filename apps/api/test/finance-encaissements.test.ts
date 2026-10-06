@@ -1,8 +1,9 @@
+import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ajouterJours } from "@missionpilot/engines";
 import type { Role } from "@missionpilot/shared";
 import { aujourdhui } from "../src/missions/outils.js";
-import { demarrer, proprietaire, type Contexte } from "./helpers.js";
+import { configTest, demarrer, proprietaire, type Contexte } from "./helpers.js";
 import { attendre, preparerFacturation, type CabinetFacturation } from "./facturation-outils.js";
 import { factureDatee } from "./finance-outils.js";
 import { creerMissionSignee, TOUS_LES_ROLES } from "./missions-outils.js";
@@ -38,6 +39,49 @@ const encaissement = (
 
 const paiement = async (id: string) =>
   (await a.gestionnaire.get(`/api/factures/${id}/paiement`)).json();
+
+/** Transaction propriétaire ouverte qui tient un verrou jusqu'à `liberer()`. */
+async function tenirVerrou(sql: string, params: unknown[]): Promise<{ liberer(): Promise<void> }> {
+  const cl = new pg.Client({ connectionString: configTest().DATABASE_OWNER_URL });
+  await cl.connect();
+  await cl.query("BEGIN");
+  await cl.query(sql, params);
+  let libere = false;
+  return {
+    liberer: async () => {
+      if (libere) return;
+      libere = true;
+      await cl.query("COMMIT");
+      await cl.end();
+    },
+  };
+}
+
+/** Nombre de verrous en attente dans la base de test (autres bases du serveur exclues). */
+const verrousEnAttente = () =>
+  proprietaire(
+    async (cl) =>
+      (
+        await cl.query(
+          `SELECT count(*)::int AS n FROM pg_locks l JOIN pg_stat_activity s ON s.pid = l.pid
+           WHERE NOT l.granted AND s.datname = current_database()`,
+        )
+      ).rows[0].n as number,
+  );
+
+/** Attend qu'une condition soit vraie (au plus `ms`) ; renvoie son dernier état. */
+async function attendreQue(condition: () => Promise<boolean>, ms = 5_000): Promise<boolean> {
+  const fin = Date.now() + ms;
+  while (Date.now() < fin) {
+    if (await condition()) return true;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  return condition();
+}
+
+/** Promesse résolue en « délai » si `p` ne l'est pas dans `ms`. */
+const avantDelai = <T>(p: Promise<T>, ms: number): Promise<T | "délai"> =>
+  Promise.race([p, new Promise<"délai">((r) => setTimeout(() => r("délai"), ms))]);
 
 describe("encaissements et statut de paiement dérivé (FIN-09)", () => {
   it("paiement partiel puis solde ; statut dérivé, jamais stocké", async () => {
@@ -418,5 +462,136 @@ describe("créances et balance âgée (FIN-09)", () => {
       400,
     );
     expect((await c.gestionnaire.get("/api/finance/balance-agee?base=autre")).statusCode).toBe(400);
+  });
+});
+
+describe("durcissement du lot finance (audit de sécurité)", () => {
+  it("M1 : contre-passation validée et imputation d'avance simultanées : jamais d'imputation active sur un encaissement contre-passé", async () => {
+    const f1 = await factureDatee(ctx, a, missionA, 100_000, il(10));
+    const f2 = await factureDatee(ctx, a, missionA, 50_000, il(10));
+    const e = await a.gestionnaire.post(
+      "/api/finance/encaissements",
+      encaissement([{ id: f1.id, montant: 118_000 }], 200_000, { avance: true }),
+    );
+    attendre(201, e, "encaissement avec avance");
+    const d = await a.gestionnaire.post(
+      `/api/finance/encaissements/${e.json().id}/contre-passation`,
+      { motif: "Virement rejeté" },
+    );
+    attendre(201, d, "demande");
+    const valideur = await a.avecRoles(["gestionnaire"]);
+    // Un verrou tenu sur la facture déjà imputée retient la contre-passation au
+    // moment où elle verrouille les factures : la fenêtre de course est ouverte
+    // de façon déterministe.
+    const verrou = await tenirVerrou("SELECT 1 FROM factures WHERE id = $1 FOR UPDATE", [f1.id]);
+    let validation: ReturnType<typeof valideur.post> | undefined;
+    let imputation: ReturnType<typeof valideur.post> | undefined;
+    try {
+      validation = valideur.post(`/api/finance/contre-passations/${d.json().id}/valider`);
+      expect(await attendreQue(async () => (await verrousEnAttente()) >= 1)).toBe(true);
+      let finie = false;
+      imputation = a.gestionnaire.post(`/api/finance/encaissements/${e.json().id}/imputations`, {
+        imputations: [{ facture_id: f2.id, montant: 59_000 }],
+      });
+      void imputation.then(() => {
+        finie = true;
+      });
+      // L'imputation se termine (ancien ordre des verrous) ou attend l'encaissement.
+      await attendreQue(async () => finie || (await verrousEnAttente()) >= 2, 3_000);
+    } finally {
+      await verrou.liberer();
+    }
+    const [v, i] = await Promise.all([validation, imputation]);
+    expect(v?.statusCode, v?.body).toBe(200);
+    expect(i?.statusCode, i?.body).toBe(409);
+    const negatif = v?.json().contre_passation.id as string;
+    // Chaque facture : imputations de l'encaissement + miroirs = 0.
+    const nets = await proprietaire(
+      async (cl) =>
+        (
+          await cl.query(
+            `SELECT facture_id, sum(montant)::bigint AS net FROM imputations
+             WHERE encaissement_id = ANY ($1::uuid[]) GROUP BY facture_id`,
+            [[e.json().id, negatif]],
+          )
+        ).rows,
+    );
+    for (const n of nets) expect(Number(n.net), n.facture_id).toBe(0);
+    expect((await paiement(f1.id)).statut_paiement).toBe("non_payee");
+    expect((await paiement(f2.id)).statut_paiement).toBe("non_payee");
+  });
+
+  it("F5 : identifiant d'encaissement d'un autre cabinet : 404 sans prendre (ni attendre) son verrou", async () => {
+    const f = await factureDatee(ctx, a, missionA, 10_000, il(2));
+    const e = await a.gestionnaire.post(
+      "/api/finance/encaissements",
+      encaissement([{ id: f.id, montant: 1_000 }], 1_000),
+    );
+    attendre(201, e, "encaissement");
+    const id = e.json().id as string;
+    // Le cabinet A tient le verrou consultatif de son encaissement.
+    const verrou = await tenirVerrou(
+      "SELECT pg_advisory_xact_lock(hashtextextended('encaissement:' || $1, 0))",
+      [id],
+    );
+    const demandes = [
+      b.gestionnaire.post(`/api/finance/encaissements/${id}/contre-passation`, { motif: "x" }),
+      b.gestionnaire.post(`/api/finance/encaissements/${id}/imputations`, {
+        imputations: [{ facture_id: f.id, montant: 1 }],
+      }),
+    ];
+    try {
+      for (const p of demandes) {
+        const r = await avantDelai(p, 3_000);
+        expect(r === "délai" ? "délai" : r.statusCode).toBe(404);
+      }
+    } finally {
+      await verrou.liberer();
+      await Promise.allSettled(demandes);
+    }
+  });
+
+  it("F1 : TRUNCATE des historiques financiers refusé, même au propriétaire", async () => {
+    for (const table of [
+      "encaissements CASCADE",
+      "imputations",
+      "contre_passations",
+      "relances_factures",
+      "bilans_mission",
+    ]) {
+      // Transaction annulée dans tous les cas : rien n'est vidé, même sans le déclencheur.
+      const erreur = await proprietaire(async (cl) => {
+        await cl.query("BEGIN");
+        try {
+          await cl.query(`TRUNCATE ${table}`);
+          return null;
+        } catch (err) {
+          return err as { code?: string };
+        } finally {
+          await cl.query("ROLLBACK");
+        }
+      });
+      expect(erreur?.code, table).toBe("MPE01");
+    }
+  });
+
+  it("F6 : fonctions de déclencheur SECURITY DEFINER non exécutables par PUBLIC", async () => {
+    const r = await proprietaire(
+      async (cl) =>
+        (
+          await cl.query(
+            `SELECT p.proname, bool_or(x.grantee = 0) AS public
+             FROM pg_proc p, aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
+             WHERE p.proname IN ('controler_imputation', 'controler_encaissement',
+               'controler_annulation_facture')
+             GROUP BY p.proname ORDER BY p.proname`,
+          )
+        ).rows,
+    );
+    expect(r).toEqual([
+      { proname: "controler_annulation_facture", public: false },
+      { proname: "controler_encaissement", public: false },
+      { proname: "controler_imputation", public: false },
+    ]);
   });
 });

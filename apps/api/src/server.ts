@@ -4,6 +4,8 @@ import { trousseauDepuisConfig } from "./auth/chiffrement.js";
 import { createDatabase } from "./db/pool.js";
 import { registreAvecEmails } from "./notifications/file-email.js";
 import { WorkerJobs } from "./jobs/worker.js";
+import { REGISTRE_JOBS, registreAvecStockage } from "./jobs/registre.js";
+import { stockageDe } from "./stockage/index.js";
 
 const config = loadConfig();
 const db = createDatabase(config);
@@ -11,7 +13,11 @@ const app = await buildApp(config, db);
 const worker = workerActif(config)
   ? new WorkerJobs(db, {
       mailer: app.mailer,
-      registre: registreAvecEmails(app.mailer, trousseauDepuisConfig(config)),
+      registre: registreAvecEmails(
+        app.mailer,
+        trousseauDepuisConfig(config),
+        registreAvecStockage(REGISTRE_JOBS, () => stockageDe(config)),
+      ),
       journal: (m) => app.log.warn(m),
     })
   : null;

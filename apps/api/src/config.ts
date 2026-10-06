@@ -1,3 +1,5 @@
+import os from "node:os";
+import path from "node:path";
 import { z } from "zod";
 
 // Valeurs de développement identiques à .env.example ; refusées hors développement et test.
@@ -43,6 +45,31 @@ const schema = z.object({
   MAIL_FROM: z.string().max(254).regex(ADRESSE_ASCII).optional(),
   /** « oui » : 2FA obligatoire pour les rôles sensibles de tous les cabinets (plancher plateforme). */
   TOTP_REQUIS: z.enum(["oui", "non"]).default("non"),
+  /**
+   * Stockage des fichiers (SOC-05, FIN-05) : « disque » (dossier local) ;
+   * « s3 » est un point d'extension non implémenté (refus au démarrage).
+   */
+  STORAGE_DRIVER: z.enum(["disque", "s3"]).default("disque"),
+  /**
+   * Dossier ABSOLU des fichiers téléversés, hors du dépôt et jamais servi en
+   * statique. Obligatoire hors développement et test ; par défaut :
+   * `~/.missionpilot/stockage` (développement), dossier temporaire (test).
+   */
+  STORAGE_DIR: z.string().min(1).max(500).optional(),
+  /** Plafond par fichier téléversé, en octets (défaut 15 Mo, au plus 100 Mo). */
+  FICHIER_TAILLE_MAX_OCTETS: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .max(100 * 1024 * 1024)
+    .default(15 * 1024 * 1024),
+  /** Quota de stockage par cabinet, en octets (défaut 2 Go). */
+  QUOTA_STOCKAGE_CABINET_OCTETS: z.coerce
+    .number()
+    .int()
+    .min(1024 * 1024)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(2 * 1024 * 1024 * 1024),
 });
 
 export type Config = z.infer<typeof schema>;
@@ -109,7 +136,33 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   verifierSecrets(config);
   verifierConfigEmail(config);
+  verifierConfigStockage(config);
   return config;
+}
+
+/**
+ * Dossier du stockage sur disque : STORAGE_DIR, ou la valeur locale par
+ * défaut (développement : `~/.missionpilot/stockage` ; test : dossier
+ * temporaire du système). Toujours hors du dépôt.
+ */
+export function dossierStockage(config: Pick<Config, "NODE_ENV" | "STORAGE_DIR">): string {
+  if (config.STORAGE_DIR) return path.resolve(config.STORAGE_DIR);
+  return config.NODE_ENV === "test"
+    ? path.join(os.tmpdir(), "missionpilot-stockage-test")
+    : path.join(os.homedir(), ".missionpilot", "stockage");
+}
+
+/** Stockage : chemin absolu, obligatoire hors développement ; S3 pas encore disponible. */
+export function verifierConfigStockage(config: Config): void {
+  if (config.STORAGE_DRIVER === "s3") {
+    throw new Error("STORAGE_DRIVER=s3 n'est pas encore implémenté : utiliser « disque ».");
+  }
+  if (config.STORAGE_DIR !== undefined && !path.isAbsolute(config.STORAGE_DIR)) {
+    throw new Error("STORAGE_DIR doit être un chemin absolu.");
+  }
+  if (!estLocal(config.NODE_ENV) && config.STORAGE_DIR === undefined) {
+    throw new Error("STORAGE_DIR est obligatoire hors développement (dossier des fichiers).");
+  }
 }
 
 /** Les secrets maîtres sont distincts : une fuite de l'un n'ouvre pas les autres usages. */

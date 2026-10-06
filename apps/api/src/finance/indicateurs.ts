@@ -72,8 +72,10 @@ import {
  * | Encours de production      | encoursMission / encoursPortefeuille (finance.lire)     | mission, associé, cabinet |
  * | Délai moyen d'encaissement | delaiMoyenEncaissement des factures soldées dans la     | client, cabinet    |
  * |                            | période (date du dernier encaissement)                  |                    |
- * | Carnet de commandes        | carnetCommandes(signé, valeur produite), missions non   | associé, cabinet   |
- * |                            | clôturées (budget.lire_montants ou finance.lire)        |                    |
+ * | Carnet de commandes        | carnetCommandes(signé, valeur produite), missions non   | mission, associé, cabinet |
+ * |                            | clôturées (finance.lire : dérivé des taux de vente)     |                    |
+ * | Carnet de commandes        | carnetCommandes(signé, facturé cumulé), missions non    | mission, associé, cabinet |
+ * | facturé                    | clôturées (budget.lire_montants ou finance.lire)        |                    |
  * | Respect des jalons         | respectJalons des jalons prévus dans la période         | mission, associé, cabinet |
  * | Discipline de saisie       | disciplineSaisie des feuilles attendues de la période   | collaborateur, grade, cabinet |
  *
@@ -87,6 +89,13 @@ import {
  *   date limite le dimanche ; les semaines importées ne comptent pas
  *   (comme GET /temps/discipline).
  * - Champs monétaires ABSENTS sans le droit requis (jamais masqués).
+ * - Carnet de commandes : `carnet_commandes` (signé − valeur produite) est
+ *   dérivé des taux de vente (FIN-02) : en faisant varier `au` d'un jour, la
+ *   différence révélerait le taux journalier d'un collaborateur. Il est donc
+ *   réservé à « finance.lire ». Avec « budget.lire_montants » seul, le champ
+ *   distinct `carnet_commandes_facture` (Σ max(0, signé − facturé cumulé à la
+ *   fin de période), même moteur `carnetCommandes`) ne repose que sur des
+ *   montants déjà visibles de ce lecteur (budget signé, factures émises).
  * - Montants agrégés dans la devise du cabinet au taux figé de chaque mission.
  */
 
@@ -229,7 +238,10 @@ interface MissionIndicateurs {
     encours: Encours;
     coutsBudget: Montant;
     coutsAtterrissage: Montant;
+    /** Signé − valeur produite (taux de vente) : finance.lire seulement. */
     commande: CommandeMission | null;
+    /** Signé − facturé (données déjà visibles avec budget.lire_montants). */
+    commandeFacturee: CommandeMission | null;
   } | null;
 }
 
@@ -299,6 +311,10 @@ function montantsMission(
       signe === null
         ? null
         : { honorairesSignes: signeC as Montant, honorairesProduits: produit as Montant },
+    commandeFacturee:
+      signe === null
+        ? null
+        : { honorairesSignes: signeC as Montant, honorairesProduits: fact as Montant },
   };
 }
 
@@ -412,9 +428,17 @@ function vueMissions(
       facture_d_avance: encours.factureDAvance.valeur,
     };
   }
-  if (opts.finance || opts.montants) {
+  if (opts.finance) {
+    // Dérivé de la valeur produite (jours × taux de vente) : finance.lire seul.
     vue.carnet_commandes = carnetCommandes(
       avecMontants.flatMap((m) => (m.commande ? [m.commande] : [])),
+      devise,
+    ).valeur;
+  }
+  if (opts.finance || opts.montants) {
+    // Honoraires signés − honoraires facturés : aucune donnée de taux.
+    vue.carnet_commandes_facture = carnetCommandes(
+      avecMontants.flatMap((m) => (m.commandeFacturee ? [m.commandeFacturee] : [])),
       devise,
     ).valeur;
   }

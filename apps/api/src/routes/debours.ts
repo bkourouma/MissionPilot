@@ -1,16 +1,11 @@
 /*
- * DETTE DE SÉCURITÉ (audit du commit 6f28b95, constat F5) — justificatif.
- *
- * Le champ `justificatif` est aujourd'hui un simple chemin texte saisi par le
- * client (validé par justificatifSchema : relatif, sans « .. », « \ » ni
- * schéma), stocké et renvoyé tel quel ; aucun fichier n'est lu ni servi à
- * partir de cette valeur. Quand le téléversement des pièces sera livré :
- * - la clé de stockage sera GÉNÉRÉE PAR LE SERVEUR (identifiant aléatoire,
- *   préfixée par le cabinet), jamais reprise du client ;
- * - le fichier sera servi par une route authentifiée qui revérifie la
- *   visibilité du débours (deboursVisible), jamais en statique ;
- * - le type et la taille seront contrôlés à la réception ;
- * - ce champ texte sera retiré du contrat d'écriture (lecture seule).
+ * Justificatif (FIN-05) — dette « chemin libre » (constat F5) soldée :
+ * - le justificatif est un fichier TÉLÉVERSÉ par POST /debours/:id/justificatif
+ *   (routes/fichiers.ts) : clé de stockage générée par le serveur, type et
+ *   taille contrôlés par le contenu, servi par GET /fichiers/:id qui revérifie
+ *   la visibilité du débours (deboursVisible) ;
+ * - le champ texte `justificatif` (chemin) reste LU pour les anciens débours,
+ *   mais n'accepte plus de nouvelle valeur : seul `null` (ou l'absence) passe.
  */
 import type { FastifyPluginAsync } from "fastify";
 import {
@@ -22,40 +17,32 @@ import {
 import { journaliser } from "../audit.js";
 import { exiger, type Auth } from "../auth/contexte.js";
 import { clauseSet } from "../db/outils.js";
-import type { Db } from "../db/pool.js";
-import { AppError, conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
+import { AppError, conflit, interdit, requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
 import { estAssocie, exigerMissionVisible, type MissionAcces } from "../missions/acces.js";
 import { collaborateurDe } from "../planification/outils.js";
 import {
   COLONNES_DEBOURS,
   DEPUIS_DEBOURS,
+  deboursVisible,
   exigerDebours,
   vueDebours,
 } from "../facturation/debours.js";
-import {
-  missionVisibleOuNull,
-  peutValiderDebours,
-  voitDeboursMission,
-} from "../facturation/outils.js";
+import { peutValiderDebours, voitDeboursMission } from "../facturation/outils.js";
 
 /** Clé de tri décroissante (plus récent d'abord) compatible avec `paginer`. */
 const CLE_RECENT = (col: string) =>
   `lpad((99999999999999999 - (extract(epoch FROM ${col}) * 1000000)::bigint)::text, 17, '0')`;
 
-/** Débours visible : son auteur, ou qui voit les débours de la mission ; sinon 404. */
-async function deboursVisible(
-  db: Db,
-  auth: Auth,
-  id: string,
-  verrouiller = false,
-): Promise<{ debours: Record<string, unknown>; mission: MissionAcces }> {
-  const lu = await exigerDebours(db, id);
-  // Verrou de la mission puis du débours (même ordre que la facturation).
-  const mission = await missionVisibleOuNull(db, auth, lu.mission_id as string, verrouiller);
-  const auteur = lu.auteur_id === auth.utilisateurId;
-  if (!mission || (!auteur && !voitDeboursMission(auth, mission))) throw introuvable("Débours");
-  return { debours: verrouiller ? await exigerDebours(db, id, true) : lu, mission };
+/** Le chemin libre n'est plus accepté : le justificatif se téléverse. */
+function refuserCheminLibre(justificatif: string | null | undefined): void {
+  if (justificatif !== null && justificatif !== undefined) {
+    throw new AppError(
+      400,
+      "JUSTIFICATIF_PAR_TELEVERSEMENT",
+      "Le justificatif se téléverse (POST /api/debours/:id/justificatif) : un chemin n'est plus accepté.",
+    );
+  }
 }
 
 function exigerAuteur(auth: Auth, debours: Record<string, unknown>): void {
@@ -91,6 +78,7 @@ export const routesDebours: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "debours.saisir");
     const { id } = paramsId.parse(request.params);
     const d = deboursCreationSchema.parse(request.body);
+    refuserCheminLibre(d.justificatif);
     const cree = await app.db.withTenant(auth.cabinetId, async (db) => {
       const mission = await exigerMissionVisible(db, auth, id);
       if (mission.statut === "cloturee") throw conflit("La mission est clôturée.");
@@ -117,7 +105,7 @@ export const routesDebours: FastifyPluginAsync = async (app) => {
           d.montant,
           devise,
           d.refacturable,
-          d.justificatif ?? null,
+          null,
         ],
       );
       await journaliser(db, {
@@ -201,6 +189,7 @@ export const routesDebours: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "debours.saisir");
     const { id } = paramsId.parse(request.params);
     const modif = deboursModificationSchema.parse(request.body);
+    refuserCheminLibre(modif.justificatif);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const { debours, mission } = await deboursVisible(db, auth, id, true);
       exigerAuteur(auth, debours);

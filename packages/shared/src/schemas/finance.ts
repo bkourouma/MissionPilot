@@ -164,7 +164,11 @@ export const parametresRelanceSchema = z
 export const relanceManuelleSchema = z
   .object({
     niveau: z.number().int().min(1).max(3).optional(),
-    envoyer_email: z.boolean().default(true),
+    /**
+     * E-mail au contact du client : à demander explicitement (désactivé par
+     * défaut) ; une seule relance manuelle avec e-mail par facture et par jour.
+     */
+    envoyer_email: z.boolean().default(false),
     message: texteOptionnel(1000),
   })
   .strict();
@@ -181,15 +185,6 @@ export const balanceAgeeQuerySchema = z
 export const encoursQuerySchema = z.object({ date: dateFacturationSchema.optional() }).strict();
 
 export const NIVEAUX_RENTABILITE = ["mission", "client", "type", "associe"] as const;
-
-export const rentabiliteQuerySchema = z
-  .object({
-    niveau: z.enum(NIVEAUX_RENTABILITE).default("mission"),
-    du: dateFacturationSchema,
-    au: dateFacturationSchema,
-  })
-  .strict()
-  .refine(periodeCoherente, MESSAGE_PERIODE);
 
 /* ----- Indicateurs du cabinet ----- */
 
@@ -213,6 +208,23 @@ export const indicateursQuerySchema = z
     niveau: z.enum(NIVEAUX_INDICATEURS).default("cabinet"),
     /** Date d'évaluation des jalons et des feuilles (par défaut : fin de période). */
     date_reference: dateFacturationSchema.optional(),
+  })
+  .strict()
+  .refine(periodeCoherente, MESSAGE_PERIODE)
+  .refine(
+    (q) => ecartJours(q.du, q.au) < INDICATEURS_MAX_JOURS,
+    `Période de ${INDICATEURS_MAX_JOURS} jours au plus.`,
+  );
+
+/**
+ * Rentabilité (FIN-12) : même borne que les indicateurs (366 jours au plus),
+ * l'analyse étant servie à la volée sur toutes les missions visibles.
+ */
+export const rentabiliteQuerySchema = z
+  .object({
+    niveau: z.enum(NIVEAUX_RENTABILITE).default("mission"),
+    du: dateFacturationSchema,
+    au: dateFacturationSchema,
   })
   .strict()
   .refine(periodeCoherente, MESSAGE_PERIODE)

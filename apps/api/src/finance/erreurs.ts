@@ -25,3 +25,11 @@ export function traduireErreurFinanceV1(error: unknown): unknown {
 }
 
 export const tropPercu = (message: string) => new AppError(409, "TROP_PERCU", message);
+
+/** Conflit réessayable : l'ensemble des imputations a changé pendant l'opération. */
+export const imputationsModifiees = () =>
+  new AppError(
+    409,
+    "CONFLIT_CONCURRENT",
+    "Les imputations de l'encaissement viennent de changer : réessayer.",
+  );

@@ -10,6 +10,7 @@ import {
   type Devise,
   type Montant,
   type SyntheseBudget,
+  type TauxNegocie,
 } from "@missionpilot/engines";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
@@ -25,6 +26,7 @@ import {
   resoudreTauxVente,
   versionDeReference,
   versVersionMoteur,
+  type GrilleVente,
   type LigneBudgetDb,
   type VersionDb,
 } from "../missions/budget.js";
@@ -208,14 +210,130 @@ export interface Tarification {
 }
 
 export async function chargerTarification(db: Db, mission: MissionDonnees): Promise<Tarification> {
-  const versions = await chargerVersions(db, mission.id);
+  return tarificationDe(
+    mission,
+    await chargerVersions(db, mission.id),
+    await chargerGrilleVente(db, mission),
+  );
+}
+
+/**
+ * Tarifications de plusieurs missions EN LOT (nombre de requêtes constant,
+ * quel que soit le nombre de missions) : mêmes règles que `chargerVersions`
+ * et `chargerGrilleVente` (missions/budget.ts), lues par `mission_id = ANY`.
+ * Les deux chemins sont comparés par test (finance-volume.test.ts).
+ */
+export async function chargerTarifications(
+  db: Db,
+  missions: readonly MissionDonnees[],
+): Promise<Map<string, Tarification>> {
+  const parMission = new Map<string, Tarification>();
+  if (missions.length === 0) return parMission;
+  const ids = missions.map((m) => m.id);
+  const v = await db.query(
+    `SELECT id, mission_id, numero, type, devise, figee, date_figeage::text AS date_figeage, motif,
+       role_approbateur, cree_par, cree_le, validee_par, validee_le
+     FROM budget_versions WHERE mission_id = ANY ($1::uuid[]) ORDER BY mission_id, numero`,
+    [ids],
+  );
+  const l = await db.query(
+    `SELECT id, version_id, cle, libelle, nature, grade_code, jours::float8 AS jours,
+       prix_journalier, montant_forfait, refacturable, ordre
+     FROM budget_lignes WHERE mission_id = ANY ($1::uuid[]) ORDER BY ordre, cle`,
+    [ids],
+  );
+  const lignesParVersion = new Map<string, VersionDb["lignes"]>();
+  for (const { version_id: versionId, ...ligne } of l.rows) {
+    const liste = lignesParVersion.get(versionId as string) ?? [];
+    liste.push({
+      ...ligne,
+      prix_journalier: ligne.prix_journalier === null ? null : nombre(ligne.prix_journalier),
+      montant_forfait: ligne.montant_forfait === null ? null : nombre(ligne.montant_forfait),
+    } as VersionDb["lignes"][number]);
+    lignesParVersion.set(versionId as string, liste);
+  }
+  const versionsParMission = new Map<string, VersionDb[]>();
+  for (const { mission_id: missionId, ...version } of v.rows) {
+    const liste = versionsParMission.get(missionId as string) ?? [];
+    liste.push({
+      ...version,
+      lignes: lignesParVersion.get(version.id as string) ?? [],
+    } as VersionDb);
+    versionsParMission.set(missionId as string, liste);
+  }
+  const grades = await db.query("SELECT id, code, taux_vente_standard, devise FROM grades");
+  const propositions = [
+    ...new Set(missions.flatMap((m) => (m.proposition_id ? [m.proposition_id] : []))),
+  ];
+  const tauxPropositions = new Map<string, Map<string, number | null>>();
+  if (propositions.length > 0) {
+    const p = await db.query(
+      `SELECT proposition_id, grade_id, taux_journalier FROM proposition_taux
+       WHERE proposition_id = ANY ($1::uuid[])`,
+      [propositions],
+    );
+    for (const t of p.rows) {
+      const parGrade = tauxPropositions.get(t.proposition_id as string) ?? new Map();
+      parGrade.set(
+        t.grade_id as string,
+        t.taux_journalier === null ? null : nombre(t.taux_journalier),
+      );
+      tauxPropositions.set(t.proposition_id as string, parGrade);
+    }
+  }
+  const clients = [...new Set(missions.map((m) => m.client_id))];
+  const n = await db.query(
+    `SELECT t.client_id, t.devise, g.code, t.taux, t.valide_du::text AS valide_du,
+       t.valide_au::text AS valide_au
+     FROM taux_clients t JOIN grades g ON g.id = t.grade_id WHERE t.client_id = ANY ($1::uuid[])`,
+    [clients],
+  );
+  for (const mission of missions) {
+    const devise = mission.devise;
+    const propositionTaux = mission.proposition_id
+      ? tauxPropositions.get(mission.proposition_id)
+      : undefined;
+    const fixes: Record<string, Montant> = {};
+    const standard: Record<string, Montant> = {};
+    for (const g of grades.rows) {
+      const fixe = propositionTaux?.get(g.id as string);
+      if (fixe !== undefined && fixe !== null) fixes[g.code] = montantMoteur(fixe, devise);
+      if (g.devise === devise && g.taux_vente_standard !== null) {
+        standard[g.code] = montantMoteur(nombre(g.taux_vente_standard), devise);
+      }
+    }
+    const negocies: TauxNegocie[] = n.rows
+      .filter((t) => t.client_id === mission.client_id && t.devise === devise)
+      .map((t) => ({
+        clientId: mission.client_id,
+        grade: t.code as string,
+        taux: montantMoteur(nombre(t.taux), devise),
+        ...(t.valide_du ? { valideDu: t.valide_du as string } : {}),
+        ...(t.valide_au ? { valideAu: t.valide_au as string } : {}),
+      }));
+    parMission.set(
+      mission.id,
+      tarificationDe(mission, versionsParMission.get(mission.id) ?? [], {
+        fixes,
+        grille: { standard, negocies },
+        clientId: mission.client_id,
+      }),
+    );
+  }
+  return parMission;
+}
+
+function tarificationDe(
+  mission: MissionDonnees,
+  versions: VersionDb[],
+  grille: GrilleVente,
+): Tarification {
   const reference = versionDeReference(versions);
   const prixBudget = new Map(
     (reference?.lignes ?? [])
       .filter((l) => l.nature === "honoraires" && l.prix_journalier !== null)
       .map((l) => [l.cle, l.prix_journalier as number]),
   );
-  const grille = await chargerGrilleVente(db, mission);
   const devise = mission.devise;
   return {
     reference,
@@ -355,11 +473,18 @@ export async function analyserMissions(
   const couts = await chargerCouts(db);
   const factures = await honorairesFactures(db, ids, du, au);
   const debours = await deboursNonRefactures(db, ids, du, au);
+  const tarifications = await chargerTarifications(db, missions);
+  const tempsParMission = new Map<string, TempsValideLigne[]>();
+  for (const t of temps) {
+    const liste = tempsParMission.get(t.mission_id) ?? [];
+    liste.push(t);
+    tempsParMission.set(t.mission_id, liste);
+  }
   const analyses: AnalyseMission[] = [];
   for (const mission of missions) {
     const devise = mission.devise;
-    const tarification = await chargerTarification(db, mission);
-    const lignes = temps.filter((t) => t.mission_id === mission.id);
+    const tarification = tarifications.get(mission.id) as Tarification;
+    const lignes = tempsParMission.get(mission.id) ?? [];
     const vente: { jours: number; taux: Montant }[] = [];
     const standard: { jours: number; taux: Montant }[] = [];
     const internes: { jours: number; taux: Montant }[] = [];

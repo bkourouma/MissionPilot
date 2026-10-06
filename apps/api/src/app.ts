@@ -12,6 +12,7 @@ import { creerMailer, type Mailer } from "./notifications/mailer.js";
 import { routesAuth } from "./routes/auth.js";
 import { routesFacturation } from "./routes/facturation-routes.js";
 import { routesFinance } from "./routes/finance-routes.js";
+import { routesDocumentsCollaboration } from "./routes/documents-routes.js";
 import { routesCycleMission } from "./routes/missions-routes.js";
 import { routesPlanification } from "./routes/planification-routes.js";
 import { routesReferentiels } from "./routes/referentiels.js";
@@ -149,5 +150,6 @@ export async function buildApp(
   await app.register(routesTemps, { prefix: "/api" });
   await app.register(routesFacturation, { prefix: "/api" });
   await app.register(routesFinance, { prefix: "/api" });
+  await app.register(routesDocumentsCollaboration, { prefix: "/api" });
   return app;
 }

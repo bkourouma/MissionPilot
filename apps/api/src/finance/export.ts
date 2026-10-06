@@ -12,8 +12,8 @@ import {
 import type { ExportComptableQuery } from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { AppError } from "../errors.js";
-import { filtreVisibilite, voitToutesLesMissions } from "../missions/acces.js";
+import { AppError, interdit } from "../errors.js";
+import { voitToutesLesMissions } from "../missions/acces.js";
 import { nombre } from "../missions/outils.js";
 import type { PlanComptable } from "./plan-comptable.js";
 
@@ -77,7 +77,9 @@ export function verifierEquilibre(ecritures: readonly Ecriture[]): void {
   const pieces = new Map<string, Ecriture[]>();
   for (const e of ecritures) {
     const cle = `${e.journal}|${e.piece}`;
-    pieces.set(cle, [...(pieces.get(cle) ?? []), e]);
+    const liste = pieces.get(cle);
+    if (liste) liste.push(e);
+    else pieces.set(cle, [e]);
   }
   for (const lignes of pieces.values()) {
     const devises = new Set(lignes.map((l) => (l.debit ?? l.credit)?.devise as Devise));
@@ -106,10 +108,20 @@ const sansSautDeLigne = (t: string) =>
   // eslint-disable-next-line no-control-regex
   t.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").trim();
 
-/** Écritures des factures et avoirs émis dans la période (missions visibles). */
+/** Regroupe des lignes par une clé, en un seul passage. */
+function grouperPar<T extends Record<string, unknown>>(lignes: readonly T[], cle: keyof T) {
+  const groupes = new Map<unknown, T[]>();
+  for (const l of lignes) {
+    const liste = groupes.get(l[cle]);
+    if (liste) liste.push(l);
+    else groupes.set(l[cle], [l]);
+  }
+  return groupes;
+}
+
+/** Écritures des factures et avoirs émis dans la période (tout le cabinet). */
 async function ecrituresFactures(
   db: Db,
-  auth: Auth,
   du: string,
   au: string,
   plan: PlanComptable,
@@ -117,10 +129,10 @@ async function ecrituresFactures(
   const r = await db.query(
     `SELECT f.id, f.nature, f.numero, f.devise, f.date_emission::text AS date_emission, f.total_tva,
        f.total_retenues, f.net_a_payer, cl.raison_sociale AS client
-     FROM factures f JOIN missions m ON m.id = f.mission_id JOIN clients cl ON cl.id = f.client_id
-     WHERE f.numero IS NOT NULL AND f.date_emission BETWEEN $1 AND $2 AND ${filtreVisibilite(3, 4)}
+     FROM factures f JOIN clients cl ON cl.id = f.client_id
+     WHERE f.numero IS NOT NULL AND f.date_emission BETWEEN $1 AND $2
      ORDER BY f.date_emission, f.numero`,
-    [du, au, voitToutesLesMissions(auth), auth.utilisateurId],
+    [du, au],
   );
   const ids = r.rows.map((f) => f.id as string);
   const l =
@@ -130,11 +142,12 @@ async function ecrituresFactures(
           "SELECT facture_id, origine, montant_ht FROM facture_lignes WHERE facture_id = ANY ($1::uuid[])",
           [ids],
         );
+  const lignesParFacture = grouperPar(l.rows, "facture_id");
   const ecritures: Ecriture[] = [];
   for (const f of r.rows) {
     const devise = f.devise as Devise;
     const m = (v: unknown) => montantMoteur(nombre(v), devise);
-    const lignesF = l.rows.filter((x) => x.facture_id === f.id);
+    const lignesF = lignesParFacture.get(f.id) ?? [];
     const ht = (origine: string) =>
       sommer(
         lignesF.filter((x) => x.origine === origine).map((x) => m(x.montant_ht)),
@@ -200,14 +213,15 @@ async function ecrituresEncaissements(
            WHERE encaissement_id = ANY ($1::uuid[]) AND origine IN ('saisie', 'contre_passation')`,
           [ids],
         );
+  const imputationsParEncaissement = grouperPar(imp.rows, "encaissement_id");
   const ecritures: Ecriture[] = [];
   for (const e of r.rows) {
     const devise = e.devise as Devise;
     const total = montantMoteur(nombre(e.montant), devise);
     const imputees = sommer(
-      imp.rows
-        .filter((i) => i.encaissement_id === e.id)
-        .map((i) => montantMoteur(nombre(i.montant), devise)),
+      (imputationsParEncaissement.get(e.id) ?? []).map((i) =>
+        montantMoteur(nombre(i.montant), devise),
+      ),
       devise,
     );
     const [journal, compte] = JOURNAL_MODE[e.mode as keyof typeof JOURNAL_MODE];
@@ -258,6 +272,14 @@ async function ecrituresEncaissements(
   return ecritures;
 }
 
+/**
+ * Écritures de la période. CLOISONNEMENT (décision documentée) : l'export
+ * porte sur TOUT le cabinet (factures, encaissements, imputations), de façon
+ * uniforme ; il est donc réservé à qui voit toutes les missions
+ * (« mission.lire_toutes », exigé par la route ET ici). Un filtre partiel
+ * (factures seulement) produirait une balance incohérente et laisserait voir
+ * les encaissements de clients invisibles : il n'y en a aucun.
+ */
 export async function ecrituresComptables(
   db: Db,
   auth: Auth,
@@ -265,8 +287,9 @@ export async function ecrituresComptables(
   au: string,
   plan: PlanComptable,
 ): Promise<Ecriture[]> {
+  if (!voitToutesLesMissions(auth)) throw interdit();
   const ecritures = [
-    ...(await ecrituresFactures(db, auth, du, au, plan)),
+    ...(await ecrituresFactures(db, du, au, plan)),
     ...(await ecrituresEncaissements(db, du, au, plan)),
   ].sort((a, b) => (a.date === b.date ? 0 : a.date < b.date ? -1 : 1));
   verifierEquilibre(ecritures);

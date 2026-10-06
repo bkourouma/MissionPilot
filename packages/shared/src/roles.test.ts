@@ -52,6 +52,20 @@ describe("droits par rôle", () => {
     ).toEqual(["associe"]);
   });
 
+  it("collaboration (SOC-08) : matrice des 8 rôles", () => {
+    const qui = (p: Parameters<typeof aPermission>[1]) =>
+      ROLES.filter((r) => aPermission([r], p)).sort();
+    // Tous les rôles internes commentent ; l'expert externe est borné par la visibilité.
+    expect(qui("commentaire.ecrire")).toEqual([...ROLES].sort());
+    expect(qui("tache.assigner")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "gestionnaire",
+      "ressources",
+    ]);
+  });
+
   it("les droits de plusieurs rôles s'additionnent", () => {
     expect(aPermission(["consultant", "ressources"], "affectation.gerer")).toBe(true);
   });

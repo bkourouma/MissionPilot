@@ -11,7 +11,9 @@ import {
 
 /**
  * Export comptable (FIN-13) et plan comptable du cabinet :
- * « export.comptable » (associé, gestionnaire). Chaque export est journalisé
+ * « export.comptable » (associé, gestionnaire) ; l'export lui-même exige en
+ * plus « mission.lire_toutes » (écritures de tout le cabinet, sans filtre
+ * partiel par mission visible). Chaque export est journalisé
  * (qui, période, nombre de lignes et de pièces, jamais de montant).
  */
 export const routesExportComptable: FastifyPluginAsync = async (app) => {
@@ -39,7 +41,10 @@ export const routesExportComptable: FastifyPluginAsync = async (app) => {
   });
 
   app.get("/finance/export-comptable", async (request, reply) => {
+    // L'export porte sur tout le cabinet (finance/export.ts) : il exige aussi
+    // de voir toutes les missions.
     const auth = exiger(request, "export.comptable");
+    exiger(request, "mission.lire_toutes");
     const q = exportComptableQuerySchema.parse(request.query);
     const csv = await app.db.withTenant(auth.cabinetId, async (db) => {
       const plan = await lirePlanComptable(db);

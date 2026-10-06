@@ -14,7 +14,7 @@ import type { Db } from "../db/pool.js";
 import { AppError, conflit, introuvable, requeteInvalide } from "../errors.js";
 import { estAssocie, filtreVisibilite, voitToutesLesMissions } from "../missions/acces.js";
 import { aujourdhui, nombre } from "../missions/outils.js";
-import { tropPercu } from "./erreurs.js";
+import { imputationsModifiees, tropPercu } from "./erreurs.js";
 import {
   COLONNES_FACTURE_PAIEMENT,
   imputationsParFacture,
@@ -32,8 +32,15 @@ import {
  *   le demandeur (sauf associé), qui crée l'encaissement négatif lié et les
  *   imputations négatives miroirs.
  * - Imputation sur une ou plusieurs factures émises du même client et de la
- *   même devise, chacune au plus de son reste à payer (moteur, sous verrou
- *   FOR UPDATE des factures, puis de l'encaissement : ordre constant).
+ *   même devise, chacune au plus de son reste à payer (moteur, sous verrou).
+ * - Ordre constant des verrous dans toute opération sur un encaissement
+ *   existant (imputation d'avance, contre-passation) : l'encaissement
+ *   (verrou consultatif) D'ABORD, PUIS les factures (FOR UPDATE, par
+ *   identifiant), puis relecture des imputations sous verrou. Une imputation
+ *   d'avance et une contre-passation simultanées sont donc sérialisées : une
+ *   imputation ne reste jamais active sur un encaissement contre-passé.
+ *   La création d'un encaissement ne verrouille que les factures (il n'existe
+ *   pas encore).
  * - Trop-perçu : la part non imputée est refusée, sauf avance explicite ;
  *   l'avance reste imputable plus tard (origine « avance »).
  * - Aucun calcul de montant hors du moteur ; aucune donnée de coût ni de marge.
@@ -70,7 +77,12 @@ export async function lireEncaissement(
 ): Promise<EncaissementDb & Record<string, unknown>> {
   // Verrou transactionnel consultatif : la table est en ajout seul (aucun
   // droit UPDATE, donc pas de SELECT … FOR UPDATE possible pour le rôle applicatif).
+  // La clé du verrou est commune à toute l'instance : l'existence est d'abord
+  // vérifiée sous RLS, pour qu'un identifiant d'un autre cabinet réponde 404
+  // sans jamais attendre (ni faire attendre) un verrou de ce cabinet.
   if (verrouiller) {
+    const existe = await db.query("SELECT 1 FROM encaissements WHERE id = $1", [id]);
+    if (!existe.rowCount) throw introuvable("Encaissement");
     await db.query("SELECT pg_advisory_xact_lock(hashtextextended('encaissement:' || $1, 0))", [
       id,
     ]);
@@ -262,13 +274,12 @@ export async function imputerAvance(
   encaissementId: string,
   imputations: readonly ImputationSaisie[],
 ): Promise<EncaissementDb> {
-  const brut = await lireEncaissement(db, encaissementId);
-  // Ordre constant des verrous : factures, puis encaissement.
-  await controlerImputations(db, auth, brut.client_id, brut.devise, imputations, null);
+  // Ordre constant des verrous : encaissement, puis factures (voir en tête).
   const e = await lireEncaissement(db, encaissementId, true);
   if (e.contre_passation_de !== null || e.contre_passe_par !== null) {
     throw conflit("Encaissement contre-passé : plus d'imputation possible.");
   }
+  await controlerImputations(db, auth, e.client_id, e.devise, imputations, null);
   totalImpute(imputations, e.devise, await nonImpute(db, e));
   await insererImputations(db, auth, e.id, e.devise, imputations, "avance", aujourdhui());
   return e;
@@ -343,18 +354,28 @@ export async function validerContrePassation(
   const d = await lireDemande(db, demandeId, true);
   if (d.statut !== "demandee") throw conflit("Cette demande a déjà été décidée.");
   exigerAutreQueDemandeur(auth, d);
-  const imputees = await db.query(
-    "SELECT facture_id, montant FROM imputations WHERE encaissement_id = $1 ORDER BY facture_id",
-    [d.encaissement_id],
-  );
-  const factures = [...new Set(imputees.rows.map((i) => i.facture_id as string))].sort();
+  // Ordre constant des verrous : encaissement, puis factures, puis relecture
+  // des imputations sous verrou (voir en tête).
+  const e = await lireEncaissement(db, d.encaissement_id, true);
+  if (e.contre_passe_par !== null) throw conflit("Encaissement déjà contre-passé.");
+  const lireImputees = () =>
+    db.query(
+      "SELECT id, facture_id, montant FROM imputations WHERE encaissement_id = $1 ORDER BY facture_id, id",
+      [d.encaissement_id],
+    );
+  const avant = await lireImputees();
+  const factures = [...new Set(avant.rows.map((i) => i.facture_id as string))].sort();
   if (factures.length > 0) {
     await db.query("SELECT id FROM factures WHERE id = ANY ($1::uuid[]) ORDER BY id FOR UPDATE", [
       factures,
     ]);
   }
-  const e = await lireEncaissement(db, d.encaissement_id, true);
-  if (e.contre_passe_par !== null) throw conflit("Encaissement déjà contre-passé.");
+  const imputees = await lireImputees();
+  const empreinte = (rows: Record<string, unknown>[]) => rows.map((i) => i.id as string).join(",");
+  if (empreinte(imputees.rows) !== empreinte(avant.rows)) {
+    // Ne devrait pas arriver (l'encaissement est verrouillé) : défense en profondeur.
+    throw imputationsModifiees();
+  }
   const date = aujourdhui();
   const negatif = oppose(montantMoteur(e.montant, e.devise));
   const r = await db.query(

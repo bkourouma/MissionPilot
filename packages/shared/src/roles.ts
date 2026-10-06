@@ -68,6 +68,8 @@ export const PERMISSIONS = [
   "debours.saisir", // déclarer ses débours et notes de frais (FIN-05)
   "debours.valider", // valider les débours d'une mission dont on est chef ou directeur (FIN-05)
   "export.comptable", // exporter les écritures comptables et régler le plan comptable (FIN-13)
+  "commentaire.ecrire", // commenter une entité VISIBLE (SOC-08) ; l'expert externe : ses seules missions
+  "tache.assigner", // assigner une tâche de collaboration à un collègue (SOC-08)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -105,6 +107,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "conges.demander",
     "debours.saisir",
     "debours.valider",
+    "commentaire.ecrire",
+    "tache.assigner",
   ],
   chef_mission: [
     "clients.lire",
@@ -126,6 +130,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "conges.demander",
     "debours.saisir",
     "debours.valider",
+    "commentaire.ecrire",
+    "tache.assigner",
   ],
   consultant: [
     "clients.lire",
@@ -136,6 +142,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "document.ecrire",
     "conges.demander",
     "debours.saisir",
+    "commentaire.ecrire",
   ],
   ressources: [
     "clients.lire",
@@ -151,6 +158,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "mission.lire_toutes",
     "conges.demander",
     "debours.saisir",
+    "commentaire.ecrire",
+    "tache.assigner",
   ],
   gestionnaire: [
     "clients.lire",
@@ -175,6 +184,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "conges.demander",
     "debours.saisir",
     "export.comptable",
+    "commentaire.ecrire",
+    "tache.assigner",
   ],
   expert_metier: [
     "catalogue.lire",
@@ -184,8 +195,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "document.ecrire",
     "conges.demander",
     "debours.saisir",
+    "commentaire.ecrire",
   ],
-  expert_externe: ["temps.saisir", "debours.saisir"],
+  expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire"],
 };
 
 /** Les associés et gestionnaires seuls voient coûts, taux et marges (FIN-02). */

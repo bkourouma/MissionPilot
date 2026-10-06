@@ -18,6 +18,19 @@ export function api(ctx: Contexte, cookie?: string) {
     patch: (url: string, payload: unknown) => appel("PATCH", url, payload),
     put: (url: string, payload: unknown) => appel("PUT", url, payload),
     delete: (url: string) => appel("DELETE", url),
+    /** Requête brute (corps binaire, en-têtes propres : multipart) avec la session. */
+    brut: (options: {
+      method: Methode;
+      url: string;
+      payload?: Buffer | string;
+      headers?: Record<string, string>;
+    }) =>
+      ctx.app.inject({
+        method: options.method,
+        url: options.url,
+        headers: { ...(options.headers ?? {}), ...(cookie ? { cookie } : {}) },
+        ...(options.payload === undefined ? {} : { payload: options.payload }),
+      }),
   };
 }
 

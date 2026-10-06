@@ -17,7 +17,6 @@ const DEBOURS = {
   libelle: "Billet Abidjan-Bouaké",
   montant: 45_000,
   refacturable: true,
-  justificatif: "debours/2026/billet-bouake.jpg",
 };
 
 beforeAll(async () => {
@@ -86,7 +85,7 @@ describe("débours et notes de frais (FIN-05)", () => {
     });
     expect(rejet.json()).toMatchObject({ statut: "rejete", motif_rejet: "Justificatif illisible" });
     const corrige = await consultant.patch(`/api/debours/${id}`, {
-      justificatif: "debours/2026/billet-net.jpg",
+      libelle: "Billet Abidjan-Bouaké (aller simple)",
     });
     expect(corrige.json().statut).toBe("brouillon");
     expect((await consultant.post(`/api/debours/${id}/soumettre`)).statusCode).toBe(200);
@@ -115,6 +114,11 @@ describe("débours et notes de frais (FIN-05)", () => {
     expect((await post({ justificatif: "../../etc/passwd" })).statusCode).toBe(400);
     expect((await post({ justificatif: "https://exemple.test/x.jpg" })).statusCode).toBe(400);
     expect((await post({ justificatif: "/absolu.jpg" })).statusCode).toBe(400);
+    // Dette F5 soldée : même un chemin relatif « sûr » n'est plus accepté (téléversement).
+    const relatif = await post({ justificatif: "debours/2026/billet.jpg" });
+    expect(relatif.statusCode).toBe(400);
+    expect(relatif.json().erreur.code).toBe("JUSTIFICATIF_PAR_TELEVERSEMENT");
+    expect((await post({ justificatif: null })).statusCode).toBe(201);
     expect((await post({ devise: "EUR" })).statusCode).toBe(400);
     expect((await post({ date: "1999-12-31" })).statusCode).toBe(400);
     expect((await post({ montant: 0 })).statusCode).toBe(400);

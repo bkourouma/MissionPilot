@@ -12,10 +12,11 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
-    "@missionpilot/engines": "workspace:*",
-    "@missionpilot/shared": "workspace:*",
     "@fastify/cookie": "^11.0.0",
     "@fastify/cors": "^10.0.0",
+    "@fastify/multipart": "^10.1.2",
+    "@missionpilot/engines": "workspace:*",
+    "@missionpilot/shared": "workspace:*",
     "fastify": "^5.0.0",
     "pg": "^8.13.0",
     "zod": "^3.23.0"

@@ -6,6 +6,7 @@ import {
   indicateursQuerySchema,
   parametresRelanceSchema,
   planComptableSchema,
+  relanceManuelleSchema,
   rentabiliteQuerySchema,
 } from "./finance";
 
@@ -54,6 +55,11 @@ describe("schémas de la finance (FIN-09 à FIN-13)", () => {
     expect(parametresRelanceSchema.safeParse({}).success).toBe(false);
   });
 
+  it("relance manuelle : e-mail au client seulement sur demande explicite (audit F3)", () => {
+    expect(relanceManuelleSchema.parse({})).toMatchObject({ envoyer_email: false });
+    expect(relanceManuelleSchema.parse({ envoyer_email: true }).envoyer_email).toBe(true);
+  });
+
   it("périodes bornées et cohérentes (rentabilité, indicateurs, export)", () => {
     expect(rentabiliteQuerySchema.safeParse({ du: "2026-01-01", au: "2026-12-31" }).success).toBe(
       true,
@@ -62,6 +68,16 @@ describe("schémas de la finance (FIN-09 à FIN-13)", () => {
       false,
     );
     expect(indicateursQuerySchema.safeParse({ du: "2026-01-01", au: "2027-01-02" }).success).toBe(
+      false,
+    );
+    // Rentabilité : 366 jours au plus, comme les indicateurs (audit M3).
+    expect(rentabiliteQuerySchema.safeParse({ du: "2024-01-01", au: "2024-12-31" }).success).toBe(
+      true,
+    );
+    expect(rentabiliteQuerySchema.safeParse({ du: "2026-01-01", au: "2027-01-02" }).success).toBe(
+      false,
+    );
+    expect(rentabiliteQuerySchema.safeParse({ du: "2000-01-01", au: "2026-12-31" }).success).toBe(
       false,
     );
     expect(

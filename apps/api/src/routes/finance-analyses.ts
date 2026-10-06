@@ -54,6 +54,14 @@ import {
  *   les jours ; la valorisation (valeur produite, facturé, encours, facturé
  *   d'avance) exige « finance.lire » : champs ABSENTS sinon.
  * - Rentabilité : « finance.lire » obligatoire (403 sinon).
+ *
+ * VOLUME (décision documentée)
+ * - Encours à une date : missions signées à cette date, SANS les missions
+ *   clôturées avant elle (une mission clôturée le jour même y figure encore).
+ * - Rentabilité : période de 366 jours au plus (INDICATEURS_MAX_JOURS, comme
+ *   les indicateurs : une analyse de pilotage porte sur un exercice ; l'export
+ *   comptable, qui sert aussi aux reprises, garde 731 jours).
+ * - Tarifications chargées en lot (finance/donnees.ts `chargerTarifications`).
  */
 
 const VUE_TRANCHES = {
@@ -177,8 +185,11 @@ export const routesFinanceAnalyses: FastifyPluginAsync = async (app) => {
     const date = q.date ?? aujourdhui();
     const finance = aPermission(auth.roles, "finance.lire");
     return app.db.withTenant(auth.cabinetId, async (db) => {
+      // Missions signées à la date, hors missions clôturées avant elle.
       const missions = (await chargerMissions(db, auth)).filter(
-        (m) => m.date_signature === null || m.date_signature <= date,
+        (m) =>
+          (m.date_signature === null || m.date_signature <= date) &&
+          (m.cloturee_le === null || m.cloturee_le >= date),
       );
       const encours = encoursDesMissions(await analyserMissions(db, missions, null, date));
       const devise = await deviseDuCabinet(db, auth.cabinetId);

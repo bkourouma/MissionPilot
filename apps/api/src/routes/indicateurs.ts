@@ -5,9 +5,11 @@ import { calculerIndicateurs } from "../finance/indicateurs.js";
 
 /**
  * Indicateurs de pilotage du cabinet (PRD) : « indicateurs.cabinet ». Les
- * indicateurs de coût, de marge, de réalisation et d'encours exigent
- * « finance.lire » ; le carnet de commandes « budget.lire_montants » ou
- * « finance.lire » : champs ABSENTS sinon.
+ * indicateurs de coût, de marge, de réalisation, d'encours et le carnet de
+ * commandes valorisé (`carnet_commandes`, dérivé des taux de vente) exigent
+ * « finance.lire » ; le carnet fondé sur le facturé
+ * (`carnet_commandes_facture`) « budget.lire_montants » ou « finance.lire » :
+ * champs ABSENTS sinon (finance/indicateurs.ts).
  */
 export const routesIndicateurs: FastifyPluginAsync = async (app) => {
   app.get("/indicateurs/cabinet", async (request) => {

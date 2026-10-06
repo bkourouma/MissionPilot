@@ -42,6 +42,23 @@ export function planificationDuJour(maintenant: Date): {
   };
 }
 
+/**
+ * Purge des fichiers orphelins (SOC-05) : au plus une par heure et par
+ * cabinet (clé `purge_fichiers:AAAA-MM-JJTHH`), pour les seuls cabinets ayant
+ * un fichier non rattaché de plus de 24 h.
+ */
+export function planificationPurgeFichiers(maintenant: Date): {
+  cle: string;
+  executeA: Date;
+  seuil: Date;
+} {
+  return {
+    cle: `purge_fichiers:${maintenant.toISOString().slice(0, 13)}`,
+    executeA: maintenant,
+    seuil: new Date(maintenant.getTime() - 24 * 60 * 60 * 1000),
+  };
+}
+
 /** Tâches récurrentes de la semaine de `maintenant`. */
 export function planificationsDeLaSemaine(maintenant: Date): Planification[] {
   const lundi = lundiDeLaSemaine(maintenant.toISOString().slice(0, 10));
@@ -82,6 +99,13 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
       j.jour,
     ]);
     total += r.rows[0].n as number;
+    const p = planificationPurgeFichiers(maintenant);
+    const purge = await db.query("SELECT planifier_purge_fichiers($1, $2, $3) AS n", [
+      p.cle,
+      p.executeA,
+      p.seuil,
+    ]);
+    total += purge.rows[0].n as number;
     return total;
   });
 }

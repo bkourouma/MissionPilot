@@ -316,6 +316,8 @@ describe("configuration du transport e-mail", () => {
     DATABASE_URL: "postgres://a:x@db.exemple.test:5432/mp",
     SESSION_SECRET: "un-secret-de-production-tres-long-0123",
     TFA_MASTER_KEY: "une-cle-maitre-2fa-de-production-4567",
+    // Obligatoire hors développement depuis le stockage des fichiers (SOC-05).
+    STORAGE_DIR: "/srv/missionpilot/stockage",
   };
 
   it("hors développement, refuse de démarrer sans SMTP ou sans TLS", () => {

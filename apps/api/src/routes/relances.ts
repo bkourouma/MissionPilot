@@ -4,7 +4,7 @@ import { parametresRelanceSchema, relanceManuelleSchema } from "@missionpilot/sh
 import { journaliser } from "../audit.js";
 import { trousseauDepuisConfig } from "../auth/chiffrement.js";
 import { exiger } from "../auth/contexte.js";
-import { conflit, requeteInvalide } from "../errors.js";
+import { AppError, conflit, requeteInvalide } from "../errors.js";
 import { exigerFactureVisible } from "../facturation/factures.js";
 import { paramsId } from "../http/outils.js";
 import { aujourdhui } from "../missions/outils.js";
@@ -61,8 +61,10 @@ export const routesRelances: FastifyPluginAsync = async (app) => {
 
   /**
    * Relance manuelle d'une facture émise restant due : niveau suivant par
-   * défaut (au plus 3) ; e-mail au contact du client si demandé (après la
-   * transaction, repris par la file d'e-mails en cas d'échec).
+   * défaut (au plus 3) ; e-mail au contact du client seulement si demandé
+   * (`envoyer_email`, faux par défaut ; après la transaction, repris par la
+   * file d'e-mails en cas d'échec). Une seconde relance manuelle avec e-mail
+   * pour la même facture le même jour : 409 RELANCE_DEJA_ENVOYEE.
    */
   app.post("/factures/:id/relances", async (request, reply) => {
     const auth = exiger(request, "encaissement.gerer");
@@ -79,6 +81,22 @@ export const routesRelances: FastifyPluginAsync = async (app) => {
         const s = await situationFacture(db, id, date);
         if (!s || comparer(s.situation.solde, zero(s.situation.solde.devise)) <= 0) {
           throw conflit("La facture est soldée : rien à relancer.");
+        }
+        if (demande.envoyer_email) {
+          // Une seule relance manuelle AVEC e-mail par facture et par jour : le
+          // client n'est pas inondé (contrôle sous le verrou de la facture).
+          const dejaEnvoyee = await db.query(
+            `SELECT 1 FROM relances_factures
+             WHERE facture_id = $1 AND mode = 'manuelle' AND email_envoye AND date_relance = $2`,
+            [id, date],
+          );
+          if (dejaEnvoyee.rowCount) {
+            throw new AppError(
+              409,
+              "RELANCE_DEJA_ENVOYEE",
+              "Un e-mail de relance a déjà été envoyé au client aujourd'hui pour cette facture : relancer sans e-mail, ou réessayer demain.",
+            );
+          }
         }
         const dernier = await db.query(
           "SELECT coalesce(max(niveau), 0)::int AS n FROM relances_factures WHERE facture_id = $1",
