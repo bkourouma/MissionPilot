@@ -5,3 +5,5 @@ export * from "./schemas/cabinet";
 export * from "./schemas/clients";
 export * from "./schemas/collaborateurs";
 export * from "./schemas/catalogue";
+export * from "./schemas/pipeline";
+export * from "./schemas/missions";

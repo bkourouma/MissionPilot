@@ -74,7 +74,7 @@ describe("authentification", () => {
 
   it("limite les tentatives répétées (429)", async () => {
     const u = await ajouterUtilisateur(ctx, a.cabinetId, ["consultant"]);
-    for (let i = 0; i < 5; i++) await connexion(u.email, "faux");
+    for (let i = 0; i < 10; i++) await connexion(u.email, "faux");
     const r = await connexion(u.email, MOT_DE_PASSE_TEST);
     expect(r.statusCode).toBe(429);
   });
@@ -86,5 +86,29 @@ describe("authentification", () => {
       headers: { cookie: "mp_session=jeton-invente" },
     });
     expect(r.statusCode).toBe(401);
+  });
+
+  it("la limite ne se contourne pas en changeant d'adresse IP déclarée (X-Forwarded-For)", async () => {
+    const u = await ajouterUtilisateur(ctx, a.cabinetId, ["consultant"]);
+    let derniere = 0;
+    for (let i = 0; i < 12; i++) {
+      const r = await ctx.app.inject({
+        method: "POST",
+        url: "/api/auth/connexion",
+        headers: { "x-forwarded-for": `10.0.0.${i}` },
+        payload: { email: u.email, mot_de_passe: "faux" },
+      });
+      derniere = r.statusCode;
+    }
+    expect(derniere).toBe(429);
+  });
+
+  it("la limite tient face à des requêtes simultanées", async () => {
+    const u = await ajouterUtilisateur(ctx, a.cabinetId, ["consultant"]);
+    const reponses = await Promise.all(
+      Array.from({ length: 30 }, () => connexion(u.email, "faux")),
+    );
+    const refusees = reponses.filter((r) => r.statusCode === 429).length;
+    expect(refusees).toBe(20);
   });
 });

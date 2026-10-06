@@ -110,7 +110,10 @@ describe("seed de démonstration", () => {
     expect(r.statusCode).toBe(200);
   });
 
-  it("refuse de s'exécuter en production", async () => {
-    await expect(seed(ctx.db, { NODE_ENV: "production" })).rejects.toThrow(/production/);
+  it("refuse de s'exécuter hors développement et test (production, recette)", async () => {
+    await expect(seed(ctx.db, { NODE_ENV: "production" })).rejects.toThrow(
+      /développement ou en test/,
+    );
+    await expect(seed(ctx.db, { NODE_ENV: "staging" })).rejects.toThrow(/développement ou en test/);
   });
 });

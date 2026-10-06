@@ -1,5 +1,5 @@
 import type { FastifyReply } from "fastify";
-import type { Config } from "../config.js";
+import { cookieSecurise, type Config } from "../config.js";
 import type { Db } from "../db/pool.js";
 import { COOKIE_SESSION, DUREE_SESSION_MS, hacherJeton, nouveauJeton } from "./session.js";
 
@@ -23,7 +23,7 @@ export function poserCookieSession(reply: FastifyReply, config: Config, jeton: s
   reply.setCookie(COOKIE_SESSION, jeton, {
     httpOnly: true,
     sameSite: "lax",
-    secure: config.NODE_ENV === "production",
+    secure: cookieSecurise(config),
     path: "/",
     maxAge: DUREE_SESSION_MS / 1000,
   });

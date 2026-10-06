@@ -79,6 +79,14 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
       if (avant.actif && !apres.actif) {
         await db.query("DELETE FROM sessions WHERE utilisateur_id = $1", [id]);
       }
+      // Un invitant désactivé ou rétrogradé ne laisse pas d'invitations valables derrière lui.
+      if (estAssocieActif(avant) && !estAssocieActif(apres)) {
+        await db.query(
+          `UPDATE invitations SET expire_le = now()
+           WHERE invite_par = $1 AND acceptee_le IS NULL AND expire_le > now()`,
+          [id],
+        );
+      }
       await journaliser(db, {
         cabinetId: auth.cabinetId,
         utilisateurId: auth.utilisateurId,
@@ -102,6 +110,27 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
          WHERE acceptee_le IS NULL AND expire_le > now() ORDER BY cree_le DESC`,
       );
       return { elements: r.rows };
+    });
+  });
+
+  app.delete("/invitations/:id", async (request) => {
+    const auth = exiger(request, "cabinet.gerer");
+    const { id } = paramsId.parse(request.params);
+    return app.db.withTenant(auth.cabinetId, async (db) => {
+      const r = await db.query(
+        `UPDATE invitations SET expire_le = now()
+         WHERE id = $1 AND acceptee_le IS NULL AND expire_le > now() RETURNING id`,
+        [id],
+      );
+      if (!r.rowCount) throw introuvable("Invitation");
+      await journaliser(db, {
+        cabinetId: auth.cabinetId,
+        utilisateurId: auth.utilisateurId,
+        action: "revocation",
+        entite: "invitation",
+        entiteId: id,
+      });
+      return { ok: true };
     });
   });
 

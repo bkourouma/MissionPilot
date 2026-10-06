@@ -9,6 +9,7 @@ import { AppError } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
 import { routesAuth } from "./routes/auth.js";
+import { routesCycleMission } from "./routes/missions-routes.js";
 import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
 
@@ -27,8 +28,6 @@ export async function buildApp(
   const app = Fastify({
     logger: config.NODE_ENV !== "test",
     bodyLimit: 1_048_576,
-    // Seul le relais web local (Next.js) peut fournir X-Forwarded-For.
-    trustProxy: ["127.0.0.1", "::1"],
   });
   app.decorate("db", db);
   app.decorate("config", config);
@@ -79,7 +78,19 @@ export async function buildApp(
         .status(statut)
         .send({ erreur: { code: "REQUETE_INVALIDE", message: "Requête invalide." } });
     }
-    request.log.error(error);
+    // Pas d'objet d'erreur complet : le champ `detail` de PostgreSQL peut citer des données.
+    const pgErreur = error as {
+      message?: string;
+      code?: string;
+      constraint?: string;
+      table?: string;
+    };
+    request.log.error({
+      message: pgErreur.message,
+      code: pgErreur.code,
+      constraint: pgErreur.constraint,
+      table: pgErreur.table,
+    });
     return reply
       .status(500)
       .send({ erreur: { code: "ERREUR_INTERNE", message: "Erreur interne." } });
@@ -88,5 +99,6 @@ export async function buildApp(
   await app.register(routesSante, { prefix: "/api" });
   await app.register(routesAuth, { prefix: "/api/auth" });
   await app.register(routesReferentiels, { prefix: "/api" });
+  await app.register(routesCycleMission, { prefix: "/api" });
   return app;
 }

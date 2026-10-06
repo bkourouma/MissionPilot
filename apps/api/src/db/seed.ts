@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { Role } from "@missionpilot/shared";
 import { hashPassword } from "../auth/password.js";
 import { semerCatalogueConseil } from "../catalogue/catalogue-conseil.js";
-import { loadConfig } from "../config.js";
+import { estLocal, loadConfig } from "../config.js";
 import { createDatabase, type Database, type Db } from "./pool.js";
 
 /*
@@ -206,8 +206,8 @@ async function semerCollaborateurs(
 
 /** Crée ou complète le cabinet de démonstration. Idempotent. */
 export async function seed(database: Database, env = process.env): Promise<string> {
-  if (env.NODE_ENV === "production") {
-    throw new Error("Le seed de démonstration ne s'exécute jamais en production.");
+  if (!estLocal(env.NODE_ENV)) {
+    throw new Error("Le seed de démonstration ne s'exécute qu'en développement ou en test.");
   }
   const hash = await hashPassword(MOT_DE_PASSE_DEMO);
   const cabinetId = await trouverOuCreerCabinet(database, hash);
@@ -216,13 +216,14 @@ export async function seed(database: Database, env = process.env): Promise<strin
     await semerCatalogueConseil(db, cabinetId);
     await semerClients(db, cabinetId);
     await semerCollaborateurs(db, cabinetId, ids);
+    await (await import("./seed-missions.js")).semerMissions(db, cabinetId, ids);
   });
   return cabinetId;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  if (process.env.NODE_ENV === "production") {
-    console.error("Le seed de démonstration ne s'exécute jamais en production.");
+  if (!estLocal(process.env.NODE_ENV)) {
+    console.error("Le seed de démonstration ne s'exécute qu'en développement ou en test.");
     process.exit(1);
   }
   const database = createDatabase(loadConfig());

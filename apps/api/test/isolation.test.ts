@@ -53,10 +53,19 @@ describe("isolation entre cabinets (SOC-01)", () => {
       const maj = await db.query("UPDATE utilisateurs SET nom = 'piraté' WHERE cabinet_id = $1", [
         b.cabinetId,
       ]);
-      const sup = await db.query("DELETE FROM utilisateurs WHERE cabinet_id = $1", [b.cabinetId]);
+      const sup = await db.query("DELETE FROM sessions WHERE cabinet_id = $1", [b.cabinetId]);
       return { maj: maj.rowCount, sup: sup.rowCount };
     });
     expect(r).toEqual({ maj: 0, sup: 0 });
+  });
+
+  it("le rôle applicatif ne peut supprimer ni cabinets ni utilisateurs (le journal d'audit en dépend)", async () => {
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) => db.query("DELETE FROM utilisateurs")),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) => db.query("DELETE FROM cabinets")),
+    ).rejects.toThrow(/permission denied/);
   });
 
   it("un identifiant de cabinet non valide est rejeté avant toute requête", async () => {

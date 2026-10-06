@@ -57,6 +57,11 @@ export const PERMISSIONS = [
   "facture.valider",
   "encaissement.gerer",
   "indicateurs.cabinet",
+  "mission.lire_toutes", // toutes les missions du cabinet (sinon : les siennes et celles de son équipe)
+  "mission.signer", // signer la lettre de mission : fige le budget initial (MIS-07)
+  "mission.cloturer",
+  "budget.lire_montants", // honoraires et débours du budget (sans coûts internes ni marges)
+  "document.ecrire", // documents de mission (SOC-05)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -85,6 +90,11 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "facture.lire",
     "facture.valider",
     "indicateurs.cabinet",
+    "mission.lire_toutes",
+    "mission.signer",
+    "mission.cloturer",
+    "budget.lire_montants",
+    "document.ecrire",
   ],
   chef_mission: [
     "clients.lire",
@@ -101,6 +111,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "temps.saisir",
     "temps.valider",
     "facture.lire",
+    "budget.lire_montants",
+    "document.ecrire",
   ],
   consultant: [
     "clients.lire",
@@ -108,6 +120,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "mission.lire",
     "budget.lire_jours",
     "temps.saisir",
+    "document.ecrire",
   ],
   ressources: [
     "clients.lire",
@@ -120,6 +133,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "charge.lire",
     "conges.valider",
     "temps.saisir",
+    "mission.lire_toutes",
   ],
   gestionnaire: [
     "clients.lire",
@@ -138,8 +152,16 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "temps.cloturer",
     "indicateurs.cabinet",
     "charge.lire",
+    "mission.lire_toutes",
+    "budget.lire_montants",
   ],
-  expert_metier: ["catalogue.lire", "catalogue.ecrire", "mission.lire", "temps.saisir"],
+  expert_metier: [
+    "catalogue.lire",
+    "catalogue.ecrire",
+    "mission.lire",
+    "temps.saisir",
+    "document.ecrire",
+  ],
   expert_externe: ["temps.saisir"],
 };
 

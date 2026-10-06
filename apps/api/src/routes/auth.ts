@@ -5,6 +5,8 @@ import { exiger } from "../auth/contexte.js";
 import { FAUX_HASH, verifyPassword } from "../auth/password.js";
 import { COOKIE_SESSION, DUREE_SESSION_MS, hacherJeton, nouveauJeton } from "../auth/session.js";
 import { AppError } from "../errors.js";
+import { creerLimiteur } from "../auth/limiteur.js";
+import { cookieSecurise } from "../config.js";
 
 const connexionSchema = z.object({
   email: z.string().email().max(254),
@@ -12,31 +14,21 @@ const connexionSchema = z.object({
 });
 
 const FENETRE_MS = 15 * 60 * 1000;
-const ESSAIS_MAX = 5;
+const ESSAIS_MAX = 10;
 
 export const routesAuth: FastifyPluginAsync = async (app) => {
-  const echecs = new Map<string, { n: number; debut: number }>();
+  const limiteur = creerLimiteur(ESSAIS_MAX, FENETRE_MS);
 
-  function limiter(cle: string): void {
-    const e = echecs.get(cle);
-    if (e && Date.now() - e.debut < FENETRE_MS && e.n >= ESSAIS_MAX) {
+  app.post("/connexion", async (request, reply) => {
+    const { email, mot_de_passe } = connexionSchema.parse(request.body);
+    const cle = email.toLowerCase();
+    if (!limiteur.reserver(cle)) {
       throw new AppError(
         429,
         "TROP_DE_TENTATIVES",
         "Trop de tentatives. Réessayez dans quelques minutes.",
       );
     }
-  }
-  function noterEchec(cle: string): void {
-    const e = echecs.get(cle);
-    if (!e || Date.now() - e.debut >= FENETRE_MS) echecs.set(cle, { n: 1, debut: Date.now() });
-    else e.n += 1;
-  }
-
-  app.post("/connexion", async (request, reply) => {
-    const { email, mot_de_passe } = connexionSchema.parse(request.body);
-    const cle = `${request.ip}|${email.toLowerCase()}`;
-    limiter(cle);
 
     const trouve = await app.db.withoutTenant(async (db) => {
       const r = await db.query("SELECT * FROM trouver_connexion($1)", [email]);
@@ -47,10 +39,9 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     // Toujours calculer un hachage : le temps de réponse ne révèle pas si l'e-mail existe.
     const valide = await verifyPassword(mot_de_passe, trouve?.mot_de_passe_hash ?? FAUX_HASH);
     if (!trouve || !valide || !trouve.actif) {
-      noterEchec(cle);
       throw new AppError(401, "IDENTIFIANTS_INVALIDES", "E-mail ou mot de passe incorrect.");
     }
-    echecs.delete(cle);
+    limiteur.liberer(cle);
 
     const jeton = nouveauJeton();
     await app.db.withTenant(trouve.cabinet_id, async (db) => {
@@ -70,7 +61,7 @@ export const routesAuth: FastifyPluginAsync = async (app) => {
     reply.setCookie(COOKIE_SESSION, jeton, {
       httpOnly: true,
       sameSite: "lax",
-      secure: app.config.NODE_ENV === "production",
+      secure: cookieSecurise(app.config),
       path: "/",
       maxAge: DUREE_SESSION_MS / 1000,
     });

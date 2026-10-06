@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Valeurs de développement identiques à .env.example ; refusées en production.
+// Valeurs de développement identiques à .env.example ; refusées hors développement et test.
 const DEV = {
   DATABASE_OWNER_URL:
     "postgres://missionpilot_owner:dev_only_owner_password@127.0.0.1:55440/missionpilot",
@@ -20,10 +20,31 @@ const schema = z.object({
 
 export type Config = z.infer<typeof schema>;
 
+const ENVIRONNEMENTS_LOCAUX = ["development", "test"];
+
+/** Vrai en développement et en test : les seuls cas où les valeurs par défaut sont admises. */
+export function estLocal(nodeEnv: string | undefined): boolean {
+  return nodeEnv === undefined || ENVIRONNEMENTS_LOCAUX.includes(nodeEnv);
+}
+
+/** Le cookie de session est « secure » partout sauf en développement et en test. */
+export function cookieSecurise(config: Pick<Config, "NODE_ENV">): boolean {
+  return !estLocal(config.NODE_ENV);
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const production = env.NODE_ENV === "production";
-  const withDefaults = production ? env : { ...DEV, ...stripEmpty(env) };
-  return schema.parse(withDefaults);
+  const fournies = stripEmpty(env);
+  const withDefaults = estLocal(env.NODE_ENV) ? { ...DEV, ...fournies } : fournies;
+  const config = schema.parse(withDefaults);
+  if (!estLocal(config.NODE_ENV)) {
+    const dev: Record<string, string> = DEV;
+    for (const [cle, valeur] of Object.entries(dev)) {
+      if ((config as Record<string, unknown>)[cle] === valeur) {
+        throw new Error(`${cle} utilise une valeur de développement hors développement.`);
+      }
+    }
+  }
+  return config;
 }
 
 function stripEmpty(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {

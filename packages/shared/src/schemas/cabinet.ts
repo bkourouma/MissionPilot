@@ -20,7 +20,9 @@ export const joursTravaillesSchema = z
 
 export const cabinetModificationSchema = z
   .object({
-    nom: texte(200).optional(),
+    nom: texte(200)
+      .refine((v) => !/[\r\n]/.test(v), "Le nom ne peut pas contenir de saut de ligne.")
+      .optional(),
     pays: paysSchema.optional(),
     devise_base: deviseSchema.optional(),
     unite_saisie_temps: z.enum(UNITES_SAISIE_TEMPS).optional(),
