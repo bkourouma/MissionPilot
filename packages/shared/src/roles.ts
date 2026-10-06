@@ -32,6 +32,8 @@ export const PERMISSIONS = [
   "audit.lire",
   "clients.lire",
   "clients.ecrire",
+  "collaborateurs.lire", // référentiel des collaborateurs, sans aucune donnée financière
+  "collaborateurs.ecrire",
   "catalogue.lire",
   "catalogue.ecrire",
   "pipeline.gerer",
@@ -66,6 +68,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   directeur_mission: [
     "clients.lire",
     "clients.ecrire",
+    "collaborateurs.lire",
     "catalogue.lire",
     "pipeline.gerer",
     "proposition.valider",
@@ -85,6 +88,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   ],
   chef_mission: [
     "clients.lire",
+    "collaborateurs.lire",
     "catalogue.lire",
     "pipeline.gerer",
     "mission.lire",
@@ -107,6 +111,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   ],
   ressources: [
     "clients.lire",
+    "collaborateurs.lire",
+    "collaborateurs.ecrire",
     "catalogue.lire",
     "mission.lire",
     "budget.lire_jours",
@@ -118,6 +124,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   gestionnaire: [
     "clients.lire",
     "clients.ecrire",
+    "collaborateurs.lire",
+    "collaborateurs.ecrire",
     "catalogue.lire",
     "mission.lire",
     "budget.lire_jours",

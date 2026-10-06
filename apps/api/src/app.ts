@@ -7,7 +7,9 @@ import type { Config } from "./config.js";
 import type { Database } from "./db/pool.js";
 import { AppError } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
+import { creerMailer, type Mailer } from "./notifications/mailer.js";
 import { routesAuth } from "./routes/auth.js";
+import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
 
 declare module "fastify" {
@@ -17,10 +19,20 @@ declare module "fastify" {
   }
 }
 
-export async function buildApp(config: Config, db: Database): Promise<FastifyInstance> {
-  const app = Fastify({ logger: config.NODE_ENV !== "test", bodyLimit: 1_048_576 });
+export async function buildApp(
+  config: Config,
+  db: Database,
+  options: { mailer?: Mailer } = {},
+): Promise<FastifyInstance> {
+  const app = Fastify({
+    logger: config.NODE_ENV !== "test",
+    bodyLimit: 1_048_576,
+    // Seul le relais web local (Next.js) peut fournir X-Forwarded-For.
+    trustProxy: ["127.0.0.1", "::1"],
+  });
   app.decorate("db", db);
   app.decorate("config", config);
+  app.decorate("mailer", options.mailer ?? creerMailer(config));
   app.decorateRequest("auth", null);
 
   await app.register(cors, { origin: config.WEB_ORIGIN, credentials: true });
@@ -75,5 +87,6 @@ export async function buildApp(config: Config, db: Database): Promise<FastifyIns
 
   await app.register(routesSante, { prefix: "/api" });
   await app.register(routesAuth, { prefix: "/api/auth" });
+  await app.register(routesReferentiels, { prefix: "/api" });
   return app;
 }
