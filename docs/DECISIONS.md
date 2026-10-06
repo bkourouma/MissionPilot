@@ -15,6 +15,15 @@ ce fichier précise des règles de calcul et des choix techniques.
 | Marché de lancement | **Zone UEMOA.** Jours fériés, TVA, retenues et mentions légales de facture paramétrés **par pays** dès la V1 ; devise de base XOF. XAF (CEMAC) reste disponible en devise (FIN-04), sans paramétrage fiscal CEMAC en V1. Pays par défaut : Côte d'Ivoire. |
 | Cabinets prioritaires | **Conseil.** Catalogue standard de départ : plan stratégique, audit organisationnel, formation, assistance. Le catalogue reste paramétrable par cabinet (MIS-01). |
 
+## Décisions V2 (2026-10-06, session de pilotage)
+
+| Sujet | Décision |
+| --- | --- |
+| Grille de notation (NOT-01) | **Grille propre générique** fondée sur des principes publics (ni EFQM ni Shingo, sous licence), pondérations par secteur modifiables par le cabinet. Elle sert de base que les experts du cabinet affinent. Aucun contenu du cahier SANKORIA. |
+| IA | **Feu vert** : OpenRouter est branché en V2 (ADR-003), modèle choisi par tâche, repli sur gabarits déterministes sans clé. Le risque lié aux droits SANKORIA est accepté par le commanditaire ; la clause « pas d'entraînement sur les données » reste à vérifier par modèle avant le pilote. |
+| Ordre de construction | Moteur de questionnaires (SOC-10), notation #1, planification stratégique + modèle financier #3, pilotage KPI #4, portail client (SOC-09) en appui dès les questionnaires. |
+| Facture normalisée DGI (FIN-08) | **Hors périmètre** tant qu'un expert-comptable n'a pas confirmé qu'elle s'applique aux cabinets clients. |
+
 ## Règles métier validées (2026-10-06) — applicables à la V2
 
 | Sujet | Décision |

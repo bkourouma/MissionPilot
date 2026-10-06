@@ -68,6 +68,13 @@ export const PERMISSIONS = [
   "debours.saisir", // déclarer ses débours et notes de frais (FIN-05)
   "debours.valider", // valider les débours d'une mission dont on est chef ou directeur (FIN-05)
   "export.comptable", // exporter les écritures comptables et régler le plan comptable (FIN-13)
+  "questionnaire.lire", // lire les questionnaires et leurs réponses (V2, SOC-10)
+  "questionnaire.gerer", // rédiger, valider et envoyer les questionnaires (V2, SOC-10/11)
+  "notation.gerer", // piloter une notation : scoring, ajustements motivés (V2, NOT-03/04)
+  "notation.publier", // publier un rapport de notation : revue expert obligatoire (V2, NOT-07)
+  "ia.configurer", // clé OpenRouter, modèle par tâche, quotas (V2, ADR-003)
+  "ia.utiliser", // lancer une génération IA (brouillon à valider par un humain) (V2)
+  "portail.gerer", // inviter et gérer les utilisateurs du portail client (V2, SOC-09)
   "commentaire.ecrire", // commenter une entité VISIBLE (SOC-08) ; l'expert externe : ses seules missions
   "tache.assigner", // assigner une tâche de collaboration à un collègue (SOC-08)
 ] as const;
@@ -109,6 +116,11 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "debours.valider",
     "commentaire.ecrire",
     "tache.assigner",
+    "questionnaire.lire",
+    "questionnaire.gerer",
+    "notation.gerer",
+    "ia.utiliser",
+    "portail.gerer",
   ],
   chef_mission: [
     "clients.lire",
@@ -132,6 +144,11 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "debours.valider",
     "commentaire.ecrire",
     "tache.assigner",
+    "questionnaire.lire",
+    "questionnaire.gerer",
+    "notation.gerer",
+    "ia.utiliser",
+    "portail.gerer",
   ],
   consultant: [
     "clients.lire",
@@ -143,6 +160,10 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "conges.demander",
     "debours.saisir",
     "commentaire.ecrire",
+    "questionnaire.lire",
+    "questionnaire.gerer",
+    "notation.gerer",
+    "ia.utiliser",
   ],
   ressources: [
     "clients.lire",
@@ -196,6 +217,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "conges.demander",
     "debours.saisir",
     "commentaire.ecrire",
+    "questionnaire.lire",
+    "notation.publier",
+    "ia.utiliser",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire"],
 };
