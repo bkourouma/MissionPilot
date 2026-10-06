@@ -1,0 +1,496 @@
+/* Cadre applicatif (src/components/shell) et mise en page des pages. */
+
+/* ---------- Lien d'évitement ---------- */
+.mp-lien-evitement {
+  position: absolute;
+  top: var(--mp-esp-2);
+  left: var(--mp-esp-2);
+  z-index: 100;
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  background: var(--mp-primaire);
+  color: var(--mp-sur-primaire);
+  border-radius: var(--mp-rayon);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.mp-lien-evitement:focus {
+  transform: none;
+  color: var(--mp-sur-primaire);
+}
+
+/* ---------- Cadre ---------- */
+.mp-cadre {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-cadre__corps {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+}
+
+.mp-contenu {
+  flex: 1;
+  min-width: 0;
+  padding: var(--mp-esp-5) var(--mp-esp-4);
+  /* Place pour la barre basse sur téléphone. */
+  padding-bottom: calc(
+    var(--mp-hauteur-barre-basse) + var(--mp-esp-5) + env(safe-area-inset-bottom)
+  );
+}
+
+.mp-contenu:focus {
+  outline: none;
+}
+
+/* ---------- En-tête ---------- */
+.mp-entete {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+  min-height: var(--mp-hauteur-entete);
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
+  background: var(--mp-surface);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-entete__marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  color: var(--mp-texte);
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+  text-decoration: none;
+}
+.mp-entete__marque:hover {
+  color: var(--mp-texte);
+}
+
+.mp-entete__logo {
+  color: var(--mp-primaire);
+}
+
+.mp-entete__utilisateur {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-entete__identite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.mp-entete__nom {
+  font-weight: 600;
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-entete__role {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* Téléphone : le rôle et la déconnexion passent dans le menu. */
+@media (max-width: 959px) {
+  .mp-entete__role,
+  .mp-entete__deconnexion {
+    display: none;
+  }
+}
+
+.mp-deconnexion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-deconnexion__erreur {
+  color: var(--mp-danger);
+  font-size: var(--mp-taille-s);
+  max-width: 24rem;
+}
+
+/* ---------- Liens de navigation ---------- */
+.mp-nav__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: 0;
+  list-style: none;
+}
+
+.mp-nav__lien {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-3);
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 0;
+  border-radius: var(--mp-rayon);
+  background: none;
+  color: var(--mp-texte);
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+a.mp-nav__lien:hover,
+button.mp-nav__lien:hover {
+  background: var(--mp-surface-2);
+  color: var(--mp-texte);
+}
+
+.mp-nav__lien[aria-current="page"] {
+  background: var(--mp-primaire-pale);
+  color: var(--mp-primaire);
+  font-weight: 650;
+  box-shadow: inset 3px 0 0 var(--mp-primaire);
+}
+
+.mp-nav__lien--indisponible {
+  color: var(--mp-texte-doux);
+  cursor: not-allowed;
+}
+
+/* ---------- Navigation latérale (grand écran) ---------- */
+.mp-nav-laterale {
+  display: none;
+}
+
+/* ---------- Barre basse (téléphone) ---------- */
+.mp-barre-basse {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 30;
+  background: var(--mp-surface);
+  border-top: 1px solid var(--mp-bordure);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mp-barre-basse__liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-auto-flow: column;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-nav__lien--barre {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--mp-hauteur-barre-basse);
+  padding: var(--mp-esp-1);
+  border-radius: 0;
+  font-size: var(--mp-taille-xs);
+  text-align: center;
+}
+
+.mp-nav__lien--barre .mp-nav__libelle {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-nav__lien--barre[aria-current="page"] {
+  box-shadow: inset 0 3px 0 var(--mp-primaire);
+}
+
+@media (min-width: 960px) {
+  .mp-nav-laterale {
+    display: block;
+    position: sticky;
+    top: var(--mp-hauteur-entete);
+    align-self: flex-start;
+    width: var(--mp-largeur-nav);
+    flex-shrink: 0;
+    height: calc(100dvh - var(--mp-hauteur-entete));
+    overflow-y: auto;
+    padding: var(--mp-esp-4) var(--mp-esp-3);
+    background: var(--mp-surface);
+    border-right: 1px solid var(--mp-bordure);
+  }
+  .mp-barre-basse,
+  .mp-menu {
+    display: none;
+  }
+  .mp-contenu {
+    padding: var(--mp-esp-6);
+  }
+}
+
+/* ---------- Menu (téléphone) ---------- */
+.mp-menu {
+  width: min(100%, 26rem);
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  box-shadow: var(--mp-ombre-l);
+}
+
+.mp-menu::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.mp-menu__contenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-height: 100%;
+  padding: var(--mp-esp-4);
+  padding-bottom: calc(var(--mp-esp-4) + env(safe-area-inset-bottom));
+}
+
+.mp-menu__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mp-menu__titre {
+  font-size: var(--mp-taille-l);
+}
+
+.mp-menu__utilisateur {
+  display: flex;
+  flex-direction: column;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+.mp-menu__utilisateur span {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-menu nav {
+  flex: 1;
+}
+
+/* ---------- Pages ---------- */
+.mp-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  max-width: var(--mp-largeur-contenu);
+  margin: 0 auto;
+}
+
+.mp-page__entete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-page__titre {
+  font-size: var(--mp-taille-xl);
+}
+
+@media (min-width: 960px) {
+  .mp-page__titre {
+    font-size: var(--mp-taille-xxl);
+  }
+}
+
+.mp-page__soustitre {
+  color: var(--mp-texte-doux);
+}
+
+.mp-section__titre {
+  font-size: var(--mp-taille-l);
+  margin-bottom: var(--mp-esp-1);
+}
+
+.mp-page--message {
+  align-items: flex-start;
+  gap: var(--mp-esp-4);
+  max-width: 40rem;
+  padding-top: var(--mp-esp-5);
+}
+
+.mp-page--isolee {
+  display: block;
+  padding: var(--mp-esp-6) var(--mp-esp-4);
+}
+.mp-page--isolee.mp-page--message {
+  display: flex;
+}
+
+.mp-page__icone {
+  color: var(--mp-texte-doux);
+}
+
+.mp-page__code {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------- Tableau de bord ---------- */
+.mp-grille-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--mp-esp-4);
+  margin-top: var(--mp-esp-4);
+  padding: 0;
+  list-style: none;
+}
+
+.mp-grille-modules > li {
+  display: flex;
+}
+.mp-grille-modules .mp-carte {
+  flex: 1;
+}
+
+.mp-module {
+  position: relative;
+}
+
+.mp-module__titre {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-module--indisponible {
+  background: var(--mp-surface-2);
+  box-shadow: none;
+}
+.mp-module--indisponible .mp-module__titre {
+  color: var(--mp-texte-doux);
+}
+
+/* Lien qui rend toute la carte cliquable (cible tactile large). */
+.mp-lien-etendu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-liste-def {
+  display: grid;
+  gap: var(--mp-esp-3);
+}
+.mp-liste-def > div {
+  display: grid;
+  gap: 2px;
+}
+.mp-liste-def dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+.mp-liste-def dd {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .mp-liste-def > div {
+    grid-template-columns: 12rem 1fr;
+    gap: var(--mp-esp-3);
+  }
+}
+
+/* ---------- Connexion ---------- */
+.mp-connexion {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mp-esp-5) var(--mp-esp-4);
+}
+
+.mp-connexion__panneau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  width: 100%;
+  max-width: 26rem;
+  padding: var(--mp-esp-6) var(--mp-esp-5);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  box-shadow: var(--mp-ombre);
+}
+
+.mp-connexion__marque {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-3);
+  color: var(--mp-primaire);
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+}
+.mp-connexion__marque span {
+  color: var(--mp-texte);
+}
+
+.mp-connexion__titre {
+  font-size: var(--mp-taille-xl);
+  margin-top: var(--mp-esp-3);
+}
+
+.mp-formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  margin-top: var(--mp-esp-3);
+}
+
+.mp-champ-mdp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-champ-mdp__bascule {
+  align-self: flex-start;
+  font-weight: 500;
+  font-size: var(--mp-taille-s);
+}
+.mp-champ-mdp__bascule[aria-pressed="true"] {
+  background: var(--mp-primaire-pale);
+}
+
+@media (max-width: 479px) {
+  .mp-connexion {
+    align-items: stretch;
+    padding: 0;
+  }
+  .mp-connexion__panneau {
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: var(--mp-esp-6) var(--mp-esp-4);
+  }
+}
