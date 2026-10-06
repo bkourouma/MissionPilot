@@ -8,14 +8,34 @@ vérifier dans le code.
 
 ## 1. Actifs à protéger
 
-TODO(acc-adapt) : données (par propriétaire ou client), fichiers privés,
-identifiants et secrets, paiements, données personnelles.
+*Spécification du PRD ; rien n'est encore implémenté (pas de code).*
+
+- Données financières d'un cabinet : honoraires, taux de vente, coûts
+  journaliers chargés, marges, budgets, factures, encaissements.
+- États financiers et hypothèses des clients du cabinet (services de conseil,
+  V2).
+- Documents de mission : propositions, lettres de mission, livrables, pièces
+  justificatives de débours (photos).
+- Identité légale des clients (RCCM, compte contribuable) et contacts.
+- Identifiants des utilisateurs, secrets d'intégration (clé du fournisseur IA,
+  e-mail), journal d'audit.
 
 ## 2. Acteurs
 
-TODO(acc-adapt) : utilisateurs authentifiés et leurs rôles, administrateurs,
-clients externes, anonymes, services tiers qui appellent le projet
-(webhooks). Pour chacun : ce à quoi il a droit et le fichier qui le décide.
+*Spécification du PRD (« Utilisateurs cibles et personas ») ; aucun fichier ne
+décide encore des droits.*
+
+- Côté cabinet : associé, directeur de mission, chef de mission, consultant,
+  responsable des ressources, gestionnaire administratif et financier, expert
+  métier, expert externe (accès limité à ses seules missions).
+- Côté clients : dirigeant client, contributeur client, investisseur (portail
+  client, V2) : accès restreint aux missions, jalons, livrables et factures de
+  leur entreprise.
+- Administrateur ACC : console d'administration des cabinets abonnés.
+- Services tiers : fournisseur IA, e-mail, Mobile Money (V2).
+
+TODO(acc-adapt) : pour chaque acteur, ce à quoi il a droit et le fichier qui
+le décide, une fois le contrôle d'accès écrit.
 
 ## 3. Authentification
 
@@ -63,8 +83,15 @@ TODO(acc-adapt) : origines autorisées, en-têtes de sécurité, limites de déb
 
 ## 10. Données personnelles
 
-TODO(acc-adapt) : données collectées, journalisation (jamais de secret ni de
-donnée personnelle dans les journaux), durée de conservation.
+*Exigence du PRD, non implémentée.* Cadre de conformité : loi ivoirienne
+n° 2013-450 (ARTCI), RGPD pour les clients européens, registre des
+traitements à jour. Les données identifiantes sont masquées avant envoi au
+fournisseur IA quand c'est possible, et celui-ci doit s'engager par contrat à
+ne pas entraîner ses modèles sur les données clients (clause signée avant le
+pilote).
+
+TODO(acc-adapt) : données réellement collectées, journalisation (jamais de
+secret ni de donnée personnelle dans les journaux), durée de conservation.
 
 ## 11. Conduite à tenir en cas de faille
 
@@ -76,5 +103,7 @@ donnée personnelle dans les journaux), durée de conservation.
 
 ## 12. Points ouverts
 
-TODO(acc-adapt) : failles ou faiblesses connues non corrigées, avec leur
-fichier et leur priorité.
+Aucune faille connue : le dépôt ne contient pas de code. Décisions de
+sécurité encore ouvertes dans le PRD (« Questions ouvertes ») : hébergement
+(VPS ACC ou cloud avec région africaine) et obligations de facturation
+(facture normalisée de la DGI ivoirienne).

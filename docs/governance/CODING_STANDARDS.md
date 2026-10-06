@@ -31,10 +31,17 @@ d'exemple, règles sur les valeurs par défaut (jamais pour un secret).
 
 ## 6. Textes affichés et internationalisation
 
-TODO(acc-adapt) : langue(s) de l'interface, mécanisme de traduction, règles de
-mise en page (sens de lecture), ou « sans objet ».
+Décidé (PRD, « Localisation »), non implémenté : français en V1, anglais en
+V2 ; 100 % des écrans en français en V1.
+
+TODO(acc-adapt) : mécanisme de traduction, règles de mise en page (sens de
+lecture), une fois l'interface écrite.
 
 ## 7. Tests
+
+Exigence décidée, non encore outillée : les moteurs de calcul
+(`packages/engines`) exigent une couverture ≥ 90 %, imposée en CI
+(`docs/DECISIONS.md`).
 
 TODO(acc-adapt) : outils, emplacement des tests, ce qui doit être testé pour
 un changement de comportement, commandes ciblées.
@@ -59,5 +66,4 @@ un changement de comportement, commandes ciblées.
 
 ## 10. Dette connue
 
-TODO(acc-adapt) : dette identifiée à ne pas aggraver (erreurs préexistantes,
-gros fichiers, zones sans tests), avec son ordre de grandeur.
+Aucune : le dépôt ne contient pas encore de code applicatif.

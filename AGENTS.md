@@ -33,19 +33,32 @@ pas de mise à jour.
 
 ## Structure réelle
 
-TODO(acc-adapt) : arborescence des dossiers principaux, un rôle par ligne.
+Le dépôt ne contient pas encore de code applicatif (ni `package.json`, ni
+`src/`) : seuls la spécification et l'outillage agentique existent.
 
 ```text
-TODO(acc-adapt)
+acc.config.json   configuration du standard (commandes, ports, gardes)
+.acc/             manifeste du standard (géré : ne pas modifier)
+.claude/          agents, compétences, règles, hooks, settings.json
+docs/             PRD, décisions, workflows, gouvernance, ADR
+scripts/          bus d'agents, garde pre-push, installation des hooks git
 ```
+
+Dossiers prévus, non créés : `packages/engines` (moteurs de calcul),
+voir `docs/DECISIONS.md`. Le reste de l'arborescence applicative (API, web)
+reste à décider : le PRD recommande un monorepo pnpm (Fastify, Next.js,
+PostgreSQL), sans que cela soit tranché.
 
 ## Commandes
 
 ```bash
+node scripts/agent-bus.cjs help      # bus d'agents (vérifié)
+node scripts/install-git-hooks.cjs   # hooks git ; exige Lefthook (absent du PATH ici)
 ```
 
-TODO(acc-adapt) : compléter avec les commandes ciblées utiles (tests d'un
-seul paquet, contrôles d'architecture, génération de code…).
+TODO(acc-adapt) : commandes du projet (installation, lancement, typecheck,
+lint, tests), à renseigner dans `acc.config.json` (`commands`) puis ici dès
+que le premier code et son `package.json` existent.
 
 <!-- acc:begin agents-workflows -->
 ## Flux de travail des agents et hooks
@@ -136,11 +149,43 @@ d'agent ne vaut pas accord :
 
 ## Règles propres au projet
 
-TODO(acc-adapt) : règles métier et techniques non négociables (sécurité,
-isolation des données, gestion des erreurs, configuration, textes affichés…),
-chacune avec le fichier de référence qui l'illustre.
+Règles **décidées** dans la spécification ; aucune n'est encore implémentée,
+le fichier de référence est donc le document qui la pose. Quand le code
+existera, y ajouter le fichier qui l'illustre.
+
+- **L'IA propose, l'expert dispose.** Aucun contenu produit par l'IA n'atteint
+  un client sans validation d'un consultant ; chaque contenu porte un statut
+  (brouillon IA, modifié, validé) et son historique (PRD, « Résumé et
+  contexte » et SOC-06).
+- **Les chiffres ne viennent jamais du modèle de langage.** Jours, montants,
+  marges, scores, états financiers et KPI sortent d'un moteur de calcul testé
+  (`packages/engines`, couverture ≥ 90 % imposée en CI) ; le LLM ne fait que
+  commenter (PRD, « Exigences non fonctionnelles » ; `docs/DECISIONS.md`).
+- **Isolation entre cabinets.** Chaque cabinet est une organisation isolée,
+  par sécurité au niveau des lignes PostgreSQL testée en CI (PRD, SOC-01).
+- **Données financières internes.** Coûts journaliers, grilles de taux et
+  marges ne sont visibles que des associés et gestionnaires (PRD, FIN-02).
+- **Budget et temps.** Le budget initial est figé à la signature ; toute
+  révision crée une nouvelle version validée par le directeur de mission. Une
+  période de temps clôturée est verrouillée et toute correction est tracée
+  (PRD, FIN-03 et TPS-09).
+- **Langue et monnaie.** Interface 100 % française en V1 ; devises FCFA (XOF,
+  XAF), EUR, USD (PRD, « Localisation »).
 
 ## Pièges connus
 
-TODO(acc-adapt) : pièges réellement rencontrés (ports, variables
-d'environnement, dette connue, tests lents…).
+- **Documents en désaccord.** `docs/DECISIONS.md` est intitulé « CapStrat V1 »
+  (ancien nom, remplacé par MissionPilot selon le PRD). Ses rôles
+  (`dirigeant`, `contributeur`, `expert`) et ses règles (notation, KPI, plan
+  stratégique) ne correspondent pas aux rôles du PRD (associé, directeur de
+  mission, consultant…) et concernent des services prévus en V2. Avant
+  d'implémenter quoi que ce soit qui en dépend, demander à l'utilisateur
+  lequel fait foi.
+- **Choix techniques contradictoires.** File de tâches : BullMQ (PRD) ou
+  table `jobs` PostgreSQL (`DECISIONS.md`). IA : Claude appelé par un
+  orchestrateur (PRD) ou OpenRouter avec modèle choisi par tâche
+  (`DECISIONS.md`). À trancher par un ADR avant le premier code.
+- **Hooks git inactifs.** Lefthook n'est pas installé : le hook `pre-push`
+  qui protège `main` ne tourne pas tant qu'un `package.json` ne l'ajoute pas
+  en dépendance de développement, puis que
+  `node scripts/install-git-hooks.cjs` n'a pas été relancé.

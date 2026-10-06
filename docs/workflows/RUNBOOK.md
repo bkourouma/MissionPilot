@@ -5,8 +5,13 @@ Lancer, configurer et dépanner le projet. En cas de désaccord avec
 
 ## Prérequis
 
-TODO(acc-adapt) : versions des outils (runtime, gestionnaire de paquets, base
-de données, services externes) et comment les vérifier.
+- Git (`git --version` : 2.52 vérifié) et Node ≥ 20 pour les scripts du
+  standard (`node -v` : 24.12 vérifié).
+- Lefthook, pour les hooks git : absent de cette machine (voir Dépannage).
+
+TODO(acc-adapt) : versions des outils de l'application (gestionnaire de
+paquets, PostgreSQL, services externes) et comment les vérifier, une fois la
+stack tranchée (voir « Pièges connus » d'`AGENTS.md`).
 
 ## Installation
 
@@ -81,7 +86,15 @@ d'`acc.config.json`). Un refus se corrige (passer par une branche puis une
 PR), il ne se contourne pas. `npx github:bkourouma/ACC-STANDARD-ARCHITECTURE doctor` vérifie que les hooks
 sont installés.
 
+**Symptôme :** `node scripts/install-git-hooks.cjs` répond « Lefthook
+introuvable : hooks git non installés » (code 0) et `doctor` avertit que
+`pre-commit` et `pre-push` ne mentionnent pas lefthook. **Cause :** pas de
+`package.json` donc pas de dépendance `lefthook`, et pas de binaire système.
+**Correctif :** ajouter `lefthook` en dépendance de développement, ou
+installer le binaire, puis relancer le script.
+
 ### Autres pannes connues
 
 TODO(acc-adapt) : symptômes réellement rencontrés, cause et correctif (port
-occupé, secret refusé au démarrage, origine refusée, tests lents…).
+occupé, secret refusé au démarrage, origine refusée, tests lents…), une fois
+l'application lancée.

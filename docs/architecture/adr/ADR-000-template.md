@@ -18,8 +18,11 @@ pèsent sur la décision (sécurité, compatibilité, dette technique existante,
 lot déjà livré…). Pas de jugement ici, seulement les faits qui rendent la
 décision nécessaire.
 
-TODO(acc-adapt) : contraintes transverses propres au projet à rappeler dans
-chaque ADR, s'il y en a.
+Contraintes transverses à examiner quand elles s'appliquent (source :
+`AGENTS.md`, « Règles propres au projet ») : isolation entre cabinets,
+calcul des chiffres par un moteur testé et jamais par le modèle de langage,
+confidentialité des coûts et marges, validation humaine des contenus IA,
+coût d'appel au fournisseur IA, devises et localisation.
 
 ## Décision
 
