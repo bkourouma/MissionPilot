@@ -13,7 +13,7 @@ import { exigerPermission } from "../../../../lib/session";
 
 /**
  * En-tête commun d'une mission et onglets Fiche / Découpage / Planning / Affectations /
- * Documents / Suivi / Budget / Débours / Facturation (selon les droits).
+ * Documents / Rapports / Suivi / Budget / Débours / Facturation (selon les droits).
  */
 export default async function LayoutMission({
   children,
@@ -48,6 +48,20 @@ export default async function LayoutMission({
     { id: "planning", libelle: "Planning", href: `${base}/planning` },
     { id: "affectations", libelle: "Affectations", href: `${base}/affectations` },
     { id: "documents", libelle: "Documents", href: `${base}/documents` },
+    { id: "rapports", libelle: "Rapports", href: `${base}/rapports` },
+    ...(aPermission(utilisateur.roles, "questionnaire.lire")
+      ? [{ id: "questionnaires", libelle: "Questionnaires", href: `${base}/questionnaires` }]
+      : []),
+    ...(aPermission(utilisateur.roles, "notation.gerer") ||
+    aPermission(utilisateur.roles, "notation.publier")
+      ? [{ id: "notation", libelle: "Notation", href: `${base}/notation` }]
+      : []),
+    ...(aPermission(utilisateur.roles, "plan.lire")
+      ? [{ id: "plan", libelle: "Plan stratégique", href: `${base}/plan` }]
+      : []),
+    ...(aPermission(utilisateur.roles, "kpi.lire")
+      ? [{ id: "kpi", libelle: "KPI", href: `${base}/kpi` }]
+      : []),
     ...(aPermission(utilisateur.roles, "budget.lire_jours")
       ? [
           { id: "suivi", libelle: "Suivi", href: `${base}/suivi` },

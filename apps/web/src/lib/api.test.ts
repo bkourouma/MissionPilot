@@ -128,6 +128,7 @@ describe("champsRefuses et messageErreur", () => {
     expect(messageErreur(new ErreurApi("TFA_A_CONFIGURER", "x", 403))).toMatch(
       /Sécurité du compte/,
     );
+    expect(messageErreur(new ErreurApi("ORIGINE_REFUSEE", "x", 403))).toMatch(/adresse habituelle/);
     expect(messageErreur(new ErreurApi("CONFLIT", "Un client porte déjà ce RCCM.", 409))).toBe(
       "Un client porte déjà ce RCCM.",
     );

@@ -10,6 +10,8 @@ import "../styles/temps.css";
 import "../styles/facturation.css";
 import "../styles/finance.css";
 import "../styles/collaboration.css";
+// Après les styles globaux : la feuille de style de l'indicateur de connexion vient ensuite.
+import { HorsLigne } from "../components/hors-ligne/HorsLigne";
 
 export const metadata: Metadata = {
   title: { default: "MissionPilot", template: "%s — MissionPilot" },
@@ -35,7 +37,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        <HorsLigne />
+        {children}
+      </body>
     </html>
   );
 }

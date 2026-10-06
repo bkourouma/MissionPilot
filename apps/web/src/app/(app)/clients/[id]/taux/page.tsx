@@ -10,7 +10,8 @@ import type { ClientDetaille } from "../../../../../lib/clients";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { chargerGradesActifs } from "../../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../../lib/session";
-import { ongletsClient, voitTauxNegocies, type TauxClient } from "../../../../../lib/taux-clients";
+import { ongletsClientAvecPortail } from "../../../../../lib/portail-gestion";
+import { voitTauxNegocies, type TauxClient } from "../../../../../lib/taux-clients";
 import { TauxNegocies } from "./TauxNegocies";
 
 export const metadata: Metadata = { title: "Taux négociés" };
@@ -40,7 +41,10 @@ export default async function PageTauxClient({ params }: { params: Promise<{ id:
         badges={c && !c.actif ? <BadgeStatut tonalite="neutre">Archivé</BadgeStatut> : undefined}
         soustitre="Taux journaliers de vente négociés avec ce client. Ils priment sur le taux standard du grade dans les propositions et les budgets."
       />
-      <Onglets libelle="Sections de la fiche client" pages={ongletsClient(id, utilisateur.roles)} />
+      <Onglets
+        libelle="Sections de la fiche client"
+        pages={ongletsClientAvecPortail(id, utilisateur.roles)}
+      />
       <Alerte tonalite="info" annonce="aucune" titre="Donnée confidentielle">
         <p>Visible des seuls associés et gestionnaires (grille de taux du cabinet).</p>
       </Alerte>

@@ -1,0 +1,525 @@
+/*
+ * Plan stratégique et modèle financier (service #3) : onglet « Plan stratégique » d'une
+ * mission. Mobile d'abord, CSS pur, couleurs des jetons (contrastes vérifiés dans tokens.css).
+ * La couleur ne porte jamais seule le sens : chaque statut a son texte et son icône, chaque
+ * alerte sa gravité écrite, chaque série du graphique son motif de trait et sa forme de point,
+ * et le graphique a son tableau équivalent.
+ */
+
+.mp-plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-plan p {
+  margin: 0;
+}
+
+.mp-plan__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-plan__intertitre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+}
+
+.mp-plan__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-plan__liste-manques {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+}
+
+/* ---------- Liste des plans ---------- */
+.mp-plan-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-plan-liste__element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-plan-liste__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-plan-liste__titre a {
+  color: var(--mp-primaire);
+}
+
+/* ---------- Contenus du plan ---------- */
+.mp-plan-element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-plan-element--retire {
+  border-style: dashed;
+  border-color: var(--mp-bordure-controle);
+  background: var(--mp-surface-2);
+}
+
+.mp-plan-element__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-plan-element__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-plan-element__type {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+}
+
+.mp-plan-element__meta {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-plan-element__texte {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mp-plan-element__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-plan-element__enfants {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0 0 0 var(--mp-esp-3);
+  list-style: none;
+  border-left: 3px solid var(--mp-bordure);
+}
+
+@media (min-width: 640px) {
+  .mp-plan-element__enfants {
+    padding-left: var(--mp-esp-4);
+  }
+}
+
+.mp-plan-swot {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-3);
+}
+
+@media (min-width: 640px) {
+  .mp-plan-swot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mp-plan-swot__case {
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface-2);
+}
+
+.mp-plan-swot__case h4 {
+  margin: 0 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+}
+
+.mp-plan-swot__case ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+}
+
+/* ---------- Historique des versions ---------- */
+.mp-plan-historique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-plan-historique__version {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding-bottom: var(--mp-esp-3);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-plan-historique__version:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mp-plan-historique__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Saisie des hypothèses ---------- */
+.mp-plan-saisie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-plan-saisie > legend {
+  padding: 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+}
+
+.mp-plan-annuel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-plan-annuel > legend {
+  padding: 0;
+  margin-bottom: var(--mp-esp-1);
+}
+
+.mp-plan-annuel__annees {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
+  gap: var(--mp-esp-2);
+}
+
+.mp-plan-ligne-saisie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-plan-ligne-saisie__titre {
+  margin: 0;
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+}
+
+/* ---------- Tableaux financiers ---------- */
+.mp-plan-etat {
+  overflow-x: auto;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-plan-etat table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-plan-etat caption {
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  text-align: left;
+  font-weight: 700;
+}
+
+.mp-plan-etat th,
+.mp-plan-etat td {
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border-bottom: 1px solid var(--mp-bordure);
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.mp-plan-etat thead th {
+  background: var(--mp-surface-2);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 650;
+}
+
+.mp-plan-etat tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 11rem;
+  max-width: 18rem;
+  background: var(--mp-surface);
+  font-weight: 500;
+  text-align: left;
+  white-space: normal;
+}
+
+.mp-plan-etat thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: left;
+}
+
+.mp-plan-etat__code {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+}
+
+.mp-plan-etat__total th,
+.mp-plan-etat__total td {
+  font-weight: 700;
+  background: var(--mp-surface-2);
+}
+
+.mp-plan-etat__groupe th {
+  position: static;
+  padding-top: var(--mp-esp-3);
+  background: var(--mp-surface);
+  color: var(--mp-primaire);
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+  text-transform: none;
+}
+
+.mp-plan-etat td.mp-plan-etat__texte {
+  min-width: 12rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.mp-plan-etat__negatif {
+  color: var(--mp-danger);
+}
+
+.mp-plan-etat tbody tr:last-child th,
+.mp-plan-etat tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ---------- Indicateurs clés ---------- */
+.mp-plan-cles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-plan-cles > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-plan-cles__libelle {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-plan-cles__valeur {
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Alertes du modèle ---------- */
+.mp-plan-alertes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-plan-alertes > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+/* ---------- Graphique de trésorerie ---------- */
+.mp-plan-graphique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  min-width: 0;
+}
+
+.mp-plan-graphique__svg {
+  display: block;
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+  overflow: visible;
+}
+
+.mp-plan-graphique__cadre {
+  fill: none;
+  stroke: var(--mp-bordure);
+}
+
+.mp-plan-graphique__zero {
+  stroke: var(--mp-texte);
+  stroke-width: 1.5;
+}
+
+.mp-plan-graphique__texte {
+  fill: var(--mp-texte-doux);
+  font-size: 11px;
+}
+
+.mp-plan-graphique__serie {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.mp-plan-graphique__serie--base {
+  stroke: var(--mp-primaire);
+}
+
+.mp-plan-graphique__serie--optimiste {
+  stroke: var(--mp-succes);
+  stroke-dasharray: 7 4;
+}
+
+.mp-plan-graphique__serie--pessimiste {
+  stroke: var(--mp-attention);
+  stroke-dasharray: 2 3;
+}
+
+.mp-plan-graphique__point--base {
+  fill: var(--mp-primaire);
+}
+
+.mp-plan-graphique__point--optimiste {
+  fill: var(--mp-succes);
+}
+
+.mp-plan-graphique__point--pessimiste {
+  fill: var(--mp-attention);
+}
+
+.mp-plan-legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-plan-legende > li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-plan-legende svg {
+  flex: none;
+}
+
+/* ---------- Comparaison et versions ---------- */
+.mp-plan-comparaison {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-4);
+}
+
+@media (min-width: 960px) {
+  .mp-plan-comparaison {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.mp-plan-formulaire-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-3);
+}
+
+.mp-plan-formulaire-ligne .mp-champ {
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mp-plan-element {
+    transition: border-color var(--mp-duree) ease;
+  }
+}

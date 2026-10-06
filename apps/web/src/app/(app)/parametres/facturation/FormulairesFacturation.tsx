@@ -21,6 +21,8 @@ import {
 import { lireNombre } from "../../../../lib/saisie";
 import {
   apercuNumero,
+  autresCoordonneesMasqueesRecues,
+  ibanMasqueRecu,
   OPTIONS_BASES_RETENUE,
   saisieIdentite,
   saisieOperationnelle,
@@ -63,11 +65,15 @@ export function FormulaireIdentite({
   const f = useFormulaire<ChampIdentite | ChampConfirmation>();
   const maj = (champ: keyof SaisieIdentite) => (v: string) => setS((x) => ({ ...x, [champ]: v }));
   const chiffres = lireNombre(s.chiffres_numero);
+  // Valeurs reçues masquées : jamais renvoyées telles quelles (validerIdentite les omet
+  // si elles sont inchangées).
+  const ibanMasque = ibanMasqueRecu(parametres);
+  const autresMasquees = autresCoordonneesMasqueesRecues(parametres);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     const ok = await f.envoyer(
-      avecReconfirmation(validerIdentite(s), confirmation),
+      avecReconfirmation(validerIdentite(s, ibanMasque, autresMasquees), confirmation),
       (c) => api.patch("/api/parametres-facturation", c, { redirigerSi401: false }),
       {
         succes: "Mentions et coordonnées enregistrées.",
@@ -99,7 +105,11 @@ export function FormulaireIdentite({
         ))}
         <Champ
           libelle="IBAN"
-          aide="Espaces acceptés. Un IBAN modifié change le compte où vos clients paient : vérifiez-le."
+          aide={
+            ibanMasque
+              ? "IBAN masqué : laissez-le tel quel pour le conserver, ou saisissez le nouvel IBAN complet. Un IBAN modifié change le compte où vos clients paient : vérifiez-le."
+              : "Espaces acceptés. Un IBAN modifié change le compte où vos clients paient : vérifiez-le."
+          }
           autoCapitalize="characters"
           spellCheck={false}
           maxLength={50}
@@ -117,7 +127,11 @@ export function FormulaireIdentite({
       />
       <ZoneTexte
         libelle="Autres coordonnées de paiement"
-        aide="Mobile Money, chèque à l'ordre de…"
+        aide={
+          autresMasquees
+            ? "Coordonnées masquées : laissez-les telles quelles pour les conserver, ou saisissez les nouvelles coordonnées complètes."
+            : "Mobile Money, chèque à l'ordre de…"
+        }
         maxLength={500}
         value={s.autres_coordonnees}
         onChange={(e) => maj("autres_coordonnees")(e.target.value)}

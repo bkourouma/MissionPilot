@@ -12,9 +12,9 @@ export default async function PageImportTemps() {
     <div className="mp-page">
       <EnteteDePage
         titre="Import de l'historique des temps"
-        soustitre="Reprise des temps d'un ancien outil : une simulation vérifie chaque ligne (collaborateur, mission, tâche, date, période clôturée) avant tout import."
+        soustitre="Reprise des temps d'un ancien outil, depuis un classeur Excel (.xlsx) ou un fichier CSV : une simulation vérifie chaque ligne (collaborateur, mission, tâche, date, période clôturée) avant tout import."
       />
-      <Carte titre="Fichier à importer">
+      <Carte titre="Importer l'historique">
         <ImportTemps />
       </Carte>
     </div>

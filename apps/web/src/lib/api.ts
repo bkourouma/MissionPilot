@@ -178,10 +178,16 @@ export const CODE_TFA_A_CONFIGURER = "TFA_A_CONFIGURER";
 export const MESSAGE_TFA_A_CONFIGURER =
   "La double authentification est obligatoire pour votre rôle : activez-la depuis « Sécurité du compte » pour continuer.";
 
+/** Code de l'API : la requête vient d'une autre adresse que celle du web (garde d'origine). */
+export const CODE_ORIGINE_REFUSEE = "ORIGINE_REFUSEE";
+export const MESSAGE_ORIGINE_REFUSEE =
+  "Requête refusée : ouvrez MissionPilot à son adresse habituelle (celle indiquée par votre administrateur) puis réessayez.";
+
 /** Message d'erreur affichable (toujours en français) pour une erreur d'appel. */
 export function messageErreur(e: unknown): string {
   if (!(e instanceof ErreurApi)) return MESSAGE_INATTENDU;
   if (e.code === CODE_TFA_A_CONFIGURER) return MESSAGE_TFA_A_CONFIGURER;
+  if (e.code === CODE_ORIGINE_REFUSEE) return MESSAGE_ORIGINE_REFUSEE;
   if (e.code === "REQUETE_INVALIDE" && e.message === "Données invalides.") {
     return "Certaines valeurs ont été refusées. Vérifiez les champs signalés puis réessayez.";
   }

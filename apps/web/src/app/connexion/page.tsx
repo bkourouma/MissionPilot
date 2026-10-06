@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cheminDeRetour } from "../../lib/connexion";
+import { destinationApresConnexion, estCheminPortail } from "../../lib/portail-routes";
 import { sessionFacultative } from "../../lib/session";
 import { FormulaireConnexion } from "./FormulaireConnexion";
 
@@ -12,8 +13,11 @@ export default async function PageConnexion({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const suite = cheminDeRetour((await searchParams).suite);
-  // Déjà connecté (session valide) : pas besoin de se reconnecter.
-  if (await sessionFacultative()) redirect(suite);
+  // Déjà connecté (session valide) : pas besoin de se reconnecter ; l'espace dépend du compte
+  // (portail client ou cabinet).
+  const session = await sessionFacultative();
+  if (session) redirect(destinationApresConnexion(suite, session.portail === true));
+  const espaceClient = estCheminPortail(suite);
 
   return (
     <main className="mp-connexion">
@@ -33,7 +37,11 @@ export default async function PageConnexion({
           <span>MissionPilot</span>
         </div>
         <h1 className="mp-connexion__titre">Connexion</h1>
-        <p className="mp-texte-doux">Accédez à l&apos;espace de votre cabinet.</p>
+        <p className="mp-texte-doux">
+          {espaceClient
+            ? "Accédez à votre espace client : missions, documents et factures partagés par votre cabinet."
+            : "Accédez à l'espace de votre cabinet."}
+        </p>
         <FormulaireConnexion suite={suite} />
       </div>
     </main>

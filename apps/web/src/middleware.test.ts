@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { middleware } from "./middleware";
+import { config, middleware } from "./middleware";
 
 const requete = (chemin: string, cookie?: string) =>
   new NextRequest(new URL(chemin, "http://localhost:3100"), {
@@ -32,7 +32,26 @@ describe("middleware", () => {
     expect(redirection("/invitation/x")).toMatch(/\/connexion\?suite=/);
   });
 
+  it("le filtre exclut /sw.js (chemin exact) mais pas les pages voisines", () => {
+    const filtre = new RegExp(`^${config.matcher[0]}$`);
+    expect(filtre.test("/sw.js")).toBe(false);
+    expect(filtre.test("/manifest.webmanifest")).toBe(false);
+    expect(filtre.test("/sw.json")).toBe(true);
+    expect(filtre.test("/sw.js/x")).toBe(true);
+    expect(filtre.test("/temps")).toBe(true);
+  });
+
   it("laisse passer une page protégée quand le cookie est présent", () => {
     expect(redirection("/clients", "mp_session=abc")).toBeNull();
+  });
+
+  it("portail client : l'invitation est publique (chemin exact), le reste exige une session", () => {
+    expect(redirection("/portail/invitation")).toBeNull();
+    expect(redirection("/portail")).toBe("http://localhost:3100/connexion?suite=%2Fportail");
+    expect(redirection("/portail/factures")).toBe(
+      "http://localhost:3100/connexion?suite=%2Fportail%2Ffactures",
+    );
+    expect(redirection("/portail/invitation/x")).toMatch(/\/connexion\?suite=/);
+    expect(redirection("/portail/missions", "mp_session=abc")).toBeNull();
   });
 });

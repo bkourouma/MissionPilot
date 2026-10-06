@@ -10,6 +10,7 @@ import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { Tableau, type ColonneTableau } from "../../../components/ui/Tableau";
 import { chargerServeur } from "../../../lib/api-serveur";
+import { chargerToutesLesPages } from "../../../lib/pagination";
 import { MODE_LIBELLES } from "../../../lib/catalogue";
 import { formaterDate } from "../../../lib/format";
 import {
@@ -37,7 +38,7 @@ export default async function PageMissions({
   const peutCreer = aPermission(roles, "mission.creer");
   const filtres = lireFiltresMissions(await searchParams);
   const [liste, clients, personnes] = await Promise.all([
-    chargerServeur<{ elements: Mission[] }>(`/api/missions?${requeteMissions(filtres)}`),
+    chargerToutesLesPages<Mission>(chargerServeur, `/api/missions?${requeteMissions(filtres)}`),
     chargerClientsActifs(roles),
     chargerPersonnes(roles),
   ]);

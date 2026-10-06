@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
+import { purgerDonneesHorsLigne } from "../../lib/hors-ligne/magasins";
 import { Bouton } from "../ui/Bouton";
 
 export function BoutonDeconnexion({ pleineLargeur = false }: { pleineLargeur?: boolean }) {
@@ -13,6 +14,13 @@ export function BoutonDeconnexion({ pleineLargeur = false }: { pleineLargeur?: b
     setErreur(null);
     try {
       await api.post("/api/auth/deconnexion", undefined, { redirigerSi401: false });
+      // Saisies de temps gardées hors ligne : effacées de l'appareil. Un échec ne bloque pas
+      // la déconnexion (le service worker purge aussi la base).
+      try {
+        await purgerDonneesHorsLigne();
+      } catch {
+        // Stockage indisponible : rien de plus à faire.
+      }
       // Rechargement complet : vide l'état client et le cache du routeur.
       window.location.assign("/connexion");
     } catch (e) {

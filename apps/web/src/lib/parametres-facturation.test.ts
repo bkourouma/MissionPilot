@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   apercuNumero,
+  autresCoordonneesMasqueesRecues,
   droitsParametresFacturation,
+  ibanMasqueRecu,
   lirePourcentage,
   lireTauxAutorises,
   mentionsManquantes,
@@ -103,6 +105,86 @@ describe("identité et numérotation", () => {
 
   it("montre un exemple de numéro", () => {
     expect(apercuNumero("FA", 5, 2026)).toBe("FA-2026-00001");
+  });
+});
+
+describe("IBAN masqué (lecteur sans « facture.emettre »)", () => {
+  const masque: ParametresFacturation = { ...depart, iban: "CI…0001", iban_masque: true };
+
+  it("ibanMasqueRecu : valeur masquée seulement si l'API l'a signalée", () => {
+    expect(ibanMasqueRecu(masque)).toBe("CI…0001");
+    expect(ibanMasqueRecu({ ...depart, iban: "CI93CI0001010000000000000001" })).toBeNull();
+    expect(ibanMasqueRecu({ ...depart, iban: null, iban_masque: false })).toBeNull();
+  });
+
+  it("inchangé : l'IBAN est omis de la charge, jamais renvoyé masqué ni effacé", () => {
+    const s = { ...saisieIdentite(masque), rccm: "R-1" };
+    expect(s.iban).toBe("CI…0001");
+    const r = validerIdentite(s, ibanMasqueRecu(masque));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.charge).not.toHaveProperty("iban");
+      expect(r.charge.rccm).toBe("R-1");
+    }
+    // Espaces autour : toujours considéré inchangé.
+    const r2 = validerIdentite({ ...s, iban: " CI…0001 " }, "CI…0001");
+    expect(r2.ok && r2.charge).not.toHaveProperty("iban");
+  });
+
+  it("modifié : validé comme un IBAN complet ; masque retouché refusé ; vidé → null", () => {
+    const s = saisieIdentite(masque);
+    const nouveau = validerIdentite({ ...s, iban: "ci93 ci00 0000 0000 0000 99" }, "CI…0001");
+    expect(nouveau.ok && nouveau.charge.iban).toBe("CI93CI0000000000000099");
+    const retouche = validerIdentite({ ...s, iban: "CI…0002" }, "CI…0001");
+    expect(retouche.ok ? [] : Object.keys(retouche.erreurs)).toEqual(["iban"]);
+    const vide = validerIdentite({ ...s, iban: "" }, "CI…0001");
+    expect(vide.ok && vide.charge.iban).toBeNull();
+  });
+
+  it("sans masque (IBAN en clair) : comportement inchangé, l'IBAN est toujours envoyé", () => {
+    const clair = { ...depart, iban: "CI93CI0001010000000000000001", iban_masque: false };
+    const r = validerIdentite(saisieIdentite(clair), ibanMasqueRecu(clair));
+    expect(r.ok && r.charge.iban).toBe("CI93CI0001010000000000000001");
+  });
+});
+
+describe("autres coordonnées masquées (lecteur sans « facture.emettre »)", () => {
+  const masque: ParametresFacturation = {
+    ...depart,
+    autres_coordonnees: "…",
+    autres_coordonnees_masquees: true,
+  };
+  const valider = (p: ParametresFacturation, autres: string) =>
+    validerIdentite(
+      { ...saisieIdentite(p), autres_coordonnees: autres },
+      ibanMasqueRecu(p),
+      autresCoordonneesMasqueesRecues(p),
+    );
+
+  it("autresCoordonneesMasqueesRecues : valeur masquée seulement si l'API l'a signalée", () => {
+    expect(autresCoordonneesMasqueesRecues(masque)).toBe("…");
+    expect(autresCoordonneesMasqueesRecues({ ...depart, autres_coordonnees: "OM 07" })).toBeNull();
+    expect(autresCoordonneesMasqueesRecues(depart)).toBeNull();
+  });
+
+  it("inchangées : omises de la charge, jamais renvoyées masquées ni effacées", () => {
+    for (const saisie of ["…", " … "]) {
+      const r = valider(masque, saisie);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.charge).not.toHaveProperty("autres_coordonnees");
+    }
+  });
+
+  it("modifiées : la nouvelle valeur est envoyée ; vidées → null ; en clair : toujours envoyées", () => {
+    const nouveau = valider(masque, "Orange Money +225 07 00 00 00 99");
+    expect(nouveau.ok && nouveau.charge.autres_coordonnees).toBe(
+      "Orange Money +225 07 00 00 00 99",
+    );
+    const vide = valider(masque, "");
+    expect(vide.ok && vide.charge.autres_coordonnees).toBeNull();
+    const clair = { ...depart, autres_coordonnees: "Chèque", autres_coordonnees_masquees: false };
+    const r = valider(clair, "Chèque");
+    expect(r.ok && r.charge.autres_coordonnees).toBe("Chèque");
   });
 });
 

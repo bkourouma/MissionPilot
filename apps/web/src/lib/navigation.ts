@@ -175,6 +175,26 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     ],
   },
   {
+    id: "questionnaires",
+    libelle: "Questionnaires",
+    href: "/questionnaires",
+    permission: "questionnaire.lire",
+    disponible: true,
+    icone: "bulle",
+    description:
+      "Modèles de questionnaires du cabinet, gabarits génériques, versions validées à envoyer aux clients.",
+  },
+  {
+    id: "notation",
+    libelle: "Notation",
+    href: "/notation",
+    permission: ["notation.gerer", "notation.publier"],
+    disponible: true,
+    icone: "drapeau",
+    description:
+      "Grilles de notation du cabinet : pondérations par dimension et par secteur, validation par un expert métier.",
+  },
+  {
     id: "plan-de-charge",
     libelle: "Plan de charge",
     libelleCourt: "Charge",
@@ -271,6 +291,12 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         href: "/parametres/securite",
         permission: "cabinet.gerer",
       },
+      {
+        id: "portail",
+        libelle: "Portail client",
+        href: "/parametres/portail",
+        permission: "cabinet.gerer",
+      },
       { id: "temps", libelle: "Temps", href: "/parametres/temps", permission: "cabinet.gerer" },
       {
         id: "facturation",
@@ -296,6 +322,7 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         href: "/parametres/journal",
         permission: "audit.lire",
       },
+      { id: "ia", libelle: "IA", href: "/parametres/ia", permission: "ia.configurer" },
     ],
   },
 ];

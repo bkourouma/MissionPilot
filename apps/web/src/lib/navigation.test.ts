@@ -29,6 +29,8 @@ describe("table de navigation", () => {
       "Clients",
       "Collaborateurs",
       "Catalogue",
+      "Questionnaires",
+      "Notation",
       "Plan de charge",
       "Facturation",
       "Finance",
@@ -65,6 +67,8 @@ describe("entreesAutorisees", () => {
       "mes-taches",
       "clients",
       "catalogue",
+      "questionnaires",
+      "notation",
     ]);
   });
 
@@ -171,11 +175,13 @@ describe("sous-pages", () => {
       "cabinet",
       "utilisateurs",
       "securite",
+      "portail",
       "temps",
       "facturation",
       "cloture",
       "import",
       "journal",
+      "ia",
     ]);
     expect(sousPagesAutorisees("parametres", ["gestionnaire"]).map((p) => p.id)).toEqual([
       "facturation",

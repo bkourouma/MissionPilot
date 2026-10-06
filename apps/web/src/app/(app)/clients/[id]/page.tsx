@@ -14,7 +14,7 @@ import { nomPays } from "../../../../lib/cabinet";
 import { TAILLE_LIBELLES, type ClientDetaille } from "../../../../lib/clients";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { exigerPermission } from "../../../../lib/session";
-import { ongletsClient } from "../../../../lib/taux-clients";
+import { ongletsClientAvecPortail } from "../../../../lib/portail-gestion";
 import { ArchivageClient } from "./ArchivageClient";
 import { AjoutContact, ContactModifiable } from "./Contacts";
 
@@ -71,7 +71,7 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
 
       <Onglets
         libelle="Sections de la fiche client"
-        pages={ongletsClient(c.id, utilisateur.roles)}
+        pages={ongletsClientAvecPortail(c.id, utilisateur.roles)}
       />
 
       <Carte titre="Identité légale">

@@ -20,7 +20,14 @@ export interface ParametresFacturation {
   email: string | null;
   banque: string | null;
   iban: string | null;
+  /**
+   * Vrai si l'API a rendu l'IBAN MASQUÉ (pays + 4 derniers caractères) : lecteur sans
+   * « facture.emettre ». Absent des anciennes réponses : traité comme faux.
+   */
+  iban_masque?: boolean;
   autres_coordonnees: string | null;
+  /** Vrai si l'API a MASQUÉ les autres coordonnées de paiement (même règle que l'IBAN). */
+  autres_coordonnees_masquees?: boolean;
   mentions_complementaires: string | null;
   prefixe_facture: string;
   prefixe_avoir: string;
@@ -159,16 +166,38 @@ function verifierNumerotation(s: SaisieIdentite, erreurs: Partial<Record<ChampId
     erreurs.chiffres_numero = "Nombre entier de 3 à 8.";
 }
 
+/** IBAN masqué reçu de l'API (à ne jamais renvoyer), ou null s'il est en clair. */
+export function ibanMasqueRecu(p: ParametresFacturation): string | null {
+  return p.iban_masque && p.iban ? p.iban : null;
+}
+
+/** Autres coordonnées masquées reçues de l'API (à ne jamais renvoyer), ou null en clair. */
+export function autresCoordonneesMasqueesRecues(p: ParametresFacturation): string | null {
+  return p.autres_coordonnees_masquees && p.autres_coordonnees ? p.autres_coordonnees : null;
+}
+
+/**
+ * `ibanMasque`, `autresMasquees` : valeurs masquées reçues de l'API. Une saisie restée
+ * identique est OMISE de la charge (l'API conserve la valeur enregistrée) ; sinon la
+ * nouvelle valeur est envoyée (l'IBAN est validé comme un IBAN complet : une valeur
+ * masquée modifiée est refusée).
+ */
 export function validerIdentite(
   s: SaisieIdentite,
+  ibanMasque: string | null = null,
+  autresMasquees: string | null = null,
 ): Resultat<Record<string, string | number | null>, ChampIdentite> {
   const erreurs: Partial<Record<ChampIdentite, string>> = {};
-  verifierTextes(s, erreurs);
+  const ibanInchange = ibanMasque !== null && s.iban.trim() === ibanMasque;
+  const autresInchangees =
+    autresMasquees !== null && s.autres_coordonnees.trim() === autresMasquees.trim();
+  verifierTextes(ibanInchange ? { ...s, iban: "" } : s, erreurs);
   verifierNumerotation(s, erreurs);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: Record<string, string | number | null> = {};
   for (const [champ] of [...LIGNES, ...BLOCS]) charge[champ] = texteOuNull(s[champ]);
-  charge.iban = texteOuNull(normaliserIban(s.iban));
+  if (autresInchangees) delete charge.autres_coordonnees;
+  if (!ibanInchange) charge.iban = texteOuNull(normaliserIban(s.iban));
   charge.prefixe_facture = s.prefixe_facture.trim().toUpperCase();
   charge.prefixe_avoir = s.prefixe_avoir.trim().toUpperCase();
   charge.chiffres_numero = lireNombre(s.chiffres_numero) as number;

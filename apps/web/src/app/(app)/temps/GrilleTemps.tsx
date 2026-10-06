@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DecisionSaisie } from "../../../components/hors-ligne/DecisionSaisie";
 import {
   stockageLocal,
   useSauvegardeFeuille,
@@ -13,12 +14,27 @@ import { CaseACocher } from "../../../components/ui/CaseACocher";
 import { Icone } from "../../../components/ui/Icone";
 import { api, messageErreur } from "../../../lib/api";
 import {
-  abandonner,
+  abandonner as abandonnerAncienne,
   aReprendre,
   lireFile,
-  MESSAGE_SYNCHRO,
   type Instantane,
 } from "../../../lib/file-sauvegarde";
+import {
+  classeSaisie,
+  iconeSaisie,
+  MESSAGE_MEMOIRE,
+  MESSAGE_SAISIE,
+} from "../../../lib/hors-ligne/etats";
+import {
+  CODE_MODIFIEE_AILLEURS,
+  CODE_NON_MODIFIABLE,
+  decisionAuChargement,
+  lister,
+  mettreDeCote,
+  purgerAutresUtilisateurs,
+  type SaisieEnAttente,
+} from "../../../lib/hors-ligne/file-temps";
+import { obtenirMagasin } from "../../../lib/hors-ligne/magasins";
 import { libelleJourCourt, libelleJourLong } from "../../../lib/semaine";
 import {
   cleActivite,
@@ -48,6 +64,8 @@ export interface GrilleTempsProps {
   taches: TacheAffectee[];
   modifiable: boolean;
   libelleSoumettre: string;
+  /** Propriétaire des saisies gardées sur l'appareil (jamais rejouées pour un autre compte). */
+  utilisateurId: string;
 }
 
 /** Index des samedi et dimanche dans la semaine (lundi = 0). */
@@ -69,7 +87,8 @@ function groupes(rangees: readonly Rangee[]): { nom: string; rangees: Rangee[] }
  * cases de 44 px, week-end replié, barre d'envoi toujours visible.
  */
 export function GrilleTemps(props: GrilleTempsProps) {
-  const { feuille, unite, jours, joursClotures, activites, taches, modifiable } = props;
+  const { feuille, unite, jours, joursClotures, activites, taches, modifiable, utilisateurId } =
+    props;
   const router = useRouter();
   const [rangees, setRangees] = useState<Rangee[]>(() =>
     rangeesInitiales(feuille.lignes, taches, activites),
@@ -98,24 +117,72 @@ export function GrilleTemps(props: GrilleTempsProps) {
       ),
     [jours, joursClotures, unite],
   );
-  const s = useSauvegardeFeuille({ feuilleId: feuille.id, construire });
+  const s = useSauvegardeFeuille({
+    feuilleId: feuille.id,
+    utilisateurId,
+    semaine: jours[0] ?? "",
+    unite,
+    construire,
+  });
+
+  function restaurer(i: Pick<Instantane, "rangees" | "valeurs">) {
+    setValeurs(i.valeurs);
+    setRangees(rangeesInitiales(feuille.lignes, taches, activites, i.rangees));
+  }
 
   // Reprise d'une saisie restée sur l'appareil (coupure, fermeture de l'onglet).
   useEffect(() => {
-    const i = aReprendre(lireFile(stockageLocal(), feuille.id), {
+    void reprendreSaisieLocale();
+    // Une seule fois au montage : les props initiales suffisent.
+  }, []);
+
+  async function reprendreSaisieLocale() {
+    // Ancienne file (localStorage, une clé par feuille) : reprise une fois, puis effacée.
+    const ancienne = aReprendre(lireFile(stockageLocal(), feuille.id), {
       modifiable,
       modifieLe: feuille.modifie_le,
     });
-    if (!i) {
-      if (!modifiable) abandonner(stockageLocal(), feuille.id);
-      return;
+    abandonnerAncienne(stockageLocal(), feuille.id);
+    let e: SaisieEnAttente | undefined;
+    try {
+      const m = await obtenirMagasin();
+      await purgerAutresUtilisateurs(m, utilisateurId);
+      e = (await lister(m, utilisateurId)).find((x) => x.feuilleId === feuille.id);
+      const decision = decisionAuChargement(e, { modifiable, modifieLe: feuille.modifie_le });
+      if (e && (decision === "non_modifiable" || decision === "modifiee_ailleurs")) {
+        const code = decision === "non_modifiable" ? CODE_NON_MODIFIABLE : CODE_MODIFIEE_AILLEURS;
+        e = (await mettreDeCote(m, e.cle, "conflit", { code, message: "" })) ?? e;
+        s.reprendre(e);
+        return;
+      }
+    } catch {
+      // Stockage indisponible : seule l'ancienne file peut encore servir.
     }
-    setValeurs(i.valeurs);
-    setRangees(rangeesInitiales(feuille.lignes, taches, activites, i.rangees));
-    setReprise(true);
-    s.modifier(i);
-    // Une seule fois au montage : les props initiales suffisent.
-  }, []);
+    if (e) {
+      restaurer(e);
+      setReprise(e.etat === "en_attente");
+      s.reprendre(e);
+    } else if (ancienne) {
+      restaurer(ancienne);
+      setReprise(true);
+      s.modifier(ancienne);
+    }
+  }
+
+  /** « Garder ma saisie » : elle revient dans la grille et repart. */
+  async function renvoyerSaisie(e: SaisieEnAttente) {
+    restaurer(e);
+    await s.decider("renvoyer", e);
+  }
+
+  /** « Abandonner » : la grille revient à la version enregistrée sur le serveur. */
+  async function abandonnerSaisie(e: SaisieEnAttente) {
+    await s.decider("abandonner", e);
+    setValeurs(valeursInitiales(feuille.lignes, unite));
+    setRangees(rangeesInitiales(feuille.lignes, taches, activites));
+    setReprise(false);
+    router.refresh();
+  }
 
   const clos = useMemo(() => new Set(joursClotures), [joursClotures]);
   const visibles = jours.filter((_, i) => weekend || !WEEKEND.has(i));
@@ -151,7 +218,6 @@ export function GrilleTemps(props: GrilleTempsProps) {
     }
     try {
       await api.post(`/api/feuilles-temps/${encodeURIComponent(feuille.id)}/soumettre`);
-      abandonner(stockageLocal(), feuille.id);
       marquerAttente();
       router.refresh();
       setSoumission({ enCours: false, erreur: null });
@@ -195,7 +261,22 @@ export function GrilleTemps(props: GrilleTempsProps) {
           <p>{a.message}</p>
         </Alerte>
       ))}
-      {s.erreur ? (
+      {s.deCote ? (
+        <DecisionSaisie
+          entree={s.deCote}
+          libelleRangee={(cle) => rangees.find((r) => r.cle === cle)?.libelle}
+          onRenvoyer={modifiable ? () => renvoyerSaisie(s.deCote as SaisieEnAttente) : undefined}
+          onAbandonner={() => abandonnerSaisie(s.deCote as SaisieEnAttente)}
+          libelleRenvoyer={
+            s.deCote.motif?.code === CODE_MODIFIEE_AILLEURS ? "Garder ma saisie" : undefined
+          }
+          libelleAbandonner={
+            s.deCote.motif?.code === CODE_MODIFIEE_AILLEURS
+              ? "Garder la version enregistrée"
+              : undefined
+          }
+        />
+      ) : s.erreur ? (
         <Alerte tonalite="danger" titre="Brouillon non enregistré">
           <p>{s.erreur}</p>
         </Alerte>
@@ -315,12 +396,15 @@ export function GrilleTemps(props: GrilleTempsProps) {
 
       {modifiable ? (
         <div className="mp-feuille__barre">
-          <p className={`mp-feuille__synchro mp-feuille__synchro--${s.etat}`} role="status">
-            <Icone
-              nom={s.etat === "hors_ligne" ? "nuage" : s.etat === "refuse" ? "attention" : "succes"}
-              taille={18}
-            />
-            <span>{MESSAGE_SYNCHRO[s.etat]}</span>
+          <p
+            className={`mp-feuille__synchro mp-feuille__synchro--${classeSaisie(s.etat)}`}
+            role="status"
+          >
+            <Icone nom={iconeSaisie(s.etat)} taille={18} />
+            <span>
+              {MESSAGE_SAISIE[s.etat]}
+              {s.memoireSeule ? ` ${MESSAGE_MEMOIRE}` : ""}
+            </span>
           </p>
           <p className="mp-feuille__semaine">
             Semaine : <strong>{formaterValeur(totalSemaine, unite)}</strong>

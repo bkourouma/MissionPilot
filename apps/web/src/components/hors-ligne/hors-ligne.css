@@ -1,0 +1,71 @@
+/*
+ * Indicateur de connexion et décisions sur les saisies gardées hors ligne.
+ * Couleurs : jetons de tokens.css (contrastes vérifiés en clair et en sombre).
+ */
+/* En tête de page, dans le flux : ne recouvre ni l'en-tête ni la barre d'envoi de la feuille. */
+.mp-reseau {
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--mp-bordure);
+  font-size: var(--mp-taille-s);
+}
+
+/* Zone vide : gardée dans le DOM (une zone live masquée par display:none n'est pas toujours
+   annoncée à son apparition), mais sans hauteur. */
+.mp-reseau:empty {
+  padding: 0;
+  border: 0;
+}
+
+.mp-reseau--hors-ligne {
+  background: var(--mp-attention-fond);
+  color: var(--mp-attention);
+  font-weight: 600;
+}
+
+.mp-reseau--retour {
+  background: var(--mp-succes-fond);
+  color: var(--mp-succes);
+}
+
+.mp-reseau__texte {
+  max-width: var(--mp-largeur-contenu);
+  margin: 0 auto;
+}
+
+.mp-hors-ligne__detail {
+  margin-block: var(--mp-esp-2);
+}
+
+.mp-hors-ligne__detail summary {
+  min-height: var(--mp-cible);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.mp-hors-ligne__detail summary:focus-visible {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-hors-ligne__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin-top: var(--mp-esp-3);
+}
+
+.mp-hors-ligne__actions a {
+  min-height: var(--mp-cible);
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 639px) {
+  .mp-hors-ligne__actions .mp-bouton {
+    flex: 1 1 100%;
+  }
+}

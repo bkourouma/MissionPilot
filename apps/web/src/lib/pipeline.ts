@@ -10,6 +10,7 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { DEVISES, formaterPourcentage, type Devise } from "./format";
+import type { PageCurseur } from "./pagination";
 import { lireMontant, lireNombre, montantVersSaisie, texteOuNull, type Resultat } from "./saisie";
 
 export interface Opportunite {
@@ -132,7 +133,13 @@ const STATUT_API: Record<FiltreStatutOpportunite, StatutOpportunite | null> = {
   toutes: null,
 };
 
-/** Requête `GET /api/opportunites?…`. */
+/** Réponse de `GET /api/opportunites` : page et curseur de la suivante (null à la fin). */
+export type PageOpportunites = PageCurseur<Opportunite>;
+
+/**
+ * Requête `GET /api/opportunites?…`. Réponse paginée par curseur (`PageOpportunites`), chargée
+ * en entier par `chargerToutesLesPages` (`lib/pagination.ts`).
+ */
 export function requeteOpportunites(f: FiltresPipeline): string {
   const r = new URLSearchParams();
   const statut = STATUT_API[f.statut];

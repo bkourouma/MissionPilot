@@ -14,6 +14,11 @@ describe("liens des notifications", () => {
     expect(lienNotification("/temps?semaine=2026-10-05")).toBe("/temps?semaine=2026-10-05");
   });
 
+  it("alertes IA (ia_cle_illisible, ia_cle_modifiee) : le lien mène aux paramètres IA", () => {
+    // Le type n'a pas de libellé propre : titre et corps viennent de l'API, seul le lien est filtré.
+    expect(lienNotification("/parametres/ia")).toBe("/parametres/ia");
+  });
+
   it("redirige l'ancien chemin de « Mon planning »", () => {
     expect(lienNotification("/mon-planning?semaine=2026-10-05")).toBe(
       "/planning?semaine=2026-10-05",

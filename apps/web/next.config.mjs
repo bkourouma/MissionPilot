@@ -14,6 +14,8 @@ const API_URL = (process.env.API_URL ?? "http://localhost:4100").replace(/\/+$/,
 const nextConfig = {
   transpilePackages: ["@missionpilot/shared"],
   poweredByHeader: false,
+  // Le relais coupe à 30 s par défaut ; un rapport PDF peut approcher ce délai côté API.
+  experimental: { proxyTimeout: 90_000 },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_URL}/api/:path*` }];
   },

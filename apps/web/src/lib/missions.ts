@@ -16,6 +16,7 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { DEVISES, type Devise } from "./format";
+import type { PageCurseur } from "./pagination";
 import { lireMontant, lireNombre, texteOuNull, type Resultat } from "./saisie";
 
 export interface Mission {
@@ -98,6 +99,9 @@ export const estSignee = (statut: StatutMission) => STATUTS_SIGNES.includes(stat
 
 // --- Filtres de la liste --------------------------------------------------------------
 
+/** Réponse de `GET /api/missions` : page et curseur de la suivante (null à la fin). */
+export type PageMissions = PageCurseur<Mission>;
+
 export interface FiltresMissions {
   statut: StatutMission | "";
   client_id: string;
@@ -121,7 +125,11 @@ export function lireFiltresMissions(
   };
 }
 
-/** Requête `GET /api/missions?…` (le directeur est filtré dans la page : l'API ne le propose pas). */
+/**
+ * Requête `GET /api/missions?…` (le directeur est filtré dans la page : l'API ne le propose pas).
+ * La réponse est paginée par curseur (`PageMissions`, 100 par défaut, 500 au plus) : les
+ * pages chargent toute la liste par `chargerToutesLesPages` (`lib/pagination.ts`).
+ */
 export function requeteMissions(f: FiltresMissions): string {
   const r = new URLSearchParams();
   if (f.statut) r.set("statut", f.statut);

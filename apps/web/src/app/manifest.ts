@@ -1,6 +1,10 @@
 import type { MetadataRoute } from "next";
 
-/** Servi à /manifest.webmanifest. Pas de service worker pour l'instant (installation seule). */
+/**
+ * Servi à /manifest.webmanifest. Le service worker (`public/sw.js`, enregistré par
+ * `components/hors-ligne/HorsLigne.tsx`) ne garde que les ressources statiques et sert une page
+ * « hors ligne » ; aucune page ni réponse d'API n'est mise en cache.
+ */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MissionPilot",

@@ -7,6 +7,7 @@ import { Bouton } from "../../components/ui/Bouton";
 import { Champ } from "../../components/ui/Champ";
 import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
 import { validerConnexion, type ErreursConnexion } from "../../lib/connexion";
+import { destinationApresConnexion } from "../../lib/portail-routes";
 import {
   chargeConnexion2fa,
   ETAT_INITIAL,
@@ -34,10 +35,22 @@ export function FormulaireConnexion({ suite }: { suite: string }) {
   const avancer = (ev: EvenementConnexion) => setEtat((e) => transitionConnexion(e, ev));
 
   useEffect(() => {
-    if (etat.etape === "connecte") {
-      router.replace(suite);
-      router.refresh();
-    }
+    if (etat.etape !== "connecte") return;
+    let actif = true;
+    // L'espace dépend du compte : portail client ou application du cabinet. En cas d'échec,
+    // le chemin demandé est ouvert tel quel : la garde serveur oriente ensuite l'utilisateur.
+    api
+      .get<{ portail?: unknown }>("/api/auth/moi", { redirigerSi401: false })
+      .then((moi) => destinationApresConnexion(suite, moi.portail === true))
+      .catch(() => suite)
+      .then((destination) => {
+        if (!actif) return;
+        router.replace(destination);
+        router.refresh();
+      });
+    return () => {
+      actif = false;
+    };
   }, [etat.etape, router, suite]);
 
   if (etat.etape === "code") {

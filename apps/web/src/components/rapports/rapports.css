@@ -1,0 +1,186 @@
+/*
+ * Rapports de mission (SOC-07) : génération (contenu annoncé, choix du format, attente) et
+ * liste des rapports générés. Mobile d'abord ; couleurs des jetons (contrastes vérifiés dans
+ * tokens.css) ; jamais la couleur seule : chaque niveau a son libellé et son icône.
+ */
+
+/* ---------- Génération ---------- */
+.mp-rapport-generation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-rapport-generation .mp-groupe:disabled .mp-case__controle,
+.mp-rapport-generation .mp-groupe:disabled .mp-case__libelle {
+  cursor: not-allowed;
+}
+
+.mp-rapport-generation .mp-groupe:disabled .mp-case__libelle {
+  color: var(--mp-texte-doux);
+}
+
+/* ---------- Contenu annoncé ---------- */
+.mp-rapport-contenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-rapport-contenu p {
+  margin: 0;
+}
+
+.mp-rapport-contenu__niveau {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  font-weight: 600;
+}
+
+.mp-rapport-contenu__colonnes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-3);
+}
+
+.mp-rapport-contenu__titre {
+  margin: 0 0 var(--mp-esp-1);
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-rapport-contenu__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-rapport-contenu__liste li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+  overflow-wrap: anywhere;
+}
+
+.mp-rapport-contenu__liste .mp-icone {
+  margin-top: 3px;
+  color: var(--mp-succes);
+}
+
+.mp-rapport-contenu__liste--exclus li {
+  color: var(--mp-texte-doux);
+}
+
+.mp-rapport-contenu__liste--exclus .mp-icone {
+  color: var(--mp-neutre);
+}
+
+/* ---------- Attente ---------- */
+.mp-rapport-attente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-info-fond);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-rapport-attente p {
+  margin: 0;
+}
+
+.mp-rapport-attente__message {
+  font-weight: 600;
+}
+
+.mp-rapport-attente__barre {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--mp-primaire);
+}
+
+/* ---------- Liste ---------- */
+.mp-rapport__texte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.mp-rapport__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-rapport__meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-rapport__meta > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-rapport__meta dt {
+  color: var(--mp-texte-doux);
+}
+
+.mp-rapport__meta dt::after {
+  content: "\00a0:";
+}
+
+.mp-rapport__meta dd {
+  margin: 0;
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .mp-rapport-generation__formats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: var(--mp-esp-5);
+  }
+
+  .mp-rapport-generation__formats > .mp-case {
+    flex: 1 1 12rem;
+  }
+
+  .mp-rapport__meta {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--mp-esp-5);
+  }
+}
+
+@media (min-width: 900px) {
+  .mp-rapport-contenu__colonnes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-rapport-attente__barre {
+    animation: none;
+  }
+}

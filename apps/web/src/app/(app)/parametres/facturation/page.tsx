@@ -126,7 +126,7 @@ function IdentiteLecture({ p, annee }: { p: ParametresFacturation; annee: number
     ["Régime fiscal", p.regime_fiscal],
     ["Adresse", p.adresse],
     ["Banque", p.banque],
-    ["IBAN", p.iban],
+    [p.iban_masque ? "IBAN (masqué)" : "IBAN", p.iban],
     ["Numérotation", `Format : ${apercuNumero(p.prefixe_facture, p.chiffres_numero, annee)}`],
   ];
   return (

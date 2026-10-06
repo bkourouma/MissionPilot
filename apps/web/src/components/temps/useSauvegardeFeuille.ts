@@ -1,18 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, messageErreur } from "../../lib/api";
+import type { Instantane, Stockage } from "../../lib/file-sauvegarde";
+import { rejouer, envoyerSaisie, type ReponseLignes } from "../../lib/hors-ligne/envoi";
+import type { EtatSaisie } from "../../lib/hors-ligne/etats";
 import {
-  confirmerEnvoi,
+  abandonner,
   delaiReprise,
-  estReessayable,
+  libelleMotif,
+  lister,
   mettreEnFile,
-  type EtatSynchro,
-  type Instantane,
-  type Stockage,
-} from "../../lib/file-sauvegarde";
+  nouvelleCle,
+  renvoyer,
+  type SaisieEnAttente,
+} from "../../lib/hors-ligne/file-temps";
+import { abonner, obtenirMagasin } from "../../lib/hors-ligne/magasins";
 import type { Resultat } from "../../lib/saisie";
-import type { Avertissement, LigneCharge } from "../../lib/temps";
+import type { Avertissement, LigneCharge, UniteSaisie } from "../../lib/temps";
 
 /** `localStorage` s'il est utilisable (navigation privée, quota, refus : `null`). */
 export function stockageLocal(): Stockage | null {
@@ -32,36 +36,59 @@ const DELAI_SAISIE_MS = 1200;
 
 export interface OptionsSauvegarde {
   feuilleId: string;
+  utilisateurId: string;
+  /** Lundi de la semaine (AAAA-MM-JJ). */
+  semaine: string;
+  unite: UniteSaisie;
   construire: (i: Instantane) => Resultat<{ lignes: LigneCharge[] }, string>;
 }
 
+const versInstantane = (e: SaisieEnAttente): Instantane => ({
+  feuilleId: e.feuilleId,
+  rangees: e.rangees,
+  valeurs: e.valeurs,
+  modifieLe: e.creeLe,
+});
+
 /**
- * Sauvegarde automatique du brouillon : chaque modification est d'abord gardée sur l'appareil
- * (file locale), puis envoyée 1,2 s après la dernière frappe. Une coupure réseau ne perd rien :
- * l'envoi est retenté (2 s, 4 s… 30 s) et au retour du réseau. Un refus de l'API (valeur
- * invalide, capacité dépassée en mode « refuser ») n'est pas retenté : il est affiché.
+ * Sauvegarde automatique du brouillon : chaque modification est d'abord mise en file sur
+ * l'appareil (IndexedDB, voir `lib/hors-ligne`), puis la file est rejouée 1,2 s après la
+ * dernière frappe. Une coupure ne perd rien : « en attente d'envoi », nouvelle tentative (2 s,
+ * 4 s… 30 s) et au retour du réseau. Un conflit (feuille soumise ou validée, période clôturée)
+ * ou un refus de l'API n'est pas retenté : la saisie est gardée et présentée pour décision.
  */
-export function useSauvegardeFeuille({ feuilleId, construire }: OptionsSauvegarde) {
-  const [etat, setEtat] = useState<EtatSynchro>("a_jour");
+export function useSauvegardeFeuille(options: OptionsSauvegarde) {
+  const { feuilleId, utilisateurId } = options;
+  const [etat, setEtat] = useState<EtatSaisie>("a_jour");
   const [erreur, setErreur] = useState<string | null>(null);
   const [erreursCases, setErreursCases] = useState<Record<string, string>>({});
   const [avertissements, setAvertissements] = useState<Avertissement[]>([]);
+  const [memoireSeule, setMemoireSeule] = useState(false);
+  /** Saisie de cette feuille mise de côté (conflit, refus), en attente de décision. */
+  const [deCote, setDeCote] = useState<SaisieEnAttente | null>(null);
   const attente = useRef<Instantane | null>(null);
+  const ecriture = useRef<Promise<void>>(Promise.resolve());
   const minuterie = useRef<ReturnType<typeof setTimeout> | null>(null);
   const envoiEnCours = useRef<Promise<boolean> | null>(null);
   const tentatives = useRef(0);
-  const construireRef = useRef(construire);
-  construireRef.current = construire;
+  const opts = useRef(options);
+  opts.current = options;
 
   const arreterMinuterie = () => {
     if (minuterie.current) clearTimeout(minuterie.current);
     minuterie.current = null;
   };
 
+  const entreeDeLaFeuille = useCallback(async () => {
+    const m = await obtenirMagasin();
+    return (await lister(m, utilisateurId)).find((e) => e.feuilleId === feuilleId);
+  }, [feuilleId, utilisateurId]);
+
   const envoyerUneFois = useCallback(async (): Promise<boolean> => {
+    await ecriture.current;
     const i = attente.current;
     if (!i) return true;
-    const c = construireRef.current(i);
+    const c = opts.current.construire(i);
     if (!c.ok) {
       setErreursCases(c.erreurs as Record<string, string>);
       setErreur("Certaines cases sont invalides : corrigez-les pour enregistrer.");
@@ -71,36 +98,49 @@ export function useSauvegardeFeuille({ feuilleId, construire }: OptionsSauvegard
     setErreursCases({});
     setErreur(null);
     setEtat("enregistrement");
-    try {
-      const r = await api.put<{ avertissements?: Avertissement[] }>(
-        `/api/feuilles-temps/${encodeURIComponent(feuilleId)}/lignes`,
-        c.charge,
-        { delaiMs: 20_000 },
-      );
-      confirmerEnvoi(stockageLocal(), feuilleId, i.modifieLe);
+    const m = await obtenirMagasin();
+    const bilan = await rejouer({ magasin: m, utilisateurId, envoyer: envoyerSaisie }).catch(
+      () => null,
+    );
+    const envoye = bilan?.envoyes.filter((x) => x.feuilleId === feuilleId).at(-1);
+    if (envoye)
+      setAvertissements((envoye.reponse as ReponseLignes | undefined)?.avertissements ?? []);
+    const reste = await entreeDeLaFeuille();
+    if (!reste) {
       tentatives.current = 0;
-      setErreur(null);
-      setAvertissements(r.avertissements ?? []);
       if (attente.current === i) {
         attente.current = null;
         setEtat("a_jour");
       }
       return true;
-    } catch (e) {
-      if (estReessayable(e)) {
-        setEtat("hors_ligne");
-        arreterMinuterie();
-        minuterie.current = setTimeout(() => void envoyer(), delaiReprise(tentatives.current++));
-      } else {
-        setErreur(messageErreur(e));
-        setEtat("refuse");
-      }
+    }
+    if (reste.etat === "conflit" || reste.etat === "refuse") {
+      setDeCote(reste);
+      setErreur(libelleMotif(reste.motif));
+      setEtat(reste.etat);
       return false;
     }
+    if (reste.etat === "a_corriger") {
+      setErreur("Certaines cases sont invalides : corrigez-les pour enregistrer.");
+      setEtat("refuse");
+      return false;
+    }
+    if (bilan?.arret === "session") {
+      setEtat("session");
+      return false;
+    }
+    if (!bilan || bilan.arret === "reseau" || attente.current === i) {
+      setEtat("en_attente");
+      arreterMinuterie();
+      minuterie.current = setTimeout(() => void envoyer(), delaiReprise(tentatives.current++));
+      return false;
+    }
+    // Une saisie plus récente est arrivée pendant le rejeu : `envoyer` relance.
+    return true;
     // `envoyer` (relance différée) est stable : il ne dépend que de cette fonction.
-  }, [feuilleId]);
+  }, [feuilleId, utilisateurId, entreeDeLaFeuille]);
 
-  /** Envoie l'instantané en attente ; un envoi déjà en cours est attendu, puis relancé. */
+  /** Envoie la file ; un envoi déjà en cours est attendu, puis relancé. */
   const envoyer = useCallback(async (): Promise<boolean> => {
     arreterMinuterie();
     if (envoiEnCours.current) await envoiEnCours.current;
@@ -109,7 +149,6 @@ export function useSauvegardeFeuille({ feuilleId, construire }: OptionsSauvegard
     envoiEnCours.current = p;
     try {
       const ok = await p;
-      // Modification arrivée pendant l'envoi : elle part à son tour.
       if (ok && attente.current) return envoyer();
       return ok;
     } finally {
@@ -120,31 +159,95 @@ export function useSauvegardeFeuille({ feuilleId, construire }: OptionsSauvegard
   const modifier = useCallback(
     (i: Instantane) => {
       attente.current = i;
-      mettreEnFile(stockageLocal(), i);
+      setDeCote(null);
+      const { construire, semaine, unite } = opts.current;
+      const c = construire(i);
+      ecriture.current = ecriture.current
+        .then(async () => {
+          const m = await obtenirMagasin();
+          await mettreEnFile(m, {
+            cle: nouvelleCle(),
+            utilisateurId,
+            feuilleId,
+            semaine,
+            unite,
+            creeLe: i.modifieLe,
+            rangees: i.rangees,
+            valeurs: i.valeurs,
+            charge: c.ok ? c.charge : null,
+          });
+          setMemoireSeule(!m.persistant);
+        })
+        .catch(() => setMemoireSeule(true));
       setEtat("modifie");
       arreterMinuterie();
       minuterie.current = setTimeout(() => void envoyer(), DELAI_SAISIE_MS);
+    },
+    [envoyer, feuilleId, utilisateurId],
+  );
+
+  /** Reprend une saisie restée en file (sans en créer une nouvelle). */
+  const reprendre = useCallback(
+    (e: SaisieEnAttente) => {
+      attente.current = versInstantane(e);
+      if (e.etat === "conflit" || e.etat === "refuse") {
+        setDeCote(e);
+        setErreur(libelleMotif(e.motif));
+        setEtat(e.etat);
+        return;
+      }
+      void envoyer();
+    },
+    [envoyer],
+  );
+
+  /** Décision sur une saisie mise de côté. */
+  const decider = useCallback(
+    async (choix: "renvoyer" | "abandonner", e: SaisieEnAttente) => {
+      const m = await obtenirMagasin();
+      setDeCote(null);
+      setErreur(null);
+      if (choix === "abandonner") {
+        await abandonner(m, e.cle);
+        attente.current = null;
+        setEtat("a_jour");
+        return true;
+      }
+      await renvoyer(m, e.cle);
+      attente.current = versInstantane(e);
+      return envoyer();
     },
     [envoyer],
   );
 
   useEffect(() => {
-    const reprendre = () => {
+    const reprise = () => {
       if (attente.current) void envoyer();
     };
-    window.addEventListener("online", reprendre);
+    window.addEventListener("online", reprise);
+    // Décision prise dans un autre onglet ou dans le panneau : l'état affiché suit.
+    const desabonner = abonner(() => {
+      void entreeDeLaFeuille().then((e) => {
+        if (!e && attente.current === null) setDeCote(null);
+      });
+    });
     return () => {
-      window.removeEventListener("online", reprendre);
+      window.removeEventListener("online", reprise);
+      desabonner();
       arreterMinuterie();
     };
-  }, [envoyer]);
+  }, [envoyer, entreeDeLaFeuille]);
 
   return {
     etat,
     erreur,
     erreursCases,
     avertissements,
+    memoireSeule,
+    deCote,
     modifier,
+    reprendre,
+    decider,
     /** Envoie tout de suite ce qui attend (avant la soumission). */
     enregistrerMaintenant: envoyer,
     enAttente: () => attente.current !== null,

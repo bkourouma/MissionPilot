@@ -9,6 +9,7 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/
 import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { chargerServeur } from "../../../lib/api-serveur";
+import { chargerToutesLesPages } from "../../../lib/pagination";
 import { OPTIONS_TYPES, TYPE_LIBELLES } from "../../../lib/collaborateurs";
 import { formaterJours, formaterNombre, formaterPourcentage } from "../../../lib/format";
 import type { Mission } from "../../../lib/missions";
@@ -61,7 +62,7 @@ export default async function PagePlanDeCharge({
     chargerServeur<PlanDeCharge>(`/api/plan-de-charge?${requete}`),
     chargerServeur<Surcharges>(`/api/plan-de-charge/surcharges?${requete}`),
     chargerGradesActifs(utilisateur.roles),
-    chargerServeur<{ elements: Mission[] }>("/api/missions?statut=en_cours"),
+    chargerToutesLesPages<Mission>(chargerServeur, "/api/missions?statut=en_cours"),
   ]);
   const debut = f.debut || lundi;
   const filtre = Boolean(f.equipe || f.grade_id || f.type);

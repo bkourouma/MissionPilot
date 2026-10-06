@@ -5,6 +5,7 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import type { MissionDebours } from "../../../../components/facturation/FormulaireDebours";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { chargerToutesLesPages } from "../../../../lib/pagination";
 import {
   lireStatutDebours,
   OPTIONS_STATUTS_DEBOURS,
@@ -24,7 +25,7 @@ export const metadata: Metadata = { title: "Mes débours" };
  */
 async function missionsDebours(roles: readonly Role[]): Promise<MissionDebours[]> {
   if (aPermission(roles, "mission.lire")) {
-    const r = await chargerServeur<{ elements: Mission[] }>("/api/missions");
+    const r = await chargerToutesLesPages<Mission>(chargerServeur, "/api/missions");
     if (!r.ok) return [];
     return r.donnees.elements
       .filter((m) => m.statut !== "cloturee")

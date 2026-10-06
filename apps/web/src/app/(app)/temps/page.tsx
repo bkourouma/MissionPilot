@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { aPermission } from "@missionpilot/shared";
+import { SaisiesEnAttente } from "../../../components/hors-ligne/SaisiesEnAttente";
 import { NavigationSemaine } from "../../../components/temps/NavigationSemaine";
 import { Alerte } from "../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
@@ -133,6 +134,10 @@ export default async function PageFeuilleDeTemps({
         libelle="Changer de semaine de la feuille"
       />
 
+      {s.collaborateur ? (
+        <SaisiesEnAttente utilisateurId={utilisateur.id} feuilleCouranteId={f?.id ?? null} />
+      ) : null}
+
       {!s.collaborateur ? (
         <EtatVide
           titre="Aucune fiche collaborateur n'est rattachée à votre compte."
@@ -225,6 +230,7 @@ export default async function PageFeuilleDeTemps({
               taches={actions.modifier ? taches : []}
               modifiable={actions.modifier}
               libelleSoumettre={actions.libelleSoumettre}
+              utilisateurId={utilisateur.id}
             />
           </Carte>
 

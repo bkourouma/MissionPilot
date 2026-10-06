@@ -8,6 +8,10 @@ import {
   type OptionsAppel,
 } from "./api";
 import { cheminDeRetour, COOKIE_SESSION, ENTETE_CHEMIN } from "./connexion";
+import { CHEMIN_PORTAIL } from "./portail-routes";
+
+/** Code de l'API : route hors de la liste blanche du portail client (SOC-09). */
+export const CODE_PORTAIL_ROUTE_INTERDITE = "PORTAIL_ROUTE_INTERDITE";
 
 /**
  * Appels d'API depuis le serveur (Server Components, actions) : appel direct à l'API, en ne
@@ -35,7 +39,8 @@ const CHEMIN_SECURITE = "/compte/securite";
 
 /**
  * Comme `appelerApi`, mais : 401 → redirection vers /connexion, 403 → /acces-refuse
- * (403 TFA_A_CONFIGURER → page de sécurité du compte : la politique du cabinet l'exige).
+ * (403 TFA_A_CONFIGURER → page de sécurité du compte : la politique du cabinet l'exige ;
+ * 403 PORTAIL_ROUTE_INTERDITE → espace client).
  * Les autres erreurs remontent (error boundary).
  */
 export async function appelerApiServeur<T>(
@@ -57,6 +62,10 @@ export async function appelerApiServeur<T>(
   // `redirect` lève une exception propre à Next : l'appeler hors du try.
   if (erreur.statut === 401) redirect(await urlConnexion());
   if (erreur.statut === 403 && erreur.code === CODE_TFA_A_CONFIGURER) redirect(CHEMIN_SECURITE);
+  // Utilisateur du portail client sur une page du cabinet : l'API le cantonne au portail.
+  if (erreur.statut === 403 && erreur.code === CODE_PORTAIL_ROUTE_INTERDITE) {
+    redirect(CHEMIN_PORTAIL);
+  }
   if (erreur.statut === 403) redirect("/acces-refuse");
   throw erreur;
 }
