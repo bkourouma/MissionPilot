@@ -18,12 +18,13 @@ describe("table de navigation", () => {
     expect(new Set(NAVIGATION.map((e) => e.href)).size).toBe(NAVIGATION.length);
   });
 
-  it("contient les treize rubriques prévues, dans l'ordre", () => {
+  it("contient les quatorze rubriques prévues, dans l'ordre", () => {
     expect(NAVIGATION.map((e) => e.libelle)).toEqual([
       "Tableau de bord",
       "Mon planning",
       "Feuille de temps",
       "Missions",
+      "Mes tâches",
       "Pipeline",
       "Clients",
       "Collaborateurs",
@@ -61,6 +62,7 @@ describe("entreesAutorisees", () => {
       "mon-planning",
       "feuille-de-temps",
       "missions",
+      "mes-taches",
       "clients",
       "catalogue",
     ]);
@@ -73,11 +75,12 @@ describe("entreesAutorisees", () => {
     expect(ids(["expert_metier"])).not.toContain("collaborateurs");
   });
 
-  it("limite l'expert externe au tableau de bord et à ses temps", () => {
+  it("limite l'expert externe au tableau de bord, à ses temps et à ses tâches", () => {
     expect(ids(["expert_externe"])).toEqual([
       "tableau-de-bord",
       "mon-planning",
       "feuille-de-temps",
+      "mes-taches",
     ]);
   });
 
@@ -111,8 +114,15 @@ describe("entreesAutorisees", () => {
     expect(cumul).toEqual(ordre);
   });
 
-  it("garde le tableau de bord même sans rôle", () => {
-    expect(ids([])).toEqual(["tableau-de-bord"]);
+  it("garde le tableau de bord et « Mes tâches » même sans rôle", () => {
+    expect(ids([])).toEqual(["tableau-de-bord", "mes-taches"]);
+  });
+
+  it("ouvre « Mes tâches » à tous les rôles (on peut se voir assigner une tâche)", () => {
+    for (const role of ROLES) expect(ids([role])).toContain("mes-taches");
+    const e = NAVIGATION.find((x) => x.id === "mes-taches");
+    expect(e).toMatchObject({ href: "/mes-taches", disponible: true, permission: null });
+    expect(estActive(e!, "/mes-taches/nouvelle")).toBe(true);
   });
 });
 
@@ -137,6 +147,7 @@ describe("pipeline et barre basse", () => {
       "tableau-de-bord",
       "mon-planning",
       "feuille-de-temps",
+      "mes-taches",
     ]);
   });
 });

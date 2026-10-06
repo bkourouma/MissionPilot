@@ -12,6 +12,8 @@ import {
 } from "../../lib/debours";
 import { validerMotif } from "../../lib/factures";
 import { formaterDate, formaterMontantMineur } from "../../lib/format";
+import { CommentairesRepliables } from "../collaboration/Commentaires";
+import { FichierJoint } from "../fichiers/FichierJoint";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
@@ -19,6 +21,7 @@ import { useFermetureDifferee } from "../formulaires/useFermetureDifferee";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
+import { Icone } from "../ui/Icone";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { FormulaireDebours } from "./FormulaireDebours";
 
@@ -67,10 +70,19 @@ export function LigneDebours({
             .filter(Boolean)
             .join(" · ")}
         </span>
-        {d.justificatif ? (
-          <span className="mp-texte-petit mp-coupure">{`Justificatif : ${d.justificatif}`}</span>
+        {d.justificatif_fichier ? (
+          <FichierJoint
+            fichier={d.justificatif_fichier}
+            prefixe="Justificatif"
+            contexte={`du débours ${d.libelle}`}
+          />
+        ) : d.justificatif ? (
+          <span className="mp-texte-petit mp-coupure">{`Ancienne référence de justificatif : ${d.justificatif}`}</span>
         ) : (
-          <span className="mp-texte-petit mp-texte-doux">Sans référence de justificatif</span>
+          <span className="mp-indice mp-texte-petit mp-texte-doux">
+            <Icone nom="attention" taille={14} />
+            <span>Sans justificatif joint</span>
+          </span>
         )}
         {d.statut === "rejete" && d.motif_rejet ? (
           <span className="mp-texte-petit">{`Motif du rejet : ${d.motif_rejet}`}</span>
@@ -151,10 +163,21 @@ export function LigneDebours({
           initial={saisieDepuisDebours(d)}
           missions={[{ id: d.mission_id, intitule: missionIntitule ?? "", devise: d.devise }]}
           deboursId={d.id}
+          justificatif={d.justificatif_fichier}
+          ancienneReference={d.justificatif}
           onFin={() => setEdition(null)}
           onEnregistre={fermerApresRafraichissement}
         />
       ) : null}
+      <div className="mp-pleine-largeur">
+        <CommentairesRepliables
+          entiteType="debours"
+          entiteId={d.id}
+          utilisateurId={contexte.utilisateurId}
+          associe={contexte.roles.includes("associe")}
+          nomElement={`le débours ${d.libelle}`}
+        />
+      </div>
     </li>
   );
 }

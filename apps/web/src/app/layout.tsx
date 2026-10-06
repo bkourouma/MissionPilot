@@ -9,6 +9,7 @@ import "../styles/missions.css";
 import "../styles/temps.css";
 import "../styles/facturation.css";
 import "../styles/finance.css";
+import "../styles/collaboration.css";
 
 export const metadata: Metadata = {
   title: { default: "MissionPilot", template: "%s — MissionPilot" },

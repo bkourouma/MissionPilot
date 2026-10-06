@@ -1,0 +1,390 @@
+/*
+ * Fichiers (justificatifs, documents), commentaires, mentions et tâches assignées.
+ * Mobile d'abord (375 px sans débordement) ; jetons de tokens.css (clair et sombre).
+ */
+
+/* ---------- Choix d'un fichier ---------- */
+.mp-fichier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.mp-fichier > legend {
+  padding: 0;
+  margin-bottom: var(--mp-esp-1);
+}
+.mp-fichier__declencheurs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+.mp-fichier__declencheur {
+  position: relative;
+  cursor: pointer;
+}
+/* Le champ natif reste focalisable et annoncé ; le libellé porte l'apparence du bouton. */
+.mp-fichier__entree {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.mp-fichier__declencheur:focus-within {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+.mp-fichier:disabled .mp-fichier__declencheur {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* « Prendre une photo » n'a de sens que sur un appareil tactile (téléphone, tablette). */
+.mp-fichier__declencheur--photo {
+  display: none;
+}
+@media (pointer: coarse) {
+  .mp-fichier__declencheur--photo {
+    display: inline-flex;
+  }
+}
+.mp-fichier__apercu {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+.mp-fichier__vignette {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: var(--mp-rayon);
+  border: 1px solid var(--mp-bordure);
+  background: var(--mp-surface);
+}
+.mp-fichier__icone {
+  flex-shrink: 0;
+  color: var(--mp-texte-doux);
+}
+.mp-fichier__meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mp-fichier__progression {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+.mp-fichier__progression progress {
+  flex: 1 1 auto;
+  height: 0.75rem;
+  accent-color: var(--mp-primaire);
+}
+.mp-fichier--erreur .mp-fichier__apercu {
+  border-color: var(--mp-danger);
+}
+
+/* ---------- Fichier rattaché ---------- */
+.mp-fichier-joint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  min-width: 0;
+}
+.mp-fichier-joint > .mp-icone {
+  flex-shrink: 0;
+  color: var(--mp-texte-doux);
+}
+.mp-fichier-joint__texte {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.mp-fichier-joint__liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+.mp-lien-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  min-height: var(--mp-cible);
+  color: var(--mp-primaire);
+  font-weight: 600;
+}
+.mp-justificatif-actuel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Commentaires ---------- */
+.mp-commentaires {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+.mp-commentaires__titre {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  font-size: var(--mp-taille-l);
+}
+.mp-commentaires__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mp-commentaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-left: 3px solid var(--mp-primaire);
+  border-radius: var(--mp-rayon);
+}
+.mp-commentaire--supprime {
+  border-left-color: var(--mp-bordure);
+  background: var(--mp-surface-2);
+}
+.mp-commentaire__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+/* Texte brut : retours à la ligne conservés, longs mots coupés, jamais de HTML interprété. */
+.mp-commentaire__texte {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mp-commentaire--supprime .mp-commentaire__texte {
+  font-style: italic;
+}
+.mp-mention {
+  color: var(--mp-primaire);
+  font-weight: 650;
+}
+.mp-commentaire__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+}
+.mp-commentaire__versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}
+.mp-commentaires__saisie {
+  padding-top: var(--mp-esp-3);
+  border-top: 1px solid var(--mp-bordure);
+}
+.mp-commentaires-repliables > summary {
+  gap: var(--mp-esp-2);
+}
+.mp-commentaires-repliables[open] {
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Suggestions de mentions ---------- */
+.mp-mentions {
+  position: relative;
+}
+.mp-mentions__liste {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin: var(--mp-esp-1) 0 0;
+  padding: var(--mp-esp-1);
+  max-height: 16rem;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  box-shadow: var(--mp-ombre-l);
+}
+.mp-mentions__option {
+  display: flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  padding: 0 var(--mp-esp-3);
+  border-radius: var(--mp-rayon);
+  cursor: pointer;
+}
+.mp-mentions__option:hover,
+.mp-mentions__option--active {
+  background: var(--mp-primaire-pale);
+  color: var(--mp-primaire);
+  font-weight: 600;
+}
+.mp-mentions__option--active {
+  outline: 2px solid var(--mp-primaire);
+  outline-offset: -2px;
+}
+
+/* ---------- Pastille de navigation ---------- */
+.mp-nav__pastille {
+  margin-left: auto;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 5px;
+  color: var(--mp-sur-primaire);
+  background: var(--mp-primaire);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+}
+.mp-nav__lien--barre .mp-nav__pastille {
+  position: absolute;
+  top: 6px;
+  margin-left: 22px;
+}
+.mp-nav__lien--barre {
+  position: relative;
+}
+
+/* ---------- Tâches assignées ---------- */
+.mp-taches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mp-tache {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+.mp-tache--faite {
+  background: var(--mp-surface-2);
+}
+.mp-tache__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+.mp-tache__titre {
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+a.mp-tache__titre {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  color: var(--mp-primaire);
+}
+.mp-tache--faite .mp-tache__titre {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.mp-tache__infos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+}
+.mp-tache__infos dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+}
+.mp-tache__infos dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.mp-tache__retard {
+  color: var(--mp-danger);
+  font-weight: 600;
+}
+
+/* ---------- Documents de mission ---------- */
+.mp-document .mp-liste-lignes__texte {
+  gap: var(--mp-esp-1);
+}
+.mp-document__titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+.mp-document__sous-titre {
+  margin: 0;
+  font-weight: 650;
+}
+.mp-document__versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}
+.mp-document__versions > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+/* Indication courte précédée d'une icône (raison d'une action indisponible). */
+.mp-indice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-1);
+  margin: 0;
+}
+.mp-indice > .mp-icone {
+  margin-top: 2px;
+}
+.mp-tache__retard-libelle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   actionsDebours,
   deboursRefacturables,
+  justificatifModifiable,
   lireStatutDebours,
   saisieDeboursVide,
   saisieDepuisDebours,
@@ -25,6 +26,8 @@ const debours: Debours = {
   devise: "XOF",
   refacturable: true,
   justificatif: null,
+  justificatif_fichier_id: null,
+  justificatif_fichier: null,
   statut: "brouillon",
   motif_rejet: null,
   soumis_le: null,
@@ -61,7 +64,6 @@ describe("validerDebours", () => {
         montant: 15000,
         devise: "XOF",
         refacturable: true,
-        justificatif: null,
       },
     });
     const eur = validerDebours({ ...ok, montant: "45,50" }, "EUR");
@@ -76,7 +78,6 @@ describe("validerDebours", () => {
         libelle: "",
         montant: "0",
         refacturable: false,
-        justificatif: "",
       },
       "XOF",
     );
@@ -90,15 +91,15 @@ describe("validerDebours", () => {
     expect(validerDebours({ ...ok, montant: "" }, "XOF").ok).toBe(false);
   });
 
-  it("n'accepte qu'une référence relative de justificatif", () => {
-    expect(validerDebours({ ...ok, justificatif: "frais/2026-10/taxi.jpg" }, "XOF").ok).toBe(true);
-    for (const j of ["../secret", "https://exemple.com/x.jpg", "/abs/x", "a\\b"]) {
-      expect(validerDebours({ ...ok, justificatif: j }, "XOF").ok).toBe(false);
-    }
+  it("n'envoie jamais de justificatif dans le corps JSON (il se téléverse à part)", () => {
+    const r = validerDebours(ok, "XOF");
+    expect(r.ok && "justificatif" in r.charge).toBe(false);
   });
 
-  it("reprend un débours pour modification", () => {
-    expect(saisieDepuisDebours(debours)).toMatchObject({ montant: "15000", justificatif: "" });
+  it("reprend un débours pour modification, sans l'ancienne référence", () => {
+    const s = saisieDepuisDebours({ ...debours, justificatif: "ancien/taxi.jpg" });
+    expect(s).toMatchObject({ montant: "15000" });
+    expect("justificatif" in s).toBe(false);
   });
 });
 
@@ -152,6 +153,18 @@ describe("actionsDebours", () => {
         directeurId: null,
       }),
     ).toBe(false);
+  });
+});
+
+describe("justificatifModifiable", () => {
+  it("laisse l'auteur changer le justificatif d'un brouillon ou d'un rejet", () => {
+    expect(justificatifModifiable(debours, MOI)).toBe(true);
+    expect(justificatifModifiable({ ...debours, statut: "rejete" }, MOI)).toBe(true);
+  });
+  it("le fige une fois soumis ou validé, et pour tout autre utilisateur", () => {
+    expect(justificatifModifiable({ ...debours, statut: "soumis" }, MOI)).toBe(false);
+    expect(justificatifModifiable({ ...debours, statut: "valide" }, MOI)).toBe(false);
+    expect(justificatifModifiable(debours, "autre")).toBe(false);
   });
 });
 

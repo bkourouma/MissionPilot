@@ -45,6 +45,12 @@ const TRACES = {
   envoyer: "M4 12 20 4l-5 16-3-7zM12 13l8-9",
   monnaie: "M3 7h18v10H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 10v4M18 10v4",
   telechargement: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  taches: "M9 3.5h6v3H9zM7 5H5v16h14V5h-2M8.5 13.5l2.5 2.5 4.5-5",
+  trombone:
+    "M20 11.5 12.2 19.3a5 5 0 0 1-7.1-7.1l8.1-8.1a3.3 3.3 0 0 1 4.7 4.7l-8.1 8.1a1.7 1.7 0 0 1-2.4-2.4L15 7",
+  appareilPhoto: "M3 8h4l2-2.5h6L17 8h4v11H3zM12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z",
+  bulle: "M4 5h16v11H9l-5 4z",
+  historique: "M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4M12 8v4l3 2",
 } as const;
 
 export type NomIcone = keyof typeof TRACES;

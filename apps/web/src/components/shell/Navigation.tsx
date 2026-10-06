@@ -12,6 +12,10 @@ import {
 import { Icone } from "../ui/Icone";
 import { BoutonDeconnexion } from "./BoutonDeconnexion";
 import { LienNavigation } from "./LienNavigation";
+import { PastilleTaches } from "./PastilleTaches";
+
+/** Pastille propre à une entrée (tâches ouvertes de « Mes tâches »). */
+const pastilleDe = (e: EntreeNavigation) => (e.id === "mes-taches" ? <PastilleTaches /> : null);
 
 export interface NavigationProps {
   /** Entrées déjà filtrées par les permissions de l'utilisateur (côté serveur). */
@@ -28,7 +32,12 @@ export function NavigationLaterale({ entrees }: Pick<NavigationProps, "entrees">
       <ul className="mp-nav__liste">
         {entrees.map((e) => (
           <li key={e.id}>
-            <LienNavigation entree={e} active={estActive(e, chemin)} forme="liste" />
+            <LienNavigation
+              entree={e}
+              active={estActive(e, chemin)}
+              forme="liste"
+              pastille={pastilleDe(e)}
+            />
           </li>
         ))}
       </ul>
@@ -56,7 +65,12 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
         <ul className="mp-barre-basse__liste">
           {principales.map((e) => (
             <li key={e.id}>
-              <LienNavigation entree={e} active={estActive(e, chemin)} forme="barre" />
+              <LienNavigation
+                entree={e}
+                active={estActive(e, chemin)}
+                forme="barre"
+                pastille={pastilleDe(e)}
+              />
             </li>
           ))}
           <li>
@@ -108,6 +122,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
                     entree={e}
                     active={estActive(e, chemin)}
                     forme="liste"
+                    pastille={pastilleDe(e)}
                     onNaviguer={() => setOuvert(false)}
                   />
                 </li>

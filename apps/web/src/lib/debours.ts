@@ -1,23 +1,25 @@
 /**
  * Débours et notes de frais (FIN-05) : logique pure, testée dans `debours.test.ts`.
  *
- * L'API ne stocke aucun fichier : le justificatif est une RÉFÉRENCE (emplacement relatif du
- * scan ou de la photo dans le classement du cabinet), jamais le binaire. Les règles d'actions
- * reproduisent `routes/debours.ts` ; l'API reste seule juge.
+ * Le justificatif (photo ou scan) est un FICHIER téléversé à part, après l'enregistrement du
+ * débours (POST /api/debours/:id/justificatif) : le corps JSON d'un débours ne porte jamais de
+ * justificatif (l'API refuse toute valeur, 400 JUSTIFICATIF_PAR_TELEVERSEMENT). L'ancien champ
+ * texte `justificatif` reste affiché pour les débours saisis avant le téléversement. Les règles
+ * d'actions reproduisent `routes/debours.ts` ; l'API reste seule juge.
  */
 import {
   aPermission,
   CATEGORIES_DEBOURS,
-  cheminStockageSur,
   STATUTS_DEBOURS,
   type CategorieDebours,
   type Role,
   type StatutDebours,
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
+import type { FichierMeta } from "./fichiers";
 import type { Devise } from "./format";
 import { estDateIso } from "./semaine";
-import { lireMontant, montantVersSaisie, texteOuNull, type Resultat } from "./saisie";
+import { lireMontant, montantVersSaisie, type Resultat } from "./saisie";
 
 export interface Debours {
   id: string;
@@ -31,7 +33,10 @@ export interface Debours {
   montant: number;
   devise: Devise;
   refacturable: boolean;
+  /** Ancienne référence texte (débours antérieurs au téléversement), en lecture seule. */
   justificatif: string | null;
+  justificatif_fichier_id: string | null;
+  justificatif_fichier: FichierMeta | null;
   statut: StatutDebours;
   motif_rejet: string | null;
   soumis_le: string | null;
@@ -88,10 +93,10 @@ export interface SaisieDebours {
   libelle: string;
   montant: string;
   refacturable: boolean;
-  justificatif: string;
 }
 
-export type ChampDebours = keyof SaisieDebours;
+/** Champs du formulaire, plus le fichier du justificatif (contrôlé à part). */
+export type ChampDebours = keyof SaisieDebours | "justificatif";
 
 export const saisieDeboursVide = (date: string): SaisieDebours => ({
   date,
@@ -99,7 +104,6 @@ export const saisieDeboursVide = (date: string): SaisieDebours => ({
   libelle: "",
   montant: "",
   refacturable: true,
-  justificatif: "",
 });
 
 export function saisieDepuisDebours(d: Debours): SaisieDebours {
@@ -109,7 +113,6 @@ export function saisieDepuisDebours(d: Debours): SaisieDebours {
     libelle: d.libelle,
     montant: montantVersSaisie(d.montant, d.devise),
     refacturable: d.refacturable,
-    justificatif: d.justificatif ?? "",
   };
 }
 
@@ -120,11 +123,7 @@ export interface ChargeDebours {
   montant: number;
   devise: Devise;
   refacturable: boolean;
-  justificatif: string | null;
 }
-
-export const MESSAGE_JUSTIFICATIF =
-  "Référence refusée : un emplacement relatif (ex. notes-de-frais/2026-10/taxi-12.jpg), sans « .. », « \\ » ni adresse web.";
 
 /** Valide un débours saisi dans la devise de la mission (montant strictement positif). */
 export function validerDebours(
@@ -146,9 +145,6 @@ export function validerDebours(
       devise === "XOF" || devise === "XAF"
         ? "Montant positif, sans décimale (ex. 15 000)."
         : "Montant positif, deux décimales au plus (ex. 45,50).";
-  const justificatif = texteOuNull(s.justificatif);
-  if (justificatif && (justificatif.length > 500 || !cheminStockageSur(justificatif)))
-    erreurs.justificatif = MESSAGE_JUSTIFICATIF;
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -159,7 +155,6 @@ export function validerDebours(
       montant: montant as number,
       devise,
       refacturable: s.refacturable,
-      justificatif,
     },
   };
 }
@@ -211,3 +206,9 @@ export function actionsDebours(
 /** Débours refacturables validés : seuls candidats à une facture. */
 export const deboursRefacturables = (liste: readonly Debours[]) =>
   liste.filter((d) => d.statut === "valide" && d.refacturable);
+
+/** Le justificatif se change tant que le débours est en brouillon ou rejeté (son auteur). */
+export const justificatifModifiable = (
+  d: Pick<Debours, "auteur_id" | "statut">,
+  utilisateurId: string,
+) => d.auteur_id === utilisateurId && (d.statut === "brouillon" || d.statut === "rejete");

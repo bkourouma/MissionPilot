@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
+import { CarteCommentaires } from "../../../../components/collaboration/CarteCommentaires";
 import { BadgePaiement } from "../../../../components/finance/BadgePaiement";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
@@ -130,6 +131,12 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
         </div>
       </Carte>
       <ActionsFacture facture={f} actions={actions} />
+      <CarteCommentaires
+        entiteType="facture"
+        entiteId={f.id}
+        utilisateur={utilisateur}
+        nomElement={`la facture ${designationFacture(f)}`}
+      />
     </div>
   );
 }

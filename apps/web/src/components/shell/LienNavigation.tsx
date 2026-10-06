@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { EntreeNavigation } from "../../lib/navigation";
 import { Icone } from "../ui/Icone";
 
@@ -8,13 +9,21 @@ export interface LienNavigationProps {
   /** « liste » : navigation latérale et menu ; « barre » : barre basse du téléphone. */
   forme: "liste" | "barre";
   onNaviguer?: () => void;
+  /** Pastille de compteur (ex. tâches ouvertes), dont le texte accessible complète le libellé. */
+  pastille?: ReactNode;
 }
 
 /**
  * Entrée de menu. Un écran pas encore disponible est rendu désactivé (aria-disabled, hors de
  * l'ordre de tabulation) au lieu d'un lien vers une page absente.
  */
-export function LienNavigation({ entree, active, forme, onNaviguer }: LienNavigationProps) {
+export function LienNavigation({
+  entree,
+  active,
+  forme,
+  onNaviguer,
+  pastille,
+}: LienNavigationProps) {
   const classe = `mp-nav__lien mp-nav__lien--${forme}`;
   const libelle = forme === "barre" ? (entree.libelleCourt ?? entree.libelle) : entree.libelle;
   if (!entree.disponible) {
@@ -35,6 +44,7 @@ export function LienNavigation({ entree, active, forme, onNaviguer }: LienNaviga
     >
       <Icone nom={entree.icone} />
       <span className="mp-nav__libelle">{libelle}</span>
+      {pastille}
     </Link>
   );
 }

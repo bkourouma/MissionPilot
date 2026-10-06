@@ -31,6 +31,7 @@ import {
 } from "../../../../../lib/propositions";
 import { chargerGradesActifs, chargerPersonnes } from "../../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../../lib/session";
+import { CarteCommentaires } from "../../../../../components/collaboration/CarteCommentaires";
 import { ActionsProposition } from "./ActionsProposition";
 import { ArbreProposition } from "./ArbreProposition";
 import { CreationMission } from "./CreationMission";
@@ -259,6 +260,12 @@ export default async function PageProposition({ params }: { params: Promise<{ id
           </ul>
         </Carte>
       ) : null}
+      <CarteCommentaires
+        entiteType="proposition"
+        entiteId={p.id}
+        utilisateur={utilisateur}
+        nomElement={`la proposition ${p.intitule}, version ${p.numero}`}
+      />
     </div>
   );
 }

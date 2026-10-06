@@ -21,6 +21,7 @@ import {
 import { STATUT_PROPOSITION, type Proposition } from "../../../../lib/propositions";
 import { chargerPersonnes, chargerTypesActifs } from "../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../lib/session";
+import { CarteCommentaires } from "../../../../components/collaboration/CarteCommentaires";
 import { ActionsOpportunite } from "./ActionsOpportunite";
 import { GenerationProposition } from "./GenerationProposition";
 
@@ -191,6 +192,12 @@ export default async function PageOpportunite({ params }: { params: Promise<{ id
           />
         ) : null}
       </section>
+      <CarteCommentaires
+        entiteType="opportunite"
+        entiteId={o.id}
+        utilisateur={utilisateur}
+        nomElement={`l'opportunité ${o.intitule}`}
+      />
     </div>
   );
 }

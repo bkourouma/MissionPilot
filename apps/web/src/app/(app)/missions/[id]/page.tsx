@@ -3,17 +3,10 @@ import type { Metadata } from "next";
 import { aPermission } from "@missionpilot/shared";
 import { classesBouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
-import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Icone } from "../../../../components/ui/Icone";
-import { chargerServeur } from "../../../../lib/api-serveur";
 import { MODE_LIBELLES } from "../../../../lib/catalogue";
 import { formaterDate, formaterDateHeure, formaterNombre } from "../../../../lib/format";
-import {
-  droitsMission,
-  naturesSupplementaires,
-  STATUT_MISSION,
-  type DocumentMission,
-} from "../../../../lib/missions";
+import { droitsMission, naturesSupplementaires, STATUT_MISSION } from "../../../../lib/missions";
 import { chargerMission } from "../../../../lib/missions-serveur";
 import { nomPersonne, optionsPersonnes, type Personne } from "../../../../lib/personnes";
 import {
@@ -22,8 +15,9 @@ import {
   chargerTypesActifs,
 } from "../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../lib/session";
+import { Commentaires } from "../../../../components/collaboration/Commentaires";
+import { hrefNouvelleTache } from "../../../../lib/taches-collaboration";
 import { ActionsMission } from "./ActionsMission";
-import { DocumentsMission } from "./DocumentsMission";
 import { EquipeMission } from "./EquipeMission";
 
 export const metadata: Metadata = { title: "Fiche mission" };
@@ -37,10 +31,9 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
   if (!r.ok) return null;
   const m = r.donnees;
   const droits = droitsMission(m, roles, utilisateur.id);
-  const [types, personnesCabinet, documents, clients] = await Promise.all([
+  const [types, personnesCabinet, clients] = await Promise.all([
     chargerTypesActifs(roles),
     chargerPersonnes(roles),
-    chargerServeur<{ elements: DocumentMission[] }>(`/api/missions/${m.id}/documents`),
     droits.dupliquer ? chargerClientsActifs(roles) : Promise.resolve([]),
   ]);
   // Sans accès au référentiel, les noms connus viennent de l'équipe de la mission.
@@ -175,19 +168,30 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
         modifiable={droits.planifier}
       />
 
-      {documents.ok ? (
-        <DocumentsMission
-          missionId={m.id}
-          documents={documents.donnees.elements}
-          typesPermis={droits.typesDocument}
+      <Carte
+        titre="Échanges sur la mission"
+        actions={
+          aPermission(roles, "tache.assigner") ? (
+            <Link href={hrefNouvelleTache("mission", m.id)} className={classesBouton("secondaire")}>
+              <Icone nom="taches" />
+              <span>Assigner une tâche</span>
+            </Link>
+          ) : null
+        }
+      >
+        <p className="mp-texte-doux">
+          Les documents de la mission (versions, validation) sont dans l&apos;onglet{" "}
+          <Link href={`/missions/${m.id}/documents`}>Documents</Link>.
+        </p>
+        <Commentaires
+          entiteType="mission"
+          entiteId={m.id}
+          utilisateurId={utilisateur.id}
+          associe={roles.includes("associe")}
+          niveauTitre={3}
+          nomElement={`la mission ${m.intitule}`}
         />
-      ) : (
-        <EtatErreur
-          titre="Les documents n'ont pas pu être chargés."
-          message={documents.message}
-          hrefReessayer={`/missions/${m.id}`}
-        />
-      )}
+      </Carte>
     </div>
   );
 }

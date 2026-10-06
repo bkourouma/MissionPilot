@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CommentairesRepliables } from "../../../../../components/collaboration/Commentaires";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
@@ -43,8 +44,15 @@ interface Contexte {
   droits: DroitsDecoupage;
   /** Jours budgétés agrégés par le moteur (identifiant d'élément → jours). */
   budgets: Record<string, number>;
+  collaboration: CollaborationDecoupage;
   annoncer: (message: string) => void;
   reorganiser: (deplacements: Deplacement[], message: string) => Promise<boolean>;
+}
+
+/** Utilisateur courant, pour les commentaires des tâches (SOC-08). */
+export interface CollaborationDecoupage {
+  utilisateurId: string;
+  associe: boolean;
 }
 
 export interface ArbreDecoupageProps {
@@ -53,6 +61,7 @@ export interface ArbreDecoupageProps {
   grades: GradeDecoupage[];
   droits: DroitsDecoupage;
   budgets: Record<string, number>;
+  collaboration: CollaborationDecoupage;
 }
 
 /**
@@ -625,6 +634,13 @@ function NoeudTache({
             }}
           />
         ) : null}
+        <CommentairesRepliables
+          entiteType="mission_tache"
+          entiteId={tache.id}
+          utilisateurId={ctx.collaboration.utilisateurId}
+          associe={ctx.collaboration.associe}
+          nomElement={nom}
+        />
       </div>
     </li>
   );

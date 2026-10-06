@@ -75,6 +75,7 @@ export default async function PageDecoupage({ params }: { params: Promise<{ id: 
             lireBudget: droits.lireBudget,
           }}
           budgets={budgetsParNoeud(racine)}
+          collaboration={{ utilisateurId: utilisateur.id, associe: roles.includes("associe") }}
         />
       </section>
 

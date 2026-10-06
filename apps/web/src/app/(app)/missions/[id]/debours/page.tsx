@@ -59,7 +59,7 @@ export default async function PageDeboursMission({
     <div className="mp-pile mp-pile--large">
       <p className="mp-texte-doux">
         {valideur
-          ? "Vous validez les débours de cette mission : vérifiez la référence du justificatif avant de valider, ou rejetez avec un motif."
+          ? "Vous validez les débours de cette mission : ouvrez le justificatif joint avant de valider, ou rejetez avec un motif."
           : "Vos débours sur cette mission. Le chef ou le directeur de la mission les valide après soumission."}
       </p>
       <DeclarationDeboursMission

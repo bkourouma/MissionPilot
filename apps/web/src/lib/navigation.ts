@@ -117,6 +117,18 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description: "Fiches mission, découpage, planning et versions de budget.",
   },
   {
+    id: "mes-taches",
+    libelle: "Mes tâches",
+    libelleCourt: "Tâches",
+    href: "/mes-taches",
+    // Tout utilisateur connecté peut se voir assigner une tâche (SOC-08).
+    permission: null,
+    disponible: true,
+    icone: "taches",
+    description:
+      "Les tâches qui vous sont assignées et celles que vous avez confiées, avec leur échéance.",
+  },
+  {
     id: "pipeline",
     libelle: "Pipeline",
     href: "/pipeline",
