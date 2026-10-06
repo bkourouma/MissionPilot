@@ -43,88 +43,75 @@ Pièges et décisions :
 
 ## Branche `feat/socle-monorepo` — 2026-10-06
 
-**État :** en cours (vagues 1 à 3 livrées ; reste finance, écrans temps/planning, V2)
-**Dernier commit poussé :** `6b26c60` écrans des référentiels
+**État :** en cours (V1 complète côté API et écrans, reste lots transverses)
+**PR :** [#4](https://github.com/bkourouma/MissionPilot/pull/4) (empilée sur #3), non fusionnées.
 
-Fait (vérifié par le Pilote : typecheck, lint, prettier, 706 tests) :
+Fait (vérifié par le Pilote : typecheck, lint, prettier, tests, build web) :
 
-- Cadrage validé (voir `docs/DECISIONS.md`) : V1 puis V2 enchaînées, saisie des
-  temps paramétrable, zone UEMOA, catalogue de conseil. ADR-001 à 003 (PR #3).
-- Socle (PR #4) : monorepo pnpm, RLS, sessions, audit en ajout seul, file `jobs`.
+- Cadrage validé (`docs/DECISIONS.md`), ADR-001 à 003 (PR #3).
 - `packages/engines` : moteurs planning et finance purs, 228 tests, couverture
-  100 % lignes / 99,4 % branches ; plan de charge optimisé (100 × 26 en 0,2 s).
-- `apps/api` (247 tests, migrations 0001–0030) : référentiels, pipeline,
-  propositions, missions, découpage, budget figé, documents, affectations,
-  congés, plan de charge, « Mon planning », re-planification, notifications,
-  feuilles de temps, reste à faire, atterrissage, alertes, clôture mensuelle,
-  import CSV, worker de jobs (rappels du vendredi et du lundi).
-- `apps/web` (199 tests) : shell, référentiels, pipeline, propositions,
-  missions, découpage, planning, budget.
-- Trois audits de sécurité et de code relus ; tous les constats critiques,
-  élevés et moyens corrigés avec un test de non-régression.
+  100 % lignes.
+- `apps/api` (~476 tests, migrations 0001–0075) : référentiels, pipeline,
+  propositions, missions, découpage, budget figé, affectations, congés, plan
+  de charge, temps, atterrissage, alertes, jobs, facturation (factures
+  immuables, avoirs, débours, échéancier, taux négociés), encaissements,
+  relances, balance âgée, encours, rentabilité, bilan de clôture, indicateurs
+  du cabinet, export comptable SYSCOHADA, TOTP + SMTP, stockage de fichiers,
+  versions de documents, commentaires, tâches assignées.
+- `apps/web` (419 tests) : toutes les rubriques ci-dessus sauf fichiers,
+  commentaires et tâches (voir « Reste à faire »).
+- Six audits de sécurité/code relus ; tous les constats critiques, élevés et
+  moyens corrigés avec un test de non-régression.
+- Gouvernance : SECURITY.md, CODING_STANDARDS.md, review-checklist.md et
+  RUNBOOK.md complétés à partir du code réel.
+- `pnpm audit --prod` : aucune vulnérabilité (surcharge `postcss` ≥ 8.5.23).
 
-Reste à faire (ordre) : facturation, encaissements, débours, rentabilité,
-indicateurs du cabinet, export comptable (FIN) ; écrans web du plan de charge,
-de « Mon planning », de la feuille de temps, de la facturation et des
-indicateurs ; TOTP ; transport e-mail réel ; import Excel ; puis V2
-(questionnaires, notation, planification stratégique, KPI, portail client,
-OpenRouter, rapports PDF/DOCX/PPTX).
+Reste à faire (ordre) :
 
-Pièges et décisions :
-
-- …
-```
-
----
-
-## Branche `feat/socle-monorepo` — 2026-10-06
-
-**État :** en cours (vagues 1 à 3 livrées ; reste finance, écrans temps/planning, V2)
-**Dernier commit poussé :** `6b26c60` écrans des référentiels
-
-Fait (vérifié par le Pilote : typecheck, lint, prettier, 514 tests) :
-
-- Cadrage validé (voir `docs/DECISIONS.md`) : V1 puis V2 enchaînées, saisie des
-  temps paramétrable, zone UEMOA, catalogue de conseil. ADR-001 à 003 (PR #3).
-- Socle (PR #4) : monorepo pnpm, RLS, sessions, audit en ajout seul, file `jobs`.
-- `packages/engines` : moteurs planning et finance purs, 221 tests, couverture
-  100 % lignes / 99,4 % branches. Pas encore branchés dans les routes sauf
-  budget/synthèse des missions.
-- `apps/api` : référentiels (utilisateurs, invitations, cabinet, fériés, clients,
-  collaborateurs, grades, catalogue, audit), pipeline, propositions, missions,
-  découpage, budget figé, documents. Migrations 0001–0014. 152 tests.
-- `apps/web` : shell, design system, écrans des référentiels. 124 tests.
-- Audits de sécurité et de code relus (vague 1 corrigée ; vague 2 : 4 constats
-  élevés en cours de correction par un agent, migrations 0015+).
-
-En cours (agents, non commités) : correctifs d'audit API (fuite de coût par la
-comparaison de versions, grille de taux dans les propositions, taux de change
-figé, séparation des tâches de validation) ; écrans web pipeline/missions.
-
-Reste à faire (ordre) : affectations, congés, plan de charge, « Mon planning »
-(PLN-04 à PLN-10) ; temps, atterrissage, alertes (TPS) ; facturation,
-encaissements, indicateurs, rentabilité (FIN) ; TOTP ; transport e-mail réel ;
-puis V2 (questionnaires, notation, planification stratégique, KPI, portail
-client, OpenRouter).
+1. **Performance des indicateurs** : `finance/indicateurs.ts` et
+   `temps/suivi.ts` font ~11 requêtes par mission (3 111 requêtes pour 280
+   missions) ; `test/finance-indicateurs-perf.test.ts` échoue dans la suite
+   complète sous charge (passe seul). Il faut une version en lot.
+2. **Web** : téléversement des justificatifs de débours (le champ libre
+   `justificatif` est refusé par l'API : 400 `JUSTIFICATIF_PAR_TELEVERSEMENT`),
+   gestion des fichiers et versions de documents, commentaires, page
+   « Mes tâches » (`/mes-taches`, lien déjà émis par l'API).
+3. PDF des factures et documents (Chromium), DOCX/PPTX (SOC-07), import
+   Excel, PWA hors ligne (service worker), liste des collaborateurs rattachés.
+4. V2 : questionnaires, notation, planification stratégique + modèle
+   financier, KPI, portail client ; l'IA (OpenRouter) attend le jalon
+   SANKORIA (droits) : ne lancer que les parties sans IA tant que
+   l'utilisateur n'a pas donné son feu vert.
+5. Recette humaine des écrans (le navigateur intégré s'est révélé peu fiable
+   pour la relecture visuelle) ; validations métier ci-dessous.
 
 Pièges et décisions :
 
-- Tests API : une seule base `missionpilot_test`, réinitialisée à chaque
-  exécution ; jamais deux suites API en parallèle. PostgreSQL dédié :
-  conteneur `missionpilot-postgres` (port 55440, `pnpm db:up`) ; les autres
-  conteneurs PostgreSQL de la machine sont à d'autres projets, n'y pas toucher.
-- Migrations : 0001–0008 référentiels et durcissement, 0010–0015 missions,
-  0020–0021 planification, 0030 temps ; finance à partir de 0040.
-- Décisions métier posées sans question : une proposition est validée par un
-  associé (PRD MIS-05) ; les taux de vente par grade et les coûts sont réservés
-  à `finance.lire` (AGENTS.md) ; taux de change EUR/FCFA figé à 655,957.
-- Fêtes musulmanes saisies chaque année par le cabinet ; fériés nationaux par
-  pays = valeurs par défaut à faire valider par le métier ; taux de vente et
-  jours types du catalogue de conseil = valeurs de départ à valider.
-- Grille d'approbation FIN-15 (5 M / 25 M / 10 M FCFA) : valeurs par défaut du
-  moteur, à faire valider. Cabinet en EUR/USD : pas de grille, révision refusée.
-- Import des temps : CSV seulement (le paquet xlsx de npm a des vulnérabilités
-  connues). Rappels de temps à 16 h / 8 h UTC, à valider par le métier.
-- Aucun transport e-mail réel : les invitations ne partiraient pas en production.
-- Pas de `.env` : valeurs de développement par défaut dans `apps/api/src/config.ts`,
-  refusées hors développement et test.
+- Tests API : base `missionpilot_test` réinitialisée à chaque exécution ; ne
+  jamais lancer deux suites API en parallèle. Pour plusieurs agents, chacun
+  utilise ses propres variables `DATABASE_URL` / `DATABASE_OWNER_URL`
+  (base `missionpilot_<id>` → `_test` créée à la volée). PostgreSQL dédié :
+  conteneur `missionpilot-postgres` (port 55440) ; les autres conteneurs
+  PostgreSQL de la machine appartiennent à d'autres projets.
+- Migrations : 0001–0008 socle/référentiels, 0010–0015 missions, 0020–0021
+  planification, 0030 temps, 0040–0044 facturation, 0050–0052 2FA, 0060–0064
+  finance, 0070–0075 fichiers/commentaires ; prochaine plage libre : 0080.
+- Agents : `dev-complex-high` (Opus, effort high) pour moteurs, API sensible
+  et correctifs d'audit ; `dev-complex` (Opus, medium) pour le web ;
+  `code-reviewer`/`ui-tester` Sonnet ; `dev-simple` Sonnet low
+  (voir la mémoire de l'utilisateur).
+- Décisions métier posées sans question, à faire valider : proposition validée
+  par un associé (PRD MIS-05) ; taux de vente et coûts réservés à
+  `finance.lire` ; TVA 18 % de départ, retenue désactivée ; relances J+7/15/30
+  (envoi e-mail au client désactivé par défaut) ; comptes SYSCOHADA de départ
+  (411, 4191, 706, 707, 4431, 4492, 521, 513, 571, 552) à valider par un
+  expert-comptable ; seuils d'approbation 5 M / 25 M / 10 M FCFA ; rappels de
+  temps vendredi 16 h et lundi 8 h UTC ; catalogue de conseil, taux, jours
+  fériés par pays = valeurs de départ ; fêtes musulmanes saisies par le cabinet.
+- Cabinet en EUR/USD : pas de grille FIN-15 propre (révision de budget refusée).
+- Import des temps : CSV seulement (le paquet xlsx de npm a des vulnérabilités).
+- Configuration hors développement : `TFA_MASTER_KEY`, SMTP, `STORAGE_DIR`
+  obligatoires ; valeurs de développement refusées si la base n'est pas locale.
+- Base de développement `missionpilot` : contient des données de recette
+  (mission « Recette — Plan stratégique Kora », factures, encaissements) ;
+  les comptes de démonstration sont dans `apps/api/src/db/seed.ts`.
