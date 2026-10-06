@@ -173,9 +173,15 @@ export function champsRefuses(e: unknown): string[] {
   return Object.keys(details.fieldErrors);
 }
 
+/** Code de l'API : la politique du cabinet exige la double authentification avant tout accès. */
+export const CODE_TFA_A_CONFIGURER = "TFA_A_CONFIGURER";
+export const MESSAGE_TFA_A_CONFIGURER =
+  "La double authentification est obligatoire pour votre rôle : activez-la depuis « Sécurité du compte » pour continuer.";
+
 /** Message d'erreur affichable (toujours en français) pour une erreur d'appel. */
 export function messageErreur(e: unknown): string {
   if (!(e instanceof ErreurApi)) return MESSAGE_INATTENDU;
+  if (e.code === CODE_TFA_A_CONFIGURER) return MESSAGE_TFA_A_CONFIGURER;
   if (e.code === "REQUETE_INVALIDE" && e.message === "Données invalides.") {
     return "Certaines valeurs ont été refusées. Vérifiez les champs signalés puis réessayez.";
   }

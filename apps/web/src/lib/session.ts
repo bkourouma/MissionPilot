@@ -8,6 +8,10 @@ import { appelerApiServeur, cookieSession, urlApi } from "./api-serveur";
 export interface Session {
   utilisateur: { id: string; email: string; nom: string; roles: Role[] };
   cabinet_id: string;
+  /** Double authentification active sur ce compte (SOC-02). */
+  tfa_active?: boolean;
+  /** La politique du cabinet l'exige et elle n'est pas encore activée : bandeau d'invitation. */
+  tfa_a_configurer?: boolean;
 }
 
 /** Écarte un rôle inconnu de cette version du web plutôt que de planter le filtrage. */
@@ -15,7 +19,12 @@ function nettoyer(session: Session): Session {
   const roles = (session.utilisateur.roles ?? []).filter(
     (r): r is Role => roleSchema.safeParse(r).success,
   );
-  return { ...session, utilisateur: { ...session.utilisateur, roles } };
+  return {
+    ...session,
+    utilisateur: { ...session.utilisateur, roles },
+    tfa_active: session.tfa_active === true,
+    tfa_a_configurer: session.tfa_a_configurer === true,
+  };
 }
 
 /** Session courante ; redirige vers /connexion si absente ou expirée. Mémoïsée par requête. */

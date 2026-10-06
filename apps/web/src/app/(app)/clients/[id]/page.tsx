@@ -8,11 +8,13 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { Icone } from "../../../../components/ui/Icone";
+import { Onglets } from "../../../../components/ui/Onglets";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { nomPays } from "../../../../lib/cabinet";
 import { TAILLE_LIBELLES, type ClientDetaille } from "../../../../lib/clients";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { exigerPermission } from "../../../../lib/session";
+import { ongletsClient } from "../../../../lib/taux-clients";
 import { ArchivageClient } from "./ArchivageClient";
 import { AjoutContact, ContactModifiable } from "./Contacts";
 
@@ -65,6 +67,11 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
             </>
           ) : null
         }
+      />
+
+      <Onglets
+        libelle="Sections de la fiche client"
+        pages={ongletsClient(c.id, utilisateur.roles)}
       />
 
       <Carte titre="Identité légale">

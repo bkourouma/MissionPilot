@@ -110,6 +110,7 @@
 /* Téléphone : le rôle et la déconnexion passent dans le menu. */
 @media (max-width: 959px) {
   .mp-entete__role,
+  .mp-entete__securite,
   .mp-entete__deconnexion {
     display: none;
   }

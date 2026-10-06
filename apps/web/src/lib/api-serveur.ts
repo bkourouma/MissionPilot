@@ -1,6 +1,12 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { appelerApi, ErreurApi, messageErreur, type OptionsAppel } from "./api";
+import {
+  appelerApi,
+  CODE_TFA_A_CONFIGURER,
+  ErreurApi,
+  messageErreur,
+  type OptionsAppel,
+} from "./api";
 import { cheminDeRetour, COOKIE_SESSION, ENTETE_CHEMIN } from "./connexion";
 
 /**
@@ -24,8 +30,12 @@ async function urlConnexion(): Promise<string> {
   return chemin === "/" ? "/connexion" : `/connexion?suite=${encodeURIComponent(chemin)}`;
 }
 
+/** Page où configurer sa double authentification (accessible malgré la politique 2FA). */
+const CHEMIN_SECURITE = "/compte/securite";
+
 /**
- * Comme `appelerApi`, mais : 401 → redirection vers /connexion, 403 → /acces-refuse.
+ * Comme `appelerApi`, mais : 401 → redirection vers /connexion, 403 → /acces-refuse
+ * (403 TFA_A_CONFIGURER → page de sécurité du compte : la politique du cabinet l'exige).
  * Les autres erreurs remontent (error boundary).
  */
 export async function appelerApiServeur<T>(
@@ -46,6 +56,7 @@ export async function appelerApiServeur<T>(
   }
   // `redirect` lève une exception propre à Next : l'appeler hors du try.
   if (erreur.statut === 401) redirect(await urlConnexion());
+  if (erreur.statut === 403 && erreur.code === CODE_TFA_A_CONFIGURER) redirect(CHEMIN_SECURITE);
   if (erreur.statut === 403) redirect("/acces-refuse");
   throw erreur;
 }

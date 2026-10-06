@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROLE_LIBELLES, type Role } from "@missionpilot/shared";
-import type { EntreeNavigation } from "../../lib/navigation";
+import { CHEMIN_SECURITE_COMPTE, type EntreeNavigation } from "../../lib/navigation";
+import { Icone } from "../ui/Icone";
 import { BoutonDeconnexion } from "./BoutonDeconnexion";
 import { ClocheNotifications } from "./ClocheNotifications";
 import { BarreNavigationBasse, NavigationLaterale } from "./Navigation";
@@ -53,6 +54,13 @@ export function CadreApplication({ nom, roles, entrees, children }: CadreApplica
             <span className="mp-entete__nom">{nom}</span>
             <span className="mp-entete__role">{libelles}</span>
           </p>
+          <Link
+            href={CHEMIN_SECURITE_COMPTE}
+            className="mp-bouton mp-bouton--discret mp-entete__securite"
+          >
+            <Icone nom="cadenas" />
+            <span>Sécurité du compte</span>
+          </Link>
           <div className="mp-entete__deconnexion">
             <BoutonDeconnexion />
           </div>

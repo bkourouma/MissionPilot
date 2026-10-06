@@ -125,6 +125,9 @@ describe("champsRefuses et messageErreur", () => {
 
   it("explique un refus de droit et garde les messages métier de l'API", () => {
     expect(messageErreur(new ErreurApi("INTERDIT", "x", 403))).toMatch(/Votre rôle/);
+    expect(messageErreur(new ErreurApi("TFA_A_CONFIGURER", "x", 403))).toMatch(
+      /Sécurité du compte/,
+    );
     expect(messageErreur(new ErreurApi("CONFLIT", "Un client porte déjà ce RCCM.", 409))).toBe(
       "Un client porte déjà ce RCCM.",
     );

@@ -7,6 +7,8 @@ import { useFormulaire } from "../../../../components/formulaires/useFormulaire"
 import { Bouton } from "../../../../components/ui/Bouton";
 import { GroupeCases } from "../../../../components/ui/CaseACocher";
 import { api } from "../../../../lib/api";
+import { peutReinitialiserTfa } from "../../../../lib/double-authentification";
+import { ReinitialisationTfa } from "./ReinitialisationTfa";
 import {
   messageModificationUtilisateur,
   OPTIONS_ROLES,
@@ -18,10 +20,12 @@ import {
 export interface GestionUtilisateurProps {
   utilisateur: Utilisateur;
   estSoiMeme: boolean;
+  /** Identifiant de l'utilisateur connecté (pas de réinitialisation de sa propre 2FA). */
+  moiId: string;
 }
 
 /** Changement de rôles et activation d'un compte (refus « dernier associé » expliqué). */
-export function GestionUtilisateur({ utilisateur, estSoiMeme }: GestionUtilisateurProps) {
+export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUtilisateurProps) {
   const [ouvert, setOuvert] = useState(false);
   const [roles, setRoles] = useState<string[]>(utilisateur.roles);
   const f = useFormulaire<"roles">();
@@ -92,6 +96,9 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme }: GestionUtilisate
           </Bouton>
         )}
       </div>
+      {peutReinitialiserTfa(utilisateur.id, moiId, utilisateur.tfa_active === true) ? (
+        <ReinitialisationTfa utilisateurId={utilisateur.id} nom={utilisateur.nom} />
+      ) : null}
       {ouvert ? (
         <form
           ref={f.refFormulaire}

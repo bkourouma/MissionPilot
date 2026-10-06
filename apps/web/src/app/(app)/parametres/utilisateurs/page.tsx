@@ -82,11 +82,18 @@ export default async function PageUtilisateurs() {
                   niveauTitre={3}
                   titre={u.nom}
                   actions={
-                    u.actif ? (
-                      <BadgeStatut tonalite="succes">Actif</BadgeStatut>
-                    ) : (
-                      <BadgeStatut tonalite="neutre">Désactivé</BadgeStatut>
-                    )
+                    <span className="mp-badges">
+                      {u.actif ? (
+                        <BadgeStatut tonalite="succes">Actif</BadgeStatut>
+                      ) : (
+                        <BadgeStatut tonalite="neutre">Désactivé</BadgeStatut>
+                      )}
+                      {u.tfa_active ? (
+                        <BadgeStatut tonalite="succes">Double authentification</BadgeStatut>
+                      ) : (
+                        <BadgeStatut tonalite="neutre">Sans double authentification</BadgeStatut>
+                      )}
+                    </span>
                   }
                 >
                   <p className="mp-coupure">{u.email}</p>
@@ -94,6 +101,7 @@ export default async function PageUtilisateurs() {
                   <GestionUtilisateur
                     utilisateur={u}
                     estSoiMeme={u.id === session.utilisateur.id}
+                    moiId={session.utilisateur.id}
                   />
                 </Carte>
               </li>

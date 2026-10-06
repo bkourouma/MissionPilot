@@ -2,7 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { entreesBarreBasse, estActive, type EntreeNavigation } from "../../lib/navigation";
+import Link from "next/link";
+import {
+  CHEMIN_SECURITE_COMPTE,
+  entreesBarreBasse,
+  estActive,
+  type EntreeNavigation,
+} from "../../lib/navigation";
 import { Icone } from "../ui/Icone";
 import { BoutonDeconnexion } from "./BoutonDeconnexion";
 import { LienNavigation } from "./LienNavigation";
@@ -108,6 +114,15 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
               ))}
             </ul>
           </nav>
+          <Link
+            href={CHEMIN_SECURITE_COMPTE}
+            className="mp-bouton mp-bouton--secondaire mp-bouton--plein"
+            aria-current={chemin === CHEMIN_SECURITE_COMPTE ? "page" : undefined}
+            onClick={() => setOuvert(false)}
+          >
+            <Icone nom="cadenas" />
+            <span>Sécurité du compte</span>
+          </Link>
           <BoutonDeconnexion pleineLargeur />
         </div>
       </dialog>

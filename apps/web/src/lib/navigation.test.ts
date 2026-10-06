@@ -35,7 +35,7 @@ describe("table de navigation", () => {
     ]);
   });
 
-  it("ne marque disponibles que les écrans livrés (facturation et indicateurs à venir)", () => {
+  it("ne marque disponibles que les écrans livrés (indicateurs à venir)", () => {
     expect(NAVIGATION.filter((e) => e.disponible).map((e) => e.id)).toEqual([
       "tableau-de-bord",
       "mon-planning",
@@ -46,8 +46,10 @@ describe("table de navigation", () => {
       "collaborateurs",
       "catalogue",
       "plan-de-charge",
+      "facturation",
       "parametres",
     ]);
+    expect(NAVIGATION.find((e) => e.id === "indicateurs")?.disponible).toBe(false);
   });
 
   it("donne des sous-pages aux chemins uniques, rattachées à leur rubrique", () => {
@@ -98,9 +100,12 @@ describe("entreesAutorisees", () => {
     }
   });
 
-  it("ouvre la facturation au gestionnaire, pas au consultant", () => {
-    expect(ids(["gestionnaire"])).toContain("facturation");
-    expect(ids(["consultant"])).not.toContain("facturation");
+  it("ouvre la facturation à qui lit les factures, pas au consultant", () => {
+    for (const role of ROLES) {
+      expect(ids([role]).includes("facturation")).toBe(
+        ["associe", "directeur_mission", "chef_mission", "gestionnaire"].includes(role),
+      );
+    }
   });
 
   it("ouvre le plan de charge au responsable des ressources", () => {
@@ -165,15 +170,19 @@ describe("sous-pages", () => {
     expect(sousPagesAutorisees("parametres", ["associe"]).map((p) => p.id)).toEqual([
       "cabinet",
       "utilisateurs",
+      "securite",
       "temps",
+      "facturation",
       "cloture",
       "import",
       "journal",
     ]);
     expect(sousPagesAutorisees("parametres", ["gestionnaire"]).map((p) => p.id)).toEqual([
+      "facturation",
       "cloture",
       "import",
     ]);
+    expect(sousPagesAutorisees("parametres", ["chef_mission"])).toEqual([]);
     expect(sousPagesAutorisees("parametres", ["consultant"])).toEqual([]);
   });
 
@@ -197,7 +206,11 @@ describe("sous-pages", () => {
       "feuille",
       "corrections",
       "discipline",
+      "debours",
     ]);
+    expect(sousPagesAutorisees("feuille-de-temps", ["expert_externe"]).map((p) => p.id)).toContain(
+      "debours",
+    );
     expect(sousPagesAutorisees("feuille-de-temps", ["chef_mission"]).map((p) => p.id)).toContain(
       "validation",
     );

@@ -10,6 +10,8 @@ export interface Utilisateur {
   roles: Role[];
   actif: boolean;
   cree_le: string;
+  /** Double authentification active (SOC-02). */
+  tfa_active?: boolean;
 }
 
 export interface Invitation {

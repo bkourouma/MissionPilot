@@ -76,7 +76,8 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     permission: "temps.saisir",
     disponible: true,
     icone: "horloge",
-    description: "Saisie hebdomadaire par tâche, reste à faire, validation et corrections.",
+    description:
+      "Saisie hebdomadaire par tâche, reste à faire, débours et notes de frais, validation et corrections.",
     sousPages: [
       { id: "feuille", libelle: "Ma feuille", href: "/temps", permission: "temps.saisir" },
       {
@@ -96,6 +97,12 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         libelle: "Discipline de saisie",
         href: "/temps/discipline",
         permission: "temps.saisir",
+      },
+      {
+        id: "debours",
+        libelle: "Mes débours",
+        href: "/temps/debours",
+        permission: "debours.saisir",
       },
     ],
   },
@@ -169,9 +176,9 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelle: "Facturation",
     href: "/facturation",
     permission: "facture.lire",
-    disponible: false,
+    disponible: true,
     icone: "facture",
-    description: "Échéanciers, factures, débours et encaissements.",
+    description: "Factures et avoirs : brouillons, approbation, émission et envoi.",
   },
   {
     id: "indicateurs",
@@ -186,10 +193,11 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "parametres",
     libelle: "Paramètres",
     href: "/parametres",
-    permission: ["cabinet.gerer", "temps.cloturer", "temps.importer"],
+    permission: ["cabinet.gerer", "facture.emettre", "temps.cloturer", "temps.importer"],
     disponible: true,
     icone: "reglages",
-    description: "Cabinet, utilisateurs, temps, clôture mensuelle, import et journal d'audit.",
+    description:
+      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import et journal d'audit.",
     sousPages: [
       { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
       {
@@ -198,7 +206,19 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         href: "/parametres/utilisateurs",
         permission: "cabinet.gerer",
       },
+      {
+        id: "securite",
+        libelle: "Sécurité",
+        href: "/parametres/securite",
+        permission: "cabinet.gerer",
+      },
       { id: "temps", libelle: "Temps", href: "/parametres/temps", permission: "cabinet.gerer" },
+      {
+        id: "facturation",
+        libelle: "Facturation",
+        href: "/parametres/facturation",
+        permission: "facture.emettre",
+      },
       {
         id: "cloture",
         libelle: "Clôture des temps",
@@ -220,6 +240,9 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     ],
   },
 ];
+
+/** Sécurité de son propre compte (double authentification) : tout utilisateur connecté. */
+export const CHEMIN_SECURITE_COMPTE = "/compte/securite";
 
 /** Nombre d'entrées dans la barre basse du téléphone (le reste passe dans « Menu »). */
 export const ENTREES_BARRE_BASSE = 4;
