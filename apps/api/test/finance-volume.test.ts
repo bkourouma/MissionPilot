@@ -14,15 +14,20 @@ import { missionTemps, type MissionTemps } from "./temps-outils.js";
 
 /*
  * Volume des analyses financières (audit M3) : 300 missions signées (dont 20
- * clôturées le 2026-06-30), budget figé chacune. On relève la durée (seuil
- * large) et le NOMBRE DE REQUÊTES SQL de la requête HTTP, compté par un pool
- * de test instrumenté : les tarifications (versions, lignes, grilles de
- * vente) sont chargées en lot, le nombre de requêtes ne dépend pas du nombre
- * de missions pour l'encours et la rentabilité.
+ * clôturées le 2026-06-30), budget figé chacune, découpage (phase, tâche,
+ * budget par grade), un jour validé chacune et un reste à faire déclaré sur
+ * une sur deux. On relève la durée et le NOMBRE DE REQUÊTES SQL de la requête
+ * HTTP, compté par un pool de test instrumenté : tarifications (versions,
+ * lignes, grilles de vente) et suivis en jours (temps/suivi.ts
+ * `calculerSuivisMissions`) sont chargés en lot ; le nombre de requêtes ne
+ * dépend pas du nombre de missions pour l'encours, la rentabilité et les
+ * indicateurs (au plus MAX_REQUETES).
  */
 
 const N = 300;
 const CLOTUREES = 20;
+/** Requêtes SQL au plus par appel, quel que soit le nombre de missions. */
+const MAX_REQUETES = 40;
 let ctx: Contexte;
 let c: CabinetFacturation;
 let modele: MissionTemps;
@@ -144,6 +149,50 @@ beforeAll(async () => {
        WHERE mission_id = ANY ($1::uuid[])`,
       [clones, c.associeId],
     );
+    // Découpage de chaque clone : une phase, une tâche, budget senior 10 j et manager 5 j.
+    await cl.query(
+      `INSERT INTO mission_phases (cabinet_id, mission_id, libelle, ordre)
+       SELECT cabinet_id, id, 'Diagnostic', 1 FROM missions WHERE id = ANY ($1::uuid[])`,
+      [clones],
+    );
+    await cl.query(
+      `INSERT INTO mission_taches (cabinet_id, mission_id, phase_id, libelle, ordre, duree_jours_ouvres)
+       SELECT cabinet_id, mission_id, id, 'Diagnostic', 1, 60 FROM mission_phases
+       WHERE mission_id = ANY ($1::uuid[])`,
+      [clones],
+    );
+    await cl.query(
+      `INSERT INTO tache_budget_lignes (cabinet_id, mission_id, tache_id, grade_id, jours)
+       SELECT t.cabinet_id, t.mission_id, t.id, v.grade_id, v.jours
+       FROM mission_taches t, (VALUES ($2::uuid, 10), ($3::uuid, 5)) AS v (grade_id, jours)
+       WHERE t.mission_id = ANY ($1::uuid[])`,
+      [clones, c.grades.senior, c.grades.manager],
+    );
+    // Un jour validé par clone (feuille importée du senior, semaine du 14/09) et un
+    // reste à faire de 7 j déclaré sur les clones de numéro pair (les autres : estimé).
+    const feuille = await cl.query(
+      `INSERT INTO feuilles_temps (cabinet_id, collaborateur_id, semaine, origine, importee_par)
+       VALUES ($1, $2, '2026-09-14', 'import', $3) RETURNING id`,
+      [c.cabinetId, c.collaborateurs.senior, c.associeId],
+    );
+    await cl.query(
+      `INSERT INTO lignes_temps (cabinet_id, feuille_id, date, mission_id, tache_id, centiemes)
+       SELECT cabinet_id, $2, '2026-09-15', mission_id, id, 100 FROM mission_taches
+       WHERE mission_id = ANY ($1::uuid[])`,
+      [clones, feuille.rows[0].id],
+    );
+    await cl.query(
+      "UPDATE feuilles_temps SET statut = 'validee', validee_le = now() WHERE id = $1",
+      [feuille.rows[0].id],
+    );
+    await cl.query(
+      `INSERT INTO reste_a_faire (cabinet_id, mission_id, tache_id, collaborateur_id, semaine,
+         centiemes, declare_par)
+       SELECT t.cabinet_id, t.mission_id, t.id, $2, '2026-09-14', 700, $3
+       FROM mission_taches t JOIN missions m ON m.id = t.mission_id
+       WHERE t.mission_id = ANY ($1::uuid[]) AND right(m.intitule, 1) IN ('0', '2', '4', '6', '8')`,
+      [clones, c.collaborateurs.senior, c.associeId],
+    );
     await cl.query("COMMIT");
   });
 }, 180_000);
@@ -194,7 +243,7 @@ describe(`analyses financières : volume de ${N} missions (audit M3)`, () => {
     console.info(`encours ${N} missions : ${ms} ms, ${n} requêtes`);
     expect(r.statusCode, r.body).toBe(200);
     expect(r.json().missions).toHaveLength(N - CLOTUREES);
-    expect(n).toBeLessThan(30);
+    expect(n).toBeLessThanOrEqual(MAX_REQUETES);
     expect(ms).toBeLessThan(5_000);
     // Avant leur clôture (30/06), les missions clôturées sont encore en cours.
     const avant = (await c.gestionnaire.get("/api/finance/encours?date=2026-06-15")).json();
@@ -210,25 +259,58 @@ describe(`analyses financières : volume de ${N} missions (audit M3)`, () => {
     const { r, ms, n } = await mesurer(() => c.gestionnaire.get(url));
     console.info(`rentabilité ${N} missions : ${ms} ms, ${n} requêtes`);
     expect(r.statusCode, r.body).toBe(200);
-    // Seule la mission modèle a du temps validé : un seul suivi en jours.
-    expect(r.json().elements).toHaveLength(1);
-    expect(n).toBeLessThan(40);
+    // Toutes les missions ont du temps validé : un suivi en jours chacune, lu en lot.
+    const elements = r.json().elements as Record<string, unknown>[];
+    expect(elements).toHaveLength(N);
+    expect(elements.find((e) => e.cle === modele.id)).toMatchObject({
+      budget: { jours: 15 },
+      realise: { jours: 2 },
+      atterrissage: { jours: 15 },
+    });
+    expect(n).toBeLessThanOrEqual(MAX_REQUETES);
     expect(ms).toBeLessThan(5_000);
     expect(
       (await c.gestionnaire.get("/api/finance/rentabilite?du=2025-01-01&au=2026-12-31")).statusCode,
     ).toBe(400);
   });
 
-  it("indicateurs : durée sous un seuil large (suivi en jours encore chargé par mission)", async () => {
+  it("indicateurs : requêtes en nombre constant (suivis en jours lus en lot)", async () => {
     const url = "/api/indicateurs/cabinet?du=2026-09-01&au=2026-09-30&niveau=mission";
     await c.gestionnaire.get(url);
     const { r, ms, n } = await mesurer(() => c.gestionnaire.get(url));
     console.info(`indicateurs ${N} missions : ${ms} ms, ${n} requêtes`);
     expect(r.statusCode, r.body).toBe(200);
-    expect(r.json().elements).toHaveLength(N - CLOTUREES);
-    // Dette : le suivi en jours (temps/suivi.ts) reste chargé mission par
-    // mission ; les tarifications, elles, ne coûtent plus de requête par mission.
-    expect(n).toBeLessThan(15 * (N - CLOTUREES) + 100);
-    expect(ms).toBeLessThan(20_000);
+    const elements = r.json().elements as Record<string, unknown>[];
+    expect(elements).toHaveLength(N - CLOTUREES);
+    // Reste à faire déclaré (1 + 7 j) et reste estimé (15 − 1 = 14 j, atterrissage 15 j).
+    expect(elements.find((e) => e.intitule === "Volume signee 002")).toMatchObject({
+      jours_budget: 15,
+      jours_realises: 1,
+      jours_atterrissage: 8,
+    });
+    expect(elements.find((e) => e.intitule === "Volume signee 001")).toMatchObject({
+      jours_budget: 15,
+      jours_realises: 1,
+      jours_atterrissage: 15,
+    });
+    expect(n).toBeLessThanOrEqual(MAX_REQUETES);
+    expect(ms).toBeLessThan(5_000);
+  }, 60_000);
+
+  it("autres niveaux (associé, client) : requêtes bornées de même", async () => {
+    const indicateurs = await mesurer(() =>
+      c.gestionnaire.get("/api/indicateurs/cabinet?du=2026-01-01&au=2026-12-31&niveau=associe"),
+    );
+    const rentabilite = await mesurer(() =>
+      c.gestionnaire.get("/api/finance/rentabilite?niveau=client&du=2026-01-01&au=2026-12-31"),
+    );
+    console.info(
+      `indicateurs (associé, ${N} missions) : ${indicateurs.ms} ms, ${indicateurs.n} requêtes ; ` +
+        `rentabilité (client) : ${rentabilite.ms} ms, ${rentabilite.n} requêtes`,
+    );
+    expect(indicateurs.r.statusCode, indicateurs.r.body).toBe(200);
+    expect(rentabilite.r.statusCode, rentabilite.r.body).toBe(200);
+    expect(indicateurs.n).toBeLessThanOrEqual(MAX_REQUETES);
+    expect(rentabilite.n).toBeLessThanOrEqual(MAX_REQUETES);
   }, 60_000);
 });

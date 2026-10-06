@@ -15,7 +15,7 @@ import {
   type SuiviCalcule,
 } from "@missionpilot/engines";
 import type { Db } from "../db/pool.js";
-import { chargerDecoupage, type Decoupage } from "../missions/decoupage.js";
+import type { Decoupage } from "../missions/decoupage.js";
 import { nombre } from "../missions/outils.js";
 import { notifier, type NotificationCreee } from "../notifications/notifier.js";
 import { jours, lireParametresTemps, seuilsSuivi } from "./outils.js";
@@ -45,52 +45,142 @@ interface Montant {
   jours: number;
 }
 
-/** Réalisé validé (lignes + corrections validées), par tâche et collaborateur. */
-async function realiseValide(db: Db, missionId: string): Promise<Montant[]> {
+/** Ajoute `valeur` à la liste de `cle`, en place. */
+function ajouter<V>(listes: Map<string, V[]>, cle: string, valeur: V): void {
+  const liste = listes.get(cle);
+  if (liste) liste.push(valeur);
+  else listes.set(cle, [valeur]);
+}
+
+/*
+ * LECTURE EN LOT : le suivi de N missions coûte un nombre de requêtes
+ * constant (au plus 12, comme une seule mission). Chaque requête filtre
+ * `mission_id = ANY ($1)` ; les lignes sont regroupées par mission en mémoire
+ * dans l'ordre rendu par la base. Les tris sont ceux de la lecture d'une
+ * mission (missions/decoupage.ts `chargerDecoupage`) et finissent par une clé
+ * unique : la sous-suite d'une mission garde donc le même ordre. L'ancienne
+ * lecture mission par mission est conservée dans les tests comme référence
+ * (test/suivi-reference.ts, comparée par test/suivi-lot.test.ts).
+ */
+
+const COLONNE_MISSION = "cle_mission";
+
+/** Mêmes colonnes et tris que `chargerDecoupage`, pour plusieurs missions. */
+const REQUETES_DECOUPAGE: Record<keyof Decoupage, string> = {
+  phases: `SELECT mission_id AS ${COLONNE_MISSION}, id, libelle, ordre FROM mission_phases
+     WHERE mission_id = ANY ($1::uuid[]) ORDER BY ordre, libelle, id`,
+  lots: `SELECT mission_id AS ${COLONNE_MISSION}, id, phase_id, libelle, ordre, est_livrable
+     FROM mission_lots WHERE mission_id = ANY ($1::uuid[]) ORDER BY ordre, libelle, id`,
+  taches: `SELECT mission_id AS ${COLONNE_MISSION}, id, phase_id, lot_id, libelle, ordre, est_livrable,
+       date_debut::text AS date_debut, duree_jours_ouvres
+     FROM mission_taches WHERE mission_id = ANY ($1::uuid[]) ORDER BY ordre, libelle, id`,
+  jalons: `SELECT mission_id AS ${COLONNE_MISSION}, id, phase_id, libelle,
+       date_prevue::text AS date_prevue, atteint, ordre
+     FROM mission_jalons WHERE mission_id = ANY ($1::uuid[]) ORDER BY ordre, libelle, id`,
+  lignes: `SELECT l.mission_id AS ${COLONNE_MISSION}, l.id, l.tache_id, l.grade_id, g.code AS grade_code,
+       l.collaborateur_id, c.nom AS collaborateur_nom, l.jours::float8 AS jours
+     FROM tache_budget_lignes l LEFT JOIN grades g ON g.id = l.grade_id
+     LEFT JOIN collaborateurs c ON c.id = l.collaborateur_id
+     WHERE l.mission_id = ANY ($1::uuid[]) ORDER BY g.code NULLS LAST, c.nom, l.id`,
+  dependances: `SELECT mission_id AS ${COLONNE_MISSION}, id, predecesseur_id, successeur_id, decalage
+     FROM mission_dependances WHERE mission_id = ANY ($1::uuid[]) ORDER BY cree_le, id`,
+};
+
+const decoupageVide = (): Decoupage => ({
+  phases: [],
+  lots: [],
+  taches: [],
+  jalons: [],
+  lignes: [],
+  dependances: [],
+});
+
+/** Découpages de plusieurs missions (6 requêtes), identiques à `chargerDecoupage`. */
+async function chargerDecoupages(
+  db: Db,
+  missionIds: readonly string[],
+): Promise<Map<string, Decoupage>> {
+  const parMission = new Map<string, Decoupage>(missionIds.map((id) => [id, decoupageVide()]));
+  // Requêtes successives : un client pg n'exécute qu'une requête à la fois.
+  for (const [partie, sql] of Object.entries(REQUETES_DECOUPAGE) as [keyof Decoupage, string][]) {
+    const r = await db.query(sql, [missionIds]);
+    for (const { [COLONNE_MISSION]: missionId, ...ligne } of r.rows) {
+      parMission.get(missionId as string)?.[partie].push(ligne);
+    }
+  }
+  return parMission;
+}
+
+/** Réalisé validé (lignes + corrections validées), par mission, tâche et collaborateur. */
+async function realisesValides(
+  db: Db,
+  missionIds: readonly string[],
+): Promise<Map<string, Montant[]>> {
   const r = await db.query(
-    `SELECT l.tache_id, f.collaborateur_id, l.centiemes
+    `SELECT l.mission_id, l.tache_id, f.collaborateur_id, l.centiemes
      FROM lignes_temps l JOIN feuilles_temps f ON f.id = l.feuille_id
-     WHERE l.mission_id = $1 AND f.statut IN ('validee', 'verrouillee')
+     WHERE l.mission_id = ANY ($1::uuid[]) AND f.statut IN ('validee', 'verrouillee')
      UNION ALL
-     SELECT c.tache_id, c.collaborateur_id, c.nouvelle_centiemes - c.ancienne_centiemes
-     FROM corrections_temps c WHERE c.mission_id = $1 AND c.statut = 'validee'`,
-    [missionId],
+     SELECT c.mission_id, c.tache_id, c.collaborateur_id, c.nouvelle_centiemes - c.ancienne_centiemes
+     FROM corrections_temps c WHERE c.mission_id = ANY ($1::uuid[]) AND c.statut = 'validee'`,
+    [missionIds],
   );
-  return r.rows.map((l) => ({
-    tache_id: l.tache_id as string,
-    collaborateur_id: l.collaborateur_id as string,
-    jours: jours(l.centiemes),
-  }));
+  const parMission = new Map<string, Montant[]>();
+  for (const l of r.rows) {
+    ajouter(parMission, l.mission_id as string, {
+      tache_id: l.tache_id as string,
+      collaborateur_id: l.collaborateur_id as string,
+      jours: jours(l.centiemes),
+    });
+  }
+  return parMission;
 }
 
-/** Temps soumis non encore validés, par tâche. */
-async function enAttente(db: Db, missionId: string): Promise<Map<string, number>> {
+/** Temps soumis non encore validés, par mission et tâche. */
+async function enAttente(
+  db: Db,
+  missionIds: readonly string[],
+): Promise<Map<string, Map<string, number>>> {
   const r = await db.query(
-    `SELECT l.tache_id, l.centiemes FROM lignes_temps l JOIN feuilles_temps f ON f.id = l.feuille_id
-     WHERE l.mission_id = $1 AND f.statut = 'soumise'`,
-    [missionId],
+    `SELECT l.mission_id, l.tache_id, l.centiemes
+     FROM lignes_temps l JOIN feuilles_temps f ON f.id = l.feuille_id
+     WHERE l.mission_id = ANY ($1::uuid[]) AND f.statut = 'soumise'`,
+    [missionIds],
   );
-  return grouper(r.rows.map((l) => [l.tache_id as string, jours(l.centiemes)]));
+  const couples = new Map<string, [string, number][]>();
+  for (const l of r.rows) {
+    ajouter(couples, l.mission_id as string, [l.tache_id as string, jours(l.centiemes)]);
+  }
+  return new Map([...couples].map(([id, c]) => [id, grouper(c)]));
 }
 
-/** Dernière déclaration de reste à faire de chaque collaborateur sur chaque tâche. */
-async function resteDeclare(db: Db, missionId: string): Promise<Montant[]> {
+/** Dernière déclaration de reste à faire de chaque collaborateur sur chaque tâche, par mission. */
+async function restesDeclares(
+  db: Db,
+  missionIds: readonly string[],
+): Promise<Map<string, Montant[]>> {
+  // Une tâche appartient à une seule mission : DISTINCT ON (tâche, collaborateur) suffit.
   const r = await db.query(
-    `SELECT DISTINCT ON (tache_id, collaborateur_id) tache_id, collaborateur_id, centiemes
-     FROM reste_a_faire WHERE mission_id = $1
+    `SELECT DISTINCT ON (tache_id, collaborateur_id) mission_id, tache_id, collaborateur_id, centiemes
+     FROM reste_a_faire WHERE mission_id = ANY ($1::uuid[])
      ORDER BY tache_id, collaborateur_id, ordre DESC`,
-    [missionId],
+    [missionIds],
   );
-  return r.rows.map((l) => ({
-    tache_id: l.tache_id as string,
-    collaborateur_id: l.collaborateur_id as string,
-    jours: jours(l.centiemes),
-  }));
+  const parMission = new Map<string, Montant[]>();
+  for (const l of r.rows) {
+    ajouter(parMission, l.mission_id as string, {
+      tache_id: l.tache_id as string,
+      collaborateur_id: l.collaborateur_id as string,
+      jours: jours(l.centiemes),
+    });
+  }
+  return parMission;
 }
 
+/** Somme moteur (au centième) des valeurs de chaque clé. */
 function grouper(couples: readonly [string, number][]): Map<string, number> {
   const brut = new Map<string, number[]>();
-  for (const [cle, v] of couples) brut.set(cle, [...(brut.get(cle) ?? []), v]);
+  for (const [cle, v] of couples) ajouter(brut, cle, v);
   return new Map([...brut].map(([cle, v]) => [cle, sommerJours(v)]));
 }
 
@@ -118,6 +208,18 @@ async function personnes(db: Db, ids: string[]): Promise<Map<string, Personne>> 
   return new Map(r.rows.map((p) => [p.id as string, p as Personne]));
 }
 
+async function libellesGrades(
+  db: Db,
+  ids: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  if (ids.length === 0) return new Map();
+  const r = await db.query(
+    "SELECT id, code, libelle, ordre FROM grades WHERE id = ANY ($1::uuid[])",
+    [ids],
+  );
+  return new Map(r.rows.map((g) => [g.id as string, g]));
+}
+
 export interface SuiviMission {
   arbre: NoeudAgrege;
   decoupage: Decoupage;
@@ -130,18 +232,79 @@ export interface SuiviMission {
   performance: Record<string, unknown> | null;
 }
 
+/** Données brutes du suivi d'une mission, lues en lot. */
+interface DonneesSuivi {
+  missionId: string;
+  d: Decoupage;
+  realises: Montant[];
+  restes: Montant[];
+  attente: Map<string, number>;
+}
+
+/** Collaborateurs cités par le suivi : réalisé, reste à faire, budget nominatif (ordre d'apparition). */
+const collaborateursDe = (x: DonneesSuivi): string[] => [
+  ...new Set([
+    ...x.realises.map((m) => m.collaborateur_id),
+    ...x.restes.map((m) => m.collaborateur_id),
+    ...x.d.lignes.flatMap((l) => (l.collaborateur_id ? [l.collaborateur_id as string] : [])),
+  ]),
+];
+
+/**
+ * Suivi de PLUSIEURS missions (sans aucune donnée financière) en un nombre de
+ * requêtes constant ; une mission inconnue reçoit un suivi vide, comme
+ * `calculerSuiviMission`. Toute la logique de calcul est dans `assembler`.
+ */
+export async function calculerSuivisMissions(
+  db: Db,
+  cabinetId: string,
+  missionIds: readonly string[],
+): Promise<Map<string, SuiviMission>> {
+  const ids = [...new Set(missionIds)];
+  const suivis = new Map<string, SuiviMission>();
+  if (ids.length === 0) return suivis;
+  const parametres = await lireParametresTemps(db, cabinetId);
+  const decoupages = await chargerDecoupages(db, ids);
+  const realises = await realisesValides(db, ids);
+  const restes = await restesDeclares(db, ids);
+  const attentes = await enAttente(db, ids);
+  const donnees: DonneesSuivi[] = ids.map((id) => ({
+    missionId: id,
+    d: decoupages.get(id) ?? decoupageVide(),
+    realises: realises.get(id) ?? [],
+    restes: restes.get(id) ?? [],
+    attente: attentes.get(id) ?? new Map(),
+  }));
+  const gens = await personnes(db, [...new Set(donnees.flatMap(collaborateursDe))]);
+  // Grades cités : ceux des lignes de budget et ceux des collaborateurs.
+  const grades = new Set<string>();
+  for (const x of donnees) {
+    for (const l of x.d.lignes) if (l.grade_id) grades.add(l.grade_id as string);
+  }
+  for (const p of gens.values()) if (p.grade_id) grades.add(p.grade_id);
+  const infoGrade = await libellesGrades(db, [...grades]);
+  for (const x of donnees) suivis.set(x.missionId, assembler(x, gens, infoGrade, parametres));
+  return suivis;
+}
+
 /** Calcule le suivi complet d'une mission (sans aucune donnée financière). */
 export async function calculerSuiviMission(
   db: Db,
   cabinetId: string,
   missionId: string,
 ): Promise<SuiviMission> {
-  const parametres = await lireParametresTemps(db, cabinetId);
+  return (await calculerSuivisMissions(db, cabinetId, [missionId])).get(missionId) as SuiviMission;
+}
+
+/** Calcul pur du suivi d'une mission (moteur) à partir des données lues. */
+function assembler(
+  x: DonneesSuivi,
+  gens: ReadonlyMap<string, Personne>,
+  infoGrade: ReadonlyMap<string, Record<string, unknown>>,
+  parametres: { seuilConsommationPct: number },
+): SuiviMission {
+  const { missionId, d, realises, restes, attente } = x;
   const seuils = seuilsSuivi(parametres);
-  const d = await chargerDecoupage(db, missionId);
-  const realises = await realiseValide(db, missionId);
-  const restes = await resteDeclare(db, missionId);
-  const attente = await enAttente(db, missionId);
 
   const budgetTache = grouper(d.lignes.map((l) => [l.tache_id as string, nombre(l.jours)]));
   const realiseTache = grouper(realises.map((m) => [m.tache_id, m.jours]));
@@ -192,14 +355,7 @@ export async function calculerSuiviMission(
   );
 
   // Par personne : budget nominatif, réalisé, reste à faire déclaré.
-  const ids = [
-    ...new Set([
-      ...realises.map((m) => m.collaborateur_id),
-      ...restes.map((m) => m.collaborateur_id),
-      ...d.lignes.flatMap((l) => (l.collaborateur_id ? [l.collaborateur_id as string] : [])),
-    ]),
-  ];
-  const gens = await personnes(db, ids);
+  const ids = collaborateursDe(x);
   const budgetPersonne = grouper(
     d.lignes.flatMap((l) =>
       l.collaborateur_id
@@ -248,11 +404,6 @@ export async function calculerSuiviMission(
   for (const cle of [...budgetTG.keys(), ...realiseTG.keys(), ...resteTG.keys()]) {
     grades.add(cle.split("|")[1] as string);
   }
-  const libellesGrades = await db.query(
-    "SELECT id, code, libelle, ordre FROM grades WHERE id = ANY ($1::uuid[])",
-    [[...grades].filter((g) => g !== "")],
-  );
-  const infoGrade = new Map(libellesGrades.rows.map((g) => [g.id as string, g]));
   const parGrade = [...grades]
     .map((g) => {
       const budgets: number[] = [];

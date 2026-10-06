@@ -36,12 +36,14 @@ import { filtreVisibilite, voitToutesLesMissions } from "../missions/acces.js";
 import { chargerCalendrier } from "../missions/outils.js";
 import { absencesValidees, affectationsDe } from "../planification/charge.js";
 import { jours as joursDe } from "../temps/outils.js";
+import type { SuiviMission } from "../temps/suivi.js";
 import {
   analyserMissions,
   chargerMissions,
+  chargerReferencesAnalyse,
   coutsProduction,
   deviseDuCabinet,
-  suiviMission,
+  suivisMissions,
   syntheseReference,
   versDeviseCabinet,
   versionAtterrissage,
@@ -163,6 +165,19 @@ async function indicateursCollaborateurs(
   const feuilles = new Map(
     f.rows.map((l) => [`${l.collaborateur_id as string}|${l.semaine as string}`, l]),
   );
+  // Regroupement par collaborateur en un passage (au lieu d'un filtre par collaborateur).
+  const affectationsPar = new Map<string, typeof affectations>();
+  for (const a of affectations) {
+    const liste = affectationsPar.get(a.personneId);
+    if (liste) liste.push(a);
+    else affectationsPar.set(a.personneId, [a]);
+  }
+  const facturablesPar = new Map<string, number[]>();
+  for (const l of t.rows) {
+    const liste = facturablesPar.get(l.collaborateur_id as string);
+    if (liste) liste.push(joursDe(l.centiemes));
+    else facturablesPar.set(l.collaborateur_id as string, [joursDe(l.centiemes)]);
+  }
   return r.rows.map((c) => {
     const id = c.id as string;
     const attendues: FeuilleAttendue[] = c.saisit
@@ -187,13 +202,9 @@ async function indicateursCollaborateurs(
       grade_ordre: Number(c.grade_ordre),
       disponibles: capacite(periode, calendrier, absences.get(id) ?? [], Number(c.capacite_pct)),
       affectes: sommerJours(
-        affectations
-          .filter((a) => a.personneId === id)
-          .map((a) => joursAffectesSurPeriode(a, periode, calendrier)),
+        (affectationsPar.get(id) ?? []).map((a) => joursAffectesSurPeriode(a, periode, calendrier)),
       ),
-      facturables: sommerJours(
-        t.rows.filter((l) => l.collaborateur_id === id).map((l) => joursDe(l.centiemes)),
-      ),
+      facturables: sommerJours(facturablesPar.get(id) ?? []),
       feuilles: attendues,
     };
   });
@@ -331,14 +342,18 @@ async function indicateursMissions(
   );
   const ids = toutes.map((m) => m.id);
   const jalons = await jalonsDesMissions(db, ids, periode);
-  const surPeriode = await analyserMissions(db, toutes, periode.debut, periode.fin);
-  const cumulees = await analyserMissions(db, toutes, null, periode.fin);
+  // Coûts et tarifications lus une fois pour les deux analyses (période et cumul).
+  const references = await chargerReferencesAnalyse(db, toutes);
+  const surPeriode = await analyserMissions(db, toutes, periode.debut, periode.fin, references);
+  const cumulees = await analyserMissions(db, toutes, null, periode.fin, references);
+  // Suivi en jours de toutes les missions en lot (nombre de requêtes constant).
+  const suivis = await suivisMissions(db, auth.cabinetId, ids);
   const exclues: string[] = [];
   const missions: MissionIndicateurs[] = [];
   for (const [i, mission] of toutes.entries()) {
     const a = surPeriode[i] as AnalyseMission;
     const cumul = cumulees[i] as AnalyseMission;
-    const suivi = await suiviMission(db, auth.cabinetId, mission.id);
+    const suivi = suivis.get(mission.id) as SuiviMission;
     const s = suivi.arbre.suivi;
     const reference = syntheseReference(cumul.tarification);
     const atterrissage = cumul.tarification.reference

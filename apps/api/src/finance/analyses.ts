@@ -254,22 +254,36 @@ export function rentabilite(
   };
 }
 
-/** Suivi en jours (budget, réalisé, atterrissage) des missions, sans donnée financière. */
+/**
+ * Suivi en jours (budget, réalisé, atterrissage) des missions, sans donnée
+ * financière. `suivis` lit toutes les missions EN LOT (finance/donnees.ts
+ * `suivisMissions`) : nombre de requêtes constant.
+ */
 export async function joursDesMissions(
   db: Db,
   cabinetId: string,
   missions: readonly MissionDonnees[],
-  suivi: (
+  suivis: (
     db: Db,
     cabinetId: string,
-    missionId: string,
-  ) => Promise<{
-    arbre: { suivi: { budget: number; realise: number; atterrissage: number } };
-  }>,
+    missionIds: readonly string[],
+  ) => Promise<
+    ReadonlyMap<
+      string,
+      { arbre: { suivi: { budget: number; realise: number; atterrissage: number } } }
+    >
+  >,
 ): Promise<Map<string, { budget: number; realise: number; atterrissage: number }>> {
   const parMission = new Map<string, { budget: number; realise: number; atterrissage: number }>();
+  if (missions.length === 0) return parMission;
+  const lus = await suivis(
+    db,
+    cabinetId,
+    missions.map((m) => m.id),
+  );
   for (const m of missions) {
-    const s = (await suivi(db, cabinetId, m.id)).arbre.suivi;
+    const s = lus.get(m.id)?.arbre.suivi;
+    if (!s) continue;
     parMission.set(m.id, { budget: s.budget, realise: s.realise, atterrissage: s.atterrissage });
   }
   return parMission;

@@ -33,7 +33,7 @@ import {
   analyserMissions,
   chargerMissions,
   deviseDuCabinet,
-  suiviMission,
+  suivisMissions,
 } from "../finance/donnees.js";
 import {
   COLONNES_FACTURE_PAIEMENT,
@@ -61,7 +61,8 @@ import {
  * - Rentabilité : période de 366 jours au plus (INDICATEURS_MAX_JOURS, comme
  *   les indicateurs : une analyse de pilotage porte sur un exercice ; l'export
  *   comptable, qui sert aussi aux reprises, garde 731 jours).
- * - Tarifications chargées en lot (finance/donnees.ts `chargerTarifications`).
+ * - Tarifications et suivis en jours chargés en lot (finance/donnees.ts
+ *   `chargerTarifications`, `suivisMissions`) : nombre de requêtes constant.
  */
 
 const VUE_TRANCHES = {
@@ -241,7 +242,7 @@ export const routesFinanceAnalyses: FastifyPluginAsync = async (app) => {
         db,
         auth.cabinetId,
         analyses.map((a) => a.mission),
-        suiviMission,
+        suivisMissions,
       );
       const r = rentabilite(analyses, q.niveau, devise, jours);
       return {

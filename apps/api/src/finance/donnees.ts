@@ -32,7 +32,7 @@ import {
 } from "../missions/budget.js";
 import { nombre } from "../missions/outils.js";
 import { jours } from "../temps/outils.js";
-import { calculerSuiviMission, type SuiviMission } from "../temps/suivi.js";
+import { calculerSuiviMission, calculerSuivisMissions, type SuiviMission } from "../temps/suivi.js";
 
 /*
  * DONNÉES ET VALORISATION DES MISSIONS (FIN-11, FIN-12, bilan, indicateurs)
@@ -448,6 +448,20 @@ export interface AnalyseMission {
   debours_autre_devise: number;
 }
 
+/** Données d'analyse indépendantes de la période (coûts datés, tarifications des missions). */
+export interface ReferencesAnalyse {
+  couts: ResolveurCout;
+  tarifications: ReadonlyMap<string, Tarification>;
+}
+
+/** Coûts et tarifications des missions, lus une fois pour plusieurs analyses. */
+export async function chargerReferencesAnalyse(
+  db: Db,
+  missions: readonly MissionDonnees[],
+): Promise<ReferencesAnalyse> {
+  return { couts: await chargerCouts(db), tarifications: await chargerTarifications(db, missions) };
+}
+
 /** Somme moteur des montants de la devise attendue ; les autres sont comptés à part. */
 function sommeDevise(
   montants: readonly Montant[],
@@ -461,19 +475,22 @@ function sommeDevise(
  * Analyse financière des missions sur [du, au] (bornes facultatives) :
  * valeur produite, valeur au taux standard, honoraires facturés, coûts,
  * débours non refacturés, en devise de chaque mission (moteur).
+ * `references` : coûts et tarifications déjà chargés pour ces missions (ils ne
+ * dépendent pas de la période), pour analyser plusieurs périodes sans les relire.
  */
 export async function analyserMissions(
   db: Db,
   missions: readonly MissionDonnees[],
   du: string | null,
   au: string | null,
+  references?: ReferencesAnalyse,
 ): Promise<AnalyseMission[]> {
   const ids = missions.map((m) => m.id);
   const temps = await tempsValides(db, ids, du, au);
-  const couts = await chargerCouts(db);
+  const couts = references?.couts ?? (await chargerCouts(db));
   const factures = await honorairesFactures(db, ids, du, au);
   const debours = await deboursNonRefactures(db, ids, du, au);
-  const tarifications = await chargerTarifications(db, missions);
+  const tarifications = references?.tarifications ?? (await chargerTarifications(db, missions));
   const tempsParMission = new Map<string, TempsValideLigne[]>();
   for (const t of temps) {
     const liste = tempsParMission.get(t.mission_id) ?? [];
@@ -623,3 +640,10 @@ export const coutsProduction = (s: SyntheseBudget): Montant =>
 /** Suivi en jours d'une mission (temps/suivi.ts, sans donnée financière). */
 export const suiviMission = (db: Db, cabinetId: string, missionId: string) =>
   calculerSuiviMission(db, cabinetId, missionId);
+
+/**
+ * Suivi en jours de plusieurs missions EN LOT (temps/suivi.ts) : nombre de
+ * requêtes constant, quel que soit le nombre de missions.
+ */
+export const suivisMissions = (db: Db, cabinetId: string, missionIds: readonly string[]) =>
+  calculerSuivisMissions(db, cabinetId, missionIds);
