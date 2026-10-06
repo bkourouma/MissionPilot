@@ -65,6 +65,8 @@ export const PERMISSIONS = [
   "document.ecrire", // documents de mission (SOC-05)
   "conges.demander", // demander un congé ou une absence pour soi (PLN-07)
   "temps.importer", // importer l'historique des temps (TPS-10)
+  "debours.saisir", // déclarer ses débours et notes de frais (FIN-05)
+  "debours.valider", // valider les débours d'une mission dont on est chef ou directeur (FIN-05)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -100,6 +102,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "budget.lire_montants",
     "document.ecrire",
     "conges.demander",
+    "debours.saisir",
+    "debours.valider",
   ],
   chef_mission: [
     "clients.lire",
@@ -119,6 +123,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "budget.lire_montants",
     "document.ecrire",
     "conges.demander",
+    "debours.saisir",
+    "debours.valider",
   ],
   consultant: [
     "clients.lire",
@@ -128,6 +134,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "temps.saisir",
     "document.ecrire",
     "conges.demander",
+    "debours.saisir",
   ],
   ressources: [
     "clients.lire",
@@ -142,6 +149,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "temps.saisir",
     "mission.lire_toutes",
     "conges.demander",
+    "debours.saisir",
   ],
   gestionnaire: [
     "clients.lire",
@@ -164,6 +172,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "mission.lire_toutes",
     "budget.lire_montants",
     "conges.demander",
+    "debours.saisir",
   ],
   expert_metier: [
     "catalogue.lire",
@@ -172,8 +181,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "temps.saisir",
     "document.ecrire",
     "conges.demander",
+    "debours.saisir",
   ],
-  expert_externe: ["temps.saisir"],
+  expert_externe: ["temps.saisir", "debours.saisir"],
 };
 
 /** Les associés et gestionnaires seuls voient coûts, taux et marges (FIN-02). */

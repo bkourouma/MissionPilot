@@ -1,8 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
-import { estPasValide, lundiDeLaSemaine, versCentiemes } from "@missionpilot/engines";
-import { resteAFaireDeclarationSchema, resteAFaireQuerySchema } from "@missionpilot/shared";
+import { estPasValide, lundiDeLaSemaine, versCentiemes, type Devise } from "@missionpilot/engines";
+import {
+  aPermission,
+  resteAFaireDeclarationSchema,
+  resteAFaireQuerySchema,
+} from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import { exiger } from "../auth/contexte.js";
+import { deboursValidesMission } from "../facturation/debours.js";
 import { AppError, conflit, interdit, requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
 import { exigerMissionVisible, peutModifierMission } from "../missions/acces.js";
@@ -156,6 +161,12 @@ export const routesSuiviTemps: FastifyPluginAsync = async (app) => {
         en_attente: arbre.en_attente,
         performance: s.performance,
         alertes: alertes.rows,
+        // Débours validés (FIN-05) : les non refacturables alimentent le réalisé
+        // financier. Montants servis seulement avec « budget.lire_montants ».
+        ...(aPermission(auth.roles, "budget.lire_montants") ||
+        aPermission(auth.roles, "finance.lire")
+          ? { debours: await deboursValidesMission(db, id, mission.devise as Devise) }
+          : {}),
       };
     });
   });

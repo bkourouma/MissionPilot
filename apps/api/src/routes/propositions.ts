@@ -85,7 +85,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
     const g = propositionGenerationSchema.parse(request.body);
     const creee = await app.db.withTenant(auth.cabinetId, async (db) => {
       const o = await db.query(
-        "SELECT id, intitule, devise, type_mission_id, statut FROM opportunites WHERE id = $1 FOR UPDATE",
+        "SELECT id, client_id, intitule, devise, type_mission_id, statut FROM opportunites WHERE id = $1 FOR UPDATE",
         [id],
       );
       const opp = o.rows[0];
@@ -96,6 +96,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
       const type = await db.query("SELECT id FROM types_mission WHERE id = $1", [typeId]);
       if (!type.rowCount) throw requeteInvalide("Type de mission inconnu dans ce cabinet.");
       const devise = g.devise ?? opp.devise;
+      const dateReference = g.date_reference ?? aujourdhui();
       const r = await db.query(
         `INSERT INTO propositions (cabinet_id, opportunite_id, type_mission_id, numero, intitule, devise,
            date_reference, equipe, cree_par)
@@ -107,13 +108,17 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
           await prochainNumero(db, id),
           g.intitule ?? opp.intitule,
           devise,
-          g.date_reference ?? aujourdhui(),
+          dateReference,
           auth.utilisateurId,
           typeId,
         ],
       );
       const propositionId = r.rows[0].id as string;
-      await remplirDepuisModele(db, auth.cabinetId, propositionId, typeId, devise);
+      // Taux négociés du client valides à la date de référence (FIN-02).
+      await remplirDepuisModele(db, auth.cabinetId, propositionId, typeId, devise, {
+        clientId: opp.client_id,
+        date: dateReference,
+      });
       await journaliser(db, {
         cabinetId: auth.cabinetId,
         utilisateurId: auth.utilisateurId,

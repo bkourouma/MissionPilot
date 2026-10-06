@@ -9,6 +9,7 @@ import { AppError } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
 import { routesAuth } from "./routes/auth.js";
+import { routesFacturation } from "./routes/facturation-routes.js";
 import { routesCycleMission } from "./routes/missions-routes.js";
 import { routesPlanification } from "./routes/planification-routes.js";
 import { routesReferentiels } from "./routes/referentiels.js";
@@ -104,5 +105,6 @@ export async function buildApp(
   await app.register(routesCycleMission, { prefix: "/api" });
   await app.register(routesPlanification, { prefix: "/api" });
   await app.register(routesTemps, { prefix: "/api" });
+  await app.register(routesFacturation, { prefix: "/api" });
   return app;
 }

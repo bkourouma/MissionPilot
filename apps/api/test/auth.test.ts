@@ -39,6 +39,14 @@ describe("authentification", () => {
     expect(moi.body).not.toMatch(/hash|mot_de_passe/);
   });
 
+  it("sans 2FA : connexion en un temps, /moi porte les drapeaux 2FA", async () => {
+    const r = await connexion(a.email, MOT_DE_PASSE_TEST);
+    expect(r.json()).toEqual({ ok: true, etape: "connecte" });
+    const cookie = `${r.cookies[0]!.name}=${r.cookies[0]!.value}`;
+    const moi = await ctx.app.inject({ method: "GET", url: "/api/auth/moi", headers: { cookie } });
+    expect(moi.json()).toMatchObject({ tfa_active: false, tfa_a_configurer: false });
+  });
+
   it("le jeton n'est pas stocké en clair", async () => {
     const cookie = await connecter(ctx, a.email);
     const jeton = cookie.split("=")[1]!;

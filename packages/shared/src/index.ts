@@ -1,6 +1,7 @@
 export * from "./roles";
 export * from "./schemas/commun";
 export * from "./schemas/utilisateurs";
+export * from "./schemas/double-authentification";
 export * from "./schemas/cabinet";
 export * from "./schemas/clients";
 export * from "./schemas/collaborateurs";
@@ -9,3 +10,4 @@ export * from "./schemas/pipeline";
 export * from "./schemas/missions";
 export * from "./schemas/planification";
 export * from "./schemas/temps";
+export * from "./schemas/facturation";

@@ -1,5 +1,6 @@
 import {
   calculerBudget,
+  ErreurFinance,
   figerTauxChange,
   GRILLE_SEUILS_PAR_DEFAUT,
   montant as montantMoteur,
@@ -12,11 +13,13 @@ import {
   soustraire,
   type Devise,
   type GrilleSeuils,
+  type GrilleTaux,
   type LigneBudget,
   type Montant,
   type RoleApprobateur,
   type SyntheseBudget,
   type TauxChange,
+  type TauxNegocie,
   type TypeVersionBudget,
   type VersionBudget,
 } from "@missionpilot/engines";
@@ -279,33 +282,102 @@ async function coutsALaDate(
 }
 
 /**
- * Grille standard des taux de vente de la mission : taux imposés, sinon taux
- * de la proposition d'origine, sinon taux standard du grade s'il est dans la
- * devise de la mission.
+ * Grille des taux de vente de la mission (FIN-02), par ordre de priorité :
+ * 1. taux imposés à la signature, puis taux de la proposition d'origine
+ *    (prix convenus avec le client : `fixes`) ;
+ * 2. taux négociés du client de la mission dans sa devise, valides à la date
+ *    (`negocies`, table taux_clients) ;
+ * 3. taux standard du grade s'il est dans la devise de la mission.
+ * La résolution 2 → 3 est faite par le moteur (`resoudreTauxGrade`).
  */
-async function grilleStandard(
+export interface GrilleVente {
+  fixes: Record<string, Montant>;
+  grille: GrilleTaux;
+  clientId: string | undefined;
+}
+
+/** Taux négociés d'un client dans une devise, au format du moteur. */
+export async function tauxNegociesClient(
   db: Db,
-  mission: MissionAcces,
-  imposes: Record<string, number>,
-): Promise<Record<string, Montant>> {
+  clientId: string | undefined,
+  devise: Devise,
+): Promise<TauxNegocie[]> {
+  if (!clientId) return [];
+  const r = await db.query(
+    `SELECT g.code, t.taux, t.valide_du::text AS valide_du, t.valide_au::text AS valide_au
+     FROM taux_clients t JOIN grades g ON g.id = t.grade_id
+     WHERE t.client_id = $1 AND t.devise = $2`,
+    [clientId, devise],
+  );
+  return r.rows.map((t) => ({
+    clientId,
+    grade: t.code as string,
+    taux: montantMoteur(nombre(t.taux), devise),
+    ...(t.valide_du ? { valideDu: t.valide_du as string } : {}),
+    ...(t.valide_au ? { valideAu: t.valide_au as string } : {}),
+  }));
+}
+
+export async function chargerGrilleVente(
+  db: Db,
+  mission: Pick<MissionAcces, "devise" | "proposition_id"> & { client_id?: string | null },
+  imposes: Record<string, number> = {},
+): Promise<GrilleVente> {
   const devise = mission.devise as Devise;
   const grades = await db.query(
     `SELECT g.code, g.taux_vente_standard, g.devise, pt.taux_journalier AS taux_proposition
      FROM grades g
      LEFT JOIN proposition_taux pt ON pt.grade_id = g.id AND pt.proposition_id = $1`,
-    [mission.proposition_id],
+    [mission.proposition_id ?? null],
   );
+  const fixes: Record<string, Montant> = {};
   const standard: Record<string, Montant> = {};
   for (const g of grades.rows) {
-    const valeur =
-      imposes[g.code] ??
-      (g.taux_proposition !== null ? nombre(g.taux_proposition) : undefined) ??
-      (g.devise === devise && g.taux_vente_standard !== null
-        ? nombre(g.taux_vente_standard)
-        : undefined);
-    if (valeur !== undefined) standard[g.code] = montantMoteur(valeur, devise);
+    const fixe =
+      imposes[g.code] ?? (g.taux_proposition !== null ? nombre(g.taux_proposition) : undefined);
+    if (fixe !== undefined) fixes[g.code] = montantMoteur(fixe, devise);
+    if (g.devise === devise && g.taux_vente_standard !== null) {
+      standard[g.code] = montantMoteur(nombre(g.taux_vente_standard), devise);
+    }
   }
-  return standard;
+  const clientId = mission.client_id ?? undefined;
+  return {
+    fixes,
+    grille: { standard, negocies: await tauxNegociesClient(db, clientId, devise) },
+    clientId,
+  };
+}
+
+/** Taux fixé (signature, proposition) pour ce grade, s'il existe. */
+export function tauxFixe(g: GrilleVente, grade: string): Montant | undefined {
+  return Object.hasOwn(g.fixes, grade) ? g.fixes[grade] : undefined;
+}
+
+/** Taux négocié valide à la date pour ce grade (moteur), ou undefined. */
+export function tauxNegocie(g: GrilleVente, grade: string, date: string): Montant | undefined {
+  if (g.clientId === undefined || (g.grille.negocies ?? []).length === 0) return undefined;
+  const negocies: GrilleTaux = { standard: {}, negocies: g.grille.negocies ?? [] };
+  try {
+    return resoudreTauxGrade(negocies, { grade, clientId: g.clientId, date }).taux;
+  } catch (error) {
+    if (error instanceof ErreurFinance && error.code === "TAUX_INCONNU") return undefined;
+    throw error;
+  }
+}
+
+/**
+ * Taux de vente d'un grade à une date : fixé, sinon négocié, sinon standard
+ * (moteur ; TAUX_INCONNU si aucun).
+ */
+export function resoudreTauxVente(g: GrilleVente, grade: string, date: string): Montant {
+  return (
+    tauxFixe(g, grade) ??
+    resoudreTauxGrade(g.grille, {
+      grade,
+      date,
+      ...(g.clientId === undefined ? {} : { clientId: g.clientId }),
+    }).taux
+  );
 }
 
 /** Coût journalier moyen des collaborateurs internes actifs d'un grade, dans la devise. */
@@ -346,7 +418,7 @@ export async function calculerDepuisDecoupage(
   const devise = mission.devise as Devise;
   const groupes = await groupesDeJours(db, mission.id);
   const couts = await coutsALaDate(db, options.date);
-  const grille = { standard: await grilleStandard(db, mission, options.tauxVente ?? {}) };
+  const grille = await chargerGrilleVente(db, mission, options.tauxVente ?? {});
   const moyennes = await coutMoyenParGrade(db, couts, devise);
   const lignes: LigneBudgetDb[] = [];
   const coutsManquants: string[] = [];
@@ -354,10 +426,16 @@ export async function calculerDepuisDecoupage(
     const jours = sommerJours(g.jours);
     const perso = g.collaborateurId === null ? undefined : couts.get(g.collaborateurId);
     const venteSpecifique = perso && perso.devise === devise ? perso.vente : null;
+    // Un taux négocié avec le client (sans taux fixé pour le grade) l'emporte
+    // sur le taux de vente spécifique du collaborateur et sur le standard.
+    const grade = g.gradeCode ?? "";
+    const negocie =
+      tauxFixe(grille, grade) === undefined ? tauxNegocie(grille, grade, options.date) : undefined;
     const prix =
       options.prixReference?.get(`honoraires:${g.cle}`) ??
+      negocie?.valeur ??
       venteSpecifique ??
-      resoudreTauxGrade(grille, { grade: g.gradeCode ?? "", date: options.date }).taux.valeur;
+      resoudreTauxVente(grille, grade, options.date).valeur;
     const base = { grade_code: g.gradeCode, jours, montant_forfait: null, refacturable: false };
     lignes.push({
       ...base,

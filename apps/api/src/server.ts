@@ -1,13 +1,19 @@
 import { buildApp } from "./app.js";
 import { loadConfig, workerActif } from "./config.js";
+import { trousseauDepuisConfig } from "./auth/chiffrement.js";
 import { createDatabase } from "./db/pool.js";
+import { registreAvecEmails } from "./notifications/file-email.js";
 import { WorkerJobs } from "./jobs/worker.js";
 
 const config = loadConfig();
 const db = createDatabase(config);
 const app = await buildApp(config, db);
 const worker = workerActif(config)
-  ? new WorkerJobs(db, { mailer: app.mailer, journal: (m) => app.log.warn(m) })
+  ? new WorkerJobs(db, {
+      mailer: app.mailer,
+      registre: registreAvecEmails(app.mailer, trousseauDepuisConfig(config)),
+      journal: (m) => app.log.warn(m),
+    })
   : null;
 
 const arret = async () => {

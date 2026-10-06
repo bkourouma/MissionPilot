@@ -30,6 +30,28 @@ describe("droits par rôle", () => {
     expect(aPermission(["consultant"], "facture.emettre")).toBe(false);
   });
 
+  it("facturation (FIN-05, FIN-07, FIN-15) : matrice des 8 rôles", () => {
+    const qui = (p: Parameters<typeof aPermission>[1]) =>
+      ROLES.filter((r) => aPermission([r], p)).sort();
+    expect(qui("debours.saisir")).toEqual([...ROLES].sort());
+    expect(qui("debours.valider")).toEqual(["associe", "chef_mission", "directeur_mission"]);
+    expect(qui("facture.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "gestionnaire",
+    ]);
+    expect(qui("facture.emettre")).toEqual(["associe", "gestionnaire"]);
+    expect(qui("facture.valider")).toEqual(["associe", "directeur_mission"]);
+    expect(qui("taux.gerer")).toEqual(["associe", "gestionnaire"]);
+    // Celui qui émet n'approuve pas seul : seul l'associé cumule les deux droits.
+    expect(
+      ROLES.filter(
+        (r) => aPermission([r], "facture.emettre") && aPermission([r], "facture.valider"),
+      ),
+    ).toEqual(["associe"]);
+  });
+
   it("les droits de plusieurs rôles s'additionnent", () => {
     expect(aPermission(["consultant", "ressources"], "affectation.gerer")).toBe(true);
   });

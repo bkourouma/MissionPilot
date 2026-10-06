@@ -1,5 +1,6 @@
 import {
   calculerBudget,
+  ErreurFinance,
   montant as montantMoteur,
   montantLigne,
   sommerJours,
@@ -9,7 +10,8 @@ import {
 import type { Db } from "../db/pool.js";
 import { introuvable } from "../errors.js";
 import { ordonnerArbre } from "../routes/catalogue.js";
-import { gradesParCode, nombre } from "./outils.js";
+import { chargerGrilleVente, resoudreTauxVente } from "./budget.js";
+import { aujourdhui, gradesParCode, nombre } from "./outils.js";
 
 export const COLONNES_PROPOSITION = `p.id, p.opportunite_id, p.type_mission_id, p.numero, p.intitule,
   p.devise, p.date_reference::text AS date_reference, p.equipe, p.statut, p.validee_par, p.validee_le,
@@ -31,8 +33,9 @@ export async function exigerProposition(
 
 /**
  * Génère le contenu d'une proposition depuis le modèle d'un type (MIS-05) :
- * découpage, jours par grade et taux standard des grades dans la devise
- * (null si le grade n'a pas de taux dans cette devise : à renseigner).
+ * découpage, jours par grade et taux de vente des grades dans la devise :
+ * taux négocié du client valide à la date de référence (FIN-02), sinon taux
+ * standard, résolus par le moteur (null si aucun : à renseigner).
  */
 export async function remplirDepuisModele(
   db: Db,
@@ -40,6 +43,7 @@ export async function remplirDepuisModele(
   propositionId: string,
   typeId: string,
   devise: string,
+  client: { clientId: string; date: string } | null = null,
 ): Promise<void> {
   const elements = await db.query(
     `SELECT id, parent_id, niveau, libelle, ordre, est_livrable, est_jalon, jours_par_grade
@@ -79,12 +83,24 @@ export async function remplirDepuisModele(
       );
     }
   }
-  await db.query(
-    `INSERT INTO proposition_taux (cabinet_id, proposition_id, grade_id, taux_journalier)
-     SELECT $1, $2, g.id, CASE WHEN g.devise = $4 THEN g.taux_vente_standard END
-     FROM grades g WHERE g.code = ANY ($3::text[])`,
-    [cabinetId, propositionId, [...new Set(codes)], devise],
-  );
+  const grille = await chargerGrilleVente(db, {
+    devise,
+    proposition_id: null,
+    client_id: client?.clientId ?? null,
+  });
+  for (const code of [...new Set(codes)]) {
+    let taux: number | null = null;
+    try {
+      taux = resoudreTauxVente(grille, code, client?.date ?? aujourdhui()).valeur;
+    } catch (error) {
+      if (!(error instanceof ErreurFinance && error.code === "TAUX_INCONNU")) throw error;
+    }
+    await db.query(
+      `INSERT INTO proposition_taux (cabinet_id, proposition_id, grade_id, taux_journalier)
+       VALUES ($1, $2, $3, $4)`,
+      [cabinetId, propositionId, grades.get(code), taux],
+    );
+  }
 }
 
 /** Copie le contenu d'une proposition dans une nouvelle version (brouillon). */
