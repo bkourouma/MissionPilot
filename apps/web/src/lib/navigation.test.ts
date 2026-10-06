@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ROLES, type Role } from "@missionpilot/shared";
-import { entreesAutorisees, estActive, NAVIGATION } from "./navigation";
+import {
+  entreesAutorisees,
+  estActive,
+  NAVIGATION,
+  sousPageActive,
+  sousPagesAutorisees,
+} from "./navigation";
 
 const ids = (roles: Role[]) => entreesAutorisees(roles).map((e) => e.id);
 
@@ -10,13 +16,14 @@ describe("table de navigation", () => {
     expect(new Set(NAVIGATION.map((e) => e.href)).size).toBe(NAVIGATION.length);
   });
 
-  it("contient les dix rubriques prévues, dans l'ordre", () => {
+  it("contient les onze rubriques prévues, dans l'ordre", () => {
     expect(NAVIGATION.map((e) => e.libelle)).toEqual([
       "Tableau de bord",
       "Mon planning",
       "Feuille de temps",
       "Missions",
       "Clients",
+      "Collaborateurs",
       "Catalogue",
       "Plan de charge",
       "Facturation",
@@ -25,8 +32,22 @@ describe("table de navigation", () => {
     ]);
   });
 
-  it("ne marque disponible que le tableau de bord (les autres écrans n'existent pas encore)", () => {
-    expect(NAVIGATION.filter((e) => e.disponible).map((e) => e.id)).toEqual(["tableau-de-bord"]);
+  it("ne marque disponibles que les écrans livrés (référentiels de la V1)", () => {
+    expect(NAVIGATION.filter((e) => e.disponible).map((e) => e.id)).toEqual([
+      "tableau-de-bord",
+      "clients",
+      "collaborateurs",
+      "catalogue",
+      "parametres",
+    ]);
+  });
+
+  it("donne des sous-pages aux chemins uniques, rattachées à leur rubrique", () => {
+    for (const e of NAVIGATION) {
+      const pages = e.sousPages ?? [];
+      expect(new Set(pages.map((p) => p.href)).size).toBe(pages.length);
+      for (const p of pages) expect(estActive(e, p.href)).toBe(true);
+    }
   });
 });
 
@@ -44,6 +65,13 @@ describe("entreesAutorisees", () => {
       "clients",
       "catalogue",
     ]);
+  });
+
+  it("ouvre les collaborateurs aux ressources et au gestionnaire, pas au consultant", () => {
+    expect(ids(["ressources"])).toContain("collaborateurs");
+    expect(ids(["gestionnaire"])).toContain("collaborateurs");
+    expect(ids(["consultant"])).not.toContain("collaborateurs");
+    expect(ids(["expert_metier"])).not.toContain("collaborateurs");
   });
 
   it("limite l'expert externe au tableau de bord et à ses temps", () => {
@@ -94,5 +122,32 @@ describe("estActive", () => {
     expect(estActive({ href: "/missions" }, "/missions")).toBe(true);
     expect(estActive({ href: "/missions" }, "/missions/42")).toBe(true);
     expect(estActive({ href: "/missions" }, "/missions-archivees")).toBe(false);
+  });
+});
+
+describe("sous-pages", () => {
+  it("réserve le journal d'audit à qui a audit.lire", () => {
+    expect(sousPagesAutorisees("parametres", ["associe"]).map((p) => p.id)).toEqual([
+      "cabinet",
+      "utilisateurs",
+      "journal",
+    ]);
+    expect(sousPagesAutorisees("parametres", ["gestionnaire"])).toEqual([]);
+  });
+
+  it("donne les types et les grades à tout lecteur du catalogue", () => {
+    expect(sousPagesAutorisees("catalogue", ["consultant"]).map((p) => p.id)).toEqual([
+      "types",
+      "grades",
+    ]);
+    expect(sousPagesAutorisees("inconnue", ["associe"])).toEqual([]);
+  });
+
+  it("active la sous-page la plus précise", () => {
+    const pages = sousPagesAutorisees("catalogue", ["associe"]);
+    expect(sousPageActive(pages, "/catalogue")).toBe("types");
+    expect(sousPageActive(pages, "/catalogue/0b6c2d1e-0000-4000-8000-000000000000")).toBe("types");
+    expect(sousPageActive(pages, "/catalogue/grades")).toBe("grades");
+    expect(sousPageActive(pages, "/clients")).toBeNull();
   });
 });

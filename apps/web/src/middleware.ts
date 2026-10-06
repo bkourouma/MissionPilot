@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE_SESSION, ENTETE_CHEMIN } from "./lib/connexion";
+import { COOKIE_SESSION, ENTETE_CHEMIN, PAGES_PUBLIQUES } from "./lib/connexion";
 
 /**
- * Premier filtre : sans cookie de session, toute page hors /connexion renvoie vers la
+ * Premier filtre : sans cookie de session, toute page hors des pages publiques renvoie vers la
  * connexion. La présence du cookie ne prouve rien : la garde réelle est côté serveur
  * (`obtenirSession` dans le layout applicatif), qui interroge l'API.
  */
@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const connecte = request.cookies.has(COOKIE_SESSION);
 
-  if (!connecte && pathname !== "/connexion") {
+  if (!connecte && !PAGES_PUBLIQUES.includes(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/connexion";
     url.search = pathname === "/" ? "" : `?suite=${encodeURIComponent(pathname + search)}`;

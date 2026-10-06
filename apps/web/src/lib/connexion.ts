@@ -6,6 +6,9 @@ export const COOKIE_SESSION = "mp_session";
 /** En-tête interne posé par le middleware : chemin demandé, pour revenir après connexion. */
 export const ENTETE_CHEMIN = "x-mp-chemin";
 
+/** Pages accessibles sans session : connexion et acceptation d'une invitation. */
+export const PAGES_PUBLIQUES: readonly string[] = ["/connexion", "/invitation"];
+
 const CHEMIN_DEFAUT = "/";
 
 /**

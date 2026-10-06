@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { appelerApi, ErreurApi, erreurDepuisReponse, MESSAGE_RESEAU } from "./api";
+import {
+  appelerApi,
+  champsRefuses,
+  ErreurApi,
+  erreurDepuisReponse,
+  MESSAGE_RESEAU,
+  messageErreur,
+} from "./api";
 
 describe("erreurDepuisReponse", () => {
   it("lit l'enveloppe d'erreur de l'API", () => {
@@ -93,5 +100,33 @@ describe("appelerApi", () => {
       statut: 0,
       message: MESSAGE_RESEAU,
     });
+  });
+});
+
+describe("champsRefuses et messageErreur", () => {
+  it("liste les champs refusés par la validation de l'API", () => {
+    const e = erreurDepuisReponse(400, {
+      erreur: {
+        code: "REQUETE_INVALIDE",
+        message: "Données invalides.",
+        details: { fieldErrors: { rccm: ["String must contain"] }, formErrors: [] },
+      },
+    });
+    expect(champsRefuses(e)).toEqual(["rccm"]);
+    expect(champsRefuses(new Error("x"))).toEqual([]);
+  });
+
+  it("ne montre jamais le message brut d'une validation (souvent en anglais)", () => {
+    const e = erreurDepuisReponse(400, {
+      erreur: { code: "REQUETE_INVALIDE", message: "Données invalides.", details: {} },
+    });
+    expect(messageErreur(e)).toMatch(/^Certaines valeurs ont été refusées/);
+  });
+
+  it("explique un refus de droit et garde les messages métier de l'API", () => {
+    expect(messageErreur(new ErreurApi("INTERDIT", "x", 403))).toMatch(/Votre rôle/);
+    expect(messageErreur(new ErreurApi("CONFLIT", "Un client porte déjà ce RCCM.", 409))).toBe(
+      "Un client porte déjà ce RCCM.",
+    );
   });
 });

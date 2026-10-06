@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Icone, type NomIcone } from "./Icone";
 
 export type VarianteBouton = "primaire" | "secondaire" | "discret" | "danger";
@@ -18,6 +18,7 @@ export interface BoutonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icone?: NomIcone;
   pleineLargeur?: boolean;
   children: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function Bouton({

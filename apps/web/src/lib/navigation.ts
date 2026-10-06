@@ -6,6 +6,14 @@ import type { NomIcone } from "../components/ui/Icone";
  * (aria-disabled) au lieu de pointer vers une page absente : passer `disponible` à `true`
  * quand l'écran existe.
  */
+/** Sous-page d'une rubrique, affichée en onglets en tête de la rubrique. */
+export interface SousPage {
+  id: string;
+  libelle: string;
+  href: string;
+  permission: Permission;
+}
+
 export interface EntreeNavigation {
   id: string;
   libelle: string;
@@ -18,6 +26,7 @@ export interface EntreeNavigation {
   icone: NomIcone;
   /** Ce que l'écran permettra de faire, affiché sur le tableau de bord. */
   description: string;
+  sousPages?: readonly SousPage[];
 }
 
 export const NAVIGATION: readonly EntreeNavigation[] = [
@@ -65,18 +74,37 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelle: "Clients",
     href: "/clients",
     permission: "clients.lire",
-    disponible: false,
+    disponible: true,
     icone: "immeuble",
     description: "Annuaire des clients et de leurs contacts.",
+  },
+  {
+    id: "collaborateurs",
+    libelle: "Collaborateurs",
+    libelleCourt: "Équipe",
+    href: "/collaborateurs",
+    permission: "collaborateurs.lire",
+    disponible: true,
+    icone: "personnes",
+    description: "Référentiel de l'équipe : grades, compétences, capacité.",
   },
   {
     id: "catalogue",
     libelle: "Catalogue",
     href: "/catalogue",
     permission: "catalogue.lire",
-    disponible: false,
+    disponible: true,
     icone: "livre",
     description: "Types de missions, découpages et jours par grade.",
+    sousPages: [
+      {
+        id: "types",
+        libelle: "Types de mission",
+        href: "/catalogue",
+        permission: "catalogue.lire",
+      },
+      { id: "grades", libelle: "Grades", href: "/catalogue/grades", permission: "catalogue.lire" },
+    ],
   },
   {
     id: "plan-de-charge",
@@ -111,9 +139,24 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelle: "Paramètres",
     href: "/parametres",
     permission: "cabinet.gerer",
-    disponible: false,
+    disponible: true,
     icone: "reglages",
-    description: "Cabinet, utilisateurs, invitations et référentiels.",
+    description: "Cabinet, utilisateurs, invitations et journal d'audit.",
+    sousPages: [
+      { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
+      {
+        id: "utilisateurs",
+        libelle: "Utilisateurs",
+        href: "/parametres/utilisateurs",
+        permission: "cabinet.gerer",
+      },
+      {
+        id: "journal",
+        libelle: "Journal d'audit",
+        href: "/parametres/journal",
+        permission: "audit.lire",
+      },
+    ],
   },
 ];
 
@@ -132,4 +175,23 @@ export function entreesAutorisees(
 export function estActive(entree: Pick<EntreeNavigation, "href">, chemin: string): boolean {
   if (entree.href === "/") return chemin === "/";
   return chemin === entree.href || chemin.startsWith(`${entree.href}/`);
+}
+
+/** Sous-pages d'une rubrique visibles pour ces rôles. */
+export function sousPagesAutorisees(id: string, roles: readonly Role[]): SousPage[] {
+  const entree = NAVIGATION.find((e) => e.id === id);
+  return (entree?.sousPages ?? []).filter((p) => aPermission(roles, p.permission));
+}
+
+/** Sous-page active : celle dont le chemin est le plus long préfixe du chemin courant. */
+export function sousPageActive(
+  pages: readonly Pick<SousPage, "id" | "href">[],
+  chemin: string,
+): string | null {
+  let meilleure: Pick<SousPage, "id" | "href"> | null = null;
+  for (const p of pages) {
+    if (!estActive(p, chemin)) continue;
+    if (!meilleure || p.href.length > meilleure.href.length) meilleure = p;
+  }
+  return meilleure?.id ?? null;
 }

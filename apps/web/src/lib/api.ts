@@ -148,4 +148,37 @@ export const api = {
     appelerApi<T>(chemin, { ...options, methode: "GET" }),
   post: <T>(chemin: string, corps?: unknown, options?: Omit<OptionsAppel, "methode" | "corps">) =>
     appelerApi<T>(chemin, { ...options, methode: "POST", corps }),
+  patch: <T>(chemin: string, corps: unknown, options?: Omit<OptionsAppel, "methode" | "corps">) =>
+    appelerApi<T>(chemin, { ...options, methode: "PATCH", corps }),
+  put: <T>(chemin: string, corps: unknown, options?: Omit<OptionsAppel, "methode" | "corps">) =>
+    appelerApi<T>(chemin, { ...options, methode: "PUT", corps }),
+  supprimer: (chemin: string, options?: Omit<OptionsAppel, "methode" | "corps">) =>
+    appelerApi<void>(chemin, { ...options, methode: "DELETE" }),
 };
+
+/** Détails de validation renvoyés par l'API (`ZodError.flatten()`). */
+interface DetailsValidation {
+  fieldErrors?: Record<string, unknown>;
+  formErrors?: unknown;
+}
+
+/**
+ * Noms des champs refusés par l'API (erreur REQUETE_INVALIDE). Les messages bruts de la
+ * validation serveur ne sont pas affichés : ils peuvent être en anglais.
+ */
+export function champsRefuses(e: unknown): string[] {
+  if (!(e instanceof ErreurApi) || e.code !== "REQUETE_INVALIDE") return [];
+  const details = e.details as DetailsValidation | undefined;
+  if (!details || typeof details !== "object" || !details.fieldErrors) return [];
+  return Object.keys(details.fieldErrors);
+}
+
+/** Message d'erreur affichable (toujours en français) pour une erreur d'appel. */
+export function messageErreur(e: unknown): string {
+  if (!(e instanceof ErreurApi)) return MESSAGE_INATTENDU;
+  if (e.code === "REQUETE_INVALIDE" && e.message === "Données invalides.") {
+    return "Certaines valeurs ont été refusées. Vérifiez les champs signalés puis réessayez.";
+  }
+  if (e.statut === 403) return "Votre rôle ne vous permet pas d'effectuer cette action.";
+  return e.message;
+}

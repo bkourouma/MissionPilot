@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { appelerApi, ErreurApi, type OptionsAppel } from "./api";
+import { appelerApi, ErreurApi, messageErreur, type OptionsAppel } from "./api";
 import { cheminDeRetour, COOKIE_SESSION, ENTETE_CHEMIN } from "./connexion";
 
 /**
@@ -48,4 +48,21 @@ export async function appelerApiServeur<T>(
   if (erreur.statut === 401) redirect(await urlConnexion());
   if (erreur.statut === 403) redirect("/acces-refuse");
   throw erreur;
+}
+
+/** Résultat d'un chargement affichable dans la page (état d'erreur local au lieu d'une page d'erreur). */
+export type Chargement<T> =
+  { ok: true; donnees: T } | { ok: false; message: string; statut: number };
+
+/**
+ * Comme `appelerApiServeur`, mais une erreur d'API (réseau, 404, 500…) devient un résultat
+ * `{ ok: false }` que la page affiche sur place. 401 et 403 redirigent toujours.
+ */
+export async function chargerServeur<T>(chemin: string): Promise<Chargement<T>> {
+  try {
+    return { ok: true, donnees: await appelerApiServeur<T>(chemin) };
+  } catch (e) {
+    if (e instanceof ErreurApi) return { ok: false, message: messageErreur(e), statut: e.statut };
+    throw e;
+  }
 }

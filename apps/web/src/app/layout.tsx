@@ -4,6 +4,7 @@ import "../styles/tokens.css";
 import "../styles/base.css";
 import "../styles/composants.css";
 import "../styles/cadre.css";
+import "../styles/referentiels.css";
 
 export const metadata: Metadata = {
   title: { default: "MissionPilot", template: "%s — MissionPilot" },

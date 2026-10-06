@@ -28,14 +28,21 @@ export function formaterNombre(valeur: number | null | undefined, decimalesMax =
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: decimalesMax }).format(valeur);
 }
 
-/** « 1 500 000 FCFA », « 1 500,50 € », « 1 500,50 $US ». */
-export function formaterMontant(valeur: number | null | undefined, devise: Devise = "XOF"): string {
+/**
+ * Montant stocké en unités mineures entières (convention de l'API et des moteurs : centimes
+ * pour EUR/USD, franc entier pour XOF/XAF) → « 1 500 000 FCFA », « 1 234,50 € », « 1 500,00 $US ».
+ * 123450 en EUR s'affiche donc « 1 234,50 € ».
+ */
+export function formaterMontantMineur(
+  valeur: number | null | undefined,
+  devise: Devise = "XOF",
+): string {
   if (!nombreValide(valeur)) return VALEUR_ABSENTE;
   const decimales = DECIMALES[devise];
   const nombre = new Intl.NumberFormat("fr-FR", {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
-  }).format(valeur);
+  }).format(valeur / 10 ** decimales);
   return `${nombre}${NBSP}${SYMBOLES[devise]}`;
 }
 

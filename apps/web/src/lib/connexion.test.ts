@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cheminDeRetour, validerConnexion } from "./connexion";
+import { cheminDeRetour, PAGES_PUBLIQUES, validerConnexion } from "./connexion";
 
 describe("cheminDeRetour", () => {
   it("garde un chemin interne", () => {
@@ -53,5 +53,11 @@ describe("validerConnexion", () => {
     expect(validerConnexion({ email: "a@b.ci", motDePasse: "x".repeat(201) }).motDePasse).toBe(
       "Le mot de passe ne doit pas dépasser 200 caractères.",
     );
+  });
+});
+
+describe("PAGES_PUBLIQUES", () => {
+  it("ne laisse passer sans session que la connexion et l'acceptation d'invitation", () => {
+    expect([...PAGES_PUBLIQUES].sort()).toEqual(["/connexion", "/invitation"]);
   });
 });

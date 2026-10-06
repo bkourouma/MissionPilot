@@ -25,6 +25,14 @@ const TRACES = {
   cadenas: "M6 11h12v10H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3",
   chevronGauche: "M15 5l-7 7 7 7",
   chevronDroit: "M9 5l7 7-7 7",
+  personnes:
+    "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18 14.2a6.5 6.5 0 0 1 3.5 5.8",
+  plus: "M12 5v14M5 12h14",
+  crayon: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
+  corbeille: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6",
+  copie: "M8 8h12v12H8zM16 8V4H4v12h4",
+  recherche: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
+  courrier: "M3 6h18v12H3zM3 7l9 6 9-6",
   oeil: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
 } as const;
 

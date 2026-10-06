@@ -3,7 +3,7 @@ import {
   formaterDate,
   formaterDateHeure,
   formaterJours,
-  formaterMontant,
+  formaterMontantMineur,
   formaterNombre,
   formaterPourcentage,
   lireDate,
@@ -13,36 +13,46 @@ import {
 /** Remplace les espaces insécables par des espaces simples pour des attentes lisibles. */
 const lisible = (s: string) => s.replace(/[\u00a0\u202f]/g, " ");
 
-describe("formaterMontant", () => {
+describe("formaterMontantMineur (unités mineures de l'API)", () => {
   it("affiche le franc CFA sans décimales, avec séparateur de milliers", () => {
-    expect(lisible(formaterMontant(1_500_000, "XOF"))).toBe("1 500 000 FCFA");
-    expect(lisible(formaterMontant(1_500_000, "XAF"))).toBe("1 500 000 FCFA");
-    expect(lisible(formaterMontant(1_499.6, "XOF"))).toBe("1 500 FCFA");
+    expect(lisible(formaterMontantMineur(1_500_000, "XOF"))).toBe("1 500 000 FCFA");
+    expect(lisible(formaterMontantMineur(1_500_000, "XAF"))).toBe("1 500 000 FCFA");
+    expect(lisible(formaterMontantMineur(1_499.6, "XOF"))).toBe("1 500 FCFA");
   });
 
   it("utilise XOF par défaut", () => {
-    expect(lisible(formaterMontant(250_000))).toBe("250 000 FCFA");
+    expect(lisible(formaterMontantMineur(250_000))).toBe("250 000 FCFA");
   });
 
-  it("affiche euro et dollar avec deux décimales", () => {
-    expect(lisible(formaterMontant(1500.5, "EUR"))).toBe("1 500,50 €");
-    expect(lisible(formaterMontant(1500, "USD"))).toBe("1 500,00 $US");
+  it("convertit les centimes de l'euro et du dollar", () => {
+    expect(lisible(formaterMontantMineur(123_450, "EUR"))).toBe("1 234,50 €");
+    expect(lisible(formaterMontantMineur(175_000, "EUR"))).toBe("1 750,00 €");
+    expect(lisible(formaterMontantMineur(150_000, "USD"))).toBe("1 500,00 $US");
+    expect(lisible(formaterMontantMineur(5, "EUR"))).toBe("0,05 €");
   });
 
   it("utilise des espaces insécables (pas de coupure de ligne dans un montant)", () => {
-    expect(formaterMontant(1_500_000, "XOF")).not.toMatch(/ /);
+    const texte = formaterMontantMineur(1_500_000, "XOF");
+    expect(texte).not.toMatch(/ /);
+    // Séparateur de milliers et espace avant l'unité : réellement insécables.
+    const insecable = "[" + String.fromCharCode(0x00a0, 0x202f) + "]";
+    const avantUnite = String.fromCharCode(0x00a0);
+    expect(texte).toMatch(new RegExp(`^1${insecable}500${insecable}000${avantUnite}FCFA$`));
+    expect(formaterMontantMineur(123_450, "EUR")).toMatch(
+      new RegExp(`^1${insecable}234,50${avantUnite}€$`),
+    );
   });
 
   it("gère les négatifs et zéro", () => {
-    expect(lisible(formaterMontant(0, "XOF"))).toBe("0 FCFA");
-    expect(lisible(formaterMontant(-25_000, "XOF"))).toBe("-25 000 FCFA");
+    expect(lisible(formaterMontantMineur(0, "XOF"))).toBe("0 FCFA");
+    expect(lisible(formaterMontantMineur(-25_000, "XOF"))).toBe("-25 000 FCFA");
   });
 
   it("renvoie un tiret pour une valeur absente ou invalide", () => {
-    expect(formaterMontant(null)).toBe(VALEUR_ABSENTE);
-    expect(formaterMontant(undefined)).toBe(VALEUR_ABSENTE);
-    expect(formaterMontant(Number.NaN)).toBe(VALEUR_ABSENTE);
-    expect(formaterMontant(Number.POSITIVE_INFINITY)).toBe(VALEUR_ABSENTE);
+    expect(formaterMontantMineur(null)).toBe(VALEUR_ABSENTE);
+    expect(formaterMontantMineur(undefined)).toBe(VALEUR_ABSENTE);
+    expect(formaterMontantMineur(Number.NaN)).toBe(VALEUR_ABSENTE);
+    expect(formaterMontantMineur(Number.POSITIVE_INFINITY)).toBe(VALEUR_ABSENTE);
   });
 });
 
