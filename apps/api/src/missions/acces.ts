@@ -16,9 +16,11 @@ import { conflit, interdit, introuvable } from "../errors.js";
  *    l'équipe (mission_equipe). Une mission invisible répond 404, comme une
  *    mission d'un autre cabinet : on ne révèle pas son existence.
  * 4. Modifier une mission (découpage, budget, statut…) exige en plus la
- *    permission de la route et : « mission.lire_toutes », ou d'être directeur
- *    ou chef de cette mission. Un simple membre de l'équipe la lit sans la
- *    modifier (403).
+ *    permission de la route et : « mission.modifier_toutes » (associé,
+ *    directeur de mission), ou d'être directeur ou chef de cette mission.
+ *    Lire toutes les missions (responsable des ressources, gestionnaire) ne
+ *    donne pas le droit de les modifier. Un simple membre de l'équipe la lit
+ *    sans la modifier (403).
  */
 
 export interface MissionAcces {
@@ -36,6 +38,9 @@ export interface MissionAcces {
 }
 
 export const voitToutesLesMissions = (auth: Auth) => aPermission(auth.roles, "mission.lire_toutes");
+export const modifieToutesLesMissions = (auth: Auth) =>
+  aPermission(auth.roles, "mission.modifier_toutes");
+export const estAssocie = (auth: Auth) => auth.roles.includes("associe");
 
 /**
  * Fragment SQL de visibilité pour un alias de table `m` : à utiliser avec
@@ -67,10 +72,10 @@ export async function exigerMissionVisible(
   return r.rows[0] as MissionAcces;
 }
 
-/** Peut modifier : voit toutes les missions, ou en est directeur ou chef. */
+/** Peut modifier : modifie toutes les missions, ou en est directeur ou chef. */
 export function peutModifierMission(auth: Auth, mission: MissionAcces): boolean {
   return (
-    voitToutesLesMissions(auth) ||
+    modifieToutesLesMissions(auth) ||
     mission.directeur_id === auth.utilisateurId ||
     mission.chef_id === auth.utilisateurId
   );

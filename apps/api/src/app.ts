@@ -10,8 +10,10 @@ import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
 import { routesAuth } from "./routes/auth.js";
 import { routesCycleMission } from "./routes/missions-routes.js";
+import { routesPlanification } from "./routes/planification-routes.js";
 import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
+import { routesTemps } from "./routes/temps-routes.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -100,5 +102,7 @@ export async function buildApp(
   await app.register(routesAuth, { prefix: "/api/auth" });
   await app.register(routesReferentiels, { prefix: "/api" });
   await app.register(routesCycleMission, { prefix: "/api" });
+  await app.register(routesPlanification, { prefix: "/api" });
+  await app.register(routesTemps, { prefix: "/api" });
   return app;
 }

@@ -11,7 +11,7 @@ import {
   type StatutProposition,
 } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
-import { exiger } from "../auth/contexte.js";
+import { exiger, type Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { clauseSet, traduireErreursPg } from "../db/outils.js";
 import { conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
@@ -25,12 +25,17 @@ import {
   remplirDepuisModele,
 } from "../missions/propositions.js";
 
+/** Grille de taux de vente visible (FIN-02) : associés et gestionnaires seulement. */
+const finance = (auth: Auth) => aPermission(auth.roles, "finance.lire");
+
 const paramsElement = z.object({ id: z.string().uuid(), elementId: z.string().uuid() });
 
 /**
  * Transitions de statut (MIS-05) et permission requise pour chacune.
- * brouillon → a_valider → validee (associé) → envoyee → acceptee | refusee ;
- * une proposition à valider peut être renvoyée en brouillon par le valideur.
+ * brouillon → a_valider → validee (associé, jamais l'auteur s'il n'est pas
+ * associé) → envoyee → acceptee | refusee ; une proposition à valider peut être
+ * renvoyée en brouillon par le valideur. Une seule proposition acceptée par
+ * opportunité, tant que celle-ci est ouverte.
  */
 const TRANSITIONS: Record<StatutProposition, Partial<Record<StatutProposition, Permission>>> = {
   brouillon: { a_valider: "pipeline.gerer" },
@@ -117,7 +122,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
         entiteId: propositionId,
         details: { opportunite_id: id, type_mission_id: typeId, devise },
       });
-      return detailProposition(db, await exigerProposition(db, propositionId));
+      return detailProposition(db, await exigerProposition(db, propositionId), finance(auth));
     });
     reply.status(201);
     return creee;
@@ -127,7 +132,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "pipeline.gerer");
     const { id } = paramsId.parse(request.params);
     return app.db.withTenant(auth.cabinetId, async (db) =>
-      detailProposition(db, await exigerProposition(db, id)),
+      detailProposition(db, await exigerProposition(db, id), finance(auth)),
     );
   });
 
@@ -155,7 +160,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
         entiteId: id,
         details: { champs: Object.keys(modif) },
       });
-      return detailProposition(db, await exigerProposition(db, id));
+      return detailProposition(db, await exigerProposition(db, id), finance(auth));
     });
   });
 
@@ -201,7 +206,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
         entiteId: id,
         details: { element_id: elementId, champs: Object.keys(modif) },
       });
-      return detailProposition(db, await exigerProposition(db, id));
+      return detailProposition(db, await exigerProposition(db, id), finance(auth));
     });
   });
 
@@ -228,7 +233,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
         entiteId: id,
         details: { grades: Object.keys(taux) },
       });
-      return detailProposition(db, await exigerProposition(db, id));
+      return detailProposition(db, await exigerProposition(db, id), finance(auth));
     });
   });
 
@@ -242,6 +247,28 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
       const permission = TRANSITIONS[actuel][statut];
       if (!permission) throw conflit(`Transition impossible : ${actuel} → ${statut}.`);
       if (!aPermission(auth.roles, permission)) throw interdit();
+      if (
+        statut === "validee" &&
+        p.cree_par === auth.utilisateurId &&
+        !auth.roles.includes("associe")
+      ) {
+        // Quatre yeux : l'auteur d'une proposition ne la valide pas lui-même.
+        throw interdit();
+      }
+      if (statut === "acceptee") {
+        // Opportunité ouverte (verrouillée) et une seule proposition acceptée par opportunité.
+        const o = await db.query("SELECT statut FROM opportunites WHERE id = $1 FOR UPDATE", [
+          p.opportunite_id,
+        ]);
+        if (o.rows[0]?.statut !== "ouverte") throw conflit("L'opportunité est close.");
+        const deja = await db.query(
+          "SELECT 1 FROM propositions WHERE opportunite_id = $1 AND statut = 'acceptee' AND id <> $2",
+          [p.opportunite_id, id],
+        );
+        if (deja.rowCount) {
+          throw conflit("Une autre proposition de cette opportunité est déjà acceptée.");
+        }
+      }
       if (statut === "validee") {
         const detail = await detailProposition(db, p);
         const chiffrage = detail.chiffrage as { taux_manquants: string[]; jours_total: number };
@@ -278,7 +305,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
         entiteId: id,
         details: { avant: actuel, apres: statut },
       });
-      return detailProposition(db, await exigerProposition(db, id));
+      return detailProposition(db, await exigerProposition(db, id), finance(auth));
     });
   });
 
@@ -311,7 +338,7 @@ export const routesPropositions: FastifyPluginAsync = async (app) => {
         entiteId: nouvelle,
         details: { source_id: id },
       });
-      return detailProposition(db, await exigerProposition(db, nouvelle));
+      return detailProposition(db, await exigerProposition(db, nouvelle), finance(auth));
     });
     reply.status(201);
     return creee;

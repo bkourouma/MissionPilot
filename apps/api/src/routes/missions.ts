@@ -9,6 +9,7 @@ import {
   type Devise,
 } from "@missionpilot/engines";
 import {
+  aPermission,
   missionCreationSchema,
   missionDepuisPropositionSchema,
   missionDuplicationSchema,
@@ -25,12 +26,14 @@ import type { Auth } from "../auth/contexte.js";
 import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { choisir, clauseSet, traduireErreursPg } from "../db/outils.js";
-import { conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
+import { AppError, conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
 import { motifContient, paramsId } from "../http/outils.js";
 import {
+  estAssocie,
   exigerMissionModifiable,
   exigerMissionVisible,
   filtreVisibilite,
+  modifieToutesLesMissions,
   STATUTS_SIGNES,
   voitToutesLesMissions,
   type MissionAcces,
@@ -192,17 +195,60 @@ async function insererMission(db: Db, auth: Auth, m: NouvelleMission): Promise<s
   return r.rows[0].id as string;
 }
 
-/**
- * Taux de change figé à la signature (FIN-04) : 1 si même devise ; parité
- * légale EUR/FCFA et XOF/XAF par défaut ; sinon le taux doit être fourni.
- */
-export function tauxDeSignature(devise: string, deviseCabinet: string, saisi?: number): number {
+const estFcfa = (d: string) => d === "XOF" || d === "XAF";
+
+/** Parité fixe (légale) entre deux devises, ou undefined pour une devise flottante. */
+export function pariteFixe(devise: string, deviseCabinet: string): number | undefined {
   if (devise === deviseCabinet) return 1;
-  if (saisi !== undefined) return saisi;
-  const fcfa = (d: string) => d === "XOF" || d === "XAF";
-  if (fcfa(devise) && fcfa(deviseCabinet)) return 1;
-  if (devise === "EUR" && fcfa(deviseCabinet)) return PARITE_EUR_FCFA;
-  throw requeteInvalide(`Taux de change ${devise} → ${deviseCabinet} requis à la signature.`);
+  if (estFcfa(devise) && estFcfa(deviseCabinet)) return 1;
+  if (devise === "EUR" && estFcfa(deviseCabinet)) return PARITE_EUR_FCFA;
+  // Arrondi à la précision de la colonne (numeric(20, 10)).
+  if (estFcfa(devise) && deviseCabinet === "EUR") return Number((1 / PARITE_EUR_FCFA).toFixed(10));
+  return undefined;
+}
+
+/** Bornes d'un taux flottant saisi (1 unité de la devise de mission en devise du cabinet). */
+export const TAUX_FLOTTANT_MIN = 0.000001;
+export const TAUX_FLOTTANT_MAX = 1_000_000;
+
+/**
+ * Taux de change figé à la signature (FIN-04). Parité fixe (même devise : 1 ;
+ * XOF/XAF : 1 ; EUR/FCFA : 655,957) : imposée, tout autre taux saisi est
+ * refusé (400). Devise flottante (USD) : le taux est requis, saisi par un
+ * signataire qui voit les données financières (« finance.lire ») ou un
+ * associé, et borné.
+ */
+export function tauxDeSignature(
+  devise: string,
+  deviseCabinet: string,
+  saisi?: number,
+  peutSaisirFlottant = false,
+): number {
+  const fixe = pariteFixe(devise, deviseCabinet);
+  if (fixe !== undefined) {
+    if (saisi !== undefined && Math.abs(saisi - fixe) > fixe * 1e-9) {
+      throw requeteInvalide(
+        `Parité fixe ${devise} → ${deviseCabinet} (${fixe}) : aucun autre taux n'est accepté.`,
+      );
+    }
+    return fixe;
+  }
+  if (saisi === undefined) {
+    throw requeteInvalide(`Taux de change ${devise} → ${deviseCabinet} requis à la signature.`);
+  }
+  if (!peutSaisirFlottant) {
+    throw new AppError(
+      403,
+      "INTERDIT",
+      `Le taux ${devise} → ${deviseCabinet} est saisi par un associé ou un gestionnaire.`,
+    );
+  }
+  if (!(saisi >= TAUX_FLOTTANT_MIN && saisi <= TAUX_FLOTTANT_MAX)) {
+    throw requeteInvalide(
+      `Taux de change hors bornes (${TAUX_FLOTTANT_MIN} à ${TAUX_FLOTTANT_MAX}).`,
+    );
+  }
+  return saisi;
 }
 
 async function prochaineVersionDocument(db: Db, missionId: string, type: string, nom: string) {
@@ -224,12 +270,35 @@ async function signer(
     auth.cabinetId,
   ]);
   const deviseCabinet = cabinet.rows[0].devise_base as Devise;
+  const finance = aPermission(auth.roles, "finance.lire");
   const taux = figerTauxChange(
     mission.devise as Devise,
     deviseCabinet,
-    tauxDeSignature(mission.devise, deviseCabinet, corps.taux_change),
+    tauxDeSignature(mission.devise, deviseCabinet, corps.taux_change, finance || estAssocie(auth)),
     corps.date_signature,
   );
+  // Sous-traitance : donnée financière interne (FIN-02), comme fusionnerLignesSaisies.
+  if (!finance && corps.lignes_supplementaires.some((l) => l.nature === "sous_traitance")) {
+    throw interdit();
+  }
+  if (mission.proposition_id && corps.taux_vente) {
+    // Le prix validé par l'associé dans la proposition ne se renégocie pas à la signature.
+    const r = await db.query(
+      `SELECT g.code, t.taux_journalier FROM proposition_taux t JOIN grades g ON g.id = t.grade_id
+       WHERE t.proposition_id = $1 AND t.taux_journalier IS NOT NULL`,
+      [mission.proposition_id],
+    );
+    const proposes = new Map(r.rows.map((t) => [t.code as string, Number(t.taux_journalier)]));
+    const divergents = Object.entries(corps.taux_vente)
+      .filter(([code, valeur]) => proposes.has(code) && proposes.get(code) !== valeur)
+      .map(([code]) => code)
+      .sort();
+    if (divergents.length > 0) {
+      throw requeteInvalide(
+        `Taux de vente différents de la proposition validée : ${divergents.join(", ")}.`,
+      );
+    }
+  }
   const calcul = await calculerDepuisDecoupage(db, mission, {
     date: corps.date_signature,
     tauxVente: corps.taux_vente,
@@ -292,7 +361,13 @@ async function signer(
       auth.utilisateurId,
     ],
   );
-  return { versionId, lignes: lignes.length, coutsManquants: calcul.coutsManquants };
+  return {
+    versionId,
+    lignes: lignes.length,
+    coutsManquants: calcul.coutsManquants,
+    tauxChange: taux.taux,
+    deviseReference: deviseCabinet,
+  };
 }
 
 /** Enregistre le découpage d'une mission comme type du catalogue (MIS-12). */
@@ -487,16 +562,29 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
     const modif = missionModificationSchema.parse(request.body);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const mission = await exigerMissionModifiable(db, auth, id);
-      if (STATUTS_SIGNES.includes(mission.statut) && modif.devise !== undefined) {
-        if (modif.devise !== mission.devise) {
-          throw conflit("La devise est figée à la signature de la lettre de mission.");
+      const signee = STATUTS_SIGNES.includes(mission.statut);
+      if (signee && modif.devise !== undefined && modif.devise !== mission.devise) {
+        throw conflit("La devise est figée à la signature de la lettre de mission.");
+      }
+      if (signee && modif.mode_facturation !== undefined) {
+        const r = await db.query("SELECT mode_facturation FROM missions WHERE id = $1", [id]);
+        if (r.rows[0].mode_facturation !== modif.mode_facturation) {
+          throw conflit("Le mode de facturation est figé à la signature de la lettre de mission.");
         }
       }
       if (
-        !voitToutesLesMissions(auth) &&
+        !modifieToutesLesMissions(auth) &&
         (modif.directeur_id !== undefined || modif.chef_id !== undefined)
       ) {
         // Un chef ne se retire pas lui-même ni ne réattribue la mission.
+        throw interdit();
+      }
+      if (
+        modif.directeur_id !== undefined &&
+        modif.directeur_id !== mission.directeur_id &&
+        !estAssocie(auth)
+      ) {
+        // Le directeur valide les révisions et signe : seul un associé le désigne.
         throw interdit();
       }
       await verifierResponsables(db, modif.directeur_id, modif.chef_id);
@@ -559,6 +647,13 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
         throw conflit("Seule une mission au stade de la proposition se signe.");
       }
       if (!mission.directeur_id) throw requeteInvalide("Désigner d'abord le directeur de mission.");
+      if (mission.directeur_id !== auth.utilisateurId && !estAssocie(auth)) {
+        throw new AppError(
+          403,
+          "INTERDIT",
+          "La lettre de mission est signée par le directeur de la mission ou un associé.",
+        );
+      }
       const resultat = await signer(db, auth, mission, corps);
       // Journal sans montant : date, version figée et nombre de lignes.
       await journaliser(db, {
@@ -571,6 +666,8 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
           date_signature: corps.date_signature,
           version_id: resultat.versionId,
           lignes: resultat.lignes,
+          taux_change: resultat.tauxChange,
+          devise_reference: resultat.deviseReference,
         },
       });
       const droits = droitsBudget(auth);
@@ -675,15 +772,26 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
     const { utilisateur_id } = missionEquipeAjoutSchema.parse(request.body);
     const mission = await app.db.withTenant(auth.cabinetId, async (db) => {
       await exigerMissionModifiable(db, auth, id);
-      await traduireErreursPg(
+      const actif = await db.query("SELECT 1 FROM utilisateurs WHERE id = $1 AND actif", [
+        utilisateur_id,
+      ]);
+      if (!actif.rowCount) throw requeteInvalide("Utilisateur inconnu ou inactif dans ce cabinet.");
+      // Un membre entré par affectation (source « affectation ») devient un
+      // membre manuel : il ne sera plus retiré avec sa dernière affectation.
+      const ajout = await traduireErreursPg(
         db.query(
           `INSERT INTO mission_equipe (cabinet_id, mission_id, utilisateur_id, ajoute_par)
-           VALUES ($1, $2, $3, $4)`,
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (mission_id, utilisateur_id) DO UPDATE
+             SET source = 'manuel', ajoute_par = EXCLUDED.ajoute_par, ajoute_le = now()
+             WHERE mission_equipe.source = 'affectation'
+           RETURNING id`,
           [auth.cabinetId, id, utilisateur_id, auth.utilisateurId],
         ),
         { "*": "Cet utilisateur est déjà dans l'équipe." },
         "Utilisateur inconnu dans ce cabinet.",
       );
+      if (!ajout.rowCount) throw conflit("Cet utilisateur est déjà dans l'équipe.");
       await journaliser(db, {
         cabinetId: auth.cabinetId,
         utilisateurId: auth.utilisateurId,

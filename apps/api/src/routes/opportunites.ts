@@ -1,3 +1,11 @@
+/*
+ * VISIBILITÉ DU PIPELINE (choix assumé) : toute personne ayant
+ * « pipeline.gerer » (associé, directeur de mission, chef de mission) lit
+ * toutes les opportunités du cabinet et leurs montants estimés, quel qu'en
+ * soit le responsable. Le pipeline est un outil commercial partagé ; les
+ * données financières internes (coûts, grilles de taux, marges) n'y figurent
+ * pas. L'isolation entre cabinets reste assurée par RLS.
+ */
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import {
@@ -18,7 +26,7 @@ import { journaliser } from "../audit.js";
 import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { choisir, clauseSet, montant, traduireErreursPg } from "../db/outils.js";
-import { conflit, introuvable } from "../errors.js";
+import { conflit, introuvable, requeteInvalide } from "../errors.js";
 import { paramsId } from "../http/outils.js";
 
 const COLONNES = `o.id, o.client_id, cl.raison_sociale AS client_raison_sociale, o.intitule,
@@ -62,6 +70,13 @@ async function exigerOpportunite(
   );
   if (!r.rows[0]) throw introuvable("Opportunité");
   return enMontant(r.rows[0]);
+}
+
+/** Le responsable d'une opportunité est un utilisateur actif du cabinet. */
+async function verifierResponsable(db: Db, id: string | null | undefined): Promise<void> {
+  if (!id) return;
+  const r = await db.query("SELECT 1 FROM utilisateurs WHERE id = $1 AND actif", [id]);
+  if (!r.rowCount) throw requeteInvalide("Responsable : utilisateur inconnu ou inactif.");
 }
 
 /**
@@ -162,6 +177,7 @@ export const routesOpportunites: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "pipeline.gerer");
     const o = opportuniteCreationSchema.parse(request.body);
     const cree = await app.db.withTenant(auth.cabinetId, async (db) => {
+      await verifierResponsable(db, o.responsable_id);
       const r = await traduireErreursPg(
         db.query(
           `INSERT INTO opportunites (cabinet_id, client_id, intitule, type_mission_id, montant_estime,
@@ -206,6 +222,18 @@ export const routesOpportunites: FastifyPluginAsync = async (app) => {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const avant = await exigerOpportunite(db, id, true);
       if (avant.statut !== "ouverte") throw conflit("Une opportunité close ne se modifie plus.");
+      await verifierResponsable(db, modif.responsable_id);
+      if (modif.client_id !== undefined && modif.client_id !== avant.client_id) {
+        // Une proposition validée ou envoyée engage le cabinet envers CE client.
+        const engagee = await db.query(
+          `SELECT 1 FROM propositions WHERE opportunite_id = $1
+             AND statut IN ('validee', 'envoyee', 'acceptee', 'refusee') LIMIT 1`,
+          [id],
+        );
+        if (engagee.rowCount) {
+          throw conflit("Une proposition a été validée ou envoyée : le client ne change plus.");
+        }
+      }
       const set = clauseSet(modif, 2);
       await traduireErreursPg(
         db.query(`UPDATE opportunites SET ${set.sql}, modifie_le = now() WHERE id = $1`, [

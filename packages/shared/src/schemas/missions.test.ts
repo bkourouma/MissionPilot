@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dependanceCreationSchema,
+  documentCreationSchema,
   ligneBudgetSaisieSchema,
   missionCreationSchema,
   missionSignatureSchema,
@@ -110,5 +111,25 @@ describe("schémas du cycle commercial et des missions", () => {
       dependanceCreationSchema.parse({ predecesseur_id: UUID, successeur_id: UUID2 }).decalage,
     ).toBe(0);
     expect(reorganisationSchema.safeParse({ deplacements: [] }).success).toBe(false);
+  });
+
+  it("document : chemin de stockage relatif seulement (F1)", () => {
+    const doc = (chemin_stockage: unknown) =>
+      documentCreationSchema.safeParse({ type: "livrable", nom: "R", chemin_stockage }).success;
+    expect(doc("missions/rapport-v2.pdf")).toBe(true);
+    expect(doc(null)).toBe(true);
+    expect(doc(undefined)).toBe(true);
+    for (const pirate of [
+      "../../etc/passwd",
+      "missions/../secret.pdf",
+      "missions\\rapport.pdf",
+      "/etc/passwd",
+      "file:///etc/passwd",
+      "https://exemple.test/x.pdf",
+      "C:/Windows/win.ini",
+      "missions/a\u0000b.pdf",
+    ]) {
+      expect(doc(pirate), pirate).toBe(false);
+    }
   });
 });

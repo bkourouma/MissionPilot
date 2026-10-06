@@ -12,6 +12,7 @@ import type { Db } from "../db/pool.js";
 import { choisir, clauseSet, montant, traduireErreursPg } from "../db/outils.js";
 import { introuvable } from "../errors.js";
 import { decoderCurseur, motifContient, paginer, paramsId } from "../http/outils.js";
+import { exigerGradeModifiable } from "../planification/affectations.js";
 
 /**
  * Colonnes du référentiel, sans aucune donnée financière (FIN-02) : coûts et
@@ -134,6 +135,7 @@ export const routesCollaborateurs: FastifyPluginAsync = async (app) => {
     const modif = collaborateurModificationSchema.parse(request.body);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const avant = await lire(db, id);
+      await exigerGradeModifiable(db, id, modif.grade_id);
       const set = clauseSet(modif, 2);
       await traduireErreursPg(
         db.query(`UPDATE collaborateurs SET ${set.sql}, modifie_le = now() WHERE id = $1`, [

@@ -335,11 +335,30 @@ export const comparaisonQuerySchema = z
 export const TYPES_DOCUMENT = ["proposition", "lettre_de_mission", "livrable", "autre"] as const;
 export type TypeDocument = (typeof TYPES_DOCUMENT)[number];
 
+/**
+ * Chemin de stockage relatif (ex. « missions/rapport-v2.pdf ») : ni remontée
+ * (`..`), ni barre oblique inverse, ni schéma (`file:`, `http:`…), ni chemin
+ * absolu, ni caractère de contrôle.
+ */
+export function cheminStockageSur(chemin: string): boolean {
+  return (
+    !chemin.includes("..") &&
+    !chemin.includes("\\") &&
+    !chemin.startsWith("/") &&
+    !/^[a-z][a-z0-9+.-]*:/i.test(chemin) &&
+    // eslint-disable-next-line no-control-regex
+    !/[\u0000-\u001f\u007f]/.test(chemin)
+  );
+}
+
 export const documentCreationSchema = z
   .object({
     type: z.enum(TYPES_DOCUMENT),
     nom: texte(200),
-    chemin_stockage: texteOptionnel(500),
+    chemin_stockage: texteOptionnel(500).refine(
+      (c) => c === null || c === undefined || cheminStockageSur(c),
+      "Chemin de stockage refusé : chemin relatif sans « .. », « \\ » ni schéma.",
+    ),
   })
   .strict();
 

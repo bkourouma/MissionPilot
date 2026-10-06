@@ -1,11 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { documentCreationSchema, TYPES_DOCUMENT } from "@missionpilot/shared";
+import { aPermission, documentCreationSchema, TYPES_DOCUMENT } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import { exiger } from "../auth/contexte.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { paramsId } from "../http/outils.js";
-import { exigerMissionVisible } from "../missions/acces.js";
+import { conflit, interdit } from "../errors.js";
+import { exigerMissionVisible, peutModifierMission } from "../missions/acces.js";
 
 const COLONNES = `d.id, d.mission_id, d.type, d.nom, d.version, d.auteur_id, u.nom AS auteur_nom,
   d.chemin_stockage, d.cree_le`;
@@ -22,7 +23,10 @@ const listeQuery = z
 /**
  * Documents de mission (SOC-05) : métadonnées versionnées, sans fichier
  * binaire pour l'instant. Lecture : mission visible ; écriture : « document.ecrire »
- * et mission visible (un membre de l'équipe dépose ses livrables).
+ * et mission visible et non clôturée (un membre de l'équipe dépose ses
+ * livrables) ; proposition et lettre de mission : responsables de la mission
+ * (et « mission.signer » pour la lettre). Le chemin de stockage est un chemin
+ * relatif contrôlé par le schéma (ni « .. », ni schéma, ni chemin absolu).
  */
 export const routesDocuments: FastifyPluginAsync = async (app) => {
   app.get("/missions/:id/documents", async (request) => {
@@ -50,7 +54,16 @@ export const routesDocuments: FastifyPluginAsync = async (app) => {
     const doc = documentCreationSchema.parse(request.body);
     const cree = await app.db.withTenant(auth.cabinetId, async (db) => {
       // Verrou sur la mission : deux dépôts simultanés reçoivent deux versions distinctes.
-      await exigerMissionVisible(db, auth, id, true);
+      const mission = await exigerMissionVisible(db, auth, id, true);
+      if (mission.statut === "cloturee") throw conflit("La mission est clôturée.");
+      // Proposition et lettre de mission engagent le cabinet : responsables de
+      // la mission seulement ; la lettre exige en plus le droit de signer.
+      if (doc.type === "proposition" || doc.type === "lettre_de_mission") {
+        if (!peutModifierMission(auth, mission)) throw interdit();
+        if (doc.type === "lettre_de_mission" && !aPermission(auth.roles, "mission.signer")) {
+          throw interdit();
+        }
+      }
       const r = await traduireErreursPg(
         db.query(
           `INSERT INTO mission_documents (cabinet_id, mission_id, type, nom, version, auteur_id,

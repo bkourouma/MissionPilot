@@ -90,8 +90,9 @@ async function semerMissionSignee(db: Db, cabinetId: string, ids: Map<Role, stri
     MISSION_DEMO.client,
   );
   const type = await idPar(db, "SELECT id FROM types_mission WHERE code = $1", MISSION_DEMO.type);
-  if (!client || !type) return;
   const directeur = ids.get("directeur_mission") ?? null;
+  // Sans directeur, pas de signataire : le budget figé exige un valideur (0015).
+  if (!client || !type || !directeur) return;
   const signature = aujourdhui();
   const m = await db.query(
     `INSERT INTO missions (cabinet_id, intitule, client_id, type_mission_id, directeur_id, chef_id,

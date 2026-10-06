@@ -13,6 +13,18 @@ describe("droits par rôle", () => {
     expect(voient.sort()).toEqual(["associe", "gestionnaire"]);
   });
 
+  it("seul un associé valide une proposition (PRD, MIS-05)", () => {
+    const valident = ROLES.filter((r) => aPermission([r], "proposition.valider"));
+    expect(valident).toEqual(["associe"]);
+  });
+
+  it("modifier toute mission : associé et directeur ; lire toutes ne suffit pas", () => {
+    const modifient = ROLES.filter((r) => aPermission([r], "mission.modifier_toutes"));
+    expect(modifient.sort()).toEqual(["associe", "directeur_mission"]);
+    expect(aPermission(["gestionnaire"], "mission.lire_toutes")).toBe(true);
+    expect(aPermission(["ressources"], "mission.modifier_toutes")).toBe(false);
+  });
+
   it("un consultant ne peut ni valider un temps ni émettre une facture", () => {
     expect(aPermission(["consultant"], "temps.valider")).toBe(false);
     expect(aPermission(["consultant"], "facture.emettre")).toBe(false);

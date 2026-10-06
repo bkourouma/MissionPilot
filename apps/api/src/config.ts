@@ -16,11 +16,18 @@ const schema = z.object({
   DATABASE_URL: z.string().url(),
   SESSION_SECRET: z.string().min(32),
   OPENROUTER_API_KEY: z.string().optional(),
+  /** Worker de la file de tâches (ADR-002) : actif par défaut, sauf en test. */
+  JOBS_WORKER: z.enum(["actif", "inactif"]).optional(),
 });
 
 export type Config = z.infer<typeof schema>;
 
 const ENVIRONNEMENTS_LOCAUX = ["development", "test"];
+
+/** Le worker de jobs tourne sauf s'il est désactivé, et jamais par défaut en test. */
+export function workerActif(config: Pick<Config, "NODE_ENV" | "JOBS_WORKER">): boolean {
+  return (config.JOBS_WORKER ?? (config.NODE_ENV === "test" ? "inactif" : "actif")) === "actif";
+}
 
 /** Vrai en développement et en test : les seuls cas où les valeurs par défaut sont admises. */
 export function estLocal(nodeEnv: string | undefined): boolean {

@@ -18,7 +18,11 @@ describe("seed : cycle commercial et missions de démonstration", () => {
           opportunites: await n("SELECT count(*)::int AS n FROM opportunites"),
           perdues: await n("SELECT count(*)::int AS n FROM opportunites WHERE statut = 'perdue'"),
           missions: await n("SELECT count(*)::int AS n FROM missions WHERE statut = 'signee'"),
-          versions: await n("SELECT count(*)::int AS n FROM budget_versions WHERE figee"),
+          // Versions de la mission signée (la mission des temps, en cours, a la sienne).
+          versions: await n(
+            `SELECT count(*)::int AS n FROM budget_versions v JOIN missions m ON m.id = v.mission_id
+             WHERE v.figee AND m.statut = 'signee'`,
+          ),
           lignes: await n("SELECT count(*)::int AS n FROM budget_lignes"),
           taches: await n("SELECT count(*)::int AS n FROM mission_taches"),
         };

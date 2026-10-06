@@ -6,8 +6,10 @@ import {
   montantLigne,
   multiplierParRationnel,
   resoudreTauxGrade,
+  roleApprobateur,
   sommer,
   sommerJours,
+  soustraire,
   type Devise,
   type GrilleSeuils,
   type LigneBudget,
@@ -29,6 +31,8 @@ import type { MissionAcces } from "./acces.js";
 import { nombre, slug, type DroitsBudget } from "./outils.js";
 
 /** Ligne de budget telle qu'enregistrée (montants en unités mineures de la devise de la version). */
+export const estFinance = (nature: NatureLigneBudget) => NATURES_FINANCE.includes(nature);
+
 export interface LigneBudgetDb {
   cle: string;
   libelle: string;
@@ -124,8 +128,18 @@ export function versVersionMoteur(
   };
 }
 
-/** Lignes saisies → lignes enregistrables (clé par défaut : nature + libellé). */
+/**
+ * Lignes saisies → lignes enregistrables (clé par défaut : nature + libellé).
+ * Toute clé saisie commence par sa nature (« honoraires:… », « debours:… ») :
+ * une ligne d'honoraires ne peut pas reprendre la clé d'une ligne de coût et
+ * l'apparier à elle dans la comparaison des versions.
+ */
 export function lignesDepuisSaisie(saisie: LigneBudgetSaisie[]): LigneBudgetDb[] {
+  for (const l of saisie) {
+    if (l.cle !== undefined && !l.cle.startsWith(`${l.nature}:`)) {
+      throw requeteInvalide(`La clé d'une ligne « ${l.nature} » commence par « ${l.nature}: ».`);
+    }
+  }
   return saisie.map((l) => ({
     cle: l.cle ?? `${l.nature}:${slug(l.libelle)}`,
     libelle: l.libelle,
@@ -148,7 +162,14 @@ export async function insererLignes(
 ): Promise<void> {
   const cles = new Set<string>();
   for (const [ordre, l] of lignes.entries()) {
-    if (cles.has(l.cle)) throw requeteInvalide(`Deux lignes portent la clé « ${l.cle} ».`);
+    if (cles.has(l.cle)) {
+      // Sans citer la clé d'une ligne de coût : elle peut être invisible de l'auteur.
+      throw requeteInvalide(
+        estFinance(l.nature)
+          ? "Deux lignes portent la même clé."
+          : `Deux lignes portent la clé « ${l.cle} ».`,
+      );
+    }
     cles.add(l.cle);
     await db.query(
       `INSERT INTO budget_lignes (cabinet_id, mission_id, version_id, cle, libelle, nature, grade_code,
@@ -406,13 +427,75 @@ const RANG_APPROBATEUR: Record<RoleApprobateur, readonly string[]> = {
 export const satisfaitRole = (roles: readonly string[], requis: RoleApprobateur): boolean =>
   roles.some((r) => RANG_APPROBATEUR[requis].includes(r));
 
+const ORDRE_APPROBATEURS: readonly RoleApprobateur[] = [
+  "chef_mission",
+  "directeur_mission",
+  "associe",
+];
+
+/**
+ * Rôle exigé pour valider une révision (FIN-15). Le palier porte sur le plus
+ * grand des écarts d'honoraires, de coûts (coûts internes + sous-traitance +
+ * débours non refacturables) et de marge, mesurés par rapport à la dernière
+ * version validée ET, cumulés, depuis le budget initial : une suite de petites
+ * révisions ne contourne pas le seuil. Le plus exigeant des rôles l'emporte.
+ * Tout est calculé par le moteur finance (synthèse, écarts, paliers).
+ */
+export function roleApprobateurRevision(
+  versions: VersionDb[],
+  revision: VersionDb,
+  mission: MissionAcces,
+): RoleApprobateur {
+  const grille = grilleSeuils(mission.devise_reference ?? mission.devise);
+  const conversion =
+    (mission.devise as Devise) === grille.deviseReference
+      ? {}
+      : { tauxChange: tauxChangeMission(mission) };
+  const cible = calculerBudget(versVersionMoteur(revision));
+  const couts = (s: SyntheseBudget) =>
+    sommer([s.coutsInternes, s.sousTraitance, s.deboursNonRefacturables], s.devise);
+  const references = [versionDeReference(versions), versions.find((v) => v.type === "initial")]
+    .filter((v): v is VersionDb => v !== undefined)
+    .map((v) => calculerBudget(versVersionMoteur(v)));
+  const roles = references.flatMap((ref) =>
+    [
+      soustraire(cible.honoraires, ref.honoraires),
+      soustraire(couts(cible), couts(ref)),
+      soustraire(cible.marge, ref.marge),
+    ].map((ecart) =>
+      roleApprobateur({ objet: "revision_budget", montant: ecart, grille, ...conversion }),
+    ),
+  );
+  return roles.reduce<RoleApprobateur>(
+    (max, r) => (ORDRE_APPROBATEURS.indexOf(r) > ORDRE_APPROBATEURS.indexOf(max) ? r : max),
+    "chef_mission",
+  );
+}
+
 /* ----- Vues filtrées selon les droits (FIN-02) ----- */
 
-const estFinance = (nature: NatureLigneBudget) => NATURES_FINANCE.includes(nature);
+/**
+ * Ligne qui révèle un prix unitaire de la grille de taux (FIN-02) : honoraires
+ * au temps, ou rattachés à un grade ou à un collaborateur (taux de vente
+ * standard ou spécifique). Sans « finance.lire », ni son prix journalier ni
+ * son montant ne sont renvoyés : seul le total des honoraires reste visible.
+ */
+export function revelePrixUnitaire(
+  l: Pick<LigneBudgetDb, "nature" | "cle" | "jours" | "grade_code">,
+): boolean {
+  return (
+    l.nature === "honoraires" &&
+    (l.jours !== null ||
+      l.grade_code !== null ||
+      l.cle.startsWith("honoraires:grade:") ||
+      l.cle.startsWith("honoraires:collaborateur:"))
+  );
+}
 
 /**
  * Ligne visible : sans « finance.lire », les coûts internes et la sous-traitance
- * sont ABSENTS ; sans « budget.lire_montants », aucun montant n'est renvoyé.
+ * sont ABSENTS et les honoraires au taux d'un grade ou d'un collaborateur sont
+ * sans prix ni montant ; sans « budget.lire_montants », aucun montant n'est renvoyé.
  */
 export function vueLigne(
   l: VersionDb["lignes"][number],
@@ -429,7 +512,7 @@ export function vueLigne(
     jours: l.jours,
     refacturable: l.refacturable,
   };
-  if (droits.montants || droits.finance) {
+  if (droits.finance || (droits.montants && !revelePrixUnitaire(l))) {
     vue.prix_journalier = l.prix_journalier;
     vue.montant_forfait = l.montant_forfait;
     vue.montant = montantLigne(versLigneMoteur(l, devise), devise).valeur;

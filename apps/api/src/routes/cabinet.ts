@@ -9,7 +9,7 @@ import { paramsId } from "../http/outils.js";
 
 const COLONNES_CABINET = `id, nom, pays, devise_base, unite_saisie_temps,
   heures_par_jour::float8 AS heures_par_jour, jours_travailles, cree_le`;
-const COLONNES_FERIE = "id, date::text AS date, libelle, nationale";
+const COLONNES_FERIE = "id, date::text AS date, libelle, nationale, a_valider";
 
 const feriesQuery = z.object({ annee: z.coerce.number().int().min(2000).max(2100).optional() });
 

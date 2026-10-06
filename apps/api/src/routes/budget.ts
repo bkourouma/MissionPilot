@@ -5,8 +5,6 @@ import {
   creerRevision,
   figerVersion,
   modifierLignesBudget,
-  roleApprobateur,
-  type Devise,
 } from "@missionpilot/engines";
 import {
   aPermission,
@@ -22,6 +20,7 @@ import type { Db } from "../db/pool.js";
 import { AppError, conflit, interdit, introuvable } from "../errors.js";
 import { paramsId } from "../http/outils.js";
 import {
+  estAssocie,
   exigerMissionModifiable,
   exigerMissionVisible,
   STATUTS_SIGNES,
@@ -30,11 +29,12 @@ import {
 import {
   calculerDepuisDecoupage,
   chargerVersions,
-  grilleSeuils,
+  estFinance,
   insererLignes,
   lignesDepuisSaisie,
+  revelePrixUnitaire,
+  roleApprobateurRevision,
   satisfaitRole,
-  tauxChangeMission,
   versionDeReference,
   versVersionMoteur,
   vueVersion,
@@ -44,8 +44,6 @@ import {
 import { aujourdhui, droitsBudget } from "../missions/outils.js";
 
 const paramsVersion = z.object({ id: z.string().uuid(), versionId: z.string().uuid() });
-
-const estFinance = (l: Pick<LigneBudgetDb, "nature">) => NATURES_FINANCE.includes(l.nature);
 
 function trouverVersion(versions: VersionDb[], id: string): VersionDb {
   const v = versions.find((x) => x.id === id);
@@ -64,8 +62,8 @@ function fusionnerLignesSaisies(
   existantes: LigneBudgetDb[],
 ): LigneBudgetDb[] {
   if (aPermission(auth.roles, "finance.lire")) return saisies;
-  if (saisies.some(estFinance)) throw interdit();
-  return [...saisies, ...existantes.filter(estFinance)];
+  if (saisies.some((l) => estFinance(l.nature))) throw interdit();
+  return [...saisies, ...existantes.filter((l) => estFinance(l.nature))];
 }
 
 async function exigerMissionSignee(db: Db, auth: Auth, id: string): Promise<MissionAcces> {
@@ -111,6 +109,17 @@ export const routesBudget: FastifyPluginAsync = async (app) => {
       const c = comparerVersions(versVersionMoteur(avant), versVersionMoteur(apres));
       const droits = droitsBudget(auth);
       const montants = droits.montants || droits.finance;
+      // Le moteur apparie les lignes par clé et retient la nature de la ligne
+      // « après » : les natures des DEUX côtés sont relues ici pour ne jamais
+      // exposer une ligne de coût (ou un prix unitaire) appariée à une autre.
+      const cotes = (cle: string) =>
+        [avant, apres]
+          .map((v) => v.lignes.find((l) => l.cle === cle))
+          .filter((l): l is VersionDb["lignes"][number] => l !== undefined);
+      const masquee = (cle: string) =>
+        !droits.finance && cotes(cle).some((l) => NATURES_FINANCE.includes(l.nature));
+      const sansMontant = (cle: string) =>
+        !montants || (!droits.finance && cotes(cle).some(revelePrixUnitaire));
       return {
         avant: { id: avant.id, numero: avant.numero, type: avant.type },
         apres: { id: apres.id, numero: apres.numero, type: apres.type },
@@ -121,6 +130,7 @@ export const routesBudget: FastifyPluginAsync = async (app) => {
           : {}),
         lignes: c.lignes
           .filter((l) => droits.finance || !NATURES_FINANCE.includes(l.nature))
+          .filter((l) => !masquee(l.id))
           .map((l) => ({
             cle: l.id,
             libelle: l.libelle,
@@ -129,7 +139,7 @@ export const routesBudget: FastifyPluginAsync = async (app) => {
             jours_avant: l.joursAvant,
             jours_apres: l.joursApres,
             ecart_jours: l.ecartJours,
-            ...(montants
+            ...(!sansMontant(l.id)
               ? {
                   montant_avant: l.montantAvant.valeur,
                   montant_apres: l.montantApres.valeur,
@@ -235,9 +245,11 @@ export const routesBudget: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * Validation d'une révision (FIN-03) : « budget.reviser » et, selon l'écart
-   * d'honoraires avec la version de référence, le rôle exigé par les seuils
-   * d'approbation (FIN-15, moteur). La version est alors figée.
+   * Validation d'une révision (FIN-03) : « budget.reviser », par le directeur
+   * désigné de CETTE mission ou un associé, jamais par l'auteur de la révision
+   * (sauf associé) ; et le rôle exigé par les seuils d'approbation (FIN-15,
+   * moteur) selon les écarts d'honoraires, de coûts et de marge. La version
+   * est alors figée.
    */
   app.post("/missions/:id/budget/versions/:versionId/valider", async (request) => {
     const auth = exiger(request, "budget.reviser");
@@ -248,17 +260,22 @@ export const routesBudget: FastifyPluginAsync = async (app) => {
       const version = trouverVersion(versions, versionId);
       const moteur = versVersionMoteur(version);
       const figee = figerVersion(moteur, aujourdhui());
-      const reference = versionDeReference(versions) as VersionDb;
-      const ecart = comparerVersions(versVersionMoteur(reference), moteur).ecartHonoraires;
-      const grille = grilleSeuils(mission.devise_reference ?? mission.devise);
-      const requis = roleApprobateur({
-        objet: "revision_budget",
-        montant: ecart,
-        grille,
-        ...((mission.devise as Devise) === grille.deviseReference
-          ? {}
-          : { tauxChange: tauxChangeMission(mission) }),
-      });
+      const associe = estAssocie(auth);
+      if (!associe && mission.directeur_id !== auth.utilisateurId) {
+        throw new AppError(
+          403,
+          "APPROBATION_REQUISE",
+          "Cette révision doit être validée par le directeur de la mission ou un associé.",
+        );
+      }
+      if (!associe && version.cree_par === auth.utilisateurId) {
+        throw new AppError(
+          403,
+          "APPROBATION_REQUISE",
+          "L'auteur d'une révision ne la valide pas lui-même : la faire valider par un associé.",
+        );
+      }
+      const requis = roleApprobateurRevision(versions, version, mission);
       if (!satisfaitRole(auth.roles, requis)) {
         throw new AppError(
           403,

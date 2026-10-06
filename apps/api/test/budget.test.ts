@@ -57,8 +57,12 @@ async function missionChiffree(c: CabinetMissions): Promise<string> {
   return id;
 }
 
+/**
+ * Signature par un associé : la ligne de sous-traitance est une donnée
+ * financière interne (FIN-02), que le directeur de mission ne saisit pas (M4).
+ */
 async function signer(c: CabinetMissions, id: string, corps: Record<string, unknown> = {}) {
-  const r = await c.directeur.post(`/api/missions/${id}/signer`, {
+  const r = await c.associe.post(`/api/missions/${id}/signer`, {
     date_signature: "2026-10-01",
     lignes_supplementaires: [
       { nature: "debours", libelle: "Billets d'avion", montant: 400_000, refacturable: true },
@@ -77,9 +81,10 @@ describe("budget initial figé à la signature (MIS-07, FIN-01, FIN-03)", () => 
     // Honoraires : 10×175 000 + 2×275 000 + 3×175 000 = 2 825 000.
     // Coûts internes : 10×90 000 + 2×150 000 + 3×90 000 = 1 470 000.
     // Marge : 2 825 000 − 1 470 000 − 600 000 (sous-traitance) = 755 000.
-    // Le directeur signataire n'a pas « finance.lire » : coûts et marge absents de sa réponse.
-    expect(s.budget_initial.synthese).not.toHaveProperty("marge");
-    expect(s).not.toHaveProperty("couts_manquants");
+    expect(s.budget_initial.synthese.marge).toBe(755_000);
+    // Le directeur n'a pas « finance.lire » : coûts et marge absents de sa vue.
+    const vueDirecteur = (await a.directeur.get(`/api/missions/${id}/budget`)).json().versions[0];
+    expect(vueDirecteur.synthese).not.toHaveProperty("marge");
     const complet = (await a.associe.get(`/api/missions/${id}/budget`)).json().versions[0];
     expect(complet.synthese).toEqual({
       devise: "XOF",
@@ -312,10 +317,11 @@ describe("matrice des droits sur le budget (FIN-02) : 8 rôles", () => {
       expect("honoraires" in v.synthese, `${role} honoraires`).toBe(montants);
       const natures = v.lignes.map((l: { nature: string }) => l.nature);
       expect(natures.includes("cout_interne"), `${role} lignes de coût`).toBe(finance);
+      // Prix unitaires des honoraires (grille de taux) : finance.lire seulement (E2).
       expect(
         v.lignes.some((l: Record<string, unknown>) => "prix_journalier" in l),
         `${role} prix`,
-      ).toBe(montants);
+      ).toBe(finance);
       // Synthèse en jours : budget.lire_jours.
       expect((await u.get(`/api/missions/${id}/synthese`)).statusCode, role).toBe(attendu);
     }

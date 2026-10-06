@@ -277,7 +277,8 @@ describe("cycle de vie et signature (MIS-07, FIN-04)", () => {
     expect(tauxDeSignature("XOF", "XOF")).toBe(1);
     expect(tauxDeSignature("XAF", "XOF")).toBe(1);
     expect(tauxDeSignature("EUR", "XOF")).toBe(655.957);
-    expect(tauxDeSignature("USD", "XOF", 600)).toBe(600);
+    expect(tauxDeSignature("EUR", "XOF", 655.957)).toBe(655.957);
+    expect(tauxDeSignature("USD", "XOF", 600, true)).toBe(600);
     expect(() => tauxDeSignature("USD", "XOF")).toThrow(/requis/);
   });
 });

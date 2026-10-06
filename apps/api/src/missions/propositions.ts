@@ -150,10 +150,16 @@ export interface Chiffrage {
   taux_manquants: string[];
 }
 
-/** Détail de la proposition et chiffrage par le moteur finance (jours × taux). */
+/**
+ * Détail de la proposition et chiffrage par le moteur finance (jours × taux).
+ * Sans « finance.lire » (`finance` faux), la grille de taux n'est pas
+ * renvoyée (FIN-02) : ni `taux`, ni taux journalier ni montant par grade ;
+ * restent les jours, le total des honoraires et les grades sans taux.
+ */
 export async function detailProposition(
   db: Db,
   proposition: Record<string, unknown>,
+  finance = true,
 ): Promise<Record<string, unknown>> {
   const id = proposition.id as string;
   const devise = proposition.devise as Devise;
@@ -183,15 +189,24 @@ export async function detailProposition(
     Object.fromEntries(
       lignes.rows.filter((l) => l.element_id === elementId).map((l) => [l.grade_code, l.jours]),
     );
-  return {
+  const chiffrage = chiffrer(devise, lignes.rows, tauxParGrade);
+  const detail = {
     ...proposition,
     elements: ordonnerArbre(elements.rows).map((e: Record<string, unknown>) => ({
       ...e,
       jours_par_grade: joursParElement(e.id as string),
     })),
-    taux: Object.fromEntries(tauxParGrade),
-    chiffrage: chiffrer(devise, lignes.rows, tauxParGrade),
   };
+  if (!finance) {
+    return {
+      ...detail,
+      chiffrage: {
+        ...chiffrage,
+        par_grade: chiffrage.par_grade.map(({ grade_code, jours }) => ({ grade_code, jours })),
+      },
+    };
+  }
+  return { ...detail, taux: Object.fromEntries(tauxParGrade), chiffrage };
 }
 
 export function chiffrer(

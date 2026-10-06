@@ -58,10 +58,13 @@ export const PERMISSIONS = [
   "encaissement.gerer",
   "indicateurs.cabinet",
   "mission.lire_toutes", // toutes les missions du cabinet (sinon : les siennes et celles de son équipe)
+  "mission.modifier_toutes", // modifier toute mission du cabinet (sinon : celles dont on est directeur ou chef)
   "mission.signer", // signer la lettre de mission : fige le budget initial (MIS-07)
   "mission.cloturer",
   "budget.lire_montants", // honoraires et débours du budget (sans coûts internes ni marges)
   "document.ecrire", // documents de mission (SOC-05)
+  "conges.demander", // demander un congé ou une absence pour soi (PLN-07)
+  "temps.importer", // importer l'historique des temps (TPS-10)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -76,7 +79,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "collaborateurs.lire",
     "catalogue.lire",
     "pipeline.gerer",
-    "proposition.valider",
+    // Pas de « proposition.valider » : une proposition est validée par un associé (PRD, MIS-05).
     "mission.lire",
     "mission.creer",
     "mission.planifier",
@@ -91,10 +94,12 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "facture.valider",
     "indicateurs.cabinet",
     "mission.lire_toutes",
+    "mission.modifier_toutes",
     "mission.signer",
     "mission.cloturer",
     "budget.lire_montants",
     "document.ecrire",
+    "conges.demander",
   ],
   chef_mission: [
     "clients.lire",
@@ -113,6 +118,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "facture.lire",
     "budget.lire_montants",
     "document.ecrire",
+    "conges.demander",
   ],
   consultant: [
     "clients.lire",
@@ -121,6 +127,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "budget.lire_jours",
     "temps.saisir",
     "document.ecrire",
+    "conges.demander",
   ],
   ressources: [
     "clients.lire",
@@ -134,6 +141,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "conges.valider",
     "temps.saisir",
     "mission.lire_toutes",
+    "conges.demander",
   ],
   gestionnaire: [
     "clients.lire",
@@ -150,10 +158,12 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "encaissement.gerer",
     "temps.saisir",
     "temps.cloturer",
+    "temps.importer",
     "indicateurs.cabinet",
     "charge.lire",
     "mission.lire_toutes",
     "budget.lire_montants",
+    "conges.demander",
   ],
   expert_metier: [
     "catalogue.lire",
@@ -161,6 +171,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "mission.lire",
     "temps.saisir",
     "document.ecrire",
+    "conges.demander",
   ],
   expert_externe: ["temps.saisir"],
 };
