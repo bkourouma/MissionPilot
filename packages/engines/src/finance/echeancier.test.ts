@@ -58,6 +58,15 @@ describe("régie sur temps validés", () => {
     ]);
     expect(echeancierRegie([])).toEqual([]);
   });
+
+  it("refuse un nombre de jours négatif ou non fini", () => {
+    const attendu = expect.objectContaining({ code: "NOMBRE_INVALIDE" });
+    for (const jours of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        echeancierRegie([{ periode: "2026-10-31", jours, tauxJournalier: xof(400_000) }]),
+      ).toThrow(attendu);
+    }
+  });
 });
 
 describe("forfait avec part variable", () => {
@@ -88,6 +97,15 @@ describe("forfait avec part variable", () => {
     const attendu = expect.objectContaining({ code: "ECHEANCIER_INVALIDE" });
     expect(avecAtteinte(120)).toThrow(attendu);
     expect(avecAtteinte(-1)).toThrow(attendu);
+  });
+
+  it("refuse une part variable dans une autre devise que la part fixe", () => {
+    expect(() =>
+      echeancierForfaitVariable({
+        ...definition,
+        partVariable: { ...definition.partVariable, montantMaximum: montant(300_000, "EUR") },
+      }),
+    ).toThrow(expect.objectContaining({ code: "DEVISE_DIFFERENTE" }));
   });
 });
 

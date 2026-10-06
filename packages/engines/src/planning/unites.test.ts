@@ -47,7 +47,9 @@ describe("conversion heures ↔ jours", () => {
   it("somme des heures avant conversion pour éviter le cumul d'arrondis", () => {
     const quartsDHeure = Array.from({ length: 32 }, () => 0.25);
     expect(sommerHeuresEnJours(quartsDHeure)).toBe(1);
-    expect(sommerJours(quartsDHeure.map((h) => heuresVersJours(h)))).not.toBe(1);
+    // Converties une à une : 15 min = 0,03125 j → 0,03 ; 32 × 0,03 = 0,96 j.
+    expect(heuresVersJours(0.25)).toBe(0.03);
+    expect(sommerJours(quartsDHeure.map((h) => heuresVersJours(h)))).toBe(0.96);
   });
 
   it("refuse une durée de journée invalide", () => {

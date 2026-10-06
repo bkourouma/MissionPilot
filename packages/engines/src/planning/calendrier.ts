@@ -2,7 +2,8 @@
  * Calendrier ouvré (SOC-04) : semaine de travail paramétrable et jours fériés
  * fournis par l'appelant (voir `feriesParDefaut` dans feries.ts).
  */
-import { type DateISO, type Periode, jourSemaine, versDateISO, versJourUTC } from "./dates";
+import { jourSemaineDepuisJourUTC } from "../commun/dates";
+import { type DateISO, type Periode, versDateISO, versJourUTC } from "./dates";
 
 /** Paramètres d'un calendrier de travail. */
 export interface ParametresCalendrier {
@@ -34,14 +35,13 @@ function compiler(params: ParametresCalendrier): CalendrierCompile {
 }
 
 function ouvre(cal: CalendrierCompile, jourUTC: number): boolean {
-  const semaine = ((((jourUTC + 3) % 7) + 7) % 7) + 1;
-  return cal.jours.has(semaine) && !cal.feries.has(jourUTC);
+  return cal.jours.has(jourSemaineDepuisJourUTC(jourUTC)) && !cal.feries.has(jourUTC);
 }
 
 /** Indique si la date est un jour ouvré (jour travaillé et non férié). */
 export function estJourOuvre(date: DateISO, params: ParametresCalendrier = {}): boolean {
   const cal = compiler(params);
-  return cal.jours.has(jourSemaine(date)) && !cal.feries.has(versJourUTC(date));
+  return ouvre(cal, versJourUTC(date));
 }
 
 /** Liste les jours ouvrés d'une période (bornes incluses ; vide si inversée). */

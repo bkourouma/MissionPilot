@@ -5,7 +5,8 @@
  * 1. ligne : brut = arrondi(quantité × prix unitaire) ; remise de ligne
  *    = arrondi(brut × %) ou montant fixe ; net de ligne = brut − remise ;
  * 2. remise globale = arrondi(Σ nets × %) ou montant fixe, répartie sur les
- *    lignes au prorata de leur net sans perte (reste sur la dernière ligne) ;
+ *    lignes au prorata de leur net sans perte, par la méthode du plus fort
+ *    reste : aucune part ne dépasse le net de sa ligne (pas de HT négatif) ;
  *    HT de ligne = net − part de remise globale ; total HT = Σ HT de ligne ;
  * 3. TVA calculée UNE fois par taux sur la base Σ HT des lignes de ce taux :
  *    TVA(t) = arrondi(base(t) × t %). Pas d'arrondi ligne à ligne, donc pas
@@ -19,8 +20,8 @@ import { ErreurFinance } from "./erreurs";
 import {
   appliquerPourcentage,
   multiplier,
+  montant,
   oppose,
-  repartir,
   sommer,
   soustraire,
   verifierMemeDevise,
@@ -130,7 +131,21 @@ function calculerLigneBrute(
   return { brut, remise: montantRemise(brut, ligne.remise) };
 }
 
-function repartirRemiseGlobale(nets: readonly Montant[], remise: Montant): Montant[] {
+/**
+ * Répartit la remise globale sur les lignes au prorata de leur net, par la
+ * méthode du plus fort reste : chaque ligne reçoit d'abord la partie entière
+ * de sa part exacte (remise × net / Σ nets), puis les unités restantes vont,
+ * une par ligne, aux plus forts restes (à égalité, à la ligne la plus haute).
+ * La somme des parts égale la remise. Comme la remise ne dépasse pas Σ nets,
+ * chaque part exacte est ≤ au net de sa ligne ; une ligne ne reçoit une unité
+ * de plus que si sa part exacte n'est pas entière, donc sa part arrondie reste
+ * ≤ à son net : aucun HT de ligne ne devient négatif, une ligne à net nul
+ * (offerte) ne reçoit rien. Exemple : nets 1000 / 1000 / 1, remise 1000 →
+ * 500 / 500 / 0.
+ */
+export function repartirRemiseGlobale(nets: readonly Montant[], remise: Montant): Montant[] {
+  nets.forEach((n) => verifierMemeDevise(n, remise));
+  // Sans remise, rien à répartir : les lignes négatives (déduction d'acompte) restent permises.
   if (remise.valeur === 0) return nets.map(() => zero(remise.devise));
   if (nets.some((n) => n.valeur < 0)) {
     throw new ErreurFinance(
@@ -138,10 +153,29 @@ function repartirRemiseGlobale(nets: readonly Montant[], remise: Montant): Monta
       "Remise globale impossible avec des lignes négatives.",
     );
   }
-  return repartir(
-    remise,
-    nets.map((n) => n.valeur),
-  );
+  const total = BigInt(nets.reduce((s, n) => s + n.valeur, 0));
+  const aRepartir = BigInt(remise.valeur);
+  if (aRepartir < 0n || aRepartir > total) {
+    throw new ErreurFinance(
+      "REMISE_INVALIDE",
+      "La remise globale doit être comprise entre 0 et la somme des nets de ligne.",
+    );
+  }
+  const exactes = nets.map((n) => {
+    const produit = aRepartir * BigInt(n.valeur);
+    return { entier: produit / total, reste: produit % total };
+  });
+  let restant = aRepartir - exactes.reduce((s, e) => s + e.entier, 0n);
+  const ordre = exactes
+    .map((e, i) => ({ i, reste: e.reste }))
+    .sort((a, b) => (a.reste === b.reste ? a.i - b.i : a.reste > b.reste ? -1 : 1));
+  const bonus = new Set<number>();
+  for (const { i } of ordre) {
+    if (restant === 0n) break;
+    bonus.add(i);
+    restant -= 1n;
+  }
+  return exactes.map((e, i) => montant(Number(e.entier) + (bonus.has(i) ? 1 : 0), remise.devise));
 }
 
 function calculerLignes(donnees: DonneesFacture): LigneFactureCalculee[] {
@@ -251,9 +285,15 @@ function opposerLigne(l: LigneFactureCalculee): LigneFactureCalculee {
  * dont chaque montant est l'exact opposé de l'original (mêmes taux, mêmes
  * bases). L'arrondi étant symétrique, recalculer les mêmes lignes avec des
  * quantités négatives donne les mêmes montants (hors remise globale, refusée
- * sur des lignes négatives).
+ * sur des lignes négatives). Refuse (`AVOIR_INVALIDE`) l'avoir d'un avoir.
  */
 export function creerAvoir(facture: FactureCalculee): FactureCalculee {
+  if (facture.nature === "avoir") {
+    throw new ErreurFinance(
+      "AVOIR_INVALIDE",
+      "Un avoir ne peut pas lui-même être annulé par avoir.",
+    );
+  }
   return {
     ...facture,
     nature: "avoir",

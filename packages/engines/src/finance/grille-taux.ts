@@ -3,7 +3,7 @@
  * négociés par client. Un taux négocié valide à la date demandée l'emporte
  * toujours sur le taux standard.
  */
-import { joursDepuisEpoque, type DateIso } from "./dates";
+import { joursDepuisEpoque, type DateISO } from "./dates";
 import { ErreurFinance } from "./erreurs";
 import type { Montant } from "./monnaie";
 
@@ -12,9 +12,9 @@ export interface TauxNegocie {
   readonly grade: string;
   readonly taux: Montant;
   /** Début de validité inclus (facultatif : sans borne). */
-  readonly valideDu?: DateIso;
+  readonly valideDu?: DateISO;
   /** Fin de validité incluse (facultatif : sans borne). */
-  readonly valideAu?: DateIso;
+  readonly valideAu?: DateISO;
 }
 
 export interface GrilleTaux {
@@ -27,7 +27,7 @@ export interface DemandeTaux {
   readonly grade: string;
   readonly clientId?: string;
   /** Date de référence (date de la proposition ou de la prestation). */
-  readonly date: DateIso;
+  readonly date: DateISO;
 }
 
 export interface TauxResolu {
@@ -61,7 +61,11 @@ export function resoudreTauxGrade(grille: GrilleTaux, demande: DemandeTaux): Tau
     .sort((a, b) => comparerDebut(b, a));
   const negocie = candidats[0];
   if (negocie !== undefined) return { taux: negocie.taux, source: "negocie" };
-  const standard = grille.standard[demande.grade];
+  // Object.hasOwn : un grade nommé « constructor » ou « toString » ne doit pas
+  // résoudre une propriété héritée d'Object.prototype.
+  const standard = Object.hasOwn(grille.standard, demande.grade)
+    ? grille.standard[demande.grade]
+    : undefined;
   if (standard === undefined) {
     throw new ErreurFinance(
       "TAUX_INCONNU",

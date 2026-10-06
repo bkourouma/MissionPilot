@@ -18,7 +18,7 @@ import {
   versRationnel,
   type Rationnel,
 } from "./calcul-exact";
-import { joursDepuisEpoque, type DateIso } from "./dates";
+import { joursDepuisEpoque, type DateISO } from "./dates";
 import { ErreurFinance } from "./erreurs";
 
 export type Devise = "XOF" | "XAF" | "EUR" | "USD";
@@ -55,7 +55,7 @@ export interface TauxChange {
   readonly source: Devise;
   readonly cible: Devise;
   readonly taux: number;
-  readonly dateFixation: DateIso;
+  readonly dateFixation: DateISO;
 }
 
 /** Construit un montant ; refuse une valeur non entière ou hors limites. */
@@ -196,7 +196,7 @@ export function figerTauxChange(
   source: Devise,
   cible: Devise,
   taux: number,
-  dateFixation: DateIso,
+  dateFixation: DateISO,
 ): TauxChange {
   joursDepuisEpoque(dateFixation);
   if (comparerRationnels(versRationnel(taux, "taux de change"), { num: 0n, den: 1n }) <= 0) {

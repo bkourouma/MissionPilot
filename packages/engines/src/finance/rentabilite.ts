@@ -13,7 +13,7 @@ import {
   versRationnel,
   type Rationnel,
 } from "./calcul-exact";
-import { joursEntre, type DateIso } from "./dates";
+import { joursEntre, type DateISO } from "./dates";
 import { ErreurFinance } from "./erreurs";
 import {
   additionner,
@@ -130,15 +130,16 @@ export function tauxFacturabilite(
 }
 
 export interface FactureEncaissee {
-  readonly dateEmission: DateIso;
-  readonly dateEncaissement: DateIso;
+  readonly dateEmission: DateISO;
+  readonly dateEncaissement: DateISO;
   readonly montant: Montant;
 }
 
 /**
  * Délai moyen d'encaissement en jours (2 décimales), `null` sans facture.
  * `ponderation = "montant"` pondère chaque délai par le montant encaissé
- * (toutes les factures dans la même devise).
+ * (toutes les factures dans la même devise). Refuse un encaissement antérieur
+ * à l'émission (`DATE_INVALIDE`) : un délai négatif fausserait la moyenne.
  */
 export function delaiMoyenEncaissement(
   factures: readonly FactureEncaissee[],
@@ -149,11 +150,18 @@ export function delaiMoyenEncaissement(
   if (premiere !== undefined && ponderation === "montant") {
     factures.forEach((f) => verifierMemeDevise(premiere.montant, f.montant));
   }
+  const delais = factures.map((f) => {
+    const delai = joursEntre(f.dateEmission, f.dateEncaissement);
+    if (delai < 0) {
+      throw new ErreurFinance(
+        "DATE_INVALIDE",
+        `Encaissement du ${f.dateEncaissement} antérieur à l'émission du ${f.dateEmission}.`,
+      );
+    }
+    return BigInt(delai);
+  });
   const totalPoids = poids.reduce((a, b) => a + b, 0n);
-  const somme = factures.reduce(
-    (s, f, i) => s + BigInt(joursEntre(f.dateEmission, f.dateEncaissement)) * (poids[i] ?? 0n),
-    0n,
-  );
+  const somme = delais.reduce((s, d, i) => s + d * (poids[i] ?? 0n), 0n);
   if (totalPoids === 0n) return null;
   return Number(diviserArrondi(somme * 100n, totalPoids)) / 100;
 }

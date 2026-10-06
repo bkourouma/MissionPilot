@@ -10,7 +10,7 @@
  * avec l'erreur `BUDGET_FIGE` ; on crée une révision à la place, avec motif.
  */
 import { differenceExacte, sommeExacte } from "./calcul-exact";
-import { joursDepuisEpoque, type DateIso } from "./dates";
+import { joursDepuisEpoque, type DateISO } from "./dates";
 import { ErreurFinance } from "./erreurs";
 import {
   multiplier,
@@ -47,7 +47,7 @@ export interface VersionBudget {
   readonly type: TypeVersionBudget;
   readonly devise: Devise;
   readonly figee: boolean;
-  readonly dateFigeage?: DateIso;
+  readonly dateFigeage?: DateISO;
   readonly motif?: string;
   readonly lignes: readonly LigneBudget[];
 }
@@ -139,7 +139,7 @@ function refuserSiFigee(version: VersionBudget): void {
 }
 
 /** Fige une version (signature du budget initial, validation d'une révision). */
-export function figerVersion(version: VersionBudget, dateFigeage: DateIso): VersionBudget {
+export function figerVersion(version: VersionBudget, dateFigeage: DateISO): VersionBudget {
   refuserSiFigee(version);
   joursDepuisEpoque(dateFigeage);
   return { ...version, figee: true, dateFigeage };

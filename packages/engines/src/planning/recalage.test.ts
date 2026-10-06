@@ -120,7 +120,7 @@ describe("décalage d'une phase (PLN-09)", () => {
     expect(r.affectationsImpactees).toEqual([]);
   });
 
-  it("avance une phase libre", () => {
+  it("ne déplace rien pour un décalage nul", () => {
     const r = decalerPhase({
       taches: TACHES,
       dependances: [],
@@ -129,6 +129,10 @@ describe("décalage d'une phase (PLN-09)", () => {
       affectations,
     });
     expect(r.tachesDecalees).toEqual([]);
+    expect(r.affectationsImpactees).toEqual([]);
+  });
+
+  it("avance une phase libre", () => {
     const libre = decalerPhase({
       taches: [{ id: "Z", debut: "2024-01-10", dureeJoursOuvres: 1, phaseId: "p9" }],
       dependances: [],
@@ -136,7 +140,9 @@ describe("décalage d'une phase (PLN-09)", () => {
       decalageJoursOuvres: -2,
       affectations: [{ tacheId: "Z" }],
     });
+    expect(libre.tachesDecalees).toHaveLength(1);
+    expect(libre.tachesDecalees[0]?.avant).toEqual({ debut: "2024-01-10", fin: "2024-01-10" });
     expect(libre.tachesDecalees[0]?.apres).toEqual({ debut: "2024-01-08", fin: "2024-01-08" });
-    expect(libre.affectationsImpactees).toHaveLength(1);
+    expect(libre.affectationsImpactees).toEqual([{ tacheId: "Z" }]);
   });
 });

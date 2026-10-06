@@ -8,7 +8,7 @@
  * répartis sans perte : le reste d'arrondi va au dernier jalon.
  */
 import { comparerRationnels, sommeRationnels, versRationnel } from "./calcul-exact";
-import { ajouterMois, joursDepuisEpoque, type DateIso } from "./dates";
+import { ajouterMois, joursDepuisEpoque, type DateISO } from "./dates";
 import { ErreurFinance } from "./erreurs";
 import {
   appliquerPourcentage,
@@ -17,20 +17,22 @@ import {
   repartir,
   sommer,
   soustraire,
+  verifierMemeDevise,
   zero,
   type Montant,
 } from "./monnaie";
+import { verifierJours } from "./rentabilite";
 
 export interface JalonFacturation {
   readonly libelle: string;
   /** Part du forfait en points (30 pour 30 %). */
   readonly pourcentage: number;
-  readonly date: DateIso;
+  readonly date: DateISO;
 }
 
 export interface TempsValide {
   /** Date de la période de facturation (ex. fin de mois). */
-  readonly periode: DateIso;
+  readonly periode: DateISO;
   readonly jours: number;
   readonly tauxJournalier: Montant;
 }
@@ -53,21 +55,21 @@ export type DefinitionEcheancier =
         readonly montantMaximum: Montant;
         /** Atteinte des objectifs en points, de 0 à 100. */
         readonly atteinte: number;
-        readonly date: DateIso;
+        readonly date: DateISO;
       };
     }
   | {
       readonly mode: "abonnement";
       readonly libelle: string;
       readonly montantPeriodique: Montant;
-      readonly dateDebut: DateIso;
+      readonly dateDebut: DateISO;
       readonly nombrePeriodes: number;
       readonly periodicite: Periodicite;
     };
 
 export interface Echeance {
   readonly libelle: string;
-  readonly date: DateIso;
+  readonly date: DateISO;
   readonly montant: Montant;
 }
 
@@ -107,6 +109,7 @@ export function echeancierForfait(total: Montant, jalons: readonly JalonFacturat
 
 /** Régie : une échéance par période, Σ arrondi(jours × taux) des temps validés. */
 export function echeancierRegie(temps: readonly TempsValide[]): Echeance[] {
+  temps.forEach((t) => verifierJours(t.jours, `Régie, période du ${t.periode}`));
   const periodes = [...new Set(temps.map((t) => t.periode))].sort(
     (a, b) => joursDepuisEpoque(a) - joursDepuisEpoque(b),
   );
@@ -129,6 +132,7 @@ export function echeancierForfaitVariable(
   definition: Extract<DefinitionEcheancier, { mode: "forfait_variable" }>,
 ): Echeance[] {
   const { partVariable } = definition;
+  verifierMemeDevise(definition.partFixe, partVariable.montantMaximum);
   const atteinte = versRationnel(partVariable.atteinte, "atteinte");
   if (atteinte.num < 0n || comparerRationnels(atteinte, { num: 100n, den: 1n }) > 0) {
     throw new ErreurFinance(

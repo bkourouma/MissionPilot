@@ -1,20 +1,23 @@
 /**
  * Dates civiles au format ISO `AAAA-MM-JJ`, manipulées en jours entiers UTC
  * (nombre de jours depuis le 1970-01-01). Aucun fuseau local, aucune horloge :
- * la date courante est toujours fournie par l'appelant.
+ * la date courante est toujours fournie par l'appelant. Le calcul vit dans
+ * commun/dates.ts (partagé avec la finance) ; ce module lève des `RangeError`.
  */
+import {
+  type DateISO,
+  analyserDateISO,
+  dateISODepuisJourUTC,
+  jourSemaineDepuisJourUTC,
+} from "../commun/dates";
 
-/** Date civile au format `AAAA-MM-JJ`. */
-export type DateISO = string;
+export type { DateISO };
 
 /** Intervalle de dates, bornes incluses. */
 export interface Periode {
   readonly debut: DateISO;
   readonly fin: DateISO;
 }
-
-const MS_PAR_JOUR = 86_400_000;
-const FORMAT_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function deuxChiffres(n: number): string {
   return String(n).padStart(2, "0");
@@ -28,22 +31,17 @@ export function dateISO(annee: number, mois: number, jour: number): DateISO {
 
 /** Convertit une date ISO en numéro de jour UTC ; lève une `RangeError` si invalide. */
 export function versJourUTC(date: DateISO): number {
-  const m = FORMAT_ISO.exec(date);
-  if (!m) throw new RangeError(`Date ISO invalide : « ${date} » (attendu AAAA-MM-JJ)`);
-  const [annee, mois, jour] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const ms = Date.UTC(annee, mois - 1, jour);
-  const verif = new Date(ms);
-  if (verif.getUTCMonth() !== mois - 1 || verif.getUTCDate() !== jour) {
-    throw new RangeError(`Date inexistante : « ${date} »`);
+  const analyse = analyserDateISO(date);
+  if (analyse.valide) return analyse.jourUTC;
+  if (analyse.raison === "format") {
+    throw new RangeError(`Date ISO invalide : « ${date} » (attendu AAAA-MM-JJ)`);
   }
-  return Math.round(ms / MS_PAR_JOUR);
+  throw new RangeError(`Date inexistante : « ${date} »`);
 }
 
 /** Convertit un numéro de jour UTC en date ISO. */
 export function versDateISO(jourUTC: number): DateISO {
-  const d = new Date(jourUTC * MS_PAR_JOUR);
-  const annee = String(d.getUTCFullYear()).padStart(4, "0");
-  return `${annee}-${deuxChiffres(d.getUTCMonth() + 1)}-${deuxChiffres(d.getUTCDate())}`;
+  return dateISODepuisJourUTC(jourUTC);
 }
 
 /** Ajoute (ou retire si négatif) un nombre de jours calendaires. */
@@ -53,8 +51,7 @@ export function ajouterJours(date: DateISO, jours: number): DateISO {
 
 /** Jour de la semaine ISO : 1 = lundi … 7 = dimanche. */
 export function jourSemaine(date: DateISO): number {
-  // Le 1970-01-01 (jour 0) était un jeudi (4).
-  return ((((versJourUTC(date) + 3) % 7) + 7) % 7) + 1;
+  return jourSemaineDepuisJourUTC(versJourUTC(date));
 }
 
 /** Écart en jours calendaires `b − a`. */

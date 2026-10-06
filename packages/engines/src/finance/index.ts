@@ -5,7 +5,6 @@
  * règle d'arrondi unique.
  */
 export { ErreurFinance, type CodeErreurFinance } from "./erreurs";
-export type { DateIso } from "./dates";
 export * from "./monnaie";
 export * from "./grille-taux";
 export * from "./budget";

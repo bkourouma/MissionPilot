@@ -3,39 +3,35 @@
  *
  * Aucune horloge cachée : la date du jour est toujours un paramètre. Les
  * calculs se font en UTC (une date calendaire n'a pas de fuseau), ce qui rend
- * le résultat identique quel que soit le serveur.
+ * le résultat identique quel que soit le serveur. Le calcul vit dans
+ * commun/dates.ts (partagé avec le planning) ; ce module lève des
+ * `ErreurFinance` de code `DATE_INVALIDE`.
  */
+import {
+  type DateISO,
+  analyserDateISO,
+  dateISODepuisJourUTC,
+  jourUTCDepuisComposantes,
+} from "../commun/dates";
 import { ErreurFinance } from "./erreurs";
 
-const MS_PAR_JOUR = 86_400_000;
-const FORMAT_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/** Date ISO « AAAA-MM-JJ ». */
-export type DateIso = string;
+export type { DateISO };
 
 /** Convertit une date ISO en nombre de jours depuis l'époque Unix ; refuse une date inexistante. */
-export function joursDepuisEpoque(date: DateIso): number {
-  const correspondance = FORMAT_ISO.exec(date);
-  if (correspondance === null) {
+export function joursDepuisEpoque(date: DateISO): number {
+  const analyse = analyserDateISO(date);
+  if (analyse.valide) return analyse.jourUTC;
+  if (analyse.raison === "format") {
     throw new ErreurFinance(
       "DATE_INVALIDE",
       `Date attendue au format AAAA-MM-JJ (reçu « ${date} »).`,
     );
   }
-  const [annee, mois, jour] = correspondance.slice(1).map(Number) as [number, number, number];
-  const ms = Date.UTC(annee, mois - 1, jour);
-  if (formaterDate(ms) !== date) {
-    throw new ErreurFinance("DATE_INVALIDE", `Date inexistante « ${date} ».`);
-  }
-  return ms / MS_PAR_JOUR;
-}
-
-function formaterDate(ms: number): DateIso {
-  return new Date(ms).toISOString().slice(0, 10);
+  throw new ErreurFinance("DATE_INVALIDE", `Date inexistante « ${date} ».`);
 }
 
 /** Nombre de jours de `debut` à `fin` (négatif si `fin` précède `debut`). */
-export function joursEntre(debut: DateIso, fin: DateIso): number {
+export function joursEntre(debut: DateISO, fin: DateISO): number {
   return joursDepuisEpoque(fin) - joursDepuisEpoque(debut);
 }
 
@@ -43,12 +39,17 @@ export function joursEntre(debut: DateIso, fin: DateIso): number {
  * Ajoute `n` mois à une date ; le jour est ramené au dernier jour du mois
  * d'arrivée s'il n'existe pas (31 janvier + 1 mois = 28 ou 29 février).
  */
-export function ajouterMois(date: DateIso, n: number): DateIso {
+export function ajouterMois(date: DateISO, n: number): DateISO {
   joursDepuisEpoque(date);
   const [annee, mois, jour] = date.split("-").map(Number) as [number, number, number];
   const indexMois = annee * 12 + (mois - 1) + n;
   const anneeCible = Math.floor(indexMois / 12);
-  const moisCible = indexMois - anneeCible * 12;
-  const dernierJour = new Date(Date.UTC(anneeCible, moisCible + 1, 0)).getUTCDate();
-  return formaterDate(Date.UTC(anneeCible, moisCible, Math.min(jour, dernierJour)));
+  const moisCible = indexMois - anneeCible * 12 + 1;
+  // Jour 0 du mois suivant = dernier jour du mois cible.
+  const dernierJour = Number(
+    dateISODepuisJourUTC(jourUTCDepuisComposantes(anneeCible, moisCible + 1, 0)).slice(-2),
+  );
+  return dateISODepuisJourUTC(
+    jourUTCDepuisComposantes(anneeCible, moisCible, Math.min(jour, dernierJour)),
+  );
 }

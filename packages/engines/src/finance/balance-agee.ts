@@ -7,14 +7,14 @@
  * plus de 90 jours. Une créance soldée (solde nul) est ignorée ; un solde
  * négatif (avoir non imputé) est classé comme les autres et vient en déduction.
  */
-import { joursEntre, type DateIso } from "./dates";
+import { joursEntre, type DateISO } from "./dates";
 import { additionner, zero, type Devise, type Montant } from "./monnaie";
 
 export interface Creance {
   readonly factureId: string;
   readonly clientId: string;
-  readonly dateEmission: DateIso;
-  readonly dateEcheance: DateIso;
+  readonly dateEmission: DateISO;
+  readonly dateEcheance: DateISO;
   /** Reste à encaisser. */
   readonly solde: Montant;
 }
@@ -32,7 +32,7 @@ export const TRANCHES_AGE: readonly TrancheAge[] = [
 export type BalanceAgee = Readonly<Record<TrancheAge | "total", Montant>>;
 
 export interface OptionsBalanceAgee {
-  readonly dateReference: DateIso;
+  readonly dateReference: DateISO;
   readonly devise: Devise;
   readonly base?: "echeance" | "emission";
 }

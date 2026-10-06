@@ -5,9 +5,20 @@
  *   Consommation = Réalisé / Budget
  *
  * Calculs en centièmes de jour (entiers). Un budget nul ne provoque jamais de
- * division par zéro : les ratios valent alors `null`.
+ * division par zéro : les ratios valent alors `null`. Les ratios exposés sont
+ * arrondis à 4 décimales (commun/ratio.ts) ; les seuils se comparent sur les
+ * valeurs exactes en entiers.
  */
-import { depuisCentiemes, versCentiemes } from "./unites";
+import { arrondirRatio, ratioArrondi } from "../commun/ratio";
+import { arrondirJours, depuisCentiemes, versCentiemes } from "./unites";
+
+/**
+ * Nombre de jours en notation française, sans dépendre d'Intl : arrondi au
+ * centième, zéros inutiles supprimés, virgule décimale (2,5 ; 1,25 ; 3).
+ */
+export function formaterJours(jours: number): string {
+  return String(arrondirJours(jours)).replace(".", ",");
+}
 
 /** Valeurs saisies pour une tâche (ou agrégées pour un niveau supérieur). */
 export interface LigneSuivi {
@@ -71,8 +82,8 @@ export function calculerSuivi(ligne: LigneSuivi): SuiviCalcule {
     resteAFaire: depuisCentiemes(reste),
     atterrissage: depuisCentiemes(atterrissage),
     ecart: depuisCentiemes(ecart),
-    ecartRelatif: budget === 0 ? null : ecart / budget,
-    consommation: budget === 0 ? null : realise / budget,
+    ecartRelatif: ratioArrondi(ecart, budget),
+    consommation: ratioArrondi(realise, budget),
   };
 }
 
@@ -145,7 +156,7 @@ export function detecterAlertes(ligne: LigneSuivi, seuilConsommationPct = 80): A
   if (s.ecart > 0) {
     alertes.push({
       type: "atterrissage_superieur_budget",
-      message: `Atterrissage supérieur au budget de ${s.ecart} j`,
+      message: `Atterrissage supérieur au budget de ${formaterJours(s.ecart)} j`,
     });
   }
   return alertes;
@@ -168,7 +179,7 @@ export function avancementPhysique(elements: readonly ElementAvancement[]): numb
     total += poids;
     if (e.atteint) atteint += poids;
   }
-  return total === 0 ? null : atteint / total;
+  return ratioArrondi(atteint, total);
 }
 
 /** Indicateur de performance de la mission (TPS-08). */
@@ -194,10 +205,13 @@ export function performanceMission(
     throw new RangeError(`Avancement invalide : ${avancement} (attendu entre 0 et 1)`);
   }
   const { consommation } = calculerSuivi({ ...ligne, resteAFaire: 0 });
+  // Indice et écart calculés sur la consommation exacte, arrondis en sortie.
+  const budget = versCentiemes(ligne.budget);
+  const realise = versCentiemes(ligne.realise);
   return {
     avancement,
     consommation,
-    indice: consommation === null || consommation === 0 ? null : avancement / consommation,
-    ecartPoints: consommation === null ? null : avancement - consommation,
+    indice: budget === 0 || realise === 0 ? null : arrondirRatio((avancement * budget) / realise),
+    ecartPoints: budget === 0 ? null : arrondirRatio(avancement - realise / budget),
   };
 }

@@ -6,6 +6,7 @@
  *
  * Calculs en centièmes de jour ; résultats en jours arrondis au centième.
  */
+import { ratioArrondi } from "../commun/ratio";
 import { type ParametresCalendrier, listerJoursOuvres } from "./calendrier";
 import {
   type DateISO,
@@ -106,10 +107,12 @@ export function joursAffectesSurPeriode(
   return depuisCentiemes(cumulAlloue(aff, ouvres, periode.fin) - avant);
 }
 
-/** Taux d'occupation (0,9 = 90 %), `null` si la capacité est nulle. */
+/**
+ * Taux d'occupation (0,9 = 90 %) arrondi à 4 décimales, `null` si la capacité
+ * est nulle. `etatCharge` compare les seuils sur les valeurs exactes.
+ */
 export function tauxOccupation(joursAffectes: number, capaciteJours: number): number | null {
-  const cap = versCentiemes(capaciteJours);
-  return cap === 0 ? null : versCentiemes(joursAffectes) / cap;
+  return ratioArrondi(versCentiemes(joursAffectes), versCentiemes(capaciteJours));
 }
 
 /** État de charge d'une cellule du plan de charge. */

@@ -24,6 +24,17 @@ const grille: GrilleTaux = {
 };
 
 describe("resoudreTauxGrade (FIN-02)", () => {
+  it("ignore les propriétés héritées d'Object (grade « constructor », « toString »)", () => {
+    const tauxInconnu = expect.objectContaining({ code: "TAUX_INCONNU" });
+    for (const grade of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
+      expect(() => resoudreTauxGrade(grille, { grade, date: "2026-10-06" })).toThrow(tauxInconnu);
+    }
+    const avecConstructor: GrilleTaux = { standard: { constructor: montant(1, "XOF") } };
+    expect(
+      resoudreTauxGrade(avecConstructor, { grade: "constructor", date: "2026-10-06" }).taux,
+    ).toEqual(montant(1, "XOF"));
+  });
+
   it("rend le taux standard sans négociation", () => {
     expect(resoudreTauxGrade(grille, { grade: "associe", date: "2026-10-06" })).toEqual({
       taux: montant(600_000, "XOF"),

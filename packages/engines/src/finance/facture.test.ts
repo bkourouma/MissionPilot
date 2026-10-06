@@ -3,6 +3,7 @@ import {
   calculerFacture,
   creerAvoir,
   montantRemise,
+  repartirRemiseGlobale,
   type DonneesFacture,
   type FactureCalculee,
 } from "./facture";
@@ -154,6 +155,72 @@ describe("calculerFacture (FIN-07)", () => {
     expect(avec({ remiseGlobale: { type: "montant", montant: eur(1) } })).toThrow(deviseDifferente);
   });
 
+  it("répartit la remise globale au plus fort reste, sans HT de ligne négatif", () => {
+    const ligne = (libelle: string, prix: number) => ({
+      libelle,
+      quantite: 1,
+      prixUnitaire: xof(prix),
+      tauxTva: 0,
+    });
+    // Nets 1000 / 1000 / 1, remise 1000 : 499,75 / 499,75 / 0,4998 → 500 / 500 / 0.
+    const f = calculerFacture({
+      devise: "XOF",
+      lignes: [ligne("A", 1_000), ligne("B", 1_000), ligne("C", 1)],
+      remiseGlobale: { type: "montant", montant: xof(1_000) },
+    });
+    expect(f.lignes.map((l) => l.partRemiseGlobale.valeur)).toEqual([500, 500, 0]);
+    expect(f.lignes.map((l) => l.montantHT.valeur)).toEqual([500, 500, 1]);
+    expect(f.totalHT).toEqual(xof(1_001));
+    // Ligne offerte (net 0) : elle ne reçoit aucune part de remise.
+    const offerte = calculerFacture({
+      devise: "XOF",
+      lignes: [ligne("A", 1_000), ligne("B", 1_000), ligne("Offerte", 0)],
+      remiseGlobale: { type: "montant", montant: xof(1_001) },
+    });
+    expect(offerte.lignes.map((l) => l.partRemiseGlobale.valeur)).toEqual([501, 500, 0]);
+    expect(offerte.lignes.map((l) => l.montantHT.valeur)).toEqual([499, 500, 0]);
+    expect(offerte.lignes.every((l) => l.montantHT.valeur >= 0)).toBe(true);
+  });
+
+  it("répartit la remise globale sur plusieurs taux de TVA sans perte", () => {
+    // Nets 333 (18 %), 333 (0 %), 1 (18 %) ; remise 10 % de 667 = 66,7 → 67.
+    // Parts exactes 33,45 / 33,45 / 0,10 → 33 / 33 / 0, puis le reste (1) va
+    // au plus fort reste : égalité entre A et B, départagée par l'ordre des lignes.
+    const f = calculerFacture({
+      devise: "XOF",
+      lignes: [
+        { libelle: "A", quantite: 1, prixUnitaire: xof(333), tauxTva: 18 },
+        { libelle: "B", quantite: 1, prixUnitaire: xof(333), tauxTva: 0 },
+        { libelle: "C", quantite: 1, prixUnitaire: xof(1), tauxTva: 18 },
+      ],
+      remiseGlobale: { type: "pourcentage", pourcentage: 10 },
+    });
+    expect(f.lignes.map((l) => l.partRemiseGlobale.valeur)).toEqual([34, 33, 0]);
+    expect(f.lignes.map((l) => l.montantHT.valeur)).toEqual([299, 300, 1]);
+    expect(f.tva).toEqual([
+      { taux: 0, base: xof(300), montant: xof(0) },
+      { taux: 18, base: xof(300), montant: xof(54) },
+    ]);
+    expect(f.totalRemises).toEqual(xof(67));
+  });
+
+  it("répartit directement une remise globale, plafonnée à la somme des nets", () => {
+    expect(repartirRemiseGlobale([xof(0), xof(0)], xof(0))).toEqual([xof(0), xof(0)]);
+    expect(repartirRemiseGlobale([xof(10), xof(0), xof(5)], xof(15))).toEqual([
+      xof(10),
+      xof(0),
+      xof(5),
+    ]);
+    const remiseInvalide = expect.objectContaining({ code: "REMISE_INVALIDE" });
+    expect(() => repartirRemiseGlobale([xof(10), xof(5)], xof(16))).toThrow(remiseInvalide);
+    expect(() => repartirRemiseGlobale([xof(0)], xof(1))).toThrow(remiseInvalide);
+    expect(() => repartirRemiseGlobale([xof(10)], xof(-1))).toThrow(remiseInvalide);
+    expect(() => repartirRemiseGlobale([xof(10), xof(-1)], xof(1))).toThrow(/lignes négatives/);
+    expect(() => repartirRemiseGlobale([xof(10)], eur(1))).toThrow(
+      expect.objectContaining({ code: "DEVISE_DIFFERENTE" }),
+    );
+  });
+
   it("calcule une remise isolée", () => {
     expect(montantRemise(xof(1_000), undefined)).toEqual(xof(0));
     expect(montantRemise(xof(-1_000), { type: "montant", montant: xof(0) })).toEqual(xof(0));
@@ -183,6 +250,10 @@ describe("creerAvoir", () => {
     ...f.retenues.flatMap((r) => [r.assiette, r.montant]),
     ...f.lignes.flatMap((l) => [l.montantBrut, l.remiseLigne, l.partRemiseGlobale, l.montantHT]),
   ];
+
+  it("refuse de créer l'avoir d'un avoir", () => {
+    expect(() => creerAvoir(avoir)).toThrow(expect.objectContaining({ code: "AVOIR_INVALIDE" }));
+  });
 
   it("est l'exact opposé de la facture", () => {
     expect(avoir.nature).toBe("avoir");

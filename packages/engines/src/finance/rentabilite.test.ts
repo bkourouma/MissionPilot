@@ -121,6 +121,18 @@ describe("indicateurs", () => {
     );
   });
 
+  it("refuse un encaissement antérieur à l'émission", () => {
+    const facture = {
+      dateEmission: "2026-02-01",
+      dateEncaissement: "2026-01-31",
+      montant: xof(1_000),
+    };
+    expect(() => delaiMoyenEncaissement([facture])).toThrow(
+      expect.objectContaining({ code: "DATE_INVALIDE" }),
+    );
+    expect(delaiMoyenEncaissement([{ ...facture, dateEncaissement: "2026-02-01" }])).toBe(0);
+  });
+
   it("calcule le carnet de commandes", () => {
     const missions = [
       { honorairesSignes: xof(10_000_000), honorairesProduits: xof(4_000_000) },

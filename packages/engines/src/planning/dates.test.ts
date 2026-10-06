@@ -22,6 +22,15 @@ describe("dates ISO en jours UTC", () => {
     expect(dateISO(999, 1, 1)).toBe("0999-01-01");
   });
 
+  it("ne projette pas les années 0 à 99 sur 1900-1999", () => {
+    expect(versDateISO(versJourUTC("0050-01-01"))).toBe("0050-01-01");
+    expect(versJourUTC("0050-01-01")).not.toBe(versJourUTC("1950-01-01"));
+    expect(versDateISO(versJourUTC("0000-02-29"))).toBe("0000-02-29"); // an 0 bissextile
+    expect(dateISO(99, 12, 31)).toBe("0099-12-31");
+    expect(ecartJours("0099-12-31", "0100-01-01")).toBe(1);
+    expect(() => versJourUTC("0001-02-29")).toThrow(/inexistante/);
+  });
+
   it("refuse les formats et dates invalides", () => {
     expect(() => versJourUTC("2024-2-1")).toThrow(RangeError);
     expect(() => versJourUTC("2023-02-29")).toThrow(/inexistante/);

@@ -11,6 +11,7 @@ import {
   versJourUTC,
   verifierPeriode,
 } from "./dates";
+import { ratioArrondi } from "../commun/ratio";
 
 /** Ratio « réussis / attendus », `null` s'il n'y a rien d'attendu. */
 export interface Ratio {
@@ -19,8 +20,38 @@ export interface Ratio {
   readonly taux: number | null;
 }
 
-function ratio(reussis: number, attendus: number): Ratio {
-  return { reussis, attendus, taux: attendus === 0 ? null : reussis / attendus };
+/** Élément à évaluer : date limite et date de réalisation, en jours UTC. */
+interface Echeance {
+  readonly limite: number;
+  readonly realisation: number | null;
+}
+
+/**
+ * Règle commune aux jalons et aux feuilles de temps (choix documenté) :
+ * - un élément réalisé (date de réalisation ≤ date courante) compte parmi les
+ *   attendus dès sa réalisation, même avant sa date limite ;
+ * - un élément non réalisé n'est attendu qu'à partir du LENDEMAIN de sa date
+ *   limite (limite < date courante) : le jour même de l'échéance, il peut
+ *   encore être réalisé à temps et ne compte donc pas comme un échec ;
+ * - un élément est réussi s'il est réalisé au plus tard à sa date limite.
+ * Une date de réalisation postérieure à la date courante est ignorée.
+ * Le taux est arrondi à 4 décimales (commun/ratio.ts).
+ */
+function evaluer(elements: readonly Echeance[], aujourdHui: number): Ratio {
+  let attendus = 0;
+  let reussis = 0;
+  for (const e of elements) {
+    const r = e.realisation;
+    const realise = r !== null && r <= aujourdHui;
+    if (!realise && e.limite >= aujourdHui) continue;
+    attendus++;
+    if (realise && r <= e.limite) reussis++;
+  }
+  return { reussis, attendus, taux: ratioArrondi(reussis, attendus) };
+}
+
+function jourOuNull(date: DateISO | null | undefined): number | null {
+  return date == null ? null : versJourUTC(date);
 }
 
 /** Jalon de mission. */
@@ -31,24 +62,24 @@ export interface Jalon {
 }
 
 /**
- * Respect des jalons = jalons tenus / jalons prévus. Un jalon est « prévu »
- * dès que sa date prévue est atteinte (≤ date courante) ; il est « tenu » s'il
- * a été atteint au plus tard à sa date prévue (+ tolérance en jours calendaires).
+ * Respect des jalons = jalons tenus / jalons prévus. La date limite d'un jalon
+ * est sa date prévue + la tolérance (jours calendaires) ; un jalon atteint est
+ * prévu dès son atteinte, un jalon non atteint à partir du lendemain de sa date
+ * limite (voir `evaluer`). Il est « tenu » s'il a été atteint au plus tard à
+ * sa date limite.
  */
 export function respectJalons(
   jalons: readonly Jalon[],
   dateCourante: DateISO,
   toleranceJours = 0,
 ): Ratio {
-  const aujourdHui = versJourUTC(dateCourante);
-  const prevus = jalons.filter((j) => versJourUTC(j.datePrevue) <= aujourdHui);
-  const tenus = prevus.filter(
-    (j) =>
-      j.dateReelle != null &&
-      versJourUTC(j.dateReelle) <= aujourdHui &&
-      versJourUTC(j.dateReelle) <= versJourUTC(j.datePrevue) + toleranceJours,
+  return evaluer(
+    jalons.map((j) => ({
+      limite: versJourUTC(j.datePrevue) + toleranceJours,
+      realisation: jourOuNull(j.dateReelle),
+    })),
+    versJourUTC(dateCourante),
   );
-  return ratio(tenus.length, prevus.length);
 }
 
 /** Feuille de temps attendue d'un collaborateur pour une semaine. */
@@ -60,19 +91,20 @@ export interface FeuilleAttendue {
 
 /**
  * Discipline de saisie = feuilles soumises dans les délais / feuilles
- * attendues. Une feuille est attendue dès que sa date limite est passée ou
- * atteinte (≤ date courante).
+ * attendues. Une feuille soumise est attendue dès sa soumission ; une feuille
+ * non soumise à partir du lendemain de sa date limite (voir `evaluer`).
  */
 export function disciplineSaisie(
   feuilles: readonly FeuilleAttendue[],
   dateCourante: DateISO,
 ): Ratio {
-  const aujourdHui = versJourUTC(dateCourante);
-  const attendues = feuilles.filter((f) => versJourUTC(f.dateLimite) <= aujourdHui);
-  const aTemps = attendues.filter(
-    (f) => f.dateSoumission != null && versJourUTC(f.dateSoumission) <= versJourUTC(f.dateLimite),
+  return evaluer(
+    feuilles.map((f) => ({
+      limite: versJourUTC(f.dateLimite),
+      realisation: jourOuNull(f.dateSoumission),
+    })),
+    versJourUTC(dateCourante),
   );
-  return ratio(aTemps.length, attendues.length);
 }
 
 /** Clôtures connues : périodes explicites et/ou mois clôturés (`AAAA-MM`). */

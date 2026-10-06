@@ -13,6 +13,12 @@ describe("dates calendaires", () => {
     expect(() => joursDepuisEpoque("2026-02-30")).toThrow(/inexistante/);
   });
 
+  it("traite les années 0 à 99 sans les projeter sur 1900-1999", () => {
+    expect(joursEntre("0050-01-01", "1950-01-01")).toBe(693_960);
+    expect(ajouterMois("0099-12-31", 2)).toBe("0100-02-28");
+    expect(ajouterMois("0004-01-31", 1)).toBe("0004-02-29");
+  });
+
   it("ajoute des mois en ramenant au dernier jour du mois", () => {
     expect(ajouterMois("2026-01-31", 1)).toBe("2026-02-28");
     expect(ajouterMois("2024-01-31", 1)).toBe("2024-02-29");

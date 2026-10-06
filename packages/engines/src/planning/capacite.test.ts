@@ -106,6 +106,8 @@ describe("jours affectés au prorata", () => {
 describe("occupation et état de charge", () => {
   it("calcule le taux d'occupation sans division par zéro", () => {
     expect(tauxOccupation(4, 5)).toBe(0.8);
+    expect(tauxOccupation(5, 6)).toBe(0.8333);
+    expect(tauxOccupation(2, 3)).toBe(0.6667);
     expect(tauxOccupation(1, 0)).toBeNull();
   });
 
