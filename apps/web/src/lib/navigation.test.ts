@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ROLES, type Role } from "@missionpilot/shared";
 import {
   entreesAutorisees,
+  entreesBarreBasse,
   estActive,
   NAVIGATION,
   sousPageActive,
@@ -16,12 +17,13 @@ describe("table de navigation", () => {
     expect(new Set(NAVIGATION.map((e) => e.href)).size).toBe(NAVIGATION.length);
   });
 
-  it("contient les onze rubriques prévues, dans l'ordre", () => {
+  it("contient les douze rubriques prévues, dans l'ordre", () => {
     expect(NAVIGATION.map((e) => e.libelle)).toEqual([
       "Tableau de bord",
       "Mon planning",
       "Feuille de temps",
       "Missions",
+      "Pipeline",
       "Clients",
       "Collaborateurs",
       "Catalogue",
@@ -32,9 +34,11 @@ describe("table de navigation", () => {
     ]);
   });
 
-  it("ne marque disponibles que les écrans livrés (référentiels de la V1)", () => {
+  it("ne marque disponibles que les écrans livrés (référentiels, missions, pipeline)", () => {
     expect(NAVIGATION.filter((e) => e.disponible).map((e) => e.id)).toEqual([
       "tableau-de-bord",
+      "missions",
+      "pipeline",
       "clients",
       "collaborateurs",
       "catalogue",
@@ -109,6 +113,22 @@ describe("entreesAutorisees", () => {
 
   it("garde le tableau de bord même sans rôle", () => {
     expect(ids([])).toEqual(["tableau-de-bord"]);
+  });
+});
+
+describe("pipeline et barre basse", () => {
+  it("réserve le pipeline à qui a pipeline.gerer", () => {
+    expect(ids(["chef_mission"])).toContain("pipeline");
+    expect(ids(["directeur_mission"])).toContain("pipeline");
+    expect(ids(["consultant"])).not.toContain("pipeline");
+    expect(ids(["gestionnaire"])).not.toContain("pipeline");
+  });
+
+  it("ne met dans la barre basse que des écrans disponibles", () => {
+    const barre = entreesBarreBasse(entreesAutorisees(["chef_mission"]));
+    expect(barre.map((e) => e.id)).toEqual(["tableau-de-bord", "missions", "pipeline", "clients"]);
+    expect(barre.every((e) => e.disponible)).toBe(true);
+    expect(entreesBarreBasse(entreesAutorisees(["expert_externe"]))).toHaveLength(1);
   });
 });
 

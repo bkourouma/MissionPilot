@@ -65,9 +65,18 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelle: "Missions",
     href: "/missions",
     permission: "mission.lire",
-    disponible: false,
+    disponible: true,
     icone: "dossier",
-    description: "Fiches mission, découpage, budget et avancement.",
+    description: "Fiches mission, découpage, planning et versions de budget.",
+  },
+  {
+    id: "pipeline",
+    libelle: "Pipeline",
+    href: "/pipeline",
+    permission: "pipeline.gerer",
+    disponible: true,
+    icone: "entonnoir",
+    description: "Opportunités commerciales, propositions et passage en mission.",
   },
   {
     id: "clients",
@@ -162,6 +171,17 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
 
 /** Nombre d'entrées dans la barre basse du téléphone (le reste passe dans « Menu »). */
 export const ENTREES_BARRE_BASSE = 4;
+
+/**
+ * Entrées de la barre basse du téléphone : les premières entrées disponibles (un écran pas
+ * encore livré n'occupe pas une place précieuse), le reste passe dans « Menu ».
+ */
+export function entreesBarreBasse(
+  entrees: readonly EntreeNavigation[],
+  nombre: number = ENTREES_BARRE_BASSE,
+): EntreeNavigation[] {
+  return entrees.filter((e) => e.disponible).slice(0, nombre);
+}
 
 /** Entrées visibles pour ces rôles, dans l'ordre de la table. */
 export function entreesAutorisees(

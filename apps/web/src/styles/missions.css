@@ -1,0 +1,245 @@
+/* Écrans du cycle commercial et des missions : pipeline, propositions, fiche, découpage,
+   planning, budget. Mobile d'abord ; cibles tactiles de 44 px ; couleur jamais seule. */
+
+.mp-pile--large {
+  gap: var(--mp-esp-5);
+}
+
+.mp-texte-petit {
+  font-size: var(--mp-taille-s);
+}
+
+.mp-pleine-largeur {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+/* ---------- Totaux mis en avant (pipeline, chiffrage, comparaison) ---------- */
+.mp-totaux {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--mp-esp-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-totaux__element {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-totaux__libelle {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+}
+
+.mp-totaux__valeur {
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Formulaires en ligne (étape, ajout d'un membre) ---------- */
+.mp-formulaire--ligne {
+  margin-top: 0;
+}
+
+.mp-ligne-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-3);
+}
+.mp-ligne-action > .mp-champ {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+/* Le bouton s'aligne sur le contrôle, pas sur l'aide affichée sous le champ. */
+.mp-ligne-action > .mp-bouton {
+  margin-bottom: 0;
+}
+
+.mp-ligne-saisie {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  align-items: end;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Cartes côte à côte (équipe et taux) ---------- */
+.mp-grille-cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+.mp-liste-simple {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding-left: var(--mp-esp-5);
+  margin: 0;
+}
+
+.mp-badge__interne {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+}
+
+/* ---------- Découpage ---------- */
+.mp-arbre__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+.mp-arbre__ligne .mp-arbre__titre {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.mp-arbre__noeud--niveau-2 > .mp-arbre__element {
+  border-left: 4px solid var(--mp-bordure-controle);
+}
+
+.mp-total-jours {
+  padding: 0 var(--mp-esp-2);
+  color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  border-radius: 999px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Sur téléphone, les actions d'un élément passent en grille de deux colonnes lisibles. */
+@media (max-width: 479px) {
+  .mp-arbre__element .mp-barre-actions--compacte {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mp-arbre__element .mp-barre-actions--compacte .mp-bouton {
+    justify-content: flex-start;
+    width: 100%;
+    text-align: left;
+  }
+  .mp-arbre__element .mp-barre-actions--compacte .mp-confirmation {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- Détails repliables (lignes de budget) ---------- */
+.mp-details > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  color: var(--mp-primaire);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mp-details[open] > summary {
+  margin-bottom: var(--mp-esp-2);
+}
+
+/* ---------- Gantt léger (PLN-03) : visuel ; le tableau porte l'information ---------- */
+.mp-gantt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+}
+
+.mp-gantt__legende {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-gantt__lignes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-gantt__ligne {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+
+.mp-gantt__libelle {
+  overflow: hidden;
+  font-size: var(--mp-taille-s);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-gantt__piste {
+  position: relative;
+  height: 0.875rem;
+  background: var(--mp-surface-2);
+  border-radius: 999px;
+}
+
+.mp-gantt__barre {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 4px;
+  background: var(--mp-primaire);
+  border-radius: 999px;
+}
+
+.mp-gantt__jalon {
+  position: absolute;
+  top: 50%;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--mp-attention);
+  border: 2px solid var(--mp-surface);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.mp-gantt__ligne--jalon .mp-gantt__libelle {
+  color: var(--mp-attention);
+  font-weight: 600;
+}
+
+.mp-gantt__axe {
+  display: flex;
+  justify-content: space-between;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+}
+
+@media (min-width: 640px) {
+  .mp-gantt__ligne {
+    grid-template-columns: minmax(8rem, 16rem) 1fr;
+    align-items: center;
+    gap: var(--mp-esp-3);
+  }
+}
+
+@media (forced-colors: active) {
+  .mp-gantt__barre,
+  .mp-gantt__jalon {
+    background: CanvasText;
+  }
+}

@@ -34,6 +34,12 @@ const TRACES = {
   recherche: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
   courrier: "M3 6h18v12H3zM3 7l9 6 9-6",
   oeil: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z",
+  entonnoir: "M3 5h18l-7 8.5V19l-4 2v-7.5z",
+  flecheHaut: "M12 19V5M5.5 11.5 12 5l6.5 6.5",
+  flecheBas: "M12 5v14M5.5 12.5 12 19l6.5-6.5",
+  deplacer: "M4 12h16M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4",
+  drapeau: "M5 21V4M5 4h12l-2.5 4L17 12H5",
+  signature: "M3 17c3-1 4-9 6-9s0 9 2 9 2-4 4-4 1 3 3 3M3 21h18",
 } as const;
 
 export type NomIcone = keyof typeof TRACES;

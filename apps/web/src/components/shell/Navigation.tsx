@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ENTREES_BARRE_BASSE, estActive, type EntreeNavigation } from "../../lib/navigation";
+import { entreesBarreBasse, estActive, type EntreeNavigation } from "../../lib/navigation";
 import { Icone } from "../ui/Icone";
 import { BoutonDeconnexion } from "./BoutonDeconnexion";
 import { LienNavigation } from "./LienNavigation";
@@ -43,7 +43,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
     if (!ouvert && d.open) d.close();
   }, [ouvert]);
 
-  const principales = entrees.slice(0, ENTREES_BARRE_BASSE);
+  const principales = entreesBarreBasse(entrees);
   return (
     <>
       <nav className="mp-barre-basse" aria-label="Navigation principale">
