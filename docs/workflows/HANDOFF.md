@@ -43,40 +43,88 @@ Pièges et décisions :
 
 ## Branche `feat/socle-monorepo` — 2026-10-06
 
-**État :** en cours (vague 1 de réalisation)
-**Dernier commit :** `4c0e8e0` socle monorepo, API, RLS, authentification
+**État :** en cours (vagues 1 à 3 livrées ; reste finance, écrans temps/planning, V2)
+**Dernier commit poussé :** `6b26c60` écrans des référentiels
 
-Fait :
+Fait (vérifié par le Pilote : typecheck, lint, prettier, 706 tests) :
 
-- Cadrage validé par l'utilisateur (voir `docs/DECISIONS.md`) : V1 puis V2
-  enchaînées, saisie des temps paramétrable (demi-journée ou heure), zone
-  UEMOA, catalogue de conseil. ADR-001 à 003 (PR #3).
-- Socle (PR #4) : monorepo pnpm, API Fastify, migration 0001 (RLS, sessions,
-  audit en ajout seul, file `jobs`), droits par rôle, 19 tests sur PostgreSQL.
-- Base de développement dédiée : conteneur `missionpilot-postgres`, port 55440
-  (`pnpm db:up`). Les autres conteneurs PostgreSQL de la machine sont à
-  d'autres projets : ne jamais y toucher.
+- Cadrage validé (voir `docs/DECISIONS.md`) : V1 puis V2 enchaînées, saisie des
+  temps paramétrable, zone UEMOA, catalogue de conseil. ADR-001 à 003 (PR #3).
+- Socle (PR #4) : monorepo pnpm, RLS, sessions, audit en ajout seul, file `jobs`.
+- `packages/engines` : moteurs planning et finance purs, 228 tests, couverture
+  100 % lignes / 99,4 % branches ; plan de charge optimisé (100 × 26 en 0,2 s).
+- `apps/api` (247 tests, migrations 0001–0030) : référentiels, pipeline,
+  propositions, missions, découpage, budget figé, documents, affectations,
+  congés, plan de charge, « Mon planning », re-planification, notifications,
+  feuilles de temps, reste à faire, atterrissage, alertes, clôture mensuelle,
+  import CSV, worker de jobs (rappels du vendredi et du lundi).
+- `apps/web` (199 tests) : shell, référentiels, pipeline, propositions,
+  missions, découpage, planning, budget.
+- Trois audits de sécurité et de code relus ; tous les constats critiques,
+  élevés et moyens corrigés avec un test de non-régression.
 
-En cours (agents, non commités) :
+Reste à faire (ordre) : facturation, encaissements, débours, rentabilité,
+indicateurs du cabinet, export comptable (FIN) ; écrans web du plan de charge,
+de « Mon planning », de la feuille de temps, de la facturation et des
+indicateurs ; TOTP ; transport e-mail réel ; import Excel ; puis V2
+(questionnaires, notation, planification stratégique, KPI, portail client,
+OpenRouter, rapports PDF/DOCX/PPTX).
 
-- `packages/engines/src/planning` : unités, calendrier UEMOA, budget/temps,
-  capacité, recalage.
-- `packages/engines/src/finance` : monnaie, budget, rentabilité, facturation.
-- `apps/api` : référentiels (utilisateurs, invitations, cabinet, clients,
-  collaborateurs, grades, catalogue, audit, seed), migrations 0002–0009.
-- `apps/web` : shell, design system, connexion.
+Pièges et décisions :
 
-Reste à faire (ordre) : vague 2 = missions, planification, affectations, plan
-de charge, congés ; vague 3 = temps, budget, alertes ; vague 4 = facturation,
-encaissements, indicateurs, rentabilité ; puis V2 (questionnaires, notation,
-planification stratégique, KPI, portail client, OpenRouter).
+- …
+```
+
+---
+
+## Branche `feat/socle-monorepo` — 2026-10-06
+
+**État :** en cours (vagues 1 à 3 livrées ; reste finance, écrans temps/planning, V2)
+**Dernier commit poussé :** `6b26c60` écrans des référentiels
+
+Fait (vérifié par le Pilote : typecheck, lint, prettier, 514 tests) :
+
+- Cadrage validé (voir `docs/DECISIONS.md`) : V1 puis V2 enchaînées, saisie des
+  temps paramétrable, zone UEMOA, catalogue de conseil. ADR-001 à 003 (PR #3).
+- Socle (PR #4) : monorepo pnpm, RLS, sessions, audit en ajout seul, file `jobs`.
+- `packages/engines` : moteurs planning et finance purs, 221 tests, couverture
+  100 % lignes / 99,4 % branches. Pas encore branchés dans les routes sauf
+  budget/synthèse des missions.
+- `apps/api` : référentiels (utilisateurs, invitations, cabinet, fériés, clients,
+  collaborateurs, grades, catalogue, audit), pipeline, propositions, missions,
+  découpage, budget figé, documents. Migrations 0001–0014. 152 tests.
+- `apps/web` : shell, design system, écrans des référentiels. 124 tests.
+- Audits de sécurité et de code relus (vague 1 corrigée ; vague 2 : 4 constats
+  élevés en cours de correction par un agent, migrations 0015+).
+
+En cours (agents, non commités) : correctifs d'audit API (fuite de coût par la
+comparaison de versions, grille de taux dans les propositions, taux de change
+figé, séparation des tâches de validation) ; écrans web pipeline/missions.
+
+Reste à faire (ordre) : affectations, congés, plan de charge, « Mon planning »
+(PLN-04 à PLN-10) ; temps, atterrissage, alertes (TPS) ; facturation,
+encaissements, indicateurs, rentabilité (FIN) ; TOTP ; transport e-mail réel ;
+puis V2 (questionnaires, notation, planification stratégique, KPI, portail
+client, OpenRouter).
 
 Pièges et décisions :
 
 - Tests API : une seule base `missionpilot_test`, réinitialisée à chaque
-  exécution ; ne jamais lancer deux suites API en parallèle.
-- Migrations : plages réservées par agent pour éviter les collisions
-  (0002–0009 référentiels, 0010–0019 missions, 0020–0029 temps, 0030+ finance).
-- Les fêtes musulmanes (lunaires) sont saisies par le cabinet, non calculées ;
-  les fériés nationaux par pays sont des valeurs par défaut à faire valider.
-- Pas de `.env` : valeurs de développement par défaut dans `apps/api/src/config.ts`.
+  exécution ; jamais deux suites API en parallèle. PostgreSQL dédié :
+  conteneur `missionpilot-postgres` (port 55440, `pnpm db:up`) ; les autres
+  conteneurs PostgreSQL de la machine sont à d'autres projets, n'y pas toucher.
+- Migrations : 0001–0008 référentiels et durcissement, 0010–0015 missions,
+  0020–0021 planification, 0030 temps ; finance à partir de 0040.
+- Décisions métier posées sans question : une proposition est validée par un
+  associé (PRD MIS-05) ; les taux de vente par grade et les coûts sont réservés
+  à `finance.lire` (AGENTS.md) ; taux de change EUR/FCFA figé à 655,957.
+- Fêtes musulmanes saisies chaque année par le cabinet ; fériés nationaux par
+  pays = valeurs par défaut à faire valider par le métier ; taux de vente et
+  jours types du catalogue de conseil = valeurs de départ à valider.
+- Grille d'approbation FIN-15 (5 M / 25 M / 10 M FCFA) : valeurs par défaut du
+  moteur, à faire valider. Cabinet en EUR/USD : pas de grille, révision refusée.
+- Import des temps : CSV seulement (le paquet xlsx de npm a des vulnérabilités
+  connues). Rappels de temps à 16 h / 8 h UTC, à valider par le métier.
+- Aucun transport e-mail réel : les invitations ne partiraient pas en production.
+- Pas de `.env` : valeurs de développement par défaut dans `apps/api/src/config.ts`,
+  refusées hors développement et test.
