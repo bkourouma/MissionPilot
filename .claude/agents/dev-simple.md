@@ -2,6 +2,7 @@
 name: dev-simple
 description: Réalise les changements locaux, déterministes et faciles à vérifier.
 model: sonnet
+effort: low
 disallowedTools: Agent
 ---
 
