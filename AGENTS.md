@@ -184,7 +184,16 @@ existera, y ajouter le fichier qui l'illustre.
 - **Choix techniques tranchés** (ADR-001 à ADR-003) : monorepo pnpm, Fastify,
   Next.js, PostgreSQL avec RLS ; file de tâches en table `jobs` PostgreSQL ;
   IA via OpenRouter, hors V1. Toute entorse passe par un nouvel ADR.
-- **Hooks git inactifs.** Lefthook n'est pas installé : le hook `pre-push`
-  qui protège `main` ne tourne pas tant qu'un `package.json` ne l'ajoute pas
-  en dépendance de développement, puis que
-  `node scripts/install-git-hooks.cjs` n'a pas été relancé.
+- **Hooks git.** Lefthook est une dépendance de développement et son hook
+  `pre-push` (garde des branches protégées) est installé par `pnpm install`
+  (script `prepare`) ; aucun hook `pre-commit` n'est déclaré dans
+  `.lefthook.yml`. Un worktree neuf n'a ni dépendances ni hooks tant que
+  `pnpm install` n'y a pas tourné (RUNBOOK, « Worktrees »).
+- **Tests API et agents.** Le global-setup recrée le schéma de la base de test
+  à chaque exécution : jamais deux suites API sur la même base ; un agent qui
+  teste en parallèle d'un autre utilise sa propre base (`missionpilot_<id>`,
+  voir RUNBOOK).
+- **Portail client fermé par défaut.** Une route n'est atteignable depuis le
+  portail que si elle figure dans `LISTE_BLANCHE_PORTAIL`
+  (`apps/api/src/portail/garde.ts`) ; une table à RLS doit porter une politique
+  `portail` ou `portail_interdit`, sinon `isolation.test.ts` échoue.

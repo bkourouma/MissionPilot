@@ -24,6 +24,23 @@ ce fichier précise des règles de calcul et des choix techniques.
 | Ordre de construction | Moteur de questionnaires (SOC-10), notation #1, planification stratégique + modèle financier #3, pilotage KPI #4, portail client (SOC-09) en appui dès les questionnaires. |
 | Facture normalisée DGI (FIN-08) | **Hors périmètre** tant qu'un expert-comptable n'a pas confirmé qu'elle s'applique aux cabinets clients. |
 
+## Validations complémentaires (2026-10-06, session de pilotage)
+
+| Sujet | Décision |
+| --- | --- |
+| Notation, réponses manquantes (NOT-03) | **Ignorées avec renormalisation** sur les réponses données. Une dimension n'est notable que si la moitié de son poids est répondue ; le score global exige que les dimensions notables pèsent au moins la moitié du total (seuils réglables ; stratégie « pénaliser » disponible mais non retenue par défaut). |
+| Seuils d'approbation des factures (FIN-15) | **5 M / 25 M / 10 M XOF** gardés comme valeurs de départ, modifiables par le cabinet. |
+| Fiscalité de départ (Côte d'Ivoire) | **TVA 18 %**, retenue à la source désactivée par défaut, **impôt sur les sociétés 25 %** dans le modèle financier. Paramétrables par cabinet et par pays ; à faire confirmer par un expert-comptable avant tout usage réel. |
+| Tri des listes de missions et d'opportunités | **Plus récentes d'abord** (pagination par curseur stable). |
+| Publication d'une notation (NOT-07), séparation des tâches | **Appliquée** : seul un `expert_metier` publie une version ou la renvoie en brouillon, même face à un associé qui n'a pas ce rôle ; le publieur n'est ni l'auteur du calcul, ni d'un ajustement, ni de la soumission en revue. Les deux règles de publication sont doublées en base (SQLSTATE `MPN04`, migration `0146`) ; le renvoi est contrôlé par l'API (`apps/api/src/notation/notations.ts`). |
+
+Valeurs posées par les moteurs, restant à confirmer par des experts : taux
+d'actualisation du modèle financier 12 % et codes de postes SYSCOHADA
+indicatifs ; KPI : taux d'atteinte linéaire (« plus bas = mieux » :
+1 − (valeur − cible)/|cible|), cible nulle = binaire, flux = somme, stock =
+dernière valeur, alerte après 3 dégradations consécutives ; notation :
+force ≥ 65, faiblesse < 50, rôles pondérés 1 par défaut.
+
 ## Règles métier validées (2026-10-06) — applicables à la V2
 
 | Sujet | Décision |

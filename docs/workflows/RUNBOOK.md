@@ -13,6 +13,7 @@ Lancer, configurer et dépanner le projet. En cas de désaccord avec
 | PostgreSQL     | 16, conteneur `missionpilot-postgres`  | image `postgres:16-alpine` |
 | Git            | 2.x                                    | 2.52                  |
 | Lefthook       | dépendance de développement du dépôt   | `node_modules/.bin/lefthook` présent |
+| Chrome/Chromium | facultatif : rapports PDF (`CHROMIUM_PATH`) | Chrome sous Windows seulement (aucun essai sous Linux) |
 
 Vérifier : `node -v`, `pnpm -v`, `docker --version`. Les autres conteneurs
 PostgreSQL de la machine sont à d'autres projets : n'y pas toucher.
@@ -47,18 +48,26 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `DATABASE_URL`              | rôle applicatif `missionpilot_app` (sans BYPASSRLS), utilisé par l'API                 | oui                            |
 | `API_PORT`                  | port de l'API (défaut 4100)                                                            | non                            |
 | `WEB_PORT`                  | documenté dans `.env.example` ; le port du web est fixé à 3100 par les scripts du web  | non                            |
-| `WEB_ORIGIN`                | origine autorisée par CORS (défaut `http://localhost:3100`)                            | oui (adresse réelle du web)    |
+| `WEB_ORIGIN`                | origine autorisée par CORS et par la garde d'origine anti-CSRF (défaut `http://localhost:3100`) ; en production, l'adresse **exacte** à laquelle les navigateurs ouvrent le web | oui (adresse réelle du web) |
 | `API_URL`                   | adresse de l'API pour le relais `/api/*` du web ; lue **au build** de Next             | oui (reconstruire si elle change) |
 | `SESSION_SECRET`            | secret de session, 32 caractères minimum ; clé de version 1 du chiffrement             | oui, différent du défaut       |
-| `TFA_MASTER_KEY`            | secret maître du chiffrement 2FA et des e-mails en file, 32 car. min., ≠ `SESSION_SECRET` | oui, différent du défaut    |
+| `TFA_MASTER_KEY`            | secret maître (HKDF) : 2FA, e-mails en file, clés IA des cabinets, empreintes du limiteur ; 32 car. min., ≠ `SESSION_SECRET` ; le changer remet les compteurs du limiteur à zéro | oui, différent du défaut |
 | `TFA_MASTER_KEY_PRECEDENTE` | ancienne clé pendant une rotation                                                      | non                            |
-| `SMTP_HOST`, `SMTP_PORT`    | transport e-mail ; sans hôte, journal local (développement et test seulement)          | `SMTP_HOST` oui                |
+| `SMTP_HOST`, `SMTP_PORT`    | transport e-mail ; sans hôte, journal local (affiché en développement, muet en test) ; port par défaut 465 si TLS `implicite`, sinon 587 | `SMTP_HOST` oui |
 | `SMTP_USER`, `SMTP_PASS`    | identifiants SMTP, à fournir ensemble, jamais journalisés                              | non                            |
-| `SMTP_TLS`                  | `implicite` (465), `starttls` (587) ; `aucun` refusé hors développement                | non (jamais `aucun`)           |
+| `SMTP_TLS`                  | `implicite` (465), `starttls` (587) ; `aucun` refusé hors développement et test        | non (jamais `aucun`)           |
 | `MAIL_FROM`                 | expéditeur, adresse ASCII, obligatoire dès que `SMTP_HOST` est défini                  | oui avec SMTP                  |
 | `TOTP_REQUIS`               | `oui` impose la 2FA aux rôles sensibles de tous les cabinets (plancher plateforme)     | non                            |
+| `STORAGE_DRIVER`            | `disque` (défaut) ; `s3` est refusé au démarrage (non implémenté)                      | non                            |
+| `STORAGE_DIR`               | dossier **absolu** des fichiers téléversés, hors du dépôt, jamais servi en statique ; défaut en développement `~/.missionpilot/stockage` (en test : dossier temporaire) | oui |
+| `FICHIER_TAILLE_MAX_OCTETS` | plafond par fichier téléversé (défaut 15 Mo, de 1 Kio à 100 Mo)                        | non                            |
+| `QUOTA_STOCKAGE_CABINET_OCTETS` | quota de stockage par cabinet (défaut 2 Go, 1 Mo au minimum)                       | non                            |
+| `CHROMIUM_PATH`             | Chrome/Chromium des rapports PDF, chemin **absolu** vérifié au démarrage ; absent : Chrome installé en développement Windows, sinon PDF indisponible (503) | non (oui pour les PDF) |
 | `JOBS_WORKER`               | `actif` ou `inactif` ; actif par défaut, inactif par défaut en test                    | non                            |
-| `OPENROUTER_API_KEY`        | clé IA (V2, aucun appel aujourd'hui)                                                   | non                            |
+| `OPENROUTER_API_KEY`        | clé IA **de plateforme** (facultative, jamais journalisée) : sert aux cabinets qui ont activé l'IA sans clé propre ; sans aucune clé, gabarits déterministes | non |
+| `OPENROUTER_BASE_URL`       | point d'accès OpenRouter (défaut `https://openrouter.ai/api/v1`) ; HTTPS obligatoire, HTTP admis pour la seule boucle locale | non |
+| `IA_TIMEOUT_MS`             | délai maximal d'un appel au modèle (défaut 60 000, de 1 000 à 300 000)                 | non                            |
+| `IA_PLAFOND_PLATEFORME_MICRO_USD` | plafond mensuel IA par cabinet payé par la plateforme, en µUSD (défaut 50 USD, au plus 100 000 USD) ; avec la clé de plateforme, plafond effectif = min(ce plafond, celui du cabinet) | non |
 
 ### Comptes de démonstration
 
@@ -68,6 +77,32 @@ Cabinet « Cabinet Démo » : un compte par rôle, adresse
 `apps/api/src/db/seed.ts` : ne pas le recopier ailleurs. Comptes de test locaux
 uniquement.
 
+### Cabinet de démonstration pour la recette humaine
+
+```bash
+pnpm --filter @missionpilot/api db:seed-demo
+```
+
+Crée le cabinet fictif « Lagune Conseil & Associés (démo) » (Abidjan) :
+un compte par rôle, `<role>@lagune-conseil.test` (rôle avec `.` à la place de
+`_`, plus `consultant.junior@…`), cinq clients, catalogue de conseil,
+collaborateurs avec grades et coûts, quatre missions (en proposition, signée
+avec budget figé, en cours avec temps validés, clôturée avec deux factures
+émises et un encaissement partiel du solde), absences et notifications. Tout
+passe par les routes réelles (`app.inject`) ; seule l'émission des factures à
+une date passée appelle la fonction métier `emettre`. Le mot de passe commun est
+la constante `MOT_DE_PASSE_DEMO_ABIDJAN` de `apps/api/src/db/seed-demo.ts` : ne
+pas le recopier ailleurs.
+
+- **Refus** si `NODE_ENV` n'est pas local, si `DATABASE_URL` ou
+  `DATABASE_OWNER_URL` ne désigne pas la machine locale, ou si `SMTP_HOST` est
+  défini (aucun e-mail ne doit partir).
+- **Pas de doublon** : si le cabinet existe déjà, le script n'écrit rien et sort
+  avec le code 2. Un échec en cours de route laisse un cabinet partiel : repartir
+  d'une base neuve (migrations appliquées) avant de relancer.
+- Durée : de l'ordre de la minute (hachage des mots de passe, une quinzaine de
+  feuilles de temps). Les dates sont relatives au jour du lancement.
+
 ## Lancer
 
 ```bash
@@ -75,8 +110,11 @@ pnpm dev     # API (tsx watch, 4100) et web (next dev -p 3100) en parallèle
 ```
 
 Sonde de l'API : `GET http://localhost:4100/api/sante` (sans authentification).
-Le worker de jobs démarre avec l'API (rappels de temps, relances, file
-d'e-mails) ; `JOBS_WORKER=inactif` le coupe. L'interface est sur
+Le worker de jobs démarre avec l'API (rappels de temps, relances des factures
+et des questionnaires, suivi quotidien des KPI, générations IA, purge des
+fichiers orphelins, file d'e-mails) ; `JOBS_WORKER=inactif` le coupe. L'IA est
+désactivée par défaut dans chaque cabinet : tant qu'un associé ne l'active pas
+(`/parametres/ia`), les générations utilisent les gabarits déterministes. L'interface est sur
 `http://localhost:3100` (connexion avec un compte de démonstration).
 
 ## Ports
@@ -181,7 +219,9 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   jamais de secret). Causes : `NODE_ENV` oublié avec une base non locale ;
   valeur de développement conservée hors développement ; `TFA_MASTER_KEY` égal à
   `SESSION_SECRET` ; `SMTP_HOST` absent ou `SMTP_TLS=aucun` en production ;
-  `SMTP_USER` sans `SMTP_PASS`.
+  `SMTP_USER` sans `SMTP_PASS` ; `STORAGE_DIR` absent ou relatif ;
+  `CHROMIUM_PATH` relatif ou inexistant ; `OPENROUTER_BASE_URL` en HTTP hors
+  boucle locale.
 - **`DATABASE_URL doit utiliser le rôle missionpilot_app`** (migrations) :
   l'URL applicative pointe vers un autre rôle.
 - **Erreurs de connexion à PostgreSQL** juste après `pnpm db:up` : le conteneur
@@ -194,6 +234,29 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
 - **Cookie de session absent après connexion** : `WEB_ORIGIN` ne correspond pas
   à l'origine réellement utilisée par le navigateur (CORS avec credentials), ou
   accès en HTTP à un serveur configuré `production` (cookie `secure`).
+- **Toute action (enregistrer, se connecter…) répond 403 `ORIGINE_REFUSEE`**
+  alors que les lectures passent : le navigateur ouvre le web à une adresse
+  différente de `WEB_ORIGIN` (autre nom d'hôte, IP au lieu du nom, autre port,
+  `http` au lieu de `https`). La garde d'origine d'`app.ts` compare l'en-tête
+  `Origin` des POST, PUT, PATCH et DELETE à `WEB_ORIGIN`. En production,
+  corriger `WEB_ORIGIN` pour qu'il soit exactement l'adresse publique du web,
+  puis redémarrer l'API. En développement et en test, `localhost`,
+  `127.0.0.1` et `[::1]` au même port sont équivalents ; un autre port ou un
+  autre nom reste refusé.
+- **Rapport PDF : 503** : aucun navigateur trouvé. Hors développement Windows
+  (où Chrome installé est repris), définir `CHROMIUM_PATH` (chemin absolu d'un
+  Chrome ou Chromium existant ; l'API refuse de démarrer si le chemin est faux).
+  503 `RENDU_OCCUPE` : deux rendus en cours, ou déjà un pour ce cabinet ;
+  réessayer. 504 : rendu de plus de 30 s. Le relais Next attend jusqu'à 90 s
+  (`experimental.proxyTimeout`). Word et PowerPoint n'ont pas besoin de Chrome.
+- **Chrome sous Linux** (non essayé) : l'API ne passe pas `--no-sandbox`. Faire
+  tourner l'API sous un utilisateur **non root** sur un noyau qui autorise les
+  espaces de noms utilisateur (ou fournir la sandbox SUID de Chromium) ; ne pas
+  ajouter `--no-sandbox` sans décision écrite (`docs/governance/SECURITY.md`
+  §8 bis).
+- **Import Excel : 503 `IMPORT_EXCEL_OCCUPE`** : deux lectures de classeur sont
+  déjà en cours sur cette instance ; réessayer. 409 `IMPORT_CONCURRENT` : une
+  feuille de temps a été saisie pendant l'import ; relancer la simulation.
 - **Tests de volume lents ou en échec** (`plan-de-charge-perf.test.ts`,
   `finance-indicateurs-perf.test.ts`) : seuils de temps sensibles à la charge de
   la machine (autre suite, antivirus, Docker). Relancer le fichier seul avant

@@ -2,116 +2,114 @@
 
 Carnet de reprise entre sessions d'agents. **Lire en premier** en début de
 session ; **mettre à jour sans l'annoncer** avant de conclure tout tour en
-plusieurs étapes (règle posée dans AGENTS.md et CLAUDE.md).
-
-## Mode d'emploi
-
-- Une section par branche, la plus récente en haut. Réécrire la section de sa
-  branche au lieu d'empiler des entrées : ce fichier décrit l'état présent, pas
-  l'historique (l'historique, c'est `git log`).
-- Supprimer la section d'une branche une fois fusionnée dans
-  `main`.
-- Dates absolues (`AAAA-MM-JJ`), jamais « hier ».
-- Chaque worktree a sa copie : en cas de conflit à la fusion, garder les deux
-  sections de branche, elles sont indépendantes.
-- Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`), pas
-  ici.
-- Pas de secret, pas de donnée personnelle, pas de contenu de `.env`.
-
-Modèle de section :
-
-```markdown
-## Branche `type/sujet` — AAAA-MM-JJ
-
-**État :** en cours | prêt à relire | bloqué
-**Dernier commit :** `abc1234` résumé
-
-Fait :
-
-- …
-
-Reste à faire :
-
-- …
-
-Pièges et décisions :
-
-- …
-```
+plusieurs étapes (AGENTS.md, CLAUDE.md). Une section par branche, la plus
+récente en haut ; réécrire sa section plutôt qu'empiler ; la supprimer une fois
+la branche fusionnée. Dates absolues. Pas de secret ni de contenu de `.env`.
+Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
 ## Branche `feat/socle-monorepo` — 2026-10-06
 
-**État :** en cours (V1 complète côté API et écrans, reste lots transverses)
-**PR :** [#4](https://github.com/bkourouma/MissionPilot/pull/4) (empilée sur #3), non fusionnées.
+**État :** V1 et V2 livrées en code et poussées ; prêt à relire ; **aucune
+recette dans un navigateur**.
+**Dernier commit :** `40144b5` feat(web): V2 portail client, IA,
+questionnaires, notation, KPI, plan, rapports, hors ligne (le distant est au
+même commit).
+**PR :** [#4](https://github.com/bkourouma/MissionPilot/pull/4) (vers
+`feat/decisions-et-socle`) et [#3](https://github.com/bkourouma/MissionPilot/pull/3)
+(vers `main`) ouvertes, non fusionnées ; le titre de #4 ne cite encore que la V1.
 
-Fait (vérifié par le Pilote : typecheck, lint, prettier, tests, build web) :
+Livré :
 
-- Cadrage validé (`docs/DECISIONS.md`), ADR-001 à 003 (PR #3).
-- `packages/engines` : moteurs planning et finance purs, 228 tests, couverture
-  100 % lignes.
-- `apps/api` (~476 tests, migrations 0001–0075) : référentiels, pipeline,
-  propositions, missions, découpage, budget figé, affectations, congés, plan
-  de charge, temps, atterrissage, alertes, jobs, facturation (factures
-  immuables, avoirs, débours, échéancier, taux négociés), encaissements,
-  relances, balance âgée, encours, rentabilité, bilan de clôture, indicateurs
-  du cabinet, export comptable SYSCOHADA, TOTP + SMTP, stockage de fichiers,
-  versions de documents, commentaires, tâches assignées.
-- `apps/web` (419 tests) : toutes les rubriques ci-dessus sauf fichiers,
-  commentaires et tâches (voir « Reste à faire »).
-- Six audits de sécurité/code relus ; tous les constats critiques, élevés et
-  moyens corrigés avec un test de non-régression.
-- Gouvernance : SECURITY.md, CODING_STANDARDS.md, review-checklist.md et
-  RUNBOOK.md complétés à partir du code réel.
-- `pnpm audit --prod` : aucune vulnérabilité (surcharge `postcss` ≥ 8.5.23).
+- **V1** : référentiels, pipeline, propositions, missions, budget figé,
+  planification, temps, facturation, encaissements, finance, indicateurs,
+  export SYSCOHADA, 2FA + SMTP, fichiers, documents, commentaires, tâches.
+- **V2** (`7578543` shared, `a8a6fca` engines, `6d62428` API, `40144b5` web) :
+  IA OpenRouter (désactivée par défaut, gabarits sans clé), portail client,
+  questionnaires (relances J+3/J+7), notation, KPI, plans stratégiques et
+  modèle financier, rapports d'état d'avancement (PDF, Word, PowerPoint),
+  import Excel des temps, PWA hors ligne (file des saisies de temps).
+- **Gouvernance réalignée au `40144b5`** : `SECURITY.md`,
+  `CODING_STANDARDS.md`, `.claude/rules/review-checklist.md` (recherches
+  mécaniques recalculées), `RUNBOOK.md`.
 
-Reste à faire (ordre) :
+Vérifications du 2026-10-06 :
 
-1. **Performance des indicateurs** : `finance/indicateurs.ts` et
-   `temps/suivi.ts` font ~11 requêtes par mission (3 111 requêtes pour 280
-   missions) ; `test/finance-indicateurs-perf.test.ts` échoue dans la suite
-   complète sous charge (passe seul). Il faut une version en lot.
-2. **Web** : téléversement des justificatifs de débours (le champ libre
-   `justificatif` est refusé par l'API : 400 `JUSTIFICATIF_PAR_TELEVERSEMENT`),
-   gestion des fichiers et versions de documents, commentaires, page
-   « Mes tâches » (`/mes-taches`, lien déjà émis par l'API).
-3. PDF des factures et documents (Chromium), DOCX/PPTX (SOC-07), import
-   Excel, PWA hors ligne (service worker), liste des collaborateurs rattachés.
-4. V2 : questionnaires, notation, planification stratégique + modèle
-   financier, KPI, portail client ; l'IA (OpenRouter) attend le jalon
-   SANKORIA (droits) : ne lancer que les parties sans IA tant que
-   l'utilisateur n'a pas donné son feu vert.
-5. Recette humaine des écrans (le navigateur intégré s'est révélé peu fiable
-   pour la relecture visuelle) ; validations métier ci-dessous.
+- Tests : API 86 fichiers / 891 tests (mesure du Pilote) ; web 71 / 1047,
+  engines 50 / 649 (couverture 100 % lignes, 99,81 % branches), shared 14 / 89
+  (relancés à la mise à jour des documents).
+- Build Next, typecheck et lint verts (Pilote) ; `pnpm format` vert.
+- `pnpm audit --prod` : aucune vulnérabilité. `pnpm audit` complet : 15
+  constats, tous via `vitest` (développement).
 
-Pièges et décisions :
+Non vérifié : aucune recette navigateur ; aucun appel OpenRouter réel ; Chrome
+(PDF) essayé seulement sous Windows ; aucun vrai classeur Excel ; pas d'essai de
+bout en bout web + API.
 
-- Tests API : base `missionpilot_test` réinitialisée à chaque exécution ; ne
-  jamais lancer deux suites API en parallèle. Pour plusieurs agents, chacun
-  utilise ses propres variables `DATABASE_URL` / `DATABASE_OWNER_URL`
-  (base `missionpilot_<id>` → `_test` créée à la volée). PostgreSQL dédié :
-  conteneur `missionpilot-postgres` (port 55440) ; les autres conteneurs
-  PostgreSQL de la machine appartiennent à d'autres projets.
-- Migrations : 0001–0008 socle/référentiels, 0010–0015 missions, 0020–0021
-  planification, 0030 temps, 0040–0044 facturation, 0050–0052 2FA, 0060–0064
-  finance, 0070–0075 fichiers/commentaires ; prochaine plage libre : 0080.
-- Agents : `dev-complex-high` (Opus, effort high) pour moteurs, API sensible
-  et correctifs d'audit ; `dev-complex` (Opus, medium) pour le web ;
-  `code-reviewer`/`ui-tester` Sonnet ; `dev-simple` Sonnet low
-  (voir la mémoire de l'utilisateur).
-- Décisions métier posées sans question, à faire valider : proposition validée
-  par un associé (PRD MIS-05) ; taux de vente et coûts réservés à
-  `finance.lire` ; TVA 18 % de départ, retenue désactivée ; relances J+7/15/30
-  (envoi e-mail au client désactivé par défaut) ; comptes SYSCOHADA de départ
-  (411, 4191, 706, 707, 4431, 4492, 521, 513, 571, 552) à valider par un
-  expert-comptable ; seuils d'approbation 5 M / 25 M / 10 M FCFA ; rappels de
-  temps vendredi 16 h et lundi 8 h UTC ; catalogue de conseil, taux, jours
-  fériés par pays = valeurs de départ ; fêtes musulmanes saisies par le cabinet.
-- Cabinet en EUR/USD : pas de grille FIN-15 propre (révision de budget refusée).
-- Import des temps : CSV seulement (le paquet xlsx de npm a des vulnérabilités).
+Reste à faire et dettes (fichier de référence entre parenthèses) :
+
+1. **Recette des écrans** (aucune faite) : portail (`/portail/*` : missions,
+   factures, questionnaires, sécurité, invitation) ; missions → KPI,
+   notation, plan et modèle, questionnaires, rapports, documents ; menus
+   Questionnaires et Notation ; paramètres IA (et essai), portail, import des
+   temps ; saisie des temps hors ligne ; puis les écrans V1.
+2. **Saisie KPI depuis le portail** : routes `/api/portail/kpi*` présentes,
+   aucun écran web ne les appelle.
+3. **Conservation** : `ia_generations` garde le texte démasqué sans durée
+   (`0102`) ; rapports jamais purgés (`0130`) ; durée et purge à décider.
+4. **Série KPI du tableau de bord** chargée par l'export, qui écrit une entrée
+   d'audit `kpi.exporter` à chaque affichage (`components/kpi/EvolutionKpi.tsx`) :
+   route de série dédiée à prévoir.
+5. **Hors ligne** : pas de clé d'idempotence côté API pour le rejeu des saisies
+   (`lib/hors-ligne/envoi.ts`, PUT complet).
+6. **Questionnaires** : date limite stockée et affichée mais non appliquée à la
+   soumission (`questionnaires/portail.ts`).
+7. **Fichiers** : donner à `routes/fichiers.ts` la même garde que l'import
+   Excel (sémaphore d'analyse simultanée ; la garde de taille 413 existe déjà).
+8. **Limiteur** : test qui prouve que `app.horloge_test` est ignoré hors d'une
+   base `_test` (`0120`).
+9. **Dépendances de développement** : monter Vitest (vitest, vite, tinypool,
+   esbuild).
+10. **Droits** : `notation.publier` est dans l'ensemble « tout » de l'associé
+    alors que la publication exige `expert_metier` (`roles.ts`, `MPN04`).
+11. **Plans** : comparaison de versions sans écarts calculés (moteur à
+    compléter, `plans/modele.ts`) ; lien du diagnostic vers une notation publiée
+    (migration `0182` prévue, rien dans le dépôt) ; PLA-05 (dépendances et
+    recalage de la feuille de route) et PLA-10 (KPI créés depuis les objectifs)
+    non faits ; plan partagé jamais servi au portail (tables `portail_interdit`).
+12. **IA métier** : SOC-11 (génération de questionnaires) et rédaction assistée
+    (plan, rapports de notation) non faites ; seules les routes `/api/ia/*`
+    appellent l'orchestrateur.
+13. **Rapports** : notation et plan en PDF/Word à faire (seul modèle :
+    `etat_avancement`) ; PDF de la facture (document HTML seulement).
+14. Petites dettes listées dans `CODING_STANDARDS.md` §10 (`MAX_LISTE` 500 du
+    portail, collision `MPT01`, commentaire de `portail/contexte.ts`) et risques
+    de `SECURITY.md` §15 (Chrome sous Linux, masquage, garde-chiffres).
+
+Valeurs métier à faire valider (posées par défaut) : TVA 18 %, retenue à la
+source désactivée, seuils d'approbation 5 M / 25 M / 10 M XOF (validés par
+l'utilisateur le 2026-10-06), IS 25 %, actualisation 12 %, codes SYSCOHADA
+indicatifs, libellés des classes A à E proposés (« Très avancé », « Avancé »,
+« Intermédiaire », « Fragile », « Critique », `apps/web/src/lib/notation.ts`),
+modèles IA recommandés et tarifs (`ia/modeles.ts`), taux USD de départ
+(`ia/couts.ts`), plafond IA 50 USD, suivi KPI quotidien à 7 h UTC.
+
+Pièges et conventions :
+
+- **Tests API** : une base par agent (`DATABASE_URL` / `DATABASE_OWNER_URL`
+  vers `missionpilot_<id>`, suffixe `_test` ajouté) ; le global-setup supprime
+  et recrée le schéma de la base de test à chaque exécution ; jamais deux suites
+  API en parallèle sur la même base ; lancer les suites l'une après l'autre. PostgreSQL du projet :
+  conteneur `missionpilot-postgres` (port 55440), les autres conteneurs sont à
+  d'autres projets.
+- **Migrations** : plages dans `CODING_STANDARDS.md` §1 ; les migrations V2
+  sont commitées (`6d62428`) donc immuables ; corriger par un nouveau fichier.
+- **Agents** : `dev-extra` et `review-extra` (Opus, effort extra,
+  `.claude/agents/`, non encore commités) appliquent la consigne permanente de
+  l'utilisateur du 2026-10-06 : effort maximal pour tous les agents du Pilote.
+- Base de développement `missionpilot` : contient des données de recette ; le
+  cabinet de démonstration Abidjan se crée par `db:seed-demo` (RUNBOOK).
 - Configuration hors développement : `TFA_MASTER_KEY`, SMTP, `STORAGE_DIR`
-  obligatoires ; valeurs de développement refusées si la base n'est pas locale.
-- Base de développement `missionpilot` : contient des données de recette
-  (mission « Recette — Plan stratégique Kora », factures, encaissements) ;
-  les comptes de démonstration sont dans `apps/api/src/db/seed.ts`.
+  obligatoires ; `WEB_ORIGIN` = adresse exacte du web (sinon 403
+  `ORIGINE_REFUSEE`) ; `CHROMIUM_PATH` pour les PDF.
