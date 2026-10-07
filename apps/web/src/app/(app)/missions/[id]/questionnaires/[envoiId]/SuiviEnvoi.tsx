@@ -226,13 +226,13 @@ function ReglagesEnvoi({ envoi }: { envoi: EnvoiDetail }) {
           onChange={(e) => setS((x) => ({ ...x, relances_auto: e.target.checked }))}
         />
         <Champ
-          libelle="Date limite de réponse"
+          libelle="Date limite indicative"
           name="date_limite"
           type="date"
           min={aujourdhui}
           value={s.date_limite}
           erreur={f.erreurs.date_limite ?? f.erreurs.relances_auto}
-          aide="Facultative : la vider retire la date limite."
+          aide="Facultative, à titre d'indication : la vider retire la date. Passée, elle n'empêche pas de répondre tant que vous n'avez pas clos le questionnaire."
           onChange={(e) => setS((x) => ({ ...x, date_limite: e.target.value }))}
         />
       </div>

@@ -9,6 +9,7 @@ import { hashPassword } from "../auth/password.js";
 import { baseLocale, estLocal, loadConfig, type Config } from "../config.js";
 import { emettre, lireFacture } from "../facturation/factures.js";
 import { createDatabase, type Database } from "./pool.js";
+import type { ResumePortail } from "./seed-demo-portail.js";
 
 /*
  * Cabinet de démonstration pour la RECETTE HUMAINE des écrans (jamais en
@@ -22,6 +23,11 @@ import { createDatabase, type Database } from "./pool.js";
  * Toutes les entreprises et personnes sont fictives ; les adresses en `.test`
  * ne reçoivent rien. Aucun e-mail ne part : l'application est montée avec
  * NODE_ENV=test (transport muet) et le script refuse SMTP_HOST.
+ *
+ * En fin d'exécution, `seed-demo-portail.ts` ajoute les comptes du PORTAIL
+ * client de démonstration et leur jeu de données (même garde, mêmes routes) ;
+ * il se lance aussi seul sur une base déjà peuplée par ce script
+ * (`db:seed-demo-portail`).
  *
  * Lancement : `pnpm --filter @missionpilot/api db:seed-demo`.
  * Idempotent par refus : si le cabinet existe déjà, rien n'est écrit. Pour
@@ -123,20 +129,22 @@ const CLIENTS = [
 
 type Reponse = Pick<LightMyRequestResponse, "statusCode" | "body" | "json">;
 
-function attendre(statut: number, r: Reponse, quoi: string): void {
+export function attendre(statut: number, r: Reponse, quoi: string): void {
   if (r.statusCode !== statut) throw new Error(`${quoi} : HTTP ${r.statusCode} ${r.body}`);
 }
 
 /** Session ouverte par la vraie route de connexion. */
-interface Session {
+export interface Session {
   utilisateurId: string;
+  /** En-tête `cookie` de la session (requêtes que `get/post/…` ne couvrent pas : multipart). */
+  cookie: string;
   get(url: string): Promise<Reponse>;
   post(url: string, corps?: unknown): Promise<Reponse>;
   patch(url: string, corps: unknown): Promise<Reponse>;
   put(url: string, corps: unknown): Promise<Reponse>;
 }
 
-async function ouvrirSession(
+export async function ouvrirSession(
   app: FastifyInstance,
   email: string,
   utilisateurId: string,
@@ -159,6 +167,7 @@ async function ouvrirSession(
     });
   return {
     utilisateurId,
+    cookie,
     get: (url) => appel("GET", url),
     post: (url, corps = {}) => appel("POST", url, corps),
     patch: (url, corps) => appel("PATCH", url, corps),
@@ -168,12 +177,12 @@ async function ouvrirSession(
 
 /* ----- Dates (relatives à aujourd'hui, lundis) ----- */
 
-function aujourdhuiISO(): string {
+export function aujourdhuiISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 /** Lundi de la semaine de `date`. */
-function lundi(date: string): string {
+export function lundi(date: string): string {
   const jour = new Date(`${date}T00:00:00Z`).getUTCDay(); // 0 = dimanche
   return ajouterJours(date, -((jour + 6) % 7));
 }
@@ -455,15 +464,15 @@ async function semerPipeline(e: Equipe): Promise<string> {
   return m.json().id as string;
 }
 
-interface MissionConstruite {
+export interface MissionConstruite {
   id: string;
   taches: Record<string, string>;
   debut: string;
 }
 
 /** Mission avec phases et tâches budgétées par grade (jours), non signée. */
-async function construireMission(
-  e: Equipe,
+export async function construireMission(
+  e: Pick<Equipe, "sessions" | "clients" | "grades">,
   options: {
     intitule: string;
     client: string;
@@ -514,7 +523,11 @@ async function construireMission(
   return { id, taches, debut: options.debut };
 }
 
-async function signerEtDemarrer(e: Equipe, m: MissionConstruite, dateSignature: string) {
+export async function signerEtDemarrer(
+  e: Pick<Equipe, "sessions">,
+  m: MissionConstruite,
+  dateSignature: string,
+) {
   const directeur = e.sessions["directeur.mission"] as Session;
   attendre(
     200,
@@ -829,6 +842,7 @@ async function semerAbsences(e: Equipe): Promise<void> {
 export interface ResumeDemo {
   cabinetId: string;
   missions: { proposition: string; signee: string; en_cours: string; cloturee: string };
+  portail: ResumePortail;
 }
 
 /** Crée le cabinet de démonstration ; renvoie null si le cabinet existe déjà (rien n'est écrit). */
@@ -840,6 +854,7 @@ export async function semerDemoAbidjan(
   if (!cree) return null;
   // NODE_ENV=test : application muette (aucun journal HTTP, aucun transport de messages).
   const app = await buildApp({ ...config, NODE_ENV: "test", TOTP_REQUIS: "non" }, database);
+  let missions: ResumeDemo["missions"];
   try {
     const e = await preparerReferentiels(app, cree.ids);
     const proposition = await semerPipeline(e);
@@ -847,10 +862,15 @@ export async function semerDemoAbidjan(
     const cloturee = await semerMissionCloturee(e, database, cree.cabinetId);
     const en_cours = await semerMissionEnCours(e);
     await semerAbsences(e);
-    return { cabinetId: cree.cabinetId, missions: { proposition, signee, en_cours, cloturee } };
+    missions = { proposition, signee, en_cours, cloturee };
   } finally {
     await app.close();
   }
+  // Import dynamique : seed-demo-portail.ts importe ce fichier (pas de cycle au chargement).
+  const { semerPortailDemo } = await import("./seed-demo-portail.js");
+  const portail = await semerPortailDemo(database, config);
+  if (!portail) throw new Error("Les comptes du portail existent déjà dans un cabinet neuf.");
+  return { cabinetId: cree.cabinetId, missions, portail };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
@@ -877,6 +897,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       );
       console.log(
         `Comptes (un par rôle) : ${PERSONNES.map((p) => emailAbidjan(p.cle)).join(", ")}`,
+      );
+      console.log(
+        `Comptes du portail client (${r.portail.client}) : ${r.portail.comptes.map((c) => c.email).join(", ")}`,
       );
       console.log(
         "Mot de passe commun : MOT_DE_PASSE_DEMO_ABIDJAN dans apps/api/src/db/seed-demo.ts " +

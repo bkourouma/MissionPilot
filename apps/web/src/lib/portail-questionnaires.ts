@@ -114,17 +114,33 @@ export interface Echeance {
   dernierJour: boolean;
 }
 
-/** Date limite affichée : « À rendre au plus tard le 12 janv. 2027 », ou `null` s'il n'y en a pas. */
+/**
+ * Date limite INDICATIVE affichée (décision du 2026-10-07 : l'API ne l'applique pas, seule la
+ * clôture par le cabinet ferme le questionnaire) : « Date limite indicative : le 12 janv. 2027 »,
+ * ou `null` s'il n'y en a pas. Aucun libellé ne laisse croire qu'une réponse serait refusée.
+ */
 export function echeance(dateLimite: string | null, aujourdhui: string): Echeance | null {
   if (!dateLimite) return null;
   const date = formaterDate(dateLimite);
   if (aujourdhui > dateLimite) {
-    return { texte: `Date limite dépassée (${date})`, depassee: true, dernierJour: false };
+    return {
+      texte: `Date dépassée (${date}) : vous pouvez encore répondre tant que le questionnaire n'est pas clos par le cabinet`,
+      depassee: true,
+      dernierJour: false,
+    };
   }
   if (aujourdhui === dateLimite) {
-    return { texte: `Dernier jour pour répondre (${date})`, depassee: false, dernierJour: true };
+    return {
+      texte: `Date limite indicative : aujourd'hui (${date})`,
+      depassee: false,
+      dernierJour: true,
+    };
   }
-  return { texte: `À rendre au plus tard le ${date}`, depassee: false, dernierJour: false };
+  return {
+    texte: `Date limite indicative : le ${date}`,
+    depassee: false,
+    dernierJour: false,
+  };
 }
 
 // --- Libellés ------------------------------------------------------------------------------
@@ -164,11 +180,11 @@ export function etatQuestionnaire(
   const depassee = echeance(q.date_limite, aujourdhui)?.depassee === true;
   if (q.reponse.statut === "brouillon") {
     return depassee
-      ? { libelle: "En cours, date limite dépassée", tonalite: "danger" }
+      ? { libelle: "En cours, date indicative dépassée", tonalite: "danger" }
       : { libelle: "En cours", tonalite: "attention" };
   }
   return depassee
-    ? { libelle: "À commencer, date limite dépassée", tonalite: "danger" }
+    ? { libelle: "À commencer, date indicative dépassée", tonalite: "danger" }
     : { libelle: "À commencer", tonalite: "neutre" };
 }
 

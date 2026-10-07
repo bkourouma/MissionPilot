@@ -93,8 +93,16 @@ export default async function PageEnvoi({
             </dd>
           </div>
           <div>
-            <dt>Date limite</dt>
-            <dd>{envoi.date_limite ? formaterDate(envoi.date_limite) : "Aucune"}</dd>
+            <dt>Date limite indicative</dt>
+            <dd>
+              {envoi.date_limite ? formaterDate(envoi.date_limite) : "Aucune"}
+              {envoi.date_limite && envoi.statut === "envoye" ? (
+                <span className="mp-texte-doux">
+                  {" "}
+                  (n&apos;empêche pas de répondre : seule la clôture ferme le questionnaire)
+                </span>
+              ) : null}
+            </dd>
           </div>
           <div>
             <dt>Relances automatiques</dt>

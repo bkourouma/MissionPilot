@@ -4,12 +4,16 @@ import {
   CHEMIN_COMPTES_DEMO,
   CHEMIN_CONNEXION_DEMO,
   connexionDemoReussie,
+  espaceDuCompte,
+  grouperComptesDemo,
   libelleRoles,
   lireComptesDemo,
   MAX_COMPTES_DEMO,
   MESSAGE_CONNEXION_DEMO_INATTENDUE,
   MESSAGE_CONNEXION_DEMO_INDISPONIBLE,
   messageErreurConnexionDemo,
+  TITRE_ESPACE_CABINET,
+  TITRE_ESPACE_PORTAIL,
 } from "./connexion-demo";
 
 const awa = { email: "associe@lagune-conseil.test", nom: "Awa Koné", roles: ["associe"] };
@@ -55,7 +59,7 @@ describe("lireComptesDemo", () => {
     expect(lireComptesDemo({ elements: [] })).toEqual([]);
   });
 
-  it("écarte les comptes invalides, les rôles inconnus ou client, les doublons", () => {
+  it("écarte les comptes invalides, les rôles inconnus, les familles mélangées, les doublons", () => {
     const comptes = lireComptesDemo({
       elements: [
         awa,
@@ -65,7 +69,11 @@ describe("lireComptesDemo", () => {
         { email: `${"a".repeat(250)}@x.test`, nom: "X", roles: ["consultant"] },
         { email: "vide@lagune-conseil.test", nom: "  ", roles: ["consultant"] },
         { email: "long@lagune-conseil.test", nom: "x".repeat(201), roles: ["consultant"] },
-        { email: "client@lagune-conseil.test", nom: "Client", roles: ["client_dirigeant"] },
+        {
+          email: "melange@lagune-conseil.test",
+          nom: "Mélange",
+          roles: ["consultant", "client_dirigeant"],
+        },
         { email: "inconnu@lagune-conseil.test", nom: "Inconnu", roles: ["pirate"] },
         {
           email: "mixte@lagune-conseil.test",
@@ -80,6 +88,36 @@ describe("lireComptesDemo", () => {
     expect(comptes).toEqual([
       awa,
       { email: "mixte@lagune-conseil.test", nom: "Mixte", roles: ["gestionnaire"] },
+    ]);
+  });
+
+  it("accepte les comptes du portail client (rôles client)", () => {
+    expect(
+      lireComptesDemo({
+        elements: [
+          {
+            email: "dirigeant.client@lagune-conseil.test",
+            nom: "Jean-Baptiste Kouadio",
+            roles: ["client_dirigeant"],
+          },
+          {
+            email: "investisseur.client@lagune-conseil.test",
+            nom: "Moussa Coulibaly",
+            roles: ["client_investisseur"],
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        email: "dirigeant.client@lagune-conseil.test",
+        nom: "Jean-Baptiste Kouadio",
+        roles: ["client_dirigeant"],
+      },
+      {
+        email: "investisseur.client@lagune-conseil.test",
+        nom: "Moussa Coulibaly",
+        roles: ["client_investisseur"],
+      },
     ]);
   });
 
@@ -99,6 +137,48 @@ describe("libellés et réponses", () => {
     expect(libelleRoles(["gestionnaire", "expert_metier"])).toBe(
       "Gestionnaire administratif et financier, Expert métier",
     );
+    expect(libelleRoles(["client_dirigeant"])).toBe("Dirigeant client");
+    expect(libelleRoles(["client_contributeur"])).toBe("Contributeur client");
+    expect(libelleRoles(["client_investisseur"])).toBe("Investisseur");
+  });
+
+  it("espace d'un compte : portail pour les seuls rôles client, cabinet sinon", () => {
+    expect(espaceDuCompte({ roles: ["client_dirigeant"] })).toBe("portail");
+    expect(espaceDuCompte({ roles: ["client_contributeur", "client_investisseur"] })).toBe(
+      "portail",
+    );
+    expect(espaceDuCompte({ roles: ["associe"] })).toBe("cabinet");
+    expect(espaceDuCompte({ roles: [] })).toBe("cabinet");
+  });
+
+  it("deux groupes toujours présents, cabinet puis portail, dans l'ordre de l'API", () => {
+    const comptes = [
+      awa,
+      {
+        email: "dirigeant.client@lagune-conseil.test",
+        nom: "Jean",
+        roles: ["client_dirigeant" as const],
+      },
+      { email: "consultant@lagune-conseil.test", nom: "Koffi", roles: ["consultant" as const] },
+      {
+        email: "contributeur.client@lagune-conseil.test",
+        nom: "Nadège",
+        roles: ["client_contributeur" as const],
+      },
+    ];
+    const [cabinet, portail] = grouperComptesDemo(comptes as never);
+    expect([cabinet.espace, cabinet.titre]).toEqual(["cabinet", TITRE_ESPACE_CABINET]);
+    expect([portail.espace, portail.titre]).toEqual(["portail", TITRE_ESPACE_PORTAIL]);
+    expect(cabinet.comptes.map((c) => c.nom)).toEqual(["Awa Koné", "Koffi"]);
+    expect(portail.comptes.map((c) => c.nom)).toEqual(["Jean", "Nadège"]);
+    expect(TITRE_ESPACE_CABINET).toBe("Espace cabinet");
+    expect(TITRE_ESPACE_PORTAIL).toBe("Espace client (portail)");
+  });
+
+  it("groupe du portail vide tant que le seed du portail n'a pas été lancé", () => {
+    const [cabinet, portail] = grouperComptesDemo([awa] as never);
+    expect(cabinet.comptes).toHaveLength(1);
+    expect(portail.comptes).toEqual([]);
   });
 
   it("seule une session ouverte en un temps est acceptée", () => {

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { estUtilisateurPortail, ROLES, ROLES_CLIENT, type Role } from "@missionpilot/shared";
+import { estRoleClient, ROLES, ROLES_CLIENT, type Role } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import { serviceIdentite, tropDeTentatives } from "../auth/confirmer-identite.js";
 import { lireEtat } from "../auth/double-authentification.js";
@@ -22,13 +22,16 @@ import { sansCache } from "./auth.js";
  *   locales ; « oui » ailleurs fait refuser le démarrage (`loadConfig`). Sinon,
  *   404 ordinaire de Fastify, comme toute route inconnue.
  * - Périmètre : les comptes ACTIFS du cabinet nommé NOM_CABINET_DEMO dont
- *   l'e-mail finit par DOMAINE_DEMO, rôles du cabinet seulement (jamais un
- *   utilisateur du portail), au plus MAX_COMPTES_DEMO. Le cabinet est celui du
+ *   l'e-mail finit par DOMAINE_DEMO, au plus MAX_COMPTES_DEMO : les comptes du
+ *   cabinet ET les comptes du PORTAIL client de démonstration (rôles client),
+ *   ces derniers seulement s'ils ont un rattachement actif à un client actif
+ *   (`utilisateurs_portail`), sans quoi la session n'ouvrirait aucun écran.
+ *   Même filtre strict pour les deux familles. Le cabinet est celui du
  *   compte fondateur COMPTE_ANCRE_DEMO (seule fonction SECURITY DEFINER
  *   existante qui relie un e-mail à son cabinet : `trouver_connexion`) : un
  *   autre cabinet, même homonyme ou avec des adresses du même domaine, n'est
  *   jamais concerné, et aucune nouvelle capacité n'est ajoutée à la base.
- * - Liste : e-mail, nom et rôles seulement (ni identifiant, ni haché).
+ * - Liste : e-mail, nom et rôles seulement (ni identifiant, ni haché, ni client).
  * - Connexion : limiteur de l'espace `connexion` réservé AVANT tout travail
  *   (même compteur que la connexion par mot de passe), réponse uniforme 401
  *   pour tout e-mail hors de la liste, refus 403 si la 2FA est active ou
@@ -45,7 +48,7 @@ export const NOM_CABINET_DEMO = "Lagune Conseil & Associés (démo)";
 export const DOMAINE_DEMO = "@lagune-conseil.test";
 /** Compte fondateur du cabinet de démonstration (premier compte créé par `creer_cabinet`). */
 export const COMPTE_ANCRE_DEMO = `associe${DOMAINE_DEMO}`;
-/** Borne de la liste (le seed en crée neuf). */
+/** Borne de la liste (les seeds en créent douze : neuf du cabinet, trois du portail). */
 export const MAX_COMPTES_DEMO = 50;
 
 /** Corps local et strict, comme `connexionSchema` d'auth.ts : un e-mail, rien d'autre. */
@@ -68,13 +71,18 @@ interface CompteDemo {
   roles: Role[];
 }
 
-const ORDRE_ROLES: readonly string[] = ROLES;
+/** Ordre d'affichage : rôles du cabinet (associé d'abord), puis rôles client du portail. */
+const ORDRE_ROLES: readonly string[] = [...ROLES, ...ROLES_CLIENT];
 
-/** Rang du premier rôle du compte dans l'ordre de `ROLES` (associé d'abord). */
+/** Rang du premier rôle du compte dans l'ordre de `ORDRE_ROLES`. */
 function rang(compte: CompteDemo): number {
   const rangs = compte.roles.map((r) => ORDRE_ROLES.indexOf(r)).filter((i) => i >= 0);
   return rangs.length ? Math.min(...rangs) : ORDRE_ROLES.length;
 }
+
+/** Famille cohérente : que des rôles du cabinet, ou que des rôles client (jamais un mélange). */
+const famillePure = (roles: readonly string[]) =>
+  roles.length > 0 && (roles.every(estRoleClient) || !roles.some(estRoleClient));
 
 /** Cabinet de démonstration (celui du compte fondateur), ou null s'il n'existe pas. */
 async function cabinetDemo(database: Database): Promise<string | null> {
@@ -89,15 +97,18 @@ async function listerComptesDemo(db: Db, cabinetId: string): Promise<CompteDemo[
   const cabinet = await db.query("SELECT nom FROM cabinets WHERE id = $1", [cabinetId]);
   if (cabinet.rows[0]?.nom !== NOM_CABINET_DEMO) return [];
   const r = await db.query(
-    `SELECT id, email, nom, roles FROM utilisateurs
-     WHERE cabinet_id = $1 AND actif AND right(lower(email), $2) = $3
-       AND NOT (roles && $4::text[])
-     ORDER BY lower(email), id
+    `SELECT u.id, u.email, u.nom, u.roles FROM utilisateurs u
+     WHERE u.cabinet_id = $1 AND u.actif AND right(lower(u.email), $2) = $3
+       AND (NOT (u.roles && $4::text[])
+            OR EXISTS (SELECT 1 FROM utilisateurs_portail up
+                       JOIN clients c ON c.id = up.client_id AND c.actif
+                       WHERE up.utilisateur_id = u.id AND up.statut = 'actif'))
+     ORDER BY lower(u.email), u.id
      LIMIT $5`,
     [cabinetId, DOMAINE_DEMO.length, DOMAINE_DEMO, [...ROLES_CLIENT], MAX_COMPTES_DEMO],
   );
   return (r.rows as CompteDemo[])
-    .filter((c) => c.email.toLowerCase().endsWith(DOMAINE_DEMO) && !estUtilisateurPortail(c.roles))
+    .filter((c) => c.email.toLowerCase().endsWith(DOMAINE_DEMO) && famillePure(c.roles))
     .sort((a, b) => rang(a) - rang(b) || a.nom.localeCompare(b.nom, "fr"));
 }
 

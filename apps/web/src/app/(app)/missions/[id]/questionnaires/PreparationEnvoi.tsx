@@ -333,13 +333,13 @@ function FormulaireEnvoi({
 
       <div className="mp-grille-champs">
         <Champ
-          libelle="Date limite de réponse"
+          libelle="Date limite indicative"
           name="date_limite"
           type="date"
           min={aujourdhui}
           value={s.date_limite}
           erreur={f.erreurs.date_limite}
-          aide="Facultative : rappelée dans les e-mails d'invitation et de relance."
+          aide="Facultative, à titre d'indication : rappelée dans les e-mails d'invitation et de relance. Elle n'empêche pas de répondre : seule votre clôture du questionnaire le ferme."
           onChange={(e) => setS((x) => ({ ...x, date_limite: e.target.value }))}
         />
         <CaseACocher

@@ -25,7 +25,16 @@ const ANCRE = COMPTE_ANCRE_DEMO;
 const CONSULTANT = `consultant${DOMAINE_DEMO}`;
 const DESACTIVE = `desactive${DOMAINE_DEMO}`;
 const AVEC_2FA = `tfa${DOMAINE_DEMO}`;
-const PORTAIL = `client.portail${DOMAINE_DEMO}`;
+const PORTAIL = `client.portail${DOMAINE_DEMO}`; // rôle client SANS rattachement : jamais listé
+// Comptes du portail de démonstration (db/seed-demo-portail.ts), avec rattachement actif.
+const DIRIGEANT = `dirigeant.client${DOMAINE_DEMO}`;
+const CONTRIBUTEUR = `contributeur.client${DOMAINE_DEMO}`;
+const INVESTISSEUR = `investisseur.client${DOMAINE_DEMO}`;
+const SUSPENDU = `suspendu.client${DOMAINE_DEMO}`; // rattachement désactivé
+const CLIENT_ARCHIVE = `archive.client${DOMAINE_DEMO}`; // client archivé
+const PORTAIL_AUTRE_DOMAINE = `hors.client-${Date.now()}@exemple.test`;
+const PORTAIL_INTRUS = `intrus.client${DOMAINE_DEMO}`; // autre cabinet, même domaine
+const PORTAIL_JUMEAU = `jumeau.client${DOMAINE_DEMO}`; // cabinet homonyme sans compte fondateur
 const AUTRE_DOMAINE = `hors.domaine-${Date.now()}@exemple.test`;
 const INTRUS = `intrus${DOMAINE_DEMO}`; // autre cabinet, même domaine
 const JUMEAU = `jumeau${DOMAINE_DEMO}`; // cabinet homonyme sans le compte fondateur
@@ -46,6 +55,7 @@ let active: Instance;
 let inactive: Instance;
 let cabinetDemo: string;
 let consultantId: string;
+let dirigeantId: string;
 let hash: string;
 
 const corpsInconnu = { erreur: { code: "COMPTE_DEMO_INCONNU" } };
@@ -74,6 +84,31 @@ async function creerCabinet(nom: string, email: string, nomAssocie: string): Pro
     ]);
     return r.rows[0].id as string;
   });
+}
+
+async function creerClient(cabinetId: string, nom: string, actif = true): Promise<string> {
+  return proprietaire(async (c) => {
+    const r = await c.query(
+      "INSERT INTO clients (cabinet_id, raison_sociale, actif) VALUES ($1, $2, $3) RETURNING id",
+      [cabinetId, nom, actif],
+    );
+    return r.rows[0].id as string;
+  });
+}
+
+async function rattacher(
+  cabinetId: string,
+  utilisateurId: string,
+  clientId: string,
+  statut: "actif" | "desactive" = "actif",
+) {
+  await proprietaire((c) =>
+    c.query(
+      `INSERT INTO utilisateurs_portail (utilisateur_id, cabinet_id, client_id, statut)
+       VALUES ($1, $2, $3, $4)`,
+      [utilisateurId, cabinetId, clientId, statut],
+    ),
+  );
 }
 
 async function ajouter(cabinetId: string, email: string, nom: string, roles: string[]) {
@@ -107,8 +142,40 @@ beforeAll(async () => {
   );
   await ajouter(cabinetDemo, PORTAIL, "Client Portail", ["client_dirigeant"]);
   await ajouter(cabinetDemo, AUTRE_DOMAINE, "Hors Domaine", ["consultant"]);
-  await creerCabinet("Cabinet voisin", INTRUS, "Intrus Voisin");
-  await creerCabinet(NOM_CABINET_DEMO, JUMEAU, "Jumeau Homonyme");
+  const voisin = await creerCabinet("Cabinet voisin", INTRUS, "Intrus Voisin");
+  const jumeau = await creerCabinet(NOM_CABINET_DEMO, JUMEAU, "Jumeau Homonyme");
+
+  // Portail : un client actif de la démo, trois comptes rattachés, et les cas à exclure.
+  const client = await creerClient(cabinetDemo, "Cacao Savane Export (fictif)");
+  dirigeantId = await ajouter(cabinetDemo, DIRIGEANT, "Jean-Baptiste Kouadio", [
+    "client_dirigeant",
+  ]);
+  await rattacher(cabinetDemo, dirigeantId, client);
+  const contributeur = await ajouter(cabinetDemo, CONTRIBUTEUR, "Nadège Yapi", [
+    "client_contributeur",
+  ]);
+  await rattacher(cabinetDemo, contributeur, client);
+  const investisseur = await ajouter(cabinetDemo, INVESTISSEUR, "Moussa Coulibaly", [
+    "client_investisseur",
+  ]);
+  await rattacher(cabinetDemo, investisseur, client);
+  const suspendu = await ajouter(cabinetDemo, SUSPENDU, "Compte Suspendu", ["client_dirigeant"]);
+  await rattacher(cabinetDemo, suspendu, client, "desactive");
+  const archive = await ajouter(cabinetDemo, CLIENT_ARCHIVE, "Client Archivé", [
+    "client_dirigeant",
+  ]);
+  await rattacher(cabinetDemo, archive, await creerClient(cabinetDemo, "Client archivé", false));
+  const horsDomaine = await ajouter(cabinetDemo, PORTAIL_AUTRE_DOMAINE, "Client Hors Domaine", [
+    "client_dirigeant",
+  ]);
+  await rattacher(cabinetDemo, horsDomaine, client);
+  for (const [cabinetId, email] of [
+    [voisin, PORTAIL_INTRUS],
+    [jumeau, PORTAIL_JUMEAU],
+  ] as const) {
+    const u = await ajouter(cabinetId, email, "Client Voisin", ["client_dirigeant"]);
+    await rattacher(cabinetId, u, await creerClient(cabinetId, "Client voisin"));
+  }
 });
 
 afterAll(async () => {
@@ -138,7 +205,7 @@ describe("connexion rapide de démonstration : liste", () => {
     expect(emailAbidjan("x").endsWith(DOMAINE_DEMO)).toBe(true);
   });
 
-  it("publique, sans session : comptes actifs du cabinet de démo seulement, triés par rôle", async () => {
+  it("publique, sans session : comptes actifs du cabinet de démo (cabinet puis portail), triés par rôle", async () => {
     const r = await lister();
     expect(r.statusCode).toBe(200);
     expect(r.headers["cache-control"]).toBe("no-store");
@@ -147,6 +214,9 @@ describe("connexion rapide de démonstration : liste", () => {
         { email: ANCRE, nom: "Awa Koné", roles: ["associe"] },
         { email: AVEC_2FA, nom: "Mariam Traoré", roles: ["chef_mission"] },
         { email: CONSULTANT, nom: "Koffi N'Guessan", roles: ["consultant"] },
+        { email: DIRIGEANT, nom: "Jean-Baptiste Kouadio", roles: ["client_dirigeant"] },
+        { email: CONTRIBUTEUR, nom: "Nadège Yapi", roles: ["client_contributeur"] },
+        { email: INVESTISSEUR, nom: "Moussa Coulibaly", roles: ["client_investisseur"] },
       ],
     });
   });
@@ -160,9 +230,23 @@ describe("connexion rapide de démonstration : liste", () => {
     expect(r.body).not.toContain(cabinetDemo);
   });
 
-  it("exclut désactivé, portail, autre domaine, autre cabinet du même domaine, cabinet homonyme", async () => {
+  it("exclut désactivé, autre domaine, autre cabinet du même domaine, cabinet homonyme", async () => {
     const body = (await lister()).body;
-    for (const email of [DESACTIVE, PORTAIL, AUTRE_DOMAINE, INTRUS, JUMEAU]) {
+    for (const email of [DESACTIVE, AUTRE_DOMAINE, INTRUS, JUMEAU]) {
+      expect(body).not.toContain(email);
+    }
+  });
+
+  it("exclut un compte portail sans rattachement actif, d'un client archivé, hors domaine ou hors du cabinet de démo", async () => {
+    const body = (await lister()).body;
+    for (const email of [
+      PORTAIL,
+      SUSPENDU,
+      CLIENT_ARCHIVE,
+      PORTAIL_AUTRE_DOMAINE,
+      PORTAIL_INTRUS,
+      PORTAIL_JUMEAU,
+    ]) {
       expect(body).not.toContain(email);
     }
   });
@@ -213,6 +297,68 @@ describe("connexion rapide de démonstration : ouverture de session", () => {
     expect(audit).toEqual({ demo: true });
   });
 
+  it("compte du portail : session ouverte, /moi renvoie portail, routes du portail seulement", async () => {
+    const r = await connexionDemo(DIRIGEANT);
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ ok: true, etape: "connecte" });
+    expect(r.headers["cache-control"]).toBe("no-store");
+    const c = r.cookies[0]!;
+    expect(c.httpOnly).toBe(true);
+    const cookie = { cookie: `${c.name}=${c.value}` };
+
+    const moi = await active.app.inject({ method: "GET", url: "/api/auth/moi", headers: cookie });
+    expect(moi.statusCode).toBe(200);
+    expect(moi.json()).toMatchObject({
+      utilisateur: { id: dirigeantId, email: DIRIGEANT, roles: ["client_dirigeant"] },
+      cabinet_id: cabinetDemo,
+      tfa_active: false,
+      tfa_a_configurer: false,
+      portail: true,
+    });
+    const portail = await active.app.inject({
+      method: "GET",
+      url: "/api/portail/moi",
+      headers: cookie,
+    });
+    expect(portail.statusCode).toBe(200);
+    expect(portail.json().entreprise.raison_sociale).toBe("Cacao Savane Export (fictif)");
+    // Liste blanche du portail : une route interne reste fermée.
+    const interne = await active.app.inject({
+      method: "GET",
+      url: "/api/missions",
+      headers: cookie,
+    });
+    expect(interne.statusCode).toBe(403);
+    expect(interne.json().erreur.code).toBe("PORTAIL_ROUTE_INTERDITE");
+
+    const audit = await proprietaire(
+      async (q) =>
+        (
+          await q.query(
+            `SELECT details FROM journal_audit
+             WHERE cabinet_id = $1 AND utilisateur_id = $2 AND action = 'connexion'
+             ORDER BY id DESC LIMIT 1`,
+            [cabinetDemo, dirigeantId],
+          )
+        ).rows[0]?.details,
+    );
+    expect(audit).toEqual({ demo: true });
+  });
+
+  it("les trois rôles client ouvrent une session de portail", async () => {
+    for (const email of [CONTRIBUTEUR, INVESTISSEUR]) {
+      const r = await connexionDemo(email);
+      expect(r.statusCode).toBe(200);
+      const c = r.cookies[0]!;
+      const moi = await active.app.inject({
+        method: "GET",
+        url: "/api/auth/moi",
+        headers: { cookie: `${c.name}=${c.value}` },
+      });
+      expect(moi.json().portail).toBe(true);
+    }
+  });
+
   it("e-mail insensible à la casse ; succès répétés non bloqués (le limiteur est libéré)", async () => {
     for (let i = 0; i < 12; i++) {
       expect((await connexionDemo("Consultant@Lagune-Conseil.TEST")).statusCode).toBe(200);
@@ -221,9 +367,19 @@ describe("connexion rapide de démonstration : ouverture de session", () => {
 
   it("e-mail hors liste : même 401 uniforme, aucun cookie", async () => {
     const reponses = await Promise.all(
-      [`absent${DOMAINE_DEMO}`, AUTRE_DOMAINE, INTRUS, JUMEAU, DESACTIVE, PORTAIL].map((e) =>
-        connexionDemo(e),
-      ),
+      [
+        `absent${DOMAINE_DEMO}`,
+        AUTRE_DOMAINE,
+        INTRUS,
+        JUMEAU,
+        DESACTIVE,
+        PORTAIL,
+        SUSPENDU,
+        CLIENT_ARCHIVE,
+        PORTAIL_AUTRE_DOMAINE,
+        PORTAIL_INTRUS,
+        PORTAIL_JUMEAU,
+      ].map((e) => connexionDemo(e)),
     );
     for (const r of reponses) {
       expect(r.statusCode).toBe(401);
@@ -257,6 +413,48 @@ describe("connexion rapide de démonstration : ouverture de session", () => {
       );
     }
     expect((await connexionDemo(ANCRE)).statusCode).toBe(200);
+  });
+
+  it("compte du portail : 2FA obligatoire du portail ou 2FA active refusent la connexion rapide", async () => {
+    await proprietaire((c) =>
+      c.query(
+        `INSERT INTO portail_parametres (cabinet_id, tfa_obligatoire) VALUES ($1, true)
+         ON CONFLICT (cabinet_id) DO UPDATE SET tfa_obligatoire = true`,
+        [cabinetDemo],
+      ),
+    );
+    try {
+      const refus = await connexionDemo(INVESTISSEUR);
+      expect(refus.statusCode).toBe(403);
+      expect(refus.json().erreur.code).toBe("CONNEXION_RAPIDE_2FA");
+      expect(refus.cookies).toHaveLength(0);
+      // La politique du portail ne touche pas les comptes du cabinet.
+      expect((await connexionDemo(CONSULTANT)).statusCode).toBe(200);
+    } finally {
+      await proprietaire((c) =>
+        c.query("UPDATE portail_parametres SET tfa_obligatoire = false WHERE cabinet_id = $1", [
+          cabinetDemo,
+        ]),
+      );
+    }
+    await proprietaire((c) =>
+      c.query(
+        `INSERT INTO utilisateurs_2fa (utilisateur_id, cabinet_id, secret_chiffre, cle_version, active_le)
+         VALUES ($1, $2, $3, 1, now())`,
+        [dirigeantId, cabinetDemo, randomBytes(48)],
+      ),
+    );
+    try {
+      const refus = await connexionDemo(DIRIGEANT);
+      expect(refus.statusCode).toBe(403);
+      expect(refus.json().erreur.code).toBe("CONNEXION_RAPIDE_2FA");
+      expect(refus.cookies).toHaveLength(0);
+    } finally {
+      await proprietaire((c) =>
+        c.query("DELETE FROM utilisateurs_2fa WHERE utilisateur_id = $1", [dirigeantId]),
+      );
+    }
+    expect((await connexionDemo(DIRIGEANT)).statusCode).toBe(200);
   });
 
   it("2FA obligatoire par le plancher plateforme (TOTP_REQUIS=oui) : refus", async () => {

@@ -7,6 +7,7 @@ import { api } from "../../lib/api";
 import {
   CHEMIN_CONNEXION_DEMO,
   connexionDemoReussie,
+  grouperComptesDemo,
   libelleRoles,
   MESSAGE_CONNEXION_DEMO_INATTENDUE,
   messageErreurConnexionDemo,
@@ -15,9 +16,11 @@ import {
 import "./comptes-demo.css";
 
 /**
- * Connexion rapide de démonstration (recette locale) : un bouton par compte, un clic ouvre la
- * session sans rien saisir. Affiché seulement si l'API a servi la liste (`page.tsx`) ; la
- * redirection qui suit est celle de la connexion normale (`FormulaireConnexion`, `surConnexion`).
+ * Connexion rapide de démonstration (recette locale) : un bouton par compte, réparti entre
+ * l'espace cabinet et l'espace client (portail) ; un clic ouvre la session sans rien saisir.
+ * Affiché seulement si l'API a servi la liste (`page.tsx`) ; la redirection qui suit est celle de
+ * la connexion normale (`FormulaireConnexion`, `surConnexion`), qui oriente un compte client
+ * vers `/portail`.
  */
 export function ComptesDemo({
   comptes,
@@ -37,6 +40,7 @@ export function ComptesDemo({
   const [refus, setRefus] = useState(0);
   const alerte = useRef<HTMLDivElement>(null);
   const occupe = enCours !== null || connecte;
+  const groupes = grouperComptesDemo(comptes);
 
   useEffect(() => {
     if (erreur) alerte.current?.focus();
@@ -90,35 +94,64 @@ export function ComptesDemo({
           <code>db:seed-demo</code> de l&apos;API) puis rechargez la page.
         </p>
       ) : (
-        <ul className="mp-comptes-demo__liste">
-          {comptes.map((compte) => {
-            const actif = enCours?.email === compte.email;
-            return (
-              <li key={compte.email}>
-                <button
-                  type="button"
-                  className={`${classesBouton("secondaire", true)} mp-comptes-demo__compte`}
-                  aria-describedby="aide-comptes-demo"
-                  aria-busy={actif || undefined}
-                  disabled={occupe}
-                  onClick={() => void ouvrir(compte)}
-                >
-                  {actif ? <span className="mp-bouton__indicateur" aria-hidden="true" /> : null}
-                  <span className="mp-comptes-demo__texte">
-                    <span className="mp-comptes-demo__nom">{compte.nom}</span>
-                    <span className="mp-comptes-demo__role">
-                      {actif
-                        ? connecte
-                          ? "Ouverture de votre espace…"
-                          : "Connexion en cours…"
-                        : libelleRoles(compte.roles)}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        groupes.map((groupe) => (
+          <section
+            key={groupe.espace}
+            className="mp-comptes-demo__groupe"
+            aria-labelledby={`titre-comptes-demo-${groupe.espace}`}
+          >
+            <h3 id={`titre-comptes-demo-${groupe.espace}`} className="mp-comptes-demo__sous-titre">
+              {groupe.titre}
+            </h3>
+            {groupe.comptes.length === 0 ? (
+              <p className="mp-texte-doux">
+                {groupe.espace === "portail" ? (
+                  <>
+                    Aucun compte client dans cette base : lancez la commande{" "}
+                    <code>db:seed-demo-portail</code> de l&apos;API puis rechargez la page.
+                  </>
+                ) : (
+                  <>
+                    Aucun compte du cabinet dans cette base : lancez la commande{" "}
+                    <code>db:seed-demo</code> de l&apos;API puis rechargez la page.
+                  </>
+                )}
+              </p>
+            ) : (
+              <ul className="mp-comptes-demo__liste">
+                {groupe.comptes.map((compte) => {
+                  const actif = enCours?.email === compte.email;
+                  return (
+                    <li key={compte.email}>
+                      <button
+                        type="button"
+                        className={`${classesBouton("secondaire", true)} mp-comptes-demo__compte`}
+                        aria-describedby="aide-comptes-demo"
+                        aria-busy={actif || undefined}
+                        disabled={occupe}
+                        onClick={() => void ouvrir(compte)}
+                      >
+                        {actif ? (
+                          <span className="mp-bouton__indicateur" aria-hidden="true" />
+                        ) : null}
+                        <span className="mp-comptes-demo__texte">
+                          <span className="mp-comptes-demo__nom">{compte.nom}</span>
+                          <span className="mp-comptes-demo__role">
+                            {actif
+                              ? connecte
+                                ? "Ouverture de votre espace…"
+                                : "Connexion en cours…"
+                              : libelleRoles(compte.roles)}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        ))
       )}
       <p className="mp-visuellement-cache" role="status" aria-live="polite">
         {annonce}

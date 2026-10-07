@@ -16,6 +16,20 @@
   font-size: var(--mp-taille-s);
 }
 
+.mp-comptes-demo__groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-comptes-demo__sous-titre {
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mp-texte-doux);
+}
+
 .mp-comptes-demo__liste {
   display: flex;
   flex-direction: column;

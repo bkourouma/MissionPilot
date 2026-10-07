@@ -104,10 +104,67 @@ pas le recopier ailleurs.
 - Durée : de l'ordre de la minute (hachage des mots de passe, une quinzaine de
   feuilles de temps). Les dates sont relatives au jour du lancement.
 
+#### Comptes du portail client de démonstration
+
+```bash
+pnpm --filter @missionpilot/api db:seed-demo-portail
+```
+
+`db:seed-demo` l'exécute déjà en fin de course : cette commande sert à ajouter
+le portail à une base **déjà peuplée** par une version antérieure de
+`db:seed-demo` (ex. la base de recette `missionpilot_demo`). Mêmes gardes que
+`db:seed-demo` (`NODE_ENV` local, bases locales, pas de `SMTP_HOST`) ; refus
+net (code 1) si le cabinet de démonstration n'existe pas, et (code 2, rien
+n'est écrit) si les comptes du portail existent déjà. Non destructif ; durée
+d'une minute environ. Tout passe par les routes réelles : invitations,
+acceptation, partages par un associé, validation d'un jalon par le client,
+envoi de questionnaires, KPI et mesures.
+
+| Compte (`@lagune-conseil.test`)  | Nom                    | Rôle                  |
+| -------------------------------- | ---------------------- | --------------------- |
+| `dirigeant.client`               | Jean-Baptiste Kouadio  | Dirigeant client      |
+| `contributeur.client`            | Nadège Yapi            | Contributeur client   |
+| `investisseur.client`            | Moussa Coulibaly       | Investisseur          |
+
+Même mot de passe commun que les comptes du cabinet. Client rattaché :
+« Cacao Savane Export (fictif) », qui porte déjà la mission clôturée du seed
+et ses deux factures émises (acompte soldé, solde réglé à 40 %). Le seed y
+ajoute une mission **en cours** (« Accompagnement à la mise en œuvre du plan
+Cacao Savane », budget figé), car une mission clôturée ne reçoit plus ni jalon,
+ni document, ni questionnaire, ni KPI. Contenu :
+
+- **Partages** (faits par l'associé) : les deux missions avec jalons et
+  factures, la lettre de mission et le livrable « Synthèse du diagnostic
+  stratégique » (PDF valide, contenu rédigé avec l'IA puis **validé** par le
+  directeur), contact principal = directeur de mission (Yao Kouassi).
+- **Jalons** de la mission en cours : « Cadrage validé… » atteint **et validé**
+  par le dirigeant client ; « Diagnostic stratégique restitué » atteint,
+  **à valider** (tester la validation avec le dirigeant) ; un jalon à venir.
+- **Factures** : deux émises, dont FA-…-00002 avec encaissement partiel (en
+  retard) ; visibles du dirigeant (pas du contributeur ni de l'investisseur :
+  droits du rôle).
+- **Questionnaires** (envoyés par le chef de mission) : « Questionnaire
+  préliminaire des dirigeants » en mode **par fonction** (dirigeant : Directeur
+  général ; contributrice : Directrice administrative et financière), date
+  limite à J+14, **brouillon de réponse commencé** par la contributrice ;
+  « Notation de la compétitivité… » en mode **collectif**, date limite
+  **dépassée à dessein** (la date n'est qu'indicative : on peut encore répondre).
+- **KPI** (mission en cours) : « Chiffre d'affaires mensuel » (cible 450 M FCFA),
+  « Délai moyen de recouvrement des créances » (cible 45 jours, plus bas
+  mieux), « Satisfaction des planteurs partenaires » (trimestriel, cible 85 %) ;
+  la contributrice en est contributeur désigné ; mesures saisies par le cabinet
+  puis la dernière par elle depuis le portail.
+- **Notifications** : celles que ces actions génèrent (questionnaires à
+  compléter pour les deux répondants, jalon validé et alertes côté cabinet).
+- Aucune 2FA sur ces comptes et politique 2FA du portail désactivée (sinon la
+  connexion rapide serait refusée). Les PDF sont écrits dans le stockage de
+  développement (`~/.missionpilot/stockage`, ou `STORAGE_DIR`).
+
 **Connexion rapide (sans mot de passe)** pour la recette : démarrer l'API avec
 `CONNEXION_RAPIDE_DEMO=oui` ; la page de connexion affiche alors le bloc
-« Comptes de démonstration (environnement local) » et un clic sur un compte
-ouvre sa session.
+« Comptes de démonstration (environnement local) » en deux groupes, « Espace
+cabinet » et « Espace client (portail) », et un clic sur un compte ouvre sa
+session (un compte client arrive dans `/portail`).
 
 ```bash
 CONNEXION_RAPIDE_DEMO=oui pnpm dev                                   # bash : API et web
@@ -123,8 +180,10 @@ Remove-Item Env:CONNEXION_RAPIDE_DEMO                                # désactiv
   posée ou retirée (le web n'a pas besoin d'être reconstruit, il lit la liste à
   chaque affichage de la page).
 - Seuls les comptes actifs `@lagune-conseil.test` du cabinet semé par
-  `db:seed-demo` sont listés ; un compte dont la 2FA est active ou obligatoire
-  (politique du cabinet, `TOTP_REQUIS=oui`) est refusé : utiliser le formulaire.
+  `db:seed-demo` sont listés, comptes du portail compris (s'ils ont un
+  rattachement actif à un client actif) ; un compte dont la 2FA est active ou
+  obligatoire (politique du cabinet, `TOTP_REQUIS=oui`, ou politique 2FA du
+  portail pour un compte client) est refusé : utiliser le formulaire.
 - Refus de démarrage si `NODE_ENV` n'est pas `development` ou `test` (ou
   absent), ou si une URL de base n'est pas locale. Jamais sur un serveur.
 - Sans la variable, les routes n'existent pas (404) et la page n'affiche rien
@@ -252,7 +311,7 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
 - **Bloc « Comptes de démonstration » absent** : l'API ne tourne pas avec
   `CONNEXION_RAPIDE_DEMO=oui` (relancer l'API), ou elle est injoignable par le
   web (`API_URL`). Bloc présent mais vide : lancer `db:seed-demo` sur la base
-  utilisée.
+  utilisée ; groupe « Espace client » vide : lancer `db:seed-demo-portail`.
 - **`DATABASE_URL doit utiliser le rôle missionpilot_app`** (migrations) :
   l'URL applicative pointe vers un autre rôle.
 - **Erreurs de connexion à PostgreSQL** juste après `pnpm db:up` : le conteneur

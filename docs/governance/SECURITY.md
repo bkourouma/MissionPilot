@@ -165,7 +165,12 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   cabinet « Lagune Conseil & Associés (démo) » titulaire du compte fondateur
   `associe@lagune-conseil.test` (retrouvé par `trouver_connexion` : aucune
   nouvelle fonction en base) ; jamais un autre cabinet, même homonyme ou du
-  même domaine, ni un utilisateur du portail. `POST /api/auth/connexion-demo`
+  même domaine. Elle couvre aussi les comptes du **portail client de
+  démonstration** (`db/seed-demo-portail.ts`, rôles client), mêmes garde-fous :
+  même filtre (domaine, cabinet de démo) et, en plus, un rattachement actif à
+  un client actif ; refus 2FA y compris pour la politique 2FA du portail ; la
+  session ouverte reste soumise à la liste blanche du portail
+  (`PORTAIL_ROUTE_INTERDITE`). `POST /api/auth/connexion-demo`
   réserve d'abord une tentative du limiteur `connexion` (compteur partagé avec
   le mot de passe), répond le même 401 `COMPTE_DEMO_INCONNU` pour tout e-mail
   hors de cette liste, **refuse (403 `CONNEXION_RAPIDE_2FA`) tout compte dont
@@ -793,7 +798,7 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Pas d'en-têtes de sécurité sur les réponses JSON de l'API (ni HSTS, ni CSP du web, hors document de facture et fichiers) ; l'API n'est pas censée être exposée directement | `app.ts`, `apps/web/next.config.mjs`                                      |
 | Pas de limitation de débit générale par IP (X-Forwarded-For falsifiable, l'API voit l'IP du relais web)                                         | `auth/limiteur.ts` (en-tête)                                              |
 | Limiteur par e-mail : un tiers qui connaît seulement l'e-mail peut bloquer la connexion de son titulaire ; parade = déblocage par `cabinet.gerer` | `auth/limiteur.ts`, `routes/limiteur-admin.ts`                            |
-| Connexion rapide de démonstration : avec `CONNEXION_RAPIDE_DEMO=oui`, quiconque atteint l'API locale ouvre sans secret la session d'un compte de démo sans 2FA (associé compris) ; acceptable sur un poste de développement seulement ; un serveur dont `NODE_ENV` serait local et la base sur la même machine passerait la garde | `routes/connexion-demo.ts`, `config.ts` (`connexionRapideDemoActive`) |
+| Connexion rapide de démonstration : avec `CONNEXION_RAPIDE_DEMO=oui`, quiconque atteint l'API locale ouvre sans secret la session d'un compte de démo sans 2FA (associé compris, ou compte client du portail de démonstration) ; acceptable sur un poste de développement seulement ; un serveur dont `NODE_ENV` serait local et la base sur la même machine passerait la garde | `routes/connexion-demo.ts`, `config.ts` (`connexionRapideDemoActive`) |
 | Aucun test ne vérifie que `app.horloge_test` est ignoré hors d'une base `_test` (le test du limiteur ne tourne que sur une base `_test`)         | `migrations/0120_limiteur_tentatives.sql`, `test/auth-limiteur.test.ts`   |
 | `mot_de_passe_hash` lisible par le rôle applicatif (reconfirmation d'identité) ; atténué dans le portail par la politique `portail` des utilisateurs | `migrations/0114_portail_rls_complements.sql`                             |
 | IA : masquage limité aux termes déclarés et aux formats connus ; garde-chiffres aveugle aux nombres en lettres ; clause « pas d'entraînement » à vérifier par modèle | `ia/masquage.ts`, `ia/garde-chiffres.ts`, `ia/fournisseur.ts`            |

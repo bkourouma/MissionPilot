@@ -460,11 +460,11 @@ export function SaisieQuestionnaire({
         actualisation={actualisation}
       />
       {ech?.depassee ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Date limite dépassée">
+        <Alerte tonalite="attention" annonce="aucune" titre="Date indicative dépassée">
           <p>
-            La date limite était le {formaterDate(questionnaire.date_limite)}. Vous pouvez encore
-            répondre tant que le cabinet n&apos;a pas clos le questionnaire : envoyez vos réponses
-            dès que possible.
+            La date limite indicative était le {formaterDate(questionnaire.date_limite)}. Vous
+            pouvez encore répondre tant que le questionnaire n&apos;est pas clos par le cabinet :
+            envoyez vos réponses dès que possible.
           </p>
         </Alerte>
       ) : null}

@@ -106,15 +106,20 @@ describe("dates", () => {
     expect(dateDuJour(instant, "Africa/Lagos")).toBe("2027-03-15");
   });
 
-  it("date limite : à venir, dernier jour, dépassée ; aucune", () => {
+  it("date limite indicative : à venir, dernier jour, dépassée (réponse encore possible) ; aucune", () => {
     expect(echeance("2027-03-15", "2027-03-10")).toEqual({
-      texte: "À rendre au plus tard le 15 mars 2027",
+      texte: "Date limite indicative : le 15 mars 2027",
       depassee: false,
       dernierJour: false,
     });
-    expect(echeance("2027-03-15", "2027-03-15")?.dernierJour).toBe(true);
+    expect(echeance("2027-03-15", "2027-03-15")).toEqual({
+      texte: "Date limite indicative : aujourd'hui (15 mars 2027)",
+      depassee: false,
+      dernierJour: true,
+    });
     expect(echeance("2027-03-15", "2027-03-16")).toEqual({
-      texte: "Date limite dépassée (15 mars 2027)",
+      texte:
+        "Date dépassée (15 mars 2027) : vous pouvez encore répondre tant que le questionnaire n'est pas clos par le cabinet",
       depassee: true,
       dernierJour: false,
     });
@@ -151,7 +156,7 @@ describe("libellés et états", () => {
     expect(
       etatQuestionnaire(questionnaire({ reponse: reponse({ statut: "brouillon" }) }), "2027-04-01")
         .libelle,
-    ).toBe("En cours, date limite dépassée");
+    ).toBe("En cours, date indicative dépassée");
     expect(etatQuestionnaire(questionnaire({ statut: "clos" }), j).libelle).toBe(
       "Clos, plus de réponse possible",
     );

@@ -41,6 +41,16 @@ indicatifs ; KPI : taux d'atteinte linéaire (« plus bas = mieux » :
 dernière valeur, alerte après 3 dégradations consécutives ; notation :
 force ≥ 65, faiblesse < 50, rôles pondérés 1 par défaut.
 
+## Arbitrages de la passation (2026-10-07, relayés par le chef d'orchestre)
+
+| Sujet | Décision | À revoir |
+| --- | --- | --- |
+| Changement de la clé IA ou de l'IBAN | Reste protégé par le **mot de passe seul**, sans exiger la 2FA, par cohérence avec l'existant. | **À revoir avant le pilote** (exiger la 2FA pour ces deux actions). |
+| Date limite d'un questionnaire | **Simple indication affichée** : l'API ne l'applique pas, un répondant peut encore répondre après la date tant que le questionnaire n'est pas clos. Les libellés de l'interface ne doivent pas laisser croire le contraire. | Décider d'un blocage après la date limite si le pilote le demande. |
+| Conservation des textes IA (`ia_generations`) et des rapports | **Aucune purge pour l'instant** (tables en ajout seul, texte démasqué conservé). | **Durée à fixer avec le conseil juridique avant le pilote**, puis fonction de purge ou d'anonymisation dédiée. |
+| Publication d'une notation | **Inchangée** : seul un utilisateur au rôle `expert_metier` publie (NOT-07), l'associé aussi est exclu. | L'incohérence résiduelle (`notation.publier` toujours dans l'ensemble des permissions de l'associé dans `roles.ts`) est notée dans HANDOFF, non traitée. |
+| Style des encadrés à bordure latérale (5 feuilles CSS) | Laissés en l'état, sans harmonisation. | — |
+
 ## Règles métier validées (2026-10-06) — applicables à la V2
 
 | Sujet | Décision |

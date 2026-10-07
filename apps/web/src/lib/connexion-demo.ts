@@ -7,7 +7,7 @@
  * 404, et rien n'est affiché). Le navigateur ne reçoit que l'e-mail, le nom et les rôles des
  * comptes ; aucun stockage navigateur.
  */
-import { ROLE_LIBELLES, ROLES, type RoleCabinet } from "@missionpilot/shared";
+import { estRoleClient, ROLE_LIBELLES, TOUS_LES_ROLES, type Role } from "@missionpilot/shared";
 import { CODE_ORIGINE_REFUSEE, ErreurApi, MESSAGE_INATTENDU, MESSAGE_ORIGINE_REFUSEE } from "./api";
 
 /** Liste publique des comptes (appel serveur de la page de connexion). */
@@ -20,11 +20,11 @@ export const MAX_COMPTES_DEMO = 50;
 export interface CompteDemo {
   email: string;
   nom: string;
-  /** Rôles du cabinet connus de cette version du web (les autres sont écartés). */
-  roles: RoleCabinet[];
+  /** Rôles connus de cette version du web (les autres sont écartés), d'une seule famille. */
+  roles: Role[];
 }
 
-const ROLES_CABINET: readonly string[] = ROLES;
+const ROLES_CONNUS: readonly string[] = TOUS_LES_ROLES;
 
 const estObjet = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 
@@ -36,8 +36,10 @@ function lireCompte(v: unknown): CompteDemo | null {
   }
   if (typeof nom !== "string" || nom.trim() === "" || nom.length > 200) return null;
   if (!Array.isArray(roles)) return null;
-  const connus = roles.filter((r): r is RoleCabinet => ROLES_CABINET.includes(r as string));
+  const connus = roles.filter((r): r is Role => ROLES_CONNUS.includes(r as string));
   if (connus.length === 0) return null;
+  // Jamais un compte à la fois du cabinet et du portail (la base l'interdit aussi).
+  if (connus.some(estRoleClient) && !connus.every(estRoleClient)) return null;
   return { email, nom: nom.trim(), roles: [...new Set(connus)] };
 }
 
@@ -60,8 +62,45 @@ export function lireComptesDemo(corps: unknown): CompteDemo[] | null {
 }
 
 /** Rôles en clair (`ROLE_LIBELLES` du paquet partagé). */
-export function libelleRoles(roles: readonly RoleCabinet[]): string {
+export function libelleRoles(roles: readonly Role[]): string {
   return roles.map((r) => ROLE_LIBELLES[r]).join(", ");
+}
+
+export type EspaceDemo = "cabinet" | "portail";
+
+/** Espace ouvert par le compte : portail client (rôles client) ou application du cabinet. */
+export function espaceDuCompte(compte: Pick<CompteDemo, "roles">): EspaceDemo {
+  return compte.roles.length > 0 && compte.roles.every(estRoleClient) ? "portail" : "cabinet";
+}
+
+export interface GroupeComptesDemo {
+  espace: EspaceDemo;
+  titre: string;
+  comptes: CompteDemo[];
+}
+
+export const TITRE_ESPACE_CABINET = "Espace cabinet";
+export const TITRE_ESPACE_PORTAIL = "Espace client (portail)";
+
+/**
+ * Comptes répartis en deux groupes, toujours dans cet ordre (cabinet, puis portail), chacun
+ * dans l'ordre de l'API. Un groupe peut être vide (seed du portail pas encore lancé).
+ */
+export function grouperComptesDemo(
+  comptes: readonly CompteDemo[],
+): [GroupeComptesDemo, GroupeComptesDemo] {
+  return [
+    {
+      espace: "cabinet",
+      titre: TITRE_ESPACE_CABINET,
+      comptes: comptes.filter((c) => espaceDuCompte(c) === "cabinet"),
+    },
+    {
+      espace: "portail",
+      titre: TITRE_ESPACE_PORTAIL,
+      comptes: comptes.filter((c) => espaceDuCompte(c) === "portail"),
+    },
+  ];
 }
 
 /** Seule réponse acceptée : session ouverte en un temps (jamais d'étape 2FA ici). */

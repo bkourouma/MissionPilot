@@ -294,7 +294,7 @@ export function datesEnvoi(
     e.envoye_le
       ? `envoyé le ${formaterDateHeure(e.envoye_le)}`
       : `créé le ${formaterDateHeure(e.cree_le)}`,
-    e.date_limite ? `date limite le ${formaterDate(e.date_limite)}` : null,
+    e.date_limite ? `date limite indicative : ${formaterDate(e.date_limite)}` : null,
     e.clos_le ? `clos le ${formaterDateHeure(e.clos_le)}` : null,
     e.statut === "envoye"
       ? e.relances_auto

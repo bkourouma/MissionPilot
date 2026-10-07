@@ -197,7 +197,7 @@ describe("liste des envois d'une mission", () => {
 
   it("donne les dates et l'état des relances automatiques", () => {
     expect(datesEnvoi(e)).toBe(
-      "envoyé le 2 oct. 2026 à 09:00 · date limite le 20 oct. 2026 · relances automatiques actives",
+      "envoyé le 2 oct. 2026 à 09:00 · date limite indicative : 20 oct. 2026 · relances automatiques actives",
     );
     expect(datesEnvoi({ ...e, statut: "brouillon", envoye_le: null, date_limite: null })).toBe(
       "créé le 1 oct. 2026 à 09:00",
