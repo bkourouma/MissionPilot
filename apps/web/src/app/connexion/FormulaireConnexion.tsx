@@ -7,7 +7,9 @@ import { Bouton } from "../../components/ui/Bouton";
 import { Champ } from "../../components/ui/Champ";
 import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
 import { validerConnexion, type ErreursConnexion } from "../../lib/connexion";
+import type { CompteDemo } from "../../lib/connexion-demo";
 import { destinationApresConnexion } from "../../lib/portail-routes";
+import { ComptesDemo } from "./ComptesDemo";
 import {
   chargeConnexion2fa,
   ETAT_INITIAL,
@@ -28,8 +30,17 @@ function messageErreur(e: unknown): string {
  * Connexion en deux temps : identifiants, puis code de la double authentification si l'API
  * le demande. Le défi reste dans l'état mémoire de ce composant (jamais dans l'URL ni le
  * stockage du navigateur) et disparaît dès la connexion, l'abandon ou son expiration.
+ *
+ * `comptesDemo` (recette locale, seulement si l'API a servi la liste) : la connexion rapide
+ * passe par le même automate, donc par la même redirection que la connexion normale.
  */
-export function FormulaireConnexion({ suite }: { suite: string }) {
+export function FormulaireConnexion({
+  suite,
+  comptesDemo = null,
+}: {
+  suite: string;
+  comptesDemo?: readonly CompteDemo[] | null;
+}) {
   const router = useRouter();
   const [etat, setEtat] = useState<EtatConnexion>(ETAT_INITIAL);
   const avancer = (ev: EvenementConnexion) => setEtat((e) => transitionConnexion(e, ev));
@@ -57,11 +68,20 @@ export function FormulaireConnexion({ suite }: { suite: string }) {
     return <EtapeCode etat={etat} avancer={avancer} />;
   }
   return (
-    <EtapeIdentifiants
-      messageInitial={etat.etape === "identifiants" ? etat.message : null}
-      connecte={etat.etape === "connecte"}
-      avancer={avancer}
-    />
+    <>
+      <EtapeIdentifiants
+        messageInitial={etat.etape === "identifiants" ? etat.message : null}
+        connecte={etat.etape === "connecte"}
+        avancer={avancer}
+      />
+      {comptesDemo ? (
+        <ComptesDemo
+          comptes={comptesDemo}
+          connecte={etat.etape === "connecte"}
+          surConnexion={(corps) => avancer({ type: "reponse_identifiants", corps })}
+        />
+      ) : null}
+    </>
   );
 }
 

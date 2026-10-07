@@ -1,7 +1,12 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { baseLocale, dossierStockage, loadConfig } from "../src/config.js";
+import {
+  baseLocale,
+  connexionRapideDemoActive,
+  dossierStockage,
+  loadConfig,
+} from "../src/config.js";
 
 /*
  * Constat M4 (audit du commit 6f28b95) : NODE_ENV absent donnait accès aux
@@ -69,6 +74,63 @@ describe("configuration : valeurs de développement (M4)", () => {
     expect(() => loadConfig({ ...PROD, TFA_MASTER_KEY_PRECEDENTE: PROD.TFA_MASTER_KEY })).toThrow(
       "TFA_MASTER_KEY_PRECEDENTE doit différer de TFA_MASTER_KEY.",
     );
+  });
+});
+
+describe("configuration : connexion rapide de démonstration (sans mot de passe)", () => {
+  const LOCALE = {
+    DATABASE_OWNER_URL: "postgres://missionpilot_owner:x@127.0.0.1:55440/mp",
+    DATABASE_URL: "postgres://missionpilot_app:x@localhost:55440/mp",
+  };
+  const REFUS = /CONNEXION_RAPIDE_DEMO=oui est réservé au développement local/;
+
+  it("désactivée par défaut, y compris en développement local", () => {
+    const c = loadConfig({});
+    expect(c.CONNEXION_RAPIDE_DEMO).toBe("non");
+    expect(connexionRapideDemoActive(c)).toBe(false);
+    expect(connexionRapideDemoActive(loadConfig({ NODE_ENV: "test", ...LOCALE }))).toBe(false);
+  });
+
+  it("activée seulement par « oui » explicite, NODE_ENV local et bases locales", () => {
+    for (const env of [{}, { NODE_ENV: "development" }, { NODE_ENV: "test", ...LOCALE }]) {
+      const c = loadConfig({ ...env, CONNEXION_RAPIDE_DEMO: "oui" });
+      expect(connexionRapideDemoActive(c)).toBe(true);
+    }
+    // Valeur inconnue (casse, faute de frappe) : refus de démarrer, jamais un « oui » implicite.
+    for (const valeur of ["Oui", "OUI", "1", "true", "yes"]) {
+      expect(() => loadConfig({ CONNEXION_RAPIDE_DEMO: valeur })).toThrow();
+    }
+  });
+
+  it("production : refus de démarrer avec « oui », même avec des bases locales", () => {
+    expect(() => loadConfig({ ...PROD, CONNEXION_RAPIDE_DEMO: "oui" })).toThrow(REFUS);
+    expect(() => loadConfig({ ...PROD, ...LOCALE, CONNEXION_RAPIDE_DEMO: "oui" })).toThrow(REFUS);
+    // Tout autre NODE_ENV que development ou test est traité comme un serveur.
+    expect(() =>
+      loadConfig({ ...PROD, NODE_ENV: "staging", ...LOCALE, CONNEXION_RAPIDE_DEMO: "oui" }),
+    ).toThrow(REFUS);
+    // « non » explicite : la production démarre.
+    expect(loadConfig({ ...PROD, CONNEXION_RAPIDE_DEMO: "non" }).CONNEXION_RAPIDE_DEMO).toBe("non");
+  });
+
+  it("base non locale : refus de démarrer avec « oui » (quel que soit NODE_ENV)", () => {
+    expect(() => loadConfig({ ...DISTANTE, CONNEXION_RAPIDE_DEMO: "oui" })).toThrow(
+      /base distante/,
+    );
+    expect(() =>
+      loadConfig({ NODE_ENV: "development", ...DISTANTE, CONNEXION_RAPIDE_DEMO: "oui" }),
+    ).toThrow(/base distante/);
+  });
+
+  it("configuration construite sans loadConfig : inactive hors local (garde des routes)", () => {
+    const base = loadConfig({ CONNEXION_RAPIDE_DEMO: "oui" });
+    expect(connexionRapideDemoActive({ ...base, NODE_ENV: "production" })).toBe(false);
+    expect(connexionRapideDemoActive({ ...base, NODE_ENV: "staging" })).toBe(false);
+    expect(connexionRapideDemoActive({ ...base, DATABASE_URL: DISTANTE.DATABASE_URL })).toBe(false);
+    expect(
+      connexionRapideDemoActive({ ...base, DATABASE_OWNER_URL: DISTANTE.DATABASE_OWNER_URL }),
+    ).toBe(false);
+    expect(connexionRapideDemoActive({ ...base, CONNEXION_RAPIDE_DEMO: "non" })).toBe(false);
   });
 });
 

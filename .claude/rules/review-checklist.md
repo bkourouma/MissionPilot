@@ -64,9 +64,13 @@ des mécanismes : `docs/governance/SECURITY.md` et
   permission la plus étroite de `packages/shared/src/roles.ts`. Liste blanche
   sans `exiger` : `POST /auth/connexion`, `/auth/connexion/2fa`,
   `/auth/deconnexion`, `GET /sante`, `POST /invitations/accepter`,
-  `POST /portail/invitations/accepter`. Toute nouvelle route publique est à
-  justifier ; un nouveau motif sans 2FA se déclare dans `routeLibreSans2fa`
-  (`app.ts`).
+  `POST /portail/invitations/accepter`, et `GET /auth/comptes-demo`,
+  `POST /auth/connexion-demo` (`routes/connexion-demo.ts`, enregistrées
+  seulement si `connexionRapideDemoActive` de `config.ts`). Toute nouvelle route
+  publique est à justifier ; un nouveau motif sans 2FA se déclare dans
+  `routeLibreSans2fa` (`app.ts`). Aucune autre ouverture de session sans secret :
+  elle passerait par la même garde de configuration et refuserait tout compte à
+  2FA active ou obligatoire (`test/connexion-demo.test.ts`).
 - **Données FIN-02** (coûts, taux, marges, rentabilité, coût IA) : champs
   ABSENTS de la réponse sans `finance.lire`, jamais masqués par un zéro ; un
   test « sans droit » accompagne chaque nouvelle réponse financière (modèle
@@ -213,9 +217,10 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 #    « journal » de développement)
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
-# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu :
-#     "334 6" puis 6 lignes (auth.ts connexion, connexion/2fa, deconnexion ;
-#     sante.ts ; utilisateurs.ts et portail-gestion.ts invitations/accepter)
+# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
+#     (2026-10-07) : "336 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
+#     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
 const fs=require("fs");let n=0;const s=[];
 for(const f of fs.readdirSync("apps/api/src/routes")){const t=fs.readFileSync("apps/api/src/routes/"+f,"utf8");

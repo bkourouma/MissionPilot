@@ -76,6 +76,14 @@ const schema = z.object({
   /** « oui » : 2FA obligatoire pour les rôles sensibles de tous les cabinets (plancher plateforme). */
   TOTP_REQUIS: z.enum(["oui", "non"]).default("non"),
   /**
+   * Connexion rapide de démonstration (recette humaine locale) : « oui » ouvre
+   * GET /api/auth/comptes-demo et POST /api/auth/connexion-demo (session SANS
+   * mot de passe, comptes du cabinet de démonstration seulement,
+   * routes/connexion-demo.ts). Désactivée par défaut ; « oui » refusé au
+   * démarrage hors développement local (`verifierConnexionRapideDemo`).
+   */
+  CONNEXION_RAPIDE_DEMO: z.enum(["oui", "non"]).default("non"),
+  /**
    * Stockage des fichiers (SOC-05, FIN-05) : « disque » (dossier local) ;
    * « s3 » est un point d'extension non implémenté (refus au démarrage).
    */
@@ -176,7 +184,46 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   verifierSecrets(config);
   verifierConfigEmail(config);
   verifierConfigStockage(config);
+  verifierConnexionRapideDemo(config);
   return config;
+}
+
+type ConfigConnexionRapide = Pick<
+  Config,
+  "NODE_ENV" | "CONNEXION_RAPIDE_DEMO" | "DATABASE_URL" | "DATABASE_OWNER_URL"
+>;
+
+/** Contexte où une connexion sans mot de passe est admissible : développement local seulement. */
+function contexteConnexionRapideAdmis(config: ConfigConnexionRapide): boolean {
+  return (
+    config.NODE_ENV !== "production" &&
+    estLocal(config.NODE_ENV) &&
+    baseLocale(config.DATABASE_URL) &&
+    baseLocale(config.DATABASE_OWNER_URL)
+  );
+}
+
+/**
+ * Connexion rapide de démonstration ACTIVE : variable explicite à « oui » ET
+ * NODE_ENV local (jamais « production ») ET les deux bases sur la machine
+ * locale. Revérifié à l'enregistrement des routes (routes/connexion-demo.ts),
+ * pour une configuration construite sans `loadConfig`.
+ */
+export function connexionRapideDemoActive(config: ConfigConnexionRapide): boolean {
+  return config.CONNEXION_RAPIDE_DEMO === "oui" && contexteConnexionRapideAdmis(config);
+}
+
+/**
+ * Une connexion sans mot de passe est une porte dérobée hors du poste de
+ * développement : « oui » dans un autre contexte fait REFUSER le démarrage.
+ */
+export function verifierConnexionRapideDemo(config: ConfigConnexionRapide): void {
+  if (config.CONNEXION_RAPIDE_DEMO === "oui" && !contexteConnexionRapideAdmis(config)) {
+    throw new Error(
+      "CONNEXION_RAPIDE_DEMO=oui est réservé au développement local (NODE_ENV development ou " +
+        "test, DATABASE_URL et DATABASE_OWNER_URL sur la machine locale) : retirer la variable.",
+    );
+  }
 }
 
 /**

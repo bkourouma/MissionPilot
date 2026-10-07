@@ -58,6 +58,7 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `SMTP_TLS`                  | `implicite` (465), `starttls` (587) ; `aucun` refusé hors développement et test        | non (jamais `aucun`)           |
 | `MAIL_FROM`                 | expéditeur, adresse ASCII, obligatoire dès que `SMTP_HOST` est défini                  | oui avec SMTP                  |
 | `TOTP_REQUIS`               | `oui` impose la 2FA aux rôles sensibles de tous les cabinets (plancher plateforme)     | non                            |
+| `CONNEXION_RAPIDE_DEMO`     | `oui` : liste des comptes de démonstration sur la page de connexion, un clic ouvre la session **sans mot de passe** (recette locale, voir « Cabinet de démonstration ») ; défaut `non` ; `oui` refusé au démarrage hors `NODE_ENV` local avec bases locales | jamais (interdit)  |
 | `STORAGE_DRIVER`            | `disque` (défaut) ; `s3` est refusé au démarrage (non implémenté)                      | non                            |
 | `STORAGE_DIR`               | dossier **absolu** des fichiers téléversés, hors du dépôt, jamais servi en statique ; défaut en développement `~/.missionpilot/stockage` (en test : dossier temporaire) | oui |
 | `FICHIER_TAILLE_MAX_OCTETS` | plafond par fichier téléversé (défaut 15 Mo, de 1 Kio à 100 Mo)                        | non                            |
@@ -102,6 +103,32 @@ pas le recopier ailleurs.
   d'une base neuve (migrations appliquées) avant de relancer.
 - Durée : de l'ordre de la minute (hachage des mots de passe, une quinzaine de
   feuilles de temps). Les dates sont relatives au jour du lancement.
+
+**Connexion rapide (sans mot de passe)** pour la recette : démarrer l'API avec
+`CONNEXION_RAPIDE_DEMO=oui` ; la page de connexion affiche alors le bloc
+« Comptes de démonstration (environnement local) » et un clic sur un compte
+ouvre sa session.
+
+```bash
+CONNEXION_RAPIDE_DEMO=oui pnpm dev                                   # bash : API et web
+CONNEXION_RAPIDE_DEMO=oui pnpm --filter @missionpilot/api dev        # bash : API seule
+```
+
+```powershell
+$env:CONNEXION_RAPIDE_DEMO = "oui"; pnpm dev                         # PowerShell
+Remove-Item Env:CONNEXION_RAPIDE_DEMO                                # désactiver ensuite
+```
+
+- La variable se lit **au démarrage de l'API** : relancer l'API après l'avoir
+  posée ou retirée (le web n'a pas besoin d'être reconstruit, il lit la liste à
+  chaque affichage de la page).
+- Seuls les comptes actifs `@lagune-conseil.test` du cabinet semé par
+  `db:seed-demo` sont listés ; un compte dont la 2FA est active ou obligatoire
+  (politique du cabinet, `TOTP_REQUIS=oui`) est refusé : utiliser le formulaire.
+- Refus de démarrage si `NODE_ENV` n'est pas `development` ou `test` (ou
+  absent), ou si une URL de base n'est pas locale. Jamais sur un serveur.
+- Sans la variable, les routes n'existent pas (404) et la page n'affiche rien
+  de plus.
 
 ## Lancer
 
@@ -221,7 +248,11 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   `SESSION_SECRET` ; `SMTP_HOST` absent ou `SMTP_TLS=aucun` en production ;
   `SMTP_USER` sans `SMTP_PASS` ; `STORAGE_DIR` absent ou relatif ;
   `CHROMIUM_PATH` relatif ou inexistant ; `OPENROUTER_BASE_URL` en HTTP hors
-  boucle locale.
+  boucle locale ; `CONNEXION_RAPIDE_DEMO=oui` hors développement local.
+- **Bloc « Comptes de démonstration » absent** : l'API ne tourne pas avec
+  `CONNEXION_RAPIDE_DEMO=oui` (relancer l'API), ou elle est injoignable par le
+  web (`API_URL`). Bloc présent mais vide : lancer `db:seed-demo` sur la base
+  utilisée.
 - **`DATABASE_URL doit utiliser le rôle missionpilot_app`** (migrations) :
   l'URL applicative pointe vers un autre rôle.
 - **Erreurs de connexion à PostgreSQL** juste après `pnpm db:up` : le conteneur

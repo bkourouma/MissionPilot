@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cheminDeRetour } from "../../lib/connexion";
 import { destinationApresConnexion, estCheminPortail } from "../../lib/portail-routes";
 import { sessionFacultative } from "../../lib/session";
+import { chargerComptesDemo } from "./comptes-demo-serveur";
 import { FormulaireConnexion } from "./FormulaireConnexion";
 
 export const metadata: Metadata = { title: "Connexion" };
@@ -18,6 +19,8 @@ export default async function PageConnexion({
   const session = await sessionFacultative();
   if (session) redirect(destinationApresConnexion(suite, session.portail === true));
   const espaceClient = estCheminPortail(suite);
+  // Recette locale : liste servie par l'API seulement avec CONNEXION_RAPIDE_DEMO=oui ; sinon rien.
+  const comptesDemo = await chargerComptesDemo();
 
   return (
     <main className="mp-connexion">
@@ -42,7 +45,7 @@ export default async function PageConnexion({
             ? "Accédez à votre espace client : missions, documents et factures partagés par votre cabinet."
             : "Accédez à l'espace de votre cabinet."}
         </p>
-        <FormulaireConnexion suite={suite} />
+        <FormulaireConnexion suite={suite} comptesDemo={comptesDemo} />
       </div>
     </main>
   );

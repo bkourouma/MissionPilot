@@ -60,7 +60,7 @@ const facteurDe = (v: { code?: string; code_secours?: string }): Facteur =>
   v.code !== undefined ? { code: v.code } : { code_secours: v.code_secours! };
 
 /** Aucune réponse portant un secret (défi, secret TOTP, codes de secours) n'est mise en cache. */
-const sansCache = (reply: FastifyReply) =>
+export const sansCache = (reply: FastifyReply) =>
   reply.header("cache-control", "no-store").header("pragma", "no-cache");
 
 /*

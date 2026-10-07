@@ -153,6 +153,29 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   la base, jamais du corps. À la création : 409 si une invitation interne ou au
   portail d'un autre client est en attente pour l'e-mail, alerte de tous les
   associés à chaque invitation (`routes/portail-gestion.ts`).
+- **Connexion rapide de démonstration** (recette humaine locale,
+  `routes/connexion-demo.ts`) : session **sans mot de passe**, traitée comme
+  une porte dérobée potentielle. Garde-fous : désactivée par défaut ; les
+  routes n'existent (sinon 404) que si `CONNEXION_RAPIDE_DEMO=oui` **et**
+  `NODE_ENV` local (jamais `production`) **et** les deux URL de base locales
+  (`connexionRapideDemoActive`, revérifié à l'enregistrement) ; `oui` dans un
+  autre contexte fait refuser le démarrage (`verifierConnexionRapideDemo`,
+  `config.ts`). `GET /api/auth/comptes-demo` (publique) ne renvoie que e-mail,
+  nom et rôles (au plus 50) des comptes actifs en `@lagune-conseil.test` du
+  cabinet « Lagune Conseil & Associés (démo) » titulaire du compte fondateur
+  `associe@lagune-conseil.test` (retrouvé par `trouver_connexion` : aucune
+  nouvelle fonction en base) ; jamais un autre cabinet, même homonyme ou du
+  même domaine, ni un utilisateur du portail. `POST /api/auth/connexion-demo`
+  réserve d'abord une tentative du limiteur `connexion` (compteur partagé avec
+  le mot de passe), répond le même 401 `COMPTE_DEMO_INCONNU` pour tout e-mail
+  hors de cette liste, **refuse (403 `CONNEXION_RAPIDE_2FA`) tout compte dont
+  la 2FA est active ou obligatoire** (politique du cabinet ou `TOTP_REQUIS`),
+  puis ouvre la session comme `POST /connexion` (session hachée, cookie
+  httpOnly, `no-store`, audit `connexion` avec `demo: true`). Garde d'origine
+  et crochet 2FA d'`app.ts` inchangés (motifs sous `/api/auth/*`). Le web
+  (`app/connexion/`) lit la liste côté serveur et n'affiche le bloc que sur une
+  réponse 200 (`lib/connexion-demo.ts`). Risque : §15. Test :
+  `test/connexion-demo.test.ts`, `test/config.test.ts`.
 
 ## 4. Isolation entre cabinets et cloisonnement des données
 
@@ -664,6 +687,9 @@ corrigés seulement par contre-passation (§6). Mobile Money est prévu en V2.
   100 000 USD). La clé propre à un cabinet est en base, chiffrée (§7 bis).
 - **Rapports** : `CHROMIUM_PATH`, chemin absolu d'un fichier existant, refusé
   au démarrage sinon.
+- **Connexion rapide de démonstration** : `CONNEXION_RAPIDE_DEMO` (`oui` ou
+  `non`, défaut `non`) ; `oui` refusé au démarrage hors `NODE_ENV` local avec
+  bases locales (§3).
 - **Côté web** : seule `API_URL` est lue (`next.config.mjs`,
   `lib/api-serveur.ts`), sans secret ; aucune variable `NEXT_PUBLIC_*`. Le
   navigateur n'atteint l'API que par `/api/*` relayé sur l'origine du web, de
@@ -767,6 +793,7 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Pas d'en-têtes de sécurité sur les réponses JSON de l'API (ni HSTS, ni CSP du web, hors document de facture et fichiers) ; l'API n'est pas censée être exposée directement | `app.ts`, `apps/web/next.config.mjs`                                      |
 | Pas de limitation de débit générale par IP (X-Forwarded-For falsifiable, l'API voit l'IP du relais web)                                         | `auth/limiteur.ts` (en-tête)                                              |
 | Limiteur par e-mail : un tiers qui connaît seulement l'e-mail peut bloquer la connexion de son titulaire ; parade = déblocage par `cabinet.gerer` | `auth/limiteur.ts`, `routes/limiteur-admin.ts`                            |
+| Connexion rapide de démonstration : avec `CONNEXION_RAPIDE_DEMO=oui`, quiconque atteint l'API locale ouvre sans secret la session d'un compte de démo sans 2FA (associé compris) ; acceptable sur un poste de développement seulement ; un serveur dont `NODE_ENV` serait local et la base sur la même machine passerait la garde | `routes/connexion-demo.ts`, `config.ts` (`connexionRapideDemoActive`) |
 | Aucun test ne vérifie que `app.horloge_test` est ignoré hors d'une base `_test` (le test du limiteur ne tourne que sur une base `_test`)         | `migrations/0120_limiteur_tentatives.sql`, `test/auth-limiteur.test.ts`   |
 | `mot_de_passe_hash` lisible par le rôle applicatif (reconfirmation d'identité) ; atténué dans le portail par la politique `portail` des utilisateurs | `migrations/0114_portail_rls_complements.sql`                             |
 | IA : masquage limité aux termes déclarés et aux formats connus ; garde-chiffres aveugle aux nombres en lettres ; clause « pas d'entraînement » à vérifier par modèle | `ia/masquage.ts`, `ia/garde-chiffres.ts`, `ia/fournisseur.ts`            |

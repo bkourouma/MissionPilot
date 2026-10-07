@@ -223,6 +223,10 @@ export async function buildApp(
 
   await app.register(routesSante, { prefix: "/api" });
   await app.register(routesAuth, { prefix: "/api/auth" });
+  // Connexion rapide de démonstration : AUCUNE route sans CONNEXION_RAPIDE_DEMO=oui en local.
+  await app.register((await import("./routes/connexion-demo.js")).routesConnexionDemo, {
+    prefix: "/api/auth",
+  });
   await app.register(routesReferentiels, { prefix: "/api" });
   await app.register(routesCycleMission, { prefix: "/api" });
   await app.register(routesPlanification, { prefix: "/api" });
