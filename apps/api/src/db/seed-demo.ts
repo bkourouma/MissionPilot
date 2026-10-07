@@ -604,9 +604,15 @@ async function semerMissionSignee(e: Equipe): Promise<string> {
   return m.id;
 }
 
-/** Mission en cours : temps validés sur 4 semaines, une feuille en attente de validation. */
+/**
+ * Mission en cours : temps validés sur 4 semaines, une feuille en attente de validation.
+ * Elle démarre 10 semaines avant le lundi courant et ses temps validés s'arrêtent 7 semaines
+ * avant : les semaines -6 à -2 de Koffi et d'Adjoua restent libres pour le scénario de
+ * recette de bout en bout (`docs/recette/`), qui y saisit ses propres feuilles. Seule la
+ * feuille de la semaine précédente (-1) est en attente de validation.
+ */
 async function semerMissionEnCours(e: Equipe): Promise<string> {
-  const debut = ajouterJours(lundi(aujourdhuiISO()), -35);
+  const debut = ajouterJours(lundi(aujourdhuiISO()), -70);
   const m = await construireMission(e, {
     intitule: "Plan stratégique Kora Agro-Industries",
     client: "Kora Agro-Industries (fictif)",
@@ -634,8 +640,9 @@ async function semerMissionEnCours(e: Equipe): Promise<string> {
     await feuille(e, "consultant", semaine, [{ tache_id: diag, jours: 4 }], true);
     await feuille(e, "consultant.junior", semaine, [{ tache_id: diag, jours: 3.5 }], true);
   }
-  // Semaine précédente : soumise, en attente de validation (notifie le chef).
-  const derniere = ajouterJours(debut, 7 * 4);
+  // Semaine précédente (celle de la veille du lundi courant) : soumise, en attente de
+  // validation (notifie le chef).
+  const derniere = ajouterJours(lundi(aujourdhuiISO()), -7);
   await feuille(e, "consultant", derniere, [{ tache_id: diag, jours: 4 }], false);
   return m.id;
 }
