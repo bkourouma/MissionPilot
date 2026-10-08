@@ -160,7 +160,7 @@ describe("revue : brouillon → en revue → publiée", () => {
     attendre(200, await s.a.associe.post(url("soumettre")), "soumission associé");
     const refus = await s.a.associe.post(url("publier"));
     expect(refus.statusCode).toBe(403);
-    expect(refus.json().erreur.code).toBe("EXPERT_METIER_REQUIS");
+    expect(refus.json().erreur.code).toBe("INTERDIT");
     const ok = await s.expert2.post(url("publier"));
     expect(ok.statusCode).toBe(200);
     expect(ok.json()).toMatchObject({ numero: 3, statut: "publiee" });
@@ -267,13 +267,13 @@ describe("publication réservée à l'expert métier (NOT-07, DECISIONS.md)", ()
     const soumise = await s.consultant.post(url3("soumettre"));
     attendre(200, soumise, "soumission");
 
-    // L'associé détient « notation.publier » mais n'est pas expert métier.
+    // L'associé ne détient pas « notation.publier » (réservée à l'expert métier, NOT-07).
     const refus = await s.a.associe.post(url3("publier"));
     expect(refus.statusCode).toBe(403);
-    expect(refus.json().erreur.code).toBe("EXPERT_METIER_REQUIS");
+    expect(refus.json().erreur.code).toBe("INTERDIT");
     const renvoi = await s.a.associe.post(url3("renvoyer"), { motif: "Contournement" });
     expect(renvoi.statusCode).toBe(403);
-    expect(renvoi.json().erreur.code).toBe("EXPERT_METIER_REQUIS");
+    expect(renvoi.json().erreur.code).toBe("INTERDIT");
     await expect(publierEnBase(soumise.json().id, 2, s.a.associeId)).rejects.toMatchObject({
       code: "MPN04",
     });

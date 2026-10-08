@@ -51,6 +51,29 @@ export {
   type ResultatPlanFinancier,
 } from "./modele";
 export {
+  controlerDependances,
+  recalerFeuilleDeRoute,
+  STATUTS_RECALABLES,
+  DEPENDANCES_PAR_INITIATIVE_MAX,
+  type StatutInitiativeFeuille,
+  type InitiativeFeuilleDeRoute,
+  type InitiativeRecalee,
+  type ResultatFeuilleDeRoute,
+} from "./feuille-de-route";
+export {
+  comparerResultatsPlan,
+  ecartValeurs,
+  SERIES_CLES_PLAN,
+  type NatureValeurComparee,
+  type SerieCleePlan,
+  type EcartValeurs,
+  type PointCompare,
+  type SerieComparee,
+  type IndicateurCompare,
+  type SyntheseComparee,
+  type ComparaisonResultatsPlan,
+} from "./comparaison";
+export {
   calculerScenariosPlan,
   ECARTS_SCENARIOS_DEFAUT,
   type NomScenario,

@@ -16,7 +16,9 @@ import {
   STATUT_VERSION,
   type VersionDetail,
 } from "../../../../../lib/questionnaires";
+import { libelleContenuIa } from "../../../../../lib/questionnaires-ia";
 import { exigerPermission } from "../../../../../lib/session";
+import { PanneauIa } from "./PanneauIa";
 
 export const metadata: Metadata = { title: "Version de questionnaire" };
 
@@ -48,6 +50,8 @@ export default async function PageVersion({ params }: { params: Promise<{ id: st
   const v = r.donnees;
   const statut = libelleStatut(STATUT_VERSION, v.statut);
   const editable = v.statut === "brouillon" && peutGererQuestionnaires(utilisateur.roles);
+  const ia = v.ia ?? null;
+  const statutIa = ia ? libelleContenuIa(ia.statut_contenu) : null;
   const retour = { href: `/questionnaires/${v.modele_id}`, libelle: "Modèle et versions" };
 
   return (
@@ -60,8 +64,16 @@ export default async function PageVersion({ params }: { params: Promise<{ id: st
             ? `validée le ${formaterDateHeure(v.valide_le)}`
             : `modifiée le ${formaterDateHeure(v.modifie_le)}`
         }`}
-        badges={<BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>}
+        badges={
+          <>
+            <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
+            {statutIa ? (
+              <BadgeStatut tonalite={statutIa.tonalite}>{statutIa.libelle}</BadgeStatut>
+            ) : null}
+          </>
+        }
       />
+      {ia ? <PanneauIa ia={ia} /> : null}
       {editable ? (
         <EditeurDefinition version={v} />
       ) : (

@@ -9,11 +9,13 @@ import {
   memeContenu,
   OPTIONS_PERSPECTIVES,
   OPTIONS_STATUTS_INITIATIVE,
+  optionsDependances,
   optionsResponsables,
   saisieDepuisDonnees,
   saisieElementVide,
   validerElement,
   type ChampElement,
+  type OptionInitiative,
   type PersonnePlan,
   type SaisieElement,
 } from "../../lib/plan-elements";
@@ -28,6 +30,7 @@ import { aideMontant } from "../../lib/saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
+import { GroupeCases } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -43,6 +46,8 @@ export interface FormulaireElementProps {
   horizon: number;
   devise: Devise;
   personnes: readonly PersonnePlan[];
+  /** Initiatives du plan, prédécesseurs possibles d'une initiative (PLA-05). */
+  initiatives?: readonly OptionInitiative[];
   /** Le plan est partagé : l'écriture retirera le partage (avertissement visible). */
   partage: boolean;
   onAnnuler?: () => void;
@@ -154,10 +159,18 @@ function ChampsObjectif(p: ChampsProps) {
   );
 }
 
-function ChampsInitiative(
-  p: ChampsProps & { horizon: number; devise: Devise; personnes: readonly PersonnePlan[] },
-) {
+interface ContexteInitiative {
+  horizon: number;
+  devise: Devise;
+  personnes: readonly PersonnePlan[];
+  initiatives: readonly OptionInitiative[];
+  /** Identifiant de l'initiative modifiée (null en création). */
+  soi: string | null;
+}
+
+function ChampsInitiative(p: ChampsProps & ContexteInitiative) {
   const { s, maj, erreurs, horizon, devise, personnes, id } = p;
+  const predecesseurs = optionsDependances(p.initiatives, p.soi, s.dependances);
   const majGain = (i: number, v: string) =>
     maj(
       "gains",
@@ -212,6 +225,17 @@ function ChampsInitiative(
           aide={`${aideMontant(devise)} Investissement initial du calcul de ROI.`}
         />
       </div>
+      {predecesseurs.length ? (
+        <GroupeCases
+          legende="Dépend de (facultatif)"
+          nom={`${id}-dependances`}
+          options={predecesseurs}
+          valeurs={s.dependances}
+          onChange={(v) => maj("dependances", v)}
+          erreur={erreurs.dependances}
+          aide="Initiatives qui doivent être terminées avant que celle-ci commence. Si l'une d'elles glisse, la feuille de route recale automatiquement cette initiative (si elle est à lancer ou suspendue)."
+        />
+      ) : null}
       <fieldset className="mp-plan-annuel" aria-describedby={`${id}-gains-aide`}>
         <legend className="mp-champ__libelle">{`Gains nets annuels (${devise}, facultatif)`}</legend>
         <p className="mp-champ__aide" id={`${id}-gains-aide`}>
@@ -235,14 +259,7 @@ function ChampsInitiative(
   );
 }
 
-function ChampsSelonType(
-  p: ChampsProps & {
-    type: TypeElementPlan;
-    horizon: number;
-    devise: Devise;
-    personnes: readonly PersonnePlan[];
-  },
-) {
+function ChampsSelonType(p: ChampsProps & ContexteInitiative & { type: TypeElementPlan }) {
   const { s, maj, erreurs } = p;
   switch (p.type) {
     case "diagnostic":
@@ -312,6 +329,7 @@ export function FormulaireElement({
   horizon,
   devise,
   personnes,
+  initiatives = [],
   partage,
   onAnnuler,
   onTermine,
@@ -377,6 +395,8 @@ export function FormulaireElement({
         horizon={horizon}
         devise={devise}
         personnes={personnes}
+        initiatives={initiatives}
+        soi={mode.nature === "version" ? mode.element.id : null}
       />
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">

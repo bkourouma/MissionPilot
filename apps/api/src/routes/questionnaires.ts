@@ -5,10 +5,12 @@ import {
   envoiQuestionnaireCreationSchema,
   envoiQuestionnaireModificationSchema,
   modeleQuestionnaireCreationSchema,
+  questionnaireGenerationIaSchema,
   questionnaireListeQuerySchema,
   relanceQuestionnaireSchema,
   versionQuestionnaireCreationSchema,
   versionQuestionnaireModificationSchema,
+  versionQuestionnaireValidationSchema,
 } from "@missionpilot/shared";
 import { exiger } from "../auth/contexte.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
@@ -25,6 +27,7 @@ import {
   repondantsEligibles,
   reponsesSoumises,
 } from "../questionnaires/envois.js";
+import { genererQuestionnaireIa } from "../questionnaires/generation-ia.js";
 import { traduireErreurQuestionnaires } from "../questionnaires/erreurs.js";
 import {
   creerModele,
@@ -89,6 +92,26 @@ export const routesQuestionnaires: FastifyPluginAsync = async (app) => {
     return modele;
   });
 
+  /**
+   * Génération assistée par l'IA (SOC-11) : questionnaire.gerer et ia.utiliser.
+   * Crée un modèle dont la version 1 est un BROUILLON IA, à relire, modifier
+   * et valider par un consultant avant tout envoi (jamais livré tel quel).
+   */
+  app.post("/questionnaires/generation-ia", async (request, reply) => {
+    const auth = exiger(request, "questionnaire.gerer");
+    exiger(request, "ia.utiliser");
+    const corps = questionnaireGenerationIaSchema.parse(request.body);
+    const { version, resultat } = await genererQuestionnaireIa(
+      app.db,
+      { config: app.config, journal: (e: unknown) => app.log.info({ ia: e }) },
+      auth,
+      corps,
+    );
+    await apresValidation(resultat.notifications);
+    reply.status(201);
+    return version;
+  });
+
   app.get("/questionnaires/modeles/:id", async (request) => {
     const auth = exiger(request, "questionnaire.lire");
     const { id } = paramsId.parse(request.params);
@@ -122,7 +145,10 @@ export const routesQuestionnaires: FastifyPluginAsync = async (app) => {
   app.post("/questionnaires/versions/:id/valider", async (request) => {
     const auth = exiger(request, "questionnaire.gerer");
     const { id } = paramsId.parse(request.params);
-    return app.db.withTenant(auth.cabinetId, (db) => validerVersion(db, auth, id));
+    const { acquitte_chiffres } = versionQuestionnaireValidationSchema.parse(request.body ?? {});
+    return app.db.withTenant(auth.cabinetId, (db) =>
+      validerVersion(db, auth, id, acquitte_chiffres === true),
+    );
   });
 
   app.get("/missions/:id/questionnaires", async (request) => {

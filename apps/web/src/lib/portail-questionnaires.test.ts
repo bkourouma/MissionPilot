@@ -106,20 +106,20 @@ describe("dates", () => {
     expect(dateDuJour(instant, "Africa/Lagos")).toBe("2027-03-15");
   });
 
-  it("date limite indicative : à venir, dernier jour, dépassée (réponse encore possible) ; aucune", () => {
+  it("date limite : à venir, dernier jour, dépassée (réponse refusée) ; aucune", () => {
     expect(echeance("2027-03-15", "2027-03-10")).toEqual({
-      texte: "Date limite indicative : le 15 mars 2027",
+      texte: "Date limite : le 15 mars 2027",
       depassee: false,
       dernierJour: false,
     });
     expect(echeance("2027-03-15", "2027-03-15")).toEqual({
-      texte: "Date limite indicative : aujourd'hui (15 mars 2027)",
+      texte: "Date limite : aujourd'hui (15 mars 2027)",
       depassee: false,
       dernierJour: true,
     });
     expect(echeance("2027-03-15", "2027-03-16")).toEqual({
       texte:
-        "Date dépassée (15 mars 2027) : vous pouvez encore répondre tant que le questionnaire n'est pas clos par le cabinet",
+        "Date limite dépassée (15 mars 2027) : les réponses ne sont plus acceptées, sauf prolongation par le cabinet",
       depassee: true,
       dernierJour: false,
     });
@@ -143,6 +143,15 @@ describe("libellés et états", () => {
     expect(estModifiable(questionnaire({ reponse: reponse({ statut: "soumise" }) }))).toBe(false);
   });
 
+  it("date limite passée : plus de saisie (le jour même reste ouvert)", () => {
+    const q = questionnaire({ date_limite: "2027-03-15" });
+    expect(estModifiable(q, "2027-03-15")).toBe(true);
+    expect(estModifiable(q, "2027-03-16")).toBe(false);
+    // Sans le jour du jour, seul l'état de l'envoi compte.
+    expect(estModifiable(q)).toBe(true);
+    expect(estModifiable(questionnaire({ date_limite: null }), "2030-01-01")).toBe(true);
+  });
+
   it("statut affiché selon la réponse, la clôture et la date limite", () => {
     const j = "2027-03-10";
     expect(etatQuestionnaire(questionnaire(), j)).toEqual({
@@ -156,7 +165,7 @@ describe("libellés et états", () => {
     expect(
       etatQuestionnaire(questionnaire({ reponse: reponse({ statut: "brouillon" }) }), "2027-04-01")
         .libelle,
-    ).toBe("En cours, date indicative dépassée");
+    ).toBe("En cours, date limite dépassée");
     expect(etatQuestionnaire(questionnaire({ statut: "clos" }), j).libelle).toBe(
       "Clos, plus de réponse possible",
     );
@@ -262,6 +271,8 @@ describe("refus de l'API", () => {
     expect(issueRefus(err(403, "INTERDIT"))).toBe("interdit");
     expect(issueRefus(err(404, "INTROUVABLE"))).toBe("introuvable");
     expect(issueRefus(err(409, "QUESTIONNAIRE_DEJA_SOUMIS"))).toBe("verrouille");
+    expect(issueRefus(err(409, "DATE_LIMITE_DEPASSEE"))).toBe("echeance");
+    expect(issueBloquante("echeance")).toBe(true);
     expect(issueRefus(err(409, "REPONSE_VERROUILLEE"))).toBe("verrouille");
     expect(issueRefus(err(409, "CONFLIT"))).toBe("clos");
     expect(issueRefus(err(400, "REQUETE_INVALIDE"))).toBe("invalide");
@@ -352,6 +363,30 @@ describe("fin de la saisie", () => {
     expect(collectif.message).toBe(
       "Un collègue a envoyé la réponse de votre entreprise le 12 mars 2027 à 14:05. Elle n'est plus modifiable. Vos dernières modifications (2 questions) n'ont pas pu être enregistrées.",
     );
+  });
+
+  it("date limite dépassée : message dédié, brouillon signalé", () => {
+    const q = questionnaire({ date_limite: "2027-03-15" });
+    expect(finLectureSeule(q, 0, "2027-03-15").titre).toBe("Questionnaire clos");
+    const fin = finLectureSeule(q, 0, "2027-03-16");
+    expect(fin).toMatchObject({
+      type: "lecture",
+      tonalite: "attention",
+      titre: "Date limite dépassée",
+    });
+    expect(fin.message).toMatch(/prolongation/);
+    expect(
+      finLectureSeule(
+        questionnaire({ date_limite: "2027-03-15", reponse: reponse({ statut: "brouillon" }) }),
+        1,
+        "2027-03-16",
+      ).message,
+    ).toMatch(/brouillon.*1 question\) n'ont pas pu/);
+    // Un questionnaire clos reste « clos », même après la date limite.
+    expect(
+      finLectureSeule(questionnaire({ statut: "clos", date_limite: "2027-03-15" }), 0, "2027-03-16")
+        .titre,
+    ).toBe("Questionnaire clos");
   });
 
   it("questionnaire clos, avec ou sans brouillon", () => {

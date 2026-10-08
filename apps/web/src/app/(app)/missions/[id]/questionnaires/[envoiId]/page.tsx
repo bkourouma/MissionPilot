@@ -93,13 +93,13 @@ export default async function PageEnvoi({
             </dd>
           </div>
           <div>
-            <dt>Date limite indicative</dt>
+            <dt>Date limite</dt>
             <dd>
               {envoi.date_limite ? formaterDate(envoi.date_limite) : "Aucune"}
               {envoi.date_limite && envoi.statut === "envoye" ? (
                 <span className="mp-texte-doux">
                   {" "}
-                  (n&apos;empêche pas de répondre : seule la clôture ferme le questionnaire)
+                  (passée, le portail n&apos;accepte plus de réponse : prolongez-la ici si besoin)
                 </span>
               ) : null}
             </dd>

@@ -65,7 +65,7 @@ const COLONNES = `d.id, d.tache, d.prompt_id, d.prompt_nom, d.prompt_version, pr
   g.version AS g_version, g.statut_contenu AS g_statut_contenu, g.texte AS g_texte,
   g.donnees AS g_donnees, g.chiffres_non_verifies AS g_chiffres_non_verifies,
   g.nombres_non_verifies AS g_nombres_non_verifies, g.chiffres_acquittes AS g_chiffres_acquittes,
-  g.auteur_id AS g_auteur_id, g.cree_le AS g_cree_le,
+  g.auteur_id AS g_auteur_id, g.cree_le AS g_cree_le, g.texte_purge_le AS g_texte_purge_le,
   p.fournisseur AS p_fournisseur, p.modele AS p_modele, p.duree_ms AS p_duree_ms,
   p.tokens_entree AS p_tokens_entree, p.tokens_sortie AS p_tokens_sortie,
   p.cout_micro_usd::text AS p_cout, p.gabarit AS p_gabarit, p.sources AS p_sources`;
@@ -103,6 +103,7 @@ export interface DemandeDb extends Record<string, unknown> {
   g_chiffres_non_verifies: boolean | null;
   g_nombres_non_verifies: string[] | null;
   g_auteur_id: string | null;
+  g_texte_purge_le: Date | null;
   p_sources: unknown[] | null;
   p_gabarit: boolean | null;
 }
@@ -180,6 +181,8 @@ export function vueGeneration(
     livrable_client: statutContenu === "valide" && !essai,
     version: d.g_version ?? null,
     ...(options.texte ? { texte: d.g_texte ?? null, donnees: d.g_donnees ?? null } : {}),
+    // Texte anonymisé à l'échéance de la durée de conservation du cabinet (migration 0104).
+    texte_purge_le: d.g_texte_purge_le ?? null,
     gabarit: d.p_gabarit ?? null,
     chiffres_non_verifies: d.g_chiffres_non_verifies ?? null,
     nombres_non_verifies: d.g_nombres_non_verifies ?? [],
@@ -196,7 +199,7 @@ export function vueGeneration(
 export async function versionsDe(db: Db, demandeId: string): Promise<Record<string, unknown>[]> {
   const r = await db.query(
     `SELECT g.version, g.statut_contenu, g.fournisseur, g.auteur_id, u.nom AS auteur_nom,
-       g.chiffres_non_verifies, g.nombres_non_verifies, g.chiffres_acquittes, g.texte, g.cree_le
+       g.chiffres_non_verifies, g.nombres_non_verifies, g.chiffres_acquittes, g.texte, g.texte_purge_le, g.cree_le
      FROM ia_generations g JOIN utilisateurs u ON u.id = g.auteur_id
      WHERE g.demande_id = $1 ORDER BY g.version`,
     [demandeId],
@@ -259,6 +262,13 @@ async function exigerContenuOuvert(db: Db, auth: Auth, d: DemandeDb) {
   }
   if (d.g_statut_contenu === "valide") {
     throw new AppError(409, "CONTENU_VALIDE", "Contenu validé : définitif.");
+  }
+  if (d.g_texte_purge_le) {
+    throw new AppError(
+      409,
+      "CONTENU_PURGE",
+      "Le texte a été anonymisé à l'échéance de la durée de conservation du cabinet.",
+    );
   }
   if (d.mission_id) {
     const mission = await exigerMissionVisible(db, auth, d.mission_id);

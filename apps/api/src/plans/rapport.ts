@@ -1,9 +1,12 @@
 import {
+  recalerFeuilleDeRoute,
   REFERENCES_SYSCOHADA,
   TAUX_ACTUALISATION_DEFAUT,
   tauxRendementInterne,
   valeurActuelleNette,
   type ExercicePrevisionnel,
+  type InitiativeRecalee,
+  type ResultatFeuilleDeRoute,
   type ResultatPlanFinancier,
 } from "@missionpilot/engines";
 import {
@@ -19,7 +22,8 @@ import { derniereVersionModele, SERIES_CLES, versionReference } from "./modele.j
 import { contenuValide, vuePlan } from "./plans.js";
 
 /*
- * Lectures dérivées du plan : feuille de route (PLA-05), ROI par initiative
+ * Lectures dérivées du plan : feuille de route (PLA-05, recalage par le
+ * moteur), ROI par initiative
  * (PLA-07 : VAN et TRI du moteur) et données du rapport (PLA-11), exposées
  * en tableaux et séries pour un futur export PDF/DOCX/PPTX. Aucun appel IA ;
  * aucun chiffre n'est calculé ici : les montants sont ceux du résultat figé
@@ -65,16 +69,46 @@ interface DonneesInitiative {
   budget: number;
   statut: StatutInitiative;
   gains_annuels?: number[];
+  dependances?: string[];
 }
 
 const initiativesActives = (elements: readonly ElementCourant[]) =>
   elements.filter((e) => e.type === "initiative" && !e.retire);
 
-/** Feuille de route par trimestre ou semestre : initiatives actives sur chaque période. */
+/**
+ * Recalage du moteur (PLA-05) sur les initiatives actives : dépendances « fin → début »,
+ * initiatives à lancer ou suspendues décalées, conflits signalés pour les autres. Une
+ * dépendance vers une initiative retirée est ignorée (et signalée).
+ */
+export function recalageInitiatives(elements: readonly ElementCourant[]): ResultatFeuilleDeRoute {
+  return recalerFeuilleDeRoute(
+    initiativesActives(elements).map((e) => {
+      const d = e.donnees as unknown as DonneesInitiative;
+      return {
+        id: e.id,
+        debut: d.debut,
+        echeance: d.echeance,
+        statut: d.statut,
+        dependances: d.dependances ?? [],
+      };
+    }),
+  );
+}
+
+/**
+ * Feuille de route par trimestre ou semestre : initiatives actives sur chaque période, aux
+ * dates RECALÉES par le moteur (`debut` et `echeance` restent les dates saisies ; `debut_recale`
+ * et `echeance_recalee` celles du recalage, identiques sans décalage).
+ */
 export function feuilleDeRoute(elements: readonly ElementCourant[], pas: Pas) {
+  const recalage = recalageInitiatives(elements);
+  const parId = new Map(recalage.initiatives.map((r) => [r.id, r]));
+  const critique = new Set(recalage.cheminCritique);
   const initiatives = initiativesActives(elements).map((e) => {
     const d = e.donnees as unknown as DonneesInitiative;
-    const fin = periodeDe(d.echeance, pas);
+    const r = parId.get(e.id) as InitiativeRecalee;
+    const fin = periodeDe(r.echeance, pas);
+    const debut = r.debut ? periodeDe(r.debut, pas) : fin;
     return {
       id: e.id,
       parent_id: e.parent_id,
@@ -82,16 +116,27 @@ export function feuilleDeRoute(elements: readonly ElementCourant[], pas: Pas) {
       responsable_id: d.responsable_id,
       debut: d.debut,
       echeance: d.echeance,
+      debut_recale: r.debut,
+      echeance_recalee: r.echeance,
+      decalage_jours: r.decalageJours,
+      recalee: r.recalee,
+      dependances: d.dependances ?? [],
+      contrainte_par: r.contraintePar,
+      conflits: r.conflits,
+      dependances_ignorees: r.dependancesIgnorees,
+      critique: critique.has(e.id),
       statut: d.statut,
       statut_libelle: STATUT_INITIATIVE_LIBELLES[d.statut],
       statut_contenu: e.statut_contenu,
-      periode_debut: libellePeriode(d.debut ? periodeDe(d.debut, pas) : fin, pas),
+      periode_debut: libellePeriode(debut, pas),
       periode_fin: libellePeriode(fin, pas),
-      _debut: d.debut ? periodeDe(d.debut, pas) : fin,
+      _debut: debut,
       _fin: fin,
     };
   });
-  initiatives.sort((a, b) => (a.echeance < b.echeance ? -1 : a.echeance > b.echeance ? 1 : 0));
+  initiatives.sort((a, b) =>
+    a.echeance_recalee < b.echeance_recalee ? -1 : a.echeance_recalee > b.echeance_recalee ? 1 : 0,
+  );
   const periodes: { periode: string; initiatives: string[] }[] = [];
   if (initiatives.length) {
     let p = initiatives.reduce(
@@ -117,6 +162,12 @@ export function feuilleDeRoute(elements: readonly ElementCourant[], pas: Pas) {
     pas,
     periodes,
     initiatives: initiatives.map(({ _debut: _d, _fin: _f, ...reste }) => reste),
+    recalage: {
+      fin: recalage.fin,
+      chemin_critique: recalage.cheminCritique,
+      nombre_recalees: recalage.nombreRecalees,
+      nombre_conflits: recalage.nombreConflits,
+    },
   };
 }
 

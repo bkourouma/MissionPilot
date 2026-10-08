@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-06 (commit `40144b5`) en lançant les commandes
+ont été relevés le 2026-10-08 (branche `feat/vague-0-reliquats`, sur l'arbre de travail) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -31,7 +31,7 @@ des mécanismes : `docs/governance/SECURITY.md` et
   de `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete`, si le
   portail doit la lire ; `portail` `FOR ALL` seulement pour une table où le
   portail écrit. Jamais une politique `portail%` permissive. Modèles : `0113`,
-  `0114`, `0160` (`kpi_mesures`). Garde : `isolation.test.ts` (« toute table à
+  `0114`, `0160` (`kpi_mesures`), `0122` (`saisies_idempotence`). Garde : `isolation.test.ts` (« toute table à
   RLS porte une politique RESTRICTIVE portail ou portail_interdit », « aucune
   politique du portail n'est permissive »), sans exception.
 - **Toute route qu'un utilisateur du portail doit atteindre s'ajoute
@@ -86,10 +86,28 @@ des mécanismes : `docs/governance/SECURITY.md` et
   jamais reçue d'une requête ; seul un contenu validé (et jamais un essai sur
   prompt « exemple ») est livrable au client (`ia/generations.ts`) ; la clé
   API n'est ni renvoyée ni journalisée (`ia/parametres.ts`).
+- **Fonction de purge ou d'anonymisation** (`purger_textes_ia`,
+  `planifier_conservation_ia`, `planifier_purge_rapports`) : `SECURITY DEFINER`,
+  bornée au cabinet du contexte (`app_cabinet_id()`), paramètres validés, clé de
+  job au format imposé, `GRANT EXECUTE` au rôle applicatif seul ; le déclencheur
+  d'ajout seul n'admet que l'anonymisation prévue, jamais un `UPDATE` libre
+  (modèle `0104_ia_conservation.sql`). Toute durée de conservation par défaut
+  est notée « à valider » (DECISIONS.md).
 - **Un rapport n'est pas un document de mission** : il s'enregistre dans
   `rapports_mission` avec son niveau calculé (`rapports/niveaux.ts`,
   `rapports/enregistrement.ts`), jamais dans `mission_documents` ; sa lecture
-  revérifie mission visible et permissions du niveau à chaque appel.
+  revérifie mission visible et permissions du niveau à chaque appel. Un nouveau
+  modèle de rapport (notation, plan : `0131`) ajoute son niveau au `CHECK`, sa
+  source au déclencheur `controler_source_rapport` (`MPR01-02`), ne reproduit
+  que du contenu validé ou publié, et applique la mention IA et la conservation
+  du cabinet (`rapports/parametres.ts`, `rapports/purge.ts`). Un rendu PDF
+  (rapport ou facture) passe par `rapports/pdf.ts` ; une route qui l'appelle a
+  un plafond de débit par utilisateur (modèle : `routes/factures-pdf.ts`, 429).
+- **Écriture rejouable** (file hors ligne, nouvelle tentative réseau) :
+  `Idempotency-Key` enregistrée dans la transaction de l'écriture, empreinte du
+  contenu, rejeu sans effet et 409 si la clé est réutilisée à tort (modèle
+  `temps/idempotence.ts`, `0122`) ; un rejeu ne doit jamais écraser une écriture
+  plus récente.
 - **Historique immuable** : une table historique reçoit un déclencheur à
   SQLSTATE `MP…` (lettre du domaine, numéro libre : CODING_STANDARDS §2) et un
   `REVOKE` (modèles `0043`, `0060`, `0146`) ; on corrige par nouvel
@@ -99,17 +117,19 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer). `migrate.ts` ne vérifie pas de somme de contrôle : c'est la
+  recréer) ; au 2026-10-08, `0076`, `0104`, `0122`, `0131`, `0132`, `0149`,
+  `0150`, `0182`–`0184` ne sont pas encore commitées. `migrate.ts` ne vérifie pas de somme de contrôle : c'est la
   relecture qui garantit la règle (recherche n° 13). Les migrations V2 corrigées
   pendant la session du 2026-10-06 sont commitées depuis `6d62428` : elles sont
-  désormais immuables.
+  désormais immuables. Plages réservées pour la suite : CODING_STANDARDS §1.
 - **Entrées** : schéma Zod `.strict()` partagé, requêtes paramétrées ; une
   interpolation dans un gabarit SQL n'est admise que pour une constante, un
   fragment construit (`clauseSet`, `filtreVisibilite`), un choix entre
   constantes selon un enum validé, ou `FOR UPDATE`.
 - **Fichiers reçus** : type par le contenu (`stockage/detection.ts`), garde de
   taille annoncée avant l'authentification (`gardeTailleMultipart`,
-  `routes/fichiers.ts`), une seule partie multipart ; un format complexe
+  `routes/fichiers.ts`), une seule partie multipart, place prise dans le sémaphore de réception
+  (`avecPlaceAnalyse`, 503 `FICHIERS_OCCUPE`) ; un format complexe
   (classeur, archive) passe par un lecteur borné avant toute bibliothèque
   (modèle `temps/import-excel.ts`).
 - **Secrets** : jamais dans un journal, une erreur, une réponse ou un message
@@ -176,8 +196,9 @@ des mécanismes : `docs/governance/SECURITY.md` et
 
 ## Recherches mécaniques
 
-À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-06
-au commit `40144b5`.
+À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-08
+sur l'arbre de travail de `feat/vague-0-reliquats` (migrations de la vague 0 non
+commitées).
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -218,7 +239,7 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-07) : "336 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     (2026-10-08) : "351 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
 #     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
 #     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
@@ -239,18 +260,21 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 249 z.object de
+# 12. Schémas Zod non stricts. Attendu : 0 sur 256 z.object de
 #     packages/shared/src/schemas (hors *.test.ts ; chaque z.object est suivi
 #     de .strict() dans sa chaîne). Script ponctuel, pas rg : apparier les
 #     parenthèses en sautant chaînes ET commentaires (une apostrophe dans un
 #     commentaire français fausse un appariement naïf). Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 249).
+#     (somme 256).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; relevé : 60 « A ».
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 70 fichiers au
+# 2026-10-08 (`ls apps/api/migrations | wc -l`), dont 10 de la vague 0 non commitées
+# (0076, 0104, 0122, 0131, 0132, 0149, 0150, 0182 à 0184), donc 60 « A » contre
+# `main` tant qu'elles sont non suivies.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -259,4 +283,17 @@ rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)
 #     vulnerabilities found » en production ; l'audit complet (pnpm audit)
 #     relève 15 constats, tous via vitest (développement, SECURITY.md §14)
 pnpm audit --prod
+
+# 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
+#     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
+#     SECURITY.md §4. Attendu : 17 lignes
+rg -n "GRANT EXECUTE" apps/api/migrations
+
+# 17. Écritures rejouables : tout en-tête Idempotency-Key passe par
+#     temps/idempotence.ts. Attendu : 2 lignes (import et usage dans feuilles-temps.ts)
+rg -n "ENTETE_IDEMPOTENCE|idempotency-key" apps/api/src --glob '!**/idempotence.ts'
+
+# 18. Réception de fichiers : toute route multipart passe par avecPlaceAnalyse.
+#     Attendu : 2 lignes (POST /fichiers, justificatif de débours)
+rg -n "avecPlaceAnalyse\(" apps/api/src
 ```

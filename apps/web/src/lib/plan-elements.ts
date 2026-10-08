@@ -11,6 +11,7 @@
  * calculés par le moteur de l'API, jamais ici.
  */
 import {
+  DEPENDANCES_INITIATIVE_MAX,
   PERSPECTIVES_PLAN,
   STATUTS_INITIATIVE,
   type PerspectivePlan,
@@ -61,7 +62,8 @@ export type ChampElement =
   | "debut"
   | "budget"
   | "statut"
-  | "gains";
+  | "gains"
+  | "dependances";
 
 /** Saisie d'un formulaire de contenu : textes bruts ; seuls les champs du type servent. */
 export interface SaisieElement {
@@ -85,6 +87,8 @@ export interface SaisieElement {
   statut: string;
   /** Gains nets annuels : exactement « horizon » cases. */
   gains: string[];
+  /** Initiatives du plan qui doivent se terminer avant celle-ci (PLA-05). */
+  dependances: string[];
 }
 
 export function saisieElementVide(horizon: number): SaisieElement {
@@ -108,6 +112,7 @@ export function saisieElementVide(horizon: number): SaisieElement {
     budget: "",
     statut: "a_lancer",
     gains: Array.from({ length: horizon }, () => ""),
+    dependances: [],
   };
 }
 
@@ -145,6 +150,7 @@ export function saisieDepuisDonnees(
     gains: Array.from({ length: horizon }, (_, i) =>
       typeof gains[i] === "number" ? montantVersSaisie(gains[i] as number, devise) : "",
     ),
+    dependances: lireListe(donnees, "dependances"),
   };
 }
 
@@ -269,6 +275,9 @@ function donneesInitiative(s: SaisieElement, horizon: number, devise: Devise, er
     err.statut = "Choisissez un statut.";
   }
   const responsable = s.responsable_id.trim();
+  if (s.dependances.length > DEPENDANCES_INITIATIVE_MAX) {
+    err.dependances = `${DEPENDANCES_INITIATIVE_MAX} dépendances au plus.`;
+  }
   return {
     titre: texteRequis(s.titre, "titre", B.titre, err),
     description: texteFacultatif(s.description, "description", B.description, err),
@@ -278,6 +287,8 @@ function donneesInitiative(s: SaisieElement, horizon: number, devise: Devise, er
     budget: budget ?? 0,
     statut: s.statut as StatutInitiative,
     gains_annuels: gainsAnnuels(s, horizon, devise, err),
+    // Absent plutôt que vide : une version sans dépendance garde la forme d'avant PLA-05.
+    dependances: s.dependances.length ? [...new Set(s.dependances)] : undefined,
   };
 }
 
@@ -417,6 +428,8 @@ export interface ContexteTexte {
   devise: Devise;
   /** Nom d'un responsable d'initiative (identifiant → nom affichable). */
   nomResponsable: (id: string | null) => string;
+  /** Titre d'une initiative du plan (dépendances) ; absent : « initiative du plan ». */
+  nomInitiative?: (id: string) => string;
 }
 
 const puces = (titre: string, l: readonly string[]) =>
@@ -440,6 +453,12 @@ function texteInitiative(d: Record<string, unknown>, c: ContexteTexte): string[]
       formaterMontantMineur(typeof d.budget === "number" ? d.budget : null, c.devise),
     ),
     ligne("Statut", libelleStatutInitiative(d.statut)),
+    ligne(
+      "Dépend de",
+      lireListe(d, "dependances")
+        .map((id) => c.nomInitiative?.(id) ?? "initiative du plan")
+        .join(", ") || null,
+    ),
     ligne(
       "Gains nets annuels",
       gains.length
@@ -510,3 +529,52 @@ export const OPTIONS_STATUTS_INITIATIVE = STATUTS_INITIATIVE.map((s) => ({
   valeur: s,
   libelle: libelleStatutInitiative(s),
 }));
+
+// --- Dépendances d'une initiative (PLA-05) ----------------------------------------------------
+
+/** Initiative du plan proposable comme prédécesseur. */
+export interface OptionInitiative {
+  id: string;
+  titre: string;
+  retire: boolean;
+}
+
+/** Initiatives du plan (titre de la version courante, retirées comprises pour l'affichage). */
+export function initiativesDuPlan(
+  elements: readonly {
+    id: string;
+    type: string;
+    retire: boolean;
+    donnees: Record<string, unknown>;
+  }[],
+): OptionInitiative[] {
+  return elements
+    .filter((e) => e.type === "initiative")
+    .map((e) => ({
+      id: e.id,
+      titre: lireTexte(e.donnees, "titre") ?? "Initiative",
+      retire: e.retire,
+    }));
+}
+
+/**
+ * Prédécesseurs proposés : autres initiatives ACTIVES du plan (l'API refuse une initiative
+ * retirée), plus celles déjà choisies (pour pouvoir les décocher), triées par titre.
+ */
+export function optionsDependances(
+  initiatives: readonly OptionInitiative[],
+  soi: string | null,
+  choisies: readonly string[],
+): { valeur: string; libelle: string }[] {
+  return initiatives
+    .filter((i) => i.id !== soi && (!i.retire || choisies.includes(i.id)))
+    .map((i) => ({ valeur: i.id, libelle: i.retire ? `${i.titre} (retirée)` : i.titre }))
+    .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
+}
+
+/** Titre d'une initiative pour l'affichage d'une dépendance. */
+export function nomInitiative(id: string, initiatives: readonly OptionInitiative[]): string {
+  const i = initiatives.find((x) => x.id === id);
+  if (!i) return "Initiative inconnue";
+  return i.retire ? `${i.titre} (retirée)` : i.titre;
+}

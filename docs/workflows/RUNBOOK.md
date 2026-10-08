@@ -148,7 +148,7 @@ ni document, ni questionnaire, ni KPI. Contenu :
   général ; contributrice : Directrice administrative et financière), date
   limite à J+14, **brouillon de réponse commencé** par la contributrice ;
   « Notation de la compétitivité… » en mode **collectif**, date limite
-  **dépassée à dessein** (la date n'est qu'indicative : on peut encore répondre).
+  **dépassée à dessein** : la soumission y est refusée (409 `DATE_LIMITE_DEPASSEE`) tant que le cabinet n'a pas repoussé la date limite de l'envoi (recette de la prolongation).
 - **KPI** (mission en cours) : « Chiffre d'affaires mensuel » (cible 450 M FCFA),
   « Délai moyen de recouvrement des créances » (cible 45 jours, plus bas
   mieux), « Satisfaction des planteurs partenaires » (trimestriel, cible 85 %) ;
@@ -198,7 +198,9 @@ pnpm dev     # API (tsx watch, 4100) et web (next dev -p 3100) en parallèle
 Sonde de l'API : `GET http://localhost:4100/api/sante` (sans authentification).
 Le worker de jobs démarre avec l'API (rappels de temps, relances des factures
 et des questionnaires, suivi quotidien des KPI, générations IA, purge des
-fichiers orphelins, file d'e-mails) ; `JOBS_WORKER=inactif` le coupe. L'IA est
+fichiers orphelins, file d'e-mails, anonymisation du texte des générations IA
+`ia_conservation` et purge des rapports `purge_rapports`, une fois par jour et par
+cabinet concerné) ; `JOBS_WORKER=inactif` le coupe. L'IA est
 désactivée par défaut dans chaque cabinet : tant qu'un associé ne l'active pas
 (`/parametres/ia`), les générations utilisent les gabarits déterministes. L'interface est sur
 `http://localhost:3100` (connexion avec un compte de démonstration).
@@ -344,6 +346,20 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   espaces de noms utilisateur (ou fournir la sandbox SUID de Chromium) ; ne pas
   ajouter `--no-sandbox` sans décision écrite (`docs/governance/SECURITY.md`
   §8 bis).
+- **Téléversement : 503 `FICHIERS_OCCUPE`** : 4 réceptions de fichiers sont déjà
+  en cours sur cette instance (constante `FICHIERS_ANALYSES_SIMULTANEES_MAX` de
+  `routes/fichiers.ts`, pas une variable d'environnement) ; réessayer.
+- **Questionnaire : 409 `DATE_LIMITE_DEPASSEE`** : la date limite de l'envoi est
+  passée ; le cabinet la repousse (ou la retire) pour rouvrir la soumission.
+- **Plan : 409 `NOTATION_NON_PUBLIEE`** : le diagnostic ne se lie qu'à une version
+  de notation publiée du même client.
+- **PDF de facture** (`GET /api/factures/:id/pdf`) et rapports de notation et de
+  plan : mêmes prérequis et mêmes 503 que le rapport PDF ci-dessus (Chrome,
+  `CHROMIUM_PATH`, `RENDU_OCCUPE`). Un rapport de notation exige une version
+  publiée.
+- **Saisies de temps rejouées (hors ligne)** : l'en-tête `Idempotency-Key` évite
+  d'écraser une saisie plus récente ; 409 `CLE_IDEMPOTENCE_REUTILISEE` si la même
+  clé sert pour une autre feuille ou un autre contenu.
 - **Import Excel : 503 `IMPORT_EXCEL_OCCUPE`** : deux lectures de classeur sont
   déjà en cours sur cette instance ; réessayer. 409 `IMPORT_CONCURRENT` : une
   feuille de temps a été saisie pendant l'import ; relancer la simulation.

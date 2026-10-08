@@ -6,10 +6,10 @@ import { routesCommentaires } from "./commentaires.js";
 import { routesFichiers } from "./fichiers.js";
 import { routesTachesCollaboration } from "./taches-collaboration.js";
 
-/** SQLSTATE des déclencheurs de la collaboration (migrations 0074, 0075) → 409. */
+/** SQLSTATE des déclencheurs de la collaboration (migrations 0074, 0075, 0076) → 409. */
 const ERREURS_SQL: Record<string, [string, string]> = {
   MPC01: ["COMMENTAIRE_FIGE", "Ce commentaire ne peut plus être modifié."],
-  MPT01: ["TACHE_FIGEE", "Le créateur et l'élément lié d'une tâche sont figés."],
+  MPC02: ["TACHE_FIGEE", "Le créateur et l'élément lié d'une tâche sont figés."],
 };
 
 /**

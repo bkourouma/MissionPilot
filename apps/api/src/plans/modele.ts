@@ -1,6 +1,8 @@
 import {
   calculerScenariosPlan,
+  comparerResultatsPlan,
   ECARTS_SCENARIOS_DEFAUT,
+  SERIES_CLES_PLAN,
   type Devise,
   type EcartsScenarios,
   type ExercicePrevisionnel,
@@ -28,7 +30,9 @@ import { retirerPartageApresEcriture } from "./partage.js";
  * ajoute aux hypothèses saisies l'horizon et la devise du plan, appelle le
  * moteur, et fige son résultat tel quel dans une version horodatée (ajout
  * seul). Aucun état financier n'est recalculé ni retouché ici ; la
- * comparaison de deux versions présente leurs valeurs côte à côte.
+ * comparaison de deux versions présente leurs valeurs côte à côte et les
+ * écarts calculés par le moteur (`comparerResultatsPlan`) sur les résultats
+ * figés.
  */
 
 /** Identifiant du moteur qui a produit un résultat figé. */
@@ -312,47 +316,74 @@ export function cheminsModifies(a: unknown, b: unknown, prefixe = ""): string[] 
   return canonique(a) === canonique(b) ? [] : [prefixe];
 }
 
-/** Séries clés du scénario de base, par exercice. */
+/** Séries clés du scénario de base, par exercice (définies par le moteur). */
 export const SERIES_CLES: readonly (readonly [
   string,
   string,
   (a: ExercicePrevisionnel) => number,
-])[] = [
-  ["chiffre_affaires", "Chiffre d'affaires", (a) => a.compteResultat.chiffreAffaires],
-  [
-    "excedent_brut_exploitation",
-    "Excédent brut d'exploitation",
-    (a) => a.compteResultat.excedentBrutExploitation,
-  ],
-  ["resultat_net", "Résultat net", (a) => a.compteResultat.resultatNet],
-  [
-    "capacite_autofinancement",
-    "Capacité d'autofinancement",
-    (a) => a.indicateurs.capaciteAutofinancement,
-  ],
-  ["tresorerie_nette", "Trésorerie nette de clôture", (a) => a.bilan.tresorerieNette],
-  ["flux_libre", "Flux de trésorerie disponible", (a) => a.indicateurs.fluxLibre],
-  ["endettement_net", "Endettement net", (a) => a.indicateurs.endettementNet],
-];
+])[] = SERIES_CLES_PLAN.map((s) => [s.cle, s.libelle, s.extraire] as const);
 
 function serie(r: ResultatScenarios, extraire: (a: ExercicePrevisionnel) => number) {
   return r.base.annees.map((a) => ({ exercice: a.exercice, valeur: extraire(a) }));
 }
 
+/** Valeur d'un chemin pointé des hypothèses (`bilanOuverture.capital`), ou null. */
+export function valeurChemin(racine: unknown, chemin: string): unknown {
+  let courant: unknown = racine;
+  for (const cle of chemin.split(".")) {
+    if (!estObjet(courant) || !(cle in courant)) return null;
+    courant = courant[cle];
+  }
+  return courant ?? null;
+}
+
+/**
+ * Comparaison de deux versions : hypothèses et écarts de scénario modifiés (avec leurs valeurs),
+ * séries clés côte à côte et écarts exacts calculés par le moteur, synthèse des scénarios.
+ */
 export async function comparerVersions(db: Db, auth: Auth, planId: string, de: number, a: number) {
   await exigerPlanVisible(db, auth, planId);
   const v1 = await lireVersion(db, planId, de);
   const v2 = await lireVersion(db, planId, a);
+  const hypotheses = cheminsModifies(v1.hypotheses, v2.hypotheses);
+  const ecarts = comparerResultatsPlan(v1.resultat, v2.resultat);
+  const pointsParCle = new Map(ecarts.series.map((s) => [s.cle, s.points]));
+  const versApi = (e: {
+    de: number | null;
+    a: number | null;
+    ecart: number | null;
+    ecartRelatif: number | null;
+  }) => ({
+    de: e.de,
+    a: e.a,
+    ecart: e.ecart,
+    ecart_relatif: e.ecartRelatif,
+  });
   return {
     de: vueResume(v1),
     a: vueResume(v2),
-    hypotheses_modifiees: cheminsModifies(v1.hypotheses, v2.hypotheses),
+    hypotheses_modifiees: hypotheses,
+    hypotheses_detail: hypotheses.map((chemin) => ({
+      chemin,
+      de: valeurChemin(v1.hypotheses, chemin),
+      a: valeurChemin(v2.hypotheses, chemin),
+    })),
     ecarts_modifies: cheminsModifies(v1.ecarts, v2.ecarts),
     series: SERIES_CLES.map(([cle, libelle, extraire]) => ({
       cle,
       libelle,
       de: serie(v1.resultat, extraire),
       a: serie(v2.resultat, extraire),
+      points: (pointsParCle.get(cle) ?? []).map((p) => ({ exercice: p.exercice, ...versApi(p) })),
+    })),
+    synthese: ecarts.synthese.map((s) => ({
+      scenario: s.scenario,
+      indicateurs: s.indicateurs.map((i) => ({
+        cle: i.cle,
+        libelle: i.libelle,
+        nature: i.nature,
+        ...versApi(i),
+      })),
     })),
   };
 }

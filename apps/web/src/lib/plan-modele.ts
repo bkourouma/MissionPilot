@@ -300,19 +300,44 @@ export interface PointSerie {
   valeur: number;
 }
 
+/** Écart calculé par le moteur de l'API (a − de exact, écart relatif à 4 décimales). */
+export interface EcartCompare {
+  de: number | null;
+  a: number | null;
+  ecart: number | null;
+  ecart_relatif: number | null;
+}
+
+export interface PointCompare extends EcartCompare {
+  exercice: number;
+}
+
 export interface SerieComparee {
   cle: string;
   libelle: string;
   de: PointSerie[];
   a: PointSerie[];
+  /** Exercices alignés par millésime, avec écarts du moteur. */
+  points?: PointCompare[];
+}
+
+export interface IndicateurCompare extends EcartCompare {
+  cle: string;
+  libelle: string;
+  /** « taux » : fraction (TRI), écart en points ; « nombre » : décompte (alertes). */
+  nature: "montant" | "taux" | "nombre";
 }
 
 export interface ComparaisonModeles {
   de: ResumeModele;
   a: ResumeModele;
   hypotheses_modifiees: string[];
+  /** Valeurs des hypothèses modifiées dans chaque version. */
+  hypotheses_detail?: { chemin: string; de: unknown; a: unknown }[];
   ecarts_modifies: string[];
   series: SerieComparee[];
+  /** Indicateurs de synthèse de chaque scénario, avec écarts du moteur. */
+  synthese?: { scenario: NomScenario; indicateurs: IndicateurCompare[] }[];
 }
 
 export interface RoiInitiative {

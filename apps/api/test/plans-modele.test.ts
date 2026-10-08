@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   calculerScenariosPlan,
+  comparerResultatsPlan,
   ECARTS_SCENARIOS_DEFAUT,
   TAUX_ACTUALISATION_DEFAUT,
   tauxRendementInterne,
@@ -279,6 +280,41 @@ describe("versions du modèle financier", () => {
       ),
     );
     expect(ca.a[0].valeur).toBe(m2.base.annees[0].compteResultat.chiffreAffaires);
+    // Écarts calculés par le moteur sur les deux résultats figés, sans recalcul par l'API.
+    const ecarts = comparerResultatsPlan(m1, m2);
+    expect(ca.points).toEqual(
+      ecarts.series[0]!.points.map((p) => ({
+        exercice: p.exercice,
+        de: p.de,
+        a: p.a,
+        ecart: p.ecart,
+        ecart_relatif: p.ecartRelatif,
+      })),
+    );
+    expect(ca.points[0].ecart).toBe(ca.a[0].valeur - ca.de[0].valeur);
+    expect(c.hypotheses_detail).toEqual([
+      { chemin: "croissanceChiffreAffaires", de: 10, a: [12, 10, 8] },
+    ]);
+    expect(c.synthese.map((s: { scenario: string }) => s.scenario)).toEqual([
+      "base",
+      "optimiste",
+      "pessimiste",
+    ]);
+    const van = c.synthese[0].indicateurs.find(
+      (i: { cle: string }) => i.cle === "valeur_actuelle_nette",
+    );
+    const vanMoteur = ecarts.synthese[0]!.indicateurs.find(
+      (i) => i.cle === "valeur_actuelle_nette",
+    )!;
+    expect(van).toEqual({
+      cle: "valeur_actuelle_nette",
+      libelle: vanMoteur.libelle,
+      nature: "montant",
+      de: vanMoteur.de,
+      a: vanMoteur.a,
+      ecart: vanMoteur.ecart,
+      ecart_relatif: vanMoteur.ecartRelatif,
+    });
     expect(
       (await consultant.get(`/api/plans/${planId}/modeles/comparaison?de=1&a=1`)).statusCode,
     ).toBe(400);

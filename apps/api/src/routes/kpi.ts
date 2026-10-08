@@ -26,12 +26,12 @@ import {
   exigerProprietaireValide,
   type AccesKpi,
 } from "../kpi/acces.js";
+import { insererKpi, numerique } from "../kpi/creation.js";
 import {
   ciblesDe,
   definitionsDeMission,
   lireDefinition,
   lireParametresKpi,
-  MAX_KPI_PAR_MISSION,
   parKpi,
   type DefinitionKpi,
   type ParametresKpi,
@@ -46,9 +46,14 @@ import {
   type LigneMesure,
 } from "../kpi/mesures.js";
 import { evaluerApresSaisie } from "../kpi/suivi.js";
-import { cibleActuelle, exporterKpiMission, tableauDeBord } from "../kpi/tableau.js";
+import {
+  cibleActuelle,
+  exporterKpiMission,
+  serieKpiMission,
+  tableauDeBord,
+} from "../kpi/tableau.js";
 import { vueCible, vueDefinition } from "../kpi/vues.js";
-import { exigerMissionModifiable, exigerMissionVisible } from "../missions/acces.js";
+import { exigerMissionVisible } from "../missions/acces.js";
 import { aujourdhui } from "../missions/outils.js";
 import { routesPortailKpi } from "./portail-kpi.js";
 
@@ -60,10 +65,6 @@ import { routesPortailKpi } from "./portail-kpi.js";
  * chaque écriture est journalisée dans sa transaction, sans valeur chiffrée.
  * Tous les chiffres servis sortent du moteur (kpi/evaluation.ts).
  */
-
-/** Écriture décimale transmise à PostgreSQL (numeric), ou null. */
-const numerique = (v: number | null | undefined) =>
-  v === null || v === undefined ? null : String(v);
 
 function journal(
   db: Db,
@@ -116,56 +117,7 @@ async function exigerMesureSaisissable(
 
 async function creerKpi(db: Db, auth: Auth, missionId: string, corps: unknown) {
   const c = kpiCreationSchema.parse(corps);
-  const mission = await exigerMissionModifiable(db, auth, missionId);
-  const n = await db.query("SELECT count(*)::int AS n FROM kpi_definitions WHERE mission_id = $1", [
-    missionId,
-  ]);
-  if ((n.rows[0].n as number) >= MAX_KPI_PAR_MISSION) {
-    throw conflit(`Une mission compte au plus ${MAX_KPI_PAR_MISSION} KPI.`);
-  }
-  await exigerProprietaireValide(db, missionId, c.proprietaire_id);
-  const debut = periodeKpiDe(c.debut_suivi, c.frequence).debut;
-  const r = await db.query(
-    `INSERT INTO kpi_definitions (cabinet_id, mission_id, client_id, libelle, description, unite,
-       perspective, sens, nature, frequence, ponderation, seuil_vert, seuil_orange, alerte_haut,
-       alerte_bas, alerte_variation, proprietaire_id, debut_suivi, fin_suivi, rappels_actifs,
-       cree_par, modifie_par)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::numeric, $12::numeric, $13::numeric,
-       $14::numeric, $15::numeric, $16::numeric, $17, $18, $19, $20, $21, $21)
-     RETURNING id`,
-    [
-      auth.cabinetId,
-      missionId,
-      mission.client_id,
-      c.libelle,
-      c.description ?? null,
-      c.unite,
-      c.perspective ?? null,
-      c.sens,
-      c.nature,
-      c.frequence,
-      String(c.ponderation),
-      numerique(c.seuil_vert),
-      numerique(c.seuil_orange),
-      numerique(c.alerte_haut),
-      numerique(c.alerte_bas),
-      numerique(c.alerte_variation),
-      c.proprietaire_id ?? null,
-      debut,
-      c.fin_suivi ?? null,
-      c.rappels_actifs,
-      auth.utilisateurId,
-    ],
-  );
-  const id = r.rows[0].id as string;
-  if (c.cible !== undefined) {
-    await db.query(
-      `INSERT INTO kpi_cibles (cabinet_id, kpi_id, version, valeur, a_partir_de, motif, cree_par)
-       VALUES ($1, $2, 1, $3::numeric, $4, 'Cible initiale', $5)`,
-      [auth.cabinetId, id, numerique(c.cible), debut, auth.utilisateurId],
-    );
-  }
-  await journal(db, auth, "kpi.creer", "kpi", id, { mission_id: missionId, libelle: c.libelle });
+  const id = await insererKpi(db, auth, missionId, c);
   const def = await lireDefinition(db, id);
   if (!def) throw introuvable("KPI");
   return detailKpi(db, def);
@@ -479,6 +431,17 @@ function routesPilotage(app: FastifyInstance) {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       await exigerMissionVisible(db, auth, id);
       return tableauDeBord(db, id, q.date ?? aujourdhui());
+    });
+  });
+
+  app.get("/missions/:id/kpi/series", async (request) => {
+    // Lecture du tableau de bord (mêmes droits) : pas une extraction, donc pas d'entrée `kpi.exporter`.
+    const auth = exiger(request, "kpi.lire");
+    const { id } = paramsId.parse(request.params);
+    const q = kpiTableauQuerySchema.parse(request.query);
+    return app.db.withTenant(auth.cabinetId, async (db) => {
+      await exigerMissionVisible(db, auth, id);
+      return serieKpiMission(db, id, q.date ?? aujourdhui());
     });
   });
 

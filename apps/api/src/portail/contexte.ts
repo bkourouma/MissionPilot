@@ -20,7 +20,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * - `horsContextePortail` est l'UNIQUE sortie, réservée aux traitements
  *   internes déclenchés par une action du portail et qui ne renvoient rien au
  *   client (par exemple l'évaluation des alertes KPI après une saisie). Son
- *   usage est inventorié par test (portail-acces.test.ts).
+ *   usage est inventorié par test (portail-contexte.test.ts).
  */
 
 export interface ContexteBasePortail {

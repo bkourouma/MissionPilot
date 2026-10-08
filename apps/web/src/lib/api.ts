@@ -74,6 +74,8 @@ export interface OptionsAppel {
   redirigerSi401?: boolean;
   /** Délai maximal avant abandon, en millisecondes (15 s par défaut, adapté à la 3G). */
   delaiMs?: number;
+  /** En-têtes supplémentaires (ex. `Idempotency-Key` du rejeu hors ligne). */
+  entetes?: Record<string, string>;
   signal?: AbortSignal;
 }
 
@@ -119,6 +121,7 @@ export async function appelerApi<T>(chemin: string, options: OptionsAppel = {}):
   const entetes: Record<string, string> = { Accept: "application/json" };
   if (corps !== undefined) entetes["Content-Type"] = "application/json";
   if (cookie) entetes.Cookie = cookie;
+  Object.assign(entetes, options.entetes);
 
   let reponse: Response;
   try {

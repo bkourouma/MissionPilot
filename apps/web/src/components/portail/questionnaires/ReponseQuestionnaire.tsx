@@ -35,7 +35,7 @@ export interface ReponseQuestionnaireProps {
 export function ReponseQuestionnaire({ questionnaire, aujourdhui }: ReponseQuestionnaireProps) {
   const [vue, setVue] = useState<QuestionnairePortail>(questionnaire);
   const [fin, setFin] = useState<FinSaisie | null>(() =>
-    estModifiable(questionnaire) ? null : finLectureSeule(questionnaire),
+    estModifiable(questionnaire, aujourdhui) ? null : finLectureSeule(questionnaire, 0, aujourdhui),
   );
   const [focaliserFin, setFocaliserFin] = useState(false);
   const refFin = useRef<HTMLDivElement>(null);

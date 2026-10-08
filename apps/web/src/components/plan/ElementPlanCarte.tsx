@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api } from "../../lib/api";
 import type { Devise } from "../../lib/format";
-import type { PersonnePlan } from "../../lib/plan-elements";
+import type { OptionInitiative, PersonnePlan } from "../../lib/plan-elements";
 import {
   cheminValidationElement,
   cheminVersionsElement,
@@ -40,6 +40,8 @@ export interface ElementPlanCarteProps {
   horizon: number;
   devise: Devise;
   personnes: readonly PersonnePlan[];
+  /** Initiatives du plan : prédécesseurs proposés et noms des dépendances (PLA-05). */
+  initiatives?: readonly OptionInitiative[];
   partage: boolean;
   droits: DroitsElement;
   niveauTitre?: 3 | 4 | 5 | 6;
@@ -59,6 +61,7 @@ export function ElementPlanCarte({
   horizon,
   devise,
   personnes,
+  initiatives = [],
   partage,
   droits,
   niveauTitre = 4,
@@ -145,6 +148,7 @@ export function ElementPlanCarte({
           horizon={horizon}
           devise={devise}
           personnes={personnes}
+          initiatives={initiatives}
           partage={partage}
           onAnnuler={() => setEdition(false)}
           onTermine={(message) => {
@@ -155,7 +159,13 @@ export function ElementPlanCarte({
           }}
         />
       ) : (
-        <ContenuElement type={e.type} donnees={e.donnees} devise={devise} personnes={personnes} />
+        <ContenuElement
+          type={e.type}
+          donnees={e.donnees}
+          devise={devise}
+          personnes={personnes}
+          initiatives={initiatives}
+        />
       )}
 
       {!edition && (droits.rediger || peutValider) ? (

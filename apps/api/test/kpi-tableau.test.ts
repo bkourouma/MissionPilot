@@ -283,6 +283,50 @@ describe("export des données", () => {
   });
 });
 
+describe("série par période (graphique d'évolution)", () => {
+  const url = () => `/api/missions/${s.missionId}/kpi/series?date=${DATE}`;
+
+  it("mêmes périodes que l'export, sans entrée d'audit kpi.exporter", async () => {
+    const compter = () =>
+      proprietaire(
+        async (c) =>
+          (
+            await c.query(
+              "SELECT count(*)::int AS n FROM journal_audit WHERE action = 'kpi.exporter' AND entite_id = $1",
+              [s.missionId],
+            )
+          ).rows[0].n as number,
+      );
+    const avant = await compter();
+    const r = await s.consultantEquipe.get(url());
+    expect(r.statusCode).toBe(200);
+    expect(await compter()).toBe(avant);
+    const serie = r.json();
+    expect(serie).toMatchObject({ mission_id: s.missionId, date_reference: DATE });
+    const exporte = (
+      await s.a.chef.get(`/api/missions/${s.missionId}/kpi/export?date=${DATE}`)
+    ).json();
+    expect(serie.kpis).toHaveLength(exporte.kpis.length);
+    for (const k of serie.kpis as { definition: { id: string }; periodes: unknown[] }[]) {
+      const e = exporte.kpis.find(
+        (x: { definition: { id: string } }) => x.definition.id === k.definition.id,
+      );
+      expect(k.periodes).toEqual(e.periodes);
+    }
+    expect(serie.kpis[0]).not.toHaveProperty("mesures");
+  });
+
+  it("401, 403, autre cabinet 404, consultant hors équipe 404, date invalide 400", async () => {
+    expect((await api(ctx).get(url())).statusCode).toBe(401);
+    expect((await s.expertExterne.get(url())).statusCode).toBe(403);
+    expect((await s.b.associe.get(url())).statusCode).toBe(404);
+    expect((await s.consultantHors.get(url())).statusCode).toBe(404);
+    expect(
+      (await s.a.chef.get(`/api/missions/${s.missionId}/kpi/series?date=2190-01-01`)).statusCode,
+    ).toBe(400);
+  });
+});
+
 describe("non-régression : volume évalué et exporté borné (déni de service)", () => {
   it("date d'arrêté hors bornes : 400 avant tout calcul", async () => {
     for (const date of ["2190-01-01", "9999-12-31", "0001-01-01", "1999-12-31"]) {

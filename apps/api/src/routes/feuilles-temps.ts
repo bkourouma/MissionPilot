@@ -46,6 +46,12 @@ import {
   valideInterne,
   voitToutesLesFeuilles,
 } from "../temps/outils.js";
+import {
+  cleIdempotence,
+  empreinteSaisie,
+  ENTETE_IDEMPOTENCE,
+  reserverCleSaisie,
+} from "../temps/idempotence.js";
 import { evaluerAlertes } from "../temps/suivi.js";
 
 async function journal(db: Db, auth: Auth, action: string, id: string, details: object) {
@@ -246,11 +252,20 @@ export const routesFeuillesTemps: FastifyPluginAsync = async (app) => {
   });
 
   /** Remplace les lignes d'une feuille en brouillon ou rejetée (TPS-01, TPS-02). */
-  app.put("/feuilles-temps/:id/lignes", async (request) => {
+  app.put("/feuilles-temps/:id/lignes", async (request, reply) => {
     const auth = exiger(request, "temps.saisir");
     const { id } = paramsId.parse(request.params);
     const { lignes: saisies } = feuilleLignesSchema.parse(request.body);
+    const cle = cleIdempotence(request.headers[ENTETE_IDEMPOTENCE]);
     return app.db.withTenant(auth.cabinetId, async (db) => {
+      if (cle !== undefined) {
+        // Rejeu d'une saisie déjà appliquée (file hors ligne) : rien n'est ré-appliqué.
+        const { feuille } = await exigerFeuilleVisible(db, auth, id, true);
+        if (!(await reserverCleSaisie(db, auth, cle, id, empreinteSaisie(saisies)))) {
+          reply.header("Idempotency-Replayed", "true");
+          return vueFeuille(db, auth, feuille);
+        }
+      }
       const f = await exigerFeuilleModifiable(db, auth, id);
       const p = await lireParametresTemps(db, auth.cabinetId);
       const lignes = await preparerLignes(db, f, saisies, p);

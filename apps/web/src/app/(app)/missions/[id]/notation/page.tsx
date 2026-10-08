@@ -10,6 +10,7 @@ import { FormulaireCalcul } from "../../../../../components/notation/FormulaireC
 import { GraphiqueRadar } from "../../../../../components/notation/GraphiqueRadar";
 import { HistoriqueAjustements } from "../../../../../components/notation/HistoriqueAjustements";
 import { ParcoursRevue } from "../../../../../components/notation/ParcoursRevue";
+import { GenerationLivrable } from "../../../../../components/rapports/GenerationLivrable";
 import { SyntheseNotation } from "../../../../../components/notation/SyntheseNotation";
 import { TableauDimensions } from "../../../../../components/notation/TableauDimensions";
 import { VersionsNotation } from "../../../../../components/notation/VersionsNotation";
@@ -185,6 +186,12 @@ export default async function PageNotationMission({
       {notation && versions.length > 0 && choix.numero !== null ? (
         <Carte titre="Versions successives">
           <VersionsNotation missionId={m.id} versions={versions} courante={choix.numero} />
+        </Carte>
+      ) : null}
+
+      {notation && versions.some((v) => v.statut === "publiee") ? (
+        <Carte titre="Rapport de notation">
+          <GenerationLivrable type="notation" id={notation.id} cloturee={m.statut === "cloturee"} />
         </Carte>
       ) : null}
 

@@ -7,12 +7,14 @@ import {
   candidatsContributeurs,
   candidatsProprietaire,
   cheminExportKpi,
+  cheminSerieKpi,
   cheminMesuresKpi,
   cheminTableauKpi,
   descriptionAlerte,
   descriptionTendance,
   droitsKpi,
   estExportKpi,
+  estSerieKpi,
   etatLigneMesure,
   formaterValeurKpi,
   hrefKpi,
@@ -250,6 +252,8 @@ describe("chemins et liens", () => {
       "/api/missions/m1/kpi/tableau-de-bord?date=2026-05-15",
     );
     expect(cheminExportKpi("m1", null)).toBe("/api/missions/m1/kpi/export");
+    expect(cheminSerieKpi("m1", null)).toBe("/api/missions/m1/kpi/series");
+    expect(cheminSerieKpi("m1", "2026-05-15")).toBe("/api/missions/m1/kpi/series?date=2026-05-15");
     expect(cheminMesuresKpi("k1", { limite: 20, curseur: "a b" })).toBe(
       "/api/kpi/k1/mesures?limite=20&curseur=a+b",
     );
@@ -479,6 +483,9 @@ describe("export JSON versionné", () => {
     expect(estExportKpi({ format: "missionpilot.kpi.v1", kpis: [] })).toBe(true);
     expect(estExportKpi({ format: "missionpilot.kpi.v2", kpis: [] })).toBe(false);
     expect(estExportKpi(null)).toBe(false);
+    expect(estSerieKpi({ mission_id: "m1", kpis: [] })).toBe(true);
+    expect(estSerieKpi({ kpis: [] })).toBe(false);
+    expect(estSerieKpi(null)).toBe(false);
   });
 
   it("nom de fichier ASCII", () => {

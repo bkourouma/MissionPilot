@@ -122,13 +122,18 @@ export function enTeteHtml(r: Rapport): string {
   );
 }
 
-/** Pied de page : statut, date de génération, numéro de page. */
+/** Pied de page : statut, date de génération, numéro de page, puis mention du cabinet. */
 export function piedHtml(r: Rapport): string {
   const statut = r.statut === "valide" ? "Validé" : "Brouillon";
   const conf = r.confidentiel ? " — Confidentiel" : "";
+  const mention = r.mention_pied
+    ? `<div style="margin-top: 1mm;">${echapper(r.mention_pied.replace(/\n/g, " "))}</div>`
+    : "";
   return (
-    `<div style="${PETIT} padding: 0 15mm; display: flex; justify-content: space-between;">` +
+    `<div style="${PETIT} padding: 0 15mm;">` +
+    '<div style="display: flex; justify-content: space-between;">' +
     `<span>${echapper(`${statut}${conf} — généré le ${dateAffichee(r.genere_le)}`)}</span>` +
-    '<span>Page <span class="pageNumber"></span> sur <span class="totalPages"></span></span></div>'
+    '<span>Page <span class="pageNumber"></span> sur <span class="totalPages"></span></span></div>' +
+    `${mention}</div>`
   );
 }

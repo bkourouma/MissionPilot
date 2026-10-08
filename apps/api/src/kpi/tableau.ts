@@ -152,6 +152,26 @@ function mesuresExportees(lignes: readonly LigneMesure[]) {
   return { lignes: tronquees ? lignes.slice(1) : lignes, tronquees };
 }
 
+/**
+ * Séries par période des KPI actifs d'une mission (graphique d'évolution du tableau de bord) :
+ * lecture seule, sans l'historique des mesures de l'export, donc plus légère ; les
+ * PERIODES_EXPORTEES_MAX dernières périodes de chaque KPI, calculées par le moteur.
+ */
+export async function serieKpiMission(db: Db, missionId: string, date: string) {
+  const { evalues, cibles } = await evaluerMission(db, missionId, date);
+  return {
+    mission_id: missionId,
+    date_reference: date,
+    periodes_max: PERIODES_EXPORTEES_MAX,
+    kpis: evalues.map((k) => ({
+      definition: vueDefinition(k.def, cibleActuelle(k.def, cibles.get(k.def.id) ?? [], date)),
+      statut: k.evaluation.statut,
+      periodes_total: k.evaluation.periodes.length,
+      periodes: k.evaluation.periodes.slice(-PERIODES_EXPORTEES_MAX).map(vuePeriode),
+    })),
+  };
+}
+
 /** Export structuré des KPI actifs d'une mission (format versionné, pour un rapport). */
 export async function exporterKpiMission(db: Db, missionId: string, date: string) {
   const { evalues, cibles } = await evaluerMission(db, missionId, date);

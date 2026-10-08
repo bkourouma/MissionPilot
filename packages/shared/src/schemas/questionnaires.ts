@@ -2,6 +2,7 @@ import { z } from "zod";
 import { definitionQuestionnaireSchema, identifiantGrilleSchema } from "../grilles/schemas";
 import { roleClientSchema } from "../roles";
 import { dateIsoSchema, texte, texteOptionnel } from "./commun";
+import { termeSensibleSchema } from "./ia";
 
 /*
  * Questionnaires (SOC-10) : contrat des routes /api/questionnaires/** (côté
@@ -156,5 +157,43 @@ export const saisieReponsesSchema = z
   })
   .strict();
 export type SaisieReponses = z.infer<typeof saisieReponsesSchema>;
+
+/* ----- Génération assistée par l'IA (SOC-11) ----- */
+
+export const NOMBRE_QUESTIONS_IA_MIN = 5;
+export const NOMBRE_QUESTIONS_IA_MAX = 30;
+export const NOMBRE_QUESTIONS_IA_DEFAUT = 12;
+
+/**
+ * POST /api/questionnaires/generation-ia (questionnaire.gerer et ia.utiliser) :
+ * le consultant décrit le besoin (service, population, thème). L'IA propose un
+ * BROUILLON (version 1 d'un nouveau modèle) qu'un consultant relit, modifie et
+ * valide avant tout envoi. Les `termes_sensibles` (noms propres, sigles du
+ * client…) sont masqués avant l'appel au fournisseur, comme pour /api/ia/*.
+ */
+export const questionnaireGenerationIaSchema = z
+  .object({
+    code: identifiantGrilleSchema,
+    service: texte(200),
+    population: texte(200),
+    theme: texte(300),
+    nombre_questions: z
+      .number()
+      .int()
+      .min(NOMBRE_QUESTIONS_IA_MIN)
+      .max(NOMBRE_QUESTIONS_IA_MAX)
+      .default(NOMBRE_QUESTIONS_IA_DEFAUT),
+    termes_sensibles: z.array(termeSensibleSchema).max(200).default([]),
+  })
+  .strict();
+export type QuestionnaireGenerationIa = z.infer<typeof questionnaireGenerationIaSchema>;
+
+/**
+ * POST /api/questionnaires/versions/:id/valider : une version d'origine IA dont
+ * les nombres ne viennent pas d'un moteur de calcul exige `acquitte_chiffres`.
+ */
+export const versionQuestionnaireValidationSchema = z
+  .object({ acquitte_chiffres: z.boolean().optional() })
+  .strict();
 
 export * from "./notation";

@@ -157,7 +157,7 @@ describe("permissions de lecture (miroir des routes de l'API)", () => {
     expect(peutLireNotation(["expert_externe"])).toBe(false);
   });
 
-  it("seul l'expert métier est « publieur » : l'associé, qui a notation.publier, ne l'est pas", () => {
+  it("seul l'expert métier est « publieur » : l'associé, qui n'a pas notation.publier, ne l'est pas", () => {
     expect(estExpertPublieur(["expert_metier"])).toBe(true);
     expect(estExpertPublieur(["associe"])).toBe(false);
     expect(estExpertPublieur(["consultant"])).toBe(false);
@@ -333,7 +333,7 @@ describe("droits d'affichage d'une version", () => {
     );
   });
 
-  it("associé (notation.publier sans le rôle expert) : pas de bouton, explication NOT-07", () => {
+  it("associé (sans notation.publier ni le rôle expert) : pas de bouton, explication NOT-07", () => {
     const d = droitsVersion(ctx(["associe"]), vue({ statut: "en_revue" }), true);
     expect(d.publier).toBe(false);
     expect(d.renvoyer).toBe(false);

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { formaterDate } from "../../lib/format";
-import { chargerExportKpi, messageKpi, type ExportKpi } from "../../lib/kpi";
+import { chargerSerieKpi, messageKpi, type SerieKpiMission } from "../../lib/kpi";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { GraphiqueSerieKpi } from "./GraphiqueSerieKpi";
@@ -19,12 +19,13 @@ type Etat =
   | { etape: "repos" }
   | { etape: "chargement" }
   | { etape: "erreur"; message: string }
-  | { etape: "pret"; donnees: ExportKpi };
+  | { etape: "pret"; donnees: SerieKpiMission };
 
 /**
  * Séries par période chargées À LA DEMANDE : le tableau de bord ne sert que la dernière
  * période et la période en cours ; la série (36 dernières périodes au plus, valeurs, cibles
- * et statuts du moteur) vient de l'export de la mission, journalisé par l'API. Rien n'est
+ * et statuts du moteur) vient de la route de série de la mission (lecture seule, sans écriture
+ * au journal d'export). Rien n'est
  * conservé dans le navigateur : les données vivent le temps de l'affichage.
  */
 export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
@@ -39,7 +40,7 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
   async function charger() {
     setEtat({ etape: "chargement" });
     try {
-      setEtat({ etape: "pret", donnees: await chargerExportKpi(missionId, date) });
+      setEtat({ etape: "pret", donnees: await chargerSerieKpi(missionId, date) });
     } catch (e) {
       setEtat({ etape: "erreur", message: messageKpi(e) });
     }
@@ -65,8 +66,7 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
         <>
           <p className="mp-texte-doux">
             Valeurs agrégées et cibles par période (36 dernières périodes au plus), avec le statut
-            calculé par le moteur. Le chargement prépare les données complètes de la mission : il
-            peut prendre quelques secondes et est consigné au journal comme un export.
+            calculé par le moteur. Le chargement peut prendre quelques secondes.
           </p>
           {etat.etape === "erreur" ? (
             <Alerte ref={refAlerte} tonalite="danger" titre="Évolution indisponible">

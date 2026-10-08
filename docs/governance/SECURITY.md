@@ -2,7 +2,7 @@
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les mécanismes de sécurité **tels qu'implémentés
-aujourd'hui** (état du dépôt au commit `40144b5`, V1 et V2), avec leur
+aujourd'hui** (état de la branche `feat/vague-0-reliquats`, 2026-10-08, V1 et V2 et reliquats de la vague 0), avec leur
 fichier, pas un objectif. Il est lu par l'agent `security-auditor` et par
 `/audit` : chaque contrôle listé ici doit pouvoir se vérifier dans le code. Les
 chemins sont relatifs à la racine du dépôt ; `routes/`, `auth/`, `ia/`… sont
@@ -100,7 +100,8 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   50 % du plafond dans la fenêtre est évincée ; si toutes sont protégées, la
   nouvelle clé est refusée (`auth/limiteur.ts`). Horloge de la base ; le
   réglage `app.horloge_test` n'est honoré que dans une base dont le nom finit
-  par `_test`. Une rotation de `TFA_MASTER_KEY` remet les compteurs à zéro (au
+  par `_test` (preuve : `auth-limiteur-horloge.test.ts`, qui rejoue la fonction
+  dans une base temporaire hors `_test`). Une rotation de `TFA_MASTER_KEY` remet les compteurs à zéro (au
   plus une fenêtre). Test : `auth-limiteur.test.ts`.
 - **Déblocage de connexion** : `POST /api/cabinet/utilisateurs/:id/debloquer-connexion`
   (`cabinet.gerer`, 404 avant reconfirmation pour un utilisateur d'autrui,
@@ -215,7 +216,10 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   `resoudre_invitation`) ; `notification_existe` (`0114`) ;
   `portail_kpi_mission_cloturee` (`0115`) ; `reserver_tentative_auth`,
   `liberer_tentatives_auth`, `debloquer_tentatives_auth` (`0120`) ;
-  `planifier_suivi_kpi` (`0160`). Liste reproductible :
+  `planifier_suivi_kpi` (`0160`) ; vague 0 : `purger_textes_ia` et
+  `planifier_conservation_ia` (`0104`), `planifier_purge_rapports` (`0132`).
+  `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
+  (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
   `rg -n "GRANT EXECUTE" apps/api/migrations`. Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
   `0043`, `0060`…). `reprendre_relances_questionnaire` (`0148`) n'est pas
@@ -273,7 +277,10 @@ soit le code appelant).
   V2) : `portail_interdit` (rien de visible ni de modifiable) sur les tables
   internes (coûts, taux, budgets, temps, équipe, commentaires, débours…), les
   secrets, `jobs`, toutes les tables `ia_*`, la notation (`0147`), les plans
-  (`0180`, `0181`), les rapports (`0130`), les paramètres et alertes KPI ;
+  (`0180`–`0184`, dont le lien vers une notation et les KPI d'objectif), les
+  rapports (`0130`) et leurs paramètres (`0132`), l'historique IA des
+  questionnaires (`0149`), les clés d'idempotence des saisies de temps (`0122`),
+  les paramètres et alertes KPI ;
   `journal_audit` : écriture seule. `portail` en **lecture** filtrée, doublée de
   `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete` : client,
   missions partagées, jalons partagés, documents partagés au contenu validé et
@@ -284,7 +291,7 @@ soit le code appelant).
   concernent. Tables d'**écriture** du portail (`portail` FOR ALL) :
   `portail_validations_jalons`, `questionnaire_reponses` (sa réponse),
   `kpi_mesures` (politique `origine` : mesure « portail » saisie par un
-  contributeur désigné). Tests : `isolation.test.ts` (« toute table à RLS porte
+  contributeur désigné ; écrans web `/portail/kpi`). Tests : `isolation.test.ts` (« toute table à RLS porte
   une politique RESTRICTIVE portail ou portail_interdit », « aucune politique
   du portail n'est permissive »).
 - **Fonctions étroites du portail** : `resoudre_invitation_portail` (§3) ;
@@ -315,8 +322,9 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  334 gestionnaires de route, seuls `POST /auth/connexion`,
-  `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /sante`,
+  351 gestionnaires de route, seuls `POST /auth/connexion`,
+  `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
+  `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
   `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
   l'appellent pas (recherche mécanique n° 10 de
   `.claude/rules/review-checklist.md`).
@@ -337,10 +345,16 @@ soit le code appelant).
   - contenu IA : le valideur n'est ni le demandeur ni l'auteur d'aucune
     version, sauf associé ; un contenu lié à une mission est validé par son
     chef, son directeur ou un associé (`ia/generations.ts`) ;
+  - questionnaire d'origine IA : le valideur n'est ni le demandeur ni l'auteur
+    d'un rang de l'historique, sauf associé (`questionnaires/generation-ia.ts`),
+    et la base exige que le dernier rang soit « valide » avant la validation de la
+    version (`MPQ08`, `0149`) ;
   - version de grille de notation : validée par un `expert_metier` qui n'en
     est ni l'auteur ni le dernier modificateur (`MPN04`, `0145`) ;
   - notation : publication et renvoi par un `expert_metier` **seulement**, même
-    face à un associé sans ce rôle (DECISIONS.md, NOT-07) ; le publieur n'est
+    face à un associé sans ce rôle (DECISIONS.md, NOT-07 ; `notation.publier`
+    n'est plus dans l'ensemble de l'associé, `RESERVEES_A_UN_ROLE`, `roles.ts`) ;
+    le publieur n'est
     ni l'auteur du calcul, ni d'un ajustement, ni de la soumission (`MPN04`,
     `0146` ; `notation/notations.ts`) ;
   - plan stratégique : l'auteur d'un contenu ou d'une version du modèle
@@ -366,7 +380,7 @@ soit le code appelant).
 
 ## 5 bis. Questionnaires, notation, KPI et plans (V2)
 
-- **Questionnaires** (SOC-10 ; `questionnaires/`, `0140`–`0143`, `0148`) :
+- **Questionnaires** (SOC-10, SOC-11 ; `questionnaires/`, `0140`–`0143`, `0148`–`0150`) :
   rédaction, validation et envoi par `questionnaire.gerer` ; seule une version
   validée s'envoie ; répondants désignés avant l'envoi, dirigeants ou
   contributeurs **actifs du client de la mission** (`MPQ03`) ; une réponse
@@ -376,9 +390,17 @@ soit le code appelant).
   (`questionnaires/portail.ts`). Relances automatiques J+3 et J+7 par jobs
   `relance_questionnaire` (historique en ajout seul, `MPQ05`, `0142`) ; la
   migration `0148` remet en attente les seules relances passées en échec
-  « type de job inconnu » avant l'inscription du handler. La date limite d'un
-  envoi est stockée, affichée et rappelée, mais **pas appliquée** à la
-  soumission (§15).
+  « type de job inconnu » avant l'inscription du handler. La **date limite**
+  d'un envoi est appliquée : aucune réponse ne se soumet après elle (jour UTC
+  inclus ; 409 `DATE_LIMITE_DEPASSEE` dans `questionnaires/portail.ts`, doublé
+  par `MPQ07`, `0150`) ; le cabinet prolonge en repoussant ou retirant la date.
+  **Génération par l'IA** (SOC-11, `POST /questionnaires/generation-ia`,
+  `questionnaire.gerer` et `ia.utiliser`, `0149`) : passe par l'orchestrateur
+  (§7 bis), crée une version 1 en brouillon et un historique de contenu en ajout
+  seul (`questionnaire_ia_historique` : brouillon IA, modifié, validé ; `MPQ06`) ;
+  une version d'origine IA ne se valide que si son dernier rang est « valide »
+  (`MPQ08`), donc jamais sans un consultant. La définition est construite par le
+  code (échelles fixes) : aucun chiffre ne vient du modèle.
 - **Notation** (NOT-01 à NOT-07 ; `notation/`, `0145`–`0147`) : tout score
   sort du moteur (`packages/engines`) ; chaque calcul crée une version en ajout
   seul (`MPN01`) ; transitions de revue contrôlées en base (`MPN03`) ;
@@ -393,8 +415,11 @@ soit le code appelant).
   (`packages/shared/src/schemas/kpi.ts`), au plus 20 000 périodes évaluées par
   requête (400 `KPI_TROP_DE_PERIODES`), export limité aux 36 dernières
   périodes et à 2 000 lignes de mesure par KPI (`kpi/tableau.ts`). L'export
-  est journalisé (`kpi.exporter`).
-- **Plans stratégiques** (PLA-01 à PLA-11 ; `plans/`, `0180`, `0181`) :
+  est journalisé (`kpi.exporter`) ; la série du tableau de bord a sa propre route
+  (`GET /missions/:id/kpi/series`, `kpi.lire`), qui n'écrit pas d'entrée
+  d'export. Saisie du client : écrans `/portail/kpi` sur les routes
+  `/api/portail/kpi*`.
+- **Plans stratégiques** (PLA-01 à PLA-11 ; `plans/`, `0180`–`0184`) :
   permissions `plan.lire`, `plan.ecrire`, `plan.valider` ; contenus et
   versions du modèle financier en ajout seul (`MPS01`), au plus 200 versions du
   modèle (`MPS05`). Le partage au client exige un contenu entièrement validé
@@ -402,6 +427,15 @@ soit le code appelant).
   validé (création d'élément, version brouillon ou modifiée, nouvelle version
   du modèle ; `plans/partage.ts`, journal `plan.retirer_partage`). Aucune
   route du portail ne sert encore un plan : les tables sont `portail_interdit`.
+  Vague 0 : **dépendances** entre initiatives (PLA-05, `0184`) dans le contenu
+  versionné, contrôlées par le moteur (cycles) puis par la base (`MPS02` : autre
+  initiative du même plan, 20 au plus) ; recalage de la feuille de route
+  recalculé par le moteur à chaque lecture (`plan.ecrire` pour l'appliquer) ;
+  **KPI créés depuis un objectif** (PLA-10, `0183`, `plan.ecrire` et
+  `kpi.gerer`, rattachement en ajout seul) ; **lien du diagnostic vers une
+  notation publiée** (`0182`, `plan.ecrire` et `notation.lire`, historique en
+  ajout seul de 200 changements au plus ; notation non publiée ou d'un autre
+  client refusée : `MPS06`, 409 `NOTATION_NON_PUBLIEE`).
 
 ## 6. Confidentialité financière (FIN-02) et historique immuable
 
@@ -429,7 +463,6 @@ soit le code appelant).
   | `MPF02`    | proposition figée                                                           | `0010`               |
   | `MPF03`    | absences (statut seul modifiable)                                           | `0020`, `0021`       |
   | `MPT01-04` | feuille soumise/validée, période de temps clôturée, correction décidée      | `0030`               |
-  | `MPT01`    | identité d'une tâche assignée figée ; **réutilise** le code des feuilles de temps | `0075`         |
   | `MPB01`    | facture soumise ou émise (corrigée par avoir), lignes, liens                | `0043`, `0044`       |
   | `MPB02`    | débours validé, justificatif                                                | `0041`, `0072`       |
   | `MPB03`    | échéance facturée                                                           | `0042`, `0043`       |
@@ -439,18 +472,23 @@ soit le code appelant).
   | `MPE04`    | retour d'expérience au-delà de 30 jours après la clôture                    | `0062`               |
   | `MPD01`    | statut et contenu validé des documents de mission (valideur ≠ auteur)       | `0071`               |
   | `MPC01`    | commentaire (délai de modification, commentaire supprimé)                   | `0074`               |
-  | `MPI01-04` | historique IA en ajout seul, versions de prompt consécutives, identité d'une demande figée, contenu validé définitif | `0101`, `0102` |
+  | `MPC02`    | identité d'une tâche assignée figée (ne partage plus `MPT01`)               | `0075`, `0076`       |
+  | `MPI01-04` | historique IA en ajout seul (seule exception : anonymisation du texte par `purger_textes_ia`), versions de prompt consécutives, identité d'une demande figée, contenu validé définitif | `0101`, `0102`, `0104` |
   | `MPP01-03` | famille de rôles et rattachement du portail, partage invalide, validation de jalon définitive | `0110`, `0111` |
   | `MPQ01-05` | modèle et version validée de questionnaire, envoi, répondants, réponse soumise, relances en ajout seul | `0140`–`0142` |
+  | `MPQ06-08` | historique IA d'un questionnaire en ajout seul et rangs consécutifs (`MPQ06`), soumission après la date limite refusée (`MPQ07`), version d'origine IA validée sans validation humaine (`MPQ08`) | `0149`, `0150` |
   | `MPN01-05` | notation en ajout seul, cohérence du calcul, revue, publication par un expert et séparation des tâches (`MPN04`), grille figée (`MPN05`) | `0145`, `0146` |
   | `MPK01-07` | champs figés d'un KPI, client de la mission, KPI inactif, date déjà mesurée, ajout seul, date hors suivi, 20 corrections | `0160` |
-  | `MPS01-05` | plan en ajout seul et rattachement figé, cohérence des éléments, auteur ≠ valideur, partage d'un contenu non validé, 200 versions du modèle | `0180`, `0181` |
+  | `MPS01-06` | plan en ajout seul et rattachement figé, cohérence des éléments (dépendances, KPI d'objectif : `MPS02`), auteur ≠ valideur, partage d'un contenu non validé, 200 versions du modèle ou changements de lien (`MPS05`), notation liée non publiée ou d'un autre client (`MPS06`) | `0180`–`0184` |
+  | `MPR01-02` | rapport de notation ou de plan : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`) | `0131` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
   `relances_factures` (`0061`), `ia_generations` et `ia_consommations`
-  (`0102`), `portail_validations_jalons` (`0111`), `rapports_mission`
-  (`0130`).
+  (`0102`, l'anonymisation de `0104` exceptée), `portail_validations_jalons`
+  (`0111`), `rapports_mission` (`0130`), `questionnaire_ia_historique` (`0149`),
+  `plan_diagnostic_notations` (`0182`), `plan_objectif_kpis` (`0183`) ; UPDATE
+  seul révoqué sur `saisies_idempotence` (`0122`).
 - **Numérotation sans trou** : `sequences_facturation` (clé cabinet, nature,
   exercice) n'accepte qu'un incrément de un (`MPB04`, `0043`), le numéro est
   attribué à l'émission sous verrou (`facturation/factures.ts`), `DELETE`
@@ -462,7 +500,7 @@ soit le code appelant).
 ## 7. Assainissement des entrées et des sorties
 
 - **Validation** : schémas Zod `.strict()` partagés (`packages/shared/src/schemas/`,
-  249 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
+  256 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
   `bodyLimit`) ; paramètres `id` en UUID (`http/outils.ts`). Les erreurs Zod
   renvoient 400 `REQUETE_INVALIDE`.
 - **SQL** : requêtes paramétrées (`$n`). Les interpolations dans un gabarit SQL
@@ -498,6 +536,15 @@ soit le code appelant).
   (`config.ts`, `notifications/smtp.ts`, `ia/fournisseur.ts`). Le transport
   « journal » de développement n'affiche le contenu des e-mails qu'en
   développement (`notifications/mailer.ts`).
+- **Idempotence des saisies de temps** (`temps/idempotence.ts`, `0122`) : en-tête
+  `Idempotency-Key` (8 à 100 caractères `A-Za-z0-9_-`, sinon 400) de
+  `PUT /feuilles-temps/:id/lignes`. La clé est enregistrée dans la transaction de
+  la saisie (une saisie refusée n'en laisse pas) avec l'empreinte SHA-256 du
+  contenu ; un rejeu identique ne ré-applique rien et répond l'état courant
+  (`Idempotency-Replayed: true`), même clé pour une autre feuille ou un autre
+  contenu : 409 `CLE_IDEMPOTENCE_REUTILISEE`. Unicité par cabinet, utilisateur et
+  clé ; clés de plus de 30 jours supprimées au fil des saisies ; table fermée au
+  portail. Sans l'en-tête, le comportement est inchangé.
 
 ## 7 bis. IA (ADR-003)
 
@@ -559,9 +606,21 @@ soit le code appelant).
   tâches (§5) ; seul un contenu validé est `livrable_client`, et **jamais** un
   essai fait avec un prompt « exemple ». Toutes les tables `ia_*` sont
   `portail_interdit` (`0114`).
-- **Périmètre réel** : seules les routes génériques `/api/ia/*` appellent
-  l'orchestrateur ; aucun service métier (questionnaires, notation, plans,
-  rapports) ne lance encore de génération.
+- **Conservation** (`0104`, `ia/conservation.ts`) : le texte démasqué d'une
+  génération est anonymisé (texte vidé, données effacées, drapeaux de chiffres
+  remis à zéro ; version, statut, auteur, empreintes, coût conservés) quand la
+  dernière version de sa demande a plus de `conservation_jours` jours (365 par
+  défaut, 30 à 3 650 par cabinet). Le rôle applicatif n'a toujours aucun droit
+  UPDATE : la purge passe par la fonction `SECURITY DEFINER` `purger_textes_ia`
+  (cabinet du contexte seulement), appelée par le job `ia_conservation`
+  (un job par cabinet et par jour, clé `ia_conservation:AAAA-MM-JJ`, planifié
+  seulement si une demande est purgeable). Le déclencheur d'ajout seul
+  n'autorise que cette anonymisation. Durée par défaut **à valider avec le conseil
+  juridique** ; `conservation_jours` n'est pas encore exposé par l'API IA.
+- **Périmètre réel** : les routes génériques `/api/ia/*` et la génération de
+  questionnaires (`questionnaires/generation-ia.ts`, §5 bis) appellent
+  l'orchestrateur ; ni la notation, ni les plans, ni les rapports ne lancent de
+  génération (rédaction assistée non faite).
 
 ## 8. Fichiers privés
 
@@ -580,7 +639,9 @@ du stockage (§8 bis).
   exclusive puis renommage. La clé n'est jamais renvoyée par l'API.
 - **Réception** : multipart, un seul fichier, aucun champ, une seule partie
   (`routes/documents-routes.ts`) ; plafond `FICHIER_TAILLE_MAX_OCTETS` (15 Mo
-  par défaut) lu en flux ; une requête qui **annonce** (`Content-Length`) plus
+  par défaut) lu en flux ; au plus 4 réceptions simultanées par instance
+  (constante `FICHIERS_ANALYSES_SIMULTANEES_MAX`, plus 2 par cabinet, `routes/fichiers.ts`, pas une
+  variable d'environnement), sinon 503 `FICHIERS_OCCUPE` ; une requête qui **annonce** (`Content-Length`) plus
   que ce plafond et 64 Kio d'enveloppe est refusée en 413 avant
   l'authentification (`gardeTailleMultipart`, `routes/fichiers.ts`) ; quota
   par cabinet `QUOTA_STOCKAGE_CABINET_OCTETS` (2 Go) contrôlé sous verrou, au
@@ -632,8 +693,9 @@ du stockage (§8 bis).
   pendant l'import répond 409 `IMPORT_CONCURRENT` (`temps/import.ts`).
 - **Non couvert** : chiffrement des fichiers au repos (le disque l'assure ou non),
   analyse antivirus, sauvegarde du dossier `STORAGE_DIR` (rien dans le dépôt),
-  sémaphore d'analyse simultanée sur `POST /fichiers` et les justificatifs
-  (l'import Excel en a un). Non vérifié : le comportement du stockage sous
+  plafond de réceptions simultanées **par cabinet** (le sémaphore de `POST
+  /fichiers` et des justificatifs est global à l'instance et pris avant la lecture
+  du corps, §15). Non vérifié : le comportement du stockage sous
   Windows (permissions 0700/0600).
 
 ## 8 bis. Rapports générés (SOC-07)
@@ -642,9 +704,16 @@ du stockage (§8 bis).
   écrite par le serveur et reliée au fichier du stockage. Un rapport **n'est
   pas** un document de mission : un fichier téléversé sous le même nom ne peut
   pas passer pour un rapport généré.
+- **Modèles** : état d'avancement, **rapport de notation** (version publiée
+  seulement, `0131`) et **rapport de plan stratégique** (contenus validés
+  seulement), en PDF et Word (PowerPoint pour l'état d'avancement). La source
+  (`notation_id` ou `plan_id`, `version_source`) est contrôlée par un
+  déclencheur : appartenance à la mission et au cabinet courant (`MPR01`),
+  notation publiée (`MPR02`).
 - **Niveau** calculé par le code d'après les sections incluses
   (`rapports/niveaux.ts`) : `base`, `jours` (`budget.lire_jours`), `finance`
-  (`budget.lire_jours` et `finance.lire`). Lecture revérifiée à **chaque**
+  (`budget.lire_jours` et `finance.lire`), `notation` (`notation.lire`), `plan`
+  (`plan.lire`). Lecture revérifiée à **chaque**
   appel : mission visible, `mission.lire` et permissions du niveau, sans
   condition d'auteur (`stockage/fichiers.ts`).
 - **Débit** : au plus 10 générations par utilisateur sur 10 minutes glissantes
@@ -662,7 +731,25 @@ du stockage (§8 bis).
   simultanés et 1 par cabinet (503 `RENDU_OCCUPE`). Navigateur = `CHROMIUM_PATH`
   (absolu, vérifié au démarrage) ou, en développement Windows seulement, Chrome
   installé ; sinon PDF indisponible (503). Aucun `--no-sandbox` n'est passé.
-- **Conservation** : non traitée (§12, §15).
+- **Conservation** (`0132`, `rapports/purge.ts`) : le fichier d'un rapport est
+  purgé au-delà de `rapports_parametres.conservation_jours` (1 095 jours par
+  défaut, 90 à 3 650 par cabinet) par le job `purge_rapports` (un par cabinet et
+  par jour, clé `purge_rapports:AAAA-MM-JJ`, fonction `SECURITY DEFINER`
+  `planifier_purge_rapports`). La purge marque le fichier supprimé (motif
+  « conservation ») puis efface l'objet ; la ligne `rapports_mission` reste comme
+  trace, le rapport disparaît des listes et son téléchargement répond 404. Durée
+  **à valider avec le conseil juridique**.
+- **Paramètres du cabinet** (`GET` et `PUT /api/rapports/parametres`,
+  `cabinet.gerer`, table `rapports_parametres` fermée au portail) : durée de
+  conservation et **mention de la contribution de l'IA** en pied de page (active
+  par défaut, texte par défaut ou personnalisé de 300 caractères au plus, sans
+  caractère de contrôle).
+- **PDF de facture** (`GET /api/factures/:id/pdf`, `facture.lire`, mission
+  visible, `routes/factures-pdf.ts`) : même document HTML échappé que le document
+  de facture (§7), imprimé par la même barrière Chrome ; rendu à chaque demande,
+  jamais stocké, servi en pièce jointe (`sandbox`, `nosniff`), téléchargement
+  journalisé ; fermé au portail. Pas de limite par utilisateur (seuls les
+  sémaphores de rendu, §15).
 
 ## 9. Paiements et webhooks
 
@@ -724,14 +811,15 @@ corrigés seulement par contre-passation (§6). Mobile Money est prévu en V2.
   (plafond, 10 appels simultanés par cabinet, 50 générations par jour et par
   utilisateur, §7 bis) ; rapports (10 par 10 min et par utilisateur, 2 rendus
   PDF simultanés dont 1 par cabinet, §8 bis) ; import Excel (2 lectures
-  simultanées par instance, §8) ; KPI (20 000 périodes par requête, §5 bis).
+  simultanées par instance, §8) ; réceptions de fichiers (4 simultanées par
+  instance, 503 `FICHIERS_OCCUPE`, §8) ; KPI (20 000 périodes par requête, §5 bis).
   Pas de limite générale par IP : voir §15.
 
 ## 12. Données personnelles
 
 Cadre visé (PRD) : loi ivoirienne n° 2013-450 (ARTCI), RGPD pour les clients
-européens, registre des traitements. **Non implémenté** : pas de registre,
-pas de durée de conservation, pas de procédure d'effacement (l'effacement d'un
+européens, registre des traitements. **Partiellement implémenté** : pas de registre,
+pas de procédure d'effacement (l'effacement d'un
 utilisateur est d'ailleurs bloqué par le `REVOKE DELETE` du §4 ; les comptes
 se désactivent). Données personnelles réellement collectées : nom, e-mail,
 rôles, coûts journaliers des collaborateurs, temps saisis, contacts clients,
@@ -743,9 +831,13 @@ client.
   `data_collection = "deny"` demandé à OpenRouter. La clause « pas
   d'entraînement sur les données » reste à vérifier modèle par modèle avant le
   pilote (DECISIONS.md, ADR-003).
-- **Conservation non traitée** : `ia_generations` garde le texte **démasqué**
-  de chaque version sans durée (ajout seul, `0102`, démasquage dans
-  `ia/orchestrateur.ts`) ; les rapports générés ne sont jamais purgés (`0130`).
+- **Conservation** (vague 0, durées **posées par défaut, à valider avec le
+  conseil juridique**) : le texte **démasqué** de `ia_generations` est anonymisé
+  après 365 jours (`0104`, job `ia_conservation`, §7 bis) ; le fichier des
+  rapports est purgé après 3 ans (`0132`, job `purge_rapports`, §8 bis). Restent
+  sans durée : les autres données personnelles (temps, coordonnées, réponses aux
+  questionnaires, mesures KPI, journal d'audit) ; `conservation_jours` de l'IA
+  n'est pas exposé par l'API IA.
 
 ## 13. Conduite à tenir en cas de faille
 
@@ -799,16 +891,16 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Pas de limitation de débit générale par IP (X-Forwarded-For falsifiable, l'API voit l'IP du relais web)                                         | `auth/limiteur.ts` (en-tête)                                              |
 | Limiteur par e-mail : un tiers qui connaît seulement l'e-mail peut bloquer la connexion de son titulaire ; parade = déblocage par `cabinet.gerer` | `auth/limiteur.ts`, `routes/limiteur-admin.ts`                            |
 | Connexion rapide de démonstration : avec `CONNEXION_RAPIDE_DEMO=oui`, quiconque atteint l'API locale ouvre sans secret la session d'un compte de démo sans 2FA (associé compris, ou compte client du portail de démonstration) ; acceptable sur un poste de développement seulement ; un serveur dont `NODE_ENV` serait local et la base sur la même machine passerait la garde | `routes/connexion-demo.ts`, `config.ts` (`connexionRapideDemoActive`) |
-| Aucun test ne vérifie que `app.horloge_test` est ignoré hors d'une base `_test` (le test du limiteur ne tourne que sur une base `_test`)         | `migrations/0120_limiteur_tentatives.sql`, `test/auth-limiteur.test.ts`   |
 | `mot_de_passe_hash` lisible par le rôle applicatif (reconfirmation d'identité) ; atténué dans le portail par la politique `portail` des utilisateurs | `migrations/0114_portail_rls_complements.sql`                             |
 | IA : masquage limité aux termes déclarés et aux formats connus ; garde-chiffres aveugle aux nombres en lettres ; clause « pas d'entraînement » à vérifier par modèle | `ia/masquage.ts`, `ia/garde-chiffres.ts`, `ia/fournisseur.ts`            |
-| Conservation non traitée : texte démasqué des générations IA (`ia_generations`, ajout seul) et rapports générés, sans durée ni purge            | `migrations/0102_ia_generations.sql`, `migrations/0130_rapports.sql`      |
+| Durées de conservation par défaut (texte IA 365 jours, rapports 3 ans) posées sans avis juridique ; `conservation_jours` de l'IA non exposé par l'API IA | `migrations/0104_ia_conservation.sql`, `migrations/0132_rapports_conservation.sql`, `ia/conservation.ts` |
 | Chrome headless testé seulement sous Windows ; sous Linux, la sandbox du navigateur est à prévoir (aucun `--no-sandbox`, utilisateur non root)  | `rapports/pdf.ts`                                                         |
-| Pas de sémaphore d'analyse simultanée sur `POST /fichiers` et les justificatifs (analyse PDF jusqu'à 32 Mio décompressés), contrairement à l'import Excel | `routes/fichiers.ts`, `temps/import-excel.ts`                             |
+| Réception des fichiers : la place du sémaphore (4 par instance, 2 par cabinet) n'est prise qu'après la lecture du corps ; les tampons en lecture ne sont bornés que par `fileSize` et le délai de réception de 5 min | `routes/fichiers.ts`, `app.ts` |
+| Plan partagé au client jamais servi par le portail : le partage est prêt côté cabinet, aucune route du portail ne le lit | `plans/partage.ts`, `portail/garde.ts`                                    |
 | Date d'atteinte d'un jalon non horodatée : approchée par la dernière modification (indicateur de respect des jalons)                            | `finance/indicateurs.ts`                                                  |
 | Migrations appliquées par nom, sans somme de contrôle : l'immuabilité d'une migration appliquée est une convention de relecture, non vérifiée par l'outil | `db/migrate.ts`                                                           |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
-| Registre des traitements, durée de conservation, effacement : non faits                                                                          | §12                                                                       |
+| Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
 ## 16. Points ouverts
 

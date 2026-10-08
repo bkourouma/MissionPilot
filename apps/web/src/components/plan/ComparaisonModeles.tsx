@@ -1,5 +1,13 @@
 import type { Devise } from "../../lib/format";
 import {
+  LIBELLES_SENS,
+  lignesEcartsSerie,
+  lignesHypotheses,
+  tableauxSynthese,
+  type LigneEcart,
+  type SensEcart,
+} from "../../lib/plan-comparaison";
+import {
   libelleChemin,
   libelleValidationModele,
   libelleVersionModele,
@@ -70,10 +78,64 @@ export function FormulaireComparaison({
   );
 }
 
+const SENS_CLASSE: Record<SensEcart, string> = {
+  hausse: "mp-plan-ecart mp-plan-ecart--hausse",
+  baisse: "mp-plan-ecart mp-plan-ecart--baisse",
+  stable: "mp-plan-ecart",
+  indetermine: "mp-plan-ecart",
+};
+
+function TableauEcarts({
+  id,
+  titre,
+  premiereColonne,
+  v1,
+  v2,
+  lignes,
+}: {
+  id: string;
+  titre: string;
+  premiereColonne: string;
+  v1: string;
+  v2: string;
+  lignes: readonly LigneEcart[];
+}) {
+  return (
+    <div className="mp-plan-etat" role="region" aria-labelledby={id} tabIndex={0}>
+      <table>
+        <caption id={id}>{titre}</caption>
+        <thead>
+          <tr>
+            <th scope="col">{premiereColonne}</th>
+            <th scope="col">{v1}</th>
+            <th scope="col">{v2}</th>
+            <th scope="col">Écart</th>
+            <th scope="col">Écart relatif</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lignes.map((l) => (
+            <tr key={l.cle}>
+              <th scope="row">{l.libelle}</th>
+              <td>{l.de}</td>
+              <td>{l.a}</td>
+              <td className={SENS_CLASSE[l.sens]}>
+                {l.ecart}
+                <span className="mp-visuellement-cache">{` (${LIBELLES_SENS[l.sens]})`}</span>
+              </td>
+              <td>{l.relatif}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
- * Comparaison de deux versions (API) : hypothèses et écarts modifiés, séries clés du scénario
- * de base côte à côte. Aucune différence n'est calculée dans le navigateur : les valeurs des
- * deux versions sont présentées telles que le moteur les a figées.
+ * Comparaison de deux versions (API) : hypothèses et écarts de scénario modifiés (avec leurs
+ * valeurs), séries clés du scénario de base et synthèse des trois scénarios, avec les ÉCARTS
+ * calculés par le moteur de l'API. Aucune différence n'est calculée dans le navigateur.
  */
 export function ResultatComparaison({
   comparaison: c,
@@ -84,21 +146,30 @@ export function ResultatComparaison({
 }) {
   const v1 = `Version ${c.de.version}`;
   const v2 = `Version ${c.a.version}`;
+  const hypotheses = lignesHypotheses(c);
+  const synthese = tableauxSynthese(c, devise);
   return (
     <div className="mp-plan__section">
       <ul className="mp-liste-simple">
         <li>{`${libelleVersionModele(c.de)} — ${libelleValidationModele(c.de)}`}</li>
         <li>{`${libelleVersionModele(c.a)} — ${libelleValidationModele(c.a)}`}</li>
       </ul>
+      <p className="mp-texte-doux mp-texte-petit">
+        Écart = valeur de la version d&apos;arrivée moins celle de la version de départ ; écart
+        relatif rapporté à la valeur de départ. Tous calculés par le moteur, sur les résultats figés
+        des deux versions.
+      </p>
       <div className="mp-plan-comparaison">
         <section className="mp-plan__section" aria-labelledby="titre-hypotheses-modifiees">
           <h4 id="titre-hypotheses-modifiees" className="mp-plan__intertitre">
             Hypothèses modifiées
           </h4>
-          {c.hypotheses_modifiees.length ? (
+          {hypotheses.length ? (
             <ul className="mp-liste-simple">
-              {c.hypotheses_modifiees.map((h) => (
-                <li key={h}>{libelleChemin(h)}</li>
+              {hypotheses.map((h) => (
+                <li key={h.chemin}>
+                  {h.de !== null && h.a !== null ? `${h.libelle} : ${h.de} → ${h.a}` : h.libelle}
+                </li>
               ))}
             </ul>
           ) : (
@@ -120,9 +191,38 @@ export function ResultatComparaison({
           )}
         </section>
       </div>
+      {synthese.length ? (
+        <div className="mp-plan-comparaison">
+          {synthese.map((t) => (
+            <TableauEcarts
+              key={t.scenario}
+              id={`comparaison-synthese-${t.scenario}`}
+              titre={`${t.titre} : synthèse`}
+              premiereColonne="Indicateur"
+              v1={v1}
+              v2={v2}
+              lignes={t.lignes}
+            />
+          ))}
+        </div>
+      ) : null}
       <div className="mp-plan-comparaison">
         {c.series.map((s) => {
           const id = `comparaison-${s.cle}`;
+          const titre = `${s.libelle} (scénario de base)`;
+          if (s.points?.length) {
+            return (
+              <TableauEcarts
+                key={s.cle}
+                id={id}
+                titre={titre}
+                premiereColonne="Exercice"
+                v1={v1}
+                v2={v2}
+                lignes={lignesEcartsSerie(s, devise)}
+              />
+            );
+          }
           return (
             <div
               key={s.cle}
@@ -132,7 +232,7 @@ export function ResultatComparaison({
               tabIndex={0}
             >
               <table>
-                <caption id={id}>{`${s.libelle} (scénario de base)`}</caption>
+                <caption id={id}>{titre}</caption>
                 <thead>
                   <tr>
                     <th scope="col">Exercice</th>

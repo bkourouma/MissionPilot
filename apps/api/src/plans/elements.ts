@@ -1,3 +1,4 @@
+import { controlerDependances, type InitiativeFeuilleDeRoute } from "@missionpilot/engines";
 import {
   DONNEES_ELEMENT_PLAN,
   ROLES_CLIENT,
@@ -33,6 +34,10 @@ import { retirerPartageApresEcriture } from "./partage.js";
  *   responsable de la mission qui n'a écrit aucune version depuis la dernière
  *   validation, sauf associé ou directeur de la mission (403 VALIDATION_REQUISE).
  * - Retirer : nouvelle version `retire: true` ; l'historique reste lisible.
+ * - Initiative (PLA-05) : ses dépendances (`dependances`, contenu versionné)
+ *   désignent d'autres initiatives ACTIVES du plan ; le moteur refuse doublons
+ *   et cycles (400 DEPENDANCE_INVALIDE / DEPENDANCE_CYCLIQUE), la base double
+ *   les contrôles structurels (0184).
  * - Créer, modifier ou retirer un élément d'un plan PARTAGÉ retire le partage
  *   (plans/partage.ts) : le client ne voit jamais un contenu non validé.
  */
@@ -62,7 +67,7 @@ const SANS_INITIATIVE: ColonnesInitiative = {
   statut_initiative: null,
 };
 
-interface VersionDb extends Omit<ColonnesInitiative, "budget"> {
+export interface VersionDb extends Omit<ColonnesInitiative, "budget"> {
   element_id: string;
   type: TypeElementPlan;
   parent_id: string | null;
@@ -163,8 +168,13 @@ function decomposer(
       colonnes: SANS_INITIATIVE,
     };
   }
-  const { responsable_id, debut, echeance, budget, statut, ...contenu } =
+  const { responsable_id, debut, echeance, budget, statut, dependances, ...reste } =
     DONNEES_ELEMENT_PLAN.initiative.parse(donnees);
+  // Identifiants normalisés en minuscules (forme renvoyée par PostgreSQL).
+  const contenu =
+    dependances === undefined
+      ? reste
+      : { ...reste, dependances: dependances.map((d) => d.toLowerCase()) };
   return {
     contenu,
     colonnes: {
@@ -177,12 +187,61 @@ function decomposer(
   };
 }
 
+/**
+ * Dépendances d'une initiative (PLA-05) : initiatives actives du plan, autres qu'elle-même, sans
+ * cycle avec les dépendances des autres initiatives (contrôle du moteur). Les dépendances des
+ * AUTRES initiatives vers une initiative retirée sont ignorées (elles ne bloquent pas l'écriture).
+ */
+async function controlerDependancesInitiative(
+  db: Db,
+  plan: PlanAcces,
+  elementId: string | null,
+  contenu: Record<string, unknown>,
+  c: ColonnesInitiative,
+): Promise<void> {
+  const dependances = (contenu.dependances as string[] | undefined) ?? [];
+  if (dependances.length === 0) return;
+  const autres = (await elementsCourants(db, plan.id)).filter(
+    (v) => v.type === "initiative" && !v.retire && v.element_id !== elementId,
+  );
+  const actives = new Set(autres.map((v) => v.element_id));
+  if (dependances.some((d) => !actives.has(d))) {
+    throw new AppError(
+      400,
+      "DEPENDANCE_INVALIDE",
+      "Une initiative ne dépend que d'autres initiatives actives de ce plan.",
+    );
+  }
+  // Les autres initiatives gardent leurs dépendances vers les actives ET vers celle-ci.
+  const connues = new Set(actives);
+  if (elementId) connues.add(elementId);
+  const graphe: InitiativeFeuilleDeRoute[] = autres.map((v) => ({
+    id: v.element_id,
+    debut: v.debut,
+    echeance: v.echeance as string,
+    statut: v.statut_initiative as InitiativeFeuilleDeRoute["statut"],
+    dependances: ((v.contenu.dependances as string[] | undefined) ?? []).filter((d) =>
+      connues.has(d),
+    ),
+  }));
+  graphe.push({
+    id: elementId ?? "nouvelle-initiative",
+    debut: c.debut,
+    echeance: c.echeance as string,
+    statut: c.statut_initiative as InitiativeFeuilleDeRoute["statut"],
+    dependances,
+  });
+  controlerDependances(graphe);
+}
+
 /** Contrôles d'une initiative : dates ordonnées, gains sur l'horizon, responsable interne actif. */
 async function controlerInitiative(
   db: Db,
   plan: PlanAcces,
   contenu: Record<string, unknown>,
   c: ColonnesInitiative,
+  elementId: string | null = null,
+  retire = false,
 ): Promise<void> {
   if (c.debut && c.echeance && c.debut > c.echeance) {
     throw requeteInvalide("Le début de l'initiative précède son échéance.");
@@ -198,6 +257,7 @@ async function controlerInitiative(
     );
     if (!r.rowCount) throw requeteInvalide("Responsable inconnu.");
   }
+  if (!retire) await controlerDependancesInitiative(db, plan, elementId, contenu, c);
 }
 
 async function insererVersion(
@@ -290,7 +350,9 @@ export async function ajouterVersion(
   const plan = await exigerPlanRedigeable(db, auth, planId);
   const courante = await versionCourante(db, planId, elementId);
   const { contenu, colonnes } = decomposer(courante.type, corps.donnees);
-  if (courante.type === "initiative") await controlerInitiative(db, plan, contenu, colonnes);
+  if (courante.type === "initiative") {
+    await controlerInitiative(db, plan, contenu, colonnes, elementId, corps.retire);
+  }
   const identique = await db.query(
     `SELECT 1 FROM plan_element_versions
      WHERE element_id = $1 AND version = $2 AND contenu = $3::jsonb AND retire = $4
@@ -332,6 +394,39 @@ export async function ajouterVersion(
     details: { plan_id: planId, version: courante.version + 1, statut_contenu: statut },
   });
   return vueElement(await versionCourante(db, planId, elementId));
+}
+
+/**
+ * Recalage (PLA-05, plans/feuille-de-route.ts) : nouvelle version d'une initiative qui ne change
+ * QUE ses dates, contenu et autres champs repris de la version courante ; statut « brouillon »
+ * tant que le contenu n'a jamais quitté ce statut, « modifie » sinon (validation à refaire).
+ */
+export async function versionDatesRecalees(
+  db: Db,
+  auth: Auth,
+  courante: VersionDb,
+  debut: string | null,
+  echeance: string,
+): Promise<number> {
+  const statut: StatutContenuPlan =
+    courante.statut_contenu === "brouillon" ? "brouillon" : "modifie";
+  await insererVersion(
+    db,
+    auth,
+    courante.element_id,
+    courante.version + 1,
+    statut,
+    courante.contenu,
+    courante.retire,
+    {
+      responsable_id: courante.responsable_id,
+      debut,
+      echeance,
+      budget: montant(courante.budget),
+      statut_initiative: courante.statut_initiative,
+    },
+  );
+  return courante.version + 1;
 }
 
 /** Valide la version courante d'un élément (séparation des tâches). */

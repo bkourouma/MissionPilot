@@ -23,6 +23,14 @@ export type FormatRapport = (typeof FORMATS_RAPPORT)[number];
 export const NIVEAUX_RAPPORT = ["base", "jours", "finance"] as const;
 export type NiveauRapport = (typeof NIVEAUX_RAPPORT)[number];
 
+/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan. */
+export const NIVEAUX_SERVICE = ["notation", "plan"] as const;
+export type NiveauService = (typeof NIVEAUX_SERVICE)[number];
+
+/** Tous les niveaux qu'un rapport listé peut porter. */
+export const TOUS_NIVEAUX = [...NIVEAUX_RAPPORT, ...NIVEAUX_SERVICE] as const;
+export type NiveauAffichable = NiveauRapport | NiveauService;
+
 /** Rapport tel que listé par GET /api/missions/:id/rapports (métadonnées, jamais le contenu). */
 export interface RapportMission {
   id: string;
@@ -30,7 +38,7 @@ export interface RapportMission {
   modele: string;
   format: FormatRapport;
   statut: string;
-  niveau: NiveauRapport;
+  niveau: NiveauAffichable;
   genere_par: string;
   genere_le: string;
   fichier: FichierMeta;
@@ -72,10 +80,12 @@ export const libelleFormat = (f: string) => (estFormatRapport(f) ? FORMATS[f].co
 // --- Niveaux -----------------------------------------------------------------------------
 
 /** Permissions exigées pour lire un niveau (miroir de `rapports/niveaux.ts`, cumulatives). */
-const PERMISSIONS_NIVEAU: Record<NiveauRapport, readonly Permission[]> = {
+const PERMISSIONS_NIVEAU: Record<NiveauAffichable, readonly Permission[]> = {
   base: [],
   jours: ["budget.lire_jours"],
   finance: ["budget.lire_jours", "finance.lire"],
+  notation: ["notation.lire"],
+  plan: ["plan.lire"],
 };
 
 export type IconeNiveau = "courbe" | "horloge" | "cadenas";
@@ -85,7 +95,7 @@ export type IconeNiveau = "courbe" | "horloge" | "cadenas";
  * niveau, tonalité du badge et explication de ce que le rapport contiendra.
  */
 export const NIVEAUX: Record<
-  NiveauRapport,
+  NiveauAffichable,
   { libelle: string; icone: IconeNiveau; tonalite: "neutre" | "attention"; explication: string }
 > = {
   base: {
@@ -109,13 +119,27 @@ export const NIVEAUX: Record<
     explication:
       "Avec vos droits, le rapport inclut aussi les données financières internes du cabinet. Seules les personnes autorisées à lire les finances pourront l'ouvrir.",
   },
+  notation: {
+    libelle: "Notation",
+    icone: "courbe",
+    tonalite: "neutre",
+    explication:
+      "Rapport de la notation publiée. Seules les personnes autorisées à lire la notation pourront l'ouvrir.",
+  },
+  plan: {
+    libelle: "Plan stratégique",
+    icone: "cadenas",
+    tonalite: "attention",
+    explication:
+      "Rapport du plan stratégique, modèle financier du client compris. Seules les personnes autorisées à lire les plans pourront l'ouvrir.",
+  },
 };
 
-export const estNiveauRapport = (v: unknown): v is NiveauRapport =>
-  typeof v === "string" && (NIVEAUX_RAPPORT as readonly string[]).includes(v);
+export const estNiveauRapport = (v: unknown): v is NiveauAffichable =>
+  typeof v === "string" && (TOUS_NIVEAUX as readonly string[]).includes(v);
 
 /** Ces rôles détiennent-ils toutes les permissions du niveau ? */
-export function peutLireNiveau(roles: readonly Role[], niveau: NiveauRapport): boolean {
+export function peutLireNiveau(roles: readonly Role[], niveau: NiveauAffichable): boolean {
   return PERMISSIONS_NIVEAU[niveau].every((p) => aPermission(roles, p));
 }
 
@@ -160,10 +184,17 @@ export function contenuRapport(niveau: NiveauRapport): { inclus: string[]; exclu
 
 // --- Présentation de la liste ------------------------------------------------------------
 
-const MODELES: Record<string, string> = { etat_avancement: "État d'avancement" };
+const MODELES: Record<string, string> = {
+  etat_avancement: "État d'avancement",
+  notation: "Rapport de notation",
+  plan_strategique: "Plan stratégique",
+};
 export const libelleModele = (m: string) => MODELES[m] ?? "Rapport";
 
-const STATUTS: Record<string, string> = { brouillon: "Brouillon" };
+const STATUTS: Record<string, string> = {
+  brouillon: "Brouillon",
+  valide: "Validé",
+};
 export const libelleStatutRapport = (s: string) => STATUTS[s] ?? "Statut non reconnu";
 
 /** Personnes dont le nom est connu : référentiel du cabinet puis équipe de la mission. */

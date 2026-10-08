@@ -402,7 +402,7 @@ async function envoyerQuestionnaires(
       { utilisateur_id: repondants.dirigeant },
       { utilisateur_id: repondants.contributeur },
     ],
-    // Date dépassée à dessein : la date limite n'est qu'une indication (recette des libellés).
+    // Date dépassée à dessein : la soumission est refusée après la date limite (MPQ07), le portail passe en lecture seule (recette).
     date_limite: ajouterJours(auj, -3),
   });
   return { parFonction, collectif };

@@ -17,7 +17,9 @@ import { FAUX_HASH, verifyPassword } from "./password.js";
  * secours, politique 2FA du cabinet, réinitialisation de la 2FA d'un autre
  * utilisateur, coordonnées bancaires du cabinet (IBAN, banque, autres
  * coordonnées), déblocage de la connexion d'un utilisateur
- * (routes/limiteur-admin.ts). Pour ces deux dernières seulement, un utilisateur
+ * (routes/limiteur-admin.ts), clé API IA et plafond IA relevé (routes/ia-parametres.ts),
+ * durée de conservation des rapports RACCOURCIE (routes/rapports.ts : les rapports plus
+ * anciens sont purgés sans retour). Pour ces quatre dernières seulement, un utilisateur
  * SANS 2FA active confirme par son mot de passe seul (option `motDePasseSeulSiInactive`) :
  * le facteur « mot_de_passe » est alors journalisé (et, pour les coordonnées
  * bancaires, signalé aux associés) ;
@@ -49,7 +51,10 @@ export type ContexteConfirmation =
   | "deblocage_connexion"
   // Clé API IA du cabinet ou relèvement du plafond IA (routes/ia-parametres.ts),
   // mot de passe seul admis sans 2FA active, comme les coordonnées bancaires.
-  | "cle_api_ia";
+  | "cle_api_ia"
+  // Raccourcissement de la durée de conservation des rapports (routes/rapports.ts), mot de passe
+  // seul admis sans 2FA active, comme la clé API IA.
+  | "conservation_rapports";
 
 export type FacteurConfirme = FacteurReconnu | "mot_de_passe";
 

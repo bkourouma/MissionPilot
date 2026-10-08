@@ -12,11 +12,15 @@ import {
   planModeleListeQuerySchema,
   planModeleParamsSchema,
   planModeleSimulationSchema,
+  planNotationLienSchema,
   planPartageSchema,
+  planRecalageSchema,
   planVersionQuerySchema,
 } from "@missionpilot/shared";
 import { exiger } from "../auth/contexte.js";
 import { paramsId } from "../http/outils.js";
+import { traduireErreurKpi } from "../kpi/erreurs.js";
+import { lierNotation, lireLienNotation, listerNotationsPubliees } from "../plans/diagnostic.js";
 import {
   ajouterVersion,
   creerElement,
@@ -24,6 +28,8 @@ import {
   validerElement,
 } from "../plans/elements.js";
 import { traduireErreurPlan } from "../plans/erreurs.js";
+import { appliquerRecalage } from "../plans/feuille-de-route.js";
+import { creerKpiObjectif, lireKpiObjectifs } from "../plans/kpi.js";
 import {
   comparerVersions,
   creerVersionModele,
@@ -47,7 +53,14 @@ import { donneesRapport, lireFeuilleDeRoute, lireRoi } from "../plans/rapport.js
  * - POST /plans/:id/elements ; POST /plans/:id/elements/:elementId/versions ;
  *   POST /plans/:id/elements/:elementId/validation ;
  *   GET /plans/:id/elements/:elementId/historique ;
- * - GET /plans/:id/feuille-de-route ; GET /plans/:id/initiatives/roi ;
+ * - GET /plans/:id/feuille-de-route (recalage du moteur, PLA-05) ;
+ *   POST /plans/:id/feuille-de-route/recalage (plan.ecrire) ;
+ *   GET /plans/:id/initiatives/roi ;
+ * - GET /plans/:id/kpi (plan.lire ET kpi.lire) ;
+ *   POST /plans/:id/objectifs/:elementId/kpi (plan.ecrire ET kpi.gerer, PLA-10) ;
+ * - GET /plans/:id/diagnostic/notation, GET /plans/:id/diagnostic/notations-publiees
+ *   (plan.lire ET notation.lire) ; PUT /plans/:id/diagnostic/notation
+ *   (plan.ecrire ET notation.lire) ;
  * - POST /plans/:id/modeles/simulation (sans enregistrement), POST et GET
  *   /plans/:id/modeles, GET /plans/:id/modeles/comparaison,
  *   GET /plans/:id/modeles/:version, POST /plans/:id/modeles/:version/validation ;
@@ -132,6 +145,13 @@ export const routesPlans: FastifyPluginAsync = async (app) => {
     return app.db.withTenant(auth.cabinetId, (db) => lireFeuilleDeRoute(db, auth, id, pas));
   });
 
+  app.post("/plans/:id/feuille-de-route/recalage", async (request) => {
+    const auth = exiger(request, "plan.ecrire");
+    const { id } = paramsId.parse(request.params);
+    const { initiatives } = planRecalageSchema.parse(request.body);
+    return app.db.withTenant(auth.cabinetId, (db) => appliquerRecalage(db, auth, id, initiatives));
+  });
+
   app.get("/plans/:id/initiatives/roi", async (request) => {
     const auth = exiger(request, "plan.lire");
     const { id } = paramsId.parse(request.params);
@@ -144,6 +164,53 @@ export const routesPlans: FastifyPluginAsync = async (app) => {
     const { id } = paramsId.parse(request.params);
     const { version } = planVersionQuerySchema.parse(request.query);
     return app.db.withTenant(auth.cabinetId, (db) => donneesRapport(db, auth, id, version));
+  });
+
+  /* ----- KPI issus des objectifs (PLA-10) ----- */
+
+  app.get("/plans/:id/kpi", async (request) => {
+    const auth = exiger(request, "plan.lire");
+    exiger(request, "kpi.lire");
+    const { id } = paramsId.parse(request.params);
+    return app.db.withTenant(auth.cabinetId, (db) => lireKpiObjectifs(db, auth, id));
+  });
+
+  app.post("/plans/:id/objectifs/:elementId/kpi", async (request, reply) => {
+    const auth = exiger(request, "plan.ecrire");
+    exiger(request, "kpi.gerer");
+    const { id, elementId } = planElementParamsSchema.parse(request.params);
+    const objectif = await app.db
+      .withTenant(auth.cabinetId, (db) => creerKpiObjectif(db, auth, id, elementId, request.body))
+      .catch((e: unknown) => {
+        throw traduireErreurKpi(e);
+      });
+    return reply.status(201).send(objectif);
+  });
+
+  /* ----- Diagnostic : notation publiée liée ----- */
+
+  app.get("/plans/:id/diagnostic/notation", async (request) => {
+    const auth = exiger(request, "plan.lire");
+    exiger(request, "notation.lire");
+    const { id } = paramsId.parse(request.params);
+    return app.db.withTenant(auth.cabinetId, (db) => lireLienNotation(db, auth, id));
+  });
+
+  app.get("/plans/:id/diagnostic/notations-publiees", async (request) => {
+    const auth = exiger(request, "plan.lire");
+    exiger(request, "notation.lire");
+    const { id } = paramsId.parse(request.params);
+    return app.db.withTenant(auth.cabinetId, (db) => listerNotationsPubliees(db, auth, id));
+  });
+
+  app.put("/plans/:id/diagnostic/notation", async (request) => {
+    const auth = exiger(request, "plan.ecrire");
+    exiger(request, "notation.lire");
+    const { id } = paramsId.parse(request.params);
+    const { notation_version_id } = planNotationLienSchema.parse(request.body);
+    return app.db.withTenant(auth.cabinetId, (db) =>
+      lierNotation(db, auth, id, notation_version_id),
+    );
   });
 
   /* ----- Modèle financier ----- */

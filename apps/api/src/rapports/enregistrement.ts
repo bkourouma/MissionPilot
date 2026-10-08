@@ -25,10 +25,15 @@ import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
  * - journal d'audit.
  * Si la transaction échoue, l'objet écrit dans le stockage est effacé.
  *
- * Conservation : non traitée (ajout seul, aucune purge ; voir la migration 0130).
+ * Source (migration 0131) : `notation_id` / `plan_id` et `version_source`
+ * pour les rapports de notation et de plan, contrôlés en base (MPR01, MPR02).
+ *
+ * Conservation : le FICHIER d'un rapport est purgé au-delà de la durée de
+ * conservation du cabinet (rapports/purge.ts, migration 0132) ; la ligne
+ * reste (ajout seul).
  */
 
-export const MODELES_RAPPORT = ["etat_avancement"] as const;
+export const MODELES_RAPPORT = ["etat_avancement", "notation", "plan_strategique"] as const;
 export type ModeleRapport = (typeof MODELES_RAPPORT)[number];
 
 /** Générations admises par utilisateur sur la fenêtre glissante. */
@@ -37,10 +42,20 @@ export const FENETRE_RAPPORTS_MINUTES = 10;
 
 const NOMS_FICHIER: Record<ModeleRapport, string> = {
   etat_avancement: "Etat d'avancement",
+  notation: "Rapport de notation",
+  plan_strategique: "Plan strategique",
 };
 
 export const COLONNES_RAPPORT = `r.id, r.mission_id, r.modele, r.format, r.statut, r.niveau,
-  r.genere_par, r.genere_le`;
+  r.notation_id, r.plan_id, r.version_source, r.genere_par, r.genere_le`;
+
+/** Objet rendu par un rapport de service (notation ou plan) et version retenue. */
+export interface SourceRapport {
+  notationId?: string;
+  planId?: string;
+  /** Numéro de version de la notation, ou de la version du modèle financier (null : aucun). */
+  version?: number | null;
+}
 
 export interface RapportEnregistre {
   rapport: Record<string, unknown>;
@@ -67,6 +82,25 @@ export async function verifierDebitRapports(db: Db, auth: Auth): Promise<void> {
   }
 }
 
+/** Insertion ; une source incohérente (MPR01, MPR02 : défense en base) répond 409. */
+async function insererRapport(db: Db, valeurs: unknown[]) {
+  try {
+    return await db.query(
+      `INSERT INTO rapports_mission AS r (cabinet_id, mission_id, fichier_id, modele, format,
+         statut, niveau, genere_par, notation_id, plan_id, version_source)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING ${COLONNES_RAPPORT}`,
+      valeurs,
+    );
+  } catch (e) {
+    const code = (e as { code?: unknown }).code;
+    if (code === "MPR01" || code === "MPR02") {
+      throw conflit("La source du rapport a changé : rechargez la page puis réessayez.");
+    }
+    throw e;
+  }
+}
+
 export async function enregistrerRapport(
   app: FastifyInstance,
   auth: Auth,
@@ -77,6 +111,7 @@ export async function enregistrerRapport(
     rapport: Rapport;
     niveau: NiveauRapport;
     contenu: Buffer;
+    source?: SourceRapport;
   },
 ): Promise<RapportEnregistre> {
   // Cohérence : on n'enregistre jamais un rapport que son auteur ne pourrait pas relire.
@@ -93,22 +128,19 @@ export async function enregistrerRapport(
         await verifierDebitRapports(db, auth);
         const mission = await exigerMissionVisible(db, auth, p.missionId, true);
         if (mission.statut === "cloturee") throw conflit("La mission est clôturée.");
-        const r = await db.query(
-          `INSERT INTO rapports_mission AS r (cabinet_id, mission_id, fichier_id, modele, format,
-             statut, niveau, genere_par)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING ${COLONNES_RAPPORT}`,
-          [
-            auth.cabinetId,
-            p.missionId,
-            f.id,
-            p.modele,
-            p.format,
-            p.rapport.statut,
-            p.niveau,
-            auth.utilisateurId,
-          ],
-        );
+        const r = await insererRapport(db, [
+          auth.cabinetId,
+          p.missionId,
+          f.id,
+          p.modele,
+          p.format,
+          p.rapport.statut,
+          p.niveau,
+          auth.utilisateurId,
+          p.source?.notationId ?? null,
+          p.source?.planId ?? null,
+          p.source?.version ?? null,
+        ]);
         rapport = r.rows[0] as Record<string, unknown>;
         await journaliser(db, {
           cabinetId: auth.cabinetId,
@@ -122,6 +154,9 @@ export async function enregistrerRapport(
             format: p.format,
             niveau: p.niveau,
             fichier_id: f.id,
+            ...(p.source?.notationId ? { notation_id: p.source.notationId } : {}),
+            ...(p.source?.planId ? { plan_id: p.source.planId } : {}),
+            ...(p.source?.version ? { version_source: p.source.version } : {}),
           },
         });
       },

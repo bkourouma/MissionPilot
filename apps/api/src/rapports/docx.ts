@@ -94,7 +94,10 @@ function corps(r: Rapport): FileChild[] {
     new Paragraph({ heading: HeadingLevel.TITLE, children: runs(r.titre) }),
     ...(r.sous_titre ? [new Paragraph({ children: runs(r.sous_titre, { size: 24 }) })] : []),
     new Paragraph({
-      children: runs(LIBELLES_STATUT_RAPPORT[r.statut], { bold: true, color: "B44D12" }),
+      children: runs(LIBELLES_STATUT_RAPPORT[r.statut], {
+        bold: true,
+        color: r.statut === "valide" ? "1B7F3B" : "B44D12",
+      }),
       spacing: { after: 120 },
     }),
     ...(r.confidentiel
@@ -153,6 +156,16 @@ export async function rapportEnDocx(r: Rapport): Promise<Buffer> {
                   }),
                 ],
               }),
+              ...(r.mention_pied
+                ? [
+                    new Paragraph({
+                      children: runs(r.mention_pied.replace(/\n/g, " "), {
+                        size: 14,
+                        color: "52606D",
+                      }),
+                    }),
+                  ]
+                : []),
             ],
           }),
         },

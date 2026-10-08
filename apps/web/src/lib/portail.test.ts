@@ -44,6 +44,7 @@ describe("droits et navigation du portail", () => {
       "accueil",
       "missions",
       "questionnaires",
+      "kpi",
       "factures",
       "securite",
     ]);
@@ -51,6 +52,7 @@ describe("droits et navigation du portail", () => {
       "accueil",
       "missions",
       "questionnaires",
+      "kpi",
       "securite",
     ]);
     expect(entreesPortail(INVESTISSEUR).map((e) => e.id)).toEqual(["accueil", "securite"]);

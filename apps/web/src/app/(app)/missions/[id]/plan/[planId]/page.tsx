@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import type { TypeElementPlan } from "@missionpilot/shared";
+import { GenerationLivrable } from "../../../../../../components/rapports/GenerationLivrable";
 import { AjoutElement } from "../../../../../../components/plan/AjoutElement";
 import { AvertissementPartage } from "../../../../../../components/plan/AvertissementPartage";
+import { NotationDiagnostic } from "../../../../../../components/plan/NotationDiagnostic";
 import {
   ElementPlanCarte,
   type DroitsElement,
@@ -12,8 +14,23 @@ import { SectionElementUnique } from "../../../../../../components/plan/SectionE
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatVide } from "../../../../../../components/ui/EtatListe";
+import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
-import { personnesPlan, type PersonnePlan } from "../../../../../../lib/plan-elements";
+import { hrefNotation } from "../../../../../../lib/notation";
+import {
+  cheminLienNotation,
+  cheminNotationsProposees,
+  peutLierNotationPlan,
+  peutLireNotationPlan,
+  type LienNotation,
+  type NotationsProposees,
+} from "../../../../../../lib/plan-diagnostic";
+import {
+  initiativesDuPlan,
+  personnesPlan,
+  type OptionInitiative,
+  type PersonnePlan,
+} from "../../../../../../lib/plan-elements";
 import { chargerPlan } from "../../../../../../lib/plan-serveur";
 import {
   droitsPlan,
@@ -37,6 +54,8 @@ interface Contexte {
   plan: PlanDetaille;
   ctx: ContextePlan;
   personnes: PersonnePlan[];
+  /** Initiatives du plan : dépendances proposées et affichées (PLA-05). */
+  initiatives: OptionInitiative[];
   /** Des contenus peuvent encore être ajoutés (droits, plafond de 300). */
   ajout: boolean;
 }
@@ -68,6 +87,7 @@ function Element({
       horizon={c.plan.horizon}
       devise={c.plan.devise}
       personnes={c.personnes}
+      initiatives={c.initiatives}
       partage={c.plan.partage_client}
       droits={droitsDe(element, c)}
       niveauTitre={niveau}
@@ -98,6 +118,7 @@ function Ajout({
       horizon={c.plan.horizon}
       devise={c.plan.devise}
       personnes={c.personnes}
+      initiatives={c.initiatives}
       partage={c.plan.partage_client}
     />
   );
@@ -179,9 +200,17 @@ export default async function PageContenusPlan({
     plan,
     ctx,
     personnes: personnesPlan(cabinet, m.equipe, { id: utilisateur.id, nom: utilisateur.nom }),
+    initiatives: initiativesDuPlan(plan.elements),
     ajout: droits.rediger && plan.elements.length < ELEMENTS_PLAN_MAX,
   };
   const s = structurerPlan(plan.elements);
+  const lireNotation = peutLireNotationPlan(utilisateur.roles);
+  const lierNotation = peutLierNotationPlan(utilisateur.roles, droits.cloturee);
+  const [lien, proposees] = await Promise.all([
+    lireNotation ? chargerServeur<LienNotation>(cheminLienNotation(plan.id)) : null,
+    lierNotation ? chargerServeur<NotationsProposees>(cheminNotationsProposees(plan.id)) : null,
+  ]);
+  const notationLiee = lien?.ok ? lien.donnees.lien?.notation : null;
   const unique = (type: "diagnostic" | "swot" | "vision_mission", element: ElementPlan | null) => ({
     planId: plan.id,
     type,
@@ -224,12 +253,31 @@ export default async function PageContenusPlan({
         />
       </Carte>
 
+      <Carte titre="Rapport du plan" niveauTitre={3}>
+        <GenerationLivrable type="plan" id={plan.id} cloturee={droits.cloturee} />
+      </Carte>
+
       <Carte titre="Diagnostic" niveauTitre={3}>
         <SectionElementUnique
           {...unique("diagnostic", s.diagnostic)}
           libelleAjout="Rédiger le diagnostic"
           texteVide="Synthèse des constats sur l'entreprise : situation, marché, organisation, finances."
         />
+        {lien?.ok ? (
+          <NotationDiagnostic
+            planId={plan.id}
+            lien={lien.donnees}
+            proposees={proposees?.ok ? proposees.donnees : null}
+            hrefNotation={
+              notationLiee ? hrefNotation(notationLiee.mission_id, notationLiee.numero) : null
+            }
+            partage={plan.partage_client}
+          />
+        ) : lien ? (
+          <Alerte tonalite="attention" annonce="aucune">
+            <p>{`La notation liée au diagnostic n'a pas pu être chargée : ${lien.message}`}</p>
+          </Alerte>
+        ) : null}
       </Carte>
 
       <Carte titre="Analyse SWOT" niveauTitre={3}>

@@ -39,13 +39,19 @@ export function ElementQuestionnaire({
       <div className="mp-pile">
         <p className="mp-pq-meta">
           <span>{libelleMode(q.mode, q.fonction)}</span>
-          <span className={ech?.depassee && estModifiable(q) ? "mp-pq-meta__depassee" : undefined}>
+          <span
+            className={
+              ech?.depassee && q.statut === "envoye" && q.reponse.statut !== "soumise"
+                ? "mp-pq-meta__depassee"
+                : undefined
+            }
+          >
             {ech ? ech.texte : "Sans date limite"}
           </span>
         </p>
         {soumission ? (
           <p className="mp-texte-doux mp-texte-petit">{soumission}</p>
-        ) : estModifiable(q) ? (
+        ) : estModifiable(q, aujourdhui) ? (
           <ProgressionQuestionnaire
             progression={q.reponse.progression}
             id={`progression-${q.id}`}

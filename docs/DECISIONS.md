@@ -46,9 +46,9 @@ force ≥ 65, faiblesse < 50, rôles pondérés 1 par défaut.
 | Sujet | Décision | À revoir |
 | --- | --- | --- |
 | Changement de la clé IA ou de l'IBAN | Reste protégé par le **mot de passe seul**, sans exiger la 2FA, par cohérence avec l'existant. | **À revoir avant le pilote** (exiger la 2FA pour ces deux actions). |
-| Date limite d'un questionnaire | **Simple indication affichée** : l'API ne l'applique pas, un répondant peut encore répondre après la date tant que le questionnaire n'est pas clos. Les libellés de l'interface ne doivent pas laisser croire le contraire. | Décider d'un blocage après la date limite si le pilote le demande. |
-| Conservation des textes IA (`ia_generations`) et des rapports | **Aucune purge pour l'instant** (tables en ajout seul, texte démasqué conservé). | **Durée à fixer avec le conseil juridique avant le pilote**, puis fonction de purge ou d'anonymisation dédiée. |
-| Publication d'une notation | **Inchangée** : seul un utilisateur au rôle `expert_metier` publie (NOT-07), l'associé aussi est exclu. | L'incohérence résiduelle (`notation.publier` toujours dans l'ensemble des permissions de l'associé dans `roles.ts`) est notée dans HANDOFF, non traitée. |
+| Date limite d'un questionnaire | **Appliquée** (2026-10-08, vague 0) : une réponse ne se soumet plus après la date limite de son envoi (jour UTC inclus ; 409 `DATE_LIMITE_DEPASSEE`, doublé en base par `MPQ07`, `0150`). Le cabinet prolonge en repoussant la date ou en la retirant. | Aucune. |
+| Conservation des textes IA (`ia_generations`) et des rapports | **Valeurs par défaut posées** (2026-10-08, vague 0) : texte des générations IA anonymisé après **365 jours** (de 30 à 3 650 par cabinet, `0104`, job `ia_conservation` ; la trace de la décision humaine reste) ; fichier des rapports purgé après **3 ans** (1 095 jours, de 90 à 3 650 par cabinet, `0132`, job `purge_rapports` ; la ligne de trace reste). | **Durées à valider avec le conseil juridique avant le pilote.** La durée IA n'est pas encore réglable par l'API IA. |
+| Publication d'une notation | **Inchangée, incohérence corrigée** (vague 0) : seul un utilisateur au rôle `expert_metier` publie (NOT-07), l'associé aussi est exclu ; `notation.publier` n'est plus dans l'ensemble des permissions de l'associé (`roles.ts`, `RESERVEES_A_UN_ROLE`). | Aucune. |
 | Style des encadrés à bordure latérale (5 feuilles CSS) | Laissés en l'état, sans harmonisation. | — |
 
 ## Orientations au-delà de la V2 (2026-10-08)
@@ -61,7 +61,16 @@ Tranchées par le commanditaire sur le [PRD complémentaire](<PRD complémentair
 | Mention de la contribution IA sur les livrables (QUA-06) | **Au choix du cabinet**, avec une mention par défaut dans le pied de page. |
 | Métiers couverts par le référentiel de méthodes | **Conseil en management et gouvernance, risques et contrôle interne.** Audit légal et expertise comptable hors périmètre. |
 | Priorité après les fondations (vagues 1 et 2) | **Module d'appels d'offres** (AO) avant les services #2 Due diligence et #5 Redressement. |
-| Chiffre extrait d'un document client | Proposé, à confirmer : une donnée sourcée (document, page), utilisée par les moteurs seulement après contrôles déterministes ou confirmation humaine ; ce n'est pas un chiffre produit par l'IA. |
+| Chiffre extrait d'un document client | **Précision de la règle DOS** (PRD complémentaire, §5) : un chiffre **extrait** d'un document client par l'IA est une **donnée sourcée** (document, page), pas un chiffre **produit** par l'IA ; il ne sert aux calculs qu'après contrôles déterministes réussis ou confirmation humaine. Les moteurs restent seuls à calculer. |
+
+Décisions 4, 6, 7 et 8 de la section 21 du même PRD, tranchées le 2026-10-08 par le commanditaire (recommandations du PRD retenues) :
+
+| Sujet | Décision |
+| --- | --- |
+| Autonomie N4 vers les clients | **Limitée à la classe R0** (relances et accusés de réception), avec un **coupe-circuit par cabinet**. |
+| Services candidats après les fondations | **Diagnostic flash**, puis **business plan bancable**. |
+| Attestation de notation vérifiable | ACC est **garant de la méthode, jamais de la note**, qui reste signée par le cabinet. |
+| WhatsApp Business | **Canal officiel**, avec données minimales dans les messages et SMS en repli. |
 
 ## Règles métier validées (2026-10-06) — applicables à la V2
 

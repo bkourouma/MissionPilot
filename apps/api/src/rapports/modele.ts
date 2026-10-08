@@ -37,6 +37,7 @@ export const PLAFONDS_MODELE = {
   longueurTexte: 4000,
   longueurCellule: 300,
   longueurTitre: 200,
+  longueurMention: 300,
 } as const;
 
 const P = PLAFONDS_MODELE;
@@ -111,6 +112,11 @@ export const rapportSchema = z
     genere_le: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     /** Mention confidentielle (données financières internes, FIN-02). */
     confidentiel: z.boolean(),
+    /**
+     * Mention de pied de page choisie par le cabinet (contribution de l'IA,
+     * PRD complémentaire 21.2 ; rapports/parametres.ts). Absente : aucune.
+     */
+    mention_pied: texte(P.longueurMention).optional(),
     sections: z.array(sectionSchema).min(1).max(P.sections),
   })
   .strict();

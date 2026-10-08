@@ -18,4 +18,5 @@ export * from "./schemas/ia";
 export * from "./schemas/plans";
 export * from "./schemas/kpi";
 export * from "./schemas/questionnaires";
+export * from "./schemas/rapports";
 export * from "./grilles/index";
