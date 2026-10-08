@@ -37,6 +37,33 @@ import { etatDefinition } from "./verification.js";
 
 export async function ouvrirSuivi(db: Db, auth: Auth, corps: SuiviOuverture): Promise<Suivi> {
   await exigerMissionModifiable(db, auth, corps.mission_id);
+  return creerSuivi(db, auth, corps);
+}
+
+/**
+ * SERVICE INTERNE pour les modules qui produisent un livrable (rapports, notation) : suivi du
+ * livrable (type, identifiant, version), ouvert à la classe MINIMALE du type s'il n'existe pas
+ * encore. Aucun droit n'est vérifié ici : l'appelant a déjà exigé le sien (générer un rapport,
+ * soumettre ou publier une notation) dans SA transaction ; la mission est déjà vérifiée visible.
+ */
+export async function assurerSuiviLivrable(
+  db: Db,
+  auth: Auth,
+  cible: Pick<SuiviOuverture, "mission_id" | "livrable_id" | "version" | "libelle"> & {
+    type_livrable: TypeLivrable;
+  },
+): Promise<Suivi> {
+  const r = await db.query(
+    `SELECT ${COLONNES_SUIVI_NUES} FROM qualite_suivis
+     WHERE type_livrable = $1 AND livrable_id = $2 AND version = $3`,
+    [cible.type_livrable, cible.livrable_id, cible.version],
+  );
+  const existant = r.rows[0] as Suivi | undefined;
+  if (existant) return existant;
+  return creerSuivi(db, auth, cible as SuiviOuverture);
+}
+
+async function creerSuivi(db: Db, auth: Auth, corps: SuiviOuverture): Promise<Suivi> {
   const type = corps.type_livrable as TypeLivrable;
   const contenu = await lireContenuLivrable(
     db,

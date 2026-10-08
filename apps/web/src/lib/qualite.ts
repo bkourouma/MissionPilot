@@ -390,6 +390,8 @@ const un = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export interface FiltresQualite {
   statut: StatutSuivi | "";
   curseur: string;
+  /** Mission dont on suit les livrables (UUID) ; vide : toutes les missions visibles. */
+  mission: string;
 }
 
 export function lireFiltresQualite(
@@ -397,14 +399,17 @@ export function lireFiltresQualite(
 ): FiltresQualite {
   const s = un(p.statut) ?? "";
   const c = un(p.curseur) ?? "";
+  const m = un(p.mission) ?? "";
   return {
     statut: (STATUTS_SUIVI as readonly string[]).includes(s) ? (s as StatutSuivi) : "",
     curseur: /^[A-Za-z0-9_-]{1,500}$/.test(c) ? c : "",
+    mission: UUID.test(m) ? m : "",
   };
 }
 
-export function cheminSuivis(f: FiltresQualite): string {
+export function cheminSuivis(f: Omit<FiltresQualite, "mission"> & { mission?: string }): string {
   const r = new URLSearchParams({ limite: "30" });
+  if (f.mission) r.set("mission_id", f.mission);
   if (f.statut) r.set("statut", f.statut);
   if (f.curseur) r.set("curseur", f.curseur);
   return `/api/qualite/suivis?${r.toString()}`;
@@ -412,11 +417,15 @@ export function cheminSuivis(f: FiltresQualite): string {
 
 export function hrefQualite(f: Partial<FiltresQualite> = {}): string {
   const r = new URLSearchParams();
+  if (f.mission) r.set("mission", f.mission);
   if (f.statut) r.set("statut", f.statut);
   if (f.curseur) r.set("curseur", f.curseur);
   const s = r.toString();
   return s ? `/qualite?${s}` : "/qualite";
 }
+
+/** Suivi qualité des livrables d'une mission (onglet « Qualité » de la mission). */
+export const hrefQualiteMission = (missionId: string) => hrefQualite({ mission: missionId });
 
 export const hrefSuivi = (id: string) => `/qualite/${segment(id)}`;
 export const hrefAcceptation = (missionId: string) => `/qualite/acceptation/${segment(missionId)}`;

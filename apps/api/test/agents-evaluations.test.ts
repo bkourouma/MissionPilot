@@ -143,7 +143,8 @@ describe("évaluations de non-régression", () => {
     });
     // La base refuse l'activation (MPG04), par la route IA comme en direct.
     const activation = await a.associe.post(`/api/ia/prompts/${v2.id}/activer`, {});
-    expect(activation.statusCode).toBeGreaterThanOrEqual(400);
+    expect(activation.statusCode).toBe(409);
+    expect(activation.json().erreur.code).toBe("NON_REGRESSION_REQUISE");
     await expect(
       ctx.db.withTenant(a.cabinetId, (db) =>
         db.query(
@@ -174,9 +175,9 @@ describe("évaluations de non-régression", () => {
 
   it("un changement de modèle exige une évaluation réussie avec ce modèle", async () => {
     const changement = { modeles: { redaction: "anthropic/claude-haiku-4.5" } };
-    expect(
-      (await a.associe.put("/api/ia/parametres", changement)).statusCode,
-    ).toBeGreaterThanOrEqual(400);
+    const refus = await a.associe.put("/api/ia/parametres", changement);
+    expect(refus.statusCode).toBe(409);
+    expect(refus.json().erreur.code).toBe("NON_REGRESSION_REQUISE");
     attendre(
       201,
       await a.associe.post("/api/agents/evaluations", {
@@ -187,6 +188,28 @@ describe("évaluations de non-régression", () => {
     attendre(200, await a.associe.put("/api/ia/parametres", changement));
     // Le cabinet B, sans jeu d'essai, change de modèle librement.
     attendre(200, await b.associe.put("/api/ia/parametres", changement));
+  });
+
+  it("sous jeu d'essai, une version neuve est créée inactive par défaut ; activer: true → 409", async () => {
+    const sansActiver: Partial<ReturnType<typeof versionPrompt>> =
+      versionPrompt("Résume :\n{{texte}}");
+    delete sansActiver.activer;
+    const v = attendre(201, await a.associe.post("/api/ia/prompts", sansActiver)).json();
+    expect(v.actif).toBe(false);
+    const explicite = await a.associe.post("/api/ia/prompts", {
+      ...sansActiver,
+      activer: true,
+    });
+    expect(explicite.statusCode).toBe(409);
+    expect(explicite.json().erreur.code).toBe("NON_REGRESSION_REQUISE");
+    const versions = attendre(200, await a.associe.get("/api/ia/prompts?nom=resume_neutre"));
+    // Rien n'a été créé par la demande refusée : la plus haute version est la nouvelle.
+    expect(versions.json().elements[0].id).toBe(v.id);
+    const actif = attendre(200, await a.associe.get("/api/ia/prompts")).json();
+    expect(actif.elements.find((p: { nom: string }) => p.nom === "resume_neutre").id).toBe(ids.v3);
+    // Sans jeu d'essai (cabinet B), le comportement par défaut reste « active ».
+    const libre = attendre(201, await b.associe.post("/api/ia/prompts", sansActiver)).json();
+    expect(libre.actif).toBe(true);
   });
 
   it("la garde-chiffres s'applique aux cas : un nombre inventé fait échouer le cas", async () => {

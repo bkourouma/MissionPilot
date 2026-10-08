@@ -19,8 +19,11 @@ import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
+import { aPermission } from "@missionpilot/shared";
 import {
   hrefMissionMethode,
+  texteSourcesDossier,
+  type ContexteDossierPropose,
   hrefVersion,
   libelleEtapeGarde,
   libelleNature,
@@ -78,6 +81,12 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
   const lier = peutLier(utilisateur.roles);
   const catalogue =
     !m.liaison && lier ? await chargerServeur<PageMethodes>("/api/methodes?limite=100") : null;
+  // Dossier → méthode : contexte proposé depuis le dossier du client, à confirmer en liant.
+  const propose =
+    !m.liaison && lier && aPermission(utilisateur.roles, "dossier.lire")
+      ? await chargerServeur<ContexteDossierPropose>(`/api/missions/${id}/methode/contexte-propose`)
+      : null;
+  const contexteDossier = propose?.ok ? propose.donnees : null;
   const briques = (m.etapes ?? []).flatMap((e) => e.briques);
 
   return (
@@ -96,10 +105,18 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
       {!m.liaison ? (
         lier ? (
           <Carte titre="Lier une méthode">
+            {contexteDossier && Object.keys(contexteDossier.contexte).length > 0 ? (
+              <p className="mp-texte-doux">
+                Contexte pré-rempli depuis le dossier du client (
+                {texteSourcesDossier(contexteDossier)}) : relisez-le et complétez-le avant de lier
+                la méthode.
+              </p>
+            ) : null}
             {catalogue?.ok ? (
               <LiaisonMethode
                 missionId={id}
                 facteurs={facteurs}
+                contexteInitial={contexteDossier?.contexte ?? null}
                 versions={catalogue.donnees.elements
                   .filter((x) => x.derniere_publiee)
                   .map((x) => ({

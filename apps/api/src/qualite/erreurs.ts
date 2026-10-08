@@ -13,7 +13,7 @@ export class ErreurGarde extends AppError {
     message: string,
     readonly violations: readonly ViolationGarde[],
   ) {
-    super(409, "GARDE_VIOLEE", message);
+    super(409, "GARDE_VIOLEE", message, { violations });
   }
 }
 

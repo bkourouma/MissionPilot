@@ -11,49 +11,92 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ## Branche `feat/vague-1-fondations` — 2026-10-08 (Vague 1, fondations V3)
 
-**État :** part de `8a6d4e1` (vague 0 commitée). Phase 1 faite dans l'arbre de
-travail, **non commitée** : fondations communes aux cinq lots du PRD
-complémentaire. Aucune migration, aucune route remplie, aucun écran.
+**État :** fondations (`8a09a4f`) et cinq lots commités : STD `8705479`, DOS
+`93ebf47`, PRV `e10532a`, AGT `e55bd8e`, QUA `ca7f9d7`, puis `798df06`
+(tests de navigation, verrous PostgreSQL). **Intégration transversale faite dans
+l'arbre de travail, non commitée** (détail ci-dessous). Aucune recette navigateur.
+**Dernier commit :** `798df06`.
 
-**Posé par la phase 1 :**
+**Vague 1 — fait (lots commités) :** référentiel de méthodes versionné, héritage
+standard → cabinet → contexte → mission, modulation, dérogations, comité méthode
+(STD, `0200`–`0205`) ; dossier client vivant, états financiers contrôlés par
+moteur, fiabilité, frise, export (DOS, `0220`–`0223`) ; registre des preuves,
+assertions, solidité, triangulation, contradictions (PRV, `0240`–`0242`) ;
+registre des agents, autonomie N0–N4, non-régression, contenus clients non fiables
+(AGT, `0260`–`0264`) ; classes R0–R3, revue guidée, quatre yeux, signature,
+acceptation, satisfaction (QUA, `0280`–`0285`).
 
-- **Moteurs purs** (`packages/engines/src`, exportés par `index.ts`, couverture
-  100 % des lignes) : `qualite/` (classes R0–R3, `gardesRequises`,
-  `evaluerGarde` : séparation des tâches, quatre yeux) ; `preuves/`
-  (`indiceSolidite` en fraction exacte, `carteTriangulation`,
-  `detecterAssertionsSansPreuve`, regroupement pour/contre) ; `modulation/`
-  (`appliquerModulation`, `simulerModulation`, `executerCasTypes`,
-  `validerReglesModulation`, `validerContexteModulation`) ; `autonomie/`
-  (`niveauEffectif`, `statistiquesAutonomie`, `evaluerPromotion`,
-  `retrogradationAuto`) ; `contribution/` (`distanceEditionMots`,
-  `contributionIa`, `evaluerModificationMajeure`, `agregerTempsRevue`).
-- **Partagé** : `packages/shared/src/schemas/fondations.ts` (classes, niveaux,
-  fiabilités, sources, facteurs, `regleModulationSchema` de même forme JSON que
-  le moteur) ; 12 permissions dans `roles.ts` (`standard.*`, `methode.deroger`,
-  `dossier.*`, `preuve.*`, `agent.*`, `autonomie.decider` associé seul,
-  `qualite.relire`, `qualite.signer`).
-- **API** : plugins VIDES déjà enregistrés sous `/api` dans `app.ts` :
-  `routes/standard.ts`, `dossier-client.ts`, `preuves.ts`, `agents.ts`,
-  `qualite.ts` ; les lots n'ont plus à toucher `app.ts`.
-- **Web** : rubriques « Méthodes », « Dossiers clients », « Agents IA »,
-  « Qualité » dans `lib/navigation.ts`, `disponible: false` (désactivées, pas de
-  lien mort) ; chaque lot les passe à `true` avec son écran.
-- **ADR** : ADR-004 (référentiel de méthodes) et ADR-005 (exécuteur d'agents).
+**Vague 1 — intégration transversale (non commitée, 2026-10-08) :**
 
-**Lots à venir (parallèles, un territoire chacun) et plages de migrations :**
-STD `0200–0219`, DOS `0220–0239`, PRV `0240–0259`, AGT `0260–0279`,
-QUA `0280–0299`. Méthode Notation migrée sur le référentiel ensuite
-(condition de passage de la vague 1 : résultats identiques à la V2).
+- **Condition de passage** (« la notation tourne sur le référentiel avec des
+  résultats identiques à la V2 ») : une mission liée à une méthode calcule sa
+  notation DEPUIS la méthode effective (`notation/via-methode.ts` : briques
+  `notation_repondants`, `ecarts_perception`, `calcul_note` de `0205`, désignées
+  par leur code moteur, exécutées par les MÊMES moteurs que la V2) ; chemin V2
+  extrait tel quel dans `notation/calcul.ts`. Chaque version enregistre la version
+  de méthode, la liaison courante, le journal de modulation et le journal
+  d'exécution (`notation_versions_methode`, migration **`0206`**, `MPN06` ajout
+  seul, `MPN07` liaison non courante). Test `notation-methode.test.ts` : 7
+  combinaisons (grilles générique et cabinet, secteurs, stratégies, individuel et
+  collectif) STRICTEMENT identiques avec quatre règles actives sans effet sur le
+  calcul. Ce qui change quand une règle ajuste le calcul : pondération d'une
+  rubrique rattachée à une dimension de la grille (moteur pur
+  `appliquerPonderationsContexte`, poids remplacé aussi dans les surcharges
+  sectorielles, normalisation à 100) ; seuil de la brique des écarts ; brique de
+  calcul retirée (409 `METHODE_NOTATION_INCOMPLETE`) ; tout autre ajustement est
+  tracé dans `execution.non_appliques`.
+- **Qualité branchée** (`qualite/branchements.ts`) : génération d'un rapport
+  (état d'avancement, notation, plan) → suivi `rapport` R2 ; soumission et
+  publication d'une notation → suivi `notation` R3 ; éléments de revue guidée :
+  assertions fragiles, chiffres avec leur source, recommandations (initiatives du
+  plan, recommandations candidates de la méthode). Mission liée à une méthode :
+  publication = circuit `MPN04` ET suivi de la version **signé** (409
+  `SUIVI_QUALITE_NON_SIGNE`) ; sans méthode, comportement V2 inchangé. Définition de
+  terminé « notation » : item `notation_soumise` (en revue ou publiée) au lieu de
+  `notation_publiee` (sinon la signature avant publication était impossible).
+- **Dossier → méthode** : `GET /api/missions/:id/methode/contexte-propose`
+  (`standard.lire` ET `dossier.lire`) propose le contexte depuis le dossier
+  (`lireContexteClient`), sourcé, valeurs refusées écartées avec la raison ; l'écran
+  de liaison le pré-remplit, l'utilisateur confirme en liant.
+- **PRV-06** : annexe « Annexe — Sources » des rapports de notation et de plan (PDF
+  et Word, `rapports/sources.ts`) : assertions RETENUES dont le livrable désigne le
+  rapport, preuves numérotées avec fiabilité, verbatim nominatif sans accord masqué
+  pour tous ; seulement si le générateur a `preuve.lire`.
+- **Corrections** : `MPG04` traduit en 409 `NON_REGRESSION_REQUISE` par
+  `routes/ia-prompts.ts` et `routes/ia-parametres.ts` ; une nouvelle version d'un
+  prompt doté d'un jeu d'essai est créée INACTIVE si `activer` est omis, 409 si
+  `activer: true` explicite ; NPS déplacé dans `packages/engines/src/nps`
+  (`syntheseNps`, `ErreurNps`) ; `AppError.details` transmis par le gestionnaire
+  unique d'`app.ts` en liste blanche (`violations`, `erreurs`, `manquants`,
+  tableaux tronqués à 200) et gestionnaire de réponse propre au plugin qualité
+  retiré ; web : onglets « Méthode » (`standard.lire`) et « Qualité » (suivi
+  filtré sur la mission, `/qualite?mission=`) dans la rubrique mission.
+
+**Reste à faire (vague 1) :** recette navigateur de tous les écrans V3 ; relecture
+`code-reviewer` + `security-auditor` du diff d'intégration ; commit ; `IMPORT_INVALIDE`
+du dossier encore envoyé à la main (`routes/dossier-client.ts`, à convertir en
+`AppError` avec `details.erreurs`) ; génération d'un rapport d'état financier
+(type `etat`) inexistante, donc non branchée ; agent contradicteur, citations
+cliquables web (PRV-06, partie web) ; calibrations listées ci-dessous.
 
 **Pièges :**
 
-- Recherche mécanique n° 12 de `review-checklist.md` : le compte de `z.object`
-  de `packages/shared/src/schemas` augmente (fichier `fondations.ts`, tous
-  `.strict()`) ; à recompter.
+- **Ordre des migrations** : un fichier qui référence une table d'un lot doit
+  avoir un numéro PLUS GRAND que la migration qui la crée (`0206` et non `0151`
+  pour `notation_versions_methode`, qui référence `mission_methodes` de `0202`).
+- **Suivi qualité des notations** : ouvert dès la SOUMISSION en revue ; une
+  définition « notation » déjà copiée dans un cabinet (`qualite_definitions`)
+  garde l'ancien item `notation_publiee` : pour ce cabinet, une notation liée à
+  une méthode ne peut pas être signée avant publication (nouvelle version de
+  définition à créer). Les bases neuves prennent la nouvelle définition.
+- **Annexe des sources** : la citation repose sur le texte libre `livrable` de
+  l'assertion (contient « notation » ou « plan », sans casse ni accents).
+- Recherche n° 12 : 372 `z.object`, tous stricts ; recherche n° 10 : 477 routes
+  dont 8 sans `exiger` ; 95 migrations (`.claude/rules/review-checklist.md`).
 - Seuils posés par défaut, **à calibrer au pilote** : poids de fiabilité A–D,
   plafond 2 et seuils 0,75 / 0,5 de solidité ; promotion 50 exécutions / 95 % /
   90 jours ; modification majeure au-delà de 25 % ; incident majeur → N2.
-- Tests API de la phase 1 sur la base `missionpilot_ph1`.
+- Tests API d'intégration sur la base `missionpilot_int`.
 
 ---
 

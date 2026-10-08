@@ -407,6 +407,30 @@ export const hrefMethode = (id: string) => `/methodes/${id}`;
 export const hrefVersion = (id: string) => `/methodes/versions/${id}`;
 export const hrefSimulateur = (id: string) => `/methodes/versions/${id}/simulateur`;
 export const hrefMissionMethode = (id: string) => `/methodes/missions/${id}`;
+
+/** Contexte proposé depuis le dossier du client (GET /missions/:id/methode/contexte-propose). */
+export interface ContexteDossierPropose {
+  date: string;
+  contexte: ContexteModulationApi;
+  sources: {
+    facteur: string;
+    libelle: string;
+    date_effet: string;
+    fiabilite: string;
+  }[];
+  ecartes: { facteur: string; raison: string }[];
+}
+
+/** « Effectif au 01/06/2026, fiabilité B ; … » : provenance des valeurs pré-remplies. */
+export function texteSourcesDossier(p: Pick<ContexteDossierPropose, "sources">): string {
+  return p.sources
+    .map((s) => {
+      const [a, m, j] = s.date_effet.split("-");
+      const date = a && m && j ? `${j}/${m}/${a}` : s.date_effet;
+      return `${s.libelle} au ${date}${s.fiabilite ? `, fiabilité ${s.fiabilite}` : ""}`;
+    })
+    .join(" ; ");
+}
 export const cheminMethodes = (curseur?: string | null) =>
   `/api/methodes?limite=30${curseur ? `&curseur=${encodeURIComponent(curseur)}` : ""}`;
 export const hrefMethodes = (curseur?: string | null) =>

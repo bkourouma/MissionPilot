@@ -10,6 +10,7 @@ import {
   formaterDuree,
   formaterNps,
   hrefQualite,
+  hrefQualiteMission,
   hrefSuivi,
   libelleClasse,
   libelleVerification,
@@ -95,11 +96,15 @@ describe("filtres et chemins", () => {
     expect(lireFiltresQualite({ statut: "en_revue", curseur: "abc_-1" })).toEqual({
       statut: "en_revue",
       curseur: "abc_-1",
+      mission: "",
     });
     expect(lireFiltresQualite({ statut: "inconnu", curseur: "a b/c" })).toEqual({
       statut: "",
       curseur: "",
+      mission: "",
     });
+    expect(lireFiltresQualite({ mission: ID })).toMatchObject({ mission: ID });
+    expect(lireFiltresQualite({ mission: "../x" })).toMatchObject({ mission: "" });
     expect(lireFiltresQualite({ statut: ["valide", "x"] })).toMatchObject({ statut: "valide" });
   });
 
@@ -109,6 +114,13 @@ describe("filtres et chemins", () => {
     );
     expect(hrefQualite()).toBe("/qualite");
     expect(hrefQualite({ statut: "valide" })).toBe("/qualite?statut=valide");
+    expect(cheminSuivis({ statut: "", curseur: "", mission: ID })).toBe(
+      `/api/qualite/suivis?limite=30&mission_id=${ID}`,
+    );
+    expect(hrefQualiteMission(ID)).toBe(`/qualite?mission=${ID}`);
+    expect(hrefQualite({ mission: ID, statut: "valide" })).toBe(
+      `/qualite?mission=${ID}&statut=valide`,
+    );
     expect(hrefSuivi("a/b")).toBe("/qualite/a%2Fb");
     expect(cheminVu(ID, AUTRE)).toBe(`/api/qualite/suivis/${ID}/elements/${AUTRE}/vu`);
     expect(cheminAttestation(ID, AUTRE)).toBe(

@@ -62,6 +62,17 @@ const SQL: Record<string, [number, string, string]> = {
     "GRILLE_FIGEE",
     "Cette version de grille est validée : elle est figée, créez une nouvelle version.",
   ],
+  // 0206 : calcul d'une notation depuis la méthode de sa mission (notation/via-methode.ts).
+  MPN06: [
+    409,
+    "NOTATION_IMMUABLE",
+    "Le calcul d'une notation par la méthode est en ajout seul : lancez un nouveau calcul.",
+  ],
+  MPN07: [
+    409,
+    "METHODE_NOTATION_CHANGEE",
+    "La méthode de la mission vient de changer : relancez le calcul.",
+  ],
 };
 
 interface AnomalieMoteur {

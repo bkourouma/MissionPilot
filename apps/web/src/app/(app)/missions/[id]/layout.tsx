@@ -6,6 +6,8 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../components/ui/Onglets";
 import { MODE_LIBELLES } from "../../../../lib/catalogue";
+import { hrefMissionMethode } from "../../../../lib/methodes";
+import { hrefQualiteMission } from "../../../../lib/qualite";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { STATUT_MISSION } from "../../../../lib/missions";
 import { chargerMission } from "../../../../lib/missions-serveur";
@@ -13,7 +15,10 @@ import { exigerPermission } from "../../../../lib/session";
 
 /**
  * En-tête commun d'une mission et onglets Fiche / Découpage / Planning / Affectations /
- * Documents / Rapports / Suivi / Budget / Débours / Facturation (selon les droits).
+ * Documents / Rapports / Suivi / Budget / Débours / Facturation (selon les droits), plus deux
+ * onglets qui mènent hors de la rubrique : « Méthode » (référentiel, `standard.lire`, page
+ * `/methodes/missions/[id]`) et « Qualité » (suivi qualité des livrables de la mission, ouvert à
+ * toute l'équipe : la consultation n'exige que `mission.lire`, comme l'API).
  */
 export default async function LayoutMission({
   children,
@@ -65,6 +70,10 @@ export default async function LayoutMission({
     ...(aPermission(utilisateur.roles, "preuve.lire")
       ? [{ id: "preuves", libelle: "Preuves", href: `${base}/preuves` }]
       : []),
+    ...(aPermission(utilisateur.roles, "standard.lire")
+      ? [{ id: "methode", libelle: "Méthode", href: hrefMissionMethode(m.id) }]
+      : []),
+    { id: "qualite", libelle: "Qualité", href: hrefQualiteMission(m.id) },
     ...(aPermission(utilisateur.roles, "budget.lire_jours")
       ? [
           { id: "suivi", libelle: "Suivi", href: `${base}/suivi` },

@@ -17,6 +17,7 @@ import {
   saisieDepuisContexte,
   saisieFacteurVide,
   saisieRegleVide,
+  texteSourcesDossier,
   validerBrique,
   type Differences,
   type Facteur,
@@ -436,5 +437,19 @@ describe("divers", () => {
     for (const code of ["STANDARD_LECTURE_SEULE", "VARIANTE_EXISTANTE", "METHODE_DEJA_LIEE"]) {
       expect(messageMethodes(new ErreurApi(code, "x", 409))).toBeTruthy();
     }
+  });
+});
+
+describe("contexte proposé depuis le dossier du client", () => {
+  it("décrit la provenance des valeurs pré-remplies (date JJ/MM/AAAA, fiabilité)", () => {
+    expect(
+      texteSourcesDossier({
+        sources: [
+          { facteur: "effectif", libelle: "Effectif", date_effet: "2026-06-01", fiabilite: "B" },
+          { facteur: "x", libelle: "Autre", date_effet: "inconnue", fiabilite: "" },
+        ],
+      }),
+    ).toBe("Effectif au 01/06/2026, fiabilité B ; Autre au inconnue");
+    expect(texteSourcesDossier({ sources: [] })).toBe("");
   });
 });

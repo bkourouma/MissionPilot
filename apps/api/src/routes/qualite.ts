@@ -24,7 +24,7 @@ import {
 } from "../qualite/acceptation.js";
 import { DEFINITIONS_PAR_DEFAUT } from "../qualite/definitions.js";
 import { exigerSuivi } from "../qualite/donnees.js";
-import { ErreurGarde, traduireErreurQualite } from "../qualite/erreurs.js";
+import { traduireErreurQualite } from "../qualite/erreurs.js";
 import {
   releverClasse,
   signerSuivi,
@@ -299,16 +299,9 @@ function routesAcceptationEtSatisfaction(app: FastifyInstance) {
 }
 
 export const routesQualite: FastifyPluginAsync = async (app) => {
-  app.setErrorHandler(async (error, _request, reply) => {
-    if (error instanceof ErreurGarde) {
-      return reply.status(error.statut).send({
-        erreur: {
-          code: error.code,
-          message: error.message,
-          details: { violations: error.violations },
-        },
-      });
-    }
+  // Traduction seule : l'enveloppe (et `details.violations` d'une ErreurGarde) est
+  // produite par le gestionnaire unique d'app.ts.
+  app.setErrorHandler(async (error) => {
     throw traduireErreurQualite(error);
   });
   routesSuivis(app);

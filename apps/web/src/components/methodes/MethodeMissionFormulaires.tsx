@@ -24,19 +24,25 @@ import { ZoneTexte } from "../ui/ZoneTexte";
 import { ChampsContexte } from "./ChampsContexte";
 import { VueDifferentiel } from "./ResultatModulation";
 
-/** Liaison d'une mission à une version publiée, avec son contexte (STD-08). */
+/**
+ * Liaison d'une mission à une version publiée, avec son contexte (STD-08). `contexteInitial` :
+ * contexte proposé depuis le dossier du client (STD-04), que l'utilisateur relit, complète et
+ * confirme en liant ; l'API revalide le contexte.
+ */
 export function LiaisonMethode({
   missionId,
   versions,
   facteurs,
+  contexteInitial,
 }: {
   missionId: string;
   versions: { id: string; libelle: string }[];
   facteurs: Facteur[];
+  contexteInitial?: ContexteModulationApi | null;
 }) {
   const f = useFormulaire<string>();
   const [versionId, setVersionId] = useState(versions[0]?.id ?? "");
-  const [contexte, setContexte] = useState<SaisieContexte>({});
+  const [contexte, setContexte] = useState<SaisieContexte>(saisieDepuisContexte(contexteInitial));
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

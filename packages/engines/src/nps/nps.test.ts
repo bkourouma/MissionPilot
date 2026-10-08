@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { syntheseNps } from "../src/qualite/nps.js";
+import { ErreurNps, estNoteSatisfaction, syntheseNps } from "./index";
 
 describe("syntheseNps (QUA-08)", () => {
   it("sans réponse : pas de NPS", () => {
@@ -14,7 +14,7 @@ describe("syntheseNps (QUA-08)", () => {
 
   it("classe promoteurs 9-10, passifs 7-8, détracteurs 0-6", () => {
     const r = syntheseNps([10, 9, 8, 7, 6, 0]);
-    expect(r).toMatchObject({ total: 6, promoteurs: 2, passifs: 2, detracteurs: 2, nps: "0.0" });
+    expect(r).toEqual({ total: 6, promoteurs: 2, passifs: 2, detracteurs: 2, nps: "0.0" });
   });
 
   it("arrondit au dixième, au plus loin de zéro à égalité", () => {
@@ -29,9 +29,22 @@ describe("syntheseNps (QUA-08)", () => {
     expect(syntheseNps([0, ...Array<number>(15).fill(8)]).nps).toBe("-6.3");
   });
 
-  it("refuse une note hors de 0 à 10", () => {
-    expect(() => syntheseNps([11])).toThrow(RangeError);
-    expect(() => syntheseNps([-1])).toThrow(RangeError);
-    expect(() => syntheseNps([7.5])).toThrow(RangeError);
+  it("un écart minuscule négatif arrondi à zéro n'affiche pas « -0.0 »", () => {
+    const notes = [0, ...Array<number>(2000).fill(8)];
+    expect(syntheseNps(notes).nps).toBe("0.0");
+  });
+
+  it("refuse une note hors de 0 à 10 (erreur typée du moteur)", () => {
+    for (const n of [11, -1, 7.5, Number.NaN]) {
+      expect(estNoteSatisfaction(n)).toBe(false);
+      expect(() => syntheseNps([n])).toThrow(ErreurNps);
+    }
+    try {
+      syntheseNps([11]);
+    } catch (e) {
+      expect((e as ErreurNps).code).toBe("NOTE_INVALIDE");
+    }
+    expect(estNoteSatisfaction(0)).toBe(true);
+    expect(estNoteSatisfaction(10)).toBe(true);
   });
 });

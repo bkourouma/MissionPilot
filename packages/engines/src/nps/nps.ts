@@ -1,12 +1,25 @@
-/*
- * Synthèse de satisfaction « NPS » (QUA-08) : promoteurs (9–10), passifs (7–8), détracteurs (0–6) ;
- * NPS = (promoteurs − détracteurs) / total × 100, arrondi au dixième, au plus loin de zéro en cas
- * d'égalité. Arithmétique ENTIÈRE exacte (BigInt) : aucun flottant, aucun arrondi de montant.
+/**
+ * Synthèse de satisfaction « NPS » (QUA-08, PRD complémentaire §10) :
+ * promoteurs (9–10), passifs (7–8), détracteurs (0–6) ;
+ * NPS = (promoteurs − détracteurs) / total × 100, arrondi au dixième, au plus
+ * loin de zéro en cas d'égalité (moitié vers le haut en valeur absolue).
  *
- * À DÉPLACER dans `packages/engines` à la première occasion (CODING_STANDARDS §3 : les calculs
- * vivent dans les moteurs) ; le lot QUA n'a pas le territoire des moteurs. Testé dans
- * `apps/api/test/qualite-nps.test.ts`.
+ * Arithmétique ENTIÈRE exacte (BigInt) : aucun flottant. Fonction pure et
+ * déterministe ; l'API (`apps/api/src/qualite/satisfaction.ts`) l'appelle,
+ * elle ne recalcule rien.
  */
+
+export type CodeErreurNps = "NOTE_INVALIDE";
+
+export class ErreurNps extends Error {
+  readonly code: CodeErreurNps;
+
+  constructor(code: CodeErreurNps, message: string) {
+    super(message);
+    this.name = "ErreurNps";
+    this.code = code;
+  }
+}
 
 export interface SyntheseNps {
   total: number;
@@ -17,13 +30,18 @@ export interface SyntheseNps {
   nps: string | null;
 }
 
+/** Note de satisfaction admise : entier de 0 à 10. */
+export function estNoteSatisfaction(n: number): boolean {
+  return Number.isInteger(n) && n >= 0 && n <= 10;
+}
+
 export function syntheseNps(notes: readonly number[]): SyntheseNps {
   let promoteurs = 0;
   let passifs = 0;
   let detracteurs = 0;
   for (const n of notes) {
-    if (!Number.isInteger(n) || n < 0 || n > 10) {
-      throw new RangeError("Note de satisfaction : entier de 0 à 10.");
+    if (!estNoteSatisfaction(n)) {
+      throw new ErreurNps("NOTE_INVALIDE", "Note de satisfaction : entier de 0 à 10.");
     }
     if (n >= 9) promoteurs += 1;
     else if (n >= 7) passifs += 1;

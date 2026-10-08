@@ -5,6 +5,7 @@ import {
   iaTestSchema,
   TACHES_IA,
 } from "@missionpilot/shared";
+import { avecErreursAgents } from "../agents/erreurs.js";
 import { journaliser } from "../audit.js";
 import { trousseauDepuisConfig } from "../auth/chiffrement.js";
 import { serviceIdentite, type FacteurConfirme } from "../auth/confirmer-identite.js";
@@ -161,12 +162,16 @@ export const routesIaParametres: FastifyPluginAsync = async (app) => {
         if (modele === null) {
           await db.query("DELETE FROM ia_modeles_taches WHERE tache = $1", [tache]);
         } else {
-          await db.query(
-            `INSERT INTO ia_modeles_taches (cabinet_id, tache, modele, modifie_par)
-               VALUES ($1, $2, $3, $4)
-               ON CONFLICT (cabinet_id, tache) DO UPDATE
-                 SET modele = excluded.modele, modifie_par = excluded.modifie_par, modifie_le = now()`,
-            [auth.cabinetId, tache, modele, auth.utilisateurId],
+          // MPG04 (0264) : un prompt actif doté d'un jeu d'essai n'a pas réussi ce
+          // jeu avec ce modèle → 409 NON_REGRESSION_REQUISE, jamais une 500.
+          await avecErreursAgents(() =>
+            db.query(
+              `INSERT INTO ia_modeles_taches (cabinet_id, tache, modele, modifie_par)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (cabinet_id, tache) DO UPDATE
+                   SET modele = excluded.modele, modifie_par = excluded.modifie_par, modifie_le = now()`,
+              [auth.cabinetId, tache, modele, auth.utilisateurId],
+            ),
           );
         }
       }

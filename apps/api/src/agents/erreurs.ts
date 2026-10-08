@@ -63,17 +63,14 @@ export const contributionExiste = () =>
   erreur(409, "CONTRIBUTION_EXISTE", "La contribution de l'IA à ce livrable est déjà mesurée.");
 export const jeuEssaiAbsent = () =>
   erreur(409, "JEU_ESSAI_ABSENT", "Aucun jeu d'essai pour ce prompt : créez-en un d'abord.");
-export const nonRegressionRequise = () =>
-  erreur(
-    409,
-    "NON_REGRESSION_REQUISE",
-    "Activation refusée : aucune évaluation de non-régression réussie pour cette version ou ce modèle.",
-  );
+export const nonRegressionRequise = (
+  message = "Activation refusée : aucune évaluation de non-régression réussie pour cette version ou ce modèle.",
+) => erreur(409, "NON_REGRESSION_REQUISE", message);
 const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG01: () => erreur(409, "HISTORIQUE_AGENTS_FIGE", "Historique des agents en ajout seul."),
   MPG02: plafondAgent,
   MPG03: () => erreur(409, "AUTONOMIE_REFUSEE", "Changement de niveau d'autonomie refusé."),
-  MPG04: nonRegressionRequise,
+  MPG04: () => nonRegressionRequise(),
   MPG05: () =>
     erreur(409, "AGENTS_INCOHERENCE", "Opération incohérente avec l'exécution ou le jeu d'essai."),
 };

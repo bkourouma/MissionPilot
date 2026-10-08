@@ -85,11 +85,22 @@ export default async function PageQualite({
 
       <section aria-labelledby="titre-suivis" className="mp-pile">
         <h2 id="titre-suivis" className="mp-section__titre">
-          Livrables suivis
+          {filtres.mission ? "Livrables suivis de la mission" : "Livrables suivis"}
         </h2>
+        {filtres.mission ? (
+          <p className="mp-texte-doux mp-texte-petit">
+            <Link href={`/missions/${filtres.mission}`} className="mp-lien-ligne">
+              Retour à la mission
+            </Link>{" "}
+            ·{" "}
+            <Link href={hrefQualite({ statut: filtres.statut })} className="mp-lien-ligne">
+              Toutes les missions
+            </Link>
+          </p>
+        ) : null}
         <nav className="mp-qualite__entete-liste" aria-label="Filtrer par statut">
           <Link
-            href={hrefQualite()}
+            href={hrefQualite({ mission: filtres.mission })}
             className="mp-qualite__filtre"
             aria-current={filtres.statut === "" ? "true" : undefined}
           >
@@ -98,7 +109,7 @@ export default async function PageQualite({
           {STATUTS_SUIVI.map((s) => (
             <Link
               key={s}
-              href={hrefQualite({ statut: s })}
+              href={hrefQualite({ mission: filtres.mission, statut: s })}
               className="mp-qualite__filtre"
               aria-current={filtres.statut === s ? "true" : undefined}
             >
@@ -163,7 +174,11 @@ export default async function PageQualite({
                 ? hrefQualite({ ...filtres, curseur: r.donnees.curseur_suivant })
                 : null
             }
-            hrefDebut={filtres.curseur ? hrefQualite({ statut: filtres.statut }) : null}
+            hrefDebut={
+              filtres.curseur
+                ? hrefQualite({ mission: filtres.mission, statut: filtres.statut })
+                : null
+            }
           />
         ) : null}
       </section>

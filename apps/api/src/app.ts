@@ -5,7 +5,7 @@ import { ZodError } from "zod";
 import type { Role } from "@missionpilot/shared";
 import { estLocal, type Config } from "./config.js";
 import type { Database } from "./db/pool.js";
-import { AppError } from "./errors.js";
+import { AppError, detailsPublics } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { rolesObligatoires } from "./auth/double-authentification.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
@@ -200,9 +200,11 @@ export async function buildApp(
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
-      return reply
-        .status(error.statut)
-        .send({ erreur: { code: error.code, message: error.message } });
+      // `details` : liste blanche de champs (CHAMPS_DETAILS_PUBLICS, errors.ts).
+      const details = detailsPublics(error.details);
+      return reply.status(error.statut).send({
+        erreur: { code: error.code, message: error.message, ...(details ? { details } : {}) },
+      });
     }
     if (error instanceof ZodError) {
       return reply.status(400).send({

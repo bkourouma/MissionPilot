@@ -68,14 +68,18 @@ export const DEFINITIONS_PAR_DEFAUT: Record<TypeLivrable, DefinitionDefaut | nul
     ],
   },
   notation: {
-    libelle: "Notation publiée terminée",
+    libelle: "Notation terminée",
     items: [
       item(
         "notation_enregistree",
         "La version de la notation existe pour cette mission",
         "enregistrement",
       ),
-      item("notation_publiee", "La version est publiée", "statut_source", { attendu: ["publiee"] }),
+      // Soumise en revue OU publiée : pour une mission liée à une méthode, la publication EXIGE un
+      // suivi signé (notation/notations.ts) ; la revue qualité se fait donc sur la version en revue.
+      item("notation_soumise", "La version est soumise en revue ou publiée", "statut_source", {
+        attendu: ["en_revue", "publiee"],
+      }),
       item("sections_notation", "Le résultat du calcul est présent", "sections", {
         sections: ["resultat"],
       }),

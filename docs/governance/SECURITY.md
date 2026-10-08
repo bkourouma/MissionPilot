@@ -406,6 +406,19 @@ soit le code appelant).
   seul (`MPN01`) ; transitions de revue contrôlées en base (`MPN03`) ;
   publication réservée à l'expert métier avec séparation des tâches (§5,
   `MPN04`) ; grille validée figée (`MPN05`). Tables `portail_interdit`.
+  **Calcul depuis le référentiel** (vague 1, `notation/via-methode.ts`, `0206`) :
+  une mission liée à une méthode calcule sa notation depuis la méthode effective
+  (briques désignant les moteurs par code, MÊMES moteurs que la V2 ; résultats
+  identiques tant qu'aucune règle n'ajuste le calcul, test
+  `notation-methode.test.ts`) ; la version enregistre la version de méthode, la
+  liaison courante et les journaux de modulation et d'exécution
+  (`notation_versions_methode`, ajout seul `MPN06`, liaison courante de la mission
+  `MPN07`, `portail_interdit`). Une pondération de contexte ne vient que d'une
+  règle validée par le comité méthode, est appliquée par le moteur pur
+  `appliquerPonderationsContexte` et tracée (poids avant et après) ; tout autre
+  ajustement est tracé comme sans effet. **Publication** d'une notation d'une
+  mission liée à une méthode : circuit `MPN04` ET suivi qualité de la version
+  SIGNÉ (409 `SUIVI_QUALITE_NON_SIGNE`, §5 ter) ; sans méthode, inchangé.
 - **KPI** (KPI-01 à KPI-05 ; `kpi/`, `0160`) : permissions `kpi.lire`,
   `kpi.gerer`, `kpi.saisir` ; côté portail, `portail.kpi.saisir` et
   désignation explicite comme contributeur du KPI (`kpi_contributeurs`,
@@ -478,15 +491,25 @@ pas la séparation des tâches.
   sociale du client lié et le NOMBRE de ses missions en cours, jamais leur intitulé. Accepter malgré un
   conflit exige un motif. Détection limitée aux relations déclarées : aucune recherche d'homonymes.
 - **Satisfaction (QUA-08).** Note entière 0–10 saisie par le cabinet ; corrections en nouvelle ligne
-  (dernier rang). Le NPS est calculé par `qualite/nps.ts` (entiers exacts), à déplacer dans les
-  moteurs.
+  (dernier rang). Le NPS est calculé par le moteur pur `syntheseNps` (`packages/engines/src/nps`,
+  entiers exacts), appelé par `qualite/satisfaction.ts`.
+- **Branchements** (`qualite/branchements.ts`, service interne sans droit supplémentaire, dans la
+  transaction de l'appelant qui a déjà exigé le sien) : génération d'un rapport → suivi `rapport`
+  (R2) ; soumission en revue et publication d'une notation → suivi `notation` (R3). Éléments de la
+  revue guidée déposés : assertions fragiles de la mission (`assertionsFragilesDeMission`), chiffres
+  du livrable avec leur source, recommandations (initiatives du plan, recommandations candidates de
+  la méthode) ; plafonds `BRANCHEMENT_MAX`, dépôt idempotent, rien sur un suivi validé ou signé.
+  Définition de terminé « notation » : version **soumise en revue ou publiée** (`notation_soumise`),
+  pour permettre la signature avant la publication exigée d'une mission liée à une méthode.
 - **Audit.** Chaque action journalise (`qualite.suivi.ouvrir`, `qualite.verifier`, `qualite.attester`,
   `qualite.valider`, `qualite.signer`, `qualite.classe.relever`, `qualite.element.vu`,
   `qualite.session.*`, `qualite.acceptation.evaluer`, `qualite.relation.*`,
   `qualite.satisfaction.saisir`) sans le texte des commentaires.
 - **Limites connues.** Temps de revue : session plafonnée à 2 h (une session oubliée n'enfle pas le
-  temps) ; pas de revue à froid (QUA-05, V4) ; les modules plans, rapports et notation n'ouvrent pas
-  encore eux-mêmes le suivi (branchement ultérieur par `ouvrirSuivi` et `ajouterElementsRevue`).
+  temps) ; pas de revue à froid (QUA-05, V4) ; le module des plans n'ouvre pas le suivi d'un plan
+  (seul son RAPPORT généré est suivi) ; pas de génération de rapport d'état financier (type `etat`),
+  donc pas de branchement ; une définition « notation » copiée dans un cabinet avant le 2026-10-08
+  garde l'item `notation_publiee` (nouvelle version de définition à créer).
 
 ## 6. Confidentialité financière (FIN-02) et historique immuable
 
@@ -528,13 +551,14 @@ pas la séparation des tâches.
   | `MPP01-03` | famille de rôles et rattachement du portail, partage invalide, validation de jalon définitive | `0110`, `0111` |
   | `MPQ01-05` | modèle et version validée de questionnaire, envoi, répondants, réponse soumise, relances en ajout seul | `0140`–`0142` |
   | `MPQ06-08` | historique IA d'un questionnaire en ajout seul et rangs consécutifs (`MPQ06`), soumission après la date limite refusée (`MPQ07`), version d'origine IA validée sans validation humaine (`MPQ08`) | `0149`, `0150` |
-  | `MPN01-05` | notation en ajout seul, cohérence du calcul, revue, publication par un expert et séparation des tâches (`MPN04`), grille figée (`MPN05`) | `0145`, `0146` |
+  | `MPN01-07` | notation en ajout seul, cohérence du calcul, revue, publication par un expert et séparation des tâches (`MPN04`), grille figée (`MPN05`), calcul par la méthode en ajout seul (`MPN06`) et lié à la liaison courante de la mission (`MPN07`) | `0145`, `0146`, `0206` |
   | `MPK01-07` | champs figés d'un KPI, client de la mission, KPI inactif, date déjà mesurée, ajout seul, date hors suivi, 20 corrections | `0160` |
   | `MPS01-06` | plan en ajout seul et rattachement figé, cohérence des éléments (dépendances, KPI d'objectif : `MPS02`), auteur ≠ valideur, partage d'un contenu non validé, 200 versions du modèle ou changements de lien (`MPS05`), notation liée non publiée ou d'un autre client (`MPS06`) | `0180`–`0184` |
   | `MPR01-02` | rapport de notation ou de plan : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`) | `0131` |
   | `MPY01-07` | qualité : historiques en ajout seul (`MPY01`), suivi (classe jamais abaissée, statut qui ne recule pas, livrable signé figé : `MPY02`), élément de revue ajouté après validation (`MPY03`), session de revue close une fois (`MPY04`), étape de garde hors état (`MPY05`), signature d'un suivi non validé ou d'une autre version (`MPY06`), relation de clients en double sens (`MPY07`) | `0280`–`0284` |
   | `MPV01-05` | registre des preuves : historique en ajout seul et champs figés d'une dimension (`MPV01`), cohérence mission, client, document, réponse ou lien (`MPV02`), versions consécutives (`MPV03`), avis d'expert signé par l'auteur de la version (`MPV04`), arbitrage d'une contradiction qui n'est plus courante (`MPV05`) | `0240`–`0242` |
   | `MPM01-06` | référentiel de méthodes : version publiée et son contenu immuables (`MPM01`), incohérence de propriétaire, de numérotation ou d'identité (`MPM02`), historiques en ajout seul (liaison des missions, validations de dérogation, propositions : `MPM03`), décision de dérogation définitive ou approuvée par son demandeur, quatre yeux (`MPM04`), circuit du comité méthode et relecteur ≠ auteur (`MPM05`), version liée à une mission non publiée, d'un autre cabinet ou plus ancienne (`MPM06`) | `0201`–`0203` |
+  | `MPG01-05` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt ou d'un modèle sans évaluation de non-régression réussie (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`) | `0260`–`0264` |
   | `MPO01-04` | dossier client : tout en ajout seul (`MPO01`), remplacement d'un fait (même client, catégorie et clé, jamais un fait rejeté) ou d'un état financier (état courant du même exercice, un seul courant par exercice) (`MPO02`), décision sur un enregistrement remplacé ou fait extrait par l'IA confirmé dans sa transaction de création (`MPO03`), lignes d'état ajoutées hors de l'ingestion, acceptation automatique d'un état en écart ou acceptation humaine d'un état en écart sans motif (`MPO04`) | `0220`–`0223` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
@@ -555,9 +579,12 @@ pas la séparation des tâches.
 ## 7. Assainissement des entrées et des sorties
 
 - **Validation** : schémas Zod `.strict()` partagés (`packages/shared/src/schemas/`,
-  256 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
+  372 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
   `bodyLimit`) ; paramètres `id` en UUID (`http/outils.ts`). Les erreurs Zod
-  renvoient 400 `REQUETE_INVALIDE`.
+  renvoient 400 `REQUETE_INVALIDE`. Une `AppError` ne transmet de `details` que
+  les champs de la liste blanche `CHAMPS_DETAILS_PUBLICS` (`errors.ts` :
+  `violations`, `erreurs`, `manquants` ; tableaux tronqués à 200) : jamais une
+  trace, une requête, un `detail` PostgreSQL ou une valeur de secret.
 - **SQL** : requêtes paramétrées (`$n`). Les interpolations dans un gabarit SQL
   sont des constantes de code, des fragments construits depuis des listes fixes
   (`clauseSet`, noms de colonnes validés `^[a-z_]+$`, `db/outils.ts` ;
@@ -710,9 +737,11 @@ pas la séparation des tâches.
     évaluation réussie (`MPG04`, déclencheurs sur `ia_prompt_activations` et
     `ia_modeles_taches`) ; le premier jeu épingle la version active. Évaluations
     sur le fournisseur LOCAL déterministe (`ia/fournisseur-local.ts`), aucun
-    appel externe. **Limites** : `routes/ia-prompts.ts` et
-    `routes/ia-parametres.ts` ne traduisent pas encore `MPG04` (réponse 500 au
-    lieu de 409) ; revenir au modèle recommandé n'est pas gardé.
+    appel externe. Les routes `routes/ia-prompts.ts` et `routes/ia-parametres.ts`
+    traduisent `MPG04` en 409 `NON_REGRESSION_REQUISE` ; une nouvelle version d'un
+    prompt doté d'un jeu d'essai est créée inactive quand `activer` est omis (409
+    si `activer: true` explicite : elle n'a encore aucune évaluation). **Limite** :
+    revenir au modèle recommandé n'est pas gardé.
   - **Transparence** (AGT-09) : agent, brique, niveau effectif, prompt, modèle,
     mode dégradé (AGT-10), sources, empreinte de l'entrée (jamais l'entrée en
     clair), décision humaine ; le coût est ABSENT sans `finance.lire` ;
@@ -843,6 +872,13 @@ du stockage (§8 bis).
   conservation et **mention de la contribution de l'IA** en pied de page (active
   par défaut, texte par défaut ou personnalisé de 300 caractères au plus, sans
   caractère de contrôle).
+- **Suivi qualité et sources** (vague 1) : chaque rapport généré ouvre son suivi
+  qualité R2 dans la transaction d'enregistrement (§5 ter). Les rapports de
+  notation et de plan portent l'annexe « Annexe — Sources » (PRV-06,
+  `rapports/sources.ts`, PDF et Word) : assertions RETENUES dont le livrable
+  désigne le rapport, preuves numérotées avec type, date et fiabilité ; un verbatim
+  nominatif sans accord est masqué pour TOUS (`vuePreuve(…, false)`) ; annexe
+  produite seulement si le générateur a `preuve.lire`.
 - **PDF de facture** (`GET /api/factures/:id/pdf`, `facture.lire`, mission
   visible, `routes/factures-pdf.ts`) : même document HTML échappé que le document
   de facture (§7), imprimé par la même barrière Chrome ; rendu à chaque demande,
@@ -902,7 +938,8 @@ migrations `0240`–`0242`.
   détection automatique des contradictions (agent contradicteur) n'existe pas
   encore, le lien « contre » est posé par un consultant ; le lien vers un fichier,
   une réponse ou un document n'est pas encore vérifié contre le droit de lecture du
-  fichier ; PRV-06 (citations dans les livrables) n'est pas faite.
+  fichier ; PRV-06 : l'annexe des sources des rapports PDF et Word est faite
+  (§8 bis), pas les citations cliquables des livrables web.
 
 ## 8 quater. Dossier client vivant (DOS-01 à DOS-07)
 
@@ -1023,8 +1060,11 @@ des migrations `0220`–`0223`, moteurs `packages/engines/src/dossier/`.
   `SEPARATION_DES_TACHES`, `RELECTEUR_ATTENDU` (403) ; `CONTEXTE_INVALIDE`,
   `MOTEUR_INCONNU`, `MODULATION_*` (400).
 - **Limites connues** : le standard ne se publie que par migration (pas d'espace
-  d'administration ACC) ; facteurs portés par le dossier client non encore lus
-  automatiquement (la liaison reçoit le contexte complet) ; seuils d'autonomie par
+  d'administration ACC) ; facteurs portés par le dossier client PROPOSÉS, pas
+  appliqués d'office (`GET /missions/:id/methode/contexte-propose`,
+  `standard.lire` ET `dossier.lire`, mission visible ; `standard/contexte-dossier.ts` :
+  valeurs courantes sourcées, valeurs refusées par le moteur écartées avec la
+  raison ; rien n'est écrit, l'utilisateur confirme en liant) ; seuils d'autonomie par
   classe (N2 au plus pour R2 et R3, N3 pour R1, N4 pour R0) posés par défaut, à
   valider.
 

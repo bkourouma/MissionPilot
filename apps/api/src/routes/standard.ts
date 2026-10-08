@@ -38,6 +38,7 @@ import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { paramsId } from "../http/outils.js";
 import { lireContenu, sansIdentifiants } from "../standard/contenu.js";
+import { proposerContexteMission } from "../standard/contexte-dossier.js";
 import {
   demanderDerogation,
   deciderDerogation,
@@ -130,6 +131,8 @@ import {
  *   DELETE …/{etapes,briques,elements,rubriques,regles,cas-types}/:enfantId ;
  * - GET et PUT /missions/:id/methode, POST /missions/:id/methode/contexte,
  *   GET et POST /missions/:id/methode/migration ;
+ * - GET /missions/:id/methode/contexte-propose (`standard.lire` ET `dossier.lire`, mission
+ *   visible) : contexte proposé depuis le dossier du client, à confirmer par la liaison ;
  * - GET et POST /missions/:id/derogations, GET /derogations, GET /derogations/:id,
  *   POST /derogations/:id/decisions ;
  * - GET et POST /standard/propositions, POST /standard/propositions/:id/revue,
@@ -394,6 +397,14 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "standard.lire");
     const { id } = paramsId.parse(request.params);
     return lire(auth, (db) => lireMethodeMission(db, auth, id));
+  });
+
+  // Dossier → méthode : contexte proposé depuis le dossier du client (rien n'est écrit).
+  app.get("/missions/:id/methode/contexte-propose", async (request) => {
+    const auth = exiger(request, "standard.lire");
+    exiger(request, "dossier.lire");
+    const { id } = paramsId.parse(request.params);
+    return lire(auth, (db) => proposerContexteMission(db, auth, id));
   });
 
   app.put("/missions/:id/methode", async (request) => {

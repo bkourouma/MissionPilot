@@ -27,6 +27,7 @@ import {
   score,
   section,
 } from "./outils.js";
+import { sectionSources } from "./sources.js";
 
 /*
  * Rapport de notation (NOT-07) : rendu d'une version PUBLIÉE (revue d'un
@@ -41,6 +42,9 @@ import {
  * - ajustements : historique en ajout seul, motifs saisis par les consultants
  *   et publiés avec la version (aucun texte produit par l'IA).
  * Les scores sont seulement MIS EN FORME (rapports/outils.ts).
+ *
+ * Annexe « Sources » (PRV-06, rapports/sources.ts) : preuves des assertions
+ * citées, verbatims nominatifs sans accord masqués.
  *
  * Non reproduits : écarts entre répondants (noms des répondants du client),
  * radar et barres graphiques (rendus en tableaux), plan d'action recommandé
@@ -325,6 +329,9 @@ export async function rapportNotation(
       },
     ]),
   );
+  // Annexe des sources (PRV-06) : preuves des assertions citées, verbatims nominatifs masqués.
+  const sources = await sectionSources(db, auth, notation.mission_id, "notation");
+  if (sources) sections.push(sources);
   return {
     source: { missionId: notation.mission_id, notationId: notation.id, version: v.version.numero },
     rapport: {

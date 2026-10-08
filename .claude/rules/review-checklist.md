@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-08 (branche `feat/vague-0-reliquats`, sur l'arbre de travail) en lançant les commandes
+ont été relevés le 2026-10-08 (branche `feat/vague-1-fondations`, arbre de travail de l'intégration de la vague 1) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -93,6 +93,14 @@ des mécanismes : `docs/governance/SECURITY.md` et
   d'ajout seul n'admet que l'anonymisation prévue, jamais un `UPDATE` libre
   (modèle `0104_ia_conservation.sql`). Toute durée de conservation par défaut
   est notée « à valider » (DECISIONS.md).
+- **Un livrable produit ouvre son suivi qualité** (vague 1) : rapport généré
+  (R2) et notation soumise ou publiée (R3) passent par
+  `qualite/branchements.ts` (`assurerSuiviLivrable`, `ajouterElementsRevue`) dans
+  la transaction du module ; une notation d'une mission liée à une méthode ne se
+  publie qu'avec son suivi SIGNÉ (`SUIVI_QUALITE_NON_SIGNE`) en plus de `MPN04`.
+  Un calcul qui lit le référentiel appelle les MÊMES moteurs que le chemin direct
+  et trace tout ajustement (modèle `notation/via-methode.ts`, test de
+  non-régression `notation-methode.test.ts`).
 - **Un rapport n'est pas un document de mission** : il s'enregistre dans
   `rapports_mission` avec son niveau calculé (`rapports/niveaux.ts`,
   `rapports/enregistrement.ts`), jamais dans `mission_documents` ; sa lecture
@@ -117,8 +125,12 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-08, `0076`, `0104`, `0122`, `0131`, `0132`, `0149`,
-  `0150`, `0182`–`0184` ne sont pas encore commitées. `migrate.ts` ne vérifie pas de somme de contrôle : c'est la
+  recréer) ; au 2026-10-08, seule `0206` (intégration de la vague 1) n'est pas
+  encore commitée ; celles de la vague 0 et des lots de la vague 1 le sont.
+  Une migration qui référence la table d'un autre domaine prend un numéro plus
+  grand que celle qui la crée (`0206`, pas `0151`, pour une table liée à
+  `mission_methodes` de `0202`) : `migrate.ts` applique les fichiers par ordre
+  de nom. `migrate.ts` ne vérifie pas de somme de contrôle : c'est la
   relecture qui garantit la règle (recherche n° 13). Les migrations V2 corrigées
   pendant la session du 2026-10-06 sont commitées depuis `6d62428` : elles sont
   désormais immuables. Plages réservées pour la suite : CODING_STANDARDS §1.
@@ -144,9 +156,11 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - Les routes lèvent `AppError` via `nonAuthentifie`, `interdit`, `introuvable`,
   `requeteInvalide`, `conflit` (`apps/api/src/errors.ts`) ; l'enveloppe
   `{ erreur: { code, message } }` est produite par le seul gestionnaire de
-  `apps/api/src/app.ts`. Pas de réponse d'erreur ad hoc, pas de
-  `throw new Error` dans une route (message en français, sans donnée
-  sensible).
+  `apps/api/src/app.ts`, qui transmet aussi `details` d'une `AppError` en
+  liste blanche (`CHAMPS_DETAILS_PUBLICS` d'`errors.ts` : `violations`,
+  `erreurs`, `manquants`). Pas de réponse d'erreur ad hoc (un plugin traduit
+  puis relance, modèle `routes/qualite.ts`), pas de `throw new Error` dans une
+  route (message en français, sans donnée sensible).
 - Les violations d'unicité et de référence se traduisent par
   `traduireErreursPg` (`apps/api/src/db/outils.ts`) ; les SQLSTATE `MP…`
   par la couche métier concernée, jamais en 500.
@@ -197,8 +211,9 @@ des mécanismes : `docs/governance/SECURITY.md` et
 ## Recherches mécaniques
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-08
-sur l'arbre de travail de `feat/vague-0-reliquats` (migrations de la vague 0 non
-commitées).
+sur l'arbre de travail de `feat/vague-1-fondations` (lots de la vague 1 commités,
+intégration transversale non commitée). Les recherches 1 à 9, 14, 16 et 17 ont
+été relancées le même jour : résultats inchangés.
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -239,7 +254,7 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-08) : "351 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     (2026-10-08, vague 1 intégrée) : "477 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
 #     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
 #     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
@@ -260,21 +275,22 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 256 z.object de
+# 12. Schémas Zod non stricts. Attendu : 0 sur 372 z.object de
 #     packages/shared/src/schemas (hors *.test.ts ; chaque z.object est suivi
 #     de .strict() dans sa chaîne). Script ponctuel, pas rg : apparier les
 #     parenthèses en sautant chaînes ET commentaires (une apostrophe dans un
 #     commentaire français fausse un appariement naïf). Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 256).
+#     (somme 372).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; dossier : 70 fichiers au
-# 2026-10-08 (`ls apps/api/migrations | wc -l`), dont 10 de la vague 0 non commitées
-# (0076, 0104, 0122, 0131, 0132, 0149, 0150, 0182 à 0184), donc 60 « A » contre
-# `main` tant qu'elles sont non suivies.
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 95 fichiers au
+# 2026-10-08 (`ls apps/api/migrations | wc -l`), dont `0206` non commitée ; contre
+# `origin/main` (60 migrations) : 34 « A » suivis (vague 0 et lots de la vague 1),
+# 35 une fois `0206` commitée. La branche locale `main` est en retard : comparer à
+# `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -294,6 +310,7 @@ rg -n "GRANT EXECUTE" apps/api/migrations
 rg -n "ENTETE_IDEMPOTENCE|idempotency-key" apps/api/src --glob '!**/idempotence.ts'
 
 # 18. Réception de fichiers : toute route multipart passe par avecPlaceAnalyse.
-#     Attendu : 2 lignes (POST /fichiers, justificatif de débours)
+#     Attendu : 3 lignes (POST /fichiers, justificatif de débours, classeur
+#     d'états financiers du dossier client)
 rg -n "avecPlaceAnalyse\(" apps/api/src
 ```

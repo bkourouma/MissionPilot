@@ -1,3 +1,4 @@
+import { syntheseNps, type SyntheseNps } from "@missionpilot/engines";
 import { satisfactionSchema, type satisfactionSyntheseQuerySchema } from "@missionpilot/shared";
 import type { z } from "zod";
 import { journaliser } from "../audit.js";
@@ -5,7 +6,6 @@ import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { AppError } from "../errors.js";
 import { exigerMissionVisible } from "../missions/acces.js";
-import { syntheseNps, type SyntheseNps } from "./nps.js";
 
 /*
  * Satisfaction du client (QUA-08) : une note de recommandation de 0 à 10 par jalon et à la
