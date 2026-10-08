@@ -1,8 +1,8 @@
 # Conventions de code — MissionPilot
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
-document décrit les conventions **observées dans le code** (état au commit
-`40144b5`), avec un fichier de référence pour chacune, pas un idéal. Les
+document décrit les conventions **observées dans le code** (état de la
+branche `feat/vague-0-reliquats`, 2026-10-08), avec un fichier de référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
 ## 1. Organisation du dépôt
@@ -25,23 +25,26 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0001–0008`   | socle, référentiels, durcissement                                  |
   | `0010–0015`   | pipeline, missions, découpage, budget, documents                   |
   | `0020–0021`   | planification                                                      |
-  | `0030`        | temps                                                              |
+  | `0030`, `0076`, `0122` | temps (`0076` : code de la tâche figée, `0122` : idempotence des saisies) |
   | `0040–0044`   | facturation                                                        |
   | `0050–0052`   | double authentification                                            |
   | `0060–0064`   | finance (encaissements, relances, bilans, plan comptable)          |
   | `0070–0075`   | fichiers, documents, justificatifs, commentaires, tâches           |
-  | `0100–0103`   | IA (paramètres, prompts, générations, durcissement)                |
+  | `0100–0104`   | IA (paramètres, prompts, générations, durcissement, conservation)  |
   | `0110–0115`   | portail client (rôles, partages, invitations, RLS, KPI)            |
   | `0120–0121`   | limiteur de tentatives persistant, pagination par curseur          |
-  | `0130`        | rapports générés                                                   |
-  | `0140–0143`, `0148` | questionnaires (`0148` : reprise des relances)               |
+  | `0130–0132`   | rapports générés (`0131` notation et plan, `0132` conservation)   |
+  | `0140–0143`, `0148–0150` | questionnaires (`0148` : reprise des relances, `0149` : génération IA, `0150` : date limite) |
   | `0145–0147`   | notation (`0144` n'est pas utilisé)                                |
   | `0160`        | KPI                                                                |
-  | `0180–0181`   | plans stratégiques et modèle financier                             |
+  | `0180–0184`   | plans stratégiques, modèle financier, diagnostic, KPI d'objectif, dépendances |
 
-  Plages libres : `0150–0159`, `0170–0179`, `0190` et au-delà. Un durcissement
-  issu d'audit prend le numéro suivant de son domaine (prochain pour les plans :
-  `0182`). Une migration **commitée** n'est jamais modifiée : on ajoute un
+  Plages libres : `0151–0159`, `0170–0179`, `0185–0199`. Plages réservées
+  pour la suite (vagues 1 à 3 du PRD complémentaire) : `0200–0219` référentiel
+  de méthodes (STD), `0220–0239` dossier client (DOS), `0240–0259` registre des
+  preuves (PRV), `0260–0279` agents IA (AGT), `0280–0299` qualité (QUA). Un
+  durcissement issu d'audit prend le numéro suivant de son domaine (prochain
+  pour les plans : `0185`). Une migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
   l'ont appliquée (les bases de test le sont à chaque exécution).
@@ -68,9 +71,10 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   employées : `F` figé (propositions, budget, absences), `T` temps, `B`
   facturation, `E` encaissements et bilans, `D` documents, `C` commentaires,
   `I` IA, `P` portail, `Q` questionnaires, `N` notation, `K` KPI, `S` plans
-  stratégiques. Collision connue : `MPT01` sert aux feuilles de temps (`0030`)
-  et à l'identité figée des tâches assignées (`0075`) ; un nouveau code prend
-  un numéro libre de sa lettre (liste : `SECURITY.md` §6).
+  stratégiques, `R` rapports (`MPR01-02`, `0131`). `MPT01` ne désigne plus que
+  les feuilles de temps : l'identité figée des tâches assignées est `MPC02`
+  (`0076`). Un nouveau code prend un numéro libre de sa lettre (liste :
+  `SECURITY.md` §6).
 - **Codes d'erreur** : `MAJUSCULES_SOULIGNEES` (`NON_AUTHENTIFIE`, `INTERDIT`,
   `INTROUVABLE`, `REQUETE_INVALIDE`, `CONFLIT`, `ERREUR_INTERNE`, et codes de
   domaine comme `PORTAIL_ROUTE_INTERDITE`, `ORIGINE_REFUSEE`).
@@ -140,7 +144,7 @@ Mise en page de droite à gauche : sans objet.
 ## 7. Tests
 
 - **Vitest partout** (`pnpm test` = `pnpm -r test`). API : tests sur **vrai
-  PostgreSQL** dans `apps/api/test/*.test.ts` (86 fichiers), base dédiée
+  PostgreSQL** dans `apps/api/test/*.test.ts` (101 fichiers), base dédiée
   `<nom>_test` créée à la volée et réinitialisée à chaque exécution
   (`test/global-setup.ts`, `test/urls.ts`) ; `fileParallelism: false` dans
   `apps/api/vitest.config.ts` : jamais deux suites API en parallèle sur la même
@@ -176,8 +180,8 @@ Mise en page de droite à gauche : sans objet.
   (`.prettierrc.json`) ; ESLint `typescript-eslint` recommandé, variables
   inutilisées interdites hors préfixe `_`.
 - **Validation** : chaque corps, paramètre ou requête passe par un schéma Zod de
-  `packages/shared/src/schemas`, objets `.strict()` (249 `z.object` vérifiés
-  le 2026-10-06, tous stricts) ; le même schéma sert l'API et le web.
+  `packages/shared/src/schemas`, objets `.strict()` (256 `z.object` vérifiés
+  le 2026-10-08, tous stricts) ; le même schéma sert l'API et le web.
 - **Listes** : pagination par curseur opaque (`encoderCurseur`,
   `decoderCurseur`, `paginer` dans `apps/api/src/http/outils.ts`), lecture
   `LIMIT n+1`, limite bornée (`limite` 1 à 100, défaut 30, `schemas/facturation.ts`).
@@ -199,28 +203,32 @@ Mise en page de droite à gauche : sans objet.
 
 ## 10. Dette connue
 
-Relevée dans le code le 2026-10-06 ; ne pas y ajouter sans citer le fichier.
+Relevée dans le code le 2026-10-08 ; ne pas y ajouter sans citer le fichier.
 La dette de sécurité est détaillée dans `docs/governance/SECURITY.md` §15.
 Résolu depuis le relevé précédent : `LIMIT 500` des missions et opportunités
 (pagination par curseur, `0121`), justificatif de débours en texte libre
-(téléversement), limiteurs de tentatives en mémoire (persistants, `0120`).
+(téléversement), limiteurs de tentatives en mémoire (persistants, `0120`) ;
+en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
+(`roles.ts`), commentaire de `portail/contexte.ts`.
 
 - **Listes de gestion du portail** plafonnées à 500 sans curseur
   (`routes/portail-gestion.ts`, `MAX_LISTE` : utilisateurs et invitations d'un
-  client) : troncature silencieuse au-delà.
+  client) : la troncature est désormais **signalée** (`tronque: true`) mais la
+  liste n'est pas paginée.
 - **Date d'atteinte d'un jalon** non horodatée en V1, approchée par la dernière
   modification (`finance/indicateurs.ts`).
 - **Inversion de la parité EUR/FCFA** : `Number((1 / PARITE_EUR_FCFA).toFixed(10))`
   dans `routes/missions.ts` (`pariteFixe`), seul calcul de taux hors moteur ; à
   déplacer dans `packages/engines`.
-- **Collision de SQLSTATE** : `MPT01` partagé par `0030` et `0075` (§2).
-- **Matrice de droits** : `notation.publier` est dans l'ensemble « tout » de
-  l'associé (`TOUS`, `roles.ts`) alors que la publication exige en plus le rôle
-  `expert_metier` (route et déclencheur `MPN04`) : l'associé détient une
-  permission qu'il ne peut pas exercer seul.
-- **Commentaire inexact** : `portail/contexte.ts` cite
-  `portail-acces.test.ts` pour l'inventaire de `horsContextePortail`, qui est
-  dans `test/portail-contexte.test.ts`.
+- **Conservation IA non exposée** : `ia_parametres_cabinet.conservation_jours`
+  (`0104`, 365 jours par défaut) n'est ni lisible ni modifiable par l'API IA
+  (`routes/ia-parametres.ts`) ; durées par défaut des textes IA et des rapports
+  à valider avec le conseil juridique (DECISIONS.md).
+- **Rédaction assistée** du plan et des rapports de notation non faite : seules
+  les routes `/api/ia/*` et la génération de questionnaires (`0149`) appellent
+  l'orchestrateur.
+- **Plan partagé jamais servi au portail** (tables du plan en
+  `portail_interdit`).
 - **Migrations sans somme de contrôle** : l'immuabilité d'une migration
   commitée repose sur la relecture (`db/migrate.ts`).
 - **Pas de mécanisme de traduction** (§6) : l'anglais prévu en V2 impose
