@@ -1,0 +1,109 @@
+/*
+ * Agents IA : équipe, autonomie, exécutions, évaluations, contribution. Mobile d'abord, CSS
+ * pur, couleurs des jetons. La couleur ne porte jamais seule le sens : chaque niveau a son
+ * code (N0 à N4) et son libellé écrit.
+ */
+
+.mp-agents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-agents p {
+  margin: 0;
+}
+
+.mp-agents__grille {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 960px) {
+  .mp-agents__grille {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.mp-agents__fiche {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-agents__jamais {
+  border: 1px solid var(--mp-attention);
+  background: var(--mp-attention-fond);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-agents__etiquettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-agents__etiquette {
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  padding: 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-s);
+  background: var(--mp-surface-2);
+}
+
+.mp-agents__chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-agents__chiffres div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+.mp-agents__chiffres dt {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-agents__chiffres dd {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-agents__historique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-agents__historique li {
+  border-bottom: 1px solid var(--mp-bordure);
+  padding-bottom: var(--mp-esp-2);
+  overflow-wrap: anywhere;
+}
+
+.mp-agents__empreinte {
+  font-family: ui-monospace, monospace;
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}

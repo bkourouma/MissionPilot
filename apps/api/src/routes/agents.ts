@@ -1,17 +1,288 @@
 import type { FastifyPluginAsync } from "fastify";
+import {
+  aPermission,
+  briqueAgentCreationSchema,
+  contributionsIaQuerySchema,
+  coupeCircuitAgentsSchema,
+  decisionAutonomieSchema,
+  decisionExecutionAgentSchema,
+  evaluationAgentCreationSchema,
+  evaluationsAgentsQuerySchema,
+  executionsAgentsQuerySchema,
+  incidentAutonomieSchema,
+  jeuEssaiCreationSchema,
+  jeuxEssaiAgentsQuerySchema,
+  paramsAgentSchema,
+  paramsBriqueAgentSchema,
+  plafondIaMissionSchema,
+  restrictionAgentSchema,
+} from "@missionpilot/shared";
+import { z } from "zod";
+import {
+  changerCoupeCircuit,
+  declarerBrique,
+  deciderAutonomie,
+  eligibilite,
+  etatAutonomie,
+  historiqueBrique,
+  lireBrique,
+  lireCoupeCircuit,
+  listerBriques,
+  signalerIncident,
+  type BriqueDb,
+  type CoupeCircuit,
+} from "../agents/autonomie.js";
+import { lireContributions } from "../agents/contributions.js";
+import { avecErreursAgents } from "../agents/erreurs.js";
+import {
+  creerJeuEssai,
+  evaluerPrompt,
+  listerEvaluations,
+  listerJeux,
+} from "../agents/evaluations.js";
+import { deciderExecution, lireExecution, listerExecutions } from "../agents/executions.js";
+import { definirPlafondMission, etatPlafondMission } from "../agents/plafonds.js";
+import {
+  lireAgent,
+  lireAgents,
+  modelesRoutes,
+  niveauMin,
+  restreindreAgent,
+  type AgentCabinet,
+} from "../agents/registre.js";
+import { exiger } from "../auth/contexte.js";
+import type { Db } from "../db/pool.js";
+import { paramsId } from "../http/outils.js";
+import { exigerMissionVisible } from "../missions/acces.js";
 
 /**
- * Agents IA (AGT-01 à AGT-05, PRD complémentaire §7, ADR-005) : registre des agents, niveaux
- * d'autonomie par brique et par cabinet (`niveauEffectif`, `evaluerPromotion`,
- * `retrogradationAuto`), évaluations de non-régression, contribution de l'IA
- * (`contributionIa`).
+ * Agents IA (AGT-01 à AGT-07, AGT-09, AGT-10 ; PRD complémentaire §7, ADR-005) : registre,
+ * autonomie par brique et par cabinet, coupe-circuit N4, exécutions tracées et décision
+ * humaine, contribution de l'IA, jeux d'essai et évaluations de non-régression, plafond de
+ * coût par mission.
  *
- * Posé VIDE par la phase 1 de la vague 1 et déjà enregistré sous /api par `app.ts` : le lot
- * AGT (migrations 0260–0279) le remplit sans toucher `app.ts`. Chaque route appellera
- * `exiger(request, …)` avec `agent.lire`, `agent.gerer` ou `autonomie.decider`
- * (`packages/shared/src/roles.ts`) ; aucune n'est ouverte au portail client
- * (`LISTE_BLANCHE_PORTAIL`, `portail/garde.ts`).
+ * Permissions : `agent.lire` (lecture), `agent.gerer` (briques, restrictions, jeux d'essai,
+ * évaluations, coupe-circuit activé), `autonomie.decider` (associé : niveau accordé, coupe-
+ * circuit levé), `ia.utiliser` (décision sur une exécution), `ia.configurer` (plafond de
+ * mission). Aucune route n'est ouverte au portail client (`LISTE_BLANCHE_PORTAIL`). Le coût
+ * d'une exécution et la consommation d'une mission n'apparaissent qu'avec `finance.lire`.
  */
-export const routesAgents: FastifyPluginAsync = async () => {
-  // Routes du lot AGT à venir.
+
+const vueAgent = (a: AgentCabinet) => ({ ...a });
+
+function vueBrique(b: BriqueDb, agent: AgentCabinet | undefined, coupe: CoupeCircuit) {
+  return {
+    id: b.id,
+    code: b.brique_code,
+    agent: agent ? { code: agent.code, nom: agent.nom, niveau_max: agent.niveau_max } : null,
+    classe_risque: b.classe_risque,
+    niveau_max: b.niveau_max,
+    niveau_accorde: b.niveau_accorde,
+    depuis: b.depuis,
+    cree_le: b.cree_le,
+    autonomie: agent ? etatAutonomie(b, agent, coupe) : null,
+  };
+}
+
+const paramsMission = z.object({ id: z.string().uuid() }).strict();
+
+export const routesAgents: FastifyPluginAsync = async (app) => {
+  const tx = <T>(cabinetId: string, fn: (db: Db) => Promise<T>) =>
+    avecErreursAgents(() => app.db.withTenant(cabinetId, fn));
+
+  /* ----- Registre (AGT-01) ----- */
+
+  app.get("/agents", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    return tx(auth.cabinetId, async (db) => ({ elements: (await lireAgents(db)).map(vueAgent) }));
+  });
+
+  /* ----- Coupe-circuit N4 ----- */
+
+  app.get("/agents/coupe-circuit", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    return tx(auth.cabinetId, (db) => lireCoupeCircuit(db));
+  });
+
+  app.put("/agents/coupe-circuit", async (request) => {
+    // Activer : agent.gerer ou autonomie.decider ; lever : autonomie.decider (vérifié par le service).
+    const auth = exiger(request);
+    if (!aPermission(auth.roles, "agent.gerer") && !aPermission(auth.roles, "autonomie.decider")) {
+      exiger(request, "autonomie.decider");
+    }
+    const c = coupeCircuitAgentsSchema.parse(request.body);
+    return tx(auth.cabinetId, (db) => changerCoupeCircuit(db, auth, c));
+  });
+
+  /* ----- Briques et autonomie (AGT-03) ----- */
+
+  app.get("/agents/briques", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const q = jeuxEssaiAgentsQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, async (db) => {
+      // Requêtes successives : une transaction n'exécute qu'une requête à la fois.
+      const page = await listerBriques(db, q);
+      const agents = await lireAgents(db);
+      const coupe = await lireCoupeCircuit(db);
+      const parCode = new Map(agents.map((a) => [a.code, a]));
+      return {
+        coupe_circuit: coupe,
+        elements: page.elements.map((b) => vueBrique(b, parCode.get(b.agent_code), coupe)),
+        curseur_suivant: page.curseur_suivant,
+      };
+    });
+  });
+
+  app.post("/agents/briques", async (request, reply) => {
+    const auth = exiger(request, "agent.gerer");
+    const b = briqueAgentCreationSchema.parse(request.body);
+    const cree = await tx(auth.cabinetId, async (db) => {
+      const brique = await declarerBrique(db, auth, b);
+      return vueBrique(brique, await lireAgent(db, brique.agent_code), await lireCoupeCircuit(db));
+    });
+    return reply.status(201).send(cree);
+  });
+
+  app.get("/agents/briques/:code", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const { code } = paramsBriqueAgentSchema.parse(request.params);
+    return tx(auth.cabinetId, async (db) => {
+      const brique = await lireBrique(db, code);
+      const agent = await lireAgent(db, brique.agent_code);
+      const coupe = await lireCoupeCircuit(db);
+      const plafond = niveauMin(brique.niveau_max, agent.niveau_max);
+      return {
+        ...vueBrique(brique, agent, coupe),
+        eligibilite: await eligibilite(db, brique, plafond, new Date()),
+        historique: await historiqueBrique(db, brique),
+      };
+    });
+  });
+
+  app.post("/agents/briques/:code/decisions", async (request) => {
+    const auth = exiger(request, "autonomie.decider");
+    const { code } = paramsBriqueAgentSchema.parse(request.params);
+    const d = decisionAutonomieSchema.parse(request.body);
+    return tx(auth.cabinetId, async (db) => {
+      const brique = await deciderAutonomie(db, auth, code, d, new Date());
+      return vueBrique(brique, await lireAgent(db, brique.agent_code), await lireCoupeCircuit(db));
+    });
+  });
+
+  app.post("/agents/briques/:code/incidents", async (request, reply) => {
+    const auth = exiger(request, "agent.lire");
+    const { code } = paramsBriqueAgentSchema.parse(request.params);
+    const i = incidentAutonomieSchema.parse(request.body);
+    const r = await tx(auth.cabinetId, (db) => signalerIncident(db, auth, code, i));
+    return reply.status(201).send(r);
+  });
+
+  /* ----- Exécutions (AGT-09) ----- */
+
+  app.get("/agents/executions", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const q = executionsAgentsQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, (db) => listerExecutions(db, auth, q));
+  });
+
+  app.get("/agents/executions/:id", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const { id } = paramsId.parse(request.params);
+    return tx(auth.cabinetId, (db) => lireExecution(db, auth, id));
+  });
+
+  app.post("/agents/executions/:id/decision", async (request) => {
+    const auth = exiger(request, "ia.utiliser");
+    exiger(request, "agent.lire");
+    const { id } = paramsId.parse(request.params);
+    const d = decisionExecutionAgentSchema.parse(request.body);
+    return tx(auth.cabinetId, (db) => deciderExecution(db, auth, id, d));
+  });
+
+  /* ----- Contribution (AGT-05) ----- */
+
+  app.get("/agents/contributions", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const q = contributionsIaQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, (db) => lireContributions(db, auth, q));
+  });
+
+  /* ----- Jeux d'essai et évaluations (AGT-04) ----- */
+
+  app.get("/agents/jeux-essai", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const q = jeuxEssaiAgentsQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, (db) => listerJeux(db, q));
+  });
+
+  app.post("/agents/jeux-essai", async (request, reply) => {
+    const auth = exiger(request, "agent.gerer");
+    const j = jeuEssaiCreationSchema.parse(request.body);
+    const cree = await tx(auth.cabinetId, (db) => creerJeuEssai(db, auth, j));
+    return reply.status(201).send(cree);
+  });
+
+  app.get("/agents/evaluations", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const q = evaluationsAgentsQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, (db) => listerEvaluations(db, q));
+  });
+
+  app.post("/agents/evaluations", async (request, reply) => {
+    const auth = exiger(request, "agent.gerer");
+    const e = evaluationAgentCreationSchema.parse(request.body);
+    const cree = await tx(auth.cabinetId, (db) => evaluerPrompt(db, auth, e));
+    return reply.status(201).send(cree);
+  });
+
+  /* ----- Plafond de coût par mission (AGT-06) ----- */
+
+  app.get("/agents/missions/:id/plafond", async (request) => {
+    const auth = exiger(request, "ia.configurer");
+    const { id } = paramsMission.parse(request.params);
+    return tx(auth.cabinetId, async (db) => {
+      await exigerMissionVisible(db, auth, id);
+      const { consomme_micro_usd, ...etat } = await etatPlafondMission(db, id, new Date());
+      // Consommation : donnée de gestion (FIN-02), ABSENTE sans finance.lire.
+      return {
+        mission_id: id,
+        ...etat,
+        ...(aPermission(auth.roles, "finance.lire") ? { consomme_micro_usd } : {}),
+      };
+    });
+  });
+
+  app.put("/agents/missions/:id/plafond", async (request) => {
+    const auth = exiger(request, "ia.configurer");
+    const { id } = paramsMission.parse(request.params);
+    const p = plafondIaMissionSchema.parse(request.body);
+    return tx(auth.cabinetId, async (db) => {
+      await exigerMissionVisible(db, auth, id);
+      await definirPlafondMission(db, auth, id, p.plafond_micro_usd);
+      const { consomme_micro_usd, ...etat } = await etatPlafondMission(db, id, new Date());
+      return {
+        mission_id: id,
+        ...etat,
+        ...(aPermission(auth.roles, "finance.lire") ? { consomme_micro_usd } : {}),
+      };
+    });
+  });
+
+  /* ----- Un agent (après les chemins fixes) ----- */
+
+  app.get("/agents/:code", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const { code } = paramsAgentSchema.parse(request.params);
+    return tx(auth.cabinetId, async (db) => {
+      const agent = await lireAgent(db, code);
+      return { ...vueAgent(agent), modeles: await modelesRoutes(db, agent) };
+    });
+  });
+
+  app.put("/agents/:code/restriction", async (request) => {
+    const auth = exiger(request, "agent.gerer");
+    const { code } = paramsAgentSchema.parse(request.params);
+    const r = restrictionAgentSchema.parse(request.body);
+    return tx(auth.cabinetId, async (db) => vueAgent(await restreindreAgent(db, auth, code, r)));
+  });
 };
