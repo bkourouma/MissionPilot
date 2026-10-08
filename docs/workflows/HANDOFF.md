@@ -20,6 +20,10 @@ même commit).
 `feat/decisions-et-socle`) et [#3](https://github.com/bkourouma/MissionPilot/pull/3)
 (vers `main`) ouvertes, non fusionnées ; le titre de #4 ne cite encore que la V1.
 
+**Recette E2E (2026-10-07, non commité) :** scénario `docs/recette/SCENARIO-E2E-MISSION-ORGANISATION.md` joué jusqu'à E25 (relevé de l'utilisateur) ; E26 bloquait car le seed `seed-demo.ts` validait des feuilles de Koffi et d'Adjoua sur les semaines S1/S2. Corrigé : la mission Kora démarre à L0−10 semaines, ses temps validés s'arrêtent à L0−7, seule la feuille de L0−1 est soumise (vérifié sur base neuve `missionpilot_recette`, seed rejoué). Scénario mis à jour (écarts S1 à S4, charge Kora en E18). Anomalie A03 (bandeau « service momentanément indisponible » après enregistrement, `_rsc` en 503) **non reproduite** (360 requêtes RSC en rafale, 360 appels proxy : tous 200 ; aucun 5xx dans le journal de l'API) ; seule trace : un `Failed to proxy … ECONNREFUSED` du relais Next vers l'API à 08:01, qui produit exactement ce bandeau. À rejouer avec le serveur API surveillé. Anomalies mineures A01 (contact principal) et A02 (badge « Brouillon » non rafraîchi) à confirmer à la main.
+
+**PRD complémentaire (2026-10-08, non commité, à valider) :** `docs/PRD complémentaire — MissionPilot, le cabinet d'expertise augmenté.md` prolonge SANKORIA : référentiel de méthodes (STD), dossier client vivant (DOS), registre des preuves (PRV), agents IA et niveaux d'autonomie (AGT), automatisation (AUT), appels d'offres (AO), qualité (QUA), capitalisation (CAP), expérience client (CLI), services augmentés (NOT-09+, DD-09+, PLA-12+, KPI-13+, RED-10+) ; 8 décisions métier en section 21. Correction : les rapports PDF/Word de notation et de plan ne sont pas faits (HANDOFF n° 13).
+
 Livré :
 
 - **V1** : référentiels, pipeline, propositions, missions, budget figé,
