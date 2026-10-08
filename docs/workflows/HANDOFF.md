@@ -25,8 +25,7 @@ de code) ; seule la pointe de la branche est vérifiée.
 
 **Vérifié le 2026-10-08 sur la pointe de la branche** : `eslint`, `tsc` (4 paquets) et
 `pnpm format` verts ; shared 149 tests, moteurs 1077 (couverture 99,93 %), web 1334 ;
-API : la suite complète a été lancée sur `missionpilot_test` (résultat à relire dans la
-section suivante si elle a abouti).
+API 143 fichiers et 1563 tests (suite complète sur `missionpilot_test`, 1529 s).
 
 **Livré (migrations `0300`–`0465`, 148 fichiers au total) :**
 
