@@ -31,6 +31,7 @@ import { reponsesSoumises } from "../questionnaires/envois.js";
 import { calculerV2, type EntreesCalculNotation } from "./calcul.js";
 import { lireVersionGrille } from "./grilles.js";
 import { brancherNotation } from "../qualite/branchements.js";
+import { calculerConfiance, enregistrerConfiance } from "./confiance.js";
 import {
   enregistrerCalculMethode,
   executerNotationMethode,
@@ -67,6 +68,8 @@ import {
  *    la version enregistre la version de méthode et son journal de modulation
  *    (`notation_versions_methode`, 0206). Sans méthode : chemin V2 inchangé
  *    (`calcul.ts`).
+ * 6. Publication : indice de confiance (NOT-11, `confiance.ts`) au moins égal au seuil du
+ *    cabinet, recalculé et enregistré dans la transaction (409 CONFIANCE_INSUFFISANTE, MPN10).
  */
 
 export interface Notation {
@@ -603,6 +606,17 @@ export async function publier(db: Db, auth: Auth, notation: Notation) {
         "Notation de classe R3 : sa publication exige le suivi qualité de cette version signé (revue d'un second expert et signature du directeur de mission).",
       );
     }
+  }
+  // Indice de confiance (NOT-11, confiance.ts) : recalculé par le moteur et enregistré dans
+  // cette transaction ; sous le seuil du cabinet, publication refusée (doublé en base, MPN10).
+  const confiance = await calculerConfiance(db, notation.mission_id, v.version);
+  await enregistrerConfiance(db, auth, v.version.id, confiance);
+  if (!confiance.publiable) {
+    throw new AppError(
+      409,
+      "CONFIANCE_INSUFFISANTE",
+      `Indice de confiance ${confiance.indice} sous le seuil du cabinet (${confiance.seuil}) : complétez les réponses, les répondants ou les preuves avant de publier.`,
+    );
   }
   const apres = await evenement(db, auth, notation, v, "publication", null);
   await brancherQualite(db, auth, notation, apres);
