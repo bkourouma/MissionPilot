@@ -1,8 +1,8 @@
 ---
 name: ui-tester
 description: Exécute les scénarios dans un navigateur réel et documente les anomalies reproductibles.
-model: opus
-effort: medium
+model: sonnet
+effort: high
 disallowedTools: Edit, Write, NotebookEdit, Agent
 ---
 

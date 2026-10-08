@@ -1,0 +1,37 @@
+{
+  "name": "@missionpilot/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed-demo": "tsx src/db/seed-demo.ts",
+    "db:seed-demo-portail": "tsx src/db/seed-demo-portail.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/multipart": "^10.1.2",
+    "@missionpilot/engines": "workspace:*",
+    "@missionpilot/shared": "workspace:*",
+    "docx": "^9.8.1",
+    "exceljs": "^4.4.0",
+    "fastify": "^5.0.0",
+    "pg": "^8.13.0",
+    "pptxgenjs": "^4.0.1",
+    "puppeteer-core": "^25.12.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

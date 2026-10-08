@@ -1,0 +1,110 @@
+/*
+ * Jetons du design system MissionPilot.
+ * Contrastes vérifiés (WCAG 2.1) : texte ≥ 4,5:1 sur son fond, bordures de contrôle ≥ 3:1.
+ *   clair : texte 15,2:1 · texte doux 6,9:1 · primaire/blanc 8,6:1 · statuts 5,7 à 6,2:1
+ *   sombre : texte 15,6:1 · texte doux 8,1:1 · primaire 8,8:1 · statuts 7,6 à 8,5:1
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --mp-fond: #f5f6f8;
+  --mp-surface: #ffffff;
+  --mp-surface-2: #eef1f4;
+  --mp-bordure: #d5dbe1;
+  --mp-bordure-controle: #6b7785;
+
+  /* Texte */
+  --mp-texte: #16202a;
+  --mp-texte-doux: #4a5663;
+
+  /* Marque */
+  --mp-primaire: #1b4f7a;
+  --mp-primaire-survol: #153e60;
+  --mp-sur-primaire: #ffffff;
+  --mp-primaire-pale: #e5eef6;
+  --mp-focus: #1b4f7a;
+
+  /* Statuts : couleur de texte/icône et fond associé */
+  --mp-succes: #1e6b3a;
+  --mp-succes-fond: #e6f4ea;
+  --mp-attention: #8a4b00;
+  --mp-attention-fond: #fff1db;
+  --mp-danger: #a4262c;
+  --mp-danger-fond: #fde8e8;
+  --mp-neutre: #4a5663;
+  --mp-neutre-fond: #eef1f4;
+  --mp-info: #1b4f7a;
+  --mp-info-fond: #e5eef6;
+
+  /* Typographie : polices système, aucune police à télécharger (3G). */
+  --mp-police:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --mp-police-chiffres: var(--mp-police);
+  --mp-taille-xs: 0.8125rem;
+  --mp-taille-s: 0.875rem;
+  --mp-taille-m: 1rem;
+  --mp-taille-l: 1.25rem;
+  --mp-taille-xl: 1.5rem;
+  --mp-taille-xxl: 1.875rem;
+  --mp-interligne: 1.5;
+
+  /* Espacements (échelle de 4 px) */
+  --mp-esp-1: 0.25rem;
+  --mp-esp-2: 0.5rem;
+  --mp-esp-3: 0.75rem;
+  --mp-esp-4: 1rem;
+  --mp-esp-5: 1.5rem;
+  --mp-esp-6: 2rem;
+  --mp-esp-7: 3rem;
+
+  /* Formes */
+  --mp-rayon: 6px;
+  --mp-rayon-l: 10px;
+  --mp-ombre: 0 1px 2px rgb(16 24 32 / 0.06), 0 1px 3px rgb(16 24 32 / 0.08);
+  --mp-ombre-l: 0 8px 24px rgb(16 24 32 / 0.16);
+
+  /* Accessibilité tactile : cible minimale 44 px */
+  --mp-cible: 44px;
+
+  /* Mise en page */
+  --mp-hauteur-entete: 56px;
+  --mp-largeur-nav: 240px;
+  --mp-hauteur-barre-basse: 64px;
+  --mp-largeur-contenu: 1200px;
+
+  --mp-duree: 150ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mp-fond: #0e141b;
+    --mp-surface: #151d26;
+    --mp-surface-2: #1d2833;
+    --mp-bordure: #2c3a48;
+    --mp-bordure-controle: #7d8b99;
+
+    --mp-texte: #e7ecf1;
+    --mp-texte-doux: #a9b4bf;
+
+    --mp-primaire: #8cc0ee;
+    --mp-primaire-survol: #a9d1f3;
+    --mp-sur-primaire: #0e141b;
+    --mp-primaire-pale: #142739;
+    --mp-focus: #8cc0ee;
+
+    --mp-succes: #7fd19b;
+    --mp-succes-fond: #12301f;
+    --mp-attention: #f2b866;
+    --mp-attention-fond: #33240e;
+    --mp-danger: #f49a9e;
+    --mp-danger-fond: #3a1517;
+    --mp-neutre: #b7c1cb;
+    --mp-neutre-fond: #232e39;
+    --mp-info: #8cc0ee;
+    --mp-info-fond: #142739;
+
+    --mp-ombre: 0 1px 2px rgb(0 0 0 / 0.4);
+    --mp-ombre-l: 0 8px 24px rgb(0 0 0 / 0.5);
+  }
+}

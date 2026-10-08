@@ -1,0 +1,63 @@
+/* Connexion rapide de démonstration (recette locale) : app/connexion/ComptesDemo.tsx. */
+.mp-comptes-demo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin-top: var(--mp-esp-4);
+  padding-top: var(--mp-esp-4);
+  border-top: 1px dashed var(--mp-bordure-controle);
+}
+
+.mp-comptes-demo__titre {
+  font-size: var(--mp-taille-m);
+}
+
+.mp-comptes-demo__aide {
+  font-size: var(--mp-taille-s);
+}
+
+.mp-comptes-demo__groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-comptes-demo__sous-titre {
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mp-texte-doux);
+}
+
+.mp-comptes-demo__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-comptes-demo__compte {
+  justify-content: flex-start;
+  text-align: start;
+}
+
+.mp-comptes-demo__texte {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mp-comptes-demo__nom {
+  overflow-wrap: anywhere;
+}
+
+.mp-comptes-demo__role {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 400;
+}

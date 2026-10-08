@@ -1,0 +1,41 @@
+{
+  "name": "missionpilot",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.26.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "pnpm --filter @missionpilot/api db:migrate",
+    "prepare": "node scripts/install-git-hooks.cjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "lefthook": "^1.10.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lefthook",
+      "sharp",
+      "unrs-resolver"
+    ],
+    "overrides": {
+      "postcss": ">=8.5.23",
+      "image-size": ">=2.0.3",
+      "uuid": ">=11.1.1"
+    }
+  }
+}

@@ -1,0 +1,485 @@
+/*
+ * Notation (service 1) : grilles du cabinet et onglet « Notation » d'une mission. Mobile
+ * d'abord, CSS pur, couleurs des jetons (contrastes vérifiés dans tokens.css). La couleur ne
+ * porte jamais seule le sens : chaque classe a sa lettre et son libellé, chaque barre sa valeur
+ * écrite, chaque graphique son tableau équivalent.
+ */
+
+.mp-notation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-notation p {
+  margin: 0;
+}
+
+.mp-notation__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-notation__colonnes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .mp-notation__colonnes {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* ---------- Score global ---------- */
+.mp-notation-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-3) var(--mp-esp-5);
+}
+
+.mp-notation-score__valeur {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mp-esp-1);
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.mp-notation-score__sur {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-l);
+  font-weight: 600;
+}
+
+.mp-notation-classe {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-1) var(--mp-esp-3) var(--mp-esp-1) var(--mp-esp-1);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-weight: 650;
+}
+
+.mp-notation-classe__lettre {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-size: var(--mp-taille-l);
+  font-weight: 750;
+}
+
+.mp-notation-classe--succes {
+  color: var(--mp-succes);
+  background: var(--mp-succes-fond);
+}
+.mp-notation-classe--attention {
+  color: var(--mp-attention);
+  background: var(--mp-attention-fond);
+}
+.mp-notation-classe--danger {
+  color: var(--mp-danger);
+  background: var(--mp-danger-fond);
+}
+.mp-notation-classe--neutre {
+  color: var(--mp-neutre);
+  background: var(--mp-neutre-fond);
+}
+
+.mp-notation-bareme {
+  display: grid;
+  gap: var(--mp-esp-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-notation-bareme li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+/* ---------- Parcours de revue ---------- */
+.mp-notation-etapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  counter-reset: etape;
+}
+
+.mp-notation-etapes li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-notation-etapes li::before {
+  counter-increment: etape;
+  content: counter(etape);
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-weight: 700;
+}
+
+.mp-notation-etapes li[aria-current="step"] {
+  border-color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  color: var(--mp-texte);
+  font-weight: 650;
+}
+
+.mp-notation-chronologie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-notation-chronologie li {
+  padding-left: var(--mp-esp-3);
+  border-left: 3px solid var(--mp-bordure);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Radar ---------- */
+.mp-notation-radar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-notation-radar__svg {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  height: auto;
+  margin-inline: auto;
+  overflow: visible;
+}
+
+.mp-notation-radar__grille {
+  fill: none;
+  stroke: var(--mp-bordure);
+  stroke-width: 1;
+}
+
+.mp-notation-radar__axe {
+  stroke: var(--mp-bordure);
+  stroke-width: 1;
+}
+
+.mp-notation-radar__surface {
+  fill: var(--mp-primaire);
+  fill-opacity: 0.12;
+  stroke: var(--mp-primaire);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.mp-notation-radar__point {
+  fill: var(--mp-primaire);
+  stroke: var(--mp-surface);
+  stroke-width: 2;
+}
+
+.mp-notation-radar__numero,
+.mp-notation-radar__seuil {
+  fill: var(--mp-texte-doux);
+  font-family: var(--mp-police);
+  font-size: 11px;
+}
+
+.mp-notation-radar__numero {
+  fill: var(--mp-texte);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mp-notation-legende {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+@media (min-width: 480px) {
+  .mp-notation-legende {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--mp-esp-4);
+  }
+}
+
+.mp-notation-legende li {
+  display: flex;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-notation-legende__numero {
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  font-weight: 700;
+}
+
+.mp-notation-legende__libelle {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-notation-legende__valeur {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* ---------- Barres par famille ---------- */
+.mp-notation-barres {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-notation-barres__famille {
+  margin: 0 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-notation-barres__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-notation-barre {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  align-items: center;
+}
+
+.mp-notation-barre__libelle {
+  overflow-wrap: anywhere;
+}
+
+.mp-notation-barre__valeur {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.mp-notation-barre__piste {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 0.75rem;
+  background: var(--mp-surface-2);
+  border-radius: 4px;
+}
+
+.mp-notation-barre__remplissage {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  background: var(--mp-primaire);
+  border-radius: 0 4px 4px 0;
+}
+
+.mp-notation-barre__repere {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--mp-bordure-controle);
+}
+
+.mp-notation-barre--absente .mp-notation-barre__piste {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--mp-surface-2) 0 6px,
+    var(--mp-bordure) 6px 7px
+  );
+}
+
+.mp-notation-barre__absente {
+  grid-column: 1 / -1;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* ---------- Forces et faiblesses, comparaison ---------- */
+.mp-notation-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-notation-liste li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+  overflow-wrap: anywhere;
+}
+
+.mp-notation-chiffre {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mp-notation-motif {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Versions ---------- */
+.mp-notation-versions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-notation-versions a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  color: var(--mp-texte);
+  text-decoration: none;
+}
+
+.mp-notation-versions a:hover {
+  border-color: var(--mp-primaire);
+}
+
+.mp-notation-versions a[aria-current="page"] {
+  border-color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+}
+
+.mp-notation-versions__numero {
+  font-weight: 700;
+}
+
+/* ---------- Édition des pondérations ---------- */
+.mp-notation-poids {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-notation-poids__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7rem;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  align-items: center;
+}
+
+.mp-notation-poids__ligne .mp-champ {
+  gap: 0;
+}
+
+.mp-notation-poids__ligne .mp-champ__controle {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-notation-somme {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border-radius: var(--mp-rayon);
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+}
+
+.mp-notation-somme--ok {
+  color: var(--mp-succes);
+  background: var(--mp-succes-fond);
+}
+
+.mp-notation-somme--ecart {
+  color: var(--mp-attention);
+  background: var(--mp-attention-fond);
+}
+
+.mp-notation-somme .mp-icone {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mp-notation-secteurs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+}
+
+@media (forced-colors: active) {
+  .mp-notation-radar__surface,
+  .mp-notation-radar__point,
+  .mp-notation-barre__remplissage {
+    forced-color-adjust: none;
+    fill: CanvasText;
+    stroke: CanvasText;
+    background: CanvasText;
+  }
+  .mp-notation-radar__surface {
+    fill-opacity: 0.15;
+  }
+  .mp-notation-radar__grille,
+  .mp-notation-radar__axe {
+    stroke: GrayText;
+  }
+}

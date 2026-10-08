@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+coverage
+pnpm-lock.yaml
+docs
+.claude
+.acc
+.agent-bus
+*.md
+scripts
+acc.config.json
+.lefthook.yml
+.impeccable

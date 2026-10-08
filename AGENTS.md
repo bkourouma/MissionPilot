@@ -33,34 +33,36 @@ pas de mise à jour.
 
 ## Structure réelle
 
-Le dépôt ne contient pas encore de code applicatif (ni `package.json`, ni
-`src/`) : seuls la spécification et l'outillage agentique existent.
-
 ```text
 acc.config.json   configuration du standard (commandes, ports, gardes)
 .acc/             manifeste du standard (géré : ne pas modifier)
 .claude/          agents, compétences, règles, hooks, settings.json
 docs/             PRD, décisions, workflows, gouvernance, ADR
 scripts/          bus d'agents, garde pre-push, installation des hooks git
+apps/api          API Fastify (migrations SQL, RLS, routes), tests Vitest sur vrai PostgreSQL
+apps/web          interface Next.js, en français
+packages/engines  moteurs de calcul purs (couverture ≥ 90 % imposée)
+packages/shared   rôles, droits, schémas Zod partagés
 ```
-
-Dossiers prévus, non créés : `packages/engines` (moteurs de calcul),
-voir `docs/DECISIONS.md`. Le reste de l'arborescence applicative (API, web)
-reste à décider : le PRD recommande un monorepo pnpm (Fastify, Next.js,
-PostgreSQL), sans que cela soit tranché.
 
 ## Commandes
 
 ```bash
-node scripts/agent-bus.cjs help      # bus d'agents (vérifié)
-node scripts/install-git-hooks.cjs   # hooks git ; exige Lefthook (absent du PATH ici)
+pnpm install         # dépendances
+pnpm db:up           # PostgreSQL de développement (conteneur missionpilot-postgres, port 55440)
+pnpm db:migrate      # migrations (rôle propriétaire) ; crée aussi le rôle applicatif
+pnpm dev             # API (4100) et web (3100)
+pnpm typecheck       # tsc dans chaque paquet
+pnpm lint            # eslint
+pnpm format          # prettier --check
+pnpm test            # Vitest ; l'API exige PostgreSQL (base missionpilot_test créée à la volée)
+node scripts/agent-bus.cjs help      # bus d'agents
 ```
 
-TODO(acc-adapt) : commandes du projet (installation, lancement, typecheck,
-lint, tests), à renseigner dans `acc.config.json` (`commands`) puis ici dès
-que le premier code et son `package.json` existent.
+Les valeurs de développement par défaut (`apps/api/src/config.ts`) reprennent
+`.env.example` : aucun fichier `.env` n'est nécessaire en développement, et ils
+sont refusés en production.
 
-<!-- acc:begin agents-workflows -->
 ## Flux de travail des agents et hooks
 
 Trois contrats réutilisables sont définis dans `docs/workflows/` :
@@ -182,7 +184,16 @@ existera, y ajouter le fichier qui l'illustre.
 - **Choix techniques tranchés** (ADR-001 à ADR-003) : monorepo pnpm, Fastify,
   Next.js, PostgreSQL avec RLS ; file de tâches en table `jobs` PostgreSQL ;
   IA via OpenRouter, hors V1. Toute entorse passe par un nouvel ADR.
-- **Hooks git inactifs.** Lefthook n'est pas installé : le hook `pre-push`
-  qui protège `main` ne tourne pas tant qu'un `package.json` ne l'ajoute pas
-  en dépendance de développement, puis que
-  `node scripts/install-git-hooks.cjs` n'a pas été relancé.
+- **Hooks git.** Lefthook est une dépendance de développement et son hook
+  `pre-push` (garde des branches protégées) est installé par `pnpm install`
+  (script `prepare`) ; aucun hook `pre-commit` n'est déclaré dans
+  `.lefthook.yml`. Un worktree neuf n'a ni dépendances ni hooks tant que
+  `pnpm install` n'y a pas tourné (RUNBOOK, « Worktrees »).
+- **Tests API et agents.** Le global-setup recrée le schéma de la base de test
+  à chaque exécution : jamais deux suites API sur la même base ; un agent qui
+  teste en parallèle d'un autre utilise sa propre base (`missionpilot_<id>`,
+  voir RUNBOOK).
+- **Portail client fermé par défaut.** Une route n'est atteignable depuis le
+  portail que si elle figure dans `LISTE_BLANCHE_PORTAIL`
+  (`apps/api/src/portail/garde.ts`) ; une table à RLS doit porter une politique
+  `portail` ou `portail_interdit`, sinon `isolation.test.ts` échoue.

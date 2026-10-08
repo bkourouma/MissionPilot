@@ -1,0 +1,441 @@
+/*
+ * Questionnaires (SOC-10) : éditeur de définition, aperçu, anomalies, suivi des envois et
+ * lecture des réponses soumises. Mobile d'abord ; couleurs des jetons (contrastes vérifiés
+ * dans tokens.css) ; jamais la couleur seule : texte et icône portent aussi le sens.
+ */
+
+/* ---------- Bascule Modifier / Aperçu ---------- */
+.mp-qe-bascule {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-1);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-qe-bascule .mp-bouton[aria-pressed="true"] {
+  background: var(--mp-surface);
+  border-color: var(--mp-bordure-controle);
+  color: var(--mp-texte);
+  box-shadow: var(--mp-ombre);
+}
+
+.mp-qe-etat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-qe-etat--modifie {
+  color: var(--mp-attention);
+  font-weight: 600;
+}
+
+/* ---------- Éditeur ---------- */
+.mp-qe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-qe-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-qe-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  box-shadow: var(--mp-ombre);
+}
+
+.mp-qe-section:focus-visible,
+.mp-qe-question:focus-visible {
+  outline-offset: 4px;
+}
+
+.mp-qe-entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-qe-entete__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  overflow-wrap: anywhere;
+}
+
+h3.mp-qe-entete__titre,
+h4.mp-qe-entete__titre {
+  font-size: var(--mp-taille-m);
+}
+
+.mp-qe-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-3) var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-left: 4px solid var(--mp-primaire);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-qe-question--erreur {
+  border-left-color: var(--mp-danger);
+}
+
+.mp-qe-repere {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-qe-ajout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px dashed var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-qe-ajout > .mp-champ {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+/* Options et niveaux : une ligne par élément, empilée sur téléphone. */
+.mp-qe-elements {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-qe-element {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+@media (min-width: 640px) {
+  .mp-qe-element {
+    grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 2fr) auto;
+    align-items: end;
+  }
+
+  .mp-qe-element--niveau {
+    grid-template-columns: 3rem minmax(12rem, 1fr);
+  }
+}
+
+.mp-qe-element__rang {
+  align-self: center;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Conditions imbriquées : retrait et filet par niveau. */
+.mp-qe-condition {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-left: 3px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-qe-condition .mp-qe-condition {
+  background: var(--mp-surface);
+}
+
+.mp-qe-condition legend {
+  padding: 0 var(--mp-esp-1);
+  font-weight: 600;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-qe-condition__enfants {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0 0 0 var(--mp-esp-2);
+  list-style: none;
+}
+
+.mp-qe-resume {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-qe-resume > .mp-icone {
+  margin-top: 2px;
+}
+
+/* ---------- Anomalies ---------- */
+.mp-qe-anomalies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-qe-anomalie {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-danger);
+  border-radius: var(--mp-rayon);
+  overflow-wrap: anywhere;
+}
+
+.mp-qe-anomalie__message {
+  font-weight: 600;
+  color: var(--mp-texte);
+}
+
+.mp-qe-anomalie__technique {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+}
+
+/* ---------- Aperçu ---------- */
+.mp-apercu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-apercu__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-apercu__questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-apercu__question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 var(--mp-esp-4);
+  border: 0;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-apercu__question:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mp-apercu__libelle {
+  padding: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-apercu__choix {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+@media (min-width: 640px) {
+  .mp-apercu__choix--echelle {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: var(--mp-esp-4);
+  }
+}
+
+.mp-apercu__option {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  padding-top: var(--mp-esp-2);
+}
+
+.mp-apercu__option input {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--mp-primaire);
+}
+
+.mp-apercu__unite {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-apercu__unite .mp-champ__controle {
+  max-width: 12rem;
+}
+
+/* ---------- Progression ---------- */
+.mp-progression {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 10rem;
+}
+
+.mp-progression__ligne {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-progression progress {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 6rem;
+  height: 0.625rem;
+  accent-color: var(--mp-primaire);
+}
+
+.mp-progression__valeur {
+  min-width: 3.5rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---------- Répondants et réponses ---------- */
+.mp-repondant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+}
+
+.mp-repondant__identite {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-repondant__suivi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.mp-choix-repondant {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+@media (min-width: 640px) {
+  .mp-choix-repondant {
+    grid-template-columns: minmax(14rem, 1fr) minmax(12rem, 1fr);
+    align-items: end;
+  }
+}
+
+.mp-reponses {
+  display: grid;
+  gap: var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-reponses > div {
+  display: grid;
+  gap: 2px;
+  padding-bottom: var(--mp-esp-3);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-reponses > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mp-reponses dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-reponses dd {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.mp-reponses__vide {
+  color: var(--mp-texte-doux);
+  font-style: italic;
+}
