@@ -51,6 +51,18 @@ force ≥ 65, faiblesse < 50, rôles pondérés 1 par défaut.
 | Publication d'une notation | **Inchangée** : seul un utilisateur au rôle `expert_metier` publie (NOT-07), l'associé aussi est exclu. | L'incohérence résiduelle (`notation.publier` toujours dans l'ensemble des permissions de l'associé dans `roles.ts`) est notée dans HANDOFF, non traitée. |
 | Style des encadrés à bordure latérale (5 feuilles CSS) | Laissés en l'état, sans harmonisation. | — |
 
+## Orientations au-delà de la V2 (2026-10-08)
+
+Tranchées par le commanditaire sur le [PRD complémentaire](<PRD complémentaire — MissionPilot, le cabinet d'expertise augmenté.md>) (le reste de ce PRD reste à valider).
+
+| Sujet | Décision |
+| --- | --- |
+| Observatoire inter-cabinets (CAP-04) | **Adhésion volontaire** ; seuls les cabinets contributeurs consultent les benchmarks. |
+| Mention de la contribution IA sur les livrables (QUA-06) | **Au choix du cabinet**, avec une mention par défaut dans le pied de page. |
+| Métiers couverts par le référentiel de méthodes | **Conseil en management et gouvernance, risques et contrôle interne.** Audit légal et expertise comptable hors périmètre. |
+| Priorité après les fondations (vagues 1 et 2) | **Module d'appels d'offres** (AO) avant les services #2 Due diligence et #5 Redressement. |
+| Chiffre extrait d'un document client | Proposé, à confirmer : une donnée sourcée (document, page), utilisée par les moteurs seulement après contrôles déterministes ou confirmation humaine ; ce n'est pas un chiffre produit par l'IA. |
+
 ## Règles métier validées (2026-10-06) — applicables à la V2
 
 | Sujet | Décision |
