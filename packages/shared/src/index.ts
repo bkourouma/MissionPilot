@@ -19,4 +19,5 @@ export * from "./schemas/plans";
 export * from "./schemas/kpi";
 export * from "./schemas/questionnaires";
 export * from "./schemas/rapports";
+export * from "./schemas/fondations";
 export * from "./grilles/index";

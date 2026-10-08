@@ -123,6 +123,67 @@ describe("droits par rôle", () => {
   });
 });
 
+describe("V3, vague 1 : méthodes, dossier client, preuves, agents, qualité", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+  const lecteurs = ["associe", "chef_mission", "consultant", "directeur_mission", "expert_metier"];
+  const redacteurs = ["associe", "chef_mission", "consultant", "directeur_mission"];
+  const NOUVELLES = [
+    "standard.lire",
+    "standard.gerer",
+    "methode.deroger",
+    "dossier.lire",
+    "dossier.ecrire",
+    "preuve.lire",
+    "preuve.ecrire",
+    "agent.lire",
+    "agent.gerer",
+    "autonomie.decider",
+    "qualite.relire",
+    "qualite.signer",
+  ] as const;
+
+  it("déclare les douze permissions de la vague 1", () => {
+    for (const p of NOUVELLES) expect(PERMISSIONS).toContain(p);
+  });
+
+  it("lecture par les rôles de conseil ; écriture par les rédacteurs", () => {
+    for (const p of ["standard.lire", "dossier.lire", "preuve.lire", "agent.lire"] as const) {
+      expect(qui(p), p).toEqual(lecteurs);
+    }
+    expect(qui("dossier.ecrire")).toEqual(redacteurs);
+    expect(qui("preuve.ecrire")).toEqual(redacteurs);
+  });
+
+  it("méthodes et agents gérés par l'associé et l'expert métier ; dérogation par la mission", () => {
+    expect(qui("standard.gerer")).toEqual(["associe", "expert_metier"]);
+    expect(qui("agent.gerer")).toEqual(["associe", "expert_metier"]);
+    expect(qui("methode.deroger")).toEqual(["associe", "chef_mission", "directeur_mission"]);
+  });
+
+  it("promotion d'autonomie : décision d'un associé seul (AGT-03)", () => {
+    expect(qui("autonomie.decider")).toEqual(["associe"]);
+  });
+
+  it("qualité : relecture par chef, directeur et expert ; signature par le directeur (QUA-04)", () => {
+    expect(qui("qualite.relire")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+    expect(qui("qualite.signer")).toEqual(["associe", "directeur_mission"]);
+    // Le consultant valide ce qu'il produit ; il ne relit ni ne signe.
+    expect(aPermission(["consultant"], "qualite.relire")).toBe(false);
+  });
+
+  it("ni ressources, ni gestionnaire, ni expert externe, ni portail", () => {
+    for (const role of ["ressources", "gestionnaire", "expert_externe", ...ROLES_CLIENT] as const) {
+      for (const p of NOUVELLES) expect(aPermission([role], p), `${role} ${p}`).toBe(false);
+    }
+  });
+});
+
 describe("portail client (SOC-09)", () => {
   it("rôles client et rôles du cabinet sont disjoints ; ROLES reste la liste interne", () => {
     expect(ROLES).toHaveLength(8);

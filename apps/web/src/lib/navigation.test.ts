@@ -12,13 +12,16 @@ import {
 
 const ids = (roles: Role[]) => entreesAutorisees(roles).map((e) => e.id);
 
+/** Rubriques de la vague 1 (V3), déclarées avant leurs écrans. */
+const V3 = ["methodes", "dossiers-clients", "agents-ia", "qualite"];
+
 describe("table de navigation", () => {
   it("a des identifiants et des chemins uniques", () => {
     expect(new Set(NAVIGATION.map((e) => e.id)).size).toBe(NAVIGATION.length);
     expect(new Set(NAVIGATION.map((e) => e.href)).size).toBe(NAVIGATION.length);
   });
 
-  it("contient les quatorze rubriques prévues, dans l'ordre", () => {
+  it("contient les rubriques prévues, dans l'ordre", () => {
     expect(NAVIGATION.map((e) => e.libelle)).toEqual([
       "Tableau de bord",
       "Mon planning",
@@ -31,6 +34,10 @@ describe("table de navigation", () => {
       "Catalogue",
       "Questionnaires",
       "Notation",
+      "Méthodes",
+      "Dossiers clients",
+      "Agents IA",
+      "Qualité",
       "Plan de charge",
       "Facturation",
       "Finance",
@@ -39,9 +46,24 @@ describe("table de navigation", () => {
     ]);
   });
 
-  it("marque disponibles tous les écrans de la V1, indicateurs compris", () => {
-    expect(NAVIGATION.every((e) => e.disponible)).toBe(true);
+  it("marque disponibles tous les écrans de la V1 et de la V2, indicateurs compris", () => {
+    expect(NAVIGATION.filter((e) => !V3.includes(e.id)).every((e) => e.disponible)).toBe(true);
     expect(NAVIGATION.find((e) => e.id === "indicateurs")?.disponible).toBe(true);
+  });
+
+  it("déclare les rubriques de la vague 1 désactivées tant que leurs écrans n'existent pas", () => {
+    const v3 = NAVIGATION.filter((e) => V3.includes(e.id));
+    expect(v3.map((e) => [e.id, e.href, e.permission, e.disponible])).toEqual([
+      ["methodes", "/methodes", "standard.lire", false],
+      ["dossiers-clients", "/dossiers-clients", "dossier.lire", false],
+      ["agents-ia", "/agents", "agent.lire", false],
+      ["qualite", "/qualite", "qualite.relire", false],
+    ]);
+    // Jamais dans la barre basse du téléphone : un écran absent n'y prend pas de place.
+    for (const role of ROLES) {
+      const barre = entreesBarreBasse(entreesAutorisees([role])).map((e) => e.id);
+      expect(barre.some((id) => V3.includes(id))).toBe(false);
+    }
   });
 
   it("donne des sous-pages aux chemins uniques, rattachées à leur rubrique", () => {
@@ -69,6 +91,9 @@ describe("entreesAutorisees", () => {
       "catalogue",
       "questionnaires",
       "notation",
+      "methodes",
+      "dossiers-clients",
+      "agents-ia",
     ]);
   });
 

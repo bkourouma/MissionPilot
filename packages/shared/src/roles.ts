@@ -136,6 +136,21 @@ export const PERMISSIONS = [
   "kpi.gerer", // définir les KPI, cibles, contributeurs ; annuler une mesure du portail (V2)
   "kpi.saisir", // saisir, corriger, annuler une mesure côté cabinet (V2, KPI-02)
   "notation.lire", // lire une notation et son rapport (V2, NOT-01 à NOT-07)
+  // --- V3, vague 1 (PRD complémentaire) : méthodes, dossier client, preuves, agents IA, qualité.
+  // Visibilité de la mission TOUJOURS exigée en plus pour ce qui s'y rattache ; ni ressources, ni
+  // gestionnaire, ni expert externe (données du client et jugement d'expert, comme le plan).
+  "standard.lire", // lire méthodes, briques, facteurs et règles de modulation (STD-01 à STD-05)
+  "standard.gerer", // variante cabinet : méthodes, pondérations, règles, activation (STD-03, STD-11)
+  "methode.deroger", // demander une dérogation motivée sur une mission (STD-07)
+  "dossier.lire", // lire le dossier client vivant et sa frise (DOS-01, DOS-02, DOS-06)
+  "dossier.ecrire", // ajouter des faits datés et sourcés, ingérer des états financiers (DOS-02, DOS-03)
+  "preuve.lire", // lire preuves, assertions, solidité et triangulation (PRV-01 à PRV-05)
+  "preuve.ecrire", // enregistrer preuves et assertions, arbitrer une contradiction (PRV-01 à PRV-04)
+  "agent.lire", // lire le registre des agents, leurs niveaux et la contribution IA (AGT-01, AGT-05)
+  "agent.gerer", // configurer un agent : briques, plafond d'autonomie, jeux d'essai (AGT-01, AGT-04)
+  "autonomie.decider", // promouvoir une brique de N2 à N3 : décision d'un associé SEUL (AGT-03)
+  "qualite.relire", // relire un livrable : chef de mission, second expert R3 (QUA-03, QUA-04)
+  "qualite.signer", // signer un livrable R3 : directeur de mission (QUA-04, QUA-06)
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -215,6 +230,15 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "kpi.lire",
     "kpi.gerer",
     "kpi.saisir",
+    "standard.lire",
+    "methode.deroger",
+    "dossier.lire",
+    "dossier.ecrire",
+    "preuve.lire",
+    "preuve.ecrire",
+    "agent.lire",
+    "qualite.relire",
+    "qualite.signer",
   ],
   chef_mission: [
     "clients.lire",
@@ -250,6 +274,14 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "kpi.lire",
     "kpi.gerer",
     "kpi.saisir",
+    "standard.lire",
+    "methode.deroger",
+    "dossier.lire",
+    "dossier.ecrire",
+    "preuve.lire",
+    "preuve.ecrire",
+    "agent.lire",
+    "qualite.relire",
   ],
   consultant: [
     "clients.lire",
@@ -270,6 +302,12 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "plan.ecrire",
     "kpi.lire",
     "kpi.saisir",
+    "standard.lire",
+    "dossier.lire",
+    "dossier.ecrire",
+    "preuve.lire",
+    "preuve.ecrire",
+    "agent.lire",
   ],
   ressources: [
     "clients.lire",
@@ -329,6 +367,15 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ia.utiliser",
     "plan.lire",
     "kpi.lire",
+    // Propriétaire de la variante cabinet des méthodes et des agents (STD-03) ; second expert
+    // des livrables R3 (QUA-04) ; lit le dossier et les preuves, n'y écrit pas.
+    "standard.lire",
+    "standard.gerer",
+    "dossier.lire",
+    "preuve.lire",
+    "agent.lire",
+    "agent.gerer",
+    "qualite.relire",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire"],
   // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;

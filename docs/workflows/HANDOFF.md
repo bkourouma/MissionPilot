@@ -9,6 +9,54 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `feat/vague-1-fondations` — 2026-10-08 (Vague 1, fondations V3)
+
+**État :** part de `8a6d4e1` (vague 0 commitée). Phase 1 faite dans l'arbre de
+travail, **non commitée** : fondations communes aux cinq lots du PRD
+complémentaire. Aucune migration, aucune route remplie, aucun écran.
+
+**Posé par la phase 1 :**
+
+- **Moteurs purs** (`packages/engines/src`, exportés par `index.ts`, couverture
+  100 % des lignes) : `qualite/` (classes R0–R3, `gardesRequises`,
+  `evaluerGarde` : séparation des tâches, quatre yeux) ; `preuves/`
+  (`indiceSolidite` en fraction exacte, `carteTriangulation`,
+  `detecterAssertionsSansPreuve`, regroupement pour/contre) ; `modulation/`
+  (`appliquerModulation`, `simulerModulation`, `executerCasTypes`,
+  `validerReglesModulation`, `validerContexteModulation`) ; `autonomie/`
+  (`niveauEffectif`, `statistiquesAutonomie`, `evaluerPromotion`,
+  `retrogradationAuto`) ; `contribution/` (`distanceEditionMots`,
+  `contributionIa`, `evaluerModificationMajeure`, `agregerTempsRevue`).
+- **Partagé** : `packages/shared/src/schemas/fondations.ts` (classes, niveaux,
+  fiabilités, sources, facteurs, `regleModulationSchema` de même forme JSON que
+  le moteur) ; 12 permissions dans `roles.ts` (`standard.*`, `methode.deroger`,
+  `dossier.*`, `preuve.*`, `agent.*`, `autonomie.decider` associé seul,
+  `qualite.relire`, `qualite.signer`).
+- **API** : plugins VIDES déjà enregistrés sous `/api` dans `app.ts` :
+  `routes/standard.ts`, `dossier-client.ts`, `preuves.ts`, `agents.ts`,
+  `qualite.ts` ; les lots n'ont plus à toucher `app.ts`.
+- **Web** : rubriques « Méthodes », « Dossiers clients », « Agents IA »,
+  « Qualité » dans `lib/navigation.ts`, `disponible: false` (désactivées, pas de
+  lien mort) ; chaque lot les passe à `true` avec son écran.
+- **ADR** : ADR-004 (référentiel de méthodes) et ADR-005 (exécuteur d'agents).
+
+**Lots à venir (parallèles, un territoire chacun) et plages de migrations :**
+STD `0200–0219`, DOS `0220–0239`, PRV `0240–0259`, AGT `0260–0279`,
+QUA `0280–0299`. Méthode Notation migrée sur le référentiel ensuite
+(condition de passage de la vague 1 : résultats identiques à la V2).
+
+**Pièges :**
+
+- Recherche mécanique n° 12 de `review-checklist.md` : le compte de `z.object`
+  de `packages/shared/src/schemas` augmente (fichier `fondations.ts`, tous
+  `.strict()`) ; à recompter.
+- Seuils posés par défaut, **à calibrer au pilote** : poids de fiabilité A–D,
+  plafond 2 et seuils 0,75 / 0,5 de solidité ; promotion 50 exécutions / 95 % /
+  90 jours ; modification majeure au-delà de 25 % ; incident majeur → N2.
+- Tests API de la phase 1 sur la base `missionpilot_ph1`.
+
+---
+
 ## Branche `feat/vague-0-reliquats` — 2026-10-08
 
 **État :** V1 et V2 sur `main` (PR [#3](https://github.com/bkourouma/MissionPilot/pull/3)

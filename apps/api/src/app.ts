@@ -9,7 +9,9 @@ import { AppError } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { rolesObligatoires } from "./auth/double-authentification.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
+import { routesAgents } from "./routes/agents.js";
 import { routesAuth } from "./routes/auth.js";
+import { routesDossierClient } from "./routes/dossier-client.js";
 import { routesFacturation } from "./routes/facturation-routes.js";
 import { routesFinance } from "./routes/finance-routes.js";
 import { routesIa } from "./routes/ia-routes.js";
@@ -18,8 +20,11 @@ import { routesCycleMission } from "./routes/missions-routes.js";
 import { routesPlanification } from "./routes/planification-routes.js";
 import { installerGardePortail } from "./portail/garde.js";
 import { routesPortail } from "./routes/portail.js";
+import { routesPreuves } from "./routes/preuves.js";
+import { routesQualite } from "./routes/qualite.js";
 import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
+import { routesStandard } from "./routes/standard.js";
 import { routesTemps } from "./routes/temps-routes.js";
 
 declare module "fastify" {
@@ -255,6 +260,13 @@ export async function buildApp(
   await app.register((await import("./routes/limiteur-admin.js")).routesLimiteurAdmin, {
     prefix: "/api",
   });
+  // Vague 1 (V3, ADR-004 et ADR-005) : plugins posés vides par la phase 1, remplis chacun
+  // par son lot (STD, DOS, PRV, AGT, QUA) sans retoucher ce fichier.
+  await app.register(routesStandard, { prefix: "/api" });
+  await app.register(routesDossierClient, { prefix: "/api" });
+  await app.register(routesPreuves, { prefix: "/api" });
+  await app.register(routesAgents, { prefix: "/api" });
+  await app.register(routesQualite, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
   return app;
 }
