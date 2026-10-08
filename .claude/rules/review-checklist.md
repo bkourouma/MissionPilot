@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-08 (branche `feat/vague-1-fondations`, arbre de travail de l'intégration de la vague 1) en lançant les commandes
+ont été relevés le 2026-10-08 (branche `feat/vague-1-fondations`, arbre de travail avec les corrections d'audit de la vague 1) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -80,7 +80,15 @@ des mécanismes : `docs/governance/SECURITY.md` et
   strictes doublées en base : publication d'une notation par un
   `expert_metier` qui n'est ni auteur du calcul, ni d'un ajustement, ni de la
   soumission (`MPN04`, `0146`) ; plan : auteur ≠ valideur sauf associé ou
-  directeur de la mission (`MPS03`, `0180`).
+  directeur de la mission (`MPS03`, `0180`). Trois contrôles de la vague 1, à
+  retrouver dans tout nouveau circuit de validation : **arbitrage** d'une
+  contradiction (« levée » refusée à l'auteur de l'assertion ou de la preuve
+  contraire sauf associé : `MPV07`, `preuves/ecriture.ts`) ; **attestation** d'un
+  item de la définition de terminé (refusée à l'auteur du livrable : `MPY10`,
+  `qualite/verification.ts`) ; **publication d'une variante** du référentiel (refusée
+  au créateur de la version sauf associé : `MPM08`, `standard/methodes.ts`), comme la
+  publication d'une proposition au standard (`standard/propositions.ts`). Le
+  contrôle API et le déclencheur disent la même règle, avec le même test de refus.
 - **Contenu IA** : passe par l'orchestrateur (`ia/orchestrateur.ts`) ; la
   liste blanche de chiffres est construite par le code depuis les moteurs,
   jamais reçue d'une requête ; seul un contenu validé (et jamais un essai sur
@@ -125,8 +133,15 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-08, seule `0206` (intégration de la vague 1) n'est pas
-  encore commitée ; celles de la vague 0 et des lots de la vague 1 le sont.
+  recréer) ; au 2026-10-08, seules les dix migrations des corrections d'audit de la
+  vague 1 ne sont pas commitées (`0207`–`0209`, `0224`, `0243`, `0265`–`0268`, `0286`) ;
+  celles de la vague 0, des lots de la vague 1 et de l'intégration (`0206`) le sont.
+  Une fonction SQL déjà définie se redéfinit par `CREATE OR REPLACE` dans une
+  nouvelle migration numérotée APRÈS celles qui créent les tables qu'elle cite
+  (modèle : `0268`, `fichier_orphelin`) ; toute nouvelle colonne qui référence
+  `fichiers` s'ajoute à cette fonction, sinon la purge à 24 h efface le fichier
+  (`rg -n "REFERENCES fichiers" apps/api/migrations` : chaque colonne doit figurer
+  dans `fichier_orphelin`, test `fichiers-orphelins-references.test.ts`).
   Une migration qui référence la table d'un autre domaine prend un numéro plus
   grand que celle qui la crée (`0206`, pas `0151`, pour une table liée à
   `mission_methodes` de `0202`) : `migrate.ts` applique les fichiers par ordre
@@ -212,8 +227,9 @@ des mécanismes : `docs/governance/SECURITY.md` et
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-08
 sur l'arbre de travail de `feat/vague-1-fondations` (lots de la vague 1 commités,
-intégration transversale non commitée). Les recherches 1 à 9, 14, 16 et 17 ont
-été relancées le même jour : résultats inchangés.
+intégration transversale non commitée). Les recherches 1 à 9, 14 et 17 ont été relancées le même jour avant les
+corrections d'audit : résultats inchangés ; les recherches 10, 12, 13 et 16 l'ont été
+après.
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -254,7 +270,7 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-08, vague 1 intégrée) : "477 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     (2026-10-08, après les corrections d'audit) : "477 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
 #     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
 #     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
@@ -275,22 +291,23 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 372 z.object de
+# 12. Schémas Zod non stricts. Attendu : 0 sur 373 z.object de
 #     packages/shared/src/schemas (hors *.test.ts ; chaque z.object est suivi
 #     de .strict() dans sa chaîne). Script ponctuel, pas rg : apparier les
 #     parenthèses en sautant chaînes ET commentaires (une apostrophe dans un
 #     commentaire français fausse un appariement naïf). Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 372).
+#     (somme 373).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; dossier : 95 fichiers au
-# 2026-10-08 (`ls apps/api/migrations | wc -l`), dont `0206` non commitée ; contre
-# `origin/main` (60 migrations) : 34 « A » suivis (vague 0 et lots de la vague 1),
-# 35 une fois `0206` commitée. La branche locale `main` est en retard : comparer à
-# `origin/main`.
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 105 fichiers au
+# 2026-10-08 (`ls apps/api/migrations | wc -l`), dont 10 non commitées (corrections
+# d'audit : `0207`–`0209`, `0224`, `0243`, `0265`–`0268`, `0286`) ; contre
+# `origin/main` (60 migrations) : 35 « A » suivis (vague 0, lots de la vague 1 et
+# `0206`), 45 une fois les dix autres commitées. La branche locale `main` est en
+# retard : comparer à `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -302,7 +319,9 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 17 lignes
+#     SECURITY.md §4. Attendu : 17 lignes (inchangé par les corrections d'audit :
+#     aucune nouvelle fonction SECURITY DEFINER ; les fonctions `est_*` de `0243`
+#     et `0267` sont d'appelant, sous la RLS du cabinet)
 rg -n "GRANT EXECUTE" apps/api/migrations
 
 # 17. Écritures rejouables : tout en-tête Idempotency-Key passe par

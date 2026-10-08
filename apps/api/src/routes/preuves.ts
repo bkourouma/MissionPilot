@@ -430,9 +430,9 @@ function routesAssertionsEcriture(app: FastifyInstance) {
         db,
         auth,
         mission.id,
-        id,
-        c.preuve_id,
-        preuve.version,
+        assertion,
+        preuve,
+        lien.sens,
         c.decision,
         c.motif,
       );

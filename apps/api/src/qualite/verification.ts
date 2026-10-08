@@ -2,7 +2,7 @@ import type { StatutVerification } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { conflit, requeteInvalide } from "../errors.js";
+import { AppError, conflit, requeteInvalide } from "../errors.js";
 import { ajouterEvenement, changerStatut, type Suivi } from "./donnees.js";
 import { chargerDefinition, type DefinitionCharge } from "./definitions.js";
 import { lireContenuLivrable, type ContenuLivrable } from "./contenu.js";
@@ -104,7 +104,8 @@ interface Resultat {
 
 interface ChiffreRevue {
   libelle: string;
-  source: string | null;
+  /** Source RÉSOLUE par le serveur (`moteur`, `preuve`) ; un texte libre ne trace pas un chiffre. */
+  source_type: string | null;
 }
 
 const NON_EVALUABLE = (detail: string): Resultat => ({ statut: "non_evaluable", detail });
@@ -148,12 +149,12 @@ function controler(
       if (chiffres.length === 0) {
         return NON_EVALUABLE("Aucun chiffre déposé dans la revue guidée : à attester.");
       }
-      const sansSource = chiffres.filter((c) => !c.source);
+      const sansSource = chiffres.filter((c) => !c.source_type);
       return sansSource.length === 0
         ? { statut: "conforme", detail: null }
         : {
             statut: "non_conforme",
-            detail: `${sansSource.length} chiffre(s) sans source : ${sansSource
+            detail: `${sansSource.length} chiffre(s) sans source vérifiée (moteur ou preuve) : ${sansSource
               .slice(0, 3)
               .map((c) => abreger(c.libelle))
               .join(" ; ")}.`,
@@ -178,16 +179,17 @@ export async function verifierDefinition(
     throw conflit("Le suivi est validé : la vérification est close.");
   }
   const def = suivi.definition_id ? await chargerDefinition(db, suivi.definition_id) : null;
+  const contenu = await lireContenuLivrable(
+    db,
+    suivi.mission_id,
+    suivi.type_livrable as never,
+    suivi.livrable_id,
+    suivi.version,
+  );
   if (def) {
-    const contenu = await lireContenuLivrable(
-      db,
-      suivi.mission_id,
-      suivi.type_livrable as never,
-      suivi.livrable_id,
-      suivi.version,
-    );
     const ch = await db.query(
-      "SELECT libelle, source FROM qualite_revue_elements WHERE suivi_id = $1 AND kind = 'chiffre'",
+      `SELECT libelle, source_type FROM qualite_revue_elements
+       WHERE suivi_id = $1 AND kind = 'chiffre'`,
       [suivi.id],
     );
     const dernier = await db.query(
@@ -216,11 +218,22 @@ export async function verifierDefinition(
       );
     }
   }
+  // Empreinte du contenu RELU, posée une fois au passage en revue (figée en base, MPY02) ; un
+  // suivi ouvert avant la migration 0286 la reçoit à sa prochaine vérification.
+  if (suivi.empreinte_revue === null && contenu?.empreinte) {
+    await db.query(
+      "UPDATE qualite_suivis SET empreinte_revue = $2 WHERE id = $1 AND empreinte_revue IS NULL",
+      [suivi.id, contenu.empreinte],
+    );
+    suivi.empreinte_revue = contenu.empreinte;
+  }
   if (suivi.statut === "brouillon") {
     await changerStatut(db, suivi.id, "en_revue");
     await ajouterEvenement(db, auth.cabinetId, suivi.id, auth.utilisateurId, {
       action: "passage_en_revue",
+      details: suivi.empreinte_revue ? { empreinte: suivi.empreinte_revue } : {},
     });
+    suivi.statut = "en_revue";
   }
   const etat = await etatDefinition(db, suivi);
   await journaliser(db, {
@@ -244,6 +257,15 @@ export async function attesterItem(
 ): Promise<EtatDefinition> {
   if (suivi.statut !== "en_revue") {
     throw conflit("L'attestation se fait pendant la revue : lancez d'abord la vérification.");
+  }
+  // Séparation des tâches : l'auteur n'atteste pas ce que le code n'a pas su vérifier sur son
+  // propre livrable (doublé en base, MPY10).
+  if (suivi.auteur_id !== null && suivi.auteur_id === auth.utilisateurId) {
+    throw new AppError(
+      409,
+      "ATTESTATION_PAR_AUTEUR",
+      "L'auteur du livrable n'atteste pas sa propre définition de terminé : un autre relecteur atteste.",
+    );
   }
   const etat = await etatDefinition(db, suivi);
   const item = etat.items.find((i) => i.id === itemId);

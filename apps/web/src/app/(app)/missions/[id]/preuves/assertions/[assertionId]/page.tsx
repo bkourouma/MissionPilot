@@ -20,6 +20,7 @@ import {
   cheminAssertion,
   cheminDimensions,
   droitsPreuves,
+  peutSignerAvisExpert,
   hrefAssertion,
   hrefAssertions,
   libelleAuteur,
@@ -169,7 +170,12 @@ export default async function PageDetailAssertion({
             )}
           </Carte>
           <Carte titre="Corriger l'assertion">
-            <FormulaireAssertion missionId={id} dimensions={dims} assertion={a} />
+            <FormulaireAssertion
+              missionId={id}
+              dimensions={dims}
+              assertion={a}
+              peutSigner={peutSignerAvisExpert(utilisateur.roles)}
+            />
           </Carte>
         </>
       ) : null}

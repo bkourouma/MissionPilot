@@ -17,6 +17,9 @@ import type { ContenuMethode } from "./types.js";
  *   classe de risque (une brique R2 ou R3, livrable client ou engageant,
  *   garde une validation humaine : N2 au plus ; N3 réservé à R0 et R1 ; N4,
  *   exécution vers le client, à R0 seulement — PRD complémentaire §7.1).
+ * - variante : pas de classe de risque abaissée ni d'autonomie relevée par
+ *   rapport à la version du standard dont elle part (`CLASSE_ABAISSEE`,
+ *   `AUTONOMIE_RELEVEE`).
  * Une anomalie de gravité « erreur » bloque la publication.
  */
 
@@ -29,6 +32,7 @@ export interface AnomalieVersion {
 }
 
 const RANG_NIVEAU: Record<NiveauAutonomie, number> = { N0: 0, N1: 1, N2: 2, N3: 3, N4: 4 };
+const RANG_CLASSE: Record<ClasseRisque, number> = { R0: 0, R1: 1, R2: 2, R3: 3 };
 const NIVEAU_MAX_PAR_CLASSE: Record<ClasseRisque, NiveauAutonomie> = {
   R0: "N4",
   R1: "N3",
@@ -82,6 +86,38 @@ function anomaliesStructure(contenu: ContenuMethode): AnomalieVersion[] {
   return anomalies;
 }
 
+/**
+ * Une variante ne desserre pas le standard dont elle part : pour une brique de
+ * même code, classe de risque inférieure ou niveau d'autonomie supérieur à
+ * ceux de la version de base = erreur bloquante (doublé en base, MPM07).
+ */
+function anomaliesBase(contenu: ContenuMethode, base: ContenuMethode): AnomalieVersion[] {
+  const anomalies: AnomalieVersion[] = [];
+  for (const b of contenu.briques) {
+    const s = base.briques.find((x) => x.code === b.code);
+    if (!s) continue;
+    if (RANG_CLASSE[b.classe_risque] < RANG_CLASSE[s.classe_risque]) {
+      anomalies.push({
+        code: "CLASSE_ABAISSEE",
+        gravite: "erreur",
+        regle: null,
+        chemin: `briques.${b.code}.classe_risque`,
+        message: `Brique « ${b.libelle} » : la classe ${b.classe_risque} abaisse celle du standard (${s.classe_risque}).`,
+      });
+    }
+    if (RANG_NIVEAU[b.niveau_autonomie_max] > RANG_NIVEAU[s.niveau_autonomie_max]) {
+      anomalies.push({
+        code: "AUTONOMIE_RELEVEE",
+        gravite: "erreur",
+        regle: null,
+        chemin: `briques.${b.code}.niveau_autonomie_max`,
+        message: `Brique « ${b.libelle} » : l'autonomie ${b.niveau_autonomie_max} dépasse celle du standard (${s.niveau_autonomie_max}).`,
+      });
+    }
+  }
+  return anomalies;
+}
+
 export interface ValidationVersion {
   valide: boolean;
   anomalies: AnomalieVersion[];
@@ -92,8 +128,10 @@ export interface ValidationVersion {
 export function validerVersion(
   contenu: ContenuMethode,
   facteurs: readonly FacteurLigne[],
+  base: ContenuMethode | null = null,
 ): ValidationVersion {
   const anomalies: AnomalieVersion[] = [...anomaliesStructure(contenu)];
+  if (base) anomalies.push(...anomaliesBase(contenu, base));
   const regles = validerReglesModulation(reglesDe(contenu), referentielVersion(contenu, facteurs));
   anomalies.push(
     ...regles.anomalies.map((a) => ({

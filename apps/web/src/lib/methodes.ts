@@ -850,6 +850,7 @@ export function messageMethodes(e: unknown): string | null {
     case "CONTEXTE_INVALIDE":
     case "ETAPE_INATTENDUE":
     case "SEPARATION_DES_TACHES":
+    case "MOTIF_REQUIS":
       return e.message;
     case "VARIANTE_EXISTANTE":
       return "Le cabinet a déjà une variante de cette méthode.";

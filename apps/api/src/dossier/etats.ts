@@ -16,8 +16,11 @@ import { inscrireFiabilite } from "./fiabilite.js";
 /*
  * États financiers du client (DOS-03). Ingestion : lignes (saisie, CSV ou Excel, chacune
  * avec sa référence) → contrôles du moteur `controlerEtatFinancier` → acceptation
- * AUTOMATIQUE seulement si tous les contrôles passent (conforme et complet), sinon file de
- * revue avec les écarts. Jamais d'acceptation silencieuse : doublé en base (MPO04, 0222).
+ * AUTOMATIQUE seulement si tous les contrôles passent (conforme et complet) À TOLÉRANCE NULLE
+ * et si l'état ne remplace pas un état déjà accepté par un humain ; sinon file de revue avec
+ * les écarts. La tolérance est choisie par l'importateur : elle ne décide jamais seule d'une
+ * acceptation (tolérance > 0 : revue obligatoire, motif et autre décideur, comme un écart).
+ * Jamais d'acceptation silencieuse : doublé en base (MPO04, 0222 puis 0224).
  * Un nouvel état du même exercice remplace l'état courant (historique conservé). Revue :
  * accepter un état en écart exige un motif et un autre décideur que l'importateur (sauf
  * associé) ; le rejet est toujours motivé.
@@ -174,6 +177,15 @@ async function etatCourant(db: Db, clientId: string, exercice: number): Promise<
   return (r.rows[0]?.id as string | undefined) ?? null;
 }
 
+/** L'état a été accepté par une décision humaine (et non automatiquement). */
+async function acceptationHumaine(db: Db, etatId: string): Promise<boolean> {
+  const r = await db.query(
+    `SELECT 1 FROM dossier_etats_decisions WHERE etat_id = $1 AND decision = 'accepte' AND NOT automatique`,
+    [etatId],
+  );
+  return r.rowCount === 1;
+}
+
 async function insererLignes(
   db: Db,
   cabinetId: string,
@@ -235,6 +247,10 @@ export async function ingererEtat(
     );
   }
   const remplace = await etatCourant(db, clientId, entete.exercice);
+  const automatique =
+    controle.acceptationAutomatique &&
+    entete.tolerance === 0 &&
+    !(remplace && (await acceptationHumaine(db, remplace)));
   const r = await db.query(
     `INSERT INTO dossier_etats_financiers (cabinet_id, client_id, exercice, date_cloture, devise, origine,
        source_libelle, fichier_nom, fichier_sha256, fichier_taille, tolerance, controles, totaux,
@@ -264,7 +280,7 @@ export async function ingererEtat(
   );
   const id = r.rows[0].id as string;
   await insererLignes(db, auth.cabinetId, id, lignes);
-  if (controle.acceptationAutomatique) {
+  if (automatique) {
     await db.query(
       `INSERT INTO dossier_etats_decisions (cabinet_id, etat_id, decision, automatique)
        VALUES ($1, $2, 'accepte', true)`,
@@ -282,7 +298,8 @@ export async function ingererEtat(
       exercice: entete.exercice,
       origine,
       lignes: lignes.length,
-      accepte_automatiquement: controle.acceptationAutomatique,
+      accepte_automatiquement: automatique,
+      tolerance: entete.tolerance,
       remplace_id: remplace,
       fichier_sha256: fichier?.sha256 ?? null,
     },
@@ -302,15 +319,23 @@ export async function deciderEtat(
   await verrouillerDossier(db, clientId);
   const etat = await lireEtat(db, clientId, etatId);
   if (statutEtat(etat) !== "en_revue") throw conflit("Seul un état en revue reçoit une décision.");
-  const force = d.decision === "accepte" && !etat.controles_ok;
+  // Acceptation « sous réserve » : contrôles en échec, tolérance non nulle ou état qui remplace un
+  // état accepté par un humain. Motif obligatoire et décideur autre que l'importateur (sauf associé).
+  const force =
+    d.decision === "accepte" &&
+    (!etat.controles_ok ||
+      Number(etat.tolerance) > 0 ||
+      (typeof etat.remplace_id === "string" && (await acceptationHumaine(db, etat.remplace_id))));
   if (force && !d.motif) {
-    throw requeteInvalide("Motif obligatoire pour accepter un état dont des contrôles échouent.");
+    throw requeteInvalide(
+      "Motif obligatoire pour accepter un état dont des contrôles échouent, de tolérance non nulle ou qui remplace un état accepté.",
+    );
   }
   if (force && etat.importe_par === auth.utilisateurId && !estAssocie(auth)) {
     throw new AppError(
       403,
       "VALIDATION_REQUISE",
-      "L'importateur n'accepte pas lui-même un état en écart : le faire accepter par un autre membre.",
+      "L'importateur n'accepte pas lui-même un état en écart, de tolérance non nulle ou qui en remplace un accepté : le faire accepter par un autre membre.",
     );
   }
   await db.query(

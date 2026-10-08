@@ -9,7 +9,13 @@ import { AppError, requeteInvalide } from "../errors.js";
  * - MPG02 au-delà du plafond du standard ou agent inconnu → 409 PLAFOND_AGENT ;
  * - MPG03 changement de niveau refusé par la base → 409 AUTONOMIE_REFUSEE ;
  * - MPG04 activation sans non-régression → 409 NON_REGRESSION_REQUISE ;
- * - MPG05 incohérence (exécution, décision, contribution, jeu) → 409 AGENTS_INCOHERENCE.
+ * - MPG05 incohérence (exécution, décision, contribution, jeu) → 409 AGENTS_INCOHERENCE ;
+ * - MPG06 validation d'un contenu issu d'une sortie d'agent non conforme (0266)
+ *   → 409 SORTIE_AGENT_NON_CONFORME ;
+ * - MPG07 classe de risque d'une brique refusée (plancher de la méthode, R0 hors
+ *   associé ; 0267) → 409 CLASSE_RISQUE_REFUSEE ;
+ * - MPG08 action réservée (levée d'une restriction d'associé, décision sur une
+ *   exécution ; 0267) → 403 ACTION_RESERVEE.
  */
 
 const erreur = (statut: number, code: string, message: string) =>
@@ -66,6 +72,29 @@ export const jeuEssaiAbsent = () =>
 export const nonRegressionRequise = (
   message = "Activation refusée : aucune évaluation de non-régression réussie pour cette version ou ce modèle.",
 ) => erreur(409, "NON_REGRESSION_REQUISE", message);
+export const jeuEssaiRequis = () =>
+  erreur(
+    409,
+    "JEU_ESSAI_REQUIS",
+    "Ce prompt n'a pas de jeu d'essai : un agent n'exécute qu'un prompt sous non-régression.",
+  );
+export const jeuEssaiAffaibli = (manquants: readonly string[]) =>
+  new AppError(
+    409,
+    "JEU_ESSAI_AFFAIBLI",
+    "La nouvelle version du jeu retire des cas ou laisse un cas sans critère : réservé à un associé.",
+    { manquants },
+  );
+export const classeSousPlancher = (plancher: string) =>
+  erreur(
+    409,
+    "CLASSE_RISQUE_SOUS_PLANCHER",
+    `Classe de risque inférieure au plancher de la méthode pour cette brique (${plancher}).`,
+  );
+export const classeRisqueRefusee = () =>
+  erreur(409, "CLASSE_RISQUE_REFUSEE", "Classe de risque refusée pour cette brique.");
+export const actionReservee = (message = "Action réservée à un associé.") =>
+  erreur(403, "ACTION_RESERVEE", message);
 const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG01: () => erreur(409, "HISTORIQUE_AGENTS_FIGE", "Historique des agents en ajout seul."),
   MPG02: plafondAgent,
@@ -73,6 +102,9 @@ const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG04: () => nonRegressionRequise(),
   MPG05: () =>
     erreur(409, "AGENTS_INCOHERENCE", "Opération incohérente avec l'exécution ou le jeu d'essai."),
+  MPG06: sortieNonConforme,
+  MPG07: classeRisqueRefusee,
+  MPG08: () => actionReservee(),
 };
 
 function codePg(error: unknown): string | undefined {

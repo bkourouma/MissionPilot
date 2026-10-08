@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { demarrer, type Contexte } from "./helpers.js";
+import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 import {
   ASSERTION_R2,
   creerAssertion,
@@ -19,9 +19,17 @@ import {
 let ctx: Contexte;
 let s: ScenarioPreuves;
 
+/** Consultant de l'équipe qui porte AUSSI le rôle expert métier : il écrit et peut signer. */
+let expertEcrivain: ScenarioPreuves["consultantEquipe"];
+
 beforeAll(async () => {
   ctx = await demarrer();
   s = await preparerPreuves(ctx, "PRV solidité");
+  expertEcrivain = await s.a.avecRoles(["consultant", "expert_metier"]);
+  const r = await s.a.chef.post(`/api/missions/${s.missionId}/equipe`, {
+    utilisateur_id: expertEcrivain.utilisateurId,
+  });
+  if (r.statusCode !== 201) throw new Error(`équipe : ${r.statusCode} ${r.body}`);
 }, 180_000);
 afterAll(() => ctx.fermer());
 
@@ -239,14 +247,23 @@ describe("assertions : versions et avis d'expert", () => {
       avis_expert_motif: "Constat de terrain non documentable.",
     });
     expect(a.avis_expert).toMatchObject({ signe: false, signe_par: null });
-    const sansMotif = await s.consultantEquipe.post(`/api/assertions/${a.id}/versions`, {
+    // Signer un avis d'expert est réservé à un expert métier ou à un associé (403).
+    const nonExpert = await s.consultantEquipe.post(`/api/assertions/${a.id}/versions`, {
+      ...ASSERTION_R2,
+      avis_expert: true,
+      avis_expert_motif: "Constat de terrain non documentable.",
+      signer_avis: true,
+      motif: "Signature de l'avis.",
+    });
+    expect(nonExpert.statusCode).toBe(403);
+    const sansMotif = await expertEcrivain.post(`/api/assertions/${a.id}/versions`, {
       ...ASSERTION_R2,
       avis_expert: true,
       avis_expert_motif: "Constat.",
       signer_avis: true,
     });
     expect(sansMotif.statusCode).toBe(400);
-    const r = await s.consultantEquipe.post(`/api/assertions/${a.id}/versions`, {
+    const r = await expertEcrivain.post(`/api/assertions/${a.id}/versions`, {
       ...ASSERTION_R2,
       avis_expert: true,
       avis_expert_motif: "Constat de terrain non documentable.",
@@ -257,7 +274,7 @@ describe("assertions : versions et avis d'expert", () => {
     const d = r.json();
     expect(d.version).toBe(2);
     expect(d.avis_expert.signe).toBe(true);
-    expect(d.avis_expert.signe_par.id).toBe(s.consultantEquipe.utilisateurId);
+    expect(d.avis_expert.signe_par.id).toBe(expertEcrivain.utilisateurId);
     expect(d.historique.map((v: { version: number }) => v.version)).toEqual([2, 1]);
     // Une nouvelle version ne reprend pas la signature.
     const v3 = await s.a.chef.post(`/api/assertions/${a.id}/versions`, {
@@ -291,5 +308,89 @@ describe("assertions : versions et avis d'expert", () => {
         })
       ).statusCode,
     ).toBe(201);
+  });
+});
+
+describe("durcissement (audit du 2026-10-08) : expert, classe de risque, arbitrage", () => {
+  it("abaisser la classe de risque exige un expert ou un associé (409 CLASSE_RISQUE_ABAISSEE, MPV06)", async () => {
+    const a = await creerAssertion(s.a.chef, s.missionId, { classe_risque: "R3" });
+    const corps = { ...ASSERTION_R2, classe_risque: "R1", motif: "Moins engageant." };
+    const r = await s.a.chef.post(`/api/assertions/${a.id}/versions`, corps);
+    expect(r.statusCode).toBe(409);
+    expect(r.json().erreur.code).toBe("CLASSE_RISQUE_ABAISSEE");
+    // Relever ou garder la classe reste ouvert à qui écrit.
+    const meme = await s.a.chef.post(`/api/assertions/${a.id}/versions`, {
+      ...ASSERTION_R2,
+      classe_risque: "R3",
+      motif: "Reformulation.",
+    });
+    expect(meme.statusCode).toBe(201);
+    expect((await expertEcrivain.post(`/api/assertions/${a.id}/versions`, corps)).statusCode).toBe(
+      201,
+    );
+    // En base, même pour le propriétaire du schéma.
+    await expect(
+      proprietaire((c) =>
+        c.query(
+          `INSERT INTO assertion_versions (cabinet_id, assertion_id, version, enonce, classe_risque,
+             motif, cree_par)
+           SELECT cabinet_id, assertion_id, 4, enonce, 'R0', 'x', $2 FROM assertion_versions
+           WHERE assertion_id = $1 AND version = 3`,
+          [a.id, s.a.chef.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPV06" });
+  });
+
+  it("un avis d'expert n'est signé en base que par un expert métier ou un associé (MPV04)", async () => {
+    const a = await creerAssertion(s.a.chef, s.missionId);
+    await expect(
+      proprietaire((c) =>
+        c.query(
+          `INSERT INTO assertion_versions (cabinet_id, assertion_id, version, enonce, classe_risque,
+             avis_expert, avis_expert_motif, signe_par, signe_le, motif, cree_par)
+           SELECT cabinet_id, assertion_id, 2, enonce, classe_risque, true, 'Constat', $2, now(),
+             'x', $2 FROM assertion_versions WHERE assertion_id = $1 AND version = 1`,
+          [a.id, s.a.chef.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPV04" });
+  });
+
+  it("l'auteur de l'assertion ou de la preuve contraire ne lève pas la contradiction (409, MPV07)", async () => {
+    const a = await creerAssertion(s.a.chef, s.missionId, { enonce: "Séparation des tâches" });
+    const contre = await creerPreuve(s.a.chef, s.missionId, {
+      ...PREUVE_DOCUMENT,
+      auteur_id: s.consultantEquipe.utilisateurId,
+    });
+    await lier(s.a.chef, a.id, contre.id, "contre");
+    const url = `/api/assertions/${a.id}/arbitrages`;
+    const leve = { preuve_id: contre.id, decision: "contradiction_levee", motif: "Écartée." };
+    // Auteur de l'assertion (et saisisseur de la preuve).
+    const parChef = await s.a.chef.post(url, leve);
+    expect(parChef.statusCode).toBe(409);
+    expect(parChef.json().erreur.code).toBe("ARBITRAGE_PAR_AUTEUR");
+    // Auteur désigné de la preuve contraire.
+    expect((await s.consultantEquipe.post(url, leve)).statusCode).toBe(409);
+    // Maintenir la contradiction reste possible pour l'auteur.
+    expect(
+      (await s.a.chef.post(url, { ...leve, decision: "contradiction_maintenue" })).statusCode,
+    ).toBe(201);
+    // En base (MPV07), même pour le propriétaire du schéma.
+    await expect(
+      proprietaire((c) =>
+        c.query(
+          `INSERT INTO preuve_arbitrages (cabinet_id, mission_id, assertion_id, preuve_id,
+             preuve_version, decision, motif, arbitre_par)
+           SELECT cabinet_id, mission_id, id, $2, 1, 'contradiction_levee', 'x', $3
+           FROM assertions WHERE id = $1`,
+          [a.id, contre.id, s.consultantEquipe.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPV07" });
+    // Un tiers de l'équipe, ou un associé, la lève.
+    const tiers = await expertEcrivain.post(url, leve);
+    expect(tiers.statusCode).toBe(201);
+    expect(tiers.json().solidite.contradiction_non_resolue).toBe(false);
   });
 });

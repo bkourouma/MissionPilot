@@ -1,5 +1,6 @@
 import {
   aPermission,
+  VARIABLE_CHIFFRES,
   type ChiffreContexte,
   type DecisionExecutionAgentApi,
   type SourceIa,
@@ -7,19 +8,23 @@ import {
 } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
+import type { Config } from "../config.js";
 import type { Database, Db } from "../db/pool.js";
 import { interdit, introuvable, requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer } from "../http/outils.js";
 import { signauxInjection } from "../ia/donnees-non-fiables.js";
+import { evaluationLocaleAdmise, reglerEvaluationLocale } from "../ia/evaluation.js";
 import {
   genererContenu,
   type DependancesIa,
   type EntiteLiee,
   type ResultatExecution,
 } from "../ia/orchestrateur.js";
-import { chargerPromptActif } from "../ia/prompts.js";
+import { lireParametres, modeleDe } from "../ia/parametres.js";
+import { chargerPromptActif, extraireVariables, type PromptDb } from "../ia/prompts.js";
 import { validerSortieAgent } from "../ia/sortie-agent.js";
 import {
+  estAssocie,
   exigerMissionVisible,
   filtreVisibilite,
   voitToutesLesMissions,
@@ -33,16 +38,19 @@ import {
 } from "./autonomie.js";
 import { enregistrerContributionLivrable } from "./contributions.js";
 import {
+  actionReservee,
   agentInactif,
   autonomieN0,
   avecErreursAgents,
   contenuNonValide,
   decisionExiste,
+  jeuEssaiRequis,
+  nonRegressionRequise,
   plafondMissionAtteint,
   sortieNonConforme,
   texteConserveAbsent,
 } from "./erreurs.js";
-import { etatPlafondMission } from "./plafonds.js";
+import { controlerPlafondMission } from "./plafonds.js";
 import { droitsManquants, lireAgent, type AgentCabinet } from "./registre.js";
 
 /*
@@ -53,6 +61,19 @@ import { droitsManquants, lireAgent, type AgentCabinet } from "./registre.js";
  * Un agent agit TOUJOURS dans les droits de l'utilisateur qui le déclenche :
  * ia.utiliser et les permissions déclarées par l'agent, mission visible (RLS
  * et visibilité des missions), prompt de l'une de ses tâches.
+ *
+ * Non-régression (AGT-04) : un agent n'exécute que la version ACTIVE d'un
+ * prompt doté d'un jeu d'essai et qui a réussi le DERNIER jeu de son nom avec le
+ * modèle routé pour sa tâche (409 JEU_ESSAI_REQUIS, NON_REGRESSION_REQUISE) ;
+ * hors production, une évaluation locale suffit, en production seule une
+ * évaluation `openrouter` compte. Doublé en base (0265, MPG04).
+ *
+ * Contenu client (AGT-07) : pour un agent qui LIT du contenu client
+ * (`lit_contenu_client`), TOUTE variable d'entrée est une donnée non fiable,
+ * sauf celles que l'appelant déclare explicitement fiables (`variablesFiables`,
+ * texte produit par le cabinet ou par le code) ; le gabarit SYSTÈME d'un tel
+ * agent ne peut porter ni variable non fiable ni `{{chiffres}}` (libellés
+ * possiblement repris d'une saisie du client).
  *
  * Services internes exportés (utilisables par les autres modules) :
  * - `executerAgent` : contrôle, génération par l'orchestrateur (contenus
@@ -73,6 +94,8 @@ export interface EntreeEnregistrement {
   variablesNonFiables?: readonly string[];
   /** Signaux d'injection relevés dans ces variables (journalisés avec l'exécution). */
   signauxInjection?: readonly string[];
+  /** Environnement : hors production, une évaluation locale est admise (0265). Absent : strict. */
+  config?: Pick<Config, "NODE_ENV">;
 }
 
 interface Contexte {
@@ -131,6 +154,7 @@ export async function enregistrerExecutionAgent(
     texte: dem.texte as string,
     donnees: dem.donnees,
   });
+  await reglerEvaluationLocale(db, e.config);
   const r = await avecErreursAgents(() =>
     db.query(
       `INSERT INTO agents_executions (cabinet_id, agent_code, agent_version, brique_id, mission_id,
@@ -193,6 +217,11 @@ export interface DemandeExecutionAgent {
   variables: Readonly<Record<string, string>>;
   /** Variables portant un contenu client : données non fiables (AGT-07). */
   variablesNonFiables?: readonly string[];
+  /**
+   * Agent qui lit du contenu client : variables déclarées FIABLES (produites par le cabinet ou
+   * par le code) ; toutes les autres sont non fiables par défaut. Ignoré pour un autre agent.
+   */
+  variablesFiables?: readonly string[];
   /** Chiffres CALCULÉS par les moteurs, par le code serveur de l'appelant (jamais d'une requête). */
   contexteChiffres?: readonly ChiffreContexte[];
   termesSensibles?: readonly TermeSensible[];
@@ -200,6 +229,67 @@ export interface DemandeExecutionAgent {
   entite?: EntiteLiee;
   /** Plafond (cabinet ou mission) atteint : mode dégradé par gabarit au lieu d'un refus. */
   repliSiPlafond?: boolean;
+}
+
+/** Variables non fiables d'une exécution (AGT-07) : par défaut toutes, pour un agent lecteur. */
+export function variablesNonFiablesDe(
+  agent: Pick<AgentCabinet, "lit_contenu_client">,
+  d: Pick<DemandeExecutionAgent, "variables" | "variablesNonFiables" | "variablesFiables">,
+): string[] {
+  const declarees = new Set(d.variablesNonFiables ?? []);
+  if (agent.lit_contenu_client) {
+    const fiables = new Set(d.variablesFiables ?? []);
+    for (const v of Object.keys(d.variables)) if (!fiables.has(v)) declarees.add(v);
+  }
+  return [...declarees].sort();
+}
+
+/** Contrôles AGT-07 du prompt d'un agent lecteur de contenu client (400). */
+function controlerPromptLecteur(
+  agent: AgentCabinet,
+  prompt: PromptDb,
+  d: DemandeExecutionAgent,
+): void {
+  if (!agent.lit_contenu_client) return;
+  const inconnues = (d.variablesFiables ?? []).filter((v) => d.variables[v] === undefined);
+  if (inconnues.length > 0) {
+    throw requeteInvalide(`Variables fiables inconnues : ${inconnues.join(", ")}.`);
+  }
+  if (extraireVariables(prompt.gabarit_systeme).includes(VARIABLE_CHIFFRES)) {
+    throw requeteInvalide(
+      "Un agent qui lit du contenu client ne reçoit pas les chiffres dans ses consignes : " +
+        "placez {{chiffres}} dans le message utilisateur.",
+    );
+  }
+}
+
+/**
+ * AGT-04 : la version de prompt a réussi le dernier jeu d'essai de son nom avec `modele`
+ * (évaluation locale admise hors production seulement) ; 409 sinon.
+ */
+export async function exigerPromptEvalue(
+  db: Db,
+  config: Pick<Config, "NODE_ENV">,
+  prompt: Pick<PromptDb, "id" | "nom">,
+  modele: string,
+): Promise<void> {
+  const jeu = await db.query(
+    "SELECT id FROM agents_jeux_essai WHERE prompt_nom = $1 ORDER BY version DESC LIMIT 1",
+    [prompt.nom],
+  );
+  if (!jeu.rows[0]) throw jeuEssaiRequis();
+  const e = await db.query(
+    `SELECT 1 FROM agents_evaluations
+     WHERE jeu_id = $1 AND prompt_id = $2 AND modele = $3 AND reussie
+       AND (fournisseur = 'openrouter' OR $4::boolean) LIMIT 1`,
+    [jeu.rows[0].id, prompt.id, modele, evaluationLocaleAdmise(config)],
+  );
+  if (!e.rows[0]) {
+    throw nonRegressionRequise(
+      "Exécution refusée : la version active du prompt n'a pas réussi le dernier jeu d'essai " +
+        "avec le modèle de sa tâche.",
+    );
+  }
 }
 
 export type ResultatExecutionAgent =
@@ -219,19 +309,24 @@ export async function executerAgent(
   const auth = d.utilisateur;
   const maintenant = (deps.horloge ?? (() => new Date()))();
   const missionId = d.entite?.missionId ?? null;
-  const modeDegrade = await database.withTenant(auth.cabinetId, async (db) => {
+  const nonFiables = await database.withTenant(auth.cabinetId, async (db) => {
     const { agent } = await controlerAgent(db, auth, d.agentCode, d.briqueCode);
     const prompt = await chargerPromptActif(db, d.promptNom);
     if (!(agent.taches as string[]).includes(prompt.tache)) {
       throw requeteInvalide("Le prompt ne sert aucune tâche de cet agent.");
     }
-    if (!missionId) return false;
-    await exigerMissionVisible(db, auth, missionId);
-    const plafond = await etatPlafondMission(db, missionId, maintenant);
-    if (plafond.atteint && !d.repliSiPlafond) throw plafondMissionAtteint();
-    return plafond.atteint;
+    controlerPromptLecteur(agent, prompt, d);
+    const nonFiables = variablesNonFiablesDe(agent, d);
+    // AGT-07 : un contenu client n'entre jamais dans les consignes (message système).
+    const systeme = extraireVariables(prompt.gabarit_systeme);
+    if (nonFiables.some((v) => systeme.includes(v))) {
+      throw requeteInvalide("Un contenu client ne peut pas figurer dans les consignes du prompt.");
+    }
+    if (missionId) await exigerMissionVisible(db, auth, missionId);
+    const modele = modeleDe(await lireParametres(db), prompt.tache);
+    await exigerPromptEvalue(db, deps.config, prompt, modele);
+    return nonFiables;
   });
-  const nonFiables = [...new Set(d.variablesNonFiables ?? [])];
   const signaux = [
     ...new Set(nonFiables.flatMap((v) => signauxInjection(d.variables[v] ?? ""))),
   ].sort();
@@ -245,7 +340,20 @@ export async function executerAgent(
     utilisateur: auth,
     repliSiPlafond: d.repliSiPlafond ?? false,
     variablesNonFiables: nonFiables,
-    modeDegrade,
+    // AGT-06 : plafond de la mission contrôlé SOUS VERROU de la mission, dans la transaction
+    // qui crée la demande et réserve son coût (deux exécutions simultanées sont sérialisées).
+    ...(missionId
+      ? {
+          controleAvantReservation: (db: Db) =>
+            controlerPlafondMission(
+              db,
+              missionId,
+              maintenant,
+              d.repliSiPlafond ?? false,
+              plafondMissionAtteint,
+            ),
+        }
+      : {}),
   });
   if (resultat.statut !== "terminee") {
     return {
@@ -262,6 +370,7 @@ export async function executerAgent(
       demandeId,
       variablesNonFiables: nonFiables,
       signauxInjection: signaux,
+      config: deps.config,
     }),
   );
   return { statut: "terminee", execution, resultat };
@@ -343,6 +452,11 @@ async function lireLigne(db: Db, auth: Auth, id: string): Promise<Record<string,
   return r.rows[0];
 }
 
+/** Exécution visible de l'utilisateur, ou 404 (même règle que la lecture). */
+export async function exigerExecutionVisible(db: Db, auth: Auth, id: string): Promise<void> {
+  await lireLigne(db, auth, id);
+}
+
 export async function lireExecution(db: Db, auth: Auth, id: string) {
   return vueExecution(await lireLigne(db, auth, id), auth);
 }
@@ -389,7 +503,31 @@ export async function listerExecutions(
 /* ----- Décision humaine ----- */
 
 /**
- * Décision sur une exécution visible (ia.utiliser) : « rejetee » (motif) ou « validee »
+ * Décideur d'une exécution : son déclencheur, le chef ou le directeur de sa mission, ou un
+ * associé (doublé en base, MPG08) ; 403 sinon.
+ */
+async function exigerDecideur(db: Db, auth: Auth, l: Record<string, unknown>): Promise<void> {
+  if (l.declencheur_id === auth.utilisateurId || estAssocie(auth)) return;
+  if (l.mission_id) {
+    const m = await db.query("SELECT chef_id, directeur_id FROM missions WHERE id = $1", [
+      l.mission_id,
+    ]);
+    const mission = m.rows[0];
+    if (
+      mission &&
+      (mission.chef_id === auth.utilisateurId || mission.directeur_id === auth.utilisateurId)
+    ) {
+      return;
+    }
+  }
+  throw actionReservee(
+    "Décision réservée au déclencheur, au chef ou au directeur de la mission, ou à un associé.",
+  );
+}
+
+/**
+ * Décision sur une exécution visible (ia.utiliser), par son déclencheur, le chef ou le
+ * directeur de sa mission, ou un associé : « rejetee » (motif) ou « validee »
  * (contenu validé par le circuit humain de ia/generations). Une validation mesure la
  * contribution de l'IA (moteur pur) et classe la décision : « modifiee » si la
  * modification est majeure, sinon « acceptee ».
@@ -404,6 +542,7 @@ export async function deciderExecution(
     `agents_execution:${id}`,
   ]);
   const l = await lireLigne(db, auth, id);
+  await exigerDecideur(db, auth, l);
   if (l.decision) throw decisionExiste();
   if (d.decision === "rejetee") {
     await avecErreursAgents(() =>

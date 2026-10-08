@@ -7,6 +7,7 @@ import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import {
   cheminDimensions,
   droitsPreuves,
+  peutSignerAvisExpert,
   type DimensionVue,
 } from "../../../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../../../lib/session";
@@ -36,6 +37,7 @@ export default async function PageNouvelleAssertion({
       <FormulaireAssertion
         missionId={id}
         dimensions={dimensions.ok ? dimensions.donnees.elements : []}
+        peutSigner={peutSignerAvisExpert(utilisateur.roles)}
       />
     </Carte>
   );

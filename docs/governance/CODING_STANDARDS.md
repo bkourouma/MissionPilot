@@ -38,11 +38,11 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0145–0147`   | notation (`0144` n'est pas utilisé)                                |
   | `0160`        | KPI                                                                |
   | `0180–0184`   | plans stratégiques, modèle financier, diagnostic, KPI d'objectif, dépendances |
-  | `0200–0206`   | référentiel de méthodes (lot STD) : dictionnaire, facteurs, services et notes de contexte (`0200`), méthodes, versions et contenu (`0201`), mission figée, dérogations (`0202`), comité méthode (`0203`), amorçage du standard : dictionnaire (`0204`) et méthodes Notation et Plan stratégique (`0205`) ; notation calculée depuis la méthode de la mission (`0206`, intégration de la vague 1 : `notation_versions_methode`) |
-  | `0220–0223`   | dossier client (lot DOS) : faits et décisions (`0220`), facteurs de contexte (`0221`), états financiers, lignes et décisions (`0222`), instantanés de fiabilité et exports (`0223`) |
-  | `0240–0242`   | registre des preuves (lot PRV) : preuves, versions et dimensions (`0240`), assertions et versions (`0241`), liens et arbitrages (`0242`) |
-  | `0260–0264`   | agents IA (lot AGT) : registre (`0260`), briques et exécutions (`0261`), autonomie (`0262`), contributions et plafonds (`0263`), jeux d'essai et évaluations de non-régression (`0264`) |
-  | `0280–0285`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`) |
+  | `0200–0206`   | référentiel de méthodes (lot STD) : dictionnaire, facteurs, services et notes de contexte (`0200`), méthodes, versions et contenu (`0201`), mission figée, dérogations (`0202`), comité méthode (`0203`), amorçage du standard : dictionnaire (`0204`) et méthodes Notation et Plan stratégique (`0205`) ; notation calculée depuis la méthode de la mission (`0206`, intégration de la vague 1 : `notation_versions_methode`) ; durcissements d'audit : garde de publication d'une variante (`0207`, `MPM07-08`), standard visible seulement publié (`0208`), validations exigées pour approuver une dérogation (`0209`) |
+  | `0220–0224`   | dossier client (lot DOS) : faits et décisions (`0220`), facteurs de contexte (`0221`), états financiers, lignes et décisions (`0222`), instantanés de fiabilité et exports (`0223`), acceptation automatique à tolérance nulle seulement (`0224`) |
+  | `0240–0243`   | registre des preuves (lot PRV) : preuves, versions et dimensions (`0240`), assertions et versions (`0241`), liens et arbitrages (`0242`), durcissement d'audit (`0243`, `MPV06-07`) |
+  | `0260–0268`   | agents IA (lot AGT) : registre (`0260`), briques et exécutions (`0261`), autonomie (`0262`), contributions et plafonds (`0263`), jeux d'essai et évaluations de non-régression (`0264`), fournisseur d'évaluation et exécution sous non-régression (`0265`), validation d'une sortie conforme (`0266`), gardes de rôle (`0267`) ; `0268` : `fichier_orphelin` étendu aux références de fichiers des preuves et du dossier client (fonction transversale, numérotée après `0267` parce qu'elle cite des tables créées par `0220`–`0221` et `0240`) |
+  | `0280–0286`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`), durcissement d'audit (`0286`, `MPY08-11`) |
 
   Plages libres : `0151–0159`, `0170–0179`, `0185–0199`. Plages réservées
   pour la suite (vagues 1 à 3 du PRD complémentaire) : `0200–0219` référentiel
@@ -76,7 +76,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   employées : `F` figé (propositions, budget, absences), `T` temps, `B`
   facturation, `E` encaissements et bilans, `D` documents, `C` commentaires,
   `I` IA, `P` portail, `Q` questionnaires, `N` notation (`MPN01-07`, dont `MPN06-07` du calcul par la méthode, `0206`), `K` KPI, `S` plans
-  stratégiques, `R` rapports (`MPR01-02`, `0131`), `Y` qualité (`MPY01-07`, `0280`–`0284`), `V` preuves (`MPV01-05`, `0240`–`0242`), `O` dossier client (`MPO01-04`, `0220`–`0223`), `G` agents IA (`MPG01-05`, `0260`–`0264`), `M` référentiel de méthodes (`MPM01-06`, `0201`–`0203`). `MPT01` ne désigne plus que
+  stratégiques, `R` rapports (`MPR01-02`, `0131`), `Y` qualité (`MPY01-11`, `0280`–`0286`), `V` preuves (`MPV01-07`, `0240`–`0243`), `O` dossier client (`MPO01-04`, `0220`–`0224`), `G` agents IA (`MPG01-08`, `0260`–`0267`), `M` référentiel de méthodes (`MPM01-08`, `0201`–`0209`). `MPT01` ne désigne plus que
   les feuilles de temps : l'identité figée des tâches assignées est `MPC02`
   (`0076`). Un nouveau code prend un numéro libre de sa lettre (liste :
   `SECURITY.md` §6).
@@ -191,7 +191,7 @@ Mise en page de droite à gauche : sans objet.
   (`.prettierrc.json`) ; ESLint `typescript-eslint` recommandé, variables
   inutilisées interdites hors préfixe `_`.
 - **Validation** : chaque corps, paramètre ou requête passe par un schéma Zod de
-  `packages/shared/src/schemas`, objets `.strict()` (372 `z.object` vérifiés
+  `packages/shared/src/schemas`, objets `.strict()` (373 `z.object` vérifiés
   le 2026-10-08 sur `feat/vague-1-fondations`, tous stricts) ; le même schéma sert l'API et le web.
 - **Listes** : pagination par curseur opaque (`encoderCurseur`,
   `decoderCurseur`, `paginer` dans `apps/api/src/http/outils.ts`), lecture

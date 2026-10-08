@@ -140,6 +140,7 @@ export default async function PageAutonomie({
       {droits.gerer && agents?.ok ? (
         <Carte titre="Confier une brique à un agent">
           <FormulaireBrique
+            r0={droits.declarerR0}
             agents={agents.donnees.elements
               .filter((a) => a.actif)
               .map((a) => ({ code: a.code, nom: a.nom }))}

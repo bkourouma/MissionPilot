@@ -3,7 +3,7 @@ import { AppError } from "../errors.js";
 
 /*
  * Traduction des erreurs du registre des preuves en erreurs HTTP (jamais de 500 pour une règle
- * métier) : SQLSTATE MPV… des déclencheurs (migrations 0240 à 0242), contraintes CHECK (23514),
+ * métier) : SQLSTATE MPV… des déclencheurs (migrations 0240 à 0243), contraintes CHECK (23514),
  * unicité (23505), référence (23503) et invariants du moteur (`ErreurPreuves`).
  */
 
@@ -19,11 +19,25 @@ const SQL: Record<string, [number, string, string]> = {
     "PREUVE_VERSION_CONCURRENTE",
     "Une autre correction vient d'être enregistrée : rechargez puis recommencez.",
   ],
-  MPV04: [400, "AVIS_EXPERT_INVALIDE", "Un avis d'expert est signé par l'auteur de la version."],
+  MPV04: [
+    400,
+    "AVIS_EXPERT_INVALIDE",
+    "Un avis d'expert est signé par l'auteur de la version, expert métier ou associé.",
+  ],
   MPV05: [
     409,
     "ARBITRAGE_INVALIDE",
     "Cette contradiction n'est plus à arbitrer : la preuve a changé ou n'est plus liée « contre ».",
+  ],
+  MPV06: [
+    409,
+    "CLASSE_RISQUE_ABAISSEE",
+    "Seul un expert métier ou un associé abaisse la classe de risque d'une assertion.",
+  ],
+  MPV07: [
+    409,
+    "ARBITRAGE_PAR_AUTEUR",
+    "L'auteur de l'assertion ou de la preuve contraire ne lève pas lui-même la contradiction.",
   ],
 };
 

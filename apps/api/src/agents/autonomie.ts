@@ -1,6 +1,9 @@
 import {
+  classeRisqueMax,
+  estClasseRisque,
   evaluerPromotion,
   niveauEffectif,
+  rangClasseRisque,
   rangNiveauAutonomie,
   retrogradationAuto,
   SEUILS_PROMOTION_AUTONOMIE_DEFAUT,
@@ -24,9 +27,11 @@ import type { Db } from "../db/pool.js";
 import { interdit, introuvable } from "../errors.js";
 import { decoderCurseur, paginer } from "../http/outils.js";
 import {
+  actionReservee,
   agentInactif,
   avecErreursAgents,
   briqueExiste,
+  classeSousPlancher,
   coupeCircuitInchange,
   niveauInchange,
   plafondAgent,
@@ -51,7 +56,15 @@ import { lireAgent, niveauMin, type AgentCabinet } from "./registre.js";
  *   doublée en base, MPG03), motivée et journalisée ; une hausse jusqu'à N2 (le
  *   contenu reste validé par un humain) se décide sans critère d'éligibilité.
  * - Un incident MAJEUR rétrograde automatiquement N3 ou N4 en N2 (moteur
- *   `retrogradationAuto`), sans intervention humaine, journalisé.
+ *   `retrogradationAuto`), sans intervention humaine, journalisé ; le signaler
+ *   exige `agent.gerer` ou `autonomie.decider` (un incident mineur reste ouvert à
+ *   `agent.lire`).
+ * - Les exécutions en MODE DÉGRADÉ (gabarit déterministe, aucun modèle) ne
+ *   comptent pas pour l'éligibilité : elles ne mesurent pas l'agent.
+ * - Classe de risque d'une brique : jamais sous le PLANCHER de la méthode (classe
+ *   la plus haute des briques du référentiel de même code, moteur `qualite`
+ *   `classeRisqueMax`) ; une brique R0 (seule à pouvoir aller jusqu'à N4) est
+ *   déclarée par un associé (`autonomie.decider`). Doublé en base (0267, MPG07).
  */
 
 export interface BriqueDb {
@@ -207,7 +220,7 @@ export async function eligibilite(
   const ex = await db.query(
     `SELECT e.cree_le, d.decision FROM agents_executions e
      JOIN agents_execution_decisions d ON d.execution_id = e.id
-     WHERE e.brique_id = $1 AND e.cree_le >= $2`,
+     WHERE e.brique_id = $1 AND e.cree_le >= $2 AND NOT e.mode_degrade`,
     [brique.id, brique.depuis],
   );
   const inc = await db.query(
@@ -252,12 +265,25 @@ export async function eligibilite(
 
 /* ----- Déclaration d'une brique ----- */
 
+/** Plancher de classe de risque d'une brique : classe la plus haute des briques de méthode du code. */
+export async function plancherClasseBrique(db: Db, code: string): Promise<ClasseRisque | null> {
+  const r = await db.query("SELECT classe_risque FROM methode_briques WHERE code = $1", [code]);
+  return classeRisqueMax(r.rows.map((l) => l.classe_risque as unknown).filter(estClasseRisque));
+}
+
 /** Confie une brique à un agent ; niveau initial : N2 au plus (validation humaine). */
 export async function declarerBrique(
   db: Db,
   auth: Auth,
   b: BriqueAgentCreation,
 ): Promise<BriqueDb> {
+  if (b.classe_risque === "R0" && !aPermission(auth.roles, "autonomie.decider")) {
+    throw actionReservee("Une brique R0 (jusqu'à N4) est déclarée par un associé.");
+  }
+  const plancher = await plancherClasseBrique(db, b.brique_code);
+  if (plancher && rangClasseRisque(b.classe_risque) < rangClasseRisque(plancher)) {
+    throw classeSousPlancher(plancher);
+  }
   const agent = await lireAgent(db, b.agent_code);
   if (!agent.actif) throw agentInactif();
   if (rangNiveauAutonomie(b.niveau_max) > rangNiveauAutonomie(agent.niveau_max)) {
@@ -378,7 +404,10 @@ export interface ResultatIncident {
   niveau_apres: NiveauAutonomie;
 }
 
-/** Incident sur une brique ; un incident majeur ramène N3 ou N4 à N2, sans décision humaine. */
+/**
+ * Incident sur une brique ; un incident majeur (agent.gerer ou autonomie.decider) ramène N3 ou
+ * N4 à N2, sans décision humaine. L'exécution citée est vérifiée VISIBLE par l'appelant (route).
+ */
 export async function signalerIncident(
   db: Db,
   auth: Auth,
@@ -389,6 +418,13 @@ export async function signalerIncident(
     execution_id?: string | undefined;
   },
 ): Promise<ResultatIncident> {
+  if (
+    i.gravite === "majeur" &&
+    !aPermission(auth.roles, "agent.gerer") &&
+    !aPermission(auth.roles, "autonomie.decider")
+  ) {
+    throw interdit();
+  }
   const brique = await lireBrique(db, code, true);
   const incidentId = await avecErreursAgents(async () => {
     const r = await db.query(

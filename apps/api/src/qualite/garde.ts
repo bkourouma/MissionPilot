@@ -41,16 +41,69 @@ export interface ValidationEnregistree {
   acteur_nom: string | null;
   commentaire: string | null;
   valide_le: Date;
+  /**
+   * Un élément obligatoire a été déposé depuis et son auteur ne l'a pas encore parcouru : l'étape
+   * est suspendue (la garde n'est pas satisfaite) jusqu'à ce qu'il le parcoure (QUA-03).
+   */
+  a_reconfirmer: boolean;
 }
 
 export async function lireValidations(db: Db, suiviId: string): Promise<ValidationEnregistree[]> {
   const r = await db.query(
-    `SELECT v.etape, v.acteur_id, u.nom AS acteur_nom, v.commentaire, v.valide_le
+    `SELECT v.etape, v.acteur_id, u.nom AS acteur_nom, v.commentaire, v.valide_le,
+       EXISTS (SELECT 1 FROM qualite_revue_elements e
+               WHERE e.suivi_id = v.suivi_id AND e.obligatoire
+                 AND NOT EXISTS (SELECT 1 FROM qualite_revue_vus x
+                                 WHERE x.element_id = e.id AND x.utilisateur_id = v.acteur_id))
+         AS a_reconfirmer
      FROM qualite_validations v LEFT JOIN utilisateurs u ON u.id = v.acteur_id
      WHERE v.suivi_id = $1 ORDER BY v.valide_le, v.id`,
     [suiviId],
   );
   return r.rows as ValidationEnregistree[];
+}
+
+/** Étapes franchies dont l'auteur doit parcourir des éléments déposés depuis. */
+export function etapesAReconfirmer(validations: readonly ValidationEnregistree[]): string[] {
+  return validations
+    .filter((v) => v.a_reconfirmer && v.etape !== "signature_directeur_mission")
+    .map((v) => v.etape);
+}
+
+/**
+ * Le contenu du livrable est-il celui qui a été relu ? Recalcule l'empreinte (module qualité) et
+ * la compare à `empreinte_revue`, posée au passage en revue. Type opaque (aucune empreinte) :
+ * rien à comparer, la signature porte sur le dossier de revue.
+ */
+async function contenuInchange(
+  db: Db,
+  suivi: Suivi,
+): Promise<{ inchange: boolean; inconnue: boolean }> {
+  const contenu = await lireContenuLivrable(
+    db,
+    suivi.mission_id,
+    suivi.type_livrable as never,
+    suivi.livrable_id,
+    suivi.version,
+  );
+  const courante = contenu?.empreinte ?? null;
+  if (suivi.empreinte_revue === null) {
+    return { inchange: courante === null && contenu !== null, inconnue: courante !== null };
+  }
+  return { inchange: courante === suivi.empreinte_revue, inconnue: false };
+}
+
+/** 409 LIVRABLE_MODIFIE_APRES_REVUE si le contenu n'est plus celui qui a été relu. */
+async function exigerContenuRelu(db: Db, suivi: Suivi): Promise<void> {
+  const etat = await contenuInchange(db, suivi);
+  if (etat.inchange) return;
+  throw new AppError(
+    409,
+    "LIVRABLE_MODIFIE_APRES_REVUE",
+    etat.inconnue
+      ? "L'empreinte du contenu relu n'est pas encore enregistrée : relancez la vérification de la définition de terminé."
+      : "Le livrable a changé depuis son passage en revue : la revue porte sur un autre contenu. Ouvrez un suivi pour la nouvelle version.",
+  );
 }
 
 const enValidationGarde = (v: ValidationEnregistree[]): ValidationGarde[] =>
@@ -190,9 +243,12 @@ function etapesRestantes(evaluation: EvaluationGarde): EtapeGarde[] {
  */
 export async function validerSiGardeSatisfaite(db: Db, auth: Auth, suivi: Suivi): Promise<boolean> {
   if (suivi.statut !== "en_revue") return false;
-  const evaluation = evaluerSuivi(suivi, await lireValidations(db, suivi.id));
+  const validations = await lireValidations(db, suivi.id);
+  const evaluation = evaluerSuivi(suivi, validations);
   if (etapesRestantes(evaluation).length > 0 || evaluation.violations.length > 0) return false;
+  if (etapesAReconfirmer(validations).length > 0) return false;
   if (!(await etatDefinition(db, suivi)).satisfaite) return false;
+  if (!(await contenuInchange(db, suivi)).inchange) return false;
   await changerStatut(db, suivi.id, "valide");
   await ajouterEvenement(db, auth.cabinetId, suivi.id, auth.utilisateurId, {
     action: "validation_complete",
@@ -233,6 +289,14 @@ export async function validerEtape(
     throw conflit(`Cette étape n'est pas requise pour la classe ${suivi.classe}.`);
   }
   const avant = evaluerSuivi(suivi, existantes);
+  const suspendue = existantes.find((v) => v.etape === etape && v.a_reconfirmer);
+  if (suspendue) {
+    throw new AppError(
+      409,
+      "ETAPE_A_RECONFIRMER",
+      "Cette étape est déjà franchie mais des éléments ont été déposés depuis : son auteur les parcourt pour la reconfirmer.",
+    );
+  }
   if (avant.prochaineEtape !== etape) {
     throw conflit(
       avant.etapesFaites.includes(etape)
@@ -269,8 +333,13 @@ export async function validerEtape(
   return { evaluation, valide };
 }
 
-/** Définition de terminé satisfaite ET parcours de revue complet du relecteur (409 sinon). */
+/**
+ * Contenu inchangé depuis le passage en revue, définition de terminé satisfaite, parcours de revue
+ * NON VIDE pour un livrable client (R2, R3 ; doublé en base, MPY08) et complet pour le relecteur
+ * (409 sinon).
+ */
 async function exigerPrerequis(db: Db, auth: Auth, suivi: Suivi): Promise<void> {
+  await exigerContenuRelu(db, suivi);
   const def = await etatDefinition(db, suivi);
   if (!def.satisfaite) {
     throw new AppError(
@@ -280,6 +349,16 @@ async function exigerPrerequis(db: Db, auth: Auth, suivi: Suivi): Promise<void> 
     );
   }
   const parcours = await parcoursDe(db, suivi.id, auth.utilisateurId);
+  if (
+    rangClasseRisque(suivi.classe as ClasseRisque) >= rangClasseRisque("R2") &&
+    parcours.obligatoires === 0
+  ) {
+    throw new AppError(
+      409,
+      "PARCOURS_VIDE",
+      "Aucun élément obligatoire à parcourir : un livrable client (R2, R3) ne se valide pas sur une revue vide. Déposez les assertions, chiffres ou recommandations à relire.",
+    );
+  }
   if (!parcours.complet) {
     throw new AppError(
       409,
@@ -376,6 +455,13 @@ export async function signerSuivi(
   }
   if (!(await habilitePour(db, auth, mission, "signature_directeur_mission"))) throw interdit();
   const existantes = await lireValidations(db, suivi.id);
+  if (etapesAReconfirmer(existantes).length > 0) {
+    throw new AppError(
+      409,
+      "ETAPE_A_RECONFIRMER",
+      "Des étapes de garde sont à reconfirmer : leurs auteurs parcourent d'abord les éléments déposés depuis.",
+    );
+  }
   const garde = gardesRequises(classe);
   if (garde.signature) {
     const evaluation = evaluerGarde(

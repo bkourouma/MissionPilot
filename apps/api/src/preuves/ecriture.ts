@@ -7,11 +7,13 @@ import {
   type preuveCorrectionSchema,
   type preuveCreationSchema,
 } from "@missionpilot/shared";
+import { rangClasseRisque, type ClasseRisque } from "@missionpilot/engines";
 import type { z } from "zod";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { AppError } from "../errors.js";
+import { AppError, interdit } from "../errors.js";
 import type { MissionAcces } from "../missions/acces.js";
+import { aHabilitationExpert, exigerAuteurMembre } from "./acces.js";
 
 /*
  * Écritures du registre des preuves, toutes en ajout seul : une identité (preuve, assertion), puis
@@ -132,6 +134,10 @@ export async function creerPreuve(
 ): Promise<string> {
   await exigerPlafond(db, "preuves", mission.id, PREUVES_MISSION_MAX);
   await verifierDimensions(db, mission.id, c.dimensions);
+  // Auteur désigné (autre que soi) : membre actif de la mission (doublé en base, MPV02).
+  if (c.auteur_id !== undefined && c.auteur_id !== auth.utilisateurId) {
+    await exigerAuteurMembre(db, mission.id, c.auteur_id);
+  }
   const r = await db.query(
     `INSERT INTO preuves (cabinet_id, mission_id, client_id, cree_par)
      VALUES ($1, $2, $3, $4) RETURNING id`,
@@ -155,6 +161,13 @@ export async function corrigerPreuve(
   c: CorpsPreuveCorrigee,
 ): Promise<number> {
   await verifierDimensions(db, preuve.mission_id, c.dimensions, preuve.dimensions);
+  if (
+    c.auteur_id !== undefined &&
+    c.auteur_id !== auth.utilisateurId &&
+    c.auteur_id !== preuve.auteur_id
+  ) {
+    await exigerAuteurMembre(db, preuve.mission_id, c.auteur_id);
+  }
   const version = preuve.version + 1;
   const { motif, ...contenu } = c;
   await insererVersionPreuve(
@@ -202,12 +215,18 @@ async function insererVersionAssertion(
   );
 }
 
+/** Signer un avis d'expert : habilitation d'expert (403 sinon ; doublé en base, MPV04). */
+function exigerSignatureAutorisee(auth: Auth, c: { avis_expert: boolean; signer_avis: boolean }) {
+  if (c.avis_expert && c.signer_avis && !aHabilitationExpert(auth)) throw interdit();
+}
+
 export async function creerAssertion(
   db: Db,
   auth: Auth,
   mission: MissionAcces,
   c: CorpsAssertion,
 ): Promise<string> {
+  exigerSignatureAutorisee(auth, c);
   await exigerPlafond(db, "assertions", mission.id, ASSERTIONS_MISSION_MAX);
   if (c.rattachement_type === "dimension") {
     await verifierDimensions(db, mission.id, [c.rattachement_code ?? ""]);
@@ -230,9 +249,23 @@ export async function corrigerAssertion(
     version: number;
     rattachement_type: string | null;
     rattachement_code: string | null;
+    classe_risque: string;
   },
   c: CorpsAssertionCorrigee,
 ): Promise<number> {
+  exigerSignatureAutorisee(auth, c);
+  // Abaisser la classe de risque allège le contrôle PRV-03 : réservé à l'expert (doublé, MPV06).
+  if (
+    rangClasseRisque(c.classe_risque as ClasseRisque) <
+      rangClasseRisque(assertion.classe_risque as ClasseRisque) &&
+    !aHabilitationExpert(auth)
+  ) {
+    throw new AppError(
+      409,
+      "CLASSE_RISQUE_ABAISSEE",
+      "Seul un expert métier ou un associé abaisse la classe de risque d'une assertion.",
+    );
+  }
   const inchange =
     c.rattachement_type === assertion.rattachement_type &&
     (c.rattachement_code ?? null) === assertion.rattachement_code;
@@ -262,16 +295,52 @@ export async function ajouterLien(
   );
 }
 
+/**
+ * Séparation des tâches (PRV-04) : lever une contradiction écarte la preuve contraire ; ni l'auteur
+ * de l'assertion (identité ou version courante) ni l'auteur ou le saisisseur de la version arbitrée
+ * de la preuve ne le décident seuls, sauf associé (409 ; doublé en base, MPV07). Maintenir la
+ * contradiction reste ouvert à tous ceux qui écrivent.
+ */
+async function exigerArbitreIndependant(
+  db: Db,
+  auth: Auth,
+  assertion: { id: string; cree_par: string },
+  preuve: { cree_par: string; auteur_id: string },
+): Promise<void> {
+  if (auth.roles.includes("associe")) return;
+  const identite = await db.query("SELECT cree_par FROM assertions WHERE id = $1", [assertion.id]);
+  const auteurs = [
+    identite.rows[0]?.cree_par as string | undefined,
+    assertion.cree_par,
+    preuve.cree_par,
+    preuve.auteur_id,
+  ];
+  if (auteurs.includes(auth.utilisateurId)) {
+    throw new AppError(
+      409,
+      "ARBITRAGE_PAR_AUTEUR",
+      "L'auteur de l'assertion ou de la preuve contraire ne lève pas lui-même la contradiction : un autre membre de l'équipe ou un associé arbitre.",
+    );
+  }
+}
+
 export async function ajouterArbitrage(
   db: Db,
   auth: Auth,
   missionId: string,
-  assertionId: string,
-  preuveId: string,
-  preuveVersion: number,
+  assertion: { id: string; cree_par: string },
+  preuve: { id: string; version: number; cree_par: string; auteur_id: string },
+  sensLien: "pour" | "contre",
   decision: string,
   motif: string,
 ): Promise<void> {
+  // Un lien « pour » est refusé par la base (MPV05) avant toute question de séparation des tâches.
+  if (decision === "contradiction_levee" && sensLien === "contre") {
+    await exigerArbitreIndependant(db, auth, assertion, preuve);
+  }
+  const assertionId = assertion.id;
+  const preuveId = preuve.id;
+  const preuveVersion = preuve.version;
   await db.query(
     `INSERT INTO preuve_arbitrages (cabinet_id, mission_id, assertion_id, preuve_id,
        preuve_version, decision, motif, arbitre_par)

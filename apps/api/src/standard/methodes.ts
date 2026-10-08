@@ -22,7 +22,7 @@ import {
   sansIdentifiants,
 } from "./contenu.js";
 import { comparerContenus, fusionnerVariante } from "./differences.js";
-import { standardLectureSeule } from "./erreurs.js";
+import { separationVariante, standardLectureSeule } from "./erreurs.js";
 import { lireFacteurs } from "./modulation.js";
 import { origineMethode, type ContenuMethode, type VersionLigne } from "./types.js";
 
@@ -384,12 +384,19 @@ export async function analyserMiseAJourVariante(db: Db, versionId: string) {
 
 export async function validerVersionStockee(db: Db, versionId: string) {
   const contenu = await lireContenu(db, versionId);
-  return validerVersion(sansIdentifiants(contenu), await lireFacteurs(db));
+  const base = contenu.version.base_standard_id
+    ? sansIdentifiants(await lireContenu(db, contenu.version.base_standard_id))
+    : null;
+  return validerVersion(sansIdentifiants(contenu), await lireFacteurs(db), base);
 }
 
 /** Publication : brouillon du cabinet, cohérent, notes de version dès la version 2. */
 export async function publierVersion(db: Db, auth: Auth, versionId: string) {
   const v = await exigerBrouillonDuCabinet(db, versionId);
+  // Variante : quatre yeux (le créateur de la version ne la publie pas, sauf associé) ; doublé en base (MPM08).
+  if (v.base_standard_id && v.cree_par === auth.utilisateurId && !auth.roles.includes("associe")) {
+    throw separationVariante();
+  }
   if (v.version > 1 && !v.notes_version) {
     throw new AppError(
       409,

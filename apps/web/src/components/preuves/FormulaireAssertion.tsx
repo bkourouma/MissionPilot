@@ -69,6 +69,8 @@ export interface FormulaireAssertionProps {
   dimensions: readonly DimensionVue[];
   /** Présente : correction de cette assertion (nouvelle version, motif exigé). */
   assertion?: AssertionVue;
+  /** Expert métier ou associé : peut signer l'avis d'expert (l'API le vérifie, MPV04). */
+  peutSigner?: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ export function FormulaireAssertion({
   missionId,
   dimensions,
   assertion,
+  peutSigner = false,
 }: FormulaireAssertionProps) {
   const router = useRouter();
   const correction = assertion !== undefined;
@@ -213,12 +216,19 @@ export function FormulaireAssertion({
               erreur={f.erreurs.avis_expert_motif}
               aide="Expérience, observation de terrain, référentiel de place…"
             />
-            <CaseACocher
-              libelle="Je signe cet avis en mon nom"
-              aide="La signature porte sur cette version ; une correction ultérieure doit être signée à nouveau."
-              checked={s.signer_avis}
-              onChange={(e) => maj({ signer_avis: e.target.checked })}
-            />
+            {peutSigner ? (
+              <CaseACocher
+                libelle="Je signe cet avis en mon nom"
+                aide="La signature porte sur cette version ; une correction ultérieure doit être signée à nouveau."
+                checked={s.signer_avis}
+                onChange={(e) => maj({ signer_avis: e.target.checked })}
+              />
+            ) : (
+              <p className="mp-texte-doux mp-texte-petit">
+                La signature d&apos;un avis d&apos;expert revient à un expert métier ou à un
+                associé.
+              </p>
+            )}
           </>
         ) : null}
       </fieldset>

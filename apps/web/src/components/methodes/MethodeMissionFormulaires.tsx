@@ -43,16 +43,22 @@ export function LiaisonMethode({
   const f = useFormulaire<string>();
   const [versionId, setVersionId] = useState(versions[0]?.id ?? "");
   const [contexte, setContexte] = useState<SaisieContexte>(saisieDepuisContexte(contexteInitial));
+  const [motif, setMotif] = useState("");
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const c = construireContexte(contexte, facteurs);
-    const validation: Resultat<{ version_id: string; contexte: ContexteModulationApi }, string> =
-      !versionId
-        ? { ok: false, erreurs: { version: "Choisir la méthode." } }
-        : c.ok
-          ? { ok: true, charge: { version_id: versionId, contexte: c.charge } }
-          : c;
+    const validation: Resultat<
+      { version_id: string; contexte: ContexteModulationApi; motif: string | null },
+      string
+    > = !versionId
+      ? { ok: false, erreurs: { version: "Choisir la méthode." } }
+      : c.ok
+        ? {
+            ok: true,
+            charge: { version_id: versionId, contexte: c.charge, motif: motif.trim() || null },
+          }
+        : c;
     await f.envoyer(validation, (charge) => api.put(`/api/missions/${missionId}/methode`, charge), {
       succes: "Méthode liée : la mission est figée sur cette version.",
       messageSpecifique: messageMethodes,
@@ -86,6 +92,13 @@ export function LiaisonMethode({
           erreurs={f.erreurs}
         />
       </fieldset>
+      <ZoneTexte
+        libelle="Motif (obligatoire si le contexte active ou retire une brique de classe R2 ou R3)"
+        rows={2}
+        maxLength={2000}
+        value={motif}
+        onChange={(e) => setMotif(e.target.value)}
+      />
       <div className="mp-actions-formulaire">
         <Bouton type="submit" icone="livre" chargement={f.enCours} texteChargement="Liaison…">
           Lier la méthode
@@ -130,7 +143,7 @@ export function ContexteMission({
         erreurs={f.erreurs}
       />
       <ZoneTexte
-        libelle="Motif du changement"
+        libelle="Motif du changement (obligatoire si une brique de classe R2 ou R3 est activée ou retirée)"
         rows={2}
         maxLength={2000}
         value={motif}

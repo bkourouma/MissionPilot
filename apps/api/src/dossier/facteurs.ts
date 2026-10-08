@@ -9,6 +9,7 @@ import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { AppError } from "../errors.js";
+import { exigerContexteValide, lireFacteurs } from "../standard/modulation.js";
 import { exigerFichierLisible } from "../stockage/fichiers.js";
 import { verrouillerDossier } from "./acces.js";
 import { inscrireFiabilite } from "./fiabilite.js";
@@ -17,7 +18,9 @@ import { inscrireFiabilite } from "./fiabilite.js";
  * Facteurs de contexte du client (STD-04) : valeurs typées, datées et sourcées, en ajout
  * seul (0221). La valeur courante d'un facteur est celle de date d'effet la plus récente,
  * non future (moteur `valeursCourantesDatees`). Le contexte qui en résulte a la forme du
- * `contexteModulationSchema` lu par le moteur de modulation (lot STD).
+ * `contexteModulationSchema` lu par le moteur de modulation (lot STD). Chaque valeur est
+ * contrôlée contre `facteurs_contexte` (code connu, type déclaré, valeur permise) : sinon 400
+ * `CONTEXTE_INVALIDE`, comme pour le contexte d'une mission.
  */
 
 const horodatage = (v: unknown) => (v instanceof Date ? v.toISOString() : (v as string));
@@ -89,6 +92,16 @@ export async function ajouterFacteur(
   clientId: string,
   f: FacteurValeurCreation,
 ): Promise<VueFacteur> {
+  const definitions = await lireFacteurs(db);
+  exigerContexteValide(definitions, { [f.code]: f.valeur });
+  const definition = definitions.find((d) => d.code === f.code);
+  if (definition && definition.type !== f.type) {
+    throw new AppError(
+      400,
+      "CONTEXTE_INVALIDE",
+      `Contexte invalide (contexte.${f.code}) : le type déclaré (${f.type}) n'est pas celui du facteur (${definition.type}).`,
+    );
+  }
   await verrouillerDossier(db, clientId);
   const n = await db.query("SELECT count(*)::int AS n FROM dossier_facteurs WHERE client_id = $1", [
     clientId,

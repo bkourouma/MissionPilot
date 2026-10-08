@@ -99,6 +99,12 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
                   <span className="mp-texte-doux mp-texte-petit">
                     {faite.acteur_nom ?? "—"} · {formaterDateHeure(faite.valide_le)}
                     {faite.commentaire ? ` · « ${faite.commentaire} »` : ""}
+                    {faite.a_reconfirmer ? (
+                      <>
+                        {" "}
+                        <BadgeStatut tonalite="attention">À reconfirmer</BadgeStatut>
+                      </>
+                    ) : null}
                   </span>
                 ) : courante ? (
                   <BadgeStatut tonalite="attention">Étape suivante</BadgeStatut>
@@ -110,6 +116,14 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
           })}
         </ol>
       )}
+
+      {garde.etapes_a_reconfirmer.length > 0 ? (
+        <p className="mp-texte-doux">
+          Des éléments ont été déposés dans la revue après {garde.etapes_a_reconfirmer.length}{" "}
+          étape(s) déjà franchie(s) : leurs auteurs les parcourent pour les reconfirmer avant la
+          validation du livrable.
+        </p>
+      ) : null}
 
       {garde.violations.length > 0 ? (
         <p className="mp-texte-doux">

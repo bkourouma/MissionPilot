@@ -168,17 +168,40 @@ describe("mission figée sur une version de méthode (STD-08)", () => {
   });
 
   it("le chef lie la notation du standard : méthode effective modulée et journal d'application", async () => {
+    // Ce contexte active ou retire des briques de classe R2 ou R3 : motif obligatoire.
+    const sansMotif = attendu(
+      400,
+      await a.chef.put(`/api/missions/${missionId}/methode`, {
+        version_id: notationV1,
+        contexte: PME_CACAO,
+      }),
+    );
+    expect(sansMotif.erreur.code).toBe("MOTIF_REQUIS");
+    expect(
+      (
+        await a.chef.put(`/api/missions/${missionId}/methode`, {
+          version_id: notationV1,
+          contexte: PME_CACAO,
+          motif: "   ",
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      attendu(200, await consultant.get(`/api/missions/${missionId}/methode`)).liaison,
+    ).toBeNull();
     const m = attendu(
       200,
       await a.chef.put(`/api/missions/${missionId}/methode`, {
         version_id: notationV1,
         contexte: PME_CACAO,
+        motif: "Contexte du dossier : PME cacao familiale, comptes non certifiés.",
       }),
     );
     expect(m.liaison).toMatchObject({
       rang: 1,
       evenement: "liaison",
       methode_version_id: notationV1,
+      motif: "Contexte du dossier : PME cacao familiale, comptes non certifiés.",
     });
     expect(m.version).toMatchObject({ methode_code: "notation_entreprise", origine: "standard" });
     const briques = Object.fromEntries(
@@ -237,6 +260,25 @@ describe("mission figée sur une version de méthode (STD-08)", () => {
     expect(m.liaison).toMatchObject({ rang: 2, evenement: "contexte" });
     expect(m.historique.map((h: { rang: number }) => h.rang)).toEqual([2, 1]);
     expect(m.modulation.regles_declenchees).not.toContain("petite_structure");
+  });
+
+  it("changer de contexte : motif obligatoire seulement si une brique de classe R2 ou R3 est activée ou retirée", async () => {
+    const url = `/api/missions/${missionId}/methode/contexte`;
+    // Retire des briques R2 ou R3 (les facteurs du dossier disparaissent) : sans motif, 400, rien d'écrit.
+    const refus = attendu(400, await a.directeur.post(url, { contexte: { effectif: 46 } }));
+    expect(refus.erreur.code).toBe("MOTIF_REQUIS");
+    expect(
+      attendu(400, await a.directeur.post(url, { contexte: { effectif: 46 }, motif: " " })).erreur
+        .code,
+    ).toBe("MOTIF_REQUIS");
+    const apres = attendu(200, await consultant.get(`/api/missions/${missionId}/methode`));
+    expect(apres.liaison.rang).toBe(2);
+    // Même ensemble de briques R2 et R3 : pas de motif exigé.
+    const ok = attendu(
+      200,
+      await a.directeur.post(url, { contexte: { ...PME_CACAO, effectif: 46 } }),
+    );
+    expect(ok.liaison).toMatchObject({ rang: 3, evenement: "contexte", motif: null });
   });
 
   it("l'historique de la mission est en ajout seul (MPM03)", async () => {
@@ -300,6 +342,7 @@ describe("évolution du standard : migration de mission et mise à jour de varia
       await a.chef.put(`/api/missions/${mission2}/methode`, {
         version_id: testV1,
         contexte: { effectif: 300 },
+        motif: "Grande structure : l'option est activée.",
       }),
     );
     const detail = attendu(200, await a.associe.get(`/api/methodes/${testStandardId}`));
@@ -314,7 +357,12 @@ describe("évolution du standard : migration de mission et mise à jour de varia
         libelle: "Option du cabinet",
       }),
     );
-    attendu(200, await expert.post(`/api/methodes/versions/${varianteV1}/publication`));
+    // Quatre yeux : le créateur de la variante (expert) ne la publie pas, l'associé le peut.
+    expect(
+      attendu(403, await expert.post(`/api/methodes/versions/${varianteV1}/publication`)).erreur
+        .code,
+    ).toBe("SEPARATION_DES_TACHES");
+    attendu(200, await a.associe.post(`/api/methodes/versions/${varianteV1}/publication`));
   });
 
   it("le standard publie une v2 : rien ne change en silence, la mise à jour est proposée", async () => {
@@ -475,6 +523,14 @@ describe("dérogations (STD-07)", () => {
       }),
     );
     derogationR2 = d.id;
+    // Garde doublée en base : approuvée sans la relecture exigée par la classe R2 → MPM04.
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) =>
+        db.query(`UPDATE derogations SET statut = 'approuvee', decide_le = now() WHERE id = $1`, [
+          d.id,
+        ]),
+      ),
+    ).rejects.toMatchObject({ code: "MPM04" });
     expect(d).toMatchObject({
       classe_risque: "R2",
       statut: "demandee",
@@ -519,6 +575,13 @@ describe("dérogations (STD-07)", () => {
     );
     derogationR3 = d.id;
     expect(d.classe_risque).toBe("R3");
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) =>
+        db.query(`UPDATE derogations SET statut = 'approuvee', decide_le = now() WHERE id = $1`, [
+          d.id,
+        ]),
+      ),
+    ).rejects.toMatchObject({ code: "MPM04" });
     expect(d.garde.etapes_requises).toEqual([
       "validation_consultant",
       "relecture_chef_mission",

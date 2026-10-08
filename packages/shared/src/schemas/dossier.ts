@@ -275,6 +275,7 @@ const enTeteEtat = {
   exercice: z.number().int().min(1990).max(2100),
   date_cloture: dateIsoSchema,
   devise: deviseSchema,
+  /** Écart toléré par les contrôles ; > 0 : jamais d'acceptation automatique (revue obligatoire). */
   tolerance: z.number().int().min(0).max(TOLERANCE_ETAT_DOSSIER_MAX).default(0),
   source_libelle: texteOptionnel(300),
 };

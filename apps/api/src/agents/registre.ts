@@ -12,13 +12,17 @@ import type { Db } from "../db/pool.js";
 import { introuvable } from "../errors.js";
 import { lireParametres, modeleDe } from "../ia/parametres.js";
 import { contratSortieAgent } from "../ia/sortie-agent.js";
-import { avecErreursAgents, plafondAgent } from "./erreurs.js";
+import { actionReservee, avecErreursAgents, plafondAgent } from "./erreurs.js";
 
 /*
  * Registre des agents (AGT-01, migration 0260) : version COURANTE du standard
  * (agents_registre_courant, lecture seule) et restriction du cabinet (dernière
  * ligne de agents_restrictions). Niveau maximal effectif de l'agent pour le
  * cabinet = le plus bas du standard et de la restriction ; N0 si désactivé.
+ *
+ * Une restriction posée par un ASSOCIÉ ne se lève (réactivation, niveau relevé)
+ * que par `autonomie.decider` : la plus récente restriction d'un associé est un
+ * plancher de sévérité pour les autres auteurs (doublé en base, 0267, MPG08).
  */
 
 export interface AgentCabinet {
@@ -121,6 +125,19 @@ export async function modelesRoutes(
   return agent.taches.map((tache) => ({ tache, modele: modeleDe(p, tache) }));
 }
 
+/** La nouvelle restriction est-elle moins sévère que la référence (réactivation, niveau relevé) ? */
+export function leveRestriction(
+  standard: NiveauAutonomie,
+  reference: { actif: boolean; niveau_max: NiveauAutonomie | null },
+  nouvelle: { actif: boolean; niveau_max: NiveauAutonomie | null },
+): boolean {
+  return (
+    (!reference.actif && nouvelle.actif) ||
+    rangNiveauAutonomie(nouvelle.niveau_max ?? standard) >
+      rangNiveauAutonomie(reference.niveau_max ?? standard)
+  );
+}
+
 /** Nouvelle restriction du cabinet (ajout seul) : désactiver, ou abaisser le niveau maximal. */
 export async function restreindreAgent(
   db: Db,
@@ -128,12 +145,28 @@ export async function restreindreAgent(
   code: string,
   r: RestrictionAgent,
 ): Promise<AgentCabinet> {
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `agents_restriction:${auth.cabinetId}:${code}`,
+  ]);
   const agent = await lireAgent(db, code);
   if (
     r.niveau_max !== null &&
     rangNiveauAutonomie(r.niveau_max) > rangNiveauAutonomie(agent.niveau_max_standard)
   ) {
     throw plafondAgent();
+  }
+  if (!aPermission(auth.roles, "autonomie.decider")) {
+    const ref = await db.query(
+      `SELECT s.actif, s.niveau_max FROM agents_restrictions s
+       JOIN utilisateurs u ON u.id = s.auteur_id AND 'associe' = ANY (u.roles)
+       WHERE s.agent_code = $1 ORDER BY s.id DESC LIMIT 1`,
+      [code],
+    );
+    const reference = ref.rows[0] as
+      { actif: boolean; niveau_max: NiveauAutonomie | null } | undefined;
+    if (reference && leveRestriction(agent.niveau_max_standard, reference, r)) {
+      throw actionReservee("Restriction posée par un associé : seul un associé la lève.");
+    }
   }
   await avecErreursAgents(() =>
     db.query(

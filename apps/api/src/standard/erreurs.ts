@@ -8,6 +8,8 @@ const SQL_AJOUT_SEUL = "MPM03";
 const SQL_DEROGATION = "MPM04";
 const SQL_PROPOSITION = "MPM05";
 const SQL_LIAISON = "MPM06";
+const SQL_VARIANTE_DESSERREE = "MPM07";
+const SQL_VARIANTE_QUATRE_YEUX = "MPM08";
 
 export const versionPubliee = () =>
   new AppError(
@@ -21,6 +23,13 @@ export const standardLectureSeule = () =>
     403,
     "STANDARD_LECTURE_SEULE",
     "Le standard MissionPilot est en lecture seule : créer une variante du cabinet.",
+  );
+
+export const separationVariante = () =>
+  new AppError(
+    403,
+    "SEPARATION_DES_TACHES",
+    "Une variante n'est pas publiée par le créateur de la version (sauf associé).",
   );
 
 export const plafondAtteint = (quoi: string, max: number) =>
@@ -75,6 +84,14 @@ export function traduireErreurStandard(error: unknown): unknown {
         "VERSION_NON_LIABLE",
         "Seule une version publiée (plus récente, pour une migration) de la méthode se lie à la mission.",
       );
+    case SQL_VARIANTE_DESSERREE:
+      return new AppError(
+        409,
+        "VERSION_INCOHERENTE",
+        "Publication refusée : une variante n'abaisse pas la classe de risque ni ne relève l'autonomie d'une brique du standard.",
+      );
+    case SQL_VARIANTE_QUATRE_YEUX:
+      return separationVariante();
     default:
       return error;
   }

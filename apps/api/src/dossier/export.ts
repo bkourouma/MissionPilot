@@ -36,9 +36,8 @@ function faitExporte(f: VueFait) {
     statut: f.statut,
     remplace_id: f.remplace_id,
     enregistre_le: f.cree_le,
-    decision: f.decision
-      ? { decision: f.decision.decision, motif: f.decision.motif, le: f.decision.le }
-      : null,
+    // Le motif de la décision est interne au cabinet : jamais remis au client.
+    decision: f.decision ? { decision: f.decision.decision, le: f.decision.le } : null,
   };
 }
 
@@ -65,7 +64,6 @@ const etatExporte = ({
     ? {
         decision: decision.decision,
         automatique: decision.automatique,
-        motif: decision.motif,
         le: decision.le,
       }
     : null,

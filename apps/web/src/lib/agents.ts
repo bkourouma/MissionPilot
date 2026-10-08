@@ -251,6 +251,10 @@ export function droitsAgents(roles: readonly Role[]) {
     decider: aPermission(roles, "autonomie.decider"),
     couper: aPermission(roles, "agent.gerer") || aPermission(roles, "autonomie.decider"),
     lever: aPermission(roles, "autonomie.decider"),
+    /** Incident MAJEUR (rétrogradation automatique) : agent.gerer ou autonomie.decider. */
+    incidentMajeur: aPermission(roles, "agent.gerer") || aPermission(roles, "autonomie.decider"),
+    /** Brique R0 (seule à pouvoir aller jusqu'à N4) : associé. */
+    declarerR0: aPermission(roles, "autonomie.decider"),
   };
 }
 
@@ -534,6 +538,8 @@ const MESSAGES: Record<string, string> = {
 
 export function messageAgents(e: unknown): string {
   if (e instanceof ErreurApi && MESSAGES[e.code]) return MESSAGES[e.code] as string;
+  // Action réservée (associé, décideur d'une exécution) : le message de l'API dit à qui.
+  if (e instanceof ErreurApi && e.code === "ACTION_RESERVEE") return e.message;
   return messageErreur(e);
 }
 

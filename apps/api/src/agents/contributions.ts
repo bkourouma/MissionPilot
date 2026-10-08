@@ -6,6 +6,7 @@ import {
   type ContributionIa,
   type SyntheseContributionIa,
 } from "@missionpilot/engines";
+import { aPermission } from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { decoderCurseur, paginer } from "../http/outils.js";
@@ -110,10 +111,23 @@ export interface FiltresContributions {
 
 const CLE_TRI = "lpad(((extract(epoch FROM c.cree_le) * 1000000)::bigint)::text, 17, '0')";
 
-/** Visibilité : contribution sans mission, ou d'une mission visible de l'utilisateur. */
-const VISIBLE = (pToutes: number, pUtilisateur: number) =>
-  `(c.mission_id IS NULL OR EXISTS (SELECT 1 FROM missions m WHERE m.id = c.mission_id
-     AND ${filtreVisibilite(pToutes, pUtilisateur)}))`;
+/**
+ * Contributions servies au plus à la synthèse (les plus récentes du filtre) : au-delà, la
+ * synthèse est calculée sur cet échantillon et signalée tronquée.
+ */
+export const SYNTHESE_CONTRIBUTIONS_MAX = 5000;
+
+/**
+ * Visibilité (même règle que les exécutions, agents/executions.ts `visibilite`) : contribution
+ * d'une mission visible ; sans mission, `agent.gerer`, son auteur ou le déclencheur de
+ * l'exécution mesurée.
+ */
+const VISIBLE = (pToutes: number, pUtilisateur: number, pGerer: number) =>
+  `((c.mission_id IS NULL AND ($${pGerer}::boolean OR c.auteur_id = $${pUtilisateur}
+       OR EXISTS (SELECT 1 FROM agents_executions x WHERE x.id = c.execution_id
+                  AND x.declencheur_id = $${pUtilisateur})))
+    OR (c.mission_id IS NOT NULL AND EXISTS (SELECT 1 FROM missions m WHERE m.id = c.mission_id
+        AND ${filtreVisibilite(pToutes, pUtilisateur)})))`;
 
 const FILTRES = `($3::text IS NULL OR c.agent_code = $3)
   AND ($4::text IS NULL OR EXISTS (SELECT 1 FROM agents_briques b WHERE b.id = c.brique_id AND b.brique_code = $4))
@@ -142,8 +156,9 @@ function versContribution(l: Record<string, unknown>): ContributionIa {
 }
 
 /**
- * Contributions visibles (page par curseur, plus récentes d'abord) et synthèse
- * (moteur `syntheseContributionsIa`) sur TOUTES les contributions du filtre.
+ * Contributions visibles (page par curseur, plus récentes d'abord) et synthèse (moteur
+ * `syntheseContributionsIa`) sur les `SYNTHESE_CONTRIBUTIONS_MAX` plus récentes du filtre
+ * (`synthese_tronquee` au-delà) : lecture bornée.
  */
 export async function lireContributions(
   db: Db,
@@ -151,18 +166,28 @@ export async function lireContributions(
   f: FiltresContributions,
 ): Promise<{
   synthese: SyntheseContributionIa;
+  synthese_tronquee: boolean;
   elements: Record<string, unknown>[];
   curseur_suivant: string | null;
 }> {
-  const base = [voitToutesLesMissions(auth), auth.utilisateurId, f.agent ?? null, f.brique ?? null];
+  const base = [
+    voitToutesLesMissions(auth),
+    auth.utilisateurId,
+    f.agent ?? null,
+    f.brique ?? null,
+    f.mission_id ?? null,
+    aPermission(auth.roles, "agent.gerer"),
+  ];
   const tous = await db.query(
     `SELECT c.mots_brouillon, c.mots_valides, c.distance, c.mots_conserves, c.part_conservee_pct,
        c.modification_majeure, c.taux_modification_pct, c.seuil_pct, c.sessions_revue,
        c.temps_revue_secondes::text AS temps_revue_secondes,
        c.mediane_revue_secondes::text AS mediane_revue_secondes, c.exacte
-     FROM agents_contributions c WHERE ${VISIBLE(1, 2)} AND ${FILTRES}`,
-    [...base, f.mission_id ?? null],
+     FROM agents_contributions c WHERE ${VISIBLE(1, 2, 6)} AND ${FILTRES}
+     ORDER BY c.cree_le DESC, c.id DESC LIMIT $7`,
+    [...base, SYNTHESE_CONTRIBUTIONS_MAX + 1],
   );
+  const echantillon = tous.rows.slice(0, SYNTHESE_CONTRIBUTIONS_MAX);
   const apres = decoderCurseur(f.curseur);
   const page = await db.query(
     `SELECT c.id, c.livrable_type, c.livrable_id, c.mission_id, c.execution_id, c.agent_code,
@@ -171,17 +196,18 @@ export async function lireContributions(
        c.sessions_revue, c.temps_revue_secondes::text AS temps_revue_secondes, c.exacte, c.cree_le,
        ${CLE_TRI} AS cle_tri
      FROM agents_contributions c LEFT JOIN agents_briques b ON b.id = c.brique_id
-     WHERE ${VISIBLE(1, 2)} AND ${FILTRES}
-       AND ($6::text IS NULL OR (${CLE_TRI}, c.id) < ($6, $7::uuid))
-     ORDER BY cle_tri DESC, c.id DESC LIMIT $8`,
-    [...base, f.mission_id ?? null, apres?.[0] ?? null, apres?.[1] ?? null, f.limite + 1],
+     WHERE ${VISIBLE(1, 2, 6)} AND ${FILTRES}
+       AND ($7::text IS NULL OR (${CLE_TRI}, c.id) < ($7, $8::uuid))
+     ORDER BY cle_tri DESC, c.id DESC LIMIT $9`,
+    [...base, apres?.[0] ?? null, apres?.[1] ?? null, f.limite + 1],
   );
   const p = paginer(
     page.rows as (Record<string, unknown> & { cle_tri: string; id: string })[],
     f.limite,
   );
   return {
-    synthese: syntheseContributionsIa(tous.rows.map(versContribution)),
+    synthese: syntheseContributionsIa(echantillon.map(versContribution)),
+    synthese_tronquee: tous.rows.length > SYNTHESE_CONTRIBUTIONS_MAX,
     elements: p.elements.map((l) => ({
       ...l,
       temps_revue_secondes: Number(l.temps_revue_secondes),

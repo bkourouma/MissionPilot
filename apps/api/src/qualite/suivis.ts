@@ -16,7 +16,8 @@ import {
   filtreVisibilite,
   voitToutesLesMissions,
 } from "../missions/acces.js";
-import { lireContenuLivrable } from "./contenu.js";
+import { exigerAuteurMembre } from "../preuves/acces.js";
+import { lireContenuLivrable, type ContenuLivrable } from "./contenu.js";
 import { definitionEnVigueur } from "./definitions.js";
 import {
   ajouterEvenement,
@@ -25,14 +26,21 @@ import {
   exigerSuivi,
   type Suivi,
 } from "./donnees.js";
-import { evaluerSuivi, habilitePour, lireSignature, lireValidations } from "./garde.js";
+import {
+  etapesAReconfirmer,
+  evaluerSuivi,
+  habilitePour,
+  lireSignature,
+  lireValidations,
+} from "./garde.js";
 import { listerElements, parcoursDe, tempsDeRevue } from "./revue.js";
 import { etatDefinition } from "./verification.js";
 
 /*
  * Ouverture, liste et détail des suivis qualité. L'ouverture exige la mission modifiable (chef,
  * directeur ou associé ; mission non clôturée) et vérifie que le livrable existe dans la mission
- * quand son type est lisible par le module qualité (rapport, notation, plan, questionnaire).
+ * quand son type est lisible par le module qualité (rapport, notation, plan, questionnaire) ; son
+ * auteur est alors celui du module, jamais celui du corps de la requête.
  */
 
 export async function ouvrirSuivi(db: Db, auth: Auth, corps: SuiviOuverture): Promise<Suivi> {
@@ -63,6 +71,33 @@ export async function assurerSuiviLivrable(
   return creerSuivi(db, auth, cible as SuiviOuverture);
 }
 
+/**
+ * Auteur du livrable, sur lequel le moteur `evaluerGarde` juge les cumuls et les quatre yeux :
+ * - type lu par le module qualité : l'auteur est CELUI DU MODULE (le corps ne le remplace pas) ;
+ *   le déclarer « agent » (`null`) est refusé, ce qui désactiverait les contrôles de cumul ;
+ * - type opaque (`etat`, `autre`) : `null` (agent) ou un membre actif de la mission (doublé en
+ *   base, MPY11).
+ */
+async function auteurDuSuivi(
+  db: Db,
+  corps: SuiviOuverture,
+  contenu: ContenuLivrable,
+): Promise<string | null> {
+  if (contenu.resolu) {
+    if (corps.auteur_id === null) {
+      throw new AppError(
+        400,
+        "AUTEUR_IMPOSE",
+        "L'auteur de ce livrable est celui du module qui l'a produit : il ne se déclare pas.",
+      );
+    }
+    return contenu.auteurId;
+  }
+  if (corps.auteur_id === undefined || corps.auteur_id === null) return null;
+  await exigerAuteurMembre(db, corps.mission_id, corps.auteur_id);
+  return corps.auteur_id;
+}
+
 async function creerSuivi(db: Db, auth: Auth, corps: SuiviOuverture): Promise<Suivi> {
   const type = corps.type_livrable as TypeLivrable;
   const contenu = await lireContenuLivrable(
@@ -82,7 +117,7 @@ async function creerSuivi(db: Db, auth: Auth, corps: SuiviOuverture): Promise<Su
       `La classe d'un livrable de ce type ne peut pas être inférieure à ${minimale}.`,
     );
   }
-  const auteur = corps.auteur_id !== undefined ? corps.auteur_id : contenu.auteurId;
+  const auteur = await auteurDuSuivi(db, corps, contenu);
   const definition = await definitionEnVigueur(db, auth.cabinetId, type);
   const r = await db.query(
     `INSERT INTO qualite_suivis (cabinet_id, mission_id, type_livrable, livrable_id, libelle, version,
@@ -185,6 +220,7 @@ export async function detailSuivi(db: Db, auth: Auth, id: string) {
       manquantes: evaluation.manquantes,
       prochaine_etape: prochaine,
       violations: evaluation.violations,
+      etapes_a_reconfirmer: etapesAReconfirmer(validations),
       peut_valider_prochaine_etape: peutProchaine,
     },
     validations,

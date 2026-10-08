@@ -20,6 +20,7 @@ import {
   lireParametresRegistre,
   matriceTriangulation,
   messagePreuves,
+  peutSignerAvisExpert,
   requeteAssertions,
   requeteRegistre,
   sousPagesPreuves,
@@ -200,6 +201,12 @@ describe("chemins, droits et libellés", () => {
       lire: false,
       ecrire: false,
     });
+  });
+
+  it("signature d'un avis d'expert : expert métier ou associé seulement", () => {
+    expect(peutSignerAvisExpert(["expert_metier"])).toBe(true);
+    expect(peutSignerAvisExpert(["associe"])).toBe(true);
+    expect(peutSignerAvisExpert(["chef_mission", "consultant"])).toBe(false);
   });
 
   it("libellés de repli", () => {

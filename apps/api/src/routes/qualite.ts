@@ -10,6 +10,7 @@ import {
   suiviOuvertureSchema,
   validationEtapeSchema,
   TYPES_LIVRABLE,
+  aPermission,
 } from "@missionpilot/shared";
 import { z } from "zod";
 import { exiger } from "../auth/contexte.js";
@@ -34,6 +35,7 @@ import {
 import {
   ajouterElementsRevue,
   demarrerSession,
+  elementsDuRelecteur,
   marquerVu,
   terminerSession,
 } from "../qualite/revue.js";
@@ -168,14 +170,10 @@ function routesRevue(app: FastifyInstance) {
     const { id } = paramsId.parse(request.params);
     const corps = elementsRevueSchema.parse(request.body);
     return app.db.withTenant(auth.cabinetId, async (db) => {
-      await exigerSuivi(db, auth, id, true);
-      await ajouterElementsRevue(
-        db,
-        auth.cabinetId,
-        auth.utilisateurId,
-        { suiviId: id },
-        corps.elements,
-      );
+      const { suivi } = await exigerSuivi(db, auth, id, true);
+      // Toujours obligatoires, sans source libre : un chiffre se trace par une preuve de la mission.
+      const elements = await elementsDuRelecteur(db, suivi, corps.elements);
+      await ajouterElementsRevue(db, auth.cabinetId, auth.utilisateurId, { suiviId: id }, elements);
       return detailSuivi(db, auth, id);
     });
   });
@@ -186,6 +184,8 @@ function routesRevue(app: FastifyInstance) {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const { suivi } = await exigerSuivi(db, auth, id, true);
       await marquerVu(db, auth, suivi, element_id);
+      // Le parcours d'un élément déposé après une étape peut la reconfirmer et compléter la garde.
+      await validerSiGardeSatisfaite(db, auth, suivi);
       return detailSuivi(db, auth, id);
     });
   });
@@ -250,10 +250,15 @@ function routesAcceptationEtSatisfaction(app: FastifyInstance) {
     });
   });
 
+  // Relations entre clients : données des CLIENTS (clients.lire en plus) ; la note interne n'est
+  // servie qu'à qui peut déclarer et décider (qualite.signer).
   app.get("/qualite/relations-clients", async (request) => {
+    exiger(request, "clients.lire");
     const auth = exiger(request, "qualite.relire");
     const q = queryRelations.parse(request.query);
-    return app.db.withTenant(auth.cabinetId, (db) => listerRelations(db, q.client_id ?? null));
+    return app.db.withTenant(auth.cabinetId, (db) =>
+      listerRelations(db, q.client_id ?? null, aPermission(auth.roles, "qualite.signer")),
+    );
   });
 
   app.post("/qualite/relations-clients", async (request, reply) => {

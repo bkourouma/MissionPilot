@@ -50,18 +50,24 @@ describe("navigation et droits de la rubrique Agents IA", () => {
       decider: true,
       couper: true,
       lever: true,
+      incidentMajeur: true,
+      declarerR0: true,
     });
     expect(droitsAgents(["expert_metier"])).toEqual({
       gerer: true,
       decider: false,
       couper: true,
       lever: false,
+      incidentMajeur: true,
+      declarerR0: false,
     });
     expect(droitsAgents(["consultant"])).toEqual({
       gerer: false,
       decider: false,
       couper: false,
       lever: false,
+      incidentMajeur: false,
+      declarerR0: false,
     });
   });
 });

@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { api } from "./api.js";
 import { demarrer, proprietaire, type Contexte } from "./helpers.js";
@@ -6,6 +7,7 @@ import {
   creerPreuve,
   INCONNU,
   lier,
+  PREUVE_DOCUMENT,
   PREUVE_ENTRETIEN,
   preparerPreuves,
   type ScenarioPreuves,
@@ -150,7 +152,8 @@ describe("validations", () => {
       { ...PREUVE_ENTRETIEN, date_preuve: "2026-13-40" },
       { ...PREUVE_ENTRETIEN, source_precise: "" },
       { ...PREUVE_ENTRETIEN, fichier_id: INCONNU, document_id: INCONNU },
-      { ...PREUVE_ENTRETIEN, accord_nominatif: true },
+      { ...PREUVE_ENTRETIEN, nominatif: false, accord_nominatif: true },
+      { ...PREUVE_DOCUMENT, accord_nominatif: true },
       { ...PREUVE_ENTRETIEN, dimensions: ["Majuscule"] },
     ];
     for (const corps of mauvais) {
@@ -360,5 +363,105 @@ describe("liste paginée", () => {
       (await s.a.chef.get(`/api/missions/${m}/preuves?curseur=n-importe-quoi`)).statusCode,
     ).toBe(400);
     expect((await s.a.chef.get(`/api/missions/${m}/preuves?limite=1000`)).statusCode).toBe(400);
+  });
+});
+
+describe("durcissement (audit du 2026-10-08) : nominatif, auteur, fichier lié", () => {
+  it("entretien et questionnaire sont nominatifs par défaut ; un document ne l'est pas", async () => {
+    const url = `/api/missions/${s.missionId}/preuves`;
+    const entretien = await s.a.chef.post(url, PREUVE_ENTRETIEN);
+    expect(entretien.statusCode).toBe(201);
+    expect(entretien.json()).toMatchObject({ nominatif: true, accord_nominatif: false });
+    const questionnaire = await s.a.chef.post(url, {
+      ...PREUVE_ENTRETIEN,
+      type_source: "questionnaire",
+    });
+    expect(questionnaire.json().nominatif).toBe(true);
+    const document = await s.a.chef.post(url, PREUVE_DOCUMENT);
+    expect(document.json().nominatif).toBe(false);
+    // Explicite : le choix de l'utilisateur prime.
+    const explicite = await s.a.chef.post(url, { ...PREUVE_ENTRETIEN, nominatif: false });
+    expect(explicite.json().nominatif).toBe(false);
+    // Par défaut nominatif sans accord : masqué pour un membre qui n'en est pas l'auteur.
+    const vue = (await s.consultantEquipe.get(`/api/preuves/${entretien.json().id}`)).json();
+    expect(vue.masque).toBe(true);
+  });
+
+  it("l'auteur désigné est un membre ACTIF de la mission (400 AUTEUR_NON_MEMBRE, doublé en base)", async () => {
+    const url = `/api/missions/${s.missionId}/preuves`;
+    const hors = await s.a.chef.post(url, {
+      ...PREUVE_ENTRETIEN,
+      auteur_id: s.consultantHors.utilisateurId,
+    });
+    expect(hors.statusCode).toBe(400);
+    expect(hors.json().erreur.code).toBe("AUTEUR_NON_MEMBRE");
+    // Une correction ne peut pas non plus attribuer la preuve à un non-membre.
+    const p = await creerPreuve(s.a.chef, s.missionId);
+    const corr = await s.a.chef.post(`/api/preuves/${p.id}/versions`, {
+      ...PREUVE_ENTRETIEN,
+      auteur_id: s.consultantHors.utilisateurId,
+      motif: "Réattribution",
+    });
+    expect(corr.statusCode).toBe(400);
+    // En base, même pour le propriétaire du schéma (MPV02).
+    await expect(
+      proprietaire((c) =>
+        c.query(
+          `INSERT INTO preuve_versions (cabinet_id, preuve_id, version, type_source, source_precise,
+             date_preuve, auteur_id, fiabilite, motif, cree_par)
+           VALUES ($1, $2, 2, 'document', 'x', '2026-10-01', $3, 'B', 'm', $4)`,
+          [s.a.cabinetId, p.id, s.consultantHors.utilisateurId, s.a.chef.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPV02" });
+  });
+
+  async function fichier(envoyePar: string, supprime = false): Promise<string> {
+    const id = randomUUID();
+    await proprietaire(async (c) => {
+      await c.query(
+        `INSERT INTO fichiers (id, cabinet_id, cle_stockage, nom_origine, type_mime, taille, sha256, envoye_par)
+         VALUES ($1, $2, $3, 'piece.pdf', 'application/pdf', 10, $4, $5)`,
+        [
+          id,
+          s.a.cabinetId,
+          randomUUID().replaceAll("-", ""),
+          createHash("sha256").update(id).digest("hex"),
+          envoyePar,
+        ],
+      );
+      if (supprime) {
+        await c.query(
+          `INSERT INTO fichiers_suppressions (cabinet_id, fichier_id, motif, supprime_par)
+           VALUES ($1, $2, 'retire', $3)`,
+          [s.a.cabinetId, id, envoyePar],
+        );
+      }
+    });
+    return id;
+  }
+
+  it("un fichier lié est rattaché à la mission ou au client, ou est un orphelin de qui saisit (MPV02)", async () => {
+    const url = `/api/missions/${s.missionId}/preuves`;
+    const dAutrui = await fichier(s.consultantEquipe.utilisateurId);
+    const refus = await s.a.chef.post(url, { ...PREUVE_DOCUMENT, fichier_id: dAutrui });
+    expect(refus.statusCode).toBe(400);
+    expect(refus.json().erreur.code).toBe("PREUVE_INCOHERENTE");
+    const supprime = await fichier(s.a.chef.utilisateurId, true);
+    expect(
+      (await s.a.chef.post(url, { ...PREUVE_DOCUMENT, fichier_id: supprime })).statusCode,
+    ).toBe(400);
+    const mien = await fichier(s.a.chef.utilisateurId);
+    const ok = await s.a.chef.post(url, { ...PREUVE_DOCUMENT, fichier_id: mien });
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json().fichier_id).toBe(mien);
+    // La correction garde le fichier de la version précédente.
+    const corr = await s.a.chef.post(`/api/preuves/${ok.json().id}/versions`, {
+      ...PREUVE_DOCUMENT,
+      fichier_id: mien,
+      fiabilite: "B",
+      motif: "Fiabilité revue",
+    });
+    expect(corr.statusCode).toBe(201);
   });
 });

@@ -133,6 +133,7 @@ beforeAll(async () => {
     await s.a.chef.put(`/api/missions/${s.missionId}/methode`, {
       version_id: notationV1,
       contexte: PME_CACAO,
+      motif: "Contexte du dossier : PME cacao familiale.",
     }),
     "liaison de la méthode",
   );

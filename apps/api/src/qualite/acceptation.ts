@@ -21,7 +21,13 @@ import { exigerMissionVisible } from "../missions/acces.js";
  * - Le niveau du profil est le plus élevé des niveaux imposés par les facteurs cochés ; le
  *   relecteur peut le relever, jamais le baisser.
  * - Décider (accepter, accepter sous conditions, refuser) exige `qualite.signer` ; une simple
- *   évaluation « en attente » exige `qualite.relire`. Accepter malgré un conflit exige un motif.
+ *   évaluation « en attente » exige `qualite.relire`, TANT QU'AUCUNE décision n'est prise : ensuite,
+ *   toute nouvelle évaluation exige `qualite.signer` (un « en attente » annulerait la décision) et
+ *   le niveau retenu ne descend plus sous celui de la dernière évaluation (doublé en base, MPY09).
+ *   Accepter malgré un conflit exige un motif.
+ * - La note interne d'une relation n'est servie qu'avec `qualite.signer` (conflits compris).
+ * - Une relation ne se supprime pas : son retrait est un événement en ajout seul
+ *   (`qualite_relations_retraits`, migration 0286) ; seules les relations actives comptent.
  * - Un conflit révèle l'existence d'un client lié (raison sociale) et le NOMBRE de ses missions
  *   en cours, jamais leur intitulé : la vérification de conflit est un contrôle du cabinet, que
  *   la visibilité des missions ne doit pas empêcher.
@@ -33,7 +39,20 @@ export interface ConflitDetecte {
   client_lie_id: string;
   client_lie_nom: string;
   missions_en_cours: number;
-  note: string | null;
+  /** Note interne de la relation : ABSENTE de la réponse sans `qualite.signer`. */
+  note?: string | null;
+}
+
+/** Relation non retirée (fragment SQL sur l'alias `r`). */
+const RELATION_ACTIVE =
+  "NOT EXISTS (SELECT 1 FROM qualite_relations_retraits x WHERE x.relation_id = r.id)";
+
+/** Retire la note interne d'un conflit pour qui n'a pas `qualite.signer`. */
+function selonDroitNote<T extends { note?: string | null }>(c: T, voirNote: boolean): T {
+  if (voirNote) return c;
+  const copie = { ...c };
+  delete copie.note;
+  return copie;
 }
 
 export async function detecterConflits(
@@ -44,7 +63,8 @@ export async function detecterConflits(
   const r = await db.query(
     `SELECT r.id AS relation_id, r.nature, r.note,
        CASE WHEN r.client_id = $1 THEN r.client_lie_id ELSE r.client_id END AS client_lie_id
-     FROM qualite_relations_clients r WHERE r.client_id = $1 OR r.client_lie_id = $1
+     FROM qualite_relations_clients r
+     WHERE (r.client_id = $1 OR r.client_lie_id = $1) AND ${RELATION_ACTIVE}
      ORDER BY r.cree_le, r.id`,
     [clientId],
   );
@@ -109,11 +129,17 @@ export async function lireAcceptation(db: Db, auth: Auth, missionId: string) {
      WHERE a.mission_id = $1 ORDER BY a.rang DESC`,
     [missionId],
   );
-  const historique = h.rows as Acceptation[];
+  const voirNote = aPermission(auth.roles, "qualite.signer");
+  const historique = (h.rows as Acceptation[]).map((a) => ({
+    ...a,
+    conflits: a.conflits.map((c) => selonDroitNote(c, voirNote)),
+  }));
   return {
     derniere: historique[0] ?? null,
     historique,
-    conflits_actuels: await detecterConflits(db, mission.client_id, missionId),
+    conflits_actuels: (await detecterConflits(db, mission.client_id, missionId)).map((c) =>
+      selonDroitNote(c, voirNote),
+    ),
   };
 }
 
@@ -125,7 +151,19 @@ export async function evaluerAcceptation(
 ): Promise<Acceptation> {
   const c = acceptationSchema.parse(brut);
   const mission = await exigerMissionVisible(db, auth, missionId, true);
-  if (c.decision !== "en_attente" && !aPermission(auth.roles, "qualite.signer")) throw interdit();
+  const signataire = aPermission(auth.roles, "qualite.signer");
+  if (c.decision !== "en_attente" && !signataire) throw interdit();
+  // Après une décision, seule une personne habilitée à décider réévalue (sous le verrou de la mission).
+  const precedente = await db.query(
+    `SELECT niveau_risque,
+       EXISTS (SELECT 1 FROM qualite_acceptations d
+               WHERE d.mission_id = $1 AND d.decision <> 'en_attente') AS decidee
+     FROM qualite_acceptations WHERE mission_id = $1 ORDER BY rang DESC LIMIT 1`,
+    [missionId],
+  );
+  const derniere = precedente.rows[0] as
+    { niveau_risque: NiveauRisqueClient; decidee: boolean } | undefined;
+  if (derniere?.decidee && !signataire) throw interdit();
   const conflits = await detecterConflits(db, mission.client_id, missionId);
   const calcule = niveauDesFacteurs(c.facteurs);
   const retenu =
@@ -135,6 +173,13 @@ export async function evaluerAcceptation(
   if (c.niveau_retenu && rangNiveau(c.niveau_retenu) < rangNiveau(calcule)) {
     throw requeteInvalide(
       "Le niveau retenu ne peut pas être inférieur au niveau des facteurs cochés.",
+    );
+  }
+  if (derniere?.decidee && rangNiveau(retenu) < rangNiveau(derniere.niveau_risque)) {
+    throw new AppError(
+      409,
+      "NIVEAU_RISQUE_ABAISSE",
+      `Une décision a été prise : le niveau de risque retenu ne descend plus sous « ${derniere.niveau_risque} ».`,
     );
   }
   const motif = c.motif ?? null;
@@ -194,17 +239,22 @@ export async function evaluerAcceptation(
 // Relations déclarées entre clients
 // ---------------------------------------------------------------------------
 
-export async function listerRelations(db: Db, clientId: string | null) {
+/** Relations ACTIVES (non retirées) ; `voirNote` : la note interne n'est servie qu'avec qualite.signer. */
+export async function listerRelations(db: Db, clientId: string | null, voirNote: boolean) {
   const r = await db.query(
     `SELECT r.id, r.client_id, a.raison_sociale AS client_nom, r.client_lie_id,
        b.raison_sociale AS client_lie_nom, r.nature, r.note, r.cree_le
      FROM qualite_relations_clients r
      JOIN clients a ON a.id = r.client_id JOIN clients b ON b.id = r.client_lie_id
-     WHERE ($1::uuid IS NULL OR r.client_id = $1 OR r.client_lie_id = $1)
+     WHERE ($1::uuid IS NULL OR r.client_id = $1 OR r.client_lie_id = $1) AND ${RELATION_ACTIVE}
      ORDER BY lower(a.raison_sociale), r.id`,
     [clientId],
   );
-  return { elements: r.rows };
+  return {
+    elements: r.rows.map((l) =>
+      selonDroitNote(l as { id: string; note?: string | null }, voirNote),
+    ),
+  };
 }
 
 export async function declarerRelation(db: Db, auth: Auth, brut: unknown) {
@@ -222,15 +272,21 @@ export async function declarerRelation(db: Db, auth: Auth, brut: unknown) {
     entiteId: r.rows[0].id as string,
     details: { client_id: c.client_id, client_lie_id: c.client_lie_id, nature: c.nature },
   });
-  return (await listerRelations(db, c.client_id)).elements.find((e) => e.id === r.rows[0].id);
+  return (await listerRelations(db, c.client_id, true)).elements.find((e) => e.id === r.rows[0].id);
 }
 
+/** Retrait d'une relation : événement en ajout seul (la relation reste dans l'historique). */
 export async function retirerRelation(db: Db, auth: Auth, id: string): Promise<void> {
   const r = await db.query(
-    "DELETE FROM qualite_relations_clients WHERE id = $1 RETURNING client_id, client_lie_id, nature",
+    `SELECT r.client_id, r.client_lie_id, r.nature FROM qualite_relations_clients r
+     WHERE r.id = $1 AND ${RELATION_ACTIVE}`,
     [id],
   );
   if (!r.rows[0]) throw introuvable("Relation");
+  await db.query(
+    "INSERT INTO qualite_relations_retraits (cabinet_id, relation_id, retire_par) VALUES ($1, $2, $3)",
+    [auth.cabinetId, id, auth.utilisateurId],
+  );
   await journaliser(db, {
     cabinetId: auth.cabinetId,
     utilisateurId: auth.utilisateurId,

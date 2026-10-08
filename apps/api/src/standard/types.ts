@@ -31,6 +31,7 @@ export interface VersionLigne {
   statut: StatutVersionMethode;
   notes_version: string | null;
   base_standard_id: string | null;
+  cree_par: string | null;
   cree_le: string;
   publie_le: string | null;
 }

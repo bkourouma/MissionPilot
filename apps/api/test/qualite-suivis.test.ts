@@ -9,6 +9,7 @@ import {
   insererRapport,
   ouvrir,
   preparerQualite,
+  preuveDeTest,
   type ScenarioQualite,
 } from "./qualite-outils.js";
 
@@ -20,10 +21,13 @@ import {
 
 let ctx: Contexte;
 let s: ScenarioQualite;
+/** Preuve de la mission qui trace les chiffres déposés par les relecteurs. */
+let preuveId: string;
 
 beforeAll(async () => {
   ctx = await demarrer();
   s = await preparerQualite(ctx, "Cabinet Qualité");
+  preuveId = await preuveDeTest(s);
 });
 afterAll(async () => {
   await ctx.fermer();
@@ -233,7 +237,7 @@ describe("rapport R2 : définition de terminé, revue guidée, garde, signature 
     const o = await ouvrir(s.c.chef, s, { type_livrable: "rapport", livrable_id: rapport2.id });
     const id = o.json().suivi.id as string;
     attendre(200, await s.c.chef.post(`/api/qualite/suivis/${id}/verification`), "verification");
-    await elementsDeTest(s.c.chef, id, 2);
+    await elementsDeTest(s.c.chef, id, preuveId, 2);
     const v = await s.c.chef.post(`/api/qualite/suivis/${id}/verification`);
     const items = v.json().definition.items as { id: string; code: string; statut: string }[];
     expect(items.find((i) => i.code === "chiffres_traces")?.statut).toBe("conforme");
@@ -364,9 +368,13 @@ describe("classe R3 : quatre yeux et signature du directeur (QUA-04)", () => {
     attendre(201, o, "ouverture R3");
     const id = o.json().suivi.id as string;
     attendre(200, await s.c.chef.post(`/api/qualite/suivis/${id}/verification`), "verification");
-    await s.c.chef.post(`/api/qualite/suivis/${id}/elements`, {
-      elements: [{ cle: "c1", kind: "chiffre", libelle: "Résultat net", source: "Moteur états" }],
-    });
+    attendre(
+      200,
+      await s.c.chef.post(`/api/qualite/suivis/${id}/elements`, {
+        elements: [{ cle: "c1", kind: "chiffre", libelle: "Résultat net", preuve_id: preuveId }],
+      }),
+      "éléments R3",
+    );
     const v = await s.c.chef.post(`/api/qualite/suivis/${id}/verification`);
     for (const i of v.json().definition.items as {
       id: string;

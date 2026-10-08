@@ -89,6 +89,8 @@ export interface GardeSuivi {
   manquantes: EtapeGardeQualite[];
   prochaine_etape: EtapeGardeQualite | null;
   violations: Violation[];
+  /** Étapes franchies avant le dépôt d'éléments que leur auteur n'a pas encore parcourus. */
+  etapes_a_reconfirmer: EtapeGardeQualite[];
   peut_valider_prochaine_etape: boolean;
 }
 
@@ -98,6 +100,8 @@ export interface ValidationSuivi {
   acteur_nom: string | null;
   commentaire: string | null;
   valide_le: string;
+  /** Suspendue : des éléments obligatoires ont été déposés depuis et l'auteur ne les a pas parcourus. */
+  a_reconfirmer: boolean;
 }
 
 export interface ItemDefinition {
@@ -194,7 +198,8 @@ export interface Conflit {
   client_lie_id: string;
   client_lie_nom: string;
   missions_en_cours: number;
-  note: string | null;
+  /** Absente sans le droit de signer (note interne de la relation). */
+  note?: string | null;
 }
 
 export interface Acceptation {

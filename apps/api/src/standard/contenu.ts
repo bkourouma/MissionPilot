@@ -20,7 +20,7 @@ const COLONNES_METHODE = `m.id, m.cabinet_id, m.service_id, s.code AS service_co
   s.libelle AS service_libelle, m.code, m.libelle, m.description, m.parent_id, m.cree_le`;
 
 const COLONNES_VERSION = `v.id, v.cabinet_id, v.methode_id, v.version, v.statut, v.notes_version,
-  v.base_standard_id, v.cree_le, v.publie_le`;
+  v.base_standard_id, v.cree_par, v.cree_le, v.publie_le`;
 
 export async function lireMethode(db: Db, id: string): Promise<MethodeLigne> {
   const r = await db.query(

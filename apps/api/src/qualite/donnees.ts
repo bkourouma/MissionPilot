@@ -24,13 +24,17 @@ export interface Suivi {
   ouvert_par: string;
   ouvert_le: Date;
   modifie_le: Date;
+  /** SHA-256 du contenu relu, posé au passage en revue (null : type opaque ou pas encore en revue). */
+  empreinte_revue: string | null;
 }
 
 export const COLONNES_SUIVI = `s.id, s.mission_id, s.type_livrable, s.livrable_id, s.libelle, s.version,
-  s.classe_minimale, s.classe, s.statut, s.auteur_id, s.definition_id, s.ouvert_par, s.ouvert_le, s.modifie_le`;
+  s.classe_minimale, s.classe, s.statut, s.auteur_id, s.definition_id, s.ouvert_par, s.ouvert_le, s.modifie_le,
+  s.empreinte_revue`;
 
 export const COLONNES_SUIVI_NUES = `id, mission_id, type_livrable, livrable_id, libelle, version,
-  classe_minimale, classe, statut, auteur_id, definition_id, ouvert_par, ouvert_le, modifie_le`;
+  classe_minimale, classe, statut, auteur_id, definition_id, ouvert_par, ouvert_le, modifie_le,
+  empreinte_revue`;
 
 /** Suivi d'une mission visible, ou 404. `verrouiller` pose FOR UPDATE sur le suivi (écritures sérialisées). */
 export async function exigerSuivi(

@@ -11,6 +11,7 @@ import { avecErreursAgents, nonRegressionRequise } from "../agents/erreurs.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
+import { reglerEvaluationLocale } from "../ia/evaluation.js";
 import {
   assurerPromptsExemple,
   chargerPrompt,
@@ -27,7 +28,9 @@ import {
  *   aucune évaluation, elle est donc créée INACTIVE quand `activer` est omis, et
  *   `activer: true` explicite répond 409 NON_REGRESSION_REQUISE (rien n'est créé).
  * - POST /:id/activer (ia.configurer) : réactive une version existante ; la base
- *   refuse une version sans évaluation réussie (MPG04 → 409 NON_REGRESSION_REQUISE).
+ *   refuse une version sans évaluation réussie (MPG04 → 409 NON_REGRESSION_REQUISE) ;
+ *   hors production seulement, une évaluation sur le fournisseur local suffit
+ *   (`reglerEvaluationLocale`, migration 0265).
  * Les prompts « exemple » de base sont semés à la première lecture.
  */
 
@@ -157,6 +160,7 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
       );
       const id = r.rows[0].id as string;
       if (activer) {
+        await reglerEvaluationLocale(db, app.config);
         await db.query(
           "INSERT INTO ia_prompt_activations (cabinet_id, nom, prompt_id, active_par) VALUES ($1, $2, $3, $4)",
           [auth.cabinetId, p.nom, id, auth.utilisateurId],
@@ -181,6 +185,7 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
     promptActivationSchema.parse(request.body ?? {});
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const prompt = await chargerPrompt(db, id);
+      await reglerEvaluationLocale(db, app.config);
       await avecErreursAgents(() =>
         db.query(
           "INSERT INTO ia_prompt_activations (cabinet_id, nom, prompt_id, active_par) VALUES ($1, $2, $3, $4)",

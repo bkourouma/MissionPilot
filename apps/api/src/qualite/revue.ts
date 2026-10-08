@@ -1,11 +1,17 @@
 import { agregerTempsRevue, type TempsRevue } from "@missionpilot/engines";
-import type { ElementRevueSaisi, KindElementRevue, TypeLivrable } from "@missionpilot/shared";
+import type {
+  ElementRevueRelecteur,
+  ElementRevueSaisi,
+  KindElementRevue,
+  SourceResolue,
+  TypeLivrable,
+} from "@missionpilot/shared";
 import { elementRevueSchema } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { conflit, introuvable } from "../errors.js";
-import type { Suivi } from "./donnees.js";
+import { ajouterEvenement, type Suivi } from "./donnees.js";
 
 /*
  * Revue guidée (QUA-03). Le relecteur parcourt d'abord les assertions fragiles, les chiffres et
@@ -29,8 +35,13 @@ export interface ElementRevueEntree {
   ordre?: number;
   /** Défaut : vrai. */
   obligatoire?: boolean;
-  /** Source d'un chiffre (preuve, moteur de calcul, donnée). */
+  /** Libellé de la source d'un chiffre (preuve, moteur de calcul, donnée). */
   source?: string | null;
+  /**
+   * Source RÉSOLUE par le serveur (`moteur`, `preuve`) : seule elle trace un chiffre pour la
+   * définition de terminé. Jamais reçue d'une requête.
+   */
+  source_type?: SourceResolue | null;
   /** Renvoi vers l'objet du module d'origine. */
   reference?: string | null;
 }
@@ -75,12 +86,14 @@ export async function ajouterElementsRevue(
     throw conflit("Le suivi qualité est validé : le parcours de revue est clos.");
   }
   let ajoutes = 0;
+  let obligatoiresAjoutes = 0;
   for (const brut of elements) {
     const e = elementRevueSchema.parse(brut as ElementRevueSaisi);
     const r = await db.query(
       `INSERT INTO qualite_revue_elements
-         (cabinet_id, suivi_id, cle, kind, libelle, ordre, obligatoire, source, reference, cree_par)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         (cabinet_id, suivi_id, cle, kind, libelle, ordre, obligatoire, source, source_type, reference,
+          cree_par)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (suivi_id, cle) DO NOTHING RETURNING id`,
       [
         cabinetId,
@@ -91,11 +104,22 @@ export async function ajouterElementsRevue(
         e.ordre,
         e.obligatoire,
         e.source ?? null,
+        e.source_type ?? null,
         e.reference ?? null,
         par,
       ],
     );
     ajoutes += r.rows.length;
+    if (r.rows.length > 0 && e.obligatoire) obligatoiresAjoutes += 1;
+  }
+  // Un élément obligatoire déposé APRÈS une étape de garde rend cette étape « à reconfirmer » :
+  // son auteur doit parcourir le nouvel élément avant que la garde ne soit satisfaite (QUA-03).
+  const etapes = obligatoiresAjoutes > 0 ? await etapesFranchies(db, suivi.id) : [];
+  if (etapes.length > 0 && par !== null) {
+    await ajouterEvenement(db, cabinetId, suivi.id, par, {
+      action: "elements_apres_validation",
+      details: { ajoutes: obligatoiresAjoutes, etapes_a_reconfirmer: etapes },
+    });
   }
   if (ajoutes > 0) {
     await journaliser(db, {
@@ -104,10 +128,69 @@ export async function ajouterElementsRevue(
       action: "qualite.elements.ajouter",
       entite: "qualite_suivi",
       entiteId: suivi.id,
-      details: { ajoutes, ignores: elements.length - ajoutes },
+      details: {
+        ajoutes,
+        ignores: elements.length - ajoutes,
+        ...(etapes.length > 0 ? { etapes_a_reconfirmer: etapes } : {}),
+      },
     });
   }
   return { suivi_id: suivi.id, ajoutes, ignores: elements.length - ajoutes };
+}
+
+async function etapesFranchies(db: Db, suiviId: string): Promise<string[]> {
+  const r = await db.query(
+    "SELECT etape FROM qualite_validations WHERE suivi_id = $1 ORDER BY valide_le, id",
+    [suiviId],
+  );
+  return r.rows.map((l) => l.etape as string);
+}
+
+/**
+ * Éléments ajoutés par un RELECTEUR (route) : toujours obligatoires, jamais de source libre. Un
+ * chiffre rattaché à une preuve de la MISSION DU SUIVI reçoit une source résolue (`preuve`) dont
+ * le libellé est construit par le serveur (numéro, type, fiabilité : aucun texte saisi ni verbatim) ;
+ * une preuve inconnue ou d'une autre mission répond 404.
+ */
+export async function elementsDuRelecteur(
+  db: Db,
+  suivi: Suivi,
+  elements: readonly ElementRevueRelecteur[],
+): Promise<ElementRevueEntree[]> {
+  const ids = [...new Set(elements.flatMap((e) => (e.preuve_id ? [e.preuve_id] : [])))];
+  const preuves = new Map<string, { numero: string; type_source: string; fiabilite: string }>();
+  if (ids.length > 0) {
+    const r = await db.query(
+      `SELECT p.id, p.numero::text AS numero, v.type_source, v.fiabilite FROM preuves p
+       JOIN LATERAL (SELECT pv.type_source, pv.fiabilite FROM preuve_versions pv
+                     WHERE pv.preuve_id = p.id ORDER BY pv.version DESC LIMIT 1) v ON true
+       WHERE p.id = ANY ($1::uuid[]) AND p.mission_id = $2`,
+      [ids, suivi.mission_id],
+    );
+    for (const l of r.rows) {
+      preuves.set(l.id as string, {
+        numero: l.numero as string,
+        type_source: l.type_source as string,
+        fiabilite: l.fiabilite as string,
+      });
+    }
+  }
+  return elements.map((e) => {
+    const preuve = e.preuve_id ? preuves.get(e.preuve_id) : undefined;
+    if (e.preuve_id && !preuve) throw introuvable("Preuve");
+    return {
+      cle: e.cle,
+      kind: e.kind,
+      libelle: e.libelle,
+      ordre: e.ordre,
+      obligatoire: true,
+      source: preuve
+        ? `Registre des preuves : preuve n° ${preuve.numero} (${preuve.type_source}, fiabilité ${preuve.fiabilite})`
+        : null,
+      source_type: preuve ? "preuve" : null,
+      reference: e.reference ?? (e.preuve_id ? `preuve:${e.preuve_id}` : null),
+    };
+  });
 }
 
 export interface ElementRevue {
@@ -118,6 +201,8 @@ export interface ElementRevue {
   ordre: number;
   obligatoire: boolean;
   source: string | null;
+  /** Source résolue par le serveur (`moteur`, `preuve`) ; null : non vérifiée. */
+  source_type: string | null;
   reference: string | null;
   /** L'utilisateur courant l'a parcouru. */
   vu_par_moi: boolean;
@@ -135,7 +220,7 @@ export async function listerElements(
   utilisateurId: string,
 ): Promise<ElementRevue[]> {
   const r = await db.query(
-    `SELECT e.id, e.cle, e.kind, e.libelle, e.ordre, e.obligatoire, e.source, e.reference,
+    `SELECT e.id, e.cle, e.kind, e.libelle, e.ordre, e.obligatoire, e.source, e.source_type, e.reference,
        (SELECT v.vu_le FROM qualite_revue_vus v WHERE v.element_id = e.id AND v.utilisateur_id = $2) AS vu_le,
        (SELECT count(*)::int FROM qualite_revue_vus v WHERE v.element_id = e.id) AS nb_vus
      FROM qualite_revue_elements e WHERE e.suivi_id = $1

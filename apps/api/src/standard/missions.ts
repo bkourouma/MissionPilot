@@ -9,6 +9,7 @@ import { dernierePubliee, lireContenu, lireVersion, sansIdentifiants } from "./c
 import { comparerContenus } from "./differences.js";
 import {
   appliquer,
+  briquesDeBase,
   comparerApplications,
   exigerContexteValide,
   lireFacteurs,
@@ -22,7 +23,7 @@ import {
   type DerogationAppliquee,
   type MethodeEffective,
 } from "./resolution.js";
-import { origineMethode } from "./types.js";
+import { origineMethode, type ContenuMethode } from "./types.js";
 
 /*
  * Mission figée sur une version de méthode (STD-08) et méthode effective
@@ -199,6 +200,35 @@ async function inserer(
   });
 }
 
+/**
+ * Un changement de contexte qui active ou retire une brique de classe R2 ou R3
+ * (garde humaine) exige un motif tracé : `MOTIF_REQUIS` (400). `avant` : briques
+ * actives avant le changement (briques de base à la liaison).
+ */
+function exigerMotifSiBriqueSensible(
+  contenu: ContenuMethode,
+  avant: readonly string[],
+  apres: readonly string[],
+  motif: string | null | undefined,
+) {
+  if (motif && motif.trim().length > 0) return;
+  const a = new Set(avant);
+  const b = new Set(apres);
+  const touchees = contenu.briques.filter(
+    (x) =>
+      (x.classe_risque === "R2" || x.classe_risque === "R3") && a.has(x.code) !== b.has(x.code),
+  );
+  if (touchees.length > 0) {
+    throw new AppError(
+      400,
+      "MOTIF_REQUIS",
+      `Motif requis : ce contexte active ou retire une brique de classe R2 ou R3 (${touchees
+        .map((x) => x.code)
+        .join(", ")}).`,
+    );
+  }
+}
+
 /** Lie une mission (sans méthode) à une version publiée, avec son contexte. */
 export async function lierMethode(
   db: Db,
@@ -206,6 +236,7 @@ export async function lierMethode(
   missionId: string,
   versionId: string,
   contexte: ContexteModulationApi,
+  motif?: string | null,
 ) {
   await exigerMissionModifiable(db, auth, missionId);
   if (await ligneCourante(db, missionId)) {
@@ -219,11 +250,19 @@ export async function lierMethode(
   if (v.statut !== "publiee") throw conflit("Seule une version publiée se lie à une mission.");
   const ctx = exigerContexteValide(await lireFacteurs(db), contexte);
   const contenu = sansIdentifiants(await lireContenu(db, versionId));
+  const resultat = resultatApi(appliquer(contenu, ctx));
+  exigerMotifSiBriqueSensible(
+    contenu,
+    briquesDeBase(contenu),
+    resultat.etat.briques_actives,
+    motif,
+  );
   await inserer(db, auth, missionId, {
     evenement: "liaison",
     versionId,
     contexte,
-    resultat: resultatApi(appliquer(contenu, ctx)),
+    resultat,
+    motif: motif ?? null,
   });
   return lireMethodeMission(db, auth, missionId);
 }
@@ -246,11 +285,18 @@ export async function changerContexte(
   const ligne = await exigerLiaison(db, missionId);
   const ctx = exigerContexteValide(await lireFacteurs(db), contexte);
   const contenu = sansIdentifiants(await lireContenu(db, ligne.methode_version_id));
+  const resultat = resultatApi(appliquer(contenu, ctx));
+  exigerMotifSiBriqueSensible(
+    contenu,
+    ligne.resultat.etat.briques_actives,
+    resultat.etat.briques_actives,
+    motif,
+  );
   await inserer(db, auth, missionId, {
     evenement: "contexte",
     versionId: ligne.methode_version_id,
     contexte,
-    resultat: resultatApi(appliquer(contenu, ctx)),
+    resultat,
     motif: motif ?? null,
   });
   return lireMethodeMission(db, auth, missionId);

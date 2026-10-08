@@ -73,11 +73,27 @@ export function ouvrir(par: Api, s: ScenarioQualite, corps: Record<string, unkno
   });
 }
 
-export async function elementsDeTest(par: Api, suiviId: string, n = 2) {
+/** Preuve « document » de la mission, saisie par le chef (sert à tracer un chiffre de revue). */
+export async function preuveDeTest(s: ScenarioQualite): Promise<string> {
+  const r = await s.c.chef.post(`/api/missions/${s.missionId}/preuves`, {
+    type_source: "document",
+    source_precise: "Comptes annuels 2025, note 4",
+    date_preuve: "2026-09-30",
+    fiabilite: "A",
+  });
+  attendre(201, r, "preuve");
+  return r.json().id as string;
+}
+
+/**
+ * Éléments de revue déposés par un relecteur : toujours obligatoires, sans source libre ; le
+ * chiffre est tracé par une preuve de la mission (`preuveId`).
+ */
+export async function elementsDeTest(par: Api, suiviId: string, preuveId: string, n = 2) {
   const elements = [
     { cle: "a1", kind: "assertion_fragile", libelle: "Assertion fragile sans preuve" },
-    { cle: "c1", kind: "chiffre", libelle: "Chiffre d'affaires 2025", source: "Moteur finance" },
-    { cle: "r1", kind: "recommandation", libelle: "Recommandation 1", obligatoire: true },
+    { cle: "c1", kind: "chiffre", libelle: "Chiffre d'affaires 2025", preuve_id: preuveId },
+    { cle: "r1", kind: "recommandation", libelle: "Recommandation 1" },
   ].slice(0, n + 1);
   const r = await par.post(`/api/qualite/suivis/${suiviId}/elements`, { elements });
   attendre(200, r, "éléments");

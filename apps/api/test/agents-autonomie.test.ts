@@ -5,7 +5,10 @@ import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 /*
  * Autonomie par brique et par cabinet (AGT-03, migration 0262) : déclaration,
  * niveau effectif (moteur pur), éligibilité, décision d'un associé, incident
- * majeur → rétrogradation automatique, coupe-circuit N4.
+ * majeur → rétrogradation automatique, coupe-circuit N4. Corrections d'audit :
+ * incident majeur réservé, exécutions en mode dégradé hors éligibilité, brique
+ * R0 réservée à un associé, plancher de classe de la méthode, restriction d'un
+ * associé levée par un associé seulement.
  */
 
 let ctx: Contexte;
@@ -20,13 +23,17 @@ function attendre<R extends { statusCode: number; body: string }>(statut: number
   return r;
 }
 
-/** Sème `n` exécutions décidées sur une brique (propriétaire : hors API, données de test). */
+/**
+ * Sème `n` exécutions décidées sur une brique (propriétaire : hors API, données de test) ;
+ * `degrade` : exécutions en mode dégradé (gabarit, aucun modèle).
+ */
 async function semerExecutions(
   cabinetId: string,
   briqueCode: string,
   agent: string,
   declencheur: string,
   decisions: { acceptee?: number; modifiee?: number; rejetee?: number },
+  degrade = false,
 ) {
   await proprietaire(async (c) => {
     const brique = (
@@ -64,9 +71,10 @@ async function semerExecutions(
         `INSERT INTO agents_executions (cabinet_id, agent_code, agent_version, brique_id, demande_id,
            declencheur_id, niveau_effectif, prompt_nom, prompt_version, tache, fournisseur,
            mode_degrade, entree_empreinte, sortie_valide, chiffres_non_verifies)
-         SELECT $1, $2, 1, $3, x, $4, 'N2', 'resume_neutre', 1, 'redaction', 'gabarit', true,
+         SELECT $1, $2, 1, $3, x, $4, 'N2', 'resume_neutre', 1, 'redaction',
+           CASE WHEN $6 THEN 'gabarit' ELSE 'openrouter' END, $6,
            repeat('a', 64), true, false FROM unnest($5::uuid[]) x RETURNING id`,
-        [cabinetId, agent, brique, declencheur, ids],
+        [cabinetId, agent, brique, declencheur, ids, degrade],
       );
       await c.query(
         `INSERT INTO agents_execution_decisions (cabinet_id, execution_id, decision,
@@ -94,6 +102,24 @@ beforeAll(async () => {
   consultant = await a.avecRoles(["consultant"]);
   const prompts = attendre(200, await a.associe.get("/api/ia/prompts?nom=resume_neutre")).json();
   promptId = prompts.elements[0].id;
+  // Une exécution d'agent exige un prompt évalué (0265) : jeu d'essai et évaluation réussie
+  // sur un vrai fournisseur (aucun réglage d'évaluation locale hors API).
+  await proprietaire(async (c) => {
+    const jeu = await c.query(
+      `INSERT INTO agents_jeux_essai (cabinet_id, prompt_nom, version, cas, auteur_id)
+       VALUES ($1, 'resume_neutre', 1,
+         '[{"code": "base", "variables": {"texte": "x"}, "chiffres": [],
+            "attendu": {"contient": ["x"], "ne_contient_pas": [], "champs": {},
+                        "sans_chiffres_non_verifies": true}}]', $2) RETURNING id`,
+      [a.cabinetId, a.associeId],
+    );
+    await c.query(
+      `INSERT INTO agents_evaluations (cabinet_id, jeu_id, prompt_id, modele, fournisseur, cas_total,
+         cas_reussis, regressions, reussie, resultats, lance_par)
+       VALUES ($1, $2, $3, 'anthropic/claude-sonnet-4.5', 'openrouter', 1, 1, 0, true, '[]', $4)`,
+      [a.cabinetId, jeu.rows[0].id, promptId, a.associeId],
+    );
+  });
 });
 
 afterAll(async () => {
@@ -271,10 +297,20 @@ describe("incidents et rétrogradation automatique", () => {
     expect(r.json()).toMatchObject({ retrograde: false, niveau_avant: "N3", niveau_apres: "N3" });
   });
 
+  it("un incident majeur exige agent.gerer ou autonomie.decider (403 sinon)", async () => {
+    const r = await consultant.post("/api/agents/briques/rapport.avancement/incidents", {
+      gravite: "majeur",
+      description: "Signalement abusif.",
+    });
+    expect(r.statusCode).toBe(403);
+    const d = attendre(200, await consultant.get("/api/agents/briques/rapport.avancement")).json();
+    expect(d.niveau_accorde).toBe("N3");
+  });
+
   it("un incident majeur ramène N3 à N2 sans décision humaine, journalisé", async () => {
     const r = attendre(
       201,
-      await consultant.post("/api/agents/briques/rapport.avancement/incidents", {
+      await expert.post("/api/agents/briques/rapport.avancement/incidents", {
         gravite: "majeur",
         description: "Jalon contractuel annoncé décalé à tort.",
       }),
@@ -326,15 +362,26 @@ describe("incidents et rétrogradation automatique", () => {
 
 describe("N4 et coupe-circuit du cabinet", () => {
   it("une brique R0 atteint N4 sur décision ; le coupe-circuit la ramène à N3", async () => {
-    attendre(
-      201,
-      await expert.post("/api/agents/briques", {
-        brique_code: "relance.questionnaire",
-        agent_code: "collecte",
-        classe_risque: "R0",
-        niveau_max: "N4",
-      }),
-    );
+    const corpsR0 = {
+      brique_code: "relance.questionnaire",
+      agent_code: "collecte",
+      classe_risque: "R0",
+      niveau_max: "N4",
+    };
+    // Une brique R0 (jusqu'à N4) est déclarée par un associé (route et base, MPG07).
+    const refus = await expert.post("/api/agents/briques", corpsR0);
+    expect(refus.statusCode).toBe(403);
+    expect(refus.json().erreur.code).toBe("ACTION_RESERVEE");
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) =>
+        db.query(
+          `INSERT INTO agents_briques (cabinet_id, brique_code, agent_code, classe_risque, niveau_max,
+             cree_par) VALUES ($1, 'relance.directe', 'collecte', 'R0', 'N4', $2)`,
+          [a.cabinetId, expert.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPG07" });
+    attendre(201, await a.associe.post("/api/agents/briques", corpsR0));
     for (const niveau of ["N3", "N4"]) {
       await semerExecutions(
         a.cabinetId,
@@ -402,6 +449,92 @@ describe("N4 et coupe-circuit du cabinet", () => {
     attendre(
       200,
       await expert.put("/api/agents/collecte/restriction", { actif: true, motif: "Repris." }),
+    );
+  });
+});
+
+describe("corrections d'audit : éligibilité, plancher de classe, restriction d'un associé", () => {
+  it("les exécutions en mode dégradé ne comptent pas pour l'éligibilité", async () => {
+    attendre(
+      201,
+      await expert.post("/api/agents/briques", {
+        brique_code: "rapport.degrade",
+        agent_code: "pmo",
+        classe_risque: "R1",
+        niveau_max: "N3",
+      }),
+    );
+    await semerExecutions(
+      a.cabinetId,
+      "rapport.degrade",
+      "pmo",
+      consultant.utilisateurId,
+      { acceptee: 50 },
+      true,
+    );
+    const d = attendre(200, await consultant.get("/api/agents/briques/rapport.degrade")).json();
+    expect(d.eligibilite.statistiques.executions).toBe(0);
+    expect(d.eligibilite.evaluation.eligible).toBe(false);
+    await semerExecutions(a.cabinetId, "rapport.degrade", "pmo", consultant.utilisateurId, {
+      acceptee: 50,
+    });
+    const e = attendre(200, await consultant.get("/api/agents/briques/rapport.degrade")).json();
+    expect(e.eligibilite.statistiques.executions).toBe(50);
+    expect(e.eligibilite.evaluation.eligible).toBe(true);
+  });
+
+  it("la classe d'une brique n'est jamais sous le plancher de la méthode (409, MPG07)", async () => {
+    // « reconstitution_ca » est R2 dans la méthode standard semée (0205).
+    const corps = {
+      brique_code: "reconstitution_ca",
+      agent_code: "analyste",
+      classe_risque: "R1",
+      niveau_max: "N2",
+    };
+    const r = await expert.post("/api/agents/briques", corps);
+    expect(r.statusCode).toBe(409);
+    expect(r.json().erreur.code).toBe("CLASSE_RISQUE_SOUS_PLANCHER");
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) =>
+        db.query(
+          `INSERT INTO agents_briques (cabinet_id, brique_code, agent_code, classe_risque, niveau_max,
+             cree_par) VALUES ($1, 'reconstitution_ca', 'analyste', 'R1', 'N2', $2)`,
+          [a.cabinetId, expert.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPG07" });
+    attendre(201, await expert.post("/api/agents/briques", { ...corps, classe_risque: "R3" }));
+  });
+
+  it("une restriction posée par un associé n'est levée que par un associé (403, MPG08)", async () => {
+    const url = "/api/agents/veille/restriction";
+    attendre(200, await a.associe.put(url, { actif: false, motif: "Sources douteuses." }));
+    const reactivation = await expert.put(url, { actif: true, motif: "x" });
+    expect(reactivation.statusCode).toBe(403);
+    expect(reactivation.json().erreur.code).toBe("ACTION_RESERVEE");
+    // Plus sévère : admis, mais la référence reste la restriction de l'associé.
+    attendre(200, await expert.put(url, { actif: false, niveau_max: "N1", motif: "Plus bas." }));
+    expect((await expert.put(url, { actif: true, niveau_max: "N1", motif: "x" })).statusCode).toBe(
+      403,
+    );
+    await expect(
+      ctx.db.withTenant(a.cabinetId, (db) =>
+        db.query(
+          `INSERT INTO agents_restrictions (cabinet_id, agent_code, actif, niveau_max, motif, auteur_id)
+           VALUES ($1, 'veille', true, NULL, 'x', $2)`,
+          [a.cabinetId, expert.utilisateurId],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: "MPG08" });
+    attendre(
+      200,
+      await a.associe.put(url, { actif: true, niveau_max: "N2", motif: "Reprise encadrée." }),
+    );
+    // Sous le plafond posé par l'associé (N2), l'expert abaisse puis revient, sans le dépasser.
+    attendre(200, await expert.put(url, { actif: true, niveau_max: "N1", motif: "Prudence." }));
+    attendre(200, await expert.put(url, { actif: true, niveau_max: "N2", motif: "Retour." }));
+    expect((await expert.put(url, { actif: true, niveau_max: "N3", motif: "x" })).statusCode).toBe(
+      403,
     );
   });
 });

@@ -50,8 +50,23 @@ coupe-circuit par cabinet (DECISIONS.md, 2026-10-08).
 - **Évaluations de non-régression** (AGT-04) : jeu d'essai de référence par
   brique ; tout changement de prompt, de modèle ou de schéma de sortie rejoue le
   jeu avant activation ; aucune activation sans évaluation réussie. Les
-  exécutions d'évaluation passent par la file `jobs` (ADR-002) et sont
-  plafonnées en coût.
+  exécutions d'évaluation sur un vrai modèle passent par la file `jobs`
+  (ADR-002) et sont plafonnées en coût.
+  - **Nature du fournisseur local** : l'évaluation disponible aujourd'hui
+    s'exécute sur un fournisseur LOCAL déterministe qui renvoie l'écho des
+    messages rendus (`ia/fournisseur-local.ts`, `ia/evaluation.ts`). Réussie, elle
+    prouve le câblage du prompt (rendu avec les variables du jeu, éléments exigés ou
+    interdits par les critères, listes blanches de chiffres, sortie constructible selon
+    le schéma) ; elle ne prouve ni la qualité rédactionnelle d'un modèle ni sa
+    résistance à l'injection. Elle n'est donc admise que par le réglage de transaction
+    `app.evaluation_locale_admise`, que l'API pose hors production seulement (migration
+    `0265`) ; en production, seule une évaluation `openrouter` active un prompt ou un
+    modèle.
+  - **Exécution réservée aux prompts évalués** : un agent n'exécute que la version
+    active d'un prompt qui a un jeu d'essai et une évaluation réussie et admise sur le
+    modèle routé de sa tâche (409 `JEU_ESSAI_REQUIS`, `NON_REGRESSION_REQUISE`,
+    doublé en base, `MPG04` sur `agents_executions`). Exiger un jeu d'essai pour CHAQUE
+    activation de prompt serait une décision produit (DECISIONS.md) : non imposée.
 - **Contribution de l'IA mesurée par livrable** (AGT-05) par le moteur pur
   `packages/engines/src/contribution` : distance d'édition en mots entre le
   brouillon IA et le texte validé (coût borné, estimation prudente signalée
@@ -87,6 +102,9 @@ coupe-circuit par cabinet (DECISIONS.md, 2026-10-08).
 
 - Les évaluations de non-régression ont un coût IA récurrent à chaque
   changement de prompt ou de modèle.
+- Tant que le rejeu réel sur OpenRouter par la file `jobs` n'est pas construit,
+  aucune évaluation `openrouter` n'existe : en production, aucun agent ne
+  s'exécute (dette notée dans SECURITY.md §15 et HANDOFF.md).
 - La mesure par distance d'édition ignore la qualité sémantique : un
   relecteur peut garder la forme et changer le sens ; la revue guidée (QUA-03)
   reste indispensable.

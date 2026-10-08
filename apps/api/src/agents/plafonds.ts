@@ -8,9 +8,13 @@ import type { Db } from "../db/pool.js";
  * = consommations inscrites (ia_consommations) + réservations en cours de ses
  * demandes, sommées ici sur des ENTIERS (µUSD), comme ia/couts.ts.
  *
- * Limite assumée : la vérification précède l'appel sans réserver au niveau de
- * la mission (le plafond du cabinet, lui, réserve) ; deux exécutions
- * simultanées peuvent dépasser le plafond de la mission d'une estimation.
+ * Concurrence : `controlerPlafondMission` s'exécute dans la transaction de
+ * préparation de l'orchestrateur (hook `controleAvantReservation`), sous un
+ * verrou consultatif PAR MISSION tenu jusqu'à la réservation du coût estimé de
+ * l'appel (ia_reservations, comptée ci-dessous) : deux exécutions simultanées
+ * d'une même mission sont sérialisées, la seconde voit la réservation de la
+ * première. Limite qui demeure : le contrôle porte sur « consommé ≥ plafond »
+ * avant l'appel ; un appel peut donc dépasser le plafond de son propre coût.
  * Seuil d'alerte : 80 % (PRD complémentaire §16), comparé en entiers.
  */
 
@@ -65,6 +69,30 @@ export async function etatPlafondMission(
   };
 }
 
+/** Verrou consultatif de la mission pour le contrôle de son plafond (jusqu'à la fin de la transaction). */
+export async function verrouillerPlafondMission(db: Db, missionId: string): Promise<void> {
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `ia_plafond_mission:${missionId}`,
+  ]);
+}
+
+/**
+ * Contrôle du plafond de la mission SOUS VERROU (dans la transaction qui réservera le coût) :
+ * vrai si le plafond est atteint et que l'appelant accepte le mode dégradé ; erreur sinon.
+ */
+export async function controlerPlafondMission(
+  db: Db,
+  missionId: string,
+  maintenant: Date,
+  repliSiPlafond: boolean,
+  refus: () => Error,
+): Promise<boolean> {
+  await verrouillerPlafondMission(db, missionId);
+  const etat = await etatPlafondMission(db, missionId, maintenant);
+  if (etat.atteint && !repliSiPlafond) throw refus();
+  return etat.atteint;
+}
+
 /** Définit (ou retire, `null`) le plafond d'une mission déjà vérifiée par l'appelant. */
 export async function definirPlafondMission(
   db: Db,
@@ -72,6 +100,7 @@ export async function definirPlafondMission(
   missionId: string,
   plafond: number | null,
 ): Promise<void> {
+  await verrouillerPlafondMission(db, missionId);
   if (plafond === null) {
     await db.query("DELETE FROM agents_plafonds_mission WHERE mission_id = $1", [missionId]);
   } else {

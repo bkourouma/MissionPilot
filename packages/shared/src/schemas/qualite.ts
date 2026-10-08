@@ -102,7 +102,11 @@ export const suiviOuvertureSchema = z
     version: z.number().int().min(1).max(100000).default(1),
     /** Relèvement éventuel ; jamais sous la classe minimale du type. */
     classe: classeRisqueSchema.optional(),
-    /** Auteur humain du contenu ; `null` : produit par un agent ; absent : déduit du module. */
+    /**
+     * Auteur humain d'un livrable OPAQUE (`etat`, `autre`) : membre actif de la mission ; `null` :
+     * produit par un agent. Ignoré pour un type lisible par le module qualité (l'auteur est celui
+     * du module) ; `null` y est refusé.
+     */
     auteur_id: uuid.nullable().optional(),
   })
   .strict();
@@ -122,22 +126,64 @@ export const classeRelevementSchema = z
   .object({ classe: classeRisqueSchema, motif: texte(1000) })
   .strict();
 
+/**
+ * Source RÉSOLUE d'un élément de revue, posée par le serveur seul : `moteur` (calcul d'un moteur
+ * MissionPilot), `preuve` (preuve du registre de la mission). Un chiffre n'est « tracé » pour la
+ * définition de terminé que si sa source est résolue, jamais sur un texte libre.
+ */
+export const SOURCES_RESOLUES = ["moteur", "preuve"] as const;
+export type SourceResolue = (typeof SOURCES_RESOLUES)[number];
+
+const cleElementRevue = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,119}$/);
+
+/**
+ * Élément déposé par le SERVICE INTERNE `ajouterElementsRevue` (modules rapports, notation,
+ * preuves) : lui seul fixe `obligatoire`, la `source` et son type résolu. Jamais reçu d'une requête.
+ */
 export const elementRevueSchema = z
   .object({
-    cle: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,119}$/),
+    cle: cleElementRevue,
     kind: kindElementRevueSchema,
     libelle: texte(500),
     ordre: z.number().int().min(0).max(100000).default(0),
     obligatoire: z.boolean().default(true),
     source: texte(300).nullable().optional(),
+    source_type: z.enum(SOURCES_RESOLUES).nullable().optional(),
     reference: texte(200).nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.source_type == null || v.source != null, {
+    message: "Une source résolue porte son libellé.",
+    path: ["source"],
+  });
 export type ElementRevueSaisi = z.input<typeof elementRevueSchema>;
+
+/**
+ * Élément ajouté par un relecteur (route `POST /qualite/suivis/:id/elements`) : toujours
+ * obligatoire, sans source libre. Un chiffre se trace par une preuve du registre de la mission
+ * (`preuve_id`, vérifiée par le serveur) ; sans elle, il reste « sans source ».
+ */
+export const elementRevueRelecteurSchema = z
+  .object({
+    cle: cleElementRevue,
+    kind: kindElementRevueSchema,
+    libelle: texte(500),
+    ordre: z.number().int().min(0).max(100000).default(0),
+    reference: texte(200).nullable().optional(),
+    preuve_id: uuid.optional(),
+  })
+  .strict()
+  .refine((v) => v.preuve_id === undefined || v.kind === "chiffre", {
+    message: "Seul un chiffre se rattache à une preuve.",
+    path: ["preuve_id"],
+  });
+export type ElementRevueRelecteur = z.infer<typeof elementRevueRelecteurSchema>;
 
 export const ELEMENTS_REVUE_PAR_APPEL_MAX = 200;
 export const elementsRevueSchema = z
-  .object({ elements: z.array(elementRevueSchema).min(1).max(ELEMENTS_REVUE_PAR_APPEL_MAX) })
+  .object({
+    elements: z.array(elementRevueRelecteurSchema).min(1).max(ELEMENTS_REVUE_PAR_APPEL_MAX),
+  })
   .strict();
 
 export const attestationSchema = z.object({ commentaire: texte(1000) }).strict();
@@ -240,6 +286,13 @@ export const acceptationSchema = z
 // ---------------------------------------------------------------------------
 
 export const MOMENTS_SATISFACTION = ["jalon", "cloture"] as const;
+/**
+ * Origine d'une note : `saisie_par_equipe` (le cabinet saisit pour le compte du client, seule
+ * voie en V1, donc l'équipe évaluée peut saisir sa propre note) ou `client` (saisie directe par le
+ * client, réservée). Tracée en base, sans effet sur le calcul du NPS.
+ */
+export const ORIGINES_SATISFACTION = ["saisie_par_equipe", "client"] as const;
+export type OrigineSatisfaction = (typeof ORIGINES_SATISFACTION)[number];
 export const satisfactionSchema = z
   .object({
     moment: z.enum(MOMENTS_SATISFACTION),

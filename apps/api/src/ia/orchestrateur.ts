@@ -38,7 +38,7 @@ import {
   type LlmProvider,
   type MessageLlm,
 } from "./fournisseur.js";
-import { encadrerContenuClient } from "./donnees-non-fiables.js";
+import { encadrerContenuClient, neutraliserContenuClient } from "./donnees-non-fiables.js";
 import { blocChiffres, produireGabarit } from "./gabarits.js";
 import { contexteGarde, verifierChiffres } from "./garde-chiffres.js";
 import { creerMasque } from "./masquage.js";
@@ -156,6 +156,12 @@ export interface DemandeContenu {
    * gabarit déterministe, aucun appel au modèle ni réservation.
    */
   modeDegrade?: boolean;
+  /**
+   * AGT-06 : contrôle de l'appelant exécuté DANS la transaction de préparation, avant la
+   * création de la demande et la réservation de son coût (plafond de coût d'une mission, sous
+   * verrou de la mission) ; peut refuser (erreur) ou imposer le mode dégradé (vrai).
+   */
+  controleAvantReservation?: (db: Db) => Promise<boolean>;
 }
 
 /** Entrée d'une génération, telle que chiffrée dans la charge du job. */
@@ -318,11 +324,14 @@ async function preparer(
     throw requeteInvalide("Un contenu client ne peut pas figurer dans les consignes du prompt.");
   }
   await exigerQuotaUtilisateur(db, auth, maintenant);
+  const modeDegrade =
+    (d.modeDegrade ?? false) ||
+    (d.controleAvantReservation ? await d.controleAvantReservation(db) : false);
 
-  const entree = entreeDe(d, sources);
+  const entree = entreeDe({ ...d, modeDegrade }, sources);
   const params = await lireParametres(db);
   const source =
-    params.ia_activee && !d.modeDegrade ? sourceCleDisponible(params, deps.config) : null;
+    params.ia_activee && !modeDegrade ? sourceCleDisponible(params, deps.config) : null;
   const estimation =
     source === null
       ? 0
@@ -520,16 +529,21 @@ export async function executerDemande(
 
   if (!erreurCode && !raison && a.cle) {
     const masque = creerMasque(entree.termesSensibles);
+    const nonFiables = new Set(entree.variablesNonFiables ?? []);
+    // Avec un contenu client, les libellés des chiffres (qui peuvent reprendre un nom saisi par
+    // le client) sont neutralisés eux aussi ; les valeurs viennent des moteurs.
+    const libelle = (l: string) =>
+      masque.masquer(nonFiables.size > 0 ? neutraliserContenuClient(l) : l);
     const chiffresMasques = entree.contexteChiffres.map((c) => ({
       ...c,
-      libelle: masque.masquer(c.libelle),
+      libelle: libelle(c.libelle),
     }));
     const valeurs: Record<string, string> = { chiffres: blocChiffres(chiffresMasques) };
-    const nonFiables = new Set(entree.variablesNonFiables ?? []);
     for (const [nom, v] of Object.entries(entree.variables)) {
-      // AGT-07 : un contenu client est masqué, PUIS neutralisé et encadré comme donnée.
+      // AGT-07 : un contenu client est NEUTRALISÉ d'abord (un terme sensible coupé par un
+      // caractère invisible échapperait sinon au masque), puis masqué, puis encadré.
       valeurs[nom] = nonFiables.has(nom)
-        ? encadrerContenuClient(masque.masquer(v), nom)
+        ? encadrerContenuClient(masque.masquer(neutraliserContenuClient(v)), nom)
         : masque.masquer(v);
     }
     const messages: MessageLlm[] = [

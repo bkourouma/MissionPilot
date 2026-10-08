@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { api } from "./api.js";
-import { demarrer, type Contexte } from "./helpers.js";
+import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 import {
   creerMission,
   preparerCabinet,
@@ -60,8 +60,28 @@ beforeAll(async () => {
   await facteur({ code: "effectif", type: "nombre", valeur: 15, date_effet: "2026-06-01" });
   // Valeur future : pas encore en vigueur, donc pas proposée.
   await facteur({ code: "effectif", type: "nombre", valeur: 900, date_effet: "2099-01-01" });
-  // Facteur que le référentiel ne connaît pas : écarté avec sa raison.
-  await facteur({ code: "facteur_maison", type: "booleen", valeur: true });
+  // Facteur que le référentiel ne connaît pas (l'API le refuse désormais : 400 CONTEXTE_INVALIDE) :
+  // écarté avec sa raison. Inséré en base comme le ferait une donnée antérieure au contrôle.
+  expect(
+    (
+      await a.chef.post(`/api/dossiers/${a.clientId}/facteurs`, {
+        date_effet: "2026-01-01",
+        source,
+        fiabilite: "B",
+        code: "facteur_maison",
+        type: "booleen",
+        valeur: true,
+      })
+    ).statusCode,
+  ).toBe(400);
+  await proprietaire((c) =>
+    c.query(
+      `INSERT INTO dossier_facteurs (cabinet_id, client_id, code, type, valeur, date_effet, source_type,
+         source_libelle, fiabilite, auteur_id)
+       VALUES ($1, $2, 'facteur_maison', 'booleen', 'true', '2026-01-01', 'entretien', $3, 'B', $4)`,
+      [a.cabinetId, a.clientId, source.libelle, a.associeId],
+    ),
+  );
   const liste = attendre(200, await a.associe.get("/api/methodes?limite=100")).json();
   notationV1 = liste.elements.find((m: { code: string }) => m.code === "notation_entreprise")
     .derniere_publiee.id;
@@ -116,6 +136,7 @@ describe("GET /missions/:id/methode/contexte-propose", () => {
       await a.chef.put(`/api/missions/${missionId}/methode`, {
         version_id: notationV1,
         contexte: propose.contexte,
+        motif: "Contexte confirmé depuis le dossier du client.",
       }),
     ).json();
     expect(r.liaison.contexte).toEqual(propose.contexte);

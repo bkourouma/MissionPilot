@@ -42,6 +42,7 @@ async function elementsAssertions(db: Db, missionId: string): Promise<ElementRev
     ),
     ordre: i,
     source: "Registre des preuves : indice de solidité calculé par le moteur",
+    source_type: "moteur",
     reference: `assertion:${a.id}`,
   }));
 }
@@ -80,6 +81,7 @@ export function chiffresDuRapport(rapport: Rapport, prefixe: string): ElementRev
           source: tronquerSource(
             `Rapport « ${rapport.titre} », section « ${section.titre} » : valeur mise en forme depuis les moteurs MissionPilot`,
           ),
+          source_type: "moteur",
         });
       });
     });
@@ -140,6 +142,7 @@ function chiffresNotation(
           : `Score global : ${score(etat.score)} / 100 (classe ${etat.classe ?? "—"})`,
       ordre: 1000,
       source,
+      source_type: "moteur",
     },
     ...etat.dimensions.slice(0, BRANCHEMENT_MAX.chiffres - 1).map((d, i) => ({
       cle: cle(`${prefixe}:dimension:${d.dimension}`),
@@ -149,6 +152,7 @@ function chiffresNotation(
       ),
       ordre: 1001 + i,
       source,
+      source_type: "moteur" as const,
     })),
   ];
 }
@@ -185,6 +189,7 @@ export async function brancherNotation(
       libelle: tronquer(`Recommandation candidate de la méthode : ${code}`),
       ordre: 2000 + i,
       source: "Règles de modulation de la méthode de la mission",
+      source_type: "moteur" as const,
     })),
   ]);
   return suivi;

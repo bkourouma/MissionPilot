@@ -40,7 +40,12 @@ import {
   listerEvaluations,
   listerJeux,
 } from "../agents/evaluations.js";
-import { deciderExecution, lireExecution, listerExecutions } from "../agents/executions.js";
+import {
+  deciderExecution,
+  exigerExecutionVisible,
+  lireExecution,
+  listerExecutions,
+} from "../agents/executions.js";
 import { definirPlafondMission, etatPlafondMission } from "../agents/plafonds.js";
 import {
   lireAgent,
@@ -52,6 +57,7 @@ import {
 } from "../agents/registre.js";
 import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
+import { interdit } from "../errors.js";
 import { paramsId } from "../http/outils.js";
 import { exigerMissionVisible } from "../missions/acces.js";
 
@@ -61,10 +67,11 @@ import { exigerMissionVisible } from "../missions/acces.js";
  * humaine, contribution de l'IA, jeux d'essai et évaluations de non-régression, plafond de
  * coût par mission.
  *
- * Permissions : `agent.lire` (lecture), `agent.gerer` (briques, restrictions, jeux d'essai,
- * évaluations, coupe-circuit activé), `autonomie.decider` (associé : niveau accordé, coupe-
- * circuit levé), `ia.utiliser` (décision sur une exécution), `ia.configurer` (plafond de
- * mission). Aucune route n'est ouverte au portail client (`LISTE_BLANCHE_PORTAIL`). Le coût
+ * Permissions : `agent.lire` (lecture, incident mineur), `agent.gerer` (briques, restrictions,
+ * jeux d'essai, évaluations, coupe-circuit activé, incident majeur), `autonomie.decider`
+ * (associé : niveau accordé, coupe-circuit levé, brique R0, levée d'une restriction d'associé,
+ * jeu d'essai affaibli), `ia.utiliser` (décision sur une exécution, par son déclencheur, le
+ * chef ou le directeur de la mission, ou un associé), `ia.configurer` (plafond de mission). Aucune route n'est ouverte au portail client (`LISTE_BLANCHE_PORTAIL`). Le coût
  * d'une exécution et la consommation d'une mission n'apparaissent qu'avec `finance.lire`.
  */
 
@@ -170,10 +177,23 @@ export const routesAgents: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/agents/briques/:code/incidents", async (request, reply) => {
+    // Mineur : agent.lire ; MAJEUR (rétrogradation automatique) : agent.gerer ou
+    // autonomie.decider (vérifié par le service).
     const auth = exiger(request, "agent.lire");
     const { code } = paramsBriqueAgentSchema.parse(request.params);
     const i = incidentAutonomieSchema.parse(request.body);
-    const r = await tx(auth.cabinetId, (db) => signalerIncident(db, auth, code, i));
+    if (
+      i.gravite === "majeur" &&
+      !aPermission(auth.roles, "agent.gerer") &&
+      !aPermission(auth.roles, "autonomie.decider")
+    ) {
+      throw interdit();
+    }
+    const r = await tx(auth.cabinetId, async (db) => {
+      // L'exécution citée doit être VISIBLE de l'appelant (même 404 qu'inexistante).
+      if (i.execution_id) await exigerExecutionVisible(db, auth, i.execution_id);
+      return signalerIncident(db, auth, code, i);
+    });
     return reply.status(201).send(r);
   });
 
@@ -212,7 +232,7 @@ export const routesAgents: FastifyPluginAsync = async (app) => {
   app.get("/agents/jeux-essai", async (request) => {
     const auth = exiger(request, "agent.lire");
     const q = jeuxEssaiAgentsQuerySchema.parse(request.query);
-    return tx(auth.cabinetId, (db) => listerJeux(db, q));
+    return tx(auth.cabinetId, (db) => listerJeux(db, auth, q));
   });
 
   app.post("/agents/jeux-essai", async (request, reply) => {

@@ -143,7 +143,7 @@ export default async function PageBrique({ params }: { params: Promise<{ code: s
       ) : null}
 
       <Carte titre="Signaler un incident">
-        <FormulaireIncident code={b.code} />
+        <FormulaireIncident code={b.code} majeur={droits.incidentMajeur} />
       </Carte>
 
       <Carte titre="Historique des niveaux">

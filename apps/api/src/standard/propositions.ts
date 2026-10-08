@@ -13,7 +13,7 @@ import { decoderCurseur, paginer } from "../http/outils.js";
 /*
  * Comité méthode (STD-12) : un expert propose une évolution (d'une méthode
  * visible, ou une nouvelle méthode), un AUTRE expert la prend en revue puis
- * l'accepte ou la refuse (motif), et l'acceptée se publie en citant la
+ * l'accepte ou la refuse (motif), et l'acceptée se publie (jamais par son auteur, sauf associé) en citant la
  * version publiée du cabinet qui la porte. Tout passe par `standard.gerer`
  * (associé, expert métier) ; la lecture par `standard.lire`. Transitions et
  * séparation des tâches doublées en base (MPM05).
@@ -134,6 +134,14 @@ export async function revoirProposition(
 
 export async function publierProposition(db: Db, auth: Auth, id: string, versionId: string) {
   const p = await lire(db, id, true);
+  // Quatre yeux : l'auteur ne publie pas sa propre proposition, sauf associé.
+  if (p.auteur_id === auth.utilisateurId && !auth.roles.includes("associe")) {
+    throw new AppError(
+      403,
+      "SEPARATION_DES_TACHES",
+      "L'auteur d'une proposition ne la publie pas lui-même (sauf associé).",
+    );
+  }
   if (p.statut !== "acceptee") {
     throw new AppError(
       409,

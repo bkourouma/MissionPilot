@@ -89,18 +89,28 @@ const champsPreuve = {
   reponse_id: uuid.nullable().optional(),
   document_id: uuid.nullable().optional(),
   dimensions: dimensionsPreuveSchema.default([]),
-  /** L'extrait identifie une personne (verbatim d'entretien). */
-  nominatif: z.boolean().default(false),
+  /**
+   * L'extrait identifie une personne (verbatim). Absent : VRAI pour un entretien ou un
+   * questionnaire (verbatim de personnes, masqué sans accord), faux sinon.
+   */
+  nominatif: z.boolean().optional(),
   /** La personne a donné son accord pour que l'extrait soit cité. */
   accord_nominatif: z.boolean().default(false),
 };
 
+/** Types de source dont l'extrait est nominatif par défaut (verbatim d'une personne). */
+export const TYPES_SOURCE_NOMINATIFS_PAR_DEFAUT: readonly string[] = ["entretien", "questionnaire"];
+
+const nominatifEffectif = (v: { type_source: string; nominatif?: boolean }): boolean =>
+  v.nominatif ?? TYPES_SOURCE_NOMINATIFS_PAR_DEFAUT.includes(v.type_source);
+
 function controlerPreuve(
   v: {
+    type_source: string;
     fichier_id?: string | null;
     reponse_id?: string | null;
     document_id?: string | null;
-    nominatif: boolean;
+    nominatif?: boolean;
     accord_nominatif: boolean;
   },
   ctx: z.RefinementCtx,
@@ -112,7 +122,7 @@ function controlerPreuve(
       message: "Un seul lien (fichier, réponse ou document) par preuve.",
     });
   }
-  if (v.accord_nominatif && !v.nominatif) {
+  if (v.accord_nominatif && !nominatifEffectif(v)) {
     ctx.addIssue({
       code: "custom",
       path: ["accord_nominatif"],
@@ -121,13 +131,23 @@ function controlerPreuve(
   }
 }
 
-export const preuveCreationSchema = z.object(champsPreuve).strict().superRefine(controlerPreuve);
+/** Le caractère nominatif est toujours explicite après validation (défaut selon le type). */
+const avecNominatif = <T extends { type_source: string; nominatif?: boolean }>(
+  v: T,
+): T & { nominatif: boolean } => ({ ...v, nominatif: nominatifEffectif(v) });
+
+export const preuveCreationSchema = z
+  .object(champsPreuve)
+  .strict()
+  .superRefine(controlerPreuve)
+  .transform(avecNominatif);
 
 /** Correction : état complet de la nouvelle version et motif (version précédente conservée). */
 export const preuveCorrectionSchema = z
   .object({ ...champsPreuve, motif: texte(500) })
   .strict()
-  .superRefine(controlerPreuve);
+  .superRefine(controlerPreuve)
+  .transform(avecNominatif);
 
 const limite = z.coerce.number().int().min(1).max(100).default(30);
 const curseur = z.string().max(500).optional();

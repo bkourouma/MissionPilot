@@ -392,7 +392,12 @@ export const simulationModulationSchema = z
 // ---------------------------------------------------------------------------
 
 export const missionMethodeLiaisonSchema = z
-  .object({ version_id: z.string().uuid(), contexte: contexteModulationSchema.default({}) })
+  .object({
+    version_id: z.string().uuid(),
+    contexte: contexteModulationSchema.default({}),
+    // Obligatoire si le contexte active ou retire une brique de classe R2 ou R3.
+    motif: texteOptionnel(2000),
+  })
   .strict();
 
 export const missionContexteSchema = z

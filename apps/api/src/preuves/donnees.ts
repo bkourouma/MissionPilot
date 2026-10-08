@@ -150,18 +150,29 @@ export async function listerPreuves(
   return r.rows as PreuveCourante[];
 }
 
-/** Toutes les preuves courantes d'une mission (plafonnée par `PREUVES_MISSION_MAX`). */
+/** Ce que la triangulation lit d'une preuve courante : jamais l'extrait ni la source précise. */
+export interface PreuveTriangulation {
+  id: string;
+  type_source: string;
+  fiabilite: string;
+  dimensions: string[];
+}
+
+/** Toutes les preuves courantes d'une mission (plafonnée par `PREUVES_MISSION_MAX`), pour la carte. */
 export async function preuvesDeMission(
   db: Db,
   missionId: string,
   plafond: number,
-): Promise<PreuveCourante[]> {
+): Promise<PreuveTriangulation[]> {
   const r = await db.query(
-    `SELECT ${COLONNES_PREUVE} ${DEPUIS_PREUVE} WHERE p.mission_id = $1
+    `SELECT p.id, v.type_source, v.fiabilite, v.dimensions FROM preuves p
+     JOIN LATERAL (SELECT pv.type_source, pv.fiabilite, pv.dimensions FROM preuve_versions pv
+                   WHERE pv.preuve_id = p.id ORDER BY pv.version DESC LIMIT 1) v ON true
+     WHERE p.mission_id = $1
      ORDER BY p.numero DESC LIMIT $2`,
     [missionId, plafond],
   );
-  return r.rows as PreuveCourante[];
+  return r.rows as PreuveTriangulation[];
 }
 
 export async function preuvesParIds(db: Db, ids: readonly string[]): Promise<PreuveCourante[]> {

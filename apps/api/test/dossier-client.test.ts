@@ -176,8 +176,15 @@ describe("faits datés et sourcés (DOS-02)", () => {
   });
 
   it("remplacement : nouvelle valeur, ancienne « remplacée », historique en chaîne", async () => {
+    // Création directement confirmée : associé seulement (séparation des tâches), remplacement compris.
+    const refus = await a.chef.post(
+      `${base()}/faits`,
+      fait({ cle: "ca_estime", categorie: "finances", statut: "confirme" }),
+    );
+    expect(refus.statusCode).toBe(403);
+    expect(refus.json().erreur.code).toBe("VALIDATION_REQUISE");
     const v1 = (
-      await a.chef.post(
+      await a.associe.post(
         `${base()}/faits`,
         fait({
           cle: "ca_estime",
@@ -188,7 +195,18 @@ describe("faits datés et sourcés (DOS-02)", () => {
       )
     ).json();
     expect(v1.statut).toBe("confirme");
-    const v2r = await a.chef.post(
+    expect(
+      (
+        await a.chef.post(
+          `${base()}/faits`,
+          fait({ cle: "ca_estime", categorie: "finances", statut: "confirme", remplace_id: v1.id }),
+        )
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await consultantEquipe.post(`${base()}/faits`, fait({ statut: "confirme" }))).statusCode,
+    ).toBe(403);
+    const v2r = await a.associe.post(
       `${base()}/faits`,
       fait({
         cle: "ca_estime",
@@ -348,17 +366,30 @@ describe("facteurs de contexte (STD-04)", () => {
       (await ajout({ code: "part_informel", type: "enumeration", valeur: "enorme" })).statusCode,
     ).toBe(400);
     expect((await ajout({ code: "effectif", type: "nombre", valeur: "42" })).statusCode).toBe(400);
-    expect((await ajout({ code: "constructor", type: "booleen", valeur: true })).statusCode).toBe(
-      201,
-    );
+    // Code, type et valeur sont contrôlés contre facteurs_contexte (STD-04) : 400 CONTEXTE_INVALIDE.
+    const inconnu = await ajout({ code: "constructor", type: "booleen", valeur: true });
+    expect(inconnu.statusCode).toBe(400);
+    expect(inconnu.json().erreur.code).toBe("CONTEXTE_INVALIDE");
+    expect(
+      (await ajout({ code: "facteur_invente", type: "nombre", valeur: 1 })).json().erreur.code,
+    ).toBe("CONTEXTE_INVALIDE");
+    const mauvaisType = await ajout({ code: "effectif", type: "enumeration", valeur: "42" });
+    expect(mauvaisType.statusCode).toBe(400);
+    expect(mauvaisType.json().erreur.code).toBe("CONTEXTE_INVALIDE");
+    const horsValeurs = await ajout({
+      code: "actionnariat",
+      type: "enumeration",
+      valeur: "valeur_hors_liste",
+    });
+    expect(horsValeurs.statusCode).toBe(400);
+    expect(horsValeurs.json().erreur.code).toBe("CONTEXTE_INVALIDE");
     const lu = (await consultantEquipe.get(`${base()}/facteurs`)).json();
     expect(lu.contexte).toEqual({
-      constructor: true,
       effectif: 45,
       fiabilite_comptes: "non_certifies",
       part_informel: "forte",
     });
-    expect(lu.historique).toHaveLength(6);
+    expect(lu.historique).toHaveLength(5);
   });
 });
 
@@ -433,6 +464,59 @@ describe("états financiers (DOS-03)", () => {
     // Un rejet libère l'exercice : un nouvel état n'a rien à remplacer.
     const apres = await a.chef.post(`${base()}/etats-financiers`, etat(2023));
     expect(apres.json()).toMatchObject({ statut: "accepte", remplace_id: null });
+  });
+
+  it("tolérance non nulle : jamais d'acceptation automatique ; remplacer un état accepté par un humain passe en revue", async () => {
+    // L'importateur choisit la tolérance : elle ne décide pas seule de l'acceptation.
+    const tolere = await a.chef.post(
+      `${base()}/etats-financiers`,
+      etat(2016, lignesEquilibrees(), { tolerance: 10 }),
+    );
+    attendre(201, tolere, "tolérance");
+    expect(tolere.json()).toMatchObject({ statut: "en_revue", decision: null, tolerance: 10 });
+    const url = `${base()}/etats-financiers/${tolere.json().id}/decision`;
+    expect((await a.directeur.post(url, { decision: "accepte" })).statusCode).toBe(400);
+    expect((await a.chef.post(url, { decision: "accepte", motif: "Tolérance" })).statusCode).toBe(
+      403,
+    );
+    const accepte = await a.directeur.post(url, {
+      decision: "accepte",
+      motif: "Tolérance de 10 unités validée avec le DAF",
+    });
+    attendre(200, accepte, "acceptation sous tolérance");
+    expect(accepte.json()).toMatchObject({ statut: "accepte", decision: { automatique: false } });
+    // Remplacer cet état accepté par un humain : revue obligatoire, même parfaitement équilibré.
+    const remplace = await a.chef.post(`${base()}/etats-financiers`, etat(2016));
+    attendre(201, remplace, "remplacement");
+    expect(remplace.json()).toMatchObject({
+      statut: "en_revue",
+      controles_ok: true,
+      decision: null,
+      remplace_id: tolere.json().id,
+    });
+    const urlR = `${base()}/etats-financiers/${remplace.json().id}/decision`;
+    expect((await a.chef.post(urlR, { decision: "accepte", motif: "Même état" })).statusCode).toBe(
+      403,
+    );
+    attendre(200, await a.directeur.post(urlR, { decision: "accepte", motif: "Revu" }), "revue");
+    // Base : une tolérance non nulle ne s'accepte pas automatiquement, même en contournant l'API.
+    const code = await ctx.db
+      .withTenant(a.cabinetId, async (db) => {
+        const e = await db.query(
+          `INSERT INTO dossier_etats_financiers (cabinet_id, client_id, exercice, date_cloture, devise, origine,
+             tolerance, controles, totaux, conforme, complet, controles_ok, importe_par)
+           VALUES ($1, $2, 2015, '2015-12-31', 'XOF', 'saisie', 5, '[]', '{}', true, true, true, $3)
+           RETURNING id`,
+          [a.cabinetId, a.clientId, a.associeId],
+        );
+        await db.query(
+          `INSERT INTO dossier_etats_decisions (cabinet_id, etat_id, decision, automatique)
+           VALUES ($1, $2, 'accepte', true)`,
+          [a.cabinetId, e.rows[0].id],
+        );
+      })
+      .catch((e: { code: string }) => e.code);
+    expect(code).toBe("MPO04");
   });
 
   it("structure refusée par le moteur (400 avec son code) ; base : jamais d'acceptation automatique d'un écart", async () => {
@@ -580,6 +664,10 @@ describe("fiabilité, frise, export (DOS-04, DOS-06, DOS-07)", () => {
     expect(contenu.faits.length).toBeGreaterThan(3);
     expect(contenu.etats_financiers[0].lignes.length).toBeGreaterThan(0);
     const texte = r.body;
+    // Les motifs de décision (fait rejeté, état accepté malgré un écart) sont internes au cabinet.
+    expect(texte).not.toContain("Saisi par erreur");
+    expect(texte).not.toContain("Écart d'arrondi confirmé par le CAC");
+    expect(texte).not.toContain('"motif"');
     for (const interdit of [
       '"auteur"',
       '"importe_par"',

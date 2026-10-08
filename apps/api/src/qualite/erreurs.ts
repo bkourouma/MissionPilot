@@ -3,7 +3,7 @@ import { AppError } from "../errors.js";
 
 /*
  * Erreurs du lot qualité (jamais de 500 pour une règle métier) : SQLSTATE MPY… des déclencheurs
- * (migrations 0280 à 0284), contraintes CHECK (23514), unicité (23505), référence (23503) et
+ * (migrations 0280 à 0286), contraintes CHECK (23514), unicité (23505), référence (23503) et
  * invariants du moteur (`ErreurQualite`). Codes d'erreur de l'API : voir SECURITY.md §5 ter.
  */
 
@@ -32,7 +32,23 @@ const SQL: Record<string, [number, string, string]> = {
   MPY04: [409, "SESSION_REVUE_CLOSE", "Cette session de revue est déjà terminée."],
   MPY05: [409, "ETAPE_IMPOSSIBLE", "Cette étape de garde est impossible dans l'état du suivi."],
   MPY06: [409, "SIGNATURE_IMPOSSIBLE", "Signature impossible : le suivi n'est pas validé."],
-  MPY07: [409, "RELATION_EN_DOUBLE", "Cette relation est déjà déclarée dans l'autre sens."],
+  MPY07: [409, "RELATION_EN_DOUBLE", "Cette relation est déjà déclarée (dans un sens ou l'autre)."],
+  MPY08: [
+    409,
+    "PARCOURS_VIDE",
+    "Un livrable client (R2, R3) ne se valide pas sur un parcours de revue vide.",
+  ],
+  MPY09: [
+    409,
+    "NIVEAU_RISQUE_ABAISSE",
+    "Une décision a été prise : le niveau de risque retenu ne s'abaisse plus.",
+  ],
+  MPY10: [
+    409,
+    "ATTESTATION_PAR_AUTEUR",
+    "L'auteur du livrable n'atteste pas sa propre définition de terminé.",
+  ],
+  MPY11: [400, "AUTEUR_NON_MEMBRE", "L'auteur désigné doit être un membre actif de la mission."],
 };
 
 function champ(error: unknown, nom: string): string {
@@ -58,7 +74,10 @@ const UNICITES: Record<string, [string, string]> = {
     "CONFLIT",
     "Une note vient d'être enregistrée : rechargez la page.",
   ],
-  qualite_relations_unique: ["RELATION_EN_DOUBLE", "Cette relation est déjà déclarée."],
+  qualite_relations_retraits_relation_id_key: [
+    "RELATION_DEJA_RETIREE",
+    "Cette relation vient d'être retirée : rechargez la page.",
+  ],
 };
 
 export function traduireErreurQualite(error: unknown): unknown {

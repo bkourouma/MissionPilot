@@ -491,7 +491,7 @@ describe("variante du cabinet, éditeur et publication", () => {
       expect.arrayContaining(["FACTEUR_INCONNU", "REFERENCE_INCONNUE"]),
     );
     expect(
-      attendu(409, await expert.post(`/api/methodes/versions/${varianteV1}/publication`)).erreur
+      attendu(409, await expert2.post(`/api/methodes/versions/${varianteV1}/publication`)).erreur
         .code,
     ).toBe("VERSION_INCOHERENTE");
     attendu(204, await expert.delete(`/api/methodes/versions/${varianteV1}/regles/${r.id}`));
@@ -527,7 +527,12 @@ describe("variante du cabinet, éditeur et publication", () => {
     expect(
       (await consultant.post(`/api/methodes/versions/${varianteV1}/publication`)).statusCode,
     ).toBe(403);
-    const p = attendu(200, await expert.post(`/api/methodes/versions/${varianteV1}/publication`));
+    // Quatre yeux : le créateur de la variante ne la publie pas (sauf associé) ; un autre expert le fait.
+    expect(
+      attendu(403, await expert.post(`/api/methodes/versions/${varianteV1}/publication`)).erreur
+        .code,
+    ).toBe("SEPARATION_DES_TACHES");
+    const p = attendu(200, await expert2.post(`/api/methodes/versions/${varianteV1}/publication`));
     expect(p).toMatchObject({ statut: "publiee", validation: { valide: true } });
     expect(
       attendu(
@@ -559,7 +564,7 @@ describe("variante du cabinet, éditeur et publication", () => {
     const n = attendu(201, await expert.post(`/api/methodes/${varianteId}/versions`, {}));
     expect((await expert.post(`/api/methodes/${varianteId}/versions`, {})).statusCode).toBe(409);
     expect(
-      attendu(409, await expert.post(`/api/methodes/versions/${n.id}/publication`)).erreur.code,
+      attendu(409, await expert2.post(`/api/methodes/versions/${n.id}/publication`)).erreur.code,
     ).toBe("NOTES_VERSION_REQUISES");
     attendu(
       200,
@@ -570,7 +575,7 @@ describe("variante du cabinet, éditeur et publication", () => {
     const detail = attendu(200, await expert.get(`/api/methodes/versions/${n.id}`));
     expect(detail.version.version).toBe(2);
     expect(detail.version.base_standard_id).toBe(notationV1);
-    attendu(200, await expert.post(`/api/methodes/versions/${n.id}/publication`));
+    attendu(200, await expert2.post(`/api/methodes/versions/${n.id}/publication`));
     const comparaison = attendu(
       200,
       await consultant.get(`/api/methodes/versions/${n.id}/comparaison?avec=${varianteV1}`),
@@ -643,15 +648,23 @@ describe("comité méthode (STD-12)", () => {
     expect(acceptee.statut).toBe("acceptee");
     expect(
       attendu(
-        409,
+        403,
         await expert.post(`/api/standard/propositions/${p.id}/publication`, {
+          version_id: varianteV1,
+        }),
+      ).erreur.code,
+    ).toBe("SEPARATION_DES_TACHES");
+    expect(
+      attendu(
+        409,
+        await expert2.post(`/api/standard/propositions/${p.id}/publication`, {
           version_id: notationV1,
         }),
       ).erreur.code,
     ).toBe("PROPOSITION_TRANSITION_REFUSEE");
     const publiee = attendu(
       200,
-      await expert.post(`/api/standard/propositions/${p.id}/publication`, {
+      await expert2.post(`/api/standard/propositions/${p.id}/publication`, {
         version_id: varianteV1,
       }),
     );
@@ -678,5 +691,173 @@ describe("comité méthode (STD-12)", () => {
         ),
       ),
     ).rejects.toMatchObject({ code: "MPM05" });
+  });
+});
+
+describe("garde des variantes et visibilité du standard (audit de sécurité)", () => {
+  const RANG_CLASSE: Record<string, number> = { R0: 0, R1: 1, R2: 2, R3: 3 };
+  const RANG_NIVEAU: Record<string, number> = { N0: 0, N1: 1, N2: 2, N3: 3, N4: 4 };
+  const MAX_PAR_CLASSE: Record<string, string> = { R0: "N4", R1: "N3", R2: "N2", R3: "N2" };
+  let bExpert: Api & { utilisateurId: string };
+  let bExpert2: Api & { utilisateurId: string };
+  let planId: string;
+  let versionB: string;
+
+  type BriqueApi = {
+    id: string;
+    code: string;
+    classe_risque: string;
+    niveau_autonomie_max: string;
+  };
+  const validation = async (acteur: Api, versionId: string) =>
+    attendu(200, await acteur.get(`/api/methodes/versions/${versionId}/validation`));
+  const codes = (v: { anomalies: { code: string }[] }) => v.anomalies.map((x) => x.code);
+  const publierEnBase = (publiePar: string) =>
+    ctx.db.withTenant(b.cabinetId, (db) =>
+      db.query(
+        `UPDATE methode_versions SET statut = 'publiee', publie_par = $2, publie_le = now() WHERE id = $1`,
+        [versionB, publiePar],
+      ),
+    );
+
+  beforeAll(async () => {
+    bExpert = await b.avecRoles(["expert_metier"]);
+    bExpert2 = await b.avecRoles(["expert_metier"]);
+    const page = attendu(200, await bExpert.get("/api/methodes?limite=100"));
+    planId = page.elements.find((m: { code: string }) => m.code === "plan_strategique").id;
+  });
+
+  it("variante : classe abaissée ou autonomie relevée = erreur de cohérence, publication refusée, doublé en base (MPM07)", async () => {
+    const cree = attendu(201, await bExpert.post(`/api/methodes/${planId}/variantes`, {}));
+    versionB = cree.version_id;
+    const detail = attendu(200, await bExpert.get(`/api/methodes/versions/${versionB}`));
+    const briques: BriqueApi[] = detail.briques;
+    expect(codes(await validation(bExpert, versionB))).not.toContain("CLASSE_ABAISSEE");
+
+    // Classe abaissée : une brique R2 ou R3 du standard passe en R0.
+    const sensible = briques.find((x) => (RANG_CLASSE[x.classe_risque] ?? 0) >= 2)!;
+    expect(sensible).toBeDefined();
+    attendu(
+      200,
+      await bExpert.patch(`/api/methodes/versions/${versionB}/briques/${sensible.id}`, {
+        classe_risque: "R0",
+      }),
+    );
+    const v1 = await validation(bExpert, versionB);
+    expect(v1.valide).toBe(false);
+    expect(v1.anomalies).toContainEqual(
+      expect.objectContaining({
+        code: "CLASSE_ABAISSEE",
+        gravite: "erreur",
+        chemin: `briques.${sensible.code}.classe_risque`,
+      }),
+    );
+    expect(
+      attendu(409, await bExpert2.post(`/api/methodes/versions/${versionB}/publication`)).erreur
+        .code,
+    ).toBe("VERSION_INCOHERENTE");
+    await expect(publierEnBase(bExpert2.utilisateurId)).rejects.toMatchObject({ code: "MPM07" });
+    attendu(
+      200,
+      await bExpert.patch(`/api/methodes/versions/${versionB}/briques/${sensible.id}`, {
+        classe_risque: sensible.classe_risque,
+      }),
+    );
+    expect(codes(await validation(bExpert, versionB))).not.toContain("CLASSE_ABAISSEE");
+
+    // Autonomie relevée : une brique dont l'autonomie du standard est inférieure au plafond de sa classe.
+    const relevable = briques.find(
+      (x) =>
+        (RANG_NIVEAU[x.niveau_autonomie_max] ?? 0) <
+        (RANG_NIVEAU[MAX_PAR_CLASSE[x.classe_risque] ?? "N0"] ?? 0),
+    )!;
+    expect(relevable).toBeDefined();
+    const plafond = MAX_PAR_CLASSE[relevable.classe_risque] ?? "N0";
+    attendu(
+      200,
+      await bExpert.patch(`/api/methodes/versions/${versionB}/briques/${relevable.id}`, {
+        niveau_autonomie_max: plafond,
+      }),
+    );
+    const v2 = await validation(bExpert, versionB);
+    expect(codes(v2)).toContain("AUTONOMIE_RELEVEE");
+    expect(codes(v2)).not.toContain("AUTONOMIE_INCOMPATIBLE");
+    expect(
+      attendu(409, await bExpert2.post(`/api/methodes/versions/${versionB}/publication`)).erreur
+        .code,
+    ).toBe("VERSION_INCOHERENTE");
+    await expect(publierEnBase(bExpert2.utilisateurId)).rejects.toMatchObject({ code: "MPM07" });
+    attendu(
+      200,
+      await bExpert.patch(`/api/methodes/versions/${versionB}/briques/${relevable.id}`, {
+        niveau_autonomie_max: relevable.niveau_autonomie_max,
+      }),
+    );
+    expect((await validation(bExpert, versionB)).valide).toBe(true);
+  });
+
+  it("variante : le créateur ne la publie pas (403, MPM08) ; un autre expert ou un associé le peut ; autre cabinet 404", async () => {
+    expect(
+      (await consultant.post(`/api/methodes/versions/${versionB}/publication`)).statusCode,
+    ).toBe(403);
+    expect((await api(ctx).post(`/api/methodes/versions/${versionB}/publication`)).statusCode).toBe(
+      401,
+    );
+    expect((await expert2.post(`/api/methodes/versions/${versionB}/publication`)).statusCode).toBe(
+      404,
+    );
+    expect(
+      attendu(403, await bExpert.post(`/api/methodes/versions/${versionB}/publication`)).erreur
+        .code,
+    ).toBe("SEPARATION_DES_TACHES");
+    await expect(publierEnBase(bExpert.utilisateurId)).rejects.toMatchObject({ code: "MPM08" });
+    const publiee = attendu(
+      200,
+      await bExpert2.post(`/api/methodes/versions/${versionB}/publication`),
+    );
+    expect(publiee).toMatchObject({ statut: "publiee", validation: { valide: true } });
+
+    // L'associé publie sa propre variante (exception de la séparation des tâches).
+    const propre = attendu(201, await b.associe.post(`/api/methodes/${notationId}/variantes`, {}));
+    const p = attendu(
+      200,
+      await b.associe.post(`/api/methodes/versions/${propre.version_id}/publication`),
+    );
+    expect(p.statut).toBe("publiee");
+  });
+
+  it("le brouillon du standard et son contenu restent invisibles d'un cabinet (seules les versions publiées se lisent)", async () => {
+    const brouillon = await proprietaire(async (c) => {
+      const v = await c.query(
+        `INSERT INTO methode_versions (methode_id, version, notes_version)
+         SELECT $1, max(version) + 1, 'Brouillon en préparation par ACC.'
+           FROM methode_versions WHERE methode_id = $1 RETURNING id`,
+        [notationId],
+      );
+      await c.query(
+        `INSERT INTO methode_etapes (version_id, code, libelle) VALUES ($1, 'secrete', 'Étape secrète')`,
+        [v.rows[0].id],
+      );
+      return v.rows[0].id as string;
+    });
+    try {
+      expect((await consultant.get(`/api/methodes/versions/${brouillon}`)).statusCode).toBe(404);
+      const detail = attendu(200, await consultant.get(`/api/methodes/${notationId}`));
+      expect(detail.versions.map((x: { id: string }) => x.id)).not.toContain(brouillon);
+      const lignes = await ctx.db.withTenant(a.cabinetId, async (db) => {
+        const v = await db.query(`SELECT 1 FROM methode_versions WHERE id = $1`, [brouillon]);
+        const e = await db.query(`SELECT 1 FROM methode_etapes WHERE version_id = $1`, [brouillon]);
+        const pub = await db.query(`SELECT 1 FROM methode_etapes WHERE version_id = $1 LIMIT 1`, [
+          notationV1,
+        ]);
+        return { v: v.rowCount, e: e.rowCount, publiee: pub.rowCount };
+      });
+      expect(lignes).toEqual({ v: 0, e: 0, publiee: 1 });
+    } finally {
+      await proprietaire(async (c) => {
+        await c.query(`DELETE FROM methode_etapes WHERE version_id = $1`, [brouillon]);
+        await c.query(`DELETE FROM methode_versions WHERE id = $1`, [brouillon]);
+      });
+    }
   });
 });

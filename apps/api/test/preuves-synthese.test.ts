@@ -146,7 +146,8 @@ describe("contrôle PRV-03 des livrables R2 et R3", () => {
       avis_expert: true,
       avis_expert_motif: "Expérience du terrain.",
     });
-    const avisSigne = await creerAssertion(s.a.chef, m, {
+    // La signature d'un avis d'expert revient à un expert métier ou à un associé (MPV04).
+    const avisSigne = await creerAssertion(s.a.associe, m, {
       enonce: "Avis signé",
       avis_expert: true,
       avis_expert_motif: "Expérience du terrain.",

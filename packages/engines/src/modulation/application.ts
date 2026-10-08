@@ -120,7 +120,10 @@ export function appliquerModulation(
     for (const effet of regle.effets) {
       const cle = cleEffet(effet);
       const c: CandidatEffet = { regle: regle.code, priorite: regle.priorite, effet };
-      candidats.set(cle, [...(candidats.get(cle) ?? []), c]);
+      // Ajout en place (une copie par effet serait quadratique).
+      const liste = candidats.get(cle);
+      if (liste) liste.push(c);
+      else candidats.set(cle, [c]);
     }
   }
 

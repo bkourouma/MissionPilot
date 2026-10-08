@@ -20,15 +20,23 @@ import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
 /*
- * Formulaires de l'autonomie (AGT-03) : déclaration d'une brique (agent.gerer), décision
- * d'un associé (autonomie.decider), signalement d'un incident (agent.lire) et coupe-circuit
+ * Formulaires de l'autonomie (AGT-03) : déclaration d'une brique (agent.gerer ; R0 par un
+ * associé), décision d'un associé (autonomie.decider), signalement d'un incident (agent.lire ;
+ * majeur : agent.gerer ou autonomie.decider) et coupe-circuit
  * N4. Les règles (paliers, éligibilité, rétrogradation) sont appliquées par l'API ; l'écran
  * ne fait que proposer les choix possibles et relayer ses refus.
  */
 
 const NIVEAUX: NiveauAutonomie[] = ["N0", "N1", "N2", "N3", "N4"];
 
-export function FormulaireBrique({ agents }: { agents: { code: string; nom: string }[] }) {
+export function FormulaireBrique({
+  agents,
+  r0 = false,
+}: {
+  agents: { code: string; nom: string }[];
+  /** Classe R0 proposée (associé seulement). */
+  r0?: boolean;
+}) {
   const f = useFormulaire<"brique_code" | "agent_code" | "classe_risque" | "niveau_max">();
   const [s, setS] = useState({
     brique_code: "",
@@ -75,7 +83,7 @@ export function FormulaireBrique({ agents }: { agents: { code: string; nom: stri
           value={s.classe_risque}
           onChange={(e) => maj("classe_risque")(e.target.value)}
           options={[
-            { valeur: "R0", libelle: "R0 — Opérationnel interne" },
+            ...(r0 ? [{ valeur: "R0", libelle: "R0 — Opérationnel interne" }] : []),
             { valeur: "R1", libelle: "R1 — Analyse interne" },
             { valeur: "R2", libelle: "R2 — Livrable client" },
             { valeur: "R3", libelle: "R3 — Engageant" },
@@ -158,7 +166,7 @@ export function FormulaireDecisionAutonomie({
   );
 }
 
-export function FormulaireIncident({ code }: { code: string }) {
+export function FormulaireIncident({ code, majeur }: { code: string; majeur: boolean }) {
   const f = useFormulaire<"gravite" | "description">();
   const [gravite, setGravite] = useState("");
   const [description, setDescription] = useState("");
@@ -197,7 +205,9 @@ export function FormulaireIncident({ code }: { code: string }) {
         onChange={(e) => setGravite(e.target.value)}
         options={[
           { valeur: "mineur", libelle: "Mineur (compté, sans effet immédiat)" },
-          { valeur: "majeur", libelle: "Majeur (rétrogradation automatique en N2)" },
+          ...(majeur
+            ? [{ valeur: "majeur", libelle: "Majeur (rétrogradation automatique en N2)" }]
+            : []),
         ]}
         erreur={f.erreurs.gravite}
       />

@@ -412,7 +412,9 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     exiger(request, "mission.planifier");
     const { id } = paramsId.parse(request.params);
     const corps = missionMethodeLiaisonSchema.parse(request.body);
-    return lire(auth, (db) => lierMethode(db, auth, id, corps.version_id, corps.contexte));
+    return lire(auth, (db) =>
+      lierMethode(db, auth, id, corps.version_id, corps.contexte, corps.motif),
+    );
   });
 
   app.post("/missions/:id/methode/contexte", async (request) => {

@@ -29,11 +29,18 @@ function briquesEcrites(regle: RegleModulation): Set<string> {
   return ecrites;
 }
 
+/** Ajoute en place à la liste d'une clé (une copie à chaque ajout serait quadratique). */
+function ajouter(m: Map<string, string[]>, cle: string, valeur: string): void {
+  const liste = m.get(cle);
+  if (liste) liste.push(valeur);
+  else m.set(cle, [valeur]);
+}
+
 /** Pour chaque règle (par code), les codes des règles dont elle dépend. */
 export function dependancesRegles(regles: readonly RegleModulation[]): Map<string, Set<string>> {
   const ecrivains = new Map<string, string[]>();
   for (const r of regles) {
-    for (const b of briquesEcrites(r)) ecrivains.set(b, [...(ecrivains.get(b) ?? []), r.code]);
+    for (const b of briquesEcrites(r)) ajouter(ecrivains, b, r.code);
   }
   return new Map(
     regles.map((r) => {
@@ -94,7 +101,7 @@ export function ordreEvaluation(regles: readonly RegleModulation[]): {
   const restantes = new Map<string, number>(regles.map((r) => [r.code, deps.get(r.code)!.size]));
   const suivants = new Map<string, string[]>();
   for (const [lecteur, ecrivains] of deps) {
-    for (const e of ecrivains) suivants.set(e, [...(suivants.get(e) ?? []), lecteur]);
+    for (const e of ecrivains) ajouter(suivants, e, lecteur);
   }
   const parCode = new Map(regles.map((r) => [r.code, r]));
   const pretes = regles.filter((r) => restantes.get(r.code) === 0);

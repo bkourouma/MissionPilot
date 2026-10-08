@@ -1,9 +1,11 @@
-import type { CasEssai } from "@missionpilot/shared";
+import type { CasEssai, SchemaSortie } from "@missionpilot/shared";
+import { estLocal, type Config } from "../config.js";
+import type { Db } from "../db/pool.js";
 import { ErreurLlm, type LlmProvider, type MessageLlm } from "./fournisseur.js";
 import { creerFournisseurLocal } from "./fournisseur-local.js";
-import { blocChiffres, produireGabarit } from "./gabarits.js";
+import { blocChiffres, choixParMotsCles } from "./gabarits.js";
 import { contexteGarde, verifierChiffres } from "./garde-chiffres.js";
-import { creerMasque } from "./masquage.js";
+import { creerMasque, jetonsDans } from "./masquage.js";
 import { MAX_TOKENS_SORTIE } from "./modeles.js";
 import { rendreGabarit, validerSortie, variablesAttendues, type PromptDb } from "./prompts.js";
 
@@ -15,6 +17,23 @@ import { rendreGabarit, validerSortie, variablesAttendues, type PromptDb } from 
  * moteur fournirait). Il ne crée AUCUNE demande ni génération : un essai ne
  * produit pas de contenu livrable. Les critères sont déterministes ; le
  * résultat ne garde que des codes de raison, jamais le texte produit.
+ *
+ * FOURNISSEUR LOCAL D'ÉVALUATION (`reponseLocaleEvaluation`) : il répond à
+ * partir du TEXTE des messages rendus (consignes système et demande, variables
+ * insérées), par un ÉCHO déterministe : un gabarit altéré (consigne retirée,
+ * variable débranchée, texte ajouté) change la réponse, et les critères du jeu
+ * (« contient », « ne contient pas », valeur d'un champ « choix » lue par
+ * mots-clés dans la demande, garde-chiffres) le détectent.
+ *
+ * Ce qu'une évaluation LOCALE réussie prouve : le prompt se rend avec les
+ * variables du jeu ; les messages envoyés contiennent ce que les critères
+ * exigent (consignes de sécurité, données, chiffres des moteurs) et rien de ce
+ * qu'ils interdisent ; aucun nombre hors liste blanche n'est introduit par le
+ * gabarit ; la sortie structurée est constructible au schéma. Ce qu'elle ne
+ * prouve PAS : la qualité rédactionnelle d'un modèle, qu'un modèle suive les
+ * consignes, sa résistance à l'injection, ni la justesse du sens. C'est
+ * pourquoi, en production, seule une évaluation sur `openrouter` compte pour
+ * activer (réglage `app.evaluation_locale_admise`, migration 0265).
  */
 
 export type RaisonEchecCas =
@@ -41,16 +60,91 @@ const normaliser = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-/** Réponse du fournisseur local pour un cas : le gabarit déterministe de la tâche. */
-export function fournisseurLocalPourCas(prompt: PromptDb, cas: CasEssai): LlmProvider {
-  return creerFournisseurLocal(
-    () =>
-      produireGabarit({
-        tache: prompt.tache,
-        schema: prompt.schema_sortie,
-        variables: cas.variables,
-        chiffres: cas.chiffres,
-      }).texte,
+/* ----- Fournisseur local d'évaluation et règle de production ----- */
+
+/** Réglage de transaction qui admet une évaluation locale (migration 0265). */
+export const REGLAGE_EVALUATION_LOCALE = "app.evaluation_locale_admise";
+
+/** Une évaluation locale suffit-elle ? Seulement hors production (développement, test). */
+export function evaluationLocaleAdmise(config: Pick<Config, "NODE_ENV">): boolean {
+  return estLocal(config.NODE_ENV);
+}
+
+/**
+ * Pose, pour la transaction courante, le réglage qui admet une évaluation locale — hors
+ * production seulement. À appeler avant toute activation de prompt, tout choix de modèle et
+ * toute exécution d'agent ; sans lui, la base n'admet qu'une évaluation `openrouter`.
+ */
+export async function reglerEvaluationLocale(
+  db: Db,
+  config: Pick<Config, "NODE_ENV"> | undefined,
+): Promise<void> {
+  if (config && evaluationLocaleAdmise(config)) {
+    await db.query("SELECT set_config($1, 'on', true)", [REGLAGE_EVALUATION_LOCALE]);
+  }
+}
+
+export const ENTETE_EVALUATION_LOCALE =
+  "Réponse locale déterministe d'évaluation : écho des messages reçus.";
+
+const tronquer = (t: string, max: number) => (t.length > max ? t.slice(0, max) : t);
+
+/** Écho des messages RENDUS : consignes (système), puis demande (utilisateur). */
+export function echoMessages(messages: readonly MessageLlm[]): string {
+  const consignes = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n");
+  const demande = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => m.content)
+    .join("\n");
+  return [
+    ENTETE_EVALUATION_LOCALE,
+    `CONSIGNES :\n${consignes.trim() || "(aucune)"}`,
+    `DEMANDE :\n${demande.trim() || "(aucune)"}`,
+  ].join("\n\n");
+}
+
+/**
+ * Réponse du fournisseur local d'évaluation, fonction du SEUL texte des messages : texte →
+ * écho ; objet → champs texte = écho, choix = mot-clé le plus cité dans la demande, booléens
+ * à faux, listes vides.
+ */
+export function reponseLocaleEvaluation(
+  schema: SchemaSortie,
+  messages: readonly MessageLlm[],
+): string {
+  const echo = echoMessages(messages);
+  if (schema.type === "texte") return tronquer(echo, schema.longueur_max ?? 20_000);
+  const demande = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => m.content)
+    .join("\n");
+  const donnees: Record<string, unknown> = {};
+  for (const [nom, champ] of Object.entries(schema.champs)) {
+    switch (champ.type) {
+      case "texte":
+        donnees[nom] = tronquer(echo, champ.longueur_max ?? 5000);
+        break;
+      case "liste_texte":
+        donnees[nom] = [];
+        break;
+      case "booleen":
+        donnees[nom] = false;
+        break;
+      case "choix":
+        donnees[nom] = choixParMotsCles(champ, demande);
+        break;
+    }
+  }
+  return JSON.stringify(donnees);
+}
+
+/** Fournisseur local d'un cas : réponse fonction des messages rendus (voir ci-dessus). */
+export function fournisseurLocalPourCas(prompt: PromptDb, _cas: CasEssai): LlmProvider {
+  return creerFournisseurLocal((requete) =>
+    reponseLocaleEvaluation(prompt.schema_sortie, requete.messages),
   );
 }
 
@@ -129,7 +223,12 @@ export async function executerCasEvaluation(entree: {
   }
   const validee = validerSortie(prompt.schema_sortie, rep.texte);
   if (!validee) return echec(["SORTIE_NON_CONFORME"], rep.tokensEntree, rep.tokensSortie);
+  // Le texte FIXE des gabarits est une entrée : ses années, dates et jetons d'exemple
+  // (« [PERSONNE_1] » dans une consigne) ne sont pas inventés par la sortie.
+  const gabarits = `${prompt.gabarit_systeme}\n${prompt.gabarit_utilisateur}`;
+  const jetonsGabarit = new Set(jetonsDans(gabarits));
   const contexte = contexteGarde([
+    gabarits,
     ...Object.values(cas.variables),
     ...cas.chiffres.map((c) => `${c.libelle} ${c.valeur}`),
   ]);
@@ -137,7 +236,7 @@ export async function executerCasEvaluation(entree: {
     validee.texte,
     cas.chiffres.map((c) => c.valeur),
     contexte,
-    masque,
+    { connait: (j) => masque.connait(j) || jetonsGabarit.has(j) },
   );
   return echec(
     controlerCriteres(cas, validee.texte, validee.donnees, garde.chiffresNonVerifies),

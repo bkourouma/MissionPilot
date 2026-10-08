@@ -151,8 +151,8 @@ async function exigerPlace(db: Db, clientId: string): Promise<void> {
 }
 
 /**
- * Enregistre un fait saisi par un membre du cabinet ; « confirme » : l'auteur l'atteste
- * (décision inscrite dans la même transaction). Le dossier doit être visible (appelant).
+ * Enregistre un fait saisi par un membre du cabinet ; « confirme » (associé seulement, sinon 403
+ * `VALIDATION_REQUISE`) : l'associé l'atteste (décision inscrite dans la même transaction). Le dossier doit être visible (appelant).
  */
 export async function creerFait(
   db: Db,
@@ -160,6 +160,15 @@ export async function creerFait(
   clientId: string,
   fait: FaitCreation,
 ): Promise<VueFait> {
+  // Séparation des tâches : l'auteur ne s'auto-confirme pas. Création directement « confirmée »
+  // réservée à l'associé (remplacement compris) ; les autres proposent, un autre membre confirme.
+  if (fait.statut === "confirme" && !estAssocie(auth)) {
+    throw new AppError(
+      403,
+      "VALIDATION_REQUISE",
+      "Seul un associé enregistre un fait déjà confirmé : le proposer, puis le faire confirmer par un autre membre.",
+    );
+  }
   await verrouillerDossier(db, clientId);
   await exigerPlace(db, clientId);
   await controlerSource(db, auth, fait.source);

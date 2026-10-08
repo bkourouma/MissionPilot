@@ -72,6 +72,17 @@ Décisions 4, 6, 7 et 8 de la section 21 du même PRD, tranchées le 2026-10-08 
 | Attestation de notation vérifiable | ACC est **garant de la méthode, jamais de la note**, qui reste signée par le cabinet. |
 | WhatsApp Business | **Canal officiel**, avec données minimales dans les messages et SMS en repli. |
 
+## Précisions issues de l'audit de la vague 1 (2026-10-08)
+
+Posées par l'implémentation pour fermer des écarts relevés à l'audit ; à confirmer par le commanditaire.
+
+| Sujet | Règle posée |
+| --- | --- |
+| Signature d'un avis d'expert (PRV-03) | **Réservée à un `expert_metier` ou à un associé**, et à l'auteur de la version ; abaisser la classe de risque d'une assertion leur est réservé aussi (doublé en base, `MPV04`, `MPV06`). |
+| Origine d'une note de satisfaction (QUA-08) | Tracée : `saisie_par_equipe` (le cabinet saisit pour le compte du client, valeur par défaut) ou `client` (saisie directe par le client). Le calcul du NPS ne change pas. |
+| Export du dossier remis au client (DOS-07) | **Sans les motifs des décisions** (acceptation d'un état en écart, rejet d'un fait) : ils restent internes au cabinet. |
+| Exécution d'un agent IA (AGT-04) | Un agent n'exécute qu'un prompt doté d'un jeu d'essai et d'une évaluation réussie ; en production, seule une évaluation sur un vrai modèle (`openrouter`) compte (ADR-005). **Décision laissée au commanditaire** : exiger un jeu d'essai pour CHAQUE activation de prompt (aujourd'hui, un prompt sans jeu d'essai peut s'activer mais ne sert aucun agent) est une décision produit, non imposée. |
+
 ## Règles métier validées (2026-10-06) — applicables à la V2
 
 | Sujet | Décision |

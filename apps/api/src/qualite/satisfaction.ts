@@ -1,5 +1,9 @@
 import { syntheseNps, type SyntheseNps } from "@missionpilot/engines";
-import { satisfactionSchema, type satisfactionSyntheseQuerySchema } from "@missionpilot/shared";
+import {
+  satisfactionSchema,
+  type OrigineSatisfaction,
+  type satisfactionSyntheseQuerySchema,
+} from "@missionpilot/shared";
 import type { z } from "zod";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
@@ -27,10 +31,19 @@ export interface NoteSatisfaction {
   repondant: string | null;
   saisi_par: string;
   saisi_le: Date;
+  /** Origine de la note (traçabilité) : en V1, toujours saisie par l'équipe du cabinet. */
+  origine: OrigineSatisfaction;
 }
 
 const COLONNES = `s.id, s.mission_id, s.moment, s.jalon_id, j.libelle AS jalon_libelle, s.cle, s.rang,
-  s.note, s.commentaire, s.repondant, s.saisi_par, s.saisi_le`;
+  s.note, s.commentaire, s.repondant, s.saisi_par, s.saisi_le, s.origine`;
+
+/**
+ * Seule voie de saisie en V1 : un membre du cabinet (éventuellement de l'équipe évaluée) saisit
+ * pour le compte du client. L'origine est tracée pour pouvoir distinguer, plus tard, une note
+ * recueillie directement auprès du client ; le calcul du NPS n'en dépend pas.
+ */
+const ORIGINE_SAISIE: OrigineSatisfaction = "saisie_par_equipe";
 
 /** Notes en vigueur d'une mission (dernier rang de chaque clé). */
 async function notesEnVigueur(db: Db, missionId: string): Promise<NoteSatisfaction[]> {
@@ -76,8 +89,9 @@ export async function saisirSatisfaction(
   );
   const r = await db.query(
     `INSERT INTO qualite_satisfactions
-       (cabinet_id, mission_id, moment, jalon_id, cle, rang, note, commentaire, repondant, saisi_par)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+       (cabinet_id, mission_id, moment, jalon_id, cle, rang, note, commentaire, repondant, saisi_par,
+        origine)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
     [
       auth.cabinetId,
       missionId,
@@ -89,6 +103,7 @@ export async function saisirSatisfaction(
       c.commentaire ?? null,
       c.repondant ?? null,
       auth.utilisateurId,
+      ORIGINE_SAISIE,
     ],
   );
   await journaliser(db, {
@@ -97,7 +112,12 @@ export async function saisirSatisfaction(
     action: "qualite.satisfaction.saisir",
     entite: "mission",
     entiteId: missionId,
-    details: { satisfaction_id: r.rows[0].id, moment: c.moment, rang: rang.rows[0].rang },
+    details: {
+      satisfaction_id: r.rows[0].id,
+      moment: c.moment,
+      rang: rang.rows[0].rang,
+      origine: ORIGINE_SAISIE,
+    },
   });
   const notes = await notesEnVigueur(db, missionId);
   return { notes, synthese: syntheseNps(notes.map((n) => n.note)) };
