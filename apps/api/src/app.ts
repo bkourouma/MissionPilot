@@ -20,7 +20,10 @@ import { routesCycleMission } from "./routes/missions-routes.js";
 import { routesPlanification } from "./routes/planification-routes.js";
 import { installerGardePortail } from "./portail/garde.js";
 import { routesPortail } from "./routes/portail.js";
+import { routesAppelsOffres } from "./routes/appels-offres.js";
 import { routesAutomatisation } from "./routes/automatisation.js";
+import { routesBanqueAo } from "./routes/banque-ao.js";
+import { routesCapitalisation } from "./routes/capitalisation.js";
 import { routesCloture } from "./routes/cloture.js";
 import { routesPreuves } from "./routes/preuves.js";
 import { routesPrevisions } from "./routes/previsions.js";
@@ -277,6 +280,9 @@ export async function buildApp(
   await app.register(routesCloture, { prefix: "/api" });
   await app.register(routesSalleMission, { prefix: "/api" });
   await app.register(routesPrevisions, { prefix: "/api" });
+  await app.register(routesAppelsOffres, { prefix: "/api" });
+  await app.register(routesBanqueAo, { prefix: "/api" });
+  await app.register(routesCapitalisation, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
   return app;
 }
