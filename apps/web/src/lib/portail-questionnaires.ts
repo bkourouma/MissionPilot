@@ -115,29 +115,29 @@ export interface Echeance {
 }
 
 /**
- * Date limite INDICATIVE affichée (décision du 2026-10-07 : l'API ne l'applique pas, seule la
- * clôture par le cabinet ferme le questionnaire) : « Date limite indicative : le 12 janv. 2027 »,
- * ou `null` s'il n'y en a pas. Aucun libellé ne laisse croire qu'une réponse serait refusée.
+ * Date limite affichée : « Date limite : le 12 janv. 2027 », ou `null` s'il n'y en a pas. Elle
+ * est APPLIQUÉE par l'API (MPQ07) : passé le jour de la date limite (inclus), ni saisie ni
+ * soumission, sauf prolongation par le cabinet.
  */
 export function echeance(dateLimite: string | null, aujourdhui: string): Echeance | null {
   if (!dateLimite) return null;
   const date = formaterDate(dateLimite);
   if (aujourdhui > dateLimite) {
     return {
-      texte: `Date dépassée (${date}) : vous pouvez encore répondre tant que le questionnaire n'est pas clos par le cabinet`,
+      texte: `Date limite dépassée (${date}) : les réponses ne sont plus acceptées, sauf prolongation par le cabinet`,
       depassee: true,
       dernierJour: false,
     };
   }
   if (aujourdhui === dateLimite) {
     return {
-      texte: `Date limite indicative : aujourd'hui (${date})`,
+      texte: `Date limite : aujourd'hui (${date})`,
       depassee: false,
       dernierJour: true,
     };
   }
   return {
-    texte: `Date limite indicative : le ${date}`,
+    texte: `Date limite : le ${date}`,
     depassee: false,
     dernierJour: false,
   };
@@ -162,9 +162,17 @@ export function libelleMode(mode: string, fonction: string | null = null): strin
   return MODES[mode as ModeEnvoiQuestionnaire] ?? "Réponse individuelle";
 }
 
-/** Le questionnaire accepte-t-il encore une saisie ? (l'API reste seule juge) */
-export function estModifiable(q: Pick<QuestionnairePortail, "statut" | "reponse">): boolean {
-  return q.statut === "envoye" && q.reponse.statut !== "soumise";
+/**
+ * Le questionnaire accepte-t-il encore une saisie ? (l'API reste seule juge) Avec `aujourdhui`
+ * (AAAA-MM-JJ), une date limite passée ferme aussi la saisie.
+ */
+export function estModifiable(
+  q: Pick<QuestionnairePortail, "statut" | "reponse"> &
+    Partial<Pick<QuestionnairePortail, "date_limite">>,
+  aujourdhui?: string,
+): boolean {
+  if (q.statut !== "envoye" || q.reponse.statut === "soumise") return false;
+  return !(aujourdhui !== undefined && q.date_limite && aujourdhui > q.date_limite);
 }
 
 /** Statut affiché d'un questionnaire reçu (liste et en-tête de la page de réponse). */
@@ -180,11 +188,11 @@ export function etatQuestionnaire(
   const depassee = echeance(q.date_limite, aujourdhui)?.depassee === true;
   if (q.reponse.statut === "brouillon") {
     return depassee
-      ? { libelle: "En cours, date indicative dépassée", tonalite: "danger" }
+      ? { libelle: "En cours, date limite dépassée", tonalite: "danger" }
       : { libelle: "En cours", tonalite: "attention" };
   }
   return depassee
-    ? { libelle: "À commencer, date indicative dépassée", tonalite: "danger" }
+    ? { libelle: "À commencer, date limite dépassée", tonalite: "danger" }
     : { libelle: "À commencer", tonalite: "neutre" };
 }
 
@@ -237,10 +245,33 @@ function phrasePerdues(perdues: number): string {
   return ` Vos dernières modifications (${perdues} ${pluriel(perdues, "question", "questions")}) n'ont pas pu être enregistrées.`;
 }
 
-/** Questionnaire envoyé ou clos : ce qui est affiché au-dessus des réponses. */
+/**
+ * Date limite dépassée (MPQ07) : plus de saisie ni d'envoi tant que le cabinet ne prolonge pas.
+ * Les réponses enregistrées en brouillon restent affichées.
+ */
+export function finEcheance(q: Pick<QuestionnairePortail, "reponse">, perdues = 0): FinSaisie {
+  return {
+    type: "lecture",
+    tonalite: "attention",
+    titre: "Date limite dépassée",
+    message: `La date limite de ce questionnaire est dépassée : il n'accepte plus de réponse. Contactez votre interlocuteur au cabinet pour demander une prolongation.${
+      q.reponse.statut === "brouillon"
+        ? " Les réponses ci-dessous avaient été enregistrées en brouillon, sans être envoyées."
+        : ""
+    }${phrasePerdues(perdues)}`,
+    lien: null,
+  };
+}
+
+/**
+ * Questionnaire envoyé ou clos : ce qui est affiché au-dessus des réponses. Avec `aujourdhui`,
+ * un questionnaire encore ouvert mais dont la date limite est passée affiche l'échéance.
+ */
 export function finLectureSeule(
-  q: Pick<QuestionnairePortail, "mode" | "statut" | "reponse">,
+  q: Pick<QuestionnairePortail, "mode" | "statut" | "reponse"> &
+    Partial<Pick<QuestionnairePortail, "date_limite">>,
   perdues = 0,
+  aujourdhui?: string,
 ): FinSaisie {
   const soumission = texteSoumission(q);
   if (soumission) {
@@ -252,6 +283,14 @@ export function finLectureSeule(
       message: `${soumission} ${collectif ? "Elle n'est plus modifiable." : "Elles ne sont plus modifiables."}${phrasePerdues(perdues)}`,
       lien: null,
     };
+  }
+  if (
+    q.statut === "envoye" &&
+    aujourdhui !== undefined &&
+    q.date_limite &&
+    aujourdhui > q.date_limite
+  ) {
+    return finEcheance(q, perdues);
   }
   return {
     type: "lecture",
@@ -280,6 +319,7 @@ const TITRES_INACCESSIBLE: Partial<Record<IssueRefus, string>> = {
   securite: "Double authentification à activer",
   verrouille: "Questionnaire verrouillé",
   clos: "Questionnaire clos",
+  echeance: "Date limite dépassée",
 };
 
 /**
@@ -376,6 +416,7 @@ export type IssueRefus =
   | "introuvable"
   | "verrouille"
   | "clos"
+  | "echeance"
   | "invalide"
   | "autre";
 
@@ -390,6 +431,7 @@ export function issueRefus(e: unknown): IssueRefus {
     if (e.code === "QUESTIONNAIRE_DEJA_SOUMIS" || e.code === "REPONSE_VERROUILLEE") {
       return "verrouille";
     }
+    if (e.code === "DATE_LIMITE_DEPASSEE") return "echeance";
     return "clos";
   }
   if (e.statut === 400) return "invalide";
@@ -406,7 +448,11 @@ export function delaiNouvelleTentative(tentatives: number): number {
 
 /** L'issue fige-t-elle le questionnaire (lecture seule) ? */
 export const issueBloquante = (issue: IssueRefus) =>
-  issue === "verrouille" || issue === "clos" || issue === "introuvable" || issue === "interdit";
+  issue === "verrouille" ||
+  issue === "clos" ||
+  issue === "echeance" ||
+  issue === "introuvable" ||
+  issue === "interdit";
 
 /** Message affiché pour un refus, selon le moment (sauvegarde du brouillon ou envoi). */
 export function messageRefus(
@@ -439,6 +485,8 @@ export function messageRefus(
         : "Vos réponses ont déjà été envoyées : elles sont verrouillées et ne peuvent plus être modifiées.";
     case "clos":
       return "Le cabinet a clos ce questionnaire : il n'accepte plus de réponse.";
+    case "echeance":
+      return "La date limite de ce questionnaire est dépassée : il n'accepte plus de réponse. Contactez votre interlocuteur au cabinet pour demander une prolongation.";
     case "invalide":
       return moment === "brouillon"
         ? "Certaines réponses ont été refusées : corrigez les questions signalées pour les enregistrer."

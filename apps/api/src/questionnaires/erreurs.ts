@@ -1,6 +1,7 @@
 import { ErreurNotation, ErreurQuestionnaire } from "@missionpilot/engines";
 import { ZodError, type ZodIssue } from "zod";
 import { AppError } from "../errors.js";
+import { ErreurLlm } from "../ia/fournisseur.js";
 
 /*
  * Traduction des erreurs des moteurs (questionnaires, notation) et des
@@ -25,6 +26,21 @@ const SQL: Record<string, [number, string, string]> = {
   ],
   MPQ04: [409, "REPONSE_VERROUILLEE", "Cette réponse ne peut plus être modifiée."],
   MPQ05: [409, "HISTORIQUE_IMMUABLE", "L'historique des relances est en ajout seul."],
+  MPQ06: [
+    409,
+    "HISTORIQUE_IA_IMMUABLE",
+    "L'historique IA du questionnaire est en ajout seul et suit chaque modification.",
+  ],
+  MPQ07: [
+    409,
+    "DATE_LIMITE_DEPASSEE",
+    "La date limite de ce questionnaire est dépassée : contactez le cabinet, qui peut la prolonger.",
+  ],
+  MPQ08: [
+    409,
+    "VALIDATION_IA_REQUISE",
+    "Un contenu proposé par l'IA se valide d'abord par un consultant.",
+  ],
   MPN01: [
     409,
     "NOTATION_IMMUABLE",
@@ -75,6 +91,8 @@ export function traduireErreurQuestionnaires(error: unknown): unknown {
     if (error.details.length > 0) return erreurDetaillee(error.code, error.message, error.details);
     return new AppError(400, error.code, error.message);
   }
+  // Fournisseur IA (messages fixes, sans clé ni contenu) : 502, comme /api/ia/*.
+  if (error instanceof ErreurLlm) return new AppError(502, error.code, error.message);
   if (error instanceof ErreurNotation) {
     if (error.details.length > 0) return erreurDetaillee(error.code, error.message, error.details);
     return new AppError(400, error.code, error.message);

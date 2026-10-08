@@ -14,6 +14,7 @@ import {
   estModifiable,
   finApresEnvoi,
   finInaccessible,
+  finEcheance,
   finLectureSeule,
   hrefReconnexion,
   issueBloquante,
@@ -201,14 +202,17 @@ export function SaisieQuestionnaire({
 
   /** Refus qui met fin à la saisie (verrouillage, clôture, droits) ou message affiché. */
   async function terminer(issue: IssueRefus, e: unknown, moment: "brouillon" | "envoi") {
-    if (issue === "verrouille" || issue === "clos") {
+    if (issue === "verrouille" || issue === "clos" || issue === "echeance") {
       const perdues = nonEnregistrees();
       sauvegarde.bloquer();
       try {
         const vue = await api.get<QuestionnairePortail>(cheminApiQuestionnaire(id), {
           redirigerSi401: false,
         });
-        onFin(finLectureSeule(vue, perdues), vue);
+        onFin(
+          issue === "echeance" ? finEcheance(vue, perdues) : finLectureSeule(vue, perdues),
+          vue,
+        );
       } catch {
         onFin(finInaccessible(issue, mode, perdues));
       }
@@ -309,10 +313,10 @@ export function SaisieQuestionnaire({
         const vue = await api.get<QuestionnairePortail>(cheminApiQuestionnaire(id), {
           redirigerSi401: false,
         });
-        if (!estModifiable(vue)) {
+        if (!estModifiable(vue, aujourdhui)) {
           const perdues = nonEnregistrees();
           sauvegarde.bloquer();
-          onFin(finLectureSeule(vue, perdues), vue);
+          onFin(finLectureSeule(vue, perdues, aujourdhui), vue);
           return;
         }
         const bilan = integrer(vue, {});
@@ -460,11 +464,10 @@ export function SaisieQuestionnaire({
         actualisation={actualisation}
       />
       {ech?.depassee ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Date indicative dépassée">
+        <Alerte tonalite="attention" annonce="aucune" titre="Date limite dépassée">
           <p>
-            La date limite indicative était le {formaterDate(questionnaire.date_limite)}. Vous
-            pouvez encore répondre tant que le questionnaire n&apos;est pas clos par le cabinet :
-            envoyez vos réponses dès que possible.
+            La date limite était le {formaterDate(questionnaire.date_limite)} : le cabinet doit la
+            prolonger pour que vos réponses soient de nouveau acceptées.
           </p>
         </Alerte>
       ) : null}

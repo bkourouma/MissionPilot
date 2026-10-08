@@ -6,6 +6,7 @@ import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
 import { Icone } from "../../../components/ui/Icone";
+import { aPermission } from "@missionpilot/shared";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDateHeure, formaterNombre } from "../../../lib/format";
 import {
@@ -35,6 +36,7 @@ export default async function PageQuestionnaires({
 }) {
   const { utilisateur } = await exigerPermission("questionnaire.lire");
   const gerer = peutGererQuestionnaires(utilisateur.roles);
+  const genererIa = gerer && aPermission(utilisateur.roles, "ia.utiliser");
   const curseur = lireCurseur((await searchParams).curseur);
   const [modeles, gabarits] = await Promise.all([
     chargerServeur<PageQuestionnaires<ModeleResume>>(cheminModeles(curseur)),
@@ -48,10 +50,18 @@ export default async function PageQuestionnaires({
         soustitre="Modèles du cabinet, versionnés : une version validée est figée et s'envoie aux répondants du client depuis l'onglet « Questionnaires » d'une mission."
         actions={
           gerer ? (
-            <Link href="/questionnaires/nouveau" className={classesBouton("primaire")}>
-              <Icone nom="plus" />
-              <span>Nouveau modèle</span>
-            </Link>
+            <>
+              {genererIa ? (
+                <Link href="/questionnaires/generation-ia" className={classesBouton("secondaire")}>
+                  <Icone nom="plus" />
+                  <span>Générer avec l&apos;IA</span>
+                </Link>
+              ) : null}
+              <Link href="/questionnaires/nouveau" className={classesBouton("primaire")}>
+                <Icone nom="plus" />
+                <span>Nouveau modèle</span>
+              </Link>
+            </>
           ) : null
         }
       />

@@ -12,7 +12,7 @@ import {
   type Signature,
 } from "@missionpilot/engines";
 import type { Db } from "../db/pool.js";
-import { conflit } from "../errors.js";
+import { AppError, conflit } from "../errors.js";
 import { paginer } from "../http/outils.js";
 import { aujourdhui } from "../missions/outils.js";
 import { notifier, type NotificationCreee } from "../notifications/notifier.js";
@@ -34,7 +34,9 @@ import { avecPortail, introuvablePortail, type AccesPortail } from "../portail/a
  *    moteur), puis soumission (réponses complètes exigées par le moteur) ;
  *    collectif : réponse partagée, verrouillée à la PREMIÈRE soumission
  *    (moteur `soumettreReponses` et déclencheur MPQ04).
- * 4. Projection explicite : ni auteur interne, ni historique des relances, ni
+ * 4. Date limite appliquée : passée (jour UTC), la saisie et la soumission sont
+ *    refusées (409 DATE_LIMITE_DEPASSEE, MPQ07) jusqu'à prolongation par le cabinet.
+ * 5. Projection explicite : ni auteur interne, ni historique des relances, ni
  *    réponse d'un autre répondant ; la réponse collective est servie sans le
  *    détail des contributeurs.
  */
@@ -164,6 +166,26 @@ function exigerOuvert(envoi: MonEnvoi, reponse: LigneReponse | undefined): void 
   }
   if (envoi.statut !== "envoye")
     throw conflit("Ce questionnaire est clos : il n'accepte plus de réponse.");
+  exigerDansLesDelais(envoi);
+}
+
+/**
+ * Date limite appliquée (MPQ07, migration 0150) : après la date limite (jour
+ * UTC, incluse), ni saisie ni soumission. Le consultant prolonge en repoussant
+ * la date limite de l'envoi (PATCH /api/questionnaires/envois/:id). La base
+ * garde la soumission (déclencheur) ; ce contrôle donne le même refus plus tôt.
+ */
+export function exigerDansLesDelais(
+  envoi: Pick<MonEnvoi, "date_limite">,
+  jour = aujourdhui(),
+): void {
+  if (envoi.date_limite !== null && envoi.date_limite < jour) {
+    throw new AppError(
+      409,
+      "DATE_LIMITE_DEPASSEE",
+      "La date limite de ce questionnaire est dépassée : contactez le cabinet, qui peut la prolonger.",
+    );
+  }
 }
 
 /** Vue servie au client (projection explicite). */

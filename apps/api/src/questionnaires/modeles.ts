@@ -12,6 +12,7 @@ import type { Db } from "../db/pool.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { conflit, introuvable } from "../errors.js";
 import { paginer } from "../http/outils.js";
+import { inscrireModificationIa, lireOrigineIa, validerContenuIa } from "./ia-historique.js";
 
 /*
  * Modèles de questionnaires du cabinet (SOC-10) : code stable, versions
@@ -69,6 +70,14 @@ async function definitionSource(
     return { definition: GABARITS[source.gabarit], origine: "gabarit" };
   const v = await derniereVersion(db, source.modele_id);
   if (!v) throw introuvable("Modèle de questionnaire");
+  // Circuit SOC-11 : la copie d'un contenu proposé par l'IA, non encore validé par un consultant,
+  // serait une version sans historique IA (donc sans validation exigée, MPQ08) : refusée.
+  const ia = await lireOrigineIa(db, v.id);
+  if (ia && ia.statut_contenu !== "valide") {
+    throw conflit(
+      "La dernière version de ce modèle est un contenu proposé par l'IA, non validé : validez-la avant d'en faire une copie.",
+    );
+  }
   return { definition: v.definition, origine: "copie" };
 }
 
@@ -155,7 +164,9 @@ export async function lireVersion(db: Db, id: string, verrouiller = false) {
     [id],
   );
   if (!r.rows[0]) throw introuvable("Version de questionnaire");
-  return r.rows[0] as VersionLue & { code: string; cree_par: string };
+  const version = r.rows[0] as VersionLue & { code: string; cree_par: string };
+  // Origine IA (SOC-11) : statut du contenu et historique, null pour une version rédigée à la main.
+  return { ...version, ia: await lireOrigineIa(db, id) };
 }
 
 /** Nouvelle version brouillon (définition fournie ou copie de la dernière). */
@@ -209,6 +220,7 @@ export async function modifierVersion(
     throw conflit("Cette version est validée : elle est figée, créez une nouvelle version.");
   }
   const def = normaliserDefinition(definition, v.code, v.version);
+  if (v.ia) await inscrireModificationIa(db, auth, id, def);
   await db.query(
     "UPDATE questionnaire_versions SET definition = $2, modifie_par = $3 WHERE id = $1",
     [id, JSON.stringify(def), auth.utilisateurId],
@@ -229,10 +241,12 @@ export async function modifierVersion(
 }
 
 /** Valide une version brouillon : définition revérifiée par le moteur, puis figée. */
-export async function validerVersion(db: Db, auth: Auth, id: string) {
+export async function validerVersion(db: Db, auth: Auth, id: string, acquitteChiffres = false) {
   const v = await lireVersion(db, id, true);
   if (v.statut !== "brouillon") throw conflit("Cette version est déjà validée.");
   exigerDefinitionValide(v.definition);
+  // Version d'origine IA : circuit humain (séparation des tâches, nombres acquittés).
+  if (v.ia) await validerContenuIa(db, auth, id, acquitteChiffres);
   await db.query(
     `UPDATE questionnaire_versions SET statut = 'valide', valide_par = $2, valide_le = now(),
        modifie_par = $2 WHERE id = $1`,

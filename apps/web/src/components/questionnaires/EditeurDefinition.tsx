@@ -29,6 +29,7 @@ import {
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
+import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Icone } from "../ui/Icone";
 import { ApercuQuestionnaire } from "./ApercuQuestionnaire";
@@ -65,6 +66,9 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
   } | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
+  // Version d'origine IA : nombres non issus d'un moteur de calcul, à acquitter avant validation.
+  const chiffresAAcquitter = version.ia?.chiffres_non_verifies === true;
+  const [acquitte, setAcquitte] = useState(false);
   const [enCours, setEnCours] = useState<"enregistrement" | "validation" | null>(null);
   const [tentative, setTentative] = useState(0);
   const [focus, setFocus] = useState<string | null>(null);
@@ -134,11 +138,21 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
   }
 
   async function valider(): Promise<boolean> {
+    if (chiffresAAcquitter && !acquitte) {
+      setErreur(
+        "Des nombres du questionnaire ne viennent pas d'un moteur de calcul : vérifiez-les, puis cochez la case d'acquittement avant de valider.",
+      );
+      setTentative((t) => t + 1);
+      return false;
+    }
     if (modifie && !(await enregistrer())) return false;
     setErreur(null);
     setEnCours("validation");
     try {
-      await api.post(`/api/questionnaires/versions/${encodeURIComponent(version.id)}/valider`);
+      await api.post(
+        `/api/questionnaires/versions/${encodeURIComponent(version.id)}/valider`,
+        chiffresAAcquitter ? { acquitte_chiffres: true } : undefined,
+      );
       setSucces(`Version ${version.version} validée : elle est figée et peut être envoyée.`);
       router.refresh();
       return true;
@@ -152,6 +166,14 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
 
   const barre = (bas: boolean) => (
     <div className="mp-barre-actions">
+      {!bas && chiffresAAcquitter ? (
+        <CaseACocher
+          libelle="J'ai vérifié les nombres cités dans ce questionnaire"
+          aide={`Nombres signalés : ${(version.ia?.nombres_non_verifies ?? []).join(", ") || "voir le texte des questions"}.`}
+          checked={acquitte}
+          onChange={(e) => setAcquitte(e.target.checked)}
+        />
+      ) : null}
       <Bouton
         icone="succes"
         chargement={enCours === "enregistrement"}

@@ -28,6 +28,7 @@ import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi, messageErreur } from "./api";
 import { formaterDate, formaterDateHeure } from "./format";
 import { cheminPage } from "./pagination";
+import type { OrigineIa } from "./questionnaires-ia";
 import { definitionVierge, type Anomalie, type Definition } from "./questionnaires-definition";
 import type { Resultat } from "./saisie";
 
@@ -96,6 +97,8 @@ export interface ModeleDetail {
 export interface VersionDetail extends VersionResume {
   code: string;
   definition: Definition;
+  /** Origine IA (SOC-11) : statut du contenu et historique, `null` si rédigée à la main. */
+  ia?: OrigineIa | null;
 }
 
 export interface ProgressionReponse {
@@ -294,7 +297,7 @@ export function datesEnvoi(
     e.envoye_le
       ? `envoyé le ${formaterDateHeure(e.envoye_le)}`
       : `créé le ${formaterDateHeure(e.cree_le)}`,
-    e.date_limite ? `date limite indicative : ${formaterDate(e.date_limite)}` : null,
+    e.date_limite ? `date limite : ${formaterDate(e.date_limite)}` : null,
     e.clos_le ? `clos le ${formaterDateHeure(e.clos_le)}` : null,
     e.statut === "envoye"
       ? e.relances_auto
