@@ -10,3 +10,4 @@ export * from "./preuves/index";
 export * from "./modulation/index";
 export * from "./autonomie/index";
 export * from "./contribution/index";
+export * from "./dossier/index";

@@ -437,6 +437,57 @@ soit le code appelant).
   ajout seul de 200 changements au plus ; notation non publiée ou d'un autre
   client refusée : `MPS06`, 409 `NOTATION_NON_PUBLIEE`).
 
+## 5 ter. Qualité et responsabilité professionnelle (lot QUA, PRD complémentaire §10)
+
+Code : `apps/api/src/qualite/`, `routes/qualite.ts`, migrations `0280`–`0285` (lettre de domaine
+`Y`, `MPY01`–`MPY07`). Le moteur `packages/engines/src/qualite` juge les gardes ; l'API ne recode
+pas la séparation des tâches.
+
+- **Droits.** Consulter et parcourir : `mission.lire` ET mission visible (404 sinon, comme un
+  livrable d'autrui). Ouvrir un suivi, vérifier la définition de terminé, attester, relever la
+  classe, relecture du chef et second expert : `qualite.relire` ; ouvrir exige en plus la mission
+  modifiable (chef, directeur ou associé, mission non clôturée). Signer, déclarer ou retirer une
+  relation entre clients, décider d'une acceptation : `qualite.signer`. NPS du cabinet : associé seul
+  (`qualite.signer` puis rôle `associe`). Les étapes « validation de l'auteur » et « validation du
+  consultant » n'exigent que l'appartenance à la mission (le rôle consultant n'a pas
+  `qualite.relire`). Aucune route n'est dans `LISTE_BLANCHE_PORTAIL` ; toutes les tables sont
+  `portail_interdit`.
+- **Classe de risque.** Fixée à l'ouverture à la classe minimale du type (rapport R2, notation R3,
+  plan R3, questionnaire R2, état R3, autre R1), relevable, jamais abaissée : 409
+  `CLASSE_SOUS_MINIMALE` / `CLASSE_ABAISSEE`, doublé en base (`MPY02`).
+- **Validation = parcours + définition + garde.** Une étape est refusée (409) si : le suivi n'est pas
+  en revue (`SUIVI_NON_EN_REVUE`), la définition de terminé n'est pas satisfaite
+  (`DEFINITION_NON_SATISFAITE`), le relecteur LUI-MÊME n'a pas parcouru tous les éléments
+  obligatoires (`PARCOURS_INCOMPLET` ; le « vu » d'un autre ne le dispense pas ; le signataire parcourt
+  aussi), ou le moteur `evaluerGarde` relève une violation (`GARDE_VIOLEE`, avec `details.violations` :
+  `AUTEUR_ATTENDU`, `CUMUL_INTERDIT`, `QUATRE_YEUX`…). Étape hors ordre ou non requise : 409. Un acteur
+  non habilité : 403. Le moteur n'a pas de « cumul permis » configuré : un directeur qui relit ne signe
+  pas dans la même garde R3 (réglage de petit cabinet non offert).
+- **Définition de terminé.** Contrôles par du code déterministe (enregistrement du livrable, statut du
+  contenu source, sections présentes, chiffres tracés) ; ce qu'il ne sait pas trancher est
+  `non_evaluable` et ne se règle que par l'attestation motivée d'un humain ; un item non conforme ne
+  s'atteste pas, on corrige le livrable. Les résultats sont en ajout seul. L'agent IA qualité (lot AGT)
+  complètera ces contrôles sans les remplacer.
+- **Signature (QUA-06).** Livrables R2 et R3 validés, par le directeur de la mission ou un associé.
+  L'empreinte SHA-256 porte sur le CONTENU quand le module qualité sait le lire (somme du fichier du
+  rapport, canonique JSON de la version de notation, du plan, du questionnaire), sinon sur le dossier
+  de revue (`portee_empreinte`). Mention de contribution IA : politique du cabinet
+  (`rapports/parametres.ts`, active par défaut). Un livrable signé est figé.
+- **Acceptation (QUA-07).** Conflits calculés par le serveur depuis les relations DÉCLARÉES (même
+  groupe, investisseur et cible, concurrent) et figés dans chaque évaluation ; l'API révèle la raison
+  sociale du client lié et le NOMBRE de ses missions en cours, jamais leur intitulé. Accepter malgré un
+  conflit exige un motif. Détection limitée aux relations déclarées : aucune recherche d'homonymes.
+- **Satisfaction (QUA-08).** Note entière 0–10 saisie par le cabinet ; corrections en nouvelle ligne
+  (dernier rang). Le NPS est calculé par `qualite/nps.ts` (entiers exacts), à déplacer dans les
+  moteurs.
+- **Audit.** Chaque action journalise (`qualite.suivi.ouvrir`, `qualite.verifier`, `qualite.attester`,
+  `qualite.valider`, `qualite.signer`, `qualite.classe.relever`, `qualite.element.vu`,
+  `qualite.session.*`, `qualite.acceptation.evaluer`, `qualite.relation.*`,
+  `qualite.satisfaction.saisir`) sans le texte des commentaires.
+- **Limites connues.** Temps de revue : session plafonnée à 2 h (une session oubliée n'enfle pas le
+  temps) ; pas de revue à froid (QUA-05, V4) ; les modules plans, rapports et notation n'ouvrent pas
+  encore eux-mêmes le suivi (branchement ultérieur par `ouvrirSuivi` et `ajouterElementsRevue`).
+
 ## 6. Confidentialité financière (FIN-02) et historique immuable
 
 - **Champs ABSENTS sans `finance.lire`** (jamais masqués à zéro ni à `null`
@@ -481,6 +532,10 @@ soit le code appelant).
   | `MPK01-07` | champs figés d'un KPI, client de la mission, KPI inactif, date déjà mesurée, ajout seul, date hors suivi, 20 corrections | `0160` |
   | `MPS01-06` | plan en ajout seul et rattachement figé, cohérence des éléments (dépendances, KPI d'objectif : `MPS02`), auteur ≠ valideur, partage d'un contenu non validé, 200 versions du modèle ou changements de lien (`MPS05`), notation liée non publiée ou d'un autre client (`MPS06`) | `0180`–`0184` |
   | `MPR01-02` | rapport de notation ou de plan : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`) | `0131` |
+  | `MPY01-07` | qualité : historiques en ajout seul (`MPY01`), suivi (classe jamais abaissée, statut qui ne recule pas, livrable signé figé : `MPY02`), élément de revue ajouté après validation (`MPY03`), session de revue close une fois (`MPY04`), étape de garde hors état (`MPY05`), signature d'un suivi non validé ou d'une autre version (`MPY06`), relation de clients en double sens (`MPY07`) | `0280`–`0284` |
+  | `MPV01-05` | registre des preuves : historique en ajout seul et champs figés d'une dimension (`MPV01`), cohérence mission, client, document, réponse ou lien (`MPV02`), versions consécutives (`MPV03`), avis d'expert signé par l'auteur de la version (`MPV04`), arbitrage d'une contradiction qui n'est plus courante (`MPV05`) | `0240`–`0242` |
+  | `MPM01-06` | référentiel de méthodes : version publiée et son contenu immuables (`MPM01`), incohérence de propriétaire, de numérotation ou d'identité (`MPM02`), historiques en ajout seul (liaison des missions, validations de dérogation, propositions : `MPM03`), décision de dérogation définitive ou approuvée par son demandeur, quatre yeux (`MPM04`), circuit du comité méthode et relecteur ≠ auteur (`MPM05`), version liée à une mission non publiée, d'un autre cabinet ou plus ancienne (`MPM06`) | `0201`–`0203` |
+  | `MPO01-04` | dossier client : tout en ajout seul (`MPO01`), remplacement d'un fait (même client, catégorie et clé, jamais un fait rejeté) ou d'un état financier (état courant du même exercice, un seul courant par exercice) (`MPO02`), décision sur un enregistrement remplacé ou fait extrait par l'IA confirmé dans sa transaction de création (`MPO03`), lignes d'état ajoutées hors de l'ingestion, acceptation automatique d'un état en écart ou acceptation humaine d'un état en écart sans motif (`MPO04`) | `0220`–`0223` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -621,6 +676,50 @@ soit le code appelant).
   questionnaires (`questionnaires/generation-ia.ts`, §5 bis) appellent
   l'orchestrateur ; ni la notation, ni les plans, ni les rapports ne lancent de
   génération (rédaction assistée non faite).
+- **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0264`,
+  `agents/`, `routes/agents.ts`) : l'orchestrateur reste le SEUL composant qui
+  appelle un modèle ; une exécution d'agent EST une demande de l'orchestrateur
+  (`agents/executions.ts` : `executerAgent`, `enregistrerExecutionAgent`).
+  - **Droits du déclencheur** : `ia.utiliser` et les permissions déclarées par
+    l'agent (`agents_registre.droits`), mission visible ; un agent désactivé
+    (409 `AGENT_INACTIF`) ou une brique en N0 (409 `AUTONOMIE_N0`) n'exécutent
+    rien. Registre standard sans `cabinet_id`, en lecture seule pour le rôle
+    applicatif (politique `lecture`, `REVOKE`) ; un cabinet ne peut que
+    restreindre (`MPG02`).
+  - **Données non fiables** (AGT-07, `ia/donnees-non-fiables.ts`) : une variable
+    déclarée `variablesNonFiables` est masquée, neutralisée (NFKC, invisibles et
+    marques de direction retirés, délimiteurs `<<<`/`>>>` et accolades cassés)
+    puis encadrée (consigne explicite, bloc étiqueté au même identifiant) ; elle
+    ne peut pas figurer dans le message système (400). Les signaux d'injection
+    relevés sont tracés avec l'exécution (signal, pas barrière). Une sortie
+    n'appelle aucun outil (`agents/garde-actions.ts`, `ACTION_DEPUIS_SORTIE`) ;
+    une action modifiante exige un humain qui confirme, ou un événement sur une
+    brique N4 (R0, coupe-circuit levé). Les contrats de sortie n'admettent aucun
+    champ de commande (`ia/sortie-agent.ts`). Tests : `agents-injection.test.ts`,
+    `agents-executions.test.ts`.
+  - **Sorties validées** (AGT-02) : revalidation stricte contre le contrat de
+    l'agent ; une sortie non conforme ne peut qu'être rejetée (409
+    `SORTIE_AGENT_NON_CONFORME`, doublé en base `MPG05`).
+  - **Autonomie** (AGT-03) : promotion en N3 ou N4 par un associé seul
+    (`autonomie.decider`, doublé en base `MPG03`), palier par palier, sur
+    éligibilité du moteur pur ; un incident majeur rétrograde automatiquement en
+    N2 ; coupe-circuit N4 du cabinet (le lever : associé, `MPG03`). Historiques en
+    ajout seul (`MPG01`, `REVOKE UPDATE, DELETE`).
+  - **Non-régression** (AGT-04) : la base refuse l'activation d'une version de
+    prompt doté d'un jeu d'essai, ou le choix d'un modèle pour sa tâche, sans
+    évaluation réussie (`MPG04`, déclencheurs sur `ia_prompt_activations` et
+    `ia_modeles_taches`) ; le premier jeu épingle la version active. Évaluations
+    sur le fournisseur LOCAL déterministe (`ia/fournisseur-local.ts`), aucun
+    appel externe. **Limites** : `routes/ia-prompts.ts` et
+    `routes/ia-parametres.ts` ne traduisent pas encore `MPG04` (réponse 500 au
+    lieu de 409) ; revenir au modèle recommandé n'est pas gardé.
+  - **Transparence** (AGT-09) : agent, brique, niveau effectif, prompt, modèle,
+    mode dégradé (AGT-10), sources, empreinte de l'entrée (jamais l'entrée en
+    clair), décision humaine ; le coût est ABSENT sans `finance.lire` ;
+    contribution (AGT-05) mesurée par le moteur pur, textes non recopiés
+    (empreintes SHA-256). Plafond de coût par mission (AGT-06) vérifié avant
+    l'appel, sans réservation (une estimation de dépassement possible).
+    Toutes les tables `agents_*` et `autonomie_*` sont `portail_interdit`.
 
 ## 8. Fichiers privés
 
@@ -750,6 +849,184 @@ du stockage (§8 bis).
   jamais stocké, servi en pièce jointe (`sandbox`, `nosniff`), téléchargement
   journalisé ; fermé au portail. Pas de limite par utilisateur (seuls les
   sémaphores de rendu, §15).
+
+## 8 ter. Registre des preuves (PRV-01 à PRV-05)
+
+Routes de `routes/preuves.ts`, logique dans `apps/api/src/preuves/`, tables des
+migrations `0240`–`0242`.
+
+- **Droits** : `preuve.lire` (lecture) et `preuve.ecrire` (enregistrer, corriger,
+  lier, délier, arbitrer, déclarer une dimension), plus la visibilité de la
+  mission (`preuves/acces.ts`). Écrire exige une mission visible et NON clôturée
+  (409 `MISSION_CLOTUREE`) mais pas le droit de « modifier » la mission : un
+  membre de l'équipe recueille des preuves. Mission invisible, d'un autre cabinet,
+  preuve ou assertion d'autrui : même 404. Aucune route n'est ouverte au portail
+  client : `portail_interdit` sur les sept tables, aucune entrée dans
+  `LISTE_BLANCHE_PORTAIL`.
+- **Ajout seul** : preuves, assertions, liens et arbitrages ne se modifient ni ne
+  se suppriment (`REVOKE UPDATE, DELETE`, déclencheur `MPV01`, même pour le
+  propriétaire). Une correction est une nouvelle version avec motif, un lien retiré
+  est un événement `delier`, un arbitrage est une décision datée au nom de
+  l'arbitre. Seules les dimensions (libellé, état actif) se modifient. Chaque
+  écriture est journalisée (`preuve.*`, `assertion.*`) sans extrait ni verbatim.
+- **Indice et lecture** : calculés par le moteur (`indiceSolidite`,
+  `contradictionsAArbitrer`, `carteTriangulation`, `detecterAssertionsSansPreuve`)
+  via `preuves/evaluation.ts` ; jamais reçus d'une requête (corps `.strict()`), ni
+  recalculés en SQL ou dans le web. Poids, plafond et seuils : valeurs de départ à
+  calibrer au pilote.
+- **Contradiction résolue** : le dernier arbitrage du couple (assertion, preuve)
+  vise la version COURANTE de la preuve et date d'après le dernier événement de
+  lien (horodatage à la microseconde). Corriger la preuve ou la relier rouvre la
+  contradiction.
+- **Verbatim nominatif** : `nominatif` marque un extrait qui identifie une
+  personne, `accord_nominatif` l'accord de cette personne. Sans accord, l'API
+  masque l'extrait, la source précise et les liens vers la source (`masque: true`)
+  pour tous sauf l'auteur désigné de la preuve, la personne qui l'a saisie et ceux
+  qui modifient la mission (`preuves/vues.ts`, `acces.ts`) ; la recherche libre ne lit pas un
+  verbatim masqué. Le journal ne reçoit jamais l'extrait.
+- **Avis d'expert** : une assertion sans preuve peut être assumée comme avis
+  d'expert, motivé puis signé ; la signature est celle de l'auteur de la version
+  (`MPV04`), serveur seul décide (`signer_avis`), et ne se reporte pas sur la
+  version suivante.
+- **Bornes** (déni de service) : 5 000 preuves, 2 000 assertions et 100
+  dimensions par mission ; 409 `PLAFOND_ATTEINT`. Les synthèses chargent la
+  mission entière dans ces bornes.
+- **API publique pour la revue guidée** (QUA-03) : `assertionsFragilesDeMission`
+  (`preuves/synthese.ts`) et `GET /api/missions/:id/assertions/fragiles`.
+- **Codes d'erreur** : `MISSION_CLOTUREE`, `PLAFOND_ATTEINT`, `DIMENSION_INCONNUE`,
+  `DIMENSION_EXISTANTE`, `PREUVE_INCOHERENTE`, `PREUVE_HISTORIQUE_IMMUABLE`,
+  `PREUVE_VERSION_CONCURRENTE`, `AVIS_EXPERT_INVALIDE`, `ARBITRAGE_INVALIDE`, et les
+  codes du moteur (`PREUVE_INVALIDE`, `ASSERTION_INVALIDE`, `DIMENSION_INVALIDE`,
+  `OPTIONS_INVALIDES`).
+- **Limites connues** : une dimension se désactive mais ne se supprime pas ; la
+  détection automatique des contradictions (agent contradicteur) n'existe pas
+  encore, le lien « contre » est posé par un consultant ; le lien vers un fichier,
+  une réponse ou un document n'est pas encore vérifié contre le droit de lecture du
+  fichier ; PRV-06 (citations dans les livrables) n'est pas faite.
+
+## 8 quater. Dossier client vivant (DOS-01 à DOS-07)
+
+Routes de `routes/dossier-client.ts`, logique dans `apps/api/src/dossier/`, tables
+des migrations `0220`–`0223`, moteurs `packages/engines/src/dossier/`.
+
+- **Droits et visibilité** (règle écrite en tête de `dossier/acces.ts`) :
+  `dossier.lire` pour lire, `dossier.ecrire` pour écrire et exporter, toujours sur
+  un dossier VISIBLE : tout client avec `mission.lire_toutes`, sinon seulement un
+  client dont on voit au moins une mission (directeur, chef, équipe). La fiche
+  client (`clients.lire`) n'ouvre pas le dossier. Dossier invisible, d'un autre
+  cabinet ou inexistant : même 404. Aucune route n'est ouverte au portail client :
+  `portail_interdit` sur les sept tables, aucune entrée dans `LISTE_BLANCHE_PORTAIL`.
+- **Ajout seul** : faits, décisions, facteurs, états, lignes, décisions d'état,
+  instantanés de fiabilité et exports ne se modifient ni ne se suppriment
+  (`REVOKE UPDATE, DELETE`, déclencheurs `MPO01`, même pour le propriétaire). Une
+  correction est un nouveau fait (ou état) qui REMPLACE l'ancien (`MPO02`) ; le
+  statut se dérive (proposé, confirmé, rejeté, remplacé). Chaque écriture est
+  journalisée (`dossier_fait`, `dossier_facteur`, `dossier_etat_financier`) sans
+  la valeur du fait.
+- **Séparation des tâches** : une proposition humaine n'est pas confirmée par son
+  auteur, sauf associé (403 `VALIDATION_REQUISE`, `dossier/faits.ts`) ; l'auteur
+  peut la retirer (rejet motivé). Un fait extrait par l'IA (`origine = 'ia'`) est
+  toujours proposé et ne se confirme jamais dans sa transaction de création
+  (`MPO03`) : donnée SOURCÉE, pas un chiffre produit par l'IA (DECISIONS.md).
+  Accepter un état financier en écart exige un motif (`MPO04`) et un autre membre
+  que l'importateur, sauf associé (`dossier/etats.ts`).
+- **Jamais d'acceptation silencieuse** (DOS-03) : un état n'est accepté
+  automatiquement que si le moteur `controlerEtatFinancier` conclut à
+  `acceptationAutomatique` (aucun écart au-delà de la tolérance ET contrôles requis
+  faisables : équilibre du bilan, résultat au bilan) ; la base le double (`MPO04` :
+  `controles_ok` exigé, décision automatique dans la transaction d'ingestion). Sinon
+  l'état part en revue avec ses constats. Chaque ligne garde sa référence (fichier,
+  cellule Excel ou ligne CSV, page).
+- **Fichiers reçus** : classeur .xlsx (`POST /dossiers/:id/etats-financiers/excel`,
+  multipart encapsulé, `gardeTailleMultipart` avant l'authentification, dossier
+  vérifié AVANT la lecture du corps, `avecPlaceAnalyse` puis lecteur borné
+  `lireClasseurTemps` de `temps/import-excel.ts`) ou CSV en JSON (200 000
+  caractères au plus). Le fichier n'est jamais conservé : nom assaini, empreinte
+  SHA-256 et taille sont tracés avec l'état. Montants lus exactement par le moteur
+  (`lireMontantTexte`, refus plutôt qu'arrondi).
+- **Document cité en source** : un `document_id` doit être lisible par l'auteur
+  (`exigerFichierLisible`, 404 sinon).
+- **FIN-02** : le dossier ne porte que des données DU CLIENT (faits, facteurs, états
+  financiers) ; aucune donnée de coût, taux ou marge du cabinet n'y entre, quelle
+  que soit `finance.lire`. La frise ne projette que libellés et dates, chaque source
+  selon les droits du lecteur (`mission.lire`, `notation.lire`, `kpi.lire`,
+  `plan.lire`, mission visible).
+- **Export** (DOS-07) : `GET /dossiers/:id/export?format=json|zip`
+  (`dossier.ecrire`) ; contenu destiné au client, sans nom ni identifiant de membre
+  du cabinet ; cellules CSV neutralisées contre l'injection de formule ; chaque
+  export est tracé (`dossier_exports` : format, empreinte, taille, volumes) et
+  journalisé (`dossier.exporter`) dans la même transaction ; `no-store`, `nosniff`.
+- **Bornes** (déni de service, export borné) : 5 000 faits, 2 000 valeurs de
+  facteurs et 60 états financiers (1 000 lignes chacun) par dossier, 409
+  `DOSSIER_PLEIN` ; écritures d'un dossier sérialisées par verrou consultatif.
+- **Codes d'erreur** : `VALIDATION_REQUISE`, `DOSSIER_PLEIN`, `DOSSIER_AJOUT_SEUL`,
+  `REMPLACEMENT_INVALIDE`, `DECISION_INVALIDE`, `ACCEPTATION_REFUSEE`,
+  `DEJA_DECIDE`, `DEJA_REMPLACE`, `IMPORT_INVALIDE` (lignes en erreur dans
+  `erreur.details.erreurs`), `EXCEL_INVALIDE`, `FICHIER_TROP_VOLUMINEUX`,
+  `FICHIERS_OCCUPE`, et les codes du moteur (`LIGNES_INVALIDES`,
+  `CODE_LIGNE_INVALIDE`, `CODE_LIGNE_EN_DOUBLE`, `PARENT_INCONNU`,
+  `PARENT_INVALIDE`, `CYCLE_PARENTS`, `ROLE_INVALIDE`, `MONTANT_INVALIDE`,
+  `TOLERANCE_INVALIDE`).
+- **Limites connues** : l'extraction par l'IA depuis un PDF (DOS-03) n'est pas
+  branchée (la colonne `origine` l'accueillera) ; groupes et filiales (DOS-05) hors
+  lot ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
+  visible) ; un fichier cité en source n'est pas protégé de la purge des fichiers
+  orphelins (il doit être rattaché à un document de mission) ; barème de
+  fiabilité et seuils de classe posés par défaut, à calibrer au pilote.
+
+## 8 quinquies. Référentiel de méthodes (STD-01 à STD-12, ADR-004)
+
+- **Standard partagé, lecture seule** (`0200`–`0205`) : les lignes du standard
+  MissionPilot ont `cabinet_id` NULL, sont posées par migration (rôle
+  propriétaire) et lues par tout cabinet par une politique PERMISSIVE
+  `standard_lecture` **FOR SELECT** (`cabinet_id IS NULL AND app_cabinet_id() IS
+  NOT NULL`) ; seule la politique `isolation` admet INSERT, UPDATE et DELETE, et
+  `NULL = app_cabinet_id()` n'est jamais vrai : le rôle applicatif ne crée, ne
+  modifie ni ne supprime aucune ligne du standard (test `standard-referentiel`).
+  Sans contexte de cabinet, rien n'est visible ; le portail ne voit rien
+  (`portail_interdit` sur toutes les tables du lot). Les références croisées
+  (variante → standard, mission → version) passent par des déclencheurs
+  `SECURITY INVOKER` : une ligne d'un autre cabinet est invisible sous RLS, donc
+  refusée comme inexistante (`MPM02`, `MPM06`) ; contenu d'une version : même
+  propriétaire que la version (`MPM02`). Aucune fonction `SECURITY DEFINER`.
+- **Immuabilité** : version publiée et son contenu figés (`MPM01`, même pour le
+  propriétaire) ; une version se crée en brouillon ; `mission_methodes`,
+  `derogation_validations` en ajout seul (`MPM03`, `REVOKE UPDATE, DELETE`) ;
+  dictionnaire, facteurs, services et notes en ajout seul pour le rôle
+  applicatif (`REVOKE UPDATE, DELETE`).
+- **Droits** (`routes/standard.ts`) : `standard.lire` (catalogue, dictionnaire,
+  simulation, contrôle, cas types, tableau des dérogations limité aux missions
+  visibles) ; `standard.gerer` (variante, méthode, brouillon, publication,
+  dictionnaire et notes du cabinet, comité méthode) ; mission : `standard.lire` et
+  mission visible pour lire, plus `mission.planifier` et mission modifiable pour
+  lier, changer le contexte ou migrer ; `methode.deroger` et mission modifiable
+  pour demander une dérogation. Approbation d'une dérogation selon la classe de
+  risque EFFECTIVE de la brique (jamais abaissée) par le moteur `qualite`
+  (`evaluerGarde`) : R0 et R1 approuvées à la demande (garde automatique ou
+  validation de l'auteur) ; R2 relecture du chef ou du directeur de la mission
+  (ou associé) ; R3 en plus revue d'un expert métier et signature du directeur
+  (ou associé), quatre yeux. Le demandeur ne franchit que sa propre étape
+  (`MPM04` en base, 403 `SEPARATION_DES_TACHES` à l'API). Comité méthode :
+  relecteur ≠ auteur (`MPM05`).
+- **Entrées** : règles au schéma `regleModulationSchema` (imbrication bornée
+  avant l'analyse récursive), contexte contrôlé par `validerContexteModulation`
+  (400 `CONTEXTE_INVALIDE`), contenu d'une version borné
+  (`BORNES_VERSION_METHODE` : 50 étapes, 300 briques, 500 éléments, 100
+  rubriques, 500 règles, 100 cas types ; 409 `PLAFOND_ATTEINT`), 200 facteurs
+  par cabinet (verrou consultatif). Les règles ne sont jamais évaluées par l'IA :
+  moteur pur, journal d'application conservé avec la mission.
+- **Codes d'erreur** : `STANDARD_LECTURE_SEULE` (403), `VERSION_PUBLIEE`,
+  `VERSION_INCOHERENTE`, `NOTES_VERSION_REQUISES`, `VARIANTE_EXISTANTE`,
+  `METHODE_DEJA_LIEE`, `VERSION_NON_LIABLE`, `REFERENTIEL_INCOHERENT`,
+  `HISTORIQUE_AJOUT_SEUL`, `DEROGATION_DECIDEE`, `DEROGATION_DECISION_REFUSEE`,
+  `ETAPE_INATTENDUE`, `PROPOSITION_TRANSITION_REFUSEE`, `PLAFOND_ATTEINT` (409) ;
+  `SEPARATION_DES_TACHES`, `RELECTEUR_ATTENDU` (403) ; `CONTEXTE_INVALIDE`,
+  `MOTEUR_INCONNU`, `MODULATION_*` (400).
+- **Limites connues** : le standard ne se publie que par migration (pas d'espace
+  d'administration ACC) ; facteurs portés par le dossier client non encore lus
+  automatiquement (la liaison reçoit le contexte complet) ; seuils d'autonomie par
+  classe (N2 au plus pour R2 et R3, N3 pour R1, N4 pour R0) posés par défaut, à
+  valider.
 
 ## 9. Paiements et webhooks
 

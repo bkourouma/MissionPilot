@@ -38,6 +38,10 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0145–0147`   | notation (`0144` n'est pas utilisé)                                |
   | `0160`        | KPI                                                                |
   | `0180–0184`   | plans stratégiques, modèle financier, diagnostic, KPI d'objectif, dépendances |
+  | `0200–0205`   | référentiel de méthodes (lot STD) : dictionnaire, facteurs, services et notes de contexte (`0200`), méthodes, versions et contenu (`0201`), mission figée, dérogations (`0202`), comité méthode (`0203`), amorçage du standard : dictionnaire (`0204`) et méthodes Notation et Plan stratégique (`0205`) |
+  | `0220–0223`   | dossier client (lot DOS) : faits et décisions (`0220`), facteurs de contexte (`0221`), états financiers, lignes et décisions (`0222`), instantanés de fiabilité et exports (`0223`) |
+  | `0240–0242`   | registre des preuves (lot PRV) : preuves, versions et dimensions (`0240`), assertions et versions (`0241`), liens et arbitrages (`0242`) |
+  | `0280–0285`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`) |
 
   Plages libres : `0151–0159`, `0170–0179`, `0185–0199`. Plages réservées
   pour la suite (vagues 1 à 3 du PRD complémentaire) : `0200–0219` référentiel
@@ -71,7 +75,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   employées : `F` figé (propositions, budget, absences), `T` temps, `B`
   facturation, `E` encaissements et bilans, `D` documents, `C` commentaires,
   `I` IA, `P` portail, `Q` questionnaires, `N` notation, `K` KPI, `S` plans
-  stratégiques, `R` rapports (`MPR01-02`, `0131`). `MPT01` ne désigne plus que
+  stratégiques, `R` rapports (`MPR01-02`, `0131`), `Y` qualité (`MPY01-07`, `0280`–`0284`), `V` preuves (`MPV01-05`, `0240`–`0242`), `O` dossier client (`MPO01-04`, `0220`–`0223`), `G` agents IA (`MPG01-05`, `0260`–`0264`), `M` référentiel de méthodes (`MPM01-06`, `0201`–`0203`). `MPT01` ne désigne plus que
   les feuilles de temps : l'identité figée des tâches assignées est `MPC02`
   (`0076`). Un nouveau code prend un numéro libre de sa lettre (liste :
   `SECURITY.md` §6).
@@ -236,3 +240,10 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
 - **Volume** : deux tests de performance sont sensibles à la charge de la
   machine (seuil de 3 s) : `plan-de-charge-perf.test.ts` et
   `finance-indicateurs-perf.test.ts`.
+- **Dossier client (lot DOS)** : extraction des états financiers par l'IA depuis
+  un PDF non branchée (DOS-03 : saisie, CSV et Excel seulement) ; groupes et
+  filiales (DOS-05) non faits ; le lecteur Excel partagé (`lireClasseurTemps`,
+  `temps/import-excel.ts`) ne rend pas le nom de la feuille lue ni des messages
+  propres aux états financiers (« lignes de temps ») ; listes du dossier bornées
+  par plafond (5 000 faits, 2 000 valeurs de facteurs, 60 états) plutôt que
+  paginées (`dossier/faits.ts`, `facteurs.ts`, `etats.ts`).

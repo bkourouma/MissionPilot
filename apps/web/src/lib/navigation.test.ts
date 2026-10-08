@@ -51,13 +51,13 @@ describe("table de navigation", () => {
     expect(NAVIGATION.find((e) => e.id === "indicateurs")?.disponible).toBe(true);
   });
 
-  it("déclare les rubriques de la vague 1 désactivées tant que leurs écrans n'existent pas", () => {
+  it("déclare les rubriques de la vague 1 (écrans disponibles)", () => {
     const v3 = NAVIGATION.filter((e) => V3.includes(e.id));
     expect(v3.map((e) => [e.id, e.href, e.permission, e.disponible])).toEqual([
-      ["methodes", "/methodes", "standard.lire", false],
-      ["dossiers-clients", "/dossiers-clients", "dossier.lire", false],
-      ["agents-ia", "/agents", "agent.lire", false],
-      ["qualite", "/qualite", "qualite.relire", false],
+      ["methodes", "/methodes", "standard.lire", true],
+      ["dossiers-clients", "/dossiers", "dossier.lire", true],
+      ["agents-ia", "/agents", "agent.lire", true],
+      ["qualite", "/qualite", "qualite.relire", true],
     ]);
     // Jamais dans la barre basse du téléphone : un écran absent n'y prend pas de place.
     for (const role of ROLES) {

@@ -62,6 +62,9 @@ export default async function LayoutMission({
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: `${base}/kpi` }]
       : []),
+    ...(aPermission(utilisateur.roles, "preuve.lire")
+      ? [{ id: "preuves", libelle: "Preuves", href: `${base}/preuves` }]
+      : []),
     ...(aPermission(utilisateur.roles, "budget.lire_jours")
       ? [
           { id: "suivi", libelle: "Suivi", href: `${base}/suivi` },
