@@ -270,6 +270,21 @@ export interface ExportKpi {
   kpis: KpiExporte[];
 }
 
+/** Série par période d'un KPI (`GET /api/missions/:id/kpi/series`, sans audit d'export). */
+export interface KpiSerie {
+  definition: DefinitionKpi;
+  statut: StatutKpi;
+  periodes_total: number;
+  periodes: PeriodeKpiVue[];
+}
+
+export interface SerieKpiMission {
+  mission_id: string;
+  date_reference: string;
+  periodes_max: number;
+  kpis: KpiSerie[];
+}
+
 // --- Règles affichées (rappel des décisions, jamais recalculées ici) --------------------------
 
 /** Seuils de statut par défaut du moteur (DECISIONS.md, KPI-03) : affichage seulement. */
@@ -609,6 +624,8 @@ export const cheminTableauKpi = (missionId: string, date: string | null) =>
   avecRequete(`/api/missions/${seg(missionId)}/kpi/tableau-de-bord`, { date });
 export const cheminExportKpi = (missionId: string, date: string | null) =>
   avecRequete(`/api/missions/${seg(missionId)}/kpi/export`, { date });
+export const cheminSerieKpi = (missionId: string, date: string | null) =>
+  avecRequete(`/api/missions/${seg(missionId)}/kpi/series`, { date });
 export const cheminKpi = (kpiId: string) => `/api/kpi/${seg(kpiId)}`;
 export const cheminCiblesKpi = (kpiId: string) => `/api/kpi/${seg(kpiId)}/cibles`;
 export const cheminContributeursKpi = (kpiId: string) => `/api/kpi/${seg(kpiId)}/contributeurs`;
@@ -963,6 +980,31 @@ export async function chargerExportKpi(missionId: string, date: string | null): 
     throw new ErreurApi(
       "EXPORT_INATTENDU",
       `Le serveur a renvoyé un export dans un format inattendu (attendu : ${FORMAT_EXPORT_KPI}).`,
+      200,
+    );
+  }
+  return donnees;
+}
+
+export function estSerieKpi(v: unknown): v is SerieKpiMission {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as { mission_id?: unknown }).mission_id === "string" &&
+    Array.isArray((v as { kpis?: unknown }).kpis)
+  );
+}
+
+/** Séries par période de la mission à la date d'arrêté (lecture, sans écriture au journal d'export). */
+export async function chargerSerieKpi(
+  missionId: string,
+  date: string | null,
+): Promise<SerieKpiMission> {
+  const donnees = await api.get<unknown>(cheminSerieKpi(missionId, date), { delaiMs: 30_000 });
+  if (!estSerieKpi(donnees)) {
+    throw new ErreurApi(
+      "SERIE_INATTENDUE",
+      "Le serveur a renvoyé les séries dans un format inattendu.",
       200,
     );
   }
