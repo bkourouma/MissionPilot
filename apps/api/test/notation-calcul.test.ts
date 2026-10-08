@@ -230,7 +230,7 @@ describe("calcul par le moteur", () => {
     expect(auteur.json().erreur.code).toBe("SEPARATION_DES_TACHES");
     const associe = await valider(s.a.associe);
     expect(associe.statusCode).toBe(403);
-    expect(associe.json().erreur.code).toBe("EXPERT_METIER_REQUIS");
+    expect(associe.json().erreur.code).toBe("INTERDIT");
     // expert2 modifie le brouillon : il en devient le dernier modificateur.
     const contenu = (await s.expert2.get(`/api/notation/grilles/versions/${versionId}`)).json()
       .contenu as GrilleNotation;

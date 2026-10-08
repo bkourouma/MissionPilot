@@ -11,15 +11,16 @@ export interface ReponseLignes {
 }
 
 /**
- * `PUT` complet des lignes : rejouer la même entrée redonne le même état. L'API ne lit pas
- * d'en-tête `Idempotency-Key` (voir `file-temps.ts`) : la clé de l'entrée n'est pas transmise.
+ * `PUT` complet des lignes, avec la clé d'idempotence de l'entrée (en-tête `Idempotency-Key`) :
+ * l'API n'applique jamais deux fois la même clé, un rejeu tardif n'écrase donc pas une saisie
+ * plus récente (la réponse est alors l'état courant de la feuille, en-tête `Idempotency-Replayed`).
  */
 export function envoyerSaisie(e: SaisieEnAttente): Promise<ReponseLignes> {
   if (!e.charge) return Promise.reject(new Error("Saisie à corriger : rien à envoyer."));
   return api.put<ReponseLignes>(
     `/api/feuilles-temps/${encodeURIComponent(e.feuilleId)}/lignes`,
     e.charge,
-    { delaiMs: 20_000 },
+    { delaiMs: 20_000, entetes: { "Idempotency-Key": e.cle } },
   );
 }
 

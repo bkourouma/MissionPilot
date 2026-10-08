@@ -103,6 +103,9 @@ describe("droits par rôle", () => {
     expect(qui("kpi.saisir")).toEqual(redacteurs);
     expect(qui("plan.valider")).toEqual(responsables);
     expect(qui("kpi.gerer")).toEqual(responsables);
+    // La publication d'une notation est réservée à l'expert métier (NOT-07) : pas même l'associé.
+    expect(qui("notation.publier")).toEqual(["expert_metier"]);
+    expect(qui("notation.gerer")).toContain("associe");
     // La masse salariale et les états financiers du client sont confidentiels.
     for (const role of ["ressources", "gestionnaire", "expert_externe"] as const) {
       for (const p of [

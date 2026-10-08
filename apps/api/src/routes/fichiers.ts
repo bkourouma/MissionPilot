@@ -34,6 +34,51 @@ import { contentDisposition } from "../stockage/nom.js";
 
 const STATUTS_JUSTIFIABLES = ["brouillon", "rejete"];
 
+/** Analyses de fichiers simultanées au plus, par instance de l'API (tampons en mémoire). */
+export const FICHIERS_ANALYSES_SIMULTANEES_MAX = 4;
+/** Analyses simultanées au plus pour un même cabinet : un cabinet ne monopolise pas l'instance. */
+export const FICHIERS_ANALYSES_PAR_CABINET_MAX = 2;
+
+/** Analyses en cours dans cette instance (sémaphore, même principe que `lireClasseurTemps`). */
+let analysesEnCours = 0;
+const analysesParCabinet = new Map<string, number>();
+
+const fichiersOccupe = (message: string) => new AppError(503, "FICHIERS_OCCUPE", message);
+
+/**
+ * Exécute l'ANALYSE d'un fichier DÉJÀ REÇU (détection du type, hachage, écriture) si une place
+ * est libre, sinon 503 `FICHIERS_OCCUPE` : au plus FICHIERS_ANALYSES_SIMULTANEES_MAX analyses
+ * dans l'instance et FICHIERS_ANALYSES_PAR_CABINET_MAX par cabinet. La place n'est occupée que
+ * pendant l'analyse, jamais pendant la lecture du corps multipart (un téléversement lent ne
+ * bloque personne ; sa durée est bornée par le délai de réception de la requête, app.ts). Elle
+ * est prise avant la première attente : le compte est exact entre requêtes ; elle est toujours
+ * rendue.
+ */
+export async function avecPlaceAnalyse<T>(
+  cabinetId: string,
+  travail: () => Promise<T>,
+): Promise<T> {
+  const duCabinet = analysesParCabinet.get(cabinetId) ?? 0;
+  if (analysesEnCours >= FICHIERS_ANALYSES_SIMULTANEES_MAX) {
+    throw fichiersOccupe("Trop de téléversements en cours : réessayer dans quelques instants.");
+  }
+  if (duCabinet >= FICHIERS_ANALYSES_PAR_CABINET_MAX) {
+    throw fichiersOccupe(
+      "Trop de téléversements en cours pour le cabinet : réessayer dans quelques instants.",
+    );
+  }
+  analysesEnCours += 1;
+  analysesParCabinet.set(cabinetId, duCabinet + 1);
+  try {
+    return await travail();
+  } finally {
+    analysesEnCours -= 1;
+    const reste = (analysesParCabinet.get(cabinetId) ?? 1) - 1;
+    if (reste > 0) analysesParCabinet.set(cabinetId, reste);
+    else analysesParCabinet.delete(cabinetId);
+  }
+}
+
 /** Marge de l'enveloppe multipart (frontières, en-têtes de partie) au-delà du fichier. */
 export const MARGE_MULTIPART = 64 * 1024;
 
@@ -78,8 +123,11 @@ export const routesFichiers: FastifyPluginAsync = async (app) => {
   /** Téléverse un fichier, à rattacher ensuite (version de document) dans les 23 h. */
   app.post("/fichiers", { onRequest: gardeTaille }, async (request, reply) => {
     const auth = exiger(request, "document.ecrire");
+    // Corps lu AVANT de prendre une place : la place ne couvre que l'analyse du fichier reçu.
     const recu = await lireTeleversement(request, tailleMax);
-    const fichier = await enregistrerFichier(app, auth, recu);
+    const fichier = await avecPlaceAnalyse(auth.cabinetId, () =>
+      enregistrerFichier(app, auth, recu),
+    );
     reply.status(201);
     return fichier;
   });
@@ -142,29 +190,31 @@ export const routesFichiers: FastifyPluginAsync = async (app) => {
     // Droits contrôlés AVANT de lire le corps, puis revérifiés sous verrou.
     await app.db.withTenant(auth.cabinetId, (db) => exigerDeboursJustifiable(db, auth, id, false));
     const recu = await lireTeleversement(request, tailleMax);
-    await enregistrerFichier(app, auth, recu, {
-      details: { debours_id: id },
-      rattacher: async (db, fichier) => {
-        const debours = await exigerDeboursJustifiable(db, auth, id, true);
-        await db.query(
-          `UPDATE debours SET justificatif_fichier_id = $2, justificatif = NULL,
+    await avecPlaceAnalyse(auth.cabinetId, () =>
+      enregistrerFichier(app, auth, recu, {
+        details: { debours_id: id },
+        rattacher: async (db, fichier) => {
+          const debours = await exigerDeboursJustifiable(db, auth, id, true);
+          await db.query(
+            `UPDATE debours SET justificatif_fichier_id = $2, justificatif = NULL,
                statut = 'brouillon', modifie_le = now() WHERE id = $1`,
-          [id, fichier.id],
-        );
-        await journaliser(db, {
-          cabinetId: auth.cabinetId,
-          utilisateurId: auth.utilisateurId,
-          action: "justificatif",
-          entite: "debours",
-          entiteId: id,
-          details: {
-            mission_id: debours.mission_id,
-            fichier_id: fichier.id,
-            remplace: debours.justificatif_fichier_id ?? null,
-          },
-        });
-      },
-    });
+            [id, fichier.id],
+          );
+          await journaliser(db, {
+            cabinetId: auth.cabinetId,
+            utilisateurId: auth.utilisateurId,
+            action: "justificatif",
+            entite: "debours",
+            entiteId: id,
+            details: {
+              mission_id: debours.mission_id,
+              fichier_id: fichier.id,
+              remplace: debours.justificatif_fichier_id ?? null,
+            },
+          });
+        },
+      }),
+    );
     return app.db.withTenant(auth.cabinetId, async (db) => vueDebours(await exigerDebours(db, id)));
   });
 

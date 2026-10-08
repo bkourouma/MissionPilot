@@ -11,8 +11,8 @@
  *   sans action explicite (« Abandonner »).
  * - Clé d'idempotence par entrée (`cle`, aléatoire) : une entrée n'est retirée qu'après
  *   confirmation de l'API pour CETTE clé, un seul rejeu tourne à la fois (verrou par onglet et,
- *   si le navigateur le permet, entre onglets). L'API ne lit pas encore d'en-tête
- *   `Idempotency-Key` : le rejeu repose sur le fait qu'un `PUT` complet rejoué donne le même état.
+ *   si le navigateur le permet, entre onglets). La clé est transmise à l'API
+ *   (en-tête `Idempotency-Key`, `envoi.ts`) : une saisie déjà appliquée n'est jamais ré-appliquée.
  * - Contenu : identifiants de feuille, de tâches et d'activités, valeurs saisies. Jamais de
  *   jeton, de cookie, de libellé de mission ni de donnée financière.
  */

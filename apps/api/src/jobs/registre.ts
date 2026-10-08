@@ -2,12 +2,14 @@ import type { Database, Db } from "../db/pool.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
 import { loadConfig } from "../config.js";
 import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
+import { creerHandlerConservationIa, TYPE_JOB_CONSERVATION_IA } from "../ia/conservation.js";
 import { creerHandlerIaGeneration, dependancesIaParDefaut } from "../ia/job.js";
 import { creerHandlerSuiviKpi, TYPE_JOB_SUIVI_KPI } from "../kpi/suivi.js";
 import {
   relanceQuestionnaire,
   TYPE_JOB_RELANCE_QUESTIONNAIRE,
 } from "../questionnaires/relances.js";
+import { creerHandlerPurgeRapports, TYPE_JOB_PURGE_RAPPORTS } from "../rapports/purge.js";
 import { stockageDe } from "../stockage/index.js";
 import { creerHandlerPurgeFichiers, TYPE_JOB_PURGE_FICHIERS } from "../stockage/purge.js";
 import { rappelFeuilles, relanceFeuilles } from "../temps/rappels.js";
@@ -65,7 +67,9 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   relance_feuilles: relanceFeuilles,
   [TYPE_JOB_RELANCES]: creerHandlerRelances(),
   [TYPE_JOB_PURGE_FICHIERS]: creerHandlerPurgeFichiers(() => stockageDe(loadConfig())),
+  [TYPE_JOB_PURGE_RAPPORTS]: creerHandlerPurgeRapports(() => stockageDe(loadConfig())), // rapports échus
   ia_generation: creerHandlerIaGeneration(dependancesIaParDefaut), // générations IA en file (ADR-003)
+  [TYPE_JOB_CONSERVATION_IA]: creerHandlerConservationIa(), // anonymisation des textes IA échus
   [TYPE_JOB_RELANCE_QUESTIONNAIRE]: relanceQuestionnaire, // relances J+3 / J+7 (V2)
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
 });
@@ -78,5 +82,6 @@ export function registreAvecStockage(
   return creerRegistre({
     ...Object.fromEntries(base),
     [TYPE_JOB_PURGE_FICHIERS]: creerHandlerPurgeFichiers(stockage),
+    [TYPE_JOB_PURGE_RAPPORTS]: creerHandlerPurgeRapports(stockage),
   });
 }

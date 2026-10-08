@@ -98,6 +98,16 @@ export function originesAcceptees(origineWeb: string, nodeEnv: string | undefine
   return acceptees;
 }
 
+/**
+ * Délai maximal de RÉCEPTION d'une requête entière (en-têtes et corps), en millisecondes.
+ * Fastify le désactive par défaut (0) : un client qui envoie son corps goutte à goutte
+ * garderait la connexion, sa mémoire et son tampon multipart indéfiniment. Cinq minutes
+ * (le défaut de Node) laissent à un fichier du plafond par défaut (15 Mo) un débit
+ * d'environ 50 Ko/s, bien en deçà d'une liaison mobile médiocre. Ne borne pas la durée
+ * du traitement ni de la réponse (rendu PDF, génération IA).
+ */
+export const DELAI_RECEPTION_REQUETE_MS = 300_000;
+
 export async function buildApp(
   config: Config,
   db: Database,
@@ -106,6 +116,7 @@ export async function buildApp(
   const app = Fastify({
     logger: config.NODE_ENV !== "test",
     bodyLimit: 1_048_576,
+    requestTimeout: DELAI_RECEPTION_REQUETE_MS,
   });
   app.decorate("db", db);
   app.decorate("config", config);

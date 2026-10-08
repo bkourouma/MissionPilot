@@ -53,7 +53,10 @@ import { DUREE_INVITATION_JOURS } from "./utilisateurs.js";
  *   (cabinet.gerer + mot de passe et second facteur, alerte des associés).
  */
 
-/** Plafond des listes de gestion (utilisateurs et invitations d'un client). */
+/**
+ * Plafond des listes de gestion (utilisateurs et invitations d'un client) ; au-delà, la réponse
+ * porte `tronque: true` (pas de pagination par curseur : dette connue, CODING_STANDARDS §10).
+ */
 const MAX_LISTE = 500;
 
 const invitationInvalide = () =>
@@ -367,15 +370,20 @@ export const routesPortailGestion: FastifyPluginAsync = async (app) => {
                    WHERE t.utilisateur_id = u.id AND t.active_le IS NOT NULL) AS tfa_active
          FROM utilisateurs_portail up JOIN utilisateurs u ON u.id = up.utilisateur_id
          WHERE up.client_id = $1 ORDER BY lower(u.nom), u.id LIMIT $2`,
-        [client_id, MAX_LISTE],
+        [client_id, MAX_LISTE + 1],
       );
       const i = await db.query(
         `SELECT id, email, roles, expire_le, cree_le FROM invitations
          WHERE client_id = $1 AND acceptee_le IS NULL AND expire_le > now()
          ORDER BY cree_le DESC, id LIMIT $2`,
-        [client_id, MAX_LISTE],
+        [client_id, MAX_LISTE + 1],
       );
-      return { utilisateurs: u.rows, invitations: i.rows };
+      // MAX_LISTE + 1 lignes lues : la troncature n'est plus silencieuse (pas de curseur : dette).
+      return {
+        utilisateurs: u.rows.slice(0, MAX_LISTE),
+        invitations: i.rows.slice(0, MAX_LISTE),
+        tronque: u.rows.length > MAX_LISTE || i.rows.length > MAX_LISTE,
+      };
     });
   });
 

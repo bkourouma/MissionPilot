@@ -121,7 +121,7 @@ export const PERMISSIONS = [
   "questionnaire.lire", // lire les questionnaires et leurs réponses (V2, SOC-10)
   "questionnaire.gerer", // rédiger, valider et envoyer les questionnaires (V2, SOC-10/11)
   "notation.gerer", // piloter une notation : scoring, ajustements motivés (V2, NOT-03/04)
-  "notation.publier", // publier un rapport de notation : revue expert obligatoire (V2, NOT-07)
+  "notation.publier", // publier un rapport de notation : expert_metier SEUL, pas même l'associé (V2, NOT-07)
   "ia.configurer", // clé OpenRouter, modèle par tâche, quotas (V2, ADR-003)
   "ia.utiliser", // lancer une génération IA (brouillon à valider par un humain) (V2)
   "portail.gerer", // inviter et gérer les utilisateurs du portail client (V2, SOC-09)
@@ -157,9 +157,17 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.questionnaires.repondre",
 ] as const satisfies readonly Permission[];
 
-/** Toutes les permissions du CABINET (l'associé les a toutes, aucune permission client). */
+/**
+ * Permissions du CABINET que l'associé ne reçoit PAS avec « tout » : la publication d'une
+ * notation est réservée au rôle expert_metier (NOT-07, DECISIONS.md ; route et déclencheur MPN04).
+ */
+const RESERVEES_A_UN_ROLE: readonly Permission[] = ["notation.publier"];
+
+/** Permissions du CABINET de l'associé : toutes, sauf les réservées et celles du portail client. */
 const TOUS: readonly Permission[] = PERMISSIONS.filter(
-  (p) => !(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).includes(p),
+  (p) =>
+    !(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).includes(p) &&
+    !RESERVEES_A_UN_ROLE.includes(p),
 );
 
 export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {

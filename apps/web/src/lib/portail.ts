@@ -120,7 +120,7 @@ export interface FacturePortail {
 // --- Navigation ----------------------------------------------------------------------------
 
 export interface EntreePortail {
-  id: "accueil" | "missions" | "questionnaires" | "factures" | "securite";
+  id: "accueil" | "missions" | "questionnaires" | "kpi" | "factures" | "securite";
   libelle: string;
   href: string;
   icone: NomIcone;
@@ -150,6 +150,13 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
     href: `${CHEMIN_PORTAIL}/questionnaires`,
     icone: "taches",
     permission: "portail.questionnaires.repondre",
+  },
+  {
+    id: "kpi",
+    libelle: "KPI",
+    href: `${CHEMIN_PORTAIL}/kpi`,
+    icone: "courbe",
+    permission: "portail.kpi.saisir",
   },
   {
     id: "factures",
