@@ -13,7 +13,7 @@ import { rentabilite } from "../finance/analyses.js";
 import { analyserMissions, chargerMissions } from "../finance/donnees.js";
 import { calculerSuiviMission, vueNoeud, type SuiviMission } from "../temps/suivi.js";
 import { PLAFONDS_MODELE, dateAffichee, type Bloc, type Rapport, type Section } from "./modele.js";
-import { niveauDesSections, type NiveauRapport } from "./niveaux.js";
+import { niveauDesSections, type NiveauCumulatif } from "./niveaux.js";
 
 /*
  * Rapport « État d'avancement de mission » (SOC-07, premier rapport réel).
@@ -352,8 +352,8 @@ async function sectionFinance(
 }
 
 /**
- * Contenu du rapport d'état d'avancement d'une mission DÉJÀ contrôlée
- * visible (exigerMissionVisible) dans la transaction `db`, et son niveau
+ * Contenu du rapport d'état d'avancement d'une mission (contrôlée visible, ouverte et dans le
+ * débit de l'utilisateur par l'appelant, routes/rapports.ts `generer`) dans la transaction `db`, et son niveau
  * (calculé d'après les sections incluses : chacune déclare le sien).
  */
 export async function rapportEtatAvancement(
@@ -362,12 +362,12 @@ export async function rapportEtatAvancement(
   missionId: string,
   droits: DroitsRapport,
   aujourdhui: string,
-): Promise<{ rapport: Rapport; niveau: NiveauRapport }> {
+): Promise<{ rapport: Rapport; niveau: NiveauCumulatif }> {
   const m = await lireMission(db, missionId);
   const s = await calculerSuiviMission(db, auth.cabinetId, missionId);
   const sections: Section[] = [];
-  const niveaux: NiveauRapport[] = [];
-  const ajouter = (section: Section, niveau: NiveauRapport) => {
+  const niveaux: NiveauCumulatif[] = [];
+  const ajouter = (section: Section, niveau: NiveauCumulatif) => {
     sections.push(section);
     niveaux.push(niveau);
   };

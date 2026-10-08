@@ -49,6 +49,17 @@ function cadre(pptx: PptxGenJS, r: Rapport, titre: string): Diapo {
     fontFace: POLICE,
   });
   d.slideNumber = { x: 9.1, y: 5.2, w: 0.6, h: 0.3, fontSize: 9, color: GRIS, fontFace: POLICE };
+  if (r.mention_pied) {
+    d.addText(r.mention_pied.replace(/\n/g, " "), {
+      x: 0.4,
+      y: 5.42,
+      w: LARGEUR - 0.8,
+      h: 0.2,
+      fontSize: 7,
+      color: GRIS,
+      fontFace: POLICE,
+    });
+  }
   return d;
 }
 

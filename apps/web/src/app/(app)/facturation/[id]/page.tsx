@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
 import { CarteCommentaires } from "../../../../components/collaboration/CarteCommentaires";
 import { BadgePaiement } from "../../../../components/finance/BadgePaiement";
+import { LienFacturePdf } from "../../../../components/rapports/LienFacturePdf";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../components/ui/Carte";
@@ -116,7 +117,7 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
             s&apos;ouvre dans un nouvel onglet ; utilisez l&apos;impression du navigateur pour
             l&apos;enregistrer en PDF.
           </p>
-          <div>
+          <div className="mp-barre-actions">
             <a
               href={`/api/factures/${encodeURIComponent(f.id)}/document`}
               target="_blank"
@@ -127,6 +128,7 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
               <span>Ouvrir le document</span>
               <span className="mp-visuellement-cache"> (nouvel onglet)</span>
             </a>
+            <LienFacturePdf factureId={f.id} contexte={designationFacture(f).toLowerCase()} />
           </div>
         </div>
       </Carte>

@@ -110,7 +110,16 @@ describe("libellés", () => {
     expect(estNiveauRapport("public")).toBe(false);
     expect(libelleModele("etat_avancement")).toBe("État d'avancement");
     expect(libelleModele("autre")).toBe("Rapport");
+    expect(libelleModele("notation")).toBe("Rapport de notation");
+    expect(libelleModele("plan_strategique")).toBe("Plan stratégique");
     expect(libelleStatutRapport("brouillon")).toBe("Brouillon");
+    expect(libelleStatutRapport("valide")).toBe("Validé");
+    expect(estNiveauRapport("notation")).toBe(true);
+    expect(estNiveauRapport("plan")).toBe(true);
+    expect(NIVEAUX.notation.libelle).toBe("Notation");
+    expect(NIVEAUX.plan.libelle).toBe("Plan stratégique");
+    expect(peutLireNiveau(["associe"], "notation")).toBe(true);
+    expect(peutLireNiveau([], "plan")).toBe(false);
     expect(libelleStatutRapport("xyz")).toBe("Statut non reconnu");
   });
 
