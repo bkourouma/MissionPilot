@@ -24,7 +24,50 @@ const SQL: Record<string, [number, string, string]> = {
     "KPI_TROP_DE_CORRECTIONS",
     "Cette mesure a atteint le nombre maximal de corrections : annulez-la puis saisissez-la à nouveau.",
   ],
+  // Pilotage augmenté (0440-0442) : arbres, revues, décisions, actions correctives.
+  MPK10: [
+    400,
+    "KPI_RATTACHEMENT_INCOHERENT",
+    "Le KPI, l'alerte, la revue ou la décision n'appartient pas à cette mission.",
+  ],
+  MPK11: [409, "KPI_CHAMP_FIGE", "Ce champ est figé : il ne change plus après la création."],
+  MPK12: [
+    400,
+    "KPI_NOEUD_PARENT_INVALIDE",
+    "Le parent du nœud est invalide (autre arbre ou nœud désactivé).",
+  ],
+  MPK13: [
+    409,
+    "KPI_ARBRE_TROP_GRAND",
+    "Un arbre compte au plus 50 nœuds actifs, 200 nœuds au total et 6 niveaux sous la racine.",
+  ],
+  MPK14: [400, "KPI_COEFFICIENT_PRODUIT", "Sous un produit, le coefficient d'un levier est 1."],
+  MPK15: [
+    409,
+    "KPI_NOEUD_NON_DESACTIVABLE",
+    "Désactivez d'abord les enfants du nœud ; la racine ne se désactive pas.",
+  ],
+  MPK16: [409, "KPI_MISSION_CLOTUREE", "La mission est clôturée."],
+  MPK20: [409, "KPI_REVUE_STATUT_INITIAL", "Une revue naît planifiée."],
+  MPK21: [409, "KPI_REVUE_TRANSITION", "Cette revue ne peut pas changer de statut ainsi."],
+  MPK22: [409, "KPI_REVUE_FIGEE", "Le contenu d'une revue tenue est figé."],
+  MPK23: [
+    409,
+    "KPI_REVUE_OUVERTE",
+    "Des décisions ou des actions de la revue sont encore ouvertes.",
+  ],
+  MPK24: [409, "KPI_DECISION_REVUE", "Une décision se prend dans une revue tenue et non clôturée."],
+  MPK25: [409, "KPI_DECISION_TRANSITION", "Cette décision ne peut pas changer de statut ainsi."],
+  MPK26: [409, "KPI_ACTION_TRANSITION", "Cette action ne peut pas changer de statut ainsi."],
+  MPK27: [409, "KPI_ACTION_REVUE", "Une action se rattache à une revue tenue et non clôturée."],
 };
+
+/** Numérotations par mission ou par revue : deux créations simultanées, la seconde réessaie. */
+const NUMEROTATIONS = new Set([
+  "kpi_actions_cabinet_id_mission_id_numero_key",
+  "kpi_revues_cabinet_id_mission_id_numero_key",
+  "kpi_revue_decisions_cabinet_id_revue_id_numero_key",
+]);
 
 /** Contraintes CHECK dont le refus mérite un message propre (sinon message générique). */
 const CONTRAINTES: Record<string, [string, string]> = {
@@ -52,6 +95,13 @@ export function traduireErreurKpi(error: unknown): unknown {
   }
   if (code === "23505" && champ(error, "constraint") === "kpi_mesures_remplace_uniq") {
     return new AppError(409, "CONFLIT", "Cette mesure a déjà été corrigée ou annulée.");
+  }
+  if (code === "23505" && NUMEROTATIONS.has(champ(error, "constraint"))) {
+    return new AppError(
+      409,
+      "CONFLIT",
+      "Une création simultanée a pris le même numéro : réessayez dans un instant.",
+    );
   }
   if (code === "23503") return new AppError(400, "REQUETE_INVALIDE", "Référence inconnue.");
   return error;
