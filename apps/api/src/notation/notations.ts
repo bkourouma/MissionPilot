@@ -1,12 +1,8 @@
 import {
   appliquerAjustement,
   comparerNotations,
-  detecterEcarts,
   donneesRapport,
   initialiserAjustements,
-  noterQuestionnaire,
-  noterRepondants,
-  preparerReponses,
   type DefinitionQuestionnaire,
   type EcartRepondants,
   type GrilleNotation,
@@ -32,7 +28,16 @@ import {
   missionVisibleOu404,
 } from "../questionnaires/acces.js";
 import { reponsesSoumises } from "../questionnaires/envois.js";
+import { calculerV2, type EntreesCalculNotation } from "./calcul.js";
 import { lireVersionGrille } from "./grilles.js";
+import { brancherNotation } from "../qualite/branchements.js";
+import {
+  enregistrerCalculMethode,
+  executerNotationMethode,
+  lireCalculMethode,
+  methodeNotationMission,
+  missionLieeAMethode,
+} from "./via-methode.js";
 
 /*
  * Notation d'une mission (service 1) — RÈGLES (testées dans
@@ -57,6 +62,11 @@ import { lireVersionGrille } from "./grilles.js";
  *    d'un ajustement, ni de la soumission (séparation des tâches stricte).
  *    Les deux règles de publication sont doublées en base (MPN04). Une
  *    version publiée est immuable : toute correction est un nouveau calcul.
+ * 5. Mission liée à une méthode (référentiel, ADR-004) : le calcul est
+ *    exécuté DEPUIS la méthode effective (`via-methode.ts`, mêmes moteurs) et
+ *    la version enregistre la version de méthode et son journal de modulation
+ *    (`notation_versions_methode`, 0206). Sans méthode : chemin V2 inchangé
+ *    (`calcul.ts`).
  */
 
 export interface Notation {
@@ -258,6 +268,7 @@ export async function vueVersion(db: Db, v: VersionChargee) {
   const calculePar = await db.query("SELECT nom FROM utilisateurs WHERE id = $1", [
     v.version.calcule_par,
   ]);
+  const methode = await lireCalculMethode(db, v.version.id);
   return {
     id: v.version.id,
     notation_id: v.version.notation_id,
@@ -273,6 +284,14 @@ export async function vueVersion(db: Db, v: VersionChargee) {
     },
     secteur: v.version.secteur,
     strategie: v.version.strategie,
+    // Calcul depuis le référentiel de méthodes (null : chemin V2, mission sans méthode).
+    methode: methode
+      ? {
+          methode_version_id: methode.methode_version_id,
+          mission_methode_id: methode.mission_methode_id,
+          journal: methode.execution,
+        }
+      : null,
     reponses_utilisees: v.version.reponses_ids.length,
     calcule_par: { id: v.version.calcule_par, nom: calculePar.rows[0]?.nom ?? null },
     calcule_le: v.version.calcule_le,
@@ -365,32 +384,22 @@ export async function calculer(db: Db, auth: Auth, notation: Notation, corps: Ca
   if (corps.secteur !== null && !(grille.secteurs ?? []).some((s) => s.secteur === corps.secteur)) {
     throw requeteInvalide("Ce secteur n'a pas de pondération dans la grille choisie.");
   }
-  const options = {
-    strategie: corps.strategie,
-    ...(corps.secteur ? { secteur: corps.secteur } : {}),
+  const entrees: EntreesCalculNotation = {
+    grille,
+    definition: envoi.definition,
+    collectif: envoi.mode === "collectif",
+    soumises,
+    options: {
+      strategie: corps.strategie,
+      ...(corps.secteur ? { secteur: corps.secteur } : {}),
+    },
   };
+  // Mission liée à une méthode : calcul depuis la méthode effective (mêmes moteurs que la V2).
+  const methode = await methodeNotationMission(db, notation.mission_id);
+  const viaMethode = methode ? executerNotationMethode(methode, entrees) : null;
+  const { resultat, ecarts } = viaMethode ?? calculerV2(entrees);
+  const grilleUtilisee = viaMethode?.grille ?? grille;
   const def = envoi.definition;
-  const collectif = envoi.mode === "collectif";
-  const resultat = collectif
-    ? noterQuestionnaire(grille, def, (soumises[0] as (typeof soumises)[number]).reponses, options)
-    : noterRepondants(
-        grille,
-        soumises.map((s) => {
-          const p = preparerReponses(grille, def, s.reponses);
-          return {
-            repondant: s.repondant_id as string,
-            reponses: p.reponses,
-            nonApplicables: p.nonApplicables,
-          };
-        }),
-        options,
-      );
-  const ecarts = collectif
-    ? []
-    : detecterEcarts(
-        def,
-        soumises.map((s) => ({ repondant: s.repondant_id as string, reponses: s.reponses })),
-      );
   const numero = (precedente?.version.numero ?? 0) + 1;
   const ins = await db.query(
     `INSERT INTO notation_versions (cabinet_id, notation_id, numero, envoi_id, grille_version_id,
@@ -402,7 +411,7 @@ export async function calculer(db: Db, auth: Auth, notation: Notation, corps: Ca
       numero,
       envoi.id,
       corps.grille_version_id,
-      JSON.stringify(grille),
+      JSON.stringify(grilleUtilisee),
       JSON.stringify(def),
       corps.secteur,
       corps.strategie,
@@ -412,6 +421,15 @@ export async function calculer(db: Db, auth: Auth, notation: Notation, corps: Ca
       auth.utilisateurId,
     ],
   );
+  if (methode && viaMethode) {
+    await enregistrerCalculMethode(
+      db,
+      auth.cabinetId,
+      ins.rows[0].id as string,
+      methode,
+      viaMethode.journal,
+    );
+  }
   await journaliser(db, {
     cabinetId: auth.cabinetId,
     utilisateurId: auth.utilisateurId,
@@ -425,6 +443,7 @@ export async function calculer(db: Db, auth: Auth, notation: Notation, corps: Ca
       grille_version_id: corps.grille_version_id,
       score: resultat.score,
       classe: resultat.classe,
+      ...(methode ? { methode_version_id: methode.version.id } : {}),
     },
   });
   return (await chargerVersion(db, notation.id, numero)) as VersionChargee;
@@ -507,6 +526,21 @@ async function evenement(
   return (await chargerVersion(db, notation.id)) as VersionChargee;
 }
 
+/**
+ * Suivi qualité de la version (QUA, classe minimale R3) avec les éléments de la revue guidée :
+ * assertions fragiles de la mission, scores, recommandations candidates de sa méthode.
+ */
+async function brancherQualite(db: Db, auth: Auth, notation: Notation, v: VersionChargee) {
+  const methode = await methodeNotationMission(db, notation.mission_id);
+  return brancherNotation(db, auth, {
+    missionId: notation.mission_id,
+    notationId: notation.id,
+    numero: v.version.numero,
+    etat: v.etat,
+    recommandations: methode?.recommandations ?? [],
+  });
+}
+
 /** Soumission en revue (notation.gerer) : dernière version, brouillon, score global notable. */
 export async function soumettreRevue(db: Db, auth: Auth, notation: Notation) {
   const v = await exigerDerniere(db, notation.id);
@@ -514,7 +548,20 @@ export async function soumettreRevue(db: Db, auth: Auth, notation: Notation) {
   if (!v.etat.notable) {
     throw conflit("Le score global n'est pas notable : complétez les réponses avant la revue.");
   }
-  return evenement(db, auth, notation, v, "soumission", null);
+  const apres = await evenement(db, auth, notation, v, "soumission", null);
+  // La revue qualité (R3 : quatre yeux et signature) s'ouvre avec la revue de la notation.
+  await brancherQualite(db, auth, notation, apres);
+  return apres;
+}
+
+/** Statut du suivi qualité d'une version de notation (null : aucun suivi). */
+async function statutSuiviQualite(db: Db, notationId: string, numero: number) {
+  const r = await db.query(
+    `SELECT statut FROM qualite_suivis
+     WHERE type_livrable = 'notation' AND livrable_id = $1 AND version = $2`,
+    [notationId, numero],
+  );
+  return (r.rows[0]?.statut as string | undefined) ?? null;
 }
 
 /** Renvoi en brouillon (notation.publier, expert métier), motif obligatoire. */
@@ -525,7 +572,12 @@ export async function renvoyer(db: Db, auth: Auth, notation: Notation, motif: st
   return evenement(db, auth, notation, v, "renvoi", motif);
 }
 
-/** Publication (notation.publier, expert métier) avec séparation des tâches stricte. */
+/**
+ * Publication (notation.publier, expert métier) avec séparation des tâches stricte (MPN04).
+ * Mission liée à une méthode (référentiel) : la notation est un livrable R3 et sa publication
+ * exige EN PLUS le suivi qualité de la version SIGNÉ (quatre yeux et signature du directeur,
+ * QUA-04) ; sans méthode, comportement V2 inchangé (le suivi est ouvert à la publication).
+ */
 export async function publier(db: Db, auth: Auth, notation: Notation) {
   exigerExpertMetier(auth, "publie une notation");
   const v = await exigerDerniere(db, notation.id);
@@ -542,7 +594,19 @@ export async function publier(db: Db, auth: Auth, notation: Notation) {
       "L'auteur du calcul, d'un ajustement ou de la soumission ne publie pas la notation : un autre expert doit la relire.",
     );
   }
-  return evenement(db, auth, notation, v, "publication", null);
+  if (await missionLieeAMethode(db, notation.mission_id)) {
+    const statut = await statutSuiviQualite(db, notation.id, v.version.numero);
+    if (statut !== "signe") {
+      throw new AppError(
+        409,
+        "SUIVI_QUALITE_NON_SIGNE",
+        "Notation de classe R3 : sa publication exige le suivi qualité de cette version signé (revue d'un second expert et signature du directeur de mission).",
+      );
+    }
+  }
+  const apres = await evenement(db, auth, notation, v, "publication", null);
+  await brancherQualite(db, auth, notation, apres);
+  return apres;
 }
 
 /**

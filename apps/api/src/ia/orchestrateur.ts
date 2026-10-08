@@ -38,6 +38,7 @@ import {
   type LlmProvider,
   type MessageLlm,
 } from "./fournisseur.js";
+import { encadrerContenuClient, neutraliserContenuClient } from "./donnees-non-fiables.js";
 import { blocChiffres, produireGabarit } from "./gabarits.js";
 import { contexteGarde, verifierChiffres } from "./garde-chiffres.js";
 import { creerMasque } from "./masquage.js";
@@ -56,6 +57,7 @@ import {
   assurerPromptsExemple,
   chargerPrompt,
   chargerPromptActif,
+  extraireVariables,
   rendreGabarit,
   validerSortie,
   variablesAttendues,
@@ -143,6 +145,23 @@ export interface DemandeContenu {
    * sans chiffres de contexte ni source « moteur ».
    */
   exempleSeulement?: boolean;
+  /**
+   * AGT-07 : variables portant un contenu de CLIENT (document, réponse, message),
+   * traitées comme DONNÉES NON FIABLES : masquées puis neutralisées et encadrées
+   * (ia/donnees-non-fiables.ts) avant d'entrer dans le prompt envoyé au modèle.
+   */
+  variablesNonFiables?: readonly string[];
+  /**
+   * AGT-10 : mode dégradé imposé par l'appelant (plafond de mission atteint…) :
+   * gabarit déterministe, aucun appel au modèle ni réservation.
+   */
+  modeDegrade?: boolean;
+  /**
+   * AGT-06 : contrôle de l'appelant exécuté DANS la transaction de préparation, avant la
+   * création de la demande et la réservation de son coût (plafond de coût d'une mission, sous
+   * verrou de la mission) ; peut refuser (erreur) ou imposer le mode dégradé (vrai).
+   */
+  controleAvantReservation?: (db: Db) => Promise<boolean>;
 }
 
 /** Entrée d'une génération, telle que chiffrée dans la charge du job. */
@@ -152,6 +171,9 @@ export const entreeIaSchema = z
     contexteChiffres: z.array(chiffreContexteSchema),
     termesSensibles: z.array(termeSensibleSchema),
     sources: z.array(sourceIaSchema),
+    // Ajouts AGT (facultatifs : une charge de job plus ancienne reste lisible).
+    variablesNonFiables: z.array(z.string()).optional(),
+    modeDegrade: z.boolean().optional(),
   })
   .strict();
 export type EntreeIa = z.infer<typeof entreeIaSchema>;
@@ -216,6 +238,11 @@ function entreeDe(d: DemandeContenu, sources: SourceIa[]): EntreeIa {
     contexteChiffres: [...(d.contexteChiffres ?? [])],
     termesSensibles: [...(d.termesSensibles ?? [])],
     sources,
+    // Clés absentes quand l'appelant ne les fournit pas : empreinte inchangée pour les autres.
+    ...((d.variablesNonFiables ?? []).length > 0
+      ? { variablesNonFiables: [...new Set(d.variablesNonFiables)].sort() }
+      : {}),
+    ...(d.modeDegrade ? { modeDegrade: true } : {}),
   };
 }
 
@@ -287,11 +314,24 @@ async function preparer(
   if (manquantes.length > 0)
     throw requeteInvalide(`Variables manquantes : ${manquantes.join(", ")}.`);
   if (inconnues.length > 0) throw requeteInvalide(`Variables inconnues : ${inconnues.join(", ")}.`);
+  const nonFiablesInconnues = (d.variablesNonFiables ?? []).filter((v) => !attendues.includes(v));
+  if (nonFiablesInconnues.length > 0) {
+    throw requeteInvalide(`Variables non fiables inconnues : ${nonFiablesInconnues.join(", ")}.`);
+  }
+  // AGT-07 : un contenu client n'entre jamais dans les consignes (message système).
+  const systeme = extraireVariables(prompt.gabarit_systeme);
+  if ((d.variablesNonFiables ?? []).some((v) => systeme.includes(v))) {
+    throw requeteInvalide("Un contenu client ne peut pas figurer dans les consignes du prompt.");
+  }
   await exigerQuotaUtilisateur(db, auth, maintenant);
+  const modeDegrade =
+    (d.modeDegrade ?? false) ||
+    (d.controleAvantReservation ? await d.controleAvantReservation(db) : false);
 
-  const entree = entreeDe(d, sources);
+  const entree = entreeDe({ ...d, modeDegrade }, sources);
   const params = await lireParametres(db);
-  const source = params.ia_activee ? sourceCleDisponible(params, deps.config) : null;
+  const source =
+    params.ia_activee && !modeDegrade ? sourceCleDisponible(params, deps.config) : null;
   const estimation =
     source === null
       ? 0
@@ -375,7 +415,12 @@ export interface ResultatExecution {
 }
 
 type RaisonGabarit =
-  "ia_desactivee" | "cle_absente" | "cle_illisible" | "plafond" | "sortie_invalide";
+  | "ia_desactivee"
+  | "cle_absente"
+  | "cle_illisible"
+  | "plafond"
+  | "sortie_invalide"
+  | "mode_degrade";
 
 const solderParDemande = (db: Db, demandeId: string) =>
   db.query("DELETE FROM ia_reservations WHERE demande_id = $1", [demandeId]);
@@ -415,7 +460,9 @@ export async function executerDemande(
     let erreurCode: string | null = null;
     let cle: { cle: string; source: SourceCle } | null = null;
     let plafond = params.plafond_mensuel_micro_usd;
-    if (!params.ia_activee) {
+    if (entree.modeDegrade) {
+      raison = "mode_degrade";
+    } else if (!params.ia_activee) {
       raison = "ia_desactivee";
     } else {
       const resolue = await resoudreCle(db, deps.config, cabinetId);
@@ -482,12 +529,23 @@ export async function executerDemande(
 
   if (!erreurCode && !raison && a.cle) {
     const masque = creerMasque(entree.termesSensibles);
+    const nonFiables = new Set(entree.variablesNonFiables ?? []);
+    // Avec un contenu client, les libellés des chiffres (qui peuvent reprendre un nom saisi par
+    // le client) sont neutralisés eux aussi ; les valeurs viennent des moteurs.
+    const libelle = (l: string) =>
+      masque.masquer(nonFiables.size > 0 ? neutraliserContenuClient(l) : l);
     const chiffresMasques = entree.contexteChiffres.map((c) => ({
       ...c,
-      libelle: masque.masquer(c.libelle),
+      libelle: libelle(c.libelle),
     }));
     const valeurs: Record<string, string> = { chiffres: blocChiffres(chiffresMasques) };
-    for (const [nom, v] of Object.entries(entree.variables)) valeurs[nom] = masque.masquer(v);
+    for (const [nom, v] of Object.entries(entree.variables)) {
+      // AGT-07 : un contenu client est NEUTRALISÉ d'abord (un terme sensible coupé par un
+      // caractère invisible échapperait sinon au masque), puis masqué, puis encadré.
+      valeurs[nom] = nonFiables.has(nom)
+        ? encadrerContenuClient(masque.masquer(neutraliserContenuClient(v)), nom)
+        : masque.masquer(v);
+    }
     const messages: MessageLlm[] = [
       { role: "system" as const, content: rendreGabarit(prompt.gabarit_systeme, valeurs) },
       { role: "user" as const, content: rendreGabarit(prompt.gabarit_utilisateur, valeurs) },

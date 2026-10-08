@@ -19,6 +19,11 @@ export {
   type SurchargeSecteur,
   type GrilleNotation,
 } from "./grille";
+export {
+  appliquerPonderationsContexte,
+  type PonderationContexte,
+  type PonderationAppliquee,
+} from "./ponderations-contexte";
 export { BAREME_CLASSES, classe, rangClasse, type Classe } from "./classes";
 export { scoreQuestion } from "./conversion";
 export {

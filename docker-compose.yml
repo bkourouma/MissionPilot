@@ -3,6 +3,9 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: missionpilot-postgres
+    # Le schéma compte plus de 700 relations : DROP SCHEMA CASCADE (global-setup des tests)
+    # dépasse les 64 verrous par transaction par défaut.
+    command: ["postgres", "-c", "max_locks_per_transaction=256"]
     environment:
       POSTGRES_USER: missionpilot_owner
       POSTGRES_PASSWORD: dev_only_owner_password

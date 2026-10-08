@@ -21,6 +21,7 @@ import {
   pourcentage,
   section,
 } from "./outils.js";
+import { sectionSources } from "./sources.js";
 
 /*
  * Rapport du plan stratégique intégré (PLA-11) : synthèse, diagnostic, SWOT,
@@ -438,6 +439,7 @@ export async function rapportPlan(
       },
     ]),
   );
+  const sources = await sectionSources(db, auth, d.plan.mission_id, "plan");
   return {
     source: {
       missionId: d.plan.mission_id,
@@ -451,7 +453,10 @@ export async function rapportPlan(
       statut: d.pret_pour_client ? "valide" : "brouillon",
       genere_le: aujourdhui,
       confidentiel: false,
-      sections: sections.slice(0, PLAFONDS_MODELE.sections),
+      // L'annexe des sources (PRV-06) est gardée même quand le plafond de sections coupe le reste.
+      sections: sources
+        ? [...sections.slice(0, PLAFONDS_MODELE.sections - 1), sources]
+        : sections.slice(0, PLAFONDS_MODELE.sections),
     },
   };
 }

@@ -4,8 +4,9 @@ import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { AppError, conflit, interdit } from "../errors.js";
 import { exigerMissionVisible } from "../missions/acces.js";
+import { brancherRapport } from "../qualite/branchements.js";
 import { enregistrerFichier, vueFichier } from "../stockage/fichiers.js";
-import type { Rapport } from "./modele.js";
+import { dateAffichee, type Rapport } from "./modele.js";
 import { peutLireNiveau, type NiveauRapport } from "./niveaux.js";
 import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
 
@@ -23,6 +24,10 @@ import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
  *   sa lecture (GET /fichiers/:id) revérifie mission visible, « mission.lire »
  *   et les permissions du niveau à chaque appel ;
  * - journal d'audit.
+ * - suivi qualité du rapport (type `rapport`, classe minimale R2) ouvert avec
+ *   les éléments de la revue guidée : assertions fragiles de la mission,
+ *   chiffres du rapport et leur source, initiatives recommandées
+ *   (qualite/branchements.ts) ;
  * Si la transaction échoue, l'objet écrit dans le stockage est effacé.
  *
  * Source (migration 0131) : `notation_id` / `plan_id` et `version_source`
@@ -44,6 +49,13 @@ const NOMS_FICHIER: Record<ModeleRapport, string> = {
   etat_avancement: "Etat d'avancement",
   notation: "Rapport de notation",
   plan_strategique: "Plan strategique",
+};
+
+/** Libellé du livrable dans le suivi qualité. */
+const LIBELLES_SUIVI: Record<ModeleRapport, string> = {
+  etat_avancement: "État d'avancement",
+  notation: "Rapport de notation",
+  plan_strategique: "Rapport de plan stratégique",
 };
 
 export const COLONNES_RAPPORT = `r.id, r.mission_id, r.modele, r.format, r.statut, r.niveau,
@@ -142,6 +154,12 @@ export async function enregistrerRapport(
           p.source?.version ?? null,
         ]);
         rapport = r.rows[0] as Record<string, unknown>;
+        await brancherRapport(db, auth, {
+          missionId: p.missionId,
+          rapportId: rapport.id as string,
+          libelle: `${LIBELLES_SUIVI[p.modele]} (${p.format.toUpperCase()}) du ${dateAffichee(p.rapport.genere_le)}`,
+          rapport: p.rapport,
+        });
         await journaliser(db, {
           cabinetId: auth.cabinetId,
           utilisateurId: auth.utilisateurId,

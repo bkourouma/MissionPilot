@@ -1,0 +1,142 @@
+/*
+ * Registre des preuves (PRV-01 à PRV-05) : onglet « Preuves » d'une mission. Mobile d'abord, CSS
+ * pur, jetons du thème. La couleur ne porte jamais seule le sens : chaque lecture de solidité, chaque
+ * zone non couverte et chaque contradiction est écrite en toutes lettres.
+ */
+
+.mp-preuves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-preuves p {
+  margin: 0;
+}
+
+.mp-preuves-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-preuve-ligne {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-preuve-ligne__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-preuve-ligne__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-preuve-extrait {
+  margin: 0;
+  padding-left: var(--mp-esp-3);
+  border-left: 3px solid var(--mp-bordure);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.mp-preuve-masquee {
+  font-style: italic;
+}
+
+/* ---------- Solidité ---------- */
+.mp-solidite {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-solidite__indice {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.mp-solidite-explication {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+/* ---------- Triangulation ---------- */
+.mp-triangulation {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-triangulation th,
+.mp-triangulation td {
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  text-align: left;
+  vertical-align: top;
+}
+
+.mp-triangulation thead th {
+  background: var(--mp-surface-2);
+}
+
+.mp-triangulation__vide {
+  background: var(--mp-surface-2);
+  font-weight: 650;
+}
+
+.mp-triangulation__cellule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+/* ---------- Contradictions ---------- */
+.mp-contradiction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-contradiction__duel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-3);
+}
+
+@media (min-width: 960px) {
+  .mp-contradiction__duel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mp-liste-simple {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}

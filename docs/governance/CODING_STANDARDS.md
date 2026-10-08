@@ -2,7 +2,7 @@
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les conventions **observées dans le code** (état de la
-branche `feat/vague-0-reliquats`, 2026-10-08), avec un fichier de référence pour chacune, pas un idéal. Les
+branche `feat/vague-0-reliquats`, 2026-10-08 ; vague 1 intégrée sur `feat/vague-1-fondations`), avec un fichier de référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
 ## 1. Organisation du dépôt
@@ -38,6 +38,11 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0145–0147`   | notation (`0144` n'est pas utilisé)                                |
   | `0160`        | KPI                                                                |
   | `0180–0184`   | plans stratégiques, modèle financier, diagnostic, KPI d'objectif, dépendances |
+  | `0200–0206`   | référentiel de méthodes (lot STD) : dictionnaire, facteurs, services et notes de contexte (`0200`), méthodes, versions et contenu (`0201`), mission figée, dérogations (`0202`), comité méthode (`0203`), amorçage du standard : dictionnaire (`0204`) et méthodes Notation et Plan stratégique (`0205`) ; notation calculée depuis la méthode de la mission (`0206`, intégration de la vague 1 : `notation_versions_methode`) ; durcissements d'audit : garde de publication d'une variante (`0207`, `MPM07-08`), standard visible seulement publié (`0208`), validations exigées pour approuver une dérogation (`0209`) |
+  | `0220–0224`   | dossier client (lot DOS) : faits et décisions (`0220`), facteurs de contexte (`0221`), états financiers, lignes et décisions (`0222`), instantanés de fiabilité et exports (`0223`), acceptation automatique à tolérance nulle seulement (`0224`) |
+  | `0240–0243`   | registre des preuves (lot PRV) : preuves, versions et dimensions (`0240`), assertions et versions (`0241`), liens et arbitrages (`0242`), durcissement d'audit (`0243`, `MPV06-07`) |
+  | `0260–0268`   | agents IA (lot AGT) : registre (`0260`), briques et exécutions (`0261`), autonomie (`0262`), contributions et plafonds (`0263`), jeux d'essai et évaluations de non-régression (`0264`), fournisseur d'évaluation et exécution sous non-régression (`0265`), validation d'une sortie conforme (`0266`), gardes de rôle (`0267`) ; `0268` : `fichier_orphelin` étendu aux références de fichiers des preuves et du dossier client (fonction transversale, numérotée après `0267` parce qu'elle cite des tables créées par `0220`–`0221` et `0240`) |
+  | `0280–0286`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`), durcissement d'audit (`0286`, `MPY08-11`) |
 
   Plages libres : `0151–0159`, `0170–0179`, `0185–0199`. Plages réservées
   pour la suite (vagues 1 à 3 du PRD complémentaire) : `0200–0219` référentiel
@@ -70,8 +75,8 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
 - **Codes SQLSTATE métier** : `MP` + lettre de domaine + numéro. Lettres
   employées : `F` figé (propositions, budget, absences), `T` temps, `B`
   facturation, `E` encaissements et bilans, `D` documents, `C` commentaires,
-  `I` IA, `P` portail, `Q` questionnaires, `N` notation, `K` KPI, `S` plans
-  stratégiques, `R` rapports (`MPR01-02`, `0131`). `MPT01` ne désigne plus que
+  `I` IA, `P` portail, `Q` questionnaires, `N` notation (`MPN01-07`, dont `MPN06-07` du calcul par la méthode, `0206`), `K` KPI, `S` plans
+  stratégiques, `R` rapports (`MPR01-02`, `0131`), `Y` qualité (`MPY01-11`, `0280`–`0286`), `V` preuves (`MPV01-07`, `0240`–`0243`), `O` dossier client (`MPO01-04`, `0220`–`0224`), `G` agents IA (`MPG01-08`, `0260`–`0267`), `M` référentiel de méthodes (`MPM01-08`, `0201`–`0209`). `MPT01` ne désigne plus que
   les feuilles de temps : l'identité figée des tâches assignées est `MPC02`
   (`0076`). Un nouveau code prend un numéro libre de sa lettre (liste :
   `SECURITY.md` §6).
@@ -112,13 +117,19 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   (`nonAuthentifie`, `interdit`, `introuvable`, `requeteInvalide`, `conflit`) dans
   `apps/api/src/errors.ts`. Messages en français, sans donnée sensible.
 - Enveloppe unique `{ "erreur": { "code", "message" } }` (plus `details` pour
-  une erreur Zod, 400) produite par `setErrorHandler` d'`app.ts` ; une erreur
+  une erreur Zod, 400, ou pour une `AppError` qui en porte : champs en LISTE
+  BLANCHE `CHAMPS_DETAILS_PUBLICS` d'`errors.ts` — `violations`, `erreurs`,
+  `manquants` —, tableaux tronqués à 200) produite par `setErrorHandler`
+  d'`app.ts` ; un plugin ne rend pas sa propre réponse d'erreur, il traduit puis
+  relance (modèle `routes/qualite.ts`) ; une erreur
   inattendue répond 500 `ERREUR_INTERNE` et ne journalise que message, code,
   contrainte et table.
 - Les violations PostgreSQL attendues (unicité 23505, référence 23503, SQLSTATE
   `MP…`) se traduisent par `traduireErreursPg` (`db/outils.ts`) ou par la couche
   métier du domaine (`finance/erreurs.ts`, `kpi/erreurs.ts`, `plans/erreurs.ts`,
-  `questionnaires/erreurs.ts`, table `ERREURS_SQL` de `routes/portail.ts`).
+  `questionnaires/erreurs.ts`, `agents/erreurs.ts` (`traduireErreurAgents`,
+  aussi pour `MPG04` des routes `ia-prompts.ts` et `ia-parametres.ts`), table
+  `ERREURS_SQL` de `routes/portail.ts`).
 - Ressource d'un autre cabinet, invisible ou non partagée : 404, jamais 403.
 
 ## 5. Configuration
@@ -180,8 +191,8 @@ Mise en page de droite à gauche : sans objet.
   (`.prettierrc.json`) ; ESLint `typescript-eslint` recommandé, variables
   inutilisées interdites hors préfixe `_`.
 - **Validation** : chaque corps, paramètre ou requête passe par un schéma Zod de
-  `packages/shared/src/schemas`, objets `.strict()` (256 `z.object` vérifiés
-  le 2026-10-08, tous stricts) ; le même schéma sert l'API et le web.
+  `packages/shared/src/schemas`, objets `.strict()` (373 `z.object` vérifiés
+  le 2026-10-08 sur `feat/vague-1-fondations`, tous stricts) ; le même schéma sert l'API et le web.
 - **Listes** : pagination par curseur opaque (`encoderCurseur`,
   `decoderCurseur`, `paginer` dans `apps/api/src/http/outils.ts`), lecture
   `LIMIT n+1`, limite bornée (`limite` 1 à 100, défaut 30, `schemas/facturation.ts`).
@@ -236,3 +247,16 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
 - **Volume** : deux tests de performance sont sensibles à la charge de la
   machine (seuil de 3 s) : `plan-de-charge-perf.test.ts` et
   `finance-indicateurs-perf.test.ts`.
+- **Dossier client (lot DOS)** : extraction des états financiers par l'IA depuis
+  un PDF non branchée (DOS-03 : saisie, CSV et Excel seulement) ; groupes et
+  filiales (DOS-05) non faits ; le lecteur Excel partagé (`lireClasseurTemps`,
+  `temps/import-excel.ts`) ne rend pas le nom de la feuille lue ni des messages
+  propres aux états financiers (« lignes de temps ») ; listes du dossier bornées
+  par plafond (5 000 faits, 2 000 valeurs de facteurs, 60 états) plutôt que
+  paginées (`dossier/faits.ts`, `facteurs.ts`, `etats.ts`).
+- **Vague 1, intégration** (relevé du 2026-10-08) : l'import refusé du dossier
+  (`IMPORT_INVALIDE`, `routes/dossier-client.ts`) rend encore sa réponse d'erreur
+  à la main au lieu d'une `AppError` avec `details.erreurs` ; la citation d'une
+  assertion dans l'annexe des sources (PRV-06, `rapports/sources.ts`) repose sur
+  le texte libre `livrable` ; une définition de terminé « notation » copiée avant
+  le 2026-10-08 garde l'item `notation_publiee` (`qualite/definitions.ts`).

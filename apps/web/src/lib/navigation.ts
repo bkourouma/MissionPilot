@@ -194,6 +194,47 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description:
       "Grilles de notation du cabinet : pondérations par dimension et par secteur, validation par un expert métier.",
   },
+  // Vague 1 (V3) : rubriques déclarées avant leurs écrans, affichées désactivées (aucun lien
+  // mort) ; chaque lot passe `disponible` à `true` quand son écran existe.
+  {
+    id: "methodes",
+    libelle: "Méthodes",
+    href: "/methodes",
+    permission: "standard.lire",
+    disponible: true,
+    icone: "livre",
+    description:
+      "Référentiel de méthodes : briques, facteurs de contexte, règles de modulation et dérogations.",
+  },
+  {
+    id: "dossiers-clients",
+    libelle: "Dossiers clients",
+    libelleCourt: "Dossiers",
+    href: "/dossiers",
+    permission: "dossier.lire",
+    disponible: true,
+    icone: "trombone",
+    description: "Dossier vivant de chaque client : faits datés et sourcés, finances, frise.",
+  },
+  {
+    id: "agents-ia",
+    libelle: "Agents IA",
+    libelleCourt: "Agents",
+    href: "/agents",
+    permission: "agent.lire",
+    disponible: true,
+    icone: "nuage",
+    description: "Équipe d'agents IA : niveaux d'autonomie par brique et contribution mesurée.",
+  },
+  {
+    id: "qualite",
+    libelle: "Qualité",
+    href: "/qualite",
+    permission: "qualite.relire",
+    disponible: true,
+    icone: "signature",
+    description: "Revues guidées, quatre yeux et signature des livrables engageants.",
+  },
   {
     id: "plan-de-charge",
     libelle: "Plan de charge",

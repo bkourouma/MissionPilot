@@ -51,7 +51,11 @@ export interface ReponseLlm {
 }
 
 export interface LlmProvider {
-  readonly nom: "openrouter";
+  /**
+   * « local » : fournisseur déterministe de la machine (ia/fournisseur-local.ts), qui
+   * n'appelle aucun modèle ; sert les évaluations de non-régression (AGT-04).
+   */
+  readonly nom: "openrouter" | "local";
   completer(requete: RequeteLlm): Promise<ReponseLlm>;
 }
 

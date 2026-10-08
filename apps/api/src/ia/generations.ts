@@ -1,4 +1,5 @@
 import { aPermission, type StatutContenu } from "@missionpilot/shared";
+import { avecErreursAgents, sortieNonConforme } from "../agents/erreurs.js";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
@@ -31,7 +32,9 @@ import { chargerPrompt, validerSortie } from "./prompts.js";
  * d'AUCUNE version de la demande, sauf associé (comme les factures,
  * facturation/factures.ts) ; un contenu lié à une mission est validé par son
  * chef, son directeur ou un associé. Des chiffres non vérifiés exigent
- * `acquitte_chiffres: true`.
+ * `acquitte_chiffres: true`. Un contenu issu d'une exécution d'agent dont la
+ * sortie n'est pas conforme au contrat de l'agent (AGT-02) ne se valide pas :
+ * 409 SORTIE_AGENT_NON_CONFORME, doublé en base (0266, MPG06).
  *
  * `statut_contenu` figure dans TOUTES les réponses ; seul « valide » rend un
  * contenu livrable au client (`livrable_client`), et JAMAIS un essai fait
@@ -370,6 +373,11 @@ export async function validerGeneration(db: Db, auth: Auth, id: string, acquitte
       );
     }
   }
+  const nonConforme = await db.query(
+    "SELECT 1 FROM agents_executions WHERE demande_id = $1 AND NOT sortie_valide LIMIT 1",
+    [id],
+  );
+  if (nonConforme.rows[0]) throw sortieNonConforme();
   if (prec.chiffres_non_verifies && !acquitteChiffres) {
     throw new AppError(
       409,
@@ -377,24 +385,26 @@ export async function validerGeneration(db: Db, auth: Auth, id: string, acquitte
       "Des nombres du contenu ne viennent pas des moteurs de calcul : vérifiez-les puis acquittez-les explicitement.",
     );
   }
-  await db.query(
-    `INSERT INTO ia_generations (cabinet_id, demande_id, version, statut_contenu, fournisseur, texte,
+  await avecErreursAgents(() =>
+    db.query(
+      `INSERT INTO ia_generations (cabinet_id, demande_id, version, statut_contenu, fournisseur, texte,
        donnees, sources, gabarit, chiffres_non_verifies, nombres_non_verifies, chiffres_acquittes,
        auteur_id)
      VALUES ($1, $2, $3, 'valide', 'humain', $4, $5, $6, $7, $8, $9, $10, $11)`,
-    [
-      auth.cabinetId,
-      id,
-      prec.version + 1,
-      prec.texte,
-      prec.donnees === null ? null : JSON.stringify(prec.donnees),
-      JSON.stringify(prec.sources),
-      prec.gabarit,
-      prec.chiffres_non_verifies,
-      JSON.stringify(prec.nombres_non_verifies),
-      prec.chiffres_non_verifies && acquitteChiffres,
-      auth.utilisateurId,
-    ],
+      [
+        auth.cabinetId,
+        id,
+        prec.version + 1,
+        prec.texte,
+        prec.donnees === null ? null : JSON.stringify(prec.donnees),
+        JSON.stringify(prec.sources),
+        prec.gabarit,
+        prec.chiffres_non_verifies,
+        JSON.stringify(prec.nombres_non_verifies),
+        prec.chiffres_non_verifies && acquitteChiffres,
+        auth.utilisateurId,
+      ],
+    ),
   );
   await journaliser(db, {
     cabinetId: auth.cabinetId,

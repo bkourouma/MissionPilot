@@ -5,6 +5,7 @@ import {
   iaTestSchema,
   TACHES_IA,
 } from "@missionpilot/shared";
+import { avecErreursAgents } from "../agents/erreurs.js";
 import { journaliser } from "../audit.js";
 import { trousseauDepuisConfig } from "../auth/chiffrement.js";
 import { serviceIdentite, type FacteurConfirme } from "../auth/confirmer-identite.js";
@@ -23,6 +24,7 @@ import {
   fournisseurDepuisConfig,
   type ReponseLlm,
 } from "../ia/fournisseur.js";
+import { reglerEvaluationLocale } from "../ia/evaluation.js";
 import { MODELES_AUTORISES, modeleAutorise } from "../ia/modeles.js";
 import { generationsSimultanees, ISSUES_FACTURABLES } from "../ia/orchestrateur.js";
 import {
@@ -161,12 +163,18 @@ export const routesIaParametres: FastifyPluginAsync = async (app) => {
         if (modele === null) {
           await db.query("DELETE FROM ia_modeles_taches WHERE tache = $1", [tache]);
         } else {
-          await db.query(
-            `INSERT INTO ia_modeles_taches (cabinet_id, tache, modele, modifie_par)
-               VALUES ($1, $2, $3, $4)
-               ON CONFLICT (cabinet_id, tache) DO UPDATE
-                 SET modele = excluded.modele, modifie_par = excluded.modifie_par, modifie_le = now()`,
-            [auth.cabinetId, tache, modele, auth.utilisateurId],
+          // MPG04 (0264, 0265) : un prompt actif doté d'un jeu d'essai n'a pas réussi ce
+          // jeu avec ce modèle → 409 NON_REGRESSION_REQUISE, jamais une 500. Hors
+          // production seulement, une évaluation locale est admise.
+          await reglerEvaluationLocale(db, app.config);
+          await avecErreursAgents(() =>
+            db.query(
+              `INSERT INTO ia_modeles_taches (cabinet_id, tache, modele, modifie_par)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (cabinet_id, tache) DO UPDATE
+                   SET modele = excluded.modele, modifie_par = excluded.modifie_par, modifie_le = now()`,
+              [auth.cabinetId, tache, modele, auth.utilisateurId],
+            ),
           );
         }
       }

@@ -7,9 +7,11 @@ import {
 import { journaliser } from "../audit.js";
 import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
+import { avecErreursAgents, nonRegressionRequise } from "../agents/erreurs.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
+import { reglerEvaluationLocale } from "../ia/evaluation.js";
 import {
   assurerPromptsExemple,
   chargerPrompt,
@@ -21,8 +23,14 @@ import {
  * Prompts versionnés (PRD, « Architecture » ; migration 0101).
  * - GET (ia.utiliser) : un prompt par nom (sa version ACTIVE), ou toutes les
  *   versions d'un nom (`?nom=`), paginé par curseur.
- * - POST (ia.configurer) : nouvelle version (ajout seul), active par défaut.
- * - POST /:id/activer (ia.configurer) : réactive une version existante.
+ * - POST (ia.configurer) : nouvelle version (ajout seul), active par défaut ;
+ *   SAUF si le prompt a un jeu d'essai (AGT-04) : une version neuve n'a encore
+ *   aucune évaluation, elle est donc créée INACTIVE quand `activer` est omis, et
+ *   `activer: true` explicite répond 409 NON_REGRESSION_REQUISE (rien n'est créé).
+ * - POST /:id/activer (ia.configurer) : réactive une version existante ; la base
+ *   refuse une version sans évaluation réussie (MPG04 → 409 NON_REGRESSION_REQUISE) ;
+ *   hors production seulement, une évaluation sur le fournisseur local suffit
+ *   (`reglerEvaluationLocale`, migration 0265).
  * Les prompts « exemple » de base sont semés à la première lecture.
  */
 
@@ -101,6 +109,12 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
   app.post("/ia/prompts", async (request, reply) => {
     const auth = exiger(request, "ia.configurer");
     const p = promptCreationSchema.parse(request.body);
+    // `activer` vaut vrai par défaut dans le schéma : seule sa présence dans le
+    // corps distingue une demande explicite.
+    const activerExplicite =
+      typeof request.body === "object" &&
+      request.body !== null &&
+      (request.body as Record<string, unknown>).activer !== undefined;
     const variables = variablesDuPrompt(p.gabarit_systeme, p.gabarit_utilisateur);
     if (variables.length > 30) throw requeteInvalide("30 variables au plus par prompt.");
     const cree = await app.db.withTenant(auth.cabinetId, async (db) => {
@@ -113,6 +127,16 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
         [p.nom],
       );
       const version = (max.rows[0].v as number) + 1;
+      const jeu = await db.query("SELECT 1 FROM agents_jeux_essai WHERE prompt_nom = $1 LIMIT 1", [
+        p.nom,
+      ]);
+      const sousJeuEssai = jeu.rowCount !== 0;
+      if (sousJeuEssai && p.activer && activerExplicite) {
+        throw nonRegressionRequise(
+          "Ce prompt a un jeu d'essai : créez la version sans l'activer, évaluez-la, puis activez-la.",
+        );
+      }
+      const activer = p.activer && !sousJeuEssai;
       const r = await traduireErreursPg(
         db.query(
           `INSERT INTO ia_prompts (cabinet_id, nom, version, tache, gabarit_systeme,
@@ -135,7 +159,8 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
         { "*": "Une version de ce prompt vient d'être créée : réessayez." },
       );
       const id = r.rows[0].id as string;
-      if (p.activer) {
+      if (activer) {
+        await reglerEvaluationLocale(db, app.config);
         await db.query(
           "INSERT INTO ia_prompt_activations (cabinet_id, nom, prompt_id, active_par) VALUES ($1, $2, $3, $4)",
           [auth.cabinetId, p.nom, id, auth.utilisateurId],
@@ -147,7 +172,7 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
         action: "creation_prompt_ia",
         entite: "ia_prompt",
         entiteId: id,
-        details: { nom: p.nom, version, tache: p.tache, active: p.activer, exemple: p.exemple },
+        details: { nom: p.nom, version, tache: p.tache, active: activer, exemple: p.exemple },
       });
       return lireAvecEtat(db, id);
     });
@@ -160,9 +185,12 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
     promptActivationSchema.parse(request.body ?? {});
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const prompt = await chargerPrompt(db, id);
-      await db.query(
-        "INSERT INTO ia_prompt_activations (cabinet_id, nom, prompt_id, active_par) VALUES ($1, $2, $3, $4)",
-        [auth.cabinetId, prompt.nom, id, auth.utilisateurId],
+      await reglerEvaluationLocale(db, app.config);
+      await avecErreursAgents(() =>
+        db.query(
+          "INSERT INTO ia_prompt_activations (cabinet_id, nom, prompt_id, active_par) VALUES ($1, $2, $3, $4)",
+          [auth.cabinetId, prompt.nom, id, auth.utilisateurId],
+        ),
       );
       await journaliser(db, {
         cabinetId: auth.cabinetId,

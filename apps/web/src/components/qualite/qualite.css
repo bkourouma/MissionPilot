@@ -1,0 +1,189 @@
+/*
+ * Qualité (lot QUA) : suivi des livrables, revue guidée, garde et signature, acceptation de
+ * mission, satisfaction du client. Mobile d'abord, CSS pur, couleurs des jetons (contrastes
+ * vérifiés dans tokens.css). La couleur ne porte jamais seule le sens : chaque statut a son
+ * libellé écrit, chaque progression son texte.
+ */
+
+.mp-qualite__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-qualite__section p,
+.mp-qualite__section ul {
+  margin: 0;
+}
+
+.mp-qualite__groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-qualite__sous-titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 600;
+}
+
+.mp-qualite__actions-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+}
+
+.mp-qualite__item {
+  align-items: flex-start;
+}
+
+.mp-qualite__facteurs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-qualite__facteurs legend {
+  padding: 0 var(--mp-esp-2);
+  font-weight: 600;
+}
+
+.mp-qualite__colonnes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .mp-qualite__colonnes {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* ---------- Progression du parcours ---------- */
+.mp-qualite-progres {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-qualite-progres progress {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--mp-primaire);
+}
+
+/* ---------- Étapes de la garde ---------- */
+.mp-qualite-etapes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  counter-reset: etape;
+}
+
+.mp-qualite-etapes > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+  counter-increment: etape;
+}
+
+.mp-qualite-etapes > li::before {
+  content: counter(etape);
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--mp-surface-2);
+  font-weight: 600;
+}
+
+.mp-qualite-etapes > li[aria-current="step"] {
+  border-color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+}
+
+.mp-qualite-etapes__nom {
+  font-weight: 600;
+}
+
+/* ---------- Signature ---------- */
+.mp-qualite-signature {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-succes);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-succes-fond);
+  color: var(--mp-texte);
+}
+
+.mp-qualite-signature code {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Conflits et satisfaction ---------- */
+.mp-qualite-nps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-2) var(--mp-esp-5);
+}
+
+.mp-qualite-nps__valeur {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.mp-qualite-nps__detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  margin: 0;
+  color: var(--mp-texte-doux);
+}
+
+.mp-qualite__entete-liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+.mp-qualite__filtre {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  text-decoration: none;
+}
+
+.mp-qualite__filtre[aria-current="true"] {
+  border-color: var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  font-weight: 600;
+}
