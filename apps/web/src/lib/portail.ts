@@ -120,7 +120,7 @@ export interface FacturePortail {
 // --- Navigation ----------------------------------------------------------------------------
 
 export interface EntreePortail {
-  id: "accueil" | "missions" | "questionnaires" | "kpi" | "factures" | "securite";
+  id: "accueil" | "missions" | "questionnaires" | "salle" | "kpi" | "factures" | "securite";
   libelle: string;
   href: string;
   icone: NomIcone;
@@ -150,6 +150,14 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
     href: `${CHEMIN_PORTAIL}/questionnaires`,
     icone: "taches",
     permission: "portail.questionnaires.repondre",
+  },
+  {
+    // Salle de mission (CLI-01) : pièces demandées par le cabinet, dépôt depuis le téléphone.
+    id: "salle",
+    libelle: "Documents",
+    href: `${CHEMIN_PORTAIL}/salle`,
+    icone: "trombone",
+    permission: "portail.salle.deposer",
   },
   {
     id: "kpi",

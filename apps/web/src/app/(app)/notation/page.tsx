@@ -10,7 +10,7 @@ import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate } from "../../../lib/format";
-import { libelleFamille } from "../../../lib/notation";
+import { libelleFamille, peutLireNotation } from "../../../lib/notation";
 import {
   cheminGrilles,
   hrefGrille,
@@ -33,7 +33,9 @@ export default async function PageGrillesNotation({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigerLectureNotation();
+  const { utilisateur } = await exigerLectureNotation();
+  // Les écrans liés ont la même garde (lecture des notations) : lien affiché seulement si permis.
+  const voirBanqueEtCalibration = peutLireNotation(utilisateur.roles);
   const curseur = lireCurseurGrilles((await searchParams).curseur);
   const r = await chargerServeur<PageGrilles>(cheminGrilles(curseur));
   const familles = [...new Set(GRILLE_GENERIQUE.dimensions.map((d) => d.famille))];
@@ -44,6 +46,13 @@ export default async function PageGrillesNotation({
         titre="Grilles de notation"
         soustitre="Dimensions, familles et pondérations par secteur qui servent au calcul des notations. Une grille du cabinet ne sert qu'une fois validée par un expert métier."
       />
+
+      {voirBanqueEtCalibration ? (
+        <p>
+          Voir aussi : <Link href="/notation/banque">banque d&apos;items</Link> ·{" "}
+          <Link href="/notation/calibrations">calibration des évaluateurs</Link>
+        </p>
+      ) : null}
 
       <Carte titre="Grille générique MissionPilot">
         <div className="mp-notation__section">

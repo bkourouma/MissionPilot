@@ -301,7 +301,7 @@ describe("contexte RLS du portail posé à chaque transaction (constat n° 1)", 
     expect(direct.client).toBeNull();
   });
 
-  it("la sortie horsContextePortail n'est employée que par l'évaluation des alertes KPI", async () => {
+  it("la sortie horsContextePortail n'est employée que par les alertes KPI et l'accusé de réception", async () => {
     const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src");
     const usages: string[] = [];
     const parcourir = async (dossier: string): Promise<void> => {
@@ -318,8 +318,10 @@ describe("contexte RLS du portail posé à chaque transaction (constat n° 1)", 
       }
     };
     await parcourir(racine);
-    // Toute nouvelle sortie du contexte du portail se justifie ici.
-    expect(usages.sort()).toEqual(["routes/portail-kpi.ts"]);
+    // Toute nouvelle sortie du contexte du portail se justifie ici. Salle de mission : accusé de
+    // réception R0 après un dépôt (lit le coupe-circuit N4, informe l'équipe ; rien n'est
+    // renvoyé au client dans la réponse).
+    expect(usages.sort()).toEqual(["routes/portail-kpi.ts", "salle-mission/accuses.ts"]);
   });
 });
 
@@ -487,10 +489,13 @@ describe("tables lues par le portail : lecture seule (constat n° 3)", () => {
         p.every((x) => x.permissive === "RESTRICTIVE"),
         t,
       ).toBe(true);
+      // fichiers : le portail insère SES seuls fichiers, déposés dans la salle de mission
+      // (`portail_depot`, 0331 : envoye_par = utilisateur du portail de la transaction).
       expect(p.map((x) => `${x.policyname}:${x.cmd}`).sort(), t).toEqual([
         "portail:SELECT",
+        ...(t === "fichiers" ? ["portail_depot:INSERT"] : []),
         "portail_sans_delete:DELETE",
-        "portail_sans_insert:INSERT",
+        ...(t === "fichiers" ? [] : ["portail_sans_insert:INSERT"]),
         "portail_sans_update:UPDATE",
       ]);
     }

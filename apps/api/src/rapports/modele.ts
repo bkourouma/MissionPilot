@@ -110,7 +110,7 @@ export const rapportSchema = z
     statut: z.enum(STATUTS_RAPPORT),
     /** Date de génération, AAAA-MM-JJ. */
     genere_le: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    /** Mention confidentielle (données financières internes, FIN-02). */
+    /** Mention confidentielle (données financières internes FIN-02, dossier de revue KPI). */
     confidentiel: z.boolean(),
     /**
      * Mention de pied de page choisie par le cabinet (contribution de l'IA,

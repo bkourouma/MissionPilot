@@ -17,6 +17,7 @@ import { Bouton } from "../ui/Bouton";
 import {
   cheminGenerationLivrable,
   cheminListeLivrables,
+  filtrerLivrables,
   FORMATS_LIVRABLE,
   FORMATS_LIVRABLE_LIBELLES,
   libelleFormatLivrable,
@@ -33,14 +34,18 @@ import {
 import "./rapports.css";
 
 export interface GenerationLivrableProps {
-  /** « notation » : rapport de la notation publiée ; « plan » : rapport du plan stratégique. */
+  /**
+   * « notation » : rapport de la notation publiée ; « plan » : rapport du plan stratégique ;
+   * « dossier_bancaire » : dossier bancaire d'un plan.
+   */
   type: TypeLivrable;
   /** Identifiant de la notation ou du plan. */
   id: string;
   /** Mission clôturée : génération désactivée, rapports existants toujours listés. */
   cloturee?: boolean;
   /**
-   * Version à rendre (notation : version publiée ; plan : version du modèle financier).
+   * Version à rendre (notation : version publiée ; plan et dossier bancaire : version du modèle
+   * financier).
    * Absente : la dernière publiée (notation), la dernière validée sinon la dernière (plan).
    */
   version?: number | null;
@@ -82,7 +87,7 @@ export function GenerationLivrable({
   const charger = useCallback(async () => {
     try {
       const page = await api.get<PageLivrables>(cheminListeLivrables(type, id));
-      setListe(page.elements);
+      setListe(filtrerLivrables(type, page.elements));
       setErreurListe(null);
     } catch (e) {
       setErreurListe(messageLivrable(type, e));

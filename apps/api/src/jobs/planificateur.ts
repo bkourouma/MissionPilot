@@ -1,4 +1,5 @@
 import { ajouterJours, lundiDeLaSemaine } from "@missionpilot/engines";
+import { planifierDetectionAutomatisation } from "../automatisation/detection.js";
 import type { Database } from "../db/pool.js";
 import { planificationConservationIa } from "../ia/conservation.js";
 import { planificationSuiviKpi } from "../kpi/suivi.js";
@@ -123,6 +124,8 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
     ).rows[0].n as number;
     // Purge des rapports échus : seulement les cabinets ayant un rapport à purger.
     total += await planifierPurgeRapports(db, maintenant);
+    // Détection des événements nés du temps (automatisation, AUT-01) : une par cabinet et par jour.
+    total += await planifierDetectionAutomatisation(db, maintenant);
     return total;
   });
 }

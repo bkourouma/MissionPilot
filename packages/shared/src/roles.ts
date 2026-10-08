@@ -151,6 +151,30 @@ export const PERMISSIONS = [
   "autonomie.decider", // promouvoir une brique de N2 à N3 : décision d'un associé SEUL (AGT-03)
   "qualite.relire", // relire un livrable : chef de mission, second expert R3 (QUA-03, QUA-04)
   "qualite.signer", // signer un livrable R3 : directeur de mission (QUA-04, QUA-06)
+  // --- V3, vague 3 (PRD complémentaire §12) : capitalisation. Visibilité de la mission TOUJOURS
+  // exigée en plus pour ce qui s'y rattache (retours d'expérience, recherche).
+  "connaissance.lire", // recherche unifiée, retours d'expérience, base d'estimation (CAP-01, 02, 07)
+  "competence.gerer", // référentiel de compétences, validation des niveaux déclarés (CAP-06)
+  // Matrice de compétences de TOUS les collaborateurs (niveaux, déclarations en attente, preuves
+  // d'usage) : donnée d'évaluation individuelle, donc alignée sur `competence.gerer` (associé,
+  // directeur de mission, ressources) et NON sur `collaborateurs.lire`, que détiennent aussi
+  // chef de mission et gestionnaire. Les autres rôles ne voient que leur propre vue
+  // (`/capitalisation/competences/moi`, `temps.saisir`). Les temps (centièmes, jours) et les
+  // preuves de la matrice exigent EN PLUS `budget.lire_jours`.
+  "competence.lire",
+  // --- V3, vague 3 (PRD complémentaire §9) : appels d'offres. L'offre financière exige EN PLUS
+  // `finance.lire` (lecture) et `taux.gerer` (écriture), FIN-02.
+  "ao.lire", // lire appels d'offres, banques de CV et de références, offres (AO-01 à AO-08)
+  "ao.gerer", // tenir les banques de CV et de références, rédiger et valider les offres
+  "ao.decider", // décider go ou no-go d'un appel d'offres : associé SEUL (AO-02)
+  // --- V3, vague 2 (PRD complémentaire §13, CLI-01) : salle de mission. Visibilité de la
+  // mission TOUJOURS exigée en plus.
+  "salle.lire", // suivre les demandes documentaires, pièces et dépôts d'une mission (CLI-01)
+  "salle.gerer", // préparer, envoyer, relancer une demande ; accepter ou rejeter une pièce (CLI-01)
+  // --- V3, vague 2 (PRD complémentaire §8, ADR-006) : automatisation. Lever un coupe-circuit
+  // revient à un associé (rôle, doublé en base : MPU02).
+  "automatisation.lire", // catalogue, automatisations du cabinet, simulation, journal (AUT-01 à AUT-06)
+  "automatisation.gerer", // créer, modifier, activer une automatisation ; couper ; annuler (AUT-02 à AUT-06)
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -158,6 +182,7 @@ export const PERMISSIONS = [
   "portail.jalons.valider", // valider un jalon partagé (dirigeant client)
   "portail.kpi.saisir", // saisir les mesures des KPI dont on est contributeur désigné (V2, KPI-02)
   "portail.questionnaires.repondre", // répondre aux questionnaires reçus (V2, SOC-10)
+  "portail.salle.deposer", // déposer les pièces demandées par le cabinet (V3, CLI-01)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -170,6 +195,7 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.jalons.valider",
   "portail.kpi.saisir",
   "portail.questionnaires.repondre",
+  "portail.salle.deposer",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -188,6 +214,9 @@ const TOUS: readonly Permission[] = PERMISSIONS.filter(
 export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   associe: TOUS,
   directeur_mission: [
+    "connaissance.lire",
+    "competence.gerer",
+    "competence.lire",
     "clients.lire",
     "clients.ecrire",
     "collaborateurs.lire",
@@ -239,13 +268,22 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "qualite.relire",
     "qualite.signer",
+    "salle.lire",
+    "salle.gerer",
+    "ao.lire",
+    "ao.gerer",
+    "automatisation.lire",
+    "automatisation.gerer",
   ],
   chef_mission: [
+    "connaissance.lire",
     "clients.lire",
     "collaborateurs.lire",
     "catalogue.lire",
     "pipeline.gerer",
     "mission.lire",
+    "salle.lire",
+    "salle.gerer",
     "mission.creer",
     "mission.planifier",
     "budget.lire_jours",
@@ -282,11 +320,17 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "preuve.ecrire",
     "agent.lire",
     "qualite.relire",
+    "ao.lire",
+    "ao.gerer",
+    "automatisation.lire",
   ],
   consultant: [
+    "connaissance.lire",
     "clients.lire",
     "catalogue.lire",
     "mission.lire",
+    "salle.lire",
+    "salle.gerer",
     "budget.lire_jours",
     "temps.saisir",
     "document.ecrire",
@@ -308,8 +352,12 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "preuve.lire",
     "preuve.ecrire",
     "agent.lire",
+    "ao.lire",
+    "ao.gerer",
   ],
   ressources: [
+    "competence.gerer",
+    "competence.lire",
     "clients.lire",
     "collaborateurs.lire",
     "collaborateurs.ecrire",
@@ -351,11 +399,15 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "export.comptable",
     "commentaire.ecrire",
     "tache.assigner",
+    // Offre financière d'un appel d'offres (AO-07) : avec finance.lire et taux.gerer.
+    "ao.lire",
   ],
   expert_metier: [
+    "connaissance.lire",
     "catalogue.lire",
     "catalogue.ecrire",
     "mission.lire",
+    "salle.lire",
     "temps.saisir",
     "document.ecrire",
     "conges.demander",
@@ -376,6 +428,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "agent.gerer",
     "qualite.relire",
+    "ao.lire",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire"],
   // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;
@@ -387,12 +440,14 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.jalons.valider",
     "portail.kpi.saisir",
     "portail.questionnaires.repondre",
+    "portail.salle.deposer",
   ],
   client_contributeur: [
     "portail.acceder",
     "portail.missions.lire",
     "portail.kpi.saisir",
     "portail.questionnaires.repondre",
+    "portail.salle.deposer",
   ],
   // Investisseur (lecture d'une notation, V3) : profil seulement d'ici là.
   client_investisseur: ["portail.acceder"],

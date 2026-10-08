@@ -54,7 +54,11 @@ import {
   elementsDuModele,
 } from "../missions/decoupage.js";
 import { droitsBudget, slug } from "../missions/outils.js";
+import { traduireErreurCloture } from "../cloture/erreurs.js";
+import { exigerClotureAutorisee } from "../cloture/index.js";
 import { enregistrerBilanCloture } from "../finance/bilan.js";
+import { cloreDemandesDeMission } from "../salle-mission/demandes.js";
+import { traduireErreurSalle } from "../salle-mission/erreurs.js";
 
 const COLONNES = `m.id, m.intitule, m.client_id, cl.raison_sociale AS client_raison_sociale,
   m.type_mission_id, m.opportunite_id, m.proposition_id, m.mission_source_id, m.directeur_id, m.chef_id,
@@ -714,26 +718,38 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
   app.post("/missions/:id/cloturer", async (request) => {
     const auth = exiger(request, "mission.cloturer");
     const { id } = paramsId.parse(request.params);
-    return app.db.withTenant(auth.cabinetId, async (db) => {
-      const mission = await exigerMissionModifiable(db, auth, id);
-      if (mission.statut !== "a_cloturer") throw conflit("La mission doit être « à clôturer ».");
-      await db.query(
-        `UPDATE missions SET statut = 'cloturee', cloturee_le = now(), cloturee_par = $2,
-           modifie_le = now() WHERE id = $1`,
-        [id, auth.utilisateurId],
-      );
-      // Bilan de rentabilité archivé (snapshot immuable, finance/bilan.ts).
-      await enregistrerBilanCloture(db, auth, id);
-      await journaliser(db, {
-        cabinetId: auth.cabinetId,
-        utilisateurId: auth.utilisateurId,
-        action: "cloture",
-        entite: "mission",
-        entiteId: id,
-        details: {},
+    try {
+      return await app.db.withTenant(auth.cabinetId, async (db) => {
+        const mission = await exigerMissionModifiable(db, auth, id);
+        if (mission.statut !== "a_cloturer") throw conflit("La mission doit être « à clôturer ».");
+        // Check-list de clôture (AUT-08) : 409 CLOTURE_BLOQUEE tant qu'un item bloquant est non
+        // conforme ; 409 DEROGATION_PAR_CLOTUREUR si le clôtureur (non associé) a accordé une
+        // dérogation (séparation des tâches, MPX03).
+        await exigerClotureAutorisee(db, auth, id);
+        // Salle de mission (CLI-01) : les demandes envoyées se closent d'abord, dans la même
+        // transaction (plus aucun dépôt possible ; le déclencheur MPL06 l'exige).
+        const demandesCloses = await cloreDemandesDeMission(db, auth, id);
+        await db.query(
+          `UPDATE missions SET statut = 'cloturee', cloturee_le = now(), cloturee_par = $2,
+             modifie_le = now() WHERE id = $1`,
+          [id, auth.utilisateurId],
+        );
+        // Bilan de rentabilité archivé (snapshot immuable, finance/bilan.ts).
+        await enregistrerBilanCloture(db, auth, id);
+        await journaliser(db, {
+          cabinetId: auth.cabinetId,
+          utilisateurId: auth.utilisateurId,
+          action: "cloture",
+          entite: "mission",
+          entiteId: id,
+          details: demandesCloses > 0 ? { demandes_salle_closes: demandesCloses } : {},
+        });
+        return lireMission(db, id);
       });
-      return lireMission(db, id);
-    });
+    } catch (error) {
+      // SQLSTATE de la clôture (MPX…) et de la salle (MPL…) : jamais un 500.
+      throw traduireErreurSalle(traduireErreurCloture(error));
+    }
   });
 
   app.post("/missions/:id/dupliquer", async (request, reply) => {

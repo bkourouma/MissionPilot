@@ -29,6 +29,8 @@ describe("table de navigation", () => {
       "Missions",
       "Mes tâches",
       "Pipeline",
+      "Appels d'offres",
+      "Banques et offres",
       "Clients",
       "Collaborateurs",
       "Catalogue",
@@ -38,7 +40,9 @@ describe("table de navigation", () => {
       "Dossiers clients",
       "Agents IA",
       "Qualité",
+      "Connaissances",
       "Plan de charge",
+      "Prévisions",
       "Facturation",
       "Finance",
       "Indicateurs",
@@ -87,6 +91,8 @@ describe("entreesAutorisees", () => {
       "feuille-de-temps",
       "missions",
       "mes-taches",
+      "appels-offres",
+      "banques-ao",
       "clients",
       "catalogue",
       "questionnaires",
@@ -94,7 +100,17 @@ describe("entreesAutorisees", () => {
       "methodes",
       "dossiers-clients",
       "agents-ia",
+      "connaissances",
     ]);
+  });
+
+  it("rubrique Connaissances : ni chef ni gestionnaire par collaborateurs.lire (matrice de tous)", () => {
+    // La matrice exige competence.lire : la rubrique s'ouvre par connaissance.lire (chef,
+    // consultant, expert), competence.lire ou competence.gerer (ressources) ou standard.gerer.
+    expect(ids(["chef_mission"])).toContain("connaissances");
+    expect(ids(["ressources"])).toContain("connaissances");
+    expect(ids(["gestionnaire"])).not.toContain("connaissances");
+    expect(ids(["expert_externe"])).not.toContain("connaissances");
   });
 
   it("ouvre les collaborateurs aux ressources et au gestionnaire, pas au consultant", () => {
@@ -344,5 +360,17 @@ describe("finance V1 : facturation, finance et indicateurs", () => {
     const fin = sousPagesAutorisees("finance", ["associe"]);
     expect(sousPageActive(fin, "/finance/rentabilite")).toBe("rentabilite");
     expect(sousPageActive(fin, "/finance/export")).toBe("export");
+  });
+});
+
+describe("appels d'offres (lot AO-A)", () => {
+  it("ouvre la rubrique à qui lit les appels d'offres, ni aux ressources ni à l'expert externe", () => {
+    const e = NAVIGATION.find((x) => x.id === "appels-offres");
+    expect([e?.href, e?.permission, e?.disponible]).toEqual(["/appels-offres", "ao.lire", true]);
+    for (const role of ["associe", "chef_mission", "consultant", "gestionnaire"] as const) {
+      expect(ids([role])).toContain("appels-offres");
+    }
+    expect(ids(["ressources"])).not.toContain("appels-offres");
+    expect(ids(["expert_externe"])).not.toContain("appels-offres");
   });
 });

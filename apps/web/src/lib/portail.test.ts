@@ -44,6 +44,7 @@ describe("droits et navigation du portail", () => {
       "accueil",
       "missions",
       "questionnaires",
+      "salle",
       "kpi",
       "factures",
       "securite",
@@ -52,10 +53,17 @@ describe("droits et navigation du portail", () => {
       "accueil",
       "missions",
       "questionnaires",
+      "salle",
       "kpi",
       "securite",
     ]);
     expect(entreesPortail(INVESTISSEUR).map((e) => e.id)).toEqual(["accueil", "securite"]);
+  });
+
+  it("le libellé « Documents » est écrit en clair, sans césure conditionnelle (U+00AD)", () => {
+    const salle = entreesPortail(DIRIGEANT).find((e) => e.id === "salle");
+    expect(salle?.libelle).toBe("Documents");
+    expect(salle?.libelle).not.toContain("­");
   });
 
   it("seul le dirigeant valide un jalon ; aucun rôle du cabinet ni rôle inconnu n'a de droit portail", () => {

@@ -25,6 +25,8 @@ import { assainirNom, extensionDe, nomAvecExtension } from "./nom.js";
  * - rattaché à une version de document : « mission.lire » et mission visible ;
  * - justificatif d'un débours : débours visible (auteur, ou qui voit les
  *   débours de la mission) ;
+ * - cité par un dépôt de la salle de mission ou une pièce non retirée d'une référence d'appel
+ *   d'offres (sans document ni débours) : traité comme rattaché, donc 404 ici (routes dédiées) ;
  * - non rattaché (orphelin) : son seul auteur, pendant sa durée de vie ;
  * - marqué supprimé : plus personne.
  */
@@ -248,6 +250,17 @@ export async function exigerFichierLisible(db: Db, auth: Auth, id: string): Prom
   );
   const debours = await db.query("SELECT id FROM debours WHERE justificatif_fichier_id = $1", [id]);
   if (documents.rows.length === 0 && debours.rows.length === 0) {
+    // Cité par un dépôt de la salle de mission ou une pièce justificative non retirée d'une
+    // référence d'appel d'offres : le fichier est rattaché ; il se lit par SA route dédiée
+    // (salle : GET /missions/:id/salle/depots/:depotId/fichier), jamais ici, pas même par son
+    // auteur (qui n'a aucun droit sur la mission ni sur la banque par cette seule voie).
+    const cite = await db.query(
+      `SELECT EXISTS (SELECT 1 FROM salle_depots x WHERE x.fichier_id = $1)
+           OR EXISTS (SELECT 1 FROM ao_attestations a
+                      WHERE a.fichier_id = $1 AND a.retiree_le IS NULL) AS cite`,
+      [id],
+    );
+    if (cite.rows[0].cite === true) throw introuvable("Fichier");
     if (f.envoye_par === auth.utilisateurId) return f;
     throw introuvable("Fichier");
   }

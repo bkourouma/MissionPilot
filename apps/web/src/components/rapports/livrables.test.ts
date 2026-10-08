@@ -5,6 +5,7 @@ import {
   cheminGenerationLivrable,
   cheminListeLivrables,
   estFormatLivrable,
+  filtrerLivrables,
   hrefFacturePdf,
   libelleFormatLivrable,
   libelleStatutLivrable,
@@ -12,6 +13,7 @@ import {
   messageLivrable,
   messageLivrableCree,
   type LivrableCree,
+  type RapportLivrable,
 } from "./livrables";
 
 const ID = "3f2c9a4e-8d1b-4c6a-9e0f-1a2b3c4d5e6f";
@@ -32,6 +34,18 @@ describe("chemins des rapports de service", () => {
     expect(cheminGenerationLivrable("plan", "a/../b", "pdf")).toBe(
       "/api/plans/a%2F..%2Fb/rapports?format=pdf",
     );
+  });
+
+  it("dossier bancaire : route dédiée du plan, liste filtrée sur son modèle", () => {
+    expect(cheminGenerationLivrable("dossier_bancaire", ID, "docx", 2)).toBe(
+      `/api/plans/${ID}/dossier-bancaire?format=docx&version=2`,
+    );
+    expect(cheminListeLivrables("dossier_bancaire", ID)).toContain(`/api/plans/${ID}/rapports`);
+    const r = (modele: string) => ({ modele }) as RapportLivrable;
+    const liste = [r("plan_strategique"), r("dossier_bancaire"), r("notation")];
+    expect(filtrerLivrables("dossier_bancaire", liste)).toEqual([r("dossier_bancaire")]);
+    expect(filtrerLivrables("plan", liste)).toEqual([r("plan_strategique")]);
+    expect(filtrerLivrables("notation", liste)).toEqual([r("notation")]);
   });
 
   it("liste et PDF de facture", () => {
@@ -72,6 +86,8 @@ describe("erreurs de génération", () => {
     expect(messageLivrable("notation", e("INTERDIT", 403))).toContain("cette notation");
     expect(messageLivrable("plan", e("INTERDIT", 403))).toContain("ce plan");
     expect(messageLivrable("plan", e("INTROUVABLE", 404))).toContain("modèle");
+    expect(messageLivrable("dossier_bancaire", e("MODELE_NON_VALIDE", 409))).toContain("VALIDÉE");
+    expect(messageLivrable("dossier_bancaire", e("INTERDIT", 403))).toContain("valider le plan");
     expect(messageLivrable("plan", e("TROP_DE_RAPPORTS", 429))).toBe(MESSAGE_LIMITE_RAPPORTS);
     expect(messageLivrable("notation", e("RENDU_OCCUPE", 503))).toContain("rendu");
   });

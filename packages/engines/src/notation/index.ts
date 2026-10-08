@@ -71,3 +71,85 @@ export {
   type BarreDimension,
   type DonneesRapport,
 } from "./rapport";
+// Notation augmentée (PRD complémentaire §11.1 : NOT-09 à NOT-13, NOT-17).
+export {
+  ErreurNotationAugmentee,
+  type CodeErreurNotationAugmentee,
+  type AnomalieNotationAugmentee,
+} from "./augmentee-erreurs";
+export {
+  PUBLICS_ITEM,
+  PRIORITE_ITEM_MAX,
+  DUREE_ITEM_MIN_SECONDES,
+  DUREE_ITEM_MAX_SECONDES,
+  FORMULATION_LONGUEUR_MAX,
+  ANCRAGE_LONGUEUR_MAX,
+  AIDE_LONGUEUR_MAX,
+  validerItemBanque,
+  exigerItemValide,
+  formulationPour,
+  dureeSelection,
+  selectionnerItems,
+  controlerProposition,
+  definitionDepuisSelection,
+  type PublicItem,
+  type AncrageNiveau,
+  type FormulationItem,
+  type EtalonnageItem,
+  type ItemBanque,
+  type ReglesSelection,
+  type ItemSelectionne,
+  type RaisonEcart,
+  type SelectionAdaptative,
+  type PropositionItem,
+} from "./banque";
+export {
+  SEUIL_CONSTAT_MAJEUR_DEFAUT,
+  POPULATION_NON_PRECISEE,
+  constatsPerception,
+  type PopulationRepondant,
+  type TypeConstat,
+  type GraviteConstat,
+  type ConstatPerception,
+} from "./constats";
+export {
+  SEUIL_CONFIANCE_DEFAUT,
+  REPONDANTS_CIBLE_DEFAUT,
+  SEUIL_CONFIANCE_ELEVEE,
+  POIDS_CONFIANCE_DEFAUT,
+  indiceConfiance,
+  type NiveauConfiance,
+  type SoliditeDimension,
+  type EntreeConfiance,
+  type OptionsConfiance,
+  type IndiceConfiance,
+} from "./confiance";
+export {
+  expliquerNote,
+  simulerPassage,
+  pointsMaximaux,
+  palierSuivant,
+  type ContributionPratique,
+  type ContributionDimension,
+  type ExplicationNote,
+  type EtapeSimulation,
+  type SimulationPassage,
+} from "./explication";
+export {
+  mesurerCalibration,
+  type CotationCas,
+  type OptionsCalibration,
+  type MesureCas,
+  type MesureEvaluateur,
+  type MesureCalibration,
+} from "./calibration";
+export {
+  prioriserInitiatives,
+  type ImpactObserve,
+  type InitiativeType,
+  type ContextePlan,
+  type OptionsPlan,
+  type SourceImpact,
+  type InitiativePriorisee,
+  type PlanActionPriorise,
+} from "./plan-action";

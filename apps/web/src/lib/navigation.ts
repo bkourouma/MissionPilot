@@ -138,6 +138,30 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description: "Opportunités commerciales, propositions et passage en mission.",
   },
   {
+    // Lot AO-A (AO-01 à AO-03, AO-08) : pipeline, fiche, go/no-go, matrice, rétro-planning.
+    id: "appels-offres",
+    libelle: "Appels d'offres",
+    libelleCourt: "AO",
+    href: "/appels-offres",
+    permission: "ao.lire",
+    disponible: true,
+    icone: "drapeau",
+    description:
+      "Appels d'offres repérés, go/no-go de l'associé, matrice de conformité et rétro-planning.",
+  },
+  {
+    // Lot AO-B (AO-04 à AO-07) ; sous-pages dans la rubrique (lib/banque-ao.ts).
+    id: "banques-ao",
+    libelle: "Banques et offres",
+    libelleCourt: "Offres",
+    href: "/appels-offres/banques",
+    permission: "ao.lire",
+    disponible: true,
+    icone: "copie",
+    description:
+      "CV et références pour les appels d'offres, offres techniques validées et offres financières.",
+  },
+  {
     id: "clients",
     libelle: "Clients",
     href: "/clients",
@@ -236,6 +260,18 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description: "Revues guidées, quatre yeux et signature des livrables engageants.",
   },
   {
+    // Lot CAP (CAP-01, 02, 05 à 07) ; sous-pages dans la rubrique (lib/capitalisation.ts).
+    id: "connaissances",
+    libelle: "Connaissances",
+    libelleCourt: "Savoirs",
+    href: "/connaissances",
+    permission: ["connaissance.lire", "competence.lire", "competence.gerer", "standard.gerer"],
+    disponible: true,
+    icone: "recherche",
+    description:
+      "Recherche unifiée, retours d'expérience des missions, base d'estimation et compétences.",
+  },
+  {
     id: "plan-de-charge",
     libelle: "Plan de charge",
     libelleCourt: "Charge",
@@ -244,6 +280,16 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     disponible: true,
     icone: "barres",
     description: "Occupation des équipes, surcharges et disponibilités.",
+  },
+  {
+    id: "previsions",
+    libelle: "Prévisions",
+    href: "/previsions",
+    permission: "finance.lire",
+    disponible: true,
+    icone: "courbe",
+    description:
+      "Chiffre d'affaires et charge des 12 prochains mois : carnet signé et pipeline pondéré.",
   },
   {
     id: "facturation",

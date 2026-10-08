@@ -105,7 +105,7 @@ export function rapportEnHtml(r: Rapport): string {
     r.sous_titre ? `<p class="sous-titre">${echapper(r.sous_titre)}</p>` : "",
     `<div class="statut${r.statut === "valide" ? " valide" : ""}">${echapper(LIBELLES_STATUT_RAPPORT[r.statut])}</div>`,
     r.confidentiel
-      ? '<p class="confidentiel">Confidentiel : contient des données financières internes (coûts, taux, marges).</p>'
+      ? '<p class="confidentiel">Confidentiel : document interne, réservé aux personnes autorisées.</p>'
       : "",
     sections,
     "</body></html>",
