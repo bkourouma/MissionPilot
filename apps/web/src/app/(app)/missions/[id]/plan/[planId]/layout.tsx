@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { aPermission } from "@missionpilot/shared";
 import { BadgePartage } from "../../../../../../components/plan/BadgeStatutPlan";
 import "../../../../../../components/plan/plan.css";
 import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
@@ -8,6 +9,8 @@ import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../../../components/ui/Onglets";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
+import { hrefFeuilleDeRoute } from "../../../../../../lib/plan-feuille-de-route";
+import { hrefKpiPlan } from "../../../../../../lib/plan-kpi";
 import { chargerPlan } from "../../../../../../lib/plan-serveur";
 import {
   decompteStatuts,
@@ -19,7 +22,8 @@ import { exigerPermission } from "../../../../../../lib/session";
 
 /**
  * En-tête d'un plan stratégique (titre, horizon, devise, partage, avancement de la
- * validation) et sous-onglets « Contenus » / « Modèle financier ». Un plan d'une autre
+ * validation) et sous-onglets « Contenus », « Feuille de route », « Modèle financier » et
+ * « KPI ». Un plan d'une autre
  * mission, d'un autre cabinet ou invisible répond 404 (comme l'API).
  */
 export default async function LayoutPlan({
@@ -31,7 +35,7 @@ export default async function LayoutPlan({
 }) {
   const { id, planId } = await params;
   if (!estIdentifiant(planId)) notFound();
-  await exigerPermission("plan.lire");
+  const { utilisateur } = await exigerPermission("plan.lire");
   const mission = await chargerMission(id);
   // L'en-tête de la mission affiche déjà son erreur de chargement.
   if (!mission.ok) return null;
@@ -51,7 +55,11 @@ export default async function LayoutPlan({
   const d = decompteStatuts(plan.elements);
   const pages = [
     { id: "contenus", libelle: "Contenus", href: hrefPlan(id, plan.id) },
+    { id: "feuille", libelle: "Feuille de route", href: hrefFeuilleDeRoute(id, plan.id) },
     { id: "modele", libelle: "Modèle financier", href: hrefModele(id, plan.id) },
+    ...(aPermission(utilisateur.roles, "kpi.lire")
+      ? [{ id: "kpi", libelle: "KPI", href: hrefKpiPlan(id, plan.id) }]
+      : []),
   ];
   return (
     <div className="mp-plan">

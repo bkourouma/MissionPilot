@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TypeElementPlan } from "@missionpilot/shared";
 import type { Devise } from "../../lib/format";
-import type { PersonnePlan } from "../../lib/plan-elements";
+import type { OptionInitiative, PersonnePlan } from "../../lib/plan-elements";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { FormulaireElement } from "./FormulaireElement";
@@ -17,6 +17,8 @@ export interface AjoutElementProps {
   horizon: number;
   devise: Devise;
   personnes: readonly PersonnePlan[];
+  /** Initiatives du plan : prédécesseurs proposés à une nouvelle initiative (PLA-05). */
+  initiatives?: readonly OptionInitiative[];
   partage: boolean;
   /** Formulaire ouvert d'emblée (contenu encore absent du plan). */
   ouvertParDefaut?: boolean;
@@ -36,6 +38,7 @@ export function AjoutElement({
   horizon,
   devise,
   personnes,
+  initiatives = [],
   partage,
   ouvertParDefaut = false,
   onCree,
@@ -68,6 +71,7 @@ export function AjoutElement({
           horizon={horizon}
           devise={devise}
           personnes={personnes}
+          initiatives={initiatives}
           partage={partage}
           onAnnuler={
             ouvertParDefaut

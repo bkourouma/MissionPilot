@@ -523,3 +523,83 @@
     transition: border-color var(--mp-duree) ease;
   }
 }
+
+/* ---------- Comparaison : écarts du moteur ---------- */
+.mp-plan-ecart {
+  font-weight: 600;
+}
+
+.mp-plan-ecart--hausse,
+.mp-plan-ecart--baisse {
+  font-weight: 700;
+}
+
+/* ---------- Feuille de route (PLA-05) ---------- */
+.mp-plan-feuille td.mp-plan-feuille__case {
+  min-width: 3.5rem;
+  padding: var(--mp-esp-1);
+  text-align: center;
+}
+
+.mp-plan-feuille__barre {
+  display: block;
+  height: 1.25rem;
+  border-radius: var(--mp-rayon);
+  background: var(--mp-primaire-pale);
+  border: 1px solid var(--mp-primaire);
+}
+
+.mp-plan-feuille__barre--critique {
+  background: var(--mp-attention-fond);
+  border: 2px solid var(--mp-attention);
+}
+
+.mp-plan-feuille__barre--recalee {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--mp-bordure) 4px 6px);
+}
+
+.mp-plan-feuille__titre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-plan-feuille__meta {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  font-weight: 500;
+}
+
+.mp-plan-feuille__marques {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1);
+}
+
+.mp-plan-feuille__explications {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+}
+
+/* ---------- KPI issus des objectifs (PLA-10) et notation liée ---------- */
+.mp-plan-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-plan-kpi__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

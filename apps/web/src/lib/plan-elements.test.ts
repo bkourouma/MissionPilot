@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import { formaterMontantMineur } from "./format";
 import {
   dateValide,
+  initiativesDuPlan,
   lireLignes,
   memeContenu,
   MESSAGE_CONTENU_IDENTIQUE,
+  nomInitiative,
   nomPersonnePlan,
   OPTIONS_PERSPECTIVES,
   OPTIONS_STATUTS_INITIATIVE,
+  optionsDependances,
   optionsResponsables,
   personnesPlan,
   saisieDepuisDonnees,
@@ -299,5 +302,71 @@ describe("responsables d'initiative", () => {
       valeur: "u7",
       libelle: "Responsable actuel (hors liste affichée)",
     });
+  });
+});
+
+describe("dépendances d'une initiative (PLA-05)", () => {
+  const A = "a0000000-0000-4000-8000-00000000000a";
+  const B = "a0000000-0000-4000-8000-00000000000b";
+  const C = "a0000000-0000-4000-8000-00000000000c";
+  const base = { titre: "CRM", echeance: "2027-06-30", budget: "1000" };
+
+  it("absentes par défaut, envoyées sans doublon si choisies", () => {
+    expect(saisieElementVide(3).dependances).toEqual([]);
+    const sans = validerElement("initiative", saisie(base), CTX);
+    expect(sans.ok && "dependances" in sans.charge).toBe(false);
+    const avec = validerElement("initiative", saisie({ ...base, dependances: [A, B, A] }), CTX);
+    expect(avec.ok && avec.charge.dependances).toEqual([A, B]);
+  });
+
+  it("au plus 20 dépendances", () => {
+    const trop = Array.from(
+      { length: 21 },
+      (_, i) => `${A.slice(0, -2)}${String(i).padStart(2, "0")}`,
+    );
+    const r = validerElement("initiative", saisie({ ...base, dependances: trop }), CTX);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.erreurs.dependances).toBe("20 dépendances au plus.");
+  });
+
+  it("préremplies depuis la version courante (une modification ne les perd pas)", () => {
+    const s = saisieDepuisDonnees({ ...base, budget: 1000, dependances: [A] }, "XOF", 3);
+    expect(s.dependances).toEqual([A]);
+    const r = validerElement("initiative", s, CTX);
+    expect(r.ok && r.charge.dependances).toEqual([A]);
+  });
+
+  it("options : autres initiatives actives, retirées seulement si déjà choisies, triées", () => {
+    const initiatives = initiativesDuPlan([
+      { id: A, type: "initiative", retire: false, donnees: { titre: "Zèbre" } },
+      { id: B, type: "initiative", retire: true, donnees: { titre: "Ancienne" } },
+      { id: C, type: "initiative", retire: false, donnees: { titre: "Atelier" } },
+      { id: "x", type: "axe", retire: false, donnees: { titre: "Axe" } },
+    ]);
+    expect(initiatives.map((i) => i.id)).toEqual([A, B, C]);
+    expect(optionsDependances(initiatives, A, [])).toEqual([{ valeur: C, libelle: "Atelier" }]);
+    expect(optionsDependances(initiatives, null, [B]).map((o) => o.libelle)).toEqual([
+      "Ancienne (retirée)",
+      "Atelier",
+      "Zèbre",
+    ]);
+    expect(nomInitiative(C, initiatives)).toBe("Atelier");
+    expect(nomInitiative(B, initiatives)).toBe("Ancienne (retirée)");
+    expect(nomInitiative("inconnue", initiatives)).toBe("Initiative inconnue");
+    expect(
+      initiativesDuPlan([{ id: A, type: "initiative", retire: false, donnees: {} }])[0]?.titre,
+    ).toBe("Initiative");
+  });
+
+  it("texte d'une version : « Dépend de » avec les titres", () => {
+    const d = { titre: "CRM", echeance: "2027-06-30", budget: 1000, dependances: [A] };
+    const avecNoms = texteElement("initiative", d, {
+      devise: "XOF",
+      nomResponsable: () => "x",
+      nomInitiative: () => "Formation",
+    });
+    expect(avecNoms).toContain("Dépend de : Formation");
+    const sansNoms = texteElement("initiative", d, { devise: "XOF", nomResponsable: () => "x" });
+    expect(sansNoms).toContain("Dépend de : initiative du plan");
   });
 });

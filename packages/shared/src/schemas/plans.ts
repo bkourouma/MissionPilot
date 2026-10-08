@@ -44,6 +44,9 @@ export const TYPE_ELEMENT_PLAN_LIBELLES: Record<TypeElementPlan, string> = {
   initiative: "Initiative",
 };
 
+/** Prédécesseurs d'une initiative (DEPENDANCES_PAR_INITIATIVE_MAX du moteur, doublé en base). */
+export const DEPENDANCES_INITIATIVE_MAX = 20;
+
 /** Perspectives du tableau de bord prospectif (PLA-03). */
 export const PERSPECTIVES_PLAN = ["finances", "clients", "processus", "apprentissage"] as const;
 export type PerspectivePlan = (typeof PERSPECTIVES_PLAN)[number];
@@ -133,6 +136,12 @@ export const DONNEES_ELEMENT_PLAN = {
         .array(z.number().int().min(-Number.MAX_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER))
         .max(HORIZON_PLAN.max)
         .optional(),
+      /**
+       * Initiatives du même plan qui doivent se terminer avant celle-ci (PLA-05, dépendance
+       * « fin → début ») ; le moteur refuse doublons et cycles, la base les identifiants
+       * étrangers au plan (0184).
+       */
+      dependances: z.array(z.string().uuid()).max(DEPENDANCES_INITIATIVE_MAX).optional(),
     })
     .strict(),
 } as const;
@@ -171,6 +180,29 @@ export const planHistoriqueQuerySchema = z
 export const feuilleDeRouteQuerySchema = z
   .object({ pas: z.enum(["trimestre", "semestre"]).default("trimestre") })
   .strict();
+
+/**
+ * Application du recalage de la feuille de route (PLA-05) : initiatives dont l'utilisateur a
+ * vu le décalage proposé. Chacune doit être encore à recaler (sinon 409) ; chacune reçoit une
+ * nouvelle version datée par le moteur, à valider de nouveau.
+ */
+export const planRecalageSchema = z
+  .object({ initiatives: z.array(z.string().uuid()).min(1).max(300) })
+  .strict()
+  // Un UUID s'écrit en majuscules ou en minuscules : le doublon se cherche sur la forme minuscule.
+  .refine(
+    (c) => new Set(c.initiatives.map((id) => id.toLowerCase())).size === c.initiatives.length,
+    "Initiative en double.",
+  );
+export type PlanRecalage = z.infer<typeof planRecalageSchema>;
+
+/* ----- Diagnostic : lien vers une notation publiée (service #1) ----- */
+
+/** Version publiée d'une notation du même client, ou null pour retirer le lien. */
+export const planNotationLienSchema = z
+  .object({ notation_version_id: z.string().uuid().nullable() })
+  .strict();
+export type PlanNotationLien = z.infer<typeof planNotationLienSchema>;
 
 /* ----- Modèle financier (forme des hypothèses du moteur) ----- */
 

@@ -13,7 +13,13 @@ export type CodeErreurPlan =
   | "INVESTISSEMENT_INVALIDE"
   | "EMPRUNT_INVALIDE"
   | "BILAN_OUVERTURE_DESEQUILIBRE"
-  | "FLUX_INVALIDES";
+  | "FLUX_INVALIDES"
+  /** Feuille de route (PLA-05) : date d'initiative absente, mal formée ou incohérente. */
+  | "DATE_INVALIDE"
+  /** Feuille de route : dépendance vers soi-même, inconnue ou en double. */
+  | "DEPENDANCE_INVALIDE"
+  /** Feuille de route : les dépendances forment un cycle. */
+  | "DEPENDANCE_CYCLIQUE";
 
 export class ErreurPlan extends Error {
   readonly code: CodeErreurPlan;

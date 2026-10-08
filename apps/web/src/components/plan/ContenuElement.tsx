@@ -1,6 +1,11 @@
 import type { TypeElementPlan } from "@missionpilot/shared";
 import { formaterDate, formaterMontantMineur, type Devise } from "../../lib/format";
-import { nomPersonnePlan, type PersonnePlan } from "../../lib/plan-elements";
+import {
+  nomInitiative,
+  nomPersonnePlan,
+  type OptionInitiative,
+  type PersonnePlan,
+} from "../../lib/plan-elements";
 import {
   libellePerspective,
   libelleStatutInitiative,
@@ -42,12 +47,15 @@ function Initiative({
   d,
   devise,
   personnes,
+  initiatives,
 }: {
   d: Record<string, unknown>;
   devise: Devise;
   personnes: readonly PersonnePlan[];
+  initiatives: readonly OptionInitiative[];
 }) {
   const gains = Array.isArray(d.gains_annuels) ? (d.gains_annuels as number[]) : [];
+  const dependances = lireListe(d, "dependances");
   return (
     <dl className="mp-liste-def">
       <div>
@@ -83,6 +91,12 @@ function Initiative({
           )}
         </dd>
       </div>
+      {dependances.length ? (
+        <div>
+          <dt>Dépend de</dt>
+          <dd>{dependances.map((id) => nomInitiative(id, initiatives)).join(", ")}</dd>
+        </div>
+      ) : null}
       {lireTexte(d, "description") ? (
         <div>
           <dt>Description</dt>
@@ -125,11 +139,14 @@ export function ContenuElement({
   donnees,
   devise,
   personnes,
+  initiatives = [],
 }: {
   type: TypeElementPlan;
   donnees: Record<string, unknown>;
   devise: Devise;
   personnes: readonly PersonnePlan[];
+  /** Initiatives du plan : noms des dépendances d'une initiative (PLA-05). */
+  initiatives?: readonly OptionInitiative[];
 }) {
   switch (type) {
     case "diagnostic":
@@ -164,6 +181,8 @@ export function ContenuElement({
     case "objectif":
       return <Objectif d={donnees} />;
     case "initiative":
-      return <Initiative d={donnees} devise={devise} personnes={personnes} />;
+      return (
+        <Initiative d={donnees} devise={devise} personnes={personnes} initiatives={initiatives} />
+      );
   }
 }
