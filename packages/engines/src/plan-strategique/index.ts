@@ -74,6 +74,58 @@ export {
   type ComparaisonResultatsPlan,
 } from "./comparaison";
 export {
+  analyserCascade,
+  pourcentageEntier,
+  PARENTS_ADMIS,
+  TYPES_NOEUD_CASCADE,
+  type TypeNoeudCascade,
+  type CodeTrouCascade,
+  type GraviteTrou,
+  type NoeudCascade,
+  type TrouCascade,
+  type NoeudAnalyse,
+  type AnalyseCascade,
+} from "./cascade";
+export {
+  echeanceDepuisDuree,
+  syntheseEfficacite,
+  DUREE_INITIATIVE_MAX_JOURS,
+  SEUIL_OBSERVATIONS_EFFICACITE,
+  type ContexteEfficacite,
+  type ObservationEfficacite,
+  type NiveauContexte,
+  type SyntheseContexte,
+  type SyntheseEfficacite,
+} from "./bibliotheque";
+export {
+  scorerInitiative,
+  optimiserPortefeuille,
+  NOTE_PORTEFEUILLE,
+  POIDS_PORTEFEUILLE_MAX,
+  POIDS_PORTEFEUILLE_DEFAUT,
+  CANDIDATS_PORTEFEUILLE_MAX,
+  NOEUDS_PORTEFEUILLE_MAX,
+  type PoidsPortefeuille,
+  type CandidatPortefeuille,
+  type ContraintesPortefeuille,
+  type MotifPortefeuille,
+  type DecisionCandidat,
+  type PropositionPortefeuille,
+} from "./portefeuille";
+export {
+  analyserBancabilite,
+  SEUILS_BANCABILITE_DEFAUT,
+  CLES_RATIOS_BANCAIRES,
+  type ExerciceBancabilite,
+  type SeuilsBancabilite,
+  type StatutRatio,
+  type RatioBancaire,
+  type CleRatioBancaire,
+  type PlanFinancementExercice,
+  type VerdictBancabilite,
+  type AnalyseBancabilite,
+} from "./bancabilite";
+export {
   calculerScenariosPlan,
   ECARTS_SCENARIOS_DEFAUT,
   type NomScenario,

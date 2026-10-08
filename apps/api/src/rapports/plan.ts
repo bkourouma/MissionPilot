@@ -329,7 +329,8 @@ function tableauFinancier(t: TableauFinancier, devise: Devise, formats = false):
   ];
 }
 
-function sectionsFinancieres(f: Financier, devise: Devise): Section[] {
+/** Sections du modèle financier validé (repris aussi par le dossier bancaire, PLA-17). */
+export function sectionsFinancieres(f: Financier, devise: Devise): Section[] {
   const synthese = borner(
     f.scenarios.map((s) => [
       SCENARIOS[s.scenario] ?? s.scenario,

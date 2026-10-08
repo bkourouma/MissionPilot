@@ -19,7 +19,15 @@ export type CodeErreurPlan =
   /** Feuille de route : dépendance vers soi-même, inconnue ou en double. */
   | "DEPENDANCE_INVALIDE"
   /** Feuille de route : les dépendances forment un cycle. */
-  | "DEPENDANCE_CYCLIQUE";
+  | "DEPENDANCE_CYCLIQUE"
+  /** Cascade stratégique (PLA-12) : nœud en double ou de type inconnu. */
+  | "CASCADE_INVALIDE"
+  /** Bibliothèque d'initiatives (PLA-13) : durée, efficacité ou contexte hors bornes. */
+  | "BIBLIOTHEQUE_INVALIDE"
+  /** Portefeuille (PLA-14) : note, coût, charge, poids ou contrainte hors bornes. */
+  | "PORTEFEUILLE_INVALIDE"
+  /** Bancabilité (PLA-17) : exercice absent ou montant non entier, seuil hors bornes. */
+  | "BANCABILITE_INVALIDE";
 
 export class ErreurPlan extends Error {
   readonly code: CodeErreurPlan;

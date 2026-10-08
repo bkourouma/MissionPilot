@@ -9,8 +9,12 @@ import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../../../components/ui/Onglets";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
+import { hrefBancabilite } from "../../../../../../lib/plan-bancabilite";
+import { hrefBibliothequePlan } from "../../../../../../lib/plan-bibliotheque";
+import { hrefCascade } from "../../../../../../lib/plan-cascade";
 import { hrefFeuilleDeRoute } from "../../../../../../lib/plan-feuille-de-route";
 import { hrefKpiPlan } from "../../../../../../lib/plan-kpi";
+import { hrefPortefeuille } from "../../../../../../lib/plan-portefeuille";
 import { chargerPlan } from "../../../../../../lib/plan-serveur";
 import {
   decompteStatuts,
@@ -22,8 +26,9 @@ import { exigerPermission } from "../../../../../../lib/session";
 
 /**
  * En-tête d'un plan stratégique (titre, horizon, devise, partage, avancement de la
- * validation) et sous-onglets « Contenus », « Feuille de route », « Modèle financier » et
- * « KPI ». Un plan d'une autre
+ * validation) et sous-onglets « Contenus », « Feuille de route », « Cascade » (PLA-12),
+ * « Bibliothèque » (PLA-13), « Portefeuille » (PLA-14), « Modèle financier », « Bancabilité »
+ * (PLA-17) et « KPI ». Un plan d'une autre
  * mission, d'un autre cabinet ou invisible répond 404 (comme l'API).
  */
 export default async function LayoutPlan({
@@ -56,7 +61,11 @@ export default async function LayoutPlan({
   const pages = [
     { id: "contenus", libelle: "Contenus", href: hrefPlan(id, plan.id) },
     { id: "feuille", libelle: "Feuille de route", href: hrefFeuilleDeRoute(id, plan.id) },
+    { id: "cascade", libelle: "Cascade", href: hrefCascade(id, plan.id) },
+    { id: "bibliotheque", libelle: "Bibliothèque", href: hrefBibliothequePlan(id, plan.id) },
+    { id: "portefeuille", libelle: "Portefeuille", href: hrefPortefeuille(id, plan.id) },
     { id: "modele", libelle: "Modèle financier", href: hrefModele(id, plan.id) },
+    { id: "bancabilite", libelle: "Bancabilité", href: hrefBancabilite(id, plan.id) },
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: hrefKpiPlan(id, plan.id) }]
       : []),

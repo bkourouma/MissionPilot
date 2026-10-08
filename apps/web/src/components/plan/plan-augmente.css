@@ -1,0 +1,67 @@
+/*
+ * Plan stratégique augmenté (PLA-12 à PLA-17) : cascade, bibliothèque d'initiatives,
+ * portefeuille et bancabilité. Mobile d'abord, couleurs des jetons ; la couleur ne porte
+ * jamais seule le sens (gravités et statuts écrits).
+ */
+
+.mp-cascade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-cascade__noeud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border-left: 3px solid var(--mp-bordure);
+  /* Retrait selon la profondeur, borné pour rester lisible sur téléphone. */
+  margin-left: min(calc(var(--profondeur, 0) * var(--mp-esp-4)), 40%);
+  min-width: 0;
+}
+
+.mp-cascade__noeud--trou {
+  border-left-color: var(--mp-attention, var(--mp-bordure));
+}
+
+.mp-cascade__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-2);
+}
+
+.mp-cascade__type {
+  font-size: var(--mp-taille-s);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.mp-liste-simple {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+}
+
+.mp-bibliotheque {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-bibliotheque__entree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
