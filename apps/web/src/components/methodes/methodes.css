@@ -1,0 +1,72 @@
+/*
+ * Référentiel de méthodes (lot STD) : catalogue, détail d'une version, méthode d'une mission.
+ * Mobile d'abord, CSS pur, jetons de tokens.css. La couleur ne porte jamais seule le sens :
+ * chaque état (active, retirée, classe de risque, origine) a son libellé écrit.
+ */
+
+.mp-methode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-methode p {
+  margin: 0;
+}
+
+.mp-methode__etape {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-methode__briques {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 48rem) {
+  .mp-methode__briques {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mp-methode__brique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+}
+
+.mp-methode__brique--inactive {
+  border-style: dashed;
+  background: var(--mp-surface-2);
+}
+
+.mp-methode__brique-titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-methode__code {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-methode__regle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
