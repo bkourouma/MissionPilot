@@ -1,0 +1,77 @@
+/*
+ * Appels d'offres (lot AO-A) : pipeline par statut, fiche, go/no-go, matrice de conformité,
+ * rétro-planning. Mobile d'abord, CSS pur, couleurs des jetons (tokens.css). La couleur ne porte
+ * jamais seule le sens : chaque statut, score et alerte a son libellé écrit.
+ */
+
+.mp-ao__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-2);
+}
+
+.mp-ao__colonnes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-3);
+}
+
+@media (min-width: 960px) {
+  .mp-ao__colonnes {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  }
+}
+
+.mp-ao__colonne {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+}
+
+.mp-ao__colonne h3,
+.mp-ao__colonne ul,
+.mp-ao__liste-simple {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-ao__colonne h3 {
+  font-size: var(--mp-taille-m);
+  font-weight: 600;
+}
+
+.mp-ao__carte-fiche {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-2) 0;
+  border-top: 1px solid var(--mp-bordure);
+}
+
+.mp-ao__definition {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-ao__definition dt {
+  font-weight: 600;
+}
+
+.mp-ao__definition dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Groupe dt/dd d'une liste de définitions en grille (HTML valide : div dans dl). */
+.mp-ao__ligne-critere {
+  display: contents;
+}
