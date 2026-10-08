@@ -1,0 +1,242 @@
+/*
+ * Contenus IA (SOC-06) et paramètres IA : panneau de contenu, bandeau des chiffres non
+ * vérifiés, historique des versions et différences, suivi d'une génération.
+ * Mobile d'abord ; couleurs des jetons (contrastes vérifiés dans tokens.css) ; jamais la
+ * couleur seule : texte, icône, soulignement ou barré portent aussi le sens.
+ */
+
+/* ---------- Panneau de contenu ---------- */
+.mp-contenu-ia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-contenu-ia__entete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-contenu-ia__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+}
+
+.mp-contenu-ia__meta {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-contenu-ia__texte {
+  margin: 0;
+  padding: var(--mp-esp-3);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  font-size: var(--mp-taille-m);
+  line-height: var(--mp-interligne);
+}
+
+.mp-contenu-ia__texte--valide {
+  border-color: var(--mp-succes);
+}
+
+.mp-contenu-ia .mp-zone-texte {
+  min-height: 12rem;
+  font-family: inherit;
+  line-height: var(--mp-interligne);
+}
+
+/* ---------- Suivi d'exécution ---------- */
+.mp-suivi-ia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-info-fond);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-suivi-ia__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-suivi-ia progress {
+  flex: 1 1 10rem;
+  height: 0.75rem;
+  accent-color: var(--mp-primaire);
+}
+
+/* ---------- Chiffres non vérifiés ---------- */
+.mp-chiffres-ia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-chiffres-ia__liste {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: var(--mp-esp-2) 0 0;
+  list-style: none;
+}
+
+.mp-chiffres-ia__nombre {
+  display: inline-block;
+  padding: 0.125rem var(--mp-esp-2);
+  font-family: var(--mp-police-chiffres);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--mp-texte);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-attention);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Historique et différences ---------- */
+.mp-versions-ia__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-versions-ia__element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding-bottom: var(--mp-esp-3);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-versions-ia__element:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mp-versions-ia__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-versions-ia__ligne .mp-bouton {
+  margin-left: auto;
+}
+
+.mp-diff-ia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-diff-ia ins {
+  color: var(--mp-succes);
+  background: var(--mp-succes-fond);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+.mp-diff-ia del {
+  color: var(--mp-danger);
+  background: var(--mp-danger-fond);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+/* ---------- Génération ---------- */
+.mp-generation-ia {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+}
+
+/* ---------- Paramètres IA ---------- */
+.mp-ia-modeles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+}
+
+.mp-ia-modele {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-ia-modele__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-ia-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-ia-gabarit {
+  max-height: 16rem;
+  overflow: auto;
+}
+
+/* Versions d'un prompt : sous la ligne du prompt, sur toute la largeur. */
+.mp-ia-versions {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.mp-ia-mois {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-ia-mois__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+@media (min-width: 640px) {
+  .mp-contenu-ia {
+    padding: var(--mp-esp-5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-suivi-ia progress {
+    animation: none;
+  }
+}

@@ -1,0 +1,445 @@
+/*
+ * Pilotage par KPI (service 4) : onglet « KPI » d'une mission. Mobile d'abord, CSS pur,
+ * couleurs des jetons (contrastes vérifiés dans tokens.css ; tracés et repères ≥ 3:1). La
+ * couleur ne porte jamais seule le sens : chaque statut a son libellé et son icône, chaque
+ * repère du graphique une forme propre, chaque graphique son tableau équivalent.
+ */
+
+.mp-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-kpi p {
+  margin: 0;
+}
+
+.mp-kpi-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-kpi-section__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+}
+
+/* ---------- Barre de la date d'arrêté et des actions ---------- */
+.mp-kpi-barre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-kpi-barre__date {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-3);
+}
+
+.mp-kpi-barre__date > .mp-champ {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .mp-kpi-barre {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+}
+
+/* ---------- Score composite ---------- */
+.mp-kpi-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-kpi-score__valeur {
+  font-size: var(--mp-taille-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.mp-kpi-score--grand .mp-kpi-score__valeur {
+  font-size: 2.5rem;
+}
+
+.mp-kpi-score__note {
+  flex-basis: 100%;
+}
+
+.mp-kpi-perspectives {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-kpi-perspective {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-kpi-perspective__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+/* ---------- Cartes de KPI ---------- */
+.mp-kpi-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+.mp-kpi-carte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  box-shadow: var(--mp-ombre);
+}
+
+.mp-kpi-carte__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-kpi-carte__titre {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-kpi-carte__titre a {
+  color: var(--mp-primaire);
+}
+
+.mp-kpi-carte__valeur {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+}
+
+.mp-kpi-carte__chiffre {
+  font-size: var(--mp-taille-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-kpi-mesures {
+  display: grid;
+  gap: var(--mp-esp-2);
+  margin: 0;
+}
+
+.mp-kpi-mesures > div {
+  display: grid;
+  gap: 2px;
+}
+
+.mp-kpi-mesures dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-kpi-mesures dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-kpi-mesures__pile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mp-esp-1);
+}
+
+/* ---------- Tendance : flèche ET texte ---------- */
+.mp-kpi-tendance {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--mp-esp-2);
+}
+
+.mp-kpi-tendance__fleche {
+  font-weight: 700;
+  font-size: var(--mp-taille-l);
+  line-height: 1;
+}
+
+.mp-kpi-tendance--succes .mp-kpi-tendance__fleche {
+  color: var(--mp-succes);
+}
+
+.mp-kpi-tendance--danger .mp-kpi-tendance__fleche {
+  color: var(--mp-danger);
+}
+
+.mp-kpi-tendance--neutre .mp-kpi-tendance__fleche,
+.mp-kpi-tendance--attention .mp-kpi-tendance__fleche {
+  color: var(--mp-neutre);
+}
+
+/* ---------- Alertes ---------- */
+.mp-kpi-alertes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-kpi-alerte {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border-left: 4px solid currentColor;
+  border-radius: var(--mp-rayon);
+}
+
+.mp-kpi-alerte--attention {
+  color: var(--mp-attention);
+  background: var(--mp-attention-fond);
+}
+
+.mp-kpi-alerte--danger {
+  color: var(--mp-danger);
+  background: var(--mp-danger-fond);
+}
+
+.mp-kpi-alerte .mp-icone {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mp-kpi-alerte__contenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--mp-texte);
+  overflow-wrap: anywhere;
+}
+
+.mp-kpi-alerte__titre {
+  font-weight: 650;
+}
+
+/* ---------- Graphique de série ---------- */
+.mp-kpi-serie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+}
+
+.mp-kpi-serie__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-kpi-serie__svg {
+  display: block;
+  width: 100%;
+  max-width: 36rem;
+  height: auto;
+  overflow: visible;
+}
+
+.mp-kpi-serie__grille {
+  stroke: var(--mp-bordure);
+  stroke-width: 1;
+}
+
+.mp-kpi-serie__graduation,
+.mp-kpi-serie__abscisse {
+  fill: var(--mp-texte-doux);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-kpi-serie__graduation {
+  text-anchor: end;
+}
+
+.mp-kpi-serie__abscisse {
+  text-anchor: middle;
+}
+
+.mp-kpi-serie__valeur {
+  fill: none;
+  stroke: var(--mp-primaire);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mp-kpi-serie__cible {
+  fill: none;
+  stroke: var(--mp-texte-doux);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.mp-kpi-serie__repere {
+  stroke: var(--mp-surface);
+  stroke-width: 1.5;
+}
+
+.mp-kpi-serie__repere--vert {
+  fill: var(--mp-succes);
+}
+
+.mp-kpi-serie__repere--orange {
+  fill: var(--mp-attention);
+}
+
+.mp-kpi-serie__repere--rouge {
+  fill: var(--mp-danger);
+}
+
+.mp-kpi-serie__repere--anneau {
+  fill: var(--mp-surface);
+  stroke: var(--mp-neutre);
+  stroke-width: 2;
+}
+
+.mp-kpi-serie__repere--en-cours {
+  stroke: var(--mp-texte);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+}
+
+.mp-kpi-serie__legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-kpi-legende {
+  display: inline-block;
+  width: 1.5rem;
+  height: 0;
+  margin-right: var(--mp-esp-1);
+  vertical-align: middle;
+  border-top: 3px solid var(--mp-primaire);
+}
+
+.mp-kpi-legende--cible {
+  border-top: 2px dashed var(--mp-texte-doux);
+}
+
+/* ---------- Historique des mesures (ajout seul) ---------- */
+.mp-kpi-historique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-kpi-ligne {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-kpi-ligne--active {
+  background: var(--mp-surface);
+  border-left: 4px solid var(--mp-succes);
+}
+
+.mp-kpi-ligne__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-kpi-ligne__date {
+  font-weight: 650;
+}
+
+.mp-kpi-ligne__valeur {
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-kpi-ligne__details {
+  display: grid;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-kpi-ligne__details > div {
+  display: grid;
+  gap: 0 var(--mp-esp-2);
+}
+
+.mp-kpi-ligne__details dt {
+  color: var(--mp-texte-doux);
+}
+
+.mp-kpi-ligne__details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .mp-kpi-ligne__details > div {
+    grid-template-columns: 8rem 1fr;
+  }
+}
+
+/* ---------- Formulaires ---------- */
+.mp-kpi-formulaire {
+  gap: var(--mp-esp-5);
+}

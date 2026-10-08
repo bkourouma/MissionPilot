@@ -13,22 +13,28 @@
     "claude"
   ],
   "stack": {
-    "packageManager": "none",
-    "workspaces": false,
-    "typescript": false,
-    "eslint": false,
-    "prettier": false,
-    "languages": []
+    "packageManager": "pnpm",
+    "workspaces": true,
+    "typescript": true,
+    "eslint": true,
+    "prettier": true,
+    "languages": [
+      "typescript"
+    ]
   },
   "commands": {
-    "install": "",
-    "dev": "",
-    "build": "",
-    "typecheck": "",
-    "lint": "",
-    "test": ""
+    "install": "pnpm install",
+    "dev": "pnpm dev",
+    "build": "pnpm build",
+    "typecheck": "pnpm typecheck",
+    "lint": "pnpm lint",
+    "test": "pnpm test"
   },
-  "ports": {},
+  "ports": {
+    "api": 4100,
+    "web": 3100,
+    "postgres": 55440
+  },
   "git": {
     "mainBranch": "main",
     "protectedBranches": [
@@ -37,7 +43,10 @@
     ]
   },
   "hooks": {
-    "preCommit": []
+    "preCommit": [
+      "pnpm typecheck",
+      "pnpm lint"
+    ]
   },
   "guard": {
     "protectedPaths": [],

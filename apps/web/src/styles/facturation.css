@@ -1,0 +1,147 @@
+/* Facturation, débours et double authentification. */
+
+/* ---------- Bandeau « configurez la double authentification » ---------- */
+.mp-bandeau-tfa {
+  margin-bottom: var(--mp-esp-4);
+}
+
+/* ---------- Montants ---------- */
+.mp-montant {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mp-sans-coupure {
+  white-space: nowrap;
+}
+
+/* En-tête de section avec filtre (titre + segments) */
+.mp-entete-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+dl.mp-totaux {
+  margin: 0;
+}
+dl.mp-totaux dd {
+  margin: 0;
+}
+
+/* ---------- Totaux d'une facture ---------- */
+.mp-totaux-facture {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  max-width: 34rem;
+  margin-left: auto;
+  width: 100%;
+}
+.mp-totaux-facture > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-2) 0;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+.mp-totaux-facture dt {
+  color: var(--mp-texte-doux);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mp-totaux-facture dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mp-totaux-facture__fort dt,
+.mp-totaux-facture__fort dd {
+  color: var(--mp-texte);
+  font-weight: 700;
+}
+.mp-totaux-facture__net {
+  border-bottom: 0 !important;
+  margin-top: var(--mp-esp-2);
+  padding: var(--mp-esp-3) var(--mp-esp-3) !important;
+  background: var(--mp-primaire-pale);
+  border-radius: var(--mp-rayon);
+}
+.mp-totaux-facture__net dt,
+.mp-totaux-facture__net dd {
+  color: var(--mp-texte);
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+}
+
+/* ---------- Double authentification ---------- */
+.mp-qrcode-bloc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-4);
+  align-items: flex-start;
+}
+
+.mp-qrcode {
+  display: block;
+  width: min(100%, 14rem);
+  height: auto;
+  border-radius: var(--mp-rayon);
+  /* Contraste fixe noir sur blanc, y compris en thème sombre (lecture par l'appareil photo). */
+  outline: 1px solid var(--mp-bordure);
+}
+
+.mp-qrcode-bloc > .mp-pile {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.mp-secret {
+  display: inline-block;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: var(--mp-taille-m);
+  letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.mp-champ-code {
+  max-width: 12rem;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: var(--mp-taille-l);
+  letter-spacing: 0.2em;
+}
+
+.mp-codes-secours {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-3) var(--mp-esp-3) var(--mp-esp-6);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+.mp-codes-secours code {
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: var(--mp-taille-m);
+  letter-spacing: 0.05em;
+}
+
+/* ---------- Débours ---------- */
+.mp-debours .mp-liste-lignes__texte {
+  gap: 2px;
+}
+
+@media print {
+  .mp-entete,
+  .mp-nav-laterale,
+  .mp-barre-basse {
+    display: none;
+  }
+}

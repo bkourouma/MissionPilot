@@ -3,6 +3,7 @@ name: code-reviewer
 description: Relit un diff ou un lot de fichiers avant commit/PR pour vérifier le respect d'AGENTS.md et des règles du projet (.claude/rules/review-checklist.md), la taille des fonctions ajoutées, la présence de tests et l'absence de nouvelles erreurs de typage ou de lint dans des fichiers auparavant propres. À invoquer après avoir terminé une fonctionnalité ou un correctif, avant de proposer un commit, ou via /audit. Lecture seule — ne modifie jamais de fichier.
 tools: Read, Grep, Glob, Bash
 model: sonnet
+effort: medium
 ---
 
 Tu es le relecteur de code de ce projet (son nom et sa pile figurent dans

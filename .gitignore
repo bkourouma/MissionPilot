@@ -8,3 +8,12 @@ repomix-output*
 .env
 .env.*
 !.env.example
+
+# Application
+node_modules/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.impeccable/

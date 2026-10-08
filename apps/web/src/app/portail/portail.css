@@ -1,0 +1,336 @@
+/*
+ * Espace client (portail, SOC-09) : cadre minimal, distinct de celui du cabinet.
+ * Mobile d'abord : navigation en barre basse sur téléphone, en rangée sous l'en-tête à partir
+ * de 768 px. Jetons du design system (tokens.css) : contrastes WCAG 2.1 AA déjà vérifiés.
+ */
+
+.mp-portail {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- En-tête ---------- */
+.mp-portail__entete {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+  min-height: var(--mp-hauteur-entete);
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
+  background: var(--mp-surface);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-portail__marque {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  min-width: 0;
+  color: var(--mp-texte);
+  text-decoration: none;
+}
+.mp-portail__marque:hover {
+  color: var(--mp-texte);
+}
+
+.mp-portail__logo {
+  flex-shrink: 0;
+  color: var(--mp-primaire);
+}
+
+.mp-portail__marque-textes {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.mp-portail__produit,
+.mp-portail__espace {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-portail__produit {
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+}
+
+.mp-portail__espace {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 500;
+}
+
+/* Le bouton de déconnexion garde son libellé : c'est la marque qui se tronque. */
+.mp-portail__compte {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--mp-esp-3);
+}
+
+.mp-portail__nom {
+  display: none;
+  font-weight: 600;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .mp-portail__nom {
+    display: block;
+  }
+}
+
+/* ---------- Navigation ---------- */
+.mp-portail__nav {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 30;
+  background: var(--mp-surface);
+  border-top: 1px solid var(--mp-bordure);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mp-portail__nav-liste {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-portail__lien {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--mp-hauteur-barre-basse);
+  padding: var(--mp-esp-1);
+  color: var(--mp-texte);
+  font-size: var(--mp-taille-xs);
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+}
+.mp-portail__lien:hover {
+  background: var(--mp-surface-2);
+  color: var(--mp-texte);
+}
+.mp-portail__lien[aria-current="page"] {
+  background: var(--mp-primaire-pale);
+  color: var(--mp-primaire);
+  font-weight: 650;
+  box-shadow: inset 0 3px 0 var(--mp-primaire);
+}
+
+@media (min-width: 768px) {
+  .mp-portail__nav {
+    position: sticky;
+    top: var(--mp-hauteur-entete);
+    inset: auto;
+    z-index: 15;
+    border-top: 0;
+    border-bottom: 1px solid var(--mp-bordure);
+    padding-bottom: 0;
+  }
+  .mp-portail__nav-liste {
+    display: flex;
+    gap: var(--mp-esp-1);
+    max-width: var(--mp-largeur-contenu);
+    margin: 0 auto;
+    padding: 0 var(--mp-esp-4);
+  }
+  .mp-portail__lien {
+    flex-direction: row;
+    gap: var(--mp-esp-2);
+    min-height: 48px;
+    padding: 0 var(--mp-esp-4);
+    font-size: var(--mp-taille-m);
+  }
+  .mp-portail__lien[aria-current="page"] {
+    background: transparent;
+    box-shadow: inset 0 -3px 0 var(--mp-primaire);
+  }
+}
+
+/* ---------- Contenu ---------- */
+.mp-portail__contenu {
+  flex: 1;
+  min-width: 0;
+  padding: var(--mp-esp-5) var(--mp-esp-4);
+  /* Place pour la barre basse sur téléphone. */
+  padding-bottom: calc(
+    var(--mp-hauteur-barre-basse) + var(--mp-esp-5) + env(safe-area-inset-bottom)
+  );
+}
+.mp-portail__contenu:focus {
+  outline: none;
+}
+
+@media (min-width: 768px) {
+  .mp-portail__contenu {
+    padding: var(--mp-esp-6) var(--mp-esp-4);
+  }
+}
+
+.mp-portail__bandeau {
+  max-width: var(--mp-largeur-contenu);
+  margin: 0 auto var(--mp-esp-4);
+}
+
+/* ---------- Pages ---------- */
+.mp-portail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-portail-note {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* Partages de l'accueil : liste de liens à grande cible tactile. */
+.mp-portail-partages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-portail-partages__element {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-3);
+  min-height: var(--mp-cible);
+}
+
+.mp-portail-partages__element a {
+  font-weight: 600;
+}
+
+/* Fiche d'une mission dans la liste. */
+.mp-portail-mission__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+/* Jalons et livrables : lignes de liste (mp-liste-lignes). */
+.mp-portail-ligne__titre {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-portail-ligne__detail {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-portail-ligne__commentaire {
+  margin-top: var(--mp-esp-1);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.mp-portail-ligne__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--mp-esp-2);
+}
+
+/* Validation d'un jalon : panneau de confirmation sur toute la largeur de la ligne. */
+.mp-portail-validation {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-portail-validation__titre {
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+/* Paiement d'une facture. */
+.mp-portail-paiement {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  max-width: 34rem;
+  margin-left: auto;
+  width: 100%;
+}
+.mp-portail-paiement > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-2) 0;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+.mp-portail-paiement > div:last-child {
+  border-bottom: 0;
+}
+.mp-portail-paiement dt {
+  color: var(--mp-texte-doux);
+}
+.mp-portail-paiement dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* Invitation : liste des règles du mot de passe. */
+.mp-portail-regles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-portail-regles li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+  color: var(--mp-texte-doux);
+}
+.mp-portail-regles li .mp-icone {
+  margin-top: 0.15em;
+}
+
+.mp-portail-regles__ok {
+  color: var(--mp-succes) !important;
+  font-weight: 600;
+}

@@ -1,0 +1,146 @@
+/*
+ * Gestion du portail client par le cabinet (SOC-09) : partages par mission, résumé de ce que
+ * voit le client, choix du rôle d'une invitation. Mobile d'abord ; jetons de tokens.css.
+ * L'état « partagé » n'est jamais porté par la seule couleur : un badge texte l'accompagne.
+ */
+
+/* ---------- Résumé « ce que voit votre client » ---------- */
+.mp-resume-portail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-resume-portail__element {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border-left: 4px solid var(--mp-primaire);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-resume-portail__element--neutre {
+  border-left-color: var(--mp-bordure-controle);
+}
+
+/* ---------- Partages par mission ---------- */
+.mp-partages-missions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.mp-partage-mission {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  margin: 0;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-partage-mission--partagee {
+  border-color: var(--mp-primaire);
+  box-shadow: inset 4px 0 0 var(--mp-primaire);
+}
+
+/* Légende dans le cadre (et non sur la bordure) : astuce float, puis dégagement. */
+.mp-partage-mission > legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin: 0 0 var(--mp-esp-1);
+}
+
+.mp-partage-mission > legend + * {
+  clear: both;
+}
+
+.mp-partage-mission__titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-partage-mission__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding-left: var(--mp-esp-4);
+  border-left: 2px solid var(--mp-bordure);
+}
+
+.mp-partage-mission__documents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-2) 0 0;
+  margin: 0;
+  list-style: none;
+  border-top: 1px solid var(--mp-bordure);
+}
+
+.mp-partage-mission__sous-titre {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 650;
+}
+
+.mp-partage-mission__indisponible {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  color: var(--mp-texte-doux);
+}
+
+@media (min-width: 720px) {
+  .mp-partage-mission__options {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: var(--mp-esp-5);
+  }
+}
+
+/* ---------- Barre d'enregistrement des partages ---------- */
+.mp-partages__pied {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-partages__etat {
+  margin: 0;
+  font-weight: 600;
+}
+
+.mp-partages__etat--modifie {
+  color: var(--mp-attention);
+}
+
+/* ---------- Choix du rôle d'une invitation (boutons radio) ---------- */
+.mp-choix-role__libelle {
+  font-weight: 600;
+}
