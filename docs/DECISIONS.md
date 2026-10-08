@@ -83,6 +83,29 @@ Posées par l'implémentation pour fermer des écarts relevés à l'audit ; à c
 | Export du dossier remis au client (DOS-07) | **Sans les motifs des décisions** (acceptation d'un état en écart, rejet d'un fait) : ils restent internes au cabinet. |
 | Exécution d'un agent IA (AGT-04) | Un agent n'exécute qu'un prompt doté d'un jeu d'essai et d'une évaluation réussie ; en production, seule une évaluation sur un vrai modèle (`openrouter`) compte (ADR-005). **Décision laissée au commanditaire** : exiger un jeu d'essai pour CHAQUE activation de prompt (aujourd'hui, un prompt sans jeu d'essai peut s'activer mais ne sert aucun agent) est une décision produit, non imposée. |
 
+## Précisions issues de l'audit des vagues 2 et 3 (2026-10-08)
+
+Posées PAR DÉFAUT par l'implémentation pour fermer des écarts relevés à l'audit ; chaque ligne dit ce qui est posé et ce qui reste à faire valider par le commanditaire. Le moteur d'automatisation est décrit par l'ADR-006.
+
+| Sujet | Règle posée par défaut | Reste à valider |
+| --- | --- | --- |
+| Plafond d'automatisations (AUT-02) | **50 automatisations actives par cabinet** (verrou à l'activation, 409), **30 simulations par utilisateur sur 10 minutes** (429). | Les deux valeurs de départ. |
+| Salle de mission (CLI-01) | **20 dépôts** non rejetés et non retirés **par pièce**, **500 Mo par demande**, **30 dépôts du portail par utilisateur sur 10 minutes** (déni de service du quota de stockage ; doublé en base, `MPL07-08`, `0332`). | Les trois valeurs. |
+| Appels d'offres (AO-03, AO-04) | **20 dossiers et 50 extractions par fiche** d'appel d'offres ; **100 gabarits de CV** par cabinet (409 au-delà). | Les valeurs. |
+| Plans et capitalisation | **30 propositions de portefeuille sur 10 minutes** (PLA-14) ; **60 recherches par minute** (CAP-07) ; **10 dossiers de revue KPI sur 10 minutes** (KPI-17) ; **50 déclarations de niveau par couple** collaborateur et compétence (CAP-06, `MPJ07`). | Les valeurs. |
+| Indice de confiance d'une notation (NOT-11) | **Plancher** du réglage du cabinet : seuil de confiance **au moins 0,3** et **au moins 2 répondants** (schéma partagé et `CHECK` en base, `0404`) ; un associé qui est aussi expert métier ne peut pas les abaisser. Défauts : seuil 0,5, cible de 3 répondants. | Seuil, cible et plancher, à calibrer au pilote. |
+| Estimation depuis les temps réels (CAP-02) | **Effectif d'au moins 3** observations pour publier une estimation, **statistiques détaillées dès 5** ; lecture réservée aux détenteurs de `budget.lire_jours` (jours = donnée de gestion). | Les seuils 3 et 5. |
+| Matrice de compétences (CAP-06) | `competence.lire` **réservée à l'associé, au directeur de mission et aux ressources** (donnée d'évaluation individuelle) ; chacun voit sa propre vue. Conséquence : **le gestionnaire perd la rubrique « Connaissances » du menu** (il n'a ni `connaissance.lire` ni `competence.lire`), donc aussi « Mes compétences » : l'API `/capitalisation/competences/moi` lui reste ouverte (`temps.saisir`) mais aucun écran du menu n'y mène. | **À valider** : le gestionnaire doit-il lire la matrice ou la base de connaissances ? |
+| Dossier de revue de performance (KPI-17) | Le dossier d'une revue non tenue est **figé en « brouillon »** ; il est **confidentiel** (valeurs de KPI du client) et ne se diffuse pas tel quel. | Mention et diffusion à confirmer. |
+| Actions correctives (KPI-18) | **Commentaire obligatoire** pour une date d'effet de plus de **31 jours dans le passé** et pour une décision de revue marquée « **exécutée** » (la date d'effet fixe les fenêtres avant/après de l'efficacité). | Le délai de 31 jours. |
+| Séparation des tâches, offre technique (AO-06) | **Valideur ≠ créateur de l'offre ≠ auteur d'une version ≠ demandeur de la génération IA, sauf associé** (doublé en base, `MPW05`, `0385`). Remplace le choix « tout détenteur de `ao.gerer` valide » de la section Banques et offres. | Aucune ; à confirmer. |
+| Séparation des tâches, clôture (AUT-08) | **Celui qui a accordé une dérogation en vigueur ne clôt pas la mission, sauf associé** (`MPX03`, `0323`) ; dérogation accordée ou retirée par un directeur de mission ou un associé (`MPX02`). | Aucune ; à confirmer. |
+| Séparation des tâches, salle de mission (CLI-01) | **L'acceptation d'un dépôt est refusée à celui qui l'a déposé, sauf associé** (`MPL09`, `0332`). | Aucune ; à confirmer. |
+| Modification d'une automatisation active (AUT-05) | **Modifier la définition d'une automatisation active la désactive** : elle s'exécute sous l'identité et les droits de son responsable (celui qui l'a activée) ; la réactivation rend son auteur responsable. Nom et description se modifient sans effet (ADR-006). | Confort d'usage : réactivation à chaque correction de définition. |
+| Conservation des CV de la banque AO (AO-04) | **Aucune durée de conservation posée.** Les versions de CV sont en ajout seul ; **anonymisation à la demande** (départ d'une personne, droit à l'effacement : fonction `anonymiser_cv_ao`, `0386`, `MPW06`), sans retour en arrière. | **À valider : anonymisation AUTOMATIQUE après N années du CV d'un expert parti ? (avis du conseil juridique requis)** ; valeur de N. |
+| Retour d'expérience (CAP-01) | **Exception au quatre-yeux** : le chef de mission peut valider la version IA du retour d'expérience qu'il a lui-même demandée (« l'IA propose, l'expert dispose » : il est l'expert) ; la validation reste réservée au chef, au directeur de la mission ou à un associé (`MPJ08`, `0465`). Conforme au PRD. | Aucune. |
+| Dossier bancaire (PLA-17) | **Sa génération exige `plan.valider`** (et `plan.lire`, `mission.lire`) : seul qui peut valider une version du modèle financier émet le dossier qui s'appuie sur elle. **L'annexe « Sources » du plan est exclue** (registre des preuves interne : verbatims, assertions du cabinet). | Aucune ; à confirmer. |
+
 ## Règles métier validées (2026-10-06) — applicables à la V2
 
 | Sujet | Décision |
@@ -139,3 +162,119 @@ génériques, sans contenu du cahier SANKORIA).
   en CI.
 - **Rapports** : HTML rendu en PDF par Chromium headless ; DOCX via `docx`,
   PPTX via `pptxgenjs`.
+
+## Prévisions et pré-remplissage des temps (AUT-12, AUT-09)
+
+Hypothèses de calcul **à valider par le métier** (moteurs `packages/engines/src/previsions`) :
+
+- **Carnet signé** : échéances de facturation non facturées des missions signées, au mois de leur
+  date prévue ; une échéance antérieure au premier mois est comptée dans le premier mois et
+  signalée « en retard » ; une mission sans taux de change figé (hors devise du cabinet) est
+  écartée et comptée. Pas de reste à produire hors échéancier.
+- **Pipeline pondéré** : montant estimé × probabilité de l'opportunité (colonne `probabilite`,
+  éditée par l'utilisateur) ; à défaut, probabilité par défaut de l'étape (prospection 10 %,
+  qualification 25 %, proposition 50 %, négociation 75 %, jamais utilisée aujourd'hui car la
+  colonne est toujours renseignée : pas de table de probabilités par étape). Réparti en parts égales
+  sur 3 mois à partir du mois qui suit la clôture prévue ; sans date de clôture : 3 mois après le
+  premier mois. Une opportunité dans une autre devise que celle du cabinet est écartée (pas de taux
+  figé).
+- **Charge** : jours des affectations de missions non clôturées (nominatives des collaborateurs
+  internes actifs, et profils à pourvoir), au prorata des jours ouvrés comme le plan de charge ;
+  charge du pipeline = jours de la dernière proposition × probabilité. Les affectations de missions
+  non signées comptent (comme le plan de charge) : une opportunité déjà staffée est comptée deux fois
+  tant que sa mission n'existe pas. **Capacité** : jours ouvrés du calendrier du cabinet moins les
+  absences validées, selon le temps de travail.
+- **Pré-remplissage des temps** : affectations (jours planifiés) et activité du consultant sur la
+  plateforme (ses commentaires, ses tâches terminées, ses documents déposés dans la semaine, en
+  UTC). **Aucune source d'agenda n'existe dans le dépôt** : la réponse le déclare
+  (`sources.agenda = false`). Une activité sur une tâche affectée mais non planifiée un jour
+  donné propose une demi-journée de confiance « faible » (décochée par défaut). Le consultant
+  confirme dans l'écran puis enregistre par le circuit habituel.
+
+## Pilotage augmenté des KPI (KPI-13, KPI-15, KPI-17, KPI-18)
+
+Valeurs de départ posées pour avancer, **à valider avec des cabinets pilotes** (ce sont des
+constantes exportées de `packages/engines/src/kpi`, jamais des nombres cachés) :
+
+- **Arbres d'indicateurs** : relations « somme pondérée » (coefficient signé, négatif pour un coût)
+  et « produit » (coefficients à 1). Un nœud interne prend la valeur calculée de ses enfants ; sa
+  valeur observée ne sert qu'à mesurer le résidu (la part que l'arbre n'explique pas). Contribution
+  d'un levier à un produit : substitution en chaîne dans l'ordre des rangs (exacte, mais dépendante
+  de cet ordre, donc explicite et figé par l'utilisateur). Au plus 50 nœuds actifs et 6 niveaux.
+  Valeur d'un KPI à une date d'arrêté : celle de sa dernière période close mesurée. Si la variation
+  d'un nœud intermédiaire est nulle, la contribution nette de ses leviers à la racine est 0.
+- **Qualité des données** : fraîcheur (un tiers de moins par période échue sans mesure, 3 périodes
+  de retard = 0), complétude (12 dernières périodes échues), cohérence (valeurs aberrantes à plus de
+  5 écarts absolus médians de la médiane, à partir de 6 mesures, et corrections), poids 4 / 3 / 3 ;
+  niveaux « bon » ≥ 80, « moyen » ≥ 50, « faible » en dessous. Une composante sans objet est écartée
+  du score (jamais comptée comme 0). Le score informe, il ne modifie ni statut ni score composite.
+- **Efficacité d'une action** : moyenne du KPI sur 3 périodes closes avant la date d'effet contre 3
+  après (la période qui contient la date d'effet est exclue), au moins 2 de chaque côté, tolérance
+  de 2 % de la moyenne avant comme la tendance. Variation corrélée, pas causale : l'écran le dit.
+- **Revue de performance** : ordre du jour par priorités entières (KPI rouge 100 + 10 par alerte,
+  action en retard 90 + jours de retard au plus 30, décision ouverte 85 ou 95 si échue, action sans
+  effet 80, dégradation 70, orange 60, qualité faible 50, non mesuré 40) ; 5 minutes par point, 10
+  pour un KPI rouge ; 40 points au plus. Le dossier est figé à la tenue ; décisions, actions et
+  compte rendu restent vivants jusqu'à la clôture. Dossier et présentation sont rendus à chaque
+  demande, non conservés (pas de suivi qualité QUA tant qu'ils ne sont pas enregistrés comme
+  rapports : `rapports_mission` n'a pas de modèle « revue de performance »).
+- **Droits** : aucune permission nouvelle (`kpi.lire`, `kpi.gerer`, `kpi.saisir`) ; le portail n'y
+  accède pas.
+
+## Appels d'offres : veille, go/no-go, exigences, rétro-planning (AO-01 à AO-03, AO-08)
+
+Valeurs de départ posées pour avancer, **à calibrer avec des cabinets pilotes** (constantes
+exportées de `packages/engines/src/appels-offres`) :
+
+- **Veille (AO-01)** : saisie et import CSV manuels seulement, sans connecteur ni appel réseau ;
+  une référence d'avis n'est importée qu'une fois par cabinet (sans casse). Rapprochement avec le
+  profil du cabinet, de 0 à 100 : secteur 30, compétences 30 (3 compétences des collaborateurs
+  actifs retrouvées dans le titre, l'objet ou les mots-clés = note pleine), références du secteur
+  25 (3 = note pleine), même pays 10, même bailleur 5. Références = missions signées (secteur de la
+  mission ou du client, pays du client) et appels d'offres gagnés (secteur, pays, bailleur).
+- **Go/no-go (AO-02)** : poids adéquation 30, références 25, charge 15, marge estimée 20,
+  concurrence connue 10 ; « go » à partir de 65, « à examiner » à partir de 50 ; éliminatoires :
+  marge nulle ou négative, références exigées non atteintes. Marge cible par défaut 20 %. Concurrence :
+  100 − 10 par concurrent ordinaire − 25 par concurrent fort. Sans marge renseignée (donnée FIN-02),
+  le critère n'est pas évalué et son poids sort du calcul. La décision revient à un **associé**
+  (`ao.decider`), motivée (10 caractères au moins), sur la dernière évaluation ; un no-go peut
+  arrêter une réponse engagée.
+- **Exigences (AO-03)** : extraction par l'IA en brouillon (dossier lu jusqu'à 40 000 caractères,
+  100 exigences au plus) ou découpage déterministe (phrases portant « doit », « obligatoire »,
+  « fournir », « au moins »…, 200 au plus) ; dépôt possible seulement si la matrice n'est pas vide
+  et que toute exigence obligatoire est conforme ou « sans objet » motivé. Un PDF n'est pas lu : il
+  faut en coller le texte (chaîne d'ingestion et OCR à venir, ADR-009).
+- **Rétro-planning (AO-08)** : huit étapes standard à J-21, J-18, J-14, J-10, J-8, J-5, J-3 et J-1
+  de la date limite, compressées proportionnellement si le temps manque ; alertes à J-7, J-3, J-1
+  et après la date limite, et pour toute étape non faite en retard ou du jour. Les alertes sont
+  calculées à la lecture (route `GET /api/appels-offres/alertes`, fonction
+  `alertesAppelsOffresCabinet` pour le brief quotidien), sans job ni notification automatique.
+
+## Banques et offres d'appels d'offres (AO-04 à AO-07, lot AO-B)
+
+Règles posées pour avancer, **à confirmer par le commanditaire et des cabinets pilotes** :
+
+- **Années d'expérience (AO-04)** : mois DISTINCTS couverts par au moins une expérience (deux
+  postes simultanés ne comptent pas double), jusqu'au mois de référence (en général celui du
+  dépôt), puis années COMPLÈTES (59 mois = 4 ans) ; une expérience en cours court jusqu'à ce mois.
+  Années par secteur : mêmes règles sur les seules expériences du secteur. Diplômes ordonnés
+  bac < bac+2 < bac+3 < bac+4 < bac+5 < doctorat ; langues notions < courant < bilingue <
+  maternelle ; libellés comparés sans casse ni accents (moteur `packages/engines/src/banque-cv`).
+- **Gabarits de CV par bailleur** : quatre gabarits standard de départ (générique, Banque
+  mondiale, Banque africaine de développement, Union européenne limité aux 15 dernières années),
+  en données (`0380`) ; leurs sections et intitulés sont **indicatifs**, à aligner sur les
+  formulaires types de chaque bailleur. Un cabinet ajoute ses propres gabarits ; celui du cabinet
+  masque le standard de même code.
+- **Références (AO-05)** : le montant est celui du marché, en unités mineures de sa devise ; une
+  recherche par montant se fait dans UNE devise, sans change implicite.
+- **Offre technique (AO-06)** : le modèle ne rédige que la compréhension des termes de référence
+  et la méthodologie ; le planning reprend les étapes et les temps types saisis dans la méthode
+  (sans calcul), l'organisation l'équipe tirée de la banque de CV. Validation d'une version
+  par un détenteur de `ao.gerer` qui n'en est ni le créateur, ni l'auteur, ni le demandeur de la
+  génération IA, sauf associé (quatre yeux posé à l'audit des vagues 2 et 3, `MPW05`, voir la
+  section « Précisions issues de l'audit des vagues 2 et 3 »).
+- **Offre financière (AO-07)** : chaque ligne arrondie une fois (demi s'éloignant de zéro), taxes
+  calculées sur le total hors taxes ou sur les seuls honoraires, jours en centièmes exacts ; TVA
+  proposée par défaut à 18 % dans l'écran (modifiable, vide = hors taxes). Réservée aux
+  détenteurs de `finance.lire`, écriture avec `taux.gerer` (associé, gestionnaire) : un directeur
+  ou un chef de mission ne voit pas les taux (FIN-02).

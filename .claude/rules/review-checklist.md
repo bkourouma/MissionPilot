@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-08 (branche `feat/vague-1-fondations`, arbre de travail avec les corrections d'audit de la vague 1) en lançant les commandes
+ont été relevés le 2026-10-08 (branche `feat/vague-2-automatisation`, arbre de travail avec les vagues 2 et 3 non commitées) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -74,7 +74,18 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Données FIN-02** (coûts, taux, marges, rentabilité, coût IA) : champs
   ABSENTS de la réponse sans `finance.lire`, jamais masqués par un zéro ; un
   test « sans droit » accompagne chaque nouvelle réponse financière (modèle
-  `apps/api/test/budget.test.ts`).
+  `apps/api/test/budget.test.ts`). **Le champ retiré ne doit pas se déduire** : une
+  vue sans droit financier ne laisse pas retrouver la marge par un score, une
+  recommandation, un éliminatoire ou un agrégat ; ceux-ci se RECALCULENT sans le
+  champ (modèle `appels-offres/go-no-go.ts`, `vueEvaluation`).
+- **Automatisation** (ADR-006) : une action s'exécute sous l'identité et les droits
+  ACTUELS du responsable (la personne qui a activé l'automatisation) et passe par
+  `garderActionAutomatisation` (R2 et R3 jamais vers le client, N4 réservé à R0,
+  coupe-circuits) ; toute modification de définition DÉSACTIVE l'automatisation
+  (`automatisation/regles.ts`, `modifierAutomatisation`), sinon le texte d'un autre
+  s'exécuterait sous les droits du responsable. Toute constante `TYPE_JOB_*`
+  exportée figure au `REGISTRE_JOBS` (`jobs/registre.ts`), sauf exclusion motivée
+  (`TYPE_JOB_EMAIL`) : test `apps/api/test/jobs-registre.test.ts`, qui échoue sinon.
 - **Séparation des tâches** : une validation ne revient pas à l'auteur (sauf
   associé) ; modèle `apps/api/src/finance/encaissements.ts`. Règles plus
   strictes doublées en base : publication d'une notation par un
@@ -88,7 +99,15 @@ des mécanismes : `docs/governance/SECURITY.md` et
   `qualite/verification.ts`) ; **publication d'une variante** du référentiel (refusée
   au créateur de la version sauf associé : `MPM08`, `standard/methodes.ts`), comme la
   publication d'une proposition au standard (`standard/propositions.ts`). Le
-  contrôle API et le déclencheur disent la même règle, avec le même test de refus.
+  Le contrôle API et le déclencheur disent la même règle, avec le même test de refus.
+  **Circuit de validation d'un contenu IA ou d'une offre** : valideur ≠ demandeur ≠
+  auteur, sauf associé, doublé en base ; modèles : offre technique (valideur ni
+  créateur, ni auteur d'une version, ni demandeur de la génération : `MPW05`, `0385`,
+  `banque-ao/offres-techniques.ts`), clôture (qui a accordé une dérogation en vigueur
+  ne clôt pas : `MPX03`, `0323`, `cloture/evaluation.ts`), salle de mission (qui a
+  déposé n'accepte pas : `MPL09`, `0332`, `salle-mission/decisions.ts`). Une
+  exception explicite se justifie par le PRD (le chef valide la version IA du retour
+  d'expérience qu'il a demandée, `capitalisation/retours.ts`, `MPJ08`).
 - **Contenu IA** : passe par l'orchestrateur (`ia/orchestrateur.ts`) ; la
   liste blanche de chiffres est construite par le code depuis les moteurs,
   jamais reçue d'une requête ; seul un contenu validé (et jamais un essai sur
@@ -133,15 +152,19 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-08, seules les dix migrations des corrections d'audit de la
-  vague 1 ne sont pas commitées (`0207`–`0209`, `0224`, `0243`, `0265`–`0268`, `0286`) ;
-  celles de la vague 0, des lots de la vague 1 et de l'intégration (`0206`) le sont.
+  recréer) ; au 2026-10-08, seules les 43 migrations des vagues 2 et 3 ne sont pas
+  commitées (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`, `0360`–`0363`,
+  `0380`–`0386`, `0400`–`0404`, `0420`–`0424`, `0440`–`0445`, `0460`–`0465`) ;
+  celles de la vague 0, de la vague 1 (corrections d'audit comprises) et de
+  l'intégration le sont.
   Une fonction SQL déjà définie se redéfinit par `CREATE OR REPLACE` dans une
   nouvelle migration numérotée APRÈS celles qui créent les tables qu'elle cite
   (modèle : `0268`, `fichier_orphelin`) ; toute nouvelle colonne qui référence
   `fichiers` s'ajoute à cette fonction, sinon la purge à 24 h efface le fichier
   (`rg -n "REFERENCES fichiers" apps/api/migrations` : chaque colonne doit figurer
-  dans `fichier_orphelin`, test `fichiers-orphelins-references.test.ts`).
+  dans `fichier_orphelin` ; l'inventaire AUTOMATIQUE de
+  `fichiers-orphelins-references.test.ts` couvre toute colonne `REFERENCES fichiers`
+  et échoue sinon ; dernière définition : `0384`).
   Une migration qui référence la table d'un autre domaine prend un numéro plus
   grand que celle qui la crée (`0206`, pas `0151`, pour une table liée à
   `mission_methodes` de `0202`) : `migrate.ts` applique les fichiers par ordre
@@ -149,6 +172,10 @@ des mécanismes : `docs/governance/SECURITY.md` et
   relecture qui garantit la règle (recherche n° 13). Les migrations V2 corrigées
   pendant la session du 2026-10-06 sont commitées depuis `6d62428` : elles sont
   désormais immuables. Plages réservées pour la suite : CODING_STANDARDS §1.
+- **Dates métier** : une date bornée par un `CHECK` SQL utilise `dateIsoBorneeSchema`
+  (`packages/shared/src/schemas/commun.ts`, 2000 à 2100) ; le SQLSTATE 23514 qui
+  échappe au schéma se traduit en 400, jamais en 500 (couches d'erreurs des domaines,
+  par ex. `salle-mission/erreurs.ts`, `plans/erreurs.ts`).
 - **Entrées** : schéma Zod `.strict()` partagé, requêtes paramétrées ; une
   interpolation dans un gabarit SQL n'est admise que pour une constante, un
   fragment construit (`clauseSet`, `filtreVisibilite`), un choix entre
@@ -226,10 +253,9 @@ des mécanismes : `docs/governance/SECURITY.md` et
 ## Recherches mécaniques
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-08
-sur l'arbre de travail de `feat/vague-1-fondations` (lots de la vague 1 commités,
-intégration transversale non commitée). Les recherches 1 à 9, 14 et 17 ont été relancées le même jour avant les
-corrections d'audit : résultats inchangés ; les recherches 10, 12, 13 et 16 l'ont été
-après.
+sur l'arbre de travail de `feat/vague-2-automatisation` (vague 1 commitée, vagues 2 et 3
+non commitées). Toutes les recherches ont été relancées le même jour ; les écarts
+avec l'ancien relevé (vague 1) sont expliqués ligne par ligne ci-dessous.
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -257,12 +283,13 @@ rg -n "SUM\(|AVG\(" apps/api/src --glob '!db/seed*'
 #    routes/portail-gestion.ts est une dette connue (CODING_STANDARDS §10).
 rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
 
-# 8. Arrondis dans l'API (hors moteur). Attendu : 7 lignes, toutes justifiées :
-#    auth/totp.ts (pas de temps), db/seed-demo.ts x2 (seed), jobs/worker.ts
-#    (délai en secondes), stockage/fichiers.ts et routes/fichiers.ts (taille en
-#    Mo dans un message), routes/missions.ts:230 (inverse de la parité EUR/FCFA,
-#    arrondi à numeric(20,10), dette) ; toute autre ligne est un calcul de
-#    montant à déplacer
+# 8. Arrondis dans l'API (hors moteur). Attendu : 9 lignes (7 avant les vagues 2 et 3),
+#    toutes justifiées : auth/totp.ts (pas de temps), db/seed-demo.ts x2 (seed),
+#    jobs/worker.ts (délai en secondes), stockage/fichiers.ts, routes/fichiers.ts,
+#    routes/salle-mission.ts:109 et salle-mission/depots.ts:153 (taille en Mo dans un
+#    message : les deux dernières sont NOUVELLES), routes/missions.ts:234 (inverse de la
+#    parité EUR/FCFA, arrondi à numeric(20,10), dette) ; toute autre ligne est un
+#    calcul de montant à déplacer
 rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 
 # 9. console.* hors seed et migrate. Attendu : 1 ligne (mailer.ts, transport
@@ -270,7 +297,7 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-08, après les corrections d'audit) : "477 8" puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     (2026-10-08, vagues 2 et 3 comprises) : "668 8" (477 avant ; 8 sans exiger, inchangé) puis 8 lignes (auth.ts connexion, connexion/2fa,
 #     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
 #     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
@@ -291,22 +318,27 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 373 z.object de
-#     packages/shared/src/schemas (hors *.test.ts ; chaque z.object est suivi
-#     de .strict() dans sa chaîne). Script ponctuel, pas rg : apparier les
-#     parenthèses en sautant chaînes ET commentaires (une apostrophe dans un
-#     commentaire français fausse un appariement naïf). Compte de contrôle :
+# 12. Schémas Zod non stricts. Attendu : 0 sur 547 z.object de
+#     packages/shared/src/schemas (hors *.test.ts ; chaque z.object a .strict()
+#     dans sa chaîne d'appels, y compris `z.object(...).partial().strict()`).
+#     L'ancien « 373 » était un relevé périmé ; `rg -o "z\s*\.object\("` sans -U ne
+#     voit que 109 appels écrits sur une seule ligne : ne PAS s'y fier. Script
+#     ponctuel, pas rg : apparier les parenthèses en sautant chaînes, gabarits ET
+#     commentaires (une apostrophe dans un commentaire français fausse un
+#     appariement naïf), puis, après la parenthèse fermante, parcourir les appels
+#     chaînés `.methode(...)` jusqu'à trouver `strict`. Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 373).
+#     (somme 547).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; dossier : 105 fichiers au
-# 2026-10-08 (`ls apps/api/migrations | wc -l`), dont 10 non commitées (corrections
-# d'audit : `0207`–`0209`, `0224`, `0243`, `0265`–`0268`, `0286`) ; contre
-# `origin/main` (60 migrations) : 35 « A » suivis (vague 0, lots de la vague 1 et
-# `0206`), 45 une fois les dix autres commitées. La branche locale `main` est en
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 148 fichiers au
+# 2026-10-08 (`ls apps/api/migrations | wc -l`; 105 avant les vagues 2 et 3), dont 43
+# non commitées, toutes des vagues 2 et 3 (`git status --short apps/api/migrations |
+# wc -l` : 43, aucune ligne autre que « ?? » : ni modifiée ni supprimée) ; `origin/main`
+# compte 105 migrations (vague 1 comprise, corrections d'audit commitées) : aucune
+# modification ni suppression, 43 « A » à venir. La branche locale `main` est en
 # retard : comparer à `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
@@ -319,9 +351,12 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 17 lignes (inchangé par les corrections d'audit :
-#     aucune nouvelle fonction SECURITY DEFINER ; les fonctions `est_*` de `0243`
-#     et `0267` sont d'appelant, sous la RLS du cabinet)
+#     SECURITY.md §4. Attendu : 20 lignes (17 avant les vagues 2 et 3). Trois
+#     nouvelles, toutes avec search_path figé et REVOKE ALL FROM PUBLIC :
+#     `planifier_detection_automatisation` (`0302`, planification récurrente),
+#     `octets_stockage_utilises` (`0331`, quota borné au cabinet du contexte),
+#     `anonymiser_cv_ao` (`0386`, bornée au cabinet). Les fonctions `est_*` de
+#     `0243` et `0267` sont d'appelant, sous la RLS du cabinet
 rg -n "GRANT EXECUTE" apps/api/migrations
 
 # 17. Écritures rejouables : tout en-tête Idempotency-Key passe par
@@ -329,7 +364,10 @@ rg -n "GRANT EXECUTE" apps/api/migrations
 rg -n "ENTETE_IDEMPOTENCE|idempotency-key" apps/api/src --glob '!**/idempotence.ts'
 
 # 18. Réception de fichiers : toute route multipart passe par avecPlaceAnalyse.
-#     Attendu : 3 lignes (POST /fichiers, justificatif de débours, classeur
-#     d'états financiers du dossier client)
+#     Attendu : 5 lignes (3 avant les vagues 2 et 3 : POST /fichiers, justificatif
+#     de débours, classeur d'états financiers du dossier client ; nouvelles :
+#     dépôt de la salle de mission par le cabinet, routes/salle-mission.ts:316, et par
+#     le portail, :444). L'import Excel des temps (routes/import-temps.ts) n'y passe pas :
+#     `lireClasseurTemps` a son propre sémaphore (temps/import-excel.ts)
 rg -n "avecPlaceAnalyse\(" apps/api/src
 ```
