@@ -14,6 +14,7 @@ import {
   type ResultatControle,
   type SaisieCv,
   type SaisieExigences,
+  valeurCritere,
 } from "../../lib/banque-ao";
 import { lireMotif } from "../../lib/agents";
 import type { Resultat } from "../../lib/saisie";
@@ -259,8 +260,8 @@ export function FormulaireControleCv({ cvId }: { cvId: string }) {
           <ul>
             {resultat.criteres.map((c, i) => (
               <li key={`${c.code}-${i}`}>
-                {c.conforme ? "Tenu" : "Non tenu"} — {libelleCritere(c)} : exigé {c.exige}, constaté{" "}
-                {c.constate}
+                {c.conforme ? "Tenu" : "Non tenu"} — {libelleCritere(c)} : exigé{" "}
+                {valeurCritere(c, "exige")}, constaté {valeurCritere(c, "constate")}
               </li>
             ))}
           </ul>

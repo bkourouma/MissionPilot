@@ -206,7 +206,7 @@ export async function listerCv(
 ) {
   const apres = decoderCurseur(q.curseur);
   const r = await db.query(
-    `SELECT c.id, c.numero, c.nom, c.collaborateur_id, lower(c.nom) AS cle_tri,
+    `SELECT c.id, c.numero, c.nom, c.collaborateur_id, c.anonymise_le, lower(c.nom) AS cle_tri,
        v.version, v.titre, v.secteurs, v.contenu
      FROM ao_cv c
      JOIN LATERAL (SELECT * FROM ao_cv_versions x WHERE x.cv_id = c.id
@@ -232,6 +232,7 @@ export async function listerCv(
     numero: Number(l.numero),
     nom: l.nom as string,
     collaborateur_id: (l.collaborateur_id as string | null) ?? null,
+    anonymise: l.anonymise_le !== null,
     version: l.version as number,
     titre: l.titre as string,
     secteurs: l.secteurs as string[],

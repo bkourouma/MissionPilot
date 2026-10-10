@@ -355,6 +355,8 @@ export function hrefAppelsOffres(f: Partial<FiltresAo> = {}): string {
 export const hrefFiche = (id: string) => `/appels-offres/${segment(id)}`;
 export const hrefGoNoGo = (id: string) => `/appels-offres/${segment(id)}/go-no-go`;
 export const hrefMatrice = (id: string) => `/appels-offres/${segment(id)}/matrice`;
+/** Personnes à qui confier une étape (utilisateurs actifs avec `ao.lire`, droit `tache.assigner`). */
+export const CHEMIN_PERSONNES_ASSIGNABLES = "/api/appels-offres/assignables";
 export const hrefRetroplanning = (id: string) => `/appels-offres/${segment(id)}/retroplanning`;
 
 /** Fiches regroupées par statut, dans l'ordre du cycle de vie (colonnes du pipeline). */

@@ -7,6 +7,7 @@ import {
 } from "@missionpilot/engines";
 import {
   aPermission,
+  ROLES_CABINET,
   type EtapeRetroplanningModification,
   type EtapeTache,
 } from "@missionpilot/shared";
@@ -251,6 +252,39 @@ export async function confierEtape(
     );
   }
   return { etape: await lireEtape(db, etapeId), notifications };
+}
+
+/** Plafond de la liste des personnes à qui confier une étape (au-delà : `tronquee`). */
+export const ASSIGNABLES_MAX = 200;
+
+/**
+ * Personnes à qui une étape peut être confiée : utilisateurs ACTIFS du cabinet dont un rôle porte
+ * `ao.lire` (la tâche porte le nom de l'appel d'offres ; `confierEtape` refuse les autres par un
+ * 400). Aucune donnée financière : identifiant, nom, grade éventuel.
+ */
+export async function personnesAssignables(db: Db): Promise<{
+  elements: { utilisateur_id: string; nom: string; grade_libelle: string | null }[];
+  tronquee: boolean;
+}> {
+  const roles = ROLES_CABINET.filter((r) => aPermission([r], "ao.lire"));
+  const r = await db.query(
+    `SELECT u.id AS utilisateur_id, u.nom, g.libelle AS grade_libelle
+       FROM utilisateurs u
+       LEFT JOIN collaborateurs c ON c.utilisateur_id = u.id
+       LEFT JOIN grades g ON g.id = c.grade_id
+      WHERE u.actif AND u.roles && $1::text[]
+      ORDER BY lower(u.nom), u.id
+      LIMIT $2`,
+    [roles, ASSIGNABLES_MAX + 1],
+  );
+  return {
+    elements: r.rows.slice(0, ASSIGNABLES_MAX) as {
+      utilisateur_id: string;
+      nom: string;
+      grade_libelle: string | null;
+    }[],
+    tronquee: r.rows.length > ASSIGNABLES_MAX,
+  };
 }
 
 export interface AlerteAoLue {

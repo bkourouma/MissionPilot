@@ -52,6 +52,7 @@ import {
   genererRetroplanning,
   lireRetroplanning,
   modifierEtape,
+  personnesAssignables,
 } from "../appels-offres/retroplanning.js";
 import { exiger } from "../auth/contexte.js";
 import { AppError, introuvable } from "../errors.js";
@@ -302,6 +303,15 @@ function routesExigences(app: FastifyInstance) {
 }
 
 function routesRetroplanning(app: FastifyInstance) {
+  /**
+   * Personnes à qui confier une étape : `tache.assigner` (le droit de confier), sans dépendre de
+   * `collaborateurs.lire`. N'expose que les utilisateurs actifs qui ont `ao.lire`.
+   */
+  app.get("/appels-offres/assignables", async (request) => {
+    const auth = exiger(request, "tache.assigner");
+    return app.db.withTenant(auth.cabinetId, (db) => personnesAssignables(db));
+  });
+
   app.get("/appels-offres/:id/retroplanning", async (request) => {
     const auth = exiger(request, "ao.lire");
     const { id } = paramsId.parse(request.params);

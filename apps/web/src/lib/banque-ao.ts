@@ -14,7 +14,13 @@ import {
   type Role,
   type SectionOffreTechnique,
 } from "@missionpilot/shared";
+import { lireMotif } from "./agents";
 import { ErreurApi, messageErreur } from "./api";
+import {
+  validerReconfirmation,
+  type ChampConfirmation,
+  type SaisieConfirmation,
+} from "./double-authentification";
 import { formaterNombre, type Devise } from "./format";
 import {
   decouperListe,
@@ -76,6 +82,8 @@ export interface CvResume {
   numero: number;
   nom: string;
   collaborateur_id: string | null;
+  /** Vrai une fois le CV anonymisé : plus utilisable dans une offre. */
+  anonymise?: boolean;
   version: number;
   titre: string;
   secteurs: string[];
@@ -88,6 +96,8 @@ export interface CvDetail {
   nom: string;
   collaborateur_id: string | null;
   collaborateur_nom: string | null;
+  /** Vrai une fois le CV anonymisé (irréversible) : ni export, ni nouvelle version. */
+  anonymise: boolean;
   reference: string;
   annees_experience: number;
   courante: { version: number; contenu: ContenuCv; motif: string | null; cree_le: string };
@@ -188,6 +198,11 @@ export interface OffreTechniqueDetail {
   appel_offres_id: string | null;
   titre: string;
   statut: StatutOffreTechnique;
+  /**
+   * Faux quand l'utilisateur courant a demandé ou rédigé l'offre (séparation des tâches, sauf
+   * associé) : le bouton « Valider » est alors désactivé ; l'API reste seule juge.
+   */
+  peut_valider: boolean;
   courante: VersionOffreTechnique | null;
   versions: VersionOffreTechnique[];
 }
@@ -296,6 +311,8 @@ export function droitsBanqueAo(roles: readonly Role[]) {
     ecrireFinance: finance && aPermission(roles, "taux.gerer"),
     redigerIa: aPermission(roles, "ao.gerer") && aPermission(roles, "ia.utiliser"),
     lierMethode: aPermission(roles, "standard.lire"),
+    /** Anonymisation irréversible d'un CV (reconfirmation d'identité côté API). */
+    anonymiser: aPermission(roles, "cabinet.gerer"),
   };
 }
 
@@ -319,6 +336,24 @@ export const LIBELLES_ORIGINE: Record<VersionOffreTechnique["origine"], string> 
 };
 
 export const libelleNiveauDiplome = (n: NiveauDiplomeAo) => LIBELLES_NIVEAU_DIPLOME[n];
+
+/**
+ * Libellés COURTS des niveaux de diplôme (affichage dans une phrase, saisie d'une ligne de
+ * diplôme) : le code technique (« bac_5 ») n'apparaît jamais à l'écran. Chaque libellé en minuscules
+ * est relu par `lireNiveauDiplome` (« bac+5 »).
+ */
+export const LIBELLES_COURTS_DIPLOME: Record<NiveauDiplomeAo, string> = {
+  bac: "Bac",
+  bac_2: "Bac+2",
+  bac_3: "Bac+3",
+  bac_4: "Bac+4",
+  bac_5: "Bac+5",
+  doctorat: "Doctorat",
+};
+
+/** Niveau de diplôme pour une ligne de saisie : « bac+5 » (relu par `lireNiveauDiplome`). */
+export const saisieNiveauDiplome = (n: NiveauDiplomeAo) =>
+  (LIBELLES_COURTS_DIPLOME[n] ?? n).toLowerCase();
 export const libelleNiveauLangue = (n: NiveauLangueAo) => LIBELLES_NIVEAU_LANGUE[n];
 export const libelleRoleReference = (r: keyof typeof LIBELLES_ROLE_REFERENCE) =>
   LIBELLES_ROLE_REFERENCE[r];
@@ -338,6 +373,25 @@ export const libelleCritere = (c: CritereControle) =>
   c.objet
     ? `${LIBELLES_CRITERE[c.code] ?? c.code} : ${c.objet}`
     : (LIBELLES_CRITERE[c.code] ?? c.code);
+
+/** Remplace un code de niveau (diplôme ou langue) par son libellé français, au début de la valeur. */
+function habillerNiveau(code: string, valeur: string): string {
+  if (code === "diplome") {
+    return valeur.replace(/^(bac_[2-5]|bac|doctorat)(?=$| )/, (n) =>
+      n in LIBELLES_COURTS_DIPLOME ? LIBELLES_COURTS_DIPLOME[n as NiveauDiplomeAo] : n,
+    );
+  }
+  if (code === "langue") {
+    return valeur in LIBELLES_NIVEAU_LANGUE
+      ? LIBELLES_NIVEAU_LANGUE[valeur as NiveauLangueAo]
+      : valeur;
+  }
+  return valeur;
+}
+
+/** Valeur exigée ou constatée d'un critère, en français (jamais « bac_5 » ni un code de niveau). */
+export const valeurCritere = (c: CritereControle, quoi: "exige" | "constate") =>
+  habillerNiveau(c.code, c[quoi]);
 
 /** Mois « AAAA-MM » → « MM/AAAA » ; null → « en cours ». */
 export function moisAffiche(mois: string | null): string {
@@ -540,7 +594,13 @@ export function saisieDepuisCv(nom: string, c: ContenuCv): SaisieCv {
       .join("\n"),
     diplomes: c.diplomes
       .map((d) =>
-        [String(d.annee), d.niveau, d.intitule, d.domaine, d.etablissement ?? ""].join(" | "),
+        [
+          String(d.annee),
+          saisieNiveauDiplome(d.niveau),
+          d.intitule,
+          d.domaine,
+          d.etablissement ?? "",
+        ].join(" | "),
       )
       .join("\n"),
     langues: c.langues.map((l) => `${l.langue} : ${l.niveau}`).join("\n"),
@@ -778,6 +838,7 @@ const MESSAGES: Record<string, string> = {
   GABARIT_EXISTANT: "Un gabarit du cabinet porte déjà ce code.",
   FICHIER_DEJA_RATTACHE: "Ce fichier est déjà rattaché à une pièce.",
   VERSION_CONCURRENTE: "Une autre version vient d'être enregistrée : rechargez la page.",
+  CV_ANONYME: "Ce CV est anonymisé : il n'est plus utilisable (ni export, ni nouvelle version).",
   VERSION_PERIMEE: "Une version plus récente existe : rechargez la page avant de valider.",
   VERSION_DEJA_VALIDEE: "Cette version est déjà validée.",
   CHIFFRES_A_ACQUITTER:
@@ -787,9 +848,39 @@ const MESSAGES: Record<string, string> = {
   GENERATION_IA_ECHEC: "La rédaction par l'IA a échoué : réessayez ou partez du gabarit.",
 };
 
+/**
+ * Refus 403 dont l'API explique la raison précise (séparation des tâches, retrait d'une pièce
+ * d'autrui) : le message de l'API est affiché tel quel, au lieu du refus générique de rôle.
+ */
+const CODES_REFUS_EXPLICITES: ReadonlySet<string> = new Set([
+  "APPROBATION_REQUISE",
+  "RETRAIT_PIECE_INTERDIT",
+]);
+
 export function messageBanqueAo(e: unknown): string {
-  if (e instanceof ErreurApi && MESSAGES[e.code]) return MESSAGES[e.code] as string;
+  if (e instanceof ErreurApi) {
+    if (MESSAGES[e.code]) return MESSAGES[e.code] as string;
+    if (CODES_REFUS_EXPLICITES.has(e.code) && e.message.trim() !== "") return e.message;
+  }
   return messageErreur(e);
+}
+
+/** Motif d'une anonymisation (obligatoire) et reconfirmation d'identité, jointe sous `confirmation`. */
+export const MOTIF_ANONYMISATION_MAX = 500;
+
+export function lireAnonymisationCv(
+  motif: string,
+  confirmation: SaisieConfirmation,
+): Resultat<{ motif: string; confirmation: Record<string, string> }, "motif" | ChampConfirmation> {
+  const m = lireMotif(motif, MOTIF_ANONYMISATION_MAX);
+  const c = validerReconfirmation(confirmation);
+  if (m.ok && c.ok) {
+    return { ok: true, charge: { motif: m.charge.motif, confirmation: { ...c.charge } } };
+  }
+  return {
+    ok: false,
+    erreurs: { ...(m.ok ? {} : m.erreurs), ...(c.ok ? {} : c.erreurs) },
+  };
 }
 
 /* ----- Chemins ----- */
@@ -830,4 +921,30 @@ export function saisieDepuisOffreFinanciere(
       .join("\n"),
     tva: tva ? nombre(tva.taux) : "",
   };
+}
+
+/* ----- Choix de l'offre technique (équipe et appel d'offres) ----- */
+
+export interface ChoixListe {
+  valeur: string;
+  libelle: string;
+}
+
+/** CV proposés pour l'équipe d'une offre : jamais un CV anonymisé (409 côté API). */
+export function choixCv(
+  cv: readonly Pick<CvResume, "id" | "nom" | "titre" | "anonymise">[],
+): ChoixListe[] {
+  return cv
+    .filter((c) => !c.anonymise)
+    .map((c) => ({ valeur: c.id, libelle: c.titre ? `${c.nom} — ${c.titre}` : c.nom }));
+}
+
+/** Fiches d'appels d'offres proposées pour rattacher une offre : « référence — titre ». */
+export function choixFiches(
+  fiches: readonly { id: string; reference: string | null; titre: string }[],
+): ChoixListe[] {
+  return fiches.map((f) => ({
+    valeur: f.id,
+    libelle: f.reference ? `${f.reference} — ${f.titre}` : f.titre,
+  }));
 }

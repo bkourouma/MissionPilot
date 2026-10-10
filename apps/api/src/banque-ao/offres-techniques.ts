@@ -301,12 +301,18 @@ async function versionsDe(db: Db, offreId: string) {
   }));
 }
 
-export async function detailOffreTechnique(db: Db, id: string) {
+/**
+ * Détail d'une offre. `peut_valider` dit si la séparation des tâches laisse l'utilisateur courant
+ * valider (ni demandeur, ni auteur d'une version, sauf associé) : l'interface désactive le bouton
+ * sinon ; l'API reste seule juge (403 APPROBATION_REQUISE, doublé en base MPW05).
+ */
+export async function detailOffreTechnique(db: Db, id: string, auth: Auth) {
   const offre = await exigerOffreTechnique(db, id);
   const versions = await versionsDe(db, id);
   const derniere = versions[0];
   return {
     ...offre,
+    peut_valider: await estValideurDistinct(db, auth, offre, versions),
     statut: derniere ? statutOffre(derniere.origine, derniere.validation !== null) : "brouillon_ia",
     courante: derniere ?? null,
     versions,
@@ -338,15 +344,15 @@ export async function nouvelleVersionOffreTechnique(
 /**
  * Séparation des tâches (SECURITY.md §5) : le valideur n'est ni le demandeur de l'offre, ni le
  * demandeur de la génération IA, ni l'auteur d'AUCUNE version, sauf associé (doublé en base :
- * MPW05).
+ * MPW05). Vrai si l'utilisateur peut valider au regard de cette règle.
  */
-async function exigerValideurDistinct(
+async function estValideurDistinct(
   db: Db,
   auth: Auth,
   offre: Record<string, unknown>,
   versions: readonly { cree_par: string; demande_ia_id: string | null }[],
-): Promise<void> {
-  if (estAssocie(auth)) return;
+): Promise<boolean> {
+  if (estAssocie(auth)) return true;
   const demandes = versions.flatMap((v) => (v.demande_ia_id ? [v.demande_ia_id] : []));
   const demandeurs = await db.query(
     "SELECT DISTINCT demandeur_id FROM ia_demandes WHERE id = ANY($1::uuid[])",
@@ -357,7 +363,16 @@ async function exigerValideurDistinct(
     ...versions.map((v) => v.cree_par),
     ...demandeurs.rows.map((x) => x.demandeur_id as string),
   ]);
-  if (intervenants.has(auth.utilisateurId)) {
+  return !intervenants.has(auth.utilisateurId);
+}
+
+async function exigerValideurDistinct(
+  db: Db,
+  auth: Auth,
+  offre: Record<string, unknown>,
+  versions: readonly { cree_par: string; demande_ia_id: string | null }[],
+): Promise<void> {
+  if (!(await estValideurDistinct(db, auth, offre, versions))) {
     throw new AppError(
       403,
       "APPROBATION_REQUISE",

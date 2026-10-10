@@ -801,6 +801,31 @@ describe("rétro-planning, tâches et alertes (AO-08)", () => {
     expect(JSON.stringify(notifs)).toContain("Appel d'offres");
   });
 
+  it("personnes assignables : tache.assigner, seulement les actifs avec ao.lire, cloisonné", async () => {
+    const url = "/api/appels-offres/assignables";
+    expect((await anonyme.get(url)).statusCode).toBe(401);
+    // Le consultant a ao.gerer mais pas tache.assigner ; l'expert non plus.
+    expect((await consultant.get(url)).statusCode).toBe(403);
+    expect((await expert.get(url)).statusCode).toBe(403);
+    const r = await chef.get(url);
+    attendre(200, r, "assignables");
+    const ids = r.json().elements.map((x: any) => x.utilisateur_id);
+    expect(ids).toEqual(expect.arrayContaining([chef.utilisateurId, consultant.utilisateurId]));
+    expect(ids).toContain(a.associeId);
+    // « ressources » n'a pas ao.lire : la tâche ne pourrait pas lui être confiée (400).
+    expect(ids).not.toContain(ressources.utilisateurId);
+    expect(r.json().tronquee).toBe(false);
+    expect(Object.keys(r.json().elements[0]).sort()).toEqual([
+      "grade_libelle",
+      "nom",
+      "utilisateur_id",
+    ]);
+    // Autre cabinet : aucun utilisateur du cabinet A.
+    const autre = (await b.associe.get(url)).json().elements.map((x: any) => x.utilisateur_id);
+    expect(autre).not.toContain(chef.utilisateurId);
+    expect(autre).toContain(b.associeId);
+  });
+
   it("alerte de date limite proche pour une fiche ouverte, aucune pour une fiche close", async () => {
     const demain = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     const f = await creer(chef, { date_limite: demain });

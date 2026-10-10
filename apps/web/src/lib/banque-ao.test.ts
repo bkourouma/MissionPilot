@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ErreurApi } from "./api";
 import {
+  choixCv,
+  choixFiches,
   droitsBanqueAo,
   hrefListe,
   saisieDepuisOffreFinanciere,
   joursAffiches,
   libelleCritere,
+  lireAnonymisationCv,
   lireCv,
   lireDiplomes,
   lireExigences,
@@ -21,8 +24,10 @@ import {
   moisAffiche,
   requeteReferences,
   saisieDepuisCv,
+  saisieNiveauDiplome,
   sousPagesBanques,
   tonaliteStatutOffre,
+  valeurCritere,
   type SaisieCv,
 } from "./banque-ao";
 
@@ -346,7 +351,141 @@ describe("offres", () => {
   });
 });
 
+describe("libellés des niveaux (jamais de code technique à l'écran)", () => {
+  const critere = (code: string, exige: string, constate: string) => ({
+    code,
+    objet: null,
+    exige,
+    constate,
+    conforme: false,
+  });
+
+  it("diplôme : « bac_5 » devient « Bac+5 », le domaine est conservé", () => {
+    const c = critere("diplome", "bac_5", "bac_5 (Gestion)");
+    expect(valeurCritere(c, "exige")).toBe("Bac+5");
+    expect(valeurCritere(c, "constate")).toBe("Bac+5 (Gestion)");
+    expect(valeurCritere(critere("diplome", "doctorat", "aucun diplôme"), "constate")).toBe(
+      "aucun diplôme",
+    );
+    expect(valeurCritere(critere("diplome", "bac", "bac_2"), "exige")).toBe("Bac");
+    // Un domaine qui ressemble à un code n'est pas touché.
+    expect(valeurCritere(critere("diplome", "bac_3", "bac_3 (bac_5)"), "constate")).toBe(
+      "Bac+3 (bac_5)",
+    );
+  });
+
+  it("langue : niveau en français, « non déclarée » inchangé ; autre critère inchangé", () => {
+    expect(valeurCritere(critere("langue", "bilingue", "non déclarée"), "exige")).toBe("Bilingue");
+    expect(valeurCritere(critere("langue", "bilingue", "non déclarée"), "constate")).toBe(
+      "non déclarée",
+    );
+    expect(valeurCritere(critere("annees_experience", "10", "7"), "constate")).toBe("7");
+  });
+
+  it("pré-remplissage des diplômes : « bac+5 », relu par la saisie, jamais « bac_5 »", () => {
+    expect(saisieNiveauDiplome("bac_5")).toBe("bac+5");
+    expect(saisieNiveauDiplome("doctorat")).toBe("doctorat");
+    const s = saisieDepuisCv("Awa", {
+      titre: "Experte",
+      secteurs: [],
+      competences: [],
+      experiences: [],
+      diplomes: [{ annee: 2009, niveau: "bac_5", intitule: "Master", domaine: "Gestion" }],
+      langues: [],
+    });
+    expect(s.diplomes).toBe("2009 | bac+5 | Master | Gestion | ");
+    expect(s.diplomes).not.toContain("bac_5");
+    const relu = lireDiplomes(s.diplomes);
+    expect(relu.ok && relu.valeur[0]?.niveau).toBe("bac_5");
+  });
+});
+
+describe("anonymisation d'un CV", () => {
+  const vide = { motDePasse: "", code: "", facteur: "totp" as const };
+
+  it("réservée à cabinet.gerer (confort d'affichage)", () => {
+    expect(droitsBanqueAo(["associe"]).anonymiser).toBe(true);
+    expect(droitsBanqueAo(["consultant"]).anonymiser).toBe(false);
+    expect(droitsBanqueAo(["gestionnaire"]).anonymiser).toBe(false);
+  });
+
+  it("motif et mot de passe obligatoires ; le code reste facultatif (sans 2FA)", () => {
+    const r = lireAnonymisationCv("  ", vide);
+    expect(r).toMatchObject({
+      ok: false,
+      erreurs: {
+        motif: "Le motif est obligatoire.",
+        mot_de_passe: "Saisissez votre mot de passe.",
+      },
+    });
+    expect(lireAnonymisationCv("Départ du cabinet", { ...vide, motDePasse: "secret" })).toEqual({
+      ok: true,
+      charge: { motif: "Départ du cabinet", confirmation: { mot_de_passe: "secret" } },
+    });
+  });
+
+  it("code de l'application ou de secours joint sous `confirmation`, jamais à la racine", () => {
+    const avecCode = lireAnonymisationCv("Départ", {
+      motDePasse: "secret",
+      code: "123456",
+      facteur: "totp",
+    });
+    expect(avecCode.ok && avecCode.charge).toEqual({
+      motif: "Départ",
+      confirmation: { mot_de_passe: "secret", code: "123456" },
+    });
+    const mauvais = lireAnonymisationCv("Départ", {
+      motDePasse: "secret",
+      code: "12",
+      facteur: "totp",
+    });
+    expect(mauvais.ok).toBe(false);
+    expect(lireAnonymisationCv("x".repeat(501), { ...vide, motDePasse: "s" }).ok).toBe(false);
+  });
+
+  it("CV déjà anonymisé : message français propre", () => {
+    expect(messageBanqueAo(new ErreurApi("CV_ANONYME", "x", 409))).toContain("anonymisé");
+  });
+});
+
+describe("choix de l'offre technique", () => {
+  it("CV : jamais un CV anonymisé ; libellé « nom — titre »", () => {
+    const liste = choixCv([
+      { id: "a", nom: "Awa Koné", titre: "Experte", anonymise: false },
+      { id: "b", nom: "CV anonymisé", titre: "CV anonymisé", anonymise: true },
+      { id: "c", nom: "Moussa", titre: "", anonymise: undefined },
+    ]);
+    expect(liste).toEqual([
+      { valeur: "a", libelle: "Awa Koné — Experte" },
+      { valeur: "c", libelle: "Moussa" },
+    ]);
+  });
+
+  it("fiches : « référence — titre », titre seul sans référence", () => {
+    expect(
+      choixFiches([
+        { id: "1", reference: "AO-12", titre: "Audit" },
+        { id: "2", reference: null, titre: "Étude" },
+      ]),
+    ).toEqual([
+      { valeur: "1", libelle: "AO-12 — Audit" },
+      { valeur: "2", libelle: "Étude" },
+    ]);
+  });
+});
+
 describe("messages d'erreur", () => {
+  it("refus 403 précis de l'API affichés tels quels, refus de rôle toujours générique", () => {
+    const separation =
+      "Le demandeur ou l'auteur d'une version d'une offre ne la valide pas lui-même : demandez à un autre utilisateur ou à un associé.";
+    expect(messageBanqueAo(new ErreurApi("APPROBATION_REQUISE", separation, 403))).toBe(separation);
+    const retrait = "Seul l'auteur de la pièce, un associé ou un directeur de mission la retire.";
+    expect(messageBanqueAo(new ErreurApi("RETRAIT_PIECE_INTERDIT", retrait, 403))).toBe(retrait);
+    expect(
+      messageBanqueAo(new ErreurApi("INTERDIT", "Vous n'avez pas le droit d'effectuer.", 403)),
+    ).toBe("Votre rôle ne vous permet pas d'effectuer cette action.");
+  });
+
   it("message propre au code, sinon message générique", () => {
     expect(messageBanqueAo(new ErreurApi("CHIFFRES_A_ACQUITTER", "x", 409))).toContain(
       "acquittement",

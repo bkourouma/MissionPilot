@@ -222,6 +222,12 @@ describe("pièces justificatives", () => {
     // Un autre détenteur de ao.gerer ne détruit pas la pièce d'un collègue (irréversible à 24 h).
     const chef = await s.a.chef.post(retrait, { motif: "Pas ma pièce" });
     expect(chef.statusCode).toBe(403);
+    // Code distinct du refus de droit (INTERDIT) : l'interface affiche ce message précis.
+    expect(chef.json().erreur).toMatchObject({
+      code: "RETRAIT_PIECE_INTERDIT",
+      message: expect.stringContaining("Seul l'auteur de la pièce"),
+    });
+    expect((await s.expert.post(retrait, { motif: "Erreur" })).json().erreur.code).toBe("INTERDIT");
     expect(await orphelin(fichierId)).toBe(false);
     const r = await s.consultant.post(retrait, { motif: "Pièce d'une autre mission" });
     attendre(200, r, "retrait");

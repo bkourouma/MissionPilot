@@ -16,6 +16,7 @@ import {
   type OffreTechniqueResume,
 } from "../../../../../lib/banque-ao";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { chargerChoixOffreTechnique } from "../../../../../lib/appels-offres-serveur";
 import { formaterDate } from "../../../../../lib/format";
 import { obtenirSession } from "../../../../../lib/session";
 
@@ -35,6 +36,7 @@ export default async function PageOffresTechniques({ searchParams }: { searchPar
     curseur_suivant: string | null;
   }>(`/api/banque-ao/offres-techniques?${q}`);
   const chemin = `${RACINE_BANQUES}/offres-techniques`;
+  const choix = droits.gerer ? await chargerChoixOffreTechnique() : { cv: [], fiches: [] };
 
   return (
     <div className="mp-page">
@@ -87,7 +89,12 @@ export default async function PageOffresTechniques({ searchParams }: { searchPar
       )}
       {droits.gerer ? (
         <Carte titre="Rédiger une offre technique">
-          <FormulaireOffreTechnique redigerIa={droits.redigerIa} lierMethode={droits.lierMethode} />
+          <FormulaireOffreTechnique
+            redigerIa={droits.redigerIa}
+            lierMethode={droits.lierMethode}
+            cvChoix={choix.cv}
+            fichesChoix={choix.fiches}
+          />
         </Carte>
       ) : null}
     </div>

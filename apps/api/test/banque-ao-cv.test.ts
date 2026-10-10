@@ -319,6 +319,9 @@ describe("anonymisation d'un CV (départ d'une personne, droit à l'effacement)"
     ]);
     const liste = JSON.stringify((await s.expert.get("/api/banque-ao/cv?q=Mariam")).json());
     expect(liste).not.toContain("Mariam");
+    // La liste porte l'indicateur : l'interface n'offre plus ce CV dans les choix d'équipe.
+    const lignes = (await s.expert.get("/api/banque-ao/cv?q=anonymis")).json().elements;
+    expect(lignes.find((x: { id: string }) => x.id === cv.id)).toMatchObject({ anonymise: true });
 
     // Plus d'usage : version, export, nouvelle anonymisation, offre : 409 CV_ANONYME.
     const version = await s.consultant.post(`/api/banque-ao/cv/${cv.id}/versions`, {

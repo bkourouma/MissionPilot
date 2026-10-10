@@ -540,6 +540,12 @@ export function ActionsEtapeAo({
           </BoutonActionAo>
         </>
       ) : null}
+      {peutAssigner && !etape.tache_id && personnes.length === 0 ? (
+        <p className="mp-texte-doux mp-texte-petit">
+          Aucune personne à qui confier cette étape : seules les personnes ayant accès aux appels
+          d&apos;offres peuvent recevoir la tâche.
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "../../../../components/appels-offres/appels-offres.css";
 import { Onglets } from "../../../../components/ui/Onglets";
 import { sousPagesBanques } from "../../../../lib/banque-ao";
 import { exigerPermission } from "../../../../lib/session";

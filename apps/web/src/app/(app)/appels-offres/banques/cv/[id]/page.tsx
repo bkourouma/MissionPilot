@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { AnonymisationCv } from "../../../../../../components/banque-ao/AnonymisationCv";
 import {
   FormulaireControleCv,
   FormulaireCv,
 } from "../../../../../../components/banque-ao/FormulairesCv";
 import { classesBouton } from "../../../../../../components/ui/Bouton";
+import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
@@ -54,6 +56,14 @@ export default async function PageDetailCv({ params }: { params: Promise<{ id: s
         soustitre={`${c.titre} — ${cv.annees_experience} an(s) d'expérience au ${moisAffiche(cv.reference)} (version ${cv.courante.version}).`}
         retour={retour}
       />
+      {cv.anonymise ? (
+        <Alerte tonalite="info" titre="CV anonymisé" annonce="aucune">
+          <p>
+            Le parcours de cette personne a été effacé de façon irréversible : ce CV n&apos;est plus
+            exportable, ne reçoit plus de nouvelle version et ne peut plus entrer dans une offre.
+          </p>
+        </Alerte>
+      ) : null}
       <Carte titre="Expériences">
         <Tableau
           legende="Expériences"
@@ -86,35 +96,37 @@ export default async function PageDetailCv({ params }: { params: Promise<{ id: s
         {c.secteurs.length > 0 ? <p>Secteurs : {c.secteurs.join(", ")}</p> : null}
         {c.competences.length > 0 ? <p>Compétences : {c.competences.join(", ")}</p> : null}
       </Carte>
-      <Carte titre="Mise au format d'un bailleur">
-        {gabarits.ok ? (
-          <ul>
-            {gabarits.donnees.elements.map((g) => (
-              <li key={g.code}>
-                {g.libelle} ({g.bailleur}) :{" "}
-                <a
-                  className={classesBouton("discret")}
-                  href={`/api/banque-ao/cv/${encodeURIComponent(cv.id)}/export?gabarit=${g.code}&format=docx`}
-                >
-                  Word
-                </a>{" "}
-                <a
-                  className={classesBouton("discret")}
-                  href={`/api/banque-ao/cv/${encodeURIComponent(cv.id)}/export?gabarit=${g.code}&format=pdf`}
-                >
-                  PDF
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EtatErreur
-            hrefReessayer={`${RACINE_BANQUES}/cv/${encodeURIComponent(id)}`}
-            titre="Gabarits indisponibles."
-            message={gabarits.message}
-          />
-        )}
-      </Carte>
+      {cv.anonymise ? null : (
+        <Carte titre="Mise au format d'un bailleur">
+          {gabarits.ok ? (
+            <ul>
+              {gabarits.donnees.elements.map((g) => (
+                <li key={g.code}>
+                  {g.libelle} ({g.bailleur}) :{" "}
+                  <a
+                    className={classesBouton("discret")}
+                    href={`/api/banque-ao/cv/${encodeURIComponent(cv.id)}/export?gabarit=${g.code}&format=docx`}
+                  >
+                    Word
+                  </a>{" "}
+                  <a
+                    className={classesBouton("discret")}
+                    href={`/api/banque-ao/cv/${encodeURIComponent(cv.id)}/export?gabarit=${g.code}&format=pdf`}
+                  >
+                    PDF
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EtatErreur
+              hrefReessayer={`${RACINE_BANQUES}/cv/${encodeURIComponent(id)}`}
+              titre="Gabarits indisponibles."
+              message={gabarits.message}
+            />
+          )}
+        </Carte>
+      )}
       <Carte titre="Contrôler contre les exigences d'un appel d'offres">
         <FormulaireControleCv cvId={cv.id} />
       </Carte>
@@ -128,9 +140,14 @@ export default async function PageDetailCv({ params }: { params: Promise<{ id: s
           ))}
         </ul>
       </Carte>
-      {droits.gerer ? (
+      {droits.gerer && !cv.anonymise ? (
         <Carte titre="Nouvelle version">
           <FormulaireCv cvId={cv.id} initial={saisieDepuisCv(cv.nom, c)} />
+        </Carte>
+      ) : null}
+      {droits.anonymiser ? (
+        <Carte titre="Anonymiser ce CV">
+          <AnonymisationCv cvId={cv.id} anonymise={cv.anonymise} />
         </Carte>
       ) : null}
     </div>

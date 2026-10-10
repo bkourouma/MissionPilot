@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { api } from "./api.js";
+import { api, type Api } from "./api.js";
 import {
   creerCv,
   ENTREE_FINANCIERE,
@@ -143,6 +143,13 @@ describe("offre technique : brouillon IA, versions et validation", () => {
     const envoye = JSON.stringify(serveur.requetes.at(-1)?.corps.messages);
     expect(envoye).not.toContain("Agence nationale de l'eau");
     expect(envoye).toContain("DONNEES_CLIENT_NON_FIABLES");
+
+    // Le détail dit à chacun s'il peut valider (séparation des tâches) : l'interface s'en sert
+    // pour désactiver le bouton ; l'associé valide toujours.
+    const lecture = (par: Api) => par.get(`/api/banque-ao/offres-techniques/${o.id}`);
+    expect((await lecture(s.consultant)).json().peut_valider).toBe(false);
+    expect((await lecture(s.a.chef)).json().peut_valider).toBe(true);
+    expect((await lecture(s.a.associe)).json().peut_valider).toBe(true);
 
     const url = `/api/banque-ao/offres-techniques/${o.id}/validation`;
     expect((await s.expert.post(url, { version: 1 })).statusCode).toBe(403);

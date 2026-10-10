@@ -299,7 +299,7 @@ export async function retirerAttestation(
   ) {
     throw new AppError(
       403,
-      "INTERDIT",
+      "RETRAIT_PIECE_INTERDIT",
       "Seul l'auteur de la pièce, un associé ou un directeur de mission la retire.",
     );
   }

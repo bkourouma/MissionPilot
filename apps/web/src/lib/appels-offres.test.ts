@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ErreurApi } from "./api";
 import {
   analyserImportCsv,
+  CHEMIN_PERSONNES_ASSIGNABLES,
   cellulesCsv,
   cheminFiches,
   droitsAppelsOffres,
@@ -124,6 +125,8 @@ describe("libellés, tonalités, chemins", () => {
     expect(hrefGoNoGo("1")).toBe("/appels-offres/1/go-no-go");
     expect(hrefMatrice("1")).toBe("/appels-offres/1/matrice");
     expect(hrefRetroplanning("1")).toBe("/appels-offres/1/retroplanning");
+    // Liste dédiée (utilisateurs avec ao.lire) : ne dépend plus de la pagination des collaborateurs.
+    expect(CHEMIN_PERSONNES_ASSIGNABLES).toBe("/api/appels-offres/assignables");
   });
 
   it("pipeline par statut, statuts manuels, fiche ouverte", () => {

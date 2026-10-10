@@ -83,6 +83,7 @@ export default async function PageDetailOffreTechnique({
             offreId={o.id}
             version={v.version}
             nombresAAcquitter={v.chiffres_non_verifies ? v.nombres_non_verifies : []}
+            peutValider={o.peut_valider !== false}
           />
         </Carte>
       ) : null}

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { cheminPage, chargerToutesLesPages, pagesAffichees } from "./pagination";
+import {
+  cheminPage,
+  chargerToutesLesPages,
+  LIMITE_PAGE_MAX,
+  LIMITE_PAGE_SURE,
+  pagesAffichees,
+} from "./pagination";
 
 describe("pagesAffichees", () => {
   it("affiche toutes les pages quand il y en a peu", () => {
@@ -64,13 +70,37 @@ describe("chargerToutesLesPages", () => {
     ]);
   });
 
-  it("par défaut, pages de 500 ; liste vide", async () => {
+  it("par défaut, pages de 200 (plafond sûr) ; liste vide", async () => {
     const appels: string[] = [];
     expect(await chargerToutesLesPages(serveur(0, appels), "/api/opportunites")).toEqual({
       ok: true,
       donnees: { elements: [], tronquee: false },
     });
-    expect(appels).toEqual(["/api/opportunites?limite=500"]);
+    expect(appels).toEqual(["/api/opportunites?limite=200"]);
+  });
+
+  it("la limite demandée ne dépasse jamais le plafond déclaré de la route", async () => {
+    // Collaborateurs : l'API plafonne à 200 et rejette (400) une limite de 500.
+    const a: string[] = [];
+    await chargerToutesLesPages(serveur(0, a), "/api/collaborateurs", { limite: 500 });
+    expect(a).toEqual(["/api/collaborateurs?limite=200"]);
+    const b: string[] = [];
+    await chargerToutesLesPages(serveur(0, b), "/api/collaborateurs", { limiteMax: 50 });
+    expect(b).toEqual(["/api/collaborateurs?limite=50"]);
+    const c: string[] = [];
+    await chargerToutesLesPages(serveur(0, c), "/api/missions", { limiteMax: LIMITE_PAGE_MAX });
+    expect(c).toEqual(["/api/missions?limite=500"]);
+    const d: string[] = [];
+    await chargerToutesLesPages(serveur(0, d), "/api/missions", {
+      limiteMax: LIMITE_PAGE_MAX,
+      limite: 1_000,
+    });
+    expect(d).toEqual(["/api/missions?limite=500"]);
+    // Une limite plus petite que le plafond est respectée ; jamais en dessous de 1.
+    const e: string[] = [];
+    await chargerToutesLesPages(serveur(0, e), "/api/missions", { limite: 0 });
+    expect(e).toEqual(["/api/missions?limite=1"]);
+    expect(LIMITE_PAGE_SURE).toBeLessThanOrEqual(200);
   });
 
   it("au-delà du nombre de pages maximal : liste partielle marquée tronquée", async () => {

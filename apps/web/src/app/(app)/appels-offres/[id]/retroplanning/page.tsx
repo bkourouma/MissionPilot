@@ -7,11 +7,11 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
-import { aPermission } from "@missionpilot/shared";
 import {
   droitsAppelsOffres,
   estOuverte,
   hrefFiche,
+  CHEMIN_PERSONNES_ASSIGNABLES,
   hrefRetroplanning,
   libelleStatutAo,
   texteAlerte,
@@ -22,8 +22,7 @@ import {
 } from "../../../../../lib/appels-offres";
 import { exigerLectureAo } from "../../../../../lib/appels-offres-serveur";
 import { formaterDate } from "../../../../../lib/format";
-import { chargerToutesLesPages } from "../../../../../lib/pagination";
-import { personnesDepuisCollaborateurs, type Personne } from "../../../../../lib/personnes";
+import type { Personne } from "../../../../../lib/personnes";
 import { GenererRetroplanningAo } from "./GenererRetroplanningAo";
 
 export const metadata: Metadata = { title: "Rétro-planning" };
@@ -62,13 +61,11 @@ export default async function PageRetroplanning({ params }: { params: Promise<{ 
   const { etapes, alertes } = plan.donnees;
   const modifiable = droits.gerer && estOuverte(f.statut);
   let personnes: Personne[] = [];
-  if (modifiable && droits.assigner && aPermission(roles, "collaborateurs.lire")) {
-    const c = await chargerToutesLesPages<{
-      utilisateur_id: string | null;
-      nom: string;
-      actif?: boolean;
-    }>(chargerServeur, "/api/collaborateurs");
-    if (c.ok) personnes = personnesDepuisCollaborateurs(c.donnees.elements);
+  if (modifiable && droits.assigner) {
+    // Liste dédiée de l'API : utilisateurs actifs qui ont `ao.lire` (l'API refuse les autres), sans
+    // dépendre du droit de lire les collaborateurs ni de la pagination de leur référentiel.
+    const c = await chargerServeur<{ elements: Personne[] }>(CHEMIN_PERSONNES_ASSIGNABLES);
+    if (c.ok) personnes = c.donnees.elements;
   }
 
   return (

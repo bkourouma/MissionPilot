@@ -375,13 +375,13 @@ function routesOffresTechniques(app: FastifyInstance) {
     );
     await envoyerEmails(app.mailer, notifications, (m) => app.log.warn(m));
     reply.status(201);
-    return app.db.withTenant(auth.cabinetId, (db) => detailOffreTechnique(db, id));
+    return app.db.withTenant(auth.cabinetId, (db) => detailOffreTechnique(db, id, auth));
   });
 
   app.get("/banque-ao/offres-techniques/:id", async (request) => {
     const auth = exiger(request, "ao.lire");
     const { id } = paramsId.parse(request.params);
-    return app.db.withTenant(auth.cabinetId, (db) => detailOffreTechnique(db, id));
+    return app.db.withTenant(auth.cabinetId, (db) => detailOffreTechnique(db, id, auth));
   });
 
   app.post("/banque-ao/offres-techniques/:id/versions", async (request, reply) => {
@@ -390,7 +390,7 @@ function routesOffresTechniques(app: FastifyInstance) {
     const corps = offreTechniqueVersionSchema.parse(request.body);
     const detail = await app.db.withTenant(auth.cabinetId, async (db) => {
       await nouvelleVersionOffreTechnique(db, auth, id, corps.sections, corps.motif);
-      return detailOffreTechnique(db, id);
+      return detailOffreTechnique(db, id, auth);
     });
     reply.status(201);
     return detail;
@@ -402,7 +402,7 @@ function routesOffresTechniques(app: FastifyInstance) {
     const corps = offreTechniqueValidationSchema.parse(request.body);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       await validerOffreTechnique(db, auth, id, corps);
-      return detailOffreTechnique(db, id);
+      return detailOffreTechnique(db, id, auth);
     });
   });
 }

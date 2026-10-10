@@ -196,6 +196,8 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
   const [type, setType] = useState<string>(TYPES_ATTESTATION[0]);
   const [date, setDate] = useState("");
   const [emetteur, setEmetteur] = useState("");
+  // Le champ fichier n'est pas contrôlé : changer sa clé le remonte, donc le vide.
+  const [cleFichier, setCleFichier] = useState(0);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -230,7 +232,11 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
       },
     );
     if (ok) {
+      // Tout le formulaire repart à vide (fichier compris), prêt pour la pièce suivante.
       setFichier(null);
+      setCleFichier((n) => n + 1);
+      setType(TYPES_ATTESTATION[0]);
+      setDate("");
       setEmetteur("");
     }
   }
@@ -240,6 +246,7 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
+          key={cleFichier}
           libelle="Fichier"
           type="file"
           required

@@ -10,16 +10,18 @@ import {
   messageBanqueAo,
   RACINE_BANQUES,
   SECTIONS_OFFRE_TECHNIQUE,
+  type ChoixListe,
   type ResultatOffreFinanciere,
   type SaisieOffreFinanciere,
   type SectionsOffre,
 } from "../../lib/banque-ao";
 import { DEVISES, type Devise } from "../../lib/format";
-import { decouperListe, texteOuNull, type Resultat } from "../../lib/saisie";
+import { texteOuNull, type Resultat } from "../../lib/saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
-import { CaseACocher } from "../ui/CaseACocher";
+import { CaseACocher, GroupeCases } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -40,12 +42,14 @@ interface SaisieCreation {
   objectifs: string;
   termes_reference: string;
   methode_version_id: string;
-  cv_ids: string;
+  cv_ids: string[];
   appel_offres_id: string;
   generation: "ia" | "gabarit";
 }
 
 type ChampCreation = keyof SaisieCreation;
+/** Plafond de l'API (`cv_ids` d'une offre technique). */
+const CV_EQUIPE_MAX = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function lireCreation(s: SaisieCreation): Resultat<Record<string, unknown>, ChampCreation> {
@@ -57,10 +61,10 @@ function lireCreation(s: SaisieCreation): Resultat<Record<string, unknown>, Cham
   }
   if (s.pays.trim() !== "" && !/^[A-Za-z]{2}$/.test(s.pays.trim()))
     erreurs.pays = "Code à deux lettres.";
-  const cvIds = decouperListe(s.cv_ids);
-  if (cvIds.some((id) => !UUID.test(id))) erreurs.cv_ids = "Identifiants de CV invalides.";
-  for (const cle of ["methode_version_id", "appel_offres_id"] as const) {
-    if (s[cle].trim() !== "" && !UUID.test(s[cle].trim())) erreurs[cle] = "Identifiant invalide.";
+  const cvIds = [...new Set(s.cv_ids)];
+  if (cvIds.length > CV_EQUIPE_MAX) erreurs.cv_ids = `${CV_EQUIPE_MAX} CV au plus dans l'équipe.`;
+  if (s.methode_version_id.trim() !== "" && !UUID.test(s.methode_version_id.trim())) {
+    erreurs.methode_version_id = "Identifiant invalide.";
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -86,11 +90,17 @@ function lireCreation(s: SaisieCreation): Resultat<Record<string, unknown>, Cham
 export function FormulaireOffreTechnique({
   redigerIa,
   lierMethode,
-  cvIdsProposes = "",
+  cvChoix,
+  fichesChoix,
+  cvIdsProposes = [],
 }: {
   redigerIa: boolean;
   lierMethode: boolean;
-  cvIdsProposes?: string;
+  /** CV de la banque (non anonymisés) proposés pour l'équipe. */
+  cvChoix: readonly ChoixListe[];
+  /** Fiches d'appels d'offres proposées pour rattacher l'offre. */
+  fichesChoix: readonly ChoixListe[];
+  cvIdsProposes?: readonly string[];
 }) {
   const router = useRouter();
   const f = useFormulaire<ChampCreation>();
@@ -103,7 +113,7 @@ export function FormulaireOffreTechnique({
     objectifs: "",
     termes_reference: "",
     methode_version_id: "",
-    cv_ids: cvIdsProposes,
+    cv_ids: [...cvIdsProposes],
     appel_offres_id: "",
     generation: redigerIa ? "ia" : "gabarit",
   });
@@ -188,20 +198,33 @@ export function FormulaireOffreTechnique({
             erreur={f.erreurs.methode_version_id}
           />
         ) : null}
-        <Champ
-          libelle="CV de l'équipe (identifiants)"
-          aide="Séparés par des virgules, depuis la banque de CV."
-          value={s.cv_ids}
-          onChange={maj("cv_ids")}
-          erreur={f.erreurs.cv_ids}
-        />
-        <Champ
-          libelle="Appel d'offres (identifiant)"
+        <Select
+          libelle="Appel d'offres"
+          aide="Facultatif : rattache l'offre à une fiche."
+          invite="Aucun appel d'offres"
           value={s.appel_offres_id}
           onChange={maj("appel_offres_id")}
+          options={fichesChoix}
           erreur={f.erreurs.appel_offres_id}
         />
       </div>
+      {cvChoix.length === 0 ? (
+        <p className="mp-texte-doux">
+          Aucun CV dans la banque : ajoutez d&apos;abord les CV de l&apos;équipe.
+        </p>
+      ) : (
+        <div className="mp-ao__choix-defilant">
+          <GroupeCases
+            legende="CV de l'équipe"
+            aide="Cochez les experts proposés : l'organisation de l'offre vient de leurs CV."
+            nom="cv_ids"
+            options={cvChoix}
+            valeurs={s.cv_ids}
+            onChange={(v) => setS((x) => ({ ...x, cv_ids: v }))}
+            erreur={f.erreurs.cv_ids}
+          />
+        </div>
+      )}
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours}>
           Rédiger l&apos;offre
@@ -262,14 +285,20 @@ export function FormulaireVersionOffre({
   );
 }
 
+export const MESSAGE_VALIDATION_IMPOSSIBLE =
+  "Vous avez demandé ou rédigé cette offre : elle doit être validée par un autre utilisateur ou par un associé (séparation des tâches).";
+
 export function FormulaireValidationOffre({
   offreId,
   version,
   nombresAAcquitter,
+  peutValider = true,
 }: {
   offreId: string;
   version: number;
   nombresAAcquitter: readonly string[];
+  /** Faux : séparation des tâches, le bouton est désactivé et la raison affichée. */
+  peutValider?: boolean;
 }) {
   const f = useFormulaire<"acquitte">();
   const [acquitte, setAcquitte] = useState(false);
@@ -296,16 +325,22 @@ export function FormulaireValidationOffre({
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
+      {peutValider ? null : (
+        <Alerte tonalite="info" annonce="aucune">
+          <p>{MESSAGE_VALIDATION_IMPOSSIBLE}</p>
+        </Alerte>
+      )}
       {nombresAAcquitter.length > 0 ? (
         <CaseACocher
           libelle={`J'ai vérifié les nombres cités par l'IA : ${nombresAAcquitter.join(", ")}`}
           checked={acquitte}
           onChange={(e) => setAcquitte(e.target.checked)}
           aide={f.erreurs.acquitte}
+          disabled={!peutValider}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours}>
+        <Bouton type="submit" chargement={f.enCours} disabled={!peutValider}>
           Valider la version {version}
         </Bouton>
       </div>
