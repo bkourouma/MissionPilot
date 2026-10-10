@@ -1,0 +1,79 @@
+/*
+ * Connaissances (capitalisation) : recherche, retours d'expérience, estimation, compétences,
+ * évolutions du standard. Mobile d'abord, CSS pur, couleurs des jetons. Le surlignage d'un mot
+ * trouvé ne repose pas sur la seule couleur : il est aussi en gras.
+ */
+
+.mp-connaissances {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-connaissances p {
+  margin: 0;
+}
+
+.mp-connaissances__recherche {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-connaissances__types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-connaissances__resultats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-connaissances__resultat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-connaissances mark {
+  background: var(--mp-attention-fond, transparent);
+  color: inherit;
+  font-weight: 600;
+}
+
+.mp-connaissances__section {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.mp-connaissances__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-3);
+  align-items: flex-start;
+}
+
+.mp-connaissances__matrice {
+  overflow-x: auto;
+}
+
+@media (min-width: 960px) {
+  .mp-connaissances__deux-colonnes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mp-esp-4);
+    align-items: start;
+  }
+}

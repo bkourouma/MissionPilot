@@ -37,6 +37,16 @@ export const dateIsoSchema = z
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
   }, "Date invalide.");
 
+/**
+ * Date calendaire valide ET comprise entre 2000-01-01 et 2100-12-31 : l'intervalle des CHECK
+ * SQL des colonnes de dates métier (échéances, observations). Évite un 500 sur une date
+ * valide mais hors bornes (SQLSTATE 23514).
+ */
+export const dateIsoBorneeSchema = dateIsoSchema.refine(
+  (v) => v >= "2000-01-01" && v <= "2100-12-31",
+  "Date comprise entre 2000 et 2100 attendue.",
+);
+
 /** Montant en unités mineures entières (FCFA : 1 unité ; EUR/USD : centimes). */
 export const montantSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 

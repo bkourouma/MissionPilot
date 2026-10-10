@@ -40,6 +40,7 @@ import {
   type VueVersionNotation,
 } from "../../../../../lib/notation";
 import { cheminGrilles, type PageGrilles } from "../../../../../lib/notation-grilles";
+import { hrefAnalyseNotation } from "../../../../../lib/notation-augmentee";
 import { exigerLectureNotation } from "../../../../../lib/notation-serveur";
 
 export const metadata: Metadata = { title: "Notation de la mission" };
@@ -186,6 +187,19 @@ export default async function PageNotationMission({
       {notation && versions.length > 0 && choix.numero !== null ? (
         <Carte titre="Versions successives">
           <VersionsNotation missionId={m.id} versions={versions} courante={choix.numero} />
+        </Carte>
+      ) : null}
+
+      {notation && versions.length > 0 && choix.numero !== null ? (
+        <Carte titre="Confiance, explication et plan d'action">
+          <p>
+            Indice de confiance, constats de perception, contribution de chaque pratique, simulateur
+            de passage de classe et plan d&apos;action priorisé :{" "}
+            <Link href={hrefAnalyseNotation(m.id, choix.numero)}>
+              ouvrir l&apos;analyse de la version {choix.numero}
+            </Link>
+            .
+          </p>
         </Carte>
       ) : null}
 

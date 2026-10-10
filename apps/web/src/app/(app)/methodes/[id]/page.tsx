@@ -82,7 +82,7 @@ export default async function PageMethode({ params }: { params: Promise<{ id: st
                   chemin={`/api/methodes/${m.id}/variantes`}
                   variante="primaire"
                   icone="copie"
-                  destination={(x) => hrefVersion((x as { version_id: string }).version_id)}
+                  versionDans="version_id"
                 />
               ) : null}
             </div>
@@ -119,7 +119,7 @@ export default async function PageMethode({ params }: { params: Promise<{ id: st
               chemin={`/api/methodes/${m.id}/versions`}
               corps={{ rebaser: true }}
               icone="historique"
-              destination={(x) => hrefVersion((x as { id: string }).id)}
+              versionDans="id"
             />
           ) : null}
         </Alerte>
@@ -152,7 +152,7 @@ export default async function PageMethode({ params }: { params: Promise<{ id: st
             libelle="Nouvelle version"
             chemin={`/api/methodes/${m.id}/versions`}
             icone="plus"
-            destination={(x) => hrefVersion((x as { id: string }).id)}
+            versionDans="id"
           />
         ) : null}
       </Carte>

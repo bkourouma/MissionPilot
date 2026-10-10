@@ -5,6 +5,7 @@ import { BoutonExportKpi } from "../../../../../components/kpi/BoutonExportKpi";
 import { CarteKpi } from "../../../../../components/kpi/CarteKpi";
 import { EvolutionKpi } from "../../../../../components/kpi/EvolutionKpi";
 import { ListeAlertesKpi } from "../../../../../components/kpi/ListeAlertesKpi";
+import { QualiteDonneesKpi } from "../../../../../components/kpi/QualiteDonneesKpi";
 import { ScoreKpi } from "../../../../../components/kpi/ScoreKpi";
 import "../../../../../components/kpi/kpi.css";
 import { Alerte } from "../../../../../components/ui/Alerte";
@@ -34,6 +35,13 @@ import {
   type ScoreKpiVue,
   type TableauDeBordKpi,
 } from "../../../../../lib/kpi";
+import {
+  cheminQualite,
+  hrefActions,
+  hrefArbres,
+  hrefRevues,
+  type QualiteMission,
+} from "../../../../../lib/kpi-pilotage";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../lib/periode";
 import { exigerPermission } from "../../../../../lib/session";
@@ -65,9 +73,10 @@ export default async function PageKpiMission({
   const jour = aujourdhui();
   const arrete = lireDateArrete((await searchParams).date, jour);
   const droits = droitsKpi(utilisateur.roles, utilisateur.id, m);
-  const [tableau, definitions] = await Promise.all([
+  const [tableau, definitions, qualite] = await Promise.all([
     chargerServeur<TableauDeBordKpi>(cheminTableauKpi(m.id, arrete.date)),
     chargerServeur<{ elements: DefinitionKpi[] }>(cheminKpiMission(m.id)),
+    chargerServeur<QualiteMission>(cheminQualite(m.id, arrete.date ?? jour)),
   ]);
   const inactifs = definitions.ok ? definitions.donnees.elements.filter((d) => !d.actif) : [];
   const aucunKpi = definitions.ok && definitions.donnees.elements.length === 0;
@@ -99,6 +108,17 @@ export default async function PageKpiMission({
           </>
         }
       />
+      <nav aria-label="Pilotage augmenté" className="mp-actions-formulaire">
+        <Link href={hrefArbres(m.id)} className={classesBouton("secondaire")}>
+          Arbres d&apos;indicateurs
+        </Link>
+        <Link href={hrefActions(m.id)} className={classesBouton("secondaire")}>
+          Actions correctives
+        </Link>
+        <Link href={hrefRevues(m.id)} className={classesBouton("secondaire")}>
+          Revues de performance
+        </Link>
+      </nav>
       {arrete.erreur ? (
         <Alerte tonalite="attention" titre="Date d'arrêté écartée" annonce="status">
           <p>{arrete.erreur}</p>
@@ -136,6 +156,8 @@ export default async function PageKpiMission({
           date={arrete.date}
           intitule={m.intitule}
           gerer={droits.gerer}
+          qualite={qualite.ok ? qualite.donnees : null}
+          erreurQualite={qualite.ok ? null : qualite.message}
         />
       )}
 
@@ -224,12 +246,17 @@ function TableauDeBord({
   date,
   intitule,
   gerer,
+  qualite,
+  erreurQualite,
 }: {
   missionId: string;
   tableau: TableauDeBordKpi;
   date: string | null;
   intitule: string;
   gerer: boolean;
+  qualite: QualiteMission | null;
+  /** Message de l'échec du calcul de la qualité des données (jamais ignoré en silence). */
+  erreurQualite: string | null;
 }) {
   const groupes = kpisParPerspective(tableau.kpis);
   const libelles = new Map(tableau.kpis.map((k) => [k.id, k]));
@@ -293,6 +320,20 @@ function TableauDeBord({
               />
             )}
           </Carte>
+
+          {qualite ? (
+            <Carte titre="Qualité des données">
+              <QualiteDonneesKpi qualite={qualite} missionId={missionId} />
+            </Carte>
+          ) : erreurQualite ? (
+            <Carte titre="Qualité des données">
+              <EtatErreur
+                titre="La qualité des données n'a pas pu être calculée."
+                message={erreurQualite}
+                hrefReessayer={hrefTableauKpi(missionId, date)}
+              />
+            </Carte>
+          ) : null}
 
           {groupes.map((g) => (
             <section

@@ -34,6 +34,7 @@ import {
   modifierParametresRapports,
 } from "../rapports/parametres.js";
 import { cheminNavigateur } from "../rapports/pdf.js";
+import { rapportDossierBancaire } from "../rapports/dossier-bancaire.js";
 import { rapportPlan } from "../rapports/plan.js";
 import { FORMATS_RAPPORT, rendreRapport, type FormatRapport } from "../rapports/rendu.js";
 import { routesFacturesPdf } from "./factures-pdf.js";
@@ -62,8 +63,14 @@ const rapportQuerySchema = z.object({ format: z.enum(FORMATS_RAPPORT) }).strict(
  *   notation PUBLIÉE (« mission.lire » et « notation.lire » ; 409
  *   NOTATION_NON_PUBLIEE sinon ; rapports/notation.ts).
  * - POST /plans/:id/rapports?format=pdf|docx[&version=n] — plan stratégique,
- *   contenus validés seulement (« mission.lire » et « plan.lire » ;
- *   rapports/plan.ts) ; `version` : version du modèle financier.
+ *   contenus validés seulement (garde commune « mission.lire », puis
+ *   « plan.lire » ; rapports/plan.ts) ; `version` : version du modèle financier.
+ * - POST /plans/:id/dossier-bancaire?format=pdf|docx[&version=n] — dossier
+ *   bancaire (PLA-17 ; « mission.lire », « plan.lire » ET « plan.valider » : il
+ *   part vers une banque, seul qui valide le modèle l'émet) depuis une version
+ *   VALIDÉE du modèle financier (409 MODELE_NON_VALIDE sinon ; doublé en base,
+ *   MPR03 ; rapports/dossier-bancaire.ts), sans l'annexe « Sources » du plan
+ *   (registre des preuves interne) ; niveau « plan ».
  *
  * Listes paginées (plus récent d'abord ; seuls les niveaux lisibles par
  * l'appelant, fichiers supprimés ou purgés exclus, jamais la clé de stockage) :
@@ -215,6 +222,32 @@ export const routesRapports: FastifyPluginAsync = async (app) => {
       null,
       async (db, date) => {
         const { rapport, source } = await rapportPlan(db, auth, id, version, date);
+        return {
+          rapport,
+          niveau: "plan",
+          missionId: source.missionId,
+          source: { planId: source.planId, version: source.version },
+        };
+      },
+    );
+    reply.status(201);
+    return resultat;
+  });
+
+  app.post("/plans/:id/dossier-bancaire", async (request, reply) => {
+    // Document destiné à une banque : `plan.valider` (qui peut valider la version du modèle
+    // financier dont il procède) en plus de `plan.lire` ; sans annexe « Sources » du registre.
+    const auth = exigerToutes(request, ["plan.lire", "plan.valider"]);
+    const { id } = paramsId.parse(request.params);
+    const { format, version } = rapportServiceQuerySchema.parse(request.query);
+    const resultat = await generer(
+      app,
+      auth,
+      "dossier_bancaire",
+      format,
+      null,
+      async (db, date) => {
+        const { rapport, source } = await rapportDossierBancaire(db, auth, id, version, date);
         return {
           rapport,
           niveau: "plan",

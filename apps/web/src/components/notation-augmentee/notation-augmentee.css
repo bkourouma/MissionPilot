@@ -1,0 +1,174 @@
+/*
+ * Notation augmentée : banque d'items, sessions de calibrage et paramètres de confiance.
+ * Mobile d'abord, CSS pur, jetons de tokens.css. Le sens ne repose jamais sur la couleur seule
+ * (badges et messages écrits).
+ */
+
+.mp-na-formulaire {
+  gap: var(--mp-esp-5);
+}
+
+.mp-na-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-na-groupe > legend {
+  padding: 0 var(--mp-esp-2);
+  font-weight: 600;
+}
+
+.mp-na-groupe__aide,
+.mp-na-aide {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-na-niveau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-na-niveau__titre {
+  margin: 0;
+  font-weight: 600;
+}
+
+.mp-na-ligne-cas {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-3);
+  align-items: start;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+@media (min-width: 720px) {
+  .mp-na-ligne-cas {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  }
+}
+
+/* ---------- Lecture d'un item ---------- */
+.mp-na-lecture {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-na-lecture p {
+  margin: 0;
+}
+
+.mp-na-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-na-liste > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  overflow-wrap: anywhere;
+}
+
+.mp-na-liste__titre {
+  font-weight: 600;
+}
+
+.mp-na-texte-long {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Session de calibrage ---------- */
+.mp-na-cas__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+
+.mp-na-cas__code {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-na-cas__formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin-top: var(--mp-esp-2);
+  padding-top: var(--mp-esp-3);
+  border-top: 1px dashed var(--mp-bordure-controle);
+}
+
+.mp-na-cotations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-na-synthese {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-na-synthese > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-na-synthese dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-na-synthese dd {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 700;
+}
+
+/* Identifiants figés d'une version : lisibles, mais visiblement non modifiables. */
+.mp-na-formulaire .mp-champ__controle[readonly] {
+  background: var(--mp-surface-2);
+  cursor: default;
+}

@@ -443,3 +443,9 @@
 .mp-kpi-formulaire {
   gap: var(--mp-esp-5);
 }
+
+/* ---------- Texte libre (compte rendu) : conserve les retours à la ligne saisis ---------- */
+.mp-kpi-texte-libre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

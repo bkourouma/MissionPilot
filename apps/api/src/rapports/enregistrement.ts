@@ -31,14 +31,20 @@ import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
  * Si la transaction échoue, l'objet écrit dans le stockage est effacé.
  *
  * Source (migration 0131) : `notation_id` / `plan_id` et `version_source`
- * pour les rapports de notation et de plan, contrôlés en base (MPR01, MPR02).
+ * pour les rapports de notation et de plan, contrôlés en base (MPR01, MPR02) ; dossier bancaire
+ * (0424) : version VALIDÉE du modèle financier exigée (MPR03).
  *
  * Conservation : le FICHIER d'un rapport est purgé au-delà de la durée de
  * conservation du cabinet (rapports/purge.ts, migration 0132) ; la ligne
  * reste (ajout seul).
  */
 
-export const MODELES_RAPPORT = ["etat_avancement", "notation", "plan_strategique"] as const;
+export const MODELES_RAPPORT = [
+  "etat_avancement",
+  "notation",
+  "plan_strategique",
+  "dossier_bancaire",
+] as const;
 export type ModeleRapport = (typeof MODELES_RAPPORT)[number];
 
 /** Générations admises par utilisateur sur la fenêtre glissante. */
@@ -49,6 +55,7 @@ const NOMS_FICHIER: Record<ModeleRapport, string> = {
   etat_avancement: "Etat d'avancement",
   notation: "Rapport de notation",
   plan_strategique: "Plan strategique",
+  dossier_bancaire: "Dossier bancaire",
 };
 
 /** Libellé du livrable dans le suivi qualité. */
@@ -56,6 +63,7 @@ const LIBELLES_SUIVI: Record<ModeleRapport, string> = {
   etat_avancement: "État d'avancement",
   notation: "Rapport de notation",
   plan_strategique: "Rapport de plan stratégique",
+  dossier_bancaire: "Dossier bancaire",
 };
 
 export const COLONNES_RAPPORT = `r.id, r.mission_id, r.modele, r.format, r.statut, r.niveau,
@@ -94,7 +102,7 @@ export async function verifierDebitRapports(db: Db, auth: Auth): Promise<void> {
   }
 }
 
-/** Insertion ; une source incohérente (MPR01, MPR02 : défense en base) répond 409. */
+/** Insertion ; une source incohérente (MPR01 à MPR03 : défense en base) répond 409. */
 async function insererRapport(db: Db, valeurs: unknown[]) {
   try {
     return await db.query(
@@ -106,7 +114,7 @@ async function insererRapport(db: Db, valeurs: unknown[]) {
     );
   } catch (e) {
     const code = (e as { code?: unknown }).code;
-    if (code === "MPR01" || code === "MPR02") {
+    if (code === "MPR01" || code === "MPR02" || code === "MPR03") {
       throw conflit("La source du rapport a changé : rechargez la page puis réessayez.");
     }
     throw e;

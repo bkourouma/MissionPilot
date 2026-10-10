@@ -40,6 +40,7 @@ import {
 } from "../plans/modele.js";
 import { creerPlan, lirePlan, listerPlans, partagerPlan } from "../plans/plans.js";
 import { donneesRapport, lireFeuilleDeRoute, lireRoi } from "../plans/rapport.js";
+import { routesPlansAugmentes } from "./plans-augmentes.js";
 
 /*
  * Planification stratégique et modèle financier (service #3), sous /api.
@@ -65,11 +66,15 @@ import { donneesRapport, lireFeuilleDeRoute, lireRoi } from "../plans/rapport.js
  *   /plans/:id/modeles, GET /plans/:id/modeles/comparaison,
  *   GET /plans/:id/modeles/:version, POST /plans/:id/modeles/:version/validation ;
  * - GET /plans/:id/rapport : données structurées pour un futur export.
+ * - Cascade, bibliothèque d'initiatives, portefeuille et bancabilité
+ *   (PLA-12 à PLA-17) : routes/plans-augmentes.ts, monté ici (mêmes
+ *   traductions d'erreurs).
  */
 export const routesPlans: FastifyPluginAsync = async (app) => {
   app.setErrorHandler(async (error) => {
     throw traduireErreurPlan(error);
   });
+  await app.register(routesPlansAugmentes);
 
   /* ----- Plans ----- */
 

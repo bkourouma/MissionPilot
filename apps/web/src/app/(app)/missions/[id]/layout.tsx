@@ -54,6 +54,9 @@ export default async function LayoutMission({
     { id: "affectations", libelle: "Affectations", href: `${base}/affectations` },
     { id: "documents", libelle: "Documents", href: `${base}/documents` },
     { id: "rapports", libelle: "Rapports", href: `${base}/rapports` },
+    ...(aPermission(utilisateur.roles, "salle.lire")
+      ? [{ id: "salle", libelle: "Salle de mission", href: `${base}/salle` }]
+      : []),
     ...(aPermission(utilisateur.roles, "questionnaire.lire")
       ? [{ id: "questionnaires", libelle: "Questionnaires", href: `${base}/questionnaires` }]
       : []),
@@ -85,6 +88,9 @@ export default async function LayoutMission({
       : []),
     ...(aPermission(utilisateur.roles, "facture.lire")
       ? [{ id: "facturation", libelle: "Facturation", href: `${base}/facturation` }]
+      : []),
+    ...(["en_cours", "a_cloturer", "cloturee"].includes(m.statut)
+      ? [{ id: "cloture", libelle: "Clôture", href: `${base}/cloture` }]
       : []),
     ...(m.statut === "cloturee" ? [{ id: "bilan", libelle: "Bilan", href: `${base}/bilan` }] : []),
   ];

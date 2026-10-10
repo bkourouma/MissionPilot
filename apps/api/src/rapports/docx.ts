@@ -103,10 +103,10 @@ function corps(r: Rapport): FileChild[] {
     ...(r.confidentiel
       ? [
           new Paragraph({
-            children: runs(
-              "Confidentiel : contient des données financières internes (coûts, taux, marges).",
-              { bold: true, color: "8A1C1C" },
-            ),
+            children: runs("Confidentiel : document interne, réservé aux personnes autorisées.", {
+              bold: true,
+              color: "8A1C1C",
+            }),
           }),
         ]
       : []),

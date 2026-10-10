@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api, messageErreur } from "../../lib/api";
-import { messageMethodes } from "../../lib/methodes";
+import { hrefVersion, messageMethodes } from "../../lib/methodes";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Alerte } from "../ui/Alerte";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
@@ -19,6 +19,11 @@ export interface BoutonActionProps {
   confirmation?: { question: string; libelleConfirmation: string };
   /** Page à ouvrir après succès (à partir de la réponse) ; sinon rafraîchissement. */
   destination?: (reponse: unknown) => string;
+  /**
+   * Variante sérialisable de `destination` pour un appel depuis un composant serveur (une fonction
+   * ne peut pas lui être passée) : champ de la réponse qui porte l'identifiant de la version à ouvrir.
+   */
+  versionDans?: "id" | "version_id";
   variante?: VarianteBouton;
   icone?: NomIcone;
   texteChargement?: string;
@@ -32,6 +37,7 @@ export function BoutonAction({
   corps,
   confirmation,
   destination,
+  versionDans,
   variante = "secondaire",
   icone,
   texteChargement = "En cours…",
@@ -50,6 +56,8 @@ export function BoutonAction({
           ? await api.supprimer(chemin)
           : await api.post<unknown>(chemin, corps ?? {});
       if (destination) router.push(destination(r));
+      else if (versionDans)
+        router.push(hrefVersion((r as Record<string, string>)[versionDans] ?? ""));
       else router.refresh();
       return true;
     } catch (e) {

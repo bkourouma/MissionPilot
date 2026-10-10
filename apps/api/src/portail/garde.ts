@@ -117,6 +117,11 @@ export const LISTE_BLANCHE_PORTAIL: readonly RouteOuverte[] = [
   { methodes: LECTURE, motif: "/api/portail/questionnaires/:id" },
   { methodes: ["PATCH"], motif: "/api/portail/questionnaires/:id/reponses" },
   { methodes: POST, motif: "/api/portail/questionnaires/:id/soumettre" },
+  // Salle de mission (routes/salle-mission.ts, CLI-01) : SES demandes envoyées et le dépôt
+  // d'une pièce (multipart, fichier contrôlé comme tout téléversement, sémaphore de réception).
+  { methodes: LECTURE, motif: "/api/portail/salle/demandes" },
+  { methodes: LECTURE, motif: "/api/portail/salle/demandes/:id" },
+  { methodes: POST, motif: "/api/portail/salle/pieces/:id/depots" },
 ];
 
 /** Entrée de la liste blanche pour cette route, ou undefined (route fermée au portail). */

@@ -161,7 +161,7 @@ export async function rapportEnPptx(r: Rapport): Promise<Buffer> {
       ...(r.confidentiel
         ? [
             {
-              text: "Confidentiel : données financières internes (coûts, taux, marges).",
+              text: "Confidentiel : document interne, réservé aux personnes autorisées.",
               options: { color: "8A1C1C" },
             },
           ]

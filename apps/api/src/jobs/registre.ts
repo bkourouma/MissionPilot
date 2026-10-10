@@ -1,5 +1,15 @@
 import type { Database, Db } from "../db/pool.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
+import {
+  creerHandlerDetectionAutomatisation,
+  TYPE_JOB_DETECTION_AUTOMATISATION,
+} from "../automatisation/detection.js";
+import { TYPE_JOB_EVENEMENT_AUTOMATISATION } from "../automatisation/evenements.js";
+import {
+  creerHandlerAgentAutomatisation,
+  creerHandlerEvenementAutomatisation,
+  TYPE_JOB_AGENT_AUTOMATISATION,
+} from "../automatisation/execution.js";
 import { loadConfig } from "../config.js";
 import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
 import { creerHandlerConservationIa, TYPE_JOB_CONSERVATION_IA } from "../ia/conservation.js";
@@ -10,6 +20,7 @@ import {
   TYPE_JOB_RELANCE_QUESTIONNAIRE,
 } from "../questionnaires/relances.js";
 import { creerHandlerPurgeRapports, TYPE_JOB_PURGE_RAPPORTS } from "../rapports/purge.js";
+import { relanceSalleMission, TYPE_JOB_RELANCE_SALLE } from "../salle-mission/relances.js";
 import { stockageDe } from "../stockage/index.js";
 import { creerHandlerPurgeFichiers, TYPE_JOB_PURGE_FICHIERS } from "../stockage/purge.js";
 import { rappelFeuilles, relanceFeuilles } from "../temps/rappels.js";
@@ -72,6 +83,11 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_CONSERVATION_IA]: creerHandlerConservationIa(), // anonymisation des textes IA échus
   [TYPE_JOB_RELANCE_QUESTIONNAIRE]: relanceQuestionnaire, // relances J+3 / J+7 (V2)
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
+  // Moteur d'automatisation (AUT-01 à AUT-06, ADR-006) : événements, appels d'agents, détection.
+  [TYPE_JOB_EVENEMENT_AUTOMATISATION]: creerHandlerEvenementAutomatisation(),
+  [TYPE_JOB_AGENT_AUTOMATISATION]: creerHandlerAgentAutomatisation(dependancesIaParDefaut),
+  [TYPE_JOB_DETECTION_AUTOMATISATION]: creerHandlerDetectionAutomatisation(),
+  [TYPE_JOB_RELANCE_SALLE]: relanceSalleMission, // relances J-3 / J+1 / J+7 de la salle de mission
 });
 
 /** Registre dont la purge des fichiers utilise ce stockage (configuration du serveur). */

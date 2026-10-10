@@ -62,7 +62,7 @@ function decimalBorne(entiers: number, decimales: number) {
 }
 
 /** Date d'arrêté la plus lointaine admise (UTC), recalculée à chaque validation. */
-function dateArreteMax(): string {
+export function dateArreteMax(): string {
   return new Date(Date.now() + HORIZON_ARRETE_KPI_JOURS * 86_400_000).toISOString().slice(0, 10);
 }
 

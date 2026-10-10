@@ -1,0 +1,109 @@
+/* Salle de mission (CLI-01) : cabinet et portail client. Mobile d'abord. */
+
+.mp-salle__entete-carte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-salle__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s, 0.875rem);
+}
+
+.mp-salle__pieces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-salle__piece {
+  /* Contient le `::after` étiré de `.mp-lien-etendu` (carte d'une demande, cabinet et portail) :
+     sans lui, le lien couvrait toute la page. */
+  position: relative;
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+}
+
+.mp-salle__piece--a-fournir {
+  border-left: 4px solid var(--mp-attention, #b45309);
+}
+
+.mp-salle__piece-titre {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-salle__depots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: var(--mp-esp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s, 0.875rem);
+}
+
+.mp-salle__depots li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  overflow-wrap: anywhere;
+}
+
+.mp-salle__motif {
+  margin: var(--mp-esp-2) 0 0;
+  padding: var(--mp-esp-2);
+  border-radius: var(--mp-rayon, 8px);
+  background: var(--mp-surface-2);
+}
+
+.mp-salle__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  margin-top: var(--mp-esp-3);
+}
+
+.mp-salle__ligne-piece {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  border: 1px dashed var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+}
+
+@media (min-width: 48rem) {
+  .mp-salle__ligne-piece {
+    grid-template-columns: 2fr 3fr auto auto;
+    align-items: end;
+  }
+}
+
+/* Portail : grands boutons, une pièce par écran étroit. */
+.mp-salle-portail__envoyer {
+  width: 100%;
+}
+
+@media (min-width: 48rem) {
+  .mp-salle-portail__envoyer {
+    width: auto;
+  }
+}

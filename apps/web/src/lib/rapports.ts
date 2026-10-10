@@ -188,6 +188,7 @@ const MODELES: Record<string, string> = {
   etat_avancement: "État d'avancement",
   notation: "Rapport de notation",
   plan_strategique: "Plan stratégique",
+  dossier_bancaire: "Dossier bancaire",
 };
 export const libelleModele = (m: string) => MODELES[m] ?? "Rapport";
 

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { BoutonOuvrirRetour } from "../../../../../components/connaissances/FormulairesConnaissances";
+import { classesBouton } from "../../../../../components/ui/Bouton";
 import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { retourModifiable, type Bilan, type FinanceBilan } from "../../../../../lib/bilan";
+import { hrefRetour, peutOuvrirRetour, type RetourDetail } from "../../../../../lib/capitalisation";
 import {
   formaterDate,
   formaterDateHeure,
@@ -58,6 +62,10 @@ export default async function PageBilan({ params }: { params: Promise<{ id: stri
   const b = r.donnees;
   const j = b.jours;
   const ecart = statutEcart(j.ecart_relatif, j.ecart_realise);
+  // Retour d'expérience structuré (CAP-01) : lecture seule si le droit manque (pas d'encart).
+  const structure = await chargerServeur<{ retour: RetourDetail | null }>(
+    `/api/capitalisation/missions/${m.donnees.id}/retour`,
+  );
   const droit = retourModifiable(b, {
     utilisateurId: utilisateur.id,
     roles: utilisateur.roles,
@@ -133,6 +141,47 @@ export default async function PageBilan({ params }: { params: Promise<{ id: stri
           />
         </div>
       </Carte>
+      {structure.ok ? (
+        <Carte titre="Retour d'expérience structuré">
+          <div className="mp-pile">
+            <p className="mp-texte-doux">
+              Le texte libre ci-dessus est la note de clôture de la mission. Le retour
+              d&apos;expérience structuré (contexte, méthode, écarts, leçons) a un brouillon
+              construit depuis les données de la mission, est relu puis validé par le chef ou le
+              directeur de la mission, et alimente la base de connaissances et la base
+              d&apos;estimation.
+            </p>
+            {structure.donnees.retour ? (
+              <p>
+                <Link
+                  href={hrefRetour(structure.donnees.retour.id)}
+                  className={classesBouton("secondaire")}
+                >
+                  {structure.donnees.retour.statut === "valide"
+                    ? "Voir le retour d'expérience validé"
+                    : "Rédiger et valider le retour d'expérience"}
+                </Link>
+              </p>
+            ) : peutOuvrirRetour(
+                { roles: utilisateur.roles, utilisateurId: utilisateur.id },
+                m.donnees,
+              ) ? (
+              <>
+                <p className="mp-texte-doux mp-texte-petit">
+                  Il s&apos;ouvre automatiquement à la clôture ; cette mission a été clôturée avant
+                  cette fonction : ouvrez-le ici.
+                </p>
+                <BoutonOuvrirRetour missionId={m.donnees.id} />
+              </>
+            ) : (
+              <p className="mp-texte-doux mp-texte-petit">
+                Aucun retour d&apos;expérience structuré n&apos;est ouvert. Il s&apos;ouvre depuis
+                cet écran par le chef, le directeur de la mission ou un associé.
+              </p>
+            )}
+          </div>
+        </Carte>
+      ) : null}
     </div>
   );
 }

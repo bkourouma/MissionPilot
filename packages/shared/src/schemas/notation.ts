@@ -83,3 +83,4 @@ export const renvoiNotationSchema = z.object({ motif: texte(2000) }).strict();
 export const versionNotationQuerySchema = z
   .object({ version: z.coerce.number().int().min(1).max(100000).optional() })
   .strict();
+export * from "./notation-augmentee";

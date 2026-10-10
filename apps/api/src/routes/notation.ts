@@ -38,6 +38,7 @@ import {
   vueVersion,
 } from "../notation/notations.js";
 import { exigerUnDe } from "../questionnaires/acces.js";
+import { routesNotationAugmentee } from "./notation-augmentee.js";
 
 /*
  * Notation (service 1), montée sous /api (via routes/questionnaires.ts).
@@ -204,4 +205,7 @@ export const routesNotation: FastifyPluginAsync = async (app) => {
       rapport(db, auth, await exigerNotationVisible(db, auth, id), version),
     );
   });
+
+  // Notation augmentée (NOT-09 à NOT-13, NOT-17) : plugin enfant, traduction d'erreurs propre.
+  await app.register(routesNotationAugmentee);
 };

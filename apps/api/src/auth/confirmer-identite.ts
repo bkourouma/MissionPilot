@@ -19,7 +19,8 @@ import { FAUX_HASH, verifyPassword } from "./password.js";
  * coordonnées), déblocage de la connexion d'un utilisateur
  * (routes/limiteur-admin.ts), clé API IA et plafond IA relevé (routes/ia-parametres.ts),
  * durée de conservation des rapports RACCOURCIE (routes/rapports.ts : les rapports plus
- * anciens sont purgés sans retour). Pour ces quatre dernières seulement, un utilisateur
+ * anciens sont purgés sans retour), anonymisation d'un CV de la banque des appels d'offres
+ * (routes/banque-ao.ts). Pour ces cinq dernières seulement, un utilisateur
  * SANS 2FA active confirme par son mot de passe seul (option `motDePasseSeulSiInactive`) :
  * le facteur « mot_de_passe » est alors journalisé (et, pour les coordonnées
  * bancaires, signalé aux associés) ;
@@ -54,7 +55,10 @@ export type ContexteConfirmation =
   | "cle_api_ia"
   // Raccourcissement de la durée de conservation des rapports (routes/rapports.ts), mot de passe
   // seul admis sans 2FA active, comme la clé API IA.
-  | "conservation_rapports";
+  | "conservation_rapports"
+  // Anonymisation d'un CV de la banque des appels d'offres (routes/banque-ao.ts), irréversible :
+  // mot de passe seul admis sans 2FA active, comme la clé API IA.
+  | "anonymisation_cv";
 
 export type FacteurConfirme = FacteurReconnu | "mot_de_passe";
 

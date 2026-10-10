@@ -54,7 +54,7 @@ export function cibleActuelle(def: DefinitionKpi, cibles: readonly CibleKpi[], d
 }
 
 /** Refuse (400) une évaluation qui parcourrait trop de périodes, avant de lire les mesures. */
-function exigerVolumeEvaluable(defs: readonly DefinitionKpi[], date: string): void {
+export function exigerVolumeEvaluable(defs: readonly DefinitionKpi[], date: string): void {
   let total = 0;
   for (const def of defs) {
     total += nombrePeriodesEvaluees(def, date);

@@ -238,11 +238,32 @@ describe("portail client (SOC-09)", () => {
       "portail.jalons.valider",
       "portail.kpi.saisir",
       "portail.questionnaires.repondre",
+      "portail.salle.deposer",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
       ...PERMISSIONS_PORTAIL_CLIENT,
     ]);
+  });
+
+  it("salle de mission (CLI-01) : suivi par l'équipe de conseil ; dépôt par dirigeant et contributeur", () => {
+    const qui = (p: Parameters<typeof aPermission>[1]) =>
+      TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+    expect(qui("salle.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+    expect(qui("salle.gerer")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+    ]);
+    // Jamais l'investisseur, jamais un rôle interne.
+    expect(qui("portail.salle.deposer")).toEqual(["client_contributeur", "client_dirigeant"]);
   });
 
   it("schémas et prédicats", () => {
@@ -252,5 +273,86 @@ describe("portail client (SOC-09)", () => {
     expect(estUtilisateurPortail(["client_contributeur"])).toBe(true);
     expect(estUtilisateurPortail(["associe"])).toBe(false);
     expect(estRoleClient("chef_mission")).toBe(false);
+  });
+});
+
+describe("V3, vague 3 : appels d'offres (lot AO-B, AO-04 à AO-07)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("lecture par les rôles de conseil et le gestionnaire ; tenue par les rédacteurs", () => {
+    expect(qui("ao.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+      "gestionnaire",
+    ]);
+    expect(qui("ao.gerer")).toEqual(["associe", "chef_mission", "consultant", "directeur_mission"]);
+  });
+
+  it("offre financière (FIN-02) : seuls associé et gestionnaire réunissent lecture et taux", () => {
+    const financiers = ROLES.filter(
+      (r) =>
+        aPermission([r], "ao.lire") &&
+        aPermission([r], "finance.lire") &&
+        aPermission([r], "taux.gerer"),
+    );
+    expect([...financiers].sort()).toEqual(["associe", "gestionnaire"]);
+    for (const r of ["ressources", "expert_externe", ...ROLES_CLIENT] as const) {
+      expect(aPermission([r], "ao.lire"), r).toBe(false);
+    }
+  });
+});
+
+describe("V3, vague 3 : appels d'offres (lot AO-A, AO-01 à AO-03, AO-08)", () => {
+  it("la décision go/no-go est réservée à l'associé (AO-02)", () => {
+    expect(PERMISSIONS).toContain("ao.decider");
+    expect(TOUS_LES_ROLES.filter((r) => aPermission([r], "ao.decider"))).toEqual(["associe"]);
+  });
+});
+
+describe("V3, vague 3 : capitalisation (CAP) ; vague 2 : automatisation (AUT)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("connaissance.lire : associé, directeur, chef, consultant, expert métier", () => {
+    expect(qui("connaissance.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+  });
+
+  it("competence.gerer et competence.lire : associé, directeur de mission, ressources", () => {
+    expect(qui("competence.gerer")).toEqual(["associe", "directeur_mission", "ressources"]);
+    // La matrice de tous suit la gestion : jamais `collaborateurs.lire` (chef, gestionnaire).
+    expect(qui("competence.lire")).toEqual(["associe", "directeur_mission", "ressources"]);
+    for (const r of ["chef_mission", "gestionnaire"] as const) {
+      expect(aPermission([r], "collaborateurs.lire"), r).toBe(true);
+      expect(aPermission([r], "competence.lire"), r).toBe(false);
+    }
+  });
+
+  it("automatisation.lire : associé, directeur, chef de mission ; gerer : associé et directeur", () => {
+    expect(qui("automatisation.lire")).toEqual(["associe", "chef_mission", "directeur_mission"]);
+    expect(qui("automatisation.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("jamais aux rôles du portail ni à l'expert externe", () => {
+    for (const p of [
+      "connaissance.lire",
+      "competence.gerer",
+      "competence.lire",
+      "automatisation.lire",
+      "automatisation.gerer",
+    ] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
   });
 });

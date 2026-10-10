@@ -10,7 +10,14 @@ export interface PageCurseur<T> {
 export type ChargementPage<T> =
   { ok: true; donnees: T } | { ok: false; message: string; statut: number };
 
-/** Taille de page demandée quand on charge toute la liste (plafond de l'API). */
+/**
+ * Plafond de `limite` par défaut : sûr pour les routes plafonnées à 200 ou plus (collaborateurs,
+ * journal : 200). Une route plus large (missions, opportunités : 500) le déclare avec `limiteMax`,
+ * une route plus étroite (beaucoup de listes plafonnent à 100 : facturation, clients, appels
+ * d'offres, banques) passe `limiteMax: 100`, sinon sa requête est refusée (400) et la liste reste vide.
+ */
+export const LIMITE_PAGE_SURE = 200;
+/** Plafond des listes larges (missions, opportunités : `LISTE_LARGE_LIMITE_MAX` de l'API). */
 export const LIMITE_PAGE_MAX = 500;
 /** Garde-fou : au-delà, la liste est rendue partielle avec `tronquee: true`. */
 export const PAGES_MAX = 20;
@@ -30,17 +37,26 @@ export function cheminPage(chemin: string, limite: number, curseur: string | nul
  * appliqués côté web). Une erreur sur une page rend l'erreur ; un curseur qui revient
  * (réponse incohérente) arrête le parcours. Au-delà de `pagesMax` pages, la liste est
  * rendue partielle et marquée `tronquee`.
+ *
+ * `limiteMax` est le plafond que la route interrogée accepte pour `limite` (défaut sûr : 200).
+ * Une `limite` demandée au-delà est ramenée à ce plafond : l'API rejetterait la requête (400) et
+ * la liste resterait vide sans que rien ne le signale.
  */
 export async function chargerToutesLesPages<T>(
   charger: (chemin: string) => Promise<ChargementPage<PageCurseur<T>>>,
   chemin: string,
-  { limite = LIMITE_PAGE_MAX, pagesMax = PAGES_MAX }: { limite?: number; pagesMax?: number } = {},
+  {
+    limiteMax = LIMITE_PAGE_SURE,
+    limite = limiteMax,
+    pagesMax = PAGES_MAX,
+  }: { limiteMax?: number; limite?: number; pagesMax?: number } = {},
 ): Promise<ChargementPage<{ elements: T[]; tronquee: boolean }>> {
+  const limiteEffective = Math.max(1, Math.min(Math.floor(limite), Math.floor(limiteMax)));
   const elements: T[] = [];
   const vus = new Set<string>();
   let curseur: string | null = null;
   for (let page = 0; page < pagesMax; page++) {
-    const r = await charger(cheminPage(chemin, limite, curseur));
+    const r = await charger(cheminPage(chemin, limiteEffective, curseur));
     if (!r.ok) return r;
     elements.push(...r.donnees.elements);
     curseur = r.donnees.suivant ?? null;

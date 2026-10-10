@@ -55,6 +55,7 @@ import {
 import { vueCible, vueDefinition } from "../kpi/vues.js";
 import { exigerMissionVisible } from "../missions/acces.js";
 import { aujourdhui } from "../missions/outils.js";
+import { routesKpiPilotage } from "./kpi-pilotage.js";
 import { routesPortailKpi } from "./portail-kpi.js";
 
 /*
@@ -472,5 +473,6 @@ export const routesKpi: FastifyPluginAsync = async (app) => {
   routesDefinitions(app);
   routesMesures(app);
   routesPilotage(app);
+  await app.register(routesKpiPilotage);
   await app.register(routesPortailKpi);
 };

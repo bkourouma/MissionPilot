@@ -8,6 +8,7 @@ import {
   useSauvegardeFeuille,
 } from "../../../components/temps/useSauvegardeFeuille";
 import { useAttenteRafraichissement } from "../../../components/formulaires/useAttenteRafraichissement";
+import { PreRemplissage } from "../../../components/temps/PreRemplissage";
 import { Alerte } from "../../../components/ui/Alerte";
 import { Bouton } from "../../../components/ui/Bouton";
 import { CaseACocher } from "../../../components/ui/CaseACocher";
@@ -35,6 +36,7 @@ import {
   type SaisieEnAttente,
 } from "../../../lib/hors-ligne/file-temps";
 import { obtenirMagasin } from "../../../lib/hors-ligne/magasins";
+import { appliquerPropositions, type PropositionTemps } from "../../../lib/preremplissage";
 import { libelleJourCourt, libelleJourLong } from "../../../lib/semaine";
 import {
   cleActivite,
@@ -204,6 +206,20 @@ export function GrilleTemps(props: GrilleTempsProps) {
     setRangees(trierRangees([...rangees, rangeeActivite(a)]));
   }
 
+  /** Pré-remplissage confirmé par le consultant (AUT-09) : la grille change, rien n'est soumis. */
+  function appliquerPreRemplissage(retenues: PropositionTemps[]) {
+    const r = appliquerPropositions({ rangees, valeurs }, retenues, unite);
+    setRangees(r.rangees);
+    setValeurs(r.valeurs);
+    s.modifier({
+      feuilleId: feuille.id,
+      rangees: r.rangees.map((x) => x.cle),
+      valeurs: r.valeurs,
+      modifieLe: Date.now(),
+    });
+    return { appliquees: r.appliquees, conservees: r.conservees };
+  }
+
   async function soumettre() {
     setSoumission({ enCours: true, erreur: null });
     const ok = await s.enregistrerMaintenant();
@@ -280,6 +296,14 @@ export function GrilleTemps(props: GrilleTempsProps) {
         <Alerte tonalite="danger" titre="Brouillon non enregistré">
           <p>{s.erreur}</p>
         </Alerte>
+      ) : null}
+
+      {modifiable ? (
+        <PreRemplissage
+          semaine={jours[0] ?? ""}
+          unite={unite}
+          onAppliquer={appliquerPreRemplissage}
+        />
       ) : null}
 
       {modifiable ? (
