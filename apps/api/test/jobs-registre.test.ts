@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { trousseauDepuisConfig } from "../src/auth/chiffrement.js";
+import { TYPE_JOB_EVALUATION_OPENROUTER } from "../src/agents/evaluations-openrouter.js";
 import { TYPE_JOB_DETECTION_AUTOMATISATION } from "../src/automatisation/detection.js";
 import { TYPE_JOB_EVENEMENT_AUTOMATISATION } from "../src/automatisation/evenements.js";
 import { TYPE_JOB_AGENT_AUTOMATISATION } from "../src/automatisation/execution.js";
@@ -31,6 +32,7 @@ import { configTest } from "./helpers.js";
  */
 
 const DECLARES: Record<string, string> = {
+  TYPE_JOB_EVALUATION_OPENROUTER,
   TYPE_JOB_RELANCES,
   TYPE_JOB_PURGE_FICHIERS,
   TYPE_JOB_PURGE_RAPPORTS,

@@ -61,6 +61,15 @@ export const MAX_TOKENS_SORTIE: Readonly<Record<TacheGenerative, number>> = {
 /** Plafond mensuel de départ d'un cabinet : 50 USD (à valider par le métier). */
 export const PLAFOND_MENSUEL_DEPART_MICRO_USD = 50_000_000;
 
+/**
+ * Plafond de coût d'UNE évaluation de non-régression sur OpenRouter (rejeu réel, AGT-04) :
+ * 2 USD (2 000 000 µUSD), en plus du plafond mensuel du cabinet. VALEUR DE DÉPART À VALIDER par
+ * le métier : au-delà, l'évaluation s'arrête et est enregistrée INCOMPLÈTE (cause
+ * PLAFOND_EVALUATION), jamais réussie. Le contrôle porte sur le coût déjà engagé avant chaque
+ * appel : un appel peut dépasser le plafond de son propre coût (borné par MAX_TOKENS_SORTIE).
+ */
+export const PLAFOND_EVALUATION_MICRO_USD = 2_000_000;
+
 export function tarifDe(modele: string): { tarif: Tarif; connu: boolean } {
   // Variante (« :free », « :nitro ») : même tarif de référence, prudent.
   const tarif = TARIFS_MODELES[modele] ?? TARIFS_MODELES[modele.split(":")[0] ?? ""];

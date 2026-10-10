@@ -7,13 +7,16 @@ import {
   decisionAutonomieSchema,
   decisionExecutionAgentSchema,
   evaluationAgentCreationSchema,
+  evaluationOpenRouterCreationSchema,
   evaluationsAgentsQuerySchema,
+  evaluationsOpenRouterQuerySchema,
   executionsAgentsQuerySchema,
   incidentAutonomieSchema,
   jeuEssaiCreationSchema,
   jeuxEssaiAgentsQuerySchema,
   paramsAgentSchema,
   paramsBriqueAgentSchema,
+  paramsPromptEvaluationSchema,
   plafondIaMissionSchema,
   restrictionAgentSchema,
 } from "@missionpilot/shared";
@@ -34,6 +37,11 @@ import {
 } from "../agents/autonomie.js";
 import { lireContributions } from "../agents/contributions.js";
 import { avecErreursAgents } from "../agents/erreurs.js";
+import {
+  demanderEvaluationOpenRouter,
+  listerDemandesEvaluation,
+  lireDemandeEvaluation,
+} from "../agents/evaluations-openrouter.js";
 import {
   creerJeuEssai,
   evaluerPrompt,
@@ -68,7 +76,8 @@ import { exigerMissionVisible } from "../missions/acces.js";
  * coût par mission.
  *
  * Permissions : `agent.lire` (lecture, incident mineur), `agent.gerer` (briques, restrictions,
- * jeux d'essai, évaluations, coupe-circuit activé, incident majeur), `autonomie.decider`
+ * jeux d'essai, évaluations locales et rejeu réel sur OpenRouter, coupe-circuit activé,
+ * incident majeur), `autonomie.decider`
  * (associé : niveau accordé, coupe-circuit levé, brique R0, levée d'une restriction d'associé,
  * jeu d'essai affaibli), `ia.utiliser` (décision sur une exécution, par son déclencheur, le
  * chef ou le directeur de la mission, ou un associé), `ia.configurer` (plafond de mission). Aucune route n'est ouverte au portail client (`LISTE_BLANCHE_PORTAIL`). Le coût
@@ -245,7 +254,7 @@ export const routesAgents: FastifyPluginAsync = async (app) => {
   app.get("/agents/evaluations", async (request) => {
     const auth = exiger(request, "agent.lire");
     const q = evaluationsAgentsQuerySchema.parse(request.query);
-    return tx(auth.cabinetId, (db) => listerEvaluations(db, q));
+    return tx(auth.cabinetId, (db) => listerEvaluations(db, auth, q));
   });
 
   app.post("/agents/evaluations", async (request, reply) => {
@@ -253,6 +262,38 @@ export const routesAgents: FastifyPluginAsync = async (app) => {
     const e = evaluationAgentCreationSchema.parse(request.body);
     const cree = await tx(auth.cabinetId, (db) => evaluerPrompt(db, auth, e));
     return reply.status(201).send(cree);
+  });
+
+  /* ----- Rejeu RÉEL sur OpenRouter (AGT-04) : file `jobs`, coût plafonné ----- */
+
+  // Demander un rejeu (une DÉPENSE, plafonnée et limitée par cabinet : un seul en file, quota sur 24 h)
+  // exige `agent.gerer`. SÉPARATION DES TÂCHES : l'activation d'un prompt et le choix d'un modèle
+  // exigent `ia.configurer` ; qui demande l'évaluation n'est pas, par son seul rôle, qui active.
+  app.post("/agents/prompts/:promptId/evaluations/openrouter", async (request, reply) => {
+    const auth = exiger(request, "agent.gerer");
+    const { promptId } = paramsPromptEvaluationSchema.parse(request.params);
+    const e = evaluationOpenRouterCreationSchema.parse(request.body ?? {});
+    const demande = await tx(auth.cabinetId, (db) =>
+      demanderEvaluationOpenRouter(db, { config: app.config }, auth, {
+        prompt_id: promptId,
+        modele: e.modele,
+      }),
+    );
+    // 202 : le rejeu s'exécute dans la file (ADR-002) ; l'état se lit par GET.
+    return reply.status(202).send(demande);
+  });
+
+  app.get("/agents/prompts/:promptId/evaluations/openrouter", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const { promptId } = paramsPromptEvaluationSchema.parse(request.params);
+    const q = evaluationsOpenRouterQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, (db) => listerDemandesEvaluation(db, auth, promptId, q));
+  });
+
+  app.get("/agents/evaluations/openrouter/:id", async (request) => {
+    const auth = exiger(request, "agent.lire");
+    const { id } = paramsId.parse(request.params);
+    return tx(auth.cabinetId, (db) => lireDemandeEvaluation(db, auth, id));
   });
 
   /* ----- Plafond de coût par mission (AGT-06) ----- */

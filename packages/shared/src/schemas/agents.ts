@@ -236,6 +236,15 @@ export const jeuEssaiCreationSchema = z
   .strict();
 export type JeuEssaiCreation = z.infer<typeof jeuEssaiCreationSchema>;
 
+/** Identifiant de modèle d'une évaluation (« fournisseur/modèle »). */
+const modeleEvaluationSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,99}$/,
+    "Identifiant de modèle attendu : « fournisseur/modèle ».",
+  );
+
 /**
  * POST /api/agents/evaluations (agent.gerer) : rejoue le DERNIER jeu d'essai du prompt sur
  * une version candidate (et, pour comparaison, sur la version active), avec le modèle
@@ -245,15 +254,75 @@ export type JeuEssaiCreation = z.infer<typeof jeuEssaiCreationSchema>;
 export const evaluationAgentCreationSchema = z
   .object({
     prompt_id: z.string().uuid(),
-    modele: z
-      .string()
-      .trim()
-      .regex(
-        /^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,99}$/,
-        "Identifiant de modèle attendu : « fournisseur/modèle ».",
-      )
-      .optional(),
+    modele: modeleEvaluationSchema.optional(),
   })
+  .strict();
+
+/* ----- Rejeu réel sur OpenRouter (AGT-04, ADR-005) ----- */
+
+/**
+ * États d'une demande de rejeu réel : en file, en cours, puis réussie (tous les cas réussis dans
+ * le plafond de coût), échouée (cas en échec ou erreur du fournisseur), incomplète (arrêtée par un
+ * plafond de coût avant la fin) ou ignorée (aucun appel : coupe-circuit IA ou clé absente).
+ */
+export const STATUTS_EVALUATION_OPENROUTER = [
+  "en_file",
+  "en_cours",
+  "reussie",
+  "echouee",
+  "incomplete",
+  "ignoree",
+] as const;
+export type StatutEvaluationOpenRouter = (typeof STATUTS_EVALUATION_OPENROUTER)[number];
+
+/**
+ * Causes (codes stables) d'un état terminal autre que « reussie » d'un rejeu réel : lues par
+ * l'écran (libellés côté web). Comprend les codes d'erreur du fournisseur d'IA (CLE_REFUSEE…).
+ * « MODELE_SERVI_DIFFERENT » : le fournisseur a répondu avec un autre modèle que celui demandé ;
+ * « JEU_ESSAI_INVALIDE » : un cas du jeu insère une variable dans les consignes (message système).
+ */
+export const CAUSES_EVALUATION_OPENROUTER = [
+  "CAS_ECHOUES",
+  "PLAFOND_EVALUATION",
+  "DUREE_MAX_ATTEINTE",
+  "PLAFOND_IA_ATTEINT",
+  "GENERATIONS_SIMULTANEES",
+  "COUPE_CIRCUIT_IA",
+  "AGENT_DESACTIVE",
+  "IA_NON_CONFIGUREE",
+  "JEU_ESSAI_CHANGE",
+  "JEU_ESSAI_INVALIDE",
+  "MODELE_NON_AUTORISE",
+  "MODELE_SERVI_DIFFERENT",
+  "FOURNISSEUR_NON_REEL",
+  "ERREUR_INATTENDUE",
+  "INTERROMPUE",
+  "ERREUR_INTERNE",
+  // Erreurs du fournisseur d'IA (ia/fournisseur.ts, CodeErreurLlm).
+  "CLE_REFUSEE",
+  "CREDIT_FOURNISSEUR_INSUFFISANT",
+  "FOURNISSEUR_INDISPONIBLE",
+  "DELAI_DEPASSE",
+  "REQUETE_REFUSEE",
+  "REPONSE_INVALIDE",
+  "REPONSE_TROP_GRANDE",
+] as const;
+export type CauseEvaluationOpenRouter = (typeof CAUSES_EVALUATION_OPENROUTER)[number];
+
+/** Paramètre `:promptId` des routes de rejeu réel. */
+export const paramsPromptEvaluationSchema = z.object({ promptId: z.string().uuid() }).strict();
+
+/**
+ * POST /api/agents/prompts/:promptId/evaluations/openrouter (agent.gerer) : rejoue le DERNIER
+ * jeu d'essai de ce prompt sur le VRAI fournisseur, avec le modèle candidat (défaut : modèle
+ * routé de la tâche du prompt). Mise en file (202) ; le coût est plafonné.
+ */
+export const evaluationOpenRouterCreationSchema = z
+  .object({ modele: modeleEvaluationSchema.optional() })
+  .strict();
+
+export const evaluationsOpenRouterQuerySchema = z
+  .object({ limite: limiteSchema, curseur: curseurSchema })
   .strict();
 
 export const evaluationsAgentsQuerySchema = z

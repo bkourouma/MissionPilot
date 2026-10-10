@@ -4,8 +4,8 @@ import { estimerTokens, type LlmProvider, type RequeteLlm } from "./fournisseur.
  * Fournisseur LOCAL et déterministe (AGT-04) : aucun appel réseau, aucune clé,
  * aucun coût. La réponse est fabriquée par une fonction du code (`repondre`)
  * à partir de la requête : même requête → même réponse. Il sert les
- * évaluations de non-régression tant qu'aucun rejeu sur un vrai modèle n'est
- * branché (file `jobs`, coût plafonné : ADR-005) : il vérifie la chaîne
+ * évaluations de non-régression LOCALES (le rejeu sur un vrai modèle passe par
+ * la file `jobs`, coût plafonné : agents/evaluations-openrouter.ts, ADR-005) : il vérifie la chaîne
  * (rendu du prompt, variables, schéma de sortie, garde-chiffres, critères des
  * cas), pas la qualité rédactionnelle d'un modèle.
  */

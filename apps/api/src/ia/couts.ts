@@ -212,6 +212,11 @@ export type IssueConsommation =
 export interface Consommation {
   cabinetId: string;
   demandeId: string | null;
+  /**
+   * Appel d'une évaluation de non-régression (rejeu réel, AGT-04) : sans demande de génération,
+   * rattaché à la demande d'évaluation (migration 0270) ; compté dans le plafond mensuel.
+   */
+  evaluationDemandeId?: string | null;
   missionId: string | null;
   tache: TacheIa;
   modele: string;
@@ -235,8 +240,9 @@ export async function enregistrerConsommation(
   const { cout, connu } = coutMicroUsd(c.modele, c.tokensEntree, c.tokensSortie);
   await db.query(
     `INSERT INTO ia_consommations (cabinet_id, demande_id, mission_id, tache, modele, issue,
-       source_cle, tokens_entree, tokens_sortie, cout_micro_usd, tarif_connu, duree_ms, cree_le)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+       source_cle, tokens_entree, tokens_sortie, cout_micro_usd, tarif_connu, duree_ms, cree_le,
+       evaluation_demande_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
     [
       c.cabinetId,
       c.demandeId,
@@ -251,6 +257,7 @@ export async function enregistrerConsommation(
       connu,
       c.dureeMs,
       maintenant,
+      c.evaluationDemandeId ?? null,
     ],
   );
   const notifications = await alertesPlafond(db, c.cabinetId, plafond, maintenant);
