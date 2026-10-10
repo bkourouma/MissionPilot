@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-08 (branche `feat/vague-2-automatisation`, arbre de travail avec les vagues 2 et 3 non commitées) en lançant les commandes
+ont été relevés le 2026-10-10 (branche `feat/vague-2-automatisation`, arbre propre : vagues 2 et 3 et corrections de la recette navigateur commitées) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -152,11 +152,13 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-08, seules les 43 migrations des vagues 2 et 3 ne sont pas
-  commitées (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`, `0360`–`0363`,
-  `0380`–`0386`, `0400`–`0404`, `0420`–`0424`, `0440`–`0445`, `0460`–`0465`) ;
-  celles de la vague 0, de la vague 1 (corrections d'audit comprises) et de
-  l'intégration le sont.
+  recréer) ; au 2026-10-10, toutes les migrations sont commitées (148 fichiers),
+  y compris les 43 des vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
+  `0360`–`0363`, `0380`–`0386`, `0400`–`0404`, `0420`–`0424`, `0440`–`0445`,
+  `0460`–`0465`), qui étaient encore libres de modification le 2026-10-08 : elles
+  sont désormais immuables, même si `origin/main` n'en compte encore que 105 tant
+  que la pull request n'est pas fusionnée. La recette du 2026-10-10 n'en a ajouté
+  aucune.
   Une fonction SQL déjà définie se redéfinit par `CREATE OR REPLACE` dans une
   nouvelle migration numérotée APRÈS celles qui créent les tables qu'elle cite
   (modèle : `0268`, `fichier_orphelin`) ; toute nouvelle colonne qui référence
@@ -234,6 +236,20 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - Les droits côté web (`exigerPermission`, `lib/navigation.ts`) sont un confort
   d'affichage ; la source de vérité reste l'API.
 - Pas de `dangerouslySetInnerHTML`.
+- **Une page serveur (Next) ne passe jamais une FONCTION à un composant client**
+  (fichier marqué `"use client"`) : propriétés sérialisables seulement, sinon la
+  page devient illisible (« Functions cannot be passed directly to Client
+  Components ») sans qu'aucun test de `lib/` ne le voie ; modèle de correction :
+  `versionDans` de `components/methodes/BoutonAction.tsx`. Revue manuelle, aidée
+  par la recherche n° 19. Une fonction passée par son nom (`prop={maFonction}`) ou
+  par un tableau de colonnes échappe à la recherche.
+- **Toute liste web qui boucle sur une API déclare le plafond de la route**
+  (`limiteMax` de `chargerToutesLesPages`, `lib/pagination.ts`) : une `limite`
+  au-delà du plafond de la route donne un 400 et une liste vide en silence (menu
+  « Confier à » du rétro-planning, 2026-10-10). Le défaut sûr est 200 ; une route
+  plafonnée à 100 (la plupart des listes : `schemas/facturation.ts`, `clients.ts`,
+  `appels-offres.ts`) passe `limiteMax: 100`, une liste large (missions,
+  opportunités : 500) peut passer `LIMITE_PAGE_MAX`. Recherche n° 20.
 
 ## Tests obligatoires
 
@@ -252,10 +268,12 @@ des mécanismes : `docs/governance/SECURITY.md` et
 
 ## Recherches mécaniques
 
-À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-08
-sur l'arbre de travail de `feat/vague-2-automatisation` (vague 1 commitée, vagues 2 et 3
-non commitées). Toutes les recherches ont été relancées le même jour ; les écarts
-avec l'ancien relevé (vague 1) sont expliqués ligne par ligne ci-dessous.
+À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-10
+sur `feat/vague-2-automatisation` (arbre propre, vagues 1 à 3 commitées). Les recherches
+n° 1 à 10, 13, 14, 16, 17 et 18 et le compte de contrôle de la n° 12 ont été relancés le
+2026-10-10 (les n° 11 et 15, script ponctuel et réseau, ne l'ont pas été) : seuls les n° 8
+(numéro de ligne) et 10 (deux routes de plus) ont changé depuis le relevé du 2026-10-08 ; les écarts avec l'ancien
+relevé (vague 1) sont expliqués ligne par ligne ci-dessous.
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -287,7 +305,7 @@ rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
 #    toutes justifiées : auth/totp.ts (pas de temps), db/seed-demo.ts x2 (seed),
 #    jobs/worker.ts (délai en secondes), stockage/fichiers.ts, routes/fichiers.ts,
 #    routes/salle-mission.ts:109 et salle-mission/depots.ts:153 (taille en Mo dans un
-#    message : les deux dernières sont NOUVELLES), routes/missions.ts:234 (inverse de la
+#    message : les deux dernières sont NOUVELLES), routes/missions.ts:235 (inverse de la
 #    parité EUR/FCFA, arrondi à numeric(20,10), dette) ; toute autre ligne est un
 #    calcul de montant à déplacer
 rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
@@ -297,7 +315,9 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-08, vagues 2 et 3 comprises) : "668 8" (477 avant ; 8 sans exiger, inchangé) puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     (2026-10-10, vagues 2 et 3 et recette comprises) : "670 8" (668 le 2026-10-08 : +2
+#     routes, `GET /appels-offres/assignables` et `GET /capitalisation/retours/a-ouvrir`,
+#     toutes deux sous `exiger` ; 477 avant les vagues 2 et 3 ; 8 sans exiger, inchangé) puis 8 lignes (auth.ts connexion, connexion/2fa,
 #     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
 #     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
@@ -334,12 +354,13 @@ console.log(n,s.length);console.log(s.join("\n"));'
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
 # ne doit montrer que des lignes « A » (ajouts) ; dossier : 148 fichiers au
-# 2026-10-08 (`ls apps/api/migrations | wc -l`; 105 avant les vagues 2 et 3), dont 43
-# non commitées, toutes des vagues 2 et 3 (`git status --short apps/api/migrations |
-# wc -l` : 43, aucune ligne autre que « ?? » : ni modifiée ni supprimée) ; `origin/main`
+# 2026-10-10 (`ls apps/api/migrations | wc -l`; 105 avant les vagues 2 et 3), tous
+# commités (`git ls-files apps/api/migrations | wc -l` : 148 ; `git status --short
+# apps/api/migrations` : vide), dont les 43 des vagues 2 et 3, sans aucune modification
+# ni suppression dans l'historique (commande ci-dessus : 0 ligne) ; `origin/main`
 # compte 105 migrations (vague 1 comprise, corrections d'audit commitées) : aucune
-# modification ni suppression, 43 « A » à venir. La branche locale `main` est en
-# retard : comparer à `origin/main`.
+# modification ni suppression, 43 « A » à venir à la fusion de la pull request. La
+# branche locale `main` est en retard : comparer à `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -355,7 +376,8 @@ pnpm audit --prod
 #     nouvelles, toutes avec search_path figé et REVOKE ALL FROM PUBLIC :
 #     `planifier_detection_automatisation` (`0302`, planification récurrente),
 #     `octets_stockage_utilises` (`0331`, quota borné au cabinet du contexte),
-#     `anonymiser_cv_ao` (`0386`, bornée au cabinet). Les fonctions `est_*` de
+#     `anonymiser_cv_ao` (`0386`, bornée au cabinet) ; relevé du 2026-10-10 inchangé :
+#     la recette n'a ajouté aucune migration. Les fonctions `est_*` de
 #     `0243` et `0267` sont d'appelant, sous la RLS du cabinet
 rg -n "GRANT EXECUTE" apps/api/migrations
 
@@ -370,4 +392,25 @@ rg -n "ENTETE_IDEMPOTENCE|idempotency-key" apps/api/src --glob '!**/idempotence.
 #     le portail, :444). L'import Excel des temps (routes/import-temps.ts) n'y passe pas :
 #     `lireClasseurTemps` a son propre sémaphore (temps/import-excel.ts)
 rg -n "avecPlaceAnalyse\(" apps/api/src
+
+# 19. Page serveur qui passe une fonction à un composant : lister les propriétés
+#     `={(…) =>` des pages et layouts qui ne sont PAS marqués "use client", puis
+#     vérifier à la main que le composant destinataire n'est pas client (ni
+#     importé d'un fichier "use client"). Attendu (2026-10-10) : 60 lignes dans 46
+#     fichiers, toutes admises : 54 `cleLigne` vers `components/ui/Tableau.tsx`
+#     (composant serveur ; une occurrence par `<Tableau`), 3 `href` vers
+#     `components/facturation/SegmentsStatut.tsx` (serveur), `hrefCible` vers
+#     `ExplicationNote` (composant local du fichier), et 2 faux positifs (`.map` et
+#     `.filter` passés à `options` et `visibles`, ce ne sont pas des fonctions
+#     passées). Tout autre destinataire est à justifier ; sa propriété doit alors
+#     être sérialisable.
+rg -n "=\{\(.*\) =>" apps/web/src/app --glob '**/page.tsx' --glob '**/layout.tsx'
+
+# 20. Boucles de pagination côté web : chaque appel de `chargerToutesLesPages`
+#     déclare le plafond de la route. Attendu (2026-10-10) : 12 appels (hors définition
+#     de `lib/pagination.ts`) ; 2 avec `limiteMax` (`lib/appels-offres-serveur.ts`,
+#     routes plafonnées à 100) et 10 sans, sur `/api/missions` ou `/api/opportunites`
+#     (plafond 500, défaut 200 admis : dette, CODING_STANDARDS §10) ; `clients/[id]/portail`
+#     et `pipeline` comprises. Un appel d'une autre route sans `limiteMax` est un écart.
+rg -n "chargerToutesLesPages(<[^>]*>)?\(" apps/web/src --glob '!*.test.*'
 ```

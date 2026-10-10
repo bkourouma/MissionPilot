@@ -73,9 +73,13 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0287`). Une migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
-  l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-08,
-  les 43 migrations des vagues 2 et 3 (`0300`–`0465`) ne sont pas commitées ;
-  `origin/main` en compte 105.
+  l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-10,
+  les 43 migrations des vagues 2 et 3 (`0300`–`0465`) sont commitées sur
+  `feat/vague-2-automatisation` (148 fichiers, aucune modification ni suppression
+  dans l'historique) : elles sont donc immuables, bien que `origin/main` n'en
+  compte encore que 105 tant que la pull request n'est pas fusionnée. Aucune
+  migration n'a été ajoutée par la recette du 2026-10-10 : les numéros libres
+  ci-dessus restent valables.
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next
@@ -161,6 +165,18 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   politiques SQL.
 - **Web** : `app/` pages et layouts, `lib/` logique pure testée, `components/`
   composants ; la garde d'une page est `exigerPermission` (`lib/session.ts`).
+- **Une page serveur ne passe jamais une FONCTION à un composant client** (fichier
+  marqué `"use client"`) : seules des propriétés sérialisables traversent la
+  frontière (texte, nombre, booléen, tableau ou objet simple). Une fonction fait
+  échouer le rendu de la page (« Functions cannot be passed directly to Client
+  Components »), qui devient illisible sans qu'aucun test de `lib/` ne le voie.
+  Pour une action qui dépend de la réponse de l'API, passer un nom de champ ou un
+  drapeau et laisser le composant client construire la fonction. Piège rencontré
+  avec `/methodes/[id]` : `BoutonAction` recevait `destination` (une fonction) ;
+  la propriété sérialisable `versionDans` (`"id"` ou `"version_id"`) la remplace
+  (`components/methodes/BoutonAction.tsx`). À relire : les propriétés
+  `={(…) =>` d'un composant importé de `components/` dans un fichier de `app/`
+  qui n'est pas lui-même client.
 
 ## 4. Erreurs
 
@@ -207,12 +223,18 @@ valide comprise entre 2000 et 2100), sinon une date valide mais hors bornes
 donne un 500 (SQLSTATE 23514) au lieu d'un 400 ; le 23514 qui échappe au schéma
 se traduit en 400 par la couche d'erreurs du domaine. Modèles :
 `schemas/salle-mission.ts`, `schemas/plans-augmentes.ts`.
+Un identifiant technique (valeur d'énumération, UUID) ne s'affiche ni ne se
+saisit à la main : l'écran montre un libellé français (par ex.
+`libelleNiveauDiplome`, `lib/banque-ao.ts`, qui s'appuie sur
+`LIBELLES_NIVEAU_DIPLOME` de `packages/shared`) et propose une liste de choix
+plutôt qu'un champ d'identifiant. Un refus de l'API s'affiche avec son message
+précis (le code d'erreur sert au test, pas à l'utilisateur).
 Mise en page de droite à gauche : sans objet.
 
 ## 7. Tests
 
 - **Vitest partout** (`pnpm test` = `pnpm -r test`). API : tests sur **vrai
-  PostgreSQL** dans `apps/api/test/*.test.ts` (143 fichiers), base dédiée
+  PostgreSQL** dans `apps/api/test/*.test.ts` (144 fichiers), base dédiée
   `<nom>_test` créée à la volée et réinitialisée à chaque exécution
   (`test/global-setup.ts`, `test/urls.ts`) ; `fileParallelism: false` dans
   `apps/api/vitest.config.ts` : jamais deux suites API en parallèle sur la même
@@ -258,6 +280,19 @@ Mise en page de droite à gauche : sans objet.
   `GET /missions` et `GET /opportunites` trient par `cree_le DESC, id DESC`
   avec comparaison de ligne et index dédiés (`0121`). Pas de `LIMIT` silencieux
   (un écart connu : voir §10).
+- **Plafond de `limite` propre à chaque route.** Il vaut 100 pour la plupart des
+  listes (`schemas/facturation.ts`, `clients.ts`, `appels-offres.ts`,
+  `banque-ao.ts`…), 200 pour d'autres (`schemas/cloture.ts`), 500 pour les listes
+  larges `GET /missions` et `GET /opportunites` (`LISTE_LARGE_LIMITE_MAX`,
+  `schemas/missions.ts`) ; au-delà, l'API répond 400. Côté web,
+  `chargerToutesLesPages` (`lib/pagination.ts`) ne dépasse jamais le plafond qu'on
+  lui déclare : `limiteMax` (défaut `LIMITE_PAGE_SURE` = 200 ; `LIMITE_PAGE_MAX` =
+  500 pour les listes larges) ramène la `limite` demandée à ce plafond. Une page
+  qui boucle sur une route déclare donc le plafond de CETTE route (une route à
+  100 : `{ limiteMax: 100 }`, comme `LIMITE_LISTE_AO` de
+  `lib/appels-offres-serveur.ts`) ; sinon la requête est refusée (400) et la
+  liste reste vide sans message. C'était la cause du menu « Confier à » vide du
+  rétro-planning (limite de 500 demandée à une route plafonnée à 200).
 - **Écritures** : verrou `FOR UPDATE` quand une règle dépend de l'état lu
   (ou verrou consultatif `pg_advisory_xact_lock` pour sérialiser un traitement
   de cabinet : plafond IA, import des temps), journalisation dans la même
@@ -376,3 +411,17 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   d'événements et dans la bibliothèque standard d'automatisations mais aucun
   module ne la publie (`automatisation/evenements.ts`, ADR-006) ; les automatisations
   qui l'écoutent ne se déclenchent donc pas.
+- **Pages web à 200 au lieu de 500** (relevé du 2026-10-10) : dix pages qui lisent
+  `/api/missions` ou `/api/opportunites` appellent `chargerToutesLesPages` sans
+  `limiteMax` et demandent donc des pages de 200 (défaut sûr) alors que ces routes
+  admettent 500 : plus d'appels, aucune perte (au plus 20 pages, puis `tronquee`).
+  Elles pourraient passer `{ limiteMax: LIMITE_PAGE_MAX }`. Pages :
+  `app/(app)/{temps/debours,mes-taches/nouvelle,charge,qualite/satisfaction,clients/[id]/portail,qualite,facturation,qualite/acceptation,missions,pipeline}/page.tsx`.
+- **Recette du 2026-10-10, points non tranchés** : la génération du « gabarit »
+  d'un retour d'expérience inscrit une nouvelle version qui remplace le texte
+  courant (l'ancien reste dans la version précédente, sans avertissement à
+  l'écran : `capitalisation/ia.ts`) ; le pied de page « relu et validé par un
+  consultant » s'ajoute au dossier de revue KPI en brouillon
+  (`routes/kpi-pilotage.ts`, `rapports/parametres.ts`) ; `mission.cloture_demandee`
+  n'est publié par aucun module, brief quotidien (AUT-07) et copilote (AGT-08)
+  absents. Détail et suite : `docs/governance/SECURITY.md` §15 et §16.

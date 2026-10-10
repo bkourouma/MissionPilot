@@ -11,8 +11,10 @@ export type ChargementPage<T> =
   { ok: true; donnees: T } | { ok: false; message: string; statut: number };
 
 /**
- * Plafond de `limite` par défaut : celui des routes les plus étroites (collaborateurs, journal :
- * 200). Une route plus large (missions, opportunités : 500) le déclare avec `limiteMax`.
+ * Plafond de `limite` par défaut : sûr pour les routes plafonnées à 200 ou plus (collaborateurs,
+ * journal : 200). Une route plus large (missions, opportunités : 500) le déclare avec `limiteMax`,
+ * une route plus étroite (beaucoup de listes plafonnent à 100 : facturation, clients, appels
+ * d'offres, banques) passe `limiteMax: 100`, sinon sa requête est refusée (400) et la liste reste vide.
  */
 export const LIMITE_PAGE_SURE = 200;
 /** Plafond des listes larges (missions, opportunités : `LISTE_LARGE_LIMITE_MAX` de l'API). */

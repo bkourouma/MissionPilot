@@ -304,7 +304,10 @@ soit le code appelant).
   `/api/portail/salle/demandes`, `GET /api/portail/salle/demandes/:id` et
   `POST /api/portail/salle/pieces/:id/depots`, sous la permission
   `portail.salle.deposer` (§8 septies). Inventaire : `test/portail-acces.test.ts`
-  compare chaque route enregistrée à la liste.
+  compare chaque route enregistrée à la liste. Les deux routes ajoutées après la
+  recette du 2026-10-10, `GET /api/appels-offres/assignables` et
+  `GET /api/capitalisation/retours/a-ouvrir`, n'y figurent pas : elles restent
+  fermées au portail (403 `PORTAIL_ROUTE_INTERDITE`, §6 AO-A et §5 sexies).
 - **Contexte RLS à chaque transaction** (`portail/contexte.ts`) : pour toute
   route listée, la garde range le client rattaché et l'utilisateur ; un
   rattachement désactivé ou un client archivé donne un client **sentinelle**
@@ -384,7 +387,7 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  668 gestionnaires de route (2026-10-08), seuls `POST /auth/connexion`,
+  670 gestionnaires de route (2026-10-10), seuls `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
   `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
@@ -697,7 +700,8 @@ migrations `0443`–`0445` : durcissements issus de l'audit du lot).
   clôture refusée tant qu'une décision ou une action liée est ouverte (`MPK23`, aussi en API :
   409 `KPI_REVUE_OUVERTE` avec la liste des `manquants`) ; une action ne se rattache qu'à une revue
   TENUE et non clôturée (`MPK27`, `0444` : lecture de la revue sous `FOR SHARE`, ce qui sérialise
-  l'insertion avec la clôture). Plafonds de l'arbre (`MPK13`, `0445`) : 50 nœuds actifs, aussi à la
+  l'insertion avec la clôture) ; l'API répond alors 409 `KPI_ACTION_REVUE` (revue non tenue ou
+  déjà clôturée, message explicite). Plafonds de l'arbre (`MPK13`, `0445`) : 50 nœuds actifs, aussi à la
   RÉACTIVATION d'un nœud (sous un parent actif : `MPK12`), et 200 nœuds au total, désactivés compris
   (un nœud ne se supprime pas), de sorte qu'une lecture ne tronque jamais l'arbre en silence.
   Chaque écriture appelle `journaliser` dans sa transaction.
@@ -707,9 +711,17 @@ migrations `0443`–`0445` : durcissements issus de l'audit du lot).
   une alerte inconnue ou rattachée à un autre KPI répond le même 404 « Alerte » (aucune
   confirmation d'existence) ; les lectures de décisions, d'actions et d'événements sont plafonnées
   à 500 lignes avec l'indicateur `tronque` (`kpi/pilotage-donnees.ts`), jamais en silence.
-- **Calculs** : tous dans `packages/engines/src/kpi` (arbre, qualité, efficacité, ordre du jour),
-  en arithmétique exacte ; l'efficacité d'une action n'est jamais stockée ni saisie, elle est
+- **Calculs** : tous dans `packages/engines/src/kpi` (arbre, unités, qualité, efficacité, ordre du
+  jour), en arithmétique exacte ; l'efficacité d'une action n'est jamais stockée ni saisie, elle est
   recalculée à chaque lecture. Aucun contenu produit par un modèle de langage.
+- **Unités d'un arbre** (recette du 2026-10-10) : une relation « somme » n'additionne que des
+  KPI de même unité (« 55 jours + 72 % » est refusé) ; un « produit » admet des unités différentes.
+  Contrôle par fonctions pures (`packages/engines/src/kpi/arbre-unites.ts`), appliqué par l'API APRÈS
+  la création ou la modification d'un nœud, dans la même transaction (`kpi/arbres.ts`) : 409
+  `KPI_ARBRE_UNITES`, l'écriture est annulée. Seules les NOUVELLES incohérences sont refusées : un
+  arbre ancien, ou dont un KPI a changé d'unité, reste modifiable, et la lecture des contributions
+  les signale par `avertissements_unites` sans bloquer. La relation somme ou produit d'un nœud se
+  modifie depuis l'interface (même route, mêmes droits `kpi.gerer`).
 - **Dossier de revue** : rendu par le moteur de rapports (PDF, Word, PowerPoint) depuis un
   modèle de contenu validé, texte brut échappé, plafonds du modèle ; **non conservé** (aucune
   ligne de `rapports_mission`, aucun fichier) ; il porte le statut « brouillon » et reste
@@ -814,8 +826,9 @@ Lot de la vague 2 (PRD complémentaire §8, ADR-006 ; migrations `0300`–`0302`
 ## 5 sexies. Capitalisation, compétences et recherche (CAP-01, 02, 05, 06, 07)
 
 Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
-`apps/api/src/capitalisation/`, routes `routes/capitalisation.ts`, 22 routes, tests
-`test/capitalisation.test.ts`). Aucune route dans `LISTE_BLANCHE_PORTAIL`.
+`apps/api/src/capitalisation/`, routes `routes/capitalisation.ts`, 23 routes, tests
+`test/capitalisation.test.ts` et `test/capitalisation-cloture.test.ts`). Aucune route dans
+`LISTE_BLANCHE_PORTAIL`.
 
 - **Cloisonnement** : neuf tables (`retours_experience`, `retour_experience_versions`,
   `cap_taches_briques`, `cap_temps_briques`, `cap_propositions_derogations`, `competences`,
@@ -831,11 +844,31 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   `VALIDATION_RESERVEE`, doublé en base (`MPJ08`) ; exception voulue (§5) : le chef peut valider la
   version IA qu'il a demandée. Versions en ajout seul, validation définitive d'une version existante
   (`MPJ02`).
+- **Ouverture automatique du retour (CAP-01)** : `POST /missions/:id/cloturer` (§8 sexies) ouvre le
+  retour dans la transaction de la clôture, après la mise à jour du statut (noyau `creerRetourSiAbsent`,
+  `capitalisation/retours.ts`). Elle ne contourne aucune règle de clôture : le droit `mission.cloturer`,
+  l'état « à clôturer » et `exigerClotureAutorisee` (dont `MPX03`) sont contrôlés AVANT, et seul un
+  brouillon du gabarit est créé (aucune validation, aucun contenu IA ; le retour reste invisible sans
+  `connaissance.lire`). L'ouverture s'exécute dans un SAVEPOINT (`cap_ouverture_retour`) : une
+  erreur l'annule seule et ne bloque JAMAIS la clôture ; l'échec est inscrit au journal d'audit
+  (`capitalisation.retour.ouvrir_echec`, motif tronqué à 300 caractères) et au journal applicatif ;
+  un succès est journalisé `capitalisation.retour.ouvrir` ; un retour déjà ouvert est ignoré sans
+  écriture. Rattrapage des missions déjà closes : `GET /capitalisation/retours/a-ouvrir`
+  (`connaissance.lire`, filtre `filtreVisibilite` : seules les missions VISIBLES de l'utilisateur,
+  statut « cloturee » sans retour, pagination par curseur) ; son champ `peut_ouvrir` (associé, chef ou
+  directeur de la mission) n'est qu'un confort d'affichage, l'ouverture manuelle
+  (`POST /capitalisation/missions/:id/retour`) reste seule juge (`mission.planifier` ET responsable).
 - **FIN-02 et jours** : la section « Écarts » (temps réels, budget) et les données de trace
   `donnees.temps` / `donnees.ecarts` d'un retour sont ABSENTES sans `budget.lire_jours`, y compris
   dans la recherche : ni dans l'extrait ni dans le texte interrogé (sinon la recherche serait un
   oracle sur des jours que l'API ne montre pas). `POST /capitalisation/estimation` exige
   `connaissance.lire` ET `budget.lire_jours` (l'expert métier n'a pas le second).
+  **Observation de la recette du 2026-10-10, décision produit à confirmer** : `budget.lire_jours`
+  est détenu par l'associé, le directeur de mission, le chef, le consultant, les ressources et le
+  gestionnaire (`roles.ts`) ; un consultant membre de l'équipe d'une mission clôturée (donc visible pour lui)
+  voit ainsi les JOURS de budget et de temps réel de la section « Écarts » de son retour. FIN-02 ne
+  vise que les coûts, taux, marges et montants, pas les jours : c'est conforme à la règle écrite,
+  mais à confirmer avec le commanditaire (`DECISIONS.md`).
 - **Estimation par brique** (CAP-02, moteur `estimerBriques`) : sans nom ni mission ; effectif
   minimum de 3 (plancher du moteur et du schéma, 3 à 20, défaut 3), aucun effectif inférieur au
   minimum n'est rendu ; quartiles, extrêmes et valeurs atypiques seulement à partir de 5 observations
@@ -950,7 +983,7 @@ Aucune de ces routes n'est dans `LISTE_BLANCHE_PORTAIL`. Test : `test/previsions
 la semaine du pré-remplissage ne l'est pas (`semaineQuerySchema`, dette : §15).
 
 **Appels d'offres, lot AO-A (AO-01 à AO-03, AO-08).** Migrations `0360`–`0363`, code
-`apps/api/src/appels-offres/`, routes `routes/appels-offres.ts` (23 routes, 49 avec le lot AO-B), moteur
+`apps/api/src/appels-offres/`, routes `routes/appels-offres.ts` (24 routes, 50 avec le lot AO-B), moteur
 `packages/engines/src/appels-offres`, tests `test/appels-offres.test.ts` et
 `test/appels-offres-ia.test.ts` (base `missionpilot_aoa`). Neuf tables (`appels_offres`,
 `appels_offres_evenements`, `ao_evaluations`, `ao_decisions`, `ao_dossiers`, `ao_extractions`,
@@ -959,7 +992,12 @@ la semaine du pré-remplissage ne l'est pas (`semaineQuerySchema`, dette : §15)
 dans `LISTE_BLANCHE_PORTAIL`. Droits : `ao.lire`, `ao.gerer`, `ao.decider` (associé seul, doublé
 en base : décideur associé actif, `MPA03`) ; `ia.utiliser` en plus pour l'extraction par l'IA,
 `tache.assigner` pour confier une étape, l'assigné devant lui-même détenir `ao.lire` (la tâche porte
-le nom de l'appel d'offres). Le plafond est de 20 dossiers et de 50 extractions par fiche. Une
+le nom de l'appel d'offres). Le menu « Confier à » se nourrit de `GET /api/appels-offres/assignables`
+(`tache.assigner`, sans exiger `collaborateurs.lire`) : il ne rend que les utilisateurs ACTIFS du cabinet
+(RLS) dont un rôle porte `ao.lire` (`ROLES_CABINET` filtrés par `aPermission`, jamais un rôle du
+portail), avec `utilisateur_id`, `nom` et `grade_libelle` seulement (aucune donnée financière, aucun
+e-mail), plafonné à 200 avec l'indicateur `tronquee` ; il n'expose donc pas le reste des utilisateurs
+(`personnesAssignables`, `appels-offres/retroplanning.ts`) ; fermé au portail (§4 bis). Le plafond est de 20 dossiers et de 50 extractions par fiche. Une
 extraction qui cite des nombres non vérifiés ne se valide qu'une fois ceux-ci acquittés (409 côté API,
 doublé en base : `MPA07`, `0363`). **FIN-02** : la marge estimée d'une évaluation go/no-go ne
 se saisit qu'avec `finance.lire` (403 `MARGE_RESERVEE`) ; sans ce droit, la réponse ne porte ni la
@@ -992,7 +1030,7 @@ composites ; `ao_cv_gabarits` admet en plus des gabarits STANDARD (`cabinet_id` 
 une correction est une nouvelle version motivée (`MPW02` versions consécutives) ; seule une pièce
 justificative se retire, une fois et motivée (colonnes de retrait seules accordées en `UPDATE`) ;
 le retrait est réservé à qui a ajouté la pièce, à un associé ou à un directeur de mission (403
-sinon). Aucune route dans `LISTE_BLANCHE_PORTAIL`. Droits : `ao.lire`, `ao.gerer` ; **FIN-02** : l'offre
+`RETRAIT_PIECE_INTERDIT` sinon, code propre depuis le 2026-10-10 ; avant, 403 `INTERDIT`). Aucune route dans `LISTE_BLANCHE_PORTAIL`. Droits : `ao.lire`, `ao.gerer` ; **FIN-02** : l'offre
 financière (taux journaliers) exige `ao.lire` ET `finance.lire` pour toute lecture, simulation
 comprise, et `taux.gerer` en plus pour écrire (associé, gestionnaire) ; le journal n'en porte ni
 taux ni montant. Le montant d'une référence est celui du marché (public), pas une donnée FIN-02.
@@ -1014,7 +1052,9 @@ repli déterministe sans clé ou au plafond. Une version n'est utilisable qu'une
 un humain, la dernière seulement (`MPW03`), nombres non vérifiés du brouillon acquittés (409
 `CHIFFRES_A_ACQUITTER`, `MPW04`). **Séparation des tâches** (`0385`) : le valideur n'est ni le créateur
 de l'offre, ni l'auteur d'une version (brouillon ou modification), ni le demandeur d'une génération IA,
-sauf associé (403 `APPROBATION_REQUISE`, doublé en base : `MPW05`). Une version qui contient encore un
+sauf associé (403 `APPROBATION_REQUISE`, doublé en base : `MPW05`). Le détail d'une offre
+(`GET /api/banque-ao/offres-techniques/:id`) porte `peut_valider`, calculé par la même fonction
+(`estValideurDistinct`) : confort d'affichage qui désactive le bouton, l'API reste seule juge. Une version qui contient encore un
 repère du gabarit (« [À rédiger par l'expert : » ou « [À adapter par l'expert ») est refusée (409
 `OFFRE_A_COMPLETER`) : le texte de repli du code ne se valide pas tel quel.
 Méthode liée : `standard.lire` en plus, version publiée et visible (404 sinon). **Export d'un CV**
@@ -1026,7 +1066,10 @@ au format d'un bailleur (Word, PDF par l'infrastructure de rapports, texte écha
 remplace le nom, détache le collaborateur et vide le contenu de chaque version ; les déclencheurs
 d'ajout seul de `ao_cv` et `ao_cv_versions` n'admettent QUE cette transition (jamais un `UPDATE` libre ni
 un `DELETE`) ; plus de nouvelle version, d'export ni d'offre sur un CV anonymisé (409 `CV_ANONYME`,
-`MPW06`) ; le journal ne porte ni nom ni contenu. **Plafonds** : 100 gabarits de CV par cabinet
+`MPW06`) ; le journal ne porte ni nom ni contenu. L'écran web (`AnonymisationCv`) demande le motif, la
+reconfirmation (mot de passe, et code si la 2FA est active) puis une confirmation en deux temps, et vide
+les champs secrets après une tentative refusée ; la liste des CV porte `anonymise` (booléen déduit de
+`anonymise_le`, aucune donnée personnelle de plus). **Plafonds** : 100 gabarits de CV par cabinet
 (`GABARITS_CABINET_MAX`). Les dossiers d'appel d'offres sont des contenus clients NON fiables (AGT-07,
 §6 AO-A). **Risques acceptés** : les CV (données personnelles des experts : parcours, diplômes,
 nationalité facultative) sont lisibles de tout détenteur de `ao.lire` du cabinet ; le texte d'une offre
@@ -1038,7 +1081,7 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
 ## 7. Assainissement des entrées et des sorties
 
 - **Validation** : schémas Zod `.strict()` partagés (`packages/shared/src/schemas/`,
-  373 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
+  547 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
   `bodyLimit`) ; paramètres `id` en UUID (`http/outils.ts`). Les erreurs Zod
   renvoient 400 `REQUETE_INVALIDE`. Une `AppError` ne transmet de `details` que
   les champs de la liste blanche `CHAMPS_DETAILS_PUBLICS` (`errors.ts` :
@@ -1666,7 +1709,9 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
   `routes/missions.ts` l'excluent) : elle exige `mission.cloturer` et une mission « à clôturer ». Dans
   la même transaction, elle CLOT d'abord les demandes de la salle de mission encore « envoyées »
   (`cloreDemandesDeMission` ; le nombre figure dans les détails du journal `cloture`) ; le déclencheur `MPL06` refuse la
-  clôture sinon (§8 septies). Les SQLSTATE `MPX…` et `MPL…` sont traduits (jamais une 500).
+  clôture sinon (§8 septies). Elle ouvre ENSUITE le retour d'expérience de la mission (CAP-01), dans un
+  SAVEPOINT dont l'échec ne bloque jamais la clôture (§5 sexies). Les SQLSTATE `MPX…` et `MPL…` sont
+  traduits (jamais une 500).
 - **Valeurs par défaut** (tant que le cabinet n'a pas paramétré, à valider) : temps validés, débours
   traités, factures émises et livrables signés bloquants ; encaissements soldés et satisfaction
   demandée actifs mais non bloquants ; capitalisation faite inactive (attestation humaine : aucun contrôle ne
@@ -1731,7 +1776,8 @@ fonction du portail qui écrit un fichier (§4 bis).
   modifiable) : réservé aux dépôts NON acceptés et non versés au dossier (409 sinon, vérifié sous
   verrou de la pièce) ; le fichier est inscrit dans `fichiers_suppressions` (motif « retire »), journal
   `salle_depot_retire` ; l'objet est effacé du stockage après la validation de la transaction. La ligne
-  du dépôt et son historique restent.
+  du dépôt et son historique restent. L'écran du cabinet propose ce retrait par le bouton « Retirer ce
+  dépôt » (recette du 2026-10-10) ; l'API reste seule juge (409 pour un dépôt accepté ou versé).
 - **Accusé de réception et relances (classe R0 vers le client)** : après un dépôt du portail, un
   accusé automatique (notification et e-mail, tracé dans `salle_accuses`, journal `accuse_reception`
   sans auteur) et l'information du chef et du directeur partent HORS du contexte du portail
@@ -1917,6 +1963,13 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Capitalisation : le chef de mission peut valider la version IA du retour d'expérience qu'il a lui-même demandée (exception voulue, conforme au PRD, `MPJ08` n'exige qu'un responsable de la mission) ; niveaux de compétence, fichiers de la salle et retours d'expérience sans durée de conservation ni procédure d'effacement | `capitalisation/retours.ts`, `migrations/0465_capitalisation_durcissement.sql` |
 | `semaineQuerySchema` (`packages/shared/src/schemas/temps.ts`) n'est pas borné : une semaine extrême sur `GET /api/temps/preremplissage` et `GET /api/feuilles-temps/semaine` n'est pas testée (contrairement aux dates bornées par `dateIsoBorneeSchema`) | `routes/previsions.ts`, `routes/feuilles-temps.ts` |
 | Seuils, poids et plafonds des vagues 2 et 3 (confiance de notation, go/no-go, estimation, plafonds de débit) : valeurs de départ à calibrer au pilote ; rejeu OpenRouter des évaluations d'agents : voir la ligne « Agents IA inutilisables en production » | `DECISIONS.md`, `notation/confiance.ts`, `appels-offres/go-no-go.ts` |
+| Recette navigateur du 2026-10-10, observations non tranchées. **Jours de budget** : un consultant membre de l'équipe voit les JOURS de budget et de temps réel dans la section « Écarts » d'un retour d'expérience (`budget.lire_jours`, FIN-02 ne vise que les montants) : décision produit à confirmer | `capitalisation/retours.ts` (`sansJours`), `packages/shared/src/roles.ts`, `DECISIONS.md` |
+| Retour d'expérience : générer la version « gabarit » (sans clé IA, plafond atteint ou sortie inexploitable) inscrit une NOUVELLE version qui remplace le texte courant rédigé par un humain ; l'ancien texte reste lisible dans la version précédente (ajout seul), rien n'est perdu mais l'écran n'avertit pas | `capitalisation/ia.ts` (`genererRetourIa`), `capitalisation/retours.ts` (`inscrireVersionGeneree`) |
+| Dossier de revue KPI en brouillon : `GET /kpi/revues/:id/dossier` lui ajoute la mention IA par défaut du cabinet en pied de page (« …tout contenu préparé avec l'aide de l'IA a été relu et validé par un consultant »), alors que ce dossier n'a aucun circuit de validation, ne porte pas de contenu IA et reste « brouillon » et confidentiel : mention trompeuse à retirer du dossier ou à conditionner (constaté à la recette, confirmé dans le code) | `routes/kpi-pilotage.ts` (`mention_pied`), `rapports/parametres.ts` (`MENTION_IA_DEFAUT`) |
+| Montants du PDF du dossier bancaire : à l'extraction du texte, ils paraissent sans séparateur de milliers alors que le moteur insère l'espace fine U+202F ; à vérifier visuellement sur un PDF réel | `plans/bancabilite.ts`, `rapports/pdf.ts`, `packages/engines/src/finance/monnaie.ts` |
+| Export d'un CV : un message d'erreur réseau 503 a été signalé alors que le fichier produit est valide ; cause non établie, à clarifier | `routes/banque-ao.ts` (`/banque-ao/cv/:id/export`), `rapports/pdf.ts` |
+| L'événement `mission.cloture_demandee` n'est publié par aucun module (les automatisations qui l'écoutent ne se déclenchent pas) ; brief quotidien (AUT-07) et copilote (AGT-08) absents | `packages/shared/src/schemas/automatisation.ts`, `automatisation/evenements.ts`, ADR-005, ADR-006 |
+| Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
@@ -1940,3 +1993,11 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   événements bloqués par un coupe-circuit, aujourd'hui volontairement absent.
 - **Salle de mission** : mise en file de l'accusé de réception (§15).
 - **Bornes de dates** : `semaineQuerySchema` (§15).
+- **Jours de budget dans les retours d'expérience** : un consultant membre de l'équipe lit les jours
+  de la section « Écarts » (§5 sexies, §15) ; décision produit à confirmer (`DECISIONS.md`).
+- **Recette du 2026-10-10, à clarifier** (§15) : pied de page « relu et validé par un consultant » sur
+  le dossier de revue KPI en brouillon ; séparateurs de milliers des montants du PDF du dossier
+  bancaire ; message réseau 503 sur l'export d'un CV alors que le fichier est valide ; génération du
+  gabarit d'un retour qui remplace le texte rédigé (ancienne version conservée).
+- **Lacunes de la vague 2** : publication de `mission.cloture_demandee`, brief quotidien (AUT-07) et
+  copilote (AGT-08) (§15).
