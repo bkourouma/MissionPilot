@@ -107,3 +107,48 @@
   font-size: var(--mp-taille-s);
   overflow-wrap: anywhere;
 }
+
+/* ---------- Rejeu réel sur OpenRouter (AGT-04) ---------- */
+
+.mp-evaluation-or__regle {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-evaluation-or__lancement {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+}
+
+.mp-evaluation-or__demande {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-evaluation-or__progression {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-evaluation-or__progression progress {
+  width: 100%;
+  max-width: 28rem;
+  height: 0.625rem;
+  accent-color: var(--mp-primaire);
+}
+
+.mp-evaluation-or__code {
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.mp-evaluation-or__historique {
+  align-items: flex-start;
+}
