@@ -29,6 +29,9 @@
 }
 
 .mp-salle__piece {
+  /* Contient le `::after` étiré de `.mp-lien-etendu` (carte d'une demande, cabinet et portail) :
+     sans lui, le lien couvrait toute la page. */
+  position: relative;
   border: 1px solid var(--mp-bordure);
   border-radius: var(--mp-rayon, 8px);
   padding: var(--mp-esp-3);

@@ -88,6 +88,17 @@ describe("présentation des items", () => {
     ).toBe("Non attestée");
   });
 
+  it("champ absent (sans facture.lire) : jamais « undefined écarts »", () => {
+    const item = { controle: "factures_emises" as const };
+    for (const etat of ["bloque", "avertissement", "deroge"] as const) {
+      const libelle = libelleEcarts({ ...item, etat });
+      expect(libelle).toBe("Nombre d'écarts réservé aux droits de facturation");
+      expect(libelle).not.toContain("undefined");
+    }
+    expect(libelleEcarts({ ...item, etat: "conforme" })).toBeNull();
+    expect(libelleEcarts({ ...item, etat: "inactif" })).toBeNull();
+  });
+
   it("chaque contrôle renvoie vers son écran, sauf l'attestation traitée sur place", () => {
     expect(hrefControleCloture("temps_valides", M)).toBe("/temps/validation");
     expect(hrefControleCloture("debours_traites", M)).toBe(`/missions/${M}/debours`);
@@ -119,7 +130,10 @@ describe("validations de saisie", () => {
       ok: false,
       erreurs: { motif: "Indiquez le motif de la dérogation." },
     });
-    expect(validerMotifDerogation("court").ok).toBe(false);
+    expect(validerMotifDerogation("court")).toEqual({
+      ok: false,
+      erreurs: { motif: "Le motif doit comporter au moins 10 caractères." },
+    });
     expect(validerMotifDerogation("x".repeat(501)).ok).toBe(false);
     expect(validerMotifDerogation("  Paiement attendu fin mois  ")).toEqual({
       ok: true,

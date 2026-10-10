@@ -6,19 +6,24 @@ import { api, ErreurApi, messageErreur } from "../../lib/api";
 import { formaterTaille, messageTeleversement } from "../../lib/fichiers";
 import { formaterDateHeure } from "../../lib/format";
 import {
+  acceptationParDeposant,
   cheminDepot,
   cheminPiece,
   hrefFichierDepot,
+  MESSAGE_ACCEPTATION_PAR_DEPOSANT,
   messageSalle,
   peutDecider,
   peutDeposerPourLeClient,
+  peutRetirerDepot,
   peutVerser,
   STATUT_PIECE,
+  type ContexteSalle,
   type DemandeDetail,
   type PieceSalle,
 } from "../../lib/salle-mission";
 import { televerser } from "../../lib/televersement";
 import { ChoixFichier } from "../fichiers/ChoixFichier";
+import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -29,7 +34,7 @@ export interface PieceCabinetProps {
   missionId: string;
   demande: Pick<DemandeDetail, "statut">;
   piece: PieceSalle;
-  contexte: { gerer: boolean; missionCloturee: boolean; documents: boolean };
+  contexte: ContexteSalle;
 }
 
 type Panneau = "aucun" | "rejet" | "depot";
@@ -65,6 +70,19 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
       setErreur(message(e));
     } finally {
       setOccupe(false);
+    }
+  }
+
+  /** Retire un dépôt non retenu ; l'erreur s'affiche et la confirmation se referme. */
+  async function retirerDepot(depotId: string): Promise<boolean> {
+    setErreur(null);
+    try {
+      await api.supprimer(cheminDepot(missionId, depotId));
+      router.refresh();
+      return true;
+    } catch (e) {
+      setErreur(message(e));
+      return false;
     }
   }
 
@@ -138,6 +156,18 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
                 >
                   Verser au dossier de mission
                 </Bouton>
+              ) : null}
+              {peutRetirerDepot(piece, d, contexte) ? (
+                <BoutonConfirmation
+                  libelle="Retirer ce dépôt"
+                  ariaLabel={`Retirer le dépôt ${d.fichier?.nom ?? ""} de « ${piece.libelle} »`}
+                  question="Retirer ce dépôt ? Le fichier sera supprimé et le client pourra en déposer un autre."
+                  libelleConfirmation="Oui, retirer le dépôt"
+                  texteChargement="Retrait…"
+                  variante="discret"
+                  icone="corbeille"
+                  action={() => retirerDepot(d.id)}
+                />
               ) : null}
             </li>
           ))}
@@ -222,7 +252,16 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
       ) : null}
       {panneau === "aucun" ? (
         <div className="mp-salle__actions">
-          {peutDecider(piece, contexte) ? (
+          {peutDecider(piece, contexte) && acceptationParDeposant(piece, contexte) ? (
+            <>
+              <p className="mp-texte-doux" role="note">
+                {MESSAGE_ACCEPTATION_PAR_DEPOSANT}
+              </p>
+              <Bouton variante="secondaire" onClick={() => setPanneau("rejet")} disabled={occupe}>
+                Rejeter…
+              </Bouton>
+            </>
+          ) : peutDecider(piece, contexte) ? (
             <>
               {contexte.documents ? (
                 <CaseACocher

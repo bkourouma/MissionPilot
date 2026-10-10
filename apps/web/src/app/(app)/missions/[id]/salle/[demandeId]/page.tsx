@@ -60,6 +60,8 @@ export default async function PageDemandeSalle({
           gerer: peutGererSalle(utilisateur.roles),
           missionCloturee: m.donnees.statut === "cloturee",
           documents: aPermission(utilisateur.roles, "document.ecrire"),
+          utilisateurId: utilisateur.id,
+          associe: utilisateur.roles.includes("associe"),
         }}
       />
     </div>

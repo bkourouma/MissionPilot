@@ -49,7 +49,8 @@ export interface ItemModeleCloture {
 
 export interface ItemCloture extends ItemModeleCloture {
   etat: EtatItemCloture;
-  nombre_ecarts: number | null;
+  /** Absent (pas `null`) pour un contrôle financier sans `facture.lire` : jamais déduit. */
+  nombre_ecarts?: number | null;
   derogation: DerogationCloture | null;
   attestation: AttestationCloture | null;
   verifie_le: string | null;
@@ -79,6 +80,10 @@ export const ETAT_ITEM_CLOTURE: Record<
 /** Libellé court des écarts d'un item, ou `null` s'il n'y a rien à dire. */
 export function libelleEcarts(item: Pick<ItemCloture, "etat" | "nombre_ecarts" | "controle">) {
   if (item.etat === "inactif" || item.nombre_ecarts === 0) return null;
+  // Champ absent : donnée financière non servie à ce rôle (jamais « undefined écarts »).
+  if (item.nombre_ecarts === undefined) {
+    return item.etat === "conforme" ? null : "Nombre d'écarts réservé aux droits de facturation";
+  }
   if (item.nombre_ecarts === null) {
     return item.controle === "capitalisation_faite" ? "Non attestée" : "Non vérifié";
   }
@@ -186,7 +191,10 @@ export function validerMotifDerogation(motif: string): Resultat<{ motif: string 
   const m = motif.trim();
   if (m === "") return { ok: false, erreurs: { motif: "Indiquez le motif de la dérogation." } };
   if (m.length < MOTIF_MIN) {
-    return { ok: false, erreurs: { motif: `Le motif comporte au moins ${MOTIF_MIN} caractères.` } };
+    return {
+      ok: false,
+      erreurs: { motif: `Le motif doit comporter au moins ${MOTIF_MIN} caractères.` },
+    };
   }
   if (m.length > MOTIF_MAX) {
     return { ok: false, erreurs: { motif: `${MOTIF_MAX} caractères au plus.` } };

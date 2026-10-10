@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { ErreurApi } from "./api";
 import {
+  acceptationParDeposant,
   actionsDemande,
   avancement,
   cheminModeles,
   corpsDemande,
   detailAvancement,
+  dernierDepotRetenable,
   echeanceDepassee,
+  erreurEcheance,
+  erreurEcheanceApi,
   hrefDemande,
   hrefFichierDepot,
   messageSalle,
@@ -14,11 +19,13 @@ import {
   peutDeposerPourLeClient,
   peutGererSalle,
   peutLireSalle,
+  peutRetirerDepot,
   peutVerser,
   SAISIE_DEMANDE_VIDE,
   STATUT_PIECE,
   validerDemande,
   type DepotSalle,
+  type EvenementPiece,
   type ModeleSalle,
   type SynthesePieces,
 } from "./salle-mission";
@@ -190,5 +197,131 @@ describe("saisie d'une demande", () => {
     const r = modelesTries([m("a", "x"), m("b", null), m("c", "y"), m("d", "x", false)], ["x"]);
     expect(r.suggeres.map((x) => x.id)).toEqual(["a"]);
     expect(r.autres.map((x) => x.id)).toEqual(["b", "c"]);
+  });
+});
+
+const depot = (
+  id: string,
+  par: string,
+  le: string,
+  extra: Partial<DepotSalle> = {},
+): DepotSalle => ({
+  id,
+  origine: "portail",
+  depose_par: { id: par, nom: par },
+  depose_le: le,
+  fichier: { id: `f-${id}`, nom: `${id}.pdf`, type_mime: "application/pdf", taille: 10 },
+  accuse: null,
+  document_id: null,
+  ...extra,
+});
+
+describe("séparation des tâches à l'acceptation (MPL09)", () => {
+  const moi = { utilisateurId: "u1", associe: false };
+
+  it("le dernier dépôt retenable est le plus récent dont le fichier n'est pas retiré", () => {
+    const retire = depot("c", "u2", "2026-10-03T10:00:00Z", { fichier: null });
+    const p = {
+      depots: [
+        depot("b", "u2", "2026-10-02T10:00:00Z"),
+        retire,
+        depot("a", "u1", "2026-10-01T10:00:00Z"),
+      ],
+    };
+    expect(dernierDepotRetenable(p)?.id).toBe("b");
+    expect(dernierDepotRetenable({ depots: [retire] })).toBeNull();
+    expect(dernierDepotRetenable({ depots: [] })).toBeNull();
+  });
+
+  it("refuse d'avance l'acceptation du dépôt qu'on a fait, sauf associé", () => {
+    const p = {
+      depots: [depot("a", "u2", "2026-10-01T10:00:00Z"), depot("b", "u1", "2026-10-02T10:00:00Z")],
+    };
+    expect(acceptationParDeposant(p, moi)).toBe(true);
+    expect(acceptationParDeposant(p, { ...moi, associe: true })).toBe(false);
+    expect(acceptationParDeposant(p, { utilisateurId: "u3", associe: false })).toBe(false);
+  });
+
+  it("seul le dernier dépôt compte : un ancien dépôt de soi ne bloque pas", () => {
+    const p = {
+      depots: [depot("a", "u1", "2026-10-01T10:00:00Z"), depot("b", "u2", "2026-10-02T10:00:00Z")],
+    };
+    expect(acceptationParDeposant(p, moi)).toBe(false);
+    expect(acceptationParDeposant({ depots: [] }, moi)).toBe(false);
+  });
+});
+
+describe("retrait d'un dépôt non retenu", () => {
+  const ouvert = { gerer: true, missionCloturee: false };
+  const acceptation = (depotId: string): EvenementPiece => ({
+    rang: 2,
+    statut: "acceptee",
+    motif: null,
+    depot_id: depotId,
+    par_nom: "Chef",
+    le: "2026-10-02T10:00:00Z",
+  });
+
+  it("proposé pour un dépôt libre, pas pour un dépôt retenu, versé ou déjà retiré", () => {
+    const d = depot("a", "u2", "2026-10-01T10:00:00Z");
+    expect(peutRetirerDepot({ historique: [] }, d, ouvert)).toBe(true);
+    expect(peutRetirerDepot({ historique: [acceptation("a")] }, d, ouvert)).toBe(false);
+    expect(peutRetirerDepot({ historique: [acceptation("autre")] }, d, ouvert)).toBe(true);
+    expect(peutRetirerDepot({ historique: [] }, { ...d, document_id: "doc" }, ouvert)).toBe(false);
+    expect(peutRetirerDepot({ historique: [] }, { ...d, fichier: null }, ouvert)).toBe(false);
+  });
+
+  it("réservé à qui gère la salle, mission ouverte", () => {
+    const d = depot("a", "u2", "2026-10-01T10:00:00Z");
+    expect(peutRetirerDepot({ historique: [] }, d, { gerer: false, missionCloturee: false })).toBe(
+      false,
+    );
+    expect(peutRetirerDepot({ historique: [] }, d, { gerer: true, missionCloturee: true })).toBe(
+      false,
+    );
+  });
+});
+
+describe("échéance bornée", () => {
+  it("contrôle local : bornes 2000 à 2100, puis pas dans le passé", () => {
+    expect(erreurEcheance("", "2026-10-10")).toBeNull();
+    expect(erreurEcheance("1999-12-31", "2026-10-10")).toBe(
+      "Date comprise entre 2000 et 2100 attendue.",
+    );
+    expect(erreurEcheance("2150-01-01", "2026-10-10")).toBe(
+      "Date comprise entre 2000 et 2100 attendue.",
+    );
+    expect(erreurEcheance("2026-10-09", "2026-10-10")).toBe(
+      "L'échéance doit être aujourd'hui ou plus tard.",
+    );
+    expect(erreurEcheance("2026-10-10", "2026-10-10")).toBeNull();
+    expect(erreurEcheance("2100-12-31", "2026-10-10")).toBeNull();
+  });
+
+  it("la saisie d'une demande signale une échéance hors bornes", () => {
+    expect(
+      validerDemande(
+        { ...SAISIE_DEMANDE_VIDE, titre: "T", modeleId: "m", echeance: "2150-01-01" },
+        "2026-10-10",
+      ),
+    ).toEqual({ echeance: "Date comprise entre 2000 et 2100 attendue." });
+  });
+
+  it("message du schéma rendu par l'API pour le champ échéance", () => {
+    const refus = new ErreurApi("REQUETE_INVALIDE", "Données invalides.", 400, {
+      fieldErrors: { echeance: ["Date comprise entre 2000 et 2100 attendue."] },
+      formErrors: [],
+    });
+    expect(erreurEcheanceApi(refus)).toBe("Date comprise entre 2000 et 2100 attendue.");
+    const sansMessage = new ErreurApi("REQUETE_INVALIDE", "Données invalides.", 400, {
+      fieldErrors: { echeance: [] },
+    });
+    expect(erreurEcheanceApi(sansMessage)).toBe("Échéance invalide : saisissez une date valide.");
+    const autreChamp = new ErreurApi("REQUETE_INVALIDE", "Données invalides.", 400, {
+      fieldErrors: { titre: ["x"] },
+    });
+    expect(erreurEcheanceApi(autreChamp)).toBeNull();
+    expect(erreurEcheanceApi(new ErreurApi("CONFLIT", "x", 409))).toBeNull();
+    expect(erreurEcheanceApi(new Error("x"))).toBeNull();
   });
 });

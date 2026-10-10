@@ -7,6 +7,8 @@ import {
   cheminModeles,
   cheminSalle,
   corpsDemande,
+  ECHEANCE_MAX,
+  erreurEcheanceApi,
   hrefDemande,
   messageSalle,
   modelesTries,
@@ -88,9 +90,14 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
       router.push(hrefDemande(missionId, d.id));
       router.refresh();
     } catch (err) {
-      setErreurServeur(
-        (err instanceof ErreurApi ? messageSalle(err.code) : null) ?? messageErreur(err),
-      );
+      // Échéance refusée par le schéma : message sous le champ, pas une erreur générale.
+      const champ = erreurEcheanceApi(err);
+      if (champ) setErreurs({ echeance: champ });
+      else {
+        setErreurServeur(
+          (err instanceof ErreurApi ? messageSalle(err.code) : null) ?? messageErreur(err),
+        );
+      }
       setEnvoi(false);
     }
   }
@@ -128,6 +135,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
           type="date"
           value={saisie.echeance}
           min={aujourdhui}
+          max={ECHEANCE_MAX}
           onChange={(e) => changer("echeance", e.target.value)}
           erreur={erreurs.echeance}
           aide="Obligatoire pour envoyer ; vous pourrez la repousser ensuite."

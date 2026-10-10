@@ -10,10 +10,14 @@ import {
   cheminDemande,
   detailAvancement,
   echeanceDepassee,
+  ECHEANCE_MAX,
+  erreurEcheance,
+  erreurEcheanceApi,
   hrefSalle,
   messageSalle,
   PALIER_RELANCE,
   STATUT_DEMANDE,
+  type ContexteSalle,
   type DemandeDetail,
 } from "../../lib/salle-mission";
 import { Alerte } from "../ui/Alerte";
@@ -27,7 +31,7 @@ import "./salle.css";
 export interface DemandeCabinetProps {
   missionId: string;
   demande: DemandeDetail;
-  contexte: { gerer: boolean; missionCloturee: boolean; documents: boolean };
+  contexte: ContexteSalle;
   aujourdhui: string;
 }
 
@@ -45,6 +49,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [echeance, setEcheance] = useState(demande.echeance ?? "");
+  const [erreurChampEcheance, setErreurChampEcheance] = useState<string | null>(null);
   const [nouvellePiece, setNouvellePiece] = useState("");
   const statut = STATUT_DEMANDE[demande.statut];
   const chemin = cheminDemande(missionId, demande.id);
@@ -64,6 +69,36 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
     } finally {
       setOccupe(false);
     }
+  }
+
+  /**
+   * Enregistre l'échéance : contrôle local des bornes, puis l'API ; en cas d'échec le champ
+   * revient à la valeur enregistrée et l'erreur du schéma s'affiche sous le champ.
+   */
+  async function enregistrerEcheance() {
+    const local = erreurEcheance(echeance, aujourdhui);
+    setErreurChampEcheance(local);
+    if (local) return;
+    setOccupe(true);
+    setErreur(null);
+    setInfo(null);
+    try {
+      await api.patch(chemin, { echeance });
+      setInfo("Échéance enregistrée.");
+      router.refresh();
+    } catch (e) {
+      const champ = erreurEcheanceApi(e);
+      if (champ) setErreurChampEcheance(champ);
+      else setErreur(message(e));
+      setEcheance(demande.echeance ?? "");
+    } finally {
+      setOccupe(false);
+    }
+  }
+
+  function changerEcheance(valeur: string) {
+    setEcheance(valeur);
+    setErreurChampEcheance(null);
   }
 
   async function supprimer() {
@@ -145,7 +180,9 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               type="date"
               value={echeance}
               min={aujourdhui}
-              onChange={(e) => setEcheance(e.target.value)}
+              max={ECHEANCE_MAX}
+              erreur={erreurChampEcheance ?? undefined}
+              onChange={(e) => changerEcheance(e.target.value)}
             />
           ) : null}
           {actions.prolonger ? (
@@ -154,16 +191,16 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               type="date"
               value={echeance}
               min={aujourdhui}
-              onChange={(e) => setEcheance(e.target.value)}
+              max={ECHEANCE_MAX}
+              erreur={erreurChampEcheance ?? undefined}
+              onChange={(e) => changerEcheance(e.target.value)}
             />
           ) : null}
           {(actions.modifier || actions.prolonger) && echeance !== (demande.echeance ?? "") ? (
             <Bouton
               variante="secondaire"
               disabled={occupe || echeance === ""}
-              onClick={() =>
-                void agir(() => api.patch(chemin, { echeance }), "Échéance enregistrée.")
-              }
+              onClick={() => void enregistrerEcheance()}
             >
               Enregistrer l&apos;échéance
             </Bouton>
