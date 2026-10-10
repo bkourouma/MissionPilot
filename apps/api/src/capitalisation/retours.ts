@@ -190,25 +190,19 @@ export async function detailRetour(db: Db, auth: Auth, retour: RetourIdentite) {
 }
 
 /**
- * SERVICE INTERNE (clôture, automatisation) : ouvre le retour d'expérience d'une mission « à
- * clôturer » ou « clôturée » avec le brouillon du gabarit ; idempotent (rend le retour existant).
- * Vérifie la visibilité de la mission ; l'appelant a vérifié la permission de son action.
- * S'exécute dans la transaction `withTenant` de l'appelant.
+ * NOYAU : crée le retour d'expérience d'une mission (brouillon du gabarit) s'il n'existe pas, sans
+ * contrôle de rôle ni d'état (l'appelant les a faits). Rend l'identifiant et `cree` (faux si le
+ * retour existait déjà : rien n'est alors écrit ni journalisé). Dans la transaction de l'appelant.
  */
-export async function ouvrirRetourExperience(db: Db, auth: Auth, missionId: string) {
-  const mission = await exigerMissionVisible(db, auth, missionId, true);
-  if (!ETATS_OUVERTURE.includes(mission.statut)) {
-    throw new AppError(
-      409,
-      "MISSION_NON_CLOTUREE",
-      "Le retour d'expérience s'ouvre à la clôture de la mission.",
-    );
-  }
+async function creerRetourSiAbsent(
+  db: Db,
+  auth: Auth,
+  missionId: string,
+): Promise<{ id: string; cree: boolean }> {
   const existant = await db.query(`SELECT id FROM retours_experience WHERE mission_id = $1`, [
     missionId,
   ]);
-  if (existant.rows[0])
-    return detailRetour(db, auth, await identite(db, existant.rows[0].id as string));
+  if (existant.rows[0]) return { id: existant.rows[0].id as string, cree: false };
   const r = await db.query(
     `INSERT INTO retours_experience (cabinet_id, mission_id, ouvert_par) VALUES ($1, $2, $3)
      RETURNING id`,
@@ -225,7 +219,60 @@ export async function ouvrirRetourExperience(db: Db, auth: Auth, missionId: stri
     entiteId: id,
     details: { mission_id: missionId },
   });
+  return { id, cree: true };
+}
+
+/**
+ * SERVICE INTERNE (clôture, automatisation) : ouvre le retour d'expérience d'une mission « à
+ * clôturer » ou « clôturée » avec le brouillon du gabarit ; idempotent (rend le retour existant).
+ * Vérifie la visibilité de la mission ; l'appelant a vérifié la permission de son action.
+ * S'exécute dans la transaction `withTenant` de l'appelant.
+ */
+export async function ouvrirRetourExperience(db: Db, auth: Auth, missionId: string) {
+  const mission = await exigerMissionVisible(db, auth, missionId, true);
+  if (!ETATS_OUVERTURE.includes(mission.statut)) {
+    throw new AppError(
+      409,
+      "MISSION_NON_CLOTUREE",
+      "Le retour d'expérience s'ouvre à la clôture de la mission.",
+    );
+  }
+  const { id } = await creerRetourSiAbsent(db, auth, missionId);
   return detailRetour(db, auth, await identite(db, id));
+}
+
+/**
+ * Ouverture AUTOMATIQUE à la clôture d'une mission (CAP-01), dans la transaction de la clôture,
+ * après la mise à jour du statut. Le droit de clôturer a déjà été contrôlé par la route. Un échec
+ * ne doit JAMAIS empêcher la clôture : l'ouverture s'exécute dans un SAVEPOINT, annulé seul en cas
+ * d'erreur (le message est rendu à l'appelant pour le journal applicatif, et l'échec est inscrit
+ * au journal d'audit ; le rattrapage manuel reste possible depuis l'écran). Un retour déjà ouvert
+ * est ignoré sans erreur.
+ */
+export async function ouvrirRetourALaCloture(
+  db: Db,
+  auth: Auth,
+  missionId: string,
+): Promise<{ ouvert: boolean; erreur?: string }> {
+  await db.query("SAVEPOINT cap_ouverture_retour");
+  try {
+    const { cree } = await creerRetourSiAbsent(db, auth, missionId);
+    await db.query("RELEASE SAVEPOINT cap_ouverture_retour");
+    return { ouvert: cree };
+  } catch (error) {
+    await db.query("ROLLBACK TO SAVEPOINT cap_ouverture_retour");
+    await db.query("RELEASE SAVEPOINT cap_ouverture_retour");
+    const erreur = error instanceof Error ? error.message : "erreur inconnue";
+    await journaliser(db, {
+      cabinetId: auth.cabinetId,
+      utilisateurId: auth.utilisateurId,
+      action: "capitalisation.retour.ouvrir_echec",
+      entite: "mission",
+      entiteId: missionId,
+      details: { motif: erreur.slice(0, 300) },
+    });
+    return { ouvert: false, erreur };
+  }
 }
 
 export async function lireRetourMission(db: Db, auth: Auth, missionId: string) {
@@ -402,6 +449,40 @@ export async function listerRetours(db: Db, auth: Auth, q: z.infer<typeof retour
       curseur?.[0] ?? null,
       curseur?.[1] ?? null,
       q.limite + 1,
+    ],
+  );
+  return paginer(r.rows, q.limite);
+}
+
+/**
+ * Missions CLÔTURÉES SANS retour d'expérience (rattrapage des missions closes avant l'ouverture
+ * automatique), visibles de l'utilisateur, plus récemment clôturées d'abord. `peut_ouvrir` dit si
+ * l'utilisateur est responsable (chef, directeur, associé) : confort d'affichage, l'API de
+ * l'ouverture reste la source de vérité.
+ */
+export async function listerMissionsSansRetour(
+  db: Db,
+  auth: Auth,
+  q: Pick<z.infer<typeof retoursQuerySchema>, "limite" | "curseur">,
+) {
+  const curseur = decoderCurseurHorodate(q.curseur);
+  const r = await db.query(
+    `SELECT m.id, m.id AS mission_id, m.intitule AS mission_intitule, c.raison_sociale AS client,
+            m.cloturee_le, m.cloturee_le::text AS cle_tri,
+            ($6::boolean OR m.chef_id = $2 OR m.directeur_id = $2) AS peut_ouvrir
+     FROM missions m JOIN clients c ON c.id = m.client_id
+     WHERE ${filtreVisibilite(1, 2)} AND m.statut = 'cloturee' AND m.cloturee_le IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM retours_experience r WHERE r.mission_id = m.id)
+       AND ($3::timestamptz IS NULL OR (m.cloturee_le, m.id) < ($3::timestamptz, $4::uuid))
+     ORDER BY m.cloturee_le DESC, m.id DESC
+     LIMIT $5`,
+    [
+      voitToutesLesMissions(auth),
+      auth.utilisateurId,
+      curseur?.[0] ?? null,
+      curseur?.[1] ?? null,
+      q.limite + 1,
+      estAssocie(auth),
     ],
   );
   return paginer(r.rows, q.limite);

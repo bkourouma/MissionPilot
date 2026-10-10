@@ -887,6 +887,66 @@ describe("recherche : rapports, livrables, retours non validés, débit, portail
     expect(attendu(200, await expertEquipe.get(q)).elements).toHaveLength(1);
   });
 
+  it("rapports : un dossier bancaire a son propre libellé, distinct du rapport de plan", async () => {
+    const mission = await missionCap(a, "Trésorerie Mangrove");
+    const plan = attendu(
+      201,
+      await a.chef.post(`/api/missions/${mission.id}/plans`, {
+        titre: "Plan Mangrove",
+        horizon: 3,
+      }),
+    ).id as string;
+    attendu(
+      201,
+      await a.chef.post(`/api/plans/${plan}/modeles`, {
+        hypotheses: {
+          premierExercice: 2027,
+          chiffreAffairesReference: 100_000_000,
+          croissanceChiffreAffaires: 10,
+          tauxMargeBrute: 40,
+          tauxChargesVariables: 5,
+          chargesFixes: 10_000_000,
+          investissements: [],
+          emprunts: [],
+          delaiClientsJours: 36,
+          delaiFournisseursJours: 60,
+          stocksJours: 30,
+          tauxImpotSocietes: 25,
+          bilanOuverture: { tresorerie: 20_000_000, capital: 20_000_000 },
+        },
+      }),
+    );
+    attendu(200, await a.associe.post(`/api/plans/${plan}/modeles/1/validation`));
+    await proprietaire(async (cl) => {
+      for (const [modele, version] of [
+        ["plan_strategique", null],
+        ["dossier_bancaire", 1],
+      ] as const) {
+        const f = await cl.query(
+          `INSERT INTO fichiers (cabinet_id, cle_stockage, nom_origine, type_mime, taille, sha256,
+             envoye_par) VALUES ($1, $2, 'rapport.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 100, $3, $4)
+           RETURNING id`,
+          [
+            a.cabinetId,
+            randomUUID().replaceAll("-", ""),
+            createHash("sha256").update(randomUUID()).digest("hex"),
+            a.associeId,
+          ],
+        );
+        await cl.query(
+          `INSERT INTO rapports_mission (cabinet_id, mission_id, fichier_id, modele, format, statut,
+             niveau, plan_id, version_source, genere_par)
+           VALUES ($1, $2, $3, $4, 'docx', 'brouillon', 'plan', $5, $6, $7)`,
+          [a.cabinetId, mission.id, f.rows[0].id, modele, plan, version, a.associeId],
+        );
+      }
+    });
+    const r = attendu(200, await a.associe.get(url("Mangrove", "&types=rapport&limite=30")));
+    const titres = r.elements.map((e: { titre: string }) => e.titre).sort();
+    expect(titres).toEqual(["Dossier bancaire", "Rapport de plan stratégique"]);
+    expect(r.elements.every((e: { type: string }) => e.type === "rapport")).toBe(true);
+  });
+
   it("livrables : dernière version seulement, dans les missions visibles", async () => {
     const r = attendu(200, await a.consultant.get(url("diagnostic", "&types=livrable")));
     expect(r.elements).toHaveLength(1);

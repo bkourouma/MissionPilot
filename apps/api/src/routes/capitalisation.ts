@@ -42,6 +42,7 @@ import {
   listerRetours,
   lireRetour,
   lireRetourMission,
+  listerMissionsSansRetour,
   ouvrirRetourExperience,
   validerRetour,
 } from "../capitalisation/retours.js";
@@ -56,7 +57,9 @@ import { envoyerEmails } from "../notifications/notifier.js";
  *
  * Droits : `connaissance.lire` (recherche, retours d'expérience, estimation ; mission visible
  * TOUJOURS exigée en plus pour ce qui s'y rattache ; `budget.lire_jours` en plus pour
- * l'estimation, et pour la section « Écarts » des retours, absente sans ce droit) ; `mission.planifier` ET responsable de la
+ * l'estimation, et pour la section « Écarts » des retours, absente sans ce droit) ; le retour
+ * s'ouvre AUTOMATIQUEMENT à la clôture (`POST /missions/:id/cloturer`), et `GET
+ * /capitalisation/retours/a-ouvrir` liste les missions clôturées sans retour (rattrapage) ; `mission.planifier` ET responsable de la
  * mission (chef, directeur ou associé) pour ouvrir, rédiger, générer et valider un retour ;
  * `standard.gerer` pour l'analyse des dérogations (comité méthode) ; `competence.lire` pour
  * la matrice de tous, `competence.gerer` pour le référentiel et la validation des niveaux,
@@ -76,6 +79,13 @@ function routesRetours(app: FastifyInstance) {
     const auth = exiger(request, "connaissance.lire");
     const q = retoursQuerySchema.parse(request.query);
     return app.db.withTenant(auth.cabinetId, (db) => listerRetours(db, auth, q));
+  });
+
+  // Rattrapage : missions clôturées sans retour d'expérience (avant l'ouverture automatique).
+  app.get("/capitalisation/retours/a-ouvrir", async (request) => {
+    const auth = exiger(request, "connaissance.lire");
+    const q = retoursQuerySchema.omit({ statut: true }).parse(request.query);
+    return app.db.withTenant(auth.cabinetId, (db) => listerMissionsSansRetour(db, auth, q));
   });
 
   app.get("/capitalisation/retours/:id", async (request) => {

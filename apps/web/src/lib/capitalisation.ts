@@ -13,6 +13,7 @@ import {
   type TypeResultatRecherche,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
+import { hrefRapports } from "./rapports";
 import type { Resultat } from "./saisie";
 
 /**
@@ -48,6 +49,17 @@ export interface RetourResume {
   version_validee: number | null;
   valide_le: string | null;
   ouvert_le: string;
+}
+
+/** Mission clôturée sans retour d'expérience (rattrapage : `GET /capitalisation/retours/a-ouvrir`). */
+export interface MissionSansRetour {
+  id: string;
+  mission_id: string;
+  mission_intitule: string;
+  client: string;
+  cloturee_le: string;
+  /** Responsable de la mission (chef, directeur ou associé) : confort d'affichage. */
+  peut_ouvrir: boolean;
 }
 
 export type StatutContenu = "brouillon_ia" | "modifie" | "valide";
@@ -202,9 +214,15 @@ export const SOUS_PAGES_CONNAISSANCES: readonly SousPageConnaissances[] = [
   },
 ];
 
-/** Permissions dont l'une ouvre la rubrique. */
+/**
+ * Permissions dont l'une ouvre la rubrique : celles de ses sous-pages. `temps.saisir` ouvre
+ * « Compétences » (ses propres niveaux, `/competences/moi`) à tout rôle qui saisit des temps ;
+ * la rubrique n'est PAS ouverte par `collaborateurs.lire` (la matrice de tous exige
+ * `competence.lire`). Même liste que l'entrée « Connaissances » de `navigation.ts`.
+ */
 export const PERMISSIONS_RUBRIQUE: readonly Permission[] = [
   "connaissance.lire",
+  "temps.saisir",
   "competence.lire",
   "competence.gerer",
   "standard.gerer",
@@ -318,9 +336,13 @@ export function segmentsSurlignes(texte: string, q: string): Segment[] {
   return segments;
 }
 
-/** Lien d'un résultat vers son écran. */
+/**
+ * Lien d'un résultat vers son écran. Un rapport n'a pas de page propre : il mène à l'onglet
+ * « Rapports » de sa mission, où il se télécharge (et non à la fiche de la mission).
+ */
 export function hrefResultat(r: Pick<ResultatRecherche, "type" | "id" | "mission_id">): string {
   if (r.type === "connaissance") return `/connaissances/retours/${encodeURIComponent(r.id)}`;
+  if (r.type === "rapport") return hrefRapports(r.mission_id);
   return `/missions/${encodeURIComponent(r.mission_id)}`;
 }
 
@@ -362,6 +384,75 @@ export const hrefRetours = (curseur: string | null) =>
   curseur
     ? `/connaissances/retours?curseur=${encodeURIComponent(curseur)}`
     : "/connaissances/retours";
+
+export function cheminMissionsSansRetour(curseur: string | null, limite = 30): string {
+  const q = new URLSearchParams({ limite: String(limite) });
+  if (curseur) q.set("curseur", curseur);
+  return `/api/capitalisation/retours/a-ouvrir?${q}`;
+}
+
+/** Page « Retours d'expérience » : le curseur de la liste de rattrapage a son propre paramètre. */
+export const hrefMissionsSansRetour = (curseur: string | null) =>
+  curseur
+    ? `/connaissances/retours?a_ouvrir=${encodeURIComponent(curseur)}`
+    : "/connaissances/retours";
+
+/** Écran d'un retour d'expérience (redirection après ouverture). */
+export const hrefRetour = (id: string) => `/connaissances/retours/${encodeURIComponent(id)}`;
+
+/**
+ * Qui peut ouvrir le retour d'expérience d'une mission : `mission.planifier` ET chef, directeur
+ * de la mission ou associé (même règle que l'API, qui reste seule juge).
+ */
+export function peutOuvrirRetour(
+  c: { roles: readonly Role[]; utilisateurId: string },
+  mission: { chef_id: string | null; directeur_id: string | null },
+): boolean {
+  return (
+    aPermission(c.roles, "mission.planifier") &&
+    (c.roles.includes("associe") ||
+      mission.chef_id === c.utilisateurId ||
+      mission.directeur_id === c.utilisateurId)
+  );
+}
+
+/* ----- Analyse des dérogations : seuil ----- */
+
+/** Bornes du seuil d'analyse (nombre de missions), identiques à `analyseDerogationsQuerySchema`. */
+export const SEUIL_DEROGATIONS_MIN = 2;
+export const SEUIL_DEROGATIONS_MAX = 100;
+
+/**
+ * Seuil saisi (paramètre d'URL ou champ) : vide → seuil du cabinet servi par l'API ; sinon un
+ * entier borné, avec un message lisible hors bornes (jamais une erreur 400 de l'API).
+ */
+export function lireSeuilDerogations(
+  v: string | string[] | undefined,
+): Resultat<{ seuil: number | null }, "seuil"> {
+  const brut = (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
+  if (brut === "") return { ok: true, charge: { seuil: null } };
+  const n = Number(brut);
+  if (
+    !/^[0-9]+$/.test(brut) ||
+    !Number.isInteger(n) ||
+    n < SEUIL_DEROGATIONS_MIN ||
+    n > SEUIL_DEROGATIONS_MAX
+  ) {
+    return {
+      ok: false,
+      erreurs: {
+        seuil: `Indiquez un nombre entier de missions de ${SEUIL_DEROGATIONS_MIN} à ${SEUIL_DEROGATIONS_MAX}.`,
+      },
+    };
+  }
+  return { ok: true, charge: { seuil: n } };
+}
+
+export function cheminAnalyseDerogations(seuil: number | null): string {
+  return seuil === null
+    ? "/api/capitalisation/derogations/analyse"
+    : `/api/capitalisation/derogations/analyse?seuil=${seuil}`;
+}
 
 /* ----- Lecture des saisies ----- */
 

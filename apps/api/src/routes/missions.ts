@@ -57,6 +57,7 @@ import { droitsBudget, slug } from "../missions/outils.js";
 import { traduireErreurCloture } from "../cloture/erreurs.js";
 import { exigerClotureAutorisee } from "../cloture/index.js";
 import { enregistrerBilanCloture } from "../finance/bilan.js";
+import { ouvrirRetourALaCloture } from "../capitalisation/retours.js";
 import { cloreDemandesDeMission } from "../salle-mission/demandes.js";
 import { traduireErreurSalle } from "../salle-mission/erreurs.js";
 
@@ -744,6 +745,15 @@ export const routesMissions: FastifyPluginAsync = async (app) => {
           entiteId: id,
           details: demandesCloses > 0 ? { demandes_salle_closes: demandesCloses } : {},
         });
+        // Retour d'expérience (CAP-01) : ouvert à la clôture, dans un SAVEPOINT — son échec
+        // n'empêche jamais la clôture (journalisé ; rattrapage manuel depuis l'écran).
+        const ouverture = await ouvrirRetourALaCloture(db, auth, id);
+        if (ouverture.erreur) {
+          app.log.warn(
+            { mission_id: id, erreur: ouverture.erreur },
+            "Ouverture du retour d'expérience impossible à la clôture.",
+          );
+        }
         return lireMission(db, id);
       });
     } catch (error) {

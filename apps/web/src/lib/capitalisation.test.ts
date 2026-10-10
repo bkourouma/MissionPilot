@@ -82,6 +82,13 @@ describe("recherche", () => {
       "/connaissances/retours/r1",
     );
     expect(hrefResultat({ type: "preuve", id: "p1", mission_id: "m1" })).toBe("/missions/m1");
+    // Un rapport mène à l'onglet « Rapports » de sa mission, pas à la fiche mission.
+    expect(hrefResultat({ type: "rapport", id: "r1", mission_id: "m1" })).toBe(
+      "/missions/m1/rapports",
+    );
+    expect(hrefResultat({ type: "rapport", id: "r1", mission_id: "m 1" })).toBe(
+      "/missions/m%201/rapports",
+    );
     expect(lireCritereRecherche({ q: " k ", types: "mission,inconnu" })).toEqual({
       q: "",
       types: ["mission"],

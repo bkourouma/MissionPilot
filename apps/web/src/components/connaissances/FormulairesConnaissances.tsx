@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { SECTIONS_RETOUR, type RetourVersion, type SectionRetour } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -12,6 +13,7 @@ import {
   lireNiveau,
   lireVersionRetour,
   messageCapitalisation,
+  hrefRetour,
   type ReponseEstimation,
 } from "../../lib/capitalisation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
@@ -448,6 +450,42 @@ export function SelectBriqueTache({
           ...briques.map((b) => ({ valeur: b.code, libelle: `${b.etape} · ${b.libelle}` })),
         ]}
       />
+    </div>
+  );
+}
+
+/**
+ * Ouvre le retour d'expérience d'une mission clôturée (rattrapage des missions closes avant
+ * l'ouverture automatique), puis mène à son écran. L'API reste juge des droits.
+ */
+export function BoutonOuvrirRetour({ missionId }: { missionId: string }) {
+  const router = useRouter();
+  const f = useFormulaire<never>();
+  return (
+    <div>
+      <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
+      <Bouton
+        variante="secondaire"
+        icone="plus"
+        chargement={f.enCours}
+        texteChargement="Ouverture…"
+        onClick={() =>
+          f.envoyer(
+            { ok: true, charge: null },
+            () =>
+              api.post<{ id: string }>(
+                `/api/capitalisation/missions/${encodeURIComponent(missionId)}/retour`,
+              ),
+            {
+              ...OPTS,
+              rafraichir: false,
+              apres: (r) => router.push(hrefRetour(r.id)),
+            },
+          )
+        }
+      >
+        Ouvrir le retour d&apos;expérience
+      </Bouton>
     </div>
   );
 }

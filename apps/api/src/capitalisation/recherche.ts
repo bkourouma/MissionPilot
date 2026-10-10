@@ -87,7 +87,8 @@ const SOURCES: readonly Source[] = [
     type: "rapport",
     permission: "mission.lire",
     sql: `SELECT r.id, CASE r.modele WHEN 'etat_avancement' THEN 'Rapport d''état d''avancement'
-              WHEN 'notation' THEN 'Rapport de notation' ELSE 'Rapport de plan stratégique' END AS titre,
+              WHEN 'notation' THEN 'Rapport de notation' WHEN 'dossier_bancaire' THEN 'Dossier bancaire'
+              ELSE 'Rapport de plan stratégique' END AS titre,
             r.format || ', ' || r.statut AS extrait, m.id AS mission_id, m.intitule AS mission_intitule,
             r.genere_le::text AS date,
             ts_rank(cap_tsv(m.intitule || ' rapport ' || replace(r.modele, '_', ' ')), q) AS rang

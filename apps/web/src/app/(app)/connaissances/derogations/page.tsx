@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
 import { BoutonProposition } from "../../../../components/connaissances/FormulairesConnaissances";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
+import { Bouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
+import { Champ } from "../../../../components/ui/Champ";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
-import { libelleNature, type GroupeDerogationsVue } from "../../../../lib/capitalisation";
+import {
+  cheminAnalyseDerogations,
+  lireSeuilDerogations,
+  libelleNature,
+  SEUIL_DEROGATIONS_MAX,
+  SEUIL_DEROGATIONS_MIN,
+  type GroupeDerogationsVue,
+} from "../../../../lib/capitalisation";
 import { exigerPermission } from "../../../../lib/session";
 
 export const metadata: Metadata = { title: "Évolutions du standard" };
@@ -16,19 +25,46 @@ export const metadata: Metadata = { title: "Évolutions du standard" };
  * Les motifs ne sont lus que pour les missions que l'on voit ; les effectifs portent sur tout
  * le cabinet.
  */
-export default async function PageDerogations() {
+export default async function PageDerogations({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await exigerPermission("standard.gerer");
+  const brut = (await searchParams).seuil;
+  const saisie = lireSeuilDerogations(brut);
+  // Seuil hors bornes : message lisible, analyse au seuil par défaut (jamais un 400 de l'API).
+  const seuilDemande = saisie.ok ? saisie.charge.seuil : null;
   const r = await chargerServeur<{
     seuil: number;
     tronque: boolean;
     elements: GroupeDerogationsVue[];
-  }>("/api/capitalisation/derogations/analyse");
+  }>(cheminAnalyseDerogations(seuilDemande));
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
         titre="Évolutions du standard"
         soustitre="Les dérogations qui se répètent signalent une méthode à faire évoluer : proposez-les au comité méthode."
       />
+      <form method="get" className="mp-formulaire" aria-label="Seuil d'analyse">
+        <Champ
+          libelle="Seuil (nombre de missions)"
+          aide={`Un groupe devient « fréquent » à partir de ce nombre de missions concernées, de ${SEUIL_DEROGATIONS_MIN} à ${SEUIL_DEROGATIONS_MAX}. Laissez vide pour le seuil par défaut${r.ok ? ` (actuellement ${r.donnees.seuil})` : ""}.`}
+          name="seuil"
+          type="number"
+          inputMode="numeric"
+          min={SEUIL_DEROGATIONS_MIN}
+          max={SEUIL_DEROGATIONS_MAX}
+          step={1}
+          defaultValue={typeof brut === "string" ? brut : ""}
+          erreur={saisie.ok ? undefined : saisie.erreurs.seuil}
+        />
+        <div className="mp-actions-formulaire">
+          <Bouton type="submit" variante="secondaire">
+            Analyser
+          </Bouton>
+        </div>
+      </form>
       {!r.ok ? (
         <EtatErreur
           titre="L'analyse n'a pas pu être chargée."
