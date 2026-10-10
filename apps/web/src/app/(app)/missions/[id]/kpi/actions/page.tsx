@@ -13,7 +13,6 @@ import { formaterDate } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import {
   cheminAlertesKpi,
-  descriptionAlerte,
   droitsKpi,
   lireCurseur,
   hrefTableauKpi,
@@ -26,10 +25,14 @@ import {
   hrefAction,
   hrefActions,
   LIBELLES_STATUT_ACTION,
+  optionsAlertes,
   texteVerdict,
   type PageActions,
 } from "../../../../../../lib/kpi-pilotage";
-import { chargerOptionsPilotage } from "../../../../../../lib/kpi-pilotage-serveur";
+import {
+  chargerDecisionsPourAction,
+  chargerOptionsPilotage,
+} from "../../../../../../lib/kpi-pilotage-serveur";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../../lib/periode";
 import { exigerPermission } from "../../../../../../lib/session";
@@ -43,7 +46,8 @@ const texte = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
  * Registre des actions correctives de la mission (KPI-18) : chaque action est reliée au KPI (et à
  * l'alerte) qui l'a motivée, a un responsable, une échéance et un statut ; son efficacité est
  * mesurée par le moteur sur le KPI une fois l'action terminée. Une alerte se transforme en action
- * par `?kpi=…&alerte=…`.
+ * par `?kpi=…&alerte=…`, une décision de revue par `?decision=…&revue=…` (lien « Créer une action »
+ * de la page de la revue).
  */
 export default async function PageActionsKpi({
   params,
@@ -61,23 +65,30 @@ export default async function PageActionsKpi({
   const statutBrut = texte(q.statut);
   const statut = STATUTS_ACTION_KPI.find((s) => s === statutBrut);
   const curseur = lireCurseur(q.curseur);
-  const kpiBrut = texte(q.kpi);
-  const kpiPropose = kpiBrut && estIdentifiant(kpiBrut) ? kpiBrut : "";
-  const alerteBrute = texte(q.alerte);
-  const alertePropose = alerteBrute && estIdentifiant(alerteBrute) ? alerteBrute : "";
+  const identifiant = (v: string | undefined) => (v && estIdentifiant(v) ? v : "");
+  const decisionPropose = identifiant(texte(q.decision));
+  const revueProposee = identifiant(texte(q.revue));
+  const alertePropose = identifiant(texte(q.alerte));
   const jour = aujourdhui();
   const droits = droitsKpi(utilisateur.roles, utilisateur.id, m);
   const requete = new URLSearchParams();
   if (statut) requete.set("statut", statut);
   if (curseur) requete.set("curseur", curseur);
   requete.set("limite", "25");
-  const [actions, options, alertes] = await Promise.all([
+  const [actions, options, choixDecisions] = await Promise.all([
     chargerServeur<PageActions>(cheminActionsMission(m.id, requete.toString())),
     chargerOptionsPilotage(utilisateur.roles, m, m.id),
-    kpiPropose
-      ? chargerServeur<PageKpi<AlerteEnregistree>>(cheminAlertesKpi(kpiPropose, { limite: 20 }))
-      : Promise.resolve(null),
+    droits.saisir || droits.gerer
+      ? chargerDecisionsPourAction(m.id, revueProposee || undefined)
+      : Promise.resolve({ decisions: [], erreur: null }),
   ]);
+  // Le KPI de la décision d'où l'on vient est proposé quand aucun KPI n'est imposé par l'adresse.
+  const kpiBrut = identifiant(texte(q.kpi));
+  const kpiDecision = choixDecisions.decisions.find((d) => d.valeur === decisionPropose)?.kpiId;
+  const kpiPropose = kpiBrut || kpiDecision || "";
+  const alertes = kpiPropose
+    ? await chargerServeur<PageKpi<AlerteEnregistree>>(cheminAlertesKpi(kpiPropose, { limite: 20 }))
+    : null;
   const filtre = (s?: string) => {
     const p = new URLSearchParams();
     if (s) p.set("statut", s);
@@ -173,30 +184,30 @@ export default async function PageActionsKpi({
         </>
       )}
       {droits.saisir || droits.gerer ? (
-        <Carte titre="Nouvelle action corrective">
+        <Carte titre="Nouvelle action corrective" id="nouvelle-action">
           {options.erreurKpis ? (
             <Alerte tonalite="attention" titre="KPI indisponibles" annonce="aucune">
               <p>{options.erreurKpis}</p>
             </Alerte>
           ) : (
             <FormulaireAction
-              key={`${kpiPropose}-${alertePropose}`}
+              key={`${kpiPropose}-${alertePropose}-${decisionPropose}`}
               missionId={m.id}
               kpis={options.kpisActifs}
-              alertes={
-                alertes && alertes.ok
-                  ? alertes.donnees.elements.map((a) => ({
-                      valeur: a.id,
-                      libelle: `${descriptionAlerte({ ...(a.details ?? {}), code: a.code, periode: a.periode }, "").titre} (${a.periode})`,
-                    }))
-                  : []
-              }
+              alertes={alertes && alertes.ok ? optionsAlertes(alertes.donnees.elements) : []}
+              decisions={choixDecisions.decisions}
               personnes={options.personnes}
               kpiId={kpiPropose}
               alerteId={alertePropose}
+              decisionId={
+                choixDecisions.decisions.some((d) => d.valeur === decisionPropose)
+                  ? decisionPropose
+                  : ""
+              }
               jour={jour}
             />
           )}
+          {choixDecisions.erreur ? <p className="mp-texte-doux">{choixDecisions.erreur}</p> : null}
         </Carte>
       ) : null}
     </div>

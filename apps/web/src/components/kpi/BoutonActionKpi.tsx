@@ -7,6 +7,7 @@ import { messagePilotage } from "../../lib/kpi-pilotage";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
+import { useEffacementSucces } from "./useEffacementSucces";
 
 export interface ConfirmationActionKpi {
   /** Question posée avant l'action, ex. « Annuler cette revue ? Cet état est définitif. ». */
@@ -54,12 +55,15 @@ export function BoutonActionKpi({
   const [erreur, setErreur] = useState<string | null>(null);
   const [reussi, setReussi] = useState<string | null>(null);
   const refAlerte = useRef<HTMLDivElement>(null);
+  // Le message de réussite s'efface dès qu'une autre action démarre sur la page.
+  const signaler = useEffacementSucces(() => setReussi(null));
   useEffect(() => {
     if (erreur) refAlerte.current?.focus();
   }, [erreur]);
 
   /** Vrai si l'appel a abouti (la confirmation revient alors à son état de repos après rafraîchissement). */
   async function lancer(): Promise<boolean> {
+    signaler();
     setErreur(null);
     setReussi(null);
     setEnCours(true);

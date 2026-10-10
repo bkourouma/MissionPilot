@@ -23,6 +23,19 @@ import {
   validerCompteRendu,
   validerOrdreDuJour,
   avertissementTronque,
+  avertissementUniteLevier,
+  commentairesDecision,
+  erreurEncoreValable,
+  hrefNouvelleAction,
+  libelleOptionDecision,
+  libelleOrigineOrdreDuJour,
+  optionsAlertes,
+  optionsDecisions,
+  ordonnerNoeudsArbre,
+  texteProjectionArrondie,
+  texteResidu,
+  type EvenementDecision,
+  type NoeudArbre,
   dateEffetExigeCommentaire,
   DELAI_DATE_EFFET_SANS_MOTIF_JOURS,
   nomFichierDossierRevue,
@@ -52,7 +65,7 @@ describe("mise en forme", () => {
   });
 
   it("contribution signée et verdict écrit en toutes lettres", () => {
-    expect(texteContribution(400, "kFCFA")).toBe("+400 kFCFA");
+    expect(texteContribution(400, "kFCFA")).toBe("+400\u00a0kFCFA");
     expect(texteContribution(-200)).toBe("-200");
     expect(texteContribution(0)).toBe("0");
     expect(texteContribution(null)).toBe("—");
@@ -170,6 +183,7 @@ describe("saisies", () => {
     const s = {
       kpi_id: UUID,
       alerte_id: "",
+      decision_id: "",
       titre: " Relancer ",
       description: "",
       responsable_id: UUID,
@@ -181,6 +195,11 @@ describe("saisies", () => {
     });
     expect(validerAction({ ...s, alerte_id: UUID, description: "Détail" })).toMatchObject({
       charge: { alerte_id: UUID, description: "Détail" },
+    });
+    // La décision de revue est transmise quand elle est choisie.
+    expect(validerAction({ ...s, decision_id: UUID })).toMatchObject({
+      ok: true,
+      charge: { decision_id: UUID },
     });
     const r = validerAction({
       ...s,
@@ -417,5 +436,231 @@ describe("messages", () => {
     expect(messagePilotage(new ErreurApi("CONFLIT", "Mission clôturée.", 409))).toBe(
       "Mission clôturée.",
     );
+  });
+});
+
+describe("pilotage KPI : anomalies de la recette", () => {
+  const noeud = (
+    id: string,
+    parent_id: string | null,
+    extra: Partial<NoeudArbre> = {},
+  ): NoeudArbre => ({
+    id,
+    parent_id,
+    kpi_id: null,
+    kpi_libelle: null,
+    kpi_unite: null,
+    libelle: id,
+    relation: "somme",
+    coefficient: 1,
+    rang: 0,
+    actif: true,
+    ...extra,
+  });
+
+  it("nœuds : la racine d'abord, puis chaque levier suivi de ses propres leviers", () => {
+    const noeuds = [
+      noeud("levier-b", "racine", { rang: 2 }),
+      noeud("petit-fils", "levier-a", { rang: 1 }),
+      noeud("levier-a", "racine", { rang: 1 }),
+      noeud("racine", null),
+    ];
+    expect(ordonnerNoeudsArbre(noeuds).map((n) => n.id)).toEqual([
+      "racine",
+      "levier-a",
+      "petit-fils",
+      "levier-b",
+    ]);
+    // Même rang : par libellé ; un nœud orphelin n'est jamais perdu ; liste vide sans effet.
+    const egaux = [noeud("z", "r", { libelle: "Zèbre" }), noeud("a", "r", { libelle: "Abeille" })];
+    expect(ordonnerNoeudsArbre([...egaux, noeud("r", null)]).map((n) => n.id)).toEqual([
+      "r",
+      "a",
+      "z",
+    ]);
+    expect(
+      ordonnerNoeudsArbre([noeud("orphelin", "inconnu"), noeud("r", null)]).map((n) => n.id),
+    ).toEqual(["r", "orphelin"]);
+    expect(ordonnerNoeudsArbre([])).toEqual([]);
+  });
+
+  it("résidu : phrase claire, jamais « — puis +305 »", () => {
+    expect(texteResidu(348, 377)).toBe("Non expliqué : +348 avant, +377 après");
+    expect(texteResidu(null, 305, "kFCFA").replace(/\u00a0/g, " ")).toBe(
+      "Non expliqué : non mesuré avant, +305 kFCFA après",
+    );
+    expect(texteResidu(0, -2)).toBe("Non expliqué : 0 avant, -2 après");
+    expect(texteResidu(null, null)).toBe("—");
+  });
+
+  it("projection : arrondie à l'affichage (2 décimales), jamais 43,2664", () => {
+    const p = {
+      valeur_projetee: 43.2664,
+      valeur_exacte: "43.2664",
+      methode: "prorata" as const,
+      jours_ecoules: 1,
+      jours_total: 31,
+    };
+    const t = texteProjectionArrondie(p, "jours").replace(/[\u00a0\u202f]/g, " ");
+    expect(t).toBe(
+      "43,27 jours en fin de période (prorata temporel du cumul de la période, 1 jour écoulé sur 31)",
+    );
+    expect(
+      texteProjectionArrondie({ ...p, valeur_projetee: 620, jours_ecoules: 15 }, "").replace(
+        /\u00a0/g,
+        " ",
+      ),
+    ).toMatch(/^620 en fin de période .*15 jours écoulés sur 31\)$/);
+    expect(texteProjectionArrondie(null, "u")).toMatch(/indisponible/);
+    expect(texteProjectionArrondie({ ...p, valeur_projetee: null }, "u")).toMatch(/indisponible/);
+  });
+
+  it("ordre du jour : proposé, saisi ou mixte", () => {
+    const m = { origine: "moteur" as const };
+    const h = { origine: "manuel" as const };
+    expect(libelleOrigineOrdreDuJour([])).toBeNull();
+    expect(libelleOrigineOrdreDuJour([m, m])).toBe("Ordre du jour proposé par le moteur");
+    expect(libelleOrigineOrdreDuJour([h])).toBe("Ordre du jour saisi à la main");
+    expect(libelleOrigineOrdreDuJour([m, m, h])).toBe(
+      "Ordre du jour mixte : 2 points proposés par le moteur, 1 saisi à la main",
+    );
+    expect(libelleOrigineOrdreDuJour([m, h, h])).toBe(
+      "Ordre du jour mixte : 1 point proposé par le moteur, 2 saisis à la main",
+    );
+  });
+
+  it("décision exécutée : le commentaire saisi se retrouve dans l'historique", () => {
+    const ev = (extra: Partial<EvenementDecision>): EvenementDecision => ({
+      id: "e1",
+      decision_id: "d1",
+      type: "statut",
+      statut_avant: "en_cours",
+      statut_apres: "executee",
+      commentaire: "Courrier envoyé au client",
+      auteur_nom: "Awa Koné",
+      cree_le: "2026-05-15T10:00:00Z",
+      ...extra,
+    });
+    const r = commentairesDecision(
+      [
+        ev({}),
+        ev({
+          id: "e2",
+          type: "creation",
+          statut_avant: null,
+          statut_apres: "ouverte",
+          commentaire: null,
+        }),
+        ev({ id: "e3", decision_id: "d2" }),
+        ev({ id: "e4", commentaire: "" }),
+        ev({ id: "e5", type: "modification", statut_apres: "ouverte", auteur_nom: null }),
+      ],
+      "d1",
+    );
+    expect(r.map((x) => x.cle)).toEqual(["e1", "e5"]);
+    expect(r[0]?.commentaire).toBe("Courrier envoyé au client");
+    expect(r[0]?.texte).toMatch(/^Passée à « Exécutée » par Awa Koné, le /);
+    expect(r[1]?.texte).toMatch(/^Décision modifiée, le /);
+    expect(commentairesDecision(undefined, "d1")).toEqual([]);
+    expect(
+      commentairesDecision([ev({ type: "creation", statut_apres: "ouverte" })], "d1")[0]?.texte,
+    ).toMatch(/^Décision enregistrée par Awa Koné/);
+  });
+
+  it("choix de décision pour une action : revue, numéro, texte et situation", () => {
+    const decision = {
+      id: UUID,
+      revue_id: "r1",
+      numero: 2,
+      libelle: "Relancer le client",
+      kpi_id: "k1",
+      responsable_id: null,
+      responsable_nom: null,
+      echeance: null,
+      statut: "ouverte" as const,
+      motif: null,
+    };
+    expect(libelleOptionDecision({ numero: 3, statut: "tenue" }, decision)).toBe(
+      "Revue 3 · D2 — Relancer le client (ouverte)",
+    );
+    expect(libelleOptionDecision({ numero: 1, statut: "cloturee" }, decision)).toBe(
+      "Revue 1 · D2 — Relancer le client (ouverte, revue clôturée)",
+    );
+    const long = { ...decision, libelle: "x".repeat(100) };
+    expect(libelleOptionDecision({ numero: 3, statut: "tenue" }, long)).toContain("…");
+    expect(optionsDecisions([{ numero: 3, statut: "tenue", decisions: [decision] }])).toEqual([
+      { valeur: UUID, libelle: "Revue 3 · D2 — Relancer le client (ouverte)", kpiId: "k1" },
+    ]);
+    expect(optionsDecisions([])).toEqual([]);
+  });
+
+  it("alertes d'un KPI : libellé français avec la période", () => {
+    const r = optionsAlertes([
+      {
+        id: UUID,
+        code: "DEGRADATION_CONSECUTIVE",
+        periode: "2026-04",
+        details: { periodes: 3, seuil: 3 },
+        detectee_le: "2026-05-01T00:00:00Z",
+      },
+    ]);
+    expect(r).toEqual([{ valeur: UUID, libelle: "Dégradation continue (2026-04)" }]);
+  });
+
+  it("lien « Créer une action » : décision et revue en paramètres, ancre du formulaire", () => {
+    expect(hrefNouvelleAction("m1")).toBe("/missions/m1/kpi/actions#nouvelle-action");
+    expect(hrefNouvelleAction("m1", { kpi: "k1", alerte: "a1", decision: "d1", revue: "r1" })).toBe(
+      "/missions/m1/kpi/actions?kpi=k1&alerte=a1&decision=d1&revue=r1#nouvelle-action",
+    );
+    expect(hrefNouvelleAction("m1", { decision: "d1", kpi: null })).toBe(
+      "/missions/m1/kpi/actions?decision=d1#nouvelle-action",
+    );
+  });
+
+  it("une erreur de saisie disparaît quand la valeur devient valide", () => {
+    const vide = validerArbre({ kpi_racine_id: "", libelle: "Arbre" });
+    const choisi = validerArbre({ kpi_racine_id: UUID, libelle: "Arbre" });
+    const envoi: Partial<Record<"kpi_racine_id" | "libelle", string>> = {
+      kpi_racine_id: "Choisissez le KPI à décomposer.",
+    };
+    expect(erreurEncoreValable(envoi, vide, "kpi_racine_id")).toBe(
+      "Choisissez le KPI à décomposer.",
+    );
+    expect(erreurEncoreValable(envoi, choisi, "kpi_racine_id")).toBeUndefined();
+    // Sans erreur au dernier envoi, ou pour un autre champ valide : rien.
+    expect(erreurEncoreValable({}, vide, "kpi_racine_id")).toBeUndefined();
+    expect(erreurEncoreValable(envoi, vide, "libelle")).toBeUndefined();
+  });
+
+  it("unités : avertissement sous une somme seulement, jamais sous un produit", () => {
+    const racine = noeud("racine", null, { libelle: "Trésorerie", kpi_unite: "M FCFA" });
+    const levier = (extra: Partial<NoeudArbre>) => noeud("l", "racine", extra);
+    expect(avertissementUniteLevier(racine, [racine], "jours")).toContain(
+      "Unités différentes : la somme n'a pas de sens (« jours » sous « Trésorerie », qui additionne des « M FCFA »).",
+    );
+    expect(avertissementUniteLevier(racine, [racine], " m  fcfa ")).toBeNull();
+    expect(avertissementUniteLevier(racine, [racine], "")).toBeNull();
+    expect(avertissementUniteLevier(racine, [racine], null)).toBeNull();
+    expect(
+      avertissementUniteLevier({ ...racine, relation: "produit" }, [racine], "jours"),
+    ).toBeNull();
+    expect(avertissementUniteLevier(undefined, [], "jours")).toBeNull();
+    // Parent sans unité : celle du premier levier actif qui en a une.
+    const libre = noeud("racine", null, { libelle: "Score" });
+    expect(
+      avertissementUniteLevier(
+        libre,
+        [libre, levier({ kpi_unite: "%", actif: false }), levier({ kpi_unite: "jours" })],
+        "%",
+      ),
+    ).toMatch(/« % » sous « Score », qui additionne des « jours »/);
+    expect(avertissementUniteLevier(libre, [libre, levier({})], "%")).toBeNull();
+  });
+
+  it("refus de l'API : messages français pour une revue non tenue et des unités différentes", () => {
+    const revue = new ErreurApi("KPI_ACTION_REVUE", "x", 409);
+    expect(messagePilotage(revue)).toMatch(/revue tenue et non clôturée.*déjà clôturée/);
+    const unites = new ErreurApi("KPI_ARBRE_UNITES", "x", 409);
+    expect(messagePilotage(unites)).toMatch(/la somme n'a pas de sens/);
   });
 });

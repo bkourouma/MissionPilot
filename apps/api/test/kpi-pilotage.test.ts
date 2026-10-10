@@ -436,6 +436,79 @@ describe("KPI-13 arbres d'indicateurs", () => {
     expect((await s.a.chef.get(`/api/kpi/arbres/${id}`)).json().noeuds).toHaveLength(200);
   });
 
+  it("unités : une somme n'additionne que des unités identiques, un produit admet des unités différentes", async () => {
+    const m = s.missionA2;
+    const racine = (await creerKpi(s.a.chef, m, { libelle: "Trésorerie nette", cible: null })).id;
+    const delai = (
+      await creerKpi(s.a.chef, m, { libelle: "Délai de paiement", unite: "jours", cible: null })
+    ).id;
+    const memeUnite = (await creerKpi(s.a.chef, m, { libelle: "Encaissements", cible: null })).id;
+    const cree = await s.a.chef.post(`/api/missions/${m}/kpi/arbres`, {
+      kpi_racine_id: racine,
+      libelle: "Arbre des unités",
+    });
+    expect(cree.statusCode).toBe(201);
+    const id = cree.json().id as string;
+    const racineNoeud = cree.json().noeuds[0].id as string;
+    const noeud = (corps: Record<string, unknown>) =>
+      s.a.chef.post(`/api/kpi/arbres/${id}/noeuds`, { libelle: "Levier", ...corps });
+    const nombre = async () => (await s.a.chef.get(`/api/kpi/arbres/${id}`)).json().noeuds.length;
+
+    // Racine en somme (défaut) : 55 jours ne s'ajoutent pas à des kFCFA, rien n'est écrit.
+    const refus = await noeud({ parent_id: racineNoeud, kpi_id: delai, libelle: "Délai" });
+    expect(refus.statusCode).toBe(409);
+    expect(erreur(refus)).toBe("KPI_ARBRE_UNITES");
+    expect(refus.json().erreur.message).toContain("la somme n'a pas de sens");
+    expect(await nombre()).toBe(1);
+    // Même unité (casse et espaces ignorés côté moteur) : admis ; levier libre : admis.
+    expect((await noeud({ parent_id: racineNoeud, kpi_id: memeUnite })).statusCode).toBe(201);
+    expect((await noeud({ parent_id: racineNoeud, libelle: "Libre" })).statusCode).toBe(201);
+    // Passer la racine en produit autorise des unités différentes…
+    const racineProduit = await s.a.chef.patch(`/api/kpi/arbres/noeuds/${racineNoeud}`, {
+      relation: "produit",
+    });
+    expect(racineProduit.statusCode).toBe(200);
+    const sousProduit = await noeud({ parent_id: racineNoeud, kpi_id: delai, libelle: "Délai" });
+    expect(sousProduit.statusCode).toBe(201);
+    // …et repasser en somme est refusé tant que les unités diffèrent (la racine reste un produit).
+    const retour = await s.a.chef.patch(`/api/kpi/arbres/noeuds/${racineNoeud}`, {
+      relation: "somme",
+    });
+    expect(retour.statusCode).toBe(409);
+    expect(erreur(retour)).toBe("KPI_ARBRE_UNITES");
+    expect(
+      (await s.a.chef.get(`/api/kpi/arbres/${id}`))
+        .json()
+        .noeuds.find((n: { id: string }) => n.id === racineNoeud).relation,
+    ).toBe("produit");
+
+    // Arbre ancien (somme d'unités différentes déjà là) : la lecture l'avertit sans bloquer, une
+    // modification qui n'aggrave rien reste admise, un nouvel écart est refusé.
+    await proprietaire((c) =>
+      c.query("UPDATE kpi_arbre_noeuds SET relation = 'somme' WHERE id = $1", [racineNoeud]),
+    );
+    const lecture = await s.a.chef.get(
+      `/api/kpi/arbres/${id}/contributions?avant=2026-03-15&apres=${DATE}`,
+    );
+    expect(lecture.statusCode).toBe(200);
+    expect(lecture.json().avertissements_unites).toMatchObject([
+      { noeud_libelle: "Délai", unite_reference: "kFCFA", unite: "jours" },
+    ]);
+    expect(lecture.json().avertissements_unites[0].message).toContain("la somme n'a pas de sens");
+    const tolere = await s.a.chef.patch(`/api/kpi/arbres/noeuds/${racineNoeud}`, { rang: 0 });
+    expect(tolere.statusCode).toBe(200);
+    expect((await noeud({ parent_id: racineNoeud, libelle: "Autre libre" })).statusCode).toBe(201);
+    const autreDelai = (
+      await creerKpi(s.a.chef, m, { libelle: "Délai de livraison", unite: "jours", cible: null })
+    ).id;
+    expect((await noeud({ parent_id: racineNoeud, kpi_id: autreDelai })).statusCode).toBe(409);
+    // Un arbre cohérent ne produit aucun avertissement.
+    const propre = await s.a.chef.get(
+      `/api/kpi/arbres/${arbreId}/contributions?avant=2026-03-15&apres=${DATE}`,
+    );
+    expect(propre.json().avertissements_unites).toEqual([]);
+  });
+
   it("l'arbre est fermé au portail", async () => {
     for (const url of [
       `/api/kpi/arbres/${arbreId}`,
@@ -1284,6 +1357,7 @@ describe("KPI-17 revue de performance", () => {
       echeance: "2026-12-31",
     });
     expect(tardive.statusCode).toBe(409);
+    expect(erreur(tardive)).toBe("KPI_ACTION_REVUE");
     expect(
       await refusSql(
         `INSERT INTO kpi_actions (cabinet_id, mission_id, kpi_id, revue_id, numero, titre, responsable_id, echeance, cree_par)

@@ -1,19 +1,23 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
+import { cheminAlertesKpi, type AlerteEnregistree, type PageKpi } from "../../lib/kpi";
 import {
   cheminActionsMission,
   cheminCommentairesAction,
   cheminStatutAction,
   DELAI_DATE_EFFET_SANS_MOTIF_JOURS,
   dateEffetExigeCommentaire,
+  erreurEncoreValable,
   messagePilotage,
+  optionsAlertes,
   validerAction,
   validerStatutAction,
   type ActionKpi,
   type ChampAction,
   type ChampStatutAction,
+  type OptionDecision,
   type SaisieAction,
   type SaisieStatutAction,
 } from "../../lib/kpi-pilotage";
@@ -33,38 +37,76 @@ export interface OptionLibelle {
 export interface FormulaireActionProps {
   missionId: string;
   kpis: readonly OptionLibelle[];
-  /** Alertes du KPI proposé (identifiant et libellé), facultatif. */
+  /** Alertes du KPI présélectionné (identifiant et libellé), facultatif ; les autres se chargent au choix du KPI. */
   alertes?: readonly OptionLibelle[];
+  /** Décisions des revues tenues de la mission (et de la revue d'où l'on vient). */
+  decisions?: readonly OptionDecision[];
   personnes: readonly OptionLibelle[];
-  /** KPI présélectionné (depuis une fiche KPI ou une alerte). */
+  /** KPI présélectionné (depuis une fiche KPI, une alerte ou une décision de revue). */
   kpiId?: string;
   alerteId?: string;
+  decisionId?: string;
   jour: string;
 }
 
 /**
- * Nouvelle action corrective (KPI-18) : un KPI, une alerte qui l'a déclenchée (facultative), un
- * responsable de l'équipe, une échéance. Le moteur mesurera plus tard son efficacité sur le KPI.
+ * Nouvelle action corrective (KPI-18) : un KPI, l'alerte qui l'a déclenchée et la décision de revue
+ * qui l'a décidée (toutes deux facultatives), un responsable de l'équipe, une échéance. Le moteur
+ * mesurera plus tard son efficacité sur le KPI. L'alerte se choisit parmi celles du KPI retenu ; la
+ * décision parmi celles des revues tenues (l'API refuse une revue non tenue ou clôturée).
  */
 export function FormulaireAction({
   missionId,
   kpis,
   alertes = [],
+  decisions = [],
   personnes,
   kpiId = "",
   alerteId = "",
+  decisionId = "",
   jour,
 }: FormulaireActionProps) {
   const f = useFormulaire<ChampAction>();
   const vide: SaisieAction = {
     kpi_id: kpiId,
     alerte_id: alerteId,
+    decision_id: decisionId,
     titre: "",
     description: "",
     responsable_id: "",
     echeance: jour,
   };
   const [s, setS] = useState<SaisieAction>(vide);
+  // Alertes du KPI choisi : celles du serveur pour le KPI présélectionné, sinon chargées au choix.
+  const [chargees, setChargees] = useState<{
+    kpiId: string;
+    options: readonly OptionLibelle[];
+  } | null>(null);
+  useEffect(() => {
+    if (s.kpi_id === "" || s.kpi_id === kpiId) return;
+    let annule = false;
+    api
+      .get<PageKpi<AlerteEnregistree>>(cheminAlertesKpi(s.kpi_id, { limite: 20 }))
+      .then((p) => {
+        if (!annule) setChargees({ kpiId: s.kpi_id, options: optionsAlertes(p.elements) });
+      })
+      .catch(() => {
+        if (!annule) setChargees({ kpiId: s.kpi_id, options: [] });
+      });
+    return () => {
+      annule = true;
+    };
+  }, [s.kpi_id, kpiId]);
+  const alertesDuKpi =
+    s.kpi_id === ""
+      ? []
+      : s.kpi_id === kpiId
+        ? alertes
+        : chargees?.kpiId === s.kpi_id
+          ? chargees.options
+          : [];
+  // Un message d'erreur de saisie disparaît dès que la valeur redevient valide.
+  const validation = validerAction(s);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -97,26 +139,52 @@ export function FormulaireAction({
           invite="Choisir un KPI…"
           options={kpis}
           value={s.kpi_id}
-          onChange={(e) => setS((x) => ({ ...x, kpi_id: e.target.value }))}
-          erreur={f.erreurs.kpi_id}
+          onChange={(e) =>
+            // Une alerte appartient à un KPI : changer de KPI vide le choix d'alerte.
+            setS((x) => ({ ...x, kpi_id: e.target.value, alerte_id: "" }))
+          }
+          erreur={erreurEncoreValable(f.erreurs, validation, "kpi_id")}
         />
-        {alertes.length > 0 ? (
-          <Select
-            libelle="Alerte à l'origine"
-            invite="Aucune"
-            options={alertes}
-            value={s.alerte_id}
-            onChange={(e) => setS((x) => ({ ...x, alerte_id: e.target.value }))}
-            aide="L'action est reliée à l'alerte pour suivre ce qui a été fait."
-          />
-        ) : null}
+        <Select
+          libelle="Alerte à l'origine"
+          invite={
+            s.kpi_id === ""
+              ? "Choisissez d'abord un KPI"
+              : alertesDuKpi.length === 0
+                ? "Aucune alerte pour ce KPI"
+                : "Aucune"
+          }
+          options={alertesDuKpi}
+          disabled={alertesDuKpi.length === 0}
+          value={s.alerte_id}
+          onChange={(e) => setS((x) => ({ ...x, alerte_id: e.target.value }))}
+          aide="Facultatif. L'action est reliée à l'alerte pour suivre ce qui a été fait."
+        />
+        <Select
+          libelle="Décision de revue à l'origine"
+          invite={decisions.length === 0 ? "Aucune décision de revue tenue" : "Aucune"}
+          options={decisions}
+          disabled={decisions.length === 0}
+          value={s.decision_id}
+          onChange={(e) => {
+            const id = e.target.value;
+            const kpiDecision = decisions.find((d) => d.valeur === id)?.kpiId ?? null;
+            setS((x) => ({
+              ...x,
+              decision_id: id,
+              // Le KPI de la décision est proposé tant qu'aucun KPI n'est choisi.
+              ...(kpiDecision && x.kpi_id === "" ? { kpi_id: kpiDecision, alerte_id: "" } : {}),
+            }));
+          }}
+          aide="Facultatif. Seule une décision d'une revue tenue et non clôturée accepte une action."
+        />
         <Champ
           libelle="Titre de l'action"
           required
           maxLength={200}
           value={s.titre}
           onChange={(e) => setS((x) => ({ ...x, titre: e.target.value }))}
-          erreur={f.erreurs.titre}
+          erreur={erreurEncoreValable(f.erreurs, validation, "titre")}
         />
         <Select
           libelle="Responsable"
@@ -125,7 +193,7 @@ export function FormulaireAction({
           options={personnes}
           value={s.responsable_id}
           onChange={(e) => setS((x) => ({ ...x, responsable_id: e.target.value }))}
-          erreur={f.erreurs.responsable_id}
+          erreur={erreurEncoreValable(f.erreurs, validation, "responsable_id")}
         />
         <Champ
           libelle="Échéance"
@@ -133,7 +201,7 @@ export function FormulaireAction({
           required
           value={s.echeance}
           onChange={(e) => setS((x) => ({ ...x, echeance: e.target.value }))}
-          erreur={f.erreurs.echeance}
+          erreur={erreurEncoreValable(f.erreurs, validation, "echeance")}
         />
       </div>
       <ZoneTexte
@@ -142,7 +210,7 @@ export function FormulaireAction({
         maxLength={2000}
         value={s.description}
         onChange={(e) => setS((x) => ({ ...x, description: e.target.value }))}
-        erreur={f.erreurs.description}
+        erreur={erreurEncoreValable(f.erreurs, validation, "description")}
       />
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">

@@ -3,7 +3,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BoutonActionKpi } from "../../../../../../../components/kpi/BoutonActionKpi";
 import { ContributionsArbreKpi } from "../../../../../../../components/kpi/ContributionsArbre";
-import { FormulaireNoeud } from "../../../../../../../components/kpi/FormulairesArbreKpi";
+import {
+  ChangerRelationNoeud,
+  FormulaireNoeud,
+} from "../../../../../../../components/kpi/FormulairesArbreKpi";
 import "../../../../../../../components/kpi/kpi.css";
 import { Alerte } from "../../../../../../../components/ui/Alerte";
 import { classesBouton } from "../../../../../../../components/ui/Bouton";
@@ -22,6 +25,7 @@ import {
   hrefArbre,
   hrefArbres,
   LIBELLES_RELATION,
+  ordonnerNoeudsArbre,
   type ContributionsArbre,
   type DetailArbre,
   type NoeudArbre,
@@ -138,7 +142,14 @@ export default async function PageArbreKpi({
               entete: "Sous",
               rendu: (n) => (n.parent_id ? (parId.get(n.parent_id)?.libelle ?? "—") : "Racine"),
             },
-            { cle: "kpi", entete: "KPI lié", rendu: (n) => n.kpi_libelle ?? "Levier libre" },
+            {
+              cle: "kpi",
+              entete: "KPI lié",
+              rendu: (n) =>
+                n.kpi_libelle
+                  ? `${n.kpi_libelle}${n.kpi_unite ? ` (${n.kpi_unite})` : ""}`
+                  : "Levier libre",
+            },
             {
               cle: "relation",
               entete: "Combine ses leviers en",
@@ -152,24 +163,26 @@ export default async function PageArbreKpi({
                   {
                     cle: "action",
                     entete: "Action",
-                    rendu: (n: NoeudArbre) =>
-                      n.parent_id === null ? (
-                        "—"
-                      ) : (
-                        <BoutonActionKpi
-                          libelle={n.actif ? "Désactiver" : "Réactiver"}
-                          chemin={cheminNoeud(n.id)}
-                          methode="PATCH"
-                          corps={{ actif: !n.actif }}
-                          succes={n.actif ? "Levier désactivé." : "Levier réactivé."}
-                          variante="discret"
-                        />
-                      ),
+                    rendu: (n: NoeudArbre) => (
+                      <div className="mp-pile">
+                        {n.actif ? <ChangerRelationNoeud noeud={n} /> : null}
+                        {n.parent_id === null ? null : (
+                          <BoutonActionKpi
+                            libelle={n.actif ? "Désactiver" : "Réactiver"}
+                            chemin={cheminNoeud(n.id)}
+                            methode="PATCH"
+                            corps={{ actif: !n.actif }}
+                            succes={n.actif ? "Levier désactivé." : "Levier réactivé."}
+                            variante="discret"
+                          />
+                        )}
+                      </div>
+                    ),
                   },
                 ]
               : []),
           ]}
-          lignes={a.noeuds}
+          lignes={ordonnerNoeudsArbre(a.noeuds)}
           cleLigne={(n) => n.id}
         />
       </Carte>

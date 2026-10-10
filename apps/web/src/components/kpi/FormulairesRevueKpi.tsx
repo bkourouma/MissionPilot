@@ -32,6 +32,7 @@ import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { BoutonActionKpi } from "./BoutonActionKpi";
 import type { OptionLibelle } from "./FormulairesActionKpi";
+import { useEffacementSucces } from "./useEffacementSucces";
 
 /**
  * Planification d'une revue de performance (KPI-17) : titre, date de la réunion, date d'arrêté des
@@ -129,9 +130,11 @@ export function FormulaireDecision({
   const f = useFormulaire<ChampDecision>();
   const vide: SaisieDecision = { libelle: "", kpi_id: "", responsable_id: "", echeance: "" };
   const [s, setS] = useState<SaisieDecision>(vide);
+  const signaler = useEffacementSucces(f.effacerSucces);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    signaler();
     const ok = await f.envoyer(
       validerDecision(s),
       (charge) => api.post<DecisionKpi>(cheminDecisionsRevue(revueId), charge),
@@ -203,9 +206,11 @@ export function FormulaireDecision({
 export function FormulaireOrdreDuJour({ revueId }: { revueId: string }) {
   const f = useFormulaire<"points">();
   const [texte, setTexte] = useState("");
+  const signaler = useEffacementSucces(f.effacerSucces);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    signaler();
     const ok = await f.envoyer(
       validerOrdreDuJour(texte),
       (charge) => api.put(cheminOrdreDuJour(revueId), charge),
@@ -293,10 +298,13 @@ export function SuiviDecision({ decision }: { decision: Pick<DecisionKpi, "id" |
   const fe = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
   const [fait, setFait] = useState("");
+  const signalerAbandon = useEffacementSucces(f.effacerSucces);
+  const signalerExecution = useEffacementSucces(fe.effacerSucces);
   if (decision.statut === "executee" || decision.statut === "abandonnee") return null;
 
   async function abandonner(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    signalerAbandon();
     await f.envoyer(
       validerStatutDecision("abandonnee", motif),
       (charge) => api.post(cheminStatutDecision(decision.id), charge),
@@ -306,6 +314,7 @@ export function SuiviDecision({ decision }: { decision: Pick<DecisionKpi, "id" |
 
   async function executer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    signalerExecution();
     await fe.envoyer(
       validerStatutDecision("executee", fait),
       (charge) => api.post(cheminStatutDecision(decision.id), charge),

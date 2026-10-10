@@ -280,7 +280,11 @@ export async function creerAction(db: Db, auth: Auth, missionId: string, corps: 
       ligne.revue_id,
     ]);
     if (revue.rows[0]?.statut !== "tenue") {
-      throw conflit("Une action se rattache à une décision d'une revue tenue et non clôturée.");
+      throw new AppError(
+        409,
+        "KPI_ACTION_REVUE",
+        "Une action se rattache à une décision d'une revue tenue et non clôturée : cette revue n'est pas tenue, ou elle est déjà clôturée.",
+      );
     }
     revueId = ligne.revue_id;
   }

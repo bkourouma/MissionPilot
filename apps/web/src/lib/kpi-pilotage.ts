@@ -20,7 +20,14 @@ import {
 } from "@missionpilot/shared";
 import { ErreurApi, erreurDepuisReponse, MESSAGE_RESEAU } from "./api";
 import { formaterDate, formaterNombre, formaterPourcentage, VALEUR_ABSENTE } from "./format";
-import { ajouterJoursIso, messageKpi } from "./kpi";
+import {
+  ajouterJoursIso,
+  descriptionAlerte,
+  messageKpi,
+  METHODE_PROJECTION_LIBELLES,
+  type AlerteEnregistree,
+  type ProjectionKpiVue,
+} from "./kpi";
 import { dateValide } from "./periode";
 import { lireNombre } from "./saisie";
 import type { Resultat } from "./saisie";
@@ -84,6 +91,17 @@ export interface LevierContribution {
   rang: number;
 }
 
+/** Une somme qui additionne des unités différentes (« 55 jours + 72 % »), signalée par l'API. */
+export interface AvertissementUnite {
+  parent_id: string;
+  parent_libelle: string;
+  noeud_id: string;
+  noeud_libelle: string;
+  unite_reference: string;
+  unite: string;
+  message: string;
+}
+
 export interface ContributionsArbre {
   arbre_id: string;
   kpi_racine_id: string;
@@ -94,6 +112,7 @@ export interface ContributionsArbre {
   evaluable: boolean;
   manquants: { noeud_id: string; libelle: string }[];
   variation_racine: number | null;
+  avertissements_unites?: AvertissementUnite[];
   noeuds: NoeudContribution[];
   leviers: LevierContribution[];
 }
@@ -223,8 +242,21 @@ export interface DecisionKpi {
   motif: string | null;
 }
 
+/** Événement de l'historique d'une décision (ajout seul) : création, changement de statut. */
+export interface EvenementDecision {
+  id: string;
+  decision_id: string;
+  type: "creation" | "statut" | "modification";
+  statut_avant: string | null;
+  statut_apres: string;
+  commentaire: string | null;
+  auteur_nom: string | null;
+  cree_le: string;
+}
+
 export interface DetailRevue extends RevueKpi {
   decisions: DecisionKpi[];
+  evenements_decisions?: EvenementDecision[];
   actions: ActionKpi[];
   /** Listes plafonnées à 500 lignes par l'API : vrai si la liste servie est incomplète. */
   decisions_tronque?: boolean;
@@ -320,6 +352,27 @@ export const hrefArbres = (m: string) => `/missions/${seg(m)}/kpi/arbres`;
 export const hrefArbre = (m: string, id: string, params = "") =>
   `/missions/${seg(m)}/kpi/arbres/${seg(id)}${params ? `?${params}` : ""}`;
 export const hrefActions = (m: string) => `/missions/${seg(m)}/kpi/actions`;
+/**
+ * Formulaire « Nouvelle action corrective » prérempli : KPI, alerte d'origine, ou décision d'une
+ * revue (avec la revue, pour retrouver la décision même si la revue n'est plus tenue).
+ */
+export function hrefNouvelleAction(
+  m: string,
+  prerempli: {
+    kpi?: string | null;
+    alerte?: string | null;
+    decision?: string | null;
+    revue?: string | null;
+  } = {},
+): string {
+  const p = new URLSearchParams();
+  if (prerempli.kpi) p.set("kpi", prerempli.kpi);
+  if (prerempli.alerte) p.set("alerte", prerempli.alerte);
+  if (prerempli.decision) p.set("decision", prerempli.decision);
+  if (prerempli.revue) p.set("revue", prerempli.revue);
+  const t = p.toString();
+  return `${hrefActions(m)}${t ? `?${t}` : ""}#nouvelle-action`;
+}
 export const hrefAction = (m: string, id: string) => `/missions/${seg(m)}/kpi/actions/${seg(id)}`;
 export const hrefRevues = (m: string) => `/missions/${seg(m)}/kpi/revues`;
 export const hrefRevue = (m: string, id: string) => `/missions/${seg(m)}/kpi/revues/${seg(id)}`;
@@ -420,6 +473,189 @@ export function texteEfficaciteDetail(e: EfficaciteVue, unite: string): string {
   return `Moyenne avant ${formaterNombre(e.moyenne_avant, 4)}${u}, après ${formaterNombre(e.moyenne_apres, 4)}${u} : variation ${texteContribution(e.variation, unite)}${rel}.`;
 }
 
+/** Projection de fin de période, arrondie à l'affichage (2 décimales) ; le moteur garde la valeur exacte. */
+export function texteProjectionArrondie(
+  p: ProjectionKpiVue | null | undefined,
+  unite: string,
+): string {
+  if (!p || p.valeur_projetee === null) {
+    return "Projection indisponible : aucune mesure exploitable dans la période en cours.";
+  }
+  const methode = METHODE_PROJECTION_LIBELLES[p.methode] ?? p.methode;
+  const valeur = formaterNombre(p.valeur_projetee, 2);
+  const u = unite ? `\u00a0${unite}` : "";
+  const s = (n: number) => (n > 1 ? "s" : "");
+  return `${valeur}${u} en fin de période (${methode}, ${p.jours_ecoules} jour${s(p.jours_ecoules)} écoulé${s(p.jours_ecoules)} sur ${p.jours_total})`;
+}
+
+/**
+ * Part d'un nœud que l'arbre n'explique pas (valeur observée moins valeur calculée), en phrase :
+ * « Non expliqué : +348 avant, +377 après ». Une valeur absente se dit « non mesuré ».
+ */
+export function texteResidu(avant: number | null, apres: number | null, unite = ""): string {
+  if (avant === null && apres === null) return VALEUR_ABSENTE;
+  const dire = (v: number | null) => (v === null ? "non mesuré" : texteContribution(v, unite));
+  return `Non expliqué : ${dire(avant)} avant, ${dire(apres)} après`;
+}
+
+/**
+ * Nœuds dans l'ordre de lecture d'un arbre : la racine d'abord, puis chaque levier suivi de ses
+ * propres leviers ; les frères par rang puis par libellé. Un nœud dont le parent est absent de la
+ * liste (cas anormal) est placé à la fin plutôt que perdu.
+ */
+export function ordonnerNoeudsArbre<
+  T extends { id: string; parent_id: string | null; rang: number; libelle: string },
+>(noeuds: readonly T[]): T[] {
+  const enfants = new Map<string, T[]>();
+  for (const n of noeuds) {
+    if (n.parent_id === null) continue;
+    const liste = enfants.get(n.parent_id) ?? [];
+    liste.push(n);
+    enfants.set(n.parent_id, liste);
+  }
+  const trier = (liste: T[]) =>
+    [...liste].sort(
+      (a, b) =>
+        a.rang - b.rang || a.libelle.localeCompare(b.libelle, "fr") || a.id.localeCompare(b.id),
+    );
+  const sortie: T[] = [];
+  const vus = new Set<string>();
+  const parcourir = (n: T) => {
+    if (vus.has(n.id)) return;
+    vus.add(n.id);
+    sortie.push(n);
+    for (const e of trier(enfants.get(n.id) ?? [])) parcourir(e);
+  };
+  for (const r of trier(noeuds.filter((n) => n.parent_id === null))) parcourir(r);
+  for (const n of noeuds) parcourir(n);
+  return sortie;
+}
+
+const uniteNormalisee = (u: string | null | undefined) =>
+  (u ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase("fr-FR");
+
+/**
+ * Avertissement du formulaire d'ajout de levier : sous une SOMME, un KPI d'unité différente de celle
+ * du parent (ou du premier levier qui en a une) n'a pas de sens à additionner, et l'API le
+ * refuserait. Sous un produit, les unités peuvent différer. null s'il n'y a rien à dire.
+ */
+export function avertissementUniteLevier(
+  parent: Pick<NoeudArbre, "id" | "relation" | "kpi_unite" | "libelle"> | undefined,
+  noeuds: readonly Pick<NoeudArbre, "kpi_unite" | "parent_id" | "actif">[],
+  uniteLevier: string | null | undefined,
+): string | null {
+  if (!parent || parent.relation !== "somme") return null;
+  const choisie = uniteNormalisee(uniteLevier);
+  if (choisie === "") return null;
+  const reference =
+    uniteNormalisee(parent.kpi_unite) !== ""
+      ? parent.kpi_unite
+      : noeuds.find(
+          (f) => f.actif && f.parent_id === parent.id && uniteNormalisee(f.kpi_unite) !== "",
+        )?.kpi_unite;
+  if (!reference || uniteNormalisee(reference) === choisie) return null;
+  return `Unités différentes : la somme n'a pas de sens (« ${(uniteLevier ?? "").trim()} » sous « ${parent.libelle} », qui additionne des « ${reference.trim()} »). Liez un KPI de même unité, ou faites combiner le nœud parent par un produit.`;
+}
+
+/**
+ * Origine de l'ordre du jour affiché : proposé par le moteur, saisi à la main, ou les deux
+ * (un point ajouté à la main parmi des points du moteur). null sans point.
+ */
+export function libelleOrigineOrdreDuJour(
+  points: readonly Pick<PointOrdreDuJour, "origine">[],
+): string | null {
+  if (points.length === 0) return null;
+  const moteur = points.filter((p) => p.origine === "moteur").length;
+  const manuel = points.length - moteur;
+  if (manuel === 0) return "Ordre du jour proposé par le moteur";
+  if (moteur === 0) return "Ordre du jour saisi à la main";
+  const s = (n: number) => (n > 1 ? "s" : "");
+  return `Ordre du jour mixte : ${moteur} point${s(moteur)} proposé${s(moteur)} par le moteur, ${manuel} saisi${s(manuel)} à la main`;
+}
+
+/**
+ * Événements d'une décision qui portent un commentaire (ce qui a été fait, motif), du plus ancien
+ * au plus récent, avec une phrase qui dit qui a fait quoi et quand.
+ */
+export function commentairesDecision(
+  evenements: readonly EvenementDecision[] | undefined,
+  decisionId: string,
+): { cle: string; texte: string; commentaire: string }[] {
+  return (evenements ?? [])
+    .filter((e) => e.decision_id === decisionId && e.commentaire !== null && e.commentaire !== "")
+    .map((e) => {
+      const statut =
+        LIBELLES_STATUT_DECISION[e.statut_apres as StatutDecisionKpi] ?? e.statut_apres;
+      const quoi =
+        e.type === "statut"
+          ? `Passée à « ${statut} »`
+          : e.type === "creation"
+            ? "Décision enregistrée"
+            : "Décision modifiée";
+      return {
+        cle: e.id,
+        texte: `${quoi}${e.auteur_nom ? ` par ${e.auteur_nom}` : ""}, le ${formaterDate(e.cree_le)}`,
+        commentaire: e.commentaire as string,
+      };
+    });
+}
+
+/** Décision proposée dans le formulaire d'action : libellé lisible et KPI concerné (préremplissage). */
+export interface OptionDecision {
+  valeur: string;
+  libelle: string;
+  kpiId: string | null;
+}
+
+/** Libellé d'une décision pour une liste de choix : « Revue 2 · D1 — texte (ouverte) ». */
+export function libelleOptionDecision(
+  revue: Pick<RevueKpi, "numero" | "statut">,
+  decision: Pick<DecisionKpi, "numero" | "libelle" | "statut">,
+): string {
+  const texte =
+    decision.libelle.length > 70 ? `${decision.libelle.slice(0, 67)}…` : decision.libelle;
+  const revueTexte =
+    revue.statut === "tenue" ? "" : `, revue ${LIBELLES_STATUT_REVUE[revue.statut].toLowerCase()}`;
+  return `Revue ${revue.numero} · D${decision.numero} — ${texte} (${LIBELLES_STATUT_DECISION[decision.statut].toLowerCase()}${revueTexte})`;
+}
+
+/** Décisions de revues → choix du formulaire d'action, dans l'ordre des revues puis des décisions. */
+export function optionsDecisions(
+  revues: readonly (Pick<RevueKpi, "numero" | "statut"> & { decisions: readonly DecisionKpi[] })[],
+): OptionDecision[] {
+  return revues.flatMap((r) =>
+    r.decisions.map((d) => ({
+      valeur: d.id,
+      libelle: libelleOptionDecision(r, d),
+      kpiId: d.kpi_id,
+    })),
+  );
+}
+
+/** Alertes d'un KPI → choix du formulaire d'action (la plus récente d'abord, comme l'API). */
+export function optionsAlertes(
+  alertes: readonly AlerteEnregistree[],
+): { valeur: string; libelle: string }[] {
+  return alertes.map((a) => ({
+    valeur: a.id,
+    libelle: `${descriptionAlerte({ ...(a.details ?? {}), code: a.code, periode: a.periode }, "").titre} (${a.periode})`,
+  }));
+}
+
+/**
+ * Erreur d'un champ à afficher : celle du dernier envoi, tant que la valeur saisie reste invalide.
+ * Dès que le champ redevient valide, le message disparaît sans attendre un nouvel envoi.
+ */
+export function erreurEncoreValable<K extends string, C>(
+  erreursEnvoi: Partial<Record<K, string>>,
+  validation: Resultat<C, K>,
+  champ: K,
+): string | undefined {
+  const envoi = erreursEnvoi[champ];
+  if (!envoi) return undefined;
+  return validation.ok || !validation.erreurs[champ] ? undefined : envoi;
+}
+
 export function enRetard(echeance: string, statut: StatutActionKpi, jour: string): boolean {
   return (statut === "a_faire" || statut === "en_cours") && echeance < jour;
 }
@@ -495,6 +731,7 @@ export function validerNoeud(s: SaisieNoeud): Resultat<ChargeNoeud, ChampNoeud> 
 export interface SaisieAction {
   kpi_id: string;
   alerte_id: string;
+  decision_id: string;
   titre: string;
   description: string;
   responsable_id: string;
@@ -504,6 +741,7 @@ export type ChampAction = keyof SaisieAction;
 export interface ChargeAction {
   kpi_id: string;
   alerte_id?: string;
+  decision_id?: string;
   titre: string;
   description?: string;
   responsable_id: string;
@@ -525,6 +763,7 @@ export function validerAction(s: SaisieAction): Resultat<ChargeAction, ChampActi
     charge: {
       kpi_id: s.kpi_id,
       ...(unNonVide(s.alerte_id) ? { alerte_id: s.alerte_id } : {}),
+      ...(unNonVide(s.decision_id) ? { decision_id: s.decision_id } : {}),
       titre: s.titre.trim(),
       ...(unNonVide(s.description) ? { description: s.description.trim() } : {}),
       responsable_id: s.responsable_id,
@@ -751,7 +990,10 @@ export const MESSAGES_PILOTAGE: Record<string, string> = {
     "Le parent du nœud est désactivé ou d'un autre arbre : réactivez d'abord le parent.",
   KPI_REVUE_FIGEE:
     "Le contenu d'une revue tenue (ordre du jour, dossier, compte rendu) est figé : il ne change plus.",
-  KPI_ACTION_REVUE: "Une action se rattache à une décision d'une revue tenue et non clôturée.",
+  KPI_ACTION_REVUE:
+    "Une action ne se rattache qu'à une décision d'une revue tenue et non clôturée : cette revue n'est pas tenue, ou elle est déjà clôturée. Choisissez une autre décision, ou laissez ce champ vide.",
+  KPI_ARBRE_UNITES:
+    "Unités différentes : la somme n'a pas de sens. Liez un KPI de même unité, ou faites combiner le nœud parent par un produit.",
   KPI_COEFFICIENT_PRODUIT: "Sous un produit, le coefficient d'un levier est 1.",
   KPI_NOEUD_NON_DESACTIVABLE:
     "Désactivez d'abord les enfants de ce nœud ; la racine ne se désactive pas.",

@@ -1,4 +1,12 @@
-import { decomposerArbreKpi, type NoeudArbreKpi } from "@missionpilot/engines";
+import {
+  cleIncoherenceUniteKpi,
+  decomposerArbreKpi,
+  exigerUnitesCoherentesKpi,
+  messageUniteIncoherenteKpi,
+  unitesIncoherentesArbreKpi,
+  type NoeudArbreKpi,
+  type NoeudUniteKpi,
+} from "@missionpilot/engines";
 import {
   kpiArbreContributionsQuerySchema,
   kpiArbreCreationSchema,
@@ -171,6 +179,34 @@ export async function exigerArbreGerable(
   return { arbre: verrouille, mission };
 }
 
+/** Nœuds actifs avec l'unité de leur KPI, pour la règle « une somme n'additionne que des unités identiques ». */
+function versNoeudsUnite(noeuds: readonly LigneNoeud[]): NoeudUniteKpi[] {
+  return noeuds
+    .filter((n) => n.actif)
+    .map((n) => ({
+      id: n.id,
+      parentId: n.parent_id,
+      relation: n.relation,
+      unite: n.kpi_unite,
+      libelle: n.libelle,
+    }));
+}
+
+/** Clés (parent|levier) des incohérences d'unités déjà présentes : un arbre ancien reste modifiable. */
+async function incoherencesExistantes(db: Db, arbreId: string): Promise<Set<string>> {
+  const noeuds = versNoeudsUnite(await noeudsDe(db, arbreId, true));
+  return new Set(unitesIncoherentesArbreKpi(noeuds).map(cleIncoherenceUniteKpi));
+}
+
+/**
+ * Refuse (409 `KPI_ARBRE_UNITES`) une écriture qui ferait additionner des unités différentes
+ * (« 55 jours + 72 % ») sous une relation « somme » ; sous un « produit » elles restent admises.
+ * Appelée APRÈS l'écriture, dans la même transaction : l'erreur annule l'écriture.
+ */
+async function exigerUnitesCoherentes(db: Db, arbreId: string, avant: Set<string>) {
+  exigerUnitesCoherentesKpi(versNoeudsUnite(await noeudsDe(db, arbreId, true)), avant);
+}
+
 function codePg(e: unknown): string {
   return typeof e === "object" && e !== null && "code" in e
     ? String((e as { code: unknown }).code)
@@ -258,6 +294,7 @@ export async function creerNoeud(db: Db, auth: Auth, arbreId: string, corps: unk
   const c = kpiNoeudCreationSchema.parse(corps);
   const { arbre } = await exigerArbreGerable(db, auth, arbreId);
   if (!arbre.actif) throw conflit("Cet arbre est désactivé.");
+  const dejaIncoherent = await incoherencesExistantes(db, arbreId);
   let noeudId: string;
   try {
     const r = await db.query(
@@ -283,6 +320,7 @@ export async function creerNoeud(db: Db, auth: Auth, arbreId: string, corps: unk
     }
     throw e;
   }
+  await exigerUnitesCoherentes(db, arbreId, dejaIncoherent);
   await journaliser(db, {
     cabinetId: auth.cabinetId,
     utilisateurId: auth.utilisateurId,
@@ -308,6 +346,7 @@ export async function modifierNoeud(db: Db, auth: Auth, noeudId: string, corps: 
     modif.coefficient === undefined ? modif : { ...modif, coefficient: String(modif.coefficient) },
     3,
   );
+  const dejaIncoherent = await incoherencesExistantes(db, arbreId);
   try {
     await db.query(`UPDATE kpi_arbre_noeuds SET ${set.sql}, modifie_par = $2 WHERE id = $1`, [
       noeudId,
@@ -320,6 +359,7 @@ export async function modifierNoeud(db: Db, auth: Auth, noeudId: string, corps: 
     }
     throw e;
   }
+  await exigerUnitesCoherentes(db, arbreId, dejaIncoherent);
   await journaliser(db, {
     cabinetId: auth.cabinetId,
     utilisateurId: auth.utilisateurId,
@@ -364,6 +404,17 @@ export async function contributionsArbre(db: Db, auth: Auth, id: string, query: 
     apres: valeur(evalApres, n.kpi_id),
   }));
   const r = decomposerArbreKpi(entree, { sens: racine.sens });
+  // Arbre ancien ou KPI dont l'unité a changé : on le dit, sans bloquer la lecture.
+  const unitesNoeuds = versNoeudsUnite(noeuds);
+  const avertissementsUnites = unitesIncoherentesArbreKpi(unitesNoeuds).map((i) => ({
+    parent_id: i.parentId,
+    parent_libelle: unitesNoeuds.find((n) => n.id === i.parentId)?.libelle ?? "",
+    noeud_id: i.noeudId,
+    noeud_libelle: unitesNoeuds.find((n) => n.id === i.noeudId)?.libelle ?? "",
+    unite_reference: i.uniteReference,
+    unite: i.unite,
+    message: messageUniteIncoherenteKpi(i, unitesNoeuds),
+  }));
   const parId = new Map(noeuds.map((n) => [n.id, n]));
   const resultat = new Map(r.noeuds.map((n) => [n.id, n]));
   return {
@@ -380,6 +431,7 @@ export async function contributionsArbre(db: Db, auth: Auth, id: string, query: 
       libelle: parId.get(nid)?.libelle ?? "",
     })),
     variation_racine: r.variationRacine,
+    avertissements_unites: avertissementsUnites,
     noeuds: noeuds.map((n) => {
       const x = resultat.get(n.id);
       return {

@@ -7,9 +7,9 @@ import {
   SENS_LIBELLES,
   texteAtteinte,
   texteEcart,
-  texteProjection,
   type KpiTableau,
 } from "../../lib/kpi";
+import { texteProjectionArrondie } from "../../lib/kpi-pilotage";
 import { BadgeStatutKpi } from "./BadgeStatutKpi";
 import { ListeAlertesKpi } from "./ListeAlertesKpi";
 import { TendanceKpi } from "./TendanceKpi";
@@ -91,7 +91,7 @@ export function CarteKpi({ kpi, missionId, niveauTitre = 3, avecLien = true }: C
                   ? "aucune mesure"
                   : `${formaterValeurKpi(e.valeur, kpi.unite)} (${e.nombre_mesures} mesure${e.nombre_mesures > 1 ? "s" : ""})`}
               </span>
-              <span>Projection : {texteProjection(e.projection, kpi.unite)}</span>
+              <span>Projection : {texteProjectionArrondie(e.projection, kpi.unite)}</span>
               <span>
                 <BadgeStatutKpi statut={e.statut_projete} prefixe="Statut projeté : " />
               </span>

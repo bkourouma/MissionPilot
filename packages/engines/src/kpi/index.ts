@@ -93,6 +93,15 @@ export {
   type ResultatArbreKpi,
 } from "./arbre";
 export {
+  cleIncoherenceUniteKpi,
+  exigerUnitesCoherentesKpi,
+  messageUniteIncoherenteKpi,
+  normaliserUniteKpi,
+  unitesIncoherentesArbreKpi,
+  type IncoherenceUniteKpi,
+  type NoeudUniteKpi,
+} from "./arbre-unites";
+export {
   PERIODES_RETARD_NUL_KPI,
   FENETRE_COMPLETUDE_KPI,
   K_ABERRANT_KPI,

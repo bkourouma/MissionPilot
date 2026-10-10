@@ -14,7 +14,8 @@ export type CodeErreurKpi =
   | "PONDERATION_INVALIDE"
   | "KPI_EN_DOUBLE"
   | "OPTIONS_INVALIDES"
-  | "ARBRE_INVALIDE";
+  | "ARBRE_INVALIDE"
+  | "ARBRE_UNITES";
 
 export class ErreurKpi extends Error {
   readonly code: CodeErreurKpi;

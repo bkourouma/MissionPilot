@@ -2,8 +2,10 @@ import { formaterDate, formaterPourcentage } from "../../lib/format";
 import { formaterValeurKpi } from "../../lib/kpi";
 import {
   LIBELLES_RELATION,
+  ordonnerNoeudsArbre,
   texteContribution,
   texteFavorable,
+  texteResidu,
   type ContributionsArbre,
   type NoeudContribution,
 } from "../../lib/kpi-pilotage";
@@ -33,6 +35,27 @@ export function ContributionsArbreKpi({ contributions: c }: ContributionsArbrePr
           ? ` Variation du KPI racine : ${texteContribution(c.variation_racine, u)}.`
           : ""}
       </p>
+      {(c.avertissements_unites ?? []).length > 0 ? (
+        <Alerte
+          tonalite="attention"
+          titre="Unités différentes : la somme n'a pas de sens"
+          annonce="status"
+        >
+          <p>
+            Ces leviers sont additionnés à un nœud dont l'unité est différente : leur contribution
+            n'est pas interprétable. Liez un KPI de même unité, ou faites combiner le nœud parent
+            par un produit.
+          </p>
+          <ul>
+            {(c.avertissements_unites ?? []).map((a) => (
+              <li key={`${a.parent_id}-${a.noeud_id}`}>
+                « {a.noeud_libelle} » est en « {a.unite} » sous « {a.parent_libelle} » (
+                {a.unite_reference})
+              </li>
+            ))}
+          </ul>
+        </Alerte>
+      ) : null}
       {!c.evaluable ? (
         <Alerte tonalite="attention" titre="Décomposition incomplète" annonce="status">
           <p>
@@ -132,13 +155,10 @@ export function ContributionsArbreKpi({ contributions: c }: ContributionsArbrePr
             cle: "residu",
             entete: "Non expliqué par l'arbre",
             alignement: "droite",
-            rendu: (n) =>
-              n.residu_apres === null && n.residu_avant === null
-                ? "—"
-                : `${texteContribution(n.residu_avant)} puis ${texteContribution(n.residu_apres)}`,
+            rendu: (n) => texteResidu(n.residu_avant, n.residu_apres, n.kpi_unite ?? u),
           },
         ]}
-        lignes={c.noeuds}
+        lignes={ordonnerNoeudsArbre(c.noeuds)}
         cleLigne={(n) => n.id}
       />
     </div>

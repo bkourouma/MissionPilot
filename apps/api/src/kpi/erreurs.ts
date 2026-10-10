@@ -84,7 +84,11 @@ function champ(error: unknown, nom: string): string {
 }
 
 export function traduireErreurKpi(error: unknown): unknown {
-  if (error instanceof ErreurKpi) return new AppError(400, `KPI_${error.code}`, error.message);
+  if (error instanceof ErreurKpi) {
+    // Une somme d'unités différentes est un conflit avec l'état de l'arbre (409), pas une saisie mal formée.
+    const statut = error.code === "ARBRE_UNITES" ? 409 : 400;
+    return new AppError(statut, `KPI_${error.code}`, error.message);
+  }
   const code = champ(error, "code");
   const sql = SQL[code];
   if (sql) return new AppError(sql[0], sql[1], sql[2]);

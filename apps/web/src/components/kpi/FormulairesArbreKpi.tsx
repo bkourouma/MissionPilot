@@ -4,7 +4,10 @@ import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import {
   cheminArbres,
+  avertissementUniteLevier,
+  cheminNoeud,
   cheminNoeuds,
+  erreurEncoreValable,
   LIBELLES_RELATION,
   messagePilotage,
   validerArbre,
@@ -19,6 +22,7 @@ import {
 } from "../../lib/kpi-pilotage";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -26,6 +30,8 @@ import { Select } from "../ui/Select";
 export interface OptionKpi {
   valeur: string;
   libelle: string;
+  /** Unité du KPI : sous une somme, elle doit être celle du nœud parent. */
+  unite?: string;
 }
 
 /**
@@ -41,6 +47,8 @@ export function FormulaireArbre({
 }) {
   const f = useFormulaire<ChampArbre>();
   const [s, setS] = useState<SaisieArbre>({ kpi_racine_id: "", libelle: "" });
+  // Un message de saisie disparaît dès que la valeur redevient valide.
+  const validation = validerArbre(s);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -84,7 +92,7 @@ export function FormulaireArbre({
               libelle: x.libelle || (kpis.find((k) => k.valeur === id)?.libelle ?? ""),
             }));
           }}
-          erreur={f.erreurs.kpi_racine_id}
+          erreur={erreurEncoreValable(f.erreurs, validation, "kpi_racine_id")}
         />
         <Champ
           libelle="Libellé de l'arbre"
@@ -92,7 +100,7 @@ export function FormulaireArbre({
           maxLength={200}
           value={s.libelle}
           onChange={(e) => setS((x) => ({ ...x, libelle: e.target.value }))}
-          erreur={f.erreurs.libelle}
+          erreur={erreurEncoreValable(f.erreurs, validation, "libelle")}
         />
       </div>
       <div className="mp-actions-formulaire">
@@ -134,6 +142,10 @@ export function FormulaireNoeud({
   });
   const actifs = noeuds.filter((n) => n.actif);
   const parent = actifs.find((n) => n.id === s.parent_id);
+  const uniteLevier = kpis.find((k) => k.valeur === s.kpi_id)?.unite;
+  // Sous une somme, une unité différente de celle du parent n'a pas de sens : l'API refuserait.
+  const avertissementUnite = avertissementUniteLevier(parent, actifs, uniteLevier);
+  const validation = validerNoeud(s);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -173,7 +185,7 @@ export function FormulaireNoeud({
           }))}
           value={s.parent_id}
           onChange={(e) => setS((x) => ({ ...x, parent_id: e.target.value }))}
-          erreur={f.erreurs.parent_id}
+          erreur={erreurEncoreValable(f.erreurs, validation, "parent_id")}
         />
         <Select
           libelle="KPI mesurant ce levier"
@@ -196,7 +208,7 @@ export function FormulaireNoeud({
           maxLength={200}
           value={s.libelle}
           onChange={(e) => setS((x) => ({ ...x, libelle: e.target.value }))}
-          erreur={f.erreurs.libelle}
+          erreur={erreurEncoreValable(f.erreurs, validation, "libelle")}
         />
         <Select
           libelle="Ses propres leviers se combinent en"
@@ -214,7 +226,7 @@ export function FormulaireNoeud({
           disabled={parent?.relation === "produit"}
           value={parent?.relation === "produit" ? "1" : s.coefficient}
           onChange={(e) => setS((x) => ({ ...x, coefficient: e.target.value }))}
-          erreur={f.erreurs.coefficient}
+          erreur={erreurEncoreValable(f.erreurs, validation, "coefficient")}
           aide="1 par défaut ; -1 pour un coût qui se retranche. Toujours 1 sous un produit."
         />
         <Champ
@@ -222,13 +234,74 @@ export function FormulaireNoeud({
           inputMode="numeric"
           value={s.rang}
           onChange={(e) => setS((x) => ({ ...x, rang: e.target.value }))}
-          erreur={f.erreurs.rang}
+          erreur={erreurEncoreValable(f.erreurs, validation, "rang")}
           aide="Ordre de la décomposition d'un produit : le premier rang passe en premier."
         />
       </div>
+      {avertissementUnite ? (
+        <Alerte tonalite="attention" titre="Unités différentes" annonce="status">
+          <p>{avertissementUnite}</p>
+        </Alerte>
+      ) : null}
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours} texteChargement="Ajout…">
           Ajouter le levier
+        </Bouton>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Change la façon dont un nœud combine ses leviers (somme pondérée ou produit). Une somme n'admet
+ * que des unités identiques ; pour des unités différentes (volume × panier moyen), le nœud se
+ * combine en produit. L'API refuse un changement qui ferait additionner des unités différentes.
+ */
+export function ChangerRelationNoeud({ noeud }: { noeud: Pick<NoeudArbre, "id" | "relation"> }) {
+  const f = useFormulaire<"relation">();
+  const [relation, setRelation] = useState<RelationArbre>(noeud.relation);
+
+  async function soumettre(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await f.envoyer(
+      { ok: true as const, charge: { relation } },
+      (charge) => api.patch(cheminNoeud(noeud.id), charge),
+      { succes: "Combinaison modifiée.", messageSpecifique: messagePilotage },
+    );
+  }
+
+  return (
+    <form
+      ref={f.refFormulaire}
+      className="mp-formulaire"
+      noValidate
+      onSubmit={soumettre}
+      aria-label="Changer la combinaison des leviers"
+    >
+      <RetourFormulaire
+        erreur={f.erreurGlobale}
+        succes={f.succes}
+        refAlerte={f.refAlerte}
+        titreErreur="Changement impossible"
+      />
+      <Select
+        libelle="Combine ses leviers en"
+        options={(Object.keys(LIBELLES_RELATION) as RelationArbre[]).map((r) => ({
+          valeur: r,
+          libelle: LIBELLES_RELATION[r],
+        }))}
+        value={relation}
+        onChange={(e) => setRelation(e.target.value as RelationArbre)}
+      />
+      <div className="mp-actions-formulaire">
+        <Bouton
+          type="submit"
+          variante="discret"
+          chargement={f.enCours}
+          texteChargement="Enregistrement…"
+          disabled={relation === noeud.relation}
+        >
+          Appliquer
         </Bouton>
       </div>
     </form>

@@ -24,13 +24,16 @@ import {
   cheminActionRevue,
   cheminGenererOrdreDuJour,
   cheminRevue,
+  commentairesDecision,
   hrefAction,
+  hrefNouvelleAction,
   hrefRevue,
   hrefRevues,
   LIBELLES_POINT_REVUE,
   LIBELLES_STATUT_ACTION,
   LIBELLES_STATUT_DECISION,
   libelleEcheance,
+  libelleOrigineOrdreDuJour,
   texteVerdict,
   type ActionKpi,
   type DecisionKpi,
@@ -160,7 +163,9 @@ export default async function PageRevueKpi({
               lignes={v.ordre_du_jour}
               cleLigne={(p) => String(p.rang)}
             />
-            <p className="mp-texte-doux">Durée prévue : {totalMinutes} minutes.</p>
+            <p className="mp-texte-doux">
+              {libelleOrigineOrdreDuJour(v.ordre_du_jour)} · durée prévue : {totalMinutes} minutes.
+            </p>
           </>
         )}
         {planifiee && droits.gerer ? (
@@ -233,6 +238,11 @@ export default async function PageRevueKpi({
                   <>
                     {d.libelle}
                     {d.motif ? <span className="mp-texte-doux"> — {d.motif}</span> : null}
+                    {commentairesDecision(v.evenements_decisions, d.id).map((c) => (
+                      <p key={c.cle} className="mp-texte-doux mp-texte-petit">
+                        {c.texte} : {c.commentaire}
+                      </p>
+                    ))}
                   </>
                 ),
               },
@@ -248,7 +258,21 @@ export default async function PageRevueKpi({
                 entete: "Suivi",
                 rendu: (d) =>
                   tenue && (droits.gerer || d.responsable_id === utilisateur.id) ? (
-                    <SuiviDecision decision={d} />
+                    <div className="mp-pile">
+                      {d.statut === "ouverte" || d.statut === "en_cours" ? (
+                        <Link
+                          href={hrefNouvelleAction(m.id, {
+                            decision: d.id,
+                            revue: v.id,
+                            kpi: d.kpi_id,
+                          })}
+                          className={classesBouton("discret")}
+                        >
+                          Créer une action
+                        </Link>
+                      ) : null}
+                      <SuiviDecision decision={d} />
+                    </div>
                   ) : (
                     "—"
                   ),
@@ -268,7 +292,7 @@ export default async function PageRevueKpi({
         <Carte titre={`Actions issues de la revue (${v.actions.length})`}>
           <Tableau<ActionKpi>
             legende="Actions correctives décidées en revue"
-            messageVide="Aucune action rattachée à cette revue. Créez-en depuis le registre des actions."
+            messageVide="Aucune action rattachée à cette revue. Utilisez « Créer une action » sur une décision, ou le registre des actions."
             colonnes={[
               {
                 cle: "titre",
