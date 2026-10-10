@@ -387,7 +387,7 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  670 gestionnaires de route (2026-10-10), seuls `POST /auth/connexion`,
+  673 gestionnaires de route (2026-10-10), seuls `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
   `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
@@ -944,7 +944,7 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   | `MPY01-11` | qualité : historiques en ajout seul, dont les relations entre clients et leurs retraits (`MPY01`), suivi (classe jamais abaissée, statut qui ne recule pas, livrable signé figé, empreinte du contenu relu figée : `MPY02`), élément de revue ajouté après validation (`MPY03`), session de revue close une fois (`MPY04`), étape de garde hors état (`MPY05`), signature d'un suivi non validé ou d'une autre version (`MPY06`), relation de clients en double, dans les deux sens (`MPY07`), validation ou signature sur un parcours de revue sans élément obligatoire (`MPY08`), niveau de risque d'acceptation abaissé après une décision (`MPY09`), attestation d'un item par l'auteur du livrable (`MPY10`), auteur désigné d'un livrable opaque qui n'est pas membre actif de la mission (`MPY11`) | `0280`–`0286` |
   | `MPV01-07` | registre des preuves : historique en ajout seul et champs figés d'une dimension (`MPV01`), cohérence mission, client, document, réponse ou lien, fichier lié rattaché à la mission ou au client de la preuve (ou orphelin téléversé par la personne qui saisit, jamais supprimé), auteur désigné membre actif de la mission (`MPV02`), versions consécutives (`MPV03`), avis d'expert signé par l'auteur de la version et par un expert métier ou un associé (`MPV04`), arbitrage d'une contradiction qui n'est plus courante (`MPV05`), classe de risque d'une assertion abaissée hors expert métier ou associé (`MPV06`), contradiction levée par l'auteur de l'assertion ou de la preuve contraire hors associé (`MPV07`) | `0240`–`0243` |
   | `MPM01-08` | référentiel de méthodes : version publiée et son contenu immuables (`MPM01`), incohérence de propriétaire, de numérotation ou d'identité (`MPM02`), historiques en ajout seul (liaison des missions, validations de dérogation, propositions : `MPM03`), décision de dérogation définitive, approuvée par son demandeur ou sans les validations exigées par sa classe de risque, quatre yeux (`MPM04`), circuit du comité méthode et relecteur ≠ auteur (`MPM05`), version liée à une mission non publiée, d'un autre cabinet ou plus ancienne (`MPM06`), variante publiée qui abaisse la classe de risque ou relève le niveau d'autonomie d'une brique du standard (`MPM07`), variante publiée par le créateur de la version hors associé (`MPM08`) | `0201`–`0203`, `0207`, `0209` |
-  | `MPG01-08` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt, choix d'un modèle ou exécution d'agent sans évaluation de non-régression réussie et admise (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`), validation d'un contenu issu d'une sortie d'agent non conforme (`MPG06`), classe de risque d'une brique sous le plancher de la méthode ou R0 déclarée hors associé (`MPG07`), restriction posée par un associé levée par un non-associé ou décision sur une exécution par qui n'en est ni le déclencheur, ni le chef ou directeur de la mission, ni associé (`MPG08`) | `0260`–`0267` |
+  | `MPG01-09` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt, choix d'un modèle ou exécution d'agent sans évaluation de non-régression réussie et admise (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`), validation d'un contenu issu d'une sortie d'agent non conforme (`MPG06`), classe de risque d'une brique sous le plancher de la méthode ou R0 déclarée hors associé (`MPG07`), restriction posée par un associé levée par un non-associé ou décision sur une exécution par qui n'en est ni le déclencheur, ni le chef ou directeur de la mission, ni associé (`MPG08`), demande de rejeu réel incohérente : transition d'état interdite, demande terminée modifiée, jeu ou prompt étranger, évaluation `openrouter` sans demande en cours du même prompt, jeu et modèle ou sans ses appels inscrits, demande « reussie » sans évaluation réussie issue d'elle (`MPG09`, traduit en 409 `EVALUATION_INCOHERENTE`) | `0260`–`0267`, `0270` |
   | `MPO01-04` | dossier client : tout en ajout seul (`MPO01`), remplacement d'un fait (même client, catégorie et clé, jamais un fait rejeté) ou d'un état financier (état courant du même exercice, un seul courant par exercice) (`MPO02`), décision sur un enregistrement remplacé ou fait extrait par l'IA confirmé dans sa transaction de création (`MPO03`), lignes d'état ajoutées hors de l'ingestion, acceptation automatique d'un état en écart ou de tolérance non nulle, acceptation humaine d'un état en écart ou de tolérance non nulle sans motif (`MPO04`) | `0220`–`0224` |
   | `MPX01-03` | clôture de mission (AUT-08) : historiques des vérifications et des dérogations en ajout seul (`MPX01`), dérogation accordée ou retirée par un utilisateur qui n'est ni associé ni directeur de mission actif (`MPX02`), clôture par l'auteur d'une dérogation en vigueur hors associé (`MPX03`) | `0320`–`0323` |
   | `MPU01-05` | moteur d'automatisation : historiques en ajout seul (`MPU01`), coupe-circuit levé par un non-associé (`MPU02`), annulation d'une action non annulable ou non réussie (`MPU03`), action vers le client autorisée hors classe R0 (`MPU04`), version courante absente ou événement incohérent, action d'une exécution non déclenchée, résultat incompatible avec la garde (`MPU05`) | `0300`, `0301` |
@@ -1081,7 +1081,7 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
 ## 7. Assainissement des entrées et des sorties
 
 - **Validation** : schémas Zod `.strict()` partagés (`packages/shared/src/schemas/`,
-  547 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
+  550 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
   `bodyLimit`) ; paramètres `id` en UUID (`http/outils.ts`). Les erreurs Zod
   renvoient 400 `REQUETE_INVALIDE`. Une `AppError` ne transmet de `details` que
   les champs de la liste blanche `CHAMPS_DETAILS_PUBLICS` (`errors.ts` :
@@ -1218,8 +1218,8 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   automatisation (job `automatisation_agent`, §5 quinquies, qui passe par
   `executerAgent`) ; ni la notation, ni les plans, ni les rapports ne lancent de
   génération (rédaction assistée non faite).
-- **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0267`,
-  `agents/`, `routes/agents.ts`) : l'orchestrateur reste le SEUL composant qui
+- **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0267` et
+  `0270`, `agents/`, `routes/agents.ts`) : l'orchestrateur reste le SEUL composant qui
   appelle un modèle ; une exécution d'agent EST une demande de l'orchestrateur
   (`agents/executions.ts` : `executerAgent`, `enregistrerExecutionAgent`).
   - **Droits du déclencheur** : `ia.utiliser` et les permissions déclarées par
@@ -1284,13 +1284,60 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     `agents_executions`). Un jeu d'essai (ajout seul) ne perd ni cas ni critère sans
     `autonomie.decider` (409 `JEU_ESSAI_AFFAIBLI`, `details.manquants`) ; les variables
     et chiffres des cas ne sont lus que par l'auteur du jeu ou `agent.gerer`
-    (`donnees_cas_masquees` pour les autres). **Conséquence** : tant que le rejeu réel
-    sur OpenRouter par la file `jobs` n'est pas construit, aucune évaluation
-    `openrouter` n'existe et aucun agent ne s'exécute en production (dette, §15). Les routes `routes/ia-prompts.ts` et `routes/ia-parametres.ts`
+    (`donnees_cas_masquees` pour les autres). **Conséquence** : en production, seule
+    une évaluation `openrouter` rend un agent exécutable ; elle naît du rejeu réel
+    (ci-dessous). Les routes `routes/ia-prompts.ts` et `routes/ia-parametres.ts`
     traduisent `MPG04` en 409 `NON_REGRESSION_REQUISE` ; une nouvelle version d'un
     prompt doté d'un jeu d'essai est créée inactive quand `activer` est omis (409
     si `activer: true` explicite : elle n'a encore aucune évaluation). **Limite** :
     revenir au modèle recommandé n'est pas gardé.
+  - **Rejeu réel sur OpenRouter** (AGT-04, migration `0270`,
+    `agents/evaluations-openrouter.ts`, job `agents_evaluation_openrouter`) :
+    - **Provenance** : une évaluation `fournisseur = 'openrouter'` n'existe que née d'une
+      DEMANDE (table `agents_evaluations_demandes`, `portail_interdit`, états terminaux
+      figés) ; `CHECK` (`fournisseur <> 'openrouter'` ou demande et statut renseignés) et
+      déclencheur qui exige une demande EN COURS du même prompt, jeu et modèle, le même
+      nombre de cas et, pour une évaluation réussie, au moins `cas_total` appels inscrits en
+      succès dans `ia_consommations` (colonne `evaluation_demande_id`) ; SQLSTATE `MPG09`
+      (409 `EVALUATION_INCOHERENTE`). Une évaluation incomplète, échouée ou arrêtée par un
+      plafond a `reussie = false` et ne peut jamais activer. **Limite** : ces gardes arrêtent
+      un `INSERT` direct ou un code qui oublierait la provenance ; elles n'arrêtent pas du SQL
+      arbitraire exécuté par le même rôle applicatif (§15).
+    - **Coût** : plafond par évaluation de 2 USD (`PLAFOND_EVALUATION_MICRO_USD`, à valider)
+      vérifié avant chaque appel sur le coût engagé et l'estimation du cas ; plafond mensuel du
+      cabinet réservé avant chaque appel (`reserverAppel`) ; les appels comptent dans
+      `ia_consommations` comme toute génération. Refus à la demande : 409 `JEU_ESSAI_ABSENT`,
+      `IA_DESACTIVEE`, `IA_NON_CONFIGUREE` (jamais de repli sur le fournisseur local),
+      `PLAFOND_IA_ATTEINT`, `PLAFOND_EVALUATION_ESTIME`, `EVALUATION_EN_COURS` (un seul rejeu
+      en file ou en cours par cabinet : index unique partiel), `EVALUATION_DEJA_REUSSIE` ; 429
+      `TROP_DE_REJEUX` (5 par 24 heures glissantes et par cabinet, à valider) ; 400 pour un
+      modèle sans tarif connu ou une variable de cas insérée dans les consignes du prompt. Durée
+      maximale d'un rejeu : 8 minutes (à valider) ; une demande en file depuis plus d'une heure ou
+      en cours depuis plus de 30 minutes est réputée interrompue (à valider). Les coupe-circuits
+      IA du cabinet et des agents sont relus avant chaque appel ; le coupe-circuit N4 ne
+      s'applique pas (appels internes). Statuts : `en_file`, `en_cours`, `reussie`,
+      `echouee`, `incomplete`, `ignoree` (aucun appel) ; causes dans
+      `CAUSES_EVALUATION_OPENROUTER` (`packages/shared/src/schemas/agents.ts`).
+    - **Aucune nouvelle tentative d'un appel payant** : `tentatives_max = 1`, clé de job
+      `agents_evaluation_openrouter:<demande>`, fournisseur construit avec une seule tentative ;
+      seule une demande « en_file » démarre. Un modèle servi différent du modèle demandé
+      (`memeModele`, variante après « : » ignorée) rend l'évaluation échouée
+      (`MODELE_SERVI_DIFFERENT`).
+    - **FIN-02** : coût, estimation, plafond et jetons (de la demande et de chaque cas) sont
+      ABSENTS des réponses sans `finance.lire` (`vueDemande`, `vueEvaluation`), jamais masqués
+      par un zéro ; le détail par cas ne porte que des codes de raison, jamais le texte produit.
+    - **Clé API** : jamais dans la réponse, le journal, une erreur ni la charge du job (elle ne
+      porte que l'identifiant de la demande) ; résolue au moment de l'appel (`resoudreCle`).
+    - **Séparation des tâches** : demander un rejeu exige `agent.gerer` (expert métier,
+      associé) ; activer un prompt ou choisir un modèle exige `ia.configurer` (associé seul) :
+      qui demande l'évaluation n'est pas, par son seul rôle, qui active ; la base exige
+      l'évaluation réussie quelle que soit la personne.
+    - **Contenu d'un jeu d'essai** : le rejeu masque avec une liste de termes sensibles VIDE
+      (`creerMasque([])`) ; un jeu d'essai ne contient donc jamais de contenu client réel (textes
+      fictifs ou anonymisés), règle DOCUMENTÉE, non contrôlée par le code. Les variables de cas
+      sont traitées comme données non fiables (neutralisées puis encadrées, AGT-07).
+    - Tests : `agents-evaluations-openrouter.test.ts` (l'aide `evaluation-reelle.ts` sème une
+      évaluation légitime en propriétaire, jamais par un `INSERT` forgé).
   - **Transparence** (AGT-09) : agent, brique, niveau effectif, prompt, modèle,
     mode dégradé (AGT-10), sources, empreinte de l'entrée (jamais l'entrée en
     clair), décision humaine ; le coût est ABSENT sans `finance.lire` ;
@@ -1954,7 +2001,9 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Plan partagé au client jamais servi par le portail : le partage est prêt côté cabinet, aucune route du portail ne le lit | `plans/partage.ts`, `portail/garde.ts`                                    |
 | Date d'atteinte d'un jalon non horodatée : approchée par la dernière modification (indicateur de respect des jalons)                            | `finance/indicateurs.ts`                                                  |
 | Migrations appliquées par nom, sans somme de contrôle : l'immuabilité d'une migration appliquée est une convention de relecture, non vérifiée par l'outil | `db/migrate.ts`                                                           |
-| Agents IA inutilisables en production : l'exécution exige une évaluation de non-régression `openrouter` (réglage `app.evaluation_locale_admise` absent hors développement), et le rejeu réel par la file `jobs` n'est pas construit | `ia/evaluation.ts`, `agents/evaluations.ts`, `migrations/0265_agents_evaluations_fournisseur.sql` |
+| Rejeu réel des évaluations d'agents (levée de l'ancienne dette « agents inutilisables en production ») : aucune clé OpenRouter dans l'environnement de développement, le vrai fournisseur n'a été exercé que contre un serveur factice local ; AUCUN appel réel n'a eu lieu, donc qualité d'un vrai modèle, coûts et jetons réels et comparaison du modèle servi non vérifiés (un identifiant daté renvoyé par OpenRouter ferait échouer tout rejeu, sans danger) | `agents/evaluations-openrouter.ts` (`memeModele`), `ia/fournisseur.ts`, `test/agents-evaluations-openrouter.test.ts` |
+| Rejeu réel : la file `jobs` est FIFO globale entre cabinets, un rejeu de 8 à 13 minutes (`DUREE_MAX_EVALUATION_MS` plus un appel) retarde les jobs de tous les cabinets, et chaque cabinet peut en avoir un (N cabinets, N rejeux) ; plafond par évaluation (2 USD), 5 rejeux par 24 heures, durée maximale et péremptions (1 h en file, 30 min en cours) sont des valeurs de départ à valider | `agents/evaluations-openrouter.ts`, `jobs/worker.ts`, `ia/modeles.ts`, `DECISIONS.md` |
+| Rejeu réel : la garde de provenance en base (`MPG09`, `0270`) reste contournable par du SQL arbitraire du même rôle applicatif, qui peut forger la demande, les appels inscrits et l'évaluation ; la garde complète (fonction `SECURITY DEFINER` réservée au job, `REVOKE INSERT, UPDATE` pour le rôle applicatif) n'est pas faite. Autres limites : `prompt_evalue` avec `p_modele` nul (activation d'un prompt) ne lie pas l'activation au modèle routé (antérieur au chantier ; filet à l'exécution par `exigerPromptEvalue`) ; l'interdiction de contenu client réel dans un jeu d'essai est documentée, non contrôlée (le masque d'un rejeu n'a aucun terme sensible) | `migrations/0270_agents_evaluations_openrouter.sql`, `migrations/0265_agents_evaluations_fournisseur.sql`, `agents/executions.ts` (`exigerPromptEvalue`) |
 | Automatisation, observation non traitée : le job d'appel d'agent relit le responsable COURANT de l'automatisation, alors que la garde a décidé sous l'identité de l'exécution ; une action d'agent déjà autorisée sous l'ancienne identité peut donc partir sous la nouvelle si l'automatisation est désactivée puis réactivée par une autre personne avant le job (parade possible : comparer `automatisation_executions.executant_id` au responsable courant avant l'appel, en mode « responsable ») | `automatisation/execution.ts` (`lireActionAgent`, `creerHandlerAgentAutomatisation`) |
 | Automatisation : 50 automatisations actives par cabinet et 30 simulations par utilisateur et par 10 minutes sont des valeurs de départ « à valider » ; la définition d'une automatisation (gabarits de texte) est lisible de tout détenteur de `automatisation.lire`, chef de mission compris ; un événement traité pendant une coupure n'est pas rejoué à la levée | `automatisation/regles.ts`, `automatisation/simulation.ts`, `automatisation/coupe-circuits.ts`, `DECISIONS.md` |
 | KPI : pas de quatre yeux sur la clôture d'une revue ni sur l'exécution d'une décision (le responsable peut clore ce qu'il a décidé) ; le dossier de revue, non enregistré, n'ouvre pas de suivi qualité (QUA) et n'est pas horodaté contre la falsification une fois sorti de la plateforme | `kpi/revues.ts`, `kpi/dossier-revue.ts`, `routes/kpi-pilotage.ts` (§5 quater) |
@@ -1962,7 +2011,7 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | CV de la banque des appels d'offres : lisibles de tout détenteur de `ao.lire` ; aucune durée de conservation automatique (à valider) ; le texte d'une offre technique déjà rédigée peut citer le nom d'un expert et n'est pas réécrit par l'anonymisation (versions en ajout seul) | `banque-ao/cv.ts`, `migrations/0386_ao_cv_anonymisation.sql`, `DECISIONS.md` |
 | Capitalisation : le chef de mission peut valider la version IA du retour d'expérience qu'il a lui-même demandée (exception voulue, conforme au PRD, `MPJ08` n'exige qu'un responsable de la mission) ; niveaux de compétence, fichiers de la salle et retours d'expérience sans durée de conservation ni procédure d'effacement | `capitalisation/retours.ts`, `migrations/0465_capitalisation_durcissement.sql` |
 | `semaineQuerySchema` (`packages/shared/src/schemas/temps.ts`) n'est pas borné : une semaine extrême sur `GET /api/temps/preremplissage` et `GET /api/feuilles-temps/semaine` n'est pas testée (contrairement aux dates bornées par `dateIsoBorneeSchema`) | `routes/previsions.ts`, `routes/feuilles-temps.ts` |
-| Seuils, poids et plafonds des vagues 2 et 3 (confiance de notation, go/no-go, estimation, plafonds de débit) : valeurs de départ à calibrer au pilote ; rejeu OpenRouter des évaluations d'agents : voir la ligne « Agents IA inutilisables en production » | `DECISIONS.md`, `notation/confiance.ts`, `appels-offres/go-no-go.ts` |
+| Seuils, poids et plafonds des vagues 2 et 3 (confiance de notation, go/no-go, estimation, plafonds de débit) : valeurs de départ à calibrer au pilote ; valeurs de départ du rejeu réel des évaluations d'agents (2 USD par évaluation, 5 rejeux par 24 heures, 8 minutes, péremptions 1 h et 30 min) : voir les lignes « Rejeu réel » | `DECISIONS.md`, `notation/confiance.ts`, `appels-offres/go-no-go.ts` |
 | Recette navigateur du 2026-10-10, observations non tranchées. **Jours de budget** : un consultant membre de l'équipe voit les JOURS de budget et de temps réel dans la section « Écarts » d'un retour d'expérience (`budget.lire_jours`, FIN-02 ne vise que les montants) : décision produit à confirmer | `capitalisation/retours.ts` (`sansJours`), `packages/shared/src/roles.ts`, `DECISIONS.md` |
 | Retour d'expérience : générer la version « gabarit » (sans clé IA, plafond atteint ou sortie inexploitable) inscrit une NOUVELLE version qui remplace le texte courant rédigé par un humain ; l'ancien texte reste lisible dans la version précédente (ajout seul), rien n'est perdu mais l'écran n'avertit pas | `capitalisation/ia.ts` (`genererRetourIa`), `capitalisation/retours.ts` (`inscrireVersionGeneree`) |
 | Dossier de revue KPI en brouillon : `GET /kpi/revues/:id/dossier` lui ajoute la mention IA par défaut du cabinet en pied de page (« …tout contenu préparé avec l'aide de l'IA a été relu et validé par un consultant »), alors que ce dossier n'a aucun circuit de validation, ne porte pas de contenu IA et reste « brouillon » et confidentiel : mention trompeuse à retirer du dossier ou à conditionner (constaté à la recette, confirmé dans le code) | `routes/kpi-pilotage.ts` (`mention_pied`), `rapports/parametres.ts` (`MENTION_IA_DEFAUT`) |
@@ -1992,6 +2041,11 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
 - **Automatisation** : lier l'appel d'un agent à l'identité décidée par la garde (§15) ; rejeu des
   événements bloqués par un coupe-circuit, aujourd'hui volontairement absent.
 - **Salle de mission** : mise en file de l'accusé de réception (§15).
+- **Rejeu réel des évaluations d'agents** (§7 bis, §15) : valider les valeurs de départ
+  (plafond de 2 USD par évaluation, 5 rejeux par 24 heures, durée maximale de 8 minutes,
+  péremptions de 1 h et 30 min, un rejeu par cabinet) ; constater un premier rejeu réel avec
+  une clé (modèle servi, coûts, jetons) ; décider de la garde complète de provenance
+  (fonction `SECURITY DEFINER`) et d'une file `jobs` dédiée aux jobs longs.
 - **Bornes de dates** : `semaineQuerySchema` (§15).
 - **Jours de budget dans les retours d'expérience** : un consultant membre de l'équipe lit les jours
   de la section « Écarts » (§5 sexies, §15) ; décision produit à confirmer (`DECISIONS.md`).

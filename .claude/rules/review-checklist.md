@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-10 (branche `feat/vague-2-automatisation`, arbre propre : vagues 2 et 3 et corrections de la recette navigateur commitées) en lançant les commandes
+ont été relevés le 2026-10-10 (vagues 2 et 3 et corrections de la recette navigateur commitées ; relevés refaits sur la branche `feat/rejeu-openrouter`, dont le chantier du rejeu réel des évaluations OpenRouter n'est PAS encore commité : arbre sale) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -113,6 +113,19 @@ des mécanismes : `docs/governance/SECURITY.md` et
   jamais reçue d'une requête ; seul un contenu validé (et jamais un essai sur
   prompt « exemple ») est livrable au client (`ia/generations.ts`) ; la clé
   API n'est ni renvoyée ni journalisée (`ia/parametres.ts`).
+- **Une évaluation de non-régression qui active un prompt (ou un modèle, ou autorise un
+  agent) en production vient d'un appel réel, provenance vérifiée en base** : une
+  évaluation `fournisseur = 'openrouter'` n'existe que née d'une demande de rejeu en
+  cours (`agents_evaluations_demandes`) avec ses appels réussis inscrits dans
+  `ia_consommations` (`CHECK` et déclencheur `MPG09`, migration `0270`) ; seul le job
+  `agents_evaluation_openrouter` (`agents/evaluations-openrouter.ts`) l'insère, et
+  `POST /agents/evaluations` n'enregistre que `local` (`agents/evaluations.ts`). Le
+  rejeu ne refait jamais un appel payant (`tentatives_max = 1`), respecte les plafonds
+  (par évaluation, mensuel du cabinet) et ses coûts et jetons sont ABSENTS sans
+  `finance.lire`. Un test qui a besoin d'une évaluation réelle la sème par
+  `apps/api/test/evaluation-reelle.ts`, jamais par un `INSERT` « openrouter » forgé.
+  Limite connue : du SQL arbitraire du même rôle applicatif contourne la garde
+  (SECURITY.md §15). Recherche n° 21.
 - **Fonction de purge ou d'anonymisation** (`purger_textes_ia`,
   `planifier_conservation_ia`, `planifier_purge_rapports`) : `SECURITY DEFINER`,
   bornée au cabinet du contexte (`app_cabinet_id()`), paramètres validés, clé de
@@ -152,8 +165,10 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-10, toutes les migrations sont commitées (148 fichiers),
-  y compris les 43 des vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
+  recréer) ; au 2026-10-10, 148 des 149 migrations sont commitées : la seule non
+  commitée est `0270` (rejeu réel des évaluations OpenRouter, branche
+  `feat/rejeu-openrouter`), corrigeable sur place tant qu'elle ne l'est pas (les
+  bases qui ont appliqué une ancienne `0270` sont à recréer) ; parmi les commitées, les 43 des vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
   `0360`–`0363`, `0380`–`0386`, `0400`–`0404`, `0420`–`0424`, `0440`–`0445`,
   `0460`–`0465`), qui étaient encore libres de modification le 2026-10-08 : elles
   sont désormais immuables, même si `origin/main` n'en compte encore que 105 tant
@@ -269,10 +284,12 @@ des mécanismes : `docs/governance/SECURITY.md` et
 ## Recherches mécaniques
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-10
-sur `feat/vague-2-automatisation` (arbre propre, vagues 1 à 3 commitées). Les recherches
-n° 1 à 10, 13, 14, 16, 17 et 18 et le compte de contrôle de la n° 12 ont été relancés le
-2026-10-10 (les n° 11 et 15, script ponctuel et réseau, ne l'ont pas été) : seuls les n° 8
-(numéro de ligne) et 10 (deux routes de plus) ont changé depuis le relevé du 2026-10-08 ; les écarts avec l'ancien
+sur `feat/rejeu-openrouter` (vagues 1 à 3 commitées ; chantier du rejeu réel OpenRouter
+dans l'arbre, non commité). Les recherches
+n° 1 à 10, 13, 14, 16, 17, 18 et 21 et le compte de contrôle de la n° 12 ont été relancés le
+2026-10-10 (les n° 11 et 15, script ponctuel et réseau, ne l'ont pas été) : par rapport au
+relevé précédent de la même date, seuls les n° 10 (3 routes de plus : le rejeu réel), 12
+(3 schémas de plus), 13 (une migration de plus, `0270`) ont changé, et la n° 21 est nouvelle ; les écarts avec l'ancien
 relevé (vague 1) sont expliqués ligne par ligne ci-dessous.
 
 ```bash
@@ -315,9 +332,12 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-10, vagues 2 et 3 et recette comprises) : "670 8" (668 le 2026-10-08 : +2
-#     routes, `GET /appels-offres/assignables` et `GET /capitalisation/retours/a-ouvrir`,
-#     toutes deux sous `exiger` ; 477 avant les vagues 2 et 3 ; 8 sans exiger, inchangé) puis 8 lignes (auth.ts connexion, connexion/2fa,
+#     (2026-10-10, vagues 2 et 3, recette et rejeu réel OpenRouter comprises) : "673 8"
+#     (670 avant le rejeu réel : +3 routes `POST /agents/prompts/:promptId/evaluations/openrouter`,
+#     `GET /agents/evaluations/openrouter/:id` et `GET /agents/prompts/:promptId/evaluations/openrouter`,
+#     toutes sous `exiger` ; 668 le 2026-10-08 : +2 routes, `GET /appels-offres/assignables`
+#     et `GET /capitalisation/retours/a-ouvrir`, sous `exiger` ; 477 avant les vagues 2
+#     et 3 ; 8 sans exiger, inchangé) puis 8 lignes (auth.ts connexion, connexion/2fa,
 #     deconnexion ; connexion-demo.ts comptes-demo, connexion-demo ; sante.ts ;
 #     utilisateurs.ts et portail-gestion.ts invitations/accepter)
 node -e '
@@ -338,7 +358,8 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 547 z.object de
+# 12. Schémas Zod non stricts. Attendu : 0 sur 550 z.object (547 avant le rejeu réel : +3
+#     de `schemas/agents.ts`, tous `.strict()`) de
 #     packages/shared/src/schemas (hors *.test.ts ; chaque z.object a .strict()
 #     dans sa chaîne d'appels, y compris `z.object(...).partial().strict()`).
 #     L'ancien « 373 » était un relevé périmé ; `rg -o "z\s*\.object\("` sans -U ne
@@ -348,19 +369,21 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     appariement naïf), puis, après la parenthèse fermante, parcourir les appels
 #     chaînés `.methode(...)` jusqu'à trouver `strict`. Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 547).
+#     (somme 550).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; dossier : 148 fichiers au
-# 2026-10-10 (`ls apps/api/migrations | wc -l`; 105 avant les vagues 2 et 3), tous
-# commités (`git ls-files apps/api/migrations | wc -l` : 148 ; `git status --short
-# apps/api/migrations` : vide), dont les 43 des vagues 2 et 3, sans aucune modification
-# ni suppression dans l'historique (commande ci-dessus : 0 ligne) ; `origin/main`
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 149 fichiers au
+# 2026-10-10 (`ls apps/api/migrations | wc -l`; 148 avant le rejeu réel OpenRouter,
+# 105 avant les vagues 2 et 3), dont 148 commités (`git ls-files apps/api/migrations |
+# wc -l` : 148 ; `git status --short apps/api/migrations` : une ligne `??` pour
+# `0270_agents_evaluations_openrouter.sql`, non commitée : ce relevé repasse à « tous
+# commités, 149 » une fois le chantier commité), dont les 43 des vagues 2 et 3, sans aucune
+# modification ni suppression dans l'historique (commande ci-dessus : 0 ligne) ; `origin/main`
 # compte 105 migrations (vague 1 comprise, corrections d'audit commitées) : aucune
-# modification ni suppression, 43 « A » à venir à la fusion de la pull request. La
-# branche locale `main` est en retard : comparer à `origin/main`.
+# modification ni suppression, 44 « A » à venir (43 des vagues 2 et 3 et `0270`) à la
+# fusion de la pull request. La branche locale `main` est en retard : comparer à `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -413,4 +436,12 @@ rg -n "=\{\(.*\) =>" apps/web/src/app --glob '**/page.tsx' --glob '**/layout.tsx
 #     (plafond 500, défaut 200 admis : dette, CODING_STANDARDS §10) ; `clients/[id]/portail`
 #     et `pipeline` comprises. Un appel d'une autre route sans `limiteMax` est un écart.
 rg -n "chargerToutesLesPages(<[^>]*>)?\(" apps/web/src --glob '!*.test.*'
+
+# 21. Provenance des évaluations de non-régression : seuls deux `INSERT INTO
+#     agents_evaluations` dans l'API, l'évaluation locale (`agents/evaluations.ts`, toujours
+#     « local ») et le job de rejeu réel (`agents/evaluations-openrouter.ts`, qui ne naît que
+#     d'une demande, migration `0270`). Attendu (2026-10-10, branche `feat/rejeu-openrouter`) :
+#     2 lignes ; toute autre ligne qui écrit `fournisseur = 'openrouter'` est un écart. Les
+#     tests sèment une évaluation réelle par `apps/api/test/evaluation-reelle.ts`.
+rg -n "INSERT INTO agents_evaluations\b" apps/api/src
 ```

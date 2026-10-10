@@ -81,7 +81,7 @@ Posées par l'implémentation pour fermer des écarts relevés à l'audit ; à c
 | Signature d'un avis d'expert (PRV-03) | **Réservée à un `expert_metier` ou à un associé**, et à l'auteur de la version ; abaisser la classe de risque d'une assertion leur est réservé aussi (doublé en base, `MPV04`, `MPV06`). |
 | Origine d'une note de satisfaction (QUA-08) | Tracée : `saisie_par_equipe` (le cabinet saisit pour le compte du client, valeur par défaut) ou `client` (saisie directe par le client). Le calcul du NPS ne change pas. |
 | Export du dossier remis au client (DOS-07) | **Sans les motifs des décisions** (acceptation d'un état en écart, rejet d'un fait) : ils restent internes au cabinet. |
-| Exécution d'un agent IA (AGT-04) | Un agent n'exécute qu'un prompt doté d'un jeu d'essai et d'une évaluation réussie ; en production, seule une évaluation sur un vrai modèle (`openrouter`) compte (ADR-005). **Décision laissée au commanditaire** : exiger un jeu d'essai pour CHAQUE activation de prompt (aujourd'hui, un prompt sans jeu d'essai peut s'activer mais ne sert aucun agent) est une décision produit, non imposée. |
+| Exécution d'un agent IA (AGT-04) | Un agent n'exécute qu'un prompt doté d'un jeu d'essai et d'une évaluation réussie ; en production, seule une évaluation sur un vrai modèle (`openrouter`) compte (ADR-005) ; elle naît du rejeu réel construit le 2026-10-10 (section « Rejeu réel OpenRouter »). **Décision laissée au commanditaire** : exiger un jeu d'essai pour CHAQUE activation de prompt (aujourd'hui, un prompt sans jeu d'essai peut s'activer mais ne sert aucun agent) est une décision produit, non imposée. |
 
 ## Précisions issues de l'audit des vagues 2 et 3 (2026-10-08)
 
@@ -109,6 +109,21 @@ Posées PAR DÉFAUT par l'implémentation pour fermer des écarts relevés à l'
 | Retour d'expérience à la clôture (CAP-01) | **Le retour s'ouvre AUTOMATIQUEMENT, en brouillon du gabarit, dans la transaction de la clôture** ; son échec ne bloque jamais la clôture (journalisé). Pour les missions déjà closes, l'écran propose de l'ouvrir (`GET /capitalisation/retours/a-ouvrir`). Sa rédaction et sa validation restent celles du CAP-01 (chef, directeur, associé). | Aucune ; à confirmer. |
 | Rubrique « Connaissances » du menu (CAP) | **`temps.saisir` suffit à l'ouvrir** (onglet « Compétences » : ses propres niveaux, « Mes compétences ») ; chaque onglet suit la permission de sa page (`connaissance.lire`, `competence.lire`, `standard.gerer`). Le gestionnaire, qui saisit des temps, la retrouve donc (voir la ligne « Matrice de compétences ») ; il ne lit toujours pas la matrice ni la base de connaissances. | Aucune ; à confirmer. |
 | Jours de budget dans les retours d'expérience (CAP-01, FIN-02) | **Posé par défaut : la section « Écarts » (jours budgétés et réels) d'un retour est lisible de tout détenteur de `budget.lire_jours`**, donc d'un consultant membre de l'équipe ; FIN-02 ne vise que les coûts, taux, marges et montants. | **À confirmer par le commanditaire** : un consultant doit-il voir les jours de budget de sa mission dans un retour ? |
+
+## Rejeu réel OpenRouter des évaluations d'agents (AGT-04, 2026-10-10)
+
+Posées PAR DÉFAUT par l'implémentation (ADR-005, migration `0270`, `agents/evaluations-openrouter.ts`) ; aucune de ces valeurs n'a été fixée par le commanditaire, toutes sont **à valider**. Aucun appel réel n'a encore eu lieu (aucune clé OpenRouter en développement) : ces valeurs sont à confirmer au premier rejeu réel.
+
+| Sujet | Règle posée par défaut | Reste à valider |
+| --- | --- | --- |
+| Plafond par évaluation | **2 USD** (`PLAFOND_EVALUATION_MICRO_USD`), en plus du plafond mensuel du cabinet : au-delà, l'évaluation s'arrête, est INCOMPLÈTE et n'active jamais un prompt ; une estimation prudente déjà au-dessus du plafond est refusée à la demande (409 `PLAFOND_EVALUATION_ESTIME`). | La valeur. |
+| Rejeux par cabinet | **5 demandes sur 24 heures glissantes** (429 `TROP_DE_REJEUX`, les demandes « ignorées » sans appel ne comptent pas) et **UN SEUL rejeu en file ou en cours par cabinet** (409 `EVALUATION_EN_COURS`) ; jamais de rejeu d'une combinaison (prompt, jeu d'essai courant, modèle) déjà réussie (409 `EVALUATION_DEJA_REUSSIE`). | Les deux valeurs. |
+| Durée maximale d'un rejeu | **8 minutes** (`DUREE_MAX_EVALUATION_MS`), contrôlée avant chaque appel : au-delà, évaluation INCOMPLÈTE (cause `DUREE_MAX_ATTEINTE`). Doit rester sous le délai de blocage des jobs du worker (15 minutes). | La valeur ; une file dédiée aux jobs longs (la file `jobs` est FIFO globale entre cabinets). |
+| Péremption d'une demande | Une demande **en file depuis plus de 1 heure** (worker arrêté) ou **en cours depuis plus de 30 minutes** est réputée interrompue (échouée, cause `INTERROMPUE`) à la demande suivante du cabinet. | Les deux délais. |
+| Modèle servi | Si le fournisseur répond avec un modèle **différent** du modèle demandé (variante après « : » ignorée, casse ignorée), l'évaluation est **échouée** (`MODELE_SERVI_DIFFERENT`) : elle ne vaut pas pour le modèle demandé. | Le comportement face à un identifiant daté renvoyé par OpenRouter (non vérifié). |
+| Séparation des tâches | **Demander un rejeu : `agent.gerer`** (expert métier, associé) ; **activer un prompt ou choisir un modèle : `ia.configurer`** (associé seul). | Aucune ; à confirmer. |
+| Coût visible | Coût, estimation, plafond et jetons d'un rejeu : **`finance.lire` seulement** (FIN-02), absents sinon. | Aucune. |
+| Contenu d'un jeu d'essai | **Aucun contenu client réel** (textes fictifs ou anonymisés) : le masque d'un rejeu n'a aucun terme sensible. Règle documentée, non contrôlée par le code. | Un contrôle technique éventuel. |
 
 ## Règles métier validées (2026-10-06) — applicables à la V2
 

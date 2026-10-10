@@ -6,7 +6,8 @@ Accepté
 
 ## Date
 
-2026-10-08
+2026-10-08. Mis à jour le 2026-10-10 : le rejeu réel des évaluations sur
+OpenRouter est construit (section « Évaluations de non-régression »).
 
 ## Contexte
 
@@ -52,7 +53,8 @@ coupe-circuit par cabinet (DECISIONS.md, 2026-10-08).
   jeu avant activation ; aucune activation sans évaluation réussie. Les
   exécutions d'évaluation sur un vrai modèle passent par la file `jobs`
   (ADR-002) et sont plafonnées en coût.
-  - **Nature du fournisseur local** : l'évaluation disponible aujourd'hui
+  - **Nature du fournisseur local** : l'évaluation « locale » (`POST
+    /api/agents/evaluations`, enregistrée désormais toujours `local`)
     s'exécute sur un fournisseur LOCAL déterministe qui renvoie l'écho des
     messages rendus (`ia/fournisseur-local.ts`, `ia/evaluation.ts`). Réussie, elle
     prouve le câblage du prompt (rendu avec les variables du jeu, éléments exigés ou
@@ -62,6 +64,36 @@ coupe-circuit par cabinet (DECISIONS.md, 2026-10-08).
     `app.evaluation_locale_admise`, que l'API pose hors production seulement (migration
     `0265`) ; en production, seule une évaluation `openrouter` active un prompt ou un
     modèle.
+  - **Rejeu réel sur OpenRouter** (migration `0270`,
+    `apps/api/src/agents/evaluations-openrouter.ts`) : un job
+    `agents_evaluation_openrouter` rejoue le dernier jeu d'essai d'une version de
+    prompt sur le VRAI fournisseur, avec les mêmes critères que l'évaluation locale
+    (`preparerCasEvaluation`, `jugerSortieCas` de `ia/evaluation.ts`), et enregistre
+    une évaluation `fournisseur = 'openrouter'` (ajout seul). Elle seule active un
+    prompt ou un modèle et autorise l'exécution d'un agent en production (`MPG04`).
+    Routes : `POST /api/agents/prompts/:promptId/evaluations/openrouter` (`agent.gerer`,
+    202), `GET /api/agents/evaluations/openrouter/:id` et
+    `GET /api/agents/prompts/:promptId/evaluations/openrouter` (`agent.lire`).
+    - **Coût plafonné** : plafond PAR évaluation de 2 USD
+      (`PLAFOND_EVALUATION_MICRO_USD`, à valider), en plus du plafond mensuel du
+      cabinet (réservation avant chaque appel, appels inscrits dans
+      `ia_consommations`) ; estimation prudente refusée à la demande si elle dépasse
+      déjà le plafond ; au-delà en cours de route, l'évaluation est INCOMPLÈTE et ne
+      peut jamais activer. Durée maximale de 8 minutes (à valider).
+    - **Jamais de nouvelle tentative d'un appel payant** : `tentatives_max = 1`, clé
+      de job unique par demande, une erreur du fournisseur arrête l'évaluation.
+    - **Limites de demande** : un seul rejeu en file ou en cours par cabinet, 5 par
+      24 heures glissantes (à valider), jamais de rejeu d'une combinaison (prompt, jeu
+      courant, modèle) déjà réussie. Un modèle servi différent du modèle demandé fait
+      échouer l'évaluation (`MODELE_SERVI_DIFFERENT`).
+    - **Provenance garantie en base** : table `agents_evaluations_demandes`,
+      une évaluation `openrouter` n'existe que née d'une demande en cours du même
+      prompt, jeu et modèle, et réussie seulement avec au moins un appel réussi
+      inscrit par cas (`MPG09`). Garde contournable par du SQL arbitraire du même rôle
+      applicatif : dette notée (SECURITY.md §15).
+    - **Séparation des tâches** : demander un rejeu exige `agent.gerer` (expert
+      métier, associé) ; activer un prompt ou choisir un modèle exige `ia.configurer`
+      (associé seul).
   - **Exécution réservée aux prompts évalués** : un agent n'exécute que la version
     active d'un prompt qui a un jeu d'essai et une évaluation réussie et admise sur le
     modèle routé de sa tâche (409 `JEU_ESSAI_REQUIS`, `NON_REGRESSION_REQUISE`,
@@ -101,10 +133,17 @@ coupe-circuit par cabinet (DECISIONS.md, 2026-10-08).
 ## Conséquences négatives
 
 - Les évaluations de non-régression ont un coût IA récurrent à chaque
-  changement de prompt ou de modèle.
-- Tant que le rejeu réel sur OpenRouter par la file `jobs` n'est pas construit,
-  aucune évaluation `openrouter` n'existe : en production, aucun agent ne
-  s'exécute (dette notée dans SECURITY.md §15 et HANDOFF.md).
+  changement de prompt ou de modèle : plafonné (2 USD par évaluation, 5 rejeux par
+  cabinet et par 24 heures, plafond mensuel du cabinet), mais réel, payé avec la clé
+  du cabinet ou celle de la plateforme.
+- La file `jobs` est FIFO globale entre cabinets : un rejeu (8 minutes au plus, plus
+  la durée d'un appel, soit 13 minutes au pire) retarde les autres jobs de tous les
+  cabinets ; un rejeu par cabinet, donc plusieurs en même temps avec plusieurs cabinets.
+- Aucune vérification réelle à ce jour : aucune clé OpenRouter n'existe en
+  développement, le fournisseur réel n'a été exercé que contre un serveur factice
+  local. La qualité d'un vrai modèle, les coûts et jetons réels et la comparaison du
+  modèle servi (un identifiant daté renvoyé par OpenRouter ferait échouer le rejeu,
+  sans danger) restent à constater au premier rejeu réel (SECURITY.md §15).
 - La mesure par distance d'édition ignore la qualité sémantique : un
   relecteur peut garder la forme et changer le sens ; la revue guidée (QUA-03)
   reste indispensable.
@@ -127,5 +166,6 @@ coupe-circuit par cabinet (DECISIONS.md, 2026-10-08).
 - `packages/engines/src/autonomie/`, `packages/engines/src/contribution/`,
   `packages/engines/src/qualite/`.
 - `apps/api/src/ia/orchestrateur.ts`, `apps/api/src/routes/agents.ts` (rempli
-  par le lot AGT).
+  par le lot AGT), `apps/api/src/agents/evaluations-openrouter.ts` et migration
+  `0270` (rejeu réel).
 - ADR-002 (file `jobs`), ADR-003 (OpenRouter), ADR-004 (référentiel de méthodes).
