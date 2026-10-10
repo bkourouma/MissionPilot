@@ -13,7 +13,6 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi } from "./api";
-import { ErreurApi } from "./api";
 
 export interface SynthesePieces {
   total: number;
@@ -281,96 +280,6 @@ export function erreurEcheance(echeance: string, aujourdhui: string): string | n
  * Message du schéma partagé pour le champ « échéance » quand l'API refuse la requête (400
  * REQUETE_INVALIDE, `details.fieldErrors.echeance`), sinon `null`. Les messages du schéma sont
  * en français.
- */
-export function erreurEcheanceApi(e: unknown): string | null {
-  if (!(e instanceof ErreurApi) || e.code !== "REQUETE_INVALIDE") return null;
-  const details = e.details as { fieldErrors?: Record<string, unknown> } | undefined;
-  const champ = details?.fieldErrors?.echeance;
-  if (!Array.isArray(champ)) return null;
-  const premier = champ.find((m): m is string => typeof m === "string" && m.trim() !== "");
-  return premier ?? "Échéance invalide : saisissez une date valide.";
-}
-
-/** Contexte d'affichage d'une demande pour l'utilisateur courant (confort : l'API fait foi). */
-export interface ContexteSalle {
-  gerer: boolean;
-  missionCloturee: boolean;
-  documents: boolean;
-  /** Utilisateur courant : sert à repérer le dépôt qu'il a lui-même fait (MPL09). */
-  utilisateurId: string;
-  /** Un associé peut accepter le dépôt qu'il a fait (séparation des tâches). */
-  associe: boolean;
-}
-
-/**
- * Dépôt que l'acceptation de la pièce retiendrait : le plus récent dont le fichier n'est pas
- * retiré (même règle que l'API, `dernierDepot`).
- */
-export function dernierDepotRetenable(p: Pick<PieceSalle, "depots">): DepotSalle | null {
-  const vivants = p.depots.filter((d) => d.fichier !== null);
-  let dernier: DepotSalle | null = null;
-  for (const d of vivants) {
-    if (
-      !dernier ||
-      d.depose_le > dernier.depose_le ||
-      (d.depose_le === dernier.depose_le && d.id > dernier.id)
-    ) {
-      dernier = d;
-    }
-  }
-  return dernier;
-}
-
-/**
- * Séparation des tâches (MPL09) : qui a déposé le fichier retenu ne l'accepte pas, sauf un
- * associé. Vrai : le bouton « Accepter » est remplacé par une explication (le refus de l'API
- * ne survient plus qu'après un clic).
- */
-export function acceptationParDeposant(
-  p: Pick<PieceSalle, "depots">,
-  contexte: Pick<ContexteSalle, "utilisateurId" | "associe">,
-): boolean {
-  if (contexte.associe) return false;
-  return dernierDepotRetenable(p)?.depose_par.id === contexte.utilisateurId;
-}
-
-/** Texte affiché à la place du bouton « Accepter » (voir `acceptationParDeposant`). */
-export const MESSAGE_ACCEPTATION_PAR_DEPOSANT =
-  "Vous avez déposé ce fichier : un autre membre de l'équipe (ou un associé) doit l'accepter. Vous pouvez le rejeter.";
-
-/**
- * Un dépôt non retenu (ni accepté, ni versé au dossier) et dont le fichier est encore là peut
- * être retiré par l'équipe ; l'API refuse sinon (409).
- */
-export function peutRetirerDepot(
-  p: Pick<PieceSalle, "historique">,
-  depot: DepotSalle,
-  contexte: Pick<ContexteSalle, "gerer" | "missionCloturee">,
-): boolean {
-  if (!contexte.gerer || contexte.missionCloturee) return false;
-  if (depot.fichier === null || depot.document_id !== null) return false;
-  return !p.historique.some((h) => h.statut === "acceptee" && h.depot_id === depot.id);
-}
-
-// --- Échéance ---------------------------------------------------------------------------------
-
-/** Bornes des dates métier (`dateIsoBorneeSchema`, CHECK SQL). */
-export const ECHEANCE_MIN = "2000-01-01";
-export const ECHEANCE_MAX = "2100-12-31";
-export const MESSAGE_ECHEANCE_BORNEE = "Date comprise entre 2000 et 2100 attendue.";
-
-/** Contrôle local d'une échéance saisie (`""` : pas d'échéance) ; message ou `null`. */
-export function erreurEcheance(echeance: string, aujourdhui: string): string | null {
-  if (echeance === "") return null;
-  if (echeance < ECHEANCE_MIN || echeance > ECHEANCE_MAX) return MESSAGE_ECHEANCE_BORNEE;
-  if (echeance < aujourdhui) return "L'échéance doit être aujourd'hui ou plus tard.";
-  return null;
-}
-
-/**
- * Message du schéma partagé pour le champ « échéance » quand l'API refuse la requête (400
- * REQUETE_INVALIDE, `details.fieldErrors.echeance`), sinon `null`. Les messages du schéma sont en
- * français.
  */
 export function erreurEcheanceApi(e: unknown): string | null {
   if (!(e instanceof ErreurApi) || e.code !== "REQUETE_INVALIDE") return null;
