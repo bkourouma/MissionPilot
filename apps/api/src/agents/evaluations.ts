@@ -38,11 +38,13 @@ import { avecErreursAgents, jeuEssaiAbsent, jeuEssaiAffaibli } from "./erreurs.j
  * (MPG04, déclencheurs de 0264).
  *
  * Exécution sur le fournisseur LOCAL déterministe (ia/evaluation.ts, écho des
- * messages rendus) : aucun appel à un modèle externe ni coût dans cette
- * version ; un rejeu sur un vrai modèle passera par la file `jobs`, plafonné
- * (ADR-005), non fait. Le fournisseur EFFECTIVEMENT utilisé est enregistré
- * (`openrouter` seulement si tous les cas l'ont été) ; en production, la base
- * n'admet que `openrouter` pour activer (0265).
+ * messages rendus) : aucun appel à un modèle externe ni coût. Le rejeu sur un
+ * VRAI modèle passe par la file `jobs`, plafonné en coût (ADR-005) :
+ * `evaluations-openrouter.ts`. Cette route enregistre toujours « local » (la
+ * fabrique de fournisseur n'est injectable que pour les tests) ; en
+ * production, la base n'admet que `openrouter` pour activer (0265), et une
+ * évaluation `openrouter` n'existe que née d'une demande de rejeu avec ses
+ * appels inscrits (0270).
  *
  * Jeu d'essai (ajout seul) : une nouvelle version garde TOUS les codes de cas
  * de la précédente et chaque cas porte au moins un critère non vide
@@ -182,28 +184,25 @@ export async function listerJeux(
   return { ...page, elements: page.elements.map((l) => vueJeu(l, auth)) };
 }
 
-interface Rejeu {
-  resultats: ResultatCas[];
-  /** Noms des fournisseurs effectivement utilisés. */
-  fournisseurs: Set<string>;
-}
-
 async function rejouer(
   prompt: PromptDb,
   cas: readonly CasEssai[],
   modele: string,
   fabrique: FabriqueFournisseurEvaluation,
-): Promise<Rejeu> {
+): Promise<ResultatCas[]> {
   const resultats: ResultatCas[] = [];
-  const fournisseurs = new Set<string>();
   for (const c of cas) {
-    const fournisseur = fabrique(prompt, c);
-    fournisseurs.add(fournisseur.nom);
     resultats.push(
-      await executerCasEvaluation({ prompt, cas: c, modele, fournisseur, cleApi: "local" }),
+      await executerCasEvaluation({
+        prompt,
+        cas: c,
+        modele,
+        fournisseur: fabrique(prompt, c),
+        cleApi: "local",
+      }),
     );
   }
-  return { resultats, fournisseurs };
+  return resultats;
 }
 
 /**
@@ -230,16 +229,11 @@ export async function evaluerPrompt(
   const cas = casStockesSchema.parse(jeu.rows[0].cas);
   const actif = await chargerPromptActif(db, candidat.nom);
   const reference = actif.id === candidat.id ? null : actif;
-  const candidatRejeu = await rejouer(candidat, cas, modele, fabrique);
-  const resultats = candidatRejeu.resultats;
-  const resultatsRef = reference
-    ? (await rejouer(reference, cas, modele, fabrique)).resultats
-    : null;
-  // « openrouter » seulement si TOUS les cas de la candidate y ont été rejoués ; sinon « local ».
-  const fournisseur =
-    candidatRejeu.fournisseurs.size === 1 && candidatRejeu.fournisseurs.has("openrouter")
-      ? "openrouter"
-      : "local";
+  const resultats = await rejouer(candidat, cas, modele, fabrique);
+  const resultatsRef = reference ? await rejouer(reference, cas, modele, fabrique) : null;
+  // Cette route n'enregistre JAMAIS « openrouter » : seule une évaluation née d'une demande de rejeu
+  // réel, avec ses appels inscrits (evaluations-openrouter.ts, migration 0270), porte ce fournisseur.
+  const fournisseur = "local";
   const details = resultats.map((r, i) => ({
     code: r.code,
     reussi: r.reussi,
@@ -285,28 +279,66 @@ export async function evaluerPrompt(
       regressions,
     },
   });
-  return lireEvaluation(db, id);
+  return lireEvaluation(db, auth, id);
 }
 
 const COLONNES_EVAL = `e.id, e.jeu_id, j.prompt_nom, j.version AS jeu_version, e.prompt_id,
   p.version AS prompt_version, e.prompt_reference_id, pr.version AS prompt_reference_version, e.modele,
   e.fournisseur, e.cas_total, e.cas_reussis, e.regressions, e.reussie, e.resultats, e.lance_par,
-  u.nom AS lance_par_nom, e.cree_le`;
+  u.nom AS lance_par_nom, e.cree_le,
+  coalesce(e.statut, CASE WHEN e.reussie THEN 'reussie' ELSE 'echouee' END) AS statut, e.cause,
+  e.demande_id, e.cout_micro_usd::text AS cout, e.tokens_entree::text AS tokens_entree,
+  e.tokens_sortie::text AS tokens_sortie`;
 const DEPUIS_EVAL = `agents_evaluations e JOIN agents_jeux_essai j ON j.id = e.jeu_id
   JOIN ia_prompts p ON p.id = e.prompt_id
   LEFT JOIN ia_prompts pr ON pr.id = e.prompt_reference_id
   JOIN utilisateurs u ON u.id = e.lance_par`;
 
-export async function lireEvaluation(db: Db, id: string): Promise<Record<string, unknown>> {
+/** Détail par cas sans jetons ni coût (donnée de gestion, FIN-02) : seul `finance.lire` les voit. */
+export function resultatsSansCout(resultats: unknown): unknown {
+  if (!Array.isArray(resultats)) return resultats;
+  return (resultats as Record<string, unknown>[]).map((r) =>
+    Object.fromEntries(
+      Object.entries(r).filter(
+        ([cle]) => !["tokens_entree", "tokens_sortie", "cout_micro_usd"].includes(cle),
+      ),
+    ),
+  );
+}
+
+/**
+ * Vue d'une évaluation : coût et jetons (rejeu réel) ABSENTS sans `finance.lire`, jamais masqués
+ * par un zéro ; le détail par cas ne porte que des codes, jamais un texte produit ni un contenu.
+ */
+function vueEvaluation(l: Record<string, unknown>, auth: Auth): Record<string, unknown> {
+  const { cout, tokens_entree, tokens_sortie, resultats, ...reste } = l;
+  if (!aPermission(auth.roles, "finance.lire")) {
+    return { ...reste, resultats: resultatsSansCout(resultats) };
+  }
+  return {
+    ...reste,
+    resultats,
+    cout_micro_usd: Number(cout),
+    tokens_entree: Number(tokens_entree),
+    tokens_sortie: Number(tokens_sortie),
+  };
+}
+
+export async function lireEvaluation(
+  db: Db,
+  auth: Auth,
+  id: string,
+): Promise<Record<string, unknown>> {
   const r = await db.query(`SELECT ${COLONNES_EVAL} FROM ${DEPUIS_EVAL} WHERE e.id = $1`, [id]);
   if (!r.rows[0]) throw introuvable("Évaluation");
-  return r.rows[0];
+  return vueEvaluation(r.rows[0], auth);
 }
 
 const CLE_TRI_EVAL = "lpad(((extract(epoch FROM e.cree_le) * 1000000)::bigint)::text, 17, '0')";
 
 export async function listerEvaluations(
   db: Db,
+  auth: Auth,
   q: { prompt_nom?: string | undefined; limite: number; curseur?: string | undefined },
 ) {
   const apres = decoderCurseur(q.curseur);
@@ -317,5 +349,9 @@ export async function listerEvaluations(
      ORDER BY cle_tri DESC, e.id DESC LIMIT $4`,
     [q.prompt_nom ?? null, apres?.[0] ?? null, apres?.[1] ?? null, q.limite + 1],
   );
-  return paginer(r.rows as (Record<string, unknown> & { cle_tri: string; id: string })[], q.limite);
+  const page = paginer(
+    r.rows as (Record<string, unknown> & { cle_tri: string; id: string })[],
+    q.limite,
+  );
+  return { ...page, elements: page.elements.map((l) => vueEvaluation(l, auth)) };
 }

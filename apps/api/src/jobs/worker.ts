@@ -25,7 +25,7 @@ export interface OptionsWorker {
   horloge?: () => Date;
   /** Intervalle entre deux cycles (défaut 30 s). */
   intervalleMs?: number;
-  /** Délai au-delà duquel un job « en_cours » est considéré bloqué (défaut 15 min). */
+  /** Délai au-delà duquel un job « en_cours » est considéré bloqué (défaut : DELAI_BLOCAGE_JOB_DEFAUT_MS, 15 min). */
   delaiBlocageMs?: number;
   /** Délai avant la tentative suivante, selon le numéro de la tentative échouée. */
   delaiReprise?: (tentative: number) => number;
@@ -49,6 +49,12 @@ interface JobReserve {
 }
 
 const MAX_JOBS_PAR_CYCLE = 100;
+
+/**
+ * Délai de blocage par défaut : un job « en_cours » plus ancien est remis en attente. Un job
+ * long (rejeu réel d'une évaluation, agents/evaluations-openrouter.ts) doit finir bien avant.
+ */
+export const DELAI_BLOCAGE_JOB_DEFAUT_MS = 15 * 60_000;
 
 export class WorkerJobs {
   private readonly registre: RegistreJobs;
@@ -129,7 +135,7 @@ export class WorkerJobs {
     await this.database.withoutTenant((db) =>
       db.query("SELECT liberer_jobs_bloques($1, $2::interval)", [
         maintenant,
-        `${Math.round((this.options.delaiBlocageMs ?? 15 * 60_000) / 1000)} seconds`,
+        `${Math.round((this.options.delaiBlocageMs ?? DELAI_BLOCAGE_JOB_DEFAUT_MS) / 1000)} seconds`,
       ]),
     );
     await planifierRecurrents(this.database, maintenant);

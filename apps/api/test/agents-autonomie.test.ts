@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { api, cabinetTest, type Api, type CabinetTest } from "./api.js";
+import { semerEvaluationOpenRouter } from "./evaluation-reelle.js";
 import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 
 /*
@@ -113,12 +114,15 @@ beforeAll(async () => {
                         "sans_chiffres_non_verifies": true}}]', $2) RETURNING id`,
       [a.cabinetId, a.associeId],
     );
-    await c.query(
-      `INSERT INTO agents_evaluations (cabinet_id, jeu_id, prompt_id, modele, fournisseur, cas_total,
-         cas_reussis, regressions, reussie, resultats, lance_par)
-       VALUES ($1, $2, $3, 'anthropic/claude-sonnet-4.5', 'openrouter', 1, 1, 0, true, '[]', $4)`,
-      [a.cabinetId, jeu.rows[0].id, promptId, a.associeId],
-    );
+    // Évaluation réelle LÉGITIME (demande en cours, appel inscrit) : la base refuse une ligne forgée.
+    await semerEvaluationOpenRouter(c, {
+      cabinetId: a.cabinetId,
+      jeuId: jeu.rows[0].id as string,
+      promptId,
+      modele: "anthropic/claude-sonnet-4.5",
+      utilisateurId: a.associeId,
+      casTotal: 1,
+    });
   });
 });
 

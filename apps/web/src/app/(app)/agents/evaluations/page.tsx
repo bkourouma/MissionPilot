@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EvaluationOpenRouter } from "../../../../components/agents/EvaluationOpenRouter";
 import {
   FormulaireEvaluation,
   FormulaireJeuEssai,
@@ -15,6 +16,10 @@ import {
   type PageIaAgents,
 } from "../../../../lib/agents";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import {
+  droitsEvaluationOpenRouter,
+  lirePromptPreselectionne,
+} from "../../../../lib/evaluations-openrouter";
 import { formaterDateHeure } from "../../../../lib/format";
 import { chargerFacultatif } from "../../../../lib/ia-serveur";
 import { obtenirSession } from "../../../../lib/session";
@@ -30,31 +35,42 @@ interface VersionPrompt {
 
 /**
  * Jeux d'essai et évaluations de non-régression (AGT-04) : aucune version de prompt ni aucun
- * modèle ne s'active sans évaluation réussie sur le jeu d'essai de référence. Dans cette
- * version, les évaluations tournent sur un fournisseur local déterministe (aucun appel à un
- * modèle externe).
+ * modèle ne s'active sans évaluation réussie sur le jeu d'essai de référence. Deux fournisseurs :
+ * le rejeu RÉEL sur OpenRouter (facturé, seul valable en production) et l'évaluation locale
+ * déterministe (aucun appel à un modèle externe, hors production). Le panneau du rejeu réel est
+ * un composant client qui ne reçoit que des propriétés sérialisables.
  */
-export default async function PageEvaluations() {
+export default async function PageEvaluations({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { utilisateur } = await obtenirSession();
   const droits = droitsAgents(utilisateur.roles);
+  const droitsOr = droitsEvaluationOpenRouter(utilisateur.roles);
+  const q = await searchParams;
   const [jeux, evaluations] = await Promise.all([
     chargerServeur<PageIaAgents<JeuEssaiIa>>("/api/agents/jeux-essai?limite=50"),
     chargerServeur<PageIaAgents<EvaluationIa>>("/api/agents/evaluations?limite=30"),
   ]);
   const noms = jeux.ok ? [...new Set(jeux.donnees.elements.map((j) => j.prompt_nom))] : [];
-  const versions: { id: string; libelle: string }[] = [];
-  if (droits.gerer) {
-    for (const nom of noms) {
-      const v = await chargerFacultatif<PageIaAgents<VersionPrompt>>(
+  // Versions des prompts dotés d'un jeu d'essai (lecture facultative : un rôle sans « ia.utiliser »
+  // n'obtient pas la liste, le panneau l'explique).
+  const lots = await Promise.all(
+    noms.map((nom) =>
+      chargerFacultatif<PageIaAgents<VersionPrompt>>(
         `/api/ia/prompts?nom=${encodeURIComponent(nom)}&limite=10`,
-      );
-      if (v.etat !== "ok") continue;
-      for (const p of v.donnees.elements) {
-        versions.push({
-          id: p.id,
-          libelle: `${p.nom} v${p.version}${p.actif ? " (active)" : ""}`,
-        });
-      }
+      ),
+    ),
+  );
+  const versions: { id: string; libelle: string }[] = [];
+  for (const v of lots) {
+    if (v.etat !== "ok") continue;
+    for (const p of v.donnees.elements) {
+      versions.push({
+        id: p.id,
+        libelle: `${p.nom} v${p.version}${p.actif ? " (active)" : ""}`,
+      });
     }
   }
 
@@ -65,9 +81,26 @@ export default async function PageEvaluations() {
         soustitre="Tout changement de prompt ou de modèle rejoue le jeu d'essai de référence avant activation : la base refuse d'activer une version ou un modèle sans évaluation réussie."
       />
 
+      {droitsOr.lire ? (
+        <Carte titre="Évaluation de non-régression sur OpenRouter">
+          <EvaluationOpenRouter
+            versions={versions}
+            idInitial={lirePromptPreselectionne(q.prompt)}
+            peutLancer={droitsOr.lancer}
+          />
+        </Carte>
+      ) : null}
+
       {droits.gerer ? (
-        <Carte titre="Lancer une évaluation">
-          <FormulaireEvaluation versions={versions} />
+        <Carte titre="Évaluation locale (hors production)">
+          <div className="mp-pile">
+            <p className="mp-texte-petit mp-texte-doux">
+              L&apos;évaluation locale n&apos;appelle aucun modèle : elle sert à préparer un jeu
+              d&apos;essai sans frais. Elle ne suffit pas pour activer un prompt en production, où
+              seul un rejeu réussi sur OpenRouter est accepté.
+            </p>
+            <FormulaireEvaluation versions={versions} />
+          </div>
         </Carte>
       ) : null}
 

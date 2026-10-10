@@ -1,3 +1,7 @@
+import {
+  creerHandlerEvaluationOpenRouter,
+  TYPE_JOB_EVALUATION_OPENROUTER,
+} from "../agents/evaluations-openrouter.js";
 import type { Database, Db } from "../db/pool.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
 import {
@@ -81,6 +85,8 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_PURGE_RAPPORTS]: creerHandlerPurgeRapports(() => stockageDe(loadConfig())), // rapports échus
   ia_generation: creerHandlerIaGeneration(dependancesIaParDefaut), // générations IA en file (ADR-003)
   [TYPE_JOB_CONSERVATION_IA]: creerHandlerConservationIa(), // anonymisation des textes IA échus
+  // Rejeu réel des évaluations de non-régression sur OpenRouter (AGT-04, ADR-005) : un seul essai.
+  [TYPE_JOB_EVALUATION_OPENROUTER]: creerHandlerEvaluationOpenRouter(dependancesIaParDefaut),
   [TYPE_JOB_RELANCE_QUESTIONNAIRE]: relanceQuestionnaire, // relances J+3 / J+7 (V2)
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
   // Moteur d'automatisation (AUT-01 à AUT-06, ADR-006) : événements, appels d'agents, détection.

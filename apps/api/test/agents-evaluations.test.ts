@@ -8,7 +8,8 @@ import {
 } from "../src/ia/evaluation.js";
 import { creerFournisseurLocal } from "../src/ia/fournisseur-local.js";
 import { api, cabinetTest, type CabinetTest } from "./api.js";
-import { demarrer, type Contexte } from "./helpers.js";
+import { semerEvaluationOpenRouter } from "./evaluation-reelle.js";
+import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 import { authDe } from "./ia-outils.js";
 
 /*
@@ -363,7 +364,7 @@ describe("corrections d'audit des évaluations (AGT-04)", () => {
       });
     await expect(activer(false)).rejects.toMatchObject({ code: "MPG04" });
     await activer(true);
-    // Une évaluation sur un vrai fournisseur (« openrouter ») suffit sans réglage.
+    // La route locale n'enregistre JAMAIS « openrouter », même si la fabrique de fournisseur s'y prétend.
     const auth = await authDe(ctx, a.cabinetId, a.associeId);
     const r = await ctx.db.withTenant(a.cabinetId, (db) =>
       evaluerPrompt(db, auth, { prompt_id: ids.garde1! }, (p, c) => ({
@@ -371,7 +372,31 @@ describe("corrections d'audit des évaluations (AGT-04)", () => {
         nom: "openrouter",
       })),
     );
-    expect(r).toMatchObject({ reussie: true, fournisseur: "openrouter" });
+    expect(r).toMatchObject({ reussie: true, fournisseur: "local" });
+    await expect(activer(false)).rejects.toMatchObject({ code: "MPG04" });
+    // Une évaluation sur un vrai fournisseur (« openrouter », demande et appels inscrits) suffit sans réglage.
+    const jeu = (
+      await proprietaire(
+        async (c) =>
+          (
+            await c.query(
+              `SELECT id, jsonb_array_length(cas)::int AS n FROM agents_jeux_essai
+               WHERE cabinet_id = $1 AND prompt_nom = 'synthese_garde' ORDER BY version DESC LIMIT 1`,
+              [a.cabinetId],
+            )
+          ).rows,
+      )
+    )[0] as { id: string; n: number };
+    await proprietaire((c) =>
+      semerEvaluationOpenRouter(c, {
+        cabinetId: a.cabinetId,
+        jeuId: jeu.id,
+        promptId: ids.garde1!,
+        modele: "anthropic/claude-sonnet-4.5",
+        utilisateurId: a.associeId,
+        casTotal: jeu.n,
+      }),
+    );
     await activer(false);
   });
 

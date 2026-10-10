@@ -328,10 +328,14 @@ export function verifierUrlFournisseur(config: Pick<Config, "NODE_ENV" | "OPENRO
   throw new Error("OPENROUTER_BASE_URL doit être en HTTPS hors développement.");
 }
 
-/** Fournisseur de l'application, d'après la configuration (URL, délai, attribution). */
+/**
+ * Fournisseur de l'application, d'après la configuration (URL, délai, attribution).
+ * `tentativesMax: 1` : aucune reprise automatique d'un appel (rejeu des évaluations payantes).
+ */
 export function fournisseurDepuisConfig(
   config: Config,
   journal?: (entree: EntreeJournalLlm) => void,
+  options: { tentativesMax?: number } = {},
 ): LlmProvider {
   verifierUrlFournisseur(config);
   return creerFournisseurOpenRouter({
@@ -340,5 +344,6 @@ export function fournisseurDepuisConfig(
     referer: config.WEB_ORIGIN,
     titre: "MissionPilot",
     ...(journal ? { journal } : {}),
+    ...(options.tentativesMax !== undefined ? { tentativesMax: options.tentativesMax } : {}),
   });
 }

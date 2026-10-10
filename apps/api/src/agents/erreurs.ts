@@ -15,7 +15,13 @@ import { AppError, requeteInvalide } from "../errors.js";
  * - MPG07 classe de risque d'une brique refusée (plancher de la méthode, R0 hors
  *   associé ; 0267) → 409 CLASSE_RISQUE_REFUSEE ;
  * - MPG08 action réservée (levée d'une restriction d'associé, décision sur une
- *   exécution ; 0267) → 403 ACTION_RESERVEE.
+ *   exécution ; 0267) → 403 ACTION_RESERVEE ;
+ * - MPG09 demande de rejeu réel d'une évaluation incohérente (état, jeu, prompt, évaluation
+ *   « openrouter » sans demande ni appel inscrit ; 0270) → 409 EVALUATION_INCOHERENTE.
+ *
+ * Rejeu réel (agents/evaluations-openrouter.ts) : 409 EVALUATION_EN_COURS (un seul rejeu en file
+ * ou en cours par cabinet), 409 EVALUATION_DEJA_REUSSIE, 429 TROP_DE_REJEUX (quota sur 24 h),
+ * 409 PLAFOND_EVALUATION_ESTIME (estimation au-dessus du plafond par évaluation).
  */
 
 const erreur = (statut: number, code: string, message: string) =>
@@ -93,6 +99,48 @@ export const classeSousPlancher = (plancher: string) =>
   );
 export const classeRisqueRefusee = () =>
   erreur(409, "CLASSE_RISQUE_REFUSEE", "Classe de risque refusée pour cette brique.");
+export const iaNonConfiguree = () =>
+  erreur(
+    409,
+    "IA_NON_CONFIGUREE",
+    "Aucune clé API d'IA n'est disponible (cabinet ou plateforme) : le rejeu réel est impossible.",
+  );
+export const iaDesactivee = () =>
+  erreur(
+    409,
+    "IA_DESACTIVEE",
+    "L'IA est désactivée pour le cabinet : le rejeu réel est impossible.",
+  );
+export const evaluationEnCours = () =>
+  erreur(
+    409,
+    "EVALUATION_EN_COURS",
+    "Un rejeu réel est déjà en file ou en cours pour le cabinet : attendez sa fin.",
+  );
+export const evaluationDejaReussie = () =>
+  erreur(
+    409,
+    "EVALUATION_DEJA_REUSSIE",
+    "Cette version du prompt a déjà réussi le rejeu réel de ce jeu d'essai avec ce modèle : rien à rejouer.",
+  );
+export const tropDeRejeux = () =>
+  erreur(
+    429,
+    "TROP_DE_REJEUX",
+    "Trop de rejeux réels demandés sur les dernières 24 heures pour ce cabinet : réessayez plus tard.",
+  );
+export const plafondEvaluationEstime = () =>
+  erreur(
+    409,
+    "PLAFOND_EVALUATION_ESTIME",
+    "Le coût estimé du rejeu dépasse le plafond par évaluation : réduisez le jeu d'essai ou choisissez un modèle moins cher.",
+  );
+export const plafondEvaluationAtteint = () =>
+  erreur(
+    409,
+    "PLAFOND_IA_ATTEINT",
+    "Plafond mensuel de coût IA atteint : le rejeu réel de l'évaluation est refusé.",
+  );
 export const actionReservee = (message = "Action réservée à un associé.") =>
   erreur(403, "ACTION_RESERVEE", message);
 const PAR_SQLSTATE: Record<string, () => AppError> = {
@@ -105,6 +153,8 @@ const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG06: sortieNonConforme,
   MPG07: classeRisqueRefusee,
   MPG08: () => actionReservee(),
+  MPG09: () =>
+    erreur(409, "EVALUATION_INCOHERENTE", "Demande d'évaluation incohérente avec son état."),
 };
 
 function codePg(error: unknown): string | undefined {
