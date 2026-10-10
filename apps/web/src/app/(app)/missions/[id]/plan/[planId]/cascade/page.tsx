@@ -180,7 +180,11 @@ export default async function PageCascadePlan({
       </Carte>
       <Carte titre="Écarts signalés" niveauTitre={3}>
         {groupes.length === 0 ? (
-          <p>Aucun écart : chaque nœud a un porteur et la cascade est complète.</p>
+          <p>
+            {cascade.noeuds.length === 0
+              ? "Aucun nœud : la cascade est vide."
+              : "Aucun écart : chaque nœud a un porteur et la cascade est complète."}
+          </p>
         ) : (
           <div className="mp-plan__section">
             {groupes.map((g) => (

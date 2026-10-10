@@ -244,6 +244,23 @@ export function validerArbitrage(
   };
 }
 
+export const MESSAGE_MOTIF_REQUIS =
+  "Le motif de cet écart à la proposition du moteur est obligatoire.";
+
+/** Erreur à afficher sous chaque champ « Motif » manquant (initiative → message). */
+export function erreursMotifs(manquants: readonly string[]): Record<string, string> {
+  return Object.fromEntries(manquants.map((id) => [id, MESSAGE_MOTIF_REQUIS]));
+}
+
+/** Erreur d'un motif : retirée dès que le motif n'est plus vide (sans attendre un nouvel envoi). */
+export function erreurMotif(
+  erreurs: Readonly<Record<string, string>>,
+  motifs: Readonly<Record<string, string>>,
+  id: string,
+): string | undefined {
+  return erreurs[id] && !(motifs[id] ?? "").trim() ? erreurs[id] : undefined;
+}
+
 /** Message français d'un refus. */
 export function messagePortefeuille(e: unknown): string {
   if (e instanceof ErreurApi) {

@@ -8,6 +8,8 @@ import {
   cheminArbitrer,
   cheminProposition,
   ecartsArbitrage,
+  erreurMotif,
+  erreursMotifs,
   libelleMotifMoteur,
   messagePortefeuille,
   saisieContraintes,
@@ -38,6 +40,8 @@ export interface PrioritisationPortefeuilleProps {
  * proposition du moteur → décision humaine. Chaque écart à la proposition exige un motif ;
  * l'API recalcule la proposition et fige l'ensemble (arbitrage tracé).
  */
+const idMotif = (id: string) => `motif-ecart-${id}`;
+
 export function PrioritisationPortefeuille({
   planId,
   devise,
@@ -52,6 +56,8 @@ export function PrioritisationPortefeuille({
   const [contraintes, setContraintes] = useState<Record<string, unknown> | null>(null);
   const [choisies, setChoisies] = useState<string[]>([]);
   const [motifs, setMotifs] = useState<Record<string, string>>({});
+  const [erreursMotif, setErreursMotif] = useState<Record<string, string>>({});
+  const [erreurArbitrage, setErreurArbitrage] = useState<string | null>(null);
   const [commentaire, setCommentaire] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -94,6 +100,8 @@ export function PrioritisationPortefeuille({
       setContraintes(corps);
       setChoisies(r.proposition.retenues);
       setMotifs({});
+      setErreursMotif({});
+      setErreurArbitrage(null);
     }
   }
 
@@ -101,12 +109,19 @@ export function PrioritisationPortefeuille({
     if (!reponse || !contraintes) return;
     const v = validerArbitrage(contraintes, reponse.proposition, choisies, motifs, commentaire);
     if (!v.corps) {
-      setErreur(
+      // Erreur sous chaque champ « Motif » manquant, résumée au-dessus du bouton.
+      setErreur(null);
+      setSucces(null);
+      setErreursMotif(erreursMotifs(v.manquants));
+      setErreurArbitrage(
         `Motif à saisir pour : ${v.manquants.map((id) => titres.get(id) ?? id).join(", ")}.`,
       );
-      refErreur.current?.focus();
+      const premier = v.manquants[0];
+      if (premier) document.getElementById(idMotif(premier))?.focus();
       return;
     }
+    setErreursMotif({});
+    setErreurArbitrage(null);
     const corps = v.corps;
     const r = await appel(() => api.post(cheminArbitrer(planId), corps));
     if (r) {
@@ -115,6 +130,9 @@ export function PrioritisationPortefeuille({
     }
   }
 
+  const motifsEnErreur = Object.keys(erreursMotif).some((id) =>
+    erreurMotif(erreursMotif, motifs, id),
+  );
   const ecarts = reponse
     ? new Set(ecartsArbitrage(reponse.proposition, choisies))
     : new Set<string>();
@@ -222,9 +240,11 @@ export function PrioritisationPortefeuille({
                 )}
                 {arbitrer && ecarts.has(d.id) ? (
                   <Champ
+                    id={idMotif(d.id)}
                     libelle={`Motif de l'écart pour « ${titres.get(d.id) ?? d.id} »`}
                     required
                     maxLength={1000}
+                    erreur={erreurMotif(erreursMotif, motifs, d.id)}
                     value={motifs[d.id] ?? ""}
                     onChange={(e) => setMotifs((m) => ({ ...m, [d.id]: e.target.value }))}
                   />
@@ -246,6 +266,11 @@ export function PrioritisationPortefeuille({
                 value={commentaire}
                 onChange={(e) => setCommentaire(e.target.value)}
               />
+              {erreurArbitrage && motifsEnErreur ? (
+                <Alerte tonalite="danger" annonce="alert">
+                  <p>{erreurArbitrage}</p>
+                </Alerte>
+              ) : null}
               <div className="mp-barre-actions">
                 <Bouton
                   variante="primaire"

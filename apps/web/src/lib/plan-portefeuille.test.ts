@@ -7,6 +7,8 @@ import {
   cheminPortefeuille,
   cheminProposition,
   ecartsArbitrage,
+  erreurMotif,
+  erreursMotifs,
   hrefPortefeuille,
   libelleMotifMoteur,
   messagePortefeuille,
@@ -137,6 +139,18 @@ describe("arbitrage", () => {
     expect(validerArbitrage({}, proposition, ["b", "c"], {}, "").corps).not.toHaveProperty(
       "commentaire",
     );
+  });
+
+  it("erreur de motif par initiative : affichée sous le champ, retirée dès qu'un motif est saisi", () => {
+    const sansMotif = validerArbitrage({}, proposition, ["a", "b"], {}, "");
+    const erreurs = erreursMotifs(sansMotif.manquants);
+    expect(Object.keys(erreurs).sort()).toEqual(["a", "c"]);
+    expect(erreurs.a).toBe("Le motif de cet écart à la proposition du moteur est obligatoire.");
+    expect(erreurMotif(erreurs, {}, "a")).toBe(erreurs.a);
+    expect(erreurMotif(erreurs, { a: "   " }, "a")).toBe(erreurs.a);
+    expect(erreurMotif(erreurs, { a: "Exigence du client" }, "a")).toBeUndefined();
+    expect(erreurMotif(erreurs, {}, "b")).toBeUndefined();
+    expect(erreursMotifs([])).toEqual({});
   });
 
   it("libelle les décisions du moteur et traduit les refus", () => {

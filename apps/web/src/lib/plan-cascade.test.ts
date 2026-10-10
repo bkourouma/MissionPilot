@@ -78,6 +78,19 @@ describe("trous et couverture", () => {
         },
       }),
     ).toBe("1 nœud sur 1 a un porteur (100 %) ; aucun objectif.");
+    // Plan vide : état neutre, jamais « 0 nœud sur 0 a un porteur (100 %) ».
+    expect(
+      resumeCouverture({
+        couverture: {
+          noeuds_actifs: 0,
+          noeuds_avec_porteur: 0,
+          taux_porteurs: 100,
+          objectifs: 0,
+          objectifs_avec_kpi: 0,
+          taux_kpi: 100,
+        },
+      }),
+    ).toBe("Aucun nœud ; aucun objectif.");
     const c = { porteurs: { u1: "Awa" } };
     expect(libellePorteur(c, "u1")).toBe("Awa");
     expect(libellePorteur(c, null)).toBe("Sans porteur");

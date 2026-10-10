@@ -138,7 +138,11 @@ export function libelleStatutNoeud(type: TypeNoeud, statut: string | null): stri
 /** Résumé de la couverture (« 5 nœuds sur 8 ont un porteur ; 1 objectif sur 2 a un KPI »). */
 export function resumeCouverture(c: Pick<CascadePlan, "couverture">): string {
   const k = c.couverture;
-  const porteurs = `${k.noeuds_avec_porteur} nœud${k.noeuds_avec_porteur > 1 ? "s" : ""} sur ${k.noeuds_actifs} ${k.noeuds_avec_porteur > 1 ? "ont" : "a"} un porteur (${k.taux_porteurs} %)`;
+  // Plan vide : pas de « 0 sur 0 (100 %) », un taux sans dénominateur ne dit rien.
+  const porteurs =
+    k.noeuds_actifs === 0
+      ? "Aucun nœud"
+      : `${k.noeuds_avec_porteur} nœud${k.noeuds_avec_porteur > 1 ? "s" : ""} sur ${k.noeuds_actifs} ${k.noeuds_avec_porteur > 1 ? "ont" : "a"} un porteur (${k.taux_porteurs} %)`;
   const kpi =
     k.objectifs === 0
       ? "aucun objectif"

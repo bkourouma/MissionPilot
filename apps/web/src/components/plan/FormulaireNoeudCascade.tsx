@@ -50,13 +50,21 @@ export function FormulaireNoeudCascade({
   const [ouvert, setOuvert] = useState(false);
   const initiale = () => (noeud ? saisieDepuisNoeud(noeud) : SAISIE_NOEUD_VIDE);
   const [s, setS] = useState<SaisieNoeud>(initiale);
+  // Champs modifiés depuis le dernier envoi : leur erreur disparaît dès que la valeur redevient
+  // valide, sans attendre un nouvel envoi du formulaire.
+  const [modifies, setModifies] = useState<ReadonlySet<keyof SaisieNoeud>>(new Set());
+  const controle = validerNoeud(type, s).erreurs;
   const champ = (cle: keyof SaisieNoeud) => ({
     value: s[cle],
-    onChange: (e: { target: { value: string } }) => setS((x) => ({ ...x, [cle]: e.target.value })),
-    erreur: f.erreurs[cle],
+    onChange: (e: { target: { value: string } }) => {
+      setS((x) => ({ ...x, [cle]: e.target.value }));
+      setModifies((m) => new Set(m).add(cle));
+    },
+    erreur: modifies.has(cle) && !controle[cle] ? undefined : f.erreurs[cle],
   });
 
   async function enregistrer(retire: boolean) {
+    setModifies(new Set());
     const v = validerNoeud(type, s);
     const validation: Resultat<Record<string, unknown>, keyof SaisieNoeud> = v.donnees
       ? { ok: true, charge: v.donnees }
