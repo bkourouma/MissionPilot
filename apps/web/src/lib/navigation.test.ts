@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aPermission, ROLES, type Role } from "@missionpilot/shared";
+import { PERMISSIONS_RUBRIQUE, sousPagesConnaissances } from "./capitalisation";
 import {
   autorise,
   entreesAutorisees,
@@ -104,13 +105,36 @@ describe("entreesAutorisees", () => {
     ]);
   });
 
-  it("rubrique Connaissances : ni chef ni gestionnaire par collaborateurs.lire (matrice de tous)", () => {
-    // La matrice exige competence.lire : la rubrique s'ouvre par connaissance.lire (chef,
-    // consultant, expert), competence.lire ou competence.gerer (ressources) ou standard.gerer.
+  it("rubrique Connaissances : ouverte par la permission de l'une de ses sous-pages", () => {
+    // Pas par collaborateurs.lire (la matrice de tous exige competence.lire), mais par
+    // connaissance.lire (recherche, retours), temps.saisir (« Compétences » : ses propres
+    // niveaux), competence.lire ou competence.gerer (matrice) ou standard.gerer (évolutions).
+    const permissions = NAVIGATION.find((e) => e.id === "connaissances")?.permission;
+    expect(permissions).toEqual(PERMISSIONS_RUBRIQUE);
+    expect(permissions).not.toContain("collaborateurs.lire");
     expect(ids(["chef_mission"])).toContain("connaissances");
     expect(ids(["ressources"])).toContain("connaissances");
-    expect(ids(["gestionnaire"])).not.toContain("connaissances");
-    expect(ids(["expert_externe"])).not.toContain("connaissances");
+    // Le gestionnaire n'a que « Compétences » (temps.saisir) : l'entrée reste atteignable.
+    expect(ids(["gestionnaire"])).toContain("connaissances");
+    expect(ids(["client_dirigeant"])).not.toContain("connaissances");
+  });
+
+  it("rubrique Connaissances : chaque onglet affiché correspond à une page ouverte au rôle", () => {
+    const onglets = (role: Role) => sousPagesConnaissances([role]).map((p) => p.id);
+    // Expert métier : pas d'estimation (budget.lire_jours) ; gestionnaire : « Compétences » seul.
+    expect(onglets("expert_metier")).toEqual([
+      "recherche",
+      "retours",
+      "competences",
+      "derogations",
+    ]);
+    expect(onglets("gestionnaire")).toEqual(["competences"]);
+    expect(onglets("ressources")).toEqual(["competences"]);
+    // Tout rôle qui voit la rubrique voit au moins un onglet, et l'entrée n'apparaît que si
+    // un onglet existe.
+    for (const role of ROLES) {
+      expect(ids([role]).includes("connaissances")).toBe(onglets(role).length > 0);
+    }
   });
 
   it("ouvre les collaborateurs aux ressources et au gestionnaire, pas au consultant", () => {
@@ -121,11 +145,13 @@ describe("entreesAutorisees", () => {
   });
 
   it("limite l'expert externe au tableau de bord, à ses temps et à ses tâches", () => {
+    // « Connaissances » s'ouvre à tout rôle qui saisit des temps (« Compétences », ses niveaux).
     expect(ids(["expert_externe"])).toEqual([
       "tableau-de-bord",
       "mon-planning",
       "feuille-de-temps",
       "mes-taches",
+      "connaissances",
     ]);
   });
 
@@ -220,7 +246,9 @@ describe("sous-pages", () => {
       "temps",
       "facturation",
       "cloture",
+      "cloture-mission",
       "import",
+      "notation",
       "journal",
       "ia",
     ]);
@@ -231,6 +259,22 @@ describe("sous-pages", () => {
     ]);
     expect(sousPagesAutorisees("parametres", ["chef_mission"])).toEqual([]);
     expect(sousPagesAutorisees("parametres", ["consultant"])).toEqual([]);
+  });
+
+  it("paramètres : l'onglet actif est le plus long préfixe (cloture-mission n'est pas cloture)", () => {
+    const pages = sousPagesAutorisees("parametres", ["associe"]);
+    expect(sousPageActive(pages, "/parametres")).toBe("cabinet");
+    expect(sousPageActive(pages, "/parametres/cloture")).toBe("cloture");
+    expect(sousPageActive(pages, "/parametres/cloture-mission")).toBe("cloture-mission");
+    expect(sousPageActive(pages, "/parametres/notation")).toBe("notation");
+    expect(sousPageActive(pages, "/parametres/notation/grilles")).toBe("notation");
+    expect(sousPageActive(pages, "/parametres/import-temps")).toBe("import");
+    // Clôture de mission et notation : droit de paramétrer le cabinet (page cloture-mission).
+    expect(
+      sousPagesAutorisees("parametres", ["gestionnaire"]).some(
+        (p) => p.id === "cloture-mission" || p.id === "notation",
+      ),
+    ).toBe(false);
   });
 
   it("donne les congés et la validation selon les droits", () => {

@@ -265,7 +265,15 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     libelle: "Connaissances",
     libelleCourt: "Savoirs",
     href: "/connaissances",
-    permission: ["connaissance.lire", "competence.lire", "competence.gerer", "standard.gerer"],
+    // Liste identique à PERMISSIONS_RUBRIQUE (lib/capitalisation.ts, verrouillée par un test) :
+    // chaque onglet a sa permission, `temps.saisir` ouvre « Compétences » (« Mes compétences »).
+    permission: [
+      "connaissance.lire",
+      "temps.saisir",
+      "competence.lire",
+      "competence.gerer",
+      "standard.gerer",
+    ],
     disponible: true,
     icone: "recherche",
     description:
@@ -398,10 +406,22 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         permission: "temps.cloturer",
       },
       {
+        id: "cloture-mission",
+        libelle: "Clôture de mission",
+        href: "/parametres/cloture-mission",
+        permission: "cabinet.gerer",
+      },
+      {
         id: "import",
         libelle: "Import des temps",
         href: "/parametres/import-temps",
         permission: "temps.importer",
+      },
+      {
+        id: "notation",
+        libelle: "Notation",
+        href: "/parametres/notation",
+        permission: "cabinet.gerer",
       },
       {
         id: "journal",
