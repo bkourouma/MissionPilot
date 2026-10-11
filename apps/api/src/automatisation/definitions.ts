@@ -12,6 +12,7 @@ import {
   type ClasseRisque,
   type CodeEvenementAutomatisation,
   type DefinitionAutomatisationApi,
+  type SourceEvenement,
 } from "@missionpilot/shared";
 
 /*
@@ -20,6 +21,9 @@ import {
  * exigés par chaque action, identité d'exécution compatible avec l'origine de l'événement.
  * Les agents et briques cités se vérifient en base (`regles.ts`).
  */
+
+/** Sources d'événement dont l'origine est une personne (mode d'exécution « declencheur » admis). */
+const SOURCES_AVEC_PERSONNE: readonly SourceEvenement[] = ["module"];
 
 export interface ErreurDefinition {
   chemin: string;
@@ -74,7 +78,10 @@ export function validerDefinition(d: DefinitionAutomatisationApi): ErreurDefinit
     code: e.code,
     message: e.message,
   }));
-  if (d.mode_execution === "declencheur" && evenement.source !== "module") {
+  // Seule la source « module » enregistre une personne à l'origine de l'événement ; aucun événement
+  // du catalogue n'a aujourd'hui cette source (publiés par la base ou détectés, sans personne à
+  // leur origine) : ce mode est refusé pour eux tous.
+  if (d.mode_execution === "declencheur" && !SOURCES_AVEC_PERSONNE.includes(evenement.source)) {
     erreurs.push({
       chemin: "mode_execution",
       code: "DECLENCHEUR_ABSENT",
