@@ -701,7 +701,7 @@ describe("feuille de temps non soumise", () => {
       famille: "deriver",
       mission_id: null,
       lien: "/temps?semaine=2026-10-05",
-      libelle: "Feuille de temps non soumise : semaine du 2026-10-05 (3 jours de retard)",
+      libelle: "Feuille de temps non soumise : semaine du 05/10/2026 (3 jours de retard)",
     });
     // Arrivé le jeudi 8 octobre : la semaine du 28 septembre ne le concerne pas.
     const arrive = duType(await lire(recent, "2026-10-12"), "feuille_non_soumise");

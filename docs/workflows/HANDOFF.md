@@ -16,8 +16,8 @@ réelle) et le rejeu réel des évaluations OpenRouter (PR #8, merge commit `791
 par le chef d'orchestre). Cette branche, créée depuis `main`, comble les lacunes de la vague 2 :
 **événement `mission.cloture_demandee`** (0303), **brief quotidien par rôle** (AUT-07, 0304),
 **copilote conversationnel** (AGT-08, 0271 à 0274). Code, tests, audits de sécurité (0 critique,
-3 importants corrigés + mineurs) et documentation faits ; **PR à ouvrir, fusion : demander au
-chef** (c'est lui qui fusionne quand tout est propre).
+3 importants corrigés + mineurs), recette navigateur courte et documentation faits ; **PR n° 9
+ouverte, fusion par le chef** (il la fait quand tout est propre).
 
 **VÉRIFICATIONS RÉELLES OUVERTES (rien n'a été vérifié avec un vrai modèle ni dans un
 navigateur) :**
@@ -29,12 +29,24 @@ navigateur) :**
   la comparaison du modèle servi. Pour le faire : une clé de test dans les paramètres IA d'un
   cabinet de recette, un jeu d'essai de quelques cas, lancer un rejeu depuis `/agents/evaluations`
   (plafonné à 2 USD), puis poser quelques questions à `/copilote`.
-- **Écrans jamais ouverts dans un navigateur** : `/agents/evaluations` (rejeu), `/brief`, carte
-  « Brief du jour » du tableau de bord, `/copilote`. Prévoir une recette navigateur (méthode et
-  pièges ci-dessous) avant la mise en service.
-- Les serveurs de recette (`missionpilot_recette`) n'ont PAS le code de ces chantiers tant qu'ils
-  ne sont pas redémarrés sur la branche ; les migrations 0271 à 0274, 0303 et 0304 ne sont
-  appliquées nulle part hors bases de test.
+- **Écran jamais ouvert dans un navigateur** : `/agents/evaluations` (rejeu). `/brief`, la carte
+  « Brief du jour » et `/copilote` ont eu une recette navigateur courte le 2026-10-11 (Chrome réel,
+  base `missionpilot_recette`, API relancée avec la connexion rapide) : aucun bloquant ; affichage,
+  brief vide et rempli, liens, FIN-02, confirmation à usage unique, annulation, proposition
+  expirée, autre utilisateur (404), refus sous N1 puis reprise à N2, portail fermé : observés.
+  **Non vérifié** : la mise en page mobile (le redimensionnement n'a pas pris effet dans Chrome) et
+  les captures (instables). Corrigé après recette : suggestion « factures échues » alignée sur
+  l'outil du serveur ; dates du brief en JJ/MM/AAAA. **Constats mineurs repoussés** : « mes
+  missions en retard » et « qui est en retard sur les feuilles » (équipe) ne sont pas compris ;
+  « Refusée » affiché deux fois après un refus N1 et plus de bouton pour reprendre la proposition ;
+  « Crée une tâche : » proposé sous N1 ; message refusé qui reste dans le champ ; conversation non
+  conservée au rechargement ; fiche `/agents` du copilote sans la création de tâche ; formulations
+  (« Aucun KPI au rouge sur 1 de vos missions ») ; « cherche » refusé au rôle ressources
+  (permission `connaissance.lire`, à confirmer).
+- La base `missionpilot_recette` a reçu les migrations 0271 à 0274, 0303 et 0304 (155 appliquées) ;
+  `missionpilot` et `missionpilot_demo` non encore (après fusion, `pnpm db:migrate`). Des données de
+  démonstration ont été ajoutées par la recette dans la base de recette (3 tâches du chef de
+  mission, 2 écritures de restriction du copilote).
 
 **Livré :**
 
@@ -63,9 +75,9 @@ tsc, Prettier, tests des 4 paquets).
 
 **Reste à faire (par priorité) :**
 
-1. **Ouvrir la PR de cette branche**, rendre compte au chef ; après fusion : `pnpm db:migrate` sur
-   les bases de **développement** (`missionpilot`, `missionpilot_demo`, `missionpilot_recette`),
-   supprimer cette section.
+1. **PR n° 9 ouverte** (le chef la fusionne en merge commit) ; après fusion : `pnpm db:migrate` sur
+   les bases de **développement** restantes (`missionpilot`, `missionpilot_demo` ; la recette est
+   faite), supprimer cette section.
 2. **Lacunes restantes de la vague 2** : AUT-10 (rapport d'avancement hebdomadaire au client,
    généré et validé par le chef de mission), AUT-11 (staffing, V4 au PRD) ; le copilote n'a qu'une
    action et six outils de lecture : à étendre (le registre `ACTIONS` est prévu pour ça) ; sources du

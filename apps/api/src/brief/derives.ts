@@ -30,6 +30,7 @@ import { calculerSuivisMissions } from "../temps/suivi.js";
 import {
   a,
   base,
+  dateFr,
   enSource,
   enSourceFiltree,
   JOUR,
@@ -282,7 +283,7 @@ export const feuillesNonSoumises: Extracteur = async (c) => {
       type: "feuille_non_soumise",
       entite_id: `${collaborateur.id}:${semaine}`,
       mission_id: null,
-      entite_libelle: `semaine du ${semaine}`,
+      entite_libelle: `semaine du ${dateFr(semaine)}`,
       mission_libelle: null,
       lien: `/temps?semaine=${semaine}`,
       faits: { nature: "retard", echeance: ajouterJours(semaine, 4) },

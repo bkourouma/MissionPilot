@@ -57,6 +57,11 @@ describe("suggestions selon les droits", () => {
     expect(g.some((x) => x.includes("KPI"))).toBe(false);
   });
 
+  it("un chef de mission n'a pas la suggestion des factures échues (l'outil du serveur la refuse)", () => {
+    const s = suggestionsPour(["chef_mission" as Role]);
+    expect(s.some((x) => x.includes("factures"))).toBe(false);
+  });
+
   it("sans rôle : seule la question ouverte à tous", () => {
     expect(suggestionsPour([])).toEqual(["Quelles sont mes tâches en retard ?"]);
   });

@@ -102,3 +102,9 @@ export function donneesFinancieres(
   if (!c.avecFinance || montant === null || montant === undefined) return {};
   return { montant: nombre(montant), devise: String(devise) };
 }
+
+/** Date ISO (AAAA-MM-JJ) affichée à la française (JJ/MM/AAAA), comme le copilote ; autre valeur : telle quelle. */
+export const dateFr = (iso: unknown): string => {
+  const m = typeof iso === "string" ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso);
+};

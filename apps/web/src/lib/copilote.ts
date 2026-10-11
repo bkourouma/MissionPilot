@@ -46,7 +46,11 @@ export const SUGGESTIONS: readonly SuggestionCopilote[] = [
   { texte: "Quelles feuilles de temps dois-je soumettre ?", permission: "temps.saisir" },
   { texte: "Quels KPI sont au rouge sur mes missions ?", permission: "kpi.lire" },
   { texte: "Où en est la mission…", permission: "mission.lire" },
-  { texte: "Quelles factures sont échues ?", permission: "facture.lire" },
+  // Comme l'outil du serveur : `facture.lire` ET (`encaissement.gerer` OU `indicateurs.cabinet`).
+  {
+    texte: "Quelles factures sont échues ?",
+    permission: ["encaissement.gerer", "indicateurs.cabinet"],
+  },
   { texte: "Cherche ", permission: "connaissance.lire" },
   { texte: "Crée une tâche : ", permission: "tache.assigner" },
 ];
