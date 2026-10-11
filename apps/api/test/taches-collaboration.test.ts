@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Role } from "@missionpilot/shared";
 import { api, type Api } from "./api.js";
-import { demarrer, type Contexte } from "./helpers.js";
+import { demarrer, proprietaire, type Contexte } from "./helpers.js";
 import {
   creerMission,
   preparerCabinet,
@@ -9,6 +9,7 @@ import {
   type ApiUtilisateur,
   type CabinetMissions,
 } from "./missions-outils.js";
+import { inviterClient } from "./portail-outils.js";
 
 let ctx: Contexte;
 let a: CabinetMissions;
@@ -104,6 +105,42 @@ describe("tâches assignées (SOC-08)", () => {
     expect(
       (await creer(a.chef, { titre: "", assignee_id: consultant.utilisateurId })).statusCode,
     ).toBe(400);
+  });
+
+  it("assigné : jamais une personne du portail client (400), ni à la création ni à la réassignation, sans notification", async () => {
+    const client = await inviterClient(ctx, a.associe, a.clientId, ["client_contributeur"]);
+    const compte = () =>
+      proprietaire(
+        async (cl) =>
+          (
+            await cl.query(
+              "SELECT count(*)::int AS n FROM notifications WHERE destinataire_id = $1",
+              [client.utilisateurId],
+            )
+          ).rows[0].n as number,
+      );
+    const avant = await compte();
+    const refus = await creer(a.chef, {
+      titre: "Pour le portail",
+      assignee_id: client.utilisateurId,
+    });
+    expect(refus.statusCode, refus.body).toBe(400);
+    expect(refus.json().erreur.message).toContain("Assigné inconnu ou inactif");
+    // Réassignation d'une tâche existante vers une personne du portail : même refus.
+    const t = await tache(a.chef, { titre: "À réassigner", assignee_id: consultant.utilisateurId });
+    const patch = await a.chef.patch(`${URL}/${t.id as string}`, {
+      assignee_id: client.utilisateurId,
+    });
+    expect(patch.statusCode, patch.body).toBe(400);
+    expect((await a.chef.get(`${URL}/${t.id as string}`)).json().assignee_id).toBe(
+      consultant.utilisateurId,
+    );
+    expect(await compte()).toBe(avant);
+    // Un collaborateur interne reste assignable (comportement inchangé).
+    expect(
+      (await creer(a.chef, { titre: "Pour un collègue", assignee_id: consultant.utilisateurId }))
+        .statusCode,
+    ).toBe(201);
   });
 
   it("droits : « tache.assigner » pour créer (matrice des 8 rôles) ; 401 sans session", async () => {

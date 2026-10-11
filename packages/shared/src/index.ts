@@ -34,4 +34,6 @@ export * from "./schemas/appels-offres";
 export * from "./schemas/capitalisation";
 export * from "./schemas/salle-mission";
 export * from "./schemas/automatisation";
+export * from "./schemas/brief";
+export * from "./schemas/copilote";
 export * from "./grilles/index";

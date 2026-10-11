@@ -129,6 +129,28 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
       "Les tâches qui vous sont assignées et celles que vous avez confiées, avec leur échéance.",
   },
   {
+    // Brief quotidien (AUT-07, vague 2) : ce qui demande l'attention de l'utilisateur, selon son rôle.
+    id: "mon-brief",
+    libelle: "Mon brief",
+    libelleCourt: "Brief",
+    href: "/brief",
+    permission: "brief.lire",
+    disponible: true,
+    icone: "cloche",
+    description: "Votre brief du jour : ce qui demande votre attention, selon votre rôle.",
+  },
+  {
+    // Copilote conversationnel (AGT-08, vague 2) : questions en français dans les droits de l'utilisateur.
+    id: "copilote",
+    libelle: "Copilote",
+    href: "/copilote",
+    permission: "copilote.utiliser",
+    disponible: true,
+    icone: "bulle",
+    description:
+      "Posez vos questions en français : réponses dans vos droits, actions proposées que vous confirmez.",
+  },
+  {
     id: "pipeline",
     libelle: "Pipeline",
     href: "/pipeline",

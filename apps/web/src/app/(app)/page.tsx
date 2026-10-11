@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { CarteBriefAccueil, CarteBriefIndisponible } from "../../components/brief/BriefDuJour";
 import { libellesRoles } from "../../components/shell/CadreApplication";
 import { BadgeStatut } from "../../components/ui/BadgeStatut";
 import { Carte } from "../../components/ui/Carte";
@@ -10,6 +11,7 @@ import {
   ListeAlertesDerive,
 } from "../../components/indicateurs/GrilleIndicateurs";
 import { chargerServeur } from "../../lib/api-serveur";
+import { messageBriefIndisponible, requeteBrief, type BriefApi } from "../../lib/brief";
 import { formaterDate } from "../../lib/format";
 import {
   alertesDerive,
@@ -29,11 +31,15 @@ export default async function TableauDeBord() {
   const modules = entreesAutorisees(utilisateur.roles).filter((e) => e.id !== "tableau-de-bord");
   // Pilotage du cabinet (parcours C) : une seule requête de niveau « mission » sert à la fois
   // les indicateurs du cabinet et les alertes de dérive.
-  const pilotage = aPermission(utilisateur.roles, "indicateurs.cabinet")
-    ? await chargerServeur<ReponseIndicateurs>(
-        `/api/indicateurs/cabinet?${requeteIndicateurs({ ...periodeParDefaut(), niveau: "mission" })}`,
-      )
-    : null;
+  const [pilotage, brief] = await Promise.all([
+    aPermission(utilisateur.roles, "indicateurs.cabinet")
+      ? chargerServeur<ReponseIndicateurs>(
+          `/api/indicateurs/cabinet?${requeteIndicateurs({ ...periodeParDefaut(), niveau: "mission" })}`,
+        )
+      : null,
+    // Brief du jour (AUT-07) : résumé seulement, l'écran /brief porte le détail.
+    aPermission(utilisateur.roles, "brief.lire") ? chargerServeur<BriefApi>(requeteBrief()) : null,
+  ]);
 
   return (
     <div className="mp-page">
@@ -44,6 +50,14 @@ export default async function TableauDeBord() {
           {libellesRoles(utilisateur.roles)}.
         </p>
       </header>
+
+      {brief ? (
+        brief.ok ? (
+          <CarteBriefAccueil brief={brief.donnees} />
+        ) : (
+          <CarteBriefIndisponible message={messageBriefIndisponible(brief.statut, brief.message)} />
+        )
+      ) : null}
 
       {pilotage ? (
         <section aria-labelledby="titre-pilotage" className="mp-pile">

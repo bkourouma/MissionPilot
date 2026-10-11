@@ -14,7 +14,9 @@ import {
   creerHandlerEvenementAutomatisation,
   TYPE_JOB_AGENT_AUTOMATISATION,
 } from "../automatisation/execution.js";
+import { creerHandlerBriefQuotidien, TYPE_JOB_BRIEF_QUOTIDIEN } from "../brief/quotidien.js";
 import { loadConfig } from "../config.js";
+import { creerHandlerCopilotePurge, TYPE_JOB_COPILOTE_PURGE } from "../copilote/purge.js";
 import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
 import { creerHandlerConservationIa, TYPE_JOB_CONSERVATION_IA } from "../ia/conservation.js";
 import { creerHandlerIaGeneration, dependancesIaParDefaut } from "../ia/job.js";
@@ -71,7 +73,7 @@ export function creerRegistre(handlers: Record<string, HandlerJob>): RegistreJob
  * Handlers de MissionPilot : rappels du vendredi et relances du lundi
  * (TPS-04), relances quotidiennes des factures échues (FIN-09), purge des
  * fichiers orphelins (SOC-05), générations IA, relances des questionnaires
- * (J+3 / J+7) et suivi quotidien des KPI. Un handler importe
+ * (J+3 / J+7), suivi quotidien des KPI et brief quotidien (AUT-07). Un handler importe
  * `ErreurJobDefinitive` de jobs/erreurs.ts, jamais de ce module (pas
  * d'importation circulaire). Le stockage de la purge est celui de la
  * configuration de l'environnement ; server.ts le fournit explicitement
@@ -85,10 +87,12 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_PURGE_RAPPORTS]: creerHandlerPurgeRapports(() => stockageDe(loadConfig())), // rapports échus
   ia_generation: creerHandlerIaGeneration(dependancesIaParDefaut), // générations IA en file (ADR-003)
   [TYPE_JOB_CONSERVATION_IA]: creerHandlerConservationIa(), // anonymisation des textes IA échus
+  [TYPE_JOB_COPILOTE_PURGE]: creerHandlerCopilotePurge(), // propositions d'actions du copilote échues
   // Rejeu réel des évaluations de non-régression sur OpenRouter (AGT-04, ADR-005) : un seul essai.
   [TYPE_JOB_EVALUATION_OPENROUTER]: creerHandlerEvaluationOpenRouter(dependancesIaParDefaut),
   [TYPE_JOB_RELANCE_QUESTIONNAIRE]: relanceQuestionnaire, // relances J+3 / J+7 (V2)
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
+  [TYPE_JOB_BRIEF_QUOTIDIEN]: creerHandlerBriefQuotidien(), // brief du jour par utilisateur (AUT-07)
   // Moteur d'automatisation (AUT-01 à AUT-06, ADR-006) : événements, appels d'agents, détection.
   [TYPE_JOB_EVENEMENT_AUTOMATISATION]: creerHandlerEvenementAutomatisation(),
   [TYPE_JOB_AGENT_AUTOMATISATION]: creerHandlerAgentAutomatisation(dependancesIaParDefaut),

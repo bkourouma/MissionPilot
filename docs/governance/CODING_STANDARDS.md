@@ -2,8 +2,10 @@
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les conventions **observées dans le code** (état de la
-branche `feat/vague-2-automatisation`, 2026-10-08 ; vague 1 commitée, vagues 2 et 3 dans
-l'arbre de travail, non commitées), avec un fichier de référence pour chacune, pas un idéal. Les
+branche `feat/vague-2-lacunes`, 2026-10-11 ; vagues 1 à 3 et rejeu réel OpenRouter commités et
+fusionnés dans `origin/main`, lacunes de la vague 2 — événement `mission.cloture_demandee`,
+brief quotidien, copilote — dans l'arbre de travail, non commitées), avec un fichier de
+référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
 ## 1. Organisation du dépôt
@@ -12,7 +14,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
 
 | Dossier             | Rôle                                                                 | Peut importer                         |
 | ------------------- | -------------------------------------------------------------------- | ------------------------------------- |
-| `packages/engines`  | moteurs de calcul purs, sans E/S : planning, finance, questionnaires, notation, KPI, plan stratégique et modèle financier, et pour les vagues 2 et 3 automatisation, clôture, prévisions, appels d'offres, banque de CV, offre financière, capitalisation | rien d'applicatif |
+| `packages/engines`  | moteurs de calcul purs, sans E/S : planning, finance, questionnaires, notation, KPI, plan stratégique et modèle financier, et pour les vagues 2 et 3 automatisation, clôture, prévisions, appels d'offres, banque de CV, offre financière, capitalisation, brief quotidien (`brief`) et copilote (`copilote`) | rien d'applicatif |
 | `packages/shared`   | rôles, permissions, schémas Zod, types partagés                      | rien d'applicatif                     |
 | `apps/api`          | API Fastify : `src/routes`, logique par domaine, `migrations`, `test`| `engines`, `shared`                   |
 | `apps/web`          | interface Next.js (français), `src/app`, `src/lib`, `src/components` | `shared` (pas `engines`, vérifié : aucun import, seulement des commentaires) |
@@ -42,9 +44,9 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0200–0206`   | référentiel de méthodes (lot STD) : dictionnaire, facteurs, services et notes de contexte (`0200`), méthodes, versions et contenu (`0201`), mission figée, dérogations (`0202`), comité méthode (`0203`), amorçage du standard : dictionnaire (`0204`) et méthodes Notation et Plan stratégique (`0205`) ; notation calculée depuis la méthode de la mission (`0206`, intégration de la vague 1 : `notation_versions_methode`) ; durcissements d'audit : garde de publication d'une variante (`0207`, `MPM07-08`), standard visible seulement publié (`0208`), validations exigées pour approuver une dérogation (`0209`) |
   | `0220–0224`   | dossier client (lot DOS) : faits et décisions (`0220`), facteurs de contexte (`0221`), états financiers, lignes et décisions (`0222`), instantanés de fiabilité et exports (`0223`), acceptation automatique à tolérance nulle seulement (`0224`) |
   | `0240–0243`   | registre des preuves (lot PRV) : preuves, versions et dimensions (`0240`), assertions et versions (`0241`), liens et arbitrages (`0242`), durcissement d'audit (`0243`, `MPV06-07`) |
-  | `0260–0270`   | agents IA (lot AGT) : registre (`0260`), briques et exécutions (`0261`), autonomie (`0262`), contributions et plafonds (`0263`), jeux d'essai et évaluations de non-régression (`0264`), fournisseur d'évaluation et exécution sous non-régression (`0265`), validation d'une sortie conforme (`0266`), gardes de rôle (`0267`) ; `0268` : `fichier_orphelin` étendu aux références de fichiers des preuves et du dossier client (fonction transversale, numérotée après `0267` parce qu'elle cite des tables créées par `0220`–`0221` et `0240`) ; `0270` : rejeu réel des évaluations sur OpenRouter (AGT-04) : demandes de rejeu (`agents_evaluations_demandes`), statut, jetons et demande d'origine des évaluations, appels d'évaluation dans `ia_consommations`, garde de provenance (`MPG09`) ; `0269` n'est pas utilisé |
+  | `0260–0274`   | agents IA (lot AGT) : registre (`0260`), briques et exécutions (`0261`), autonomie (`0262`), contributions et plafonds (`0263`), jeux d'essai et évaluations de non-régression (`0264`), fournisseur d'évaluation et exécution sous non-régression (`0265`), validation d'une sortie conforme (`0266`), gardes de rôle (`0267`) ; `0268` : `fichier_orphelin` étendu aux références de fichiers des preuves et du dossier client (fonction transversale, numérotée après `0267` parce qu'elle cite des tables créées par `0220`–`0221` et `0240`) ; `0270` : rejeu réel des évaluations sur OpenRouter (AGT-04) : demandes de rejeu (`agents_evaluations_demandes`), statut, jetons et demande d'origine des évaluations, appels d'évaluation dans `ia_consommations`, garde de provenance (`MPG09`) ; `0271–0274` : copilote conversationnel (AGT-08, lacune de la vague 2) : propositions d'actions confirmées par l'utilisateur, `copilote_actions` (`0271`, `MPG10-11`), origine « copilote » dans `ia_consommations` (`0272`), registre d'agents version 2 : plafond du copilote relevé à N2 (`0273`), anonymisation à 30 jours et planification de la purge (`0274`, `anonymiser_copilote_actions` et `planifier_purge_copilote`, `SECURITY DEFINER`) ; `0269` n'est pas utilisé |
   | `0280–0286`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`), durcissement d'audit (`0286`, `MPY08-11`) |
-  | `0300–0302`   | moteur d'automatisation (lot AUT-CORE, vague 2, ADR-006) : automatisations, versions immuables de leur définition et coupe-circuits (`0300`, AUT-02, AUT-06), événements publiés, exécutions, actions gardées, résultats, annulations et brouillons tracés (`0301`, AUT-01, AUT-05), événements publiés par la base et planification quotidienne de la détection (`0302`, `SECURITY DEFINER`) ; `MPU01-05` ; `0303` n'existe pas |
+  | `0300–0304`   | moteur d'automatisation (lot AUT-CORE, vague 2, ADR-006) : automatisations, versions immuables de leur définition et coupe-circuits (`0300`, AUT-02, AUT-06), événements publiés, exécutions, actions gardées, résultats, annulations et brouillons tracés (`0301`, AUT-01, AUT-05), événements publiés par la base et planification quotidienne de la détection (`0302`, `SECURITY DEFINER`), événement `mission.cloture_demandee` publié au passage à `a_cloturer` (`0303`, lacune de la vague 2, sans nouveau SQLSTATE), planification quotidienne du brief par rôle (`0304`, AUT-07, `planifier_brief_quotidien` en `SECURITY DEFINER`, aucune table) ; `MPU01-05` |
   | `0320–0323`   | check-list de clôture (AUT-08, vague 2) : modèle du cabinet (`0320`), vérifications en ajout seul (`0321`, `MPX01`), dérogations motivées (`0322`, `MPX02`), séparation des tâches entre dérogation et clôture (`0323`, `MPX03`) |
   | `0330–0332`   | salle de mission (CLI-01, vague 2) : demandes documentaires, pièces, dépôts et historique du statut (`0330`, `MPL01-05`), `fichier_orphelin` étendu à `salle_depots.fichier_id` et `octets_stockage_utilises` en `SECURITY DEFINER` (`0331`), durcissement d'audit : mission clôturée, plafonds et débit des dépôts, acceptation par le déposant (`0332`, `MPL06-09`) |
   | `0360–0363`   | appels d'offres (lot AO-A, vague 3, plage réservée `0360–0379`) : fiches, événements, évaluations et décisions go/no-go (`0360`, AO-01, AO-02), dossiers, extractions, matrice de conformité et son suivi (`0361`, AO-03), rétro-planning (`0362`, AO-08), acquittement des nombres non vérifiés d'une extraction (`0363`, `MPA07`) ; `MPA01-07` |
@@ -66,23 +68,23 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   (`0440–0459`), aucune migration ne déclare de plage : ces bornes sont la
   convention de ce document (à confirmer ; `0340–0359` reste sans affectation).
   Un durcissement issu d'audit prend le numéro suivant de son domaine. Prochain
-  numéro libre au 2026-10-08 : plans (V1) `0185`, automatisation `0303`,
+  numéro libre au 2026-10-11 : plans (V1) `0185`, automatisation `0305`
+  (`0303` et `0304` consommées par la publication de `mission.cloture_demandee` et
+  la planification du brief quotidien),
   clôture `0324`, salle de mission `0333`, AO-A `0364`, AO-B `0387`, notation
   augmentée `0405`, plans augmentés `0425`, KPI augmentés `0446`,
   capitalisation `0466` (STD `0210`, DOS `0225`, PRV `0244`, QUA `0287` ;
-  AGT : `0270` est consommée par le rejeu réel des évaluations, `0269` reste
-  inutilisé comme `0144`, prochain libre `0271`). Une migration **commitée** n'est jamais modifiée : on ajoute un
+  AGT : `0270` est consommée par le rejeu réel des évaluations, `0271` à `0274` par
+  le copilote, `0269` reste inutilisé comme `0144`, prochain libre `0275`). Une
+  migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
-  l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-10,
-  les 43 migrations des vagues 2 et 3 (`0300`–`0465`) sont commitées sur
-  `feat/vague-2-automatisation` (148 fichiers, aucune modification ni suppression
-  dans l'historique) : elles sont donc immuables, bien que `origin/main` n'en
-  compte encore que 105 tant que la pull request n'est pas fusionnée. Aucune
-  migration n'a été ajoutée par la recette du 2026-10-10 : les numéros libres
-  ci-dessus restent valables. Le chantier du rejeu réel OpenRouter (branche
-  `feat/rejeu-openrouter`) ajoute `0270` (`agents_evaluations_openrouter`, non
-  commitée à la date de cette note : 149 fichiers dans le dossier, 148 commités).
+  l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-11,
+  le dossier compte 155 fichiers dont 149 commités et présents dans `origin/main`
+  (vagues 2 et 3 `0300`–`0465` et rejeu réel `0270` compris, aucune modification ni
+  suppression dans l'historique) : ces 149 sont immuables. Les six autres, non
+  commitées sur `feat/vague-2-lacunes` (`0271`–`0274`, `0303`, `0304`), restent
+  corrigeables sur place tant qu'elles ne le sont pas.
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next
@@ -113,9 +115,9 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0423`), `R` rapports (`MPR01-02`, `0131`, puis `MPR03` du dossier bancaire,
   `0424`), `Y` qualité (`MPY01-11`, `0280`–`0286`), `V` preuves
   (`MPV01-07`, `0240`–`0243`), `O` dossier client (`MPO01-04`,
-  `0220`–`0224`), `G` agents IA (`MPG01-09`, `0260`–`0267` et `0270` ; `MPG09` : demande de rejeu réel incohérente), `M`
+  `0220`–`0224`), `G` agents IA (`MPG01-11`, `0260`–`0267`, `0270`, `0271` et `0274` ; `MPG09` : demande de rejeu réel incohérente ; `MPG10-11` : proposition d'action du copilote terminée, transition interdite ou identité modifiée), `M`
   référentiel de méthodes (`MPM01-08`, `0201`–`0209`), `U` automatisation
-  (`MPU01-05`, `0300`–`0301`), `X` check-list de clôture (`MPX01-03`,
+  (`MPU01-05`, `0300`–`0301` ; `0303` et `0304` n'ajoutent aucun code), `X` check-list de clôture (`MPX01-03`,
   `0321`–`0323`), `L` salle de mission (`MPL01-09`, `0330` et `0332`), `A`
   appels d'offres (`MPA01-07`, `0360`–`0363`), `W` banques et offres d'appels
   d'offres (`MPW01-06`, `0380`–`0386`), `J` capitalisation (`MPJ01-08`,
@@ -153,8 +155,23 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `questionnaires/`, `notation/`, `kpi/`, `plans/`, `rapports/`, puis, vagues 1 à 3,
   `agents/`, `dossier/`, `preuves/`, `qualite/`, `standard/`, `automatisation/`,
   `cloture/`, `salle-mission/`, `previsions/`, `appels-offres/`, `banque-ao/`,
-  `capitalisation/`) : accès aux données et règles, dans la transaction reçue (`Db`). Une fonction ne
-  commence pas sa propre transaction.
+  `capitalisation/`, puis, lacunes de la vague 2, `brief/` et `copilote/`) : accès aux données et règles,
+  dans la transaction reçue (`Db`). Une fonction ne commence pas sa propre transaction.
+  - `brief/` (AUT-07) : une source par type d'élément (`decisions.ts`, `validations.ts`, `derives.ts`,
+    `envois.ts`), chacune derrière SA permission et la visibilité des missions, qui ne lit que des faits et
+    les remet au moteur `packages/engines/src/brief` ; `calcul.ts` les assemble, `quotidien.ts` est la
+    tâche quotidienne, `debit.ts` le plafond de débit de `GET /api/brief`. Aucune table, aucun appel IA.
+  - `copilote/` (AGT-08) : `service.ts` (traitement d'un message), `routage-ia.ts` (appel du modèle qui
+    ROUTE : le modèle ne voit aucune donnée), `lecture.ts` (outils de lecture), `actions.ts` (propose,
+    confirme, annule : registre `ACTIONS`, une entrée par action modifiante), `catalogue.ts` (droit de
+    chaque outil), `limites.ts` (débit, niveau d'autonomie), `purge.ts`, `erreurs.ts` ; moteur pur
+    `packages/engines/src/copilote` (catalogue fermé, routage déterministe, gabarits de réponse). Un
+    outil de plus : une entrée au catalogue du moteur, au droit de `catalogue.ts`, à `lecture.ts` ou à
+    `ACTIONS`, et aux tests ; une action modifiante n'est jamais exécutée sans proposition confirmée.
+  - **Plafond de débit** : par défaut compté sur `journal_audit` dans la transaction qui l'inscrit, sous
+    verrou consultatif (modèles `routes/factures-pdf.ts`, `copilote/limites.ts`). Exception documentée :
+    le compteur EN MÉMOIRE de `GET /api/brief` (`brief/debit.ts`), propre à chaque processus ; à ne pas
+    reproduire pour un acte sensible (SECURITY.md §5 septies, §15).
 - **Calculs : uniquement dans `packages/engines`.** Jours, montants, TVA,
   remises, marges, ratios, conversions, échéanciers, scores de notation, KPI,
   modèle financier ne se calculent ni dans les routes, ni en SQL (aucun
@@ -199,7 +216,8 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   métier du domaine (`finance/erreurs.ts`, `kpi/erreurs.ts`, `plans/erreurs.ts`,
   `questionnaires/erreurs.ts`, `agents/erreurs.ts` (`traduireErreurAgents`,
   aussi pour `MPG04` des routes `ia-prompts.ts` et `ia-parametres.ts` ; `MPG09`
-  → 409 `EVALUATION_INCOHERENTE`), table
+  → 409 `EVALUATION_INCOHERENTE`), `copilote/erreurs.ts` (`traduireErreurCopilote` :
+  `MPG10` et `MPG11` → 409), table
   `ERREURS_SQL` de `routes/portail.ts`).
 - Ressource d'un autre cabinet, invisible ou non partagée : 404, jamais 403.
 
@@ -335,7 +353,8 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   à valider avec le conseil juridique (DECISIONS.md).
 - **Rédaction assistée** du plan et des rapports de notation non faite : seules
   les routes `/api/ia/*` et la génération de questionnaires (`0149`) appellent
-  l'orchestrateur.
+  l'orchestrateur (le routage du copilote, qui ne produit aucun contenu, appelle le
+  fournisseur sans passer par lui, ADR-005).
 - **Plan partagé jamais servi au portail** (tables du plan en
   `portail_interdit`).
 - **Migrations sans somme de contrôle** : l'immuabilité d'une migration
@@ -411,10 +430,11 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   `app/(app)/missions/[id]/kpi/page.tsx` (420). API : `notation/notations.ts`
   (685), `kpi/revues.ts` (588). Les plus longs, plus anciens : `lib/plan-modele.ts`
   (1 308), `lib/kpi.ts` (1 025), `lib/methodes.ts` (931).
-- **Vagues 2 et 3, intégration** : `mission.cloture_demandee` figure au catalogue
-  d'événements et dans la bibliothèque standard d'automatisations mais aucun
-  module ne la publie (`automatisation/evenements.ts`, ADR-006) ; les automatisations
-  qui l'écoutent ne se déclenchent donc pas.
+- **Lacunes de la vague 2 (2026-10-11)** : `mission.cloture_demandee`, qui n'avait aucun
+  émetteur, est publié par la base au passage à `a_cloturer` (`0303`, ADR-006) ; le brief
+  quotidien et le copilote sont construits mais le copilote n'a jamais parlé à un vrai
+  modèle, et le compteur de débit du brief est en mémoire, propre à chaque processus
+  (SECURITY.md §15).
 - **Pages web à 200 au lieu de 500** (relevé du 2026-10-10) : dix pages qui lisent
   `/api/missions` ou `/api/opportunites` appellent `chargerToutesLesPages` sans
   `limiteMax` et demandent donc des pages de 200 (défaut sûr) alors que ces routes
@@ -426,6 +446,5 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   courant (l'ancien reste dans la version précédente, sans avertissement à
   l'écran : `capitalisation/ia.ts`) ; le pied de page « relu et validé par un
   consultant » s'ajoute au dossier de revue KPI en brouillon
-  (`routes/kpi-pilotage.ts`, `rapports/parametres.ts`) ; `mission.cloture_demandee`
-  n'est publié par aucun module, brief quotidien (AUT-07) et copilote (AGT-08)
-  absents. Détail et suite : `docs/governance/SECURITY.md` §15 et §16.
+  (`routes/kpi-pilotage.ts`, `rapports/parametres.ts`). Détail et suite :
+  `docs/governance/SECURITY.md` §15 et §16.

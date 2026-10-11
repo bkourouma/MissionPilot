@@ -83,8 +83,9 @@ export const CATALOGUE_EVENEMENTS = {
   "mission.cloture_demandee": {
     libelle: "Clôture demandée",
     module: "Clôture",
-    source: "module",
-    description: "La clôture de la mission est demandée (check-list de clôture, AUT-08).",
+    source: "base",
+    description:
+      "La mission vient de passer à « à clôturer » : la clôture est demandée (check-list de clôture, AUT-08). Une mission rouverte puis de nouveau à clôturer publie un nouvel événement, au-delà de 10 minutes.",
     champs: { mission_id: MISSION },
   },
   "questionnaire.clos": {

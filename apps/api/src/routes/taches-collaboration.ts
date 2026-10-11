@@ -8,16 +8,18 @@ import {
 } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import { exiger, type Auth } from "../auth/contexte.js";
-import { authDe, exigerEntiteVisible, voitEntite } from "../collaboration/entites.js";
+import { creerTacheAssignee, exigerAssignable, LIEN_MES_TACHES } from "../collaboration/taches.js";
 import type { Db } from "../db/pool.js";
-import { interdit, introuvable, requeteInvalide } from "../errors.js";
+import { interdit, introuvable } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
 import { envoyerEmails, notifier, type NotificationCreee } from "../notifications/notifier.js";
 
 /*
  * Tâches assignées (SOC-08), distinctes des tâches du découpage de mission.
- * - Création : « tache.assigner » ; l'assigné est un utilisateur ACTIF du même
- *   cabinet ; une entité liée doit être visible du créateur ET de l'assigné.
+ * - Création : « tache.assigner » ; l'assigné est un utilisateur INTERNE ACTIF du
+ *   même cabinet (jamais une personne du portail client : 400) ; une entité liée
+ *   doit être visible du créateur ET de l'assigné. Création et contrôles passent par
+ *   le service commun `collaboration/taches.ts`, aussi appelé par le copilote.
  * - Lecture : le créateur et l'assigné seulement (sinon 404).
  * - Modification : le créateur (avec « tache.assigner ») modifie tout ;
  *   l'assigné ne change que le statut (403 sinon).
@@ -25,8 +27,6 @@ import { envoyerEmails, notifier, type NotificationCreee } from "../notification
  *   créateur quand l'assigné passe la tâche à « fait ».
  * Jamais de suppression (le rôle applicatif n'a pas DELETE).
  */
-
-const LIEN_MES_TACHES = "/mes-taches";
 
 const COLONNES = `t.id, t.titre, t.description, t.assignee_id, a.nom AS assignee_nom, t.cree_par,
   c.nom AS cree_par_nom, t.echeance::text AS echeance, t.statut, t.fait_le, t.entite_type,
@@ -67,77 +67,12 @@ async function tacheVisible(db: Db, auth: Auth, id: string, verrouiller = false)
   return t;
 }
 
-/** Assigné actif du cabinet, qui voit l'entité liée s'il y en a une. */
-async function exigerAssignable(
-  db: Db,
-  auth: Auth,
-  assigneeId: string,
-  entite: { type: TypeEntiteCollaboration; id: string } | null,
-): Promise<Auth> {
-  const assigne = await authDe(db, auth.cabinetId, assigneeId);
-  if (!assigne) throw requeteInvalide("Assigné inconnu ou inactif.");
-  if (entite && !(await voitEntite(db, assigne, entite.type, entite.id))) {
-    throw requeteInvalide(`${assigne.nom} n'a pas accès à l'élément lié.`);
-  }
-  return assigne;
-}
-
 export const routesTachesCollaboration: FastifyPluginAsync = async (app) => {
   app.post("/taches-collaboration", async (request, reply) => {
     const auth = exiger(request, "tache.assigner");
     const t = tacheCollaborationCreationSchema.parse(request.body);
     const { cree, notifications } = await app.db.withTenant(auth.cabinetId, async (db) => {
-      const entite =
-        t.entite_type && t.entite_id
-          ? await exigerEntiteVisible(db, auth, t.entite_type, t.entite_id)
-          : null;
-      await exigerAssignable(db, auth, t.assignee_id, entite);
-      const k = entite?.colonnes;
-      const r = await db.query(
-        `INSERT INTO taches_collaboration (cabinet_id, titre, description, assignee_id, cree_par,
-           echeance, entite_type, entite_id, mission_id, tache_id, facture_id, debours_id,
-           opportunite_id, proposition_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
-        [
-          auth.cabinetId,
-          t.titre,
-          t.description,
-          t.assignee_id,
-          auth.utilisateurId,
-          t.echeance,
-          entite?.type ?? null,
-          entite?.id ?? null,
-          k?.mission_id ?? null,
-          k?.tache_id ?? null,
-          k?.facture_id ?? null,
-          k?.debours_id ?? null,
-          k?.opportunite_id ?? null,
-          k?.proposition_id ?? null,
-        ],
-      );
-      const id = r.rows[0].id as string;
-      await journaliser(db, {
-        cabinetId: auth.cabinetId,
-        utilisateurId: auth.utilisateurId,
-        action: "creation",
-        entite: "tache_collaboration",
-        entiteId: id,
-        details: { assignee_id: t.assignee_id, entite_type: entite?.type ?? null },
-      });
-      const notifications: (NotificationCreee | null)[] = [];
-      if (t.assignee_id !== auth.utilisateurId) {
-        notifications.push(
-          await notifier(db, {
-            cabinetId: auth.cabinetId,
-            destinataireId: t.assignee_id,
-            type: "tache_assignee",
-            titre: `Tâche assignée par ${auth.nom} : ${t.titre}`,
-            corps: t.echeance ? `Échéance : ${t.echeance}` : "",
-            lien: LIEN_MES_TACHES,
-            email: true,
-          }),
-        );
-      }
+      const { id, notifications } = await creerTacheAssignee(db, auth, t);
       return { cree: await lireTache(db, id), notifications };
     });
     await envoyerEmails(app.mailer, notifications, (m) => request.log.warn(m));

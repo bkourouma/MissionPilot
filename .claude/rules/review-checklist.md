@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-10 (vagues 2 et 3 et corrections de la recette navigateur commitées ; relevés refaits sur la branche `feat/rejeu-openrouter`, dont le chantier du rejeu réel des évaluations OpenRouter n'est PAS encore commité : arbre sale) en lançant les commandes
+ont été relevés le 2026-10-11 sur la branche `feat/vague-2-lacunes` (vagues 2 et 3, corrections de la recette navigateur et rejeu réel OpenRouter commités et fusionnés dans `origin/main` ; le chantier des lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07, copilote AGT-08 — n'est PAS encore commité : arbre sale) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -86,6 +86,12 @@ des mécanismes : `docs/governance/SECURITY.md` et
   s'exécuterait sous les droits du responsable. Toute constante `TYPE_JOB_*`
   exportée figure au `REGISTRE_JOBS` (`jobs/registre.ts`), sauf exclusion motivée
   (`TYPE_JOB_EMAIL`) : test `apps/api/test/jobs-registre.test.ts`, qui échoue sinon.
+  Un événement publié par la base (déclencheur SQL, `0302`, `0303`) est non bloquant,
+  idempotent par clé (`0303` : mission ET horodatage du passage, avec une anti-répétition de
+  10 minutes par mission), jamais publié depuis le portail ;
+  un événement sans personne à son origine (source `base` ou `detection`) refuse le mode
+  `declencheur` (`DECLENCHEUR_ABSENT`, `SOURCES_AVEC_PERSONNE`,
+  `automatisation/definitions.ts`).
 - **Séparation des tâches** : une validation ne revient pas à l'auteur (sauf
   associé) ; modèle `apps/api/src/finance/encaissements.ts`. Règles plus
   strictes doublées en base : publication d'une notation par un
@@ -108,7 +114,9 @@ des mécanismes : `docs/governance/SECURITY.md` et
   déposé n'accepte pas : `MPL09`, `0332`, `salle-mission/decisions.ts`). Une
   exception explicite se justifie par le PRD (le chef valide la version IA du retour
   d'expérience qu'il a demandée, `capitalisation/retours.ts`, `MPJ08`).
-- **Contenu IA** : passe par l'orchestrateur (`ia/orchestrateur.ts`) ; la
+- **Contenu IA** : passe par l'orchestrateur (`ia/orchestrateur.ts`), seule exception le
+  routage du copilote, qui ne produit aucun contenu (voir le contrôle « agent conversationnel »
+  plus bas) ; la
   liste blanche de chiffres est construite par le code depuis les moteurs,
   jamais reçue d'une requête ; seul un contenu validé (et jamais un essai sur
   prompt « exemple ») est livrable au client (`ia/generations.ts`) ; la clé
@@ -126,8 +134,36 @@ des mécanismes : `docs/governance/SECURITY.md` et
   `apps/api/test/evaluation-reelle.ts`, jamais par un `INSERT` « openrouter » forgé.
   Limite connue : du SQL arbitraire du même rôle applicatif contourne la garde
   (SECURITY.md §15). Recherche n° 21.
+- **Une action proposée par un agent conversationnel n'est jamais exécutée sans
+  confirmation à usage unique, à un niveau d'autonomie ≥ N2** (copilote, AGT-08) : le
+  modèle ne reçoit AUCUNE donnée du cabinet ni du client (seulement le message masqué et le
+  catalogue des outils PERMIS) et ne renvoie qu'un choix `{ outil, parametres }` validé par
+  un schéma strict sur liste fermée ; la réponse vient de gabarits déterministes, jamais du
+  texte du modèle (`copilote/routage-ia.ts`, `copilote/service.ts`) ; l'action modifiante
+  s'inscrit comme PROPOSITION (`copilote_actions`, `0271` : empreinte SHA-256, expiration
+  5 minutes, états terminaux figés `MPG10-11`) et n'est exécutée que par la route de
+  confirmation, pour le MÊME utilisateur (404 pour un autre), une fois (ligne verrouillée,
+  statut `proposee` exigé), permissions revérifiées, niveau effectif de l'agent ≥ N2 (409
+  `COPILOTE_ACTION_NON_AUTORISEE`), puis par le service commun du module concerné
+  (`collaboration/taches.ts`), jamais par un `INSERT` direct (`copilote/actions.ts`). Une
+  nouvelle action du copilote = une entrée de `ACTIONS` ET du catalogue du moteur, avec test.
+  Le journal ne contient jamais le texte du message. Un compte du portail n'est jamais
+  assignable ni mentionnable (`authDe`, `collaboration/entites.ts`).
+- **Plafond de débit** : compté sur `journal_audit` dans la transaction qui l'inscrit, sous
+  verrou consultatif (modèles `routes/factures-pdf.ts`, `copilote/limites.ts`). **Un plafond
+  tenu en mémoire est une exception documentée au modèle `journal_audit`** : seule celle de
+  `GET /api/brief` (`brief/debit.ts` : 60 requêtes par 10 minutes, propre à chaque processus,
+  SECURITY.md §5 septies et §15) ; toute autre exception se justifie par écrit (une lecture
+  répétée par la page d'accueil, jamais un acte sensible) et se déclare au §15.
+- **Brief quotidien** (AUT-07, `apps/api/src/brief/`) : calcul déterministe sans IA ; chaque
+  source n'est lue que sous la permission de l'action qu'elle propose ET la visibilité des
+  missions, ne propose pas à l'auteur ce qu'il doit valider (séparation des tâches), ne porte
+  aucun montant sans `finance.lire` (FIN-02) et ne recopie aucun contenu client ; une source à
+  filtre final en code marque sa famille « tronquée » (`enSourceFiltree`) plutôt que de gonfler
+  le total. Un type d'élément de plus : le moteur (`packages/engines/src/brief`), le schéma
+  (`schemas/brief.ts`), une source et leurs tests.
 - **Fonction de purge ou d'anonymisation** (`purger_textes_ia`,
-  `planifier_conservation_ia`, `planifier_purge_rapports`) : `SECURITY DEFINER`,
+  `planifier_conservation_ia`, `planifier_purge_rapports`, `anonymiser_copilote_actions`) : `SECURITY DEFINER`,
   bornée au cabinet du contexte (`app_cabinet_id()`), paramètres validés, clé de
   job au format imposé, `GRANT EXECUTE` au rôle applicatif seul ; le déclencheur
   d'ajout seul n'admet que l'anonymisation prévue, jamais un `UPDATE` libre
@@ -165,15 +201,14 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-10, 148 des 149 migrations sont commitées : la seule non
-  commitée est `0270` (rejeu réel des évaluations OpenRouter, branche
-  `feat/rejeu-openrouter`), corrigeable sur place tant qu'elle ne l'est pas (les
-  bases qui ont appliqué une ancienne `0270` sont à recréer) ; parmi les commitées, les 43 des vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
+  recréer) ; au 2026-10-11, 149 des 155 migrations sont commitées (et présentes dans
+  `origin/main`) : les six non commitées sont celles des lacunes de la vague 2, branche
+  `feat/vague-2-lacunes` (`0271`–`0274` copilote, `0303` événement
+  `mission.cloture_demandee`, `0304` brief quotidien), corrigeables sur place tant qu'elles ne
+  le sont pas (les bases qui ont appliqué une ancienne version sont à recréer) ; parmi les
+  commitées, les 43 des vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
   `0360`–`0363`, `0380`–`0386`, `0400`–`0404`, `0420`–`0424`, `0440`–`0445`,
-  `0460`–`0465`), qui étaient encore libres de modification le 2026-10-08 : elles
-  sont désormais immuables, même si `origin/main` n'en compte encore que 105 tant
-  que la pull request n'est pas fusionnée. La recette du 2026-10-10 n'en a ajouté
-  aucune.
+  `0460`–`0465`) et `0270` (rejeu réel OpenRouter) sont immuables.
   Une fonction SQL déjà définie se redéfinit par `CREATE OR REPLACE` dans une
   nouvelle migration numérotée APRÈS celles qui créent les tables qu'elle cite
   (modèle : `0268`, `fichier_orphelin`) ; toute nouvelle colonne qui référence
@@ -283,14 +318,17 @@ des mécanismes : `docs/governance/SECURITY.md` et
 
 ## Recherches mécaniques
 
-À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-10
-sur `feat/rejeu-openrouter` (vagues 1 à 3 commitées ; chantier du rejeu réel OpenRouter
-dans l'arbre, non commité). Les recherches
-n° 1 à 10, 13, 14, 16, 17, 18 et 21 et le compte de contrôle de la n° 12 ont été relancés le
-2026-10-10 (les n° 11 et 15, script ponctuel et réseau, ne l'ont pas été) : par rapport au
-relevé précédent de la même date, seuls les n° 10 (3 routes de plus : le rejeu réel), 12
-(3 schémas de plus), 13 (une migration de plus, `0270`) ont changé, et la n° 21 est nouvelle ; les écarts avec l'ancien
-relevé (vague 1) sont expliqués ligne par ligne ci-dessous.
+À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-11
+sur `feat/vague-2-lacunes` (vagues 1 à 3 et rejeu réel OpenRouter commités ; chantier des
+lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien, copilote — dans
+l'arbre, non commité). Les recherches
+n° 1 à 10, 12 à 14 et 16 à 21 ont été relancées le 2026-10-11 (les n° 11 et 15, script
+ponctuel et réseau, ne l'ont pas été) : par rapport au relevé du 2026-10-10, seuls les n° 10
+(4 routes de plus : `GET /brief` et les trois routes du copilote), 12 (24 schémas de plus,
+`schemas/brief.ts` et `schemas/copilote.ts`, tous `.strict()`), 13 (six migrations de plus,
+`0271`–`0274`, `0303`, `0304`, et `0270` désormais commitée) et 16 (trois `GRANT EXECUTE` de plus)
+ont changé ; les écarts avec l'ancien relevé (vague 1) sont expliqués ligne par ligne
+ci-dessous.
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -332,8 +370,11 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
-#     (2026-10-10, vagues 2 et 3, recette et rejeu réel OpenRouter comprises) : "673 8"
-#     (670 avant le rejeu réel : +3 routes `POST /agents/prompts/:promptId/evaluations/openrouter`,
+#     (2026-10-11, vagues 2 et 3, recette, rejeu réel OpenRouter et lacunes de la vague 2
+#     comprises) : "677 8" (673 avant les lacunes de la vague 2 : +4 routes sous `exiger`,
+#     `GET /brief` (`brief.lire`) et `POST /copilote/messages`,
+#     `POST /copilote/actions/:id/confirmer` et `POST /copilote/actions/:id/annuler`
+#     (`copilote.utiliser`) ; 670 avant le rejeu réel : +3 routes `POST /agents/prompts/:promptId/evaluations/openrouter`,
 #     `GET /agents/evaluations/openrouter/:id` et `GET /agents/prompts/:promptId/evaluations/openrouter`,
 #     toutes sous `exiger` ; 668 le 2026-10-08 : +2 routes, `GET /appels-offres/assignables`
 #     et `GET /capitalisation/retours/a-ouvrir`, sous `exiger` ; 477 avant les vagues 2
@@ -358,8 +399,9 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 550 z.object (547 avant le rejeu réel : +3
-#     de `schemas/agents.ts`, tous `.strict()`) de
+# 12. Schémas Zod non stricts. Attendu : 0 sur 574 z.object (550 avant les lacunes de la
+#     vague 2 : +6 de `schemas/brief.ts` et +18 de `schemas/copilote.ts`, tous `.strict()` ;
+#     547 avant le rejeu réel : +3 de `schemas/agents.ts`, tous `.strict()`) de
 #     packages/shared/src/schemas (hors *.test.ts ; chaque z.object a .strict()
 #     dans sa chaîne d'appels, y compris `z.object(...).partial().strict()`).
 #     L'ancien « 373 » était un relevé périmé ; `rg -o "z\s*\.object\("` sans -U ne
@@ -369,21 +411,22 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     appariement naïf), puis, après la parenthèse fermante, parcourir les appels
 #     chaînés `.methode(...)` jusqu'à trouver `strict`. Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 550).
+#     (somme 574).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; dossier : 149 fichiers au
-# 2026-10-10 (`ls apps/api/migrations | wc -l`; 148 avant le rejeu réel OpenRouter,
-# 105 avant les vagues 2 et 3), dont 148 commités (`git ls-files apps/api/migrations |
-# wc -l` : 148 ; `git status --short apps/api/migrations` : une ligne `??` pour
-# `0270_agents_evaluations_openrouter.sql`, non commitée : ce relevé repasse à « tous
-# commités, 149 » une fois le chantier commité), dont les 43 des vagues 2 et 3, sans aucune
-# modification ni suppression dans l'historique (commande ci-dessus : 0 ligne) ; `origin/main`
-# compte 105 migrations (vague 1 comprise, corrections d'audit commitées) : aucune
-# modification ni suppression, 44 « A » à venir (43 des vagues 2 et 3 et `0270`) à la
-# fusion de la pull request. La branche locale `main` est en retard : comparer à `origin/main`.
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 155 fichiers au
+# 2026-10-11 (`ls apps/api/migrations | wc -l` ; 149 avant les lacunes de la vague 2,
+# 148 avant le rejeu réel OpenRouter, 105 avant les vagues 2 et 3), dont 149 commités
+# (`git ls-files apps/api/migrations | wc -l` : 149, les 43 des vagues 2 et 3 et `0270`
+# compris, sans aucune modification ni suppression dans l'historique : commande ci-dessus,
+# 0 ligne) ; `git status --short apps/api/migrations` : six lignes `??`, `0271`–`0274`
+# (copilote), `0303` (événement `mission.cloture_demandee`) et `0304` (brief quotidien),
+# non commitées : ce relevé repasse à « tous commités, 155 » une fois le chantier commité.
+# `origin/main` compte 149 migrations (pull request n° 8 fusionnée) : aucune modification
+# ni suppression, six « A » à venir à la fusion du chantier. La branche locale `main` peut
+# être en retard : comparer à `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -395,12 +438,16 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 20 lignes (17 avant les vagues 2 et 3). Trois
-#     nouvelles, toutes avec search_path figé et REVOKE ALL FROM PUBLIC :
+#     SECURITY.md §4. Attendu : 23 lignes (20 avant les lacunes de la vague 2, 17 avant les
+#     vagues 2 et 3). Trois des vagues 2 et 3, toutes avec search_path figé et REVOKE ALL
+#     FROM PUBLIC :
 #     `planifier_detection_automatisation` (`0302`, planification récurrente),
 #     `octets_stockage_utilises` (`0331`, quota borné au cabinet du contexte),
-#     `anonymiser_cv_ao` (`0386`, bornée au cabinet) ; relevé du 2026-10-10 inchangé :
-#     la recette n'a ajouté aucune migration. Les fonctions `est_*` de
+#     `anonymiser_cv_ao` (`0386`, bornée au cabinet) ; trois des lacunes de la vague 2 (même
+#     garde) : `planifier_brief_quotidien` (`0304`, clé et date cohérentes, paramètres
+#     obligatoires), `anonymiser_copilote_actions` (`0274`, bornée au cabinet du contexte,
+#     30 jours au moins) et `planifier_purge_copilote` (`0274`, clé imposée, planification
+#     récurrente). Les fonctions `est_*` de
 #     `0243` et `0267` sont d'appelant, sous la RLS du cabinet
 rg -n "GRANT EXECUTE" apps/api/migrations
 
@@ -419,7 +466,7 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 # 19. Page serveur qui passe une fonction à un composant : lister les propriétés
 #     `={(…) =>` des pages et layouts qui ne sont PAS marqués "use client", puis
 #     vérifier à la main que le composant destinataire n'est pas client (ni
-#     importé d'un fichier "use client"). Attendu (2026-10-10) : 60 lignes dans 46
+#     importé d'un fichier "use client"). Attendu (2026-10-11, inchangé : ni `/brief` ni `/copilote` n'en ajoutent) : 60 lignes dans 46
 #     fichiers, toutes admises : 54 `cleLigne` vers `components/ui/Tableau.tsx`
 #     (composant serveur ; une occurrence par `<Tableau`), 3 `href` vers
 #     `components/facturation/SegmentsStatut.tsx` (serveur), `hrefCible` vers
@@ -430,7 +477,7 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 rg -n "=\{\(.*\) =>" apps/web/src/app --glob '**/page.tsx' --glob '**/layout.tsx'
 
 # 20. Boucles de pagination côté web : chaque appel de `chargerToutesLesPages`
-#     déclare le plafond de la route. Attendu (2026-10-10) : 12 appels (hors définition
+#     déclare le plafond de la route. Attendu (2026-10-11, inchangé) : 12 appels (hors définition
 #     de `lib/pagination.ts`) ; 2 avec `limiteMax` (`lib/appels-offres-serveur.ts`,
 #     routes plafonnées à 100) et 10 sans, sur `/api/missions` ou `/api/opportunites`
 #     (plafond 500, défaut 200 admis : dette, CODING_STANDARDS §10) ; `clients/[id]/portail`
@@ -440,7 +487,7 @@ rg -n "chargerToutesLesPages(<[^>]*>)?\(" apps/web/src --glob '!*.test.*'
 # 21. Provenance des évaluations de non-régression : seuls deux `INSERT INTO
 #     agents_evaluations` dans l'API, l'évaluation locale (`agents/evaluations.ts`, toujours
 #     « local ») et le job de rejeu réel (`agents/evaluations-openrouter.ts`, qui ne naît que
-#     d'une demande, migration `0270`). Attendu (2026-10-10, branche `feat/rejeu-openrouter`) :
+#     d'une demande, migration `0270`). Attendu (2026-10-11, branche `feat/vague-2-lacunes`) :
 #     2 lignes ; toute autre ligne qui écrit `fournisseur = 'openrouter'` est un écart. Les
 #     tests sèment une évaluation réelle par `apps/api/test/evaluation-reelle.ts`.
 rg -n "INSERT INTO agents_evaluations\b" apps/api/src

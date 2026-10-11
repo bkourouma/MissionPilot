@@ -29,6 +29,8 @@ describe("table de navigation", () => {
       "Feuille de temps",
       "Missions",
       "Mes tâches",
+      "Mon brief",
+      "Copilote",
       "Pipeline",
       "Appels d'offres",
       "Banques et offres",
@@ -92,6 +94,8 @@ describe("entreesAutorisees", () => {
       "feuille-de-temps",
       "missions",
       "mes-taches",
+      "mon-brief",
+      "copilote",
       "appels-offres",
       "banques-ao",
       "clients",
@@ -151,8 +155,41 @@ describe("entreesAutorisees", () => {
       "mon-planning",
       "feuille-de-temps",
       "mes-taches",
+      "mon-brief",
       "connaissances",
     ]);
+  });
+
+  it("ouvre « Mon brief » (brief.lire) et « Copilote » (copilote.utiliser) selon les droits", () => {
+    expect(NAVIGATION.find((e) => e.id === "mon-brief")).toMatchObject({
+      libelle: "Mon brief",
+      href: "/brief",
+      permission: "brief.lire",
+      disponible: true,
+    });
+    expect(NAVIGATION.find((e) => e.id === "copilote")).toMatchObject({
+      libelle: "Copilote",
+      href: "/copilote",
+      permission: "copilote.utiliser",
+      disponible: true,
+    });
+    for (const role of ROLES) {
+      expect(ids([role]).includes("mon-brief"), `brief ${role}`).toBe(
+        aPermission([role], "brief.lire"),
+      );
+      expect(ids([role]).includes("copilote"), `copilote ${role}`).toBe(
+        aPermission([role], "copilote.utiliser"),
+      );
+    }
+    // L'expert externe lit son brief mais n'a pas le copilote ; le portail client n'a ni l'un ni l'autre.
+    expect(ids(["expert_externe"])).toContain("mon-brief");
+    expect(ids(["expert_externe"])).not.toContain("copilote");
+    expect(ids(["client_dirigeant"])).not.toContain("copilote");
+    expect(ids(["client_dirigeant"])).not.toContain("mon-brief");
+    // Jamais dans la barre basse du téléphone : elle garde planning, temps et missions.
+    const barre = entreesBarreBasse(entreesAutorisees(["chef_mission"])).map((e) => e.id);
+    expect(barre).not.toContain("copilote");
+    expect(barre).not.toContain("mon-brief");
   });
 
   it("ouvre les paramètres à l'associé et au gestionnaire (clôture et import des temps)", () => {

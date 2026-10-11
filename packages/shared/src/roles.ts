@@ -162,6 +162,9 @@ export const PERMISSIONS = [
   // (`/capitalisation/competences/moi`, `temps.saisir`). Les temps (centièmes, jours) et les
   // preuves de la matrice exigent EN PLUS `budget.lire_jours`.
   "competence.lire",
+  // --- V3, vague 2 (chantier « lacunes ») : brief quotidien et copilote.
+  "brief.lire", // brief du jour de l'utilisateur, par rôle, dans ses droits (AUT-07)
+  "copilote.utiliser", // copilote conversationnel : lecture dans les droits, actions confirmées (AGT-08)
   // --- V3, vague 3 (PRD complémentaire §9) : appels d'offres. L'offre financière exige EN PLUS
   // `finance.lire` (lecture) et `taux.gerer` (écriture), FIN-02.
   "ao.lire", // lire appels d'offres, banques de CV et de références, offres (AO-01 à AO-08)
@@ -214,6 +217,8 @@ const TOUS: readonly Permission[] = PERMISSIONS.filter(
 export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   associe: TOUS,
   directeur_mission: [
+    "brief.lire",
+    "copilote.utiliser",
     "connaissance.lire",
     "competence.gerer",
     "competence.lire",
@@ -276,6 +281,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "automatisation.gerer",
   ],
   chef_mission: [
+    "brief.lire",
+    "copilote.utiliser",
     "connaissance.lire",
     "clients.lire",
     "collaborateurs.lire",
@@ -325,6 +332,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "automatisation.lire",
   ],
   consultant: [
+    "brief.lire",
+    "copilote.utiliser",
     "connaissance.lire",
     "clients.lire",
     "catalogue.lire",
@@ -356,6 +365,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.gerer",
   ],
   ressources: [
+    "brief.lire",
+    "copilote.utiliser",
     "competence.gerer",
     "competence.lire",
     "clients.lire",
@@ -375,6 +386,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "tache.assigner",
   ],
   gestionnaire: [
+    "brief.lire",
+    "copilote.utiliser",
     "clients.lire",
     "clients.ecrire",
     "collaborateurs.lire",
@@ -403,6 +416,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.lire",
   ],
   expert_metier: [
+    "brief.lire",
+    "copilote.utiliser",
     "connaissance.lire",
     "catalogue.lire",
     "catalogue.ecrire",
@@ -430,7 +445,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "qualite.relire",
     "ao.lire",
   ],
-  expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire"],
+  expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire", "brief.lire"],
   // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;
   // saisie des KPI et réponses aux questionnaires sur désignation explicite (jamais l'investisseur).
   client_dirigeant: [

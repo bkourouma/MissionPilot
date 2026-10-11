@@ -23,6 +23,8 @@ import { routesPortail } from "./routes/portail.js";
 import { routesAppelsOffres } from "./routes/appels-offres.js";
 import { routesAutomatisation } from "./routes/automatisation.js";
 import { routesBanqueAo } from "./routes/banque-ao.js";
+import { routesBrief } from "./routes/brief.js";
+import { routesCopilote } from "./routes/copilote.js";
 import { routesCapitalisation } from "./routes/capitalisation.js";
 import { routesCloture } from "./routes/cloture.js";
 import { routesPreuves } from "./routes/preuves.js";
@@ -283,6 +285,8 @@ export async function buildApp(
   await app.register(routesAppelsOffres, { prefix: "/api" });
   await app.register(routesBanqueAo, { prefix: "/api" });
   await app.register(routesCapitalisation, { prefix: "/api" });
+  await app.register(routesBrief, { prefix: "/api" });
+  await app.register(routesCopilote, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
   return app;
 }
