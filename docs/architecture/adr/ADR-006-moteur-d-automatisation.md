@@ -6,7 +6,8 @@ Acceptée
 
 ## Date
 
-2026-10-08
+2026-10-08. Mis à jour le 2026-10-11 : l'événement `mission.cloture_demandee`
+est publié par la base (migration `0303`).
 
 ## Contexte
 
@@ -47,15 +48,26 @@ projet ») :
   `automatisation_evenements` (migration `0301`), toutes **idempotentes par clé**
   (unique par cabinet) :
   - un **déclencheur SQL** `AFTER UPDATE` sur la table du module (jalon atteint,
-    mission signée, questionnaire clos ; `0302`), **non bloquant** : toute erreur
-    est absorbée par une sous-transaction plpgsql et l'écriture métier se
-    poursuit ; rien n'est publié depuis une transaction du portail client ;
+    mission signée, questionnaire clos : `0302` ; mission qui passe au statut
+    `a_cloturer` : `0303`), **non bloquant** : toute erreur est absorbée par une
+    sous-transaction plpgsql et l'écriture métier se poursuit ; rien n'est publié
+    depuis une transaction du portail client. Le cas de `mission.cloture_demandee`
+    (`0303`, fonction `automatisation_cloture_demandee`, déclencheur sur
+    `missions.statut`) : seul un passage VERS `a_cloturer` publie (la clôture, ou un
+    `UPDATE` qui laisse le statut inchangé, ne publie rien) ; le contenu est
+    `{ mission_id }` seulement ; la clé d'idempotence porte la mission ET l'horodatage
+    du passage (microseconde, UTC), de sorte qu'une mission rouverte puis de nouveau
+    mise « à clôturer » publie un nouvel événement, et qu'un même passage rejoué ne
+    le double pas ; une **anti-répétition de 10 minutes par mission**
+    (`c_delai_repetition`, valeur à valider) ne publie rien si un événement du même
+    code existe déjà pour la mission depuis moins de 10 minutes, pour qu'un
+    aller-retour en boucle « en cours » ↔ « à clôturer » ne multiplie ni les
+    traitements, ni les exécutions, ni les e-mails ;
   - le **service interne** `publierEvenement` (`automatisation/evenements.ts`),
     destiné à être appelé dans la transaction du module : il ne lève jamais, un
     `SAVEPOINT` annule la seule publication et l'incident est consigné côté
-    serveur. Au 2026-10-08, seule la détection quotidienne l'appelle : aucun
-    module ne publie `mission.cloture_demandee`, présent au catalogue et dans la
-    bibliothèque standard mais sans émetteur (écart connu, voir ci-dessous) ;
+    serveur. Au 2026-10-11, seule la détection quotidienne l'appelle (origine
+    système) ; aucun événement du catalogue n'a la source `module` ;
   - la **détection quotidienne** des événements nés du temps (questionnaire
     resté sans réponse aux paliers J+3, J+7, J+10, J+14 ; KPI rouge deux
     périodes de suite) : job `automatisation_detection` planifié une fois par
@@ -94,7 +106,14 @@ projet ») :
   personne qui l'a ACTIVÉE (`mode_execution = responsable`, par défaut) ; pour un
   événement qui a une personne à son origine, le mode `declencheur` exécute dans
   les droits de cette personne (une personne du portail client n'est jamais
-  exécutant). Pour que ce principe tienne, **toute modification de la définition
+  exécutant). Seule la source `module` enregistre une personne à l'origine
+  (constante typée `SOURCES_AVEC_PERSONNE`, `automatisation/definitions.ts`) ; aucun
+  événement du catalogue ne l'a aujourd'hui, le mode `declencheur` est donc refusé à
+  la définition (400 `DECLENCHEUR_ABSENT`) pour TOUT événement. `mission.cloture_demandee`,
+  de source `base` depuis `0303`, en fait partie : une définition en mode `declencheur`
+  enregistrée sur cet événement quand il était déclaré « module » ne passerait plus la
+  validation (création, modification, simulation) et, exécutée, serait refusée faute
+  d'exécutant (`EXECUTANT_INDISPONIBLE`). Pour que ce principe tienne, **toute modification de la définition
   d'une automatisation active la désactive** dans la même transaction, la
   réactivation rendant son auteur responsable : sans cela, un directeur de
   mission sans `facture.emettre` ferait créer des brouillons de facture sous
@@ -161,10 +180,13 @@ projet ») :
 - Un événement traité pendant un coupe-circuit n'est pas rejoué à la levée :
   une automatisation coupée perd les événements de la période (choix sûr,
   documenté dans l'écran).
-- Écart connu : `mission.cloture_demandee` n'a pas d'émetteur dans le code
-  (la clôture n'appelle pas `publierEvenement`) ; l'automatisation standard
-  « rappel de check-list à la clôture » ne se déclenche donc pas tant qu'un
-  module ne la publie pas.
+- `mission.cloture_demandee` (écart de l'ADR du 2026-10-08, levé par `0303`) :
+  l'anti-répétition de 10 minutes par mission absorbe sans trace un second passage
+  « à clôturer » trop rapproché (rouverte puis reclôturée dans la fenêtre) : le
+  rappel de check-list ne repart pas, par choix contre le courriel en rafale. Le
+  mode d'exécution « droits de la personne à l'origine » est refusé pour tous les
+  événements du catalogue, celui-ci compris : une automatisation qui l'écoute
+  s'exécute sous l'identité de son responsable.
 - Le catalogue d'événements et le registre d'actions sont fermés : toute
   nouvelle action ou tout nouvel événement est un changement de code, de test et
   de migration, pas une configuration.
@@ -209,6 +231,9 @@ projet ») :
   `apps/api/src/jobs/registre.ts`.
 - Migrations `0300` (règles, versions, coupe-circuits), `0301` (événements,
   exécutions, actions, résultats, annulations, brouillons), `0302` (publication
-  par la base, planification de la détection) ; SQLSTATE `MPU01` à `MPU05`.
+  par la base, planification de la détection), `0303` (publication de
+  `mission.cloture_demandee` au passage à `a_cloturer`, sans nouveau SQLSTATE) ;
+  SQLSTATE `MPU01` à `MPU05`. Test de bout en bout :
+  `apps/api/test/automatisation-cloture-demandee.test.ts`.
 - ADR-002 (file `jobs`), ADR-005 (exécuteur d'agents, N4 et coupe-circuit),
   `docs/governance/SECURITY.md`.

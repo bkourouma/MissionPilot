@@ -5,7 +5,10 @@ document décrit les mécanismes de sécurité **tels qu'implémentés
 aujourd'hui** (état de la branche `feat/vague-2-automatisation`, 2026-10-08,
 V1 et V2, vagues 0 et 1, lots des vagues 2 et 3 : automatisation, clôture, salle
 de mission, appels d'offres, capitalisation, notation et plans augmentés, pilotage
-des KPI ; ces derniers lots sont dans l'arbre de travail, non commités), avec leur
+des KPI, depuis fusionnés dans `origin/main` ; mise à jour du 2026-10-11 sur la
+branche `feat/vague-2-lacunes` : lacunes de la vague 2 — événement
+`mission.cloture_demandee`, brief quotidien AUT-07 (§5 septies) et copilote AGT-08
+(§7 bis), dans l'arbre de travail, non commités), avec leur
 fichier, pas un objectif. Il est lu par l'agent `security-auditor` et par
 `/audit` : chaque contrôle listé ici doit pouvoir se vérifier dans le code. Les
 chemins sont relatifs à la racine du dépôt ; `routes/`, `auth/`, `ia/`… sont
@@ -13,7 +16,7 @@ sous `apps/api/src/`. La numérotation des sections est citée ailleurs (code,
 migrations, autres documents) : les ajouts des vagues suivantes sont des
 sections « bis », « ter », « quater »… ; les nombres de ce document (routes,
 tables, lignes de `GRANT EXECUTE`) ont été relevés le 2026-10-08 dans cet arbre
-de travail.
+de travail, puis les routes et les `GRANT EXECUTE` recomptés le 2026-10-11.
 
 ## 1. Actifs à protéger
 
@@ -62,7 +65,7 @@ de travail.
 | API ↔ SMTP                      | TLS vérifié, STARTTLS sans repli en clair              | `notifications/smtp.ts`                             |
 | API ↔ OpenRouter                | URL de configuration seule, HTTPS, masquage, plafonds (§7 bis) | `ia/fournisseur.ts`, `ia/orchestrateur.ts`  |
 | API ↔ Chrome headless           | JavaScript coupé, requêtes interceptées, profil jetable (§8 bis) | `rapports/pdf.ts`                         |
-| Automatisation ↔ identité       | Actions dans les droits actuels du responsable, garde du moteur, coupe-circuits (§5 quinquies) | `automatisation/`, `migrations/0300`–`0302` |
+| Automatisation ↔ identité       | Actions dans les droits actuels du responsable, garde du moteur, coupe-circuits (§5 quinquies) | `automatisation/`, `migrations/0300`–`0303` |
 | Client → cabinet (dépôt de pièces) | Une seule route d'écriture du portail, plafonds, type détecté par le contenu (§8 septies) | `salle-mission/`, `migrations/0330`–`0332` |
 
 Acteurs réels (rôles de `packages/shared/src/roles.ts`) :
@@ -256,10 +259,17 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   transaction du portail verrait sinon seulement les fichiers de son client et
   sous-estimerait le quota ; ne renvoie qu'un nombre au code serveur) et
   `anonymiser_cv_ao` (`0386`, bornée au cabinet du contexte, refusée dans une
-  transaction du portail, CV déjà anonymisé : `MPW06`).
+  transaction du portail, CV déjà anonymisé : `MPW06`) ; lacunes de la vague 2 :
+  `planifier_brief_quotidien` (`0304`, clé de job `brief_quotidien:AAAA-MM-JJ` imposée et
+  cohérente avec `p_date`, paramètres tous obligatoires, heure d'exécution comprise entre la
+  veille et J+2 de `p_date`, une tâche par cabinet ayant un utilisateur interne actif),
+  `anonymiser_copilote_actions` (`0274`, bornée au cabinet du contexte, minimum 30 jours,
+  `p_maintenant` refusé s'il dépasse l'horloge de la base d'une minute) et
+  `planifier_purge_copilote` (`0274`, clé de job `copilote_purge:AAAA-MM-JJ` imposée, minimum
+  30 jours, une tâche par cabinet ayant une proposition échue ou à anonymiser).
   `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
   (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
-  `rg -n "GRANT EXECUTE" apps/api/migrations` (20 lignes au 2026-10-08). Certains déclencheurs de contrôle
+  `rg -n "GRANT EXECUTE" apps/api/migrations` (23 lignes au 2026-10-11 : 20 au 2026-10-08, plus trois fonctions des lacunes de la vague 2). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
   `0043`, `0060`…). `reprendre_relances_questionnaire` (`0148`) n'est pas
   `SECURITY DEFINER` et n'est exécutable que par le propriétaire.
@@ -387,7 +397,8 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  673 gestionnaires de route (2026-10-10), seuls `POST /auth/connexion`,
+  677 gestionnaires de route (2026-10-11 ; 673 le 2026-10-10, plus `GET /brief` et les trois
+  routes du copilote), seuls `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
   `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
@@ -446,7 +457,11 @@ soit le code appelant).
   - automatisations : modifier la définition d'une automatisation active la
     désactive (le responsable ne fait pas exécuter le texte d'un autre sous son
     identité), et lever un coupe-circuit est réservé à l'associé (`MPU02`,
-    §5 quinquies).
+    §5 quinquies) ;
+  - brief quotidien : une validation n'est jamais proposée à qui a rédigé, soumis ou demandé
+    l'élément, à chaque source (§5 septies) ;
+  - copilote : une action proposée n'est confirmée que par l'utilisateur à qui elle a été
+    proposée, une fois, avec ses droits relus à la confirmation (§7 bis).
 - **Notifications** (SOC-08) : un utilisateur ne lit et ne marque que les
   siennes, toute requête filtre sur `destinataire_id` et une notification
   d'autrui répond 404 (`routes/notifications.ts`) ; dans le portail, la
@@ -741,9 +756,10 @@ migrations `0443`–`0445` : durcissements issus de l'audit du lot).
 
 ## 5 quinquies. Moteur d'automatisation (AUT-01 à AUT-06)
 
-Lot de la vague 2 (PRD complémentaire §8, ADR-006 ; migrations `0300`–`0302`, code
+Lot de la vague 2 (PRD complémentaire §8, ADR-006 ; migrations `0300`–`0303`, code
 `apps/api/src/automatisation/`, routes `routes/automatisation.ts`, tests
-`test/automatisation-regles.test.ts` et `test/automatisation-execution.test.ts`).
+`test/automatisation-regles.test.ts`, `test/automatisation-execution.test.ts` et
+`test/automatisation-cloture-demandee.test.ts`).
 
 - **Cloisonnement** : dix tables (`automatisations`, `automatisation_versions`,
   `automatisation_coupe_circuits`, `automatisation_evenements`, `automatisation_executions`,
@@ -777,7 +793,13 @@ Lot de la vague 2 (PRD complémentaire §8, ADR-006 ; migrations `0300`–`0302`
   c'est-à-dire la personne qui a ACTIVÉ l'automatisation (« compte d'automatisation » restreint aux
   six actions typées du registre, chacune contrôlant sa permission et la visibilité de la mission),
   ou le **déclencheur** de l'événement (aucun pour un événement système ou de la base : l'action est
-  alors refusée, `EXECUTANT_INDISPONIBLE`). Seuls les événements publiés APRÈS l'activation
+  alors refusée, `EXECUTANT_INDISPONIBLE`). Seule la source `module` enregistre une personne à
+  l'origine (constante typée `SOURCES_AVEC_PERSONNE`, `automatisation/definitions.ts`) et aucun
+  événement du catalogue ne l'a : le mode `declencheur` est refusé à la définition (400
+  `DECLENCHEUR_ABSENT`) pour TOUT événement, `mission.cloture_demandee` compris depuis `0303`
+  (sa source est passée de « module » à « base ») ; une définition `declencheur` enregistrée
+  auparavant sur cet événement ne passerait plus la validation (création, modification,
+  simulation). Seuls les événements publiés APRÈS l'activation
   déclenchent l'automatisation (`active_depuis`) ; le passé se simule. **Séparation des tâches** :
   modifier la DÉFINITION d'une automatisation active la DÉSACTIVE dans la même transaction (journal
   `desactivation`, cause « modification de la définition »), car sinon le texte d'un directeur
@@ -799,11 +821,24 @@ Lot de la vague 2 (PRD complémentaire §8, ADR-006 ; migrations `0300`–`0302`
 - **Événements** : publiés par les modules (service `publierEvenement`, idempotent par clé, non
   bloquant, contenu validé contre les champs DÉCLARÉS du catalogue : aucun champ libre ni objet, jamais
   un montant), par la base (déclencheurs sur jalon atteint, mission signée, questionnaire clos,
-  `automatisation_publier_base`, sous-transaction qui absorbe ses erreurs) et par la détection
+  `automatisation_publier_base`, sous-transaction qui absorbe ses erreurs ; `0303` : passage d'une
+  mission au statut `a_cloturer`, événement `mission.cloture_demandee`) et par la détection
   quotidienne (`automatisation_detection`, 7 h 30 UTC, questionnaire sans réponse et KPI au rouge). Trois
   jobs inscrits dans `jobs/registre.ts` : `automatisation_evenement`, `automatisation_agent`,
   `automatisation_detection` (test `jobs-registre.test.ts`, §7 bis). La planification quotidienne passe par
   la fonction `SECURITY DEFINER` `planifier_detection_automatisation` (§4).
+- **Clôture demandée** (`0303`, `automatisation_cloture_demandee`, déclencheur `AFTER UPDATE OF
+  statut` sur `missions`) : publié par la BASE quand `missions.statut` PASSE à `a_cloturer` (la
+  clôture et un `UPDATE` sans changement de statut ne publient rien), non bloquant (toute erreur
+  est absorbée, le changement de statut se poursuit), jamais depuis une transaction du portail
+  (§4 bis) ; contenu `{ mission_id }` seulement, jamais un montant ; source `base`, aucune personne
+  à l'origine. Clé idempotente PAR PASSAGE (mission et horodatage UTC à la microseconde : rejouer le
+  même passage ne double pas l'événement, un passage ultérieur en publie un nouveau) ; ANTI-RÉPÉTITION
+  de 10 minutes par mission (`c_delai_repetition`, à valider) : rien n'est publié si un événement du
+  même code existe déjà pour la mission depuis moins de 10 minutes, ce qui empêche un aller-retour en
+  boucle « en cours » ↔ « à clôturer » de multiplier événements, exécutions et e-mails. L'automatisation
+  standard « rappel de check-list de clôture » se déclenche de bout en bout
+  (`test/automatisation-cloture-demandee.test.ts`). Aucun nouveau SQLSTATE ni table.
 - **Plafonds** (valeurs de départ, à valider, `DECISIONS.md`) : 50 automatisations ACTIVES par cabinet,
   sous verrou consultatif (409 `PLAFOND_AUTOMATISATIONS_ATTEINT`, `MAX_AUTOMATISATIONS_ACTIVES`) ; 30
   simulations par utilisateur et par 10 minutes (429 `TROP_DE_SIMULATIONS`, comptées sur
@@ -896,6 +931,73 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   adhésion volontaire, `DECISIONS.md`) n'existe pas.
 - **Prévisions et pré-remplissage** (AUT-12, AUT-09) : voir §6.
 
+## 5 septies. Brief quotidien par rôle (AUT-07)
+
+Lacune de la vague 2 (PRD complémentaire §8.3 ; migration `0304`, code `apps/api/src/brief/`,
+route `routes/brief.ts`, moteur pur `packages/engines/src/brief`, schémas
+`packages/shared/src/schemas/brief.ts`, écran `/brief` et carte de la page d'accueil, tests
+`test/brief.test.ts` et `test/brief-job.test.ts`). Aucune table, aucun SQLSTATE : le brief est un
+calcul fait à la demande, rien n'est stocké.
+
+- **Calcul déterministe, sans IA** : les sources (`brief/*.ts`) lisent des FAITS dans les droits de
+  l'utilisateur connecté et les remettent au moteur, seul juge de la gravité, de l'ordre et du
+  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 27 types d'éléments en trois familles :
+  « À décider » (13), « Ça dérive » (8), « Prêt à envoyer » (6), à raison de 26 sources (le KPI au
+  rouge et le KPI à l'orange de deux périodes de suite partagent une source).
+- **Droits** : `GET /api/brief` exige `brief.lire` (tous les rôles du cabinet, l'expert externe
+  compris ; jamais un rôle du portail). Chaque source n'est consultée que si l'utilisateur détient la
+  permission de l'action qu'elle propose (jamais par nom de rôle) ET applique la visibilité des missions
+  (`filtreVisibilite`) ; une source dont la permission manque est absente, sans erreur. **Séparation
+  des tâches** : on ne propose jamais à quelqu'un de décider ce qu'il a rédigé, soumis ou demandé
+  (facture, débours, notation, livrable, dérogation, clôture après dérogation…), avec la règle de la
+  route ou du moteur de garde du module (`evaluerGarde`) ; seule exception, voulue et conforme au
+  PRD : le chef de mission se voit proposer la version IA du retour d'expérience qu'il a demandée
+  (`MPJ08`, §15). **FIN-02** : `montant` et `devise` sont
+  ABSENTS d'un élément sans `finance.lire`, jamais masqués par un zéro (`donneesFinancieres`) ;
+  l'atterrissage reste en jours (`ecart_pct`, `budget.lire_jours`) ; la facture échue suit
+  `facture.lire`.
+- **Contenu client jamais recopié** : identifiants, numéros, intitulés internes et dates seulement ;
+  les liens sont des chemins internes relatifs (schéma `lienInterneSchema`, jamais `//` ni adresse
+  externe). La route est fermée au portail (absente de `LISTE_BLANCHE_PORTAIL`, 403
+  `PORTAIL_ROUTE_INTERDITE`).
+- **Requête** : `?date=AAAA-MM-JJ` facultatif (rejeu à une autre date), borné de 2000 à 2100
+  (`dateIsoBorneeSchema`), schéma strict ; réponse `private, no-store`.
+- **Plafond de débit EN MÉMOIRE (exception documentée au modèle `journal_audit`)** :
+  60 requêtes par utilisateur et par 10 minutes glissantes (429 `TROP_DE_REQUETES_BRIEF`),
+  contrôlé AVANT le calcul (`brief/debit.ts`). Les autres plafonds de débit du dépôt (PDF, copilote,
+  salle de mission) se comptent sur `journal_audit` ; celui-ci est une lecture que la page
+  d'accueil répète à chaque affichage, et une ligne de journal par affichage coûterait plus que le
+  calcul protégé. **Limite** : le compteur est propre à chaque processus de l'API (n instances : au
+  plus n fois 60) et repart à zéro au redémarrage ; il borne l'emballement d'un client ou d'un
+  script, pas un abus distribué (§15). Il suit au plus 10 000 utilisateurs, puis balaie les entrées
+  échues. Valeur à valider (`DECISIONS.md`).
+- **Totaux « au moins N »** : les sources dont le filtre final se fait en code (garde humaine, solde,
+  lecture bornée de missions ou de KPI) ne savent pas combien de lignes non lues auraient été
+  retenues : la famille est marquée `tronque` et son total est un minimum, jamais un nombre gonflé
+  de lignes peut-être écartées (`enSourceFiltree`). Chaque source lit au plus 50 lignes
+  (`PLAFOND_PAR_SOURCE`) et chaque famille sert 10 éléments au plus.
+- **Sources écartées** (non reprises, faute d'état exploitable ou par choix) : offres techniques à
+  valider, plans, révisions de budget, rapports « validés non diffusés » (aucune trace de diffusion
+  n'existe pour les distinguer) ; un livrable signé n'est signalé que dans une fenêtre de 7 jours
+  après sa signature, une facture émise non envoyée que pendant 30 jours.
+- **Tâche quotidienne `brief_quotidien`** (`brief/quotidien.ts`, inscrite au `REGISTRE_JOBS`, test
+  `jobs-registre.test.ts`) : planifiée chaque JOUR OUVRÉ (lundi à vendredi, sans jours fériés) à
+  7 h UTC, une par cabinet ayant un utilisateur interne actif et par jour (clé `brief_quotidien:AAAA-MM-JJ`),
+  par la fonction `SECURITY DEFINER` `planifier_brief_quotidien` (`0304`, §4) ; le contrôle du jour
+  ouvré est celui de l'appelant. Pour chaque utilisateur interne actif qui détient `brief.lire`, le brief
+  est calculé dans SES droits, isolé par un `SAVEPOINT` (l'échec d'une personne ne rejoue pas les
+  autres ; l'incident est journalisé sans contenu : code, contrainte, table) ; s'il n'est pas vide,
+  une notification INTERNE « Votre brief du jour : N éléments (X à décider, Y qui dérivent) » mène à
+  `/brief`. **Jamais d'e-mail** (`email: false`). Idempotente : une seule notification par personne
+  et par jour. Volume : lots de 500 utilisateurs internes (curseur d'identifiant, les comptes du
+  portail exclus dans la requête) ; au-delà, une tâche de SUITE de charge `{ date, apres_id }` et de clé
+  `brief_quotidien:AAAA-MM-JJ:apres:<id>` prend la suite dans la transaction du cabinet.
+- **Gravité** (valeurs de départ « à valider », `packages/engines/src/brief/qualification.ts`) :
+  ce qui attend une décision ou un envoi passe à « moyenne » à 3 jours et à « haute » à 7 jours ;
+  une échéance dépassée (jalon, tâche, feuille, questionnaire) à 3 et 14 jours de retard ; une facture
+  échue à 15 et 45 jours ; un atterrissage au-delà de 5 % du budget en jours est « moyen », au-delà
+  de 15 % « haut » ; un KPI au rouge est « haut », à l'orange deux périodes de suite « moyen ».
+
 ## 6. Confidentialité financière (FIN-02) et historique immuable
 
 - **Champs ABSENTS sans `finance.lire`** (jamais masqués à zéro ni à `null`
@@ -944,7 +1046,7 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   | `MPY01-11` | qualité : historiques en ajout seul, dont les relations entre clients et leurs retraits (`MPY01`), suivi (classe jamais abaissée, statut qui ne recule pas, livrable signé figé, empreinte du contenu relu figée : `MPY02`), élément de revue ajouté après validation (`MPY03`), session de revue close une fois (`MPY04`), étape de garde hors état (`MPY05`), signature d'un suivi non validé ou d'une autre version (`MPY06`), relation de clients en double, dans les deux sens (`MPY07`), validation ou signature sur un parcours de revue sans élément obligatoire (`MPY08`), niveau de risque d'acceptation abaissé après une décision (`MPY09`), attestation d'un item par l'auteur du livrable (`MPY10`), auteur désigné d'un livrable opaque qui n'est pas membre actif de la mission (`MPY11`) | `0280`–`0286` |
   | `MPV01-07` | registre des preuves : historique en ajout seul et champs figés d'une dimension (`MPV01`), cohérence mission, client, document, réponse ou lien, fichier lié rattaché à la mission ou au client de la preuve (ou orphelin téléversé par la personne qui saisit, jamais supprimé), auteur désigné membre actif de la mission (`MPV02`), versions consécutives (`MPV03`), avis d'expert signé par l'auteur de la version et par un expert métier ou un associé (`MPV04`), arbitrage d'une contradiction qui n'est plus courante (`MPV05`), classe de risque d'une assertion abaissée hors expert métier ou associé (`MPV06`), contradiction levée par l'auteur de l'assertion ou de la preuve contraire hors associé (`MPV07`) | `0240`–`0243` |
   | `MPM01-08` | référentiel de méthodes : version publiée et son contenu immuables (`MPM01`), incohérence de propriétaire, de numérotation ou d'identité (`MPM02`), historiques en ajout seul (liaison des missions, validations de dérogation, propositions : `MPM03`), décision de dérogation définitive, approuvée par son demandeur ou sans les validations exigées par sa classe de risque, quatre yeux (`MPM04`), circuit du comité méthode et relecteur ≠ auteur (`MPM05`), version liée à une mission non publiée, d'un autre cabinet ou plus ancienne (`MPM06`), variante publiée qui abaisse la classe de risque ou relève le niveau d'autonomie d'une brique du standard (`MPM07`), variante publiée par le créateur de la version hors associé (`MPM08`) | `0201`–`0203`, `0207`, `0209` |
-  | `MPG01-09` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt, choix d'un modèle ou exécution d'agent sans évaluation de non-régression réussie et admise (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`), validation d'un contenu issu d'une sortie d'agent non conforme (`MPG06`), classe de risque d'une brique sous le plancher de la méthode ou R0 déclarée hors associé (`MPG07`), restriction posée par un associé levée par un non-associé ou décision sur une exécution par qui n'en est ni le déclencheur, ni le chef ou directeur de la mission, ni associé (`MPG08`), demande de rejeu réel incohérente : transition d'état interdite, demande terminée modifiée, jeu ou prompt étranger, évaluation `openrouter` sans demande en cours du même prompt, jeu et modèle ou sans ses appels inscrits, demande « reussie » sans évaluation réussie issue d'elle (`MPG09`, traduit en 409 `EVALUATION_INCOHERENTE`) | `0260`–`0267`, `0270` |
+  | `MPG01-11` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt, choix d'un modèle ou exécution d'agent sans évaluation de non-régression réussie et admise (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`), validation d'un contenu issu d'une sortie d'agent non conforme (`MPG06`), classe de risque d'une brique sous le plancher de la méthode ou R0 déclarée hors associé (`MPG07`), restriction posée par un associé levée par un non-associé ou décision sur une exécution par qui n'en est ni le déclencheur, ni le chef ou directeur de la mission, ni associé (`MPG08`), demande de rejeu réel incohérente : transition d'état interdite, demande terminée modifiée, jeu ou prompt étranger, évaluation `openrouter` sans demande en cours du même prompt, jeu et modèle ou sans ses appels inscrits, demande « reussie » sans évaluation réussie issue d'elle (`MPG09`, traduit en 409 `EVALUATION_INCOHERENTE`), proposition d'action du copilote terminée ou transition interdite : une proposition naît « proposee », ne quitte cet état qu'une fois (confirmee, annulee, expiree, refusee) et ne change plus (`MPG10`), identité d'une proposition modifiée, confirmation sans résultat, ou anonymisation autre que celle prévue (`MPG11`) ; `MPG10` et `MPG11` traduits en 409 par `copilote/erreurs.ts` | `0260`–`0267`, `0270`, `0271`, `0274` |
   | `MPO01-04` | dossier client : tout en ajout seul (`MPO01`), remplacement d'un fait (même client, catégorie et clé, jamais un fait rejeté) ou d'un état financier (état courant du même exercice, un seul courant par exercice) (`MPO02`), décision sur un enregistrement remplacé ou fait extrait par l'IA confirmé dans sa transaction de création (`MPO03`), lignes d'état ajoutées hors de l'ingestion, acceptation automatique d'un état en écart ou de tolérance non nulle, acceptation humaine d'un état en écart ou de tolérance non nulle sans motif (`MPO04`) | `0220`–`0224` |
   | `MPX01-03` | clôture de mission (AUT-08) : historiques des vérifications et des dérogations en ajout seul (`MPX01`), dérogation accordée ou retirée par un utilisateur qui n'est ni associé ni directeur de mission actif (`MPX02`), clôture par l'auteur d'une dérogation en vigueur hors associé (`MPX03`) | `0320`–`0323` |
   | `MPU01-05` | moteur d'automatisation : historiques en ajout seul (`MPU01`), coupe-circuit levé par un non-associé (`MPU02`), annulation d'une action non annulable ou non réussie (`MPU03`), action vers le client autorisée hors classe R0 (`MPU04`), version courante absente ou événement incohérent, action d'une exécution non déclenchée, résultat incompatible avec la garde (`MPU05`) | `0300`, `0301` |
@@ -960,7 +1062,8 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   (`0102`, l'anonymisation de `0104` exceptée), `portail_validations_jalons`
   (`0111`), `rapports_mission` (`0130`), `questionnaire_ia_historique` (`0149`),
   `plan_diagnostic_notations` (`0182`), `plan_objectif_kpis` (`0183`) ; UPDATE
-  seul révoqué sur `saisies_idempotence` (`0122`).
+  seul révoqué sur `saisies_idempotence` (`0122`) ; `UPDATE` limité aux colonnes de décision (`statut`,
+  `decide_le`, `resultat_id`) et `DELETE` révoqué sur `copilote_actions` (`0271`, §7 bis).
 - **Numérotation sans trou** : `sequences_facturation` (clé cabinet, nature,
   exercice) n'accepte qu'un incrément de un (`MPB04`, `0043`), le numéro est
   attribué à l'émission sous verrou (`facturation/factures.ts`), `DELETE`
@@ -1217,10 +1320,12 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   d'expérience (`capitalisation/ia.ts`, §5 sexies) et l'appel d'un agent par une
   automatisation (job `automatisation_agent`, §5 quinquies, qui passe par
   `executerAgent`) ; ni la notation, ni les plans, ni les rapports ne lancent de
-  génération (rédaction assistée non faite).
+  génération (rédaction assistée non faite) ; seul le routage du copilote (AGT-08, plus bas) appelle
+  le fournisseur sans passer par l'orchestrateur, et ne produit aucun contenu.
 - **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0267` et
   `0270`, `agents/`, `routes/agents.ts`) : l'orchestrateur reste le SEUL composant qui
-  appelle un modèle ; une exécution d'agent EST une demande de l'orchestrateur
+  appelle un modèle pour produire un contenu (le routage du copilote, plus bas, est la seule exception) ;
+  une exécution d'agent EST une demande de l'orchestrateur
   (`agents/executions.ts` : `executerAgent`, `enregistrerExecutionAgent`).
   - **Droits du déclencheur** : `ia.utiliser` et les permissions déclarées par
     l'agent (`agents_registre.droits`), mission visible ; un agent désactivé
@@ -1346,6 +1451,77 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     l'appel sous verrou consultatif de la mission, dans la transaction qui réserve le coût
     (deux exécutions simultanées sont sérialisées).
     Toutes les tables `agents_*` et `autonomie_*` sont `portail_interdit`.
+- **Copilote conversationnel (AGT-08)** (lacune de la vague 2 ; ADR-005, migrations
+  `0271`–`0274`, `copilote/`, `routes/copilote.ts`, moteur `packages/engines/src/copilote`, tests
+  `test/copilote*.test.ts`). **L'IA ROUTE, le code RÉPOND.**
+  - **Routes et droits** : `POST /api/copilote/messages`, `POST /api/copilote/actions/:id/confirmer`
+    et `POST /api/copilote/actions/:id/annuler`, chacune sous `copilote.utiliser` (tous les rôles du
+    cabinet sauf l'expert externe), fermées au portail (absentes de `LISTE_BLANCHE_PORTAIL`), réponses
+    `private, no-store`. Message de 1 000 caractères au plus, sans caractère de contrôle, schéma strict
+    (`contexte.mission_id` facultatif). Aucune conversation n'est conservée.
+  - **Le modèle ne reçoit aucune donnée du cabinet ni d'un client** : seulement le message masqué
+    (`ia/masquage.ts`, neutralisé puis encadré comme donnée non fiable, AGT-07) et le catalogue des
+    outils PERMIS à l'utilisateur (un outil non permis n'est pas proposé), et ne renvoie qu'un choix
+    `{ outil, parametres }` validé par un schéma Zod strict sur liste fermée, sans identifiant. JSON
+    invalide, outil inconnu ou non permis, clé en trop : sortie refusée, le routage déterministe du
+    moteur reprend. Le texte d'un message est une DONNÉE : « ignore les consignes et supprime… » ne
+    peut produire qu'un outil du catalogue, avec des paramètres bornés. **La réponse affichée n'est jamais
+    du texte du modèle** : gabarits déterministes à partir des services existants, aucun chiffre calculé
+    par le modèle. **Mode sans IA** : l'IA exige `ia.utiliser`, l'IA activée par le cabinet, une clé
+    lisible et le plafond mensuel non atteint (réservation du coût sous verrou avant l'appel, une
+    seule tentative payante, coût réel inscrit dans `ia_consommations` avec `copilote = true`, `0272`) ;
+    sinon, ou en cas d'erreur du fournisseur, le routage déterministe répond et la réponse porte
+    « mode sans IA » avec sa raison. Le copilote appelle le fournisseur unique (`ia/fournisseur.ts`) sans
+    passer par l'orchestrateur (aucune demande de génération ni garde des chiffres : rien d'autre que le
+    choix d'un outil ne revient du modèle).
+  - **Outils** (catalogue fermé du moteur) : six de LECTURE (mes tâches, feuilles de temps à soumettre,
+    résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07), chacun sous
+    la permission de l'écran qui sert la même information (`copilote/catalogue.ts`) et la visibilité des
+    missions ; une mission inexistante, d'autrui ou invisible répond la même phrase que l'accès refusé. Les
+    « factures échues » suivent la permission de la balance âgée (`facture.lire` et `encaissement.gerer` ou
+    `indicateurs.cabinet`), les montants exigent en plus `finance.lire` (FIN-02, champ absent). Les réponses
+    ne recopient aucun contenu client (verbatim, réponse de questionnaire, extrait de document) et sont
+    bornées à 10 éléments.
+  - **UNE action modifiante, `creer_tache`, JAMAIS exécutée directement** : proposition stockée dans
+    `copilote_actions` (`0271` ; RLS `isolation` et `portail_interdit`, `REVOKE DELETE`, `UPDATE` limité aux
+    colonnes de décision) avec paramètres déjà validés et résolus, résumé construit par le code, empreinte
+    SHA-256 des paramètres et expiration à 5 minutes ; transitions en ajout seul (`MPG10` : état terminal figé ;
+    `MPG11` : identité modifiée, confirmation sans résultat). **Confirmation par le MÊME utilisateur** (la
+    proposition d'autrui répond 404), **à usage unique** sous verrou de ligne (`FOR UPDATE`, statut
+    « proposee » exigé), avant l'expiration, avec la permission `tache.assigner` **revérifiée** à cet instant
+    (retirée : proposition « refusee », 403) et l'empreinte relue (altérée : « refusee ») ; l'écriture passe par
+    le service commun `collaboration/taches.ts`, le même que `POST /taches-collaboration`, sous les droits de
+    l'utilisateur (entité visible des deux personnes, assigné interne actif), le journal notant `via:
+    copilote`. L'annulation est permise à tout niveau.
+  - **Niveau d'autonomie effectif ≥ N2 pour proposer et confirmer** (409 `COPILOTE_ACTION_NON_AUTORISEE`) ;
+    la lecture dès N1 ; agent désactivé ou N0 : 409 `COPILOTE_DESACTIVE` (message compris). Le registre standard
+    relève le plafond du copilote de N1 à N2 par la version 2 de l'agent (`0273`, ajout seul `MPG01`) ; un
+    cabinet qui le plafonne à N1 (`agents_restrictions`) interdit toute écriture. Valeur à valider.
+  - **Personnes du portail** : `authDe` (`collaboration/entites.ts`) ne rend jamais un compte `client_*` ; un compte
+    du portail n'est donc ni assignable ni mentionnable ni prévenu par courriel, par le copilote comme par un
+    collaborateur (cela durcit aussi `POST` et `PATCH /taches-collaboration`, 400 « Assigné inconnu ou
+    inactif »). Le copilote ne résout un nom que parmi les collaborateurs INTERNES actifs (`ROLES_CLIENT`
+    exclus) et exige `collaborateurs.lire` pour confier une tâche à un autre.
+  - **Débit** : 30 messages par utilisateur et par 10 minutes (429 `TROP_DE_MESSAGES_COPILOTE`, compté sur
+    `journal_audit` sous un verrou consultatif propre à l'utilisateur, action `copilote.message`, modèle
+    `routes/factures-pdf.ts`), et 5 appels de l'outil « KPI au rouge » par 10 minutes (`copilote.kpi_rouges` ;
+    il évalue jusqu'à 20 missions par message ; au plafond, la réponse le dit sans lever d'erreur). Valeurs à
+    valider.
+  - **Journal** (`journal_audit`) : `copilote.echange` (outil, mode, statut, longueur du message, cause du
+    repli, coût en micro-USD, signaux d'injection), `copilote.message`, `copilote.kpi_rouges`,
+    `copilote.action_proposee`, `copilote.action_confirmee`, `copilote.action_refusee`,
+    `copilote.action_annulee`, `copilote.purge` : **jamais le texte d'un message**.
+  - **Conservation** (`0274`) : `parametres` et `resume` d'une proposition TERMINÉE (confirmée, annulée,
+    expirée, refusée) sont anonymisés au bout de 30 jours (valeur PROPOSÉE, à valider) : paramètres vidés,
+    résumé remplacé par un marqueur, empreinte à zéro, `anonymise_le` renseigné ; le reste de la trace est
+    gardé. Passage par la fonction `SECURITY DEFINER` `anonymiser_copilote_actions` (bornée au cabinet du
+    contexte, refuse moins de 30 jours, §4), appelée par le job `copilote_purge` (planifié à 02:30 UTC, un job
+    par cabinet et par jour, clé `copilote_purge:AAAA-MM-JJ`, `planifier_purge_copilote`, inscrit au
+    `REGISTRE_JOBS`) ; une proposition « proposee » échue est d'abord marquée « expiree ». Le déclencheur
+    n'admet que cette anonymisation, jamais un `UPDATE` libre (modèle `0104`).
+  - **Limites** : un nom propre tapé dans le message (collaborateur, client, mission) part en CLAIR vers le
+    fournisseur, le masque du copilote n'ayant aucun terme sensible (`creerMasque([])`) ; **aucune vérification
+    avec un vrai modèle** (aucune clé) : qualité du routage et format JSON réel non vérifiés (§15).
 
 ## 8. Fichiers privés
 
@@ -1906,7 +2082,10 @@ corrigés seulement par contre-passation (§6). Mobile Money est prévu en V2.
   utilisateur et par 10 minutes, §8 septies) ; appels d'offres (20 exports de CV par utilisateur et par
   10 minutes, 20 dossiers et 50 extractions par fiche, 100 gabarits de CV par cabinet, §6) ;
   capitalisation (60 recherches par utilisateur et par minute, 50 déclarations de niveau par couple,
-  §5 sexies) ; plans (30 propositions de portefeuille par utilisateur et par 10 minutes, §5 bis).
+  §5 sexies) ; plans (30 propositions de portefeuille par utilisateur et par 10 minutes, §5 bis) ;
+  brief quotidien (60 requêtes par utilisateur et par 10 minutes, compteur EN MÉMOIRE propre à chaque
+  processus, §5 septies) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
+  « KPI au rouge » par 10 minutes, comptés sur `journal_audit`, §7 bis).
   Pas de limite générale par IP : voir §15.
 
 ## 12. Données personnelles
@@ -1940,6 +2119,10 @@ fichiers déposés par le client dans la salle de mission.
   juridique, `DECISIONS.md`), et les offres techniques déjà rédigées gardent le
   texte qu'elles citent. Les niveaux de compétence, les fichiers de la salle de
   mission et les retours d'expérience n'ont ni procédure d'effacement ni durée.
+- **Copilote** (lacune de la vague 2) : le texte du message n'est ni conservé ni journalisé ; les
+  paramètres et le résumé d'une proposition d'action terminée sont anonymisés après 30 jours (valeur
+  posée par défaut, à valider avec le conseil juridique : `0274`, §7 bis). Un nom propre saisi dans un
+  message part en clair vers le fournisseur IA (§15).
 
 ## 13. Conduite à tenir en cas de faille
 
@@ -2017,7 +2200,11 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Dossier de revue KPI en brouillon : `GET /kpi/revues/:id/dossier` lui ajoute la mention IA par défaut du cabinet en pied de page (« …tout contenu préparé avec l'aide de l'IA a été relu et validé par un consultant »), alors que ce dossier n'a aucun circuit de validation, ne porte pas de contenu IA et reste « brouillon » et confidentiel : mention trompeuse à retirer du dossier ou à conditionner (constaté à la recette, confirmé dans le code) | `routes/kpi-pilotage.ts` (`mention_pied`), `rapports/parametres.ts` (`MENTION_IA_DEFAUT`) |
 | Montants du PDF du dossier bancaire : à l'extraction du texte, ils paraissent sans séparateur de milliers alors que le moteur insère l'espace fine U+202F ; à vérifier visuellement sur un PDF réel | `plans/bancabilite.ts`, `rapports/pdf.ts`, `packages/engines/src/finance/monnaie.ts` |
 | Export d'un CV : un message d'erreur réseau 503 a été signalé alors que le fichier produit est valide ; cause non établie, à clarifier | `routes/banque-ao.ts` (`/banque-ao/cv/:id/export`), `rapports/pdf.ts` |
-| L'événement `mission.cloture_demandee` n'est publié par aucun module (les automatisations qui l'écoutent ne se déclenchent pas) ; brief quotidien (AUT-07) et copilote (AGT-08) absents | `packages/shared/src/schemas/automatisation.ts`, `automatisation/evenements.ts`, ADR-005, ADR-006 |
+| Copilote (AGT-08) : AUCUNE vérification avec un vrai modèle (aucune clé OpenRouter en développement, fournisseur factice seulement) ; la qualité du routage, le format JSON réel renvoyé (clôture « ```json », valeurs nulles) et le coût d'un échange ne sont pas constatés ; le routage déterministe couvre en attendant les formulations simples | `copilote/routage-ia.ts` (`lireSortieModele`), `test/copilote-ia.test.ts`, ADR-005 |
+| Copilote : les noms propres tapés dans un message (collaborateur, client, mission) partent en CLAIR vers le fournisseur : le masque ne travaille que par formats (e-mails, téléphones, IBAN…), sans terme sensible (`creerMasque([])`) ; la page du copilote déconseille d'y saisir des données confidentielles de clients (`MENTION_CONFIDENTIALITE`) | `copilote/routage-ia.ts`, `ia/masquage.ts`, `apps/web/src/lib/copilote.ts` |
+| Brief quotidien : le plafond de débit de `GET /api/brief` (60 requêtes par utilisateur et par 10 minutes) est tenu EN MÉMOIRE, propre à chaque processus (n instances : n fois 60) et remis à zéro au redémarrage ; exception voulue au modèle `journal_audit`, à revoir si l'API tourne à plusieurs instances | `brief/debit.ts`, `routes/brief.ts` |
+| Copilote : l'anonymisation des propositions d'actions terminées au bout de 30 jours est une durée posée sans avis juridique ; une proposition non terminée n'est anonymisée qu'après son expiration puis 30 jours ; la purge (02:30 UTC) dépend du planificateur et du worker | `migrations/0274_copilote_purge.sql`, `copilote/purge.ts`, `DECISIONS.md` |
+| Copilote et brief : valeurs de départ à valider (30 messages par 10 minutes, 1 000 caractères, 5 minutes de validité d'une proposition, niveau N2 pour les actions, 30 jours, 5 appels « KPI au rouge » par 10 minutes, 60 requêtes du brief par 10 minutes, seuils de gravité du brief, 7 h UTC, anti-répétition de 10 minutes de `mission.cloture_demandee`) | `DECISIONS.md` (« Chantier lacunes de la vague 2 ») |
 | Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
@@ -2053,5 +2240,9 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   le dossier de revue KPI en brouillon ; séparateurs de milliers des montants du PDF du dossier
   bancaire ; message réseau 503 sur l'export d'un CV alors que le fichier est valide ; génération du
   gabarit d'un retour qui remplace le texte rédigé (ancienne version conservée).
-- **Lacunes de la vague 2** : publication de `mission.cloture_demandee`, brief quotidien (AUT-07) et
-  copilote (AGT-08) (§15).
+- **Lacunes de la vague 2** (construites le 2026-10-11 : `mission.cloture_demandee` publié par la base,
+  brief quotidien AUT-07, copilote AGT-08) : valider les valeurs de départ (§15 et `DECISIONS.md`, section
+  « Chantier lacunes de la vague 2 ») ; **constater un premier échange du copilote avec un vrai modèle**
+  (qualité du routage, format JSON réel, coût) ; décider du masquage des noms propres avant l'envoi au
+  fournisseur ; décider d'un compteur de débit du brief partagé entre instances (base ou cache) si l'API tourne
+  à plusieurs instances ; trancher la durée de conservation des propositions du copilote avec le conseil juridique.
