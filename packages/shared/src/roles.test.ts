@@ -313,6 +313,36 @@ describe("V3, vague 3 : appels d'offres (lot AO-A, AO-01 à AO-03, AO-08)", () =
   });
 });
 
+describe("V3, vague 2 : brief quotidien (AUT-07) et copilote (AGT-08)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("brief.lire : tous les rôles du cabinet, jamais un rôle du portail", () => {
+    expect(qui("brief.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_externe",
+      "expert_metier",
+      "gestionnaire",
+      "ressources",
+    ]);
+  });
+
+  it("copilote.utiliser : tous les rôles du cabinet sauf l'expert externe", () => {
+    expect(qui("copilote.utiliser")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+      "gestionnaire",
+      "ressources",
+    ]);
+  });
+});
+
 describe("V3, vague 3 : capitalisation (CAP) ; vague 2 : automatisation (AUT)", () => {
   const qui = (p: Parameters<typeof aPermission>[1]) =>
     TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
