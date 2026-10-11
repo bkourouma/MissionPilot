@@ -1,6 +1,8 @@
 import { ajouterJours, lundiDeLaSemaine } from "@missionpilot/engines";
 import { planifierDetectionAutomatisation } from "../automatisation/detection.js";
+import { planifierPurgeCopilote } from "../copilote/purge.js";
 import type { Database } from "../db/pool.js";
+import { planifierBriefQuotidien } from "../brief/quotidien.js";
 import { planificationConservationIa } from "../ia/conservation.js";
 import { planificationSuiviKpi } from "../kpi/suivi.js";
 import { planifierPurgeRapports } from "../rapports/purge.js";
@@ -17,6 +19,10 @@ import { planifierPurgeRapports } from "../rapports/purge.js";
  *   seuls cabinets ayant une facture émise échue ; clé `relances_factures:jour`.
  * - Suivi des KPI (KPI-02, KPI-04) chaque jour à 7 h (UTC), pour les seuls
  *   cabinets ayant un KPI actif ; clé `kpi_suivi:jour` (kpi/suivi.ts).
+ * - Purge des propositions d'actions du copilote (AGT-08) chaque jour à 2 h 30 (UTC), pour les
+ *   seuls cabinets ayant une proposition échue ; clé `copilote_purge:jour` (copilote/purge.ts).
+ * - Brief quotidien (AUT-07) chaque jour ouvré à 7 h (UTC), pour les cabinets ayant un
+ *   utilisateur interne actif ; clé `brief_quotidien:jour` (brief/quotidien.ts).
  */
 
 export const HEURE_RAPPEL_UTC = "16:00:00";
@@ -124,8 +130,12 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
     ).rows[0].n as number;
     // Purge des rapports échus : seulement les cabinets ayant un rapport à purger.
     total += await planifierPurgeRapports(db, maintenant);
+    // Propositions d'actions du copilote échues (AGT-08) : seulement les cabinets concernés.
+    total += await planifierPurgeCopilote(db, maintenant);
     // Détection des événements nés du temps (automatisation, AUT-01) : une par cabinet et par jour.
     total += await planifierDetectionAutomatisation(db, maintenant);
+    // Brief quotidien par rôle (AUT-07) : une tâche par cabinet et par jour ouvré.
+    total += await planifierBriefQuotidien(db, maintenant);
     return total;
   });
 }

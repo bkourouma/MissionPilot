@@ -1,4 +1,9 @@
-import { aPermission, type Role, type TypeEntiteCollaboration } from "@missionpilot/shared";
+import {
+  aPermission,
+  ROLES_CLIENT,
+  type Role,
+  type TypeEntiteCollaboration,
+} from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { AppError, introuvable } from "../errors.js";
@@ -142,14 +147,17 @@ export async function voitEntite(
 }
 
 /**
- * Contexte d'un AUTRE utilisateur actif du cabinet courant (RLS), pour
+ * Contexte d'un AUTRE utilisateur INTERNE actif du cabinet courant (RLS), pour
  * vérifier qu'il voit une entité (mention, assignation) ; null s'il est
- * inconnu, inactif ou d'un autre cabinet.
+ * inconnu, inactif, d'un autre cabinet, ou une personne du portail client
+ * (rôles `client_*` : jamais assignée, mentionnée ni prévenue par courriel
+ * par un collaborateur ou par le copilote).
  */
 export async function authDe(db: Db, cabinetId: string, utilisateurId: string) {
   const r = await db.query(
-    "SELECT id, email, nom, roles FROM utilisateurs WHERE id = $1 AND cabinet_id = $2 AND actif",
-    [utilisateurId, cabinetId],
+    `SELECT id, email, nom, roles FROM utilisateurs
+     WHERE id = $1 AND cabinet_id = $2 AND actif AND NOT (roles && $3::text[])`,
+    [utilisateurId, cabinetId, ROLES_CLIENT],
   );
   const u = r.rows[0] as { id: string; email: string; nom: string; roles: Role[] } | undefined;
   if (!u) return null;

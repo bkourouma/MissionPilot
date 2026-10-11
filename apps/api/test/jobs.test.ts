@@ -247,12 +247,28 @@ describe("rappels de saisie (TPS-04)", () => {
     const mailer = new MailerJournal();
     const h = horloge("2030-01-04T17:00:00Z");
     const worker = new WorkerJobs(ctx.db, { mailer, horloge: h.lire });
+    // La base de test est PARTAGÉE par tout le run (des centaines de cabinets) et la planification
+    // vise tous les cabinets : leurs jobs (brief, purge du copilote, suivi des KPI, détection…)
+    // épuiseraient le plafond d'un cycle (100) avant les rappels de saisie, et leur calcul
+    // dépasserait le délai du test. Ce test ne vérifie que les rappels du cabinet A : on planifie,
+    // on clôt les jobs en attente des AUTRES cabinets, puis le cycle ne traite que ceux de A.
+    const cycleComplet = async () => {
+      await planifierRecurrents(ctx.db, h.lire());
+      await proprietaire((c) =>
+        c.query(
+          `UPDATE jobs SET statut = 'termine'
+           WHERE statut = 'en_attente' AND execute_a <= $1 AND cabinet_id <> $2`,
+          [h.lire(), a.cabinetId],
+        ),
+      );
+      await worker.cycle();
+    };
     const types = async (api: typeof retardataire | CabinetMissions["chef"]) =>
       ((await api.get("/api/notifications?limite=100")).json().elements as { type: string }[]).map(
         (n) => n.type,
       );
 
-    await worker.cycle();
+    await cycleComplet();
     expect((await types(retardataire)).filter((t) => t === "rappel_feuille_temps")).toHaveLength(1);
     expect(await types(ponctuel)).not.toContain("rappel_feuille_temps");
     expect(mailer.boite.some((e) => e.sujet.includes("feuille de temps"))).toBe(true);
@@ -260,19 +276,19 @@ describe("rappels de saisie (TPS-04)", () => {
     expect(await types(a.chef)).not.toContain("relance_feuilles_temps");
 
     // Second passage et job dupliqué à la main : aucun doublon de rappel.
-    await worker.cycle();
+    await cycleComplet();
     await ctx.db.withTenant(a.cabinetId, (db) =>
       db.query(
         `INSERT INTO jobs (cabinet_id, type, charge, execute_a) VALUES ($1, 'rappel_feuilles', '{"semaine":"2029-12-31"}', '2030-01-04T16:00:00Z')`,
         [a.cabinetId],
       ),
     );
-    await worker.cycle();
+    await cycleComplet();
     expect((await types(retardataire)).filter((t) => t === "rappel_feuille_temps")).toHaveLength(1);
 
     h.regler("2030-01-07T09:00:00Z");
-    await worker.cycle();
-    await worker.cycle();
+    await cycleComplet();
+    await cycleComplet();
     const relances = (
       (await a.chef.get("/api/notifications?limite=100")).json().elements as {
         type: string;
