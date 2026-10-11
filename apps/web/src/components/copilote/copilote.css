@@ -1,0 +1,184 @@
+/*
+ * Copilote conversationnel : fil, réponses, carte d'action proposée. Mobile d'abord, CSS pur,
+ * jetons du design system. La couleur ne porte jamais seule le sens : chaque état d'une carte a son
+ * libellé écrit.
+ */
+
+.mp-copilote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-copilote p {
+  margin: 0;
+}
+
+.mp-copilote__fil {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 8rem;
+}
+
+.mp-copilote__entree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  max-width: min(100%, 46rem);
+}
+
+.mp-copilote__entree--utilisateur {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.mp-copilote__entree--copilote,
+.mp-copilote__entree--erreur {
+  align-self: flex-start;
+}
+
+.mp-copilote__auteur {
+  font-size: var(--mp-taille-xs);
+  color: var(--mp-texte-doux);
+}
+
+.mp-copilote__bulle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.mp-copilote__entree--utilisateur .mp-copilote__bulle {
+  background: var(--mp-primaire-pale);
+  border-color: transparent;
+}
+
+.mp-copilote__mode {
+  font-size: var(--mp-taille-xs);
+  color: var(--mp-texte-doux);
+  white-space: normal;
+}
+
+.mp-copilote__elements {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: normal;
+}
+
+.mp-copilote__element {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface-2);
+}
+
+.mp-copilote__element a {
+  color: var(--mp-primaire);
+  font-weight: 600;
+  text-decoration: underline;
+  min-height: var(--mp-cible);
+  display: inline-flex;
+  align-items: center;
+}
+
+.mp-copilote__detail {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+/* Carte d'action : elle EST la confirmation (résumé exact, expiration, boutons). */
+.mp-copilote__action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  border: 2px solid var(--mp-primaire);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface);
+  white-space: normal;
+}
+
+.mp-copilote__action-titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+}
+
+.mp-copilote__action-resume {
+  font-weight: 600;
+}
+
+.mp-copilote__action-etat {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-copilote__action-boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+.mp-copilote__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-copilote__formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-copilote__pied-saisie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-copilote__compteur {
+  font-size: var(--mp-taille-xs);
+  color: var(--mp-texte-doux);
+}
+
+.mp-copilote__attente {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-copilote__mention {
+  font-size: var(--mp-taille-xs);
+  color: var(--mp-texte-doux);
+}
+
+@media (min-width: 960px) {
+  .mp-copilote__element {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mp-esp-3);
+  }
+}
