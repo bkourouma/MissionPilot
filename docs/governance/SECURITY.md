@@ -5,10 +5,9 @@ document décrit les mécanismes de sécurité **tels qu'implémentés
 aujourd'hui** (état de la branche `feat/vague-2-automatisation`, 2026-10-08,
 V1 et V2, vagues 0 et 1, lots des vagues 2 et 3 : automatisation, clôture, salle
 de mission, appels d'offres, capitalisation, notation et plans augmentés, pilotage
-des KPI, depuis fusionnés dans `origin/main` ; mise à jour du 2026-10-11 sur la
-branche `feat/vague-2-lacunes` : lacunes de la vague 2 — événement
-`mission.cloture_demandee`, brief quotidien AUT-07 (§5 septies) et copilote AGT-08
-(§7 bis), dans l'arbre de travail, non commités), avec leur
+des KPI, depuis fusionnés dans `origin/main` ; mise à jour du 2026-10-11 :
+lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07 (§5
+septies) et copilote AGT-08 (§7 bis), fusionnés par la PR n° 9), avec leur
 fichier, pas un objectif. Il est lu par l'agent `security-auditor` et par
 `/audit` : chaque contrôle listé ici doit pouvoir se vérifier dans le code. Les
 chemins sont relatifs à la racine du dépôt ; `routes/`, `auth/`, `ia/`… sont

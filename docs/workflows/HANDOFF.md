@@ -9,15 +9,15 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `feat/vague-2-lacunes` — 2026-10-11 (chantier n° 2 : lacunes de la vague 2)
+## Situation de `main` — 2026-10-11 (après la fusion de la PR n° 9, chantier n° 2 terminé)
 
 **État :** `main` porte les vagues 0 à 3 (PR #7, merge commit `b32c089`, recette navigateur
-réelle) et le rejeu réel des évaluations OpenRouter (PR #8, merge commit `79155dd`, fusionnée
-par le chef d'orchestre). Cette branche, créée depuis `main`, comble les lacunes de la vague 2 :
-**événement `mission.cloture_demandee`** (0303), **brief quotidien par rôle** (AUT-07, 0304),
-**copilote conversationnel** (AGT-08, 0271 à 0274). Code, tests, audits de sécurité (0 critique,
-3 importants corrigés + mineurs), recette navigateur courte et documentation faits ; **PR n° 9
-ouverte, fusion par le chef** (il la fait quand tout est propre).
+réelle), le rejeu réel des évaluations OpenRouter (PR #8, `79155dd`) et les lacunes de la vague 2
+(PR #9, merge commit `f548d54`, fusionnée par le chef d'orchestre) : **événement
+`mission.cloture_demandee`** (0303), **brief quotidien par rôle** (AUT-07, 0304), **copilote
+conversationnel** (AGT-08, 0271 à 0274). Audits de sécurité (0 critique, 3 importants corrigés +
+mineurs) et recette navigateur courte faits. Le chantier n° 3 (vague 4) part de `main` sur sa
+propre branche et ajoute sa section au-dessus de celle-ci.
 
 **VÉRIFICATIONS RÉELLES OUVERTES (rien n'a été vérifié avec un vrai modèle ni dans un
 navigateur) :**
@@ -43,8 +43,8 @@ navigateur) :**
   conservée au rechargement ; fiche `/agents` du copilote sans la création de tâche ; formulations
   (« Aucun KPI au rouge sur 1 de vos missions ») ; « cherche » refusé au rôle ressources
   (permission `connaissance.lire`, à confirmer).
-- La base `missionpilot_recette` a reçu les migrations 0271 à 0274, 0303 et 0304 (155 appliquées) ;
-  `missionpilot` et `missionpilot_demo` non encore (après fusion, `pnpm db:migrate`). Des données de
+- Les trois bases de développement (`missionpilot`, `missionpilot_demo`, `missionpilot_recette`)
+  ont les 155 migrations (0271 à 0274, 0303 et 0304 appliquées le 2026-10-11). Des données de
   démonstration ont été ajoutées par la recette dans la base de recette (3 tâches du chef de
   mission, 2 écritures de restriction du copilote).
 
@@ -69,15 +69,15 @@ navigateur) :**
 **Décisions de l'utilisateur (2026-10-10 et 2026-10-11, relayées par le chef d'orchestre)** :
 conservation des CV de la banque d'appels d'offres **ouverte** (avis du conseil juridique) ; valeurs
 par défaut de `DECISIONS.md` provisoires ; fusions décidées par le chef ; ordre des chantiers :
-(1) rejeu OpenRouter (fait, PR #8), (2) lacunes de la vague 2 (cette branche), (3) vague 4. Compte
+(1) rejeu OpenRouter (fait, PR #8), (2) lacunes de la vague 2 (fait, PR #9), (3) vague 4. Compte
 rendu court au chef à la fin de chaque chantier. Aucune CI GitHub : vérification locale (eslint,
 tsc, Prettier, tests des 4 paquets).
 
 **Reste à faire (par priorité) :**
 
-1. **PR n° 9 ouverte** (le chef la fusionne en merge commit) ; après fusion : `pnpm db:migrate` sur
-   les bases de **développement** restantes (`missionpilot`, `missionpilot_demo` ; la recette est
-   faite), supprimer cette section.
+1. **Chantier n° 3 (vague 4)** : voir le point 3 ; branche depuis `main`, mêmes vérifications
+   (eslint, tsc, Prettier, tests des 4 paquets sur la pointe, audit en lecture seule, recette
+   navigateur courte), fusion par le chef.
 2. **Lacunes restantes de la vague 2** : AUT-10 (rapport d'avancement hebdomadaire au client,
    généré et validé par le chef de mission), AUT-11 (staffing, V4 au PRD) ; le copilote n'a qu'une
    action et six outils de lecture : à étendre (le registre `ACTIONS` est prévu pour ça) ; sources du
@@ -141,7 +141,7 @@ tsc, Prettier, tests des 4 paquets).
   `missionpilot_*_test` créées par les agents s'accumulent : à purger.
 - **Migrations** : plages dans `CODING_STANDARDS.md` §1 (prochains libres : AGT `0275`, AUT `0305`) ;
   un fichier qui référence une table d'un autre domaine a un numéro PLUS GRAND ; migrations commitées
-  = immuables (0271 à 0274, 0303 et 0304 sont non commitées avant la fusion de cette branche) ; toute
+  = immuables (0271 à 0274, 0303 et 0304 le sont depuis la PR n° 9) ; toute
   nouvelle colonne qui référence `fichiers` est couverte par l'inventaire automatique de
   `fichiers-orphelins-references.test.ts`.
 - **Jobs** : toute constante `TYPE_JOB_*` exportée doit figurer dans `REGISTRE_JOBS`

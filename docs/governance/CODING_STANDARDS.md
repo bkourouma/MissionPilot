@@ -1,10 +1,9 @@
 # Conventions de code — MissionPilot
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
-document décrit les conventions **observées dans le code** (état de la
-branche `feat/vague-2-lacunes`, 2026-10-11 ; vagues 1 à 3 et rejeu réel OpenRouter commités et
-fusionnés dans `origin/main`, lacunes de la vague 2 — événement `mission.cloture_demandee`,
-brief quotidien, copilote — dans l'arbre de travail, non commitées), avec un fichier de
+document décrit les conventions **observées dans le code** (état de `main`
+après la fusion de la PR n° 9, 2026-10-11 ; vagues 1 à 3, rejeu réel OpenRouter et lacunes de la
+vague 2 — événement `mission.cloture_demandee`, brief quotidien, copilote — commités et fusionnés), avec un fichier de
 référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
@@ -80,11 +79,10 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
   l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-11,
-  le dossier compte 155 fichiers dont 149 commités et présents dans `origin/main`
-  (vagues 2 et 3 `0300`–`0465` et rejeu réel `0270` compris, aucune modification ni
-  suppression dans l'historique) : ces 149 sont immuables. Les six autres, non
-  commitées sur `feat/vague-2-lacunes` (`0271`–`0274`, `0303`, `0304`), restent
-  corrigeables sur place tant qu'elles ne le sont pas.
+  le dossier compte 155 fichiers, tous commités et présents dans `origin/main`
+  (vagues 2 et 3 `0300`–`0465`, rejeu réel `0270` et lacunes de la vague 2 `0271`–`0274`,
+  `0303`, `0304` compris, aucune modification ni suppression dans l'historique) : toutes sont
+  immuables.
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next
