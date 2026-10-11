@@ -21,5 +21,7 @@ export * from "./offre-financiere/index";
 export * from "./appels-offres/index";
 export * from "./cloture/index";
 export * from "./previsions/index";
+export * from "./brief/index";
+export * from "./copilote/index";
 // Vague 3, lot CAP : capitalisation (CAP-01, CAP-02, CAP-05, CAP-06).
 export * from "./capitalisation/index";
