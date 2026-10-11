@@ -13,7 +13,7 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
-ont été relevés le 2026-10-11 sur la branche `feat/vague-2-lacunes` (vagues 2 et 3, corrections de la recette navigateur et rejeu réel OpenRouter commités et fusionnés dans `origin/main` ; le chantier des lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07, copilote AGT-08 — n'est PAS encore commité : arbre sale) en lançant les commandes
+ont été relevés le 2026-10-11 sur `main` après la fusion de la PR n° 9 (vagues 2 et 3, rejeu réel OpenRouter et lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07, copilote AGT-08 — tous commités et fusionnés) en lançant les commandes
 ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
@@ -201,12 +201,10 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-11, 149 des 155 migrations sont commitées (et présentes dans
-  `origin/main`) : les six non commitées sont celles des lacunes de la vague 2, branche
-  `feat/vague-2-lacunes` (`0271`–`0274` copilote, `0303` événement
-  `mission.cloture_demandee`, `0304` brief quotidien), corrigeables sur place tant qu'elles ne
-  le sont pas (les bases qui ont appliqué une ancienne version sont à recréer) ; parmi les
-  commitées, les 43 des vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
+  recréer) ; au 2026-10-11, les 155 migrations sont commitées et présentes dans `origin/main` (PR n° 9
+  fusionnée) : toutes sont immuables, dont les six des lacunes de la vague 2 (`0271`–`0274`
+  copilote, `0303` événement `mission.cloture_demandee`, `0304` brief quotidien), les 43 des
+  vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
   `0360`–`0363`, `0380`–`0386`, `0400`–`0404`, `0420`–`0424`, `0440`–`0445`,
   `0460`–`0465`) et `0270` (rejeu réel OpenRouter) sont immuables.
   Une fonction SQL déjà définie se redéfinit par `CREATE OR REPLACE` dans une
@@ -319,9 +317,8 @@ des mécanismes : `docs/governance/SECURITY.md` et
 ## Recherches mécaniques
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-11
-sur `feat/vague-2-lacunes` (vagues 1 à 3 et rejeu réel OpenRouter commités ; chantier des
-lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien, copilote — dans
-l'arbre, non commité). Les recherches
+sur `main` après la fusion de la PR n° 9 (vagues 1 à 3, rejeu réel OpenRouter et lacunes de la
+vague 2 commités). Les recherches
 n° 1 à 10, 12 à 14 et 16 à 21 ont été relancées le 2026-10-11 (les n° 11 et 15, script
 ponctuel et réseau, ne l'ont pas été) : par rapport au relevé du 2026-10-10, seuls les n° 10
 (4 routes de plus : `GET /brief` et les trois routes du copilote), 12 (24 schémas de plus,
@@ -418,15 +415,12 @@ git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
 # ne doit montrer que des lignes « A » (ajouts) ; dossier : 155 fichiers au
 # 2026-10-11 (`ls apps/api/migrations | wc -l` ; 149 avant les lacunes de la vague 2,
-# 148 avant le rejeu réel OpenRouter, 105 avant les vagues 2 et 3), dont 149 commités
-# (`git ls-files apps/api/migrations | wc -l` : 149, les 43 des vagues 2 et 3 et `0270`
-# compris, sans aucune modification ni suppression dans l'historique : commande ci-dessus,
-# 0 ligne) ; `git status --short apps/api/migrations` : six lignes `??`, `0271`–`0274`
-# (copilote), `0303` (événement `mission.cloture_demandee`) et `0304` (brief quotidien),
-# non commitées : ce relevé repasse à « tous commités, 155 » une fois le chantier commité.
-# `origin/main` compte 149 migrations (pull request n° 8 fusionnée) : aucune modification
-# ni suppression, six « A » à venir à la fusion du chantier. La branche locale `main` peut
-# être en retard : comparer à `origin/main`.
+# 148 avant le rejeu réel OpenRouter, 105 avant les vagues 2 et 3), dont 155 commités
+# (`git ls-files apps/api/migrations | wc -l` : 155, les 43 des vagues 2 et 3, `0270` et les six
+# des lacunes de la vague 2 compris, sans aucune modification ni suppression dans l'historique :
+# commande ci-dessus, 0 ligne) ; `git status --short apps/api/migrations` : aucune ligne.
+# `origin/main` compte 155 migrations (pull request n° 9 fusionnée, merge commit `f548d54`). La
+# branche locale `main` peut être en retard : comparer à `origin/main`.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -487,7 +481,7 @@ rg -n "chargerToutesLesPages(<[^>]*>)?\(" apps/web/src --glob '!*.test.*'
 # 21. Provenance des évaluations de non-régression : seuls deux `INSERT INTO
 #     agents_evaluations` dans l'API, l'évaluation locale (`agents/evaluations.ts`, toujours
 #     « local ») et le job de rejeu réel (`agents/evaluations-openrouter.ts`, qui ne naît que
-#     d'une demande, migration `0270`). Attendu (2026-10-11, branche `feat/vague-2-lacunes`) :
+#     d'une demande, migration `0270`). Attendu (2026-10-11, `main` après la PR n° 9) :
 #     2 lignes ; toute autre ligne qui écrit `fournisseur = 'openrouter'` est un écart. Les
 #     tests sèment une évaluation réelle par `apps/api/test/evaluation-reelle.ts`.
 rg -n "INSERT INTO agents_evaluations\b" apps/api/src
