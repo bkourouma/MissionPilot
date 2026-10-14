@@ -373,7 +373,13 @@ describe("création d'une action (route 30)", () => {
       mission_id: s.missionId,
       assignee_id: s.consultantEquipe.utilisateurId,
     });
-    expect(`${t.rows[0].titre} ${t.rows[0].description}`).not.toMatch(/\d{6,}/);
+    // Le chemin de la mission contient son UUID (parfois six chiffres de suite) : on l'écarte avant
+    // de chercher un montant.
+    const sansChemin = `${t.rows[0].titre} ${t.rows[0].description}`.replace(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
+      "",
+    );
+    expect(sansChemin).not.toMatch(/\d{6,}/);
     // Le responsable est l'appelant : aucune notification d'action.
     const soi = await creerAction(s.a.chef, {
       titre: "Pour moi",
