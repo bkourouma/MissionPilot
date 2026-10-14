@@ -25,3 +25,5 @@ export * from "./brief/index";
 export * from "./copilote/index";
 // Vague 3, lot CAP : capitalisation (CAP-01, CAP-02, CAP-05, CAP-06).
 export * from "./capitalisation/index";
+// Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
+export * from "./due-diligence/index";

@@ -178,6 +178,13 @@ export const PERMISSIONS = [
   // revient à un associé (rôle, doublé en base : MPU02).
   "automatisation.lire", // catalogue, automatisations du cabinet, simulation, journal (AUT-01 à AUT-06)
   "automatisation.gerer", // créer, modifier, activer une automatisation ; couper ; annuler (AUT-02 à AUT-06)
+  // --- V3, vague 4 (service #2, due diligence, SPEC-3b) : visibilité de la mission TOUJOURS exigée
+  // en plus pour ce qui s'y rattache ; ni ressources, ni gestionnaire, ni expert externe (données du
+  // client et jugement d'expert, comme `plan.lire`). Attributions provisoires (DECISIONS.md).
+  "dd.lire", // lire dossiers, analyses, hypothèses, verdicts, marché, filtrages, plan, notes, référentiels
+  "dd.ecrire", // saisir cadrage, analyses, hypothèses, verdicts proposés, marché, filtrages, plan, notes
+  "dd.valider", // valider ou rejeter un verdict ou une note ; décider d'une exclusion (tiers, MPZ25/26/28)
+  "dd.referentiel.gerer", // bibliothèque de signaux et listes d'exclusion du cabinet
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -279,6 +286,10 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.gerer",
     "automatisation.lire",
     "automatisation.gerer",
+    "dd.lire",
+    "dd.ecrire",
+    "dd.valider",
+    "dd.referentiel.gerer",
   ],
   chef_mission: [
     "brief.lire",
@@ -330,6 +341,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.lire",
     "ao.gerer",
     "automatisation.lire",
+    "dd.lire",
+    "dd.ecrire",
+    "dd.valider",
   ],
   consultant: [
     "brief.lire",
@@ -363,6 +377,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "ao.lire",
     "ao.gerer",
+    "dd.lire",
+    "dd.ecrire",
   ],
   ressources: [
     "brief.lire",
@@ -444,6 +460,11 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.gerer",
     "qualite.relire",
     "ao.lire",
+    // Second regard sur la due diligence : valide les verdicts et notes, tient les référentiels
+    // (signaux, listes d'exclusion), n'écrit pas le dossier (SPEC-3b §7).
+    "dd.lire",
+    "dd.valider",
+    "dd.referentiel.gerer",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire", "brief.lire"],
   // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;

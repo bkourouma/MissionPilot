@@ -386,3 +386,67 @@ describe("V3, vague 3 : capitalisation (CAP) ; vague 2 : automatisation (AUT)", 
     }
   });
 });
+
+describe("V3, vague 4 : due diligence (DD), SPEC-3b §7", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+  const DD = ["dd.lire", "dd.ecrire", "dd.valider", "dd.referentiel.gerer"] as const;
+
+  it("matrice par rôle", () => {
+    expect(qui("dd.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+    expect(qui("dd.ecrire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+    ]);
+    expect(qui("dd.valider")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+    expect(qui("dd.referentiel.gerer")).toEqual(["associe", "directeur_mission", "expert_metier"]);
+  });
+
+  it("l'expert métier valide et tient les référentiels sans écrire le dossier ; le consultant écrit sans valider", () => {
+    expect(aPermission(["expert_metier"], "dd.ecrire")).toBe(false);
+    expect(aPermission(["consultant"], "dd.valider")).toBe(false);
+    expect(aPermission(["chef_mission"], "dd.referentiel.gerer")).toBe(false);
+  });
+
+  it("jamais aux ressources, au gestionnaire, à l'expert externe ni aux rôles du portail", () => {
+    for (const p of DD) {
+      for (const r of ["ressources", "gestionnaire", "expert_externe", ...ROLES_CLIENT] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+
+  it("dd.ecrire suppose preuve.ecrire et standard.lire (les routes qui créent des assertions)", () => {
+    for (const r of TOUS_LES_ROLES.filter((x) => aPermission([x], "dd.ecrire"))) {
+      expect(aPermission([r], "preuve.ecrire"), r).toBe(true);
+      expect(aPermission([r], "standard.lire"), r).toBe(true);
+    }
+  });
+
+  it("dd.valider et dd.referentiel.gerer supposent dd.lire", () => {
+    for (const r of TOUS_LES_ROLES.filter(
+      (x) => aPermission([x], "dd.valider") || aPermission([x], "dd.referentiel.gerer"),
+    )) {
+      expect(aPermission([r], "dd.lire"), r).toBe(true);
+    }
+  });
+
+  it("aucune permission dd.* n'appartient au portail client", () => {
+    for (const p of DD) {
+      expect(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).not.toContain(p);
+    }
+  });
+});
