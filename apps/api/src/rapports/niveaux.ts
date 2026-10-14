@@ -19,6 +19,8 @@ import { aPermission, type Permission, type Role } from "@missionpilot/shared";
  * - « notation » : rapport de notation publiée (NOT-07) — « notation.lire » ;
  * - « plan » : rapport de plan stratégique (PLA-11), modèle financier du
  *   client compris — « plan.lire » (ni ressources ni gestionnaire).
+ * - « dd » : note au comité de la due diligence (DD-13, migration 0508) — « dd.lire »
+ *   (ni ressources, ni gestionnaire, ni expert externe).
  *
  * Ces permissions sont revérifiées à CHAQUE lecture (stockage/fichiers.ts
  * `exigerFichierLisible`, listes des rapports), en plus de « mission.lire » et
@@ -29,7 +31,7 @@ import { aPermission, type Permission, type Role } from "@missionpilot/shared";
 export const NIVEAUX_RAPPORT = ["base", "jours", "finance"] as const;
 export type NiveauCumulatif = (typeof NIVEAUX_RAPPORT)[number];
 
-export const NIVEAUX_SERVICE = ["notation", "plan"] as const;
+export const NIVEAUX_SERVICE = ["notation", "plan", "dd"] as const;
 export type NiveauService = (typeof NIVEAUX_SERVICE)[number];
 
 export type NiveauRapport = NiveauCumulatif | NiveauService;
@@ -42,6 +44,7 @@ export const PERMISSIONS_NIVEAU: Record<NiveauRapport, readonly Permission[]> = 
   finance: ["budget.lire_jours", "finance.lire"],
   notation: ["notation.lire"],
   plan: ["plan.lire"],
+  dd: ["dd.lire"],
 };
 
 /** Vrai si ces rôles détiennent toutes les permissions du niveau (hors « mission.lire »). */

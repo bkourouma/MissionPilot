@@ -26,6 +26,7 @@ import { routesBanqueAo } from "./routes/banque-ao.js";
 import { routesBrief } from "./routes/brief.js";
 import { routesCopilote } from "./routes/copilote.js";
 import { routesCapitalisation } from "./routes/capitalisation.js";
+import { routesDueDiligence } from "./routes/due-diligence.js";
 import { routesCloture } from "./routes/cloture.js";
 import { routesPreuves } from "./routes/preuves.js";
 import { routesPrevisions } from "./routes/previsions.js";
@@ -265,6 +266,9 @@ export async function buildApp(
   await app.register(routesIa, { prefix: "/api" });
   await app.register((await import("./routes/plans.js")).routesPlans, { prefix: "/api" });
   await app.register((await import("./routes/kpi.js")).routesKpi, { prefix: "/api" });
+  await app.register((await import("./routes/redressement.js")).routesRedressement, {
+    prefix: "/api",
+  });
   await app.register((await import("./routes/questionnaires.js")).routesQuestionnaires, {
     prefix: "/api",
   });
@@ -285,6 +289,8 @@ export async function buildApp(
   await app.register(routesAppelsOffres, { prefix: "/api" });
   await app.register(routesBanqueAo, { prefix: "/api" });
   await app.register(routesCapitalisation, { prefix: "/api" });
+  // Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
+  await app.register(routesDueDiligence, { prefix: "/api" });
   await app.register(routesBrief, { prefix: "/api" });
   await app.register(routesCopilote, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });

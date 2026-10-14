@@ -263,6 +263,33 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description: "Dossier vivant de chaque client : faits datés et sourcés, finances, frise.",
   },
   {
+    // Service #5, lot 3a (RED-01, 02, 05 à 07, 10 à 12, 14) ; le dossier d'une mission est un
+    // onglet de la mission (missions/[id]/redressement).
+    id: "redressement",
+    libelle: "Redressement",
+    libelleCourt: "Redressement",
+    href: "/redressement",
+    permission: "redressement.lire",
+    disponible: true,
+    icone: "attention",
+    description:
+      "Redressement : score d'alerte précoce indicatif, trésorerie à 13 semaines, créanciers et plan d'actions.",
+    sousPages: [
+      {
+        id: "dossiers",
+        libelle: "Dossiers",
+        href: "/redressement",
+        permission: "redressement.lire",
+      },
+      {
+        id: "seuils",
+        libelle: "Seuils d'alerte",
+        href: "/redressement/seuils",
+        permission: "redressement.lire",
+      },
+    ],
+  },
+  {
     id: "agents-ia",
     libelle: "Agents IA",
     libelleCourt: "Agents",
@@ -389,11 +416,17 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "parametres",
     libelle: "Paramètres",
     href: "/parametres",
-    permission: ["cabinet.gerer", "facture.emettre", "temps.cloturer", "temps.importer"],
+    permission: [
+      "cabinet.gerer",
+      "facture.emettre",
+      "temps.cloturer",
+      "temps.importer",
+      "dd.referentiel.gerer",
+    ],
     disponible: true,
     icone: "reglages",
     description:
-      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import et journal d'audit.",
+      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import, due diligence et journal d'audit.",
     sousPages: [
       { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
       {
@@ -444,6 +477,13 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         libelle: "Notation",
         href: "/parametres/notation",
         permission: "cabinet.gerer",
+      },
+      {
+        // Vague 4, service #2 (SPEC-3b §10.1) : bibliothèque de signaux et listes d'exclusion.
+        id: "due-diligence",
+        libelle: "Due diligence",
+        href: "/parametres/due-diligence",
+        permission: "dd.referentiel.gerer",
       },
       {
         id: "journal",

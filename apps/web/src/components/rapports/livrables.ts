@@ -10,10 +10,32 @@ import { ErreurApi } from "../../lib/api";
 import type { FichierMeta } from "../../lib/fichiers";
 import { messageRapport } from "../../lib/rapports";
 
-export const TYPES_LIVRABLE = ["notation", "plan", "dossier_bancaire"] as const;
+export const TYPES_LIVRABLE = ["notation", "plan", "dossier_bancaire", "note_comite"] as const;
 export type TypeLivrable = (typeof TYPES_LIVRABLE)[number];
 
 export const FORMATS_LIVRABLE = ["pdf", "docx"] as const;
+
+/** Variantes d'un livrable qui en a (note au comité : mêmes chiffres, deux niveaux de détail). */
+export const VARIANTES_LIVRABLE = ["executive", "detaillee"] as const;
+export type VarianteLivrable = (typeof VARIANTES_LIVRABLE)[number];
+export const VARIANTES_LIVRABLE_LIBELLES: Record<
+  VarianteLivrable,
+  { libelle: string; aide: string }
+> = {
+  executive: {
+    libelle: "Synthèse exécutive",
+    aide: "Recommandation, verdicts, risques élevés, marché, E&S et plan : l'essentiel pour un comité.",
+  },
+  detaillee: {
+    libelle: "Version détaillée",
+    aide: "Toutes les sections : analyses, chaîne de valeur, sensibilité, sources numérotées.",
+  },
+};
+export const estVarianteLivrable = (v: unknown): v is VarianteLivrable =>
+  typeof v === "string" && (VARIANTES_LIVRABLE as readonly string[]).includes(v);
+
+/** Types de livrable qui se rendent en variantes. */
+export const avecVariante = (type: TypeLivrable): boolean => type === "note_comite";
 export type FormatLivrable = (typeof FORMATS_LIVRABLE)[number];
 
 /** Rapport tel que listé par GET /api/notations/:id/rapports ou /api/plans/:id/rapports. */
@@ -26,6 +48,9 @@ export interface RapportLivrable {
   niveau: string;
   notation_id: string | null;
   plan_id: string | null;
+  /** Note au comité seulement (due diligence). */
+  dd_note_id?: string | null;
+  variante?: VarianteLivrable | null;
   version_source: number | null;
   genere_par: string;
   genere_le: string;
@@ -88,6 +113,16 @@ export const LIVRABLES: Record<
       "Le dossier reprend la version VALIDÉE du modèle financier : synthèse, ratios bancaires, plan de financement, échéanciers d'emprunts et états prévisionnels. Les ratios et seuils sont indicatifs. Il est destiné à une banque : il ne reprend pas le registre des preuves interne. Seul un responsable habilité à valider le plan le génère.",
     version: "Version du modèle financier",
   },
+  note_comite: {
+    titre: "Note au comité",
+    bouton: "Générer le rapport de la note",
+    segment: "dd/notes",
+    action: "rapports",
+    modele: "note_comite",
+    explication:
+      "Le rapport reprend la version VALIDÉE de la note par une autre personne que son auteur, et la base de chiffres figée à sa soumission (hypothèses, risques, marché, E&S, plan des 100 jours). Les deux variantes viennent de la même base : mêmes verdicts, mêmes chiffres.",
+    version: "Version de la note",
+  },
 };
 
 export const FORMATS_LIVRABLE_LIBELLES: Record<FormatLivrable, { libelle: string; aide: string }> =
@@ -110,8 +145,10 @@ export function cheminGenerationLivrable(
   id: string,
   format: FormatLivrable,
   version?: number | null,
+  variante?: VarianteLivrable | null,
 ): string {
   const q = new URLSearchParams({ format });
+  if (variante && avecVariante(type)) q.set("variante", variante);
   if (typeof version === "number" && Number.isInteger(version) && version >= 1) {
     q.set("version", String(version));
   }
@@ -155,6 +192,9 @@ export function messageLivrable(type: TypeLivrable, e: unknown): string {
     if (e.code === "NOTATION_NON_PUBLIEE") {
       return "Aucune version publiée : la notation doit être soumise en revue puis publiée par un expert métier avant de produire son rapport.";
     }
+    if (e.code === "NOTE_NON_VALIDEE") {
+      return "Aucune version validée de la note : une autre personne que l'auteur doit la valider avant de produire son rapport.";
+    }
     if (e.code === "MODELE_NON_VALIDE") {
       return "Le dossier bancaire se génère seulement depuis une version VALIDÉE du modèle financier : faites valider la version voulue dans l'onglet « Modèle financier ».";
     }
@@ -162,11 +202,17 @@ export function messageLivrable(type: TypeLivrable, e: unknown): string {
       if (type === "dossier_bancaire") {
         return "Seul un responsable habilité à valider le plan peut générer son dossier bancaire.";
       }
+      if (type === "note_comite") {
+        return "Votre rôle ne vous permet pas de produire le rapport de cette note au comité.";
+      }
       return type === "notation"
         ? "Votre rôle ne vous permet pas de produire le rapport de cette notation."
         : "Votre rôle ne vous permet pas de produire le rapport de ce plan.";
     }
     if (e.statut === 404) {
+      if (type === "note_comite") {
+        return "Cette note, ou la version demandée, est introuvable ou ne vous est plus accessible.";
+      }
       return type === "notation"
         ? "Cette notation, ou la version demandée, est introuvable ou ne vous est plus accessible."
         : "Ce plan, ou la version du modèle demandée, est introuvable ou ne vous est plus accessible.";

@@ -7,7 +7,8 @@ V1 et V2, vagues 0 et 1, lots des vagues 2 et 3 : automatisation, clôture, sall
 de mission, appels d'offres, capitalisation, notation et plans augmentés, pilotage
 des KPI, depuis fusionnés dans `origin/main` ; mise à jour du 2026-10-11 :
 lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07 (§5
-septies) et copilote AGT-08 (§7 bis), fusionnés par la PR n° 9), avec leur
+septies) et copilote AGT-08 (§7 bis), fusionnés par la PR n° 9 ; lot 3a de la vague 4, service #5
+Redressement (§8 nonies), sur la branche `feat/vague-4-redressement`, non fusionnée), avec leur
 fichier, pas un objectif. Il est lu par l'agent `security-auditor` et par
 `/audit` : chaque contrôle listé ici doit pouvoir se vérifier dans le code. Les
 chemins sont relatifs à la racine du dépôt ; `routes/`, `auth/`, `ia/`… sont
@@ -15,7 +16,8 @@ sous `apps/api/src/`. La numérotation des sections est citée ailleurs (code,
 migrations, autres documents) : les ajouts des vagues suivantes sont des
 sections « bis », « ter », « quater »… ; les nombres de ce document (routes,
 tables, lignes de `GRANT EXECUTE`) ont été relevés le 2026-10-08 dans cet arbre
-de travail, puis les routes et les `GRANT EXECUTE` recomptés le 2026-10-11.
+de travail, puis les routes et les `GRANT EXECUTE` recomptés le 2026-10-11 (714 routes et 23 `GRANT EXECUTE`
+avec le lot 3a, relevés dans le worktree `.claude/worktrees/redressement`).
 
 ## 1. Actifs à protéger
 
@@ -91,6 +93,12 @@ Acteurs réels (rôles de `packages/shared/src/roles.ts`) :
   mission, ressources) ; `portail.salle.deposer` (client dirigeant et client
   contributeur seulement, jamais un rôle du cabinet). Le gestionnaire n'a que
   `ao.lire` (offre financière, §6) ; l'expert externe n'en a aucune.
+- **Permissions de la vague 4, lot 3a** (`roles.ts`, test `roles.test.ts`) : `redressement.lire` (associé,
+  directeur de mission, chef de mission, consultant, expert métier), `redressement.ecrire` (les mêmes sauf
+  l'expert métier), `redressement.valider` (associé, directeur de mission) et `redressement.parametrer`
+  (associé, expert métier : seuils d'alerte). Ni le responsable des ressources, ni le gestionnaire, ni l'expert
+  externe n'en ont (données du client : un gestionnaire, qui détient `finance.lire`, reçoit 403 sur toutes les
+  routes du redressement, §8 nonies). La visibilité de la mission s'y ajoute toujours.
 
 Menaces visées : un cabinet qui lit ou écrit chez un autre ; un utilisateur du
 portail qui lit les données internes du cabinet ou celles d'un autre client ;
@@ -268,7 +276,9 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   30 jours, une tâche par cabinet ayant une proposition échue ou à anonymiser).
   `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
   (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
-  `rg -n "GRANT EXECUTE" apps/api/migrations` (23 lignes au 2026-10-11 : 20 au 2026-10-08, plus trois fonctions des lacunes de la vague 2). Certains déclencheurs de contrôle
+  `rg -n "GRANT EXECUTE" apps/api/migrations` (23 lignes au 2026-10-11 : 20 au 2026-10-08, plus trois fonctions des lacunes de la vague 2 ; inchangé
+  par le lot 3a du redressement, qui n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
+  d'invocateur et lisent sous la RLS du cabinet, `0480`–`0486`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
   `0043`, `0060`…). `reprendre_relances_questionnaire` (`0148`) n'est pas
   `SECURITY DEFINER` et n'est exécutable que par le propriétaire.
@@ -341,7 +351,8 @@ soit le code appelant).
   (`0180`–`0184`, dont le lien vers une notation et les KPI d'objectif), les
   rapports (`0130`) et leurs paramètres (`0132`), l'historique IA des
   questionnaires (`0149`), les clés d'idempotence des saisies de temps (`0122`),
-  les paramètres et alertes KPI ;
+  les paramètres et alertes KPI, les quinze tables du redressement (`0480`–`0486`, §8 nonies : le client
+  n'accède jamais à son dossier de redressement) ;
   `journal_audit` : écriture seule. `portail` en **lecture** filtrée, doublée de
   `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete` : client,
   missions partagées, jalons partagés, documents partagés au contenu validé et
@@ -396,8 +407,8 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  677 gestionnaires de route (2026-10-11 ; 673 le 2026-10-10, plus `GET /brief` et les trois
-  routes du copilote), seuls `POST /auth/connexion`,
+  714 gestionnaires de route (2026-10-11, avec les 37 du redressement, lot 3a ; 677 sur `main`, 673 le
+  2026-10-10, plus `GET /brief` et les trois routes du copilote), seuls `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
   `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
@@ -457,6 +468,8 @@ soit le code appelant).
     désactive (le responsable ne fait pas exécuter le texte d'un autre sous son
     identité), et lever un coupe-circuit est réservé à l'associé (`MPU02`,
     §5 quinquies) ;
+  - redressement : une version de plan ne se valide pas par son créateur, sauf associé, et les seuils d'alerte
+    d'un secteur ne se publient pas par leur auteur, sauf associé (403 `SEPARATION_DES_TACHES`, `MPZ07`, §8 nonies) ;
   - brief quotidien : une validation n'est jamais proposée à qui a rédigé, soumis ou demandé
     l'élément, à chaque source (§5 septies) ;
   - copilote : une action proposée n'est confirmée que par l'utilisateur à qui elle a été
@@ -1054,6 +1067,7 @@ calcul fait à la demande, rien n'est stocké.
   | `MPW01-06` | banques et offres d'appels d'offres (lot AO-B) : tout en ajout seul, seuls le retrait motivé d'une pièce (une fois) et l'anonymisation d'un CV (`MPW01`), versions consécutives (`MPW02`), mission d'une référence qui n'est pas celle du client cité ou validation d'une version d'offre technique qui n'est pas la dernière (`MPW03`), validation d'un brouillon IA sans acquittement de ses nombres non vérifiés (`MPW04`), validation d'une offre technique par son créateur, l'auteur d'une version ou le demandeur d'un brouillon IA hors associé (`MPW05`), CV inconnu, déjà anonymisé ou nouvelle version sur un CV anonymisé (`MPW06`) | `0380`–`0383`, `0385`, `0386` |
   | `MPJ01-08` | capitalisation : historiques en ajout seul (`MPJ01`), circuit du retour d'expérience : validation définitive d'une version existante, versions consécutives (`MPJ02`), rattachement tâche-brique sur une mission clôturée (`MPJ03`), niveau de compétence validé par la personne évaluée ou par son déclarant hors associé (`MPJ04`), incohérence mission, retour, collaborateur ou compétence (`MPJ05`), déclaration de niveau déjà en attente pour le couple (`MPJ06`), plus de 50 déclarations par couple (`MPJ07`), retour validé par qui n'est ni associé, ni chef, ni directeur de la mission, ou n'est pas l'utilisateur de la session (`MPJ08`) | `0460`–`0463`, `0465` |
   | `MPN08-12` | notation augmentée : item de banque validé figé, créé hors brouillon ou incohérent avec son contenu (`MPN08`), sélection d'items en ajout seul citant un item non validé, une formulation hors de l'item ou un item en double (`MPN09`), indice de confiance en ajout seul ou sous le seuil courant, publication sans indice publiable de la même transaction (`MPN10`), session de calibrage figée hors clôture par un expert métier, cotation sur session close, cas inconnu ou niveau hors échelle (`MPN11`), initiative type supprimée ou code figé, impacts et plans d'action en ajout seul, plan sur une version d'une autre notation (`MPN12`) ; plancher du seuil de confiance (≥ 0,3) et de la cible de répondants (≥ 2) par CHECK `NOT VALID`, sans SQLSTATE dédié | `0400`–`0404` |
+  | `MPZ01-11` | redressement (service #5, lot 3a ; lettre `Z` partagée avec la due diligence : `MPZ01-20` réservés au redressement, `MPZ21-32` à la due diligence) : historiques en ajout seul (`MPZ01`), rattachement incohérent : mission et client du dossier, seuils d'un score non publiés, d'un autre secteur ou non identiques, échéance d'un autre créancier (`MPZ02`), mission clôturée ou dossier clos (`MPZ03`), champ figé (`MPZ04`), versions non consécutives ou publication d'une version qui n'est pas la dernière (`MPZ05`), transition de statut invalide (`MPZ06`), séparation des tâches : plan validé par son créateur ou par un rôle non habilité, seuils publiés par leur auteur ou par un rôle non habilité, hors associé (`MPZ07`), réalisé de trésorerie qui ne remplace pas la ligne courante (`MPZ08`), négociation incohérente (`MPZ09`), plafond de volume atteint (`MPZ10`), plus de 10 corrections d'un réalisé de semaine (`MPZ11`) ; traduits par `traduireErreurRedressement` (`redressement/erreurs.ts`), jamais en 500 | `0480`–`0486` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -2013,6 +2027,136 @@ fonction du portail qui écrit un fichier (§4 bis).
   sans antivirus (barrière de premier niveau : type par le contenu, §8) ; l'accusé de réception est
   traité hors file (§15).
 
+## 8 octies. Due diligence (DD-01 à DD-15, ADR-012)
+
+Service #2 : dossiers, analyses, hypothèses et verdicts sourcés, dimensionnement de marché,
+filtrage environnemental et social, plan des 100 jours, note au comité. Vingt tables `dd_*`
+(migrations `0500`–`0508`), routes `/api/dd/**`, SQLSTATE `MPZ21`–`MPZ32` (lettre `Z` partagée avec
+le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
+
+- **Isolation et portail.** Chaque table porte RLS (`isolation`) et la politique RESTRICTIVE
+  `portail_interdit` ; aucune route ne figure à `LISTE_BLANCHE_PORTAIL`. Une ressource d'une mission
+  invisible répond le même 404 que l'inexistante. L'investisseur-client ne voit rien (repoussé).
+- **Droits.** `dd.lire`, `dd.ecrire`, `dd.valider`, `dd.referentiel.gerer` ; tout détenteur de
+  `dd.ecrire` détient `preuve.ecrire`. Aucune donnée FIN-02 dans le module ni dans la note.
+- **Ajout seul.** Aucun `UPDATE` ni `DELETE` (`REVOKE` et déclencheur `MPZ21`) : une correction est une
+  nouvelle version ; chaque version est numérotée sans trou (`MPZ23`). Plafonds par objet, comptés
+  sous le verrou de la mission (`PLAFONDS_DD`), dont les journaux de liens d'une hypothèse et de
+  décisions d'un filtrage ; les contenus jsonb sont bornés en octets par des `CHECK` nommés
+  (règles 700 000, déclarations et thèmes d'un filtrage 20 000, assertions citées 20 000, base
+  figée 1 Mo), traduits en 400 `CONTENU_TROP_VOLUMINEUX` qui nomme le champ.
+- **Chaque verdict est sourcé et figé.** Une assertion est celle du registre des preuves (aucun
+  `INSERT` direct) ; un verdict confirmé ou infirmé cite des assertions liées à l'hypothèse dans le
+  bon sens (`MPZ24`). Un verdict ne prend effet que validé par un tiers : ni proposant, ni auteur de
+  l'hypothèse, ni auteur d'une version d'une assertion citée, sauf associé (`MPZ25`, API et base).
+  La validation est refusée (`VERDICT_PERIME`, `MPZ27`) si l'hypothèse, une source ou la
+  solidité d'une source (lecture et indice) a changé depuis la proposition. Un verdict validé n'est
+  « en vigueur » que sur la version courante de l'hypothèse et tant qu'aucune source ne se lit plus
+  faiblement ; sinon l'hypothèse se lit « ouverte ». Tant qu'un verdict validé existe, l'hypothèse ne
+  se retire ni ne se réécrit (`HYPOTHESE_AVEC_VERDICT`).
+- **Sources figées par les routes génériques aussi.** Une assertion citée par un verdict retenu (en
+  attente ou validé) ne s'abandonne pas, ne change pas d'énoncé et ne perd ni ne change le sens
+  d'aucune preuve, que l'appel vienne du module ou de `POST /assertions/:id/versions`,
+  `POST /assertions/:id/liens`, `DELETE /assertions/:id/liens/:preuveId` (`ASSERTION_CITEE`,
+  `preuves/garde-citation.ts`).
+- **Filtrage E&S.** Les listes d'exclusion sont un référentiel du CABINET : les règles (mots-clés,
+  secteurs, pays) d'une liste d'investisseur sont lisibles par tout détenteur de `dd.lire` du
+  cabinet, choix assumé ; seule leur écriture exige `dd.referentiel.gerer`. Une liste d'un
+  investisseur ne s'applique qu'à un dossier de ce client. Mots-clés bornés (une lettre ou un
+  chiffre, 5 mots) et activités déclarées (60 mots) : la correspondance reste de coût borné. Seul le
+  dernier filtrage d'un dossier reçoit une décision (`FILTRAGE_PERIME`) ; l'auteur du filtrage visé
+  ou d'un filtrage plus récent ne décide pas, sauf associé (`MPZ28`, API et base). Une exclusion
+  touchée et confirmée ou jamais décidée reste bloquante dans les filtrages suivants jusqu'à la
+  décision « écartée » d'un tiers.
+- **Note au comité.** Soumission : bloquants recalculés par les moteurs, base figée par le serveur
+  (jamais reçue du client, validée par `noteBaseSchema`, sans verbatim nominatif). Validation par un
+  tiers, avec les bloquants revérifiés (`NOTE_BLOQUEE`). Le rapport ne se rend que pour la dernière
+  version soumise, validée (`NOTE_NON_VALIDEE`, `NOTE_PERIMEE`, doublé en base par `MPR04`), après
+  nouvelle vérification des bloquants, et porte la date de figeage de la base.
+- **Limites connues.** Du SQL arbitraire du rôle applicatif contourne les gardes de l'API (comme
+  §15) ; la conservation du contenu d'une due diligence reste à décider avec le conseil juridique.
+## 8 nonies. Redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14)
+
+Lot 3a de la vague 4 (service #5 ; ADR-011, `docs/workflows/specs/SPEC-3a-redressement.md` ; migrations
+`0480`–`0486`, code `apps/api/src/redressement/`, routes `routes/redressement*.ts`, moteur
+`packages/engines/src/redressement`, schémas `schemas/redressement.ts`, tests `test/redressement-*.test.ts`).
+Un dossier par mission : correspondance de postes, ratios, urgence, score d'alerte précoce, trésorerie à 13
+semaines, créanciers et négociations, plan et leviers. Données parmi les plus sensibles du client (dettes,
+trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
+
+- **Cloisonnement** : quinze tables (`red_dossiers`, `red_correspondances`, `red_urgences`,
+  `red_seuils_versions`, `red_scores`, `red_creanciers`, `red_creances`, `red_negociation_evenements`,
+  `red_echeances`, `red_tresorerie_versions`, `red_tresorerie_lignes`, `red_tresorerie_realises`,
+  `red_actions`, `red_action_evenements`, `red_plan_versions`), toutes à RLS (`isolation`, `USING` et
+  `WITH CHECK`), RESTRICTIVE `portail_interdit`, FK composites `(cabinet_id, dossier_id, id)` (un enfant ne vise
+  jamais un parent d'un autre dossier) et aucun `DELETE` pour le rôle applicatif. **Portail fermé** : aucune des 37
+  routes n'est dans `LISTE_BLANCHE_PORTAIL` (403 `PORTAIL_ROUTE_INTERDITE`, test `redressement-portail.test.ts`) ;
+  les inventaires `isolation.test.ts` et `portail-acces.test.ts` restent verts sans exception. Aucune fonction
+  `SECURITY DEFINER` (§4), aucun fichier reçu, aucune dépendance ni variable d'environnement nouvelle.
+- **Droits** (`redressement/acces.ts`, règle écrite en tête) : `redressement.lire` (lecture), `.ecrire`,
+  `.valider`, `.parametrer` (§2), toujours avec la visibilité de la mission. Écrire exige de pouvoir modifier la
+  mission ou d'en être membre, un dossier non clos (409 `RED_DOSSIER_CLOS`) et une mission non clôturée (409
+  `RED_MISSION_CLOTUREE`, doublé en base par `MPZ03` sur **toute** table fille : écrire sur un créancier ou une
+  action ne contourne pas la clôture) ; ouvrir un dossier exige une mission modifiable. Chaque route résout l'identifiant
+  reçu (dossier, créancier, action, version de plan, version de seuils) PUIS la visibilité de la mission et répond le
+  même 404 pour un objet inexistant, d'un autre cabinet ou d'une mission invisible. Un compte du portail n'est jamais
+  responsable d'une action ni assigné d'une tâche (`refuser_utilisateur_portail`, `0486`).
+- **FIN-02 traduit** : les montants, soldes, dettes et marges du module sont ceux **du client** (états financiers du
+  dossier client, saisies de trésorerie et de créances) ; ils relèvent de `redressement.lire`, pas de
+  `finance.lire`. Le module ne joint ni n'expose aucune donnée du cabinet (honoraires, budget, factures, coûts,
+  taux, marge de mission). Test `redressement-fin02.test.ts` : un chef de mission sans `finance.lire` lit ratios,
+  trésorerie et créanciers, la réponse ne contient aucune clé de coût ou de marge du cabinet (parcours récursif), un
+  gestionnaire (qui a `finance.lire`) reçoit 403 sur les 37 routes. Écart de lecture du PRD à confirmer (§15 et
+  §16) : les réserver à `finance.lire` rendrait le module inutilisable par le chef de mission.
+- **Séparation des tâches, doublée en base** (`MPZ07`, mêmes règles que l'API, même test de refus) : une version de
+  plan est validée par un détenteur de `redressement.valider` (associé ou directeur) qui n'en est pas le créateur, sauf
+  associé (`0486`, `plan.ts`) ; une version de seuils d'un secteur est publiée par un `expert_metier` ou un associé
+  qui n'en est pas l'auteur, sauf associé (`0483`, `seuils.ts`). L'associé n'est dispensé que par
+  `red_valideur_dispense` (utilisateur actif, rôle lu sur la ligne `utilisateurs`, `0480`). L'empreinte du plan
+  (SHA-256) est recalculée À LA VALIDATION depuis les actions actuelles : une modification entre-temps donne 409
+  `RED_PLAN_MODIFIE` ; `contenu` n'est jamais reçu d'un client. Un score ne référence que des seuils **publiés**, du
+  **même secteur** et **identiques** à son instantané (`MPZ02`).
+- **Aucune IA, aucun job, aucune qualification juridique** : aucun import de `ia/`, `agents/` ou `jobs/` dans le
+  module, aucune table `ia_*`, aucun appel réseau (test `redressement-sans-ia.test.ts`) ; le score d'alerte, les voyants
+  d'urgence, les ratios et l'impact d'un levier sortent du moteur pur. Aucun libellé du moteur ni de l'écran ne parle
+  de « cessation des paiements », de « faillite » ou de « défaillance » (vérifié par test du moteur, `alerte.test.ts`,
+  et par la liste de mots interdits de `apps/web/src/lib/redressement.ts`) ; le mot « alerte » ne
+  désigne que le score « d'alerte précoce », toujours marqué « indicatif ». **Aucun conseil juridique** : les repères
+  OHADA (RED-13) sont repoussés (à valider par un juriste).
+- **Chiffres** : aucun `SUM`/`AVG` en SQL (recherche n° 6), aucun arrondi dans l'API (n° 8), sommes en `BigInt` dans
+  le moteur, montants plafonnés à 10^13 unités mineures par CHECK **et** schéma Zod ; une erreur du moteur
+  (`ErreurRedressement`, dont `SOMME_HORS_LIMITES`) devient un 400 ou un 409 `RED_…`, jamais un 500. **Ratios, situation
+  d'un créancier, avancement et écart du plan sont calculés à la lecture** par le moteur et jamais stockés ; seuls sont
+  des instantanés un score (entrées, seuils, version du moteur) et l'impact d'un levier (paramètres et base).
+- **Historiques en ajout seul** (`MPZ01`, déclencheur et `REVOKE UPDATE, DELETE`) : correspondances, urgences, seuils
+  publiés, scores, créances, événements de négociation, échéances, versions et lignes de trésorerie, réalisés (chaîne
+  `remplace_id`, 10 corrections au plus par semaine, `MPZ11`), événements d'action, versions de plan. Une correction est
+  un nouvel enregistrement ; un dossier `clos` est terminal.
+- **Plafonds de volume** (`MPZ10`, déclencheurs, sous le verrou consultatif du dossier ; **provisoires**, DECISIONS.md) :
+  100 versions de correspondance, 200 urgences, 500 scores, 50 versions de seuils par secteur, 200 versions de
+  trésorerie, 600 lignes par version, 1 000 réalisés, 200 créanciers, 100 versions de créance, 300 événements de
+  négociation, 60 échéances par accord, 300 actions, 200 événements par action, 100 versions de plan. Les listes sont
+  bornées par un `LIMIT` littéral égal au plafond (recherche n° 7 de la checklist) : `redressement/` en compte 7.
+  **Débits** comptés sur `journal_audit` dans la transaction qui l'inscrit, sous verrou consultatif propre à
+  l'utilisateur (`redressement/limites.ts`) : 30 évaluations d'urgence, 30 scores et 60 versions de trésorerie par
+  utilisateur et par 10 minutes (429 `RED_TROP_D_EVALUATIONS`, `RED_TROP_DE_SCORES`,
+  `RED_TROP_DE_VERSIONS_TRESORERIE`). Les trois routes de calcul pur (aucune écriture, calcul en temps constant, corps de 2 Ko au plus, SPEC-3a §9.5) n'ont pas de
+  compteur : un compteur en mémoire est refusé (§15).
+- **Fuite dans les traces** : le journal d'audit ne porte que des identifiants, des comptes et des codes (jamais un
+  montant, un nom de créancier, une condition de négociation, un titre d'action, un commentaire ni un motif :
+  `redressement/journal.ts`) ; les notifications d'assignation d'une action et la tâche créée ne portent aucun montant ;
+  les messages d'erreur (400 d'un schéma, 409) ne recopient pas les valeurs saisies et les `details` d'une erreur se
+  limitent à `manquants` (`CHAMPS_DETAILS_PUBLICS`, `errors.ts`).
+- **Entrées** : schémas `.strict()` partagés (40 `z.object` dans `schemas/redressement.ts`), requêtes paramétrées, dates
+  par `dateIsoBorneeSchema` (un 23514 de date donne un 400), clés de `reponses`, `postes` et `flux` restreintes par
+  énumération, tailles `jsonb` bornées en base et à l'entrée ; `jsonb` construits par le code.
+- **Données du dossier client** : lecture seule, aucune écriture dans `dossier_*` ; seuls les états **acceptés** et
+  **courants** entrent dans un calcul ; `accepte_sous_reserve` et `analyses_indicatives` sont transmis, jamais cachés
+  (`redressement/etats.ts`).
+- **Valeurs par défaut** : seuils d'alerte du secteur « général » (les autres secteurs retombent dessus tant
+  qu'aucun expert n'a publié), grille d'urgence, plafonds et débits sont **provisoires**, sans source normative
+  (DECISIONS.md, section « Redressement ») : le score est indicatif et l'écran le dit.
+
 ## 9. Paiements et webhooks
 
 Sans objet : aucun prestataire de paiement ni webhook entrant. Les
@@ -2205,6 +2349,8 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Copilote : l'anonymisation des propositions d'actions terminées au bout de 30 jours est une durée posée sans avis juridique ; une proposition non terminée n'est anonymisée qu'après son expiration puis 30 jours ; la purge (02:30 UTC) dépend du planificateur et du worker | `migrations/0274_copilote_purge.sql`, `copilote/purge.ts`, `DECISIONS.md` |
 | Copilote et brief : valeurs de départ à valider (30 messages par 10 minutes, 1 000 caractères, 5 minutes de validité d'une proposition, niveau N2 pour les actions, 30 jours, 5 appels « KPI au rouge » par 10 minutes, 60 requêtes du brief par 10 minutes, seuils de gravité du brief, 7 h UTC, anti-répétition de 10 minutes de `mission.cloture_demandee`) | `DECISIONS.md` (« Chantier lacunes de la vague 2 ») |
 | Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
+| Redressement (lot 3a) : du SQL arbitraire du rôle applicatif peut insérer un score dont `entrees` ne correspond pas au calcul (le déclencheur ne vérifie que les seuils, pas le résultat : pas de calcul en base), de même qu'un impact de levier stocké, comme pour la garde de provenance des évaluations ; la correspondance de postes est faite à la main sans second regard (une erreur fausse ratios et score : version tracée, avertissement « indicative », postes manquants jamais comptés comme zéro) | `migrations/0483_redressement_alerte.sql`, `redressement/alerte.ts`, `redressement/leviers.ts`, `redressement/correspondances.ts` |
+| Redressement : AUCUN seuil d'alerte par secteur, ni grille d'urgence, n'a de source normative (ni ONUDI ni OHADA ne fixent de seuil chiffré à notre connaissance) : les valeurs sont des conventions provisoires, à faire valider par un expert avant tout usage au pilote ; plafonds de volume (100 à 1 000) et débits (30, 30, 60 par 10 minutes) à calibrer ; aucune durée de conservation des données du client posée (avis du conseil juridique) ; les trois routes de calcul pur n'ont pas de compteur de débit ; un dossier `clos` est terminal ; aucun suivi qualité R3 du plan (aucun livrable produit) ; kanban sans synchronisation avec `taches_collaboration` | `packages/engines/src/redressement` (constantes `SEUILS_ALERTE_DEFAUT`, `GRILLE_URGENCE`), `apps/api/src/redressement/limites.ts`, `DECISIONS.md` (section « Redressement ») |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
@@ -2239,6 +2385,11 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   le dossier de revue KPI en brouillon ; séparateurs de milliers des montants du PDF du dossier
   bancaire ; message réseau 503 sur l'export d'un CV alors que le fichier est valide ; génération du
   gabarit d'un retour qui remplace le texte rédigé (ancienne version conservée).
+- **Redressement, lot 3a** (§8 nonies, §15 ; `DECISIONS.md`, section « Redressement ») : **OUVERT** : faire valider par
+  un expert les seuils d'alerte par secteur et la grille d'urgence (aucune source normative) ; confirmer que les montants
+  et marges **du client** relèvent de `redressement.lire` et non de `finance.lire` (sinon créer une permission
+  `redressement.montants`) ; avis d'un juriste sur le vocabulaire « alerte » et sur les repères OHADA (RED-13, repoussé) ;
+  durée de conservation des données du client ; calibrage des plafonds et débits avec un cabinet pilote.
 - **Lacunes de la vague 2** (construites le 2026-10-11 : `mission.cloture_demandee` publié par la base,
   brief quotidien AUT-07, copilote AGT-08) : valider les valeurs de départ (§15 et `DECISIONS.md`, section
   « Chantier lacunes de la vague 2 ») ; **constater un premier échange du copilote avec un vrai modèle**

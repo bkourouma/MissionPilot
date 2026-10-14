@@ -3,7 +3,11 @@ import { ErreurApi } from "../../lib/api";
 import { MESSAGE_LIMITE_RAPPORTS } from "../../lib/rapports";
 import {
   cheminGenerationLivrable,
+  avecVariante,
   cheminListeLivrables,
+  estVarianteLivrable,
+  VARIANTES_LIVRABLE,
+  VARIANTES_LIVRABLE_LIBELLES,
   estFormatLivrable,
   filtrerLivrables,
   hrefFacturePdf,
@@ -48,6 +52,36 @@ describe("chemins des rapports de service", () => {
     expect(filtrerLivrables("notation", liste)).toEqual([r("notation")]);
   });
 
+  it("note au comité : route de la due diligence, variante transmise, liste filtrée sur son modèle", () => {
+    expect(cheminGenerationLivrable("note_comite", ID, "docx", 2, "detaillee")).toBe(
+      `/api/dd/notes/${ID}/rapports?format=docx&variante=detaillee&version=2`,
+    );
+    expect(cheminGenerationLivrable("note_comite", ID, "pdf", null, "executive")).toBe(
+      `/api/dd/notes/${ID}/rapports?format=pdf&variante=executive`,
+    );
+    expect(cheminListeLivrables("note_comite", ID)).toBe(
+      `/api/dd/notes/${ID}/rapports?limite=${LIVRABLES_AFFICHES}`,
+    );
+    // Une variante n'est transmise qu'aux livrables qui en ont.
+    expect(cheminGenerationLivrable("plan", ID, "pdf", null, "executive")).toBe(
+      `/api/plans/${ID}/rapports?format=pdf`,
+    );
+    expect(avecVariante("note_comite")).toBe(true);
+    expect(avecVariante("notation")).toBe(false);
+    const r = (modele: string) => ({ modele }) as RapportLivrable;
+    expect(filtrerLivrables("note_comite", [r("notation"), r("note_comite")])).toEqual([
+      r("note_comite"),
+    ]);
+  });
+
+  it("variantes : libellés français complets", () => {
+    expect(VARIANTES_LIVRABLE).toEqual(["executive", "detaillee"]);
+    expect(VARIANTES_LIVRABLE_LIBELLES.executive.libelle).toBe("Synthèse exécutive");
+    expect(VARIANTES_LIVRABLE_LIBELLES.detaillee.libelle).toBe("Version détaillée");
+    expect(estVarianteLivrable("executive")).toBe(true);
+    expect(estVarianteLivrable("complete")).toBe(false);
+  });
+
   it("liste et PDF de facture", () => {
     expect(cheminListeLivrables("notation", ID)).toBe(
       `/api/notations/${ID}/rapports?limite=${LIVRABLES_AFFICHES}`,
@@ -90,5 +124,11 @@ describe("erreurs de génération", () => {
     expect(messageLivrable("dossier_bancaire", e("INTERDIT", 403))).toContain("valider le plan");
     expect(messageLivrable("plan", e("TROP_DE_RAPPORTS", 429))).toBe(MESSAGE_LIMITE_RAPPORTS);
     expect(messageLivrable("notation", e("RENDU_OCCUPE", 503))).toContain("rendu");
+    expect(messageLivrable("note_comite", e("NOTE_NON_VALIDEE", 409))).toContain("validée");
+    expect(messageLivrable("note_comite", e("INTERDIT", 403))).toContain("note au comité");
+    expect(messageLivrable("note_comite", e("INTROUVABLE", 404))).toContain("Cette note");
+    expect(messageLivrable("note_comite", e("TROP_DE_RAPPORTS", 429))).toBe(
+      MESSAGE_LIMITE_RAPPORTS,
+    );
   });
 });

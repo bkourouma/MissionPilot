@@ -36,4 +36,7 @@ export * from "./schemas/salle-mission";
 export * from "./schemas/automatisation";
 export * from "./schemas/brief";
 export * from "./schemas/copilote";
+// Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
+export * from "./schemas/due-diligence";
+export * from "./schemas/redressement";
 export * from "./grilles/index";

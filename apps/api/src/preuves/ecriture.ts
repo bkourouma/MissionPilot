@@ -14,6 +14,7 @@ import type { Db } from "../db/pool.js";
 import { AppError, interdit } from "../errors.js";
 import type { MissionAcces } from "../missions/acces.js";
 import { aHabilitationExpert, exigerAuteurMembre } from "./acces.js";
+import { assertionCitee, verdictRetenuCitant } from "./garde-citation.js";
 
 /*
  * Écritures du registre des preuves, toutes en ajout seul : une identité (preuve, assertion), puis
@@ -265,6 +266,15 @@ export async function corrigerAssertion(
       "CLASSE_RISQUE_ABAISSEE",
       "Seul un expert métier ou un associé abaisse la classe de risque d'une assertion.",
     );
+  }
+  // Source figée d'un verdict de due diligence (en attente ou validé) : ni abandon, ni nouvel
+  // énoncé (les autres champs, comme la classe de risque, restent corrigeables).
+  if (await verdictRetenuCitant(db, assertion.id, null)) {
+    const courante = await db.query(
+      "SELECT enonce FROM assertion_versions WHERE assertion_id = $1 ORDER BY version DESC LIMIT 1",
+      [assertion.id],
+    );
+    if (c.statut === "abandonnee" || courante.rows[0]?.enonce !== c.enonce) throw assertionCitee();
   }
   const inchange =
     c.rattachement_type === assertion.rattachement_type &&

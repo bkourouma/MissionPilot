@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import {
   aPermission,
+  rapportNoteQuerySchema,
   rapportServiceQuerySchema,
   rapportsListeQuerySchema,
   rapportsParametresSchema,
@@ -12,6 +13,8 @@ import { exiger, type Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { conflit, interdit } from "../errors.js";
 import { paramsId } from "../http/outils.js";
+import { dossierAccessible } from "../due-diligence/acces.js";
+import { lireNote } from "../due-diligence/notes.js";
 import { exigerMissionVisible } from "../missions/acces.js";
 import { aujourdhui } from "../missions/outils.js";
 import { exigerNotationVisible } from "../notation/notations.js";
@@ -26,6 +29,7 @@ import { rapportEtatAvancement } from "../rapports/etat-avancement.js";
 import { listerRapports } from "../rapports/liste.js";
 import type { Rapport } from "../rapports/modele.js";
 import { peutLireNiveau, type NiveauRapport } from "../rapports/niveaux.js";
+import { rapportNoteComite } from "../rapports/note-comite.js";
 import { rapportNotation } from "../rapports/notation.js";
 import {
   conservationRaccourcie,
@@ -72,10 +76,15 @@ const rapportQuerySchema = z.object({ format: z.enum(FORMATS_RAPPORT) }).strict(
  *   MPR03 ; rapports/dossier-bancaire.ts), sans l'annexe « Sources » du plan
  *   (registre des preuves interne) ; niveau « plan ».
  *
+ * - POST /dd/notes/:id/rapports?format=pdf|docx&variante=executive|detaillee[&version=n] —
+ *   note au comité de la due diligence (DD-13 ; « mission.lire » et « dd.lire ») depuis la
+ *   version VALIDÉE de la note (409 NOTE_NON_VALIDEE sinon ; doublé en base, MPR04), les deux
+ *   variantes depuis la même base figée (rapports/note-comite.ts) ; niveau « dd », confidentiel.
+ *
  * Listes paginées (plus récent d'abord ; seuls les niveaux lisibles par
  * l'appelant, fichiers supprimés ou purgés exclus, jamais la clé de stockage) :
  * GET /missions/:id/rapports (tous modèles), GET /notations/:id/rapports,
- * GET /plans/:id/rapports (mêmes permissions que la génération).
+ * GET /plans/:id/rapports, GET /dd/notes/:id/rapports (mêmes permissions que la génération).
  *
  * Paramètres du cabinet (« cabinet.gerer ») : GET et PUT /rapports/parametres
  * (durée de conservation, mention de la contribution de l'IA). RACCOURCIR la
@@ -267,6 +276,36 @@ export const routesRapports: FastifyPluginAsync = async (app) => {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       await exigerPlanVisible(db, auth, id);
       return listerRapports(db, auth, { planId: id }, q);
+    });
+  });
+
+  /* ----- Note au comité de la due diligence (DD-13) ----- */
+
+  app.post("/dd/notes/:id/rapports", async (request, reply) => {
+    const auth = exigerToutes(request, ["dd.lire"]);
+    const { id } = paramsId.parse(request.params);
+    const { format, variante, version } = rapportNoteQuerySchema.parse(request.query);
+    const resultat = await generer(app, auth, "note_comite", format, null, async (db, date) => {
+      const { rapport, source } = await rapportNoteComite(db, auth, id, version, variante, date);
+      return {
+        rapport,
+        niveau: "dd",
+        missionId: source.missionId,
+        source: { noteId: source.noteId, variante: source.variante, version: source.version },
+      };
+    });
+    reply.status(201);
+    return resultat;
+  });
+
+  app.get("/dd/notes/:id/rapports", async (request) => {
+    const auth = exigerToutes(request, ["dd.lire"]);
+    const { id } = paramsId.parse(request.params);
+    const q = rapportsListeQuerySchema.parse(request.query);
+    return app.db.withTenant(auth.cabinetId, async (db) => {
+      const note = await lireNote(db, id);
+      await dossierAccessible(db, auth, note.dossier_id, false, "Note");
+      return listerRapports(db, auth, { noteId: id }, q);
     });
   });
 

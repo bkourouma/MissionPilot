@@ -2,7 +2,7 @@ import { formaterDateHeure } from "../../lib/format";
 import type { Personne } from "../../lib/personnes";
 import {
   libelleFormat,
-  libelleModele,
+  libelleModeleVariante,
   libelleStatutRapport,
   nomAuteur,
   type RapportMission,
@@ -30,7 +30,7 @@ export function ListeRapports({ rapports, utilisateurId, personnes }: ListeRappo
     <ul className="mp-liste-lignes" aria-label="Rapports générés">
       {rapports.map((r) => {
         const date = formaterDateHeure(r.genere_le);
-        const modele = libelleModele(r.modele);
+        const modele = libelleModeleVariante(r.modele, r.variante);
         const format = libelleFormat(r.format);
         return (
           <li key={r.id} className="mp-liste-lignes__ligne mp-rapport">
