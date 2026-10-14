@@ -2013,6 +2013,55 @@ fonction du portail qui écrit un fichier (§4 bis).
   sans antivirus (barrière de premier niveau : type par le contenu, §8) ; l'accusé de réception est
   traité hors file (§15).
 
+## 8 octies. Due diligence (DD-01 à DD-15, ADR-012)
+
+Service #2 : dossiers, analyses, hypothèses et verdicts sourcés, dimensionnement de marché,
+filtrage environnemental et social, plan des 100 jours, note au comité. Vingt tables `dd_*`
+(migrations `0500`–`0508`), routes `/api/dd/**`, SQLSTATE `MPZ21`–`MPZ32` (lettre `Z` partagée avec
+le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
+
+- **Isolation et portail.** Chaque table porte RLS (`isolation`) et la politique RESTRICTIVE
+  `portail_interdit` ; aucune route ne figure à `LISTE_BLANCHE_PORTAIL`. Une ressource d'une mission
+  invisible répond le même 404 que l'inexistante. L'investisseur-client ne voit rien (repoussé).
+- **Droits.** `dd.lire`, `dd.ecrire`, `dd.valider`, `dd.referentiel.gerer` ; tout détenteur de
+  `dd.ecrire` détient `preuve.ecrire`. Aucune donnée FIN-02 dans le module ni dans la note.
+- **Ajout seul.** Aucun `UPDATE` ni `DELETE` (`REVOKE` et déclencheur `MPZ21`) : une correction est une
+  nouvelle version ; chaque version est numérotée sans trou (`MPZ23`). Plafonds par objet, comptés
+  sous le verrou de la mission (`PLAFONDS_DD`), dont les journaux de liens d'une hypothèse et de
+  décisions d'un filtrage ; les contenus jsonb sont bornés en octets par des `CHECK` nommés
+  (règles 700 000, déclarations et thèmes d'un filtrage 20 000, assertions citées 20 000, base
+  figée 1 Mo), traduits en 400 `CONTENU_TROP_VOLUMINEUX` qui nomme le champ.
+- **Chaque verdict est sourcé et figé.** Une assertion est celle du registre des preuves (aucun
+  `INSERT` direct) ; un verdict confirmé ou infirmé cite des assertions liées à l'hypothèse dans le
+  bon sens (`MPZ24`). Un verdict ne prend effet que validé par un tiers : ni proposant, ni auteur de
+  l'hypothèse, ni auteur d'une version d'une assertion citée, sauf associé (`MPZ25`, API et base).
+  La validation est refusée (`VERDICT_PERIME`, `MPZ27`) si l'hypothèse, une source ou la
+  solidité d'une source (lecture et indice) a changé depuis la proposition. Un verdict validé n'est
+  « en vigueur » que sur la version courante de l'hypothèse et tant qu'aucune source ne se lit plus
+  faiblement ; sinon l'hypothèse se lit « ouverte ». Tant qu'un verdict validé existe, l'hypothèse ne
+  se retire ni ne se réécrit (`HYPOTHESE_AVEC_VERDICT`).
+- **Sources figées par les routes génériques aussi.** Une assertion citée par un verdict retenu (en
+  attente ou validé) ne s'abandonne pas, ne change pas d'énoncé et ne perd ni ne change le sens
+  d'aucune preuve, que l'appel vienne du module ou de `POST /assertions/:id/versions`,
+  `POST /assertions/:id/liens`, `DELETE /assertions/:id/liens/:preuveId` (`ASSERTION_CITEE`,
+  `preuves/garde-citation.ts`).
+- **Filtrage E&S.** Les listes d'exclusion sont un référentiel du CABINET : les règles (mots-clés,
+  secteurs, pays) d'une liste d'investisseur sont lisibles par tout détenteur de `dd.lire` du
+  cabinet, choix assumé ; seule leur écriture exige `dd.referentiel.gerer`. Une liste d'un
+  investisseur ne s'applique qu'à un dossier de ce client. Mots-clés bornés (une lettre ou un
+  chiffre, 5 mots) et activités déclarées (60 mots) : la correspondance reste de coût borné. Seul le
+  dernier filtrage d'un dossier reçoit une décision (`FILTRAGE_PERIME`) ; l'auteur du filtrage visé
+  ou d'un filtrage plus récent ne décide pas, sauf associé (`MPZ28`, API et base). Une exclusion
+  touchée et confirmée ou jamais décidée reste bloquante dans les filtrages suivants jusqu'à la
+  décision « écartée » d'un tiers.
+- **Note au comité.** Soumission : bloquants recalculés par les moteurs, base figée par le serveur
+  (jamais reçue du client, validée par `noteBaseSchema`, sans verbatim nominatif). Validation par un
+  tiers, avec les bloquants revérifiés (`NOTE_BLOQUEE`). Le rapport ne se rend que pour la dernière
+  version soumise, validée (`NOTE_NON_VALIDEE`, `NOTE_PERIMEE`, doublé en base par `MPR04`), après
+  nouvelle vérification des bloquants, et porte la date de figeage de la base.
+- **Limites connues.** Du SQL arbitraire du rôle applicatif contourne les gardes de l'API (comme
+  §15) ; la conservation du contenu d'une due diligence reste à décider avec le conseil juridique.
+
 ## 9. Paiements et webhooks
 
 Sans objet : aucun prestataire de paiement ni webhook entrant. Les

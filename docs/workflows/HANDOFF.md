@@ -9,6 +9,10 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Lot 3b (due diligence) — branche `feat/vague-4-due-diligence` — 2026-10-14
+
+**Terminé et commité par domaine, PR ouverte (fusion par le chef).** Vérifié sur la pointe : typecheck, eslint, Prettier verts ; shared 226, engines 1261, web 1602 ; suite API complète 169 fichiers, 1993 tests dont 1 échec isolé (`kpi-alertes`, test sensible à la charge machine, qui passe seul : même flottement vu sur le lot 3c) ; build web de production réussi ; deux audits de sécurité (le second : 0 critique, 4 importants et 7 mineurs, tous corrigés, test `dd-corrections-2.test.ts`). Recette navigateur courte (base `missionpilot_rec3b`, Chrome intégré, port 3110) : onglet « Due diligence », formulaire de nouveau dossier, pages en 200, refus gestionnaire, ressources, expert externe et portail 403, anonyme 401. **NON vérifié** : parcours complet de saisie dans le navigateur (hypothèses, verdicts, filtrage, note), mise en page mobile ; DD-02 (connecteurs) simulé, DD-10 (ADR-009 absente) et DD-07 repoussés. Piège : les migrations 0500–0508 ont été corrigées sur place (0503, 0505) : recréer les bases qui les avaient appliquées ; `rapports_mission` et `fichier_orphelin` sont redéfinies par 0508 et par 0548 du lot 3c : la dernière appliquée doit reprendre l'UNION des valeurs.
+
 ## Situation de `main` — 2026-10-11 (après la fusion de la PR n° 9, chantier n° 2 terminé)
 
 **État :** `main` porte les vagues 0 à 3 (PR #7, merge commit `b32c089`, recette navigateur
