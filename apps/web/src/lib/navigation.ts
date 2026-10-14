@@ -389,11 +389,17 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "parametres",
     libelle: "Paramètres",
     href: "/parametres",
-    permission: ["cabinet.gerer", "facture.emettre", "temps.cloturer", "temps.importer"],
+    permission: [
+      "cabinet.gerer",
+      "facture.emettre",
+      "temps.cloturer",
+      "temps.importer",
+      "canaux.lire",
+    ],
     disponible: true,
     icone: "reglages",
     description:
-      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import et journal d'audit.",
+      "Cabinet, utilisateurs, sécurité, canaux de messagerie simulés, temps, facturation, clôture mensuelle, import et journal d'audit.",
     sousPages: [
       { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
       {
@@ -413,6 +419,13 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         libelle: "Portail client",
         href: "/parametres/portail",
         permission: "cabinet.gerer",
+      },
+      {
+        // Canaux externes SIMULÉS (lot 3c) : comptes, consentements, journal des envois.
+        id: "canaux",
+        libelle: "Canaux",
+        href: "/parametres/canaux",
+        permission: "canaux.lire",
       },
       { id: "temps", libelle: "Temps", href: "/parametres/temps", permission: "cabinet.gerer" },
       {
@@ -455,6 +468,34 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     ],
   },
 ];
+
+/** Onglet de mission ajouté par les canaux simulés (lot 3c). */
+export interface OngletMissionCanaux {
+  id: "signatures" | "transcriptions";
+  libelle: string;
+  href: string;
+}
+
+/**
+ * Onglets de mission « Signatures » (`signature.lire`) et « Transcriptions » (`transcription.lire`),
+ * à insérer dans la mise en page de la mission (`base` : `/missions/<id>`).
+ */
+export function ongletsMissionCanaux(roles: readonly Role[], base: string): OngletMissionCanaux[] {
+  return [
+    ...(aPermission(roles, "signature.lire")
+      ? [{ id: "signatures" as const, libelle: "Signatures", href: `${base}/signatures` }]
+      : []),
+    ...(aPermission(roles, "transcription.lire")
+      ? [
+          {
+            id: "transcriptions" as const,
+            libelle: "Transcriptions",
+            href: `${base}/transcriptions`,
+          },
+        ]
+      : []),
+  ];
+}
 
 /** Sécurité de son propre compte (double authentification) : tout utilisateur connecté. */
 export const CHEMIN_SECURITE_COMPTE = "/compte/securite";

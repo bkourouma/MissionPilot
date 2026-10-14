@@ -7,6 +7,7 @@ import {
   entreesBarreBasse,
   estActive,
   NAVIGATION,
+  ongletsMissionCanaux,
   sousPageActive,
   sousPagesAutorisees,
 } from "./navigation";
@@ -192,10 +193,10 @@ describe("entreesAutorisees", () => {
     expect(barre).not.toContain("mon-brief");
   });
 
-  it("ouvre les paramètres à l'associé et au gestionnaire (clôture et import des temps)", () => {
+  it("ouvre les paramètres à l'associé, au gestionnaire (clôture, import) et à qui lit les canaux", () => {
     for (const role of ROLES) {
       expect(ids([role]).includes("parametres")).toBe(
-        role === "associe" || role === "gestionnaire",
+        ["associe", "gestionnaire", "directeur_mission", "chef_mission"].includes(role),
       );
     }
   });
@@ -280,6 +281,7 @@ describe("sous-pages", () => {
       "utilisateurs",
       "securite",
       "portail",
+      "canaux",
       "temps",
       "facturation",
       "cloture",
@@ -294,7 +296,13 @@ describe("sous-pages", () => {
       "cloture",
       "import",
     ]);
-    expect(sousPagesAutorisees("parametres", ["chef_mission"])).toEqual([]);
+    // Canaux simulés (lot 3c) : seule sous-page ouverte au directeur et au chef de mission.
+    expect(sousPagesAutorisees("parametres", ["chef_mission"]).map((p) => p.id)).toEqual([
+      "canaux",
+    ]);
+    expect(sousPagesAutorisees("parametres", ["directeur_mission"]).map((p) => p.id)).toEqual([
+      "canaux",
+    ]);
     expect(sousPagesAutorisees("parametres", ["consultant"])).toEqual([]);
   });
 
@@ -306,6 +314,8 @@ describe("sous-pages", () => {
     expect(sousPageActive(pages, "/parametres/notation")).toBe("notation");
     expect(sousPageActive(pages, "/parametres/notation/grilles")).toBe("notation");
     expect(sousPageActive(pages, "/parametres/import-temps")).toBe("import");
+    expect(sousPageActive(pages, "/parametres/canaux")).toBe("canaux");
+    expect(sousPageActive(pages, "/parametres/canaux/journal")).toBe("canaux");
     // Clôture de mission et notation : droit de paramétrer le cabinet (page cloture-mission).
     expect(
       sousPagesAutorisees("parametres", ["gestionnaire"]).some(
@@ -453,5 +463,34 @@ describe("appels d'offres (lot AO-A)", () => {
     }
     expect(ids(["ressources"])).not.toContain("appels-offres");
     expect(ids(["expert_externe"])).not.toContain("appels-offres");
+  });
+});
+
+describe("canaux externes simulés (lot 3c)", () => {
+  it("ajoute les onglets de mission Signatures et Transcriptions selon les droits", () => {
+    const base = "/missions/abc";
+    const idsOnglets = (role: Role) => ongletsMissionCanaux([role], base).map((o) => o.id);
+    expect(idsOnglets("associe")).toEqual(["signatures", "transcriptions"]);
+    expect(idsOnglets("directeur_mission")).toEqual(["signatures", "transcriptions"]);
+    expect(idsOnglets("chef_mission")).toEqual(["signatures", "transcriptions"]);
+    // Gestionnaire : lit les signatures seulement ; consultant et expert métier : transcriptions seules.
+    expect(idsOnglets("gestionnaire")).toEqual(["signatures"]);
+    expect(idsOnglets("consultant")).toEqual(["transcriptions"]);
+    expect(idsOnglets("expert_metier")).toEqual(["transcriptions"]);
+    expect(idsOnglets("expert_externe")).toEqual([]);
+    expect(ongletsMissionCanaux(["associe"], base).map((o) => o.href)).toEqual([
+      "/missions/abc/signatures",
+      "/missions/abc/transcriptions",
+    ]);
+  });
+
+  it("ne donne jamais un onglet de canaux au portail client", () => {
+    for (const role of [
+      "client_dirigeant",
+      "client_contributeur",
+      "client_investisseur",
+    ] as const) {
+      expect(ongletsMissionCanaux([role], "/missions/x")).toEqual([]);
+    }
   });
 });

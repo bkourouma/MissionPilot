@@ -11,6 +11,7 @@ import { Icone } from "../../../../components/ui/Icone";
 import { Onglets } from "../../../../components/ui/Onglets";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { nomPays } from "../../../../lib/cabinet";
+import { cheminSyntheseClient } from "../../../../lib/canaux";
 import { TAILLE_LIBELLES, type ClientDetaille } from "../../../../lib/clients";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { exigerPermission } from "../../../../lib/session";
@@ -27,6 +28,7 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("clients.lire");
   const peutEcrire = aPermission(utilisateur.roles, "clients.ecrire");
+  const voitApercuSynthese = aPermission(utilisateur.roles, "canaux.lire");
   const r = await chargerServeur<ClientDetaille>(`/api/clients/${id}`);
   if (!r.ok && r.statut === 404) notFound();
   if (!r.ok) {
@@ -57,13 +59,23 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
         }
         soustitre={[c.secteur, nomPays(c.pays)].filter(Boolean).join(" · ")}
         actions={
-          peutEcrire ? (
+          peutEcrire || voitApercuSynthese ? (
             <>
-              <Link href={`/clients/${c.id}/modifier`} className={classesBouton("secondaire")}>
-                <Icone nom="crayon" />
-                <span>Modifier</span>
-              </Link>
-              <ArchivageClient client={c} />
+              {voitApercuSynthese ? (
+                <Link href={cheminSyntheseClient(c.id)} className={classesBouton("secondaire")}>
+                  <Icone nom="oeil" />
+                  <span>Synthèse du dirigeant</span>
+                </Link>
+              ) : null}
+              {peutEcrire ? (
+                <>
+                  <Link href={`/clients/${c.id}/modifier`} className={classesBouton("secondaire")}>
+                    <Icone nom="crayon" />
+                    <span>Modifier</span>
+                  </Link>
+                  <ArchivageClient client={c} />
+                </>
+              ) : null}
             </>
           ) : null
         }

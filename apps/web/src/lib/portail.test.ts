@@ -47,14 +47,19 @@ describe("droits et navigation du portail", () => {
       "salle",
       "kpi",
       "factures",
+      "signatures",
+      "synthese",
+      "preferences",
       "securite",
     ]);
+    // Contributeur : ses préférences de messagerie, mais ni signature ni synthèse (dirigeant seul).
     expect(entreesPortail(CONTRIBUTEUR).map((e) => e.id)).toEqual([
       "accueil",
       "missions",
       "questionnaires",
       "salle",
       "kpi",
+      "preferences",
       "securite",
     ]);
     expect(entreesPortail(INVESTISSEUR).map((e) => e.id)).toEqual(["accueil", "securite"]);
