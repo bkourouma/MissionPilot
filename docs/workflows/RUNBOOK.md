@@ -69,6 +69,10 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `OPENROUTER_BASE_URL`       | point d'accès OpenRouter (défaut `https://openrouter.ai/api/v1`) ; HTTPS obligatoire, HTTP admis pour la seule boucle locale | non |
 | `IA_TIMEOUT_MS`             | délai maximal d'un appel au modèle (défaut 60 000, de 1 000 à 300 000)                 | non                            |
 | `IA_PLAFOND_PLATEFORME_MICRO_USD` | plafond mensuel IA par cabinet payé par la plateforme, en µUSD (défaut 50 USD, au plus 100 000 USD) ; avec la clé de plateforme, plafond effectif = min(ce plafond, celui du cabinet) | non |
+| `WHATSAPP_FOURNISSEUR`, `SMS_FOURNISSEUR`, `TRANSCRIPTION_FOURNISSEUR` | canaux externes **simulés** (lot 3c) : `aucun` (défaut, canal absent) ou `simule` (boîte du simulateur, aucun envoi réel, aucune clé, aucun réseau) ; toute valeur autre que `aucun` est **refusée au démarrage** hors `NODE_ENV` local avec bases locales | jamais (interdit ; laisser `aucun`) |
+| `SIGNATURE_FOURNISSEUR`     | signature électronique **locale simulée** (sans valeur juridique) : `aucun` (défaut) ou `local` ; même refus hors développement local | jamais (interdit ; laisser `aucun`) |
+| `WHATSAPP_WEBHOOK_SECRET`   | secret HMAC du webhook entrant des canaux, 32 caractères minimum, ≠ `SESSION_SECRET`, `TFA_MASTER_KEY` et ancien secret ; obligatoire dès qu'un fournisseur de messagerie est actif ; en développement, valeur de développement ; jamais journalisé | oui avec un fournisseur actif (donc jamais aujourd'hui) |
+| `WHATSAPP_WEBHOOK_SECRET_PRECEDENT` | ancien secret du webhook pendant une rotation (32 caractères minimum, différent du courant)  | non                            |
 
 ### Comptes de démonstration
 

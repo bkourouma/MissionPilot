@@ -2015,10 +2015,112 @@ fonction du portail qui écrit un fichier (§4 bis).
 
 ## 9. Paiements et webhooks
 
-Sans objet : aucun prestataire de paiement ni webhook entrant. Les
+Sans objet pour les paiements : aucun prestataire de paiement. Le seul webhook entrant est celui des
+canaux simulés, WhatsApp (§9 bis). Les
 encaissements sont saisis par un gestionnaire (`routes/encaissements.ts`,
 permission `encaissement.gerer`), imputés par le moteur sous verrou, et
 corrigés seulement par contre-passation (§6). Mobile Money est prévu en V2.
+
+## 9 bis. Canaux, signatures, transcriptions (lot 3c, fournisseurs simulés)
+
+Lot de la vague 4 (migrations `0540`–`0548`, code `apps/api/src/canaux/`, routes `routes/canaux.ts`,
+`routes/canaux-webhook.ts`, `routes/portail-canaux.ts`, `routes/signatures.ts`,
+`routes/portail-signatures.ts`, `routes/transcriptions.ts`, spécification
+`docs/workflows/specs/SPEC-3c-canaux-simules.md`). **Règle ferme : aucun envoi réel, aucune clé, aucun
+fournisseur externe** ; WhatsApp, SMS, transcription et signature sont des fournisseurs SIMULÉS
+(`WHATSAPP_FOURNISSEUR`, `SMS_FOURNISSEUR`, `TRANSCRIPTION_FOURNISSEUR=simule`,
+`SIGNATURE_FOURNISSEUR=local`), refusés au démarrage hors développement local
+(`verifierConfigCanaux`, `contexteCanauxSimulesAdmis` de `config.ts`) et revérifiés par `creerCanaux`.
+Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est simulé.
+
+- **Route publique** : `POST /api/canaux/whatsapp/webhook` (`routes/canaux-webhook.ts`,
+  `canaux/webhook.ts`) est la seule route du lot sans session. Elle n'existe QU'AVEC un fournisseur
+  WhatsApp configuré (sinon 404). Contrôles, dans l'ordre : type `application/json` seul (415) et
+  corps de 64 Kio au plus (413) en tampon BRUT ; signature HMAC-SHA-256 du corps brut
+  (`x-mp-signature`) et horodatage `x-mp-horodatage` à ±300 s (401 `WEBHOOK_REFUSE`, même réponse pour
+  toute cause) ; forme du corps (400) ; compte résolu par la fonction `resoudre_compte_canal` (inconnu ou
+  inactif : 200 sans effet) ; débit par compte (600 par minute, 429) ; anti-rejeu `(cabinet, canal,
+  événement)` et traitement dans UNE transaction du cabinet. Aucun contenu de message, aucun numéro n'est
+  conservé (ni dans `canaux_evenements_recus`, ni dans le journal). Un contenu entrant est une donnée non
+  fiable : seules les commandes fermées de `analyserReponse` agissent, par du code déterministe, jamais
+  un modèle. Un expéditeur inconnu, un utilisateur désactivé, un compte du portail non actif, un client
+  archivé ou un numéro non vérifié est ignoré sans écriture ni réponse (`expediteur_inactif`,
+  `numero_non_verifie`) ; **seul « STOP » s'exécute toujours** (`canaux/entrants.ts`,
+  `EXPEDITEUR_ACTIF_SQL` de `canaux/destinataires.ts`, repris par la saisie de KPI, la confirmation et le
+  job vocal, qui relit l'habilitation à l'exécution). Pas de `GET` (le défi de vérification du
+  fournisseur réel est un point ouvert, O-13).
+- **Secret du webhook** : `WHATSAPP_WEBHOOK_SECRET` (32 caractères au moins, obligatoire avec un
+  fournisseur WhatsApp, distinct de `SESSION_SECRET`, de `TFA_MASTER_KEY` et de la clé précédente, jamais
+  journalisé ni cité dans une erreur ; valeur de développement dans `DEV` de `config.ts`, refusée hors
+  développement). **Rotation** : placer l'ancienne valeur dans `WHATSAPP_WEBHOOK_SECRET_PRECEDENT`, mettre
+  la nouvelle dans `WHATSAPP_WEBHOOK_SECRET`, laisser l'émetteur basculer (les deux sont acceptés), puis
+  retirer la précédente. `.env.example` ne porte que des valeurs vides.
+- **Signatures invalides et déni de service** : compteur persistant `webhook_invalide` (30 par 5 minutes,
+  clé globale, espace du limiteur de `0120` étendu par `0544`, règles fixées en base) ET, AVANT la base,
+  un limiteur EN MÉMOIRE propre au processus (100 signatures invalides par 5 minutes au total, 50 par
+  adresse `request.ip`) : au-delà, 429 sans transaction ni requête, pour qu'un flot de requêtes forgées
+  ne sature pas le pool de connexions. Une requête valide n'est jamais bloquée par le flot d'invalides
+  (`canaux/limite-memoire.ts`, `canaux/webhook.ts`, test `canaux-webhook.test.ts`). Limite : compteur
+  par processus (voir §15).
+- **Fonctions `SECURITY DEFINER`** (toutes `SET search_path = public, pg_temp`, `REVOKE ALL … FROM
+  PUBLIC`, `GRANT EXECUTE` au rôle applicatif seul, paramètres validés) : `resoudre_compte_canal(text,
+  text)` (`0540` : rend `(cabinet_id, compte_id)` d'un compte ACTIF, rien d'autre) ;
+  `planifier_synthese_hebdo(text, timestamptz, date)` et `planifier_canaux_maintenance(text,
+  timestamptz, date)` (`0544` : clé cohérente avec la date, heure dans la fenêtre visée, aucun paramètre
+  nul) ; `anonymiser_transcriptions(timestamptz, int, int)` (`0545` : bornée au cabinet du contexte, 90
+  jours au moins, date future refusée, réglage `app.horloge_test` honoré dans une base `_test`
+  seulement). `rg -n "GRANT EXECUTE" apps/api/migrations` : quatre lignes de plus (recherche n° 16).
+- **Sorties du contexte RLS du portail** (`horsContextePortail`, inventaire de
+  `test/portail-contexte.test.ts`) : deux fichiers nouveaux, `routes/portail-canaux.ts` (4 appels :
+  lecture des comptes de canal actifs, fermés au portail ; contrôles avant l'écriture d'un numéro ;
+  mise en file du code de vérification ; lecture des faits de la synthèse hebdomadaire) et
+  `routes/portail-signatures.ts` (3 appels : lecture du PDF, signature avec reconfirmation d'identité,
+  refus). Chaque sortie suit un contrôle fait DANS `avecPortail` (demande visible, signataire invité de
+  CE client) et filtre explicitement sur l'utilisateur et le client.
+- **Tables à RLS** (toutes `isolation` sur `cabinet_id`) et politique du portail : `canaux_comptes`,
+  `canaux_envois`, `canaux_evenements_recus`, `canaux_saisies_kpi`, `transcriptions`,
+  `transcriptions_versions`, `signatures_preuves` : `portail_interdit` ; `canaux_destinataires` et
+  `canaux_consentements` : `portail` RESTRICTIVE `FOR ALL`, limitée à SA ligne (l'utilisateur du portail
+  écrit son numéro et ses consentements) ; `signatures_demandes` et `signatures_signataires` : `portail`
+  RESTRICTIVE `FOR SELECT` (SES demandes hors brouillon, SA ligne de signataire) doublée de
+  `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete`. La politique laisse lire le STATUT
+  d'une demande annulée, refusée ou expirée ; le contenu (le PDF) ne passe que par la route du portail,
+  qui ne le sert que pour une demande `envoyee`, `partielle` ou `signee` et un signataire déjà invité.
+  Routes du portail dans `LISTE_BLANCHE_PORTAIL` : `/api/portail/canaux/moi…`,
+  `/api/portail/signatures…`, `/api/portail/synthese` (méthode et motif exacts) ; `/api/canaux`,
+  `/api/signatures` et `/api/transcriptions` restent fermés au portail.
+- **SQLSTATE** : `MPH01` historique de consentements en ajout seul (`0541`) ; `MPH02` consentement
+  incohérent (numéro non vérifié, source, acteur, réactivation après STOP) ; `MPH03` envoi (transition
+  interdite, identité modifiée, suppression, `0542`) ; `MPH04` activation d'un compte réservée à un
+  associé (`0540`) ; `MPH05` proposition de saisie de KPI (`0543`) ; `MPH06` versions de transcription en
+  ajout seul ; `MPH07` validation ou rejet de transcription refusé (statut, dernier modificateur, motif,
+  `0545`) ; `MPH08` demande de signature (transition, contenu figé, `0546`) ; `MPH09` signataire
+  incohérent ; `MPH10` preuve de signature (ajout seul, chaîne, `0547`) ; `MPH11` document non signable ;
+  `MPH12` destinataire (numéro modifié resté vérifié, utilisateur non rattachable, vérification sans
+  code, `0541`). Traduits par `canaux/erreurs.ts`, jamais en 500.
+- **Chiffrement** (`auth/chiffrement.ts`, une clé dérivée par usage de `TFA_MASTER_KEY`) : `canal_numero`
+  (numéro de téléphone, AES-256-GCM, AAD `cabinet:utilisateur:canal`), `canal_empreinte` (HMAC du numéro,
+  pour retrouver l'expéditeur, et du texte rendu d'un envoi), `canal_code` (HMAC du code de vérification,
+  jamais en clair en base) et `canal_charge` (variables d'un envoi en file, dont le code). Le numéro n'est
+  dans aucune réponse (masque seulement), aucun journal, aucune erreur. L'unicité d'un numéro ne porte que
+  sur les numéros VÉRIFIÉS (index partiel `canaux_destinataires_numero_verifie_uniq`, `0541`) :
+  enregistrer le numéro d'une autre personne ne révèle rien, le conflit se tranche à la vérification du
+  code, qui échoue par la réponse d'un code épuisé.
+- **Plafonds de débit EN BASE** (`canaux/debit.ts`, sur `journal_audit`, sous verrou consultatif, dans la
+  transaction qui inscrit l'acte) : aperçu de la synthèse (30 par 10 minutes), simulateur (60),
+  demandes de signature (30), créations de transcription (20), corrections de transcription (30), par
+  utilisateur ; plafonds sur `canaux_envois` : 3 envois par destinataire et 24 h, 3 codes de vérification
+  par destinataire et par heure, 10 codes par utilisateur et par 24 h (tous canaux), 2 000 envois par
+  cabinet et par mois. Une transcription porte 50 versions au plus ; correction, validation et rejet
+  exigent la mission non clôturée. Valeurs de départ à valider (SPEC-3c, O-16).
+- **Transcription** : l'audio se téléverse par un chemin DÉDIÉ (`POST /missions/:id/transcriptions/audio`,
+  type détecté par le contenu), `POST /fichiers` n'en admet pas ; un `fichier_id` ne se transcrit que s'il
+  a été téléversé par l'utilisateur et n'a pas de transcription (404 neutre sinon) ; une transcription non
+  validée ne sort pas de ses routes, la validation exige un autre que le dernier modificateur sauf associé
+  (`MPH07`).
+- **Signature** : fournisseur local, niveau « simple simulée », SANS valeur juridique ; reconfirmation
+  d'identité avec second facteur actif, ordre parallèle ou séquentiel, journal de preuves chaîné en ajout
+  seul (`MPH10`), aucun effet sur la mission ni sur le budget.
 
 ## 10. Secrets et configuration
 
@@ -2039,6 +2141,9 @@ corrigés seulement par contre-passation (§6). Mobile Money est prévu en V2.
   journalisée), `OPENROUTER_BASE_URL` (HTTPS obligatoire hors boucle locale),
   `IA_TIMEOUT_MS` (1 s à 300 s), `IA_PLAFOND_PLATEFORME_MICRO_USD` (0 à
   100 000 USD). La clé propre à un cabinet est en base, chiffrée (§7 bis).
+- **Canaux simulés** : `WHATSAPP_FOURNISSEUR`, `SMS_FOURNISSEUR`, `TRANSCRIPTION_FOURNISSEUR` (`aucun` ou
+  `simule`), `SIGNATURE_FOURNISSEUR` (`aucun` ou `local`), refusés hors développement local ;
+  `WHATSAPP_WEBHOOK_SECRET` et `WHATSAPP_WEBHOOK_SECRET_PRECEDENT` (rotation) : §9 bis.
 - **Rapports** : `CHROMIUM_PATH`, chemin absolu d'un fichier existant, refusé
   au démarrage sinon.
 - **Connexion rapide de démonstration** : `CONNEXION_RAPIDE_DEMO` (`oui` ou
@@ -2205,6 +2310,10 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Copilote : l'anonymisation des propositions d'actions terminées au bout de 30 jours est une durée posée sans avis juridique ; une proposition non terminée n'est anonymisée qu'après son expiration puis 30 jours ; la purge (02:30 UTC) dépend du planificateur et du worker | `migrations/0274_copilote_purge.sql`, `copilote/purge.ts`, `DECISIONS.md` |
 | Copilote et brief : valeurs de départ à valider (30 messages par 10 minutes, 1 000 caractères, 5 minutes de validité d'une proposition, niveau N2 pour les actions, 30 jours, 5 appels « KPI au rouge » par 10 minutes, 60 requêtes du brief par 10 minutes, seuils de gravité du brief, 7 h UTC, anti-répétition de 10 minutes de `mission.cloture_demandee`) | `DECISIONS.md` (« Chantier lacunes de la vague 2 ») |
 | Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
+| Canaux (lot 3c) : `canaux.lire` (associé, directeur, chef de mission) ouvre, par `GET /canaux/destinataires` (le client demandé est seulement vérifié dans le cabinet) et `GET /canaux/envois`, les numéros MASQUÉS, consentements et envois de TOUS les clients du cabinet, pas seulement ceux des missions du chef ; décision produit à confirmer (restriction aux clients de ses missions non faite) | `routes/canaux.ts`, `packages/shared/src/roles.ts`, `SPEC-3c-canaux-simules.md` |
+| Canaux : un consentement « recueilli par le cabinet » (`recueilli_cabinet`) repose sur une référence de preuve saisie par un associé ou un directeur de mission (au moins 10 caractères), non vérifiée par la plateforme : le cabinet peut déclarer un accord que la personne n'a pas donné (risque interne ; l'historique est en ajout seul, `MPH01`, et seule la personne redonne son accord après un STOP, `MPH02`) | `canaux/consentements.ts`, `migrations/0541_canaux_destinataires_consentements.sql` |
+| Canaux : la taille d'un média entrant n'est contrôlée qu'APRÈS son téléchargement en mémoire par l'adaptateur (le simulateur lit un média déposé par les tests) ; avant tout adaptateur RÉEL, contrôler la taille en flux (en-tête puis compteur d'octets) et n'appeler qu'une URL d'hôte de confiance fournie par le fournisseur, jamais une URL reçue dans le message (SSRF) ; aucun adaptateur réel n'existe | `canaux/entrants.ts` (`transcrireMedia`, `MEDIA_ENTRANT_OCTETS_MAX`), `canaux/ports.ts` |
+| Webhook WhatsApp : la garde mémoire des signatures invalides (100 au total, 50 par adresse `request.ip` sur 5 minutes) est propre à chaque processus (n instances : n fois) et repart à zéro au redémarrage ; l'adresse vue est celle du relais si l'API est derrière un proxy (pas de `trustProxy`) ; le corps reste à 64 Kio avant authentification, le format réel du fournisseur (O-13) pourrait permettre de le réduire | `canaux/limite-memoire.ts`, `canaux/webhook.ts`, `routes/canaux-webhook.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
