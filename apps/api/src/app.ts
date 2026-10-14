@@ -266,6 +266,9 @@ export async function buildApp(
   await app.register(routesIa, { prefix: "/api" });
   await app.register((await import("./routes/plans.js")).routesPlans, { prefix: "/api" });
   await app.register((await import("./routes/kpi.js")).routesKpi, { prefix: "/api" });
+  await app.register((await import("./routes/redressement.js")).routesRedressement, {
+    prefix: "/api",
+  });
   await app.register((await import("./routes/questionnaires.js")).routesQuestionnaires, {
     prefix: "/api",
   });

@@ -185,6 +185,12 @@ export const PERMISSIONS = [
   "dd.ecrire", // saisir cadrage, analyses, hypothèses, verdicts proposés, marché, filtrages, plan, notes
   "dd.valider", // valider ou rejeter un verdict ou une note ; décider d'une exclusion (tiers, MPZ25/26/28)
   "dd.referentiel.gerer", // bibliothèque de signaux et listes d'exclusion du cabinet
+  // --- V3, vague 4 (PRD complémentaire §11.5) : redressement. Visibilité de la mission TOUJOURS
+  // exigée en plus ; ni ressources, ni gestionnaire, ni expert externe (données du client).
+  "redressement.lire", // dossier de redressement : ratios, urgence, scores, trésorerie, créanciers, plan, leviers, seuils
+  "redressement.ecrire", // ouvrir un dossier, saisir correspondance, urgence, trésorerie, créanciers, actions, versions de plan
+  "redressement.valider", // valider une version de plan, clore un dossier (autre que le créateur, sauf associé)
+  "redressement.parametrer", // rédiger et publier les seuils d'alerte par secteur (experts du cabinet)
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -290,6 +296,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.ecrire",
     "dd.valider",
     "dd.referentiel.gerer",
+    "redressement.lire",
+    "redressement.ecrire",
+    "redressement.valider",
   ],
   chef_mission: [
     "brief.lire",
@@ -344,6 +353,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.lire",
     "dd.ecrire",
     "dd.valider",
+    "redressement.lire",
+    "redressement.ecrire",
   ],
   consultant: [
     "brief.lire",
@@ -379,6 +390,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.gerer",
     "dd.lire",
     "dd.ecrire",
+    "redressement.lire",
+    "redressement.ecrire",
   ],
   ressources: [
     "brief.lire",
@@ -465,6 +478,10 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.lire",
     "dd.valider",
     "dd.referentiel.gerer",
+    // Relit un dossier de redressement et fixe les seuils d'alerte du cabinet (comme
+    // `standard.gerer`) ; n'écrit pas dans le dossier.
+    "redressement.lire",
+    "redressement.parametrer",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire", "brief.lire"],
   // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;
