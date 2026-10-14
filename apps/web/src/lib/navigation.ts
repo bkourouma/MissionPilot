@@ -263,6 +263,33 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description: "Dossier vivant de chaque client : faits datés et sourcés, finances, frise.",
   },
   {
+    // Service #5, lot 3a (RED-01, 02, 05 à 07, 10 à 12, 14) ; le dossier d'une mission est un
+    // onglet de la mission (missions/[id]/redressement).
+    id: "redressement",
+    libelle: "Redressement",
+    libelleCourt: "Redressement",
+    href: "/redressement",
+    permission: "redressement.lire",
+    disponible: true,
+    icone: "attention",
+    description:
+      "Redressement : score d'alerte précoce indicatif, trésorerie à 13 semaines, créanciers et plan d'actions.",
+    sousPages: [
+      {
+        id: "dossiers",
+        libelle: "Dossiers",
+        href: "/redressement",
+        permission: "redressement.lire",
+      },
+      {
+        id: "seuils",
+        libelle: "Seuils d'alerte",
+        href: "/redressement/seuils",
+        permission: "redressement.lire",
+      },
+    ],
+  },
+  {
     id: "agents-ia",
     libelle: "Agents IA",
     libelleCourt: "Agents",
