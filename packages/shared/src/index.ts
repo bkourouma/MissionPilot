@@ -36,4 +36,8 @@ export * from "./schemas/salle-mission";
 export * from "./schemas/automatisation";
 export * from "./schemas/brief";
 export * from "./schemas/copilote";
+// Vague 4, lot 3c : canaux externes SIMULÉS (WhatsApp, SMS, transcription, signature).
+export * from "./schemas/canaux";
+export * from "./schemas/signatures";
+export * from "./schemas/transcriptions";
 export * from "./grilles/index";
