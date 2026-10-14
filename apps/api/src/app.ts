@@ -9,6 +9,8 @@ import { AppError, detailsPublics } from "./errors.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { rolesObligatoires } from "./auth/double-authentification.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
+import { canauxParDefaut } from "./canaux/fabrique.js";
+import type { Canaux } from "./canaux/ports.js";
 import { routesAgents } from "./routes/agents.js";
 import { routesAuth } from "./routes/auth.js";
 import { routesDossierClient } from "./routes/dossier-client.js";
@@ -125,7 +127,7 @@ export const DELAI_RECEPTION_REQUETE_MS = 300_000;
 export async function buildApp(
   config: Config,
   db: Database,
-  options: { mailer?: Mailer } = {},
+  options: { mailer?: Mailer; canaux?: Canaux } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({
     logger: config.NODE_ENV !== "test",
@@ -135,6 +137,8 @@ export async function buildApp(
   app.decorate("db", db);
   app.decorate("config", config);
   app.decorate("mailer", options.mailer ?? creerMailer(config));
+  // Canaux externes SIMULÉS (lot 3c) : null pour « aucun » ; refusés hors développement local.
+  app.decorate("canaux", options.canaux ?? canauxParDefaut(config));
   app.decorateRequest("auth", null);
   app.decorateRequest("tfaAConfigurer", false);
 
@@ -288,5 +292,22 @@ export async function buildApp(
   await app.register(routesBrief, { prefix: "/api" });
   await app.register(routesCopilote, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
+  // Canaux externes simulés (lot 3c) : comptes, destinataires, envois, saisies de KPI, simulateur ;
+  // webhook PUBLIC signé (n'existe qu'avec un fournisseur WhatsApp configuré) ; transcriptions ;
+  // signatures ; côté portail : numéros, signatures, synthèse (liste blanche du portail).
+  await app.register((await import("./routes/canaux.js")).routesCanaux, { prefix: "/api" });
+  await app.register((await import("./routes/canaux-webhook.js")).routesCanauxWebhook, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/transcriptions.js")).routesTranscriptions, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/signatures.js")).routesSignatures, { prefix: "/api" });
+  await app.register((await import("./routes/portail-canaux.js")).routesPortailCanaux, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/portail-signatures.js")).routesPortailSignatures, {
+    prefix: "/api",
+  });
   return app;
 }

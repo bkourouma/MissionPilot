@@ -122,6 +122,19 @@ export const LISTE_BLANCHE_PORTAIL: readonly RouteOuverte[] = [
   { methodes: LECTURE, motif: "/api/portail/salle/demandes" },
   { methodes: LECTURE, motif: "/api/portail/salle/demandes/:id" },
   { methodes: POST, motif: "/api/portail/salle/pieces/:id/depots" },
+  // Canaux simulés (routes/portail-canaux.ts, routes/portail-signatures.ts, lot 3c) : SES numéros et
+  // consentements, SES demandes de signature, sa synthèse hebdomadaire. Rien d'autre : /api/canaux,
+  // /api/signatures et /api/transcriptions restent fermés au portail.
+  { methodes: LECTURE, motif: "/api/portail/canaux/moi" },
+  { methodes: ["PUT"], motif: "/api/portail/canaux/moi/:canal" },
+  { methodes: POST, motif: "/api/portail/canaux/moi/:canal/verification" },
+  { methodes: POST, motif: "/api/portail/canaux/moi/:canal/retrait" },
+  { methodes: LECTURE, motif: "/api/portail/signatures" },
+  { methodes: LECTURE, motif: "/api/portail/signatures/:id" },
+  { methodes: LECTURE, motif: "/api/portail/signatures/:id/document" },
+  { methodes: POST, motif: "/api/portail/signatures/:id/signer" },
+  { methodes: POST, motif: "/api/portail/signatures/:id/refuser" },
+  { methodes: LECTURE, motif: "/api/portail/synthese" },
 ];
 
 /** Entrée de la liste blanche pour cette route, ou undefined (route fermée au portail). */

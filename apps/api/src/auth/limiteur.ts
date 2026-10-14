@@ -48,8 +48,13 @@ export interface Limiteur {
   debloquer(cle: string, db?: Db): Promise<boolean>;
 }
 
-/** Espaces connus de la base (`tentatives_auth_regles`, migration 0120). */
-export type EspaceLimiteur = "connexion" | "reauth" | "facteur";
+/**
+ * Espaces connus de la base (`tentatives_auth_regles`, migrations 0120 et 0544) : le webhook des
+ * canaux a les siens (600 requêtes par minute et par compte ; 30 signatures invalides par 5
+ * minutes, clé globale).
+ */
+export type EspaceLimiteur =
+  "connexion" | "reauth" | "facteur" | "webhook_canal" | "webhook_invalide";
 
 /** Empreinte de la clé : e-mail normalisé, HMAC à clé dérivée, jamais stocké en clair. */
 export function empreinteCle(trousseau: Trousseau, cle: string): string {

@@ -58,7 +58,13 @@ export type ContexteConfirmation =
   | "conservation_rapports"
   // Anonymisation d'un CV de la banque des appels d'offres (routes/banque-ao.ts), irréversible :
   // mot de passe seul admis sans 2FA active, comme la clé API IA.
-  | "anonymisation_cv";
+  | "anonymisation_cv"
+  // Activation d'un compte de canal externe (routes/canaux.ts, lot 3c) : mot de passe seul admis
+  // sans 2FA active, comme la clé API IA.
+  | "canal_activation"
+  // Signature d'un document de mission (canaux/signatures.ts, lot 3c) : second facteur ACTIF exigé
+  // (409 TFA_INACTIVE sinon) ; pour le portail, appelée hors de son contexte (portail/contexte.ts).
+  | "signature_document";
 
 export type FacteurConfirme = FacteurReconnu | "mot_de_passe";
 
