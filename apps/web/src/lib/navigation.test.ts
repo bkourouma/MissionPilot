@@ -41,6 +41,7 @@ describe("table de navigation", () => {
       "Notation",
       "Méthodes",
       "Dossiers clients",
+      "Redressement",
       "Agents IA",
       "Qualité",
       "Connaissances",
@@ -104,6 +105,7 @@ describe("entreesAutorisees", () => {
       "notation",
       "methodes",
       "dossiers-clients",
+      "redressement",
       "agents-ia",
       "connaissances",
     ]);
@@ -453,5 +455,54 @@ describe("appels d'offres (lot AO-A)", () => {
     }
     expect(ids(["ressources"])).not.toContain("appels-offres");
     expect(ids(["expert_externe"])).not.toContain("appels-offres");
+  });
+});
+
+describe("redressement (lot 3a)", () => {
+  it("déclare la rubrique et ses deux sous-pages, placée après les dossiers clients", () => {
+    const e = NAVIGATION.find((x) => x.id === "redressement");
+    expect([e?.libelle, e?.libelleCourt, e?.href, e?.permission, e?.disponible, e?.icone]).toEqual([
+      "Redressement",
+      "Redressement",
+      "/redressement",
+      "redressement.lire",
+      true,
+      "attention",
+    ]);
+    expect(e?.sousPages?.map((p) => [p.libelle, p.href])).toEqual([
+      ["Dossiers", "/redressement"],
+      ["Seuils d'alerte", "/redressement/seuils"],
+    ]);
+    const ordre = NAVIGATION.map((x) => x.id);
+    expect(ordre.indexOf("redressement")).toBe(ordre.indexOf("dossiers-clients") + 1);
+  });
+
+  it("est visible pour l'associé, le directeur, le chef, le consultant et l'expert métier", () => {
+    for (const role of [
+      "associe",
+      "directeur_mission",
+      "chef_mission",
+      "consultant",
+      "expert_metier",
+    ] as const) {
+      expect(ids([role])).toContain("redressement");
+    }
+  });
+
+  it("est absente pour les ressources, le gestionnaire, l'expert externe et le portail", () => {
+    for (const role of [
+      "ressources",
+      "gestionnaire",
+      "expert_externe",
+      "client_dirigeant",
+    ] as const) {
+      expect(ids([role])).not.toContain("redressement");
+    }
+  });
+
+  it("active la sous-page des seuils pour son chemin", () => {
+    const pages = sousPagesAutorisees("redressement", ["associe"]);
+    expect(sousPageActive(pages, "/redressement")).toBe("dossiers");
+    expect(sousPageActive(pages, "/redressement/seuils")).toBe("seuils");
   });
 });

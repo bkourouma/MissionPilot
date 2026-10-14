@@ -36,4 +36,5 @@ export * from "./schemas/salle-mission";
 export * from "./schemas/automatisation";
 export * from "./schemas/brief";
 export * from "./schemas/copilote";
+export * from "./schemas/redressement";
 export * from "./grilles/index";

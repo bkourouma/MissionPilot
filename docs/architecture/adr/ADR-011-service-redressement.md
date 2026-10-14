@@ -2,9 +2,10 @@
 
 ## Statut
 
-Proposée. À passer en « Acceptée » par le Pilote une fois la spécification
-[`SPEC-3a-redressement.md`](../../workflows/specs/SPEC-3a-redressement.md) relue et les
-trois territoires attribués. Les numéros ADR-007 à ADR-010 sont annoncés par le PRD
+Acceptée par l'utilisateur le 2026-10-14 (proposée le 2026-10-11 par le Pilote, une fois le lot livré sur la branche
+`feat/vague-4-redressement` : migrations `0480`–`0486`, moteur, API et interface écrits conformément à la
+spécification [`SPEC-3a-redressement.md`](../../workflows/specs/SPEC-3a-redressement.md) ; vérifications
+locales et audit de sécurité en cours, fusion non faite). Les numéros ADR-007 à ADR-010 sont annoncés par le PRD
 complémentaire (observatoire, WhatsApp, ingestion documentaire, signature) et rédigés
 ailleurs ou en cours de rédaction par d'autres sous-chantiers : ADR-011 ne les réutilise pas.
 
