@@ -389,11 +389,17 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "parametres",
     libelle: "Paramètres",
     href: "/parametres",
-    permission: ["cabinet.gerer", "facture.emettre", "temps.cloturer", "temps.importer"],
+    permission: [
+      "cabinet.gerer",
+      "facture.emettre",
+      "temps.cloturer",
+      "temps.importer",
+      "dd.referentiel.gerer",
+    ],
     disponible: true,
     icone: "reglages",
     description:
-      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import et journal d'audit.",
+      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import, due diligence et journal d'audit.",
     sousPages: [
       { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
       {
@@ -444,6 +450,13 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         libelle: "Notation",
         href: "/parametres/notation",
         permission: "cabinet.gerer",
+      },
+      {
+        // Vague 4, service #2 (SPEC-3b §10.1) : bibliothèque de signaux et listes d'exclusion.
+        id: "due-diligence",
+        libelle: "Due diligence",
+        href: "/parametres/due-diligence",
+        permission: "dd.referentiel.gerer",
       },
       {
         id: "journal",
