@@ -48,6 +48,7 @@ import {
   creerPreuve,
 } from "../preuves/ecriture.js";
 import { traduireErreurPreuves } from "../preuves/erreurs.js";
+import { exigerAssertionNonCitee } from "../preuves/garde-citation.js";
 import {
   assertionsFragilesDeMission,
   carteDeMission,
@@ -383,6 +384,8 @@ function routesAssertionsEcriture(app: FastifyInstance) {
         (l) => l.preuve_id === c.preuve_id,
       );
       if (existant?.sens === c.sens) throw conflit("Cette preuve est déjà liée dans ce sens.");
+      // Changer le sens d'une preuve d'une source figée par un verdict de due diligence est refusé.
+      if (existant) await exigerAssertionNonCitee(db, id);
       await ajouterLien(db, auth, mission.id, id, c.preuve_id, "lier", c.sens);
       await journal(db, auth, "assertion.lier", "assertion", id, {
         mission_id: mission.id,
@@ -405,6 +408,7 @@ function routesAssertionsEcriture(app: FastifyInstance) {
         (l) => l.preuve_id === preuveId,
       );
       if (!existant) throw introuvable("Lien");
+      await exigerAssertionNonCitee(db, id);
       await ajouterLien(db, auth, mission.id, id, preuveId, "delier", null);
       await journal(db, auth, "assertion.delier", "assertion", id, {
         mission_id: mission.id,
