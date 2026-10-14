@@ -1,0 +1,522 @@
+/*
+ * Due diligence (DD-01 à DD-15) : onglet « Due diligence » d'une mission et paramètres du service.
+ * Mobile d'abord, CSS pur, jetons du thème. La couleur ne porte jamais seule le sens : chaque niveau,
+ * chaque verdict, chaque retard et chaque alerte est écrit en toutes lettres.
+ */
+
+.mp-dd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-dd p {
+  margin: 0;
+}
+
+.mp-dd-pile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-dd-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+.mp-dd-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-dd-element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-dd-element__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-dd-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-dd-texte {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.mp-dd-chiffre {
+  font-size: var(--mp-taille-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.mp-dd-details {
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+}
+
+.mp-dd-details > summary {
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.mp-dd-details > summary:focus-visible {
+  outline: 2px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-dd-details__corps {
+  padding: var(--mp-esp-3);
+  border-top: 1px solid var(--mp-bordure);
+}
+
+.mp-dd-decompte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-dd-points-controle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ---------- Analyses ---------- */
+.mp-dd-categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+.mp-dd-categorie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-dd-categorie__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+}
+
+/* ---------- Chaîne de valeur ---------- */
+.mp-chaine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-chaine__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-chaine__etape {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  width: 100%;
+  min-height: var(--mp-cible);
+  padding: var(--mp-esp-3);
+  font: inherit;
+  color: var(--mp-texte);
+  text-align: left;
+  background: var(--mp-surface);
+  border: 2px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+  cursor: pointer;
+}
+
+.mp-chaine__etape:hover {
+  background: var(--mp-surface-2);
+}
+
+.mp-chaine__etape:focus-visible {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-chaine__etape[aria-pressed="true"] {
+  background: var(--mp-primaire-pale);
+  border-color: var(--mp-primaire);
+}
+
+.mp-chaine__rang {
+  font-size: var(--mp-taille-xs);
+  color: var(--mp-texte-doux);
+  font-weight: 600;
+}
+
+.mp-chaine__nom {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-chaine__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  font-size: var(--mp-taille-s);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-chaine__fleche {
+  align-self: center;
+  color: var(--mp-texte-doux);
+  font-weight: 700;
+  transform: rotate(90deg);
+}
+
+.mp-chaine__panneau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+@media (min-width: 960px) {
+  .mp-chaine {
+    flex-direction: row;
+    align-items: stretch;
+    overflow-x: auto;
+    padding-bottom: var(--mp-esp-2);
+  }
+
+  .mp-chaine__item {
+    flex-direction: row;
+    align-items: stretch;
+    flex: 1 0 11rem;
+    max-width: 16rem;
+  }
+
+  .mp-chaine__fleche {
+    transform: none;
+  }
+}
+
+.mp-chaine-zone {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+}
+
+/* ---------- Arbre d'hypothèses ---------- */
+.mp-arbre-dd,
+.mp-arbre-dd ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-arbre-dd ul {
+  margin-top: var(--mp-esp-2);
+  margin-left: var(--mp-esp-4);
+  padding-left: var(--mp-esp-3);
+  border-left: 2px solid var(--mp-bordure);
+}
+
+.mp-arbre-dd__noeud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-arbre-dd__titre {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Sensibilité (tornade) ---------- */
+.mp-tornado {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-tornado__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-1);
+}
+
+.mp-tornado__ligne meter {
+  width: 100%;
+  height: 1rem;
+}
+
+.mp-tornado__valeur {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (min-width: 640px) {
+  .mp-tornado__ligne {
+    grid-template-columns: 12rem minmax(0, 1fr) minmax(8rem, auto);
+    align-items: center;
+    gap: var(--mp-esp-3);
+  }
+}
+
+.mp-fourchette {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--mp-esp-2);
+  margin: 0;
+}
+
+.mp-fourchette > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--mp-esp-2);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-fourchette dt {
+  font-size: var(--mp-taille-xs);
+  color: var(--mp-texte-doux);
+}
+
+.mp-fourchette dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Paramètres de dimensionnement ---------- */
+.mp-parametre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-parametre legend {
+  padding: 0 var(--mp-esp-1);
+  font-weight: 650;
+}
+
+.mp-ajustement {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--mp-esp-3);
+  align-items: end;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Frise du plan des 100 jours ---------- */
+.mp-frise {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+}
+
+@media (min-width: 960px) {
+  .mp-frise {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.mp-frise__bande {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-frise__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 700;
+}
+
+.mp-frise__action--retard {
+  border-left: 4px solid var(--mp-danger);
+}
+
+/* ---------- Exclusions et E&S ---------- */
+.mp-themes-es {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-theme-es {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--mp-esp-3);
+  align-items: start;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-choix-multiple {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-choix-multiple__puces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-choix-multiple__puce {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  min-height: 2rem;
+  padding: 0 var(--mp-esp-2);
+  background: var(--mp-primaire-pale);
+  border: 1px solid var(--mp-primaire);
+  border-radius: 999px;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-choix-multiple__puce button {
+  min-width: var(--mp-cible);
+  min-height: var(--mp-cible);
+  margin: calc(var(--mp-esp-2) * -1) calc(var(--mp-esp-2) * -1) calc(var(--mp-esp-2) * -1) 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.mp-choix-multiple__puce button:focus-visible {
+  outline: 2px solid var(--mp-focus);
+  outline-offset: -2px;
+}
+
+.mp-regle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+/* ---------- Note au comité ---------- */
+.mp-note-corps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+}
+
+@media (min-width: 960px) {
+  .mp-note-corps {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.mp-dd-tableau-defilant {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.mp-dd-tableau-defilant table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-dd-tableau-defilant th,
+.mp-dd-tableau-defilant td {
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  text-align: left;
+  vertical-align: top;
+  border: 1px solid var(--mp-bordure);
+}
+
+.mp-dd-tableau-defilant thead th {
+  background: var(--mp-surface-2);
+}

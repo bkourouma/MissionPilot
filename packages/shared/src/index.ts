@@ -40,4 +40,7 @@ export * from "./schemas/copilote";
 export * from "./schemas/canaux";
 export * from "./schemas/signatures";
 export * from "./schemas/transcriptions";
+// Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
+export * from "./schemas/due-diligence";
+export * from "./schemas/redressement";
 export * from "./grilles/index";

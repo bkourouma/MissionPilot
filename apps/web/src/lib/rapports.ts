@@ -23,8 +23,8 @@ export type FormatRapport = (typeof FORMATS_RAPPORT)[number];
 export const NIVEAUX_RAPPORT = ["base", "jours", "finance"] as const;
 export type NiveauRapport = (typeof NIVEAUX_RAPPORT)[number];
 
-/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan. */
-export const NIVEAUX_SERVICE = ["notation", "plan"] as const;
+/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan, due diligence. */
+export const NIVEAUX_SERVICE = ["notation", "plan", "dd"] as const;
 export type NiveauService = (typeof NIVEAUX_SERVICE)[number];
 
 /** Tous les niveaux qu'un rapport listé peut porter. */
@@ -36,6 +36,8 @@ export interface RapportMission {
   id: string;
   mission_id: string;
   modele: string;
+  /** Note au comité seulement : variante du rendu (`executive` ou `detaillee`). */
+  variante?: "executive" | "detaillee" | null;
   format: FormatRapport;
   statut: string;
   niveau: NiveauAffichable;
@@ -86,6 +88,7 @@ const PERMISSIONS_NIVEAU: Record<NiveauAffichable, readonly Permission[]> = {
   finance: ["budget.lire_jours", "finance.lire"],
   notation: ["notation.lire"],
   plan: ["plan.lire"],
+  dd: ["dd.lire"],
 };
 
 export type IconeNiveau = "courbe" | "horloge" | "cadenas";
@@ -132,6 +135,13 @@ export const NIVEAUX: Record<
     tonalite: "attention",
     explication:
       "Rapport du plan stratégique, modèle financier du client compris. Seules les personnes autorisées à lire les plans pourront l'ouvrir.",
+  },
+  dd: {
+    libelle: "Due diligence",
+    icone: "cadenas",
+    tonalite: "attention",
+    explication:
+      "Note au comité de la due diligence : analyses, verdicts, marché et plan de l'opération étudiée. Seules les personnes autorisées à lire la due diligence pourront l'ouvrir.",
   },
 };
 
@@ -189,8 +199,17 @@ const MODELES: Record<string, string> = {
   notation: "Rapport de notation",
   plan_strategique: "Plan stratégique",
   dossier_bancaire: "Dossier bancaire",
+  note_comite: "Note au comité",
 };
 export const libelleModele = (m: string) => MODELES[m] ?? "Rapport";
+
+/** Libellé d'un rapport avec sa variante éventuelle : « Note au comité (synthèse exécutive) ». */
+export function libelleModeleVariante(modele: string, variante?: string | null): string {
+  const base = libelleModele(modele);
+  if (variante === "executive") return `${base} (synthèse exécutive)`;
+  if (variante === "detaillee") return `${base} (version détaillée)`;
+  return base;
+}
 
 const STATUTS: Record<string, string> = {
   brouillon: "Brouillon",

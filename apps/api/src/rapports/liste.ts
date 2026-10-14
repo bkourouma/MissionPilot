@@ -7,7 +7,7 @@ import { tousNiveauxLisibles } from "./niveaux.js";
 
 /*
  * Listes des rapports générés, paginées par curseur, plus récent d'abord :
- * par mission (tous modèles), par notation ou par plan. L'appelant a déjà
+ * par mission (tous modèles), par notation, par plan ou par note au comité. L'appelant a déjà
  * contrôlé la visibilité de la mission (ou de la notation, du plan). Seuls
  * les rapports dont l'appelant détient les permissions du NIVEAU sont listés
  * (rapports/niveaux.ts) ; fichiers supprimés (retirés ou purgés) exclus ;
@@ -17,12 +17,14 @@ import { tousNiveauxLisibles } from "./niveaux.js";
 /** Clé de tri : instant de génération (microsecondes, UTC). */
 const CLE_TRI = `to_char(r.genere_le AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US')`;
 
-export type FiltreRapports = { missionId: string } | { notationId: string } | { planId: string };
+export type FiltreRapports =
+  { missionId: string } | { notationId: string } | { planId: string } | { noteId: string };
 
 /** Colonne filtrée : choix entre constantes selon la forme du filtre. */
 function colonne(filtre: FiltreRapports): { sql: string; valeur: string } {
   if ("notationId" in filtre) return { sql: "r.notation_id", valeur: filtre.notationId };
   if ("planId" in filtre) return { sql: "r.plan_id", valeur: filtre.planId };
+  if ("noteId" in filtre) return { sql: "r.dd_note_id", valeur: filtre.noteId };
   return { sql: "r.mission_id", valeur: filtre.missionId };
 }
 
@@ -62,6 +64,8 @@ export async function listerRapports(
       niveau: l.niveau,
       notation_id: l.notation_id,
       plan_id: l.plan_id,
+      dd_note_id: l.dd_note_id,
+      variante: l.variante,
       version_source: l.version_source,
       genere_par: l.genere_par,
       genere_le: l.genere_le,
