@@ -2,7 +2,7 @@
 
 ## Statut
 
-Proposé (mode SIMULÉ seulement : aucun fournisseur réel n'est branché ; les points non vérifiés
+Accepté par l'utilisateur le 2026-10-14 (mode SIMULÉ seulement : aucun fournisseur réel n'est branché ; les points non vérifiés
 contre le vrai service sont listés « OUVERT » dans
 [SPEC-3c](../../workflows/specs/SPEC-3c-canaux-simules.md), §17).
 
