@@ -6,6 +6,7 @@ import { conflit, requeteInvalide } from "../errors.js";
 import { ErreurJobDefinitive } from "../jobs/erreurs.js";
 import type { HandlerJob } from "../jobs/registre.js";
 import { notifier, titreUneLigne, type NotificationCreee } from "../notifications/notifier.js";
+import { planifierRelanceWhatsApp } from "../canaux/relance-questionnaire.js";
 import type { Envoi } from "./acces.js";
 
 /*
@@ -69,6 +70,8 @@ export async function planifierRelances(db: Db, cabinetId: string, envoiId: stri
       ],
     );
   }
+  // Relance J+10 par WhatsApp (lot 3c) : un job de plus, si le canal est actif.
+  await planifierRelanceWhatsApp(db, cabinetId, envoiId);
 }
 
 interface Cible {

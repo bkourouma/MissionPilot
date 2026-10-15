@@ -10,6 +10,7 @@ const DEV = {
   DATABASE_URL: "postgres://missionpilot_app:dev_only_app_password@127.0.0.1:55440/missionpilot",
   SESSION_SECRET: "dev-only-change-me-dev-only-change-me",
   TFA_MASTER_KEY: "dev-only-tfa-master-key-change-me-0000",
+  WHATSAPP_WEBHOOK_SECRET: "dev-only-whatsapp-webhook-secret-0000",
 };
 
 /** Hôtes admis pour une base de développement (valeurs par défaut autorisées). */
@@ -62,6 +63,24 @@ const schema = z.object({
     .min(0)
     .max(100_000_000_000)
     .default(50_000_000),
+  /**
+   * Canaux externes SIMULÉS (lot 3c, SPEC-3c §5) : aucun fournisseur réel n'existe. « aucun »
+   * (défaut) : canal absent ; « simule » (« local » pour la signature) : fournisseur simulé, ni
+   * envoi réel, ni clé, ni requête réseau. Une valeur autre que « aucun » est refusée au
+   * démarrage hors développement local (`verifierConfigCanaux`).
+   */
+  WHATSAPP_FOURNISSEUR: z.enum(["aucun", "simule"]).default("aucun"),
+  SMS_FOURNISSEUR: z.enum(["aucun", "simule"]).default("aucun"),
+  TRANSCRIPTION_FOURNISSEUR: z.enum(["aucun", "simule"]).default("aucun"),
+  SIGNATURE_FOURNISSEUR: z.enum(["aucun", "local"]).default("aucun"),
+  /**
+   * Secret HMAC du webhook entrant (seul secret nouveau du lot, local) : 32 caractères au moins,
+   * distinct des autres secrets maîtres, jamais journalisé. Obligatoire si un fournisseur de
+   * messagerie est actif (`verifierConfigCanaux`). Rotation : l'ancienne valeur passe dans
+   * WHATSAPP_WEBHOOK_SECRET_PRECEDENT le temps que l'émetteur bascule.
+   */
+  WHATSAPP_WEBHOOK_SECRET: z.string().min(32).optional(),
+  WHATSAPP_WEBHOOK_SECRET_PRECEDENT: z.string().min(32).optional(),
   /** Worker de la file de tâches (ADR-002) : actif par défaut, sauf en test. */
   JOBS_WORKER: z.enum(["actif", "inactif"]).optional(),
   /** Transport SMTP (SOC-08). Sans SMTP_HOST : journal local en développement et test. */
@@ -185,6 +204,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   verifierConfigEmail(config);
   verifierConfigStockage(config);
   verifierConnexionRapideDemo(config);
+  verifierConfigCanaux(config);
   return config;
 }
 
@@ -225,6 +245,91 @@ export function verifierConnexionRapideDemo(config: ConfigConnexionRapide): void
     );
   }
 }
+
+type ConfigCanaux = Pick<
+  Config,
+  | "NODE_ENV"
+  | "DATABASE_URL"
+  | "DATABASE_OWNER_URL"
+  | "WHATSAPP_FOURNISSEUR"
+  | "SMS_FOURNISSEUR"
+  | "TRANSCRIPTION_FOURNISSEUR"
+  | "SIGNATURE_FOURNISSEUR"
+>;
+
+/**
+ * Contexte où un fournisseur SIMULÉ est admissible : développement local seulement (mêmes
+ * conditions que la connexion rapide de démonstration). Revérifié par `creerCanaux`
+ * (canaux/fabrique.ts) pour une configuration construite sans `loadConfig`.
+ */
+export function contexteCanauxSimulesAdmis(
+  config: Pick<Config, "NODE_ENV" | "DATABASE_URL" | "DATABASE_OWNER_URL">,
+): boolean {
+  return (
+    config.NODE_ENV !== "production" &&
+    estLocal(config.NODE_ENV) &&
+    baseLocale(config.DATABASE_URL) &&
+    baseLocale(config.DATABASE_OWNER_URL)
+  );
+}
+
+const VARIABLES_CANAUX = [
+  "WHATSAPP_FOURNISSEUR",
+  "SMS_FOURNISSEUR",
+  "TRANSCRIPTION_FOURNISSEUR",
+  "SIGNATURE_FOURNISSEUR",
+] as const;
+
+/**
+ * Un fournisseur simulé présenté comme réel est refusé au démarrage hors développement local
+ * (règle ferme du lot 3c : aucun service externe réel n'existe). Le secret du webhook, lorsqu'un
+ * fournisseur de messagerie est actif, est obligatoire, assez long et distinct des autres secrets
+ * maîtres ; les messages d'erreur ne citent jamais sa valeur.
+ */
+export function verifierConfigCanaux(config: ConfigCanaux & Partial<ConfigSecretsCanaux>): void {
+  for (const variable of VARIABLES_CANAUX) {
+    if (config[variable] !== "aucun" && !contexteCanauxSimulesAdmis(config)) {
+      throw new Error(
+        `${variable}=${config[variable]} est réservé au développement local (NODE_ENV development ou ` +
+          "test, DATABASE_URL et DATABASE_OWNER_URL sur la machine locale) : aucun fournisseur " +
+          "réel n'est disponible, retirer la variable.",
+      );
+    }
+  }
+  if (config.WHATSAPP_FOURNISSEUR === "aucun" && config.SMS_FOURNISSEUR === "aucun") return;
+  const secret = config.WHATSAPP_WEBHOOK_SECRET;
+  if (config.WHATSAPP_FOURNISSEUR !== "aucun") {
+    if (secret === undefined || secret.length < 32) {
+      throw new Error(
+        "WHATSAPP_WEBHOOK_SECRET est obligatoire (32 caractères au moins) avec un fournisseur WhatsApp.",
+      );
+    }
+    const autres = [
+      config.SESSION_SECRET,
+      config.TFA_MASTER_KEY,
+      config.TFA_MASTER_KEY_PRECEDENTE,
+      config.WHATSAPP_WEBHOOK_SECRET_PRECEDENT,
+    ];
+    if (autres.some((autre) => autre !== undefined && autre === secret)) {
+      throw new Error("WHATSAPP_WEBHOOK_SECRET doit différer des autres secrets.");
+    }
+  }
+  if (
+    config.WHATSAPP_WEBHOOK_SECRET_PRECEDENT !== undefined &&
+    config.WHATSAPP_WEBHOOK_SECRET_PRECEDENT === secret
+  ) {
+    throw new Error("WHATSAPP_WEBHOOK_SECRET_PRECEDENT doit différer de WHATSAPP_WEBHOOK_SECRET.");
+  }
+}
+
+type ConfigSecretsCanaux = Pick<
+  Config,
+  | "SESSION_SECRET"
+  | "TFA_MASTER_KEY"
+  | "TFA_MASTER_KEY_PRECEDENTE"
+  | "WHATSAPP_WEBHOOK_SECRET"
+  | "WHATSAPP_WEBHOOK_SECRET_PRECEDENT"
+>;
 
 /**
  * Dossier du stockage sur disque : STORAGE_DIR, ou la valeur locale par

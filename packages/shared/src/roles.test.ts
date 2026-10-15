@@ -239,6 +239,9 @@ describe("portail client (SOC-09)", () => {
       "portail.kpi.saisir",
       "portail.questionnaires.repondre",
       "portail.salle.deposer",
+      "portail.canaux.gerer",
+      "portail.signature.signer",
+      "portail.synthese.lire",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
@@ -384,5 +387,237 @@ describe("V3, vague 3 : capitalisation (CAP) ; vague 2 : automatisation (AUT)", 
         expect(aPermission([r], p), `${r} ${p}`).toBe(false);
       }
     }
+  });
+});
+
+describe("V3, vague 4 : canaux externes simulés (lot 3c, SPEC §10.1)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("canaux.lire : associé, directeur de mission, chef de mission", () => {
+    expect(qui("canaux.lire")).toEqual(["associe", "chef_mission", "directeur_mission"]);
+  });
+
+  it("canaux.gerer : associé et directeur de mission", () => {
+    expect(qui("canaux.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("canaux.configurer : l'associé SEUL (il reçoit « tout », aucun autre rôle ne la détient)", () => {
+    expect(qui("canaux.configurer")).toEqual(["associe"]);
+  });
+
+  it("canaux.moi : tous les rôles du cabinet sauf l'expert externe, aucun rôle client", () => {
+    expect(qui("canaux.moi")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+      "gestionnaire",
+      "ressources",
+    ]);
+  });
+
+  it("signature.lire : associé, directeur, chef de mission, gestionnaire ; demander : associé et directeur", () => {
+    expect(qui("signature.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "gestionnaire",
+    ]);
+    expect(qui("signature.demander")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("transcription : lire et gérer pour cinq rôles, valider sans le consultant", () => {
+    const cinq = ["associe", "chef_mission", "consultant", "directeur_mission", "expert_metier"];
+    expect(qui("transcription.lire")).toEqual(cinq);
+    expect(qui("transcription.gerer")).toEqual(cinq);
+    expect(qui("transcription.valider")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+  });
+
+  it("portail : numéros et consentements au dirigeant et au contributeur ; signature et synthèse au dirigeant", () => {
+    expect(qui("portail.canaux.gerer")).toEqual(["client_contributeur", "client_dirigeant"]);
+    expect(qui("portail.signature.signer")).toEqual(["client_dirigeant"]);
+    expect(qui("portail.synthese.lire")).toEqual(["client_dirigeant"]);
+    for (const p of [
+      "portail.canaux.gerer",
+      "portail.signature.signer",
+      "portail.synthese.lire",
+    ] as const) {
+      expect(PERMISSIONS_PORTAIL_CLIENT).toContain(p);
+      // Aucun rôle interne ne détient une permission du portail.
+      for (const r of ROLES) expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+    }
+  });
+
+  it("jamais aux rôles du portail (sauf les trois permissions du portail) ni à l'expert externe", () => {
+    for (const p of [
+      "canaux.lire",
+      "canaux.gerer",
+      "canaux.configurer",
+      "canaux.moi",
+      "signature.lire",
+      "signature.demander",
+      "transcription.lire",
+      "transcription.gerer",
+      "transcription.valider",
+    ] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+
+  it("aucune permission du lot ne donne un droit financier (FIN-02)", () => {
+    const lot = PERMISSIONS.filter(
+      (p) =>
+        /^(canaux|signature|transcription)./.test(p) ||
+        /^portail.(canaux|signature|synthese)./.test(p),
+    );
+    expect(lot).toHaveLength(12);
+    expect(qui("finance.lire")).toEqual(["associe", "gestionnaire"]);
+    // Le gestionnaire ne gagne que la lecture des signatures et ses propres numéros.
+    const gestionnaire = PERMISSIONS_PAR_ROLE.gestionnaire.filter((p) => lot.includes(p));
+    expect(gestionnaire.sort()).toEqual(["canaux.moi", "signature.lire"]);
+  });
+});
+
+describe("V3, vague 4 : due diligence (DD), SPEC-3b §7", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+  const DD = ["dd.lire", "dd.ecrire", "dd.valider", "dd.referentiel.gerer"] as const;
+
+  it("matrice par rôle", () => {
+    expect(qui("dd.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+    expect(qui("dd.ecrire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+    ]);
+    expect(qui("dd.valider")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+    expect(qui("dd.referentiel.gerer")).toEqual(["associe", "directeur_mission", "expert_metier"]);
+  });
+
+  it("l'expert métier valide et tient les référentiels sans écrire le dossier ; le consultant écrit sans valider", () => {
+    expect(aPermission(["expert_metier"], "dd.ecrire")).toBe(false);
+    expect(aPermission(["consultant"], "dd.valider")).toBe(false);
+    expect(aPermission(["chef_mission"], "dd.referentiel.gerer")).toBe(false);
+  });
+
+  it("jamais aux ressources, au gestionnaire, à l'expert externe ni aux rôles du portail", () => {
+    for (const p of DD) {
+      for (const r of ["ressources", "gestionnaire", "expert_externe", ...ROLES_CLIENT] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+
+  it("dd.ecrire suppose preuve.ecrire et standard.lire (les routes qui créent des assertions)", () => {
+    for (const r of TOUS_LES_ROLES.filter((x) => aPermission([x], "dd.ecrire"))) {
+      expect(aPermission([r], "preuve.ecrire"), r).toBe(true);
+      expect(aPermission([r], "standard.lire"), r).toBe(true);
+    }
+  });
+
+  it("dd.valider et dd.referentiel.gerer supposent dd.lire", () => {
+    for (const r of TOUS_LES_ROLES.filter(
+      (x) => aPermission([x], "dd.valider") || aPermission([x], "dd.referentiel.gerer"),
+    )) {
+      expect(aPermission([r], "dd.lire"), r).toBe(true);
+    }
+  });
+
+  it("aucune permission dd.* n'appartient au portail client", () => {
+    for (const p of DD) {
+      expect(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).not.toContain(p);
+    }
+  });
+});
+
+describe("V3, vague 4 : redressement", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+  const QUATRE = [
+    "redressement.lire",
+    "redressement.ecrire",
+    "redressement.valider",
+    "redressement.parametrer",
+  ] as const;
+
+  it("les quatre permissions sont déclarées", () => {
+    for (const p of QUATRE) expect(PERMISSIONS).toContain(p);
+  });
+
+  it("matrice rôle par rôle (lire, écrire, valider, paramétrer)", () => {
+    const attendu: Record<string, readonly [boolean, boolean, boolean, boolean]> = {
+      associe: [true, true, true, true],
+      directeur_mission: [true, true, true, false],
+      chef_mission: [true, true, false, false],
+      consultant: [true, true, false, false],
+      ressources: [false, false, false, false],
+      gestionnaire: [false, false, false, false],
+      expert_metier: [true, false, false, true],
+      expert_externe: [false, false, false, false],
+      client_dirigeant: [false, false, false, false],
+      client_contributeur: [false, false, false, false],
+      client_investisseur: [false, false, false, false],
+    };
+    expect(Object.keys(attendu).sort()).toEqual([...TOUS_LES_ROLES].sort());
+    for (const role of TOUS_LES_ROLES) {
+      const obtenu = QUATRE.map((p) => aPermission([role], p));
+      expect(obtenu, role).toEqual(attendu[role]);
+    }
+  });
+
+  it("valider : associé et directeur de mission seulement ; paramétrer : associé et expert métier", () => {
+    expect(qui("redressement.valider")).toEqual(["associe", "directeur_mission"]);
+    expect(qui("redressement.parametrer")).toEqual(["associe", "expert_metier"]);
+    expect(qui("redressement.ecrire")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+    ]);
+  });
+
+  it("lire ou écrire un dossier de redressement implique de lire le dossier client", () => {
+    for (const role of TOUS_LES_ROLES) {
+      if (aPermission([role], "redressement.lire") || aPermission([role], "redressement.ecrire")) {
+        expect(aPermission([role], "dossier.lire"), role).toBe(true);
+      }
+    }
+  });
+
+  it("aucun rôle du portail ne détient l'une des quatre", () => {
+    for (const role of ROLES_CLIENT) {
+      for (const p of QUATRE) expect(aPermission([role], p), `${role} ${p}`).toBe(false);
+    }
+    for (const p of QUATRE) {
+      expect((PERMISSIONS_PORTAIL_CLIENT as readonly string[]).includes(p)).toBe(false);
+    }
+  });
+
+  it("finance.lire n'ouvre aucune des quatre (les montants sont ceux du client, pas du cabinet)", () => {
+    const financiers = TOUS_LES_ROLES.filter((r) => aPermission([r], "finance.lire"));
+    expect(financiers).toContain("gestionnaire");
+    expect(aPermission(["gestionnaire"], "finance.lire")).toBe(true);
+    for (const p of QUATRE) expect(aPermission(["gestionnaire"], p)).toBe(false);
   });
 });

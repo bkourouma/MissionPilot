@@ -120,7 +120,17 @@ export interface FacturePortail {
 // --- Navigation ----------------------------------------------------------------------------
 
 export interface EntreePortail {
-  id: "accueil" | "missions" | "questionnaires" | "salle" | "kpi" | "factures" | "securite";
+  id:
+    | "accueil"
+    | "missions"
+    | "questionnaires"
+    | "salle"
+    | "kpi"
+    | "factures"
+    | "signatures"
+    | "synthese"
+    | "preferences"
+    | "securite";
   libelle: string;
   href: string;
   icone: NomIcone;
@@ -172,6 +182,30 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
     href: `${CHEMIN_PORTAIL}/factures`,
     icone: "facture",
     permission: "portail.factures.lire",
+  },
+  {
+    // Canaux simulés (lot 3c) : signature simulée d'un PDF de mission (CLI-05).
+    id: "signatures",
+    libelle: "Signatures",
+    href: `${CHEMIN_PORTAIL}/signatures`,
+    icone: "signature",
+    permission: "portail.signature.signer",
+  },
+  {
+    // Synthèse hebdomadaire du dirigeant (CLI-07) : deux nombres et des liens, sans montant.
+    id: "synthese",
+    libelle: "Synthèse",
+    href: `${CHEMIN_PORTAIL}/synthese`,
+    icone: "barres",
+    permission: "portail.synthese.lire",
+  },
+  {
+    // Préférences de messagerie et consentement (CLI-02) : WhatsApp et SMS simulés.
+    id: "preferences",
+    libelle: "Messages",
+    href: `${CHEMIN_PORTAIL}/preferences`,
+    icone: "bulle",
+    permission: "portail.canaux.gerer",
   },
   {
     id: "securite",

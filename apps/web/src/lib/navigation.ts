@@ -263,6 +263,33 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     description: "Dossier vivant de chaque client : faits datés et sourcés, finances, frise.",
   },
   {
+    // Service #5, lot 3a (RED-01, 02, 05 à 07, 10 à 12, 14) ; le dossier d'une mission est un
+    // onglet de la mission (missions/[id]/redressement).
+    id: "redressement",
+    libelle: "Redressement",
+    libelleCourt: "Redressement",
+    href: "/redressement",
+    permission: "redressement.lire",
+    disponible: true,
+    icone: "attention",
+    description:
+      "Redressement : score d'alerte précoce indicatif, trésorerie à 13 semaines, créanciers et plan d'actions.",
+    sousPages: [
+      {
+        id: "dossiers",
+        libelle: "Dossiers",
+        href: "/redressement",
+        permission: "redressement.lire",
+      },
+      {
+        id: "seuils",
+        libelle: "Seuils d'alerte",
+        href: "/redressement/seuils",
+        permission: "redressement.lire",
+      },
+    ],
+  },
+  {
     id: "agents-ia",
     libelle: "Agents IA",
     libelleCourt: "Agents",
@@ -389,11 +416,18 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     id: "parametres",
     libelle: "Paramètres",
     href: "/parametres",
-    permission: ["cabinet.gerer", "facture.emettre", "temps.cloturer", "temps.importer"],
+    permission: [
+      "cabinet.gerer",
+      "facture.emettre",
+      "temps.cloturer",
+      "temps.importer",
+      "canaux.lire",
+      "dd.referentiel.gerer",
+    ],
     disponible: true,
     icone: "reglages",
     description:
-      "Cabinet, utilisateurs, sécurité, temps, facturation, clôture mensuelle, import et journal d'audit.",
+      "Cabinet, utilisateurs, sécurité, canaux de messagerie simulés, temps, facturation, clôture mensuelle, import, due diligence et journal d'audit.",
     sousPages: [
       { id: "cabinet", libelle: "Cabinet", href: "/parametres", permission: "cabinet.gerer" },
       {
@@ -413,6 +447,13 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         libelle: "Portail client",
         href: "/parametres/portail",
         permission: "cabinet.gerer",
+      },
+      {
+        // Canaux externes SIMULÉS (lot 3c) : comptes, consentements, journal des envois.
+        id: "canaux",
+        libelle: "Canaux",
+        href: "/parametres/canaux",
+        permission: "canaux.lire",
       },
       { id: "temps", libelle: "Temps", href: "/parametres/temps", permission: "cabinet.gerer" },
       {
@@ -446,6 +487,13 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         permission: "cabinet.gerer",
       },
       {
+        // Vague 4, service #2 (SPEC-3b §10.1) : bibliothèque de signaux et listes d'exclusion.
+        id: "due-diligence",
+        libelle: "Due diligence",
+        href: "/parametres/due-diligence",
+        permission: "dd.referentiel.gerer",
+      },
+      {
         id: "journal",
         libelle: "Journal d'audit",
         href: "/parametres/journal",
@@ -455,6 +503,34 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     ],
   },
 ];
+
+/** Onglet de mission ajouté par les canaux simulés (lot 3c). */
+export interface OngletMissionCanaux {
+  id: "signatures" | "transcriptions";
+  libelle: string;
+  href: string;
+}
+
+/**
+ * Onglets de mission « Signatures » (`signature.lire`) et « Transcriptions » (`transcription.lire`),
+ * à insérer dans la mise en page de la mission (`base` : `/missions/<id>`).
+ */
+export function ongletsMissionCanaux(roles: readonly Role[], base: string): OngletMissionCanaux[] {
+  return [
+    ...(aPermission(roles, "signature.lire")
+      ? [{ id: "signatures" as const, libelle: "Signatures", href: `${base}/signatures` }]
+      : []),
+    ...(aPermission(roles, "transcription.lire")
+      ? [
+          {
+            id: "transcriptions" as const,
+            libelle: "Transcriptions",
+            href: `${base}/transcriptions`,
+          },
+        ]
+      : []),
+  ];
+}
 
 /** Sécurité de son propre compte (double authentification) : tout utilisateur connecté. */
 export const CHEMIN_SECURITE_COMPTE = "/compte/securite";

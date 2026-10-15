@@ -163,3 +163,118 @@ describe("configuration : stockage des fichiers (SOC-05)", () => {
     ).toBe(5 * 1024 * 1024 * 1024);
   });
 });
+
+describe("configuration : canaux externes SIMULÉS (lot 3c, SPEC-3c §5)", () => {
+  const VARIABLES = [
+    ["WHATSAPP_FOURNISSEUR", "simule"],
+    ["SMS_FOURNISSEUR", "simule"],
+    ["TRANSCRIPTION_FOURNISSEUR", "simule"],
+    ["SIGNATURE_FOURNISSEUR", "local"],
+  ] as const;
+
+  it("par défaut « aucun » partout ; aucun secret exigé", () => {
+    const c = loadConfig({});
+    expect(c.WHATSAPP_FOURNISSEUR).toBe("aucun");
+    expect(c.SMS_FOURNISSEUR).toBe("aucun");
+    expect(c.TRANSCRIPTION_FOURNISSEUR).toBe("aucun");
+    expect(c.SIGNATURE_FOURNISSEUR).toBe("aucun");
+  });
+
+  it("développement local : accepté, avec le secret de développement du webhook", () => {
+    for (const [variable, valeur] of VARIABLES) {
+      const c = loadConfig({ [variable]: valeur });
+      expect(c[variable]).toBe(valeur);
+    }
+    const c = loadConfig({ WHATSAPP_FOURNISSEUR: "simule" });
+    expect(c.WHATSAPP_WEBHOOK_SECRET).toBe("dev-only-whatsapp-webhook-secret-0000");
+  });
+
+  it("une valeur autre que « simule » (ou « local ») est refusée : aucun fournisseur réel n'existe", () => {
+    expect(() => loadConfig({ WHATSAPP_FOURNISSEUR: "meta" })).toThrow();
+    expect(() => loadConfig({ SIGNATURE_FOURNISSEUR: "simule" })).toThrow();
+  });
+
+  it("production : un fournisseur simulé présenté comme réel est refusé au démarrage, pour chaque variable", () => {
+    for (const [variable, valeur] of VARIABLES) {
+      expect(() =>
+        loadConfig({
+          ...PROD,
+          [variable]: valeur,
+          WHATSAPP_WEBHOOK_SECRET: "un-secret-de-webhook-de-production-0123456789",
+        }),
+      ).toThrow(new RegExp(`${variable}=${valeur} est réservé au développement local`));
+    }
+    // « aucun » partout : démarrage normal, sans secret de webhook.
+    expect(() => loadConfig({ ...PROD })).not.toThrow();
+  });
+
+  it("base distante hors production : refus (NODE_ENV local avec base non locale)", () => {
+    expect(() =>
+      loadConfig({ NODE_ENV: "development", ...DISTANTE, WHATSAPP_FOURNISSEUR: "simule" }),
+    ).toThrow(/base distante/);
+  });
+
+  it("secret du webhook : valeur de développement refusée en production, trop court, égal à un autre secret", () => {
+    expect(() =>
+      loadConfig({ ...PROD, WHATSAPP_WEBHOOK_SECRET: "dev-only-whatsapp-webhook-secret-0000" }),
+    ).toThrow(/valeur de développement hors développement/);
+    expect(() =>
+      loadConfig({ WHATSAPP_FOURNISSEUR: "simule", WHATSAPP_WEBHOOK_SECRET: "trop-court" }),
+    ).toThrow();
+    const egal = loadConfig({}).SESSION_SECRET;
+    expect(() =>
+      loadConfig({ WHATSAPP_FOURNISSEUR: "simule", WHATSAPP_WEBHOOK_SECRET: egal }),
+    ).toThrow(/doit différer des autres secrets/);
+    expect(() =>
+      loadConfig({
+        WHATSAPP_FOURNISSEUR: "simule",
+        WHATSAPP_WEBHOOK_SECRET: loadConfig({}).TFA_MASTER_KEY,
+      }),
+    ).toThrow(/doit différer/);
+    const secret = "un-secret-de-webhook-local-0123456789abcdef";
+    expect(() =>
+      loadConfig({
+        WHATSAPP_FOURNISSEUR: "simule",
+        WHATSAPP_WEBHOOK_SECRET: secret,
+        WHATSAPP_WEBHOOK_SECRET_PRECEDENT: secret,
+      }),
+    ).toThrow(/doit différer/);
+    // Aucun message d'erreur ne cite la valeur d'un secret.
+    try {
+      loadConfig({ WHATSAPP_FOURNISSEUR: "simule", WHATSAPP_WEBHOOK_SECRET: egal });
+    } catch (e) {
+      expect((e as Error).message).not.toContain(egal);
+    }
+  });
+
+  it("creerCanaux revérifie le contexte pour une configuration construite sans loadConfig ; « aucun » rend null", async () => {
+    const { creerCanaux } = await import("../src/canaux/fabrique.js");
+    const base = loadConfig({});
+    expect(creerCanaux(base)).toEqual({
+      whatsapp: null,
+      sms: null,
+      transcripteur: null,
+      signature: null,
+    });
+    const tous = {
+      ...base,
+      WHATSAPP_FOURNISSEUR: "simule",
+      SMS_FOURNISSEUR: "simule",
+      TRANSCRIPTION_FOURNISSEUR: "simule",
+      SIGNATURE_FOURNISSEUR: "local",
+    } as const;
+    const c = creerCanaux(tous);
+    expect([c.whatsapp?.mode, c.sms?.mode, c.transcripteur?.mode, c.signature?.mode]).toEqual([
+      "simule",
+      "simule",
+      "simule",
+      "simule",
+    ]);
+    expect(() => creerCanaux({ ...tous, NODE_ENV: "production" })).toThrow(
+      /réservé au développement local/,
+    );
+    expect(() => creerCanaux({ ...tous, DATABASE_URL: DISTANTE.DATABASE_URL })).toThrow(
+      /réservé au développement local/,
+    );
+  });
+});

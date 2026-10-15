@@ -317,3 +317,115 @@ Règles posées pour avancer, **à confirmer par le commanditaire et des cabinet
   proposée par défaut à 18 % dans l'écran (modifiable, vide = hors taxes). Réservée aux
   détenteurs de `finance.lire`, écriture avec `taux.gerer` (associé, gestionnaire) : un directeur
   ou un chef de mission ne voit pas les taux (FIN-02).
+
+## Canaux, signatures et transcriptions simulés (lot 3c de la vague 4)
+
+**Règle ferme : aucun envoi réel, aucune clé, fournisseurs simulés** (WhatsApp, SMS, transcription, signature) ; l'API refuse de démarrer avec un autre fournisseur hors développement local. Toutes les valeurs suivantes sont **provisoires — à valider** (valeurs juridiques, tarifs et politiques des fournisseurs : points O-01 à O-27 de SPEC-3c, OUVERTS pour l'utilisateur).
+
+| Sujet | Valeur posée |
+| --- | --- |
+| Signature simulée | Sans valeur juridique, affichée comme telle ; elle n'a aucun effet sur le budget ni sur le statut de la mission ; reconfirmation d'identité et 2FA active exigées pour signer |
+| Consentement WhatsApp / SMS | Accordé par l'utilisateur lui-même ; consentement « recueilli par le cabinet » réservé à un associé ou directeur, avec preuve de 10 à 500 caractères ; STOP (et ses variantes) retire toujours |
+| Numéros | Unicité sur les seuls numéros vérifiés ; 3 codes par heure et 10 par jour et par utilisateur ; 5 essais par code |
+| Webhook WhatsApp | Route publique signée (HMAC, fenêtre de 300 s, anti-rejeu), n'existe qu'avec un fournisseur configuré ; 30 signatures invalides par 5 minutes en base, 100 au total et 50 par adresse en mémoire |
+| Messages entrants | Ignorés si l'expéditeur est désactivé, son accès portail ou son client inactif, ou son numéro non vérifié (sauf STOP) ; jamais transmis à un modèle de langage |
+| Transcriptions | Un audio ne se transcrit que par son auteur ; texte validé par un humain avant tout usage ; 50 versions et 30 corrections par 10 minutes au plus ; anonymisation planifiée |
+| `canaux.lire` du chef de mission | Ouvre les contacts, consentements et synthèses de tous les clients du cabinet : **à confirmer** (restreindre aux missions visibles ou non) |
+
+## Due diligence stratégique (lot 3b de la vague 4)
+
+Toutes les valeurs sont **provisoires — à valider** par un expert avant le pilote ; elles ne reposent sur aucune source normative.
+
+| Sujet | Valeur posée |
+| --- | --- |
+| Plafonds d'une liste d'exclusion | 100 règles ; 10 mots-clés de 60 caractères et 5 mots chacun par règle ; 60 mots par activité filtrée |
+| Plafonds des journaux | 200 liens par hypothèse, 200 décisions par filtrage, 50 filtrages par dossier |
+| Verdict et note | Un verdict validé ne tient que pour la version courante de l'hypothèse ; une hypothèse portant un verdict validé ne se modifie plus (409) ; une note validée est périmée dès qu'une version plus récente existe |
+| Filtrage environnemental et social | Seul le dernier filtrage reçoit des décisions ; l'auteur d'un filtrage ne peut pas écarter une exclusion (hors associé) ; une exclusion non levée d'un filtrage antérieur reste bloquante |
+| Listes d'exclusion d'un investisseur | Référentiel du cabinet, lisible de tout détenteur de `dd.lire` (choix assumé, à confirmer) |
+| Connecteurs de données ouvertes (DD-02) | Simulés seulement ; aucune source réelle branchée |
+
+## Redressement (RED-01, 02, 05–07, 10–12, 14) — lot 3a de la vague 4 (2026-10-11)
+
+Aucune des valeurs ci-dessous n'a été fixée par le commanditaire ni par un expert : **toutes sont
+provisoires — à valider**. Ce sont des constantes nommées, exportées de `packages/engines/src/redressement` ou
+de `packages/shared/src/schemas/redressement.ts`, jamais des nombres cachés. Quand aucune source n'existe, la
+justification dit « convention, sans source » : rien n'est présenté comme un fait. À notre connaissance, aucun
+barème de l'ONUDI ni des textes de l'OHADA ne fixe de seuil chiffré pour ces ratios : le PRD s'inspire de
+l'ONUDI pour la **démarche** (pré-diagnostic, diagnostic, plan, suivi), pas pour des nombres. Spécification :
+`docs/workflows/specs/SPEC-3a-redressement.md` §13 ; ADR-011.
+
+**Point OUVERT : les seuils d'alerte par secteur et la grille d'urgence n'ont aucune source normative.** Tant
+qu'un expert n'a pas publié de version sectorielle, les secteurs retombent sur le jeu « général » ci-dessous ; le
+score reste « indicatif » et l'écran le dit. À faire valider par les experts du cabinet (ateliers de calibration
+avec des cabinets pilotes) avant tout usage au pilote. **FIN-02 à confirmer** : les montants et marges **du
+client** relèvent de `redressement.lire` et non de `finance.lire` (le module ne manipule aucune donnée du
+cabinet) ; les réserver à `finance.lire` rendrait le module inutilisable par le chef de mission et le
+consultant, auquel cas on créerait plutôt une permission `redressement.montants`.
+
+- **Seuils d'alerte par défaut** (`SEUILS_ALERTE_DEFAUT`, secteur « général ») : une version par secteur,
+  rédigée puis publiée par un expert métier ou un associé (auteur exclu sauf associé) ; un score conserve ses
+  entrées et un instantané des seuils. Inégalités strictes ; le moteur compte en points de base pour les ratios et
+  les tendances (10 000 = 1,0 ou 100 %), en jours pour le BFR, en nombre d'incidents pour les autres critères.
+  Niveaux du score : modéré à 25, élevé à 50, critique à 75 (convention) ; part minimale évaluée : 50 % du poids
+  (même principe que NOT-03 : un score exige la moitié du poids évalué) ; somme des poids : 100 (convention).
+
+  | Critère | Sens | Orange | Rouge | Poids | Justification (provisoire — à valider) |
+  | --- | --- | --- | --- | --- | --- |
+  | Liquidité générale | bas pire | < 1,2 | < 1,0 | 15 | Rouge : définition (l'actif circulant ne couvre pas les dettes à court terme). Orange : marge de sécurité conventionnelle, sans source. |
+  | Liquidité immédiate | bas pire | < 0,2 | < 0,1 | 10 | Convention d'analyse financière (couverture des dettes à court terme par les seules disponibilités), sans source ni norme chiffrée connue. |
+  | Autonomie financière | bas pire | < 25 % | < 10 % | 10 | Convention (capitaux propres sur total du passif) ; le tiers est souvent cité en analyse bancaire (non vérifié, sans source). Distinct de la règle OHADA sur les capitaux propres et le capital (AUSCGIE, art. 664, **à vérifier par un juriste**), qui n'est **pas** reprise ici. |
+  | Endettement | haut pire | > 1,0 | > 2,0 | 10 | Orange : reprend `SEUILS_BANCABILITE_DEFAUT.endettementMaxPb` (lui-même « indicatif, à calibrer avec les banques »). Rouge : le double, convention. |
+  | Couverture des charges financières | bas pire | < 3,0 | < 1,5 | 10 | Convention de couverture des intérêts (3 et 1,5 fois), sans norme officielle connue. |
+  | Marge nette | bas pire | < 2 % | < 0 % | 10 | Rouge : une perte (définition). Orange : convention, sans source. |
+  | BFR en jours | haut pire | > 60 j | > 90 j | 5 | Rouge : reprend `SEUILS_BANCABILITE_DEFAUT.bfrJoursMax`. Orange : convention. **Le BFR dépend fortement du secteur** : c'est la raison d'être des seuils sectoriels fixés par les experts. |
+  | Croissance du chiffre d'affaires | bas pire | < 0 % | < −10 % | 10 | Orange : l'activité recule. Rouge : reprend le seuil de la question A1 de l'urgence (cohérence interne), convention. |
+  | Variation de la marge brute | bas pire | < 0 pt | < −5 pts | 5 | Convention (perte de 5 points de marge brute), sans source. |
+  | Rejets bancaires sur 12 mois | haut pire | > 0 | > 2 | 5 | Un rejet est un signal ; au-delà de deux : convention. |
+  | Retards fournisseurs de plus de 90 jours | haut pire | > 0 | > 4 | 5 | Un fournisseur payé avec plus de 90 jours de retard est un signal ; au-delà de quatre : convention. |
+  | Arriérés fiscaux et sociaux | haut pire | > 0 | > 0 | 5 | Tout arriéré d'impôts ou de cotisations est rouge : convention, cohérente avec la question T1 de l'urgence. |
+
+- **Grille d'urgence** (RED-01) : 15 questions en 5 domaines ; question critique = poids 2 ; le voyant d'un
+  domaine passe à l'orange à partir de 25 % et au rouge à partir de 50 % du total pondéré possible ; un domaine
+  n'est évalué que si 50 % au moins de son poids est répondu. Formulations inspirées de signaux d'alerte
+  classiques (retards de paiement, rejets bancaires, arriérés fiscaux et sociaux, baisse d'activité) : **aucune
+  source**, à valider par les experts ; seuils de 25 % et 50 % : conventions.
+- **Horizon de trésorerie** : 13 semaines, fenêtre glissante par nouvelle version : fixé par le PRD (RED-11),
+  pratique courante de la trésorerie de crise ; **non provisoire**. Seuil de tension par défaut : 0 (solde
+  projeté négatif), réglable par version (convention).
+- **Base de jours** (BFR, point mort) : 360, alignée sur le modèle financier (`JOURS_PAR_AN_BFR`) et
+  `bancabilite.ts` : cohérence interne, pas une norme.
+- **Fenêtres du plan** : quick wins jusqu'à 6 mois, restructuration au-delà de 6 mois et jusqu'à 24 mois (PRD,
+  RED-05 : 3 à 6 mois, 6 à 24 mois) ; la borne basse de 3 mois n'est pas contrôlée (avertissement seulement
+  au-delà de 6 mois).
+- **Secteurs** : `general`, `industrie`, `commerce`, `services`, `btp`, `agriculture` (liste fermée de départ ;
+  le PRD, RED-03, cite industrie, services, commerce) : à ajuster par les experts.
+- **Postes de ratio et correspondance indicative** : 14 postes ; dix correspondances SYSCOHADA indicatives
+  reprises de `REFERENCES_SYSCOHADA` (« à confirmer par un expert-comptable ») ; quatre postes sans référence. La
+  correspondance est faite à la main par le cabinet (version tracée, avertissement « indicative », un poste
+  manquant n'est jamais compté comme zéro).
+- **Catégories** : 4 + 7 catégories de flux de trésorerie, 6 catégories de créanciers (convention de
+  présentation, à ajuster).
+- **Leviers** (RED-14) : six leviers aux formules arithmétiques usuelles (BFR, prix, charges fixes, cession),
+  hypothèses affichées, impact stocké avec ses paramètres (un instantané) ; bornes de saisie (jours de 1 à 180,
+  réduction de 1 à 10 000 pb, hausse de prix jusqu'à 5 000 pb, perte de volume jusqu'à 9 999 pb, mise en œuvre de
+  0 à 12 mois) : des garde-fous, pas des valeurs recommandées ; formules à valider par les experts.
+- **Plafonds de volume** (garde-fous contre le déni de service, **aucune source**, à calibrer avec un cabinet
+  pilote) : 100 versions de correspondance, 200 urgences, 500 scores, 50 versions de seuils par secteur, 200
+  versions de trésorerie, 600 lignes par version, 1 000 réalisés (11 enregistrements au plus par semaine), 200
+  créanciers, 100 versions de créance et 300 événements de négociation par créancier, 60 échéances par accord, 300
+  actions, 200 événements par action, 100 versions de plan. **Débits** : 30 évaluations d'urgence, 30 scores et 60
+  versions de trésorerie par utilisateur et par 10 minutes (même ordre de grandeur que `copilote` et `kpi`).
+- **Montant maximal** (`MONTANT_RED_MAX`) : 10^13 unités mineures : garde l'exactitude des sommes, pas une
+  borne métier.
+- **Conservation des données** : **aucune durée posée** (données du client en ajout seul) ; à valider avec le
+  conseil juridique, comme les autres lots.
+- **Publication des seuils et validation du plan** : publication par un expert métier ou un associé, auteur
+  exclu sauf associé ; validation d'une version de plan par un associé ou un directeur de mission, créateur exclu
+  sauf associé ; transposition de `MPN04`, `MPW05`, `MPM08` et du R3 du PRD complémentaire §10 : à confirmer. Le
+  socle ne produit aucun livrable : pas de suivi qualité R3 du plan tant qu'aucun rapport ni export n'existe
+  (RED-08).
+- **Hors lot, repoussé** : RED-03 (check-lists métier), RED-04 (causes racines par IA, exclue du socle),
+  RED-08 (re-notation et rapport de clôture), RED-09 (suivi post-mission), RED-13 (repères OHADA : **OUVERT,
+  contenu à valider par un juriste**, aucun conseil juridique automatisé), RED-15 (tableau de bord partagé au
+  conseil d'administration et aux banques).

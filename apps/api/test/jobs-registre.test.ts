@@ -6,6 +6,12 @@ import { TYPE_JOB_EVALUATION_OPENROUTER } from "../src/agents/evaluations-openro
 import { TYPE_JOB_DETECTION_AUTOMATISATION } from "../src/automatisation/detection.js";
 import { TYPE_JOB_EVENEMENT_AUTOMATISATION } from "../src/automatisation/evenements.js";
 import { TYPE_JOB_BRIEF_QUOTIDIEN } from "../src/brief/quotidien.js";
+import { TYPE_JOB_CANAL_ENTRANT_AUDIO } from "../src/canaux/entrants.js";
+import { TYPE_JOB_CANAL_ENVOI } from "../src/canaux/envois.js";
+import { TYPE_JOB_CANAUX_MAINTENANCE } from "../src/canaux/maintenance.js";
+import { TYPE_JOB_CANAL_RELANCE_QUESTIONNAIRE } from "../src/canaux/relance-questionnaire.js";
+import { TYPE_JOB_CANAL_SYNTHESE_HEBDO } from "../src/canaux/synthese.js";
+import { TYPE_JOB_CANAL_TRANSCRIPTION } from "../src/canaux/transcriptions.js";
 import { TYPE_JOB_AGENT_AUTOMATISATION } from "../src/automatisation/execution.js";
 import { TYPE_JOB_COPILOTE_PURGE } from "../src/copilote/purge.js";
 import { TYPE_JOB_RELANCES } from "../src/finance/relances.js";
@@ -49,6 +55,13 @@ const DECLARES: Record<string, string> = {
   TYPE_JOB_RELANCE_SALLE,
   TYPE_JOB_IA,
   TYPE_JOB_EMAIL,
+  // Canaux externes simulés (lot 3c).
+  TYPE_JOB_CANAL_ENVOI,
+  TYPE_JOB_CANAL_RELANCE_QUESTIONNAIRE,
+  TYPE_JOB_CANAL_SYNTHESE_HEBDO,
+  TYPE_JOB_CANAL_ENTRANT_AUDIO,
+  TYPE_JOB_CANAL_TRANSCRIPTION,
+  TYPE_JOB_CANAUX_MAINTENANCE,
 };
 
 /** Constantes exclues de REGISTRE_JOBS, avec la raison (handler fourni par le serveur). */

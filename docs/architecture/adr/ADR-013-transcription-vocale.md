@@ -2,7 +2,7 @@
 
 ## Statut
 
-Proposé (mode SIMULÉ seulement : aucun fournisseur de transcription réel ; les langues locales
+Accepté par l'utilisateur le 2026-10-14 (mode SIMULÉ seulement : aucun fournisseur de transcription réel ; les langues locales
 réellement couvertes et les coûts sont OUVERTS :
 [SPEC-3c](../../workflows/specs/SPEC-3c-canaux-simules.md), §17, O-08, O-09).
 

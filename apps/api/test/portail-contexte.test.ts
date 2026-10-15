@@ -301,7 +301,7 @@ describe("contexte RLS du portail posé à chaque transaction (constat n° 1)", 
     expect(direct.client).toBeNull();
   });
 
-  it("la sortie horsContextePortail n'est employée que par les alertes KPI et l'accusé de réception", async () => {
+  it("la sortie horsContextePortail n'est employée que par les alertes KPI, l'accusé de réception et les canaux simulés", async () => {
     const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src");
     const usages: string[] = [];
     const parcourir = async (dossier: string): Promise<void> => {
@@ -321,7 +321,16 @@ describe("contexte RLS du portail posé à chaque transaction (constat n° 1)", 
     // Toute nouvelle sortie du contexte du portail se justifie ici. Salle de mission : accusé de
     // réception R0 après un dépôt (lit le coupe-circuit N4, informe l'équipe ; rien n'est
     // renvoyé au client dans la réponse).
-    expect(usages.sort()).toEqual(["routes/portail-kpi.ts", "salle-mission/accuses.ts"]);
+    // Canaux simulés (lot 3c, SPEC-3c §12.3) : mise en file du code de vérification, lecture du compte
+    // de canal et de la synthèse (routes/portail-canaux.ts) ; signature d'un document, qui écrit les
+    // preuves et exige la reconfirmation d'identité (routes/portail-signatures.ts). Contrôle fait
+    // d'abord dans `avecPortail`, filtres explicites sur l'utilisateur et le client.
+    expect(usages.sort()).toEqual([
+      "routes/portail-canaux.ts",
+      "routes/portail-kpi.ts",
+      "routes/portail-signatures.ts",
+      "salle-mission/accuses.ts",
+    ]);
   });
 });
 

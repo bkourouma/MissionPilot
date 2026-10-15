@@ -2,6 +2,25 @@ import {
   creerHandlerEvaluationOpenRouter,
   TYPE_JOB_EVALUATION_OPENROUTER,
 } from "../agents/evaluations-openrouter.js";
+import { dependancesCanauxParDefaut } from "../canaux/fabrique.js";
+import { creerHandlerCanalEntrantAudio, TYPE_JOB_CANAL_ENTRANT_AUDIO } from "../canaux/entrants.js";
+import { creerHandlerCanalEnvoi, TYPE_JOB_CANAL_ENVOI } from "../canaux/envois.js";
+import {
+  creerHandlerCanauxMaintenance,
+  TYPE_JOB_CANAUX_MAINTENANCE,
+} from "../canaux/maintenance.js";
+import {
+  creerHandlerCanalRelanceQuestionnaire,
+  TYPE_JOB_CANAL_RELANCE_QUESTIONNAIRE,
+} from "../canaux/relance-questionnaire.js";
+import {
+  creerHandlerCanalSyntheseHebdo,
+  TYPE_JOB_CANAL_SYNTHESE_HEBDO,
+} from "../canaux/synthese.js";
+import {
+  creerHandlerCanalTranscription,
+  TYPE_JOB_CANAL_TRANSCRIPTION,
+} from "../canaux/transcriptions.js";
 import type { Database, Db } from "../db/pool.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
 import {
@@ -98,6 +117,15 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_AGENT_AUTOMATISATION]: creerHandlerAgentAutomatisation(dependancesIaParDefaut),
   [TYPE_JOB_DETECTION_AUTOMATISATION]: creerHandlerDetectionAutomatisation(),
   [TYPE_JOB_RELANCE_SALLE]: relanceSalleMission, // relances J-3 / J+1 / J+7 de la salle de mission
+  // Canaux externes SIMULÉS (lot 3c, SPEC-3c §7) : ports et configuration du processus.
+  [TYPE_JOB_CANAL_ENVOI]: creerHandlerCanalEnvoi(dependancesCanauxParDefaut), // envoi au plus une fois
+  [TYPE_JOB_CANAL_RELANCE_QUESTIONNAIRE]: creerHandlerCanalRelanceQuestionnaire(
+    dependancesCanauxParDefaut,
+  ), // relance J+10 par WhatsApp
+  [TYPE_JOB_CANAL_SYNTHESE_HEBDO]: creerHandlerCanalSyntheseHebdo(dependancesCanauxParDefaut), // CLI-07
+  [TYPE_JOB_CANAL_ENTRANT_AUDIO]: creerHandlerCanalEntrantAudio(dependancesCanauxParDefaut), // KPI-14 vocal
+  [TYPE_JOB_CANAL_TRANSCRIPTION]: creerHandlerCanalTranscription(dependancesCanauxParDefaut), // AGT-11
+  [TYPE_JOB_CANAUX_MAINTENANCE]: creerHandlerCanauxMaintenance(dependancesCanauxParDefaut), // conservation
 });
 
 /** Registre dont la purge des fichiers utilise ce stockage (configuration du serveur). */

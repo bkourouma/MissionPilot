@@ -1,0 +1,611 @@
+/*
+ * Redressement (service #5) : portefeuille, synthèse et onglets du dossier. Mobile d'abord, CSS
+ * pur, couleurs des jetons (contrastes vérifiés dans tokens.css). La couleur ne porte jamais seule
+ * le sens : chaque voyant, niveau ou tension a son texte et son icône ; chaque graphique son
+ * tableau équivalent.
+ */
+
+.mp-red {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-red p {
+  margin: 0;
+}
+
+.mp-red-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-red-section__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+}
+
+.mp-red-texte-libre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Sous-navigation du dossier ---------- */
+.mp-red-entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-red-entete__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Cartes de synthèse ---------- */
+.mp-red-cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+.mp-red-carte-corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-red-chiffre {
+  font-size: var(--mp-taille-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.mp-red-liste-voyants {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-red-liste-voyants > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+}
+
+.mp-red-pourcentage {
+  font-variant-numeric: tabular-nums;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* ---------- Barre d'avancement : barre ET texte ---------- */
+.mp-red-barre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-red-barre__piste {
+  height: 0.625rem;
+  overflow: hidden;
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: 999px;
+}
+
+.mp-red-barre__remplissage {
+  height: 100%;
+  background: var(--mp-primaire);
+}
+
+/* ---------- Tableaux et définitions ---------- */
+.mp-red-valeur {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-red-formule {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-red-defilement {
+  overflow-x: auto;
+}
+
+/* ---------- Questionnaire d'urgence ---------- */
+.mp-red-fiche {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-red-fiche > legend {
+  padding: 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-red-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-red-question > legend {
+  padding: 0;
+  font-weight: 500;
+}
+
+.mp-red-question__choix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+.mp-red-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: 2.75rem;
+  padding: 0 var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  cursor: pointer;
+}
+
+.mp-red-radio:has(input:checked) {
+  background: var(--mp-primaire-pale);
+  border-color: var(--mp-primaire);
+}
+
+.mp-red-radio:has(input:focus-visible) {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-red-radio input {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+}
+
+/* ---------- Seuils : valeurs de l'éditeur ---------- */
+.mp-red-seuils {
+  display: grid;
+  gap: var(--mp-esp-3);
+}
+
+.mp-red-seuil {
+  display: grid;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-red-seuil__titre {
+  margin: 0;
+  font-weight: 650;
+}
+
+/* ---------- Trésorerie : grille de 13 semaines ---------- */
+.mp-red-grille__tableau {
+  display: none;
+}
+
+.mp-red-grille__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--mp-taille-s);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-red-grille__table th,
+.mp-red-grille__table td {
+  padding: var(--mp-esp-2);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-red-grille__table th[scope="row"],
+.mp-red-grille__table thead th:first-child {
+  position: sticky;
+  left: 0;
+  text-align: left;
+  background: var(--mp-surface);
+  white-space: normal;
+  min-width: 11rem;
+}
+
+.mp-red-grille__table thead th {
+  font-weight: 650;
+  vertical-align: bottom;
+}
+
+.mp-red-grille__dates {
+  display: block;
+  color: var(--mp-texte-doux);
+  font-weight: 400;
+}
+
+.mp-red-grille__ligne--total th,
+.mp-red-grille__ligne--total td {
+  font-weight: 650;
+  background: var(--mp-surface-2);
+}
+
+.mp-red-grille__tension {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  color: var(--mp-danger);
+  font-weight: 650;
+}
+
+.mp-red-grille__cartes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-red-semaine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-red-semaine--tension {
+  border-left: 4px solid var(--mp-danger);
+}
+
+.mp-red-semaine__titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  font-weight: 650;
+}
+
+.mp-red-semaine dl {
+  display: grid;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-red-semaine dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+}
+
+.mp-red-semaine dt {
+  color: var(--mp-texte-doux);
+}
+
+.mp-red-semaine dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .mp-red-grille__tableau {
+    display: block;
+  }
+  .mp-red-grille__cartes {
+    display: none;
+  }
+}
+
+/* ---------- Graphique des soldes ---------- */
+.mp-red-graphique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+}
+
+.mp-red-graphique__svg {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+  height: auto;
+  overflow: visible;
+}
+
+.mp-red-graphique__grille {
+  stroke: var(--mp-bordure);
+  stroke-width: 1;
+}
+
+.mp-red-graphique__graduation,
+.mp-red-graphique__abscisse {
+  fill: var(--mp-texte-doux);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-red-graphique__graduation {
+  text-anchor: end;
+}
+
+.mp-red-graphique__abscisse {
+  text-anchor: middle;
+}
+
+.mp-red-graphique__prevu {
+  fill: none;
+  stroke: var(--mp-texte-doux);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+
+.mp-red-graphique__retenu {
+  fill: none;
+  stroke: var(--mp-primaire);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mp-red-graphique__seuil {
+  stroke: var(--mp-danger);
+  stroke-width: 2;
+  stroke-dasharray: 2 4;
+}
+
+.mp-red-graphique__repere {
+  fill: var(--mp-primaire);
+  stroke: var(--mp-surface);
+  stroke-width: 1.5;
+}
+
+.mp-red-graphique__repere--tension {
+  fill: var(--mp-danger);
+}
+
+.mp-red-graphique__legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-red-legende {
+  display: inline-block;
+  width: 1.5rem;
+  height: 0;
+  margin-right: var(--mp-esp-1);
+  vertical-align: middle;
+  border-top: 3px solid var(--mp-primaire);
+}
+
+.mp-red-legende--prevu {
+  border-top: 2px dashed var(--mp-texte-doux);
+}
+
+.mp-red-legende--seuil {
+  border-top: 2px dotted var(--mp-danger);
+}
+
+/* ---------- Éditeur de lignes (prévision, échéancier) ---------- */
+.mp-red-lignes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-red-ligne {
+  display: grid;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  align-items: end;
+}
+
+.mp-red-ligne__reference {
+  grid-column: 1 / -1;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* ---------- Fil de négociation et événements ---------- */
+.mp-red-fil {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-red-evenement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-left: 4px solid var(--mp-primaire);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-red-evenement__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-red-evenement__titre {
+  margin: 0;
+  font-weight: 650;
+}
+
+.mp-red-evenement__texte {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ---------- Kanban : colonnes empilées sous 768 px ---------- */
+.mp-red-kanban {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+@media (min-width: 768px) {
+  .mp-red-kanban {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.mp-red-colonne {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+}
+
+.mp-red-colonne__titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 650;
+}
+
+.mp-red-colonne__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-red-action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-red-action__titre {
+  margin: 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-red-action__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  align-items: center;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-red-action__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+.mp-red-action__panneau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding-top: var(--mp-esp-3);
+  border-top: 1px solid var(--mp-bordure);
+}
+
+/* ---------- Simulation de levier ---------- */
+.mp-red-impact {
+  display: grid;
+  gap: var(--mp-esp-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  margin: 0;
+}
+
+.mp-red-impact > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-red-impact dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-red-impact dd {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

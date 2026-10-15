@@ -178,6 +178,30 @@ export const PERMISSIONS = [
   // revient à un associé (rôle, doublé en base : MPU02).
   "automatisation.lire", // catalogue, automatisations du cabinet, simulation, journal (AUT-01 à AUT-06)
   "automatisation.gerer", // créer, modifier, activer une automatisation ; couper ; annuler (AUT-02 à AUT-06)
+  // --- V3, vague 4 (lot 3c) : canaux externes simulés. `canaux.configurer` est à l'associé SEUL
+  // (il reçoit « tout » ; aucun autre rôle ne la détient, elle n'est pas dans RESERVEES_A_UN_ROLE).
+  "canaux.lire", // comptes, destinataires (numéros masqués), journal d'envois sans contenu, aperçu (CLI-07)
+  "canaux.gerer", // numéros, consentements recueillis, retraits, désactivation d'un canal
+  "canaux.configurer", // activer un compte de canal, options, simulateur : associé seul
+  "canaux.moi", // ses propres numéros et consentements (tous les rôles du cabinet sauf l'expert externe)
+  "signature.lire", // demandes de signature et dossiers de preuve (CLI-05)
+  "signature.demander", // créer, envoyer, annuler une demande de signature (CLI-05)
+  "transcription.lire", // lire et écouter une transcription (AGT-11)
+  "transcription.gerer", // téléverser un audio, corriger le texte (AGT-11)
+  "transcription.valider", // valider ou rejeter une transcription (AGT-11)
+  // --- V3, vague 4 (service #2, due diligence, SPEC-3b) : visibilité de la mission TOUJOURS exigée
+  // en plus pour ce qui s'y rattache ; ni ressources, ni gestionnaire, ni expert externe (données du
+  // client et jugement d'expert, comme `plan.lire`). Attributions provisoires (DECISIONS.md).
+  "dd.lire", // lire dossiers, analyses, hypothèses, verdicts, marché, filtrages, plan, notes, référentiels
+  "dd.ecrire", // saisir cadrage, analyses, hypothèses, verdicts proposés, marché, filtrages, plan, notes
+  "dd.valider", // valider ou rejeter un verdict ou une note ; décider d'une exclusion (tiers, MPZ25/26/28)
+  "dd.referentiel.gerer", // bibliothèque de signaux et listes d'exclusion du cabinet
+  // --- V3, vague 4 (PRD complémentaire §11.5) : redressement. Visibilité de la mission TOUJOURS
+  // exigée en plus ; ni ressources, ni gestionnaire, ni expert externe (données du client).
+  "redressement.lire", // dossier de redressement : ratios, urgence, scores, trésorerie, créanciers, plan, leviers, seuils
+  "redressement.ecrire", // ouvrir un dossier, saisir correspondance, urgence, trésorerie, créanciers, actions, versions de plan
+  "redressement.valider", // valider une version de plan, clore un dossier (autre que le créateur, sauf associé)
+  "redressement.parametrer", // rédiger et publier les seuils d'alerte par secteur (experts du cabinet)
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -186,6 +210,12 @@ export const PERMISSIONS = [
   "portail.kpi.saisir", // saisir les mesures des KPI dont on est contributeur désigné (V2, KPI-02)
   "portail.questionnaires.repondre", // répondre aux questionnaires reçus (V2, SOC-10)
   "portail.salle.deposer", // déposer les pièces demandées par le cabinet (V3, CLI-01)
+  // --- V3, vague 4 (lot 3c, ADR-008, ADR-010, ADR-013) : canaux externes SIMULÉS (aucun envoi réel).
+  // Visibilité de la mission TOUJOURS exigée en plus pour ce qui s'y rattache. Aucune de ces
+  // permissions ne donne `finance.lire` (coûts estimés absents sans ce droit : FIN-02).
+  "portail.canaux.gerer", // ses propres numéros et consentements (dirigeant et contributeur)
+  "portail.signature.signer", // ses demandes de signature (dirigeant client, CLI-05)
+  "portail.synthese.lire", // sa synthèse hebdomadaire (dirigeant client, CLI-07)
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -199,6 +229,9 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.kpi.saisir",
   "portail.questionnaires.repondre",
   "portail.salle.deposer",
+  "portail.canaux.gerer",
+  "portail.signature.signer",
+  "portail.synthese.lire",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -279,6 +312,22 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.gerer",
     "automatisation.lire",
     "automatisation.gerer",
+    // Canaux simulés (lot 3c) : tout, sauf la configuration (associé seul).
+    "canaux.lire",
+    "canaux.gerer",
+    "canaux.moi",
+    "signature.lire",
+    "signature.demander",
+    "transcription.lire",
+    "transcription.gerer",
+    "transcription.valider",
+    "dd.lire",
+    "dd.ecrire",
+    "dd.valider",
+    "dd.referentiel.gerer",
+    "redressement.lire",
+    "redressement.ecrire",
+    "redressement.valider",
   ],
   chef_mission: [
     "brief.lire",
@@ -330,6 +379,17 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.lire",
     "ao.gerer",
     "automatisation.lire",
+    "canaux.lire",
+    "canaux.moi",
+    "signature.lire",
+    "transcription.lire",
+    "transcription.gerer",
+    "transcription.valider",
+    "dd.lire",
+    "dd.ecrire",
+    "dd.valider",
+    "redressement.lire",
+    "redressement.ecrire",
   ],
   consultant: [
     "brief.lire",
@@ -363,6 +423,13 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "ao.lire",
     "ao.gerer",
+    "canaux.moi",
+    "transcription.lire",
+    "transcription.gerer",
+    "dd.lire",
+    "dd.ecrire",
+    "redressement.lire",
+    "redressement.ecrire",
   ],
   ressources: [
     "brief.lire",
@@ -384,6 +451,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "debours.saisir",
     "commentaire.ecrire",
     "tache.assigner",
+    "canaux.moi",
   ],
   gestionnaire: [
     "brief.lire",
@@ -414,6 +482,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "tache.assigner",
     // Offre financière d'un appel d'offres (AO-07) : avec finance.lire et taux.gerer.
     "ao.lire",
+    "canaux.moi",
+    "signature.lire",
   ],
   expert_metier: [
     "brief.lire",
@@ -444,6 +514,19 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.gerer",
     "qualite.relire",
     "ao.lire",
+    "canaux.moi",
+    "transcription.lire",
+    "transcription.gerer",
+    "transcription.valider",
+    // Second regard sur la due diligence : valide les verdicts et notes, tient les référentiels
+    // (signaux, listes d'exclusion), n'écrit pas le dossier (SPEC-3b §7).
+    "dd.lire",
+    "dd.valider",
+    "dd.referentiel.gerer",
+    // Relit un dossier de redressement et fixe les seuils d'alerte du cabinet (comme
+    // `standard.gerer`) ; n'écrit pas dans le dossier.
+    "redressement.lire",
+    "redressement.parametrer",
   ],
   expert_externe: ["temps.saisir", "debours.saisir", "commentaire.ecrire", "brief.lire"],
   // Portail client : lecture de SON entreprise, limitée aux partages explicites du cabinet ;
@@ -456,6 +539,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.kpi.saisir",
     "portail.questionnaires.repondre",
     "portail.salle.deposer",
+    "portail.canaux.gerer",
+    "portail.signature.signer",
+    "portail.synthese.lire",
   ],
   client_contributeur: [
     "portail.acceder",
@@ -463,6 +549,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.kpi.saisir",
     "portail.questionnaires.repondre",
     "portail.salle.deposer",
+    "portail.canaux.gerer",
   ],
   // Investisseur (lecture d'une notation, V3) : profil seulement d'ici là.
   client_investisseur: ["portail.acceder"],

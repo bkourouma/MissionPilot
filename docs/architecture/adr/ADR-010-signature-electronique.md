@@ -2,7 +2,7 @@
 
 ## Statut
 
-Proposé (fournisseur LOCAL seulement ; le choix du fournisseur réel et la valeur probante sont
+Accepté par l'utilisateur le 2026-10-14 (fournisseur LOCAL seulement ; le choix du fournisseur réel et la valeur probante sont
 OUVERTS : [SPEC-3c](../../workflows/specs/SPEC-3c-canaux-simules.md), §17, O-06, O-07, O-10).
 
 ## Date

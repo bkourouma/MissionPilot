@@ -2,8 +2,8 @@
 
 ## Statut
 
-Proposée (rédigée avec la spécification `docs/workflows/specs/SPEC-3b-due-diligence.md`,
-sous-chantier 3b de la vague 4 ; à accepter par l'utilisateur avant le code).
+Acceptée par l'utilisateur le 2026-10-14 (rédigée avec la spécification
+`docs/workflows/specs/SPEC-3b-due-diligence.md`, sous-chantier 3b de la vague 4).
 
 ## Date
 

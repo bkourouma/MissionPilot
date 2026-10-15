@@ -10,12 +10,15 @@ import { hrefMissionMethode } from "../../../../lib/methodes";
 import { hrefQualiteMission } from "../../../../lib/qualite";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { STATUT_MISSION } from "../../../../lib/missions";
+import { ongletsMissionCanaux } from "../../../../lib/navigation";
 import { chargerMission } from "../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../lib/session";
 
 /**
  * En-tête commun d'une mission et onglets Fiche / Découpage / Planning / Affectations /
- * Documents / Rapports / Suivi / Budget / Débours / Facturation (selon les droits), plus deux
+ * Documents / Rapports / KPI / Redressement / Due diligence / Suivi / Budget / Débours / Facturation
+ * (selon les droits), les onglets « Signatures » et « Transcriptions » des canaux simulés
+ * (`ongletsMissionCanaux`), plus deux
  * onglets qui mènent hors de la rubrique : « Méthode » (référentiel, `standard.lire`, page
  * `/methodes/missions/[id]`) et « Qualité » (suivi qualité des livrables de la mission, ouvert à
  * toute l'équipe : la consultation n'exige que `mission.lire`, comme l'API).
@@ -67,12 +70,19 @@ export default async function LayoutMission({
     ...(aPermission(utilisateur.roles, "plan.lire")
       ? [{ id: "plan", libelle: "Plan stratégique", href: `${base}/plan` }]
       : []),
+    ...(aPermission(utilisateur.roles, "dd.lire")
+      ? [{ id: "due-diligence", libelle: "Due diligence", href: `${base}/due-diligence` }]
+      : []),
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: `${base}/kpi` }]
+      : []),
+    ...(aPermission(utilisateur.roles, "redressement.lire")
+      ? [{ id: "redressement", libelle: "Redressement", href: `${base}/redressement` }]
       : []),
     ...(aPermission(utilisateur.roles, "preuve.lire")
       ? [{ id: "preuves", libelle: "Preuves", href: `${base}/preuves` }]
       : []),
+    ...ongletsMissionCanaux(utilisateur.roles, base),
     ...(aPermission(utilisateur.roles, "standard.lire")
       ? [{ id: "methode", libelle: "Méthode", href: hrefMissionMethode(m.id) }]
       : []),

@@ -1,5 +1,10 @@
 import { constants as zlibConstantes, inflateRawSync } from "node:zlib";
-import { EXTENSIONS_FICHIER, type TypeFichier } from "@missionpilot/shared";
+import {
+  EXTENSIONS_AUDIO,
+  EXTENSIONS_FICHIER,
+  type TypeAudio,
+  type TypeFichier,
+} from "@missionpilot/shared";
 import { AppError } from "../errors.js";
 
 /*
@@ -851,6 +856,48 @@ export function detecterType(
 ): { type: TypeFichier; extension: string } {
   const type = detecterContenu(contenu, extension);
   const admises = EXTENSIONS_FICHIER[type];
+  if (extension === "") return { type, extension: admises[0] as string };
+  if (!admises.includes(extension)) {
+    throw refusType("L'extension du nom ne correspond pas au contenu du fichier.");
+  }
+  return { type, extension };
+}
+
+/*
+ * Audio (lot 3c, SPEC-3c §4.4, décision du Pilote) : CHEMIN DÉDIÉ à la transcription. La liste
+ * blanche générale (`detecterType`, `POST /api/fichiers`) n'admet PAS l'audio : il n'apparaît dans
+ * aucun sélecteur de fichiers. Le type se détecte par le CONTENU (jamais par l'en-tête ni la seule
+ * extension) : OGG (« OggS », version 0), MP3 (« ID3 » ou trame 0xFF 0xFB|0xF3|0xF2), M4A (« ftyp »
+ * de marque « M4A », jamais une vidéo) et WAV (« RIFF…WAVE »). L'extension du nom doit correspondre.
+ */
+function typeAudioDetecte(contenu: Buffer): TypeAudio | null {
+  if (commencePar(contenu, ascii("OggS")) && contenu[4] === 0) return "audio/ogg";
+  if (
+    commencePar(contenu, ascii("ID3")) ||
+    (contenu.length >= 2 &&
+      contenu[0] === 0xff &&
+      [0xfb, 0xf3, 0xf2].includes(contenu[1] as number))
+  ) {
+    return "audio/mpeg";
+  }
+  if (commencePar(contenu, ascii("ftyp"), 4) && commencePar(contenu, ascii("M4A "), 8)) {
+    return "audio/mp4";
+  }
+  if (commencePar(contenu, ascii("RIFF")) && commencePar(contenu, ascii("WAVE"), 8)) {
+    return "audio/wav";
+  }
+  return null;
+}
+
+/** Type audio détecté par le contenu et contrôlé contre l'extension du nom, ou erreur 415. */
+export function detecterAudio(
+  contenu: Buffer,
+  extension: string,
+): { type: TypeAudio; extension: string } {
+  if (contenu.length === 0) throw new AppError(400, "FICHIER_VIDE", "Le fichier est vide.");
+  const type = typeAudioDetecte(contenu);
+  if (!type) throw refusType("Type audio non accepté (OGG, MP3, M4A ou WAV).");
+  const admises = EXTENSIONS_AUDIO[type];
   if (extension === "") return { type, extension: admises[0] as string };
   if (!admises.includes(extension)) {
     throw refusType("L'extension du nom ne correspond pas au contenu du fichier.");

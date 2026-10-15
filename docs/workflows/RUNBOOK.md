@@ -69,6 +69,10 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `OPENROUTER_BASE_URL`       | point d'accès OpenRouter (défaut `https://openrouter.ai/api/v1`) ; HTTPS obligatoire, HTTP admis pour la seule boucle locale | non |
 | `IA_TIMEOUT_MS`             | délai maximal d'un appel au modèle (défaut 60 000, de 1 000 à 300 000)                 | non                            |
 | `IA_PLAFOND_PLATEFORME_MICRO_USD` | plafond mensuel IA par cabinet payé par la plateforme, en µUSD (défaut 50 USD, au plus 100 000 USD) ; avec la clé de plateforme, plafond effectif = min(ce plafond, celui du cabinet) | non |
+| `WHATSAPP_FOURNISSEUR`, `SMS_FOURNISSEUR`, `TRANSCRIPTION_FOURNISSEUR` | canaux externes **simulés** (lot 3c) : `aucun` (défaut, canal absent) ou `simule` (boîte du simulateur, aucun envoi réel, aucune clé, aucun réseau) ; toute valeur autre que `aucun` est **refusée au démarrage** hors `NODE_ENV` local avec bases locales | jamais (interdit ; laisser `aucun`) |
+| `SIGNATURE_FOURNISSEUR`     | signature électronique **locale simulée** (sans valeur juridique) : `aucun` (défaut) ou `local` ; même refus hors développement local | jamais (interdit ; laisser `aucun`) |
+| `WHATSAPP_WEBHOOK_SECRET`   | secret HMAC du webhook entrant des canaux, 32 caractères minimum, ≠ `SESSION_SECRET`, `TFA_MASTER_KEY` et ancien secret ; obligatoire dès qu'un fournisseur de messagerie est actif ; en développement, valeur de développement ; jamais journalisé | oui avec un fournisseur actif (donc jamais aujourd'hui) |
+| `WHATSAPP_WEBHOOK_SECRET_PRECEDENT` | ancien secret du webhook pendant une rotation (32 caractères minimum, différent du courant)  | non                            |
 
 ### Comptes de démonstration
 
@@ -132,6 +136,18 @@ et ses deux factures émises (acompte soldé, solde réglé à 40 %). Le seed y
 ajoute une mission **en cours** (« Accompagnement à la mise en œuvre du plan
 Cacao Savane », budget figé), car une mission clôturée ne reçoit plus ni jalon,
 ni document, ni questionnaire, ni KPI. Contenu :
+
+### Comptes de démonstration avec double authentification (signature de bout en bout)
+
+Signer un document exige une double authentification **active** (409 `TFA_INACTIVE` sinon) ; les comptes ci-dessus n'en ont pas. `db:seed-demo` crée donc, en fin de course, deux comptes de plus, et `pnpm --filter @missionpilot/api db:seed-demo-2fa` les ajoute à une base **déjà peuplée** (code 2, rien d'écrit, s'ils existent) :
+
+| Compte (`@lagune-conseil.test`) | Nom               | Rôle             |
+| ------------------------------- | ----------------- | ---------------- |
+| `associe.2fa`                   | Fanta Doumbia     | Associé          |
+| `dirigeant.client.2fa`          | Salimata Bakayoko | Dirigeant client |
+
+La connexion rapide **refuse** ces comptes (`CONNEXION_RAPIDE_2FA`, elle ne contourne jamais la 2FA) : connexion par le formulaire avec l'adresse, le mot de passe commun, puis le code à 6 chiffres donné par `pnpm --filter @missionpilot/api db:code-2fa-demo`. Le secret TOTP est **constant et public** (`SECRET_2FA_DEMO_BASE32`, `apps/api/src/db/seed-demo-2fa.ts`) : recette locale seulement, jamais ailleurs ; pour une application d'authentification, le saisir comme clé de configuration manuelle. **Anti-rejeu** : un code n'est accepté qu'une fois ; après la connexion, attendre le pas de 30 s suivant et redemander le code avant de signer. Parcours : un associé demande la signature (Fanta Doumbia comme signataire du cabinet, Salimata Bakayoko comme signataire du client), chacun **consulte le document** puis signe en saisissant mot de passe et code.
+
 
 - **Partages** (faits par l'associé) : les deux missions avec jalons et
   factures, la lettre de mission et le livrable « Synthèse du diagnostic

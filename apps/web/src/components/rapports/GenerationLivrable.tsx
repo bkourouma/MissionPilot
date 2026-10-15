@@ -17,11 +17,14 @@ import { Bouton } from "../ui/Bouton";
 import {
   cheminGenerationLivrable,
   cheminListeLivrables,
+  avecVariante,
   filtrerLivrables,
   FORMATS_LIVRABLE,
   FORMATS_LIVRABLE_LIBELLES,
   libelleFormatLivrable,
   libelleStatutLivrable,
+  VARIANTES_LIVRABLE,
+  VARIANTES_LIVRABLE_LIBELLES,
   LIVRABLES,
   messageLivrable,
   messageLivrableCree,
@@ -30,6 +33,7 @@ import {
   type PageLivrables,
   type RapportLivrable,
   type TypeLivrable,
+  type VarianteLivrable,
 } from "./livrables";
 import "./rapports.css";
 
@@ -49,6 +53,11 @@ export interface GenerationLivrableProps {
    * Absente : la dernière publiée (notation), la dernière validée sinon la dernière (plan).
    */
   version?: number | null;
+  /**
+   * Génération impossible pour une raison métier connue d'avance (par exemple note sans version
+   * validée) : le message est affiché à la place de l'explication et le bouton est désactivé.
+   */
+  indisponible?: string;
 }
 
 interface Echec {
@@ -69,10 +78,12 @@ export function GenerationLivrable({
   id,
   cloturee = false,
   version,
+  indisponible,
 }: GenerationLivrableProps) {
   const cle = useId();
   const config = LIVRABLES[type];
   const [format, setFormat] = useState<FormatLivrable>("pdf");
+  const [variante, setVariante] = useState<VarianteLivrable>("executive");
   const [enCours, setEnCours] = useState<FormatLivrable | null>(null);
   const [secondes, setSecondes] = useState(0);
   const [echec, setEchec] = useState<Echec | null>(null);
@@ -118,14 +129,14 @@ export function GenerationLivrable({
   }, [cree]);
 
   async function generer(f: FormatLivrable) {
-    if (verrou.current || cloturee) return;
+    if (verrou.current || cloturee || indisponible) return;
     verrou.current = true;
     setEchec(null);
     setCree(null);
     setEnCours(f);
     try {
       const r = await api.post<LivrableCree>(
-        cheminGenerationLivrable(type, id, f, version),
+        cheminGenerationLivrable(type, id, f, version, variante),
         undefined,
         { delaiMs: DELAI_GENERATION_MS },
       );
@@ -155,7 +166,11 @@ export function GenerationLivrable({
         {annonce}
       </p>
 
-      {cloturee ? (
+      {indisponible ? (
+        <Alerte tonalite="info" titre="Rapport indisponible" annonce="aucune">
+          <p id={idAide}>{indisponible}</p>
+        </Alerte>
+      ) : cloturee ? (
         <Alerte tonalite="info" titre="Mission clôturée" annonce="aucune">
           <p id={idAide}>
             La génération est désactivée : une mission clôturée n&apos;évolue plus. Les rapports
@@ -168,7 +183,32 @@ export function GenerationLivrable({
         </p>
       )}
 
-      <fieldset className="mp-groupe" disabled={cloturee || occupe}>
+      {avecVariante(type) ? (
+        <fieldset className="mp-groupe" disabled={cloturee || occupe || Boolean(indisponible)}>
+          <legend className="mp-champ__libelle">Variante</legend>
+          <div className="mp-groupe__options mp-rapport-generation__formats">
+            {VARIANTES_LIVRABLE.map((v) => (
+              <div key={v} className="mp-case">
+                <input
+                  type="radio"
+                  className="mp-case__controle"
+                  id={`${cle}-v-${v}`}
+                  name={`${cle}-variante`}
+                  value={v}
+                  checked={variante === v}
+                  onChange={() => setVariante(v)}
+                />
+                <label htmlFor={`${cle}-v-${v}`} className="mp-case__libelle">
+                  {VARIANTES_LIVRABLE_LIBELLES[v].libelle}
+                  <span className="mp-case__aide">{VARIANTES_LIVRABLE_LIBELLES[v].aide}</span>
+                </label>
+              </div>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      <fieldset className="mp-groupe" disabled={cloturee || occupe || Boolean(indisponible)}>
         <legend className="mp-champ__libelle">Format du document</legend>
         <div className="mp-groupe__options mp-rapport-generation__formats">
           {FORMATS_LIVRABLE.map((f) => (
@@ -199,7 +239,7 @@ export function GenerationLivrable({
           icone="telechargement"
           chargement={occupe}
           texteChargement="Génération en cours…"
-          disabled={cloturee}
+          disabled={cloturee || Boolean(indisponible)}
           aria-describedby={idAide}
           onClick={() => void generer(format)}
         >
@@ -272,7 +312,7 @@ export function GenerationLivrable({
                 <li key={r.id} className="mp-liste-lignes__ligne mp-rapport">
                   <div className="mp-rapport__texte">
                     <p className="mp-rapport__titre">
-                      {`${config.titre} du ${date}`}
+                      {`${config.titre}${r.variante ? ` (${VARIANTES_LIVRABLE_LIBELLES[r.variante].libelle.toLowerCase()})` : ""} du ${date}`}
                       {r.version_source
                         ? ` — ${config.version.toLowerCase()} ${r.version_source}`
                         : ""}
