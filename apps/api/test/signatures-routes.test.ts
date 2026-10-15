@@ -154,7 +154,7 @@ describe("création et envoi", () => {
       objet: "lettre_mission",
       niveau: "simple_simulee",
       mode_fournisseur: "simule",
-      signataires_total: 0,
+      signataires_total: 2,
     });
     const doublon = await a.associe.post(url, corpsDemande(documentId));
     expect(doublon.statusCode).toBe(409);

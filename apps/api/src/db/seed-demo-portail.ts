@@ -53,7 +53,7 @@ import {
 
 export const CLIENT_PORTAIL_DEMO = "Cacao Savane Export (fictif)";
 
-interface ComptePortail {
+export interface ComptePortail {
   cle: string;
   role: "client_dirigeant" | "client_contributeur" | "client_investisseur";
   nom: string;
@@ -195,7 +195,7 @@ interface Cabinet {
 }
 
 /** Invitation par la vraie route, jeton connu du script, puis acceptation par la vraie route. */
-async function inviterEtAccepter(
+export async function inviterEtAccepter(
   app: FastifyInstance,
   database: Database,
   cabinetId: string,

@@ -72,7 +72,10 @@ interface LigneSignataire {
 }
 
 const COLONNES_DEMANDE = `d.id, d.mission_id, d.client_id, d.document_id, d.fichier_id, d.empreinte_document,
-  d.objet, d.ordre, d.statut, d.expire_le, d.signataires_total::int AS signataires_total,
+  d.objet, d.ordre, d.statut, d.expire_le,
+  CASE WHEN d.statut = 'brouillon'
+       THEN (SELECT count(*)::int FROM signatures_signataires sg WHERE sg.demande_id = d.id)
+       ELSE d.signataires_total::int END AS signataires_total,
   d.signataires_signes::int AS signataires_signes, d.demandeur_id, d.cree_le, d.envoyee_le,
   d.budget_version_id, d.mode_fournisseur, md.nom AS document_nom`;
 
