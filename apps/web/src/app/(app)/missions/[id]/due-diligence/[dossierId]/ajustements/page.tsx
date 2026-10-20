@@ -5,10 +5,12 @@ import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import {
+  CHAMP_AJUSTEMENT_LIBELLES,
   CIBLE_AJUSTEMENT_LIBELLES,
   cheminAjustements,
   filtrerAjustements,
   hrefEcranDossier,
+  libelleValeurAjustement,
   lireCibleAjustement,
   type AjustementDd,
 } from "../../../../../../../lib/due-diligence";
@@ -89,9 +91,21 @@ export default async function PageAjustementsDd({
               entete: "Cible",
               rendu: (a) => CIBLE_AJUSTEMENT_LIBELLES[a.cible_type],
             },
-            { cle: "champ", entete: "Champ" },
-            { cle: "valeur_avant", entete: "Avant" },
-            { cle: "valeur_apres", entete: "Après" },
+            {
+              cle: "champ",
+              entete: "Champ",
+              rendu: (a) => CHAMP_AJUSTEMENT_LIBELLES[a.champ] ?? a.champ,
+            },
+            {
+              cle: "valeur_avant",
+              entete: "Avant",
+              rendu: (a) => libelleValeurAjustement(a, a.valeur_avant),
+            },
+            {
+              cle: "valeur_apres",
+              entete: "Après",
+              rendu: (a) => libelleValeurAjustement(a, a.valeur_apres),
+            },
             { cle: "motif", entete: "Motif" },
             { cle: "cree_le", entete: "Date", rendu: (a) => formaterDateHeure(a.cree_le) },
           ]}

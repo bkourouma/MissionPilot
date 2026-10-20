@@ -177,9 +177,7 @@ export default async function PageHypotheseDd({
                 </p>
                 {v.decision ? (
                   <BadgeStatut tonalite={v.decision.decision === "valide" ? "succes" : "danger"}>
-                    {v.decision.decision === "valide"
-                      ? "Validé par un tiers"
-                      : "Rejeté par un tiers"}
+                    {v.decision.decision === "valide" ? "Validé" : "Rejeté"}
                   </BadgeStatut>
                 ) : (
                   <BadgeStatut tonalite="attention">En attente de validation</BadgeStatut>

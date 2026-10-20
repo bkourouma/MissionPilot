@@ -1490,3 +1490,34 @@ export function aplatirDossier(brut: DossierBrut): DossierDetail {
   const { cadrage, ...reste } = brut;
   return { ...cadrage, ...reste, ...(cadrage ?? {}) } as DossierDetail;
 }
+
+/** Champ d'un ajustement tracé, en français (le code technique n'est jamais affiché). */
+export const CHAMP_AJUSTEMENT_LIBELLES: Record<string, string> = {
+  verdict: "Verdict",
+  niveau: "Niveau de risque",
+  facteur: "Facteur d'ajustement",
+};
+
+/** Valeur avant ou après d'un ajustement : libellé français pour un verdict ou un niveau, sinon telle quelle. */
+export function libelleValeurAjustement(
+  a: Pick<AjustementDd, "cible_type" | "champ">,
+  valeur: string,
+): string {
+  if (a.cible_type === "verdict") {
+    return (VERDICT_DD_LIBELLES as Record<string, string>)[valeur] ?? valeur;
+  }
+  if (a.cible_type === "risque" && a.champ === "niveau") {
+    return (NIVEAU_RISQUE_DD_LIBELLES as Record<string, string>)[valeur] ?? valeur;
+  }
+  return valeur;
+}
+
+/** Phrase du jour courant d'un plan : avant la date d'opération, le nombre de jours restants. */
+export function phraseJourCourant(jour: number | null): string {
+  if (jour === null) return "";
+  if (jour < 0) {
+    const restants = -jour;
+    return ` L'opération n'a pas commencé : début dans ${restants} jour${restants > 1 ? "s" : ""}.`;
+  }
+  return ` Jour courant : ${jour}.`;
+}

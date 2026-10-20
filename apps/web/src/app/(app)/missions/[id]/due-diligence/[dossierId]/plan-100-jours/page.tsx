@@ -10,6 +10,7 @@ import {
   droitsDd,
   formaterBp,
   hrefEcranDossier,
+  phraseJourCourant,
   type ReponsePlan100j,
 } from "../../../../../../../lib/due-diligence";
 import { chargerChoixLiensPlan } from "../../../../../../../lib/due-diligence-serveur";
@@ -87,7 +88,7 @@ export default async function PagePlan100jDd({
               <p className="mp-dd-chiffre">{formaterBp(s.taux_realisation_bp)}</p>
               <p className="mp-texte-petit">
                 {`des actions sont terminées (${s.terminees} sur ${s.total}).`}
-                {s.jour_courant !== null ? ` Jour courant : ${s.jour_courant}.` : ""}
+                {phraseJourCourant(s.jour_courant)}
               </p>
               {s.en_retard.length > 0 ? (
                 <Alerte tonalite="danger" titre="Actions en retard" annonce="aucune">

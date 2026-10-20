@@ -25,6 +25,9 @@ import { ErreurApi } from "./api";
 import {
   aAvisExpert,
   aplatirDossier,
+  CHAMP_AJUSTEMENT_LIBELLES,
+  libelleValeurAjustement,
+  phraseJourCourant,
   chargerVersionCouranteListe,
   chargerVersionsListe,
   LIMITE_VERSIONS_LISTE_DD,
@@ -905,5 +908,25 @@ describe("exclusions antérieures non levées (R39)", () => {
     expect(phraseExclusionsAnterieures(3)).toMatch(
       /^3 exclusions confirmées .* restent bloquantes.$/,
     );
+  });
+});
+
+describe("ajustements et plan : aucun code brut, aucun nombre négatif inexpliqué", () => {
+  it("un verdict ou un niveau s'affiche en français", () => {
+    const verdict = { cible_type: "verdict", champ: "verdict" } as const;
+    const niveau = { cible_type: "risque", champ: "niveau" } as const;
+    const facteur = { cible_type: "dimensionnement", champ: "facteur" } as const;
+    expect(libelleValeurAjustement(verdict, "non_concluante")).not.toBe("non_concluante");
+    expect(libelleValeurAjustement(niveau, "critique")).not.toBe("critique");
+    expect(libelleValeurAjustement(facteur, "9000")).toBe("9000");
+    expect(libelleValeurAjustement(verdict, "inconnu")).toBe("inconnu");
+    expect(CHAMP_AJUSTEMENT_LIBELLES.verdict).toBe("Verdict");
+  });
+
+  it("le jour courant d'un plan avant l'opération dit combien de jours restent", () => {
+    expect(phraseJourCourant(null)).toBe("");
+    expect(phraseJourCourant(12)).toBe(" Jour courant : 12.");
+    expect(phraseJourCourant(-1)).toBe(" L'opération n'a pas commencé : début dans 1 jour.");
+    expect(phraseJourCourant(-132)).toContain("début dans 132 jours");
   });
 });

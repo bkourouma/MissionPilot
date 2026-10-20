@@ -33,7 +33,9 @@ import { ResultatUrgence } from "./ResultatUrgence";
 /**
  * Questionnaire d'urgence (RED-01) : 15 questions en 5 domaines, une fiche par domaine, quatre
  * boutons radio par question. Le compteur est annoncé poliment ; la durée passée sur la page est
- * envoyée avec les réponses. Les voyants et pourcentages sont ceux du moteur.
+ * envoyée avec les réponses. Les voyants et pourcentages sont ceux du moteur. Le résultat de
+ * l'évaluation reste en état local : la page ne doit PAS donner de `key` à ce composant (le
+ * rafraîchissement qui suit l'envoi le remonterait et effacerait le résultat et le formulaire).
  */
 export function QuestionnaireUrgence({
   dossierId,
