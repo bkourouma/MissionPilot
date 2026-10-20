@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ElementReponseCopilote, ReponseCopilote } from "@missionpilot/shared";
-import { libelleMode, lienSur } from "../../lib/copilote";
+import { libelleMode, libelleOutil, lienSur } from "../../lib/copilote";
 
 /** Éléments liés d'une réponse : libellés d'entités en texte brut, liens internes seulement. */
 export function ListeElements({ elements }: { elements: readonly ElementReponseCopilote[] }) {
@@ -23,8 +23,10 @@ export function ListeElements({ elements }: { elements: readonly ElementReponseC
  */
 export function ReponseVue({ reponse }: { reponse: ReponseCopilote }) {
   const mode = libelleMode(reponse);
+  const outil = reponse.statut === "ok" ? libelleOutil(reponse.outil) : null;
   return (
     <>
+      {outil ? <p className="mp-copilote__outil">{outil}</p> : null}
       <p>{reponse.texte}</p>
       <ListeElements elements={reponse.elements} />
       {mode ? <p className="mp-copilote__mode">{mode}</p> : null}

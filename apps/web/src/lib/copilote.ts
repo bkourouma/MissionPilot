@@ -2,6 +2,7 @@ import {
   aPermission,
   MESSAGE_COPILOTE_LONGUEUR_MAX,
   type ActionProposeeCopilote,
+  type IdentifiantOutilCopilote,
   type Permission,
   type ReponseCopilote,
   type ResultatActionCopilote,
@@ -30,8 +31,30 @@ export const INTERVALLE_EXPIRATION_MS = 15_000;
 
 export const MENTION_CONFIDENTIALITE =
   "Les réponses viennent de vos données, dans vos droits. Quand l'IA est activée par votre cabinet, " +
-  "votre question lui est envoyée après masquage des e-mails et numéros ; n'y saisissez pas de " +
-  "données confidentielles de clients.";
+  "votre question lui est envoyée après masquage des e-mails, des numéros et des noms de clients, " +
+  "de collaborateurs et de missions déjà enregistrés dans votre cabinet. Un nom qui n'est pas " +
+  "enregistré, un fragment de nom ou un texte libre ne sont pas masqués : n'y saisissez pas " +
+  "d'informations confidentielles. Cette conversation reste dans votre onglet, n'est pas " +
+  "envoyée au serveur et s'efface au bout de 30 minutes d'inactivité.";
+
+/** Libellés des outils (identiques à ceux du serveur). */
+export const LIBELLES_OUTILS: Readonly<Record<IdentifiantOutilCopilote, string>> = {
+  mes_taches: "Mes tâches",
+  mes_feuilles_temps: "Mes feuilles de temps",
+  resume_mission: "Résumé d'une mission",
+  kpi_rouges: "KPI au rouge",
+  factures_echues: "Factures échues",
+  recherche: "Recherche",
+  missions_en_retard: "Mes missions en retard",
+  retard_feuilles_temps: "Retards sur les feuilles de temps",
+  creer_tache: "Créer une tâche",
+  ajouter_commentaire: "Ajouter un commentaire",
+  planifier_relance: "Relancer une facture échue",
+};
+
+/** Libellé d'un outil ; null pour une réponse sans outil. */
+export const libelleOutil = (outil: IdentifiantOutilCopilote | null): string | null =>
+  outil ? LIBELLES_OUTILS[outil] : null;
 
 /* ----- Suggestions ----- */
 
@@ -45,6 +68,7 @@ export const SUGGESTIONS: readonly SuggestionCopilote[] = [
   { texte: "Quelles sont mes tâches en retard ?", permission: null },
   { texte: "Quelles feuilles de temps dois-je soumettre ?", permission: "temps.saisir" },
   { texte: "Quels KPI sont au rouge sur mes missions ?", permission: "kpi.lire" },
+  { texte: "Quelles sont mes missions en retard ?", permission: "mission.lire" },
   { texte: "Où en est la mission…", permission: "mission.lire" },
   // Comme l'outil du serveur : `facture.lire` ET (`encaissement.gerer` OU `indicateurs.cabinet`).
   {
@@ -52,7 +76,9 @@ export const SUGGESTIONS: readonly SuggestionCopilote[] = [
     permission: ["encaissement.gerer", "indicateurs.cabinet"],
   },
   { texte: "Cherche ", permission: "connaissance.lire" },
-  { texte: "Crée une tâche : ", permission: "tache.assigner" },
+  // Aucune action (créer une tâche, commenter, relancer) n'est proposée en dur : les exemples
+  // d'actions dépendent du niveau d'autonomie du cabinet et viennent de l'aide du serveur, qui
+  // n'en cite aucun quand les actions sont désactivées.
 ];
 
 /** Suggestions utiles à ces rôles (le serveur reste la source de vérité des droits). */
@@ -68,6 +94,16 @@ export function suggestionsPour(roles: readonly Role[]): string[] {
 export const estSuggestionComplete = (texte: string): boolean => !/[…:\s]$/.test(texte);
 
 /* ----- Saisie ----- */
+
+/**
+ * Contenu du champ après la réponse du serveur : vidé (même pour un refus ou « non compris ») si
+ * la requête a abouti et que le champ porte encore le texte envoyé ; conservé si la requête a
+ * échoué (pour renvoyer) ; jamais écrasé si l'utilisateur a déjà tapé autre chose entre-temps.
+ */
+export function saisieApresEnvoi(courante: string, envoye: string, abouti: boolean): string {
+  if (abouti) return courante.trim() === envoye ? "" : courante;
+  return courante === "" ? envoye : courante;
+}
 
 export type SaisieValidee = { ok: true; texte: string } | { ok: false; erreur: string };
 
@@ -192,6 +228,26 @@ export function etatApresErreur(e: unknown): EtatAction {
   return "erreur";
 }
 
+/** Après un refus ou une expiration, la reprise se fait en reformulant la demande. */
+export const peutReformuler = (etat: EtatAction): boolean =>
+  etat === "refusee" || etat === "expiree";
+
+export const TEXTE_REPRISE =
+  "Cette proposition n'est plus valable. Reformulez votre demande pour en obtenir une nouvelle.";
+
+export const TEXTE_PROPOSITION_EXPIREE =
+  "Proposition expirée au rechargement de la page : reformulez votre demande pour en obtenir une nouvelle.";
+
+/** Texte de la question de l'utilisateur qui précède l'entrée `id`, pour la reformuler. */
+export function questionAvant(fil: readonly EntreeFil[], id: string): string | null {
+  const i = fil.findIndex((e) => e.id === id);
+  for (let j = i - 1; j >= 0; j -= 1) {
+    const e = fil[j];
+    if (e?.auteur === "utilisateur") return e.texte;
+  }
+  return null;
+}
+
 /** Une proposition n'offre plus ses boutons une fois traitée. */
 export const peutDecider = (etat: EtatAction): boolean => etat === "proposee" || etat === "erreur";
 
@@ -211,6 +267,8 @@ export interface EntreeCopilote {
   etatAction: EtatAction | null;
   resultat: ResultatActionCopilote | null;
   erreurAction: string | null;
+  /** Conversation rechargée : la proposition d'action de cette réponse n'est plus valable. */
+  propositionExpiree?: boolean;
 }
 
 export interface EntreeErreur {

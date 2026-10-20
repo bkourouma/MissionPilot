@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReponseCopilote, Role } from "@missionpilot/shared";
+import { IDENTIFIANTS_OUTILS_COPILOTE } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import {
   actionDe,
@@ -17,6 +18,13 @@ import {
   libelleCompteur,
   libelleExpiration,
   libelleMode,
+  libelleOutil,
+  LIBELLES_OUTILS,
+  MENTION_CONFIDENTIALITE,
+  peutReformuler,
+  questionAvant,
+  saisieApresEnvoi,
+  SUGGESTIONS,
   lienSur,
   lireMissionContexte,
   majAction,
@@ -70,7 +78,7 @@ describe("suggestions selon les droits", () => {
 describe("suggestions à compléter", () => {
   it("part tout de suite si elle est complète, sinon remplit le champ", () => {
     expect(estSuggestionComplete("Quelles factures sont échues ?")).toBe(true);
-    for (const a of ["Où en est la mission…", "Cherche ", "Crée une tâche : "]) {
+    for (const a of ["Où en est la mission…", "Cherche ", "Ajoute un commentaire : "]) {
       expect(estSuggestionComplete(a), a).toBe(false);
     }
   });
@@ -255,5 +263,71 @@ describe("fil de conversation", () => {
     expect(fil).toHaveLength(FIL_MAX);
     expect(fil[0]?.id).toBe("q5");
     expect(borner(fil)).toHaveLength(FIL_MAX);
+  });
+});
+
+describe("aucune action proposée en dur", () => {
+  it("les suggestions sont des lectures : pas de création, commentaire ni relance", () => {
+    for (const x of SUGGESTIONS) {
+      expect(x.texte, x.texte).not.toMatch(/^(Crée|Ajoute|Relance|Planifie)/i);
+    }
+    expect(suggestionsPour(["associe" as Role]).some((x) => /tâche :/.test(x))).toBe(false);
+    expect(suggestionsPour(["associe" as Role])).toContain("Quelles sont mes missions en retard ?");
+    expect(suggestionsPour([])[0]).toBe("Quelles sont mes tâches en retard ?");
+  });
+});
+
+describe("champ de saisie après l'envoi", () => {
+  it("vidé quand le serveur répond, y compris pour un refus ou « non compris »", () => {
+    expect(saisieApresEnvoi("crée une tâche : x", "crée une tâche : x", true)).toBe("");
+    expect(saisieApresEnvoi("  texte  ", "texte", true)).toBe("");
+  });
+
+  it("conservé quand la requête échoue", () => {
+    expect(saisieApresEnvoi("texte", "texte", false)).toBe("texte");
+    expect(saisieApresEnvoi("", "texte", false)).toBe("texte");
+  });
+
+  it("ne remplace jamais ce que l'utilisateur a tapé entre-temps", () => {
+    expect(saisieApresEnvoi("autre", "texte", true)).toBe("autre");
+    expect(saisieApresEnvoi("autre", "texte", false)).toBe("autre");
+  });
+});
+
+describe("reprise après refus ou expiration", () => {
+  it("seuls un refus et une expiration proposent de reformuler", () => {
+    expect(peutReformuler("refusee")).toBe(true);
+    expect(peutReformuler("expiree")).toBe(true);
+    for (const e of ["proposee", "en_cours", "confirmee", "annulee", "erreur"] as const) {
+      expect(peutReformuler(e)).toBe(false);
+    }
+  });
+
+  it("retrouve la question qui précède la réponse", () => {
+    let fil = ajouterQuestion([], "q1", "première");
+    fil = ajouterReponse(fil, "r1", reponse());
+    fil = ajouterQuestion(fil, "q2", "seconde");
+    fil = ajouterReponse(fil, "r2", reponse());
+    expect(questionAvant(fil, "r1")).toBe("première");
+    expect(questionAvant(fil, "r2")).toBe("seconde");
+    expect(questionAvant(fil, "q1")).toBeNull();
+    expect(questionAvant(fil, "inconnu")).toBeNull();
+  });
+});
+
+describe("libellés des outils et confidentialité", () => {
+  it("chaque outil du schéma partagé a son libellé français", () => {
+    expect(Object.keys(LIBELLES_OUTILS).sort()).toEqual([...IDENTIFIANTS_OUTILS_COPILOTE].sort());
+    expect(libelleOutil("missions_en_retard")).toBe("Mes missions en retard");
+    expect(libelleOutil("retard_feuilles_temps")).toBe("Retards sur les feuilles de temps");
+    expect(libelleOutil("ajouter_commentaire")).toBe("Ajouter un commentaire");
+    expect(libelleOutil("planifier_relance")).toBe("Relancer une facture échue");
+    expect(libelleOutil(null)).toBeNull();
+  });
+
+  it("la mention distingue noms enregistrés (masqués) et texte libre (non masqué)", () => {
+    expect(MENTION_CONFIDENTIALITE).toContain("déjà enregistrés");
+    expect(MENTION_CONFIDENTIALITE).toContain("ne sont pas masqués");
+    expect(MENTION_CONFIDENTIALITE).toContain("informations confidentielles");
   });
 });

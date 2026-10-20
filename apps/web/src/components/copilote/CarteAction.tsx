@@ -8,6 +8,8 @@ import {
   LIBELLES_ETAT_ACTION,
   libelleExpiration,
   peutDecider,
+  peutReformuler,
+  TEXTE_REPRISE,
   type EtatAction,
 } from "../../lib/copilote";
 import { Alerte } from "../ui/Alerte";
@@ -32,6 +34,8 @@ export interface CarteActionProps {
   erreur: string | null;
   onConfirmer: () => void;
   onAnnuler: () => void;
+  /** Remet la demande de l'utilisateur dans le champ de saisie (reprise après refus ou expiration). */
+  onReformuler?: () => void;
 }
 
 /**
@@ -47,6 +51,7 @@ export function CarteAction({
   erreur,
   onConfirmer,
   onAnnuler,
+  onReformuler,
 }: CarteActionProps) {
   const [maintenant, setMaintenant] = useState(() => new Date());
   const ouverte = peutDecider(etat);
@@ -104,15 +109,24 @@ export function CarteAction({
           </Bouton>
         </div>
       ) : null}
-      {resultat || (!ouverte && etat !== "en_cours") ? (
+      {/* Le statut ne s'affiche qu'une fois (le badge) ; le texte ne vient que du serveur. */}
+      {resultat ? (
         <Alerte
           ref={resultatRef}
           tonalite={etat === "confirmee" ? "succes" : etat === "annulee" ? "info" : "attention"}
           annonce="status"
         >
-          <p>{resultat?.texte ?? LIBELLES_ETAT_ACTION[etat]}</p>
-          {resultat ? <ListeElements elements={resultat.elements} /> : null}
+          <p>{resultat.texte}</p>
+          <ListeElements elements={resultat.elements} />
         </Alerte>
+      ) : null}
+      {!resultat && onReformuler && peutReformuler(etatAffiche) ? (
+        <div ref={resultatRef} tabIndex={-1} className="mp-copilote__reprise" role="status">
+          {erreur ? null : <p>{TEXTE_REPRISE}</p>}
+          <Bouton variante="secondaire" onClick={onReformuler}>
+            Reformuler
+          </Bouton>
+        </div>
       ) : null}
     </section>
   );
