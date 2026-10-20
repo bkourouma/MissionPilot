@@ -6,6 +6,7 @@ import {
   CorrectionPoint,
   FormulairePoint,
 } from "../../../../../../../components/due-diligence/FormulairesPoint";
+import { EncartModeleSecteur } from "../../../../../../../components/due-diligence/EncartModeleSecteur";
 import { BadgeSolidite } from "../../../../../../../components/preuves/BadgeSolidite";
 import { BadgeStatut } from "../../../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../../../components/ui/Carte";
@@ -24,6 +25,10 @@ import {
   peutSignerAvisDd,
   type ReponseAnalyses,
 } from "../../../../../../../lib/due-diligence";
+import {
+  cheminModelesDuDossier,
+  type ModelesDuDossier,
+} from "../../../../../../../lib/due-diligence-modeles";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
@@ -47,7 +52,11 @@ export default async function PageAnalysesDd({
   if (!mission.ok) return null;
   const droits = droitsDd(utilisateur.roles, mission.donnees);
   const analyse = lireAnalyse(await searchParams, ANALYSES_DD);
-  const r = await chargerServeur<ReponseAnalyses>(cheminAnalyses(dossierId, analyse));
+  const [r, modeles] = await Promise.all([
+    chargerServeur<ReponseAnalyses>(cheminAnalyses(dossierId, analyse)),
+    // Modèle du cabinet pour le secteur du dossier (DD-07) : aucun encart sans modèle ou en cas d'erreur.
+    chargerServeur<ModelesDuDossier>(cheminModelesDuDossier(dossierId, analyse)),
+  ]);
   const peutSigner = peutSignerAvisDd(utilisateur.roles);
   const bloc = r.ok ? r.donnees.analyses.find((a) => a.analyse === analyse) : undefined;
 
@@ -80,6 +89,7 @@ export default async function PageAnalysesDd({
           <p className="mp-texte-doux">
             {`Couverture du dossier : ${r.donnees.couverture.points} point(s), dont ${r.donnees.couverture.solides} solide(s), ${r.donnees.couverture.etayes} étayé(s) et ${r.donnees.couverture.fragiles} fragile(s).`}
           </p>
+          {modeles.ok ? <EncartModeleSecteur modeles={modeles.donnees.elements} /> : null}
           <div className="mp-dd-categories">
             {CATEGORIES_ANALYSE_DD[analyse].map((categorie) => {
               const points = bloc?.categories.find((c) => c.categorie === categorie)?.points ?? [];

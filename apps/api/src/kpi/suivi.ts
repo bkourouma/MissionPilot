@@ -5,6 +5,11 @@ import type { HandlerJob } from "../jobs/registre.js";
 import { ErreurJobDefinitive } from "../jobs/erreurs.js";
 import { aujourdhui } from "../missions/outils.js";
 import { envoyerEmails, notifier, type NotificationCreee } from "../notifications/notifier.js";
+import {
+  creerCanalAlertesKpi,
+  type CanalAlertesKpi,
+  type DependancesAlertesKpi,
+} from "../canaux/alertes-kpi.js";
 import { destinatairesKpiAutorises } from "./acces.js";
 import {
   ciblesDe,
@@ -36,6 +41,24 @@ import { detailsAlerte } from "./vues.js";
  * - Tâche quotidienne « kpi_suivi » (clé kpi_suivi:AAAA-MM-JJ, 7 h UTC) :
  *   évalue tous les KPI actifs des missions non clôturées du cabinet.
  *   Idempotente : relancée, elle ne recrée ni alerte ni rappel.
+ *
+ * Valeurs reçues par messagerie (KPI-14, lot 3c, O-26 côté « saisie ») : rien à brancher ici. Une
+ * proposition reçue par WhatsApp n'est jamais une mesure ; reprise par le cabinet
+ * (`canaux/saisies-kpi.ts`, `reprendreSaisie`), elle devient une ligne ordinaire de `kpi_mesures`
+ * (origine « cabinet ») que `mesuresActivesDe` lit et que le moteur évalue comme toute autre : seuils,
+ * dégradation, « MESURE_EN_RETARD » et rappels en tiennent compte sans cas particulier. La
+ * provenance reste traçable sans rien changer à la sémantique : commentaire de la mesure « Reçu par
+ * WhatsApp… » et jointure `canaux_saisies_kpi.mesure_id` (statut « reprise », origine texte ou vocal).
+ *
+ * Alertes SORTANTES par WhatsApp (SPEC-3c §17 O-26, KPI-06) : après l'enregistrement d'une alerte
+ * (`enregistrerAlertes`) et pour le rappel de mesure (`envoyerRappel`), les responsables INTERNES
+ * déjà retenus pour la notification reçoivent, si le cabinet l'a activé (option `alerte_kpi` du
+ * compte WhatsApp, `0549`, désactivée par défaut), un message du gabarit `alerte_kpi` sans valeur
+ * chiffrée (`canaux/alertes-kpi.ts`). Le canal est INJECTÉ (`OptionsSuivi.canal`) : sans lui,
+ * `suivreKpis` ne touche à aucun canal. Son bloc ne fait jamais échouer la transaction (point de
+ * sauvegarde) et ne fait que mettre l'envoi en file. Une alerte « MESURE_EN_RETARD » ne part pas
+ * seule par WhatsApp : le rappel du même passage la couvre (pas de double message). Un message par
+ * KPI et par passage au plus pour les alertes, clés stables par alerte et par rappel.
  */
 
 export const TYPE_JOB_SUIVI_KPI = "kpi_suivi";
@@ -79,14 +102,22 @@ function responsables(k: KpiSuivi): string[] {
   return [...new Set(ids)];
 }
 
+/** Canal facultatif des alertes WhatsApp et horloge du passage (jamais lus sans canal). */
+interface SortieCanal {
+  canal?: CanalAlertesKpi | undefined;
+  maintenant: Date;
+}
+
 async function enregistrerAlertes(
   db: Db,
   cabinetId: string,
   k: KpiSuivi,
   alertes: readonly AlerteDatee[],
+  sortie: SortieCanal,
 ): Promise<NotificationCreee[]> {
   const notifications: NotificationCreee[] = [];
   let destinataires: string[] | null = null;
+  let alerteWhatsApp: string | null = null;
   for (const a of alertes) {
     const r = await db.query(
       `INSERT INTO kpi_alertes (cabinet_id, kpi_id, code, periode_cle, details)
@@ -96,6 +127,7 @@ async function enregistrerAlertes(
     );
     if (!r.rows[0]) continue;
     destinataires ??= await destinatairesKpiAutorises(db, k.def.mission_id, responsables(k));
+    if (a.alerte.code !== "MESURE_EN_RETARD") alerteWhatsApp ??= r.rows[0].id as string;
     for (const destinataireId of destinataires) {
       const n = await notifier(db, {
         cabinetId,
@@ -109,6 +141,15 @@ async function enregistrerAlertes(
       if (n) notifications.push(n);
     }
   }
+  if (sortie.canal && alerteWhatsApp && destinataires) {
+    await sortie.canal.alerter(db, {
+      cabinetId,
+      objetId: alerteWhatsApp,
+      nature: "alerte",
+      utilisateurIds: destinataires,
+      maintenant: sortie.maintenant,
+    });
+  }
   return notifications;
 }
 
@@ -117,6 +158,7 @@ async function envoyerRappel(
   cabinetId: string,
   k: KpiSuivi,
   periodeCle: string,
+  sortie: SortieCanal,
 ): Promise<NotificationCreee[]> {
   // Contributeur joignable : compte actif, accès au portail actif, entreprise cliente active.
   const c = await db.query(
@@ -141,6 +183,7 @@ async function envoyerRappel(
     [cabinetId, k.def.id, periodeCle, contributeurs.length + internes.length],
   );
   if (!r.rows[0]) return [];
+  const rappelId = r.rows[0].id as string;
   const notifications: NotificationCreee[] = [];
   const envoyer = async (destinataireId: string, lien: string) => {
     const n = await notifier(db, {
@@ -156,6 +199,16 @@ async function envoyerRappel(
   };
   for (const id of contributeurs) await envoyer(id, `/portail/kpi/${k.def.id}`);
   for (const id of internes) await envoyer(id, `/missions/${k.def.mission_id}/kpi`);
+  // WhatsApp : aux seuls responsables internes (jamais aux contributeurs du portail).
+  if (sortie.canal) {
+    await sortie.canal.alerter(db, {
+      cabinetId,
+      objetId: rappelId,
+      nature: "rappel",
+      utilisateurIds: internes,
+      maintenant: sortie.maintenant,
+    });
+  }
   return notifications;
 }
 
@@ -167,6 +220,10 @@ export interface OptionsSuivi {
    * saisie ne crée pas de retard) ; ni alerte de retard ni rappel.
    */
   apresSaisie?: boolean;
+  /** Alertes WhatsApp vers les responsables internes (O-26) ; absent : aucun canal n'est touché. */
+  canal?: CanalAlertesKpi;
+  /** Instant du passage (défaut : maintenant), horloge des envois mis en file. */
+  maintenant?: Date;
 }
 
 /**
@@ -186,6 +243,10 @@ export async function suivreKpis(
   const cibles = parKpi(await ciblesDe(db, ids));
   const mesures = parKpi(await mesuresActivesDe(db, ids));
   const notifications: NotificationCreee[] = [];
+  const sortie: SortieCanal = {
+    canal: options.canal,
+    maintenant: options.maintenant ?? new Date(),
+  };
   for (const k of kpis) {
     let alertes: AlerteDatee[];
     try {
@@ -200,11 +261,11 @@ export async function suivreKpis(
       if (error instanceof ErreurKpi) continue;
       throw error;
     }
-    notifications.push(...(await enregistrerAlertes(db, cabinetId, k, alertes)));
+    notifications.push(...(await enregistrerAlertes(db, cabinetId, k, alertes, sortie)));
     const retard = alertes.find((a) => a.alerte.code === "MESURE_EN_RETARD");
     const rappels = !options.apresSaisie && params.rappels_actifs && k.def.rappels_actifs;
     if (retard && rappels) {
-      notifications.push(...(await envoyerRappel(db, cabinetId, k, retard.periode_cle)));
+      notifications.push(...(await envoyerRappel(db, cabinetId, k, retard.periode_cle, sortie)));
     }
   }
   return notifications;
@@ -213,13 +274,14 @@ export async function suivreKpis(
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Handler de la tâche « kpi_suivi » : charge { date: AAAA-MM-JJ } (défaut : jour du worker). */
-export function creerHandlerSuiviKpi(): HandlerJob {
+export function creerHandlerSuiviKpi(dependances?: DependancesAlertesKpi): HandlerJob {
+  const canal = creerCanalAlertesKpi(dependances);
   return async (ctx) => {
     const date = ctx.charge.date ?? ctx.maintenant.toISOString().slice(0, 10);
     if (typeof date !== "string" || !DATE.test(date)) {
       throw new ErreurJobDefinitive("Charge de la tâche kpi_suivi invalide.");
     }
-    return suivreKpis(ctx.db, ctx.cabinetId, date);
+    return suivreKpis(ctx.db, ctx.cabinetId, date, { canal, maintenant: ctx.maintenant });
   };
 }
 
@@ -269,7 +331,11 @@ export async function evaluerApresSaisie(
 ): Promise<void> {
   try {
     const notifications = await app.db.withTenant(cabinetId, (db) =>
-      suivreKpis(db, cabinetId, aujourdhui(), { kpiIds: [kpiId], apresSaisie: true }),
+      suivreKpis(db, cabinetId, aujourdhui(), {
+        kpiIds: [kpiId],
+        apresSaisie: true,
+        canal: creerCanalAlertesKpi(() => ({ config: app.config })),
+      }),
     );
     await envoyerEmails(app.mailer, notifications, (m) => log.warn(m));
   } catch (error) {

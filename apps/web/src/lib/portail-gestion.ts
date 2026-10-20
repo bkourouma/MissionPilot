@@ -186,7 +186,7 @@ export const ROLE_PORTAIL_DESCRIPTIONS: Record<RoleClient, string> = {
   client_contributeur:
     "Voit les missions, jalons et livrables partagés et répond aux questionnaires ; il ne voit pas les factures.",
   client_investisseur:
-    "Vue restreinte : son profil seulement, sans missions, jalons, livrables ni factures.",
+    "Consulte les notes de due diligence que le cabinet lui communique, en lecture seule ; il ne voit ni missions, ni jalons, ni livrables, ni factures.",
 };
 
 export const OPTIONS_ROLES_PORTAIL = ROLES_CLIENT.map((r) => ({

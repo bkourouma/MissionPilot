@@ -9,7 +9,7 @@ import { buildApp } from "../src/app.js";
 import { createDatabase } from "../src/db/pool.js";
 import { creerCanaux } from "../src/canaux/fabrique.js";
 import { configTest, MOT_DE_PASSE_TEST, proprietaire } from "./helpers.js";
-import { attendre } from "./portail-outils.js";
+import { attendre, inviterClient } from "./portail-outils.js";
 import { fabriquerAudioDeTest } from "./audio-test.js";
 import { televerser } from "./fichiers-outils.js";
 import {
@@ -185,6 +185,46 @@ describe("destinataires et vérification (n° 3 à 7)", () => {
           e.utilisateur_id === a.dirigeant.utilisateurId && e.canal === "sms",
       );
     expect(sms).toMatchObject({ id: null, numero_masque: null, consentement: "absent" });
+  });
+
+  it("aperçu de la synthèse : `destinataire_id` est l'identifiant de l'UTILISATEUR ; un dirigeant sans numéro enregistré (liste : id nul) a un aperçu, la ligne de destinataire est refusée (404)", async () => {
+    const sansNumero = await inviterClient(ctx, a.associe, a.clientId, ["client_dirigeant"]);
+    const liste = await a.associe.get(
+      `/api/canaux/destinataires?client_id=${a.clientId}&limite=100`,
+    );
+    attendre(200, liste, "liste");
+    const lignes = liste
+      .json()
+      .elements.filter(
+        (e: { utilisateur_id: string }) => e.utilisateur_id === sansNumero.utilisateurId,
+      );
+    expect(lignes.length).toBeGreaterThan(0);
+    for (const l of lignes) expect(l).toMatchObject({ id: null, numero_masque: null });
+    const envois = () =>
+      proprietaire(
+        async (c) =>
+          (await c.query("SELECT count(*)::int AS n FROM canaux_envois")).rows[0].n as number,
+      );
+    const avant = await envois();
+    const apercu = await a.associe.get(
+      `/api/canaux/synthese-dirigeant/apercu?client_id=${a.clientId}&destinataire_id=${sansNumero.utilisateurId}`,
+    );
+    attendre(200, apercu, "aperçu sans numéro");
+    expect(apercu.json()).toMatchObject({ mode_fournisseur: "simule" });
+    expect(await envois()).toBe(avant);
+    // Un identifiant de ligne `canaux_destinataires` n'est pas un identifiant d'utilisateur : 404.
+    const ligne = (
+      await a.associe.get(`/api/canaux/destinataires?client_id=${a.clientId}&limite=100`)
+    )
+      .json()
+      .elements.find((e: { id: string | null }) => e.id !== null) as { id: string };
+    expect(
+      (
+        await a.associe.get(
+          `/api/canaux/synthese-dirigeant/apercu?client_id=${a.clientId}&destinataire_id=${ligne.id}`,
+        )
+      ).statusCode,
+    ).toBe(404);
   });
 
   it("enregistrer un numéro : seulement un utilisateur du portail du client (404 sinon), numéro réel 400, 403 sans canaux.gerer", async () => {

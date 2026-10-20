@@ -393,6 +393,7 @@ const champsCompte = {
   relance_questionnaire_j10: z.boolean().optional(),
   synthese_hebdo: z.boolean().optional(),
   saisie_kpi: z.boolean().optional(),
+  alerte_kpi: z.boolean().optional(),
 };
 export const CHAMPS_COMPTE_CANAL = [
   "actif",
@@ -400,6 +401,7 @@ export const CHAMPS_COMPTE_CANAL = [
   "relance_questionnaire_j10",
   "synthese_hebdo",
   "saisie_kpi",
+  "alerte_kpi",
 ] as const;
 
 /**
@@ -580,6 +582,7 @@ export interface CompteCanalApi {
   readonly relance_questionnaire_j10: boolean;
   readonly synthese_hebdo: boolean;
   readonly saisie_kpi: boolean;
+  readonly alerte_kpi: boolean;
   readonly modifie_le: string | null;
 }
 

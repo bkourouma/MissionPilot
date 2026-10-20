@@ -34,9 +34,9 @@ const routesDd = () =>
 const concret = (motif: string) => motif.replace(/:[A-Za-z_]+/g, INCONNU);
 
 describe("inventaire", () => {
-  it("53 routes (R01 à R53), aucune en PUT, PATCH ou DELETE", () => {
+  it("67 routes (R01 à R53, 6 des modèles sectoriels DD-07, 8 du portail investisseur), aucune en PUT, PATCH ou DELETE", () => {
     const routes = routesDd();
-    expect(routes).toHaveLength(53);
+    expect(routes).toHaveLength(67);
     expect(routes.filter((r) => !["GET", "POST"].includes(r.methode))).toEqual([]);
   });
 
@@ -58,7 +58,8 @@ describe("inventaire", () => {
         expect(/exiger/.test(corps), `${f} ${x.chemin}`).toBe(true);
       });
     }
-    expect(n).toBe(53);
+    // R01 à R53, 6 gestionnaires des modèles sectoriels (DD-07) et ceux des fichiers due-diligence-portail*.
+    expect(n).toBe(70);
   });
 });
 

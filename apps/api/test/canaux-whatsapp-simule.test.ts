@@ -228,7 +228,11 @@ describe("CanalWhatsAppSimule : webhook", () => {
       code: "MEDIA_INTROUVABLE",
     });
     c.deposerMedia("cpt-test-1", "media-1", { contenu: Buffer.from("x"), typeMime: "audio/ogg" });
-    expect((await c.telechargerMedia("cpt-test-1", "media-1")).typeMime).toBe("audio/ogg");
+    const media = await c.telechargerMedia("cpt-test-1", "media-1");
+    expect(media.typeMime).toBe("audio/ogg");
+    const blocs: Uint8Array[] = [];
+    for await (const bloc of media.flux) blocs.push(bloc);
+    expect(Buffer.concat(blocs).toString()).toBe("x"); // rendu en flux, jamais en bloc
   });
 });
 

@@ -65,6 +65,9 @@ export function SignaturePortail({
           >
             <Icone nom="oeil" taille={18} />
             <span>Lire le document (nouvel onglet)</span>
+          </a>{" "}
+          <a className="mp-lien-action" href={hrefDocumentSignaturePortail(signatureId)} download>
+            <span>Télécharger</span>
           </a>
         </p>
       ) : (

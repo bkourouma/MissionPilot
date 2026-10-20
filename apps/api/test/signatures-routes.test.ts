@@ -48,6 +48,21 @@ const confirmation = async (utilisateurId: string, secret: string) => {
   return { mot_de_passe: MOT_DE_PASSE_TEST, code: code(secret) };
 };
 
+/**
+ * Lecture du document d'une demande de signature : dans le navigateur (`inline`, type fixé par le
+ * serveur), jamais mise en cache, sans reniflage, et SANS CSP `sandbox` (la visionneuse PDF du
+ * navigateur refuse un document sandboxé).
+ */
+function attendreLectureEnLigne(entetes: Record<string, unknown>): void {
+  expect(entetes["content-type"]).toBe("application/pdf");
+  expect(String(entetes["content-disposition"])).toMatch(/^inline; filename="/);
+  expect(entetes["x-content-type-options"]).toBe("nosniff");
+  expect(entetes["cache-control"]).toBe("private, no-store");
+  const csp = String(entetes["content-security-policy"]);
+  expect(csp).toContain("default-src 'none'");
+  expect(csp).not.toContain("sandbox");
+}
+
 async function pdf(
   nom: string,
   type: "lettre_de_mission" | "autre" = "lettre_de_mission",
@@ -234,7 +249,9 @@ describe("signature (G-04, G-06, G-12)", () => {
     );
     expect(sansLecture.statusCode).toBe(409);
     expect(sansLecture.json().erreur.code).toBe("DOCUMENT_NON_CONSULTE");
-    attendre(200, await a.directeur.get(`/api/signatures/${id}/document`), "lecture du document");
+    const lectureCabinet = await a.directeur.get(`/api/signatures/${id}/document`);
+    attendre(200, lectureCabinet, "lecture du document");
+    attendreLectureEnLigne(lectureCabinet.headers);
     // Un directeur qui n'est pas signataire : 404 (même sans 2FA).
     const chefSansTfa = await a.avecRoles(["directeur_mission"]);
     expect(
@@ -281,11 +298,9 @@ describe("signature (G-04, G-06, G-12)", () => {
       ).statusCode,
     ).toBe(409);
     // Le dirigeant du client, par le portail : lit le document puis signe.
-    attendre(
-      200,
-      await a.dirigeant.get(`/api/portail/signatures/${id}/document`),
-      "document du portail",
-    );
+    const lecturePortail = await a.dirigeant.get(`/api/portail/signatures/${id}/document`);
+    attendre(200, lecturePortail, "document du portail");
+    attendreLectureEnLigne(lecturePortail.headers);
     const s2 = await a.dirigeant.post(
       `/api/portail/signatures/${id}/signer`,
       await confirmation(a.dirigeant.utilisateurId, secretDirigeant),

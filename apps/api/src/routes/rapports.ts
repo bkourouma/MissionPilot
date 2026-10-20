@@ -291,7 +291,12 @@ export const routesRapports: FastifyPluginAsync = async (app) => {
         rapport,
         niveau: "dd",
         missionId: source.missionId,
-        source: { noteId: source.noteId, variante: source.variante, version: source.version },
+        source: {
+          noteId: source.noteId,
+          variante: source.variante,
+          version: source.version,
+          titreNote: source.titre,
+        },
       };
     });
     reply.status(201);

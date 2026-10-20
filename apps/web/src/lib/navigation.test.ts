@@ -340,6 +340,7 @@ describe("sous-pages", () => {
     expect(sousPageActive(pages, "/parametres/due-diligence")).toBe("due-diligence");
     expect(sousPageActive(pages, "/parametres/due-diligence/signaux")).toBe("due-diligence");
     expect(sousPageActive(pages, "/parametres/due-diligence/exclusions")).toBe("due-diligence");
+    expect(sousPageActive(pages, "/parametres/due-diligence/modeles")).toBe("due-diligence");
   });
 
   it("paramètres : l'onglet actif est le plus long préfixe (cloture-mission n'est pas cloture)", () => {

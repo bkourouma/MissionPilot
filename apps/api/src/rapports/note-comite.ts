@@ -68,6 +68,7 @@ export interface SourceNote {
   noteId: string;
   version: number;
   variante: VarianteNote;
+  titre: string;
 }
 
 const ENTIER = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
@@ -638,7 +639,13 @@ export async function rapportNoteComite(
     construireSection(code, base, contenu, variante),
   );
   return {
-    source: { missionId: mission.id, noteId: note.id, version: validee, variante },
+    source: {
+      missionId: mission.id,
+      noteId: note.id,
+      version: validee,
+      variante,
+      titre: note.titre,
+    },
     rapport: {
       titre: "Note au comité",
       sous_titre: sousTitreRapport(note.titre, entete.client),

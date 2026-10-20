@@ -135,6 +135,15 @@ export const LISTE_BLANCHE_PORTAIL: readonly RouteOuverte[] = [
   { methodes: POST, motif: "/api/portail/signatures/:id/signer" },
   { methodes: POST, motif: "/api/portail/signatures/:id/refuser" },
   { methodes: LECTURE, motif: "/api/portail/synthese" },
+  // Portail investisseur de la due diligence (routes/due-diligence-portail-investisseur.ts,
+  // migration 0509) : LECTURE SEULE des notes validées publiées sur les dossiers où le compte est
+  // invité, et de leurs pièces. Toutes les routes /api/dd/** du cabinet restent fermées.
+  { methodes: LECTURE, motif: "/api/portail/due-diligence/publications" },
+  { methodes: LECTURE, motif: "/api/portail/due-diligence/publications/:id" },
+  {
+    methodes: LECTURE,
+    motif: "/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier",
+  },
 ];
 
 /** Entrée de la liste blanche pour cette route, ou undefined (route fermée au portail). */

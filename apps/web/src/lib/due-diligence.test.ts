@@ -247,6 +247,7 @@ describe("onglets et chemins de pages", () => {
     expect(sousPagesParametresDd().map((p) => [p.id, p.href])).toEqual([
       ["signaux", "/parametres/due-diligence/signaux"],
       ["exclusions", "/parametres/due-diligence/exclusions"],
+      ["modeles", "/parametres/due-diligence/modeles"],
     ]);
   });
 

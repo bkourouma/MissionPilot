@@ -882,6 +882,8 @@ export async function semerDemoAbidjan(
   if (!(await semerComptes2faDemo(database, config))) {
     throw new Error("Les comptes 2FA existent déjà dans un cabinet neuf.");
   }
+  // Canaux simulés (compte WhatsApp, destinataires de test, signature, transcription) : même import dynamique.
+  await (await import("./seed-demo-canaux.js")).semerCanauxDemo(database, config);
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 

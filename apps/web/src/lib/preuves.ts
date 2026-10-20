@@ -12,6 +12,7 @@ import {
   aPermission,
   DECISION_ARBITRAGE_LIBELLES,
   FIABILITE_LIBELLES,
+  libelleDimensionDd,
   LECTURE_SOLIDITE_LIBELLES,
   RATTACHEMENT_LIBELLES,
   STATUT_ASSERTION_LIBELLES,
@@ -349,12 +350,12 @@ export function libelleFiabilite(f: FiabiliteApi): string {
   return FIABILITES[f];
 }
 
-/** Dimension d'une preuve : libellé déclaré pour la mission, sinon le code. */
+/** Dimension d'une preuve : libellé déclaré pour la mission, sinon libellé « dd.* » connu, sinon le code. */
 export function libelleDimension(
   code: string,
   dimensions: readonly Pick<DimensionVue, "code" | "libelle">[],
 ): string {
-  return dimensions.find((d) => d.code === code)?.libelle ?? code;
+  return dimensions.find((d) => d.code === code)?.libelle ?? libelleDimensionDd(code) ?? code;
 }
 
 /**

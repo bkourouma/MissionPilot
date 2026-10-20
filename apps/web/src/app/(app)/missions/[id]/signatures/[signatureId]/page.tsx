@@ -125,6 +125,9 @@ export default async function PageDetailSignature({
           >
             <Icone nom="oeil" taille={18} />
             <span>Lire le document (la lecture est inscrite dans les preuves)</span>
+          </a>{" "}
+          <a className="mp-lien-action" href={hrefDocumentSignature(demande.id)} download>
+            <span>Télécharger</span>
           </a>
         </p>
         {demandeTerminee(demande.statut) ? null : (
