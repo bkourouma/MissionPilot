@@ -318,6 +318,19 @@ Règles posées pour avancer, **à confirmer par le commanditaire et des cabinet
   détenteurs de `finance.lire`, écriture avec `taux.gerer` (associé, gestionnaire) : un directeur
   ou un chef de mission ne voit pas les taux (FIN-02).
 
+## Due diligence stratégique (lot 3b de la vague 4)
+
+Toutes les valeurs sont **provisoires — à valider** par un expert avant le pilote ; elles ne reposent sur aucune source normative.
+
+| Sujet | Valeur posée |
+| --- | --- |
+| Plafonds d'une liste d'exclusion | 100 règles ; 10 mots-clés de 60 caractères et 5 mots chacun par règle ; 60 mots par activité filtrée |
+| Plafonds des journaux | 200 liens par hypothèse, 200 décisions par filtrage, 50 filtrages par dossier |
+| Verdict et note | Un verdict validé ne tient que pour la version courante de l'hypothèse ; une hypothèse portant un verdict validé ne se modifie plus (409) ; une note validée est périmée dès qu'une version plus récente existe |
+| Filtrage environnemental et social | Seul le dernier filtrage reçoit des décisions ; l'auteur d'un filtrage ne peut pas écarter une exclusion (hors associé) ; une exclusion non levée d'un filtrage antérieur reste bloquante |
+| Listes d'exclusion d'un investisseur | Référentiel du cabinet, lisible de tout détenteur de `dd.lire` (choix assumé, à confirmer) |
+| Connecteurs de données ouvertes (DD-02) | Simulés seulement ; aucune source réelle branchée |
+
 ## Redressement (RED-01, 02, 05–07, 10–12, 14) — lot 3a de la vague 4 (2026-10-11)
 
 Aucune des valeurs ci-dessous n'a été fixée par le commanditaire ni par un expert : **toutes sont

@@ -12,6 +12,9 @@ import {
   hrefRapports,
   libelleFormat,
   libelleModele,
+  libelleModeleVariante,
+  NIVEAUX_SERVICE,
+  TOUS_NIVEAUX,
   libelleStatutRapport,
   lireCurseur,
   MESSAGE_LIMITE_RAPPORTS,
@@ -121,6 +124,39 @@ describe("libellés", () => {
     expect(peutLireNiveau(["associe"], "notation")).toBe(true);
     expect(peutLireNiveau([], "plan")).toBe(false);
     expect(libelleStatutRapport("xyz")).toBe("Statut non reconnu");
+  });
+
+  it("due diligence : niveau « dd » lisible avec dd.lire seulement, modèle « note_comite »", () => {
+    expect(NIVEAUX_SERVICE).toEqual(["notation", "plan", "dd"]);
+    expect(TOUS_NIVEAUX).toContain("dd");
+    expect(estNiveauRapport("dd")).toBe(true);
+    expect(NIVEAUX.dd.libelle).toBe("Due diligence");
+    expect(NIVEAUX.dd.explication).toMatch(/due diligence/);
+    for (const role of [
+      "associe",
+      "directeur_mission",
+      "chef_mission",
+      "consultant",
+      "expert_metier",
+    ] as const) {
+      expect(peutLireNiveau([role], "dd"), role).toBe(true);
+    }
+    for (const role of ["ressources", "gestionnaire", "expert_externe"] as const) {
+      expect(peutLireNiveau([role], "dd"), role).toBe(false);
+    }
+    expect(peutLireNiveau([], "dd")).toBe(false);
+    expect(libelleModele("note_comite")).toBe("Note au comité");
+    expect(libelleModeleVariante("note_comite", "executive")).toBe(
+      "Note au comité (synthèse exécutive)",
+    );
+    expect(libelleModeleVariante("note_comite", "detaillee")).toBe(
+      "Note au comité (version détaillée)",
+    );
+    expect(libelleModeleVariante("note_comite", null)).toBe("Note au comité");
+    expect(libelleModeleVariante("notation", "executive")).toBe(
+      "Rapport de notation (synthèse exécutive)",
+    );
+    expect(libelleModeleVariante("notation")).toBe("Rapport de notation");
   });
 
   it("auteur : « Vous », nom du référentiel ou de l'équipe, sinon libellé neutre", () => {

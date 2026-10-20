@@ -178,6 +178,13 @@ export const PERMISSIONS = [
   // revient à un associé (rôle, doublé en base : MPU02).
   "automatisation.lire", // catalogue, automatisations du cabinet, simulation, journal (AUT-01 à AUT-06)
   "automatisation.gerer", // créer, modifier, activer une automatisation ; couper ; annuler (AUT-02 à AUT-06)
+  // --- V3, vague 4 (service #2, due diligence, SPEC-3b) : visibilité de la mission TOUJOURS exigée
+  // en plus pour ce qui s'y rattache ; ni ressources, ni gestionnaire, ni expert externe (données du
+  // client et jugement d'expert, comme `plan.lire`). Attributions provisoires (DECISIONS.md).
+  "dd.lire", // lire dossiers, analyses, hypothèses, verdicts, marché, filtrages, plan, notes, référentiels
+  "dd.ecrire", // saisir cadrage, analyses, hypothèses, verdicts proposés, marché, filtrages, plan, notes
+  "dd.valider", // valider ou rejeter un verdict ou une note ; décider d'une exclusion (tiers, MPZ25/26/28)
+  "dd.referentiel.gerer", // bibliothèque de signaux et listes d'exclusion du cabinet
   // --- V3, vague 4 (PRD complémentaire §11.5) : redressement. Visibilité de la mission TOUJOURS
   // exigée en plus ; ni ressources, ni gestionnaire, ni expert externe (données du client).
   "redressement.lire", // dossier de redressement : ratios, urgence, scores, trésorerie, créanciers, plan, leviers, seuils
@@ -285,6 +292,10 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.gerer",
     "automatisation.lire",
     "automatisation.gerer",
+    "dd.lire",
+    "dd.ecrire",
+    "dd.valider",
+    "dd.referentiel.gerer",
     "redressement.lire",
     "redressement.ecrire",
     "redressement.valider",
@@ -339,6 +350,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "ao.lire",
     "ao.gerer",
     "automatisation.lire",
+    "dd.lire",
+    "dd.ecrire",
+    "dd.valider",
     "redressement.lire",
     "redressement.ecrire",
   ],
@@ -374,6 +388,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "ao.lire",
     "ao.gerer",
+    "dd.lire",
+    "dd.ecrire",
     "redressement.lire",
     "redressement.ecrire",
   ],
@@ -457,6 +473,11 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.gerer",
     "qualite.relire",
     "ao.lire",
+    // Second regard sur la due diligence : valide les verdicts et notes, tient les référentiels
+    // (signaux, listes d'exclusion), n'écrit pas le dossier (SPEC-3b §7).
+    "dd.lire",
+    "dd.valider",
+    "dd.referentiel.gerer",
     // Relit un dossier de redressement et fixe les seuils d'alerte du cabinet (comme
     // `standard.gerer`) ; n'écrit pas dans le dossier.
     "redressement.lire",

@@ -194,10 +194,14 @@ describe("entreesAutorisees", () => {
     expect(barre).not.toContain("mon-brief");
   });
 
-  it("ouvre les paramètres à l'associé et au gestionnaire (clôture et import des temps)", () => {
+  it("ouvre les paramètres à qui administre le cabinet, clôture ou importe les temps, ou tient les référentiels de la due diligence", () => {
     for (const role of ROLES) {
       expect(ids([role]).includes("parametres")).toBe(
-        role === "associe" || role === "gestionnaire",
+        role === "associe" ||
+          role === "gestionnaire" ||
+          // Vague 4, service #2 : bibliothèque de signaux et listes d'exclusion (dd.referentiel.gerer).
+          role === "directeur_mission" ||
+          role === "expert_metier",
       );
     }
   });
@@ -288,6 +292,7 @@ describe("sous-pages", () => {
       "cloture-mission",
       "import",
       "notation",
+      "due-diligence",
       "journal",
       "ia",
     ]);
@@ -298,6 +303,24 @@ describe("sous-pages", () => {
     ]);
     expect(sousPagesAutorisees("parametres", ["chef_mission"])).toEqual([]);
     expect(sousPagesAutorisees("parametres", ["consultant"])).toEqual([]);
+  });
+
+  it("paramètres : la due diligence est la seule sous-page de l'expert métier et du directeur de mission", () => {
+    for (const role of ["expert_metier", "directeur_mission"] as const) {
+      expect(sousPagesAutorisees("parametres", [role]).map((p) => p.id)).toEqual(["due-diligence"]);
+    }
+    for (const role of ["consultant", "chef_mission", "ressources", "expert_externe"] as const) {
+      expect(sousPagesAutorisees("parametres", [role]).map((p) => p.id)).not.toContain(
+        "due-diligence",
+      );
+    }
+  });
+
+  it("paramètres : l'onglet actif de la due diligence couvre ses sous-pages", () => {
+    const pages = sousPagesAutorisees("parametres", ["associe"]);
+    expect(sousPageActive(pages, "/parametres/due-diligence")).toBe("due-diligence");
+    expect(sousPageActive(pages, "/parametres/due-diligence/signaux")).toBe("due-diligence");
+    expect(sousPageActive(pages, "/parametres/due-diligence/exclusions")).toBe("due-diligence");
   });
 
   it("paramètres : l'onglet actif est le plus long préfixe (cloture-mission n'est pas cloture)", () => {

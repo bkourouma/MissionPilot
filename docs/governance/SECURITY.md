@@ -8,7 +8,7 @@ de mission, appels d'offres, capitalisation, notation et plans augmentés, pilot
 des KPI, depuis fusionnés dans `origin/main` ; mise à jour du 2026-10-11 :
 lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07 (§5
 septies) et copilote AGT-08 (§7 bis), fusionnés par la PR n° 9 ; lot 3a de la vague 4, service #5
-Redressement (§8 octies), sur la branche `feat/vague-4-redressement`, non fusionnée), avec leur
+Redressement (§8 nonies), sur la branche `feat/vague-4-redressement`, non fusionnée), avec leur
 fichier, pas un objectif. Il est lu par l'agent `security-auditor` et par
 `/audit` : chaque contrôle listé ici doit pouvoir se vérifier dans le code. Les
 chemins sont relatifs à la racine du dépôt ; `routes/`, `auth/`, `ia/`… sont
@@ -98,7 +98,7 @@ Acteurs réels (rôles de `packages/shared/src/roles.ts`) :
   l'expert métier), `redressement.valider` (associé, directeur de mission) et `redressement.parametrer`
   (associé, expert métier : seuils d'alerte). Ni le responsable des ressources, ni le gestionnaire, ni l'expert
   externe n'en ont (données du client : un gestionnaire, qui détient `finance.lire`, reçoit 403 sur toutes les
-  routes du redressement, §8 octies). La visibilité de la mission s'y ajoute toujours.
+  routes du redressement, §8 nonies). La visibilité de la mission s'y ajoute toujours.
 
 Menaces visées : un cabinet qui lit ou écrit chez un autre ; un utilisateur du
 portail qui lit les données internes du cabinet ou celles d'un autre client ;
@@ -351,7 +351,7 @@ soit le code appelant).
   (`0180`–`0184`, dont le lien vers une notation et les KPI d'objectif), les
   rapports (`0130`) et leurs paramètres (`0132`), l'historique IA des
   questionnaires (`0149`), les clés d'idempotence des saisies de temps (`0122`),
-  les paramètres et alertes KPI, les quinze tables du redressement (`0480`–`0486`, §8 octies : le client
+  les paramètres et alertes KPI, les quinze tables du redressement (`0480`–`0486`, §8 nonies : le client
   n'accède jamais à son dossier de redressement) ;
   `journal_audit` : écriture seule. `portail` en **lecture** filtrée, doublée de
   `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete` : client,
@@ -469,7 +469,7 @@ soit le code appelant).
     identité), et lever un coupe-circuit est réservé à l'associé (`MPU02`,
     §5 quinquies) ;
   - redressement : une version de plan ne se valide pas par son créateur, sauf associé, et les seuils d'alerte
-    d'un secteur ne se publient pas par leur auteur, sauf associé (403 `SEPARATION_DES_TACHES`, `MPZ07`, §8 octies) ;
+    d'un secteur ne se publient pas par leur auteur, sauf associé (403 `SEPARATION_DES_TACHES`, `MPZ07`, §8 nonies) ;
   - brief quotidien : une validation n'est jamais proposée à qui a rédigé, soumis ou demandé
     l'élément, à chaque source (§5 septies) ;
   - copilote : une action proposée n'est confirmée que par l'utilisateur à qui elle a été
@@ -2027,7 +2027,55 @@ fonction du portail qui écrit un fichier (§4 bis).
   sans antivirus (barrière de premier niveau : type par le contenu, §8) ; l'accusé de réception est
   traité hors file (§15).
 
-## 8 octies. Redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14)
+## 8 octies. Due diligence (DD-01 à DD-15, ADR-012)
+
+Service #2 : dossiers, analyses, hypothèses et verdicts sourcés, dimensionnement de marché,
+filtrage environnemental et social, plan des 100 jours, note au comité. Vingt tables `dd_*`
+(migrations `0500`–`0508`), routes `/api/dd/**`, SQLSTATE `MPZ21`–`MPZ32` (lettre `Z` partagée avec
+le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
+
+- **Isolation et portail.** Chaque table porte RLS (`isolation`) et la politique RESTRICTIVE
+  `portail_interdit` ; aucune route ne figure à `LISTE_BLANCHE_PORTAIL`. Une ressource d'une mission
+  invisible répond le même 404 que l'inexistante. L'investisseur-client ne voit rien (repoussé).
+- **Droits.** `dd.lire`, `dd.ecrire`, `dd.valider`, `dd.referentiel.gerer` ; tout détenteur de
+  `dd.ecrire` détient `preuve.ecrire`. Aucune donnée FIN-02 dans le module ni dans la note.
+- **Ajout seul.** Aucun `UPDATE` ni `DELETE` (`REVOKE` et déclencheur `MPZ21`) : une correction est une
+  nouvelle version ; chaque version est numérotée sans trou (`MPZ23`). Plafonds par objet, comptés
+  sous le verrou de la mission (`PLAFONDS_DD`), dont les journaux de liens d'une hypothèse et de
+  décisions d'un filtrage ; les contenus jsonb sont bornés en octets par des `CHECK` nommés
+  (règles 700 000, déclarations et thèmes d'un filtrage 20 000, assertions citées 20 000, base
+  figée 1 Mo), traduits en 400 `CONTENU_TROP_VOLUMINEUX` qui nomme le champ.
+- **Chaque verdict est sourcé et figé.** Une assertion est celle du registre des preuves (aucun
+  `INSERT` direct) ; un verdict confirmé ou infirmé cite des assertions liées à l'hypothèse dans le
+  bon sens (`MPZ24`). Un verdict ne prend effet que validé par un tiers : ni proposant, ni auteur de
+  l'hypothèse, ni auteur d'une version d'une assertion citée, sauf associé (`MPZ25`, API et base).
+  La validation est refusée (`VERDICT_PERIME`, `MPZ27`) si l'hypothèse, une source ou la
+  solidité d'une source (lecture et indice) a changé depuis la proposition. Un verdict validé n'est
+  « en vigueur » que sur la version courante de l'hypothèse et tant qu'aucune source ne se lit plus
+  faiblement ; sinon l'hypothèse se lit « ouverte ». Tant qu'un verdict validé existe, l'hypothèse ne
+  se retire ni ne se réécrit (`HYPOTHESE_AVEC_VERDICT`).
+- **Sources figées par les routes génériques aussi.** Une assertion citée par un verdict retenu (en
+  attente ou validé) ne s'abandonne pas, ne change pas d'énoncé et ne perd ni ne change le sens
+  d'aucune preuve, que l'appel vienne du module ou de `POST /assertions/:id/versions`,
+  `POST /assertions/:id/liens`, `DELETE /assertions/:id/liens/:preuveId` (`ASSERTION_CITEE`,
+  `preuves/garde-citation.ts`).
+- **Filtrage E&S.** Les listes d'exclusion sont un référentiel du CABINET : les règles (mots-clés,
+  secteurs, pays) d'une liste d'investisseur sont lisibles par tout détenteur de `dd.lire` du
+  cabinet, choix assumé ; seule leur écriture exige `dd.referentiel.gerer`. Une liste d'un
+  investisseur ne s'applique qu'à un dossier de ce client. Mots-clés bornés (une lettre ou un
+  chiffre, 5 mots) et activités déclarées (60 mots) : la correspondance reste de coût borné. Seul le
+  dernier filtrage d'un dossier reçoit une décision (`FILTRAGE_PERIME`) ; l'auteur du filtrage visé
+  ou d'un filtrage plus récent ne décide pas, sauf associé (`MPZ28`, API et base). Une exclusion
+  touchée et confirmée ou jamais décidée reste bloquante dans les filtrages suivants jusqu'à la
+  décision « écartée » d'un tiers.
+- **Note au comité.** Soumission : bloquants recalculés par les moteurs, base figée par le serveur
+  (jamais reçue du client, validée par `noteBaseSchema`, sans verbatim nominatif). Validation par un
+  tiers, avec les bloquants revérifiés (`NOTE_BLOQUEE`). Le rapport ne se rend que pour la dernière
+  version soumise, validée (`NOTE_NON_VALIDEE`, `NOTE_PERIMEE`, doublé en base par `MPR04`), après
+  nouvelle vérification des bloquants, et porte la date de figeage de la base.
+- **Limites connues.** Du SQL arbitraire du rôle applicatif contourne les gardes de l'API (comme
+  §15) ; la conservation du contenu d'une due diligence reste à décider avec le conseil juridique.
+## 8 nonies. Redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14)
 
 Lot 3a de la vague 4 (service #5 ; ADR-011, `docs/workflows/specs/SPEC-3a-redressement.md` ; migrations
 `0480`–`0486`, code `apps/api/src/redressement/`, routes `routes/redressement*.ts`, moteur
@@ -2337,7 +2385,7 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   le dossier de revue KPI en brouillon ; séparateurs de milliers des montants du PDF du dossier
   bancaire ; message réseau 503 sur l'export d'un CV alors que le fichier est valide ; génération du
   gabarit d'un retour qui remplace le texte rédigé (ancienne version conservée).
-- **Redressement, lot 3a** (§8 octies, §15 ; `DECISIONS.md`, section « Redressement ») : **OUVERT** : faire valider par
+- **Redressement, lot 3a** (§8 nonies, §15 ; `DECISIONS.md`, section « Redressement ») : **OUVERT** : faire valider par
   un expert les seuils d'alerte par secteur et la grille d'urgence (aucune source normative) ; confirmer que les montants
   et marges **du client** relèvent de `redressement.lire` et non de `finance.lire` (sinon créer une permission
   `redressement.montants`) ; avis d'un juriste sur le vocabulaire « alerte » et sur les repères OHADA (RED-13, repoussé) ;
