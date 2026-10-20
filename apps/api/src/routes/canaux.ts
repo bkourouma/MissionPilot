@@ -110,6 +110,7 @@ interface LigneCompte {
   relance_questionnaire_j10: boolean;
   synthese_hebdo: boolean;
   saisie_kpi: boolean;
+  alerte_kpi: boolean;
   modifie_le: Date;
 }
 
@@ -125,12 +126,13 @@ function vueCompte(app: FastifyInstance, canal: CanalMessagerie, l: LigneCompte 
     relance_questionnaire_j10: l?.relance_questionnaire_j10 ?? true,
     synthese_hebdo: l?.synthese_hebdo ?? false,
     saisie_kpi: l?.saisie_kpi ?? false,
+    alerte_kpi: l?.alerte_kpi ?? false,
     modifie_le: l?.modifie_le ?? null,
   };
 }
 
 const COLONNES_COMPTE = `canal, identifiant_compte, actif, repli_sms, relance_questionnaire_j10,
-  synthese_hebdo, saisie_kpi, modifie_le`;
+  synthese_hebdo, saisie_kpi, alerte_kpi, modifie_le`;
 
 async function lireComptes(db: Db): Promise<Map<CanalMessagerie, LigneCompte>> {
   const r = await db.query(`SELECT ${COLONNES_COMPTE} FROM canaux_comptes`);
@@ -170,8 +172,8 @@ function routesComptes(app: FastifyInstance) {
       } else {
         await db.query(
           `INSERT INTO canaux_comptes (cabinet_id, canal, identifiant_compte, actif, repli_sms,
-             relance_questionnaire_j10, synthese_hebdo, saisie_kpi, modifie_par)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+             relance_questionnaire_j10, synthese_hebdo, saisie_kpi, alerte_kpi, modifie_par)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             auth.cabinetId,
             canal,
@@ -181,6 +183,7 @@ function routesComptes(app: FastifyInstance) {
             champs.relance_questionnaire_j10 ?? true,
             champs.synthese_hebdo ?? false,
             champs.saisie_kpi ?? false,
+            champs.alerte_kpi ?? false,
             auth.utilisateurId,
           ],
         );

@@ -17,6 +17,7 @@ import { supprimerTfa } from "../auth/double-authentification.js";
 import { creerSession, poserCookieSession } from "../auth/ouvrir-session.js";
 import { hashPassword } from "../auth/password.js";
 import { hacherJeton, nouveauJeton } from "../auth/session.js";
+import { retirerConsentementsUtilisateur } from "../canaux/consentements.js";
 import type { Db } from "../db/pool.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { AppError, conflit, introuvable } from "../errors.js";
@@ -124,6 +125,24 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
       );
       if (avant.actif && !apres.actif) {
         await db.query("DELETE FROM sessions WHERE utilisateur_id = $1", [id]);
+        // Canaux simulés (lot 3c, SPEC-3c §6.2) : le consentement de la personne désactivée est retiré
+        // (historique en ajout seul ; le destinataire n'est ni supprimé ni modifié). Seul un passage
+        // de actif à inactif y mène : autre modification, ou utilisateur déjà inactif, n'écrit rien.
+        const canauxRetires = await retirerConsentementsUtilisateur(db, {
+          cabinetId: auth.cabinetId,
+          utilisateurId: id,
+          acteurId: auth.utilisateurId,
+        });
+        if (canauxRetires.length > 0) {
+          await journaliser(db, {
+            cabinetId: auth.cabinetId,
+            utilisateurId: auth.utilisateurId,
+            action: "canal.consentement.retirer",
+            entite: "utilisateur",
+            entiteId: id,
+            details: { canaux: canauxRetires, source: "desactivation_utilisateur" },
+          });
+        }
       }
       // Un invitant désactivé ou rétrogradé ne laisse pas d'invitations valables derrière lui.
       if (estAssocieActif(avant) && !estAssocieActif(apres)) {

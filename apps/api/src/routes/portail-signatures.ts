@@ -19,8 +19,7 @@ import {
 } from "../portail/acces.js";
 import { horsContextePortail } from "../portail/contexte.js";
 import { FichierAbsent, stockageDe } from "../stockage/index.js";
-import { contentDisposition } from "../stockage/nom.js";
-import { dependancesSignature, empreinteSession } from "./signatures.js";
+import { dependancesSignature, empreinteSession, entetesDocumentSignature } from "./signatures.js";
 
 /*
  * Signature électronique côté portail (CLI-05, lot 3c, SPEC-3c §10.2 n° 35 à 39, §12.3) : le dirigeant
@@ -164,15 +163,7 @@ export const routesPortailSignatures: FastifyPluginAsync = async (app) => {
       if (error instanceof FichierAbsent) throw introuvablePortail();
       throw error;
     }
-    return reply
-      .header("Content-Type", f.type_mime)
-      .header("Content-Length", String(f.taille))
-      .header("Content-Disposition", contentDisposition(f.nom, "attachment"))
-      .header("X-Content-Type-Options", "nosniff")
-      .header("Content-Security-Policy", "sandbox; default-src 'none'")
-      .header("Cache-Control", "private, no-store")
-      .header("Referrer-Policy", "no-referrer")
-      .send(flux);
+    return reply.headers(entetesDocumentSignature(f)).send(flux);
   });
 
   app.post("/portail/signatures/:id/signer", async (request) => {

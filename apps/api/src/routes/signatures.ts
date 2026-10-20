@@ -47,6 +47,36 @@ import type { Db } from "../db/pool.js";
  * reconfirmation d'identité (second facteur ACTIF exigé : 409 `TFA_INACTIVE`).
  */
 
+/**
+ * CSP de la lecture en ligne d'un PDF de signature. Pas de `sandbox` : il empêche la visionneuse PDF du
+ * navigateur de s'afficher. Le contenu est un PDF dont le type a été DÉTECTÉ par le contenu à l'import
+ * (liste blanche, PDF à contenu actif refusé) et vérifié à la création de la demande ; le serveur fixe
+ * lui-même `application/pdf`.
+ */
+export const CSP_LECTURE_PDF = "default-src 'none'; frame-ancestors 'none'";
+
+/**
+ * En-têtes de lecture du document d'une demande de signature (cabinet et portail) : lecture dans le
+ * navigateur (`inline`) pour un PDF ; tout autre type (ne devrait pas exister) reste en pièce jointe
+ * sous la CSP `sandbox`. `nosniff`, `no-store` dans les deux cas.
+ */
+export function entetesDocumentSignature(f: {
+  nom: string;
+  type_mime: string;
+  taille: string | number;
+}): Record<string, string> {
+  const pdf = f.type_mime === "application/pdf";
+  return {
+    "Content-Type": pdf ? "application/pdf" : f.type_mime,
+    "Content-Length": String(f.taille),
+    "Content-Disposition": contentDisposition(f.nom, pdf ? "inline" : "attachment"),
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": pdf ? CSP_LECTURE_PDF : "sandbox; default-src 'none'",
+    "Cache-Control": "private, no-store",
+    "Referrer-Policy": "no-referrer",
+  };
+}
+
 export function dependancesSignature(app: FastifyInstance): DependancesSignature {
   return {
     trousseau: trousseauDepuisConfig(app.config),
@@ -268,15 +298,7 @@ export const routesSignatures: FastifyPluginAsync = async (app) => {
       if (error instanceof FichierAbsent) throw introuvable("Document");
       throw error;
     }
-    return reply
-      .header("Content-Type", f.type_mime)
-      .header("Content-Length", String(f.taille))
-      .header("Content-Disposition", contentDisposition(f.nom, "attachment"))
-      .header("X-Content-Type-Options", "nosniff")
-      .header("Content-Security-Policy", "sandbox; default-src 'none'")
-      .header("Cache-Control", "private, no-store")
-      .header("Referrer-Policy", "no-referrer")
-      .send(flux);
+    return reply.headers(entetesDocumentSignature(f)).send(flux);
   });
 };
 

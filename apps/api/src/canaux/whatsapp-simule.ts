@@ -7,9 +7,9 @@ import {
   type EnvoiGabarit,
   type EnvoiSession,
   type EvenementCanal,
-  type MediaRecu,
   type ResultatEnvoi,
 } from "./ports.js";
+import type { MediaFlux } from "./media-flux.js";
 import {
   ajouterALaBoite,
   exigerNumeroDeTest,
@@ -29,6 +29,23 @@ import {
  * comparaison en temps constant, fenêtre de ±300 s (300 s incluses). Cette forme est la NÔTRE : le
  * format réel des webhooks de Meta n'est PAS vérifié (O-13).
  */
+
+/** Média déposé en bloc par un test ; le simulateur le rend en flux (blocs de 64 Kio). */
+export interface MediaDepose {
+  contenu: Buffer;
+  typeMime: string;
+  tailleDeclaree?: number;
+}
+
+/** Suivi d'un média « géant » : permet de PROUVER que la lecture s'arrête au plafond. */
+export interface SuiviMediaGeant {
+  /** Blocs réellement produits (donc lus) par le flux. */
+  blocsLus: number;
+  /** Vrai dès que le flux a été fermé par son lecteur (return/cancel). */
+  ferme: boolean;
+}
+
+const BLOC_SIMULE_OCTETS = 64 * 1024;
 
 export const FENETRE_WEBHOOK_SECONDES = 300;
 export const FENETRE_SERVICE_MS = 24 * 3_600_000;
@@ -87,7 +104,7 @@ export class CanalWhatsAppSimule implements CanalWhatsApp {
   private readonly appels = new Map<string, number>();
   private readonly acceptes = new Map<string, ResultatEnvoi>();
   private readonly derniersEntrants = new Map<string, Date>();
-  private readonly medias = new Map<string, MediaRecu>();
+  private readonly medias = new Map<string, () => MediaFlux>();
 
   constructor(options: OptionsCanalSimule = {}) {
     this.horloge = options.horloge ?? (() => new Date());
@@ -99,9 +116,54 @@ export class CanalWhatsAppSimule implements CanalWhatsApp {
     if (!connu || connu < instant) this.derniersEntrants.set(numero, instant);
   }
 
-  /** Dépose un média (audio de test) que `telechargerMedia` rendra : usage du simulateur. */
-  deposerMedia(compte: string, refMedia: string, media: MediaRecu): void {
-    this.medias.set(`${compte}|${refMedia}`, media);
+  /** Dépose un média (audio de test) que `telechargerMedia` rendra EN FLUX : usage du simulateur. */
+  deposerMedia(compte: string, refMedia: string, media: MediaDepose): void {
+    this.medias.set(`${compte}|${refMedia}`, () => ({
+      flux: fluxEnBlocs(media.contenu),
+      typeMime: media.typeMime,
+      ...(media.tailleDeclaree !== undefined ? { tailleDeclaree: media.tailleDeclaree } : {}),
+    }));
+  }
+
+  /**
+   * Dépose un média « géant » dont le flux ne finit JAMAIS (blocs de 64 Kio, zéros) : sert à prouver
+   * qu'un lecteur plafonné s'arrête et ferme le flux. `tailleDeclaree` absent = fournisseur sans
+   * en-tête de taille. Rend le suivi (blocs produits, flux fermé).
+   */
+  deposerMediaGeant(
+    compte: string,
+    refMedia: string,
+    options: {
+      typeMime?: string;
+      tailleDeclaree?: number;
+      blocOctets?: number;
+      /** Le flux échoue (ErreurCanal) après ce nombre de blocs au lieu de ne jamais finir. */
+      erreurApresBlocs?: number;
+    } = {},
+  ): SuiviMediaGeant {
+    const suivi: SuiviMediaGeant = { blocsLus: 0, ferme: false };
+    const bloc = new Uint8Array(options.blocOctets ?? BLOC_SIMULE_OCTETS);
+    this.medias.set(`${compte}|${refMedia}`, () => ({
+      flux: (async function* () {
+        try {
+          for (;;) {
+            if (
+              options.erreurApresBlocs !== undefined &&
+              suivi.blocsLus >= options.erreurApresBlocs
+            ) {
+              throw new ErreurCanal("INDISPONIBLE_INCONNU");
+            }
+            suivi.blocsLus += 1;
+            yield bloc;
+          }
+        } finally {
+          suivi.ferme = true;
+        }
+      })(),
+      typeMime: options.typeMime ?? "audio/ogg",
+      ...(options.tailleDeclaree !== undefined ? { tailleDeclaree: options.tailleDeclaree } : {}),
+    }));
+    return suivi;
   }
 
   async envoyerGabarit(envoi: EnvoiGabarit): Promise<ResultatEnvoi> {
@@ -240,9 +302,15 @@ export class CanalWhatsAppSimule implements CanalWhatsApp {
     ];
   }
 
-  async telechargerMedia(compte: string, refMedia: string): Promise<MediaRecu> {
-    const media = this.medias.get(`${compte}|${refMedia}`);
-    if (!media) throw new ErreurCanal("MEDIA_INTROUVABLE");
-    return media;
+  async telechargerMedia(compte: string, refMedia: string): Promise<MediaFlux> {
+    const ouvrir = this.medias.get(`${compte}|${refMedia}`);
+    if (!ouvrir) throw new ErreurCanal("MEDIA_INTROUVABLE");
+    return ouvrir();
+  }
+}
+
+async function* fluxEnBlocs(contenu: Buffer): AsyncGenerator<Uint8Array> {
+  for (let debut = 0; debut < contenu.length; debut += BLOC_SIMULE_OCTETS) {
+    yield contenu.subarray(debut, debut + BLOC_SIMULE_OCTETS);
   }
 }
