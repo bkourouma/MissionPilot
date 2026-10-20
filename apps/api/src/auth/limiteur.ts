@@ -54,7 +54,7 @@ export interface Limiteur {
  * minutes, clé globale).
  */
 export type EspaceLimiteur =
-  "connexion" | "reauth" | "facteur" | "webhook_canal" | "webhook_invalide";
+  "connexion" | "reauth" | "facteur" | "webhook_canal" | "webhook_invalide" | "brief_requetes";
 
 /** Empreinte de la clé : e-mail normalisé, HMAC à clé dérivée, jamais stocké en clair. */
 export function empreinteCle(trousseau: Trousseau, cle: string): string {

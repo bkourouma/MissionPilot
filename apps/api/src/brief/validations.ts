@@ -334,3 +334,94 @@ export const brouillonsAutomatisation: Extracteur = async (c) => {
     faits: { nature: "attente", depuis: texte(l.depuis) },
   }));
 };
+
+/**
+ * Offre technique d'appel d'offres dont la DERNIÈRE version n'est pas validée (AO-06) : « ao.gerer »
+ * (route de validation). Séparation des tâches (MPW05) : ni le créateur de l'offre, ni l'auteur
+ * d'une version, ni le demandeur d'une génération IA ; le brief n'en exempte pas l'associé. Une
+ * offre n'est rattachée à aucune mission (identifiant d'appel d'offres sans clé étrangère) : il n'y
+ * a donc pas de visibilité de mission à appliquer, la permission et le cabinet (RLS) bornent. Le
+ * contenu des sections n'est pas lu : numéro et titre interne seulement.
+ */
+export const offresTechniquesAValider: Extracteur = async (c) => {
+  if (!a(c, "ao.gerer")) return null;
+  const r = await c.db.query(
+    `SELECT o.id, o.numero, o.titre, ${JOUR("v.cree_le")} AS depuis,
+       count(*) OVER ()::int AS total_source
+     FROM ao_offres_techniques o
+     JOIN LATERAL (SELECT x.id, x.cree_le FROM ao_offre_technique_versions x
+                   WHERE x.offre_id = o.id ORDER BY x.version DESC LIMIT 1) v ON true
+     WHERE NOT EXISTS (SELECT 1 FROM ao_offre_technique_validations w WHERE w.version_id = v.id)
+       AND o.cree_par <> $1::uuid
+       AND NOT EXISTS (SELECT 1 FROM ao_offre_technique_versions x
+                       WHERE x.offre_id = o.id AND x.cree_par = $1::uuid)
+       AND NOT EXISTS (SELECT 1 FROM ao_offre_technique_versions x
+                       JOIN ia_demandes d ON d.id = x.demande_ia_id
+                       WHERE x.offre_id = o.id AND d.demandeur_id = $1::uuid)
+     ORDER BY v.cree_le, o.id LIMIT $2`,
+    [c.auth.utilisateurId, PLAFOND_PAR_SOURCE],
+  );
+  return enSource("decider", r.rows, (l) => ({
+    type: "offre_technique_a_valider",
+    entite_id: l.id as string,
+    mission_id: null,
+    entite_libelle: `n° ${String(l.numero)}, ${String(l.titre)}`,
+    mission_libelle: null,
+    lien: `/appels-offres/banques/offres-techniques/${l.id as string}`,
+    faits: { nature: "attente", depuis: texte(l.depuis) },
+  }));
+};
+
+/** Contenu du plan en attente de validation, hors ceux que l'utilisateur a écrits (depuis la dernière validation). */
+const CONTENUS_PLAN_EN_ATTENTE = `
+  SELECT cv.cree_le AS le FROM plan_elements e
+  JOIN LATERAL (SELECT v.statut_contenu, v.cree_le FROM plan_element_versions v
+                WHERE v.element_id = e.id ORDER BY v.version DESC LIMIT 1) cv ON true
+  WHERE e.plan_id = p.id AND cv.statut_contenu IN ('modifie', 'brouillon_ia')
+    AND NOT EXISTS (
+      SELECT 1 FROM plan_element_versions w
+      WHERE w.element_id = e.id AND w.auteur_id = $2::uuid AND w.version > coalesce(
+        (SELECT max(z.version) FROM plan_element_versions z
+         WHERE z.element_id = e.id AND z.statut_contenu = 'valide'), 0))`;
+
+/** Dernière version du modèle financier non validée, d'un autre auteur que l'utilisateur. */
+const MODELE_PLAN_EN_ATTENTE = `
+  SELECT d.calcule_le AS le
+  FROM (SELECT id, cree_par, calcule_le FROM plan_modele_versions
+        WHERE plan_id = p.id ORDER BY version DESC LIMIT 1) d
+  WHERE d.cree_par <> $2::uuid
+    AND NOT EXISTS (SELECT 1 FROM plan_modele_validations x WHERE x.modele_version_id = d.id)`;
+
+/**
+ * Plan stratégique à contenu en attente (PLA, SOC-06) : « plan.valider » ET responsable de la
+ * mission (directeur, chef ou « mission.modifier_toutes »), mission visible et non clôturée. Est
+ * en attente un contenu dont la version courante est « modifiée » ou « brouillon IA » (un
+ * brouillon humain jamais soumis n'est pas signalé : aucune trace de soumission n'existe), ou la
+ * dernière version du modèle financier non validée. Séparation des tâches : contenu écrit par
+ * l'utilisateur depuis la dernière validation, ou version du modèle dont il est l'auteur, exclus
+ * (le brief n'en exempte ni l'associé ni le directeur). Un seul élément par plan ; aucun chiffre
+ * du modèle n'est lu.
+ */
+export const plansAValider: Extracteur = async (c) => {
+  if (!a(c, "plan.valider")) return null;
+  const r = await c.db.query(
+    `SELECT p.id, p.mission_id, p.titre, m.intitule, ${JOUR("att.le")} AS depuis,
+       count(*) OVER ()::int AS total_source
+     FROM plans_strategiques p JOIN missions m ON m.id = p.mission_id
+     JOIN LATERAL (SELECT min(t.le) AS le FROM (${CONTENUS_PLAN_EN_ATTENTE}
+                   UNION ALL ${MODELE_PLAN_EN_ATTENTE}) t) att ON att.le IS NOT NULL
+     WHERE ${VISIBLE} AND m.statut <> 'cloturee'
+       AND ($3::boolean OR m.directeur_id = $2 OR m.chef_id = $2)
+     ORDER BY att.le, p.id LIMIT $4`,
+    [...base(c), a(c, "mission.modifier_toutes"), PLAFOND_PAR_SOURCE],
+  );
+  return enSource("decider", r.rows, (l) => ({
+    type: "plan_a_valider",
+    entite_id: l.id as string,
+    mission_id: l.mission_id as string,
+    entite_libelle: texte(l.titre),
+    mission_libelle: texte(l.intitule),
+    lien: `/missions/${l.mission_id as string}/plan/${l.id as string}`,
+    faits: { nature: "attente", depuis: texte(l.depuis) },
+  }));
+};

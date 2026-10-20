@@ -5,6 +5,9 @@ import {
   libelleGravite,
   libelleMontant,
   libelleNombre,
+  dateSaisieBrief,
+  hrefBrief,
+  libelleRejeuBrief,
   lienInterne,
   lireDateBrief,
   MESSAGE_BRIEF_VIDE,
@@ -169,5 +172,19 @@ describe("requête et date de rejeu", () => {
       expect(lireDateBrief({ date: d }), String(d)).toBeUndefined();
     }
     expect(lireDateBrief({})).toBeUndefined();
+  });
+
+  it("adresse et libellé du rejeu : la date vit dans l'URL, le libellé la nomme", () => {
+    expect(hrefBrief()).toBe("/brief");
+    expect(hrefBrief("2026-10-12")).toBe("/brief?date=2026-10-12");
+    expect(libelleRejeuBrief()).toBe("Brief du jour");
+    expect(libelleRejeuBrief("2026-10-12")).toMatch(/^Brief du 12 oct\.? 2026 \(rejeu\)$/);
+  });
+
+  it("date saisie dans le sélecteur : valide et bornée (2000 à 2100), sinon refusée", () => {
+    expect(dateSaisieBrief("2026-10-12")).toBe("2026-10-12");
+    for (const d of ["1999-12-31", "2101-01-01", "2026-02-30", "", "12/10/2026"]) {
+      expect(dateSaisieBrief(d), d).toBeUndefined();
+    }
   });
 });

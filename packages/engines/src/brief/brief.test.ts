@@ -9,6 +9,7 @@ import {
   qualifierCandidat,
   rangGravite,
   TYPES_ELEMENT_BRIEF,
+  TYPES_PAR_FAMILLE,
   type CandidatBrief,
   type ElementBrief,
   type FaitsBrief,
@@ -382,5 +383,35 @@ describe("composition du brief", () => {
     expect(comparerElementsBrief(e, e)).toBe(0);
     expect(comparerElementsBrief(e, { ...e, entite_id: "z" })).toBe(-1);
     expect(comparerElementsBrief({ ...e, entite_id: "z" }, e)).toBe(1);
+  });
+});
+
+describe("validations d'offre, de plan et de révision de budget", () => {
+  const NOUVEAUX: readonly TypeElementBrief[] = [
+    "offre_technique_a_valider",
+    "plan_a_valider",
+    "revision_budget_a_valider",
+  ];
+
+  it("trois types de plus dans « À décider » : 16 types, 30 au total, même barème d'ancienneté", () => {
+    expect(TYPES_PAR_FAMILLE.decider).toHaveLength(16);
+    expect(TYPES_ELEMENT_BRIEF).toHaveLength(30);
+    for (const t of NOUVEAUX) {
+      expect(FAMILLE_DU_TYPE[t]).toBe("decider");
+      const e = (depuis: string) =>
+        qualifierCandidat(candidat(t, attente(depuis)), REF) as ElementBrief;
+      expect(e("2026-10-12")).toMatchObject({ anciennete_jours: 0, gravite: "basse" });
+      expect(e("2026-10-09")).toMatchObject({ anciennete_jours: 3, gravite: "moyenne" });
+      expect(e("2026-10-05")).toMatchObject({ anciennete_jours: 7, gravite: "haute" });
+    }
+  });
+
+  it("le libellé français porte l'entité, jamais un montant", () => {
+    const e = qualifierCandidat(
+      candidat("revision_budget_a_valider", attente(null), { entite_libelle: "révision n° 2" }),
+      REF,
+    );
+    expect(e?.libelle).toBe("Révision de budget à valider : révision n° 2");
+    expect(e && "montant" in e).toBe(false);
   });
 });

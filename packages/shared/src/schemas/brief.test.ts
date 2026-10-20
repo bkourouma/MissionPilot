@@ -122,3 +122,23 @@ describe("charge de la tâche quotidienne", () => {
     }
   });
 });
+
+describe("types d'éléments : validations d'offre, de plan et de révision de budget", () => {
+  it("30 types, dont les trois nouveaux acceptés par l'élément strict", () => {
+    expect(TYPES_ELEMENT_BRIEF_API).toHaveLength(30);
+    for (const type of [
+      "offre_technique_a_valider",
+      "plan_a_valider",
+      "revision_budget_a_valider",
+    ]) {
+      const lien = "/missions/6c4d0f4e-2f6e-4f0d-9a3c-0a0f9f6d1a12/budget";
+      expect(
+        elementBriefSchema.safeParse({ ...element, type, famille: "decider", lien }).success,
+        type,
+      ).toBe(true);
+    }
+    expect(elementBriefSchema.safeParse({ ...element, type: "rapport_non_diffuse" }).success).toBe(
+      false,
+    );
+  });
+});

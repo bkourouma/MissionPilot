@@ -1,5 +1,10 @@
-import { satisfaitRole } from "../missions/budget.js";
-import { estAssocie } from "../missions/acces.js";
+import {
+  chargerVersions,
+  roleApprobateurRevision,
+  satisfaitRole,
+  type VersionDb,
+} from "../missions/budget.js";
+import { estAssocie, type MissionAcces } from "../missions/acces.js";
 import { valideInterne } from "../temps/outils.js";
 import {
   a,
@@ -7,9 +12,11 @@ import {
   dateFr,
   donneesFinancieres,
   enSource,
+  enSourceFiltree,
   JOUR,
   PLAFOND_PAR_SOURCE,
   texte,
+  type ContexteBrief,
   VISIBLE,
   type Extracteur,
 } from "./commun.js";
@@ -208,4 +215,74 @@ export const cloturesEnAttente: Extracteur = async (c) => {
     lien: `/missions/${l.id as string}/cloture`,
     faits: { nature: "attente", depuis: texte(l.depuis) },
   }));
+};
+
+type Ligne = Record<string, unknown>;
+
+/**
+ * Un non-associé ne valide une révision que si le palier d'approbation (FIN-15, moteur finance)
+ * ne l'élève pas au rang d'associé. Le calcul reste interne : seul le RÔLE exigé en sort, jamais
+ * un écart ni un montant. Palier non évaluable (devise hors grille) : la route refuse aussi.
+ */
+async function palierAtteint(c: ContexteBrief, l: Ligne): Promise<boolean> {
+  try {
+    const versions = await chargerVersions(c.db, l.mission_id as string);
+    const revision = versions.find((v: VersionDb) => v.id === l.id);
+    if (!revision) return false;
+    const mission = {
+      id: l.mission_id,
+      statut: l.statut,
+      devise: l.devise,
+      directeur_id: l.directeur_id,
+      chef_id: l.chef_id,
+      client_id: l.client_id,
+      date_debut: l.date_debut,
+      date_signature: l.date_signature,
+      taux_change: l.taux_change,
+      devise_reference: l.devise_reference,
+      proposition_id: l.proposition_id,
+    } as MissionAcces;
+    return satisfaitRole(c.auth.roles, roleApprobateurRevision(versions, revision, mission));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Révision de budget en cours (FIN-03, FIN-15) : « budget.reviser », directeur de CETTE mission ou
+ * associé (route valider), mission signée et non clôturée, jamais l'auteur de la révision (le brief
+ * ne l'exempte pas même s'il est associé). Aucune trace de « soumission » n'existe : la révision
+ * non figée est la trace, son ancienneté part de sa création. FIN-02 : ni montant, ni jour, ni
+ * écart n'est lu dans l'élément ; seuls le numéro de révision et l'intitulé de la mission sortent.
+ */
+export const revisionsBudgetAValider: Extracteur = async (c) => {
+  if (!a(c, "budget.reviser")) return null;
+  const associe = estAssocie(c.auth);
+  const r = await c.db.query(
+    `SELECT b.id, b.numero, b.mission_id, m.intitule, m.statut, m.devise, m.directeur_id, m.chef_id,
+       m.client_id, m.date_debut::text AS date_debut, m.date_signature::text AS date_signature,
+       m.taux_change::text AS taux_change, m.devise_reference, m.proposition_id,
+       ${JOUR("b.cree_le")} AS depuis, count(*) OVER ()::int AS total_source
+     FROM budget_versions b JOIN missions m ON m.id = b.mission_id
+     WHERE b.type = 'revise' AND NOT b.figee AND ${VISIBLE}
+       AND m.statut IN ('signee', 'en_cours', 'a_cloturer')
+       AND ($3::boolean OR m.directeur_id = $2)
+       AND b.cree_par IS DISTINCT FROM $2::uuid
+     ORDER BY b.cree_le, b.id LIMIT $4`,
+    [...base(c), associe, PLAFOND_PAR_SOURCE],
+  );
+  const retenues: Ligne[] = [];
+  for (const l of r.rows as Ligne[]) if (associe || (await palierAtteint(c, l))) retenues.push(l);
+  const candidat = (l: Ligne) => ({
+    type: "revision_budget_a_valider" as const,
+    entite_id: l.id as string,
+    mission_id: l.mission_id as string,
+    entite_libelle: `révision n° ${String(l.numero)}`,
+    mission_libelle: texte(l.intitule),
+    lien: `/missions/${l.mission_id as string}/budget`,
+    faits: { nature: "attente" as const, depuis: texte(l.depuis) },
+  });
+  return associe
+    ? enSource("decider", r.rows, (l) => candidat(l))
+    : enSourceFiltree("decider", r.rows, retenues.map(candidat));
 };
