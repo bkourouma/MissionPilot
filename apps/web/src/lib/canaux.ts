@@ -189,8 +189,23 @@ export const libelleMotifBlocage = (m: string | null | undefined) =>
   libelleDe(LIBELLES_MOTIF_BLOCAGE_CANAL, m);
 export const libelleCodeRefus = (c: string | null | undefined) =>
   libelleDe(LIBELLES_CODE_REFUS_CANAL, c);
+/** Réponses de service du simulateur (hors des onze gabarits métier) : jamais « — » à l'écran. */
+const LIBELLES_GABARIT_SERVICE: Record<string, string> = { reponse_session: "Réponse de service" };
 export const libelleGabarit = (g: string | null | undefined) =>
-  libelleDe(LIBELLES_CODE_GABARIT_CANAL, g);
+  libelleDe({ ...LIBELLES_CODE_GABARIT_CANAL, ...LIBELLES_GABARIT_SERVICE }, g);
+
+/** Motif du contrôle de vraisemblance d'une saisie (codes du moteur), en français. */
+export const LIBELLES_MOTIF_VRAISEMBLANCE: Record<string, string> = {
+  negatif_inhabituel: "Valeur négative inhabituelle",
+  historique_insuffisant: "Historique insuffisant pour juger la valeur",
+  zero: "Valeur nulle à vérifier",
+  ordre_de_grandeur: "Ordre de grandeur très éloigné de l'historique",
+  ecart_median: "Écart important avec la valeur habituelle",
+  dans_la_norme: "Dans la norme de l'historique",
+  origine_vocale: "Message vocal : confirmation demandée",
+};
+export const libelleMotifVraisemblance = (m: string | null | undefined): string =>
+  (m ? LIBELLES_MOTIF_VRAISEMBLANCE[m] : undefined) ?? m ?? "—";
 export const libelleCategorieEnvoi = (c: string | null | undefined) =>
   libelleDe(LIBELLES_CATEGORIE_ENVOI_CANAL, c);
 export const libelleObjetEnvoi = (o: string | null | undefined) =>

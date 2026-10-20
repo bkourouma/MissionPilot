@@ -240,7 +240,12 @@ function FormulaireCodePortail({ moi }: { moi: MoiCanalApi }) {
       onSubmit={soumettre}
       aria-label={`Code de vérification (${libelleCanal(moi.canal)})`}
     >
-      <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
+      <RetourFormulaire
+        erreur={f.erreurGlobale}
+        succes={f.succes}
+        refAlerte={f.refAlerte}
+        titreErreur="Vérification impossible"
+      />
       <Champ
         libelle="Code reçu (6 chiffres)"
         inputMode="numeric"

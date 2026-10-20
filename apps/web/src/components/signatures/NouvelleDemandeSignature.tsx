@@ -149,7 +149,7 @@ export function NouvelleDemandeSignature({
           value={jours}
           onChange={(e) => setJours(e.target.value)}
           erreur={f.erreurs.expire_jours}
-          aide={`De ${PLAFONDS_SIGNATURES.validiteJoursMin} à ${PLAFONDS_SIGNATURES.validiteJoursMax} jours, à compter de l'envoi.`}
+          aide={`De ${PLAFONDS_SIGNATURES.validiteJoursMin} à ${PLAFONDS_SIGNATURES.validiteJoursMax} jours, à compter de l'envoi (l'échéance définitive est fixée à l'envoi).`}
         />
       </div>
       {proposes.length === 0 ? (

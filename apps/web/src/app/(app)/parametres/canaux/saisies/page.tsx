@@ -16,6 +16,7 @@ import {
   hrefSaisies,
   libelleOrigineSaisie,
   libelleStatutSaisie,
+  libelleMotifVraisemblance,
   libelleVraisemblance,
   lireParametresSaisies,
   OPTIONS_STATUT_SAISIE,
@@ -109,7 +110,9 @@ export default async function PageSaisiesCanaux({
                   {s.motif_vraisemblance ? (
                     <>
                       <br />
-                      <span className="mp-texte-doux mp-texte-petit">{s.motif_vraisemblance}</span>
+                      <span className="mp-texte-doux mp-texte-petit">
+                        {libelleMotifVraisemblance(s.motif_vraisemblance)}
+                      </span>
                     </>
                   ) : null}
                 </span>

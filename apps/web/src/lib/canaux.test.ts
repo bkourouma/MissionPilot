@@ -17,6 +17,8 @@ import {
   hrefJournal,
   hrefSaisies,
   libelleCanal,
+  libelleGabarit,
+  libelleMotifVraisemblance,
   libelleMotifBlocage,
   libelleNumero,
   libelleRole,
@@ -120,6 +122,26 @@ describe("libellés en français, jamais un identifiant technique", () => {
     expect(tonaliteConsentement("absent")).toBe("neutre");
     expect(tonaliteVraisemblance("a_verifier")).toBe("attention");
     expect(tonaliteVraisemblance("invraisemblable")).toBe("danger");
+  });
+});
+
+describe("motifs de vraisemblance et réponses de service : jamais un code ni un tiret", () => {
+  it("traduit les motifs du moteur et la réponse de service du simulateur", () => {
+    for (const m of [
+      "negatif_inhabituel",
+      "historique_insuffisant",
+      "zero",
+      "ordre_de_grandeur",
+      "ecart_median",
+      "dans_la_norme",
+      "origine_vocale",
+    ]) {
+      expect(libelleMotifVraisemblance(m)).not.toBe(m);
+      expect(libelleMotifVraisemblance(m)).not.toContain("_");
+    }
+    expect(libelleGabarit("reponse_session")).toBe("Réponse de service");
+    expect(libelleGabarit("reponse_stop")).toBe("Confirmation de désinscription");
+    expect(libelleMotifVraisemblance(null)).toBe("—");
   });
 });
 

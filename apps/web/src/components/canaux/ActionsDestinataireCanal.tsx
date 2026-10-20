@@ -261,7 +261,12 @@ function FormulaireCode({
       onSubmit={soumettre}
       aria-label={`Code de vérification de ${d.utilisateur_nom}`}
     >
-      <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
+      <RetourFormulaire
+        erreur={f.erreurGlobale}
+        succes={f.succes}
+        refAlerte={f.refAlerte}
+        titreErreur="Vérification impossible"
+      />
       <Champ
         libelle="Code reçu (6 chiffres)"
         inputMode="numeric"

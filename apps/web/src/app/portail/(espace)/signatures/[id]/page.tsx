@@ -88,7 +88,11 @@ export default async function DetailSignaturePortail({
             <dd>{libelleEcheance(d.expire_le)}</dd>
           </div>
         </dl>
-        <SignaturePortail signatureId={d.id} peutSigner={d.peut_signer} />
+        <SignaturePortail
+          signatureId={d.id}
+          peutSigner={d.peut_signer}
+          peutLire={d.mon_statut !== "en_attente"}
+        />
       </Carte>
     </div>
   );

@@ -34,6 +34,8 @@ export interface SignaturePortailProps {
   signatureId: string;
   /** Une demande ouverte dont la personne est invitée à signer. */
   peutSigner: boolean;
+  /** Faux tant que le signataire n'est pas invité : l'API répond 404 pour le document. */
+  peutLire?: boolean;
 }
 
 type Panneau = "signer" | "refuser" | null;
@@ -43,23 +45,33 @@ type Panneau = "signer" | "refuser" | null;
  * et du code de double authentification) ou « Refuser » (motif). Signature SIMULÉE, sans valeur
  * juridique. L'accusé ne montre que le statut, la date et l'empreinte du document.
  */
-export function SignaturePortail({ signatureId, peutSigner }: SignaturePortailProps) {
+export function SignaturePortail({
+  signatureId,
+  peutSigner,
+  peutLire = true,
+}: SignaturePortailProps) {
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [accuse, setAccuse] = useState<AccuseSignatureApi | null>(null);
 
   return (
     <div className="mp-pile">
-      <p>
-        <a
-          className="mp-lien-action"
-          href={hrefDocumentSignaturePortail(signatureId)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Icone nom="oeil" taille={18} />
-          <span>Lire le document (nouvel onglet)</span>
-        </a>
-      </p>
+      {peutLire ? (
+        <p>
+          <a
+            className="mp-lien-action"
+            href={hrefDocumentSignaturePortail(signatureId)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Icone nom="oeil" taille={18} />
+            <span>Lire le document (nouvel onglet)</span>
+          </a>
+        </p>
+      ) : (
+        <p className="mp-texte-doux">
+          Le document sera disponible dès que ce sera votre tour de signer.
+        </p>
+      )}
       {accuse ? (
         <Alerte tonalite="succes" annonce="status" titre="Signature enregistrée">
           <p>{`Signée le ${dateHeureCourte(accuse.signe_le)}.`}</p>
