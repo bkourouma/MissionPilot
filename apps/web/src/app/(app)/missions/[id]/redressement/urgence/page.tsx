@@ -52,7 +52,6 @@ export default async function PageUrgence({ params }: { params: Promise<{ id: st
         {droits.ecrire ? (
           referentiel.ok ? (
             <QuestionnaireUrgence
-              key={derniere?.id ?? "premiere"}
               dossierId={dossier.id}
               grille={referentiel.donnees.grille_urgence}
               derniere={derniere}
