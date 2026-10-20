@@ -13,7 +13,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
 
 | Dossier             | Rôle                                                                 | Peut importer                         |
 | ------------------- | -------------------------------------------------------------------- | ------------------------------------- |
-| `packages/engines`  | moteurs de calcul purs, sans E/S : planning, finance, questionnaires, notation, KPI, plan stratégique et modèle financier, et pour les vagues 2 et 3 automatisation, clôture, prévisions, appels d'offres, banque de CV, offre financière, capitalisation, brief quotidien (`brief`) et copilote (`copilote`) | rien d'applicatif |
+| `packages/engines`  | moteurs de calcul purs, sans E/S : planning, finance, questionnaires, notation, KPI, plan stratégique et modèle financier, et pour les vagues 2 et 3 automatisation, clôture, prévisions, appels d'offres, banque de CV, offre financière, capitalisation, brief quotidien (`brief`) et copilote (`copilote`), puis, vague 4, redressement (`redressement` : ratios, urgence, alerte précoce, trésorerie à 13 semaines, créanciers, plan, leviers) | rien d'applicatif |
 | `packages/shared`   | rôles, permissions, schémas Zod, types partagés                      | rien d'applicatif                     |
 | `apps/api`          | API Fastify : `src/routes`, logique par domaine, `migrations`, `test`| `engines`, `shared`                   |
 | `apps/web`          | interface Next.js (français), `src/app`, `src/lib`, `src/components` | `shared` (pas `engines`, vérifié : aucun import, seulement des commentaires) |
@@ -54,6 +54,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0420–0424`   | plans stratégiques augmentés (lot PLA, plage réservée `0420–0439`) : cascade en graphe (`0420`, PLA-12), bibliothèque d'initiatives types (`0421`, PLA-13, `MPS07`) et son amorçage standard (`0422`), priorisation du portefeuille et arbitrage tracé (`0423`, PLA-14, `MPS08`), modèle de rapport « dossier bancaire » (`0424`, PLA-17, `MPR03`) |
   | `0440–0445`   | pilotage augmenté des KPI (lot KPI, vague 2, plage réservée `0440–0459`) : arbres d'indicateurs et nœuds (`0440`, KPI-13), revues de performance et décisions (`0441`, KPI-17), actions correctives et leurs événements (`0442`, KPI-18), compte rendu figé à la tenue de la revue (`0443`, `MPK22`), action rattachée à une revue tenue seulement (`0444`, `MPK26-27`), plafonds d'un arbre appliqués à la réactivation et au total (`0445`, `MPK12-13`) ; `MPK10-16` et `MPK20-27` |
   | `0460–0465`   | capitalisation (lot CAP, vague 3, plage réservée `0460–0479`) : retours d'expérience versionnés et recherche plein texte (`0460`, CAP-01), base d'estimation par brique (`0461`, CAP-02), analyse des dérogations (`0462`, CAP-05), matrice de compétences (`0463`, CAP-06), index de la recherche unifiée (`0464`, CAP-07), durcissements d'audit : déclarations de niveau bornées, validation du retour réservée à un responsable (`0465`, `MPJ06-08`) ; `MPJ01-08` |
+  | `0480–0486`   | redressement (service #5, lot 3a, vague 4, plage réservée `0480–0499`) : fonctions communes `red_*` et dossier (`0480`, `red_dossiers`), correspondance de postes (`0481`, RED-02), évaluations d'urgence (`0482`, RED-01), seuils d'alerte versionnés par secteur et scores (`0483`, RED-10), créanciers, créances, négociations et échéances d'accord (`0484`, RED-12), trésorerie à 13 semaines : versions, lignes et réalisés (`0485`, RED-11), actions du plan, événements et versions de plan (`0486`, RED-05, RED-07) ; 15 tables, aucune fonction `SECURITY DEFINER` ; `MPZ01-11` |
 
   Plages libres : `0151–0159`, `0161–0169`, `0170–0179`, `0185–0199`. Plages
   réservées par lot (PRD complémentaire) : `0200–0219` référentiel de méthodes
@@ -61,8 +62,11 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   (PRV), `0260–0279` agents IA (AGT), `0280–0299` qualité (QUA), `0360–0379`
   appels d'offres (AO-A), `0380–0399` banques et offres d'appels d'offres
   (AO-B), `0400–0419` notation augmentée (NOT), `0420–0439` plans stratégiques
-  augmentés (PLA), `0460–0479` capitalisation (CAP) ; déclarées dans l'en-tête
-  des migrations de leur lot. Pour l'automatisation (`0300–0319`), la clôture
+  augmentés (PLA), `0460–0479` capitalisation (CAP), `0480–0499` redressement
+  (RED, vague 4 ; `0487–0499` : durcissements d'audit, un numéro par correctif) ;
+  déclarées dans l'en-tête des migrations de leur lot. Les spécifications des
+  autres lots de la vague 4 réservent `0500–0519` (due diligence, SPEC-3b) et
+  `0540–0559` (canaux simulés, SPEC-3c) ; `0520–0539` reste libre. Pour l'automatisation (`0300–0319`), la clôture
   (`0320–0329`), la salle de mission (`0330–0339`) et les KPI augmentés
   (`0440–0459`), aucune migration ne déclare de plage : ces bornes sont la
   convention de ce document (à confirmer ; `0340–0359` reste sans affectation).
@@ -72,17 +76,19 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   la planification du brief quotidien),
   clôture `0324`, salle de mission `0333`, AO-A `0364`, AO-B `0387`, notation
   augmentée `0405`, plans augmentés `0425`, KPI augmentés `0446`,
-  capitalisation `0466` (STD `0210`, DOS `0225`, PRV `0244`, QUA `0287` ;
+  capitalisation `0466`, redressement `0487` (STD `0210`, DOS `0225`, PRV `0244`, QUA `0287` ;
   AGT : `0270` est consommée par le rejeu réel des évaluations, `0271` à `0274` par
   le copilote, `0269` reste inutilisé comme `0144`, prochain libre `0275`). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
   l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-11,
-  le dossier compte 155 fichiers, tous commités et présents dans `origin/main`
+  `main` compte 155 fichiers, tous commités et présents dans `origin/main`
   (vagues 2 et 3 `0300`–`0465`, rejeu réel `0270` et lacunes de la vague 2 `0271`–`0274`,
   `0303`, `0304` compris, aucune modification ni suppression dans l'historique) : toutes sont
-  immuables.
+  immuables. Sur la branche `feat/vague-4-redressement`, le dossier compte 162 fichiers :
+  les sept de `0480`–`0486` sont neufs et non commités (donc corrigeables sur place
+  jusqu'au commit, puis immuables).
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next
@@ -119,9 +125,20 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0321`–`0323`), `L` salle de mission (`MPL01-09`, `0330` et `0332`), `A`
   appels d'offres (`MPA01-07`, `0360`–`0363`), `W` banques et offres d'appels
   d'offres (`MPW01-06`, `0380`–`0386`), `J` capitalisation (`MPJ01-08`,
-  `0460`–`0465`). `MPT01` ne désigne plus que les feuilles de temps :
+  `0460`–`0465`), `Z` redressement (`MPZ01-11` employés, `MPZ01-20` réservés au
+  lot, `0480`–`0486`) et due diligence (`MPZ21-32` réservés par SPEC-3b, aucune
+  migration encore). `MPT01` ne désigne plus que les feuilles de temps :
   l'identité figée des tâches assignées est `MPC02` (`0076`). Un nouveau code
   prend un numéro libre de sa lettre (liste : `SECURITY.md` §6).
+  **Plus aucune lettre libre** (relevé du 2026-10-11 : seules `H` et `Z` manquaient ;
+  `Z` est prise par le redressement et la due diligence, qui se partagent la lettre par
+  plages de numéros disjointes ; `H` est réservée aux canaux simulés, `MPH01-12`, SPEC-3c,
+  `0540`–`0559`). **Règle pour les lots suivants** : un second préfixe de deux lettres
+  (par exemple `MQ…`), déclaré ici et dans l'en-tête de la première migration du lot ;
+  le partage de `Z` entre redressement et due diligence est une exception qui ne se
+  reproduit pas, et jamais un numéro déjà employé par un autre lot d'une même lettre.
+  Les ADR-010 et ADR-013 citent déjà `MPH11` et `MPH07` (SPEC-3a, point 14.1) : à
+  accorder avec SPEC-3c dans le lot canaux, pas ici.
   **Codes à plusieurs sens** (relevé du 2026-10-08, à ne pas aggraver) : un code
   désigne une FAMILLE de refus, et c'est l'API qui choisit le message ; un
   nouveau cas prend un NUMÉRO NEUF plutôt que de rejoindre une famille.
@@ -153,8 +170,20 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `questionnaires/`, `notation/`, `kpi/`, `plans/`, `rapports/`, puis, vagues 1 à 3,
   `agents/`, `dossier/`, `preuves/`, `qualite/`, `standard/`, `automatisation/`,
   `cloture/`, `salle-mission/`, `previsions/`, `appels-offres/`, `banque-ao/`,
-  `capitalisation/`, puis, lacunes de la vague 2, `brief/` et `copilote/`) : accès aux données et règles,
+  `capitalisation/`, puis, lacunes de la vague 2, `brief/` et `copilote/`, puis, vague 4,
+  `redressement/`) : accès aux données et règles,
   dans la transaction reçue (`Db`). Une fonction ne commence pas sa propre transaction.
+  - `redressement/` (service #5, lot 3a) : `acces.ts` (règle d'accès écrite en tête : mission visible
+    d'abord, même 404 pour un sous-objet d'autrui), `dossiers.ts`, `correspondances.ts`, `ratios.ts`,
+    `etats.ts` (états acceptés et courants du dossier client, lecture seule), `urgence.ts`, `alerte.ts`,
+    `seuils.ts`, `tresorerie.ts`, `realises.ts`, `creanciers.ts`, `negociations.ts`, `actions.ts`,
+    `plan.ts`, `leviers.ts`, `limites.ts` (débits comptés sur `journal_audit`), `erreurs.ts`
+    (`traduireErreurRedressement` : `MPZ01-11`), `journal.ts` (identifiants et comptes seulement),
+    `referentiel.ts` (constantes provisoires servies telles quelles), `vues.ts`, `pagination.ts`,
+    `dates.ts` (le jour UTC est passé en paramètre au moteur, jamais d'horloge dedans) ; moteur pur `packages/engines/src/redressement`. Aucune IA, aucun job, aucun `SUM`/`AVG` : le moteur
+    somme et compare, l'API verrouille le dossier (verrou consultatif) avant toute lecture dont dépend une
+    règle. Les `LIMIT` littéraux de ce module répètent des plafonds de volume appliqués aussi en base
+    (checklist, recherche n° 7 ; dette, §10).
   - `brief/` (AUT-07) : une source par type d'élément (`decisions.ts`, `validations.ts`, `derives.ts`,
     `envois.ts`), chacune derrière SA permission et la visibilité des missions, qui ne lit que des faits et
     les remet au moteur `packages/engines/src/brief` ; `calcul.ts` les assemble, `quotidien.ts` est la
@@ -254,7 +283,7 @@ Mise en page de droite à gauche : sans objet.
 ## 7. Tests
 
 - **Vitest partout** (`pnpm test` = `pnpm -r test`). API : tests sur **vrai
-  PostgreSQL** dans `apps/api/test/*.test.ts` (144 fichiers), base dédiée
+  PostgreSQL** dans `apps/api/test/*.test.ts` (165 fichiers au 2026-10-11 sur la branche du lot 3a, dont 12 de redressement), base dédiée
   `<nom>_test` créée à la volée et réinitialisée à chaque exécution
   (`test/global-setup.ts`, `test/urls.ts`) ; `fileParallelism: false` dans
   `apps/api/vitest.config.ts` : jamais deux suites API en parallèle sur la même
@@ -290,8 +319,8 @@ Mise en page de droite à gauche : sans objet.
   (`.prettierrc.json`) ; ESLint `typescript-eslint` recommandé, variables
   inutilisées interdites hors préfixe `_`.
 - **Validation** : chaque corps, paramètre ou requête passe par un schéma Zod de
-  `packages/shared/src/schemas`, objets `.strict()` (550 `z.object` ; 547 vérifiés
-  le 2026-10-08 sur `feat/vague-2-automatisation`, tous stricts dans leur chaîne
+  `packages/shared/src/schemas`, objets `.strict()` (614 `z.object` au 2026-10-11 sur
+  `feat/vague-4-redressement` : 574 sur `main` et 40 de `schemas/redressement.ts`, tous stricts dans leur chaîne
   d'appels ; `rg` sans `-U` n'en voit que 109, ceux écrits sur une seule ligne) ;
   le même schéma sert l'API et le web.
 - **Listes** : pagination par curseur opaque (`encoderCurseur`,
@@ -446,3 +475,12 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   consultant » s'ajoute au dossier de revue KPI en brouillon
   (`routes/kpi-pilotage.ts`, `rapports/parametres.ts`). Détail et suite :
   `docs/governance/SECURITY.md` §15 et §16.
+- **Redressement, lot 3a (2026-10-11)** : listes lues par plafond plutôt que paginées, avec un
+  `LIMIT` littéral égal au plafond de volume que la base applique déjà (actions 300 par dossier
+  et événements d'une action 200, créanciers 200 par dossier, créances 100 et événements de négociation 300
+  par créancier, réalisés de trésorerie 1 000 par dossier) ou, pour les seuils, au-dessus de lui (400 lus,
+  6 secteurs × 50 versions = 300 au plus en base) : `apps/api/src/redressement/`, recherche n° 7 de la
+  checklist ; kanban sans glisser-déposer et sans synchronisation avec
+  `taches_collaboration` ; trésorerie sans vue mensuelle ni covenants ; correspondance de postes
+  faite à la main sans second regard ; aucun seed de démonstration ; valeurs provisoires
+  (`DECISIONS.md`, section « Redressement »). Détail : SPEC-3a §14 et SECURITY.md §15.

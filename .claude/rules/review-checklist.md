@@ -14,7 +14,9 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
 ont été relevés le 2026-10-11 sur `main` après la fusion de la PR n° 9 (vagues 2 et 3, rejeu réel OpenRouter et lacunes de la vague 2 — événement `mission.cloture_demandee`, brief quotidien AUT-07, copilote AGT-08 — tous commités et fusionnés) en lançant les commandes
-ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Détail
+ci-dessous ; un autre résultat est un écart à expliquer, pas à ignorer. Les attendus qui changent avec le
+lot 3a (service #5 Redressement, branche `feat/vague-4-redressement`, non fusionnée) sont relevés le 2026-10-11
+dans son worktree et donnent entre parenthèses la valeur de `main` : ils ne valent qu'après la fusion. Détail
 des mécanismes : `docs/governance/SECURITY.md` et
 `docs/governance/CODING_STANDARDS.md`.
 
@@ -162,6 +164,32 @@ des mécanismes : `docs/governance/SECURITY.md` et
   filtre final en code marque sa famille « tronquée » (`enSourceFiltree`) plutôt que de gonfler
   le total. Un type d'élément de plus : le moteur (`packages/engines/src/brief`), le schéma
   (`schemas/brief.ts`), une source et leurs tests.
+- **Redressement** (service #5, lot 3a ; `apps/api/src/redressement/`, `routes/redressement*.ts`,
+  migrations `0480`–`0486`, moteur `packages/engines/src/redressement`) : **15 tables** à RLS, `isolation`
+  et RESTRICTIVE `portail_interdit`, FK composites `(cabinet_id, dossier_id, id)` (un enfant ne vise jamais
+  le parent d'un autre dossier) ; **aucune route dans `LISTE_BLANCHE_PORTAIL`** et aucune fonction
+  `SECURITY DEFINER` (recherche n° 16 inchangée). Chaque route résout l'identifiant reçu (dossier, créancier,
+  action, version, seuils) PUIS la visibilité de la mission et répond le même 404 ; le verrou de dossier est
+  pris AVANT toute lecture dont dépend une règle. **Séparation des tâches** : validation d'une version de plan
+  (valideur ≠ créateur sauf associé) et publication de seuils (publieur ≠ auteur sauf associé, rôle
+  `expert_metier` ou associé), à l'API ET en base (`MPZ07`), avec le même test de refus ; l'associé n'est
+  dispensé que par `red_valideur_dispense`. **FIN-02 traduit** : aucune donnée du cabinet (honoraires, budget,
+  coûts, taux, marge) dans une réponse ni aucune jointure vers `budgets`, `factures`, `collaborateur_couts` ;
+  les montants du client relèvent de `redressement.lire`, pas de `finance.lire` (test
+  `redressement-fin02.test.ts`, le gestionnaire reçoit 403). **Aucune IA, aucun job, aucun calcul hors
+  moteur** (`redressement-sans-ia.test.ts` interdit `SUM(`, `AVG(`, `Math.round`, `toFixed(`) ; sommes en
+  `BigInt`, `SOMME_HORS_LIMITES` traduit en 400. **Aucune qualification juridique** : ni « cessation des
+  paiements », ni « faillite », ni « défaillance » dans une sortie du moteur ou un libellé ; la mention
+  « indicatif » du score est fixe. Le journal d'audit, les notifications et les messages d'erreur ne portent ni
+  montant, ni nom de créancier, ni condition de négociation, ni titre d'action, ni motif. Les ratios, la
+  situation d'un créancier et l'avancement du plan se calculent à LA LECTURE et ne se stockent pas (seuls un
+  score avec ses entrées et ses seuils, et l'impact d'un levier avec ses paramètres, sont des instantanés).
+  Historiques en ajout seul (`MPZ01`) ; plafonds de volume dans les déclencheurs (`MPZ10`, `MPZ11`) ET en
+  `LIMIT` littéral dans `redressement/` (recherche n° 7), débits (urgences, scores, versions de trésorerie)
+  comptés sur `journal_audit` sous verrou consultatif. SQLSTATE : lettre `Z`, `MPZ01`–`MPZ11` employés,
+  `MPZ12`–`MPZ20` réservés au lot, `MPZ21`–`MPZ32` à la due diligence (aucun numéro supérieur à `MPZ11` dans
+  `0480`–`0486`). Plan à relire : la validation recalcule l'empreinte depuis les actions actuelles
+  (`RED_PLAN_MODIFIE`), `contenu` n'est jamais reçu d'un client.
 - **Fonction de purge ou d'anonymisation** (`purger_textes_ia`,
   `planifier_conservation_ia`, `planifier_purge_rapports`, `anonymiser_copilote_actions`) : `SECURITY DEFINER`,
   bornée au cabinet du contexte (`app_cabinet_id()`), paramètres validés, clé de
@@ -193,7 +221,8 @@ des mécanismes : `docs/governance/SECURITY.md` et
   `temps/idempotence.ts`, `0122`) ; un rejeu ne doit jamais écraser une écriture
   plus récente.
 - **Historique immuable** : une table historique reçoit un déclencheur à
-  SQLSTATE `MP…` (lettre du domaine, numéro libre : CODING_STANDARDS §2) et un
+  SQLSTATE `MP…` (lettre du domaine, numéro libre : CODING_STANDARDS §2 ; plus aucune lettre
+  libre, `Z` est partagée par plages entre redressement et due diligence) et un
   `REVOKE` (modèles `0043`, `0060`, `0146`) ; on corrige par nouvel
   enregistrement (avoir, contre-passation, révision, nouvelle version), jamais
   par `UPDATE` ; chaque action sensible appelle `journaliser` dans la même
@@ -201,7 +230,7 @@ des mécanismes : `docs/governance/SECURITY.md` et
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer) ; au 2026-10-11, les 155 migrations sont commitées et présentes dans `origin/main` (PR n° 9
+  recréer) ; au 2026-10-11, les 155 migrations de `main` sont commitées et présentes dans `origin/main` (PR n° 9
   fusionnée) : toutes sont immuables, dont les six des lacunes de la vague 2 (`0271`–`0274`
   copilote, `0303` événement `mission.cloture_demandee`, `0304` brief quotidien), les 43 des
   vagues 2 et 3 (`0300`–`0302`, `0320`–`0323`, `0330`–`0332`,
@@ -221,7 +250,8 @@ des mécanismes : `docs/governance/SECURITY.md` et
   de nom. `migrate.ts` ne vérifie pas de somme de contrôle : c'est la
   relecture qui garantit la règle (recherche n° 13). Les migrations V2 corrigées
   pendant la session du 2026-10-06 sont commitées depuis `6d62428` : elles sont
-  désormais immuables. Plages réservées pour la suite : CODING_STANDARDS §1.
+  désormais immuables. Sur la branche du lot 3a, 162 fichiers : les sept de `0480`–`0486` sont neufs et non commités. Plages
+  réservées pour la suite : CODING_STANDARDS §1 (`0480`–`0499` redressement, prochain libre `0487`).
 - **Dates métier** : une date bornée par un `CHECK` SQL utilise `dateIsoBorneeSchema`
   (`packages/shared/src/schemas/commun.ts`, 2000 à 2100) ; le SQLSTATE 23514 qui
   échappe au schéma se traduit en 400, jamais en 500 (couches d'erreurs des domaines,
@@ -325,7 +355,12 @@ ponctuel et réseau, ne l'ont pas été) : par rapport au relevé du 2026-10-10,
 `schemas/brief.ts` et `schemas/copilote.ts`, tous `.strict()`), 13 (six migrations de plus,
 `0271`–`0274`, `0303`, `0304`, et `0270` désormais commitée) et 16 (trois `GRANT EXECUTE` de plus)
 ont changé ; les écarts avec l'ancien relevé (vague 1) sont expliqués ligne par ligne
-ci-dessous.
+ci-dessous. Lot 3a (service #5 Redressement, relevé du 2026-10-11 dans le worktree
+`.claude/worktrees/redressement`, branche `feat/vague-4-redressement`, non fusionnée) : les n° 1 à 6, 8, 9, 14,
+17, 18 et 21 donnent le même résultat qu'avant ; changent les n° 7 (7 `LIMIT` de plus, ceux de
+`redressement/`), 10 (37 routes de plus), 12 (40 `z.object` de plus, tous `.strict()`), 13 (7 migrations de
+plus, non commitées), 19 (6 lignes de plus) ; les n° 16 et 20 sont inchangés, à dessein (aucune fonction
+`SECURITY DEFINER`, aucune boucle de pagination web). Les valeurs de `main` restent données entre parenthèses.
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -348,9 +383,13 @@ rg -n "NEXT_PUBLIC_" apps
 rg -n "SUM\(|AVG\(" apps/api/src --glob '!db/seed*'
 
 # 7. LIMIT littéral > 1 (toute liste est paginée par curseur, LIMIT $n).
-#    Attendu : 1 ligne, le LIMIT 2 de db/seed-planification.ts (seed). Ne voit
-#    pas un plafond passé en paramètre : MAX_LISTE (500) de
-#    routes/portail-gestion.ts est une dette connue (CODING_STANDARDS §10).
+#    Attendu : 1 ligne sur `main`, le LIMIT 2 de db/seed-planification.ts (seed) ;
+#    8 lignes avec le lot 3a : les 7 LIMIT littéraux de `redressement/`, chacun
+#    DOUBLÉ en base par un plafond de volume (actions.ts 300 et 200, creanciers.ts
+#    200, 100 et 300, tresorerie.ts 1000, déclencheurs `MPZ10`) sauf seuils.ts (400 lus,
+#    6 secteurs × 50 versions = 300 au plus en base) : à relire si l'une change sans
+#    l'autre (CODING_STANDARDS §10). Ne voit pas un plafond passé en paramètre :
+#    MAX_LISTE (500) de routes/portail-gestion.ts est une dette connue (CODING_STANDARDS §10).
 rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
 
 # 8. Arrondis dans l'API (hors moteur). Attendu : 9 lignes (7 avant les vagues 2 et 3),
@@ -368,7 +407,9 @@ rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --g
 
 # 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu
 #     (2026-10-11, vagues 2 et 3, recette, rejeu réel OpenRouter et lacunes de la vague 2
-#     comprises) : "677 8" (673 avant les lacunes de la vague 2 : +4 routes sous `exiger`,
+#     comprises, plus le lot 3a) : "714 8" (677 sur `main` : +37 routes de redressement,
+#     toutes sous `exiger` : `routes/redressement.ts` 12, `-plan.ts` 9, `-creanciers.ts` 6,
+#     `-alerte.ts` 5, `-tresorerie.ts` 5 ; 673 avant les lacunes de la vague 2 : +4 routes sous `exiger`,
 #     `GET /brief` (`brief.lire`) et `POST /copilote/messages`,
 #     `POST /copilote/actions/:id/confirmer` et `POST /copilote/actions/:id/annuler`
 #     (`copilote.utiliser`) ; 670 avant le rejeu réel : +3 routes `POST /agents/prompts/:promptId/evaluations/openrouter`,
@@ -396,7 +437,8 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     distinctes, aucune valeur issue d'une requête HTTP. Pas de commande rg
 #     fiable (les gabarits s'étendent sur plusieurs lignes).
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 574 z.object (550 avant les lacunes de la
+# 12. Schémas Zod non stricts. Attendu : 0 sur 614 z.object (574 sur `main` : +40 de
+#     `schemas/redressement.ts`, tous `.strict()` ; 550 avant les lacunes de la
 #     vague 2 : +6 de `schemas/brief.ts` et +18 de `schemas/copilote.ts`, tous `.strict()` ;
 #     547 avant le rejeu réel : +3 de `schemas/agents.ts`, tous `.strict()`) de
 #     packages/shared/src/schemas (hors *.test.ts ; chaque z.object a .strict()
@@ -408,12 +450,15 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     appariement naïf), puis, après la parenthèse fermante, parcourir les appels
 #     chaînés `.methode(...)` jusqu'à trouver `strict`. Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 574).
+#     (somme 614 avec le lot 3a, 574 sur `main`).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts) ; dossier : 155 fichiers au
+# ne doit montrer que des lignes « A » (ajouts) ; dossier : 162 fichiers sur la branche du lot 3a
+# (`ls apps/api/migrations | wc -l` : 162 ; `git ls-files apps/api/migrations | wc -l` : 155 ;
+# `git status --short apps/api/migrations` : 7 lignes `??`, `0480` à `0486`, neuves et non commitées :
+# à ne pas modifier une fois commitées ; à la fin du lot, 162 commités) ; 155 sur `main` au
 # 2026-10-11 (`ls apps/api/migrations | wc -l` ; 149 avant les lacunes de la vague 2,
 # 148 avant le rejeu réel OpenRouter, 105 avant les vagues 2 et 3), dont 155 commités
 # (`git ls-files apps/api/migrations | wc -l` : 155, les 43 des vagues 2 et 3, `0270` et les six
@@ -432,7 +477,8 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 23 lignes (20 avant les lacunes de la vague 2, 17 avant les
+#     SECURITY.md §4. Attendu : 23 lignes, inchangé par le lot 3a (aucune fonction
+#     `SECURITY DEFINER` dans `0480`–`0486`, relevé : 23) (20 avant les lacunes de la vague 2, 17 avant les
 #     vagues 2 et 3). Trois des vagues 2 et 3, toutes avec search_path figé et REVOKE ALL
 #     FROM PUBLIC :
 #     `planifier_detection_automatisation` (`0302`, planification récurrente),
@@ -460,8 +506,10 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 # 19. Page serveur qui passe une fonction à un composant : lister les propriétés
 #     `={(…) =>` des pages et layouts qui ne sont PAS marqués "use client", puis
 #     vérifier à la main que le composant destinataire n'est pas client (ni
-#     importé d'un fichier "use client"). Attendu (2026-10-11, inchangé : ni `/brief` ni `/copilote` n'en ajoutent) : 60 lignes dans 46
-#     fichiers, toutes admises : 54 `cleLigne` vers `components/ui/Tableau.tsx`
+#     importé d'un fichier "use client"). Attendu (2026-10-11, avec le lot 3a ; 60 lignes dans 46 fichiers sur `main`) : 66 lignes dans 51
+#     fichiers, toutes admises : 60 `cleLigne` (54 sur `main`, plus 6 dans 5 pages de `redressement/` :
+#     `(app)/redressement/page.tsx`, `redressement/seuils/page.tsx`, `missions/[id]/redressement/ratios`
+#     (2), `tresorerie` et `creanciers/[creancierId]`) vers `components/ui/Tableau.tsx`
 #     (composant serveur ; une occurrence par `<Tableau`), 3 `href` vers
 #     `components/facturation/SegmentsStatut.tsx` (serveur), `hrefCible` vers
 #     `ExplicationNote` (composant local du fichier), et 2 faux positifs (`.map` et
@@ -471,7 +519,7 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 rg -n "=\{\(.*\) =>" apps/web/src/app --glob '**/page.tsx' --glob '**/layout.tsx'
 
 # 20. Boucles de pagination côté web : chaque appel de `chargerToutesLesPages`
-#     déclare le plafond de la route. Attendu (2026-10-11, inchangé) : 12 appels (hors définition
+#     déclare le plafond de la route. Attendu (2026-10-11, inchangé par le lot 3a, dont aucune page n'appelle `chargerToutesLesPages`) : 12 appels (hors définition
 #     de `lib/pagination.ts`) ; 2 avec `limiteMax` (`lib/appels-offres-serveur.ts`,
 #     routes plafonnées à 100) et 10 sans, sur `/api/missions` ou `/api/opportunites`
 #     (plafond 500, défaut 200 admis : dette, CODING_STANDARDS §10) ; `clients/[id]/portail`
