@@ -32,6 +32,8 @@ import {
   actionIntrouvable,
   traduireErreurCopilote,
 } from "./erreurs.js";
+import { ACTION_AJOUTER_COMMENTAIRE } from "./action-commentaire.js";
+import { ACTION_PLANIFIER_RELANCE } from "./action-relance.js";
 import { resoudreMission, type ContexteOutil } from "./lecture.js";
 import { exigerCopiloteActif } from "./limites.js";
 
@@ -50,7 +52,8 @@ import { exigerCopiloteActif } from "./limites.js";
  *    « refusee »), l'empreinte relue, puis exécution par le service existant, sous les droits de
  *    l'utilisateur, et journal.
  * 3. ANNULATION (`annulerAction`) : transition vers `annulee` (permise à tout niveau).
- * Les propositions terminées sont anonymisées au bout de 30 jours (`purge.ts`, migration 0274).
+ * Les propositions terminées sont anonymisées au bout de 30 jours (`purge.ts`, migration 0274) :
+ * `parametres` (donc le texte d'un commentaire) et `resume` sont effacés, quelle que soit l'action.
  * Les transitions sont en AJOUT SEUL (déclencheur MPG10 et MPG11) : un état terminal ne change
  * plus. Cadre d'extension : une entrée de plus dans `ACTIONS` (et dans le catalogue du moteur).
  */
@@ -240,6 +243,8 @@ export const ACTIONS: { [A in OutilActionCopilote]: DefinitionAction<A> } = {
     preparer: preparerCreerTache,
     executer: creerTache,
   },
+  ajouter_commentaire: ACTION_AJOUTER_COMMENTAIRE,
+  planifier_relance: ACTION_PLANIFIER_RELANCE,
 };
 
 const estAction = (outil: string): outil is OutilActionCopilote =>
@@ -251,10 +256,10 @@ export type ResultatProposition =
   | { type: "proposee"; texte: string; action: ActionProposeeCopilote }
   | { type: "precision"; texte: string };
 
-export async function proposerAction(
+export async function proposerAction<A extends OutilActionCopilote>(
   c: ContexteOutil,
-  outil: OutilActionCopilote,
-  parametres: ParametresCopilote[OutilActionCopilote],
+  outil: A,
+  parametres: ParametresCopilote[A],
   maintenant: Date,
 ): Promise<ResultatProposition> {
   // Niveau d'autonomie de l'agent « copilote » : N2 au moins pour proposer une action (409 sinon).

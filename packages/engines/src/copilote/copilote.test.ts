@@ -41,15 +41,19 @@ const outil = (m: string) => {
 };
 
 describe("catalogue fermé", () => {
-  it("compte sept outils : six de lecture et une action modifiante", () => {
-    expect([...OUTILS_LECTURE_COPILOTE]).toHaveLength(6);
-    expect([...OUTILS_ACTION_COPILOTE]).toEqual(["creer_tache"]);
+  it("compte onze outils : huit de lecture et trois actions modifiantes", () => {
+    expect([...OUTILS_LECTURE_COPILOTE]).toHaveLength(8);
+    expect([...OUTILS_ACTION_COPILOTE]).toEqual([
+      "creer_tache",
+      "ajouter_commentaire",
+      "planifier_relance",
+    ]);
     expect(new Set(OUTILS_COPILOTE).size).toBe(OUTILS_COPILOTE.length);
     for (const o of OUTILS_COPILOTE) {
       const d = DEFINITIONS_OUTILS_COPILOTE[o];
       expect(d.libelle.length).toBeGreaterThan(2);
       expect(d.description.length).toBeGreaterThan(10);
-      expect(estOutilModifiant(o)).toBe(OUTILS_ACTION_COPILOTE.includes(o as "creer_tache"));
+      expect(estOutilModifiant(o)).toBe((OUTILS_ACTION_COPILOTE as readonly string[]).includes(o));
     }
   });
 
@@ -411,8 +415,13 @@ describe("gabarits de réponse", () => {
     expect(
       composerKpiRouges({ missions_analysees: 2, total_kpi: 0, missions: [], tronque: true }).texte,
     ).toBe(
-      "Aucun KPI au rouge sur 2 de vos missions. Seules les premières missions ont été analysées.",
+      "Aucun KPI au rouge sur vos 2 missions. Seules les premières missions ont été analysées.",
     );
+    // Accord : singulier « votre mission », pluriel « vos N missions ».
+    expect(
+      composerKpiRouges({ missions_analysees: 1, total_kpi: 0, missions: [], tronque: false })
+        .texte,
+    ).toBe("Aucun KPI au rouge sur votre mission.");
     const r = composerKpiRouges({
       missions_analysees: 2,
       total_kpi: 2,

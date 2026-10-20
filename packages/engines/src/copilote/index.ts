@@ -10,10 +10,13 @@ export * from "./normalisation";
 export * from "./intentions";
 export * from "./gabarits";
 export {
+  extraireCommentaire,
   extraireEcheance,
+  extraireFactureRelance,
   extraireNomMission,
   extraireTache,
   extraireTexteRecherche,
+  type CommentaireExtrait,
   type ResultatEcheance,
   type TacheExtraite,
 } from "./extraction";
