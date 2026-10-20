@@ -291,6 +291,7 @@ export const CHAMPS_OPTIONS_COMPTE = [
   "relance_questionnaire_j10",
   "synthese_hebdo",
   "saisie_kpi",
+  "alerte_kpi",
 ] as const;
 export type ChampOptionCompte = (typeof CHAMPS_OPTIONS_COMPTE)[number];
 
@@ -312,6 +313,10 @@ export const LIBELLES_OPTIONS_COMPTE: Record<ChampOptionCompte, { libelle: strin
       libelle: "Saisie des KPI par message",
       aide: "Une proposition de saisie n'entre dans un indicateur qu'après reprise par un utilisateur du cabinet.",
     },
+    alerte_kpi: {
+      libelle: "Alertes de KPI aux responsables du cabinet",
+      aide: "Un message sans valeur chiffrée prévient les responsables d'un indicateur (alerte ou mesure en retard), s'ils ont un numéro vérifié et un consentement.",
+    },
   };
 
 /** Valeurs modifiables d'un compte (état du formulaire d'une carte). */
@@ -321,6 +326,7 @@ export interface EtatCompteEditable {
   relance_questionnaire_j10: boolean;
   synthese_hebdo: boolean;
   saisie_kpi: boolean;
+  alerte_kpi: boolean;
 }
 
 export function etatEditableDepuisCompte(c: CompteCanalApi): EtatCompteEditable {
@@ -330,6 +336,7 @@ export function etatEditableDepuisCompte(c: CompteCanalApi): EtatCompteEditable 
     relance_questionnaire_j10: c.relance_questionnaire_j10,
     synthese_hebdo: c.synthese_hebdo,
     saisie_kpi: c.saisie_kpi,
+    alerte_kpi: c.alerte_kpi,
   };
 }
 
@@ -794,6 +801,7 @@ export function etatApresEnregistrement(
       relance_questionnaire_j10: lit("relance_questionnaire_j10"),
       synthese_hebdo: lit("synthese_hebdo"),
       saisie_kpi: lit("saisie_kpi"),
+      alerte_kpi: lit("alerte_kpi"),
     };
   }
   return repli;

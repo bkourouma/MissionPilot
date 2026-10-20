@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import "../../../../components/due-diligence/due-diligence.css";
 import { Onglets } from "../../../../components/ui/Onglets";
 import { sousPagesParametresDd } from "../../../../lib/due-diligence";
+import { droitsPortailDd } from "../../../../lib/due-diligence-portail";
 import { exigerPermission } from "../../../../lib/session";
 
 /**
@@ -10,12 +11,13 @@ import { exigerPermission } from "../../../../lib/session";
  * la bibliothèque depuis l'onglet « Risques » d'un dossier.
  */
 export default async function LayoutParametresDd({ children }: { children: ReactNode }) {
-  await exigerPermission("dd.lire");
+  const { utilisateur } = await exigerPermission("dd.lire");
+  const portail = droitsPortailDd(utilisateur.roles).gerer;
   return (
     <div className="mp-dd">
       <Onglets
         libelle="Sections des paramètres de la due diligence"
-        pages={sousPagesParametresDd()}
+        pages={sousPagesParametresDd({ portail })}
       />
       {children}
     </div>

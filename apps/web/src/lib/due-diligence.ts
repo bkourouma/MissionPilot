@@ -922,9 +922,13 @@ export const hrefSignaux = `${hrefParametresDd}/signaux`;
 export const hrefListesExclusion = `${hrefParametresDd}/exclusions`;
 
 /** Onglets d'un dossier (l'onglet actif est celui dont le href est le plus long préfixe). */
-export function sousPagesDd(missionId: string, dossierId: string) {
+export function sousPagesDd(
+  missionId: string,
+  dossierId: string,
+  options: { partage?: boolean } = {},
+) {
   const h = (e: EcranDossier) => hrefEcranDossier(missionId, dossierId, e);
-  return [
+  const base = [
     { id: "synthese", libelle: "Synthèse", href: hrefDossier(missionId, dossierId) },
     { id: "cadrage", libelle: "Cadrage", href: h("cadrage") },
     { id: "analyses", libelle: "Analyses", href: h("analyses") },
@@ -941,14 +945,37 @@ export function sousPagesDd(missionId: string, dossierId: string) {
     { id: "note", libelle: "Note au comité", href: h("note") },
     { id: "ajustements", libelle: "Ajustements", href: h("ajustements") },
   ] as const;
+  // Partage avec l'investisseur (dd.portail.gerer) : onglet ajouté seulement pour qui peut le gérer.
+  return options.partage
+    ? ([
+        ...base,
+        {
+          id: "portail",
+          libelle: "Partage investisseur",
+          href: `${hrefDossier(missionId, dossierId)}/portail`,
+        },
+      ] as const)
+    : base;
 }
 
 /** Onglets des paramètres de la due diligence. */
-export function sousPagesParametresDd() {
-  return [
+export function sousPagesParametresDd(options: { portail?: boolean } = {}) {
+  const base = [
     { id: "signaux", libelle: "Signaux d'alerte", href: hrefSignaux },
     { id: "exclusions", libelle: "Listes d'exclusion", href: hrefListesExclusion },
+    { id: "modeles", libelle: "Modèles sectoriels", href: `${hrefParametresDd}/modeles` },
   ] as const;
+  // Option « portail investisseur » du cabinet (dd.portail.configurer, associé seul).
+  return options.portail
+    ? ([
+        ...base,
+        {
+          id: "portail",
+          libelle: "Portail investisseur",
+          href: `${hrefParametresDd}/portail`,
+        },
+      ] as const)
+    : base;
 }
 
 /** Écran où corriger un point bloquant ou un avertissement de la note. */

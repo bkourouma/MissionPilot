@@ -54,6 +54,7 @@ const ACTIF: EtatCompteEditable = {
   relance_questionnaire_j10: true,
   synthese_hebdo: false,
   saisie_kpi: false,
+  alerte_kpi: false,
 };
 const INACTIF: EtatCompteEditable = { ...ACTIF, actif: false };
 const ASSOCIE = { gerer: true, configurer: true };

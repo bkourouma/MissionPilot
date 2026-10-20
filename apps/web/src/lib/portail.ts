@@ -128,6 +128,7 @@ export interface EntreePortail {
     | "kpi"
     | "factures"
     | "signatures"
+    | "due-diligence"
     | "synthese"
     | "preferences"
     | "securite";
@@ -190,6 +191,14 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
     href: `${CHEMIN_PORTAIL}/signatures`,
     icone: "signature",
     permission: "portail.signature.signer",
+  },
+  {
+    // Notes de due diligence communiquées par le cabinet à l'investisseur (lecture seule).
+    id: "due-diligence",
+    libelle: "Due diligence",
+    href: `${CHEMIN_PORTAIL}/due-diligence`,
+    icone: "livre",
+    permission: "portail.dd.lire",
   },
   {
     // Synthèse hebdomadaire du dirigeant (CLI-07) : deux nombres et des liens, sans montant.
