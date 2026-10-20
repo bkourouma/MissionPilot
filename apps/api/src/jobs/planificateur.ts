@@ -1,5 +1,7 @@
 import { ajouterJours, lundiDeLaSemaine } from "@missionpilot/engines";
 import { planifierDetectionAutomatisation } from "../automatisation/detection.js";
+import { planifierCanauxMaintenance } from "../canaux/maintenance.js";
+import { planifierSyntheseHebdo } from "../canaux/synthese.js";
 import { planifierPurgeCopilote } from "../copilote/purge.js";
 import type { Database } from "../db/pool.js";
 import { planifierBriefQuotidien } from "../brief/quotidien.js";
@@ -23,6 +25,9 @@ import { planifierPurgeRapports } from "../rapports/purge.js";
  *   seuls cabinets ayant une proposition échue ; clé `copilote_purge:jour` (copilote/purge.ts).
  * - Brief quotidien (AUT-07) chaque jour ouvré à 7 h (UTC), pour les cabinets ayant un
  *   utilisateur interne actif ; clé `brief_quotidien:jour` (brief/quotidien.ts).
+ * - Canaux simulés (lot 3c) : synthèse hebdomadaire du dirigeant le lundi à 7 h 30 (UTC), pour les
+ *   cabinets ayant un compte WhatsApp actif avec cette option (clé `synthese_hebdo:lundi`) ; maintenance
+ *   quotidienne à 3 h 15 (UTC), clé `canaux_maintenance:jour` (canaux/maintenance.ts).
  */
 
 export const HEURE_RAPPEL_UTC = "16:00:00";
@@ -136,6 +141,9 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
     total += await planifierDetectionAutomatisation(db, maintenant);
     // Brief quotidien par rôle (AUT-07) : une tâche par cabinet et par jour ouvré.
     total += await planifierBriefQuotidien(db, maintenant);
+    // Canaux simulés (lot 3c) : synthèse du dirigeant le lundi 07:30 UTC, maintenance chaque jour 03:15 UTC.
+    total += await planifierSyntheseHebdo(db, maintenant);
+    total += await planifierCanauxMaintenance(db, maintenant);
     return total;
   });
 }

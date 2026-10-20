@@ -239,6 +239,9 @@ describe("portail client (SOC-09)", () => {
       "portail.kpi.saisir",
       "portail.questionnaires.repondre",
       "portail.salle.deposer",
+      "portail.canaux.gerer",
+      "portail.signature.signer",
+      "portail.synthese.lire",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
@@ -384,6 +387,103 @@ describe("V3, vague 3 : capitalisation (CAP) ; vague 2 : automatisation (AUT)", 
         expect(aPermission([r], p), `${r} ${p}`).toBe(false);
       }
     }
+  });
+});
+
+describe("V3, vague 4 : canaux externes simulés (lot 3c, SPEC §10.1)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("canaux.lire : associé, directeur de mission, chef de mission", () => {
+    expect(qui("canaux.lire")).toEqual(["associe", "chef_mission", "directeur_mission"]);
+  });
+
+  it("canaux.gerer : associé et directeur de mission", () => {
+    expect(qui("canaux.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("canaux.configurer : l'associé SEUL (il reçoit « tout », aucun autre rôle ne la détient)", () => {
+    expect(qui("canaux.configurer")).toEqual(["associe"]);
+  });
+
+  it("canaux.moi : tous les rôles du cabinet sauf l'expert externe, aucun rôle client", () => {
+    expect(qui("canaux.moi")).toEqual([
+      "associe",
+      "chef_mission",
+      "consultant",
+      "directeur_mission",
+      "expert_metier",
+      "gestionnaire",
+      "ressources",
+    ]);
+  });
+
+  it("signature.lire : associé, directeur, chef de mission, gestionnaire ; demander : associé et directeur", () => {
+    expect(qui("signature.lire")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "gestionnaire",
+    ]);
+    expect(qui("signature.demander")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("transcription : lire et gérer pour cinq rôles, valider sans le consultant", () => {
+    const cinq = ["associe", "chef_mission", "consultant", "directeur_mission", "expert_metier"];
+    expect(qui("transcription.lire")).toEqual(cinq);
+    expect(qui("transcription.gerer")).toEqual(cinq);
+    expect(qui("transcription.valider")).toEqual([
+      "associe",
+      "chef_mission",
+      "directeur_mission",
+      "expert_metier",
+    ]);
+  });
+
+  it("portail : numéros et consentements au dirigeant et au contributeur ; signature et synthèse au dirigeant", () => {
+    expect(qui("portail.canaux.gerer")).toEqual(["client_contributeur", "client_dirigeant"]);
+    expect(qui("portail.signature.signer")).toEqual(["client_dirigeant"]);
+    expect(qui("portail.synthese.lire")).toEqual(["client_dirigeant"]);
+    for (const p of [
+      "portail.canaux.gerer",
+      "portail.signature.signer",
+      "portail.synthese.lire",
+    ] as const) {
+      expect(PERMISSIONS_PORTAIL_CLIENT).toContain(p);
+      // Aucun rôle interne ne détient une permission du portail.
+      for (const r of ROLES) expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+    }
+  });
+
+  it("jamais aux rôles du portail (sauf les trois permissions du portail) ni à l'expert externe", () => {
+    for (const p of [
+      "canaux.lire",
+      "canaux.gerer",
+      "canaux.configurer",
+      "canaux.moi",
+      "signature.lire",
+      "signature.demander",
+      "transcription.lire",
+      "transcription.gerer",
+      "transcription.valider",
+    ] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+
+  it("aucune permission du lot ne donne un droit financier (FIN-02)", () => {
+    const lot = PERMISSIONS.filter(
+      (p) =>
+        /^(canaux|signature|transcription)./.test(p) ||
+        /^portail.(canaux|signature|synthese)./.test(p),
+    );
+    expect(lot).toHaveLength(12);
+    expect(qui("finance.lire")).toEqual(["associe", "gestionnaire"]);
+    // Le gestionnaire ne gagne que la lecture des signatures et ses propres numéros.
+    const gestionnaire = PERMISSIONS_PAR_ROLE.gestionnaire.filter((p) => lot.includes(p));
+    expect(gestionnaire.sort()).toEqual(["canaux.moi", "signature.lire"]);
   });
 });
 

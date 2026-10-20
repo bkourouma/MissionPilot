@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { entreeActive, type EntreePortail } from "../../lib/portail";
 import { Icone } from "../ui/Icone";
+// Feuille des canaux : la barre défile sur téléphone quand elle compte plus de sept entrées.
+import "../canaux/canaux.css";
 
 /**
  * Navigation de l'espace client : barre basse sur téléphone, rangée sous l'en-tête sur grand

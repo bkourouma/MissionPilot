@@ -877,6 +877,11 @@ export async function semerDemoAbidjan(
   const { semerPortailDemo } = await import("./seed-demo-portail.js");
   const portail = await semerPortailDemo(database, config);
   if (!portail) throw new Error("Les comptes du portail existent déjà dans un cabinet neuf.");
+  // Comptes avec double authentification active (signature de bout en bout) : même import dynamique.
+  const { semerComptes2faDemo } = await import("./seed-demo-2fa.js");
+  if (!(await semerComptes2faDemo(database, config))) {
+    throw new Error("Les comptes 2FA existent déjà dans un cabinet neuf.");
+  }
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 

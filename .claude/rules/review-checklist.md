@@ -362,6 +362,21 @@ ci-dessous. Lot 3a (service #5 Redressement, relevé du 2026-10-11 dans le workt
 plus, non commitées), 19 (6 lignes de plus) ; les n° 16 et 20 sont inchangés, à dessein (aucune fonction
 `SECURITY DEFINER`, aucune boucle de pagination web). Les valeurs de `main` restent données entre parenthèses.
 
+**Relevé du 2026-10-14 sur la branche d'intégration des lots 3a, 3b et 3c de la vague 4** (redressement, due diligence, canaux simulés ; PR n° 12, 13 et 14, non fusionnées). Il REMPLACE les « Attendu » ci-dessous pour les recherches suivantes, relancées ce jour (les n° 11 et 15 ne l'ont pas été) :
+
+| N° | Attendu | Explication |
+| --- | --- | --- |
+| 1 à 6, 9, 14, 17, 21 | inchangés (2, 1, 5, 0, 0, 0, 1, 0, 2, 2) | — |
+| 7 | 12 lignes | 1 seed + 11 lectures BORNÉES par un plafond écrit dans la requête (non paginées, relues en entier : `canaux/` 4, `redressement/` 7), chacune doublée d'un plafond de table ; toute autre ligne est un écart |
+| 8 | 12 lignes | 9 inchangées + 3 justifiées : `canaux/signatures.ts:369` (nombre de jours d'une durée), `routes/canaux.ts:698` (horodatage en secondes du simulateur), `routes/transcriptions.ts:61` (taille en Mo dans un message) |
+| 10 | « 813 9 » puis 9 lignes | 813 routes ; la neuvième sans `exiger` est `POST /canaux/whatsapp/webhook` (publique, signée HMAC, n'existe qu'avec un fournisseur configuré) |
+| 12 | 723 `z.object`, tous `.strict()` | |
+| 13 | 180 migrations, 0 modifiée ni supprimée dans l'historique | 155 sur `main` + 0480–0486 (3a), 0500–0508 (3b), 0540–0548 (3c) |
+| 16 | 27 lignes | quatre de plus : `resoudre_compte_canal`, `planifier_synthese_hebdo`, `planifier_canaux_maintenance`, `anonymiser_transcriptions` (lot 3c) |
+| 18 | 6 lignes | + `routes/transcriptions.ts` (dépôt audio) |
+| 19 | 73 lignes | les mêmes admises (`cleLigne`, `href`, …) étendues aux écrans neufs ; relire tout autre destinataire |
+| 20 | 23 appels | boucles de pagination des écrans neufs : chacune déclare le plafond de sa route |
+
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
 rg -n "new (pg\.)?(Pool|Client)\(" apps/api/src

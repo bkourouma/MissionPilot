@@ -34,7 +34,7 @@ export const TENTATIVES_PAR_DEFI = 5;
 export type Facteur = { code: string } | { code_secours: string };
 export type FacteurReconnu = "totp" | "code_secours";
 
-const aadSecret = (utilisateurId: string) => `totp:${utilisateurId}`;
+export const aadSecret = (utilisateurId: string) => `totp:${utilisateurId}`;
 
 // Sans caractères ambigus (0/o, 1/l/i) ; 31 symboles, 10 caractères ≈ 49 bits.
 const ALPHABET_SECOURS = "abcdefghjkmnpqrstuvwxyz23456789";

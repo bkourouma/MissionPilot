@@ -1,0 +1,267 @@
+/*
+ * Canaux externes SIMULÉS (lot 3c) : comptes, consentements, journal, aperçu de la synthèse,
+ * signatures, transcriptions, espace client. Mobile d'abord ; jetons du design system seulement.
+ */
+
+.mp-canaux__cartes {
+  display: grid;
+  gap: var(--mp-esp-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .mp-canaux__cartes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.mp-canaux__etat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-canaux__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-canaux__actions-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  align-items: center;
+}
+
+.mp-canaux__panneau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin-top: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface-2);
+}
+
+.mp-canaux__historique {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-canaux__historique li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  overflow-wrap: anywhere;
+}
+
+/* Mention de consentement : lisible en entier, jamais tronquée. */
+.mp-canaux__mention {
+  margin: 0;
+  padding: var(--mp-esp-3);
+  border-left: 4px solid var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  border-radius: var(--mp-rayon);
+  overflow-wrap: anywhere;
+}
+
+/* Message WhatsApp tel qu'il partirait (aperçu) ou « envoyé » (simulateur). */
+.mp-canaux__message {
+  margin: 0;
+  padding: var(--mp-esp-3);
+  border: 1px dashed var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mp-canaux__compteurs {
+  display: grid;
+  gap: var(--mp-esp-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-canaux__compteur {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface);
+}
+
+.mp-canaux__compteur-valeur {
+  font-size: var(--mp-taille-xxl);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-canaux__compteur-libelle {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-canaux__sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-canaux__sections li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+}
+
+.mp-canaux__section-nombre {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Frise des preuves de signature. */
+.mp-frise {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-frise__etape {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: 0 0 var(--mp-esp-4) var(--mp-esp-5);
+  border-left: 2px solid var(--mp-bordure);
+  margin-left: var(--mp-esp-2);
+}
+
+.mp-frise__etape:last-child {
+  padding-bottom: 0;
+}
+
+.mp-frise__etape::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--mp-bordure-controle);
+  border: 2px solid var(--mp-surface);
+}
+
+.mp-frise__etape--succes::before {
+  background: var(--mp-succes);
+}
+
+.mp-frise__etape--danger::before {
+  background: var(--mp-danger);
+}
+
+.mp-frise__libelle {
+  margin: 0;
+  font-weight: 650;
+}
+
+.mp-frise__detail {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-canaux__empreinte {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--mp-taille-xs);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* Transcription : segments et indicateur de confiance. */
+.mp-canaux__segments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-canaux__segment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-left-width: 4px;
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+}
+
+.mp-canaux__segment--bon {
+  border-left-color: var(--mp-succes);
+}
+
+.mp-canaux__segment--moyen {
+  border-left-color: var(--mp-attention);
+}
+
+.mp-canaux__segment--faible {
+  border-left-color: var(--mp-danger);
+}
+
+.mp-canaux__segment-position {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-canaux__segment-texte {
+  flex: 1 1 14rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-canaux__lecteur {
+  width: 100%;
+}
+
+/* Espace client : la barre de navigation compte maintenant jusqu'à dix entrées, elle défile. */
+@media (max-width: 767px) {
+  .mp-portail__nav-liste {
+    grid-auto-columns: minmax(4.5rem, 1fr);
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+}

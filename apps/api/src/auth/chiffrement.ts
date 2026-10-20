@@ -23,9 +23,24 @@ import type { Config } from "../config.js";
  *   trousseau peut contenir l'ancienne clé le temps de rechiffrer (rotation).
  */
 
-/** `ia_cle_api` : clé OpenRouter d'un cabinet ; `ia_entree` : entrée d'une génération IA (ia/). */
+/**
+ * `ia_cle_api` : clé OpenRouter d'un cabinet ; `ia_entree` : entrée d'une génération IA (ia/) ;
+ * `canal_numero` : numéro de téléphone d'un destinataire de canal (AES-GCM) ; `canal_empreinte` :
+ * HMAC du numéro (retrouver un expéditeur) et du texte rendu d'un envoi ; `canal_code` : HMAC du
+ * code de vérification d'un numéro ; `canal_charge` : variables d'un envoi en file (dont le code de
+ * vérification, jamais en clair dans la table des jobs) (canaux/, lot 3c).
+ */
 export type UsageCle =
-  "totp" | "codes_secours" | "file_email" | "limiteur" | "ia_cle_api" | "ia_entree";
+  | "totp"
+  | "codes_secours"
+  | "file_email"
+  | "limiteur"
+  | "ia_cle_api"
+  | "ia_entree"
+  | "canal_numero"
+  | "canal_empreinte"
+  | "canal_code"
+  | "canal_charge";
 
 export interface Trousseau {
   readonly versionActuelle: number;

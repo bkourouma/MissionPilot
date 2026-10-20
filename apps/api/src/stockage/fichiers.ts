@@ -251,13 +251,14 @@ export async function exigerFichierLisible(db: Db, auth: Auth, id: string): Prom
   const debours = await db.query("SELECT id FROM debours WHERE justificatif_fichier_id = $1", [id]);
   if (documents.rows.length === 0 && debours.rows.length === 0) {
     // Cité par un dépôt de la salle de mission ou une pièce justificative non retirée d'une
-    // référence d'appel d'offres : le fichier est rattaché ; il se lit par SA route dédiée
+    // référence d'appel d'offres, ou une transcription (audio : GET /transcriptions/:id/audio) : le fichier est rattaché ; il se lit par SA route dédiée
     // (salle : GET /missions/:id/salle/depots/:depotId/fichier), jamais ici, pas même par son
     // auteur (qui n'a aucun droit sur la mission ni sur la banque par cette seule voie).
     const cite = await db.query(
       `SELECT EXISTS (SELECT 1 FROM salle_depots x WHERE x.fichier_id = $1)
            OR EXISTS (SELECT 1 FROM ao_attestations a
-                      WHERE a.fichier_id = $1 AND a.retiree_le IS NULL) AS cite`,
+                      WHERE a.fichier_id = $1 AND a.retiree_le IS NULL)
+           OR EXISTS (SELECT 1 FROM transcriptions t WHERE t.fichier_id = $1) AS cite`,
       [id],
     );
     if (cite.rows[0].cite === true) throw introuvable("Fichier");

@@ -318,6 +318,20 @@ Règles posées pour avancer, **à confirmer par le commanditaire et des cabinet
   détenteurs de `finance.lire`, écriture avec `taux.gerer` (associé, gestionnaire) : un directeur
   ou un chef de mission ne voit pas les taux (FIN-02).
 
+## Canaux, signatures et transcriptions simulés (lot 3c de la vague 4)
+
+**Règle ferme : aucun envoi réel, aucune clé, fournisseurs simulés** (WhatsApp, SMS, transcription, signature) ; l'API refuse de démarrer avec un autre fournisseur hors développement local. Toutes les valeurs suivantes sont **provisoires — à valider** (valeurs juridiques, tarifs et politiques des fournisseurs : points O-01 à O-27 de SPEC-3c, OUVERTS pour l'utilisateur).
+
+| Sujet | Valeur posée |
+| --- | --- |
+| Signature simulée | Sans valeur juridique, affichée comme telle ; elle n'a aucun effet sur le budget ni sur le statut de la mission ; reconfirmation d'identité et 2FA active exigées pour signer |
+| Consentement WhatsApp / SMS | Accordé par l'utilisateur lui-même ; consentement « recueilli par le cabinet » réservé à un associé ou directeur, avec preuve de 10 à 500 caractères ; STOP (et ses variantes) retire toujours |
+| Numéros | Unicité sur les seuls numéros vérifiés ; 3 codes par heure et 10 par jour et par utilisateur ; 5 essais par code |
+| Webhook WhatsApp | Route publique signée (HMAC, fenêtre de 300 s, anti-rejeu), n'existe qu'avec un fournisseur configuré ; 30 signatures invalides par 5 minutes en base, 100 au total et 50 par adresse en mémoire |
+| Messages entrants | Ignorés si l'expéditeur est désactivé, son accès portail ou son client inactif, ou son numéro non vérifié (sauf STOP) ; jamais transmis à un modèle de langage |
+| Transcriptions | Un audio ne se transcrit que par son auteur ; texte validé par un humain avant tout usage ; 50 versions et 30 corrections par 10 minutes au plus ; anonymisation planifiée |
+| `canaux.lire` du chef de mission | Ouvre les contacts, consentements et synthèses de tous les clients du cabinet : **à confirmer** (restreindre aux missions visibles ou non) |
+
 ## Due diligence stratégique (lot 3b de la vague 4)
 
 Toutes les valeurs sont **provisoires — à valider** par un expert avant le pilote ; elles ne reposent sur aucune source normative.

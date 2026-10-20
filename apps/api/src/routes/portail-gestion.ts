@@ -18,6 +18,7 @@ import { exiger, type Auth } from "../auth/contexte.js";
 import { creerSession, poserCookieSession } from "../auth/ouvrir-session.js";
 import { hashPassword } from "../auth/password.js";
 import { hacherJeton, nouveauJeton } from "../auth/session.js";
+import { retirerConsentementsUtilisateur } from "../canaux/consentements.js";
 import { traduireErreursPg } from "../db/outils.js";
 import type { Db } from "../db/pool.js";
 import { AppError, conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
@@ -406,6 +407,22 @@ export const routesPortailGestion: FastifyPluginAsync = async (app) => {
       await db.query("UPDATE utilisateurs SET actif = $2 WHERE id = $1", [id, statut === "actif"]);
       if (statut === "desactive") {
         await db.query("DELETE FROM sessions WHERE utilisateur_id = $1", [id]);
+        // Canaux simulés (lot 3c) : le consentement de la personne désactivée est retiré.
+        const canauxRetires = await retirerConsentementsUtilisateur(db, {
+          cabinetId: auth.cabinetId,
+          utilisateurId: id,
+          acteurId: auth.utilisateurId,
+        });
+        if (canauxRetires.length > 0) {
+          await journaliser(db, {
+            cabinetId: auth.cabinetId,
+            utilisateurId: auth.utilisateurId,
+            action: "canal.consentement.retirer",
+            entite: "utilisateur_portail",
+            entiteId: id,
+            details: { canaux: canauxRetires, source: "desactivation_utilisateur" },
+          });
+        }
       }
       await journaliser(db, {
         cabinetId: auth.cabinetId,
