@@ -17,7 +17,11 @@ import { AppError, requeteInvalide } from "../errors.js";
  * - MPG08 action réservée (levée d'une restriction d'associé, décision sur une
  *   exécution ; 0267) → 403 ACTION_RESERVEE ;
  * - MPG09 demande de rejeu réel d'une évaluation incohérente (état, jeu, prompt, évaluation
- *   « openrouter » sans demande ni appel inscrit ; 0270) → 409 EVALUATION_INCOHERENTE.
+ *   « openrouter » sans demande ni appel inscrit ; 0270) → 409 EVALUATION_INCOHERENTE ;
+ * - MPG12 écriture réservée au job de rejeu (demande en cours, appel d'évaluation, évaluation
+ *   « openrouter », job de rejeu ; 0275) → 409 ECRITURE_RESERVEE_REJEU ;
+ * - MPG13 job de rejeu invalide, MPG14 demande de rejeu dans un état incompatible, MPG15 paramètre
+ *   de rejeu invalide (fonctions de provenance, 0275) → 409 EVALUATION_INCOHERENTE.
  *
  * Rejeu réel (agents/evaluations-openrouter.ts) : 409 EVALUATION_EN_COURS (un seul rejeu en file
  * ou en cours par cabinet), 409 EVALUATION_DEJA_REUSSIE, 429 TROP_DE_REJEUX (quota sur 24 h),
@@ -143,6 +147,8 @@ export const plafondEvaluationAtteint = () =>
   );
 export const actionReservee = (message = "Action réservée à un associé.") =>
   erreur(403, "ACTION_RESERVEE", message);
+const evaluationIncoherente = () =>
+  erreur(409, "EVALUATION_INCOHERENTE", "Demande d'évaluation incohérente avec son état.");
 const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG01: () => erreur(409, "HISTORIQUE_AGENTS_FIGE", "Historique des agents en ajout seul."),
   MPG02: plafondAgent,
@@ -153,8 +159,16 @@ const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG06: sortieNonConforme,
   MPG07: classeRisqueRefusee,
   MPG08: () => actionReservee(),
-  MPG09: () =>
-    erreur(409, "EVALUATION_INCOHERENTE", "Demande d'évaluation incohérente avec son état."),
+  MPG09: evaluationIncoherente,
+  MPG12: () =>
+    erreur(
+      409,
+      "ECRITURE_RESERVEE_REJEU",
+      "Écriture réservée au job de rejeu réel des évaluations.",
+    ),
+  MPG13: evaluationIncoherente,
+  MPG14: evaluationIncoherente,
+  MPG15: evaluationIncoherente,
 };
 
 function codePg(error: unknown): string | undefined {

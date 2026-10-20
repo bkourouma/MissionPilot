@@ -225,6 +225,8 @@ export interface Consommation {
   tokensEntree: number;
   tokensSortie: number;
   dureeMs: number;
+  /** Échange du copilote (migration 0272) : ni demande ni évaluation, `copilote = true`. */
+  copilote?: boolean;
 }
 
 /**
@@ -241,8 +243,8 @@ export async function enregistrerConsommation(
   await db.query(
     `INSERT INTO ia_consommations (cabinet_id, demande_id, mission_id, tache, modele, issue,
        source_cle, tokens_entree, tokens_sortie, cout_micro_usd, tarif_connu, duree_ms, cree_le,
-       evaluation_demande_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+       evaluation_demande_id, copilote)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
     [
       c.cabinetId,
       c.demandeId,
@@ -258,6 +260,7 @@ export async function enregistrerConsommation(
       c.dureeMs,
       maintenant,
       c.evaluationDemandeId ?? null,
+      c.copilote ?? false,
     ],
   );
   const notifications = await alertesPlafond(db, c.cabinetId, plafond, maintenant);

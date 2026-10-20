@@ -51,7 +51,11 @@ const OUTILS = [
   "kpi_rouges",
   "factures_echues",
   "recherche",
+  "missions_en_retard",
+  "retard_feuilles_temps",
   "creer_tache",
+  "ajouter_commentaire",
+  "planifier_relance",
 ];
 
 beforeAll(async () => {

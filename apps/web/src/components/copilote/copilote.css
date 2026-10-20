@@ -182,3 +182,27 @@
     gap: var(--mp-esp-3);
   }
 }
+
+.mp-copilote__outil {
+  margin: 0;
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  color: var(--mp-texte-doux);
+}
+
+.mp-copilote__reprise {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+}
+
+.mp-copilote__expiree {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-copilote__outils {
+  display: flex;
+  justify-content: flex-end;
+}

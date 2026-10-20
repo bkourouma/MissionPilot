@@ -160,6 +160,19 @@ describe("limiteur : saturation et capacité (F4, mineurs 1-2)", () => {
       );
       expect(r.rows[0], nom).toEqual({ p_max: 10, fenetre_s: 900, p_capacite: 1_000_000 });
     }
+    const autres = {
+      webhook_canal: { p_max: 600, fenetre_s: 60, p_capacite: 100_000 },
+      webhook_invalide: { p_max: 30, fenetre_s: 300, p_capacite: 10 },
+      brief_requetes: { p_max: 60, fenetre_s: 600, p_capacite: 100_000 },
+    };
+    for (const [nom, attendu] of Object.entries(autres)) {
+      const r = await proprio.query(
+        `SELECT p_max, extract(epoch FROM p_fenetre)::int AS fenetre_s, p_capacite
+         FROM tentatives_auth_regles($1)`,
+        [nom],
+      );
+      expect(r.rows[0], nom).toEqual(attendu);
+    }
     await expect(proprio.query("SELECT * FROM tentatives_auth_regles('autre')")).rejects.toThrow(
       /inconnu/,
     );

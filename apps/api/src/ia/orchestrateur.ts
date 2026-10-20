@@ -26,6 +26,7 @@ import {
   etatPlafond,
   QUOTA_GENERATIONS_UTILISATEUR_JOUR,
   reserverAppel,
+  solderReservation,
   type Consommation,
   type IssueConsommation,
 } from "./couts.js";
@@ -97,6 +98,12 @@ import { verifierSources } from "./sources.js";
  * services les construit lui-même à partir de packages/engines avant
  * d'appeler `genererContenu` ou `mettreEnFile`. La route de test
  * (`exempleSeulement`) les refuse.
+ *
+ * APPEL SANS DEMANDE (`admettreSansDemande` / `appelerSansDemande`, en fin de fichier) : même
+ * admission, même plafond, même appel hors transaction et même règlement, pour un appel de
+ * classification qui ne produit AUCUN contenu stocké (routage du copilote, AGT-08) : pas de ligne
+ * `ia_demandes`, pas de prompt, pas de version ; la consommation est inscrite avec
+ * `copilote = true`. C'est le seul chemin du copilote vers le fournisseur.
  *
  * Mode « file » : job `ia_generation` (ia/job.ts), entrée CHIFFRÉE dans la
  * charge du job et effacée à la fin ; les transactions de l'exécution sont
@@ -787,4 +794,185 @@ export async function mettreEnFile(
   );
   await db.query("UPDATE ia_demandes SET job_id = $2 WHERE id = $1", [demandeId, job.rows[0].id]);
   return demandeId;
+}
+
+/* ----- Appel de classification SANS demande de contenu (routage du copilote, AGT-08) ----- */
+
+/** Raison typée d'un repli avant tout appel (le demandeur retombe sur son traitement déterministe). */
+export type RaisonRepliSansDemande = "ia_desactivee" | "non_autorisee" | "indisponible";
+
+export interface AppelSansDemande {
+  tache: TacheGenerative;
+  utilisateur: Auth;
+  /**
+   * Construit les messages à envoyer, dans la transaction d'admission, APRÈS les contrôles bon
+   * marché (IA activée, droit, clé) et AVANT la réservation (le coût estimé en dépend). C'est ici
+   * que l'appelant masque : rien n'est lu ni construit quand l'IA n'est pas utilisable.
+   */
+  messages: (db: Db) => Promise<MessageLlm[]>;
+}
+
+export type AdmissionSansDemande =
+  | { type: "repli"; raison: RaisonRepliSansDemande; detail: string }
+  | {
+      type: "admis";
+      tache: TacheGenerative;
+      cle: string;
+      sourceCle: SourceCle;
+      modele: string;
+      plafond: number;
+      reservationId: string;
+      caracteres: number;
+      messages: MessageLlm[];
+    };
+
+/**
+ * Admission d'un appel sans demande, dans la transaction de l'appelant : coupe-circuit IA du cabinet,
+ * droit « ia.utiliser », clé (cabinet puis plateforme), modèle de la tâche, plafond effectif et
+ * réservation du coût estimé sous verrou. Sinon, un repli typé : jamais d'erreur HTTP, jamais de
+ * contenu dans le détail.
+ */
+export async function admettreSansDemande(
+  db: Db,
+  deps: Pick<DependancesIa, "config">,
+  d: AppelSansDemande,
+  maintenant: Date,
+): Promise<AdmissionSansDemande> {
+  const auth = d.utilisateur;
+  const params = await lireParametres(db);
+  if (!params.ia_activee) {
+    return { type: "repli", raison: "ia_desactivee", detail: "ia_desactivee" };
+  }
+  // Comme toute génération IA (preparer) : le droit « ia.utiliser » de l'utilisateur.
+  if (!aPermission(auth.roles, "ia.utiliser")) {
+    return { type: "repli", raison: "non_autorisee", detail: "droit_ia_absent" };
+  }
+  if (sourceCleDisponible(params, deps.config) === null) {
+    return { type: "repli", raison: "indisponible", detail: "cle_absente" };
+  }
+  const cle = await resoudreCle(db, deps.config, auth.cabinetId);
+  if (cle.statut !== "ok") {
+    return { type: "repli", raison: "indisponible", detail: `cle_${cle.statut}` };
+  }
+  const messages = await d.messages(db);
+  const caracteres = messages.reduce((n, m) => n + m.content.length, 0);
+  const modele = modeleDe(params, d.tache);
+  const plafond = plafondEffectif(params, deps.config, cle.source);
+  const reservation = await reserverAppel(db, {
+    cabinetId: auth.cabinetId,
+    demandeId: null,
+    estimation: estimerCoutAppel(modele, caracteres, MAX_TOKENS_SORTIE[d.tache]),
+    plafond,
+    maintenant,
+  });
+  if (reservation.statut !== "reservee") {
+    return {
+      type: "repli",
+      raison: "indisponible",
+      detail: reservation.statut === "plafond" ? "plafond" : "simultanees",
+    };
+  }
+  return {
+    type: "admis",
+    tache: d.tache,
+    cle: cle.cle,
+    sourceCle: cle.source,
+    modele,
+    plafond,
+    reservationId: reservation.id,
+    caracteres,
+    messages,
+  };
+}
+
+export interface ResultatSansDemande<T> {
+  sortie: { type: "lue"; valeur: T } | { type: "echec"; code: string };
+  /** Coût inscrit (µUSD), absent quand l'appel n'a rien coûté. */
+  cout: number | null;
+  notifications: (NotificationCreee | null)[];
+}
+
+/**
+ * Appel du fournisseur HORS transaction (UNE seule tentative), lecture de la réponse par
+ * `lire` (qui dit si elle est exploitable : sinon issue « sortie_invalide », l'appel reste compté),
+ * puis règlement en transaction courte : réservation soldée, coût réel (ou estimé pour un délai
+ * dépassé ou une réponse illisible, ISSUES_FACTURABLES) inscrit avec `copilote = true`, alertes de
+ * plafond. Ne lève jamais pour une erreur du fournisseur ; le règlement a lieu dans tous les cas.
+ */
+export async function appelerSansDemande<T>(
+  database: Database,
+  deps: DependancesIa,
+  cabinetId: string,
+  admis: Extract<AdmissionSansDemande, { type: "admis" }>,
+  lire: (texte: string) => { valide: boolean; valeur: T },
+  maintenant: Date,
+): Promise<ResultatSansDemande<T>> {
+  let sortie: ResultatSansDemande<T>["sortie"];
+  let consommation: Consommation | null = null;
+  const base = {
+    cabinetId,
+    demandeId: null,
+    missionId: null,
+    tache: admis.tache,
+    modele: admis.modele,
+    sourceCle: admis.sourceCle,
+    copilote: true,
+  };
+  try {
+    const fournisseur =
+      deps.fournisseur ?? fournisseurDepuisConfig(deps.config, deps.journal, { tentativesMax: 1 });
+    const rep = await fournisseur.completer({
+      tache: admis.tache,
+      modele: admis.modele,
+      messages: admis.messages,
+      maxTokens: MAX_TOKENS_SORTIE[admis.tache],
+      formatJson: true,
+      cleApi: admis.cle,
+    });
+    // Une réponse obtenue est facturée : son coût est inscrit quoi qu'il arrive de sa lecture.
+    const consommationReponse: Consommation = {
+      ...base,
+      issue: "sortie_invalide",
+      tokensEntree: rep.tokensEntree,
+      tokensSortie: rep.tokensSortie,
+      dureeMs: rep.dureeMs,
+    };
+    consommation = consommationReponse;
+    const lu = lire(rep.texte);
+    if (lu.valide) consommationReponse.issue = "succes";
+    sortie = { type: "lue", valeur: lu.valeur };
+  } catch (error) {
+    sortie = { type: "echec", code: error instanceof ErreurLlm ? error.code : "ERREUR_INATTENDUE" };
+    const issue = error instanceof ErreurLlm ? ISSUES_FACTURABLES[error.code] : undefined;
+    if (issue) {
+      // L'appel a pu être facturé sans réponse exploitable : coût ESTIMÉ.
+      consommation = {
+        ...base,
+        issue,
+        tokensEntree: estimerTokens(admis.caracteres),
+        tokensSortie: MAX_TOKENS_SORTIE[admis.tache],
+        dureeMs: 0,
+      };
+    }
+  }
+  const aInscrire = consommation;
+  let cout: number | null = null;
+  let notifications: (NotificationCreee | null)[] = [];
+  try {
+    await database.withTenant(cabinetId, async (db) => {
+      await solderReservation(db, admis.reservationId);
+      if (aInscrire) {
+        const c = await enregistrerConsommation(db, aInscrire, admis.plafond, maintenant);
+        cout = c.cout;
+        notifications = c.notifications;
+      }
+    });
+  } catch (error) {
+    // Règlement impossible : la réservation ne doit pas peser 30 minutes sur le plafond.
+    await database
+      .withTenant(cabinetId, (db) => solderReservation(db, admis.reservationId))
+      .catch(() => undefined);
+    throw error;
+  }
+  return { sortie, cout, notifications };
 }

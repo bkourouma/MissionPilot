@@ -26,10 +26,19 @@ import {
   majAction,
   MENTION_CONFIDENTIALITE,
   messageErreurCopilote,
+  questionAvant,
+  saisieApresEnvoi,
+  TEXTE_PROPOSITION_EXPIREE,
   validerSaisie,
   type EntreeCopilote,
   type EntreeFil,
 } from "../../lib/copilote";
+import {
+  effacerConversation,
+  restaurerConversation,
+  sauvegarderConversation,
+  stockageSession,
+} from "../../lib/copilote-session";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -38,7 +47,9 @@ import { ReponseVue } from "./ReponseVue";
 
 /*
  * Copilote conversationnel (AGT-08). Le fil vit dans l'état du navigateur : rien n'est conservé
- * côté serveur. Les propriétés reçues de la page serveur sont sérialisables (aucune fonction).
+ * côté serveur. Pour survivre à un rechargement, il est copié dans le `sessionStorage` de l'onglet
+ * (jamais envoyé au serveur ; 20 échanges, 30 min d'inactivité, sans carte d'action en attente :
+ * voir lib/copilote-session.ts), et l'utilisateur peut l'effacer. Les propriétés reçues de la page serveur sont sérialisables (aucune fonction).
  * Accessibilité : le fil est une région `log` (annonce polie des ajouts), le focus revient au
  * champ de saisie après chaque réponse, et une proposition d'action porte son propre résultat.
  */
@@ -47,9 +58,11 @@ export interface CopiloteProps {
   suggestions: string[];
   /** Mission affichée à l'écran (`?mission=`), transmise comme contexte ; sinon null. */
   missionId: string | null;
+  /** Utilisateur connecté : portée de la conversation conservée dans l'onglet. */
+  portee: string;
 }
 
-export function Copilote({ suggestions, missionId }: CopiloteProps) {
+export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
   const [fil, setFil] = useState<EntreeFil[]>([]);
   const [saisie, setSaisie] = useState("");
   const [erreurSaisie, setErreurSaisie] = useState<string | null>(null);
@@ -61,6 +74,18 @@ export function Copilote({ suggestions, missionId }: CopiloteProps) {
     compteur.current += 1;
     return `e${compteur.current}`;
   }, []);
+
+  // Relit la conversation conservée dans l'onglet (après l'hydratation : le serveur n'en a pas).
+  const [charge, setCharge] = useState(false);
+  useEffect(() => {
+    setFil(restaurerConversation(stockageSession(), portee));
+    setCharge(true);
+  }, [portee]);
+
+  // Recopie le fil dans l'onglet à chaque changement (sans effet tant que la relecture n'a pas eu lieu).
+  useEffect(() => {
+    if (charge) sauvegarderConversation(stockageSession(), portee, fil);
+  }, [fil, charge, portee]);
 
   // Fait défiler le fil vers la dernière entrée.
   useEffect(() => {
@@ -77,7 +102,6 @@ export function Copilote({ suggestions, missionId }: CopiloteProps) {
         return;
       }
       setErreurSaisie(null);
-      setSaisie("");
       setEnvoi(true);
       setFil((f) => ajouterQuestion(f, prochainId(), v.texte));
       try {
@@ -88,10 +112,12 @@ export function Copilote({ suggestions, missionId }: CopiloteProps) {
         const lu = reponseCopiloteSchema.safeParse(brutReponse);
         if (!lu.success) throw new Error("Réponse illisible.");
         setFil((f) => ajouterReponse(f, prochainId(), lu.data));
+        // Le serveur a répondu (même un refus ou « non compris ») : le champ est vidé.
+        setSaisie((s) => saisieApresEnvoi(s, v.texte, true));
       } catch (e) {
         setFil((f) => ajouterErreur(f, prochainId(), messageErreurCopilote(e)));
-        // La question n'est pas perdue : elle revient dans le champ pour être renvoyée.
-        setSaisie(v.texte);
+        // Requête échouée : la question n'est pas perdue, elle reste dans le champ pour être renvoyée.
+        setSaisie((s) => saisieApresEnvoi(s, v.texte, false));
       } finally {
         setEnvoi(false);
         champ.current?.focus();
@@ -136,6 +162,21 @@ export function Copilote({ suggestions, missionId }: CopiloteProps) {
       e.preventDefault();
       void envoyer(saisie);
     }
+  };
+
+  // Reprise après un refus ou une expiration : la demande d'origine revient dans le champ.
+  const reformuler = (id: string) => {
+    const q = questionAvant(fil, id);
+    if (q === null) return;
+    setSaisie(q);
+    setErreurSaisie(null);
+    champ.current?.focus();
+  };
+
+  const effacer = () => {
+    effacerConversation(stockageSession());
+    setFil([]);
+    champ.current?.focus();
   };
 
   const choisir = (texte: string) => {
@@ -189,7 +230,11 @@ export function Copilote({ suggestions, missionId }: CopiloteProps) {
                           erreur={e.erreurAction}
                           onConfirmer={() => void decider(e, true)}
                           onAnnuler={() => void decider(e, false)}
+                          onReformuler={() => reformuler(e.id)}
                         />
+                      ) : null}
+                      {e.propositionExpiree ? (
+                        <p className="mp-copilote__expiree">{TEXTE_PROPOSITION_EXPIREE}</p>
                       ) : null}
                     </div>
                   </>
@@ -200,6 +245,13 @@ export function Copilote({ suggestions, missionId }: CopiloteProps) {
         )}
         <div ref={fin} />
       </div>
+      {fil.length > 0 ? (
+        <div className="mp-copilote__outils">
+          <Bouton variante="secondaire" onClick={effacer} disabled={envoi}>
+            Effacer la conversation
+          </Bouton>
+        </div>
+      ) : null}
       {envoi ? (
         <p className="mp-copilote__attente" role="status">
           Le copilote prépare sa réponse…

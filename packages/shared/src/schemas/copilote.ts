@@ -24,12 +24,20 @@ export const IDENTIFIANTS_OUTILS_COPILOTE = [
   "kpi_rouges",
   "factures_echues",
   "recherche",
+  "missions_en_retard",
+  "retard_feuilles_temps",
   "creer_tache",
+  "ajouter_commentaire",
+  "planifier_relance",
 ] as const;
 export type IdentifiantOutilCopilote = (typeof IDENTIFIANTS_OUTILS_COPILOTE)[number];
 
 /** Outils qui modifient des données : jamais exécutés sans confirmation. */
-export const IDENTIFIANTS_ACTIONS_COPILOTE = ["creer_tache"] as const;
+export const IDENTIFIANTS_ACTIONS_COPILOTE = [
+  "creer_tache",
+  "ajouter_commentaire",
+  "planifier_relance",
+] as const;
 export type IdentifiantActionCopilote = (typeof IDENTIFIANTS_ACTIONS_COPILOTE)[number];
 
 export const MESSAGE_COPILOTE_LONGUEUR_MAX = 1000;
@@ -100,6 +108,26 @@ export const choixModeleCopiloteSchema = z.discriminatedUnion("outil", [
           mission: facultatif(texteCourt(1, 200)),
         })
         .strict(),
+    })
+    .strict(),
+  z.object({ outil: z.literal("missions_en_retard"), parametres: sansParametres }).strict(),
+  z.object({ outil: z.literal("retard_feuilles_temps"), parametres: sansParametres }).strict(),
+  z
+    .object({
+      outil: z.literal("ajouter_commentaire"),
+      parametres: z
+        .object({
+          // Le texte est du CONTENU : borné comme un message, jamais journalisé.
+          texte: texteCourt(1, MESSAGE_COPILOTE_LONGUEUR_MAX),
+          mission: facultatif(texteCourt(1, 200)),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      outil: z.literal("planifier_relance"),
+      parametres: z.object({ facture: texteCourt(1, 100) }).strict(),
     })
     .strict(),
   // Le modèle ne reconnaît aucun outil : le routage déterministe prend le relais.

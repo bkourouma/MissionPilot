@@ -1,5 +1,5 @@
 import { formaterJours } from "../planning/suivi-budget";
-import { LIMITE_ELEMENTS_COPILOTE, type OutilLectureCopilote } from "./catalogue";
+import { LIMITE_ELEMENTS_COPILOTE, type OutilCopilote } from "./catalogue";
 
 /*
  * Gabarits de réponse du copilote (AGT-08) : le CODE répond, jamais le modèle de langage. Chaque
@@ -14,6 +14,12 @@ export const MESSAGE_ACCES_REFUSE = "Vous n'avez pas accès à cette information
 export const MESSAGE_ACTION_REFUSEE = "Vous n'avez pas le droit d'effectuer cette action.";
 export const MESSAGE_MODE_SANS_IA =
   "Mode sans IA : votre demande a été comprise par des règles simples, sans modèle de langage.";
+/**
+ * Réponse à une demande d'ACTION quand le cabinet limite l'agent « copilote » à la lecture
+ * (niveau d'autonomie inférieur à N2) : un message clair, pas une erreur.
+ */
+export const MESSAGE_ACTION_INDISPONIBLE =
+  "Cette action n'est pas disponible : l'agent est limité à la lecture par votre cabinet. Vous pouvez toujours me poser des questions ; pour modifier une information, utilisez l'écran correspondant.";
 export const MESSAGE_MISSION_INTROUVABLE = "Aucune mission visible ne correspond à votre demande.";
 export const QUESTION_MISSION = "De quelle mission parlez-vous ? Indiquez son nom.";
 
@@ -202,7 +208,7 @@ export function composerKpiRouges(f: FaitsKpiRouges): ReponseComposee {
   }
   if (f.total_kpi === 0) {
     return {
-      texte: `Aucun KPI au rouge sur ${compterCopilote(f.missions_analysees, "de vos missions", "de vos missions")}.${limite}`,
+      texte: `Aucun KPI au rouge sur ${f.missions_analysees === 1 ? "votre mission" : `vos ${f.missions_analysees} missions`}.${limite}`,
       elements: [],
     };
   }
@@ -248,6 +254,84 @@ export function composerFacturesEchues(f: FaitsFacturesEchues): ReponseComposee 
     f.totaux && f.totaux.length > 0 ? ` Total restant dû : ${f.totaux.join(" ; ")}.` : "";
   return {
     texte: `${plus}${compterCopilote(f.total, "facture échue non soldée", "factures échues non soldées")}.${totaux}${mentionTronque(f.total, elements.length)}`,
+    elements,
+  };
+}
+
+/* ----- Mes missions en retard ----- */
+
+export interface FaitsMissionsEnRetard {
+  total: number;
+  /** Davantage de missions que la limite de lecture : le total est un minimum. */
+  tronque: boolean;
+  missions: readonly {
+    intitule: string;
+    jalons_en_retard: number;
+    /** Date prévue du plus ancien jalon en retard ; null sans jalon en retard. */
+    jalon_plus_ancien: string | null;
+    /** Date de fin prévue dépassée ; null si elle ne l'est pas. */
+    fin_depassee: string | null;
+    lien: string;
+  }[];
+}
+
+export function composerMissionsEnRetard(f: FaitsMissionsEnRetard): ReponseComposee {
+  if (f.total === 0) {
+    return { texte: "Aucune de vos missions n'est en retard : tout est à jour.", elements: [] };
+  }
+  const elements = borner(f.missions).map((m) => {
+    const morceaux = [
+      ...(m.jalons_en_retard > 0
+        ? [
+            `${compterCopilote(m.jalons_en_retard, "jalon en retard", "jalons en retard")}${m.jalon_plus_ancien ? ` (le plus ancien prévu le ${formaterDateCopilote(m.jalon_plus_ancien)})` : ""}`,
+          ]
+        : []),
+      ...(m.fin_depassee
+        ? [`date de fin prévue dépassée (${formaterDateCopilote(m.fin_depassee)})`]
+        : []),
+    ];
+    return { libelle: m.intitule, detail: morceaux.join(" · "), lien: m.lien };
+  });
+  const plus = f.tronque ? "au moins " : "";
+  return {
+    texte: `${plus}${compterCopilote(f.total, "mission en retard", "missions en retard")} parmi celles dont vous êtes responsable ou membre.${mentionTronque(f.total, elements.length)}`,
+    elements,
+  };
+}
+
+/* ----- Retards sur les feuilles de temps de l'équipe ----- */
+
+export interface FaitsRetardFeuilles {
+  total: number;
+  /** Davantage de collaborateurs que la limite de lecture : le total est un minimum. */
+  tronque: boolean;
+  /** Nombre de semaines écoulées examinées. */
+  semaines_examinees: number;
+  /** Jours, noms et dates seulement : jamais un taux, un coût ni un montant (FIN-02). */
+  collaborateurs: readonly {
+    nom: string;
+    semaines: number;
+    plus_ancienne: string;
+    lien: string;
+  }[];
+}
+
+export function composerRetardFeuilles(f: FaitsRetardFeuilles): ReponseComposee {
+  const periode = `sur les ${f.semaines_examinees} dernières semaines écoulées`;
+  if (f.total === 0) {
+    return {
+      texte: `Aucun collaborateur de votre périmètre n'est en retard sur ses feuilles de temps (${periode}).`,
+      elements: [],
+    };
+  }
+  const elements = borner(f.collaborateurs).map((c) => ({
+    libelle: c.nom,
+    detail: `${compterCopilote(c.semaines, "semaine non soumise", "semaines non soumises")} · la plus ancienne : semaine du ${formaterDateCopilote(c.plus_ancienne)}`,
+    lien: c.lien,
+  }));
+  const plus = f.tronque ? "au moins " : "";
+  return {
+    texte: `${plus}${compterCopilote(f.total, "collaborateur en retard", "collaborateurs en retard")} sur ${f.total > 1 ? "leurs" : "ses"} feuilles de temps (${periode}).${mentionTronque(f.total, elements.length)}`,
     elements,
   };
 }
@@ -310,6 +394,42 @@ export function resumerCreerTache(f: FaitsCreerTache): string {
   return `${morceaux.join(", ")}.`;
 }
 
+/* ----- Action : ajouter un commentaire ----- */
+
+/**
+ * Longueur maximale (en caractères) d'un commentaire proposé par le copilote : le texte entier
+ * figure dans le résumé que l'utilisateur relit avant de confirmer (résumé borné à 1 000
+ * caractères en base). Valeur PROPOSÉE, à valider.
+ */
+export const COMMENTAIRE_COPILOTE_LONGUEUR_MAX = 600;
+export const LIBELLE_ACTION_AJOUTER_COMMENTAIRE = "Ajouter un commentaire";
+
+export interface FaitsAjouterCommentaire {
+  texte: string;
+  mission_intitule: string;
+}
+
+export function resumerAjouterCommentaire(f: FaitsAjouterCommentaire): string {
+  return `Ajouter à la mission « ${f.mission_intitule} » le commentaire : « ${f.texte} ». Il sera visible de toutes les personnes qui voient cette mission ; aucune personne n'est mentionnée.`;
+}
+
+/* ----- Action : relancer une facture échue ----- */
+
+export const LIBELLE_ACTION_PLANIFIER_RELANCE = "Relancer une facture échue";
+
+export interface FaitsPlanifierRelance {
+  numero: string | null;
+  client: string;
+  echeance: string;
+  jours_retard: number;
+  niveau: number;
+}
+
+/** Aucun montant (FIN-02) : numéro, client, dates et niveau seulement. */
+export function resumerPlanifierRelance(f: FaitsPlanifierRelance): string {
+  return `Enregistrer une relance de niveau ${f.niveau} pour la facture ${f.numero ?? "sans numéro"} du client « ${f.client} » (échue le ${formaterDateCopilote(f.echeance)}, ${compterCopilote(f.jours_retard, "jour de retard", "jours de retard")}). Aucun e-mail n'est envoyé au client ; l'équipe de gestion est prévenue.`;
+}
+
 export const TEXTE_ACTION_PROPOSEE =
   "Je propose l'action ci-dessous. Elle ne sera effectuée que si vous la confirmez.";
 
@@ -323,11 +443,14 @@ export const EXEMPLES_OUTILS: Readonly<Record<string, string>> = {
   factures_echues: "Quelles factures sont échues ?",
   recherche: "Cherche transformation digitale",
   creer_tache: "Crée une tâche : relancer le client avant le 15/11/2026",
+  missions_en_retard: "Quelles sont mes missions en retard ?",
+  retard_feuilles_temps: "Qui est en retard sur les feuilles de temps ?",
+  ajouter_commentaire:
+    "Ajoute un commentaire sur la mission Plan stratégique : le client valide le planning",
+  planifier_relance: "Relance la facture F-2026-0012",
 };
 
-export function composerAide(
-  outils: readonly (OutilLectureCopilote | "creer_tache")[],
-): ReponseComposee {
+export function composerAide(outils: readonly OutilCopilote[]): ReponseComposee {
   const exemples = outils.map((o) => EXEMPLES_OUTILS[o]).filter((e): e is string => Boolean(e));
   return {
     texte:

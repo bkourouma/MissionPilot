@@ -15,7 +15,7 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import type { NomIcone } from "../components/ui/Icone";
-import { DEVISES, formaterMontantMineur, type Devise } from "./format";
+import { DEVISES, formaterDate, formaterMontantMineur, type Devise } from "./format";
 
 export type {
   BriefApi,
@@ -167,6 +167,22 @@ export function lireDateBrief(
   const brut = recherche.date;
   const valeur = Array.isArray(brut) ? brut[0] : brut;
   if (typeof valeur !== "string") return undefined;
+  const lu = dateIsoBorneeSchema.safeParse(valeur);
+  return lu.success ? lu.data : undefined;
+}
+
+/** Adresse de la page « Mon brief » (avec `?date=` si le brief est rejoué à une autre date). */
+export function hrefBrief(date?: string): string {
+  return date ? `${CHEMIN_BRIEF}?date=${encodeURIComponent(date)}` : CHEMIN_BRIEF;
+}
+
+/** « Brief du 12 oct. 2026 (rejeu) » ; sans date rejouée, le brief est celui du jour. */
+export function libelleRejeuBrief(date?: string): string {
+  return date ? `Brief du ${formaterDate(date)} (rejeu)` : "Brief du jour";
+}
+
+/** Date saisie dans le sélecteur : valide et bornée (2000 à 2100), sinon undefined. */
+export function dateSaisieBrief(valeur: string): string | undefined {
   const lu = dateIsoBorneeSchema.safeParse(valeur);
   return lu.success ? lu.data : undefined;
 }

@@ -4,6 +4,7 @@ import {
   extraireEcheance,
   LIMITE_ELEMENTS_COPILOTE,
   MESSAGE_ACCES_REFUSE,
+  MESSAGE_ACTION_INDISPONIBLE,
   MESSAGE_ACTION_REFUSEE,
   nettoyerMessageCopilote,
   plierTexteCopilote,
@@ -24,12 +25,13 @@ import {
 } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
+import type { Db } from "../db/pool.js";
 import { signauxInjection } from "../ia/donnees-non-fiables.js";
 import { AppError } from "../errors.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
 import { proposerAction } from "./actions.js";
-import { outilsPermis } from "./catalogue.js";
-import { exigerCopiloteActif, compterMessage } from "./limites.js";
+import { outilsPermis, PERMISSION_OUTIL } from "./catalogue.js";
+import { actionsCopiloteDisponibles, exigerCopiloteActif, compterMessage } from "./limites.js";
 import {
   facturesEchues,
   kpiRouges,
@@ -39,6 +41,7 @@ import {
   resumeMission,
   type ContexteOutil,
 } from "./lecture.js";
+import { missionsEnRetard, retardFeuillesTemps } from "./lecture-retards.js";
 import {
   appelerModele,
   preparerAppelIa,
@@ -85,15 +88,38 @@ const refus = (outil: OutilCopilote): Execution => ({
   elements: [],
 });
 
+/** Ce que le service sait du moment : outils permis et actions disponibles (niveau N2 au moins). */
+interface Disponibilites {
+  permis: readonly OutilCopilote[];
+  actionsDisponibles: boolean;
+}
+
+/**
+ * Outils permis à l'utilisateur ; les outils d'ACTION en sont retirés (donc de l'aide et du
+ * catalogue envoyé au modèle) quand le cabinet limite l'agent « copilote » à la lecture (< N2).
+ */
+async function lireDisponibilites(db: Db, auth: Auth): Promise<Disponibilites> {
+  const actionsDisponibles = await actionsCopiloteDisponibles(db);
+  const permis = outilsPermis(auth).filter((o) => actionsDisponibles || !estOutilModifiant(o));
+  return { permis, actionsDisponibles };
+}
+
 /** Exécute le choix : lecture, ou proposition d'action ; un outil non permis est refusé. */
 async function executerChoix(
   c: ContexteOutil,
   choix: ChoixCopilote,
-  permis: readonly OutilCopilote[],
+  d: Disponibilites,
   maintenant: Date,
 ): Promise<Execution> {
   const outil = choix.outil;
-  if (!permis.includes(outil)) return refus(outil);
+  if (!d.permis.includes(outil)) {
+    // Droit présent mais agent limité à la lecture : message clair, pas une erreur (409).
+    const limiteALaLecture =
+      estOutilModifiant(outil) && !d.actionsDisponibles && PERMISSION_OUTIL[outil](c.auth);
+    return limiteALaLecture
+      ? { outil, statut: "refuse", texte: MESSAGE_ACTION_INDISPONIBLE, elements: [] }
+      : refus(outil);
+  }
   try {
     switch (choix.outil) {
       case "mes_taches":
@@ -108,7 +134,13 @@ async function executerChoix(
         return { outil, ...(await facturesEchues(c)) };
       case "recherche":
         return { outil, ...(await rechercheUnifiee(c, choix.parametres)) };
-      case "creer_tache": {
+      case "missions_en_retard":
+        return { outil, ...(await missionsEnRetard(c)) };
+      case "retard_feuilles_temps":
+        return { outil, ...(await retardFeuillesTemps(c)) };
+      case "creer_tache":
+      case "ajouter_commentaire":
+      case "planifier_relance": {
         const p = await proposerAction(c, choix.outil, choix.parametres, maintenant);
         return p.type === "proposee"
           ? {
@@ -133,12 +165,12 @@ async function executerChoix(
 async function executerRoutage(
   c: ContexteOutil,
   routage: RoutageCopilote,
-  permis: readonly OutilCopilote[],
+  d: Disponibilites,
   maintenant: Date,
 ): Promise<Execution> {
   switch (routage.type) {
     case "outil":
-      return executerChoix(c, routage.choix, permis, maintenant);
+      return executerChoix(c, routage.choix, d, maintenant);
     case "precision":
       return {
         outil: routage.outil,
@@ -147,7 +179,7 @@ async function executerRoutage(
         elements: [],
       };
     case "aide":
-      return { outil: null, statut: "aide", ...composerAide(permis) };
+      return { outil: null, statut: "aide", ...composerAide(d.permis) };
     case "inconnu":
       return { outil: null, statut: "non_compris", texte: TEXTE_NON_COMPRIS, elements: [] };
   }
@@ -176,24 +208,34 @@ export async function traiterMessage(
   const maintenant = (deps.horloge ?? (() => new Date()))();
   const aujourdhui = maintenant.toISOString().slice(0, 10);
   const message = nettoyerMessageCopilote(corps.message);
-  const permis = outilsPermis(auth);
   const notifications: (NotificationCreee | null)[] = [];
 
-  const admission = await deps.database.withTenant(auth.cabinetId, async (db) => {
-    await exigerCopiloteActif(db);
-    await compterMessage(db, auth, message.length);
-    return preparerAppelIa(db, deps, auth, permis, message, maintenant);
-  });
+  const { admission, disponibilites } = await deps.database.withTenant(
+    auth.cabinetId,
+    async (db) => {
+      await exigerCopiloteActif(db);
+      // Les outils d'action quittent l'aide et le catalogue du modèle sous N2 (agent limité à la lecture).
+      const d = await lireDisponibilites(db, auth);
+      await compterMessage(db, auth, message.length);
+      return {
+        admission: await preparerAppelIa(db, deps, auth, [...d.permis], message, maintenant),
+        disponibilites: d,
+      };
+    },
+  );
+  const permis = [...disponibilites.permis];
 
   let mode: "ia" | "deterministe" = "deterministe";
   let repli: RaisonRepli | undefined;
   let detailRepli: string | undefined;
   let cout: number | null = null;
+  let termesMasques: number | undefined;
   let routage: RoutageCopilote | null = null;
   if (admission.type === "repli") {
     repli = admission.raison;
     detailRepli = admission.detail;
   } else {
+    termesMasques = admission.termes_masques;
     const appel = await appelerModele(deps, auth, admission, permis, maintenant);
     cout = appel.cout;
     notifications.push(...appel.notifications);
@@ -223,7 +265,7 @@ export async function traiterMessage(
     const e = await executerRoutage(
       { db, auth, aujourdhui, missionId: corps.contexte?.mission_id },
       routage,
-      permis,
+      disponibilites,
       maintenant,
     );
     await journaliser(db, {
@@ -239,6 +281,7 @@ export async function traiterMessage(
         longueur: message.length,
         ...(detailRepli ? { repli: detailRepli } : {}),
         ...(cout !== null ? { cout_micro_usd: cout } : {}),
+        ...(termesMasques !== undefined ? { termes_masques: termesMasques } : {}),
         ...(signaux.length > 0 ? { signaux_injection: signaux } : {}),
       },
     });

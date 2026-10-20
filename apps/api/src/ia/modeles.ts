@@ -16,6 +16,11 @@ import { diviserAuDessus } from "./fournisseur.js";
  * TARIF_INCONNU, pour que le plafond mensuel reste protecteur.
  */
 
+/**
+ * Miroir en base : `modele_recommande(tache)` (migration 0276), dont dépend la garde d'activation
+ * d'un prompt (modèle routé). Changer une valeur ici exige une migration qui redéfinit cette
+ * fonction (test : agents-provenance-rejeu.test.ts).
+ */
 export const MODELES_RECOMMANDES: Readonly<Record<TacheIa, string>> = {
   // Rédaction et analyse : modèle Claude (PRD, « Décisions techniques »).
   redaction: "anthropic/claude-sonnet-4.5",

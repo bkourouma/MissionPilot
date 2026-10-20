@@ -33,6 +33,9 @@ export const TYPES_PAR_FAMILLE = {
     "brouillon_automatisation",
     "retour_a_valider",
     "cloture_en_attente",
+    "offre_technique_a_valider",
+    "plan_a_valider",
+    "revision_budget_a_valider",
   ],
   deriver: [
     "kpi_rouge",

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { briefQuerySchema } from "@missionpilot/shared";
+import { trousseauDepuisConfig } from "../auth/chiffrement.js";
 import { exiger } from "../auth/contexte.js";
 import { calculerBrief } from "../brief/calcul.js";
 import { verifierDebitBrief } from "../brief/debit.js";
@@ -19,13 +20,14 @@ import { aujourdhui } from "../missions/outils.js";
  *
  * Débit : le calcul est coûteux et la page d'accueil l'appelle à chaque affichage ; au plus
  * REQUETES_BRIEF_PAR_FENETRE appels par utilisateur et par FENETRE_BRIEF_MINUTES minutes
- * (429 `TROP_DE_REQUETES_BRIEF`, compteur en mémoire : brief/debit.ts), contrôlé avant le calcul.
+ * (429 `TROP_DE_REQUETES_BRIEF`, compteur en base partagé entre instances : brief/debit.ts), contrôlé avant le calcul.
  */
 export const routesBrief: FastifyPluginAsync = async (app) => {
+  const trousseau = trousseauDepuisConfig(app.config);
   app.get("/brief", async (request, reply) => {
     const auth = exiger(request, "brief.lire");
     const q = briefQuerySchema.parse(request.query);
-    verifierDebitBrief(auth.utilisateurId);
+    await verifierDebitBrief(app.db, trousseau, auth.utilisateurId);
     const brief = await app.db.withTenant(auth.cabinetId, (db) =>
       calculerBrief(db, auth, q.date ?? aujourdhui()),
     );
