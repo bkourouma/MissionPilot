@@ -295,6 +295,10 @@ export async function buildApp(
   await app.register(routesCapitalisation, { prefix: "/api" });
   // Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
   await app.register(routesDueDiligence, { prefix: "/api" });
+  await app.register(
+    (await import("./routes/due-diligence-modeles.js")).routesDueDiligenceModeles,
+    { prefix: "/api" },
+  );
   await app.register(routesBrief, { prefix: "/api" });
   await app.register(routesCopilote, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
@@ -315,5 +319,15 @@ export async function buildApp(
   await app.register((await import("./routes/portail-signatures.js")).routesPortailSignatures, {
     prefix: "/api",
   });
+  // Portail investisseur de la due diligence (0509) : routes du cabinet, puis du portail.
+  await app.register(
+    (await import("./routes/due-diligence-portail.js")).routesDueDiligencePortail,
+    { prefix: "/api" },
+  );
+  await app.register(
+    (await import("./routes/due-diligence-portail-investisseur.js"))
+      .routesDueDiligencePortailInvestisseur,
+    { prefix: "/api" },
+  );
   return app;
 }

@@ -59,8 +59,44 @@ const NOMS_FICHIER: Record<ModeleRapport, string> = {
   notation: "Rapport de notation",
   plan_strategique: "Plan strategique",
   dossier_bancaire: "Dossier bancaire",
-  note_comite: "Note au comite",
+  note_comite: "Note au comité",
 };
+
+const LIBELLES_VARIANTE = { executive: "exécutive", detaillee: "détaillée" } as const;
+const LONGUEUR_TITRE_FICHIER = 60;
+const INTERDITS_NOM = /[\p{Cc}\p{Cf}<>:"/\\|?*]/gu;
+
+/**
+ * Nom du fichier d'un rapport. Note au comité : « Note au comité - <titre> - v<version> -
+ * <exécutive|détaillée> <date>.<ext> » (accents conservés, caractères interdits retirés, titre borné) ;
+ * les autres modèles gardent « <nom> <date>.<ext> ».
+ */
+export function nomFichierRapport(
+  modele: ModeleRapport,
+  genereLe: string,
+  extension: string,
+  source?: SourceRapport,
+): string {
+  if (modele !== "note_comite" || !source?.variante) {
+    return `${NOMS_FICHIER[modele]} ${genereLe}.${extension}`;
+  }
+  const titre = (source.titreNote ?? "")
+    .normalize("NFC")
+    .replace(INTERDITS_NOM, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const borne =
+    titre.length > LONGUEUR_TITRE_FICHIER
+      ? `${titre.slice(0, LONGUEUR_TITRE_FICHIER).replace(/[\s.-]+$/, "")}…`
+      : titre;
+  const parties = [
+    NOMS_FICHIER.note_comite,
+    ...(borne ? [borne] : []),
+    ...(source.version ? [`v${source.version}`] : []),
+    LIBELLES_VARIANTE[source.variante],
+  ];
+  return `${parties.join(" - ")} ${genereLe}.${extension}`;
+}
 
 /** Libellé du livrable dans le suivi qualité. */
 const LIBELLES_SUIVI: Record<ModeleRapport, string> = {
@@ -81,6 +117,8 @@ export interface SourceRapport {
   /** Note au comité (due diligence) et variante rendue (« executive » ou « detaillee »). */
   noteId?: string;
   variante?: "executive" | "detaillee";
+  /** Titre de la note au comité, pour le nom du fichier téléchargé. */
+  titreNote?: string;
   /** Numéro de version de la notation, de la note au comité, ou de la version du modèle financier (null : aucun). */
   version?: number | null;
 }
@@ -156,7 +194,10 @@ export async function enregistrerRapport(
   const fichier = await enregistrerFichier(
     app,
     auth,
-    { nom: `${NOMS_FICHIER[p.modele]} ${p.rapport.genere_le}.${extension}`, contenu: p.contenu },
+    {
+      nom: nomFichierRapport(p.modele, p.rapport.genere_le, extension, p.source),
+      contenu: p.contenu,
+    },
     {
       details: { rapport: p.modele, mission_id: p.missionId, format: p.format, niveau: p.niveau },
       rattacher: async (db, f) => {

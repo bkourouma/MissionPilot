@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import {
   affirmationDdSchema,
+  modeleSecteurCreationSchema,
+  modeleSecteurVersionSchema,
+  modelesSecteurQuerySchema,
   analysesQuerySchema,
   ANALYSES_DD,
   ANALYSE_DD_LIBELLES,
   CATEGORIES_ANALYSE_DD,
   CATEGORIE_ANALYSE_DD_LIBELLES,
   CODES_AVERTISSEMENTS_NOTE,
+  libelleDimensionDd,
   CODES_BLOQUANTS_NOTE,
   CODE_AVERTISSEMENT_NOTE_LIBELLES,
   CODE_BLOQUANT_NOTE_LIBELLES,
@@ -1039,5 +1043,84 @@ describe("noteBaseSchema", () => {
 
   it("un bloquant peut figurer (la validation de la base ne le refuse pas ; c'est la base de données)", () => {
     ok(noteBaseSchema, { ...base, bloquants: ["SANS_HYPOTHESE"] });
+  });
+});
+
+describe("modèles d'analyse par secteur (DD-07)", () => {
+  const point = { categorie: "politique", libelle: "Quelle stabilité du cadre réglementaire ?" };
+  const base = { secteur_code: "citi_a", analyse: "pestel", points: [point] };
+
+  it("création : secteur, analyse et au moins un point de la bonne analyse", () => {
+    ok(modeleSecteurCreationSchema, base);
+    ko(modeleSecteurCreationSchema, { ...base, points: [] });
+    ko(modeleSecteurCreationSchema, { ...base, analyse: "autre" });
+    ko(modeleSecteurCreationSchema, { ...base, inconnu: 1 });
+    ko(modeleSecteurCreationSchema, { ...base, points: [{ ...point, montant: 1 }] });
+    ko(modeleSecteurCreationSchema, { ...base, points: [{ ...point, libelle: " " }] });
+    ko(modeleSecteurCreationSchema, { ...base, points: [{ ...point, libelle: "x".repeat(301) }] });
+    ko(
+      modeleSecteurCreationSchema,
+      { ...base, points: [{ categorie: "forces", libelle: "Hors PESTEL ?" }] },
+      "Catégorie inconnue pour cette analyse.",
+    );
+  });
+
+  it("plafond de points par modèle", () => {
+    const n = PLAFONDS_DD.points_par_modele;
+    const points = (k: number) =>
+      Array.from({ length: k }, (_, i) => ({ ...point, libelle: `P${i}` }));
+    ok(modeleSecteurCreationSchema, { ...base, points: points(n) });
+    ko(modeleSecteurCreationSchema, { ...base, points: points(n + 1) });
+  });
+
+  it("version : motif obligatoire, actif vrai par défaut, requête filtrable", () => {
+    expect(
+      modeleSecteurVersionSchema.parse({
+        points: [point],
+        version_courante: 1,
+        motif: "Mise à jour.",
+      }),
+    ).toMatchObject({ actif: true });
+    ko(modeleSecteurVersionSchema, { points: [point], version_courante: 1 });
+    ko(modeleSecteurVersionSchema, { points: [point], version_courante: 0, motif: "x" });
+    expect(modelesSecteurQuerySchema.parse({ actif: "false", analyse: "swot" })).toMatchObject({
+      actif: false,
+      limite: 30,
+    });
+    ko(modelesSecteurQuerySchema, { analyse: "autre" });
+  });
+});
+
+describe("libelleDimensionDd", () => {
+  it("libelle les dimensions dd.* en français", () => {
+    expect(libelleDimensionDd("dd.pestel.politique")).toBe("Analyse PESTEL — Politique");
+    expect(libelleDimensionDd("dd.cinq_forces.rivalite")).toBe(
+      "Cinq forces — Rivalité entre concurrents",
+    );
+    expect(libelleDimensionDd("dd.swot.opportunites")).toBe("Analyse SWOT — Opportunités");
+    expect(libelleDimensionDd("dd.operationnelle.goulots")).toBe(
+      "Analyse opérationnelle — Goulots d'étranglement",
+    );
+    expect(libelleDimensionDd("dd.risque.pays")).toBe("Risque — Pays");
+    expect(libelleDimensionDd("dd.risque.change")).toBe("Risque — Change");
+    expect(libelleDimensionDd("dd.risque.operationnel")).toBe("Risque — Opérationnel");
+    expect(libelleDimensionDd("dd.risque.reglementaire")).toBe("Risque — Réglementaire");
+  });
+
+  it("couvre les 22 dimensions et rend null pour tout le reste", () => {
+    for (const a of ANALYSES_DD)
+      for (const c of CATEGORIES_ANALYSE_DD[a])
+        expect(libelleDimensionDd(`dd.${a}.${c}`)).toMatch(/ — /);
+    for (const code of [
+      "finance",
+      "dd.pestel",
+      "dd.pestel.inconnu",
+      "dd.inconnue.politique",
+      "dd.risque.inconnu",
+      "xx.pestel.politique",
+      "dd.pestel.politique.x",
+      "",
+    ])
+      expect(libelleDimensionDd(code)).toBeNull();
   });
 });

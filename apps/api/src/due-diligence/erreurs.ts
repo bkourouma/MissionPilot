@@ -6,6 +6,7 @@ import { AppError } from "../errors.js";
  * (migrations 0500 à 0507), contraintes (23505, 23503, 23514) et invariants des moteurs
  * (`ErreurDueDiligence`). Jamais de 500 pour une règle métier, jamais le message technique de la
  * base. La lettre Z est PARTAGÉE avec le redressement (numéros 21 à 32 seulement, SPEC-3b §3.2).
+ * Portail investisseur (0509) : MQD01 à MQD08 (second préfixe « MQ », CODING_STANDARDS §2).
  */
 
 const SQL: Record<string, [number, string, string]> = {
@@ -62,6 +63,39 @@ const SQL: Record<string, [number, string, string]> = {
   ],
   MPZ32: [409, "VERDICT_EN_ATTENTE", "Un verdict de cette hypothèse attend déjà une décision."],
   MPR04: [409, "NOTE_NON_VALIDEE", "Seule une version validée de la note se rend en rapport."],
+  // Portail investisseur (migration 0509), second préfixe « MQD » (MQD01 à MQD10 à ce chantier).
+  MQD01: [
+    400,
+    "DD_PORTAIL_COMPTE_NON_ADMISSIBLE",
+    "Seul un investisseur actif du portail, rattaché au client du dossier, est invitable.",
+  ],
+  MQD02: [
+    409,
+    "DD_PORTAIL_INVITATION_INCOHERENTE",
+    "L'invitation de ce compte a changé : rechargez la page puis recommencez.",
+  ],
+  MQD03: [
+    409,
+    "NOTE_NON_VALIDEE",
+    "Seule la dernière version soumise et validée de la note se publie.",
+  ],
+  MQD04: [
+    409,
+    "DD_PORTAIL_INSTANTANE_INCOHERENT",
+    "Le contenu publié doit être celui de la version validée de la note.",
+  ],
+  MQD05: [
+    409,
+    "DD_PORTAIL_PUBLICATION_ACTIVE",
+    "Une publication de cette note est déjà active : retirez-la avant d'en publier une autre.",
+  ],
+  MQD06: [400, "RATTACHEMENT_INCOHERENT", "Référence incohérente avec la publication."],
+  MQD07: [
+    400,
+    "DD_PORTAIL_PIECE_NON_ADMISSIBLE",
+    "Chaque pièce est un rapport validé de la version publiée de la note, encore disponible.",
+  ],
+  MQD08: [409, "PLAFOND_ATTEINT", "Plafond atteint pour le portail investisseur."],
 };
 
 const UNICITES: Record<string, [string, string]> = {
@@ -77,6 +111,14 @@ const UNICITES: Record<string, [string, string]> = {
   dd_note_validations_note_version_id_key: [
     "NOTE_DEJA_DECIDEE",
     "Cette version de la note a déjà fait l'objet d'une décision.",
+  ],
+  dd_portail_publication_retraits_publication_id_key: [
+    "DD_PORTAIL_PUBLICATION_RETIREE",
+    "Cette publication est déjà retirée du portail.",
+  ],
+  dd_portail_pieces_publication_id_rapport_id_key: [
+    "CONFLIT",
+    "Un rapport n'est choisi qu'une fois par publication.",
   ],
   dd_elements_assertion_uniq: [
     "CONFLIT",

@@ -242,6 +242,7 @@ describe("portail client (SOC-09)", () => {
       "portail.canaux.gerer",
       "portail.signature.signer",
       "portail.synthese.lire",
+      "portail.dd.lire",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
@@ -619,5 +620,41 @@ describe("V3, vague 4 : redressement", () => {
     expect(financiers).toContain("gestionnaire");
     expect(aPermission(["gestionnaire"], "finance.lire")).toBe(true);
     for (const p of QUATRE) expect(aPermission(["gestionnaire"], p)).toBe(false);
+  });
+});
+
+describe("V3, vague 4 : portail investisseur de la due diligence", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("l'option du cabinet : associé SEUL ; la gestion des invitations et publications : associé et directeur", () => {
+    expect(qui("dd.portail.configurer")).toEqual(["associe"]);
+    expect(qui("dd.portail.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("dd.portail.gerer suppose dd.lire (la publication lit la note)", () => {
+    for (const r of TOUS_LES_ROLES.filter((x) => aPermission([x], "dd.portail.gerer"))) {
+      expect(aPermission([r], "dd.lire"), r).toBe(true);
+    }
+  });
+
+  it("lecture côté portail : l'investisseur SEUL, jamais un rôle interne", () => {
+    expect(qui("portail.dd.lire")).toEqual(["client_investisseur"]);
+    expect(PERMISSIONS_PORTAIL_CLIENT).toContain("portail.dd.lire");
+    expect(PERMISSIONS_PAR_ROLE.client_investisseur).toEqual([
+      "portail.acceder",
+      "portail.dd.lire",
+    ]);
+  });
+
+  it("aucun rôle du portail ne configure ni ne gère le partage ; aucune ne donne un droit financier", () => {
+    for (const r of ROLES_CLIENT) {
+      expect(aPermission([r], "dd.portail.configurer"), r).toBe(false);
+      expect(aPermission([r], "dd.portail.gerer"), r).toBe(false);
+      expect(aPermission([r], "finance.lire"), r).toBe(false);
+    }
+    for (const p of ["dd.portail.configurer", "dd.portail.gerer"] as const) {
+      expect(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).not.toContain(p);
+    }
   });
 });

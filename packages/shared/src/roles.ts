@@ -196,6 +196,10 @@ export const PERMISSIONS = [
   "dd.ecrire", // saisir cadrage, analyses, hypothèses, verdicts proposés, marché, filtrages, plan, notes
   "dd.valider", // valider ou rejeter un verdict ou une note ; décider d'une exclusion (tiers, MPZ25/26/28)
   "dd.referentiel.gerer", // bibliothèque de signaux et listes d'exclusion du cabinet
+  // Portail investisseur de la due diligence (option du cabinet DÉSACTIVÉE par défaut) : visibilité
+  // de la mission TOUJOURS exigée en plus. Attributions provisoires (DECISIONS.md).
+  "dd.portail.configurer", // activer ou désactiver l'option du cabinet : associé seul (« tout »)
+  "dd.portail.gerer", // inviter ou retirer un compte investisseur ; publier ou retirer une note validée
   // --- V3, vague 4 (PRD complémentaire §11.5) : redressement. Visibilité de la mission TOUJOURS
   // exigée en plus ; ni ressources, ni gestionnaire, ni expert externe (données du client).
   "redressement.lire", // dossier de redressement : ratios, urgence, scores, trésorerie, créanciers, plan, leviers, seuils
@@ -216,6 +220,9 @@ export const PERMISSIONS = [
   "portail.canaux.gerer", // ses propres numéros et consentements (dirigeant et contributeur)
   "portail.signature.signer", // ses demandes de signature (dirigeant client, CLI-05)
   "portail.synthese.lire", // sa synthèse hebdomadaire (dirigeant client, CLI-07)
+  // Portail investisseur de la due diligence : notes validées PUBLIÉES et pièces choisies des
+  // dossiers sur lesquels le compte est invité (investisseur seul, lecture seule).
+  "portail.dd.lire",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -232,6 +239,7 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.canaux.gerer",
   "portail.signature.signer",
   "portail.synthese.lire",
+  "portail.dd.lire",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -325,6 +333,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.ecrire",
     "dd.valider",
     "dd.referentiel.gerer",
+    "dd.portail.gerer",
     "redressement.lire",
     "redressement.ecrire",
     "redressement.valider",
@@ -551,8 +560,9 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.salle.deposer",
     "portail.canaux.gerer",
   ],
-  // Investisseur (lecture d'une notation, V3) : profil seulement d'ici là.
-  client_investisseur: ["portail.acceder"],
+  // Investisseur : son profil et, sur invitation explicite à un dossier, les notes de due
+  // diligence validées que le cabinet publie (option du cabinet active).
+  client_investisseur: ["portail.acceder", "portail.dd.lire"],
 };
 
 /** Les associés et gestionnaires seuls voient coûts, taux et marges (FIN-02). */

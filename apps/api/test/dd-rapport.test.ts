@@ -12,6 +12,7 @@ import {
   type ScenarioDd,
 } from "./dd-outils.js";
 import { creerPreuve } from "./preuves-outils.js";
+import { nomFichierRapport } from "../src/rapports/enregistrement.js";
 import { dezipper, toutLeXml } from "./rapports-outils.js";
 
 /*
@@ -140,6 +141,51 @@ describe("après validation", () => {
     detaillee = attendu(
       201,
       await s.consultantEquipe.post(rapportUrl(noteId, "detaillee", "docx", `&version=${version}`)),
+    );
+  });
+
+  it("nom du fichier lisible : accents conservés, variante et version distinguées, forme UTF-8 au téléchargement", async () => {
+    const date = String(executive.rapport.genere_le).slice(0, 10);
+    expect(executive.fichier.nom).toBe(
+      `Note au comité - Note au comité - v${version} - exécutive ${date}.docx`,
+    );
+    expect(detaillee.fichier.nom).toBe(
+      `Note au comité - Note au comité - v${version} - détaillée ${date}.docx`,
+    );
+    const r = await s.consultantEquipe.get(`/api/fichiers/${detaillee.fichier.id}`);
+    const cd = String(r.headers["content-disposition"]);
+    expect(cd).toContain(
+      `filename*=UTF-8''${encodeURIComponent("Note au comité - Note au comité")}`,
+    );
+    expect(cd).toContain(encodeURIComponent("détaillée"));
+    expect(cd).toMatch(/filename="[ -~]+"/);
+  });
+
+  it("les deux variantes ne portent pas le même nom", () => {
+    expect(executive.fichier.nom).not.toBe(detaillee.fichier.nom);
+  });
+
+  it("nomFichierRapport : titre à caractères spéciaux, titre très long, autres modèles inchangés", () => {
+    const source = { noteId: "n", variante: "detaillee" as const, version: 3, titreNote: "" };
+    const nom = (titreNote: string, variante: "executive" | "detaillee" = "detaillee") =>
+      nomFichierRapport("note_comite", "2026-10-20", "pdf", { ...source, variante, titreNote });
+    expect(nom('Évaluation / Côte d\'Ivoire : "cacao" <v2> |a|*b*?\\')).toBe(
+      "Note au comité - Évaluation Côte d'Ivoire cacao v2 a b - v3 - détaillée 2026-10-20.pdf",
+    );
+    expect(nom("Réunion", "executive")).toBe(
+      "Note au comité - Réunion - v3 - exécutive 2026-10-20.pdf",
+    );
+    expect(nom("   ")).toBe("Note au comité - v3 - détaillée 2026-10-20.pdf");
+    const long = nom("É".repeat(300));
+    expect(long.length).toBeLessThan(120);
+    expect(long).toContain("…");
+    expect(long.endsWith(" - v3 - détaillée 2026-10-20.pdf")).toBe(true);
+    expect(long).not.toMatch(/[/\\:*?"<>|]/);
+    expect(nomFichierRapport("notation", "2026-10-20", "docx")).toBe(
+      "Rapport de notation 2026-10-20.docx",
+    );
+    expect(nomFichierRapport("etat_avancement", "2026-10-20", "pdf")).toBe(
+      "Etat d'avancement 2026-10-20.pdf",
     );
   });
 

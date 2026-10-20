@@ -150,6 +150,20 @@ describe("liste blanche stricte : parcours de TOUTES les routes enregistrées", 
     );
   }, 120_000);
 
+  it("due diligence : seules les trois lectures du portail investisseur sont listées ; /api/dd/** reste fermé", () => {
+    const dd = LISTE_BLANCHE_PORTAIL.filter((r) => /due-diligence|\/dd\//.test(r.motif));
+    expect(dd.map((r) => [r.motif, [...r.methodes]])).toEqual([
+      ["/api/portail/due-diligence/publications", ["GET", "HEAD"]],
+      ["/api/portail/due-diligence/publications/:id", ["GET", "HEAD"]],
+      ["/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier", ["GET", "HEAD"]],
+    ]);
+    const cabinet = ctx.app.routesInventoriees.filter((r) => /\/dd\//.test(r.motif));
+    expect(cabinet.length).toBeGreaterThan(50);
+    for (const { methode, motif } of cabinet) {
+      expect(routeOuverteAuPortail(methode, motif), `${methode} ${motif}`).toBe(false);
+    }
+  });
+
   it("route inconnue : 404 ordinaire ; sans session : 401", async () => {
     expect((await s.dirigeant.get("/api/nexiste-pas")).statusCode).toBe(404);
     expect((await api(ctx).get("/api/portail/missions")).statusCode).toBe(401);
