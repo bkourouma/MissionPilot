@@ -1,8 +1,4 @@
-import {
-  aPermission,
-  choixModeleCopiloteSchema,
-  type ChoixModeleCopilote,
-} from "@missionpilot/shared";
+import { choixModeleCopiloteSchema, type ChoixModeleCopilote } from "@missionpilot/shared";
 import {
   DEFINITIONS_OUTILS_COPILOTE,
   estOutilCopilote,
@@ -12,46 +8,47 @@ import {
 import type { Auth } from "../auth/contexte.js";
 import type { Config } from "../config.js";
 import type { Database, Db } from "../db/pool.js";
-import { coutMicroUsd, MAX_TOKENS_SORTIE } from "../ia/modeles.js";
-import { alertesPlafond, estimerCoutAppel, reserverAppel, solderReservation } from "../ia/couts.js";
 import { encadrerContenuClient, neutraliserContenuClient } from "../ia/donnees-non-fiables.js";
-import {
-  ErreurLlm,
-  estimerTokens,
-  fournisseurDepuisConfig,
-  type LlmProvider,
-  type MessageLlm,
-  type EntreeJournalLlm,
-} from "../ia/fournisseur.js";
+import type { EntreeJournalLlm, LlmProvider, MessageLlm } from "../ia/fournisseur.js";
 import { creerMasque, type Masque } from "../ia/masquage.js";
-import { ISSUES_FACTURABLES } from "../ia/orchestrateur.js";
 import {
-  lireParametres,
-  modeleDe,
-  plafondEffectif,
-  resoudreCle,
-  sourceCleDisponible,
-  type SourceCle,
-} from "../ia/parametres.js";
+  admettreSansDemande,
+  appelerSansDemande,
+  type DependancesIa,
+} from "../ia/orchestrateur.js";
+import type { SourceCle } from "../ia/parametres.js";
 import type { NotificationCreee } from "../notifications/notifier.js";
+import { termesNomsPropres } from "./noms-propres.js";
 
 /*
  * ROUTAGE PAR LE MODÈLE DE LANGAGE (AGT-08, ADR-003) : l'IA ROUTE, le code répond.
  *
+ * Couche MINCE au-dessus de l'orchestrateur IA (ia/orchestrateur.ts : `admettreSansDemande` et
+ * `appelerSansDemande`), seul chemin vers le fournisseur : coupe-circuit IA du cabinet, droit
+ * « ia.utiliser », clé, modèle de la tâche « classification », plafond mensuel (réservation du
+ * coût estimé sous verrou AVANT l'appel), UNE seule tentative, règlement et inscription dans
+ * `ia_consommations` avec `copilote = true` (migration 0272) et le modèle utilisé, journal des
+ * appels sans contenu. Ce fichier ne garde que ce qui est propre au copilote : la consigne
+ * système, la construction du message masqué et la validation stricte de la sortie.
+ *
  * Le modèle ne reçoit JAMAIS de donnée du cabinet ni d'un client : seulement le catalogue des
  * outils PERMIS à l'utilisateur (un outil non permis n'est même pas proposé) et son message,
- * masqué (e-mails, téléphones, IBAN… : ia/masquage.ts) puis traité comme une DONNÉE non fiable
- * (neutralisé et encadré : ia/donnees-non-fiables.ts, AGT-07). Il ne rend qu'un choix
- * `{ outil, parametres }` validé par un schéma Zod STRICT sur une liste fermée, sans identifiant :
- * toute autre sortie (JSON invalide, outil inconnu ou non permis, clé en trop) est refusée et le
- * routage déterministe reprend. La réponse affichée n'est jamais du texte du modèle.
+ * masqué puis traité comme une DONNÉE non fiable (neutralisé et encadré :
+ * ia/donnees-non-fiables.ts, AGT-07). Masquage : (1) les NOMS CONNUS du cabinet (clients,
+ * collaborateurs, contacts, intitulés de missions) qui apparaissent dans le message
+ * (noms-propres.ts, lus sous la RLS de l'utilisateur), (2) les formats (e-mails, téléphones,
+ * IBAN… : ia/masquage.ts). Le modèle rend un choix `{ outil, parametres }` où ces valeurs sont
+ * des jetons ([ORGANISATION_1]…), démasqués LOCALEMENT avant que le code ne les résolve ; un
+ * jeton que ce masque n'a pas produit n'est jamais démasqué. Le choix est validé par un schéma
+ * Zod STRICT sur une liste fermée, sans identifiant : toute autre sortie (JSON invalide, outil
+ * inconnu ou non permis, clé en trop) est refusée et le routage déterministe reprend. La réponse
+ * affichée n'est jamais du texte du modèle.
  *
- * Coût : le plafond mensuel du cabinet s'applique (réservation sous verrou AVANT l'appel, coût réel
- * inscrit dans `ia_consommations` avec `copilote = true`, migration 0272). Aucune nouvelle tentative
- * d'un appel payant (une seule tentative du fournisseur). Jamais d'appel si le cabinet n'a pas
- * activé l'IA, sans clé, au plafond, ou si l'appel est impossible : repli déterministe.
- * Limite connue : un nom propre tapé dans le message et absent des formats masqués part en clair
- * au fournisseur (masquage.ts) ; la page du copilote le rappelle.
+ * Jamais d'appel si le cabinet n'a pas activé l'IA, sans clé, au plafond, ou si l'appel est
+ * impossible : repli déterministe.
+ * Limite connue : un nom propre ABSENT des fiches du cabinet (ou écrit en fragment seul, ou avec
+ * une faute) et hors des formats masqués part en clair au fournisseur ; la page du copilote le
+ * rappelle.
  */
 
 export interface DependancesCopilote {
@@ -75,6 +72,11 @@ interface AppelPrepare {
   caracteres: number;
   messages: MessageLlm[];
   masque: Masque;
+  /**
+   * Nombre de noms du cabinet effectivement masqués dans le message (le COMPTE seulement, jamais
+   * les valeurs) : à reporter dans le journal d'échange.
+   */
+  termes_masques?: number;
 }
 
 export type Admission = { type: "repli"; raison: RaisonRepli; detail: string } | AppelPrepare;
@@ -99,9 +101,13 @@ export function consigneSysteme(outils: readonly OutilCopilote[]): string {
   ].join("\n");
 }
 
+/** Catégories de jetons issues de noms du cabinet (hors formats : e-mail, téléphone, IBAN…). */
+const CATEGORIES_NOMS = ["PERSONNE", "ORGANISATION", "LIEU", "TERME"] as const;
+
 /**
- * Admission de l'appel, dans la transaction de l'échange : coupe-circuit IA du cabinet, clé, plafond
- * (réservation du coût estimé sous verrou). Sinon, repli déterministe avec sa raison.
+ * Admission de l'appel, dans la transaction de l'échange, par l'orchestrateur
+ * (`admettreSansDemande`). Les noms connus du cabinet ne sont lus que si l'IA est utilisable.
+ * Sinon, repli déterministe avec sa raison.
  */
 export async function preparerAppelIa(
   db: Db,
@@ -111,59 +117,42 @@ export async function preparerAppelIa(
   message: string,
   maintenant: Date,
 ): Promise<Admission> {
-  const params = await lireParametres(db);
-  if (!params.ia_activee) {
-    return { type: "repli", raison: "ia_desactivee", detail: "ia_desactivee" };
-  }
-  // Comme toute génération IA (ia/orchestrateur.ts) : le droit « ia.utiliser » de l'utilisateur.
-  if (!aPermission(auth.roles, "ia.utiliser")) {
-    return { type: "repli", raison: "non_autorisee", detail: "droit_ia_absent" };
-  }
-  if (sourceCleDisponible(params, deps.config) === null) {
-    return { type: "repli", raison: "indisponible", detail: "cle_absente" };
-  }
-  const cle = await resoudreCle(db, deps.config, auth.cabinetId);
-  if (cle.statut !== "ok") {
-    return { type: "repli", raison: "indisponible", detail: `cle_${cle.statut}` };
-  }
-  const masque = creerMasque([]);
-  const messages: MessageLlm[] = [
-    { role: "system", content: consigneSysteme(permis) },
+  let masque: Masque = creerMasque([]);
+  let termesMasques = 0;
+  const admission = await admettreSansDemande(
+    db,
+    deps,
     {
-      role: "user",
-      content: encadrerContenuClient(
-        masque.masquer(neutraliserContenuClient(message)),
-        "message_utilisateur",
-      ),
+      tache: "classification",
+      utilisateur: auth,
+      messages: async (tx) => {
+        // Neutralisé D'ABORD (un nom coupé par un caractère invisible échapperait sinon au masque).
+        const neutre = neutraliserContenuClient(message);
+        const { termes } = await termesNomsPropres(tx, auth.cabinetId, neutre);
+        masque = creerMasque(termes);
+        const masquee = masque.masquer(neutre);
+        const compte = masque.compte();
+        termesMasques = CATEGORIES_NOMS.reduce((n, k) => n + (compte[k] ?? 0), 0);
+        return [
+          { role: "system", content: consigneSysteme(permis) },
+          { role: "user", content: encadrerContenuClient(masquee, "message_utilisateur") },
+        ];
+      },
     },
-  ];
-  const caracteres = messages.reduce((n, m) => n + m.content.length, 0);
-  const modele = modeleDe(params, "classification");
-  const plafond = plafondEffectif(params, deps.config, cle.source);
-  const reservation = await reserverAppel(db, {
-    cabinetId: auth.cabinetId,
-    demandeId: null,
-    estimation: estimerCoutAppel(modele, caracteres, MAX_TOKENS_SORTIE.classification),
-    plafond,
     maintenant,
-  });
-  if (reservation.statut !== "reservee") {
-    return {
-      type: "repli",
-      raison: "indisponible",
-      detail: reservation.statut === "plafond" ? "plafond" : "simultanees",
-    };
-  }
+  );
+  if (admission.type === "repli") return admission;
   return {
     type: "appel",
-    cle: cle.cle,
-    sourceCle: cle.source,
-    modele,
-    plafond,
-    reservationId: reservation.id,
-    caracteres,
-    messages,
+    cle: admission.cle,
+    sourceCle: admission.sourceCle,
+    modele: admission.modele,
+    plafond: admission.plafond,
+    reservationId: admission.reservationId,
+    caracteres: admission.caracteres,
+    messages: admission.messages,
     masque,
+    termes_masques: termesMasques,
   };
 }
 
@@ -230,48 +219,11 @@ export interface ResultatAppel {
   notifications: (NotificationCreee | null)[];
 }
 
-/** Ligne de `ia_consommations` d'un échange du copilote (`copilote = true`, migration 0272). */
-async function inscrireConsommation(
-  db: Db,
-  c: {
-    cabinetId: string;
-    modele: string;
-    issue: "succes" | "sortie_invalide" | "delai_depasse" | "reponse_invalide";
-    sourceCle: SourceCle;
-    tokensEntree: number;
-    tokensSortie: number;
-    dureeMs: number;
-  },
-  plafond: number,
-  maintenant: Date,
-): Promise<{ cout: number; notifications: (NotificationCreee | null)[] }> {
-  const { cout, connu } = coutMicroUsd(c.modele, c.tokensEntree, c.tokensSortie);
-  await db.query(
-    `INSERT INTO ia_consommations (cabinet_id, demande_id, mission_id, tache, modele, issue,
-       source_cle, tokens_entree, tokens_sortie, cout_micro_usd, tarif_connu, duree_ms, cree_le,
-       evaluation_demande_id, copilote)
-     VALUES ($1, NULL, NULL, 'classification', $2, $3, $4, $5, $6, $7, $8, $9, $10, NULL, true)`,
-    [
-      c.cabinetId,
-      c.modele,
-      c.issue,
-      c.sourceCle,
-      c.tokensEntree,
-      c.tokensSortie,
-      cout,
-      connu,
-      c.dureeMs,
-      maintenant,
-    ],
-  );
-  return { cout, notifications: await alertesPlafond(db, c.cabinetId, plafond, maintenant) };
-}
-
 /**
- * Appel du modèle HORS transaction (une seule tentative), validation de la sortie, puis règlement
- * dans une transaction courte : réservation soldée et coût réel inscrit. Le règlement a lieu même
- * quand l'appel échoue ou que la sortie est refusée. Ne lève jamais pour une erreur du
- * fournisseur : le routage déterministe reprend.
+ * Appel du modèle par l'orchestrateur (`appelerSansDemande` : hors transaction, une seule
+ * tentative, règlement dans une transaction courte, coût inscrit avec `copilote = true`), puis
+ * validation de la sortie par `lireSortieModele`. Ne lève jamais pour une erreur du fournisseur :
+ * le routage déterministe reprend.
  */
 export async function appelerModele(
   deps: DependancesCopilote,
@@ -280,68 +232,41 @@ export async function appelerModele(
   permis: readonly OutilCopilote[],
   maintenant: Date,
 ): Promise<ResultatAppel> {
-  let sortie: ResultatAppel["sortie"];
-  let consommation: Parameters<typeof inscrireConsommation>[1] | null = null;
-  const base = { cabinetId: auth.cabinetId, modele: appel.modele, sourceCle: appel.sourceCle };
-  try {
-    const fournisseur =
-      deps.fournisseur ??
-      fournisseurDepuisConfig(deps.config, deps.journalIa, { tentativesMax: 1 });
-    const rep = await fournisseur.completer({
+  const depsIa: DependancesIa = {
+    config: deps.config,
+    ...(deps.fournisseur ? { fournisseur: deps.fournisseur } : {}),
+    ...(deps.journalIa ? { journal: deps.journalIa } : {}),
+    ...(deps.horloge ? { horloge: deps.horloge } : {}),
+  };
+  const r = await appelerSansDemande<SortieModele>(
+    deps.database,
+    depsIa,
+    auth.cabinetId,
+    {
+      type: "admis",
       tache: "classification",
+      cle: appel.cle,
+      sourceCle: appel.sourceCle,
       modele: appel.modele,
+      plafond: appel.plafond,
+      reservationId: appel.reservationId,
+      caracteres: appel.caracteres,
       messages: appel.messages,
-      maxTokens: MAX_TOKENS_SORTIE.classification,
-      formatJson: true,
-      cleApi: appel.cle,
-    });
-    // Une réponse obtenue est facturée : son coût est inscrit quoi qu'il arrive de sa lecture.
-    consommation = {
-      ...base,
-      issue: "sortie_invalide",
-      tokensEntree: rep.tokensEntree,
-      tokensSortie: rep.tokensSortie,
-      dureeMs: rep.dureeMs,
-    };
-    try {
-      sortie = lireSortieModele(rep.texte, permis, appel.masque);
-    } catch {
-      sortie = { type: "invalide", motif: "schema" };
-    }
-    if (sortie.type !== "invalide") consommation.issue = "succes";
-  } catch (error) {
-    const code = error instanceof ErreurLlm ? error.code : "ERREUR_INATTENDUE";
-    sortie = { type: "echec", code };
-    const issue = error instanceof ErreurLlm ? ISSUES_FACTURABLES[error.code] : undefined;
-    if (issue === "delai_depasse" || issue === "reponse_invalide") {
-      // L'appel a pu être facturé sans réponse exploitable : coût ESTIMÉ.
-      consommation = {
-        ...base,
-        issue,
-        tokensEntree: estimerTokens(appel.caracteres),
-        tokensSortie: MAX_TOKENS_SORTIE.classification,
-        dureeMs: 0,
-      };
-    }
-  }
-  const aInscrire = consommation;
-  let cout: number | null = null;
-  let notifications: (NotificationCreee | null)[] = [];
-  try {
-    await deps.database.withTenant(auth.cabinetId, async (db) => {
-      await solderReservation(db, appel.reservationId);
-      if (aInscrire) {
-        const c = await inscrireConsommation(db, aInscrire, appel.plafond, maintenant);
-        cout = c.cout;
-        notifications = c.notifications;
+    },
+    (texte) => {
+      let sortie: SortieModele;
+      try {
+        sortie = lireSortieModele(texte, permis, appel.masque);
+      } catch {
+        sortie = { type: "invalide", motif: "schema" };
       }
-    });
-  } catch (error) {
-    // Règlement impossible : la réservation ne doit pas peser 30 minutes sur le plafond.
-    await deps.database
-      .withTenant(auth.cabinetId, (db) => solderReservation(db, appel.reservationId))
-      .catch(() => undefined);
-    throw error;
-  }
-  return { sortie, cout, notifications };
+      return { valide: sortie.type !== "invalide", valeur: sortie };
+    },
+    maintenant,
+  );
+  return {
+    sortie: r.sortie.type === "lue" ? r.sortie.valeur : r.sortie,
+    cout: r.cout,
+    notifications: r.notifications,
+  };
 }

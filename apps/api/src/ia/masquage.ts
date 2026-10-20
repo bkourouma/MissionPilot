@@ -190,6 +190,21 @@ export function neutraliserJetons(texte: string): string {
   return texte.replace(JETON_ENTREE, CROCHET_NEUTRE);
 }
 
+/**
+ * Recherche de termes dans UN texte, avec les règles de correspondance du masque (casse, accents,
+ * séparateurs souples, sigles pointés, mots entiers) : le texte est préparé une fois, puis chaque
+ * terme est testé. Sert à ne retenir, parmi les noms connus d'un cabinet, que ceux que le masque
+ * remplacerait réellement (copilote/noms-propres.ts). Ne retient ni ne journalise aucun terme.
+ */
+export function chercheurDeTermes(texte: string): (terme: TermeSensible) => boolean {
+  const { plat } = aPlat(neutraliserJetons(texte.normalize("NFKC")));
+  return (terme) => {
+    const mots = motsDuTerme(typeof terme === "string" ? terme : terme.valeur);
+    if (mots.join("").length < 2) return false;
+    return motifTerme(mots).test(plat);
+  };
+}
+
 export interface Masque {
   /** Remplace les données identifiantes par des jetons (même valeur → même jeton). */
   masquer(texte: string): string;
