@@ -261,6 +261,10 @@ describe("pré-remplissage des temps (AUT-09)", () => {
 
   it("refuse un paramètre invalide (400)", async () => {
     expect((await consultant.get("/api/temps/preremplissage?semaine=demain")).statusCode).toBe(400);
+    // Date valide mais hors bornes : 400 du schéma, jamais 500 de la base.
+    expect((await consultant.get("/api/temps/preremplissage?semaine=1900-01-01")).statusCode).toBe(
+      400,
+    );
   });
 
   it("propose les jours planifiés, sans rien enregistrer", async () => {

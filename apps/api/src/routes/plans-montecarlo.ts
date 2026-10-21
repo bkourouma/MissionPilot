@@ -30,7 +30,8 @@ import { traduireErreurMonteCarlo } from "../plans/montecarlo-erreurs.js";
  * - GET /plans/:id/montecarlo/simulations, GET .../simulations/:simId
  *   (« plan.lire ») ;
  * - POST /plans/:id/montecarlo/simulations/:simId/rejeu (« plan.lire ») :
- *   relance avec la graine et les lois enregistrées, n'écrit rien ;
+ *   relance avec la graine et les lois enregistrées, n'écrit que sa trace de débit
+ *   (5 par plan et par 10 minutes, valeur provisoire à valider : 429 TROP_DE_REJEUX) ;
  * - GET /plans/:id/montecarlo/defauts?version= (« plan.lire ») : lois de
  *   départ, valeurs provisoires modifiables.
  * Les erreurs du moteur (400 MONTE_CARLO_INVALIDE) et des déclencheurs

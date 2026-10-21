@@ -3,7 +3,9 @@ import {
   formaterTauxCentiemes,
   libelleOption,
   libelleQuadrant,
+  phraseMasque,
   lignesParRang,
+  type MethodeMasquee,
   type OptionAtelierApi,
   type ResultatsAtelier as Resultats,
 } from "../../lib/plan-ateliers";
@@ -26,12 +28,23 @@ const participation = (p: {
  * Résultats figés d'un atelier clos : agrégats du moteur de calcul, jamais une contribution
  * individuelle (le vote est anonyme). Composant d'affichage pur : aucun calcul.
  */
+/** Méthode sous le seuil de participants : message seul, aucun chiffre. */
+function CarteMasquee({ titre, masque }: { titre: string; masque: MethodeMasquee }) {
+  return (
+    <Carte titre={titre} niveauTitre={3}>
+      <p className="mp-texte-doux">{phraseMasque(masque.seuil_participants)}</p>
+    </Carte>
+  );
+}
+
 export function ResultatsAtelier({ resultats, options }: ResultatsAtelierProps) {
   const nom = (id: string) => libelleOption(options, id);
   const { vote, priorisation, matrice } = resultats;
   return (
     <div className="mp-pile">
-      {vote ? (
+      {vote && vote.resultat === null ? (
+        <CarteMasquee titre="Vote par points" masque={vote} />
+      ) : vote ? (
         <Carte titre="Vote par points" niveauTitre={3}>
           <p className="mp-texte-doux">{`${participation(vote.resultat.participation)} · ${vote.resultat.totalPoints} points répartis.`}</p>
           <Tableau
@@ -53,7 +66,9 @@ export function ResultatsAtelier({ resultats, options }: ResultatsAtelierProps) 
           />
         </Carte>
       ) : null}
-      {priorisation ? (
+      {priorisation && priorisation.resultat === null ? (
+        <CarteMasquee titre="Priorisation par classement" masque={priorisation} />
+      ) : priorisation ? (
         <Carte titre="Priorisation par classement" niveauTitre={3}>
           <p className="mp-texte-doux">{participation(priorisation.resultat.participation)}</p>
           <Tableau
@@ -75,7 +90,9 @@ export function ResultatsAtelier({ resultats, options }: ResultatsAtelierProps) 
           />
         </Carte>
       ) : null}
-      {matrice ? (
+      {matrice && matrice.resultat === null ? (
+        <CarteMasquee titre="Matrice" masque={matrice} />
+      ) : matrice ? (
         <Carte titre="Matrice" niveauTitre={3}>
           <p className="mp-texte-doux">
             {`${participation(matrice.resultat.participation)} · axes : ${matrice.resultat.axes.x.libelle} et ${matrice.resultat.axes.y.libelle}.`}

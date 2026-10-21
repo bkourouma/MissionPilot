@@ -124,8 +124,8 @@ describe("charge de la tâche quotidienne", () => {
 });
 
 describe("types d'éléments : validations d'offre, de plan et de révision de budget", () => {
-  it("30 types, dont les trois nouveaux acceptés par l'élément strict", () => {
-    expect(TYPES_ELEMENT_BRIEF_API).toHaveLength(30);
+  it("31 types, dont les trois nouveaux acceptés par l'élément strict", () => {
+    expect(TYPES_ELEMENT_BRIEF_API).toHaveLength(31);
     for (const type of [
       "offre_technique_a_valider",
       "plan_a_valider",
@@ -140,5 +140,24 @@ describe("types d'éléments : validations d'offre, de plan et de révision de b
     expect(elementBriefSchema.safeParse({ ...element, type: "rapport_non_diffuse" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("type « voyant_rouge » : motifs en texte", () => {
+  it("accepte des motifs textuels (5 au plus, non vides) et refuse le reste", () => {
+    const base = {
+      ...element,
+      type: "voyant_rouge",
+      famille: "deriver",
+      lien: "/missions/6c4d0f4e-2f6e-4f0d-9a3c-0a0f9f6d1a12/redressement",
+    };
+    expect(elementBriefSchema.safeParse({ ...base, motifs: ["Urgence au rouge."] }).success).toBe(
+      true,
+    );
+    expect(
+      elementBriefSchema.safeParse({ ...base, motifs: ["1", "2", "3", "4", "5", "6"] }).success,
+    ).toBe(false);
+    expect(elementBriefSchema.safeParse({ ...base, motifs: [""] }).success).toBe(false);
+    expect(elementBriefSchema.safeParse({ ...base, motifs: [12] }).success).toBe(false);
   });
 });

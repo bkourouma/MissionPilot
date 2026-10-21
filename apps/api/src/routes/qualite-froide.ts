@@ -8,6 +8,7 @@ import {
   campagneFroideListeQuerySchema,
   constatFroidCreationSchema,
   evaluationRevueFroideSchema,
+  mesRevuesQuerySchema,
   revueFroideTerminaisonSchema,
   aPermission,
 } from "@missionpilot/shared";
@@ -102,7 +103,8 @@ function routesCampagnes(app: FastifyInstance) {
 function routesRevues(app: FastifyInstance) {
   app.get("/qualite/revue-froide/mes-revues", async (request) => {
     const auth = exiger(request, "qualite.froide.relire");
-    return app.db.withTenant(auth.cabinetId, (db) => mesRevues(db, auth));
+    const q = mesRevuesQuerySchema.parse(request.query);
+    return app.db.withTenant(auth.cabinetId, (db) => mesRevues(db, auth, q));
   });
 
   app.get("/qualite/revue-froide/echantillons/:id", async (request) => {

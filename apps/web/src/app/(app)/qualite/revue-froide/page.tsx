@@ -11,7 +11,6 @@ import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDate } from "../../../../lib/format";
 import {
   cheminCampagnes,
-  cheminMesRevues,
   droitsQualiteFroide,
   formaterScore,
   HREF_MES_ACTIONS,
@@ -24,11 +23,11 @@ import {
   texteProgression,
   tonaliteConclusion,
   tonaliteStatutEchantillon,
-  type MaRevue,
   type PageCampagnes,
 } from "../../../../lib/qualite-froide";
 import {
   chargerDirecteurs,
+  chargerMesRevues,
   chargerTypesPourTirage,
   exigerAccesFroide,
 } from "../../../../lib/qualite-froide-serveur";
@@ -53,7 +52,7 @@ export default async function PageRevueFroide({
   const curseur = typeof brut === "string" && CURSEUR.test(brut) ? brut : "";
   const [campagnes, revues, types, directeurs] = await Promise.all([
     droits.gerer ? chargerServeur<PageCampagnes>(cheminCampagnes(curseur)) : null,
-    droits.relire ? chargerServeur<{ elements: MaRevue[] }>(cheminMesRevues()) : null,
+    droits.relire ? chargerMesRevues() : null,
     droits.gerer ? chargerTypesPourTirage(session) : [],
     droits.gerer ? chargerDirecteurs(session) : [],
   ]);
@@ -118,6 +117,11 @@ export default async function PageRevueFroide({
               ))}
             </ul>
           )}
+          {revues && revues.ok && revues.donnees.tronquee ? (
+            <p className="mp-texte-doux mp-texte-petit">
+              La liste est partielle : seules les revues les plus récentes sont affichées.
+            </p>
+          ) : null}
         </section>
       ) : null}
 

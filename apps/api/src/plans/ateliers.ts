@@ -15,6 +15,8 @@ import { filtreVisibilite } from "../missions/acces.js";
 import { exigerPlanRedigeable, exigerPlanVisible, type PlanAcces } from "./acces.js";
 import {
   agregerAtelier,
+  appliquerSeuil,
+  SEUIL_PARTICIPANTS_AGREGATS,
   contributionsCourantes,
   participationEnCours,
   type AtelierParametres,
@@ -176,6 +178,7 @@ async function vueAtelier(db: Db, a: AtelierDb) {
   ]);
   const contributeurs =
     a.statut === "ouvert" ? (await contributionsCourantes(db, a.id)).contributeurs : [];
+  const seuil = a.statut === "clos" ? appliquerSeuil(a.resultats) : null;
   const participation =
     a.statut === "ouvert"
       ? participationEnCours(options, contributeurs, participants.length)
@@ -199,7 +202,13 @@ async function vueAtelier(db: Db, a: AtelierDb) {
             taux_centiemes_pourcent: participation?.tauxCentiemesPourcent ?? null,
           }
         : { invites: participants.length, ayant_contribue: null, taux_centiemes_pourcent: null },
-    resultats: a.statut === "clos" ? a.resultats : null,
+    // Agrégats masqués sous le seuil de participants (anonymat) : null + indicateur explicite.
+    // Seuil par méthode : une méthode masquée porte `masque_seuil: true` et `resultat: null` ;
+    // `resultats` est null si toutes le sont.
+    resultats: seuil?.vue ?? null,
+    masque_seuil: seuil?.tout_masque ?? false,
+    methodes_masquees: seuil?.masquees ?? [],
+    seuil_participants: SEUIL_PARTICIPANTS_AGREGATS,
   };
 }
 
@@ -405,7 +414,15 @@ export async function cloreAtelier(db: Db, auth: Auth, planId: string, atelierId
   await db.query(
     `UPDATE plan_ateliers SET statut = 'clos', resultats = $2, clos_par = $3, clos_le = now(),
        modifie_le = now() WHERE id = $1`,
-    [atelierId, JSON.stringify({ ...synthese, invites: participants.length }), auth.utilisateurId],
+    [
+      atelierId,
+      JSON.stringify({
+        ...synthese,
+        invites: participants.length,
+        ayant_contribue: courantes.contributeurs.length,
+      }),
+      auth.utilisateurId,
+    ],
   );
   await journaliser(db, {
     cabinetId: auth.cabinetId,
@@ -454,6 +471,16 @@ async function voitLaMission(db: Db, plan: PlanAcces, c: Candidat): Promise<bool
   return r.rows.length > 0;
 }
 
+/**
+ * Plafonds DÉCLARÉS de la liste des candidats (pas de pagination : le filtrage par droits se fait
+ * après la requête). Atteints, la réponse porte `tronque: true` (dette connue, CODING_STANDARDS §10).
+ * - CANDIDATS_CABINET_LUS_MAX : utilisateurs actifs du cabinet examinés ;
+ * - CANDIDATS_CABINET_MAX / CANDIDATS_DIRIGEANTS_MAX : candidats rendus par liste.
+ */
+export const CANDIDATS_CABINET_LUS_MAX = 500;
+export const CANDIDATS_CABINET_MAX = 200;
+export const CANDIDATS_DIRIGEANTS_MAX = 200;
+
 /** Candidats invitables : membres du cabinet ayant accès à la mission, dirigeants du client (portail.gerer). */
 export async function candidatsAtelier(db: Db, auth: Auth, planId: string, atelierId: string) {
   const plan = await exigerPlanVisible(db, auth, planId);
@@ -470,30 +497,41 @@ export async function candidatsAtelier(db: Db, auth: Auth, planId: string, ateli
          AS dans_mission
      FROM utilisateurs u CROSS JOIN missions m
      WHERE m.id = $2 AND u.actif AND NOT (u.roles && $1::text[])
-     ORDER BY lower(u.nom), u.id LIMIT 500`,
-    [ROLES_CLIENT, plan.mission_id],
+     ORDER BY lower(u.nom), u.id LIMIT $3`,
+    [ROLES_CLIENT, plan.mission_id, CANDIDATS_CABINET_LUS_MAX + 1],
   );
-  const cabinet = (membres.rows as (Candidat & { dans_mission: boolean })[])
+  const lus = (membres.rows as (Candidat & { dans_mission: boolean })[]).slice(
+    0,
+    CANDIDATS_CABINET_LUS_MAX,
+  );
+  const eligibles = lus
     .filter(
       (m) =>
         !invites.has(m.id) &&
         aPermission(m.roles as Role[], "plan.lire") &&
         (m.dans_mission || aPermission(m.roles as Role[], "mission.lire_toutes")),
     )
-    .map((m) => ({ id: m.id, nom: m.nom }))
-    .slice(0, 200);
-  const dirigeants = aPermission(auth.roles, "portail.gerer")
+    .map((m) => ({ id: m.id, nom: m.nom }));
+  const cabinet = eligibles.slice(0, CANDIDATS_CABINET_MAX);
+  const dirigeantsLus = aPermission(auth.roles, "portail.gerer")
     ? (
         await db.query(
           `SELECT u.id, u.nom FROM utilisateurs_portail up JOIN utilisateurs u ON u.id = up.utilisateur_id
            WHERE up.client_id = $1 AND up.statut = 'actif' AND u.actif
              AND 'client_dirigeant' = ANY (u.roles)
-           ORDER BY lower(u.nom), u.id LIMIT 200`,
-          [plan.client_id],
+           ORDER BY lower(u.nom), u.id LIMIT $2`,
+          [plan.client_id, CANDIDATS_DIRIGEANTS_MAX + 1],
         )
-      ).rows.filter((d) => !invites.has(d.id as string))
+      ).rows
     : [];
-  return { cabinet, dirigeants };
+  const dirigeants = dirigeantsLus
+    .slice(0, CANDIDATS_DIRIGEANTS_MAX)
+    .filter((d) => !invites.has(d.id as string));
+  const tronque =
+    membres.rows.length > CANDIDATS_CABINET_LUS_MAX ||
+    eligibles.length > CANDIDATS_CABINET_MAX ||
+    dirigeantsLus.length > CANDIDATS_DIRIGEANTS_MAX;
+  return { cabinet, dirigeants, tronque };
 }
 
 export async function inviterParticipant(

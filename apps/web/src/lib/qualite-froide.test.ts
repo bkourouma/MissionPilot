@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ErreurApi } from "./api";
+import { chargerToutesLesPages } from "./pagination";
 import {
   cheminAction,
   cheminActions,
   cheminCampagnes,
   cheminConstat,
   cheminEligibles,
+  cheminMesRevues,
   criteresManquants,
   droitsQualiteFroide,
   estClotureAction,
@@ -22,6 +24,8 @@ import {
   libelleStatutCampagne,
   libelleStatutEchantillon,
   libelleViolationIndependance,
+  LIMITE_MES_REVUES,
+  pageMesRevues,
   lignesBudget,
   lireFiltresActions,
   messageFroide,
@@ -345,5 +349,36 @@ describe("validerSuiviAction", () => {
   it("rien à modifier", () => {
     const r = validerSuiviAction(saisie, actuel);
     expect(!r.ok && r.erreurs.statut).toContain("Rien à modifier");
+  });
+});
+
+describe("mes revues : curseur suivi jusqu'au bout", () => {
+  it("adapte curseur_suivant en suivant et charge toutes les pages", async () => {
+    expect(pageMesRevues({ elements: [1], curseur_suivant: "c1" })).toEqual({
+      elements: [1],
+      suivant: "c1",
+    });
+    const appels: string[] = [];
+    const r = await chargerToutesLesPages<number>(
+      async (chemin) => {
+        appels.push(chemin);
+        const premiere = !chemin.includes("curseur=");
+        return {
+          ok: true,
+          donnees: pageMesRevues(
+            premiere
+              ? { elements: [1, 2], curseur_suivant: "c1" }
+              : { elements: [3], curseur_suivant: null },
+          ),
+        };
+      },
+      cheminMesRevues(),
+      { limiteMax: LIMITE_MES_REVUES },
+    );
+    expect(r).toEqual({ ok: true, donnees: { elements: [1, 2, 3], tronquee: false } });
+    expect(appels).toEqual([
+      "/api/qualite/revue-froide/mes-revues?limite=100",
+      "/api/qualite/revue-froide/mes-revues?limite=100&curseur=c1",
+    ]);
   });
 });

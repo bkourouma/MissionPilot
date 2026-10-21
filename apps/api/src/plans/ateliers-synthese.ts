@@ -10,7 +10,11 @@ import { genererContenu, type DependancesIa, type ResultatExecution } from "../i
 import { variablesDuPrompt, type PromptSeme } from "../ia/prompts.js";
 import { exigerPlanRedigeable, exigerPlanVisible } from "./acces.js";
 import { exigerAtelier, optionsDe, type AtelierDb } from "./ateliers.js";
-import type { OptionDb } from "./ateliers-resultats.js";
+import {
+  appliquerSeuil,
+  SEUIL_PARTICIPANTS_AGREGATS,
+  type OptionDb,
+} from "./ateliers-resultats.js";
 
 /*
  * Synthèse IA d'un atelier clos (PLA-15) : un BROUILLON en français, jamais livrable avant la
@@ -212,6 +216,15 @@ export async function genererSyntheseAtelier(
     if (a.statut !== "clos" || !a.resultats) {
       throw new AppError(409, "ATELIER_ETAT", "La synthèse se génère sur un atelier clos.");
     }
+    // Seuil par méthode : seules les méthodes publiées entrent dans la synthèse.
+    const seuil = appliquerSeuil(a.resultats);
+    if (seuil.tout_masque || !seuil.publies) {
+      throw new AppError(
+        409,
+        "ATELIER_AGREGATS_MASQUES",
+        `Agrégats masqués : au moins ${SEUIL_PARTICIPANTS_AGREGATS} participants requis pour une synthèse.`,
+      );
+    }
     const options = await optionsDe(db, atelierId);
     const client = await db.query("SELECT raison_sociale FROM clients WHERE id = $1", [
       plan.client_id,
@@ -220,7 +233,7 @@ export async function genererSyntheseAtelier(
     return {
       missionId: plan.mission_id,
       options,
-      resultats: a.resultats as unknown as ResultatsAtelier,
+      resultats: seuil.publies as unknown as ResultatsAtelier,
       titre: a.titre,
       consigne: a.consigne,
       client: (client.rows[0]?.raison_sociale as string | undefined) ?? "",

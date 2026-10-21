@@ -27,6 +27,7 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi, messageErreur } from "./api";
+import type { PageCurseur } from "./pagination";
 import { formaterJours, formaterMontantMineur, formaterPourcentage } from "./format";
 
 export type * from "./qualite-froide-types";
@@ -186,6 +187,15 @@ export const cheminClotureCampagne = (id: string) => `${cheminCampagne(id)}/clot
 export const cheminActionsCampagne = (id: string) => `${cheminCampagne(id)}/actions`;
 export const cheminPlan = (id: string) => `${cheminCampagne(id)}/plan`;
 export const cheminMesRevues = () => `${RACINE_API}/mes-revues`;
+/** Plafond de `limite` de « mes revues » côté API. */
+export const LIMITE_MES_REVUES = 100;
+/** Page de « mes revues » telle que l'API la renvoie (`curseur_suivant`) vers la forme `suivant`. */
+export function pageMesRevues<T>(page: {
+  elements: T[];
+  curseur_suivant: string | null;
+}): PageCurseur<T> {
+  return { elements: page.elements, suivant: page.curseur_suivant };
+}
 export const cheminEchantillon = (id: string) => `${RACINE_API}/echantillons/${segment(id)}`;
 export const cheminDossier = (id: string) => `${cheminEchantillon(id)}/dossier`;
 export const cheminEligibles = (id: string) => `${cheminEchantillon(id)}/relecteurs-eligibles`;
@@ -250,6 +260,7 @@ const CODES_MESSAGE_API = new Set([
   "RELECTEUR_NON_INDEPENDANT",
   "RELECTEUR_NON_HABILITE",
   "REVUE_FROIDE_TERMINEE",
+  "REAFFECTATION_EN_REVUE",
   "FROIDE_CAMPAGNE_FIGEE",
   "FROIDE_HISTORIQUE_IMMUABLE",
   "MISSION_TIREE_INVALIDE",

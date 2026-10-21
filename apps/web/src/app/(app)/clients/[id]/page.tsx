@@ -12,7 +12,11 @@ import { Onglets } from "../../../../components/ui/Onglets";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { nomPays } from "../../../../lib/cabinet";
 import { cheminSyntheseClient } from "../../../../lib/canaux";
-import { TAILLE_LIBELLES, type ClientDetaille } from "../../../../lib/clients";
+import {
+  cheminDiagnosticFlash,
+  TAILLE_LIBELLES,
+  type ClientDetaille,
+} from "../../../../lib/clients";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { exigerPermission } from "../../../../lib/session";
 import { ongletsClientAvecPortail } from "../../../../lib/portail-gestion";
@@ -29,6 +33,7 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
   const { utilisateur } = await exigerPermission("clients.lire");
   const peutEcrire = aPermission(utilisateur.roles, "clients.ecrire");
   const voitApercuSynthese = aPermission(utilisateur.roles, "canaux.lire");
+  const peutProposerDiagnostic = aPermission(utilisateur.roles, "catalogue.lire");
   const r = await chargerServeur<ClientDetaille>(`/api/clients/${id}`);
   if (!r.ok && r.statut === 404) notFound();
   if (!r.ok) {
@@ -59,12 +64,18 @@ export default async function PageClient({ params }: { params: Promise<{ id: str
         }
         soustitre={[c.secteur, nomPays(c.pays)].filter(Boolean).join(" · ")}
         actions={
-          peutEcrire || voitApercuSynthese ? (
+          peutEcrire || voitApercuSynthese || (peutProposerDiagnostic && c.actif) ? (
             <>
               {voitApercuSynthese ? (
                 <Link href={cheminSyntheseClient(c.id)} className={classesBouton("secondaire")}>
                   <Icone nom="oeil" />
                   <span>Synthèse du dirigeant</span>
+                </Link>
+              ) : null}
+              {peutProposerDiagnostic && c.actif ? (
+                <Link href={cheminDiagnosticFlash(c.id)} className={classesBouton("secondaire")}>
+                  <Icone nom="courbe" />
+                  <span>Proposer un diagnostic flash</span>
                 </Link>
               ) : null}
               {peutEcrire ? (

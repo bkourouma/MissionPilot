@@ -9,7 +9,7 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate } from "../../../lib/format";
 import type { Mission } from "../../../lib/missions";
-import { chargerToutesLesPages } from "../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
 import {
   cheminSuivis,
   droitsQualite,
@@ -47,7 +47,9 @@ export default async function PageQualite({
   const [r, missions] = await Promise.all([
     chargerServeur<PageSuivis>(cheminSuivis(filtres)),
     droits.relire
-      ? chargerToutesLesPages<Mission>(chargerServeur, "/api/missions")
+      ? chargerToutesLesPages<Mission>(chargerServeur, "/api/missions", {
+          limiteMax: LIMITE_PAGE_MAX,
+        })
       : Promise.resolve(null),
   ]);
 

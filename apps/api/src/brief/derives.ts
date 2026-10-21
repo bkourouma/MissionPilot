@@ -2,7 +2,9 @@ import {
   ajouterJours,
   capacite,
   comparer,
+  calculerEtatVoyant,
   ErreurKpi,
+  ErreurRedressement,
   lundiDeLaSemaine,
   zero,
   type CandidatBrief,
@@ -24,6 +26,8 @@ import {
   situationPaiement,
   versFacturePaiement,
 } from "../finance/paiements.js";
+import { COLONNES_DOSSIER, type DossierRed } from "../redressement/acces.js";
+import { rassemblerDonneesVoyant } from "../redressement/voyant.js";
 import { chargerCalendrier } from "../missions/outils.js";
 import { absencesValidees } from "../planification/charge.js";
 import { calculerSuivisMissions } from "../temps/suivi.js";
@@ -43,7 +47,7 @@ import {
 /*
  * Famille « Ça dérive » : KPI au rouge ou à l'orange deux périodes de suite, atterrissage au-delà
  * du budget, factures échues, jalons et tâches en retard, feuille de temps non soumise,
- * questionnaire sans réponse. Les sources ne lisent que des FAITS (statuts de périodes, jours,
+ * questionnaire sans réponse, voyant de redressement au rouge. Les sources ne lisent que des FAITS (statuts de périodes, jours,
  * échéances) ; seuils et gravité sont ceux du moteur du brief. Les montants ne sortent qu'avec
  * `finance.lire` (FIN-02) ; l'atterrissage reste en jours (`budget.lire_jours`).
  */
@@ -331,4 +335,82 @@ export const questionnairesSansReponse: Extracteur = async (c) => {
     lien: `/missions/${l.mission_id as string}/questionnaires/${l.id as string}`,
     faits: { nature: "retard", echeance: l.echeance as string },
   }));
+};
+
+/** Dossiers de redressement dont le voyant est évalué par requête (au-delà : famille tronquée). */
+export const PLAFOND_DOSSIERS_VOYANT = 50;
+/**
+ * Dossiers dont le voyant est réellement calculé par requête (chaque évaluation lit plusieurs
+ * tables) ; toujours inférieur ou égal à `PLAFOND_DOSSIERS_VOYANT` (lus ≥ évalués). Au-delà :
+ * famille tronquée.
+ */
+export const PLAFOND_EVALUATIONS_VOYANT = 20;
+
+/**
+ * Dossier de redressement ouvert dont le voyant de pilotage (RED-15), calculé par le moteur du
+ * redressement à partir des services du module, est au rouge. Source derrière `redressement.lire`,
+ * sur une mission visible et non clôturée ; un dossier clos n'est pas examiné (prudence : le suivi
+ * après mission relève de son propre écran). Seuls les libellés des motifs CRITIQUES sont repris
+ * (décomptes de semaines, de covenants ou d'actions, jamais un montant : FIN-02).
+ */
+export const voyantsRedressementRouges: Extracteur = async (c) => {
+  if (!a(c, "redressement.lire")) return null;
+  const r = await c.db.query(
+    `SELECT ${COLONNES_DOSSIER}, m.intitule AS mission_intitule, count(*) OVER ()::int AS total_source
+     FROM red_dossiers d JOIN missions m ON m.id = d.mission_id
+     WHERE d.statut <> 'clos' AND m.statut <> 'cloturee' AND ${VISIBLE}
+     ORDER BY d.modifie_le DESC, d.id LIMIT $3`,
+    [...base(c), PLAFOND_DOSSIERS_VOYANT],
+  );
+  const lignes = r.rows as Record<string, unknown>[];
+  const candidats: CandidatBrief[] = [];
+  let interrompue = false;
+  let evaluations = 0;
+  for (const ligne of lignes) {
+    if (evaluations >= PLAFOND_EVALUATIONS_VOYANT) {
+      interrompue = true;
+      break;
+    }
+    evaluations += 1;
+    const d = ligne as unknown as DossierRed;
+    let donnees;
+    let etat;
+    try {
+      donnees = await rassemblerDonneesVoyant(c.db, c.auth, d);
+      etat = calculerEtatVoyant(donnees.entrees);
+    } catch (error) {
+      // Données incohérentes d'un dossier : on l'ignore, la source devient incomplète (jamais un 500).
+      if (error instanceof ErreurRedressement) {
+        interrompue = true;
+        continue;
+      }
+      throw error;
+    }
+    if (etat.voyant !== "rouge") continue;
+    // Ancienneté : plus ancienne évaluation (urgence, alerte précoce) à l'origine d'un motif critique.
+    const origines: Date[] = [];
+    if (donnees.urgence?.voyant === "rouge") origines.push(donnees.urgence.cree_le);
+    if (donnees.alerte?.niveau === "critique") origines.push(donnees.alerte.cree_le);
+    const plusAncienne = origines.reduce<Date | null>(
+      (min, x) => (min === null || x < min ? x : min),
+      null,
+    );
+    candidats.push({
+      type: "voyant_rouge",
+      entite_id: d.id,
+      mission_id: d.mission_id,
+      entite_libelle: d.intitule,
+      mission_libelle: texte(ligne.mission_intitule),
+      lien: `/missions/${d.mission_id}/redressement`,
+      faits: {
+        nature: "voyant",
+        voyant: etat.voyant,
+        motifs: etat.motifs.filter((m) => m.gravite === "critique").map((m) => m.libelle),
+        depuis: plusAncienne ? plusAncienne.toISOString().slice(0, 10) : null,
+      },
+    });
+  }
+  // Au-delà des dossiers lus ou évalués (plafonds), ou si un dossier a été ignoré, le nombre de
+  // voyants rouges est inconnu : famille tronquée.
+  return enSourceFiltree("deriver", lignes, candidats, interrompue);
 };

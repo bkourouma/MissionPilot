@@ -7,6 +7,7 @@
  * n'est conservé dans le navigateur.
  */
 import { ErreurApi } from "./api";
+import { LIMITE_PAGE_MAX } from "./pagination";
 import { messageRapport, type RapportMission } from "./rapports";
 
 export const FORMATS_ETAT_FINANCIER = ["pdf", "docx"] as const;
@@ -39,9 +40,9 @@ export interface MissionChoix {
 
 const segment = (id: string) => encodeURIComponent(id);
 
-/** Missions du client (GET /api/missions filtré) : une page large, filtrée ensuite côté web. */
+/** Missions du client (GET /api/missions filtré) : une page au plafond de l'API (500), filtrée ensuite côté web. */
 export function cheminMissionsClient(clientId: string): string {
-  const q = new URLSearchParams({ client_id: clientId, limite: "200" });
+  const q = new URLSearchParams({ client_id: clientId, limite: String(LIMITE_PAGE_MAX) });
   return `/api/missions?${q.toString()}`;
 }
 

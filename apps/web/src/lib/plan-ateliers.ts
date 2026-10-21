@@ -103,31 +103,48 @@ export interface LigneMatriceResultat {
   rang: number;
 }
 
+/** Méthode dont l’agrégat est masqué par l’API (moins de participants que le seuil) : aucun chiffre. */
+export interface MethodeMasquee {
+  resultat: null;
+  masque_seuil: true;
+  seuil_participants: number;
+}
+
+/** Message affiché pour une méthode (ou l’atelier) dont les agrégats sont masqués. */
+export const phraseMasque = (seuil: number | undefined): string =>
+  `Agrégats masqués : au moins ${seuil ?? 3} participants requis.`;
+
 /** Agrégats figés à la clôture (sortie du moteur `synthetiserAtelier`). */
 export interface ResultatsAtelier {
   moteur: string;
   invites: number;
-  vote?: {
-    resultat: {
-      budgetPoints: number;
-      totalPoints: number;
-      options: LigneVoteResultat[];
-      participation: ParticipationMoteur;
-    };
-  };
-  priorisation?: {
-    resultat: { options: LignePriorisationResultat[]; participation: ParticipationMoteur };
-  };
-  matrice?: {
-    resultat: {
-      axes: {
-        x: { libelle: string; inverse?: boolean };
-        y: { libelle: string; inverse?: boolean };
+  vote?:
+    | MethodeMasquee
+    | {
+        resultat: {
+          budgetPoints: number;
+          totalPoints: number;
+          options: LigneVoteResultat[];
+          participation: ParticipationMoteur;
+        };
       };
-      options: LigneMatriceResultat[];
-      participation: ParticipationMoteur;
-    };
-  };
+  priorisation?:
+    | MethodeMasquee
+    | {
+        resultat: { options: LignePriorisationResultat[]; participation: ParticipationMoteur };
+      };
+  matrice?:
+    | MethodeMasquee
+    | {
+        resultat: {
+          axes: {
+            x: { libelle: string; inverse?: boolean };
+            y: { libelle: string; inverse?: boolean };
+          };
+          options: LigneMatriceResultat[];
+          participation: ParticipationMoteur;
+        };
+      };
 }
 
 export interface AtelierDetail {
@@ -150,11 +167,18 @@ export interface AtelierDetail {
   participants: ParticipantAtelier[];
   participation: ParticipationAtelier;
   resultats: ResultatsAtelier | null;
+  /** Atelier clos sous le seuil de participants : agrégats masqués par l'API (anonymat). */
+  masque_seuil?: boolean;
+  /** Méthodes dont l'agrégat est masqué (seuil par méthode). */
+  methodes_masquees?: MethodeAtelier[];
+  seuil_participants?: number;
 }
 
 export interface Candidats {
   cabinet: { id: string; nom: string }[];
   dirigeants: { id: string; nom: string }[];
+  /** Plafond de l'API atteint : la liste est incomplète. */
+  tronque?: boolean;
 }
 
 /** SA contribution courante (cabinet ou portail) : jamais celle d'un autre. */

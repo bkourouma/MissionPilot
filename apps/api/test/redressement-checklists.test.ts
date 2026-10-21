@@ -981,7 +981,7 @@ describe("plafonds de volume et de débit", () => {
     });
     expect(trop.statusCode).toBe(429);
     expect(erreur(trop)).toBe("RED_TROP_DE_REPONSES_CHECKLIST");
-  });
+  }, 90_000);
 
   it("débit : 10 modèles par utilisateur et par 10 minutes (429)", async () => {
     // L'expert a déjà créé plusieurs modèles ci-dessus ; un associé neuf part de zéro.

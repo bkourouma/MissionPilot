@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { requeteInvalide } from "../errors.js";
 
-export const paramsId = z.object({ id: z.string().uuid() });
+/** Paramètre de chemin `:id` seul : toute autre clé est refusée (400). */
+export const paramsId = z.object({ id: z.string().uuid() }).strict();
 
 /** Curseur opaque : clé de tri de la dernière ligne servie, en base64url. */
 export function encoderCurseur(cle: readonly [string, string]): string {

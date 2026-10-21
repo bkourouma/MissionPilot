@@ -57,6 +57,7 @@ export const TYPES_ELEMENT_BRIEF_API = [
   "tache_en_retard",
   "feuille_non_soumise",
   "questionnaire_sans_reponse",
+  "voyant_rouge",
   "proposition_a_envoyer",
   "facture_a_emettre",
   "facture_a_envoyer",
@@ -88,6 +89,8 @@ export const elementBriefSchema = z
     gravite: graviteBriefSchema,
     anciennete_jours: z.number().int().min(0),
     ecart_pct: z.number().optional(),
+    /** Voyant de redressement : motifs critiques en texte, sans montant. */
+    motifs: z.array(z.string().min(1).max(200)).max(5).optional(),
     montant: z.number().int().optional(),
     devise: z.string().min(1).max(8).optional(),
   })

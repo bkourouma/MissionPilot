@@ -10,6 +10,7 @@ import {
   kpisQuiDerivent,
   questionnairesSansReponse,
   tachesEnRetard,
+  voyantsRedressementRouges,
 } from "./derives.js";
 import {
   cloturesEnAttente,
@@ -45,7 +46,7 @@ import {
  * est consultée dans les droits de l'utilisateur ; le moteur du brief compose le résultat. Les
  * sources sont lues l'une après l'autre : une transaction ne porte qu'une requête à la fois.
  *
- * 30 types d'éléments (À décider 16, Ça dérive 8, Prêt à envoyer 6) pour 29 sources. Source encore
+ * 31 types d'éléments (À décider 16, Ça dérive 9, Prêt à envoyer 6) pour 30 sources. Source encore
  * ÉCARTÉE : les rapports « validés non diffusés ». `rapports_mission` est en ajout seul, son statut
  * « valide » est fixé à la génération, et aucun envoi, partage du portail ni signature ne le
  * référence : rien ne distingue un rapport validé d'un rapport diffusé.
@@ -78,6 +79,7 @@ export const EXTRACTEURS_BRIEF: readonly Extracteur[] = [
   tachesEnRetard,
   feuillesNonSoumises,
   questionnairesSansReponse,
+  voyantsRedressementRouges,
   // Prêt à envoyer
   propositionsAEnvoyer,
   facturesAEmettre,

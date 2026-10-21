@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cheminDiagnosticFlash,
   hrefListe,
   lireParametresListe,
   requeteApiListe,
@@ -117,5 +118,18 @@ describe("validerContact", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(Object.keys(r.erreurs).sort()).toEqual(["email", "nom", "telephone"]);
+  });
+});
+
+describe("lien du diagnostic flash", () => {
+  it("vise les services candidats avec le service et le client", () => {
+    expect(cheminDiagnosticFlash("c1")).toBe(
+      "/services-candidats?service=diagnostic_flash&client=c1",
+    );
+  });
+  it("encode l'identifiant", () => {
+    expect(cheminDiagnosticFlash("a&b=c d")).toBe(
+      "/services-candidats?service=diagnostic_flash&client=a%26b%3Dc+d",
+    );
   });
 });

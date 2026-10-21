@@ -35,7 +35,7 @@ import { exigerPlanRedigeable, exigerPlanVisible } from "./acces.js";
  *   MQL14). Calcul synchrone, borné par TIRAGES_MAX (2000) tirages.
  * - Lire, rejouer : « plan.lire », mission visible. Le rejeu relance le moteur
  *   avec la graine, les lois et les hypothèses ENREGISTRÉES et compare au
- *   résultat figé ; il n'écrit rien.
+ *   résultat figé ; il n'écrit que sa trace de débit (REJEUX_PAR_PLAN_PAR_FENETRE).
  * - Défauts : lois de départ autour des hypothèses de base, VALEURS
  *   PROVISOIRES modifiables (aide de saisie, jamais un résultat).
  */
@@ -43,6 +43,13 @@ import { exigerPlanRedigeable, exigerPlanVisible } from "./acces.js";
 /** Simulations admises par utilisateur sur la fenêtre glissante (à calibrer au pilote). */
 export const SIMULATIONS_PAR_FENETRE = 30;
 export const FENETRE_SIMULATIONS_MINUTES = 10;
+/**
+ * Plafond de débit du rejeu : REJEUX_PAR_PLAN_PAR_FENETRE rejeux par plan (tous utilisateurs) sur
+ * FENETRE_REJEUX_MINUTES minutes, comptés en base (`plan_rejeux_montecarlo`, 0432) ; 429
+ * TROP_DE_REJEUX au-delà. Valeur provisoire, à valider.
+ */
+export const REJEUX_PAR_PLAN_PAR_FENETRE = 5;
+export const FENETRE_REJEUX_MINUTES = 10;
 /** Simulations enregistrées par plan (doublé en base, MQL12). */
 export const SIMULATIONS_PAR_PLAN_MAX = 100;
 
@@ -262,9 +269,36 @@ function egalJson(a: unknown, b: unknown): boolean {
  * hypothèses de la version ENREGISTRÉES ; n'écrit rien. `identique` exige
  * l'égalité exacte du résultat (et pas seulement de l'empreinte).
  */
+/** Compte un rejeu et lève 429 si le plan en a déjà subi REJEUX_PAR_PLAN_PAR_FENETRE sur la fenêtre. */
+async function verifierDebitRejeu(db: Db, auth: Auth, planId: string): Promise<void> {
+  // Sérialise les rejeux d'un même plan (le décompte et l'insertion ne se croisent pas).
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`rejeu:${planId}`]);
+  await db.query(
+    "DELETE FROM plan_rejeux_montecarlo WHERE plan_id = $1 AND cree_le < now() - interval '1 hour'",
+    [planId],
+  );
+  const r = await db.query(
+    `SELECT count(*)::int AS n FROM plan_rejeux_montecarlo
+     WHERE plan_id = $1 AND cree_le > now() - make_interval(mins => $2)`,
+    [planId, FENETRE_REJEUX_MINUTES],
+  );
+  if ((r.rows[0].n as number) >= REJEUX_PAR_PLAN_PAR_FENETRE) {
+    throw new AppError(
+      429,
+      "TROP_DE_REJEUX",
+      `Au plus ${REJEUX_PAR_PLAN_PAR_FENETRE} rejeux par plan et par ${FENETRE_REJEUX_MINUTES} minutes : réessayez plus tard.`,
+    );
+  }
+  await db.query(
+    "INSERT INTO plan_rejeux_montecarlo (cabinet_id, plan_id, cree_par) VALUES ($1, $2, $3)",
+    [auth.cabinetId, planId, auth.utilisateurId],
+  );
+}
+
 export async function rejouerSimulation(db: Db, auth: Auth, planId: string, simId: string) {
   await exigerPlanVisible(db, auth, planId);
   const s = await lireSimulation(db, planId, simId);
+  await verifierDebitRejeu(db, auth, planId);
   const v = await db.query("SELECT hypotheses FROM plan_modele_versions WHERE id = $1", [
     s.modele_version_id,
   ]);

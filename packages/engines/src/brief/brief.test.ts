@@ -393,9 +393,9 @@ describe("validations d'offre, de plan et de révision de budget", () => {
     "revision_budget_a_valider",
   ];
 
-  it("trois types de plus dans « À décider » : 16 types, 30 au total, même barème d'ancienneté", () => {
+  it("trois types de plus dans « À décider » : 16 types, 31 au total, même barème d'ancienneté", () => {
     expect(TYPES_PAR_FAMILLE.decider).toHaveLength(16);
-    expect(TYPES_ELEMENT_BRIEF).toHaveLength(30);
+    expect(TYPES_ELEMENT_BRIEF).toHaveLength(31);
     for (const t of NOUVEAUX) {
       expect(FAMILLE_DU_TYPE[t]).toBe("decider");
       const e = (depuis: string) =>
@@ -413,5 +413,86 @@ describe("validations d'offre, de plan et de révision de budget", () => {
     );
     expect(e?.libelle).toBe("Révision de budget à valider : révision n° 2");
     expect(e && "montant" in e).toBe(false);
+  });
+});
+
+describe("voyant de redressement au rouge", () => {
+  const voyant = (
+    v: "vert" | "orange" | "rouge" | "inconnu",
+    motifs: string[] = ["Le dernier diagnostic d'urgence est au rouge."],
+    depuis: string | null = null,
+  ): FaitsBrief => ({ nature: "voyant", voyant: v, motifs, depuis });
+
+  it("type de la famille « Ça dérive », avec un libellé français", () => {
+    expect(TYPES_PAR_FAMILLE.deriver).toHaveLength(9);
+    expect(FAMILLE_DU_TYPE.voyant_rouge).toBe("deriver");
+    expect(LIBELLES_TYPE_BRIEF.voyant_rouge).toBe("Voyant de redressement au rouge");
+  });
+
+  it("seul le rouge fait un élément, toujours de gravité haute, motifs repris", () => {
+    for (const v of ["vert", "orange", "inconnu"] as const) {
+      expect(qualifierCandidat(candidat("voyant_rouge", voyant(v)), REF)).toBeNull();
+    }
+    const e = qualifierCandidat(
+      candidat("voyant_rouge", voyant("rouge", ["a", "b"], "2026-10-09"), {
+        entite_libelle: "Dossier Alpha",
+      }),
+      REF,
+    );
+    expect(e).toMatchObject({
+      type: "voyant_rouge",
+      famille: "deriver",
+      gravite: "haute",
+      anciennete_jours: 3,
+      libelle: "Voyant de redressement au rouge : Dossier Alpha",
+      motifs: ["a", "b"],
+    });
+    expect(e && "montant" in e).toBe(false);
+  });
+
+  it("sans date : ancienneté nulle ; motifs bornés à 5, vides écartés, longs tronqués", () => {
+    const motifs = ["1", " ", "2", "3", "4", "5", "6", "x".repeat(300)];
+    const e = qualifierCandidat(candidat("voyant_rouge", voyant("rouge", motifs)), REF);
+    expect(e?.anciennete_jours).toBe(0);
+    expect(e?.motifs).toEqual(["1", "2", "3", "4", "5"]);
+    const long = qualifierCandidat(
+      candidat("voyant_rouge", voyant("rouge", ["x".repeat(300)])),
+      REF,
+    );
+    expect(long?.motifs?.[0]).toHaveLength(200);
+  });
+
+  it("refuse des faits d'une autre nature", () => {
+    expect(() => qualifierCandidat(candidat("voyant_rouge", attente(null)), REF)).toThrow(
+      ErreurBrief,
+    );
+    expect(() => qualifierCandidat(candidat("tache_en_retard", voyant("rouge")), REF)).toThrow(
+      ErreurBrief,
+    );
+  });
+
+  it("compose dans « Ça dérive », au-dessus d'une gravité moyenne", () => {
+    const b = composerBrief({
+      date_reference: REF,
+      sources: [
+        {
+          famille: "deriver",
+          restants: 0,
+          candidats: [
+            candidat(
+              "jalon_en_retard",
+              { nature: "retard", echeance: "2026-10-01" },
+              { entite_id: "j" },
+            ),
+            candidat("voyant_rouge", voyant("rouge"), { entite_id: "d1" }),
+          ],
+        },
+      ],
+    });
+    expect(b.familles.deriver.elements.map((x) => x.type)).toEqual([
+      "voyant_rouge",
+      "jalon_en_retard",
+    ]);
+    expect(b.total).toBe(2);
   });
 });

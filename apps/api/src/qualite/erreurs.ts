@@ -49,7 +49,7 @@ const SQL: Record<string, [number, string, string]> = {
     "L'auteur du livrable n'atteste pas sa propre définition de terminé.",
   ],
   MPY11: [400, "AUTEUR_NON_MEMBRE", "L'auteur désigné doit être un membre actif de la mission."],
-  // Revue à froid (QUA-05, migrations 0287 à 0289).
+  // Revue à froid (QUA-05, migrations 0287 à 0290).
   MQQ01: [409, "FROIDE_HISTORIQUE_IMMUABLE", "L'historique de la revue à froid est en ajout seul."],
   MQQ02: [409, "FROIDE_CAMPAGNE_FIGEE", "La campagne de revue à froid et son tirage sont figés."],
   MQQ03: [
@@ -73,6 +73,11 @@ const SQL: Record<string, [number, string, string]> = {
     409,
     "CONSTAT_INVALIDE",
     "Le constat doit venir d'une revue terminée de la même campagne.",
+  ],
+  MQQ13: [
+    409,
+    "REAFFECTATION_EN_REVUE",
+    "Le relecteur ne se remplace pas une fois la revue commencée.",
   ],
 };
 

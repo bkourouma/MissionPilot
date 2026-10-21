@@ -46,6 +46,7 @@ export const TYPES_PAR_FAMILLE = {
     "tache_en_retard",
     "feuille_non_soumise",
     "questionnaire_sans_reponse",
+    "voyant_rouge",
   ],
   envoyer: [
     "proposition_a_envoyer",
@@ -80,7 +81,9 @@ export type StatutPeriodeBrief = "vert" | "orange" | "rouge";
  * - `attente` : ce qui attend depuis une date (décision, envoi) ; l'ancienneté en part ;
  * - `retard` : une échéance qui peut être dépassée ; sans retard, pas d'élément ;
  * - `kpi` : statuts des dernières périodes closes mesurées, de la plus récente à la plus ancienne ;
- * - `atterrissage` : jours du budget et jours d'atterrissage (suivi en jours, jamais en montant).
+ * - `atterrissage` : jours du budget et jours d'atterrissage (suivi en jours, jamais en montant) ;
+ * - `voyant` : voyant de pilotage d'un dossier de redressement (calculé par le moteur du
+ *   redressement) et libellés de ses motifs critiques, en texte, sans aucun montant.
  */
 export type FaitsBrief =
   | { readonly nature: "attente"; readonly depuis: DateISO | null }
@@ -95,6 +98,14 @@ export type FaitsBrief =
       readonly nature: "atterrissage";
       readonly jours_budget: number;
       readonly jours_atterrissage: number;
+    }
+  | {
+      readonly nature: "voyant";
+      readonly voyant: "vert" | "orange" | "rouge" | "inconnu";
+      /** Libellés français des motifs critiques (sans montant), du plus grave au moins grave. */
+      readonly motifs: readonly string[];
+      /** Date de la plus ancienne évaluation à l'origine d'un motif critique, si connue. */
+      readonly depuis: DateISO | null;
     };
 
 /** Élément candidat : un fait extrait par l'API, avant qualification par le moteur. */
@@ -127,6 +138,8 @@ export interface ElementBrief {
   readonly anciennete_jours: number;
   /** Atterrissage seulement : dépassement du budget en pourcentage, une décimale. */
   readonly ecart_pct?: number;
+  /** Voyant de redressement seulement : motifs critiques, en texte, sans montant. */
+  readonly motifs?: readonly string[];
   readonly montant?: number;
   readonly devise?: string;
 }

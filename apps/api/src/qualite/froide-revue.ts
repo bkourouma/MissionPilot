@@ -3,14 +3,15 @@ import {
   aPermission,
   CRITERES_REVUE_FROIDE,
   GRILLE_REVUE_FROIDE_VERSION,
+  mesRevuesQuerySchema,
   type constatFroidCreationSchema,
   type evaluationRevueFroideSchema,
 } from "@missionpilot/shared";
-import type { z } from "zod";
+import { z } from "zod";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { AppError, introuvable } from "../errors.js";
+import { AppError, introuvable, requeteInvalide } from "../errors.js";
 import { notifier } from "../notifications/notifier.js";
 import {
   accesEchantillon,
@@ -62,6 +63,14 @@ export async function affecterRelecteur(
 ) {
   const e = await exigerEchantillon(db, echantillonId, true);
   if (e.statut === "terminee") throw revueTerminee();
+  // Revue commencée : le relecteur affecté tient la grille, il ne se remplace plus (doublé MQQ13).
+  if (e.statut === "en_revue") {
+    throw new AppError(
+      409,
+      "REAFFECTATION_EN_REVUE",
+      "La revue est commencée : le relecteur ne peut plus être remplacé.",
+    );
+  }
   const u = await db.query("SELECT id, nom, roles, actif FROM utilisateurs WHERE id = $1", [
     relecteurId,
   ]);
@@ -119,21 +128,73 @@ export async function affecterRelecteur(
   return detailRevue(db, auth, e.id);
 }
 
-export async function mesRevues(db: Db, auth: Auth) {
+/**
+ * Curseur de « mes revues » : clé de la dernière ligne servie, dans l'ordre de la liste (non
+ * terminées d'abord, affectation la plus récente d'abord, puis identifiant). Les directions de
+ * tri sont mixtes : le curseur est propre à cette liste, validé par Zod (400 s'il est invalide).
+ */
+const cleMesRevues = z.tuple([
+  z.union([z.literal(0), z.literal(1)]),
+  z.string().regex(/^\d{20}$/),
+  z.string().uuid(),
+]);
+type CleMesRevues = z.infer<typeof cleMesRevues>;
+
+function decoderCurseurMesRevues(curseur: string | undefined): CleMesRevues | null {
+  if (!curseur) return null;
+  try {
+    return cleMesRevues.parse(JSON.parse(Buffer.from(curseur, "base64url").toString("utf8")));
+  } catch {
+    throw requeteInvalide("Curseur de pagination invalide.");
+  }
+}
+
+export async function mesRevues(
+  db: Db,
+  auth: Auth,
+  requete: z.input<typeof mesRevuesQuerySchema> = {},
+) {
+  const q = mesRevuesQuerySchema.parse(requete);
+  const apres = decoderCurseurMesRevues(q.curseur);
   const r = await db.query(
     `SELECT e.id, e.campagne_id, c.intitule AS campagne_intitule, e.rang, e.statut, e.affecte_le,
        e.score::float8 AS score, e.conclusion, e.terminee_le, ${SQL_MISSION_VUE},
        (SELECT count(*)::int FROM qualite_froide_evaluations v WHERE v.echantillon_id = e.id)
          AS criteres_evalues,
-       ${CRITERES_REVUE_FROIDE.length} AS criteres_total
+       ${CRITERES_REVUE_FROIDE.length} AS criteres_total,
+       (e.statut = 'terminee')::int AS cle_terminee,
+       to_char(e.affecte_le AT TIME ZONE 'UTC', 'YYYYMMDDHH24MISSUS') AS cle_affecte
      FROM qualite_froide_echantillon e
      JOIN qualite_froide_campagnes c ON c.id = e.campagne_id
      ${SQL_MISSION_JOINTURES}
      WHERE e.relecteur_id = $1
-     ORDER BY (e.statut = 'terminee'), e.affecte_le DESC, e.id LIMIT 200`,
-    [auth.utilisateurId],
+       AND ($3::int IS NULL
+            OR (e.statut = 'terminee')::int > $3
+            OR ((e.statut = 'terminee')::int = $3
+                AND (to_char(e.affecte_le AT TIME ZONE 'UTC', 'YYYYMMDDHH24MISSUS') < $4
+                     OR (to_char(e.affecte_le AT TIME ZONE 'UTC', 'YYYYMMDDHH24MISSUS') = $4
+                         AND e.id > $5::uuid))))
+     ORDER BY cle_terminee, cle_affecte DESC, e.id LIMIT $2`,
+    [auth.utilisateurId, q.limite + 1, apres?.[0] ?? null, apres?.[1] ?? null, apres?.[2] ?? null],
   );
-  return { elements: r.rows };
+  const lignes = r.rows as (Record<string, unknown> & {
+    id: string;
+    cle_terminee: 0 | 1;
+    cle_affecte: string;
+  })[];
+  const page = lignes.slice(0, q.limite);
+  const derniere = page[page.length - 1];
+  const curseur_suivant =
+    lignes.length > q.limite && derniere
+      ? Buffer.from(
+          JSON.stringify([derniere.cle_terminee, derniere.cle_affecte, derniere.id]),
+          "utf8",
+        ).toString("base64url")
+      : null;
+  return {
+    elements: page.map(({ cle_terminee: _t, cle_affecte: _a, ...reste }) => reste),
+    curseur_suivant,
+  };
 }
 
 interface EvaluationLue {

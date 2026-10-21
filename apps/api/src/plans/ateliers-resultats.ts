@@ -170,3 +170,82 @@ export function participationEnCours(
     { invites },
   ).participation;
 }
+
+/**
+ * Seuil minimal de participants ayant contribué, PAR MÉTHODE, avant de publier ses agrégats
+ * (anonymat : avec 1 ou 2 contributeurs, un agrégat dévoile presque leur avis individuel). En
+ * dessous, l'agrégat de la méthode est MASQUÉ (`resultat: null`, `masque_seuil: true`), quel que soit
+ * le nombre total de contributeurs de l'atelier. Valeur provisoire, à valider (DECISIONS.md).
+ */
+export const SEUIL_PARTICIPANTS_AGREGATS = 3;
+
+export const METHODES_AGREGATS = ["vote", "priorisation", "matrice"] as const;
+export type MethodeAgregat = (typeof METHODES_AGREGATS)[number];
+
+const estObjet = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Participants ayant contribué à cette méthode (figés par le moteur dans l'agrégat), ou 0. */
+function participantsMethode(bloc: unknown): number {
+  if (!estObjet(bloc) || !estObjet(bloc.resultat) || !estObjet(bloc.resultat.participation)) {
+    return 0;
+  }
+  const n = bloc.resultat.participation.participants;
+  return typeof n === "number" ? n : 0;
+}
+
+export interface AgregatsPublies {
+  /** Vue servie : méthodes masquées remplacées par un indicateur sans chiffre ; null si toutes masquées. */
+  vue: Record<string, unknown> | null;
+  /** Agrégats complets des seules méthodes publiées (entrée de la synthèse IA) ; null si aucune. */
+  publies: Record<string, unknown> | null;
+  /** Méthodes présentes dont l'agrégat est masqué. */
+  masquees: MethodeAgregat[];
+  /** Méthodes présentes dont l'agrégat est publié. */
+  visibles: MethodeAgregat[];
+  /** Aucune méthode n'est publiée (toutes masquées, ou aucune présente). */
+  tout_masque: boolean;
+}
+
+/**
+ * Applique le seuil PAR MÉTHODE aux résultats figés d'un atelier clos. Une méthode masquée ne laisse
+ * aucun chiffre : ni agrégat, ni faits, ni effectif.
+ */
+export function appliquerSeuil(resultats: Record<string, unknown> | null): AgregatsPublies {
+  if (!resultats) {
+    return { vue: null, publies: null, masquees: [], visibles: [], tout_masque: true };
+  }
+  const masquees: MethodeAgregat[] = [];
+  const visibles: MethodeAgregat[] = [];
+  const vue: Record<string, unknown> = { ...resultats };
+  const publies: Record<string, unknown> = { ...resultats };
+  for (const m of METHODES_AGREGATS) {
+    if (resultats[m] === undefined) continue;
+    if (participantsMethode(resultats[m]) < SEUIL_PARTICIPANTS_AGREGATS) {
+      masquees.push(m);
+      vue[m] = {
+        resultat: null,
+        masque_seuil: true,
+        seuil_participants: SEUIL_PARTICIPANTS_AGREGATS,
+      };
+      delete publies[m];
+    } else {
+      visibles.push(m);
+    }
+  }
+  // Le compteur global de contributeurs ne dit rien par méthode : il n'est pas servi.
+  delete vue.ayant_contribue;
+  delete publies.ayant_contribue;
+  const tout = visibles.length === 0;
+  return {
+    vue: tout ? null : vue,
+    publies: tout ? null : publies,
+    masquees,
+    visibles,
+    tout_masque: tout,
+  };
+}
+
+/** Aucun agrégat de cet atelier clos n'est publiable (toutes les méthodes sont sous le seuil). */
+export const agregatsMasques = (resultats: Record<string, unknown> | null): boolean =>
+  appliquerSeuil(resultats).tout_masque;
