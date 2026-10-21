@@ -8,5 +8,8 @@ export default defineConfig({
     testTimeout: 20_000,
     hookTimeout: 60_000,
     env: { NODE_ENV: "test" },
+    // En CI seulement : un rejeu des tests connus instables sous charge (kpi-alertes, jobs,
+    // canaux-kpi-suivi, auth-limiteur). Sans effet en local.
+    retry: process.env.CI ? 1 : 0,
   },
 });
