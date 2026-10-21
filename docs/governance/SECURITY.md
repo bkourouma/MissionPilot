@@ -27,6 +27,11 @@ inter-cabinets CAP-04 et veille des appels d'offres AO-01 en §5 sexies et §6, 
 957 routes (recherche n° 10, 921 + 36 : observatoire 8, veille 12, efficacité 8, services candidats 8), 219 fichiers
 de migration, 30 lignes `GRANT EXECUTE` (28, plus `obs_adhesion_active` en `0470` et `obs_agregats` en `0472`) ;
 préfixes SQLSTATE `MQK`, `MQA` et `MQV` (§5 ter).
+Mise à jour du 2026-10-22 (lot 9c, report du lot 4c : cache des réponses IA, plafond de coût par mission généralisé et
+revue contradictoire en §7 bis, rapport d'avancement hebdomadaire AUT-10 en §5 octies) : 972 routes (recherche n° 10,
+957 + 15 : avancement 9, portail 2, revues contradictoires 4), 224 fichiers de migration, 32 lignes `GRANT EXECUTE`
+(30, plus `planifier_conservation_ia` redéfinie en `0278` et `planifier_avancement_hebdo` en `0308`) ; domaines SQLSTATE
+`MQI` et `MQU` (§5 ter).
 
 ## 1. Actifs à protéger
 
@@ -291,13 +296,21 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   (`rejeu_controler_job`, `rejeu_demande_verrouillee`, `rejeu_controler_fin`, appelées par les trois
   précédentes), et `0276` deux fonctions SQL d'invocateur, `modele_recommande` et `modele_route`
   (lecture seule, sans `SECURITY DEFINER`). Les fonctions de déclencheur `garder_*` de `0275` posent
-  toutes `SET search_path = public, pg_temp`.
+  toutes `SET search_path = public, pg_temp`. Lot 4c (mise à jour du 2026-10-21) :
+  `planifier_avancement_hebdo` (`0308`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE`
+  accordé à `missionpilot_app` ; paramètres tous obligatoires, clé de job `avancement_hebdo:AAAA-MM-JJ` imposée et cohérente
+  avec `p_semaine`, qui doit être un lundi, heure d'exécution comprise dans la semaine visée (UTC) ; une tâche par cabinet ayant
+  une mission signée ou en cours et n'ayant pas désactivé la fonction ; lit missions et paramètres de tous les cabinets en
+  propriétaire mais ne renvoie qu'un nombre, §5 octies) ; `planifier_conservation_ia` est redéfinie par `0278` à l'identique de
+  `0104` (même clé de job, même garde de format, mêmes `REVOKE`/`GRANT`) plus le critère « cabinet ayant une entrée de cache
+  échue » (`ia_cache_reponses.expire_le`, §7 bis).
   `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
   (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
-  `rg -n "GRANT EXECUTE" apps/api/migrations` (30 lignes au 2026-10-21 : 23 au 2026-10-11, dont 20 au 2026-10-08 plus trois fonctions des lacunes de la vague 2 ;
+  `rg -n "GRANT EXECUTE" apps/api/migrations` (32 lignes au 2026-10-21 : 23 au 2026-10-11, dont 20 au 2026-10-08 plus trois fonctions des lacunes de la vague 2 ;
   quatre de plus avec les canaux (§9 bis) ; une de plus avec `0275`, qui accorde ses trois fonctions en une seule instruction ; `0305` conserve les `GRANT` de `0030` ;
   deux de plus avec l'observatoire (§5 sexies) : `obs_agregats` (`0472`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC`)
-  et `obs_adhesion_active` (`0470`, fonction d'INVOCATEUR, sans `SECURITY DEFINER`, `search_path` figé, `EXECUTE` retiré à `PUBLIC`).
+  et `obs_adhesion_active` (`0470`, fonction d'INVOCATEUR, sans `SECURITY DEFINER`, `search_path` figé, `EXECUTE` retiré à `PUBLIC` ; deux de plus avec le lot 4c : `planifier_conservation_ia`, redéfinie en `0278` (nouvelle ligne `GRANT`),
+  et `planifier_avancement_hebdo`, `0308`).
   Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
   d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
@@ -357,7 +370,11 @@ soit le code appelant).
   `/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier` (§8 octies) ; les routes des
   canaux (§9 bis). Les routes de la revue à froide (`/api/qualite/revue-froide/**`, §5 ter), du groupe
   et des participations (`/api/dossiers/:id/groupe`, `/api/dossiers/:id/participations`, §8 quater),
-  des sources de livrable (§8 ter) et du redressement (§8 nonies) n'y figurent pas.
+  des sources de livrable (§8 ter) et du redressement (§8 nonies) n'y figurent pas. Lot 4c : `GET /api/portail/avancement` et
+  `GET /api/portail/avancement/:id` (lecture seule, permission `portail.avancement.lire`, `client_dirigeant` et
+  `client_contributeur` seulement, §5 octies) ; les routes des revues contradictoires (`/api/agents/revues-contradictoires/**`,
+  §7 bis) et celles du cabinet (`/api/avancement/**`, `/api/missions/:id/avancement`) n'y figurent pas. La liste compte
+  58 entrées (méthode et motif) au 2026-10-21.
 - **Contexte RLS à chaque transaction** (`portail/contexte.ts`) : pour toute
   route listée, la garde range le client rattaché et l'utilisateur ; un
   rattachement désactivé ou un client archivé donne un client **sentinelle**
@@ -411,6 +428,9 @@ soit le code appelant).
   lecture avec `portail_sans_insert/update/delete`, `plan_atelier_contributions` et
   `plan_atelier_contribution_lignes` en `portail` FOR ALL (SA contribution, atelier ouvert où il est invité ; §5 bis) ;
   les cinq tables `dd_portail_*` en lecture avec `portail_sans_insert/update/delete` (§8 octies).
+  Lot 4c (mise à jour du 2026-10-21) : `avancement_rapports` en lecture, rapports VALIDÉS de CE client dont la mission lui est
+  partagée, avec `portail_sans_insert`, `portail_sans_update` et `portail_sans_delete` (`0307`, §5 octies) ;
+  `avancement_parametres`, `ia_cache_reponses` et `ia_alertes_plafond_mission` sont `portail_interdit` (`0306`, `0278`).
   **Table `fichiers`** (`0331`) : `portail_sans_insert` est remplacée par
   `portail_depot` (insertion dans une transaction du portail seulement si
   `envoye_par` est l'utilisateur du portail) et la politique `portail` de lecture
@@ -448,7 +468,7 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  957 gestionnaires de route (relevé du 2026-10-21, lot 9b ; 921 avec le lot 9a, 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
+  972 gestionnaires de route (relevé du 2026-10-22, lot 9c ; 957 avec le lot 9b, 921 avec le lot 9a, 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
   `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
@@ -798,7 +818,8 @@ pas la séparation des tâches.
   code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0289`), `MQF`
   groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
   code employé), `MQK` capitalisation (efficacité des recommandations et observatoire, §5 sexies), `MQA`
-  veille des appels d'offres (§6) et `MQV` services candidats (§8 decies). Table des codes de ce paragraphe et
+  veille des appels d'offres (§6) `MQV` services candidats (§8 decies), `MQI` IA (cache, revue contradictoire, §7 bis) et `MQU` rapport d'avancement
+  hebdomadaire (§5 octies). Table des codes de ce paragraphe et
   du STD-11 (les codes d'API sont ceux des routes ; codes `MQD`, `MQF`, `MQL` : §6) :
 
   | SQLSTATE | Code d'API                     | HTTP | Sens                                                               |
@@ -837,6 +858,18 @@ pas la séparation des tâches.
   | `MQA05`  | `AO_VEILLE_DECISION_INCOHERENTE` | 409 | décision incohérente avec l'état du résultat                      |
   | `MQV01`  | `GUICHET_FIGE`                 | 409  | identité d'un guichet de financement figée                         |
   | `MQV02`  | `PLAFOND_GUICHETS_ATTEINT`     | 409  | 500 guichets par cabinet                                           |
+  | `MQI01`  | (aucun, filet de la base)      | -    | écriture dans le cache IA d'un cabinet au cache désactivé (`0278`) |
+  | `MQI50`  | `REVUE_INCOHERENTE`            | 409  | revue contradictoire sans brouillon relu, relisant une revue ou d'une autre mission (`0279`) |
+  | `MQU01`  | `RAPPORT_VALIDE`               | 409  | rapport d'avancement validé : figé (`0307`)                        |
+  | `MQU02`  | `INTERDIT`                     | 403  | validateur autre qu'un associé, le directeur ou le chef de la mission |
+  | `MQU03`  | (aucun, filet de la base)      | -    | rapport créé hors brouillon, ou mission, client, semaine modifiés  |
+  | `MQU04`  | (aucun, filet de la base)      | -    | client du rapport différent de celui de la mission                 |
+  | `MQU05`  | `MISSION_NON_ACTIVE`           | 409  | brouillon sur une mission ni signée ni en cours                    |
+  | `MQU07`  | (aucun, filet de la base)      | -    | suppression d'un rapport d'avancement                              |
+
+  `MQU06` n'est pas utilisé (les migrations `0306` et `0307` réservent `MQU01` à `MQU10` au chantier, quatre codes
+  restent libres : `MQU06`, `MQU08` à `MQU10`). `MQI01` est avalé par l'orchestrateur (`ia/orchestrateur.ts` : un échec
+  d'écriture du cache ne fait jamais échouer la génération) ; `MQI02` à `MQI49` ne sont pas employés.
 
   Codes émis par l'API seule : `POPULATION_TROP_GRANDE`, `POPULATION_VIDE`, `GRILLE_INCOMPLETE`
   (`details.manquants`), `GRILLE_SANS_NOTE`, `CAMPAGNE_CLOSE`, `ACTION_CLOSE`, `ECHEANCE_PASSEE`,
@@ -1216,6 +1249,52 @@ calcul fait à la demande, rien n'est stocké.
   échue à 15 et 45 jours ; un atterrissage au-delà de 5 % du budget en jours est « moyen », au-delà
   de 15 % « haut » ; un KPI au rouge est « haut », à l'orange deux périodes de suite « moyen ».
 
+## 5 octies. Rapport d'avancement hebdomadaire (AUT-10, lot 4c)
+
+Migrations `0306` à `0308`, code `apps/api/src/automatisation/avancement-{service,job,lecture,ia}.ts`, routes
+`routes/automatisation-avancement.ts` (cabinet) et `routes/portail-avancement.ts` (portail, `portail/avancement.ts`), moteur pur
+`packages/engines/src/avancement`, schémas `packages/shared/src/schemas/automatisation.ts`. Un brouillon est préparé chaque
+semaine pour chaque mission signée ou en cours ; le chef de mission le relit, le complète et le valide ; seul le rapport
+VALIDÉ est visible du client.
+
+- **Chiffres du moteur seul** : le contenu (`avancement_rapports.contenu`, jsonb) est produit par `composerAvancementHebdo`
+  puis relu par `contenuAvancementSchema` (liste blanche : une clé inconnue est écartée à la lecture) ; aucune donnée
+  financière interne (FIN-02), ni budget en jours, ni temps par personne : le schéma n'a pas de champ pour eux.
+- **Droits côté cabinet** : lecture `avancement.lire`, modification, régénération et validation `avancement.valider` (associé,
+  directeur de mission, chef de mission) ; la mission doit être visible (404 sinon). Modifier, régénérer et valider sont
+  réservés à l'associé ou au directeur ou chef DE cette mission (`peutValiderAvancement`), doublé en base par le
+  déclencheur (`MQU02`) ; le paramètre du cabinet exige `automatisation.gerer`. Les rôles du portail n'ont aucun de ces droits.
+- **Cycle** : brouillon puis validé. Le déclencheur `controler_avancement_rapport` (`0307`, invocateur, `search_path` figé) fait
+  naître un rapport en brouillon seulement (`MQU03`), du client de la mission (`MQU04`), sur une mission signée ou en cours
+  (`MQU05`, 409 `MISSION_NON_ACTIVE`) ; mission, client et semaine ne changent plus (`MQU03`) ; **un rapport validé est
+  immuable, même pour le propriétaire de la table** (`MQU01`, 409 `RAPPORT_VALIDE`) ; aucune suppression (`MQU07`, doublé de
+  `REVOKE DELETE`). Verrou optimiste par `version`. Un commentaire IA non relu bloque la validation : CHECK en base et 409
+  `COMMENTAIRE_IA_A_RELIRE` côté API.
+- **Portail** : seuls les rapports VALIDÉS de CE client sur une mission partagée. Base : politique RESTRICTIVE `portail` en lecture
+  (statut validé, client du contexte, mission visible sous la politique du portail), doublée de `portail_sans_insert`,
+  `portail_sans_update` et `portail_sans_delete`. Application : `GET /api/portail/avancement` et `GET /api/portail/avancement/:id`
+  (liste blanche, `portail.avancement.lire`, `client_dirigeant` et `client_contributeur`), requêtes refiltrées sur le statut et le
+  client ; un brouillon, une autre mission, un autre client ou un autre cabinet répondent le même 404 du portail ; chaque accès est
+  journalisé. **Projection explicite** `projeterContenuAvancementPortail` (champ par champ, schéma strict) : sans `non_partages`
+  (`livrables.total` vaut le nombre de livrables PARTAGÉS, le fait saillant « livrables » est recalculé de ce seul décompte),
+  sans `commentaire_ia`, validateur, version ni identifiant interne.
+- **Aucun e-mail au client** : `avancement_parametres.envoi_email` porte `CHECK (envoi_email = false)` (23514), le schéma de l'API
+  n'accepte que `false` (400) et aucun code d'envoi ne lit cette colonne ; l'activer exigera une migration, un ADR et un circuit
+  d'envoi validé. La seule notification est interne (`avancement_brouillon`, `email: false`).
+- **Commentaire IA** (`avancement-ia.ts`, `POST /api/avancement/:id/suggerer-commentaire`, `avancement.valider`) : brouillon IA
+  rangé dans `commentaire_ia`, séparé du chiffré et jamais servi au client. Le modèle ne reçoit que le pourcentage d'avancement,
+  des COMPTES (jalons, indicateurs, livrables partagés) et les libellés de jalons masqués, traités comme donnée non fiable ;
+  sortie de 600 caractères au plus, tout nombre hors liste blanche ou jeton forgé la rejette (repli silencieux, jamais un échec
+  du job). Il passe par `admettreSansDemande` / `appelerSansDemande` (droit `ia.utiliser`, IA active, coupe-circuit, clé, plafond
+  mensuel du cabinet), donc **hors plafond par mission et hors cache** (§7 bis, §15).
+- **Planification** (`0308`, §4) : `planifier_avancement_hebdo`, appelée chaque jour ouvré par le planificateur
+  (`jobs/planificateur.ts`), clé `avancement_hebdo:<lundi>`, idempotente (index unique `(cabinet_id, cle)` et
+  `UNIQUE (mission_id, semaine)` avec `ON CONFLICT DO NOTHING` : un brouillon déjà modifié ou validé n'est jamais régénéré).
+  Désactivable par cabinet (`avancement_parametres.actif`, activé sans ligne : il ne produit que des brouillons internes). Tables
+  `avancement_parametres` (`portail_interdit`) et `avancement_rapports` : RLS `isolation`.
+- **Limites** : pas de rendu PDF ni Word du rapport hebdomadaire (consultation web seule) ; écrans du cabinet et du portail
+  non vérifiés dans un navigateur (§15).
+
 ## 6. Confidentialité financière (FIN-02) et historique immuable
 
 - **Champs ABSENTS sans `finance.lire`** (jamais masqués à zéro ni à `null`
@@ -1538,6 +1617,85 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   présentes dans les entrées, jetons connus du masque, identifiants courts
   collés à des lettres (deux chiffres au plus : « T1 », « 4G »). **Limite** :
   un nombre écrit en lettres ou en chiffres romains n'est pas détecté.
+
+- **Cache des réponses (AGT-06, `0278`, `ia/cache.ts`)** : **désactivé par défaut** (`ia_parametres_cabinet.cache_actif`
+  faux, ligne absente comprise) ; le cabinet l'active par `PUT /api/ia/parametres` (droit `ia.configurer`, sans reconfirmation
+  d'identité : ni clé ni plafond ne sont touchés) et le désactiver vide aussitôt ses entrées (`viderCache`). Il ne remplace QUE
+  l'appel au fournisseur : `executerDemande` passe d'abord toutes ses gardes (droit `ia.utiliser`, mission visible, IA activée,
+  clé, coupe-circuit des agents, plafonds du cabinet et de la mission, réservation du coût), puis seulement consulte le cache.
+  Une réponse servie repasse par la validation Zod du schéma de sortie, la garde-chiffres et le démasquage local, comme une
+  réponse fraîche, et devient une version 1 « brouillon IA » : la validation humaine reste obligatoire. Elle est inscrite à coût
+  nul (issue `cache`, CHECK `ia_consommations_cache_gratuit_check` : coût nul et demande renseignée) et au journal d'audit
+  (`cache: true`), jamais avec le contenu.
+  - **Clé** : empreinte HMAC-SHA-256 (clé dérivée du serveur, usage `ia_entree`, matériau préfixé `ia_cache/v1`) de la forme
+    canonique (clés triées) de { cabinet, prompt (nom, version, tâche, gabarits, schéma de sortie), modèle, plafond de jetons,
+    format JSON, entrées MASQUÉES canonisées }. Changer la version du prompt, le modèle ou une entrée change la clé ; une
+    rotation de la clé maître aussi (les anciennes entrées ne sont plus trouvées et expirent). Une fuite de la base seule ne
+    permet pas de la recalculer.
+  - **Contenu** : la réponse brute du modèle, encore masquée (jamais le texte démasqué), chiffrée AES-256-GCM (AAD
+    `ia_cache:<cabinet>:<clé>` : un chiffré recopié sur une autre ligne ou un autre cabinet ne se déchiffre pas ; chiffré
+    illisible = absent). Isolation par cabinet : `cabinet_id` dans la clé primaire, la clé de cache et le matériau, RLS
+    `isolation` et `portail_interdit`, `REVOKE UPDATE` (écrit, lu, supprimé, jamais modifié).
+  - **Durée** : 24 heures au plus (`DUREE_CACHE_IA_MS`), bornée aussi en base par un CHECK
+    (`expire_le <= cree_le + 24 h`) ; une entrée échue n'est jamais servie, puis supprimée à l'écriture suivante du cabinet
+    et par le job `ia_conservation` (`ia/conservation.ts`), que `planifier_conservation_ia` (`0278`, §4) planifie aussi pour un
+    cabinet qui n'a qu'une entrée de cache échue.
+  - **Exclusions (ni lecture ni écriture)**, `motifSansCache` : cache désactivé ; prompts du copilote, d'entretien ou de
+    transcription (`PROMPTS_SANS_CACHE`, et le copilote passe par `appelerSansDemande`, jamais caché) ; toute variable
+    traitée comme contenu de client (donnée non fiable, AGT-07 : la revue contradictoire en fait partie, son brouillon relu
+    étant une variable non fiable) ; donnée identifiante restée en clair dans les entrées masquées (repérée par un masque neuf
+    après retrait des jetons). Pas d'écriture pour une réponse qui contient elle-même une donnée identifiante en clair ni pour
+    une réponse signalée par la garde-chiffres. Le commentaire IA de l'avancement (§5 octies) n'utilise pas le cache (pas de
+    demande).
+  - **Course désactivation/écriture** : l'écriture prend `FOR SHARE` sur la ligne des paramètres (`ecrireCache`) et le
+    déclencheur `ia_cache_reponses_actif` (`MQI01`) la reprend ; la désactivation (`UPDATE` des paramètres puis vidage) attend
+    donc la fin d'une écriture en cours, ou celle-ci voit la désactivation validée et échoue : aucune entrée ne survit au
+    vidage. L'écriture se fait dans une transaction séparée après la clôture ; son échec est sans effet sur la génération.
+  - **Limite** : celle du masquage ci-dessus. Un nom propre absent des termes sensibles n'est pas repéré ; le cache
+    n'aggrave pas ce risque (la même entrée part déjà au fournisseur) mais le garde au plus 24 heures, chiffré, dans le seul
+    cabinet (§15).
+- **Plafond de coût par mission (AGT-06, `agents/plafonds.ts`)** : en plus du plafond mensuel du cabinet (`ia/couts.ts`, toujours
+  appliqué), il s'applique à TOUT appel rattaché à une mission, pas seulement aux agents. L'orchestrateur le contrôle à la
+  préparation (`preparer`, sous un verrou consultatif PAR MISSION, puis réservation du coût estimé dans la même transaction en
+  mode immédiat ; en mode file, refus précoce et réservation à l'exécution) et le recontrôle à l'exécution
+  (`plafondMissionAvantReservation` dans `executerDemande`, donc aussi pour le job `ia_generation`), juste avant la réservation,
+  pour une demande qui n'est pas encore réservée. Atteint : 409 `PLAFOND_MISSION_ATTEINT`, ou gabarit déterministe si
+  l'appelant admet le repli (`repliSiPlafond`). **Ordre des verrous : mission, puis cabinet** (`ia/couts.ts`), jamais l'inverse.
+  Le coût de la mission somme en entiers (µUSD) les consommations et les réservations non échues. **Dépassement borné** : le
+  contrôle porte sur « consommé + réservé ≥ plafond » avant l'appel ; des appels simultanés ne dépassent donc le plafond que du
+  coût estimé du dernier appel admis (§15). **Hors champ** : `admettreSansDemande` / `appelerSansDemande` (copilote, commentaire
+  IA de l'avancement), qui n'ont ni demande ni mission, et les évaluations de non-régression. **Alertes**
+  (`alertesPlafondMission`) : 80 % puis 100 % de la consommation RÉELLE, une fois par seuil et par valeur du plafond (table
+  `ia_alertes_plafond_mission`, clé primaire cabinet + mission + plafond + seuil, `REVOKE UPDATE, DELETE` ; relever ou abaisser
+  le plafond réarme), notification interne aux associés actifs, sans montant et sans e-mail, type `ia_plafond_mission_alerte`.
+  Définir ou retirer le plafond est journalisé (`plafond_ia_mission`), sous le même verrou.
+- **Revue contradictoire (AGT-06, `0279`, `agents/contradicteur.ts`, `routes/agents.ts`)** : l'agent « contradicteur » relit un
+  brouillon IA (généré, en état « brouillon IA » ou « modifié », texte conservé) et liste contre-preuves, incohérences et
+  affirmations non sourcées.
+  - **À la demande seulement** : `POST /api/agents/revues-contradictoires` (`ia.utiliser`) ; `executerAgent` refuse cet agent
+    sans l'origine « consultant » (`AGENTS_SUR_DEMANDE_SEULEMENT`, 409 `AGENT_SUR_DEMANDE_SEULEMENT`) : une règle
+    d'automatisation ne peut pas le déclencher. La brique `revue_contradictoire` doit être déclarée avec un niveau
+    d'autonomie (sinon 409 `BRIQUE_NON_DECLAREE`) ; la préparation du prompt et du jeu d'essai
+    (`POST /api/agents/revues-contradictoires/preparation`) exige `agent.gerer`. Lecture : `GET /api/agents/revues-contradictoires`
+    et `GET /api/agents/revues-contradictoires/:id`, sous `ia.utiliser`.
+  - **Droits** : `ia.utiliser`, droits du registre de l'agent revérifiés pour le déclencheur (`droitsManquants` ; `mission.lire`
+    et `preuve.lire` selon le commentaire de `contradicteur.ts`), niveau d'autonomie effectif, coupe-circuit et non-régression du
+    prompt comme pour tout agent ; le brouillon relu doit être visible de l'utilisateur (visibilité de sa mission) : un brouillon
+    inexistant, d'autrui ou invisible répond 404. Fermée au portail (absente de `LISTE_BLANCHE_PORTAIL`).
+  - **Brouillon non bloquant** : la sortie est un brouillon IA à part (nouvelle demande et exécution tracée, entité liée = le
+    brouillon relu) ; la revue n'écrit JAMAIS sur le brouillon relu (ni statut, ni contenu, ni version) et la validation de
+    celui-ci n'en dépend pas (`bloquante: false`). Une revue ne se relit pas.
+  - **Une revue active par brouillon** : index unique partiel `ia_demandes_revue_active_idx` (demandes « en file » ou
+    « en cours », 23505 traduit en 409 `REVUE_DEJA_ACTIVE`) ; le déclencheur `controler_ia_revue_contradictoire` (`MQI50`, 409
+    `REVUE_INCOHERENTE`) refuse une revue dont le brouillon relu est introuvable, est lui-même une revue ou est d'une autre
+    mission.
+  - **Contenu relu = donnée non fiable** (AGT-07) : encadré et neutralisé, jamais dans les consignes ; seul le contexte
+    (mission, décompte du registre des preuves, sans contenu de preuve) est fiable et produit par le code. **Aucun chiffre de
+    son cru** : les seuls nombres citables sont ceux du brouillon que sa propre garde-chiffres n'avait pas signalés (100 au plus) ;
+    tout autre nombre marque la revue « chiffres non vérifiés ». Pas de donnée financière dans le contexte (FIN-02).
+  - **Plafond de mission atteint = refus** (`repliSiPlafond: false`, 409 `PLAFOND_MISSION_ATTEINT`) : jamais de revue vide en
+    mode dégradé, qui laisserait croire à l'absence d'objection ; une sortie inexploitable répond une erreur
+    (`revueNonProduite`). Le journal (`revue_contradictoire_demandee`) ne contient jamais le contenu.
 - **Validation humaine** (SOC-06, `ia/generations.ts`) : versions en ajout seul
   (`ia_generations`) ; « valider » fige le contenu (`MPI04`) ; séparation des
   tâches (§5) ; seul un contenu validé est `livrable_client`, et **jamais** un
@@ -1720,7 +1878,8 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     contribution (AGT-05) mesurée par le moteur pur, textes non recopiés
     (empreintes SHA-256). Plafond de coût par mission (AGT-06) vérifié avant
     l'appel sous verrou consultatif de la mission, dans la transaction qui réserve le coût
-    (deux exécutions simultanées sont sérialisées).
+    (deux exécutions simultanées sont sérialisées) ; généralisé à tout appel rattaché à une mission
+    par le lot 4c (bullet « Plafond de coût par mission » ci-dessus).
     Toutes les tables `agents_*` et `autonomie_*` sont `portail_interdit`.
 - **Copilote conversationnel (AGT-08)** (lacune de la vague 2 ; ADR-005, migrations
   `0271`–`0274`, `copilote/`, `routes/copilote.ts`, moteur `packages/engines/src/copilote`, tests
@@ -2059,8 +2218,9 @@ migrations `0240`–`0242`, durcissement `0243` (audit du 2026-10-08).
   codes du moteur (`PREUVE_INVALIDE`, `ASSERTION_INVALIDE`, `DIMENSION_INVALIDE`,
   `OPTIONS_INVALIDES`).
 - **Limites connues** : une dimension se désactive mais ne se supprime pas ; la
-  détection automatique des contradictions (agent contradicteur) n'existe pas
-  encore, le lien « contre » est posé par un consultant ; le lien vers un fichier
+  détection automatique des contradictions du registre n'existe pas encore, le lien « contre » est posé
+  par un consultant (l'agent contradicteur du lot 4c relit un brouillon IA à la demande, §7 bis, et n'écrit rien
+  dans le registre) ; le lien vers un fichier
   est vérifié par rattachement (`MPV02`), pas contre le droit de lecture du fichier ;
   PRV-06 : l'annexe des sources des rapports PDF et Word (§8 bis) ET les
   citations du web sont faites (lot 4b, 2026-10-21, voir ci-dessous).
@@ -2956,6 +3116,9 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Veille des appels d'offres (AO-01) : adaptateurs SIMULÉS seulement, aucun adaptateur réel ; un adaptateur réel exigera un ADR (SSRF : hôte de confiance et jamais l'URL d'un avis, délai, clé) avant toute mise en service ; la collecte n'est pas planifiée (déclenchée à la main) | `appels-offres/veille-sources.ts`, `test/appels-offres-veille.test.ts` |
 | Observatoire (CAP-04) : COLLUSION non traitée (trois contributeurs concertés reconstituent la valeur d'un quatrième ; à encadrer par les conditions d'adhésion) ; avec exactement 3 contributeurs une case est masquée pour chacun d'eux ; le retrait d'adhésion ou de contributions est IMMÉDIAT (la différence entre deux lectures est approchée) ; les contributions d'un cabinet retiré restent en base (exclues des agrégats) tant qu'il ne les retire pas ; un seul indicateur ; secteur classé par mots-clés (faux positifs possibles) ; valeurs de départ à valider (5 entreprises, 3 cabinets) | `migrations/0472_observatoire_agregats.sql`, `capitalisation/observatoire.ts`, `packages/engines/src/capitalisation/observatoire.ts`, `DECISIONS.md` |
 | Services candidats (lot 7) : tout le contenu métier des deux méthodes (briques, temps types, règles, cas types, guichets) est PROVISOIRE, « à valider par un expert » ; plafond de 500 guichets par cabinet à valider ; les briques `bancabilite_pla17`, `plan_financement` et `veille_guichets` (`0561`) ont `moteur` NULL faute de code dans `MOTEURS_STANDARD` (dette fonctionnelle, nouvelle version de méthode à publier) ; affichage des deux pages web non vérifié dans un navigateur | `migrations/0560_services_candidats_diagnostic_flash.sql`, `migrations/0561_services_candidats_business_plan.sql`, `packages/shared/src/schemas/standard.ts` |
+| IA, cache des réponses (AGT-06, désactivé par défaut) : un nom propre absent des termes sensibles n'est pas masqué ; il est déjà envoyé au fournisseur, et le cache le garde en plus au plus 24 heures, chiffré (AES-GCM, AAD cabinet + clé), dans le seul cabinet ; aucune entrée ne traverse un cabinet ; la durée de 24 heures est posée sans avis juridique | `ia/cache.ts`, `ia/masquage.ts`, `migrations/0278_ia_cache_reponses.sql` |
+| IA, plafond de coût par mission : le dépassement est borné par le coût estimé du dernier appel admis (le contrôle porte sur « consommé + réservé ≥ plafond » avant l'appel) ; le commentaire IA de l'avancement et le copilote (`appelerSansDemande`) ainsi que les évaluations ne sont pas soumis au plafond de mission, seulement au plafond mensuel du cabinet | `agents/plafonds.ts`, `ia/orchestrateur.ts`, `automatisation/avancement-ia.ts` |
+| Rapport d'avancement hebdomadaire (AUT-10) : pas de rendu PDF ni Word (consultation web seule, décision du lot 4c) ; écrans du cabinet et du portail (rapport, cache, contre-analyse) NON vérifiés dans un navigateur ; commentaire IA essayé seulement contre un fournisseur simulé ; planification en jours ouvrés, lots de 25 missions et 40 lots par semaine : valeurs de départ à valider ; du SQL arbitraire du rôle applicatif peut insérer un rapport dont `contenu` n'est pas celui du moteur (le déclencheur ne recalcule pas) | `automatisation/avancement-job.ts`, `automatisation/avancement-ia.ts`, `migrations/0307_avancement_rapports.sql` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 

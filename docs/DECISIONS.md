@@ -696,3 +696,80 @@ se déclenche sur les **pull requests vers `main`** et à la demande (`workflow_
 « jamais deux suites API sur la même base ») ; `retry: 1` des tests n'est actif que si `CI` est défini. **Jamais
 exécutée sur GitHub à la livraison** ; déclarer les jobs `qualite` et `api` comme contrôles requis de `main` une
 fois la première exécution verte (réglage hors dépôt, à faire par l'utilisateur).
+
+## Rapport d'avancement hebdomadaire (AUT-10), cache IA, plafond par mission et contradicteur (AGT-06), lot 4c (2026-10-21)
+
+Migrations `0278` et `0279` (AGT), `0306` à `0308` (AUT), SQLSTATE `MQI01`, `MQI50`, `MQU01` à `MQU05` et `MQU07`.
+Les valeurs du premier tableau sont **provisoires, à valider** ; les droits, les choix et la décision du superviseur
+ci-dessous sont **tranchés**. Source : `docs/workflows/notes-lots/lot-4c.md`, relue contre le code ; les valeurs
+indiquées sont celles du code (aucun écart de valeur avec la note, un ajout relevé dans le code : les suggestions IA du
+job).
+
+### Valeurs provisoires (à valider)
+
+| Sujet                             | Valeur du code                                                                                                                                                                                                                                                                                                                                  | Référence                                                                     |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Cache des réponses IA             | **Désactivé par défaut** (`ia_parametres_cabinet.cache_actif`), durée de vie **24 h** (`DUREE_CACHE_IA_MS`, plafond imposé aussi en base par CHECK). Réglable par `ia.configurer` **sans reconfirmation d'identité** ; le désactiver vide les entrées du cabinet.                                                                                | `ia/cache.ts`, `routes/ia-parametres.ts`, migration `0278`                    |
+| Job `avancement_hebdo`            | Planifié **du lundi au vendredi à 06:30 UTC** (`HEURE_AVANCEMENT_HEBDO_UTC`) ; une tâche par cabinet et par semaine, clé `avancement_hebdo:<lundi>` (elle s'exécute le premier jour ouvré où le cabinet est éligible), suites `avancement_hebdo:<lundi>:lot:<n>`. Missions concernées : **signées ou en cours**. Rien le week-end.                  | `automatisation/avancement-job.ts`, `jobs/planificateur.ts`, migration `0308` |
+| Lots du job                       | **25 missions par lot** (`MISSIONS_PAR_LOT_AVANCEMENT`, curseur d'identifiant), **40 lots au plus par semaine** (`LOTS_MAX_AVANCEMENT`) ; au-delà, un incident est consigné et la génération manuelle reste possible. Une mission qui a déjà un rapport pour la semaine (brouillon, modifié ou validé) est **écartée avant tout calcul**.             | `automatisation/avancement-service.ts`, `avancement-job.ts`                   |
+| Échec d'une mission               | Isolé par un point de sauvegarde, consigné **sans contenu** (code, contrainte, table, identifiants) ; la mission n'est pas retentée avant la semaine suivante.                                                                                                                                                                                  | `avancement-job.ts`                                                           |
+| Paramètre cabinet `actif`         | **Activé par défaut** (`avancement_parametres.actif`, `DEFAULT true`) : la fonction ne crée que des **brouillons internes**, rien n'est visible du client avant validation. `envoi_email` est refusé par l'API (400) et par la base (`CHECK (envoi_email = false)`).                                                                           | migration `0306`                                                              |
+| Suggestions IA du job             | Pour les brouillons créés par un lot, au plus **10 suggestions de commentaire** par exécution (`SUGGESTIONS_IA_PAR_LOT`) ; pour les autres, bouton manuel.                                                                                                                                                                                      | `avancement-job.ts`                                                           |
+| Alertes de plafond IA de mission  | À **80 %** (`SEUIL_ALERTE_MISSION_PCT`) et **100 %** du plafond, **une fois par seuil et par valeur de plafond**, **aux associés**, sans montant, dans l'application seulement (type `ia_plafond_mission_alerte`).                                                                                                                              | `agents/plafonds.ts`, migration `0278`                                        |
+| Brique `revue_contradictoire`     | Classe de risque **R1** ; niveaux proposés **N0 à N3** (l'agent est plafonné à N3 par le standard) ; niveau proposé par défaut **N2**. La brique **doit être déclarée** (`POST /api/agents/briques`), sinon 409 `BRIQUE_NON_DECLAREE`.                                                                                                          | `agents/autonomie/contradicteur-agent.ts` (web), `agents/erreurs.ts`          |
+| Routage des modèles par tâche     | Table documentaire `ROUTAGE_TACHES` : rédaction et analyse = qualité, extraction (et vectorisation) = coût, classification = latence.                                                                                                                                                                                                           | `ia/modeles.ts`                                                               |
+
+### Droits (tranchés)
+
+- **Modifier, régénérer, valider, générer** un rapport d'avancement : droit `avancement.valider` **ET** être associé,
+  directeur ou chef de **la** mission (mission visible, 404 sinon). Un rapport validé est figé (409 `RAPPORT_VALIDE`,
+  doublé en base par `MQU01`). Seul un brouillon se modifie ; verrou optimiste par `version`.
+- **Lire** : `avancement.lire` (associé, directeur de mission, chef de mission) + visibilité de la mission.
+- **Paramètre du cabinet** (`GET/PUT /api/avancement/parametres`) : `automatisation.gerer`, droit existant.
+- **Portail** : `portail.avancement.lire`, pour `client_dirigeant` et `client_contributeur` seulement (jamais
+  l'investisseur ni un rôle interne). Un rapport n'est visible du client qu'**après validation**, pour **son** client
+  et une mission partagée ; tout autre cas répond le même 404.
+- **Plafond IA par mission** : `PUT /api/agents/missions/:id/plafond`, droit `ia.configurer`. Le montant consommé
+  n'est visible qu'avec `finance.lire` (FIN-02).
+- **Contre-analyse** : `ia.utiliser` + droits du registre (`mission.lire`, `preuve.lire`) + visibilité de la mission ;
+  préparation du prompt : `agent.gerer`. Fermée au portail.
+
+### Choix (tranchés)
+
+- **Commentaire IA de l'avancement** : un **brouillon IA** (`statut_commentaire = brouillon_ia`), suggéré à la demande
+  (`POST /api/avancement/:id/suggerer-commentaire`) ou par le job, **relu par le chef de mission** (réécrit ou
+  effacé). Un brouillon IA non relu **bloque la validation** (409 `COMMENTAIRE_IA_A_RELIRE`). Il n'est **jamais
+  visible du client**. Sans IA (désactivée, droit, clé, plafond, erreur, sortie rejetée), le commentaire reste vide et
+  le job n'échoue pas. Les chiffres viennent du moteur (`composerAvancementHebdo`), jamais du modèle.
+- **Routage par tâche** : `ROUTAGE_TACHES` est **documentaire** (exposé en lecture) ; il n'a **aucun effet** sur le
+  modèle appliqué, qui reste celui de `modeleDe`.
+- **Cache** : jamais pour le copilote, les entretiens, les transcriptions ni une variable portant un contenu de
+  client ; il ne remplace que l'appel au fournisseur, **après** toutes les gardes (droit, IA active, coupe-circuit,
+  réservation) ; la réponse servie repasse par la validation et la garde-chiffres et reste un brouillon IA. Issue
+  « cache » à coût nul dans `ia_consommations`. **Marque** : champ calculé `servie_par_cache` de la vue de génération
+  (aucune migration, le CHECK de `ia_generations.fournisseur` étant partagé).
+- **Plafond par mission** : s'applique à tout appel IA rattaché à une mission (préparation puis exécution, donc aussi
+  le job `ia_generation`) ; hors champ : copilote (sans mission) et évaluations. Dépassement borné par le coût
+  estimé du dernier appel admis. Plafond atteint = refus (jamais de revue vide en mode dégradé).
+- **Contradicteur** : revue **sur demande seulement** (route dédiée ; une automatisation ne peut pas la déclencher,
+  409 `AGENT_SUR_DEMANDE_SEULEMENT`), **brouillon IA non bloquant**, une seule revue active par brouillon (409
+  `REVUE_DEJA_ACTIVE`), brouillon relu jamais modifié, aucun chiffre de son cru. Bouton « Demander une
+  contre-analyse » du panneau de contenu IA.
+- **Livrables du rapport** : documents de type `livrable`, hors brouillon IA non validé ; un livrable **non partagé**
+  n'est qu'un **nombre** côté cabinet et n'apparaît pas côté client.
+- **Projection portail** : `projeterContenuAvancementPortail` (liste blanche) sans `non_partages` ; `livrables.total`
+  = livrables partagés. Aucune donnée financière (FIN-02), ni budget en jours, ni temps par personne. Aucun e-mail :
+  le chef de mission (à défaut le directeur) reçoit une notification interne `avancement_brouillon`.
+
+### Décision du superviseur (provisoire)
+
+- **Pas de PDF ni de DOCX du rapport d'avancement hebdomadaire pour l'instant : consultation web seule** (cabinet et
+  portail). Décision du superviseur, **provisoire** : le rendu toucherait `rapports/*.ts`, hors du lot. C'est une
+  exception à la ligne « Rapports : HTML rendu en PDF par Chromium headless ; DOCX via `docx` » des décisions
+  techniques ci-dessus, qui reste vraie pour les autres rapports (`rapports_mission` n'est pas modifiée).
+
+### Points à signaler
+
+- **Plafond par mission** : aucun écran du web ne le règle (aucune référence à `agents/missions` dans `apps/web/src`) ;
+  il se règle par l'API seulement. À confirmer.
+- **Interface non vérifiée dans un navigateur** (note du lot).

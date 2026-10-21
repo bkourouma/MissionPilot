@@ -2,9 +2,9 @@
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les conventions **observées dans le code** (état de `main`
-après la fusion de la PR n° 14, `3d5a252`, complétée aux 2026-10-21 et 2026-10-22 par les lots 1 à 5b, 7 et 8a de la branche
+après la fusion de la PR n° 14, `3d5a252`, complétée aux 2026-10-21 et 2026-10-22 par les lots 1 à 5b, 7, 4c et 8a de la branche
 d'intégration ; vagues 1 à 3, rejeu réel OpenRouter, lacunes de la vague 2 — événement `mission.cloture_demandee`,
-brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés ; lots 5b et 7 : observatoire, veille, services candidats), avec un fichier de
+brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés ; lots 5b et 7 : observatoire, veille, services candidats ; lot 4c : rapport d'avancement hebdomadaire, cache et plafond de mission de l'IA, contradicteur), avec un fichier de
 référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
@@ -48,10 +48,12 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0240–0243`   | registre des preuves (lot PRV) : preuves, versions et dimensions (`0240`), assertions et versions (`0241`), liens et arbitrages (`0242`), durcissement d'audit (`0243`, `MPV06-07`) |
   | `0260–0274`   | agents IA (lot AGT) : registre (`0260`), briques et exécutions (`0261`), autonomie (`0262`), contributions et plafonds (`0263`), jeux d'essai et évaluations de non-régression (`0264`), fournisseur d'évaluation et exécution sous non-régression (`0265`), validation d'une sortie conforme (`0266`), gardes de rôle (`0267`) ; `0268` : `fichier_orphelin` étendu aux références de fichiers des preuves et du dossier client (fonction transversale, numérotée après `0267` parce qu'elle cite des tables créées par `0220`–`0221` et `0240`) ; `0270` : rejeu réel des évaluations sur OpenRouter (AGT-04) : demandes de rejeu (`agents_evaluations_demandes`), statut, jetons et demande d'origine des évaluations, appels d'évaluation dans `ia_consommations`, garde de provenance (`MPG09`) ; `0271–0274` : copilote conversationnel (AGT-08, lacune de la vague 2) : propositions d'actions confirmées par l'utilisateur, `copilote_actions` (`0271`, `MPG10-11`), origine « copilote » dans `ia_consommations` (`0272`), registre d'agents version 2 : plafond du copilote relevé à N2 (`0273`), anonymisation à 30 jours et planification de la purge (`0274`, `anonymiser_copilote_actions` et `planifier_purge_copilote`, `SECURITY DEFINER`) ; `0269` n'est pas utilisé |
   | `0275–0277`   | agents IA, socle IA (lot 1) : rejeu OpenRouter, fonctions `SECURITY DEFINER` `rejeu_evaluation_demarrer`, `_inscrire_appel`, `_terminer`, garde de la table `jobs` et droits par colonne retirés au rôle applicatif (`0275`, `MPG12-15`), modèle recommandé et modèle routé du cabinet (`0276`), registre standard : agent `copilote` version 3 (`0277`) |
+  | `0278–0279`   | agents IA, cache et contradicteur (AGT-06, lot 4c) : `ia_parametres_cabinet.cache_actif` (faux par défaut), `ia_cache_reponses` (réponse masquée chiffrée AES-GCM, clé HMAC-SHA-256, durée de 24 h au plus par CHECK, RLS `isolation` et `portail_interdit`), issue « cache » à coût nul dans `ia_consommations`, `ia_alertes_plafond_mission`, REDÉFINITION de `planifier_conservation_ia` (`0278`, `MQI01`) ; revue contradictoire : index unique partiel `ia_demandes_revue_active_idx` et déclencheur `controler_ia_revue_contradictoire` (`0279`, `MQI50`), aucune table |
   | `0280–0286`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`), durcissement d'audit (`0286`, `MPY08-11`) |
   | `0287–0289`   | qualité, revue à froide (QUA-05) : campagnes, tirage et déclencheur `qualite_froide_violations()` (`0287`), revues, grille et constats (`0288`), actions du plan d'amélioration (`0289`) ; `MQQ01-12` |
   | `0300–0304`   | moteur d'automatisation (lot AUT-CORE, vague 2, ADR-006) : automatisations, versions immuables de leur définition et coupe-circuits (`0300`, AUT-02, AUT-06), événements publiés, exécutions, actions gardées, résultats, annulations et brouillons tracés (`0301`, AUT-01, AUT-05), événements publiés par la base et planification quotidienne de la détection (`0302`, `SECURITY DEFINER`), événement `mission.cloture_demandee` publié au passage à `a_cloturer` (`0303`, lacune de la vague 2, sans nouveau SQLSTATE), planification quotidienne du brief par rôle (`0304`, AUT-07, `planifier_brief_quotidien` en `SECURITY DEFINER`, aucune table) ; `MPU01-05` |
   | `0305`        | file de tâches : `reserver_job_a` équitable par cabinet (plpgsql) et trois index sur `jobs` ; aucun nouveau SQLSTATE |
+  | `0306–0308`   | rapport d'avancement hebdomadaire au client (AUT-10, lot 4c, plage `0306–0319`) : `avancement_parametres` (`envoi_email` avec `CHECK (envoi_email = false)`, jamais lu par un code d'envoi) (`0306`), `avancement_rapports` (UNIQUE mission et semaine, RLS `isolation`, politiques RESTRICTIVES du portail, déclencheur `controler_avancement_rapport`, `MQU01-05` et `MQU07`) (`0307`), `planifier_avancement_hebdo` en `SECURITY DEFINER` (`0308`) ; ne touche ni `rapports_mission` ni `controler_source_rapport()` |
   | `0320–0323`   | check-list de clôture (AUT-08, vague 2) : modèle du cabinet (`0320`), vérifications en ajout seul (`0321`, `MPX01`), dérogations motivées (`0322`, `MPX02`), séparation des tâches entre dérogation et clôture (`0323`, `MPX03`) |
   | `0330–0332`   | salle de mission (CLI-01, vague 2) : demandes documentaires, pièces, dépôts et historique du statut (`0330`, `MPL01-05`), `fichier_orphelin` étendu à `salle_depots.fichier_id` et `octets_stockage_utilises` en `SECURITY DEFINER` (`0331`), durcissement d'audit : mission clôturée, plafonds et débit des dépôts, acceptation par le déposant (`0332`, `MPL06-09`) |
   | `0360–0363`   | appels d'offres (lot AO-A, vague 3, plage réservée `0360–0379`) : fiches, événements, évaluations et décisions go/no-go (`0360`, AO-01, AO-02), dossiers, extractions, matrice de conformité et son suivi (`0361`, AO-03), rétro-planning (`0362`, AO-08), acquittement des nombres non vérifiés d'une extraction (`0363`, `MPA07`) ; `MPA01-07` |
@@ -104,7 +106,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
     celle de `0550`, avec ses 6 espaces (`connexion`, `reauth`, `facteur`,
     `webhook_canal`, `webhook_invalide`, `brief_requetes`). Toute nouvelle
     redéfinition porte un numéro SUPÉRIEUR à `0550` et reprend les 6 espaces
-    (`0306` ne doit pas servir à la redéfinir : `0544` puis `0550` l'écraseraient).
+    (`0306` est consommé par `avancement_parametres` et ne doit pas servir à la redéfinir : `0544` puis `0550` l'écraseraient).
   - CHECK de `rapports_mission` (`modele_check`, `niveau_check`, `source_check`) et
     `controler_source_rapport()` : redéfinis par `0508`, `0551` puis `0552`. Toute
     nouvelle redéfinition porte un numéro supérieur à `0552` et reprend l'UNION en
@@ -113,22 +115,22 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
     `cloture_redressement`, `etat_financier` ; niveaux `base`, `jours`, `finance`,
     `notation`, `plan`, `dd`, `red`, `dossier`. Oublier une valeur la supprime.
 
-  Prochain numéro libre au 2026-10-22 : plans (V1) `0185`, automatisation `0306`
-  à `0312` (`0303`, `0304` et `0305` consommées), clôture `0324`, salle de mission
+  Prochain numéro libre au 2026-10-22 : plans (V1) `0185`, automatisation `0309`
+  à `0319` (`0303` à `0308` consommées), clôture `0324`, salle de mission
   `0333`, AO-A `0368` (`0368–0379` libres), AO-B `0387`, notation augmentée `0405` (`0405–0419` libres),
   plans augmentés `0427` (`0427–0428` puis `0432–0439` libres), KPI augmentés
   `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
-  QUA `0290`, AGT `0278` (`0269` reste inutilisé comme `0144`), services
+  QUA `0290`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
   candidats `0564` (`0564–0579` libres). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
   l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-22,
   `origin/main` (`3d5a252`) compte 180 fichiers et la branche d'intégration du
-  lot 9b en compte 219, tous commités (`ls apps/api/migrations | wc -l` et
-  `git ls-files apps/api/migrations | wc -l`) : les 39 de plus
-  (`0210`, `0225`, `0275`–`0277`, `0287`–`0289`, `0305`, `0364`–`0367`,
+  lot 9c en compte 224, tous commités (`ls apps/api/migrations | wc -l` et
+  `git ls-files apps/api/migrations | wc -l`) : les 44 de plus
+  (`0210`, `0225`, `0275`–`0279`, `0287`–`0289`, `0305`–`0308`, `0364`–`0367`,
   `0425`, `0426`, `0429`–`0431`, `0466`, `0467`, `0470`–`0472`,
   `0487`–`0492`, `0509`, `0511`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
   aucune modification ni suppression par rapport à `origin/main` : toutes sont
@@ -190,7 +192,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   lots suivants** : un second préfixe de deux lettres `MQ` + lettre de domaine +
   deux chiffres, déclaré dans ce document et dans l'en-tête de la première
   migration du lot, et jamais un numéro déjà employé par un autre lot d'une même
-  lettre. Préfixes `MQ` déclarés (relevé du 2026-10-22) :
+  lettre. Préfixes `MQ` déclarés (relevé du 2026-10-22, lot 4c compris) :
 
   | Préfixe | Domaine                              | Codes employés                                                                                         | Migrations      |
   | ------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------- |
@@ -204,6 +206,8 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `MQK`   | capitalisation (lot 5b)              | `MQK01-05` efficacité des recommandations (CAP-03), `MQK20-27` observatoire (CAP-04 : historique, transition, versement, immutabilité, `MQK24` hors cabinet ou portail, `MQK25` non adhérent, `MQK26` indicateur inconnu, `MQK27` adhérent sans contribution éligible) ; plages réservées `MQK01-19` (efficacité) et `MQK20-39` (observatoire) ; libres : `MQK06-19`, `MQK28-39` | `0466`–`0467`, `0470`–`0472` |
   | `MQA`   | appels d'offres, veille (lot 5b)     | `MQA01-05` historique en ajout seul, transition de statut refusée, plafond de 5 000 résultats par cabinet, plafond de 500 occurrences par résultat, décision incohérente ; libres : `MQA06+` | `0364`–`0367`  |
   | `MQV`   | services candidats (lot 7)           | `MQV01` identité d'un guichet figée, `MQV02` plafond de 500 guichets par cabinet ; libres : `MQV03+`  | `0563`          |
+  | `MQI`   | IA : cache et contradicteur (lot 4c) | `MQI01` écriture du cache refusée quand il est désactivé pour le cabinet, `MQI50` revue contradictoire incohérente (brouillon relu introuvable, revue relue, mission différente) ; libres : `MQI02-49`, `MQI51+` ; l'unicité de la revue active est portée par l'index unique partiel (SQLSTATE 23505), non par un code | `0278`, `0279` |
+  | `MQU`   | rapport d'avancement (AUT-10, lot 4c) | `MQU01` rapport validé figé, `MQU02` validateur non autorisé, `MQU03` naissance hors brouillon ou identité modifiée, `MQU04` client différent de celui de la mission, `MQU05` mission non active, `MQU07` suppression interdite ; `MQU06` non employé ; `MQU08-10` réservés au chantier ; libres : `MQU11+` | `0306`, `0307` |
 
   Les ADR-010 et ADR-013 citaient `MPH11` et `MPH07` avant le lot canaux : ils sont
   tranchés, `MPH11` (empreinte du document signé, `0546`) et `MPH07` (validation
@@ -399,8 +403,8 @@ Mise en page de droite à gauche : sans objet.
   (`.prettierrc.json`) ; ESLint `typescript-eslint` recommandé, variables
   inutilisées interdites hors préfixe `_`.
 - **Validation** : chaque corps, paramètre ou requête passe par un schéma Zod de
-  `packages/shared/src/schemas`, objets `.strict()` (844 `z.object(` au 2026-10-21 sur la branche d'intégration, comptés en tolérant le retour à la ligne
-  entre `z` et `.object` et hors tests, pour 848 appels de `.strict()` ; `rg` sans `-U` n'en voit que
+  `packages/shared/src/schemas`, objets `.strict()` (889 `z.object(` au 2026-10-22 sur la branche d'intégration, lot 4c compris, comptés en tolérant le retour à la ligne
+  entre `z` et `.object` et hors tests, dont 878 stricts et 11 volontairement non stricts, ceux de `contenuAvancementSchema` ; `rg` sans `-U` n'en voit que
   ceux écrits sur une seule ligne ; le script de `.claude/rules/review-checklist.md` n° 12 fait foi) ;
   le même schéma sert l'API et le web.
 - **Listes** : pagination par curseur opaque (`encoderCurseur`,
@@ -438,7 +442,7 @@ Mise en page de droite à gauche : sans objet.
 ## 10. Dette connue
 
 Relevée dans le code le 2026-10-08 et complétée le 2026-10-21 (consolidation du lot 9a : les dettes soldées par
-les lots 1 à 5a ont été retirées après vérification dans le code) et 2026-10-22 (lot 9b : lots 5b et 7) ; ne pas y ajouter sans citer le fichier.
+les lots 1 à 5a ont été retirées après vérification dans le code) et 2026-10-22 (lots 9b et 9c : lots 5b, 7 et 4c) ; ne pas y ajouter sans citer le fichier.
 La dette de sécurité est détaillée dans `docs/governance/SECURITY.md` §15.
 Résolu depuis le relevé précédent : `LIMIT 500` des missions et opportunités
 (pagination par curseur, `0121`), justificatif de débours en texte libre
@@ -625,3 +629,16 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   client et les alertes KPI ou de redressement n'est pas posé (la page `/services-candidats` lit déjà
   `?service=` et `?client=`) ; les pages `/services-candidats`, `/services-candidats/guichets` et `/observatoire`
   n'ont pas été ouvertes dans un navigateur à la livraison.
+- **Rapport d'avancement, cache et plafond de mission de l'IA, contradicteur (lot 4c, 2026-10-22)** : pas de
+  rendu PDF ni Word du rapport hebdomadaire (consultation web seule, décision du superviseur, provisoire ;
+  DECISIONS.md) ; les écrans du rapport (cabinet et portail), du réglage du cache et de la contre-analyse n'ont pas
+  été ouverts dans un navigateur à la livraison ; aucun écran ne règle le plafond IA d'une mission
+  (`PUT /api/agents/missions/:id/plafond`, droit `ia.configurer`, API seule) ; le commentaire IA de l'avancement
+  passe par `appelerSansDemande` : hors plafond de mission et hors cache ; valeurs de départ (cache de 24 h
+  désactivé par défaut, job `avancement_hebdo` à 06:30 UTC par lots de 25 missions et 40 lots au plus par
+  semaine, alertes de plafond à 80 % et 100 %) à valider ; `contenuAvancementSchema`
+  (`packages/shared/src/schemas/automatisation.ts`) est volontairement NON strict (clés inconnues écartées,
+  liste blanche du contenu servi au portail), seule exception aux schémas `.strict()` (recherche n° 12 de la
+  checklist) ; les lectures `LIMIT $n` ou `LIMIT 1` du lot ne sont pas doublées d'un plafond de table
+  (seul `UNIQUE (mission_id, semaine)` borne les rapports). Détail de sécurité : SECURITY.md §5 octies, §7 bis
+  et §15.
