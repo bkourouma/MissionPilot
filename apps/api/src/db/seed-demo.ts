@@ -884,6 +884,10 @@ export async function semerDemoAbidjan(
   }
   // Canaux simulés (compte WhatsApp, destinataires de test, signature, transcription) : même import dynamique.
   await (await import("./seed-demo-canaux.js")).semerCanauxDemo(database, config);
+  // Services candidats (diagnostic flash, business plan bancable, guichets fictifs) : même import dynamique.
+  await (
+    await import("./seed-demo-services-candidats.js")
+  ).semerServicesCandidatsDemo(database, config);
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 
