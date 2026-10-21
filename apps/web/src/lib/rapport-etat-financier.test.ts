@@ -21,7 +21,7 @@ const erreur = (statut: number, code: string) => new ErreurApi(code, "msg serveu
 
 describe("choix de la mission", () => {
   it("chemin filtré sur le client", () => {
-    expect(cheminMissionsClient(CLIENT)).toBe(`/api/missions?client_id=${CLIENT}&limite=200`);
+    expect(cheminMissionsClient(CLIENT)).toBe(`/api/missions?client_id=${CLIENT}&limite=500`);
   });
   it("exclut les missions clôturées et trie par intitulé", () => {
     const l = missionsGenerables([

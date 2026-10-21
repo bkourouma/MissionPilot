@@ -7,7 +7,7 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { STATUT_MISSION, type Mission } from "../../../../lib/missions";
-import { chargerToutesLesPages } from "../../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../../lib/pagination";
 import {
   droitsQualite,
   formaterNps,
@@ -29,7 +29,7 @@ export default async function PageSatisfactions() {
     droits.associe
       ? chargerServeur<SyntheseCabinet>("/api/qualite/satisfaction/synthese")
       : Promise.resolve(null),
-    chargerToutesLesPages<Mission>(chargerServeur, "/api/missions"),
+    chargerToutesLesPages<Mission>(chargerServeur, "/api/missions", { limiteMax: LIMITE_PAGE_MAX }),
   ]);
 
   return (

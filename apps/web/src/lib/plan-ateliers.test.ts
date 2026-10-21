@@ -16,6 +16,7 @@ import {
   messageAtelier,
   ordreInitial,
   peutContribuerCabinet,
+  phraseMasque,
   phraseParticipation,
   pointsRepartis,
   raisonOuvertureImpossible,
@@ -229,5 +230,13 @@ describe("messages et chemins", () => {
     expect(cheminApiContributionPortail("a 1", "matrice")).toBe(
       "/api/portail/ateliers/a%201/contribution/matrice",
     );
+  });
+});
+
+describe("phraseMasque", () => {
+  it("indique le seuil de participants, 3 par défaut", () => {
+    expect(phraseMasque(3)).toBe("Agrégats masqués : au moins 3 participants requis.");
+    expect(phraseMasque(undefined)).toBe("Agrégats masqués : au moins 3 participants requis.");
+    expect(phraseMasque(5)).toBe("Agrégats masqués : au moins 5 participants requis.");
   });
 });

@@ -10,7 +10,7 @@ import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { Tableau } from "../../../components/ui/Tableau";
 import { chargerServeur } from "../../../lib/api-serveur";
-import { chargerToutesLesPages } from "../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
 import {
   designationFacture,
   factureVisible,
@@ -57,7 +57,9 @@ export default async function PageFacturation({
     chargerServeur<PageFactures>(`/api/factures?${requeteFactures(filtres)}`),
     chargerClientsActifs(roles),
     aPermission(roles, "mission.lire")
-      ? chargerToutesLesPages<Mission>(chargerServeur, "/api/missions")
+      ? chargerToutesLesPages<Mission>(chargerServeur, "/api/missions", {
+          limiteMax: LIMITE_PAGE_MAX,
+        })
       : Promise.resolve(null),
   ]);
   const optionsMissions = missions?.ok

@@ -20,7 +20,7 @@ import { chargerServeur, type Chargement } from "../../../../../lib/api-serveur"
 import type { ClientDetaille } from "../../../../../lib/clients";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import type { PageMissions } from "../../../../../lib/missions";
-import { chargerToutesLesPages } from "../../../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../../../lib/pagination";
 import {
   CHEMIN_PARAMETRES_PORTAIL,
   cheminDocumentsMission,
@@ -83,6 +83,7 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
     chargerToutesLesPages(
       (chemin) => chargerServeur<PageMissions>(chemin),
       `/api/missions?client_id=${id}`,
+      { limiteMax: LIMITE_PAGE_MAX },
     ),
   ]);
   if (!client.ok && client.statut === 404) notFound();

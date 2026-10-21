@@ -4,7 +4,7 @@ import { Alerte } from "../../../../components/ui/Alerte";
 import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { chargerServeur } from "../../../../lib/api-serveur";
-import { chargerToutesLesPages } from "../../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../../lib/pagination";
 import { designationFacture, type Facture } from "../../../../lib/factures";
 import type { Mission } from "../../../../lib/missions";
 import { optionsPersonnes } from "../../../../lib/personnes";
@@ -47,7 +47,9 @@ async function decrireEntite(
 /** Missions ouvertes proposées comme élément lié (sans élément imposé). */
 async function missionsLiables(roles: readonly Role[]) {
   if (!aPermission(roles, "mission.lire")) return [];
-  const r = await chargerToutesLesPages<Mission>(chargerServeur, "/api/missions");
+  const r = await chargerToutesLesPages<Mission>(chargerServeur, "/api/missions", {
+    limiteMax: LIMITE_PAGE_MAX,
+  });
   if (!r.ok) return [];
   return r.donnees.elements
     .filter((m) => m.statut !== "cloturee")

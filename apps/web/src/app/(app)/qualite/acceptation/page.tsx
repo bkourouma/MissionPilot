@@ -6,7 +6,7 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { STATUT_MISSION, type Mission } from "../../../../lib/missions";
-import { chargerToutesLesPages } from "../../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../../lib/pagination";
 import { hrefAcceptation } from "../../../../lib/qualite";
 import { exigerRelectureQualite } from "../../../../lib/qualite-serveur";
 
@@ -15,7 +15,9 @@ export const metadata: Metadata = { title: "Acceptation de mission" };
 /** Choix de la mission dont on évalue l'acceptation (conflits d'intérêts, profil de risque). */
 export default async function PageAcceptations() {
   await exigerRelectureQualite();
-  const r = await chargerToutesLesPages<Mission>(chargerServeur, "/api/missions");
+  const r = await chargerToutesLesPages<Mission>(chargerServeur, "/api/missions", {
+    limiteMax: LIMITE_PAGE_MAX,
+  });
   return (
     <div className="mp-page">
       <EnteteDePage
