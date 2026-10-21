@@ -1679,6 +1679,11 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
    consigner dans CODING_STANDARDS §2 ; repli : une seconde famille de préfixe (`MQD01`–`MQD12`, « MQ »
    n'étant pas une classe SQLSTATE de PostgreSQL). Plus aucune lettre ne restera pour les lots suivants : la
    règle de nommage doit être étendue de toute façon.
+   **Tranché (état au 2026-10-21)** : le partage de `Z` a été retenu et tenu (redressement `MPZ01`–`MPZ20`, due
+   diligence `MPZ21`–`MPZ32`, dernier partage, qui ne se reproduit pas) ; la règle de nommage a été étendue
+   (CODING_STANDARDS §2 : second préfixe `MQ` + lettre de domaine) et le repli `MQD` a servi au lot 3 :
+   `MQD01`–`MQD08` (portail investisseur, `0509`) et `MQD11` (modèles sectoriels, `0511`) employés, `MQD09`–`MQD10`
+   et `MQD12`–`MQD20` libres.
 2. **Plage de migrations** : `0500`–`0519` réservée ici, sans chevauchement avec 3a (`0480`–`0499`) ni 3c
    (`0540`–`0559`) ; `0520`–`0539` libre.
 3. **Rapports** : classe de risque du rapport de note (R2 par défaut, R3 souhaitable ?).
@@ -1692,6 +1697,14 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
 ---
 
 ## 17. Intégration avec les autres sous-chantiers de la vague 4 et fichiers partagés
+
+*État au 2026-10-21 : le tableau ci-dessous est le relevé d'origine (2026-10-11), conservé. Les trois lots ont été
+livrés sans collision de migrations ni de SQLSTATE : `MPZ01`–`MPZ20` pour le redressement, `MPZ21`–`MPZ32` pour la
+due diligence (la ligne « disjoints seulement si 3a reste sous `MPZ20` » est vérifiée), `MPH01`–`MPH12` pour les
+canaux ; la due diligence a ensuite pris `MQD01`–`MQD08` et `MQD11` (second préfixe, lot 3) et ses migrations vont
+jusqu'à `0509` et `0511` dans la plage `0500`–`0519`. Le rapport de clôture du redressement (RED-08, modèle
+`cloture_redressement`) a depuis réécrit les contraintes de `rapports_mission` après `0508` : la règle de reprise de
+la réunion des valeurs ci-dessous s'est appliquée.*
 
 Relevé du 2026-10-11 dans `docs/workflows/specs/SPEC-3a-redressement.md`, `ADR-011`, `SPEC-3c-canaux-simules.md`
 et `ADR-008`, `ADR-010`, `ADR-013` (écrits en parallèle de celle-ci) :
