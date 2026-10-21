@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 2 — Redressement 3a-bis (à reporter par le superviseur)
 
 Branche `orch/2026-10-20-reste-lot-2`. Ce fichier remplace, pour ce lot, les mises à jour de `SECURITY.md`,

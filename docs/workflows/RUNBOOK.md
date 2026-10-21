@@ -176,6 +176,46 @@ La connexion rapide **refuse** ces comptes (`CONNEXION_RAPIDE_2FA`, elle ne cont
   connexion rapide serait refusée). Les PDF sont écrits dans le stockage de
   développement (`~/.missionpilot/stockage`, ou `STORAGE_DIR`).
 
+#### Canaux simulés et redressement de démonstration
+
+`db:seed-demo` ajoute, en fin de course et après les comptes du portail et les
+comptes 2FA, deux sous-semis :
+
+- **les canaux simulés** (`apps/api/src/db/seed-demo-canaux.ts`) : un compte
+  WhatsApp simulé actif, avec la saisie de KPI activée (l'alerte KPI garde sa
+  valeur par défaut, désactivée) ; deux destinataires, aux seuls numéros de test
+  du simulateur : Salimata Bakayoko (`+2250000000012`, joignable, consentement
+  donné depuis le portail) et Nadège Yapi (`+2250000000000`, non joignable,
+  consentement recueilli par le cabinet avec sa référence) ; une relance vers le
+  numéro non joignable (échec visible dans le journal d'envois) ; une demande de
+  signature « Lettre de mission - signature electronique (DÉMONSTRATION) »,
+  envoyée, avec Fanta Doumbia pour le cabinet et Salimata Bakayoko pour le client
+  (2FA active, personne n'a encore signé) ; une transcription « DÉMONSTRATION » à
+  relire. Aucun envoi réel, aucune clé, aucun appel réseau : les fournisseurs
+  sont simulés ou locaux.
+- **le redressement** (`apps/api/src/db/seed-demo-redressement.ts`), pour le client
+  « Transports Akwaba (fictif) » : le dossier « Redressement Transports Akwaba
+  (fictif) », actif et complet (états du client, diagnostic, trésorerie, créanciers,
+  plan validé par le directeur de la mission, check-list, causes racines,
+  covenants, bilan de clôture en brouillon), et le dossier « Redressement express
+  Transports Akwaba (fictif) », clos par le directeur, avec son plan de suivi et un
+  relevé.
+
+Sur une base déjà peuplée, ces deux sous-semis se relancent séparément ; il n'y a
+pas de script npm dédié :
+
+```bash
+pnpm --filter @missionpilot/api exec tsx src/db/seed-demo-canaux.ts     # exige les comptes du portail et les comptes 2FA
+cd apps/api && npx tsx src/db/seed-demo-redressement.ts                  # exige le cabinet de démonstration
+```
+
+- Canaux : idempotent étape par étape. Un compte, un numéro, un consentement, un
+  document, une demande ou une transcription déjà présents ne sont pas recréés ; si
+  rien n'est créé, le script le dit et sort avec le code 0.
+- Redressement : si le dossier « Redressement Transports Akwaba (fictif) » existe
+  déjà, le script le vérifie avant toute écriture, n'écrit rien et sort avec le
+  code 2.
+
 **Connexion rapide (sans mot de passe)** pour la recette : démarrer l'API avec
 `CONNEXION_RAPIDE_DEMO=oui` ; la page de connexion affiche alors le bloc
 « Comptes de démonstration (environnement local) » en deux groupes, « Espace
@@ -260,6 +300,48 @@ pnpm --filter @missionpilot/web build          # build de production du web
   autre serveur local ; le nom de base reçoit le suffixe `_test` s'il manque
   (`test/urls.ts`), et le global-setup refuse un nom qui ne finit pas par
   `_test`. Les URL doivent rester sur un hôte local (règle de `loadConfig`).
+- **CI GitHub** : `.github/workflows/ci.yml` lance les tests API en quatre
+  partitions (`--shard=1/4` à `4/4`, job `api`). Chaque partition tourne sur son
+  propre runner, avec son PostgreSQL 16 jetable (`docker run postgres:16-alpine`
+  avec `max_locks_per_transaction=256`, port 55440 lié à `127.0.0.1`) : aucune
+  partition ne partage donc une base avec une autre. Pour rejouer une partition
+  en local, avec une base de test dédiée comme ci-dessus :
+  `cd apps/api && npx vitest run --shard=1/4` (remplacer `1` par la partition
+  voulue). `CI=true` reproduit le rejeu du runner (voir « Intégration continue »).
+
+## Intégration continue
+
+Workflow `.github/workflows/ci.yml`, nommé « CI ».
+
+- **Déclencheurs** : `pull_request` vers `main` et `workflow_dispatch`
+  (lancement manuel). Pas de déclenchement à chaque poussée.
+- **Concurrence** : une nouvelle exécution sur la même PR (ou sur la même branche,
+  lancée à la main) annule la précédente. Permissions réduites à la lecture du
+  contenu ; aucun secret. Les URL de base du job `api` reprennent les valeurs
+  publiques de développement, pour un PostgreSQL jetable lié à `127.0.0.1` du runner.
+- **Job `qualite`** (20 minutes au plus) : `pnpm install --frozen-lockfile`, puis
+  `pnpm typecheck`, `pnpm lint`, `pnpm format`, les tests des moteurs (couverture
+  ≥ 90 %), ceux de `shared`, ceux du web.
+- **Job `api`** (45 minutes au plus par partition) : quatre partitions
+  `--shard=i/4`, `fail-fast: false` (une partition en échec ne coupe pas les autres).
+  Le détail est dans « Tests API et base de test ».
+- **Rejeu** : `apps/api/vitest.config.ts` met `retry: 1` seulement si la variable
+  `CI` est définie (GitHub Actions la définit) ; en local, `retry: 0`.
+- **Relancer** : sur la PR, onglet « Checks », puis « Re-run failed jobs » (seules
+  les parties en échec repartent). Ou pousser un commit, qui annule l'exécution en
+  cours. Ou lancer à la main : onglet « Actions », « CI », « Run workflow » (choisir
+  la branche), ou `gh workflow run CI --ref <branche>`. Le lancement manuel suppose
+  que `ci.yml` figure sur la branche par défaut (`main`) : à vérifier tant que la
+  CI n'y est pas fusionnée.
+- **État** : la CI n'a jamais été exécutée sur GitHub à la livraison du lot 8a. Les
+  vérifications faites en local portent sur la syntaxe et le schéma du workflow, les
+  commandes du job `qualite` et une partition (`--shard=1/4` avec `CI=true`). À
+  vérifier sur la première PR qui l'introduit, puis corriger au besoin. Une
+  partition a été mesurée à environ 19 minutes sur une machine chargée : la limite
+  de 45 minutes est à revoir après la première exécution réelle.
+- **Hors dépôt** (réglage GitHub, à faire par l'utilisateur) : après une première
+  exécution verte, déclarer `qualite` et les quatre partitions `api (partition i/4)`
+  comme contrôles requis dans la protection de la branche `main`.
 
 ## Bus d'agents
 
@@ -388,3 +470,6 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   global-setup recrée le schéma). Arrêter l'une, relancer l'autre.
 - **Compte de démonstration refusé** : le seed n'a pas été lancé sur la base
   migrée, ou l'e-mail ne reprend pas la forme `<role>@demo.missionpilot.test`.
+- **Canaux ou redressement de démonstration absents** : sous-semis non lancé sur
+  cette base (voir « Canaux simulés et redressement de démonstration »). Les canaux
+  exigent d'abord les comptes du portail et les comptes 2FA.

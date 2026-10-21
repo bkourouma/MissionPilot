@@ -4,7 +4,7 @@
 | -------------- | ------------------------------------------------------------------------------------------------------------ |
 | Date           | 2026-10-11                                                                                                   |
 | Branche        | `feat/vague-4-redressement` (relevé : arbre propre au démarrage, 155 migrations toutes commitées)           |
-| Statut         | Spécification technique, **documentation seulement** : aucun code écrit                                      |
+| Statut         | Spécification technique ; lot livré (migrations 0540-0548) et complété le 2026-10-20 (lot 3 : migration 0549, alertes de KPI, média en flux, PDF de signature en ligne) ; les passages non annotés restent rédigés au futur |
 | ADR            | [ADR-008](../../architecture/adr/ADR-008-canal-whatsapp.md), [ADR-010](../../architecture/adr/ADR-010-signature-electronique.md), [ADR-013](../../architecture/adr/ADR-013-transcription-vocale.md) |
 | Exigences      | CLI-02, CLI-07, KPI-14, relance J+10 (PRD complémentaire §8.2), AGT-11, CLI-05 (et MIS-08 du PRD principal)   |
 | Agents attendus| 3 territoires disjoints (§16) : moteurs, schémas, permissions ; migrations, API, tests API ; web, tests web   |
@@ -53,8 +53,7 @@ simulés ou locaux seulement**. Dans ce lot :
 
 Aucun fournisseur réel ; liens « magiques » sans connexion ; questionnaire hors ligne ou vocal (O-18) ; compréhension de la
 voix par les agents `terrain` et `entretien` (O-20) ; numéros de `contacts_client` sans compte (O-24) ; alerte KPI sortante
-par WhatsApp vers les utilisateurs internes (le gabarit existe, le branchement de `kpi/suivi.ts` est décrit mais
-reporté : O-26) ; certificat PDF de preuve (O-21) ; horodatage qualifié (O-06) ; envoi manuel d'un message libre (jamais).
+par WhatsApp vers les utilisateurs internes (livrée le 2026-10-20, option `alerte_kpi` désactivée par défaut : O-26) ; certificat PDF de preuve (O-21) ; horodatage qualifié (O-06) ; envoi manuel d'un message libre (jamais).
 
 ---
 
@@ -130,9 +129,11 @@ export interface EnvoiSession {
   texte: string; // réponse libre dans la fenêtre de service de 24 h, texte rendu par un gabarit « reponse_… »
 }
 
-export interface MediaRecu {
-  contenu: Buffer;
+/** Livré le 2026-10-20 (lot 3) : `MediaRecu` (contenu en mémoire) est SUPPRIMÉ, remplacé par un flux (`canaux/media-flux.ts`). */
+export interface MediaFlux {
+  flux: AsyncIterable<Uint8Array>;
   typeMime: string;
+  tailleDeclaree?: number; // indicative, jamais crue sur parole
 }
 
 export type EvenementCanal =
@@ -187,7 +188,7 @@ export interface CanalWhatsApp {
   envoyerSession(envoi: EnvoiSession): Promise<ResultatEnvoi>;
   /** Vérifie signature, horodatage et forme ; lève ErreurCanal sinon. Ne touche ni base ni réseau. */
   verifierWebhook(entree: EntreeWebhook): readonly EvenementCanal[]; // 50 événements au plus
-  telechargerMedia(compte: string, refMedia: string): Promise<MediaRecu>;
+  telechargerMedia(compte: string, refMedia: string): Promise<MediaFlux>;
 }
 
 export interface EnvoiSms {
@@ -207,7 +208,7 @@ export type CodeLangue = "fr" | "dyu" | "wol" | "bam" | "lin"; // valeurs PROVIS
 
 export interface DemandeTranscription {
   idempotence: string; // UUID de la transcription
-  audio: Buffer; // 15 Mo au plus (FICHIER_TAILLE_MAX_OCTETS), en mémoire seulement
+  audio: Buffer; // 15 Mo au plus (FICHIER_TAILLE_MAX_OCTETS), en mémoire seulement, lu depuis le flux du média par lireFluxPlafonne
   typeMime: "audio/ogg" | "audio/mpeg" | "audio/mp4" | "audio/wav";
   langue: CodeLangue | "auto";
 }
@@ -413,6 +414,7 @@ sans exception. Aucun `SUM`/`AVG` SQL. Aucun montant en virgule flottante.
 Un compte de canal par cabinet et par canal. Colonnes : `id`, `cabinet_id`, `canal` (`whatsapp`, `sms`), `fournisseur` (`simule`), `identifiant_compte`
 (généré par le serveur, `cpt-` + 16 hexadécimaux aléatoires, **jamais saisi** : aucune fuite d'existence entre cabinets), `actif` (défaut faux),
 `repli_sms` (défaut vrai, ligne WhatsApp), `relance_questionnaire_j10` (défaut vrai), `synthese_hebdo` (défaut faux), `saisie_kpi` (défaut faux),
+`alerte_kpi boolean NOT NULL DEFAULT false` (ajoutée par `0549_canaux_alerte_kpi.sql`, livré le 2026-10-20 : alertes de KPI sortantes, désactivées par défaut, O-26),
 `cree_le`, `modifie_le`, `modifie_par`. Uniques : `(cabinet_id, canal)` et `(canal, identifiant_compte)` (résolution du webhook).
 - **`MPH04`** : le passage de `actif` à vrai exige que `modifie_par` soit un associé actif du cabinet (doublé en base du contrôle d'API, comme `MPU02`) ;
   désactiver est permis à tout titulaire de `canaux.gerer` (coupe-circuit par canal).
@@ -426,8 +428,10 @@ Un compte de canal par cabinet et par canal. Colonnes : `id`, `cabinet_id`, `can
 `canaux_destinataires` : un numéro **par utilisateur et par canal** (utilisateur du portail de rôle dirigeant ou contributeur, ou utilisateur du cabinet).
 Colonnes : `id`, `cabinet_id`, `utilisateur_id` (FK composite), `canal`, `numero_chiffre bytea` (AES-256-GCM, AAD `canal_numero:<cabinet>:<utilisateur>:<canal>`),
 `numero_cle_version smallint`, `numero_empreinte` (64 hexadécimaux), `numero_masque` (par exemple `+225…12` : les quatre premiers caractères, `…`, les deux derniers), `verifie_le`,
-`code_empreinte`, `code_expire_le`, `code_essais smallint` (0 à 5), `cree_le`, `modifie_le`. Uniques : `(cabinet_id, utilisateur_id, canal)` et
-`(cabinet_id, canal, numero_empreinte)` (un numéro n'est pas partagé entre deux personnes : l'expéditeur d'un message est univoque).
+`code_empreinte`, `code_expire_le`, `code_essais smallint` (0 à 5), `cree_le`, `modifie_le`. Uniques : `(cabinet_id, utilisateur_id, canal)` et, **seulement pour les numéros vérifiés**,
+`(cabinet_id, canal, numero_empreinte) WHERE verifie_le IS NOT NULL` (index `canaux_destinataires_numero_verifie_uniq`, migration `0541`, audit M5 : enregistrer un numéro déjà
+vérifié par un autre ne révèle rien ; le conflit se tranche à la vérification du code ; un numéro non vérifié ne reçoit aucun message entrant) ; un index non unique
+`canaux_destinataires_empreinte_idx` sert la recherche de l'expéditeur.
 - **`MPH12`** : toute modification du numéro (empreinte différente) remet `verifie_le` à nul et efface le code ; `verifie_le` ne devient pas non nul sans code
   validé ; un numéro ne se rattache qu'à un utilisateur actif du cabinet.
 - Politique du portail : `portail` **RESTRICTIVE `FOR ALL`**, `USING (app_portail_client_id() IS NULL OR utilisateur_id = app_portail_utilisateur_id())` : l'utilisateur du
@@ -435,7 +439,7 @@ Colonnes : `id`, `cabinet_id`, `utilisateur_id` (FK composite), `canal`, `numero
 
 `canaux_consentements` : **ajout seul**. Colonnes : `id bigint identity` (l'état courant est la dernière ligne), `cabinet_id`, `destinataire_id`, `canal`,
 `statut` (`accorde`, `retire`), `source` (`portail`, `recueilli_cabinet`, `retrait_portail`, `retrait_cabinet`, `message_stop`, `changement_numero`,
-`desactivation_utilisateur`), `mention_version`, `mention_empreinte` (SHA-256 du texte exact affiché), `reference_preuve` (10 à 500 caractères),
+`desactivation_utilisateur` : écrite par `retirerConsentementsUtilisateur` à la désactivation d'un utilisateur du portail (`routes/portail-gestion.ts`) ET d'un utilisateur du cabinet (`routes/utilisateurs.ts`, PATCH, passage `actif` de vrai à faux, même transaction) ; le destinataire n'est jamais supprimé ni modifié), `mention_version`, `mention_empreinte` (SHA-256 du texte exact affiché), `reference_preuve` (10 à 500 caractères),
 `acteur_id` (nul seulement pour `message_stop`), `evenement_ref`, `cree_le`.
 - `CHECK` : `accorde` ⇒ source `portail` ou `recueilli_cabinet` ; `retire` ⇒ les autres sources ; `recueilli_cabinet` ⇔ `reference_preuve` non nulle ; `portail` ⇒ mention et
   empreinte non nulles.
@@ -638,7 +642,7 @@ Seulement si `canaux_comptes.saisie_kpi` est vrai, le destinataire a un consente
    `NON` : `refusee`. Aucune réponse : `expiree` (maintenance, §7.8).
 4. **Reprise** : un utilisateur du cabinet détenant `kpi.saisir` sur ce KPI (`exigerKpiSaisissable`) clique « Reprendre » ; `insererMesure` est appelée avec `origine: "cabinet"` (la politique RLS d'origine l'exige hors portail), `commentaire` « Reçu par WhatsApp, confirmé par le répondant le JJ/MM/AAAA »
    et la date de mesure modifiable ; la proposition passe `reprise` avec `mesure_id`. **Aucune mesure n'est écrite sans un humain du cabinet** (O-11 : saisie directe sous l'identité du contributeur).
-5. **Voix** : le webhook met en file `canal_entrant_audio` ; le job télécharge le média (`telechargerMedia`, 15 Mo au plus, type audio de la liste blanche), le transcrit **en mémoire** (`Transcripteur`), applique 1 à 3 avec `origine = vocal` et jette l'audio et le texte : **rien n'est stocké**.
+5. **Voix** : le webhook met en file `canal_entrant_audio` ; le job télécharge le média (`telechargerMedia`, qui rend un flux `MediaFlux` ; 15 Mo au plus, appliqués EN FLUX par `lireFluxPlafonne` de `canaux/media-flux.ts` : taille déclarée contrôlée avant lecture, compteur d'octets, flux fermé au dépassement, jamais de lecture complète ; type MIME hors liste blanche : flux fermé sans lecture), le transcrit **en mémoire** (`Transcripteur`), applique 1 à 3 avec `origine = vocal` et jette l'audio et le texte : **rien n'est stocké**.
    Une reconnaissance vocale se trompe sur les chiffres : la confirmation par `OUI <valeur>` est toujours exigée.
 Un contenu entrant est une **donnée non fiable** (AGT-07) : le texte n'est jamais interprété par un modèle ; seules les commandes fermées ci-dessus sont reconnues, par du code déterministe.
 
@@ -850,7 +854,7 @@ Toutes les routes valident leurs entrées par un schéma Zod `.strict()` de `pac
 | 22 | `GET /transcriptions/:id/audio`                                | `transcription.lire`                               | `private, no-store`, `nosniff`, `sandbox`                                                                                                  |
 | 23 | `POST /missions/:id/signatures`                                | `signature.demander`                               | 30 créations par 10 minutes et par utilisateur ; 20 demandes ouvertes par mission                                                          |
 | 24 | `GET /missions/:id/signatures`                                 | `signature.lire`                                   | mission visible                                                                                                                             |
-| 25 | `GET /signatures/:id`                                          | `signature.lire`                                   | pas de montant (FIN-02)                                                                                                                     |
+| 25 | `GET /signatures/:id`                                          | `signature.lire`                                   | pas de montant (FIN-02) ; `GET /signatures/:id/document` (même permission) sert le PDF en `inline` : voir §12.3 |
 | 26 | `POST /signatures/:id/envoyer`                                 | `signature.demander`                               | 409 `PORTAIL_NON_PARTAGE`                                                                                                                  |
 | 27 | `POST /signatures/:id/annuler`                                 | `signature.demander` (demandeur ou associé)        | motif                                                                                                                                       |
 | 28 | `POST /signatures/:id/signer`                                  | `mission.signer` + signataire de la partie cabinet | reconfirmation (`signature_document`)                                                                                                       |
@@ -862,7 +866,7 @@ Toutes les routes valident leurs entrées par un schéma Zod `.strict()` de `pac
 | 34 | `POST /portail/canaux/moi/:canal/retrait`                      | `portail.canaux.gerer`                             | effet immédiat                                                                                                                              |
 | 35 | `GET /portail/signatures`                                      | `portail.signature.signer`                         | SES demandes (client, statut hors brouillon, signataire invité)                                                                            |
 | 36 | `GET /portail/signatures/:id`                                  | `portail.signature.signer`                         | avancement par compteurs, jamais un nom du cabinet ; même 404 pour inexistant, d'autrui, non invité                                         |
-| 37 | `GET /portail/signatures/:id/document`                         | `portail.signature.signer`                         | `fichierLivrablePartage` ; écrit la preuve `document_consulte`                                                                              |
+| 37 | `GET /portail/signatures/:id/document`                         | `portail.signature.signer`                         | `fichierLivrablePartage` ; écrit la preuve `document_consulte` ; PDF servi en `inline` (§12.3)                                                  |
 | 38 | `POST /portail/signatures/:id/signer`                          | `portail.signature.signer`                         | §12.3                                                                                                                                       |
 | 39 | `POST /portail/signatures/:id/refuser`                         | `portail.signature.signer`                         | motif                                                                                                                                       |
 | 40 | `GET /portail/synthese`                                        | `portail.synthese.lire`                            | sa synthèse (§7.4)                                                                                                                          |
@@ -934,6 +938,8 @@ Le contexte du portail ferme `jobs` (`0114`) et les tables `*_2fa` ; or l'enregi
   dans la sortie, chaque requête filtre **explicitement** `utilisateur_id = auth.utilisateurId` et `client_id = acces.clientId` (double barrière), et la reconfirmation (`confirmerIdentite`, contexte `signature_document`) s'y déroule ;
 - la réponse ne renvoie que l'accusé (statut, date, empreinte du document), aucun nom du cabinet.
 Alternative écartée : déclarer `signer` en `sansContexte`, réservé par la checklist à la propre session, à la propre 2FA et aux jetons d'invitation.
+
+**Lecture du PDF (livré le 2026-10-20, lot 3)** : `GET /signatures/:id/document` et `GET /portail/signatures/:id/document` servent le PDF en `inline` (type `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none'; frame-ancestors 'none'` SANS `sandbox`, qui empêche la visionneuse PDF du navigateur de fonctionner), avec repli `attachment` + `sandbox` si le type stocké n'est pas PDF. Risque résiduel : faille de la visionneuse PDF ou contournement du filtre de contenu actif (`stockage/detection.ts`) ; la route générique `GET /fichiers/:id` garde `sandbox`.
 
 ### 12.4 FIN-02
 
@@ -1061,7 +1067,8 @@ Vérifié le 2026-10-11 : `ls apps/api/migrations` s'arrête à `0465` ; CODING_
 | `0546_signatures_demandes.sql`                | demandes et signataires                                                                  | `MPH08-09`, `MPH11` |
 | `0547_signatures_preuves.sql`                 | journal de preuves chaîné                                                                | `MPH10`        |
 | `0548_fichiers_audio.sql`                     | types audio, `fichier_orphelin` redéfinie (après `0545` et `0546`)                       | —              |
-| `0549`–`0559`                                 | **réservées** : durcissements d'audit du lot (prochain numéro libre : `0549`)            | —              |
+| `0549_canaux_alerte_kpi.sql`                  | colonne `canaux_comptes.alerte_kpi` (défaut faux) ; livrée le 2026-10-20 (numéro attribué centralement) | —              |
+| `0550`-`0559`                                 | NON libres pour ce lot : `0550` brief, `0551` redressement, `0552` dossier ; `0553`-`0559` attribués par le superviseur | —              |
 
 À reporter dans `CODING_STANDARDS.md` §1 (tableau et « prochain numéro libre ») par le Pilote : « `0540–0548` canaux simulés (lot CAN, vague 4, plage réservée `0540–0559`) ». Une migration commitée ne se modifie jamais.
 
@@ -1106,11 +1113,11 @@ Vérifié le 2026-10-11 : `ls apps/api/migrations` s'arrête à `0465` ; CODING_
 | O-19  | **Rédaction des gabarits** (français, SMS en GSM-7 sans accent, longueur du lien) à faire valider par le métier puis par Meta                                                                                                        | §9.4                                                         |
 | O-20  | **Compréhension** de la voix par les agents `terrain` et `entretien` (orchestrateur, données non fiables, masquage)                                                                                                                  | non construite                                               |
 | O-21  | **Certificat de preuve PDF**, export scellé, durée d'archivage probatoire                                                                                                                                                            | export JSON seul                                             |
-| O-22  | **STOP et numéros partagés** : une personne qui écrit STOP depuis un numéro utilisé par plusieurs comptes ; un numéro = une personne par cabinet (contrainte)                                                                        | un numéro par utilisateur et par cabinet                      |
+| O-22  | **STOP et numéros partagés** : une personne qui écrit STOP depuis un numéro utilisé par plusieurs comptes ; un numéro vérifié = une personne par cabinet (contrainte partielle)                                                                        | Retenu : un numéro **vérifié** = une personne par cabinet et par canal (unicité partielle sur `verifie_le IS NOT NULL`) ; plusieurs comptes peuvent saisir le même numéro non vérifié, aucun ne reçoit de message entrant tant qu'il n'est pas vérifié |
 | O-23  | **Idempotence côté fournisseur WhatsApp** : l'API réelle n'offre pas, à notre connaissance, de clé d'idempotence (non vérifié) ; « au plus une fois » choisi, une relance peut être manquée                                          | `incertain`, jamais rejoué                                    |
 | O-24  | Numéros de **contacts client sans compte** (`contacts_client.telephone`)                                                                                                                                                             | non supportés ; utilisateurs seulement                       |
 | O-25  | **Rattrapage** : questionnaires déjà envoyés avant l'activation du canal                                                                                                                                                            | pas de J+10                                                  |
-| O-26  | **Alertes de KPI sortantes** (KPI-06, KPI-14) par WhatsApp vers des utilisateurs internes : branchement des deux appels de `notifier` de `kpi/suivi.ts` (lignes 100 et 146)                                                          | gabarit `alerte_kpi` défini, branchement reporté              |
+| O-26  | **Alertes de KPI sortantes** (KPI-06, KPI-14) par WhatsApp vers des utilisateurs internes | LIVRÉ le 2026-10-20 (lot 3) : branchement fait dans `kpi/suivi.ts` + `canaux/alertes-kpi.ts` ; après l'enregistrement d'une alerte et pour le rappel de mesure, mise en file d'un message `alerte_kpi` (catégorie `alerte`, objet `kpi_alerte`, clés `kpi_alerte:<alerte>:<destinataire>` et `kpi_rappel:<rappel>:<destinataire>`) vers les seuls responsables INTERNES autorisés, numéro vérifié et consentement accordé ; variables = nom du cabinet et lien `/portail/` ; aucune valeur chiffrée, aucun libellé de KPI ; bloc dans un `SAVEPOINT` (ne fait jamais échouer le suivi) ; option `canaux_comptes.alerte_kpi` DÉSACTIVÉE par défaut (`0549`) ; une alerte `MESURE_EN_RETARD` ne part pas seule (le rappel du même passage la couvre). Reste : routage vers des internes sans numéro. Saisie reçue par canal : la valeur confirmée puis reprise est une `kpi_mesures` d'origine `cabinet`, comptée par le suivi (test `canaux-kpi-suivi.test.ts`) ; provenance par le commentaire de la mesure et la jointure `canaux_saisies_kpi.mesure_id` ; aucune fonction dédiée |
 | O-27  | **Compte WhatsApp Business** réel : vérification d'entreprise, profil, numéro dédié, processus d'ouverture et de coupure                                                                                                              | compte simulé généré par le serveur                          |
 
 ---

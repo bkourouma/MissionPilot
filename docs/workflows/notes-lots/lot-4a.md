@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 4a : référentiel de méthodes (STD-11 complet) et revue à froid (QUA-05)
 
 Mises à jour EXACTES à reporter par le superviseur dans les documents interdits au lot

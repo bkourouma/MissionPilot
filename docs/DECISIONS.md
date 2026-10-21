@@ -127,19 +127,19 @@ Posées PAR DÉFAUT par l'implémentation (ADR-005, migration `0270`, `agents/ev
 
 ## Chantier lacunes de la vague 2 (2026-10-11)
 
-Posées PAR DÉFAUT par l'implémentation pour combler trois lacunes de la vague 2 : l'événement `mission.cloture_demandee` (AUT-01, AUT-08, ADR-006, migration `0303`), le brief quotidien par rôle (AUT-07, migration `0304`) et le copilote conversationnel (AGT-08, ADR-005, migrations `0271` à `0274`). Aucune de ces valeurs n'a été fixée par le commanditaire, toutes sont **à valider**. Le copilote n'a jamais été exercé avec un vrai modèle (aucune clé OpenRouter en développement) : la qualité du routage et le format JSON réel restent à constater (SECURITY.md §15).
+Posées PAR DÉFAUT par l'implémentation pour combler trois lacunes de la vague 2 : l'événement `mission.cloture_demandee` (AUT-01, AUT-08, ADR-006, migration `0303`), le brief quotidien par rôle (AUT-07, migration `0304`) et le copilote conversationnel (AGT-08, ADR-005, migrations `0271` à `0274`). Aucune de ces valeurs n'a été fixée par le commanditaire, toutes sont **à valider**, sauf les règles du brief et de la relance du copilote tranchées ensuite par l'utilisateur (section « Décisions de l'utilisateur pendant le chantier », points 5 et 6) ; le lot 1 du 2026-10-20 a mis à jour le périmètre, le débit et les outils (lignes ci-dessous). Le copilote n'a jamais été exercé avec un vrai modèle (aucune clé OpenRouter en développement) : la qualité du routage et le format JSON réel restent à constater (SECURITY.md §15).
 
 | Sujet | Règle posée par défaut | Reste à valider |
 | --- | --- | --- |
 | Événement « clôture demandée » (AUT-01, AUT-08) | **Publié par la base** quand `missions.statut` passe à « à clôturer » (déclencheur non bloquant ; contenu `{ mission_id }` seulement ; jamais depuis le portail). Clé idempotente **par passage** (mission et horodatage) ; **anti-répétition de 10 minutes par mission** (`c_delai_repetition`) : un aller-retour « en cours » ↔ « à clôturer » plus rapide ne republie pas. L'automatisation standard « rappel de check-list de clôture » se déclenche de bout en bout. Le mode d'exécution « droits de la personne à l'origine » est refusé pour TOUT événement du catalogue (aucun n'a de source « module »). | Le délai de 10 minutes. |
-| Brief quotidien, périmètre (AUT-07) | **Calcul déterministe, sans IA** : 27 types d'éléments en trois familles, « À décider » (13), « Ça dérive » (8) et « Prêt à envoyer » (6) ; chaque source derrière SA permission ET la visibilité de mission ; aucun montant sans `finance.lire` (FIN-02) ; séparation des tâches appliquée à chaque source ; contenu client jamais recopié, liens internes seulement ; 10 éléments par famille, 50 lignes lues par source. Un total « au moins N » (`tronque`) quand une source filtre en code ou lit un volume borné. | Le périmètre des 27 types ; la limite de 10 éléments par famille. |
-| Brief quotidien, sources écartées | **Non reprises** : offres techniques à valider, plans, révisions de budget, rapports « validés non diffusés » (pas de trace de diffusion pour les distinguer). Un livrable signé n'est « à transmettre » que 7 jours, une facture émise non envoyée que 30 jours. | Reprendre ces sources ; les deux fenêtres. |
+| Brief quotidien, périmètre (AUT-07) | **Calcul déterministe, sans IA** : **30 types d'éléments** en trois familles, « À décider » (**16**), « Ça dérive » (8) et « Prêt à envoyer » (6), pour 29 sources (le KPI au rouge et le KPI à l'orange partagent une source) ; chaque source derrière SA permission ET la visibilité de mission ; aucun montant sans `finance.lire` (FIN-02) ; séparation des tâches appliquée à chaque source ; contenu client jamais recopié, liens internes seulement ; 10 éléments par famille, 50 lignes lues par source. Un total « au moins N » (`tronque`) quand une source filtre en code ou lit un volume borné. (Le périmètre initial du 2026-10-11 comptait 27 types, 13 « À décider » : étendu par le lot 1 du 2026-10-20 ; constante vérifiée dans `packages/shared/src/schemas/brief.ts`, 30 types.) | **Le périmètre des 30 types** ; la limite de 10 éléments par famille. |
+| Brief quotidien, sources écartées ou reprises | **Reprises** (lot 1, 2026-10-20) : offres techniques d'appel d'offres dont la dernière version n'est pas validée, plans à valider, révisions de budget non figées (voir « Décisions de l'utilisateur pendant le chantier »). **Toujours écartée** : rapports « validés non diffusés » (`rapports_mission` est en ajout seul, son statut `valide` est posé à la génération et aucune table d'envoi, de partage ou de signature ne le référence : pas de trace de diffusion pour les distinguer) ; à rouvrir quand une trace de diffusion au client existera. Un livrable signé n'est « à transmettre » que 7 jours, une facture émise non envoyée que 30 jours. | Les deux fenêtres (7 et 30 jours). |
 | Brief quotidien, gravité | Attente d'une décision ou d'un envoi : « moyenne » à **3 jours**, « haute » à **7 jours** ; échéance dépassée (jalon, tâche, feuille, questionnaire) : **3 / 14 jours** de retard ; facture échue : **15 / 45 jours** ; atterrissage au-delà de **5 %** du budget en jours « moyen », au-delà de **15 %** « haut » ; KPI au rouge « haut », à l'orange deux périodes de suite « moyen ». | Tous les seuils. |
 | Brief quotidien, envoi | Tâche `brief_quotidien` **chaque jour ouvré à 7 h UTC** (lundi à vendredi, **sans jours fériés**), par lots de **500** utilisateurs internes ; **notification interne** « Votre brief du jour : N éléments (X à décider, Y qui dérivent) », **jamais d'e-mail**, rien si le brief est vide. | L'heure ; la prise en compte des fériés du cabinet ; un envoi par e-mail. |
-| Brief quotidien, débit | **60 requêtes par utilisateur et par 10 minutes** sur `GET /api/brief` (429), compteur **en mémoire**, propre à chaque processus (n instances : n fois 60). | La valeur ; un compteur partagé entre instances. |
+| Brief quotidien, débit | **60 requêtes par utilisateur et par 10 minutes** sur `GET /api/brief` (429), compteur **PARTAGÉ en base** depuis le lot 1 du 2026-10-20 (limiteur persistant, espace `brief_requetes`, migration `0550`, clé = identifiant de l'utilisateur en HMAC, capacité 100 000 clés ; `apps/api/src/brief/debit.ts`, `REQUETES_BRIEF_PAR_FENETRE = 60`). Coût : une transaction courte par appel du brief. (Le compteur en mémoire du 2026-10-11, propre à chaque processus, est abandonné.) | La valeur (60) et la capacité de 100 000 clés. |
 | Brief et copilote, permissions | `brief.lire` : **tous les rôles du cabinet, l'expert externe compris** (ses sources se limitent à ses permissions) ; `copilote.utiliser` : **tous sauf l'expert externe**. | Les deux attributions. |
-| Copilote, principe (AGT-08) | **L'IA route, le code répond** : le modèle ne reçoit AUCUNE donnée du cabinet ni d'un client, seulement le message masqué et le catalogue des outils permis, et renvoie un choix strict `{ outil, parametres }` ; la réponse vient de gabarits déterministes. **Repli sans IA** (« mode sans IA ») quand l'IA est désactivée, sans clé, au plafond mensuel, en erreur ou refusée ; l'IA exige `ia.utiliser`. Limite : un nom propre tapé dans le message part en clair (le masquage est par formats). | Le masquage des noms propres ; une vérification avec un vrai modèle. |
-| Copilote, outils | **Six outils de lecture** (mes tâches, feuilles de temps à soumettre, résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07) et **une action modifiante**, créer une tâche. « Factures échues » suit la permission de la balance âgée ; les montants exigent `finance.lire`. | Le catalogue. |
+| Copilote, principe (AGT-08) | **L'IA route, le code répond** : le modèle ne reçoit AUCUNE donnée du cabinet ni d'un client, seulement le message masqué et le catalogue des outils permis, et renvoie un choix strict `{ outil, parametres }` ; la réponse vient de gabarits déterministes. **Repli sans IA** (« mode sans IA ») quand l'IA est désactivée, sans clé, au plafond mensuel, en erreur ou refusée ; l'IA exige `ia.utiliser`. Limite (état du 2026-10-20) : les noms CONNUS du cabinet (raisons sociales des clients, noms des utilisateurs, des contacts clients, intitulés de missions), écrits en entier, sont masqués avant envoi (jetons restitués localement) en plus des formats ; partent en clair un nom absent des fiches, un fragment seul, une faute de frappe, le texte libre autour et le nom d'un autre cabinet. | Le masquage des noms propres (valeurs ci-dessous : 2 000 noms lus par table, 200 termes retenus, 3 caractères minimum, 200 mots du message) ; une vérification avec un vrai modèle (toujours jamais faite). |
+| Copilote, outils | À l'origine **six outils de lecture** (mes tâches, feuilles de temps à soumettre, résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07) et une action modifiante (créer une tâche). Le lot 1 (2026-10-20) ajoute **deux lectures**, `missions_en_retard` (missions dont l'utilisateur est directeur, chef ou membre ; jalon non atteint dépassé, ou date de fin dépassée pour une mission signée ou en cours ; `mission.lire`) et `retard_feuilles_temps` (`temps.saisir` ET (`temps.valider` OU `indicateurs.cabinet` OU `mission.lire_toutes`) ; 4 dernières semaines écoulées, noms et nombres de semaines seulement), et **deux actions modifiantes**, `ajouter_commentaire` (600 caractères au plus) et `planifier_relance` (voir « Décisions de l'utilisateur pendant le chantier »). « Factures échues » suit la permission de la balance âgée ; les montants exigent `finance.lire`. | Le catalogue. |
 | Copilote, action confirmée | Une action modifiante n'est **jamais exécutée directement** : proposition stockée, confirmation par le **même utilisateur**, **une seule fois**, dans les **5 minutes**, permissions revérifiées. Niveau d'autonomie effectif **N2** exigé pour proposer et confirmer (409 `COPILOTE_ACTION_NON_AUTORISEE`), lecture dès N1 ; le registre standard relève donc le plafond du copilote de **N1 à N2** (version 2, `0273`). | **Le niveau N2** ; les 5 minutes. |
 | Copilote, plafonds | **30 messages par utilisateur et par 10 minutes** (429, compté sur le journal), message de **1 000 caractères** au plus, **5 appels de l'outil « KPI au rouge » par 10 minutes** (20 missions évaluées au plus par appel). | Les trois valeurs. |
 | Copilote, conservation | Propositions d'actions : **anonymisées 30 jours** après leur fin (paramètres et résumé), purge par le job `copilote_purge` à **02:30 UTC** ; aucune conversation n'est conservée, le journal ne contient jamais le texte d'un message. | **La durée de 30 jours** (avis du conseil juridique) ; l'heure. |
@@ -331,6 +331,13 @@ Règles posées pour avancer, **à confirmer par le commanditaire et des cabinet
 | Messages entrants | Ignorés si l'expéditeur est désactivé, son accès portail ou son client inactif, ou son numéro non vérifié (sauf STOP) ; jamais transmis à un modèle de langage |
 | Transcriptions | Un audio ne se transcrit que par son auteur ; texte validé par un humain avant tout usage ; 50 versions et 30 corrections par 10 minutes au plus ; anonymisation planifiée |
 | `canaux.lire` du chef de mission | Ouvre les contacts, consentements et synthèses de tous les clients du cabinet : **à confirmer** (restreindre aux missions visibles ou non) |
+| Numéro vérifié (mise à jour du lot 3, 2026-10-20) | Le numéro est unique par cabinet et par canal **seulement s'il est vérifié** (index partiel `canaux_destinataires_numero_verifie_uniq`, `0541`) : plusieurs comptes peuvent saisir le même numéro non vérifié, aucun ne reçoit de message entrant tant qu'il n'est pas vérifié ; le conflit se tranche à la vérification du code (O-22). **À valider** |
+| Alertes de KPI sortantes (O-26, lot 3, 2026-10-20) | **Livrées** (voir « Décisions de l'utilisateur pendant le chantier », point 1) : mise en file d'un message `alerte_kpi` après l'enregistrement d'une alerte et pour le rappel de mesure, vers les seuls responsables INTERNES autorisés (numéro vérifié, consentement accordé) ; variables = nom du cabinet et lien `/portail/` seulement, aucune valeur chiffrée, aucun libellé de KPI ; un échec ne fait jamais échouer le suivi (`SAVEPOINT`) ; une alerte `MESURE_EN_RETARD` ne part pas seule (le rappel du même passage la couvre). Le lien `/portail/` est **à valider** |
+| Média entrant | Lu en flux, jamais en entier en mémoire (`lireFluxPlafonne`, `canaux/media-flux.ts`) : taille déclarée contrôlée avant lecture, plafond de 15 Mo compté en octets, type MIME hors liste blanche refusé sans lecture. Reste pour un futur adaptateur réel : hôte de confiance (SSRF) et délai sur le flux |
+| PDF de signature | Servi en `inline` (type `application/pdf` fixé, `nosniff`, `no-store`, CSP sans `sandbox`) avec repli `attachment` + `sandbox` si le type stocké n'est pas PDF ; risque résiduel : faille de la visionneuse PDF du navigateur. **À valider** |
+| Désactivation d'un utilisateur | Retire ses consentements (source `desactivation_utilisateur`), qu'il soit du portail ou du cabinet ; le destinataire n'est ni supprimé ni modifié |
+
+Le lot 3c-bis (2026-10-20) est livré : alertes de KPI sortantes, seed de démonstration des canaux simulés (aux seuls numéros de test du simulateur, aucun envoi réel), média en flux, PDF de signature en `inline`. Le détail technique est dans SPEC-3c.
 
 ## Due diligence stratégique (lot 3b de la vague 4)
 
@@ -344,6 +351,7 @@ Toutes les valeurs sont **provisoires — à valider** par un expert avant le pi
 | Filtrage environnemental et social | Seul le dernier filtrage reçoit des décisions ; l'auteur d'un filtrage ne peut pas écarter une exclusion (hors associé) ; une exclusion non levée d'un filtrage antérieur reste bloquante |
 | Listes d'exclusion d'un investisseur | Référentiel du cabinet, lisible de tout détenteur de `dd.lire` (choix assumé, à confirmer) |
 | Connecteurs de données ouvertes (DD-02) | Simulés seulement ; aucune source réelle branchée |
+| Portail investisseur (lot 3b-bis, 2026-10-20) | **N'est plus repoussé** : livré (option du cabinet désactivée par défaut, invitation d'un compte `client_investisseur`, publication d'un instantané de la version validée de la note, consultation en lecture seule). Valeurs et règles : voir la section « Portail investisseur et modèles sectoriels (DD-07) » plus bas et « Décisions de l'utilisateur pendant le chantier » |
 
 ## Redressement (RED-01, 02, 05–07, 10–12, 14) — lot 3a de la vague 4 (2026-10-11)
 
@@ -425,7 +433,207 @@ consultant, auquel cas on créerait plutôt une permission `redressement.montant
   sauf associé ; transposition de `MPN04`, `MPW05`, `MPM08` et du R3 du PRD complémentaire §10 : à confirmer. Le
   socle ne produit aucun livrable : pas de suivi qualité R3 du plan tant qu'aucun rapport ni export n'existe
   (RED-08).
-- **Hors lot, repoussé** : RED-03 (check-lists métier), RED-04 (causes racines par IA, exclue du socle),
-  RED-08 (re-notation et rapport de clôture), RED-09 (suivi post-mission), RED-13 (repères OHADA : **OUVERT,
-  contenu à valider par un juriste**, aucun conseil juridique automatisé), RED-15 (tableau de bord partagé au
-  conseil d'administration et aux banques).
+- **Hors lot, repoussé (état du 2026-10-11, mis à jour le 2026-10-21)** : RED-03, RED-04, RED-08, RED-09 et
+  RED-15 interne sont **livrés** par le lot 3a-bis (section « Redressement, lot 3a-bis » plus bas). Reste
+  repoussé : RED-13 (repères OHADA : **OUVERT, contenu à valider par un juriste**, aucun conseil juridique
+  automatisé) et RED-15 partagé au conseil d'administration et aux banques (partage externe non ouvert).
+
+## Décisions de l'utilisateur pendant le chantier (2026-10-20 à 2026-10-21)
+
+Neuf points **VALIDÉS** par l'utilisateur dans la conversation pendant le chantier des lots de la vague 4
+(lots 1 à 5a). Ce ne sont **pas** des valeurs provisoires : elles ne figurent plus dans les colonnes « à
+valider » et ne se modifient que sur décision de l'utilisateur. Quand une note de lot présentait l'une de ces
+règles comme provisoire, la décision de l'utilisateur prime.
+
+| N° | Sujet | Décision VALIDÉE |
+| --- | --- | --- |
+| 1 | Alertes de KPI par WhatsApp (lot 3c-bis) | Envoyées vers des responsables **INTERNES** seulement, en **option du compte** `alerte_kpi`, **DÉSACTIVÉE par défaut** (`canaux_comptes.alerte_kpi`, migration `0549`). Aucune valeur chiffrée ni libellé de KPI dans le message. |
+| 2 | Note de due diligence périmée (lot 3b-bis) | Une publication dont la note a une version plus récente **reste visible de l'investisseur** ; elle est marquée **« périmée » côté cabinet**. |
+| 3 | Partage investisseur (lot 3b-bis) | La **publication** est réservée à l'associé et au directeur de mission (`dd.portail.gerer`) ; la **configuration de l'option du cabinet** à l'associé seul (`dd.portail.configurer`). Lecture côté investisseur : `portail.dd.lire` (`client_investisseur` seul). |
+| 4 | Pièces libres d'une publication investisseur | **10 au plus** par publication. |
+| 5 | Relance du copilote (`planifier_relance`) | **Sans e-mail au client**, et **une relance copilote par facture et par jour** (revérifiée à la confirmation, sous verrou par facture : seconde confirmation en 409 `RELANCE_DEJA_ENREGISTREE`). |
+| 6 | Brief quotidien | L'**auteur est toujours exclu** de ce qu'il a créé ou rédigé (séparation des tâches ; **aucun associé exempté**, plus strict que les routes) ; une **révision de budget non figée** est « à valider » ; un **jalon dépassé** fait de la mission une mission en retard (outil `missions_en_retard` du copilote). |
+| 7 | Revue à froid (QUA-05) | **Tout intervenant de la mission est exclu** comme relecteur ; **aucun jour consommé n'est imputé à la revue** ; **l'associé réaffecte** la revue. |
+| 8 | Groupes et filiales (DOS-05) | Seuil de contrôle **> 50 %** (vue intégrale) ; conversion **EUR / XAF / XOF au taux fixe 655,957** (1 EUR = 655,957 XOF = 655,957 XAF, XOF = XAF à 1:1) ; **USD exclu** (consolidation signalée partielle) ; le rapport d'état financier du groupe est réservé à `dossier.lire`. |
+| 9 | Redressement (RED-05, RED-08) | La **validation du plan ET du bilan de clôture** est réservée au **directeur de la mission** ; une mission **sans directeur ne valide ni l'un ni l'autre** (409 `DIRECTEUR_REQUIS`), règle doublée en base par `0492` (SQLSTATE `MPZ07`, message distinct). La séparation des tâches (créateur différent du valideur, sauf associé) est conservée. |
+
+## Socle IA : rejeu, brief et copilote (lot 1, 2026-10-20)
+
+Précise et met à jour les sections « Rejeu réel OpenRouter » (2026-10-10) et « Chantier lacunes de la vague 2 »
+(2026-10-11). Migrations `0275`, `0276`, `0277`, `0305`, `0550`. Les valeurs ci-dessous sont **provisoires, à valider**
+(sauf celles du tableau « Décisions de l'utilisateur » ci-dessus).
+
+| Sujet | Règle posée | Reste à valider |
+| --- | --- | --- |
+| Rejeu OpenRouter, provenance | La demande, ses appels et l'évaluation `openrouter` ne s'écrivent plus que par des fonctions `SECURITY DEFINER` sous garde du job de rejeu (`0275`, SQLSTATE `MPG12` à `MPG15`) ; une évaluation locale n'insère plus que 12 colonnes. Dette assumée : un rôle PostgreSQL distinct pour le worker n'existe pas (nouvel ADR à écrire). | Le rôle distinct du worker. |
+| Rejeu, bornes de cohérence | **2 appels au plus par cas** ; par appel : jetons d'entrée ≤ 2 000 000, jetons de sortie ≤ 1 000 000, coût ≤ 100 USD, durée ≤ 1 heure ; horodatages du job : 1 minute avant le début au plus tôt, 1 jour après maintenant au plus tard. | Toutes ces bornes. |
+| Équité de la file `jobs` | La **réservation** est équitable par cabinet depuis `0305` (cabinet ayant le moins de jobs en cours, puis tourniquet, puis plus ancien). Le worker traite toujours **un job à la fois** : un rejeu de 8 à 13 minutes bloque la boucle. Remplace la mention « FIFO globale » de la section Rejeu. | Une file dédiée aux jobs longs ou un second worker. |
+| Activation d'un prompt | Exige une évaluation sur le **modèle routé** du cabinet (`ia_modeles_taches`, sinon modèle recommandé) ; `modele_recommande()` en SQL duplique `MODELES_RECOMMANDES` (un test les compare : changer un modèle recommandé exige une migration). | Le comportement au retour au modèle recommandé (non gardé à l'activation). |
+| Brief, périmètre et sources | Voir les lignes mises à jour de la section « Chantier lacunes de la vague 2 » : 30 types (16 / 8 / 6), 29 sources, offres techniques, plans et révisions de budget reprises, rapports « validés non diffusés » toujours écartés. Plans : `plan.valider` ET responsable de la mission visible et non clôturée, contenu `modifie`, `brouillon_ia` ou modèle financier non validé, hors modèle dont l'utilisateur est l'auteur. Révision de budget : `budget.reviser`, directeur de la mission ou associé, mission signée, en cours ou à clôturer, palier FIN-15 recalculé pour un non-associé, jamais de montant (FIN-02). | Le périmètre des 30 types. |
+| Brief, date rejouée | « Date rejouée du brief » est interprétée comme persistée **dans l'URL** (`?date=`), avec sélecteur et mention « Brief du … (rejeu) ». L'autre lecture (persistance serveur de la date) n'est **pas faite**. | Laquelle des deux lectures est voulue. |
+| Copilote, masquage des noms | 2 000 noms lus par table, 200 termes retenus, 3 caractères au minimum, 200 mots du message ; au-delà, le surplus part en clair. | Les quatre bornes. |
+| Copilote, valeurs | Commentaire de 600 caractères au plus (anonymisé à 30 jours, jamais au journal d'échange) ; retard de feuilles de temps : 4 semaines, 200 collaborateurs lus ; conversation web conservée dans le `sessionStorage` de l'onglet seulement (20 questions, 30 minutes d'inactivité, bouton « Effacer la conversation », jamais envoyée au serveur) ; sous N1, une demande d'action reçoit 200 `statut: refuse` au lieu de 409. | Toutes ces valeurs. |
+| Routage du copilote | Aucun appel direct au fournisseur depuis `copilote/` : point d'entrée `admettreSansDemande` / `appelerSansDemande` de `ia/orchestrateur.ts` (plafond mensuel réservé sous verrou, une tentative, journal sans contenu). | Aucune. |
+
+## Redressement, lot 3a-bis (RED-03, 04, 06 suite, 08, 09, 15 interne ; 2026-10-20)
+
+Complète la section « Redressement … lot 3a » : mêmes principes (constantes nommées dans
+`packages/engines/src/redressement` et `packages/shared`, rien de caché, justification « convention, sans source »).
+Migrations `0487` à `0492` et `0551`. Tout est **provisoire, à valider** par un expert, sauf le point 9 du tableau
+« Décisions de l'utilisateur » (validation par le directeur de la mission).
+
+- **Check-lists (RED-03)** : `CHECKLISTS_DEPART` (industrie 10 points, services 9, commerce 9, marquées « à valider
+  par un expert ») ; conformité = (2 × oui + partiel) / (2 × applicables), un point non renseigné reste au
+  dénominateur ; plafonds : 100 modèles par cabinet, 30 versions par modèle, 40 points par modèle, 30 check-lists
+  par dossier, 2 000 réponses par check-list, 40 réponses par lot ; débits par utilisateur et par 10 minutes : 10
+  modèles, 20 versions, 30 activations, 60 lots de réponses. Publication par un expert métier différent de l'auteur
+  (sauf associé).
+- **Causes racines (RED-04)** : brouillon IA, puis modifié, puis validé, historique en ajout seul ; 12 causes au plus
+  (libellé 120 caractères, description 1 000, contexte libre 2 000) ; 30 cartographies par dossier, 200 rangs par
+  cartographie, contenu de 65 000 octets ; débits : génération 10 et modification 60 par 10 minutes ; au moins 2
+  causes exploitables (`MIN_CAUSES_EXPLOITABLES`), sinon repli déterministe ; correspondance critère d'alerte vers
+  domaine (`DOMAINE_CRITERE_ALERTE`) conventionnelle ; génération refusée sans donnée de diagnostic (409
+  `RED_CAUSES_SANS_DIAGNOSTIC`). Validation par un consultant différent du demandeur et de l'auteur (sauf associé),
+  nombres non vérifiés acquittés. Une cartographie non validée n'entre jamais dans le rapport de clôture.
+- **Covenants et plan de financement (RED-06 suite)** : 7 ratios admis, 12 covenants par version, seuil borné à
+  10^8 points de base, prêteur 120 caractères, 100 versions par dossier ; plan de financement de 1 à 8 périodes
+  (année ou semestre), 200 lignes, 100 versions ; 20 versions par 10 minutes. Un covenant en défaut s'affiche
+  « Seuil non atteint (constat arithmétique) », jamais comme une qualification juridique.
+- **Bilan de clôture et rapport (RED-08)** : 6 contrôles bloquants (exercice de fin, score d'alerte de fin,
+  urgence de fin, trésorerie, au moins une action non abandonnée, causes validées) et 5 informatifs
+  (`CONTROLES_CLOTURE`) ; « ouverture » = exercice accepté le plus ancien des 3 lus, première évaluation d'urgence
+  et de score, première version de trésorerie sans réalisé ; 30 versions de bilan par dossier, 100 000 octets, 10
+  par 10 minutes. La re-notation lit la première et la dernière version **publiées** de la notation de la mission
+  (sans deux versions publiées : « non comparable ») ; le module ne déclenche aucune nouvelle notation. Le bilan
+  s'établit avant la clôture du dossier ; la clôture du dossier **ne requiert pas** de bilan validé (choix
+  réversible, non bloquant). Rapport de clôture (modèle `cloture_redressement`, niveau `red`, lecture
+  `redressement.lire`). Qualité : le suivi qualité du rapport est ouvert en R2 au minimum ; le passage automatique
+  en R3 exigerait un type de livrable dédié (dette) ; contournement : `POST /api/qualite/suivis/:id/classe`.
+- **Suivi post-mission (RED-09)** : jalons +6 et +12 mois par défaut ; `SEUIL_DEGRADATION_INFORMATION_PB` 500,
+  `SEUIL_DEGRADATION_ATTENTION_PB` 1 500, `RETARD_ATTENTION_JOURS` 30, `JALON_PROCHE_JOURS` 15 ; 12 jalons par plan,
+  10 relevés et 8 événements par jalon, mois 1 à 60 ; débits : 60 plans, 30 relevés, 30 événements par 10
+  minutes. Alertes **calculées à la lecture** : aucun job, aucun envoi, aucun accès du portail (les relances par
+  job sont un lot ultérieur). Le suivi n'écrit que sur un dossier **clos** (`MPZ19`), même mission clôturée.
+- **Tableau de bord et voyant (RED-15 interne)** : `SEMAINES_TENSION_CRITIQUE` 4, `COVENANTS_DEFAUT_CRITIQUE` 2,
+  `ACTIONS_RETARD_CRITIQUE` 5, `MOTIFS_PRINCIPAUX_MAX` 3 ; urgence rouge = critique, orange = vigilance ; alerte
+  critique = critique, élevée ou modérée = vigilance ; portefeuille : 10 par page (25 au plus). Le voyant est
+  indicatif. **Le « voyant rouge » (`calculerEtatVoyant`, `etatVoyantDossier`) est exporté mais PAS branché** au
+  brief ni à l'automatisation (lot ultérieur). Le **partage externe** du tableau de bord (conseil
+  d'administration, banques) n'est **pas ouvert** : aucune route du portail, aucune option de cabinet.
+- **Correspondance secteur client vers secteur du redressement** : table prudente `CORRESPONDANCE_SECTEURS_CLIENT`
+  (`apps/web/src/lib/redressement-secteur.ts`) : transport, logistique et microfinance rangés en « services » ;
+  sans correspondance sûre, « général ».
+- **Mineurs de recette** : libellé « Besoin de financement prévu » (le besoin est une projection, réalisé constaté
+  sinon prévu) ; variation de marge en points ; note de négociation vide refusée (400) ; secteur du dossier
+  prérempli depuis le client ; version de seuils remplacée affichée « Remplacée ».
+- **Codes d'erreur** : `MPZ12` à `MPZ20` pris ; la lettre `Z` est épuisée pour le redressement (`MPZ01` à `MPZ20`),
+  `0492` réutilise `MPZ07` ; code de rapport `MPR05` (source de rapport de clôture incohérente).
+- **Limites inchangées** : RED-13 (repères OHADA) **OUVERT** ; seuils sectoriels et grille d'urgence sans source
+  normative.
+
+## Due diligence : portail investisseur et modèles sectoriels (DD-07), lot 3b-bis (2026-10-20)
+
+Migrations `0509` (portail investisseur) et `0511` (modèles sectoriels). Valeurs **provisoires, à valider**, sauf les
+points 2, 3 et 4 du tableau « Décisions de l'utilisateur ».
+
+- **Permissions** : `dd.portail.configurer` (associé seul), `dd.portail.gerer` (associé, directeur de mission),
+  `portail.dd.lire` (`client_investisseur` seul).
+- **Portail investisseur** : option du cabinet désactivée par défaut ; au plus 10 pièces par publication (décidé),
+  50 publications par note, 500 événements d'invitation par dossier, 1 000 changements d'option ; **une seule
+  publication active par note** ; seule la dernière version soumise **et validée** est publiable ; pièces figées à
+  la publication (retirer puis republier pour les changer) ; retraits possibles après la clôture de la mission,
+  invitation et publication refusées après clôture ; ce que l'investisseur voit : un instantané en lecture seule,
+  sans identifiant de dossier, note, mission ou rapport, sans nom de membre du cabinet, sans coût.
+- **DD-07, modèles d'analyse par secteur** : **véhicule seulement**, vides par défaut, rédigés par le cabinet
+  (aucun contenu sectoriel livré, à rédiger par un expert) ; 200 modèles par cabinet, 50 points par modèle, 300
+  caractères par point, 40 000 octets de points par version ; un modèle par secteur (pas par filière) et par
+  analyse. Reste ouvert : la filière.
+- **Note au comité, noms de fichiers** : `Note au comité - <titre ≤ 60 caractères> - v<version> - exécutive|détaillée
+  <date>.<ext>`.
+- **Codes d'erreur** : second préfixe `MQD` (`MQD01` à `MQD08` portail investisseur, `MQD11` modèles sectoriels),
+  la lettre `Z` étant épuisée (les codes `MPZ21` à `MPZ32` restent ceux de la due diligence du lot 3b).
+
+## Référentiel de méthodes (STD-11) et revue à froid (QUA-05), lot 4a (2026-10-20)
+
+Migrations `0210` (facteurs de contexte modifiables, SQLSTATE `MQS01`, `MQS02`) et `0287` à `0289` (revue à froid,
+SQLSTATE `MQQ01` à `MQQ12`). Valeurs **provisoires, à valider**, sauf le point 7 du tableau « Décisions de
+l'utilisateur » (relecteur).
+
+- **Permissions** : `qualite.froide.gerer` (associé seul : tirage, affectation, clôture, plan d'amélioration) ;
+  `qualite.froide.relire` (associé, directeur de mission, expert métier). Les responsables d'actions suivent leurs
+  actions avec `mission.lire`.
+- **Grille de revue à froid v1** : 8 critères pondérés 3, 3, 3, 2, 2, 2, 2, 2 ; notes de 1 à 5. La grille « complète »
+  est codée en dur dans le déclencheur de base : une grille v2 exige une migration.
+- **Seuils de conclusion** (`SEUILS_REVUE_FROIDE`, vérifié : conforme 75, réserves 50) : conforme à partir de 75,
+  réserves à partir de 50, sinon non conforme ; un constat **critique** donne non conforme ; un constat **majeur**
+  donne au mieux « réserves » ; une couverture inférieure à 0,5 n'est jamais « conforme ».
+- **Plafonds** : échantillon de 100 missions, population de 5 000, 100 constats par revue, 500 actions par campagne.
+- **Tirage** : empreinte 53 bits (cyrb53) sur `graine:id` ; tourniquet entre strates (type de mission ou directeur) ;
+  missions déjà tirées exclues par défaut ; critères, graine, population et échantillon figés après le tirage.
+- **Relecteur indépendant** (décidé, point 7) : ni directeur, chef, membre d'équipe, affecté du planning, créateur,
+  clôtureur ou signataire de la mission, ni auteur, ouvreur, valideur, signataire ou attestateur d'un suivi qualité
+  de la mission. Deux implémentations alignées (moteur `evaluerIndependanceRelecteur` et déclencheur de `0287`).
+- **STD-11, contrôle de cohérence** : `REGLES_CONTRADICTOIRES` (deux règles actives de même priorité, de condition
+  identique et d'effets contraires) est une **erreur bloquante** ; `CONFLIT_MEME_PRIORITE` (conditions différentes)
+  reste un avertissement. STD-13 et STD-14 restent à faire.
+
+## Dossier client : groupes, filiales et rapport d'état financier, lot 4b (2026-10-20, relu le 2026-10-21)
+
+Migrations `0225` (participations, SQLSTATE `MQF01` à `MQF04`) et `0552`. Les règles marquées « décidé » sont celles du
+point 8 du tableau « Décisions de l'utilisateur » ; le reste est **provisoire, à valider**.
+
+- **Pas une consolidation comptable légale** : aucune élimination d'opérations intragroupe.
+- **Parts de détention en points de base** (0 à 10 000 ; 0 = fin de détention, motif obligatoire) ; historique
+  conservé en ajout seul. Refus : cycle (y compris futur), auto-détention (400), total des parts > 100 %, fin de
+  détention sans détention antérieure, **profondeur de plus de 8 liens** (`PROFONDEUR_GROUPE_MAX = 8`, vérifié ;
+  `DETENTION_TROP_PROFONDE`, `MQF04`). Un refus de détention répond **409**, qu'il vienne du moteur ou du
+  déclencheur.
+- **Périmètre** : la racine de la vue (société de tête par défaut ou client demandé) et ses filiales ; part cumulée
+  = somme, sur tous les chemins depuis la racine, du produit des parts (calcul exact, un arrondi final en points de
+  base).
+- **Vue intégrale** : somme à 100 % de la racine et des entités dont la part cumulée est **> 50 %** (décidé). **Vue
+  proportionnelle** : somme de montant × part cumulée, un seul arrondi à la fin. Marge nette = résultat / produits
+  sur les sommes de chaque vue, jamais moyenne de marges. Fiabilité : moyenne des indices de fiabilité des entités
+  incluses pondérée par la part cumulée.
+- **Devises (décidé)** : devise de consolidation = celle de la racine ; EUR, XAF, XOF convertis au taux fixe 655,957
+  (`PARITE_EUR_FCFA`, vérifié ; XOF = XAF à 1:1), un arrondi demi s'éloignant de zéro par montant avant toute somme ;
+  USD exclu (« devise sans taux de conversion validé »), consolidation partielle ; entités converties listées
+  (`consolidation.conversions`).
+- **Données** : états financiers acceptés de l'exercice ; une entité sans état accepté, d'un autre exercice, de
+  devise non convertible ou non visible de l'utilisateur est exclue (consolidation « partielle ») ; un dossier non
+  visible apparaît comme nœud anonyme (niveau et part). FIN-02 : la réponse ne porte que des données du client.
+- **Rapport d'état financier** : modèle `etat_financier`, niveau `dossier` (lecture `dossier.lire`, décidé) ;
+  commentaire IA du rapport **non branché**. Routes de groupe réservées à `dossier.lire` / `dossier.ecrire`, jamais
+  ouvertes au portail.
+- **Aussi livrés** : PRV-06 web (citations de livrable) ; `IMPORT_INVALIDE` converti en erreur applicative, liste
+  des erreurs tronquée à 200 lignes (le message donne le total).
+
+## Plans stratégiques et notation augmentés (NOT-12, PLA-15, PLA-16, PLA-18), lot 5a (2026-10-20)
+
+Migrations `0425`, `0426`, `0429`, `0430`, `0431` (NOT-12 : aucune migration). Valeurs **provisoires, à valider**.
+
+- **NOT-12, combinaisons minimales** : nombre minimal de pratiques améliorées, puis nombre minimal de paliers ;
+  bornes `PRATIQUES_MAX_COMBINAISON` 8 et `NOEUDS_MAX_COMBINAISONS` 200 000 (vérifiées) ; 5 combinaisons par
+  défaut (10 au plus) ; si une borne coupe la recherche : `tronquee`, jamais « impossible ». Commentaire IA en
+  brouillon, validé par l'humain.
+- **PLA-16, Monte-Carlo** : lois uniforme, triangulaire et normale tronquée (Irwin–Hall, déterministe) ; 100 à 2 000
+  tirages (1 000 par défaut) ; probabilité de tension = part des tirages dont la trésorerie nette de clôture est
+  négative au moins une année ; lois de départ proposées : croissance ±5 points, marge ±2 points, charges fixes
+  −5 % / +10 %, délai clients 0 / +30 jours ; 30 simulations par utilisateur et par 10 minutes, 100 par plan. La
+  graine est tirée par l'API, jamais par le moteur.
+- **PLA-15, ateliers en ligne** : vote par 10 points par défaut (1 à 100) ; Borda ; matrice valeur / effort de 1 à 5,
+  seuil 3,00 ; ouverture exigeant 2 options et 1 participant ; 100 ateliers par plan, 50 options, 100 participants,
+  20 versions de contribution par participant et méthode. Le dirigeant client ne voit que les ateliers ouverts où
+  il est invité et sa propre contribution ; agrégats visibles du cabinet après clôture seulement.
+- **PLA-18, plan vivant** : répartition trimestrielle 25 / 25 / 25 / 25 par défaut ; méthodes `reste_du_plan` et
+  `tendance` (facteur borné de 0,5 à 1,5) ; seuil « significatif » 10 % ; trésorerie re-prévue = projection
+  simplifiée ; 40 re-prévisions par exercice, 50 versions de réalisé par trimestre, 1 000 par plan.
+
+## Intégration continue (lot 8a, 2026-10-20)
+
+Décisions d'outillage, à confirmer après la première exécution réelle : la CI GitHub (`.github/workflows/ci.yml`)
+se déclenche sur les **pull requests vers `main`** et à la demande (`workflow_dispatch`), pas à chaque push ; le job
+`api` est réparti en **4 partitions** (`--shard=i/4`, chacune sur son PostgreSQL jetable, ce qui respecte la règle
+« jamais deux suites API sur la même base ») ; `retry: 1` des tests n'est actif que si `CI` est défini. **Jamais
+exécutée sur GitHub à la livraison** ; déclarer les jobs `qualite` et `api` comme contrôles requis de `main` une
+fois la première exécution verte (réglage hors dépôt, à faire par l'utilisateur).

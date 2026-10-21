@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 5a (plans stratégiques et notation augmentés : NOT-12, PLA-15, PLA-16, PLA-18) — mises à jour de documentation à reporter
 
 Fichier de transit : le chef de lot n'a pas le droit de modifier SECURITY.md, DECISIONS.md, CODING_STANDARDS.md, review-checklist.md ni HANDOFF.md.

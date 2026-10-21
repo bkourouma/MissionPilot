@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 3 (DD 3b-bis, canaux 3c-bis, mineurs de recette) — mises à jour de documentation à reporter
 
 Fichier de transit : le chef de lot n'a pas le droit de modifier SECURITY.md, DECISIONS.md, CODING_STANDARDS.md,

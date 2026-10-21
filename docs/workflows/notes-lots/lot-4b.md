@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 4b — dossier client, preuves, finance (2026-10-20)
 
 Branche `orch/2026-10-20-reste-lot-4b`. Fichier de notes du lot : `HANDOFF.md`, `SECURITY.md`,
