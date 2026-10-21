@@ -1,13 +1,7 @@
-import {
-  aPermission,
-  ASSERTIONS_MISSION_MAX,
-  TYPE_SOURCE_PREUVE_LIBELLES,
-} from "@missionpilot/shared";
+import { aPermission, TYPE_SOURCE_PREUVE_LIBELLES } from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { assertionsDeMission, type AssertionCourante } from "../preuves/donnees.js";
-import { chargerEtat } from "../preuves/synthese.js";
-import { vuePreuve } from "../preuves/vues.js";
+import { assertionCitee, sourcesDuLivrable, type LivrableSources } from "../preuves/citations.js";
 import { dateAffichee, type Bloc, type Section } from "./modele.js";
 import { borner, cellule, NON_DISPONIBLE, section } from "./outils.js";
 
@@ -25,31 +19,19 @@ import { borner, cellule, NON_DISPONIBLE, section } from "./outils.js";
  * - Un rapport est destiné au client : un verbatim NOMINATIF sans accord de la personne est
  *   masqué pour TOUS (`vuePreuve(…, false)`, preuves/vues.ts) — ni extrait, ni source précise —,
  *   quels que soient les droits du générateur.
+ * - La numérotation, le tri et la solidité sont calculés par `preuves/citations.ts`, partagé avec
+ *   les citations cliquables du web (mêmes numéros [n]) ; ce fichier ne fait que la mise en page.
  * - L'annexe n'est produite que si le générateur a `preuve.lire` (on n'exporte pas ce qu'on ne
  *   pourrait pas lire) et qu'au moins une assertion est citée ; sinon le rapport est inchangé.
  */
 
-export type LivrableSources = "notation" | "plan";
-
-const MOTS_CLES: Record<LivrableSources, string> = { notation: "notation", plan: "plan" };
+export { assertionCitee, type LivrableSources };
 
 const LECTURES: Record<string, string> = {
   solide: "Solide",
   etayee: "Étayée",
   fragile: "Fragile",
 };
-
-const normaliser = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-
-/** L'assertion est-elle citée par un rapport de ce livrable ? */
-export function assertionCitee(
-  a: Pick<AssertionCourante, "statut" | "livrable">,
-  l: LivrableSources,
-) {
-  return (
-    a.statut === "retenue" && a.livrable !== null && normaliser(a.livrable).includes(MOTS_CLES[l])
-  );
-}
 
 /** Annexe des sources du rapport, ou null (aucune assertion citée, ou pas `preuve.lire`). */
 export async function sectionSources(
@@ -59,57 +41,38 @@ export async function sectionSources(
   livrable: LivrableSources,
 ): Promise<Section | null> {
   if (!aPermission(auth.roles, "preuve.lire")) return null;
-  const citees = (await assertionsDeMission(db, missionId, ASSERTIONS_MISSION_MAX)).filter((a) =>
-    assertionCitee(a, livrable),
-  );
-  if (citees.length === 0) return null;
-  const etat = await chargerEtat(db, missionId, citees);
-  const numeros = new Map<string, number>();
-  const lignesAssertions = citees.map((a) => {
-    const liens = etat.liens
-      .filter((l) => l.assertion_id === a.id && etat.preuves.has(l.preuve_id))
-      // Ordre stable : preuves « pour » d'abord, puis ordre de liaison, puis identifiant.
-      .sort(
-        (x, y) =>
-          (x.sens === y.sens ? 0 : x.sens === "pour" ? -1 : 1) ||
-          (x.horodatage < y.horodatage ? -1 : x.horodatage > y.horodatage ? 1 : 0) ||
-          (x.preuve_id < y.preuve_id ? -1 : x.preuve_id > y.preuve_id ? 1 : 0),
-      );
-    const renvois = { pour: [] as number[], contre: [] as number[] };
-    for (const l of liens) {
-      if (!numeros.has(l.preuve_id)) numeros.set(l.preuve_id, numeros.size + 1);
-      renvois[l.sens].push(numeros.get(l.preuve_id)!);
-    }
-    const solidite = etat.evaluations.get(a.id)?.solidite;
-    const lecture = solidite ? (LECTURES[solidite.lecture] ?? solidite.lecture) : NON_DISPONIBLE;
-    const sources = [
-      renvois.pour.length ? renvois.pour.map((n) => `[${n}]`).join(", ") : "",
-      renvois.contre.length ? `contre : ${renvois.contre.map((n) => `[${n}]`).join(", ")}` : "",
+  const { assertions, sources } = await sourcesDuLivrable(db, auth, missionId, livrable);
+  if (assertions.length === 0) return null;
+  const refs = (ns: number[]) => ns.map((n) => `[${n}]`).join(", ");
+  const lignesAssertions = assertions.map((a) => {
+    const lecture = a.solidite
+      ? (LECTURES[a.solidite.lecture] ?? a.solidite.lecture)
+      : NON_DISPONIBLE;
+    const renvoisTexte = [
+      a.renvois.pour.length ? refs(a.renvois.pour) : "",
+      a.renvois.contre.length ? `contre : ${refs(a.renvois.contre)}` : "",
     ]
       .filter(Boolean)
       .join(" ; ");
     return [
       cellule(a.enonce),
-      a.avis_expert && a.signe_par !== null ? `${lecture} (avis d'expert signé)` : lecture,
-      sources || "Aucune preuve reliée",
+      a.avis_expert_signe ? `${lecture} (avis d'expert signé)` : lecture,
+      renvoisTexte || "Aucune preuve reliée",
     ];
   });
-  const lignesSources = [...numeros.entries()].map(([id, n]) => {
-    const p = vuePreuve(etat.preuves.get(id)!, false);
-    return [
-      String(n),
-      TYPE_SOURCE_PREUVE_LIBELLES[p.type_source as keyof typeof TYPE_SOURCE_PREUVE_LIBELLES] ??
-        p.type_source,
-      cellule(p.source_precise),
-      dateAffichee(p.date_preuve),
-      p.fiabilite,
-      p.masque
-        ? "Verbatim nominatif non cité : accord de la personne non recueilli."
-        : p.extrait
-          ? cellule(p.extrait)
-          : NON_DISPONIBLE,
-    ];
-  });
+  const lignesSources = sources.map((p) => [
+    String(p.numero),
+    TYPE_SOURCE_PREUVE_LIBELLES[p.type_source as keyof typeof TYPE_SOURCE_PREUVE_LIBELLES] ??
+      p.type_source,
+    cellule(p.source_precise),
+    dateAffichee(p.date_preuve),
+    p.fiabilite,
+    p.masque
+      ? "Verbatim nominatif non cité : accord de la personne non recueilli."
+      : p.extrait
+        ? cellule(p.extrait)
+        : NON_DISPONIBLE,
+  ]);
   const a = borner(lignesAssertions);
   const s = borner(lignesSources);
   const blocs: Bloc[] = [

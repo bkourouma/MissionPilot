@@ -36,6 +36,8 @@ import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
  * diligence) : `dd_note_id`, version de la note et variante, version VALIDÉE exigée (MPR04, 409
  * NOTE_NON_VALIDEE) ; rapport de clôture du redressement (0551, RED-08) : `red_cloture_id` et version
  * du bilan, bilan VALIDÉ de la même mission exigé (MPR05, 409 RED_CLOTURE_NON_VALIDEE).
+ * NOTE_NON_VALIDEE) ; rapport d'état financier (0552) : aucune source en base (la cohérence mission/client
+ * est contrôlée par l'API), état(s) utilisé(s) tracé(s) au journal d'audit (`audit`).
  *
  * Conservation : le FICHIER d'un rapport est purgé au-delà de la durée de
  * conservation du cabinet (rapports/purge.ts, migration 0132) ; la ligne
@@ -49,6 +51,7 @@ export const MODELES_RAPPORT = [
   "dossier_bancaire",
   "note_comite",
   "cloture_redressement",
+  "etat_financier",
 ] as const;
 export type ModeleRapport = (typeof MODELES_RAPPORT)[number];
 
@@ -63,6 +66,7 @@ const NOMS_FICHIER: Record<ModeleRapport, string> = {
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comité",
   cloture_redressement: "Rapport de clôture du redressement",
+  etat_financier: "État financier",
 };
 
 const LIBELLES_VARIANTE = { executive: "exécutive", detaillee: "détaillée" } as const;
@@ -109,6 +113,7 @@ const LIBELLES_SUIVI: Record<ModeleRapport, string> = {
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comité",
   cloture_redressement: "Rapport de clôture du redressement",
+  etat_financier: "Rapport d'état financier",
 };
 
 export const COLONNES_RAPPORT = `r.id, r.mission_id, r.modele, r.format, r.statut, r.niveau,
@@ -198,6 +203,8 @@ export async function enregistrerRapport(
     niveau: NiveauRapport;
     contenu: Buffer;
     source?: SourceRapport;
+    /** Identifiants seulement (jamais de montant) ajoutés au détail du journal d'audit. */
+    audit?: Record<string, unknown>;
   },
 ): Promise<RapportEnregistre> {
   // Cohérence : on n'enregistre jamais un rapport que son auteur ne pourrait pas relire.
@@ -257,6 +264,7 @@ export async function enregistrerRapport(
             ...(p.source?.noteId ? { note_id: p.source.noteId, variante: p.source.variante } : {}),
             ...(p.source?.clotureId ? { cloture_id: p.source.clotureId } : {}),
             ...(p.source?.version ? { version_source: p.source.version } : {}),
+            ...(p.audit ?? {}),
           },
         });
       },

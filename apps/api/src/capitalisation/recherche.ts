@@ -90,6 +90,7 @@ const SOURCES: readonly Source[] = [
               WHEN 'notation' THEN 'Rapport de notation' WHEN 'dossier_bancaire' THEN 'Dossier bancaire'
               WHEN 'note_comite' THEN 'Note au comité'
               WHEN 'cloture_redressement' THEN 'Rapport de clôture du redressement'
+              WHEN 'etat_financier' THEN 'Rapport d''état financier'
               ELSE 'Rapport de plan stratégique' END AS titre,
             r.format || ', ' || r.statut AS extrait, m.id AS mission_id, m.intitule AS mission_intitule,
             r.genere_le::text AS date,

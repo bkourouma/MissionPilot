@@ -23,8 +23,8 @@ export type FormatRapport = (typeof FORMATS_RAPPORT)[number];
 export const NIVEAUX_RAPPORT = ["base", "jours", "finance"] as const;
 export type NiveauRapport = (typeof NIVEAUX_RAPPORT)[number];
 
-/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan, due diligence, clôture du redressement. */
-export const NIVEAUX_SERVICE = ["notation", "plan", "dd", "red"] as const;
+/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan, due diligence, clôture du redressement, état financier du dossier client. */
+export const NIVEAUX_SERVICE = ["notation", "plan", "dd", "red", "dossier"] as const;
 export type NiveauService = (typeof NIVEAUX_SERVICE)[number];
 
 /** Tous les niveaux qu'un rapport listé peut porter. */
@@ -90,6 +90,7 @@ const PERMISSIONS_NIVEAU: Record<NiveauAffichable, readonly Permission[]> = {
   plan: ["plan.lire"],
   dd: ["dd.lire"],
   red: ["redressement.lire"],
+  dossier: ["dossier.lire"],
 };
 
 export type IconeNiveau = "courbe" | "horloge" | "cadenas";
@@ -151,6 +152,13 @@ export const NIVEAUX: Record<
     explication:
       "Rapport de clôture du redressement : bilan chiffré du client. Seules les personnes autorisées à lire le redressement pourront l'ouvrir.",
   },
+  dossier: {
+    libelle: "Dossier client",
+    icone: "cadenas",
+    tonalite: "attention",
+    explication:
+      "Le rapport reprend les états financiers acceptés du dossier du client ; il ne contient aucune donnée financière du cabinet.",
+  },
 };
 
 export const estNiveauRapport = (v: unknown): v is NiveauAffichable =>
@@ -209,6 +217,7 @@ const MODELES: Record<string, string> = {
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comité",
   cloture_redressement: "Rapport de clôture du redressement",
+  etat_financier: "Rapport d'état financier",
 };
 export const libelleModele = (m: string) => MODELES[m] ?? "Rapport";
 

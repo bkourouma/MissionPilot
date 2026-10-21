@@ -592,6 +592,20 @@ describe("états financiers (DOS-03)", () => {
     expect(faux.json().erreur.details.erreurs.map((x: { ligne: number }) => x.ligne)).toEqual([
       2, 3,
     ]);
+    // Troncature : 250 lignes en erreur => total dans le message, 200 lignes citées au plus.
+    const beaucoup = await a.chef.post(`${base()}/etats-financiers/csv`, {
+      exercice: 2019,
+      date_cloture: "2019-12-31",
+      devise: "XOF",
+      csv: [
+        "section;code;libelle;montant",
+        ...Array.from({ length: 250 }, () => "bilan;X;Y;1"),
+      ].join(String.fromCharCode(10)),
+    });
+    expect(beaucoup.statusCode).toBe(400);
+    expect(beaucoup.json().erreur.code).toBe("IMPORT_INVALIDE");
+    expect(beaucoup.json().erreur.message).toContain("250 ligne(s)");
+    expect(beaucoup.json().erreur.details.erreurs).toHaveLength(200);
     const sansColonne = await a.chef.post(`${base()}/etats-financiers/csv`, {
       exercice: 2019,
       date_cloture: "2019-12-31",

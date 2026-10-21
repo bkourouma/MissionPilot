@@ -127,7 +127,7 @@ describe("libellés", () => {
   });
 
   it("due diligence : niveau « dd » lisible avec dd.lire seulement, modèle « note_comite »", () => {
-    expect(NIVEAUX_SERVICE).toEqual(["notation", "plan", "dd", "red"]);
+    expect(NIVEAUX_SERVICE).toEqual(["notation", "plan", "dd", "red", "dossier"]);
     expect(TOUS_NIVEAUX).toContain("dd");
     expect(estNiveauRapport("dd")).toBe(true);
     expect(NIVEAUX.dd.libelle).toBe("Due diligence");
@@ -291,5 +291,16 @@ describe("messages d'erreur de la génération", () => {
     );
     expect(messageRapport(new Error("boom"))).toMatch(/erreur inattendue/);
     expect(messageRapport(erreur(0, "ANNULE"))).toMatch(/interrompue/);
+  });
+});
+
+describe("rapport d'état financier du dossier client", () => {
+  it("niveau « dossier » : dossier.lire, libellé et explication sans donnée du cabinet", () => {
+    expect(estNiveauRapport("dossier")).toBe(true);
+    expect(NIVEAUX.dossier.libelle).toBe("Dossier client");
+    expect(NIVEAUX.dossier.explication).toMatch(/aucune donnée financière du cabinet/);
+    expect(peutLireNiveau(["associe"], "dossier")).toBe(true);
+    expect(peutLireNiveau([], "dossier")).toBe(false);
+    expect(libelleModele("etat_financier")).toBe("Rapport d'état financier");
   });
 });

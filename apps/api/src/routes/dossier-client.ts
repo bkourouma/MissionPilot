@@ -51,6 +51,8 @@ import {
 import { indiceSansHistorique, lireFiabilite } from "../dossier/fiabilite.js";
 import { friseDossier } from "../dossier/frise.js";
 import { lireEtatDepuisTableau, type ErreurLigneEtat } from "../dossier/import-etats.js";
+import { AppError } from "../errors.js";
+import { routesDossierGroupes } from "./dossier-groupes.js";
 import { decoderCurseur, motifContient, paginer, paramsId } from "../http/outils.js";
 import { assainirNom } from "../stockage/nom.js";
 import { lireTeleversement } from "../stockage/fichiers.js";
@@ -85,15 +87,19 @@ function surDossier<T>(
   );
 }
 
-/** Rapport d'import refusé : rien n'est écrit, chaque ligne en erreur est citée. */
-function importInvalide(reply: FastifyReply, erreurs: ErreurLigneEtat[]) {
-  return reply.status(400).send({
-    erreur: {
-      code: "IMPORT_INVALIDE",
-      message: `${erreurs.length} ligne(s) en erreur : rien n'a été ingéré.`,
-      details: { erreurs },
-    },
-  });
+/**
+ * Rapport d'import refusé : rien n'est écrit, chaque ligne en erreur est citée. `AppError` 400
+ * `IMPORT_INVALIDE` ; le gestionnaire d'`app.ts` produit le même corps qu'auparavant
+ * (`erreur.code`, `erreur.message`, `erreur.details.erreurs`), `erreurs` étant tronqué à
+ * `DETAILS_MAX_ELEMENTS` (200 lignes citées au plus).
+ */
+function importInvalide(erreurs: ErreurLigneEtat[]): AppError {
+  return new AppError(
+    400,
+    "IMPORT_INVALIDE",
+    `${erreurs.length} ligne(s) en erreur : rien n'a été ingéré.`,
+    { erreurs },
+  );
 }
 
 async function ingererTableau(
@@ -110,7 +116,7 @@ async function ingererTableau(
     format: origine,
     fichier: fichier.nom,
   });
-  if (lecture.erreurs.length > 0) return importInvalide(reply, lecture.erreurs);
+  if (lecture.erreurs.length > 0) throw importInvalide(lecture.erreurs);
   const etat = await surDossier(app, auth, clientId, (db) =>
     ingererEtat(db, auth, clientId, entete, lecture.lignes, origine, fichier),
   );
@@ -348,4 +354,5 @@ export const routesDossierClient: FastifyPluginAsync = async (app) => {
   });
 
   await app.register(routesImportEtatExcel);
+  await app.register(routesDossierGroupes);
 };

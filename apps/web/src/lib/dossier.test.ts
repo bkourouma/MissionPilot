@@ -169,6 +169,7 @@ describe("liste et chemins", () => {
       "/dossiers/id/faits",
       "/dossiers/id/finances",
       "/dossiers/id/frise",
+      "/dossiers/id/groupe",
     ]);
   });
 });

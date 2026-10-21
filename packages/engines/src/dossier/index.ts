@@ -61,3 +61,39 @@ export {
   contexteDepuisFacteurs,
   type ValeurDatee,
 } from "./valeurs-courantes";
+// DOS-05 : structure de détention et consolidation simple des indicateurs d'un groupe.
+export {
+  BASE_POINTS_DETENTION,
+  PROFONDEUR_GROUPE_MAX,
+  SEUIL_CONTROLE_POINTS,
+  DEVISES_GROUPE,
+  INDICATEURS_CONSOLIDES,
+  arrondirPoints,
+  participationsEnVigueur,
+  controlerNouvelleDetention,
+  structureGroupe,
+  structureDepuisTete,
+  consoliderGroupe,
+  convertirMontantGroupe,
+  type LienDetention,
+  type NouvelleDetention,
+  type NoeudGroupe,
+  type StructureGroupe,
+  type MotifExclusionGroupe,
+  type MontantsEntiteGroupe,
+  type EntiteGroupe,
+  type NoeudConsolidation,
+  type EntreeConsolidation,
+  type IndicateursConsolides,
+  type ConsolidationGroupe,
+} from "./groupe";
+// Rapport d'état financier : synthèse multi-exercices des états acceptés.
+export {
+  CODES_ALERTE_SYNTHESE,
+  syntheseEtatsFinanciers,
+  type CodeAlerteSynthese,
+  type EtatPourSynthese,
+  type AlerteSynthese,
+  type LigneSyntheseExercice,
+  type SyntheseEtatsFinanciers,
+} from "./synthese-etats";
