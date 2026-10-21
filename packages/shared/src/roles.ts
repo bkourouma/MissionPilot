@@ -208,6 +208,10 @@ export const PERMISSIONS = [
   "redressement.ecrire", // ouvrir un dossier, saisir correspondance, urgence, trésorerie, créanciers, actions, versions de plan
   "redressement.valider", // valider une version de plan, clore un dossier (autre que le créateur, sauf associé)
   "redressement.parametrer", // rédiger et publier les seuils d'alerte par secteur (experts du cabinet)
+  // --- Services candidats (diagnostic flash, veille des guichets de financement) : mêmes lecteurs
+  // que le catalogue ; la gestion (prix fixe, activation des types, guichets) est à l'associé SEUL.
+  "services_candidats.lire", // lire prix, types activés et guichets de financement du cabinet
+  "services_candidats.gerer", // prix fixe, activation des types, liste des guichets : associé et directeur de mission
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -273,6 +277,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "clients.ecrire",
     "collaborateurs.lire",
     "catalogue.lire",
+    "services_candidats.lire",
+    "services_candidats.gerer",
     "pipeline.gerer",
     // Pas de « proposition.valider » : une proposition est validée par un associé (PRD, MIS-05).
     "mission.lire",
@@ -352,6 +358,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "clients.lire",
     "collaborateurs.lire",
     "catalogue.lire",
+    "services_candidats.lire",
     "pipeline.gerer",
     "mission.lire",
     "salle.lire",
@@ -413,6 +420,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "connaissance.lire",
     "clients.lire",
     "catalogue.lire",
+    "services_candidats.lire",
     "mission.lire",
     "salle.lire",
     "salle.gerer",
@@ -456,6 +464,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "collaborateurs.lire",
     "collaborateurs.ecrire",
     "catalogue.lire",
+    "services_candidats.lire",
     "mission.lire",
     "budget.lire_jours",
     "affectation.gerer",
@@ -477,6 +486,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "collaborateurs.lire",
     "collaborateurs.ecrire",
     "catalogue.lire",
+    "services_candidats.lire",
     "mission.lire",
     "budget.lire_jours",
     "finance.lire",
@@ -506,6 +516,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "copilote.utiliser",
     "connaissance.lire",
     "catalogue.lire",
+    "services_candidats.lire",
     "catalogue.ecrire",
     "mission.lire",
     "salle.lire",

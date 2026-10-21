@@ -221,6 +221,32 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
     ],
   },
   {
+    // Services candidats : diagnostic flash, business plan bancable, guichets de financement.
+    id: "services-candidats",
+    libelle: "Services candidats",
+    libelleCourt: "Services",
+    href: "/services-candidats",
+    permission: "services_candidats.lire",
+    disponible: true,
+    icone: "monnaie",
+    description:
+      "Diagnostic flash et business plan bancable : prix fixe, création de mission et guichets de financement.",
+    sousPages: [
+      {
+        id: "services",
+        libelle: "Services",
+        href: "/services-candidats",
+        permission: "services_candidats.lire",
+      },
+      {
+        id: "guichets",
+        libelle: "Guichets de financement",
+        href: "/services-candidats/guichets",
+        permission: "services_candidats.lire",
+      },
+    ],
+  },
+  {
     id: "questionnaires",
     libelle: "Questionnaires",
     href: "/questionnaires",

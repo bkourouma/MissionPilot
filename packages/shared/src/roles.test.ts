@@ -674,3 +674,24 @@ describe("V3, vague 4 : portail investisseur de la due diligence", () => {
     }
   });
 });
+
+describe("Services candidats : lecture comme le catalogue, gestion à l'associé seul", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("services_candidats.lire : mêmes rôles que catalogue.lire", () => {
+    expect(qui("services_candidats.lire")).toEqual(qui("catalogue.lire"));
+  });
+
+  it("services_candidats.gerer : l'associé et le directeur de mission", () => {
+    expect(qui("services_candidats.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("aucun rôle client ni l'expert externe n'y touche (portail fermé)", () => {
+    for (const p of ["services_candidats.lire", "services_candidats.gerer"] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+});

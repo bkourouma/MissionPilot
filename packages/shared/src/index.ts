@@ -54,3 +54,5 @@ export * from "./schemas/redressement-financement";
 export * from "./schemas/redressement-causes";
 export * from "./schemas/redressement-checklists";
 export * from "./grilles/index";
+// Services candidats : prix fixe et veille des guichets de financement.
+export * from "./schemas/services-candidats";

@@ -889,6 +889,10 @@ export async function semerDemoAbidjan(
   if (!(await semerRedressementDemo(database, config))) {
     throw new Error("Le redressement de démonstration existe déjà dans un cabinet neuf.");
   }
+  // Services candidats (diagnostic flash, business plan bancable, guichets fictifs) : même import dynamique.
+  await (
+    await import("./seed-demo-services-candidats.js")
+  ).semerServicesCandidatsDemo(database, config);
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 

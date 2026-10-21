@@ -335,5 +335,9 @@ export async function buildApp(
   await app.register((await import("./routes/portail-ateliers.js")).routesPortailAteliers, {
     prefix: "/api",
   });
+  // Services candidats (diagnostic flash, business plan bancable) et guichets de financement.
+  await app.register((await import("./routes/services-candidats.js")).routesServicesCandidats, {
+    prefix: "/api",
+  });
   return app;
 }
