@@ -34,7 +34,8 @@ import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
  * pour les rapports de notation et de plan, contrôlés en base (MPR01, MPR02) ; dossier bancaire
  * (0424) : version VALIDÉE du modèle financier exigée (MPR03) ; note au comité (0508, due
  * diligence) : `dd_note_id`, version de la note et variante, version VALIDÉE exigée (MPR04, 409
- * NOTE_NON_VALIDEE).
+ * NOTE_NON_VALIDEE) ; rapport de clôture du redressement (0551, RED-08) : `red_cloture_id` et version
+ * du bilan, bilan VALIDÉ de la même mission exigé (MPR05, 409 RED_CLOTURE_NON_VALIDEE).
  *
  * Conservation : le FICHIER d'un rapport est purgé au-delà de la durée de
  * conservation du cabinet (rapports/purge.ts, migration 0132) ; la ligne
@@ -47,6 +48,7 @@ export const MODELES_RAPPORT = [
   "plan_strategique",
   "dossier_bancaire",
   "note_comite",
+  "cloture_redressement",
 ] as const;
 export type ModeleRapport = (typeof MODELES_RAPPORT)[number];
 
@@ -60,6 +62,7 @@ const NOMS_FICHIER: Record<ModeleRapport, string> = {
   plan_strategique: "Plan strategique",
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comite",
+  cloture_redressement: "Rapport de cloture du redressement",
 };
 
 /** Libellé du livrable dans le suivi qualité. */
@@ -69,10 +72,11 @@ const LIBELLES_SUIVI: Record<ModeleRapport, string> = {
   plan_strategique: "Rapport de plan stratégique",
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comité",
+  cloture_redressement: "Rapport de clôture du redressement",
 };
 
 export const COLONNES_RAPPORT = `r.id, r.mission_id, r.modele, r.format, r.statut, r.niveau,
-  r.notation_id, r.plan_id, r.dd_note_id, r.variante, r.version_source, r.genere_par, r.genere_le`;
+  r.notation_id, r.plan_id, r.dd_note_id, r.variante, r.red_cloture_id, r.version_source, r.genere_par, r.genere_le`;
 
 /** Objet rendu par un rapport de service (notation ou plan) et version retenue. */
 export interface SourceRapport {
@@ -81,6 +85,8 @@ export interface SourceRapport {
   /** Note au comité (due diligence) et variante rendue (« executive » ou « detaillee »). */
   noteId?: string;
   variante?: "executive" | "detaillee";
+  /** Bilan de clôture du redressement (RED-08) : son identifiant ; `version` est celle du bilan. */
+  clotureId?: string;
   /** Numéro de version de la notation, de la note au comité, ou de la version du modèle financier (null : aucun). */
   version?: number | null;
 }
@@ -110,13 +116,13 @@ export async function verifierDebitRapports(db: Db, auth: Auth): Promise<void> {
   }
 }
 
-/** Insertion ; une source incohérente (MPR01 à MPR03 : défense en base) répond 409. */
+/** Insertion ; une source incohérente (MPR01 à MPR05 : défense en base) répond 409. */
 async function insererRapport(db: Db, valeurs: unknown[]) {
   try {
     return await db.query(
       `INSERT INTO rapports_mission AS r (cabinet_id, mission_id, fichier_id, modele, format,
-         statut, niveau, genere_par, notation_id, plan_id, version_source, dd_note_id, variante)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         statut, niveau, genere_par, notation_id, plan_id, version_source, dd_note_id, variante, red_cloture_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING ${COLONNES_RAPPORT}`,
       valeurs,
     );
@@ -127,6 +133,13 @@ async function insererRapport(db: Db, valeurs: unknown[]) {
         409,
         "NOTE_NON_VALIDEE",
         "Seule une version validée de la note se rend en rapport.",
+      );
+    }
+    if (code === "MPR05") {
+      throw new AppError(
+        409,
+        "RED_CLOTURE_NON_VALIDEE",
+        "Le rapport de clôture exige un bilan validé de la même mission.",
       );
     }
     if (code === "MPR01" || code === "MPR02" || code === "MPR03") {
@@ -177,6 +190,7 @@ export async function enregistrerRapport(
           p.source?.version ?? null,
           p.source?.noteId ?? null,
           p.source?.variante ?? null,
+          p.source?.clotureId ?? null,
         ]);
         rapport = r.rows[0] as Record<string, unknown>;
         await brancherRapport(db, auth, {
@@ -200,6 +214,7 @@ export async function enregistrerRapport(
             ...(p.source?.notationId ? { notation_id: p.source.notationId } : {}),
             ...(p.source?.planId ? { plan_id: p.source.planId } : {}),
             ...(p.source?.noteId ? { note_id: p.source.noteId, variante: p.source.variante } : {}),
+            ...(p.source?.clotureId ? { cloture_id: p.source.clotureId } : {}),
             ...(p.source?.version ? { version_source: p.source.version } : {}),
           },
         });
