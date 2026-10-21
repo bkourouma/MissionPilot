@@ -40,7 +40,10 @@ import {
 } from "../plans/modele.js";
 import { creerPlan, lirePlan, listerPlans, partagerPlan } from "../plans/plans.js";
 import { donneesRapport, lireFeuilleDeRoute, lireRoi } from "../plans/rapport.js";
+import { routesPlansAteliers } from "./plans-ateliers.js";
 import { routesPlansAugmentes } from "./plans-augmentes.js";
+import { routesPlansMonteCarlo } from "./plans-montecarlo.js";
+import { routesPlansReprevisions } from "./plans-reprevisions.js";
 
 /*
  * Planification stratégique et modèle financier (service #3), sous /api.
@@ -75,6 +78,10 @@ export const routesPlans: FastifyPluginAsync = async (app) => {
     throw traduireErreurPlan(error);
   });
   await app.register(routesPlansAugmentes);
+  // Lot 5a : ateliers (PLA-15), Monte-Carlo (PLA-16), re-prévision (PLA-18).
+  await app.register(routesPlansAteliers);
+  await app.register(routesPlansMonteCarlo);
+  await app.register(routesPlansReprevisions);
 
   /* ----- Plans ----- */
 

@@ -329,5 +329,9 @@ export async function buildApp(
       .routesDueDiligencePortailInvestisseur,
     { prefix: "/api" },
   );
+  // Lot 5a : ateliers stratégiques, côté portail (PLA-15, liste blanche du portail).
+  await app.register((await import("./routes/portail-ateliers.js")).routesPortailAteliers, {
+    prefix: "/api",
+  });
   return app;
 }
