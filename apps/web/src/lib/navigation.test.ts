@@ -38,6 +38,7 @@ describe("table de navigation", () => {
       "Clients",
       "Collaborateurs",
       "Catalogue",
+      "Services candidats",
       "Questionnaires",
       "Notation",
       "Méthodes",
@@ -84,6 +85,26 @@ describe("table de navigation", () => {
   });
 });
 
+describe("rubrique Services candidats", () => {
+  it("est ouverte par services_candidats.lire, sur deux sous-pages", () => {
+    const e = NAVIGATION.find((x) => x.id === "services-candidats");
+    expect(e?.permission).toBe("services_candidats.lire");
+    expect(e?.sousPages?.map((p) => [p.id, p.href])).toEqual([
+      ["services", "/services-candidats"],
+      ["guichets", "/services-candidats/guichets"],
+    ]);
+    expect(ids(["associe"])).toContain("services-candidats");
+    expect(ids(["client_dirigeant"])).not.toContain("services-candidats");
+    expect(ids(["expert_externe"])).not.toContain("services-candidats");
+  });
+
+  it("repère la sous-page active", () => {
+    const pages = sousPagesAutorisees("services-candidats", ["associe"]);
+    expect(sousPageActive(pages, "/services-candidats")).toBe("services");
+    expect(sousPageActive(pages, "/services-candidats/guichets")).toBe("guichets");
+  });
+});
+
 describe("entreesAutorisees", () => {
   it("donne tout à l'associé", () => {
     expect(ids(["associe"])).toEqual(NAVIGATION.map((e) => e.id));
@@ -102,6 +123,7 @@ describe("entreesAutorisees", () => {
       "banques-ao",
       "clients",
       "catalogue",
+      "services-candidats",
       "questionnaires",
       "notation",
       "methodes",
