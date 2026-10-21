@@ -1,5 +1,6 @@
 import { journaliser } from "../audit.js";
 import type { HandlerJob } from "../jobs/registre.js";
+import { purgerCacheEchu } from "./cache.js";
 
 /*
  * Conservation des générations IA (migration 0104). Le texte démasqué d'une
@@ -13,6 +14,11 @@ import type { HandlerJob } from "../jobs/registre.js";
  * (injectable en test). L'anonymisation passe par `purger_textes_ia`
  * (SECURITY DEFINER, limitée au cabinet du contexte) : le rôle applicatif
  * n'a aucun droit de modifier `ia_generations`.
+ *
+ * Cache des réponses (AGT-06, ia/cache.ts, migration 0278) : le même job supprime les entrées
+ * échues du cabinet (24 heures au plus) ; `planifier_conservation_ia` le planifie aussi pour un
+ * cabinet qui n'a qu'une entrée de cache échue. Une entrée échue n'est de toute façon jamais
+ * servie ; la suppression borne sa présence chiffrée en base.
  */
 
 export const TYPE_JOB_CONSERVATION_IA = "ia_conservation";
@@ -43,6 +49,16 @@ export function creerHandlerConservationIa(): HandlerJob {
         action: "purge_textes_ia",
         entite: "ia_generation",
         details: { versions: total, a: maintenant.toISOString() },
+      });
+    }
+    const cache = await purgerCacheEchu(db, maintenant);
+    if (cache > 0) {
+      await journaliser(db, {
+        cabinetId,
+        utilisateurId: null,
+        action: "purge_cache_ia",
+        entite: "ia_cache",
+        details: { entrees: cache, a: maintenant.toISOString() },
       });
     }
   };
