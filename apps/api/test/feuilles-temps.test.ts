@@ -80,6 +80,13 @@ describe("activités internes et paramètres (TPS-02)", () => {
 describe("feuilles de temps (TPS-01, TPS-03)", () => {
   it("pré-remplissage depuis les affectations, sans donnée financière", async () => {
     const consultant = await consultantAffecte(a, m, { Diagnostic: 10 });
+    // Date valide mais hors bornes : 400 du schéma, jamais 500 de la base.
+    expect(
+      (await consultant.get("/api/feuilles-temps/semaine?semaine=1900-01-01")).statusCode,
+    ).toBe(400);
+    expect(
+      (await consultant.post("/api/feuilles-temps", { semaine: "1900-01-01" })).statusCode,
+    ).toBe(400);
     const semaine = await consultant.get(`/api/feuilles-temps/semaine?semaine=2026-11-04`);
     expect(semaine.statusCode, semaine.body).toBe(200);
     expect(semaine.json().feuille).toBeNull();
