@@ -1,0 +1,120 @@
+# Intégration continue MissionPilot (lot 8a).
+# Déclenchée à la demande et sur les pull requests vers main seulement (pas à chaque push,
+# pour ne pas consommer de minutes). Aucun secret : les mots de passe ci-dessous sont les
+# valeurs de développement publiques de .env.example / apps/api/src/config.ts, pour un
+# PostgreSQL jetable lié à 127.0.0.1 du runner.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Une nouvelle exécution sur la même PR (ou la même branche lancée à la main) annule la précédente.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualite:
+    name: qualite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # La version de pnpm vient du champ packageManager du package.json racine.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm format
+
+      # Le script test des moteurs lance vitest avec la couverture (seuils à 90 % dans vitest.config.ts).
+      - name: Tests des moteurs (couverture >= 90 %)
+        run: pnpm --filter @missionpilot/engines test
+
+      - name: Tests de shared
+        run: pnpm --filter @missionpilot/shared test
+
+      - name: Tests du web
+        run: pnpm --filter @missionpilot/web test
+
+  api:
+    name: api (partition ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      # Valeurs de développement publiques (.env.example), PostgreSQL jetable du runner.
+      # Le global-setup des tests suffixe le nom de base par _test et la recrée à chaque exécution.
+      DATABASE_OWNER_URL: postgres://missionpilot_owner:dev_only_owner_password@127.0.0.1:55440/missionpilot
+      DATABASE_URL: postgres://missionpilot_app:dev_only_app_password@127.0.0.1:55440/missionpilot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # docker run plutôt qu'un service GitHub : un service n'accepte pas d'arguments de commande,
+      # or le schéma (plus de 700 relations) exige max_locks_per_transaction=256 (docker-compose.yml).
+      - name: Démarrer PostgreSQL 16
+        run: |
+          docker run -d --name missionpilot-postgres \
+            -e POSTGRES_USER=missionpilot_owner \
+            -e POSTGRES_PASSWORD=dev_only_owner_password \
+            -e POSTGRES_DB=missionpilot \
+            -p 127.0.0.1:55440:5432 \
+            postgres:16-alpine \
+            postgres -c max_locks_per_transaction=256
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      # pg_isready est appelé en TCP (-h 127.0.0.1) : pendant l'initialisation, le serveur
+      # temporaire de l'image n'écoute que sur le socket Unix et répondrait trop tôt.
+      - name: Attendre PostgreSQL
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec missionpilot-postgres pg_isready -h 127.0.0.1 -U missionpilot_owner -d missionpilot; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "PostgreSQL n'est pas prêt après 120 s" >&2
+          docker logs missionpilot-postgres >&2
+          exit 1
+
+      # Le global-setup (apps/api/test/global-setup.ts) crée la base missionpilot_test, recrée
+      # le schéma et appelle migrate(), qui crée aussi le rôle applicatif missionpilot_app :
+      # aucune étape de migration ou de création de rôle séparée n'est nécessaire.
+      - name: Tests API (partition ${{ matrix.shard }}/4)
+        working-directory: apps/api
+        run: npx vitest run --shard=${{ matrix.shard }}/4
+
+      - name: Journaux PostgreSQL (en cas d'échec)
+        if: failure()
+        run: docker logs missionpilot-postgres --tail 200
