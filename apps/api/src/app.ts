@@ -34,6 +34,7 @@ import { routesPreuves } from "./routes/preuves.js";
 import { routesPrevisions } from "./routes/previsions.js";
 import { routesSalleMission } from "./routes/salle-mission.js";
 import { routesQualite } from "./routes/qualite.js";
+import { routesQualiteFroide } from "./routes/qualite-froide.js";
 import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
 import { routesStandard } from "./routes/standard.js";
@@ -286,6 +287,7 @@ export async function buildApp(
   await app.register(routesPreuves, { prefix: "/api" });
   await app.register(routesAgents, { prefix: "/api" });
   await app.register(routesQualite, { prefix: "/api" });
+  await app.register(routesQualiteFroide, { prefix: "/api" });
   await app.register(routesAutomatisation, { prefix: "/api" });
   await app.register(routesCloture, { prefix: "/api" });
   await app.register(routesSalleMission, { prefix: "/api" });
