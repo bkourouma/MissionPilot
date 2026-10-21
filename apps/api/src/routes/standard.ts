@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import {
+  apercuMissionSchema,
   briqueCreationSchema,
   briqueModificationSchema,
   casTypeCreationSchema,
@@ -9,9 +10,11 @@ import {
   derogationDecisionSchema,
   derogationsQuerySchema,
   elementMethodeCreationSchema,
+  elementMethodeModificationSchema,
   etapeCreationSchema,
   etapeModificationSchema,
   facteurCreationSchema,
+  facteurModificationSchema,
   methodeCreationSchema,
   methodeListeQuerySchema,
   missionContexteSchema,
@@ -26,6 +29,7 @@ import {
   propositionsStandardQuerySchema,
   regleModulationSchema,
   rubriqueCreationSchema,
+  rubriqueModificationSchema,
   simulationModulationSchema,
   taxonomieCreationSchema,
   taxonomieQuerySchema,
@@ -37,6 +41,7 @@ import { exiger } from "../auth/contexte.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { paramsId } from "../http/outils.js";
+import { apercuMission } from "../standard/apercu.js";
 import { lireContenu, sansIdentifiants } from "../standard/contenu.js";
 import { proposerContexteMission } from "../standard/contexte-dossier.js";
 import {
@@ -54,7 +59,10 @@ import {
   ajouterRegle,
   ajouterRubrique,
   modifierBrique,
+  modifierElement,
   modifierEtape,
+  modifierRubrique,
+  remplacerCasType,
   remplacerRegle,
   supprimerBrique,
   supprimerCasType,
@@ -104,6 +112,7 @@ import {
   listerNotes,
   listerServices,
   listerTaxonomies,
+  modifierFacteur,
 } from "../standard/referentiel.js";
 
 /*
@@ -120,14 +129,14 @@ import {
  * décisions de dérogation suivent la garde de la classe de risque (standard/derogations.ts).
  *
  * - GET /standard/taxonomies, POST /standard/taxonomies ; GET /standard/facteurs,
- *   POST /standard/facteurs ; GET /standard/services ; GET et POST /standard/notes ;
+ *   POST /standard/facteurs, PATCH /standard/facteurs/:id (facteur du cabinet, additif) ; GET /standard/services ; GET et POST /standard/notes ;
  * - GET /methodes, POST /methodes, GET /methodes/:id, POST /methodes/:id/variantes,
  *   POST /methodes/:id/versions ;
  * - GET et PATCH /methodes/versions/:id ; GET /methodes/versions/:id/validation,
  *   /comparaison, /mise-a-jour ; POST /methodes/versions/:id/publication, /simulation,
- *   /cas-types/execution ;
+ *   /cas-types/execution, /apercu (`standard.lire`, n'écrit rien) ;
  * - éditeur : POST /methodes/versions/:id/{etapes,briques,elements,rubriques,regles,cas-types},
- *   PATCH …/etapes/:enfantId et …/briques/:enfantId, PUT …/regles/:enfantId,
+ *   PATCH …/{etapes,briques,elements,rubriques}/:enfantId, PUT …/{regles,cas-types}/:enfantId,
  *   DELETE …/{etapes,briques,elements,rubriques,regles,cas-types}/:enfantId ;
  * - GET et PUT /missions/:id/methode, POST /missions/:id/methode/contexte,
  *   GET et POST /missions/:id/methode/migration ;
@@ -171,6 +180,13 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "standard.gerer");
     const corps = facteurCreationSchema.parse(request.body);
     return reply.status(201).send(await lire(auth, (db) => creerFacteur(db, auth, corps)));
+  });
+
+  app.patch("/standard/facteurs/:id", async (request) => {
+    const auth = exiger(request, "standard.gerer");
+    const { id } = paramsId.parse(request.params);
+    const corps = facteurModificationSchema.parse(request.body);
+    return lire(auth, (db) => modifierFacteur(db, auth, id, corps));
   });
 
   app.get("/standard/services", async (request) => {
@@ -284,6 +300,14 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     return lire(auth, async (db) => executerCas(sansIdentifiants(await lireContenu(db, id))));
   });
 
+  // Aperçu de la mission générée pour un contexte : lecture seule, brouillon ou version publiée.
+  app.post("/methodes/versions/:id/apercu", async (request) => {
+    const auth = exiger(request, "standard.lire");
+    const { id } = paramsId.parse(request.params);
+    const corps = apercuMissionSchema.parse(request.body ?? {});
+    return lire(auth, (db) => apercuMission(db, id, corps.contexte));
+  });
+
   /* ----- Éditeur sans code (brouillon du cabinet) ----- */
 
   app.post("/methodes/versions/:id/etapes", async (request, reply) => {
@@ -335,6 +359,13 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     return reply.status(201).send(await lire(auth, (db) => ajouterElement(db, auth, id, corps)));
   });
 
+  app.patch("/methodes/versions/:id/elements/:enfantId", async (request) => {
+    const auth = exiger(request, "standard.gerer");
+    const { id, enfantId } = paramsEnfant.parse(request.params);
+    const corps = elementMethodeModificationSchema.parse(request.body);
+    return lire(auth, (db) => modifierElement(db, auth, id, enfantId, corps));
+  });
+
   app.delete("/methodes/versions/:id/elements/:enfantId", async (request, reply) => {
     const auth = exiger(request, "standard.gerer");
     const { id, enfantId } = paramsEnfant.parse(request.params);
@@ -347,6 +378,13 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     const { id } = paramsId.parse(request.params);
     const corps = rubriqueCreationSchema.parse(request.body);
     return reply.status(201).send(await lire(auth, (db) => ajouterRubrique(db, auth, id, corps)));
+  });
+
+  app.patch("/methodes/versions/:id/rubriques/:enfantId", async (request) => {
+    const auth = exiger(request, "standard.gerer");
+    const { id, enfantId } = paramsEnfant.parse(request.params);
+    const corps = rubriqueModificationSchema.parse(request.body);
+    return lire(auth, (db) => modifierRubrique(db, auth, id, enfantId, corps));
   });
 
   app.delete("/methodes/versions/:id/rubriques/:enfantId", async (request, reply) => {
@@ -382,6 +420,13 @@ export const routesStandard: FastifyPluginAsync = async (app) => {
     const { id } = paramsId.parse(request.params);
     const corps = casTypeCreationSchema.parse(request.body);
     return reply.status(201).send(await lire(auth, (db) => ajouterCasType(db, auth, id, corps)));
+  });
+
+  app.put("/methodes/versions/:id/cas-types/:enfantId", async (request) => {
+    const auth = exiger(request, "standard.gerer");
+    const { id, enfantId } = paramsEnfant.parse(request.params);
+    const corps = casTypeCreationSchema.parse(request.body);
+    return lire(auth, (db) => remplacerCasType(db, auth, id, enfantId, corps));
   });
 
   app.delete("/methodes/versions/:id/cas-types/:enfantId", async (request, reply) => {

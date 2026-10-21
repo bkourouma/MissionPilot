@@ -17,10 +17,12 @@ import {
   niveauxAdmis,
   saisieBriqueVide,
   validerBrique,
+  type BriqueVersion,
   type ChampBrique,
   type EtapeVersion,
   type SaisieBrique,
 } from "../../lib/methodes";
+import { saisieDepuisBrique, validerBriqueModification } from "../../lib/methodes-editeur";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -32,27 +34,40 @@ import { ZoneTexte } from "../ui/ZoneTexte";
 /**
  * Ajout d'une brique (PRD §4.1) : objet, contrat d'entrée, moteur, agent autorisé, classe de
  * risque, sortie, définition de terminé, temps type, autonomie maximale. Les niveaux
- * d'autonomie proposés dépendent de la classe (N2 au plus pour un livrable client).
+ * d'autonomie proposés dépendent de la classe (N2 au plus pour un livrable client). Avec
+ * `brique`, le formulaire modifie la brique en place (son code ne change pas).
  */
 export function FormulaireBrique({
   versionId,
   etapes,
+  brique,
 }: {
   versionId: string;
   etapes: Pick<EtapeVersion, "id" | "libelle">[];
+  brique?: BriqueVersion;
 }) {
   const f = useFormulaire<ChampBrique>();
-  const [s, setS] = useState<SaisieBrique>(saisieBriqueVide(etapes[0]?.id ?? ""));
+  const [s, setS] = useState<SaisieBrique>(
+    brique ? saisieDepuisBrique(brique) : saisieBriqueVide(etapes[0]?.id ?? ""),
+  );
+  const base = `/api/methodes/versions/${versionId}/briques`;
   const maj = <K extends keyof SaisieBrique>(k: K, v: SaisieBrique[K]) =>
     setS((x) => ({ ...x, [k]: v }));
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const ok = await f.envoyer(
-      validerBrique(s),
-      (charge) => api.post(`/api/methodes/versions/${versionId}/briques`, charge),
-      { succes: "Brique ajoutée.", messageSpecifique: messageMethodes },
-    );
+    if (brique) {
+      await f.envoyer(
+        validerBriqueModification(s),
+        (charge) => api.patch(`${base}/${brique.id}`, charge),
+        { succes: "Brique modifiée.", messageSpecifique: messageMethodes },
+      );
+      return;
+    }
+    const ok = await f.envoyer(validerBrique(s), (charge) => api.post(base, charge), {
+      succes: "Brique ajoutée.",
+      messageSpecifique: messageMethodes,
+    });
     if (ok) setS(saisieBriqueVide(s.etape_id));
   }
 
@@ -87,7 +102,7 @@ export function FormulaireBrique({
           maxLength={200}
           onChange={(e) => {
             maj("libelle", e.target.value);
-            maj("code", codeDepuisLibelle(e.target.value));
+            if (!brique) maj("code", codeDepuisLibelle(e.target.value));
           }}
           erreur={f.erreurs.libelle}
         />
@@ -98,6 +113,8 @@ export function FormulaireBrique({
           maxLength={120}
           spellCheck={false}
           autoComplete="off"
+          readOnly={Boolean(brique)}
+          aide={brique ? "Le code ne change pas." : undefined}
           onChange={(e) => maj("code", e.target.value)}
           erreur={f.erreurs.code}
         />
@@ -191,8 +208,13 @@ export function FormulaireBrique({
         onChange={(e) => maj("active_par_defaut", e.target.checked)}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="plus" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter la brique
+        <Bouton
+          type="submit"
+          icone={brique ? "succes" : "plus"}
+          chargement={f.enCours}
+          texteChargement={brique ? "Enregistrement…" : "Ajout…"}
+        >
+          {brique ? "Enregistrer la brique" : "Ajouter la brique"}
         </Bouton>
       </div>
     </form>

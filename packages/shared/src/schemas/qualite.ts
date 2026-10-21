@@ -314,3 +314,207 @@ export const satisfactionSyntheseQuerySchema = z
     limite: z.coerce.number().int().min(1).max(100).default(50),
   })
   .strict();
+
+// ---------------------------------------------------------------------------
+// Revue à froid des missions clôturées (QUA-05)
+// ---------------------------------------------------------------------------
+
+/**
+ * Grille de revue à froid (version 1) : critères, libellés et poids. La note de chaque critère va
+ * de 1 (insuffisant) à 5 (exemplaire) ; `null` = sans objet, avec justification. Le calcul du
+ * score et de la conclusion appartient au moteur (`packages/engines/src/qualite/revue-froide.ts`).
+ */
+export const GRILLE_REVUE_FROIDE_VERSION = 1;
+export const CRITERES_REVUE_FROIDE = [
+  {
+    code: "conformite_methode",
+    libelle: "Conformité à la méthode et aux gardes de qualité",
+    poids: 3,
+  },
+  { code: "solidite_preuves", libelle: "Solidité des preuves et des chiffres", poids: 3 },
+  { code: "relecture_signature", libelle: "Relecture, quatre yeux et signature", poids: 3 },
+  {
+    code: "acceptation_independance",
+    libelle: "Acceptation de la mission et indépendance",
+    poids: 2,
+  },
+  { code: "satisfaction_client", libelle: "Satisfaction et relation avec le client", poids: 2 },
+  { code: "budget_delais", libelle: "Maîtrise du budget et des délais", poids: 2 },
+  { code: "dossier_complet", libelle: "Complétude et traçabilité du dossier de mission", poids: 2 },
+  { code: "usage_ia", libelle: "Usage de l'IA encadré et déclaré", poids: 2 },
+] as const;
+export type CritereRevueFroide = (typeof CRITERES_REVUE_FROIDE)[number]["code"];
+export const CODES_CRITERES_REVUE_FROIDE = CRITERES_REVUE_FROIDE.map((c) => c.code) as [
+  CritereRevueFroide,
+  ...CritereRevueFroide[],
+];
+export const critereRevueFroideSchema = z.enum(CODES_CRITERES_REVUE_FROIDE);
+
+export const STATUTS_CAMPAGNE_FROIDE = ["ouverte", "close"] as const;
+export type StatutCampagneFroide = (typeof STATUTS_CAMPAGNE_FROIDE)[number];
+export const STATUT_CAMPAGNE_FROIDE_LIBELLES: Record<StatutCampagneFroide, string> = {
+  ouverte: "Ouverte",
+  close: "Close",
+};
+
+export const STATUTS_ECHANTILLON_FROID = [
+  "a_affecter",
+  "affectee",
+  "en_revue",
+  "terminee",
+] as const;
+export type StatutEchantillonFroid = (typeof STATUTS_ECHANTILLON_FROID)[number];
+export const STATUT_ECHANTILLON_FROID_LIBELLES: Record<StatutEchantillonFroid, string> = {
+  a_affecter: "À affecter",
+  affectee: "Affectée",
+  en_revue: "En revue",
+  terminee: "Terminée",
+};
+
+export const CONCLUSIONS_REVUE_FROIDE = ["conforme", "reserves", "non_conforme"] as const;
+export type ConclusionRevueFroide = (typeof CONCLUSIONS_REVUE_FROIDE)[number];
+export const CONCLUSION_REVUE_FROIDE_LIBELLES: Record<ConclusionRevueFroide, string> = {
+  conforme: "Conforme",
+  reserves: "Conforme avec réserves",
+  non_conforme: "Non conforme",
+};
+
+export const GRAVITES_CONSTAT_FROID = ["mineur", "majeur", "critique"] as const;
+export type GraviteConstatFroid = (typeof GRAVITES_CONSTAT_FROID)[number];
+export const GRAVITE_CONSTAT_FROID_LIBELLES: Record<GraviteConstatFroid, string> = {
+  mineur: "Mineur",
+  majeur: "Majeur",
+  critique: "Critique",
+};
+
+export const STATUTS_ACTION_FROIDE = ["a_faire", "en_cours", "faite", "abandonnee"] as const;
+export type StatutActionFroide = (typeof STATUTS_ACTION_FROIDE)[number];
+export const STATUT_ACTION_FROIDE_LIBELLES: Record<StatutActionFroide, string> = {
+  a_faire: "À faire",
+  en_cours: "En cours",
+  faite: "Faite",
+  abandonnee: "Abandonnée",
+};
+
+/** Axes de stratification de l'échantillon (répartition équilibrée entre types ou directeurs). */
+export const STRATES_ECHANTILLON = ["type_mission", "directeur"] as const;
+export type StrateEchantillon = (typeof STRATES_ECHANTILLON)[number];
+
+/** Plafonds : taille d'un échantillon, population tirable, constats et actions. */
+export const BORNES_REVUE_FROIDE = {
+  taille: 100,
+  population: 5000,
+  constatsParRevue: 100,
+  actionsParCampagne: 500,
+} as const;
+
+const graineSchema = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9_-]{1,64}$/,
+    "Graine : lettres, chiffres, « _ » et « - », 64 caractères au plus.",
+  );
+
+/** Critères d'un tirage (période = date de clôture de la mission). */
+export const criteresEchantillonSchema = z
+  .object({
+    periode_debut: dateIsoSchema,
+    periode_fin: dateIsoSchema,
+    types_mission_ids: z.array(uuid).max(50).default([]),
+    directeur_ids: z.array(uuid).max(50).default([]),
+    stratifier_par: z.enum(STRATES_ECHANTILLON).nullable().default(null),
+    /** Écarte les missions déjà tirées dans une campagne précédente du cabinet. */
+    exclure_deja_revues: z.boolean().default(true),
+  })
+  .strict()
+  .refine((c) => c.periode_debut <= c.periode_fin, {
+    message: "La fin de période précède son début.",
+    path: ["periode_fin"],
+  });
+export type CriteresEchantillon = z.infer<typeof criteresEchantillonSchema>;
+
+export const campagneFroideCreationSchema = z
+  .object({
+    intitule: texte(200),
+    criteres: criteresEchantillonSchema,
+    taille: z.number().int().min(1).max(BORNES_REVUE_FROIDE.taille),
+    /** Absente : tirée par le serveur ; toujours enregistrée, elle rend le tirage reproductible. */
+    graine: graineSchema.optional(),
+  })
+  .strict();
+export type CampagneFroideCreation = z.infer<typeof campagneFroideCreationSchema>;
+
+export const campagneFroideListeQuerySchema = z
+  .object({
+    statut: z.enum(STATUTS_CAMPAGNE_FROIDE).optional(),
+    limite: z.coerce.number().int().min(1).max(100).default(30),
+    curseur: z.string().max(500).optional(),
+  })
+  .strict();
+
+export const affectationRelecteurSchema = z.object({ relecteur_id: uuid }).strict();
+
+/** Note d'un critère de la grille ; `null` (sans objet) exige un commentaire. */
+export const evaluationRevueFroideSchema = z
+  .object({
+    critere: critereRevueFroideSchema,
+    note: z.number().int().min(1).max(5).nullable(),
+    commentaire: z.string().trim().max(2000).nullable().optional(),
+  })
+  .strict()
+  .refine((e) => e.note !== null || Boolean(e.commentaire), {
+    message: "Justifier un critère sans objet.",
+    path: ["commentaire"],
+  });
+
+export const constatFroidCreationSchema = z
+  .object({
+    critere: critereRevueFroideSchema.nullable().optional(),
+    gravite: z.enum(GRAVITES_CONSTAT_FROID),
+    description: texte(2000),
+    recommandation: z.string().trim().max(2000).nullable().optional(),
+  })
+  .strict();
+
+export const revueFroideTerminaisonSchema = z.object({ synthese: texte(4000) }).strict();
+
+export const actionFroideCreationSchema = z
+  .object({
+    constat_id: uuid.nullable().optional(),
+    titre: texte(200),
+    description: z.string().trim().max(2000).nullable().optional(),
+    responsable_id: uuid,
+    echeance: dateIsoSchema,
+  })
+  .strict();
+
+/** Suivi d'une action : statut, responsable ou échéance ; clôturer exige un commentaire. */
+export const actionFroideModificationSchema = z
+  .object({
+    statut: z.enum(STATUTS_ACTION_FROIDE).optional(),
+    responsable_id: uuid.optional(),
+    echeance: dateIsoSchema.optional(),
+    commentaire: z.string().trim().max(2000).nullable().optional(),
+  })
+  .strict()
+  .refine((a) => (a.statut !== "faite" && a.statut !== "abandonnee") || Boolean(a.commentaire), {
+    message: "Commenter la clôture de l'action (résultat obtenu ou raison de l'abandon).",
+    path: ["commentaire"],
+  })
+  .refine(
+    (a) => a.statut !== undefined || a.responsable_id !== undefined || a.echeance !== undefined,
+    { message: "Rien à modifier." },
+  );
+
+export const actionsFroidesQuerySchema = z
+  .object({
+    campagne_id: uuid.optional(),
+    statut: z.enum(STATUTS_ACTION_FROIDE).optional(),
+    en_retard: z
+      .enum(["true", "false"])
+      .transform((v) => v === "true")
+      .optional(),
+    limite: z.coerce.number().int().min(1).max(100).default(50),
+    curseur: z.string().max(500).optional(),
+  })
+  .strict();

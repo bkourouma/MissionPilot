@@ -24,6 +24,7 @@ import {
   tonaliteStatutSuivi,
   type PageSuivis,
 } from "../../../lib/qualite";
+import { droitsQualiteFroide, HREF_REVUE_FROIDE } from "../../../lib/qualite-froide";
 import { exigerConsultationQualite } from "../../../lib/qualite-serveur";
 import { STATUTS_SUIVI, STATUT_SUIVI_LIBELLES } from "@missionpilot/shared";
 
@@ -41,6 +42,7 @@ export default async function PageQualite({
 }) {
   const session = await exigerConsultationQualite();
   const droits = droitsQualite(session.utilisateur.roles);
+  const froide = droitsQualiteFroide(session.utilisateur.roles);
   const filtres = lireFiltresQualite(await searchParams);
   const [r, missions] = await Promise.all([
     chargerServeur<PageSuivis>(cheminSuivis(filtres)),
@@ -55,14 +57,23 @@ export default async function PageQualite({
         titre="Qualité des livrables"
         soustitre="Classe de risque, revue guidée, quatre yeux et signature : plus l'IA produit, plus la relecture humaine doit être exigeante."
         actions={
-          droits.relire ? (
+          droits.relire || froide.acces ? (
             <>
-              <Link href="/qualite/acceptation" className="mp-lien-ligne">
-                Acceptation de mission
-              </Link>
-              <Link href="/qualite/satisfaction" className="mp-lien-ligne">
-                Satisfaction des clients
-              </Link>
+              {droits.relire ? (
+                <>
+                  <Link href="/qualite/acceptation" className="mp-lien-ligne">
+                    Acceptation de mission
+                  </Link>
+                  <Link href="/qualite/satisfaction" className="mp-lien-ligne">
+                    Satisfaction des clients
+                  </Link>
+                </>
+              ) : null}
+              {froide.acces ? (
+                <Link href={HREF_REVUE_FROIDE} className="mp-lien-ligne">
+                  Revue à froid
+                </Link>
+              ) : null}
             </>
           ) : undefined
         }

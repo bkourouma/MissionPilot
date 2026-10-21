@@ -49,6 +49,31 @@ const SQL: Record<string, [number, string, string]> = {
     "L'auteur du livrable n'atteste pas sa propre définition de terminé.",
   ],
   MPY11: [400, "AUTEUR_NON_MEMBRE", "L'auteur désigné doit être un membre actif de la mission."],
+  // Revue à froid (QUA-05, migrations 0287 à 0289).
+  MQQ01: [409, "FROIDE_HISTORIQUE_IMMUABLE", "L'historique de la revue à froid est en ajout seul."],
+  MQQ02: [409, "FROIDE_CAMPAGNE_FIGEE", "La campagne de revue à froid et son tirage sont figés."],
+  MQQ03: [
+    409,
+    "RELECTEUR_NON_INDEPENDANT",
+    "Le relecteur n'est pas indépendant de la mission tirée.",
+  ],
+  MQQ04: [409, "REVUE_FROIDE_TERMINEE", "La revue est terminée : elle est figée."],
+  MQQ05: [409, "MISSION_TIREE_INVALIDE", "Seule une mission clôturée de la population se tire."],
+  MQQ06: [409, "ACTION_TRANSITION_IMPOSSIBLE", "Cette action ne peut pas changer ainsi."],
+  MQQ07: [409, "RELECTEUR_NON_HABILITE", "Le relecteur n'est pas habilité à la revue à froid."],
+  MQQ08: [400, "RESPONSABLE_INVALIDE", "Le responsable doit être un utilisateur actif du cabinet."],
+  MQQ09: [409, "PLAFOND_ATTEINT", "Le plafond de cette liste est atteint."],
+  MQQ10: [
+    409,
+    "REVUES_NON_TERMINEES",
+    "Toutes les revues doivent être terminées avant de clore la campagne.",
+  ],
+  MQQ11: [409, "REVUE_ETAT_IMPOSSIBLE", "Cette opération est impossible dans l'état de la revue."],
+  MQQ12: [
+    409,
+    "CONSTAT_INVALIDE",
+    "Le constat doit venir d'une revue terminée de la même campagne.",
+  ],
 };
 
 function champ(error: unknown, nom: string): string {
@@ -73,6 +98,18 @@ const UNICITES: Record<string, [string, string]> = {
   qualite_satisfactions_mission_id_cle_rang_key: [
     "CONFLIT",
     "Une note vient d'être enregistrée : rechargez la page.",
+  ],
+  qualite_froide_echantillon_mission_uniq: [
+    "MISSION_DEJA_TIREE",
+    "Cette mission est déjà dans l'échantillon de la campagne.",
+  ],
+  qualite_froide_evaluations_critere_uniq: [
+    "CONFLIT",
+    "Ce critère vient d'être évalué : rechargez la page.",
+  ],
+  qualite_froide_actions_historique_rang_uniq: [
+    "CONFLIT",
+    "Cette action vient d'être modifiée : rechargez la page.",
   ],
   qualite_relations_retraits_relation_id_key: [
     "RELATION_DEJA_RETIREE",

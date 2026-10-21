@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { TAXONOMIE_LIBELLES, TAXONOMIES, type Taxonomie } from "@missionpilot/shared";
 import { FormulaireFacteur } from "../../../../components/methodes/DictionnaireComiteFormulaires";
+import { FormulaireModificationFacteur } from "../../../../components/methodes/FormulaireModificationFacteur";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
@@ -45,6 +46,7 @@ export default async function PageDictionnaire({
     ? (sp.taxonomie as Taxonomie)
     : "secteur";
   const curseur = lireCurseur(sp.curseur);
+  const gere = peutGerer(utilisateur.roles);
   const [f, t] = await Promise.all([
     chargerServeur<{ elements: Facteur[] }>("/api/standard/facteurs"),
     chargerServeur<{ elements: Entree[]; curseur_suivant: string | null }>(
@@ -79,6 +81,18 @@ export default async function PageDictionnaire({
                       : ""}
                   </span>
                   {x.valeurs ? <span>{x.valeurs.map((v) => v.libelle).join(", ")}</span> : null}
+                  {x.description ? <span>{x.description}</span> : null}
+                  {x.origine === "standard" ? (
+                    <span className="mp-texte-doux mp-texte-petit">
+                      Facteur du standard MissionPilot : en lecture seule. Pour en tenir compte
+                      autrement, ajoutez un facteur propre au cabinet.
+                    </span>
+                  ) : gere ? (
+                    <details className="mp-details">
+                      <summary>Modifier ce facteur</summary>
+                      <FormulaireModificationFacteur facteur={x} />
+                    </details>
+                  ) : null}
                 </div>
                 <BadgeStatut tonalite={x.origine === "standard" ? "neutre" : "succes"}>
                   {x.origine === "standard" ? "Standard" : "Cabinet"}
@@ -88,7 +102,7 @@ export default async function PageDictionnaire({
           </ul>
         )}
       </Carte>
-      {peutGerer(utilisateur.roles) ? (
+      {gere ? (
         <Carte titre="Ajouter un facteur du cabinet">
           <FormulaireFacteur />
         </Carte>

@@ -1,4 +1,13 @@
-import { ErreurModulation, validerReglesModulation } from "@missionpilot/engines";
+import {
+  analyserCoherenceMethode,
+  analyserHeritage,
+  ErreurModulation,
+  validerReglesModulation,
+  type AnomalieCoherence,
+  type EffetModulation,
+  type NoeudMethode,
+  type NoeudVersion,
+} from "@missionpilot/engines";
 import {
   CODES_MOTEURS_STANDARD,
   type ClasseRisque,
@@ -20,6 +29,10 @@ import type { ContenuMethode } from "./types.js";
  * - variante : pas de classe de risque abaissée ni d'autonomie relevée par
  *   rapport à la version du standard dont elle part (`CLASSE_ABAISSEE`,
  *   `AUTONOMIE_RELEVEE`).
+ * - contrôle étendu (STD-11, `controlerVersion`) : `validerVersion` + cohérence
+ *   interne du moteur (`analyserCoherenceMethode` : références cassées, rubriques,
+ *   règles contradictoires ou sans portée) + chaîne d'héritage (`analyserHeritage` :
+ *   cycles, maillons manquants), regroupés en six catégories pour l'éditeur.
  * Une anomalie de gravité « erreur » bloque la publication.
  */
 
@@ -176,4 +189,139 @@ export function validerVersion(
     }
   }
   return { valide: anomalies.every((a) => a.gravite !== "erreur"), anomalies, cas_types: cas };
+}
+
+// ---------------------------------------------------------------------------
+// Contrôle étendu (STD-11)
+// ---------------------------------------------------------------------------
+
+export type CategorieValidation =
+  "structure" | "references" | "regles" | "rubriques" | "heritage" | "cas_types";
+
+/** Les six catégories, toujours dans cet ordre, avec leur libellé français. */
+export const CATEGORIES_VALIDATION: readonly { categorie: CategorieValidation; libelle: string }[] =
+  [
+    { categorie: "structure", libelle: "Structure" },
+    { categorie: "references", libelle: "Références" },
+    { categorie: "regles", libelle: "Règles de modulation" },
+    { categorie: "rubriques", libelle: "Rubriques d'évaluation" },
+    { categorie: "heritage", libelle: "Héritage" },
+    { categorie: "cas_types", libelle: "Cas types" },
+  ];
+
+export interface CategorieResume {
+  categorie: CategorieValidation;
+  libelle: string;
+  erreurs: number;
+  avertissements: number;
+}
+
+export interface ValidationEtendue extends ValidationVersion {
+  categories: CategorieResume[];
+}
+
+/** Chaîne d'héritage lue en base : méthodes et versions, plafonnée (`PLAFOND_CHAINE_HERITAGE`). */
+export interface ChaineHeritage {
+  methodes: NoeudMethode[];
+  versions: NoeudVersion[];
+  /** Vrai si la lecture s'est arrêtée au plafond avant la fin de la chaîne. */
+  tronquee: boolean;
+}
+
+export const PLAFOND_CHAINE_HERITAGE = 20;
+
+const CODES_STRUCTURE = new Set([
+  "VERSION_SANS_BRIQUE",
+  "ETAPE_SANS_BRIQUE",
+  "MOTEUR_INCONNU",
+  "AUTONOMIE_INCOMPATIBLE",
+  "CLASSE_ABAISSEE",
+  "AUTONOMIE_RELEVEE",
+]);
+const CODES_CAS_TYPES = new Set(["AUCUN_CAS_TYPE", "CAS_TYPE_ECHOUE"]);
+
+/** Catégorie d'une anomalie de `validerVersion` ou de la cohérence interne (pas de l'héritage). */
+function categorieDe(a: AnomalieVersion): CategorieValidation {
+  if (CODES_STRUCTURE.has(a.code)) return "structure";
+  if (a.code.startsWith("RUBRIQUE_")) return "rubriques";
+  if (CODES_CAS_TYPES.has(a.code) || a.chemin === "cas_types") return "cas_types";
+  if (a.code === "REFERENCE_CASSEE") return "references";
+  return "regles";
+}
+
+const enAnomalie = (a: AnomalieCoherence): AnomalieVersion => ({
+  code: a.code,
+  gravite: a.gravite,
+  regle: a.regle,
+  chemin: a.chemin,
+  message: a.message,
+});
+
+/**
+ * Contrôle complet d'une version : `validerVersion`, cohérence interne du moteur et héritage.
+ * Ne lève pas. `valide` = aucune anomalie de gravité « erreur » ; les avertissements ne bloquent pas.
+ */
+export function controlerVersion(
+  contenu: ContenuMethode,
+  facteurs: readonly FacteurLigne[],
+  base: ContenuMethode | null,
+  chaine: ChaineHeritage,
+): ValidationEtendue {
+  const initiale = validerVersion(contenu, facteurs, base);
+  const marquees: { a: AnomalieVersion; categorie: CategorieValidation }[] = initiale.anomalies.map(
+    (a) => ({ a, categorie: categorieDe(a) }),
+  );
+  const coherence = analyserCoherenceMethode({
+    etapes: contenu.etapes,
+    briques: contenu.briques,
+    elements: contenu.elements,
+    rubriques: contenu.rubriques,
+    regles: reglesDe(contenu),
+    cas_types: contenu.cas_types.map((c) => ({
+      code: c.code,
+      ...(c.cas.briques_de_base ? { briques_de_base: c.cas.briques_de_base } : {}),
+      attendu: {
+        ...(c.cas.attendu.presents
+          ? { presents: c.cas.attendu.presents as readonly EffetModulation[] }
+          : {}),
+        ...(c.cas.attendu.absents
+          ? { absents: c.cas.attendu.absents as readonly EffetModulation[] }
+          : {}),
+        ...(c.cas.attendu.regles_declenchees
+          ? { regles_declenchees: c.cas.attendu.regles_declenchees }
+          : {}),
+      },
+    })),
+  });
+  for (const c of coherence) {
+    const a = enAnomalie(c);
+    marquees.push({ a, categorie: categorieDe(a) });
+  }
+  const heritage = analyserHeritage(chaine.methodes, chaine.versions).map(enAnomalie);
+  if (chaine.tronquee) {
+    heritage.push({
+      code: "HERITAGE_INCOHERENT",
+      gravite: "erreur",
+      regle: null,
+      chemin: "versions",
+      message: `La chaîne d'héritage dépasse ${PLAFOND_CHAINE_HERITAGE} maillons.`,
+    });
+  }
+  for (const a of heritage) marquees.push({ a, categorie: "heritage" });
+
+  const anomalies = marquees.map((m) => m.a);
+  const categories = CATEGORIES_VALIDATION.map((c) => {
+    const siennes = marquees.filter((m) => m.categorie === c.categorie);
+    return {
+      ...c,
+      erreurs: siennes.filter((m) => m.a.gravite === "erreur").length,
+      avertissements: siennes.filter((m) => m.a.gravite === "avertissement").length,
+    };
+  });
+  return {
+    valide: anomalies.every((a) => a.gravite !== "erreur"),
+    anomalies,
+    cas_types: initiale.cas_types,
+    categories,
+  };
 }

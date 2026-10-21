@@ -1,6 +1,7 @@
 import {
   FACTEURS_CABINET_MAX,
   type facteurCreationSchema,
+  type facteurModificationSchema,
   type noteContexteCreationSchema,
   type noteContexteQuerySchema,
   type TaxonomieCreation,
@@ -10,9 +11,10 @@ import type { z } from "zod";
 import { journaliser } from "../audit.js";
 import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { traduireErreursPg } from "../db/outils.js";
-import { AppError, conflit } from "../errors.js";
+import { clauseSet, traduireErreursPg } from "../db/outils.js";
+import { AppError, conflit, introuvable, requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer } from "../http/outils.js";
+import { facteurRetraitInterdit, facteurStandardLectureSeule } from "./erreurs.js";
 import { lireFacteurs } from "./modulation.js";
 
 /*
@@ -138,6 +140,81 @@ export async function creerFacteur(
     details: { code: corps.code, type: corps.type },
   });
   return (await listerFacteurs(db)).elements.find((f) => f.id === r.rows[0].id);
+}
+
+/**
+ * Modification ADDITIVE d'un facteur PROPRE AU CABINET (STD-04, STD-11) : libellé et description
+ * libres ; valeurs ajoutées, jamais retirées ; bornes élargies, jamais resserrées (les règles, cas
+ * types et contextes de mission qui s'y réfèrent restent valides). Doublé en base (MQS01, MQS02).
+ */
+export async function modifierFacteur(
+  db: Db,
+  auth: Auth,
+  id: string,
+  corps: z.infer<typeof facteurModificationSchema>,
+) {
+  // Lecture visible (standard compris) pour distinguer 403 et 404, puis verrou sur la ligne du cabinet.
+  const visible = await db.query(`SELECT cabinet_id FROM facteurs_contexte WHERE id = $1`, [id]);
+  if (!visible.rows[0]) throw introuvable("Facteur de contexte");
+  if (visible.rows[0].cabinet_id === null) throw facteurStandardLectureSeule();
+  const r0 = await db.query(
+    `SELECT id, cabinet_id, code, type, valeurs, min::text AS min, max::text AS max
+     FROM facteurs_contexte WHERE id = $1 FOR UPDATE`,
+    [id],
+  );
+  const f = r0.rows[0] as
+    | {
+        cabinet_id: string | null;
+        code: string;
+        type: string;
+        valeurs: { code: string }[] | null;
+        min: string | null;
+        max: string | null;
+      }
+    | undefined;
+  if (!f) throw introuvable("Facteur de contexte");
+  if (f.cabinet_id === null) throw facteurStandardLectureSeule();
+
+  if (corps.valeurs !== undefined) {
+    if (f.valeurs === null) {
+      throw requeteInvalide(
+        "Ce facteur n'a pas de valeurs : seule une énumération ou une liste en a.",
+      );
+    }
+    const nouveaux = new Set(corps.valeurs.map((v) => v.code));
+    const retires = f.valeurs.map((v) => v.code).filter((c) => !nouveaux.has(c));
+    if (retires.length > 0) {
+      throw facteurRetraitInterdit(`Valeur(s) retirée(s) : ${retires.join(", ")}.`);
+    }
+  }
+  if (f.type !== "nombre" && (corps.min != null || corps.max != null)) {
+    throw requeteInvalide("Des bornes ne s'appliquent qu'à un facteur de type nombre.");
+  }
+  const min = corps.min === undefined ? (f.min === null ? null : Number(f.min)) : corps.min;
+  const max = corps.max === undefined ? (f.max === null ? null : Number(f.max)) : corps.max;
+  if (min !== null && max !== null && min > max) {
+    throw requeteInvalide("Borne minimale supérieure à la maximale.");
+  }
+  if (min !== null && (f.min === null || min > Number(f.min))) {
+    throw facteurRetraitInterdit("Borne minimale resserrée : on élargit seulement.");
+  }
+  if (max !== null && (f.max === null || max < Number(f.max))) {
+    throw facteurRetraitInterdit("Borne maximale resserrée : on élargit seulement.");
+  }
+
+  const set = clauseSet(corps, 2, ["valeurs"]);
+  if (set.sql) {
+    await db.query(`UPDATE facteurs_contexte SET ${set.sql} WHERE id = $1`, [id, ...set.valeurs]);
+  }
+  await journaliser(db, {
+    cabinetId: auth.cabinetId,
+    utilisateurId: auth.utilisateurId,
+    action: "standard.facteur.modifier",
+    entite: "facteur_contexte",
+    entiteId: id,
+    details: { code: f.code, champs: Object.keys(corps) },
+  });
+  return (await listerFacteurs(db)).elements.find((x) => x.id === id);
 }
 
 export async function listerServices(db: Db) {

@@ -1,7 +1,7 @@
 import { ErreurModulation, ErreurQualite } from "@missionpilot/engines";
 import { AppError } from "../errors.js";
 
-/** SQLSTATE des déclencheurs du référentiel de méthodes (migrations 0200 à 0205). */
+/** SQLSTATE des déclencheurs du référentiel de méthodes (migrations 0200 à 0210). */
 const SQL_PUBLIEE = "MPM01";
 const SQL_INCOHERENT = "MPM02";
 const SQL_AJOUT_SEUL = "MPM03";
@@ -10,6 +10,8 @@ const SQL_PROPOSITION = "MPM05";
 const SQL_LIAISON = "MPM06";
 const SQL_VARIANTE_DESSERREE = "MPM07";
 const SQL_VARIANTE_QUATRE_YEUX = "MPM08";
+const SQL_FACTEUR_FIGE = "MQS01";
+const SQL_FACTEUR_RETRAIT = "MQS02";
 
 export const versionPubliee = () =>
   new AppError(
@@ -32,6 +34,27 @@ export const separationVariante = () =>
     "Une variante n'est pas publiée par le créateur de la version (sauf associé).",
   );
 
+export const facteurStandardLectureSeule = () =>
+  new AppError(
+    403,
+    "STANDARD_LECTURE_SEULE",
+    "Un facteur du standard MissionPilot est en lecture seule : créer un facteur du cabinet.",
+  );
+
+export const facteurFige = () =>
+  new AppError(
+    409,
+    "FACTEUR_FIGE",
+    "Facteur de contexte figé : identité (code, type, porteur) ou facteur du standard.",
+  );
+
+export const facteurRetraitInterdit = (detail?: string) =>
+  new AppError(
+    409,
+    "FACTEUR_RETRAIT_INTERDIT",
+    `Un facteur de contexte s'enrichit sans rien retirer : valeurs conservées, bornes élargies.${detail ? ` ${detail}` : ""}`,
+  );
+
 export const plafondAtteint = (quoi: string, max: number) =>
   new AppError(409, "PLAFOND_ATTEINT", `${quoi} : ${max} au plus par version.`);
 
@@ -39,7 +62,8 @@ export const plafondAtteint = (quoi: string, max: number) =>
  * Traduit les erreurs des moteurs (modulation, qualité) et des déclencheurs du
  * référentiel en erreurs HTTP : version publiée → 409 ; incohérence → 409 ;
  * historique en ajout seul → 409 ; décision de dérogation ou séparation des
- * tâches → 409 ; proposition → 409 ; liaison de mission → 409. Un jeu de
+ * tâches → 409 ; proposition → 409 ; liaison de mission → 409 ; facteur figé
+ * ou appauvri (MQS01, MQS02) → 409. Un jeu de
  * règles refusé par le moteur → 400 avec son code (le client traduit le
  * code, le message cite le chemin). Le reste remonte au gestionnaire de
  * l'application.
@@ -92,6 +116,10 @@ export function traduireErreurStandard(error: unknown): unknown {
       );
     case SQL_VARIANTE_QUATRE_YEUX:
       return separationVariante();
+    case SQL_FACTEUR_FIGE:
+      return facteurFige();
+    case SQL_FACTEUR_RETRAIT:
+      return facteurRetraitInterdit();
     default:
       return error;
   }
