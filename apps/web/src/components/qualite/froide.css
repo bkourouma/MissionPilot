@@ -1,0 +1,192 @@
+/*
+ * Revue à froid des missions clôturées (QUA-05). Mobile d'abord, CSS pur, jetons du cadre.
+ * La couleur ne porte jamais seule le sens : statuts, notes et conclusions sont écrits.
+ */
+
+.mp-froide__pile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-froide__pile p,
+.mp-froide__pile ul {
+  margin: 0;
+}
+
+.mp-froide__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-froide__element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-froide__def {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-froide__def dt {
+  font-weight: 600;
+}
+
+.mp-froide__def dd {
+  margin: 0 0 var(--mp-esp-2);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .mp-froide__def {
+    grid-template-columns: minmax(10rem, max-content) 1fr;
+  }
+
+  .mp-froide__def dd {
+    margin: 0;
+  }
+}
+
+.mp-froide__indicateurs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 720px) {
+  .mp-froide__indicateurs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.mp-froide__indicateur {
+  display: flex;
+  flex-direction: column;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide__indicateur strong {
+  font-size: var(--mp-taille-l);
+}
+
+/* ---------- Grille de revue ---------- */
+.mp-froide-critere {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-froide-notes legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.mp-froide-note {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: 44px;
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide-note:has(input:checked) {
+  border-color: var(--mp-primaire);
+  font-weight: 600;
+}
+
+.mp-froide-note:has(input:focus-visible) {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-froide-note input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.mp-froide-note label {
+  cursor: pointer;
+}
+
+/* ---------- Dossier de la mission ---------- */
+.mp-froide-dossier details {
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide-dossier summary {
+  min-height: 44px;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mp-froide-dossier summary:focus-visible {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-froide-dossier__corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0 var(--mp-esp-3) var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-froide-dossier__corps p,
+.mp-froide-dossier__corps ul {
+  margin: 0;
+}
+
+.mp-froide-dossier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-froide-ineligibles {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}
