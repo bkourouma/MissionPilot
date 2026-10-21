@@ -53,6 +53,10 @@ export * from "./schemas/redressement-cloture";
 export * from "./schemas/redressement-financement";
 export * from "./schemas/redressement-causes";
 export * from "./schemas/redressement-checklists";
+// Lot 5b : efficacité des recommandations (CAP-03), observatoire (CAP-04), veille des appels d offres (AO-01).
+export * from "./schemas/capitalisation-efficacite";
+export * from "./schemas/observatoire";
+export * from "./schemas/appels-offres-veille";
 export * from "./grilles/index";
 // Services candidats : prix fixe et veille des guichets de financement.
 export * from "./schemas/services-candidats";

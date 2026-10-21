@@ -47,6 +47,7 @@ describe("table de navigation", () => {
       "Agents IA",
       "Qualité",
       "Connaissances",
+      "Observatoire",
       "Plan de charge",
       "Prévisions",
       "Facturation",
@@ -154,6 +155,7 @@ describe("entreesAutorisees", () => {
     expect(onglets("expert_metier")).toEqual([
       "recherche",
       "retours",
+      "efficacite",
       "competences",
       "derogations",
     ]);

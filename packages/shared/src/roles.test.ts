@@ -675,7 +675,7 @@ describe("V3, vague 4 : portail investisseur de la due diligence", () => {
   });
 });
 
-describe("Services candidats : lecture comme le catalogue, gestion à l'associé seul", () => {
+describe("Services candidats : lecture comme le catalogue, gestion à l'associé et au directeur de mission", () => {
   const qui = (p: Parameters<typeof aPermission>[1]) =>
     TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
 
@@ -689,6 +689,24 @@ describe("Services candidats : lecture comme le catalogue, gestion à l'associé
 
   it("aucun rôle client ni l'expert externe n'y touche (portail fermé)", () => {
     for (const p of ["services_candidats.lire", "services_candidats.gerer"] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe("V3, lot 5b : observatoire inter-cabinets (CAP-04)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("observatoire.lire : associé et directeur de mission ; adhérer : associé seul", () => {
+    expect(qui("observatoire.lire")).toEqual(["associe", "directeur_mission"]);
+    expect(qui("observatoire.adherer")).toEqual(["associe"]);
+  });
+
+  it("jamais au portail ni à l'expert externe", () => {
+    for (const p of ["observatoire.lire", "observatoire.adherer"] as const) {
       for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
         expect(aPermission([r], p), `${r} ${p}`).toBe(false);
       }

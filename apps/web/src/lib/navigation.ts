@@ -367,6 +367,18 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
       "Recherche unifiée, retours d'expérience des missions, base d'estimation et compétences.",
   },
   {
+    // Lot 5b (CAP-04) : observatoire inter-cabinets, cabinets contributeurs seulement (adhésion volontaire).
+    id: "observatoire",
+    libelle: "Observatoire",
+    libelleCourt: "Observ.",
+    href: "/observatoire",
+    permission: "observatoire.lire",
+    disponible: true,
+    icone: "barres",
+    description:
+      "Repères anonymes par secteur et par taille, réservés aux cabinets qui contribuent (adhésion volontaire).",
+  },
+  {
     id: "plan-de-charge",
     libelle: "Plan de charge",
     libelleCourt: "Charge",

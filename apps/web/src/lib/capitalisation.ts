@@ -201,6 +201,12 @@ export const SOUS_PAGES_CONNAISSANCES: readonly SousPageConnaissances[] = [
     aussi: "budget.lire_jours",
   },
   {
+    id: "efficacite",
+    libelle: "Efficacité",
+    href: "/connaissances/efficacite",
+    permission: "connaissance.lire",
+  },
+  {
     id: "competences",
     libelle: "Compétences",
     href: "/connaissances/competences",
