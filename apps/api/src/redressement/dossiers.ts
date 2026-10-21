@@ -26,7 +26,7 @@ import { dernierScore } from "./alerte.js";
 import { resumePassif } from "./creanciers.js";
 import { journalRed } from "./journal.js";
 import { cleTriCreation, decoderCurseurCreation, type PageRed } from "./pagination.js";
-import { resumePlan } from "./plan.js";
+import { resumePlan, respecteReserveDirecteur } from "./plan.js";
 import { etatsAcceptes } from "./etats.js";
 import { calculerFiabilite } from "../dossier/fiabilite.js";
 import { correspondanceCourante } from "./correspondances.js";
@@ -163,7 +163,10 @@ export async function vueDossier(
     analyses_indicatives: fiabilite.analysesIndicatives,
     droits: {
       ecrire: peutEcrire && ouvert && aPermission(auth.roles, "redressement.ecrire"),
-      valider: ouvert && aPermission(auth.roles, "redressement.valider"),
+      valider:
+        ouvert &&
+        aPermission(auth.roles, "redressement.valider") &&
+        respecteReserveDirecteur(auth, mission),
     },
   };
 }

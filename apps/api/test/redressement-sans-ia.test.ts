@@ -3,10 +3,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /*
- * Le socle du redressement ne contient ni IA, ni job, ni calcul de montant dans l'API (SPEC-3a §3,
- * principes 1 et 2 ; ADR-011) : les sources de `apps/api/src/redressement/` et de
- * `apps/api/src/routes/redressement*.ts` n'importent ni `ia/`, ni `agents/`, ni `jobs/`, ni un
- * fournisseur de modèle, et ne contiennent ni agrégat SQL ni arrondi.
+ * Le redressement ne contient ni job, ni calcul de montant dans l'API (SPEC-3a §3, principes 1 et 2 ;
+ * ADR-011). Depuis le lot 2 (RED-04, causes racines proposées par l'IA), UN SEUL fichier peut
+ * parler à l'IA : `redressement/causes-ia.ts`, qui passe par l'orchestrateur (`ia/orchestrateur`,
+ * point d'entrée unique ADR-003) et n'importe jamais un fournisseur de modèle. Les sources de
+ * `apps/api/src/redressement/` et de `apps/api/src/routes/redressement*.ts` n'importent par
+ * ailleurs ni `ia/`, ni `agents/`, ni `jobs/`, ni un fournisseur, et ne contiennent ni agrégat SQL
+ * ni arrondi.
  */
 
 const RACINE = join(import.meta.dirname, "..", "src");
@@ -33,17 +36,27 @@ function sources(): { fichier: string; texte: string }[] {
 describe("aucune IA, aucun job, aucun calcul hors moteur", () => {
   const toutes = sources();
 
-  it("les sources du module sont bien trouvées (21 services et 5 fichiers de routes)", () => {
+  it("les sources du module sont bien trouvées (services et 11 fichiers de routes)", () => {
     expect(
       toutes.filter((s) => s.fichier.startsWith("redressement/")).length,
     ).toBeGreaterThanOrEqual(20);
-    expect(toutes.filter((s) => s.fichier.startsWith("routes/")).length).toBe(5);
+    expect(toutes.filter((s) => s.fichier.startsWith("routes/")).length).toBe(11);
   });
 
-  it("aucune importation de ia/, agents/, jobs/ ni d'un fournisseur de modèle", () => {
+  it("aucune importation de ia/, agents/, jobs/ ni d'un fournisseur (hors causes-ia.ts)", () => {
     const interdit =
       /(?:from|import)\s*\(?\s*["'][^"']*(?:\/ia\/|\/agents\/|\/jobs\/|fournisseur|openrouter)[^"']*["']/i;
-    for (const s of toutes) expect(interdit.test(s.texte), s.fichier).toBe(false);
+    for (const s of toutes.filter((x) => x.fichier !== "redressement/causes-ia.ts")) {
+      expect(interdit.test(s.texte), s.fichier).toBe(false);
+    }
+  });
+
+  it("causes-ia.ts passe par l'orchestrateur et jamais par un fournisseur", () => {
+    const f = toutes.find((x) => x.fichier === "redressement/causes-ia.ts");
+    if (!f) return; // RED-04 pas encore livrée
+    const code = f.texte.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code.includes("ia/orchestrateur")).toBe(true);
+    expect(/fournisseur|openrouter|LlmProvider|fetch\(/i.test(code)).toBe(false);
   });
 
   it("aucun agrégat SQL ni arrondi : SUM(, AVG(, Math.round, toFixed(", () => {

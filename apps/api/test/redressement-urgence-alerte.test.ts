@@ -270,6 +270,9 @@ describe("seuils d'alerte (routes 13 à 15)", () => {
       .secteurs[0];
     expect(lu.en_vigueur.id).toBe(v1);
     expect(lu.en_vigueur.seuils).toEqual(avecEndettement(12_000, 25_000));
+    // v1 est seule publiée : en vigueur, donc pas « remplacée ».
+    expect(ok.json().remplacee).toBe(false);
+    expect(lu.en_vigueur.remplacee).toBe(false);
   });
 
   it("un seul brouillon par secteur (409) ; un associé auteur publie ; l'associé publie la version d'un expert", async () => {
@@ -312,7 +315,24 @@ describe("seuils d'alerte (routes 13 à 15)", () => {
     attendre(200, publie, "associé auteur");
     expect(publie.json().statut).toBe("publiee");
     // L'associé publie aussi la v3 de l'expert.
-    expect((await s.a.associe.post(url(v3.id), {})).statusCode).toBe(200);
+    const publiee3 = await s.a.associe.post(url(v3.id), {});
+    expect(publiee3.statusCode).toBe(200);
+    expect(publiee3.json().remplacee).toBe(false);
+    // v1 et v2 sont publiées mais plus en vigueur : remplacées ; v3 est en vigueur.
+    const industrie = (await s.a.associe.get("/api/redressement/seuils?secteur=industrie")).json()
+      .secteurs[0];
+    expect(
+      industrie.historique.map((x: { version: number; remplacee: boolean }) => [
+        x.version,
+        x.remplacee,
+      ]),
+    ).toEqual([
+      [3, false],
+      [2, true],
+      [1, true],
+    ]);
+    expect(industrie.en_vigueur).toMatchObject({ version: 3, remplacee: false });
+    expect(industrie.brouillon).toBeNull();
     // Autre cabinet : aucun secteur publié.
     const b = (await s.b.associe.get("/api/redressement/seuils?secteur=industrie")).json()
       .secteurs[0];

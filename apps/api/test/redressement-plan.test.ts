@@ -570,22 +570,27 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
     expect((await s.a.chef.get(urlD("/plan", d))).json().versions[0].peut_valider).toBe(false);
   });
 
-  it("validation : le chef 403 (droit), le créateur directeur 403 (séparation), un autre directeur 200 ; dossier plan validé", async () => {
+  it("validation : réservée au directeur de la mission (chef 403, associé non directeur 403, créateur directeur 403, directeur 200) ; dossier plan validé", async () => {
     const d2 = (await creerMission(s.a, { intitule: "Plan validé" })).id;
     const dos = (await preparerCasA(s, d2)).dossierId;
     await creerAction(s.a.chef, { titre: "QW", echeance: dans(20) }, dos);
-    const v = (await s.a.directeur.post(urlD("/plan/versions", dos), {})).json();
-    // Le créateur (directeur de mission) ne valide pas sa propre version.
-    const propre = await s.a.directeur.post(urlV(v.id, "/validation"), {});
-    expect(propre.statusCode).toBe(403);
-    expect(erreur(propre)).toBe("SEPARATION_DES_TACHES");
+    const v = (await s.a.chef.post(urlD("/plan/versions", dos), {})).json();
     expect((await s.a.chef.post(urlV(v.id, "/validation"), {})).statusCode).toBe(403);
     expect((await s.consultantEquipe.post(urlV(v.id, "/validation"), {})).statusCode).toBe(403);
     expect((await s.a.directeur.post(urlV(v.id, "/validation"), { exces: 1 })).statusCode).toBe(
       400,
     );
-    // Un associé (autre que le créateur) valide ; l'associé créateur est dispensé (test suivant).
-    const ok = await s.a.associe.post(urlV(v.id, "/validation"), {
+    // Hypothèse métier à valider : un associé qui n'est pas le directeur de la mission ne valide pas.
+    const associe = await s.a.associe.post(urlV(v.id, "/validation"), {});
+    expect(associe.statusCode).toBe(403);
+    expect(erreur(associe)).toBe("VALIDATION_RESERVEE_DIRECTEUR");
+    expect(associe.json().erreur.message).toContain("directeur de la mission");
+    expect((await s.associe2.post(urlV(v.id, "/validation"), {})).statusCode).toBe(403);
+    const dir = (await s.a.directeur.get(urlD("/plan", dos))).json();
+    expect(dir.versions[0].peut_valider).toBe(true);
+    // Le confort d'affichage suit la même règle : faux pour l'associé non directeur.
+    expect((await s.a.associe.get(urlD("/plan", dos))).json().versions[0].peut_valider).toBe(false);
+    const ok = await s.a.directeur.post(urlV(v.id, "/validation"), {
       motif: "Plan relu avec le dirigeant",
     });
     attendre(200, ok, "validation");
@@ -594,11 +599,11 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
       motif: "Plan relu avec le dirigeant",
       peut_valider: false,
     });
-    expect(ok.json().valide_par.id).toBe(s.a.associeId);
+    expect(ok.json().valide_par.id).toBe(s.a.directeur.utilisateurId);
     const dossier = (await s.a.chef.get(`/api/redressement/dossiers/${dos}`)).json();
     expect(dossier.statut).toBe("plan_valide");
     expect(dossier.plan).toMatchObject({ version_courante: 1, modifie_depuis_validation: false });
-    const deja = await s.a.associe.post(urlV(v.id, "/validation"), {});
+    const deja = await s.a.directeur.post(urlV(v.id, "/validation"), {});
     expect(deja.statusCode).toBe(409);
     expect(erreur(deja)).toBe("RED_TRANSITION_INVALIDE");
     // Mise en œuvre possible, une fois le plan validé.
@@ -623,9 +628,26 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
     ).toBe(true);
   });
 
-  it("l'associé créateur valide sa propre version (dispense) ; le journal ne porte aucun titre", async () => {
-    const dos = (await preparerCasA(s, (await creerMission(s.a, { intitule: "Associé" })).id))
+  it("le directeur créateur ne valide pas sa version (séparation) ; l'associé directeur est dispensé ; le journal ne porte aucun titre", async () => {
+    // Directeur de mission non associé et créateur : séparation des tâches.
+    const dosDir = (await preparerCasA(s, (await creerMission(s.a, { intitule: "Directeur" })).id))
       .dossierId;
+    await creerAction(s.a.chef, { titre: "QW directeur", echeance: dans(20) }, dosDir);
+    const vd = (await s.a.directeur.post(urlD("/plan/versions", dosDir), {})).json();
+    const propre = await s.a.directeur.post(urlV(vd.id, "/validation"), {});
+    expect(propre.statusCode).toBe(403);
+    expect(erreur(propre)).toBe("SEPARATION_DES_TACHES");
+    expect((await s.a.directeur.get(urlD("/plan", dosDir))).json().versions[0].peut_valider).toBe(
+      false,
+    );
+    // Directeur de la mission = associé : créateur de sa version, il la valide (dispense).
+    const dos = (
+      await preparerCasA(
+        s,
+        (await creerMission(s.a, { intitule: "Associé", directeur_id: s.associe2.utilisateurId }))
+          .id,
+      )
+    ).dossierId;
     await creerAction(s.a.chef, { titre: "Titre confidentiel du plan", echeance: dans(20) }, dos);
     const v = (await s.associe2.post(urlD("/plan/versions", dos), {})).json();
     attendre(200, await s.associe2.post(urlV(v.id, "/validation"), {}), "associé créateur");
@@ -633,6 +655,36 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
       cl.query("SELECT details::text AS d FROM journal_audit WHERE entite = 'red_plan_version'"),
     );
     for (const l of j.rows) expect(l.d).not.toContain("confidentiel");
+  });
+
+  it("mission sans directeur : 409 DIRECTEUR_REQUIS (API) et MPZ07 (base, 0492), même pour un associé", async () => {
+    const dos = (
+      await preparerCasA(
+        s,
+        (await creerMission(s.a, { intitule: "Sans directeur", directeur_id: null })).id,
+      )
+    ).dossierId;
+    await creerAction(s.a.chef, { titre: "QW sans directeur", echeance: dans(20) }, dos);
+    const v = (await s.a.chef.post(urlD("/plan/versions", dos), {})).json();
+    // Rôle non habilité : 403 d'abord ; associé : 409 explicite.
+    expect((await s.a.chef.post(urlV(v.id, "/validation"), {})).statusCode).toBe(403);
+    expect((await s.a.associe.get(urlD("/plan", dos))).json().versions[0].peut_valider).toBe(false);
+    const r = await s.a.associe.post(urlV(v.id, "/validation"), {});
+    expect(r.statusCode).toBe(409);
+    expect(erreur(r)).toBe("DIRECTEUR_REQUIS");
+    expect(r.json().erreur.message).toContain("directeur de mission");
+    const code = await proprietaire(async (cl) => {
+      try {
+        await cl.query(
+          "UPDATE red_plan_versions SET statut = 'valide', valide_par = $2, valide_le = now() WHERE id = $1",
+          [v.id, s.a.associeId],
+        );
+        return "aucun";
+      } catch (e) {
+        return (e as { code?: string }).code ?? "inconnu";
+      }
+    });
+    expect(code).toBe("MPZ07");
   });
 
   it("RED_PLAN_MODIFIE : un changement des actions après la création invalide la version ; un déplacement de kanban, non", async () => {
@@ -644,7 +696,7 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
     await s.a.chef.post(urlA(a.id, "/deplacement"), { statut: "en_cours", rang: 7 });
     // Le titre en fait partie.
     await s.a.chef.patch(urlA(a.id), { titre: "Titre changé" });
-    const r = await s.a.associe.post(urlV(v.id, "/validation"), {});
+    const r = await s.a.directeur.post(urlV(v.id, "/validation"), {});
     expect(r.statusCode).toBe(409);
     expect(erreur(r)).toBe("RED_PLAN_MODIFIE");
     // Version recréée : les déplacements postérieurs ne l'invalident pas.
@@ -656,10 +708,10 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
       motif: "Attente",
     });
     // L'ancienne version n'est plus la dernière.
-    const obsolete = await s.a.associe.post(urlV(v.id, "/validation"), {});
+    const obsolete = await s.a.directeur.post(urlV(v.id, "/validation"), {});
     expect(obsolete.statusCode).toBe(409);
     expect(erreur(obsolete)).toBe("RED_VERSION_NON_CONSECUTIVE");
-    attendre(200, await s.a.associe.post(urlV(v2.id, "/validation"), {}), "validation v2");
+    attendre(200, await s.a.directeur.post(urlV(v2.id, "/validation"), {}), "validation v2");
   });
 
   it("RED_PLAN_INCOMPLET : sans action, ou sans quick win, la version ne se valide pas", async () => {
@@ -667,7 +719,7 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
       .dossierId;
     const vide = (await s.a.chef.post(urlD("/plan/versions", dos), {})).json();
     expect(vide.contenu.actions).toEqual([]);
-    const r = await s.a.associe.post(urlV(vide.id, "/validation"), {});
+    const r = await s.a.directeur.post(urlV(vide.id, "/validation"), {});
     expect(r.statusCode).toBe(409);
     expect(erreur(r)).toBe("RED_PLAN_INCOMPLET");
     expect(r.json().erreur.details.manquants).toEqual(["AUCUNE_ACTION", "AUCUN_QUICK_WIN"]);
@@ -678,7 +730,7 @@ describe("plan, avancement et versions (routes 29, 35 et 36)", () => {
       dos,
     );
     const v2 = (await s.a.chef.post(urlD("/plan/versions", dos), {})).json();
-    const r2 = await s.a.associe.post(urlV(v2.id, "/validation"), {});
+    const r2 = await s.a.directeur.post(urlV(v2.id, "/validation"), {});
     expect(erreur(r2)).toBe("RED_PLAN_INCOMPLET");
     expect(r2.json().erreur.details.manquants).toEqual(["AUCUN_QUICK_WIN"]);
     // Un dossier sans plan validé ne passe pas en mise en œuvre.

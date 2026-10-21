@@ -26,8 +26,14 @@ import { lireRatios } from "../redressement/ratios.js";
 import { referentiel } from "../redressement/referentiel.js";
 import { creerUrgence, listerUrgences } from "../redressement/urgence.js";
 import { routesRedressementAlerte } from "./redressement-alerte.js";
+import { routesRedressementCauses } from "./redressement-causes.js";
+import { routesRedressementChecklists } from "./redressement-checklists.js";
+import { routesRedressementCloture } from "./redressement-cloture.js";
 import { routesRedressementCreanciers } from "./redressement-creanciers.js";
+import { routesRedressementFinancement } from "./redressement-financement.js";
 import { routesRedressementPlan } from "./redressement-plan.js";
+import { routesRedressementSuivi } from "./redressement-suivi.js";
+import { routesRedressementTableau } from "./redressement-tableau.js";
 import { routesRedressementTresorerie } from "./redressement-tresorerie.js";
 
 /*
@@ -166,4 +172,11 @@ export const routesRedressement: FastifyPluginAsync = async (app) => {
   await app.register(routesRedressementTresorerie);
   await app.register(routesRedressementCreanciers);
   await app.register(routesRedressementPlan);
+  // Lot 2 (3a-bis) : une route par tâche propriétaire.
+  await app.register(routesRedressementChecklists);
+  await app.register(routesRedressementCauses);
+  await app.register(routesRedressementFinancement);
+  await app.register(routesRedressementCloture);
+  await app.register(routesRedressementSuivi);
+  await app.register(routesRedressementTableau);
 };

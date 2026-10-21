@@ -882,6 +882,11 @@ export async function semerDemoAbidjan(
   if (!(await semerComptes2faDemo(database, config))) {
     throw new Error("Les comptes 2FA existent déjà dans un cabinet neuf.");
   }
+  // Service #5 Redressement (deux dossiers, par les routes du module) : même import dynamique.
+  const { semerRedressementDemo } = await import("./seed-demo-redressement.js");
+  if (!(await semerRedressementDemo(database, config))) {
+    throw new Error("Le redressement de démonstration existe déjà dans un cabinet neuf.");
+  }
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 

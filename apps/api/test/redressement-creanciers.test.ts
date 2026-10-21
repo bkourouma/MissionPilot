@@ -90,7 +90,7 @@ describe("accès (routes 23 à 28)", () => {
       [
         "POST",
         urlC(c.id, "/evenements"),
-        { type: "note", date_evenement: "2026-10-02" },
+        { type: "note", date_evenement: "2026-10-02", conditions: "Relance" },
         "ecriture",
       ],
     ];
@@ -297,6 +297,9 @@ describe("négociation et accords (route 28)", () => {
       { type: "inconnu", date_evenement: "2026-10-10" },
       { type: "paiement", date_evenement: "2026-10-10", montant: 1 },
       { type: "note", date_evenement: "2026-10-10", exces: 1 },
+      // Une note sans texte est refusée (recette 3a).
+      { type: "note", date_evenement: "2026-10-10" },
+      { type: "note", date_evenement: "2026-10-10", conditions: "  " },
       {
         type: "accord",
         date_evenement: "2026-10-10",
@@ -482,6 +485,7 @@ describe("négociation et accords (route 28)", () => {
     const r = await s.a.associe.post(urlC(cc.id, "/evenements"), {
       type: "note",
       date_evenement: "2026-10-10",
+      conditions: "Relance",
     });
     expect(r.statusCode).toBe(409);
     expect(erreur(r)).toBe("RED_MISSION_CLOTUREE");
