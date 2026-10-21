@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
 import { EnteteDossier } from "../../../../../components/dossier/EnteteDossier";
 import { ImportEtat } from "../../../../../components/dossier/ImportEtat";
+import { RapportEtatFinancier } from "../../../../../components/dossier/RapportEtatFinancier";
 import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
@@ -114,6 +115,10 @@ export default async function PageFinances({ params }: { params: Promise<{ id: s
             },
           ]}
         />
+      </Carte>
+
+      <Carte titre="Rapport d'état financier">
+        <RapportEtatFinancier clientId={id} />
       </Carte>
 
       {peutEcrire ? (

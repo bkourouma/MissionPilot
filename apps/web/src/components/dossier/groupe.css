@@ -1,0 +1,136 @@
+/*
+ * Écran « Groupe » du dossier client (DOS-05) : structure de détention, consolidation simple,
+ * historique. Mobile d'abord, jetons du thème. La couleur ne porte jamais seule le sens : le
+ * dossier courant, les noeuds non visibles et la consolidation partielle sont écrits en toutes
+ * lettres.
+ */
+
+.mp-groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-groupe p {
+  margin: 0;
+}
+
+.mp-groupe-vues {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--mp-esp-3);
+}
+
+.mp-groupe-vues__liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-groupe-vues__liens a[aria-current="true"] {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.mp-groupe-arbre,
+.mp-groupe-arbre ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-groupe-noeud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  margin-left: calc(var(--mp-profondeur, 0) * var(--mp-esp-4));
+}
+
+.mp-groupe-noeud--dossier {
+  border-width: 2px;
+}
+
+.mp-groupe-noeud--anonyme {
+  background: var(--mp-surface-2);
+  font-style: italic;
+}
+
+.mp-groupe-noeud__nom {
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-groupe-noeud__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-groupe-bandeau {
+  display: block;
+}
+
+.mp-groupe-regles {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-groupe-consolidation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+}
+
+@media (min-width: 900px) {
+  .mp-groupe-consolidation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mp-groupe-perimetre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-groupe-perimetre li {
+  overflow-wrap: anywhere;
+}
+
+.mp-groupe-actives {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-groupe-actives li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}

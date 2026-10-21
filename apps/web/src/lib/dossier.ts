@@ -424,6 +424,7 @@ export function ongletsDossier(id: string) {
     { id: "faits", libelle: "Faits", href: `${base}/faits` },
     { id: "finances", libelle: "Finances", href: `${base}/finances` },
     { id: "frise", libelle: "Frise", href: `${base}/frise` },
+    { id: "groupe", libelle: "Groupe", href: `${base}/groupe` },
   ];
 }
 

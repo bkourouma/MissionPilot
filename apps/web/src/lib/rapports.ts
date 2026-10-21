@@ -23,8 +23,8 @@ export type FormatRapport = (typeof FORMATS_RAPPORT)[number];
 export const NIVEAUX_RAPPORT = ["base", "jours", "finance"] as const;
 export type NiveauRapport = (typeof NIVEAUX_RAPPORT)[number];
 
-/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan, due diligence. */
-export const NIVEAUX_SERVICE = ["notation", "plan", "dd"] as const;
+/** Niveaux propres aux services (miroir de `rapports/niveaux.ts`) : notation publiée, plan, due diligence, état financier du dossier client. */
+export const NIVEAUX_SERVICE = ["notation", "plan", "dd", "dossier"] as const;
 export type NiveauService = (typeof NIVEAUX_SERVICE)[number];
 
 /** Tous les niveaux qu'un rapport listé peut porter. */
@@ -89,6 +89,7 @@ const PERMISSIONS_NIVEAU: Record<NiveauAffichable, readonly Permission[]> = {
   notation: ["notation.lire"],
   plan: ["plan.lire"],
   dd: ["dd.lire"],
+  dossier: ["dossier.lire"],
 };
 
 export type IconeNiveau = "courbe" | "horloge" | "cadenas";
@@ -142,6 +143,13 @@ export const NIVEAUX: Record<
     tonalite: "attention",
     explication:
       "Note au comité de la due diligence : analyses, verdicts, marché et plan de l'opération étudiée. Seules les personnes autorisées à lire la due diligence pourront l'ouvrir.",
+  },
+  dossier: {
+    libelle: "Dossier client",
+    icone: "cadenas",
+    tonalite: "attention",
+    explication:
+      "Le rapport reprend les états financiers acceptés du dossier du client ; il ne contient aucune donnée financière du cabinet.",
   },
 };
 
@@ -200,6 +208,7 @@ const MODELES: Record<string, string> = {
   plan_strategique: "Plan stratégique",
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comité",
+  etat_financier: "Rapport d'état financier",
 };
 export const libelleModele = (m: string) => MODELES[m] ?? "Rapport";
 

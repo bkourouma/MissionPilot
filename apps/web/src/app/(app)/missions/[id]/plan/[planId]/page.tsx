@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import type { TypeElementPlan } from "@missionpilot/shared";
 import { GenerationLivrable } from "../../../../../../components/rapports/GenerationLivrable";
 import { AjoutElement } from "../../../../../../components/plan/AjoutElement";
+import { CitationsLivrable } from "../../../../../../components/preuves/CitationsLivrable";
 import { AvertissementPartage } from "../../../../../../components/plan/AvertissementPartage";
 import { NotationDiagnostic } from "../../../../../../components/plan/NotationDiagnostic";
 import {
@@ -256,6 +257,8 @@ export default async function PageContenusPlan({
       <Carte titre="Rapport du plan" niveauTitre={3}>
         <GenerationLivrable type="plan" id={plan.id} cloturee={droits.cloturee} />
       </Carte>
+
+      <CitationsLivrable missionId={id} livrable="plan" />
 
       <Carte titre="Diagnostic" niveauTitre={3}>
         <SectionElementUnique
