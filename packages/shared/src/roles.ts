@@ -206,6 +206,10 @@ export const PERMISSIONS = [
   "redressement.ecrire", // ouvrir un dossier, saisir correspondance, urgence, trésorerie, créanciers, actions, versions de plan
   "redressement.valider", // valider une version de plan, clore un dossier (autre que le créateur, sauf associé)
   "redressement.parametrer", // rédiger et publier les seuils d'alerte par secteur (experts du cabinet)
+  // --- V3, lot 5b (PRD complémentaire §12, CAP-04) : observatoire inter-cabinets, adhésion
+  // VOLONTAIRE du cabinet (désactivée par défaut), agrégats anonymes seulement (k-anonymat).
+  "observatoire.lire", // consulter les agrégats de l'observatoire : cabinet CONTRIBUTEUR seulement
+  "observatoire.adherer", // adhérer, se retirer, verser ou retirer ses contributions : associé SEUL
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -258,6 +262,7 @@ const TOUS: readonly Permission[] = PERMISSIONS.filter(
 export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   associe: TOUS,
   directeur_mission: [
+    "observatoire.lire",
     "brief.lire",
     "copilote.utiliser",
     "connaissance.lire",

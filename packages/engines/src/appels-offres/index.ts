@@ -75,3 +75,4 @@ export {
   type RetroPlanning,
   type StatutAppelOffres,
 } from "./retroplanning";
+export * from "./veille";

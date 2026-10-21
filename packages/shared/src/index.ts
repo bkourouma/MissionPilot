@@ -44,4 +44,8 @@ export * from "./schemas/transcriptions";
 export * from "./schemas/due-diligence";
 export * from "./schemas/due-diligence-portail";
 export * from "./schemas/redressement";
+// Lot 5b : efficacité des recommandations (CAP-03), observatoire (CAP-04), veille des appels d offres (AO-01).
+export * from "./schemas/capitalisation-efficacite";
+export * from "./schemas/observatoire";
+export * from "./schemas/appels-offres-veille";
 export * from "./grilles/index";
