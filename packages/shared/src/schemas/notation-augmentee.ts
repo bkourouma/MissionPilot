@@ -12,7 +12,7 @@ import {
  * Notation augmentée (PRD complémentaire §11.1) : contrat des routes
  * /api/notation/banque, /api/notation/parametres, /api/notation/calibrations,
  * /api/notation/initiatives-types, /api/missions/:id/notation/selections et
- * /api/notations/:id/{constats,confiance,explication,plans-action}.
+ * /api/notations/:id/{constats,confiance,explication,explication/commentaire,plans-action}.
  *
  * - NOT-09 : banque d'items (contenu au format du moteur, contrôlé en plus par
  *   `exigerItemValide`) ; sélection adaptative par le moteur ou proposition contrôlée.
@@ -165,12 +165,31 @@ export const parametresNotationSchema = z
 
 export const CLASSES_VISEES_NOTATION = ["A", "B", "C", "D"] as const;
 
+/**
+ * Bornes de la recherche de combinaisons minimales (NOT-12), identiques à celles du moteur
+ * (`PRATIQUES_MAX_COMBINAISON`, `COMBINAISONS_MAX`) ; le moteur les contrôle aussi
+ * (`OPTIONS_INVALIDES`, 400).
+ */
+export const PRATIQUES_MAX_COMBINAISONS_BORNE = 8;
+export const COMBINAISONS_MAX_BORNE = 10;
+
 export const explicationNotationQuerySchema = z
   .object({
     version: z.coerce.number().int().min(1).max(100000).optional(),
     cible: z.enum(CLASSES_VISEES_NOTATION).optional(),
+    pratiques_max: z.coerce.number().int().min(1).max(PRATIQUES_MAX_COMBINAISONS_BORNE).optional(),
+    combinaisons_max: z.coerce.number().int().min(1).max(COMBINAISONS_MAX_BORNE).optional(),
   })
   .strict();
+
+/** Génération du commentaire IA (brouillon) de l'explication d'une version (NOT-12). */
+export const commentaireExplicationCorpsSchema = z
+  .object({
+    version: z.number().int().min(1).max(100000).optional(),
+    cible: z.enum(CLASSES_VISEES_NOTATION).optional(),
+  })
+  .strict();
+export type CommentaireExplicationCorps = z.infer<typeof commentaireExplicationCorpsSchema>;
 
 export const calibrationCreationSchema = z
   .object({

@@ -1,0 +1,107 @@
+/*
+ * Plan vivant (PLA-18). Mobile d'abord, couleurs des jetons ; la couleur ne porte jamais seule le sens :
+ * le marqueur « Significatif » est un texte, l'écart est signé en toutes lettres (+ / −).
+ */
+
+.mp-pv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-pv p {
+  margin: 0;
+}
+
+.mp-pv__exercices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-pv__exercice {
+  display: inline-block;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  text-decoration: none;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mp-pv__exercice[aria-current="page"] {
+  font-weight: 700;
+  border-width: 2px;
+  border-color: var(--mp-primaire);
+}
+
+.mp-pv__trimestre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  min-width: 0;
+}
+
+.mp-pv__trimestre legend {
+  padding: 0 var(--mp-esp-2);
+  font-weight: 700;
+}
+
+.mp-pv__historique {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-pv__resume {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-pv__chiffre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  min-width: 0;
+}
+
+.mp-pv__chiffre dt {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-pv__chiffre dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-pv__marqueur--significatif {
+  font-weight: 700;
+}
+
+.mp-pv__intertitre {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.mp-pv__ebe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}

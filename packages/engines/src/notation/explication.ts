@@ -76,7 +76,7 @@ export interface ExplicationNote {
   readonly dimensions: readonly ContributionDimension[];
 }
 
-interface PratiqueCalcul {
+export interface PratiqueCalcul {
   readonly indicateur: string;
   readonly question: string;
   readonly statut: StatutIndicateur;
@@ -85,7 +85,7 @@ interface PratiqueCalcul {
   readonly conversion: RegleConversion;
 }
 
-interface DimensionCalcul {
+export interface DimensionCalcul {
   readonly res: DimensionNotee;
   readonly poids: Fraction;
   readonly calcule: Fraction | null;
@@ -96,7 +96,7 @@ interface DimensionCalcul {
   readonly pratiques: readonly PratiqueCalcul[];
 }
 
-interface BaseCalcul {
+export interface BaseCalcul {
   readonly dimensions: readonly DimensionCalcul[];
   readonly D: Fraction;
   readonly global: Fraction;
@@ -123,7 +123,7 @@ function pratiquesDe(res: DimensionNotee, grille: GrilleNotation): PratiqueCalcu
   });
 }
 
-function baseCalcul(etat: ScoreAjuste, grille: GrilleNotation): BaseCalcul {
+export function baseCalcul(etat: ScoreAjuste, grille: GrilleNotation): BaseCalcul {
   if (!etat.notable || etat.score === null) nonNotable();
   const penaliser = etat.calcule.strategie === "penaliser";
   const dimensions = etat.calcule.dimensions.map((res) => {

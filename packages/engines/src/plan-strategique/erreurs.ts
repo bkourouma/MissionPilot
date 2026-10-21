@@ -27,7 +27,13 @@ export type CodeErreurPlan =
   /** Portefeuille (PLA-14) : note, coût, charge, poids ou contrainte hors bornes. */
   | "PORTEFEUILLE_INVALIDE"
   /** Bancabilité (PLA-17) : exercice absent ou montant non entier, seuil hors bornes. */
-  | "BANCABILITE_INVALIDE";
+  | "BANCABILITE_INVALIDE"
+  /** Simulation de Monte-Carlo (PLA-16) : graine, tirages, loi ou hypothèse incertaine hors bornes. */
+  | "MONTE_CARLO_INVALIDE"
+  /** Ateliers stratégiques (PLA-15) : option, vote, classement ou position hors bornes. */
+  | "ATELIER_INVALIDE"
+  /** Plan vivant (PLA-18) : réalisé ou méthode de re-prévision hors bornes. */
+  | "REPREVISION_INVALIDE";
 
 export class ErreurPlan extends Error {
   readonly code: CodeErreurPlan;

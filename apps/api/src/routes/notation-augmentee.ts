@@ -3,6 +3,7 @@ import {
   banqueListeQuerySchema,
   calibrationCreationSchema,
   clotureCalibrationSchema,
+  commentaireExplicationCorpsSchema,
   cotationsCalibrationSchema,
   explicationNotationQuerySchema,
   impactInitiativeNotationSchema,
@@ -38,6 +39,10 @@ import {
 } from "../notation/calibration.js";
 import { lireParametres, modifierParametres } from "../notation/confiance.js";
 import {
+  genererCommentaireExplication,
+  lireCommentaireExplication,
+} from "../notation/explication-commentaire.js";
+import {
   confianceVersion,
   constatsVersion,
   explicationVersion,
@@ -54,13 +59,15 @@ import {
   modifierInitiative,
   proposerPlan,
 } from "../notation/plan-action.js";
+import { envoyerEmails } from "../notifications/notifier.js";
 import { exigerUnDe } from "../questionnaires/acces.js";
 
 /*
  * Notation augmentée (PRD complémentaire §11.1), montée sous /api par routes/notation.ts.
  * Aucune route n'est ouverte au portail client (aucune n'est dans LISTE_BLANCHE_PORTAIL) ;
- * aucun appel IA ici (une proposition de l'IA passe par le contrôle du moteur, comme celle d'un
- * humain).
+ * un seul appel IA : le commentaire de l'explication (NOT-12, brouillon à valider), par
+ * l'orchestrateur ; une proposition de l'IA ailleurs passe par le contrôle du moteur, comme celle
+ * d'un humain.
  *
  * - Lecture (banque, sélections, constats, confiance, explication, calibrations, initiatives,
  *   plans) : notation.lire, OU notation.gerer, OU notation.publier ; mission ou notation visible.
@@ -68,6 +75,8 @@ import { exigerUnDe } from "../questionnaires/acces.js";
  *   notation.gerer OU notation.publier.
  * - Validation d'un item, clôture d'une session : notation.publier ET rôle expert_metier.
  * - Sélection adaptative d'une mission, plan d'action enregistré : notation.gerer.
+ * - Commentaire IA de l'explication : génération par notation.gerer ET ia.utiliser (brouillon,
+ *   validé par `/ia/generations/:id/valider`) ; lecture comme la notation.
  * - Paramètres de confiance : lecture comme la notation ; modification par cabinet.gerer.
  */
 
@@ -159,11 +168,40 @@ export const routesNotationAugmentee: FastifyPluginAsync = async (app) => {
   app.get("/notations/:id/explication", async (request) => {
     const auth = exigerUnDe(request, LECTURE);
     const { id } = paramsId.parse(request.params);
-    const { version, cible } = explicationNotationQuerySchema.parse(request.query);
+    const q = explicationNotationQuerySchema.parse(request.query);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const notation = await exigerNotationVisible(db, auth, id);
-      return explicationVersion(await versionOu404(db, notation, version), cible);
+      return explicationVersion(await versionOu404(db, notation, q.version), q.cible, {
+        pratiquesMax: q.pratiques_max,
+        combinaisonsMax: q.combinaisons_max,
+      });
     });
+  });
+
+  app.get("/notations/:id/explication/commentaire", async (request) => {
+    const auth = exigerUnDe(request, LECTURE);
+    const { id } = paramsId.parse(request.params);
+    const { version } = versionNotationQuerySchema.parse(request.query);
+    return app.db.withTenant(auth.cabinetId, async (db) =>
+      lireCommentaireExplication(db, auth, await exigerNotationVisible(db, auth, id), version),
+    );
+  });
+
+  app.post("/notations/:id/explication/commentaire", async (request, reply) => {
+    const auth = exiger(request, "notation.gerer");
+    exiger(request, "ia.utiliser");
+    const { id } = paramsId.parse(request.params);
+    const corps = commentaireExplicationCorpsSchema.parse(request.body ?? {});
+    const { resultat, vue } = await genererCommentaireExplication(
+      app.db,
+      { config: app.config, journal: (e: unknown) => app.log.info({ ia: e }) },
+      auth,
+      id,
+      corps,
+    );
+    await envoyerEmails(app.mailer, resultat.notifications, (m) => app.log.warn(m));
+    reply.status(201);
+    return vue;
   });
 
   app.get("/notation/parametres", async (request) => {

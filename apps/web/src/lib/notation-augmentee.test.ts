@@ -3,6 +3,7 @@ import type { ItemBanqueDonnees, Role } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import {
   AIDE_ANCRAGES_LONGUEUR_MAX,
+  AVERTISSEMENT_RECHERCHE_TRONQUEE,
   ANCRAGE_LONGUEUR_MAX,
   CAPACITE_DEFAUT,
   FORMULATION_LONGUEUR_MAX,
@@ -11,6 +12,7 @@ import {
   cheminCalibration,
   cheminCalibrations,
   cheminCloture,
+  cheminCommentaireExplication,
   cheminConfiance,
   cheminCotations,
   cheminExplication,
@@ -32,12 +34,15 @@ import {
   hrefNouvelleVersionItem,
   libelleAccord,
   libelleCheminAnomalie,
+  libelleEtapeCombinaison,
   lireCapacite,
   lireCible,
   lireStatutBanque,
   messageNotationAugmentee,
   niveauxEchelle,
+  peutGenererCommentaire,
   phraseBiais,
+  phraseCombinaisons,
   phraseSimulation,
   saisieCalibrationVide,
   saisieDepuisItem,
@@ -49,6 +54,7 @@ import {
   validerParametres,
   validerSaisieCalibration,
   validerSaisieItem,
+  type CombinaisonsNotation,
   type SaisieItemBanque,
   type SimulationPassage,
 } from "./notation-augmentee";
@@ -663,5 +669,90 @@ describe("paramètres de confiance", () => {
     const expert = droitsParametres(["expert_metier"]);
     expect(expert.modifier).toBe(false);
     expect(expert.explication).toMatch(/associé/);
+  });
+});
+
+describe("explicabilité : combinaisons minimales et commentaire IA (NOT-12)", () => {
+  const etape = {
+    dimension: "strategie",
+    libelle: "Stratégie déployée",
+    indicateur: "strat.plan",
+    question: "Plan formalisé",
+    points_avant: 50,
+    points_apres: 100,
+    paliers: 1,
+    gain: 1.334,
+  };
+  const base: CombinaisonsNotation = {
+    classe_actuelle: "C",
+    score_actuel: 61.6,
+    cible: "B",
+    seuil: 65,
+    deja_atteinte: false,
+    atteignable: true,
+    gain_necessaire: 3.4,
+    nombre_minimal_pratiques: 3,
+    exhaustive: true,
+    tronquee: false,
+    combinaisons: [{ etapes: [etape], score_projete: 65, classe_projetee: "B", nombre_paliers: 5 }],
+    leviers: [],
+  };
+
+  it("chemins du commentaire", () => {
+    expect(cheminCommentaireExplication("n/1", 2)).toBe(
+      "/api/notations/n%2F1/explication/commentaire?version=2",
+    );
+  });
+
+  it("phrase de synthèse : minimum de pratiques, pluriel, gain en français", () => {
+    expect(phraseCombinaisons(base)).toBe(
+      "Il suffit d'améliorer 3 pratiques pour passer de C à B (seuil 65, 3,4 points à gagner).",
+    );
+    expect(phraseCombinaisons({ ...base, nombre_minimal_pratiques: 1, gain_necessaire: 1 })).toBe(
+      "Il suffit d'améliorer 1 pratique pour passer de C à B (seuil 65, 1 point à gagner).",
+    );
+    expect(phraseCombinaisons({ ...base, deja_atteinte: true })).toBe(
+      "La classe B est déjà atteinte.",
+    );
+  });
+
+  it("recherche tronquée : jamais « impossible » ; établie : aucune combinaison", () => {
+    const tronquee = phraseCombinaisons({
+      ...base,
+      atteignable: false,
+      nombre_minimal_pratiques: null,
+      exhaustive: false,
+      tronquee: true,
+      combinaisons: [],
+    });
+    expect(tronquee).toContain("dans les limites de la recherche");
+    expect(tronquee).toContain("ne prouve pas que c'est impossible");
+    expect(AVERTISSEMENT_RECHERCHE_TRONQUEE).toContain("partielle");
+    const etabli = phraseCombinaisons({
+      ...base,
+      atteignable: false,
+      nombre_minimal_pratiques: null,
+      combinaisons: [],
+    });
+    expect(etabli).toBe(
+      "Aucune combinaison de pratiques déjà répondues ne permet d'atteindre la classe B.",
+    );
+    // Combinaison trouvée mais liste interrompue : le minimum reste affiché.
+    expect(phraseCombinaisons({ ...base, exhaustive: false, tronquee: true })).toContain(
+      "Il suffit d'améliorer 3 pratiques",
+    );
+  });
+
+  it("libellé d'une pratique à relever", () => {
+    expect(libelleEtapeCombinaison(etape)).toBe(
+      "« Plan formalisé » : de 50 à 100 points (+1,33 sur la note)",
+    );
+  });
+
+  it("génération du commentaire : notation.gerer ET ia.utiliser, mission ouverte", () => {
+    expect(peutGenererCommentaire(["consultant"], false)).toBe(true);
+    expect(peutGenererCommentaire(["consultant"], true)).toBe(false);
+    expect(peutGenererCommentaire(["expert_metier"], false)).toBe(false);
+    expect(peutGenererCommentaire(["gestionnaire"], false)).toBe(false);
   });
 });

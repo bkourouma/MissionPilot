@@ -66,6 +66,10 @@ export default async function LayoutPlan({
     { id: "portefeuille", libelle: "Portefeuille", href: hrefPortefeuille(id, plan.id) },
     { id: "modele", libelle: "Modèle financier", href: hrefModele(id, plan.id) },
     { id: "bancabilite", libelle: "Bancabilité", href: hrefBancabilite(id, plan.id) },
+    // Lot 5a : ateliers (PLA-15), simulation de Monte-Carlo (PLA-16), plan vivant (PLA-18).
+    { id: "ateliers", libelle: "Ateliers", href: `${hrefPlan(id, plan.id)}/ateliers` },
+    { id: "simulation", libelle: "Simulation", href: `${hrefPlan(id, plan.id)}/simulation` },
+    { id: "plan-vivant", libelle: "Plan vivant", href: `${hrefPlan(id, plan.id)}/plan-vivant` },
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: hrefKpiPlan(id, plan.id) }]
       : []),

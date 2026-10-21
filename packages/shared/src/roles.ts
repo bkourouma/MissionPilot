@@ -225,6 +225,9 @@ export const PERMISSIONS = [
   // Portail investisseur de la due diligence : notes validées PUBLIÉES et pièces choisies des
   // dossiers sur lesquels le compte est invité (investisseur seul, lecture seule).
   "portail.dd.lire",
+  // Ateliers stratégiques en ligne (PLA-15, lot 5a) : voter, prioriser et placer dans une matrice
+  // sur les ateliers où le dirigeant du client est invité (jamais le contributeur ni l'investisseur).
+  "portail.ateliers.participer",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -242,6 +245,7 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.signature.signer",
   "portail.synthese.lire",
   "portail.dd.lire",
+  "portail.ateliers.participer",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -555,6 +559,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.canaux.gerer",
     "portail.signature.signer",
     "portail.synthese.lire",
+    "portail.ateliers.participer",
   ],
   client_contributeur: [
     "portail.acceder",
