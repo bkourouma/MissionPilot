@@ -128,6 +128,7 @@ export interface EntreePortail {
     | "kpi"
     | "factures"
     | "signatures"
+    | "ateliers"
     | "due-diligence"
     | "synthese"
     | "preferences"
@@ -191,6 +192,14 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
     href: `${CHEMIN_PORTAIL}/signatures`,
     icone: "signature",
     permission: "portail.signature.signer",
+  },
+  {
+    // Ateliers stratégiques (PLA-15, lot 5a) : voter, classer, noter ; le dirigeant invité seul.
+    id: "ateliers",
+    libelle: "Ateliers",
+    href: `${CHEMIN_PORTAIL}/ateliers`,
+    icone: "personnes",
+    permission: "portail.ateliers.participer",
   },
   {
     // Notes de due diligence communiquées par le cabinet à l'investisseur (lecture seule).

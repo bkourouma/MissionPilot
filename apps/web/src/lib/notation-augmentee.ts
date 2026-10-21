@@ -8,6 +8,7 @@ import {
   type Role,
 } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
+import type { GenerationIa } from "./ia-contenu";
 import { estExpertPublieur, messageNotation, type Classe, type TonaliteNotation } from "./notation";
 import { codeDepuisTitre } from "./notation-grilles";
 import { lireNombre, type Resultat } from "./saisie";
@@ -108,6 +109,54 @@ export interface SimulationPassage {
   etapes: EtapeSimulation[];
 }
 
+/** Pratique répondue qu'une combinaison peut relever, avec ses paliers (points croissants). */
+export interface LevierCombinaison {
+  dimension: string;
+  libelle: string;
+  indicateur: string;
+  question: string;
+  points_actuels: number;
+  paliers: number[];
+}
+
+export interface EtapeCombinaison {
+  dimension: string;
+  libelle: string;
+  indicateur: string;
+  question: string;
+  points_avant: number;
+  points_apres: number;
+  /** Nombre de crans franchis. */
+  paliers: number;
+  gain: number;
+}
+
+export interface CombinaisonAmelioration {
+  etapes: EtapeCombinaison[];
+  score_projete: number;
+  classe_projetee: Classe;
+  nombre_paliers: number;
+}
+
+/**
+ * Combinaisons MINIMALES d'améliorations vers la classe visée (moteur, NOT-12). `tronquee` : une
+ * borne a interrompu la recherche ; l'impossibilité n'est alors pas établie.
+ */
+export interface CombinaisonsNotation {
+  classe_actuelle: Classe;
+  score_actuel: number;
+  cible: Classe;
+  seuil: number;
+  deja_atteinte: boolean;
+  atteignable: boolean;
+  gain_necessaire: number;
+  nombre_minimal_pratiques: number | null;
+  exhaustive: boolean;
+  tronquee: boolean;
+  combinaisons: CombinaisonAmelioration[];
+  leviers: LevierCombinaison[];
+}
+
 export interface ExplicationNotation {
   numero: number;
   statut: string;
@@ -117,6 +166,18 @@ export interface ExplicationNotation {
   somme_contributions: number;
   dimensions: ContributionDimension[];
   simulation: SimulationPassage | null;
+  /** Absent d'une API plus ancienne ; null quand la classe A est déjà atteinte. */
+  combinaisons?: CombinaisonsNotation | null;
+}
+
+/**
+ * GET et POST /api/notations/:id/explication/commentaire : le dernier commentaire IA (brouillon à
+ * valider) de la version, sous la forme d'une génération (`/api/ia/generations/:id`), ou null.
+ */
+export interface CommentaireExplication {
+  numero: number;
+  statut_contenu: GenerationIa["statut_contenu"];
+  commentaire: GenerationIa | null;
 }
 
 export type SourceImpact = "contexte_semblable" | "secteur" | "taille" | "general" | "aucun";
@@ -184,6 +245,8 @@ export const cheminConstats = (notationId: string, numero: number) =>
   `/api/notations/${segment(notationId)}/constats?version=${numero}`;
 export const cheminExplication = (notationId: string, numero: number, cible: Classe | null) =>
   `/api/notations/${segment(notationId)}/explication?version=${numero}${cible ? `&cible=${cible}` : ""}`;
+export const cheminCommentaireExplication = (notationId: string, numero: number) =>
+  `/api/notations/${segment(notationId)}/explication/commentaire?version=${numero}`;
 export const cheminPropositionPlan = (notationId: string, numero: number, capacite: number) =>
   `/api/notations/${segment(notationId)}/plan-action/proposition?version=${numero}&capacite=${capacite}`;
 export const cheminPlansAction = (notationId: string) =>
@@ -290,6 +353,37 @@ export function phraseSimulation(s: SimulationPassage): string {
   }
   const n = s.etapes.length;
   return `Pour passer de ${s.classe_actuelle} à ${s.cible} (seuil ${s.seuil}), relever ${n} pratique${n > 1 ? "s" : ""} : score projeté ${s.score_projete.toLocaleString("fr-FR")} (classe ${s.classe_projetee}).`;
+}
+
+/** Avertissement quand la recherche de combinaisons a été interrompue par une borne. */
+export const AVERTISSEMENT_RECHERCHE_TRONQUEE =
+  "La recherche a été interrompue par une limite de calcul : la liste des combinaisons est " +
+  "partielle et ne prouve pas qu'il n'en existe pas d'autre.";
+
+/** Phrase de synthèse des combinaisons minimales ; jamais « impossible » quand la recherche est tronquée. */
+export function phraseCombinaisons(c: CombinaisonsNotation): string {
+  if (c.deja_atteinte) return `La classe ${c.cible} est déjà atteinte.`;
+  if (c.atteignable && c.nombre_minimal_pratiques !== null) {
+    const n = c.nombre_minimal_pratiques;
+    return `Il suffit d'améliorer ${n} pratique${n > 1 ? "s" : ""} pour passer de ${c.classe_actuelle} à ${c.cible} (seuil ${c.seuil.toLocaleString("fr-FR")}, ${c.gain_necessaire.toLocaleString("fr-FR")} point${c.gain_necessaire >= 2 ? "s" : ""} à gagner).`;
+  }
+  if (c.tronquee) {
+    return `Aucune combinaison n'a été trouvée vers la classe ${c.cible} dans les limites de la recherche : cela ne prouve pas que c'est impossible.`;
+  }
+  return `Aucune combinaison de pratiques déjà répondues ne permet d'atteindre la classe ${c.cible}.`;
+}
+
+/** Ligne d'une pratique d'une combinaison : « Question » : de 50 à 100 points (+1,33 sur la note). */
+export function libelleEtapeCombinaison(x: EtapeCombinaison): string {
+  const nombre = (v: number) => v.toLocaleString("fr-FR");
+  return `« ${x.question} » : de ${nombre(x.points_avant)} à ${nombre(x.points_apres)} points (${formaterPointsSignes(x.gain)} sur la note)`;
+}
+
+/** Génération d'un commentaire IA : `notation.gerer` ET `ia.utiliser`, mission non clôturée. */
+export function peutGenererCommentaire(roles: readonly Role[], missionCloturee: boolean): boolean {
+  return (
+    !missionCloturee && aPermission(roles, "notation.gerer") && aPermission(roles, "ia.utiliser")
+  );
 }
 
 /* =====================================================================================

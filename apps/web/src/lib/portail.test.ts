@@ -48,6 +48,7 @@ describe("droits et navigation du portail", () => {
       "kpi",
       "factures",
       "signatures",
+      "ateliers",
       "synthese",
       "preferences",
       "securite",

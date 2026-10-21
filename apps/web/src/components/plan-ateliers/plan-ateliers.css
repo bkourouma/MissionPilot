@@ -1,0 +1,54 @@
+/*
+ * Ateliers stratégiques (PLA-15) : options, classement, notes de la matrice. Mobile d'abord, couleurs
+ * des jetons ; la couleur ne porte jamais seule le sens (rang et statut écrits).
+ */
+
+.mp-atelier__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-atelier__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  min-width: 0;
+}
+
+.mp-atelier__texte {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.mp-atelier__saisie {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-atelier__rang {
+  flex: 0 0 auto;
+  min-width: 2rem;
+  font-weight: 700;
+}
+
+.mp-atelier__reste {
+  font-weight: 700;
+}
+
+.mp-atelier__option-saisie {
+  display: grid;
+  gap: var(--mp-esp-2);
+  padding: var(--mp-esp-2) 0;
+  border-bottom: 1px solid var(--mp-bordure);
+}

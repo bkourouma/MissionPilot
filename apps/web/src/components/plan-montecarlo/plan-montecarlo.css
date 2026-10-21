@@ -1,0 +1,146 @@
+/*
+ * Simulation de Monte-Carlo (PLA-16). Mobile d'abord, couleurs des jetons ; la couleur ne porte
+ * jamais seule le sens : classes de VAN négatives hachurées, légende et tableau équivalent.
+ */
+
+.mp-mc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-mc p {
+  margin: 0;
+}
+
+.mp-mc__loi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  min-width: 0;
+}
+
+.mp-mc__loi legend {
+  padding: 0 var(--mp-esp-2);
+  font-weight: 700;
+}
+
+.mp-mc__chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-mc__chiffre {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon, 8px);
+  min-width: 0;
+}
+
+.mp-mc__chiffre dt {
+  font-size: var(--mp-taille-s);
+  color: var(--mp-texte-doux);
+}
+
+.mp-mc__chiffre dd {
+  margin: 0;
+  font-size: var(--mp-taille-l, 1.25rem);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mp-mc__histogramme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  min-width: 0;
+}
+
+.mp-mc__svg {
+  display: block;
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+}
+
+.mp-mc__barre {
+  fill: var(--mp-primaire);
+  stroke: var(--mp-fond, #fff);
+  stroke-width: 1;
+}
+
+.mp-mc__barre--negative,
+.mp-mc__barre--mixte {
+  fill: var(--mp-attention);
+}
+
+.mp-mc__hachure {
+  stroke: var(--mp-texte);
+  stroke-width: 1.5;
+}
+
+.mp-mc__axe {
+  stroke: var(--mp-texte);
+  stroke-width: 1.5;
+}
+
+.mp-mc__mediane {
+  stroke: var(--mp-texte);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.mp-mc__zero {
+  stroke: var(--mp-danger);
+  stroke-width: 2;
+}
+
+.mp-mc__texte {
+  fill: var(--mp-texte-doux);
+  font-size: 11px;
+}
+
+.mp-mc__legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-mc__legende li {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-mc__tableau {
+  overflow-x: auto;
+}
+
+.mp-mc__reperes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-mc__lois {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+}
