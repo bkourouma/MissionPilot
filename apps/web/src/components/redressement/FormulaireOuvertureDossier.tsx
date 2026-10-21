@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { RedDossierVue, RedSecteur } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
@@ -8,6 +8,7 @@ import {
   messageRedressement,
   OPTIONS_SECTEURS,
 } from "../../lib/redressement";
+import { secteurRedressementDepuisClient } from "../../lib/redressement-secteur";
 import { corpsDossierDepuisFormulaire, type ChampDossier } from "../../lib/redressement-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
@@ -17,7 +18,10 @@ import { Select } from "../ui/Select";
 
 /**
  * Ouverture du dossier de redressement d'une mission (directeur, chef ou « modifier toutes les
- * missions »). La devise du dossier est celle de la mission ; l'API juge les droits.
+ * missions »). La devise du dossier est celle de la mission ; l'API juge les droits. Le secteur est
+ * proposé d'après le secteur du client de la mission (table prudente de
+ * `redressement-secteur.ts`, « général » sans correspondance sûre) ; la lecture est facultative
+ * et ne remplace jamais un choix déjà fait par l'utilisateur.
  */
 export function FormulaireOuvertureDossier({
   missionId,
@@ -29,6 +33,23 @@ export function FormulaireOuvertureDossier({
   const f = useFormulaire<ChampDossier>();
   const [intitule, setIntitule] = useState(intituleInitial);
   const [secteur, setSecteur] = useState<RedSecteur>("general");
+  const choisi = useRef(false);
+
+  useEffect(() => {
+    let annule = false;
+    (async () => {
+      try {
+        const m = await api.get<{ client_id: string }>(`/api/missions/${missionId}`);
+        const c = await api.get<{ secteur: string | null }>(`/api/clients/${m.client_id}`);
+        if (!annule && !choisi.current) setSecteur(secteurRedressementDepuisClient(c.secteur));
+      } catch {
+        // Préremplissage facultatif : « général » reste proposé.
+      }
+    })();
+    return () => {
+      annule = true;
+    };
+  }, [missionId]);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -67,9 +88,12 @@ export function FormulaireOuvertureDossier({
           libelle="Secteur d'activité"
           required
           value={secteur}
-          onChange={(e) => setSecteur(e.target.value as RedSecteur)}
+          onChange={(e) => {
+            choisi.current = true;
+            setSecteur(e.target.value as RedSecteur);
+          }}
           options={OPTIONS_SECTEURS}
-          aide="Les seuils d'alerte précoce dépendent du secteur."
+          aide="Proposé d'après le secteur du client, à ajuster si besoin. Les seuils d'alerte précoce dépendent du secteur."
         />
       </div>
       <div className="mp-actions-formulaire">

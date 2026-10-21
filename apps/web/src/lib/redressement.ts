@@ -167,7 +167,18 @@ export const HREF_PORTEFEUILLE_RED = "/redressement";
 export const HREF_SEUILS_RED = "/redressement/seuils";
 
 export type SectionRedressement =
-  "ratios" | "urgence" | "alerte" | "tresorerie" | "creanciers" | "plan" | "leviers";
+  | "ratios"
+  | "urgence"
+  | "diagnostic"
+  | "alerte"
+  | "tresorerie"
+  | "financement"
+  | "creanciers"
+  | "plan"
+  | "leviers"
+  | "cloture"
+  | "suivi"
+  | "tableau-de-bord";
 
 /** Synthèse du dossier (sans `section`) ou l'une de ses sections. */
 export function hrefRedressement(missionId: string, section?: SectionRedressement): string {
@@ -205,11 +216,20 @@ export function sousPagesRedressement(
     { id: "synthese", libelle: "Synthèse", href: hrefRedressement(missionId) },
     { id: "ratios", libelle: "Ratios", href: hrefRedressement(missionId, "ratios") },
     { id: "urgence", libelle: "Urgence", href: hrefRedressement(missionId, "urgence") },
+    { id: "diagnostic", libelle: "Diagnostic", href: hrefRedressement(missionId, "diagnostic") },
     { id: "alerte", libelle: "Alerte précoce", href: hrefRedressement(missionId, "alerte") },
     { id: "tresorerie", libelle: "Trésorerie", href: hrefRedressement(missionId, "tresorerie") },
+    { id: "financement", libelle: "Financement", href: hrefRedressement(missionId, "financement") },
     { id: "creanciers", libelle: "Créanciers", href: hrefRedressement(missionId, "creanciers") },
     { id: "plan", libelle: "Plan", href: hrefRedressement(missionId, "plan") },
     { id: "leviers", libelle: "Leviers", href: hrefRedressement(missionId, "leviers") },
+    { id: "cloture", libelle: "Clôture", href: hrefRedressement(missionId, "cloture") },
+    { id: "suivi", libelle: "Suivi", href: hrefRedressement(missionId, "suivi") },
+    {
+      id: "tableau-de-bord",
+      libelle: "Tableau de bord",
+      href: hrefRedressement(missionId, "tableau-de-bord"),
+    },
   ];
 }
 
@@ -329,6 +349,10 @@ export const TEXTE_VALIDATION_PLAN =
 export const TEXTE_SEUILS_AUCUNE_VERSION =
   "Aucune version publiée : les valeurs par défaut du moteur s'appliquent (provisoires).";
 export const TEXTE_PLAN_MODIFIE = "Le plan a changé depuis la version validée.";
+/** Le besoin de financement est une projection : réalisé constaté des semaines écoulées, prévu ensuite. */
+export const LIBELLE_BESOIN_FINANCEMENT = "Besoin de financement prévu";
+export const TEXTE_BESOIN_FINANCEMENT =
+  "Projeté sur la base du réalisé constaté et du prévu : montant qui ramènerait le solde le plus bas de la fenêtre au seuil de tension.";
 export const TEXTE_ETATS_ABSENTS =
   "Aucun état financier accepté pour ce client. Importez un état dans le dossier client et faites-le accepter.";
 
@@ -355,6 +379,26 @@ export const libelleStatutVersionPlan = (s: keyof typeof RED_STATUT_VERSION_PLAN
   RED_STATUT_VERSION_PLAN_LIBELLES[s] ?? s;
 export const libelleStatutSeuils = (s: keyof typeof RED_STATUT_SEUILS_LIBELLES) =>
   RED_STATUT_SEUILS_LIBELLES[s] ?? s;
+
+/**
+ * Statut affiché d'une version de seuils : « Brouillon », « En vigueur » (publiée la plus
+ * récente) ou « Remplacée » (publiée, mais une version publiée plus récente existe).
+ */
+export function libelleEtatVersionSeuils(v: {
+  statut: keyof typeof RED_STATUT_SEUILS_LIBELLES;
+  remplacee?: boolean;
+}): string {
+  if (v.statut === "brouillon") return libelleStatutSeuils("brouillon");
+  return v.remplacee === true ? "Remplacée" : "En vigueur";
+}
+
+export function tonaliteEtatVersionSeuils(v: {
+  statut: keyof typeof RED_STATUT_SEUILS_LIBELLES;
+  remplacee?: boolean;
+}): TonaliteStatut {
+  if (v.statut === "brouillon") return "attention";
+  return v.remplacee === true ? "neutre" : "succes";
+}
 export const libelleSensFlux = (s: RedSensFlux) => RED_SENS_FLUX_LIBELLES[s] ?? s;
 export const libellePoste = (p: string) => (RED_POSTE_LIBELLES as Record<string, string>)[p] ?? p;
 export const libelleLevier = (c: keyof typeof RED_LEVIER_LIBELLES) => RED_LEVIER_LIBELLES[c] ?? c;
@@ -424,7 +468,7 @@ export function tonaliteStatutAction(s: RedStatutAction): TonaliteStatut {
 // --- Ratios -----------------------------------------------------------------------------------------
 
 /** Forme d'affichage de la valeur d'un ratio ou d'un critère (la valeur vient de l'API). */
-export type FormeValeur = "ratio" | "pourcentage" | "jours" | "nombre" | "oui_non";
+export type FormeValeur = "ratio" | "pourcentage" | "points" | "jours" | "nombre" | "oui_non";
 
 export const FORME_RATIO: Record<RedCleRatio, FormeValeur> = {
   liquidite_generale: "ratio",
@@ -448,7 +492,7 @@ export const FORME_CRITERE: Record<RedCritereAlerte, FormeValeur> = {
   marge_nette: "pourcentage",
   bfr_jours: "jours",
   croissance_ca: "pourcentage",
-  variation_marge_brute: "pourcentage",
+  variation_marge_brute: "points",
   rejets_bancaires_12m: "nombre",
   retards_fournisseurs_90j: "nombre",
   arrieres_fiscaux_sociaux: "oui_non",
@@ -492,6 +536,7 @@ export function formaterPointsDeBase(
 function formaterSelonForme(forme: FormeValeur, valeur: number | null | undefined): string {
   if (typeof valeur !== "number" || !Number.isFinite(valeur)) return VALEUR_ABSENTE;
   if (forme === "ratio" || forme === "pourcentage") return formaterPointsDeBase(valeur, forme);
+  if (forme === "points") return formaterVariationPoints(valeur);
   if (forme === "jours")
     return `${formaterNombre(valeur, 0)} ${Math.abs(valeur) > 1 ? "jours" : "jour"}`;
   if (forme === "oui_non") return valeur > 0 ? "Oui" : "Non";
@@ -576,6 +621,19 @@ export function formaterTendance(pb: number | null | undefined): string {
   return pb > 0 ? `+${texte}` : texte;
 }
 
+/**
+ * Variation d'un ratio exprimé en pourcentage (marge brute, marge nette…), en POINTS de
+ * pourcentage et non en pourcentage : 250 points de base → « +2,5 points », -100 → « -1 point »,
+ * 0 → « 0 point ». Une marge qui passe de 20 % à 22,5 % gagne 2,5 points (et non 12,5 %).
+ */
+export function formaterVariationPoints(pb: number | null | undefined): string {
+  if (typeof pb !== "number" || !Number.isFinite(pb)) return VALEUR_ABSENTE;
+  const points = pb / 100;
+  const texte = formaterNombre(points, 2);
+  const unite = Math.abs(points) >= 2 ? "points" : "point";
+  return `${points > 0 ? "+" : ""}${texte} ${unite}`;
+}
+
 // --- Alerte précoce -------------------------------------------------------------------------------
 
 /** « Seuils du cabinet, secteur Général, version 2 » ou « Seuils par défaut du moteur (provisoires) ». */
@@ -602,6 +660,7 @@ export function uniteCritere(critere: RedCritereAlerte): string {
   const forme = FORME_CRITERE[critere];
   if (forme === "ratio") return "rapport (1,00 = 100 %)";
   if (forme === "pourcentage") return "pourcentage";
+  if (forme === "points") return "points de pourcentage";
   if (forme === "jours") return "jours";
   if (forme === "oui_non") return "0 : un arriéré déclaré suffit (valeur technique)";
   return "nombre d'incidents";
@@ -831,5 +890,7 @@ export function tousLesLibelles(): string[] {
     TEXTE_SEUILS_AUCUNE_VERSION,
     TEXTE_PLAN_MODIFIE,
     TEXTE_ETATS_ABSENTS,
+    LIBELLE_BESOIN_FINANCEMENT,
+    TEXTE_BESOIN_FINANCEMENT,
   ];
 }

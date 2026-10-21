@@ -1,0 +1,14 @@
+/* Onglet « Financement » : vue mensuelle de la trésorerie, covenants, plan de financement. */
+
+.mp-fin-bloc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+/* Raison ou dates sous une valeur de tableau : sur sa propre ligne. */
+.mp-fin-raison {
+  display: block;
+  margin-top: var(--mp-esp-1);
+}

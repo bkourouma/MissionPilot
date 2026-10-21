@@ -545,6 +545,8 @@ describe("redressement (lot 3a)", () => {
     expect(e?.sousPages?.map((p) => [p.libelle, p.href])).toEqual([
       ["Dossiers", "/redressement"],
       ["Seuils d'alerte", "/redressement/seuils"],
+      ["Check-lists", "/redressement/checklists"],
+      ["Tableau de bord", "/redressement/tableau-de-bord"],
     ]);
     const ordre = NAVIGATION.map((x) => x.id);
     expect(ordre.indexOf("redressement")).toBe(ordre.indexOf("dossiers-clients") + 1);
