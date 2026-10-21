@@ -5,10 +5,12 @@ import {
   type briqueModificationSchema,
   type casTypeCreationSchema,
   type elementMethodeCreationSchema,
+  type elementMethodeModificationSchema,
   type etapeCreationSchema,
   type etapeModificationSchema,
   type RegleModulationApi,
   type rubriqueCreationSchema,
+  type rubriqueModificationSchema,
 } from "@missionpilot/shared";
 import type { z } from "zod";
 import { journaliser } from "../audit.js";
@@ -84,6 +86,17 @@ async function exigerLigne(db: Db, partie: Partie, versionId: string, id: string
   ]);
   if (!r.rows[0]) throw introuvable("Élément de méthode");
   return r.rows[0].code as string;
+}
+
+const BRIQUE_INCONNUE = "Brique inconnue dans cette version.";
+
+/** La brique désignée appartient à la version éditée, sinon 400. */
+async function exigerBriqueDeVersion(db: Db, versionId: string, briqueId: string): Promise<void> {
+  const r = await db.query(`SELECT 1 FROM methode_briques WHERE id = $1 AND version_id = $2`, [
+    briqueId,
+    versionId,
+  ]);
+  if (!r.rowCount) throw requeteInvalide(BRIQUE_INCONNUE);
 }
 
 async function supprimerLigne(db: Db, auth: Auth, partie: Partie, versionId: string, id: string) {
@@ -267,6 +280,33 @@ export async function ajouterElement(
   return { id: r.rows[0].id as string, code: corps.code };
 }
 
+/** Modifie un élément du brouillon : le code et le type ne changent pas ; la brique est de la même version. */
+export async function modifierElement(
+  db: Db,
+  auth: Auth,
+  versionId: string,
+  id: string,
+  corps: z.infer<typeof elementMethodeModificationSchema>,
+) {
+  await exigerBrouillonDuCabinet(db, versionId);
+  const code = await exigerLigne(db, "elements", versionId, id);
+  if (corps.brique_id) await exigerBriqueDeVersion(db, versionId, corps.brique_id);
+  const set = clauseSet(corps, 3);
+  if (set.sql) {
+    await traduireErreursPg(
+      db.query(`UPDATE methode_elements SET ${set.sql} WHERE id = $1 AND version_id = $2`, [
+        id,
+        versionId,
+        ...set.valeurs,
+      ]),
+      UNIQUE_CODE,
+      BRIQUE_INCONNUE,
+    );
+  }
+  await tracer(db, auth, versionId, "elements.modifier", code);
+  return { id, code };
+}
+
 export const supprimerElement = (db: Db, auth: Auth, versionId: string, id: string) =>
   supprimerLigne(db, auth, "elements", versionId, id);
 
@@ -297,6 +337,33 @@ export async function ajouterRubrique(
   );
   await tracer(db, auth, versionId, "rubriques.ajouter", corps.code);
   return { id: r.rows[0].id as string, code: corps.code };
+}
+
+/** Modifie une rubrique du brouillon : le code ne change pas ; ancrages complets (cinq niveaux) ou inchangés. */
+export async function modifierRubrique(
+  db: Db,
+  auth: Auth,
+  versionId: string,
+  id: string,
+  corps: z.infer<typeof rubriqueModificationSchema>,
+) {
+  await exigerBrouillonDuCabinet(db, versionId);
+  const code = await exigerLigne(db, "rubriques", versionId, id);
+  if (corps.brique_id) await exigerBriqueDeVersion(db, versionId, corps.brique_id);
+  const set = clauseSet(corps, 3, ["ancrages"]);
+  if (set.sql) {
+    await traduireErreursPg(
+      db.query(`UPDATE methode_rubriques SET ${set.sql} WHERE id = $1 AND version_id = $2`, [
+        id,
+        versionId,
+        ...set.valeurs,
+      ]),
+      UNIQUE_CODE,
+      BRIQUE_INCONNUE,
+    );
+  }
+  await tracer(db, auth, versionId, "rubriques.modifier", code);
+  return { id, code };
 }
 
 export const supprimerRubrique = (db: Db, auth: Auth, versionId: string, id: string) =>
@@ -367,6 +434,31 @@ export async function ajouterCasType(
   );
   await tracer(db, auth, versionId, "cas_types.ajouter", code);
   return { id: r.rows[0].id as string, code };
+}
+
+/** Remplace un cas type du brouillon ; son code ne change pas. */
+export async function remplacerCasType(
+  db: Db,
+  auth: Auth,
+  versionId: string,
+  id: string,
+  corps: z.infer<typeof casTypeCreationSchema>,
+) {
+  await exigerBrouillonDuCabinet(db, versionId);
+  const code = await exigerLigne(db, "casTypes", versionId, id);
+  if (code !== corps.code) {
+    throw requeteInvalide(
+      "Le code d'un cas type ne change pas : supprimer puis recréer le cas type.",
+    );
+  }
+  const { libelle, contexte, briques_de_base, attendu } = corps;
+  const cas = { contexte, ...(briques_de_base ? { briques_de_base } : {}), attendu };
+  await db.query(
+    `UPDATE methode_cas_types SET libelle = $3, cas = $4 WHERE id = $1 AND version_id = $2`,
+    [id, versionId, libelle ?? null, JSON.stringify(cas)],
+  );
+  await tracer(db, auth, versionId, "cas_types.modifier", code);
+  return { id, code };
 }
 
 export const supprimerCasType = (db: Db, auth: Auth, versionId: string, id: string) =>
