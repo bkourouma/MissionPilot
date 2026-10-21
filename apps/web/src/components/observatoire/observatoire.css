@@ -1,0 +1,57 @@
+/*
+ * Observatoire inter-cabinets (CAP-04). Mobile d'abord, couleurs des jetons ; le statut d'une
+ * case ne repose pas sur la seule couleur (libellé « Effectif insuffisant »).
+ */
+
+.mp-observatoire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-observatoire p {
+  margin: 0;
+}
+
+.mp-observatoire__principes {
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-observatoire__stats,
+.mp-observatoire__resume {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+}
+
+.mp-observatoire__stats dt,
+.mp-observatoire__resume dt {
+  font-weight: 600;
+}
+
+.mp-observatoire__stats dd,
+.mp-observatoire__resume dd {
+  margin: 0;
+}
+
+.mp-observatoire__repartition {
+  margin-top: var(--mp-esp-2);
+}
+
+.mp-observatoire__repartition ul {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}
+
+.mp-observatoire__marges,
+.mp-observatoire__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}

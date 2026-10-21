@@ -55,6 +55,11 @@ export default async function PageAppelsOffres({
       <EnteteDePage
         titre="Appels d'offres"
         soustitre="Détection, go/no-go de l'associé, matrice de conformité et rétro-planning jusqu'au dépôt."
+        actions={
+          <Link href="/appels-offres/veille" className="mp-lien-ligne">
+            Veille
+          </Link>
+        }
       />
 
       {alertes.ok && alertes.donnees.alertes.length > 0 ? (

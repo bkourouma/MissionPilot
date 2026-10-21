@@ -33,11 +33,13 @@ describe("rubrique Connaissances : sous-pages et droits", () => {
       "recherche",
       "retours",
       "estimation",
+      "efficacite",
       "competences",
     ]);
     expect(sousPagesConnaissances(["expert_metier"]).map((p) => p.id)).toContain("derogations");
     // Estimation : des jours, donc budget.lire_jours en plus (l'expert métier ne l'a pas).
     expect(sousPagesConnaissances(["expert_metier"]).map((p) => p.id)).not.toContain("estimation");
+    expect(sousPagesConnaissances(["expert_metier"]).map((p) => p.id)).toContain("efficacite");
     expect(sousPagesConnaissances(["chef_mission"]).map((p) => p.id)).toContain("estimation");
     expect(sousPagesConnaissances(["gestionnaire"]).map((p) => p.id)).toEqual(["competences"]);
     // La rubrique ne s'ouvre plus par `collaborateurs.lire` (chef, gestionnaire) : la matrice de
