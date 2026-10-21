@@ -57,6 +57,18 @@ export const modeleIaSchema = z
   .trim()
   .regex(FORMAT_MODELE_IA, "Identifiant de modèle attendu : « fournisseur/modèle ».");
 
+/**
+ * Routage des modèles par tâche (AGT-06) : critère qui a guidé le choix du modèle recommandé
+ * (table `ROUTAGE_TACHES` de l'API, ia/modeles.ts), exposé en lecture par GET /api/ia/parametres.
+ */
+export const CRITERES_ROUTAGE_IA = ["qualite", "cout", "latence"] as const;
+export type CritereRoutageIa = (typeof CRITERES_ROUTAGE_IA)[number];
+export const CRITERE_ROUTAGE_LIBELLES: Record<CritereRoutageIa, string> = {
+  qualite: "Qualité",
+  cout: "Coût",
+  latence: "Rapidité",
+};
+
 /** Plafond mensuel : 100 000 USD au plus. */
 export const PLAFOND_IA_MAX_MICRO_USD = 100_000_000_000;
 
@@ -92,6 +104,11 @@ export const iaParametresModificationSchema = z
     plafond_mensuel_micro_usd: z.number().int().min(0).max(PLAFOND_IA_MAX_MICRO_USD).optional(),
     cle_api: cleApiIaSchema.nullable().optional(),
     modeles: modelesModification.optional(),
+    /**
+     * Cache des réponses IA (AGT-06), désactivé par défaut ; le désactiver vide le cache du
+     * cabinet. Sans reconfirmation : il ne change ni la clé ni le plafond.
+     */
+    cache_actif: z.boolean().optional(),
     confirmation: confirmationIdentiteSchema.optional(),
   })
   .strict()

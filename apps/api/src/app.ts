@@ -312,6 +312,14 @@ export async function buildApp(
     { prefix: "/api" },
   );
   await app.register(routesBrief, { prefix: "/api" });
+  // Rapport d'avancement hebdomadaire au client (AUT-10) : cabinet, puis portail (validés seulement).
+  await app.register(
+    (await import("./routes/automatisation-avancement.js")).routesAutomatisationAvancement,
+    { prefix: "/api" },
+  );
+  await app.register((await import("./routes/portail-avancement.js")).routesPortailAvancement, {
+    prefix: "/api",
+  });
   await app.register(routesCopilote, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
   // Canaux externes simulés (lot 3c) : comptes, destinataires, envois, saisies de KPI, simulateur ;

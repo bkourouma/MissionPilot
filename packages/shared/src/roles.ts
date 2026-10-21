@@ -216,6 +216,11 @@ export const PERMISSIONS = [
   // VOLONTAIRE du cabinet (désactivée par défaut), agrégats anonymes seulement (k-anonymat).
   "observatoire.lire", // consulter les agrégats de l'observatoire : cabinet CONTRIBUTEUR seulement
   "observatoire.adherer", // adhérer, se retirer, verser ou retirer ses contributions : associé SEUL
+  // --- V3, vague 4 (lot 4c, AUT-10) : rapport d'avancement hebdomadaire au client. Visibilité de la
+  // mission TOUJOURS exigée en plus ; valider, modifier et régénérer sont en outre réservés à l'associé
+  // et au directeur ou chef DE LA MISSION (route et déclencheur MQU02). Aucun droit financier.
+  "avancement.lire", // lire les brouillons et rapports d'avancement hebdomadaires d'une mission
+  "avancement.valider", // modifier le commentaire, régénérer, valider : chef ou directeur de la mission, associé
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -236,6 +241,8 @@ export const PERMISSIONS = [
   // Ateliers stratégiques en ligne (PLA-15, lot 5a) : voter, prioriser et placer dans une matrice
   // sur les ateliers où le dirigeant du client est invité (jamais le contributeur ni l'investisseur).
   "portail.ateliers.participer",
+  // Rapports d'avancement hebdomadaires VALIDÉS des missions partagées de son entreprise (AUT-10).
+  "portail.avancement.lire",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -254,6 +261,7 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.synthese.lire",
   "portail.dd.lire",
   "portail.ateliers.participer",
+  "portail.avancement.lire",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -355,6 +363,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "redressement.lire",
     "redressement.ecrire",
     "redressement.valider",
+    "avancement.lire",
+    "avancement.valider",
   ],
   chef_mission: [
     "brief.lire",
@@ -418,6 +428,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.valider",
     "redressement.lire",
     "redressement.ecrire",
+    "avancement.lire",
+    "avancement.valider",
   ],
   consultant: [
     "brief.lire",
@@ -576,6 +588,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.signature.signer",
     "portail.synthese.lire",
     "portail.ateliers.participer",
+    "portail.avancement.lire",
   ],
   client_contributeur: [
     "portail.acceder",
@@ -584,6 +597,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.questionnaires.repondre",
     "portail.salle.deposer",
     "portail.canaux.gerer",
+    "portail.avancement.lire",
   ],
   // Investisseur : son profil et, sur invitation explicite à un dossier, les notes de due
   // diligence validées que le cabinet publie (option du cabinet active).

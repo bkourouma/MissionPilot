@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  BROUILLON_REVUE_MAX,
   CAUSES_EVALUATION_OPENROUTER,
   evaluationOpenRouterCreationSchema,
   evaluationsOpenRouterQuerySchema,
   paramsPromptEvaluationSchema,
+  revueContradictoireCreationSchema,
+  revuesContradictoiresQuerySchema,
   STATUTS_EVALUATION_OPENROUTER,
 } from "../index";
 
@@ -61,5 +64,33 @@ describe("rejeu réel des évaluations sur OpenRouter (AGT-04)", () => {
       "incomplete",
       "ignoree",
     ]);
+  });
+});
+
+describe("revue contradictoire (AGT-06)", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+
+  it("le corps ne porte que l'identifiant du brouillon relu (schéma strict)", () => {
+    expect(revueContradictoireCreationSchema.parse({ generation_id: id })).toEqual({
+      generation_id: id,
+    });
+    for (const ko of [
+      {},
+      { generation_id: "x" },
+      { generation_id: id, texte: "autre" },
+      { generation_id: id, mission_id: id },
+      { generation_id: id, niveau: "N4" },
+    ]) {
+      expect(revueContradictoireCreationSchema.safeParse(ko).success).toBe(false);
+    }
+  });
+
+  it("la liste vise un brouillon ; 20 revues par défaut, 50 au plus", () => {
+    expect(revuesContradictoiresQuerySchema.parse({ generation_id: id }).limite).toBe(20);
+    expect(revuesContradictoiresQuerySchema.safeParse({}).success).toBe(false);
+    expect(
+      revuesContradictoiresQuerySchema.safeParse({ generation_id: id, limite: 51 }).success,
+    ).toBe(false);
+    expect(BROUILLON_REVUE_MAX).toBe(40_000);
   });
 });

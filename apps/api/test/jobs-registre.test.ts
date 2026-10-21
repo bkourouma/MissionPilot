@@ -5,6 +5,7 @@ import { trousseauDepuisConfig } from "../src/auth/chiffrement.js";
 import { TYPE_JOB_EVALUATION_OPENROUTER } from "../src/agents/evaluations-openrouter.js";
 import { TYPE_JOB_DETECTION_AUTOMATISATION } from "../src/automatisation/detection.js";
 import { TYPE_JOB_EVENEMENT_AUTOMATISATION } from "../src/automatisation/evenements.js";
+import { TYPE_JOB_AVANCEMENT_HEBDO } from "../src/automatisation/avancement-job.js";
 import { TYPE_JOB_BRIEF_QUOTIDIEN } from "../src/brief/quotidien.js";
 import { TYPE_JOB_CANAL_ENTRANT_AUDIO } from "../src/canaux/entrants.js";
 import { TYPE_JOB_CANAL_ENVOI } from "../src/canaux/envois.js";
@@ -49,6 +50,7 @@ const DECLARES: Record<string, string> = {
   TYPE_JOB_RELANCE_QUESTIONNAIRE,
   TYPE_JOB_SUIVI_KPI,
   TYPE_JOB_BRIEF_QUOTIDIEN,
+  TYPE_JOB_AVANCEMENT_HEBDO,
   TYPE_JOB_EVENEMENT_AUTOMATISATION,
   TYPE_JOB_AGENT_AUTOMATISATION,
   TYPE_JOB_DETECTION_AUTOMATISATION,

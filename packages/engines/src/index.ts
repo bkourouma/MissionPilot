@@ -33,3 +33,5 @@ export * from "./due-diligence/index";
 export * from "./redressement/index";
 // Services candidats : veille des guichets de financement (rapprochement déterministe).
 export * from "./services-candidats/guichets";
+// Vague 4, lot 4c : rapport d'avancement hebdomadaire au client (AUT-10).
+export * from "./avancement/index";

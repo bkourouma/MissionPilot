@@ -9,7 +9,11 @@ import {
 import type { Config } from "../config.js";
 import type { Db } from "../db/pool.js";
 import { associesActifs, notifier, type NotificationCreee } from "../notifications/notifier.js";
-import { MODELES_RECOMMANDES, PLAFOND_MENSUEL_DEPART_MICRO_USD } from "./modeles.js";
+import {
+  MODELES_RECOMMANDES,
+  PLAFOND_MENSUEL_DEPART_MICRO_USD,
+  ROUTAGE_TACHES,
+} from "./modeles.js";
 
 /*
  * Paramètres IA d'un cabinet (migrations 0100, 0103).
@@ -31,6 +35,9 @@ import { MODELES_RECOMMANDES, PLAFOND_MENSUEL_DEPART_MICRO_USD } from "./modeles
  * Sans clé de cabinet : clé de plateforme `OPENROUTER_API_KEY`, au plafond
  * mensuel plafonné par IA_PLAFOND_PLATEFORME_MICRO_USD ; sans aucune clé :
  * gabarits déterministes.
+ *
+ * Cache des réponses (AGT-06, migration 0278, ia/cache.ts) : `cache_actif`, DÉSACTIVÉ par
+ * défaut (ligne absente comprise), activable par le cabinet.
  */
 
 /** Usages de clé propres à l'IA (auth/chiffrement.ts) : une clé dérivée distincte chacun. */
@@ -48,12 +55,14 @@ export interface ParametresIa {
   modifie_le: string | null;
   /** Modèle choisi par le cabinet, par tâche (absent : recommandé). */
   modeles: Partial<Record<TacheIa, string>>;
+  /** Cache des réponses IA (AGT-06) : désactivé par défaut. */
+  cache_actif: boolean;
 }
 
 export async function lireParametres(db: Db): Promise<ParametresIa> {
   const r = await db.query(
     `SELECT ia_activee, plafond_mensuel_micro_usd::text AS plafond, cle_chiffree IS NOT NULL AS cle,
-       cle_modifiee_le, modifie_par, modifie_le
+       cle_modifiee_le, modifie_par, modifie_le, cache_actif
      FROM ia_parametres_cabinet`,
   );
   const m = await db.query("SELECT tache, modele FROM ia_modeles_taches ORDER BY tache");
@@ -68,6 +77,8 @@ export async function lireParametres(db: Db): Promise<ParametresIa> {
     modifie_par: p?.modifie_par ?? null,
     modifie_le: p?.modifie_le ?? null,
     modeles,
+    // Sans ligne : cache désactivé (activation explicite du cabinet).
+    cache_actif: p ? (p.cache_actif as boolean) : false,
   };
 }
 
@@ -84,6 +95,25 @@ export function vueModeles(p: Pick<ParametresIa, "modeles">) {
     recommande: MODELES_RECOMMANDES[tache],
     personnalise: p.modeles[tache] !== undefined,
   }));
+}
+
+/**
+ * Routage par tâche (AGT-06) : modèle recommandé, critère et motif du choix, plafond de jetons
+ * de sortie (ia/modeles.ts, ROUTAGE_TACHES), avec le modèle APPLIQUÉ au cabinet.
+ */
+export function vueRoutage(p: Pick<ParametresIa, "modeles">) {
+  return TACHES_IA.map((tache) => {
+    const r = ROUTAGE_TACHES[tache];
+    return {
+      tache,
+      modele_recommande: r.modele,
+      modele_applique: modeleDe(p, tache),
+      personnalise: p.modeles[tache] !== undefined,
+      critere: r.critere,
+      motif: r.motif,
+      plafond_jetons_sortie: r.plafondJetonsSortie,
+    };
+  });
 }
 
 /** Chiffre la clé du cabinet (stockée en base, jamais en clair). */

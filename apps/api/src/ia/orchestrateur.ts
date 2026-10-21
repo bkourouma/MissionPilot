@@ -12,6 +12,8 @@ import {
   type TacheGenerative,
   type TermeSensible,
 } from "@missionpilot/shared";
+import { plafondMissionAtteint } from "../agents/erreurs.js";
+import { controlerPlafondMission, plafondMissionAvantReservation } from "../agents/plafonds.js";
 import { journaliser } from "../audit.js";
 import { chiffrer, empreinte, trousseauDepuisConfig } from "../auth/chiffrement.js";
 import type { Auth } from "../auth/contexte.js";
@@ -39,6 +41,16 @@ import {
   type LlmProvider,
   type MessageLlm,
 } from "./fournisseur.js";
+import {
+  canonique,
+  cleCacheIa,
+  contientDonneeIdentifiante,
+  ecrireCache,
+  lireCache,
+  motifSansCache,
+  type EntreeCache,
+  type ReponseEnCache,
+} from "./cache.js";
 import { encadrerContenuClient, neutraliserContenuClient } from "./donnees-non-fiables.js";
 import { blocChiffres, produireGabarit } from "./gabarits.js";
 import { contexteGarde, verifierChiffres } from "./garde-chiffres.js";
@@ -84,9 +96,20 @@ import { verifierSources } from "./sources.js";
  *    atteint avec repli → gabarit déterministe (`gabarit: true`). Sinon :
  *    réservation (déjà faite en immédiat ; en file, transaction courte
  *    séparée, sous le verrou du plafond), masquage des données
- *    identifiantes, rendu du prompt, appel du fournisseur HORS transaction,
+ *    identifiantes, rendu du prompt, CACHE des réponses s'il est actif et
+ *    admis (ia/cache.ts : sinon), appel du fournisseur HORS transaction,
  *    validation Zod de la sortie (non conforme → gabarit, l'appel reste
- *    compté), GARDE-CHIFFRES sur la sortie masquée, démasquage local.
+ *    compté), GARDE-CHIFFRES sur la sortie masquée, démasquage local. Une
+ *    réponse servie par le cache suit exactement les mêmes étapes après
+ *    l'appel (validation, garde, démasquage, brouillon IA) ; elle est
+ *    inscrite à coût nul (issue « cache »).
+ *
+ * PLAFOND PAR MISSION (AGT-06, agents/plafonds.ts) : toute demande rattachée
+ * à une mission est contrôlée sous le verrou de la mission — à la préparation
+ * (puis réservation dans la même transaction en mode immédiat) et à
+ * l'exécution, juste avant la réservation, pour une demande pas encore
+ * réservée (mode file, job `ia_generation`). Atteint : 409
+ * PLAFOND_MISSION_ATTEINT, ou gabarit avec `repliSiPlafond`.
  * 3. Clôture (transaction) : réservation soldée, coût inscrit dans
  *    ia_consommations (estimé pour un délai dépassé ou une réponse
  *    illisible), version 1 « brouillon_ia » (ajout seul), alertes, journal.
@@ -217,19 +240,6 @@ export const ISSUES_FACTURABLES: Partial<Record<CodeErreurLlm, IssueConsommation
   REPONSE_TROP_GRANDE: "reponse_invalide",
 };
 
-/** JSON canonique (clés triées) : même entrée → même empreinte. */
-function canonique(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(canonique).join(",")}]`;
-  if (v !== null && typeof v === "object") {
-    const o = v as Record<string, unknown>;
-    return `{${Object.keys(o)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonique(o[k])}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(v);
-}
-
 function caracteresEntree(prompt: PromptDb, entree: EntreeIa): number {
   return (
     prompt.gabarit_systeme.length +
@@ -331,12 +341,28 @@ async function preparer(
     throw requeteInvalide("Un contenu client ne peut pas figurer dans les consignes du prompt.");
   }
   await exigerQuotaUtilisateur(db, auth, maintenant);
-  const modeDegrade =
+  let modeDegrade =
     (d.modeDegrade ?? false) ||
     (d.controleAvantReservation ? await d.controleAvantReservation(db) : false);
+  const params = await lireParametres(db);
+  if (
+    missionId &&
+    !modeDegrade &&
+    params.ia_activee &&
+    sourceCleDisponible(params, deps.config) !== null
+  ) {
+    // AGT-06 : plafond de la mission SOUS VERROU de la mission, avant la réservation (mission puis
+    // cabinet) ; en mode immédiat, la réservation suit dans cette même transaction.
+    modeDegrade = await controlerPlafondMission(
+      db,
+      missionId,
+      maintenant,
+      d.repliSiPlafond ?? false,
+      plafondMissionAtteint,
+    );
+  }
 
   const entree = entreeDe({ ...d, modeDegrade }, sources);
-  const params = await lireParametres(db);
   const source =
     params.ia_activee && !modeDegrade ? sourceCleDisponible(params, deps.config) : null;
   const estimation =
@@ -426,6 +452,7 @@ type RaisonGabarit =
   | "cle_absente"
   | "cle_illisible"
   | "plafond"
+  | "plafond_mission"
   | "sortie_invalide"
   | "mode_degrade";
 
@@ -448,6 +475,7 @@ export async function executerDemande(
   options: { derniereTentative: boolean },
 ): Promise<ResultatExecution> {
   const maintenant = (deps.horloge ?? (() => new Date()))();
+  const trousseau = trousseauDepuisConfig(deps.config);
   const a = await transacteur(async (db) => {
     const r = await db.query(
       "SELECT statut, mission_id, prompt_id, demandeur_id, repli_si_plafond FROM ia_demandes WHERE id = $1",
@@ -477,14 +505,29 @@ export async function executerDemande(
       else if (resolue.statut === "illisible") raison = "cle_illisible";
       else {
         plafond = plafondEffectif(params, deps.config, resolue.source);
-        const reservation = await reserverAppel(db, {
-          cabinetId,
-          demandeId,
-          estimation,
-          plafond,
-          maintenant,
-        });
-        if (reservation.statut === "reservee") {
+        // AGT-06 : plafond de la mission sous son verrou, puis réservation (verrou du cabinet) dans
+        // cette même transaction ; une demande déjà réservée (mode immédiat) n'est pas recontrôlée.
+        const missionAtteinte = dem.mission_id
+          ? await plafondMissionAvantReservation(
+              db,
+              dem.mission_id as string,
+              demandeId,
+              maintenant,
+            )
+          : false;
+        const reservation = missionAtteinte
+          ? null
+          : await reserverAppel(db, {
+              cabinetId,
+              demandeId,
+              estimation,
+              plafond,
+              maintenant,
+            });
+        if (reservation === null) {
+          if (dem.repli_si_plafond) raison = "plafond_mission";
+          else erreurCode = "PLAFOND_MISSION_ATTEINT";
+        } else if (reservation.statut === "reservee") {
           cle = { cle: resolue.cle, source: resolue.source };
         } else if (reservation.statut === "plafond") {
           if (dem.repli_si_plafond) raison = "plafond";
@@ -505,6 +548,7 @@ export async function executerDemande(
       cle,
       raison,
       erreurCode,
+      cacheActif: params.cache_actif,
     };
   });
   if (!a) return { statut: "deja_terminee", notifications: [] };
@@ -516,9 +560,13 @@ export async function executerDemande(
   let trace: {
     modele: string;
     dureeMs: number;
-    tokensEntree: number;
-    tokensSortie: number;
+    tokensEntree: number | null;
+    tokensSortie: number | null;
   } | null = null;
+  /** Réponse servie par le cache (aucun appel au fournisseur). */
+  let depuisCache = false;
+  /** Réponse fraîche à écrire dans le cache après la clôture. */
+  let aMettreEnCache: EntreeCache | null = null;
   let consommation: Consommation | null = null;
   let garde = { chiffresNonVerifies: false, nombresNonVerifies: [] as string[] };
   const listeBlanche = entree.contexteChiffres.map((c) => c.valeur);
@@ -566,61 +614,128 @@ export async function executerDemande(
       modele: a.modele,
       sourceCle: a.cle.source,
     };
-    try {
-      const rep = await fournisseur.completer({
-        tache: prompt.tache,
-        modele: a.modele,
-        messages,
-        maxTokens: MAX_TOKENS_SORTIE[prompt.tache],
-        formatJson: prompt.schema_sortie.type === "objet",
-        cleApi: a.cle.cle,
-      });
-      const validee = validerSortie(prompt.schema_sortie, rep.texte);
-      trace = {
-        modele: rep.modele,
-        dureeMs: rep.dureeMs,
-        tokensEntree: rep.tokensEntree,
-        tokensSortie: rep.tokensSortie,
+    // AGT-06 : cache des réponses (ia/cache.ts), consulté APRÈS toutes les gardes et la
+    // réservation ; il ne remplace que l'appel au fournisseur.
+    const formatJson = prompt.schema_sortie.type === "objet";
+    const motifCache = motifSansCache({
+      actif: a.cacheActif,
+      promptNom: prompt.nom,
+      variablesNonFiables: [...nonFiables],
+      textesMasques: Object.values(valeurs),
+      termesSensibles: entree.termesSensibles,
+    });
+    const cleCache =
+      motifCache === null
+        ? cleCacheIa(trousseau, {
+            cabinetId,
+            prompt: {
+              nom: prompt.nom,
+              version: prompt.version,
+              tache: prompt.tache,
+              gabaritSysteme: prompt.gabarit_systeme,
+              gabaritUtilisateur: prompt.gabarit_utilisateur,
+              schemaSortie: prompt.schema_sortie,
+            },
+            modele: a.modele,
+            maxTokens: MAX_TOKENS_SORTIE[prompt.tache],
+            formatJson,
+            entrees: valeurs,
+          }).cle
+        : null;
+    const enCache: ReponseEnCache | null = cleCache
+      ? await transacteur((db) => lireCache(db, trousseau, cabinetId, cleCache, maintenant)).catch(
+          () => null,
+        )
+      : null;
+    const valideeCache =
+      enCache && !contientDonneeIdentifiante(enCache.texte, entree.termesSensibles)
+        ? validerSortie(prompt.schema_sortie, enCache.texte)
+        : null;
+    if (enCache && valideeCache) {
+      // Succès en cache : aucun appel, coût nul ; validation, garde et démasquage comme ci-dessous.
+      depuisCache = true;
+      trace = { modele: enCache.modele, dureeMs: 0, tokensEntree: null, tokensSortie: null };
+      consommation = { ...base, issue: "cache", tokensEntree: 0, tokensSortie: 0, dureeMs: 0 };
+      garde = verifierChiffres(valideeCache.texte, listeBlanche, contexte, masque);
+      sortie = {
+        texte: masque.demasquer(valideeCache.texte),
+        donnees: valideeCache.donnees ? masque.demasquerValeur(valideeCache.donnees) : null,
       };
-      consommation = {
-        ...base,
-        issue: validee ? "succes" : "sortie_invalide",
-        tokensEntree: rep.tokensEntree,
-        tokensSortie: rep.tokensSortie,
-        dureeMs: rep.dureeMs,
-      };
-      if (validee) {
-        // Garde sur la sortie MASQUÉE : seuls les jetons de CE masque sont ignorés.
-        garde = verifierChiffres(validee.texte, listeBlanche, contexte, masque);
-        sortie = {
-          texte: masque.demasquer(validee.texte),
-          donnees: validee.donnees ? masque.demasquerValeur(validee.donnees) : null,
+    } else {
+      try {
+        const rep = await fournisseur.completer({
+          tache: prompt.tache,
+          modele: a.modele,
+          messages,
+          maxTokens: MAX_TOKENS_SORTIE[prompt.tache],
+          formatJson,
+          cleApi: a.cle.cle,
+        });
+        const validee = validerSortie(prompt.schema_sortie, rep.texte);
+        trace = {
+          modele: rep.modele,
+          dureeMs: rep.dureeMs,
+          tokensEntree: rep.tokensEntree,
+          tokensSortie: rep.tokensSortie,
         };
-      } else {
-        raison = "sortie_invalide";
-      }
-    } catch (error) {
-      const issue = error instanceof ErreurLlm ? ISSUES_FACTURABLES[error.code] : undefined;
-      if (issue) {
-        // L'appel a pu être facturé sans réponse exploitable : coût ESTIMÉ (jetons estimés + plafond de sortie).
         consommation = {
           ...base,
-          issue,
-          tokensEntree: estimerTokens(caracteresEntree(prompt, entree)),
-          tokensSortie: MAX_TOKENS_SORTIE[prompt.tache],
-          dureeMs: 0,
+          issue: validee ? "succes" : "sortie_invalide",
+          tokensEntree: rep.tokensEntree,
+          tokensSortie: rep.tokensSortie,
+          dureeMs: rep.dureeMs,
         };
+        if (validee) {
+          // Garde sur la sortie MASQUÉE : seuls les jetons de CE masque sont ignorés.
+          garde = verifierChiffres(validee.texte, listeBlanche, contexte, masque);
+          sortie = {
+            texte: masque.demasquer(validee.texte),
+            donnees: validee.donnees ? masque.demasquerValeur(validee.donnees) : null,
+          };
+          // Mise en cache (après la clôture) : jamais une réponse signalée par la garde-chiffres
+          // ni une réponse qui contient une donnée identifiante en clair.
+          if (
+            cleCache &&
+            !garde.chiffresNonVerifies &&
+            !contientDonneeIdentifiante(rep.texte, entree.termesSensibles)
+          ) {
+            aMettreEnCache = {
+              cabinetId,
+              cle: cleCache,
+              promptNom: prompt.nom,
+              promptVersion: prompt.version,
+              tache: prompt.tache,
+              modele: a.modele,
+              reponse: { texte: rep.texte, modele: rep.modele },
+              maintenant,
+            };
+          }
+        } else {
+          raison = "sortie_invalide";
+        }
+      } catch (error) {
+        const issue = error instanceof ErreurLlm ? ISSUES_FACTURABLES[error.code] : undefined;
+        if (issue) {
+          // L'appel a pu être facturé sans réponse exploitable : coût ESTIMÉ (jetons estimés + plafond de sortie).
+          consommation = {
+            ...base,
+            issue,
+            tokensEntree: estimerTokens(caracteresEntree(prompt, entree)),
+            tokensSortie: MAX_TOKENS_SORTIE[prompt.tache],
+            dureeMs: 0,
+          };
+        }
+        if (!(error instanceof ErreurLlm) || (error.reessayable && !options.derniereTentative)) {
+          // Appel abandonné (reprise du job, erreur inattendue) : réservation soldée, coût inscrit.
+          const aInscrire = consommation;
+          await transacteur(async (db) => {
+            await solderParDemande(db, demandeId);
+            if (aInscrire) await enregistrerConsommation(db, aInscrire, a.plafond, maintenant);
+          }).catch(() => undefined);
+          throw error;
+        }
+        erreurCode = error.code;
       }
-      if (!(error instanceof ErreurLlm) || (error.reessayable && !options.derniereTentative)) {
-        // Appel abandonné (reprise du job, erreur inattendue) : réservation soldée, coût inscrit.
-        const aInscrire = consommation;
-        await transacteur(async (db) => {
-          await solderParDemande(db, demandeId);
-          if (aInscrire) await enregistrerConsommation(db, aInscrire, a.plafond, maintenant);
-        }).catch(() => undefined);
-        throw error;
-      }
-      erreurCode = error.code;
     }
   }
   if (!erreurCode && !sortie) {
@@ -628,7 +743,7 @@ export async function executerDemande(
     garde = verifierChiffres(sortie.texte, listeBlanche, contexte);
   }
 
-  return transacteur(async (db) => {
+  const fin = await transacteur(async (db) => {
     const notifications: (NotificationCreee | null)[] = [];
     const maj = await db.query(
       `UPDATE ia_demandes SET statut = $2, progression = 100, termine_le = $3, erreur_code = $4
@@ -705,10 +820,18 @@ export async function executerDemande(
         duree_ms: trace?.dureeMs ?? null,
         gabarit: raison,
         chiffres_non_verifies: garde.chiffresNonVerifies,
+        cache: depuisCache,
       },
     });
     return { statut: "terminee" as const, notifications };
   });
+  if (fin.statut === "terminee" && aMettreEnCache) {
+    // Transaction séparée : un échec d'écriture du cache (cache désactivé entre-temps : MQI01)
+    // n'affecte jamais la génération, déjà close.
+    const e: EntreeCache = aMettreEnCache;
+    await transacteur((db) => ecrireCache(db, trousseau, e)).catch(() => undefined);
+  }
+  return fin;
 }
 
 /**

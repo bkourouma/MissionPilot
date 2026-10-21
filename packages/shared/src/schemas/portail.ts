@@ -101,3 +101,12 @@ export const portailParametresModificationSchema = z
 export type PortailInvitationCreation = z.infer<typeof portailInvitationCreationSchema>;
 export type PortailPartages = z.infer<typeof portailPartagesSchema>;
 export type PortailPartageMission = z.infer<typeof portailPartageMissionSchema>;
+
+/** Rapports d'avancement hebdomadaires validés d'un client (AUT-10, lot 4c). */
+export const portailAvancementListeQuerySchema = z
+  .object({
+    mission_id: uuid.optional(),
+    limite: z.coerce.number().int().min(1).max(100).default(26),
+    curseur: z.string().max(500).optional(),
+  })
+  .strict();

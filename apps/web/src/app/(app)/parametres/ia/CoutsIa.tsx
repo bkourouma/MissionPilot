@@ -16,6 +16,7 @@ import {
   formaterMicroUsd,
   hrefCoutsIa,
   libelleMois,
+  libelleServiesCache,
   type CoutMissionIa,
   type CoutsIa,
   type PageIa,
@@ -63,6 +64,12 @@ export function CoutsIaSection({
                 entete: "Appels facturés",
                 alignement: "droite",
                 rendu: (l) => formaterNombre(l.appels, 0),
+              },
+              {
+                cle: "cache",
+                entete: "Servies par le cache",
+                alignement: "droite",
+                rendu: (l) => formaterNombre(l.appels_cache ?? 0, 0),
               },
               {
                 cle: "cout",
@@ -127,6 +134,10 @@ function ResumeMois({ c }: { c: CoutsIa }) {
         <div>
           <dt>Appels facturés</dt>
           <dd>{formaterNombre(c.appels, 0)}</dd>
+        </div>
+        <div>
+          <dt>Générations servies par le cache</dt>
+          <dd>{libelleServiesCache(c.appels_cache)}</dd>
         </div>
         <div>
           <dt>Plafond mensuel du cabinet</dt>

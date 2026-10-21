@@ -240,3 +240,32 @@
     animation: none;
   }
 }
+
+/* ---------- Contre-analyse (agent contradicteur) ---------- */
+.mp-contre-analyse {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding-top: var(--mp-esp-3);
+  border-top: 1px solid var(--mp-bordure);
+}
+
+.mp-contre-analyse__liste {
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+  overflow-wrap: anywhere;
+}
+
+.mp-contre-analyse__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+}
+
+.mp-contre-analyse__section h5,
+.mp-contre-analyse__section h4 {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+}

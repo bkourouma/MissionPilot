@@ -46,6 +46,7 @@ describe("droits et navigation du portail", () => {
       "questionnaires",
       "salle",
       "kpi",
+      "avancement",
       "factures",
       "signatures",
       "ateliers",
@@ -60,6 +61,7 @@ describe("droits et navigation du portail", () => {
       "questionnaires",
       "salle",
       "kpi",
+      "avancement",
       "preferences",
       "securite",
     ]);
