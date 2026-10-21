@@ -250,6 +250,7 @@ describe("portail client (SOC-09)", () => {
       "portail.signature.signer",
       "portail.synthese.lire",
       "portail.dd.lire",
+      "portail.avancement.lire",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
@@ -663,5 +664,30 @@ describe("V3, vague 4 : portail investisseur de la due diligence", () => {
     for (const p of ["dd.portail.configurer", "dd.portail.gerer"] as const) {
       expect(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).not.toContain(p);
     }
+  });
+});
+
+describe("V3, vague 4 : rapport d'avancement hebdomadaire (AUT-10)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("lecture et validation : associé, directeur et chef de mission seulement", () => {
+    const trois = ["associe", "chef_mission", "directeur_mission"];
+    expect(qui("avancement.lire")).toEqual(trois);
+    expect(qui("avancement.valider")).toEqual(trois);
+  });
+
+  it("portail : lecture par le dirigeant et le contributeur, jamais par un rôle interne ni l'investisseur", () => {
+    expect(qui("portail.avancement.lire")).toEqual(["client_contributeur", "client_dirigeant"]);
+    expect(PERMISSIONS_PORTAIL_CLIENT).toContain("portail.avancement.lire");
+    for (const r of ROLES) expect(aPermission([r], "portail.avancement.lire"), r).toBe(false);
+  });
+
+  it("aucun rôle client ne lit ni ne valide côté cabinet ; aucune ne donne un droit financier", () => {
+    for (const r of ROLES_CLIENT) {
+      expect(aPermission([r], "avancement.lire"), r).toBe(false);
+      expect(aPermission([r], "avancement.valider"), r).toBe(false);
+    }
+    expect(qui("finance.lire")).toEqual(["associe", "gestionnaire"]);
   });
 });

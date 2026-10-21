@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Permission } from "../roles";
-import { dateIsoSchema, texte } from "./commun";
+import { dateIsoSchema, texte, texteOptionnel } from "./commun";
 import { codeAgentSchema } from "./agents";
 import {
   codeReferentielSchema,
@@ -689,3 +689,259 @@ export const CODES_AUTOMATISATION_STANDARD = AUTOMATISATIONS_STANDARD.map((a) =>
 export const paramsAutomatisationStandardSchema = z
   .object({ code: z.string().regex(/^[a-z][a-z0-9_]{1,59}$/, "Code invalide.") })
   .strict();
+
+// ---------------------------------------------------------------------------
+// Rapport d'avancement hebdomadaire au client (AUT-10, lot 4c)
+// ---------------------------------------------------------------------------
+
+/*
+ * Brouillon généré chaque semaine par une tâche à partir de données réelles ; TOUS les chiffres
+ * sortent du moteur `composerAvancementHebdo` (packages/engines/src/avancement). Le chef de mission
+ * relit, modifie la note d'introduction et le commentaire (jamais les chiffres) et valide ; seul un
+ * rapport VALIDÉ est visible du client sur le portail, figé et sans donnée financière interne.
+ */
+
+export const STATUTS_AVANCEMENT_RAPPORT = ["brouillon", "valide"] as const;
+export type StatutAvancementRapport = (typeof STATUTS_AVANCEMENT_RAPPORT)[number];
+export const LIBELLES_STATUT_AVANCEMENT_RAPPORT: Record<StatutAvancementRapport, string> = {
+  brouillon: "Brouillon",
+  valide: "Validé",
+};
+
+/** vide : aucun commentaire ; brouillon_ia : suggestion non relue ; redige : écrit ou relu par le chef. */
+export const STATUTS_COMMENTAIRE_AVANCEMENT = ["vide", "brouillon_ia", "redige"] as const;
+export type StatutCommentaireAvancement = (typeof STATUTS_COMMENTAIRE_AVANCEMENT)[number];
+export const LIBELLES_STATUT_COMMENTAIRE_AVANCEMENT: Record<StatutCommentaireAvancement, string> = {
+  vide: "Aucun commentaire",
+  brouillon_ia: "Brouillon IA à relire",
+  redige: "Rédigé par le chef de mission",
+};
+
+export const TAILLE_INTRODUCTION_AVANCEMENT = 2000;
+export const TAILLE_COMMENTAIRE_AVANCEMENT = 4000;
+
+/** Charge de la tâche « avancement_hebdo » : semaine (lundi), curseur de mission et numéro de lot. */
+export const chargeAvancementHebdoSchema = z
+  .object({
+    semaine: dateIsoSchema,
+    apres_id: z.string().uuid().optional(),
+    lot: z.number().int().min(1).max(100).optional(),
+  })
+  .strict();
+export type ChargeAvancementHebdo = z.infer<typeof chargeAvancementHebdoSchema>;
+
+const jalonRapportSchema = z.object({
+  libelle: z.string().max(200),
+  date_prevue: dateIsoSchema.nullable(),
+});
+const listeJalonsRapportSchema = z.object({
+  nombre: z.number().int().min(0),
+  elements: z.array(jalonRapportSchema).max(100),
+});
+
+/**
+ * Contenu chiffré d'un rapport (sortie du moteur). Les clés inconnues sont ÉCARTÉES à la lecture :
+ * c'est la liste blanche de ce que l'API et le portail servent.
+ */
+export const contenuAvancementSchema = z.object({
+  version: z.literal(1),
+  semaine: dateIsoSchema,
+  semaine_fin: dateIsoSchema,
+  date_reference: dateIsoSchema,
+  mission: z.object({ intitule: z.string().max(200), statut: z.string().max(40) }),
+  avancement: z.object({
+    pourcentage: z.number().int().min(0).max(100).nullable(),
+    elements: z.number().int().min(0),
+  }),
+  jalons: z.object({
+    total: z.number().int().min(0),
+    atteints: listeJalonsRapportSchema,
+    en_retard: listeJalonsRapportSchema,
+    a_venir: listeJalonsRapportSchema,
+    sans_date: z.number().int().min(0),
+  }),
+  kpis: z.object({
+    total: z.number().int().min(0),
+    vert: z.number().int().min(0),
+    orange: z.number().int().min(0),
+    rouge: z.number().int().min(0),
+    non_evalue: z.number().int().min(0),
+    elements: z
+      .array(
+        z.object({
+          libelle: z.string().max(200),
+          unite: z.string().max(200),
+          valeur: z.number().nullable(),
+          cible: z.number().nullable(),
+          statut: z.enum(["vert", "orange", "rouge", "non_evalue"]),
+          periode: z.string().max(40).nullable(),
+        }),
+      )
+      .max(100),
+  }),
+  livrables: z.object({
+    total: z.number().int().min(0),
+    partages: z.number().int().min(0),
+    non_partages: z.number().int().min(0),
+    elements: z
+      .array(
+        z.object({
+          nom: z.string().max(200),
+          type: z.string().max(200),
+          version: z.number().int().min(1),
+        }),
+      )
+      .max(100),
+  }),
+  faits_saillants: z
+    .array(
+      z.object({
+        code: z.enum([
+          "avancement",
+          "jalons_atteints",
+          "jalons_en_retard",
+          "jalons_a_venir",
+          "kpis",
+          "livrables",
+        ]),
+        texte: z.string().max(300),
+      }),
+    )
+    .max(20),
+});
+export type ContenuAvancement = z.infer<typeof contenuAvancementSchema>;
+
+/**
+ * Projection PORTAIL du contenu : ce que le client reçoit. Pas de `non_partages` (un nombre de
+ * livrables non partagés révélerait des travaux que le cabinet ne montre pas) ; `livrables.total`
+ * vaut le nombre de livrables PARTAGÉS. Schéma strict : toute clé interne est une erreur.
+ */
+export const contenuAvancementPortailSchema = z
+  .object({
+    version: z.literal(1),
+    semaine: dateIsoSchema,
+    semaine_fin: dateIsoSchema,
+    date_reference: dateIsoSchema,
+    mission: contenuAvancementSchema.shape.mission.strict(),
+    avancement: contenuAvancementSchema.shape.avancement.strict(),
+    jalons: contenuAvancementSchema.shape.jalons.strict(),
+    kpis: contenuAvancementSchema.shape.kpis.strict(),
+    livrables: z
+      .object({
+        total: z.number().int().min(0),
+        partages: z.number().int().min(0),
+        elements: contenuAvancementSchema.shape.livrables.shape.elements,
+      })
+      .strict(),
+    faits_saillants: contenuAvancementSchema.shape.faits_saillants,
+  })
+  .strict();
+export type ContenuAvancementPortail = z.infer<typeof contenuAvancementPortailSchema>;
+
+/**
+ * Construit la projection portail d'un contenu du moteur, champ par champ (liste blanche, aucun
+ * spread). Les livrables détaillés sont ceux déjà partagés (le moteur n'en détaille pas d'autres) ;
+ * le fait saillant « livrables » est recalculé depuis le seul décompte des partagés.
+ */
+export function projeterContenuAvancementPortail(c: ContenuAvancement): ContenuAvancementPortail {
+  const partages = c.livrables.partages;
+  const faits = c.faits_saillants
+    .filter((f) => f.code !== "livrables")
+    .map((f) => ({ code: f.code, texte: f.texte }));
+  if (partages > 0) {
+    faits.push({
+      code: "livrables",
+      texte: `${partages} ${partages > 1 ? "livrables partagés" : "livrable partagé"}.`,
+    });
+  }
+  const liste = (l: ContenuAvancement["jalons"]["atteints"]) => ({
+    nombre: l.nombre,
+    elements: l.elements.map((e) => ({ libelle: e.libelle, date_prevue: e.date_prevue })),
+  });
+  return contenuAvancementPortailSchema.parse({
+    version: 1,
+    semaine: c.semaine,
+    semaine_fin: c.semaine_fin,
+    date_reference: c.date_reference,
+    mission: { intitule: c.mission.intitule, statut: c.mission.statut },
+    avancement: { pourcentage: c.avancement.pourcentage, elements: c.avancement.elements },
+    jalons: {
+      total: c.jalons.total,
+      atteints: liste(c.jalons.atteints),
+      en_retard: liste(c.jalons.en_retard),
+      a_venir: liste(c.jalons.a_venir),
+      sans_date: c.jalons.sans_date,
+    },
+    kpis: {
+      total: c.kpis.total,
+      vert: c.kpis.vert,
+      orange: c.kpis.orange,
+      rouge: c.kpis.rouge,
+      non_evalue: c.kpis.non_evalue,
+      elements: c.kpis.elements.map((k) => ({
+        libelle: k.libelle,
+        unite: k.unite,
+        valeur: k.valeur,
+        cible: k.cible,
+        statut: k.statut,
+        periode: k.periode,
+      })),
+    },
+    livrables: {
+      total: partages,
+      partages,
+      elements: c.livrables.elements.map((l) => ({ nom: l.nom, type: l.type, version: l.version })),
+    },
+    faits_saillants: faits,
+  });
+}
+
+/** Modification d'un brouillon : note d'introduction et commentaire SEULEMENT, jamais les chiffres. */
+export const avancementModificationSchema = z
+  .object({
+    version: z.number().int().min(1),
+    introduction: texteOptionnel(TAILLE_INTRODUCTION_AVANCEMENT),
+    commentaire: texteOptionnel(TAILLE_COMMENTAIRE_AVANCEMENT),
+  })
+  .strict()
+  .refine(
+    (v) => v.introduction !== undefined || v.commentaire !== undefined,
+    "Rien à modifier : fournir l'introduction ou le commentaire.",
+  );
+export type AvancementModification = z.infer<typeof avancementModificationSchema>;
+
+/** Régénération et validation : la version lue sert de verrou optimiste. */
+export const avancementVersionSchema = z.object({ version: z.number().int().min(1) }).strict();
+
+/** Génération manuelle : semaine désignée par son lundi (défaut : la semaine courante). */
+export const avancementGenerationSchema = z
+  .object({
+    semaine: dateIsoSchema
+      .refine((v) => new Date(`${v}T00:00:00Z`).getUTCDay() === 1, "La semaine est un lundi.")
+      .optional(),
+  })
+  .strict();
+
+export const avancementListeQuerySchema = z
+  .object({
+    limite: z.coerce.number().int().min(1).max(100).default(26),
+    /** Semaine (lundi) strictement avant laquelle reprendre. */
+    avant: dateIsoSchema.optional(),
+  })
+  .strict();
+
+/**
+ * Paramètre du cabinet. `envoi_email` est DÉSACTIVÉ et NON BRANCHÉ : seule la valeur `false` est
+ * acceptée (CHECK en base), aucun envoi au client n'existe.
+ */
+export const avancementParametresModificationSchema = z
+  .object({
+    actif: z.boolean(),
+    envoi_email: z
+      .literal(false, { errorMap: () => ({ message: "L'envoi par e-mail n'est pas disponible." }) })
+      .optional(),
+  })
+  .strict();
+export type AvancementParametresModification = z.infer<
+  typeof avancementParametresModificationSchema
+>;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRITERE_ROUTAGE_LIBELLES,
+  CRITERES_ROUTAGE_IA,
   FORMAT_MODELE_IA,
   generationCreationSchema,
   generationModificationSchema,
@@ -62,6 +64,18 @@ describe("socle IA : paramètres (ADR-003)", () => {
     ).toBe(false);
     expect(iaTestSchema.parse({})).toEqual({ tache: "classification" });
     expect(TACHES_IA).toContain("embedding");
+  });
+
+  it("cache des réponses (AGT-06) : booléen facultatif, suffit seul, jamais une autre forme", () => {
+    expect(iaParametresModificationSchema.safeParse({ cache_actif: true }).success).toBe(true);
+    expect(iaParametresModificationSchema.safeParse({ cache_actif: false }).success).toBe(true);
+    expect(iaParametresModificationSchema.safeParse({ cache_actif: "oui" }).success).toBe(false);
+    expect(iaParametresModificationSchema.safeParse({ cache_actif: null }).success).toBe(false);
+  });
+
+  it("routage par tâche (AGT-06) : trois critères, chacun libellé en français", () => {
+    expect([...CRITERES_ROUTAGE_IA]).toEqual(["qualite", "cout", "latence"]);
+    for (const c of CRITERES_ROUTAGE_IA) expect(CRITERE_ROUTAGE_LIBELLES[c]).toMatch(/^\p{Lu}/u);
   });
 
   it("bloc de reconfirmation : forme de confirmationIdentiteSchema, jamais seul (constat 6)", () => {

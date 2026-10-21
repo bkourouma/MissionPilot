@@ -208,6 +208,11 @@ export const PERMISSIONS = [
   "redressement.ecrire", // ouvrir un dossier, saisir correspondance, urgence, trésorerie, créanciers, actions, versions de plan
   "redressement.valider", // valider une version de plan, clore un dossier (autre que le créateur, sauf associé)
   "redressement.parametrer", // rédiger et publier les seuils d'alerte par secteur (experts du cabinet)
+  // --- V3, vague 4 (lot 4c, AUT-10) : rapport d'avancement hebdomadaire au client. Visibilité de la
+  // mission TOUJOURS exigée en plus ; valider, modifier et régénérer sont en outre réservés à l'associé
+  // et au directeur ou chef DE LA MISSION (route et déclencheur MQU02). Aucun droit financier.
+  "avancement.lire", // lire les brouillons et rapports d'avancement hebdomadaires d'une mission
+  "avancement.valider", // modifier le commentaire, régénérer, valider : chef ou directeur de la mission, associé
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -225,6 +230,8 @@ export const PERMISSIONS = [
   // Portail investisseur de la due diligence : notes validées PUBLIÉES et pièces choisies des
   // dossiers sur lesquels le compte est invité (investisseur seul, lecture seule).
   "portail.dd.lire",
+  // Rapports d'avancement hebdomadaires VALIDÉS des missions partagées de son entreprise (AUT-10).
+  "portail.avancement.lire",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -242,6 +249,7 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.signature.signer",
   "portail.synthese.lire",
   "portail.dd.lire",
+  "portail.avancement.lire",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -340,6 +348,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "redressement.lire",
     "redressement.ecrire",
     "redressement.valider",
+    "avancement.lire",
+    "avancement.valider",
   ],
   chef_mission: [
     "brief.lire",
@@ -402,6 +412,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.valider",
     "redressement.lire",
     "redressement.ecrire",
+    "avancement.lire",
+    "avancement.valider",
   ],
   consultant: [
     "brief.lire",
@@ -555,6 +567,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.canaux.gerer",
     "portail.signature.signer",
     "portail.synthese.lire",
+    "portail.avancement.lire",
   ],
   client_contributeur: [
     "portail.acceder",
@@ -563,6 +576,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.questionnaires.repondre",
     "portail.salle.deposer",
     "portail.canaux.gerer",
+    "portail.avancement.lire",
   ],
   // Investisseur : son profil et, sur invitation explicite à un dossier, les notes de due
   // diligence validées que le cabinet publie (option du cabinet active).
