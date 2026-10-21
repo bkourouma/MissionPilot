@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9c).
+
 # Notes du lot 4c « Rapport d'avancement hebdomadaire (AUT-10), IA : cache, routage, plafonds (AGT-06), agent contradicteur » (2026-10-21)
 
 Mises à jour à reporter par le superviseur dans les documents interdits au lot (SECURITY.md,

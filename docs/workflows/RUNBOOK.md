@@ -280,6 +280,73 @@ désactivée par défaut dans chaque cabinet : tant qu'un associé ne l'active p
 (`/parametres/ia`), les générations utilisent les gabarits déterministes. L'interface est sur
 `http://localhost:3100` (connexion avec un compte de démonstration).
 
+## Rapport d'avancement hebdomadaire, cache IA et contradicteur (lot 4c)
+
+Exploitation du lot 4c (AUT-10, AGT-06). Valeurs et droits : `docs/DECISIONS.md`, section « lot 4c ». **L'interface de
+ce lot n'a pas été vérifiée dans un navigateur** (note du lot) : les libellés ci-dessous viennent du code, à confirmer
+à la première recette.
+
+### Job `avancement_hebdo`
+
+- **Planification** : le worker de jobs (démarré avec l'API) appelle le planificateur récurrent ; du lundi au vendredi,
+  il crée au plus une tâche par cabinet et par semaine (clé `avancement_hebdo:<lundi>`), prévue à 06:30 UTC, pour les
+  cabinets qui ont au moins une mission signée ou en cours et n'ont pas désactivé la fonction. Rien le week-end.
+  Traitement par lots de 25 missions, 40 lots au plus par semaine ; une mission qui a déjà un rapport pour la semaine
+  est écartée.
+- **En développement** : lancer `pnpm dev` un jour ouvré après 06:30 UTC (la tâche est alors due tout de suite), ou
+  sans attendre, ouvrir l'onglet « Avancement » d'une mission et cliquer « Préparer le rapport de cette semaine »
+  (génération manuelle, même moteur). `JOBS_WORKER=inactif` coupe le worker, donc le job.
+- **Où voir les rapports** : onglet « Avancement » de la mission (`/missions/<id>/avancement`), section « Rapports
+  d'avancement hebdomadaires ». Le chef de mission (à défaut le directeur) reçoit une notification interne « Rapport
+  d'avancement à relire », sans e-mail.
+- **Échecs** : un échec sur une mission n'arrête pas les autres ; il est consigné dans les journaux de l'API **sans
+  contenu** (code, contrainte, table, identifiants de mission et de semaine). Une mission en échec n'est pas retentée
+  avant la semaine suivante : utiliser le bouton manuel. Le dépassement des 40 lots est consigné de la même façon.
+- **Désactiver** : carte « Paramètre du cabinet » de l'onglet « Avancement » (droit `automatisation.gerer`). L'envoi par
+  e-mail est refusé par l'API et par la base : il n'existe pas.
+
+### Cache des réponses IA et plafond par mission
+
+- **Cache** : `/parametres/ia`, carte « Cache des réponses » (droit `ia.configurer`). Désactivé par défaut. Bouton
+  « Activer le cache » ; durée de vie 24 h, non réglable. « Désactiver et vider le cache » supprime les entrées du
+  cabinet. Une réponse servie par le cache est marquée `servie_par_cache` et compte en « Servies par le cache » dans
+  la carte des coûts, à coût nul. Jamais utilisé par le copilote ni pour du contenu de client.
+- **Plafond par mission** : `PUT /api/agents/missions/:id/plafond` (corps `plafond_micro_usd`, droit `ia.configurer`),
+  `GET` au même chemin pour l'état. **Aucun écran** ne le règle dans le web actuel. Alertes aux associés à 80 % et à
+  100 % (notification dans l'application, sans montant). Plafond atteint : l'appel IA rattaché à la mission est refusé.
+
+### Onglet « Avancement » d'une mission et portail
+
+- **Cabinet** : l'onglet apparaît avec le droit `avancement.lire` (associé, directeur de mission, chef de mission),
+  sur les missions visibles. Modifier la note d'introduction et le commentaire, « Enregistrer », « Régénérer les
+  chiffres » et « Valider le rapport » exigent en plus d'être associé, directeur ou chef de **cette** mission. Les
+  chiffres ne se modifient pas à la main.
+- **Valider un rapport** : ouvrir le rapport de la semaine (brouillon), relire, compléter, « Enregistrer », puis
+  « Valider le rapport » et confirmer. Si un commentaire a été proposé par l'IA (« Suggérer un commentaire (IA) »), il
+  faut d'abord cliquer « J'ai relu ce commentaire » (ou le réécrire ou l'effacer), sinon 409 `COMMENTAIRE_IA_A_RELIRE`.
+  Un rapport validé est figé.
+- **Portail** : entrée « Avancement » (`/portail/avancement`, titre « Avancement de vos missions »), pour
+  `client_dirigeant` et `client_contributeur` seulement. Elle liste les rapports **validés** de leur client sur les
+  missions partagées ; un brouillon, une autre mission ou un autre client donnent le même 404. Aucune donnée financière,
+  aucun budget en jours, aucun temps par personne.
+- **Compte de démonstration** : `dirigeant.client@lagune-conseil.test` ou `contributeur.client@lagune-conseil.test`
+  (cabinet « Lagune Conseil & Associés (démo) », voir « Comptes du portail client de démonstration »). Le seed
+  `db:seed-demo` **ne crée aucun rapport d'avancement** : pour en voir un côté portail, se connecter en
+  `associe@lagune-conseil.test` (le chef de la mission du seed n'est pas garanti), ouvrir la mission en cours « Accompagnement à la
+  mise en œuvre du plan Cacao Savane » (partagée avec le portail par le seed), préparer puis valider le rapport, puis se connecter
+  en compte portail.
+
+### Contradicteur (contre-analyse)
+
+- **Préparer** (droit `agent.gerer`) : page « Autonomie des agents » (`/agents/autonomie`), carte « Revue contradictoire
+  (agent contradicteur) » : « Préparer la revue contradictoire » (prompt et jeu d'essai, sans risque à relancer),
+  puis lancer l'évaluation de non-régression.
+- **Déclarer la brique** : même carte, « Déclarer la brique » avec le niveau d'autonomie maximal (N0 à N3, N2 proposé,
+  classe R1). Sans cette déclaration, la revue répond 409 `BRIQUE_NON_DECLAREE`.
+- **Utiliser** : sur un brouillon IA, bouton « Demander une contre-analyse » du panneau de contenu IA (droit
+  `ia.utiliser`). Le résultat est un brouillon IA à part, non bloquant ; le brouillon relu n'est jamais modifié.
+  Une seule revue à la fois par brouillon ; le plafond de la mission, le coupe-circuit ou le niveau N0 la refusent.
+
 ## Ports
 
 Alignés sur `ports` d'`acc.config.json`.

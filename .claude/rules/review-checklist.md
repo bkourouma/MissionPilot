@@ -14,10 +14,11 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
 ont été relevés le 2026-10-22 en lançant les commandes ci-dessous dans la copie de travail
-`reste-lot-9b` (branche d'intégration `orch/2026-10-20-reste-lot-9b`) : `main`, identique à
+`reste-lot-9c` (branche d'intégration `orch/2026-10-20-reste-lot-9c`) : `main`, identique à
 `origin/main` (merge commit `3d5a252`, PR n° 14, vague 4 fusionnée), plus les lots 1 (socle IA),
 2 (redressement 3a-bis), 3 (due diligence 3b-bis, canaux 3c-bis), 4a (méthodes et revue à froide),
-4b (dossier, preuves, finance), 5a (plans et notation augmentés), 5b (capitalisation, observatoire,
+4b (dossier, preuves, finance), 4c (rapport d'avancement hebdomadaire, cache et plafonds IA,
+contradicteur), 5a (plans et notation augmentés), 5b (capitalisation, observatoire,
 veille des appels d'offres), 7 (services candidats) et 8a (CI) du chantier du
 2026-10-20, non encore fusionnés dans `main`. Les valeurs de `main` restent entre parenthèses quand
 elles expliquent un écart ; un autre résultat est un écart à expliquer, pas à ignorer. Les attendus
@@ -50,12 +51,15 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   d'autrui ou non partagé, et ne projette rien d'interne. Garde :
   `test/portail-acces.test.ts` (inventaire des routes enregistrées). **Toute
   route ajoutée à la liste met à jour cet inventaire ET l'inventaire de
-  SECURITY.md §4 bis** ; le 2026-10-21 la liste compte, en plus de `main`, trois
+  SECURITY.md §4 bis** ; le 2026-10-22 la liste compte, en plus de `main`, trois
   routes de l'investisseur (`GET`/`HEAD /api/portail/due-diligence/publications`,
-  `…/publications/:id`, `…/publications/:id/pieces/:pieceId/fichier`, lot 3) et
+  `…/publications/:id`, `…/publications/:id/pieces/:pieceId/fichier`, lot 3),
   trois routes d'ateliers (`GET /api/portail/ateliers`, `…/ateliers/:id`,
-  `PUT …/ateliers/:id/contribution/:methode`, lot 5a) ; le redressement, la
-  revue à froide et les groupes n'en ont aucune (403 testé).
+  `PUT …/ateliers/:id/contribution/:methode`, lot 5a) et deux routes de
+  lecture des rapports d'avancement VALIDÉS (`GET`/`HEAD /api/portail/avancement`,
+  `…/avancement/:id`, lot 4c, permission `portail.avancement.lire`) ; le
+  redressement, la revue à froide, les groupes et le contradicteur
+  (`/api/agents/revues-contradictoires`) n'en ont aucune (403 testé).
 - **`horsContextePortail`** (`portail/contexte.ts`) : unique sortie du contexte
   RLS du portail, réservée à un traitement interne qui ne renvoie rien au
   client ; **cinq fichiers l'emploient au 2026-10-21** (`salle-mission/accuses.ts`,
@@ -337,8 +341,77 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   « inconnu », jamais un taux. Contenu des deux méthodes et des guichets PROVISOIRE, `a_valider = true` ;
   aucune route de création de mission (routes `/missions` existantes), `rapports_mission` non modifiée.
   Huit routes, toutes sous `exiger`, aucune en liste blanche portail.
+- **Cache des réponses IA** (AGT-06, lot 4c ; `0278`, `ia/cache.ts`, `ia/orchestrateur.ts`,
+  `routes/ia-parametres.ts`) : `ia_parametres_cabinet.cache_actif` DÉSACTIVÉ par défaut (`DEFAULT false`),
+  réglé par `PUT /api/ia/parametres`. Clé = HMAC-SHA-256 (`empreinte`, clé dérivée du serveur, usage
+  `ia_entree`, matériau préfixé `ia_cache/v1`) de la forme canonique du cabinet, du prompt (nom, version,
+  tâche, gabarits, schéma de sortie), du modèle et des entrées MASQUÉES : jamais du texte en clair. Contenu =
+  réponse brute encore masquée, chiffrée AES-256-GCM avec AAD `ia_cache:<cabinet>:<clé>` (un chiffré recopié
+  sur une autre ligne ne se déchiffre pas). Durée de vie 24 h, bornée par `CHECK (expire_le <= cree_le +
+  interval '24 hours')` ET par `DUREE_CACHE_IA_MS` ; une entrée échue n'est jamais servie. Jamais de cache
+  (`motifSansCache`) : cache désactivé, prompt `copilote|entretien|transcription` (`PROMPTS_SANS_CACHE`), variable
+  de contenu client (non fiable), donnée identifiante restée en clair dans l'entrée ; pas d'écriture non plus pour
+  une réponse qui porte une donnée identifiante ou que la garde-chiffres a signalée. Le cache est consulté dans
+  `executerDemande` APRÈS les gardes (droit `ia.utiliser`, IA active, clé, coupe-circuit, plafond de mission puis
+  réservation) ; il ne remplace que l'appel au fournisseur : la réponse servie repasse par `validerSortie` (Zod), la
+  garde-chiffres et le démasquage, redevient un brouillon IA (validation humaine obligatoire) et s'inscrit dans
+  `ia_consommations` à l'issue `cache` et à coût NUL (`CHECK`). Désactiver le cache vide les entrées
+  (`viderCache`) dans la transaction qui règle `cache_actif` ; l'écriture prend `FOR SHARE` sur les paramètres
+  (`ecrireCache`, et le déclencheur `ia_cache_reponses_actif`, `MQI01`, qui refuse toute écriture d'un cabinet au
+  cache désactivé) : aucune entrée ne survit à un vidage concurrent. Table à `isolation` + `portail_interdit`, sans
+  `UPDATE` pour le rôle applicatif. Limite assumée : un nom propre absent des termes sensibles part déjà au
+  fournisseur ; le cache le garde au plus 24 h, chiffré, dans le seul cabinet. Tests : `ia-cache.test.ts`,
+  `ia-cache-unitaires.test.ts`.
+- **Plafond de coût IA par mission** (AGT-06, lot 4c ; `agents/plafonds.ts`, `ia/orchestrateur.ts`) : appliqué à
+  TOUT appel IA rattaché à une mission (`entite.missionId`), pas seulement aux agents : contrôle à la préparation
+  (`controlerPlafondMission`) PUIS re-contrôle dans `executerDemande` (`plafondMissionAvantReservation`, donc aussi
+  pour le job `ia_generation`), sous le même verrou consultatif `pg_advisory_xact_lock` de la mission, juste avant la
+  réservation ; une demande déjà réservée en mode immédiat n'est pas recontrôlée (sa réservation compterait contre
+  elle). Ordre des verrous : mission, PUIS cabinet (`couts.ts`), jamais l'inverse. Le coût compte consommations et
+  réservations en cours, en entiers (µUSD) ; le dépassement est borné par le coût estimé du dernier appel admis.
+  Plafond atteint : refus 409 `PLAFOND_MISSION_ATTEINT`, ou gabarit si l'appelant a `repliSiPlafond` (le contradicteur
+  le refuse). HORS CHAMP, documenté : `admettreSansDemande` / `appelerSansDemande` (copilote, sans mission) et les
+  évaluations de non-régression. Alertes à 80 % et 100 % (`alertesPlafondMission`) : une fois par seuil et par valeur
+  du plafond (`ia_alertes_plafond_mission`, clé primaire cabinet + mission + plafond + seuil, `ON CONFLICT DO
+  NOTHING`, réarmée au changement de plafond), aux associés seulement, notification `ia_plafond_mission_alerte`
+  sans montant et `email: false`. Test : `ia-plafond-mission.test.ts`.
+- **Rapport d'avancement hebdomadaire** (AUT-10, lot 4c ; `0306`–`0308`, `automatisation/avancement*.ts`,
+  `routes/automatisation-avancement.ts`, `routes/portail-avancement.ts`, `portail/avancement.ts`, moteur
+  `packages/engines/src/avancement`) : les chiffres sortent du moteur seul (`composerAvancementHebdo`). Le portail
+  ne lit QUE les rapports VALIDÉS de SON client sur mission partagée (politique RESTRICTIVE `portail` de `0307`,
+  doublée de `portail_sans_insert/update/delete`, et filtre explicite `statut = 'valide' AND client_id = $1`) ;
+  brouillon, autre mission, autre client ou autre cabinet répondent le même 404. La projection portail est
+  explicite (`projeterContenuAvancementPortail`) : pas de `non_partages`, `livrables.total` = partagés, jamais
+  `commentaire_ia`, validateur, version ni donnée financière ; `contenuAvancementSchema` (VOLONTAIREMENT non
+  strict : clés inconnues ÉCARTÉES, c'est la liste blanche) relit le contenu avant toute projection, et le schéma
+  portail est strict. Aucun code d'envoi d'e-mail propre à l'avancement : `avancement_parametres.envoi_email` est
+  `CHECK (envoi_email = false)`, refusé par l'API (400) et jamais lu ; la notification interne `avancement_brouillon`
+  (chef, à défaut directeur) est `email: false`. Un rapport VALIDÉ est figé (`MQU01`, aussi pour le propriétaire de
+  la table), la validation est réservée à l'associé, au directeur ou au chef DE la mission (`MQU02`, doublé par
+  l'API), `MQU03` à `MQU05` et `MQU07` (jamais de suppression). Un commentaire IA non relu bloque la validation
+  (`CHECK` et 409 `COMMENTAIRE_IA_A_RELIRE`). Job `avancement_hebdo` : planifié par `planifier_avancement_hebdo`
+  (`SECURITY DEFINER`, une tâche par cabinet et par semaine, clé `avancement_hebdo:<lundi>`), idempotent par
+  `UNIQUE (mission_id, semaine)`, un échec isolé consigné SANS contenu (`sansContenu` : code, contrainte, table).
+  Tests : `avancement-hebdo.test.ts`,
+  `avancement-ia.test.ts`, `packages/engines` (moteur).
+- **Agent contradicteur** (AGT-06, lot 4c ; `0279`, `agents/contradicteur.ts`, `routes/agents.ts`) : à la demande
+  d'un consultant SEULEMENT (`AGENTS_SUR_DEMANDE_SEULEMENT`, 409 `AGENT_SUR_DEMANDE_SEULEMENT` sans l'origine
+  « consultant » : aucune règle d'automatisation ne le déclenche), par `executerAgent` donc par l'orchestrateur
+  (jamais un appel direct au fournisseur) et sous une brique `revue_contradictoire` déclarée (409
+  `BRIQUE_NON_DECLAREE`). Sa sortie est un brouillon IA à part, jamais bloquante (`bloquante: false`) : aucune
+  écriture sur le brouillon relu. UNE revue active (en file ou en cours) par brouillon, vérifiée par le code ET par
+  l'index unique partiel `ia_demandes_revue_active_idx` (409 `REVUE_DEJA_ACTIVE`) ; `MQI50` en base (brouillon
+  relu inconnu, revue relue, mission différente). Le brouillon relu est une DONNÉE non fiable (variable non fiable,
+  jamais dans les consignes), le contexte est produit par le code (mission et registre des preuves comptés, sans
+  contenu ni donnée financière) ; seuls les nombres du brouillon non signalés par sa garde-chiffres sont citables,
+  tout autre nombre marque la revue « chiffres non vérifiés ». Plafond de mission atteint : REFUS
+  (`repliSiPlafond: false`), et une sortie inexploitable ou en mode dégradé donne 502 `revueNonProduite` : jamais de
+  revue vide qui laisserait croire à l'absence d'objection. Droits : `ia.utiliser` (routes), `agent.gerer` (route de
+  préparation), droits du registre (`mission.lire`, `preuve.lire`) et visibilité de la mission (404 sinon). Aucune
+  entrée dans `LISTE_BLANCHE_PORTAIL`. Le journal ne porte pas le contenu. Test : `agents-contradicteur.test.ts`.
 - **Fonction de purge ou d'anonymisation** (`purger_textes_ia`,
-  `planifier_conservation_ia`, `planifier_purge_rapports`, `anonymiser_copilote_actions`) : `SECURITY DEFINER`,
+  `planifier_conservation_ia` (redéfinie par `0278` à l'identique de `0104` plus le critère « entrée de cache échue »),
+  `planifier_purge_rapports`, `anonymiser_copilote_actions`) : `SECURITY DEFINER`,
   bornée au cabinet du contexte (`app_cabinet_id()`), paramètres validés, clé de
   job au format imposé, `GRANT EXECUTE` au rôle applicatif seul ; le déclencheur
   d'ajout seul n'admet que l'anonymisation prévue, jamais un `UPDATE` libre
@@ -381,7 +454,9 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   plus récente.
 - **Historique immuable** : une table historique reçoit un déclencheur à
   SQLSTATE `MP…` (lettre du domaine, numéro libre : CODING_STANDARDS §2 ; plus aucune lettre simple
-  libre : second préfixe `MQ` + lettre de domaine + 2 chiffres, par exemple `MQD`, `MQQ`, `MQF`, `MQL` ;
+  libre : second préfixe `MQ` + lettre de domaine + 2 chiffres, par exemple `MQD`, `MQQ`, `MQF`, `MQL`,
+  `MQI01` et `MQI50` (cache et revue contradictoire), `MQU01`–`MQU05` et `MQU07` (avancement ; `MQU06` et
+  `MQU08`–`MQU10` restent libres) ;
   `Z` est épuisée, partagée par plages entre redressement `MPZ01`–`MPZ20` et due diligence `MPZ21`–`MPZ32`) et un
   `REVOKE` (modèles `0043`, `0060`, `0146`) ; on corrige par nouvel
   enregistrement (avoir, contre-passation, révision, nouvelle version), jamais
@@ -390,9 +465,10 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer). Au 2026-10-22, les 219 fichiers de la branche d'intégration sont commités
-  (180 déjà dans `origin/main` après les PR n° 12 à 14, 39 posés par les lots du 2026-10-20 et
-  du 2026-10-21, dont `0364`–`0367`, `0466`–`0467`, `0470`–`0472` et `0560`–`0563`) :
+  recréer). Au 2026-10-22, les 224 fichiers de la branche d'intégration sont commités
+  (180 déjà dans `origin/main` après les PR n° 12 à 14, 44 posés par les lots du 2026-10-20 et
+  du 2026-10-21, dont `0364`–`0367`, `0466`–`0467`, `0470`–`0472`, `0560`–`0563` et, pour le lot 4c,
+  `0278`, `0279`, `0306`, `0307`, `0308`) :
   tous sont à tenir pour immuables, dont `0270` (rejeu réel OpenRouter), les six des
   lacunes de la vague 2 (`0271`–`0274`, `0303`, `0304`) et les 43 des vagues 2 et 3.
   **Numérotation** : la plage de chaque domaine est dans CODING_STANDARDS §1 ; la QUEUE
@@ -418,7 +494,7 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   relecture qui garantit la règle (recherche n° 13). Les migrations V2 corrigées
   pendant la session du 2026-10-06 sont commitées depuis `6d62428` : elles sont
   désormais immuables. Prochains numéros libres (2026-10-22) : STD `0211`, DOS `0226`,
-  PRV `0244`, QUA `0290`, AGT `0278`, AUT `0306`–`0312`, AO-A `0368`–`0379`, NOT `0405`–`0419`,
+  PRV `0244`, QUA `0290`, AGT aucun (plage `0260`–`0279` épuisée : `0278` et `0279` consommés), AUT `0309`–`0319`, AO-A `0368`–`0379`, NOT `0405`–`0419`,
   PLA `0427`–`0428` puis `0432`–`0439`, CAP `0468`–`0469` puis `0473`–`0479`, redressement
   `0493`–`0499`, due diligence `0510` puis `0512`–`0519`, services candidats `0564`–`0579`.
 - **Dates métier** : une date bornée par un `CHECK` SQL utilise `dateIsoBorneeSchema`
@@ -512,33 +588,42 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
 - Une permission ajoutée : `packages/shared/src/roles.test.ts`.
 - Une variable de configuration : `apps/api/test/config.test.ts`.
 - Un écran : test de la logique dans `apps/web/src/lib/*.test.ts`.
+- Un appel IA qui peut être mis en cache ou rattaché à une mission : cas du cache (désactivé par défaut,
+  clé distincte par cabinet, prompt exclu, contenu client, sortie signalée par la garde-chiffres jamais mise en
+  cache, gardes jamais contournées, vidage à la désactivation y compris concurrente : `ia-cache.test.ts`, `ia-cache-unitaires.test.ts`) et du plafond de mission
+  (refus, re-contrôle à l'exécution, alerte une fois par seuil : `ia-plafond-mission.test.ts`).
+- Un rapport destiné au client : test « brouillon invisible du portail, même par identifiant direct », test du
+  validé figé (`MQU01`) et de la projection portail sans clé interne (`avancement-hebdo.test.ts`,
+  `packages/shared/src/schemas/automatisation.test.ts`).
+- Un agent « sur demande seulement » : test de refus sans l'origine « consultant », de la revue déjà active et
+  du plafond atteint sans revue vide (`agents-contradicteur.test.ts`).
 
 ## Recherches mécaniques
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-22 dans la copie de travail
-`reste-lot-9b` (branche d'intégration `orch/2026-10-20-reste-lot-9b` : `main` = `origin/main` au merge
-commit `3d5a252`, plus les lots 1, 2, 3, 4a, 4b, 5a, 5b, 7 et 8a du chantier du 2026-10-20, non fusionnés).
+`reste-lot-9c` (branche d'intégration `orch/2026-10-20-reste-lot-9c` : `main` = `origin/main` au merge
+commit `3d5a252`, plus les lots 1, 2, 3, 4a, 4b, 4c, 5a, 5b, 7 et 8a du chantier du 2026-10-20, non fusionnés).
 Les recherches n° 1 à 14 et 16 à 21 ont été relancées ce jour avec la commande exacte ci-dessous ; les n° 11
-et 12 par script ponctuel hors dépôt, dont la méthode reproduit exactement les relevés de `main` et du
-2026-10-21 (n° 11 : 1 426 / 1 381 / 664 / 207 sur `main` et 1 613 / 1 566 / 773 / 235 au 2026-10-21, retrouvés
-à l'identique ; n° 12 : 723 et 844 retrouvés) ; le n° 15 (réseau) n'a PAS été relancé. Les valeurs de `main`
-sont données entre parenthèses : elles servent à expliquer chaque écart ligne par ligne (comparatif fait en
-extrayant `main`, puis les commits `309ab1e` (lots 1 à 5a, 8a) et `ce61062` (plus le lot 7) par
-`git archive` vers un dossier temporaire, sans toucher à l'arbre).
+et 12 par script ponctuel hors dépôt (réécrit pour ce relevé), dont la méthode a d'abord été vérifiée sur l'état
+d'AVANT le lot 4c (premier parent du merge `40c0541`, extrait par `git archive`) : elle y retrouve exactement
+les chiffres du relevé précédent (n° 11 : 1 672 / 1 625 / 796 / 238 ; n° 12 : 867 `z.object`, 0 non strict ;
+n° 10 : 957 routes, 9 sans `exiger`) ; le n° 15 (réseau) n'a PAS été relancé. Les valeurs d'avant le lot 4c
+(relevé précédent, `reste-lot-9b`) sont données pour expliquer chaque écart ligne par ligne.
 
-**Relevé du 2026-10-22 de la branche d'intégration.** Il REMPLACE le relevé du 2026-10-21. Les n° 1 à 6, 8, 9,
-14, 17, 18, 20 et 21 donnent le même résultat qu'au 2026-10-21 ; changent les n° 7, 10, 11, 12, 13, 16 et 19 :
+**Relevé du 2026-10-22 de la branche d'intégration, lot 4c compris.** Il REMPLACE le relevé précédent du même
+jour (état « avant 4c », copie `reste-lot-9b`). Les n° 1 à 6, 8, 9, 14, 17, 18, 20 et 21 donnent le même résultat ;
+changent les n° 10, 11, 12, 13, 16 et 19 ; le n° 7 est inchangé en nombre (22) :
 
 | N° | Attendu | Explication |
 | --- | --- | --- |
-| 1 à 6, 8, 9, 14, 17, 18, 20, 21 | inchangés (2, 1, 5, 0, 0, 0, 12, 1, 0, 2, 6, 23, 1) | — (aucun arrondi, aucun `console`, aucun `process.env`, aucun `avecPlaceAnalyse` ni `chargerToutesLesPages` neuf dans les lots 5b et 7) |
-| 7 | 22 lignes | 19 du 2026-10-21 + 3 neuves du lot 5b, toutes dans `capitalisation/efficacite.ts` (lignes 289 `LIMIT 50`, 366 et 375 `LIMIT 200`) : SANS plafond de table trouvé (relu : `0466`, `0467`, `0160`, `0180`, `0420`), dette à relire. Le lot 7 n'en ajoute aucune (le guichet lit par `LIMIT $n`, doublé par `MQV02`) |
-| 10 | « 957 9 » puis 9 lignes | 957 routes (921 au 2026-10-21, 813 sur `main`) : +8 du lot 7 (`services-candidats` 8) et +28 du lot 5b (`appels-offres-veille` 12, `capitalisation-efficacite` 8, `observatoire` 8), toutes sous `exiger` ; les neuf lignes sans `exiger` sont les mêmes |
-| 11 | 1 672 gabarits, 1 625 hors seed, 796 interpolations, 238 expressions | 1 613 / 1 566 / 773 / 235 au 2026-10-21 (1 426 / 1 381 / 664 / 207 sur `main`) : lot 7 +15 / +15 / +6 / 0 ; lot 5b +44 / +44 / +17 / +3 (détail au n° 11) |
-| 12 | 867 `z.object`, tous `.strict()` | 844 au 2026-10-21 (723 sur `main`) + 6 (lot 7) + 17 (lot 5b) (détail au n° 12) |
-| 13 | 219 migrations, 0 modifiée ni supprimée dans l'historique | 206 au 2026-10-21 (180 sur `main`) + 4 (lot 7) + 9 (lot 5b) (détail au n° 13) |
-| 16 | 30 lignes | 28 au 2026-10-21 (27 sur `main`) + 2 du lot 5b : `0470` (`obs_adhesion_active`) et `0472` (`obs_agregats`) ; le lot 7 n'en ajoute aucune |
-| 19 | 76 lignes dans 60 fichiers | 75 dans 59 au 2026-10-21 (73 dans 58 sur `main`) + 1 `cleLigne` vers `components/ui/Tableau.tsx` (composant serveur) : `connaissances/efficacite/page.tsx:86` (lot 5b) |
+| 1 à 6, 8, 9, 14, 17, 18, 20, 21 | inchangés (2, 1, 5, 0, 0, 0, 12, 1, 0, 2, 6, 23, 1) | — (le lot 4c n'ajoute ni client PostgreSQL, ni `process.env`, ni arrondi, ni `console`, ni `avecPlaceAnalyse`, ni `chargerToutesLesPages` ; ses écrans web n'appellent pas la pagination par boucle) |
+| 7 | 22 lignes | inchangé : le lot 4c ajoute 0 `LIMIT` littéral > 1 (ses requêtes lisent par `LIMIT $n` ou `LIMIT 1`, voir le n° 7) |
+| 10 | « 972 9 » puis 9 lignes | 972 routes = 957 avant 4c + 15 du lot 4c, toutes sous `exiger` : `automatisation-avancement.ts` +9 (cabinet : `GET`/`POST /missions/:id/avancement`, `GET`/`PATCH /avancement/:id`, `POST …/regenerer`, `…/valider`, `GET`/`PUT /avancement/parametres`, `POST …/suggerer-commentaire`), `agents.ts` +4 (`/agents/revues-contradictoires` `POST` et `GET`, `…/:id`, `…/preparation`), `portail-avancement.ts` +2 ; les neuf lignes sans `exiger` sont les mêmes |
+| 11 | 1 697 gabarits, 1 650 hors seed, 811 interpolations, 240 expressions | 1 672 / 1 625 / 796 / 238 avant 4c : lot 4c +25 / +25 / +15 / +2 (détail au n° 11) |
+| 12 | 889 `z.object`, dont 878 `.strict()` et 11 non stricts VOLONTAIRES (`contenuAvancementSchema` et ses sous-objets) | 867 avant 4c (tous stricts) + 22 du lot 4c : `automatisation.ts` +19, `agents.ts` +2, `portail.ts` +1 (détail au n° 12) |
+| 13 | 224 migrations, 0 modifiée ni supprimée dans l'historique | 219 avant 4c + 5 du lot 4c (`0278`, `0279`, `0306`, `0307`, `0308`) ; 44 lignes « A » contre `main` (détail au n° 13) |
+| 16 | 32 lignes | 30 avant 4c + 2 du lot 4c : `0278` (`planifier_conservation_ia` redéfinie) et `0308` (`planifier_avancement_hebdo`) |
+| 19 | 77 lignes dans 61 fichiers | 76 dans 60 avant 4c + 1 `cleLigne` vers `components/ui/Tableau.tsx` (composant serveur) : `missions/[id]/avancement/page.tsx:133` (lot 4c) |
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -561,7 +646,7 @@ rg -n "NEXT_PUBLIC_" apps
 rg -n "SUM\(|AVG\(" apps/api/src --glob '!db/seed*'
 
 # 7. LIMIT littéral > 1 (toute liste est paginée par curseur, LIMIT $n).
-#    Attendu (2026-10-22) : 22 lignes (19 au 2026-10-21 ; 1 sur `main` avant la vague 4, 12 après les lots 3a et 3c) :
+#    Attendu (2026-10-22, lot 4c compris) : 22 lignes, inchangé par le lot 4c (19 au 2026-10-21 ; 1 sur `main` avant la vague 4, 12 après les lots 3a et 3c) :
 #    - 1 seed : le LIMIT 2 de db/seed-planification.ts ;
 #    - 7 de `redressement/`, chacun DOUBLÉ en base par un plafond de volume (actions.ts 1000 et 200,
 #      creanciers.ts 200, 100 et 300, tresorerie.ts 1000, déclencheurs `MPZ10`) sauf seuils.ts (400 lus,
@@ -579,7 +664,12 @@ rg -n "SUM\(|AVG\(" apps/api/src --glob '!db/seed*'
 #      L'historique d'adhésion de `capitalisation/observatoire.ts` passe son plafond en paramètre
 #      (`OBSERVATOIRE_HISTORIQUE_MAX` = 200, `LIMIT $1`) : invisible à cette recherche, sans plafond de
 #      table non plus (même dette que MAX_LISTE). Le lot 7 n'en ajoute aucune : `LIMIT $n` doublé par
-#      `MQV02` (500 guichets par cabinet).
+#      `MQV02` (500 guichets par cabinet). Le lot 4c n'en ajoute aucune non plus (relu dans le diff : seulement des
+#      `LIMIT 1` et des `LIMIT $n` : `agents/contradicteur.ts:313` revues d'un brouillon,
+#      `automatisation/avancement-job.ts:172` lot de 25 missions par curseur, `avancement-lecture.ts:124` livrables,
+#      `avancement-service.ts:178` rapports d'une mission, `portail/avancement.ts:57` liste du portail par curseur) :
+#      invisibles à cette recherche ; aucun n'est doublé d'un plafond de table (au plus un rapport par mission et
+#      par semaine, `UNIQUE (mission_id, semaine)`) : le plafond est celui du paramètre de page ou de la constante.
 #    À relire si un plafond change sans l'autre (CODING_STANDARDS §10). Ne voit pas un plafond passé
 #    en paramètre : MAX_LISTE (500) de routes/portail-gestion.ts est une dette connue.
 rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
@@ -597,7 +687,12 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 #    « journal » de développement)
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
-# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu (2026-10-22) : "957 9".
+# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu (2026-10-22, lot 4c compris) : "972 9".
+#     972 routes = 957 avant 4c + 15 du lot 4c (comparaison fichier à fichier avec le premier parent du merge
+#     `40c0541`) : `automatisation-avancement.ts` +9 (fichier neuf : 2 sur `/missions/:id/avancement`, `GET`/`PATCH
+#     /avancement/:id`, `POST …/regenerer`, `…/valider`, `GET`/`PUT /avancement/parametres`, `POST
+#     …/suggerer-commentaire`), `agents.ts` +4 (23 → 27 : `/agents/revues-contradictoires` `POST` et `GET`, `…/:id`,
+#     `…/preparation`), `portail-avancement.ts` +2 (fichier neuf, `exigerPortail`) ; toutes sous `exiger`.
 #     957 routes = 921 au 2026-10-21 + 36 : lot 7 +8 (tous dans `routes/services-candidats.ts` : 3 de
 #     services, `GET`, `POST /activer`, `PUT /:code/prix`, et 5 de `/guichets-financement`) ; lot 5b +28 (`appels-offres-veille` 12,
 #     `capitalisation-efficacite` 8, `observatoire` 8) ; toutes sous `exiger`.
@@ -628,10 +723,16 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     en suivant l'imbrication ; fichiers *.test.ts exclus). Relevé du 2026-10-22 par script ponctuel hors
 #     dépôt (appels `.query(` ou `.query<T>(` dont le premier argument est un gabarit à accent grave ;
 #     ${…} extraits en suivant l'imbrication, y compris les gabarits imbriqués ; seed = `db/seed*`) :
-#     1 672 gabarits dans apps/api/src (1 625 hors db/seed*), 796 interpolations hors seed, 238 expressions
-#     distinctes. Le même script rend à l'identique les relevés antérieurs : `main` 1 426 / 1 381 / 664 / 207
+#     1 697 gabarits dans apps/api/src (1 650 hors db/seed*), 811 interpolations hors seed, 240 expressions
+#     distinctes. Le script, réécrit pour ce relevé, retrouve à l'identique l'état d'avant 4c (1 672 / 1 625 / 796 / 238).
+#     Écarts du lot 4c : +25 / +25 / +15 / +2, répartis ainsi (gabarits) : `automatisation/avancement-service.ts` +9,
+#     `agents/contradicteur.ts` +4, `automatisation/avancement-job.ts` +4, `portail/avancement.ts` +2, `ia/cache.ts` +2,
+#     `agents/plafonds.ts` +1, `routes/ia-parametres.ts` +1, `automatisation/avancement-lecture.ts` +1,
+#     `ia/prompts/gabarits/revue-contradictoire.ts` +1 ; les deux expressions distinctes neuves sont
+#     `COLONNES_MISSION_AVANCEMENT` et `DEPUIS_RAPPORT` (constantes de colonnes et de jointure, relues par leur nom).
+#     Le même script rendait à l'identique les relevés antérieurs : `main` 1 426 / 1 381 / 664 / 207
 #     et branche au 2026-10-21 1 613 / 1 566 / 773 / 235 (méthode approchée du 2026-10-21 retrouvée, donc
-#     comparables). Écarts : lot 7 +15 / +15 / +6 / 0 (services, prix, guichets, rapprochement : aucune
+#     comparables). Écarts d'avant 4c : lot 7 +15 / +15 / +6 / 0 (services, prix, guichets, rapprochement : aucune
 #     expression distincte nouvelle) ; lot 5b +44 / +44 / +17 / +3 (`COLONNES_RESULTAT` constante de colonnes de
 #     `appels-offres/veille.ts`, `filtre` gabarit constant à paramètres `$n` du même fichier, `v.sql` fragment de
 #     visibilité de `capitalisation/efficacite.ts`). Ces nombres NE SONT PAS comparables au relevé du
@@ -642,7 +743,14 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     tables constante de `copilote/noms-propres.ts` ; aucune valeur issue d'une requête HTTP, mais les
 #     corps des constantes n'ont pas tous été rouverts.
 
-# 12. Schémas Zod non stricts. Attendu : 0 sur 867 z.object (723 sur `main` : +144, tous `.strict()` :
+# 12. Schémas Zod non stricts. Attendu (2026-10-22, lot 4c compris) : 11 non stricts sur 889 z.object, TOUS dans
+#     `automatisation.ts` et voulus : `contenuAvancementSchema` (racine, `mission`, `avancement`, `jalons`, `kpis`
+#     et ses éléments, `livrables` et ses éléments, éléments de `faits_saillants`) et les deux sous-schémas de jalons
+#     (lignes 733, 737, 746, 751, 752, 756, 763, 771, 782, 788, 798 au 2026-10-22) : sortie du moteur relue par
+#     LISTE BLANCHE (clés inconnues écartées, jamais une entrée de requête) ; la projection portail
+#     (`contenuAvancementPortailSchema`) est, elle, entièrement stricte. Tout autre non strict est un écart.
+#     889 = 867 avant 4c + 22 du lot 4c (`automatisation` +19 dont les 11 non stricts ci-dessus ; `agents` +2 ; `portail` +1), soit 878 stricts. Avant 4c : 0 non strict sur 867
+#     z.object (723 sur `main` : +144, tous `.strict()` :
 #     lot 7 +6 (`services-candidats`), lot 5b +17 (`appels-offres-veille` 7, `capitalisation-efficacite` 5,
 #     `observatoire` 5), puis les +121 du 2026-10-21 (844) :
 #     lot 5a +32 (`plans-ateliers` 17, `plans-montecarlo` 8, `plans-reprevisions` 6, `notation-augmentee`
@@ -657,24 +765,25 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     appariement naïf), puis, après la parenthèse fermante, parcourir les appels
 #     chaînés `.methode(...)` jusqu'à trouver `strict`. Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 867 le 2026-10-22, 844 le 2026-10-21 ; 723 sur `main`). Le script de contrôle strict, écrit hors dépôt
-#     comme décrit, retrouve 723 et 844 sur `main` et le 2026-10-21, et 867 aujourd'hui, 0 non strict. L'attribution du +2 de `rapports` au lot 4b est
+#     (somme 889 le 2026-10-22, 867 avant 4c, 844 le 2026-10-21 ; 723 sur `main`). Le script de contrôle strict, écrit hors dépôt
+#     comme décrit (réécrit pour ce relevé), retrouve 867 et 0 non strict sur l'état d'avant 4c, et 889 avec 11 non stricts
+#     aujourd'hui. L'attribution du +2 de `rapports` au lot 4b est
 #     approximative (le lot 2 touche aussi les rapports).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts). Le 2026-10-22 : 39 lignes « A », aucune autre
-# (`main` est à `3d5a252`, base commune de la branche). Dossier : 219 fichiers
-# (`ls apps/api/migrations | wc -l` : 219 ; `git ls-files apps/api/migrations | wc -l` : 219, tous
+# ne doit montrer que des lignes « A » (ajouts). Le 2026-10-22 : 44 lignes « A », aucune autre
+# (`main` local = `origin/main` = `3d5a252`, base commune de la branche ; aucun fetch réseau fait). Dossier : 224 fichiers
+# (`ls apps/api/migrations | wc -l` : 224 ; `git ls-files apps/api/migrations | wc -l` : 224, tous
 # commités sur la branche d'intégration ; `git status --short apps/api/migrations` : aucune ligne).
-# 219 = 206 du 2026-10-21 + 4 du lot 7 (0560, 0561, 0562, 0563) + 9 du lot 5b (0364 à 0367 veille AO, 0466
+# 224 = 219 avant 4c + 5 du lot 4c (0278, 0279, 0306, 0307, 0308) ; 219 = 206 du 2026-10-21 + 4 du lot 7 (0560, 0561, 0562, 0563) + 9 du lot 5b (0364 à 0367 veille AO, 0466
 # et 0467 efficacité, 0470 à 0472 observatoire). Les 206 = 180 de `main` (155 + 0480–0486 + 0500–0508 +
 # 0540–0548) + 26 des lots : lot 1 (0275, 0276,
 # 0277, 0305, 0550), lot 2 (0487 à 0492, 0551), lot 3 (0509, 0511, 0549), lot 4a (0210, 0287, 0288,
 # 0289), lot 4b (0225, 0552), lot 5a (0425, 0426, 0429, 0430, 0431) ; le lot 8a n'en pose aucune.
 # `origin/main` compte 180 migrations (PR n° 12 à 14 fusionnées, égal à `main` local au 2026-10-21).
-# Les 39 sont à tenir pour immuables dès qu'elles sont commitées.
+# Les 44 sont à tenir pour immuables dès qu'elles sont commitées.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -686,9 +795,13 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 30 lignes au 2026-10-22 (28 au 2026-10-21 ; 27 sur `main` : 23 avant la vague 4, plus
+#     SECURITY.md §4. Attendu : 32 lignes au 2026-10-22, lot 4c compris (30 avant 4c ; 28 au 2026-10-21 ; 27 sur `main` : 23 avant la vague 4, plus
 #     quatre du lot 3c, `resoudre_compte_canal`, `planifier_synthese_hebdo`,
-#     `planifier_canaux_maintenance`, `anonymiser_transcriptions`). Les deux lignes du lot 5b sont `0470` (`obs_adhesion_active`, fonction D'APPELANT sous RLS, `STABLE`,
+#     `planifier_canaux_maintenance`, `anonymiser_transcriptions`). Les deux lignes du lot 4c (relues : `SET search_path =
+#     public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `GRANT EXECUTE … TO missionpilot_app`) sont `0278`
+#     (`planifier_conservation_ia`, REDÉFINIE à l'identique de `0104` plus le critère « entrée de cache échue » : la
+#     ligne de `0104` reste, elle compte donc deux fois dans la recherche) et `0308` (`planifier_avancement_hebdo`,
+#     `SECURITY DEFINER`, ne renvoie qu'un nombre, clé et heure contrôlées). Les deux lignes du lot 5b sont `0470` (`obs_adhesion_active`, fonction D'APPELANT sous RLS, `STABLE`,
 #     `search_path` figé, REVOKE PUBLIC : pas `SECURITY DEFINER`) et `0472` (`obs_agregats`, `SECURITY DEFINER`,
 #     `search_path = public, pg_temp`, REVOKE PUBLIC : seul accès inter-cabinets, voir le contrôle de
 #     l'observatoire) ; les migrations du lot 7 n'en comptent aucune. La ligne du 2026-10-21 est celle de `0275`
@@ -718,10 +831,11 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 # 19. Page serveur qui passe une fonction à un composant : lister les propriétés
 #     `={(…) =>` des pages et layouts qui ne sont PAS marqués "use client", puis
 #     vérifier à la main que le composant destinataire n'est pas client (ni
-#     importé d'un fichier "use client"). Attendu (2026-10-22) : 76 lignes dans 60
-#     fichiers (75 dans 59 au 2026-10-21, 73 dans 58 sur `main`), toutes admises : 70 `cleLigne` (67 sur `main`, plus 2 au
+#     importé d'un fichier "use client"). Attendu (2026-10-22, lot 4c compris) : 77 lignes dans 61
+#     fichiers (76 dans 60 avant 4c, 75 dans 59 au 2026-10-21, 73 dans 58 sur `main`), toutes admises : 71 `cleLigne` (67 sur `main`, plus 2 au
 #     2026-10-21 : `missions/[id]/notation/analyse/page.tsx` et `qualite/revue-froide/[id]/page.tsx`, plus 1 du
-#     lot 5b : `connaissances/efficacite/page.tsx:86`) vers
+#     lot 5b : `connaissances/efficacite/page.tsx:86`, plus 1 du lot 4c : `missions/[id]/avancement/page.tsx:133`,
+#     page serveur sans "use client" qui passe `cleLigne={(l) => l.id}` à `<Tableau`) vers
 #     `components/ui/Tableau.tsx` (composant serveur ; une occurrence par `<Tableau`), 3 `href` vers
 #     `components/facturation/SegmentsStatut.tsx` (serveur), `hrefCible` vers
 #     `ExplicationNote` (composant local du fichier), et 2 faux positifs (`.map` et
