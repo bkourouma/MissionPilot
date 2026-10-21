@@ -651,11 +651,21 @@ describe("créanciers et négociations", () => {
     ).toBe(false);
   });
 
+  it("une note sans texte est refusée ; le texte est obligatoire", () => {
+    const note = { type: "note", date_evenement: "2026-10-05" };
+    expect(ok(redEvenementNegociationSchema, note)).toBe(false);
+    expect(ok(redEvenementNegociationSchema, { ...note, conditions: "" })).toBe(false);
+    expect(ok(redEvenementNegociationSchema, { ...note, conditions: "   " })).toBe(false);
+    expect(ok(redEvenementNegociationSchema, { ...note, conditions: null })).toBe(false);
+    expect(ok(redEvenementNegociationSchema, { ...note, conditions: "Relance faite" })).toBe(true);
+  });
+
   it("événements simples : ouverture, proposition, contre-proposition, note", () => {
     for (const type of ["ouverture", "proposition", "contre_proposition", "note"]) {
-      expect(ok(redEvenementNegociationSchema, { type, date_evenement: "2026-10-05" }), type).toBe(
-        true,
-      );
+      expect(
+        ok(redEvenementNegociationSchema, { type, date_evenement: "2026-10-05", conditions: "x" }),
+        type,
+      ).toBe(true);
       expect(
         ok(redEvenementNegociationSchema, {
           type,

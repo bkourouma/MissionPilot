@@ -884,6 +884,11 @@ export async function semerDemoAbidjan(
   }
   // Canaux simulés (compte WhatsApp, destinataires de test, signature, transcription) : même import dynamique.
   await (await import("./seed-demo-canaux.js")).semerCanauxDemo(database, config);
+  // Service #5 Redressement (deux dossiers, par les routes du module) : même import dynamique.
+  const { semerRedressementDemo } = await import("./seed-demo-redressement.js");
+  if (!(await semerRedressementDemo(database, config))) {
+    throw new Error("Le redressement de démonstration existe déjà dans un cabinet neuf.");
+  }
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 

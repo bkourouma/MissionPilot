@@ -127,7 +127,7 @@ describe("libellés", () => {
   });
 
   it("due diligence : niveau « dd » lisible avec dd.lire seulement, modèle « note_comite »", () => {
-    expect(NIVEAUX_SERVICE).toEqual(["notation", "plan", "dd"]);
+    expect(NIVEAUX_SERVICE).toEqual(["notation", "plan", "dd", "red"]);
     expect(TOUS_NIVEAUX).toContain("dd");
     expect(estNiveauRapport("dd")).toBe(true);
     expect(NIVEAUX.dd.libelle).toBe("Due diligence");

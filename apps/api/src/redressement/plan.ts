@@ -19,6 +19,7 @@ import type { Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
 import { AppError, introuvable } from "../errors.js";
 import { estAssocie } from "../missions/acces.js";
+import type { MissionAcces } from "../missions/acces.js";
 import {
   exigerDossierRedValidation,
   exigerDossierRedVisible,
@@ -37,12 +38,45 @@ import { isoOuVide, personne, vueEcartPlan, vueEvaluationPlan } from "./vues.js"
  * instantané du plan soumis à validation : son `contenu` est CONSTRUIT par le code depuis les
  * actions (jamais reçu d'un client) et son empreinte (SHA-256 de la forme canonique) est recalculée
  * à la validation : si les actions ont changé, la validation est refusée (RED_PLAN_MODIFIE).
- * Un déplacement dans le kanban (statut, rang) ne change pas le plan. Validation par un associé ou
- * un directeur de mission qui n'est pas le créateur de la version (sauf associé) : contrôle ici ET
- * en base (MPZ07). Le socle ne produit AUCUN livrable (ni PDF, ni rapport).
+ * Un déplacement dans le kanban (statut, rang) ne change pas le plan. Validation réservée au
+ * directeur de la mission (hypothèse métier à valider, VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR), qui n'est
+ * pas le créateur de la version (sauf associé) : séparation des tâches contrôlée ici ET en base (MPZ07). Le socle ne produit AUCUN livrable (ni PDF, ni rapport).
  */
 
 const VERSIONS_MAX = 100;
+
+/**
+ * HYPOTHÈSE MÉTIER À VALIDER (recette 3a, décision prudente) : la validation d'une version du plan de
+ * redressement est RÉSERVÉE au directeur de la mission du dossier (`missions.directeur_id`), en plus du
+ * droit `redressement.valider` et de la séparation des tâches (le créateur d'une version ne la valide
+ * pas, sauf associé). Une mission SANS directeur (`directeur_id` NULL) ne peut valider ni plan ni bilan
+ * de clôture : 409 `DIRECTEUR_REQUIS` (il faut d'abord désigner un directeur de mission). Règle doublée
+ * en base (migration 0492, MPZ07). La clôture du dossier garde la règle précédente.
+ * Mettre à `false` pour revenir à la règle précédente côté API (la base reste stricte).
+ */
+export const VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR = true;
+
+/** Cet utilisateur est-il habilité, au regard de la réserve au directeur de la mission ? */
+export function respecteReserveDirecteur(
+  auth: Auth,
+  mission: Pick<MissionAcces, "directeur_id">,
+): boolean {
+  return (
+    !VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR ||
+    (mission.directeur_id !== null && mission.directeur_id === auth.utilisateurId)
+  );
+}
+
+/** 409 `DIRECTEUR_REQUIS` : mission sans directeur, ni plan ni bilan de clôture ne se valident. */
+export function exigerDirecteurDeMission(mission: Pick<MissionAcces, "directeur_id">): void {
+  if (VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR && mission.directeur_id === null) {
+    throw new AppError(
+      409,
+      "DIRECTEUR_REQUIS",
+      "Cette mission n'a pas de directeur : désignez un directeur de mission avant toute validation.",
+    );
+  }
+}
 
 interface VersionPlanLue {
   id: string;
@@ -106,12 +140,14 @@ function peutValider(
   v: VersionPlanLue,
   derniere: number,
   dossier: DossierRed,
+  mission: MissionAcces,
 ): boolean {
   return (
     v.statut === "brouillon" &&
     v.version === derniere &&
     dossier.statut !== "clos" &&
     peutValiderRole(auth) &&
+    respecteReserveDirecteur(auth, mission) &&
     (v.cree_par !== auth.utilisateurId || estAssocie(auth))
   );
 }
@@ -175,7 +211,7 @@ async function versionsDossier(
 export async function lirePlan(
   db: Db,
   auth: Auth,
-  { dossier }: AccesDossierRed,
+  { dossier, mission }: AccesDossierRed,
 ): Promise<RedPlanVue> {
   const dateReference = dateDuJour();
   const lues = await lireActionsDossier(db, dossier.id);
@@ -202,7 +238,7 @@ export async function lirePlan(
     },
     evaluation: vueEvaluationPlan(evaluerPlanRedressement(plan, dateReference)),
     date_reference: dateReference,
-    versions: versions.map((v) => vueVersion(v, peutValider(auth, v, derniere, dossier))),
+    versions: versions.map((v) => vueVersion(v, peutValider(auth, v, derniere, dossier, mission))),
     version_validee: validee?.id ?? null,
     ecart_avec_version_validee: validee
       ? vueEcartPlan(
@@ -248,7 +284,7 @@ export async function resumePlan(db: Db, dossier: DossierRed) {
 export async function creerVersionPlan(
   db: Db,
   auth: Auth,
-  { dossier }: AccesDossierRed,
+  { dossier, mission }: AccesDossierRed,
   corps: RedPlanVersionCreation,
 ): Promise<RedPlanVersionVue> {
   await verifierDebit(db, auth, DEBIT_VERSIONS_PLAN);
@@ -277,7 +313,7 @@ export async function creerVersionPlan(
     version,
   });
   const lue = await lireVersion(db, id);
-  return vueVersion(lue, peutValider(auth, lue, version, dossier), true);
+  return vueVersion(lue, peutValider(auth, lue, version, dossier, mission), true);
 }
 
 async function lireVersion(db: Db, id: string): Promise<VersionPlanLue> {
@@ -304,12 +340,20 @@ export async function validerVersionPlan(
   await exigerDossierRedVisible(db, auth, dossierId).catch(() => {
     throw introuvable("Version de plan");
   });
-  const { dossier } = await exigerDossierRedValidation(db, auth, dossierId);
+  const { dossier, mission } = await exigerDossierRedValidation(db, auth, dossierId);
   const versions = await versionsDossier(db, dossierId);
   const v = versions.find((x) => x.id === id);
   if (!v) throw introuvable("Version de plan");
   if (!peutValiderRole(auth)) {
     throw separation("Le plan est validé par un associé ou un directeur de mission.");
+  }
+  exigerDirecteurDeMission(mission);
+  if (!respecteReserveDirecteur(auth, mission)) {
+    throw new AppError(
+      403,
+      "VALIDATION_RESERVEE_DIRECTEUR",
+      "Seul le directeur de la mission valide le plan de redressement.",
+    );
   }
   if (v.cree_par === auth.utilisateurId && !estAssocie(auth)) {
     throw separation("Le créateur d'une version de plan ne la valide pas lui-même.");

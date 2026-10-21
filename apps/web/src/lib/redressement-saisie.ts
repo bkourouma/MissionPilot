@@ -302,7 +302,7 @@ export function corpsScoreDepuisFormulaire(
 export function facteurCritere(critere: RedCritereAlerte): number {
   const forme = FORME_CRITERE[critere];
   if (forme === "ratio") return 10_000;
-  if (forme === "pourcentage") return 100;
+  if (forme === "pourcentage" || forme === "points") return 100;
   return 1;
 }
 

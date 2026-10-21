@@ -956,9 +956,17 @@ describe("versions de plan : validation", () => {
     expect(await code(a.cabinetId, valider(v1, chef))).toBe("MPZ07");
     expect(await code(a.cabinetId, valider(v1, consultant))).toBe("MPZ07");
     expect(await code(a.cabinetId, valider(v1, expert1))).toBe("MPZ07");
-    expect(await code(a.cabinetId, valider(v1, associe))).toBe("aucun");
-    // Associé créateur : dispensé.
-    const v2 = await versionPlan(d, associe2);
+    // 0492 : un associé qui n'est pas le directeur de la mission ne valide pas non plus.
+    expect(await code(a.cabinetId, valider(v1, associe))).toBe("MPZ07");
+    // Associé directeur de la mission ET créateur : dispensé de la séparation des tâches.
+    const missionAssocie = (
+      await creerMission(a, {
+        intitule: `Associé directeur ${Math.random()}`,
+        directeur_id: associe2,
+      })
+    ).id;
+    const d3 = await creerDossier(a.cabinetId, missionAssocie);
+    const v2 = await versionPlan(d3, associe2);
     expect(await code(a.cabinetId, valider(v2, associe2))).toBe("aucun");
     // Une version validée ne bouge plus.
     expect(await code(a.cabinetId, valider(v2, associe))).toBe("MPZ06");

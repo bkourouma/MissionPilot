@@ -287,6 +287,18 @@ export const NAVIGATION: readonly EntreeNavigation[] = [
         href: "/redressement/seuils",
         permission: "redressement.lire",
       },
+      {
+        id: "checklists",
+        libelle: "Check-lists",
+        href: "/redressement/checklists",
+        permission: "redressement.lire",
+      },
+      {
+        id: "tableau-de-bord",
+        libelle: "Tableau de bord",
+        href: "/redressement/tableau-de-bord",
+        permission: "redressement.lire",
+      },
     ],
   },
   {

@@ -782,9 +782,7 @@ export const redCreanceCreationSchema = z
   })
   .strict();
 
-const evenementSimple = <T extends "ouverture" | "proposition" | "contre_proposition" | "note">(
-  type: T,
-) =>
+const evenementSimple = <T extends "ouverture" | "proposition" | "contre_proposition">(type: T) =>
   z
     .object({
       type: z.literal(type),
@@ -818,7 +816,15 @@ export const redEvenementNegociationSchema = z.discriminatedUnion("type", [
   evenementSimple("ouverture"),
   evenementSimple("proposition"),
   evenementSimple("contre_proposition"),
-  evenementSimple("note"),
+  // Une note sans texte n'a aucun sens : le texte (`conditions`) est obligatoire.
+  z
+    .object({
+      type: z.literal("note"),
+      date_evenement: dateIsoBorneeSchema,
+      montant: montant.optional(),
+      conditions: texte(2000),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("accord"),
@@ -1057,6 +1063,8 @@ export interface RedSeuilsVersionVue {
   secteur: RedSecteur;
   version: number;
   statut: RedStatutSeuils;
+  /** Vrai pour une version publiée qui n'est plus en vigueur (une version publiée plus récente existe). */
+  remplacee: boolean;
   seuils: RedSeuils;
   motif: string | null;
   cree_par: RedPersonne;

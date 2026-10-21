@@ -39,12 +39,17 @@ const JOINTURES = `FROM red_seuils_versions s
   JOIN utilisateurs uc ON uc.id = s.cree_par
   LEFT JOIN utilisateurs up ON up.id = s.publiee_par`;
 
-function vue(l: Record<string, unknown>): RedSeuilsVersionVue {
+/**
+ * `enVigueur` : numéro de la version publiée la plus haute du secteur (null s'il n'y en a pas). Une version
+ * publiée plus ancienne est « remplacée » (indicateur calculé, jamais stocké).
+ */
+function vue(l: Record<string, unknown>, enVigueur: number | null): RedSeuilsVersionVue {
   return {
     id: l.id as string,
     secteur: l.secteur as RedSecteur,
     version: l.version as number,
     statut: l.statut as RedSeuilsVersionVue["statut"],
+    remplacee: l.statut === "publiee" && enVigueur !== null && (l.version as number) < enVigueur,
     seuils: l.seuils as RedSeuils,
     motif: (l.motif as string | null) ?? null,
     cree_par: personne(l.cree_par as string, l.cree_par_nom as string),
@@ -83,11 +88,12 @@ export async function lireSeuils(
     const derniere = versions[0];
     const brouillon = derniere && derniere.statut === "brouillon" ? derniere : null;
     const enVigueur = versions.find((l) => l.statut === "publiee");
+    const numeroEnVigueur = enVigueur ? (enVigueur.version as number) : null;
     return {
       secteur: s,
-      en_vigueur: enVigueur ? vue(enVigueur) : null,
-      brouillon: brouillon ? vue(brouillon) : null,
-      historique: versions.map(vue),
+      en_vigueur: enVigueur ? vue(enVigueur, numeroEnVigueur) : null,
+      brouillon: brouillon ? vue(brouillon, numeroEnVigueur) : null,
+      historique: versions.map((l) => vue(l, numeroEnVigueur)),
       peut_publier: brouillon
         ? peutPublier(auth, { statut: "brouillon", cree_par: brouillon.cree_par as string })
         : false,
@@ -151,7 +157,12 @@ export async function creerSeuils(
 async function lireVersion(db: Db, id: string): Promise<RedSeuilsVersionVue> {
   const r = await db.query(`SELECT ${COLONNES} ${JOINTURES} WHERE s.id = $1`, [id]);
   if (!r.rows[0]) throw introuvable("Version de seuils");
-  return vue(r.rows[0] as Record<string, unknown>);
+  const ligne = r.rows[0] as Record<string, unknown>;
+  const haute = await db.query(
+    `SELECT max(version) AS numero FROM red_seuils_versions WHERE secteur = $1 AND statut = 'publiee'`,
+    [ligne.secteur],
+  );
+  return vue(ligne, (haute.rows[0]?.numero as number | null) ?? null);
 }
 
 const separation = (message: string) => new AppError(403, "SEPARATION_DES_TACHES", message);

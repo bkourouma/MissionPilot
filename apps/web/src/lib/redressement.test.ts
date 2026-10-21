@@ -67,6 +67,11 @@ import {
   formaterTendance,
   formaterValeurCritere,
   formaterValeurRatio,
+  formaterVariationPoints,
+  LIBELLE_BESOIN_FINANCEMENT,
+  libelleEtatVersionSeuils,
+  TEXTE_BESOIN_FINANCEMENT,
+  tonaliteEtatVersionSeuils,
   hrefCreancierRed,
   hrefPlanAvecLevier,
   hrefPortefeuille,
@@ -176,19 +181,24 @@ describe("liens des pages", () => {
     expect(hrefSeuilsSecteur("btp")).toBe("/redressement/seuils?secteur=btp");
   });
 
-  it("liste les huit sections du dossier, la synthèse en premier", () => {
+  it("liste les treize sections du dossier, la synthèse en premier", () => {
     const pages = sousPagesRedressement(ID);
     expect(pages.map((p) => p.id)).toEqual([
       "synthese",
       "ratios",
       "urgence",
+      "diagnostic",
       "alerte",
       "tresorerie",
+      "financement",
       "creanciers",
       "plan",
       "leviers",
+      "cloture",
+      "suivi",
+      "tableau-de-bord",
     ]);
-    expect(new Set(pages.map((p) => p.href)).size).toBe(8);
+    expect(new Set(pages.map((p) => p.href)).size).toBe(13);
   });
 });
 
@@ -488,10 +498,35 @@ describe("mise en forme des ratios", () => {
     expect(motifCritere(null)).toBe("—");
   });
 
+  it("libelle le statut d'une version de seuils", () => {
+    expect(libelleEtatVersionSeuils({ statut: "brouillon" })).toBe("Brouillon");
+    expect(libelleEtatVersionSeuils({ statut: "publiee", remplacee: false })).toBe("En vigueur");
+    expect(libelleEtatVersionSeuils({ statut: "publiee", remplacee: true })).toBe("Remplacée");
+    expect(tonaliteEtatVersionSeuils({ statut: "publiee", remplacee: true })).toBe("neutre");
+    expect(tonaliteEtatVersionSeuils({ statut: "publiee", remplacee: false })).toBe("succes");
+    expect(tonaliteEtatVersionSeuils({ statut: "brouillon" })).toBe("attention");
+  });
+
+  it("dit que le besoin de financement est une projection", () => {
+    expect(LIBELLE_BESOIN_FINANCEMENT).toBe("Besoin de financement prévu");
+    expect(TEXTE_BESOIN_FINANCEMENT).toContain("réalisé");
+    expect(TEXTE_BESOIN_FINANCEMENT).toContain("prévu");
+  });
+
   it("formate tendances, parts et avancement", () => {
     expect(norm(formaterTendance(1250))).toBe("+12,50 %");
     expect(norm(formaterTendance(-300))).toBe("-3,00 %");
     expect(formaterTendance(null)).toBe("—");
+    // Une variation de marge s'exprime en points de pourcentage, pas en pourcentage.
+    expect(norm(formaterVariationPoints(250))).toBe("+2,5 points");
+    expect(norm(formaterVariationPoints(-1000))).toBe("-10 points");
+    expect(norm(formaterVariationPoints(-100))).toBe("-1 point");
+    expect(norm(formaterVariationPoints(50))).toBe("+0,5 point");
+    expect(norm(formaterVariationPoints(0))).toBe("0 point");
+    expect(formaterVariationPoints(null)).toBe("—");
+    expect(formaterVariationPoints(Number.NaN)).toBe("—");
+    expect(norm(formaterValeurCritere("variation_marge_brute", -500))).toBe("-5 points");
+    expect(norm(formaterSeuil("variation_marge_brute", 0))).toBe("0 point");
     expect(norm(formaterPart(3333))).toBe("33,33 %");
     expect(norm(libelleAvancement(3333))).toBe("33 %");
     expect(libelleAvancement(null)).toBe("Sans objet");

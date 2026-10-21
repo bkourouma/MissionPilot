@@ -3,7 +3,7 @@ import { AppError } from "../errors.js";
 
 /*
  * Traduction des erreurs du redressement en erreurs HTTP (jamais de 500 pour une règle métier) :
- * SQLSTATE MPZ01 à MPZ11 des déclencheurs (migrations 0480 à 0486), contraintes CHECK (23514),
+ * SQLSTATE MPZ01 à MPZ20 des déclencheurs (migrations 0480 à 0486, puis 0487 à 0491), contraintes CHECK (23514),
  * unicité (23505), référence (23503) et invariants du moteur (`ErreurRedressement`, code stable
  * préfixé par RED_). Les messages sont en français et ne recopient jamais une valeur saisie
  * (ni montant, ni nom, ni condition de négociation).
@@ -49,6 +49,24 @@ const SQL: Record<string, [number, string, string]> = {
     "RED_TROP_DE_CORRECTIONS",
     "Une semaine de réalisé ne se corrige pas plus de dix fois.",
   ],
+  // Lot 2 (3a-bis, migrations 0487 à 0491) : MPZ12 à MPZ20.
+  MPZ12: [409, "RED_CHECKLIST_FIGEE", "Cette check-list est figée : elle ne se modifie plus."],
+  MPZ13: [
+    409,
+    "RED_CAUSES_HISTORIQUE",
+    "L'historique des causes racines est en ajout seul, par rangs consécutifs.",
+  ],
+  MPZ14: [
+    409,
+    "RED_VALIDATION_REQUISE",
+    "Un contenu proposé par l'IA se valide d'abord par un consultant.",
+  ],
+  MPZ15: [409, "RED_COVENANT_INCOHERENT", "Ce covenant est incohérent avec le dossier."],
+  MPZ16: [409, "RED_FINANCEMENT_INCOHERENT", "Ce plan de financement est incohérent."],
+  MPZ17: [409, "RED_CLOTURE_FIGEE", "Le bilan de clôture validé est figé."],
+  MPZ18: [409, "RED_CLOTURE_INCOMPLETE", "Le bilan de clôture ne peut pas être validé en l'état."],
+  MPZ19: [409, "RED_DOSSIER_NON_CLOS", "Le suivi post-mission suit la clôture du dossier."],
+  MPZ20: [409, "RED_SUIVI_INCOHERENT", "Ce suivi post-mission est incohérent."],
 };
 
 /** Codes du moteur qui sont des conflits d'état (409) plutôt que des entrées mal formées (400). */
