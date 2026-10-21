@@ -2,9 +2,9 @@
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les conventions **observées dans le code** (état de `main`
-après la fusion de la PR n° 14, `3d5a252`, complétée au 2026-10-21 par les lots 1 à 5a et 8a de la branche
+après la fusion de la PR n° 14, `3d5a252`, complétée aux 2026-10-21 et 2026-10-22 par les lots 1 à 5b, 7 et 8a de la branche
 d'intégration ; vagues 1 à 3, rejeu réel OpenRouter, lacunes de la vague 2 — événement `mission.cloture_demandee`,
-brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés), avec un fichier de
+brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés ; lots 5b et 7 : observatoire, veille, services candidats), avec un fichier de
 référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
@@ -55,12 +55,15 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0320–0323`   | check-list de clôture (AUT-08, vague 2) : modèle du cabinet (`0320`), vérifications en ajout seul (`0321`, `MPX01`), dérogations motivées (`0322`, `MPX02`), séparation des tâches entre dérogation et clôture (`0323`, `MPX03`) |
   | `0330–0332`   | salle de mission (CLI-01, vague 2) : demandes documentaires, pièces, dépôts et historique du statut (`0330`, `MPL01-05`), `fichier_orphelin` étendu à `salle_depots.fichier_id` et `octets_stockage_utilises` en `SECURITY DEFINER` (`0331`), durcissement d'audit : mission clôturée, plafonds et débit des dépôts, acceptation par le déposant (`0332`, `MPL06-09`) |
   | `0360–0363`   | appels d'offres (lot AO-A, vague 3, plage réservée `0360–0379`) : fiches, événements, évaluations et décisions go/no-go (`0360`, AO-01, AO-02), dossiers, extractions, matrice de conformité et son suivi (`0361`, AO-03), rétro-planning (`0362`, AO-08), acquittement des nombres non vérifiés d'une extraction (`0363`, `MPA07`) ; `MPA01-07` |
+  | `0364–0367`   | veille multi-sources des appels d'offres (AO-01, lot 5b, même plage `0360–0379`) : activation des sources par cabinet (`0364`, aucune ligne = source désactivée ; adaptateurs SIMULÉS), résultats dédoublonnés et leur statut (`0365`, plafond de 5 000 par cabinet), occurrences en ajout seul (`0366`, plafond de 500 par résultat), décisions en ajout seul (`0367`) ; 4 tables, `portail_interdit` ; `MQA01-05` |
   | `0380–0386`   | banques et offres d'appels d'offres (lot AO-B, vague 3, plage réservée `0380–0399`) : banque de CV, versions datées et gabarits par bailleur (`0380`, AO-04), références, versions et pièces justificatives (`0381`, AO-05), offres techniques, versions et validations (`0382`, AO-06), offres financières et versions calculées (`0383`, AO-07), `fichier_orphelin` étendu aux pièces (`0384`, reprend aussi `salle_depots` de `0331`), séparation des tâches à la validation d'une offre technique (`0385`, `MPW05`), anonymisation d'un CV (`0386`, `anonymiser_cv_ao`, `MPW06`) ; `MPW01-06` |
   | `0400–0404`   | notation augmentée (lot NOT, vague 2, plage réservée `0400–0419`) : banque d'items versionnée et sélections du questionnaire adaptatif (`0400`, NOT-09, `MPN08-09`), paramètres et indices de confiance, garde de publication (`0401`, NOT-11, `MPN10`), calibration entre évaluateurs (`0402`, NOT-13, `MPN11`), initiatives types, impacts observés et plans d'action de notation (`0403`, NOT-17, `MPN12` ; bibliothèque `notation_initiatives_types` à rapprocher de celle du lot PLA, PLA-13), plancher du seuil (0,3) et de la cible de répondants (2) de confiance (`0404`, contraintes `CHECK`) |
   | `0420–0424`   | plans stratégiques augmentés (lot PLA, plage réservée `0420–0439`) : cascade en graphe (`0420`, PLA-12), bibliothèque d'initiatives types (`0421`, PLA-13, `MPS07`) et son amorçage standard (`0422`), priorisation du portefeuille et arbitrage tracé (`0423`, PLA-14, `MPS08`), modèle de rapport « dossier bancaire » (`0424`, PLA-17, `MPR03`) |
   | `0425–0426`, `0429–0431` | plans stratégiques augmentés, suite (lot PLA) : ateliers en ligne, options et participants (`0425`, PLA-15), contributions versionnées et lignes (`0426`), simulation de Monte-Carlo en ajout seul (`0429`, PLA-16), réalisés trimestriels versionnés (`0430`, PLA-18) et re-prévisions versionnées (`0431`) ; politiques `portail` dans chaque fichier ; `MQL01-08` et `MQL10-24` ; `0427–0428` et `0432–0439` libres |
   | `0440–0445`   | pilotage augmenté des KPI (lot KPI, vague 2, plage réservée `0440–0459`) : arbres d'indicateurs et nœuds (`0440`, KPI-13), revues de performance et décisions (`0441`, KPI-17), actions correctives et leurs événements (`0442`, KPI-18), compte rendu figé à la tenue de la revue (`0443`, `MPK22`), action rattachée à une revue tenue seulement (`0444`, `MPK26-27`), plafonds d'un arbre appliqués à la réactivation et au total (`0445`, `MPK12-13`) ; `MPK10-16` et `MPK20-27` |
   | `0460–0465`   | capitalisation (lot CAP, vague 3, plage réservée `0460–0479`) : retours d'expérience versionnés et recherche plein texte (`0460`, CAP-01), base d'estimation par brique (`0461`, CAP-02), analyse des dérogations (`0462`, CAP-05), matrice de compétences (`0463`, CAP-06), index de la recherche unifiée (`0464`, CAP-07), durcissements d'audit : déclarations de niveau bornées, validation du retour réservée à un responsable (`0465`, `MPJ06-08`) ; `MPJ01-08` |
+  | `0466–0467`   | capitalisation, efficacité des recommandations (CAP-03, lot 5b) : recommandations (`0466`) et instantanés d'efficacité en ajout seul, calculés par le moteur (`0467`) ; 3 tables ; `MQK01-05` |
+  | `0470–0472`   | capitalisation, observatoire inter-cabinets (CAP-04, lot 5b) : adhésions en ajout seul (`0470`, `MQK20-21`), contributions sans identifiant de client (`0471`, `MQK22-23`), fonction `obs_agregats` en `SECURITY DEFINER`, seul chemin inter-cabinets (`0472`, `MQK24-27`) ; `obs_adhesion_active` n'est PAS `SECURITY DEFINER` ; `MQK20-27` |
   | `0480–0486`   | redressement (service #5, lot 3a, vague 4, plage réservée `0480–0499`) : fonctions communes `red_*` et dossier (`0480`, `red_dossiers`), correspondance de postes (`0481`, RED-02), évaluations d'urgence (`0482`, RED-01), seuils d'alerte versionnés par secteur et scores (`0483`, RED-10), créanciers, créances, négociations et échéances d'accord (`0484`, RED-12), trésorerie à 13 semaines : versions, lignes et réalisés (`0485`, RED-11), actions du plan, événements et versions de plan (`0486`, RED-05, RED-07) ; 15 tables, aucune fonction `SECURITY DEFINER` ; `MPZ01-11` |
   | `0487–0492`   | redressement, lot 3a-bis (même plage `0480–0499`) : check-lists métier (`0487`, RED-03, `MPZ12`), causes racines et historique en ajout seul (`0488`, RED-04, `MPZ13-14`), covenants et plan de financement (`0489`, RED-06, `MPZ15-16`), bilan de clôture (`0490`, RED-08, `MPZ17-18`), suivi post-mission (`0491`, RED-09, `MPZ19-20`), validation du plan et du bilan réservée au directeur de la mission, redéfinit `red_controler_plan_version()` et `red_controler_cloture()` (`0492`, `MPZ07` au message distinct, aucun nouveau code) ; 15 tables de plus (30 au total), aucune fonction `SECURITY DEFINER` ; `MPZ12-20` |
   | `0500–0509`, `0511` | due diligence (service #2, lot 3b, vague 4, plage réservée `0500–0519`, ADR-012) : socle et cadrage versionné (`0500`, DD-01, `MPZ21`), bibliothèque de signaux (`0501`, DD-11), éléments typés et constats (`0502`), hypothèses, verdicts et validations (`0503`, DD-09), dimensionnement de marché (`0504`, DD-12), filtrage environnemental et social (`0505`, DD-14), ajustements des experts (`0506`, DD-08), note au comité versionnée et validée (`0507`, DD-13), modèle de rapport `note_comite` qui redéfinit les CHECK de `rapports_mission` (`0508`, `MPR04`), portail investisseur : option du cabinet, invitations, publications et retraits (`0509`, `MQD01-08`), modèles d'analyse par secteur, vides par défaut (`0511`, DD-07, `MQD11`) ; `0510` et `0512–0519` libres ; `MPZ21-32` et `MQD` |
@@ -69,6 +72,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0550`        | brief : espace `brief_requetes` du limiteur persistant (60 requêtes par 10 minutes et par utilisateur) ; REDÉFINIT `tentatives_auth_regles` avec ses 6 espaces ; hors plage AUT par construction (voir ci-dessous) |
   | `0551`        | redressement : modèle de rapport `cloture_redressement`, niveau `red`, colonne `red_cloture_id` ; REDÉFINIT les CHECK de `rapports_mission` et `controler_source_rapport()` (`MPR05`) |
   | `0552`        | dossier client : modèle de rapport `etat_financier`, niveau `dossier` ; REDÉFINIT les CHECK de `rapports_mission` |
+  | `0560–0563`   | services candidats (lot 7, plage attribuée par le superviseur) : service et méthode du standard `diagnostic_flash` v1 publiée (`0560`), service et méthode `business_plan_bancable` v1 publiée (`0561`), prix fixe par cabinet et par service (`0562`), guichets de financement du cabinet, sans suppression (`0563`, `MQV01-02`) ; 2 tables, `portail_interdit` ; contenu des méthodes PROVISOIRE, `a_valider = true` |
 
   Plages libres : `0151–0159`, `0161–0169`, `0170–0179`, `0185–0199`. Plages
   réservées par lot (PRD complémentaire) : `0200–0219` référentiel de méthodes
@@ -92,8 +96,9 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   son numéro est supérieur à celui de toutes les définitions existantes, d'où des
   numéros hors plage de domaine. Attribués : `0549` canaux (alerte de KPI), `0550`
   brief (limiteur persistant), `0551` redressement (rapport de clôture), `0552`
-  dossier (rapport d'état financier) ; réservés aux services candidats
-  `0560–0563` ; `0553–0559` non attribués (à demander au superviseur).
+  dossier (rapport d'état financier) ; services candidats (lot 7) `0560–0563`,
+  consommées (prochains libres de l'attribution : `0564–0579`) ; `0553–0559` non
+  attribués (à demander au superviseur).
   Deux objets partagés sont REDÉFINIS en entier à chaque évolution :
   - `tentatives_auth_regles` (limiteur persistant) : la définition en vigueur est
     celle de `0550`, avec ses 6 espaces (`connexion`, `reauth`, `facteur`,
@@ -108,22 +113,24 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
     `cloture_redressement`, `etat_financier` ; niveaux `base`, `jours`, `finance`,
     `notation`, `plan`, `dd`, `red`, `dossier`. Oublier une valeur la supprime.
 
-  Prochain numéro libre au 2026-10-21 : plans (V1) `0185`, automatisation `0306`
+  Prochain numéro libre au 2026-10-22 : plans (V1) `0185`, automatisation `0306`
   à `0312` (`0303`, `0304` et `0305` consommées), clôture `0324`, salle de mission
-  `0333`, AO-A `0364`, AO-B `0387`, notation augmentée `0405` (`0405–0419` libres),
+  `0333`, AO-A `0368` (`0368–0379` libres), AO-B `0387`, notation augmentée `0405` (`0405–0419` libres),
   plans augmentés `0427` (`0427–0428` puis `0432–0439` libres), KPI augmentés
-  `0446`, capitalisation `0466`, redressement `0493` (`0493–0499`), due diligence
+  `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
-  QUA `0290`, AGT `0278` (`0269` reste inutilisé comme `0144`). Une
+  QUA `0290`, AGT `0278` (`0269` reste inutilisé comme `0144`), services
+  candidats `0564` (`0564–0579` libres). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
-  l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-21,
+  l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-22,
   `origin/main` (`3d5a252`) compte 180 fichiers et la branche d'intégration du
-  lot 9a en compte 206, tous commités (`ls apps/api/migrations | wc -l` et
-  `git ls-files apps/api/migrations | wc -l`) : les 26 de plus
-  (`0210`, `0225`, `0275`–`0277`, `0287`–`0289`, `0305`, `0425`, `0426`,
-  `0429`–`0431`, `0487`–`0492`, `0509`, `0511`, `0549`–`0552`) sont des ajouts,
+  lot 9b en compte 219, tous commités (`ls apps/api/migrations | wc -l` et
+  `git ls-files apps/api/migrations | wc -l`) : les 39 de plus
+  (`0210`, `0225`, `0275`–`0277`, `0287`–`0289`, `0305`, `0364`–`0367`,
+  `0425`, `0426`, `0429`–`0431`, `0466`, `0467`, `0470`–`0472`,
+  `0487`–`0492`, `0509`, `0511`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
   aucune modification ni suppression par rapport à `origin/main` : toutes sont
   immuables dès la fusion de la branche dans `main`.
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
@@ -183,7 +190,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   lots suivants** : un second préfixe de deux lettres `MQ` + lettre de domaine +
   deux chiffres, déclaré dans ce document et dans l'en-tête de la première
   migration du lot, et jamais un numéro déjà employé par un autre lot d'une même
-  lettre. Préfixes `MQ` déclarés (relevé du 2026-10-21) :
+  lettre. Préfixes `MQ` déclarés (relevé du 2026-10-22) :
 
   | Préfixe | Domaine                              | Codes employés                                                                                         | Migrations      |
   | ------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------- |
@@ -194,6 +201,9 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `MQF`   | dossier client, groupes et filiales  | `MQF01-04` cycle, total des parts, fin sans détention antérieure, profondeur de 8 liens ; libres : `MQF05+` | `0225`          |
   | `MQL`   | plans stratégiques augmentés         | `MQL01-08` ateliers, `MQL10-14` Monte-Carlo, `MQL15-24` plan vivant ; `MQL09` réservé non employé ; libres : `MQL25+` | `0425`–`0431`   |
   | `MQN`   | notation                             | déclaré, aucun code employé                                                                            | aucune          |
+  | `MQK`   | capitalisation (lot 5b)              | `MQK01-05` efficacité des recommandations (CAP-03), `MQK20-27` observatoire (CAP-04 : historique, transition, versement, immutabilité, `MQK24` hors cabinet ou portail, `MQK25` non adhérent, `MQK26` indicateur inconnu, `MQK27` adhérent sans contribution éligible) ; plages réservées `MQK01-19` (efficacité) et `MQK20-39` (observatoire) ; libres : `MQK06-19`, `MQK28-39` | `0466`–`0467`, `0470`–`0472` |
+  | `MQA`   | appels d'offres, veille (lot 5b)     | `MQA01-05` historique en ajout seul, transition de statut refusée, plafond de 5 000 résultats par cabinet, plafond de 500 occurrences par résultat, décision incohérente ; libres : `MQA06+` | `0364`–`0367`  |
+  | `MQV`   | services candidats (lot 7)           | `MQV01` identité d'un guichet figée, `MQV02` plafond de 500 guichets par cabinet ; libres : `MQV03+`  | `0563`          |
 
   Les ADR-010 et ADR-013 citaient `MPH11` et `MPH07` avant le lot canaux : ils sont
   tranchés, `MPH11` (empreinte du document signé, `0546`) et `MPH07` (validation
@@ -428,7 +438,7 @@ Mise en page de droite à gauche : sans objet.
 ## 10. Dette connue
 
 Relevée dans le code le 2026-10-08 et complétée le 2026-10-21 (consolidation du lot 9a : les dettes soldées par
-les lots 1 à 5a ont été retirées après vérification dans le code) ; ne pas y ajouter sans citer le fichier.
+les lots 1 à 5a ont été retirées après vérification dans le code) et 2026-10-22 (lot 9b : lots 5b et 7) ; ne pas y ajouter sans citer le fichier.
 La dette de sécurité est détaillée dans `docs/governance/SECURITY.md` §15.
 Résolu depuis le relevé précédent : `LIMIT 500` des missions et opportunités
 (pagination par curseur, `0121`), justificatif de débours en texte libre
@@ -441,6 +451,11 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   client) : la troncature est désormais **signalée** (`tronque: true`) mais la
   liste n'est pas paginée.
 - **Trois lectures à `LIMIT` littéral sans plafond de table** (relevé du 2026-10-21, recherche n° 7 de la checklist) : `plans/ateliers.ts` (membres du cabinet, `LIMIT 500`, et dirigeants du client, `LIMIT 200`) et `qualite/froide-revue.ts` (revues d'un relecteur, `LIMIT 200`) ; les autres `LIMIT` neufs des ateliers sont doublés par un plafond en base. À doubler d'un plafond ou à paginer.
+- **Efficacité des recommandations (lot 5b, 2026-10-22)** : trois lectures à `LIMIT` littéral sans plafond de
+  table (`capitalisation/efficacite.ts`, historique des instantanés `LIMIT 50`, KPI d'une mission `LIMIT 200`,
+  initiatives du plan `LIMIT 200`, recherche n° 7 de la checklist) ; l'historique d'adhésion de l'observatoire
+  (`capitalisation/observatoire.ts`, `OBSERVATOIRE_HISTORIQUE_MAX` = 200) est passé en paramètre. À doubler d'un
+  plafond ou à paginer.
 - **Date d'atteinte d'un jalon** non horodatée en V1, approchée par la dernière
   modification (`finance/indicateurs.ts`).
 - **Inversion de la parité EUR/FCFA** : `Number((1 / PARITE_EUR_FCFA).toFixed(10))`
@@ -592,3 +607,21 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   de la protection de `main` ; `apps/api/vitest.config.ts` active `retry: 1` seulement si `CI` est défini. Tests
   instables sous charge, hors CI : `brief-job`, `copilote`, `factures`, `kpi-alertes`, `plan-de-charge`,
   `redressement-urgence-alerte`, `salle-mission-durcissement`.
+
+- **Capitalisation et veille (lot 5b, 2026-10-22)** : un seul indicateur d'observatoire (`notation_score_global`) ;
+  NOT-14 (percentile) reste à faire ; classement du secteur par mots-clés (faux positifs possibles, sans enjeu de
+  sécurité) ; collecte de la veille déclenchée à la main (pas de job) et adaptateurs de veille SIMULÉS seulement
+  (un adaptateur réel exige un ADR : SSRF, délai, clé) ; seuils et valeurs de CAP-03, CAP-04 et AO-01 provisoires
+  jusqu'à validation (DECISIONS.md, section « Capitalisation (CAP-03, CAP-04) et veille »). Risques résiduels de
+  l'observatoire (collusion, effet de bord « exactement 3 contributeurs », retrait immédiat) :
+  SECURITY.md §5 sexies et §15.
+- **Services candidats (lot 7, 2026-10-22)** : le champ `moteur` reste NULL pour les briques
+  `bancabilite_pla17`, `plan_financement` et `veille_guichets` de `0561`, faute de code correspondant dans
+  `MOTEURS_STANDARD` (`packages/shared/src/schemas/standard.ts`) : à reprendre par une nouvelle version de
+  méthode si des codes `plan.bancabilite` / `services.guichets` sont ajoutés ; tout le contenu des méthodes `0560`
+  et `0561`, les plafonds et le prix « sur devis » du business plan sont provisoires (`a_valider = true`) ;
+  les montants des prix et les bornes de guichets sont des entiers en unité de la devise, différents de la
+  convention en unités mineures de `apps/web/src/lib/saisie.ts` ; le lien « mission flash » depuis la fiche
+  client et les alertes KPI ou de redressement n'est pas posé (la page `/services-candidats` lit déjà
+  `?service=` et `?client=`) ; les pages `/services-candidats`, `/services-candidats/guichets` et `/observatoire`
+  n'ont pas été ouvertes dans un navigateur à la livraison.
