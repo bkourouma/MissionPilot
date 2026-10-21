@@ -452,6 +452,14 @@ export const campagneFroideListeQuerySchema = z
   })
   .strict();
 
+/** « Mes revues » : pagination par curseur (curseur opaque, validé côté API). */
+export const mesRevuesQuerySchema = z
+  .object({
+    limite: z.coerce.number().int().min(1).max(100).default(50),
+    curseur: z.string().max(500).optional(),
+  })
+  .strict();
+
 export const affectationRelecteurSchema = z.object({ relecteur_id: uuid }).strict();
 
 /** Note d'un critère de la grille ; `null` (sans objet) exige un commentaire. */

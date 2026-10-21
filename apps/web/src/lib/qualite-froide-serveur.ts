@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
 import { chargerServeur } from "./api-serveur";
+import { chargerToutesLesPages } from "./pagination";
 import {
   cheminEchantillon,
+  cheminMesRevues,
+  LIMITE_MES_REVUES,
+  pageMesRevues,
+  type MaRevue,
   droitsQualiteFroide,
   libelleGravite,
   type LigneEchantillon,
@@ -85,5 +90,19 @@ export async function chargerConstatsCampagne(
           libelle: `${mission} (${libelleGravite(c.gravite).toLowerCase()}) : ${c.description.slice(0, 80)}`,
         }))
       : [],
+  );
+}
+
+/** Toutes les revues affectées à l'appelant : le curseur est suivi page après page. */
+export function chargerMesRevues() {
+  return chargerToutesLesPages<MaRevue>(
+    async (chemin) => {
+      const r = await chargerServeur<{ elements: MaRevue[]; curseur_suivant: string | null }>(
+        chemin,
+      );
+      return r.ok ? { ok: true, donnees: pageMesRevues(r.donnees) } : r;
+    },
+    cheminMesRevues(),
+    { limiteMax: LIMITE_MES_REVUES },
   );
 }
