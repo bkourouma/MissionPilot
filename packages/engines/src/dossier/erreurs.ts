@@ -18,7 +18,14 @@ export type CodeErreurDossier =
   | "TOLERANCE_INVALIDE"
   | "DATE_INVALIDE"
   | "EVENEMENT_INVALIDE"
-  | "OPTIONS_INVALIDES";
+  | "OPTIONS_INVALIDES"
+  | "DETENTION_INVALIDE"
+  | "DETENTION_SOI_MEME"
+  | "DETENTION_CYCLE"
+  | "DETENTION_SUPERIEURE_100"
+  | "DETENTION_TROP_PROFONDE"
+  | "DEVISES_MIXTES"
+  | "EXERCICE_EN_DOUBLE";
 
 export class ErreurDossier extends Error {
   readonly code: CodeErreurDossier;

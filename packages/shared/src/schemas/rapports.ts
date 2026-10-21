@@ -61,3 +61,35 @@ export const rapportsParametresSchema = z
   })
   .strict();
 export type RapportsParametres = z.infer<typeof rapportsParametresSchema>;
+
+/**
+ * POST /rapports/etat-financier : format, mission, et nombre d'exercices repris dans la synthèse
+ * (les états acceptés les plus récents du dossier, 3 par défaut).
+ */
+export const rapportEtatFinancierQuerySchema = z
+  .object({
+    format: z.enum(FORMATS_RAPPORT_SERVICE, {
+      errorMap: () => ({ message: "Le format doit être « pdf » ou « docx »." }),
+    }),
+    mission_id: z.string().uuid("L'identifiant de la mission est invalide."),
+    exercices: z.coerce
+      .number()
+      .int("Le nombre d'exercices doit être un entier.")
+      .min(1, "Au moins un exercice.")
+      .max(5, "Cinq exercices au plus.")
+      .default(3),
+  })
+  .strict();
+export type RapportEtatFinancierQuery = z.infer<typeof rapportEtatFinancierQuerySchema>;
+
+/** Corps du rapport d'état financier : commentaire libre du consultant, en texte brut. */
+export const rapportEtatFinancierCorpsSchema = z
+  .object({
+    commentaire: z
+      .string()
+      .min(1, "Le commentaire ne peut pas être vide.")
+      .max(4000, "Le commentaire est limité à 4000 caractères.")
+      .optional(),
+  })
+  .strict();
+export type RapportEtatFinancierCorps = z.infer<typeof rapportEtatFinancierCorpsSchema>;
