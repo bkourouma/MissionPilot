@@ -176,10 +176,10 @@ La connexion rapide **refuse** ces comptes (`CONNEXION_RAPIDE_2FA`, elle ne cont
   connexion rapide serait refusée). Les PDF sont écrits dans le stockage de
   développement (`~/.missionpilot/stockage`, ou `STORAGE_DIR`).
 
-#### Canaux simulés et redressement de démonstration
+#### Canaux simulés, redressement et services candidats de démonstration
 
 `db:seed-demo` ajoute, en fin de course et après les comptes du portail et les
-comptes 2FA, deux sous-semis :
+comptes 2FA, trois sous-semis :
 
 - **les canaux simulés** (`apps/api/src/db/seed-demo-canaux.ts`) : un compte
   WhatsApp simulé actif, avec la saisie de KPI activée (l'alerte KPI garde sa
@@ -200,13 +200,28 @@ comptes 2FA, deux sous-semis :
   covenants, bilan de clôture en brouillon), et le dossier « Redressement express
   Transports Akwaba (fictif) », clos par le directeur, avec son plan de suivi et un
   relevé.
+- **les services candidats** (`apps/api/src/db/seed-demo-services-candidats.ts`,
+  appelé par une ligne de `seed-demo.ts`), pour le client de démonstration du
+  portail : le **prix du diagnostic flash**, fixé à 1 000 000 XOF et marqué
+  `DÉMONSTRATION` (colonne `commentaire`), car le produit n'a aucun prix par
+  défaut ; l'activation des types de mission « diagnostic flash » et « business
+  plan bancable » ; une mission de chaque service, « Diagnostic flash
+  (DÉMONSTRATION) » et « Business plan bancable (DÉMONSTRATION) », liées à leur
+  méthode du standard ; deux **guichets de financement FICTIFS** (« Guichet fictif
+  A » et « B », marqués `DÉMONSTRATION, à valider`, aucune source réelle). Tout passe
+  par les routes de l'API (droits et journal d'audit), sans appel réseau. À voir
+  dans l'interface, connecté en associé ou directeur de mission : pages
+  `/services-candidats` (prix, activation, création d'une mission) et
+  `/services-candidats/guichets` (liste et rapprochement) ; `/observatoire` n'est
+  pas semé (adhésion et versement se font à la main).
 
-Sur une base déjà peuplée, ces deux sous-semis se relancent séparément ; il n'y a
+Sur une base déjà peuplée, ces trois sous-semis se relancent séparément ; il n'y a
 pas de script npm dédié :
 
 ```bash
 pnpm --filter @missionpilot/api exec tsx src/db/seed-demo-canaux.ts     # exige les comptes du portail et les comptes 2FA
 cd apps/api && npx tsx src/db/seed-demo-redressement.ts                  # exige le cabinet de démonstration
+pnpm --filter @missionpilot/api exec tsx src/db/seed-demo-services-candidats.ts   # exige le cabinet de démonstration
 ```
 
 - Canaux : idempotent étape par étape. Un compte, un numéro, un consentement, un
@@ -215,6 +230,10 @@ cd apps/api && npx tsx src/db/seed-demo-redressement.ts                  # exige
 - Redressement : si le dossier « Redressement Transports Akwaba (fictif) » existe
   déjà, le script le vérifie avant toute écriture, n'écrit rien et sort avec le
   code 2.
+- Services candidats : idempotent (missions retrouvées par intitulé, guichets par
+  nom, prix posé seulement s'il n'est pas déjà personnalisé) ; sans rien à écrire,
+  le script le dit et sort avec le code 0. Il échoue (code 1) si le client de
+  démonstration du portail est absent : lancer d'abord `db:seed-demo`.
 
 **Connexion rapide (sans mot de passe)** pour la recette : démarrer l'API avec
 `CONNEXION_RAPIDE_DEMO=oui` ; la page de connexion affiche alors le bloc

@@ -440,8 +440,8 @@ consultant, auquel cas on créerait plutôt une permission `redressement.montant
 
 ## Décisions de l'utilisateur pendant le chantier (2026-10-20 à 2026-10-21)
 
-Neuf points **VALIDÉS** par l'utilisateur dans la conversation pendant le chantier des lots de la vague 4
-(lots 1 à 5a). Ce ne sont **pas** des valeurs provisoires : elles ne figurent plus dans les colonnes « à
+Quatorze points **VALIDÉS** par l'utilisateur dans la conversation pendant le chantier des lots de la vague 4
+(lots 1 à 7 : les points 1 à 9 datent des lots 1 à 5a, les points 10 à 14, **validés le 2026-10-21**, des lots 5b et 7). Ce ne sont **pas** des valeurs provisoires : elles ne figurent plus dans les colonnes « à
 valider » et ne se modifient que sur décision de l'utilisateur. Quand une note de lot présentait l'une de ces
 règles comme provisoire, la décision de l'utilisateur prime.
 
@@ -456,6 +456,13 @@ règles comme provisoire, la décision de l'utilisateur prime.
 | 7 | Revue à froid (QUA-05) | **Tout intervenant de la mission est exclu** comme relecteur ; **aucun jour consommé n'est imputé à la revue** ; **l'associé réaffecte** la revue. |
 | 8 | Groupes et filiales (DOS-05) | Seuil de contrôle **> 50 %** (vue intégrale) ; conversion **EUR / XAF / XOF au taux fixe 655,957** (1 EUR = 655,957 XOF = 655,957 XAF, XOF = XAF à 1:1) ; **USD exclu** (consolidation signalée partielle) ; le rapport d'état financier du groupe est réservé à `dossier.lire`. |
 | 9 | Redressement (RED-05, RED-08) | La **validation du plan ET du bilan de clôture** est réservée au **directeur de la mission** ; une mission **sans directeur ne valide ni l'un ni l'autre** (409 `DIRECTEUR_REQUIS`), règle doublée en base par `0492` (SQLSTATE `MPZ07`, message distinct). La séparation des tâches (créateur différent du valideur, sauf associé) est conservée. |
+| 10 | Observatoire (CAP-04, lot 5b) : règle « des autres » — **validée le 2026-10-21** | Les seuils d'anonymat sont calculés **HORS du cabinet appelant** : une case (secteur × taille) n'est publiée que si elle compte au moins **5 entreprises ET 3 cabinets AUTRES que l'appelant** (`obs_agregats`, `0472`, colonnes `effectif_entreprises_autres` et `effectif_cabinets_autres` ; le moteur re-vérifie : `OBSERVATOIRE_ENTREPRISES_MIN` 5, `OBSERVATOIRE_CABINETS_MIN` 3). Les statistiques publiées incluent les données de l'appelant. Limites assumées : la collusion de trois cabinets contributeurs n'est pas couverte (à encadrer par les conditions d'adhésion) et une case à exactement 3 contributeurs est masquée pour chacun d'eux. |
+| 11 | Efficacité des recommandations (CAP-03, lot 5b) — **validée le 2026-10-21** | **Seuil de 5 observations** avant d'afficher un score par contexte (`EFFICACITE_SEUIL_OBSERVATIONS_PAR_DEFAUT` 5 ; le seuil d'un cabinet ne peut que le relever, plancher `EFFICACITE_SEUIL_OBSERVATIONS_MIN` 5) et **effet mesuré à 30 jours** après la mise en œuvre (`EFFICACITE_DELAI_EFFET_JOURS` 30). Les autres paramètres du score restent provisoires (section « Capitalisation… lot 5b »). |
+| 12 | Diagnostic flash : prix (lot 7) — **validée le 2026-10-21** | **AUCUN prix par défaut** : le prix est « à fixer par le cabinet » (`prix.a_fixer`) et le type de mission ne peut pas être activé tant que le cabinet n'a pas saisi de prix (409 `PRIX_A_FIXER`, `SERVICES_PRIX_REQUIS` de `packages/shared/src/schemas/services-candidats.ts`). Seul le seed de démonstration pose un prix, marqué `DÉMONSTRATION`. |
+| 13 | Business plan bancable : prix (lot 7) — **validée le 2026-10-21** | **« Sur devis »** : le type de mission s'active **sans prix** (montant nul admis, `SERVICES_PRIX_REQUIS` faux). Ce mode est **marqué « à valider »** : la décision n'a pas fixé de tarif, seulement l'absence d'obligation. |
+| 14 | Gestion des services candidats et des guichets (lot 7) — **validée le 2026-10-21** | L'**associé ET le directeur de mission** gèrent les services candidats (activation des types de mission, prix fixe) et les guichets de financement (`services_candidats.gerer`) ; la lecture (`services_candidats.lire`) suit `catalogue.lire`, l'expert externe n'a aucun accès. |
+
+L'**accès à l'observatoire réservé aux cabinets contributeurs** (cabinet adhérent avec au moins une contribution éligible : mois civil clos, versée depuis la dernière adhésion ; sinon 403 `OBSERVATOIRE_CONTRIBUTION_REQUISE`, `MQK27`) n'est pas un point nouveau de cette liste : la note du lot 5b le cite comme « décision n° 1 », c'est-à-dire la décision du commanditaire déjà consignée dans « Validations complémentaires » (PRD complémentaire : seuls les cabinets contributeurs consultent les benchmarks). Il est donc **validé** à ce titre, et non par une décision de l'utilisateur du 2026-10-21 ; sa mise en œuvre précise (définition d'une contribution éligible) reste **provisoire, à valider**.
 
 ## Socle IA : rejeu, brief et copilote (lot 1, 2026-10-20)
 
@@ -628,6 +635,58 @@ Migrations `0425`, `0426`, `0429`, `0430`, `0431` (NOT-12 : aucune migration). V
 - **PLA-18, plan vivant** : répartition trimestrielle 25 / 25 / 25 / 25 par défaut ; méthodes `reste_du_plan` et
   `tendance` (facteur borné de 0,5 à 1,5) ; seuil « significatif » 10 % ; trésorerie re-prévue = projection
   simplifiée ; 40 re-prévisions par exercice, 50 versions de réalisé par trimestre, 1 000 par plan.
+
+## Capitalisation (CAP-03, CAP-04) et veille des appels d'offres (AO-01), lot 5b (2026-10-20)
+
+Migrations `0364` à `0367` (veille), `0466`, `0467` (efficacité) et `0470` à `0472` (observatoire). Valeurs **provisoires,
+à valider**, sauf les points 10 et 11 du tableau « Décisions de l'utilisateur » (validés le 2026-10-21). Constantes
+vérifiées dans le code.
+
+- **CAP-03, efficacité des recommandations** : score = part de l'écart attendu (base vers cible) comblée à la date
+  d'effet, **borné de 0 à 100** ; valeur de base = dernière mesure effective à la mise en œuvre ou avant, valeur d'effet
+  = dernière mesure effective au moins 30 jours après. Écart attendu nul (ou contraire au sens du KPI) ou mesure
+  manquante = **non évaluable** (score nul, raison explicite). Délai 30 jours et seuil 5 : voir le point 11 (décidés).
+  Sous le seuil, le score d'un contexte n'est pas affiché et son effectif n'est pas servi.
+- **CAP-04, observatoire** : **un seul indicateur**, `notation_score_global` (score ajusté de la dernière notation
+  publiée de chaque client ; client sans taille écarté) ; **gel mensuel UTC** (seuls les versements d'un mois civil
+  clos comptent, dernier versement de chaque cabinet ; une ré-adhésion n'est prise en compte qu'avec un nouveau
+  versement) ; consultation par l'**associé et le directeur de mission** (`observatoire.lire`), **adhésion, retrait
+  et versement par l'associé seul** (`observatoire.adherer`). Seuils 5 entreprises et 3 cabinets calculés hors du
+  cabinet appelant : voir le point 10 (décidé). Arrondis : effectif à la tranche de 5, quartiles et répartition
+  seulement à partir de 10 entreprises.
+- **AO-01, veille** : complète la section « Appels d'offres : veille… » (saisie et import CSV manuels). Trois sources
+  **simulées** (`sim_marches_publics`, `sim_bailleurs`, `sim_presse`), activables par cabinet et **désactivées par
+  défaut**, aucun appel réseau ; collecte **déclenchée à la main**, sans job ; plafonds de **5 000 résultats** par
+  cabinet (`MQA03`) et **500 occurrences** par résultat (`MQA04`) ; import de **1 Mo** et **200 avis**. Une source réelle
+  exigera un ADR (SSRF, délai, clé).
+- **Codes d'erreur** : `MQK01` à `MQK05` (efficacité), `MQK20` à `MQK27` (observatoire), `MQA01` à `MQA05` (veille).
+- **Reste à faire** : NOT-14 (percentile) ; un second indicateur de l'observatoire.
+
+## Services candidats : diagnostic flash et business plan bancable, lot 7 (2026-10-20)
+
+Migrations `0560` à `0563`, SQLSTATE `MQV01` et `MQV02`. Décision n° 6 du PRD complémentaire : diagnostic flash, puis
+business plan bancable. Principe : du **contenu de standard** (méthodes publiées par migration), du code seulement là
+où une brique manquait. **Tout le contenu métier est provisoire, à valider par un expert** (`a_valider = true`),
+sauf les points 12 à 14 du tableau « Décisions de l'utilisateur » (validés le 2026-10-21).
+
+- **Activation** : `POST /services-candidats/activer` prend `{ service }`, **un service à la fois** (400 sans corps
+  valide) ; elle sème aussi les grades manquants du catalogue. Prix : voir les points 12 et 13 ; montants des prix et
+  bornes de guichets en **entiers en unité de la devise** (pas de centimes, y compris EUR et USD), différent de la
+  convention « unités mineures » de `apps/web/src/lib/saisie.ts`.
+- **Guichets de financement** : liste du cabinet, **vide par défaut**, plafond de **500 par cabinet** (`MQV02`,
+  `PLAFOND_GUICHETS_ATTEINT`), pas de suppression (on désactive) ; `GET /guichets-financement` et le rapprochement
+  renvoient `tronque` quand la liste est limitée. Rapprochement : moteur pur, **aucune conversion de devise** (devises
+  différentes = critère « inconnu »), statuts compatible, partiel ou exclu, score de 0 à 100.
+- **Méthodes du standard 0560 et 0561** : briques, temps types, classes de risque, niveaux d'autonomie, règles de
+  modulation, rubriques et cas types du diagnostic flash (10 briques) et du business plan bancable (14 briques), ainsi
+  que les types de mission et découpages de `apps/api/src/catalogue/services-candidats.ts` : **provisoires, à valider
+  par un expert**.
+- **Rapports** : le rapport court du flash réutilise le modèle EXISTANT « état d'avancement », le dossier bancaire le
+  modèle `dossier_bancaire` ; `rapports_mission` n'est pas modifiée.
+- **Briques sans moteur** : « bancabilité PLA-17 », « plan de financement » et « veille des guichets » n'ont pas de
+  moteur référencé (aucun code correspondant dans `MOTEURS_STANDARD`) ; dette à reprendre par une nouvelle version de
+  méthode quand les codes existeront.
+- **Codes d'erreur** : `MQV01` (identité d'un guichet figée, `GUICHET_FIGE`), `MQV02` (plafond de guichets).
 
 ## Intégration continue (lot 8a, 2026-10-20)
 

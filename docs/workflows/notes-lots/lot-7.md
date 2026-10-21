@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9b).
+
 # Notes du lot 7 : services candidats (diagnostic flash, business plan bancable)
 
 Mises à jour EXACTES à reporter par le superviseur dans les documents interdits au lot

@@ -5,6 +5,11 @@
 Acceptée par l'utilisateur le 2026-10-14 (rédigée avec la spécification
 `docs/workflows/specs/SPEC-3b-due-diligence.md`, sous-chantier 3b de la vague 4).
 
+Mise à jour du 2026-10-21 : le point 7 (portail investisseur) et le point 9
+(préfixe de codes) ont été dépassés par le lot 3 (portail investisseur, migrations
+`0509` et `0511`). L'historique du texte d'origine est conservé ; chaque point
+concerné porte sa correction.
+
 ## Date
 
 2026-10-11
@@ -38,8 +43,8 @@ Faits qui pèsent sur la décision :
   engageant se fait par une autre personne que l'auteur (séparation des tâches
   doublée en base).
 - Le **portail client est fermé par défaut** (`LISTE_BLANCHE_PORTAIL`) ;
-  l'investisseur-client (`client_investisseur`) n'a que `portail.acceder` et
-  aucun écran.
+  l'investisseur-client (`client_investisseur`) n'avait, à la rédaction, que
+  `portail.acceder` et aucun écran (état modifié par le lot 3 : voir le point 7).
 - La **chaîne d'ingestion et d'OCR** (ADR-009) n'est pas écrite ; la lecture
   IA d'une salle de données (DD-10) et l'import de rapports PDF (DD-02) en
   dépendent. Aucune clé OpenRouter n'existe en développement (HANDOFF).
@@ -113,9 +118,17 @@ XAF, EUR, USD.
    recommandation favorable…) empêchent la soumission.
 7. **Portail fermé.** Les vingt tables portent `portail_interdit` et aucune
    route ne figure dans `LISTE_BLANCHE_PORTAIL`. L'accès d'un investisseur
-   client à une note validée est **repoussé** (il exigerait une permission
-   `portail.*`, une table de partage, une route nommée à la liste blanche et un
-   écran ; voir la spécification, « Repoussé »).
+   client à une note validée était **repoussé à l'origine** (il exigerait une
+   permission `portail.*`, une table de partage, une route nommée à la liste
+   blanche et un écran ; voir la spécification, « Repoussé »). **Livré ensuite
+   par le lot 3 (2026-10-20)** : migration `0509` (option du cabinet désactivée par
+   défaut, invitations, publications et retraits, codes `MQD01`–`MQD08`),
+   routes `due-diligence-portail-investisseur` (lecture seule,
+   `/api/portail/due-diligence/publications…`, nommées à la liste blanche),
+   permissions `dd.portail.configurer`, `dd.portail.gerer` et `portail.dd.lire`.
+   Les vingt tables d'origine restent fermées au portail : l'investisseur ne lit
+   qu'un instantané publié par le cabinet (voir DECISIONS.md, « Due diligence :
+   portail investisseur et modèles sectoriels »).
 8. **Habilitations.** Quatre permissions nouvelles dans
    `packages/shared/src/roles.ts` : `dd.lire`, `dd.ecrire`, `dd.valider`,
    `dd.referentiel.gerer` (bibliothèque de signaux et listes d'exclusion). Toute
@@ -126,7 +139,12 @@ XAF, EUR, USD.
    lettre par domaine » et que le Pilote confirme (repli : un second préfixe,
    `MQD01`–`MQD12`) ; plus `MPR04` (source d'une note rendue en rapport) ;
    plage de migrations `0500`–`0519` réservée au lot, durcissements d'audit
-   compris.
+   compris. **État au 2026-10-21** (CODING_STANDARDS §2) : la lettre `Z` est
+   épuisée (redressement `MPZ01`–`MPZ20`, due diligence `MPZ21`–`MPZ32`, dernier
+   partage, qui ne se reproduit pas) ; le repli sur un second préfixe `MQD` a été
+   **utilisé** par le lot 3 : `MQD01`–`MQD08` (portail investisseur, `0509`) et
+   `MQD11` (modèles sectoriels, `0511`) sont employés, `MQD09`–`MQD10` et
+   `MQD12`–`MQD20` restent libres.
 10. **Repoussés** : DD-02 (connecteurs de données ouvertes et import de rapports
     PDF : seule l'interface d'un fournisseur et un adaptateur simulé, sans
     appel réseau, jamais branchés à une route ; **OUVERT**), DD-10 (lecture IA
@@ -165,8 +183,11 @@ XAF, EUR, USD.
   soumission est refusée.
 - Le moteur de verdict n'est qu'une indication à seuils provisoires ; sa
   valeur ne se juge qu'avec de vraies missions.
-- L'investisseur-client ne voit rien dans le portail : la note lui parvient hors
-  plateforme (fichier rendu).
+- *(Levée par le lot 3, 2026-10-20.)* À l'origine, l'investisseur-client ne voyait
+  rien dans le portail et la note lui parvenait hors plateforme (fichier rendu) ;
+  il consulte désormais un instantané publié par le cabinet (point 7), au prix
+  d'une surface de portail élargie (trois permissions, trois routes de lecture à la liste blanche, huit
+  codes `MQD`).
 
 ## Alternatives écartées
 
@@ -190,7 +211,7 @@ XAF, EUR, USD.
 - **Partage de la note au portail dès ce lot** — élargit la surface du
   portail (permission, table de partage, route, écran, tests d'isolation) pour
   un rôle sans écran aujourd'hui ; mieux vaut le traiter avec le portail
-  investisseur (PRD complémentaire §13).
+  investisseur (PRD complémentaire §13). *(Fait par le lot 3, 2026-10-20.)*
 - **Plage `0480`–`0499` pour le lot** — c'est la suite naturelle de `0479`, mais le
   redressement (ADR-011) l'a réservée ; deux lots dans la même plage se
   marcheraient dessus.

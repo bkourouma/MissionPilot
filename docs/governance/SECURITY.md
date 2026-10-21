@@ -22,6 +22,11 @@ Mise à jour du 2026-10-21 (lot 9a, consolidation des sept lots fusionnés du so
 la due diligence et des canaux, de la qualité et du référentiel de méthodes, du dossier client, des plans et de la
 CI) : 921 routes (recherche n° 10 de la checklist), 206 fichiers de migration, 28 lignes `GRANT EXECUTE`, second
 préfixe SQLSTATE `MQ…` (§5 ter et §6).
+Mise à jour du 2026-10-21 (lot 9b, report des lots 5b et 7 : efficacité des recommandations CAP-03, observatoire
+inter-cabinets CAP-04 et veille des appels d'offres AO-01 en §5 sexies et §6, services candidats en §8 decies) :
+957 routes (recherche n° 10, 921 + 36 : observatoire 8, veille 12, efficacité 8, services candidats 8), 219 fichiers
+de migration, 30 lignes `GRANT EXECUTE` (28, plus `obs_adhesion_active` en `0470` et `obs_agregats` en `0472`) ;
+préfixes SQLSTATE `MQK`, `MQA` et `MQV` (§5 ter).
 
 ## 1. Actifs à protéger
 
@@ -289,8 +294,10 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   toutes `SET search_path = public, pg_temp`.
   `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
   (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
-  `rg -n "GRANT EXECUTE" apps/api/migrations` (28 lignes au 2026-10-21 : 23 au 2026-10-11, dont 20 au 2026-10-08 plus trois fonctions des lacunes de la vague 2 ;
-  quatre de plus avec les canaux (§9 bis) ; une de plus avec `0275`, qui accorde ses trois fonctions en une seule instruction ; `0305` conserve les `GRANT` de `0030`.
+  `rg -n "GRANT EXECUTE" apps/api/migrations` (30 lignes au 2026-10-21 : 23 au 2026-10-11, dont 20 au 2026-10-08 plus trois fonctions des lacunes de la vague 2 ;
+  quatre de plus avec les canaux (§9 bis) ; une de plus avec `0275`, qui accorde ses trois fonctions en une seule instruction ; `0305` conserve les `GRANT` de `0030` ;
+  deux de plus avec l'observatoire (§5 sexies) : `obs_agregats` (`0472`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC`)
+  et `obs_adhesion_active` (`0470`, fonction d'INVOCATEUR, sans `SECURITY DEFINER`, `search_path` figé, `EXECUTE` retiré à `PUBLIC`).
   Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
   d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
@@ -441,7 +448,7 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  921 gestionnaires de route (relevé du 2026-10-21 ; 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
+  957 gestionnaires de route (relevé du 2026-10-21, lot 9b ; 921 avec le lot 9a, 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
   `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
@@ -790,8 +797,9 @@ pas la séparation des tâches.
   et de deux chiffres. Domaines déclarés : `MQD` due diligence (§8 octies), `MQC` canaux (déclaré, aucun
   code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0289`), `MQF`
   groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
-  code employé). Table des codes de ce paragraphe et du STD-11 (les codes d'API sont ceux des routes ;
-  codes `MQD`, `MQF`, `MQL` : §6) :
+  code employé), `MQK` capitalisation (efficacité des recommandations et observatoire, §5 sexies), `MQA`
+  veille des appels d'offres (§6) et `MQV` services candidats (§8 decies). Table des codes de ce paragraphe et
+  du STD-11 (les codes d'API sont ceux des routes ; codes `MQD`, `MQF`, `MQL` : §6) :
 
   | SQLSTATE | Code d'API                     | HTTP | Sens                                                               |
   | -------- | ------------------------------ | ---- | ------------------------------------------------------------------ |
@@ -809,6 +817,26 @@ pas la séparation des tâches.
   | `MQQ10`  | `REVUES_NON_TERMINEES`         | 409  | clôture de campagne avant la fin des revues                        |
   | `MQQ11`  | `REVUE_ETAT_IMPOSSIBLE`        | 409  | état de revue incompatible                                         |
   | `MQQ12`  | `CONSTAT_INVALIDE`             | 409  | constat lié à une action hors revue terminée de la campagne        |
+  | `MQK01`  | `HISTORIQUE_AJOUT_SEUL`        | 409  | historique et instantanés d'efficacité en ajout seul (CAP-03)      |
+  | `MQK02`  | `REQUETE_INVALIDE`             | 400  | KPI ou initiative hors de la mission de la recommandation          |
+  | `MQK03`  | `IDENTITE_FIGEE`               | 409  | identité d'une recommandation figée                                |
+  | `MQK04`  | `TRANSITION_INTERDITE`         | 409  | transition de statut interdite, état terminal, date de mise en oeuvre future |
+  | `MQK05`  | `NON_MISE_EN_OEUVRE`           | 409  | instantané d'efficacité sur une recommandation non mise en oeuvre  |
+  | `MQK20`  | `HISTORIQUE_AJOUT_SEUL`        | 409  | historique d'adhésion à l'observatoire en ajout seul (CAP-04)      |
+  | `MQK21`  | `OBSERVATOIRE_TRANSITION_REFUSEE` | 409 | adhérer en étant adhérent, se retirer sans l'être                |
+  | `MQK22`  | `OBSERVATOIRE_ADHESION_INACTIVE` | 409 | versement refusé : adhésion inactive                              |
+  | `MQK23`  | `OBSERVATOIRE_CONTRIBUTION_IMMUABLE` | 409 | contribution jamais modifiée (le retrait est une suppression) |
+  | `MQK24`  | `INTERDIT`                     | 403  | `obs_agregats` hors contexte de cabinet ou dans le portail         |
+  | `MQK25`  | `OBSERVATOIRE_RESERVE_ADHERENTS` | 403 | `obs_agregats` : cabinet sans adhésion active                     |
+  | `MQK26`  | `REQUETE_INVALIDE`             | 400  | `obs_agregats` : indicateur inconnu                                |
+  | `MQK27`  | `OBSERVATOIRE_CONTRIBUTION_REQUISE` | 403 | `obs_agregats` : cabinet adhérent sans contribution éligible   |
+  | `MQA01`  | `AO_VEILLE_HISTORIQUE_IMMUABLE` | 409 | historique de la veille en ajout seul (AO-01)                     |
+  | `MQA02`  | `AO_VEILLE_TRANSITION_REFUSEE` | 409  | transition de statut d'un résultat de veille refusée               |
+  | `MQA03`  | `AO_VEILLE_PLAFOND`            | 409  | 5 000 résultats de veille par cabinet                              |
+  | `MQA04`  | `AO_VEILLE_PLAFOND_OCCURRENCES` | 409 | 500 occurrences par résultat                                       |
+  | `MQA05`  | `AO_VEILLE_DECISION_INCOHERENTE` | 409 | décision incohérente avec l'état du résultat                      |
+  | `MQV01`  | `GUICHET_FIGE`                 | 409  | identité d'un guichet de financement figée                         |
+  | `MQV02`  | `PLAFOND_GUICHETS_ATTEINT`     | 409  | 500 guichets par cabinet                                           |
 
   Codes émis par l'API seule : `POPULATION_TROP_GRANDE`, `POPULATION_VIDE`, `GRILLE_INCOMPLETE`
   (`details.manquants`), `GRILLE_SANS_NOTE`, `CAMPAGNE_CLOSE`, `ACTION_CLOSE`, `ECHEANCE_PASSEE`,
@@ -1055,8 +1083,58 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   version courante sans verbatim nominatif masqué, retours d'expérience validés seulement ; plafond de
   60 recherches par utilisateur et par minute (429 `TROP_DE_RECHERCHES`, comptées sur `journal_audit`) ;
   chaque recherche est journalisée SANS le texte cherché. Index GIN sur les mêmes expressions (`0464`) ;
-  aucune donnée copiée. Aucune agrégation entre cabinets : l'observatoire inter-cabinets (CAP-04,
-  adhésion volontaire, `DECISIONS.md`) n'existe pas.
+  aucune donnée copiée. Aucune agrégation entre cabinets dans la recherche ni dans les autres
+  fonctions du lot : le seul chemin inter-cabinets est l'observatoire (CAP-04, ci-dessous).
+- **Efficacité des recommandations** (CAP-03, lot 5b ; migrations `0466`–`0467`, code
+  `capitalisation/efficacite.ts`, routes `routes/capitalisation-efficacite.ts`, 8 routes) : trois tables
+  (`cap_recommandations`, `cap_recommandation_statuts`, `cap_efficacite_mesures`), toutes à RLS et
+  `portail_interdit` ; historique et instantanés en ajout seul (`MQK01`), identité de la recommandation figée
+  (`MQK03`), transitions de statut gardées (`MQK04`), instantané refusé sur une recommandation non mise en oeuvre
+  (`MQK05`), KPI et initiative de la mission de la recommandation (`MQK02`) ; table des codes en §5 ter. Le seuil
+  d'affichage d'un score par contexte ne peut que RELEVER le masquage : plancher de 5 observations non abaissable
+  (`EFFICACITE_SEUIL_OBSERVATIONS_MIN`, schéma Zod et moteur ; 400 en dessous) ; l'effectif d'un contexte sous
+  le seuil n'est pas servi (`effectif: null`) ; la liste des recommandations masque libellé, mission, type
+  d'initiative, secteur, taille et score pour une mission non visible de l'utilisateur.
+- **Observatoire inter-cabinets** (CAP-04, lot 5b ; migrations `0470`–`0472`, code
+  `capitalisation/observatoire.ts` et `observatoire-erreurs.ts`, moteur
+  `packages/engines/src/capitalisation/observatoire.ts`, routes `routes/observatoire.ts`, 8 routes ; un seul
+  indicateur, `notation_score_global`). Adhésion volontaire ; adhérer, se retirer, verser et retirer ses
+  contributions relèvent de `observatoire.adherer` (associé seul), la consultation de `observatoire.lire`
+  (associé et directeur de mission). Aucune route dans `LISTE_BLANCHE_PORTAIL`.
+  - **Cloisonnement** : `obs_adhesion_evenements` (ajout seul, `MQK20`, transitions gardées `MQK21`) et
+    `obs_contributions` (immuable, `MQK23` ; versement refusé sans adhésion active, `MQK22`) portent la RLS
+    `isolation` et la politique RESTRICTIVE `portail_interdit` : un cabinet ne voit que ses lignes. Le SEUL chemin
+    inter-cabinets est la fonction `obs_agregats(p_indicateur)` (`0472`) : `SECURITY DEFINER`,
+    `SET search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC` puis accordé au rôle applicatif seul. Elle
+    refuse hors contexte de cabinet et dans une transaction du portail (`MQK24`), un indicateur inconnu (`MQK26`),
+    un cabinet sans adhésion active (`MQK25`) et un cabinet adhérent SANS contribution éligible (`MQK27`, 403
+    `OBSERVATOIRE_CONTRIBUTION_REQUISE`) : l'accès est réservé aux CONTRIBUTEURS (PRD complémentaire §21,
+    décision n° 1 ; éligible = mois civil clos, versée depuis la dernière adhésion ; contrôle doublé dans
+    `agregats()` côté API). Elle ne renvoie que des agrégats par case (secteur × taille), jamais une ligne ni un
+    identifiant, et SEULEMENT au-dessus des seuils : une case sous seuil n'est pas renvoyée du tout (ni valeur ni
+    existence).
+  - **Seuils HORS du cabinet appelant (règle « des autres »)** : une case n'est publiée que si elle compte au
+    moins 5 entreprises ET au moins 3 cabinets AUTRES que l'appelant (colonnes `effectif_entreprises_autres` et
+    `effectif_cabinets_autres` ; hypothèse prudente : « 5 entreprises » compté aussi hors appelant). En
+    retranchant ses propres données, un cabinet ne peut donc pas isoler moins de 3 autres cabinets ni moins de 5
+    autres entreprises. Les statistiques publiées incluent les données de l'appelant. Le moteur re-vérifie ces
+    seuils sur les colonnes `*_autres`, calcule les marges des seules cases publiées (pas d'attaque par
+    différence) et arrondit : moyenne, médiane et quartiles au point, effectif à la tranche de 5, quartiles et
+    répartition seulement à partir de 10 entreprises.
+  - **Différence temporelle** : gel mensuel (seuls les versements d'un mois civil UTC clos comptent, le dernier de
+    chaque cabinet) ; une ré-adhésion n'est prise en compte qu'avec un NOUVEAU versement
+    (`verse_le >=` date de la dernière adhésion) ; les versements sont sérialisés par un verrou consultatif (sans
+    lui, une double soumission doublerait les entreprises d'un cabinet et franchirait indûment le seuil).
+  - **Risques résiduels** : (a) le retrait d'adhésion ou de contributions est IMMÉDIAT (exclusion aussitôt des
+    agrégats) : un adhérent qui compare deux lectures en déduit approximativement l'effet ; (b) les statistiques
+    publiées incluent les données de l'appelant (voir ci-dessus) ; (c) COLLUSION : trois cabinets contributeurs qui
+    se concertent (chacun connaît ses propres valeurs) peuvent reconstituer ce que porte un quatrième ; la règle
+    des autres protège contre un cabinet seul, pas contre une entente (limite assumée, à encadrer par les
+    conditions d'adhésion) ; (c bis) effet de bord : avec exactement 3 contributeurs dans une case, elle est
+    MASQUÉE pour chacun d'eux (les « autres » ne sont que 2) mais publiée pour un tiers qui contribue ailleurs, et
+    devient publiée pour tous à 4 cabinets ; (c ter) le secteur est classé par mots-clés (faux positifs possibles,
+    sans enjeu de sécurité) ; (d) les contributions d'un cabinet retiré restent en base, exclues des agrégats,
+    jusqu'à ce qu'il les retire (`DELETE` autorisé sur ses lignes).
 - **Prévisions et pré-remplissage** (AUT-12, AUT-09) : voir §6.
 
 ## 5 septies. Brief quotidien par rôle (AUT-07)
@@ -1202,6 +1280,9 @@ calcul fait à la demande, rien n'est stocké.
   | `MQF01-04` | groupes et filiales (DOS-05) : cycle de détention (`MQF01`), total des parts supérieur à 100 % (`MQF02`), fin de détention sans détention antérieure (`MQF03`), profondeur de plus de 8 liens (`MQF04`) ; tous traduits en 409 par `dossier/erreurs.ts` ; `MQF05` et suivants libres | `0225` |
   | `MQD01-11` | due diligence, portail investisseur et modèles sectoriels (§8 octies) : `MQD01` compte non admissible à une invitation, `MQD02` invitation incohérente, `MQD03` version de note non publiable, `MQD04` instantané incohérent avec la note, `MQD05` publication déjà active pour la note, `MQD06` retrait incohérent, `MQD07` pièce non admissible, `MQD08` plafond atteint (portail investisseur), `MQD11` modèles sectoriels ; `MQD09`, `MQD10`, `MQD12`–`MQD20` libres (réservés à ces chantiers par `0509`) | `0509`, `0511` |
   | `MQL01-24` | plans stratégiques (§5 bis) : `MQL01`–`MQL08` ateliers en ligne, `MQL09` réservé non employé, `MQL10`–`MQL14` simulation de Monte-Carlo (ajout seul, version du modèle, 100 simulations par plan, résultat figé, 30 par utilisateur et par 10 minutes), `MQL15`–`MQL24` plan vivant (réalisés et re-prévisions) ; `MQL25` et suivants libres | `0425`–`0426`, `0429`–`0431` |
+  | `MQK01-05`, `MQK20-27` | capitalisation : `MQK01`–`MQK05` efficacité des recommandations (CAP-03 : historique en ajout seul, cohérence KPI et initiative, identité figée, transition de statut, instantané d'une recommandation non mise en oeuvre), `MQK20`–`MQK27` observatoire (CAP-04 : historique d'adhésion en ajout seul, transition d'adhésion, versement sans adhésion active, contribution immuable, `obs_agregats` refusé hors cabinet ou dans le portail, sans adhésion, indicateur inconnu, sans contribution éligible) ; table en §5 ter, usage en §5 sexies ; `MQK06`–`MQK19` et `MQK28`–`MQK39` réservés | `0466`–`0467`, `0470`–`0472` |
+  | `MQA01-05` | veille des appels d'offres (AO-01) : historique en ajout seul (`MQA01`), transition de statut d'un résultat (`MQA02`), plafond de 5 000 résultats par cabinet (`MQA03`), plafond de 500 occurrences par résultat (`MQA04`), décision incohérente avec l'état du résultat (`MQA05`) ; table en §5 ter ; `MQA06` et suivants libres | `0364`–`0367` |
+  | `MQV01-02` | services candidats (lot 7, §8 decies) : identité d'un guichet figée (`MQV01`), plafond de 500 guichets par cabinet sous verrou consultatif (`MQV02`) ; table en §5 ter ; `MQV03` et suivants libres | `0563` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -1267,6 +1348,19 @@ contrôlée en base) n'est jamais visitée par le serveur. **Risques acceptés**
 visibles de tout détenteur de `ao.lire` du cabinet (donnée commerciale, comme le pipeline) ; le
 nom et le statut de la tâche liée à une étape sont montrés à ces mêmes lecteurs ; poids et seuils
 du rapprochement et du go/no-go sont des valeurs de départ à calibrer (`DECISIONS.md`).
+
+**Veille des appels d'offres (AO-01, lot 5b).** Migrations `0364`–`0367`, code `apps/api/src/appels-offres/veille*.ts`,
+routes `routes/appels-offres-veille.ts` (12 routes, toutes sous `exiger`, aucune dans `LISTE_BLANCHE_PORTAIL`).
+Quatre tables (`ao_veille_sources`, `ao_veille_resultats`, `ao_veille_occurrences`, `ao_veille_decisions`), toutes à
+RLS `isolation` et `portail_interdit` ; historique en ajout seul (`MQA01`), transitions de statut gardées
+(`MQA02`), décision accordée à l'état du résultat (`MQA05`). **Aucun appel externe** : les adaptateurs de source sont
+SIMULÉS (trois sources, désactivées par défaut, activables par cabinet ; `veille-sources.ts` n'importe ni `fetch`, ni
+`http`, ni clé, et un test espionne `fetch` pour vérifier qu'il n'est jamais appelé) ; la collecte est
+déclenchée à la main (pas de job) ; l'API ne visite JAMAIS l'URL d'un avis (stockée seulement, contrôlée en base).
+Bornes : import de 1 Mo (`VEILLE_IMPORT_TEXTE_MAX`) et de 200 avis (`VEILLE_IMPORT_AVIS_MAX`), plafond de 5 000
+résultats par cabinet (`MQA03`) et de 500 occurrences par résultat (`MQA04`) contre le déni de service. **Un
+adaptateur réel exigera un nouvel ADR** (SSRF : hôte de confiance fourni par la source et jamais une URL reçue,
+délai, gestion de la clé), voir §15.
 
 **Banques et offres des appels d'offres (AO-04 à AO-07, lot AO-B).** Migrations `0380`–`0386`,
 code `apps/api/src/banque-ao/`, routes `routes/banque-ao.ts` (`/api/banque-ao/*`, 26 routes), moteurs
@@ -2475,6 +2569,43 @@ trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
   qu'aucun expert n'a publié), grille d'urgence, plafonds et débits sont **provisoires**, sans source normative
   (DECISIONS.md, section « Redressement ») : le score est indicatif et l'écran le dit.
 
+## 8 decies. Services candidats (lot 7 : diagnostic flash, business plan bancable)
+
+Lot 7 de la vague 4 (décision n° 6 du PRD complémentaire, §21 ; migrations `0560`–`0563`, code
+`apps/api/src/services-candidats/`, routes `routes/services-candidats.ts`, moteur
+`packages/engines/src/services-candidats/guichets.ts`, schémas `schemas/services-candidats.ts`). Surtout du
+CONTENU de standard (deux méthodes publiées par migration, `0560` et `0561`, contenu provisoire « à valider par un
+expert ») ; du code seulement pour le prix fixe paramétrable, la liste des guichets de financement et le
+rapprochement.
+
+- **Cloisonnement** : deux tables neuves, `services_candidats_parametres` (prix fixe par cabinet et par service,
+  `0562`, un paramètre se remplace, il ne se supprime pas) et `guichets_financement` (liste du cabinet, vide par
+  défaut, `0563`), toutes deux à RLS `isolation` et `portail_interdit`. `guichets_financement` n'a AUCUN `DELETE`
+  : on désactive un guichet. `rapports_mission` n'est pas modifiée.
+- **Garde en base** : identité d'un guichet (id, cabinet, auteur, création) figée par `MQV01`, doublée pour le
+  propriétaire de base et NON atteignable par HTTP (schémas stricts, pas de suppression) ; plafond de 500 guichets
+  par cabinet (`MQV02`, 409 `PLAFOND_GUICHETS_ATTEINT`) compté sous `pg_advisory_xact_lock` par cabinet, sans quoi
+  deux créations simultanées dépasseraient le plafond ; une contrainte `CHECK` violée (`23514`) est traduite en 400
+  `REQUETE_INVALIDE` par `services-candidats/erreurs.ts`. Table des codes en §5 ter.
+- **Droits** : `services_candidats.lire` aux mêmes rôles que `catalogue.lire` (services, prix, types activés,
+  guichets, rapprochement ; `expert_externe` : aucun accès) ; `services_candidats.gerer` à l'associé ET au
+  directeur de mission (activation des types de mission, prix fixe, création et modification des guichets). Le
+  rapprochement lancé depuis un `client_id` exige EN PLUS `dossier.lire` et un client visible (404 sinon) : le dossier
+  est plus sensible que l'annuaire de guichets.
+- **Routes** : 8, toutes sous `exiger` avec l'une de ces deux permissions, AUCUNE dans `LISTE_BLANCHE_PORTAIL`
+  (portail fermé par défaut) : `GET /services-candidats`, `POST /services-candidats/activer`,
+  `PUT /services-candidats/:code/prix`, `GET|POST /guichets-financement`, `GET|PATCH /guichets-financement/:id`,
+  `POST /guichets-financement/rapprochement`. Aucune route de création de mission : elle passe par les routes
+  existantes (`POST /missions`, `PUT /missions/:id/methode`), donc par leurs gardes. `POST /services-candidats/activer`
+  sème aussi les grades manquants du catalogue.
+- **Chiffres et prix** : aucun prix par défaut : le diagnostic flash est « à fixer par le cabinet » et son type de
+  mission ne s'active pas tant que le prix n'est pas saisi (409 `PRIX_A_FIXER`) ; le business plan est « sur devis »
+  (montant nul admis). Le prix de la démonstration est marqué `DÉMONSTRATION` (colonne `commentaire`). Le moteur
+  `rapprocherGuichets` est pur et déterministe, SANS conversion de devise (devises différentes : critère « inconnu »,
+  jamais de taux inventé) ; aucun chiffre ne vient du modèle de langage.
+- **Liste tronquée** : `GET /guichets-financement` et le rapprochement renvoient `tronque` (le rapprochement lit
+  jusqu'à 500 guichets).
+
 ## 9. Paiements et webhooks
 
 Sans objet pour les paiements : aucun prestataire de paiement. Le seul webhook entrant est celui des
@@ -2822,6 +2953,9 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Alertes de KPI sortantes par canal (option `alerte_kpi`, désactivée par défaut) : mise en file seulement, vers les seuls responsables INTERNES autorisés disposant d'un numéro vérifié et d'un consentement ; le routage vers des internes sans numéro et le lien `/portail/` de l'alerte restent des décisions produit à confirmer (une alerte `MESURE_EN_RETARD` ne part pas seule : le rappel du même passage la couvre) ; source `desactivation_utilisateur` écrite à la désactivation d'un utilisateur du portail ET du cabinet, le destinataire n'étant jamais supprimé | `canaux/alertes-kpi.ts`, `kpi/suivi.ts`, `migrations/0549_canaux_alerte_kpi.sql`, `canaux/consentements.ts` |
 | Revue à froid (QUA-05) : deux implémentations alignées de l'indépendance du relecteur (moteur `evaluerIndependanceRelecteur` et déclencheur `qualite_froide_violations()`) ; la grille « complète » de 8 critères est codée en dur dans le déclencheur (une grille v2 exige une migration) ; valeurs de départ (conclusions, plafonds, tirage cyrb53) à valider | `migrations/0287_qualite_froide_campagnes.sql`, `migrations/0288_qualite_froide_revue.sql`, `qualite/froide-revue.ts`, `DECISIONS.md` |
 | Contenus IA des lots 2 et 5a (causes racines du redressement, explication de la notation, synthèse d'un atelier, explication d'une re-prévision) : essayés seulement contre un fournisseur simulé, aucun vrai modèle ; qualité, format réel et coût non constatés ; seule la validation humaine (brouillon IA, modifié, validé) les rend livrables | `redressement/causes-ia.ts`, `plans/ateliers-synthese.ts`, `plans/reprevision-explication.ts`, `ia/orchestrateur.ts` |
+| Veille des appels d'offres (AO-01) : adaptateurs SIMULÉS seulement, aucun adaptateur réel ; un adaptateur réel exigera un ADR (SSRF : hôte de confiance et jamais l'URL d'un avis, délai, clé) avant toute mise en service ; la collecte n'est pas planifiée (déclenchée à la main) | `appels-offres/veille-sources.ts`, `test/appels-offres-veille.test.ts` |
+| Observatoire (CAP-04) : COLLUSION non traitée (trois contributeurs concertés reconstituent la valeur d'un quatrième ; à encadrer par les conditions d'adhésion) ; avec exactement 3 contributeurs une case est masquée pour chacun d'eux ; le retrait d'adhésion ou de contributions est IMMÉDIAT (la différence entre deux lectures est approchée) ; les contributions d'un cabinet retiré restent en base (exclues des agrégats) tant qu'il ne les retire pas ; un seul indicateur ; secteur classé par mots-clés (faux positifs possibles) ; valeurs de départ à valider (5 entreprises, 3 cabinets) | `migrations/0472_observatoire_agregats.sql`, `capitalisation/observatoire.ts`, `packages/engines/src/capitalisation/observatoire.ts`, `DECISIONS.md` |
+| Services candidats (lot 7) : tout le contenu métier des deux méthodes (briques, temps types, règles, cas types, guichets) est PROVISOIRE, « à valider par un expert » ; plafond de 500 guichets par cabinet à valider ; les briques `bancabilite_pla17`, `plan_financement` et `veille_guichets` (`0561`) ont `moteur` NULL faute de code dans `MOTEURS_STANDARD` (dette fonctionnelle, nouvelle version de méthode à publier) ; affichage des deux pages web non vérifié dans un navigateur | `migrations/0560_services_candidats_diagnostic_flash.sql`, `migrations/0561_services_candidats_business_plan.sql`, `packages/shared/src/schemas/standard.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 

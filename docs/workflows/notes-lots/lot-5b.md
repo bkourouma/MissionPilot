@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9b).
+
 # Notes du lot 5b (CAP-03, CAP-04, AO-01) — mises à jour de documentation à reporter
 
 Fichier de transit : le chef de lot n'a pas le droit de modifier SECURITY.md, DECISIONS.md, CODING_STANDARDS.md, review-checklist.md ni HANDOFF.md.
