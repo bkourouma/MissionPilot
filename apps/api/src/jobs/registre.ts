@@ -34,6 +34,10 @@ import {
   TYPE_JOB_AGENT_AUTOMATISATION,
 } from "../automatisation/execution.js";
 import { creerHandlerBriefQuotidien, TYPE_JOB_BRIEF_QUOTIDIEN } from "../brief/quotidien.js";
+import {
+  creerHandlerAvancementHebdo,
+  TYPE_JOB_AVANCEMENT_HEBDO,
+} from "../automatisation/avancement-job.js";
 import { loadConfig } from "../config.js";
 import { creerHandlerCopilotePurge, TYPE_JOB_COPILOTE_PURGE } from "../copilote/purge.js";
 import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
@@ -112,6 +116,7 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_RELANCE_QUESTIONNAIRE]: relanceQuestionnaire, // relances J+3 / J+7 (V2)
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
   [TYPE_JOB_BRIEF_QUOTIDIEN]: creerHandlerBriefQuotidien(), // brief du jour par utilisateur (AUT-07)
+  [TYPE_JOB_AVANCEMENT_HEBDO]: creerHandlerAvancementHebdo(), // rapport d'avancement hebdomadaire (AUT-10)
   // Moteur d'automatisation (AUT-01 à AUT-06, ADR-006) : événements, appels d'agents, détection.
   [TYPE_JOB_EVENEMENT_AUTOMATISATION]: creerHandlerEvenementAutomatisation(),
   [TYPE_JOB_AGENT_AUTOMATISATION]: creerHandlerAgentAutomatisation(dependancesIaParDefaut),

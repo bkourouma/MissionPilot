@@ -5,6 +5,7 @@ import { planifierSyntheseHebdo } from "../canaux/synthese.js";
 import { planifierPurgeCopilote } from "../copilote/purge.js";
 import type { Database } from "../db/pool.js";
 import { planifierBriefQuotidien } from "../brief/quotidien.js";
+import { planifierAvancementHebdo } from "../automatisation/avancement-job.js";
 import { planificationConservationIa } from "../ia/conservation.js";
 import { planificationSuiviKpi } from "../kpi/suivi.js";
 import { planifierPurgeRapports } from "../rapports/purge.js";
@@ -141,6 +142,8 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
     total += await planifierDetectionAutomatisation(db, maintenant);
     // Brief quotidien par rôle (AUT-07) : une tâche par cabinet et par jour ouvré.
     total += await planifierBriefQuotidien(db, maintenant);
+    // Rapport d'avancement hebdomadaire (AUT-10) : une tâche par cabinet et par semaine, jours ouvrés.
+    total += await planifierAvancementHebdo(db, maintenant);
     // Canaux simulés (lot 3c) : synthèse du dirigeant le lundi 07:30 UTC, maintenance chaque jour 03:15 UTC.
     total += await planifierSyntheseHebdo(db, maintenant);
     total += await planifierCanauxMaintenance(db, maintenant);

@@ -135,6 +135,9 @@ export const LISTE_BLANCHE_PORTAIL: readonly RouteOuverte[] = [
   { methodes: POST, motif: "/api/portail/signatures/:id/signer" },
   { methodes: POST, motif: "/api/portail/signatures/:id/refuser" },
   { methodes: LECTURE, motif: "/api/portail/synthese" },
+  // Rapports d'avancement hebdomadaires VALIDÉS (routes/portail-avancement.ts, AUT-10).
+  { methodes: LECTURE, motif: "/api/portail/avancement" },
+  { methodes: LECTURE, motif: "/api/portail/avancement/:id" },
   // Portail investisseur de la due diligence (routes/due-diligence-portail-investisseur.ts,
   // migration 0509) : LECTURE SEULE des notes validées publiées sur les dossiers où le compte est
   // invité, et de leurs pièces. Toutes les routes /api/dd/** du cabinet restent fermées.
