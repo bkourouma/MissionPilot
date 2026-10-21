@@ -45,3 +45,5 @@ export * from "./schemas/due-diligence";
 export * from "./schemas/due-diligence-portail";
 export * from "./schemas/redressement";
 export * from "./grilles/index";
+// Services candidats : prix fixe et veille des guichets de financement.
+export * from "./schemas/services-candidats";
