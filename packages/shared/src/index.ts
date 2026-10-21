@@ -43,4 +43,10 @@ export * from "./schemas/transcriptions";
 // Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
 export * from "./schemas/due-diligence";
 export * from "./schemas/redressement";
+export * from "./schemas/redressement-tableau";
+export * from "./schemas/redressement-suivi";
+export * from "./schemas/redressement-cloture";
+export * from "./schemas/redressement-financement";
+export * from "./schemas/redressement-causes";
+export * from "./schemas/redressement-checklists";
 export * from "./grilles/index";
