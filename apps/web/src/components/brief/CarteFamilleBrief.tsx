@@ -3,6 +3,7 @@ import type { ElementBriefApi, FamilleBriefApi, FamilleComposeeBriefApi } from "
 import {
   libelleAnciennete,
   libelleGravite,
+  libelleMotifs,
   libelleMontant,
   libelleNombre,
   lienInterne,
@@ -21,6 +22,7 @@ import { Icone } from "../ui/Icone";
 export function LigneBrief({ element }: { element: ElementBriefApi }) {
   const lien = lienInterne(element.lien);
   const montant = libelleMontant(element);
+  const motifs = libelleMotifs(element);
   const details = [
     element.mission_libelle,
     libelleAnciennete(element.anciennete_jours),
@@ -37,6 +39,7 @@ export function LigneBrief({ element }: { element: ElementBriefApi }) {
           <span className="mp-alertes-derive__lien">{element.libelle}</span>
         )}
         <span className="mp-texte-doux mp-texte-petit">{details.join(" · ")}</span>
+        {motifs ? <span className="mp-texte-doux mp-texte-petit">{motifs}</span> : null}
       </div>
       <BadgeStatut tonalite={TONALITE_GRAVITE[element.gravite]}>
         {libelleGravite(element.gravite)}

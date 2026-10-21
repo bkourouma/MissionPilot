@@ -96,6 +96,11 @@ export function libelleMontant(element: ElementBriefApi): string | null {
   return devise ? formaterMontantMineur(element.montant, devise) : null;
 }
 
+/** Motifs d'un voyant de redressement au rouge (texte, sans montant) ; null s'il n'y en a pas. */
+export function libelleMotifs(element: ElementBriefApi): string | null {
+  return element.motifs && element.motifs.length > 0 ? element.motifs.join(" ") : null;
+}
+
 /** « 3 éléments », « 1 élément », « Aucun élément ». */
 export function libelleNombre(n: number): string {
   if (n <= 0) return "Aucun élément";

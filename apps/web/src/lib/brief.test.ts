@@ -4,6 +4,7 @@ import {
   libelleAnciennete,
   libelleGravite,
   libelleMontant,
+  libelleMotifs,
   libelleNombre,
   dateSaisieBrief,
   hrefBrief,
@@ -110,6 +111,14 @@ describe("formats", () => {
     expect(libelleMontant({ ...element, montant: 0, devise: "XOF" })).toContain("0");
     expect(libelleMontant({ ...element, montant: 5000 })).toBeNull();
     expect(libelleMontant({ ...element, montant: 5000, devise: "GBP" })).toBeNull();
+  });
+});
+
+describe("motifs d'un voyant de redressement", () => {
+  it("texte des motifs, ou rien", () => {
+    expect(libelleMotifs(element)).toBeNull();
+    expect(libelleMotifs({ ...element, motifs: [] })).toBeNull();
+    expect(libelleMotifs({ ...element, motifs: ["Un.", "Deux."] })).toBe("Un. Deux.");
   });
 });
 
