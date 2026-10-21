@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 1 « Socle IA » (2026-10-20)
 
 Mises à jour à reporter par le superviseur dans les documents interdits au lot

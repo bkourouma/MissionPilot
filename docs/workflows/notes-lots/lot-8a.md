@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-21 (lot 9a).
+
 # Notes du lot 8a : intégration continue GitHub Actions
 
 Branche `orch/2026-10-20-reste-lot-8a`, aucun commit. Le dépôt n'avait aucune CI (pas de dossier
