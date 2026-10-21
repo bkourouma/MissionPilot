@@ -21,6 +21,8 @@ import { aPermission, type Permission, type Role } from "@missionpilot/shared";
  *   client compris — « plan.lire » (ni ressources ni gestionnaire).
  * - « dd » : note au comité de la due diligence (DD-13, migration 0508) — « dd.lire »
  *   (ni ressources, ni gestionnaire, ni expert externe).
+ * - « dossier » : rapport d'état financier du dossier client (migration 0552) — « dossier.lire »
+ *   (ni ressources ni gestionnaire). Ce sont des données DU CLIENT, jamais FIN-02.
  *
  * Ces permissions sont revérifiées à CHAQUE lecture (stockage/fichiers.ts
  * `exigerFichierLisible`, listes des rapports), en plus de « mission.lire » et
@@ -31,7 +33,7 @@ import { aPermission, type Permission, type Role } from "@missionpilot/shared";
 export const NIVEAUX_RAPPORT = ["base", "jours", "finance"] as const;
 export type NiveauCumulatif = (typeof NIVEAUX_RAPPORT)[number];
 
-export const NIVEAUX_SERVICE = ["notation", "plan", "dd"] as const;
+export const NIVEAUX_SERVICE = ["notation", "plan", "dd", "dossier"] as const;
 export type NiveauService = (typeof NIVEAUX_SERVICE)[number];
 
 export type NiveauRapport = NiveauCumulatif | NiveauService;
@@ -45,6 +47,7 @@ export const PERMISSIONS_NIVEAU: Record<NiveauRapport, readonly Permission[]> = 
   notation: ["notation.lire"],
   plan: ["plan.lire"],
   dd: ["dd.lire"],
+  dossier: ["dossier.lire"],
 };
 
 /** Vrai si ces rôles détiennent toutes les permissions du niveau (hors « mission.lire »). */

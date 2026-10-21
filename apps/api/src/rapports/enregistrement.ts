@@ -34,7 +34,8 @@ import { TYPES_RAPPORT, type FormatRapport } from "./rendu.js";
  * pour les rapports de notation et de plan, contrôlés en base (MPR01, MPR02) ; dossier bancaire
  * (0424) : version VALIDÉE du modèle financier exigée (MPR03) ; note au comité (0508, due
  * diligence) : `dd_note_id`, version de la note et variante, version VALIDÉE exigée (MPR04, 409
- * NOTE_NON_VALIDEE).
+ * NOTE_NON_VALIDEE) ; rapport d'état financier (0552) : aucune source en base (la cohérence mission/client
+ * est contrôlée par l'API), état(s) utilisé(s) tracé(s) au journal d'audit (`audit`).
  *
  * Conservation : le FICHIER d'un rapport est purgé au-delà de la durée de
  * conservation du cabinet (rapports/purge.ts, migration 0132) ; la ligne
@@ -47,6 +48,7 @@ export const MODELES_RAPPORT = [
   "plan_strategique",
   "dossier_bancaire",
   "note_comite",
+  "etat_financier",
 ] as const;
 export type ModeleRapport = (typeof MODELES_RAPPORT)[number];
 
@@ -60,6 +62,7 @@ const NOMS_FICHIER: Record<ModeleRapport, string> = {
   plan_strategique: "Plan strategique",
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comite",
+  etat_financier: "Etat financier",
 };
 
 /** Libellé du livrable dans le suivi qualité. */
@@ -69,6 +72,7 @@ const LIBELLES_SUIVI: Record<ModeleRapport, string> = {
   plan_strategique: "Rapport de plan stratégique",
   dossier_bancaire: "Dossier bancaire",
   note_comite: "Note au comité",
+  etat_financier: "Rapport d'état financier",
 };
 
 export const COLONNES_RAPPORT = `r.id, r.mission_id, r.modele, r.format, r.statut, r.niveau,
@@ -147,6 +151,8 @@ export async function enregistrerRapport(
     niveau: NiveauRapport;
     contenu: Buffer;
     source?: SourceRapport;
+    /** Identifiants seulement (jamais de montant) ajoutés au détail du journal d'audit. */
+    audit?: Record<string, unknown>;
   },
 ): Promise<RapportEnregistre> {
   // Cohérence : on n'enregistre jamais un rapport que son auteur ne pourrait pas relire.
@@ -201,6 +207,7 @@ export async function enregistrerRapport(
             ...(p.source?.planId ? { plan_id: p.source.planId } : {}),
             ...(p.source?.noteId ? { note_id: p.source.noteId, variante: p.source.variante } : {}),
             ...(p.source?.version ? { version_source: p.source.version } : {}),
+            ...(p.audit ?? {}),
           },
         });
       },
