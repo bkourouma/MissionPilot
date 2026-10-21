@@ -11,6 +11,7 @@ import {
   lectureExplication,
   NOM_PROMPT_EXPLICATION,
   TYPE_ENTITE_EXPLICATION,
+  VARIABLES_NON_FIABLES_EXPLICATION,
 } from "./explication-prompt.js";
 import { exigerNotationVisible, type Notation } from "./notations.js";
 
@@ -94,6 +95,7 @@ export async function genererCommentaireExplication(
     tache: "redaction",
     promptNom: NOM_PROMPT_EXPLICATION,
     variables: { texte: lectureExplication(prep.explication) },
+    variablesNonFiables: [...VARIABLES_NON_FIABLES_EXPLICATION],
     contexteChiffres: chiffresExplication(prep.explication),
     termesSensibles: [
       ...(prep.client

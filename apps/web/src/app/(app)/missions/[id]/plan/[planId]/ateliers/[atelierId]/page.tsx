@@ -26,6 +26,7 @@ import {
   libelleMethode,
   libelleStatutAtelier,
   peutContribuerCabinet,
+  phraseMasque,
   phraseParticipation,
   raisonOuvertureImpossible,
   TONALITE_STATUT_ATELIER,
@@ -212,6 +213,15 @@ export default async function PageAtelier({
             Pour préserver l&apos;indépendance des avis, les résultats ne sont calculés et affichés
             qu&apos;à la clôture de l&apos;atelier. Seul le taux de participation est visible
             d&apos;ici là.
+          </p>
+        </Alerte>
+      ) : null}
+
+      {a.statut === "clos" && a.masque_seuil ? (
+        <Alerte tonalite="info" annonce="aucune" titre="Agrégats masqués">
+          <p>
+            {phraseMasque(a.seuil_participants)} Pour préserver l&apos;anonymat, aucun résultat
+            n&apos;est affiché sous ce seuil.
           </p>
         </Alerte>
       ) : null}

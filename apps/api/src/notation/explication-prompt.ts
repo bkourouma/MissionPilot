@@ -17,6 +17,8 @@ import type { explicationVersion } from "./explication.js";
 export const NOM_PROMPT_EXPLICATION = "notation_explication_commentaire";
 export const TYPE_ENTITE_EXPLICATION = "notation_explication";
 export const LONGUEUR_COMMENTAIRE_MAX = 4000;
+/** Variables du prompt portant du contenu libre (libellés de la grille du cabinet) : non fiables. */
+export const VARIABLES_NON_FIABLES_EXPLICATION = ["texte"] as const;
 
 const SCHEMA_SORTIE: SchemaSortie = { type: "texte", longueur_max: LONGUEUR_COMMENTAIRE_MAX };
 

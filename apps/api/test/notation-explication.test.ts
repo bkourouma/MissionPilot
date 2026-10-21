@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { demarrerIa, serveurFactice, type ServeurFactice } from "./ia-outils.js";
+import { CONSIGNE_DONNEES_NON_FIABLES } from "../src/ia/donnees-non-fiables.js";
 import { proprietaire, type Contexte } from "./helpers.js";
 import { attendre } from "./portail-outils.js";
 import {
@@ -227,6 +228,8 @@ describe("commentaire IA de l'explication (NOT-12)", () => {
       const utilisateur = messages.find((m) => m.role === "user")?.content ?? "";
       expect(utilisateur).toContain("Score actuel : 61,6 points");
       expect(utilisateur).toContain("Pratiques à relever au minimum : 3");
+      // Le texte (libellés de la grille du cabinet) est une variable non fiable : délimitée et signalée.
+      expect(utilisateur).toContain(CONSIGNE_DONNEES_NON_FIABLES);
       expect(utilisateur).toContain("Note actuelle : 61,6 sur 100, classe C.");
       const c = r.json().commentaire;
       expect(c).toMatchObject({

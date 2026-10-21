@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { synthetiserAtelier } from "@missionpilot/engines";
+import { appliquerSeuil } from "../src/plans/ateliers-resultats.js";
+import { CANDIDATS_CABINET_LUS_MAX, CANDIDATS_CABINET_MAX } from "../src/plans/ateliers.js";
 import { api, type Api } from "./api.js";
 import { proprietaire, type Contexte } from "./helpers.js";
 import { demarrerIa, serveurFactice, type ServeurFactice } from "./ia-outils.js";
@@ -575,8 +577,15 @@ describe("cycle brouillon → ouvert → clos", () => {
     expect([borda(A).pointsBorda, borda(B).pointsBorda, borda(C).pointsBorda]).toEqual([4, 8, 6]);
     expect([borda(B).rang, borda(C).rang, borda(A).rang]).toEqual([1, 2, 3]);
     expect(borda(B).foisPremiere).toBe(2);
+    // Matrice (2 contributeurs, sous le seuil de 3) : masquée dans la vue, intacte dans le résultat figé.
+    expect(r.matrice).toEqual({ resultat: null, masque_seuil: true, seuil_participants: 3 });
+    const fige = await proprietaire(
+      async (c) =>
+        (await c.query("SELECT resultats FROM plan_ateliers WHERE id = $1", [atelier.id])).rows[0]
+          .resultats,
+    );
     // Matrice : A = positions (5,1) et (3,1) → moyennes 4,00 et 1,00 → gains rapides ; B (2,5) → à écarter.
-    const mat = (id: string) => r.matrice.resultat.options.find((o: any) => o.optionId === id);
+    const mat = (id: string) => fige.matrice.resultat.options.find((o: any) => o.optionId === id);
     expect(mat(A)).toMatchObject({
       moyenneXCentiemes: 400,
       moyenneYCentiemes: 100,
@@ -589,7 +598,7 @@ describe("cycle brouillon → ouvert → clos", () => {
       quadrant: "a_ecarter",
     });
     expect(mat(C).quadrant).toBeNull();
-    expect(r.matrice.resultat.participation.participants).toBe(2);
+    expect(fige.matrice.resultat.participation.participants).toBe(2);
     // Même résultat que le moteur appelé directement sur les mêmes contributions.
     const attenduMoteur = synthetiserAtelier({
       options: [
@@ -695,22 +704,28 @@ describe("synthèse IA d'un atelier clos", () => {
     );
     atelierId = at.id;
     ids = at.options.map((o: any) => o.id);
-    attendu(
-      201,
-      await a.chef.post(`${base()}/${atelierId}/participants`, {
-        utilisateur_id: consultant.utilisateurId,
-      }),
-    );
+    // Trois contributeurs (le seuil de publication des agrégats est de 3 participants).
+    const votants = [consultant, expert, a.chef];
+    for (const v of votants) {
+      attendu(
+        201,
+        await a.chef.post(`${base()}/${atelierId}/participants`, {
+          utilisateur_id: v.utilisateurId,
+        }),
+      );
+    }
     attendu(200, await a.chef.post(`${base()}/${atelierId}/ouvrir`));
-    attendu(
-      200,
-      await consultant.put(`${base()}/${atelierId}/contribution/vote`, {
-        points: [
-          { option_id: ids[0], points: 7 },
-          { option_id: ids[1], points: 3 },
-        ],
-      }),
-    );
+    for (const v of votants) {
+      attendu(
+        200,
+        await v.put(`${base()}/${atelierId}/contribution/vote`, {
+          points: [
+            { option_id: ids[0], points: 7 },
+            { option_id: ids[1], points: 3 },
+          ],
+        }),
+      );
+    }
   });
 
   const url = () => `${base()}/${atelierId}/synthese`;
@@ -733,7 +748,7 @@ describe("synthèse IA d'un atelier clos", () => {
       gabarit: true,
       livrable_client: false,
     });
-    expect(r.synthese.texte).toContain("Vote : total des points : 10");
+    expect(r.synthese.texte).toContain("Vote : total des points : 30");
     expect(r.synthese.entite).toEqual({ type: "plan_atelier", id: atelierId });
     const lue = attendu(200, await expert.get(url()));
     expect(lue.synthese.id).toBe(r.synthese.id);
@@ -743,7 +758,7 @@ describe("synthèse IA d'un atelier clos", () => {
   it("fournisseur FACTICE : texte masqué, libellés et consigne = données non fiables ; brouillon IA", async () => {
     attendu(200, await a.associe.put("/api/ia/parametres", { ia_activee: true }));
     serveur.repondre(() => ({
-      contenu: "Synthèse : l'option 1 arrive en tête avec 70 % des points, soit 7 points sur 10.",
+      contenu: "Synthèse : l'option 1 arrive en tête avec 70 % des points, soit 21 points sur 30.",
     }));
     const avant = serveur.requetes.length;
     const r = attendu(201, await a.chef.post(url()));
@@ -761,7 +776,7 @@ describe("synthèse IA d'un atelier clos", () => {
       livrable_client: false,
     });
     expect(r.synthese.texte).toContain("70 %");
-    // Aucun nombre inventé : la garde-chiffres n'a rien à signaler pour 70 % et 7 points.
+    // Aucun nombre inventé : la garde-chiffres n'a rien à signaler pour 70 % et 21 points.
     expect(r.synthese.nombres_non_verifies).toEqual([]);
   });
 
@@ -797,6 +812,190 @@ describe("synthèse IA d'un atelier clos", () => {
     );
     expect(JSON.stringify(audit)).not.toContain("Kora");
     expect(JSON.stringify(audit)).not.toContain("IGNORE");
+  });
+});
+
+describe("seuil de participants avant publication des agrégats", () => {
+  async function atelierClos(contributeurs: ApiUtilisateur[]) {
+    const at = attendu(
+      201,
+      await a.chef.post(base(), corpsAtelier({ methodes: ["vote"], titre: "Atelier seuil" })),
+    );
+    const invites = [consultant, expert, a.chef];
+    for (const u of invites) {
+      attendu(
+        201,
+        await a.chef.post(`${base()}/${at.id}/participants`, { utilisateur_id: u.utilisateurId }),
+      );
+    }
+    attendu(200, await a.chef.post(`${base()}/${at.id}/ouvrir`));
+    for (const u of contributeurs) {
+      attendu(
+        200,
+        await u.put(`${base()}/${at.id}/contribution/vote`, {
+          points: [
+            { option_id: at.options[0].id, points: 6 },
+            { option_id: at.options[1].id, points: 4 },
+          ],
+        }),
+      );
+    }
+    attendu(200, await a.chef.post(`${base()}/${at.id}/clore`));
+    return at.id as string;
+  }
+
+  it("2 participants ayant contribué : agrégats masqués (null), indicateur et seuil, synthèse refusée", async () => {
+    const id = await atelierClos([consultant, expert]);
+    const d = attendu(200, await a.chef.get(`${base()}/${id}`));
+    expect(d.statut).toBe("clos");
+    expect(d.resultats).toBeNull();
+    expect(d.masque_seuil).toBe(true);
+    expect(d.seuil_participants).toBe(3);
+    expect(JSON.stringify(d)).not.toContain("totalPoints");
+    const s = await a.chef.post(`${base()}/${id}/synthese`);
+    expect(s.statusCode).toBe(409);
+    expect(erreur(s)).toBe("ATELIER_AGREGATS_MASQUES");
+  });
+
+  it("3 participants ayant contribué : agrégats visibles", async () => {
+    const id = await atelierClos([consultant, expert, a.chef]);
+    const d = attendu(200, await a.chef.get(`${base()}/${id}`));
+    expect(d.masque_seuil).toBe(false);
+    expect(d.seuil_participants).toBe(3);
+    expect(d.resultats.vote.resultat.totalPoints).toBe(30);
+  });
+
+  /** Atelier vote + matrice, 3 invités ; `parMethode` donne les contributeurs de chaque méthode. */
+  async function atelierDeuxMethodes(parMethode: {
+    vote: ApiUtilisateur[];
+    matrice: ApiUtilisateur[];
+  }) {
+    const at = attendu(
+      201,
+      await a.chef.post(
+        base(),
+        corpsAtelier({ methodes: ["vote", "matrice"], titre: "Atelier seuil par méthode" }),
+      ),
+    );
+    for (const u of [consultant, expert, a.chef]) {
+      attendu(
+        201,
+        await a.chef.post(`${base()}/${at.id}/participants`, { utilisateur_id: u.utilisateurId }),
+      );
+    }
+    attendu(200, await a.chef.post(`${base()}/${at.id}/ouvrir`));
+    const [o1, o2] = at.options as { id: string }[];
+    for (const u of parMethode.vote) {
+      attendu(
+        200,
+        await u.put(`${base()}/${at.id}/contribution/vote`, {
+          points: [
+            { option_id: o1?.id, points: 6 },
+            { option_id: o2?.id, points: 4 },
+          ],
+        }),
+      );
+    }
+    for (const u of parMethode.matrice) {
+      attendu(
+        200,
+        await u.put(`${base()}/${at.id}/contribution/matrice`, {
+          positions: [{ option_id: o1?.id, x: 4, y: 2 }],
+        }),
+      );
+    }
+    attendu(200, await a.chef.post(`${base()}/${at.id}/clore`));
+    return at.id as string;
+  }
+
+  it("seuil PAR MÉTHODE : 3 contributeurs dont un seul sur la matrice → matrice masquée, vote visible, synthèse = vote seul", async () => {
+    const id = await atelierDeuxMethodes({
+      vote: [consultant, expert, a.chef],
+      matrice: [consultant],
+    });
+    const d = attendu(200, await a.chef.get(`${base()}/${id}`));
+    expect(d.masque_seuil).toBe(false);
+    expect(d.methodes_masquees).toEqual(["matrice"]);
+    expect(d.resultats.vote.resultat.totalPoints).toBe(30);
+    expect(d.resultats.matrice).toEqual({
+      resultat: null,
+      masque_seuil: true,
+      seuil_participants: 3,
+    });
+    // Aucun chiffre de la matrice ne fuit.
+    expect(JSON.stringify(d.resultats.matrice)).not.toMatch(/moyenne|"options"|"participation"/);
+    attendu(200, await a.associe.put("/api/ia/parametres", { ia_activee: true }));
+    serveur.repondre(() => ({ contenu: "Synthèse du vote de l'atelier." }));
+    const avant = serveur.requetes.length;
+    attendu(201, await a.chef.post(`${base()}/${id}/synthese`));
+    const messages = JSON.stringify(serveur.requetes[avant]?.corps.messages ?? []);
+    expect(messages).toContain("Vote : total des points");
+    expect(messages).not.toMatch(/matrice/i);
+  });
+
+  it("seuil PAR MÉTHODE : toutes les méthodes sous le seuil → agrégats masqués et synthèse 409", async () => {
+    const id = await atelierDeuxMethodes({
+      vote: [consultant, expert],
+      matrice: [consultant],
+    });
+    const d = attendu(200, await a.chef.get(`${base()}/${id}`));
+    expect(d.resultats).toBeNull();
+    expect(d.masque_seuil).toBe(true);
+    expect(d.methodes_masquees).toEqual(["vote", "matrice"]);
+    const s = await a.chef.post(`${base()}/${id}/synthese`);
+    expect(s.statusCode).toBe(409);
+    expect(erreur(s)).toBe("ATELIER_AGREGATS_MASQUES");
+  });
+
+  it("applique le seuil par méthode (fonction pure) sans rien laisser fuiter des méthodes masquées", () => {
+    const bloc = (n: number) => ({
+      resultat: { options: [{ optionId: "x", points: 9 }], participation: { participants: n } },
+      faits: [{ code: "VOTE_TOTAL_POINTS", option: null, valeur: 9 }],
+    });
+    const r = appliquerSeuil({
+      moteur: "m",
+      invites: 5,
+      ayant_contribue: 4,
+      vote: bloc(3),
+      priorisation: bloc(2),
+    });
+    expect(r.visibles).toEqual(["vote"]);
+    expect(r.masquees).toEqual(["priorisation"]);
+    expect(r.publies).not.toHaveProperty("priorisation");
+    expect(r.publies).not.toHaveProperty("ayant_contribue");
+    expect(JSON.stringify(r.vue)).not.toContain('"participants":2');
+  });
+
+  it("liste des candidats : tronque: true quand le plafond de lecture est atteint (semis SQL en lot)", async () => {
+    const at = attendu(201, await a.chef.post(base(), corpsAtelier()));
+    const cabinetId = a.cabinetId;
+    const total = CANDIDATS_CABINET_LUS_MAX + 5;
+    const marque = `Candidat plafond ${Date.now()}`;
+    const ids = await proprietaire(async (c) => {
+      const r = await c.query(
+        `INSERT INTO utilisateurs (cabinet_id, email, nom, roles, mot_de_passe_hash, actif)
+         SELECT $1, 'plafond-' || g || '-' || $3 || '@exemple.test', $2 || ' ' || lpad(g::text, 4, '0'),
+                ARRAY['gestionnaire']::text[], 'x', true
+         FROM generate_series(1, $4) g RETURNING id`,
+        [cabinetId, marque, String(Date.now()), total],
+      );
+      return r.rows.map((x) => x.id as string);
+    });
+    try {
+      const c = attendu(200, await a.chef.get(`${base()}/${at.id}/candidats`));
+      expect(c.tronque).toBe(true);
+      expect(c.cabinet.length).toBeLessThanOrEqual(CANDIDATS_CABINET_MAX);
+    } finally {
+      await proprietaire((c) =>
+        c.query("DELETE FROM utilisateurs WHERE id = ANY($1::uuid[])", [ids]),
+      );
+    }
+  });
+
+  it("liste des candidats : plafond non atteint, tronque: false", async () => {
+    const at = attendu(201, await a.chef.post(base(), corpsAtelier()));
+    const c = attendu(200, await a.chef.get(`${base()}/${at.id}/candidats`));
+    expect(c.tronque).toBe(false);
   });
 });
 

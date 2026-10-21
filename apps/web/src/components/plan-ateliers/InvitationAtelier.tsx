@@ -103,6 +103,11 @@ export function InvitationAtelier({
         required
         invite={chargement ? "Chargement…" : "Choisir"}
         options={options}
+        aide={
+          candidats?.tronque
+            ? "La liste est incomplète : seuls les premiers candidats par ordre alphabétique sont proposés."
+            : undefined
+        }
         value={choix}
         onChange={(e) => setChoix(e.target.value)}
         erreur={f.erreurs.utilisateur_id}

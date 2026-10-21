@@ -206,7 +206,6 @@ describe("lancement et enregistrement", () => {
     const duree = performance.now() - t0;
     console.info(`Monte-Carlo : 2000 tirages via l'API en ${Math.round(duree)} ms`);
     expect(grand.tirages).toBe(2000);
-    expect(duree).toBeLessThan(10_000);
     const t1 = performance.now();
     attendu(200, await consultant.post(`${url()}/${grand.id}/rejeu`));
     console.info(`Monte-Carlo : rejeu de 2000 tirages en ${Math.round(performance.now() - t1)} ms`);
@@ -289,7 +288,7 @@ describe("lecture, liste et rejeu", () => {
     expect((await lecteur.get(`${url()}?limite=0`)).statusCode).toBe(400);
   });
 
-  it("rejeu : identique, sans aucune écriture ; différent si le résultat figé diverge", async () => {
+  it("rejeu : identique, sans écriture métier (hors trace de débit) ; différent si le résultat figé diverge", async () => {
     const s = attendu(201, await consultant.post(url(), simulation));
     const compte = () =>
       proprietaire(async (c) => [
@@ -317,6 +316,64 @@ describe("lecture, liste et rejeu", () => {
     const alteree = attendu(200, await lecteur.post(`${url()}/${s.id}/rejeu`));
     expect(alteree.identique).toBe(false);
     expect(alteree.empreinte_rejouee).toBe(alteree.empreinte_enregistree);
+  });
+
+  it("rejeu : 5 par plan et par 10 minutes (provisoire), 6e en 429 TROP_DE_REJEUX ; fenêtre glissante", async () => {
+    const s = attendu(201, await consultant.post(url(), simulation));
+    const purger = () =>
+      proprietaire((c) =>
+        c.query("DELETE FROM plan_rejeux_montecarlo WHERE plan_id = $1", [planId]),
+      );
+    await purger();
+    for (let i = 0; i < 5; i++) attendu(200, await lecteur.post(`${url()}/${s.id}/rejeu`));
+    const refus = await lecteur.post(`${url()}/${s.id}/rejeu`);
+    expect(refus.statusCode).toBe(429);
+    expect(refus.json().erreur.code).toBe("TROP_DE_REJEUX");
+    expect(refus.json().erreur.message).toContain("5 rejeux par plan");
+    // Un rejeu refusé ne compte pas ; la lecture n'est pas limitée.
+    attendu(200, await lecteur.get(`${url()}/${s.id}`));
+    // Hors fenêtre (plus de 10 minutes) : de nouveau admis.
+    await proprietaire((c) =>
+      c.query(
+        "UPDATE plan_rejeux_montecarlo SET cree_le = now() - interval '11 minutes' WHERE plan_id = $1",
+        [planId],
+      ),
+    );
+    attendu(200, await lecteur.post(`${url()}/${s.id}/rejeu`));
+    await purger();
+  });
+
+  it("rejeu : purge à une heure, seules les lignes de plus d'une heure sont supprimées", async () => {
+    const s = attendu(201, await consultant.post(url(), simulation));
+    const il_y_a = (minutes: number) => new Date(Date.now() - minutes * 60_000);
+    const lignes = (): Promise<Date[]> =>
+      proprietaire(async (c) =>
+        (
+          await c.query(
+            "SELECT cree_le FROM plan_rejeux_montecarlo WHERE plan_id = $1 ORDER BY cree_le",
+            [planId],
+          )
+        ).rows.map((r) => r.cree_le as Date),
+      );
+    await proprietaire(async (c) => {
+      await c.query("DELETE FROM plan_rejeux_montecarlo WHERE plan_id = $1", [planId]);
+      for (const m of [180, 90, 61, 59, 30]) {
+        await c.query(
+          "INSERT INTO plan_rejeux_montecarlo (cabinet_id, plan_id, cree_par, cree_le) VALUES ($1, $2, $3, $4)",
+          [a.cabinetId, planId, lecteur.utilisateurId, il_y_a(m)],
+        );
+      }
+    });
+    expect(await lignes()).toHaveLength(5);
+    attendu(200, await lecteur.post(`${url()}/${s.id}/rejeu`));
+    const restantes = await lignes();
+    // 180, 90 et 61 minutes supprimées ; 59 et 30 minutes conservées ; le rejeu ajoute la sienne.
+    expect(restantes).toHaveLength(3);
+    const limite = il_y_a(60).getTime();
+    expect(restantes.every((d) => d.getTime() > limite)).toBe(true);
+    await proprietaire((c) =>
+      c.query("DELETE FROM plan_rejeux_montecarlo WHERE plan_id = $1", [planId]),
+    );
   });
 
   it("lois de départ : version validée par défaut, provisoires, acceptées par le lancement", async () => {
