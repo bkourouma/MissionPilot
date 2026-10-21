@@ -47,7 +47,7 @@ export function VueDifferentiel({ d }: { d: Differentiel }) {
 }
 
 /** Journal d'application : règle par règle, déclenchée ou non, valeurs lues. */
-export function JournalModulation({ r }: { r: ResultatModulation }) {
+export function JournalModulation({ r }: { r: Pick<ResultatModulation, "journal"> }) {
   if (r.journal.length === 0) return <p>Aucune règle de modulation dans cette méthode.</p>;
   return (
     <ul className="mp-liste-simple">

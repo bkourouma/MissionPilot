@@ -434,9 +434,22 @@ describe("divers", () => {
     );
     expect(messageMethodes(new ErreurApi("AUTRE", "x", 409))).toBeNull();
     expect(messageMethodes(new Error("x"))).toBeNull();
-    for (const code of ["STANDARD_LECTURE_SEULE", "VARIANTE_EXISTANTE", "METHODE_DEJA_LIEE"]) {
+    for (const code of [
+      "STANDARD_LECTURE_SEULE",
+      "VARIANTE_EXISTANTE",
+      "METHODE_DEJA_LIEE",
+      "FACTEUR_RETRAIT_INTERDIT",
+      "FACTEUR_FIGE",
+    ]) {
       expect(messageMethodes(new ErreurApi(code, "x", 409))).toBeTruthy();
     }
+    expect(messageMethodes(new ErreurApi("FACTEUR_RETRAIT_INTERDIT", "x", 409))).toMatch(
+      /sans rien retirer/,
+    );
+    expect(messageMethodes(new ErreurApi("CONTEXTE_INVALIDE", "Facteur inconnu.", 400))).toBe(
+      "Facteur inconnu.",
+    );
+    expect(messageMethodes(new ErreurApi("PLAFOND_ATTEINT", "Plafond.", 409))).toBe("Plafond.");
   });
 });
 

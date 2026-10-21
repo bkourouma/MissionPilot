@@ -21,6 +21,7 @@ import {
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
+import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 
@@ -31,19 +32,23 @@ const EFFETS_NUMERIQUES: readonly TypeEffetEditeur[] = ["ponderation", "seuil"];
 /**
  * Éditeur de règle de modulation SANS CODE (STD-05, STD-11) : conditions sur les facteurs de
  * contexte (toutes ou au moins une), effets typés ; la règle est construite et validée par
- * `construireRegle`, puis contrôlée par le moteur avant publication.
+ * `construireRegle`, puis contrôlée par le moteur avant publication. Avec `modification`, la
+ * règle existante est rouverte (son code ne change pas) et remplacée en place.
  */
 export function FormulaireRegle({
   versionId,
   facteurs,
   briques,
+  modification,
 }: {
   versionId: string;
   facteurs: Facteur[];
   briques: { code: string; libelle: string }[];
+  modification?: { id: string; active: boolean; saisie: SaisieRegle };
 }) {
   const f = useFormulaire<ChampRegle>();
-  const [s, setS] = useState<SaisieRegle>(saisieRegleVide());
+  const [s, setS] = useState<SaisieRegle>(modification?.saisie ?? saisieRegleVide());
+  const [active, setActive] = useState(modification?.active ?? true);
 
   const majComparaison = (i: number, c: Partial<SaisieComparaison>) =>
     setS((x) => ({
@@ -55,14 +60,23 @@ export function FormulaireRegle({
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const ok = await f.envoyer(
-      construireRegle(s, facteurs),
-      (regle) => api.post(`/api/methodes/versions/${versionId}/regles`, regle),
-      {
-        succes: "Règle ajoutée : vérifiez la cohérence avant publication.",
-        messageSpecifique: messageMethodes,
-      },
-    );
+    const base = `/api/methodes/versions/${versionId}/regles`;
+    const regle = construireRegle(s, facteurs);
+    if (modification) {
+      await f.envoyer(
+        regle,
+        (r) => api.put(`${base}/${modification.id}`, active ? r : { ...r, active: false }),
+        {
+          succes: "Règle modifiée : vérifiez la cohérence avant publication.",
+          messageSpecifique: messageMethodes,
+        },
+      );
+      return;
+    }
+    const ok = await f.envoyer(regle, (r) => api.post(base, r), {
+      succes: "Règle ajoutée : vérifiez la cohérence avant publication.",
+      messageSpecifique: messageMethodes,
+    });
     if (ok) setS(saisieRegleVide());
   }
 
@@ -76,6 +90,8 @@ export function FormulaireRegle({
           value={s.code}
           maxLength={120}
           spellCheck={false}
+          readOnly={Boolean(modification)}
+          aide={modification ? "Le code ne change pas." : undefined}
           onChange={(e) => setS({ ...s, code: e.target.value })}
           erreur={f.erreurs.code}
         />
@@ -94,6 +110,15 @@ export function FormulaireRegle({
           aide="De 0 à 1 000 : la plus haute l'emporte en cas de conflit."
         />
       </div>
+
+      {modification ? (
+        <CaseACocher
+          libelle="Règle active"
+          aide="Décochée : la règle est conservée mais ne se déclenche plus."
+          checked={active}
+          onChange={(e) => setActive(e.target.checked)}
+        />
+      ) : null}
 
       <fieldset className="mp-groupe">
         <legend className="mp-champ__libelle">Si le contexte vérifie…</legend>
@@ -279,8 +304,13 @@ export function FormulaireRegle({
       </fieldset>
 
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="plus" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter la règle
+        <Bouton
+          type="submit"
+          icone={modification ? "succes" : "plus"}
+          chargement={f.enCours}
+          texteChargement={modification ? "Enregistrement…" : "Ajout…"}
+        >
+          {modification ? "Enregistrer la règle" : "Ajouter la règle"}
         </Bouton>
       </div>
     </form>

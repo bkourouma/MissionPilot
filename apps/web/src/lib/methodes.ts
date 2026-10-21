@@ -18,6 +18,7 @@ import {
   ORIGINE_METHODE_LIBELLES,
   regleModulationSchema,
   type BriqueCreation,
+  type CasTypeCreation,
   type ClasseRisque,
   type ComparateurModulation,
   type ConditionModulationApi,
@@ -118,6 +119,8 @@ export interface BriqueVersion {
 
 export interface ElementVersion {
   id: string;
+  /** Identifiant de la brique rattachée (lecture d'une version ; absent de la méthode d'une mission). */
+  brique_id?: string | null;
   brique_code: string | null;
   type: string;
   code: string;
@@ -129,6 +132,7 @@ export interface ElementVersion {
 
 export interface RubriqueVersion {
   id: string;
+  brique_id?: string | null;
   brique_code: string | null;
   code: string;
   libelle: string;
@@ -138,6 +142,14 @@ export interface RubriqueVersion {
     description: string;
     exemples: { contexte: string; texte: string }[];
   }[];
+}
+
+/** Cas type stocké (forme de l'API, `casTypeCreationSchema` sans le code ni le libellé). */
+export interface CasTypeVersion {
+  id: string;
+  code: string;
+  libelle: string | null;
+  cas: Omit<CasTypeCreation, "code" | "libelle">;
 }
 
 export interface DifferenceCollection {
@@ -173,7 +185,7 @@ export interface VersionDetail {
   elements: ElementVersion[];
   rubriques: RubriqueVersion[];
   regles: { id: string; code: string; regle: RegleModulationApi }[];
-  cas_types: { id: string; code: string; libelle: string | null }[];
+  cas_types: CasTypeVersion[];
   modifiable: boolean;
   differences: {
     reference: { id: string; version: number; nature: "standard" | "precedente" };
@@ -189,9 +201,19 @@ export interface AnomalieVersion {
   message: string;
 }
 
+export type CategorieValidation =
+  "structure" | "references" | "regles" | "rubriques" | "heritage" | "cas_types";
+
 export interface ValidationVersion {
   valide: boolean;
   anomalies: AnomalieVersion[];
+  /** Synthèse par catégorie (STD-11). */
+  categories?: {
+    categorie: CategorieValidation;
+    libelle: string;
+    erreurs: number;
+    avertissements: number;
+  }[];
   cas_types: { reussi: boolean; reussis: number; echoues: number } | null;
 }
 
@@ -406,6 +428,7 @@ export const EFFET_LIBELLES: Record<TypeEffetEditeur, string> = {
 export const hrefMethode = (id: string) => `/methodes/${id}`;
 export const hrefVersion = (id: string) => `/methodes/versions/${id}`;
 export const hrefSimulateur = (id: string) => `/methodes/versions/${id}/simulateur`;
+export const hrefApercu = (id: string) => `/methodes/versions/${id}/apercu`;
 export const hrefMissionMethode = (id: string) => `/methodes/missions/${id}`;
 
 /** Contexte proposé depuis le dossier du client (GET /missions/:id/methode/contexte-propose). */
@@ -851,6 +874,13 @@ export function messageMethodes(e: unknown): string | null {
     case "ETAPE_INATTENDUE":
     case "SEPARATION_DES_TACHES":
     case "MOTIF_REQUIS":
+      return e.message;
+    case "FACTEUR_RETRAIT_INTERDIT":
+      return "Un facteur s'enrichit sans rien retirer : gardez toutes les valeurs existantes et n'élargissez que les bornes.";
+    case "FACTEUR_FIGE":
+      return "Ce facteur est figé : son code, son type et son porteur ne changent pas, et les facteurs du standard sont en lecture seule.";
+    case "PLAFOND_ATTEINT":
+    case "REFERENTIEL_INCOHERENT":
       return e.message;
     case "VARIANTE_EXISTANTE":
       return "Le cabinet a déjà une variante de cette méthode.";

@@ -2,13 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { BoutonAction } from "../../../../../components/methodes/BoutonAction";
-import { FormulaireBrique } from "../../../../../components/methodes/FormulaireBrique";
-import { FormulaireElement } from "../../../../../components/methodes/FormulaireElement";
-import { FormulaireEtape } from "../../../../../components/methodes/FormulaireEtape";
-import { FormulaireRegle } from "../../../../../components/methodes/FormulaireRegle";
+import { AjoutsVersion } from "../../../../../components/methodes/AjoutsVersion";
+import { ControleCoherence } from "../../../../../components/methodes/ControleCoherence";
 import { NotesVersion } from "../../../../../components/methodes/NotesVersion";
 import { ContenuVersion } from "../../../../../components/methodes/VuesMethode";
 import { Alerte } from "../../../../../components/ui/Alerte";
+import { Bouton } from "../../../../../components/ui/Bouton";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
@@ -16,6 +15,7 @@ import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import {
+  hrefApercu,
   hrefMethode,
   hrefSimulateur,
   hrefVersion,
@@ -27,6 +27,7 @@ import {
   type ValidationVersion,
   type VersionDetail,
 } from "../../../../../lib/methodes";
+import { raisonPublicationBloquee } from "../../../../../lib/methodes-coherence";
 import { exigerPermission } from "../../../../../lib/session";
 
 export const metadata: Metadata = { title: "Version de méthode" };
@@ -72,6 +73,7 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
   const v = r.donnees;
   const facteurs = f.ok ? f.donnees.elements : [];
   const editable = v.modifiable && peutGerer(utilisateur.roles);
+  const raisonPublication = raisonPublicationBloquee(val.ok ? val.donnees : null);
   const maj =
     v.methode.origine === "variante"
       ? await chargerServeur<MiseAJour>(`/api/methodes/versions/${id}/mise-a-jour`)
@@ -91,7 +93,12 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
             <BadgeStatut tonalite="neutre">{libelleOrigine(v.methode.origine)}</BadgeStatut>
           </>
         }
-        actions={<Link href={hrefSimulateur(v.version.id)}>Simuler les règles</Link>}
+        actions={
+          <>
+            <Link href={hrefApercu(v.version.id)}>Aperçu de la mission</Link>
+            <Link href={hrefSimulateur(v.version.id)}>Simuler les règles</Link>
+          </>
+        }
       />
 
       {v.differences ? (
@@ -142,48 +149,39 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
       ) : null}
 
       <Carte titre="Contrôle de cohérence">
-        {!val.ok ? (
-          <p>{val.message}</p>
-        ) : (
-          <div className="mp-pile">
-            <p>
-              {val.donnees.valide
-                ? "Version cohérente : règles valides, cas types réussis."
-                : "Version incohérente : corriger les erreurs avant publication."}
-              {val.donnees.cas_types
-                ? ` Cas types : ${val.donnees.cas_types.reussis} réussi(s), ${val.donnees.cas_types.echoues} échoué(s).`
-                : ""}
-            </p>
-            {val.donnees.anomalies.length > 0 ? (
-              <ul className="mp-liste-simple">
-                {val.donnees.anomalies.map((a, i) => (
-                  <li key={i}>
-                    <BadgeStatut tonalite={a.gravite === "erreur" ? "danger" : "attention"}>
-                      {a.gravite === "erreur" ? "Erreur" : "Avertissement"}
-                    </BadgeStatut>{" "}
-                    {a.message} <span className="mp-methode__code">({a.chemin})</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        )}
+        {!val.ok ? <p>{val.message}</p> : <ControleCoherence validation={val.donnees} />}
       </Carte>
 
       {editable ? (
         <Carte titre="Publier">
           <div className="mp-pile">
             <NotesVersion versionId={v.version.id} notes={v.version.notes_version} />
-            <BoutonAction
-              libelle="Publier cette version"
-              chemin={`/api/methodes/versions/${v.version.id}/publication`}
-              variante="primaire"
-              icone="succes"
-              confirmation={{
-                question: "Publier ? Une version publiée ne se modifie plus.",
-                libelleConfirmation: "Oui, publier",
-              }}
-            />
+            {raisonPublication ? (
+              <div className="mp-pile">
+                <Bouton
+                  variante="primaire"
+                  icone="succes"
+                  disabled
+                  aria-describedby="raison-publication"
+                >
+                  Publier cette version
+                </Bouton>
+                <p id="raison-publication" className="mp-champ__erreur">
+                  {raisonPublication}
+                </p>
+              </div>
+            ) : (
+              <BoutonAction
+                libelle="Publier cette version"
+                chemin={`/api/methodes/versions/${v.version.id}/publication`}
+                variante="primaire"
+                icone="succes"
+                confirmation={{
+                  question: "Publier ? Une version publiée ne se modifie plus.",
+                  libelleConfirmation: "Oui, publier",
+                }}
+              />
+            )}
           </div>
         </Carte>
       ) : v.version.statut === "brouillon" && v.methode.origine !== "standard" ? (
@@ -192,31 +190,7 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
 
       <ContenuVersion v={v} facteurs={facteurs} editable={editable} />
 
-      {editable ? (
-        <div className="mp-pile">
-          <Carte titre="Ajouter une étape">
-            <FormulaireEtape versionId={v.version.id} />
-          </Carte>
-          {v.etapes.length > 0 ? (
-            <Carte titre="Ajouter une brique">
-              <FormulaireBrique versionId={v.version.id} etapes={v.etapes} />
-            </Carte>
-          ) : null}
-          <Carte titre="Ajouter une règle de contexte">
-            <FormulaireRegle
-              versionId={v.version.id}
-              facteurs={facteurs}
-              briques={v.briques.map((b) => ({ code: b.code, libelle: b.libelle }))}
-            />
-          </Carte>
-          <Carte titre="Ajouter un livrable, un item, un KPI type…">
-            <FormulaireElement
-              versionId={v.version.id}
-              briques={v.briques.map((b) => ({ id: b.id, libelle: b.libelle }))}
-            />
-          </Carte>
-        </div>
-      ) : null}
+      {editable ? <AjoutsVersion v={v} facteurs={facteurs} /> : null}
     </div>
   );
 }
