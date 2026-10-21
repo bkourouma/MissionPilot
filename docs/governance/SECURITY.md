@@ -18,6 +18,10 @@ sections « bis », « ter », « quater »… ; les nombres de ce document (rou
 tables, lignes de `GRANT EXECUTE`) ont été relevés le 2026-10-08 dans cet arbre
 de travail, puis les routes et les `GRANT EXECUTE` recomptés le 2026-10-11 (714 routes et 23 `GRANT EXECUTE`
 avec le lot 3a, relevés dans le worktree `.claude/worktrees/redressement`).
+Mise à jour du 2026-10-21 (lot 9a, consolidation des sept lots fusionnés du socle IA, du redressement 3a-bis, de
+la due diligence et des canaux, de la qualité et du référentiel de méthodes, du dossier client, des plans et de la
+CI) : 921 routes (recherche n° 10 de la checklist), 206 fichiers de migration, 28 lignes `GRANT EXECUTE`, second
+préfixe SQLSTATE `MQ…` (§5 ter et §6).
 
 ## 1. Actifs à protéger
 
@@ -273,12 +277,22 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   `anonymiser_copilote_actions` (`0274`, bornée au cabinet du contexte, minimum 30 jours,
   `p_maintenant` refusé s'il dépasse l'horloge de la base d'une minute) et
   `planifier_purge_copilote` (`0274`, clé de job `copilote_purge:AAAA-MM-JJ` imposée, minimum
-  30 jours, une tâche par cabinet ayant une proposition échue ou à anonymiser).
+  30 jours, une tâche par cabinet ayant une proposition échue ou à anonymiser) ; socle IA
+  (mise à jour du 2026-10-21) : `rejeu_evaluation_demarrer`, `rejeu_evaluation_inscrire_appel` et
+  `rejeu_evaluation_terminer` (`0275`, rejeu réel des évaluations OpenRouter, appelées par le seul job
+  `agents_evaluation_openrouter` ; §7 bis), et `reserver_job_a` (`0030`), redéfinie en plpgsql par `0305`
+  (réclamation équitable par cabinet, mêmes `REVOKE`/`GRANT` conservés). `0275` pose aussi trois
+  fonctions internes d'invocateur, `REVOKE ALL … FROM PUBLIC` et non accordées au rôle applicatif
+  (`rejeu_controler_job`, `rejeu_demande_verrouillee`, `rejeu_controler_fin`, appelées par les trois
+  précédentes), et `0276` deux fonctions SQL d'invocateur, `modele_recommande` et `modele_route`
+  (lecture seule, sans `SECURITY DEFINER`). Les fonctions de déclencheur `garder_*` de `0275` posent
+  toutes `SET search_path = public, pg_temp`.
   `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
   (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
-  `rg -n "GRANT EXECUTE" apps/api/migrations` (23 lignes au 2026-10-11 : 20 au 2026-10-08, plus trois fonctions des lacunes de la vague 2 ; inchangé
-  par le lot 3a du redressement, qui n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
-  d'invocateur et lisent sous la RLS du cabinet, `0480`–`0486`). Certains déclencheurs de contrôle
+  `rg -n "GRANT EXECUTE" apps/api/migrations` (28 lignes au 2026-10-21 : 23 au 2026-10-11, dont 20 au 2026-10-08 plus trois fonctions des lacunes de la vague 2 ;
+  quatre de plus avec les canaux (§9 bis) ; une de plus avec `0275`, qui accorde ses trois fonctions en une seule instruction ; `0305` conserve les `GRANT` de `0030`.
+  Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
+  d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
   `0043`, `0060`…). `reprendre_relances_questionnaire` (`0148`) n'est pas
   `SECURITY DEFINER` et n'est exécutable que par le propriétaire.
@@ -327,6 +341,16 @@ soit le code appelant).
   recette du 2026-10-10, `GET /api/appels-offres/assignables` et
   `GET /api/capitalisation/retours/a-ouvrir`, n'y figurent pas : elles restent
   fermées au portail (403 `PORTAIL_ROUTE_INTERDITE`, §6 AO-A et §5 sexies).
+  Routes ajoutées en vague 4 (mise à jour du 2026-10-21) : les ateliers stratégiques, `GET
+  /api/portail/ateliers`, `GET /api/portail/ateliers/:id` et `PUT
+  /api/portail/ateliers/:id/contribution/:methode`, sous la permission `portail.ateliers.participer`
+  (`client_dirigeant` seul, `roles.ts` ; §5 bis) ; trois routes `GET` et `HEAD` du portail investisseur de
+  la due diligence, `/api/portail/due-diligence/publications`,
+  `/api/portail/due-diligence/publications/:id` et
+  `/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier` (§8 octies) ; les routes des
+  canaux (§9 bis). Les routes de la revue à froide (`/api/qualite/revue-froide/**`, §5 ter), du groupe
+  et des participations (`/api/dossiers/:id/groupe`, `/api/dossiers/:id/participations`, §8 quater),
+  des sources de livrable (§8 ter) et du redressement (§8 nonies) n'y figurent pas.
 - **Contexte RLS à chaque transaction** (`portail/contexte.ts`) : pour toute
   route listée, la garde range le client rattaché et l'utilisateur ; un
   rattachement désactivé ou un client archivé donne un client **sentinelle**
@@ -336,13 +360,18 @@ soit le code appelant).
   (`sansContexte`) : connexion, déconnexion, profil d'authentification, sa
   propre 2FA, acceptations d'invitation ; leurs tables (`sessions`, `*_2fa`,
   `invitations`) sont `portail_interdit`. Seule sortie :
-  `horsContextePortail`, employée par deux traitements internes qui ne renvoient
+  `horsContextePortail`, employée par des traitements internes qui ne renvoient
   rien au client : l'évaluation des alertes KPI après une saisie
   (`routes/portail-kpi.ts`) et la suite d'un dépôt de la salle de mission,
   c'est-à-dire l'accusé de réception R0 et l'information de l'équipe, qui lisent
   le coupe-circuit N4 et l'équipe de la mission et n'écrivent que des tables
-  internes (`salle-mission/accuses.ts`). `test/portail-contexte.test.ts`
-  inventorie les usages (exactement ces deux fichiers) : tout nouvel usage met
+  internes (`salle-mission/accuses.ts`) ; les canaux simulés
+  (`routes/portail-canaux.ts`, `routes/portail-signatures.ts`, §9 bis) ; et, depuis le portail
+  investisseur, le téléchargement d'une pièce publiée
+  (`routes/due-diligence-portail-investisseur.ts`), qui n'a lieu qu'après les contrôles de
+  `avecPortail` et dont la lecture interne (rapports et fichiers fermés au portail) revérifie
+  explicitement la publication, le client et la pièce (§8 octies). `test/portail-contexte.test.ts`
+  inventorie les usages (exactement ces **cinq** fichiers) : tout nouvel usage met
   ce test à jour.
 - **Politiques RESTRICTIVES** (`0113`, `0114`, `0115`, puis chaque migration
   V2) : `portail_interdit` (rien de visible ni de modifiable) sur les tables
@@ -351,8 +380,9 @@ soit le code appelant).
   (`0180`–`0184`, dont le lien vers une notation et les KPI d'objectif), les
   rapports (`0130`) et leurs paramètres (`0132`), l'historique IA des
   questionnaires (`0149`), les clés d'idempotence des saisies de temps (`0122`),
-  les paramètres et alertes KPI, les quinze tables du redressement (`0480`–`0486`, §8 nonies : le client
-  n'accède jamais à son dossier de redressement) ;
+  les paramètres et alertes KPI, les trente tables du redressement (`0480`–`0491`, §8 nonies : le client
+  n'accède jamais à son dossier de redressement), les tables des simulations de Monte-Carlo, des réalisés
+  et des re-prévisions des plans (`0429`–`0431`, §5 bis), `dossier_participations` (`0225`, §8 quater) et les tables de la revue à froide (`0287`–`0289`, §5 ter) ;
   `journal_audit` : écriture seule. `portail` en **lecture** filtrée, doublée de
   `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete` : client,
   missions partagées, jalons partagés, documents partagés au contenu validé et
@@ -370,6 +400,10 @@ soit le code appelant).
   `portail_sans_insert`, `portail_sans_update` et `portail_sans_delete` :
   `salle_demandes` (demandes envoyées ou closes de SON client), `salle_pieces` et
   `salle_accuses` ; `salle_modeles` et `salle_relances` sont `portail_interdit`.
+  Vague 4 (mise à jour du 2026-10-21) : `plan_ateliers`, `plan_atelier_options` et `plan_atelier_participants` en
+  lecture avec `portail_sans_insert/update/delete`, `plan_atelier_contributions` et
+  `plan_atelier_contribution_lignes` en `portail` FOR ALL (SA contribution, atelier ouvert où il est invité ; §5 bis) ;
+  les cinq tables `dd_portail_*` en lecture avec `portail_sans_insert/update/delete` (§8 octies).
   **Table `fichiers`** (`0331`) : `portail_sans_insert` est remplacée par
   `portail_depot` (insertion dans une transaction du portail seulement si
   `envoye_par` est l'utilisateur du portail) et la politique `portail` de lecture
@@ -407,11 +441,12 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  714 gestionnaires de route (2026-10-11, avec les 37 du redressement, lot 3a ; 677 sur `main`, 673 le
-  2026-10-10, plus `GET /brief` et les trois routes du copilote), seuls `POST /auth/connexion`,
+  921 gestionnaires de route (relevé du 2026-10-21 ; 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
+  `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
-  `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
+  `POST /invitations/accepter`, `POST /portail/invitations/accepter` et
+  `POST /canaux/whatsapp/webhook` (publique, signée HMAC, §9 bis) ne
   l'appellent pas (recherche mécanique n° 10 de
   `.claude/rules/review-checklist.md`).
 - **Visibilité des missions** : règle écrite en tête de `missions/acces.ts` :
@@ -553,7 +588,8 @@ soit le code appelant).
   (`MPS04`) et est **retiré** à toute écriture qui produit un contenu non
   validé (création d'élément, version brouillon ou modifiée, nouvelle version
   du modèle ; `plans/partage.ts`, journal `plan.retirer_partage`). Aucune
-  route du portail ne sert encore un plan : les tables sont `portail_interdit`.
+  route du portail ne sert un plan : les tables sont `portail_interdit` (les ateliers, ci-dessous, sont
+  un objet distinct du plan).
   Vague 0 : **dépendances** entre initiatives (PLA-05, `0184`) dans le contenu
   versionné, contrôlées par le moteur (cycles) puis par la base (`MPS02` : autre
   initiative du même plan, 20 au plus) ; recalage de la feuille de route
@@ -613,6 +649,36 @@ soit le code appelant).
   ces lots utilisent `dateIsoBorneeSchema` (2000-01-01 à 2100-12-31, `packages/shared/src/schemas/commun.ts`),
   l'intervalle des CHECK SQL ; une violation de CHECK qui échapperait au schéma (SQLSTATE 23514) est
   traduite en 400 `REQUETE_INVALIDE`, jamais en 500.
+- **Plans stratégiques augmentés, lot 5a** (PLA-15, PLA-16, PLA-18 et NOT-12 ; mise à jour du 2026-10-21 ;
+  `plans/ateliers*.ts`, `plans/montecarlo.ts`, `plans/reprevision*.ts`, `packages/engines/src/notation/combinaisons.ts`,
+  `routes/plans-ateliers.ts`, `routes/portail-ateliers.ts`, `routes/plans-montecarlo.ts`,
+  `routes/plans-reprevisions.ts`, migrations `0425`–`0426`, `0429`, `0430`–`0431` ; NOT-12 n'a aucune
+  migration : sa liaison à l'IA passe par `ia_demandes.entite_type` et `entite_id`) :
+  - **Portail des ateliers.** Trois routes dans `LISTE_BLANCHE_PORTAIL` (§4 bis) : `GET /api/portail/ateliers`,
+    `GET /api/portail/ateliers/:id`, `PUT /api/portail/ateliers/:id/contribution/:methode`, sous la permission
+    `portail.ateliers.participer` (`client_dirigeant` seul, `roles.ts` ; ni le contributeur ni l'investisseur).
+    Le dirigeant ne voit que les ateliers OUVERTS où il est invité et SA contribution ; jamais l'agrégat, la
+    contribution d'autrui, la synthèse IA, le nom du cabinet, ni l'identifiant d'un plan ou d'une mission.
+    Même 404 pour un atelier inexistant, d'autrui, non invité ou non ouvert.
+  - **RLS.** `plan_ateliers`, `plan_atelier_options` et `plan_atelier_participants` : politique `portail` en
+    lecture + `portail_sans_insert/update/delete` ; `plan_atelier_contributions` et
+    `plan_atelier_contribution_lignes` : politique `portail` FOR ALL (SON client, SON utilisateur, atelier ouvert où
+    il est invité). `plan_simulations_montecarlo`, `plan_realises` et `plan_reprevisions` : `portail_interdit`.
+    Piège : la politique de `plan_atelier_participants` ne référence aucune autre table (récursion de RLS).
+  - **Anonymat des ateliers.** Les contributions individuelles ne sont jamais servies ; les agrégats ne sont
+    visibles du cabinet qu'APRÈS la clôture de l'atelier (avant : le seul taux de participation).
+  - **Contenu IA** (orchestrateur, §7 bis). Trois nouveaux brouillons rattachés à `ia_demandes`
+    (`notation_explication`, `plan_atelier`, `plan_reprevision`), prompts `notation_explication_commentaire`,
+    `plan_atelier_synthese` et `plan_reprevision_explication` ; les chiffres citables sont construits côté serveur
+    depuis les moteurs ; les libellés et commentaires saisis sont des données non fiables ; rien n'est servi au
+    portail ; validation par `/ia/generations/:id/valider` (brouillon IA, modifié, validé).
+  - **Monte-Carlo (PLA-16).** La graine est tirée par l'API (`crypto.randomInt`) si elle est absente, jamais par le
+    moteur (qui reste pur et déterministe) ; 2 000 tirages au plus ; 30 simulations par utilisateur et par 10
+    minutes (compte en base ET déclencheur `MQL14`, 429 côté API) et 100 par plan (`MQL12`) ; résultat en ajout
+    seul (`MQL10`), figé (`MQL13`). Le **rejeu** (POST sans écriture, `plan.lire`) coûte environ 0,3 s et n'est
+    PAS limité en débit (§15).
+  - **Plan vivant (PLA-18).** Réalisés trimestriels et re-prévisions versionnés, en ajout seul (`MQL15`–`MQL24`),
+    `portail_interdit` : les états financiers du client ne vont jamais au portail.
 
 ## 5 ter. Qualité et responsabilité professionnelle (lot QUA, PRD complémentaire §10)
 
@@ -693,10 +759,60 @@ pas la séparation des tâches.
   `qualite.session.*`, `qualite.acceptation.evaluer`, `qualite.relation.*`,
   `qualite.satisfaction.saisir`) sans le texte des commentaires.
 - **Limites connues.** Temps de revue : session plafonnée à 2 h (une session oubliée n'enfle pas le
-  temps) ; pas de revue à froid (QUA-05, V4) ; le module des plans n'ouvre pas le suivi d'un plan
-  (seul son RAPPORT généré est suivi) ; pas de génération de rapport d'état financier (type `etat`),
-  donc pas de branchement ; une définition « notation » copiée dans un cabinet avant le 2026-10-08
+  temps) ; le module des plans n'ouvre pas le suivi d'un plan
+  (seul son RAPPORT généré est suivi) ; le rapport d'état financier et le rapport de clôture du redressement ouvrent, comme tout rapport enregistré (`rapports/enregistrement.ts`), un suivi de type `rapport` (R2 au minimum ; la classe R3 du rapport de clôture n'est pas automatique, §15) ; une définition « notation » copiée dans un cabinet avant le 2026-10-08
   garde l'item `notation_publiee` (nouvelle version de définition à créer).
+
+**Revue à froid des missions clôturées (QUA-05, lot 4a ; mise à jour du 2026-10-21).** Code : `apps/api/src/qualite/froide-*.ts`, `routes/qualite-froide.ts`, moteur
+`packages/engines/src/qualite` (`echantillonnage.ts`, `evaluerIndependanceRelecteur`), migrations
+`0287`–`0289` (six tables : `qualite_froide_campagnes`, `_echantillon`, `_evaluations`, `_constats`,
+`_actions`, `_actions_historique`), SQLSTATE du second préfixe `MQQ01`–`MQQ12` (déclaré en §6).
+
+- **Droits.** `qualite.froide.gerer` : associé seul (tirage, affectation, clôture de campagne, plan
+  d'amélioration) ; `qualite.froide.relire` : associé, directeur de mission, expert métier (relecteur
+  indépendant) ; les responsables d'actions suivent leurs actions avec `mission.lire`. 19 routes sous
+  `/api/qualite/revue-froide/**`, toutes sous `exiger` (y compris `exigerLectureRevue`), **aucune dans
+  `LISTE_BLANCHE_PORTAIL`** (403 `PORTAIL_ROUTE_INTERDITE`, testé) ; les six tables sont `portail_interdit`
+  et sans suppression.
+- **Indépendance du relecteur, doublée en base.** Un relecteur n'est ni directeur, chef, membre d'équipe,
+  affecté du planning, créateur, clôtureur ou signataire de la mission, ni auteur, ouvreur, valideur,
+  signataire ou attestateur d'un suivi qualité de celle-ci. Deux implémentations alignées : le moteur
+  (`evaluerIndependanceRelecteur`) et le déclencheur `qualite_froide_violations()` de `0287` (`MQQ03`) ;
+  l'habilitation (`MQQ07`) reprend les rôles de `qualite.froide.relire`. Aucun jour consommé n'est imputé à la
+  revue ; l'associé réaffecte.
+- **Figé.** Critères, graine, population copiée (5 000 missions au plus, avec son empreinte) et échantillon sont
+  immuables après le tirage (`MQQ02`, le tirage se rejoue à l'identique) ; une revue terminée est figée
+  (`MQQ04`) ; l'historique des actions est en ajout seul (`MQQ01`). La grille « complète » (8 critères) est codée
+  en dur dans le déclencheur : une grille v2 exige une migration. Plafonds : 100 missions par échantillon, 100
+  constats par revue, 500 actions par campagne (`MQQ09`).
+- **Second préfixe SQLSTATE `MQ…`.** Toutes les lettres simples `MP?` sont prises : la règle de
+  [CODING_STANDARDS.md](CODING_STANDARDS.md) §2 ouvre un second préfixe `MQ` suivi d'une lettre de domaine
+  et de deux chiffres. Domaines déclarés : `MQD` due diligence (§8 octies), `MQC` canaux (déclaré, aucun
+  code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0289`), `MQF`
+  groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
+  code employé). Table des codes de ce paragraphe et du STD-11 (les codes d'API sont ceux des routes ;
+  codes `MQD`, `MQF`, `MQL` : §6) :
+
+  | SQLSTATE | Code d'API                     | HTTP | Sens                                                               |
+  | -------- | ------------------------------ | ---- | ------------------------------------------------------------------ |
+  | `MQS01`  | `FACTEUR_FIGE`                 | 409  | identité, type, porteur d'un facteur figés ; facteur du standard   |
+  | `MQS02`  | `FACTEUR_RETRAIT_INTERDIT`     | 409  | valeur d'énumération retirée ou borne resserrée                    |
+  | `MQQ01`  | `FROIDE_HISTORIQUE_IMMUABLE`   | 409  | historique des actions en ajout seul                               |
+  | `MQQ02`  | `FROIDE_CAMPAGNE_FIGEE`        | 409  | critères, graine, population, échantillon figés après le tirage    |
+  | `MQQ03`  | `RELECTEUR_NON_INDEPENDANT`    | 409  | séparation des tâches du relecteur (doublée en base)               |
+  | `MQQ04`  | `REVUE_FROIDE_TERMINEE`        | 409  | revue terminée figée                                               |
+  | `MQQ05`  | `MISSION_TIREE_INVALIDE`       | 409  | mission tirée non clôturée ou d'un autre cabinet                   |
+  | `MQQ06`  | `ACTION_TRANSITION_IMPOSSIBLE` | 409  | transition de statut d'action interdite                            |
+  | `MQQ07`  | `RELECTEUR_NON_HABILITE`       | 409  | relecteur sans rôle associé, directeur de mission ou expert métier |
+  | `MQQ08`  | `RESPONSABLE_INVALIDE`         | 400  | responsable d'action inactif ou inconnu                            |
+  | `MQQ09`  | `PLAFOND_ATTEINT`              | 409  | 100 constats par revue, 500 actions par campagne                   |
+  | `MQQ10`  | `REVUES_NON_TERMINEES`         | 409  | clôture de campagne avant la fin des revues                        |
+  | `MQQ11`  | `REVUE_ETAT_IMPOSSIBLE`        | 409  | état de revue incompatible                                         |
+  | `MQQ12`  | `CONSTAT_INVALIDE`             | 409  | constat lié à une action hors revue terminée de la campagne        |
+
+  Codes émis par l'API seule : `POPULATION_TROP_GRANDE`, `POPULATION_VIDE`, `GRILLE_INCOMPLETE`
+  (`details.manquants`), `GRILLE_SANS_NOTE`, `CAMPAGNE_CLOSE`, `ACTION_CLOSE`, `ECHEANCE_PASSEE`,
+  `MISSION_DEJA_TIREE`, `STANDARD_LECTURE_SEULE` (facteur du standard, 403).
 
 ## 5 quater. Pilotage augmenté des KPI (KPI-13, KPI-15, KPI-17, KPI-18)
 
@@ -953,9 +1069,18 @@ calcul fait à la demande, rien n'est stocké.
 
 - **Calcul déterministe, sans IA** : les sources (`brief/*.ts`) lisent des FAITS dans les droits de
   l'utilisateur connecté et les remettent au moteur, seul juge de la gravité, de l'ordre et du
-  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 27 types d'éléments en trois familles :
-  « À décider » (13), « Ça dérive » (8), « Prêt à envoyer » (6), à raison de 26 sources (le KPI au
-  rouge et le KPI à l'orange de deux périodes de suite partagent une source).
+  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 30 types d'éléments en trois familles :
+  « À décider » (16), « Ça dérive » (8), « Prêt à envoyer » (6), à raison de 29 sources (le KPI au
+  rouge et le KPI à l'orange de deux périodes de suite partagent une source). Sources ajoutées
+  (mise à jour du 2026-10-21) : offre technique d'appel d'offres dont la dernière version n'est pas
+  validée (`ao.gerer`, hors créateur, auteur de version et demandeur de génération IA ; sans visibilité
+  de mission, une offre n'ayant pas de mission) ; plan (`plan.valider` ET responsable de la mission
+  visible et non clôturée ; contenu `modifie` ou `brouillon_ia`, ou modèle financier non validé ; hors
+  contenu écrit depuis la dernière validation et hors modèle dont l'utilisateur est l'auteur) ; révision
+  de budget non figée (`budget.reviser`, directeur de la mission ou associé, mission signée, en cours ou
+  à clôturer et visible, hors auteur ; palier FIN-15 recalculé pour un non-associé ; jamais de montant,
+  de jour, de devise ni d'écart : FIN-02). **Le brief n'exempte aucun associé de la séparation des
+  tâches** (plus strict que les routes).
 - **Droits** : `GET /api/brief` exige `brief.lire` (tous les rôles du cabinet, l'expert externe
   compris ; jamais un rôle du portail). Chaque source n'est consultée que si l'utilisateur détient la
   permission de l'action qu'elle propose (jamais par nom de rôle) ET applique la visibilité des missions
@@ -974,24 +1099,27 @@ calcul fait à la demande, rien n'est stocké.
   `PORTAIL_ROUTE_INTERDITE`).
 - **Requête** : `?date=AAAA-MM-JJ` facultatif (rejeu à une autre date), borné de 2000 à 2100
   (`dateIsoBorneeSchema`), schéma strict ; réponse `private, no-store`.
-- **Plafond de débit EN MÉMOIRE (exception documentée au modèle `journal_audit`)** :
-  60 requêtes par utilisateur et par 10 minutes glissantes (429 `TROP_DE_REQUETES_BRIEF`),
-  contrôlé AVANT le calcul (`brief/debit.ts`). Les autres plafonds de débit du dépôt (PDF, copilote,
-  salle de mission) se comptent sur `journal_audit` ; celui-ci est une lecture que la page
-  d'accueil répète à chaque affichage, et une ligne de journal par affichage coûterait plus que le
-  calcul protégé. **Limite** : le compteur est propre à chaque processus de l'API (n instances : au
-  plus n fois 60) et repart à zéro au redémarrage ; il borne l'emballement d'un client ou d'un
-  script, pas un abus distribué (§15). Il suit au plus 10 000 utilisateurs, puis balaie les entrées
-  échues. Valeur à valider (`DECISIONS.md`).
+- **Plafond de débit PERSISTANT** : 60 requêtes par utilisateur et par 10 minutes (429
+  `TROP_DE_REQUETES_BRIEF`), contrôlé AVANT le calcul, par le limiteur persistant (`brief/debit.ts`, `auth/limiteur.ts`,
+  espace `brief_requetes`, migration `0550`, clé = identifiant de l'utilisateur en HMAC ; capacité
+  100 000 clés), donc partagé entre les instances de l'API et conservé au redémarrage. Il ne passe plus
+  par `journal_audit` ni par un compteur en mémoire (l'ancienne exception « plafond en mémoire » est
+  levée). Coût : une transaction courte en base par appel du brief. `0550` redéfinit
+  `tentatives_auth_regles` avec ses six espaces (`connexion`, `reauth`, `facteur`, `webhook_canal`,
+  `webhook_invalide`, `brief_requetes`) ; le migrateur applique par ordre alphabétique, donc toute
+  nouvelle redéfinition porte un numéro supérieur à `0550` et reprend les six espaces. Valeur à
+  valider (`DECISIONS.md`).
 - **Totaux « au moins N »** : les sources dont le filtre final se fait en code (garde humaine, solde,
   lecture bornée de missions ou de KPI) ne savent pas combien de lignes non lues auraient été
   retenues : la famille est marquée `tronque` et son total est un minimum, jamais un nombre gonflé
   de lignes peut-être écartées (`enSourceFiltree`). Chaque source lit au plus 50 lignes
   (`PLAFOND_PAR_SOURCE`) et chaque famille sert 10 éléments au plus.
-- **Sources écartées** (non reprises, faute d'état exploitable ou par choix) : offres techniques à
-  valider, plans, révisions de budget, rapports « validés non diffusés » (aucune trace de diffusion
-  n'existe pour les distinguer) ; un livrable signé n'est signalé que dans une fenêtre de 7 jours
-  après sa signature, une facture émise non envoyée que pendant 30 jours.
+- **Source encore écartée** : rapports « validés non diffusés ». `rapports_mission` est en ajout seul,
+  son `statut` `valide` est fixé à la génération par le code, et aucune table d'envoi, de partage du
+  portail ni de signature ne le référence (le seul vestige, `journal_audit` `telechargement`, est
+  interne) ; à rouvrir quand une trace de diffusion au client existera (§15). Un livrable signé n'est
+  signalé que dans une fenêtre de 7 jours après sa signature, une facture émise non envoyée que pendant
+  30 jours.
 - **Tâche quotidienne `brief_quotidien`** (`brief/quotidien.ts`, inscrite au `REGISTRE_JOBS`, test
   `jobs-registre.test.ts`) : planifiée chaque JOUR OUVRÉ (lundi à vendredi, sans jours fériés) à
   7 h UTC, une par cabinet ayant un utilisateur interne actif et par jour (clé `brief_quotidien:AAAA-MM-JJ`),
@@ -1054,11 +1182,12 @@ calcul fait à la demande, rien n'est stocké.
   | `MPK01-07` | champs figés d'un KPI, client de la mission, KPI inactif, date déjà mesurée, ajout seul, date hors suivi, 20 corrections | `0160` |
   | `MPK10-16`, `MPK20-27` | pilotage augmenté : rattachement d'un KPI, d'une alerte, d'une revue ou d'une décision à une autre mission (`MPK10`), champ figé (`MPK11`), parent de nœud invalide, aussi à la réactivation (`MPK12`), arbre trop grand : 50 nœuds actifs, 200 au total (`MPK13`), coefficient ≠ 1 sous un produit (`MPK14`), nœud non désactivable (`MPK15`), mission clôturée (`MPK16`), revue : statut initial, transition, contenu et compte rendu figés à la tenue, clôture avec suivi ouvert (`MPK20`–`MPK23`), décision hors revue tenue ou transition invalide (`MPK24`, `MPK25`), transition d'action invalide (`MPK26`), action rattachée à une revue qui n'est pas tenue (`MPK27`) | `0440`–`0445` |
   | `MPS01-08` | plan en ajout seul et rattachement figé, cohérence des éléments (dépendances, KPI d'objectif, cascade, évaluations de portefeuille : `MPS02`), auteur ≠ valideur, partage d'un contenu non validé, 200 versions du modèle ou changements de lien (`MPS05`), notation liée non publiée ou d'un autre client (`MPS06`), bibliothèque d'initiatives : variante qui ne reprend pas le code du standard, propriétaire ou numéro de version incohérent, observation sur une initiative d'un plan (`MPS07`), arbitrage de portefeuille incohérent ou écart sans motif (`MPS08`) | `0180`–`0184`, `0420`–`0423` |
-  | `MPR01-03` | rapport de notation, de plan ou de dossier bancaire : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`), dossier bancaire sans version VALIDÉE du modèle financier (`MPR03`) | `0131`, `0424` |
+  | `MPR01-05` | rapport de notation, de plan, de dossier bancaire, de note de due diligence ou de clôture du redressement : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`), dossier bancaire sans version VALIDÉE du modèle financier (`MPR03`), note de due diligence non validée ou périmée (`MPR04`, `0508`), source d'un rapport de clôture incohérente : bilan d'une autre mission, non validé, version différente (`MPR05`, `0551`, 409 `RED_CLOTURE_NON_VALIDEE`) | `0131`, `0424`, `0508`, `0551` |
   | `MPY01-11` | qualité : historiques en ajout seul, dont les relations entre clients et leurs retraits (`MPY01`), suivi (classe jamais abaissée, statut qui ne recule pas, livrable signé figé, empreinte du contenu relu figée : `MPY02`), élément de revue ajouté après validation (`MPY03`), session de revue close une fois (`MPY04`), étape de garde hors état (`MPY05`), signature d'un suivi non validé ou d'une autre version (`MPY06`), relation de clients en double, dans les deux sens (`MPY07`), validation ou signature sur un parcours de revue sans élément obligatoire (`MPY08`), niveau de risque d'acceptation abaissé après une décision (`MPY09`), attestation d'un item par l'auteur du livrable (`MPY10`), auteur désigné d'un livrable opaque qui n'est pas membre actif de la mission (`MPY11`) | `0280`–`0286` |
   | `MPV01-07` | registre des preuves : historique en ajout seul et champs figés d'une dimension (`MPV01`), cohérence mission, client, document, réponse ou lien, fichier lié rattaché à la mission ou au client de la preuve (ou orphelin téléversé par la personne qui saisit, jamais supprimé), auteur désigné membre actif de la mission (`MPV02`), versions consécutives (`MPV03`), avis d'expert signé par l'auteur de la version et par un expert métier ou un associé (`MPV04`), arbitrage d'une contradiction qui n'est plus courante (`MPV05`), classe de risque d'une assertion abaissée hors expert métier ou associé (`MPV06`), contradiction levée par l'auteur de l'assertion ou de la preuve contraire hors associé (`MPV07`) | `0240`–`0243` |
   | `MPM01-08` | référentiel de méthodes : version publiée et son contenu immuables (`MPM01`), incohérence de propriétaire, de numérotation ou d'identité (`MPM02`), historiques en ajout seul (liaison des missions, validations de dérogation, propositions : `MPM03`), décision de dérogation définitive, approuvée par son demandeur ou sans les validations exigées par sa classe de risque, quatre yeux (`MPM04`), circuit du comité méthode et relecteur ≠ auteur (`MPM05`), version liée à une mission non publiée, d'un autre cabinet ou plus ancienne (`MPM06`), variante publiée qui abaisse la classe de risque ou relève le niveau d'autonomie d'une brique du standard (`MPM07`), variante publiée par le créateur de la version hors associé (`MPM08`) | `0201`–`0203`, `0207`, `0209` |
   | `MPG01-11` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt, choix d'un modèle ou exécution d'agent sans évaluation de non-régression réussie et admise (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`), validation d'un contenu issu d'une sortie d'agent non conforme (`MPG06`), classe de risque d'une brique sous le plancher de la méthode ou R0 déclarée hors associé (`MPG07`), restriction posée par un associé levée par un non-associé ou décision sur une exécution par qui n'en est ni le déclencheur, ni le chef ou directeur de la mission, ni associé (`MPG08`), demande de rejeu réel incohérente : transition d'état interdite, demande terminée modifiée, jeu ou prompt étranger, évaluation `openrouter` sans demande en cours du même prompt, jeu et modèle ou sans ses appels inscrits, demande « reussie » sans évaluation réussie issue d'elle (`MPG09`, traduit en 409 `EVALUATION_INCOHERENTE`), proposition d'action du copilote terminée ou transition interdite : une proposition naît « proposee », ne quitte cet état qu'une fois (confirmee, annulee, expiree, refusee) et ne change plus (`MPG10`), identité d'une proposition modifiée, confirmation sans résultat, ou anonymisation autre que celle prévue (`MPG11`) ; `MPG10` et `MPG11` traduits en 409 par `copilote/erreurs.ts` | `0260`–`0267`, `0270`, `0271`, `0274` |
+  | `MPG12-15` | rejeu réel des évaluations OpenRouter, provenance gardée par la base (`0275`) : écriture réservée au job de rejeu : demande en cours, appel d'évaluation, évaluation `openrouter` ou job de rejeu écrits à la main, ou consommation portant `evaluation_demande_id` (`MPG12`, API 409 `ECRITURE_RESERVEE_REJEU`), job invalide ou contexte absent : job d'un autre type, d'un autre cabinet, non `en_cours` ou sans demande (`MPG13`), demande dans un état incompatible (`MPG14`), paramètre invalide : horodatage, jetons, coût ou durée hors bornes (`MPG15`) ; `MPG13` à `MPG15` traduits en 409 `EVALUATION_INCOHERENTE` ; `MPG16`–`MPG20` libres | `0275` |
   | `MPO01-04` | dossier client : tout en ajout seul (`MPO01`), remplacement d'un fait (même client, catégorie et clé, jamais un fait rejeté) ou d'un état financier (état courant du même exercice, un seul courant par exercice) (`MPO02`), décision sur un enregistrement remplacé ou fait extrait par l'IA confirmé dans sa transaction de création (`MPO03`), lignes d'état ajoutées hors de l'ingestion, acceptation automatique d'un état en écart ou de tolérance non nulle, acceptation humaine d'un état en écart ou de tolérance non nulle sans motif (`MPO04`) | `0220`–`0224` |
   | `MPX01-03` | clôture de mission (AUT-08) : historiques des vérifications et des dérogations en ajout seul (`MPX01`), dérogation accordée ou retirée par un utilisateur qui n'est ni associé ni directeur de mission actif (`MPX02`), clôture par l'auteur d'une dérogation en vigueur hors associé (`MPX03`) | `0320`–`0323` |
   | `MPU01-05` | moteur d'automatisation : historiques en ajout seul (`MPU01`), coupe-circuit levé par un non-associé (`MPU02`), annulation d'une action non annulable ou non réussie (`MPU03`), action vers le client autorisée hors classe R0 (`MPU04`), version courante absente ou événement incohérent, action d'une exécution non déclenchée, résultat incompatible avec la garde (`MPU05`) | `0300`, `0301` |
@@ -1067,7 +1196,12 @@ calcul fait à la demande, rien n'est stocké.
   | `MPW01-06` | banques et offres d'appels d'offres (lot AO-B) : tout en ajout seul, seuls le retrait motivé d'une pièce (une fois) et l'anonymisation d'un CV (`MPW01`), versions consécutives (`MPW02`), mission d'une référence qui n'est pas celle du client cité ou validation d'une version d'offre technique qui n'est pas la dernière (`MPW03`), validation d'un brouillon IA sans acquittement de ses nombres non vérifiés (`MPW04`), validation d'une offre technique par son créateur, l'auteur d'une version ou le demandeur d'un brouillon IA hors associé (`MPW05`), CV inconnu, déjà anonymisé ou nouvelle version sur un CV anonymisé (`MPW06`) | `0380`–`0383`, `0385`, `0386` |
   | `MPJ01-08` | capitalisation : historiques en ajout seul (`MPJ01`), circuit du retour d'expérience : validation définitive d'une version existante, versions consécutives (`MPJ02`), rattachement tâche-brique sur une mission clôturée (`MPJ03`), niveau de compétence validé par la personne évaluée ou par son déclarant hors associé (`MPJ04`), incohérence mission, retour, collaborateur ou compétence (`MPJ05`), déclaration de niveau déjà en attente pour le couple (`MPJ06`), plus de 50 déclarations par couple (`MPJ07`), retour validé par qui n'est ni associé, ni chef, ni directeur de la mission, ou n'est pas l'utilisateur de la session (`MPJ08`) | `0460`–`0463`, `0465` |
   | `MPN08-12` | notation augmentée : item de banque validé figé, créé hors brouillon ou incohérent avec son contenu (`MPN08`), sélection d'items en ajout seul citant un item non validé, une formulation hors de l'item ou un item en double (`MPN09`), indice de confiance en ajout seul ou sous le seuil courant, publication sans indice publiable de la même transaction (`MPN10`), session de calibrage figée hors clôture par un expert métier, cotation sur session close, cas inconnu ou niveau hors échelle (`MPN11`), initiative type supprimée ou code figé, impacts et plans d'action en ajout seul, plan sur une version d'une autre notation (`MPN12`) ; plancher du seuil de confiance (≥ 0,3) et de la cible de répondants (≥ 2) par CHECK `NOT VALID`, sans SQLSTATE dédié | `0400`–`0404` |
-  | `MPZ01-11` | redressement (service #5, lot 3a ; lettre `Z` partagée avec la due diligence : `MPZ01-20` réservés au redressement, `MPZ21-32` à la due diligence) : historiques en ajout seul (`MPZ01`), rattachement incohérent : mission et client du dossier, seuils d'un score non publiés, d'un autre secteur ou non identiques, échéance d'un autre créancier (`MPZ02`), mission clôturée ou dossier clos (`MPZ03`), champ figé (`MPZ04`), versions non consécutives ou publication d'une version qui n'est pas la dernière (`MPZ05`), transition de statut invalide (`MPZ06`), séparation des tâches : plan validé par son créateur ou par un rôle non habilité, seuils publiés par leur auteur ou par un rôle non habilité, hors associé (`MPZ07`), réalisé de trésorerie qui ne remplace pas la ligne courante (`MPZ08`), négociation incohérente (`MPZ09`), plafond de volume atteint (`MPZ10`), plus de 10 corrections d'un réalisé de semaine (`MPZ11`) ; traduits par `traduireErreurRedressement` (`redressement/erreurs.ts`), jamais en 500 | `0480`–`0486` |
+  | `MPZ01-20` | redressement (service #5, lots 3a et 3a-bis ; lettre `Z` partagée avec la due diligence : `MPZ01-20` au redressement, tous pris, la lettre est épuisée pour lui, `MPZ21-32` à la due diligence) : historiques en ajout seul (`MPZ01`), rattachement incohérent : mission et client du dossier, seuils d'un score non publiés, d'un autre secteur ou non identiques, échéance d'un autre créancier (`MPZ02`), mission clôturée ou dossier clos (`MPZ03`), champ figé (`MPZ04`), versions non consécutives ou publication d'une version qui n'est pas la dernière (`MPZ05`), transition de statut invalide (`MPZ06`), séparation des tâches : plan validé par son créateur ou par un rôle non habilité, seuils publiés par leur auteur ou par un rôle non habilité, hors associé (`MPZ07`), réalisé de trésorerie qui ne remplace pas la ligne courante (`MPZ08`), négociation incohérente (`MPZ09`), plafond de volume atteint (`MPZ10`), plus de 10 corrections d'un réalisé de semaine (`MPZ11`) ; lot 3a-bis : check-list archivée figée (`MPZ12`), historique des causes en ajout seul, rangs consécutifs, contenu modifiable seulement avec un rang « modifié » de la même transaction (`MPZ13`), cartographie d'origine IA « validée » sans dernier rang « validé » ou sans nombres non vérifiés acquittés (`MPZ14`), covenant en doublon ratio/opérateur ou plancher > plafond (`MPZ15`), période hors du plan de financement (`MPZ16`), bilan de clôture validé figé (`MPZ17`), validation sans contrôles de complétude vrais (`MPZ18`), suivi d'un dossier non clos (`MPZ19`), suivi incohérent (`MPZ20`) ; `0492` réutilise `MPZ07` pour la validation du plan et du bilan par un autre que le directeur de la mission, ou sur une mission sans directeur (message distinct, aucun nouveau code) ; traduits par `traduireErreurRedressement` (`redressement/erreurs.ts`), jamais en 500 | `0480`–`0492` |
+  | `MQS01-02` | référentiel de méthodes, second préfixe `MQ` (§5 ter) : identité, type ou porteur d'un facteur figés, facteur du standard (`MQS01`) ; valeur d'énumération retirée ou borne resserrée (`MQS02`) ; `MQS03` et suivants libres | `0210` |
+  | `MQQ01-12` | revue à froid des missions clôturées (QUA-05) : table complète en §5 ter ; `MQQ13` et suivants libres | `0287`–`0289` |
+  | `MQF01-04` | groupes et filiales (DOS-05) : cycle de détention (`MQF01`), total des parts supérieur à 100 % (`MQF02`), fin de détention sans détention antérieure (`MQF03`), profondeur de plus de 8 liens (`MQF04`) ; tous traduits en 409 par `dossier/erreurs.ts` ; `MQF05` et suivants libres | `0225` |
+  | `MQD01-11` | due diligence, portail investisseur et modèles sectoriels (§8 octies) : `MQD01` compte non admissible à une invitation, `MQD02` invitation incohérente, `MQD03` version de note non publiable, `MQD04` instantané incohérent avec la note, `MQD05` publication déjà active pour la note, `MQD06` retrait incohérent, `MQD07` pièce non admissible, `MQD08` plafond atteint (portail investisseur), `MQD11` modèles sectoriels ; `MQD09`, `MQD10`, `MQD12`–`MQD20` libres (réservés à ces chantiers par `0509`) | `0509`, `0511` |
+  | `MQL01-24` | plans stratégiques (§5 bis) : `MQL01`–`MQL08` ateliers en ligne, `MQL09` réservé non employé, `MQL10`–`MQL14` simulation de Monte-Carlo (ajout seul, version du modèle, 100 simulations par plan, résultat figé, 30 par utilisateur et par 10 minutes), `MQL15`–`MQL24` plan vivant (réalisés et re-prévisions) ; `MQL25` et suivants libres | `0425`–`0426`, `0429`–`0431` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -1333,11 +1467,18 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   d'expérience (`capitalisation/ia.ts`, §5 sexies) et l'appel d'un agent par une
   automatisation (job `automatisation_agent`, §5 quinquies, qui passe par
   `executerAgent`) ; ni la notation, ni les plans, ni les rapports ne lancent de
-  génération (rédaction assistée non faite) ; seul le routage du copilote (AGT-08, plus bas) appelle
-  le fournisseur sans passer par l'orchestrateur, et ne produit aucun contenu.
+  génération (rédaction assistée non faite) hormis, depuis le 2026-10-21, les trois brouillons du lot 5a
+  (explication de la notation, synthèse d'un atelier, explication d'une re-prévision, §5 bis, rattachés à
+  `ia_demandes.entite_type` et `entite_id`) et les causes racines du redressement
+  (`redressement/causes-ia.ts`, seul fichier du module qui importe `ia/`, §8 nonies). Le routage du copilote
+  (AGT-08, plus bas) ne produit aucun contenu, mais ne contourne plus l'orchestrateur : il passe par
+  son point d'entrée `admettreSansDemande` / `appelerSansDemande` (`ia/orchestrateur.ts`).
 - **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0267` et
   `0270`, `agents/`, `routes/agents.ts`) : l'orchestrateur reste le SEUL composant qui
-  appelle un modèle pour produire un contenu (le routage du copilote, plus bas, est la seule exception) ;
+  appelle un modèle (le routage du copilote, plus bas, passe lui aussi par son point d'entrée
+  `admettreSansDemande` / `appelerSansDemande` : plus aucun import de `fournisseurDepuisConfig` dans
+  `apps/api/src/copilote/`, inventaire dans `copilote-masquage-noms.test.ts` ; le fournisseur n'est appelé que
+  depuis l'orchestrateur et le rejeu `agents/evaluations-openrouter.ts`) ;
   une exécution d'agent EST une demande de l'orchestrateur
   (`agents/executions.ts` : `executerAgent`, `enregistrerExecutionAgent`).
   - **Droits du déclencheur** : `ia.utiliser` et les permissions déclarées par
@@ -1407,8 +1548,15 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     (ci-dessous). Les routes `routes/ia-prompts.ts` et `routes/ia-parametres.ts`
     traduisent `MPG04` en 409 `NON_REGRESSION_REQUISE` ; une nouvelle version d'un
     prompt doté d'un jeu d'essai est créée inactive quand `activer` est omis (409
-    si `activer: true` explicite : elle n'a encore aucune évaluation). **Limite** :
-    revenir au modèle recommandé n'est pas gardé.
+    si `activer: true` explicite : elle n'a encore aucune évaluation). Depuis `0276`, l'activation
+    exige une évaluation sur le modèle ROUTÉ du cabinet (`ia_modeles_taches`, sinon le modèle
+    recommandé : `modele_route`, `modele_recommande`) et `controler_execution_evaluee` est alignée ;
+    l'ancienne limite « `prompt_evalue` avec un modèle nul » est levée. **Limite** : revenir au modèle
+    recommandé (suppression de la ligne de `ia_modeles_taches`) n'est pas gardé à l'activation ;
+    l'exécution d'un prompt non évalué avec ce modèle reste refusée (filet `exigerPromptEvalue`).
+    `modele_recommande()` en SQL duplique `MODELES_RECOMMANDES` (`ia/modeles.ts`) : un test les compare, et
+    changer un modèle recommandé exige une migration. Reste non contrôlé : un contenu client réel dans
+    un jeu d'essai.
   - **Rejeu réel sur OpenRouter** (AGT-04, migration `0270`,
     `agents/evaluations-openrouter.ts`, job `agents_evaluation_openrouter`) :
     - **Provenance** : une évaluation `fournisseur = 'openrouter'` n'existe que née d'une
@@ -1418,9 +1566,25 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
       nombre de cas et, pour une évaluation réussie, au moins `cas_total` appels inscrits en
       succès dans `ia_consommations` (colonne `evaluation_demande_id`) ; SQLSTATE `MPG09`
       (409 `EVALUATION_INCOHERENTE`). Une évaluation incomplète, échouée ou arrêtée par un
-      plafond a `reussie = false` et ne peut jamais activer. **Limite** : ces gardes arrêtent
-      un `INSERT` direct ou un code qui oublierait la provenance ; elles n'arrêtent pas du SQL
-      arbitraire exécuté par le même rôle applicatif (§15).
+      plafond a `reussie = false` et ne peut jamais activer. **Garde de provenance faite dans la mesure
+      du possible (`0275`, 2026-10-21)** : trois fonctions `SECURITY DEFINER`, `rejeu_evaluation_demarrer`,
+      `rejeu_evaluation_inscrire_appel` et `rejeu_evaluation_terminer` (§4), sont désormais les SEULES
+      à écrire la demande en cours, les appels d'évaluation et l'évaluation `openrouter` ; le rôle
+      applicatif perd les droits d'écriture directs (INSERT de `agents_evaluations` limité aux 12
+      colonnes d'une évaluation locale ; INSERT de `agents_evaluations_demandes` limité à 8 colonnes et
+      UPDATE limité à `statut`, `cause`, `termine_le`, `job_id`) ; un INSERT dans `ia_consommations`
+      portant `evaluation_demande_id` est refusé par déclencheur (`MPG12`, 409
+      `ECRITURE_RESERVEE_REJEU`) ; les jobs `agents_evaluation_openrouter` naissent `en_attente` avec
+      `tentatives_max = 1`, type, charge, clé et cabinet figés, et ne sont jamais `en_cours` à la main ;
+      un contexte ou un job d'un autre cabinet est refusé (`MPG13`), une demande dans un état incompatible
+      aussi (`MPG14`), un paramètre hors bornes (jetons d'entrée ≤ 2 000 000, de sortie ≤ 1 000 000, coût
+      ≤ 100 USD, durée ≤ 1 h, horodatages du job : 1 minute avant le début, 1 jour après maintenant) de même
+      (`MPG15`). **Limite résiduelle** : du SQL arbitraire à plusieurs instructions du même rôle applicatif
+      peut mettre en file une demande et son job, réserver ce job lui-même par `reserver_job_a` (accordée
+      à ce rôle) puis appeler les trois fonctions en déclarant des appels `succes` (coût, jetons et issue
+      sont déclarés par l'appelant : la base ne connaît pas les tarifs) ; les traces restent (évaluation et
+      appels en ajout seul, `job_id` posé une fois) mais la ligne du job reste supprimable. La garde
+      complète suppose un rôle PostgreSQL distinct pour le worker (§15).
     - **Coût** : plafond par évaluation de 2 USD (`PLAFOND_EVALUATION_MICRO_USD`, à valider)
       vérifié avant chaque appel sur le coût engagé et l'estimation du cas ; plafond mensuel du
       cabinet réservé avant chaque appel (`reserverAppel`) ; les appels comptent dans
@@ -1484,18 +1648,27 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     lisible et le plafond mensuel non atteint (réservation du coût sous verrou avant l'appel, une
     seule tentative payante, coût réel inscrit dans `ia_consommations` avec `copilote = true`, `0272`) ;
     sinon, ou en cas d'erreur du fournisseur, le routage déterministe répond et la réponse porte
-    « mode sans IA » avec sa raison. Le copilote appelle le fournisseur unique (`ia/fournisseur.ts`) sans
-    passer par l'orchestrateur (aucune demande de génération ni garde des chiffres : rien d'autre que le
-    choix d'un outil ne revient du modèle).
-  - **Outils** (catalogue fermé du moteur) : six de LECTURE (mes tâches, feuilles de temps à soumettre,
-    résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07), chacun sous
+    « mode sans IA » avec sa raison. Depuis le 2026-10-21, aucun appel direct au fournisseur depuis
+    `copilote/` : le routage passe par le point d'entrée `admettreSansDemande` / `appelerSansDemande` de
+    `ia/orchestrateur.ts` (admission, réservation du plafond sous verrou, une seule tentative, règlement, coût
+    avec `copilote = true`, journal sans contenu), sans demande de génération ni garde des chiffres : rien
+    d'autre que le choix d'un outil ne revient du modèle. Le journal d'échange ajoute `termes_masques` (un
+    compte seulement).
+  - **Outils** (catalogue fermé du moteur) : huit de LECTURE (mes tâches, feuilles de temps à soumettre,
+    résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07, et depuis le
+    2026-10-21 `missions_en_retard` et `retard_feuilles_temps`), chacun sous
     la permission de l'écran qui sert la même information (`copilote/catalogue.ts`) et la visibilité des
-    missions ; une mission inexistante, d'autrui ou invisible répond la même phrase que l'accès refusé. Les
+    missions. `missions_en_retard` : `mission.lire`, missions dont l'utilisateur est directeur, chef ou membre,
+    jalon non atteint dépassé, ou date de fin dépassée pour une mission signée ou en cours.
+    `retard_feuilles_temps` : `temps.saisir` ET (`temps.valider` OU `indicateurs.cabinet` OU
+    `mission.lire_toutes`), périmètre de `routes/discipline-temps.ts`, quatre dernières semaines écoulées, des
+    noms et des nombres de semaines seulement ; une mission inexistante, d'autrui ou invisible répond la même phrase que l'accès refusé. Les
     « factures échues » suivent la permission de la balance âgée (`facture.lire` et `encaissement.gerer` ou
     `indicateurs.cabinet`), les montants exigent en plus `finance.lire` (FIN-02, champ absent). Les réponses
     ne recopient aucun contenu client (verbatim, réponse de questionnaire, extrait de document) et sont
     bornées à 10 éléments.
-  - **UNE action modifiante, `creer_tache`, JAMAIS exécutée directement** : proposition stockée dans
+  - **TROIS actions modifiantes, `creer_tache`, `ajouter_commentaire` et `planifier_relance`, JAMAIS exécutées
+    directement** (le texte qui suit décrit le mécanisme commun, établi pour `creer_tache`) : proposition stockée dans
     `copilote_actions` (`0271` ; RLS `isolation` et `portail_interdit`, `REVOKE DELETE`, `UPDATE` limité aux
     colonnes de décision) avec paramètres déjà validés et résolus, résumé construit par le code, empreinte
     SHA-256 des paramètres et expiration à 5 minutes ; transitions en ajout seul (`MPG10` : état terminal figé ;
@@ -1505,7 +1678,17 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     (retirée : proposition « refusee », 403) et l'empreinte relue (altérée : « refusee ») ; l'écriture passe par
     le service commun `collaboration/taches.ts`, le même que `POST /taches-collaboration`, sous les droits de
     l'utilisateur (entité visible des deux personnes, assigné interne actif), le journal notant `via:
-    copilote`. L'annulation est permise à tout niveau.
+    copilote`. L'annulation est permise à tout niveau. **`ajouter_commentaire`** (`copilote/action-commentaire.ts`) :
+    texte de 600 caractères au plus, stocké dans `copilote_actions.parametres` et `resume` (donc anonymisé à 30
+    jours, ci-dessous), jamais dans le journal d'échange ; l'écriture passe par `collaboration/commentaires.ts`,
+    extrait sans changement de comportement de `routes/commentaires.ts`. **`planifier_relance`**
+    (`copilote/action-relance.ts`) : relance MANUELLE de niveau suivant d'une facture échue, **sans e-mail au
+    client** et sans montant dans le résumé ; service commun `finance/relance-manuelle.ts` (extrait de
+    `routes/relances.ts`) ; **une relance copilote par facture et par jour**, règle revérifiée À LA CONFIRMATION
+    sous verrou consultatif par facture : la seconde confirmation répond 409 `RELANCE_DEJA_ENREGISTREE` (la
+    proposition reste « proposee » jusqu'à son expiration). Sous N1, les outils d'action sont retirés de l'aide
+    et du catalogue envoyé au modèle ; une demande d'action reçoit 200 `statut: refuse` (« Cette action n'est
+    pas disponible… ») au lieu de 409, tandis que la confirmation d'une proposition antérieure reste 409.
   - **Niveau d'autonomie effectif ≥ N2 pour proposer et confirmer** (409 `COPILOTE_ACTION_NON_AUTORISEE`) ;
     la lecture dès N1 ; agent désactivé ou N0 : 409 `COPILOTE_DESACTIVE` (message compris). Le registre standard
     relève le plafond du copilote de N1 à N2 par la version 2 de l'agent (`0273`, ajout seul `MPG01`) ; un
@@ -1532,9 +1715,19 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     par cabinet et par jour, clé `copilote_purge:AAAA-MM-JJ`, `planifier_purge_copilote`, inscrit au
     `REGISTRE_JOBS`) ; une proposition « proposee » échue est d'abord marquée « expiree ». Le déclencheur
     n'admet que cette anonymisation, jamais un `UPDATE` libre (modèle `0104`).
-  - **Limites** : un nom propre tapé dans le message (collaborateur, client, mission) part en CLAIR vers le
-    fournisseur, le masque du copilote n'ayant aucun terme sensible (`creerMasque([])`) ; **aucune vérification
-    avec un vrai modèle** (aucune clé) : qualité du routage et format JSON réel non vérifiés (§15).
+  - **Masquage des noms connus du cabinet** (`copilote/noms-propres.ts`, 2026-10-21) : les raisons sociales des
+    clients, noms des utilisateurs, des contacts clients et intitulés de missions, écrits EN ENTIER, sont masqués
+    avant envoi (jetons restitués localement), en plus des formats de §7 bis « Masquage avant envoi ».
+  - **Conversation du navigateur.** La conversation peut être conservée dans le `sessionStorage` de l'onglet
+    (`lib/copilote-session.ts`) : jamais envoyée au serveur, 20 questions au plus, 30 minutes d'inactivité,
+    bouton « Effacer la conversation » (aussi appelé par `BoutonDeconnexion`), propositions d'action en attente
+    jamais restaurées, portée = identifiant de l'utilisateur. Le serveur ne conserve toujours aucune
+    conversation.
+  - **Limites** : PARTENT en CLAIR vers le fournisseur un nom absent des fiches du cabinet, un fragment seul
+    (prénom, un mot d'une raison sociale), une faute de frappe ou des lettres espacées, le texte libre autour,
+    le nom d'un autre cabinet tapé par l'utilisateur ; au-delà de 2 000 noms candidats par table ou de 200 noms
+    distincts par message, le surplus part en clair ; **aucune vérification avec un vrai modèle** (aucune
+    clé) : qualité du routage et format JSON réel non vérifiés (§15).
 
 ## 8. Fichiers privés
 
@@ -1645,13 +1838,24 @@ du stockage (§8 bis).
   `mission.lire`, `plan.lire` ET `plan.valider`, une version VALIDÉE du modèle financier (409
   `MODELE_NON_VALIDE`, doublé en base : `MPR03`), ne reprend que des contenus validés et PAS l'annexe
   « Sources » (registre des preuves interne) ; niveau « plan », même suivi qualité et mêmes plafonds
-  que les autres rapports. Le **dossier de revue de performance** des KPI (§5 quater) est rendu par
+  que les autres rapports. **Rapport de clôture du redressement** (RED-08, `0551`, modèle
+  `cloture_redressement`, niveau `red`, §8 nonies) et **rapport d'état financier** du dossier client (`0552`,
+  modèle `etat_financier`, niveau `dossier`, `POST
+  /api/dossiers/:id/rapports/etat-financier?format=pdf|docx&mission_id&exercices`, corps facultatif
+  `{commentaire}`, moteur pur `synthese-etats.ts`, lecture `dossier.lire`) : données DU CLIENT, jamais FIN-02,
+  jamais de commentaire produit par l'IA (non branché). `0551` puis `0552` REDÉFINISSENT successivement les
+  contraintes `modele_check`, `niveau_check` et `source_check` de `rapports_mission` (après `0508`) en
+  reprenant l'UNION en vigueur ; toute nouvelle redéfinition porte un numéro supérieur à `0552` et reprend
+  cette union (modèles `etat_avancement`, `notation`, `plan_strategique`, `dossier_bancaire`, `note_comite`,
+  `cloture_redressement`, `etat_financier` ; niveaux `base`, `jours`, `finance`, `notation`, `plan`, `dd`,
+  `red`, `dossier`) ; `0552` fonctionne avec ou sans la colonne `red_cloture_id`. Le **dossier de revue de performance** des KPI (§5 quater) est rendu par
   la même infrastructure (PDF, Word, PowerPoint) mais n'est pas enregistré ; il porte la mention
   de confidentialité neutre des rendus.
 - **Niveau** calculé par le code d'après les sections incluses
   (`rapports/niveaux.ts`) : `base`, `jours` (`budget.lire_jours`), `finance`
   (`budget.lire_jours` et `finance.lire`), `notation` (`notation.lire`), `plan`
-  (`plan.lire`). Lecture revérifiée à **chaque**
+  (`plan.lire`), `dd` (`dd.lire`, note au comité), `red` (`redressement.lire`, rapport de clôture du
+  redressement, fermé au portail) et `dossier` (`dossier.lire`, rapport d'état financier). Lecture revérifiée à **chaque**
   appel : mission visible, `mission.lire` et permissions du niveau, sans
   condition d'auteur (`stockage/fichiers.ts`).
 - **Débit** : au plus 10 générations par utilisateur sur 10 minutes glissantes
@@ -1764,13 +1968,21 @@ migrations `0240`–`0242`, durcissement `0243` (audit du 2026-10-08).
   détection automatique des contradictions (agent contradicteur) n'existe pas
   encore, le lien « contre » est posé par un consultant ; le lien vers un fichier
   est vérifié par rattachement (`MPV02`), pas contre le droit de lecture du fichier ;
-  PRV-06 : l'annexe des sources des rapports PDF et Word est faite
-  (§8 bis), pas les citations cliquables des livrables web.
+  PRV-06 : l'annexe des sources des rapports PDF et Word (§8 bis) ET les
+  citations du web sont faites (lot 4b, 2026-10-21, voir ci-dessous).
+- **Sources d'un livrable (PRV-06 web)** : `GET /api/missions/:id/livrables/:livrable/sources` et
+  `GET /api/missions/:id/livrables/:livrable/sources/:preuveId`, sous `preuve.lire` ET mission visible
+  (`preuves/citations.ts`, qui produit aussi la numérotation [n] de l'annexe « Sources » des exports, donc
+  la même pour le web et les fichiers). L'ouverture d'une citation répond **404** si la preuve n'est pas citée
+  par ce livrable de cette mission (même 404 qu'une preuve inexistante ou d'autrui) ; le verbatim nominatif sans
+  accord reste masqué pour tous (`vuePreuve`). Composant `components/preuves/CitationsLivrable.tsx` monté sur
+  les pages du plan et de la notation. Le rapport « dossier bancaire », destiné à une banque, n'a toujours pas
+  d'annexe de sources. Routes fermées au portail.
 
 ## 8 quater. Dossier client vivant (DOS-01 à DOS-07)
 
 Routes de `routes/dossier-client.ts`, logique dans `apps/api/src/dossier/`, tables
-des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
+des migrations `0220`–`0225`, moteurs `packages/engines/src/dossier/`.
 
 - **Droits et visibilité** (règle écrite en tête de `dossier/acces.ts`) :
   `dossier.lire` pour lire, `dossier.ecrire` pour écrire et exporter, toujours sur
@@ -1778,7 +1990,8 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
   client dont on voit au moins une mission (directeur, chef, équipe). La fiche
   client (`clients.lire`) n'ouvre pas le dossier. Dossier invisible, d'un autre
   cabinet ou inexistant : même 404. Aucune route n'est ouverte au portail client :
-  `portail_interdit` sur les sept tables, aucune entrée dans `LISTE_BLANCHE_PORTAIL`.
+  `portail_interdit` sur les huit tables (sept en `0220`–`0224`, plus `dossier_participations`),
+  aucune entrée dans `LISTE_BLANCHE_PORTAIL`.
 - **Ajout seul** : faits, décisions, facteurs, états, lignes, décisions d'état,
   instantanés de fiabilité et exports ne se modifient ni ne se suppriment
   (`REVOKE UPDATE, DELETE`, déclencheurs `MPO01`, même pour le propriétaire). Une
@@ -1831,15 +2044,30 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
   `DOSSIER_PLEIN` ; écritures d'un dossier sérialisées par verrou consultatif.
 - **Codes d'erreur** : `VALIDATION_REQUISE`, `DOSSIER_PLEIN`, `DOSSIER_AJOUT_SEUL`,
   `REMPLACEMENT_INVALIDE`, `DECISION_INVALIDE`, `ACCEPTATION_REFUSEE`,
-  `DEJA_DECIDE`, `DEJA_REMPLACE`, `CONTEXTE_INVALIDE` (400), `IMPORT_INVALIDE` (lignes en erreur dans
-  `erreur.details.erreurs`), `EXCEL_INVALIDE`, `FICHIER_TROP_VOLUMINEUX`,
+  `DEJA_DECIDE`, `DEJA_REMPLACE`, `CONTEXTE_INVALIDE` (400), `IMPORT_INVALIDE` (`AppError` depuis le lot 4b, lignes en erreur dans
+  `erreur.details.erreurs`, tronquées à 200 lignes par la liste blanche de `errors.ts`, le message donnant le total), `EXCEL_INVALIDE`, `FICHIER_TROP_VOLUMINEUX`,
   `FICHIERS_OCCUPE`, et les codes du moteur (`LIGNES_INVALIDES`,
   `CODE_LIGNE_INVALIDE`, `CODE_LIGNE_EN_DOUBLE`, `PARENT_INCONNU`,
   `PARENT_INVALIDE`, `CYCLE_PARENTS`, `ROLE_INVALIDE`, `MONTANT_INVALIDE`,
   `TOLERANCE_INVALIDE`).
+- **Groupes et filiales (DOS-05, lot 4b, `0225`, mise à jour du 2026-10-21)** : table
+  `dossier_participations` (une participation = détenteur, filiale, points de base 0 à 10 000, date d'effet,
+  motif ; 0 point = fin de détention, motif obligatoire), en ajout seul, RLS `isolation` + `portail_interdit`
+  RESTRICTIVE, **jamais ouverte au portail** (aucune route dans `LISTE_BLANCHE_PORTAIL`). SQLSTATE
+  `MQF01` cycle, `MQF02` total des parts supérieur à 100 %, `MQF03` fin de détention sans détention
+  antérieure, `MQF04` profondeur de plus de 8 liens (ajouté par la correction de relecture du 2026-10-21) ;
+  l'API répond **409** pour tout refus de détention, qu'il vienne du moteur ou du déclencheur
+  (`dossier/erreurs.ts`) ; l'auto-détention reste 400. Routes `GET /api/dossiers/:id/groupe`, `GET` et `POST
+  /api/dossiers/:id/participations` (`dossier.lire` / `dossier.ecrire`, dossier visible exigé). Moteur pur
+  `packages/engines/src/dossier/groupe.ts` : parts directes et cumulées exactes (BigInt, tous chemins),
+  consolidation simple (seuil de contrôle supérieur à 50 % pour la vue intégrale ; conversion EUR, XAF et XOF
+  au taux fixe 655,957, USD exclu et consolidation marquée partielle ; pas une consolidation légale). **Un
+  dossier non visible de l'utilisateur apparaît comme nœud anonyme** (niveau et part, sans identifiant, nom ni
+  montant) et son état est exclu de la consolidation, signalée « partielle ». **FIN-02** : la réponse ne porte
+  que des données du client, identique avec ou sans `finance.lire`. Le rapport d'état financier du groupe est
+  réservé à `dossier.lire` (§8 bis).
 - **Limites connues** : l'extraction par l'IA depuis un PDF (DOS-03) n'est pas
-  branchée (la colonne `origine` l'accueillera) ; groupes et filiales (DOS-05) hors
-  lot ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
+  branchée (la colonne `origine` l'accueillera) ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
   visible) ; barème de
   fiabilité et seuils de classe posés par défaut, à calibrer au pilote.
 
@@ -1862,8 +2090,21 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
 - **Immuabilité** : version publiée et son contenu figés (`MPM01`, même pour le
   propriétaire) ; une version se crée en brouillon ; `mission_methodes`,
   `derogation_validations` en ajout seul (`MPM03`, `REVOKE UPDATE, DELETE`) ;
-  dictionnaire, facteurs, services et notes en ajout seul pour le rôle
-  applicatif (`REVOKE UPDATE, DELETE`).
+  dictionnaire, services et notes en ajout seul pour le rôle
+  applicatif (`REVOKE UPDATE, DELETE`). **Exception STD-11 (lot 4a, `0210`, 2026-10-21)** : `facteurs_contexte`
+  accorde au rôle applicatif `UPDATE (libelle, description, valeurs, min, max)` seulement (jamais l'identité :
+  code, type, porteur, propriétaire ; `DELETE` toujours refusé), sous la politique `isolation` : une ligne du
+  standard (`cabinet_id` NULL) n'est jamais modifiable. Le déclencheur `controler_modification_facteur`, qui
+  vaut aussi pour le propriétaire, refuse l'identité modifiée ou un facteur du standard (`MQS01`, 409
+  `FACTEUR_FIGE`) et une valeur d'énumération retirée ou une borne resserrée (`MQS02`, 409
+  `FACTEUR_RETRAIT_INTERDIT`) : un facteur lu par des règles, des cas types et des contextes déjà enregistrés
+  s'enrichit, il ne s'appauvrit pas. Un facteur du standard modifié par l'API : 403 `STANDARD_LECTURE_SEULE`.
+- **Routes ajoutées par STD-11** (cinq, toutes sous `exiger`, fermées au portail) : `PATCH
+  /api/methodes/versions/:id/elements/:enfantId`, `PATCH …/rubriques/:enfantId`, `PUT
+  …/cas-types/:enfantId`, `PATCH /api/standard/facteurs/:id` (`standard.gerer`) et `POST
+  /api/methodes/versions/:id/apercu` (`standard.lire`, n'écrit rien). Le contrôle de cohérence
+  `REGLES_CONTRADICTOIRES` (deux règles actives de même priorité, de condition identique et d'effets
+  contraires) est une ERREUR bloquante ; `CONFLIT_MEME_PRIORITE` reste un avertissement.
 - **Variante du cabinet** (STD-02, `0207`) : publier une variante exige le quatre yeux
   (le créateur de la version ne la publie pas, sauf associé : 403 `SEPARATION_DES_TACHES`,
   `MPM08`) et refuse qu'elle abaisse la classe de risque ou relève le niveau d'autonomie
@@ -2032,11 +2273,39 @@ fonction du portail qui écrit un fichier (§4 bis).
 Service #2 : dossiers, analyses, hypothèses et verdicts sourcés, dimensionnement de marché,
 filtrage environnemental et social, plan des 100 jours, note au comité. Vingt tables `dd_*`
 (migrations `0500`–`0508`), routes `/api/dd/**`, SQLSTATE `MPZ21`–`MPZ32` (lettre `Z` partagée avec
-le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
+le redressement) et `MPR04`. Mise à jour du 2026-10-21 : sept tables de plus, soit 27 (cinq `dd_portail_*`,
+`0509`, et deux tables de modèles sectoriels, `0511`), SQLSTATE `MQD01`–`MQD08` et `MQD11` (second préfixe,
+§5 ter). Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
 
-- **Isolation et portail.** Chaque table porte RLS (`isolation`) et la politique RESTRICTIVE
-  `portail_interdit` ; aucune route ne figure à `LISTE_BLANCHE_PORTAIL`. Une ressource d'une mission
-  invisible répond le même 404 que l'inexistante. L'investisseur-client ne voit rien (repoussé).
+- **Isolation et portail.** Chaque table porte RLS (`isolation`) ; les tables du cabinet portent la politique
+  RESTRICTIVE `portail_interdit` et aucune route du cabinet (`/api/dd/**`) ne figure à `LISTE_BLANCHE_PORTAIL`.
+  Une ressource d'une mission invisible répond le même 404 que l'inexistante.
+- **Portail investisseur (lot 3b-bis, `0509`, mise à jour du 2026-10-21).** Un compte portail
+  `client_investisseur` invité sur un dossier (et seulement si l'option du cabinet est active, désactivée par
+  défaut) lit en lecture seule l'INSTANTANÉ d'une version de note VALIDÉE et publiée, et télécharge les pièces
+  choisies. Permissions : `dd.portail.configurer` (associé seul : l'option du cabinet), `dd.portail.gerer`
+  (associé et directeur de mission : inviter, publier, retirer), `portail.dd.lire` (`client_investisseur` seul).
+  Trois routes dans `LISTE_BLANCHE_PORTAIL` (§4 bis), en `GET` et `HEAD` :
+  `/api/portail/due-diligence/publications`, `/api/portail/due-diligence/publications/:id` et
+  `/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier` ; huit routes du cabinet
+  (`routes/due-diligence-portail.ts`) et trois du portail (`routes/due-diligence-portail-investisseur.ts`).
+  Les tables `dd_notes`, `dd_note_versions` (`base_figee`), `dd_dossiers` et `rapports_mission` restent
+  `portail_interdit`. Cinq tables `dd_portail_*` en ajout seul : politique RESTRICTIVE `portail` en lecture +
+  `portail_sans_insert/update/delete`. **Aucun identifiant de dossier, de note, de mission ou de rapport, aucun nom
+  de membre du cabinet, aucun coût ni honoraire (FIN-02) n'est servi au portail.** Le téléchargement d'une pièce
+  passe par la sortie `horsContextePortail` (§4 bis), après les contrôles de `avecPortail`, et sa lecture interne
+  revérifie tout explicitement. **Piège** : une politique contenant `NOT EXISTS (retraits)` laisse tout passer si
+  la table des retraits est invisible du portail ; les retraits portent donc le `client_id` de leur publication
+  (`MQD06`) et sont lisibles pour ce client. `dd_portail_options` n'est PAS `portail_interdit` (la politique des
+  publications la lit) : sa lecture est réduite aux comptes invités au moins une fois. Une publication dont la
+  note a une version plus récente reste visible de l'investisseur (marquée « périmée » côté cabinet) ; au plus 10
+  pièces par publication, une seule publication active par note, seule la dernière version soumise et validée est
+  publiable, pièces figées à la publication, invitation et publication refusées après la clôture de la mission
+  (retraits possibles). **Limite connue** : du SQL arbitraire du rôle applicatif contourne les gardes de
+  cohérence (comme `MPZ29`, §15).
+- **Modèles sectoriels (DD-07, `0511`, `MQD11`).** Véhicule seulement : modèles d'analyse par secteur, vides par
+  défaut, rédigés par le cabinet (200 modèles par cabinet, 50 points par modèle, 300 caractères par point, 40 000
+  octets de points par version) ; aucun contenu sectoriel n'est livré.
 - **Droits.** `dd.lire`, `dd.ecrire`, `dd.valider`, `dd.referentiel.gerer` ; tout détenteur de
   `dd.ecrire` détient `preuve.ecrire`. Aucune donnée FIN-02 dans le module ni dans la note.
 - **Ajout seul.** Aucun `UPDATE` ni `DELETE` (`REVOKE` et déclencheur `MPZ21`) : une correction est une
@@ -2078,21 +2347,27 @@ le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY
 ## 8 nonies. Redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14)
 
 Lot 3a de la vague 4 (service #5 ; ADR-011, `docs/workflows/specs/SPEC-3a-redressement.md` ; migrations
-`0480`–`0486`, code `apps/api/src/redressement/`, routes `routes/redressement*.ts`, moteur
+`0480`–`0486` (lot 3a-bis, mise à jour du 2026-10-21 : `0487`–`0492` et `0551`), code `apps/api/src/redressement/`, routes `routes/redressement*.ts`, moteur
 `packages/engines/src/redressement`, schémas `schemas/redressement.ts`, tests `test/redressement-*.test.ts`).
 Un dossier par mission : correspondance de postes, ratios, urgence, score d'alerte précoce, trésorerie à 13
 semaines, créanciers et négociations, plan et leviers. Données parmi les plus sensibles du client (dettes,
 trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
 
-- **Cloisonnement** : quinze tables (`red_dossiers`, `red_correspondances`, `red_urgences`,
+- **Cloisonnement** : trente tables, dont quinze du lot 3a (`red_dossiers`, `red_correspondances`, `red_urgences`,
   `red_seuils_versions`, `red_scores`, `red_creanciers`, `red_creances`, `red_negociation_evenements`,
   `red_echeances`, `red_tresorerie_versions`, `red_tresorerie_lignes`, `red_tresorerie_realises`,
-  `red_actions`, `red_action_evenements`, `red_plan_versions`), toutes à RLS (`isolation`, `USING` et
+  `red_actions`, `red_action_evenements`, `red_plan_versions`) et quinze du lot 3a-bis (`red_checklist_modeles`,
+  `red_checklist_versions`, `red_checklists`, `red_checklist_reponses` en `0487` ; `red_causes_versions`,
+  `red_causes_historique` en `0488` ; `red_covenants_versions`, `red_covenants_lignes`,
+  `red_financement_versions`, `red_financement_lignes` en `0489` ; `red_clotures` en `0490` ; `red_suivi_plans`,
+  `red_suivi_jalons`, `red_suivi_releves`, `red_suivi_evenements` en `0491`), toutes à RLS (`isolation`, `USING` et
   `WITH CHECK`), RESTRICTIVE `portail_interdit`, FK composites `(cabinet_id, dossier_id, id)` (un enfant ne vise
-  jamais un parent d'un autre dossier) et aucun `DELETE` pour le rôle applicatif. **Portail fermé** : aucune des 37
-  routes n'est dans `LISTE_BLANCHE_PORTAIL` (403 `PORTAIL_ROUTE_INTERDITE`, test `redressement-portail.test.ts`) ;
+  jamais un parent d'un autre dossier) et aucun `DELETE` pour le rôle applicatif (ni `UPDATE` pour les tables en
+  ajout seul). **Portail fermé** : aucune des 69 routes (37 du lot 3a, 32 du lot 3a-bis : `redressement-checklists`
+  10, `-causes` 4, `-financement` 6, `-cloture` 6, `-suivi` 4, `-tableau` 2) n'est dans `LISTE_BLANCHE_PORTAIL` (403 `PORTAIL_ROUTE_INTERDITE`, test `redressement-portail.test.ts`) ;
   les inventaires `isolation.test.ts` et `portail-acces.test.ts` restent verts sans exception. Aucune fonction
-  `SECURITY DEFINER` (§4), aucun fichier reçu, aucune dépendance ni variable d'environnement nouvelle.
+  `SECURITY DEFINER` (§4, y compris pour `0487`–`0492`), aucune colonne vers `fichiers`, aucun fichier reçu,
+  aucune dépendance ni variable d'environnement nouvelle.
 - **Droits** (`redressement/acces.ts`, règle écrite en tête) : `redressement.lire` (lecture), `.ecrire`,
   `.valider`, `.parametrer` (§2), toujours avec la visibilité de la mission. Écrire exige de pouvoir modifier la
   mission ou d'en être membre, un dossier non clos (409 `RED_DOSSIER_CLOS`) et une mission non clôturée (409
@@ -2106,18 +2381,21 @@ trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
   `finance.lire`. Le module ne joint ni n'expose aucune donnée du cabinet (honoraires, budget, factures, coûts,
   taux, marge de mission). Test `redressement-fin02.test.ts` : un chef de mission sans `finance.lire` lit ratios,
   trésorerie et créanciers, la réponse ne contient aucune clé de coût ou de marge du cabinet (parcours récursif), un
-  gestionnaire (qui a `finance.lire`) reçoit 403 sur les 37 routes. Écart de lecture du PRD à confirmer (§15 et
+  gestionnaire (qui a `finance.lire`) reçoit 403 sur les 37 routes du lot 3a (et, depuis le lot 3a-bis, sur les 32 autres). Écart de lecture du PRD à confirmer (§15 et
   §16) : les réserver à `finance.lire` rendrait le module inutilisable par le chef de mission.
 - **Séparation des tâches, doublée en base** (`MPZ07`, mêmes règles que l'API, même test de refus) : une version de
   plan est validée par un détenteur de `redressement.valider` (associé ou directeur) qui n'en est pas le créateur, sauf
-  associé (`0486`, `plan.ts`) ; une version de seuils d'un secteur est publiée par un `expert_metier` ou un associé
+  associé (`0486`, `plan.ts`) **et, depuis le 2026-10-21, par le directeur de la mission seul** (voir « Validation du
+  plan et du bilan de clôture par le directeur de la mission ») ; une version de seuils d'un secteur est publiée par un `expert_metier` ou un associé
   qui n'en est pas l'auteur, sauf associé (`0483`, `seuils.ts`). L'associé n'est dispensé que par
   `red_valideur_dispense` (utilisateur actif, rôle lu sur la ligne `utilisateurs`, `0480`). L'empreinte du plan
   (SHA-256) est recalculée À LA VALIDATION depuis les actions actuelles : une modification entre-temps donne 409
   `RED_PLAN_MODIFIE` ; `contenu` n'est jamais reçu d'un client. Un score ne référence que des seuils **publiés**, du
   **même secteur** et **identiques** à son instantané (`MPZ02`).
-- **Aucune IA, aucun job, aucune qualification juridique** : aucun import de `ia/`, `agents/` ou `jobs/` dans le
-  module, aucune table `ia_*`, aucun appel réseau (test `redressement-sans-ia.test.ts`) ; le score d'alerte, les voyants
+- **Aucune IA hors `causes-ia.ts`, aucun job, aucune qualification juridique** : aucun import de `ia/`, `agents/` ou
+  `jobs/` dans le module, aucune table `ia_*`, aucun appel réseau, à l'UNIQUE exception de `redressement/causes-ia.ts`
+  (voir « Causes racines » ci-dessous ; test `redressement-sans-ia.test.ts`, qui vérifie qu'aucun autre fichier du
+  module n'importe `ia/`) ; le score d'alerte, les voyants
   d'urgence, les ratios et l'impact d'un levier sortent du moteur pur. Aucun libellé du moteur ni de l'écran ne parle
   de « cessation des paiements », de « faillite » ou de « défaillance » (vérifié par test du moteur, `alerte.test.ts`,
   et par la liste de mots interdits de `apps/web/src/lib/redressement.ts`) ; le mot « alerte » ne
@@ -2153,6 +2431,46 @@ trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
 - **Données du dossier client** : lecture seule, aucune écriture dans `dossier_*` ; seuls les états **acceptés** et
   **courants** entrent dans un calcul ; `accepte_sous_reserve` et `analyses_indicatives` sont transmis, jamais cachés
   (`redressement/etats.ts`).
+- **Validation du plan et du bilan de clôture par le directeur de la mission** (lot 3a-bis, décision du
+  2026-10-21 ; `VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR` dans `redressement/plan.ts`) : seul le directeur de la
+  mission valide un plan ET un bilan de clôture ; une mission SANS directeur (`directeur_id` nul) ne valide ni l'un
+  ni l'autre (409 `DIRECTEUR_REQUIS`, qui invite à désigner un directeur), au lieu de retomber sur
+  `redressement.valider`. La règle est **doublée en base par `0492`** (qui redéfinit `red_controler_plan_version()` de
+  `0486` et `red_controler_cloture()` de `0490` : valideur = directeur de la mission, mission sans directeur
+  refusée, SQLSTATE `MPZ07` avec un message distinct, aucun nouveau code) ; la séparation des tâches (créateur ≠
+  valideur, sauf associé) est conservée en base. `droits.valider` du dossier (`dossiers.ts`) est aligné : un associé
+  qui n'est pas directeur de la mission ne voit plus le bouton de clôture du dossier (la route de clôture,
+  `redressement.valider`, est inchangée).
+- **Check-lists, causes, financement, clôture, suivi (lot 3a-bis, `0487`–`0492`)** :
+  - **SQLSTATE** `MPZ12` check-list archivée figée ; `MPZ13` historique des causes en ajout seul, rangs consécutifs,
+    contenu modifiable seulement avec un rang « modifié » de la même transaction ; `MPZ14` cartographie d'origine IA
+    « validée » seulement si le dernier rang est « validé » et les nombres non vérifiés acquittés ; `MPZ15` covenant
+    (doublon ratio/opérateur, plancher > plafond) ; `MPZ16` période hors du plan de financement ; `MPZ17` bilan
+    validé figé ; `MPZ18` validation sans contrôles de complétude vrais ; `MPZ19` suivi d'un dossier non clos ;
+    `MPZ20` suivi incohérent. `MPZ12`–`MPZ20` sont PRIS : **la lettre `Z` est épuisée pour le redressement**
+    (`MPZ01`–`MPZ20`). Code de rapport `MPR05` (`0551`) : source de rapport de clôture incohérente (bilan d'une autre
+    mission, non validé, version différente), 409 `RED_CLOTURE_NON_VALIDEE`.
+  - **Check-lists** (RED-03) : modèles de cabinet versionnés ; la publication par un expert autre que l'auteur
+    (sauf associé), trois check-lists de départ « à valider par un expert » ; réponses en ajout seul.
+  - **Tables du suivi (`0491`)** : elles N'UTILISENT PAS `red_controler_mission_ouverte` : elles exigent au
+    contraire un dossier CLOS (`MPZ19`) et s'écrivent MÊME mission clôturée (exception voulue : le suivi suit la fin
+    de mission). Alertes du suivi CALCULÉES À LA LECTURE : aucun job, aucun envoi, aucun accès du portail.
+  - **Causes racines (RED-04) par l'IA** : unique point d'entrée `redressement/causes-ia.ts`, qui passe par
+    `ia/orchestrateur.ts` (jamais un fournisseur). Le contexte envoyé au modèle ne contient que des chiffres issus
+    des moteurs (`contexteChiffresCauses`, liste blanche) ; les noms propres sont masqués (`termesSensibles`) ; le
+    texte libre du consultant est une variable non fiable (`variablesNonFiables`) ; le brief de l'historique (rang 1)
+    ne garde que des indicateurs. Statuts brouillon IA, modifié, validé, historique en ajout seul, validation par un
+    consultant autre que le demandeur ou l'auteur (sauf associé), acquittement des nombres non vérifiés, repli
+    déterministe sans IA. Une cartographie non validée n'entre JAMAIS dans le rapport de clôture ni n'est présentée
+    comme validée dans le tableau de bord (testé).
+  - **Rapport de clôture** : modèle `cloture_redressement`, niveau `red` (`redressement.lire`) ; sa lecture
+    revérifie la mission visible et le niveau à chaque appel (`exigerFichierLisible`, inchangé) ; un rôle sans
+    `redressement.lire` obtient 404 sur `GET /api/fichiers/:id` ; débit `TROP_DE_RAPPORTS` existant (§8 bis).
+  - **Partage externe du tableau de bord (RED-15) NON ouvert** : aucune route du portail, aucune politique `portail`,
+    aucune option de cabinet. Le tableau de bord est INTERNE ; `calculerEtatVoyant` et `etatVoyantDossier` sont
+    exportés pour un lot ultérieur mais NON branchés. À rouvrir avec le portail investisseur : politique RLS
+    `portail` + `portail_sans_*` + entrée explicite dans `LISTE_BLANCHE_PORTAIL` + option du cabinet désactivée par
+    défaut.
 - **Valeurs par défaut** : seuils d'alerte du secteur « général » (les autres secteurs retombent dessus tant
   qu'aucun expert n'a publié), grille d'urgence, plafonds et débits sont **provisoires**, sans source normative
   (DECISIONS.md, section « Redressement ») : le score est indicatif et l'écran le dit.
@@ -2215,7 +2533,8 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   jours au moins, date future refusée, réglage `app.horloge_test` honoré dans une base `_test`
   seulement). `rg -n "GRANT EXECUTE" apps/api/migrations` : quatre lignes de plus (recherche n° 16).
 - **Sorties du contexte RLS du portail** (`horsContextePortail`, inventaire de
-  `test/portail-contexte.test.ts`) : deux fichiers nouveaux, `routes/portail-canaux.ts` (4 appels :
+  `test/portail-contexte.test.ts`, cinq fichiers au total avec `routes/portail-kpi.ts`,
+  `salle-mission/accuses.ts` et `routes/due-diligence-portail-investisseur.ts`, §4 bis) : deux fichiers nouveaux, `routes/portail-canaux.ts` (4 appels :
   lecture des comptes de canal actifs, fermés au portail ; contrôles avant l'écriture d'un numéro ;
   mise en file du code de vérification ; lecture des faits de la synthèse hebdomadaire) et
   `routes/portail-signatures.ts` (3 appels : lecture du PDF, signature avec reconfirmation d'identité,
@@ -2265,6 +2584,34 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
 - **Signature** : fournisseur local, niveau « simple simulée », SANS valeur juridique ; reconfirmation
   d'identité avec second facteur actif, ordre parallèle ou séquentiel, journal de preuves chaîné en ajout
   seul (`MPH10`), aucun effet sur la mission ni sur le budget.
+- **PDF de signature servi `inline`, sans `sandbox`** (mise à jour du 2026-10-21 ; `GET /signatures/:id/document`
+  et `GET /portail/signatures/:id/document`, `routes/signatures.ts`, `routes/portail-signatures.ts`) : type
+  `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none';
+  frame-ancestors 'none'` SANS `sandbox` (il empêche la visionneuse PDF du navigateur de fonctionner), avec repli
+  `attachment` + `sandbox` si le type stocké n'est pas PDF. **Risque résiduel** : une faille de la visionneuse PDF
+  du navigateur ou un contournement du filtre de contenu actif (`stockage/detection.ts`) ; la route générique
+  `GET /fichiers/:id` garde `sandbox` (§15).
+- **Média entrant en flux** (mise à jour du 2026-10-21) : le port `telechargerMedia(compte, refMedia)` rend un
+  `MediaFlux` (`flux` en `AsyncIterable<Uint8Array>`, `typeMime`, `tailleDeclaree` facultative) ; `MediaRecu` est
+  supprimé. La limite de 15 Mo est appliquée EN FLUX par `lireFluxPlafonne` (`canaux/media-flux.ts`) : taille
+  déclarée contrôlée avant lecture, compteur d'octets, flux fermé au dépassement, jamais de lecture complète ; un
+  type MIME hors liste blanche ferme le flux sans lecture. Reste, pour un futur adaptateur réel : corps non
+  bufferisé, hôte de confiance (SSRF), délai (timeout) sur le flux (§15).
+- **Alertes de KPI sortantes** (O-26, mise à jour du 2026-10-21 ; `kpi/suivi.ts`, `canaux/alertes-kpi.ts`,
+  `0549`) : après l'enregistrement d'une alerte et pour le rappel de mesure, mise en file d'un message
+  `alerte_kpi` (catégorie `alerte`, objet `kpi_alerte`, clés `kpi_alerte:<alerte>:<destinataire>` et
+  `kpi_rappel:<rappel>:<destinataire>`) vers les seuls responsables INTERNES autorisés, avec numéro vérifié et
+  consentement accordé. **Option du compte `canaux_comptes.alerte_kpi` DÉSACTIVÉE par défaut** (`boolean NOT NULL
+  DEFAULT false`). Variables : nom du cabinet et lien `/portail/` ; **aucune valeur chiffrée, aucun libellé de
+  KPI**. Le bloc est dans un `SAVEPOINT` (il ne fait jamais échouer le suivi) ; une alerte `MESURE_EN_RETARD` ne
+  part pas seule (le rappel du même passage la couvre). La valeur confirmée par canal puis reprise par le cabinet
+  est une `kpi_mesures` d'origine `cabinet`, comptée comme toute autre ; la provenance reste traçable (commentaire
+  de la mesure et jointure `canaux_saisies_kpi.mesure_id`).
+- **Retrait des consentements à la désactivation** (mise à jour du 2026-10-21) : la source
+  `desactivation_utilisateur` est écrite à la désactivation d'un utilisateur du portail
+  (`routes/portail-gestion.ts`) ET d'un utilisateur du cabinet (`routes/utilisateurs.ts`, `PATCH`, passage de
+  `actif` de vrai à faux, même transaction) par `retirerConsentementsUtilisateur` (`canaux/consentements.ts`) ; le
+  destinataire n'est jamais supprimé ni modifié.
 
 ## 10. Secrets et configuration
 
@@ -2275,6 +2622,12 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   absent, `development` ou `test` **et** que les deux URL de base désignent
   l'hôte local ; sinon l'API refuse de démarrer. Hors développement, une valeur
   égale à celle de développement est refusée (test : `test/config.test.ts`).
+- **Intégration continue** (lot 8a, `.github/workflows/ci.yml`, mise à jour du 2026-10-21) : déclenchée par les
+  pull requests vers `main` et à la main (`workflow_dispatch`), avec `permissions: contents: read` et **aucun
+  secret** ; les identifiants du PostgreSQL jetable de chaque partition de tests (`DATABASE_OWNER_URL` et
+  `DATABASE_URL`, hôte `127.0.0.1:55440`) reprennent les valeurs PUBLIQUES de développement de `.env.example` et de
+  `apps/api/src/config.ts`. Les actions sont épinglées par version majeure (`@v4`), non par empreinte. La CI n'a
+  pas été exécutée sur GitHub à la livraison du lot ; elle ne lance pas `pnpm audit` (§14).
 - **Secrets distincts** : `TFA_MASTER_KEY` ≠ `SESSION_SECRET` ; la clé
   précédente ≠ la courante ; `SESSION_SECRET` sert de clé de version 1 pour les
   chiffrés antérieurs (`auth/chiffrement.ts`).
@@ -2331,8 +2684,9 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   10 minutes, 20 dossiers et 50 extractions par fiche, 100 gabarits de CV par cabinet, §6) ;
   capitalisation (60 recherches par utilisateur et par minute, 50 déclarations de niveau par couple,
   §5 sexies) ; plans (30 propositions de portefeuille par utilisateur et par 10 minutes, §5 bis) ;
-  brief quotidien (60 requêtes par utilisateur et par 10 minutes, compteur EN MÉMOIRE propre à chaque
-  processus, §5 septies) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
+  brief quotidien (60 requêtes par utilisateur et par 10 minutes, limiteur PERSISTANT en base partagé entre
+  les instances, espace `brief_requetes`, §5 septies) ; simulations de Monte-Carlo (30 par utilisateur et par 10
+  minutes, 100 par plan, rejeu non limité, §5 bis) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
   « KPI au rouge » par 10 minutes, comptés sur `journal_audit`, §7 bis).
   Pas de limite générale par IP : voir §15.
 
@@ -2369,8 +2723,8 @@ fichiers déposés par le client dans la salle de mission.
   mission et les retours d'expérience n'ont ni procédure d'effacement ni durée.
 - **Copilote** (lacune de la vague 2) : le texte du message n'est ni conservé ni journalisé ; les
   paramètres et le résumé d'une proposition d'action terminée sont anonymisés après 30 jours (valeur
-  posée par défaut, à valider avec le conseil juridique : `0274`, §7 bis). Un nom propre saisi dans un
-  message part en clair vers le fournisseur IA (§15).
+  posée par défaut, à valider avec le conseil juridique : `0274`, §7 bis). Les noms connus du cabinet sont masqués
+  avant envoi ; un nom absent des fiches ou un fragment part en clair vers le fournisseur IA (§7 bis, §15).
 
 ## 13. Conduite à tenir en cas de faille
 
@@ -2433,8 +2787,9 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Date d'atteinte d'un jalon non horodatée : approchée par la dernière modification (indicateur de respect des jalons)                            | `finance/indicateurs.ts`                                                  |
 | Migrations appliquées par nom, sans somme de contrôle : l'immuabilité d'une migration appliquée est une convention de relecture, non vérifiée par l'outil | `db/migrate.ts`                                                           |
 | Rejeu réel des évaluations d'agents (levée de l'ancienne dette « agents inutilisables en production ») : aucune clé OpenRouter dans l'environnement de développement, le vrai fournisseur n'a été exercé que contre un serveur factice local ; AUCUN appel réel n'a eu lieu, donc qualité d'un vrai modèle, coûts et jetons réels et comparaison du modèle servi non vérifiés (un identifiant daté renvoyé par OpenRouter ferait échouer tout rejeu, sans danger) | `agents/evaluations-openrouter.ts` (`memeModele`), `ia/fournisseur.ts`, `test/agents-evaluations-openrouter.test.ts` |
-| Rejeu réel : la file `jobs` est FIFO globale entre cabinets, un rejeu de 8 à 13 minutes (`DUREE_MAX_EVALUATION_MS` plus un appel) retarde les jobs de tous les cabinets, et chaque cabinet peut en avoir un (N cabinets, N rejeux) ; plafond par évaluation (2 USD), 5 rejeux par 24 heures, durée maximale et péremptions (1 h en file, 30 min en cours) sont des valeurs de départ à valider | `agents/evaluations-openrouter.ts`, `jobs/worker.ts`, `ia/modeles.ts`, `DECISIONS.md` |
-| Rejeu réel : la garde de provenance en base (`MPG09`, `0270`) reste contournable par du SQL arbitraire du même rôle applicatif, qui peut forger la demande, les appels inscrits et l'évaluation ; la garde complète (fonction `SECURITY DEFINER` réservée au job, `REVOKE INSERT, UPDATE` pour le rôle applicatif) n'est pas faite. Autres limites : `prompt_evalue` avec `p_modele` nul (activation d'un prompt) ne lie pas l'activation au modèle routé (antérieur au chantier ; filet à l'exécution par `exigerPromptEvalue`) ; l'interdiction de contenu client réel dans un jeu d'essai est documentée, non contrôlée (le masque d'un rejeu n'a aucun terme sensible) | `migrations/0270_agents_evaluations_openrouter.sql`, `migrations/0265_agents_evaluations_fournisseur.sql`, `agents/executions.ts` (`exigerPromptEvalue`) |
+| Rejeu réel, après la réclamation équitable des jobs (`0305`, 2026-10-21 : cabinet ayant le moins de jobs `en_cours`, puis tourniquet sur le dernier `verrouille_le`, puis plus ancien `execute_a`) : le worker traite UN job à la fois (`traiterUn`) ; un rejeu de 8 à 13 minutes (`DUREE_MAX_EVALUATION_MS` plus un appel) bloque la boucle, l'équité joue à la réservation et non à l'exécution (piste : file dédiée aux jobs longs ou second worker) ; après un échec ou une libération de job bloqué, `verrouille_le` est remis à NULL et le tourniquet perd la date de ce job (le critère « moins de jobs en cours » garde l'équité) ; chaque cabinet peut avoir un rejeu (N cabinets, N rejeux) ; plafond par évaluation (2 USD), 5 rejeux par 24 heures, durée maximale et péremptions (1 h en file, 30 min en cours) sont des valeurs de départ à valider | `jobs/worker.ts`, `migrations/0305_jobs_reservation_equitable.sql`, `agents/evaluations-openrouter.ts`, `ia/modeles.ts`, `DECISIONS.md` |
+| Rejeu réel, garde de provenance faite dans la mesure du possible (`0275`) : du SQL arbitraire à plusieurs instructions du même rôle applicatif peut encore mettre en file une demande et son job, réserver ce job par `reserver_job_a` (accordée à ce rôle), puis appeler les trois fonctions `rejeu_evaluation_*` en déclarant des appels `succes` (coût, jetons et issue sont déclarés par l'appelant : la base ne connaît pas les tarifs) ; les traces restent (évaluation et appels en ajout seul, `job_id` posé une fois) mais la ligne du job reste supprimable. Garde complète = rôle PostgreSQL DISTINCT pour le worker, seul à exécuter `reserver_job_a`, `reserver_job` et ces fonctions : nouvel ADR et connexion dédiée, NON faits | `migrations/0275_agents_rejeu_provenance.sql`, `db/pool.ts`, `config.ts`, `jobs/worker.ts` |
+| IA, activation d'un prompt et jeux d'essai (`0276`) : revenir au modèle recommandé (suppression de la ligne de `ia_modeles_taches`) n'est pas gardé à l'activation, l'exécution d'un prompt non évalué avec ce modèle restant refusée par le filet `exigerPromptEvalue` ; `modele_recommande()` en SQL duplique `MODELES_RECOMMANDES` (un test les compare, changer un modèle recommandé exige une migration) ; l'interdiction de contenu client réel dans un jeu d'essai est documentée, non contrôlée (le masque d'un rejeu n'a aucun terme sensible) | `migrations/0276_agents_activation_modele_route.sql`, `ia/modeles.ts`, `agents/executions.ts` (`exigerPromptEvalue`) |
 | Automatisation, observation non traitée : le job d'appel d'agent relit le responsable COURANT de l'automatisation, alors que la garde a décidé sous l'identité de l'exécution ; une action d'agent déjà autorisée sous l'ancienne identité peut donc partir sous la nouvelle si l'automatisation est désactivée puis réactivée par une autre personne avant le job (parade possible : comparer `automatisation_executions.executant_id` au responsable courant avant l'appel, en mode « responsable ») | `automatisation/execution.ts` (`lireActionAgent`, `creerHandlerAgentAutomatisation`) |
 | Automatisation : 50 automatisations actives par cabinet et 30 simulations par utilisateur et par 10 minutes sont des valeurs de départ « à valider » ; la définition d'une automatisation (gabarits de texte) est lisible de tout détenteur de `automatisation.lire`, chef de mission compris ; un événement traité pendant une coupure n'est pas rejoué à la levée | `automatisation/regles.ts`, `automatisation/simulation.ts`, `automatisation/coupe-circuits.ts`, `DECISIONS.md` |
 | KPI : pas de quatre yeux sur la clôture d'une revue ni sur l'exécution d'une décision (le responsable peut clore ce qu'il a décidé) ; le dossier de revue, non enregistré, n'ouvre pas de suivi qualité (QUA) et n'est pas horodaté contre la falsification une fois sorti de la plateforme | `kpi/revues.ts`, `kpi/dossier-revue.ts`, `routes/kpi-pilotage.ts` (§5 quater) |
@@ -2449,17 +2804,24 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Montants du PDF du dossier bancaire : à l'extraction du texte, ils paraissent sans séparateur de milliers alors que le moteur insère l'espace fine U+202F ; à vérifier visuellement sur un PDF réel | `plans/bancabilite.ts`, `rapports/pdf.ts`, `packages/engines/src/finance/monnaie.ts` |
 | Export d'un CV : un message d'erreur réseau 503 a été signalé alors que le fichier produit est valide ; cause non établie, à clarifier | `routes/banque-ao.ts` (`/banque-ao/cv/:id/export`), `rapports/pdf.ts` |
 | Copilote (AGT-08) : AUCUNE vérification avec un vrai modèle (aucune clé OpenRouter en développement, fournisseur factice seulement) ; la qualité du routage, le format JSON réel renvoyé (clôture « ```json », valeurs nulles) et le coût d'un échange ne sont pas constatés ; le routage déterministe couvre en attendant les formulations simples | `copilote/routage-ia.ts` (`lireSortieModele`), `test/copilote-ia.test.ts`, ADR-005 |
-| Copilote : les noms propres tapés dans un message (collaborateur, client, mission) partent en CLAIR vers le fournisseur : le masque ne travaille que par formats (e-mails, téléphones, IBAN…), sans terme sensible (`creerMasque([])`) ; la page du copilote déconseille d'y saisir des données confidentielles de clients (`MENTION_CONFIDENTIALITE`) | `copilote/routage-ia.ts`, `ia/masquage.ts`, `apps/web/src/lib/copilote.ts` |
-| Brief quotidien : le plafond de débit de `GET /api/brief` (60 requêtes par utilisateur et par 10 minutes) est tenu EN MÉMOIRE, propre à chaque processus (n instances : n fois 60) et remis à zéro au redémarrage ; exception voulue au modèle `journal_audit`, à revoir si l'API tourne à plusieurs instances | `brief/debit.ts`, `routes/brief.ts` |
+| Copilote, masquage des noms CONNUS du cabinet (raisons sociales des clients, noms des utilisateurs, des contacts clients, intitulés de missions, écrits en entier : masqués avant envoi, jetons restitués localement) : PARTENT en clair un nom absent des fiches, un fragment seul (prénom, un mot d'une raison sociale), une faute de frappe ou des lettres espacées, le texte libre autour, le nom d'un autre cabinet tapé par l'utilisateur ; au-delà de 2 000 noms candidats par table ou 200 noms distincts par message, le surplus part en clair ; toujours non vérifié avec un vrai modèle ; la page du copilote déconseille d'y saisir des données confidentielles de clients (`MENTION_CONFIDENTIALITE`) | `copilote/noms-propres.ts`, `copilote/routage-ia.ts`, `ia/masquage.ts`, `apps/web/src/lib/copilote.ts` |
 | Copilote : l'anonymisation des propositions d'actions terminées au bout de 30 jours est une durée posée sans avis juridique ; une proposition non terminée n'est anonymisée qu'après son expiration puis 30 jours ; la purge (02:30 UTC) dépend du planificateur et du worker | `migrations/0274_copilote_purge.sql`, `copilote/purge.ts`, `DECISIONS.md` |
 | Copilote et brief : valeurs de départ à valider (30 messages par 10 minutes, 1 000 caractères, 5 minutes de validité d'une proposition, niveau N2 pour les actions, 30 jours, 5 appels « KPI au rouge » par 10 minutes, 60 requêtes du brief par 10 minutes, seuils de gravité du brief, 7 h UTC, anti-répétition de 10 minutes de `mission.cloture_demandee`) | `DECISIONS.md` (« Chantier lacunes de la vague 2 ») |
 | Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
 | Canaux (lot 3c) : `canaux.lire` (associé, directeur, chef de mission) ouvre, par `GET /canaux/destinataires` (le client demandé est seulement vérifié dans le cabinet) et `GET /canaux/envois`, les numéros MASQUÉS, consentements et envois de TOUS les clients du cabinet, pas seulement ceux des missions du chef ; décision produit à confirmer (restriction aux clients de ses missions non faite) | `routes/canaux.ts`, `packages/shared/src/roles.ts`, `SPEC-3c-canaux-simules.md` |
 | Canaux : un consentement « recueilli par le cabinet » (`recueilli_cabinet`) repose sur une référence de preuve saisie par un associé ou un directeur de mission (au moins 10 caractères), non vérifiée par la plateforme : le cabinet peut déclarer un accord que la personne n'a pas donné (risque interne ; l'historique est en ajout seul, `MPH01`, et seule la personne redonne son accord après un STOP, `MPH02`) | `canaux/consentements.ts`, `migrations/0541_canaux_destinataires_consentements.sql` |
-| Canaux : la taille d'un média entrant n'est contrôlée qu'APRÈS son téléchargement en mémoire par l'adaptateur (le simulateur lit un média déposé par les tests) ; avant tout adaptateur RÉEL, contrôler la taille en flux (en-tête puis compteur d'octets) et n'appeler qu'une URL d'hôte de confiance fournie par le fournisseur, jamais une URL reçue dans le message (SSRF) ; aucun adaptateur réel n'existe | `canaux/entrants.ts` (`transcrireMedia`, `MEDIA_ENTRANT_OCTETS_MAX`), `canaux/ports.ts` |
+| Canaux, média entrant : la taille de 15 Mo est désormais appliquée EN FLUX côté appelant (`lireFluxPlafonne` : taille déclarée contrôlée avant lecture, compteur d'octets, flux fermé au dépassement, type MIME hors liste blanche refusé sans lecture) ; RESTE pour le futur adaptateur réel (aucun n'existe) : corps non bufferisé, appel d'un hôte de confiance fourni par le fournisseur et jamais d'une URL reçue dans le message (SSRF), délai (timeout) sur le flux | `canaux/media-flux.ts`, `canaux/entrants.ts` (`transcrireMedia`, `MEDIA_ENTRANT_OCTETS_MAX`), `canaux/ports.ts` (`telechargerMedia`) |
 | Webhook WhatsApp : la garde mémoire des signatures invalides (100 au total, 50 par adresse `request.ip` sur 5 minutes) est propre à chaque processus (n instances : n fois) et repart à zéro au redémarrage ; l'adresse vue est celle du relais si l'API est derrière un proxy (pas de `trustProxy`) ; le corps reste à 64 Kio avant authentification, le format réel du fournisseur (O-13) pourrait permettre de le réduire | `canaux/limite-memoire.ts`, `canaux/webhook.ts`, `routes/canaux-webhook.ts` |
 | Redressement (lot 3a) : du SQL arbitraire du rôle applicatif peut insérer un score dont `entrees` ne correspond pas au calcul (le déclencheur ne vérifie que les seuils, pas le résultat : pas de calcul en base), de même qu'un impact de levier stocké, comme pour la garde de provenance des évaluations ; la correspondance de postes est faite à la main sans second regard (une erreur fausse ratios et score : version tracée, avertissement « indicative », postes manquants jamais comptés comme zéro) | `migrations/0483_redressement_alerte.sql`, `redressement/alerte.ts`, `redressement/leviers.ts`, `redressement/correspondances.ts` |
 | Redressement : AUCUN seuil d'alerte par secteur, ni grille d'urgence, n'a de source normative (ni ONUDI ni OHADA ne fixent de seuil chiffré à notre connaissance) : les valeurs sont des conventions provisoires, à faire valider par un expert avant tout usage au pilote ; plafonds de volume (100 à 1 000) et débits (30, 30, 60 par 10 minutes) à calibrer ; aucune durée de conservation des données du client posée (avis du conseil juridique) ; les trois routes de calcul pur n'ont pas de compteur de débit ; un dossier `clos` est terminal ; aucun suivi qualité R3 du plan (aucun livrable produit) ; kanban sans synchronisation avec `taches_collaboration` | `packages/engines/src/redressement` (constantes `SEUILS_ALERTE_DEFAUT`, `GRILLE_URGENCE`), `apps/api/src/redressement/limites.ts`, `DECISIONS.md` (section « Redressement ») |
+| Rapports « validés non diffusés » (source du brief écartée) : `rapports_mission` est en ajout seul, son `statut` `valide` est fixé à la génération par le code et aucune table d'envoi, de partage du portail ni de signature ne le référence (le seul vestige, `journal_audit` `telechargement`, est interne) ; à rouvrir quand une trace de diffusion au client existera | `rapports/enregistrement.ts`, `brief/` (§5 septies), `migrations/0130_rapports.sql` |
+| Qualité R3 du rapport de clôture du redressement : `brancherRapport` ouvre un suivi de type `rapport` (R2 au minimum) ; passer à R3 automatiquement exigerait un type de livrable dédié (`CLASSE_MINIMALE_PAR_TYPE`, `packages/shared` et `qualite/`) ; contournement : `POST /api/qualite/suivis/:id/classe` (R3, motif) | `qualite/branchements.ts` (`brancherRapport`), `qualite/suivis.ts`, `packages/shared/src/schemas/qualite.ts` |
+| Rejeu de Monte-Carlo (PLA-16) : `POST` sans écriture (`plan.lire`), environ 0,3 s de calcul, NON limité en débit (les 30 simulations par utilisateur et par 10 minutes ne comptent que les simulations enregistrées, `MQL14`) ; à limiter en cas d'abus | `routes/plans-montecarlo.ts`, `plans/montecarlo.ts`, `migrations/0429_plan_montecarlo.sql` |
+| PDF de signature servi `inline` SANS `sandbox` (`GET /signatures/:id/document` et `GET /portail/signatures/:id/document`) : type `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none'; frame-ancestors 'none'` ; risque résiduel = faille de la visionneuse PDF du navigateur ou contournement du filtre de contenu actif ; repli `attachment` + `sandbox` si le type stocké n'est pas PDF ; la route générique `GET /fichiers/:id` garde `sandbox` ; rendu `inline` dans Chrome non vérifié | `routes/signatures.ts` (`CSP_LECTURE_PDF`), `routes/portail-signatures.ts`, `stockage/detection.ts` |
+| Portail investisseur de la due diligence : du SQL arbitraire du rôle applicatif contourne les gardes de cohérence des publications (comme `MPZ29`) ; le rendu navigateur des pages, le PDF de la note en portail (seul le Word est testé) et la navigation clavier de l'arbre ne sont pas vérifiés | `migrations/0509_dd_portail_investisseur.sql`, `routes/due-diligence-portail-investisseur.ts` |
+| Alertes de KPI sortantes par canal (option `alerte_kpi`, désactivée par défaut) : mise en file seulement, vers les seuls responsables INTERNES autorisés disposant d'un numéro vérifié et d'un consentement ; le routage vers des internes sans numéro et le lien `/portail/` de l'alerte restent des décisions produit à confirmer (une alerte `MESURE_EN_RETARD` ne part pas seule : le rappel du même passage la couvre) ; source `desactivation_utilisateur` écrite à la désactivation d'un utilisateur du portail ET du cabinet, le destinataire n'étant jamais supprimé | `canaux/alertes-kpi.ts`, `kpi/suivi.ts`, `migrations/0549_canaux_alerte_kpi.sql`, `canaux/consentements.ts` |
+| Revue à froid (QUA-05) : deux implémentations alignées de l'indépendance du relecteur (moteur `evaluerIndependanceRelecteur` et déclencheur `qualite_froide_violations()`) ; la grille « complète » de 8 critères est codée en dur dans le déclencheur (une grille v2 exige une migration) ; valeurs de départ (conclusions, plafonds, tirage cyrb53) à valider | `migrations/0287_qualite_froide_campagnes.sql`, `migrations/0288_qualite_froide_revue.sql`, `qualite/froide-revue.ts`, `DECISIONS.md` |
+| Contenus IA des lots 2 et 5a (causes racines du redressement, explication de la notation, synthèse d'un atelier, explication d'une re-prévision) : essayés seulement contre un fournisseur simulé, aucun vrai modèle ; qualité, format réel et coût non constatés ; seule la validation humaine (brouillon IA, modifié, validé) les rend livrables | `redressement/causes-ia.ts`, `plans/ateliers-synthese.ts`, `plans/reprevision-explication.ts`, `ia/orchestrateur.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
@@ -2485,8 +2847,9 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
 - **Rejeu réel des évaluations d'agents** (§7 bis, §15) : valider les valeurs de départ
   (plafond de 2 USD par évaluation, 5 rejeux par 24 heures, durée maximale de 8 minutes,
   péremptions de 1 h et 30 min, un rejeu par cabinet) ; constater un premier rejeu réel avec
-  une clé (modèle servi, coûts, jetons) ; décider de la garde complète de provenance
-  (fonction `SECURITY DEFINER`) et d'une file `jobs` dédiée aux jobs longs.
+  une clé (modèle servi, coûts, jetons) ; décider du rôle PostgreSQL distinct pour le worker (nouvel ADR, garde
+  complète de provenance, la garde par fonctions `SECURITY DEFINER` étant faite par `0275`) et d'une file `jobs`
+  dédiée aux jobs longs (le worker traite un job à la fois).
 - **Bornes de dates** : `semaineQuerySchema` (§15).
 - **Jours de budget dans les retours d'expérience** : un consultant membre de l'équipe lit les jours
   de la section « Écarts » (§5 sexies, §15) ; décision produit à confirmer (`DECISIONS.md`).
@@ -2502,6 +2865,7 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
 - **Lacunes de la vague 2** (construites le 2026-10-11 : `mission.cloture_demandee` publié par la base,
   brief quotidien AUT-07, copilote AGT-08) : valider les valeurs de départ (§15 et `DECISIONS.md`, section
   « Chantier lacunes de la vague 2 ») ; **constater un premier échange du copilote avec un vrai modèle**
-  (qualité du routage, format JSON réel, coût) ; décider du masquage des noms propres avant l'envoi au
-  fournisseur ; décider d'un compteur de débit du brief partagé entre instances (base ou cache) si l'API tourne
-  à plusieurs instances ; trancher la durée de conservation des propositions du copilote avec le conseil juridique.
+  (qualité du routage, format JSON réel, coût) ; décider de l'extension du masquage des noms (limite résiduelle :
+  noms absents des fiches, fragments, fautes de frappe, §7 bis) ; trancher la durée de conservation des
+  propositions du copilote avec le conseil juridique. (Le compteur de débit du brief est devenu persistant et
+  partagé entre instances le 2026-10-21 : point soldé.)
