@@ -293,6 +293,16 @@ export async function buildApp(
   await app.register(routesAppelsOffres, { prefix: "/api" });
   await app.register(routesBanqueAo, { prefix: "/api" });
   await app.register(routesCapitalisation, { prefix: "/api" });
+  // Lot 5b : efficacité des recommandations (CAP-03), observatoire (CAP-04), veille des AO (AO-01).
+  await app.register((await import("./routes/capitalisation-efficacite.js")).routesEfficacite, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/observatoire.js")).routesObservatoire, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/appels-offres-veille.js")).routesVeille, {
+    prefix: "/api",
+  });
   // Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
   await app.register(routesDueDiligence, { prefix: "/api" });
   await app.register(
