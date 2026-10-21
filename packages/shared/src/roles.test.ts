@@ -177,6 +177,13 @@ describe("V3, vague 1 : méthodes, dossier client, preuves, agents, qualité", (
     expect(aPermission(["consultant"], "qualite.relire")).toBe(false);
   });
 
+  it("revue à froid (QUA-05) : l'associé gère ; relecteurs : associé, directeur de mission, expert", () => {
+    expect(qui("qualite.froide.gerer")).toEqual(["associe"]);
+    expect(qui("qualite.froide.relire")).toEqual(["associe", "directeur_mission", "expert_metier"]);
+    expect(aPermission(["chef_mission"], "qualite.froide.relire")).toBe(false);
+    expect(aPermission(["gestionnaire"], "qualite.froide.relire")).toBe(false);
+  });
+
   it("ni ressources, ni gestionnaire, ni expert externe, ni portail", () => {
     for (const role of ["ressources", "gestionnaire", "expert_externe", ...ROLES_CLIENT] as const) {
       for (const p of NOUVELLES) expect(aPermission([role], p), `${role} ${p}`).toBe(false);

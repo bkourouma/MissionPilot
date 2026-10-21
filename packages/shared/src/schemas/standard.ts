@@ -343,6 +343,14 @@ const ancrageSchema = z
   })
   .strict();
 
+const ancragesSchema = z
+  .array(ancrageSchema)
+  .length(5)
+  .refine(
+    (a) => a.every((x, i) => x.niveau === i + 1),
+    "Cinq niveaux attendus, du niveau 1 au niveau 5, dans l'ordre.",
+  );
+
 /** Rubrique à ancrages (STD-09) : cinq niveaux décrits par des comportements observables. */
 export const rubriqueCreationSchema = z
   .object({
@@ -350,14 +358,67 @@ export const rubriqueCreationSchema = z
     libelle: texteCourt,
     dimension: codeReferentielSchema.nullable().optional(),
     brique_id: z.string().uuid().nullable().optional(),
-    ancrages: z
-      .array(ancrageSchema)
-      .length(5)
-      .refine(
-        (a) => a.every((x, i) => x.niveau === i + 1),
-        "Cinq niveaux attendus, du niveau 1 au niveau 5, dans l'ordre.",
-      ),
+    ancrages: ancragesSchema,
   })
+  .strict();
+
+/** Modification d'une rubrique du brouillon (STD-11) : le code ne change pas. */
+export const rubriqueModificationSchema = z
+  .object({
+    libelle: texteCourt.optional(),
+    dimension: codeReferentielSchema.nullable().optional(),
+    brique_id: z.string().uuid().nullable().optional(),
+    ancrages: ancragesSchema.optional(),
+  })
+  .strict();
+
+/** Modification d'un élément du brouillon (STD-11) : le code et le type ne changent pas. */
+export const elementMethodeModificationSchema = z
+  .object({
+    libelle: texteCourt.optional(),
+    description: texteOptionnel(2000),
+    brique_id: z.string().uuid().nullable().optional(),
+    essentiel: z.boolean().optional(),
+    actif_par_defaut: z.boolean().optional(),
+  })
+  .strict();
+
+/**
+ * Modification d'un facteur de contexte PROPRE AU CABINET (STD-04, STD-11), additive : le code, le
+ * type et le porteur ne changent jamais ; une valeur d'énumération ou de liste existante ne se
+ * retire pas ; les bornes d'un nombre ne se resserrent pas (les règles, cas types et missions qui
+ * s'y réfèrent restent valides).
+ */
+export const facteurModificationSchema = z
+  .object({
+    libelle: texteCourt.optional(),
+    description: texteOptionnel(2000),
+    valeurs: z.array(valeurFacteurLibelleeSchema).min(1).max(VALEURS_LISTE_MAX).optional(),
+    min: z.number().finite().nullable().optional(),
+    max: z.number().finite().nullable().optional(),
+  })
+  .strict()
+  .superRefine((f, ctx) => {
+    if (f.valeurs && new Set(f.valeurs.map((v) => v.code)).size !== f.valeurs.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["valeurs"],
+        message: "Valeurs en double.",
+      });
+    }
+    if (typeof f.min === "number" && typeof f.max === "number" && f.min > f.max) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["max"],
+        message: "Borne minimale supérieure à la maximale.",
+      });
+    }
+  });
+export type FacteurModification = z.infer<typeof facteurModificationSchema>;
+
+/** Aperçu de la mission générée par une version pour un contexte donné (STD-11). Rien n'est écrit. */
+export const apercuMissionSchema = z
+  .object({ contexte: contexteModulationSchema.default({}) })
   .strict();
 
 /** Cas type d'un jeu de règles (STD-05), en clés de l'API. */

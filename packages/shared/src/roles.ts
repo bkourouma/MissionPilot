@@ -151,6 +151,8 @@ export const PERMISSIONS = [
   "autonomie.decider", // promouvoir une brique de N2 à N3 : décision d'un associé SEUL (AGT-03)
   "qualite.relire", // relire un livrable : chef de mission, second expert R3 (QUA-03, QUA-04)
   "qualite.signer", // signer un livrable R3 : directeur de mission (QUA-04, QUA-06)
+  "qualite.froide.gerer", // revue à froid des missions clôturées : tirer l'échantillon, affecter, plan d'amélioration (QUA-05) : associé
+  "qualite.froide.relire", // être relecteur indépendant d'une mission tirée : grille, constats (QUA-05)
   // --- V3, vague 3 (PRD complémentaire §12) : capitalisation. Visibilité de la mission TOUJOURS
   // exigée en plus pour ce qui s'y rattache (retours d'expérience, recherche).
   "connaissance.lire", // recherche unifiée, retours d'expérience, base d'estimation (CAP-01, 02, 07)
@@ -306,6 +308,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "qualite.relire",
     "qualite.signer",
+    "qualite.froide.relire",
     "salle.lire",
     "salle.gerer",
     "ao.lire",
@@ -513,6 +516,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "agent.gerer",
     "qualite.relire",
+    "qualite.froide.relire",
     "ao.lire",
     "canaux.moi",
     "transcription.lire",
