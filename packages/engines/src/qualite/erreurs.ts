@@ -6,7 +6,8 @@
  * le message. Une garde incomplète n'est PAS une erreur : `evaluerGarde` le
  * dit dans son résultat.
  */
-export type CodeErreurQualite = "CLASSE_INVALIDE" | "VALIDATION_INVALIDE" | "OPTIONS_INVALIDES";
+export type CodeErreurQualite =
+  "CLASSE_INVALIDE" | "VALIDATION_INVALIDE" | "OPTIONS_INVALIDES" | "ECHANTILLON_INVALIDE";
 
 export class ErreurQualite extends Error {
   readonly code: CodeErreurQualite;

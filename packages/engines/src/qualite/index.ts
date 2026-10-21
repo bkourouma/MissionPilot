@@ -25,3 +25,30 @@ export {
   type ViolationGarde,
   type EvaluationGarde,
 } from "./gardes";
+export {
+  empreinteTexte,
+  tirerEchantillon,
+  type CandidatEchantillon,
+  type CriteresTirage,
+  type ElementTire,
+  type ResultatTirage,
+} from "./echantillonnage";
+export {
+  SEUILS_REVUE_FROIDE,
+  calculerRevueFroide,
+  evaluerIndependanceRelecteur,
+  actionEnRetard,
+  transitionActionValide,
+  etatPlanAmelioration,
+  type CritereGrille,
+  type EvaluationCritere,
+  type GraviteConstat as GraviteConstatRevue,
+  type ConclusionRevue,
+  type ResultatRevueFroide,
+  type EntreeIndependance,
+  type CodeViolationIndependance,
+  type ViolationIndependance,
+  type StatutAction,
+  type ActionPlan as ActionPlanAmelioration,
+  type EtatPlan,
+} from "./revue-froide";
