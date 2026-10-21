@@ -153,3 +153,6 @@ export {
   type InitiativePriorisee,
   type PlanActionPriorise,
 } from "./plan-action";
+
+// Lot 5a (NOT-12 : combinaisons minimales d'améliorations).
+export * from "./combinaisons";

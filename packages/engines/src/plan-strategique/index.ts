@@ -134,3 +134,9 @@ export {
   type SyntheseScenario,
   type ResultatScenarios,
 } from "./scenarios";
+
+// Lot 5a : ateliers (PLA-15), Monte-Carlo (PLA-16), re-prévision (PLA-18).
+export * from "./prng";
+export * from "./monte-carlo";
+export * from "./atelier";
+export * from "./reprevision";

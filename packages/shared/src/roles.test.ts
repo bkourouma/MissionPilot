@@ -243,6 +243,7 @@ describe("portail client (SOC-09)", () => {
       "portail.signature.signer",
       "portail.synthese.lire",
       "portail.dd.lire",
+      "portail.ateliers.participer",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
@@ -645,6 +646,14 @@ describe("V3, vague 4 : portail investisseur de la due diligence", () => {
       "portail.acceder",
       "portail.dd.lire",
     ]);
+  });
+
+  it("ateliers stratégiques (PLA-15) : le dirigeant du client seul, jamais un rôle interne", () => {
+    expect(qui("portail.ateliers.participer")).toEqual(["client_dirigeant"]);
+    expect(PERMISSIONS_PORTAIL_CLIENT).toContain("portail.ateliers.participer");
+    for (const r of ROLES) {
+      expect(aPermission([r], "portail.ateliers.participer"), r).toBe(false);
+    }
   });
 
   it("aucun rôle du portail ne configure ni ne gère le partage ; aucune ne donne un droit financier", () => {
