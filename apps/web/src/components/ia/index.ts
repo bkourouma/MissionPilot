@@ -13,6 +13,7 @@ export {
   type BandeauChiffresNonVerifiesProps,
 } from "./BandeauChiffresNonVerifies";
 export { BoutonGenerationIa, type BoutonGenerationIaProps } from "./BoutonGenerationIa";
+export { ContreAnalyse, type ContreAnalyseProps } from "./ContreAnalyse";
 export { DiffTexteIa } from "./DiffTexteIa";
 export { HistoriqueVersionsIa } from "./HistoriqueVersionsIa";
 export { PanneauContenuIa, type PanneauContenuIaProps } from "./PanneauContenuIa";

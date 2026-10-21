@@ -1,0 +1,102 @@
+/*
+ * Rapport d'avancement hebdomadaire (AUT-10) : chiffres du moteur en lecture seule. Mobile d'abord,
+ * couleurs des jetons ; la couleur ne porte jamais seule le sens (texte et icône sur chaque statut).
+ */
+.mp-avc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-avc p {
+  margin: 0;
+}
+
+.mp-avc-synthese {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-avc-synthese__element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+  min-width: 0;
+}
+
+.mp-avc-synthese__etiquette {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-avc-synthese__valeur {
+  margin: 0;
+  font-size: var(--mp-taille-xl);
+  font-weight: 650;
+  font-family: var(--mp-police-chiffres);
+  overflow-wrap: anywhere;
+}
+
+.mp-avc-synthese__detail {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-avc-liste {
+  margin: 0;
+  padding-left: var(--mp-esp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-avc-liste--nue {
+  list-style: none;
+  padding-left: 0;
+}
+
+.mp-avc-ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  overflow-wrap: anywhere;
+}
+
+.mp-avc-texte {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mp-avc-compteur {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  text-align: right;
+}
+
+.mp-avc-compteur--depasse {
+  color: var(--mp-danger);
+  font-weight: 600;
+}
+
+.mp-avc-suggestion {
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  border-left: 4px solid var(--mp-attention);
+  background: var(--mp-attention-fond);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-avc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-3);
+}

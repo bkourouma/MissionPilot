@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { TACHE_IA_LIBELLES } from "@missionpilot/shared";
 import { api, ErreurApi } from "../../lib/api";
 import { formaterDateHeure, formaterNombre } from "../../lib/format";
+import { contreAnalysePossible } from "../../lib/contradicteur";
 import { messageErreurIa } from "../../lib/ia";
 import {
   actionsGeneration,
@@ -35,6 +36,7 @@ import {
   BadgeStatutGenerationIa,
 } from "./BadgeContenuIa";
 import { BandeauChiffresNonVerifies } from "./BandeauChiffresNonVerifies";
+import { ContreAnalyse } from "./ContreAnalyse";
 import { HistoriqueVersionsIa } from "./HistoriqueVersionsIa";
 import { useSuiviGeneration } from "./useSuiviGeneration";
 import "./ia.css";
@@ -48,6 +50,8 @@ export interface PanneauContenuIaProps {
   niveauTitre?: 2 | 3 | 4;
   /** Appelé à chaque nouvel état (suivi, modification, validation, annulation). */
   onChange?: (g: GenerationIa) => void;
+  /** Propose « Demander une contre-analyse » sur un brouillon IA ou modifié (défaut : oui). */
+  contreAnalyse?: boolean;
 }
 
 type Action = "modifier" | "valider" | "annuler";
@@ -65,6 +69,7 @@ export function PanneauContenuIa({
   titre = "Contenu généré",
   niveauTitre = 3,
   onChange,
+  contreAnalyse = true,
 }: PanneauContenuIaProps) {
   const suivi = useSuiviGeneration(generation, onChange);
   const g = suivi.generation;
@@ -163,6 +168,9 @@ export function PanneauContenuIa({
       />
       {statut === "terminee" && g.version !== null && g.statut_contenu !== null ? (
         <CircuitHumainIa g={g} actions={actions} enCours={enCours} executer={executer} />
+      ) : null}
+      {contreAnalyse && contreAnalysePossible(g, utilisateur) ? (
+        <ContreAnalyse key={g.id} generationId={g.id} />
       ) : null}
       <TracabiliteIa g={g} />
       {g.versions && g.versions.length > 0 ? <HistoriqueVersionsIa versions={g.versions} /> : null}

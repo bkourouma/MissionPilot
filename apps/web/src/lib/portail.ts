@@ -126,6 +126,7 @@ export interface EntreePortail {
     | "questionnaires"
     | "salle"
     | "kpi"
+    | "avancement"
     | "factures"
     | "signatures"
     | "due-diligence"
@@ -176,6 +177,14 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
     href: `${CHEMIN_PORTAIL}/kpi`,
     icone: "courbe",
     permission: "portail.kpi.saisir",
+  },
+  {
+    // Rapports d'avancement hebdomadaires validés par le cabinet (AUT-10), en lecture seule.
+    id: "avancement",
+    libelle: "Avancement",
+    href: `${CHEMIN_PORTAIL}/avancement`,
+    icone: "calendrier",
+    permission: "portail.avancement.lire",
   },
   {
     id: "factures",

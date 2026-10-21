@@ -26,10 +26,13 @@ import { chargerFacultatif, type ChargementFacultatif } from "../../../../lib/ia
 import { exigerPermission } from "../../../../lib/session";
 import { CleApiIa } from "./CleApiIa";
 import { CoutsIaSection } from "./CoutsIa";
+import { CacheIa } from "./CacheIa";
 import { ActivationIa, TestConnexionIa } from "./EtatIa";
 import { ModelesIa } from "./ModelesIa";
 import { PlafondIa } from "./PlafondIa";
 import { PromptsIa } from "./PromptsIa";
+import { RoutageIa } from "./RoutageIa";
+import { lireEtatCache, lireRoutage } from "./routage-cache";
 
 export const metadata: Metadata = { title: "Intelligence artificielle" };
 
@@ -155,6 +158,12 @@ function ParametresCabinet({ p }: { p: ParametresIa }) {
       </Carte>
       <Carte titre="Modèle par tâche">
         <ModelesIa modeles={p.modeles} autorises={p.modeles_autorises ?? []} />
+      </Carte>
+      <Carte titre="Routage des modèles par tâche">
+        <RoutageIa routage={lireRoutage(p)} />
+      </Carte>
+      <Carte titre="Cache des réponses">
+        <CacheIa etat={lireEtatCache(p)} />
       </Carte>
       {p.modifie_le ? (
         <p className="mp-texte-petit mp-texte-doux">

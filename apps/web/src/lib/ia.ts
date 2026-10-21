@@ -13,6 +13,7 @@ import {
   SEUILS_ALERTE_PLAFOND_IA,
   TACHE_IA_LIBELLES,
   VARIABLE_CHIFFRES,
+  type CritereRoutageIa,
   type Role,
   type SchemaSortie,
   type TacheIa,
@@ -40,6 +41,17 @@ export interface ModeleTacheIa {
   personnalise: boolean;
 }
 
+/** Ligne du routage exposée par GET /api/ia/parametres (apps/api/src/ia/parametres.ts, `vueRoutage`). */
+export interface RouteTacheIa {
+  tache: TacheIa;
+  modele_recommande: string;
+  modele_applique: string;
+  personnalise: boolean;
+  critere: CritereRoutageIa;
+  motif: string;
+  plafond_jetons_sortie: number | null;
+}
+
 /**
  * GET/PUT /api/ia/parametres. L'IA est désactivée (`ia_activee` faux, `mode` « gabarit ») tant
  * que le cabinet ne l'a pas activée explicitement. Plafonds, modèles autorisés et dates :
@@ -55,6 +67,12 @@ export interface ParametresIa {
   source_cle: SourceCleIa | null;
   mode: ModeIa;
   modeles: ModeleTacheIa[];
+  /** Routage documentaire des modèles par tâche (AGT-06), lisible avec « ia.utiliser ». */
+  routage: RouteTacheIa[];
+  /** Cache des réponses (AGT-06) : désactivé par défaut. */
+  cache_actif: boolean;
+  /** Durée de vie d'une entrée du cache, en heures (24 au plus). */
+  cache_duree_heures: number;
   plafond_mensuel_micro_usd?: number;
   /** Plafond fixé par l'opérateur pour les appels faits avec la clé de la plateforme. */
   plafond_plateforme_micro_usd?: number;
@@ -397,6 +415,7 @@ export interface CoutsMoisIa {
   mois: string;
   cout_micro_usd: number;
   appels: number;
+  appels_cache: number;
 }
 
 /** GET /api/ia/couts?mois=AAAA-MM. */
@@ -406,7 +425,10 @@ export interface CoutsIa {
   taux_conversion: { usd_vers: Partial<Record<Devise, number>>; date: string; a_valider: boolean };
   mois: string;
   cout_micro_usd: number;
+  /** Appels au fournisseur (hors générations servies par le cache). */
   appels: number;
+  /** Générations servies par le cache des réponses (coût nul). */
+  appels_cache: number;
   plafond_mensuel_micro_usd: number;
   /** Plafond appliqué (borné par l'opérateur avec la clé de plateforme) ; base de `part_plafond`. */
   plafond_effectif_micro_usd: number;
@@ -436,6 +458,16 @@ export const FORMAT_MOIS = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export const moisDe = (d: Date) =>
   `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+/**
+ * Générations servies par le cache des réponses (AGT-06) : sans appel au fournisseur, à coût nul.
+ * Une réponse plus ancienne de l'API (sans le compteur) est lue comme zéro.
+ */
+export function libelleServiesCache(n: number | null | undefined): string {
+  const v = typeof n === "number" && Number.isInteger(n) && n > 0 ? n : 0;
+  const nombre = new Intl.NumberFormat("fr-FR").format(v).replace(/\p{Zs}/gu, NBSP);
+  return `${nombre}${NBSP}${v > 1 ? "générations reprises" : "génération reprise"} du cache, sans coût`;
+}
 
 /** Mois lu dans l'URL, sinon le mois en cours (UTC, comme l'API). */
 export function lireMois(v: unknown, maintenant: Date): string {
