@@ -8,153 +8,188 @@ la branche fusionnée. Dates absolues. Pas de secret ni de contenu de `.env`.
 Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
-## Situation de `main` — 2026-10-20 (vague 4 fusionnée)
 
-**État :** `main` = `3d5a252`. Il porte les vagues 0 à 3 (PR n° 7), le rejeu OpenRouter (n° 8), le brief,
-le copilote et l'événement de clôture demandée (n° 9) et la **vague 4** fusionnée le 2026-10-20 par
-l'utilisateur, dans l'ordre et en merge commit : n° 12 lot 3a **redressement** (`23c0e1c`), n° 13 lot 3b
-**due diligence** (`777c9aa`), n° 14 lot 3c **canaux, signatures et transcriptions simulés** (`3d5a252`).
-L'arbre de `main` est identique à la tête validée du lot 3c (`fb83e46`). ADR-008, 010, 011, 012 et 013
-acceptées le 2026-10-14 (mode simulé seulement pour 008, 010 et 013). 180 migrations.
+## Branche `orch/2026-10-20-reste` — 2026-10-22 (PR vers `main` à fusionner par l'utilisateur)
 
-**Ménage post-fusion fait (2026-10-20)** : `pnpm install` sur `main` ; `pnpm db:migrate` sur les trois
-bases de développement (`missionpilot`, `missionpilot_demo`, `missionpilot_recette` : 180 migrations,
-0480–0548 appliquées) ; worktrees `.claude/worktrees/{redressement,dd,canaux}` et branches locales
-supprimés (les branches distantes restent). **Non fait** : purge des ~75 bases `missionpilot_*_test` et
-des bases de recette `missionpilot_{rec2fa,rec3b,rec3c,recint,canaux2,tfa,v6}` (suppression de données :
-accord de l'utilisateur requis) ; arrêt des serveurs de recette `mp-node.exe` s'ils tournent encore
-(aucun n'a été vu le 2026-10-20 à 13:30).
+**État.** `main` = `3d5a252` (vagues 0 à 4 : gestion de mission, fondations, automatisation, services
+augmentés, appels d'offres, redressement, due diligence, canaux simulés). La branche
+`orch/2026-10-20-reste` (poussée sur `origin`) porte tout le reste du plan des lots B à F du HANDOFF du
+2026-10-20, plus la CI GitHub, la recette navigateur et ses corrections. Elle se fusionne en **merge
+commit** (jamais de rebase : l'historique par lot est voulu). Rien n'est sur `main` tant que
+l'utilisateur n'a pas fusionné la PR.
 
-**Vérifié avant fusion** (sur la pointe de chaque lot, une suite API à la fois) : Prettier, eslint,
-typecheck ; API 3a 1961 tests, 3b 2187 (1 échec `kpi-alertes`, instable sous charge, vert seul), 3c 2313
-verts ; web 1808 ; build de production ; audits de sécurité des trois lots (0 critique, importants
-corrigés) ; recette navigateur du 2026-10-20 sans bloquant ; signature menée de bout en bout par script
-avec les comptes de démonstration à 2FA (`associe.2fa@`, `dirigeant.client.2fa@`, `db:code-2fa-demo`).
-La suite API n'a pas été rejouée après les correctifs de recette du 2026-10-20 (web seulement).
+**Livré (un lot = une branche `orch/2026-10-20-reste-lot-N`, commits par domaine).**
 
-**NON vérifié** : tout vrai fournisseur (OpenRouter, signature, WhatsApp/SMS, transcription : aucune clé,
-aucun envoi) ; mise en page mobile ; rafraîchissement d'écran après écriture (fiche créancier, notes,
-verdicts, signatures) **à confirmer devant un écran affiché** : le serveur rend les données à jour mais le
-DOM ne changeait pas dans un navigateur masqué ; erreur React n° 418 vue une fois, non reproduite ;
-`/agents/evaluations` jamais ouvert ; simulateur WhatsApp et saisie KPI par messagerie dans le navigateur.
+| Lot | Contenu |
+| --- | --- |
+| 1 | Socle IA : réclamation équitable des jobs par cabinet (0305) ; garde de provenance du rejeu par fonctions `SECURITY DEFINER` (0275) ; activation d'un prompt liée au modèle routé (0276) ; débit du brief en base (0550) ; copilote par l'orchestrateur, noms propres masqués, 2 actions et 2 lectures de plus ; 3 sources de plus au brief |
+| 2 | Redressement 3a-bis : check-lists, causes racines par IA (brouillon), rapport de clôture et re-notation (0551), suivi après mission, trésorerie mensuelle et covenants ; validation réservée au directeur de la mission (409 `DIRECTEUR_REQUIS` sans directeur, doublée en base, 0492) |
+| 3 | Due diligence : portail investisseur (0509), modèles sectoriels vides (0511, DD-07) ; canaux : alertes KPI sortantes (option désactivée par défaut, 0549), média entrant en flux, seeds |
+| 4a | Éditeur de méthodes complet (STD-11, aperçu, cohérence) ; revue à froid des missions clôturées (QUA-05) |
+| 4b | Groupes et filiales (DOS-05, conversion EUR/XAF/XOF au taux fixe, USD exclu) ; citations cliquables (PRV-06) ; rapport d'état financier (0552) |
+| 4c | Rapport d'avancement hebdomadaire au client (AUT-10, jamais d'e-mail) ; cache chiffré des réponses IA, plafond de coût par mission, routage par tâche (AGT-06) ; agent contradicteur |
+| 5a | Simulateur de note (NOT-12) ; ateliers en ligne (PLA-15) ; Monte-Carlo à graine (PLA-16) ; plan vivant (PLA-18) |
+| 5b | Efficacité des recommandations (CAP-03) ; observatoire inter-cabinets réservé aux contributeurs, seuils hors appelant (CAP-04) ; veille des appels d'offres simulée (AO-01) |
+| 6 | Import de documents (ADR-009) : états financiers PDF/Excel (DOS-03), rapports et salle de données de la due diligence (DD-02, DD-10), amorçage du standard (STD-13) ; PDF hostiles contrôlés hors boucle d'événements |
+| 7 | Services candidats : diagnostic flash (pas de prix par défaut) et business plan bancable (« sur devis »), guichets de financement |
+| 8a | CI GitHub Actions (qualité + API en 4 partitions, PostgreSQL 16) — **jamais exécutée sur GitHub** |
+| 8b, 8c | Dettes (voyant rouge dans le brief, paginations, seuils d'anonymat, `paramsId` strict, dates de temps bornées) ; 34 gros fichiers web découpés |
+| 9a à 9e | Documentation consolidée (SECURITY, CODING_STANDARDS, DECISIONS, checklist, RUNBOOK, ADR, SPEC) |
+| 10 | Corrections de la recette navigateur du 2026-10-22 (A-01 à A-12) ; `ajouterPreuve` rejoue l'horodatage sous charge ; tests instables fiabilisés |
+| 11 | OCR local (`tesseract.js` 7.0.0, hors ligne, données `fra`/`eng` vendorées avec empreintes) pour les PDF scannés ; toujours revue humaine |
+| 12 | `next` 15.5.28 et `fastify` 5.12.6 (avis critique/haut/bas) ; derniers `router.refresh()` migrés vers `useRafraichir` |
 
-**Décisions qui attendent l'utilisateur** :
+Détail, hypothèses H1–H32, plages de migrations, queue ≥ 0549 attribuée centralement et mesures de chaque
+vérification : `D:\APP\MissionPilot\.orchestration\2026-10-20-reste\suivi.md` (local, exclu de git).
+Chiffres du dernier recomptage des recherches mécaniques : voir `.claude/rules/review-checklist.md`
+(relevé « tête finale » du 2026-10-22 : 990 routes dont 9 sans `exiger`, 232 migrations, 35 `GRANT EXECUTE`).
 
-- PRD complémentaire §21 : n° 4 (autonomie N4 vers les clients), n° 6 (services candidats : recommandé
-  diagnostic flash puis business plan bancable), n° 7 (attestation vérifiable), n° 8 (WhatsApp Business).
+**Vérifié.** Typecheck, eslint, Prettier ; tests engines, shared, web ; build web de production (Next) ;
+`pnpm audit --prod` sans vulnérabilité (2026-10-22) ; suite API complète sur l'intégration (sans les lots 11
+et 12) : 3 298 verts sur 3 303, les 5 échecs étant des dépassements de délai sous charge (rendu PDF
+Chromium, `kpi-alertes`) qui passent seuls ; chaque lot a eu au moins un vérificateur indépendant et une
+suite API complète sur sa branche ; recette navigateur du 2026-10-22 : 14 parcours sur 16.
+
+**NON vérifié (à ne pas affirmer).**
+
+- La CI GitHub (`.github/workflows/ci.yml`) n'a jamais tourné : première exécution sur la PR ; ajuster
+  `timeout-minutes` et la répartition des 4 partitions selon la durée réelle. Node 22.13 minimum partout
+  (`engines`, CI, RUNBOOK, ADR-001) : requis pour le modèle de permissions de l'OCR.
+- Le correctif général du rafraîchissement d'écran après écriture (`useRafraichir`, anomalie A-04) :
+  cause non prouvée, onglets de recette en arrière-plan ; **à confirmer sur un onglet réellement au
+  premier plan**.
+- Qualité de l'OCR sur de **vraies** liasses SYSCOHADA scannées (les tests utilisent des documents
+  générés) ; JPX, CCITT, JBIG2 non testés ; `--permission` de Node sous Node 22 non éprouvé hors CI.
+- Tout vrai fournisseur : OpenRouter (aucune clé), signature électronique, WhatsApp/SMS, transcription,
+  SMTP. Aucun envoi réel n'a été fait.
+- Mise en page mobile : 4 écrans seulement (recette du 2026-10-22), 375 px, sans défilement horizontal.
+- Écrans jamais ouverts dans un navigateur : `/agents/evaluations`, simulateur WhatsApp, saisie KPI par
+  messagerie ; accès aux agrégats de l'observatoire après contribution (bloqué par A-01 pendant la recette,
+  corrigé depuis) ; refus d'activation du diagnostic flash sans prix ; commentaire IA du rapport
+  hebdomadaire (pas de clé).
+
+**Décisions de l'utilisateur pendant le chantier (2026-10-20 à 2026-10-22), toutes marquées VALIDÉES dans
+`DECISIONS.md`.** Services candidats retenus : diagnostic flash puis business plan bancable. Alertes KPI
+sortantes par messagerie : option du cabinet, désactivée par défaut. Note de due diligence périmée : reste
+visible côté investisseur. Partage investisseur : associé et directeur de mission ; pièces au libre choix
+(10 au plus). Relance par le copilote : jamais d'e-mail, une par facture et par jour. Brief : l'auteur est
+toujours exclu de la validation de son propre travail ; révision de budget non figée = à valider ; un
+jalon dépassé suffit pour « mission en retard ». Revue à froid : tout intervenant de la mission est exclu
+des relecteurs ; le relecteur ne voit pas les jours consommés ; l'associé réaffecte, ne clôture pas. Groupes
+: seuil de contrôle > 50 % ; devises converties au taux fixe XOF/XAF/EUR (655,957), USD exclu ; rapport
+d'état financier réservé à `dossier.lire`. Diagnostic flash : aucun prix par défaut, activation
+impossible sans prix ; gestion des services candidats et des guichets par l'associé et le directeur.
+Observatoire : seuils de 5 entreprises et 3 cabinets calculés hors cabinet appelant, accès réservé aux
+contributeurs. Efficacité des recommandations : 5 observations, effet à 30 jours. Import de documents :
+noms masqués avant envoi à l'IA ; texte extrait conservé jusqu'à la décision + 90 jours ; **OCR local
+installé sur le serveur, jamais de service externe**. Failles de `next` et `fastify` : correctifs gardés
+malgré la règle d'âge de 14 jours (les versions n'ont que 8 et 9 jours ; faille critique).
+
+**À valider par l'utilisateur ou un expert (provisoire, dans la PR sous « À valider »).**
+
+- Le business plan bancable peut s'activer sans prix (« sur devis »).
+- La date d'efficacité s'affiche « 15 oct. 2026 » (format commun) et non JJ/MM/AAAA.
+- Grille de revue à froid (8 critères pondérés, seuils 75/50), plafond de rejeux Monte-Carlo (5 par plan
+  par 10 minutes, tous utilisateurs confondus), seuil de 3 contributeurs par méthode d'atelier, 20
+  évaluations du voyant par requête de brief, seuils mémoire de l'import PDF (256 Mo / +512 Mo), toutes
+  les valeurs listées par lot dans `DECISIONS.md`.
+- Contenu des méthodes « diagnostic flash » et « business plan bancable » (briques, règles, cas types) :
+  « à valider par un expert ».
+- RED-04 : la validation des causes racines suit la règle « un consultant autre que l'auteur » ; la
+  validation du plan et du bilan reste réservée au directeur de la mission.
+
+**Décisions qui attendent l'utilisateur** (inchangées ou nouvelles).
+
+- PRD complémentaire §21 : n° 4 (autonomie N4 vers les clients), n° 7 (attestation de notation
+  vérifiable), n° 8 (WhatsApp Business comme canal officiel).
 - Clé OpenRouter de test ; fournisseurs réels de signature, messagerie, transcription (SPEC-3c §17,
-  O-01 à O-27) ; hébergement et déploiement (aucune cible choisie).
-- Juridique : conservation (CV des appels d'offres, texte IA, rapports, données du client),
-  RED-13 (repères OHADA), valeur probante de la signature, consentements, ARTCI.
+  O-01 à O-27) ; hébergement et déploiement (aucune cible choisie ; pare-feu sortant du serveur à prévoir
+  pour l'OCR).
+- Juridique : conservation (CV des appels d'offres, texte IA, rapports, données du client), RED-13
+  (repères OHADA), valeur probante de la signature, consentements, ARTCI, durée de 90 jours du texte
+  d'import.
 - Expert métier : seuils d'alerte par secteur et grille d'urgence du redressement, modèles sectoriels
-  DD-07 ; FIN-02 sur les montants du client en redressement ; validation du plan de redressement
-  réservée au directeur de la mission ou non.
-- Valeurs provisoires de `DECISIONS.md` (plafonds, débits, seuils ; liste ci-dessous).
+  DD-07, FIN-02 sur les montants du client en redressement.
 
-**Reste à faire — plan par lots (ordre conseillé ; chaque lot : branche depuis `main`, eslint, tsc,
-Prettier, tests des 4 paquets, suite API complète, audit en lecture seule, recette navigateur, PR) :**
+**Reste à faire (par priorité).**
 
-- **B — Consolidation avant pilote** : dettes de sécurité de `SECURITY.md` §15 (file `jobs` FIFO partagée
-  entre cabinets → équité par cabinet ; garde de provenance par fonction `SECURITY DEFINER` réservée au
-  job ; débit du brief tenu en mémoire → PostgreSQL ; routage du copilote via `orchestrateur.ts` ;
-  masquage des noms propres vers le modèle ; liaison du modèle routé à l'activation) ; `IMPORT_INVALIDE`
-  en `AppError` ; `semaineQuerySchema` borné ; pages de 200 sur `/api/missions` et `/api/opportunites` ;
-  confirmation du rafraîchissement client et de l'erreur n° 418 sur écran affiché ; mineurs repoussés des
-  recettes (vague 2 : copilote ; 3a : libellés « prévu », marge en points, note vide, secteur non prérempli,
-  seuils v1 jamais « Remplacée » ; 3b : `role="tree"`, noms de fichiers des rapports, code `dd.pestel.*`
-  affiché ; 3c : en-tête `attachment`) ; fichiers web de plus de 400 lignes ; tests instables
-  `kpi-alertes` et `salle-mission-durcissement`.
-- **C — Lacunes fonctionnelles V3** : AUT-10 (rapport d'avancement hebdomadaire au client) ; copilote
-  étendu (registre `ACTIONS`) et sources du brief écartées ; dettes de la vague 1 (QUA-05, DOS-05, STD-11
-  complet, STD-13, STD-14, PRV-06 web, AGT-06 cache et agent contradicteur, rapport d'état financier) ;
-  vague 3 non livrée (PLA-15, 16, 18, NOT-12 simulateur, CAP-03, CAP-04, AO-01 veille multi-sources).
-- **D — ADR-009 ingestion et OCR** : à rédiger puis livrer ; débloque DOS-03 (extraction IA d'un PDF),
-  DD-02 (import de rapports), DD-10 (lecture IA de la salle de données).
-- **E — Suites des services de la vague 4** : 3a-bis (RED-03 check-lists, RED-04 causes racines par IA,
-  RED-08 rapport de clôture et re-notation, RED-09 suivi post-mission, RED-15 tableau partagé, trésorerie
-  mensuelle et covenants, seed, « voyant rouge » dans le brief et l'automatisation) ; 3b-bis (portail
-  investisseur, DD-07 dès que le contenu expert existe) ; 3c-bis (branchement `kpi/suivi.ts` O-26, seeds,
-  média entrant en flux, SPEC-3c lignes 430 et 1109 à aligner).
-- **F — Services candidats** (après la décision n° 6) : par assemblage de briques du référentiel de
-  méthodes, sans code spécifique quand c'est possible.
-- **G — Industrialisation et pilote V1** : CI GitHub (aucune aujourd'hui), cible d'hébergement et
-  déploiement (accord requis), sauvegardes et restauration, observabilité, SMTP réel, vérification mobile,
-  recette E2E complète, jeu de démonstration ; jalon du PRD : pilote dans 2 à 3 cabinets (fin mars 2027).
-- **H — Branchements réels** (bloqués par les décisions ci-dessus) : OpenRouter réel, adaptateurs de
-  signature, messagerie et transcription, connecteurs DD-02 ; AUT-11 (staffing, V4).
-- **I — Vague 5 Réseau** (condition : 10 cabinets adhérents) : observatoire, attestation vérifiable,
-  place de marché des méthodes, connecteurs, marque blanche.
+1. **Fusionner la PR** (utilisateur), observer la première exécution de la CI, corriger ce qu'elle révèle.
+2. **Recette navigateur de contrôle** sur un onglet au premier plan (A-04, OCR sur un vrai scan, mobile).
+3. **Dettes ouvertes** (détail : `SECURITY.md` §15 et `CODING_STANDARDS.md` §10) : **garde réseau de l'OCR
+   contournable par la poignée native d'un socket** (un paquet UDP est sorti en essai ; précondition : code
+   déjà exécuté dans le sous-processus ; renforcement non fait — la plateforme a interrompu l'agent qui
+   devait écrire les tests d'attaque ; **pare-feu sortant du serveur obligatoire**, à reprendre par un
+   conteneur sans sortie ou un autre garde, à décider avec l'utilisateur) ; parseur PDF et OCR dans le
+   processus de l'API (sous-processus Node sans conteneur ni seccomp) ; `effacerObjetsMarques` efface
+   tout objet marqué `retire` du cabinet (effet de bord possible sur les dépôts de salle de mission, à
+   confirmer) ; M5 (relance de lecture avec les droits de l'auteur) et M7 (téléversement DD en trois
+   transactions) ; lecture DD et documents DD non masqués avant envoi au modèle ; plafond IA par mission
+   sans écran de réglage (API seule) ; rendu PDF/DOCX du rapport hebdomadaire non fait ; moteur NULL des
+   briques `bancabilite_pla17`, `plan_financement`, `veille_guichets` (0561) ; ADR-001 dit encore « Node
+   ≥ 20 » ; `SPEC-3b` §8.13 ajoutée (à garder ou retirer) ; commentaire de `0287` « MQQ01 à MQQ12 »
+   (immuable) ; fichiers web encore au-dessus de 400 lignes (liste dans `CODING_STANDARDS.md` §10) ;
+   rafraîchissement `FormulaireConnexion` volontairement direct.
+4. **Vague 5 « Réseau »** (condition : 10 cabinets adhérents) : attestation vérifiable, place de marché des
+   méthodes (STD-14), connecteurs, marque blanche ; NOT-14 (percentile) ; AUT-11 (staffing, V4).
+5. **Branchements réels** quand les décisions ci-dessus sont prises : OpenRouter, signature, messagerie,
+   transcription, connecteurs DD-02.
+6. **Industrialisation et pilote V1** (jalon du PRD : pilote dans 2 à 3 cabinets, fin mars 2027) :
+   hébergement et déploiement (accord requis), sauvegardes et restauration, observabilité, SMTP réel.
 
-**Valeurs provisoires** (`DECISIONS.md`, laissées en l'état) : plafonds des vagues 2 et 3 (50
-automatisations actives, 30 simulations par 10 minutes, 20 dépôts par pièce, 500 Mo par demande, 30 dépôts
-du portail par 10 minutes, 20 dossiers et 50 extractions par fiche d'appel d'offres, 100 gabarits de CV,
-30 propositions de portefeuille par 10 minutes, 60 recherches par minute, 10 dossiers de revue par
-10 minutes, 50 déclarations de niveau par couple) ; plancher de confiance NOT-11 (0,3, 2 répondants) ;
-rejeu OpenRouter (2 USD par évaluation, 5 rejeux par 24 h, 8 min, péremptions 1 h et 30 min) ; brief
-(seuils de gravité, 60 requêtes par 10 minutes, lots de 500, anti-répétition de 10 minutes) ; copilote
-(30 messages par 10 minutes, 1000 caractères, 5 minutes, N2, 30 jours, purge à 02:30 UTC) ; valeurs des
-sections « Redressement », « Due diligence » et « Canaux » ; jours de budget visibles d'un consultant
-dans « Écarts » (FIN-02 ne vise que les montants : à confirmer).
+**Ménage non fait.** Environ 200 bases `missionpilot_o*` / `missionpilot_*_test` / `missionpilot_rec*` sur le
+PostgreSQL de développement (suppression de données : accord requis) ; dossiers
+`D:\APP\MissionPilot-worktrees\` (worktrees de lots fusionnés restés verrouillés par Windows : `reste-lot-6`,
+`reste-lot-9e`, à supprimer à la main si besoin ; branches `orch/2026-10-20-reste-lot-*` locales et
+distantes à supprimer après la fusion) ; fenêtre « Sécurité Windows » (pare-feu Node.js) possiblement
+restée ouverte par la recette (lancer `next start` avec `-H 127.0.0.1`).
 
-**Pièges :**
+**Pièges.**
 
-- **Serveurs de recette** : lancer l'API et le web comme processus DÉTACHÉS (PowerShell
-  `Start-Process`) sous un nom d'exécutable distinct (copie de `node.exe` renommée) : une commande qui
-  tue `node.exe` les arrêtait en pleine recette. L'API met ~40 s à répondre ; le premier chargement
-  d'une page en mode dev prend 10 à 60 s. Trois origines (`localhost`, `127.0.0.1`, `[::1]`) ont des
-  cookies séparés et sont acceptées par la garde d'origine : jusqu'à trois testeurs en parallèle. Le
-  groupe d'onglets de l'extension Chrome est partagé entre les testeurs : chacun crée son onglet et
-  vérifie l'origine avant d'agir. Le navigateur intégré de l'application Claude a cessé de répondre
-  pendant la recette (volet masqué) : Chrome (extension) a été utilisé.
-- **Next dev** : un bloc dupliqué dans un fichier par deux éditions concurrentes cassait la
-  compilation d'une page ; le typecheck global le détecte : le relancer après tout lot d'agents
-  parallèles avant de commiter.
-- **Page serveur** : ne jamais passer une FONCTION à un composant client (propriétés sérialisables
-  seulement ; cas de `/methodes/[id]`, corrigé par `versionDans`).
-- **Tests API** : une base par agent (`DATABASE_URL` / `DATABASE_OWNER_URL` vers `missionpilot_<id>`,
-  suffixe `_test` ajouté) ; le global-setup supprime et recrée le schéma de la base de test à
-  chaque exécution ; jamais deux suites API en parallèle sur la même base ; la suite complète dure
-  20 à 47 minutes (la lancer détachée). PostgreSQL du projet : conteneur `missionpilot-postgres`
-  (port 55440), à relancer par `pnpm db:up` après un redémarrage de Docker. Les bases
-  `missionpilot_*_test` créées par les agents s'accumulent : à purger.
-- **Migrations** : plages dans `CODING_STANDARDS.md` §1 (prochains libres : AGT `0275`, AUT `0305`,
-  redressement `0487`, due diligence `0509`, canaux `0549`) ;
-  un fichier qui référence une table d'un autre domaine a un numéro PLUS GRAND ; migrations commitées
-  = immuables (0480–0548 le sont depuis les PR n° 12 à 14) ; `rapports_mission` et `fichier_orphelin`
-  sont redéfinies par 0508 et 0548 : toute nouvelle redéfinition reprend l'UNION des valeurs ; toute
-  nouvelle colonne qui référence `fichiers` est couverte par l'inventaire automatique de
-  `fichiers-orphelins-references.test.ts`.
-- **SQLSTATE** : plus aucune lettre libre après `Z` (redressement `MPZ01-20`, due diligence `MPZ21-32`)
-  et `H` (canaux) : les lots suivants prennent un second préfixe de deux lettres (`MQ…`).
-- **Recette** : préférer `next build` puis `next start` (port 3110, `WEB_ORIGIN=http://localhost:3110`
-  pour l'API) : en mode dev le volet navigateur reste sur « Chargement de la page… » ; le port 3100 peut
-  être pris par un autre projet ; Docker Desktop arrêté → le démarrer puis `docker start
-  missionpilot-postgres` ; signer exige une 2FA active (comptes `*.2fa@` du seed).
+- **Docker Desktop se bloque souvent** (WSL arrêté, pipe `dockerDesktopLinuxEngine` introuvable) : arrêt
+  forcé de `Docker Desktop` et `com.docker.backend`, `wsl --shutdown`, relance, puis
+  `docker start missionpilot-postgres` et attendre l'état `healthy` (jusqu'à 90 s). Après un
+  redémarrage brutal, PostgreSQL rejoue son journal.
+- **Machine chargée** : 3 ou 4 suites API en parallèle au plus (au-delà : erreur 53200
+  `max_locks_per_transaction` dans le global-setup) ; une base par agent (`missionpilot_<id>`, suffixe
+  `_test` ajouté, schéma recréé à chaque exécution, jamais deux suites sur la même base) ; la suite complète
+  dure 1 h à 2 h sous charge (la lancer détachée, journal et ligne `FIN <code>`) ; tests connus instables
+  sous charge : `kpi-alertes`, `jobs`, `rapports-pdf` (Chromium), `rapports-api` « PDF réel »,
+  `redressement-*`, `auth-limiteur`, `plan-de-charge-perf` : les rejouer seuls avant de conclure.
+- **Orchestration d'agents** : la garde du mod `flux-autonome` plafonne les agents actifs (relevée à 20 le
+  2026-10-21) ; une coupure réseau (`ENOTFOUND`) ou un redémarrage de l'application arrête tous les
+  agents : état des lieux des fichiers (tronqués, octets NUL) puis reprise par `SendMessage` ; aucun agent
+  ne commite ; un chef de lot ne lance pas plus de 4 exécutants. Commits signés
+  `Co-Authored-By: Claude Sonnet 5.5` depuis le 2026-10-22.
+- **Migrations** : prochains libres dans `CODING_STANDARDS.md` §1 (0527 après l'OCR, 0525 et 0526 utilisées ; la queue ≥ 0549 est
+  attribuée centralement : redéfinition de `tentatives_auth_regles` après 0550, de `rapports_mission`
+  après 0552 avec l'UNION des valeurs) ; migrations commitées = immuables.
+- **SQLSTATE** : plus aucune lettre libre après `Z` et `H` ; second préfixe de deux lettres `MQ…`
+  (`MQD`, `MQF`, `MQG`, `MQI`, `MQK`, `MQA`, `MQL`, `MQQ`, `MQS`, `MQU`, `MQV`).
+- **Web** : plus aucun `router.refresh()` direct hors `FormulaireConnexion` : utiliser `useRafraichir` ;
+  un 403 métier explicite se tolère par `codes403Metier` (opt-in) dans `chargerServeur` ; ne jamais
+  passer une fonction d'un composant serveur à un composant client ; build de production à lancer après
+  tout découpage de fichiers web.
+- **Serveurs de recette** : API et web comme processus DÉTACHÉS sous un nom d'exécutable distinct (copie de
+  `node.exe` renommée) ; `next build` puis `next start` (port 3110, `WEB_ORIGIN=http://localhost:3110`) ;
+  l'API met ~40 s à répondre ; trois origines (`localhost`, `127.0.0.1`, `[::1]`) pour trois testeurs ;
+  `CONNEXION_RAPIDE_DEMO=oui` ; signer exige une 2FA active (comptes `*.2fa@`, `db:code-2fa-demo`).
 - **Jobs** : toute constante `TYPE_JOB_*` exportée doit figurer dans `REGISTRE_JOBS`
   (`jobs-registre.test.ts`).
-- **Dates métier** bornées par un CHECK SQL : `dateIsoBorneeSchema` (2000 à 2100).
-- **Recherches mécaniques** de `.claude/rules/review-checklist.md` : à relancer avant chaque
-  livraison (relevé du 2026-10-14, valable pour `main` : 813 routes dont 9 sans `exiger`, 723 `z.object`
-  tous stricts, 180 migrations, 27 lignes à la recherche n° 16).
-- **Évaluations locales** d'agents : elles prouvent le câblage d'un prompt, pas la qualité d'un
-  modèle (ADR-005) ; hors développement et test, elles n'activent rien.
-- **Agents** : `dev-complex-high` (implémentation, Sonnet 5.5 effort high), `code-reviewer`,
-  `security-auditor`, `ui-tester` (lecture, recette) ; limite de 10 agents en parallèle ; un agent
-  teste sur sa propre base ; aucun agent ne commite.
-- Base de développement `missionpilot` : contient des données de recette ; le cabinet de
-  démonstration Abidjan se crée par `db:seed-demo` (RUNBOOK). Base de recette
-  `missionpilot_recette` (cabinet Lagune, comptes de démonstration, connexion rapide sans mot de
-  passe avec `CONNEXION_RAPIDE_DEMO=oui`) : données préfixées RECETTE-A à RECETTE-R3 laissées par la
-  recette ; la mission « Kora » y est clôturée.
-- Configuration hors développement : `TFA_MASTER_KEY`, SMTP, `STORAGE_DIR` obligatoires ;
-  `WEB_ORIGIN` = adresse exacte du web (sinon 403 `ORIGINE_REFUSEE`) ; `CHROMIUM_PATH` pour les PDF.
+- **Dates métier** bornées par un CHECK SQL : `dateIsoBorneeSchema` (2000 à 2100) ; les tests dérivent leurs
+  dates de `new Date()` (un déclencheur refuse les mesures futures).
+- **Évaluations locales** d'agents : elles prouvent le câblage d'un prompt, pas la qualité d'un modèle
+  (ADR-005) ; hors développement et test, elles n'activent rien.
+- **Recherches mécaniques** de `.claude/rules/review-checklist.md` : à relancer avant chaque livraison.
+- Configuration hors développement : `TFA_MASTER_KEY`, SMTP, `STORAGE_DIR` obligatoires ; `WEB_ORIGIN` =
+  adresse exacte du web (sinon 403 `ORIGINE_REFUSEE`) ; `CHROMIUM_PATH` pour les PDF ; `OCR_LOCAL`
+  (`auto` par défaut, `off` pour couper) pour l'OCR.
 
-Valeurs métier de la V1 et de la V2 à faire valider (posées par défaut) : TVA 18 %, retenue à la
-source désactivée, seuils d'approbation 5 M / 25 M / 10 M XOF (validés par l'utilisateur le
-2026-10-06), IS 25 %, actualisation 12 %, codes SYSCOHADA indicatifs, libellés des classes A à E
-(`apps/web/src/lib/notation.ts`), modèles IA recommandés et tarifs (`ia/modeles.ts`), taux USD de
-départ (`ia/couts.ts`), plafond IA 50 USD, suivi KPI quotidien à 7 h UTC, conservation du texte IA
-365 jours et des rapports 3 ans (**avis du conseil juridique requis**), mention de la contribution
-IA activée par défaut. Seuils de la vague 1 à calibrer au pilote : poids de fiabilité A–D, plafond 2
-et seuils 0,75 / 0,5 de solidité ; promotion d'autonomie 50 exécutions / 95 % / 90 jours ;
-modification majeure au-delà de 25 % ; incident majeur → N2.
+Valeurs métier de la V1 et de la V2 à faire valider (posées par défaut) : TVA 18 %, retenue à la source
+désactivée, seuils d'approbation 5 M / 25 M / 10 M XOF (validés par l'utilisateur le 2026-10-06), IS 25 %,
+actualisation 12 %, codes SYSCOHADA indicatifs, libellés des classes A à E
+(`apps/web/src/lib/notation.ts`), modèles IA recommandés et tarifs (`ia/modeles.ts`), taux USD de départ
+(`ia/couts.ts`), plafond IA 50 USD, suivi KPI quotidien à 7 h UTC, conservation du texte IA 365 jours et des
+rapports 3 ans (**avis du conseil juridique requis**), mention de la contribution IA activée par défaut.
+Seuils de la vague 1 à calibrer au pilote : poids de fiabilité A–D, plafond 2 et seuils 0,75 / 0,5 de
+solidité ; promotion d'autonomie 50 exécutions / 95 % / 90 jours ; modification majeure au-delà de 25 % ;
+incident majeur → N2.
