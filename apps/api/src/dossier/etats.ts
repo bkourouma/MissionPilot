@@ -37,6 +37,21 @@ export interface EnTeteEtat {
   source_libelle?: string | null;
 }
 
+/** Options d'ingestion : `forcerRevue` inhibe l'acceptation automatique (texte lu par OCR, ligne rejetée…). */
+export interface OptionsIngestionEtat {
+  forcerRevue?: boolean;
+}
+
+/** La date de clôture tombe dans l'exercice ou l'année suivante, sinon 400 (avant toute écriture). */
+export function exigerDateClotureCoherente(
+  entete: Pick<EnTeteEtat, "exercice" | "date_cloture">,
+): void {
+  const annee = entete.date_cloture.slice(0, 4);
+  if (annee !== String(entete.exercice) && annee !== String(entete.exercice + 1)) {
+    throw requeteInvalide("La date de clôture doit tomber dans l'exercice (ou l'année suivante).");
+  }
+}
+
 export interface FichierAnalyse {
   nom: string | null;
   sha256: string;
@@ -224,16 +239,12 @@ export async function ingererEtat(
   clientId: string,
   entete: EnTeteEtat,
   lignes: readonly LigneEtatFinancierSaisie[],
-  origine: "saisie" | "csv" | "excel",
+  origine: "saisie" | "csv" | "excel" | "pdf",
   fichier: FichierAnalyse | null,
+  options: OptionsIngestionEtat = {},
 ) {
   const controle = controler(lignes, entete.tolerance);
-  if (
-    entete.date_cloture.slice(0, 4) !== String(entete.exercice) &&
-    entete.date_cloture.slice(0, 4) !== String(entete.exercice + 1)
-  ) {
-    throw requeteInvalide("La date de clôture doit tomber dans l'exercice (ou l'année suivante).");
-  }
+  exigerDateClotureCoherente(entete);
   await verrouillerDossier(db, clientId);
   const n = await db.query(
     "SELECT count(*)::int AS n FROM dossier_etats_financiers WHERE client_id = $1",
@@ -250,6 +261,7 @@ export async function ingererEtat(
   const automatique =
     controle.acceptationAutomatique &&
     entete.tolerance === 0 &&
+    options.forcerRevue !== true &&
     !(remplace && (await acceptationHumaine(db, remplace)));
   const r = await db.query(
     `INSERT INTO dossier_etats_financiers (cabinet_id, client_id, exercice, date_cloture, devise, origine,

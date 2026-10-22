@@ -331,6 +331,9 @@ export async function buildApp(
       .routesDueDiligencePortailInvestisseur,
     { prefix: "/api" },
   );
+  // Lot 6 : ingestion de documents (ADR-009) : socle, états financiers PDF et Excel (DOS-03) ; les plugins
+  // de la due diligence et du standard y sont enregistrés. Fermé au portail (hors liste blanche).
+  await app.register((await import("./routes/ingestion.js")).routesIngestion, { prefix: "/api" });
   // Lot 5a : ateliers stratégiques, côté portail (PLA-15, liste blanche du portail).
   await app.register((await import("./routes/portail-ateliers.js")).routesPortailAteliers, {
     prefix: "/api",

@@ -34,10 +34,14 @@ const routesDd = () =>
 const concret = (motif: string) => motif.replace(/:[A-Za-z_]+/g, INCONNU);
 
 describe("inventaire", () => {
-  it("67 routes (R01 à R53, 6 des modèles sectoriels DD-07, 8 du portail investisseur), aucune en PUT, PATCH ou DELETE", () => {
+  it("74 routes (R01 à R53, 6 des modèles sectoriels DD-07, 8 du portail investisseur, 7 de l'ingestion de documents du lot 6), aucune en PUT ou DELETE ; un seul PATCH (correction d'un brouillon de lecture)", () => {
     const routes = routesDd();
-    expect(routes).toHaveLength(67);
-    expect(routes.filter((r) => !["GET", "POST"].includes(r.methode))).toEqual([]);
+    expect(routes).toHaveLength(74);
+    expect(
+      routes
+        .filter((r) => !["GET", "POST"].includes(r.methode))
+        .map((r) => `${r.methode} ${r.motif}`),
+    ).toEqual(["PATCH /api/dd/extractions/:id"]);
   });
 
   it("chaque gestionnaire de routes/due-diligence*.ts et de R52, R53 appelle exiger", () => {

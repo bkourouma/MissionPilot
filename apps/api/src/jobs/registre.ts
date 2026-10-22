@@ -44,6 +44,17 @@ import {
   relanceQuestionnaire,
   TYPE_JOB_RELANCE_QUESTIONNAIRE,
 } from "../questionnaires/relances.js";
+import { dependancesIngestionParDefaut } from "../ingestion/fabrique.js";
+import { creerHandlerIngestionExtraction } from "../ingestion/job-extraction.js";
+import {
+  creerHandlerIngestionMaintenance,
+  TYPE_JOB_INGESTION_MAINTENANCE,
+} from "../ingestion/maintenance.js";
+import { creerHandlerIngestionStructuration } from "../ingestion/job-structuration.js";
+import {
+  TYPE_JOB_INGESTION_EXTRACTION,
+  TYPE_JOB_INGESTION_STRUCTURATION,
+} from "../ingestion/types.js";
 import { creerHandlerPurgeRapports, TYPE_JOB_PURGE_RAPPORTS } from "../rapports/purge.js";
 import { relanceSalleMission, TYPE_JOB_RELANCE_SALLE } from "../salle-mission/relances.js";
 import { stockageDe } from "../stockage/index.js";
@@ -126,6 +137,12 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_CANAL_ENTRANT_AUDIO]: creerHandlerCanalEntrantAudio(dependancesCanauxParDefaut), // KPI-14 vocal
   [TYPE_JOB_CANAL_TRANSCRIPTION]: creerHandlerCanalTranscription(dependancesCanauxParDefaut), // AGT-11
   [TYPE_JOB_CANAUX_MAINTENANCE]: creerHandlerCanauxMaintenance(dependancesCanauxParDefaut), // conservation
+  // Ingestion de documents (lot 6, ADR-009) : extraction du texte puis structuration selon l'usage.
+  [TYPE_JOB_INGESTION_EXTRACTION]: creerHandlerIngestionExtraction(dependancesIngestionParDefaut),
+  [TYPE_JOB_INGESTION_STRUCTURATION]: creerHandlerIngestionStructuration(
+    dependancesIngestionParDefaut,
+  ),
+  [TYPE_JOB_INGESTION_MAINTENANCE]: creerHandlerIngestionMaintenance(dependancesIngestionParDefaut), // conservation
 });
 
 /** Registre dont la purge des fichiers utilise ce stockage (configuration du serveur). */
