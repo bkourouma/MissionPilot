@@ -582,11 +582,15 @@ soit le code appelant).
   `FormulaireConnexion`) : le rafraîchissement a lieu dans une transition du composant, une relance à 1,5 s est
   dédoublonnée par page, et l'attente est plafonnée à 8 s, de sorte qu'aucun bouton ne reste verrouillé. La cause exacte
   du défaut d'affichage périmé observé à la recette reste **NON PROUVÉE** (hypothèse : commit de la transition à basse
-  priorité sur un onglet bridé), à confirmer sur un onglet visible au premier plan. Relevé du 2026-10-22 : les écrans
-  web du lot 6 (ingestion, §8 undecies : `ImportEtatDocument`, `ImportEtatDocumentListe`, `ActualisationAuto`,
-  `BoutonRelance`, `DocumentsLecture`, `DocumentsListe`, `DocumentsTeleversement`, `AmorcageDocuments`,
-  `AmorcageProposition`) appellent encore `router.refresh()` en direct (fusionnés après le lot 10) : à migrer vers le
-  hook, sans enjeu de sécurité.
+  priorité sur un onglet bridé), à confirmer sur un onglet visible au premier plan. Soldé le 2026-10-22 (lot 12) : les
+  écrans web du lot 6 (ingestion, §8 undecies : `ImportEtatDocument`, `ImportEtatDocumentListe`, `BoutonRelance`,
+  `DocumentsLecture`, `DocumentsListe`, `DocumentsTeleversement`, `AmorcageDocuments`, `AmorcageProposition`), qui
+  appelaient encore `router.refresh()` en direct (12 appels dans 9 composants, fusionnés après le lot 10), passent par le
+  hook ; `ActualisationAuto` (rafraîchissement toutes les 3 s tant qu'un document est en cours de lecture) n'utilise
+  volontairement pas le hook complet (sa relance à 1,5 s et son attente créeraient des requêtes parasites à chaque
+  tick) mais `rafraichirEnTransition`, exporté par `useRafraichir.ts`, et saute un tick tant que la transition du
+  précédent n'est pas terminée (aucun empilement). Plus aucun appel direct à `router.refresh()` dans `apps/web/src`
+  hors `FormulaireConnexion`, voulu. Sans enjeu de sécurité.
 
 ## 5 bis. Questionnaires, notation, KPI et plans (V2)
 
@@ -2415,8 +2419,8 @@ des migrations `0220`–`0225`, moteurs `packages/engines/src/dossier/`.
   que des données du client, identique avec ou sans `finance.lire`. Le rapport d'état financier du groupe est
   réservé à `dossier.lire` (§8 bis).
 - **Limites connues** : l'extraction depuis un PDF (DOS-03) est livrée depuis le
-  lot 6, en mode texte natif seulement (origine `pdf`, `0523` ; §8 undecies) ; les PDF scannés attendent l'OCR local
-  (lot 11 en cours, §16) ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
+  lot 6 (origine `pdf`, `0523` ; §8 undecies) ; les PDF scannés sont lus par l'OCR local depuis le lot 11 (`0525`,
+  §8 undecies : un état issu d'un OCR part toujours en revue) ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
   visible) ; barème de
   fiabilité et seuils de classe posés par défaut, à calibrer au pilote.
 
@@ -2874,13 +2878,13 @@ rapprochement.
 Lecture, par le cabinet, de documents PDF et de classeurs Excel pour quatre usages : états financiers du client
 (DOS-03, usage `etat_financier`), rapports et salle de données d'une due diligence (DD-02 et DD-10, usages `dd_rapport`
 et `dd_salle`) et amorçage du standard à partir de documents historiques (STD-13, usage `standard_historique`).
-Migrations `0521` à `0524` (prochain numéro libre de la plage : `0525`), trois tables (`ingestion_documents`,
+Migrations `0521` à `0526` (`0525` et `0526` : OCR local, lot 11 ; prochain numéro libre : `0527`), trois tables (`ingestion_documents`,
 `ingestion_pages`, `ingestion_extractions`), deux fonctions `SECURITY DEFINER` (`purger_textes_ingestion` et
 `planifier_ingestion_maintenance`, `0524`), SQLSTATE `MQG01`–`MQG03` (§5 ter, §6), code `apps/api/src/ingestion/`,
 routes `routes/ingestion.ts`, `routes/ingestion-dd.ts` et `routes/ingestion-standard.ts` (18 routes), moteurs purs
 `packages/engines/src/ingestion/`, schémas et plafonds `packages/shared/src/schemas/ingestion.ts`
-(`PLAFONDS_INGESTION`). Livré en mode **texte natif** seulement : l'OCR local est un lot à part (lot 11, en cours, voir
-« OCR » ci-dessous et §16). Modèle de menace : un PDF ou un classeur est une entrée **non fiable** (un client, un tiers ou
+(`PLAFONDS_INGESTION`). Texte natif depuis le lot 6, **OCR local** depuis le lot 11 (2026-10-22, voir « OCR local »
+ci-dessous). Modèle de menace : un PDF ou un classeur est une entrée **non fiable** (un client, un tiers ou
 un salarié le fournit) ; son texte est un contenu client non fiable (AGT-07) ; la sortie d'un modèle de langage est une
 proposition qu'aucun chiffre ne valide.
 
@@ -2988,7 +2992,8 @@ proposition qu'aucun chiffre ne valide.
   Deux lignes de même libellé sur une page sont toujours rejetées (peut produire des revues sur de vrais états). Les
   additions, l'équilibre actif = passif et la cohérence du résultat sont ceux de `controlerEtatFinancier` ; **acceptation
   automatique** (`ingererEtat`, option `forcerRevue`, base `MPO04` en doublon) seulement si tous les contrôles passent à
-  tolérance nulle ET aucune ligne n'est rejetée ou non lue ET le texte vient d'une couche texte (jamais d'OCR) ET aucun état
+  tolérance nulle ET aucune ligne n'est rejetée ou non lue ET le texte vient d'une couche texte (jamais d'une lecture par
+OCR, méthode `ocr` ou `ocr_simule` : un tel état part TOUJOURS en revue) ET aucun état
   accepté par un humain n'est remplacé ; sinon `en_revue`. Chaque ligne porte `reference.page` (PDF) ou `reference.cellule`
   (Excel) ; origine `pdf` (`0523`). Sans IA (désactivée, sans clé, plafond atteint, sortie inexploitable) : règles
   déterministes du moteur, mises en revue. Test : `packages/engines/src/ingestion/etat-ia.test.ts`,
@@ -3044,19 +3049,88 @@ proposition qu'aucun chiffre ne valide.
   plus de job actif) ; 40 000 caractères au plus transmis au modèle (les pages utiles d'abord, le reste signalé
   « tronqué »). Test : `ingestion-securite.test.ts` (6e document refusé et son objet effacé ; 40 créations par jour ;
   document bloqué de plus de 30 minutes).
-- **OCR.** Un port `Ocr` (`ingestion/ocr.ts`) et UN adaptateur `OcrSimule`, disponible hors production, qui ne lit qu'un
-  conteneur de test (marqueur `%MPOCRSIM1:` suivi d'une charge JSON en base64) et refuse tout autre document
-  (`OCR_NON_SIMULE`) ; en production aucun adaptateur n'est branché. **Un PDF sans couche texte répond `PDF_SANS_TEXTE`**
-  et aucun état n'est créé. Décision validée le 2026-10-22 : l'OCR sera **LOCAL**, installé sur le serveur, **jamais un
-  service externe** ; il fait l'objet d'un lot dédié (lot 11, en cours, non livré). Un état issu d'une page reconnue par
-  OCR n'est jamais accepté automatiquement. Aucun avis de sécurité propre à l'OCR tant qu'il n'est pas livré (§16).
+- **OCR local (lot 11, 2026-10-22 ; ADR-009, décision 16 et « Décision OCR »).** Décision de l'utilisateur : OCR **LOCAL**,
+  installé sur le serveur, hors ligne strict, **jamais un service externe**. Un port `Ocr` (`ingestion/ocr.ts`) et deux
+  adaptateurs : `OcrLocal` (`ingestion/ocr-local.ts`, moteur `tesseract.js` 7.0.0, WebAssembly, méthode `ocr`) et
+  `OcrSimule` (conteneur de test `%MPOCRSIM1:`, refus `OCR_NON_SIMULE` de tout autre document, méthode `ocr_simule`). La
+  fabrique (`ingestion/fabrique.ts`, `creerOcr`) suit `OCR_LOCAL` (`auto`, `off`, `local`, `simule` ; `config.ts`) : `auto` =
+  local s'il est disponible, en production comme en développement ; en test (`NODE_ENV=test`) simulé par défaut ; le simulé
+  n'existe qu'en développement et en test ; sinon aucun adaptateur (`OCR_INDISPONIBLE`). Un PDF sans texte natif est OCRisé ;
+  `PDF_SANS_TEXTE` signifie désormais que l'OCR a tourné et n'a rien lu. Menace : un PDF scanné est une entrée non fiable
+  qu'un décodeur d'images (pdf.js) et un moteur WebAssembly lisent.
+  - **Isolation : un sous-processus Node PAR DOCUMENT** (`ocr-processus.mjs`), jamais le processus de l'API : environnement
+    VIDE (ni secret de l'API ni `NODE_OPTIONS` hérité), `--max-old-space-size=256`, `--no-addons`, **modèle de permissions de
+    Node** (`--permission` avec `--allow-worker`, lectures limitées au script, aux données de langue et aux dossiers
+    `node_modules` nécessaires ; aucune écriture, aucun processus enfant, `package.json` racine refusé : testé), et un **garde
+    réseau** préchargé par `--require` (`ocr-garde-reseau.cjs`, CommonJS : `--import` ne s'applique pas aux `worker_threads`).
+    Le modèle de permissions ne filtre pas le réseau avant Node 25 : c'est le rôle du garde.
+  - **Garde réseau.** Bloque ET compte, dans le fil principal et dans tout `worker_threads` (10 fils testés, dont
+    `execArgv: []`, `eval`, `--expose-internals`, imbriqués) : `net`, `tls`, `fetch`, WebSocket, `dns` (`lookup`, `Resolver`),
+    `dgram` (`Socket.send` compris), `http` et `https` (`Agent`, `ClientRequest`), `http2`, `cluster`, `child_process`, `import()`
+    ESM, `process.binding`, `dlopen`, `v8.setFlagsFromString` et l'inspecteur. Faille corrigée par la vérification : un
+    `new Worker(…, { execArgv: [] })` perdait le garde ET `--permission` ; le garde **ENVELOPPE désormais
+    `worker_threads.Worker`** (`require`, `node:`, `getBuiltinModule`, `import`), IGNORE l'`execArgv` de l'appelant et impose
+    l'héritage des options du fil parent (garde, permissions, `--no-addons`) ; chargé sans `--require`, il refuse toute
+    création de worker ; le compteur de tentatives est agrégé. Sans `langPath` local le moteur irait chercher ses langues sur
+    jsDelivr : le garde le refuse (testé). **Défense en profondeur, rien de plus** : sans effet sur une faille native ou
+    WebAssembly dans le moteur ; le pare-feu sortant du serveur reste nécessaire (§15). Tests : `ocr-garde.test.ts`.
+  - **Faille trouvée et corrigée : le dossier courant.** En écrivant le test « droits de lecture insuffisants », on a constaté
+    que, sous Node 24.12, un `worker_thread` créé sous `--permission` LIT le dossier courant du processus et ses
+    sous-dossiers hors `--allow-fs-read` (le fil principal est refusé). Le sous-processus héritait du dossier courant de
+    l'API (en production, la racine de l'application, où peut se trouver un `.env`). Correctif : `fork(…)` avec
+    `cwd` = dossier du script (`ocr-local.ts`), dossier déjà lisible. Le test « droits de lecture insuffisants » échouait
+    avant le correctif. Non mesuré sous Linux ni sous Node 22 : le correctif s'applique partout. Chaque dossier est passé à
+    `--allow-fs-read` sous sa forme exacte et avec séparateur final, jamais avec joker (mesuré : ni le parent ni un voisin de
+    préfixe commun) ; si une version de Node ne le couvrait pas, l'OCR échoue **FERMÉ** (`OCR_ECHEC`), jamais ouvert (test
+    `sansLectureDonnees` : lecture refusée, aucune tentative réseau, sous-processus mort).
+  - **Node >= 22.13 exigé en production.** `--permission` n'existe qu'à partir de Node 22.13 (de 22.0 à 22.12 il est sans
+    effet : AUCUNE restriction). `permissionNodeDisponible()` exige la version ET le drapeau ; `engines.node` du
+    `package.json` racine est `>=22.13`. En **production** (tout `NODE_ENV` autre que `development` et `test`, **staging
+    compris**) sans modèle de permissions, l'adaptateur est indisponible : `diagnosticOcrLocal` rend `permissions`,
+    `creerOcr` rend `null`, un scan échoue `OCR_INDISPONIBLE` et `OcrLocal.reconnaitre` refuse avant la file et tout
+    sous-processus. Hors production : toléré, avec UN seul `console.warn` par processus, sans contenu.
+  - **Bornes.** Veille du RSS du sous-processus (`ocr-veille.mjs`, **768 Mo**, mesure toutes les 100 ms, réactive ; le parent
+    coupe à +10 %), **60 s par étape** (démarrage du moteur, une page), `SIGKILL` puis constat de la MORT du processus avant de
+    rendre l'issue, `PLAFONDS_OCR` (`packages/shared/src/schemas/ingestion.ts` : 30 pages, 240 s, 20 Mpx par image, 6 images par
+    page ; au-delà `PLAFOND_PAGES`, `DELAI_DEPASSE`, `IMAGE_TROP_GRANDE`), **une reconnaissance à la fois par processus d'API**
+    (file de 8 ; au-delà `OCR_ECHEC` définitif, inatteignable par la file `jobs` qui traite un job à la fois par processus).
+    L'OCR s'exécute HORS sémaphore des extractions natives, avec un délai de secours `PLAFONDS_OCR.dureeMs` + 10 s ; le
+    pré-contrôle de bombe de flux passe AVANT l'OCR. Réglages : `fra+eng`, PSM 3, agrandissement des scans de moins de 200 dpi,
+    page sans encre non soumise au moteur, lignes de confiance inférieure à 50 % écartées.
+  - **Données de langue vendorées.** `tessdata_fast` 4.1.0, `fra` + `eng` (5,2 Mo), dans `apps/api/ocr-data/` avec `SHA256SUMS`,
+    `LICENSE` et `README.md`. Vérifiées par empreinte au premier usage (empreinte fausse = moteur indisponible, sans bruit) et
+    par `node scripts/ocr-verifier-donnees.cjs` (Node pur, sans réseau). Hors ligne : `langPath` local, aucun cache, aucun
+    téléchargement.
+  - **Un état issu d'une lecture par OCR (méthode `ocr` ou `ocr_simule`) part TOUJOURS en revue humaine**, jamais accepté
+    automatiquement. Chaque ligne lue par OCR porte `reference: { fichier, page, ocr: true, confiance_pm }`
+    (`referenceValeurSchema`), et le web affiche « lu par OCR : à vérifier » avec la confiance de la page (hypothèse
+    prudente : tout état d'un document `ocr` ou `ocr_simule` est traité comme lu par OCR).
+  - **Corrections proposées, jamais appliquées.** `corrections_ocr` (`0525`, `packages/engines/src/ingestion/ocr-confusions.ts` :
+    confusions O/0, l/I/1, séparateurs) ne sert qu'à PROPOSER au relecteur ; la ligne reste hors de l'état ; plafonnées à
+    `CORRECTIONS_OCR_MAX` (100) et validées par `correctionOcrSchema`. **Purge** (`0526_ingestion_purge_corrections_ocr.sql`) :
+    `corrections_ocr` suit la rétention du texte des pages (décision + 90 jours) ; `purger_textes_ingestion` est redéfinie à
+    l'identique de `0524` (`SECURITY DEFINER`, `search_path` figé, droits) plus `corrections_ocr = NULL`, et le déclencheur
+    `controler_ingestion_document` est redéfini à l'identique de `0521` sauf la branche de datation de la purge (la comparaison
+    exclut `corrections_ocr` et exige qu'elle soit NULL) ; annuler SEULES les corrections reste refusé (`MQG01`).
+  - **Journal et isolation.** Le journal ne porte aucun contenu ; le processus de test n'ouvre aucun socket ; l'isolation entre
+    cabinets est testée. Tests : `ocr-moteur.test.ts` (moteur réel, sans base), `ocr-garde.test.ts`, `ocr-outils.test.ts`,
+    `ingestion-ocr-reel.test.ts`, `ingestion-ocr-integration.test.ts`, `ingestion-ocr-isolation.test.ts`,
+    `ingestion-ocr-corrections.test.ts`, `ingestion-purge-ocr.test.ts` (89 jours rien, 91 jours purgé, brouillon ouvert et état
+    en revue jamais, isolation, droits). Les tests du moteur réel sont sautés AVEC message si le moteur manque ;
+    `OCR_LOCAL_EXIGE=1` (posé sur le job `api` de la CI) les rend obligatoires, y compris celui des permissions.
+  - **Limites mesurées** (Node 24.12, Windows) : 30 pages x 3 images = 124 s ; une page à 60 images décodées donne `OCR_ECHEC` ;
+    un scan A4 à 600 dpi (environ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (refaire le scan à 300-400 dpi) ; un PDF mêlant pages
+    natives et pages scannées est lu par sa seule couche texte ; un scan négatif est vu comme une page sans encre ; 100 % des
+    montants lus sur les scans nets, dégradés et anglais de test, mais qualité sur de vraies liasses SYSCOHADA non mesurée.
+    Dettes ouvertes de l'OCR : §15.
 - **Journal d'audit.** `ingestion.creer`, `.brouillon`, `.modifier`, `.valider`, `.rejeter`, `.relancer`, `.echec`,
   `.terminer`, `.effacement_echoue` et `.maintenance` (et `dd_document_televerse`, `dd_lecture_*` pour la DD) portent des
   identifiants, compteurs, usage, format, taille et empreinte, **jamais** de texte, d'extrait ni de montant ; le nom assaini
   du fichier figure dans l'événement `televersement` du code partagé de téléversement.
 - **Dettes** : parseur PDF dans le processus de l'API, cascades non Flate et PDF chiffrés bornés seulement par la
   surveillance, worker de contrôle sans surveillance mémoire, `stockage/detection.ts`, relance et téléversement DD, lecture
-  DD non masquée, limites du masquage, codes de 3 chiffres, texte conservé 90 jours avec ses montants : §15.
+  DD non masquée, limites du masquage, codes de 3 chiffres, texte conservé 90 jours avec ses montants, OCR local sans
+  conteneur ni pare-feu sortant posé : §15.
 
 ## 9. Paiements et webhooks
 
@@ -3350,13 +3424,18 @@ développement via `vitest` (`apps/api`, `packages/engines` : `vitest`,
 `@vitest/mocker`, `tinypool`, `vite`, `esbuild`) : à traiter par une montée de
 version de Vitest.
 
-**Relevé du 2026-10-22 (lot 9e, copie `reste-lot-9e`) : le résultat du 2026-10-06 n'est plus vrai.**
-`pnpm audit --prod` rend 3 vulnérabilités : `next` 15.5.27 (une critique,
-GHSA-2464-fhr4-w9xw, et une haute, GHSA-p3m5-59mp-jv5r ; corrigées en
-`next` ≥ 15.5.28) et `fastify` 5.12.5 (une basse, GHSA-389g-gv7q-r4x8 ; corrigée
-en ≥ 5.12.6). Elles ne viennent pas des lots 6 et 10 (leur seul ajout au
-`pnpm-lock.yaml` est `unpdf`) : avis publiés depuis. Montée de version à décider
-par le superviseur (hors périmètre d'un lot de documentation).
+**Mise à jour du 2026-10-22 (lot 12) : constat soldé.** Le relevé du lot 9e (même jour) avait montré que le résultat du
+2026-10-06 n'était plus vrai : `pnpm audit --prod` rendait 3 vulnérabilités, `next` 15.5.27 (GHSA-2464-fhr4-w9xw critique,
+exécution de code par l'optimisation d'images SVG ; GHSA-p3m5-59mp-jv5r haute, déni de service des Server Actions) et
+`fastify` 5.12.5 (GHSA-389g-gv7q-r4x8 basse, contournement de validation d'en-tête), publiées après les lots 6 et 10 (leur
+seul ajout au `pnpm-lock.yaml` était `unpdf`). Elles sont corrigées : `next` **15.5.28** (`apps/web/package.json`) et `fastify`
+**5.12.6** (`apps/api/package.json`), en versions exactes, comme `unpdf`. `pnpm audit --prod` : **aucune vulnérabilité
+connue** le 2026-10-22. Le lockfile ne change que pour `next`, `@next/env`, `@next/swc-*` et `fastify` ; aucune dépendance
+transitive n'est ajoutée ni retirée. **La règle d'âge de 2 semaines est LEVÉE pour ce correctif, par décision de
+l'utilisateur (validée le 2026-10-22)** : `next` 15.5.28 a 8 jours (publiée le 2026-10-14) et `fastify` 5.12.6 en a 9
+(2026-10-13), aucune version corrigée plus ancienne n'existant (`next` 15.5.28 est la seule de la branche 15.5 qui corrige ;
+passer à la 16 serait un saut de version majeure, hors périmètre) ;
+choix de la plus petite version qui corrige chaque avis, réversible (deux lignes de `package.json` et le lockfile).
 
 Ajouter une dépendance exige de justifier le choix : le SMTP, le TOTP, le
 chiffrement et l'appel OpenRouter (`fetch`) sont écrits sur `node:*` sans
@@ -3376,8 +3455,24 @@ mode texte seulement (aucune évaluation de code, aucune police ni ressource dis
 `pdfjs-dist` direct (configuration Node plus lourde, dépendance native optionnelle), `pdf-parse` et `pdf2json` (non
 maintenus). Cette dépendance implique **Node 22 au minimum** : `unpdf` 1.8.1 exige Node >= 22 et la mesure de la mémoire
 externe du worker d'extraction (`worker.getHeapStatistics()`) n'existe qu'à partir de Node 22.16 (§8 undecies). `engines.node`
-du `package.json` racine est `>=22` et la CI (`.github/workflows/ci.yml`, deux jobs) tourne sur Node 22. Un parseur de PDF non
-fiable s'exécute dans le processus de l'API, dans un `worker_thread` à mémoire plafonnée : voir §15 (dette de sécurité).
+du `package.json` racine est passé à **`>=22.13`** par le lot 11 (modèle de permissions de Node pour l'OCR, ci-dessous) et la CI
+(`.github/workflows/ci.yml`, deux jobs) tourne sur Node 22. Un parseur de PDF non fiable s'exécute dans le processus de l'API,
+dans un `worker_thread` à mémoire plafonnée : voir §15 (dette de sécurité).
+
+Bibliothèque ajoutée par le lot 11 (2026-10-22, ADR-009, décision OCR) : `tesseract.js` **7.0.0** (version exacte, dans
+`apps/api/package.json`), le moteur de l'OCR local (§8 undecies). Une dépendance directe et 12 transitives, soit 13 paquets
+ajoutés au `pnpm-lock.yaml` (`tesseract.js-core`, `bmp-js`, `idb-keyval`, `is-url`, `node-fetch`, `whatwg-url`, `tr46`,
+`webidl-conversions`, `opencollective-postinstall`, `regenerator-runtime`, `wasm-feature-detect`, `zlibjs`), tous de plus de
+deux semaines à l'installation (règle d'âge tenue, `--config.minimumReleaseAge=20160`). **Aucun binaire natif** (le moteur est
+du WebAssembly). Un script `postinstall` (`opencollective-postinstall`, bandeau publicitaire) est **bloqué** par pnpm 10 :
+`onlyBuiltDependencies` du dépôt ne le liste pas, et il ne faut pas l'y ajouter. `node-fetch`, `idb-keyval` et `is-url` ne
+servent qu'aux chemins réseau ou navigateur de tesseract.js, jamais empruntés ici (le garde réseau le prouve). Coût :
+`tesseract.js-core` ajoute environ 45 Mo à `node_modules` ; les données de langue (5,2 Mo) sont vendorées dans le dépôt avec
+leurs empreintes (§8 undecies). Mettre à jour le moteur : version exacte, âge d'au moins 2 semaines, `VERSION_MOTEUR_OCR`
+(`ocr-local.ts`, sinon l'OCR se désactive), relecture du chargement des langues et de la création du worker, puis
+`ocr-moteur.test.ts` ; une montée automatique est donc exclue. Choix écartés (ADR-009) : binaire `tesseract` du système
+(prérequis serveur et surface native), PaddleOCR et `onnxruntime-node` (addon natif de plus de 100 Mo, `--allow-addons`),
+`ocrad.js` (GPL, abandonné) et `scribe.js-ocr` (AGPL-3.0, incompatible).
 
 ## 15. Risques acceptés et dette de sécurité connue
 
@@ -3450,8 +3545,11 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Ingestion, effacement de l'objet de stockage (M1, ancienne dette de la revue du 2026-10-21 : « effacerObjetsMarques non branchée », désormais branchée au job `ingestion_maintenance`) : RESTE que `effacerObjetsMarques` ne distingue pas l'origine du marquage `retire` et efface physiquement tout objet marqué `retire` du cabinet, donc aussi les dépôts retirés de la salle de mission (`salle-mission/depots.ts` ne les marquait que, sans effacer l'objet) : effet de bord irréversible à confirmer, 200 objets par passage, les plus récemment marqués d'abord ; qu'un objet dont l'effacement échoue plus de 30 jours de suite n'est plus planifié seul (il reste tenté si le job tourne) ; et que `fichiers_suppressions` ne dit pas si l'objet a été effacé | `ingestion/fichier-temporaire.ts` (`effacerObjetsMarques`), `ingestion/maintenance.ts`, `migrations/0524_ingestion_purge_textes.sql` |
 | Ingestion, relance et téléversement : (M5) la structuration d'une relance de lecture agit avec les droits et le quota IA de l'AUTEUR du document (`authDe(doc.cree_par)`), non du demandeur de la relance ; (M7) le téléversement d'un document DD s'exécute en TROIS transactions (contrôle du dossier, création du document, journal DD) : un échec entre la deuxième et la troisième laisse un document sans ligne de journal DD ; le détail d'une extraction `lecture_document` de la due diligence n'est pas masqué (ni noms ni montants, `dd_rapport` et `dd_salle` n'ont pas de masquage) | `ingestion/job-structuration.ts`, `routes/ingestion-dd.ts`, `ingestion/ia-lignes.ts`, `docs/workflows/notes-lots/lot-6.md` |
 | Ingestion, amorçage du standard (STD-13) : le masquage des noms ne couvre que les noms COMPLETS connus du cabinet (un fragment, une faute de frappe, un nom absent des fiches, un nom ajouté par correction humaine partent ou passent en clair), au plus 40 tranches de 200 mots distincts et 200 termes ; toute donnée financière à 3 chiffres ou plus est refusée, y compris dans un CODE (à assouplir si le métier veut des codes numérotés) ; le détecteur `contientDonneeFinanciere` est une heuristique (« cent pour cent » faux positif, « 3k » faux négatif) ; la restriction du texte des pages à l'auteur ou à `finance.lire` est une hypothèse métier à valider ; toujours aucune vérification avec un vrai modèle (aucune clé) | `copilote/noms-propres.ts` (`BORNES_NOMS_INGESTION`), `ingestion/ia-lignes.ts`, `packages/engines/src/ingestion/proposition.ts`, `routes/ingestion-standard.ts` |
-| Ingestion, texte des pages conservé en base jusqu'à la décision plus 90 jours, SANS masquage des montants dans cette copie (durée décidée par l'utilisateur le 2026-10-22 ; état financier, lignes et brouillons restent) ; plafonds (10 Mo, 60 pages, 5 en traitement, 40 par 24 h…) et 35 s : valeurs provisoires à valider ; extraction OCR réelle non faite (§16) | `ingestion/maintenance.ts` (`CONSERVATION_TEXTE_JOURS`), `migrations/0524_ingestion_purge_textes.sql`, `packages/shared/src/schemas/ingestion.ts` |
-| Ingestion, deux lignes mineures de la recherche n° 8 (arrondis), non corrigées : `Math.round` de la confiance OCR en millièmes (`pdf.ts`, ligne 297 ; la note du lot 6 citait la ligne 239) et `Math.floor` de la taille en Mo dans le message de dépassement (`erreurs.ts`, ligne 29) ; aucun montant n'est arrondi | `ingestion/pdf.ts`, `ingestion/erreurs.ts` |
+| Ingestion, texte des pages conservé en base jusqu'à la décision plus 90 jours, SANS masquage des montants dans cette copie (durée décidée par l'utilisateur le 2026-10-22 ; état financier, lignes et brouillons restent) ; plafonds (10 Mo, 60 pages, 5 en traitement, 40 par 24 h…) et 35 s : valeurs provisoires à valider ; le texte lu par OCR et les `corrections_ocr` suivent la même rétention (`0526`) | `ingestion/maintenance.ts` (`CONSERVATION_TEXTE_JOURS`), `migrations/0524_ingestion_purge_textes.sql`, `packages/shared/src/schemas/ingestion.ts` |
+| Ingestion, deux lignes mineures de la recherche n° 8 (arrondis), non corrigées : `Math.round` de la confiance OCR en millièmes (`pdf.ts`, ligne 361 depuis le lot 11 ; la note du lot 6 citait la ligne 239) et `Math.floor` de la taille en Mo dans le message de dépassement (`erreurs.ts`, ligne 29) ; aucun montant n'est arrondi | `ingestion/pdf.ts`, `ingestion/erreurs.ts` |
+| OCR local (lot 11), isolation : le moteur WebAssembly et pdf.js lisent un fichier NON FIABLE dans un sous-processus Node par document, SANS conteneur ni seccomp ; la mémoire HORS TAS n'est bornée que par la veille RÉACTIVE du RSS (768 Mo, mesure toutes les 100 ms : une montée entre deux mesures n'est pas retenue) ; le garde réseau (`--require`) et le modèle de permissions sont des défenses APPLICATIVES, sans effet sur une faille native ou WebAssembly : le **pare-feu sortant du serveur est À POSER** (aucun trafic sortant depuis l'hôte de l'API hors fournisseurs déclarés) ; l'effet de `--permission` sous Node 22 n'est vérifié que par la CI (mesures faites sous Node 24.12) | `ingestion/ocr-local.ts`, `ingestion/ocr-garde-reseau.cjs`, `ingestion/ocr-veille.mjs`, `test/ocr-garde.test.ts`, ADR-009 |
+| OCR local, exploitation : l'OCR s'exécute DANS la transaction du job d'extraction (ligne du document verrouillée, une connexion du pool retenue), au pire 30 s + 240 s + 10 s, sous le délai de blocage des jobs (15 minutes) ; dette acceptée, non restructurée ; une file OCR pleine (8 documents derrière la reconnaissance en cours, un seul traitement à la fois par processus d'API) donne `OCR_ECHEC` DÉFINITIF (inatteignable par la file `jobs` qui traite un job à la fois par processus, atteignable par des appels directs en rafale) ; sous Windows l'environnement du sous-processus n'est pas tout à fait vide (libuv recopie 11 variables système : `PATH`, `SYSTEMROOT`, `TEMP`, `USERNAME`… ; aucun secret de l'API ; vide sous Linux) | `ingestion/job-extraction.ts`, `ingestion/ocr-local.ts` (`LIMITES_OCR_LOCAL`, file), ADR-009 |
+| OCR local, limites et qualité non établies : 30 pages x 3 images = 124 s (sous les 240 s) ; une page à 60 images décodées = `OCR_ECHEC` ; un scan A4 à 600 dpi (environ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (le client refait le scan à 300-400 dpi) ; images JPX, CCITT et JBIG2 NON testées ; la vérification de secours sur les dimensions DÉCODÉES (`ocr-processus.mjs`) n'a pu être déclenchée par aucun fichier hostile (pdf.js ramène une image menteuse aux dimensions déclarées) : défense non éprouvée ; un document mêlant pages natives et pages scannées est lu par sa seule couche texte (pas d'OCR des pages vides) ; un scan négatif est vu comme une page sans encre ; la qualité sur de VRAIES liasses SYSCOHADA scannées n'est pas mesurée (jeux inventés seulement) ; faux positifs possibles des corrections proposées | `ingestion/ocr-processus.mjs`, `ingestion/pdf.ts`, `test/ocr-evaluation.ts`, `packages/engines/src/ingestion/ocr-confusions.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
@@ -3459,8 +3557,11 @@ Soldé le 2026-10-22 (lots 6 et 10, aucune ligne du tableau n'existait pour ces 
 Excel avait été repoussée faute d'ADR (l'ADR-009 était citée sans avoir été écrite ; elle l'est, §8 undecies) ; la
 fragilité de l'horodatage des preuves de signature sous charge (409 `PREUVE_IMMUABLE`, rejeu borné en §9 bis, migration
 `0547` inchangée) ; la reprise des objets de stockage dont l'effacement échoue (M1, branchée au job d'ingestion, reste
-décrit dans la ligne « effacement de l'objet de stockage » ci-dessus) ; la dette « `router.refresh()` direct » du web, sauf
-pour les écrans du lot 6 (§5). Le prérequis Node passe à 22 au minimum (§14).
+décrit dans la ligne « effacement de l'objet de stockage » ci-dessus) ; la dette « `router.refresh()` direct » du web
+(entièrement soldée par le lot 12 : plus aucun appel direct hors `FormulaireConnexion`, §5) ; l'OCR des PDF scannés (lot 11,
+local, §8 undecies : ses dettes sont les trois lignes « OCR local » ci-dessus) ; les 3 vulnérabilités de `pnpm audit --prod`
+du relevé du lot 9e (`next` et `fastify`, corrigées par le lot 12, §14). Le prérequis Node passe à 22 au minimum (§14), puis à
+22.13 (lot 11).
 
 ## 16. Points ouverts
 
@@ -3509,11 +3610,12 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   noms absents des fiches, fragments, fautes de frappe, §7 bis) ; trancher la durée de conservation des
   propositions du copilote avec le conseil juridique. (Le compteur de débit du brief est devenu persistant et
   partagé entre instances le 2026-10-21 : point soldé.)
-- **Ingestion de documents (lot 6, §8 undecies, §15 ; ADR-009, `DECISIONS.md`)** : **OCR local** (lot 11, en cours, NON
-  livré) : décision validée le 2026-10-22, un moteur installé sur le serveur, hors ligne, jamais un service externe ;
-  tant qu'il n'est pas livré, un PDF sans texte natif répond `PDF_SANS_TEXTE` et aucun avis de sécurité propre à l'OCR
-  n'existe (adaptateur, données de langue livrées dans l'image, durée et mémoire plafonnées, exécution isolée à
-  examiner à la livraison) ; **à confirmer par le métier** : la restriction du texte des pages d'amorçage à l'auteur ou à
+- **Ingestion de documents (lot 6, §8 undecies, §15 ; ADR-009, `DECISIONS.md`)** : **OCR local livré** (lot 11,
+  2026-10-22 ; §8 undecies) : reste ouvert, à surveiller, le moteur `tesseract.js` 7.0.0 (avis de sécurité du moteur et de
+  `tesseract.js-core`, à lire à chaque montée de version ; `pnpm audit --prod` à chaque livraison, §14) ; à poser, le
+  **pare-feu sortant du serveur** (le garde réseau est applicatif) ; à décider, un conteneur ou seccomp pour le
+  sous-processus OCR (§15) ; à constater, l'effet de `--permission` sous Node 22 (CI avec `OCR_LOCAL_EXIGE=1`), la qualité
+  sur de vraies liasses SYSCOHADA scannées et les formats JPX, CCITT et JBIG2 (§15) ; **à confirmer par le métier** : la restriction du texte des pages d'amorçage à l'auteur ou à
   `finance.lire` (hypothèse FIN-02), l'assouplissement du refus des codes à 3 chiffres ou plus, le masquage des noms pour
   `dd_rapport` et `dd_salle` (non demandé), les plafonds (10 Mo, 60 pages, 5 documents en traitement, 40 par 24 h) ;
   **à trancher** : un processus ou conteneur séparé pour le parseur de PDF (§15), la portée de `effacerObjetsMarques`

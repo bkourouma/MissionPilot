@@ -11,7 +11,7 @@ commanditaire est marqué **provisoire** et repris au §14 pour DECISIONS.md.
 
 > **État au 2026-10-22 (lot 6, [ADR-009](../../architecture/adr/ADR-009-ingestion-documents.md) Acceptée).**
 > **DD-02 (import de rapports PDF) et DD-10 (lecture IA de la salle de données) sont livrés** par le lot 6, en
-> **mode texte natif** ; l'OCR local est à venir (lot 11, en cours) : un PDF scanné répond `PDF_SANS_TEXTE` d'ici là.
+> **mode texte natif** ; l'OCR local est livré (lot 11, ADR-009) : un PDF scanné est lu par OCR local hors ligne et part toujours en revue humaine (`OCR_INDISPONIBLE` si le moteur est absent).
 > Le volet « connecteurs de données ouvertes » de DD-02 n'est PAS livré : il reste l'adaptateur simulé du §8.12, sans
 > route ni réseau. Détail au §1 (lignes DD-02 et DD-10), au §8.13 et au §16 ; le texte de fond de la spécification
 > (périmètre, critères) est conservé tel quel. Elle date du 2026-10-11, avant l'ADR-009 : les mentions
@@ -38,7 +38,7 @@ verdict ou d'une note par une autre personne que l'auteur (sauf associé), doubl
 | DD-07 | **Véhicule livré le 2026-10-20 (lot 3), aucun contenu sectoriel** | Modèles d'analyse par secteur (migration `0511`) : vides par défaut, rédigés par le cabinet ; le contenu reste à rédiger par des experts ; aucun contenu du cahier SANKORIA n'est repris (DECISIONS.md, 2026-10-06). Le véhicule existe : la bibliothèque de signaux (DD-11) filtrée par secteur. |
 | DD-08 | **Livré** | Ajustements des experts tracés (table `dd_ajustements`, créés par l'API à chaque écart à une proposition du moteur ou de la bibliothèque) et repris dans la note ; deux variantes de la note (R42, R46–R53). |
 | DD-09 | **Livré** | Arbre d'hypothèses (profondeur 4) → assertions liées (soutient/contredit) → preuves ; verdict confirmée / infirmée / non concluante, indiqué par un moteur, décidé par un humain, validé par un tiers (R16–R23). |
-| DD-10 | **Livré le 2026-10-22 (lot 6, texte natif)** | Lecture IA d'un document de la salle de données : `POST /api/dd/dossiers/:id/documents?type=salle` (usage `dd_salle`), mêmes garanties que DD-02 (page et extrait vérifié, brouillon, validation par un tiers, acquittement des éléments non retrouvés, rien de poussé ailleurs ; §8.13). Un document à la fois. Mode **texte natif** seulement ; OCR local à venir (lot 11). Besoin d'origine : dépendait de l'ingestion/OCR (ADR-009, alors absent) et d'une clé OpenRouter. |
+| DD-10 | **Livré le 2026-10-22 (lot 6, texte natif)** | Lecture IA d'un document de la salle de données : `POST /api/dd/dossiers/:id/documents?type=salle` (usage `dd_salle`), mêmes garanties que DD-02 (page et extrait vérifié, brouillon, validation par un tiers, acquittement des éléments non retrouvés, rien de poussé ailleurs ; §8.13). Un document à la fois. Texte natif et OCR local (lot 11, revue humaine obligatoire). Besoin d'origine : dépendait de l'ingestion/OCR (ADR-009, alors absent) et d'une clé OpenRouter. |
 | DD-11 | **Livré** | Bibliothèque de signaux d'alerte par secteur et pays, maintenue par les experts (versions en ajout seul) ; signaux applicables à un dossier calculés par le moteur ; constats (R24–R29). Aucun contenu d'amorçage : la bibliothèque démarre vide. |
 | DD-12 | **Livré** | Moteur de dimensionnement descendant et ascendant, fourchette, sensibilité, recoupement, ajustements d'expert ; paramètres sourcés (R30–R34). |
 | DD-13 | **Livré** | Note au comité : versions, soumission (base figée par les moteurs), validation par un tiers, rendu PDF/Word en variante exécutive ou détaillée par `rapports/` (R46–R53, §9). |
@@ -1282,8 +1282,8 @@ paramètre de dimensionnement). La mise en œuvre réelle est un lot ultérieur 
   donnée de dimensionnement : un expert reprend ensuite ce qu'il juge utile par les routes existantes.
 - **Écran** : onglet « Documents » du dossier, pages
   `apps/web/src/app/(app)/missions/[id]/due-diligence/[dossierId]/documents` et `.../documents/[docId]`.
-- **Limites assumées** : mode texte natif seulement, un PDF scanné répond `PDF_SANS_TEXTE` tant que l'OCR local
-  (lot 11) n'est pas livré ; plafonds `PLAFONDS_INGESTION` (PDF 10 Mo, 60 pages, 5 documents en traitement par
+- **Limites assumées** : un PDF scanné est traité par l'OCR local (lot 11, revue humaine obligatoire ; `PDF_SANS_TEXTE`
+  signifie que l'OCR n'a rien lu) ; plafonds `PLAFONDS_INGESTION` (PDF 10 Mo, 60 pages, 5 documents en traitement par
   cabinet) ; les noms du cabinet ne sont PAS masqués avant l'envoi pour `dd_rapport` et `dd_salle` (seul
   `standard_historique` l'est) ; téléversement DD en trois transactions (dette M7 du lot 6) ; texte des pages conservé
   puis purgé (SECURITY.md §8 undecies). Aucun test dans un navigateur.
@@ -1692,9 +1692,9 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
 
 - **DD-02** connecteurs de données ouvertes : dépend d'un fournisseur et d'une clé ; **OUVERT**, adaptateur
   simulé seulement. **L'import de rapports PDF de DD-02 n'est plus repoussé** : livré le 2026-10-22 (lot 6,
-  ADR-009 Acceptée, texte natif, §8.13) ; l'OCR local est à venir (lot 11).
+  ADR-009 Acceptée, texte natif, §8.13) ; l'OCR local est livré (lot 11).
 - **DD-10** lecture IA de la salle de données : **N'EST PLUS REPOUSSÉ**, livré le 2026-10-22 (lot 6, ADR-009,
-  texte natif, §8.13) ; l'OCR local est à venir (lot 11). Besoin d'origine : ingestion/OCR (ADR-009) et clé
+  texte natif, §8.13) ; l'OCR local est livré (lot 11). Besoin d'origine : ingestion/OCR (ADR-009) et clé
   OpenRouter.
 - **DD-07** modèles d'analyse par secteur : véhicule livré le 2026-10-20 (lot 3, `0511`, modèles vides par défaut, rédigés par le cabinet) ; AUCUN contenu sectoriel livré, à rédiger par des experts.
 - **Accès d'un investisseur-client à une note validée par le portail** : N'EST PLUS REPOUSSÉ, livré le 2026-10-20 (lot 3, `0509`). Livré : option du cabinet (désactivée par défaut, `dd.portail.configurer`, associé seul), invitation d'un compte portail `client_investisseur` sur un dossier, publication (`dd.portail.gerer`, associé et directeur de mission) d'un instantané de la version VALIDÉE de la note et de pièces choisies (rapports de la note, 10 au plus), consultation en lecture seule (`portail.dd.lire`, trois routes dans `LISTE_BLANCHE_PORTAIL`), cinq tables `dd_portail_*` en ajout seul ; une note devenue périmée (version plus récente) reste visible de l'investisseur, marquée « périmée » côté cabinet. Ce qui suit est le besoin initial, conservé pour mémoire : il exigeait une permission

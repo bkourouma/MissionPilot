@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9f).
+
 # Lot 12 : derniers `router.refresh()` directs et mises à jour de sécurité (2026-10-22)
 
 ## Partie A : migration vers `useRafraichir`

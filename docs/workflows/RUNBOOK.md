@@ -3,13 +3,13 @@
 Lancer, configurer et dépanner le projet. En cas de désaccord avec
 [AGENTS.md](../../AGENTS.md), AGENTS.md prime.
 
-Mis à jour le 2026-10-22 (lot 9e : ingestion de documents du lot 6, Node 22 minimum).
+Mis à jour le 2026-10-22 (lot 9f : OCR local du lot 11, Node 22.13 minimum, mises à jour de sécurité du lot 12).
 
 ## Prérequis
 
 | Outil          | Version attendue                       | Vérifié le 2026-10-06 |
 | -------------- | -------------------------------------- | --------------------- |
-| Node           | ≥ 22 (`engines` du `package.json` racine) ; 22.16 ou plus pour la surveillance mémoire complète de l'import de PDF | 24.12.0               |
+| Node           | ≥ 22.13 (`engines` du `package.json` racine ; **requis en production** pour l'OCR : modèle de permissions) ; 22.16 ou plus pour la surveillance mémoire complète de l'import de PDF | 24.12.0               |
 | pnpm           | 10 (`packageManager` : 10.26.2)        | 10.26.2               |
 | Docker         | pour PostgreSQL (`docker-compose.yml`) | 29.1.3                |
 | PostgreSQL     | 16, conteneur `missionpilot-postgres`  | image `postgres:16-alpine` |
@@ -18,7 +18,7 @@ Mis à jour le 2026-10-22 (lot 9e : ingestion de documents du lot 6, Node 22 min
 | Chrome/Chromium | facultatif : rapports PDF (`CHROMIUM_PATH`) | Chrome sous Windows seulement (aucun essai sous Linux) |
 
 Aucun fichier `.nvmrc` ni `.node-version` n'existe : la version se choisit à la
-main (toute version ≥ 22 ; la CI tourne sur Node 22). Vérifier : `node -v`,
+main (toute version ≥ 22.13 ; la CI tourne sur Node 22, dernière version mineure). Vérifier : `node -v`,
 `pnpm -v`, `docker --version`. Les autres conteneurs
 PostgreSQL de la machine sont à d'autres projets : n'y pas toucher.
 
@@ -69,6 +69,7 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `QUOTA_STOCKAGE_CABINET_OCTETS` | quota de stockage par cabinet (défaut 2 Go, 1 Mo au minimum)                       | non                            |
 | `CHROMIUM_PATH`             | Chrome/Chromium des rapports PDF, chemin **absolu** vérifié au démarrage ; absent : Chrome installé en développement Windows, sinon PDF indisponible (503) | non (oui pour les PDF) |
 | `JOBS_WORKER`               | `actif` ou `inactif` ; actif par défaut, inactif par défaut en test                    | non                            |
+| `OCR_LOCAL`                 | OCR des PDF scannés : `auto` (défaut, moteur local s'il est disponible), `local`, `simule` (développement et test seulement) ou `off` ; voir « OCR local » | non |
 | `OPENROUTER_API_KEY`        | clé IA **de plateforme** (facultative, jamais journalisée) : sert aux cabinets qui ont activé l'IA sans clé propre ; sans aucune clé, gabarits déterministes | non |
 | `OPENROUTER_BASE_URL`       | point d'accès OpenRouter (défaut `https://openrouter.ai/api/v1`) ; HTTPS obligatoire, HTTP admis pour la seule boucle locale | non |
 | `IA_TIMEOUT_MS`             | délai maximal d'un appel au modèle (défaut 60 000, de 1 000 à 300 000)                 | non                            |
@@ -366,8 +367,7 @@ ce lot n'a pas été vérifiée dans un navigateur** (note du lot) : les libell�
 
 Exploitation du lot 6 (ADR-009 ; règles de sécurité : `docs/governance/SECURITY.md`, section « 8 undecies.
 Ingestion de documents »). **L'interface de ce lot n'a pas été essayée dans un navigateur** (note du lot) :
-les libellés viennent du code. Le lot n'ajoute aucune variable d'environnement (aucune ne figure dans
-`apps/api/src/config.ts`) ; l'OCR et les plafonds sont des constantes du code.
+les libellés viennent du code. Le lot 6 n'ajoute aucune variable d'environnement ; les plafonds sont des constantes du code. Seule exception, ajoutée par le lot 11 : `OCR_LOCAL` (voir « OCR local »).
 
 ### Où importer
 
@@ -393,11 +393,10 @@ les libellés viennent du code. Le lot n'ajoute aucune variable d'environnement 
   (`POST /api/dd/documents/:docId/lecture`, `POST /api/amorcage/documents/:docId/proposition`). Pour un état
   financier en PDF, l'IA est facultative : sans elle, des règles déterministes lisent le texte ; un classeur Excel
   se lit par règles seules.
-- **OCR** : seul un adaptateur **simulé** existe (hors production, il ne lit que ses documents de test) ; en
-  production aucun OCR n'est branché. L'OCR **local installé sur le serveur** est en cours (lot 11). Tant qu'il n'est
-  pas livré, un PDF sans texte natif (scan) échoue avec `PDF_SANS_TEXTE` : « Document scanné : la reconnaissance de
-  caractères n'est pas disponible. Fournissez un PDF avec texte. » Que faire : fournir un PDF avec texte (export
-  du logiciel source, pas une photo), ou saisir l'état à la main, ou l'importer en CSV ou Excel.
+- **OCR** : un PDF sans couche texte (scan) est lu par l'**OCR local** installé sur le serveur (lot 11, ADR-009
+  décision 16), jamais par un service externe. Voir « OCR local » ci-dessous. Un état issu d'un OCR part toujours
+  en revue humaine. Si l'OCR n'est pas disponible, le scan échoue avec `OCR_INDISPONIBLE` ; fournir alors un PDF
+  avec texte (export du logiciel source, pas une photo), saisir l'état à la main, ou l'importer en CSV ou Excel.
 - **Suivi** : la page de détail d'un document en cours se rafraîchit seule (toutes les 3 s).
 
 ### Jobs
@@ -411,6 +410,37 @@ les libellés viennent du code. Le lot n'ajoute aucune variable d'environnement 
 La planification quotidienne passe par `planifier_ingestion_maintenance` (migration `0524`), appelée par le
 planificateur du worker (`apps/api/src/jobs/planificateur.ts`) ; les types sont déclarés dans
 `apps/api/src/jobs/registre.ts`. `JOBS_WORKER=inactif` coupe aussi ces trois jobs : aucun document n'avance.
+
+### OCR local
+
+L'OCR (`tesseract.js` 7.0.0, WebAssembly) tourne **sur le serveur**, hors ligne, dans un sous-processus Node
+isolé par document. Règles de sécurité : `docs/governance/SECURITY.md`, section « 8 undecies » ; décision et
+mesures : ADR-009 (« Décision OCR (lot 11) ») et `docs/workflows/notes-lots/lot-11.md`.
+
+- **Prérequis** : **aucun binaire système** (pas de `tesseract-ocr` à installer). `tesseract.js-core` ajoute
+  environ 45 Mo à `node_modules` (`pnpm install`) ; les données de langue (`fra` + `eng`, `tessdata_fast`) pèsent
+  5,2 Mo et sont **dans le dépôt** (`apps/api/ocr-data/`, avec `SHA256SUMS`). Aucun téléchargement à l'exécution.
+- **Node 22.13 minimum, requis en production** : le sous-processus s'appuie sur le modèle de permissions de Node
+  (`--permission`), qui n'existe qu'à partir de 22.13. Sur une version plus ancienne, ou si le drapeau manque,
+  l'OCR est **refusé en production** (tout `NODE_ENV` autre que `development` ou `test`, **staging compris**) :
+  le scan échoue `OCR_INDISPONIBLE`. Hors production, il est toléré avec un seul avertissement dans le journal.
+- **Variable `OCR_LOCAL`** (facultative ; `.env.example`) : `auto` (défaut) = moteur local s'il est disponible,
+  sinon rien en production (simulé en développement) ; en test (`NODE_ENV=test`), le simulé reste le défaut.
+  `local` = moteur local demandé même en test. `simule` = moteur simulé (développement et test seulement).
+  `off` = aucun moteur local (le scan échoue `OCR_INDISPONIBLE`).
+- **Vérifier les données de langue** : `node scripts/ocr-verifier-donnees.cjs` (Node pur, sans réseau ; code de
+  sortie 1 si une empreinte diffère). L'API fait la même vérification au premier usage : une empreinte fausse rend
+  le moteur indisponible, sans bruit.
+- **Pare-feu sortant à prévoir** : le moteur n'a besoin d'aucun accès réseau. Le garde réseau du sous-processus
+  est une défense applicative ; **bloquer le trafic sortant du serveur d'API** (hors PostgreSQL, SMTP et IA
+  configurés) reste à poser côté exploitation (dette ouverte, SECURITY §15).
+- **Limites** : 30 pages scannées au plus, 240 s au total, 20 Mpx par image, 6 images par page ; 256 Mo de tas,
+  coupure à 768 Mo de RSS, 60 s par étape ; une reconnaissance à la fois par processus d'API (file de 8). Mesuré :
+  environ 2 à 4 s par page ; 30 pages en 60 à 70 s sur un poste de développement.
+- **Mettre à jour le moteur ou les données** : voir `docs/workflows/notes-lots/lot-11.md` (« Mettre à jour le
+  moteur ou les données ») et `apps/api/ocr-data/README.md`.
+- **CI** : `OCR_LOCAL_EXIGE=1` (job `api`) rend obligatoires les tests du moteur réel ; sans lui, ils sont sautés
+  avec un message si le moteur manque.
 
 ### Mémoire du worker PDF
 
@@ -432,12 +462,22 @@ planificateur du worker (`apps/api/src/jobs/planificateur.ts`) ; les types sont 
 - **Refus `PLAFOND_TEXTE`** : PDF trop lourd à décompresser (flux de plus de 32 Mo, plus de 4 096 flux Flate, scan
   Flate brut de plus de 5 pages A4 en RVB, PDF abîmé), texte au-delà des plafonds de caractères, ou worker coupé
   par la surveillance mémoire. Re-soumettre un PDF régénéré ou compressé autrement (réexport, « imprimer en PDF »).
-- **`PDF_SANS_TEXTE`** : scan sans OCR, voir ci-dessus. **`PDF_ILLISIBLE`** : PDF protégé ou corrompu.
+- **`OCR_INDISPONIBLE`** : scan sans OCR utilisable. Vérifier dans l'ordre : `OCR_LOCAL` n'est pas `off` ; Node
+  ≥ 22.13 (`node -v`) ; `node scripts/ocr-verifier-donnees.cjs` ; `pnpm install` fait (dépendance `tesseract.js`).
+  En production, une version de Node sans modèle de permissions suffit à le provoquer.
+- **`OCR_ECHEC`** : le moteur a échoué (image trop dégradée ou page à plus de 60 images décodées, délai ou
+  mémoire dépassés, file de 8 reconnaissances pleine, sous-processus coupé). Refaire le scan plus net ; relancer
+  si la charge du serveur était en cause.
+- **`IMAGE_TROP_GRANDE`** : une image dépasse 20 Mpx (un A4 scanné à 600 dpi fait environ 35 Mpx). Refaire le
+  scan à 300-400 dpi.
+- **`PDF_SANS_TEXTE`** : l'OCR a tourné et **n'a rien lu** (page blanche, scan négatif, image illisible) ; avant le
+  lot 11 il signifiait « scan sans OCR ». Fournir un scan plus net ou un PDF avec texte. **`PDF_ILLISIBLE`** : PDF
+  protégé ou corrompu. Un PDF qui mêle pages natives et pages scannées n'est lu que par sa couche texte.
 - **404 `TEXTE_PURGE`** : le texte de la page a été purgé (décision + 90 jours) ; les références de page restent.
 - **409 à la relance** : le texte du document est purgé (téléverser de nouveau), le document n'est pas terminé,
   un brouillon est déjà ouvert (`EXTRACTION_OUVERTE`) ou la lecture est déjà aboutie (`LECTURE_NON_RELANCABLE`).
 - **409 `INGESTION_PLEIN`** : 5 documents en traitement ou 40 créations en 24 h pour ce cabinet ; attendre.
-- **`pnpm install` refuse de s'exécuter** : Node inférieur à 22 (voir « Autres pannes connues »).
+- **`pnpm install` refuse de s'exécuter** : Node inférieur à 22.13 (voir « Autres pannes connues »).
 
 ## Ports
 
@@ -500,7 +540,7 @@ Workflow `.github/workflows/ci.yml`, nommé « CI ».
   lancée à la main) annule la précédente. Permissions réduites à la lecture du
   contenu ; aucun secret. Les URL de base du job `api` reprennent les valeurs
   publiques de développement, pour un PostgreSQL jetable lié à `127.0.0.1` du runner.
-- **Version de Node** : Node 22 dans les deux jobs (`node-version: 22`), comme l'exige `engines`.
+- **Version de Node** : Node 22 dans les deux jobs (`node-version: 22`, dernière version mineure, donc ≥ 22.13 comme l'exige `engines`).
 - **Job `qualite`** (20 minutes au plus) : `pnpm install --frozen-lockfile`, puis
   `pnpm typecheck`, `pnpm lint`, `pnpm format`, les tests des moteurs (couverture
   ≥ 90 %), ceux de `shared`, ceux du web.
@@ -553,7 +593,7 @@ de chaque paquet (`apps/*`, `packages/*`) contient des liens vers le magasin :
 une jonction globale désynchronise aussi ces liens quand les deux checkouts sont
 sur des révisions différentes. Pour les tests API d'un worktree : base de test
 distincte (voir « Tests API et base de test »), jamais en parallèle d'une autre
-suite sur la même base. Le worktree utilise le Node de la machine : Node 22 ou plus
+suite sur la même base. Le worktree utilise le Node de la machine : Node 22.13 ou plus
 (sinon `pnpm install` y refuse de s'exécuter).
 
 ## Dépannage
@@ -581,10 +621,10 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   `etat_tfa_session`) : migrations `0050`–`0052` non appliquées sur la base
   utilisée. Correctif : `pnpm db:migrate`, puis relancer l'API.
 - **`pnpm install` échoue (« Unsupported engine », moteur incompatible)** : la version de
-  Node est inférieure à 22 (`engines.node` du `package.json` racine). Installer Node 22
+  Node est inférieure à 22.13 (`engines.node` du `package.json` racine). Installer Node 22.13
   ou plus (`node -v` pour vérifier), puis relancer `pnpm install`. Les PDF exigent
-  Node ≥ 22 (`unpdf` 1.8.1) ; la surveillance mémoire complète du worker d'import exige
-  Node ≥ 22.16, sinon seule la surveillance du RSS joue.
+  Node ≥ 22 (`unpdf` 1.8.1), l'OCR Node ≥ 22.13 (modèle de permissions) ; la surveillance
+  mémoire complète du worker d'import exige Node ≥ 22.16, sinon seule la surveillance du RSS joue.
 - **Port occupé** (`EADDRINUSE` sur 4100 ou 3100 ; PostgreSQL : le conteneur ne
   démarre pas sur 55440) : une ancienne instance tourne encore. Identifier le
   processus (`netstat -ano | findstr :4100` sous Windows), l'arrêter, relancer.
