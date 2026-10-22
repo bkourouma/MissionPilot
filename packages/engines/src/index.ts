@@ -11,6 +11,8 @@ export * from "./modulation/index";
 export * from "./autonomie/index";
 export * from "./contribution/index";
 export * from "./dossier/index";
+// Lot 6 : ingestion de documents (ADR-009).
+export * from "./ingestion/index";
 export * from "./nps/index";
 // Vague 2, lot AUT-CORE : moteur d'automatisation (AUT-01 à AUT-06).
 export * from "./automatisation/index";
