@@ -456,3 +456,24 @@ describe("portail fermé", () => {
     }
   }, 120_000);
 });
+
+describe("charge exacte envoyée par l'interface web", () => {
+  it("création sans `actif` : 201 et modèle actif en version 1 ; `actif` à la création reste refusé (400)", async () => {
+    // Charge produite par `validerModele` (apps/web/src/lib/due-diligence-modeles.ts), création.
+    const charge = {
+      secteur_code: "citi_f",
+      analyse: "pestel",
+      points: [{ categorie: "politique", libelle: "Quelle stabilité du cadre ?" }],
+    };
+    const refuse = await s.expertMetier.post("/api/dd/modeles-secteur", { ...charge, actif: true });
+    expect(refuse.statusCode).toBe(400);
+    const c = attendu(201, await s.expertMetier.post("/api/dd/modeles-secteur", charge));
+    const lu = attendu(200, await s.consultantEquipe.get(`/api/dd/modeles-secteur/${c.id}`));
+    expect(lu).toMatchObject({
+      secteur_code: "citi_f",
+      analyse: "pestel",
+      version: 1,
+      actif: true,
+    });
+  });
+});

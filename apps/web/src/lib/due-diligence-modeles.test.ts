@@ -34,9 +34,13 @@ describe("modèles d'analyse sectoriels : saisie", () => {
         secteur_code: "citi_a",
         analyse: "pestel",
         points: [{ categorie: "politique", libelle: "Quelle stabilité du cadre ?" }],
-        actif: true,
       },
     });
+  });
+
+  it("création : la charge ne porte pas `actif` (schéma strict de l'API)", () => {
+    const r = validerModele(saisie(), false);
+    expect(r.ok && "actif" in r.charge).toBe(false);
   });
 
   it("refuse secteur ou analyse manquants, point incomplet, catégorie d'une autre analyse", () => {

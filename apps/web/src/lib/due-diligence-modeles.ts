@@ -140,7 +140,8 @@ export interface ChargeModele {
   secteur_code?: string;
   analyse?: AnalyseDd;
   points: PointModele[];
-  actif: boolean;
+  /** Nouvelle version seulement : absent à la création (schéma strict de l'API). */
+  actif?: boolean;
   motif?: string;
 }
 
@@ -192,11 +193,11 @@ export function validerModele(
     ok: true,
     charge: correction
       ? { points, actif: s.actif, motif }
-      : {
+      : // Création : pas de `actif` (schéma strict ; le modèle est actif par défaut, migration 0511).
+        {
           secteur_code: s.secteur_code,
           analyse: s.analyse as AnalyseDd,
           points,
-          actif: true,
         },
   };
 }
