@@ -203,10 +203,14 @@ génériques, sans contenu du cahier SANKORIA).
   PPTX via `pptxgenjs`.
 - **Lecture de documents** (lot 6, ADR-009) : PDF à couche texte lus localement par `unpdf` 1.8.1 dans un
   `worker_thread` à mémoire plafonnée, classeurs Excel par `exceljs` ; aucun service externe d'extraction ni
-  d'OCR. OCR local voulu par l'utilisateur (lot 11, non livré).
-- **Exécution : Node 22 minimum** (décision technique du superviseur, lot 6) : `unpdf` 1.8.1 exige Node >= 22 et
-  `worker.getHeapStatistics()` (surveillance mémoire du worker PDF) n'existe qu'à partir de Node 22.16 ; garde
-  défensive si la méthode manque. `engines.node` du `package.json` racine vaut `>=22` et la CI utilise Node 22.
+  d'OCR externe. OCR local réel livré par le lot 11 (`tesseract.js` 7.0.0, hors ligne, décision 15 ; section
+  « Ingestion de documents et OCR » plus bas).
+- **Exécution : Node 22.13 minimum** (décision technique du superviseur, lots 6 et 11) : `unpdf` 1.8.1 exige
+  Node >= 22, le modèle de permissions de Node (`--permission`, qui confine le sous-processus de l'OCR local)
+  n'existe qu'à partir de Node 22.13 et `worker.getHeapStatistics()` (surveillance mémoire du worker PDF)
+  n'existe qu'à partir de Node 22.16 ; garde défensive si la méthode manque. `engines.node` du `package.json`
+  racine vaut `>=22.13` et la CI utilise Node 22. En production, sans modèle de permissions, l'OCR est
+  indisponible.
 
 ## Prévisions et pré-remplissage des temps (AUT-12, AUT-09)
 
@@ -289,7 +293,7 @@ exportées de `packages/engines/src/appels-offres`) :
   « fournir », « au moins »…, 200 au plus) ; dépôt possible seulement si la matrice n'est pas vide
   et que toute exigence obligatoire est conforme ou « sans objet » motivé. Le dossier d'un appel
   d'offres n'est pas lu en PDF : il faut en coller le texte. La chaîne d'ingestion d'ADR-009 (lot 6,
-  texte natif, OCR local à venir au lot 11) ne dessert pas encore ce dossier : elle sert les états
+  texte natif et OCR local, lots 6 et 11) ne dessert pas encore ce dossier : elle sert les états
   financiers, la due diligence et l'amorçage du standard (section « Ingestion de documents… » plus bas).
 - **Rétro-planning (AO-08)** : huit étapes standard à J-21, J-18, J-14, J-10, J-8, J-5, J-3 et J-1
   de la date limite, compressées proportionnellement si le temps manque ; alertes à J-7, J-3, J-1
@@ -359,7 +363,7 @@ Toutes les valeurs sont **provisoires — à valider** par un expert avant le pi
 | Filtrage environnemental et social | Seul le dernier filtrage reçoit des décisions ; l'auteur d'un filtrage ne peut pas écarter une exclusion (hors associé) ; une exclusion non levée d'un filtrage antérieur reste bloquante |
 | Listes d'exclusion d'un investisseur | Référentiel du cabinet, lisible de tout détenteur de `dd.lire` (choix assumé, à confirmer) |
 | Connecteurs de données ouvertes (DD-02) | Simulés seulement ; aucune source réelle branchée (`due-diligence/donnees-ouvertes.ts`, sans route ni réseau) |
-| Import de rapports PDF et lecture de la salle de données (DD-02, DD-10) | **Livrés au lot 6 (2026-10-21)** en texte natif, brouillon IA validé par `dd.valider` ; OCR local à venir (lot 11). Règles : section « Ingestion de documents… » plus bas |
+| Import de rapports PDF et lecture de la salle de données (DD-02, DD-10) | **Livrés au lot 6 (2026-10-21)** en texte natif, brouillon IA validé par `dd.valider` ; OCR local livré ensuite par le lot 11 (2026-10-22). Règles : section « Ingestion de documents… » plus bas |
 | Portail investisseur (lot 3b-bis, 2026-10-20) | **N'est plus repoussé** : livré (option du cabinet désactivée par défaut, invitation d'un compte `client_investisseur`, publication d'un instantané de la version validée de la note, consultation en lecture seule). Valeurs et règles : voir la section « Portail investisseur et modèles sectoriels (DD-07) » plus bas et « Décisions de l'utilisateur pendant le chantier » |
 
 ## Redressement (RED-01, 02, 05–07, 10–12, 14) — lot 3a de la vague 4 (2026-10-11)
@@ -481,9 +485,21 @@ décision 12). Ils ne se modifient que sur décision de l'utilisateur.
 
 | N° | Sujet | Décision VALIDÉE (2026-10-22) |
 | -- | ----- | ----------------------------- |
-| 15 | OCR | **OCR LOCAL installé sur le serveur, jamais de service externe.** Il fait l'objet d'un **lot dédié (lot 11), en cours, non livré** ; le choix du moteur est ouvert (voir « Questions ouvertes » de la section « Ingestion de documents… »). En attendant, un PDF sans couche texte échoue avec `PDF_SANS_TEXTE` et aucun état n'est créé ; seuls le port `Ocr` et un adaptateur simulé (hors production) existent (`apps/api/src/ingestion/ocr.ts`). |
+| 15 | OCR | **OCR LOCAL installé sur le serveur, jamais de service externe.** **Livré par le lot 11 (2026-10-22)** : moteur `tesseract.js` 7.0.0 (WebAssembly, sans binaire natif), données `tessdata_fast` 4.1.0 `fra` + `eng` (5,2 Mo) vendorées dans `apps/api/ocr-data/`. Le choix du moteur, jusque-là ouvert, est **soldé**. Réglages, seuils et options écartées : section « Ingestion de documents et OCR », sous-section « OCR local (lot 11) ». Un scan sans OCR branché échoue `OCR_INDISPONIBLE` ; `PDF_SANS_TEXTE` signifie que l'OCR a tourné et n'a rien lu. **Un état issu d'OCR n'est jamais accepté automatiquement** (toujours en revue). |
 | 16 | Masquage des noms avant l'IA | Les **noms connus du cabinet** (raisons sociales des clients, utilisateurs, contacts de clients, intitulés de missions) sont **masqués avant l'envoi au modèle** pour l'**amorçage du standard** (usage `standard_historique`) ; toute ligne de la proposition qui recopie un nom masqué est écartée. Les usages `dd_rapport` et `dd_salle` **ne sont PAS masqués** : non demandé, **à trancher** (question ouverte). |
-| 17 | Conservation du texte extrait | Le **texte extrait des pages est conservé jusqu'à la décision sur l'extraction (validée ou rejetée) ou sur l'état financier, plus 90 jours**, puis **purgé** par le job `ingestion_maintenance` (`purger_textes_ingestion`, migration `0524`). L'état financier, ses lignes et les brouillons (validés ou non) restent ; un brouillon ouvert ou un état en revue n'est jamais purgé. |
+| 17 | Conservation du texte extrait | Le **texte extrait des pages est conservé jusqu'à la décision sur l'extraction (validée ou rejetée) ou sur l'état financier, plus 90 jours**, puis **purgé** par le job `ingestion_maintenance` (`purger_textes_ingestion`, migration `0524`). L'état financier, ses lignes et les brouillons (validés ou non) restent ; un brouillon ouvert ou un état en revue n'est jamais purgé. Depuis le lot 11, les **corrections OCR proposées** (`corrections_ocr`) suivent la même rétention (migration `0526`). |
+
+### Décisions validées le 2026-10-22 (lots 11 et 12)
+
+Points **VALIDÉS** par l'utilisateur le 2026-10-22, selon le brief du superviseur ; même statut que les tableaux
+ci-dessus. Ils ne se modifient que sur décision de l'utilisateur. La décision 15 (OCR local, livrée par le lot 11)
+est dans le tableau précédent.
+
+| N° | Sujet | Décision VALIDÉE (2026-10-22) |
+| -- | ----- | ----------------------------- |
+| 18 | Correctifs de sécurité `next` et `fastify` malgré la règle d'âge de 2 semaines (lot 12) | `next` **15.5.28** et `fastify` **5.12.6** sont **gardés**, en versions exactes (`apps/web/package.json`, `apps/api/package.json`), bien que publiés **8 et 9 jours** avant le 2026-10-22 (14 jours exigés par défaut) : aucune version corrigée plus ancienne n'existe. Avis corrigés : GHSA-2464-fhr4-w9xw (critique, exécution de code à distance par l'optimisation d'images SVG) et GHSA-p3m5-59mp-jv5r (haute, déni de service des Server Actions) pour `next` ; GHSA-389g-gv7q-r4x8 (basse, contournement de validation d'en-tête) pour `fastify`. `pnpm audit --prod` : aucune vulnérabilité connue. **Réversible** : deux lignes de `package.json` et le lockfile. La règle d'âge reste la règle ; c'est une exception motivée, par avis. |
+| 19 | Business plan bancable activable sans prix (lot 7) | Reconfirmé le 2026-10-22 : c'est la décision 13 ci-dessus (« **sur devis** », activation sans prix, `SERVICES_PRIX_REQUIS` faux, validée une première fois le 2026-10-21 ; mode toujours marqué « à valider » pour le tarif). Aucune règle nouvelle. |
+| 20 | Recette courte avant la pull request | **Validée** le 2026-10-22 selon le brief du superviseur : une **recette courte** est faite avant la pull request. Son périmètre n'est consigné dans aucune note de lot ni dans ce document (**à préciser par le superviseur**) ; décision de processus, sans effet sur le code. |
 
 ## Socle IA : rejeu, brief et copilote (lot 1, 2026-10-20)
 
@@ -603,7 +619,7 @@ l'utilisateur » (relecteur).
   de la mission. Deux implémentations alignées (moteur `evaluerIndependanceRelecteur` et déclencheur de `0287`).
 - **STD-11, contrôle de cohérence** : `REGLES_CONTRADICTOIRES` (deux règles actives de même priorité, de condition
   identique et d'effets contraires) est une **erreur bloquante** ; `CONFLIT_MEME_PRIORITE` (conditions différentes)
-  reste un avertissement. STD-13 est livré par le lot 6 en texte natif, OCR local à venir au lot 11 (section
+  reste un avertissement. STD-13 est livré par le lot 6 en texte natif, puis par le lot 11 avec l'OCR local (section
   « Ingestion de documents… » plus bas) ; STD-14 reste à faire.
 
 ## Dossier client : groupes, filiales et rapport d'état financier, lot 4b (2026-10-20, relu le 2026-10-21)
@@ -833,17 +849,19 @@ lignes, mêmes exports) ne change aucun comportement et n'appelle aucune décisi
   (dossier, hors périmètre du lot).
 - L'automatisation correspondant au voyant rouge n'est pas branchée.
 
-## Ingestion de documents et OCR (DOS-03, DD-02, DD-10, STD-13), lot 6 (2026-10-21, relu le 2026-10-22)
+## Ingestion de documents et OCR (DOS-03, DD-02, DD-10, STD-13), lots 6 et 11 (2026-10-21, relu le 2026-10-22)
 
-Migrations `0521` à `0524`, SQLSTATE `MQG01` à `MQG03`. Décision d'architecture : ADR-009 (mode LOCAL : aucun service
-externe de lecture documentaire ni d'OCR). Source : `docs/workflows/notes-lots/lot-6.md`, relue contre le code ; les
-valeurs ci-dessous sont celles du code (**aucun écart de valeur avec la note** ; deux précisions d'emplacement :
-la fenêtre de reprise de 30 jours est dans la migration `0524`, non dans `maintenance.ts`, et le comptage « 24 heures
-glissantes » est dans `documents.ts`). **Livré en mode texte natif seulement** : DOS-03 (états financiers en PDF ou
-Excel), DD-02 (rapports PDF), DD-10 (salle de données) et STD-13 (amorçage du standard) lisent un PDF à couche texte
-ou un classeur ; **l'OCR local est à venir (lot 11, décision 15)**. Les trois décisions de l'utilisateur du
-2026-10-22 (OCR local, masquage des noms, conservation de 90 jours) sont aux points 15 à 17 du tableau « Décisions de
-l'utilisateur pendant le chantier ». Le reste est **provisoire, à valider**, sauf mention « tranché ».
+Migrations `0521` à `0526` (`0525` et `0526` : lot 11), SQLSTATE `MQG01` à `MQG03`. Décision d'architecture : ADR-009
+(mode LOCAL : aucun service externe de lecture documentaire ni d'OCR). Sources : `docs/workflows/notes-lots/lot-6.md`
+et `lot-11.md`, relues contre le code ; les valeurs ci-dessous sont celles du code (**aucun écart de valeur avec la
+note du lot 6** ; deux précisions d'emplacement : la fenêtre de reprise de 30 jours est dans la migration `0524`, non
+dans `maintenance.ts`, et le comptage « 24 heures glissantes » est dans `documents.ts`). **Livré par le lot 6 en mode
+texte natif** : DOS-03 (états financiers en PDF ou Excel), DD-02 (rapports PDF), DD-10 (salle de données) et STD-13
+(amorçage du standard) lisent un PDF à couche texte ou un classeur ; **l'OCR local est livré par le lot 11
+(décision 15)** : un PDF scanné est lu par reconnaissance de caractères sur le serveur, voir « OCR local (lot 11) »
+plus bas. Les trois décisions de l'utilisateur du 2026-10-22 (OCR local, masquage des noms, conservation de 90 jours)
+sont aux points 15 à 17 du tableau « Décisions de l'utilisateur pendant le chantier ». Le reste est **provisoire, à
+valider**, sauf mention « tranché ».
 
 ### Valeurs provisoires (à valider)
 
@@ -888,7 +906,7 @@ risque résiduel : SECURITY.md §8 undecies.
   rejetées** : cette règle peut produire des **revues sur de vrais états** (limite assumée, la prudence prime).
 - **Acceptation automatique d'un état lu dans un PDF ou un Excel** : seulement si **tous les contrôles passent à tolérance
   nulle** (`controlerEtatFinancier`) ET **aucune ligne n'est rejetée ou non lue** ET le **texte vient d'une couche texte**
-  (jamais d'OCR) ET **aucun état accepté par un humain n'est remplacé** ; sinon l'état est mis `en_revue` avec les écarts.
+  (jamais d'OCR, même local : méthode `ocr` ou `ocr_simule`) ET **aucun état accepté par un humain n'est remplacé** ; sinon l'état est mis `en_revue` avec les écarts.
   Chaque ligne porte `reference.page` (PDF) ou `reference.cellule` (Excel) ; origine `pdf` (migration `0523`). Les
   chiffres ne viennent jamais du modèle : un nombre extrait est une donnée sourcée, contrôlée par le moteur.
 - **Amorçage du standard (STD-13)** : la proposition (étapes, briques, éléments, rubriques à 5 niveaux) est validée par
@@ -912,11 +930,84 @@ risque résiduel : SECURITY.md §8 undecies.
 - **Le fichier n'est jamais conservé** : analysé, puis son objet de stockage est effacé ; aucune clé étrangère vers
   `fichiers`.
 
+### OCR local (lot 11, 2026-10-22)
+
+Source : `docs/workflows/notes-lots/lot-11.md`, relue contre `apps/api/src/ingestion/ocr-local.ts`, `ocr-processus.mjs`,
+`fabrique.ts`, `packages/shared/src/schemas/ingestion.ts` et `packages/engines/src/ingestion/ocr-confusions.ts`. Décision
+d'architecture : ADR-009, « Décision OCR (lot 11) ». Migrations `0525` (méthode `ocr` admise, colonne
+`ingestion_documents.corrections_ocr`) et `0526` (purge de `corrections_ocr`, redéfinition de `purger_textes_ingestion` et
+du déclencheur `controler_ingestion_document`). Le moteur et les réglages ci-dessous sont **tranchés par l'utilisateur
+(décision 15, « local, jamais de service externe ») et mesurés** par l'expert du lot ; les seuils numériques sont des
+**choix techniques mesurés, réversibles**, à revoir sur de vraies liasses scannées.
+
+**Moteur et données** (tranché) : `tesseract.js` **7.0.0** (version exacte, une dépendance ajoutée à `apps/api`,
+Apache-2.0, WebAssembly, aucun binaire natif) ; données `tessdata_fast` **4.1.0** `fra` et `eng`, **5,2 Mo**, vendorées
+dans `apps/api/ocr-data/` avec `SHA256SUMS` (vérifiées par `node scripts/ocr-verifier-donnees.cjs` et au premier usage ;
+empreinte fausse = moteur indisponible). **Options écartées** : le binaire `tesseract` 5.x en sous-processus (prérequis
+système, surface native, absent de la machine de développement ; reste une alternative de performance derrière le même
+port), PaddleOCR / `onnxruntime-node`, `ocrad.js` et `scribe.js-ocr` (addon natif de plus de 100 Mo, licences GPL ou AGPL
+incompatibles, abandon) ; `tessdata_best` (modèles flottants) **non viable** avec le cœur WebAssembly 7.0.0, qui avorte
+au chargement (produit scalaire flottant absent du build) ; binarisation Otsu (aucun gain) ; PSM 4 (mêlerait deux
+colonnes de texte) et PSM 6 (perd des lignes et lit « 900,000 » pour « 500,000 »).
+
+**Réglages** (code : `ocr-local.ts`, `ocr-processus.mjs`) :
+
+| Réglage | Valeur | Raison mesurée |
+| ------- | ------ | -------------- |
+| Langues | `fra+eng`, le français d'abord | Documents anglais de la due diligence ; surcoût de `eng` de 3 à 14 % |
+| Segmentation | **PSM 3**, `preserve_interword_spaces` | 100 % des montants sur scan net ; la chaîne aval lit « libellé [espaces] montant » |
+| Résolution | agrandissement vers **300 dpi** sous **200 dpi**, réduction au-delà de **450 dpi** | Police difficile 11/12 au lieu de 9/12 avec agrandissement |
+| Lignes peu sûres | confiance de ligne **< 50 %** écartée | Bruit 10 à 30 %, lignes lisibles 85 à 97 % |
+| Page sans encre | moins de `max(50 pixels, 0,005 %)` de pixels plus sombres que le fond de 80 niveaux : **non soumise au moteur** | Évite de « lire » 60 caractères de bruit sur une page blanche (jusqu'à 11 s) |
+| Images | **6 par page** (les plus grandes d'abord), côté minimal **100 px** | Vignettes ignorées |
+| Confiance de page | moyenne des confiances des lignes retenues pondérée par leur longueur, **x 10** (échelle 0 à 1000) | Même échelle que `ocr_simule` |
+
+**Plafonds `PLAFONDS_OCR` inchangés** (`packages/shared/src/schemas/ingestion.ts`) : **30 pages** (au-delà `PLAFOND_PAGES`
+sans appel au moteur), **240 s** au total (délai de secours de 10 s de plus, `DELAI_DEPASSE`), **20 Mpx** par image
+(`IMAGE_TROP_GRANDE` : un scan A4 à 600 dpi, environ 35 Mpx, est refusé, à refaire à 300-400 dpi), **6 images** par page.
+30 pages tiennent en 58 à 71 s sur la machine de mesure, soit une marge de 3,4 à 4.
+
+**Seuils d'exécution** (`LIMITES_OCR_LOCAL`, `FILE_ATTENTE_MAX`) : tas V8 du sous-processus **256 Mo**
+(`--max-old-space-size`), **RSS de 768 Mo** au plus (veille), **60 s par étape**, une reconnaissance à la fois par processus
+d'API avec une **file de 8** (au-delà `OCR_ECHEC`, inatteignable par la file `jobs`, qui traite un job à la fois par
+processus). Sous-processus à environnement vide, `--no-addons`, garde réseau applicatif, modèle de permissions de Node
+(`--permission`, **Node 22.13 minimum, requis en production** : sinon l'adaptateur est indisponible et un scan échoue
+`OCR_INDISPONIBLE` ; hors production, toléré avec un avertissement).
+
+**Configuration** : `OCR_LOCAL` = `auto` (défaut : local s'il est disponible) | `local` | `simule` | `off`
+(`apps/api/src/config.ts`, fabrique `creerOcr`). En test (`NODE_ENV=test`), l'OCR simulé reste le défaut ; l'adaptateur
+simulé n'existe qu'en développement et en test.
+
+**Règles de gestion** :
+
+- **Un état issu d'OCR n'est jamais accepté automatiquement** : toute lecture de méthode `ocr` ou `ocr_simule` part en
+  revue, avec la confiance de page (0 à 1000) ; chaque ligne lue par OCR porte `reference = { fichier, page, ocr: true,
+  confiance_pm }`. Le web signale « lu par reconnaissance de caractères » et « à vérifier (confiance de la page : n %) ».
+- **Corrections proposées** (`ocr-confusions.ts`, `corrections_ocr`) : confusions O/0, l/I/1 et séparateurs, retrouvées
+  par la tolérance du moteur sur la page citée ; **elles ne servent qu'à proposer** (la ligne reste hors de l'état, qui part
+  en revue), 100 au plus, validées par `correctionOcrSchema`. Faux positifs possibles (libellé terminé par un mot
+  numérique) ; un nombre de 3 caractères ou moins avec une lettre n'est jamais proposé.
+- **Rétention** : `corrections_ocr` suit celle du texte des pages (décision + 90 jours, point 17), purgée par
+  `purger_textes_ingestion` (`0526`) ; annuler seules les corrections reste refusé (`MQG01`).
+- **Document mixte** : un PDF mêlant pages natives et pages scannées est lu par sa seule couche texte (les pages vides ne
+  passent pas à l'OCR). Un scan sans texte et sans OCR branché échoue `OCR_INDISPONIBLE` ; `PDF_SANS_TEXTE` signifie que
+  l'OCR a tourné et n'a rien lu. Un scan négatif est vu comme une page sans encre.
+
+**Hypothèses métier appliquées par le lot 11** (options les plus prudentes, **à valider**) : une page est « lue par OCR »
+d'après sa méthode, page par page, et tout état d'un document `ocr` ou `ocr_simule` est traité comme lu par OCR côté web ;
+**aucune correction n'est proposée en cas de doute** (plusieurs lettres confondables dans un mot, lettre isolée ambiguë) ;
+texte web : « Un PDF scanné est lu par OCR sur le serveur… 30 pages au plus » (`PLAFONDS_OCR.pagesMax`).
+
+**Qualité mesurée** (2026-10-22, un poste Windows partagé) : 100 % des montants sur scan net (200 dpi), dégradé (150 dpi) et
+état anglais ; 11 montants sur 12 sur une police difficile (« 1700 000 », espace des milliers perdu, que la tolérance aux
+confusions peut signaler) ; durée d'une page de 1,4 à 4,5 s. **Non mesurée** : de vraies liasses SYSCOHADA scannées,
+JPX, CCITT et JBIG2. Dettes de l'OCR : CODING_STANDARDS.md §10 et SECURITY.md.
+
 ### Questions ouvertes pour l'utilisateur
 
-1. **Moteur de l'OCR local (lot 11)** : lequel installer sur le serveur (données de langue françaises livrées dans
-   l'image, hors ligne, durée et mémoire plafonnées) ? Un état issu d'une page reconnue par OCR ne sera jamais accepté
-   automatiquement.
+1. ~~**Moteur de l'OCR local (lot 11)**~~ **Soldée par le lot 11** (`tesseract.js` 7.0.0, voir « OCR local (lot 11) ») ;
+   à confirmer seulement sur de vraies liasses scannées : qualité de lecture des états SYSCOHADA réels. Un état issu d'une
+   page reconnue par OCR n'est jamais accepté automatiquement.
 2. **Plafonds provisoires** (tableau ci-dessus) : à confirmer ou ajuster, en particulier 10 Mo / 60 pages, 5 documents en
    traitement et 40 par jour, ainsi que les seuils mémoire (256 Mo / +512 Mo).
 3. **Codes de 3 chiffres ou plus** dans les documents d'amorçage : assouplir si le métier veut des codes numérotés ?
@@ -964,6 +1055,9 @@ Les points ci-dessous sont des **décisions du superviseur** (réversibles) ou d
 - **Affichage périmé après une écriture (A-04, à confirmer)** : correctif général par le hook `useRafraichir`
   (`apps/web/src/components/formulaires/useRafraichir.ts` : attente jusqu'à l'arrivée des données, une relance à 1,5 s,
   abandon à 8 s). Cause non prouvée ; **à confirmer sur un onglet visible au premier plan** (liste des vérifications
-  dans la note du lot).
+  dans la note du lot). Le lot 12 (2026-10-22) a migré vers ce hook les 12 appels directs à `router.refresh()` que le
+  lot 6 avait réintroduits (9 composants) ; `ingestion/ActualisationAuto` combine `useTransition` et
+  `rafraichirEnTransition` et saute un tick tant que la transition précédente n'est pas terminée ; seul
+  `FormulaireConnexion.tsx` appelle encore `router.refresh()` (voulu).
 - **Tests sensibles à la charge** : ne pas lancer plus de 3 ou 4 suites API en parallèle sur le même PostgreSQL (erreur
   53200, `max_locks_per_transaction`, dans le global-setup).

@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9f).
+
 # Notes du lot 11 — OCR local (2026-10-22)
 
 Branche `orch/2026-10-20-reste-lot-11`. Décision de l'utilisateur (2026-10-22) : « OCR local installé sur le

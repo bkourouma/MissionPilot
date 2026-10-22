@@ -19,7 +19,7 @@ française, utilisable en 3G, PWA.
 
 ## Décision
 
-- Monorepo **pnpm** (Node ≥ 20, TypeScript strict) :
+- Monorepo **pnpm** (Node ≥ 22.13, TypeScript strict ; voir « Historique ») :
   - `apps/api` : Fastify, validation par Zod, accès PostgreSQL ;
   - `apps/web` : Next.js (App Router), interface en français, responsive/PWA ;
   - `packages/engines` : fonctions pures de calcul (temps, budget, marges,
@@ -52,6 +52,13 @@ française, utilisable en 3G, PWA.
   RLS y est moins directe ; décision réversible si le volume de SQL pèse.
 - **Isolation applicative seule (`WHERE cabinet_id`)** — un oubli fuit des
   données ; refusé par le PRD.
+
+## Historique
+
+- 2026-10-06 : décision initiale, Node ≥ 20.
+- 2026-10-21 (lot 6, ADR-009) : Node ≥ 22, exigé par `unpdf` (lecture des PDF).
+- 2026-10-22 (lot 11, ADR-009 décision 16) : Node ≥ 22.13, version qui introduit le modèle de permissions
+  (`--permission`) dont l'OCR local en sous-processus a besoin ; `engines.node` du `package.json` racine en `>=22.13`.
 
 ## Liens
 

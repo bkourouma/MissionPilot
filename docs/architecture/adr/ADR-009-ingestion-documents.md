@@ -128,8 +128,8 @@ Constats sur le code (vérifiés le 2026-10-21) :
     le job `ingestion_maintenance` (fonction `purger_textes_ingestion`, migration 0524) ; l'état financier, ses
     lignes et les brouillons (validés ou non) restent ; un brouillon ouvert ou un état en revue n'est jamais purgé ;
     une lecture ne se relance plus sur un document purgé. (c) *OCR* : l'utilisateur veut un OCR LOCAL installé sur le
-    serveur ; il fera l'objet d'un lot dédié après fusion : le port `Ocr` et l'adaptateur simulé restent seuls ici
-    (livré au lot 11 : décision 16).
+    serveur ; il a fait l'objet d'un lot dédié après fusion : le port `Ocr` et l'adaptateur simulé étaient seuls au
+    lot 6, l'OCR réel est livré au lot 11 (décision 16).
 13. **Séparation des tâches.** Le valideur d'un brouillon n'est ni l'auteur du téléversement, ni le demandeur de la
     lecture (téléversement ou relance), ni le dernier modificateur, sauf associé (API et déclencheur `MQG02`).
 14. **Propositions de standard sans donnée financière (FIN-02).** Toute proposition contenant un nombre de trois
@@ -139,7 +139,8 @@ Constats sur le code (vérifiés le 2026-10-21) :
     flux, 128 Mo par document) avant tout worker ; pendant l'extraction, la mémoire externe du worker et le RSS du
     processus sont surveillés (150 ms, seuils 256 Mo et +512 Mo mesurés) et le worker est terminé au franchissement d'un
     seuil. Le pré-contrôle ne dépend pas du dictionnaire du PDF, s'exécute dans un worker dédié (délai de 5 s, l'API n'est jamais bloquée), compte les octets lus par zlib en plus des octets produits (budget d'entrée de 64 Mo), ignore CINFO et suit les cascades Flate jusqu'à épuisement des budgets. L'ingestion exige Node 22 au minimum (`unpdf`,
-    `worker.getHeapStatistics()` ; garde défensive si la méthode manque).
+    `worker.getHeapStatistics()` ; garde défensive si la méthode manque) ; l'OCR (décision 16) exige Node 22.13
+    (modèle de permissions), d'où `engines.node` à `>=22.13` dans le `package.json` racine.
 16. **OCR local (lot 11 ; décision de l'utilisateur du 2026-10-22 : « OCR local installé sur le serveur, jamais
     de service externe »).** Adaptateur `OcrLocal` (`ingestion/ocr-local.ts`) : **`tesseract.js` 7.0.0** (version
     exacte, Apache-2.0, Tesseract 5 compilé en WebAssembly, SANS binaire natif) et données de langue `fra` + `eng`
@@ -149,9 +150,14 @@ Constats sur le code (vérifiés le 2026-10-21) :
     - **Isolation** : un sous-processus Node PAR DOCUMENT (`child_process.fork` de `ocr-processus.mjs`), jamais
       réutilisé ; environnement vide ; `--max-old-space-size=256`, `--no-addons` ; modèle de permissions de Node
       (`--permission`, lecture seule du code et des données, aucune écriture ni sous-processus), EXIGÉ en production
-      (Node >= 22.13 requis ; sans lui, l'OCR est indisponible : `OCR_INDISPONIBLE`), toléré avec un avertissement
-      unique en développement et en test ; dossier courant du sous-processus = dossier du script ; garde « aucun réseau » préchargé dans TOUS les fils (`ocr-garde-reseau.cjs`, `--require`) :
-      toute tentative (TCP, TLS, DNS, UDP, HTTP, fetch, WebSocket, sous-processus) est refusée et comptée, une seule
+      (Node >= 22.13 requis ; sans lui, l'OCR est indisponible : `OCR_INDISPONIBLE` ; « production » = tout
+      `NODE_ENV` autre que `development` et `test`, staging compris), toléré avec un avertissement unique en
+      développement et en test ; **dossier courant du sous-processus = dossier de ses scripts** (faille trouvée en
+      vérification : sous `--permission`, un `worker_thread` lisait le dossier courant de l'API, où peut se trouver un
+      `.env`) ; garde « aucun réseau » préchargé dans TOUS les fils (`ocr-garde-reseau.cjs`, `--require`), qui
+      remplace `worker_threads.Worker` par un enveloppant imposant l'héritage des options du fil parent (garde,
+      permissions, `--no-addons`) et ignorant l'`execArgv` de l'appelant : toute tentative (TCP, TLS, DNS, UDP, HTTP,
+      fetch, WebSocket, sous-processus, `import()`, `dlopen`, inspecteur) est refusée et comptée, une seule
       fait échouer le document ; veille dans le sous-processus (`ocr-veille.mjs` : RSS <= 768 Mo, échéance,
       parent vivant) et dans le parent (RSS par /proc sous Linux, délai global `PLAFONDS_OCR.dureeMs`, délai de
       60 s par étape) ; SIGKILL et constat de la mort avant de rendre la main ; aucun orphelin.
@@ -159,7 +165,12 @@ Constats sur le code (vérifiés le 2026-10-21) :
       de moins de 100 px ignorées), pixels par image (`maxImageSize` de pdf.js retire l'image AVANT décodage, ce qui
       est détecté et refusé `IMAGE_TROP_GRANDE` ; secours sur les en-têtes JPEG puis sur les pixels décodés),
       caractères par page et par document (`PLAFOND_TEXTE`), une reconnaissance à la fois par processus d'API
-      (file de 8, au-delà `OCR_ECHEC`).
+      (file de 8, au-delà `OCR_ECHEC` définitif, inatteignable par la file `jobs` qui traite un job à la fois par
+      processus). L'OCR tourne dans la transaction du job d'extraction (ligne du document verrouillée, une connexion
+      du pool retenue) : au pire 30 s + 240 s + 10 s, sous le délai de blocage des jobs (15 min) ; dette acceptée.
+    - **Corrections proposées et purge** : confusions O/0, l/I/1 et séparateurs (`ocr-confusions.ts`, colonne
+      `corrections_ocr`, migration 0525) ; elles ne servent qu'à PROPOSER (la ligne reste hors de l'état, qui part en
+      revue) ; `corrections_ocr` suit la rétention du texte des pages (décision 12, migration 0526).
     - **Réglages mesurés** : `fra+eng`, segmentation automatique (PSM 3), `preserve_interword_spaces` (le libellé et
       le montant restent sur la même ligne, séparés par des espaces), agrandissement des scans de moins de 200 dpi
       vers 300 dpi, pages sans encre non soumises au moteur, lignes de confiance inférieure à 50 % écartées.
@@ -201,12 +212,18 @@ reproduction et chiffres : `docs/workflows/notes-lots/lot-11.md`.
   nécessaire (tesseract.js travaille dans un `worker_thread`). Il ne couvre pas le réseau avant Node 25 : le garde
   préchargé le fait. **Non vérifié sous Node 22** (pas de Node 22 sur le poste) : la CI (Node 22) exécute les tests du
   moteur et prouvera la compatibilité ; en cas d'échec, l'OCR échoue fermé (`OCR_ECHEC`), il ne se dégrade pas.
+  Chaque dossier est passé à `--allow-fs-read` sous sa forme exacte et avec séparateur final, jamais avec joker.
 - **Risques résiduels** : moteur WebAssembly et pdf.js exécutés sur un fichier non fiable dans un sous-processus
   Node SANS conteneur ni seccomp (dette de sécurité) ; la mémoire hors tas (pdf.js, WebAssembly jusqu'à 2 Go) n'est
   bornée que par la veille du RSS (768 Mo, mesure toutes les 100 ms : coupure réactive, pas une limite du système) ;
   pas de pare-feu sortant applicatif (le garde est une défense en profondeur, un pare-feu serveur reste
   recommandé) ; qualité inconnue sur de vraies liasses SYSCOHADA ; scans en JPEG 2000 (JPX), CCITT ou JBIG2 non
-  testés ; scan négatif (texte clair sur fond sombre) vu comme une page sans encre.
+  testés ; scan négatif (texte clair sur fond sombre) vu comme une page sans encre ; sous Windows, `env: {}` laisse
+  11 variables système recopiées par libuv (aucune n'est un secret de l'API), l'environnement est vide sous Linux ;
+  limites mesurées : 30 pages x 3 images en 124 s, une page à 60 images décodées donne `OCR_ECHEC`, un scan A4 à
+  600 dpi (~35 Mpx) est refusé `IMAGE_TROP_GRANDE` (refaire le scan à 300-400 dpi) ; un PDF mêlant pages natives et
+  scannées est lu par sa seule couche texte ; la vérification de secours sur les dimensions décodées n'a pas pu être
+  déclenchée par les PDF hostiles de test.
 
 ## Conséquences positives
 
@@ -234,7 +251,8 @@ reproduction et chiffres : `docs/workflows/notes-lots/lot-11.md`.
   l'API : le contrôle par le contenu, les plafonds de taille, de pages, de texte et de durée en limitent l'exposition,
   mais ne remplacent pas un antivirus ; le traitement est isolé dans un fil d'exécution à mémoire plafonnée, pas dans un
   processus ou un conteneur séparé (dette de sécurité à inscrire).
-- Un traitement de 30 s au plus occupe le worker ; la file est partagée entre cabinets (dette connue de la file `jobs`).
+- Une extraction de texte natif occupe le worker 30 s au plus, un OCR jusqu'à 240 s (+ 10 s de secours) dans la
+  transaction du job ; la file est partagée entre cabinets (dette connue de la file `jobs`).
 
 ## Alternatives écartées
 
