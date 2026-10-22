@@ -250,6 +250,10 @@ export const referenceValeurSchema = z
       .optional(),
     ligne: z.number().int().min(1).max(1_000_000).nullable().optional(),
     page: z.number().int().min(1).max(100_000).nullable().optional(),
+    /** Valeur lue par reconnaissance de caractères (OCR) : toujours revue par un humain (lot 11). */
+    ocr: z.literal(true).optional(),
+    /** Confiance de la page lue par OCR, de 0 à 1000 (pour mille). */
+    confiance_pm: z.number().int().min(0).max(1000).nullable().optional(),
   })
   .strict();
 export type ReferenceValeur = z.infer<typeof referenceValeurSchema>;
