@@ -66,6 +66,15 @@ const notificationsDe = (utilisateurId: string, type: string) =>
     [utilisateurId, type],
   );
 
+/** Dernier e-mail du journal pour cette adresse, attendu au plus 30 s. */
+async function courrielPour(adresse: string) {
+  const fin = Date.now() + 30_000;
+  while (!mailer.dernierPour(adresse) && Date.now() < fin) {
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return mailer.dernierPour(adresse);
+}
+
 /** Planifie et exécute la tâche du jour avec une horloge fixe ; rend les jobs KPI traités. */
 async function executerSuivi(iso: string) {
   const maintenant = new Date(iso);
@@ -92,7 +101,8 @@ describe("alertes enregistrées après la saisie", () => {
   });
 });
 
-describe("tâche quotidienne kpi_suivi", () => {
+// Suite lente sous charge (worker, courriels) : délai large pour tous ses tests.
+describe("tâche quotidienne kpi_suivi", { timeout: 90_000 }, () => {
   it("planification idempotente : une tâche par cabinet et par jour", async () => {
     const p = planificationSuiviKpi(new Date("2026-05-15T06:00:00Z"));
     expect(p).toMatchObject({ cle: "kpi_suivi:2026-05-15", jour: "2026-05-15" });
@@ -103,31 +113,36 @@ describe("tâche quotidienne kpi_suivi", () => {
     expect((await executerSuivi("2026-05-15T09:00:00Z")).planifies).toBe(0);
   });
 
-  it("dégradation et retard détectés par le moteur ; rappel aux contributeurs et au propriétaire", async () => {
-    expect(await alertesDe(jeu.ca)).toEqual([
-      { code: "DEGRADATION_CONSECUTIVE", periode_cle: "2026-04" },
-    ]);
-    expect(await alertesDe(jeu.delai)).toEqual([
-      { code: "MESURE_EN_RETARD", periode_cle: "2026-04" },
-      { code: "SEUIL_HAUT", periode_cle: "2026-03" },
-    ]);
-    // CA : propriétaire = directeur, plus le chef de mission ; une notification chacun.
-    for (const id of [s.a.directeur.utilisateurId, s.a.chef.utilisateurId]) {
-      const n = await notificationsDe(id, "kpi_alerte");
-      expect(n.filter((x) => String(x.titre).includes("dégradation"))).toHaveLength(1);
-    }
-    expect(await rappelsDe(jeu.delai)).toEqual([{ periode_cle: "2026-04", destinataires: 2 }]);
-    const rappel = await notificationsDe(contributeur.utilisateurId, "kpi_rappel_mesure");
-    expect(rappel).toEqual([
-      {
-        titre: "Mesure attendue pour le KPI « Délai moyen de paiement client » (2026-04)",
-        lien: `/portail/kpi/${jeu.delai}`,
-      },
-    ]);
-    expect(mailer.dernierPour(contributeur.email)?.sujet).toContain("Mesure attendue");
-    // Le contributeur du portail ne reçoit jamais les alertes internes.
-    expect(await notificationsDe(contributeur.utilisateurId, "kpi_alerte")).toEqual([]);
-  });
+  it(
+    "dégradation et retard détectés par le moteur ; rappel aux contributeurs et au propriétaire",
+    { timeout: 90_000 },
+    async () => {
+      expect(await alertesDe(jeu.ca)).toEqual([
+        { code: "DEGRADATION_CONSECUTIVE", periode_cle: "2026-04" },
+      ]);
+      expect(await alertesDe(jeu.delai)).toEqual([
+        { code: "MESURE_EN_RETARD", periode_cle: "2026-04" },
+        { code: "SEUIL_HAUT", periode_cle: "2026-03" },
+      ]);
+      // CA : propriétaire = directeur, plus le chef de mission ; une notification chacun.
+      for (const id of [s.a.directeur.utilisateurId, s.a.chef.utilisateurId]) {
+        const n = await notificationsDe(id, "kpi_alerte");
+        expect(n.filter((x) => String(x.titre).includes("dégradation"))).toHaveLength(1);
+      }
+      expect(await rappelsDe(jeu.delai)).toEqual([{ periode_cle: "2026-04", destinataires: 2 }]);
+      const rappel = await notificationsDe(contributeur.utilisateurId, "kpi_rappel_mesure");
+      expect(rappel).toEqual([
+        {
+          titre: "Mesure attendue pour le KPI « Délai moyen de paiement client » (2026-04)",
+          lien: `/portail/kpi/${jeu.delai}`,
+        },
+      ]);
+      // L'e-mail part après la transaction de la tâche : attente bornée, sous charge.
+      expect((await courrielPour(contributeur.email))?.sujet).toContain("Mesure attendue");
+      // Le contributeur du portail ne reçoit jamais les alertes internes.
+      expect(await notificationsDe(contributeur.utilisateurId, "kpi_alerte")).toEqual([]);
+    },
+  );
 
   it("relancée, l'évaluation ne recrée ni alerte, ni rappel, ni notification", async () => {
     const avant = await lignes(
