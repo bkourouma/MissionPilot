@@ -115,8 +115,12 @@ malgré la règle d'âge de 14 jours (les versions n'ont que 8 et 9 jours ; fail
 
 1. **Fusionner la PR** (utilisateur), observer la première exécution de la CI, corriger ce qu'elle révèle.
 2. **Recette navigateur de contrôle** sur un onglet au premier plan (A-04, OCR sur un vrai scan, mobile).
-3. **Dettes ouvertes** (détail : `SECURITY.md` §15 et `CODING_STANDARDS.md` §10) : parseur PDF et OCR dans
-   le processus de l'API (sous-processus Node sans conteneur ni seccomp) ; `effacerObjetsMarques` efface
+3. **Dettes ouvertes** (détail : `SECURITY.md` §15 et `CODING_STANDARDS.md` §10) : **garde réseau de l'OCR
+   contournable par la poignée native d'un socket** (un paquet UDP est sorti en essai ; précondition : code
+   déjà exécuté dans le sous-processus ; renforcement non fait — la plateforme a interrompu l'agent qui
+   devait écrire les tests d'attaque ; **pare-feu sortant du serveur obligatoire**, à reprendre par un
+   conteneur sans sortie ou un autre garde, à décider avec l'utilisateur) ; parseur PDF et OCR dans le
+   processus de l'API (sous-processus Node sans conteneur ni seccomp) ; `effacerObjetsMarques` efface
    tout objet marqué `retire` du cabinet (effet de bord possible sur les dépôts de salle de mission, à
    confirmer) ; M5 (relance de lecture avec les droits de l'auteur) et M7 (téléversement DD en trois
    transactions) ; lecture DD et documents DD non masqués avant envoi au modèle ; plafond IA par mission
