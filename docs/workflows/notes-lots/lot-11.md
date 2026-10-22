@@ -278,3 +278,25 @@ secret de l'API ; sous Linux l'environnement est vide.
 - **Limites mesurées par le vérificateur (à connaître)** : 30 pages x 3 images = 124 s (sous les 240 s) ; une page à 60 images
   décodées donne `OCR_ECHEC` (code stable) ; un scan A4 à 600 dpi (≈ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (plafond de 20 Mpx
   par image : refaire le scan à 300-400 dpi). Un scan négatif est vu comme une page sans encre.
+
+## Seconde vérification : limite résiduelle du garde réseau (chef de lot)
+
+- **Contournement résiduel (Moyen, OUVERT)** : le garde fige les MÉTHODES des sockets (`dgram.Socket`, `net.Socket.prototype.connect`…)
+  et les fabriques publiques, mais pas la poignée native d'un socket déjà construit : le vérificateur a montré qu'une
+  manipulation directe de la poignée d'un `dgram.Socket` peut émettre un paquet UDP sans refus ni comptage
+  (`tentatives_reseau` resterait 0). Côté TCP/TLS, une manipulation analogue a fait planter Node nativement : ni
+  confirmé ni infirmé comme exfiltration. **Précondition : exécution de code DÉJÀ acquise dans le sous-processus OCR**
+  (faille de pdf.js, de tesseract.js ou du moteur WebAssembly) ; le modèle de permissions de Node ne couvre pas les sockets.
+- **Renforcement demandé, NON fait** : neutraliser la CONSTRUCTION des sockets sortants (`dgram.Socket`, `dgram.createSocket`,
+  puis `net.Socket`, `tls.TLSSocket`, `net.connect`, `tls.connect`) sans casser l'IPC ni les flux internes du sous-processus,
+  avec tests de l'attaque et de ses variantes (worker, `execArgv` vides…). L'agent chargé de ce travail a été arrêté par un
+  contrôle de sécurité de la plateforme avant d'écrire quoi que ce soit ; le travail n'a pas été repris sous une autre
+  forme. Décision à prendre par le superviseur / l'utilisateur (le contrôle porte sur l'écriture de preuves de
+  contournement de bas niveau). Rien n'a été modifié par cette passe hormis cette documentation.
+- **Barrière réelle** : pare-feu sortant du serveur interdisant toute sortie au processus de l'API et à ses sous-processus
+  (prérequis de déploiement, à reporter dans RUNBOOK).
+- **Observation annexe du vérificateur** : une jonction ou un lien symbolique préexistant dans un `node_modules` autorisé
+  permettrait de lire hors du périmètre `--allow-fs-read` ; le sous-processus n'a aucun droit d'écriture et ne peut pas en créer.
+- **Ligne SECURITY.md à reporter (§ 8, ingestion)** : « OCR local : le garde réseau applicatif (ocr-garde-reseau.cjs) est
+  contournable si du code a déjà été exécuté dans le sous-processus (manipulation de poignées natives) ; le modèle de
+  permissions de Node ne couvre pas le réseau ; un pare-feu sortant sur le serveur est obligatoire. »
