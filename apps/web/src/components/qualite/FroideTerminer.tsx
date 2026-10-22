@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 import { cheminTerminer, messageFroide } from "../../lib/qualite-froide";
-import { validerTerminaison } from "../../lib/qualite-froide-saisie";
+import { erreurChampAffichee, validerTerminaison } from "../../lib/qualite-froide-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -18,6 +18,9 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
   const f = useFormulaire<"synthese">();
   const [synthese, setSynthese] = useState("");
   const [confirmation, setConfirmation] = useState(false);
+  // L'erreur du champ vient du dernier envoi : elle ne vaut plus dès que la synthèse change ou
+  // que le panneau de confirmation s'ouvre.
+  const [erreurPerimee, setErreurPerimee] = useState(false);
   const validation = validerTerminaison(synthese);
 
   return (
@@ -28,10 +31,16 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
       onSubmit={async (e) => {
         e.preventDefault();
         if (!confirmation) {
-          if (validation.ok) setConfirmation(true);
-          else await f.envoyer(validation, async () => undefined);
+          if (validation.ok) {
+            setErreurPerimee(true);
+            setConfirmation(true);
+          } else {
+            setErreurPerimee(false);
+            await f.envoyer(validation, async () => undefined);
+          }
           return;
         }
+        setErreurPerimee(false);
         const fait = await f.envoyer(
           validation,
           (charge) => api.post(cheminTerminer(echantillonId), charge),
@@ -54,9 +63,10 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
         value={synthese}
         onChange={(e) => {
           setSynthese(e.target.value);
+          setErreurPerimee(true);
           setConfirmation(false);
         }}
-        erreur={f.erreurs.synthese}
+        erreur={erreurChampAffichee(f.erreurs.synthese, erreurPerimee)}
         aide="Votre appréciation d'ensemble, à l'attention de l'associé. Elle sera figée avec la revue."
       />
       {confirmation ? (

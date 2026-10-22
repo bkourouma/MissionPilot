@@ -3,6 +3,7 @@ import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import {
   formaterPrixService,
+  libelleMessageCoherence,
   MENTION_A_VALIDER,
   obstacleCreationMission,
   type ServiceCandidat,
@@ -90,14 +91,14 @@ export function CarteService({
         {coherence && coherence.erreurs.length > 0 ? (
           <ul className="mp-texte-doux">
             {coherence.erreurs.map((e) => (
-              <li key={e}>{e}</li>
+              <li key={e}>{libelleMessageCoherence(e)}</li>
             ))}
           </ul>
         ) : null}
         {coherence && coherence.avertissements.length > 0 ? (
           <ul className="mp-texte-doux">
             {coherence.avertissements.map((e) => (
-              <li key={e}>{e}</li>
+              <li key={e}>{libelleMessageCoherence(e)}</li>
             ))}
           </ul>
         ) : null}

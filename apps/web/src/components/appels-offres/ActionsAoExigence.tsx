@@ -1,7 +1,7 @@
 "use client";
 
 import { seg } from "./ActionsAoBouton";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import {
   CATEGORIE_EXIGENCE_AO_LIBELLES,
@@ -97,7 +97,7 @@ export function FormulaireExigenceAo({ id }: { id: string }) {
 
 /** Suivi d'une ligne de la matrice : statut, commentaire, pièce justificative. */
 export function SuiviExigenceAo({ exigence }: { exigence: ExigenceAo }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [statut, setStatut] = useState<StatutConformiteAo>(exigence.statut);
   const [commentaire, setCommentaire] = useState(exigence.commentaire ?? "");
   const [piece, setPiece] = useState(exigence.piece ?? "");
@@ -140,7 +140,7 @@ export function SuiviExigenceAo({ exigence }: { exigence: ExigenceAo }) {
       ) : null}
       <Bouton
         variante="secondaire"
-        chargement={enCours}
+        chargement={enCours || enAttente}
         onClick={async () => {
           setEnCours(true);
           setErreur(null);
@@ -150,7 +150,7 @@ export function SuiviExigenceAo({ exigence }: { exigence: ExigenceAo }) {
               commentaire: commentaire.trim() === "" ? null : commentaire,
               piece: piece.trim() === "" ? null : piece,
             });
-            router.refresh();
+            rafraichir();
           } catch (e) {
             setErreur(messageAo(e));
           } finally {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { api, ErreurApi, messageErreur } from "../../lib/api";
 import { formaterDate, formaterDateHeure } from "../../lib/format";
@@ -44,6 +45,7 @@ const message = (e: unknown) =>
  */
 export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: DemandeCabinetProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const actions = actionsDemande(demande, contexte);
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -61,7 +63,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
     try {
       await action();
       if (succes) setInfo(succes);
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(message(e));
@@ -85,7 +87,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
     try {
       await api.patch(chemin, { echeance });
       setInfo("Échéance enregistrée.");
-      router.refresh();
+      rafraichir();
     } catch (e) {
       const champ = erreurEcheanceApi(e);
       if (champ) setErreurChampEcheance(champ);

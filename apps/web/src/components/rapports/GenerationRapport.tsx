@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -59,6 +60,7 @@ export function GenerationRapport({
   premierePage,
 }: GenerationRapportProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const id = useId();
   const [format, setFormat] = useState<FormatRapport>("pdf");
   const [enCours, setEnCours] = useState<FormatRapport | null>(null);
@@ -105,7 +107,7 @@ export function GenerationRapport({
       });
       setAnnonce("");
       setCree(r);
-      if (premierePage) router.refresh();
+      if (premierePage) rafraichir();
       else router.push(hrefRapports(missionId));
     } catch (e) {
       setAnnonce("");
@@ -115,7 +117,7 @@ export function GenerationRapport({
         actualiser: peutEtreCree(e),
         reessayer: reessayable(e),
       });
-      if (etatMissionChange(e)) router.refresh();
+      if (etatMissionChange(e)) rafraichir();
     } finally {
       verrou.current = false;
       setEnCours(null);
@@ -125,7 +127,7 @@ export function GenerationRapport({
   function actualiser() {
     setEchec(null);
     setAnnonce("Actualisation de la liste des rapports.");
-    if (premierePage) router.refresh();
+    if (premierePage) rafraichir();
     else router.push(hrefRapports(missionId));
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { api, ErreurApi, messageErreur } from "../../lib/api";
 import { formaterTaille, messageTeleversement } from "../../lib/fichiers";
@@ -48,7 +48,7 @@ const message = (e: unknown) =>
  * client, déposer une pièce reçue hors portail.
  */
 export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabinetProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>("aucun");
   const [motif, setMotif] = useState("");
   const [verser, setVerser] = useState(contexte.documents);
@@ -65,7 +65,7 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
       await action();
       setPanneau("aucun");
       setMotif("");
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(message(e));
     } finally {
@@ -78,7 +78,7 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
     setErreur(null);
     try {
       await api.supprimer(cheminDepot(missionId, depotId));
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(message(e));
@@ -96,7 +96,7 @@ export function PieceCabinet({ missionId, demande, piece, contexte }: PieceCabin
       });
       setFichier(null);
       setPanneau("aucun");
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageTeleversement(e));
     } finally {

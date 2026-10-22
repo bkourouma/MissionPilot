@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ErreurApi } from "../../lib/api";
 import {
   libelleContexte,
+  libelleMiseEnOeuvre,
   libelleScore,
   libelleScoreRecommandation,
   libelleStatutEfficacite,
@@ -122,5 +123,14 @@ describe("efficacité : lecture des saisies", () => {
       "existe déjà",
     );
     expect(messageEfficacite(new Error("boum"))).not.toBe("");
+  });
+});
+
+describe("date de mise en œuvre affichée", () => {
+  it("formatée en français, jamais en ISO brut", () => {
+    const l = libelleMiseEnOeuvre("2026-10-15");
+    expect(l).toBe(" · mise en œuvre le 15 oct. 2026");
+    expect(l).not.toContain("2026-10-15");
+    expect(libelleMiseEnOeuvre(null)).toBe("");
   });
 });

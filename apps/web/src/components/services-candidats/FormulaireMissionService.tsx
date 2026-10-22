@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton, classesBouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -45,6 +46,7 @@ export function FormulaireMissionService({
   clientInitial = null,
 }: FormulaireMissionServiceProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const f = useFormulaire<ChampMission>();
   const [s, setS] = useState<SaisieMissionService>(() => {
     const choisi = clients.find((c) => c.valeur === clientInitial);
@@ -96,7 +98,7 @@ export function FormulaireMissionService({
             return;
           }
           router.push(cheminMission(mission.id));
-          router.refresh();
+          rafraichir();
         },
       },
     );
@@ -110,7 +112,7 @@ export function FormulaireMissionService({
     if (erreur) setPartielle({ ...partielle, message: erreur });
     else {
       router.push(cheminMission(partielle.missionId));
-      router.refresh();
+      rafraichir();
     }
   }
 

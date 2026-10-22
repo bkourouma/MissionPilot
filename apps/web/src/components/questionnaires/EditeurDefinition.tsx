@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, messageErreur } from "../../lib/api";
 import {
@@ -56,7 +56,7 @@ type Vue = "edition" | "apercu";
  * La définition en cours d'édition ne vit que dans l'état de la page.
  */
 export function EditeurDefinition({ version }: EditeurDefinitionProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [def, setDef] = useState<Definition>(version.definition);
   const [modifie, setModifie] = useState(false);
   const [vue, setVue] = useState<Vue>("edition");
@@ -127,7 +127,7 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       setSucces(
         "Brouillon enregistré : la définition a passé le contrôle de cohérence du moteur MissionPilot.",
       );
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       echec(e);
@@ -154,7 +154,7 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
         chiffresAAcquitter ? { acquitte_chiffres: true } : undefined,
       );
       setSucces(`Version ${version.version} validée : elle est figée et peut être envoyée.`);
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       echec(e);

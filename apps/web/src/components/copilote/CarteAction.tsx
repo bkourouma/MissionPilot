@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionProposeeCopilote, ResultatActionCopilote } from "@missionpilot/shared";
 import {
+  afficherLigneExpiration,
   estExpiree,
   INTERVALLE_EXPIRATION_MS,
   LIBELLES_ETAT_ACTION,
@@ -73,6 +74,7 @@ export function CarteAction({
 
   const expiree = ouverte && estExpiree(action.expire_le, maintenant);
   const etatAffiche: EtatAction = expiree ? "expiree" : etat;
+  const repriseAffichee = !resultat && !!onReformuler && peutReformuler(etatAffiche);
 
   return (
     <section className="mp-copilote__action" aria-label={`Action proposée : ${action.libelle}`}>
@@ -83,7 +85,7 @@ export function CarteAction({
         </BadgeStatut>
       </div>
       <p className="mp-copilote__action-resume">{action.resume}</p>
-      {ouverte ? (
+      {afficherLigneExpiration(ouverte, expiree, repriseAffichee) ? (
         <p className="mp-copilote__action-etat">
           {libelleExpiration(action.expire_le, maintenant)}
         </p>
@@ -120,7 +122,7 @@ export function CarteAction({
           <ListeElements elements={resultat.elements} />
         </Alerte>
       ) : null}
-      {!resultat && onReformuler && peutReformuler(etatAffiche) ? (
+      {repriseAffichee ? (
         <div ref={resultatRef} tabIndex={-1} className="mp-copilote__reprise" role="status">
           {erreur ? null : <p>{TEXTE_REPRISE}</p>}
           <Bouton variante="secondaire" onClick={onReformuler}>

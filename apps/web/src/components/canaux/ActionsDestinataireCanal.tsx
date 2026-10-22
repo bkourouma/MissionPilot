@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import type { ConsentementHistoriqueApi, DestinataireCanalApi } from "@missionpilot/shared";
 import { api, messageErreur } from "../../lib/api";
 import {
@@ -48,7 +48,7 @@ export function ActionsDestinataireCanal({
   destinataire: d,
   peutGerer,
 }: ActionsDestinataireCanalProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreurRetrait, setErreurRetrait] = useState<string | null>(null);
   const actions = actionsDestinataire(d, { gerer: peutGerer });
@@ -67,7 +67,7 @@ export function ActionsDestinataireCanal({
         { statut: "retire" },
         { redirigerSi401: false },
       );
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreurRetrait(messageErreurCanaux(e));

@@ -2,6 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { api, ErreurApi } from "../../lib/api";
 import { erreurReprenable, type FichierTeleverse } from "../../lib/fichiers";
 import { televerser } from "../../lib/televersement";
@@ -43,6 +44,7 @@ function retirerOrphelin(id: string | null) {
  */
 export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [fichier, setFichier] = useState<File | null>(null);
   const [langue, setLangue] = useState("fr");
@@ -123,7 +125,7 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
       },
       apres: (r) => {
         if (r && typeof r.id === "string") router.push(hrefTranscription(missionId, r.id));
-        else router.refresh();
+        else rafraichir();
       },
     });
   }

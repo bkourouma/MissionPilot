@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import {
@@ -17,6 +16,7 @@ import {
 } from "../../lib/plan-diagnostic";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
@@ -43,12 +43,14 @@ export function NotationDiagnostic({
   hrefNotation,
   partage,
 }: NotationDiagnosticProps) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const courant = lien.lien;
   const [choix, setChoix] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const [attente, attendre] = useAttenteRafraichissement(lien.modifie_le);
   const refErreur = useRef<HTMLDivElement>(null);
 
@@ -67,11 +69,11 @@ export function NotationDiagnostic({
       setSucces(partage ? `${base} Le partage au client a été retiré.` : base);
       setChoix("");
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageLienNotation(e));
-      router.refresh();
+      rafraichir();
       return false;
     } finally {
       setEnCours(false);

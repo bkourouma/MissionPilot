@@ -190,3 +190,36 @@
   margin: 0;
   padding-left: var(--mp-esp-4);
 }
+
+/*
+ * Tableau « Échantillon » d'une campagne : pas de défilement horizontal interne à ~1000 px.
+ * Les cellules passent à la ligne, les entêtes aussi, et le sélecteur de relecteur ne prend plus
+ * la largeur de son option la plus longue (« non éligible : … ») mais celle de sa cellule.
+ */
+.mp-froide__echantillon .mp-tableau {
+  overflow-x: visible;
+}
+
+.mp-froide__echantillon .mp-tableau th,
+.mp-froide__echantillon .mp-tableau td {
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  overflow-wrap: anywhere;
+}
+
+.mp-froide__echantillon .mp-tableau th {
+  white-space: normal;
+}
+
+@media (min-width: 640px) {
+  .mp-froide__echantillon .mp-tableau td .mp-champ {
+    min-width: 11rem;
+    max-width: 100%;
+  }
+
+  .mp-froide__echantillon .mp-tableau td .mp-champ__controle {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+}

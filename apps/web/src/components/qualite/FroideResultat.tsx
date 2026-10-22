@@ -3,6 +3,7 @@ import {
   formaterScore,
   libelleConclusion,
   libelleCritere,
+  libelleMotifRevue,
   tonaliteConclusion,
   type ResultatMoteur,
 } from "../../lib/qualite-froide";
@@ -41,7 +42,7 @@ export function FroideResultat({
       {resultat.motifs.length > 0 ? (
         <ul>
           {resultat.motifs.map((m, i) => (
-            <li key={i}>{m}</li>
+            <li key={i}>{libelleMotifRevue(m)}</li>
           ))}
         </ul>
       ) : null}

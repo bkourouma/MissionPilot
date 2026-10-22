@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../formulaires/useRafraichir";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   cheminApiDepot,
@@ -27,7 +27,9 @@ export interface DepotPieceProps {
  * (l'API reconnaît le même fichier). Réussi : la page est rechargée (statut « reçue »).
  */
 export function DepotPiece({ pieceId, libelle, redepot }: DepotPieceProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
+  const rafraichirRef = useRef(rafraichir);
+  rafraichirRef.current = rafraichir;
   const [fichier, setFichier] = useState<File | null>(null);
   const [etat, envoyer] = useReducer(etatSuivant, { etape: "inactif" });
   const enCours = useRef(false);
@@ -47,14 +49,14 @@ export function DepotPiece({ pieceId, libelle, redepot }: DepotPieceProps) {
         });
         envoyer({ type: "succes", nouveau: r.nouveau });
         setFichier(null);
-        router.refresh();
+        rafraichirRef.current();
       } catch (e) {
         envoyer({ type: "erreur", erreur: e, enLigne: navigator.onLine });
       } finally {
         enCours.current = false;
       }
     },
-    [pieceId, router],
+    [pieceId],
   );
 
   // Retour du réseau : le fichier gardé sur la page repart seul.

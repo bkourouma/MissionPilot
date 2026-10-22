@@ -22,6 +22,7 @@ import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 export interface FormulaireReprevisionProps {
   missionId: string;
@@ -52,6 +53,7 @@ export function FormulaireReprevision({
   trimestresSaisis,
 }: FormulaireReprevisionProps) {
   const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieReprevision>({
     version: versionInitiale === null ? "" : String(versionInitiale),
     methode: "reste_du_plan",
@@ -59,7 +61,9 @@ export function FormulaireReprevision({
   });
   const [erreurs, setErreurs] = useState<Partial<Record<keyof SaisieReprevision, string>>>({});
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refErreur = useRef<HTMLDivElement>(null);
 
   async function relancer(e: React.FormEvent) {
@@ -76,7 +80,7 @@ export function FormulaireReprevision({
     try {
       const rev = await api.post<Reprevision>(cheminReprevisions(planId), v.corps);
       router.push(hrefPlanVivant(missionId, planId, { exercice, reprevision: rev.id }));
-      router.refresh();
+      rafraichir();
     } catch (err) {
       setErreur(messagePlanVivant(err));
       refErreur.current?.focus();

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -32,7 +32,7 @@ export interface GestionGuichetsProps {
 
 /** Liste des guichets du cabinet, avec création, modification et (dés)activation. */
 export function GestionGuichets({ guichets, tronque = false, peutGerer }: GestionGuichetsProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [creation, setCreation] = useState(false);
   const [edition, setEdition] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function GestionGuichets({ guichets, tronque = false, peutGerer }: Gestio
     setErreur(null);
     try {
       await api.patch(`/api/guichets-financement/${encodeURIComponent(g.id)}`, { actif });
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageErreur(e));

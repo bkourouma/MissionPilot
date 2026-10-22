@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { VEILLE_MOTIF_MIN, type VeilleStatut } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -20,7 +20,7 @@ function ActionAvecMotif({
   action: "ecarter" | "reexaminer";
   libelle: string;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
@@ -53,7 +53,7 @@ function ActionAvecMotif({
       <div className="mp-ao__actions">
         <Bouton
           variante={action === "ecarter" ? "danger" : "primaire"}
-          chargement={enCours}
+          chargement={enCours || enAttente}
           disabled={!valide}
           onClick={async () => {
             setEnCours(true);
@@ -64,7 +64,7 @@ function ActionAvecMotif({
               });
               setOuvert(false);
               setMotif("");
-              router.refresh();
+              rafraichir();
             } catch (e) {
               setErreur(messageVeille(e));
             } finally {

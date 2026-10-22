@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -25,7 +25,7 @@ export function VeilleSources({
   sources: readonly SourceVeilleVue[];
   gerer: boolean;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [bilan, setBilan] = useState<BilanVeille | null>(null);
@@ -36,7 +36,7 @@ export function VeilleSources({
     setErreur(null);
     try {
       await action();
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageVeille(e));
     } finally {

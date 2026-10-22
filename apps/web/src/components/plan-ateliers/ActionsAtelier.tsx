@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -10,6 +9,7 @@ import {
   type StatutAtelier,
 } from "../../lib/plan-ateliers";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 
@@ -28,16 +28,18 @@ export function ActionsAtelier({
   statut,
   raisonOuverture,
 }: ActionsAtelierProps) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refAlerte = useRef<HTMLDivElement>(null);
 
   async function executer(chemin: string): Promise<boolean> {
     setErreur(null);
     try {
       await api.post(chemin);
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageAtelier(e));

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import type { MoiCanalApi } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
@@ -44,7 +44,7 @@ export interface PreferenceCanalPortailProps {
  */
 export function PreferenceCanalPortail({ moi }: PreferenceCanalPortailProps) {
   const [changerNumero, setChangerNumero] = useState(false);
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreurRetrait, setErreurRetrait] = useState<string | null>(null);
   const etape = etapePreference(moi);
   const nom = libelleCanal(moi.canal);
@@ -53,7 +53,7 @@ export function PreferenceCanalPortail({ moi }: PreferenceCanalPortailProps) {
     setErreurRetrait(null);
     try {
       await api.post(cheminRetraitCanalPortail(moi.canal), {}, { redirigerSi401: false });
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreurRetrait(messageErreurPreferences(e));
