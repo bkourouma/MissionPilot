@@ -2,6 +2,7 @@ import { ajouterJours, lundiDeLaSemaine } from "@missionpilot/engines";
 import { planifierDetectionAutomatisation } from "../automatisation/detection.js";
 import { planifierCanauxMaintenance } from "../canaux/maintenance.js";
 import { planifierSyntheseHebdo } from "../canaux/synthese.js";
+import { planifierIngestionMaintenance } from "../ingestion/maintenance.js";
 import { planifierPurgeCopilote } from "../copilote/purge.js";
 import type { Database } from "../db/pool.js";
 import { planifierBriefQuotidien } from "../brief/quotidien.js";
@@ -29,6 +30,8 @@ import { planifierPurgeRapports } from "../rapports/purge.js";
  * - Canaux simulés (lot 3c) : synthèse hebdomadaire du dirigeant le lundi à 7 h 30 (UTC), pour les
  *   cabinets ayant un compte WhatsApp actif avec cette option (clé `synthese_hebdo:lundi`) ; maintenance
  *   quotidienne à 3 h 15 (UTC), clé `canaux_maintenance:jour` (canaux/maintenance.ts).
+ * - Ingestion de documents (lot 6) : maintenance quotidienne à 3 h 45 (UTC), clé
+ *   `ingestion_maintenance:jour` (ingestion/maintenance.ts), pour les cabinets ayant un document à purger.
  */
 
 export const HEURE_RAPPEL_UTC = "16:00:00";
@@ -147,6 +150,8 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
     // Canaux simulés (lot 3c) : synthèse du dirigeant le lundi 07:30 UTC, maintenance chaque jour 03:15 UTC.
     total += await planifierSyntheseHebdo(db, maintenant);
     total += await planifierCanauxMaintenance(db, maintenant);
+    // Ingestion de documents (lot 6) : reprise des effacements et purge du texte, chaque jour 03:45 UTC.
+    total += await planifierIngestionMaintenance(db, maintenant);
     return total;
   });
 }

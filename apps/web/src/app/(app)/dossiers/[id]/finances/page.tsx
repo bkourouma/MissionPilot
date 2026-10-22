@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
 import { EnteteDossier } from "../../../../../components/dossier/EnteteDossier";
 import { ImportEtat } from "../../../../../components/dossier/ImportEtat";
+import { ImportEtatDocument } from "../../../../../components/dossier/ImportEtatDocument";
+import { ImportEtatDocumentListe } from "../../../../../components/dossier/ImportEtatDocumentListe";
 import { RapportEtatFinancier } from "../../../../../components/dossier/RapportEtatFinancier";
 import { Alerte } from "../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
@@ -20,6 +22,7 @@ import {
 } from "../../../../../lib/dossier";
 import { formaterDate, formaterMontantMineur } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
+import type { PageDocumentsIngestion } from "../../../../../lib/ingestion";
 import { exigerPermission } from "../../../../../lib/session";
 
 export const metadata: Metadata = { title: "Finances du client" };
@@ -30,9 +33,10 @@ export default async function PageFinances({ params }: { params: Promise<{ id: s
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("dossier.lire");
   const peutEcrire = aPermission(utilisateur.roles, "dossier.ecrire");
-  const [dossier, etats] = await Promise.all([
+  const [dossier, etats, documents] = await Promise.all([
     chargerServeur<VueDossier>(`/api/dossiers/${id}`),
     chargerServeur<{ elements: EtatFinancier[] }>(`/api/dossiers/${id}/etats-financiers`),
+    chargerServeur<PageDocumentsIngestion>(`/api/dossiers/${id}/ingestions?limite=30`),
   ]);
   if (!dossier.ok && dossier.statut === 404) notFound();
   if (!dossier.ok || !etats.ok) {
@@ -125,12 +129,27 @@ export default async function PageFinances({ params }: { params: Promise<{ id: s
         <Carte titre="Importer un état financier">
           <ImportEtat clientId={id} />
           <p>
-            L&apos;extraction automatique depuis une liasse PDF n&apos;est pas encore disponible :
-            importez un classeur ou un CSV. Un nouvel état du même exercice remplace l&apos;état
-            courant (l&apos;historique reste consultable).
+            Classeur ou CSV au gabarit à colonnes fixes. Un nouvel état du même exercice remplace
+            l&apos;état courant (l&apos;historique reste consultable).
           </p>
         </Carte>
       ) : null}
+
+      {peutEcrire ? (
+        <Carte titre="Importer un état financier depuis un PDF ou un classeur">
+          <ImportEtatDocument clientId={id} />
+        </Carte>
+      ) : null}
+
+      <Carte titre="Documents importés">
+        {documents.ok ? (
+          <ImportEtatDocumentListe clientId={id} documents={documents.donnees.elements} />
+        ) : (
+          <Alerte tonalite="danger" titre="Les documents importés n'ont pas pu être chargés.">
+            <p>{documents.message}</p>
+          </Alerte>
+        )}
+      </Carte>
     </div>
   );
 }

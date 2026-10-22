@@ -13,6 +13,11 @@ import { TYPE_JOB_CANAUX_MAINTENANCE } from "../src/canaux/maintenance.js";
 import { TYPE_JOB_CANAL_RELANCE_QUESTIONNAIRE } from "../src/canaux/relance-questionnaire.js";
 import { TYPE_JOB_CANAL_SYNTHESE_HEBDO } from "../src/canaux/synthese.js";
 import { TYPE_JOB_CANAL_TRANSCRIPTION } from "../src/canaux/transcriptions.js";
+import { TYPE_JOB_INGESTION_MAINTENANCE } from "../src/ingestion/maintenance.js";
+import {
+  TYPE_JOB_INGESTION_EXTRACTION,
+  TYPE_JOB_INGESTION_STRUCTURATION,
+} from "../src/ingestion/types.js";
 import { TYPE_JOB_AGENT_AUTOMATISATION } from "../src/automatisation/execution.js";
 import { TYPE_JOB_COPILOTE_PURGE } from "../src/copilote/purge.js";
 import { TYPE_JOB_RELANCES } from "../src/finance/relances.js";
@@ -64,6 +69,10 @@ const DECLARES: Record<string, string> = {
   TYPE_JOB_CANAL_ENTRANT_AUDIO,
   TYPE_JOB_CANAL_TRANSCRIPTION,
   TYPE_JOB_CANAUX_MAINTENANCE,
+  // Ingestion de documents (lot 6, ADR-009).
+  TYPE_JOB_INGESTION_EXTRACTION,
+  TYPE_JOB_INGESTION_STRUCTURATION,
+  TYPE_JOB_INGESTION_MAINTENANCE,
 };
 
 /** Constantes exclues de REGISTRE_JOBS, avec la raison (handler fourni par le serveur). */

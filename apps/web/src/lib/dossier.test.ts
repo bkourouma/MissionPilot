@@ -390,3 +390,11 @@ describe("import d'un état financier", () => {
     expect(erreursImport({ erreurs: "x" })).toEqual([]);
   });
 });
+
+describe("origine d'un état lu dans un PDF", () => {
+  it("a un libellé clair et la référence de page s'affiche", async () => {
+    const { ORIGINE_ETAT_LIBELLES, formaterReference } = await import("./dossier");
+    expect(ORIGINE_ETAT_LIBELLES.pdf).toBe("PDF");
+    expect(formaterReference({ page: 3 })).toBe("p. 3");
+  });
+});
