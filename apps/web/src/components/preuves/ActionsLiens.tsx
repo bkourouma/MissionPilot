@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { DECISIONS_ARBITRAGE } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -131,7 +131,7 @@ export interface BoutonDelierProps {
 
 /** Retirer le lien (l'événement est conservé dans le journal du registre). */
 export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -140,10 +140,10 @@ export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps)
     setErreur(null);
     try {
       await api.supprimer(cheminLienAssertion(assertionId, preuveId));
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messagePreuves(e));
-      if (etatPreuvesChange(e)) router.refresh();
+      if (etatPreuvesChange(e)) rafraichir();
     } finally {
       setEnCours(false);
     }
@@ -284,7 +284,7 @@ export function BoutonActivationDimension({
   missionId: string;
   dimension: DimensionVue;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -293,7 +293,7 @@ export function BoutonActivationDimension({
     setErreur(null);
     try {
       await api.patch(cheminDimension(missionId, dimension.id), { actif: !dimension.actif });
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messagePreuves(e));
     } finally {

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import type { ObjetSignature } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import type { VersionDocument } from "../../lib/documents";
@@ -50,6 +51,7 @@ export function NouvelleDemandeSignature({
   noteClient,
 }: NouvelleDemandeSignatureProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [objet, setObjet] = useState<ObjetSignature>("lettre_mission");
   const [documentId, setDocumentId] = useState("");
@@ -86,7 +88,7 @@ export function NouvelleDemandeSignature({
         messageSpecifique: (e) => messageErreurSignature(e),
         apres: (r) => {
           if (r && typeof r.id === "string") router.push(hrefSignature(missionId, r.id));
-          else router.refresh();
+          else rafraichir();
         },
       },
     );

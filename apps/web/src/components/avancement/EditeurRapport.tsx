@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -62,7 +62,7 @@ function TexteFige({ titre, texte }: { titre: string; texte: string | null }) {
  * est figé. L'API reste seule juge des droits et des états.
  */
 export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const depart = champsInitiaux(rapport);
   const cle = `${rapport.version}|${rapport.modifie_le}|${rapport.genere_le}`;
   const [cleVue, setCleVue] = useState(cle);
@@ -136,7 +136,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
     try {
       await appel();
       setSucces(messageSucces);
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageAvancement(e));
@@ -197,7 +197,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
             onClick={() => {
               setErreur(null);
               setConflit(false);
-              router.refresh();
+              rafraichir();
             }}
           >
             Recharger la dernière version

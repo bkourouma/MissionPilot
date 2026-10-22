@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   etatQualiteChange,
@@ -8,6 +7,7 @@ import {
   violationsDeErreur,
   type Violation,
 } from "../../lib/qualite";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 /**
  * Action de l'écran qualité (marquer vu, vérifier, valider, signer…) : un appel à l'API,
@@ -16,7 +16,7 @@ import {
  * page est rafraîchie aussi.
  */
 export function useActionQualite() {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -35,17 +35,17 @@ export function useActionQualite() {
     try {
       const r = await appel();
       if (messageSucces) setSucces(messageSucces);
-      router.refresh();
+      rafraichir();
       return r;
     } catch (e) {
       setErreur(messageQualite(e));
       setViolations(violationsDeErreur(e));
-      if (etatQualiteChange(e)) router.refresh();
+      if (etatQualiteChange(e)) rafraichir();
       return undefined;
     } finally {
       setEnCours(false);
     }
   }
 
-  return { enCours, erreur, succes, violations, refAlerte, agir };
+  return { enCours: enCours || enAttente, erreur, succes, violations, refAlerte, agir };
 }

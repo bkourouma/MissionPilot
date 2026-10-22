@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   etatFroideChange,
@@ -8,6 +7,7 @@ import {
   violationsIndependance,
   type ViolationIndependance,
 } from "../../lib/qualite-froide";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 /**
  * Action de la revue à froid (vérifier, affecter, clore, supprimer un constat…) : un appel à
@@ -16,7 +16,7 @@ import {
  * page est rafraîchie aussi.
  */
 export function useActionFroide() {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -38,17 +38,17 @@ export function useActionFroide() {
     try {
       const valeur = await appel();
       if (options.succes) setSucces(options.succes);
-      if (options.rafraichir !== false) router.refresh();
+      if (options.rafraichir !== false) rafraichir();
       return { ok: true, valeur };
     } catch (e) {
       setErreur(messageFroide(e));
       setViolations(violationsIndependance(e));
-      if (etatFroideChange(e)) router.refresh();
+      if (etatFroideChange(e)) rafraichir();
       return { ok: false };
     } finally {
       setEnCours(false);
     }
   }
 
-  return { enCours, erreur, succes, violations, refAlerte, agir };
+  return { enCours: enCours || enAttente, erreur, succes, violations, refAlerte, agir };
 }

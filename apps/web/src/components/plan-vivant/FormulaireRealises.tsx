@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { formaterDateHeure, type Devise } from "../../lib/format";
@@ -21,6 +20,7 @@ import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 export interface FormulaireRealisesProps {
   planId: string;
@@ -76,14 +76,16 @@ function FormulaireTrimestre({
   trimestre: number;
   groupe: GroupeRealise | null;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieRealise>(() =>
     saisieDepuisRealise(groupe?.courant ?? null, devise),
   );
   const [erreurs, setErreurs] = useState<Partial<Record<ChampRealise, string>>>({});
   const [erreur, setErreur] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState("");
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refErreur = useRef<HTMLDivElement>(null);
   const p = `pv-${exercice}-${trimestre}`;
   const unite = devise === "XOF" || devise === "XAF" ? "FCFA" : devise;
@@ -114,7 +116,7 @@ function FormulaireTrimestre({
         v.corps,
       );
       setConfirmation(`${LIBELLE_TRIMESTRE(trimestre)} enregistré (version ${r.version}).`);
-      router.refresh();
+      rafraichir();
     } catch (err) {
       setErreur(messagePlanVivant(err));
       refErreur.current?.focus();

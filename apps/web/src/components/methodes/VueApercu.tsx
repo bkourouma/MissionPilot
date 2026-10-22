@@ -2,6 +2,7 @@ import { formaterJours } from "../../lib/format";
 import { libelleClasse, libelleNiveau, ORIGINE_ETAT_LIBELLES } from "../../lib/methodes";
 import {
   briqueRelevee,
+  creerLibelles,
   explicationOrigine,
   libelleEtapeApercu,
   libelleTypeElement,
@@ -13,6 +14,8 @@ import {
   texteTempsBrique,
   type ApercuMission,
   type BriqueApercu,
+  type LibellesApercu,
+  type SourcesLibelles,
 } from "../../lib/methodes-apercu";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
@@ -32,7 +35,7 @@ function Chiffre({ libelle, valeur }: { libelle: string; valeur: string }) {
 }
 
 /** Synthèse chiffrée, calculée par le moteur : briques, durée type, classes de risque, gardes. */
-function SyntheseChiffree({ a }: { a: ApercuMission }) {
+function SyntheseChiffree({ a, lib }: { a: ApercuMission; lib: LibellesApercu }) {
   const s = a.synthese;
   const types = Object.entries(s.elements_actifs_par_type);
   return (
@@ -53,7 +56,9 @@ function SyntheseChiffree({ a }: { a: ApercuMission }) {
         {s.briques_sans_temps.length > 0 ? (
           <p className="mp-texte-doux">
             Sans temps estimé :{" "}
-            <span className="mp-methode__code">{s.briques_sans_temps.join(", ")}</span>
+            <span className="mp-methode__code">
+              {s.briques_sans_temps.map(lib.brique).join(", ")}
+            </span>
           </p>
         ) : null}
         <section aria-labelledby="apercu-classes">
@@ -165,9 +170,9 @@ function EtapesEtBriques({ a }: { a: ApercuMission }) {
   );
 }
 
-function ElementsEtAjustements({ a }: { a: ApercuMission }) {
+function ElementsEtAjustements({ a, lib }: { a: ApercuMission; lib: LibellesApercu }) {
   const actifs = a.methode.elements.filter((e) => e.actif);
-  const ajustements = lignesAjustements(a.methode.ajustements);
+  const ajustements = lignesAjustements(a.methode.ajustements, lib);
   return (
     <div className="mp-pile">
       <section aria-labelledby="apercu-elements">
@@ -180,7 +185,7 @@ function ElementsEtAjustements({ a }: { a: ApercuMission }) {
             <li key={`${e.type}-${e.code}`}>
               {libelleTypeElement(e.type)} — {e.libelle}
               {e.essentiel ? " · essentiel" : ""}
-              {e.brique_code ? ` · brique ${e.brique_code}` : ""}
+              {e.brique_code ? ` · brique ${lib.brique(e.brique_code)}` : ""}
             </li>
           ))}
         </ul>
@@ -195,7 +200,7 @@ function ElementsEtAjustements({ a }: { a: ApercuMission }) {
               <li key={l}>{l}</li>
             ))}
             {a.methode.recommandations_candidates.map((r) => (
-              <li key={r}>Recommandation proposée : {r}</li>
+              <li key={r}>Recommandation proposée : {lib.cible(r)}</li>
             ))}
           </ul>
         </section>
@@ -204,15 +209,15 @@ function ElementsEtAjustements({ a }: { a: ApercuMission }) {
   );
 }
 
-function ReglesEtConflits({ a }: { a: ApercuMission }) {
+function ReglesEtConflits({ a, lib }: { a: ApercuMission; lib: LibellesApercu }) {
   return (
     <div className="mp-pile">
       <p>
         {a.regles_declenchees.length === 0
           ? "Aucune règle de contexte ne se déclenche : la méthode s'applique telle quelle."
-          : `Règles déclenchées (${a.regles_declenchees.length}) : ${a.regles_declenchees.join(", ")}.`}
+          : `Règles déclenchées (${a.regles_declenchees.length}) : ${a.regles_declenchees.map(lib.regle).join(", ")}.`}
       </p>
-      <JournalModulation r={a} />
+      <JournalModulation r={a} libelles={lib} />
       {a.conflits.length > 0 ? (
         <section aria-labelledby="apercu-conflits">
           <h3 id="apercu-conflits" className="mp-section__titre">
@@ -221,9 +226,9 @@ function ReglesEtConflits({ a }: { a: ApercuMission }) {
           <ul className="mp-liste-simple">
             {a.conflits.map((c) => (
               <li key={c.cle}>
-                <span className="mp-methode__code">{c.cle}</span> —{" "}
+                <span className="mp-methode__code">{lib.cle(c.cle)}</span> —{" "}
                 {c.resolu
-                  ? `arbitré en faveur de la règle ${c.regle_retenue ?? "?"}`
+                  ? `arbitré en faveur de la règle ${c.regle_retenue ? lib.regle(c.regle_retenue) : "?"}`
                   : "non résolu : deux règles de même priorité se contredisent, à trancher"}
               </li>
             ))}
@@ -235,18 +240,32 @@ function ReglesEtConflits({ a }: { a: ApercuMission }) {
 }
 
 /** Mission générée par la version pour le contexte saisi (lecture seule). */
-export function VueApercu({ a }: { a: ApercuMission }) {
+export function VueApercu({
+  a,
+  facteurs,
+  regles,
+}: {
+  a: ApercuMission;
+  facteurs?: SourcesLibelles["facteurs"];
+  regles?: SourcesLibelles["regles"];
+}) {
+  const lib = creerLibelles({
+    briques: a.methode.etapes.flatMap((e) => e.briques),
+    elements: a.methode.elements,
+    facteurs,
+    regles,
+  });
   return (
     <div className="mp-pile">
-      <SyntheseChiffree a={a} />
+      <SyntheseChiffree a={a} lib={lib} />
       <Carte titre="Étapes et briques">
         <EtapesEtBriques a={a} />
       </Carte>
       <Carte titre="Éléments et ajustements">
-        <ElementsEtAjustements a={a} />
+        <ElementsEtAjustements a={a} lib={lib} />
       </Carte>
       <Carte titre="Règles de contexte déclenchées">
-        <ReglesEtConflits a={a} />
+        <ReglesEtConflits a={a} lib={lib} />
       </Carte>
     </div>
   );

@@ -437,3 +437,17 @@ describe("lirePreremplissageService", () => {
     });
   });
 });
+
+describe("message de cohérence (A-05)", () => {
+  it("remplace le code de rubrique par son libellé, repli lisible pour un code inconnu", async () => {
+    const { libelleMessageCoherence } = await import("./services-candidats");
+    expect(
+      libelleMessageCoherence(
+        "La rubrique « solidite_plan_financement » n'a aucun exemple d'ancrage.",
+      ),
+    ).toBe("La rubrique « Solidité du plan de financement » n'a aucun exemple d'ancrage.");
+    expect(libelleMessageCoherence("La rubrique « autre_rubrique » est vide.")).toBe(
+      "La rubrique « autre rubrique » est vide.",
+    );
+  });
+});

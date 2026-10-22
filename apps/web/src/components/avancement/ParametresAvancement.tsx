@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -21,7 +21,7 @@ import { CaseACocher } from "../ui/CaseACocher";
  * à l'API (seule la valeur `false` serait acceptée).
  */
 export function ParametresAvancement({ parametres }: { parametres: Parametres }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [actif, setActif] = useState(parametres.actif);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function ParametresAvancement({ parametres }: { parametres: Parametres })
     try {
       await api.put(CHEMIN_API_PARAMETRES_AVANCEMENT, { actif });
       setSucces("Paramètre enregistré.");
-      router.refresh();
+      rafraichir();
     } catch (err) {
       setErreur(messageAvancement(err));
     } finally {
@@ -76,7 +76,7 @@ export function ParametresAvancement({ parametres }: { parametres: Parametres })
         <div>
           <Bouton
             type="submit"
-            chargement={enCours}
+            chargement={enCours || enAttente}
             texteChargement="Enregistrement…"
             disabled={actif === parametres.actif}
           >

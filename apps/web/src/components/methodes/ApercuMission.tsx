@@ -18,7 +18,15 @@ import { VueApercu } from "./VueApercu";
  * Aperçu de la mission que générerait cette version pour un contexte donné (STD-11) : mêmes
  * règles et même résolution que la méthode d'une vraie mission, sans rien écrire.
  */
-export function ApercuMission({ versionId, facteurs }: { versionId: string; facteurs: Facteur[] }) {
+export function ApercuMission({
+  versionId,
+  facteurs,
+  regles,
+}: {
+  versionId: string;
+  facteurs: Facteur[];
+  regles?: { code: string; libelle?: string | null }[];
+}) {
   const [contexte, setContexte] = useState<SaisieContexte>({});
   const [erreursChamps, setErreursChamps] = useState<Partial<Record<string, string>>>({});
   const [apercu, setApercu] = useState<Apercu | null>(null);
@@ -82,7 +90,7 @@ export function ApercuMission({ versionId, facteurs }: { versionId: string; fact
           <Alerte tonalite="info" annonce="aucune">
             <p>{MENTION_APERCU}</p>
           </Alerte>
-          <VueApercu a={apercu} />
+          <VueApercu a={apercu} facteurs={facteurs} regles={regles} />
         </div>
       ) : null}
     </div>

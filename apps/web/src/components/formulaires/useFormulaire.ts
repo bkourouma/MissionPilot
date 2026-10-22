@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { champsRefuses, messageErreur } from "../../lib/api";
 import type { Resultat } from "../../lib/saisie";
+import { useRafraichir } from "./useRafraichir";
 
 export const MESSAGE_CHAMP_REFUSE = "Valeur refusée par le serveur : vérifiez ce champ.";
 
@@ -22,7 +22,7 @@ export interface OptionsEnvoi<R> {
  * sur le premier champ en erreur), appel, erreur globale focalisée, succès annoncé.
  */
 export function useFormulaire<K extends string>() {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [erreurs, setErreurs] = useState<Partial<Record<K, string>>>({});
   const [erreurGlobale, setErreurGlobale] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export function useFormulaire<K extends string>() {
       const r = await appel(validation.charge);
       if (options.succes) setSucces(options.succes);
       options.apres?.(r);
-      if (options.rafraichir !== false) router.refresh();
+      if (options.rafraichir !== false) rafraichir();
       return true;
     } catch (e) {
       const refuses = champsRefuses(e);
@@ -84,7 +84,8 @@ export function useFormulaire<K extends string>() {
     erreurs,
     erreurGlobale,
     succes,
-    enCours,
+    // Reste vrai tant que la transition de rafraîchissement n'est pas validée : pas de double envoi.
+    enCours: enCours || enAttente,
     envoyer,
     refFormulaire,
     refAlerte,

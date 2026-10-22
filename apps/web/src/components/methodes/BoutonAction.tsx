@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { api, messageErreur } from "../../lib/api";
 import { hrefVersion, messageMethodes } from "../../lib/methodes";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
 import type { NomIcone } from "../ui/Icone";
@@ -43,8 +44,11 @@ export function BoutonAction({
   texteChargement = "En cours…",
 }: BoutonActionProps) {
   const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refAlerte = useRef<HTMLDivElement>(null);
 
   async function agir(): Promise<boolean> {
@@ -58,7 +62,7 @@ export function BoutonAction({
       if (destination) router.push(destination(r));
       else if (versionDans)
         router.push(hrefVersion((r as Record<string, string>)[versionDans] ?? ""));
-      else router.refresh();
+      else rafraichir();
       return true;
     } catch (e) {
       setErreur(messageMethodes(e) ?? messageErreur(e));

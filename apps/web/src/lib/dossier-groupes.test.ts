@@ -203,6 +203,11 @@ describe("aplatirStructure", () => {
     expect(l.map((x) => x.profondeur)).toEqual([0, 1, 2]);
     expect(l.map((x) => x.estDossier)).toEqual([false, true, false]);
   });
+  it("vue tête : la racine affiche 100 % même si la tête ne détient que 60 % du dossier", () => {
+    const racine = aplatirStructure(groupe("tete"))[0]?.lignes[0]?.noeud;
+    expect(racine?.part_cumulee_bps).toBe(10_000);
+    expect(racine?.part_directe_bps).toBeNull();
+  });
   it("n'expose aucun nom ni identifiant pour un noeud anonyme", () => {
     const anon = (aplatirStructure(groupe("tete"))[0]?.lignes ?? []).find((l) => !l.noeud.visible);
     expect(anon?.noeud.id).toBeUndefined();

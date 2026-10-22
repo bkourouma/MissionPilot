@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { messageRedressement } from "../../lib/redressement";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffacementSucces } from "../kpi/useEffacementSucces";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
 
@@ -42,8 +42,10 @@ export function BoutonActionRed({
   desactiveParce,
   confirmation,
 }: BoutonActionRedProps) {
-  const router = useRouter();
-  const [enCours, setEnCours] = useState(false);
+  const { rafraichir, enAttente } = useRafraichir();
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const [erreur, setErreur] = useState<string | null>(null);
   const [reussi, setReussi] = useState<string | null>(null);
   const idRaison = useId();
@@ -68,7 +70,7 @@ export function BoutonActionRed({
       else if (methode === "PUT") await api.put(chemin, corps);
       else await api.patch(chemin, corps);
       setReussi(succes);
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageRedressement(e));

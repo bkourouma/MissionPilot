@@ -42,15 +42,21 @@ const CHEMIN_SECURITE = "/compte/securite";
  * (403 TFA_A_CONFIGURER → page de sécurité du compte : la politique du cabinet l'exige ;
  * 403 PORTAIL_ROUTE_INTERDITE → espace client).
  * Les autres erreurs remontent (error boundary).
+ * `codes403Metier` : codes de 403 MÉTIER (état du cabinet, pas un défaut de droits) que la page
+ * sait afficher elle-même ; ils remontent comme `ErreurApi` au lieu de rediriger. TFA_A_CONFIGURER
+ * et PORTAIL_ROUTE_INTERDITE redirigent toujours, et tout code non listé reste un refus de droits.
  */
 export async function appelerApiServeur<T>(
   chemin: string,
-  options: Omit<OptionsAppel, "baseUrl" | "cookie" | "redirigerSi401"> = {},
+  options: Omit<OptionsAppel, "baseUrl" | "cookie" | "redirigerSi401"> & {
+    codes403Metier?: readonly string[];
+  } = {},
 ): Promise<T> {
+  const { codes403Metier = [], ...optionsAppel } = options;
   let erreur: ErreurApi;
   try {
     return await appelerApi<T>(chemin, {
-      ...options,
+      ...optionsAppel,
       baseUrl: urlApi(),
       cookie: await cookieSession(),
       redirigerSi401: false,
@@ -66,23 +72,32 @@ export async function appelerApiServeur<T>(
   if (erreur.statut === 403 && erreur.code === CODE_PORTAIL_ROUTE_INTERDITE) {
     redirect(CHEMIN_PORTAIL);
   }
-  if (erreur.statut === 403) redirect("/acces-refuse");
+  if (erreur.statut === 403 && !codes403Metier.includes(erreur.code)) redirect("/acces-refuse");
   throw erreur;
 }
 
 /** Résultat d'un chargement affichable dans la page (état d'erreur local au lieu d'une page d'erreur). */
 export type Chargement<T> =
-  { ok: true; donnees: T } | { ok: false; message: string; statut: number };
+  { ok: true; donnees: T } | { ok: false; message: string; statut: number; code?: string };
 
 /**
  * Comme `appelerApiServeur`, mais une erreur d'API (réseau, 404, 500…) devient un résultat
- * `{ ok: false }` que la page affiche sur place. 401 et 403 redirigent toujours.
+ * `{ ok: false }` que la page affiche sur place. 401 et 403 redirigent toujours, sauf les 403 dont
+ * le code figure dans `codes403Metier` (opt-in) : le résultat porte alors le `code` et le message
+ * de l'API (en français, destiné à l'utilisateur).
  */
-export async function chargerServeur<T>(chemin: string): Promise<Chargement<T>> {
+export async function chargerServeur<T>(
+  chemin: string,
+  codes403Metier: readonly string[] = [],
+): Promise<Chargement<T>> {
   try {
-    return { ok: true, donnees: await appelerApiServeur<T>(chemin) };
+    return { ok: true, donnees: await appelerApiServeur<T>(chemin, { codes403Metier }) };
   } catch (e) {
-    if (e instanceof ErreurApi) return { ok: false, message: messageErreur(e), statut: e.statut };
+    if (e instanceof ErreurApi) {
+      const message =
+        e.statut === 403 && codes403Metier.includes(e.code) ? e.message : messageErreur(e);
+      return { ok: false, message, statut: e.statut, code: e.code };
+    }
     throw e;
   }
 }

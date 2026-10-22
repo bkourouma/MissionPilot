@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { api, ErreurApi, messageErreur } from "../../lib/api";
 import {
@@ -40,6 +41,7 @@ export interface NouvelleDemandeProps {
  */
 export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDemandeProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [saisie, setSaisie] = useState<SaisieDemande>(SAISIE_DEMANDE_VIDE);
   const [erreurs, setErreurs] = useState<ErreursDemande>({});
@@ -88,7 +90,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
         corpsDemande(saisie),
       );
       router.push(hrefDemande(missionId, d.id));
-      router.refresh();
+      rafraichir();
     } catch (err) {
       // Échéance refusée par le schéma : message sous le champ, pas une erreur générale.
       const champ = erreurEcheanceApi(err);

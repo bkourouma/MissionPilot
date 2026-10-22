@@ -10,6 +10,7 @@ import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../components/ui/EtatListe";
 import { hrefRedressement, raisonSansEcriture } from "../../../../../../lib/redressement";
+import { validationCauses } from "../../../../../../lib/redressement-droits";
 import {
   BANDEAU_CAUSES_IA,
   TEXTE_CAUSES_AUCUNE,
@@ -43,6 +44,8 @@ export default async function PageDiagnostic({ params }: { params: Promise<{ id:
   }
   const { mission, dossier, droits, session } = ctx;
   const roles = session.utilisateur.roles;
+  const etatValidation = (v: Parameters<typeof validationCauses>[0]) =>
+    validationCauses(v, droits.ecrire, roles, session.utilisateur.id);
   const peutIa = aPermission(roles, "ia.utiliser");
   const [checklists, causes, referentiel, modeles] = await Promise.all([
     chargerChecklistsDossier(dossier.id),
@@ -155,7 +158,8 @@ export default async function PageDiagnostic({ params }: { params: Promise<{ id:
                   key={`${v.id}-${v.modifie_le}-${v.statut}`}
                   version={v}
                   peutEcrire={droits.ecrire}
-                  peutValider={droits.valider}
+                  peutValider={etatValidation(v).proposee}
+                  raisonValidation={etatValidation(v).raison}
                 />
               ) : (
                 <details className="mp-diag-details">
@@ -164,7 +168,8 @@ export default async function PageDiagnostic({ params }: { params: Promise<{ id:
                     key={`${v.id}-${v.modifie_le}-${v.statut}`}
                     version={v}
                     peutEcrire={droits.ecrire}
-                    peutValider={droits.valider}
+                    peutValider={etatValidation(v).proposee}
+                    raisonValidation={etatValidation(v).raison}
                   />
                 </details>
               )}

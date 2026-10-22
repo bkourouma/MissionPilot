@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ObservatoireCasePubliee } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import {
+  estEtatMetierAgregats,
   etatPageObservatoire,
   formaterPeriode,
   indexerCases,
@@ -98,5 +99,17 @@ describe("observatoire : saisies et messages", () => {
       /réservé aux cabinets contributeurs/,
     );
     expect(messageObservatoire(new Error("boum"))).toBeTruthy();
+  });
+});
+
+describe("403 métier des agrégats", () => {
+  it("reconnaît les états métier à afficher en information", () => {
+    expect(estEtatMetierAgregats({ ok: false, code: "OBSERVATOIRE_CONTRIBUTION_REQUISE" })).toBe(
+      true,
+    );
+    expect(estEtatMetierAgregats({ ok: false, code: "OBSERVATOIRE_RESERVE_ADHERENTS" })).toBe(true);
+    expect(estEtatMetierAgregats({ ok: false, code: "INTERDIT" })).toBe(false);
+    expect(estEtatMetierAgregats({ ok: false })).toBe(false);
+    expect(estEtatMetierAgregats({ ok: true })).toBe(false);
   });
 });

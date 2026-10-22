@@ -941,9 +941,21 @@ describe("rapport de clôture", () => {
     for (const u of [s().gestionnaire, s().ressources, s().expertExterne]) {
       expect((await u.post(urlC(valide.id, "/rapports?format=docx"), {})).statusCode).toBe(403);
     }
-    const pdf = await s().a.chef.post(urlC(valide.id, "/rapports?format=pdf"), {});
-    expect([201, 503]).toContain(pdf.statusCode);
-  });
+    // Sans CHROMIUM_PATH (la configuration refuse un chemin inexistant), le repli
+    // « Chrome de développement sous Windows » lance un vrai navigateur : lent sous
+    // charge. Hors environnement local, cheminNavigateur renvoie null : refus immédiat.
+    const config = sc.ctx.config as { NODE_ENV: string; CHROMIUM_PATH?: string };
+    const avant = { NODE_ENV: config.NODE_ENV, CHROMIUM_PATH: config.CHROMIUM_PATH };
+    config.NODE_ENV = "production";
+    delete config.CHROMIUM_PATH;
+    try {
+      const pdf = await s().a.chef.post(urlC(valide.id, "/rapports?format=pdf"), {});
+      expect(pdf.statusCode).toBe(503);
+    } finally {
+      config.NODE_ENV = avant.NODE_ENV;
+      if (avant.CHROMIUM_PATH !== undefined) config.CHROMIUM_PATH = avant.CHROMIUM_PATH;
+    }
+  }, 90_000);
 
   it("MPR05 en base : bilan d'une autre mission ou non validé, niveau ou source incohérents", async () => {
     const autre = (await s().associe2.get(urlCloturesD(associeDirecteur.dossierId))).json()

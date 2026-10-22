@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
@@ -170,7 +170,7 @@ export function BarreCloture({
   activable: boolean;
   raison: string | null;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const f = useFormulaire<never>();
   const base = `/api/missions/${encodeURIComponent(missionId)}`;
   return (
@@ -210,7 +210,7 @@ export function BarreCloture({
               f.envoyer({ ok: true, charge: null }, () => api.post(`${base}/cloturer`), {
                 succes: "Mission clôturée.",
                 messageSpecifique: messageClotureBloquee,
-                apres: () => router.refresh(),
+                apres: () => rafraichir(),
               })
             }
           />

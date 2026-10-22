@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import {
@@ -11,6 +10,7 @@ import {
 } from "../../lib/redressement-cloture";
 import { corpsValidationCloture } from "../../lib/redressement-cloture-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { BoutonActionRed } from "./BoutonActionRed";
@@ -31,13 +31,15 @@ export function ClotureValidation({
   /** L'utilisateur peut établir un nouveau bilan (proposé si celui-ci est périmé). */
   peutEtablir: boolean;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [motif, setMotif] = useState("");
   const [erreurChamp, setErreurChamp] = useState<string | undefined>();
   const [erreur, setErreur] = useState<string | null>(null);
   const [perimee, setPerimee] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const verrou = useRef(false);
   const refAlerte = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -61,7 +63,7 @@ export function ClotureValidation({
     try {
       await api.post(cheminValidationCloture(clotureId), corps.charge);
       setSucces("Bilan validé : il est figé.");
-      router.refresh();
+      rafraichir();
     } catch (err) {
       setErreur(messageCloture(err));
       setPerimee(clotureEstPerimee(err));

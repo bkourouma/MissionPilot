@@ -174,3 +174,24 @@ export function messageObservatoire(e: unknown): string {
   if (e instanceof ErreurApi && MESSAGES[e.code]) return MESSAGES[e.code] as string;
   return messageErreur(e);
 }
+
+/* ----- 403 métier des agrégats ----- */
+
+/** 403 de l'API : le cabinet adhère mais n'a encore rien versé (agrégats réservés aux contributeurs). */
+export const CODE_CONTRIBUTION_REQUISE = "OBSERVATOIRE_CONTRIBUTION_REQUISE";
+/** 403 de l'API : le cabinet n'est pas (ou plus) adhérent. */
+export const CODE_RESERVE_ADHERENTS = "OBSERVATOIRE_RESERVE_ADHERENTS";
+
+/**
+ * 403 métier de GET /agrégats que la page affiche elle-même (information, pas un refus de
+ * droits) : sans cela, `chargerServeur` redirigerait vers /acces-refuse.
+ */
+export const CODES_403_AGREGATS: readonly string[] = [
+  CODE_CONTRIBUTION_REQUISE,
+  CODE_RESERVE_ADHERENTS,
+];
+
+/** Vrai si l'échec de chargement des agrégats est un de ces états métier (à afficher en information). */
+export function estEtatMetierAgregats(r: { ok: boolean; code?: string }): boolean {
+  return !r.ok && r.code !== undefined && CODES_403_AGREGATS.includes(r.code);
+}

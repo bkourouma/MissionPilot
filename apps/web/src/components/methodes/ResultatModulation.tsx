@@ -1,4 +1,5 @@
 import { decrireEffet, type Differentiel, type ResultatModulation } from "../../lib/methodes";
+import { creerLibelles, type LibellesApercu } from "../../lib/methodes-apercu";
 import { BadgeStatut } from "../ui/BadgeStatut";
 
 /** Différentiel de deux applications des règles (simulation, migration) : effets et règles. */
@@ -47,13 +48,20 @@ export function VueDifferentiel({ d }: { d: Differentiel }) {
 }
 
 /** Journal d'application : règle par règle, déclenchée ou non, valeurs lues. */
-export function JournalModulation({ r }: { r: Pick<ResultatModulation, "journal"> }) {
+export function JournalModulation({
+  r,
+  libelles,
+}: {
+  r: Pick<ResultatModulation, "journal">;
+  libelles?: LibellesApercu;
+}) {
+  const lib = libelles ?? creerLibelles();
   if (r.journal.length === 0) return <p>Aucune règle de modulation dans cette méthode.</p>;
   return (
     <ul className="mp-liste-simple">
       {r.journal.map((j) => (
         <li key={j.regle}>
-          <strong>{j.regle}</strong> —{" "}
+          <strong>{lib.regle(j.regle)}</strong> —{" "}
           {!j.active ? "désactivée" : j.declenchee ? "déclenchée" : "non déclenchée"}
           {j.declenchee
             ? ` (${j.effets_retenus} effet(s) retenu(s), ${j.effets_ecartes} écarté(s))`
@@ -65,7 +73,7 @@ export function JournalModulation({ r }: { r: Pick<ResultatModulation, "journal"
               {j.verifications
                 .map(
                   (v) =>
-                    `${v.facteur ?? "brique"} = ${v.lu === null ? "non renseigné" : JSON.stringify(v.lu)}`,
+                    `${v.facteur ? lib.facteur(v.facteur) : "Brique"} : ${lib.valeur(v.facteur, v.lu)}`,
                 )
                 .join(" ; ")}
             </span>

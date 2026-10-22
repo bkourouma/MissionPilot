@@ -327,3 +327,12 @@ export function validerSuiviAction(
         ),
       };
 }
+
+/**
+ * Erreur de champ à afficher : celle du dernier envoi, sauf si le champ a été modifié depuis
+ * (ou si le panneau de confirmation s'est ouvert), auquel cas elle est périmée et disparaît.
+ */
+export const erreurChampAffichee = (
+  erreur: string | undefined,
+  perimee: boolean,
+): string | undefined => (perimee ? undefined : erreur);

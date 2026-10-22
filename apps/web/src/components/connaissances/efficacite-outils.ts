@@ -1,5 +1,6 @@
 import { STATUT_EFFICACITE_LIBELLES, type StatutEfficacite } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "../../lib/api";
+import { formaterDate } from "../../lib/format";
 import type { Resultat } from "../../lib/saisie";
 
 /**
@@ -168,4 +169,9 @@ const MESSAGES: Record<string, string> = {
 export function messageEfficacite(e: unknown): string {
   if (e instanceof ErreurApi && MESSAGES[e.code]) return MESSAGES[e.code] as string;
   return messageErreur(e);
+}
+
+/** « · mise en œuvre le 15 oct. 2026 » (jamais la date ISO brute) ; chaîne vide sans date. */
+export function libelleMiseEnOeuvre(date: string | null): string {
+  return date ? ` · mise en œuvre le ${formaterDate(date)}` : "";
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import type { StatutVersionNotation } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -58,7 +58,7 @@ export function ParcoursRevue({
   droits,
   gestionnaire,
 }: ParcoursRevueProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const id = useId();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -87,11 +87,11 @@ export function ParcoursRevue({
       await api.post(cheminActionNotation(notationId, action), corps);
       setSucces(SUCCES[action]);
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageNotation(e));
-      if (etatNotationChange(e)) router.refresh();
+      if (etatNotationChange(e)) rafraichir();
       return false;
     } finally {
       setEnCours(false);

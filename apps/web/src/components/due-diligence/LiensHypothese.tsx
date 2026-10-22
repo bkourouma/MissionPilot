@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { SENS_LIEN_DD } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -25,6 +24,7 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { BadgeSolidite } from "../preuves/BadgeSolidite";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
@@ -59,9 +59,11 @@ function LigneLien({
   hypotheseId: string;
   peutEcrire: boolean;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
 
   async function delier() {
     setErreur(null);
@@ -72,7 +74,7 @@ function LigneLien({
         action: "delier",
         sens: null,
       });
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageDd(e));
     } finally {

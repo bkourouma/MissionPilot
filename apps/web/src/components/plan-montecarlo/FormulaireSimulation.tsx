@@ -29,6 +29,7 @@ import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 export interface FormulaireSimulationProps {
   missionId: string;
@@ -59,10 +60,13 @@ export function FormulaireSimulation({
   defauts,
 }: FormulaireSimulationProps) {
   const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieSimulation>(() => saisieInitiale(versionInitiale, defauts));
   const [erreurs, setErreurs] = useState<Record<string, string>>({});
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refErreur = useRef<HTMLDivElement>(null);
 
   const modifierLoi = (cible: CibleMonteCarlo, patch: Partial<SaisieLoi>) =>
@@ -87,7 +91,7 @@ export function FormulaireSimulation({
     try {
       const sim = await api.post<SimulationMonteCarlo>(cheminSimulations(planId), corps);
       router.push(hrefSimulation(missionId, planId, { simulation: sim.id }));
-      router.refresh();
+      rafraichir();
     } catch (err) {
       setErreur(messageMonteCarlo(err));
       refErreur.current?.focus();

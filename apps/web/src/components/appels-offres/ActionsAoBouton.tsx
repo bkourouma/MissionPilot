@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type ReactNode } from "react";
 import { messageAo } from "../../lib/appels-offres";
 import { Alerte } from "../ui/Alerte";
@@ -20,21 +20,21 @@ export function BoutonActionAo({
   variante?: VarianteBouton;
   confirmation?: string;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   return (
     <span className="mp-pile">
       <Bouton
         variante={variante}
-        chargement={enCours}
+        chargement={enCours || enAttente}
         onClick={async () => {
           if (confirmation && !window.confirm(confirmation)) return;
           setEnCours(true);
           setErreur(null);
           try {
             await action();
-            router.refresh();
+            rafraichir();
           } catch (e) {
             setErreur(messageAo(e));
           } finally {

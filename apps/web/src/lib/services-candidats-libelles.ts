@@ -15,7 +15,18 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { DEVISES, VALEUR_ABSENTE, formaterNombre, type Devise } from "./format";
+import { remplacerCodesTechniques } from "./codes-lisibles";
 import { texteOuNull, type Resultat } from "./saisie";
+
+/** Rubriques d'évaluation des méthodes publiées des services candidats (code -> libellé). */
+export const LIBELLES_RUBRIQUES_SERVICES: Readonly<Record<string, string>> = {
+  solidite_plan_financement: "Solidité du plan de financement",
+  maitrise_gestion: "Maîtrise de la gestion",
+};
+
+/** Message de cohérence de l'API en français : codes de rubrique remplacés par leur libellé. */
+export const libelleMessageCoherence = (message: string): string =>
+  remplacerCodesTechniques(message, LIBELLES_RUBRIQUES_SERVICES);
 
 export const MENTION_A_VALIDER = "Contenu à valider par un expert";
 export const MENTION_GUICHETS_A_VALIDER =

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -8,10 +7,12 @@ import {
   etatModeleChange,
   libelleValidationModele,
   messageModele,
+  TEXTE_REGLE_VALIDATION_MODELE,
   type ResumeModele,
 } from "../../lib/plan-modele";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 
 export interface ValidationVersionModeleProps {
@@ -36,7 +37,7 @@ export function ValidationVersionModele({
   peutValider,
   raison,
 }: ValidationVersionModeleProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [attente, attendre] = useAttenteRafraichissement(validation?.valide_le ?? null);
@@ -57,11 +58,11 @@ export function ValidationVersionModele({
       await api.post<ResumeModele>(cheminValidationModele(planId, version));
       setSucces(`Version ${version} validée : elle sert désormais de référence (ROI, rapport).`);
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageModele(e));
-      if (etatModeleChange(e)) router.refresh();
+      if (etatModeleChange(e)) rafraichir();
       return false;
     }
   }
@@ -87,8 +88,7 @@ export function ValidationVersionModele({
       ) : (
         <Alerte tonalite="attention" titre="Version non validée" annonce="aucune">
           <p>
-            Elle doit être validée par un responsable de la mission, autre que son auteur, avant
-            tout partage du plan au client.
+            {TEXTE_REGLE_VALIDATION_MODELE} Validation requise avant tout partage du plan au client.
           </p>
         </Alerte>
       )}

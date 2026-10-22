@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { veilleAvisSaisieSchema } from "@missionpilot/shared";
 import { api } from "../../lib/api";
@@ -29,7 +29,7 @@ const VIDE = {
 
 /** Saisie manuelle d'un avis de veille : dédoublonné et rapproché par l'API. */
 export function VeilleSaisieAvis() {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [s, setS] = useState(VIDE);
   const [erreur, setErreur] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function VeilleSaisieAvis() {
           : "Avis déjà connu : une occurrence a été ajoutée au résultat existant.",
       );
       setS(VIDE);
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageVeille(e));
     } finally {
@@ -147,7 +147,7 @@ export function VeilleSaisieAvis() {
  * erreur sont signalées, les lignes valides sont importées.
  */
 export function VeilleImportFichier() {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [bilan, setBilan] = useState<BilanVeille | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -166,7 +166,7 @@ export function VeilleImportFichier() {
       setBilan(
         await api.post<BilanVeille>(`${API_VEILLE}/import`, { texte, format: verdict.format }),
       );
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageVeille(e));
     } finally {

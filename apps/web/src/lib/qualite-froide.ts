@@ -27,6 +27,7 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi, messageErreur } from "./api";
+import { remplacerCodesTechniques } from "./codes-lisibles";
 import type { PageCurseur } from "./pagination";
 import { formaterJours, formaterMontantMineur, formaterPourcentage } from "./format";
 
@@ -94,6 +95,10 @@ const CRITERES_PAR_CODE = new Map<string, string>(
 );
 export const libelleCritere = (code: string | null) =>
   code === null ? "Revue dans son ensemble" : (CRITERES_PAR_CODE.get(code) ?? code);
+
+/** Motif du moteur en français : codes de critères remplacés par leur libellé de grille. */
+export const libelleMotifRevue = (motif: string): string =>
+  remplacerCodesTechniques(motif, CRITERES_PAR_CODE);
 
 export function tonaliteConclusion(c: ConclusionRevueFroide | null): TonaliteStatut {
   if (c === "conforme") return "succes";

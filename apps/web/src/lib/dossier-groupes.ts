@@ -287,7 +287,14 @@ export function aplatirStructure(g: GroupeApi): BlocArbre[] {
   const s = g.structure;
   const clientId = g.client.id;
   if (g.vue === "tete" && s.arbre_tete) {
-    const tete: NoeudGroupe = { ...s.tete, niveau: 0 };
+    // Racine de l'arbre : sa part « depuis la tête » vaut 100 % par définition. `s.tete` porte la
+    // part de la tête dans le dossier regardé (ex. 30 % vue depuis une filiale) : ne pas l'afficher.
+    const tete: NoeudGroupe = {
+      ...s.tete,
+      niveau: 0,
+      part_directe_bps: null,
+      part_cumulee_bps: 10_000,
+    };
     const noeuds = [tete, ...trier(s.arbre_tete)];
     return [
       {

@@ -44,10 +44,13 @@ export function CausesCartographie({
   version: v,
   peutEcrire,
   peutValider,
+  raisonValidation = null,
 }: {
   version: RedCausesVersionVue;
   peutEcrire: boolean;
   peutValider: boolean;
+  /** Valider est affiché mais désactivé : explication visible (séparation des tâches). */
+  raisonValidation?: string | null;
 }) {
   const modifiable = cartographieModifiable(v, peutEcrire);
   const validable = validationProposee(v, peutValider);
@@ -195,11 +198,14 @@ export function CausesCartographie({
               variante="primaire"
               chargement={validation.enCours}
               texteChargement="Validation…"
-              disabled={modifie}
+              disabled={modifie || raisonValidation !== null}
               onClick={() => void valider()}
             >
               Valider
             </Bouton>
+            {raisonValidation ? (
+              <span className="mp-texte-doux mp-texte-petit">{raisonValidation}</span>
+            ) : null}
             {modifie ? (
               <span className="mp-texte-doux mp-texte-petit">
                 Enregistrez vos modifications avant de valider.

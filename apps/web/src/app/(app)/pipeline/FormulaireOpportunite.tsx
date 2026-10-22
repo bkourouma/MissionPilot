@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../components/formulaires/useFormulaire";
@@ -39,6 +40,7 @@ export function FormulaireOpportunite({
   saisieInitiale = SAISIE_OPPORTUNITE_VIDE,
 }: FormulaireOpportuniteProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const creation = !opportunite;
   const [s, setS] = useState<SaisieOpportunite>(saisieInitiale);
   const f = useFormulaire<ChampOpportunite>();
@@ -59,7 +61,7 @@ export function FormulaireOpportunite({
         rafraichir: false,
         apres: (o) => {
           router.push(`/pipeline/${o.id}`);
-          router.refresh();
+          rafraichir();
         },
       },
     );

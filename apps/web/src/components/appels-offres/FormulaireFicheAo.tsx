@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -144,7 +145,7 @@ export function FormulaireFicheAo() {
  * par « | »). Les références déjà connues sont ignorées par l'API et signalées.
  */
 export function ImportCsvAo() {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [texte, setTexte] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -179,7 +180,7 @@ export function ImportCsvAo() {
       ) : null}
       <Bouton
         variante="secondaire"
-        chargement={enCours}
+        chargement={enCours || enAttente}
         texteChargement="Import…"
         disabled={!analyse || analyse.fiches.length === 0}
         onClick={async () => {
@@ -198,7 +199,7 @@ export function ImportCsvAo() {
                   : "."),
             );
             setTexte("");
-            router.refresh();
+            rafraichir();
           } catch (e) {
             setErreur(messageAo(e));
           } finally {

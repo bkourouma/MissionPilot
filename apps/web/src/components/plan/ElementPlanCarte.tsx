@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { api } from "../../lib/api";
 import type { Devise } from "../../lib/format";
@@ -19,6 +18,7 @@ import {
 } from "../../lib/plan-strategique";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { BadgeRetire, BadgeStatutPlan } from "./BadgeStatutPlan";
@@ -67,7 +67,7 @@ export function ElementPlanCarte({
   niveauTitre = 4,
   children,
 }: ElementPlanCarteProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const idTitre = useId();
   const [edition, setEdition] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
@@ -99,11 +99,11 @@ export function ElementPlanCarte({
       setFocaliserSucces(false);
       setSucces(messageEcriture(nature, r, nature !== "validation" && partage));
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (err) {
       setErreur(messagePlan(err, nature === "validation" ? "valider" : "rediger"));
-      if (etatPlanChange(err)) router.refresh();
+      if (etatPlanChange(err)) rafraichir();
       return false;
     }
   }

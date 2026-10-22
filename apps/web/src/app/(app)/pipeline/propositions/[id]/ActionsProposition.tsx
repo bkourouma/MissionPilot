@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../../components/formulaires/useRafraichir";
 import type { StatutProposition } from "@missionpilot/shared";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
@@ -39,6 +40,7 @@ export function ActionsProposition({
   tauxManquants,
 }: ActionsPropositionProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const f = useFormulaire<never>();
   const [attente, marquerAttente] = useAttenteRafraichissement(statut);
   const chemin = `/api/propositions/${encodeURIComponent(propositionId)}`;
@@ -112,7 +114,7 @@ export function ActionsProposition({
                       rafraichir: false,
                       apres: (p) => {
                         router.push(`/pipeline/propositions/${p.id}`);
-                        router.refresh();
+                        rafraichir();
                       },
                     },
                   )

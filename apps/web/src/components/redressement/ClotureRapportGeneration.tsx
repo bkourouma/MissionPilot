@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { DELAI_GENERATION_MS, peutEtreCree } from "../../lib/rapports";
@@ -15,6 +14,7 @@ import {
 import { FichierJoint } from "../fichiers/FichierJoint";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 const ATTENTE: Record<FormatRapportCloture, string> = {
   pdf: "Génération du PDF en cours : cela peut prendre une trentaine de secondes.",
@@ -34,7 +34,7 @@ export function ClotureRapportGeneration({
   /** Raison affichée quand la génération n'est pas possible (bilan non validé, mission clôturée). */
   desactiveParce?: string;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState<FormatRapportCloture | null>(null);
   const [erreur, setErreur] = useState<{ message: string; actualiser: boolean } | null>(null);
   const [cree, setCree] = useState<RapportClotureCree | null>(null);
@@ -57,7 +57,7 @@ export function ClotureRapportGeneration({
         { delaiMs: DELAI_GENERATION_MS },
       );
       setCree(r);
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur({ message: messageCloture(e), actualiser: peutEtreCree(e) });
     } finally {
@@ -91,7 +91,7 @@ export function ClotureRapportGeneration({
         <Alerte ref={refErreur} tonalite="danger" titre="Génération impossible">
           <p>{erreur.message}</p>
           {erreur.actualiser ? (
-            <Bouton variante="secondaire" icone="historique" onClick={() => router.refresh()}>
+            <Bouton variante="secondaire" icone="historique" onClick={() => rafraichir()}>
               Actualiser la liste
             </Bouton>
           ) : null}

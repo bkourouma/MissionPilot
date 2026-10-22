@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { cheminKpi, messageKpi, type DetailKpi } from "../../lib/kpi";
@@ -20,7 +20,7 @@ export interface ActivationKpiProps {
  * mesures restent dans l'historique.
  */
 export function ActivationKpi({ kpiId, libelle, actif }: ActivationKpiProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [attente, attendre] = useAttenteRafraichissement(actif);
@@ -40,7 +40,7 @@ export function ActivationKpi({ kpiId, libelle, actif }: ActivationKpiProps) {
           : "KPI réactivé : il figure de nouveau au tableau de bord.",
       );
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageKpi(e));
