@@ -38,6 +38,13 @@ agrégats d'atelier et plafonds des candidats d'atelier en §5 bis, `paramsId` s
 en §6 ; le lot 8c, découpage des gros fichiers web, ne change aucun comportement et n'a aucun impact sécurité) :
 972 routes (inchangé : aucune route ajoutée), 226 fichiers de migration (224, plus `0290` et `0432`), 32 lignes
 `GRANT EXECUTE` (inchangé) ; SQLSTATE `MQQ13` (§5 ter).
+Mise à jour du 2026-10-22 (lot 9e, report des lots 6 et 10 : ingestion de documents PDF et Excel DOS-03, DD-02, DD-10
+et STD-13, ADR-009, nouvelle section 8 undecies ; SQLSTATE `MQG01`–`MQG03` en §5 ter et §6 ; `unpdf` et Node 22 en §14 ;
+rejeu de l'horodatage des preuves de signature en §9 bis ; liste blanche des 403 métier du web en §5 ; nouvelles dettes
+en §15 et points ouverts en §16) : 990 routes (recherche n° 10, 972 + 18 : 4 routes DOS-03, 7 DD, 7 amorçage du standard),
+230 fichiers de migration (226, plus `0521` à `0524`), 34 lignes `GRANT EXECUTE` (32, plus `purger_textes_ingestion` et
+`planifier_ingestion_maintenance` en `0524`) ; domaine SQLSTATE `MQG` (§5 ter). Le lot 10 (corrections de la recette
+navigateur du 2026-10-22) ne change ni migration ni route.
 
 ## 1. Actifs à protéger
 
@@ -474,7 +481,7 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  972 gestionnaires de route (relevé du 2026-10-22, lot 9c ; 957 avec le lot 9b, 921 avec le lot 9a, 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
+  990 gestionnaires de route (relevé du 2026-10-22, lot 9e, avec les 18 de l'ingestion de documents, §8 undecies ; 972 avec le lot 9c ; 957 avec le lot 9b, 921 avec le lot 9a, 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
   `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
@@ -559,6 +566,27 @@ soit le code appelant).
   présence du cookie (premier filtre) ; la garde réelle est `obtenirSession` /
   `exigerPermission` (`apps/web/src/lib/session.ts`) qui interroge l'API. Le web
   n'est jamais la source de vérité des droits.
+- **403 métier côté web (liste blanche opt-in, lot 10, A-01).** Par défaut, tout 403 de l'API lu par une page serveur
+  redirige vers `/acces-refuse` (`appelerApiServeur`, `chargerServeur`, `apps/web/src/lib/api-serveur.ts`). Un 403 qui
+  décrit l'ÉTAT du cabinet et non un défaut de droits (observatoire : `OBSERVATOIRE_CONTRIBUTION_REQUISE`,
+  `OBSERVATOIRE_RESERVE_ADHERENTS`, §5 sexies) peut être toléré par une page qui le déclare dans le paramètre
+  `codes403Metier` : le résultat porte alors `{ ok: false, message, statut, code }` (message de l'API) au lieu de la
+  redirection. La liste est **opt-in par appel, jamais par défaut** : `TFA_A_CONFIGURER` (page de sécurité du compte) et
+  `PORTAIL_ROUTE_INTERDITE` (espace client) redirigent TOUJOURS, même listés ; `INTERDIT` et tout code non listé vont à
+  `/acces-refuse`, de sorte qu'un code ajouté plus tard à l'API ne devient pas silencieusement « tolérable ». Seule la page
+  `/observatoire` (`CODES_403_AGREGATS`) déclare des codes ; l'audit du lot 10 n'a trouvé aucun autre 403 à code métier
+  sur une route `GET` (les autres sont des écritures). Test : `apps/web/src/lib/api-serveur.test.ts`. L'API reste la seule
+  source de vérité : la tolérance ne donne accès à aucune donnée, la réponse reste un refus affiché dans la page.
+- **Rafraîchissement après écriture (A-04, lot 10).** Ce n'est pas une garde de sécurité. Le hook
+  `components/formulaires/useRafraichir.ts` remplace les appels directs à `router.refresh()` (interdits hors
+  `FormulaireConnexion`) : le rafraîchissement a lieu dans une transition du composant, une relance à 1,5 s est
+  dédoublonnée par page, et l'attente est plafonnée à 8 s, de sorte qu'aucun bouton ne reste verrouillé. La cause exacte
+  du défaut d'affichage périmé observé à la recette reste **NON PROUVÉE** (hypothèse : commit de la transition à basse
+  priorité sur un onglet bridé), à confirmer sur un onglet visible au premier plan. Relevé du 2026-10-22 : les écrans
+  web du lot 6 (ingestion, §8 undecies : `ImportEtatDocument`, `ImportEtatDocumentListe`, `ActualisationAuto`,
+  `BoutonRelance`, `DocumentsLecture`, `DocumentsListe`, `DocumentsTeleversement`, `AmorcageDocuments`,
+  `AmorcageProposition`) appellent encore `router.refresh()` en direct (fusionnés après le lot 10) : à migrer vers le
+  hook, sans enjeu de sécurité.
 
 ## 5 bis. Questionnaires, notation, KPI et plans (V2)
 
@@ -850,8 +878,8 @@ pas la séparation des tâches.
   code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0290`), `MQF`
   groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
   code employé), `MQK` capitalisation (efficacité des recommandations et observatoire, §5 sexies), `MQA`
-  veille des appels d'offres (§6) `MQV` services candidats (§8 decies), `MQI` IA (cache, revue contradictoire, §7 bis) et `MQU` rapport d'avancement
-  hebdomadaire (§5 octies). Table des codes de ce paragraphe et
+  veille des appels d'offres (§6) `MQV` services candidats (§8 decies), `MQI` IA (cache, revue contradictoire, §7 bis), `MQU` rapport d'avancement
+  hebdomadaire (§5 octies) et `MQG` ingestion de documents (`0521` et `0522`, §8 undecies). Table des codes de ce paragraphe et
   du STD-11 (les codes d'API sont ceux des routes ; codes `MQD`, `MQF`, `MQL` : §6) :
 
   | SQLSTATE | Code d'API                     | HTTP | Sens                                                               |
@@ -899,6 +927,9 @@ pas la séparation des tâches.
   | `MQU04`  | (aucun, filet de la base)      | -    | client du rapport différent de celui de la mission                 |
   | `MQU05`  | `MISSION_NON_ACTIVE`           | 409  | brouillon sur une mission ni signée ni en cours                    |
   | `MQU07`  | (aucun, filet de la base)      | -    | suppression d'un rapport d'avancement                              |
+  | `MQG01`  | (aucun, filet de la base)      | -    | document ingéré : suppression, naissance hors `en_file`, identité modifiée, document terminé modifié, transition de statut refusée (`0521`) |
+  | `MQG02`  | `VALIDATION_REQUISE`           | 403  | extraction : suppression, naissance hors `brouillon_ia`, identité modifiée, extraction tranchée modifiée, retour à `brouillon_ia`, contenu changé à la validation, valideur égal à l'auteur du téléversement, au demandeur de la lecture ou au dernier modificateur sauf associé (`0522`) |
+  | `MQG03`  | `VERSION_PUBLIEE`              | 409  | version cible d'un amorçage qui n'est pas un brouillon du cabinet (`0521`) |
 
   `MQU06` n'est pas utilisé (les migrations `0306` et `0307` réservent `MQU01` à `MQU10` au chantier, quatre codes
   restent libres : `MQU06`, `MQU08` à `MQU10`). `MQI01` est avalé par l'orchestrateur (`ia/orchestrateur.ts` : un échec
@@ -1408,6 +1439,7 @@ VALIDÉ est visible du client.
   | `MQK01-05`, `MQK20-27` | capitalisation : `MQK01`–`MQK05` efficacité des recommandations (CAP-03 : historique en ajout seul, cohérence KPI et initiative, identité figée, transition de statut, instantané d'une recommandation non mise en oeuvre), `MQK20`–`MQK27` observatoire (CAP-04 : historique d'adhésion en ajout seul, transition d'adhésion, versement sans adhésion active, contribution immuable, `obs_agregats` refusé hors cabinet ou dans le portail, sans adhésion, indicateur inconnu, sans contribution éligible) ; table en §5 ter, usage en §5 sexies ; `MQK06`–`MQK19` et `MQK28`–`MQK39` réservés | `0466`–`0467`, `0470`–`0472` |
   | `MQA01-05` | veille des appels d'offres (AO-01) : historique en ajout seul (`MQA01`), transition de statut d'un résultat (`MQA02`), plafond de 5 000 résultats par cabinet (`MQA03`), plafond de 500 occurrences par résultat (`MQA04`), décision incohérente avec l'état du résultat (`MQA05`) ; table en §5 ter ; `MQA06` et suivants libres | `0364`–`0367` |
   | `MQV01-02` | services candidats (lot 7, §8 decies) : identité d'un guichet figée (`MQV01`), plafond de 500 guichets par cabinet sous verrou consultatif (`MQV02`) ; table en §5 ter ; `MQV03` et suivants libres | `0563` |
+  | `MQG01-03` | ingestion de documents (lot 6, §8 undecies) : transition de statut ou identité d'un document, suppression, document terminé figé hors relance et datation de la purge du texte (`MQG01`) ; extraction : machine à états, séparation des tâches (le valideur n'est ni l'auteur du téléversement, ni le demandeur de la lecture, ni le dernier modificateur, sauf associé), identité figée (`MQG02`) ; version cible d'un amorçage qui n'est pas un brouillon du cabinet (`MQG03`) ; table en §5 ter ; `MQG04` et suivants libres | `0521`, `0522` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -1773,7 +1805,11 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   génération (rédaction assistée non faite) hormis, depuis le 2026-10-21, les trois brouillons du lot 5a
   (explication de la notation, synthèse d'un atelier, explication d'une re-prévision, §5 bis, rattachés à
   `ia_demandes.entite_type` et `entite_id`) et les causes racines du redressement
-  (`redressement/causes-ia.ts`, seul fichier du module qui importe `ia/`, §8 nonies). Le routage du copilote
+  (`redressement/causes-ia.ts`, seul fichier du module qui importe `ia/`, §8 nonies) ; depuis le lot 6
+  (2026-10-22), l'ingestion de documents (§8 undecies) : le TEXTE des pages d'un PDF ou d'un classeur lu par le
+  cabinet (jamais le fichier lui-même) entre dans l'orchestrateur, comme contenu client non fiable, pour proposer des
+  lignes d'état financier, une lecture de rapport ou de salle de données de due diligence, ou une proposition de standard ;
+  les noms du cabinet sont masqués avant envoi pour ce seul dernier usage (§8 undecies). Le routage du copilote
   (AGT-08, plus bas) ne produit aucun contenu, mais ne contourne plus l'orchestrateur : il passe par
   son point d'entrée `admettreSansDemande` / `appelerSansDemande` (`ia/orchestrateur.ts`).
 - **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0267` et
@@ -2021,7 +2057,9 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     n'admet que cette anonymisation, jamais un `UPDATE` libre (modèle `0104`).
   - **Masquage des noms connus du cabinet** (`copilote/noms-propres.ts`, 2026-10-21) : les raisons sociales des
     clients, noms des utilisateurs, des contacts clients et intitulés de missions, écrits EN ENTIER, sont masqués
-    avant envoi (jetons restitués localement), en plus des formats de §7 bis « Masquage avant envoi ».
+    avant envoi (jetons restitués localement), en plus des formats de §7 bis « Masquage avant envoi ». La même
+    présélection sert l'amorçage du standard (STD-13) avec des bornes élargies à un document long
+    (`BORNES_NOMS_INGESTION`, §8 undecies) ; le copilote garde sa tranche unique de 200 mots.
   - **Conversation du navigateur.** La conversation peut être conservée dans le `sessionStorage` de l'onglet
     (`lib/copilote-session.ts`) : jamais envoyée au serveur, 20 questions au plus, 30 minutes d'inactivité,
     bouton « Effacer la conversation » (aussi appelé par `BoutonDeconnexion`), propositions d'action en attente
@@ -2118,6 +2156,10 @@ du stockage (§8 bis).
   lui-même est limité à 5 000 lignes ; les exécutions d'un cabinet sont
   sérialisées par un verrou consultatif, et une feuille créée par une saisie
   pendant l'import répond 409 `IMPORT_CONCURRENT` (`temps/import.ts`).
+- **Ingestion de documents** (lot 6) : un PDF ou un classeur téléversé pour être LU (états financiers, due diligence,
+  amorçage du standard) suit la même réception, la même détection par le contenu et le même quota, puis est analysé et
+  son objet de stockage est effacé (jamais conservé) ; ce qui est lu, borné et conservé (le texte des pages) est décrit en
+  §8 undecies.
 - **Non couvert** : chiffrement des fichiers au repos (le disque l'assure ou non),
   analyse antivirus (y compris pour les fichiers qu'un tiers externe, le client, téléverse par le
   portail et que le cabinet lit : §15), sauvegarde du dossier `STORAGE_DIR` (rien dans le dépôt),
@@ -2328,7 +2370,8 @@ des migrations `0220`–`0225`, moteurs `packages/engines/src/dossier/`.
   `lireClasseurTemps` de `temps/import-excel.ts`) ou CSV en JSON (200 000
   caractères au plus). Le fichier n'est jamais conservé : nom assaini, empreinte
   SHA-256 et taille sont tracés avec l'état. Montants lus exactement par le moteur
-  (`lireMontantTexte`, refus plutôt qu'arrondi).
+  (`lireMontantTexte`, refus plutôt qu'arrondi). Le PDF d'état financier (`POST
+  /dossiers/:id/etats-financiers/document`) passe par l'ingestion de documents (§8 undecies).
 - **Document cité en source** : un `document_id` doit être lisible par l'auteur
   (`exigerFichierLisible`, 404 sinon) ; un fichier cité par un fait ou un facteur n'est
   pas orphelin et n'est pas purgé (`fichier_orphelin`, migration `0268`).
@@ -2371,8 +2414,9 @@ des migrations `0220`–`0225`, moteurs `packages/engines/src/dossier/`.
   montant) et son état est exclu de la consolidation, signalée « partielle ». **FIN-02** : la réponse ne porte
   que des données du client, identique avec ou sans `finance.lire`. Le rapport d'état financier du groupe est
   réservé à `dossier.lire` (§8 bis).
-- **Limites connues** : l'extraction par l'IA depuis un PDF (DOS-03) n'est pas
-  branchée (la colonne `origine` l'accueillera) ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
+- **Limites connues** : l'extraction depuis un PDF (DOS-03) est livrée depuis le
+  lot 6, en mode texte natif seulement (origine `pdf`, `0523` ; §8 undecies) ; les PDF scannés attendent l'OCR local
+  (lot 11 en cours, §16) ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
   visible) ; barème de
   fiabilité et seuils de classe posés par défaut, à calibrer au pilote.
 
@@ -2580,7 +2624,9 @@ filtrage environnemental et social, plan des 100 jours, note au comité. Vingt t
 (migrations `0500`–`0508`), routes `/api/dd/**`, SQLSTATE `MPZ21`–`MPZ32` (lettre `Z` partagée avec
 le redressement) et `MPR04`. Mise à jour du 2026-10-21 : sept tables de plus, soit 27 (cinq `dd_portail_*`,
 `0509`, et deux tables de modèles sectoriels, `0511`), SQLSTATE `MQD01`–`MQD08` et `MQD11` (second préfixe,
-§5 ter). Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
+§5 ter). Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER` dans le lot d'origine ; depuis le lot 6
+(2026-10-22), l'import de rapports PDF (DD-02) et la lecture de la salle de données (DD-10) passent par l'ingestion de
+documents et l'orchestrateur IA (§8 undecies, mode texte natif, `dd.valider`), sans changer les garanties ci-dessous.
 
 - **Isolation et portail.** Chaque table porte RLS (`isolation`) ; les tables du cabinet portent la politique
   RESTRICTIVE `portail_interdit` et aucune route du cabinet (`/api/dd/**`) ne figure à `LISTE_BLANCHE_PORTAIL`.
@@ -2823,6 +2869,195 @@ rapprochement.
   paramètres encodés), visible avec `catalogue.lire` et pour un client actif ; il n'ajoute aucune route ni
   aucun droit, la page et les routes gardent les leurs (ci-dessus).
 
+## 8 undecies. Ingestion de documents (lot 6 : DOS-03, DD-02, DD-10, STD-13, ADR-009)
+
+Lecture, par le cabinet, de documents PDF et de classeurs Excel pour quatre usages : états financiers du client
+(DOS-03, usage `etat_financier`), rapports et salle de données d'une due diligence (DD-02 et DD-10, usages `dd_rapport`
+et `dd_salle`) et amorçage du standard à partir de documents historiques (STD-13, usage `standard_historique`).
+Migrations `0521` à `0524` (prochain numéro libre de la plage : `0525`), trois tables (`ingestion_documents`,
+`ingestion_pages`, `ingestion_extractions`), deux fonctions `SECURITY DEFINER` (`purger_textes_ingestion` et
+`planifier_ingestion_maintenance`, `0524`), SQLSTATE `MQG01`–`MQG03` (§5 ter, §6), code `apps/api/src/ingestion/`,
+routes `routes/ingestion.ts`, `routes/ingestion-dd.ts` et `routes/ingestion-standard.ts` (18 routes), moteurs purs
+`packages/engines/src/ingestion/`, schémas et plafonds `packages/shared/src/schemas/ingestion.ts`
+(`PLAFONDS_INGESTION`). Livré en mode **texte natif** seulement : l'OCR local est un lot à part (lot 11, en cours, voir
+« OCR » ci-dessous et §16). Modèle de menace : un PDF ou un classeur est une entrée **non fiable** (un client, un tiers ou
+un salarié le fournit) ; son texte est un contenu client non fiable (AGT-07) ; la sortie d'un modèle de langage est une
+proposition qu'aucun chiffre ne valide.
+
+- **Chaîne et traitement local.** `POST` d'un document : type décidé par le CONTENU (`detecterType`, jamais l'extension
+  ni l'en-tête ; seuls PDF et XLSX, 415 `TYPE_DOCUMENT_REFUSE` sinon ; un PDF actif est déjà refusé par
+  `stockage/detection.ts`, §8), plafond de taille (413 `FICHIER_TROP_VOLUMINEUX`, `gardeTailleMultipart` avant
+  l'authentification), enregistrement du fichier (quota de stockage du cabinet), ligne `ingestion_documents` et job
+  `ingestion_extraction` dans la MÊME transaction ; la route répond 202. Le job lit le texte des pages
+  (`ingestion_pages`, ajout seul), puis met en file `ingestion_structuration` (états financiers, lecture d'un document,
+  proposition de standard). Une erreur définitive donne le statut `echec` avec un code stable (`CODES_ERREUR_INGESTION`),
+  jamais un message de bibliothèque ni un contenu du document. Le contenu n'est jamais exécuté ni rendu. **Aucun service
+  externe** de lecture de documents ni d'OCR : décision d'architecture ADR-009 (mode LOCAL). Un modèle de langage n'est
+  appelé que par l'orchestrateur IA (§7 bis), jamais par l'ingestion.
+- **Isolation et portail fermé par défaut.** Les trois tables portent RLS (`isolation`) ET la politique RESTRICTIVE
+  `portail_interdit` (`0521`, `0522`) ; `ingestion_documents` n'a aucun `DELETE` pour le rôle applicatif ni de suppression
+  par déclencheur (`MQG01`), `ingestion_extractions` non plus (`MQG02`) ; `ingestion_pages` est en ajout seul
+  (`REVOKE UPDATE, DELETE`), seule la fonction de purge supprime. Aucune route d'ingestion ne figure à `LISTE_BLANCHE_PORTAIL` (`portail/garde.ts` ne cite ni
+  `ingestion`, ni `/dd/documents`, ni `/amorcage`) : 403 pour un compte du portail, y compris investisseur. Aucune clé
+  étrangère vers `fichiers` : `fichier_orphelin` n'est pas redéfinie. Tests : `apps/api/test/isolation.test.ts` (toute
+  table à RLS porte `portail` ou `portail_interdit`), `ingestion-securite.test.ts`, `ingestion-dd-securite.test.ts`,
+  `ingestion-standard.test.ts` (portail fermé, autre cabinet en 404 même en téléversement, aucune réponse ne porte coût,
+  clé de stockage ni identifiant de fichier).
+- **Routes et droits** (la permission est exigée AVANT tout accès aux données, puis la visibilité de l'objet cible, 404
+  sinon, y compris pour un autre cabinet ; le corps n'est lu qu'après ces contrôles : un dossier d'autrui ne consomme
+  rien). DOS-03 : `POST /dossiers/:id/etats-financiers/document` (`dossier.ecrire`, dossier client visible) et 3 `GET`
+  `/dossiers/:id/ingestions[...]` (`dossier.lire`). DD (7 routes) : `POST /dd/dossiers/:id/documents?type=rapport|salle`,
+  `POST /dd/documents/:docId/lecture` (relance) et `PATCH /dd/extractions/:id` (`dd.ecrire` ; `ia.utiliser` en plus pour la
+  relance), `GET` (`dd.lire`), `POST /dd/extractions/:id/decision` (`dd.valider`) ; mission visible et ouverte (409
+  `MISSION_CLOTUREE` sur une mission clôturée : lecture seule). STD-13 (7 routes) : toutes sous `standard.gerer`
+  (`POST /methodes/versions/:id/amorcage/documents`, `/amorcage/documents/:docId[/pages/:numero]`,
+  `POST /amorcage/documents/:docId/proposition` avec `ia.utiliser` en plus, `PATCH` et `POST .../decision` sur
+  `/amorcage/extractions/:id`), uniquement sur un BROUILLON de méthode du cabinet (404 pour le standard livré ou une
+  version d'un autre cabinet ; 409 `VERSION_PUBLIEE` si elle est publiée, doublé par `MQG03`). Aucune réponse ne porte de
+  coût ni clé de stockage (FIN-02).
+- **PDF hostile : pré-contrôle avant tout worker** (`ingestion/pdf-controle.ts`, `pdf-controle-worker.mjs`). Menace : un
+  PDF de quelques Mo dont un flux se décompresse en centaines de Mo ou en Go (un piège de 3 Mo à flux de 1,5 Go avait
+  porté le RSS de l'API à 3,4 Go sans franchir le plafond de tas du worker, revue de sécurité du 2026-10-21, constat C1),
+  ou dont la structure fait relire des Mo à chaque début de flux candidat (une chaîne de blocs deflate « stockés » vides
+  bloquait la boucle d'événements de l'API de 73 à 80 s, tous cabinets, et un PDF de 9,30 Mo était même ACCEPTÉ ; troisième
+  vérification). Contrôle : avant d'instancier pdf.js, le PDF est balayé sans lire le dictionnaire (tout `stream` dont les
+  octets forment un en-tête zlib valide est décompressé sous plafond strict ; fin de ligne après `stream` non supposée,
+  `endstream` dans les données ignoré, `CINFO` non contraint comme pdf.js) **dans un `worker_thread` DÉDIÉ** (tas de 64 Mo,
+  délai de 5 s puis `terminate()`, verdict `PLAFOND_TEXTE` si le délai ou la mémoire du contrôle est dépassé, `PDF_ILLISIBLE`
+  si le worker tombe) : le fil principal ne fait que créer le worker et attendre. Budgets (`PLAFONDS_CONTROLE_PDF`) :
+  ENTRÉE 64 Mo cumulés fournis à zlib ; SORTIE 32 Mo par flux et 128 Mo cumulés ; TRAVAIL 512 Mo (chaque appel zlib, succès
+  ou échec, compte pour le PLUS GRAND de ses octets d'entrée et de sortie) ; 16 384 mots `stream` examinés au plus ; 4 096
+  flux Flate au plus ; cascades Flate sur Flate suivies jusqu'à épuisement des budgets avec un garde-fou de 64 couches. Un
+  dépassement refuse le document (`PLAFOND_TEXTE`) SANS lancer le worker d'extraction. Mesures (Node 24, 2026-10-22) : piège
+  K 73,4 s -> 164 à 221 ms (refusé), K2 7,5 s et accepté -> 145 à 182 ms (refusé), 5 000 flux invalides 247 à 575 ms, PDF
+  légitimes de 9 à 12,5 Mo acceptés (balayage 17 à 235 ms, verdict de bout en bout 68 à 112 ms), retard maximal de la
+  boucle <= 15 ms, surcoût du worker de contrôle 43 à 100 ms. Tests : `apps/api/test/ingestion-pdf.test.ts` (bombe de 300
+  Mo refusée sans créer de worker d'extraction ; les cinq contournements testés `espace-avant-eol`, `filtre-lointain`,
+  `texte-avant-eol`, `endstream-interne` et `flate-sur-flate` ; `CINFO > 7` ; pré-contrôle linéaire et borné sur des flux
+  corrompus et des mots `stream` en masse ; délai du contrôle ; PDF légitimes de 9 à 10 Mo acceptés ; outils
+  `ingestion-pdf-outils.ts`).
+- **Worker d'extraction à mémoire plafonnée et surveillance** (`ingestion/pdf.ts`, `pdf-worker.mjs`). L'extraction du texte
+  (`unpdf`, pdf.js sans évaluation de code, sans police ni ressource distante, sans rendu) tourne dans un `worker_thread`
+  dont le TAS est borné (`resourceLimits`, 256 Mo de génération ancienne) ; le nombre de pages est lu et plafonné AVANT toute
+  extraction ; délai total 30 s (`DELAI_DEPASSE`, sans reprise), deux extractions simultanées au plus par processus
+  (sémaphore à file d'attente, partagé avec le pré-contrôle), donc **35 s au pire** par document (5 s de contrôle plus 30 s
+  d'extraction). `resourceLimits` ne borne PAS la mémoire hors tas (tampons de pdf.js, zlib natif), qui appartient au
+  processus : une **surveillance toutes les 150 ms** (`SURVEILLANCE_MEMOIRE`) termine le worker et échoue le document
+  `PLAFOND_TEXTE` si la mémoire externe du worker dépasse **256 Mo** ou si le RSS du processus monte de plus de **512 Mo**
+  depuis le départ du worker. La mesure de la mémoire externe (`worker.getHeapStatistics()`) exige **Node >= 22.16** ; la
+  garde est défensive : méthode absente ou en échec, seule la surveillance du RSS joue (testé). Seuils fixés sur mesures :
+  PDF légitimes de ~10 Mo = 21 à 88 Mo de mémoire externe et +28 à +147 Mo de RSS ; cascade `ASCIIHex` puis Flate de 1,5 Go
+  qui échappe au pré-contrôle : coupée en 2,6 à 3,0 s avec un pic de +321 à +363 Mo (anciens seuils 512 Mo / 768 Mo : 3,4 à
+  5,1 s, +589 à +628 Mo ; surveillance du RSS seule, cas Node < 22.16 : 4,5 s, +529 Mo). Les mesures « ~1 s, +70 Mo » citées
+  plus tôt venaient de seuils abaissés pour les tests et ne sont pas à retenir. Tests : `ingestion-pdf.test.ts` (la
+  surveillance termine un worker qui gonfle hors tas ; garde Node < 22.16 ; sémaphore libéré après échec ; deux extractions
+  simultanées au plus).
+- **Faux refus connus** (l'utilisateur re-soumet un PDF régénéré, par exemple réimprimé en PDF) : un flux Flate de plus de
+  32 Mo ; un scan Flate brut de plus de 5 pages A4 en RGB (cumul de 128 Mo) ; un PDF abîmé dont environ 7 flux Flate sont
+  tronqués (relecture jusqu'à la fin du fichier à chaque échec : budget d'entrée de 64 Mo dépassé) ; plus de 4 096 flux
+  Flate. Tous répondent `PLAFOND_TEXTE`.
+- **Document effacé après analyse** (jamais conservé). L'objet de stockage est marqué (`marquerFichierSupprime` : ligne
+  `fichiers_suppressions`, motif `retire`) dans la transaction du job d'extraction, puis effacé physiquement
+  (`supprimerObjet`) une fois les pages durables (début de la structuration) ou à l'échec définitif ; `fichier_id` repasse
+  à NULL. Un échec du stockage laisse l'objet : il est journalisé (`ingestion.effacement_echoue`, sans contenu) et la
+  **purge quotidienne le reprend** (`effacerObjetsMarques`, branchée au job `ingestion_maintenance`, `maintenance.ts` :
+  200 objets au plus par passage, les plus récemment marqués d'abord). Comme `fichiers_suppressions` est en ajout seul et
+  n'enregistre pas l'effacement, la planification (`planifier_ingestion_maintenance`) ne retient que les marquages de moins
+  de **30 jours** ; passé ce délai la reprise n'est plus planifiée seule, mais reste tentée à chaque exécution du job. Restent
+  de ce document son empreinte SHA-256, son nom assaini, sa taille et le texte de ses pages. Tests : `ingestion-securite.test.ts`
+  (objet effacé après traitement, panne du stockage), `ingestion-maintenance.test.ts` (reprise d'un objet marqué encore
+  présent, échec compté sans faire échouer la maintenance, aucun objet temporaire résiduel, condition de planification qui
+  ne reste pas vraie indéfiniment).
+- **Texte des pages : conservation limitée** (décision de l'utilisateur du 2026-10-22). Le texte est conservé jusqu'à la
+  décision sur l'extraction (validée ou rejetée) ou sur l'état financier, **plus 90 jours** (`CONSERVATION_TEXTE_JOURS`,
+  bornes SQL 90 à 3 650), puis purgé par le job `ingestion_maintenance` (03 h 45 UTC, un job par cabinet et par jour, clé
+  `ingestion_maintenance:AAAA-MM-JJ`, 1 000 documents au plus par passage) par la fonction `purger_textes_ingestion`
+  (`SECURITY DEFINER`, `search_path` fixé, cabinet du contexte, `REVOKE ALL FROM PUBLIC`, date refusée si elle dépasse
+  l'horloge de la base de plus d'une minute, `0524`). Un brouillon ouvert, un état financier en revue ou un document non
+  terminal n'est jamais purgé ; l'état financier, ses lignes, les brouillons et le document restent (seuls les références de
+  page et les extraits déjà recopiés survivent). `texte_purge_le` est exposé ; une page purgée répond 404 `TEXTE_PURGE`, une
+  relance de lecture 409. Pendant ce délai le texte est en base **sans masquage des montants** (dette, §15). Tests :
+  `ingestion-maintenance.test.ts` (89 jours : rien ; 91 jours : seulement les documents tranchés ; brouillon ouvert et état
+  en revue jamais purgés ; idempotence ; paramètres hors bornes ; le rôle applicatif ne supprime aucune page ; le journal
+  ne contient que des compteurs), `ingestion-standard.test.ts` (404 « texte purgé », relance 409).
+- **Les chiffres ne viennent jamais du modèle (DOS-03).** Un montant n'est retenu que s'il se retrouve, lu exactement, comme
+  PREMIER montant (colonne de l'exercice N) d'une ligne de la page citée dont le **libellé normalisé COMPLET** est celui du
+  poste (`packages/engines/src/ingestion/ancrage.ts` : insensible à la casse, aux accents, aux espaces et à la ponctuation ;
+  un simple préfixe n'est admis que s'il est unique, d'au moins 12 caractères et couvre 80 % du libellé source) ; plusieurs
+  lignes candidates donnent le rejet `libelle_ambigu` (jamais de choix au hasard), trois montants ou plus `montants_ambigus`.
+  Deux lignes de même libellé sur une page sont toujours rejetées (peut produire des revues sur de vrais états). Les
+  additions, l'équilibre actif = passif et la cohérence du résultat sont ceux de `controlerEtatFinancier` ; **acceptation
+  automatique** (`ingererEtat`, option `forcerRevue`, base `MPO04` en doublon) seulement si tous les contrôles passent à
+  tolérance nulle ET aucune ligne n'est rejetée ou non lue ET le texte vient d'une couche texte (jamais d'OCR) ET aucun état
+  accepté par un humain n'est remplacé ; sinon `en_revue`. Chaque ligne porte `reference.page` (PDF) ou `reference.cellule`
+  (Excel) ; origine `pdf` (`0523`). Sans IA (désactivée, sans clé, plafond atteint, sortie inexploitable) : règles
+  déterministes du moteur, mises en revue. Test : `packages/engines/src/ingestion/etat-ia.test.ts`,
+  `apps/api/test/ingestion-etats.test.ts`.
+- **DD-02 et DD-10 : lecture d'un rapport ou d'un document de la salle de données.** L'IA propose un résumé et des éléments
+  (fait, risque, chiffre, engagement, autre), chacun avec sa page et un extrait recopié ; le moteur vérifie que l'extrait et
+  chaque nombre cité se retrouvent dans la page. Le résultat est un BROUILLON (`brouillon_ia`, `modifie`, `valide`,
+  `rejete`) : rien n'alimente un verdict, le registre des preuves ni un rapport sans validation par un détenteur de
+  `dd.valider` (séparation des tâches ci-dessous) ; un brouillon qui contient des éléments non vérifiés exige un acquittement
+  explicite (409 `CHIFFRES_A_ACQUITTER`). La validation ne pousse rien ailleurs. L'adaptateur de données ouvertes
+  (`due-diligence/donnees-ouvertes.ts`) reste simulé, sans route ni appel réseau. Tests : `ingestion-dd.test.ts`,
+  `ingestion-dd-securite.test.ts`, `ingestion-dd-resume.test.ts`.
+- **STD-13 : amorçage du standard.** L'IA propose étapes, briques, éléments et rubriques à partir de documents historiques
+  téléversés vers un brouillon de méthode du cabinet ; les experts (`standard.gerer`) corrigent puis valident ; la
+  validation applique au brouillon par les fonctions de l'éditeur STD-11 (bornes et journal compris) avec des valeurs
+  prudentes (classe de risque R3, autonomie maximale N1, brique inactive par défaut, sans moteur ni agent) ; un code déjà
+  présent est ignoré et listé, jamais écrasé ; un dépassement de borne annule tout (409). **Rien n'est publié** : la
+  publication reste l'acte séparé de l'éditeur. Test : `ingestion-standard.test.ts`.
+- **FIN-02 sur les documents d'amorçage.** (1) Le texte des pages d'un document d'amorçage n'est servi (`GET
+  /amorcage/documents/:docId/pages/:numero`) qu'à son AUTEUR ou à un détenteur de `finance.lire` (403 sinon), le détail du
+  document (métadonnées sans texte) restant ouvert à `standard.gerer` : **hypothèse métier à valider** (un document
+  historique peut porter des taux journaliers et des honoraires), réversible (lever la condition revient en arrière). (2)
+  `contientDonneeFinanciere` (`packages/engines/src/ingestion/proposition.ts`) détecte un nombre de 3 chiffres ou plus
+  (séparateurs de milliers compris), une mention de monnaie (FCFA, F CFA, CFA, XOF, XAF, EUR, euro(s), USD, dollar(s), CHF,
+  franc(s), €, $, £) ou un mot de nombre (cent, mille, million, milliard), en mots entiers, sans égard à la casse ni aux
+  accents : la ligne est rejetée à la lecture (`donnee_financiere`) et la correction humaine est refusée (400), sur les
+  propositions d'amorçage ET sur les CODES bruts (donc tout code de 3 chiffres ou plus est refusé, dette ci-dessous). C'est
+  une **heuristique de prudence** : « cent pour cent » est un faux positif assumé, « 3k » ou une autre langue passent ; la
+  barrière réelle reste la validation humaine. Le détail d'une proposition ne peut exposer ni taux ni honoraires. Tests :
+  `ingestion-standard.test.ts` (descriptions FIN-02 du texte et des codes, route des pages), `proposition.test.ts`.
+- **Noms masqués avant envoi à l'IA (amorçage seulement).** Pour `standard_historique`, les noms de clients, d'utilisateurs,
+  de contacts clients et de missions connus du cabinet (`copilote/noms-propres.ts`) sont masqués avant l'envoi, sur TOUT le
+  texte transmis : 40 tranches de 200 mots distincts au plus et 200 termes au plus (`BORNES_NOMS_INGESTION` ; le copilote
+  garde une tranche), puis démasquage de la sortie ; **toute ligne de proposition qui recopie un nom masqué est écartée**
+  (un nom de client n'entre jamais dans le standard du cabinet). **Limites** : noms écrits en entier seulement ; un nom
+  ajouté par correction humaine n'est pas filtré ; `dd_rapport` et `dd_salle` ne sont PAS masqués (non demandé) ; les
+  montants du texte envoyé ne sont pas masqués (§15). Tests : `ingestion-standard-noms.test.ts` (nom après le 300e mot
+  masqué, copilote inchangé), `ingestion-standard.test.ts`.
+- **L'IA propose, l'expert dispose ; séparation des tâches.** Le valideur d'un brouillon n'est ni l'auteur du téléversement,
+  ni le demandeur de la lecture (téléversement ou relance : colonnes `derniere_demande_par` du document et `demande_par` de
+  l'extraction), ni le dernier modificateur (`modifie_par`), sauf associé : contrôle de l'API avant l'application (403
+  `VALIDATION_REQUISE`) DOUBLÉ par le déclencheur `MQG02` (le contournement par SQL direct est refusé, l'associé passe). Un
+  brouillon contenant des éléments non vérifiés se valide après acquittement. Un texte de document qui contient une
+  consigne est une donnée : il n'entre dans un prompt que par une variable déclarée non fiable (masquée, neutralisée,
+  encadrée par l'orchestrateur), jamais dans les consignes ; la sortie du modèle ne déclenche aucune action. Tests :
+  `ingestion-extractions.test.ts`, `ingestion-standard.test.ts` (séparation des tâches, contournement par SQL),
+  `ingestion-dd.test.ts`.
+- **Quotas et plafonds** (`PLAFONDS_INGESTION`, valeurs provisoires à valider) : PDF 10 Mo, XLSX 2 Mo (plafond du lecteur
+  borné `temps/import-excel.ts`, formules jamais évaluées, première feuille visible) ; 60 pages ; 25 000 caractères par
+  page et 400 000 par document (refus `PLAFOND_PAGES` / `PLAFOND_TEXTE`, jamais de troncature silencieuse) ; extraction
+  30 s ; **5 documents en traitement et 40 créations par 24 heures glissantes par cabinet** (409 `INGESTION_PLEIN`, compté
+  sous `pg_advisory_xact_lock` par cabinet ; un document en traitement depuis plus de 30 minutes n'est plus compté, il n'a
+  plus de job actif) ; 40 000 caractères au plus transmis au modèle (les pages utiles d'abord, le reste signalé
+  « tronqué »). Test : `ingestion-securite.test.ts` (6e document refusé et son objet effacé ; 40 créations par jour ;
+  document bloqué de plus de 30 minutes).
+- **OCR.** Un port `Ocr` (`ingestion/ocr.ts`) et UN adaptateur `OcrSimule`, disponible hors production, qui ne lit qu'un
+  conteneur de test (marqueur `%MPOCRSIM1:` suivi d'une charge JSON en base64) et refuse tout autre document
+  (`OCR_NON_SIMULE`) ; en production aucun adaptateur n'est branché. **Un PDF sans couche texte répond `PDF_SANS_TEXTE`**
+  et aucun état n'est créé. Décision validée le 2026-10-22 : l'OCR sera **LOCAL**, installé sur le serveur, **jamais un
+  service externe** ; il fait l'objet d'un lot dédié (lot 11, en cours, non livré). Un état issu d'une page reconnue par
+  OCR n'est jamais accepté automatiquement. Aucun avis de sécurité propre à l'OCR tant qu'il n'est pas livré (§16).
+- **Journal d'audit.** `ingestion.creer`, `.brouillon`, `.modifier`, `.valider`, `.rejeter`, `.relancer`, `.echec`,
+  `.terminer`, `.effacement_echoue` et `.maintenance` (et `dd_document_televerse`, `dd_lecture_*` pour la DD) portent des
+  identifiants, compteurs, usage, format, taille et empreinte, **jamais** de texte, d'extrait ni de montant ; le nom assaini
+  du fichier figure dans l'événement `televersement` du code partagé de téléversement.
+- **Dettes** : parseur PDF dans le processus de l'API, cascades non Flate et PDF chiffrés bornés seulement par la
+  surveillance, worker de contrôle sans surveillance mémoire, `stockage/detection.ts`, relance et téléversement DD, lecture
+  DD non masquée, limites du masquage, codes de 3 chiffres, texte conservé 90 jours avec ses montants : §15.
+
 ## 9. Paiements et webhooks
 
 Sans objet pour les paiements : aucun prestataire de paiement. Le seul webhook entrant est celui des
@@ -2932,6 +3167,18 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
 - **Signature** : fournisseur local, niveau « simple simulée », SANS valeur juridique ; reconfirmation
   d'identité avec second facteur actif, ordre parallèle ou séquentiel, journal de preuves chaîné en ajout
   seul (`MPH10`), aucun effet sur la mission ni sur le budget.
+- **Horodatage d'une preuve et rejeu (lot 10, mise à jour du 2026-10-22).** `ajouterPreuve` (`canaux/preuves.ts`) lit
+  l'horloge de la base (`clock_timestamp()`, à la milliseconde) puis fait l'INSERT dans une seconde requête, car
+  l'horodatage entre dans l'empreinte chaînée, calculée côté API : il ne peut pas être pris dans l'INSERT lui-même. Le
+  déclencheur de `0547` (inchangé) refuse un horodatage éloigné de plus de 5 s de l'horloge de la base ou antérieur à celui
+  de la preuve précédente (`MPH10`) ; un processus affamé de CPU entre les deux requêtes dépassait la fenêtre (409
+  `PREUVE_IMMUABLE`, reproduit sous charge). L'INSERT est donc protégé par un point de sauvegarde (la transaction de
+  l'appelant survit au refus) et, SI le refus est un `MPH10` dont le message cite l'horodatage, il est rejoué avec une
+  horloge relue et une empreinte recalculée, 3 essais au plus (`ESSAIS_HORODATAGE`). Les autres refus `MPH10` (rang,
+  empreinte précédente, empreinte du document) ne sont JAMAIS rejoués : la chaîne reste gardée par la base, le rejeu ne
+  l'assouplit pas, et un horodatage décroissant (même message) échoue encore après 3 essais. Test de non-régression :
+  `apps/api/test/signatures-routes.test.ts` (`journal de preuves : ajout seul et chaîne`, un `pg_sleep(5.5)` injecté
+  avant le premier INSERT : sans le rejeu le test échoue).
 - **PDF de signature servi `inline`, sans `sandbox`** (mise à jour du 2026-10-21 ; `GET /signatures/:id/document`
   et `GET /portail/signatures/:id/document`, `routes/signatures.ts`, `routes/portail-signatures.ts`) : type
   `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none';
@@ -3103,6 +3350,14 @@ développement via `vitest` (`apps/api`, `packages/engines` : `vitest`,
 `@vitest/mocker`, `tinypool`, `vite`, `esbuild`) : à traiter par une montée de
 version de Vitest.
 
+**Relevé du 2026-10-22 (lot 9e, copie `reste-lot-9e`) : le résultat du 2026-10-06 n'est plus vrai.**
+`pnpm audit --prod` rend 3 vulnérabilités : `next` 15.5.27 (une critique,
+GHSA-2464-fhr4-w9xw, et une haute, GHSA-p3m5-59mp-jv5r ; corrigées en
+`next` ≥ 15.5.28) et `fastify` 5.12.5 (une basse, GHSA-389g-gv7q-r4x8 ; corrigée
+en ≥ 5.12.6). Elles ne viennent pas des lots 6 et 10 (leur seul ajout au
+`pnpm-lock.yaml` est `unpdf`) : avis publiés depuis. Montée de version à décider
+par le superviseur (hors périmètre d'un lot de documentation).
+
 Ajouter une dépendance exige de justifier le choix : le SMTP, le TOTP, le
 chiffrement et l'appel OpenRouter (`fetch`) sont écrits sur `node:*` sans
 bibliothèque. Bibliothèques ajoutées en V2 (commit `41603e5`) : `docx`,
@@ -3111,6 +3366,18 @@ Chrome, sans navigateur téléchargé) et `exceljs` (import Excel). `exceljs`
 remplace le paquet `xlsx` de npm, écarté pour ses vulnérabilités connues ; il
 ne reçoit jamais le fichier d'origine mais une archive reconstruite après
 contrôle (§8).
+
+Bibliothèque ajoutée par le lot 6 (2026-10-22, ADR-009) : `unpdf` **1.8.1** (version exacte, dans `apps/api/package.json`),
+la lecture du texte des PDF de l'ingestion de documents (§8 undecies). C'est la SEULE dépendance ajoutée et elle n'a
+aucune dépendance transitive (`pnpm-lock.yaml` : aucune entrée `dependencies` ; le pair `@napi-rs/canvas`, nécessaire au
+seul rendu d'images, est optionnel et jamais installé). Elle empaquette pdf.js de Mozilla (distribution « serverless »,
+maintenue activement, polices intégrées et flux compressés courants) sans binaire ni accès réseau ; elle est utilisée en
+mode texte seulement (aucune évaluation de code, aucune police ni ressource distante, aucun rendu). Choix écartés (ADR-009) :
+`pdfjs-dist` direct (configuration Node plus lourde, dépendance native optionnelle), `pdf-parse` et `pdf2json` (non
+maintenus). Cette dépendance implique **Node 22 au minimum** : `unpdf` 1.8.1 exige Node >= 22 et la mesure de la mémoire
+externe du worker d'extraction (`worker.getHeapStatistics()`) n'existe qu'à partir de Node 22.16 (§8 undecies). `engines.node`
+du `package.json` racine est `>=22` et la CI (`.github/workflows/ci.yml`, deux jobs) tourne sur Node 22. Un parseur de PDF non
+fiable s'exécute dans le processus de l'API, dans un `worker_thread` à mémoire plafonnée : voir §15 (dette de sécurité).
 
 ## 15. Risques acceptés et dette de sécurité connue
 
@@ -3177,8 +3444,23 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | IA, cache des réponses (AGT-06, désactivé par défaut) : un nom propre absent des termes sensibles n'est pas masqué ; il est déjà envoyé au fournisseur, et le cache le garde en plus au plus 24 heures, chiffré (AES-GCM, AAD cabinet + clé), dans le seul cabinet ; aucune entrée ne traverse un cabinet ; la durée de 24 heures est posée sans avis juridique | `ia/cache.ts`, `ia/masquage.ts`, `migrations/0278_ia_cache_reponses.sql` |
 | IA, plafond de coût par mission : le dépassement est borné par le coût estimé du dernier appel admis (le contrôle porte sur « consommé + réservé ≥ plafond » avant l'appel) ; le commentaire IA de l'avancement et le copilote (`appelerSansDemande`) ainsi que les évaluations ne sont pas soumis au plafond de mission, seulement au plafond mensuel du cabinet | `agents/plafonds.ts`, `ia/orchestrateur.ts`, `automatisation/avancement-ia.ts` |
 | Rapport d'avancement hebdomadaire (AUT-10) : pas de rendu PDF ni Word (consultation web seule, décision du lot 4c) ; écrans du cabinet et du portail (rapport, cache, contre-analyse) NON vérifiés dans un navigateur ; commentaire IA essayé seulement contre un fournisseur simulé ; planification en jours ouvrés, lots de 25 missions et 40 lots par semaine : valeurs de départ à valider ; du SQL arbitraire du rôle applicatif peut insérer un rapport dont `contenu` n'est pas celui du moteur (le déclencheur ne recalcule pas) | `automatisation/avancement-job.ts`, `automatisation/avancement-ia.ts`, `migrations/0307_avancement_rapports.sql` |
+| Ingestion de documents (lot 6) : un parseur de PDF NON FIABLE (`unpdf`, pdf.js) s'exécute dans le PROCESSUS de l'API, dans un `worker_thread` à tas plafonné (256 Mo) avec pré-contrôle des flux, délais (5 s plus 30 s, 35 s au pire par document) et surveillance de la mémoire externe (256 Mo) et du RSS (+512 Mo) toutes les 150 ms ; PAS de processus ni de conteneur séparé (une faille d'exécution de code dans pdf.js, ou une mémoire hors tas qui monte entre deux mesures, touche le processus de l'API) ; pas d'antivirus ; un document occupe le worker de jobs jusqu'à 35 s, la file `jobs` étant partagée entre cabinets | `ingestion/pdf.ts`, `ingestion/pdf-controle.ts`, `ingestion/pdf-worker.mjs`, ADR-009 |
+| Ingestion, PDF : les cascades dont la PREMIÈRE couche n'est pas Flate (`ASCIIHex`, `ASCII85`, `LZW`, `RunLength`, puis Flate) et les PDF chiffrés échappent au pré-contrôle et ne sont bornés que par la surveillance de la mémoire (défense RÉACTIVE : cascade de 1,5 Go coupée en 2,6 à 3,0 s avec un pic de +321 à +363 Mo de RSS, jusqu'à 2 workers d'extraction simultanés) ; le worker de contrôle n'a pas de surveillance mémoire (borné par l'algorithme, environ 100 Mo au pire) ; faux refus connus (`PLAFOND_TEXTE` : flux Flate de plus de 32 Mo, scan Flate brut de plus de 5 pages A4 en RGB, PDF abîmé aux environ 7 flux tronqués, plus de 4 096 flux : l'utilisateur re-soumet un PDF régénéré) | `ingestion/pdf-controle.ts`, `ingestion/pdf.ts` (`SURVEILLANCE_MEMOIRE`), `test/ingestion-pdf.test.ts` |
+| Détection des PDF à la réception (§8) : `inflerBorne` garde `CINFO <= 7` (refus sans danger, alors que le pré-contrôle de l'ingestion l'accepte comme pdf.js) et ne compte pas l'ENTRÉE lue par zlib sur les flux d'objets (le pré-contrôle de l'ingestion la compte) : à examiner séparément | `stockage/detection.ts` (`inflerBorne`), `ingestion/pdf-controle.ts` |
+| Ingestion, effacement de l'objet de stockage (M1, ancienne dette de la revue du 2026-10-21 : « effacerObjetsMarques non branchée », désormais branchée au job `ingestion_maintenance`) : RESTE que `effacerObjetsMarques` ne distingue pas l'origine du marquage `retire` et efface physiquement tout objet marqué `retire` du cabinet, donc aussi les dépôts retirés de la salle de mission (`salle-mission/depots.ts` ne les marquait que, sans effacer l'objet) : effet de bord irréversible à confirmer, 200 objets par passage, les plus récemment marqués d'abord ; qu'un objet dont l'effacement échoue plus de 30 jours de suite n'est plus planifié seul (il reste tenté si le job tourne) ; et que `fichiers_suppressions` ne dit pas si l'objet a été effacé | `ingestion/fichier-temporaire.ts` (`effacerObjetsMarques`), `ingestion/maintenance.ts`, `migrations/0524_ingestion_purge_textes.sql` |
+| Ingestion, relance et téléversement : (M5) la structuration d'une relance de lecture agit avec les droits et le quota IA de l'AUTEUR du document (`authDe(doc.cree_par)`), non du demandeur de la relance ; (M7) le téléversement d'un document DD s'exécute en TROIS transactions (contrôle du dossier, création du document, journal DD) : un échec entre la deuxième et la troisième laisse un document sans ligne de journal DD ; le détail d'une extraction `lecture_document` de la due diligence n'est pas masqué (ni noms ni montants, `dd_rapport` et `dd_salle` n'ont pas de masquage) | `ingestion/job-structuration.ts`, `routes/ingestion-dd.ts`, `ingestion/ia-lignes.ts`, `docs/workflows/notes-lots/lot-6.md` |
+| Ingestion, amorçage du standard (STD-13) : le masquage des noms ne couvre que les noms COMPLETS connus du cabinet (un fragment, une faute de frappe, un nom absent des fiches, un nom ajouté par correction humaine partent ou passent en clair), au plus 40 tranches de 200 mots distincts et 200 termes ; toute donnée financière à 3 chiffres ou plus est refusée, y compris dans un CODE (à assouplir si le métier veut des codes numérotés) ; le détecteur `contientDonneeFinanciere` est une heuristique (« cent pour cent » faux positif, « 3k » faux négatif) ; la restriction du texte des pages à l'auteur ou à `finance.lire` est une hypothèse métier à valider ; toujours aucune vérification avec un vrai modèle (aucune clé) | `copilote/noms-propres.ts` (`BORNES_NOMS_INGESTION`), `ingestion/ia-lignes.ts`, `packages/engines/src/ingestion/proposition.ts`, `routes/ingestion-standard.ts` |
+| Ingestion, texte des pages conservé en base jusqu'à la décision plus 90 jours, SANS masquage des montants dans cette copie (durée décidée par l'utilisateur le 2026-10-22 ; état financier, lignes et brouillons restent) ; plafonds (10 Mo, 60 pages, 5 en traitement, 40 par 24 h…) et 35 s : valeurs provisoires à valider ; extraction OCR réelle non faite (§16) | `ingestion/maintenance.ts` (`CONSERVATION_TEXTE_JOURS`), `migrations/0524_ingestion_purge_textes.sql`, `packages/shared/src/schemas/ingestion.ts` |
+| Ingestion, deux lignes mineures de la recherche n° 8 (arrondis), non corrigées : `Math.round` de la confiance OCR en millièmes (`pdf.ts`, ligne 297 ; la note du lot 6 citait la ligne 239) et `Math.floor` de la taille en Mo dans le message de dépassement (`erreurs.ts`, ligne 29) ; aucun montant n'est arrondi | `ingestion/pdf.ts`, `ingestion/erreurs.ts` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
+
+Soldé le 2026-10-22 (lots 6 et 10, aucune ligne du tableau n'existait pour ces points) : l'ingestion de documents PDF et
+Excel avait été repoussée faute d'ADR (l'ADR-009 était citée sans avoir été écrite ; elle l'est, §8 undecies) ; la
+fragilité de l'horodatage des preuves de signature sous charge (409 `PREUVE_IMMUABLE`, rejeu borné en §9 bis, migration
+`0547` inchangée) ; la reprise des objets de stockage dont l'effacement échoue (M1, branchée au job d'ingestion, reste
+décrit dans la ligne « effacement de l'objet de stockage » ci-dessus) ; la dette « `router.refresh()` direct » du web, sauf
+pour les écrans du lot 6 (§5). Le prérequis Node passe à 22 au minimum (§14).
 
 ## 16. Points ouverts
 
@@ -3227,3 +3509,14 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   noms absents des fiches, fragments, fautes de frappe, §7 bis) ; trancher la durée de conservation des
   propositions du copilote avec le conseil juridique. (Le compteur de débit du brief est devenu persistant et
   partagé entre instances le 2026-10-21 : point soldé.)
+- **Ingestion de documents (lot 6, §8 undecies, §15 ; ADR-009, `DECISIONS.md`)** : **OCR local** (lot 11, en cours, NON
+  livré) : décision validée le 2026-10-22, un moteur installé sur le serveur, hors ligne, jamais un service externe ;
+  tant qu'il n'est pas livré, un PDF sans texte natif répond `PDF_SANS_TEXTE` et aucun avis de sécurité propre à l'OCR
+  n'existe (adaptateur, données de langue livrées dans l'image, durée et mémoire plafonnées, exécution isolée à
+  examiner à la livraison) ; **à confirmer par le métier** : la restriction du texte des pages d'amorçage à l'auteur ou à
+  `finance.lire` (hypothèse FIN-02), l'assouplissement du refus des codes à 3 chiffres ou plus, le masquage des noms pour
+  `dd_rapport` et `dd_salle` (non demandé), les plafonds (10 Mo, 60 pages, 5 documents en traitement, 40 par 24 h) ;
+  **à trancher** : un processus ou conteneur séparé pour le parseur de PDF (§15), la portée de `effacerObjetsMarques`
+  (§15), le recueil d'un avis juridique sur la durée de 90 jours du texte des pages ; **à confirmer sur un onglet visible**
+  (lot 10, A-04) : la cause du défaut d'affichage périmé après une écriture reste NON PROUVÉE (§5), et l'affichage de
+  `/observatoire` après adhésion (versement, retrait, A-01).

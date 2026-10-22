@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9e).
+
 # Notes du lot 6 — ingestion de documents et OCR (2026-10-21)
 
 Branche `orch/2026-10-20-reste-lot-6`. `HANDOFF.md`, `SECURITY.md`, `DECISIONS.md` et `CODING_STANDARDS.md` ne
