@@ -204,8 +204,11 @@ reproduction et chiffres : `docs/workflows/notes-lots/lot-11.md`.
 - **Risques résiduels** : moteur WebAssembly et pdf.js exécutés sur un fichier non fiable dans un sous-processus
   Node SANS conteneur ni seccomp (dette de sécurité) ; la mémoire hors tas (pdf.js, WebAssembly jusqu'à 2 Go) n'est
   bornée que par la veille du RSS (768 Mo, mesure toutes les 100 ms : coupure réactive, pas une limite du système) ;
-  pas de pare-feu sortant applicatif (le garde est une défense en profondeur, un pare-feu serveur reste
-  recommandé) ; qualité inconnue sur de vraies liasses SYSCOHADA ; scans en JPEG 2000 (JPX), CCITT ou JBIG2 non
+  pas de pare-feu sortant applicatif : le garde réseau est une défense en profondeur DANS le processus, il bloque les API
+  publiques de sortie mais ni les poignées natives déjà construites ni une faille native ou WebAssembly (contournement
+  résiduel signalé par le vérificateur, voir lot-11.md ; précondition : code déjà exécuté dans le sous-processus), et le
+  modèle de permissions de Node ne couvre pas les sockets : la barrière réelle est un PARE-FEU SORTANT du serveur, obligatoire,
+  qui interdit toute sortie au processus de l'API et à ses sous-processus ; qualité inconnue sur de vraies liasses SYSCOHADA ; scans en JPEG 2000 (JPX), CCITT ou JBIG2 non
   testés ; scan négatif (texte clair sur fond sombre) vu comme une page sans encre.
 
 ## Conséquences positives
