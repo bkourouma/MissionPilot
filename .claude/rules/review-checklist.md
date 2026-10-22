@@ -14,13 +14,14 @@ Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
 si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
 ont été relevés le 2026-10-22 en lançant les commandes ci-dessous dans la copie de travail
-`reste-lot-9c` (branche d'intégration `orch/2026-10-20-reste-lot-9c`) : `main`, identique à
+`reste-lot-9d` (branche d'intégration `orch/2026-10-20-reste-lot-9d`) : `main`, identique à
 `origin/main` (merge commit `3d5a252`, PR n° 14, vague 4 fusionnée), plus les lots 1 (socle IA),
 2 (redressement 3a-bis), 3 (due diligence 3b-bis, canaux 3c-bis), 4a (méthodes et revue à froide),
 4b (dossier, preuves, finance), 4c (rapport d'avancement hebdomadaire, cache et plafonds IA,
 contradicteur), 5a (plans et notation augmentés), 5b (capitalisation, observatoire,
-veille des appels d'offres), 7 (services candidats) et 8a (CI) du chantier du
-2026-10-20, non encore fusionnés dans `main`. Les valeurs de `main` restent entre parenthèses quand
+veille des appels d'offres), 7 (services candidats), 8a (CI), 8b (dettes transverses : voyant
+rouge du brief, revue à froide paginée, ateliers, rejeux Monte-Carlo, `paramsId` strict, pages de 500)
+et 8c (découpage de 34 fichiers web) du chantier du 2026-10-20, non encore fusionnés dans `main`. Les valeurs de `main` restent entre parenthèses quand
 elles expliquent un écart ; un autre résultat est un écart à expliquer, pas à ignorer. Les attendus
 ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanismes :
 `docs/governance/SECURITY.md` et `docs/governance/CODING_STANDARDS.md`.
@@ -243,8 +244,15 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   retard » ; une source à
   filtre final en code marque sa famille « tronquée » (`enSourceFiltree`) plutôt que de gonfler
   le total. Un type d'élément de plus : le moteur (`packages/engines/src/brief`), le schéma
-  (`schemas/brief.ts`), une source et leurs tests (30 types en trois familles, 29 sources au
-  2026-10-21).
+  (`schemas/brief.ts`), une source et leurs tests (31 types en trois familles, 30 sources au
+  2026-10-22). **Une source défaillante est isolée, elle ne met pas la requête entière en 500** :
+  toute source qui appelle un moteur ou une lecture pouvant lever une erreur métier
+  (`ErreurRedressement`) l'attrape dossier par dossier (élément ignoré, source marquée
+  `interrompue`, famille tronquée) et borne le nombre d'évaluations par requête (modèle
+  `voyantsRedressementRouges`, `brief/derives.ts` : 50 dossiers lus, `PLAFOND_EVALUATIONS_VOYANT` = 20
+  évalués) ; le voyant rouge (`voyant_rouge`) est derrière `redressement.lire` ET la visibilité de la
+  mission, ne lit pas les dossiers clos, et n'expose AUCUN montant ni devise même avec `finance.lire`
+  (libellés de motifs critiques seulement).
 - **Redressement** (service #5, lots 3a et 3a-bis ; `apps/api/src/redressement/`, `routes/redressement*.ts`,
   migrations `0480`–`0492` et `0551`, moteur `packages/engines/src/redressement`) : **30 tables** à RLS
   (15 du 3a, 15 du 3a-bis : `0487`–`0491`), `isolation`
@@ -285,9 +293,16 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   (SON client, SON utilisateur, atelier OUVERT où il est invité) ; la politique de `plan_atelier_participants` ne
   référence aucune autre table (récursion RLS) ; `plan_simulations_montecarlo`, `plan_realises`,
   `plan_reprevisions` restent `portail_interdit`. Les contributions individuelles ne sont jamais servies ;
-  agrégats au cabinet APRÈS clôture seulement ; permission `portail.ateliers.participer` (`client_dirigeant` seul) ;
+  agrégats au cabinet APRÈS clôture seulement, **seuil de 3 contributeurs appliqué PAR MÉTHODE**
+  (`appliquerSeuil`, `plans/ateliers-resultats.ts` : une méthode sous le seuil devient
+  `{ resultat: null, masque_seuil: true, seuil_participants: 3 }`, `ayant_contribue` n'est plus servi, la synthèse
+  IA ne cite que les méthodes publiées et refuse en 409 `ATELIER_AGREGATS_MASQUES` si aucune ne l'est) ;
+  permission `portail.ateliers.participer` (`client_dirigeant` seul) ;
   même 404 pour inexistant, d'autrui, non invité ou non ouvert. La graine de Monte-Carlo est tirée par l'API
-  (`crypto.randomInt`), jamais par le moteur.
+  (`crypto.randomInt`), jamais par le moteur. Le rejeu d'une simulation est plafonné à 5 par plan et par
+  10 minutes, tous utilisateurs confondus (429 `TROP_DE_REJEUX`, table `plan_rejeux_montecarlo`, `0432` : RLS
+  `isolation` + `portail_interdit`, verrou consultatif par plan, purge à une heure ; valeurs provisoires) ; la liste
+  des candidats (`candidatsAtelier`) a des plafonds déclarés et renvoie `tronque: true` au lieu de paginer.
 - **Groupes et filiales** (DOS-05, lot 4b ; `0225`, `dossier/`, `routes/dossier-groupes.ts`) : participations en
   ajout seul, parts en points de base, cycle (`MQF01`), total > 100 % (`MQF02`), fin sans détention antérieure
   (`MQF03`) et profondeur > 8 liens (`MQF04`) refusés à l'API ET en base, en 409 (l'auto-détention reste 400) ;
@@ -300,7 +315,9 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   valeur retirée ou borne resserrée refusées (`MQS02`) ; une campagne de revue figée après le tirage
   (`MQQ02`), une revue terminée figée (`MQQ04`), historique des actions en ajout seul (`MQQ01`), 19 routes sous
   `/api/qualite/revue-froide/**` sans entrée dans `LISTE_BLANCHE_PORTAIL` ; la grille complète (8 critères) est
-  codée en dur dans le déclencheur de `0287` : une grille v2 exige une migration.
+  codée en dur dans le déclencheur de `0287` : une grille v2 exige une migration. `mes-revues` est paginée par
+  curseur keyset propre à sa liste (tri à directions mixtes, `limite` 1 à 100, défaut 50, schéma strict) ; le
+  relecteur d'une revue en cours ne se remplace pas (409 `REAFFECTATION_EN_REVUE`, doublé par `MQQ13`, `0290`).
 - **Canaux simulés : alertes KPI sortantes** (lot 3 ; `canaux/alertes-kpi.ts`, `kpi/suivi.ts`, `0549`) : option du
   compte `alerte_kpi` DÉSACTIVÉE par défaut, mise en file seulement vers des responsables INTERNES à numéro
   vérifié et consentement accordé, aucune valeur chiffrée ni libellé de KPI, bloc sous `SAVEPOINT` (ne fait jamais
@@ -465,10 +482,10 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
 - **Migrations** : une migration **commitée** ne se modifie pas, on ajoute un
   fichier dans la bonne plage (CODING_STANDARDS §1) ; une migration encore
   **non commitée** peut être corrigée sur place (bases qui l'ont appliquée à
-  recréer). Au 2026-10-22, les 224 fichiers de la branche d'intégration sont commités
-  (180 déjà dans `origin/main` après les PR n° 12 à 14, 44 posés par les lots du 2026-10-20 et
-  du 2026-10-21, dont `0364`–`0367`, `0466`–`0467`, `0470`–`0472`, `0560`–`0563` et, pour le lot 4c,
-  `0278`, `0279`, `0306`, `0307`, `0308`) :
+  recréer). Au 2026-10-22, les 226 fichiers de la branche d'intégration sont commités
+  (180 déjà dans `origin/main` après les PR n° 12 à 14, 46 posés par les lots du 2026-10-20 et
+  du 2026-10-21, dont `0364`–`0367`, `0466`–`0467`, `0470`–`0472`, `0560`–`0563`, pour le lot 4c
+  `0278`, `0279`, `0306`, `0307`, `0308`, et pour le lot 8b `0290` et `0432`) :
   tous sont à tenir pour immuables, dont `0270` (rejeu réel OpenRouter), les six des
   lacunes de la vague 2 (`0271`–`0274`, `0303`, `0304`) et les 43 des vagues 2 et 3.
   **Numérotation** : la plage de chaque domaine est dans CODING_STANDARDS §1 ; la QUEUE
@@ -494,14 +511,17 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   relecture qui garantit la règle (recherche n° 13). Les migrations V2 corrigées
   pendant la session du 2026-10-06 sont commitées depuis `6d62428` : elles sont
   désormais immuables. Prochains numéros libres (2026-10-22) : STD `0211`, DOS `0226`,
-  PRV `0244`, QUA `0290`, AGT aucun (plage `0260`–`0279` épuisée : `0278` et `0279` consommés), AUT `0309`–`0319`, AO-A `0368`–`0379`, NOT `0405`–`0419`,
-  PLA `0427`–`0428` puis `0432`–`0439`, CAP `0468`–`0469` puis `0473`–`0479`, redressement
+  PRV `0244`, QUA `0291`, AGT aucun (plage `0260`–`0279` épuisée : `0278` et `0279` consommés), AUT `0309`–`0319`, AO-A `0368`–`0379`, NOT `0405`–`0419`,
+  PLA `0427`–`0428` puis `0433`–`0439`, CAP `0468`–`0469` puis `0473`–`0479`, redressement
   `0493`–`0499`, due diligence `0510` puis `0512`–`0519`, services candidats `0564`–`0579`.
 - **Dates métier** : une date bornée par un `CHECK` SQL utilise `dateIsoBorneeSchema`
   (`packages/shared/src/schemas/commun.ts`, 2000 à 2100) ; le SQLSTATE 23514 qui
   échappe au schéma se traduit en 400, jamais en 500 (couches d'erreurs des domaines,
-  par ex. `salle-mission/erreurs.ts`, `plans/erreurs.ts`).
-- **Entrées** : schéma Zod `.strict()` partagé, requêtes paramétrées ; une
+  par ex. `salle-mission/erreurs.ts`, `plans/erreurs.ts`) ; les dates de `schemas/temps.ts` sont bornées de même.
+- **Entrées** : schéma Zod `.strict()` partagé, requêtes paramétrées ; `paramsId`
+  (`apps/api/src/http/outils.ts`) est `.strict()` et ne porte que `:id` : une route dont le chemin a un autre
+  paramètre déclare son propre schéma strict (modèle `paramsConstat`, `routes/qualite-froide.ts`) au lieu de
+  réutiliser `paramsId`, et un `paramsId` non strict est un écart ; une
   interpolation dans un gabarit SQL n'est admise que pour une constante, un
   fragment construit (`clauseSet`, `filtreVisibilite`), un choix entre
   constantes selon un enum validé, ou `FOR UPDATE`.
@@ -572,7 +592,8 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   « Confier à » du rétro-planning, 2026-10-10). Le défaut sûr est 200 ; une route
   plafonnée à 100 (la plupart des listes : `schemas/facturation.ts`, `clients.ts`,
   `appels-offres.ts`) passe `limiteMax: 100`, une liste large (missions,
-  opportunités : 500) peut passer `LIMITE_PAGE_MAX`. Recherche n° 20.
+  opportunités : 500) passe `LIMITE_PAGE_MAX` (toutes les pages de liste de missions le font depuis le lot 8b).
+  Recherche n° 20.
 
 ## Tests obligatoires
 
@@ -601,29 +622,33 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
 ## Recherches mécaniques
 
 À lancer depuis la racine (ripgrep 15). « Attendu » = résultat du 2026-10-22 dans la copie de travail
-`reste-lot-9c` (branche d'intégration `orch/2026-10-20-reste-lot-9c` : `main` = `origin/main` au merge
-commit `3d5a252`, plus les lots 1, 2, 3, 4a, 4b, 4c, 5a, 5b, 7 et 8a du chantier du 2026-10-20, non fusionnés).
+`reste-lot-9d` (branche d'intégration `orch/2026-10-20-reste-lot-9d` : `main` = `origin/main` au merge
+commit `3d5a252`, plus les lots 1, 2, 3, 4a, 4b, 4c, 5a, 5b, 7, 8a, 8b et 8c du chantier du 2026-10-20, non fusionnés).
 Les recherches n° 1 à 14 et 16 à 21 ont été relancées ce jour avec la commande exacte ci-dessous ; les n° 11
 et 12 par script ponctuel hors dépôt (réécrit pour ce relevé), dont la méthode a d'abord été vérifiée sur l'état
-d'AVANT le lot 4c (premier parent du merge `40c0541`, extrait par `git archive`) : elle y retrouve exactement
-les chiffres du relevé précédent (n° 11 : 1 672 / 1 625 / 796 / 238 ; n° 12 : 867 `z.object`, 0 non strict ;
-n° 10 : 957 routes, 9 sans `exiger`) ; le n° 15 (réseau) n'a PAS été relancé. Les valeurs d'avant le lot 4c
-(relevé précédent, `reste-lot-9b`) sont données pour expliquer chaque écart ligne par ligne.
+d'AVANT les lots 8b et 8c (premier parent `6e17248` du merge `2e262dd`, extrait par `git archive`) : elle y retrouve exactement
+les chiffres du relevé précédent (n° 11 : 1 697 / 1 650 / 811 / 240 ; n° 12 : 889 `z.object`, 11 non stricts voulus ;
+n° 10 : 972 routes, 9 sans `exiger`) ; le n° 15 (réseau) n'a PAS été relancé. Les valeurs d'avant 8b et 8c
+(relevé précédent, « lot 4c compris », copie `reste-lot-9c`) sont données pour expliquer chaque écart ligne par ligne.
+Les listes complètes des résultats des n° 1 à 6, 8, 9, 14, 16, 17, 18 et 21 ont de plus été comparées, ligne à ligne, à celles de l'état
+d'avant : elles sont identiques, pas seulement de même taille.
 
-**Relevé du 2026-10-22 de la branche d'intégration, lot 4c compris.** Il REMPLACE le relevé précédent du même
-jour (état « avant 4c », copie `reste-lot-9b`). Les n° 1 à 6, 8, 9, 14, 17, 18, 20 et 21 donnent le même résultat ;
-changent les n° 10, 11, 12, 13, 16 et 19 ; le n° 7 est inchangé en nombre (22) :
+**Relevé du 2026-10-22 de la branche d'intégration, lots 8b et 8c compris.** Il REMPLACE le relevé précédent du même
+jour (« lot 4c compris », copie `reste-lot-9c`). Les n° 1 à 6, 8, 9, 10, 14, 16, 17, 18 et 21 donnent le même résultat ;
+changent les n° 7, 11, 12, 13 et 20 ; le n° 19 est inchangé en nombre (77 lignes dans 61 fichiers) mais cinq numéros de
+ligne ont bougé :
 
 | N° | Attendu | Explication |
 | --- | --- | --- |
-| 1 à 6, 8, 9, 14, 17, 18, 20, 21 | inchangés (2, 1, 5, 0, 0, 0, 12, 1, 0, 2, 6, 23, 1) | — (le lot 4c n'ajoute ni client PostgreSQL, ni `process.env`, ni arrondi, ni `console`, ni `avecPlaceAnalyse`, ni `chargerToutesLesPages` ; ses écrans web n'appellent pas la pagination par boucle) |
-| 7 | 22 lignes | inchangé : le lot 4c ajoute 0 `LIMIT` littéral > 1 (ses requêtes lisent par `LIMIT $n` ou `LIMIT 1`, voir le n° 7) |
-| 10 | « 972 9 » puis 9 lignes | 972 routes = 957 avant 4c + 15 du lot 4c, toutes sous `exiger` : `automatisation-avancement.ts` +9 (cabinet : `GET`/`POST /missions/:id/avancement`, `GET`/`PATCH /avancement/:id`, `POST …/regenerer`, `…/valider`, `GET`/`PUT /avancement/parametres`, `POST …/suggerer-commentaire`), `agents.ts` +4 (`/agents/revues-contradictoires` `POST` et `GET`, `…/:id`, `…/preparation`), `portail-avancement.ts` +2 ; les neuf lignes sans `exiger` sont les mêmes |
-| 11 | 1 697 gabarits, 1 650 hors seed, 811 interpolations, 240 expressions | 1 672 / 1 625 / 796 / 238 avant 4c : lot 4c +25 / +25 / +15 / +2 (détail au n° 11) |
-| 12 | 889 `z.object`, dont 878 `.strict()` et 11 non stricts VOLONTAIRES (`contenuAvancementSchema` et ses sous-objets) | 867 avant 4c (tous stricts) + 22 du lot 4c : `automatisation.ts` +19, `agents.ts` +2, `portail.ts` +1 (détail au n° 12) |
-| 13 | 224 migrations, 0 modifiée ni supprimée dans l'historique | 219 avant 4c + 5 du lot 4c (`0278`, `0279`, `0306`, `0307`, `0308`) ; 44 lignes « A » contre `main` (détail au n° 13) |
-| 16 | 32 lignes | 30 avant 4c + 2 du lot 4c : `0278` (`planifier_conservation_ia` redéfinie) et `0308` (`planifier_avancement_hebdo`) |
-| 19 | 77 lignes dans 61 fichiers | 76 dans 60 avant 4c + 1 `cleLigne` vers `components/ui/Tableau.tsx` (composant serveur) : `missions/[id]/avancement/page.tsx:133` (lot 4c) |
+| 1 à 6, 8, 9, 14, 16, 17, 18, 21 | inchangés (2, 1, 5, 0, 0, 0, 12, 1, 0, 32, 2, 6, 1) | — (les lots 8b et 8c n'ajoutent ni client PostgreSQL, ni `process.env`, ni arrondi, ni `console`, ni `GRANT EXECUTE` (les migrations `0290` et `0432` n'en portent pas), ni `avecPlaceAnalyse`, ni en-tête d'idempotence, ni `INSERT INTO agents_evaluations`) |
+| 7 | 19 lignes | 22 avant 8b : -3, toutes dans le lot 8b. `plans/ateliers.ts` : les deux lignes sans plafond de table (`:473` membres du cabinet, `:491` dirigeants du client) passent en `LIMIT $3` / `LIMIT $2` (plafonds déclarés `CANDIDATS_CABINET_LUS_MAX` + 1 et `CANDIDATS_DIRIGEANTS_MAX` + 1, paramètres) ; `qualite/froide-revue.ts:133` (200 revues d'un relecteur) disparaît, `mesRevues` lit par curseur keyset en `LIMIT $2` (`:177`). Les trois autres lignes de `ateliers.ts` changent de numéro seulement (85 -> 87, 135 -> 137, 462 -> 489) |
+| 10 | « 972 9 » puis 9 lignes | inchangé : le lot 8b ne pose aucune route (comparaison fichier à fichier avec l'état d'avant) ; le lot 8c ne touche pas `routes/` |
+| 11 | 1 699 gabarits, 1 652 hors seed, 813 interpolations, 240 expressions | 1 697 / 1 650 / 811 / 240 avant 8b : +2 / +2 / +2 / 0, tout dans le lot 8b : `brief/derives.ts` +1 gabarit (la source `voyantsRedressementRouges`, avec ses deux interpolations `COLONNES_DOSSIER` et `VISIBLE`, déjà comptées parmi les 240) et `plans/montecarlo.ts` +1 gabarit sans interpolation (le décompte des rejeux, `plan_rejeux_montecarlo`) |
+| 12 | 890 `z.object`, dont 879 `.strict()` et 11 non stricts VOLONTAIRES (`contenuAvancementSchema` et ses sous-objets) | 889 avant 8b + 1 : `mesRevuesQuerySchema` (`schemas/qualite.ts`, strict, lot 8b) ; les onze non stricts sont les mêmes (`automatisation.ts`, mêmes lignes) ; les changements de `brief.ts` et `temps.ts` n'ajoutent aucun `z.object` |
+| 13 | 226 migrations, 0 modifiée ni supprimée dans l'historique | 224 avant 8b + 2 du lot 8b (`0290`, `0432`) ; 46 lignes « A » contre `main` (détail au n° 13) |
+| 19 | 77 lignes dans 61 fichiers | inchangé en nombre et en destinataires (71 `cleLigne`, 3 `href`, 1 `hrefCible`, 2 faux positifs). Cinq numéros de ligne bougent de +1 ou +2 (lot 8b, ajout de `limiteMax` aux appels voisins) : `facturation/page.tsx` 150 -> 152, `missions/page.tsx` 203 -> 205, `pipeline/page.tsx` 138 -> 139 et 231 -> 232, `temps/debours/page.tsx` 90 -> 92. Le lot 8c ne touche aucune page ni aucun layout |
+| 20 | 24 lignes | 23 avant 8b : +1, `lib/qualite-froide-serveur.ts:98` (`chargerMesRevues`, suit le curseur de `mes-revues`, lot 8b, avec `limiteMax: LIMITE_MES_REVUES`) ; 23 appels plus la définition. Les dix appels sur `/api/missions` ou `/api/opportunites` passent de « sans `limiteMax` » à `limiteMax: LIMITE_PAGE_MAX` (lot 8b) : plus aucun appel n'est sans `limiteMax`. Le lot 8c ne déplace aucun appel (`appels-offres-serveur.ts`, `canaux-serveur.ts`, `due-diligence*.ts` gardent leurs fichiers et leurs numéros de ligne) |
+
 
 ```bash
 # 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
@@ -646,21 +671,24 @@ rg -n "NEXT_PUBLIC_" apps
 rg -n "SUM\(|AVG\(" apps/api/src --glob '!db/seed*'
 
 # 7. LIMIT littéral > 1 (toute liste est paginée par curseur, LIMIT $n).
-#    Attendu (2026-10-22, lot 4c compris) : 22 lignes, inchangé par le lot 4c (19 au 2026-10-21 ; 1 sur `main` avant la vague 4, 12 après les lots 3a et 3c) :
+#    Attendu (2026-10-22, lots 8b et 8c compris) : 19 lignes (22 avant le lot 8b, inchangé par le lot 4c ; 19 au 2026-10-21 ; 1 sur `main` avant la vague 4, 12 après les lots 3a et 3c) :
 #    - 1 seed : le LIMIT 2 de db/seed-planification.ts ;
 #    - 7 de `redressement/`, chacun DOUBLÉ en base par un plafond de volume (actions.ts 1000 et 200,
 #      creanciers.ts 200, 100 et 300, tresorerie.ts 1000, déclencheurs `MPZ10`) sauf seuils.ts (400 lus,
 #      6 secteurs × 50 versions = 300 au plus en base) ;
 #    - 4 de `canaux/` (maintenance.ts 200, synthese-sources.ts 200, saisies-kpi.ts 200 et 24), lectures
 #      BORNÉES relues en entier, chacune doublée d'un plafond de table ;
-#    - 7 neuves : `plans/ateliers.ts` (85 options, plafond 50 ; 135 et 462 participants, plafond 100,
-#      `MQL08`), `plans/ateliers-contributions.ts:215` (150), puis les TROIS lignes sans plafond de
-#      table, dette à relire : `plans/ateliers.ts:473` (500 membres du cabinet), `:491` (200
-#      dirigeants du client), `qualite/froide-revue.ts:133` (200 revues d'un relecteur) ;
+#    - 4 neuves : `plans/ateliers.ts` (87 options, plafond 50 ; 137 et 489 participants, plafond 100,
+#      `MQL08`), `plans/ateliers-contributions.ts:215` (150). Les trois lignes SANS plafond de table
+#      d'avant 8b ont quitté la recherche : `plans/ateliers.ts` lit désormais les membres du cabinet et les
+#      dirigeants du client en `LIMIT $n` (plafonds déclarés `CANDIDATS_CABINET_LUS_MAX` 500 et
+#      `CANDIDATS_DIRIGEANTS_MAX` 200, `tronque: true`) et `qualite/froide-revue.ts` pagine `mes-revues` par
+#      curseur keyset (`LIMIT $2`, `:177`) : invisibles ici, plafond de table toujours absent pour les
+#      candidats (dette déclarée, CODING_STANDARDS §10) ;
 #    - 3 neuves du lot 5b, toutes dans `capitalisation/efficacite.ts` : `:289` (50 instantanés d'une
 #      recommandation), `:366` (200 KPI actifs d'une mission), `:375` (200 initiatives du plan) : lectures
 #      bornées par le code (menu et historique, troncature silencieuse au-delà), SANS plafond de table
-#      trouvé (relu : 0466, 0467, 0160, 0180, 0420), donc dette à relire comme les trois lignes de 4a et 5a.
+#      trouvé (relu : 0466, 0467, 0160, 0180, 0420), donc dette à relire.
 #      L'historique d'adhésion de `capitalisation/observatoire.ts` passe son plafond en paramètre
 #      (`OBSERVATOIRE_HISTORIQUE_MAX` = 200, `LIMIT $1`) : invisible à cette recherche, sans plafond de
 #      table non plus (même dette que MAX_LISTE). Le lot 7 n'en ajoute aucune : `LIMIT $n` doublé par
@@ -687,8 +715,10 @@ rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 #    « journal » de développement)
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
-# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu (2026-10-22, lot 4c compris) : "972 9".
-#     972 routes = 957 avant 4c + 15 du lot 4c (comparaison fichier à fichier avec le premier parent du merge
+# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu (2026-10-22, lots 8b et 8c compris) : "972 9".
+#     Inchangé par 8b et 8c : ni l'un ni l'autre ne pose de route (nombre de routes par fichier de `routes/`
+#     identique à l'état d'avant, `6e17248`).
+#     972 routes (lot 4c compris) = 957 avant 4c + 15 du lot 4c (comparaison fichier à fichier avec le premier parent du merge
 #     `40c0541`) : `automatisation-avancement.ts` +9 (fichier neuf : 2 sur `/missions/:id/avancement`, `GET`/`PATCH
 #     /avancement/:id`, `POST …/regenerer`, `…/valider`, `GET`/`PUT /avancement/parametres`, `POST
 #     …/suggerer-commentaire`), `agents.ts` +4 (23 → 27 : `/agents/revues-contradictoires` `POST` et `GET`, `…/:id`,
@@ -723,8 +753,14 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     en suivant l'imbrication ; fichiers *.test.ts exclus). Relevé du 2026-10-22 par script ponctuel hors
 #     dépôt (appels `.query(` ou `.query<T>(` dont le premier argument est un gabarit à accent grave ;
 #     ${…} extraits en suivant l'imbrication, y compris les gabarits imbriqués ; seed = `db/seed*`) :
-#     1 697 gabarits dans apps/api/src (1 650 hors db/seed*), 811 interpolations hors seed, 240 expressions
-#     distinctes. Le script, réécrit pour ce relevé, retrouve à l'identique l'état d'avant 4c (1 672 / 1 625 / 796 / 238).
+#     1 699 gabarits dans apps/api/src (1 652 hors db/seed*), 813 interpolations hors seed, 240 expressions
+#     distinctes (lots 8b et 8c compris). Le script, réécrit pour ce relevé, a d'abord été lancé sur l'état d'avant 8b
+#     et 8c (`git archive 6e17248`) et y retrouve exactement le relevé précédent (1 697 / 1 650 / 811 / 240), puis sur
+#     l'arbre courant. Écarts des lots 8b et 8c : +2 / +2 / +2 / 0, tous du lot 8b (le lot 8c ne touche pas
+#     l'API) : `brief/derives.ts` +1 gabarit (`voyantsRedressementRouges`, interpolations `COLONNES_DOSSIER` et
+#     `VISIBLE`, déjà parmi les 240) et `plans/montecarlo.ts` +1 gabarit (décompte de `plan_rejeux_montecarlo`, aucune
+#     interpolation) ; aucune expression distincte nouvelle. Avant 8b : 1 672 / 1 625 / 796 / 238 avant le lot 4c, le même
+#     script y retrouvant l'état d'avant 4c.
 #     Écarts du lot 4c : +25 / +25 / +15 / +2, répartis ainsi (gabarits) : `automatisation/avancement-service.ts` +9,
 #     `agents/contradicteur.ts` +4, `automatisation/avancement-job.ts` +4, `portail/avancement.ts` +2, `ia/cache.ts` +2,
 #     `agents/plafonds.ts` +1, `routes/ia-parametres.ts` +1, `automatisation/avancement-lecture.ts` +1,
@@ -743,13 +779,14 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     tables constante de `copilote/noms-propres.ts` ; aucune valeur issue d'une requête HTTP, mais les
 #     corps des constantes n'ont pas tous été rouverts.
 
-# 12. Schémas Zod non stricts. Attendu (2026-10-22, lot 4c compris) : 11 non stricts sur 889 z.object, TOUS dans
+# 12. Schémas Zod non stricts. Attendu (2026-10-22, lots 8b et 8c compris) : 11 non stricts sur 890 z.object, TOUS dans
 #     `automatisation.ts` et voulus : `contenuAvancementSchema` (racine, `mission`, `avancement`, `jalons`, `kpis`
 #     et ses éléments, `livrables` et ses éléments, éléments de `faits_saillants`) et les deux sous-schémas de jalons
 #     (lignes 733, 737, 746, 751, 752, 756, 763, 771, 782, 788, 798 au 2026-10-22) : sortie du moteur relue par
 #     LISTE BLANCHE (clés inconnues écartées, jamais une entrée de requête) ; la projection portail
 #     (`contenuAvancementPortailSchema`) est, elle, entièrement stricte. Tout autre non strict est un écart.
-#     889 = 867 avant 4c + 22 du lot 4c (`automatisation` +19 dont les 11 non stricts ci-dessus ; `agents` +2 ; `portail` +1), soit 878 stricts. Avant 4c : 0 non strict sur 867
+#     890 = 889 avant 8b + 1 du lot 8b (`mesRevuesQuerySchema`, `schemas/qualite.ts`, strict) ; les lignes des onze non
+#     stricts n'ont pas bougé. 889 = 867 avant 4c + 22 du lot 4c (`automatisation` +19 dont les 11 non stricts ci-dessus ; `agents` +2 ; `portail` +1), soit 878 stricts. Avant 4c : 0 non strict sur 867
 #     z.object (723 sur `main` : +144, tous `.strict()` :
 #     lot 7 +6 (`services-candidats`), lot 5b +17 (`appels-offres-veille` 7, `capitalisation-efficacite` 5,
 #     `observatoire` 5), puis les +121 du 2026-10-21 (844) :
@@ -765,25 +802,28 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     appariement naïf), puis, après la parenthèse fermante, parcourir les appels
 #     chaînés `.methode(...)` jusqu'à trouver `strict`. Compte de contrôle :
 #     rg -U -c "z\s*\.object\(" packages/shared/src/schemas --glob '!*.test.ts'
-#     (somme 889 le 2026-10-22, 867 avant 4c, 844 le 2026-10-21 ; 723 sur `main`). Le script de contrôle strict, écrit hors dépôt
-#     comme décrit (réécrit pour ce relevé), retrouve 867 et 0 non strict sur l'état d'avant 4c, et 889 avec 11 non stricts
-#     aujourd'hui. L'attribution du +2 de `rapports` au lot 4b est
+#     (somme 890 le 2026-10-22, 889 avant 8b, 867 avant 4c, 844 le 2026-10-21 ; 723 sur `main`). Le script de contrôle strict, écrit hors dépôt
+#     comme décrit (réécrit pour ce relevé), retrouve 889 et 11 non stricts sur l'état d'avant 8b (`git archive 6e17248`), et 890 avec 11 non
+#     stricts aujourd'hui (il avait aussi retrouvé 867 et 0 non strict avant 4c). L'attribution du +2 de `rapports` au lot 4b est
 #     approximative (le lot 2 touche aussi les rapports).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
-# ne doit montrer que des lignes « A » (ajouts). Le 2026-10-22 : 44 lignes « A », aucune autre
-# (`main` local = `origin/main` = `3d5a252`, base commune de la branche ; aucun fetch réseau fait). Dossier : 224 fichiers
-# (`ls apps/api/migrations | wc -l` : 224 ; `git ls-files apps/api/migrations | wc -l` : 224, tous
-# commités sur la branche d'intégration ; `git status --short apps/api/migrations` : aucune ligne).
+# ne doit montrer que des lignes « A » (ajouts). Le 2026-10-22 : 46 lignes « A », aucune autre
+# (`main` local = `origin/main` = `3d5a252`, base commune de la branche ; aucun fetch réseau fait). Dossier : 226 fichiers
+# (`ls apps/api/migrations | wc -l` : 226 ; `git ls-files apps/api/migrations | wc -l` : 226, tous
+# commités sur la branche d'intégration ; `git status --short apps/api/migrations` : aucune ligne ; la commande
+# `git log --diff-filter=MD …` ne renvoie rien).
+# 226 = 224 avant 8b + 2 du lot 8b (`0290_qualite_froide_reaffectation`, `0432_plan_montecarlo_rejeux` ; le lot 8c n'en pose
+# aucune, `git diff --name-status 6e17248 HEAD -- apps/api/migrations` ne montre que ces deux lignes « A ») ;
 # 224 = 219 avant 4c + 5 du lot 4c (0278, 0279, 0306, 0307, 0308) ; 219 = 206 du 2026-10-21 + 4 du lot 7 (0560, 0561, 0562, 0563) + 9 du lot 5b (0364 à 0367 veille AO, 0466
 # et 0467 efficacité, 0470 à 0472 observatoire). Les 206 = 180 de `main` (155 + 0480–0486 + 0500–0508 +
 # 0540–0548) + 26 des lots : lot 1 (0275, 0276,
 # 0277, 0305, 0550), lot 2 (0487 à 0492, 0551), lot 3 (0509, 0511, 0549), lot 4a (0210, 0287, 0288,
 # 0289), lot 4b (0225, 0552), lot 5a (0425, 0426, 0429, 0430, 0431) ; le lot 8a n'en pose aucune.
 # `origin/main` compte 180 migrations (PR n° 12 à 14 fusionnées, égal à `main` local au 2026-10-21).
-# Les 44 sont à tenir pour immuables dès qu'elles sont commitées.
+# Les 46 sont à tenir pour immuables dès qu'elles sont commitées.
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -795,7 +835,7 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 32 lignes au 2026-10-22, lot 4c compris (30 avant 4c ; 28 au 2026-10-21 ; 27 sur `main` : 23 avant la vague 4, plus
+#     SECURITY.md §4. Attendu : 32 lignes au 2026-10-22, lots 4c, 8b et 8c compris (inchangé par 8b et 8c : `0290` et `0432` n'en portent aucune ; 30 avant 4c ; 28 au 2026-10-21 ; 27 sur `main` : 23 avant la vague 4, plus
 #     quatre du lot 3c, `resoudre_compte_canal`, `planifier_synthese_hebdo`,
 #     `planifier_canaux_maintenance`, `anonymiser_transcriptions`). Les deux lignes du lot 4c (relues : `SET search_path =
 #     public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `GRANT EXECUTE … TO missionpilot_app`) sont `0278`
@@ -831,8 +871,9 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 # 19. Page serveur qui passe une fonction à un composant : lister les propriétés
 #     `={(…) =>` des pages et layouts qui ne sont PAS marqués "use client", puis
 #     vérifier à la main que le composant destinataire n'est pas client (ni
-#     importé d'un fichier "use client"). Attendu (2026-10-22, lot 4c compris) : 77 lignes dans 61
-#     fichiers (76 dans 60 avant 4c, 75 dans 59 au 2026-10-21, 73 dans 58 sur `main`), toutes admises : 71 `cleLigne` (67 sur `main`, plus 2 au
+#     importé d'un fichier "use client"). Attendu (2026-10-22, lots 8b et 8c compris) : 77 lignes dans 61
+#     fichiers (inchangé par 8b et 8c, hors cinq numéros de ligne décalés de 1 ou 2 par le lot 8b : `facturation/page.tsx:152`,
+#     `missions/page.tsx:205`, `pipeline/page.tsx:139` et `:232`, `temps/debours/page.tsx:92` ; 76 dans 60 avant 4c, 75 dans 59 au 2026-10-21, 73 dans 58 sur `main`), toutes admises : 71 `cleLigne` (67 sur `main`, plus 2 au
 #     2026-10-21 : `missions/[id]/notation/analyse/page.tsx` et `qualite/revue-froide/[id]/page.tsx`, plus 1 du
 #     lot 5b : `connaissances/efficacite/page.tsx:86`, plus 1 du lot 4c : `missions/[id]/avancement/page.tsx:133`,
 #     page serveur sans "use client" qui passe `cleLigne={(l) => l.id}` à `<Tableau`) vers
@@ -845,12 +886,16 @@ rg -n "avecPlaceAnalyse\(" apps/api/src
 rg -n "=\{\(.*\) =>" apps/web/src/app --glob '**/page.tsx' --glob '**/layout.tsx'
 
 # 20. Boucles de pagination côté web : chaque appel de `chargerToutesLesPages`
-#     déclare le plafond de la route. Attendu (2026-10-22, inchangé depuis `main`) : 23 lignes, soit
-#     22 appels plus la définition de `lib/pagination.ts` ; les boucles des écrans de la vague 4
+#     déclare le plafond de la route. Attendu (2026-10-22, lots 8b et 8c compris) : 24 lignes, soit
+#     23 appels plus la définition de `lib/pagination.ts` (23 lignes avant 8b : le lot 8b ajoute `chargerMesRevues`,
+#     `lib/qualite-froide-serveur.ts:98`, `limiteMax: LIMITE_MES_REVUES` = 100) ; les boucles des écrans de la vague 4
 #     (`due-diligence*.ts`, `canaux-serveur.ts`) déclarent le plafond de leur route ; les appels sur
-#     `/api/missions` ou `/api/opportunites` (plafond 500, défaut 200 admis : dette, CODING_STANDARDS §10)
-#     sont sans `limiteMax`, `clients/[id]/portail` et `pipeline` comprises. Un appel d'une autre route
-#     sans `limiteMax` est un écart. Aucune page des lots du 2026-10-20 n'appelle `chargerToutesLesPages`.
+#     `/api/missions` ou `/api/opportunites` (plafond 500) passent `limiteMax: LIMITE_PAGE_MAX` depuis le lot 8b
+#     (dix pages : charge, facturation, mes-taches/nouvelle, qualite, qualite/acceptation, qualite/satisfaction,
+#     temps/debours, pipeline, missions, `clients/[id]/portail` ; `due-diligence-serveur.ts:191` le faisait déjà) : les 23
+#     appels déclarent un `limiteMax`, tout appel sans `limiteMax` est un écart (contrôle par script : appariement
+#     des parenthèses de chaque appel, 23 trouvés avec `limiteMax`). Le lot 8c ne déplace aucun appel. Aucune page des lots du
+#     2026-10-20 n'appelle `chargerToutesLesPages` ; seule `lib/qualite-froide-serveur.ts` (lot 8b) s'y ajoute.
 rg -n "chargerToutesLesPages(<[^>]*>)?\(" apps/web/src --glob '!*.test.*'
 
 # 21. Provenance des évaluations de non-régression : un seul `INSERT INTO
