@@ -4,11 +4,15 @@ import { ErreurIngestion } from "./erreurs.js";
 /*
  * Port de reconnaissance de caractères (OCR) de l'ingestion (ADR-009, décision 4).
  *
- * AUCUN moteur OCR réel n'est branché : un seul adaptateur est livré, `OcrSimule`, réservé au
- * développement et aux tests. Il ne lit qu'un CONTENEUR DE TEST : un commentaire de PDF
- * `%MPOCRSIM1:<base64 d'un JSON {pages:[{numero,texte,confiance_pm}]}>`. Tout autre document est
- * refusé (`OCR_NON_SIMULE`) : aucune page réelle ne peut donc être « reconnue ». Une page reconnue
- * porte une confiance (0 à 1000) et ne donne JAMAIS d'acceptation automatique d'un état financier.
+ * Deux adaptateurs (choisis par `creerOcr`, fabrique.ts) :
+ * - `OcrLocal` (ocr-local.ts, décision 16) : moteur RÉEL tesseract.js exécuté dans un sous-processus
+ *   isolé, hors ligne, données de langue vendorées et vérifiées par empreinte (`mode: "local"`) ;
+ * - `OcrSimule` (ci-dessous), réservé au développement et aux tests. Il ne lit qu'un CONTENEUR DE TEST :
+ *   un commentaire de PDF `%MPOCRSIM1:<base64 d'un JSON {pages:[{numero,texte,confiance_pm}]}>`. Tout
+ *   autre document est refusé (`OCR_NON_SIMULE`) : aucune page réelle n'est « reconnue » par lui.
+ * Une page reconnue porte une confiance (0 à 1000) et ne donne JAMAIS d'acceptation automatique d'un état
+ * financier. Une page sans image donne un texte vide et une confiance nulle ; toute panne est une
+ * `ErreurIngestion` à code stable (jamais un message de bibliothèque).
  */
 
 export const MARQUEUR_OCR_SIMULE = "%MPOCRSIM1:";
@@ -22,9 +26,12 @@ export interface PageOcr {
   confiance_pm: number;
 }
 
+/** Mode d'un adaptateur : simulé (tests, développement) ou moteur local réel. */
+export type ModeOcr = "simule" | "local";
+
 export interface Ocr {
   readonly fournisseur: string;
-  readonly mode: "simule";
+  readonly mode: ModeOcr;
   /** Lit les pages demandées (numéros à partir de 1) ; une page absente du résultat n'a pas été lue. */
   reconnaitre(demande: { pdf: Buffer; pages: number[] }): Promise<PageOcr[]>;
 }

@@ -1,7 +1,12 @@
 import { Worker } from "node:worker_threads";
 import { normaliserTextePage, verifierPlafondsDocument } from "@missionpilot/engines";
-import { PLAFONDS_INGESTION, type CodeErreurIngestion } from "@missionpilot/shared";
-import { ErreurIngestion } from "./erreurs.js";
+import {
+  PLAFONDS_INGESTION,
+  PLAFONDS_OCR,
+  type CodeErreurIngestion,
+  type MethodeExtraction,
+} from "@missionpilot/shared";
+import { enErreurIngestion, ErreurIngestion } from "./erreurs.js";
 import { controlerBombePdf } from "./pdf-controle.js";
 import type { Ocr } from "./ocr.js";
 import type { PageExtraite, ResultatExtractionTexte } from "./types.js";
@@ -28,11 +33,20 @@ import type { PageExtraite, ResultatExtractionTexte } from "./types.js";
  *   active dans tous les cas ; celle de la mémoire externe exige `Worker.getHeapStatistics()` (Node >=
  *   22.16, garde défensive en dessous) ; une mesure en échec ne lève jamais ;
  * - le nombre de pages est lu et plafonné AVANT toute extraction de texte (`PLAFOND_PAGES`) ;
- * - durée totale plafonnée (30 s, `DELAI_DEPASSE`, sans reprise) ; deux extractions simultanées au
+ * - durée du texte natif plafonnée (30 s, `DELAI_DEPASSE`, sans reprise) ; deux extractions simultanées au
  *   plus par processus (sémaphore à file d'attente : le job attend sa place) ;
  * - texte normalisé (`normaliserTextePage`) puis plafonds de caractères (`PLAFOND_TEXTE`) ;
- * - PDF sans aucune couche texte : OCR si un adaptateur est branché, sinon `PDF_SANS_TEXTE`. Une page
- *   vide ne bloque rien tant qu'une autre page porte du texte.
+ * - PDF sans aucune couche texte : OCR si un adaptateur est branché, sinon `OCR_INDISPONIBLE`
+ *   (`PDF_SANS_TEXTE` si l'OCR a tourné sans rien lire, ou si le PDF n'a aucune page). Une page vide ne
+ *   bloque rien tant qu'une autre page porte du texte. LIMITE ASSUMÉE : un document dont une partie des
+ *   pages a du texte natif et le reste est scanné est lu par sa seule couche texte (les pages scannées
+ *   restent vides, sans OCR) ; l'OCR ne se déclenche que si AUCUNE page n'a de texte ;
+ * - l'OCR est une PHASE À PART, après le texte natif et le pré-contrôle de bombe : budget propre
+ *   (`PLAFONDS_OCR.dureeMs`, appliqué par l'adaptateur ; délai de secours ici, 10 s au-delà, qui rend
+ *   `DELAI_DEPASSE`) et SANS place du sémaphore des extractions (libérée avant l'OCR, qui dure des
+ *   minutes) : la concurrence de l'OCR est celle de l'adaptateur. Plus de `PLAFONDS_OCR.pagesMax` pages à
+ *   lire -> `PLAFOND_PAGES` (jamais de lecture partielle) ; toute exception d'un adaptateur qui n'est
+ *   pas une `ErreurIngestion` -> `OCR_ECHEC`.
  *
  * Aucun message de bibliothèque ne sort d'ici : tout échec est un `ErreurIngestion` à code stable.
  */
@@ -108,8 +122,13 @@ export interface OptionsSurveillance {
 
 export interface OptionsPdf {
   ocr: Ocr | null;
-  /** Durée maximale (défaut : 30 s). */
+  /** Durée maximale du texte natif (défaut : 30 s). */
   dureeMs?: number;
+  /**
+   * Délai de secours de la phase OCR (défaut : `PLAFONDS_OCR.dureeMs` + 10 s ; le budget propre de
+   * l'adaptateur est `PLAFONDS_OCR.dureeMs`). Surtout réservé aux tests.
+   */
+  dureeOcrMs?: number;
   /**
    * Seuils de surveillance abaissés, RÉSERVÉS AUX TESTS (injection) : permettent de déclencher la coupure
    * mémoire avec un worker qui alloue modestement, sans fabriquer une vraie bombe de plusieurs Go.
@@ -259,13 +278,20 @@ function verifierPlafonds(pages: readonly { numero: number; texte: string }[]): 
   if (depasse) throw new ErreurIngestion(depasse);
 }
 
-async function lireDocument(
+/** Marge laissée à l'adaptateur au-delà de son budget avant le délai de secours de `pdf.ts`. */
+const MARGE_DELAI_OCR_MS = 10_000;
+
+/** Sortie de la phase texte natif : un document lu, ou les pages (toutes) à confier à l'OCR. */
+type SortieTexte = { natif: ResultatExtractionTexte } | { aReconnaitre: number[] };
+
+async function lireTexteNatif(
   pdf: Buffer,
-  ocr: Ocr | null,
   ouvert: { worker?: Worker },
   surveillance: Required<OptionsSurveillance>,
-): Promise<ResultatExtractionTexte> {
+): Promise<SortieTexte> {
   const brutes = await lireTexteBrut(pdf, ouvert, surveillance);
+  // Aucune page : rien à lire, ni par la couche texte ni par OCR.
+  if (brutes.length === 0) throw new ErreurIngestion("PDF_SANS_TEXTE");
   const pages = brutes.map((t, i) => ({ numero: i + 1, texte: normaliserTextePage(t) }));
   verifierPlafonds(pages);
   if (pages.some((p) => !estVide(p.texte))) {
@@ -274,42 +300,82 @@ async function lireDocument(
       methode: "texte",
       confiance_pm: null,
     }));
-    return { methode: "texte", pages: extraites };
+    return { natif: { methode: "texte", pages: extraites } };
   }
-  // Aucune couche texte : document scanné.
-  if (!ocr) throw new ErreurIngestion("PDF_SANS_TEXTE");
-  const lues = await ocr.reconnaitre({ pdf, pages: pages.map((p) => p.numero) });
-  const parNumero = new Map(lues.map((p) => [p.numero, p]));
-  const reconnues = pages.map((p) => {
-    const l = parNumero.get(p.numero);
-    return {
-      numero: p.numero,
-      texte: normaliserTextePage(l?.texte ?? ""),
-      confiance: l?.confiance_pm ?? 0,
-    };
+  // Aucune couche texte : document scanné, TOUTES les pages sont à reconnaître.
+  return { aReconnaitre: pages.map((p) => p.numero) };
+}
+
+/**
+ * Phase OCR (hors sémaphore). Délai de secours : l'adaptateur applique son propre budget, mais une
+ * promesse qui ne se termine jamais ne doit pas bloquer le job. Toute exception qui n'est pas une
+ * `ErreurIngestion` devient OCR_ECHEC (jamais de message de l'adaptateur).
+ */
+async function reconnaitrePages(
+  pdf: Buffer,
+  ocr: Ocr,
+  numeros: number[],
+  delaiMs: number,
+): Promise<ResultatExtractionTexte> {
+  let minuterie: NodeJS.Timeout | undefined;
+  const delai = new Promise<never>((_, refuser) => {
+    minuterie = setTimeout(() => refuser(new ErreurIngestion("DELAI_DEPASSE")), delaiMs);
   });
+  // `reconnaitre` peut lever de façon synchrone : l'appel est enveloppé pour tout convertir en rejet.
+  const travail = (async () => ocr.reconnaitre({ pdf, pages: numeros }))();
+  // Si le délai gagne, l'échec tardif de l'adaptateur est absorbé.
+  travail.catch(() => undefined);
+  let lues: Awaited<typeof travail>;
+  try {
+    lues = await Promise.race([travail, delai]);
+  } catch (error) {
+    throw enErreurIngestion(error, "OCR_ECHEC");
+  } finally {
+    clearTimeout(minuterie);
+  }
+  let reconnues: { numero: number; texte: string; confiance: number }[];
+  try {
+    if (!Array.isArray(lues)) throw new ErreurIngestion("OCR_ECHEC");
+    const parNumero = new Map(lues.map((p) => [p.numero, p]));
+    reconnues = numeros.map((numero) => {
+      const l = parNumero.get(numero);
+      const confiance = Number(l?.confiance_pm);
+      return {
+        numero,
+        texte: normaliserTextePage(typeof l?.texte === "string" ? l.texte : ""),
+        confiance: Number.isFinite(confiance) ? confiance : 0,
+      };
+    });
+  } catch (error) {
+    throw enErreurIngestion(error, "OCR_ECHEC");
+  }
   verifierPlafonds(reconnues);
   if (reconnues.every((p) => estVide(p.texte))) throw new ErreurIngestion("PDF_SANS_TEXTE");
+  // Méthode selon l'adaptateur : `local` = reconnaissance réelle, tout autre mode = simulée (tests).
+  const mode: string = ocr.mode;
+  const methode: MethodeExtraction = mode === "local" ? "ocr" : "ocr_simule";
   const extraites: PageExtraite[] = reconnues.map((p) => ({
     numero: p.numero,
     texte: p.texte,
-    methode: "ocr_simule",
+    methode,
     confiance_pm: Math.max(0, Math.min(1000, Math.round(p.confiance))),
   }));
-  return { methode: "ocr_simule", pages: extraites };
+  return { methode, pages: extraites };
 }
 
 /**
  * Pages de texte d'un PDF (couche texte, sinon OCR). Lève `ErreurIngestion` : PDF_ILLISIBLE,
- * PLAFOND_PAGES, PLAFOND_TEXTE, DELAI_DEPASSE, PDF_SANS_TEXTE, OCR_NON_SIMULE.
+ * PLAFOND_PAGES, PLAFOND_TEXTE, DELAI_DEPASSE, PDF_SANS_TEXTE, OCR_INDISPONIBLE, et ceux de l'adaptateur
+ * (OCR_NON_SIMULE, OCR_ECHEC, IMAGE_TROP_GRANDE…).
  */
-export function extrairePagesPdf(
+export async function extrairePagesPdf(
   pdf: Buffer,
   options: OptionsPdf,
 ): Promise<ResultatExtractionTexte> {
-  return avecPlaceExtraction(async () => {
+  // Phase 1, dans le sémaphore : pré-contrôle puis texte natif.
+  const sortie = await avecPlaceExtraction(async (): Promise<SortieTexte> => {
     // PRÉ-CONTRÔLE (défense principale), dans son propre worker : une bombe de décompression est refusée
-    // AVANT de lancer le worker d'extraction. Il occupe la même place du sémaphore que l'extraction.
+    // AVANT de lancer le worker d'extraction ET avant l'OCR. Il occupe la même place du sémaphore.
     const controle = await controlerBombePdf(pdf);
     if (!controle.ok) throw new ErreurIngestion(controle.code);
 
@@ -330,7 +396,7 @@ export function extrairePagesPdf(
         refuser(new ErreurIngestion("DELAI_DEPASSE"));
       }, options.dureeMs ?? PLAFONDS_INGESTION.dureeExtractionMs);
     });
-    const travail = lireDocument(pdf, options.ocr, ouvert, surveillance);
+    const travail = lireTexteNatif(pdf, ouvert, surveillance);
     // Si le délai gagne, le travail échoue en arrière-plan : son échec tardif est absorbé.
     travail.catch(() => undefined);
     try {
@@ -340,4 +406,16 @@ export function extrairePagesPdf(
       await ouvert.worker?.terminate().catch(() => undefined);
     }
   });
+  if ("natif" in sortie) return sortie.natif;
+
+  // Phase 2, HORS sémaphore : l'OCR dure des minutes, il ne retient aucune place d'extraction.
+  if (!options.ocr) throw new ErreurIngestion("OCR_INDISPONIBLE");
+  if (sortie.aReconnaitre.length > PLAFONDS_OCR.pagesMax)
+    throw new ErreurIngestion("PLAFOND_PAGES");
+  return reconnaitrePages(
+    pdf,
+    options.ocr,
+    sortie.aReconnaitre,
+    options.dureeOcrMs ?? PLAFONDS_OCR.dureeMs + MARGE_DELAI_OCR_MS,
+  );
 }

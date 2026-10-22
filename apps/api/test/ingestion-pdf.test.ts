@@ -4,6 +4,7 @@ import { PLAFONDS_INGESTION } from "@missionpilot/shared";
 import { ErreurIngestion } from "../src/ingestion/erreurs.js";
 import { creerOcr } from "../src/ingestion/fabrique.js";
 import { OcrSimule, type Ocr } from "../src/ingestion/ocr.js";
+import { OcrLocal } from "../src/ingestion/ocr-local.js";
 import { avecPlaceExtraction, extrairePagesPdf, statistiquesPdf } from "../src/ingestion/pdf.js";
 import { controlerBombePdf, statistiquesControlePdf } from "../src/ingestion/pdf-controle.js";
 import { extrairePagesTableur, lignesDeTexteTableur } from "../src/ingestion/tableur.js";
@@ -133,14 +134,14 @@ describe("PDF à couche texte", () => {
     );
   });
 
-  it("délai dépassé : DELAI_DEPASSE (sans reprise)", async () => {
+  it("délai de l'OCR dépassé : DELAI_DEPASSE (sans reprise)", async () => {
     const lent: Ocr = {
       fournisseur: "lent",
       mode: "simule",
       reconnaitre: () => new Promise(() => undefined),
     };
     expect(
-      await code(extrairePagesPdf(fabriquerPdf({ nbPages: 1 }), { ocr: lent, dureeMs: 150 })),
+      await code(extrairePagesPdf(fabriquerPdf({ nbPages: 1 }), { ocr: lent, dureeOcrMs: 150 })),
     ).toBe("DELAI_DEPASSE");
   });
 
@@ -457,8 +458,8 @@ describe("PDF scanné et OCR simulé", () => {
       },
     });
 
-  it("sans OCR : PDF_SANS_TEXTE", async () => {
-    expect(await code(extrairePagesPdf(scanne(), { ocr: null }))).toBe("PDF_SANS_TEXTE");
+  it("sans OCR : OCR_INDISPONIBLE", async () => {
+    expect(await code(extrairePagesPdf(scanne(), { ocr: null }))).toBe("OCR_INDISPONIBLE");
   });
 
   it("avec l'OCR simulé : pages reconnues avec leur confiance", async () => {
@@ -501,11 +502,27 @@ describe("PDF scanné et OCR simulé", () => {
     expect(await code(extrairePagesPdf(vide, { ocr: new OcrSimule() }))).toBe("PDF_SANS_TEXTE");
   });
 
-  it("aucun OCR en production, l'OCR simulé hors production", () => {
-    expect(creerOcr({ NODE_ENV: "production" })).toBeNull();
-    expect(creerOcr({ NODE_ENV: "test" })).toBeInstanceOf(OcrSimule);
-    expect(creerOcr({ NODE_ENV: "development" })).toBeInstanceOf(OcrSimule);
+  it("creerOcr sans moteur local : aucun OCR en production, le simulé hors production (moteur non lancé)", () => {
+    const sans = { disponible: () => false };
+    expect(creerOcr({ NODE_ENV: "production" }, sans)).toBeNull();
+    expect(creerOcr({ NODE_ENV: "test" }, sans)).toBeInstanceOf(OcrSimule);
+    expect(creerOcr({ NODE_ENV: "development" }, sans)).toBeInstanceOf(OcrSimule);
+    // `OCR_LOCAL=off` : pas de local, même si le moteur est disponible.
+    const avec = { disponible: () => true };
+    expect(creerOcr({ NODE_ENV: "production", OCR_LOCAL: "off" }, avec)).toBeNull();
+    expect(creerOcr({ NODE_ENV: "development", OCR_LOCAL: "off" }, avec)).toBeInstanceOf(OcrSimule);
+    expect(creerOcr({ NODE_ENV: "test", OCR_LOCAL: "off" }, avec)).toBeInstanceOf(OcrSimule);
     expect(new OcrSimule().mode).toBe("simule");
+  });
+
+  it("creerOcr avec moteur local disponible : OcrLocal en production (mode local), simulé par défaut en test", () => {
+    const avec = { disponible: () => true };
+    const prod = creerOcr({ NODE_ENV: "production" }, avec);
+    expect(prod).toBeInstanceOf(OcrLocal);
+    expect(prod?.mode).toBe("local");
+    expect(creerOcr({ NODE_ENV: "development" }, avec)).toBeInstanceOf(OcrLocal);
+    expect(creerOcr({ NODE_ENV: "test" }, avec)).toBeInstanceOf(OcrSimule);
+    expect(creerOcr({ NODE_ENV: "test", OCR_LOCAL: "local" }, avec)).toBeInstanceOf(OcrLocal);
   });
 });
 

@@ -1,6 +1,8 @@
 import { controlerEtatFinancier, type ControleEtatFinancier } from "@missionpilot/engines";
 import {
   ETATS_PAR_CLIENT_MAX,
+  type CorrectionOcr,
+  type MethodeExtraction,
   type EtatDecision,
   type LigneEtatFinancierSaisie,
   type StatutEtatDossier,
@@ -11,6 +13,7 @@ import type { Db } from "../db/pool.js";
 import { AppError, conflit, introuvable, requeteInvalide } from "../errors.js";
 import { estAssocie } from "../missions/acces.js";
 import { verrouillerDossier } from "./acces.js";
+import { lireCorrectionsOcr } from "../ingestion/documents.js";
 import { inscrireFiabilite } from "./fiabilite.js";
 
 /*
@@ -141,6 +144,28 @@ async function lireEtat(
   return r.rows[0];
 }
 
+/** Document ingéré dont l'état est issu (lot 11) : méthode de lecture et corrections OCR proposées. */
+export interface IngestionEtat {
+  document_id: string;
+  methode: MethodeExtraction | null;
+  corrections_ocr: CorrectionOcr[] | null;
+}
+
+async function ingestionDe(db: Db, etatId: string): Promise<IngestionEtat | null> {
+  const r = await db.query(
+    `SELECT id, usage, methode FROM ingestion_documents WHERE etat_financier_id = $1
+     ORDER BY cree_le DESC, id LIMIT 1`,
+    [etatId],
+  );
+  const d = r.rows[0];
+  if (!d) return null;
+  return {
+    document_id: d.id as string,
+    methode: (d.methode ?? null) as MethodeExtraction | null,
+    corrections_ocr: await lireCorrectionsOcr(db, d),
+  };
+}
+
 /** État et ses lignes (dans l'ordre d'ingestion, chacune avec sa référence). */
 export async function detailEtat(db: Db, clientId: string, etatId: string) {
   const etat = vueEtat(await lireEtat(db, clientId, etatId));
@@ -151,6 +176,7 @@ export async function detailEtat(db: Db, clientId: string, etatId: string) {
   );
   return {
     ...etat,
+    ingestion: await ingestionDe(db, etatId),
     lignes: lignes.rows.map((l) => ({
       rang: l.rang as number,
       code: l.code as string,

@@ -21,12 +21,15 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
 
 - Configuration de l'API : un seul point, `apps/api/src/config.ts`
   (`loadConfig`). `.env.example` à la racine documente les variables.
-- **Exécution : Node 22 minimum** (lot 6). `engines.node` du `package.json` racine vaut `>=22` et les deux
-  jobs de `.github/workflows/ci.yml` tournent en `node-version: 22`. Raisons : `unpdf@1.8.1` (extraction des
-  PDF, ADR-009) exige Node >= 22, et `worker.getHeapStatistics()`, qui borne la mémoire externe du worker
-  d'extraction, n'existe qu'à partir de Node 22.16 (`apps/api/src/ingestion/pdf.ts` garde une voie défensive :
-  méthode absente, seule la surveillance du RSS joue). Une dépendance qui exige une version plus haute passe
-  par une mise à jour de ces endroits, jamais par un contournement local.
+- **Exécution : Node 22.13 minimum** (lots 6 et 11). `engines.node` du `package.json` racine vaut `>=22.13` et les
+  deux jobs de `.github/workflows/ci.yml` tournent en `node-version: 22`. Raisons : `unpdf@1.8.1` (extraction des
+  PDF, ADR-009) exige Node >= 22 ; le modèle de permissions de Node (`--permission`), qui confine le
+  sous-processus de l'OCR local (lot 11), n'existe qu'à partir de Node 22.13 (en production, sans lui, l'OCR est
+  indisponible et un scan échoue `OCR_INDISPONIBLE` ; hors production, toléré avec un avertissement) ; et
+  `worker.getHeapStatistics()`, qui borne la mémoire externe du worker d'extraction, n'existe qu'à partir de
+  Node 22.16 (`apps/api/src/ingestion/pdf.ts` garde une voie défensive : méthode absente, seule la surveillance
+  du RSS joue). Une dépendance qui exige une version plus haute passe par une mise à jour de ces endroits,
+  jamais par un contournement local.
 - Migrations SQL numérotées par plage de domaine dans `apps/api/migrations` :
 
   | Plage         | Domaine                                                            |
@@ -76,6 +79,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0487–0492`   | redressement, lot 3a-bis (même plage `0480–0499`) : check-lists métier (`0487`, RED-03, `MPZ12`), causes racines et historique en ajout seul (`0488`, RED-04, `MPZ13-14`), covenants et plan de financement (`0489`, RED-06, `MPZ15-16`), bilan de clôture (`0490`, RED-08, `MPZ17-18`), suivi post-mission (`0491`, RED-09, `MPZ19-20`), validation du plan et du bilan réservée au directeur de la mission, redéfinit `red_controler_plan_version()` et `red_controler_cloture()` (`0492`, `MPZ07` au message distinct, aucun nouveau code) ; 15 tables de plus (30 au total), aucune fonction `SECURITY DEFINER` ; `MPZ12-20` |
   | `0500–0509`, `0511` | due diligence (service #2, lot 3b, vague 4, plage réservée `0500–0519`, ADR-012) : socle et cadrage versionné (`0500`, DD-01, `MPZ21`), bibliothèque de signaux (`0501`, DD-11), éléments typés et constats (`0502`), hypothèses, verdicts et validations (`0503`, DD-09), dimensionnement de marché (`0504`, DD-12), filtrage environnemental et social (`0505`, DD-14), ajustements des experts (`0506`, DD-08), note au comité versionnée et validée (`0507`, DD-13), modèle de rapport `note_comite` qui redéfinit les CHECK de `rapports_mission` (`0508`, `MPR04`), portail investisseur : option du cabinet, invitations, publications et retraits (`0509`, `MQD01-08`), modèles d'analyse par secteur, vides par défaut (`0511`, DD-07, `MQD11`) ; `0510` et `0512–0519` libres ; `MPZ21-32` et `MQD` |
   | `0521–0524`   | ingestion de documents (lot 6, ADR-009, plage `0520–0539` attribuée par le superviseur) : `ingestion_documents` (texte des pages, document analysé puis effacé du stockage, aucune clé étrangère vers `fichiers`) et `ingestion_pages` (`0521`, `MQG01`, `MQG03`), brouillons `ingestion_extractions` (`0522`, `MQG02`), origine « pdf » de `dossier_etats_financiers` (`0523`, CHECK seulement), `purger_textes_ingestion` et `planifier_ingestion_maintenance` en `SECURITY DEFINER` (`0524`) ; 3 tables, RLS `isolation` et `portail_interdit` ; ne redéfinit ni `rapports_mission`, ni `fichier_orphelin`, ni `tentatives_auth_regles` ; `MQG01-03` |
+  | `0525–0526`   | ingestion de documents, OCR local (lot 11, ADR-009, même plage `0520–0539`) : méthode de lecture `ocr` admise (CHECK de `ingestion_documents` et `ingestion_pages` retrouvés par leur définition puis remplacés) et colonne `ingestion_documents.corrections_ocr` (tableau JSON borné à 100 entrées et 40 000 octets, sans clé étrangère) (`0525`) ; purge de `corrections_ocr` avec le texte des pages (décision + 90 jours) : REDÉFINIT `purger_textes_ingestion` (identique à `0524` plus `corrections_ocr = NULL`, `SECURITY DEFINER`) et le déclencheur `controler_ingestion_document` (identique à `0521` sauf la branche de datation de la purge) (`0526`) ; aucune table, aucun nouveau code `MQG` |
   | `0540–0548`   | canaux externes simulés (lot 3c, vague 4, plage réservée `0540–0559`, ADR-008, ADR-010, ADR-013) : comptes de canal (`0540`, `MPH04`), destinataires et consentements (`0541`), journal d'envois sans contenu et événements reçus (`0542`), propositions de saisie de KPI (`0543`), espaces `webhook_canal` et `webhook_invalide` du limiteur et planifications (`0544`, redéfinit `tentatives_auth_regles`), transcriptions (`0545`, `MPH06-07`), demandes de signature (`0546`, `MPH08-09`, `MPH11`), preuves chaînées (`0547`, `MPH10`), fichiers audio et `fichier_orphelin` étendue (`0548`) ; `MPH01-12` |
   | `0549`        | canaux : option `canaux_comptes.alerte_kpi`, désactivée par défaut (alertes de KPI par WhatsApp vers des responsables internes) ; aucun nouveau code |
   | `0550`        | brief : espace `brief_requetes` du limiteur persistant (60 requêtes par 10 minutes et par utilisateur) ; REDÉFINIT `tentatives_auth_regles` avec ses 6 espaces ; hors plage AUT par construction (voir ci-dessous) |
@@ -94,7 +98,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   correctif), `0500–0519` due diligence (DD, SPEC-3b) et `0540–0559` canaux simulés
   (SPEC-3c), déclarées dans l'en-tête des migrations de leur lot ; `0520–0539`
   ingestion de documents (lot 6), plage attribuée par le superviseur et NON déclarée dans l'en-tête des
-  migrations `0521–0524` (consommées ; `0520` et `0525–0539` libres). Pour l'automatisation (`0300–0319`), la clôture (`0320–0329`), la
+  migrations `0521–0526` (consommées ; `0520` et `0527–0539` libres). Pour l'automatisation (`0300–0319`), la clôture (`0320–0329`), la
   salle de mission (`0330–0339`) et les KPI augmentés (`0440–0459`), aucune
   migration ne déclare de plage : ces bornes sont la convention de ce document
   (à confirmer ; `0340–0359` reste sans affectation). Un durcissement issu d'audit
@@ -106,8 +110,9 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   son numéro est supérieur à celui de toutes les définitions existantes, d'où des
   numéros hors plage de domaine. Attribués : `0549` canaux (alerte de KPI), `0550`
   brief (limiteur persistant), `0551` redressement (rapport de clôture), `0552`
-  dossier (rapport d'état financier) ; l'ingestion de documents (lot 6) `0521–0524` se trouve dans la plage
-  `0520–0539`, donc hors de cette queue (aucune redéfinition d'objet partagé ; prochain libre `0525`) ;
+  dossier (rapport d'état financier) ; l'ingestion de documents (lots 6 et 11) `0521–0526` se trouve dans la plage
+  `0520–0539`, donc hors de cette queue (aucune redéfinition d'objet partagé : `0526` ne redéfinit que des objets
+  de l'ingestion, `purger_textes_ingestion` et `controler_ingestion_document` ; prochain libre `0527`) ;
   services candidats (lot 7) `0560–0563`,
   consommées (prochains libres de l'attribution : `0564–0579`) ; `0553–0559` non
   attribués (à demander au superviseur).
@@ -132,19 +137,19 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
   QUA `0291`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
-  candidats `0564` (`0564–0579` libres), ingestion de documents `0525` (`0525–0539` libres). Une
+  candidats `0564` (`0564–0579` libres), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
   l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-22,
   `origin/main` (`3d5a252`) compte 180 fichiers (`git ls-tree origin/main apps/api/migrations/ | wc -l`) et
-  la branche d'intégration du lot 9e en compte 230, tous commités (`ls apps/api/migrations | wc -l` et
-  `git ls-files apps/api/migrations | wc -l`) : les 50 de plus
+  la branche d'intégration (lots 9e, 11 et 12) en compte 232, tous commités (`ls apps/api/migrations | wc -l` et
+  `git ls-files apps/api/migrations | wc -l`) : les 52 de plus
   (`0210`, `0225`, `0275`–`0279`, `0287`–`0290`, `0305`–`0308`, `0364`–`0367`,
   `0425`, `0426`, `0429`–`0432`, `0466`, `0467`, `0470`–`0472`,
-  `0487`–`0492`, `0509`, `0511`, `0521`–`0524`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
+  `0487`–`0492`, `0509`, `0511`, `0521`–`0526`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
   aucune modification ni suppression par rapport à `origin/main`
-  (`git diff --name-status origin/main -- apps/api/migrations` ne rend que 50 lignes `A`) : toutes sont
+  (`git diff --name-status origin/main -- apps/api/migrations` ne rend que 52 lignes `A`) : toutes sont
   immuables dès la fusion de la branche dans `main`.
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
@@ -266,8 +271,18 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
     par le contenu), jobs `ingestion_extraction` et `ingestion_structuration`, brouillons à valider
     (`ingestion_extractions`). Le fichier est analysé puis effacé, jamais conservé. Découpage : `pdf.ts` et
     `pdf-controle.ts` (pré-contrôle des flux compressés, dans un `worker_thread` dédié), `tableur.ts`,
-    `ocr.ts` (port `Ocr` et UN adaptateur simulé `OcrSimule`, réservé au développement et aux tests ;
-    aucun OCR réel), une paire de fichiers par usage (`etat-financier.ts`, `structuration-dd.ts`,
+    `ocr.ts` (port `Ocr` et adaptateur simulé `OcrSimule`, réservé au développement et aux tests),
+    `ocr-local.ts` (adaptateur `OcrLocal`, OCR réel `tesseract.js` 7.0.0 hors ligne : un sous-processus par
+    document, `ocr-processus.mjs`, enveloppé par `ocr-garde-reseau.cjs`, qui reste en CommonJS parce que
+    `node --require` est le seul moyen de le rejouer dans les `worker_threads`, et par `ocr-veille.mjs`,
+    veille de la mémoire), `fabrique.ts` (fabrique `creerOcr`, variable `OCR_LOCAL` = `auto` | `local` |
+    `simule` | `off`), `apps/api/ocr-data/` (données de langue `tessdata_fast` 4.1.0 `fra` et `eng` vendorées,
+    binaires déclarés dans `.gitattributes`, empreintes `SHA256SUMS` vérifiées par
+    `node scripts/ocr-verifier-donnees.cjs` et au premier usage) et, côté moteurs purs,
+    `packages/engines/src/ingestion/ocr-confusions.ts` (corrections proposées O/0, l/I/1, séparateurs :
+    elles ne servent qu'à PROPOSER, l'état reste en revue). Un test du moteur OCR réel est conditionnel : sauté
+    AVEC un message si le moteur manque, et `OCR_LOCAL_EXIGE=1` (posé dans le bloc `env` du job `api` de
+    `.github/workflows/ci.yml`) le rend obligatoire. Une paire de fichiers par usage (`etat-financier.ts`, `structuration-dd.ts`,
     `structuration-standard.ts`…), `maintenance.ts` (purge du texte des pages), `erreurs.ts` (message
     factorisé `fichierTropVolumineux`). Les calculs et les règles de lecture sont des moteurs purs dans
     `packages/engines/src/ingestion` (ancrage strict des montants sur la page, contrôle FIN-02, vérification
@@ -329,9 +344,16 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   passée au hook), relance une fois à 1,5 s (`DELAI_RELANCE_MS`, dédoublonnée au niveau du module : une
   requête `_rsc` de relance par page, même avec plusieurs instances) et abandonne l'attente à 8 s
   (`DELAI_SECOURS_MS`). `useFormulaire`, `useAttenteRafraichissement` et `useFermetureDifferee` l'utilisent
-  déjà. Seule exception voulue : `app/connexion/FormulaireConnexion.tsx`. Le projet n'a pas de jsdom : seul
-  le noyau pur du hook est testé (`useRafraichir.test.ts`). Relevé du 2026-10-22 : neuf composants du lot 6
-  appellent encore `router.refresh()` en direct (dette, §10).
+  déjà, ainsi que les composants du lot 6 (migrés par le lot 12). Seule exception voulue :
+  `app/connexion/FormulaireConnexion.tsx`. `ingestion/ActualisationAuto.tsx` (rafraîchissement toutes les 3 s
+  tant qu'un document est en cours de lecture) n'utilise volontairement pas le hook complet : sa relance à
+  1,5 s et son suivi d'attente créeraient des requêtes RSC parasites à chaque tick. Il combine
+  `useTransition()` et `rafraichirEnTransition` (exporté par `useRafraichir.ts`) et saute un tick tant que la
+  transition du précédent n'est pas terminée (`doitSauterTick`, testée) : aucun empilement. Le projet n'a pas
+  de jsdom : seul le noyau pur du hook est testé (`useRafraichir.test.ts`). Relevé du 2026-10-22 (lot 12,
+  `rg -n "\.refresh\(\)" apps/web/src`) : plus aucun appel direct hors `FormulaireConnexion.tsx` (l. 60) ;
+  les autres occurrences sont `useRafraichir.ts` (l. 19, 29, 56, 99, le seul appel réel étant l. 29) et son test
+  (l. 13), et des commentaires de `useAttenteRafraichissement.ts` (l. 6) et `useFermetureDifferee.ts` (l. 8).
 - **403 métier d'une page serveur : `codes403Metier`** (lot 10, A-01, `lib/api-serveur.ts`).
   `appelerApiServeur` et `chargerServeur` redirigent tout 403 vers `/acces-refuse`, sauf si son code figure
   dans la liste opt-in `codes403Metier` de l'appel : l'erreur remonte alors à la page (`ErreurApi`, ou
@@ -567,7 +589,7 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   machine (seuil de 3 s) : `plan-de-charge-perf.test.ts` et
   `finance-indicateurs-perf.test.ts`.
 - **Dossier client (lot DOS)** : extraction des états financiers depuis un PDF, soldée par le lot 6
-  (DOS-03, origine `pdf`, `0523` ; sans OCR réel, voir « Ingestion de documents » ci-dessous) ; le lecteur Excel partagé (`lireClasseurTemps`,
+  (DOS-03, origine `pdf`, `0523` ; OCR local livré par le lot 11, voir « Ingestion de documents » ci-dessous) ; le lecteur Excel partagé (`lireClasseurTemps`,
   `temps/import-excel.ts`) ne rend pas le nom de la feuille lue ni des messages
   propres aux états financiers (« lignes de temps ») ; listes du dossier bornées
   par plafond (5 000 faits, 2 000 valeurs de facteurs, 60 états) plutôt que
@@ -756,13 +778,17 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   n° 8 de la checklist, deux lignes mineures non corrigées : `Math.round` de la confiance OCR
   (`ingestion/pdf.ts`) et `Math.floor` de la taille en Mo dans le message de dépassement
   (`ingestion/erreurs.ts`). (6) Aucun test dans un navigateur des écrans d'ingestion (états financiers, onglet
-  « Documents » de la due diligence, amorçage du standard). (7) Neuf composants web du lot 6 appellent encore
-  `router.refresh()` en direct au lieu de `useRafraichir` (§3) : `dossier/ImportEtatDocument.tsx`,
-  `dossier/ImportEtatDocumentListe.tsx`, `due-diligence/DocumentsLecture.tsx`, `DocumentsListe.tsx`,
-  `DocumentsTeleversement.tsx`, `ingestion/ActualisationAuto.tsx`, `ingestion/BoutonRelance.tsx`,
-  `methodes/AmorcageDocuments.tsx` et `AmorcageProposition.tsx` (seul `dossier/ImportEtat.tsx` a été migré par
-  le lot 10). Aucun OCR réel (port `Ocr` et adaptateur simulé seulement : un lot dédié suivra), plafonds
-  provisoires (`PLAFONDS_INGESTION`) et pré-contrôle des PDF avec faux refus connus (plus de 4 096 flux Flate,
+  « Documents » de la due diligence, amorçage du standard). (7) OCR local (lot 11) : (a) `extrairePagesPdf` tourne dans la transaction du
+  job (ligne du document verrouillée, une connexion du pool retenue pendant l'OCR) : au pire 30 s + 240 s + 10 s,
+  sous le délai de blocage des jobs (15 min) ; dette acceptée, non restructurée ; (b) le moteur tourne dans un
+  sous-processus Node (modèle de permissions, garde réseau, veille du RSS) mais sans conteneur ni seccomp, et la
+  mémoire hors tas n'est bornée que par la veille du RSS (réactive) : détail dans SECURITY.md ; (c) les images
+  JPX, CCITT et JBIG2 ne sont pas testées, et la qualité sur de vraies liasses SYSCOHADA scannées n'est pas
+  mesurée ; (d) un PDF mêlant pages natives et pages scannées est lu par sa seule couche texte (les pages sans
+  texte ne sont pas passées à l'OCR) ; (e) l'effet de `--permission` sous Node 22 n'est éprouvé que par la CI
+  (`OCR_LOCAL_EXIGE=1`) ; (f) la vérification de secours sur les dimensions décodées (`ocr-processus.mjs`) n'a
+  jamais été déclenchée par les PDF hostiles de test. (8) Plafonds provisoires (`PLAFONDS_INGESTION`,
+  `PLAFONDS_OCR`) et pré-contrôle des PDF avec faux refus connus (plus de 4 096 flux Flate,
   flux Flate légitime de plus de 32 Mo, scan brut de plus de 5 pages A4 en RGB) : voir SECURITY.md §15 et
   DECISIONS.md.
 - **Corrections de la recette (lot 10, 2026-10-22)** : A-10 (règles CSS de la section « Échantillon »,
@@ -773,4 +799,5 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   accents (par exemple « Recfin t3 a »), et le journal de modulation partagé change d'affichage dans le
   simulateur et la page des missions de méthode. Soldés par le lot 10 : tests API sensibles à la charge (voir
   la dette « Intégration continue »), commentaire de `qualite/froide-revue.ts` (« MQQ01 à MQQ13 »), appels
-  directs à `router.refresh()` hors lot 6 et `FormulaireConnexion`, Node 20 (§1).
+  directs à `router.refresh()` hors lot 6 et `FormulaireConnexion` (ceux du lot 6 l'ont été par le lot 12),
+  Node 20 (§1, Node 22.13 minimum depuis le lot 11).

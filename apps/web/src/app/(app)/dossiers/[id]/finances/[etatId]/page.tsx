@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { aPermission, SECTION_ETAT_LIBELLES } from "@missionpilot/shared";
+import Link from "next/link";
+import { CorrectionsOcr } from "../../../../../../components/ingestion/CorrectionsOcr";
 import { DecisionEtat } from "../../../../../../components/dossier/DecisionEtat";
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
@@ -10,8 +12,11 @@ import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import {
+  AVERTISSEMENT_OCR,
+  etatLuParOcr,
   formaterConstat,
   formaterReference,
+  marqueurOcrLigne,
   ORIGINE_ETAT_LIBELLES,
   STATUT_ETAT,
   type EtatDetaille,
@@ -54,6 +59,7 @@ export default async function PageEtat({
   const e = r.donnees;
   const statut = STATUT_ETAT[e.statut];
   const ecarts = e.constats.filter((c) => c.statut !== "ok");
+  const luParOcr = etatLuParOcr(e);
 
   return (
     <div className="mp-page">
@@ -63,6 +69,12 @@ export default async function PageEtat({
         soustitre={`Clôture au ${formaterDate(e.date_cloture)} · ${ORIGINE_ETAT_LIBELLES[e.origine]}${e.source_libelle ? ` · ${e.source_libelle}` : ""}`}
         badges={<BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>}
       />
+
+      {luParOcr ? (
+        <Alerte tonalite="attention" titre="Lu par reconnaissance de caractères" annonce="aucune">
+          <p>{AVERTISSEMENT_OCR}</p>
+        </Alerte>
+      ) : null}
 
       <Carte titre="Contrôles du moteur">
         {e.controles_ok ? (
@@ -107,6 +119,8 @@ export default async function PageEtat({
         </Carte>
       ) : null}
 
+      <CorrectionsOcr corrections={e.ingestion?.corrections_ocr} devise={e.devise} />
+
       {e.statut === "remplace" ? (
         <Alerte tonalite="info" titre="État remplacé" annonce="aucune">
           <p>
@@ -133,7 +147,22 @@ export default async function PageEtat({
               cle: "montant",
               entete: "Montant",
               alignement: "droite",
-              rendu: (l) => formaterMontantMineur(l.montant, e.devise),
+              rendu: (l) => {
+                const marqueur = marqueurOcrLigne(l);
+                return (
+                  <>
+                    {formaterMontantMineur(l.montant, e.devise)}
+                    {marqueur ? (
+                      <>
+                        <br />
+                        <small>
+                          <strong>{marqueur}</strong>
+                        </small>
+                      </>
+                    ) : null}
+                  </>
+                );
+              },
             },
             { cle: "reference", entete: "Référence", rendu: (l) => formaterReference(l.reference) },
           ]}
@@ -145,6 +174,13 @@ export default async function PageEtat({
             : ""}
           .
         </p>
+        {e.ingestion ? (
+          <p>
+            <Link href={`/dossiers/${id}/finances/documents/${e.ingestion.document_id}`}>
+              Voir le document importé
+            </Link>
+          </p>
+        ) : null}
       </Carte>
     </div>
   );

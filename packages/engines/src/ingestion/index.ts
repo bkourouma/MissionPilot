@@ -36,7 +36,21 @@ export {
   type PlafondsDocument,
   type TexteModele,
 } from "./pages";
-export { extraireEtatDepuisTableau, extraireEtatParRegles } from "./etat-regles";
+export {
+  extraireEtatDepuisTableau,
+  extraireEtatParRegles,
+  extraireEtatParReglesAvecRangs,
+} from "./etat-regles";
+export {
+  CONFUSIONS_OCR_MOTEUR,
+  CORRECTIONS_OCR_PROPOSEES_MAX,
+  normaliserConfusionsOcr,
+  proposerCorrectionsOcr,
+  type ChangementOcr,
+  type ConfusionOcrMoteur,
+  type CorrectionOcrProposee,
+  type TexteNormaliseOcr,
+} from "./ocr-confusions";
 export { forcerRevueEtat, lireLignesEtatIa } from "./etat-ia";
 export { contientNonVerifie, lireLecturesIa } from "./lecture";
 export {

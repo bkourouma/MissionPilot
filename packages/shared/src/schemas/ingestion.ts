@@ -27,6 +27,50 @@ export const PLAFONDS_INGESTION = {
   caracteresTransmisAuModele: 40_000,
 } as const;
 
+/**
+ * Plafonds de l'OCR LOCAL (lot 11, ADR-009 décision 16) : valeurs initiales, ajustées sur mesures dans
+ * `docs/workflows/notes-lots/lot-11.md`. S'ajoutent à `PLAFONDS_INGESTION` (fichier, pages, texte).
+ */
+export const PLAFONDS_OCR = {
+  /** Pages OCRisées par document (un scan de plus de pages est refusé `PLAFOND_PAGES`, jamais tronqué). */
+  pagesMax: 30,
+  /** Durée totale de l'OCR d'un document, hors extraction du texte natif (délai `DELAI_DEPASSE`). */
+  dureeMs: 240_000,
+  /** Pixels (largeur x hauteur) d'une image intégrée au-delà desquels elle est refusée `IMAGE_TROP_GRANDE`. */
+  pixelsParImageMax: 20_000_000,
+  /** Images OCRisées par page (les plus grandes d'abord, les vignettes sont ignorées). */
+  imagesParPageMax: 6,
+} as const;
+
+/**
+ * Correction PROPOSÉE d'un montant lu par OCR (lot 11) : la tolérance aux confusions classiques (O/0, l/1,
+ * virgule/point) a retrouvé le montant de la ligne rejetée sur la page citée. Jamais appliquée seule : la ligne
+ * reste rejetée, l'état part en revue et le relecteur voit la proposition. Montant en unités mineures de la devise.
+ */
+export const CONFUSIONS_OCR = ["o_zero", "l_un", "separateur"] as const;
+export type ConfusionOcr = (typeof CONFUSIONS_OCR)[number];
+
+export const LIBELLES_CONFUSION_OCR: Record<ConfusionOcr, string> = {
+  o_zero: "lettre O lue pour le chiffre 0",
+  l_un: "lettre l ou I lue pour le chiffre 1",
+  separateur: "virgule et point confondus",
+};
+
+export const correctionOcrSchema = z
+  .object({
+    page: z.number().int().min(1).max(200),
+    code: z.string().min(1).max(40),
+    libelle: z.string().min(1).max(200),
+    /** Montant tel que la page le porte (jeton lu), pour que le relecteur le retrouve. */
+    texte_lu: z.string().min(1).max(60),
+    /** Montant proposé, en unités mineures de la devise (entier). */
+    montant_propose: z.number().int(),
+    confusions: z.array(z.enum(CONFUSIONS_OCR)).min(1).max(3),
+  })
+  .strict();
+export type CorrectionOcr = z.infer<typeof correctionOcrSchema>;
+export const CORRECTIONS_OCR_MAX = 100;
+
 export const USAGES_INGESTION = [
   "etat_financier",
   "dd_rapport",
@@ -55,7 +99,7 @@ export const RESULTATS_INGESTION = [
 ] as const;
 export type ResultatIngestion = (typeof RESULTATS_INGESTION)[number];
 
-export const METHODES_EXTRACTION = ["texte", "ocr_simule", "tableur"] as const;
+export const METHODES_EXTRACTION = ["texte", "ocr_simule", "ocr", "tableur"] as const;
 export type MethodeExtraction = (typeof METHODES_EXTRACTION)[number];
 
 /** Codes d'erreur stables d'un document en échec (jamais un contenu). */
@@ -63,6 +107,9 @@ export const CODES_ERREUR_INGESTION = [
   "PDF_ILLISIBLE",
   "PDF_SANS_TEXTE",
   "OCR_NON_SIMULE",
+  "OCR_INDISPONIBLE",
+  "OCR_ECHEC",
+  "IMAGE_TROP_GRANDE",
   "PLAFOND_PAGES",
   "PLAFOND_TEXTE",
   "DELAI_DEPASSE",
@@ -78,8 +125,14 @@ export type CodeErreurIngestion = (typeof CODES_ERREUR_INGESTION)[number];
 export const LIBELLES_ERREUR_INGESTION: Record<CodeErreurIngestion, string> = {
   PDF_ILLISIBLE: "Le PDF est illisible ou protégé.",
   PDF_SANS_TEXTE:
-    "Document scanné : la reconnaissance de caractères n'est pas disponible. Fournissez un PDF avec texte.",
+    "Aucun texte n'a pu être lu dans ce document (page blanche ou illisible). Fournissez un PDF avec texte ou un scan plus net.",
   OCR_NON_SIMULE: "La reconnaissance de caractères simulée ne lit que ses documents de test.",
+  OCR_INDISPONIBLE:
+    "Document scanné : la reconnaissance de caractères n'est pas disponible sur ce serveur. Fournissez un PDF avec texte ou demandez à l'administrateur d'activer la lecture des scans.",
+  OCR_ECHEC:
+    "La reconnaissance de caractères du scan a échoué. Fournissez un PDF avec texte ou un scan plus net.",
+  IMAGE_TROP_GRANDE:
+    "Une image du document dépasse la taille autorisée pour la reconnaissance de caractères.",
   PLAFOND_PAGES: "Le document dépasse le nombre de pages autorisé.",
   PLAFOND_TEXTE: "Le texte du document dépasse la taille autorisée.",
   DELAI_DEPASSE: "La lecture du document a dépassé le délai autorisé.",

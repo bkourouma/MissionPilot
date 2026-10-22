@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ActualiserPage } from "../../../../../../../components/transcriptions/ActualiserPage";
+import { CorrectionsOcr } from "../../../../../../../components/ingestion/CorrectionsOcr";
 import { StatutDocument } from "../../../../../../../components/ingestion/StatutDocument";
 import { VisionneusePages } from "../../../../../../../components/ingestion/VisionneusePages";
 import { Alerte } from "../../../../../../../components/ui/Alerte";
@@ -9,18 +10,20 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
+import { AVERTISSEMENT_OCR } from "../../../../../../../lib/dossier";
 import { formaterDateHeure } from "../../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
 import {
   apiIngestionDossier,
   cheminDocument,
   documentEnCours,
-  erreurDocument,
+  erreurDocumentAvecAide,
   formaterTaille,
   hrefEtatFinancier,
   LIBELLES_FORMAT,
   libelleMethode,
   libelleResultat,
+  methodeOcr,
   pageCitee,
   type DetailDocumentIngestion,
 } from "../../../../../../../lib/ingestion";
@@ -57,7 +60,7 @@ export default async function PageDocumentEtat({
     );
   }
   const d = r.donnees;
-  const erreur = erreurDocument(d);
+  const erreur = erreurDocumentAvecAide(d);
   const enCours = documentEnCours(d);
 
   return (
@@ -84,6 +87,12 @@ export default async function PageDocumentEtat({
         </Alerte>
       ) : null}
 
+      {methodeOcr(d.methode) ? (
+        <Alerte tonalite="attention" titre="Lu par reconnaissance de caractères" annonce="aucune">
+          <p>{AVERTISSEMENT_OCR}</p>
+        </Alerte>
+      ) : null}
+
       <Carte titre="Résultat">
         <dl className="mp-liste-definitions">
           <dt>Résultat</dt>
@@ -107,6 +116,8 @@ export default async function PageDocumentEtat({
           </p>
         ) : null}
       </Carte>
+
+      <CorrectionsOcr corrections={d.corrections_ocr} />
 
       <Carte titre="Pages lues">
         <VisionneusePages

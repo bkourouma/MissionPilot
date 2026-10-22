@@ -3,6 +3,7 @@ import {
   etatDecisionSchema,
   etatFinancierExcelQuerySchema,
   etatFinancierSaisieSchema,
+  ligneEtatFinancierSchema,
   facteurValeurCreationSchema,
   faitCreationSchema,
   faitDecisionSchema,
@@ -64,6 +65,29 @@ describe("schémas du dossier client", () => {
     expect(valeurFacteurConforme("liste", ["a", "a"])).toBe(false);
     expect(valeurFacteurConforme("liste", ["a", "b"])).toBe(true);
     expect(valeurFacteurConforme("nombre", 3)).toBe(true);
+  });
+
+  it("référence d'une ligne d'état lue par OCR : ocr vrai seulement, confiance de 0 à 1000", () => {
+    const ligne = { code: "AZ", libelle: "Actif", section: "actif", montant: 1 };
+    const avec = (reference: unknown) =>
+      ligneEtatFinancierSchema.safeParse({ ...ligne, reference });
+    const ok = avec({ fichier: "scan.pdf", page: 2, ocr: true, confiance_pm: 910 });
+    expect(ok.success && ok.data.reference).toEqual({
+      fichier: "scan.pdf",
+      page: 2,
+      ocr: true,
+      confiance_pm: 910,
+    });
+    expect(avec({ fichier: "a.pdf", page: 1 }).success).toBe(true);
+    expect(avec({ page: 1, ocr: true, confiance_pm: null }).success).toBe(true);
+    expect(avec({ page: 1, confiance_pm: 0 }).success).toBe(true);
+    expect(avec({ page: 1, confiance_pm: 1000 }).success).toBe(true);
+    expect(avec({ page: 1, ocr: false }).success).toBe(false);
+    expect(avec({ page: 1, ocr: "oui" }).success).toBe(false);
+    expect(avec({ page: 1, confiance_pm: 1001 }).success).toBe(false);
+    expect(avec({ page: 1, confiance_pm: -1 }).success).toBe(false);
+    expect(avec({ page: 1, confiance_pm: 9.5 }).success).toBe(false);
+    expect(avec({ page: 1, texte: "x" }).success).toBe(false);
   });
 
   it("état financier : bornes des lignes, requête d'import Excel", () => {
