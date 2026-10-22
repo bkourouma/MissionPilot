@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PLAFONDS_INGESTION } from "@missionpilot/shared";
+import { PLAFONDS_INGESTION, PLAFONDS_OCR } from "@missionpilot/shared";
 import {
   ACCEPT_INGESTION,
   aideLimitesIngestion,
+  TEXTE_SCAN_OCR,
   apiIngestionDd,
   apiIngestionDossier,
   apiIngestionStandard,
@@ -19,7 +20,13 @@ import {
   cheminTeleversementEtat,
   controlerFichierIngestion,
   documentEnCours,
+  aideErreurIngestion,
+  decrireConfusionsOcr,
   erreurDocument,
+  erreurDocumentAvecAide,
+  libelleConfusionOcr,
+  libelleMethode,
+  methodeOcr,
   formatDepuisNom,
   formaterConfiancePage,
   formaterTaille,
@@ -63,7 +70,7 @@ describe("statuts et libellés", () => {
   });
   it("résout les erreurs, avec repli", () => {
     expect(libelleErreurIngestion(null)).toBeNull();
-    expect(libelleErreurIngestion("PDF_SANS_TEXTE")).toContain("scanné");
+    expect(libelleErreurIngestion("PDF_SANS_TEXTE")).toContain("Aucun texte");
     expect(libelleErreurIngestion("INCONNU")).toContain("Erreur interne");
     expect(erreurDocument({ erreur: "Message", erreur_code: "X" })).toBe("Message");
     expect(erreurDocument({ erreur: null, erreur_code: "PLAFOND_PAGES" })).toContain("pages");
@@ -121,8 +128,13 @@ describe("contrôle du fichier", () => {
     );
     expect(formatDepuisNom("a.docx")).toBeNull();
   });
-  it("rappelle les limites et le PDF scanné", () => {
-    expect(aideLimitesIngestion()).toContain("scanné");
+  it("rappelle les limites et la lecture OCR des PDF scannés", () => {
+    const aide = aideLimitesIngestion();
+    expect(aide).toContain(TEXTE_SCAN_OCR);
+    expect(aide).toContain(`${PLAFONDS_OCR.pagesMax} pages au plus`);
+    expect(TEXTE_SCAN_OCR).toContain("OCR");
+    expect(TEXTE_SCAN_OCR).toContain("à vérifier dans le document");
+    expect(aide).not.toContain("n'est pas lu");
     expect(TEXTE_TOLERANCE).toContain("nulle");
   });
 });
@@ -201,5 +213,39 @@ describe("texte purgé", () => {
     expect(textePurge({})).toBe(false);
     expect(textePurge(null)).toBe(false);
     expect(textePurge(undefined)).toBe(false);
+  });
+});
+
+describe("reconnaissance de caractères (OCR)", () => {
+  it("libelle la méthode ocr et reconnaît les méthodes qui lisent des images", () => {
+    expect(libelleMethode("ocr")).toBe("Reconnaissance de caractères (OCR local)");
+    expect(libelleMethode("texte")).toBe("Texte du PDF");
+    expect(methodeOcr("ocr")).toBe(true);
+    expect(methodeOcr("ocr_simule")).toBe(true);
+    expect(methodeOcr("texte")).toBe(false);
+    expect(methodeOcr(null)).toBe(false);
+  });
+  it("couvre les codes d'erreur OCR, avec une aide pour OCR_INDISPONIBLE", () => {
+    for (const code of ["OCR_INDISPONIBLE", "OCR_ECHEC", "IMAGE_TROP_GRANDE"]) {
+      expect(erreurDocument({ erreur: null, erreur_code: code })).toBeTruthy();
+      expect(libelleErreurIngestion(code)).not.toContain("Erreur interne");
+    }
+    expect(aideErreurIngestion("OCR_ECHEC")).toBeNull();
+    expect(aideErreurIngestion("OCR_INDISPONIBLE")).toContain("Contactez l'administrateur");
+    expect(erreurDocumentAvecAide({ erreur: null, erreur_code: "OCR_INDISPONIBLE" })).toContain(
+      "moteur de lecture des scans n'est pas activé",
+    );
+    expect(erreurDocumentAvecAide({ erreur: null, erreur_code: "OCR_ECHEC" })).not.toContain(
+      "administrateur",
+    );
+    expect(erreurDocumentAvecAide({ erreur: null, erreur_code: null })).toBeNull();
+  });
+  it("décrit les confusions en clair", () => {
+    expect(libelleConfusionOcr("o_zero")).toBe("lettre O lue pour le chiffre 0");
+    expect(decrireConfusionsOcr(["o_zero", "separateur"])).toBe(
+      "lettre O lue pour le chiffre 0 ; virgule et point confondus",
+    );
+    expect(decrireConfusionsOcr([])).toBe("—");
+    expect(decrireConfusionsOcr(null)).toBe("—");
   });
 });

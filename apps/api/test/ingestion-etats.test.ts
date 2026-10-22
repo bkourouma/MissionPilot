@@ -430,7 +430,7 @@ describe("PDF scanné : OCR simulé", () => {
     expect(etat).toMatchObject({ origine: "pdf", statut: "en_revue", decision: null }); // …mais OCR : revue
   });
 
-  it("sans OCR branché (production) : PDF_SANS_TEXTE, aucun état", async () => {
+  it("sans OCR branché (production) : OCR_INDISPONIBLE, aucun état", async () => {
     const ocr = ctx.deps.ocr;
     ctx.deps.ocr = null;
     try {
@@ -439,7 +439,7 @@ describe("PDF scanné : OCR simulé", () => {
       });
       expect(document).toMatchObject({
         statut: "echec",
-        erreur_code: "PDF_SANS_TEXTE",
+        erreur_code: "OCR_INDISPONIBLE",
         etat_financier_id: null,
         resultat: null,
       });
@@ -522,14 +522,16 @@ describe("échecs définitifs et reprises", () => {
   });
 
   it("panne passagère : le job est repris puis le document échoue ERREUR_INTERNE sans message de bibliothèque", async () => {
+    // Panne inattendue des dépendances (autre qu'une ErreurIngestion ou une panne de l'adaptateur OCR, qui
+    // donne OCR_ECHEC, définitif) : la lecture de `deps.ocr` lève.
     const ocr = ctx.deps.ocr;
-    ctx.deps.ocr = {
-      fournisseur: "panne",
-      mode: "simule",
-      reconnaitre: async () => {
+    Object.defineProperty(ctx.deps, "ocr", {
+      configurable: true,
+      get: () => {
         throw new Error("SECRET interne de la bibliothèque");
       },
-    };
+    });
+
     try {
       const r = await televerserEtat(
         a.directeur,
@@ -553,7 +555,7 @@ describe("échecs définitifs et reprises", () => {
       expect(d).toMatchObject({ statut: "echec", erreur_code: "ERREUR_INTERNE" });
       expect(JSON.stringify(d)).not.toContain("SECRET");
     } finally {
-      ctx.deps.ocr = ocr;
+      Object.defineProperty(ctx.deps, "ocr", { configurable: true, writable: true, value: ocr });
     }
   });
 

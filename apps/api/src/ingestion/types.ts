@@ -6,12 +6,15 @@ export interface PageExtraite {
   numero: number;
   texte: string;
   methode: MethodeExtraction;
-  /** Confiance de 0 à 1000, seulement pour une page reconnue par OCR (sinon null). */
+  /** Confiance de 0 à 1000, seulement pour une page reconnue par OCR (`ocr` ou `ocr_simule`), sinon null. */
   confiance_pm: number | null;
 }
 
 export interface ResultatExtractionTexte {
-  /** Méthode du document : `texte` (couche texte), `ocr_simule` ou `tableur`. */
+  /**
+   * Méthode du document : `texte` (couche texte), `ocr_simule` (adaptateur de test), `ocr` (reconnaissance
+   * locale réelle) ou `tableur`. Toutes les pages d'un document portent la même méthode.
+   */
   methode: MethodeExtraction;
   pages: PageExtraite[];
 }

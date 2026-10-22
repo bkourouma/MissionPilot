@@ -69,6 +69,8 @@ jobs:
       # Le global-setup des tests suffixe le nom de base par _test et la recrée à chaque exécution.
       DATABASE_OWNER_URL: postgres://missionpilot_owner:dev_only_owner_password@127.0.0.1:55440/missionpilot
       DATABASE_URL: postgres://missionpilot_app:dev_only_app_password@127.0.0.1:55440/missionpilot
+      # Tests du moteur OCR local obligatoires (moteur, données ET modèle de permissions de Node >= 22.13).
+      OCR_LOCAL_EXIGE: "1"
     steps:
       - uses: actions/checkout@v4
 

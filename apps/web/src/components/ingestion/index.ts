@@ -5,3 +5,5 @@ export { TeleversementDocument } from "./TeleversementDocument";
 export type { TeleversementDocumentProps } from "./TeleversementDocument";
 export { VisionneusePages } from "./VisionneusePages";
 export type { VisionneusePagesProps } from "./VisionneusePages";
+export { CorrectionsOcr } from "./CorrectionsOcr";
+export type { CorrectionsOcrProps } from "./CorrectionsOcr";

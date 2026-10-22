@@ -1,9 +1,13 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import {
+  CORRECTIONS_OCR_MAX,
   LIBELLES_ERREUR_INGESTION,
   PLAFONDS_INGESTION,
+  correctionOcrSchema,
   type CodeErreurIngestion,
+  type CorrectionOcr,
   type FormatIngestion,
   type MethodeExtraction,
   type ResultatIngestion,
@@ -261,15 +265,47 @@ export async function lirePage(db: Db, documentId: string, numero: number) {
   };
 }
 
-/** Détail : la vue, les pages (sans texte) et les extractions (brouillons ; vide pour un état financier). */
+const correctionsOcrSchema = z.array(correctionOcrSchema).max(CORRECTIONS_OCR_MAX);
+
+/** Document lu par reconnaissance de caractères (OCR local ou simulé). */
+export const luParOcr = (methode: MethodeExtraction | null): boolean =>
+  methode === "ocr" || methode === "ocr_simule";
+
+/**
+ * Corrections OCR proposées d'un document (lot 11), relues et validées par le schéma : un contenu invalide, ou un
+ * document qui n'est pas un état financier lu par OCR, donne `null` (jamais d'exception).
+ */
+export async function lireCorrectionsOcr(
+  db: Db,
+  doc: Pick<DocumentIngestion, "id" | "usage" | "methode">,
+): Promise<CorrectionOcr[] | null> {
+  if (doc.usage !== "etat_financier" || !luParOcr(doc.methode)) return null;
+  const r = await db.query("SELECT corrections_ocr FROM ingestion_documents WHERE id = $1", [
+    doc.id,
+  ]);
+  const lues = correctionsOcrSchema.safeParse(r.rows[0]?.corrections_ocr);
+  return lues.success ? lues.data : null;
+}
+
+/**
+ * Détail : la vue, les pages (sans texte), les extractions (brouillons ; vide pour un état financier) et, pour un
+ * état financier lu par OCR, les corrections proposées (`null` sinon). La liste ne les expose pas.
+ */
 export async function detailDocument(
   db: Db,
   doc: DocumentIngestion,
-): Promise<VueDocument & { pages: ResumePage[]; extractions: VueExtraction[] }> {
+): Promise<
+  VueDocument & {
+    pages: ResumePage[];
+    extractions: VueExtraction[];
+    corrections_ocr: CorrectionOcr[] | null;
+  }
+> {
   return {
     ...vueDocument(doc),
     pages: await listerPages(db, doc.id),
     extractions: await listerExtractions(db, doc.id),
+    corrections_ocr: await lireCorrectionsOcr(db, doc),
   };
 }
 

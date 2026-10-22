@@ -30,9 +30,18 @@ export { TYPE_JOB_INGESTION_EXTRACTION };
  * durabilité des pages : début du job de structuration, ou ici en cas d'échec définitif.
  *
  * Échec DÉFINITIF (statut `echec`, code de `CODES_ERREUR_INGESTION`, jamais un message de bibliothèque) :
- * fichier absent, PDF illisible ou sans texte, plafonds, délai dépassé, classeur illisible. Panne passagère
- * (erreur inattendue, saturation) : le job est repris ; à la dernière tentative le document échoue
- * `ERREUR_INTERNE`.
+ * fichier absent, PDF illisible ou sans texte, scan sans OCR disponible (`OCR_INDISPONIBLE`), échec de l'OCR
+ * (`OCR_ECHEC`, `IMAGE_TROP_GRANDE`), plafonds, délai dépassé, classeur illisible. Toute `ErreurIngestion`
+ * est définitive (jamais de reprise : relancer un OCR de plusieurs minutes ne changerait rien) ; seul le
+ * code stable est inscrit et journalisé, jamais un contenu. Panne passagère (erreur inattendue,
+ * saturation) : le job est repris ; à la dernière tentative le document échoue `ERREUR_INTERNE`.
+ *
+ * L'OCR est long (jusqu'à `PLAFONDS_OCR.dureeMs` + 10 s, en plus du texte natif) et ce handler s'exécute
+ * dans la transaction du worker de jobs : elle reste ouverte pendant l'OCR (ligne `ingestion_documents`
+ * verrouillée par la lecture `FOR UPDATE`, connexion du pool retenue ; la réservation du job, elle, est
+ * déjà validée). Acceptable : la durée maximale (~5 min)
+ * reste sous le délai de blocage des jobs (15 min, `DELAI_BLOCAGE_JOB_DEFAUT_MS`) et le worker de jobs
+ * traite un job à la fois ; l'OCR lui-même est sérialisé par l'adaptateur.
  */
 
 const chargeSchema = z.object({ document_id: z.string().uuid() }).strict();

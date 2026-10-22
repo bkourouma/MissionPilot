@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   CODES_ERREUR_INGESTION,
+  CONFUSIONS_OCR,
+  CORRECTIONS_OCR_MAX,
   FORMATS_INGESTION,
   LECTURE_ELEMENTS_MAX,
   LECTURE_RESUME_MAX,
+  LIBELLES_CONFUSION_OCR,
   LIBELLES_ELEMENT_LECTURE,
   LIBELLES_ERREUR_INGESTION,
   LIBELLES_STATUT_EXTRACTION,
@@ -11,6 +14,7 @@ import {
   METHODES_EXTRACTION,
   NATURES_EXTRACTION,
   PLAFONDS_INGESTION,
+  PLAFONDS_OCR,
   PROPOSITION_MAXIMA,
   RESULTATS_INGESTION,
   STATUTS_DOCUMENT_INGESTION,
@@ -19,6 +23,7 @@ import {
   USAGES_INGESTION,
   contenuLectureSchema,
   contenuPropositionSchema,
+  correctionOcrSchema,
   elementLectureSchema,
   extractionDecisionSchema,
   extractionModificationSchema,
@@ -349,5 +354,85 @@ describe("décision et correction d'une extraction", () => {
     expect(extractionModificationSchema.safeParse({ contenu: "x" }).success).toBe(false);
     expect(extractionModificationSchema.safeParse({ contenu: {}, x: 1 }).success).toBe(false);
     expect(extractionModificationSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("OCR local (lot 11)", () => {
+  it("plafonds : entiers positifs, cohérents avec ceux de l'ingestion", () => {
+    for (const v of Object.values(PLAFONDS_OCR)) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeGreaterThan(0);
+    }
+    expect(PLAFONDS_OCR.pagesMax).toBeLessThanOrEqual(PLAFONDS_INGESTION.pagesMax);
+    expect(PLAFONDS_OCR.dureeMs).toBeGreaterThan(PLAFONDS_INGESTION.dureeExtractionMs);
+  });
+
+  it("la méthode ocr est admise, à côté de ocr_simule", () => {
+    expect(METHODES_EXTRACTION).toContain("ocr");
+    expect(METHODES_EXTRACTION).toContain("ocr_simule");
+  });
+
+  it("les nouveaux codes d'erreur ont un libellé français explicite", () => {
+    for (const code of ["OCR_INDISPONIBLE", "OCR_ECHEC", "IMAGE_TROP_GRANDE"] as const) {
+      expect(CODES_ERREUR_INGESTION).toContain(code);
+      expect(LIBELLES_ERREUR_INGESTION[code].trim().length).toBeGreaterThan(20);
+    }
+    expect(LIBELLES_ERREUR_INGESTION.OCR_INDISPONIBLE).toMatch(/scanné/);
+  });
+
+  it("une confusion a un libellé, sans doublon", () => {
+    expect(Object.keys(LIBELLES_CONFUSION_OCR).sort()).toEqual([...CONFUSIONS_OCR].sort());
+    expect(new Set(CONFUSIONS_OCR).size).toBe(CONFUSIONS_OCR.length);
+    expect(CORRECTIONS_OCR_MAX).toBe(100);
+  });
+
+  const correction = {
+    page: 2,
+    code: "L2_5",
+    libelle: "Clients",
+    texte_lu: "1 234 56O",
+    montant_propose: 1_234_560,
+    confusions: ["o_zero"],
+  };
+
+  it("correctionOcrSchema accepte une correction complète, négative comprise", () => {
+    expect(correctionOcrSchema.safeParse(correction).success).toBe(true);
+    expect(correctionOcrSchema.safeParse({ ...correction, montant_propose: -5 }).success).toBe(
+      true,
+    );
+    expect(
+      correctionOcrSchema.safeParse({ ...correction, confusions: ["o_zero", "l_un", "separateur"] })
+        .success,
+    ).toBe(true);
+  });
+
+  it("correctionOcrSchema est strict et borné", () => {
+    expect(correctionOcrSchema.safeParse({ ...correction, x: 1 }).success).toBe(false);
+    expect(correctionOcrSchema.safeParse({ ...correction, montant_propose: 1.5 }).success).toBe(
+      false,
+    );
+    expect(correctionOcrSchema.safeParse({ ...correction, confusions: [] }).success).toBe(false);
+    expect(correctionOcrSchema.safeParse({ ...correction, confusions: ["autre"] }).success).toBe(
+      false,
+    );
+    expect(
+      correctionOcrSchema.safeParse({
+        ...correction,
+        confusions: ["o_zero", "l_un", "separateur", "o_zero"],
+      }).success,
+    ).toBe(false);
+    expect(correctionOcrSchema.safeParse({ ...correction, page: 0 }).success).toBe(false);
+    expect(correctionOcrSchema.safeParse({ ...correction, page: 201 }).success).toBe(false);
+    expect(correctionOcrSchema.safeParse({ ...correction, texte_lu: "" }).success).toBe(false);
+    expect(correctionOcrSchema.safeParse({ ...correction, texte_lu: "x".repeat(61) }).success).toBe(
+      false,
+    );
+    expect(correctionOcrSchema.safeParse({ ...correction, libelle: "x".repeat(201) }).success).toBe(
+      false,
+    );
+    expect(correctionOcrSchema.safeParse({ ...correction, code: "" }).success).toBe(false);
+    const sansMontant: Record<string, unknown> = { ...correction };
+    delete sansMontant.montant_propose;
+    expect(correctionOcrSchema.safeParse(sansMontant).success).toBe(false);
   });
 });

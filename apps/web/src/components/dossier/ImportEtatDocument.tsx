@@ -12,13 +12,14 @@ import type { Devise } from "../../lib/format";
 import {
   cheminApiDossierIngestion,
   TEXTE_ACCEPTATION_AUTO,
+  TEXTE_SCAN_OCR,
   TEXTE_TOLERANCE,
 } from "../../lib/ingestion";
 
 /**
  * Import d'un état financier lu dans un PDF ou un classeur (DOS-03). Le document est lu en
  * arrière-plan ; l'état naît ensuite avec les contrôles du moteur (acceptation automatique
- * seulement si tout passe, sinon revue). Un PDF scanné n'est pas lu.
+ * seulement si tout passe, sinon revue). Un PDF scanné est lu par OCR local et part en revue.
  */
 export function ImportEtatDocument({ clientId }: { clientId: string }) {
   const { rafraichir } = useRafraichir();
@@ -49,10 +50,7 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
     <div>
       <Alerte tonalite="info" titre="L'IA propose, les contrôles décident" annonce="aucune">
         <p>{TEXTE_ACCEPTATION_AUTO}</p>
-        <p>
-          Un PDF scanné (image sans texte) n&apos;est pas lu : fournissez un PDF avec texte ou un
-          classeur Excel.
-        </p>
+        <p>{TEXTE_SCAN_OCR}</p>
       </Alerte>
       <TeleversementDocument
         chemin={`${cheminApiDossierIngestion(clientId)}/etats-financiers/document`}

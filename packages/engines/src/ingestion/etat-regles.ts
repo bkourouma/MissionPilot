@@ -162,6 +162,8 @@ interface DonneeLue {
   readonly montants: readonly MontantLu[];
   readonly brut: string;
   readonly ligne?: number;
+  /** Rang (1 = première ligne de la page) d'une ligne de texte libre, pour `extraireEtatParReglesAvecRangs`. */
+  readonly rang?: number;
   /** Texte libre d'une page (et non cellules d'un tableur) : les colonnes peuvent être collées. */
   readonly texteLibre?: boolean;
 }
@@ -173,10 +175,20 @@ interface Contexte {
   readonly rejets: LigneRejetee[];
   readonly codes: Set<string>;
   readonly roles: Set<string>;
+  /** Lignes retenues d'un texte de page, par « page:rang » (lot 11, corrections OCR). */
+  readonly positions: Map<string, LigneEtatExtraite>;
 }
 
 function nouveauContexte(decimales: number): Contexte {
-  return { decimales, section: null, lignes: [], rejets: [], codes: new Set(), roles: new Set() };
+  return {
+    decimales,
+    section: null,
+    lignes: [],
+    rejets: [],
+    codes: new Set(),
+    roles: new Set(),
+    positions: new Map(),
+  };
 }
 
 function rejeter(ctx: Contexte, page: number, brut: string, motif: MotifRejetLigne): void {
@@ -243,7 +255,7 @@ function traiterDonnee(ctx: Contexte, d: DonneeLue): void {
   const retenu = montants[0] as MontantLu;
   if (cleRole !== null) ctx.roles.add(cleRole);
   ctx.codes.add(code);
-  ctx.lignes.push({
+  const ligne: LigneEtatExtraite = {
     code,
     libelle: d.libelle,
     section,
@@ -254,7 +266,9 @@ function traiterDonnee(ctx: Contexte, d: DonneeLue): void {
     ...(d.ligne !== undefined && retenu.colonne !== undefined
       ? { ligne: d.ligne, colonne: retenu.colonne }
       : {}),
-  });
+  };
+  ctx.lignes.push(ligne);
+  if (d.rang !== undefined) ctx.positions.set(`${d.page}:${d.rang}`, ligne);
 }
 
 function verifierDecimalesEtat(decimales: number): void {
@@ -330,6 +344,7 @@ function traiterLigneTexte(ctx: Contexte, page: number, rang: number, ligne: str
     libelle,
     montants: region.map((j) => enMontant(ligne, j)),
     brut: ligne,
+    rang,
     texteLibre: true,
   });
 }
@@ -342,6 +357,21 @@ export function extraireEtatParRegles(
   pages: readonly PageTexte[],
   decimales: number,
 ): ExtractionEtat {
+  return extraireEtatParReglesAvecRangs(pages, decimales).extraction;
+}
+
+/**
+ * Comme `extraireEtatParRegles`, et indique pour chaque ligne retenue sa position « page:rang »
+ * (rang 1-based dans la page, lignes vides comprises). Sert à comparer deux lectures d'un même texte
+ * ligne à ligne (corrections OCR) ; l'extraction renvoyée est strictement la même.
+ */
+export function extraireEtatParReglesAvecRangs(
+  pages: readonly PageTexte[],
+  decimales: number,
+): {
+  readonly extraction: ExtractionEtat;
+  readonly positions: ReadonlyMap<string, LigneEtatExtraite>;
+} {
   verifierDecimalesEtat(decimales);
   const ctx = nouveauContexte(decimales);
   for (const p of pages) {
@@ -351,7 +381,7 @@ export function extraireEtatParRegles(
       if (ligne.length > 0) traiterLigneTexte(ctx, p.numero, i + 1, ligne);
     }
   }
-  return { lignes: ctx.lignes, rejets: ctx.rejets };
+  return { extraction: { lignes: ctx.lignes, rejets: ctx.rejets }, positions: ctx.positions };
 }
 
 interface Cellule {

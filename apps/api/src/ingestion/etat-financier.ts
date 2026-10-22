@@ -7,12 +7,16 @@ import {
   forcerRevueEtat,
   lireLignesEtatIa,
   preparerTexteModele,
+  proposerCorrectionsOcr,
   type ExtractionEtat,
   type LigneEtatExtraite,
 } from "@missionpilot/engines";
 import {
+  CORRECTIONS_OCR_MAX,
   PLAFONDS_INGESTION,
+  correctionOcrSchema,
   deviseSchema,
+  type CorrectionOcr,
   type LigneEtatFinancierSaisie,
 } from "@missionpilot/shared";
 import { exigerDossierVisible } from "../dossier/acces.js";
@@ -35,6 +39,11 @@ import { lignesDeTexteTableur } from "./tableur.js";
  *   (`lireLignesEtatIa`) ; sans IA, ou si elle ne rend aucune ligne retenue, les règles déterministes
  *   lisent le texte (`extraireEtatParRegles`). Excel : règles seules, jamais d'IA.
  * - Les CHIFFRES viennent du texte du document, vérifiés par le moteur ; jamais d'un calcul du modèle.
+ * - OCR (lot 11) : une ligne lue sur une page reconnue par OCR porte `reference.ocr = true` et la confiance de la
+ *   page (`confiance_pm`). Les CORRECTIONS PROPOSÉES (confusions O/0, l/1, virgule/point, voir
+ *   `proposerCorrectionsOcr`) sont inscrites dans `ingestion_documents.corrections_ocr` pendant la structuration ;
+ *   elles ne modifient JAMAIS les lignes retenues ni les rejets, et le montant d'une ligne proposée n'entre pas
+ *   dans l'état. Pour un document qui n'est pas lu par OCR, la colonne reste NULL.
  * - Revue forcée (jamais d'acceptation automatique) si une ligne est restée rejetée, si le texte vient d'un
  *   OCR, si aucun poste n'a été retenu, ou si le texte transmis au modèle a été tronqué.
  * - Aucune ligne lue : le document est `termine` / `rien_trouve`, aucun état n'est créé.
@@ -53,10 +62,16 @@ const parametresSchema = z
   })
   .strict();
 
+/** Confiance (0 à 1000) des pages lues par OCR, par numéro de page. */
+type PagesOcr = ReadonlyMap<number, number | null>;
+
+const METHODES_OCR = ["ocr", "ocr_simule"];
+
 function lignesPourEtat(
   extraction: ExtractionEtat,
   nom: string,
   excel: boolean,
+  pagesOcr: PagesOcr,
 ): LigneEtatFinancierSaisie[] {
   return extraction.lignes.map((l: LigneEtatExtraite): LigneEtatFinancierSaisie => {
     const reference =
@@ -68,7 +83,7 @@ function lignesPourEtat(
               : {}),
             ligne: l.ligne,
           }
-        : { fichier: nom, page: l.page };
+        : { fichier: nom, page: l.page, ...referenceOcr(pagesOcr, l.page) };
     return {
       code: l.code,
       libelle: l.libelle,
@@ -79,6 +94,34 @@ function lignesPourEtat(
       reference,
     };
   });
+}
+
+function referenceOcr(pagesOcr: PagesOcr, page: number) {
+  if (!pagesOcr.has(page)) return {};
+  const confiance = pagesOcr.get(page);
+  return {
+    ocr: true as const,
+    ...(typeof confiance === "number" ? { confiance_pm: confiance } : {}),
+  };
+}
+
+/** Marge d'octets par entrée : jsonb::text ajoute des blancs après « : » et « , » (limite de 40 000 octets). */
+const MARGE_OCTETS_ENTREE = 20;
+const OCTETS_CORRECTIONS_MAX = 40_000 - 1_000;
+
+/** Corrections valides au schéma, au plus CORRECTIONS_OCR_MAX et dans la limite d'octets de la colonne. */
+function validerCorrections(brutes: readonly unknown[]): CorrectionOcr[] {
+  const retenues: CorrectionOcr[] = [];
+  let octets = 2;
+  for (const brute of brutes) {
+    if (retenues.length >= CORRECTIONS_OCR_MAX) break;
+    const lue = correctionOcrSchema.safeParse(brute);
+    if (!lue.success) continue;
+    octets += Buffer.byteLength(JSON.stringify(lue.data)) + MARGE_OCTETS_ENTREE;
+    if (octets > OCTETS_CORRECTIONS_MAX) break;
+    retenues.push(lue.data);
+  }
+  return retenues;
 }
 
 export const structurerEtatFinancier: Structureur = async (ctx) => {
@@ -98,7 +141,16 @@ export const structurerEtatFinancier: Structureur = async (ctx) => {
   const decimales = DECIMALES_DEVISE[p.devise];
   const textes = pages.map((x) => ({ numero: x.numero, texte: x.texte }));
   const excel = document.format === "xlsx";
+  const pagesOcr: PagesOcr = new Map(
+    excel
+      ? []
+      : pages
+          .filter((x) => METHODES_OCR.includes(x.methode))
+          .map((x) => [x.numero, x.confiance_pm]),
+  );
   let extraction: ExtractionEtat;
+  /** Extraction faite sur le texte brut, rejets du modèle compris : base des corrections OCR proposées. */
+  let pourCorrections: ExtractionEtat | null = null;
   let tronque = false;
   try {
     if (excel) {
@@ -134,12 +186,39 @@ export const structurerEtatFinancier: Structureur = async (ctx) => {
       } else {
         extraction = extraireEtatParRegles(textes, decimales);
       }
+      if (pagesOcr.size > 0) {
+        pourCorrections = {
+          lignes: extraction.lignes,
+          rejets: [
+            ...extraction.rejets,
+            ...(extraction === proposee ? [] : (proposee?.rejets ?? [])),
+          ],
+        };
+      }
     }
   } catch (error) {
     // Paramètres hors bornes pour le moteur (décimales…) : le document n'est pas exploitable.
     if (error instanceof ErreurDossier) throw new ErreurIngestion("ETAT_INVALIDE");
     throw error;
   }
+  // Corrections OCR proposées : inscrites pendant la structuration (le document est encore `structuration`).
+  let corrections: CorrectionOcr[] | null = null;
+  if (pourCorrections !== null) {
+    try {
+      corrections = validerCorrections(
+        proposerCorrectionsOcr(textes, pourCorrections, decimales).filter((c) =>
+          pagesOcr.has(c.page),
+        ),
+      );
+    } catch (error) {
+      if (error instanceof ErreurDossier) throw new ErreurIngestion("ETAT_INVALIDE");
+      throw error;
+    }
+  }
+  await db.query("UPDATE ingestion_documents SET corrections_ocr = $2::jsonb WHERE id = $1", [
+    document.id,
+    corrections === null ? null : JSON.stringify(corrections),
+  ]);
   if (extraction.lignes.length === 0) return { resultat: "rien_trouve" };
 
   const entete: EnTeteEtat = {
@@ -161,7 +240,7 @@ export const structurerEtatFinancier: Structureur = async (ctx) => {
       auth,
       clientId,
       entete,
-      lignesPourEtat(extraction, document.nom, excel),
+      lignesPourEtat(extraction, document.nom, excel, pagesOcr),
       excel ? "excel" : "pdf",
       { nom: document.nom, sha256: document.sha256, taille: document.taille },
       { forcerRevue },
