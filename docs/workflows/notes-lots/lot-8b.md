@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9d).
+
 # Notes du lot 8b : dettes et mineurs des domaines déjà fusionnés
 
 Branche `orch/2026-10-20-reste-lot-8b`, aucun commit. Mises à jour à reporter par le superviseur dans les

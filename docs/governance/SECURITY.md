@@ -32,6 +32,12 @@ revue contradictoire en §7 bis, rapport d'avancement hebdomadaire AUT-10 en §5
 957 + 15 : avancement 9, portail 2, revues contradictoires 4), 224 fichiers de migration, 32 lignes `GRANT EXECUTE`
 (30, plus `planifier_conservation_ia` redéfinie en `0278` et `planifier_avancement_hebdo` en `0308`) ; domaines SQLSTATE
 `MQI` et `MQU` (§5 ter).
+Mise à jour du 2026-10-22 (lot 9d, report des lots 8b et 8c : voyant rouge du brief en §5 septies et §8 nonies,
+pagination et réaffectation de la revue à froid en §5 ter, plafond de rejeu Monte-Carlo, seuil d'anonymat des
+agrégats d'atelier et plafonds des candidats d'atelier en §5 bis, `paramsId` strict en §7, dates de temps bornées
+en §6 ; le lot 8c, découpage des gros fichiers web, ne change aucun comportement et n'a aucun impact sécurité) :
+972 routes (inchangé : aucune route ajoutée), 226 fichiers de migration (224, plus `0290` et `0432`), 32 lignes
+`GRANT EXECUTE` (inchangé) ; SQLSTATE `MQQ13` (§5 ter).
 
 ## 1. Actifs à protéger
 
@@ -679,7 +685,7 @@ soit le code appelant).
 - **Plans stratégiques augmentés, lot 5a** (PLA-15, PLA-16, PLA-18 et NOT-12 ; mise à jour du 2026-10-21 ;
   `plans/ateliers*.ts`, `plans/montecarlo.ts`, `plans/reprevision*.ts`, `packages/engines/src/notation/combinaisons.ts`,
   `routes/plans-ateliers.ts`, `routes/portail-ateliers.ts`, `routes/plans-montecarlo.ts`,
-  `routes/plans-reprevisions.ts`, migrations `0425`–`0426`, `0429`, `0430`–`0431` ; NOT-12 n'a aucune
+  `routes/plans-reprevisions.ts`, migrations `0425`–`0426`, `0429`, `0430`–`0432` ; NOT-12 n'a aucune
   migration : sa liaison à l'IA passe par `ia_demandes.entite_type` et `entite_id`) :
   - **Portail des ateliers.** Trois routes dans `LISTE_BLANCHE_PORTAIL` (§4 bis) : `GET /api/portail/ateliers`,
     `GET /api/portail/ateliers/:id`, `PUT /api/portail/ateliers/:id/contribution/:methode`, sous la permission
@@ -693,17 +699,33 @@ soit le code appelant).
     il est invité). `plan_simulations_montecarlo`, `plan_realises` et `plan_reprevisions` : `portail_interdit`.
     Piège : la politique de `plan_atelier_participants` ne référence aucune autre table (récursion de RLS).
   - **Anonymat des ateliers.** Les contributions individuelles ne sont jamais servies ; les agrégats ne sont
-    visibles du cabinet qu'APRÈS la clôture de l'atelier (avant : le seul taux de participation).
+    visibles du cabinet qu'APRÈS la clôture de l'atelier (avant : le seul taux de participation). **Seuil de
+    3 participants** (lot 8b, `SEUIL_PARTICIPANTS_AGREGATS`, `plans/ateliers-resultats.ts`, valeur provisoire à
+    valider) appliqué PAR MÉTHODE (`appliquerSeuil`) sur les participants AYANT CONTRIBUÉ à cette méthode, effectif
+    figé à la clôture : une méthode sous le seuil est servie sous la forme `{ resultat: null, masque_seuil: true,
+    seuil_participants: 3 }`, sans agrégat, fait ni effectif ; la vue porte `methodes_masquees`, et `resultats`
+    vaut `null` (avec `masque_seuil` à vrai) seulement si TOUTES les méthodes sont masquées. Le compteur global
+    `ayant_contribue` des résultats figés n'est pas servi (il ne dit rien par méthode). La synthèse IA ne reçoit que
+    les méthodes publiées (409 `ATELIER_AGREGATS_MASQUES` si aucune ne l'est, `plans/ateliers-synthese.ts`).
+    **Candidats à l'invitation** (`candidatsAtelier`, `plans/ateliers.ts`) : lecture bornée par des plafonds
+    déclarés et exportés (`CANDIDATS_CABINET_LUS_MAX` 500 utilisateurs examinés, `CANDIDATS_CABINET_MAX` 200 et
+    `CANDIDATS_DIRIGEANTS_MAX` 200 candidats rendus) ; au-delà, la réponse porte `tronque: true` (pas de
+    pagination : le filtrage par droits se fait après le SQL, §15).
   - **Contenu IA** (orchestrateur, §7 bis). Trois nouveaux brouillons rattachés à `ia_demandes`
     (`notation_explication`, `plan_atelier`, `plan_reprevision`), prompts `notation_explication_commentaire`,
     `plan_atelier_synthese` et `plan_reprevision_explication` ; les chiffres citables sont construits côté serveur
-    depuis les moteurs ; les libellés et commentaires saisis sont des données non fiables ; rien n'est servi au
+    depuis les moteurs ; les libellés et commentaires saisis sont des données non fiables (pour l'explication
+    du commentaire de notation, la variable `texte` est déclarée non fiable : `variablesNonFiables`,
+    `VARIABLES_NON_FIABLES_EXPLICATION` dans `notation/explication-prompt.ts`) ; rien n'est servi au
     portail ; validation par `/ia/generations/:id/valider` (brouillon IA, modifié, validé).
   - **Monte-Carlo (PLA-16).** La graine est tirée par l'API (`crypto.randomInt`) si elle est absente, jamais par le
     moteur (qui reste pur et déterministe) ; 2 000 tirages au plus ; 30 simulations par utilisateur et par 10
     minutes (compte en base ET déclencheur `MQL14`, 429 côté API) et 100 par plan (`MQL12`) ; résultat en ajout
-    seul (`MQL10`), figé (`MQL13`). Le **rejeu** (POST sans écriture, `plan.lire`) coûte environ 0,3 s et n'est
-    PAS limité en débit (§15).
+    seul (`MQL10`), figé (`MQL13`). Le **rejeu** (POST sans écriture métier, `plan.lire`) coûte environ 0,3 s et est
+    LIMITÉ (lot 8b, migration `0432`) : 5 rejeux par plan et par 10 minutes, TOUS utilisateurs confondus (429
+    `TROP_DE_REJEUX`), comptés dans la table `plan_rejeux_montecarlo` (RLS `isolation` et `portail_interdit`,
+    sans `UPDATE`), sous un verrou consultatif par plan ; les lignes de plus d'une heure sont purgées à chaque
+    rejeu. Valeur provisoire, à valider ; un seul utilisateur peut épuiser les 5 rejeux du plan (§15).
   - **Plan vivant (PLA-18).** Réalisés trimestriels et re-prévisions versionnés, en ajout seul (`MQL15`–`MQL24`),
     `portail_interdit` : les états financiers du client ne vont jamais au portail.
 
@@ -793,7 +815,7 @@ pas la séparation des tâches.
 **Revue à froid des missions clôturées (QUA-05, lot 4a ; mise à jour du 2026-10-21).** Code : `apps/api/src/qualite/froide-*.ts`, `routes/qualite-froide.ts`, moteur
 `packages/engines/src/qualite` (`echantillonnage.ts`, `evaluerIndependanceRelecteur`), migrations
 `0287`–`0289` (six tables : `qualite_froide_campagnes`, `_echantillon`, `_evaluations`, `_constats`,
-`_actions`, `_actions_historique`), SQLSTATE du second préfixe `MQQ01`–`MQQ12` (déclaré en §6).
+`_actions`, `_actions_historique`), SQLSTATE du second préfixe `MQQ01`–`MQQ13` (déclaré en §6) ; migration `0290` (lot 8b, réaffectation).
 
 - **Droits.** `qualite.froide.gerer` : associé seul (tirage, affectation, clôture de campagne, plan
   d'amélioration) ; `qualite.froide.relire` : associé, directeur de mission, expert métier (relecteur
@@ -807,6 +829,16 @@ pas la séparation des tâches.
   (`evaluerIndependanceRelecteur`) et le déclencheur `qualite_froide_violations()` de `0287` (`MQQ03`) ;
   l'habilitation (`MQQ07`) reprend les rôles de `qualite.froide.relire`. Aucun jour consommé n'est imputé à la
   revue ; l'associé réaffecte.
+- **Réaffectation et liste « mes revues » (lot 8b).** Un relecteur ne se remplace plus une fois la revue
+  commencée : `affecterRelecteur` refuse l'échantillon `en_revue` (409 `REAFFECTATION_EN_REVUE`), et le
+  déclencheur `qualite_froide_echantillon_controle_reaffectation` (`0290`, SQLSTATE `MQQ13`, distinct de celui de
+  `0287`, classé après lui pour que `MQQ04` garde la priorité sur une revue terminée) le refuse aussi en base ;
+  la réaffectation reste permise tant que la revue est `affectee`. `GET /api/qualite/revue-froide/mes-revues`
+  est paginé par curseur keyset (`mesRevuesQuerySchema` strict : `limite` de 1 à 100, 50 par défaut, `curseur` de
+  500 caractères au plus ; réponse `{ elements, curseur_suivant }`) ; le curseur est propre à cette liste (tri à
+  directions mixtes : revues non terminées d'abord, affectation la plus récente d'abord, puis identifiant),
+  décodé et validé par Zod, et un curseur invalide donne 400. L'ancien plafond fixe de 200 revues par relecteur
+  (`LIMIT 200`) n'existe plus. Valeurs de départ (50, 100) à valider (`DECISIONS.md`).
 - **Figé.** Critères, graine, population copiée (5 000 missions au plus, avec son empreinte) et échantillon sont
   immuables après le tirage (`MQQ02`, le tirage se rejoue à l'identique) ; une revue terminée est figée
   (`MQQ04`) ; l'historique des actions est en ajout seul (`MQQ01`). La grille « complète » (8 critères) est codée
@@ -815,7 +847,7 @@ pas la séparation des tâches.
 - **Second préfixe SQLSTATE `MQ…`.** Toutes les lettres simples `MP?` sont prises : la règle de
   [CODING_STANDARDS.md](CODING_STANDARDS.md) §2 ouvre un second préfixe `MQ` suivi d'une lettre de domaine
   et de deux chiffres. Domaines déclarés : `MQD` due diligence (§8 octies), `MQC` canaux (déclaré, aucun
-  code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0289`), `MQF`
+  code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0290`), `MQF`
   groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
   code employé), `MQK` capitalisation (efficacité des recommandations et observatoire, §5 sexies), `MQA`
   veille des appels d'offres (§6) `MQV` services candidats (§8 decies), `MQI` IA (cache, revue contradictoire, §7 bis) et `MQU` rapport d'avancement
@@ -838,6 +870,7 @@ pas la séparation des tâches.
   | `MQQ10`  | `REVUES_NON_TERMINEES`         | 409  | clôture de campagne avant la fin des revues                        |
   | `MQQ11`  | `REVUE_ETAT_IMPOSSIBLE`        | 409  | état de revue incompatible                                         |
   | `MQQ12`  | `CONSTAT_INVALIDE`             | 409  | constat lié à une action hors revue terminée de la campagne        |
+  | `MQQ13`  | `REAFFECTATION_EN_REVUE`       | 409  | relecteur remplacé alors que la revue est commencée (`0290`)       |
   | `MQK01`  | `HISTORIQUE_AJOUT_SEUL`        | 409  | historique et instantanés d'efficacité en ajout seul (CAP-03)      |
   | `MQK02`  | `REQUETE_INVALIDE`             | 400  | KPI ou initiative hors de la mission de la recommandation          |
   | `MQK03`  | `IDENTITE_FIGEE`               | 409  | identité d'une recommandation figée                                |
@@ -1180,8 +1213,8 @@ calcul fait à la demande, rien n'est stocké.
 
 - **Calcul déterministe, sans IA** : les sources (`brief/*.ts`) lisent des FAITS dans les droits de
   l'utilisateur connecté et les remettent au moteur, seul juge de la gravité, de l'ordre et du
-  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 30 types d'éléments en trois familles :
-  « À décider » (16), « Ça dérive » (8), « Prêt à envoyer » (6), à raison de 29 sources (le KPI au
+  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 31 types d'éléments en trois familles :
+  « À décider » (16), « Ça dérive » (9), « Prêt à envoyer » (6), à raison de 30 sources (le KPI au
   rouge et le KPI à l'orange de deux périodes de suite partagent une source). Sources ajoutées
   (mise à jour du 2026-10-21) : offre technique d'appel d'offres dont la dernière version n'est pas
   validée (`ao.gerer`, hors créateur, auteur de version et demandeur de génération IA ; sans visibilité
@@ -1192,6 +1225,18 @@ calcul fait à la demande, rien n'est stocké.
   à clôturer et visible, hors auteur ; palier FIN-15 recalculé pour un non-associé ; jamais de montant,
   de jour, de devise ni d'écart : FIN-02). **Le brief n'exempte aucun associé de la séparation des
   tâches** (plus strict que les routes).
+- **Voyant rouge du redressement (lot 8b, type `voyant_rouge`, famille « Ça dérive », source
+  `voyantsRedressementRouges`, `brief/derives.ts`).** Derrière `redressement.lire` ET la visibilité de mission
+  (même `VISIBLE` que les autres sources) ; dossiers non clos d'une mission non clôturée seulement (un dossier clos
+  est exclu par prudence : son suivi relève de son propre écran, choix et non dette). Au plus 50 dossiers lus
+  (`PLAFOND_DOSSIERS_VOYANT`) et 20 ÉVALUÉS par requête (`PLAFOND_EVALUATIONS_VOYANT`, valeurs provisoires : chaque
+  évaluation lit plusieurs tables) ; le moteur du redressement (`rassemblerDonneesVoyant` puis
+  `calculerEtatVoyant`) reste seul juge, et seul le ROUGE produit un élément. Ne sortent que les libellés des
+  motifs CRITIQUES (5 au plus, 200 caractères chacun : décomptes de semaines, de covenants ou d'actions) ; AUCUN
+  montant ni devise, même avec `finance.lire` (FIN-02). Un dossier dont l'évaluation lève une
+  `ErreurRedressement` est isolé : ignoré, source marquée interrompue, famille tronquée, les autres dossiers
+  restent servis (jamais un 500). Lien `/missions/<id>/redressement`. L'automatisation de ce voyant (événement,
+  notification, canal) n'est pas branchée (§8 nonies).
 - **Droits** : `GET /api/brief` exige `brief.lire` (tous les rôles du cabinet, l'expert externe
   compris ; jamais un rôle du portail). Chaque source n'est consultée que si l'utilisateur détient la
   permission de l'action qu'elle propose (jamais par nom de rôle) ET applique la visibilité des missions
@@ -1224,7 +1269,8 @@ calcul fait à la demande, rien n'est stocké.
   lecture bornée de missions ou de KPI) ne savent pas combien de lignes non lues auraient été
   retenues : la famille est marquée `tronque` et son total est un minimum, jamais un nombre gonflé
   de lignes peut-être écartées (`enSourceFiltree`). Chaque source lit au plus 50 lignes
-  (`PLAFOND_PAR_SOURCE`) et chaque famille sert 10 éléments au plus.
+  (`PLAFOND_PAR_SOURCE`) et chaque famille sert 10 éléments au plus (le voyant rouge n'évalue que 20 dossiers par
+  requête, ci-dessus).
 - **Source encore écartée** : rapports « validés non diffusés ». `rapports_mission` est en ajout seul,
   son `statut` `valide` est fixé à la génération par le code, et aucune table d'envoi, de partage du
   portail ni de signature ne le référence (le seul vestige, `journal_audit` `telechargement`, est
@@ -1355,7 +1401,7 @@ VALIDÉ est visible du client.
   | `MPN08-12` | notation augmentée : item de banque validé figé, créé hors brouillon ou incohérent avec son contenu (`MPN08`), sélection d'items en ajout seul citant un item non validé, une formulation hors de l'item ou un item en double (`MPN09`), indice de confiance en ajout seul ou sous le seuil courant, publication sans indice publiable de la même transaction (`MPN10`), session de calibrage figée hors clôture par un expert métier, cotation sur session close, cas inconnu ou niveau hors échelle (`MPN11`), initiative type supprimée ou code figé, impacts et plans d'action en ajout seul, plan sur une version d'une autre notation (`MPN12`) ; plancher du seuil de confiance (≥ 0,3) et de la cible de répondants (≥ 2) par CHECK `NOT VALID`, sans SQLSTATE dédié | `0400`–`0404` |
   | `MPZ01-20` | redressement (service #5, lots 3a et 3a-bis ; lettre `Z` partagée avec la due diligence : `MPZ01-20` au redressement, tous pris, la lettre est épuisée pour lui, `MPZ21-32` à la due diligence) : historiques en ajout seul (`MPZ01`), rattachement incohérent : mission et client du dossier, seuils d'un score non publiés, d'un autre secteur ou non identiques, échéance d'un autre créancier (`MPZ02`), mission clôturée ou dossier clos (`MPZ03`), champ figé (`MPZ04`), versions non consécutives ou publication d'une version qui n'est pas la dernière (`MPZ05`), transition de statut invalide (`MPZ06`), séparation des tâches : plan validé par son créateur ou par un rôle non habilité, seuils publiés par leur auteur ou par un rôle non habilité, hors associé (`MPZ07`), réalisé de trésorerie qui ne remplace pas la ligne courante (`MPZ08`), négociation incohérente (`MPZ09`), plafond de volume atteint (`MPZ10`), plus de 10 corrections d'un réalisé de semaine (`MPZ11`) ; lot 3a-bis : check-list archivée figée (`MPZ12`), historique des causes en ajout seul, rangs consécutifs, contenu modifiable seulement avec un rang « modifié » de la même transaction (`MPZ13`), cartographie d'origine IA « validée » sans dernier rang « validé » ou sans nombres non vérifiés acquittés (`MPZ14`), covenant en doublon ratio/opérateur ou plancher > plafond (`MPZ15`), période hors du plan de financement (`MPZ16`), bilan de clôture validé figé (`MPZ17`), validation sans contrôles de complétude vrais (`MPZ18`), suivi d'un dossier non clos (`MPZ19`), suivi incohérent (`MPZ20`) ; `0492` réutilise `MPZ07` pour la validation du plan et du bilan par un autre que le directeur de la mission, ou sur une mission sans directeur (message distinct, aucun nouveau code) ; traduits par `traduireErreurRedressement` (`redressement/erreurs.ts`), jamais en 500 | `0480`–`0492` |
   | `MQS01-02` | référentiel de méthodes, second préfixe `MQ` (§5 ter) : identité, type ou porteur d'un facteur figés, facteur du standard (`MQS01`) ; valeur d'énumération retirée ou borne resserrée (`MQS02`) ; `MQS03` et suivants libres | `0210` |
-  | `MQQ01-12` | revue à froid des missions clôturées (QUA-05) : table complète en §5 ter ; `MQQ13` et suivants libres | `0287`–`0289` |
+  | `MQQ01-13` | revue à froid des missions clôturées (QUA-05) : table complète en §5 ter ; `MQQ14` et suivants libres | `0287`–`0290` |
   | `MQF01-04` | groupes et filiales (DOS-05) : cycle de détention (`MQF01`), total des parts supérieur à 100 % (`MQF02`), fin de détention sans détention antérieure (`MQF03`), profondeur de plus de 8 liens (`MQF04`) ; tous traduits en 409 par `dossier/erreurs.ts` ; `MQF05` et suivants libres | `0225` |
   | `MQD01-11` | due diligence, portail investisseur et modèles sectoriels (§8 octies) : `MQD01` compte non admissible à une invitation, `MQD02` invitation incohérente, `MQD03` version de note non publiable, `MQD04` instantané incohérent avec la note, `MQD05` publication déjà active pour la note, `MQD06` retrait incohérent, `MQD07` pièce non admissible, `MQD08` plafond atteint (portail investisseur), `MQD11` modèles sectoriels ; `MQD09`, `MQD10`, `MQD12`–`MQD20` libres (réservés à ces chantiers par `0509`) | `0509`, `0511` |
   | `MQL01-24` | plans stratégiques (§5 bis) : `MQL01`–`MQL08` ateliers en ligne, `MQL09` réservé non employé, `MQL10`–`MQL14` simulation de Monte-Carlo (ajout seul, version du modèle, 100 simulations par plan, résultat figé, 30 par utilisateur et par 10 minutes), `MQL15`–`MQL24` plan vivant (réalisés et re-prévisions) ; `MQL25` et suivants libres | `0425`–`0426`, `0429`–`0431` |
@@ -1390,7 +1436,8 @@ propre activité), ne propose que des tâches qui lui sont affectées, jamais su
 ni une feuille soumise ; l'enregistrement passe toujours par le circuit habituel de la feuille.
 Aucune de ces routes n'est dans `LISTE_BLANCHE_PORTAIL`. Test : `test/previsions.test.ts`
 (base `missionpilot_prev`). La date de référence des prévisions est bornée (`dateIsoBorneeSchema`) ;
-la semaine du pré-remplissage ne l'est pas (`semaineQuerySchema`, dette : §15).
+la semaine du pré-remplissage l'est aussi depuis le lot 8b (`semaineQuerySchema`, comme toutes les dates de
+`packages/shared/src/schemas/temps.ts`).
 
 **Appels d'offres, lot AO-A (AO-01 à AO-03, AO-08).** Migrations `0360`–`0363`, code
 `apps/api/src/appels-offres/`, routes `routes/appels-offres.ts` (24 routes, 50 avec le lot AO-B), moteur
@@ -1505,7 +1552,10 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
 
 - **Validation** : schémas Zod `.strict()` partagés (`packages/shared/src/schemas/`,
   550 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
-  `bodyLimit`) ; paramètres `id` en UUID (`http/outils.ts`). Les erreurs Zod
+  `bodyLimit`) ; paramètres `id` en UUID par `paramsId`
+  (`http/outils.ts`), désormais `.strict()` depuis le lot 8b : 561 appels dans 88 fichiers de routes (relevé du
+  2026-10-22) et aucun chemin n'a d'autre paramètre que `:id` (les routes à plusieurs paramètres ont leur
+  propre schéma). Une route qui ajouterait un autre paramètre doit déclarer son propre schéma (400 sinon). Les erreurs Zod
   renvoient 400 `REQUETE_INVALIDE`. Une `AppError` ne transmet de `details` que
   les champs de la liste blanche `CHAMPS_DETAILS_PUBLICS` (`errors.ts` :
   `violations`, `erreurs`, `manquants` ; tableaux tronqués à 200) : jamais une
@@ -1555,7 +1605,8 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
 - **Dates métier bornées** : une date qui alimente une colonne à `CHECK` SQL (2000-01-01 à
   2100-12-31) passe par `dateIsoBorneeSchema` (`packages/shared/src/schemas/commun.ts`) ; le
   SQLSTATE 23514 qui échapperait au schéma est traduit en 400 `REQUETE_INVALIDE` par la couche
-  d'erreurs du domaine, jamais en 500. Exception connue : `semaineQuerySchema` (§15).
+  d'erreurs du domaine, jamais en 500. Depuis le lot 8b, toutes les dates de `packages/shared/src/schemas/temps.ts`
+  (dont `semaineQuerySchema`) sont bornées : un 400 du schéma, jamais un 500 de la base ; aucune exception connue.
 - **File de tâches** : toute constante `TYPE_JOB_*` exportée par le code a son handler dans
   `jobs/registre.ts` (sinon le worker ne l'exécuterait jamais et la file se remplirait en silence) ;
   `test/jobs-registre.test.ts` l'impose par un inventaire automatique des sources, seule
@@ -2721,8 +2772,10 @@ trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
     revérifie la mission visible et le niveau à chaque appel (`exigerFichierLisible`, inchangé) ; un rôle sans
     `redressement.lire` obtient 404 sur `GET /api/fichiers/:id` ; débit `TROP_DE_RAPPORTS` existant (§8 bis).
   - **Partage externe du tableau de bord (RED-15) NON ouvert** : aucune route du portail, aucune politique `portail`,
-    aucune option de cabinet. Le tableau de bord est INTERNE ; `calculerEtatVoyant` et `etatVoyantDossier` sont
-    exportés pour un lot ultérieur mais NON branchés. À rouvrir avec le portail investisseur : politique RLS
+    aucune option de cabinet. Le tableau de bord est INTERNE ; `calculerEtatVoyant` sert au tableau de bord interne
+    (`redressement/tableau.ts`) et, depuis le lot 8b, au brief quotidien (voyant rouge, §5 septies) ; `etatVoyantDossier`
+    reste exporté sans appelant, et ni le portail ni l'automatisation (événement, notification, canal) n'appellent
+    le voyant : NON branchés. À rouvrir avec le portail investisseur : politique RLS
     `portail` + `portail_sans_*` + entrée explicite dans `LISTE_BLANCHE_PORTAIL` + option du cabinet désactivée par
     défaut.
 - **Valeurs par défaut** : seuils d'alerte du secteur « général » (les autres secteurs retombent dessus tant
@@ -2765,6 +2818,10 @@ rapprochement.
   jamais de taux inventé) ; aucun chiffre ne vient du modèle de langage.
 - **Liste tronquée** : `GET /guichets-financement` et le rapprochement renvoient `tronque` (le rapprochement lit
   jusqu'à 500 guichets).
+- **Entrée depuis la fiche client** (lot 8b) : le lien « Proposer un diagnostic flash » (`cheminDiagnosticFlash`,
+  `apps/web/src/lib/clients.ts`) n'est qu'une navigation vers `/services-candidats` (service et client en
+  paramètres encodés), visible avec `catalogue.lire` et pour un client actif ; il n'ajoute aucune route ni
+  aucun droit, la page et les routes gardent les leurs (ci-dessus).
 
 ## 9. Paiements et webhooks
 
@@ -2977,7 +3034,7 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   §5 sexies) ; plans (30 propositions de portefeuille par utilisateur et par 10 minutes, §5 bis) ;
   brief quotidien (60 requêtes par utilisateur et par 10 minutes, limiteur PERSISTANT en base partagé entre
   les instances, espace `brief_requetes`, §5 septies) ; simulations de Monte-Carlo (30 par utilisateur et par 10
-  minutes, 100 par plan, rejeu non limité, §5 bis) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
+  minutes, 100 par plan, rejeux limités à 5 par plan et par 10 minutes, tous utilisateurs confondus, §5 bis) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
   « KPI au rouge » par 10 minutes, comptés sur `journal_audit`, §7 bis).
   Pas de limite générale par IP : voir §15.
 
@@ -3087,7 +3144,6 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Salle de mission : un tiers externe (le client) téléverse des fichiers que le cabinet ouvre, sans antivirus ; l'accusé de réception d'un dépôt est traité hors file, après la transaction : si le processus s'arrête entre les deux, l'accusé n'est pas rejoué (l'échec est seulement journalisé) | `salle-mission/accuses.ts` (`suiteDepotPortail`), `stockage/detection.ts` (§8 septies) |
 | CV de la banque des appels d'offres : lisibles de tout détenteur de `ao.lire` ; aucune durée de conservation automatique (à valider) ; le texte d'une offre technique déjà rédigée peut citer le nom d'un expert et n'est pas réécrit par l'anonymisation (versions en ajout seul) | `banque-ao/cv.ts`, `migrations/0386_ao_cv_anonymisation.sql`, `DECISIONS.md` |
 | Capitalisation : le chef de mission peut valider la version IA du retour d'expérience qu'il a lui-même demandée (exception voulue, conforme au PRD, `MPJ08` n'exige qu'un responsable de la mission) ; niveaux de compétence, fichiers de la salle et retours d'expérience sans durée de conservation ni procédure d'effacement | `capitalisation/retours.ts`, `migrations/0465_capitalisation_durcissement.sql` |
-| `semaineQuerySchema` (`packages/shared/src/schemas/temps.ts`) n'est pas borné : une semaine extrême sur `GET /api/temps/preremplissage` et `GET /api/feuilles-temps/semaine` n'est pas testée (contrairement aux dates bornées par `dateIsoBorneeSchema`) | `routes/previsions.ts`, `routes/feuilles-temps.ts` |
 | Seuils, poids et plafonds des vagues 2 et 3 (confiance de notation, go/no-go, estimation, plafonds de débit) : valeurs de départ à calibrer au pilote ; valeurs de départ du rejeu réel des évaluations d'agents (2 USD par évaluation, 5 rejeux par 24 heures, 8 minutes, péremptions 1 h et 30 min) : voir les lignes « Rejeu réel » | `DECISIONS.md`, `notation/confiance.ts`, `appels-offres/go-no-go.ts` |
 | Recette navigateur du 2026-10-10, observations non tranchées. **Jours de budget** : un consultant membre de l'équipe voit les JOURS de budget et de temps réel dans la section « Écarts » d'un retour d'expérience (`budget.lire_jours`, FIN-02 ne vise que les montants) : décision produit à confirmer | `capitalisation/retours.ts` (`sansJours`), `packages/shared/src/roles.ts`, `DECISIONS.md` |
 | Retour d'expérience : générer la version « gabarit » (sans clé IA, plafond atteint ou sortie inexploitable) inscrit une NOUVELLE version qui remplace le texte courant rédigé par un humain ; l'ancien texte reste lisible dans la version précédente (ajout seul), rien n'est perdu mais l'écran n'avertit pas | `capitalisation/ia.ts` (`genererRetourIa`), `capitalisation/retours.ts` (`inscrireVersionGeneree`) |
@@ -3098,7 +3154,7 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Copilote, masquage des noms CONNUS du cabinet (raisons sociales des clients, noms des utilisateurs, des contacts clients, intitulés de missions, écrits en entier : masqués avant envoi, jetons restitués localement) : PARTENT en clair un nom absent des fiches, un fragment seul (prénom, un mot d'une raison sociale), une faute de frappe ou des lettres espacées, le texte libre autour, le nom d'un autre cabinet tapé par l'utilisateur ; au-delà de 2 000 noms candidats par table ou 200 noms distincts par message, le surplus part en clair ; toujours non vérifié avec un vrai modèle ; la page du copilote déconseille d'y saisir des données confidentielles de clients (`MENTION_CONFIDENTIALITE`) | `copilote/noms-propres.ts`, `copilote/routage-ia.ts`, `ia/masquage.ts`, `apps/web/src/lib/copilote.ts` |
 | Copilote : l'anonymisation des propositions d'actions terminées au bout de 30 jours est une durée posée sans avis juridique ; une proposition non terminée n'est anonymisée qu'après son expiration puis 30 jours ; la purge (02:30 UTC) dépend du planificateur et du worker | `migrations/0274_copilote_purge.sql`, `copilote/purge.ts`, `DECISIONS.md` |
 | Copilote et brief : valeurs de départ à valider (30 messages par 10 minutes, 1 000 caractères, 5 minutes de validité d'une proposition, niveau N2 pour les actions, 30 jours, 5 appels « KPI au rouge » par 10 minutes, 60 requêtes du brief par 10 minutes, seuils de gravité du brief, 7 h UTC, anti-répétition de 10 minutes de `mission.cloture_demandee`) | `DECISIONS.md` (« Chantier lacunes de la vague 2 ») |
-| Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
+| Rapport d'état financier du dossier client : la liste des missions du client est lue en UNE seule page de 500 (`limite=500`) sans suivre le curseur ; au-delà de 500 missions, les suivantes ne sont pas proposées, sans message (les dix pages de liste qui lisent `/api/missions` ou `/api/opportunites` demandent désormais des pages de 500, le plafond de ces routes, et la liste est signalée tronquée au-delà de 20 pages, CODING_STANDARDS §10) | `apps/web/src/components/dossier/RapportEtatFinancier.tsx`, `apps/web/src/lib/rapport-etat-financier.ts` (`cheminMissionsClient`), `apps/web/src/lib/pagination.ts` |
 | Canaux (lot 3c) : `canaux.lire` (associé, directeur, chef de mission) ouvre, par `GET /canaux/destinataires` (le client demandé est seulement vérifié dans le cabinet) et `GET /canaux/envois`, les numéros MASQUÉS, consentements et envois de TOUS les clients du cabinet, pas seulement ceux des missions du chef ; décision produit à confirmer (restriction aux clients de ses missions non faite) | `routes/canaux.ts`, `packages/shared/src/roles.ts`, `SPEC-3c-canaux-simules.md` |
 | Canaux : un consentement « recueilli par le cabinet » (`recueilli_cabinet`) repose sur une référence de preuve saisie par un associé ou un directeur de mission (au moins 10 caractères), non vérifiée par la plateforme : le cabinet peut déclarer un accord que la personne n'a pas donné (risque interne ; l'historique est en ajout seul, `MPH01`, et seule la personne redonne son accord après un STOP, `MPH02`) | `canaux/consentements.ts`, `migrations/0541_canaux_destinataires_consentements.sql` |
 | Canaux, média entrant : la taille de 15 Mo est désormais appliquée EN FLUX côté appelant (`lireFluxPlafonne` : taille déclarée contrôlée avant lecture, compteur d'octets, flux fermé au dépassement, type MIME hors liste blanche refusé sans lecture) ; RESTE pour le futur adaptateur réel (aucun n'existe) : corps non bufferisé, appel d'un hôte de confiance fourni par le fournisseur et jamais d'une URL reçue dans le message (SSRF), délai (timeout) sur le flux | `canaux/media-flux.ts`, `canaux/entrants.ts` (`transcrireMedia`, `MEDIA_ENTRANT_OCTETS_MAX`), `canaux/ports.ts` (`telechargerMedia`) |
@@ -3107,7 +3163,9 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Redressement : AUCUN seuil d'alerte par secteur, ni grille d'urgence, n'a de source normative (ni ONUDI ni OHADA ne fixent de seuil chiffré à notre connaissance) : les valeurs sont des conventions provisoires, à faire valider par un expert avant tout usage au pilote ; plafonds de volume (100 à 1 000) et débits (30, 30, 60 par 10 minutes) à calibrer ; aucune durée de conservation des données du client posée (avis du conseil juridique) ; les trois routes de calcul pur n'ont pas de compteur de débit ; un dossier `clos` est terminal ; aucun suivi qualité R3 du plan (aucun livrable produit) ; kanban sans synchronisation avec `taches_collaboration` | `packages/engines/src/redressement` (constantes `SEUILS_ALERTE_DEFAUT`, `GRILLE_URGENCE`), `apps/api/src/redressement/limites.ts`, `DECISIONS.md` (section « Redressement ») |
 | Rapports « validés non diffusés » (source du brief écartée) : `rapports_mission` est en ajout seul, son `statut` `valide` est fixé à la génération par le code et aucune table d'envoi, de partage du portail ni de signature ne le référence (le seul vestige, `journal_audit` `telechargement`, est interne) ; à rouvrir quand une trace de diffusion au client existera | `rapports/enregistrement.ts`, `brief/` (§5 septies), `migrations/0130_rapports.sql` |
 | Qualité R3 du rapport de clôture du redressement : `brancherRapport` ouvre un suivi de type `rapport` (R2 au minimum) ; passer à R3 automatiquement exigerait un type de livrable dédié (`CLASSE_MINIMALE_PAR_TYPE`, `packages/shared` et `qualite/`) ; contournement : `POST /api/qualite/suivis/:id/classe` (R3, motif) | `qualite/branchements.ts` (`brancherRapport`), `qualite/suivis.ts`, `packages/shared/src/schemas/qualite.ts` |
-| Rejeu de Monte-Carlo (PLA-16) : `POST` sans écriture (`plan.lire`), environ 0,3 s de calcul, NON limité en débit (les 30 simulations par utilisateur et par 10 minutes ne comptent que les simulations enregistrées, `MQL14`) ; à limiter en cas d'abus | `routes/plans-montecarlo.ts`, `plans/montecarlo.ts`, `migrations/0429_plan_montecarlo.sql` |
+| Rejeu de Monte-Carlo (PLA-16) : limité depuis le lot 8b à 5 rejeux par PLAN et par 10 minutes, tous utilisateurs confondus (429 `TROP_DE_REJEUX`) ; le plafond n'est pas par utilisateur, donc un seul utilisateur peut épuiser les 5 rejeux du plan et en priver les autres pendant la fenêtre (décision du superviseur, provisoire) ; 5 par 10 minutes à valider (les 30 simulations par utilisateur et par 10 minutes et les 100 par plan, `MQL14` et `MQL12`, sont inchangés) | `plans/montecarlo.ts` (`verifierDebitRejeu`), `routes/plans-montecarlo.ts`, `migrations/0432_plan_montecarlo_rejeux.sql`, `DECISIONS.md` |
+| Ateliers du plan : `candidatsAtelier` (liste des invitables) lit au plus 500 utilisateurs du cabinet, en rend 200 au plus (et 200 dirigeants au plus) et signale `tronque: true` sans pagination : au-delà, un invitable peut manquer à la liste sans que l'on puisse le choisir ; seuil de 3 participants ayant contribué avant tout agrégat (par méthode) et plafonds de candidats : valeurs provisoires à valider | `plans/ateliers.ts` (`candidatsAtelier`), `plans/ateliers-resultats.ts` (`SEUIL_PARTICIPANTS_AGREGATS`), `DECISIONS.md` |
+| Brief, voyant rouge du redressement : 50 dossiers lus et 20 ÉVALUÉS par requête (au-delà, famille tronquée : le nombre de voyants rouges est inconnu) ; valeurs provisoires à valider, chaque évaluation lisant plusieurs tables sous le plafond de 60 requêtes par 10 minutes ; l'automatisation du voyant (événement, notification) n'est pas branchée | `brief/derives.ts` (`PLAFOND_DOSSIERS_VOYANT`, `PLAFOND_EVALUATIONS_VOYANT`), `redressement/voyant.ts`, `DECISIONS.md` |
 | PDF de signature servi `inline` SANS `sandbox` (`GET /signatures/:id/document` et `GET /portail/signatures/:id/document`) : type `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none'; frame-ancestors 'none'` ; risque résiduel = faille de la visionneuse PDF du navigateur ou contournement du filtre de contenu actif ; repli `attachment` + `sandbox` si le type stocké n'est pas PDF ; la route générique `GET /fichiers/:id` garde `sandbox` ; rendu `inline` dans Chrome non vérifié | `routes/signatures.ts` (`CSP_LECTURE_PDF`), `routes/portail-signatures.ts`, `stockage/detection.ts` |
 | Portail investisseur de la due diligence : du SQL arbitraire du rôle applicatif contourne les gardes de cohérence des publications (comme `MPZ29`) ; le rendu navigateur des pages, le PDF de la note en portail (seul le Word est testé) et la navigation clavier de l'arbre ne sont pas vérifiés | `migrations/0509_dd_portail_investisseur.sql`, `routes/due-diligence-portail-investisseur.ts` |
 | Alertes de KPI sortantes par canal (option `alerte_kpi`, désactivée par défaut) : mise en file seulement, vers les seuls responsables INTERNES autorisés disposant d'un numéro vérifié et d'un consentement ; le routage vers des internes sans numéro et le lien `/portail/` de l'alerte restent des décisions produit à confirmer (une alerte `MESURE_EN_RETARD` ne part pas seule : le rappel du même passage la couvre) ; source `desactivation_utilisateur` écrite à la désactivation d'un utilisateur du portail ET du cabinet, le destinataire n'étant jamais supprimé | `canaux/alertes-kpi.ts`, `kpi/suivi.ts`, `migrations/0549_canaux_alerte_kpi.sql`, `canaux/consentements.ts` |
@@ -3147,7 +3205,10 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   une clé (modèle servi, coûts, jetons) ; décider du rôle PostgreSQL distinct pour le worker (nouvel ADR, garde
   complète de provenance, la garde par fonctions `SECURITY DEFINER` étant faite par `0275`) et d'une file `jobs`
   dédiée aux jobs longs (le worker traite un job à la fois).
-- **Bornes de dates** : `semaineQuerySchema` (§15).
+- **Valeurs provisoires du lot 8b** (§5 bis, §5 ter, §5 septies, §15 ; `DECISIONS.md`) : 5 rejeux Monte-Carlo par plan
+  et par 10 minutes, tous utilisateurs confondus (ou aussi par utilisateur ?) ; seuil de 3 participants ayant
+  contribué avant tout agrégat d'atelier ; plafonds de candidats d'atelier (500 lus, 200 rendus) ; pages de
+  « mes revues » de 50 (100 au plus) ; 50 dossiers lus et 20 évalués pour le voyant rouge du brief.
 - **Jours de budget dans les retours d'expérience** : un consultant membre de l'équipe lit les jours
   de la section « Écarts » (§5 sexies, §15) ; décision produit à confirmer (`DECISIONS.md`).
 - **Recette du 2026-10-10, à clarifier** (§15) : pied de page « relu et validé par un consultant » sur

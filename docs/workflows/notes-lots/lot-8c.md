@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9d).
+
 # Lot 8c : découpage des gros fichiers web
 
 Dette « fichiers web de plus de 400 lignes » (CODING_STANDARDS §10). Aucun changement de

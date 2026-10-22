@@ -524,8 +524,8 @@ Migrations `0487` à `0492` et `0551`. Tout est **provisoire, à valider** par u
 - **Tableau de bord et voyant (RED-15 interne)** : `SEMAINES_TENSION_CRITIQUE` 4, `COVENANTS_DEFAUT_CRITIQUE` 2,
   `ACTIONS_RETARD_CRITIQUE` 5, `MOTIFS_PRINCIPAUX_MAX` 3 ; urgence rouge = critique, orange = vigilance ; alerte
   critique = critique, élevée ou modérée = vigilance ; portefeuille : 10 par page (25 au plus). Le voyant est
-  indicatif. **Le « voyant rouge » (`calculerEtatVoyant`, `etatVoyantDossier`) est exporté mais PAS branché** au
-  brief ni à l'automatisation (lot ultérieur). Le **partage externe** du tableau de bord (conseil
+  indicatif. **Le « voyant rouge » (`calculerEtatVoyant`) est branché au brief depuis le lot 8b** (voir « Dettes
+  transverses, lot 8b ») ; `etatVoyantDossier` et l'automatisation restent non branchés (lot ultérieur). Le **partage externe** du tableau de bord (conseil
   d'administration, banques) n'est **pas ouvert** : aucune route du portail, aucune option de cabinet.
 - **Correspondance secteur client vers secteur du redressement** : table prudente `CORRESPONDANCE_SECTEURS_CLIENT`
   (`apps/web/src/lib/redressement-secteur.ts`) : transport, logistique et microfinance rangés en « services » ;
@@ -563,7 +563,7 @@ points 2, 3 et 4 du tableau « Décisions de l'utilisateur ».
 ## Référentiel de méthodes (STD-11) et revue à froid (QUA-05), lot 4a (2026-10-20)
 
 Migrations `0210` (facteurs de contexte modifiables, SQLSTATE `MQS01`, `MQS02`) et `0287` à `0289` (revue à froid,
-SQLSTATE `MQQ01` à `MQQ12`). Valeurs **provisoires, à valider**, sauf le point 7 du tableau « Décisions de
+SQLSTATE `MQQ01` à `MQQ12` ; `0290` et `MQQ13` ajoutés par le lot 8b). Valeurs **provisoires, à valider**, sauf le point 7 du tableau « Décisions de
 l'utilisateur » (relecteur).
 
 - **Permissions** : `qualite.froide.gerer` (associé seul : tirage, affectation, clôture, plan d'amélioration) ;
@@ -626,12 +626,13 @@ Migrations `0425`, `0426`, `0429`, `0430`, `0431` (NOT-12 : aucune migration). V
 - **PLA-16, Monte-Carlo** : lois uniforme, triangulaire et normale tronquée (Irwin–Hall, déterministe) ; 100 à 2 000
   tirages (1 000 par défaut) ; probabilité de tension = part des tirages dont la trésorerie nette de clôture est
   négative au moins une année ; lois de départ proposées : croissance ±5 points, marge ±2 points, charges fixes
-  −5 % / +10 %, délai clients 0 / +30 jours ; 30 simulations par utilisateur et par 10 minutes, 100 par plan. La
-  graine est tirée par l'API, jamais par le moteur.
+  −5 % / +10 %, délai clients 0 / +30 jours ; 30 simulations par utilisateur et par 10 minutes, 100 par plan ; le
+  rejeu est limité depuis le lot 8b (5 par plan et par 10 minutes). La graine est tirée par l'API, jamais par le
+  moteur.
 - **PLA-15, ateliers en ligne** : vote par 10 points par défaut (1 à 100) ; Borda ; matrice valeur / effort de 1 à 5,
   seuil 3,00 ; ouverture exigeant 2 options et 1 participant ; 100 ateliers par plan, 50 options, 100 participants,
   20 versions de contribution par participant et méthode. Le dirigeant client ne voit que les ateliers ouverts où
-  il est invité et sa propre contribution ; agrégats visibles du cabinet après clôture seulement.
+  il est invité et sa propre contribution ; agrégats visibles du cabinet après clôture seulement, et seulement par méthode ayant au moins 3 contributeurs (lot 8b).
 - **PLA-18, plan vivant** : répartition trimestrielle 25 / 25 / 25 / 25 par défaut ; méthodes `reste_du_plan` et
   `tendance` (facteur borné de 0,5 à 1,5) ; seuil « significatif » 10 % ; trésorerie re-prévue = projection
   simplifiée ; 40 re-prévisions par exercice, 50 versions de réalisé par trimestre, 1 000 par plan.
@@ -773,3 +774,39 @@ job).
 - **Plafond par mission** : aucun écran du web ne le règle (aucune référence à `agents/missions` dans `apps/web/src`) ;
   il se règle par l'API seulement. À confirmer.
 - **Interface non vérifiée dans un navigateur** (note du lot).
+
+## Dettes transverses : voyant rouge du brief, revue à froid, rejeu Monte-Carlo, seuil des ateliers, lot 8b (2026-10-21)
+
+Migrations `0290` (SQLSTATE `MQQ13`) et `0432`. Le lot 8c (découpage de 34 fichiers web en modules de moins de 400
+lignes, mêmes exports) ne change aucun comportement et n'appelle aucune décision. Source :
+`docs/workflows/notes-lots/lot-8b.md`, relue contre le code. Les valeurs ci-dessous sont **provisoires, à valider**.
+
+### Valeurs provisoires (à valider)
+
+| Sujet                                | Valeur du code                                                                                                                                                                                                                                                       | Référence                                                  |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Seuil d'agrégats d'un atelier        | **3 contributeurs, PAR MÉTHODE** (`SEUIL_PARTICIPANTS_AGREGATS`), comptés parmi les participants AYANT contribué, valeur figée à la clôture. Une méthode sous le seuil est masquée (`masque_seuil`) ; la synthèse IA ne cite que les méthodes publiées (409 sinon).    | `plans/ateliers-resultats.ts`                              |
+| Rejeu de Monte-Carlo                 | **5 rejeux par plan et par 10 minutes, tous utilisateurs confondus** (429 `TROP_DE_REJEUX`, table `plan_rejeux_montecarlo`). Un seul utilisateur peut donc épuiser le plafond ; la variante « par plan et par utilisateur » reste ouverte. Décision du superviseur. | `plans/montecarlo.ts`, migration `0432`                    |
+| Évaluations du voyant dans le brief  | **20 dossiers évalués au plus par requête** (`PLAFOND_EVALUATIONS_VOYANT`), 50 lus au plus (`PLAFOND_DOSSIERS_VOYANT`) ; au-delà, la famille est marquée tronquée.                                                                                                   | `brief/derives.ts`                                         |
+| Dossiers de redressement clos        | **Exclus du brief** par prudence (dossier clos ou mission clôturée) ; à confirmer.                                                                                                                                                                                   | `brief/derives.ts`                                         |
+| Candidats d'un atelier               | Plafonds déclarés 500 lus et 200 retenus (cabinet), 200 dirigeants du client (`CANDIDATS_*_MAX`) ; au-delà, `tronque: true`, sans pagination (le filtrage par droits suit le SQL).                                                                                  | `plans/ateliers.ts`                                        |
+| Pages de `mes-revues`                | **50 par défaut, 100 au plus**, pagination par curseur (keyset).                                                                                                                                                                                                       | `routes/qualite-froide.ts`, `schemas/qualite.ts`           |
+| Pages de liste du web                | Dix pages de liste (dont missions, pipeline, facturation, charge) lisent jusqu'à 500 par page (`LIMITE_PAGE_MAX`) au lieu de 200.                                                                                                                                    | `apps/web/src/lib/pagination.ts`                           |
+
+### Choix (tranchés)
+
+- **Voyant rouge dans le brief** : un type `voyant_rouge` (famille « Ça dérive »), derrière `redressement.lire` et la
+  visibilité de la mission ; seul le **rouge** produit un élément (gravité haute), avec les seuls motifs critiques
+  (5 au plus, 200 caractères), **sans aucun montant ni devise** même avec `finance.lire` (FIN-02). Un dossier
+  défaillant est isolé : ignoré, source marquée interrompue, les autres dossiers servis (jamais un 500).
+- **Réaffectation d'un relecteur** : interdite quand la revue est `en_revue` (409 `REAFFECTATION_EN_REVUE`, doublé
+  en base par `MQQ13`).
+- **Dates de saisie de temps** : toutes bornées de 2000 à 2100 (400 du schéma, jamais 500 de la base).
+- **Lien « Proposer un diagnostic flash »** : sur la fiche d'un client **actif**, pour qui a `catalogue.lire`
+  (`cheminDiagnosticFlash`) ; la page cible est celle des services candidats (lot 7).
+
+### Points à signaler
+
+- `RapportEtatFinancier.tsx` lit une seule page (500) de `/api/missions?client_id=…` sans suivre le curseur
+  (dossier, hors périmètre du lot).
+- L'automatisation correspondant au voyant rouge n'est pas branchée.

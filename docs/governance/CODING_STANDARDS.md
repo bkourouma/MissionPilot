@@ -2,7 +2,7 @@
 
 En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les conventions **observées dans le code** (état de `main`
-après la fusion de la PR n° 14, `3d5a252`, complétée aux 2026-10-21 et 2026-10-22 par les lots 1 à 5b, 7, 4c et 8a de la branche
+après la fusion de la PR n° 14, `3d5a252`, complétée aux 2026-10-21 et 2026-10-22 par les lots 1 à 5b, 7, 4c, 8a, 8b et 8c de la branche
 d'intégration ; vagues 1 à 3, rejeu réel OpenRouter, lacunes de la vague 2 — événement `mission.cloture_demandee`,
 brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés ; lots 5b et 7 : observatoire, veille, services candidats ; lot 4c : rapport d'avancement hebdomadaire, cache et plafond de mission de l'IA, contradicteur), avec un fichier de
 référence pour chacune, pas un idéal. Les
@@ -50,7 +50,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0275–0277`   | agents IA, socle IA (lot 1) : rejeu OpenRouter, fonctions `SECURITY DEFINER` `rejeu_evaluation_demarrer`, `_inscrire_appel`, `_terminer`, garde de la table `jobs` et droits par colonne retirés au rôle applicatif (`0275`, `MPG12-15`), modèle recommandé et modèle routé du cabinet (`0276`), registre standard : agent `copilote` version 3 (`0277`) |
   | `0278–0279`   | agents IA, cache et contradicteur (AGT-06, lot 4c) : `ia_parametres_cabinet.cache_actif` (faux par défaut), `ia_cache_reponses` (réponse masquée chiffrée AES-GCM, clé HMAC-SHA-256, durée de 24 h au plus par CHECK, RLS `isolation` et `portail_interdit`), issue « cache » à coût nul dans `ia_consommations`, `ia_alertes_plafond_mission`, REDÉFINITION de `planifier_conservation_ia` (`0278`, `MQI01`) ; revue contradictoire : index unique partiel `ia_demandes_revue_active_idx` et déclencheur `controler_ia_revue_contradictoire` (`0279`, `MQI50`), aucune table |
   | `0280–0286`   | qualité (lot QUA) : suivis et gardes (`0280`), définitions de terminé et vérifications (`0281`), revue guidée (`0282`), validations et signatures (`0283`), acceptation de mission (`0284`), satisfaction (`0285`), durcissement d'audit (`0286`, `MPY08-11`) |
-  | `0287–0289`   | qualité, revue à froide (QUA-05) : campagnes, tirage et déclencheur `qualite_froide_violations()` (`0287`), revues, grille et constats (`0288`), actions du plan d'amélioration (`0289`) ; `MQQ01-12` |
+  | `0287–0290`   | qualité, revue à froide (QUA-05) : campagnes, tirage et déclencheur `qualite_froide_violations()` (`0287`), revues, grille et constats (`0288`), actions du plan d'amélioration (`0289`), interdiction de réaffecter un relecteur dont la revue est commencée : déclencheur `qualite_froide_echantillon_controle_reaffectation` (`0290`, lot 8b, `MQQ13`) ; `MQQ01-13` |
   | `0300–0304`   | moteur d'automatisation (lot AUT-CORE, vague 2, ADR-006) : automatisations, versions immuables de leur définition et coupe-circuits (`0300`, AUT-02, AUT-06), événements publiés, exécutions, actions gardées, résultats, annulations et brouillons tracés (`0301`, AUT-01, AUT-05), événements publiés par la base et planification quotidienne de la détection (`0302`, `SECURITY DEFINER`), événement `mission.cloture_demandee` publié au passage à `a_cloturer` (`0303`, lacune de la vague 2, sans nouveau SQLSTATE), planification quotidienne du brief par rôle (`0304`, AUT-07, `planifier_brief_quotidien` en `SECURITY DEFINER`, aucune table) ; `MPU01-05` |
   | `0305`        | file de tâches : `reserver_job_a` équitable par cabinet (plpgsql) et trois index sur `jobs` ; aucun nouveau SQLSTATE |
   | `0306–0308`   | rapport d'avancement hebdomadaire au client (AUT-10, lot 4c, plage `0306–0319`) : `avancement_parametres` (`envoi_email` avec `CHECK (envoi_email = false)`, jamais lu par un code d'envoi) (`0306`), `avancement_rapports` (UNIQUE mission et semaine, RLS `isolation`, politiques RESTRICTIVES du portail, déclencheur `controler_avancement_rapport`, `MQU01-05` et `MQU07`) (`0307`), `planifier_avancement_hebdo` en `SECURITY DEFINER` (`0308`) ; ne touche ni `rapports_mission` ni `controler_source_rapport()` |
@@ -61,7 +61,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0380–0386`   | banques et offres d'appels d'offres (lot AO-B, vague 3, plage réservée `0380–0399`) : banque de CV, versions datées et gabarits par bailleur (`0380`, AO-04), références, versions et pièces justificatives (`0381`, AO-05), offres techniques, versions et validations (`0382`, AO-06), offres financières et versions calculées (`0383`, AO-07), `fichier_orphelin` étendu aux pièces (`0384`, reprend aussi `salle_depots` de `0331`), séparation des tâches à la validation d'une offre technique (`0385`, `MPW05`), anonymisation d'un CV (`0386`, `anonymiser_cv_ao`, `MPW06`) ; `MPW01-06` |
   | `0400–0404`   | notation augmentée (lot NOT, vague 2, plage réservée `0400–0419`) : banque d'items versionnée et sélections du questionnaire adaptatif (`0400`, NOT-09, `MPN08-09`), paramètres et indices de confiance, garde de publication (`0401`, NOT-11, `MPN10`), calibration entre évaluateurs (`0402`, NOT-13, `MPN11`), initiatives types, impacts observés et plans d'action de notation (`0403`, NOT-17, `MPN12` ; bibliothèque `notation_initiatives_types` à rapprocher de celle du lot PLA, PLA-13), plancher du seuil (0,3) et de la cible de répondants (2) de confiance (`0404`, contraintes `CHECK`) |
   | `0420–0424`   | plans stratégiques augmentés (lot PLA, plage réservée `0420–0439`) : cascade en graphe (`0420`, PLA-12), bibliothèque d'initiatives types (`0421`, PLA-13, `MPS07`) et son amorçage standard (`0422`), priorisation du portefeuille et arbitrage tracé (`0423`, PLA-14, `MPS08`), modèle de rapport « dossier bancaire » (`0424`, PLA-17, `MPR03`) |
-  | `0425–0426`, `0429–0431` | plans stratégiques augmentés, suite (lot PLA) : ateliers en ligne, options et participants (`0425`, PLA-15), contributions versionnées et lignes (`0426`), simulation de Monte-Carlo en ajout seul (`0429`, PLA-16), réalisés trimestriels versionnés (`0430`, PLA-18) et re-prévisions versionnées (`0431`) ; politiques `portail` dans chaque fichier ; `MQL01-08` et `MQL10-24` ; `0427–0428` et `0432–0439` libres |
+  | `0425–0426`, `0429–0432` | plans stratégiques augmentés, suite (lot PLA) : ateliers en ligne, options et participants (`0425`, PLA-15), contributions versionnées et lignes (`0426`), simulation de Monte-Carlo en ajout seul (`0429`, PLA-16), réalisés trimestriels versionnés (`0430`, PLA-18) re-prévisions versionnées (`0431`) et trace de débit du rejeu de la simulation, `plan_rejeux_montecarlo` (`0432`, lot 8b : 5 rejeux par plan et par 10 minutes, verrou consultatif par plan, purge à une heure, RLS `isolation` et `portail_interdit`, aucun nouveau SQLSTATE : l'API répond 429 `TROP_DE_REJEUX`) ; politiques `portail` dans chaque fichier ; `MQL01-08` et `MQL10-24` ; `0427–0428` et `0433–0439` libres |
   | `0440–0445`   | pilotage augmenté des KPI (lot KPI, vague 2, plage réservée `0440–0459`) : arbres d'indicateurs et nœuds (`0440`, KPI-13), revues de performance et décisions (`0441`, KPI-17), actions correctives et leurs événements (`0442`, KPI-18), compte rendu figé à la tenue de la revue (`0443`, `MPK22`), action rattachée à une revue tenue seulement (`0444`, `MPK26-27`), plafonds d'un arbre appliqués à la réactivation et au total (`0445`, `MPK12-13`) ; `MPK10-16` et `MPK20-27` |
   | `0460–0465`   | capitalisation (lot CAP, vague 3, plage réservée `0460–0479`) : retours d'expérience versionnés et recherche plein texte (`0460`, CAP-01), base d'estimation par brique (`0461`, CAP-02), analyse des dérogations (`0462`, CAP-05), matrice de compétences (`0463`, CAP-06), index de la recherche unifiée (`0464`, CAP-07), durcissements d'audit : déclarations de niveau bornées, validation du retour réservée à un responsable (`0465`, `MPJ06-08`) ; `MPJ01-08` |
   | `0466–0467`   | capitalisation, efficacité des recommandations (CAP-03, lot 5b) : recommandations (`0466`) et instantanés d'efficacité en ajout seul, calculés par le moteur (`0467`) ; 3 tables ; `MQK01-05` |
@@ -118,20 +118,20 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   Prochain numéro libre au 2026-10-22 : plans (V1) `0185`, automatisation `0309`
   à `0319` (`0303` à `0308` consommées), clôture `0324`, salle de mission
   `0333`, AO-A `0368` (`0368–0379` libres), AO-B `0387`, notation augmentée `0405` (`0405–0419` libres),
-  plans augmentés `0427` (`0427–0428` puis `0432–0439` libres), KPI augmentés
+  plans augmentés `0427` (`0427–0428` puis `0433–0439` libres), KPI augmentés
   `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
-  QUA `0290`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
+  QUA `0291`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
   candidats `0564` (`0564–0579` libres). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
   l'ont appliquée (les bases de test le sont à chaque exécution). Au 2026-10-22,
   `origin/main` (`3d5a252`) compte 180 fichiers et la branche d'intégration du
-  lot 9c en compte 224, tous commités (`ls apps/api/migrations | wc -l` et
-  `git ls-files apps/api/migrations | wc -l`) : les 44 de plus
-  (`0210`, `0225`, `0275`–`0279`, `0287`–`0289`, `0305`–`0308`, `0364`–`0367`,
-  `0425`, `0426`, `0429`–`0431`, `0466`, `0467`, `0470`–`0472`,
+  lot 8c en compte 226, tous commités (`ls apps/api/migrations | wc -l` et
+  `git ls-files apps/api/migrations | wc -l`) : les 46 de plus
+  (`0210`, `0225`, `0275`–`0279`, `0287`–`0290`, `0305`–`0308`, `0364`–`0367`,
+  `0425`, `0426`, `0429`–`0432`, `0466`, `0467`, `0470`–`0472`,
   `0487`–`0492`, `0509`, `0511`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
   aucune modification ni suppression par rapport à `origin/main` : toutes sont
   immuables dès la fusion de la branche dans `main`.
@@ -199,7 +199,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `MQD`   | due diligence, suite                 | `MQD01-08` portail investisseur, `MQD11` modèles sectoriels ; libres : `MQD09-10`, `MQD12-20`          | `0509`, `0511`  |
   | `MQC`   | canaux                               | déclaré, aucun code employé                                                                            | aucune          |
   | `MQS`   | référentiel de méthodes              | `MQS01-02` facteur figé, retrait de valeur interdit ; libres : `MQS03+`                                | `0210`          |
-  | `MQQ`   | qualité, revue à froide              | `MQQ01-12` ; libres : `MQQ13+`                                                                         | `0287`–`0289`   |
+  | `MQQ`   | qualité, revue à froide              | `MQQ01-13` (`MQQ13` : relecteur non remplaçable une fois la revue commencée) ; libres : `MQQ14+`   | `0287`–`0290`   |
   | `MQF`   | dossier client, groupes et filiales  | `MQF01-04` cycle, total des parts, fin sans détention antérieure, profondeur de 8 liens ; libres : `MQF05+` | `0225`          |
   | `MQL`   | plans stratégiques augmentés         | `MQL01-08` ateliers, `MQL10-14` Monte-Carlo, `MQL15-24` plan vivant ; `MQL09` réservé non employé ; libres : `MQL25+` | `0425`–`0431`   |
   | `MQN`   | notation                             | déclaré, aucun code employé                                                                            | aucune          |
@@ -349,7 +349,9 @@ français dans le code (`apps/web/src`), les rôles ont leurs libellés dans
 `ROLE_LIBELLES` (`packages/shared/src/roles.ts`). Dates affichées `JJ/MM/AAAA`,
 montants formatés par le moteur (`formaterMontant`). Dates d'API : `AAAA-MM-JJ`
 (`dateIsoSchema`), bornées pour la facturation à 2000–2100
-(`dateFacturationSchema`, doublé par des contraintes en base, `0040`). Toute date
+(`dateFacturationSchema`, doublé par des contraintes en base, `0040`) ; toutes
+les dates de `schemas/temps.ts` (semaine, jour de saisie, période de suivi)
+utilisent `dateIsoBorneeSchema`. Toute date
 métier bornée par un `CHECK` SQL (échéances, observations, dates de plan ou de
 salle de mission) utilise `dateIsoBorneeSchema` (`schemas/commun.ts` : date
 valide comprise entre 2000 et 2100), sinon une date valide mais hors bornes
@@ -406,7 +408,12 @@ Mise en page de droite à gauche : sans objet.
   `packages/shared/src/schemas`, objets `.strict()` (889 `z.object(` au 2026-10-22 sur la branche d'intégration, lot 4c compris, comptés en tolérant le retour à la ligne
   entre `z` et `.object` et hors tests, dont 878 stricts et 11 volontairement non stricts, ceux de `contenuAvancementSchema` ; `rg` sans `-U` n'en voit que
   ceux écrits sur une seule ligne ; le script de `.claude/rules/review-checklist.md` n° 12 fait foi) ;
-  le même schéma sert l'API et le web.
+  le même schéma sert l'API et le web. Les paramètres de chemin `:id` passent par
+  `paramsId` (`apps/api/src/http/outils.ts`, `z.object({ id: uuid }).strict()` :
+  561 appels dans 88 fichiers de `routes/` au 2026-10-22, `rg -c "paramsId\.parse"
+  apps/api/src/routes`). Une route dont le chemin porte un AUTRE paramètre
+  (`:code`, `:canal`, `:promptId`…) n'emploie PAS `paramsId`, qui refuserait la clé
+  en plus : elle déclare son propre schéma strict.
 - **Listes** : pagination par curseur opaque (`encoderCurseur`,
   `decoderCurseur`, `paginer` dans `apps/api/src/http/outils.ts`), lecture
   `LIMIT n+1`, limite bornée (`limite` 1 à 100, défaut 30, `schemas/facturation.ts`).
@@ -442,7 +449,7 @@ Mise en page de droite à gauche : sans objet.
 ## 10. Dette connue
 
 Relevée dans le code le 2026-10-08 et complétée le 2026-10-21 (consolidation du lot 9a : les dettes soldées par
-les lots 1 à 5a ont été retirées après vérification dans le code) et 2026-10-22 (lots 9b et 9c : lots 5b, 7 et 4c) ; ne pas y ajouter sans citer le fichier.
+les lots 1 à 5a ont été retirées après vérification dans le code) et 2026-10-22 (lots 9b et 9c : lots 5b, 7 et 4c ; lots 8b et 8c) ; ne pas y ajouter sans citer le fichier.
 La dette de sécurité est détaillée dans `docs/governance/SECURITY.md` §15.
 Résolu depuis le relevé précédent : `LIMIT 500` des missions et opportunités
 (pagination par curseur, `0121`), justificatif de débours en texte libre
@@ -454,7 +461,12 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   (`routes/portail-gestion.ts`, `MAX_LISTE` : utilisateurs et invitations d'un
   client) : la troncature est désormais **signalée** (`tronque: true`) mais la
   liste n'est pas paginée.
-- **Trois lectures à `LIMIT` littéral sans plafond de table** (relevé du 2026-10-21, recherche n° 7 de la checklist) : `plans/ateliers.ts` (membres du cabinet, `LIMIT 500`, et dirigeants du client, `LIMIT 200`) et `qualite/froide-revue.ts` (revues d'un relecteur, `LIMIT 200`) ; les autres `LIMIT` neufs des ateliers sont doublés par un plafond en base. À doubler d'un plafond ou à paginer.
+- **`candidatsAtelier`** (`plans/ateliers.ts`, lot 8b) : les lectures sont désormais plafonnées par des
+  constantes déclarées et exportées (`CANDIDATS_CABINET_LUS_MAX` 500 utilisateurs examinés,
+  `CANDIDATS_CABINET_MAX` 200 et `CANDIDATS_DIRIGEANTS_MAX` 200 candidats rendus) et la troncature est
+  signalée (`tronque: true`). Reste : la liste n'est pas paginée, le filtrage par droits se faisant après le
+  SQL. `qualite/froide-revue.ts` (`mesRevues`) n'a plus de `LIMIT` littéral : pagination par curseur keyset
+  (`mesRevuesQuerySchema`, `limite` 1 à 100, défaut 50).
 - **Efficacité des recommandations (lot 5b, 2026-10-22)** : trois lectures à `LIMIT` littéral sans plafond de
   table (`capitalisation/efficacite.ts`, historique des instantanés `LIMIT 50`, KPI d'une mission `LIMIT 200`,
   initiatives du plan `LIMIT 200`, recherche n° 7 de la checklist) ; l'historique d'adhésion de l'observatoire
@@ -511,13 +523,10 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   et l'analyse des dérogations (`capitalisation/derogations.ts`,
   `DEROGATIONS_MAX` 20 000) chargent jusqu'à 20 000 lignes en mémoire (`tronque`
   rendu).
-- **`semaineQuerySchema`** (`packages/shared/src/schemas/temps.ts`) n'est pas
-  borné : `dateIsoSchema` et non `dateIsoBorneeSchema` ; il sert la lecture de la
-  feuille de temps et le pré-remplissage (`routes/feuilles-temps.ts`,
-  `routes/previsions.ts`). L'effet d'une date extrême n'a pas été testé. Les
-  autres schémas de dates (`appels-offres`, `banque-ao`, `kpi`, `kpi-pilotage`)
-  emploient `dateIsoSchema` : à vérifier au cas par cas s'ils visent une colonne à
-  `CHECK` de bornes.
+- **Schémas de dates non bornés** : `semaineQuerySchema` et les autres dates de `schemas/temps.ts` sont bornés
+  (`dateIsoBorneeSchema`, 400 du schéma et non 500 de la base, lot 8b). Les schémas de dates de
+  `appels-offres`, `banque-ao`, `kpi` et `kpi-pilotage` emploient encore `dateIsoSchema` : à vérifier au cas
+  par cas s'ils visent une colonne à `CHECK` de bornes.
 - **Fonctions de plus de 60 lignes** (§8 vise moins de 50 ; relevé du 2026-10-08
   par l'API du compilateur TypeScript, fonctions imbriquées et rappels compris,
   tests exclus) : 652 au total, dont 106 plugins ou rappels de `routes/`, 432 dans
@@ -537,27 +546,45 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   `calculerDepuisNormalisees` (236), `previsions/preremplissage.ts` (141),
   `kpi/qualite-donnees.ts` (128). Pas de réécriture rétroactive : à découper au
   prochain passage.
-- **Fichiers de plus de 400 lignes** (hors tests, `wc -l`, 2026-10-08) : 122 au
-  total (56 dans le web, 53 dans l'API, 13 dans les paquets). Web, vagues 2 et 3 :
-  `lib/banque-ao.ts` (833), `lib/kpi-pilotage.ts` (771), `lib/appels-offres.ts`
-  (759), `components/appels-offres/ActionsAo.tsx` (545), `lib/portail.ts` (521),
-  `app/(app)/temps/GrilleTemps.tsx` (499), `components/connaissances/FormulairesConnaissances.tsx`
-  (480), `lib/navigation.ts` (475), `lib/capitalisation.ts` (467),
-  `components/banque-ao/FormulairesOffres.tsx` (451),
-  `app/(app)/missions/[id]/kpi/page.tsx` (420). API : `notation/notations.ts`
-  (685), `kpi/revues.ts` (588). Les plus longs, plus anciens : `lib/plan-modele.ts`
-  (1 308), `lib/kpi.ts` (1 025), `lib/methodes.ts` (931).
+- **Fichiers de plus de 400 lignes** (hors tests, `wc -l` sur les `.ts` et `.tsx`) : le lot 8c a découpé 34
+  fichiers web (29 modules de `lib/` et 5 composants : `plan-modele.ts` 1 308 lignes ramené à 32,
+  `redressement-saisie.ts`, `notation-augmentee.ts`, `kpi.ts`, `kpi-pilotage.ts`, `banque-ao.ts`, `canaux.ts`,
+  `ArbreDecoupage.tsx`…) sans changer de comportement : chaque fichier d'origine reste le point d'entrée et
+  ré-exporte ses sous-modules, et aucun des fichiers résultants n'atteint 400 lignes (le plus gros,
+  `components/portail/questionnaires/SaisieQuestionnaire.tsx`, en fait 394). Relevé du 2026-10-22 : **41
+  fichiers de `apps/web/src` restent au-dessus de 400 lignes** (65 en comptant les `*.test.*`, que ce relevé
+  exclut comme le précédent), tous non touchés par le lot 8c, chemins relatifs à `apps/web/src` :
+  `lib/due-diligence-saisie.ts` (1 654), `lib/due-diligence.ts` (1 550), `lib/methodes.ts` (961),
+  `lib/dossier.ts` (810), `lib/navigation.ts` (643), `components/due-diligence/EspaceRisques.tsx` (559),
+  `components/questionnaires/EditeurQuestion.tsx` (548), `lib/signatures.ts` (541), `lib/plan-montecarlo.ts`
+  (539), `app/(app)/missions/[id]/facturation/EcheancierMission.tsx` (528), `components/ia/PanneauContenuIa.tsx`
+  (525), `lib/portail-questionnaires-saisie.ts` (522), `components/connaissances/FormulairesConnaissances.tsx`
+  (518), `lib/plan-strategique.ts` (517), `components/agents/EvaluationOpenRouter.tsx` (515),
+  `components/plan/FormulaireHypotheses.tsx` (505), `lib/planification.ts` (504), `lib/dossier-groupes.ts`
+  (503), `app/(app)/temps/GrilleTemps.tsx` (499), `lib/notation-grilles.ts` (498), `lib/factures.ts` (488),
+  `components/banque-ao/FormulairesOffres.tsx` (486), `app/(app)/missions/[id]/kpi/[kpiId]/page.tsx` (485),
+  `lib/decoupage.ts` (484), `app/(app)/parametres/import-temps/ImportTemps.tsx` (482),
+  `app/(app)/missions/[id]/questionnaires/PreparationEnvoi.tsx` (480), `lib/evaluations-openrouter.ts` (475),
+  `app/(app)/missions/[id]/affectations/Affectations.tsx` (471), `lib/temps.ts` (460), `lib/ia-contenu.ts`
+  (457), `lib/encaissements.ts` (452), `app/(app)/compte/securite/SecuriteCompte.tsx` (448),
+  `components/redressement/KanbanActions.tsx` (432), `components/canaux/ActionsDestinataireCanal.tsx` (432),
+  `app/(app)/missions/[id]/kpi/page.tsx` (420), `app/(app)/missions/[id]/notation/analyse/page.tsx` (419),
+  `components/plan/FormulaireElement.tsx` (413), `components/questionnaires/EditeurCondition.tsx` (409),
+  `components/plan/SaisiesListes.tsx` (408), `lib/qrcode.ts` (404), `lib/salle-mission.ts` (403). Le reste du relevé du 2026-10-08, non recompté : 53 fichiers dans l'API et 13 dans les paquets,
+  dont `notation/notations.ts` (685) et `kpi/revues.ts` (588) côté API.
 - **Lacunes de la vague 2 (2026-10-11)** : `mission.cloture_demandee`, qui n'avait aucun
   émetteur, est publié par la base au passage à `a_cloturer` (`0303`, ADR-006) ; le brief
   quotidien et le copilote sont construits mais le copilote n'a jamais parlé à un vrai
   modèle, (SECURITY.md §15) ; le compteur de débit du brief, qui était en mémoire, est désormais
   persistant (espace `brief_requetes` du limiteur, `0550`).
-- **Pages web à 200 au lieu de 500** (relevé du 2026-10-10) : dix pages qui lisent
-  `/api/missions` ou `/api/opportunites` appellent `chargerToutesLesPages` sans
-  `limiteMax` et demandent donc des pages de 200 (défaut sûr) alors que ces routes
-  admettent 500 : plus d'appels, aucune perte (au plus 20 pages, puis `tronquee`).
-  Elles pourraient passer `{ limiteMax: LIMITE_PAGE_MAX }`. Pages :
-  `app/(app)/{temps/debours,mes-taches/nouvelle,charge,qualite/satisfaction,clients/[id]/portail,qualite,facturation,qualite/acceptation,missions,pipeline}/page.tsx`.
+- **Pages web à 200 au lieu de 500** : soldée par le lot 8b. Les dix pages de liste (`charge`, `facturation`,
+  `mes-taches/nouvelle`, `qualite`, `qualite/acceptation`, `qualite/satisfaction`, `temps/debours`,
+  `pipeline`, `missions`, `clients/[id]/portail`) passent `{ limiteMax: LIMITE_PAGE_MAX }` (500) et
+  `cheminMissionsClient` demande `limite=500`. Au 2026-10-22, aucun appel de `chargerToutesLesPages`
+  (`rg -n "chargerToutesLesPages" apps/web/src --glob '!*.test.*'`) n'omet `limiteMax`, y compris
+  `lib/due-diligence-serveur.ts` (ligne 194, 500). Reste :
+  `components/dossier/RapportEtatFinancier.tsx` lit UNE seule page de `/api/missions?client_id=…`
+  (`limite=500`) sans suivre le curseur, donc au plus 500 missions par client.
 - **Recette du 2026-10-10, points non tranchés** : la génération du « gabarit »
   d'un retour d'expérience inscrit une nouvelle version qui remplace le texte
   courant (l'ancien reste dans la version précédente, sans avertissement à
@@ -582,7 +609,7 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   `db:seed-demo` sur base neuve, ou `npx tsx src/db/seed-demo-redressement.ts`) ; le rapport de clôture n'ouvre
   qu'un suivi qualité R2 au minimum (R3 automatique : type de livrable dédié dans `CLASSE_MINIMALE_PAR_TYPE`) ;
   `rapports/liste.ts` n'expose pas `red_cloture_id` (voir `GET /redressement/clotures/:id/rapports`) ; le
-  voyant de pilotage (`etatVoyantDossier`) est exporté mais non branché au brief ni à l'automatisation ;
+  voyant de pilotage (`etatVoyantDossier`) est branché au brief (source `voyantsRedressementRouges`, `brief/derives.ts`, lot 8b : seul le rouge produit un élément) mais pas à l'automatisation (aucun événement d'automatisation) ;
   partage externe du tableau de bord non ouvert ; alertes de suivi calculées à la lecture, sans relance par job.
 - **Socle IA (lot 1, 2026-10-21)** : le worker de la file `jobs` traite UN job à la fois (`traiterUn`,
   `jobs/worker.ts`) : un rejeu de 8 à 13 minutes bloque la boucle, l'équité de `reserver_job_a` (`0305`) joue
@@ -602,8 +629,10 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
 - **Dossier client, groupes (lot 4b, 2026-10-21)** : consolidation simple, sans élimination des opérations
   intragroupe ; USD exclu (aucun taux validé) donc consolidation marquée partielle ; le commentaire IA du rapport
   d'état financier n'est pas branché.
-- **Plans augmentés (lot 5a, 2026-10-21)** : le rejeu de la simulation de Monte-Carlo (POST sans écriture,
-  `plan.lire`) coûte environ 0,3 s et n'est pas limité en débit ; les recherches de combinaisons de la
+- **Plans augmentés (lot 5a, 2026-10-21)** : le rejeu de la simulation de Monte-Carlo (POST sans résultat écrit,
+  `plan.lire`) coûte environ 0,3 s ; depuis le lot 8b il est limité à 5 par plan et par 10 minutes, tous
+  utilisateurs confondus (429 `TROP_DE_REJEUX`, table `plan_rejeux_montecarlo`, `0432` ; valeur provisoire, à
+  valider) ; les recherches de combinaisons de la
   notation sont bornées (`PRATIQUES_MAX_COMBINAISON`, `NOEUDS_MAX_COMBINAISONS`) et renvoient `tronquee`,
   jamais « impossible ».
 - **Intégration continue (lot 8a, 2026-10-21)** : `.github/workflows/ci.yml` n'a jamais été exécutée sur

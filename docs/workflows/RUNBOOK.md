@@ -214,6 +214,15 @@ comptes 2FA, trois sous-semis :
   `/services-candidats` (prix, activation, création d'une mission) et
   `/services-candidats/guichets` (liste et rapprochement) ; `/observatoire` n'est
   pas semé (adhésion et versement se font à la main).
+- **les deux liens vers ces services** : la fiche d'un client **actif** affiche le
+  bouton « Proposer un diagnostic flash » (visible avec `catalogue.lire`, il mène à
+  `/services-candidats`) ; le brief quotidien (`/brief`) peut afficher un élément
+  « voyant rouge » (famille « Ça dérive », lien `/missions/<id>/redressement`)
+  seulement pour un dossier de redressement NON clos dont le voyant calculé est
+  rouge, sur une mission visible et non clôturée, connecté avec `redressement.lire`.
+  Le semis ne force pas ce cas : le dossier de démonstration actif n'y figure que
+  si son état calculé est rouge (à vérifier dans l'interface, aucun montant n'y
+  apparaît). Un dossier de redressement clos n'apparaît jamais dans le brief.
 
 Sur une base déjà peuplée, ces trois sous-semis se relancent séparément ; il n'y a
 pas de script npm dédié :
