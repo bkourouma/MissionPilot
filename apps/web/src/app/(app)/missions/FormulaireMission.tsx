@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../components/formulaires/useFormulaire";
@@ -50,6 +51,7 @@ export function FormulaireMission({
   designerDirecteur = false,
 }: FormulaireMissionProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const creation = !mission;
   const [s, setS] = useState<SaisieMission>(saisieInitiale);
   const f = useFormulaire<ChampMission>();
@@ -60,7 +62,7 @@ export function FormulaireMission({
     ev.preventDefault();
     const apres = (m: Mission) => {
       router.push(`/missions/${m.id}`);
-      router.refresh();
+      rafraichir();
     };
     if (creation) {
       await f.envoyer(validerCreationMission(s), (c) => api.post<Mission>("/api/missions", c), {

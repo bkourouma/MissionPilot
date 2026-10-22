@@ -152,3 +152,56 @@ describe("synthèse", () => {
     ]);
   });
 });
+
+describe("libellés de l'aperçu (A-05)", () => {
+  const lib = async () => {
+    const m = await import("./methodes-apercu");
+    return m.creerLibelles({
+      briques: [{ code: "swot", libelle: "Analyse SWOT" }],
+      elements: [{ code: "kpi_pertes_post_recolte", libelle: "Pertes post-récolte" }],
+      regles: [{ code: "recfin_t3_a", libelle: "Cabinet de petite taille" }, { code: "sans_nom" }],
+      facteurs: [
+        {
+          code: "taille",
+          libelle: "Taille du client",
+          valeurs: [{ code: "micro", libelle: "Micro-entreprise" }],
+        },
+      ],
+    });
+  };
+
+  it("traduit règles, clés de conflit, cibles et valeurs lues", async () => {
+    const l = await lib();
+    expect(l.regle("recfin_t3_a")).toBe("Cabinet de petite taille");
+    expect(l.regle("sans_nom")).toBe("Sans nom");
+    expect(l.cle("brique:swot")).toBe("Brique « Analyse SWOT »");
+    expect(l.cible("kpi_pertes_post_recolte")).toBe("Pertes post-récolte");
+    expect(l.facteur("taille")).toBe("Taille du client");
+    expect(l.valeur("taille", "micro")).toBe("Micro-entreprise");
+  });
+
+  it("replis lisibles sur les codes inconnus, sans plantage", async () => {
+    const l = await lib();
+    expect(l.valeur("inconnu", "saisonniere")).toBe("saisonniere");
+    expect(l.valeur("inconnu", true)).toBe("Oui");
+    expect(l.valeur(null, null)).toBe("non renseigné");
+    expect(l.cle("sans_deux_points")).toBe("Sans deux points");
+    expect(l.cle("type_x:cible_y")).toBe("Type x « Cible y »");
+    expect(l.cible("lecture_indicateurs")).toBe("Lecture indicateurs");
+  });
+
+  it("les lignes d'ajustement utilisent les libellés quand ils sont fournis", async () => {
+    const { lignesAjustements } = await import("./methodes-apercu");
+    const l = await lib();
+    const vide = {
+      ponderations: {},
+      seuils: {},
+      benchmarks: {},
+      gabarits: {},
+      formulations: { lecture_indicateurs: "saisonniere" },
+      classes_risque_relevees: {},
+    };
+    expect(lignesAjustements(vide, l)).toEqual(["Formulation — Lecture indicateurs : saisonniere"]);
+    expect(lignesAjustements(vide)).toEqual(["Formulation — lecture_indicateurs : saisonniere"]);
+  });
+});

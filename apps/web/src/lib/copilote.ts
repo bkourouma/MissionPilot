@@ -322,3 +322,15 @@ export function majAction(
 export function actionDe(e: EntreeCopilote): ActionProposeeCopilote | null {
   return e.reponse.action ?? null;
 }
+
+/**
+ * Faut-il afficher la ligne d'expiration ? Non quand la proposition vient d'expirer et que la
+ * reprise (« Reformuler » + consigne) s'affiche : la consigne ne doit apparaître qu'une fois.
+ */
+export function afficherLigneExpiration(
+  ouverte: boolean,
+  expiree: boolean,
+  repriseAffichee: boolean,
+): boolean {
+  return ouverte && !(expiree && repriseAffichee);
+}

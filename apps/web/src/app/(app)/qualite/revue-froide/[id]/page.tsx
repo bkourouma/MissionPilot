@@ -188,7 +188,10 @@ export default async function PageCampagneFroide({ params }: { params: Promise<{
         </div>
       </Carte>
 
-      <section aria-labelledby="titre-echantillon" className="mp-froide__pile">
+      <section
+        aria-labelledby="titre-echantillon"
+        className="mp-froide__pile mp-froide__echantillon"
+      >
         <h2 id="titre-echantillon" className="mp-section__titre">
           Échantillon
         </h2>

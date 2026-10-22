@@ -4,6 +4,7 @@ import { IDENTIFIANTS_OUTILS_COPILOTE } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import {
   actionDe,
+  afficherLigneExpiration,
   ajouterErreur,
   ajouterQuestion,
   ajouterReponse,
@@ -329,5 +330,14 @@ describe("libellés des outils et confidentialité", () => {
     expect(MENTION_CONFIDENTIALITE).toContain("déjà enregistrés");
     expect(MENTION_CONFIDENTIALITE).toContain("ne sont pas masqués");
     expect(MENTION_CONFIDENTIALITE).toContain("informations confidentielles");
+  });
+});
+
+describe("ligne d'expiration et reprise", () => {
+  it("la consigne d'expiration n'apparaît qu'une fois : ligne masquée si la reprise s'affiche", () => {
+    expect(afficherLigneExpiration(true, true, true)).toBe(false);
+    expect(afficherLigneExpiration(true, true, false)).toBe(true);
+    expect(afficherLigneExpiration(true, false, false)).toBe(true);
+    expect(afficherLigneExpiration(false, false, false)).toBe(false);
   });
 });

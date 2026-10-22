@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import type { EtapeOpportunite } from "@missionpilot/shared";
 import { BoutonConfirmation } from "../../../../components/formulaires/BoutonConfirmation";
@@ -28,6 +29,7 @@ export interface ActionsOpportuniteProps {
 /** Changement d'étape, issue (gagnée / perdue avec motif) et suppression d'une opportunité ouverte. */
 export function ActionsOpportunite({ opportuniteId, etape, supprimable }: ActionsOpportuniteProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const chemin = `/api/opportunites/${encodeURIComponent(opportuniteId)}`;
   const [nouvelleEtape, setNouvelleEtape] = useState<string>(etapeSuivante(etape) ?? etape);
   const [perte, setPerte] = useState(false);
@@ -173,7 +175,7 @@ export function ActionsOpportunite({ opportuniteId, etape, supprimable }: Action
                     rafraichir: false,
                     apres: () => {
                       router.push("/pipeline");
-                      router.refresh();
+                      rafraichir();
                     },
                   })
                 }

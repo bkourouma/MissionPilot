@@ -7,6 +7,7 @@ import {
 import {
   CHEMIN_EFFICACITE,
   libelleContexte,
+  libelleMiseEnOeuvre,
   libelleScore,
   libelleScoreRecommandation,
   libelleStatutEfficacite,
@@ -135,7 +136,7 @@ export default async function PageEfficacite({
                   <p className="mp-texte-petit">
                     {r.type_initiative}
                     {r.mission_intitule ? ` · ${r.mission_intitule}` : ""}
-                    {r.mise_en_oeuvre_le ? ` · mise en oeuvre le ${r.mise_en_oeuvre_le}` : ""}
+                    {libelleMiseEnOeuvre(r.mise_en_oeuvre_le)}
                   </p>
                   <p>Score d&apos;efficacité : {libelleScoreRecommandation(r)}</p>
                   {peutEcrire && r.visible ? (

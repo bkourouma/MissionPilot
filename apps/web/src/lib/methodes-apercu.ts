@@ -9,6 +9,7 @@ import {
   TYPE_ELEMENT_LIBELLES,
   type ClasseRisque,
 } from "@missionpilot/shared";
+import { libelleLisible } from "./codes-lisibles";
 import { formaterJours, formaterNombre } from "./format";
 import {
   construireContexte,
@@ -161,7 +162,10 @@ export function libelleEtapeApercu(a: Pick<ApercuMission, "methode">, code: stri
 }
 
 /** Ajustements chiffrés ou choisis (pondérations, seuils…) en lignes lisibles. */
-export function lignesAjustements(a: ApercuMission["methode"]["ajustements"]): string[] {
+export function lignesAjustements(
+  a: ApercuMission["methode"]["ajustements"],
+  libelles?: Pick<LibellesApercu, "cible">,
+): string[] {
   const rubriques: [string, Record<string, unknown>][] = [
     ["Pondération", a.ponderations],
     ["Seuil", a.seuils],
@@ -171,12 +175,16 @@ export function lignesAjustements(a: ApercuMission["methode"]["ajustements"]): s
     ["Classe de risque relevée", a.classes_risque_relevees],
   ];
   return rubriques.flatMap(([nom, valeurs]) =>
-    Object.entries(valeurs).map(([cible, v]) => `${nom} — ${cible} : ${formaterValeur(v)}`),
+    Object.entries(valeurs).map(
+      ([cible, v]) =>
+        `${nom} — ${libelles ? libelles.cible(cible) : cible} : ${formaterValeur(v, libelles !== undefined)}`,
+    ),
   );
 }
 
-function formaterValeur(v: unknown): string {
-  return typeof v === "number" ? formaterNombre(v, 4) : String(v);
+function formaterValeur(v: unknown, lisible = false): string {
+  if (typeof v === "number") return formaterNombre(v, 4);
+  return lisible && typeof v === "string" ? libelleLisible(v).toLowerCase() : String(v);
 }
 
 /** Phrase de synthèse du temps type, en tenant compte des briques sans estimation. */
@@ -185,4 +193,75 @@ export function phraseTemps(s: ApercuMission["synthese"]): string {
   return s.briques_sans_temps.length > 0
     ? `${base} ${s.briques_sans_temps.length} brique(s) active(s) sans temps estimé ne sont pas comptées.`
     : base;
+}
+
+// --- Libellés des identifiants techniques ----------------------------------------------------
+
+export { libelleLisible };
+
+/** Libellés connus des données de la méthode et du standard (tous facultatifs). */
+export interface SourcesLibelles {
+  briques?: readonly { code: string; libelle: string }[];
+  elements?: readonly { code: string; libelle: string }[];
+  regles?: readonly { code: string; libelle?: string | null }[];
+  facteurs?: readonly Pick<Facteur, "code" | "libelle" | "valeurs">[];
+}
+
+export interface LibellesApercu {
+  regle(code: string): string;
+  brique(code: string): string;
+  /** Brique, élément ou facteur connu ; sinon repli lisible. */
+  cible(code: string): string;
+  facteur(code: string): string;
+  /** Valeur lue d'un facteur : libellé de la valeur énumérée, Oui/Non, nombre à la française. */
+  valeur(facteur: string | null, lu: unknown): string;
+  /** Clé d'un conflit (« brique:swot ») en « Brique « SWOT » ». */
+  cle(cle: string): string;
+}
+
+const TYPES_CLE: Record<string, string> = {
+  brique: "Brique",
+  item: "Élément",
+  recommandation: "Recommandation",
+  classe_risque: "Classe de risque de",
+  ponderation: "Pondération de",
+  seuil: "Seuil de",
+  gabarit: "Gabarit de",
+  formulation: "Formulation de",
+  benchmark: "Benchmark de",
+};
+
+export function creerLibelles(src: SourcesLibelles = {}): LibellesApercu {
+  const index = (l?: readonly { code: string; libelle?: string | null }[]) =>
+    new Map((l ?? []).filter((x) => x.libelle).map((x) => [x.code, x.libelle as string]));
+  const briques = index(src.briques);
+  const elements = index(src.elements);
+  const regles = index(src.regles);
+  const facteurs = new Map((src.facteurs ?? []).map((f) => [f.code, f]));
+  const connu = (m: Map<string, string>, code: string) => m.get(code) ?? libelleLisible(code);
+  const cible = (code: string) =>
+    briques.get(code) ?? elements.get(code) ?? facteurs.get(code)?.libelle ?? libelleLisible(code);
+  return {
+    regle: (code) => connu(regles, code),
+    brique: (code) => connu(briques, code),
+    cible,
+    facteur: (code) => facteurs.get(code)?.libelle ?? libelleLisible(code),
+    valeur(facteur, lu) {
+      if (lu === null || lu === undefined) return "non renseigné";
+      if (typeof lu === "boolean") return lu ? "Oui" : "Non";
+      if (typeof lu === "number") return formaterNombre(lu, 4);
+      const valeurs = facteur ? facteurs.get(facteur)?.valeurs : null;
+      const un = (v: unknown) =>
+        valeurs?.find((x) => x.code === v)?.libelle ?? libelleLisible(v).toLowerCase();
+      return Array.isArray(lu) ? lu.map(un).join(", ") : un(lu);
+    },
+    cle(cle) {
+      const i = cle.indexOf(":");
+      if (i < 0) return libelleLisible(cle);
+      const type = cle.slice(0, i);
+      const reste = cle.slice(i + 1);
+      const prefixe = TYPES_CLE[type] ?? libelleLisible(type);
+      return `${prefixe} « ${cible(reste)} »`;
+    },
+  };
 }

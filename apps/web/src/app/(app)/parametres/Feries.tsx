@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { BoutonConfirmation } from "../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
@@ -82,7 +82,7 @@ export function AjoutFerie({ annee }: { annee: number }) {
 }
 
 export function SuppressionFerie({ ferie }: { ferie: Ferie }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   return (
     <div className="mp-liste-lignes__actions">
@@ -97,7 +97,7 @@ export function SuppressionFerie({ ferie }: { ferie: Ferie }) {
           setErreur(null);
           try {
             await api.supprimer(`/api/cabinet/feries/${encodeURIComponent(ferie.id)}`);
-            router.refresh();
+            rafraichir();
           } catch (e) {
             setErreur(messageErreur(e));
             return false;

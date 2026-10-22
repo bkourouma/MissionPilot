@@ -1,5 +1,10 @@
 /** Redressement : droits d'affichage (confort : l'API reste seule juge). */
-import { aPermission, type RedDossierResume, type Role } from "@missionpilot/shared";
+import {
+  aPermission,
+  type RedCausesVersionVue,
+  type RedDossierResume,
+  type Role,
+} from "@missionpilot/shared";
 import type { MissionDetaillee } from "./missions";
 
 // --- Droits d'affichage (confort : l'API reste seule juge) ----------------------------------------
@@ -61,4 +66,38 @@ export function raisonSansEcriture(
     return "Votre rôle permet de consulter le dossier de redressement, pas de le modifier.";
   }
   return "La saisie est réservée au directeur, au chef de mission et aux membres de l'équipe.";
+}
+
+/** Raison affichée à l'auteur d'une cartographie qui ne peut pas la valider lui-même (RED-04). */
+export const TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS =
+  "Vous avez participé à cette cartographie (demande ou modification) : elle doit être validée par un autre consultant. Un associé peut la valider lui-même.";
+
+export interface ValidationCauses {
+  /** Le bouton « Valider » est affiché (brouillon, écriture permise). */
+  proposee: boolean;
+  /** Valider est possible pour cet utilisateur. */
+  autorisee: boolean;
+  /** Explication visible quand le bouton est affiché mais désactivé. */
+  raison: string | null;
+}
+
+/**
+ * Miroir de `validerCauses` (API) : la validation exige `redressement.ecrire` (droit d'écriture
+ * du dossier, `peutEcrire`) et refuse quiconque a signé un rang de la version, sauf un associé
+ * (RED-04 : « un consultant autre que l'auteur »). Confort d'affichage : l'API reste juge.
+ */
+export function validationCauses(
+  version: Pick<RedCausesVersionVue, "statut" | "historique" | "cree_par">,
+  peutEcrire: boolean,
+  roles: readonly Role[],
+  utilisateurId: string,
+): ValidationCauses {
+  if (!peutEcrire || version.statut !== "brouillon") {
+    return { proposee: false, autorisee: false, raison: null };
+  }
+  const auteur = version.historique.some((r) => r.auteur.id === utilisateurId);
+  if (auteur && !roles.includes("associe")) {
+    return { proposee: true, autorisee: false, raison: TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS };
+  }
+  return { proposee: true, autorisee: true, raison: null };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
@@ -27,6 +28,7 @@ export function Duplication({
   onFin: () => void;
 }) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [titre, setTitre] = useState(`${intitule} (copie)`.slice(0, 200));
   const [client, setClient] = useState("");
   const f = useFormulaire<"intitule" | "client_id">();
@@ -39,7 +41,7 @@ export function Duplication({
         rafraichir: false,
         apres: (m) => {
           router.push(`/missions/${m.id}`);
-          router.refresh();
+          rafraichir();
         },
       },
     );

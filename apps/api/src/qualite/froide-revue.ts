@@ -29,7 +29,7 @@ import { detailCampagne } from "./froide-tirage.js";
  * Revue à froid d'une mission tirée (QUA-05) : affectation d'un relecteur INDÉPENDANT, grille,
  * constats, terminaison. Le score et la conclusion sortent du moteur `calculerRevueFroide`,
  * jamais d'un modèle de langage ; l'IA n'intervient pas dans ce module. Les règles de l'API sont
- * doublées par les déclencheurs MQQ01 à MQQ12 (migrations 0287 à 0289).
+ * doublées par les déclencheurs MQQ01 à MQQ13 (migrations 0287 à 0290).
  */
 
 const POIDS_GRILLE = CRITERES_REVUE_FROIDE.map((c) => ({ code: c.code, poids: c.poids }));

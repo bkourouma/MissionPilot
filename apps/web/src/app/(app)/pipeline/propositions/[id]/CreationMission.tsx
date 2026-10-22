@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
@@ -31,6 +32,7 @@ export function CreationMission({
   voitToutes,
 }: CreationMissionProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [s, setS] = useState<SaisieDepuisProposition>({
     intitule,
     directeur_id: "",
@@ -51,7 +53,7 @@ export function CreationMission({
         rafraichir: false,
         apres: (m) => {
           router.push(`/missions/${m.id}`);
-          router.refresh();
+          rafraichir();
         },
       },
     );

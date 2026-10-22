@@ -87,6 +87,11 @@ export async function assurerPromptReprevision(db: Db, cabinetId: string): Promi
 
 const CHIFFRES_MAX = 200;
 
+/** Libellé d'affichage français d'une devise (XOF et XAF : « FCFA ») ; le code de donnée reste inchangé. */
+export function libelleDeviseAffichage(devise: string): string {
+  return devise === "XOF" || devise === "XAF" ? "FCFA" : devise;
+}
+
 /** Points de base (1/10000) → pourcentage décimal exact, sans arrondi ni calcul métier. */
 const enPourcent = (pointsDeBase: number) => pointsDeBase / 100;
 
@@ -97,7 +102,7 @@ const enPourcent = (pointsDeBase: number) => pointsDeBase / 100;
 export function chiffresReprevision(r: ResultatReprevision, devise: string): ChiffreContexte[] {
   const liste: ChiffreContexte[] = [];
   const montant = (libelle: string, valeur: number | null) => {
-    if (valeur !== null) liste.push({ libelle, valeur, unite: devise });
+    if (valeur !== null) liste.push({ libelle, valeur, unite: libelleDeviseAffichage(devise) });
   };
   const pourcent = (libelle: string, pointsDeBase: number | null) => {
     if (pointsDeBase !== null) {
@@ -148,7 +153,7 @@ const METHODES: Record<string, string> = {
 /** Synthèse en prose fabriquée PAR CODE depuis le résultat du moteur : aucune saisie de personne. */
 export function texteReprevision(r: ResultatReprevision, exercice: number, devise: string): string {
   const m = (v: number | null) =>
-    v === null ? "non disponible" : `${formaterNombre(v)} ${devise}`;
+    v === null ? "non disponible" : `${formaterNombre(v)} ${libelleDeviseAffichage(devise)}`;
   const lignes = [
     `Exercice ${exercice}, ${r.trimestresRealises} trimestre(s) réalisé(s), méthode : ${METHODES[r.methode] ?? r.methode}.`,
   ];

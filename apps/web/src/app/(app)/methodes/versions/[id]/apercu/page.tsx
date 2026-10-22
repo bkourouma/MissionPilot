@@ -54,7 +54,11 @@ export default async function PageApercuMission({ params }: { params: Promise<{ 
         }}
         soustitre="Voyez la mission que cette version produirait pour un contexte donné : étapes, briques actives, durée type, niveaux de garde et règles déclenchées."
       />
-      <ApercuMission versionId={id} facteurs={f.donnees.elements} />
+      <ApercuMission
+        versionId={id}
+        facteurs={f.donnees.elements}
+        regles={v.regles.map((x) => ({ code: x.code, libelle: x.regle.libelle }))}
+      />
     </div>
   );
 }

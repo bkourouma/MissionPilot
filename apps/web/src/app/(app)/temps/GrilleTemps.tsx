@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DecisionSaisie } from "../../../components/hors-ligne/DecisionSaisie";
 import {
@@ -91,7 +91,7 @@ function groupes(rangees: readonly Rangee[]): { nom: string; rangees: Rangee[] }
 export function GrilleTemps(props: GrilleTempsProps) {
   const { feuille, unite, jours, joursClotures, activites, taches, modifiable, utilisateurId } =
     props;
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [rangees, setRangees] = useState<Rangee[]>(() =>
     rangeesInitiales(feuille.lignes, taches, activites),
   );
@@ -183,7 +183,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
     setValeurs(valeursInitiales(feuille.lignes, unite));
     setRangees(rangeesInitiales(feuille.lignes, taches, activites));
     setReprise(false);
-    router.refresh();
+    rafraichir();
   }
 
   const clos = useMemo(() => new Set(joursClotures), [joursClotures]);
@@ -235,7 +235,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
     try {
       await api.post(`/api/feuilles-temps/${encodeURIComponent(feuille.id)}/soumettre`);
       marquerAttente();
-      router.refresh();
+      rafraichir();
       setSoumission({ enCours: false, erreur: null });
     } catch (e) {
       setSoumission({ enCours: false, erreur: messageErreur(e) });

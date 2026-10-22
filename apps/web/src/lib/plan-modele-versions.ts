@@ -16,9 +16,16 @@ export function libelleValidationModele(v: Pick<ResumeModele, "validation">): st
   return `Validée par ${qui} le ${formaterDate(v.validation.valide_le, "Africa/Abidjan")}`;
 }
 
+/**
+ * Règle de validation d'une version du modèle (miroir de `valideurDispense`, API) : un responsable de
+ * la mission autre que l'auteur ; l'associé et le directeur de la mission peuvent valider leur propre version.
+ */
+export const TEXTE_REGLE_VALIDATION_MODELE =
+  "Elle doit être validée par un responsable de la mission, autre que son auteur ; l'associé et le directeur de la mission peuvent toutefois valider leur propre version.";
+
 /** Annonce affichée au retour d'un enregistrement (`?enregistree=1`). */
 export function messageVersionEnregistree(version: number, partageRetire: boolean): string {
-  const base = `Version ${version} enregistrée : résultat calculé par le moteur, figé et horodaté. Elle doit être validée par un responsable de la mission, autre que son auteur.`;
+  const base = `Version ${version} enregistrée : résultat calculé par le moteur, figé et horodaté. ${TEXTE_REGLE_VALIDATION_MODELE}`;
   return partageRetire
     ? `${base} Le partage au client a été retiré : faites tout valider, puis partagez de nouveau.`
     : base;

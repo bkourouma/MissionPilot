@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
@@ -28,6 +29,7 @@ export function GenerationProposition({
   typeParDefaut,
 }: GenerationPropositionProps) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [s, setS] = useState<SaisieGeneration>({ type_mission_id: typeParDefaut, intitule: "" });
   const f = useFormulaire<keyof SaisieGeneration>();
@@ -45,7 +47,7 @@ export function GenerationProposition({
         rafraichir: false,
         apres: (p) => {
           router.push(`/pipeline/propositions/${p.id}`);
-          router.refresh();
+          rafraichir();
         },
       },
     );

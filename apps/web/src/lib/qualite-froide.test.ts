@@ -382,3 +382,26 @@ describe("mes revues : curseur suivi jusqu'au bout", () => {
     ]);
   });
 });
+
+describe("libellé des motifs du moteur", () => {
+  it("remplace les codes de critères par leur libellé de grille, repli lisible sinon", async () => {
+    const { libelleMotifRevue } = await import("./qualite-froide");
+    const { CRITERES_REVUE_FROIDE } = await import("@missionpilot/shared");
+    const premier = CRITERES_REVUE_FROIDE[0]!;
+    const motif = libelleMotifRevue(
+      `Revue incomplète : 2 critère(s) sans évaluation (${premier.code}, critere_inconnu_x).`,
+    );
+    expect(motif).toContain(premier.libelle);
+    expect(motif).toContain("critere inconnu x");
+    expect(motif).not.toContain("_");
+  });
+});
+
+describe("erreur de champ périmée", () => {
+  it("disparaît dès que le champ est modifié", async () => {
+    const { erreurChampAffichee } = await import("./qualite-froide-saisie");
+    expect(erreurChampAffichee("Obligatoire", false)).toBe("Obligatoire");
+    expect(erreurChampAffichee("Obligatoire", true)).toBeUndefined();
+    expect(erreurChampAffichee(undefined, false)).toBeUndefined();
+  });
+});
