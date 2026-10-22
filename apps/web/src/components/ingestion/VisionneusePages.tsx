@@ -7,6 +7,7 @@ import {
   formaterCaracteres,
   formaterConfiancePage,
   libelleMethode,
+  methodeOcr,
   textePurge,
   lirePageIngestion,
   messageErreur,
@@ -96,7 +97,7 @@ export function VisionneusePages({
               {citee ? <span>(page citée)</span> : null}
               <span>{libelleMethode(p.methode)}</span>
               <span>{formaterCaracteres(p.nb_caracteres)}</span>
-              {p.methode === "ocr_simule" ? (
+              {methodeOcr(p.methode) ? (
                 <span>Confiance {formaterConfiancePage(p.confiance_pm)}</span>
               ) : null}
               <Bouton

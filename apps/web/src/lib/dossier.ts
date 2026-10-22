@@ -10,7 +10,9 @@ import {
   TYPE_SOURCE_PREUVE_LIBELLES,
   TYPES_SOURCE_PREUVE,
   type CategorieFaitDossier,
+  type CorrectionOcr,
   type FiabilitePreuve,
+  type MethodeExtraction,
   type StatutEtatDossier,
   type StatutFaitDossier,
   type TypeSourcePreuve,
@@ -147,12 +149,24 @@ export interface LigneEtat {
     cellule?: string | null;
     ligne?: number | null;
     page?: number | null;
+    /** Valeur lue par reconnaissance de caractères (OCR) : à vérifier dans le document d'origine. */
+    ocr?: boolean | null;
+    /** Confiance de la lecture de la page, de 0 à 1000 (millièmes). */
+    confiance_pm?: number | null;
   };
+}
+
+/** Document d'ingestion dont l'état est issu (null pour un état saisi ou importé sans ingestion). */
+export interface IngestionEtat {
+  document_id: string;
+  methode: MethodeExtraction | null;
+  corrections_ocr: CorrectionOcr[] | null;
 }
 
 export interface EtatDetaille extends EtatFinancier {
   constats: ConstatEtat[];
   lignes: LigneEtat[];
+  ingestion?: IngestionEtat | null;
 }
 
 export interface Fiabilite {
@@ -329,7 +343,40 @@ export function formaterReference(r: LigneEtat["reference"] | null | undefined):
     r.cellule ? `cellule ${r.cellule}` : r.ligne ? `ligne ${r.ligne}` : null,
     r.page ? `p. ${r.page}` : null,
   ].filter(Boolean);
-  return morceaux.length === 0 ? VALEUR_ABSENTE : morceaux.join(", ");
+  if (morceaux.length === 0) return r.ocr ? MARQUEUR_OCR_COURT : VALEUR_ABSENTE;
+  const base = morceaux.join(", ");
+  return r.ocr ? `${base} · ${MARQUEUR_OCR_COURT}` : base;
+}
+
+export const MARQUEUR_OCR_COURT = "lu par OCR";
+export const MARQUEUR_OCR_A_VERIFIER = "lu par OCR : à vérifier";
+export const AVERTISSEMENT_OCR =
+  "Cet état a été lu par reconnaissance de caractères (OCR) : chaque chiffre doit être vérifié dans le document d'origine avant toute décision. Il n'est jamais accepté automatiquement.";
+
+/** La ligne porte une valeur lue par reconnaissance de caractères. */
+export function ligneLueParOcr(l: Pick<LigneEtat, "reference"> | null | undefined): boolean {
+  return l?.reference?.ocr === true;
+}
+
+/** L'état, ou l'une de ses lignes, a été lu par OCR (réelle ou simulée) : revue humaine obligatoire. */
+export function etatLuParOcr(
+  e:
+    | { lignes?: readonly Pick<LigneEtat, "reference">[]; ingestion?: IngestionEtat | null }
+    | null
+    | undefined,
+): boolean {
+  if (!e) return false;
+  const m = e.ingestion?.methode;
+  return m === "ocr" || m === "ocr_simule" || (e.lignes ?? []).some(ligneLueParOcr);
+}
+
+/** Mention accolée au montant d'une ligne lue par OCR : « lu par OCR : à vérifier (confiance de la page : 82 %) ». */
+export function marqueurOcrLigne(l: Pick<LigneEtat, "reference">): string | null {
+  if (!ligneLueParOcr(l)) return null;
+  const c = l.reference.confiance_pm;
+  if (c === null || c === undefined || !Number.isFinite(c)) return MARQUEUR_OCR_A_VERIFIER;
+  const pct = Math.round(Math.min(1000, Math.max(0, c)) / 10);
+  return `${MARQUEUR_OCR_A_VERIFIER} (confiance de la page : ${pct} %)`;
 }
 
 /** Constat de contrôle, lisible : « Équilibre du bilan : écart de −10 FCFA (attendu 1 000, constaté 990) ». */

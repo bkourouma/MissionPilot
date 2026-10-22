@@ -7,11 +7,15 @@
  * diligence, standard) sont dans `ingestion-api.ts`, réexporté ici. Ne calcule aucun chiffre métier.
  */
 import {
+  LIBELLES_CONFUSION_OCR,
   LIBELLES_ERREUR_INGESTION,
   LIBELLES_STATUT_EXTRACTION,
   LIBELLES_USAGE_INGESTION,
   PLAFONDS_INGESTION,
+  PLAFONDS_OCR,
   type CodeErreurIngestion,
+  type ConfusionOcr,
+  type CorrectionOcr,
   type ContenuLecture,
   type ContenuProposition,
   type FormatIngestion,
@@ -92,6 +96,8 @@ export type ExtractionProposition = Extract<
 export interface DetailDocumentIngestion extends DocumentIngestion {
   pages: ResumePageIngestion[];
   extractions: ExtractionIngestion[];
+  /** Montants que la tolérance aux confusions de lecture propose de corriger (OCR) ; null hors OCR. */
+  corrections_ocr?: CorrectionOcr[] | null;
 }
 
 export interface PageDocumentsIngestion {
@@ -128,6 +134,7 @@ export const LIBELLES_RESULTAT: Record<ResultatIngestion, string> = {
 export const LIBELLES_METHODE: Record<MethodeExtraction, string> = {
   texte: "Texte du PDF",
   ocr_simule: "Reconnaissance de caractères (simulée)",
+  ocr: "Reconnaissance de caractères (OCR local)",
   tableur: "Classeur",
 };
 
@@ -164,6 +171,31 @@ export function libelleStatutExtraction(s: StatutExtraction): string {
 }
 
 /** Message lisible d'un code d'erreur d'ingestion ; repli sur l'erreur interne pour un code inconnu. */
+/** Méthode qui lit des images : la confiance de page existe et le résultat se vérifie à la main. */
+export function methodeOcr(m: MethodeExtraction | null | undefined): boolean {
+  return m === "ocr" || m === "ocr_simule";
+}
+
+/** Phrase d'aide ajoutée au message d'un code d'erreur d'OCR (null si le code n'en demande pas). */
+export function aideErreurIngestion(code: string | null | undefined): string | null {
+  return code === "OCR_INDISPONIBLE"
+    ? "Contactez l'administrateur : le moteur de lecture des scans n'est pas activé sur ce serveur."
+    : null;
+}
+
+/** Libellé d'une confusion de lecture : « lettre O lue pour le chiffre 0 ». */
+export function libelleConfusionOcr(c: ConfusionOcr): string {
+  return LIBELLES_CONFUSION_OCR[c] ?? c;
+}
+
+/** Confusions en clair, séparées par un point-virgule ; « — » s'il n'y en a pas. */
+export function decrireConfusionsOcr(
+  confusions: readonly ConfusionOcr[] | null | undefined,
+): string {
+  const l = (confusions ?? []).map(libelleConfusionOcr);
+  return l.length === 0 ? "—" : l.join(" ; ");
+}
+
 export function libelleErreurIngestion(code: string | null | undefined): string | null {
   if (!code) return null;
   return (
@@ -177,6 +209,15 @@ export function erreurDocument(
   d: Pick<DocumentIngestion, "erreur" | "erreur_code">,
 ): string | null {
   return d.erreur ?? libelleErreurIngestion(d.erreur_code);
+}
+
+/** Message d'un document en échec suivi, le cas échéant, de la phrase d'aide de son code. */
+export function erreurDocumentAvecAide(
+  d: Pick<DocumentIngestion, "erreur" | "erreur_code">,
+): string | null {
+  const m = erreurDocument(d);
+  const aide = aideErreurIngestion(d.erreur_code);
+  return m && aide ? `${m} ${aide}` : m;
 }
 
 /** Document encore traité en arrière-plan : la page doit se rafraîchir. */
@@ -259,12 +300,18 @@ export function controlerFichierIngestion(
   return { ok: true, format };
 }
 
+/** Ce qui arrive à un PDF scanné : lu par OCR local, plafond de pages tiré de `PLAFONDS_OCR`. */
+export const TEXTE_SCAN_OCR =
+  "Un PDF scanné est lu par reconnaissance de caractères (OCR) sur le serveur, plus lent " +
+  `(quelques secondes par page, ${PLAFONDS_OCR.pagesMax} pages au plus) ; ` +
+  "l'état obtenu part toujours en revue et chaque chiffre est à vérifier dans le document.";
+
 /** Rappel des limites, affiché près du champ fichier. */
 export function aideLimitesIngestion(): string {
   return (
     `PDF avec texte (${mo(PLAFONDS_INGESTION.tailleOctetsPdf)} Mo et ${PLAFONDS_INGESTION.pagesMax} pages au plus) ` +
     `ou classeur Excel .xlsx (${mo(PLAFONDS_INGESTION.tailleOctetsXlsx)} Mo au plus). ` +
-    "Un PDF scanné (image sans texte) n'est pas lu."
+    TEXTE_SCAN_OCR
   );
 }
 
