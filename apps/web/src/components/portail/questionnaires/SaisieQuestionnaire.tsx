@@ -3,63 +3,58 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { QuestionQuestionnaire } from "@missionpilot/shared";
 import { api } from "../../../lib/api";
-import { formaterDate } from "../../../lib/format";
 import {
-  annonceCollegues,
   annonceVisibilite,
   cheminApiQuestionnaire,
   cheminApiSoumission,
-  echeance,
   erreursQuestionsServeur,
   estModifiable,
   finApresEnvoi,
   finInaccessible,
-  finEcheance,
   finLectureSeule,
-  hrefReconnexion,
   issueBloquante,
   issueRefus,
   libelleReponse,
   messageActualisation,
   messageRefus,
-  texteSauvegarde,
   type FinSaisie,
   type IssueRefus,
   type ProgressionPortail,
   type QuestionnaireComplet,
   type QuestionnairePortail,
-  type Reponses,
-  type ValeurReponse,
 } from "../../../lib/portail-questionnaires";
 import {
-  chargeBrouillon,
   ecartVisibilite,
   erreursAvantEnvoi,
   estVideCharge,
   idBlocQuestion,
   idsQuestions,
-  lireSaisie,
   possede,
   propre,
   questionsDe,
   reconcilier,
-  saisiesInitiales,
   versSaisie,
   visiblesDepuisSaisies,
   type ChargeBrouillon,
-  type Saisies,
   type ValeurSaisie,
 } from "../../../lib/portail-questionnaires-saisie";
-import { Alerte } from "../../ui/Alerte";
-import { Icone } from "../../ui/Icone";
-import { BandeauMode } from "./BandeauMode";
-import { ChampQuestion } from "./ChampQuestion";
-import { EnvoiQuestionnaire, type ErreurAffichee } from "./EnvoiQuestionnaire";
-import { ProgressionQuestionnaire } from "./ProgressionQuestionnaire";
+import type { ErreurAffichee } from "./EnvoiQuestionnaire";
+import { SaisieQuestionnaireVue } from "./SaisieQuestionnaireVue";
+import {
+  annonceEnvoiImpossible,
+  annonceIntegration,
+  chargePreparee,
+  courantInitial,
+  erreurQuestion,
+  finParLecture,
+  listeErreursQuestionnaire,
+  MESSAGE_ENVOI_SUSPENDU,
+  sansCle,
+  useAnnonces,
+  type Courant,
+} from "./saisie-questionnaire-outils";
 import { useSauvegardeQuestionnaire, type Envoye } from "./useSauvegardeQuestionnaire";
 import "./questionnaires.css";
-
-const ETATS_ALERTE = new Set(["hors_ligne", "indisponible", "session", "refuse", "bloque"]);
 
 export interface SaisieQuestionnaireProps {
   questionnaire: QuestionnaireComplet;
@@ -69,45 +64,6 @@ export interface SaisieQuestionnaireProps {
   onVue: (vue: QuestionnairePortail) => void;
   /** Le formulaire laisse la place à la lecture seule ou à un message (avec la vue relue). */
   onFin: (fin: FinSaisie, vue?: QuestionnairePortail) => void;
-}
-
-/** État lu par la sauvegarde entre deux rendus (toujours à jour, sans attendre React). */
-interface Courant {
-  saisies: Saisies;
-  base: Reponses;
-  refusees: Record<string, string>;
-  conflits: Record<string, ValeurReponse | null>;
-}
-
-const sansCle = <T,>(objet: Record<string, T>, cle: string) => {
-  const copie = { ...objet };
-  delete copie[cle];
-  return copie;
-};
-
-/** Annonces polies regroupées : deux messages rapprochés sont lus ensemble. */
-function useAnnonces() {
-  const [annonce, setAnnonce] = useState("");
-  const attente = useRef<string[]>([]);
-  const minuterie = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (minuterie.current) clearTimeout(minuterie.current);
-    },
-    [],
-  );
-  const annoncer = (message: string) => {
-    if (!message) return;
-    attente.current.push(message);
-    if (minuterie.current) clearTimeout(minuterie.current);
-    setAnnonce("");
-    minuterie.current = setTimeout(() => {
-      setAnnonce(attente.current.join(" "));
-      attente.current = [];
-      minuterie.current = null;
-    }, 150);
-  };
-  return { annonce, annoncer };
 }
 
 /**
@@ -128,12 +84,9 @@ export function SaisieQuestionnaire({
   const questions = useMemo(() => new Map(questionsDe(def).map((q) => [q.id, q])), [def]);
   const ids = useMemo(() => idsQuestions(def), [def]);
 
-  const [initial] = useState<Courant>(() => ({
-    saisies: saisiesInitiales(def, questionnaire.reponse.reponses ?? {}),
-    base: { ...(questionnaire.reponse.reponses ?? {}) },
-    refusees: {},
-    conflits: {},
-  }));
+  const [initial] = useState<Courant>(() =>
+    courantInitial(def, questionnaire.reponse.reponses ?? {}),
+  );
   const courant = useRef<Courant>(initial);
   const [saisies, setSaisies] = useState(initial.saisies);
   const [refusees, setRefusees] = useState(initial.refusees);
@@ -161,14 +114,7 @@ export function SaisieQuestionnaire({
 
   /** Réponses à enregistrer ; les questions refusées ou en conflit attendent une action. */
   function preparer(): ChargeBrouillon {
-    const c = courant.current;
-    const exclues = new Set([...Object.keys(c.refusees), ...Object.keys(c.conflits)]);
-    const charge = chargeBrouillon(def, c.saisies, c.base, exclues);
-    const visibles = visiblesDepuisSaisies(def, c.saisies);
-    return {
-      reponses: charge.reponses,
-      invalides: [...charge.invalides, ...[...exclues].filter((q) => visibles.has(q))],
-    };
+    return chargePreparee(def, courant.current);
   }
 
   function nonEnregistrees(): number {
@@ -188,14 +134,7 @@ export function SaisieQuestionnaire({
     });
     if (r.misesAJour.length > 0) setMajCollegues((prev) => new Set([...prev, ...r.misesAJour]));
     const ecart = ecartVisibilite(avant, visiblesDepuisSaisies(def, r.saisies));
-    annoncer(
-      [
-        annonceCollegues(r.misesAJour.length, nouveaux.length),
-        annonceVisibilite(ecart.apparues, ecart.masquees),
-      ]
-        .filter(Boolean)
-        .join(" "),
-    );
+    annoncer(annonceIntegration(r.misesAJour.length, nouveaux.length, ecart));
     onVue(vue);
     return { misesAJour: r.misesAJour.length, conflits: nouveaux.length };
   }
@@ -205,17 +144,8 @@ export function SaisieQuestionnaire({
     if (issue === "verrouille" || issue === "clos" || issue === "echeance") {
       const perdues = nonEnregistrees();
       sauvegarde.bloquer();
-      try {
-        const vue = await api.get<QuestionnairePortail>(cheminApiQuestionnaire(id), {
-          redirigerSi401: false,
-        });
-        onFin(
-          issue === "echeance" ? finEcheance(vue, perdues) : finLectureSeule(vue, perdues),
-          vue,
-        );
-      } catch {
-        onFin(finInaccessible(issue, mode, perdues));
-      }
+      const r = await finParLecture(issue, mode, id, perdues);
+      onFin(r.fin, r.vue);
       return;
     }
     if (issueBloquante(issue) || issue === "securite") {
@@ -336,26 +266,13 @@ export function SaisieQuestionnaire({
 
   /** Erreurs à reprendre, dans l'ordre du questionnaire (refus du serveur d'abord). */
   function listeErreurs(c: Courant, refus: Record<string, string>): ErreurAffichee[] {
-    const locales = new Map(
-      erreursAvantEnvoi(def, c.saisies, c.conflits).map((e) => [e.id, e.message]),
-    );
-    const visibles = visiblesDepuisSaisies(def, c.saisies);
-    const liste: ErreurAffichee[] = [];
-    for (const q of questionsDe(def)) {
-      if (!visibles.has(q.id)) continue;
-      const message = propre(c.refusees, q.id) ?? propre(refus, q.id) ?? locales.get(q.id);
-      if (message) liste.push({ id: q.id, libelle: q.libelle, message });
-    }
-    return liste;
+    return listeErreursQuestionnaire(def, c, refus);
   }
 
   function signalerErreurs(erreurs: readonly ErreurAffichee[]) {
     setTentative(true);
     setConfirmation(false);
-    const n = erreurs.length;
-    annoncer(
-      `Envoi impossible : ${n === 1 ? "une question demande" : `${n} questions demandent`} votre attention.`,
-    );
+    annoncer(annonceEnvoiImpossible(erreurs.length));
     if (erreurs[0]) allerA(erreurs[0].id);
   }
 
@@ -377,8 +294,7 @@ export function SaisieQuestionnaire({
       if (!(await sauvegarde.envoyer())) {
         setConfirmation(false);
         setErreurEnvoi({
-          message:
-            "Vos dernières réponses n'ont pas pu être enregistrées : l'envoi est suspendu. Consultez l'état du brouillon ci-dessus, puis réessayez.",
+          message: MESSAGE_ENVOI_SUSPENDU,
           n: Date.now(),
         });
         return;
@@ -425,15 +341,7 @@ export function SaisieQuestionnaire({
   );
 
   function erreurDe(q: QuestionQuestionnaire): string | undefined {
-    const serveur = propre(refusees, q.id) ?? propre(refusEnvoi, q.id);
-    if (serveur) return serveur;
-    const locale = erreursEnvoi?.get(q.id);
-    if (locale) return locale;
-    if (touchees.has(q.id) || q.type === "choix_multiple") {
-      const r = lireSaisie(q, propre(saisies, q.id));
-      if (!r.ok) return r.message;
-    }
-    return undefined;
+    return erreurQuestion(q, { refusees, refusEnvoi, erreursEnvoi, touchees, saisies });
   }
 
   function conflitDe(q: QuestionQuestionnaire) {
@@ -445,128 +353,42 @@ export function SaisieQuestionnaire({
     };
   }
 
-  const sections = def.sections
-    .map((s) => ({ section: s, questions: s.questions.filter((q) => visibles.has(q.id)) }))
-    .filter((x) => x.questions.length > 0);
-  const ech = echeance(questionnaire.date_limite, aujourdhui);
-  const etatAlerte = ETATS_ALERTE.has(sauvegarde.etat);
-  const texteEtat = texteSauvegarde(sauvegarde.etat, sauvegarde.derniere);
   const erreurs = tentative
     ? listeErreurs({ ...courant.current, saisies, refusees, conflits }, refusEnvoi)
     : [];
 
   return (
-    <>
-      <BandeauMode
-        mode={mode}
-        fonction={questionnaire.fonction}
-        onActualiser={collectif ? () => void actualiser() : undefined}
-        actualisation={actualisation}
-      />
-      {ech?.depassee ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Date limite dépassée">
-          <p>
-            La date limite était le {formaterDate(questionnaire.date_limite)} : le cabinet doit la
-            prolonger pour que vos réponses soient de nouveau acceptées.
-          </p>
-        </Alerte>
-      ) : null}
-
-      <div className="mp-pq-suivi">
-        <ProgressionQuestionnaire progression={progression} id="mp-pq-progression" />
-        <p className={etatAlerte ? "mp-pq-etat mp-pq-etat--alerte" : "mp-pq-etat"}>
-          <Icone nom={etatAlerte ? "attention" : "nuage"} taille={16} />
-          <span>{texteEtat}</span>
-        </p>
-        {erreurGlobale ? (
-          <Alerte tonalite="danger" titre="Attention">
-            <p>{erreurGlobale}</p>
-          </Alerte>
-        ) : null}
-        <p className="mp-pq-note">
-          Les questions marquées d&apos;un astérisque (*) sont obligatoires. Vos réponses sont
-          enregistrées automatiquement au fil de la saisie : vous pouvez vous interrompre et
-          reprendre plus tard.
-        </p>
-      </div>
-
-      {sections.length >= 3 ? (
-        <details className="mp-details mp-pq-sommaire">
-          <summary>Sommaire ({sections.length} sections)</summary>
-          <ol>
-            {sections.map(({ section }) => (
-              <li key={section.id}>
-                <a href={`#mp-pq-section-${section.id}`}>{section.titre}</a>
-              </li>
-            ))}
-          </ol>
-        </details>
-      ) : null}
-
-      <form
-        className="mp-pq-formulaire"
-        noValidate
-        aria-label={`Réponses au questionnaire « ${questionnaire.titre} »`}
-        onSubmit={(e) => e.preventDefault()}
-      >
-        {sections.map(({ section, questions: qs }) => {
-          const idTitre = `mp-pq-titre-${section.id}`;
-          return (
-            <section
-              key={section.id}
-              id={`mp-pq-section-${section.id}`}
-              className="mp-pq-section"
-              aria-labelledby={idTitre}
-            >
-              <h2 id={idTitre} className="mp-section__titre mp-pq-section__titre">
-                {section.titre}
-              </h2>
-              {section.description ? (
-                <p className="mp-pq-section__description">{section.description}</p>
-              ) : null}
-              {qs.map((q) => (
-                <ChampQuestion
-                  key={q.id}
-                  question={q}
-                  valeur={propre(saisies, q.id)}
-                  erreur={erreurDe(q)}
-                  onChange={(v) => modifier(q.id, v)}
-                  onBlur={() => toucher(q.id)}
-                  miseAJour={majCollegues.has(q.id)}
-                  conflit={conflitDe(q)}
-                />
-              ))}
-            </section>
-          );
-        })}
-
-        <EnvoiQuestionnaire
-          collectif={collectif}
-          texteEtat={texteEtat}
-          etatAlerte={etatAlerte}
-          enregistrement={sauvegarde.etat === "enregistrement"}
-          hrefReconnexion={
-            sauvegarde.etat === "session" || sessionEnvoi ? hrefReconnexion(id) : null
-          }
-          erreurs={erreurs}
-          erreurEnvoi={erreurEnvoi?.message ?? null}
-          refErreurEnvoi={refErreurEnvoi}
-          confirmation={confirmation}
-          envoi={envoi}
-          onEnregistrer={() => {
-            setErreurGlobale(null);
-            void sauvegarde.enregistrer();
-          }}
-          onDemander={demanderEnvoi}
-          onConfirmer={() => void confirmerEnvoi()}
-          onAnnuler={() => setConfirmation(false)}
-          onAllerA={allerA}
-        />
-      </form>
-
-      <div className="mp-visuellement-cache" role="status" aria-atomic="true">
-        {annonce}
-      </div>
-    </>
+    <SaisieQuestionnaireVue
+      questionnaire={questionnaire}
+      progression={progression}
+      aujourdhui={aujourdhui}
+      actualisation={actualisation}
+      onActualiser={() => void actualiser()}
+      erreurGlobale={erreurGlobale}
+      etatSauvegarde={sauvegarde.etat}
+      derniereSauvegarde={sauvegarde.derniere}
+      visibles={visibles}
+      saisies={saisies}
+      majCollegues={majCollegues}
+      erreurDe={erreurDe}
+      conflitDe={conflitDe}
+      onModifier={modifier}
+      onToucher={toucher}
+      sessionEnvoi={sessionEnvoi}
+      erreurs={erreurs}
+      erreurEnvoi={erreurEnvoi?.message ?? null}
+      refErreurEnvoi={refErreurEnvoi}
+      confirmation={confirmation}
+      envoi={envoi}
+      onEnregistrer={() => {
+        setErreurGlobale(null);
+        void sauvegarde.enregistrer();
+      }}
+      onDemander={demanderEnvoi}
+      onConfirmer={() => void confirmerEnvoi()}
+      onAnnuler={() => setConfirmation(false)}
+      onAllerA={allerA}
+      annonce={annonce}
+    />
   );
 }
