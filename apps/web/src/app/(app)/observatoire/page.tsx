@@ -25,6 +25,8 @@ import {
   CHEMIN_ADHESION,
   CHEMIN_AGREGATS,
   CHEMIN_RESUME_CONTRIBUTIONS,
+  CODES_403_AGREGATS,
+  estEtatMetierAgregats,
   etatPageObservatoire,
   formaterPeriode,
   OBSERVATOIRE_PAGE_INDICATEUR,
@@ -89,6 +91,7 @@ export default async function PageObservatoire() {
   const [agregatsR, resumeR] = await Promise.all([
     chargerServeur<ObservatoireAgregats>(
       `${CHEMIN_AGREGATS}?indicateur=${OBSERVATOIRE_PAGE_INDICATEUR}`,
+      CODES_403_AGREGATS,
     ),
     peutAdherer
       ? chargerServeur<ObservatoireResumeContributions>(
@@ -106,7 +109,11 @@ export default async function PageObservatoire() {
           mois : un versement n&apos;apparaît qu&apos;au mois suivant.
         </p>
       </Alerte>
-      {!agregatsR.ok ? (
+      {!agregatsR.ok && estEtatMetierAgregats(agregatsR) ? (
+        <Alerte tonalite="info" titre="Agrégats non disponibles" annonce="aucune">
+          <p>{agregatsR.message}</p>
+        </Alerte>
+      ) : !agregatsR.ok ? (
         <EtatErreur
           titre="Les agrégats n'ont pas pu être chargés."
           message={agregatsR.message}
