@@ -108,7 +108,7 @@ export interface EtatFinancier {
   exercice: number;
   date_cloture: string;
   devise: Devise;
-  origine: "saisie" | "csv" | "excel";
+  origine: "saisie" | "csv" | "excel" | "pdf";
   source_libelle: string | null;
   fichier: { nom: string | null; sha256: string; taille: number } | null;
   tolerance: number;
@@ -270,6 +270,7 @@ export const ORIGINE_ETAT_LIBELLES: Record<EtatFinancier["origine"], string> = {
   saisie: "Saisie",
   csv: "Fichier CSV",
   excel: "Classeur Excel",
+  pdf: "PDF",
 };
 
 export const OPTIONS_CATEGORIES = CATEGORIES_FAIT_DOSSIER.map((c) => ({

@@ -1,0 +1,66 @@
+/*
+ * Lecture IA d'un document (DD-02, DD-10) et proposition d'amorçage (STD-13). Jetons du thème, CSS
+ * pur, mobile d'abord. Le sens n'est jamais porté par la couleur seule : chaque badge est écrit.
+ */
+
+.mp-ing-pile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-ing-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-ing-element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-ing-element--alerte {
+  border-width: 2px;
+}
+
+.mp-ing-entete {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  align-items: center;
+}
+
+.mp-ing-enonce {
+  margin: 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-ing-extrait {
+  margin: 0;
+  padding-left: var(--mp-esp-3);
+  border-left: 3px solid var(--mp-bordure);
+  overflow-wrap: anywhere;
+}
+
+.mp-ing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+.mp-ing-meta {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

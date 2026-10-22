@@ -14,6 +14,7 @@ import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
+import { hrefAmorcage } from "../../../../../lib/ingestion";
 import {
   hrefApercu,
   hrefMethode,
@@ -97,6 +98,9 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
           <>
             <Link href={hrefApercu(v.version.id)}>Aperçu de la mission</Link>
             <Link href={hrefSimulateur(v.version.id)}>Simuler les règles</Link>
+            {peutGerer(utilisateur.roles) && v.methode.cabinet_id !== null ? (
+              <Link href={hrefAmorcage(v.version.id)}>Amorçage depuis des documents</Link>
+            ) : null}
           </>
         }
       />

@@ -901,6 +901,7 @@ export const ECRANS_DOSSIER = [
   "environnement-social",
   "plan-100-jours",
   "note",
+  "documents",
   "ajustements",
 ] as const;
 export type EcranDossier = (typeof ECRANS_DOSSIER)[number];
@@ -943,6 +944,7 @@ export function sousPagesDd(
     },
     { id: "plan-100-jours", libelle: "Plan des 100 jours", href: h("plan-100-jours") },
     { id: "note", libelle: "Note au comité", href: h("note") },
+    { id: "documents", libelle: "Documents", href: h("documents") },
     { id: "ajustements", libelle: "Ajustements", href: h("ajustements") },
   ] as const;
   // Partage avec l'investisseur (dd.portail.gerer) : onglet ajouté seulement pour qui peut le gérer.

@@ -225,6 +225,7 @@ describe("onglets et chemins de pages", () => {
       "environnement-social",
       "plan-100-jours",
       "note",
+      "documents",
       "ajustements",
     ]);
     expect(pages[0]!.href).toBe(`/missions/${MISSION}/due-diligence/${DOSSIER}`);
