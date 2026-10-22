@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-22 (lot 9e).
+
 # Lot 10 : corrections des anomalies de la recette navigateur du 2026-10-22
 
 Corrections des anomalies A-01 à A-12 de la recette d'intégration (rapport

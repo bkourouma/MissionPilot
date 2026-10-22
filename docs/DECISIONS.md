@@ -201,6 +201,12 @@ génériques, sans contenu du cahier SANKORIA).
   en CI.
 - **Rapports** : HTML rendu en PDF par Chromium headless ; DOCX via `docx`,
   PPTX via `pptxgenjs`.
+- **Lecture de documents** (lot 6, ADR-009) : PDF à couche texte lus localement par `unpdf` 1.8.1 dans un
+  `worker_thread` à mémoire plafonnée, classeurs Excel par `exceljs` ; aucun service externe d'extraction ni
+  d'OCR. OCR local voulu par l'utilisateur (lot 11, non livré).
+- **Exécution : Node 22 minimum** (décision technique du superviseur, lot 6) : `unpdf` 1.8.1 exige Node >= 22 et
+  `worker.getHeapStatistics()` (surveillance mémoire du worker PDF) n'existe qu'à partir de Node 22.16 ; garde
+  défensive si la méthode manque. `engines.node` du `package.json` racine vaut `>=22` et la CI utilise Node 22.
 
 ## Prévisions et pré-remplissage des temps (AUT-12, AUT-09)
 
@@ -281,8 +287,10 @@ exportées de `packages/engines/src/appels-offres`) :
 - **Exigences (AO-03)** : extraction par l'IA en brouillon (dossier lu jusqu'à 40 000 caractères,
   100 exigences au plus) ou découpage déterministe (phrases portant « doit », « obligatoire »,
   « fournir », « au moins »…, 200 au plus) ; dépôt possible seulement si la matrice n'est pas vide
-  et que toute exigence obligatoire est conforme ou « sans objet » motivé. Un PDF n'est pas lu : il
-  faut en coller le texte (chaîne d'ingestion et OCR à venir, ADR-009).
+  et que toute exigence obligatoire est conforme ou « sans objet » motivé. Le dossier d'un appel
+  d'offres n'est pas lu en PDF : il faut en coller le texte. La chaîne d'ingestion d'ADR-009 (lot 6,
+  texte natif, OCR local à venir au lot 11) ne dessert pas encore ce dossier : elle sert les états
+  financiers, la due diligence et l'amorçage du standard (section « Ingestion de documents… » plus bas).
 - **Rétro-planning (AO-08)** : huit étapes standard à J-21, J-18, J-14, J-10, J-8, J-5, J-3 et J-1
   de la date limite, compressées proportionnellement si le temps manque ; alertes à J-7, J-3, J-1
   et après la date limite, et pour toute étape non faite en retard ou du jour. Les alertes sont
@@ -350,7 +358,8 @@ Toutes les valeurs sont **provisoires — à valider** par un expert avant le pi
 | Verdict et note | Un verdict validé ne tient que pour la version courante de l'hypothèse ; une hypothèse portant un verdict validé ne se modifie plus (409) ; une note validée est périmée dès qu'une version plus récente existe |
 | Filtrage environnemental et social | Seul le dernier filtrage reçoit des décisions ; l'auteur d'un filtrage ne peut pas écarter une exclusion (hors associé) ; une exclusion non levée d'un filtrage antérieur reste bloquante |
 | Listes d'exclusion d'un investisseur | Référentiel du cabinet, lisible de tout détenteur de `dd.lire` (choix assumé, à confirmer) |
-| Connecteurs de données ouvertes (DD-02) | Simulés seulement ; aucune source réelle branchée |
+| Connecteurs de données ouvertes (DD-02) | Simulés seulement ; aucune source réelle branchée (`due-diligence/donnees-ouvertes.ts`, sans route ni réseau) |
+| Import de rapports PDF et lecture de la salle de données (DD-02, DD-10) | **Livrés au lot 6 (2026-10-21)** en texte natif, brouillon IA validé par `dd.valider` ; OCR local à venir (lot 11). Règles : section « Ingestion de documents… » plus bas |
 | Portail investisseur (lot 3b-bis, 2026-10-20) | **N'est plus repoussé** : livré (option du cabinet désactivée par défaut, invitation d'un compte `client_investisseur`, publication d'un instantané de la version validée de la note, consultation en lecture seule). Valeurs et règles : voir la section « Portail investisseur et modèles sectoriels (DD-07) » plus bas et « Décisions de l'utilisateur pendant le chantier » |
 
 ## Redressement (RED-01, 02, 05–07, 10–12, 14) — lot 3a de la vague 4 (2026-10-11)
@@ -438,10 +447,11 @@ consultant, auquel cas on créerait plutôt une permission `redressement.montant
   repoussé : RED-13 (repères OHADA : **OUVERT, contenu à valider par un juriste**, aucun conseil juridique
   automatisé) et RED-15 partagé au conseil d'administration et aux banques (partage externe non ouvert).
 
-## Décisions de l'utilisateur pendant le chantier (2026-10-20 à 2026-10-21)
+## Décisions de l'utilisateur pendant le chantier (2026-10-20 à 2026-10-22)
 
 Quatorze points **VALIDÉS** par l'utilisateur dans la conversation pendant le chantier des lots de la vague 4
-(lots 1 à 7 : les points 1 à 9 datent des lots 1 à 5a, les points 10 à 14, **validés le 2026-10-21**, des lots 5b et 7). Ce ne sont **pas** des valeurs provisoires : elles ne figurent plus dans les colonnes « à
+(lots 1 à 7 : les points 1 à 9 datent des lots 1 à 5a, les points 10 à 14, **validés le 2026-10-21**, des lots 5b et 7) ;
+trois autres, **validés le 2026-10-22** (lot 6), sont dans le second tableau plus bas (points 15 à 17). Ce ne sont **pas** des valeurs provisoires : elles ne figurent plus dans les colonnes « à
 valider » et ne se modifient que sur décision de l'utilisateur. Quand une note de lot présentait l'une de ces
 règles comme provisoire, la décision de l'utilisateur prime.
 
@@ -463,6 +473,17 @@ règles comme provisoire, la décision de l'utilisateur prime.
 | 14 | Gestion des services candidats et des guichets (lot 7) — **validée le 2026-10-21** | L'**associé ET le directeur de mission** gèrent les services candidats (activation des types de mission, prix fixe) et les guichets de financement (`services_candidats.gerer`) ; la lecture (`services_candidats.lire`) suit `catalogue.lire`, l'expert externe n'a aucun accès. |
 
 L'**accès à l'observatoire réservé aux cabinets contributeurs** (cabinet adhérent avec au moins une contribution éligible : mois civil clos, versée depuis la dernière adhésion ; sinon 403 `OBSERVATOIRE_CONTRIBUTION_REQUISE`, `MQK27`) n'est pas un point nouveau de cette liste : la note du lot 5b le cite comme « décision n° 1 », c'est-à-dire la décision du commanditaire déjà consignée dans « Validations complémentaires » (PRD complémentaire : seuls les cabinets contributeurs consultent les benchmarks). Il est donc **validé** à ce titre, et non par une décision de l'utilisateur du 2026-10-21 ; sa mise en œuvre précise (définition d'une contribution éligible) reste **provisoire, à valider**.
+
+### Décisions validées le 2026-10-22 (lot 6, ingestion de documents)
+
+Trois points **VALIDÉS** par l'utilisateur le 2026-10-22, même statut que ceux du tableau ci-dessus (ADR-009,
+décision 12). Ils ne se modifient que sur décision de l'utilisateur.
+
+| N° | Sujet | Décision VALIDÉE (2026-10-22) |
+| -- | ----- | ----------------------------- |
+| 15 | OCR | **OCR LOCAL installé sur le serveur, jamais de service externe.** Il fait l'objet d'un **lot dédié (lot 11), en cours, non livré** ; le choix du moteur est ouvert (voir « Questions ouvertes » de la section « Ingestion de documents… »). En attendant, un PDF sans couche texte échoue avec `PDF_SANS_TEXTE` et aucun état n'est créé ; seuls le port `Ocr` et un adaptateur simulé (hors production) existent (`apps/api/src/ingestion/ocr.ts`). |
+| 16 | Masquage des noms avant l'IA | Les **noms connus du cabinet** (raisons sociales des clients, utilisateurs, contacts de clients, intitulés de missions) sont **masqués avant l'envoi au modèle** pour l'**amorçage du standard** (usage `standard_historique`) ; toute ligne de la proposition qui recopie un nom masqué est écartée. Les usages `dd_rapport` et `dd_salle` **ne sont PAS masqués** : non demandé, **à trancher** (question ouverte). |
+| 17 | Conservation du texte extrait | Le **texte extrait des pages est conservé jusqu'à la décision sur l'extraction (validée ou rejetée) ou sur l'état financier, plus 90 jours**, puis **purgé** par le job `ingestion_maintenance` (`purger_textes_ingestion`, migration `0524`). L'état financier, ses lignes et les brouillons (validés ou non) restent ; un brouillon ouvert ou un état en revue n'est jamais purgé. |
 
 ## Socle IA : rejeu, brief et copilote (lot 1, 2026-10-20)
 
@@ -582,7 +603,8 @@ l'utilisateur » (relecteur).
   de la mission. Deux implémentations alignées (moteur `evaluerIndependanceRelecteur` et déclencheur de `0287`).
 - **STD-11, contrôle de cohérence** : `REGLES_CONTRADICTOIRES` (deux règles actives de même priorité, de condition
   identique et d'effets contraires) est une **erreur bloquante** ; `CONFLIT_MEME_PRIORITE` (conditions différentes)
-  reste un avertissement. STD-13 et STD-14 restent à faire.
+  reste un avertissement. STD-13 est livré par le lot 6 en texte natif, OCR local à venir au lot 11 (section
+  « Ingestion de documents… » plus bas) ; STD-14 reste à faire.
 
 ## Dossier client : groupes, filiales et rapport d'état financier, lot 4b (2026-10-20, relu le 2026-10-21)
 
@@ -810,3 +832,138 @@ lignes, mêmes exports) ne change aucun comportement et n'appelle aucune décisi
 - `RapportEtatFinancier.tsx` lit une seule page (500) de `/api/missions?client_id=…` sans suivre le curseur
   (dossier, hors périmètre du lot).
 - L'automatisation correspondant au voyant rouge n'est pas branchée.
+
+## Ingestion de documents et OCR (DOS-03, DD-02, DD-10, STD-13), lot 6 (2026-10-21, relu le 2026-10-22)
+
+Migrations `0521` à `0524`, SQLSTATE `MQG01` à `MQG03`. Décision d'architecture : ADR-009 (mode LOCAL : aucun service
+externe de lecture documentaire ni d'OCR). Source : `docs/workflows/notes-lots/lot-6.md`, relue contre le code ; les
+valeurs ci-dessous sont celles du code (**aucun écart de valeur avec la note** ; deux précisions d'emplacement :
+la fenêtre de reprise de 30 jours est dans la migration `0524`, non dans `maintenance.ts`, et le comptage « 24 heures
+glissantes » est dans `documents.ts`). **Livré en mode texte natif seulement** : DOS-03 (états financiers en PDF ou
+Excel), DD-02 (rapports PDF), DD-10 (salle de données) et STD-13 (amorçage du standard) lisent un PDF à couche texte
+ou un classeur ; **l'OCR local est à venir (lot 11, décision 15)**. Les trois décisions de l'utilisateur du
+2026-10-22 (OCR local, masquage des noms, conservation de 90 jours) sont aux points 15 à 17 du tableau « Décisions de
+l'utilisateur pendant le chantier ». Le reste est **provisoire, à valider**, sauf mention « tranché ».
+
+### Valeurs provisoires (à valider)
+
+| Sujet | Valeur du code | Ce qu'elle protège ; si elle est dépassée | Emplacement |
+| ----- | -------------- | ----------------------------------------- | ----------- |
+| Taille d'un fichier | **PDF 10 Mo, XLSX 2 Mo** | Quota de stockage et mémoire de lecture ; 413 `FICHIER_TROP_VOLUMINEUX` | `packages/shared/src/schemas/ingestion.ts:19-20` |
+| Pages d'un PDF | **60 pages**, comptées AVANT toute extraction | Durée et mémoire ; refus `PLAFOND_PAGES` | `ingestion.ts:21` |
+| Texte | **25 000 caractères par page, 400 000 par document** | Taille de la table `ingestion_pages` et du prompt ; le texte excédentaire est refusé, jamais tronqué en silence (`PLAFOND_TEXTE`) | `ingestion.ts:22-23` |
+| Durée d'extraction | **30 s**, sans reprise | Occupation du worker (file `jobs` partagée) ; échec `DELAI_DEPASSE` | `ingestion.ts:24` ; `apps/api/src/ingestion/pdf.ts:331` |
+| Texte transmis au modèle | **40 000 caractères**, les pages utiles d'abord | Coût IA et volume de contenu client envoyé ; le reste est signalé « tronqué », sans refus | `ingestion.ts:27` (utilisé par `etat-financier.ts:111`, `structuration-dd.ts:30`, `structuration-standard.ts:53`) |
+| Documents en traitement | **5 par cabinet** (statut `en_file`, `extraction` ou `structuration`) ; les documents créés il y a **plus de 30 minutes** ne sont pas comptés | Monopolisation de la file par un cabinet ; refus 409 (`INGESTION_PLEIN`) | `ingestion.ts:25` ; `apps/api/src/ingestion/documents.ts:398` (30 minutes), `:415-422` |
+| Créations par jour | **40 par 24 heures glissantes et par cabinet** | Abus et coût IA ; refus 409 (`INGESTION_PLEIN`) | `ingestion.ts:26` ; `documents.ts:415`, `:427` |
+| Surveillance mémoire du worker d'extraction | Mesure **toutes les 150 ms** ; worker terminé si la **mémoire externe** du worker dépasse **256 Mo** ou si le **RSS du processus** monte de **plus de 512 Mo** depuis son départ | Un PDF piégé dont le flux se décompresse hors tas (un piège de 3 Mo à flux de 1,5 Go avait porté le RSS à 3,4 Go) ; document en échec `PLAFOND_TEXTE`. Seuils fixés sur mesures (PDF légitimes de 21 à 88 Mo externes, +28 à +147 Mo de RSS) | `apps/api/src/ingestion/pdf.ts:87` (150 ms), `:93` (RSS), `:100` (externe) |
+| Tas du worker d'extraction | 256 Mo de génération ancienne | Borne le tas V8 seulement (pas la mémoire externe, d'où la surveillance ci-dessus) | `pdf.ts:129` |
+| Pré-contrôle des flux Flate, par flux | **32 Mo** décompressés par flux et **32 Mo** bruts par flux | Bombe de décompression : un PDF de 10 Mo n'a aucun flux légitime au-delà ; refus `PLAFOND_TEXTE` sans lancer le worker d'extraction | `apps/api/src/ingestion/pdf-controle.ts:43`, `:53` |
+| Pré-contrôle, cumul | **128 Mo** décompressés cumulés | Idem, à l'échelle du document | `pdf-controle.ts:48` |
+| Pré-contrôle, entrée | Budget d'**entrée de 64 Mo** fournis à zlib | Relecture hostile (des blocs « stockés » vides avaient bloqué l'API 73 à 80 s) | `pdf-controle.ts:74` |
+| Pré-contrôle, travail | Plafond de travail de **512 Mo** (le plus grand de l'entrée et de la sortie de chaque appel zlib, échecs compris) | Borne le temps de zlib (environ 1 s au pire) | `pdf-controle.ts:66` |
+| Pré-contrôle, comptes | **4 096 flux** Flate au plus, **16 384 mots `stream`** examinés au plus, garde-fou de **64 couches** de Flate sur Flate | Terminaison du balayage ; refus `PLAFOND_TEXTE` | `pdf-controle.ts:55`, `:60`, `:80` |
+| Pré-contrôle, délai | **5 s**, puis le worker de contrôle est terminé (tas de 64 Mo) | L'API n'est jamais bloquée ; verdict `PLAFOND_TEXTE`. Délai total d'un document au pire : **35 s** (5 s + 30 s) | `pdf-controle.ts:89`, `:93` |
+| Reprise des effacements d'objets | Un objet marqué il y a **moins de 30 jours** est repris par la maintenance (200 objets par passage) ; au-delà, abandonné | `fichiers_suppressions` est en ajout seul et ne dit pas si l'objet a été effacé : sans borne, la condition serait vraie à jamais | migration `0524` (lignes 88-89 et 116) ; `maintenance.ts:27` (200) |
+| Conservation du texte | **90 jours** après la décision (bornes SQL : 90 à 3 650) | **Tranché** (point 17) ; `texte_purge_le` est exposé, une page purgée répond 404 `TEXTE_PURGE`, une relance 409 | `apps/api/src/ingestion/maintenance.ts:25` |
+| Masquage des noms (amorçage) | **40 tranches de 200 mots distincts** (8 000 mots au plus), **200 termes** au plus (les plus longs d'abord), termes de 3 caractères au moins | Au-delà de ces bornes, un nom du cabinet part à l'IA en clair ; le copilote garde 1 tranche | `apps/api/src/copilote/noms-propres.ts:59` (`BORNES_NOMS_INGESTION`), `:44`, `:46` |
+
+Mesures de la seconde passe (Node 24, 2026-10-22) : les pièges K (73,4 s de blocage) et K2 (7,5 s, accepté) sont
+refusés en 145 à 221 ms ; les PDF légitimes de 9 à 12,5 Mo sont acceptés (verdict de bout en bout 68 à 112 ms) ; la
+cascade ASCIIHex puis Flate de 1,5 Go est coupée par la surveillance en 2,6 à 3,0 s (pic de +321 à +363 Mo). Détail et
+risque résiduel : SECURITY.md §8 undecies.
+
+**Faux refus connus** (l'utilisateur re-soumet un PDF régénéré, par exemple réimprimé en PDF ; tous répondent
+`PLAFOND_TEXTE`) : un flux Flate légitime de plus de 32 Mo ; un scan Flate brut de plus de 5 pages A4 en RGB (cumul de
+128 Mo) ; un PDF abîmé dont environ 7 flux Flate sont tronqués (budget d'entrée de 64 Mo) ; plus de 4 096 flux Flate.
+
+### Règles de gestion (tranchées sauf mention)
+
+- **Ancrage des montants lus par l'IA (DOS-03)** : un montant n'est retenu que s'il est lu exactement, comme premier
+  montant (colonne de l'exercice N), sur une ligne de la page citée dont le **libellé normalisé complet** est celui de la
+  ligne proposée (sans casse, accents, espaces ni ponctuation de bord). Un **préfixe** n'est admis que s'il est **unique**
+  sur la page, d'**au moins 12 caractères** (`LIBELLE_PREFIXE_MIN`) et **couvre 80 %** du libellé source
+  (`COUVERTURE_PREFIXE_MIN`, `packages/engines/src/ingestion/ancrage.ts:29-31`). **Plusieurs lignes candidates** : rejet
+  `libelle_ambigu` et revue, jamais de choix au hasard. **Deux lignes de même libellé sur une page sont toujours
+  rejetées** : cette règle peut produire des **revues sur de vrais états** (limite assumée, la prudence prime).
+- **Acceptation automatique d'un état lu dans un PDF ou un Excel** : seulement si **tous les contrôles passent à tolérance
+  nulle** (`controlerEtatFinancier`) ET **aucune ligne n'est rejetée ou non lue** ET le **texte vient d'une couche texte**
+  (jamais d'OCR) ET **aucun état accepté par un humain n'est remplacé** ; sinon l'état est mis `en_revue` avec les écarts.
+  Chaque ligne porte `reference.page` (PDF) ou `reference.cellule` (Excel) ; origine `pdf` (migration `0523`). Les
+  chiffres ne viennent jamais du modèle : un nombre extrait est une donnée sourcée, contrôlée par le moteur.
+- **Amorçage du standard (STD-13)** : la proposition (étapes, briques, éléments, rubriques à 5 niveaux) est validée par
+  `standard.gerer` ; la validation **applique au BROUILLON de méthode** par les fonctions de l'éditeur STD-11. **Valeurs
+  prudentes des briques proposées : classe de risque R3, autonomie N1, brique inactive par défaut. Rien n'est publié**
+  (la publication reste l'acte séparé de l'éditeur). Uniquement sur un brouillon de méthode du cabinet (404 pour le
+  standard livré, 409 `VERSION_PUBLIEE` si publiée).
+- **FIN-02 sur le texte des documents d'amorçage** : `contientDonneeFinanciere` (nombre de **3 chiffres ou plus**, mention
+  de monnaie dont franc(s), CHF, £, mots de nombre comme cent, mille, million, milliard) **rejette la ligne à la lecture
+  et refuse la correction (400)** ; le contrôle porte aussi sur les **codes bruts** : tout code de 3 chiffres ou plus est
+  refusé (**à assouplir si le métier veut des codes numérotés**, question ouverte). Heuristique : « cent pour cent » est un
+  faux positif assumé, la barrière réelle reste la validation humaine. Le **texte des pages d'un document d'amorçage est
+  réservé à son auteur ou à un détenteur de `finance.lire`**, et le détail ne peut plus exposer de taux ni d'honoraires.
+- **Séparation des tâches** : le valideur d'un brouillon n'est ni l'**auteur du téléversement**, ni le **demandeur de la
+  lecture** (téléversement ou relance), ni le **dernier modificateur**, **sauf associé** (API et déclencheur `MQG02`,
+  colonnes `derniere_demande_par` et `demande_par`). Pour la due diligence, la validation exige `dd.valider`.
+- **Éléments non retrouvés (DD-02, DD-10)** : un brouillon qui contient des éléments dont l'extrait ou un nombre cité ne
+  se retrouve pas dans la page exige un **acquittement explicite** avant validation.
+- **La validation d'une lecture DD ne pousse rien ailleurs** : aucun verdict, aucune pièce du registre des preuves ni
+  aucun rapport n'est alimenté automatiquement.
+- **Le fichier n'est jamais conservé** : analysé, puis son objet de stockage est effacé ; aucune clé étrangère vers
+  `fichiers`.
+
+### Questions ouvertes pour l'utilisateur
+
+1. **Moteur de l'OCR local (lot 11)** : lequel installer sur le serveur (données de langue françaises livrées dans
+   l'image, hors ligne, durée et mémoire plafonnées) ? Un état issu d'une page reconnue par OCR ne sera jamais accepté
+   automatiquement.
+2. **Plafonds provisoires** (tableau ci-dessus) : à confirmer ou ajuster, en particulier 10 Mo / 60 pages, 5 documents en
+   traitement et 40 par jour, ainsi que les seuils mémoire (256 Mo / +512 Mo).
+3. **Codes de 3 chiffres ou plus** dans les documents d'amorçage : assouplir si le métier veut des codes numérotés ?
+4. **Masquage des noms pour `dd_rapport` et `dd_salle`** : étendre le masquage de l'amorçage (point 16) à ces deux
+   usages ? Non demandé à ce jour.
+5. **Dette connue** : l'objet de stockage n'est pas effacé si l'effacement échoue (M1, repris par la maintenance sous 30
+   jours) ; téléversement DD en trois transactions (M7) ; la relance d'une structuration agit avec les droits et le quota
+   IA de l'auteur du document (M5) ; le détail d'une extraction `lecture_document` de DD n'est pas masqué.
+
+## Corrections de la recette navigateur du 2026-10-22, lot 10
+
+Anomalies A-01 à A-12 de la recette d'intégration, plus trois tests API sensibles à la charge. Aucune migration, aucun
+changement d'API (hors correctif de `ajouterPreuve` et libellé de devise). Source : `docs/workflows/notes-lots/lot-10.md`.
+Les points ci-dessous sont des **décisions du superviseur** (réversibles) ou des constats ; aucune valeur métier nouvelle.
+
+- **Validation des causes racines (RED-04, A-03)** : l'écran reproduit la règle de l'API (`validerCauses`,
+  `apps/api/src/redressement/causes.ts:388`) : un consultant qui **figure dans l'historique de la version** (auteur
+  d'un rang, donc le demandeur et l'auteur) ne la valide pas, **sauf l'associé**, qui peut valider sa propre version.
+  « Valider » est visible pour tout utilisateur que l'API autoriserait ; pour l'auteur, il est désactivé avec une
+  explication visible. Conforme à la ligne RED-04 de la section « Redressement, lot 3a-bis ».
+- **Date d'efficacité d'une recommandation (A-11)** : la mise en œuvre s'affiche avec `formaterDate` (format commun de
+  l'application, « 15 oct. 2026 ») et non en ISO. **Écart avec le brief, qui citait JJ/MM/AAAA** : un formateur
+  numérique reste à ajouter dans `apps/web/src/lib/format.ts` si on le veut strictement (**question ouverte à
+  l'utilisateur**).
+- **Structure de groupe (A-06)** : le **moteur est juste** (vu depuis la filiale B, la part cumulée d'un détenteur est sa
+  part dans B : 60 % x 50 % = 30 % pour la société de tête). Le défaut était l'**affichage « depuis la tête »**
+  (`aplatirStructure`, `apps/web/src/lib/dossier-groupes.ts`), qui réutilisait ce détenteur comme racine en forçant le
+  niveau 0 et montrait 30 % ; la racine affiche maintenant 100 %. Le champ API `structure.tete` est inchangé.
+- **Modèle sectoriel DD (A-02)** : la création d'un modèle **naît actif** (`DEFAULT true`, migration `0511`) et
+  n'envoie plus `actif` (le schéma de création est strict ; seule la nouvelle version l'accepte).
+- **Devises dans l'explication de re-prévision (A-08)** : XOF et XAF s'écrivent **« FCFA »** dans le texte
+  (`libelleDeviseAffichage`, `apps/api/src/plans/reprevision-explication.ts:91`) ; les codes stockés ne changent pas.
+- **Bannière de validation du modèle financier (A-12)** : précise que l'associé et le directeur de la mission peuvent
+  valider leur propre version (`TEXTE_REGLE_VALIDATION_MODELE`).
+- **Observatoire (A-01)** : un 403 de code métier listé en opt-in (`codes403Metier`) ne redirige plus vers
+  `/acces-refuse` ; la page `/observatoire` tolère `OBSERVATOIRE_CONTRIBUTION_REQUISE` et
+  `OBSERVATOIRE_RESERVE_ADHERENTS`. Les autres 403 gardent leur redirection.
+- **Journal de preuves des signatures (MPH10)** : `ajouterPreuve` (`apps/api/src/canaux/preuves.ts`) **rejoue
+  l'horodatage** : si le déclencheur `0547` refuse un écart de plus de 5 s avec l'horloge de la base, l'INSERT est
+  rejoué avec une horloge relue, **3 essais au plus** (`ESSAIS_HORODATAGE`) ; les autres refus MPH10 (rang, empreinte)
+  ne sont pas rejoués. Cause : un processus affamé de CPU entre la lecture de l'horloge et l'INSERT (409
+  `PREUVE_IMMUABLE` sous charge).
+- **Assertion 503 resserrée** : le test « PDF sans navigateur » de `redressement-cloture` attend **503** (et non plus
+  `[201, 503]`) ; il pose temporairement `NODE_ENV = production` sans `CHROMIUM_PATH`, d'où un refus immédiat.
+- **Affichage périmé après une écriture (A-04, à confirmer)** : correctif général par le hook `useRafraichir`
+  (`apps/web/src/components/formulaires/useRafraichir.ts` : attente jusqu'à l'arrivée des données, une relance à 1,5 s,
+  abandon à 8 s). Cause non prouvée ; **à confirmer sur un onglet visible au premier plan** (liste des vérifications
+  dans la note du lot).
+- **Tests sensibles à la charge** : ne pas lancer plus de 3 ou 4 suites API en parallèle sur le même PostgreSQL (erreur
+  53200, `max_locks_per_transaction`, dans le global-setup).

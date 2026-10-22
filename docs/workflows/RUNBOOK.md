@@ -3,11 +3,13 @@
 Lancer, configurer et dépanner le projet. En cas de désaccord avec
 [AGENTS.md](../../AGENTS.md), AGENTS.md prime.
 
+Mis à jour le 2026-10-22 (lot 9e : ingestion de documents du lot 6, Node 22 minimum).
+
 ## Prérequis
 
 | Outil          | Version attendue                       | Vérifié le 2026-10-06 |
 | -------------- | -------------------------------------- | --------------------- |
-| Node           | ≥ 20 (`engines` du `package.json`)     | 24.12.0               |
+| Node           | ≥ 22 (`engines` du `package.json` racine) ; 22.16 ou plus pour la surveillance mémoire complète de l'import de PDF | 24.12.0               |
 | pnpm           | 10 (`packageManager` : 10.26.2)        | 10.26.2               |
 | Docker         | pour PostgreSQL (`docker-compose.yml`) | 29.1.3                |
 | PostgreSQL     | 16, conteneur `missionpilot-postgres`  | image `postgres:16-alpine` |
@@ -15,7 +17,9 @@ Lancer, configurer et dépanner le projet. En cas de désaccord avec
 | Lefthook       | dépendance de développement du dépôt   | `node_modules/.bin/lefthook` présent |
 | Chrome/Chromium | facultatif : rapports PDF (`CHROMIUM_PATH`) | Chrome sous Windows seulement (aucun essai sous Linux) |
 
-Vérifier : `node -v`, `pnpm -v`, `docker --version`. Les autres conteneurs
+Aucun fichier `.nvmrc` ni `.node-version` n'existe : la version se choisit à la
+main (toute version ≥ 22 ; la CI tourne sur Node 22). Vérifier : `node -v`,
+`pnpm -v`, `docker --version`. Les autres conteneurs
 PostgreSQL de la machine sont à d'autres projets : n'y pas toucher.
 
 ## Installation
@@ -284,7 +288,9 @@ Le worker de jobs démarre avec l'API (rappels de temps, relances des factures
 et des questionnaires, suivi quotidien des KPI, générations IA, purge des
 fichiers orphelins, file d'e-mails, anonymisation du texte des générations IA
 `ia_conservation` et purge des rapports `purge_rapports`, une fois par jour et par
-cabinet concerné) ; `JOBS_WORKER=inactif` le coupe. L'IA est
+cabinet concerné ; lot 6 : extraction et structuration des documents importés, à
+l'envoi, et `ingestion_maintenance` une fois par jour, voir « Import de documents ») ;
+`JOBS_WORKER=inactif` le coupe. L'IA est
 désactivée par défaut dans chaque cabinet : tant qu'un associé ne l'active pas
 (`/parametres/ia`), les générations utilisent les gabarits déterministes. L'interface est sur
 `http://localhost:3100` (connexion avec un compte de démonstration).
@@ -356,6 +362,83 @@ ce lot n'a pas été vérifiée dans un navigateur** (note du lot) : les libell�
   `ia.utiliser`). Le résultat est un brouillon IA à part, non bloquant ; le brouillon relu n'est jamais modifié.
   Une seule revue à la fois par brouillon ; le plafond de la mission, le coupe-circuit ou le niveau N0 la refusent.
 
+## Import de documents (états financiers, due diligence, amorçage du standard)
+
+Exploitation du lot 6 (ADR-009 ; règles de sécurité : `docs/governance/SECURITY.md`, section « 8 undecies.
+Ingestion de documents »). **L'interface de ce lot n'a pas été essayée dans un navigateur** (note du lot) :
+les libellés viennent du code. Le lot n'ajoute aucune variable d'environnement (aucune ne figure dans
+`apps/api/src/config.ts`) ; l'OCR et les plafonds sont des constantes du code.
+
+### Où importer
+
+| Usage                         | Page web                                                                                                                  | Route d'envoi                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| États financiers (DOS-03)     | carte d'import sur `/dossiers/[id]/finances` ; détail `.../finances/documents/[docId]`                                     | `POST /api/dossiers/:id/etats-financiers/document` (droit `dossier.ecrire`)            |
+| Due diligence (DD-02, DD-10)  | onglet « Documents » du dossier DD (`/missions/[id]/due-diligence/[dossierId]/documents` ; détail `.../documents/[docId]`) | `POST /api/dd/dossiers/:id/documents?type=rapport` ou `type=salle` (droit `dd.ecrire`) |
+| Amorçage du standard (STD-13) | `/methodes/versions/[id]/amorcage` ; détail `.../amorcage/[docId]`                                                         | `POST /api/methodes/versions/:id/amorcage/documents`                                   |
+
+- **Formats** : PDF et classeur Excel `.xlsx`. Le type est décidé par le **contenu** du fichier ; autre chose :
+  415 `TYPE_DOCUMENT_REFUSE`.
+- **Plafonds** (`PLAFONDS_INGESTION`, `packages/shared/src/schemas/ingestion.ts` ; constantes, pas de variable) :
+  PDF 10 Mo, XLSX 2 Mo (413 `FICHIER_TROP_VOLUMINEUX` au-delà) ; 60 pages ; 25 000 caractères par page et
+  400 000 par document ; extraction 30 s ; 5 documents en traitement et 40 créations par 24 h glissantes et par
+  cabinet (409 `INGESTION_PLEIN`) ; 40 000 caractères transmis au modèle.
+- **Conservation** : le fichier est analysé puis **effacé** (jamais conservé). Le **texte des pages** reste en base
+  jusqu'à la décision + 90 jours (job `ingestion_maintenance`), puis il est purgé ; les références de page restent.
+- **Lecture IA** : pour la due diligence et l'amorçage, elle exige l'IA activée pour le cabinet (`/parametres/ia`,
+  droit `ia.configurer`) avec une clé du cabinet ou la clé de plateforme `OPENROUTER_API_KEY`, et le droit
+  `ia.utiliser` de l'utilisateur ; elle compte dans les plafonds et quotas IA du cabinet
+  (`IA_PLAFOND_PLATEFORME_MICRO_USD`). Sans IA disponible, le document se termine avec le résultat
+  `ia_indisponible` (rien n'est inventé) et la lecture se relance une fois l'IA configurée
+  (`POST /api/dd/documents/:docId/lecture`, `POST /api/amorcage/documents/:docId/proposition`). Pour un état
+  financier en PDF, l'IA est facultative : sans elle, des règles déterministes lisent le texte ; un classeur Excel
+  se lit par règles seules.
+- **OCR** : seul un adaptateur **simulé** existe (hors production, il ne lit que ses documents de test) ; en
+  production aucun OCR n'est branché. L'OCR **local installé sur le serveur** est en cours (lot 11). Tant qu'il n'est
+  pas livré, un PDF sans texte natif (scan) échoue avec `PDF_SANS_TEXTE` : « Document scanné : la reconnaissance de
+  caractères n'est pas disponible. Fournissez un PDF avec texte. » Que faire : fournir un PDF avec texte (export
+  du logiciel source, pas une photo), ou saisir l'état à la main, ou l'importer en CSV ou Excel.
+- **Suivi** : la page de détail d'un document en cours se rafraîchit seule (toutes les 3 s).
+
+### Jobs
+
+| Type de job               | Déclenchement                                | Rôle                                                                                       |
+| ------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `ingestion_extraction`    | à l'envoi du document                        | extrait le texte des pages (PDF dans un `worker_thread`, XLSX par le lecteur de classeur), puis efface le fichier |
+| `ingestion_structuration` | après l'extraction, et à une relance         | lit le texte (IA ou règles) et produit le brouillon (`ingestion_extractions`)              |
+| `ingestion_maintenance`   | quotidien, **03 h 45 UTC**, par cabinet concerné (clé `ingestion_maintenance:AAAA-MM-JJ`) | purge le texte des pages décidées depuis 90 jours (fonction `SECURITY DEFINER` `purger_textes_ingestion`) et reprend les effacements d'objets échoués (fenêtre de 30 jours après le marquage) |
+
+La planification quotidienne passe par `planifier_ingestion_maintenance` (migration `0524`), appelée par le
+planificateur du worker (`apps/api/src/jobs/planificateur.ts`) ; les types sont déclarés dans
+`apps/api/src/jobs/registre.ts`. `JOBS_WORKER=inactif` coupe aussi ces trois jobs : aucun document n'avance.
+
+### Mémoire du worker PDF
+
+- Un **pré-contrôle** (`pdf-controle.ts`, dans son propre `worker_thread`, délai de 5 s) refuse un PDF « bombe »
+  (flux compressés qui gonflent) avant tout worker d'extraction.
+- L'extraction est surveillée toutes les 150 ms : mémoire **externe** du worker à **256 Mo**, hausse du **RSS** du
+  processus de **+512 Mo**. Si l'un est franchi, le worker est terminé et le document passe en échec `PLAFOND_TEXTE`.
+- **Ne pas abaisser ces seuils en production** : ils sont mesurés sur des PDF légitimes (21 à 88 Mo externes) et
+  ne sont abaissés que dans les tests.
+- Au plus **2 extractions simultanées** par processus (`EXTRACTIONS_SIMULTANEES_MAX`) ; les autres attendent.
+- **Node 22.16 ou plus** : la mesure de la mémoire externe (`worker.getHeapStatistics()`) n'existe qu'à partir de
+  Node 22.16. En dessous, seule la surveillance du RSS joue (coupure plus lente : 4,5 s au lieu de 2,6 à 3,0 s sur
+  le cas mesuré, pic plus haut) : fonctionnel, mais à éviter en production.
+
+### Dépannage de l'import
+
+- **Document « en cours » depuis plus de 30 minutes** : il n'est plus compté dans le quota de 5 documents en
+  traitement. Vérifier que le worker tourne (`JOBS_WORKER` actif, API démarrée), puis téléverser de nouveau.
+- **Refus `PLAFOND_TEXTE`** : PDF trop lourd à décompresser (flux de plus de 32 Mo, plus de 4 096 flux Flate, scan
+  Flate brut de plus de 5 pages A4 en RVB, PDF abîmé), texte au-delà des plafonds de caractères, ou worker coupé
+  par la surveillance mémoire. Re-soumettre un PDF régénéré ou compressé autrement (réexport, « imprimer en PDF »).
+- **`PDF_SANS_TEXTE`** : scan sans OCR, voir ci-dessus. **`PDF_ILLISIBLE`** : PDF protégé ou corrompu.
+- **404 `TEXTE_PURGE`** : le texte de la page a été purgé (décision + 90 jours) ; les références de page restent.
+- **409 à la relance** : le texte du document est purgé (téléverser de nouveau), le document n'est pas terminé,
+  un brouillon est déjà ouvert (`EXTRACTION_OUVERTE`) ou la lecture est déjà aboutie (`LECTURE_NON_RELANCABLE`).
+- **409 `INGESTION_PLEIN`** : 5 documents en traitement ou 40 créations en 24 h pour ce cabinet ; attendre.
+- **`pnpm install` refuse de s'exécuter** : Node inférieur à 22 (voir « Autres pannes connues »).
+
 ## Ports
 
 Alignés sur `ports` d'`acc.config.json`.
@@ -390,6 +473,9 @@ pnpm --filter @missionpilot/web build          # build de production du web
 - **Jamais deux suites API en parallèle** (même base) : un seul `vitest` API à la
   fois, dans toutes les sessions et tous les worktrees qui visent le même
   PostgreSQL. Vitest lui-même exécute les fichiers l'un après l'autre.
+- **Pas plus de 3 ou 4 suites API à la fois sur un même PostgreSQL**, même avec des
+  bases distinctes (`missionpilot_<id>`) : au-delà, le global-setup peut échouer avec
+  l'erreur `53200` (`max_locks_per_transaction`).
 - Pour une base de test distincte (deuxième worktree, CI) : fournir
   `DATABASE_OWNER_URL` et `DATABASE_URL` pointant vers une autre base ou un
   autre serveur local ; le nom de base reçoit le suffixe `_test` s'il manque
@@ -414,6 +500,7 @@ Workflow `.github/workflows/ci.yml`, nommé « CI ».
   lancée à la main) annule la précédente. Permissions réduites à la lecture du
   contenu ; aucun secret. Les URL de base du job `api` reprennent les valeurs
   publiques de développement, pour un PostgreSQL jetable lié à `127.0.0.1` du runner.
+- **Version de Node** : Node 22 dans les deux jobs (`node-version: 22`), comme l'exige `engines`.
 - **Job `qualite`** (20 minutes au plus) : `pnpm install --frozen-lockfile`, puis
   `pnpm typecheck`, `pnpm lint`, `pnpm format`, les tests des moteurs (couverture
   ≥ 90 %), ceux de `shared`, ceux du web.
@@ -466,7 +553,8 @@ de chaque paquet (`apps/*`, `packages/*`) contient des liens vers le magasin :
 une jonction globale désynchronise aussi ces liens quand les deux checkouts sont
 sur des révisions différentes. Pour les tests API d'un worktree : base de test
 distincte (voir « Tests API et base de test »), jamais en parallèle d'une autre
-suite sur la même base.
+suite sur la même base. Le worktree utilise le Node de la machine : Node 22 ou plus
+(sinon `pnpm install` y refuse de s'exécuter).
 
 ## Dépannage
 
@@ -492,6 +580,11 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   authentifiées ; l'erreur PostgreSQL cite `utilisateurs_2fa`, `defis_2fa` ou
   `etat_tfa_session`) : migrations `0050`–`0052` non appliquées sur la base
   utilisée. Correctif : `pnpm db:migrate`, puis relancer l'API.
+- **`pnpm install` échoue (« Unsupported engine », moteur incompatible)** : la version de
+  Node est inférieure à 22 (`engines.node` du `package.json` racine). Installer Node 22
+  ou plus (`node -v` pour vérifier), puis relancer `pnpm install`. Les PDF exigent
+  Node ≥ 22 (`unpdf` 1.8.1) ; la surveillance mémoire complète du worker d'import exige
+  Node ≥ 22.16, sinon seule la surveillance du RSS joue.
 - **Port occupé** (`EADDRINUSE` sur 4100 ou 3100 ; PostgreSQL : le conteneur ne
   démarre pas sur 55440) : une ancienne instance tourne encore. Identifier le
   processus (`netstat -ano | findstr :4100` sous Windows), l'arrêter, relancer.
