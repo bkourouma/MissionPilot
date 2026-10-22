@@ -43,3 +43,12 @@ export class ErreurIngestion extends Error {
     super(code);
   }
 }
+
+/**
+ * Convertit une exception quelconque en `ErreurIngestion` : une `ErreurIngestion` est conservée telle quelle,
+ * toute autre (bibliothèque, adaptateur) devient `repli`. Ni le message ni la pile ne sortent : seul un
+ * code stable est retenu.
+ */
+export function enErreurIngestion(erreur: unknown, repli: CodeErreurIngestion): ErreurIngestion {
+  return erreur instanceof ErreurIngestion ? erreur : new ErreurIngestion(repli);
+}
