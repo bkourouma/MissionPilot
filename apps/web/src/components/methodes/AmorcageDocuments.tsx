@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { ListeDocumentsIngestion } from "../ingestion/ListeDocumentsIngestion";
 import { TeleversementDocument } from "../ingestion/TeleversementDocument";
@@ -18,7 +18,7 @@ import {
  * avant la validation d'un expert.
  */
 export function AmorcageTeleversement({ versionId }: { versionId: string }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   return (
     <div className="mp-pile">
       <Alerte tonalite="info" titre="L'IA propose, l'expert dispose" annonce="aucune">
@@ -32,7 +32,7 @@ export function AmorcageTeleversement({ versionId }: { versionId: string }) {
       <TeleversementDocument
         chemin={cheminTeleversementAmorcage(versionId)}
         libelleBouton="Importer et faire lire le document"
-        onCree={() => router.refresh()}
+        onCree={() => rafraichir()}
       />
     </div>
   );
@@ -46,7 +46,7 @@ export function AmorcageListe({
   versionId: string;
   documents: readonly DocumentIngestion[];
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   return (
     <ListeDocumentsIngestion
       api={apiIngestionStandard(versionId)}
@@ -55,7 +55,7 @@ export function AmorcageListe({
       messageVide="Aucun document importé pour cette version."
       hrefDocument={(d) => hrefDocumentAmorcage(versionId, d.id)}
       rendreLien={(href, libelle) => <Link href={href}>{libelle}</Link>}
-      onTermine={() => router.refresh()}
+      onTermine={() => rafraichir()}
     />
   );
 }

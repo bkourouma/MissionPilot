@@ -2,7 +2,7 @@
 
 import "./ingestion.css";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { Bouton } from "../ui/Bouton";
 import { messageErreur, relancerDocumentIngestion, type ApiIngestion } from "../../lib/ingestion";
@@ -18,7 +18,7 @@ export interface BoutonRelanceProps {
  * recharge ensuite et suit l'avancement toute seule ; l'erreur éventuelle est annoncée.
  */
 export function BoutonRelance({ api, docId, libelle }: BoutonRelanceProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [occupe, setOccupe] = useState(false);
   const [message, setMessage] = useState("");
   const [echec, setEchec] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function BoutonRelance({ api, docId, libelle }: BoutonRelanceProps) {
     try {
       await relancerDocumentIngestion(api, docId);
       setMessage("Lecture relancée : le statut se met à jour tout seul.");
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setEchec(messageErreur(e));
     } finally {

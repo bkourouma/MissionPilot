@@ -2,7 +2,7 @@
 
 import "../ingestion/ingestion.css";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useState } from "react";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
@@ -64,7 +64,7 @@ export function AmorcageProposition({
   peutDecider,
   versionPubliee,
 }: AmorcagePropositionProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [x, setX] = useState<ExtractionProposition>(initiale);
   const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export function AmorcageProposition({
       if (vue.nature === "standard_proposition") setX(vue);
       setAnnonce("Élément retiré de la proposition.");
       setARetirer(null);
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setEchec(messageErreur(e));
     } finally {
@@ -100,7 +100,7 @@ export function AmorcageProposition({
 
   function apresDecision(vue: ExtractionIngestion) {
     if (vue.nature === "standard_proposition") setX(vue);
-    router.refresh();
+    rafraichir();
   }
 
   const retrait = (famille: FamilleProposition, index: number) =>

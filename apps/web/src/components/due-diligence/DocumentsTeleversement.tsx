@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { TYPES_DOCUMENT_DD } from "@missionpilot/shared";
 import { Alerte } from "../ui/Alerte";
@@ -21,7 +21,7 @@ const OPTIONS_TYPE: readonly { valeur: TypeDocumentDd; libelle: string }[] = [
  * n'est repris dans le dossier avant validation.
  */
 export function DocumentsTeleversement({ dossierId }: { dossierId: string }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [type, setType] = useState<TypeDocumentDd>("rapport");
   return (
     <div className="mp-dd-pile">
@@ -36,7 +36,7 @@ export function DocumentsTeleversement({ dossierId }: { dossierId: string }) {
         chemin={cheminTeleversementDd(dossierId)}
         requete={{ type }}
         libelleBouton="Importer et faire lire le document"
-        onCree={() => router.refresh()}
+        onCree={() => rafraichir()}
       >
         <Select
           libelle="Type de document"

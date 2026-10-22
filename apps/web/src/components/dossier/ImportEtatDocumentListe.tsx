@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { ListeDocumentsIngestion } from "../ingestion/ListeDocumentsIngestion";
 import {
   apiIngestionDossier,
@@ -22,7 +22,7 @@ export function ImportEtatDocumentListe({
   clientId: string;
   documents: readonly DocumentIngestion[];
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   return (
     <ListeDocumentsIngestion
       api={apiIngestionDossier(clientId)}
@@ -36,7 +36,7 @@ export function ImportEtatDocumentListe({
           : null
       }
       rendreLien={(href, libelle) => <Link href={href}>{libelle}</Link>}
-      onTermine={() => router.refresh()}
+      onTermine={() => rafraichir()}
     />
   );
 }
