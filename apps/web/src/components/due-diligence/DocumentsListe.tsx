@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { ListeDocumentsIngestion } from "../ingestion/ListeDocumentsIngestion";
 import { apiIngestionDd, hrefDocumentDd, type DocumentIngestion } from "../../lib/ingestion";
 
@@ -18,7 +18,7 @@ export function DocumentsListe({
   dossierId: string;
   documents: readonly DocumentIngestion[];
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   return (
     <ListeDocumentsIngestion
       api={apiIngestionDd(dossierId)}
@@ -28,7 +28,7 @@ export function DocumentsListe({
       messageVide="Aucun document importé pour ce dossier."
       hrefDocument={(d) => hrefDocumentDd(missionId, dossierId, d.id)}
       rendreLien={(href, libelle) => <Link href={href}>{libelle}</Link>}
-      onTermine={() => router.refresh()}
+      onTermine={() => rafraichir()}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import "../ingestion/ingestion.css";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useState } from "react";
 import type { ContenuLecture } from "@missionpilot/shared";
 import { Alerte } from "../ui/Alerte";
@@ -57,7 +57,7 @@ export function DocumentsLecture({
   peutCorriger,
   peutDecider,
 }: DocumentsLectureProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [x, setX] = useState<ExtractionLecture>(initiale);
   const [occupe, setOccupe] = useState(false);
   const [echec, setEchec] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export function DocumentsLecture({
       setAnnonce(message);
       setARetirer(null);
       setEdition(null);
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setEchec(messageErreur(e));
     } finally {
@@ -93,7 +93,7 @@ export function DocumentsLecture({
 
   function apresDecision(vue: ExtractionIngestion) {
     if (vue.nature === "lecture_document") setX(vue);
-    router.refresh();
+    rafraichir();
   }
 
   return (

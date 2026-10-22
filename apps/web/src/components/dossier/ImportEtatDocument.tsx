@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { DEVISES } from "@missionpilot/shared";
 import { Alerte } from "../ui/Alerte";
@@ -21,7 +21,7 @@ import {
  * seulement si tout passe, sinon revue). Un PDF scanné n'est pas lu.
  */
 export function ImportEtatDocument({ clientId }: { clientId: string }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [s, setS] = useState<SaisieImportEtat>({
     exercice: String(new Date().getFullYear() - 1),
     date_cloture: "",
@@ -64,7 +64,7 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
         }}
         libelleBouton="Importer et lire le document"
         avantEnvoi={entetesValides}
-        onCree={() => router.refresh()}
+        onCree={() => rafraichir()}
       >
         <div className="mp-grille-champs">
           <Champ
