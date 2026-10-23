@@ -20,6 +20,7 @@ import {
   hrefHypothese,
   libelleRaisonVerdict,
   peutSignerAvisDd,
+  messageAuteurVerdict,
   peutValiderSansConflit,
   SENS_LIEN_DD_LIBELLES,
   VERDICT_DD_LIBELLES,
@@ -195,9 +196,10 @@ export default async function PageHypotheseDd({
                     succesRejete="Verdict rejeté : l'état antérieur de l'hypothèse est conservé."
                   />
                 ) : null}
-                {!v.decision && droits.valider && v.proposee_par === utilisateur.id ? (
+                {!v.decision &&
+                messageAuteurVerdict(utilisateur.roles, utilisateur.id, v.proposee_par) ? (
                   <p className="mp-texte-doux mp-texte-petit">
-                    Vous avez proposé ce verdict : une autre personne doit le valider.
+                    {messageAuteurVerdict(utilisateur.roles, utilisateur.id, v.proposee_par)}
                   </p>
                 ) : null}
               </li>

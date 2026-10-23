@@ -267,6 +267,12 @@ describe("R51 : validation par un tiers", () => {
     expect(deux.json().erreur.code).toBe("NOTE_DEJA_DECIDEE");
     const l = attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/notes`));
     expect(l.elements[0]).toMatchObject({ etat: "validee", validee_version: v });
+    // R-03 : la synthèse du dossier suit la décision (la version reste « soumise » en base).
+    const synthese = attendu(
+      200,
+      await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/synthese`),
+    );
+    expect(synthese.note).toMatchObject({ id: n.id, derniere_version: v, etat: "validee" });
     expect(
       attendu(200, await s.expertMetier.get(`/api/dd/notes/${n.id}`)).validations,
     ).toHaveLength(1);
@@ -346,6 +352,9 @@ describe("R51 : validation par un tiers", () => {
     expect(
       attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/notes`)).elements[0]
         .etat,
+    ).toBe("rejetee");
+    expect(
+      attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/synthese`)).note.etat,
     ).toBe("rejetee");
     expect((await valider(INCONNU, v, s.expertMetier)).statusCode).toBe(404);
     expect((await valider(n.id, v, s.b.associe)).statusCode).toBe(404);

@@ -1457,6 +1457,21 @@ export function peutValiderSansConflit(
   return !auteurs.includes(utilisateurId);
 }
 
+/**
+ * Message affiché à l'auteur d'un verdict en attente qui ne peut pas le valider lui-même (R-04) ;
+ * `null` si la validation lui est proposée (associé, dispensé de la séparation des tâches) ou s'il
+ * n'a aucun droit de validation.
+ */
+export function messageAuteurVerdict(
+  roles: readonly Role[],
+  utilisateurId: string,
+  proposeePar: string | null | undefined,
+): string | null {
+  if (!aPermission(roles, "dd.valider") || proposeePar !== utilisateurId) return null;
+  if (peutValiderSansConflit(roles, utilisateurId, [proposeePar])) return null;
+  return "Vous avez proposé ce verdict : une autre personne doit le valider (un associé peut le faire).";
+}
+
 /** État d'une note : celui reçu, sinon dérivé de ses versions et de ses validations. */
 export function etatNote(n: Pick<NoteDetail, "etat" | "versions" | "validations">): EtatNote {
   if (n.etat && n.etat in ETAT_NOTE_LIBELLES) return n.etat;
