@@ -103,6 +103,15 @@ const schema = z.object({
    */
   CONNEXION_RAPIDE_DEMO: z.enum(["oui", "non"]).default("non"),
   /**
+   * Démonstration publique : « oui » ouvre, dans N'IMPORTE QUEL NODE_ENV
+   * (production comprise), la connexion « un clic » SANS mot de passe pour les
+   * seuls cabinets et super admins marqués démo en base (`demoConnexionActive`).
+   * Désactivée par défaut ; unique voie hors développement local
+   * (CONNEXION_RAPIDE_DEMO=oui hors local reste refusé). Hors local, le
+   * démarrage journalise `AVERTISSEMENT_DEMO_PUBLIQUE`.
+   */
+  DEMO_PUBLIQUE: z.enum(["oui", "non"]).default("non"),
+  /**
    * Stockage des fichiers (SOC-05, FIN-05) : « disque » (dossier local) ;
    * « s3 » est un point d'extension non implémenté (refus au démarrage).
    */
@@ -240,6 +249,27 @@ function contexteConnexionRapideAdmis(config: ConfigConnexionRapide): boolean {
 export function connexionRapideDemoActive(config: ConfigConnexionRapide): boolean {
   return config.CONNEXION_RAPIDE_DEMO === "oui" && contexteConnexionRapideAdmis(config);
 }
+
+type ConfigDemo = Pick<
+  Config,
+  "NODE_ENV" | "CONNEXION_RAPIDE_DEMO" | "DEMO_PUBLIQUE" | "DATABASE_URL" | "DATABASE_OWNER_URL"
+>;
+
+/**
+ * Connexion de démonstration « un clic » ouverte : connexion rapide locale OU
+ * DEMO_PUBLIQUE=oui (tout NODE_ENV). Les routes la restreignent aux comptes démo.
+ */
+export function demoConnexionActive(config: ConfigDemo): boolean {
+  return connexionRapideDemoActive(config) || config.DEMO_PUBLIQUE === "oui";
+}
+
+/** DEMO_PUBLIQUE=oui hors contexte local admis : cas qui exige l'avertissement de démarrage. */
+export function demoPubliqueHorsLocal(config: ConfigDemo): boolean {
+  return config.DEMO_PUBLIQUE === "oui" && !contexteConnexionRapideAdmis(config);
+}
+
+export const AVERTISSEMENT_DEMO_PUBLIQUE =
+  "DEMO_PUBLIQUE=oui hors développement local ouvre une connexion SANS mot de passe, à tous, pour les cabinets et super admins marqués démo : ne jamais l'activer sur un serveur contenant des données réelles dans ces comptes ; retirer la variable pour la fermer.";
 
 /**
  * Une connexion sans mot de passe est une porte dérobée hors du poste de
