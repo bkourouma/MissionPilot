@@ -94,6 +94,10 @@ describe("mise en forme", () => {
     expect(
       formaterConstat({ ...ecart, statut: "ok", cible: "AZ", code: "SOUS_TOTAL" }, "XOF"),
     ).toBe("Sous-total (AZ) : conforme.");
+    // R-07 : la cible générée « L1_17 » ne s'affiche jamais brute.
+    expect(
+      formaterConstat({ ...ecart, statut: "ok", cible: "L1_17", code: "SOUS_TOTAL" }, "XOF"),
+    ).toBe("Sous-total (page 1, ligne 17) : conforme.");
     expect(
       formaterConstat({ ...ecart, statut: "non_verifiable", message: "Actif absent." }, "XOF"),
     ).toBe("Équilibre du bilan : non vérifiable. Actif absent.");

@@ -14,6 +14,8 @@ import {
   type ApiIngestion,
   type ResumePageIngestion,
 } from "../../lib/ingestion";
+import type { StatutDocumentIngestion } from "@missionpilot/shared";
+import { messageAucunePage } from "../../lib/ingestion-detail";
 
 export interface VisionneusePagesProps {
   /** Chemins d'API du domaine du document. */
@@ -24,6 +26,10 @@ export interface VisionneusePagesProps {
   pageCitee?: number | null;
   /** `texte_purge_le` du document : une fois daté, plus aucune page n'est proposée à l'ouverture. */
   textePurgeLe?: string | null;
+  /** Statut du document : adapte le message quand aucune page n'est lue. */
+  statut?: StatutDocumentIngestion;
+  /** Motif de l'échec (déjà lisible), affiché sous le message d'absence de page. */
+  motifEchec?: string | null;
 }
 
 type EtatPage =
@@ -40,6 +46,8 @@ export function VisionneusePages({
   pages,
   pageCitee = null,
   textePurgeLe = null,
+  statut,
+  motifEchec = null,
 }: VisionneusePagesProps) {
   const [ouvertes, setOuvertes] = useState<Record<number, EtatPage | undefined>>({});
 
@@ -68,7 +76,7 @@ export function VisionneusePages({
   }
 
   if (pages.length === 0) {
-    return <p role="status">Aucune page lue pour l&apos;instant.</p>;
+    return <p role="status">{messageAucunePage(statut, motifEchec)}</p>;
   }
 
   return (

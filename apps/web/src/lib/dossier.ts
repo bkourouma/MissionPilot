@@ -25,6 +25,7 @@ import {
   VALEUR_ABSENTE,
   type Devise,
 } from "./format";
+import { libelleCibleControle } from "./codes-lisibles";
 import { lireMontant, lireNombre, texteOuNull, type Resultat } from "./saisie";
 
 // --- Types renvoyés par l'API ------------------------------------------------------------
@@ -381,7 +382,7 @@ export function marqueurOcrLigne(l: Pick<LigneEtat, "reference">): string | null
 
 /** Constat de contrôle, lisible : « Équilibre du bilan : écart de −10 FCFA (attendu 1 000, constaté 990) ». */
 export function formaterConstat(c: ConstatEtat, devise: Devise): string {
-  const nom = `${CONTROLE_LIBELLES[c.code] ?? c.code}${c.cible ? ` (${c.cible})` : ""}`;
+  const nom = `${CONTROLE_LIBELLES[c.code] ?? c.code}${c.cible ? ` (${libelleCibleControle(c.cible)})` : ""}`;
   if (c.statut === "non_verifiable") return `${nom} : non vérifiable. ${c.message}`;
   if (c.statut === "ok") return `${nom} : conforme.`;
   return (

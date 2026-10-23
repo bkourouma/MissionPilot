@@ -64,3 +64,34 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Liste de définitions en deux colonnes : libellé discret, valeur en évidence. */
+.mp-ing-definitions {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) minmax(0, 1fr);
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-ing-definitions dt {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: 0.875rem;
+}
+
+.mp-ing-definitions dd {
+  margin: 0;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 30rem) {
+  .mp-ing-definitions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .mp-ing-definitions dd {
+    margin-bottom: var(--mp-esp-2);
+  }
+}

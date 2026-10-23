@@ -1,5 +1,6 @@
 import type { CorrectionOcr } from "@missionpilot/shared";
 import { formaterMontantMineur, type Devise } from "../../lib/format";
+import { libellePosteEtat } from "../../lib/codes-lisibles";
 import { decrireConfusionsOcr } from "../../lib/ingestion";
 import { Carte } from "../ui/Carte";
 import { Tableau } from "../ui/Tableau";
@@ -34,7 +35,11 @@ export function CorrectionsOcr({ corrections, devise = null }: CorrectionsOcrPro
         lignes={[...corrections]}
         cleLigne={(c) => `${c.page}-${c.code}-${c.texte_lu}`}
         colonnes={[
-          { cle: "poste", entete: "Poste", rendu: (c) => `${c.code} — ${c.libelle}` },
+          {
+            cle: "poste",
+            entete: "Poste",
+            rendu: (c) => `${libellePosteEtat(c.code)} — ${c.libelle}`,
+          },
           { cle: "page", entete: "Page", rendu: (c) => `p. ${c.page}` },
           { cle: "texte_lu", entete: "Lu dans le document", rendu: (c) => c.texte_lu },
           {

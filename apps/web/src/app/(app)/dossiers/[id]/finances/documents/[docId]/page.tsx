@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ActualiserPage } from "../../../../../../../components/transcriptions/ActualiserPage";
 import { CorrectionsOcr } from "../../../../../../../components/ingestion/CorrectionsOcr";
+import "../../../../../../../components/ingestion/ingestion.css";
 import { StatutDocument } from "../../../../../../../components/ingestion/StatutDocument";
 import { VisionneusePages } from "../../../../../../../components/ingestion/VisionneusePages";
 import { Alerte } from "../../../../../../../components/ui/Alerte";
@@ -23,10 +24,10 @@ import {
   LIBELLES_FORMAT,
   libelleMethode,
   libelleResultat,
-  methodeOcr,
   pageCitee,
   type DetailDocumentIngestion,
 } from "../../../../../../../lib/ingestion";
+import { avertissementOcrPertinent } from "../../../../../../../lib/ingestion-detail";
 import { exigerPermission } from "../../../../../../../lib/session";
 
 export const metadata: Metadata = { title: "Document importé" };
@@ -87,14 +88,14 @@ export default async function PageDocumentEtat({
         </Alerte>
       ) : null}
 
-      {methodeOcr(d.methode) ? (
+      {avertissementOcrPertinent(d) ? (
         <Alerte tonalite="attention" titre="Lu par reconnaissance de caractères" annonce="aucune">
           <p>{AVERTISSEMENT_OCR}</p>
         </Alerte>
       ) : null}
 
       <Carte titre="Résultat">
-        <dl className="mp-liste-definitions">
+        <dl className="mp-ing-definitions">
           <dt>Résultat</dt>
           <dd>{libelleResultat(d.resultat)}</dd>
           <dt>Méthode de lecture</dt>
@@ -126,6 +127,8 @@ export default async function PageDocumentEtat({
           pages={d.pages}
           pageCitee={citee}
           textePurgeLe={d.texte_purge_le}
+          statut={d.statut}
+          motifEchec={d.statut === "echec" ? erreur : null}
         />
       </Carte>
     </div>

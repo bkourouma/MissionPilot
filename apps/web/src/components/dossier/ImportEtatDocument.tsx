@@ -53,6 +53,7 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
         <p>{TEXTE_SCAN_OCR}</p>
       </Alerte>
       <TeleversementDocument
+        usage="etat_financier"
         chemin={`${cheminApiDossierIngestion(clientId)}/etats-financiers/document`}
         requete={{
           exercice: s.exercice.trim(),

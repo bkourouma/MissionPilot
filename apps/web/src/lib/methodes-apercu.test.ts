@@ -201,7 +201,7 @@ describe("libellés de l'aperçu (A-05)", () => {
       formulations: { lecture_indicateurs: "saisonniere" },
       classes_risque_relevees: {},
     };
-    expect(lignesAjustements(vide, l)).toEqual(["Formulation — Lecture indicateurs : saisonniere"]);
-    expect(lignesAjustements(vide)).toEqual(["Formulation — lecture_indicateurs : saisonniere"]);
+    expect(lignesAjustements(vide, l)).toEqual(["Formulation — Lecture indicateurs : saisonnière"]);
+    expect(lignesAjustements(vide)).toEqual(["Formulation — lecture_indicateurs : saisonnière"]);
   });
 });
