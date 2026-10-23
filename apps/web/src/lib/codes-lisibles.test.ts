@@ -36,14 +36,12 @@ describe("codes lisibles", () => {
 
 describe("codes de ligne d'état financier", () => {
   it("un code généré devient un libellé lisible", async () => {
-    const { libellePosteEtat, estCodeLigneGenere } = await import("./codes-lisibles");
+    const { libellePosteEtat } = await import("./codes-lisibles");
     expect(libellePosteEtat("L1_13")).toBe("Poste sans code source (page 1, ligne 13)");
     expect(libellePosteEtat("L2_5")).toBe("Poste sans code source (page 2, ligne 5)");
     expect(libellePosteEtat("TA1")).toBe("TA1");
     expect(libellePosteEtat("")).toBe("Poste sans code");
     expect(libellePosteEtat(null)).toBe("Poste sans code");
-    expect(estCodeLigneGenere("L1_17")).toBe(true);
-    expect(estCodeLigneGenere("TA1")).toBe(false);
   });
 
   it("remplace les codes générés dans un texte", async () => {

@@ -128,7 +128,7 @@ export default async function PageDocumentEtat({
           pageCitee={citee}
           textePurgeLe={d.texte_purge_le}
           statut={d.statut}
-          motifEchec={d.statut === "echec" ? erreur : null}
+          // Le motif d'échec figure déjà dans l'alerte au-dessus : pas de seconde mention ici.
         />
       </Carte>
     </div>

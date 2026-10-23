@@ -28,7 +28,7 @@ import {
   type SaisieParametre,
 } from "../../lib/due-diligence-saisie";
 import { aideMontant } from "../../lib/saisie";
-import type { Devise } from "../../lib/format";
+import { libelleDevise, type Devise } from "../../lib/format";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -64,7 +64,7 @@ const tronquer = (t: string, max = 90) => (t.length > max ? `${t.slice(0, max - 
 function aideUnite(code: ParametreDimensionnement["code"], devise: Devise): string {
   const unite = uniteParametre(code);
   if (unite === "pourcentage_bp") return "En % (de 0 à 100), par exemple 25,5.";
-  if (unite === "montant") return `En ${devise}. ${aideMontant(devise)}`;
+  if (unite === "montant") return `En ${libelleDevise(devise)}. ${aideMontant(devise)}`;
   return "Nombre entier.";
 }
 

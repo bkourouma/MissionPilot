@@ -42,11 +42,6 @@ export function remplacerCodesTechniques(
  */
 const CODE_LIGNE_GENERE = /^L(\d+)_(\d+)$/;
 
-/** Le code est un code de ligne généré (« L1_13 ») et non un code de poste du document. */
-export function estCodeLigneGenere(code: unknown): boolean {
-  return typeof code === "string" && CODE_LIGNE_GENERE.test(code.trim());
-}
-
 /**
  * Libellé lisible d'un poste d'état financier lu : « L1_13 » -> « Poste sans code source (page 1,
  * ligne 13) ». Le rang n'indique pas la nature de la ligne (total, sous-total…) : aucune nature

@@ -12,6 +12,7 @@ import {
 } from "../../../../../../lib/due-diligence";
 import { droitsPortailDd } from "../../../../../../lib/due-diligence-portail";
 import { chargerDossier } from "../../../../../../lib/due-diligence-serveur";
+import { libelleDevise } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../lib/session";
@@ -69,7 +70,7 @@ export default async function LayoutDossierDd({
           <BadgeStatut tonalite="neutre" sansIcone>
             {d.pays_libelle ?? "Pays non précisé"}
           </BadgeStatut>
-          <span className="mp-texte-doux mp-texte-petit">{`${resumeOperation(d)} · montants en ${d.devise}`}</span>
+          <span className="mp-texte-doux mp-texte-petit">{`${resumeOperation(d)} · montants en ${libelleDevise(d.devise)}`}</span>
         </div>
       </section>
       <Onglets

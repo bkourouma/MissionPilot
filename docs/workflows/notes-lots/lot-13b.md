@@ -36,6 +36,11 @@ l'intervalle normal : aucune scrutation rapide permanente, donc aucun coût en b
 `reserver_job_a` (équité par cabinet, 0305) et les migrations sont inchangées. `arreter()` se
 désabonne et supprime la minuterie.
 
+Correctif de revue : le signal part APRÈS le COMMIT (`creerDocument` après `enregistrerFichier`, et
+routes de relance `ingestion-dd.ts` / `ingestion-standard.ts` après leur transaction), plus dans la
+transaction. Filet : un cycle déclenché par un signal qui revient vide programme UN cycle de rattrapage
+à 2 s (`delaiRattrapageMs`), une seule fois, avant de retomber à l'intervalle normal.
+
 Limites : le signal est local au processus. Un worker lancé dans un autre processus que l'API, ou une
 API sans worker (tests), garde l'intervalle normal. Un job créé par un autre chemin que ces deux
 fonctions n'émet pas de signal. Test : `apps/api/test/jobs-reveil.test.ts` (job créé puis signalé,
@@ -43,7 +48,9 @@ traité en moins de 1 s avec un intervalle de 60 s).
 
 ## Limites connues
 
-- R-05 : garde CSS (`qualite-froide-css.test.ts`) mais aucun test de rendu à 1036 px ; vérification
-  visuelle à faire en recette.
+- R-05 : les largeurs minimales des 7 colonnes de l'échantillon totalisent 43,75 rem (700 px) pour
+  732 px utiles à 1036 px de viewport (736 px à 768 px, 976 px à 1280 px) ; Client et Directeur passent à
+  la ligne aux espaces. Seule une garde CSS (`qualite-froide-css.test.ts`) existe : le rendu à 768,
+  1036 et 1280 px doit être confirmé en navigateur (marge faible, 32 px).
 - A-09 : si la grille se complète sans que la synthèse change et sans clic sur « Terminer », le
   bandeau reste jusqu'au prochain clic.

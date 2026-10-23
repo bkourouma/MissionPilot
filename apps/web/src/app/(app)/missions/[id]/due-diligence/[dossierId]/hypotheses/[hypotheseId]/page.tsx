@@ -196,11 +196,14 @@ export default async function PageHypotheseDd({
                     succesRejete="Verdict rejeté : l'état antérieur de l'hypothèse est conservé."
                   />
                 ) : null}
-                {!v.decision &&
-                messageAuteurVerdict(utilisateur.roles, utilisateur.id, v.proposee_par) ? (
-                  <p className="mp-texte-doux mp-texte-petit">
-                    {messageAuteurVerdict(utilisateur.roles, utilisateur.id, v.proposee_par)}
-                  </p>
+                {!v.decision ? (
+                  <MessageAuteurVerdict
+                    message={messageAuteurVerdict(
+                      utilisateur.roles,
+                      utilisateur.id,
+                      v.proposee_par,
+                    )}
+                  />
                 ) : null}
               </li>
             ))}
@@ -218,4 +221,9 @@ export default async function PageHypotheseDd({
       ) : null}
     </>
   );
+}
+
+/** Message d'un auteur de verdict qui ne peut pas le valider lui-même ; rien sinon (R-04). */
+function MessageAuteurVerdict({ message }: { message: string | null }) {
+  return message ? <p className="mp-texte-doux mp-texte-petit">{message}</p> : null;
 }
