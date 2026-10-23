@@ -9,7 +9,7 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `orch/2026-10-20-reste` — 2026-10-22 (PR vers `main` à fusionner par l'utilisateur)
+## Branche `orch/2026-10-20-reste` — 2026-10-23 (PR vers `main` à fusionner par l'utilisateur)
 
 **État.** `main` = `3d5a252` (vagues 0 à 4 : gestion de mission, fondations, automatisation, services
 augmentés, appels d'offres, redressement, due diligence, canaux simulés). La branche
@@ -34,30 +34,36 @@ l'utilisateur n'a pas fusionné la PR.
 | 7 | Services candidats : diagnostic flash (pas de prix par défaut) et business plan bancable (« sur devis »), guichets de financement |
 | 8a | CI GitHub Actions (qualité + API en 4 partitions, PostgreSQL 16) — **jamais exécutée sur GitHub** |
 | 8b, 8c | Dettes (voyant rouge dans le brief, paginations, seuils d'anonymat, `paramsId` strict, dates de temps bornées) ; 34 gros fichiers web découpés |
-| 9a à 9e | Documentation consolidée (SECURITY, CODING_STANDARDS, DECISIONS, checklist, RUNBOOK, ADR, SPEC) |
+| 9a à 9g | Documentation consolidée (SECURITY, CODING_STANDARDS, DECISIONS, checklist, RUNBOOK, ADR, SPEC), y compris les lots 13a et 13b et le recomptage final (9g) |
 | 10 | Corrections de la recette navigateur du 2026-10-22 (A-01 à A-12) ; `ajouterPreuve` rejoue l'horodatage sous charge ; tests instables fiabilisés |
 | 11 | OCR local (`tesseract.js` 7.0.0, hors ligne, données `fra`/`eng` vendorées avec empreintes) pour les PDF scannés ; toujours revue humaine |
 | 12 | `next` 15.5.28 et `fastify` 5.12.6 (avis critique/haut/bas) ; derniers `router.refresh()` migrés vers `useRafraichir` |
+| 13a | A-04 : cause racine trouvée (défaut du React canary embarqué par Next 15.5.28 : un « ping » perdu quand une transition suspend) ; contournement `DebloqueurRendu` monté au layout racine, mesuré à 242–347 ms sur onglet au premier plan |
+| 13b | Corrections de la recette finale du 2026-10-23 : R-03 (synthèse DD lit la décision dans `dd_note_validations`), R-04 à R-09, A-05, A-09 ; R-08 : le worker est réveillé après le COMMIT d'un import (rattrapage 2 s, 30 s sinon) |
 
 Détail, hypothèses H1–H32, plages de migrations, queue ≥ 0549 attribuée centralement et mesures de chaque
 vérification : `D:\APP\MissionPilot\.orchestration\2026-10-20-reste\suivi.md` (local, exclu de git).
 Chiffres du dernier recomptage des recherches mécaniques : voir `.claude/rules/review-checklist.md`
-(relevé « tête finale » du 2026-10-22 : 990 routes dont 9 sans `exiger`, 232 migrations, 35 `GRANT EXECUTE`).
+(relevé « tête finale » du 2026-10-23 : 990 routes dont 9 sans `exiger`, 904 `z.object` dont 893 `.strict()`, 232 migrations, 35 `GRANT EXECUTE`).
 
 **Vérifié.** Typecheck, eslint, Prettier ; tests engines, shared, web ; build web de production (Next) ;
-`pnpm audit --prod` sans vulnérabilité (2026-10-22) ; suite API complète sur l'intégration (sans les lots 11
-et 12) : 3 298 verts sur 3 303, les 5 échecs étant des dépassements de délai sous charge (rendu PDF
-Chromium, `kpi-alertes`) qui passent seuls ; chaque lot a eu au moins un vérificateur indépendant et une
-suite API complète sur sa branche ; recette navigateur du 2026-10-22 : 14 parcours sur 16.
+`pnpm audit --prod` sans vulnérabilité (2026-10-22) ; **suite API complète sur la tête finale (lots 1 à
+13b, 2026-10-23) : 3 415 verts sur 3 416** ; le seul échec, `kpi-alertes`, est un dépassement de délai sous
+charge et passe seul (9/9) ; web 2 378 tests, engines 2 240, shared 532 ; chaque lot a eu au moins un
+vérificateur indépendant et une suite API complète sur sa branche ; recette navigateur du 2026-10-22 : 14
+parcours sur 16 ; recette finale du 2026-10-23 (`docs/recette/2026-10-23-recette-finale.md`) : A-01 à A-12
+retestées, A-04 mesurée sur un onglet au premier plan (rendu à 61 images/s), puis corrigée par les lots 13a et
+13b (mesure 242–347 ms ; 77 tests API ciblés).
 
 **NON vérifié (à ne pas affirmer).**
 
 - La CI GitHub (`.github/workflows/ci.yml`) n'a jamais tourné : première exécution sur la PR ; ajuster
   `timeout-minutes` et la répartition des 4 partitions selon la durée réelle. Node 22.13 minimum partout
   (`engines`, CI, RUNBOOK, ADR-001) : requis pour le modèle de permissions de l'OCR.
-- Le correctif général du rafraîchissement d'écran après écriture (`useRafraichir`, anomalie A-04) :
-  cause non prouvée, onglets de recette en arrière-plan ; **à confirmer sur un onglet réellement au
-  premier plan**.
+- Le contournement `DebloqueurRendu` (A-04) est mesuré dans le navigateur sur un onglet au premier plan,
+  mais c'est un contournement d'un défaut du React embarqué par Next : **à revoir à chaque montée de Next
+  ou de React**. R-05 (largeur du tableau à 1 036 px) corrigé en CSS, non reconfirmé dans un navigateur
+  après correction ; la nouvelle recette après lots 13a/13b n'a pas été rejouée en entier.
 - Qualité de l'OCR sur de **vraies** liasses SYSCOHADA scannées (les tests utilisent des documents
   générés) ; JPX, CCITT, JBIG2 non testés ; `--permission` de Node sous Node 22 non éprouvé hors CI.
 - Tout vrai fournisseur : OpenRouter (aucune clé), signature électronique, WhatsApp/SMS, transcription,
@@ -114,7 +120,7 @@ malgré la règle d'âge de 14 jours (les versions n'ont que 8 et 9 jours ; fail
 **Reste à faire (par priorité).**
 
 1. **Fusionner la PR** (utilisateur), observer la première exécution de la CI, corriger ce qu'elle révèle.
-2. **Recette navigateur de contrôle** sur un onglet au premier plan (A-04, OCR sur un vrai scan, mobile).
+2. **Recette navigateur de contrôle** (R-05 à 1 036 px, OCR sur un vrai scan, mobile ; A-04 déjà mesurée).
 3. **Dettes ouvertes** (détail : `SECURITY.md` §15 et `CODING_STANDARDS.md` §10) : **garde réseau de l'OCR
    contournable par la poignée native d'un socket** (un paquet UDP est sorti en essai ; précondition : code
    déjà exécuté dans le sous-processus ; renforcement non fait — la plateforme a interrompu l'agent qui
@@ -165,7 +171,7 @@ restée ouverte par la recette (lancer `next start` avec `-H 127.0.0.1`).
   après 0552 avec l'UNION des valeurs) ; migrations commitées = immuables.
 - **SQLSTATE** : plus aucune lettre libre après `Z` et `H` ; second préfixe de deux lettres `MQ…`
   (`MQD`, `MQF`, `MQG`, `MQI`, `MQK`, `MQA`, `MQL`, `MQQ`, `MQS`, `MQU`, `MQV`).
-- **Web** : plus aucun `router.refresh()` direct hors `FormulaireConnexion` : utiliser `useRafraichir` ;
+- **Web** : `DebloqueurRendu` (layout racine) contourne le défaut du React canary de Next 15.5.28 : ne pas le retirer sans rejouer la mesure d'A-04 ; plus aucun `router.refresh()` direct hors `FormulaireConnexion` : utiliser `useRafraichir` ;
   un 403 métier explicite se tolère par `codes403Metier` (opt-in) dans `chargerServeur` ; ne jamais
   passer une fonction d'un composant serveur à un composant client ; build de production à lancer après
   tout découpage de fichiers web.
@@ -173,7 +179,7 @@ restée ouverte par la recette (lancer `next start` avec `-H 127.0.0.1`).
   `node.exe` renommée) ; `next build` puis `next start` (port 3110, `WEB_ORIGIN=http://localhost:3110`) ;
   l'API met ~40 s à répondre ; trois origines (`localhost`, `127.0.0.1`, `[::1]`) pour trois testeurs ;
   `CONNEXION_RAPIDE_DEMO=oui` ; signer exige une 2FA active (comptes `*.2fa@`, `db:code-2fa-demo`).
-- **Jobs** : toute constante `TYPE_JOB_*` exportée doit figurer dans `REGISTRE_JOBS`
+- **Jobs** : le worker est réveillé après le COMMIT (`jobs/reveil.ts`, signal local au processus) ; toute constante `TYPE_JOB_*` exportée doit figurer dans `REGISTRE_JOBS`
   (`jobs-registre.test.ts`).
 - **Dates métier** bornées par un CHECK SQL : `dateIsoBorneeSchema` (2000 à 2100) ; les tests dérivent leurs
   dates de `new Date()` (un déclencheur refuse les mesures futures).
