@@ -56,7 +56,14 @@ describe("message du copilote (AGT-08)", () => {
 
 describe("choix du modèle de langage : liste fermée, paramètres stricts", () => {
   it("accepte un choix valide par outil", () => {
-    for (const outil of ["mes_taches", "mes_feuilles_temps", "kpi_rouges", "factures_echues"]) {
+    for (const outil of [
+      "mes_taches",
+      "mes_feuilles_temps",
+      "kpi_rouges",
+      "factures_echues",
+      "missions_en_retard",
+      "retard_feuilles_temps",
+    ]) {
       expect(choixModeleCopiloteSchema.parse({ outil, parametres: {} })).toEqual({
         outil,
         parametres: {},
@@ -85,6 +92,21 @@ describe("choix du modèle de langage : liste fermée, paramètres stricts", () 
         mission: undefined,
       },
     });
+    expect(
+      choixModeleCopiloteSchema.parse({
+        outil: "ajouter_commentaire",
+        parametres: { texte: " Le client valide ", mission: null },
+      }),
+    ).toEqual({
+      outil: "ajouter_commentaire",
+      parametres: { texte: "Le client valide", mission: undefined },
+    });
+    expect(
+      choixModeleCopiloteSchema.parse({
+        outil: "planifier_relance",
+        parametres: { facture: "F-2026-0012" },
+      }),
+    ).toEqual({ outil: "planifier_relance", parametres: { facture: "F-2026-0012" } });
     expect(choixModeleCopiloteSchema.parse({ outil: "aucun" }).outil).toBe("aucun");
   });
 
@@ -102,6 +124,16 @@ describe("choix du modèle de langage : liste fermée, paramètres stricts", () 
       { outil: "creer_tache", parametres: { titre: "x", assignee_id: ID } },
       { outil: "creer_tache", parametres: { titre: "x".repeat(201) } },
       { outil: "resume_mission", parametres: { mission_id: ID } },
+      { outil: "missions_en_retard", parametres: { mission_id: ID } },
+      { outil: "retard_feuilles_temps", parametres: { collaborateur_id: ID } },
+      { outil: "ajouter_commentaire", parametres: {} },
+      { outil: "ajouter_commentaire", parametres: { texte: "x", mission_id: ID } },
+      { outil: "ajouter_commentaire", parametres: { texte: "x", mentions: [ID] } },
+      { outil: "ajouter_commentaire", parametres: { texte: "x".repeat(1001) } },
+      { outil: "ajouter_commentaire", parametres: { texte: "a\u0000b" } },
+      { outil: "planifier_relance", parametres: {} },
+      { outil: "planifier_relance", parametres: { facture_id: ID } },
+      { outil: "planifier_relance", parametres: { facture: "F-1", envoyer_email: true } },
       "mes_taches",
       null,
       [],
@@ -112,12 +144,21 @@ describe("choix du modèle de langage : liste fermée, paramètres stricts", () 
 
   it("couvre exactement les outils du catalogue, plus « aucun »", () => {
     for (const outil of IDENTIFIANTS_OUTILS_COPILOTE) {
-      const parametres =
-        outil === "recherche" ? { texte: "plan" } : outil === "creer_tache" ? { titre: "x" } : {};
+      const exemples: Record<string, object> = {
+        recherche: { texte: "plan" },
+        creer_tache: { titre: "x" },
+        ajouter_commentaire: { texte: "x" },
+        planifier_relance: { facture: "F-1" },
+      };
+      const parametres = exemples[outil] ?? {};
       expect(choixModeleCopiloteSchema.safeParse({ outil, parametres }).success).toBe(true);
     }
-    expect([...IDENTIFIANTS_ACTIONS_COPILOTE]).toEqual(["creer_tache"]);
-    expect(IDENTIFIANTS_OUTILS_COPILOTE).toHaveLength(7);
+    expect([...IDENTIFIANTS_ACTIONS_COPILOTE]).toEqual([
+      "creer_tache",
+      "ajouter_commentaire",
+      "planifier_relance",
+    ]);
+    expect(IDENTIFIANTS_OUTILS_COPILOTE).toHaveLength(11);
   });
 });
 

@@ -212,6 +212,11 @@ describe("chemins, droits et libellés", () => {
   it("libellés de repli", () => {
     expect(libelleDimension("finance", [{ code: "finance", libelle: "Finance" }])).toBe("Finance");
     expect(libelleDimension("ancienne", [])).toBe("ancienne");
+    expect(libelleDimension("dd.pestel.politique", [])).toBe("Analyse PESTEL — Politique");
+    expect(libelleDimension("dd.risque.change", [])).toBe("Risque — Change");
+    expect(
+      libelleDimension("dd.pestel.politique", [{ code: "dd.pestel.politique", libelle: "X" }]),
+    ).toBe("X");
     expect(libelleAuteur({ nom: "Awa" })).toBe("Awa");
     expect(libelleAuteur(null)).toBe("Utilisateur supprimé");
   });

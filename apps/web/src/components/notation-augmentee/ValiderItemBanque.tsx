@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -35,7 +35,7 @@ export function ValiderItemBanque({
   statut,
   desactive,
 }: ValiderItemBanqueProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const idExplication = useId();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -53,11 +53,11 @@ export function ValiderItemBanque({
       await api.post(cheminValiderItem(itemId));
       setSucces(`Version ${version} validée : elle est figée et peut servir aux questionnaires.`);
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageNotationAugmentee(e));
-      if (etatNotationAugmenteeChange(e)) router.refresh();
+      if (etatNotationAugmenteeChange(e)) rafraichir();
       return false;
     }
   }

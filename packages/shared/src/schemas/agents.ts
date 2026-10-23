@@ -163,6 +163,33 @@ export const executionsAgentsQuerySchema = z
   })
   .strict();
 
+/* ----- Revue contradictoire (AGT-06, agent « contradicteur ») ----- */
+
+/** Brique, prompt et type d'entité liée de la revue contradictoire. */
+export const CODE_BRIQUE_REVUE_CONTRADICTOIRE = "revue_contradictoire";
+export const NOM_PROMPT_REVUE_CONTRADICTOIRE = "revue_contradictoire";
+export const TYPE_ENTITE_REVUE_CONTRADICTOIRE = "revue_contradictoire";
+/** Taille maximale (caractères) d'un brouillon relu : au-delà, la revue est refusée. */
+export const BROUILLON_REVUE_MAX = 40_000;
+
+/**
+ * POST /api/agents/revues-contradictoires : le consultant demande la relecture critique d'un
+ * brouillon IA (génération en état « brouillon_ia » ou « modifie »). Jamais déclenchée
+ * automatiquement ; la revue est un brouillon à part, jamais bloquante.
+ */
+export const revueContradictoireCreationSchema = z
+  .object({ generation_id: z.string().uuid() })
+  .strict();
+export type RevueContradictoireCreation = z.infer<typeof revueContradictoireCreationSchema>;
+
+/** GET /api/agents/revues-contradictoires : revues d'UN brouillon, plus récentes d'abord. */
+export const revuesContradictoiresQuerySchema = z
+  .object({
+    generation_id: z.string().uuid(),
+    limite: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+
 /* ----- Contribution (AGT-05) ----- */
 
 export const contributionsIaQuerySchema = z

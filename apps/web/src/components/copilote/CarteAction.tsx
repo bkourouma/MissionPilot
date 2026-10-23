@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionProposeeCopilote, ResultatActionCopilote } from "@missionpilot/shared";
 import {
+  afficherLigneExpiration,
   estExpiree,
   INTERVALLE_EXPIRATION_MS,
   LIBELLES_ETAT_ACTION,
   libelleExpiration,
   peutDecider,
+  peutReformuler,
+  TEXTE_REPRISE,
   type EtatAction,
 } from "../../lib/copilote";
 import { Alerte } from "../ui/Alerte";
@@ -32,6 +35,8 @@ export interface CarteActionProps {
   erreur: string | null;
   onConfirmer: () => void;
   onAnnuler: () => void;
+  /** Remet la demande de l'utilisateur dans le champ de saisie (reprise après refus ou expiration). */
+  onReformuler?: () => void;
 }
 
 /**
@@ -47,6 +52,7 @@ export function CarteAction({
   erreur,
   onConfirmer,
   onAnnuler,
+  onReformuler,
 }: CarteActionProps) {
   const [maintenant, setMaintenant] = useState(() => new Date());
   const ouverte = peutDecider(etat);
@@ -68,6 +74,7 @@ export function CarteAction({
 
   const expiree = ouverte && estExpiree(action.expire_le, maintenant);
   const etatAffiche: EtatAction = expiree ? "expiree" : etat;
+  const repriseAffichee = !resultat && !!onReformuler && peutReformuler(etatAffiche);
 
   return (
     <section className="mp-copilote__action" aria-label={`Action proposée : ${action.libelle}`}>
@@ -78,7 +85,7 @@ export function CarteAction({
         </BadgeStatut>
       </div>
       <p className="mp-copilote__action-resume">{action.resume}</p>
-      {ouverte ? (
+      {afficherLigneExpiration(ouverte, expiree, repriseAffichee) ? (
         <p className="mp-copilote__action-etat">
           {libelleExpiration(action.expire_le, maintenant)}
         </p>
@@ -104,15 +111,24 @@ export function CarteAction({
           </Bouton>
         </div>
       ) : null}
-      {resultat || (!ouverte && etat !== "en_cours") ? (
+      {/* Le statut ne s'affiche qu'une fois (le badge) ; le texte ne vient que du serveur. */}
+      {resultat ? (
         <Alerte
           ref={resultatRef}
           tonalite={etat === "confirmee" ? "succes" : etat === "annulee" ? "info" : "attention"}
           annonce="status"
         >
-          <p>{resultat?.texte ?? LIBELLES_ETAT_ACTION[etat]}</p>
-          {resultat ? <ListeElements elements={resultat.elements} /> : null}
+          <p>{resultat.texte}</p>
+          <ListeElements elements={resultat.elements} />
         </Alerte>
+      ) : null}
+      {repriseAffichee ? (
+        <div ref={resultatRef} tabIndex={-1} className="mp-copilote__reprise" role="status">
+          {erreur ? null : <p>{TEXTE_REPRISE}</p>}
+          <Bouton variante="secondaire" onClick={onReformuler}>
+            Reformuler
+          </Bouton>
+        </div>
       ) : null}
     </section>
   );

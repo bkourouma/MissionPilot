@@ -10,11 +10,12 @@ import {
 import { journaliser } from "../audit.js";
 import { estAssocie } from "../missions/acces.js";
 import { exiger, type Auth } from "../auth/contexte.js";
+import { creerCommentaire } from "../collaboration/commentaires.js";
 import { authDe, exigerEntiteVisible, voitEntite } from "../collaboration/entites.js";
 import type { Db } from "../db/pool.js";
-import { AppError, conflit, interdit, introuvable, requeteInvalide } from "../errors.js";
+import { AppError, conflit, interdit, introuvable } from "../errors.js";
 import { decoderCurseur, motifContient, paginer, paramsId } from "../http/outils.js";
-import { envoyerEmails, notifier, type NotificationCreee } from "../notifications/notifier.js";
+import { envoyerEmails } from "../notifications/notifier.js";
 
 /*
  * Commentaires contextuels (SOC-08). Permission « commentaire.ecrire » (tous
@@ -145,59 +146,7 @@ export const routesCommentaires: FastifyPluginAsync = async (app) => {
     const auth = exiger(request, "commentaire.ecrire");
     const c = commentaireCreationSchema.parse(request.body);
     const { cree, notifications } = await app.db.withTenant(auth.cabinetId, async (db) => {
-      const entite = await exigerEntiteVisible(db, auth, c.entite_type, c.entite_id);
-      const mentions = c.mentions.filter((id) => id !== auth.utilisateurId);
-      // Mentions : utilisateurs actifs du cabinet (un autre cabinet est inconnu) qui voient l'entité.
-      for (const id of mentions) {
-        const autre = await authDe(db, auth.cabinetId, id);
-        if (!autre) throw requeteInvalide("Utilisateur mentionné inconnu ou inactif.");
-        if (!(await voitEntite(db, autre, c.entite_type, c.entite_id))) {
-          throw requeteInvalide(`${autre.nom} n'a pas accès à cet élément : mention impossible.`);
-        }
-      }
-      const k = entite.colonnes;
-      const r = await db.query(
-        `INSERT INTO commentaires (cabinet_id, entite_type, entite_id, mission_id, tache_id,
-           facture_id, debours_id, opportunite_id, proposition_id, auteur_id, texte, mentions)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-        [
-          auth.cabinetId,
-          c.entite_type,
-          c.entite_id,
-          k.mission_id,
-          k.tache_id,
-          k.facture_id,
-          k.debours_id,
-          k.opportunite_id,
-          k.proposition_id,
-          auth.utilisateurId,
-          c.texte,
-          mentions,
-        ],
-      );
-      const id = r.rows[0].id as string;
-      await journaliser(db, {
-        cabinetId: auth.cabinetId,
-        utilisateurId: auth.utilisateurId,
-        action: "creation",
-        entite: "commentaire",
-        entiteId: id,
-        // Jamais le texte dans le journal : il peut citer des données de la mission.
-        details: { entite_type: c.entite_type, entite_id: c.entite_id, mentions: mentions.length },
-      });
-      const notifications: (NotificationCreee | null)[] = [];
-      for (const destinataire of mentions) {
-        notifications.push(
-          await notifier(db, {
-            cabinetId: auth.cabinetId,
-            destinataireId: destinataire,
-            type: "mention_commentaire",
-            titre: `${auth.nom} vous a mentionné dans un commentaire`,
-            lien: entite.lien,
-            email: true,
-          }),
-        );
-      }
+      const { id, notifications } = await creerCommentaire(db, auth, c);
       const [lu] = await avecMentions(db, [await lireCommentaire(db, id)]);
       return { cree: lu, notifications };
     });

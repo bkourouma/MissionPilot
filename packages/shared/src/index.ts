@@ -17,6 +17,9 @@ export * from "./schemas/portail";
 export * from "./schemas/ia";
 export * from "./schemas/plans";
 export * from "./schemas/plans-augmentes";
+export * from "./schemas/plans-ateliers";
+export * from "./schemas/plans-montecarlo";
+export * from "./schemas/plans-reprevisions";
 export * from "./schemas/kpi";
 export * from "./schemas/kpi-pilotage";
 export * from "./schemas/questionnaires";
@@ -40,7 +43,22 @@ export * from "./schemas/copilote";
 export * from "./schemas/canaux";
 export * from "./schemas/signatures";
 export * from "./schemas/transcriptions";
+// Lot 6 : ingestion de documents et OCR (ADR-009).
+export * from "./schemas/ingestion";
 // Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
 export * from "./schemas/due-diligence";
+export * from "./schemas/due-diligence-portail";
 export * from "./schemas/redressement";
+export * from "./schemas/redressement-tableau";
+export * from "./schemas/redressement-suivi";
+export * from "./schemas/redressement-cloture";
+export * from "./schemas/redressement-financement";
+export * from "./schemas/redressement-causes";
+export * from "./schemas/redressement-checklists";
+// Lot 5b : efficacité des recommandations (CAP-03), observatoire (CAP-04), veille des appels d offres (AO-01).
+export * from "./schemas/capitalisation-efficacite";
+export * from "./schemas/observatoire";
+export * from "./schemas/appels-offres-veille";
 export * from "./grilles/index";
+// Services candidats : prix fixe et veille des guichets de financement.
+export * from "./schemas/services-candidats";

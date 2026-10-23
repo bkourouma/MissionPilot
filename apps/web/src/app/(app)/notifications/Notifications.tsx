@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useState } from "react";
 import { EVENEMENT_NOTIFICATIONS } from "../../../components/shell/ClocheNotifications";
 import { Alerte } from "../../../components/ui/Alerte";
@@ -16,7 +16,7 @@ function signaler() {
 
 /** « Tout marquer comme lu ». */
 export function ToutLire({ nonLues }: { nonLues: number }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [etat, setEtat] = useState<{
     enCours: boolean;
     message: string | null;
@@ -59,7 +59,7 @@ export function ToutLire({ nonLues }: { nonLues: number }) {
                       : "Notification marquée comme lue.",
                 });
                 signaler();
-                router.refresh();
+                rafraichir();
               } catch (e) {
                 setEtat({ enCours: false, message: null, erreur: messageErreur(e) });
               }
@@ -78,7 +78,7 @@ export function ToutLire({ nonLues }: { nonLues: number }) {
  * interprété), lien interne seulement. Ouvrir le lien la marque comme lue.
  */
 export function ElementNotification({ n }: { n: Notification }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [lue, setLue] = useState(n.lue_le !== null);
   const [erreur, setErreur] = useState<string | null>(null);
   const lien = lienNotification(n.lien);
@@ -139,7 +139,7 @@ export function ElementNotification({ n }: { n: Notification }) {
             icone="succes"
             aria-label={`Marquer comme lue : ${n.titre}`}
             onClick={async () => {
-              if (await marquer()) router.refresh();
+              if (await marquer()) rafraichir();
             }}
           >
             Marquer comme lue

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import type { AccuseSignatureApi } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import { dateHeureCourte } from "../../lib/canaux";
@@ -65,6 +65,9 @@ export function SignaturePortail({
           >
             <Icone nom="oeil" taille={18} />
             <span>Lire le document (nouvel onglet)</span>
+          </a>{" "}
+          <a className="mp-lien-action" href={hrefDocumentSignaturePortail(signatureId)} download>
+            <span>Télécharger</span>
           </a>
         </p>
       ) : (
@@ -116,7 +119,7 @@ function FormulaireSignaturePortail({
   signatureId: string;
   onAccuse: (a: AccuseSignatureApi) => void;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [confirmation, setConfirmation] = useState<SaisieConfirmation>(SAISIE_CONFIRMATION_VIDE);
   const f = useFormulaire<ChampConfirmation>();
 
@@ -137,7 +140,7 @@ function FormulaireSignaturePortail({
         messageSpecifique: (e) => messageErreurSignaturePortail(e),
         apres: (a) => {
           if (a && typeof a.signe_le === "string") onAccuse(a);
-          router.refresh();
+          rafraichir();
         },
       },
     );

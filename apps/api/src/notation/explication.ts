@@ -3,9 +3,11 @@ import {
   constatsPerception,
   expliquerNote,
   rangClasse,
+  rechercherCombinaisons,
   simulerPassage,
   type Classe,
   type EcartRepondants,
+  type RechercheCombinaisons,
 } from "@missionpilot/engines";
 import type { Db } from "../db/pool.js";
 import { introuvable } from "../errors.js";
@@ -87,11 +89,76 @@ function cibleParDefaut(classe: Classe | null): Classe | null {
   return BAREME_CLASSES.find((b) => rangClasse(b.classe) === rang + 1)?.classe ?? null;
 }
 
-/** Contributions à la note et simulateur de passage à la classe visée (NOT-12). */
-export function explicationVersion(v: VersionChargee, cible?: Classe) {
+/** Bornes facultatives de la recherche de combinaisons (défauts du moteur). */
+export interface OptionsCombinaisonsExplication {
+  pratiquesMax?: number | undefined;
+  combinaisonsMax?: number | undefined;
+}
+
+/** Combinaisons minimales d'améliorations du moteur, en snake_case (NOT-12). */
+export function vueCombinaisons(c: RechercheCombinaisons) {
+  return {
+    classe_actuelle: c.classeActuelle,
+    score_actuel: c.scoreActuel,
+    cible: c.cible,
+    seuil: c.seuil,
+    deja_atteinte: c.dejaAtteinte,
+    atteignable: c.atteignable,
+    gain_necessaire: c.gainNecessaire,
+    nombre_minimal_pratiques: c.nombreMinimalPratiques,
+    exhaustive: c.exhaustive,
+    tronquee: c.tronquee,
+    combinaisons: c.combinaisons.map((k) => ({
+      score_projete: k.scoreProjete,
+      classe_projetee: k.classeProjetee,
+      nombre_paliers: k.nombrePaliers,
+      etapes: k.etapes.map((x) => ({
+        dimension: x.dimension,
+        libelle: x.libelle,
+        indicateur: x.indicateur,
+        question: x.question,
+        points_avant: x.pointsAvant,
+        points_apres: x.pointsApres,
+        paliers: x.paliers,
+        gain: x.gain,
+      })),
+    })),
+    leviers: c.leviers.map((l) => ({
+      dimension: l.dimension,
+      libelle: l.libelle,
+      indicateur: l.indicateur,
+      question: l.question,
+      points_actuels: l.pointsActuels,
+      paliers: l.paliers,
+    })),
+  };
+}
+
+/** Classe visée par la requête, sinon la classe supérieure (null si déjà A). */
+export function classeVisee(v: VersionChargee, cible?: Classe): Classe | null {
+  return cible ?? cibleParDefaut(expliquerNote(v.etat, v.version.grille).classe);
+}
+
+/**
+ * Contributions à la note, simulateur glouton et combinaisons minimales de passage à la classe
+ * visée (NOT-12). `OPTIONS_INVALIDES` du moteur remonte (400 par la route).
+ */
+export function explicationVersion(
+  v: VersionChargee,
+  cible?: Classe,
+  options: OptionsCombinaisonsExplication = {},
+) {
   const e = expliquerNote(v.etat, v.version.grille);
   const visee = cible ?? cibleParDefaut(e.classe);
   const s = visee ? simulerPassage(v.etat, v.version.grille, visee) : null;
+  const c = visee
+    ? rechercherCombinaisons(v.etat, v.version.grille, visee, {
+        ...(options.pratiquesMax === undefined ? {} : { pratiquesMax: options.pratiquesMax }),
+        ...(options.combinaisonsMax === undefined
+          ? {}
+          : { maxCombinaisons: options.combinaisonsMax }),
+      })
+    : null;
   return {
     numero: v.version.numero,
     statut: v.statut,
@@ -134,5 +201,6 @@ export function explicationVersion(v: VersionChargee, cible?: Classe) {
           })),
         }
       : null,
+    combinaisons: c ? vueCombinaisons(c) : null,
   };
 }

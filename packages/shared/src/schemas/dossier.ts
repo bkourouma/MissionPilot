@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dateIsoSchema, deviseSchema, texte, texteOptionnel } from "./commun";
+import { dateIsoBorneeSchema, dateIsoSchema, deviseSchema, texte, texteOptionnel } from "./commun";
 import {
   codeReferentielSchema,
   fiabilitePreuveSchema,
@@ -250,6 +250,10 @@ export const referenceValeurSchema = z
       .optional(),
     ligne: z.number().int().min(1).max(1_000_000).nullable().optional(),
     page: z.number().int().min(1).max(100_000).nullable().optional(),
+    /** Valeur lue par reconnaissance de caractères (OCR) : toujours revue par un humain (lot 11). */
+    ocr: z.literal(true).optional(),
+    /** Confiance de la page lue par OCR, de 0 à 1000 (pour mille). */
+    confiance_pm: z.number().int().min(0).max(1000).nullable().optional(),
   })
   .strict();
 export type ReferenceValeur = z.infer<typeof referenceValeurSchema>;
@@ -355,3 +359,84 @@ export const exportDossierQuerySchema = z
 export const paramsDossierSousId = z
   .object({ id: z.string().uuid(), sousId: z.string().uuid() })
   .strict();
+
+// ---------------------------------------------------------------------------
+// Groupes et filiales (DOS-05)
+// ---------------------------------------------------------------------------
+
+/* Bornes alignées sur le moteur `packages/engines/src/dossier/groupe.ts` (10 000 points de base = 100 %). */
+export const PARTICIPATIONS_PAR_CABINET_MAX = 5000;
+export const MOTIF_DETENTION_MAX = 500;
+export const POINTS_BASE_DETENTION_MAX = 10_000;
+
+export const participationCreationSchema = z
+  .object({
+    detenteur_id: z.string().uuid(),
+    filiale_id: z.string().uuid(),
+    points_base: z
+      .number()
+      .int("La participation doit être un entier (points de base).")
+      .min(0, "La participation ne peut pas être négative.")
+      .max(
+        POINTS_BASE_DETENTION_MAX,
+        "La participation ne peut pas dépasser 10 000 points de base.",
+      ),
+    date_effet: dateIsoBorneeSchema,
+    motif: texte(MOTIF_DETENTION_MAX).optional(),
+  })
+  .strict()
+  .refine((v) => v.detenteur_id !== v.filiale_id, {
+    message: "Un dossier ne peut pas se détenir lui-même.",
+    path: ["filiale_id"],
+  })
+  .refine((v) => v.points_base !== 0 || v.motif !== undefined, {
+    message: "Le motif est obligatoire pour mettre fin à une détention.",
+    path: ["motif"],
+  });
+export type ParticipationCreation = z.infer<typeof participationCreationSchema>;
+
+export const VUES_GROUPE = ["client", "tete"] as const;
+export type VueGroupe = (typeof VUES_GROUPE)[number];
+
+export const groupeQuerySchema = z
+  .object({
+    date: dateIsoBorneeSchema.optional(),
+    exercice: z.coerce.number().int().min(1990).max(2100).optional(),
+    vue: z.enum(VUES_GROUPE).default("tete"),
+  })
+  .strict();
+export type GroupeQuery = z.infer<typeof groupeQuerySchema>;
+
+export const INDICATEURS_GROUPE = [
+  "actif",
+  "passif",
+  "charges",
+  "produits",
+  "resultat",
+  "marge_nette",
+] as const;
+export type IndicateurGroupe = (typeof INDICATEURS_GROUPE)[number];
+
+export const INDICATEUR_GROUPE_LIBELLES: Record<IndicateurGroupe, string> = {
+  actif: "Total de l'actif",
+  passif: "Total du passif",
+  charges: "Total des charges",
+  produits: "Total des produits",
+  resultat: "Résultat",
+  marge_nette: "Marge nette",
+};
+
+export const MOTIFS_EXCLUSION_GROUPE = [
+  "ETAT_ABSENT",
+  "DEVISE_DIFFERENTE",
+  "NON_VISIBLE",
+  "EXERCICE_DIFFERENT",
+] as const;
+export type MotifExclusionGroupe = (typeof MOTIFS_EXCLUSION_GROUPE)[number];
+
+export const MOTIF_EXCLUSION_GROUPE_LIBELLES: Record<MotifExclusionGroupe, string> = {
+  ETAT_ABSENT: "Aucun état financier accepté pour l'exercice",
+  DEVISE_DIFFERENTE: "Devise sans taux de conversion validé (USD) : non convertie",
+  NON_VISIBLE: "Dossier non visible avec vos droits",
+  EXERCICE_DIFFERENT: "Exercice différent",
+};

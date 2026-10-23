@@ -1,8 +1,4 @@
-import {
-  MOTEURS_STANDARD,
-  TYPE_ELEMENT_LIBELLES,
-  type TypeElementMethode,
-} from "@missionpilot/shared";
+import { MOTEURS_STANDARD } from "@missionpilot/shared";
 import { formaterNombre } from "../../lib/format";
 import {
   briquesParEtape,
@@ -19,6 +15,14 @@ import {
 } from "../../lib/methodes";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { BoutonAction } from "./BoutonAction";
+import {
+  ModifierBrique,
+  ModifierEtape,
+  ModifierRegle,
+  SectionCasTypes,
+  SectionElements,
+  SectionRubriques,
+} from "./SectionsMethode";
 
 const LIBELLES_AJUSTEMENT: Record<string, string> = {
   ponderation: "Pondération",
@@ -107,6 +111,7 @@ export function ContenuVersion({
                   )}
                 </div>
                 <Attributs b={b} />
+                {editable ? <ModifierBrique v={v} brique={b} /> : null}
                 {editable ? (
                   <BoutonAction
                     libelle="Supprimer la brique"
@@ -123,6 +128,7 @@ export function ContenuVersion({
               </li>
             ))}
           </ul>
+          {editable ? <ModifierEtape v={v} etape={etape} /> : null}
           {editable ? (
             <BoutonAction
               libelle="Supprimer l'étape et ses briques"
@@ -160,6 +166,7 @@ export function ContenuVersion({
               {r.regle.active === false ? (
                 <BadgeStatut tonalite="neutre">Désactivée</BadgeStatut>
               ) : null}
+              {editable ? <ModifierRegle v={v} regle={r} facteurs={facteurs} /> : null}
               {editable ? (
                 <BoutonAction
                   libelle="Supprimer la règle"
@@ -176,55 +183,11 @@ export function ContenuVersion({
             </li>
           ))}
         </ul>
-        {v.cas_types.length > 0 ? (
-          <p>Cas types : {v.cas_types.map((c) => c.libelle ?? c.code).join(" ; ")}.</p>
-        ) : null}
       </section>
 
-      <section className="mp-methode__etape" aria-labelledby="titre-elements">
-        <h3 id="titre-elements" className="mp-section__titre">
-          Livrables, items, KPI, initiatives, risques, gabarits ({v.elements.length})
-        </h3>
-        <ul className="mp-liste-simple">
-          {v.elements.map((e) => (
-            <li key={e.id}>
-              {TYPE_ELEMENT_LIBELLES[e.type as TypeElementMethode] ?? e.type} — {e.libelle}{" "}
-              <span className="mp-methode__code">({e.code})</span>
-              {e.essentiel ? " · essentiel" : ""}
-              {e.actif_par_defaut ? "" : " · inactif par défaut"}
-              {e.brique_code ? ` · brique ${e.brique_code}` : ""}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {v.rubriques.length > 0 ? (
-        <section className="mp-methode__etape" aria-labelledby="titre-rubriques">
-          <h3 id="titre-rubriques" className="mp-section__titre">
-            Rubriques à ancrages
-          </h3>
-          {v.rubriques.map((r) => (
-            <details key={r.id} className="mp-details">
-              <summary>
-                {r.libelle} <span className="mp-methode__code">({r.code})</span>
-              </summary>
-              <ol className="mp-liste-simple">
-                {r.ancrages.map((a) => (
-                  <li key={a.niveau}>
-                    <strong>Niveau {a.niveau} :</strong> {a.description}
-                    {a.exemples.map((x) => (
-                      <span key={x.contexte} className="mp-texte-doux">
-                        {" "}
-                        — {x.contexte} : {x.texte}
-                      </span>
-                    ))}
-                  </li>
-                ))}
-              </ol>
-            </details>
-          ))}
-        </section>
-      ) : null}
+      <SectionCasTypes v={v} editable={editable} facteurs={facteurs} />
+      <SectionElements v={v} editable={editable} />
+      <SectionRubriques v={v} editable={editable} />
     </div>
   );
 }

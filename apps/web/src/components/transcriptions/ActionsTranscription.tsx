@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { api } from "../../lib/api";
 import {
   cheminApiActionTranscription,
@@ -40,7 +40,7 @@ export function ActionsTranscription({
   versionNumero,
   droits,
 }: ActionsTranscriptionProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [rejet, setRejet] = useState(false);
   const [erreurValidation, setErreurValidation] = useState<string | null>(null);
 
@@ -52,7 +52,7 @@ export function ActionsTranscription({
         {},
         { redirigerSi401: false },
       );
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreurValidation(messageErreurTranscription(e));

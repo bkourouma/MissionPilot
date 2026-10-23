@@ -21,7 +21,9 @@ import {
   cheminRatios,
   cheminTresorerie,
   hrefRedressement,
+  LIBELLE_BESOIN_FINANCEMENT,
   raisonSansEcriture,
+  TEXTE_BESOIN_FINANCEMENT,
   TEXTE_TENSION,
 } from "../../../../../../lib/redressement";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
@@ -100,11 +102,9 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
                 {projection.semaines_tension.length} semaine(s) en tension sur 13.
               </p>
             </Carte>
-            <Carte titre="Besoin de financement" niveauTitre={3}>
+            <Carte titre={LIBELLE_BESOIN_FINANCEMENT} niveauTitre={3}>
               <p className="mp-red-chiffre mp-red-valeur">{m(projection.besoin_financement)}</p>
-              <p className="mp-texte-doux mp-texte-petit">
-                Calculé par le moteur sur les semaines en tension.
-              </p>
+              <p className="mp-texte-doux mp-texte-petit">{TEXTE_BESOIN_FINANCEMENT}</p>
             </Carte>
           </div>
 

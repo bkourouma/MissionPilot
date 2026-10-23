@@ -136,6 +136,14 @@ const schema = z.object({
       "CHROMIUM_PATH doit être le chemin absolu d'un navigateur existant.",
     )
     .optional(),
+  /**
+   * OCR des PDF scannés (ADR-009, décision 16 ; `ingestion/fabrique.ts`, `creerOcr`). Absent ou « auto » :
+   * moteur LOCAL (tesseract.js, hors ligne) s'il est disponible, sinon le simulé en développement et rien
+   * hors développement ; en test, le simulé reste le défaut. « local » : moteur local demandé (même en
+   * test ; absent, même repli). « simule » : simulé (jamais hors développement et test). « off » : aucun
+   * moteur local (simulé en développement et test, rien ailleurs).
+   */
+  OCR_LOCAL: z.enum(["auto", "local", "simule", "off"]).optional(),
 });
 
 export type Config = z.infer<typeof schema>;

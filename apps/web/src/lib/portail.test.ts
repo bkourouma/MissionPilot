@@ -46,8 +46,10 @@ describe("droits et navigation du portail", () => {
       "questionnaires",
       "salle",
       "kpi",
+      "avancement",
       "factures",
       "signatures",
+      "ateliers",
       "synthese",
       "preferences",
       "securite",
@@ -59,10 +61,15 @@ describe("droits et navigation du portail", () => {
       "questionnaires",
       "salle",
       "kpi",
+      "avancement",
       "preferences",
       "securite",
     ]);
-    expect(entreesPortail(INVESTISSEUR).map((e) => e.id)).toEqual(["accueil", "securite"]);
+    expect(entreesPortail(INVESTISSEUR).map((e) => e.id)).toEqual([
+      "accueil",
+      "due-diligence",
+      "securite",
+    ]);
   });
 
   it("le libellé « Documents » est écrit en clair, sans césure conditionnelle (U+00AD)", () => {

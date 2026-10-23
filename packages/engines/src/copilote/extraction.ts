@@ -265,3 +265,111 @@ export function extraireTache(texte: string, aujourdhui: string): TacheExtraite 
   }
   return {};
 }
+
+/* ----- Commentaire ----- */
+
+export interface CommentaireExtrait {
+  /** Texte du commentaire, tel que saisi (casse, accents et ponctuation conservés). */
+  texte?: string;
+  /** Nom (ou fragment) de la mission visée. */
+  mission?: string;
+}
+
+const SEPARATEURS_TEXTE: readonly RegExp[] = [
+  /:/d,
+  /\s-\s/d,
+  /\b(?:en\s+)?disant(?:\s+que)?\b/d,
+  /\bpour\s+dire(?:\s+que)?\b/d,
+  /\bqui\s+dit(?:\s+que)?\b/d,
+  /\bavec\s+(?:le\s+)?texte\b/d,
+];
+
+/** Texte d'un commentaire : seules les marques de citation de part et d'autre sont retirées. */
+function nettoyerTexteCommentaire(brut: string): string {
+  let t = brut.replace(/^[\s:,;\-–]+/, "").trim();
+  const guillemets = /^["'«“]\s*([\s\S]*?)\s*["'»”]$/.exec(t);
+  if (guillemets) t = (guillemets[1] ?? "").trim();
+  return t.replace(/\s+/g, " ").trim();
+}
+
+function missionDeCommentaire(original: string, plie: string, verbe: boolean): string | undefined {
+  const motifs = [
+    /\b(?:sur|a|au|dans|de|pour)\s+(?:la\s+|le\s+|l')?mission\s+(?:de\s+|du\s+|des\s+|d')?(?:la\s+|le\s+|l')?(.+)$/d,
+    /\b(?:sur|a|au|dans|pour)\s+(?:la\s+|le\s+|l')?(.+)$/d,
+    ...(verbe ? [/^\s*(?:la\s+|le\s+|l')?(?:mission\s+(?:de\s+|du\s+|des\s+|d')?)?(.+)$/d] : []),
+  ];
+  for (const motif of motifs) {
+    const g = motif.exec(plie)?.indices?.[1];
+    if (!g) continue;
+    const nom = nettoyerValeur(original.slice(g[0], g[1]), plie.slice(g[0], g[1]));
+    if (nomExploitable(nom)) return nom.slice(0, 200);
+  }
+  return undefined;
+}
+
+/**
+ * « Ajoute un commentaire sur la mission Alpha : le client a validé » ; « Commente la mission
+ * Alpha : … » ; « Ajoute un commentaire : … » (mission de l'écran). Le texte est ce qui suit le
+ * premier séparateur (deux-points, « disant que », citation) ; sans séparateur ni citation, le
+ * texte est absent et le copilote le demande.
+ */
+export function extraireCommentaire(texte: string): CommentaireExtrait {
+  const { original, plie } = depuisTexte(texte);
+  const m = /\bcommentaires?\b|\bcommente(?:r|z)?\b/d.exec(plie);
+  if (!m) return {};
+  const verbe = !m[0].startsWith("commentaire");
+  const debut = m.index + m[0].length;
+  const reste = plie.slice(debut);
+  let coupe: { index: number; fin: number } | null = null;
+  for (const motif of SEPARATEURS_TEXTE) {
+    const s = motif.exec(reste);
+    if (s && (coupe === null || s.index < coupe.index)) {
+      coupe = { index: s.index, fin: s.index + s[0].length };
+    }
+  }
+  const citation = /"/.exec(reste);
+  if (citation && (coupe === null || citation.index < coupe.index)) {
+    coupe = { index: citation.index, fin: citation.index };
+  }
+  const avantFin = debut + (coupe ? coupe.index : reste.length);
+  const sortie: CommentaireExtrait = {};
+  if (coupe) {
+    const t = nettoyerTexteCommentaire(original.slice(debut + coupe.fin));
+    if (t !== "") sortie.texte = t;
+  }
+  const mission = missionDeCommentaire(
+    original.slice(debut, avantFin),
+    plie.slice(debut, avantFin),
+    verbe,
+  );
+  if (mission) sortie.mission = mission;
+  return sortie;
+}
+
+/* ----- Relance d'une facture ----- */
+
+/**
+ * Désignation de la facture à relancer : son numéro (un jeton qui contient un chiffre, « F-2026-
+ * 0012 »), à défaut le nom du client (« la facture de Dupont »). Rien d'autre : « les factures
+ * échues » ne désigne aucune facture précise.
+ */
+export function extraireFactureRelance(texte: string): string | undefined {
+  const { original, plie } = depuisTexte(texte);
+  const numero =
+    /\bfactures?\s+(?:n\s*°\s*|n°\s*|no\.?\s+|numero\s+|num\s+)?([a-z0-9][a-z0-9\-_/.]*\d[a-z0-9\-_/.]*)/d.exec(
+      plie,
+    );
+  const g = numero?.indices?.[1];
+  if (g) {
+    const jeton = original.slice(g[0], g[1]).replace(/[.,;:!?]+$/, "");
+    if (jeton.length >= 2) return jeton.slice(0, 50);
+  }
+  const client =
+    /\bfactures?\s+(?:du\s+client\s+|de\s+la\s+societe\s+|de\s+l'entreprise\s+|de\s+|du\s+|des\s+|d'|pour\s+|chez\s+)(.+)$/d.exec(
+      plie,
+    );
+  const c = client?.indices?.[1];
+  if (!c) return undefined;
+  const nom = nettoyerValeur(original.slice(c[0], c[1]), plie.slice(c[0], c[1]));
+  return nomExploitable(nom) ? nom.slice(0, 100) : undefined;
+}

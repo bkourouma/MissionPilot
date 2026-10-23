@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { formaterDateHeure } from "../../lib/format";
 import { cheminPartage, etatPlanChange, messagePlan } from "../../lib/plan-strategique";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 
 export interface PartagePlanProps {
@@ -34,7 +34,7 @@ export function PartagePlan({
   peutPartager,
   raisonSansDroit,
 }: PartagePlanProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [attente, attendre] = useAttenteRafraichissement(partage);
@@ -56,11 +56,11 @@ export function PartagePlan({
           : "Partage retiré : le plan n'est plus diffusable au client.",
       );
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messagePlan(e, "partager"));
-      if (etatPlanChange(e)) router.refresh();
+      if (etatPlanChange(e)) rafraichir();
       return false;
     }
   }

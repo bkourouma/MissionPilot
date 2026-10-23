@@ -16,6 +16,7 @@ import { retirerConsentement, verrouillerDestinataire } from "./consentements.js
 import { etatDestinataire, retrouverExpediteur } from "./destinataires.js";
 import { mettreEnFileEnvoi } from "./envois.js";
 import type { DependancesCanaux } from "./fabrique.js";
+import { fermerFlux, lireFluxPlafonne } from "./media-flux.js";
 import { ErreurCanal, ErreurTranscription, type Canaux, type EvenementCanal } from "./ports.js";
 import { traiterConfirmation, traiterTexteSaisie, type ReponseDeService } from "./saisies-kpi.js";
 import { nomDuCabinet } from "./synthese.js";
@@ -346,19 +347,27 @@ async function transcrireMedia(
 ): Promise<string | null> {
   if (!canaux.whatsapp || !canaux.transcripteur) return null;
   if (!TYPES_AUDIO_SET.has(c.type_mime.split(";")[0]?.trim() ?? "")) return null;
-  let media;
+  // Le média arrive EN FLUX : la taille déclarée puis le compteur d'octets plafonnent la lecture,
+  // le flux est fermé dès le dépassement (jamais de lecture complète d'un fichier géant).
+  let contenu: Buffer;
+  let typeMime: string;
   try {
-    media = await canaux.whatsapp.telechargerMedia(identifiantCompte, c.ref_media);
+    const media = await canaux.whatsapp.telechargerMedia(identifiantCompte, c.ref_media);
+    typeMime = media.typeMime.split(";")[0]?.trim() ?? "";
+    if (!TYPES_AUDIO_SET.has(typeMime)) {
+      await fermerFlux(media.flux);
+      return null;
+    }
+    const lu = await lireFluxPlafonne(media.flux, MEDIA_ENTRANT_OCTETS_MAX, media.tailleDeclaree);
+    if (lu.statut !== "ok") return null;
+    contenu = lu.contenu;
   } catch (error) {
     if (error instanceof ErreurCanal) return null;
     throw error;
   }
-  if (media.contenu.length > MEDIA_ENTRANT_OCTETS_MAX) return null;
-  const typeMime = media.typeMime.split(";")[0]?.trim() ?? "";
-  if (!TYPES_AUDIO_SET.has(typeMime)) return null;
   const resultat = await canaux.transcripteur.transcrire({
     idempotence: c.evenement_ref,
-    audio: media.contenu,
+    audio: contenu,
     typeMime: typeMime as "audio/ogg" | "audio/mpeg" | "audio/mp4" | "audio/wav",
     langue: "auto",
   });

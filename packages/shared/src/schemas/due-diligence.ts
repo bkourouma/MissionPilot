@@ -47,6 +47,9 @@ export const PLAFONDS_DD = {
   decisions_par_filtrage: 200,
   ajustements_par_dossier: 1_000,
   signaux_par_cabinet: 2_000,
+  /** Modèles d'analyse sectoriels (DD-07) : un par secteur et par analyse, donc 4 par secteur. */
+  modeles_secteur_par_cabinet: 200,
+  points_par_modele: 50,
   listes_exclusion_par_cabinet: 50,
   regles_par_liste: 100,
   /** Mots (après normalisation) d'un mot-clé d'exclusion : borne le coût de la correspondance. */
@@ -129,6 +132,38 @@ export const FAMILLE_RISQUE_DD_LIBELLES: Record<FamilleRisqueDd, string> = {
   operationnel: "Risque opérationnel",
   reglementaire: "Risque réglementaire",
 };
+
+const PREFIXES_DIMENSION_ANALYSE_DD: Record<AnalyseDd, string> = {
+  pestel: "Analyse PESTEL",
+  cinq_forces: "Cinq forces",
+  swot: "Analyse SWOT",
+  operationnelle: "Analyse opérationnelle",
+};
+
+/**
+ * Libellé français d'une dimension du registre des preuves propre à la due diligence
+ * (`dd.<analyse>.<categorie>` ou `dd.risque.<famille>`), ou `null` pour tout autre code
+ * (l'appelant garde alors le code brut).
+ */
+export function libelleDimensionDd(code: string): string | null {
+  const morceaux = code.split(".");
+  if (morceaux.length !== 3 || morceaux[0] !== "dd") return null;
+  const [, famille, suite] = morceaux as [string, string, string];
+  if (famille === "risque") {
+    if (!(FAMILLES_RISQUE_DD as readonly string[]).includes(suite)) return null;
+    const libelle = FAMILLE_RISQUE_DD_LIBELLES[suite as FamilleRisqueDd].replace(
+      /^Risque (de )?/,
+      "",
+    );
+    return `Risque — ${libelle.charAt(0).toUpperCase()}${libelle.slice(1)}`;
+  }
+  if (!(ANALYSES_DD as readonly string[]).includes(famille)) return null;
+  const analyse = famille as AnalyseDd;
+  if (!estCategorieAnalyseDd(analyse, suite)) return null;
+  return `${PREFIXES_DIMENSION_ANALYSE_DD[analyse]} — ${
+    CATEGORIE_ANALYSE_DD_LIBELLES[suite as CategorieAnalyseDd]
+  }`;
+}
 
 /** Du moins grave au plus grave. */
 export const NIVEAUX_RISQUE_DD = ["faible", "modere", "eleve", "critique"] as const;
@@ -680,6 +715,63 @@ export const signauxQuerySchema = z
     pays_code: codeReferentielSchema.optional(),
     actif: booleenRequete.optional(),
     q: z.string().trim().max(100).optional(),
+    limite,
+    curseur,
+  })
+  .strict();
+
+// ---------------------------------------------------------------------------
+// Modèles d'analyse par secteur (DD-07) : véhicule seul, vide par défaut
+// ---------------------------------------------------------------------------
+
+/**
+ * Un « point à examiner » est un rappel pour l'expert (catégorie de l'analyse + libellé court),
+ * jamais une affirmation : il ne crée aucune assertion et ne porte aucun chiffre.
+ */
+export const pointModeleSchema = z
+  .object({ categorie: z.string().min(1).max(40), libelle: texte(300) })
+  .strict();
+
+const pointsModeleSchema = z.array(pointModeleSchema).min(1).max(PLAFONDS_DD.points_par_modele);
+
+type PointsModele = { analyse?: AnalyseDd; points?: { categorie: string }[] };
+function controlerCategoriesModele(v: PointsModele, ctx: z.RefinementCtx): void {
+  if (!v.analyse || !v.points) return;
+  v.points.forEach((p, i) => {
+    if (!estCategorieAnalyseDd(v.analyse as AnalyseDd, p.categorie)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["points", i, "categorie"],
+        message: "Catégorie inconnue pour cette analyse.",
+      });
+    }
+  });
+}
+
+export const modeleSecteurCreationSchema = z
+  .object({
+    secteur_code: codeReferentielSchema,
+    analyse: analyseDdSchema,
+    points: pointsModeleSchema,
+  })
+  .strict()
+  .superRefine(controlerCategoriesModele);
+
+/** Nouvelle version : `actif: false` retire le modèle (il n'est plus proposé aux dossiers). */
+export const modeleSecteurVersionSchema = z
+  .object({
+    points: pointsModeleSchema,
+    actif: z.boolean().default(true),
+    version_courante: versionCourante,
+    motif: texte(500),
+  })
+  .strict();
+
+export const modelesSecteurQuerySchema = z
+  .object({
+    secteur_code: codeReferentielSchema.optional(),
+    analyse: analyseDdSchema.optional(),
+    actif: booleenRequete.optional(),
     limite,
     curseur,
   })

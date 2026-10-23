@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   auMoinsUnChamp,
   codeSchema,
-  dateIsoSchema,
+  dateIsoBorneeSchema,
   MESSAGE_CORPS_VIDE,
   texte,
   texteOptionnel,
@@ -68,14 +68,14 @@ export const FEUILLE_MAX_LIGNES = 300;
 export const semaineQuerySchema = z
   .object({
     /** Une date quelconque de la semaine voulue (par défaut : aujourd'hui). */
-    semaine: dateIsoSchema.optional(),
+    semaine: dateIsoBorneeSchema.optional(),
   })
   .strict();
 
 export const feuilleCreationSchema = z
   .object({
     /** Une date quelconque de la semaine (ramenée au lundi). */
-    semaine: dateIsoSchema,
+    semaine: dateIsoBorneeSchema,
     /** Pré-remplir depuis les affectations de la semaine (défaut : oui). */
     pre_remplir: z.boolean().default(true),
   })
@@ -96,7 +96,7 @@ const heuresLigneSchema = z
  */
 export const ligneTempsSaisieSchema = z
   .object({
-    date: dateIsoSchema,
+    date: dateIsoBorneeSchema,
     tache_id: z.string().uuid().optional(),
     activite_id: z.string().uuid().optional(),
     jours: joursLigneSchema.optional(),
@@ -144,7 +144,7 @@ export const feuillesListeQuerySchema = z
     statut: z.enum(STATUTS_FEUILLE).optional(),
     collaborateur_id: z.string().uuid().optional(),
     /** Une date de la semaine voulue. */
-    semaine: dateIsoSchema.optional(),
+    semaine: dateIsoBorneeSchema.optional(),
     limite: z.coerce.number().int().min(1).max(100).default(30),
     curseur: z.string().max(500).optional(),
   })
@@ -155,7 +155,7 @@ export const feuillesListeQuerySchema = z
 export const resteAFaireDeclarationSchema = z
   .object({
     /** Semaine de la déclaration (par défaut : la semaine courante). */
-    semaine: dateIsoSchema.optional(),
+    semaine: dateIsoBorneeSchema.optional(),
     lignes: z
       .array(
         z
@@ -198,7 +198,7 @@ export const STATUTS_CORRECTION = ["demandee", "validee", "rejetee"] as const;
 export const correctionDemandeSchema = z
   .object({
     collaborateur_id: z.string().uuid(),
-    date: dateIsoSchema,
+    date: dateIsoBorneeSchema,
     tache_id: z.string().uuid().optional(),
     activite_id: z.string().uuid().optional(),
     /** Nouvelle valeur (0 : retirer le temps) en jours, ou en heures. */
@@ -258,10 +258,10 @@ export const DISCIPLINE_MAX_SEMAINES = 26;
 
 export const disciplineQuerySchema = z
   .object({
-    debut: dateIsoSchema.optional(),
-    fin: dateIsoSchema.optional(),
+    debut: dateIsoBorneeSchema.optional(),
+    fin: dateIsoBorneeSchema.optional(),
     /** Date d'évaluation (par défaut : aujourd'hui). */
-    date_reference: dateIsoSchema.optional(),
+    date_reference: dateIsoBorneeSchema.optional(),
     /** Collaborateurs affectés à cette mission. */
     equipe: z.string().uuid().optional(),
     limite: z.coerce.number().int().min(1).max(100).default(50),

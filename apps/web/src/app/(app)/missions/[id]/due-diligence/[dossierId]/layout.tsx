@@ -10,7 +10,9 @@ import {
   resumeOperation,
   sousPagesDd,
 } from "../../../../../../lib/due-diligence";
+import { droitsPortailDd } from "../../../../../../lib/due-diligence-portail";
 import { chargerDossier } from "../../../../../../lib/due-diligence-serveur";
+import { libelleDevise } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../lib/session";
@@ -30,7 +32,7 @@ export default async function LayoutDossierDd({
 }) {
   const { id, dossierId } = await params;
   if (!estIdentifiant(dossierId)) notFound();
-  await exigerPermission("dd.lire");
+  const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   // L'en-tête de la mission affiche déjà son erreur de chargement.
   if (!mission.ok) return null;
@@ -68,10 +70,13 @@ export default async function LayoutDossierDd({
           <BadgeStatut tonalite="neutre" sansIcone>
             {d.pays_libelle ?? "Pays non précisé"}
           </BadgeStatut>
-          <span className="mp-texte-doux mp-texte-petit">{`${resumeOperation(d)} · montants en ${d.devise}`}</span>
+          <span className="mp-texte-doux mp-texte-petit">{`${resumeOperation(d)} · montants en ${libelleDevise(d.devise)}`}</span>
         </div>
       </section>
-      <Onglets libelle="Sections du dossier de due diligence" pages={sousPagesDd(id, dossierId)} />
+      <Onglets
+        libelle="Sections du dossier de due diligence"
+        pages={sousPagesDd(id, dossierId, { partage: droitsPortailDd(utilisateur.roles).gerer })}
+      />
       {children}
     </>
   );

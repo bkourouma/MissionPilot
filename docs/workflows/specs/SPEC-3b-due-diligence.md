@@ -1,12 +1,21 @@
 # SPEC 3b — Service #2 « Due diligence » (DD-01 à DD-15)
 
-**Statut** : spécification à valider, non codée. **Branche** : `feat/vague-4-redressement`
+**Statut** : spécification à valider, non codée (état de livraison au 2026-10-22 : voir l'encadré ci-dessous).
+**Branche** : `feat/vague-4-redressement`
 (sous-chantier 3b de la vague 4). **Date** : 2026-10-11. **Décision d'architecture** :
 [ADR-012](../../architecture/adr/ADR-012-service-due-diligence.md) (à lire d'abord, une page).
 **Sources** : PRD « Service 2 » (DD-01 à DD-08), PRD complémentaire §11.2 (DD-09 à DD-15), §6
 (preuves), §18 (vagues). Tout ce qui est dit de l'existant a été relevé sur le code le 2026-10-11
 (fichier cité entre parenthèses) ; tout ce qui est posé par cette spécification sans décision du
 commanditaire est marqué **provisoire** et repris au §14 pour DECISIONS.md.
+
+> **État au 2026-10-22 (lot 6, [ADR-009](../../architecture/adr/ADR-009-ingestion-documents.md) Acceptée).**
+> **DD-02 (import de rapports PDF) et DD-10 (lecture IA de la salle de données) sont livrés** par le lot 6, en
+> **mode texte natif** ; l'OCR local est livré (lot 11, ADR-009) : un PDF scanné est lu par OCR local hors ligne et part toujours en revue humaine (`OCR_INDISPONIBLE` si le moteur est absent).
+> Le volet « connecteurs de données ouvertes » de DD-02 n'est PAS livré : il reste l'adaptateur simulé du §8.12, sans
+> route ni réseau. Détail au §1 (lignes DD-02 et DD-10), au §8.13 et au §16 ; le texte de fond de la spécification
+> (périmètre, critères) est conservé tel quel. Elle date du 2026-10-11, avant l'ADR-009 : les mentions
+> « ADR-009 absent » ci-dessous sont le besoin d'origine.
 
 Règles non négociables du lot (AGENTS.md) : chiffres uniquement par `packages/engines`
 (couverture ≥ 90 %), **aucune IA** dans ce lot, RLS par cabinet (`isolation` + `portail_interdit`),
@@ -21,21 +30,21 @@ verdict ou d'une note par une autre personne que l'auteur (sauf associé), doubl
 | ID | Décision | Contenu ou raison |
 | --- | --- | --- |
 | DD-01 | **Livré** | Cadrage versionné : secteur (et filière), pays, cible éventuelle, type d'opération, devise, date d'opération prévue, question d'investissement, périmètre (§4.2, R02–R06). |
-| DD-02 | **Repoussé, OUVERT** | Connecteurs de données ouvertes (Banque mondiale, FMI, ONUDI) et import de rapports PDF avec extraction IA : exigent l'ingestion/OCR (ADR-009 **absent**), un choix de fournisseur et une clé ; aucun appel réseau dans ce lot. Livré seulement : l'interface `FournisseurDonneesOuvertes` et un adaptateur **simulé** (`apps/api/src/due-diligence/donnees-ouvertes.ts`), jamais branché à une route ni à une configuration, testé unitairement, dont les valeurs sont fictives et marquées `simule: true` (§8.12). À marquer **OUVERT** dans DECISIONS.md. |
+| DD-02 | **Import de rapports PDF livré le 2026-10-22 (lot 6, texte natif) ; connecteurs de données ouvertes : repoussé, OUVERT** | **Livré (ADR-009 Acceptée, §8.13)** : `POST /api/dd/dossiers/:id/documents?type=rapport` (usage `dd_rapport`), lecture IA (résumé et éléments, chacun avec sa page et un extrait vérifié dans la page), brouillon validé par `dd.valider` (autre que le dernier modificateur, le demandeur de la lecture et l'auteur du téléversement, sauf associé : `MQG02`), acquittement des éléments non retrouvés ; la validation ne pousse rien ailleurs ; onglet « Documents » du dossier. Mode **texte natif** seulement (OCR local à venir, lot 11). **Texte d'origine, connecteurs de données ouvertes (Banque mondiale, FMI, ONUDI), toujours non livrés** : exigent un choix de fournisseur et une clé ; aucun appel réseau dans ce lot. Livré seulement : l'interface `FournisseurDonneesOuvertes` et un adaptateur **simulé** (`apps/api/src/due-diligence/donnees-ouvertes.ts`), jamais branché à une route ni à une configuration, testé unitairement, dont les valeurs sont fictives et marquées `simule: true` (§8.12). À marquer **OUVERT** dans DECISIONS.md. |
 | DD-03 | **Livré, sans IA** | PESTEL, cinq forces, SWOT : saisie par l'expert ; chaque affirmation est une **assertion du registre des preuves** (§2.1), donc sourcée ou signalée « fragile » (R07–R09). Le pré-remplissage IA est le lot suivant. |
 | DD-04 | **Livré** | Chaîne de valeur : étapes ordonnées, acteurs, part de coût et de marge (points de base), contraintes ; un clic sur une étape affiche ses risques ; synthèse par le moteur (R10–R12 ; écran §10). |
 | DD-05 | **Rattaché** (trivial) | Quatrième analyse « opérationnelle » (processus, approvisionnement, goulots), mêmes points sourcés que DD-03 ; aucun calcul propre. |
 | DD-06 | **Livré** | Checklist de risques par famille (pays, change, opérationnel, réglementaire) avec niveau et justification **sourcée** (R13–R15). |
-| DD-07 | **Repoussé** | Modèles d'analyse par secteur : le contenu est à rédiger par des experts ; aucun contenu du cahier SANKORIA n'est repris (DECISIONS.md, 2026-10-06). Le véhicule existe : la bibliothèque de signaux (DD-11) filtrée par secteur. |
+| DD-07 | **Véhicule livré le 2026-10-20 (lot 3), aucun contenu sectoriel** | Modèles d'analyse par secteur (migration `0511`) : vides par défaut, rédigés par le cabinet ; le contenu reste à rédiger par des experts ; aucun contenu du cahier SANKORIA n'est repris (DECISIONS.md, 2026-10-06). Le véhicule existe : la bibliothèque de signaux (DD-11) filtrée par secteur. |
 | DD-08 | **Livré** | Ajustements des experts tracés (table `dd_ajustements`, créés par l'API à chaque écart à une proposition du moteur ou de la bibliothèque) et repris dans la note ; deux variantes de la note (R42, R46–R53). |
 | DD-09 | **Livré** | Arbre d'hypothèses (profondeur 4) → assertions liées (soutient/contredit) → preuves ; verdict confirmée / infirmée / non concluante, indiqué par un moteur, décidé par un humain, validé par un tiers (R16–R23). |
-| DD-10 | **Repoussé** | Lecture IA de la salle de données : dépend de l'ingestion et de l'OCR (ADR-009 absent) et d'une clé OpenRouter. |
+| DD-10 | **Livré le 2026-10-22 (lot 6, texte natif)** | Lecture IA d'un document de la salle de données : `POST /api/dd/dossiers/:id/documents?type=salle` (usage `dd_salle`), mêmes garanties que DD-02 (page et extrait vérifié, brouillon, validation par un tiers, acquittement des éléments non retrouvés, rien de poussé ailleurs ; §8.13). Un document à la fois. Texte natif et OCR local (lot 11, revue humaine obligatoire). Besoin d'origine : dépendait de l'ingestion/OCR (ADR-009, alors absent) et d'une clé OpenRouter. |
 | DD-11 | **Livré** | Bibliothèque de signaux d'alerte par secteur et pays, maintenue par les experts (versions en ajout seul) ; signaux applicables à un dossier calculés par le moteur ; constats (R24–R29). Aucun contenu d'amorçage : la bibliothèque démarre vide. |
 | DD-12 | **Livré** | Moteur de dimensionnement descendant et ascendant, fourchette, sensibilité, recoupement, ajustements d'expert ; paramètres sourcés (R30–R34). |
 | DD-13 | **Livré** | Note au comité : versions, soumission (base figée par les moteurs), validation par un tiers, rendu PDF/Word en variante exécutive ou détaillée par `rapports/` (R46–R53, §9). |
 | DD-14 | **Livré** | Filtrage environnemental et social : liste d'exclusion paramétrable (par investisseur ou générale) et huit thèmes de revue, cadres publics cités en **référence seulement** (R35–R41). |
 | DD-15 | **Livré** | Plan des 100 jours relié aux services #3 (initiative d'un plan) et #4 (KPI) par clés composites (R43–R45). |
-| Portail investisseur | **Repoussé** | Voir §16 : aucune route du lot n'est ouverte au portail. |
+| Portail investisseur | **Livré le 2026-10-20 (lot 3)** | Voir §16 : option du cabinet (désactivée par défaut), invitation d'un compte portail `client_investisseur` sur un dossier, publication d'un instantané de la version VALIDÉE de la note et de pièces choisies (rapports de la note), consultation en lecture seule (migration `0509`). Les routes du socle initial du lot restent fermées au portail ; seules trois routes dédiées sont dans `LISTE_BLANCHE_PORTAIL`. |
 
 ---
 
@@ -99,7 +108,7 @@ Dernier numéro employé au 2026-10-11 : `0465` (`ls apps/api/migrations`). `046
 capitalisation, `0340`–`0359` n'est pas affecté. Ce lot **réserve `0500`–`0519`**. Plages des autres sous-chantiers de la vague 4, relevées dans
 leurs spécifications le 2026-10-11 : 3a (redressement) `0480`–`0499` (SPEC-3a, H3) ; 3c (canaux simulés)
 `0540`–`0559` (SPEC-3c) ; `0520`–`0539` reste libre. Aucun chevauchement.
-Un durcissement d'audit du lot prend le numéro libre suivant (`0509`, `0510`…). Une migration qui
+Un durcissement d'audit du lot prend le numéro libre suivant (`0510` puis `0512`… : `0509` et `0511` sont consommées, voir le tableau). Une migration qui
 cite une table d'un autre fichier a un numéro plus grand (`migrate.ts` applique par ordre de nom).
 
 | Fichier | Contenu |
@@ -113,7 +122,10 @@ cite une table d'un autre fichier a un numéro plus grand (`migrate.ts` applique
 | `0506_dd_ajustements.sql` | `dd_ajustements` |
 | `0507_dd_notes.sql` | `dd_notes`, `dd_note_versions`, `dd_note_validations` |
 | `0508_dd_rapport_note_comite.sql` | extension de `rapports_mission` (§9.1, `MPR04`) |
-| `0509`–`0519` | réservées (durcissements d'audit) |
+| `0509_dd_portail_investisseur.sql` | portail investisseur : 5 tables `dd_portail_*`, `MQD01`–`MQD08` (livrée le 2026-10-20) |
+| `0510` | libre |
+| `0511_dd_modeles_secteur.sql` | modèles d'analyse par secteur (DD-07), 2 tables, `MQD11` (livrée le 2026-10-20) |
+| `0512`–`0519` | libres (durcissements d'audit) |
 
 ### 3.2 SQLSTATE : lettre `Z` partagée, numéros `MPZ21`–`MPZ32`, plus `MPR04`
 
@@ -131,6 +143,8 @@ numéros » (`MPK10-16`, `MPK20-27`). **À confirmer par le Pilote avant toute m
 solution de repli est une seconde famille de préfixe (`MQD01`–`MQD12`) : le remplacement est
 mécanique tant qu'aucune migration n'est écrite (la lettre n'apparaît que dans `0500`–`0508`,
 `due-diligence/erreurs.ts` et les tests `dd-*`).
+
+**Mise à jour du 2026-10-20 (lot 3).** La lettre `Z` est épuisée (le redressement a pris `MPZ12`–`MPZ20`, voir SPEC-3a) : les codes du lot POSTÉRIEURS à `MPZ32` prennent le second préfixe `MQD` (CODING_STANDARDS §2). Employés : `MQD01`–`MQD08` (portail investisseur, `0509`) et `MQD11` (modèles sectoriels, `0511`) ; libres : `MQD09`, `MQD10`, `MQD12`–`MQD20`. (Les commentaires de `0509` réservent `MQD01`–`MQD10` au portail et `MQD11`–`MQD20` aux modèles ; l'état réel des codes employés est celui ci-dessus.) Les codes `MPZ21`–`MPZ32` sont inchangés.
 
 | Code | Règle | HTTP / code d'erreur API |
 | --- | --- | --- |
@@ -1237,6 +1251,9 @@ fonction ne commence sa propre transaction. Les lectures de solidité passent pa
 
 ### 8.12 DD-02 : interface et adaptateur simulé (OUVERT)
 
+*État au 2026-10-22 : ce paragraphe ne concerne que les connecteurs de données ouvertes, qui restent simulés (aucune
+route, aucun réseau, inchangé par le lot 6). L'import de rapports PDF de DD-02 est livré à part (§8.13).*
+
 `apps/api/src/due-diligence/donnees-ouvertes.ts` exporte `interface FournisseurDonneesOuvertes {
 readonly identifiant: string; rechercherIndicateur(paysCode: string, indicateur: string):
 Promise<readonly PointDonnee[]>; }` avec `PointDonnee { annee, valeur: number (entier, unités
@@ -1246,6 +1263,30 @@ routes, aucune variable de configuration, aucun appel réseau (`fetch`, `http`, 
 recherche mécanique §13). Un test unitaire fixe le contrat (`simule` toujours vrai, aucune valeur
 n'est présentable comme une preuve : le type n'est assignable ni à `preuveCreationSchema` ni à un
 paramètre de dimensionnement). La mise en œuvre réelle est un lot ultérieur (§16).
+
+### 8.13 DD-02 (rapports PDF) et DD-10 (salle de données) : ingestion de documents (livré le 2026-10-22, lot 6)
+
+*Ajout d'état de livraison ; le périmètre de fond est celui du §1. Décision : ADR-009 (Acceptée). Sécurité :
+`docs/governance/SECURITY.md` §8 undecies. Notes du lot : `docs/workflows/notes-lots/lot-6.md`.*
+
+- **Routes** (`apps/api/src/routes/ingestion-dd.ts`, 7 routes) : `POST /dd/dossiers/:id/documents?type=rapport|salle`
+  (`dd.ecrire`, téléversement PDF, 202), `POST /dd/documents/:docId/lecture` (relance ; `ia.utiliser` en plus),
+  `PATCH /dd/extractions/:id` (`dd.ecrire`, correction du brouillon), trois `GET` (liste, document, pages ; `dd.lire`),
+  `POST /dd/extractions/:id/decision` (`dd.valider`). Structuration : `apps/api/src/ingestion/structuration-dd.ts`
+  (usages `dd_rapport` et `dd_salle`) ; nature de la lecture : `apps/api/src/ingestion/nature-lecture.ts`.
+- **Lecture IA** : résumé et éléments ; chaque élément porte sa page et un extrait vérifié dans le texte de cette
+  page, sinon il est signalé « non retrouvé » et doit être acquitté. Les chiffres ne viennent pas du modèle.
+  Brouillon IA, modifié, validé : statut et historique conservés.
+- **Validation** : `dd.valider`, par une personne autre que le dernier modificateur, le demandeur de la lecture et
+  l'auteur du téléversement, sauf associé (`MQG02`, doublée en base). Elle ne crée ni assertion, ni preuve, ni
+  donnée de dimensionnement : un expert reprend ensuite ce qu'il juge utile par les routes existantes.
+- **Écran** : onglet « Documents » du dossier, pages
+  `apps/web/src/app/(app)/missions/[id]/due-diligence/[dossierId]/documents` et `.../documents/[docId]`.
+- **Limites assumées** : un PDF scanné est traité par l'OCR local (lot 11, revue humaine obligatoire ; `PDF_SANS_TEXTE`
+  signifie que l'OCR n'a rien lu) ; plafonds `PLAFONDS_INGESTION` (PDF 10 Mo, 60 pages, 5 documents en traitement par
+  cabinet) ; les noms du cabinet ne sont PAS masqués avant l'envoi pour `dd_rapport` et `dd_salle` (seul
+  `standard_historique` l'est) ; téléversement DD en trois transactions (dette M7 du lot 6) ; texte des pages conservé
+  puis purgé (SECURITY.md §8 undecies). Aucun test dans un navigateur.
 
 ---
 
@@ -1452,7 +1493,7 @@ Aucun fichier n'appartient à deux territoires de ce lot. Les fichiers **partag�
 
 ### T2 — migrations, API, tests d'API (agent « API »)
 
-- `apps/api/migrations/0500`–`0508` (§4, §9.1) ; plage `0509`–`0519` réservée.
+- `apps/api/migrations/0500`–`0508` (§4, §9.1) ; `0509` et `0511` consommées le 2026-10-20 (lot 3), `0510` et `0512`–`0519` libres.
 - `apps/api/src/due-diligence/**` (§8.11), `apps/api/src/routes/due-diligence*.ts` (§8),
   `apps/api/src/app.ts` (+1 enregistrement).
 - Rapports : `apps/api/src/rapports/note-comite.ts` (nouveau) et petites modifications de
@@ -1623,8 +1664,9 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
 | Bibliothèque de signaux | vide au départ, propre au cabinet, maintenue par `dd.referentiel.gerer` ; aucun amorçage fourni | Un amorçage par des experts ; une bibliothèque « standard » |
 | Conservation | aucune purge du contenu de due diligence (ajout seul) ; les rapports suivent la conservation du cabinet (3 ans par défaut) | **Avis du conseil juridique** (confidentialité d'une opération d'investissement) |
 | Mention IA du pied de page | celle du cabinet, inchangée (aucune IA ne contribue à ce lot) | — |
-| DD-02 | adaptateur simulé seulement, **OUVERT** ; aucun appel réel | Choix des sources, de l'ingestion (ADR-009) et du fournisseur |
-| DD-10, DD-07 | **repoussés** | Calendrier ; contenu sectoriel à rédiger par des experts |
+| DD-02 | import de rapports PDF **livré le 2026-10-22** (lot 6, ADR-009, texte natif) ; connecteurs de données ouvertes : adaptateur simulé seulement, **OUVERT**, aucun appel réel | Choix des sources et du fournisseur (données ouvertes) ; OCR local (lot 11) |
+| DD-10 | **livré le 2026-10-22** (lot 6, ADR-009, texte natif) | OCR local (lot 11) |
+| DD-07 | véhicule livré le 2026-10-20 (lot 3), aucun contenu sectoriel | Contenu sectoriel à rédiger par des experts |
 
 ---
 
@@ -1648,18 +1690,20 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
 
 **Repoussé (avec la raison)**
 
-- **DD-02** connecteurs de données ouvertes et import de rapports PDF : dépend d'ADR-009 (absent), d'un
-  fournisseur et d'une clé ; **OUVERT**, adaptateur simulé seulement.
-- **DD-10** lecture IA de la salle de données : dépend de l'ingestion/OCR (ADR-009) et d'une clé
+- **DD-02** connecteurs de données ouvertes : dépend d'un fournisseur et d'une clé ; **OUVERT**, adaptateur
+  simulé seulement. **L'import de rapports PDF de DD-02 n'est plus repoussé** : livré le 2026-10-22 (lot 6,
+  ADR-009 Acceptée, texte natif, §8.13) ; l'OCR local est livré (lot 11).
+- **DD-10** lecture IA de la salle de données : **N'EST PLUS REPOUSSÉ**, livré le 2026-10-22 (lot 6, ADR-009,
+  texte natif, §8.13) ; l'OCR local est livré (lot 11). Besoin d'origine : ingestion/OCR (ADR-009) et clé
   OpenRouter.
-- **DD-07** modèles d'analyse par secteur : contenu à rédiger par des experts.
-- **Accès d'un investisseur-client à une note validée par le portail** : exigerait une permission
+- **DD-07** modèles d'analyse par secteur : véhicule livré le 2026-10-20 (lot 3, `0511`, modèles vides par défaut, rédigés par le cabinet) ; AUCUN contenu sectoriel livré, à rédiger par des experts.
+- **Accès d'un investisseur-client à une note validée par le portail** : N'EST PLUS REPOUSSÉ, livré le 2026-10-20 (lot 3, `0509`). Livré : option du cabinet (désactivée par défaut, `dd.portail.configurer`, associé seul), invitation d'un compte portail `client_investisseur` sur un dossier, publication (`dd.portail.gerer`, associé et directeur de mission) d'un instantané de la version VALIDÉE de la note et de pièces choisies (rapports de la note, 10 au plus), consultation en lecture seule (`portail.dd.lire`, trois routes dans `LISTE_BLANCHE_PORTAIL`), cinq tables `dd_portail_*` en ajout seul ; une note devenue périmée (version plus récente) reste visible de l'investisseur, marquée « périmée » côté cabinet. Ce qui suit est le besoin initial, conservé pour mémoire : il exigeait une permission
   `portail.dd.lire`, une table de partage explicite (modèle `portail_partages`), une route nommée dans
   `LISTE_BLANCHE_PORTAIL` (motif exact), un `avecPortail` et une politique `portail` en `SELECT` filtrée sur le
   client, un écran, et des tests (`portail-acces`, `isolation`, `portail-contexte`) ; le rôle
   `client_investisseur` n'a aujourd'hui que `portail.acceder` et aucun écran (PRD complémentaire §13). La note
-  lui parvient hors plateforme (fichier rendu). **Invariant tenu par ce lot** : aucune table ni route
-  n'est lisible du portail.
+  lui parvient hors plateforme (fichier rendu). **Invariant tenu par le socle initial du lot** : aucune table ni route
+  n'est lisible du portail (levé pour les seules tables et routes `dd_portail_*` du lot 3).
 - Rédaction assistée par IA des analyses, hypothèses et de la note (lot suivant : `brouillon_ia`,
   orchestrateur, garde-chiffres) ; amorçage d'une bibliothèque de signaux « standard » ; classe de risque
   R3 propre à la note (nouveau type de livrable qualité) ; calibrage du moteur de verdict.
@@ -1673,6 +1717,11 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
    consigner dans CODING_STANDARDS §2 ; repli : une seconde famille de préfixe (`MQD01`–`MQD12`, « MQ »
    n'étant pas une classe SQLSTATE de PostgreSQL). Plus aucune lettre ne restera pour les lots suivants : la
    règle de nommage doit être étendue de toute façon.
+   **Tranché (état au 2026-10-21)** : le partage de `Z` a été retenu et tenu (redressement `MPZ01`–`MPZ20`, due
+   diligence `MPZ21`–`MPZ32`, dernier partage, qui ne se reproduit pas) ; la règle de nommage a été étendue
+   (CODING_STANDARDS §2 : second préfixe `MQ` + lettre de domaine) et le repli `MQD` a servi au lot 3 :
+   `MQD01`–`MQD08` (portail investisseur, `0509`) et `MQD11` (modèles sectoriels, `0511`) employés, `MQD09`–`MQD10`
+   et `MQD12`–`MQD20` libres.
 2. **Plage de migrations** : `0500`–`0519` réservée ici, sans chevauchement avec 3a (`0480`–`0499`) ni 3c
    (`0540`–`0559`) ; `0520`–`0539` libre.
 3. **Rapports** : classe de risque du rapport de note (R2 par défaut, R3 souhaitable ?).
@@ -1686,6 +1735,14 @@ jamais présenté comme un fait). Toute valeur est une constante exportée de `p
 ---
 
 ## 17. Intégration avec les autres sous-chantiers de la vague 4 et fichiers partagés
+
+*État au 2026-10-21 : le tableau ci-dessous est le relevé d'origine (2026-10-11), conservé. Les trois lots ont été
+livrés sans collision de migrations ni de SQLSTATE : `MPZ01`–`MPZ20` pour le redressement, `MPZ21`–`MPZ32` pour la
+due diligence (la ligne « disjoints seulement si 3a reste sous `MPZ20` » est vérifiée), `MPH01`–`MPH12` pour les
+canaux ; la due diligence a ensuite pris `MQD01`–`MQD08` et `MQD11` (second préfixe, lot 3) et ses migrations vont
+jusqu'à `0509` et `0511` dans la plage `0500`–`0519`. Le rapport de clôture du redressement (RED-08, modèle
+`cloture_redressement`) a depuis réécrit les contraintes de `rapports_mission` après `0508` : la règle de reprise de
+la réunion des valeurs ci-dessous s'est appliquée.*
 
 Relevé du 2026-10-11 dans `docs/workflows/specs/SPEC-3a-redressement.md`, `ADR-011`, `SPEC-3c-canaux-simules.md`
 et `ADR-008`, `ADR-010`, `ADR-013` (écrits en parallèle de celle-ci) :
@@ -1721,6 +1778,6 @@ notation_id IS NULL AND plan_id IS NULL AND niveau = 'dd')` (et `dd_note_id IS N
 branches des autres modèles), contrôle `MPR01` sur `dd_note_id` et `MPR04` (§9.1). Le test
 `dd-rapport.test.ts` insère un rapport de chaque modèle existant pour garantir qu'aucune valeur n'a été perdue.
 
-**Cohérence avec la règle ferme du lot canaux (décision de l'utilisateur)** : DD-02 suit le même schéma
+**Cohérence avec la règle ferme du lot canaux (décision de l'utilisateur)** : DD-02 (connecteurs de données ouvertes) suit le même schéma
 « port + fournisseur simulé, aucun appel réel, point non vérifié marqué OUVERT » (SPEC-3c §1.1) ; l'adaptateur
 simulé de §8.12 ne produit que des valeurs fictives marquées `simule: true`.

@@ -14,6 +14,7 @@ import type { Db } from "../db/pool.js";
 import { encoderCurseur, decoderCurseur } from "../http/outils.js";
 import { chargerVersions, versionDeReference, versVersionMoteur } from "../missions/budget.js";
 import { filtreVisibilite, voitToutesLesMissions } from "../missions/acces.js";
+import { alertesPlafondMission } from "../agents/plafonds.js";
 import { associesActifs, notifier, type NotificationCreee } from "../notifications/notifier.js";
 import { estimerTokens } from "./fournisseur.js";
 import { coutMicroUsd } from "./modeles.js";
@@ -46,6 +47,12 @@ import type { SourceCle } from "./parametres.js";
  * - Alertes à 80 % et 100 % du plafond (consommation réelle) : une
  *   notification aux associés (ia.configurer) par seuil et par mois, sans
  *   montant (règle de notifier).
+ * - Plafond PAR MISSION (AGT-06, agents/plafonds.ts) : contrôlé par l'orchestrateur pour tout
+ *   appel rattaché à une mission, sous le verrou de la mission pris AVANT celui du cabinet ;
+ *   alertes 80 % et 100 % par mission à l'inscription d'une consommation de la mission.
+ * - Cache des réponses (ia/cache.ts) : une génération servie par le cache est inscrite avec
+ *   l'issue « cache » à coût NUL (contrainte en base) ; elle n'entre pas dans le nombre
+ *   d'appels des rapports (`appels_cache` à part).
  * - Ratio coût/prix d'une mission : coût cumulé converti dans la devise de la
  *   mission (taux de conversion de départ ci-dessous, À VALIDER), rapporté
  *   aux honoraires de la dernière version figée du budget ; null sans budget
@@ -207,7 +214,14 @@ export async function solderReservation(db: Db, id: string): Promise<void> {
 }
 
 export type IssueConsommation =
-  "succes" | "sortie_invalide" | "annulee" | "test" | "delai_depasse" | "reponse_invalide";
+  | "succes"
+  | "sortie_invalide"
+  | "annulee"
+  | "test"
+  | "delai_depasse"
+  | "reponse_invalide"
+  /** Servie par le cache des réponses (ia/cache.ts) : aucun appel, coût nul. */
+  | "cache";
 
 export interface Consommation {
   cabinetId: string;
@@ -225,6 +239,8 @@ export interface Consommation {
   tokensEntree: number;
   tokensSortie: number;
   dureeMs: number;
+  /** Échange du copilote (migration 0272) : ni demande ni évaluation, `copilote = true`. */
+  copilote?: boolean;
 }
 
 /**
@@ -237,12 +253,16 @@ export async function enregistrerConsommation(
   plafond: number,
   maintenant: Date,
 ): Promise<{ cout: number; tarifConnu: boolean; notifications: (NotificationCreee | null)[] }> {
-  const { cout, connu } = coutMicroUsd(c.modele, c.tokensEntree, c.tokensSortie);
+  // Un succès en cache ne coûte rien, quels que soient les jetons indiqués.
+  const { cout, connu } =
+    c.issue === "cache"
+      ? { cout: 0, connu: true }
+      : coutMicroUsd(c.modele, c.tokensEntree, c.tokensSortie);
   await db.query(
     `INSERT INTO ia_consommations (cabinet_id, demande_id, mission_id, tache, modele, issue,
        source_cle, tokens_entree, tokens_sortie, cout_micro_usd, tarif_connu, duree_ms, cree_le,
-       evaluation_demande_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+       evaluation_demande_id, copilote)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
     [
       c.cabinetId,
       c.demandeId,
@@ -258,9 +278,13 @@ export async function enregistrerConsommation(
       c.dureeMs,
       maintenant,
       c.evaluationDemandeId ?? null,
+      c.copilote ?? false,
     ],
   );
   const notifications = await alertesPlafond(db, c.cabinetId, plafond, maintenant);
+  if (c.missionId && cout > 0) {
+    notifications.push(...(await alertesPlafondMission(db, c.cabinetId, c.missionId)));
+  }
   return { cout, tarifConnu: connu, notifications };
 }
 
@@ -325,7 +349,10 @@ export function convertirCout(microUsd: number, devise: Devise): Montant {
 export interface CoutsMois {
   mois: string;
   cout_micro_usd: number;
+  /** Appels au fournisseur (les générations servies par le cache n'en sont pas). */
   appels: number;
+  /** Générations servies par le cache (coût nul). */
+  appels_cache: number;
 }
 
 /**
@@ -349,19 +376,21 @@ export async function coutsCabinet(
   const parMois = new Map<string, CoutsMois>();
   for (let i = 0; i < 12; i++) {
     const m = libelleMois(new Date(Date.UTC(debut.getUTCFullYear(), debut.getUTCMonth() - i, 1)));
-    parMois.set(m, { mois: m, cout_micro_usd: 0, appels: 0 });
+    parMois.set(m, { mois: m, cout_micro_usd: 0, appels: 0, appels_cache: 0 });
   }
   for (const ligne of r.rows) {
     const m = parMois.get(ligne.mois as string);
     if (!m) continue;
     m.cout_micro_usd += Number(ligne.cout);
-    m.appels += 1;
+    if (ligne.issue === "cache") m.appels_cache += 1;
+    else m.appels += 1;
   }
   const courant = parMois.get(libelleMois(debut)) as CoutsMois;
   return {
     mois: courant.mois,
     cout_micro_usd: courant.cout_micro_usd,
     appels: courant.appels,
+    appels_cache: courant.appels_cache,
     plafond_mensuel_micro_usd: plafond,
     plafond_effectif_micro_usd: plafondEffectif,
     part_plafond: consommationBudgetaire(courant.cout_micro_usd, plafondEffectif),
@@ -391,8 +420,8 @@ export async function coutsMissions(
       : null;
   if (page.length === 0) return { elements: [], curseur_suivant: null };
   const couts = await db.query(
-    `SELECT mission_id::text AS mission_id, cout_micro_usd::text AS cout FROM ia_consommations
-     WHERE mission_id = ANY ($1::uuid[])`,
+    `SELECT mission_id::text AS mission_id, cout_micro_usd::text AS cout, issue
+     FROM ia_consommations WHERE mission_id = ANY ($1::uuid[])`,
     [page],
   );
   const missions = await db.query(
@@ -413,7 +442,7 @@ export async function coutsMissions(
       mission_id: id,
       intitule: (info?.intitule as string | undefined) ?? null,
       cout_micro_usd: cout,
-      appels: lignes.length,
+      appels: lignes.filter((c) => c.issue !== "cache").length,
       devise,
       cout_devise: coutDevise.valeur,
       prix_mission: prix?.valeur ?? null,

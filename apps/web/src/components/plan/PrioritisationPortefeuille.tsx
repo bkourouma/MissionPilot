@@ -1,9 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { formaterMontantMineur, formaterNombre, type Devise } from "../../lib/format";
+import {
+  formaterMontantMineur,
+  formaterNombre,
+  libelleDevise,
+  type Devise,
+} from "../../lib/format";
 import {
   cheminArbitrer,
   cheminProposition,
@@ -25,6 +29,7 @@ import { Bouton } from "../ui/Bouton";
 import { CaseACocher, GroupeCases } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useRafraichir } from "../formulaires/useRafraichir";
 
 export interface PrioritisationPortefeuilleProps {
   planId: string;
@@ -49,7 +54,7 @@ export function PrioritisationPortefeuille({
   initiatives,
   arbitrer,
 }: PrioritisationPortefeuilleProps) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieContraintes>(() => saisieContraintes(poidsDefaut));
   const [erreurs, setErreurs] = useState<Partial<Record<keyof SaisieContraintes, string>>>({});
   const [reponse, setReponse] = useState<ReponseProposition | null>(null);
@@ -61,7 +66,9 @@ export function PrioritisationPortefeuille({
   const [commentaire, setCommentaire] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refErreur = useRef<HTMLDivElement>(null);
   const titres = new Map(initiatives.map((i) => [i.id, i.titre]));
   const evaluees = initiatives.filter((i) => i.evaluation);
@@ -126,7 +133,7 @@ export function PrioritisationPortefeuille({
     const r = await appel(() => api.post(cheminArbitrer(planId), corps));
     if (r) {
       setSucces("Arbitrage enregistré : proposition du moteur, décision et motifs sont tracés.");
-      router.refresh();
+      rafraichir();
     }
   }
 
@@ -151,7 +158,7 @@ export function PrioritisationPortefeuille({
       ) : null}
       <div className="mp-grille-champs">
         <Champ
-          libelle={`Budget maximal (${devise})`}
+          libelle={`Budget maximal (${libelleDevise(devise)})`}
           inputMode="decimal"
           aide="Vide : sans limite."
           {...champ("budget_max")}

@@ -6,7 +6,12 @@ import {
 } from "@missionpilot/shared";
 import { CLASSE_FIABILITE, STATUT_ETAT } from "../../lib/dossier";
 import { formaterDate } from "../../lib/format";
-import { formaterTendance, FORMULES_RATIO, libelleStatutRatio } from "../../lib/redressement";
+import {
+  formaterTendance,
+  formaterVariationPoints,
+  FORMULES_RATIO,
+  libelleStatutRatio,
+} from "../../lib/redressement";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import { Tableau, type ColonneTableau } from "../ui/Tableau";
@@ -69,7 +74,9 @@ export function TableauRatios({ ratios }: { ratios: RedRatiosVue }) {
               </div>
               <div>
                 <dt>Évolution de la marge brute</dt>
-                <dd className="mp-red-valeur">{formaterTendance(t.variation_marge_brute_pb)}</dd>
+                <dd className="mp-red-valeur">
+                  {formaterVariationPoints(t.variation_marge_brute_pb)}
+                </dd>
               </div>
               {t.raison ? (
                 <div>

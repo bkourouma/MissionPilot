@@ -70,3 +70,16 @@ export {
   validerReglesModulation,
   type ValidationModulation,
 } from "./validation";
+export {
+  analyserCoherenceMethode,
+  type CodeAnomalieCoherence,
+  type AnomalieCoherence,
+  type EntreeCoherence,
+} from "./coherence";
+export { analyserHeritage, type NoeudMethode, type NoeudVersion } from "./heritage";
+export {
+  synthetiserApercu,
+  type BriqueApercuEntree,
+  type ElementApercuEntree,
+  type SyntheseApercu,
+} from "./apercu";

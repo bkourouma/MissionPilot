@@ -135,6 +135,23 @@ export const LISTE_BLANCHE_PORTAIL: readonly RouteOuverte[] = [
   { methodes: POST, motif: "/api/portail/signatures/:id/signer" },
   { methodes: POST, motif: "/api/portail/signatures/:id/refuser" },
   { methodes: LECTURE, motif: "/api/portail/synthese" },
+  // Ateliers stratégiques (routes/portail-ateliers.ts, PLA-15, migrations 0425 et 0426) : SES ateliers
+  // OUVERTS où le dirigeant est invité, et le dépôt de SA contribution. Aucun agrégat, aucune synthèse IA.
+  { methodes: LECTURE, motif: "/api/portail/ateliers" },
+  { methodes: LECTURE, motif: "/api/portail/ateliers/:id" },
+  { methodes: ["PUT"], motif: "/api/portail/ateliers/:id/contribution/:methode" },
+  // Rapports d'avancement hebdomadaires VALIDÉS (routes/portail-avancement.ts, AUT-10).
+  { methodes: LECTURE, motif: "/api/portail/avancement" },
+  { methodes: LECTURE, motif: "/api/portail/avancement/:id" },
+  // Portail investisseur de la due diligence (routes/due-diligence-portail-investisseur.ts,
+  // migration 0509) : LECTURE SEULE des notes validées publiées sur les dossiers où le compte est
+  // invité, et de leurs pièces. Toutes les routes /api/dd/** du cabinet restent fermées.
+  { methodes: LECTURE, motif: "/api/portail/due-diligence/publications" },
+  { methodes: LECTURE, motif: "/api/portail/due-diligence/publications/:id" },
+  {
+    methodes: LECTURE,
+    motif: "/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier",
+  },
 ];
 
 /** Entrée de la liste blanche pour cette route, ou undefined (route fermée au portail). */

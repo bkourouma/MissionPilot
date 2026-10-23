@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { messagePilotage } from "../../lib/kpi-pilotage";
@@ -50,7 +50,7 @@ export function BoutonActionKpi({
   texteChargement = "En cours…",
   confirmation,
 }: BoutonActionKpiProps) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [reussi, setReussi] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function BoutonActionKpi({
       else if (methode === "PUT") await api.put(chemin, corps);
       else await api.patch(chemin, corps);
       setReussi(succes);
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messagePilotage(e));
@@ -103,7 +103,7 @@ export function BoutonActionKpi({
         ) : (
           <Bouton
             variante={variante}
-            chargement={enCours}
+            chargement={enCours || enAttente}
             texteChargement={texteChargement}
             onClick={() => void lancer()}
           >

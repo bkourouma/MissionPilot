@@ -19,6 +19,8 @@ import {
   paramsPromptEvaluationSchema,
   plafondIaMissionSchema,
   restrictionAgentSchema,
+  revueContradictoireCreationSchema,
+  revuesContradictoiresQuerySchema,
 } from "@missionpilot/shared";
 import { z } from "zod";
 import {
@@ -36,6 +38,12 @@ import {
   type CoupeCircuit,
 } from "../agents/autonomie.js";
 import { lireContributions } from "../agents/contributions.js";
+import {
+  demanderRevueContradictoire,
+  listerRevuesContradictoires,
+  lireRevueContradictoire,
+  preparerRevueContradictoire,
+} from "../agents/contradicteur.js";
 import { avecErreursAgents } from "../agents/erreurs.js";
 import {
   demanderEvaluationOpenRouter,
@@ -68,6 +76,7 @@ import type { Db } from "../db/pool.js";
 import { interdit } from "../errors.js";
 import { paramsId } from "../http/outils.js";
 import { exigerMissionVisible } from "../missions/acces.js";
+import { envoyerEmails } from "../notifications/notifier.js";
 
 /**
  * Agents IA (AGT-01 à AGT-07, AGT-09, AGT-10 ; PRD complémentaire §7, ADR-005) : registre,
@@ -80,7 +89,9 @@ import { exigerMissionVisible } from "../missions/acces.js";
  * incident majeur), `autonomie.decider`
  * (associé : niveau accordé, coupe-circuit levé, brique R0, levée d'une restriction d'associé,
  * jeu d'essai affaibli), `ia.utiliser` (décision sur une exécution, par son déclencheur, le
- * chef ou le directeur de la mission, ou un associé), `ia.configurer` (plafond de mission). Aucune route n'est ouverte au portail client (`LISTE_BLANCHE_PORTAIL`). Le coût
+ * chef ou le directeur de la mission, ou un associé), `ia.configurer` (plafond de mission),
+ * `ia.utiliser` (revue contradictoire d'un brouillon, à la demande d'un consultant seulement ;
+ * `agent.gerer` pour sa préparation). Aucune route n'est ouverte au portail client (`LISTE_BLANCHE_PORTAIL`). Le coût
  * d'une exécution et la consommation d'une mission n'apparaissent qu'avec `finance.lire`.
  */
 
@@ -327,6 +338,42 @@ export const routesAgents: FastifyPluginAsync = async (app) => {
         ...(aPermission(auth.roles, "finance.lire") ? { consomme_micro_usd } : {}),
       };
     });
+  });
+
+  /* ----- Revue contradictoire (AGT-06) : à la demande d'un consultant, jamais bloquante ----- */
+
+  // Préalable (agent.gerer) : prompt du cabinet et jeu d'essai recommandé, avant l'évaluation.
+  app.post("/agents/revues-contradictoires/preparation", async (request, reply) => {
+    const auth = exiger(request, "agent.gerer");
+    const r = await tx(auth.cabinetId, (db) => preparerRevueContradictoire(db, auth));
+    return reply.status(201).send(r);
+  });
+
+  app.post("/agents/revues-contradictoires", async (request, reply) => {
+    const auth = exiger(request, "ia.utiliser");
+    const c = revueContradictoireCreationSchema.parse(request.body);
+    const { revue, notifications } = await demanderRevueContradictoire(
+      app.db,
+      { config: app.config, journal: (e: unknown) => app.log.info({ ia: e }) },
+      auth,
+      c.generation_id,
+    );
+    await envoyerEmails(app.mailer, notifications, (m) => app.log.warn(m));
+    return reply.status(201).send(revue);
+  });
+
+  app.get("/agents/revues-contradictoires", async (request) => {
+    const auth = exiger(request, "ia.utiliser");
+    const q = revuesContradictoiresQuerySchema.parse(request.query);
+    return tx(auth.cabinetId, (db) =>
+      listerRevuesContradictoires(db, auth, q.generation_id, q.limite),
+    );
+  });
+
+  app.get("/agents/revues-contradictoires/:id", async (request) => {
+    const auth = exiger(request, "ia.utiliser");
+    const { id } = paramsId.parse(request.params);
+    return tx(auth.cabinetId, (db) => lireRevueContradictoire(db, auth, id));
   });
 
   /* ----- Un agent (après les chemins fixes) ----- */

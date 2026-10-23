@@ -28,7 +28,7 @@ import { creerVersionPlan, lirePlan, validerVersionPlan } from "../redressement/
  * Plan de redressement en deux volets, kanban d'actions, versions de plan et leviers (RED-05, RED-07
  * en partie, RED-14, routes 29 à 37), plugin de routes/redressement.ts. Droits : `redressement.lire`
  * (lecture, simulation), `redressement.ecrire` (actions, versions), `redressement.valider` (valider
- * une version de plan : associé et directeur de mission, jamais le créateur de la version sauf
+ * une version de plan : RÉSERVÉ au directeur de la mission (hypothèse métier, `VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR` de redressement/plan.ts), jamais le créateur de la version sauf
  * associé, doublé en base MPZ07). La simulation d'un levier est un calcul pur : aucune écriture,
  * aucun journal. Les e-mails des notifications partent APRÈS la validation de la transaction.
  */

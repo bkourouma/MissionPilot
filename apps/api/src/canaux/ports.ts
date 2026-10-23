@@ -1,4 +1,5 @@
 import type { CodeGabarit, CodeRefusEnvoi } from "@missionpilot/engines";
+import type { MediaFlux } from "./media-flux.js";
 
 /*
  * Ports des canaux externes SIMULÉS (lot 3c, SPEC-3c §3). Types et erreurs seulement : aucune E/S,
@@ -42,10 +43,12 @@ export interface EnvoiSession {
   texte: string; // réponse libre dans la fenêtre de service de 24 h, rendue par un gabarit « reponse_… »
 }
 
-export interface MediaRecu {
-  contenu: Buffer;
-  typeMime: string;
-}
+/**
+ * Média entrant rendu EN FLUX (jamais en bloc) : l'appelant le lit avec `lireFluxPlafonne`
+ * (`media-flux.ts`), qui refuse la taille déclarée trop grande avant lecture et ferme le flux dès le
+ * plafond dépassé. Un adaptateur réel doit donc renvoyer le corps de la réponse sans le bufferiser.
+ */
+export type { MediaFlux } from "./media-flux.js";
 
 export type EvenementCanal =
   | {
@@ -103,7 +106,8 @@ export interface CanalWhatsApp {
   envoyerSession(envoi: EnvoiSession): Promise<ResultatEnvoi>;
   /** Vérifie signature, horodatage et forme ; lève ErreurCanal sinon. Ne touche ni base ni réseau. */
   verifierWebhook(entree: EntreeWebhook): readonly EvenementCanal[]; // 50 événements au plus
-  telechargerMedia(compte: string, refMedia: string): Promise<MediaRecu>;
+  /** Ouvre le média en flux (taille et type annoncés) ; ne lit pas le corps. Lève ErreurCanal si introuvable. */
+  telechargerMedia(compte: string, refMedia: string): Promise<MediaFlux>;
 }
 
 export interface EnvoiSms {

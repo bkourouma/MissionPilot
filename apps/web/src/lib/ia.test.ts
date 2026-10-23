@@ -16,6 +16,7 @@ import {
   hausseDePlafond,
   hrefCoutsIa,
   libelleMois,
+  libelleServiesCache,
   libelleSourceCle,
   lireMois,
   lirePlafond,
@@ -323,6 +324,14 @@ describe("coûts", () => {
     expect(decalerMois("2026-12", 1)).toBe("2027-01");
     expect(libelleMois("2026-10")).toBe("octobre 2026");
     expect(hrefCoutsIa("2026-10", "abc")).toBe("/parametres/ia?mois=2026-10&missions=abc#couts");
+  });
+
+  it("générations servies par le cache : singulier, pluriel, valeur absente", () => {
+    expect(libelleServiesCache(0)).toBe("0 génération reprise du cache, sans coût");
+    expect(libelleServiesCache(1)).toBe("1 génération reprise du cache, sans coût");
+    expect(libelleServiesCache(1200)).toBe("1 200 générations reprises du cache, sans coût");
+    expect(libelleServiesCache(undefined)).toBe("0 génération reprise du cache, sans coût");
+    expect(libelleServiesCache(-3)).toBe("0 génération reprise du cache, sans coût");
   });
 
   it("état du plafond d'après la part calculée par l'API", () => {

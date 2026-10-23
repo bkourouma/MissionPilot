@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
@@ -98,7 +98,7 @@ export function ActivationTfa({
   obligatoire: boolean;
   onActivee: () => void;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [etat, setEtat] = useState<EtapeActivation>({ etape: "repos" });
 
   if (etat.etape === "codes") {
@@ -108,7 +108,7 @@ export function ActivationTfa({
         email={email}
         onTerminer={() => {
           setEtat({ etape: "repos" });
-          router.refresh();
+          rafraichir();
         }}
       />
     );
@@ -285,7 +285,7 @@ export function GestionTfaActive({
   obligatoire: boolean;
   codesRestants: number;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [action, setAction] = useState<ActionTfa | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
 
@@ -296,7 +296,7 @@ export function GestionTfaActive({
         email={email}
         onTerminer={() => {
           setCodes(null);
-          router.refresh();
+          rafraichir();
         }}
       />
     );

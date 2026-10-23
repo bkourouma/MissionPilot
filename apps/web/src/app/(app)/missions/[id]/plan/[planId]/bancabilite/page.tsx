@@ -8,7 +8,11 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
-import { formaterDate, formaterMontantMineur } from "../../../../../../../lib/format";
+import {
+  formaterDate,
+  formaterMontantMineur,
+  libelleDevise,
+} from "../../../../../../../lib/format";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import {
   celluleRatio,
@@ -109,7 +113,7 @@ export default async function PageBancabilitePlan({
               {libelleVerdict(d.verdict)}
             </BadgeStatut>
             <span className="mp-texte-doux mp-texte-petit">
-              {`Modèle financier version ${d.modele.version}, validé le ${formaterDate(d.modele.validation?.valide_le)} · montants en ${d.devise}`}
+              {`Modèle financier version ${d.modele.version}, validé le ${formaterDate(d.modele.validation?.valide_le)} · montants en ${libelleDevise(d.devise)}`}
             </span>
           </div>
           {horsSeuil.length ? (

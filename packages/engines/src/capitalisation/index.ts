@@ -62,3 +62,5 @@ export {
   type NiveauCompetence,
   type PreuveUsage,
 } from "./competences";
+export * from "./efficacite";
+export * from "./observatoire";

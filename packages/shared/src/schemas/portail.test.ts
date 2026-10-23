@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  portailAvancementListeQuerySchema,
   portailClientQuerySchema,
   portailInvitationCreationSchema,
   portailListeQuerySchema,
@@ -85,5 +86,17 @@ describe("schémas du portail client (SOC-09)", () => {
       portailParametresModificationSchema.safeParse({ tfa_obligatoire: true, mot_de_passe: "x" })
         .success,
     ).toBe(true);
+  });
+});
+
+describe("rapports d'avancement du portail (AUT-10)", () => {
+  it("liste : mission facultative, limite bornée, aucune autre clé", () => {
+    expect(portailAvancementListeQuerySchema.parse({}).limite).toBe(26);
+    expect(portailAvancementListeQuerySchema.safeParse({ mission_id: UUID }).success).toBe(true);
+    expect(portailAvancementListeQuerySchema.safeParse({ mission_id: "x" }).success).toBe(false);
+    expect(portailAvancementListeQuerySchema.safeParse({ limite: "101" }).success).toBe(false);
+    expect(portailAvancementListeQuerySchema.safeParse({ statut: "brouillon" }).success).toBe(
+      false,
+    );
   });
 });

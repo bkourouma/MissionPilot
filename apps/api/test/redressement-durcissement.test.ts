@@ -107,6 +107,7 @@ describe("débits de création (429) : plafonds irréversibles protégés", () =
         await u().post(urlC(premier, "/evenements"), {
           type: "note",
           date_evenement: "2026-10-10",
+          conditions: "Relance",
         }),
         `e${i}`,
       );
@@ -114,6 +115,7 @@ describe("débits de création (429) : plafonds irréversibles protégés", () =
     const tropEv = await u().post(urlC(premier, "/evenements"), {
       type: "note",
       date_evenement: "2026-10-10",
+      conditions: "Relance",
     });
     expect(tropEv.statusCode).toBe(429);
     expect(erreur(tropEv)).toBe("RED_TROP_D_EVENEMENTS");

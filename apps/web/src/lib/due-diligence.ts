@@ -901,6 +901,7 @@ export const ECRANS_DOSSIER = [
   "environnement-social",
   "plan-100-jours",
   "note",
+  "documents",
   "ajustements",
 ] as const;
 export type EcranDossier = (typeof ECRANS_DOSSIER)[number];
@@ -922,9 +923,13 @@ export const hrefSignaux = `${hrefParametresDd}/signaux`;
 export const hrefListesExclusion = `${hrefParametresDd}/exclusions`;
 
 /** Onglets d'un dossier (l'onglet actif est celui dont le href est le plus long préfixe). */
-export function sousPagesDd(missionId: string, dossierId: string) {
+export function sousPagesDd(
+  missionId: string,
+  dossierId: string,
+  options: { partage?: boolean } = {},
+) {
   const h = (e: EcranDossier) => hrefEcranDossier(missionId, dossierId, e);
-  return [
+  const base = [
     { id: "synthese", libelle: "Synthèse", href: hrefDossier(missionId, dossierId) },
     { id: "cadrage", libelle: "Cadrage", href: h("cadrage") },
     { id: "analyses", libelle: "Analyses", href: h("analyses") },
@@ -939,16 +944,40 @@ export function sousPagesDd(missionId: string, dossierId: string) {
     },
     { id: "plan-100-jours", libelle: "Plan des 100 jours", href: h("plan-100-jours") },
     { id: "note", libelle: "Note au comité", href: h("note") },
+    { id: "documents", libelle: "Documents", href: h("documents") },
     { id: "ajustements", libelle: "Ajustements", href: h("ajustements") },
   ] as const;
+  // Partage avec l'investisseur (dd.portail.gerer) : onglet ajouté seulement pour qui peut le gérer.
+  return options.partage
+    ? ([
+        ...base,
+        {
+          id: "portail",
+          libelle: "Partage investisseur",
+          href: `${hrefDossier(missionId, dossierId)}/portail`,
+        },
+      ] as const)
+    : base;
 }
 
 /** Onglets des paramètres de la due diligence. */
-export function sousPagesParametresDd() {
-  return [
+export function sousPagesParametresDd(options: { portail?: boolean } = {}) {
+  const base = [
     { id: "signaux", libelle: "Signaux d'alerte", href: hrefSignaux },
     { id: "exclusions", libelle: "Listes d'exclusion", href: hrefListesExclusion },
+    { id: "modeles", libelle: "Modèles sectoriels", href: `${hrefParametresDd}/modeles` },
   ] as const;
+  // Option « portail investisseur » du cabinet (dd.portail.configurer, associé seul).
+  return options.portail
+    ? ([
+        ...base,
+        {
+          id: "portail",
+          libelle: "Portail investisseur",
+          href: `${hrefParametresDd}/portail`,
+        },
+      ] as const)
+    : base;
 }
 
 /** Écran où corriger un point bloquant ou un avertissement de la note. */
@@ -1426,6 +1455,21 @@ export function peutValiderSansConflit(
   if (!aPermission(roles, "dd.valider")) return false;
   if (roles.includes("associe")) return true;
   return !auteurs.includes(utilisateurId);
+}
+
+/**
+ * Message affiché à l'auteur d'un verdict en attente qui ne peut pas le valider lui-même (R-04) ;
+ * `null` si la validation lui est proposée (associé, dispensé de la séparation des tâches) ou s'il
+ * n'a aucun droit de validation.
+ */
+export function messageAuteurVerdict(
+  roles: readonly Role[],
+  utilisateurId: string,
+  proposeePar: string | null | undefined,
+): string | null {
+  if (!aPermission(roles, "dd.valider") || proposeePar !== utilisateurId) return null;
+  if (peutValiderSansConflit(roles, utilisateurId, [proposeePar])) return null;
+  return "Vous avez proposé ce verdict : une autre personne doit le valider (un associé peut le faire).";
 }
 
 /** État d'une note : celui reçu, sinon dérivé de ses versions et de ses validations. */

@@ -6,6 +6,11 @@ const SQL_AJOUT_SEUL = "MPO01";
 const SQL_REMPLACEMENT = "MPO02";
 const SQL_DECISION = "MPO03";
 const SQL_ETAT_FIGE = "MPO04";
+/** SQLSTATE des déclencheurs de détention (migration 0225, lettre Q). */
+const SQL_DETENTION_CYCLE = "MQF01";
+const SQL_DETENTION_SUPERIEURE = "MQF02";
+const SQL_DETENTION_FIN = "MQF03";
+const SQL_DETENTION_PROFONDEUR = "MQF04";
 
 const MESSAGES_UNICITE: Record<string, [string, string]> = {
   dossier_faits_decisions_fait_id_key: ["DEJA_DECIDE", "Ce fait a déjà reçu une décision."],
@@ -36,7 +41,14 @@ function champ(error: unknown, nom: "code" | "constraint"): string {
  * (unicité) → 409 ; référence inconnue → 400. Le reste remonte au gestionnaire de l'application.
  */
 export function traduireErreurDossier(error: unknown): unknown {
-  if (error instanceof ErreurDossier) return new AppError(400, error.code, error.message);
+  if (error instanceof ErreurDossier) {
+    // Refus de détention (cycle, > 100 %, profondeur, fin sans détention) : 409, comme le même
+    // refus du déclencheur (MQF01 à MQF04), pour un statut identique quelle que soit la couche
+    // qui refuse. L'auto-détention reste une entrée invalide (400).
+    const conflitDetention =
+      error.code.startsWith("DETENTION_") && error.code !== "DETENTION_SOI_MEME";
+    return new AppError(conflitDetention ? 409 : 400, error.code, error.message);
+  }
   const code = champ(error, "code");
   switch (code) {
     case SQL_AJOUT_SEUL:
@@ -62,6 +74,30 @@ export function traduireErreurDossier(error: unknown): unknown {
         409,
         "ACCEPTATION_REFUSEE",
         "Acceptation refusée : un état en écart ne s'accepte qu'avec un motif, jamais automatiquement.",
+      );
+    case SQL_DETENTION_CYCLE:
+      return new AppError(
+        409,
+        "DETENTION_CYCLE",
+        "Cette détention créerait un cycle de détention.",
+      );
+    case SQL_DETENTION_SUPERIEURE:
+      return new AppError(
+        409,
+        "DETENTION_SUPERIEURE_100",
+        "Les participations dans cette filiale dépasseraient 100 %.",
+      );
+    case SQL_DETENTION_PROFONDEUR:
+      return new AppError(
+        409,
+        "DETENTION_TROP_PROFONDE",
+        "La chaîne de détention dépasserait 8 niveaux.",
+      );
+    case SQL_DETENTION_FIN:
+      return new AppError(
+        409,
+        "DETENTION_INVALIDE",
+        "Aucune détention antérieure à terminer pour cette paire.",
       );
     case "23505": {
       const [c, message] = MESSAGES_UNICITE[champ(error, "constraint")] ?? [

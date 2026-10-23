@@ -519,5 +519,8 @@ describe("présentation complémentaire", () => {
     expect(messageVersionEnregistree(4, false)).toMatch(/^Version 4 enregistrée/);
     expect(messageVersionEnregistree(4, false)).not.toContain("partage");
     expect(messageVersionEnregistree(4, true)).toContain("Le partage au client a été retiré");
+    expect(messageVersionEnregistree(4, false)).toContain(
+      "l'associé et le directeur de la mission",
+    );
   });
 });

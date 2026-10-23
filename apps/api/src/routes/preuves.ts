@@ -9,6 +9,8 @@ import {
   dimensionCreationSchema,
   dimensionModificationSchema,
   lienPreuveSchema,
+  paramsCitation,
+  paramsSourcesLivrable,
   preuveCorrectionSchema,
   preuveCreationSchema,
   preuvesQuerySchema,
@@ -47,6 +49,7 @@ import {
   creerDimension,
   creerPreuve,
 } from "../preuves/ecriture.js";
+import { preuveCitee, sourcesDuLivrable } from "../preuves/citations.js";
 import { traduireErreurPreuves } from "../preuves/erreurs.js";
 import { exigerAssertionNonCitee } from "../preuves/garde-citation.js";
 import {
@@ -72,6 +75,11 @@ import { vuePreuve } from "../preuves/vues.js";
  * - L'indice de solidité, les contradictions, la carte de triangulation et le contrôle PRV-03 sont
  *   calculés par `packages/engines/src/preuves` (`preuves/evaluation.ts`, `preuves/synthese.ts`).
  * - Chaque écriture est journalisée dans sa transaction, sans extrait ni verbatim.
+ * - Citations des livrables web (PRV-06) : GET /missions/:id/livrables/:livrable/sources (assertions
+ *   retenues du livrable et sources numérotées comme l'annexe des exports, `preuves/citations.ts`)
+ *   et .../sources/:preuveId (ouverture d'une citation : la preuve n'est servie que si elle est
+ *   citée par ce livrable de cette mission, sinon 404 ; droits revérifiés à chaque ouverture).
+ *   Lecture seule, fermées au portail.
  */
 
 const paramsMissionDimension = z.object({ id: z.string().uuid(), dimensionId: z.string().uuid() });
@@ -193,6 +201,28 @@ function routesPreuvesLecture(app: FastifyInstance) {
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const mission = await exigerMissionLisible(db, auth, id);
       return contradictionsDeMission(db, auth, mission, q.resolues === "oui");
+    });
+  });
+
+  app.get("/missions/:id/livrables/:livrable/sources", async (request) => {
+    const auth = exiger(request, "preuve.lire");
+    const { id, livrable } = paramsSourcesLivrable.parse(request.params);
+    return app.db.withTenant(auth.cabinetId, async (db) => {
+      await exigerMissionLisible(db, auth, id);
+      return sourcesDuLivrable(db, auth, id, livrable);
+    });
+  });
+
+  app.get("/missions/:id/livrables/:livrable/sources/:preuveId", async (request) => {
+    const auth = exiger(request, "preuve.lire");
+    const { id, livrable, preuveId } = paramsCitation.parse(request.params);
+    return app.db.withTenant(auth.cabinetId, async (db) => {
+      const mission = await exigerMissionLisible(db, auth, id, "Preuve");
+      const preuve = await lirePreuve(db, preuveId);
+      if (!preuve || preuve.mission_id !== id || !(await preuveCitee(db, id, livrable, preuveId))) {
+        throw introuvable("Preuve");
+      }
+      return detailPreuve(db, auth, mission, preuve);
     });
   });
 

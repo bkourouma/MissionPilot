@@ -34,6 +34,7 @@ import { routesPreuves } from "./routes/preuves.js";
 import { routesPrevisions } from "./routes/previsions.js";
 import { routesSalleMission } from "./routes/salle-mission.js";
 import { routesQualite } from "./routes/qualite.js";
+import { routesQualiteFroide } from "./routes/qualite-froide.js";
 import { routesReferentiels } from "./routes/referentiels.js";
 import { routesSante } from "./routes/sante.js";
 import { routesStandard } from "./routes/standard.js";
@@ -286,6 +287,7 @@ export async function buildApp(
   await app.register(routesPreuves, { prefix: "/api" });
   await app.register(routesAgents, { prefix: "/api" });
   await app.register(routesQualite, { prefix: "/api" });
+  await app.register(routesQualiteFroide, { prefix: "/api" });
   await app.register(routesAutomatisation, { prefix: "/api" });
   await app.register(routesCloture, { prefix: "/api" });
   await app.register(routesSalleMission, { prefix: "/api" });
@@ -293,9 +295,31 @@ export async function buildApp(
   await app.register(routesAppelsOffres, { prefix: "/api" });
   await app.register(routesBanqueAo, { prefix: "/api" });
   await app.register(routesCapitalisation, { prefix: "/api" });
+  // Lot 5b : efficacité des recommandations (CAP-03), observatoire (CAP-04), veille des AO (AO-01).
+  await app.register((await import("./routes/capitalisation-efficacite.js")).routesEfficacite, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/observatoire.js")).routesObservatoire, {
+    prefix: "/api",
+  });
+  await app.register((await import("./routes/appels-offres-veille.js")).routesVeille, {
+    prefix: "/api",
+  });
   // Vague 4, service #2 : due diligence (SPEC-3b, ADR-012).
   await app.register(routesDueDiligence, { prefix: "/api" });
+  await app.register(
+    (await import("./routes/due-diligence-modeles.js")).routesDueDiligenceModeles,
+    { prefix: "/api" },
+  );
   await app.register(routesBrief, { prefix: "/api" });
+  // Rapport d'avancement hebdomadaire au client (AUT-10) : cabinet, puis portail (validés seulement).
+  await app.register(
+    (await import("./routes/automatisation-avancement.js")).routesAutomatisationAvancement,
+    { prefix: "/api" },
+  );
+  await app.register((await import("./routes/portail-avancement.js")).routesPortailAvancement, {
+    prefix: "/api",
+  });
   await app.register(routesCopilote, { prefix: "/api" });
   await app.register(routesPortail, { prefix: "/api/portail" });
   // Canaux externes simulés (lot 3c) : comptes, destinataires, envois, saisies de KPI, simulateur ;
@@ -313,6 +337,27 @@ export async function buildApp(
     prefix: "/api",
   });
   await app.register((await import("./routes/portail-signatures.js")).routesPortailSignatures, {
+    prefix: "/api",
+  });
+  // Portail investisseur de la due diligence (0509) : routes du cabinet, puis du portail.
+  await app.register(
+    (await import("./routes/due-diligence-portail.js")).routesDueDiligencePortail,
+    { prefix: "/api" },
+  );
+  await app.register(
+    (await import("./routes/due-diligence-portail-investisseur.js"))
+      .routesDueDiligencePortailInvestisseur,
+    { prefix: "/api" },
+  );
+  // Lot 6 : ingestion de documents (ADR-009) : socle, états financiers PDF et Excel (DOS-03) ; les plugins
+  // de la due diligence et du standard y sont enregistrés. Fermé au portail (hors liste blanche).
+  await app.register((await import("./routes/ingestion.js")).routesIngestion, { prefix: "/api" });
+  // Lot 5a : ateliers stratégiques, côté portail (PLA-15, liste blanche du portail).
+  await app.register((await import("./routes/portail-ateliers.js")).routesPortailAteliers, {
+    prefix: "/api",
+  });
+  // Services candidats (diagnostic flash, business plan bancable) et guichets de financement.
+  await app.register((await import("./routes/services-candidats.js")).routesServicesCandidats, {
     prefix: "/api",
   });
   return app;

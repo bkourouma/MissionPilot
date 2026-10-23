@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { DEVISES } from "@missionpilot/shared";
 import { Alerte } from "../ui/Alerte";
@@ -29,7 +29,7 @@ import { televerser } from "../../lib/televersement";
  * bloque l'import : rien n'est écrit, chaque ligne en erreur est citée.
  */
 export function ImportEtat({ clientId }: { clientId: string }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [s, setS] = useState<SaisieImportEtat>({
     exercice: "",
     date_cloture: "",
@@ -74,7 +74,7 @@ export function ImportEtat({ clientId }: { clientId: string }) {
               { delaiMs: 60_000 },
             );
       setResultat(etat);
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setEchec({
         message: messageErreur(e),

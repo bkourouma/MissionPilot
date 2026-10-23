@@ -882,6 +882,17 @@ export async function semerDemoAbidjan(
   if (!(await semerComptes2faDemo(database, config))) {
     throw new Error("Les comptes 2FA existent déjà dans un cabinet neuf.");
   }
+  // Canaux simulés (compte WhatsApp, destinataires de test, signature, transcription) : même import dynamique.
+  await (await import("./seed-demo-canaux.js")).semerCanauxDemo(database, config);
+  // Service #5 Redressement (deux dossiers, par les routes du module) : même import dynamique.
+  const { semerRedressementDemo } = await import("./seed-demo-redressement.js");
+  if (!(await semerRedressementDemo(database, config))) {
+    throw new Error("Le redressement de démonstration existe déjà dans un cabinet neuf.");
+  }
+  // Services candidats (diagnostic flash, business plan bancable, guichets fictifs) : même import dynamique.
+  await (
+    await import("./seed-demo-services-candidats.js")
+  ).semerServicesCandidatsDemo(database, config);
   return { cabinetId: cree.cabinetId, missions, portail };
 }
 

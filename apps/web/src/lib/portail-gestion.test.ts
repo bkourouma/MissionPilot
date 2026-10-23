@@ -160,7 +160,9 @@ describe("rôles du portail", () => {
     }
     expect(OPTIONS_ROLES_PORTAIL[0]?.aide).toMatch(/valide/);
     expect(OPTIONS_ROLES_PORTAIL[1]?.aide).toMatch(/questionnaires/);
-    expect(OPTIONS_ROLES_PORTAIL[2]?.aide).toMatch(/restreinte/);
+    expect(OPTIONS_ROLES_PORTAIL[2]?.aide).toMatch(/notes de due diligence/);
+    expect(OPTIONS_ROLES_PORTAIL[2]?.aide).not.toMatch(/profil seulement/);
+    expect(OPTIONS_ROLES_PORTAIL[2]?.aide).toMatch(/lecture seule/);
   });
 
   it("n'affiche que les rôles du portail", () => {

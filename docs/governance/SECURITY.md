@@ -18,6 +18,39 @@ sections « bis », « ter », « quater »… ; les nombres de ce document (rou
 tables, lignes de `GRANT EXECUTE`) ont été relevés le 2026-10-08 dans cet arbre
 de travail, puis les routes et les `GRANT EXECUTE` recomptés le 2026-10-11 (714 routes et 23 `GRANT EXECUTE`
 avec le lot 3a, relevés dans le worktree `.claude/worktrees/redressement`).
+Mise à jour du 2026-10-21 (lot 9a, consolidation des sept lots fusionnés du socle IA, du redressement 3a-bis, de
+la due diligence et des canaux, de la qualité et du référentiel de méthodes, du dossier client, des plans et de la
+CI) : 921 routes (recherche n° 10 de la checklist), 206 fichiers de migration, 28 lignes `GRANT EXECUTE`, second
+préfixe SQLSTATE `MQ…` (§5 ter et §6).
+Mise à jour du 2026-10-21 (lot 9b, report des lots 5b et 7 : efficacité des recommandations CAP-03, observatoire
+inter-cabinets CAP-04 et veille des appels d'offres AO-01 en §5 sexies et §6, services candidats en §8 decies) :
+957 routes (recherche n° 10, 921 + 36 : observatoire 8, veille 12, efficacité 8, services candidats 8), 219 fichiers
+de migration, 30 lignes `GRANT EXECUTE` (28, plus `obs_adhesion_active` en `0470` et `obs_agregats` en `0472`) ;
+préfixes SQLSTATE `MQK`, `MQA` et `MQV` (§5 ter).
+Mise à jour du 2026-10-22 (lot 9c, report du lot 4c : cache des réponses IA, plafond de coût par mission généralisé et
+revue contradictoire en §7 bis, rapport d'avancement hebdomadaire AUT-10 en §5 octies) : 972 routes (recherche n° 10,
+957 + 15 : avancement 9, portail 2, revues contradictoires 4), 224 fichiers de migration, 32 lignes `GRANT EXECUTE`
+(30, plus `planifier_conservation_ia` redéfinie en `0278` et `planifier_avancement_hebdo` en `0308`) ; domaines SQLSTATE
+`MQI` et `MQU` (§5 ter).
+Mise à jour du 2026-10-22 (lot 9d, report des lots 8b et 8c : voyant rouge du brief en §5 septies et §8 nonies,
+pagination et réaffectation de la revue à froid en §5 ter, plafond de rejeu Monte-Carlo, seuil d'anonymat des
+agrégats d'atelier et plafonds des candidats d'atelier en §5 bis, `paramsId` strict en §7, dates de temps bornées
+en §6 ; le lot 8c, découpage des gros fichiers web, ne change aucun comportement et n'a aucun impact sécurité) :
+972 routes (inchangé : aucune route ajoutée), 226 fichiers de migration (224, plus `0290` et `0432`), 32 lignes
+`GRANT EXECUTE` (inchangé) ; SQLSTATE `MQQ13` (§5 ter).
+Mise à jour du 2026-10-22 (lot 9e, report des lots 6 et 10 : ingestion de documents PDF et Excel DOS-03, DD-02, DD-10
+et STD-13, ADR-009, nouvelle section 8 undecies ; SQLSTATE `MQG01`–`MQG03` en §5 ter et §6 ; `unpdf` et Node 22 en §14 ;
+rejeu de l'horodatage des preuves de signature en §9 bis ; liste blanche des 403 métier du web en §5 ; nouvelles dettes
+en §15 et points ouverts en §16) : 990 routes (recherche n° 10, 972 + 18 : 4 routes DOS-03, 7 DD, 7 amorçage du standard),
+230 fichiers de migration (226, plus `0521` à `0524`), 34 lignes `GRANT EXECUTE` (32, plus `purger_textes_ingestion` et
+`planifier_ingestion_maintenance` en `0524`) ; domaine SQLSTATE `MQG` (§5 ter). Le lot 10 (corrections de la recette
+navigateur du 2026-10-22) ne change ni migration ni route.
+Mise à jour du 2026-10-23 (lot 9g, report des lots 13a et 13b de la recette finale : cause racine démontrée du défaut
+d'affichage périmé A-04, R-01 et R-02 et contournement `DebloqueurRendu` en §5, source de la décision d'une note de due
+diligence R-03 en §8 octies, signal de réveil du worker de jobs R-08 en §8 undecies, dettes et dépendances en §15) :
+aucune route, aucune migration, aucun `GRANT EXECUTE` de plus. Comptes relevés le 2026-10-23 sur la tête finale :
+990 routes, 232 fichiers de migration et 35 lignes `GRANT EXECUTE` (230 et 34 à la mise à jour du lot 9e : l'écart est
+celui du lot 11, `0525` et `0526`, déjà reporté en §8 undecies ; les lots 13a et 13b n'y changent rien).
 
 ## 1. Actifs à protéger
 
@@ -273,12 +306,32 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   `anonymiser_copilote_actions` (`0274`, bornée au cabinet du contexte, minimum 30 jours,
   `p_maintenant` refusé s'il dépasse l'horloge de la base d'une minute) et
   `planifier_purge_copilote` (`0274`, clé de job `copilote_purge:AAAA-MM-JJ` imposée, minimum
-  30 jours, une tâche par cabinet ayant une proposition échue ou à anonymiser).
+  30 jours, une tâche par cabinet ayant une proposition échue ou à anonymiser) ; socle IA
+  (mise à jour du 2026-10-21) : `rejeu_evaluation_demarrer`, `rejeu_evaluation_inscrire_appel` et
+  `rejeu_evaluation_terminer` (`0275`, rejeu réel des évaluations OpenRouter, appelées par le seul job
+  `agents_evaluation_openrouter` ; §7 bis), et `reserver_job_a` (`0030`), redéfinie en plpgsql par `0305`
+  (réclamation équitable par cabinet, mêmes `REVOKE`/`GRANT` conservés). `0275` pose aussi trois
+  fonctions internes d'invocateur, `REVOKE ALL … FROM PUBLIC` et non accordées au rôle applicatif
+  (`rejeu_controler_job`, `rejeu_demande_verrouillee`, `rejeu_controler_fin`, appelées par les trois
+  précédentes), et `0276` deux fonctions SQL d'invocateur, `modele_recommande` et `modele_route`
+  (lecture seule, sans `SECURITY DEFINER`). Les fonctions de déclencheur `garder_*` de `0275` posent
+  toutes `SET search_path = public, pg_temp`. Lot 4c (mise à jour du 2026-10-21) :
+  `planifier_avancement_hebdo` (`0308`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE`
+  accordé à `missionpilot_app` ; paramètres tous obligatoires, clé de job `avancement_hebdo:AAAA-MM-JJ` imposée et cohérente
+  avec `p_semaine`, qui doit être un lundi, heure d'exécution comprise dans la semaine visée (UTC) ; une tâche par cabinet ayant
+  une mission signée ou en cours et n'ayant pas désactivé la fonction ; lit missions et paramètres de tous les cabinets en
+  propriétaire mais ne renvoie qu'un nombre, §5 octies) ; `planifier_conservation_ia` est redéfinie par `0278` à l'identique de
+  `0104` (même clé de job, même garde de format, mêmes `REVOKE`/`GRANT`) plus le critère « cabinet ayant une entrée de cache
+  échue » (`ia_cache_reponses.expire_le`, §7 bis).
   `purger_textes_ia` n'agit que sur le cabinet du contexte ; `ia_demandes_purgeables`
   (`0104`) n'est exécutable que par le propriétaire. Liste reproductible :
-  `rg -n "GRANT EXECUTE" apps/api/migrations` (23 lignes au 2026-10-11 : 20 au 2026-10-08, plus trois fonctions des lacunes de la vague 2 ; inchangé
-  par le lot 3a du redressement, qui n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
-  d'invocateur et lisent sous la RLS du cabinet, `0480`–`0486`). Certains déclencheurs de contrôle
+  `rg -n "GRANT EXECUTE" apps/api/migrations` (32 lignes au 2026-10-21 : 23 au 2026-10-11, dont 20 au 2026-10-08 plus trois fonctions des lacunes de la vague 2 ;
+  quatre de plus avec les canaux (§9 bis) ; une de plus avec `0275`, qui accorde ses trois fonctions en une seule instruction ; `0305` conserve les `GRANT` de `0030` ;
+  deux de plus avec l'observatoire (§5 sexies) : `obs_agregats` (`0472`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC`)
+  et `obs_adhesion_active` (`0470`, fonction d'INVOCATEUR, sans `SECURITY DEFINER`, `search_path` figé, `EXECUTE` retiré à `PUBLIC` ; deux de plus avec le lot 4c : `planifier_conservation_ia`, redéfinie en `0278` (nouvelle ligne `GRANT`),
+  et `planifier_avancement_hebdo`, `0308`).
+  Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
+  d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
   `0043`, `0060`…). `reprendre_relances_questionnaire` (`0148`) n'est pas
   `SECURITY DEFINER` et n'est exécutable que par le propriétaire.
@@ -327,6 +380,20 @@ soit le code appelant).
   recette du 2026-10-10, `GET /api/appels-offres/assignables` et
   `GET /api/capitalisation/retours/a-ouvrir`, n'y figurent pas : elles restent
   fermées au portail (403 `PORTAIL_ROUTE_INTERDITE`, §6 AO-A et §5 sexies).
+  Routes ajoutées en vague 4 (mise à jour du 2026-10-21) : les ateliers stratégiques, `GET
+  /api/portail/ateliers`, `GET /api/portail/ateliers/:id` et `PUT
+  /api/portail/ateliers/:id/contribution/:methode`, sous la permission `portail.ateliers.participer`
+  (`client_dirigeant` seul, `roles.ts` ; §5 bis) ; trois routes `GET` et `HEAD` du portail investisseur de
+  la due diligence, `/api/portail/due-diligence/publications`,
+  `/api/portail/due-diligence/publications/:id` et
+  `/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier` (§8 octies) ; les routes des
+  canaux (§9 bis). Les routes de la revue à froide (`/api/qualite/revue-froide/**`, §5 ter), du groupe
+  et des participations (`/api/dossiers/:id/groupe`, `/api/dossiers/:id/participations`, §8 quater),
+  des sources de livrable (§8 ter) et du redressement (§8 nonies) n'y figurent pas. Lot 4c : `GET /api/portail/avancement` et
+  `GET /api/portail/avancement/:id` (lecture seule, permission `portail.avancement.lire`, `client_dirigeant` et
+  `client_contributeur` seulement, §5 octies) ; les routes des revues contradictoires (`/api/agents/revues-contradictoires/**`,
+  §7 bis) et celles du cabinet (`/api/avancement/**`, `/api/missions/:id/avancement`) n'y figurent pas. La liste compte
+  58 entrées (méthode et motif) au 2026-10-21.
 - **Contexte RLS à chaque transaction** (`portail/contexte.ts`) : pour toute
   route listée, la garde range le client rattaché et l'utilisateur ; un
   rattachement désactivé ou un client archivé donne un client **sentinelle**
@@ -336,13 +403,18 @@ soit le code appelant).
   (`sansContexte`) : connexion, déconnexion, profil d'authentification, sa
   propre 2FA, acceptations d'invitation ; leurs tables (`sessions`, `*_2fa`,
   `invitations`) sont `portail_interdit`. Seule sortie :
-  `horsContextePortail`, employée par deux traitements internes qui ne renvoient
+  `horsContextePortail`, employée par des traitements internes qui ne renvoient
   rien au client : l'évaluation des alertes KPI après une saisie
   (`routes/portail-kpi.ts`) et la suite d'un dépôt de la salle de mission,
   c'est-à-dire l'accusé de réception R0 et l'information de l'équipe, qui lisent
   le coupe-circuit N4 et l'équipe de la mission et n'écrivent que des tables
-  internes (`salle-mission/accuses.ts`). `test/portail-contexte.test.ts`
-  inventorie les usages (exactement ces deux fichiers) : tout nouvel usage met
+  internes (`salle-mission/accuses.ts`) ; les canaux simulés
+  (`routes/portail-canaux.ts`, `routes/portail-signatures.ts`, §9 bis) ; et, depuis le portail
+  investisseur, le téléchargement d'une pièce publiée
+  (`routes/due-diligence-portail-investisseur.ts`), qui n'a lieu qu'après les contrôles de
+  `avecPortail` et dont la lecture interne (rapports et fichiers fermés au portail) revérifie
+  explicitement la publication, le client et la pièce (§8 octies). `test/portail-contexte.test.ts`
+  inventorie les usages (exactement ces **cinq** fichiers) : tout nouvel usage met
   ce test à jour.
 - **Politiques RESTRICTIVES** (`0113`, `0114`, `0115`, puis chaque migration
   V2) : `portail_interdit` (rien de visible ni de modifiable) sur les tables
@@ -351,8 +423,9 @@ soit le code appelant).
   (`0180`–`0184`, dont le lien vers une notation et les KPI d'objectif), les
   rapports (`0130`) et leurs paramètres (`0132`), l'historique IA des
   questionnaires (`0149`), les clés d'idempotence des saisies de temps (`0122`),
-  les paramètres et alertes KPI, les quinze tables du redressement (`0480`–`0486`, §8 nonies : le client
-  n'accède jamais à son dossier de redressement) ;
+  les paramètres et alertes KPI, les trente tables du redressement (`0480`–`0491`, §8 nonies : le client
+  n'accède jamais à son dossier de redressement), les tables des simulations de Monte-Carlo, des réalisés
+  et des re-prévisions des plans (`0429`–`0431`, §5 bis), `dossier_participations` (`0225`, §8 quater) et les tables de la revue à froide (`0287`–`0289`, §5 ter) ;
   `journal_audit` : écriture seule. `portail` en **lecture** filtrée, doublée de
   `portail_sans_insert`, `portail_sans_update`, `portail_sans_delete` : client,
   missions partagées, jalons partagés, documents partagés au contenu validé et
@@ -370,6 +443,13 @@ soit le code appelant).
   `portail_sans_insert`, `portail_sans_update` et `portail_sans_delete` :
   `salle_demandes` (demandes envoyées ou closes de SON client), `salle_pieces` et
   `salle_accuses` ; `salle_modeles` et `salle_relances` sont `portail_interdit`.
+  Vague 4 (mise à jour du 2026-10-21) : `plan_ateliers`, `plan_atelier_options` et `plan_atelier_participants` en
+  lecture avec `portail_sans_insert/update/delete`, `plan_atelier_contributions` et
+  `plan_atelier_contribution_lignes` en `portail` FOR ALL (SA contribution, atelier ouvert où il est invité ; §5 bis) ;
+  les cinq tables `dd_portail_*` en lecture avec `portail_sans_insert/update/delete` (§8 octies).
+  Lot 4c (mise à jour du 2026-10-21) : `avancement_rapports` en lecture, rapports VALIDÉS de CE client dont la mission lui est
+  partagée, avec `portail_sans_insert`, `portail_sans_update` et `portail_sans_delete` (`0307`, §5 octies) ;
+  `avancement_parametres`, `ia_cache_reponses` et `ia_alertes_plafond_mission` sont `portail_interdit` (`0306`, `0278`).
   **Table `fichiers`** (`0331`) : `portail_sans_insert` est remplacée par
   `portail_depot` (insertion dans une transaction du portail seulement si
   `envoye_par` est l'utilisateur du portail) et la politique `portail` de lecture
@@ -407,11 +487,12 @@ soit le code appelant).
   `packages/shared/src/roles.ts` ; test `packages/shared/src/roles.test.ts`.
   Chaque route appelle `exiger(request, permission?)` (`auth/contexte.ts` :
   401 sans session, 403 sans droit), directement ou par `exigerPortail`. Sur
-  714 gestionnaires de route (2026-10-11, avec les 37 du redressement, lot 3a ; 677 sur `main`, 673 le
-  2026-10-10, plus `GET /brief` et les trois routes du copilote), seuls `POST /auth/connexion`,
+  990 gestionnaires de route (relevé du 2026-10-22, lot 9e, avec les 18 de l'ingestion de documents, §8 undecies ; 972 avec le lot 9c ; 957 avec le lot 9b, 921 avec le lot 9a, 714 le 2026-10-11, avec les 37 du redressement, lot 3a), seuls
+  `POST /auth/connexion`,
   `/auth/connexion/2fa`, `/auth/deconnexion`, `GET /auth/comptes-demo` et
   `POST /auth/connexion-demo` (démonstration, §3), `GET /sante`,
-  `POST /invitations/accepter` et `POST /portail/invitations/accepter` ne
+  `POST /invitations/accepter`, `POST /portail/invitations/accepter` et
+  `POST /canaux/whatsapp/webhook` (publique, signée HMAC, §9 bis) ne
   l'appellent pas (recherche mécanique n° 10 de
   `.claude/rules/review-checklist.md`).
 - **Visibilité des missions** : règle écrite en tête de `missions/acces.ts` :
@@ -491,6 +572,54 @@ soit le code appelant).
   présence du cookie (premier filtre) ; la garde réelle est `obtenirSession` /
   `exigerPermission` (`apps/web/src/lib/session.ts`) qui interroge l'API. Le web
   n'est jamais la source de vérité des droits.
+- **403 métier côté web (liste blanche opt-in, lot 10, A-01).** Par défaut, tout 403 de l'API lu par une page serveur
+  redirige vers `/acces-refuse` (`appelerApiServeur`, `chargerServeur`, `apps/web/src/lib/api-serveur.ts`). Un 403 qui
+  décrit l'ÉTAT du cabinet et non un défaut de droits (observatoire : `OBSERVATOIRE_CONTRIBUTION_REQUISE`,
+  `OBSERVATOIRE_RESERVE_ADHERENTS`, §5 sexies) peut être toléré par une page qui le déclare dans le paramètre
+  `codes403Metier` : le résultat porte alors `{ ok: false, message, statut, code }` (message de l'API) au lieu de la
+  redirection. La liste est **opt-in par appel, jamais par défaut** : `TFA_A_CONFIGURER` (page de sécurité du compte) et
+  `PORTAIL_ROUTE_INTERDITE` (espace client) redirigent TOUJOURS, même listés ; `INTERDIT` et tout code non listé vont à
+  `/acces-refuse`, de sorte qu'un code ajouté plus tard à l'API ne devient pas silencieusement « tolérable ». Seule la page
+  `/observatoire` (`CODES_403_AGREGATS`) déclare des codes ; l'audit du lot 10 n'a trouvé aucun autre 403 à code métier
+  sur une route `GET` (les autres sont des écritures). Test : `apps/web/src/lib/api-serveur.test.ts`. L'API reste la seule
+  source de vérité : la tolérance ne donne accès à aucune donnée, la réponse reste un refus affiché dans la page.
+- **Rafraîchissement après écriture (A-04, lot 10).** Ce n'est pas une garde de sécurité. Le hook
+  `components/formulaires/useRafraichir.ts` remplace les appels directs à `router.refresh()` (interdits hors
+  `FormulaireConnexion`) : le rafraîchissement a lieu dans une transition du composant, une relance à 1,5 s est
+  dédoublonnée par page, et l'attente est plafonnée à 8 s, de sorte qu'aucun bouton ne reste verrouillé. La cause du
+  défaut d'affichage périmé observé à la recette, longtemps restée non prouvée (hypothèse du lot 10 : commit de la
+  transition à basse priorité sur un onglet bridé, **écartée**), est **démontrée** depuis le lot 13a (2026-10-23, voir
+  « Écran périmé après écriture » ci-dessous). Soldé le 2026-10-22 (lot 12) : les
+  écrans web du lot 6 (ingestion, §8 undecies : `ImportEtatDocument`, `ImportEtatDocumentListe`, `BoutonRelance`,
+  `DocumentsLecture`, `DocumentsListe`, `DocumentsTeleversement`, `AmorcageDocuments`, `AmorcageProposition`), qui
+  appelaient encore `router.refresh()` en direct (12 appels dans 9 composants, fusionnés après le lot 10), passent par le
+  hook ; `ActualisationAuto` (rafraîchissement toutes les 3 s tant qu'un document est en cours de lecture) n'utilise
+  volontairement pas le hook complet (sa relance à 1,5 s et son attente créeraient des requêtes parasites à chaque
+  tick) mais `rafraichirEnTransition`, exporté par `useRafraichir.ts`, et saute un tick tant que la transition du
+  précédent n'est pas terminée (aucun empilement). Plus aucun appel direct à `router.refresh()` dans `apps/web/src`
+  hors `FormulaireConnexion`, voulu. Sans enjeu de sécurité.
+- **Écran périmé après écriture : cause démontrée et contournement (lot 13a, 2026-10-23 ; A-04, R-01, R-02).** Ce n'est
+  **pas une faille de sécurité** (aucune fuite de donnée, aucun contournement de droit) mais un défaut de **fiabilité
+  d'affichage**, inscrit ici parce qu'un écran périmé expose à agir sur une donnée obsolète. Cause : défaut du React
+  compilé embarqué par Next 15.5.28 pour l'App Router (`next/dist/compiled/react-dom`, version
+  `19.2.0-canary-0bdb9206-20250818`, et non le `react@19.3.0` du `package.json`). Un « ping » (réveil) est perdu quand un
+  morceau du flux RSC (Flight) passe à l'état `resolved_model` pendant le rendu d'une transition qui suspend sous une
+  frontière `Suspense` déjà affichée (celle de `loading.tsx`) : la racine garde sa voie de transition « suspendue » et
+  l'ancien écran reste affiché jusqu'à la prochaine mise à jour d'état non transitoire (frappe, secours à 8 s de
+  `useRafraichir`, minuterie de 60 s de la cloche de notifications, d'où les 30 à 60 s des liens `<Link>` sans effet de
+  R-02). Ce n'est ni un cache de données, ni l'onglet en arrière-plan, ni `useRafraichir`. Contournement :
+  `DebloqueurRendu` (`apps/web/src/components/shell/DebloqueurRendu.tsx`, noyau pur `debloqueur.ts`), monté une fois dans
+  `app/layout.tsx`. Un `PerformanceObserver` de type `resource`, limité aux réponses `_rsc` et aux morceaux
+  `/_next/static/chunks/` de la même origine, programme 4 mises à jour d'état minuscules et non transitoires à +40, +150,
+  +400 et +1 000 ms, qui effacent l'état « suspendu » de la racine. **Aucun réseau, aucune donnée lue** (seuls les noms
+  des ressources de la page, via Resource Timing, même origine), aucun nouvel en-tête, aucune route : ce n'est pas une
+  garde de sécurité. Mesures en build de production : donnée visible en 185 à 321 ms au lieu de 8,1 s dans les parcours
+  testés. **À REVOIR à chaque montée de Next ou de React** : si la version embarquée corrige le réveil, le composant
+  devient inutile mais reste inoffensif. Limites : non mesuré sur téléphone réel, Firefox et Safari ; un navigateur sans
+  Resource Timing garde le comportement d'origine, avec les filets de `useRafraichir` ; un blocage plus d'une seconde
+  après la dernière réponse ne serait pas rattrapé (aucun cas observé). Notes : `docs/workflows/notes-lots/lot-13a.md`.
+  Test : `apps/web/src/components/shell/debloqueur.test.ts` (noyau pur seulement ; la preuve de bout en bout est la
+  mesure dans le navigateur).
 
 ## 5 bis. Questionnaires, notation, KPI et plans (V2)
 
@@ -553,7 +682,8 @@ soit le code appelant).
   (`MPS04`) et est **retiré** à toute écriture qui produit un contenu non
   validé (création d'élément, version brouillon ou modifiée, nouvelle version
   du modèle ; `plans/partage.ts`, journal `plan.retirer_partage`). Aucune
-  route du portail ne sert encore un plan : les tables sont `portail_interdit`.
+  route du portail ne sert un plan : les tables sont `portail_interdit` (les ateliers, ci-dessous, sont
+  un objet distinct du plan).
   Vague 0 : **dépendances** entre initiatives (PLA-05, `0184`) dans le contenu
   versionné, contrôlées par le moteur (cycles) puis par la base (`MPS02` : autre
   initiative du même plan, 20 au plus) ; recalage de la feuille de route
@@ -613,6 +743,52 @@ soit le code appelant).
   ces lots utilisent `dateIsoBorneeSchema` (2000-01-01 à 2100-12-31, `packages/shared/src/schemas/commun.ts`),
   l'intervalle des CHECK SQL ; une violation de CHECK qui échapperait au schéma (SQLSTATE 23514) est
   traduite en 400 `REQUETE_INVALIDE`, jamais en 500.
+- **Plans stratégiques augmentés, lot 5a** (PLA-15, PLA-16, PLA-18 et NOT-12 ; mise à jour du 2026-10-21 ;
+  `plans/ateliers*.ts`, `plans/montecarlo.ts`, `plans/reprevision*.ts`, `packages/engines/src/notation/combinaisons.ts`,
+  `routes/plans-ateliers.ts`, `routes/portail-ateliers.ts`, `routes/plans-montecarlo.ts`,
+  `routes/plans-reprevisions.ts`, migrations `0425`–`0426`, `0429`, `0430`–`0432` ; NOT-12 n'a aucune
+  migration : sa liaison à l'IA passe par `ia_demandes.entite_type` et `entite_id`) :
+  - **Portail des ateliers.** Trois routes dans `LISTE_BLANCHE_PORTAIL` (§4 bis) : `GET /api/portail/ateliers`,
+    `GET /api/portail/ateliers/:id`, `PUT /api/portail/ateliers/:id/contribution/:methode`, sous la permission
+    `portail.ateliers.participer` (`client_dirigeant` seul, `roles.ts` ; ni le contributeur ni l'investisseur).
+    Le dirigeant ne voit que les ateliers OUVERTS où il est invité et SA contribution ; jamais l'agrégat, la
+    contribution d'autrui, la synthèse IA, le nom du cabinet, ni l'identifiant d'un plan ou d'une mission.
+    Même 404 pour un atelier inexistant, d'autrui, non invité ou non ouvert.
+  - **RLS.** `plan_ateliers`, `plan_atelier_options` et `plan_atelier_participants` : politique `portail` en
+    lecture + `portail_sans_insert/update/delete` ; `plan_atelier_contributions` et
+    `plan_atelier_contribution_lignes` : politique `portail` FOR ALL (SON client, SON utilisateur, atelier ouvert où
+    il est invité). `plan_simulations_montecarlo`, `plan_realises` et `plan_reprevisions` : `portail_interdit`.
+    Piège : la politique de `plan_atelier_participants` ne référence aucune autre table (récursion de RLS).
+  - **Anonymat des ateliers.** Les contributions individuelles ne sont jamais servies ; les agrégats ne sont
+    visibles du cabinet qu'APRÈS la clôture de l'atelier (avant : le seul taux de participation). **Seuil de
+    3 participants** (lot 8b, `SEUIL_PARTICIPANTS_AGREGATS`, `plans/ateliers-resultats.ts`, valeur provisoire à
+    valider) appliqué PAR MÉTHODE (`appliquerSeuil`) sur les participants AYANT CONTRIBUÉ à cette méthode, effectif
+    figé à la clôture : une méthode sous le seuil est servie sous la forme `{ resultat: null, masque_seuil: true,
+    seuil_participants: 3 }`, sans agrégat, fait ni effectif ; la vue porte `methodes_masquees`, et `resultats`
+    vaut `null` (avec `masque_seuil` à vrai) seulement si TOUTES les méthodes sont masquées. Le compteur global
+    `ayant_contribue` des résultats figés n'est pas servi (il ne dit rien par méthode). La synthèse IA ne reçoit que
+    les méthodes publiées (409 `ATELIER_AGREGATS_MASQUES` si aucune ne l'est, `plans/ateliers-synthese.ts`).
+    **Candidats à l'invitation** (`candidatsAtelier`, `plans/ateliers.ts`) : lecture bornée par des plafonds
+    déclarés et exportés (`CANDIDATS_CABINET_LUS_MAX` 500 utilisateurs examinés, `CANDIDATS_CABINET_MAX` 200 et
+    `CANDIDATS_DIRIGEANTS_MAX` 200 candidats rendus) ; au-delà, la réponse porte `tronque: true` (pas de
+    pagination : le filtrage par droits se fait après le SQL, §15).
+  - **Contenu IA** (orchestrateur, §7 bis). Trois nouveaux brouillons rattachés à `ia_demandes`
+    (`notation_explication`, `plan_atelier`, `plan_reprevision`), prompts `notation_explication_commentaire`,
+    `plan_atelier_synthese` et `plan_reprevision_explication` ; les chiffres citables sont construits côté serveur
+    depuis les moteurs ; les libellés et commentaires saisis sont des données non fiables (pour l'explication
+    du commentaire de notation, la variable `texte` est déclarée non fiable : `variablesNonFiables`,
+    `VARIABLES_NON_FIABLES_EXPLICATION` dans `notation/explication-prompt.ts`) ; rien n'est servi au
+    portail ; validation par `/ia/generations/:id/valider` (brouillon IA, modifié, validé).
+  - **Monte-Carlo (PLA-16).** La graine est tirée par l'API (`crypto.randomInt`) si elle est absente, jamais par le
+    moteur (qui reste pur et déterministe) ; 2 000 tirages au plus ; 30 simulations par utilisateur et par 10
+    minutes (compte en base ET déclencheur `MQL14`, 429 côté API) et 100 par plan (`MQL12`) ; résultat en ajout
+    seul (`MQL10`), figé (`MQL13`). Le **rejeu** (POST sans écriture métier, `plan.lire`) coûte environ 0,3 s et est
+    LIMITÉ (lot 8b, migration `0432`) : 5 rejeux par plan et par 10 minutes, TOUS utilisateurs confondus (429
+    `TROP_DE_REJEUX`), comptés dans la table `plan_rejeux_montecarlo` (RLS `isolation` et `portail_interdit`,
+    sans `UPDATE`), sous un verrou consultatif par plan ; les lignes de plus d'une heure sont purgées à chaque
+    rejeu. Valeur provisoire, à valider ; un seul utilisateur peut épuiser les 5 rejeux du plan (§15).
+  - **Plan vivant (PLA-18).** Réalisés trimestriels et re-prévisions versionnés, en ajout seul (`MQL15`–`MQL24`),
+    `portail_interdit` : les états financiers du client ne vont jamais au portail.
 
 ## 5 ter. Qualité et responsabilité professionnelle (lot QUA, PRD complémentaire §10)
 
@@ -693,10 +869,108 @@ pas la séparation des tâches.
   `qualite.session.*`, `qualite.acceptation.evaluer`, `qualite.relation.*`,
   `qualite.satisfaction.saisir`) sans le texte des commentaires.
 - **Limites connues.** Temps de revue : session plafonnée à 2 h (une session oubliée n'enfle pas le
-  temps) ; pas de revue à froid (QUA-05, V4) ; le module des plans n'ouvre pas le suivi d'un plan
-  (seul son RAPPORT généré est suivi) ; pas de génération de rapport d'état financier (type `etat`),
-  donc pas de branchement ; une définition « notation » copiée dans un cabinet avant le 2026-10-08
+  temps) ; le module des plans n'ouvre pas le suivi d'un plan
+  (seul son RAPPORT généré est suivi) ; le rapport d'état financier et le rapport de clôture du redressement ouvrent, comme tout rapport enregistré (`rapports/enregistrement.ts`), un suivi de type `rapport` (R2 au minimum ; la classe R3 du rapport de clôture n'est pas automatique, §15) ; une définition « notation » copiée dans un cabinet avant le 2026-10-08
   garde l'item `notation_publiee` (nouvelle version de définition à créer).
+
+**Revue à froid des missions clôturées (QUA-05, lot 4a ; mise à jour du 2026-10-21).** Code : `apps/api/src/qualite/froide-*.ts`, `routes/qualite-froide.ts`, moteur
+`packages/engines/src/qualite` (`echantillonnage.ts`, `evaluerIndependanceRelecteur`), migrations
+`0287`–`0289` (six tables : `qualite_froide_campagnes`, `_echantillon`, `_evaluations`, `_constats`,
+`_actions`, `_actions_historique`), SQLSTATE du second préfixe `MQQ01`–`MQQ13` (déclaré en §6) ; migration `0290` (lot 8b, réaffectation).
+
+- **Droits.** `qualite.froide.gerer` : associé seul (tirage, affectation, clôture de campagne, plan
+  d'amélioration) ; `qualite.froide.relire` : associé, directeur de mission, expert métier (relecteur
+  indépendant) ; les responsables d'actions suivent leurs actions avec `mission.lire`. 19 routes sous
+  `/api/qualite/revue-froide/**`, toutes sous `exiger` (y compris `exigerLectureRevue`), **aucune dans
+  `LISTE_BLANCHE_PORTAIL`** (403 `PORTAIL_ROUTE_INTERDITE`, testé) ; les six tables sont `portail_interdit`
+  et sans suppression.
+- **Indépendance du relecteur, doublée en base.** Un relecteur n'est ni directeur, chef, membre d'équipe,
+  affecté du planning, créateur, clôtureur ou signataire de la mission, ni auteur, ouvreur, valideur,
+  signataire ou attestateur d'un suivi qualité de celle-ci. Deux implémentations alignées : le moteur
+  (`evaluerIndependanceRelecteur`) et le déclencheur `qualite_froide_violations()` de `0287` (`MQQ03`) ;
+  l'habilitation (`MQQ07`) reprend les rôles de `qualite.froide.relire`. Aucun jour consommé n'est imputé à la
+  revue ; l'associé réaffecte.
+- **Réaffectation et liste « mes revues » (lot 8b).** Un relecteur ne se remplace plus une fois la revue
+  commencée : `affecterRelecteur` refuse l'échantillon `en_revue` (409 `REAFFECTATION_EN_REVUE`), et le
+  déclencheur `qualite_froide_echantillon_controle_reaffectation` (`0290`, SQLSTATE `MQQ13`, distinct de celui de
+  `0287`, classé après lui pour que `MQQ04` garde la priorité sur une revue terminée) le refuse aussi en base ;
+  la réaffectation reste permise tant que la revue est `affectee`. `GET /api/qualite/revue-froide/mes-revues`
+  est paginé par curseur keyset (`mesRevuesQuerySchema` strict : `limite` de 1 à 100, 50 par défaut, `curseur` de
+  500 caractères au plus ; réponse `{ elements, curseur_suivant }`) ; le curseur est propre à cette liste (tri à
+  directions mixtes : revues non terminées d'abord, affectation la plus récente d'abord, puis identifiant),
+  décodé et validé par Zod, et un curseur invalide donne 400. L'ancien plafond fixe de 200 revues par relecteur
+  (`LIMIT 200`) n'existe plus. Valeurs de départ (50, 100) à valider (`DECISIONS.md`).
+- **Figé.** Critères, graine, population copiée (5 000 missions au plus, avec son empreinte) et échantillon sont
+  immuables après le tirage (`MQQ02`, le tirage se rejoue à l'identique) ; une revue terminée est figée
+  (`MQQ04`) ; l'historique des actions est en ajout seul (`MQQ01`). La grille « complète » (8 critères) est codée
+  en dur dans le déclencheur : une grille v2 exige une migration. Plafonds : 100 missions par échantillon, 100
+  constats par revue, 500 actions par campagne (`MQQ09`).
+- **Second préfixe SQLSTATE `MQ…`.** Toutes les lettres simples `MP?` sont prises : la règle de
+  [CODING_STANDARDS.md](CODING_STANDARDS.md) §2 ouvre un second préfixe `MQ` suivi d'une lettre de domaine
+  et de deux chiffres. Domaines déclarés : `MQD` due diligence (§8 octies), `MQC` canaux (déclaré, aucun
+  code employé), `MQS` référentiel de méthodes (STD-11, `0210`), `MQQ` revue à froid (`0287`–`0290`), `MQF`
+  groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
+  code employé), `MQK` capitalisation (efficacité des recommandations et observatoire, §5 sexies), `MQA`
+  veille des appels d'offres (§6) `MQV` services candidats (§8 decies), `MQI` IA (cache, revue contradictoire, §7 bis), `MQU` rapport d'avancement
+  hebdomadaire (§5 octies) et `MQG` ingestion de documents (`0521` et `0522`, §8 undecies). Table des codes de ce paragraphe et
+  du STD-11 (les codes d'API sont ceux des routes ; codes `MQD`, `MQF`, `MQL` : §6) :
+
+  | SQLSTATE | Code d'API                     | HTTP | Sens                                                               |
+  | -------- | ------------------------------ | ---- | ------------------------------------------------------------------ |
+  | `MQS01`  | `FACTEUR_FIGE`                 | 409  | identité, type, porteur d'un facteur figés ; facteur du standard   |
+  | `MQS02`  | `FACTEUR_RETRAIT_INTERDIT`     | 409  | valeur d'énumération retirée ou borne resserrée                    |
+  | `MQQ01`  | `FROIDE_HISTORIQUE_IMMUABLE`   | 409  | historique des actions en ajout seul                               |
+  | `MQQ02`  | `FROIDE_CAMPAGNE_FIGEE`        | 409  | critères, graine, population, échantillon figés après le tirage    |
+  | `MQQ03`  | `RELECTEUR_NON_INDEPENDANT`    | 409  | séparation des tâches du relecteur (doublée en base)               |
+  | `MQQ04`  | `REVUE_FROIDE_TERMINEE`        | 409  | revue terminée figée                                               |
+  | `MQQ05`  | `MISSION_TIREE_INVALIDE`       | 409  | mission tirée non clôturée ou d'un autre cabinet                   |
+  | `MQQ06`  | `ACTION_TRANSITION_IMPOSSIBLE` | 409  | transition de statut d'action interdite                            |
+  | `MQQ07`  | `RELECTEUR_NON_HABILITE`       | 409  | relecteur sans rôle associé, directeur de mission ou expert métier |
+  | `MQQ08`  | `RESPONSABLE_INVALIDE`         | 400  | responsable d'action inactif ou inconnu                            |
+  | `MQQ09`  | `PLAFOND_ATTEINT`              | 409  | 100 constats par revue, 500 actions par campagne                   |
+  | `MQQ10`  | `REVUES_NON_TERMINEES`         | 409  | clôture de campagne avant la fin des revues                        |
+  | `MQQ11`  | `REVUE_ETAT_IMPOSSIBLE`        | 409  | état de revue incompatible                                         |
+  | `MQQ12`  | `CONSTAT_INVALIDE`             | 409  | constat lié à une action hors revue terminée de la campagne        |
+  | `MQQ13`  | `REAFFECTATION_EN_REVUE`       | 409  | relecteur remplacé alors que la revue est commencée (`0290`)       |
+  | `MQK01`  | `HISTORIQUE_AJOUT_SEUL`        | 409  | historique et instantanés d'efficacité en ajout seul (CAP-03)      |
+  | `MQK02`  | `REQUETE_INVALIDE`             | 400  | KPI ou initiative hors de la mission de la recommandation          |
+  | `MQK03`  | `IDENTITE_FIGEE`               | 409  | identité d'une recommandation figée                                |
+  | `MQK04`  | `TRANSITION_INTERDITE`         | 409  | transition de statut interdite, état terminal, date de mise en oeuvre future |
+  | `MQK05`  | `NON_MISE_EN_OEUVRE`           | 409  | instantané d'efficacité sur une recommandation non mise en oeuvre  |
+  | `MQK20`  | `HISTORIQUE_AJOUT_SEUL`        | 409  | historique d'adhésion à l'observatoire en ajout seul (CAP-04)      |
+  | `MQK21`  | `OBSERVATOIRE_TRANSITION_REFUSEE` | 409 | adhérer en étant adhérent, se retirer sans l'être                |
+  | `MQK22`  | `OBSERVATOIRE_ADHESION_INACTIVE` | 409 | versement refusé : adhésion inactive                              |
+  | `MQK23`  | `OBSERVATOIRE_CONTRIBUTION_IMMUABLE` | 409 | contribution jamais modifiée (le retrait est une suppression) |
+  | `MQK24`  | `INTERDIT`                     | 403  | `obs_agregats` hors contexte de cabinet ou dans le portail         |
+  | `MQK25`  | `OBSERVATOIRE_RESERVE_ADHERENTS` | 403 | `obs_agregats` : cabinet sans adhésion active                     |
+  | `MQK26`  | `REQUETE_INVALIDE`             | 400  | `obs_agregats` : indicateur inconnu                                |
+  | `MQK27`  | `OBSERVATOIRE_CONTRIBUTION_REQUISE` | 403 | `obs_agregats` : cabinet adhérent sans contribution éligible   |
+  | `MQA01`  | `AO_VEILLE_HISTORIQUE_IMMUABLE` | 409 | historique de la veille en ajout seul (AO-01)                     |
+  | `MQA02`  | `AO_VEILLE_TRANSITION_REFUSEE` | 409  | transition de statut d'un résultat de veille refusée               |
+  | `MQA03`  | `AO_VEILLE_PLAFOND`            | 409  | 5 000 résultats de veille par cabinet                              |
+  | `MQA04`  | `AO_VEILLE_PLAFOND_OCCURRENCES` | 409 | 500 occurrences par résultat                                       |
+  | `MQA05`  | `AO_VEILLE_DECISION_INCOHERENTE` | 409 | décision incohérente avec l'état du résultat                      |
+  | `MQV01`  | `GUICHET_FIGE`                 | 409  | identité d'un guichet de financement figée                         |
+  | `MQV02`  | `PLAFOND_GUICHETS_ATTEINT`     | 409  | 500 guichets par cabinet                                           |
+  | `MQI01`  | (aucun, filet de la base)      | -    | écriture dans le cache IA d'un cabinet au cache désactivé (`0278`) |
+  | `MQI50`  | `REVUE_INCOHERENTE`            | 409  | revue contradictoire sans brouillon relu, relisant une revue ou d'une autre mission (`0279`) |
+  | `MQU01`  | `RAPPORT_VALIDE`               | 409  | rapport d'avancement validé : figé (`0307`)                        |
+  | `MQU02`  | `INTERDIT`                     | 403  | validateur autre qu'un associé, le directeur ou le chef de la mission |
+  | `MQU03`  | (aucun, filet de la base)      | -    | rapport créé hors brouillon, ou mission, client, semaine modifiés  |
+  | `MQU04`  | (aucun, filet de la base)      | -    | client du rapport différent de celui de la mission                 |
+  | `MQU05`  | `MISSION_NON_ACTIVE`           | 409  | brouillon sur une mission ni signée ni en cours                    |
+  | `MQU07`  | (aucun, filet de la base)      | -    | suppression d'un rapport d'avancement                              |
+  | `MQG01`  | (aucun, filet de la base)      | -    | document ingéré : suppression, naissance hors `en_file`, identité modifiée, document terminé modifié, transition de statut refusée (`0521`) |
+  | `MQG02`  | `VALIDATION_REQUISE`           | 403  | extraction : suppression, naissance hors `brouillon_ia`, identité modifiée, extraction tranchée modifiée, retour à `brouillon_ia`, contenu changé à la validation, valideur égal à l'auteur du téléversement, au demandeur de la lecture ou au dernier modificateur sauf associé (`0522`) |
+  | `MQG03`  | `VERSION_PUBLIEE`              | 409  | version cible d'un amorçage qui n'est pas un brouillon du cabinet (`0521`) |
+
+  `MQU06` n'est pas utilisé (les migrations `0306` et `0307` réservent `MQU01` à `MQU10` au chantier, quatre codes
+  restent libres : `MQU06`, `MQU08` à `MQU10`). `MQI01` est avalé par l'orchestrateur (`ia/orchestrateur.ts` : un échec
+  d'écriture du cache ne fait jamais échouer la génération) ; `MQI02` à `MQI49` ne sont pas employés.
+
+  Codes émis par l'API seule : `POPULATION_TROP_GRANDE`, `POPULATION_VIDE`, `GRILLE_INCOMPLETE`
+  (`details.manquants`), `GRILLE_SANS_NOTE`, `CAMPAGNE_CLOSE`, `ACTION_CLOSE`, `ECHEANCE_PASSEE`,
+  `MISSION_DEJA_TIREE`, `STANDARD_LECTURE_SEULE` (facteur du standard, 403).
 
 ## 5 quater. Pilotage augmenté des KPI (KPI-13, KPI-15, KPI-17, KPI-18)
 
@@ -939,8 +1213,58 @@ Lot de la vague 3 (PRD complémentaire §12 ; migrations `0460`–`0465`, code
   version courante sans verbatim nominatif masqué, retours d'expérience validés seulement ; plafond de
   60 recherches par utilisateur et par minute (429 `TROP_DE_RECHERCHES`, comptées sur `journal_audit`) ;
   chaque recherche est journalisée SANS le texte cherché. Index GIN sur les mêmes expressions (`0464`) ;
-  aucune donnée copiée. Aucune agrégation entre cabinets : l'observatoire inter-cabinets (CAP-04,
-  adhésion volontaire, `DECISIONS.md`) n'existe pas.
+  aucune donnée copiée. Aucune agrégation entre cabinets dans la recherche ni dans les autres
+  fonctions du lot : le seul chemin inter-cabinets est l'observatoire (CAP-04, ci-dessous).
+- **Efficacité des recommandations** (CAP-03, lot 5b ; migrations `0466`–`0467`, code
+  `capitalisation/efficacite.ts`, routes `routes/capitalisation-efficacite.ts`, 8 routes) : trois tables
+  (`cap_recommandations`, `cap_recommandation_statuts`, `cap_efficacite_mesures`), toutes à RLS et
+  `portail_interdit` ; historique et instantanés en ajout seul (`MQK01`), identité de la recommandation figée
+  (`MQK03`), transitions de statut gardées (`MQK04`), instantané refusé sur une recommandation non mise en oeuvre
+  (`MQK05`), KPI et initiative de la mission de la recommandation (`MQK02`) ; table des codes en §5 ter. Le seuil
+  d'affichage d'un score par contexte ne peut que RELEVER le masquage : plancher de 5 observations non abaissable
+  (`EFFICACITE_SEUIL_OBSERVATIONS_MIN`, schéma Zod et moteur ; 400 en dessous) ; l'effectif d'un contexte sous
+  le seuil n'est pas servi (`effectif: null`) ; la liste des recommandations masque libellé, mission, type
+  d'initiative, secteur, taille et score pour une mission non visible de l'utilisateur.
+- **Observatoire inter-cabinets** (CAP-04, lot 5b ; migrations `0470`–`0472`, code
+  `capitalisation/observatoire.ts` et `observatoire-erreurs.ts`, moteur
+  `packages/engines/src/capitalisation/observatoire.ts`, routes `routes/observatoire.ts`, 8 routes ; un seul
+  indicateur, `notation_score_global`). Adhésion volontaire ; adhérer, se retirer, verser et retirer ses
+  contributions relèvent de `observatoire.adherer` (associé seul), la consultation de `observatoire.lire`
+  (associé et directeur de mission). Aucune route dans `LISTE_BLANCHE_PORTAIL`.
+  - **Cloisonnement** : `obs_adhesion_evenements` (ajout seul, `MQK20`, transitions gardées `MQK21`) et
+    `obs_contributions` (immuable, `MQK23` ; versement refusé sans adhésion active, `MQK22`) portent la RLS
+    `isolation` et la politique RESTRICTIVE `portail_interdit` : un cabinet ne voit que ses lignes. Le SEUL chemin
+    inter-cabinets est la fonction `obs_agregats(p_indicateur)` (`0472`) : `SECURITY DEFINER`,
+    `SET search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC` puis accordé au rôle applicatif seul. Elle
+    refuse hors contexte de cabinet et dans une transaction du portail (`MQK24`), un indicateur inconnu (`MQK26`),
+    un cabinet sans adhésion active (`MQK25`) et un cabinet adhérent SANS contribution éligible (`MQK27`, 403
+    `OBSERVATOIRE_CONTRIBUTION_REQUISE`) : l'accès est réservé aux CONTRIBUTEURS (PRD complémentaire §21,
+    décision n° 1 ; éligible = mois civil clos, versée depuis la dernière adhésion ; contrôle doublé dans
+    `agregats()` côté API). Elle ne renvoie que des agrégats par case (secteur × taille), jamais une ligne ni un
+    identifiant, et SEULEMENT au-dessus des seuils : une case sous seuil n'est pas renvoyée du tout (ni valeur ni
+    existence).
+  - **Seuils HORS du cabinet appelant (règle « des autres »)** : une case n'est publiée que si elle compte au
+    moins 5 entreprises ET au moins 3 cabinets AUTRES que l'appelant (colonnes `effectif_entreprises_autres` et
+    `effectif_cabinets_autres` ; hypothèse prudente : « 5 entreprises » compté aussi hors appelant). En
+    retranchant ses propres données, un cabinet ne peut donc pas isoler moins de 3 autres cabinets ni moins de 5
+    autres entreprises. Les statistiques publiées incluent les données de l'appelant. Le moteur re-vérifie ces
+    seuils sur les colonnes `*_autres`, calcule les marges des seules cases publiées (pas d'attaque par
+    différence) et arrondit : moyenne, médiane et quartiles au point, effectif à la tranche de 5, quartiles et
+    répartition seulement à partir de 10 entreprises.
+  - **Différence temporelle** : gel mensuel (seuls les versements d'un mois civil UTC clos comptent, le dernier de
+    chaque cabinet) ; une ré-adhésion n'est prise en compte qu'avec un NOUVEAU versement
+    (`verse_le >=` date de la dernière adhésion) ; les versements sont sérialisés par un verrou consultatif (sans
+    lui, une double soumission doublerait les entreprises d'un cabinet et franchirait indûment le seuil).
+  - **Risques résiduels** : (a) le retrait d'adhésion ou de contributions est IMMÉDIAT (exclusion aussitôt des
+    agrégats) : un adhérent qui compare deux lectures en déduit approximativement l'effet ; (b) les statistiques
+    publiées incluent les données de l'appelant (voir ci-dessus) ; (c) COLLUSION : trois cabinets contributeurs qui
+    se concertent (chacun connaît ses propres valeurs) peuvent reconstituer ce que porte un quatrième ; la règle
+    des autres protège contre un cabinet seul, pas contre une entente (limite assumée, à encadrer par les
+    conditions d'adhésion) ; (c bis) effet de bord : avec exactement 3 contributeurs dans une case, elle est
+    MASQUÉE pour chacun d'eux (les « autres » ne sont que 2) mais publiée pour un tiers qui contribue ailleurs, et
+    devient publiée pour tous à 4 cabinets ; (c ter) le secteur est classé par mots-clés (faux positifs possibles,
+    sans enjeu de sécurité) ; (d) les contributions d'un cabinet retiré restent en base, exclues des agrégats,
+    jusqu'à ce qu'il les retire (`DELETE` autorisé sur ses lignes).
 - **Prévisions et pré-remplissage** (AUT-12, AUT-09) : voir §6.
 
 ## 5 septies. Brief quotidien par rôle (AUT-07)
@@ -953,9 +1277,30 @@ calcul fait à la demande, rien n'est stocké.
 
 - **Calcul déterministe, sans IA** : les sources (`brief/*.ts`) lisent des FAITS dans les droits de
   l'utilisateur connecté et les remettent au moteur, seul juge de la gravité, de l'ordre et du
-  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 27 types d'éléments en trois familles :
-  « À décider » (13), « Ça dérive » (8), « Prêt à envoyer » (6), à raison de 26 sources (le KPI au
-  rouge et le KPI à l'orange de deux périodes de suite partagent une source).
+  bornage ; aucun appel à un modèle, aucun `SUM`/`AVG` en SQL. 31 types d'éléments en trois familles :
+  « À décider » (16), « Ça dérive » (9), « Prêt à envoyer » (6), à raison de 30 sources (le KPI au
+  rouge et le KPI à l'orange de deux périodes de suite partagent une source). Sources ajoutées
+  (mise à jour du 2026-10-21) : offre technique d'appel d'offres dont la dernière version n'est pas
+  validée (`ao.gerer`, hors créateur, auteur de version et demandeur de génération IA ; sans visibilité
+  de mission, une offre n'ayant pas de mission) ; plan (`plan.valider` ET responsable de la mission
+  visible et non clôturée ; contenu `modifie` ou `brouillon_ia`, ou modèle financier non validé ; hors
+  contenu écrit depuis la dernière validation et hors modèle dont l'utilisateur est l'auteur) ; révision
+  de budget non figée (`budget.reviser`, directeur de la mission ou associé, mission signée, en cours ou
+  à clôturer et visible, hors auteur ; palier FIN-15 recalculé pour un non-associé ; jamais de montant,
+  de jour, de devise ni d'écart : FIN-02). **Le brief n'exempte aucun associé de la séparation des
+  tâches** (plus strict que les routes).
+- **Voyant rouge du redressement (lot 8b, type `voyant_rouge`, famille « Ça dérive », source
+  `voyantsRedressementRouges`, `brief/derives.ts`).** Derrière `redressement.lire` ET la visibilité de mission
+  (même `VISIBLE` que les autres sources) ; dossiers non clos d'une mission non clôturée seulement (un dossier clos
+  est exclu par prudence : son suivi relève de son propre écran, choix et non dette). Au plus 50 dossiers lus
+  (`PLAFOND_DOSSIERS_VOYANT`) et 20 ÉVALUÉS par requête (`PLAFOND_EVALUATIONS_VOYANT`, valeurs provisoires : chaque
+  évaluation lit plusieurs tables) ; le moteur du redressement (`rassemblerDonneesVoyant` puis
+  `calculerEtatVoyant`) reste seul juge, et seul le ROUGE produit un élément. Ne sortent que les libellés des
+  motifs CRITIQUES (5 au plus, 200 caractères chacun : décomptes de semaines, de covenants ou d'actions) ; AUCUN
+  montant ni devise, même avec `finance.lire` (FIN-02). Un dossier dont l'évaluation lève une
+  `ErreurRedressement` est isolé : ignoré, source marquée interrompue, famille tronquée, les autres dossiers
+  restent servis (jamais un 500). Lien `/missions/<id>/redressement`. L'automatisation de ce voyant (événement,
+  notification, canal) n'est pas branchée (§8 nonies).
 - **Droits** : `GET /api/brief` exige `brief.lire` (tous les rôles du cabinet, l'expert externe
   compris ; jamais un rôle du portail). Chaque source n'est consultée que si l'utilisateur détient la
   permission de l'action qu'elle propose (jamais par nom de rôle) ET applique la visibilité des missions
@@ -974,24 +1319,28 @@ calcul fait à la demande, rien n'est stocké.
   `PORTAIL_ROUTE_INTERDITE`).
 - **Requête** : `?date=AAAA-MM-JJ` facultatif (rejeu à une autre date), borné de 2000 à 2100
   (`dateIsoBorneeSchema`), schéma strict ; réponse `private, no-store`.
-- **Plafond de débit EN MÉMOIRE (exception documentée au modèle `journal_audit`)** :
-  60 requêtes par utilisateur et par 10 minutes glissantes (429 `TROP_DE_REQUETES_BRIEF`),
-  contrôlé AVANT le calcul (`brief/debit.ts`). Les autres plafonds de débit du dépôt (PDF, copilote,
-  salle de mission) se comptent sur `journal_audit` ; celui-ci est une lecture que la page
-  d'accueil répète à chaque affichage, et une ligne de journal par affichage coûterait plus que le
-  calcul protégé. **Limite** : le compteur est propre à chaque processus de l'API (n instances : au
-  plus n fois 60) et repart à zéro au redémarrage ; il borne l'emballement d'un client ou d'un
-  script, pas un abus distribué (§15). Il suit au plus 10 000 utilisateurs, puis balaie les entrées
-  échues. Valeur à valider (`DECISIONS.md`).
+- **Plafond de débit PERSISTANT** : 60 requêtes par utilisateur et par 10 minutes (429
+  `TROP_DE_REQUETES_BRIEF`), contrôlé AVANT le calcul, par le limiteur persistant (`brief/debit.ts`, `auth/limiteur.ts`,
+  espace `brief_requetes`, migration `0550`, clé = identifiant de l'utilisateur en HMAC ; capacité
+  100 000 clés), donc partagé entre les instances de l'API et conservé au redémarrage. Il ne passe plus
+  par `journal_audit` ni par un compteur en mémoire (l'ancienne exception « plafond en mémoire » est
+  levée). Coût : une transaction courte en base par appel du brief. `0550` redéfinit
+  `tentatives_auth_regles` avec ses six espaces (`connexion`, `reauth`, `facteur`, `webhook_canal`,
+  `webhook_invalide`, `brief_requetes`) ; le migrateur applique par ordre alphabétique, donc toute
+  nouvelle redéfinition porte un numéro supérieur à `0550` et reprend les six espaces. Valeur à
+  valider (`DECISIONS.md`).
 - **Totaux « au moins N »** : les sources dont le filtre final se fait en code (garde humaine, solde,
   lecture bornée de missions ou de KPI) ne savent pas combien de lignes non lues auraient été
   retenues : la famille est marquée `tronque` et son total est un minimum, jamais un nombre gonflé
   de lignes peut-être écartées (`enSourceFiltree`). Chaque source lit au plus 50 lignes
-  (`PLAFOND_PAR_SOURCE`) et chaque famille sert 10 éléments au plus.
-- **Sources écartées** (non reprises, faute d'état exploitable ou par choix) : offres techniques à
-  valider, plans, révisions de budget, rapports « validés non diffusés » (aucune trace de diffusion
-  n'existe pour les distinguer) ; un livrable signé n'est signalé que dans une fenêtre de 7 jours
-  après sa signature, une facture émise non envoyée que pendant 30 jours.
+  (`PLAFOND_PAR_SOURCE`) et chaque famille sert 10 éléments au plus (le voyant rouge n'évalue que 20 dossiers par
+  requête, ci-dessus).
+- **Source encore écartée** : rapports « validés non diffusés ». `rapports_mission` est en ajout seul,
+  son `statut` `valide` est fixé à la génération par le code, et aucune table d'envoi, de partage du
+  portail ni de signature ne le référence (le seul vestige, `journal_audit` `telechargement`, est
+  interne) ; à rouvrir quand une trace de diffusion au client existera (§15). Un livrable signé n'est
+  signalé que dans une fenêtre de 7 jours après sa signature, une facture émise non envoyée que pendant
+  30 jours.
 - **Tâche quotidienne `brief_quotidien`** (`brief/quotidien.ts`, inscrite au `REGISTRE_JOBS`, test
   `jobs-registre.test.ts`) : planifiée chaque JOUR OUVRÉ (lundi à vendredi, sans jours fériés) à
   7 h UTC, une par cabinet ayant un utilisateur interne actif et par jour (clé `brief_quotidien:AAAA-MM-JJ`),
@@ -1009,6 +1358,52 @@ calcul fait à la demande, rien n'est stocké.
   une échéance dépassée (jalon, tâche, feuille, questionnaire) à 3 et 14 jours de retard ; une facture
   échue à 15 et 45 jours ; un atterrissage au-delà de 5 % du budget en jours est « moyen », au-delà
   de 15 % « haut » ; un KPI au rouge est « haut », à l'orange deux périodes de suite « moyen ».
+
+## 5 octies. Rapport d'avancement hebdomadaire (AUT-10, lot 4c)
+
+Migrations `0306` à `0308`, code `apps/api/src/automatisation/avancement-{service,job,lecture,ia}.ts`, routes
+`routes/automatisation-avancement.ts` (cabinet) et `routes/portail-avancement.ts` (portail, `portail/avancement.ts`), moteur pur
+`packages/engines/src/avancement`, schémas `packages/shared/src/schemas/automatisation.ts`. Un brouillon est préparé chaque
+semaine pour chaque mission signée ou en cours ; le chef de mission le relit, le complète et le valide ; seul le rapport
+VALIDÉ est visible du client.
+
+- **Chiffres du moteur seul** : le contenu (`avancement_rapports.contenu`, jsonb) est produit par `composerAvancementHebdo`
+  puis relu par `contenuAvancementSchema` (liste blanche : une clé inconnue est écartée à la lecture) ; aucune donnée
+  financière interne (FIN-02), ni budget en jours, ni temps par personne : le schéma n'a pas de champ pour eux.
+- **Droits côté cabinet** : lecture `avancement.lire`, modification, régénération et validation `avancement.valider` (associé,
+  directeur de mission, chef de mission) ; la mission doit être visible (404 sinon). Modifier, régénérer et valider sont
+  réservés à l'associé ou au directeur ou chef DE cette mission (`peutValiderAvancement`), doublé en base par le
+  déclencheur (`MQU02`) ; le paramètre du cabinet exige `automatisation.gerer`. Les rôles du portail n'ont aucun de ces droits.
+- **Cycle** : brouillon puis validé. Le déclencheur `controler_avancement_rapport` (`0307`, invocateur, `search_path` figé) fait
+  naître un rapport en brouillon seulement (`MQU03`), du client de la mission (`MQU04`), sur une mission signée ou en cours
+  (`MQU05`, 409 `MISSION_NON_ACTIVE`) ; mission, client et semaine ne changent plus (`MQU03`) ; **un rapport validé est
+  immuable, même pour le propriétaire de la table** (`MQU01`, 409 `RAPPORT_VALIDE`) ; aucune suppression (`MQU07`, doublé de
+  `REVOKE DELETE`). Verrou optimiste par `version`. Un commentaire IA non relu bloque la validation : CHECK en base et 409
+  `COMMENTAIRE_IA_A_RELIRE` côté API.
+- **Portail** : seuls les rapports VALIDÉS de CE client sur une mission partagée. Base : politique RESTRICTIVE `portail` en lecture
+  (statut validé, client du contexte, mission visible sous la politique du portail), doublée de `portail_sans_insert`,
+  `portail_sans_update` et `portail_sans_delete`. Application : `GET /api/portail/avancement` et `GET /api/portail/avancement/:id`
+  (liste blanche, `portail.avancement.lire`, `client_dirigeant` et `client_contributeur`), requêtes refiltrées sur le statut et le
+  client ; un brouillon, une autre mission, un autre client ou un autre cabinet répondent le même 404 du portail ; chaque accès est
+  journalisé. **Projection explicite** `projeterContenuAvancementPortail` (champ par champ, schéma strict) : sans `non_partages`
+  (`livrables.total` vaut le nombre de livrables PARTAGÉS, le fait saillant « livrables » est recalculé de ce seul décompte),
+  sans `commentaire_ia`, validateur, version ni identifiant interne.
+- **Aucun e-mail au client** : `avancement_parametres.envoi_email` porte `CHECK (envoi_email = false)` (23514), le schéma de l'API
+  n'accepte que `false` (400) et aucun code d'envoi ne lit cette colonne ; l'activer exigera une migration, un ADR et un circuit
+  d'envoi validé. La seule notification est interne (`avancement_brouillon`, `email: false`).
+- **Commentaire IA** (`avancement-ia.ts`, `POST /api/avancement/:id/suggerer-commentaire`, `avancement.valider`) : brouillon IA
+  rangé dans `commentaire_ia`, séparé du chiffré et jamais servi au client. Le modèle ne reçoit que le pourcentage d'avancement,
+  des COMPTES (jalons, indicateurs, livrables partagés) et les libellés de jalons masqués, traités comme donnée non fiable ;
+  sortie de 600 caractères au plus, tout nombre hors liste blanche ou jeton forgé la rejette (repli silencieux, jamais un échec
+  du job). Il passe par `admettreSansDemande` / `appelerSansDemande` (droit `ia.utiliser`, IA active, coupe-circuit, clé, plafond
+  mensuel du cabinet), donc **hors plafond par mission et hors cache** (§7 bis, §15).
+- **Planification** (`0308`, §4) : `planifier_avancement_hebdo`, appelée chaque jour ouvré par le planificateur
+  (`jobs/planificateur.ts`), clé `avancement_hebdo:<lundi>`, idempotente (index unique `(cabinet_id, cle)` et
+  `UNIQUE (mission_id, semaine)` avec `ON CONFLICT DO NOTHING` : un brouillon déjà modifié ou validé n'est jamais régénéré).
+  Désactivable par cabinet (`avancement_parametres.actif`, activé sans ligne : il ne produit que des brouillons internes). Tables
+  `avancement_parametres` (`portail_interdit`) et `avancement_rapports` : RLS `isolation`.
+- **Limites** : pas de rendu PDF ni Word du rapport hebdomadaire (consultation web seule) ; écrans du cabinet et du portail
+  non vérifiés dans un navigateur (§15).
 
 ## 6. Confidentialité financière (FIN-02) et historique immuable
 
@@ -1054,11 +1449,12 @@ calcul fait à la demande, rien n'est stocké.
   | `MPK01-07` | champs figés d'un KPI, client de la mission, KPI inactif, date déjà mesurée, ajout seul, date hors suivi, 20 corrections | `0160` |
   | `MPK10-16`, `MPK20-27` | pilotage augmenté : rattachement d'un KPI, d'une alerte, d'une revue ou d'une décision à une autre mission (`MPK10`), champ figé (`MPK11`), parent de nœud invalide, aussi à la réactivation (`MPK12`), arbre trop grand : 50 nœuds actifs, 200 au total (`MPK13`), coefficient ≠ 1 sous un produit (`MPK14`), nœud non désactivable (`MPK15`), mission clôturée (`MPK16`), revue : statut initial, transition, contenu et compte rendu figés à la tenue, clôture avec suivi ouvert (`MPK20`–`MPK23`), décision hors revue tenue ou transition invalide (`MPK24`, `MPK25`), transition d'action invalide (`MPK26`), action rattachée à une revue qui n'est pas tenue (`MPK27`) | `0440`–`0445` |
   | `MPS01-08` | plan en ajout seul et rattachement figé, cohérence des éléments (dépendances, KPI d'objectif, cascade, évaluations de portefeuille : `MPS02`), auteur ≠ valideur, partage d'un contenu non validé, 200 versions du modèle ou changements de lien (`MPS05`), notation liée non publiée ou d'un autre client (`MPS06`), bibliothèque d'initiatives : variante qui ne reprend pas le code du standard, propriétaire ou numéro de version incohérent, observation sur une initiative d'un plan (`MPS07`), arbitrage de portefeuille incohérent ou écart sans motif (`MPS08`) | `0180`–`0184`, `0420`–`0423` |
-  | `MPR01-03` | rapport de notation, de plan ou de dossier bancaire : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`), dossier bancaire sans version VALIDÉE du modèle financier (`MPR03`) | `0131`, `0424` |
+  | `MPR01-05` | rapport de notation, de plan, de dossier bancaire, de note de due diligence ou de clôture du redressement : source (notation, plan, version du modèle) inexistante ou d'une autre mission (`MPR01`), notation non publiée (`MPR02`), dossier bancaire sans version VALIDÉE du modèle financier (`MPR03`), note de due diligence non validée ou périmée (`MPR04`, `0508`), source d'un rapport de clôture incohérente : bilan d'une autre mission, non validé, version différente (`MPR05`, `0551`, 409 `RED_CLOTURE_NON_VALIDEE`) | `0131`, `0424`, `0508`, `0551` |
   | `MPY01-11` | qualité : historiques en ajout seul, dont les relations entre clients et leurs retraits (`MPY01`), suivi (classe jamais abaissée, statut qui ne recule pas, livrable signé figé, empreinte du contenu relu figée : `MPY02`), élément de revue ajouté après validation (`MPY03`), session de revue close une fois (`MPY04`), étape de garde hors état (`MPY05`), signature d'un suivi non validé ou d'une autre version (`MPY06`), relation de clients en double, dans les deux sens (`MPY07`), validation ou signature sur un parcours de revue sans élément obligatoire (`MPY08`), niveau de risque d'acceptation abaissé après une décision (`MPY09`), attestation d'un item par l'auteur du livrable (`MPY10`), auteur désigné d'un livrable opaque qui n'est pas membre actif de la mission (`MPY11`) | `0280`–`0286` |
   | `MPV01-07` | registre des preuves : historique en ajout seul et champs figés d'une dimension (`MPV01`), cohérence mission, client, document, réponse ou lien, fichier lié rattaché à la mission ou au client de la preuve (ou orphelin téléversé par la personne qui saisit, jamais supprimé), auteur désigné membre actif de la mission (`MPV02`), versions consécutives (`MPV03`), avis d'expert signé par l'auteur de la version et par un expert métier ou un associé (`MPV04`), arbitrage d'une contradiction qui n'est plus courante (`MPV05`), classe de risque d'une assertion abaissée hors expert métier ou associé (`MPV06`), contradiction levée par l'auteur de l'assertion ou de la preuve contraire hors associé (`MPV07`) | `0240`–`0243` |
   | `MPM01-08` | référentiel de méthodes : version publiée et son contenu immuables (`MPM01`), incohérence de propriétaire, de numérotation ou d'identité (`MPM02`), historiques en ajout seul (liaison des missions, validations de dérogation, propositions : `MPM03`), décision de dérogation définitive, approuvée par son demandeur ou sans les validations exigées par sa classe de risque, quatre yeux (`MPM04`), circuit du comité méthode et relecteur ≠ auteur (`MPM05`), version liée à une mission non publiée, d'un autre cabinet ou plus ancienne (`MPM06`), variante publiée qui abaisse la classe de risque ou relève le niveau d'autonomie d'une brique du standard (`MPM07`), variante publiée par le créateur de la version hors associé (`MPM08`) | `0201`–`0203`, `0207`, `0209` |
   | `MPG01-11` | agents IA : historiques en ajout seul (`MPG01`), au-delà du plafond du standard ou agent inconnu (`MPG02`), changement de niveau d'autonomie refusé (`MPG03`), activation d'un prompt, choix d'un modèle ou exécution d'agent sans évaluation de non-régression réussie et admise (`MPG04`), incohérence d'exécution, de décision, de contribution ou de jeu (`MPG05`), validation d'un contenu issu d'une sortie d'agent non conforme (`MPG06`), classe de risque d'une brique sous le plancher de la méthode ou R0 déclarée hors associé (`MPG07`), restriction posée par un associé levée par un non-associé ou décision sur une exécution par qui n'en est ni le déclencheur, ni le chef ou directeur de la mission, ni associé (`MPG08`), demande de rejeu réel incohérente : transition d'état interdite, demande terminée modifiée, jeu ou prompt étranger, évaluation `openrouter` sans demande en cours du même prompt, jeu et modèle ou sans ses appels inscrits, demande « reussie » sans évaluation réussie issue d'elle (`MPG09`, traduit en 409 `EVALUATION_INCOHERENTE`), proposition d'action du copilote terminée ou transition interdite : une proposition naît « proposee », ne quitte cet état qu'une fois (confirmee, annulee, expiree, refusee) et ne change plus (`MPG10`), identité d'une proposition modifiée, confirmation sans résultat, ou anonymisation autre que celle prévue (`MPG11`) ; `MPG10` et `MPG11` traduits en 409 par `copilote/erreurs.ts` | `0260`–`0267`, `0270`, `0271`, `0274` |
+  | `MPG12-15` | rejeu réel des évaluations OpenRouter, provenance gardée par la base (`0275`) : écriture réservée au job de rejeu : demande en cours, appel d'évaluation, évaluation `openrouter` ou job de rejeu écrits à la main, ou consommation portant `evaluation_demande_id` (`MPG12`, API 409 `ECRITURE_RESERVEE_REJEU`), job invalide ou contexte absent : job d'un autre type, d'un autre cabinet, non `en_cours` ou sans demande (`MPG13`), demande dans un état incompatible (`MPG14`), paramètre invalide : horodatage, jetons, coût ou durée hors bornes (`MPG15`) ; `MPG13` à `MPG15` traduits en 409 `EVALUATION_INCOHERENTE` ; `MPG16`–`MPG20` libres | `0275` |
   | `MPO01-04` | dossier client : tout en ajout seul (`MPO01`), remplacement d'un fait (même client, catégorie et clé, jamais un fait rejeté) ou d'un état financier (état courant du même exercice, un seul courant par exercice) (`MPO02`), décision sur un enregistrement remplacé ou fait extrait par l'IA confirmé dans sa transaction de création (`MPO03`), lignes d'état ajoutées hors de l'ingestion, acceptation automatique d'un état en écart ou de tolérance non nulle, acceptation humaine d'un état en écart ou de tolérance non nulle sans motif (`MPO04`) | `0220`–`0224` |
   | `MPX01-03` | clôture de mission (AUT-08) : historiques des vérifications et des dérogations en ajout seul (`MPX01`), dérogation accordée ou retirée par un utilisateur qui n'est ni associé ni directeur de mission actif (`MPX02`), clôture par l'auteur d'une dérogation en vigueur hors associé (`MPX03`) | `0320`–`0323` |
   | `MPU01-05` | moteur d'automatisation : historiques en ajout seul (`MPU01`), coupe-circuit levé par un non-associé (`MPU02`), annulation d'une action non annulable ou non réussie (`MPU03`), action vers le client autorisée hors classe R0 (`MPU04`), version courante absente ou événement incohérent, action d'une exécution non déclenchée, résultat incompatible avec la garde (`MPU05`) | `0300`, `0301` |
@@ -1067,7 +1463,16 @@ calcul fait à la demande, rien n'est stocké.
   | `MPW01-06` | banques et offres d'appels d'offres (lot AO-B) : tout en ajout seul, seuls le retrait motivé d'une pièce (une fois) et l'anonymisation d'un CV (`MPW01`), versions consécutives (`MPW02`), mission d'une référence qui n'est pas celle du client cité ou validation d'une version d'offre technique qui n'est pas la dernière (`MPW03`), validation d'un brouillon IA sans acquittement de ses nombres non vérifiés (`MPW04`), validation d'une offre technique par son créateur, l'auteur d'une version ou le demandeur d'un brouillon IA hors associé (`MPW05`), CV inconnu, déjà anonymisé ou nouvelle version sur un CV anonymisé (`MPW06`) | `0380`–`0383`, `0385`, `0386` |
   | `MPJ01-08` | capitalisation : historiques en ajout seul (`MPJ01`), circuit du retour d'expérience : validation définitive d'une version existante, versions consécutives (`MPJ02`), rattachement tâche-brique sur une mission clôturée (`MPJ03`), niveau de compétence validé par la personne évaluée ou par son déclarant hors associé (`MPJ04`), incohérence mission, retour, collaborateur ou compétence (`MPJ05`), déclaration de niveau déjà en attente pour le couple (`MPJ06`), plus de 50 déclarations par couple (`MPJ07`), retour validé par qui n'est ni associé, ni chef, ni directeur de la mission, ou n'est pas l'utilisateur de la session (`MPJ08`) | `0460`–`0463`, `0465` |
   | `MPN08-12` | notation augmentée : item de banque validé figé, créé hors brouillon ou incohérent avec son contenu (`MPN08`), sélection d'items en ajout seul citant un item non validé, une formulation hors de l'item ou un item en double (`MPN09`), indice de confiance en ajout seul ou sous le seuil courant, publication sans indice publiable de la même transaction (`MPN10`), session de calibrage figée hors clôture par un expert métier, cotation sur session close, cas inconnu ou niveau hors échelle (`MPN11`), initiative type supprimée ou code figé, impacts et plans d'action en ajout seul, plan sur une version d'une autre notation (`MPN12`) ; plancher du seuil de confiance (≥ 0,3) et de la cible de répondants (≥ 2) par CHECK `NOT VALID`, sans SQLSTATE dédié | `0400`–`0404` |
-  | `MPZ01-11` | redressement (service #5, lot 3a ; lettre `Z` partagée avec la due diligence : `MPZ01-20` réservés au redressement, `MPZ21-32` à la due diligence) : historiques en ajout seul (`MPZ01`), rattachement incohérent : mission et client du dossier, seuils d'un score non publiés, d'un autre secteur ou non identiques, échéance d'un autre créancier (`MPZ02`), mission clôturée ou dossier clos (`MPZ03`), champ figé (`MPZ04`), versions non consécutives ou publication d'une version qui n'est pas la dernière (`MPZ05`), transition de statut invalide (`MPZ06`), séparation des tâches : plan validé par son créateur ou par un rôle non habilité, seuils publiés par leur auteur ou par un rôle non habilité, hors associé (`MPZ07`), réalisé de trésorerie qui ne remplace pas la ligne courante (`MPZ08`), négociation incohérente (`MPZ09`), plafond de volume atteint (`MPZ10`), plus de 10 corrections d'un réalisé de semaine (`MPZ11`) ; traduits par `traduireErreurRedressement` (`redressement/erreurs.ts`), jamais en 500 | `0480`–`0486` |
+  | `MPZ01-20` | redressement (service #5, lots 3a et 3a-bis ; lettre `Z` partagée avec la due diligence : `MPZ01-20` au redressement, tous pris, la lettre est épuisée pour lui, `MPZ21-32` à la due diligence) : historiques en ajout seul (`MPZ01`), rattachement incohérent : mission et client du dossier, seuils d'un score non publiés, d'un autre secteur ou non identiques, échéance d'un autre créancier (`MPZ02`), mission clôturée ou dossier clos (`MPZ03`), champ figé (`MPZ04`), versions non consécutives ou publication d'une version qui n'est pas la dernière (`MPZ05`), transition de statut invalide (`MPZ06`), séparation des tâches : plan validé par son créateur ou par un rôle non habilité, seuils publiés par leur auteur ou par un rôle non habilité, hors associé (`MPZ07`), réalisé de trésorerie qui ne remplace pas la ligne courante (`MPZ08`), négociation incohérente (`MPZ09`), plafond de volume atteint (`MPZ10`), plus de 10 corrections d'un réalisé de semaine (`MPZ11`) ; lot 3a-bis : check-list archivée figée (`MPZ12`), historique des causes en ajout seul, rangs consécutifs, contenu modifiable seulement avec un rang « modifié » de la même transaction (`MPZ13`), cartographie d'origine IA « validée » sans dernier rang « validé » ou sans nombres non vérifiés acquittés (`MPZ14`), covenant en doublon ratio/opérateur ou plancher > plafond (`MPZ15`), période hors du plan de financement (`MPZ16`), bilan de clôture validé figé (`MPZ17`), validation sans contrôles de complétude vrais (`MPZ18`), suivi d'un dossier non clos (`MPZ19`), suivi incohérent (`MPZ20`) ; `0492` réutilise `MPZ07` pour la validation du plan et du bilan par un autre que le directeur de la mission, ou sur une mission sans directeur (message distinct, aucun nouveau code) ; traduits par `traduireErreurRedressement` (`redressement/erreurs.ts`), jamais en 500 | `0480`–`0492` |
+  | `MQS01-02` | référentiel de méthodes, second préfixe `MQ` (§5 ter) : identité, type ou porteur d'un facteur figés, facteur du standard (`MQS01`) ; valeur d'énumération retirée ou borne resserrée (`MQS02`) ; `MQS03` et suivants libres | `0210` |
+  | `MQQ01-13` | revue à froid des missions clôturées (QUA-05) : table complète en §5 ter ; `MQQ14` et suivants libres | `0287`–`0290` |
+  | `MQF01-04` | groupes et filiales (DOS-05) : cycle de détention (`MQF01`), total des parts supérieur à 100 % (`MQF02`), fin de détention sans détention antérieure (`MQF03`), profondeur de plus de 8 liens (`MQF04`) ; tous traduits en 409 par `dossier/erreurs.ts` ; `MQF05` et suivants libres | `0225` |
+  | `MQD01-11` | due diligence, portail investisseur et modèles sectoriels (§8 octies) : `MQD01` compte non admissible à une invitation, `MQD02` invitation incohérente, `MQD03` version de note non publiable, `MQD04` instantané incohérent avec la note, `MQD05` publication déjà active pour la note, `MQD06` retrait incohérent, `MQD07` pièce non admissible, `MQD08` plafond atteint (portail investisseur), `MQD11` modèles sectoriels ; `MQD09`, `MQD10`, `MQD12`–`MQD20` libres (réservés à ces chantiers par `0509`) | `0509`, `0511` |
+  | `MQL01-24` | plans stratégiques (§5 bis) : `MQL01`–`MQL08` ateliers en ligne, `MQL09` réservé non employé, `MQL10`–`MQL14` simulation de Monte-Carlo (ajout seul, version du modèle, 100 simulations par plan, résultat figé, 30 par utilisateur et par 10 minutes), `MQL15`–`MQL24` plan vivant (réalisés et re-prévisions) ; `MQL25` et suivants libres | `0425`–`0426`, `0429`–`0431` |
+  | `MQK01-05`, `MQK20-27` | capitalisation : `MQK01`–`MQK05` efficacité des recommandations (CAP-03 : historique en ajout seul, cohérence KPI et initiative, identité figée, transition de statut, instantané d'une recommandation non mise en oeuvre), `MQK20`–`MQK27` observatoire (CAP-04 : historique d'adhésion en ajout seul, transition d'adhésion, versement sans adhésion active, contribution immuable, `obs_agregats` refusé hors cabinet ou dans le portail, sans adhésion, indicateur inconnu, sans contribution éligible) ; table en §5 ter, usage en §5 sexies ; `MQK06`–`MQK19` et `MQK28`–`MQK39` réservés | `0466`–`0467`, `0470`–`0472` |
+  | `MQA01-05` | veille des appels d'offres (AO-01) : historique en ajout seul (`MQA01`), transition de statut d'un résultat (`MQA02`), plafond de 5 000 résultats par cabinet (`MQA03`), plafond de 500 occurrences par résultat (`MQA04`), décision incohérente avec l'état du résultat (`MQA05`) ; table en §5 ter ; `MQA06` et suivants libres | `0364`–`0367` |
+  | `MQV01-02` | services candidats (lot 7, §8 decies) : identité d'un guichet figée (`MQV01`), plafond de 500 guichets par cabinet sous verrou consultatif (`MQV02`) ; table en §5 ter ; `MQV03` et suivants libres | `0563` |
+  | `MQG01-03` | ingestion de documents (lot 6, §8 undecies) : transition de statut ou identité d'un document, suppression, document terminé figé hors relance et datation de la purge du texte (`MQG01`) ; extraction : machine à états, séparation des tâches (le valideur n'est ni l'auteur du téléversement, ni le demandeur de la lecture, ni le dernier modificateur, sauf associé), identité figée (`MQG02`) ; version cible d'un amorçage qui n'est pas un brouillon du cabinet (`MQG03`) ; table en §5 ter ; `MQG04` et suivants libres | `0521`, `0522` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -1096,7 +1501,8 @@ propre activité), ne propose que des tâches qui lui sont affectées, jamais su
 ni une feuille soumise ; l'enregistrement passe toujours par le circuit habituel de la feuille.
 Aucune de ces routes n'est dans `LISTE_BLANCHE_PORTAIL`. Test : `test/previsions.test.ts`
 (base `missionpilot_prev`). La date de référence des prévisions est bornée (`dateIsoBorneeSchema`) ;
-la semaine du pré-remplissage ne l'est pas (`semaineQuerySchema`, dette : §15).
+la semaine du pré-remplissage l'est aussi depuis le lot 8b (`semaineQuerySchema`, comme toutes les dates de
+`packages/shared/src/schemas/temps.ts`).
 
 **Appels d'offres, lot AO-A (AO-01 à AO-03, AO-08).** Migrations `0360`–`0363`, code
 `apps/api/src/appels-offres/`, routes `routes/appels-offres.ts` (24 routes, 50 avec le lot AO-B), moteur
@@ -1133,6 +1539,19 @@ contrôlée en base) n'est jamais visitée par le serveur. **Risques acceptés**
 visibles de tout détenteur de `ao.lire` du cabinet (donnée commerciale, comme le pipeline) ; le
 nom et le statut de la tâche liée à une étape sont montrés à ces mêmes lecteurs ; poids et seuils
 du rapprochement et du go/no-go sont des valeurs de départ à calibrer (`DECISIONS.md`).
+
+**Veille des appels d'offres (AO-01, lot 5b).** Migrations `0364`–`0367`, code `apps/api/src/appels-offres/veille*.ts`,
+routes `routes/appels-offres-veille.ts` (12 routes, toutes sous `exiger`, aucune dans `LISTE_BLANCHE_PORTAIL`).
+Quatre tables (`ao_veille_sources`, `ao_veille_resultats`, `ao_veille_occurrences`, `ao_veille_decisions`), toutes à
+RLS `isolation` et `portail_interdit` ; historique en ajout seul (`MQA01`), transitions de statut gardées
+(`MQA02`), décision accordée à l'état du résultat (`MQA05`). **Aucun appel externe** : les adaptateurs de source sont
+SIMULÉS (trois sources, désactivées par défaut, activables par cabinet ; `veille-sources.ts` n'importe ni `fetch`, ni
+`http`, ni clé, et un test espionne `fetch` pour vérifier qu'il n'est jamais appelé) ; la collecte est
+déclenchée à la main (pas de job) ; l'API ne visite JAMAIS l'URL d'un avis (stockée seulement, contrôlée en base).
+Bornes : import de 1 Mo (`VEILLE_IMPORT_TEXTE_MAX`) et de 200 avis (`VEILLE_IMPORT_AVIS_MAX`), plafond de 5 000
+résultats par cabinet (`MQA03`) et de 500 occurrences par résultat (`MQA04`) contre le déni de service. **Un
+adaptateur réel exigera un nouvel ADR** (SSRF : hôte de confiance fourni par la source et jamais une URL reçue,
+délai, gestion de la clé), voir §15.
 
 **Banques et offres des appels d'offres (AO-04 à AO-07, lot AO-B).** Migrations `0380`–`0386`,
 code `apps/api/src/banque-ao/`, routes `routes/banque-ao.ts` (`/api/banque-ao/*`, 26 routes), moteurs
@@ -1198,7 +1617,10 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
 
 - **Validation** : schémas Zod `.strict()` partagés (`packages/shared/src/schemas/`,
   550 `z.object`, tous stricts), corps JSON limité à 1 Mio (`app.ts`
-  `bodyLimit`) ; paramètres `id` en UUID (`http/outils.ts`). Les erreurs Zod
+  `bodyLimit`) ; paramètres `id` en UUID par `paramsId`
+  (`http/outils.ts`), désormais `.strict()` depuis le lot 8b : 561 appels dans 88 fichiers de routes (relevé du
+  2026-10-22) et aucun chemin n'a d'autre paramètre que `:id` (les routes à plusieurs paramètres ont leur
+  propre schéma). Une route qui ajouterait un autre paramètre doit déclarer son propre schéma (400 sinon). Les erreurs Zod
   renvoient 400 `REQUETE_INVALIDE`. Une `AppError` ne transmet de `details` que
   les champs de la liste blanche `CHAMPS_DETAILS_PUBLICS` (`errors.ts` :
   `violations`, `erreurs`, `manquants` ; tableaux tronqués à 200) : jamais une
@@ -1248,7 +1670,8 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
 - **Dates métier bornées** : une date qui alimente une colonne à `CHECK` SQL (2000-01-01 à
   2100-12-31) passe par `dateIsoBorneeSchema` (`packages/shared/src/schemas/commun.ts`) ; le
   SQLSTATE 23514 qui échapperait au schéma est traduit en 400 `REQUETE_INVALIDE` par la couche
-  d'erreurs du domaine, jamais en 500. Exception connue : `semaineQuerySchema` (§15).
+  d'erreurs du domaine, jamais en 500. Depuis le lot 8b, toutes les dates de `packages/shared/src/schemas/temps.ts`
+  (dont `semaineQuerySchema`) sont bornées : un 400 du schéma, jamais un 500 de la base ; aucune exception connue.
 - **File de tâches** : toute constante `TYPE_JOB_*` exportée par le code a son handler dans
   `jobs/registre.ts` (sinon le worker ne l'exécuterait jamais et la file se remplirait en silence) ;
   `test/jobs-registre.test.ts` l'impose par un inventaire automatique des sources, seule
@@ -1310,6 +1733,85 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   présentes dans les entrées, jetons connus du masque, identifiants courts
   collés à des lettres (deux chiffres au plus : « T1 », « 4G »). **Limite** :
   un nombre écrit en lettres ou en chiffres romains n'est pas détecté.
+
+- **Cache des réponses (AGT-06, `0278`, `ia/cache.ts`)** : **désactivé par défaut** (`ia_parametres_cabinet.cache_actif`
+  faux, ligne absente comprise) ; le cabinet l'active par `PUT /api/ia/parametres` (droit `ia.configurer`, sans reconfirmation
+  d'identité : ni clé ni plafond ne sont touchés) et le désactiver vide aussitôt ses entrées (`viderCache`). Il ne remplace QUE
+  l'appel au fournisseur : `executerDemande` passe d'abord toutes ses gardes (droit `ia.utiliser`, mission visible, IA activée,
+  clé, coupe-circuit des agents, plafonds du cabinet et de la mission, réservation du coût), puis seulement consulte le cache.
+  Une réponse servie repasse par la validation Zod du schéma de sortie, la garde-chiffres et le démasquage local, comme une
+  réponse fraîche, et devient une version 1 « brouillon IA » : la validation humaine reste obligatoire. Elle est inscrite à coût
+  nul (issue `cache`, CHECK `ia_consommations_cache_gratuit_check` : coût nul et demande renseignée) et au journal d'audit
+  (`cache: true`), jamais avec le contenu.
+  - **Clé** : empreinte HMAC-SHA-256 (clé dérivée du serveur, usage `ia_entree`, matériau préfixé `ia_cache/v1`) de la forme
+    canonique (clés triées) de { cabinet, prompt (nom, version, tâche, gabarits, schéma de sortie), modèle, plafond de jetons,
+    format JSON, entrées MASQUÉES canonisées }. Changer la version du prompt, le modèle ou une entrée change la clé ; une
+    rotation de la clé maître aussi (les anciennes entrées ne sont plus trouvées et expirent). Une fuite de la base seule ne
+    permet pas de la recalculer.
+  - **Contenu** : la réponse brute du modèle, encore masquée (jamais le texte démasqué), chiffrée AES-256-GCM (AAD
+    `ia_cache:<cabinet>:<clé>` : un chiffré recopié sur une autre ligne ou un autre cabinet ne se déchiffre pas ; chiffré
+    illisible = absent). Isolation par cabinet : `cabinet_id` dans la clé primaire, la clé de cache et le matériau, RLS
+    `isolation` et `portail_interdit`, `REVOKE UPDATE` (écrit, lu, supprimé, jamais modifié).
+  - **Durée** : 24 heures au plus (`DUREE_CACHE_IA_MS`), bornée aussi en base par un CHECK
+    (`expire_le <= cree_le + 24 h`) ; une entrée échue n'est jamais servie, puis supprimée à l'écriture suivante du cabinet
+    et par le job `ia_conservation` (`ia/conservation.ts`), que `planifier_conservation_ia` (`0278`, §4) planifie aussi pour un
+    cabinet qui n'a qu'une entrée de cache échue.
+  - **Exclusions (ni lecture ni écriture)**, `motifSansCache` : cache désactivé ; prompts du copilote, d'entretien ou de
+    transcription (`PROMPTS_SANS_CACHE`, et le copilote passe par `appelerSansDemande`, jamais caché) ; toute variable
+    traitée comme contenu de client (donnée non fiable, AGT-07 : la revue contradictoire en fait partie, son brouillon relu
+    étant une variable non fiable) ; donnée identifiante restée en clair dans les entrées masquées (repérée par un masque neuf
+    après retrait des jetons). Pas d'écriture pour une réponse qui contient elle-même une donnée identifiante en clair ni pour
+    une réponse signalée par la garde-chiffres. Le commentaire IA de l'avancement (§5 octies) n'utilise pas le cache (pas de
+    demande).
+  - **Course désactivation/écriture** : l'écriture prend `FOR SHARE` sur la ligne des paramètres (`ecrireCache`) et le
+    déclencheur `ia_cache_reponses_actif` (`MQI01`) la reprend ; la désactivation (`UPDATE` des paramètres puis vidage) attend
+    donc la fin d'une écriture en cours, ou celle-ci voit la désactivation validée et échoue : aucune entrée ne survit au
+    vidage. L'écriture se fait dans une transaction séparée après la clôture ; son échec est sans effet sur la génération.
+  - **Limite** : celle du masquage ci-dessus. Un nom propre absent des termes sensibles n'est pas repéré ; le cache
+    n'aggrave pas ce risque (la même entrée part déjà au fournisseur) mais le garde au plus 24 heures, chiffré, dans le seul
+    cabinet (§15).
+- **Plafond de coût par mission (AGT-06, `agents/plafonds.ts`)** : en plus du plafond mensuel du cabinet (`ia/couts.ts`, toujours
+  appliqué), il s'applique à TOUT appel rattaché à une mission, pas seulement aux agents. L'orchestrateur le contrôle à la
+  préparation (`preparer`, sous un verrou consultatif PAR MISSION, puis réservation du coût estimé dans la même transaction en
+  mode immédiat ; en mode file, refus précoce et réservation à l'exécution) et le recontrôle à l'exécution
+  (`plafondMissionAvantReservation` dans `executerDemande`, donc aussi pour le job `ia_generation`), juste avant la réservation,
+  pour une demande qui n'est pas encore réservée. Atteint : 409 `PLAFOND_MISSION_ATTEINT`, ou gabarit déterministe si
+  l'appelant admet le repli (`repliSiPlafond`). **Ordre des verrous : mission, puis cabinet** (`ia/couts.ts`), jamais l'inverse.
+  Le coût de la mission somme en entiers (µUSD) les consommations et les réservations non échues. **Dépassement borné** : le
+  contrôle porte sur « consommé + réservé ≥ plafond » avant l'appel ; des appels simultanés ne dépassent donc le plafond que du
+  coût estimé du dernier appel admis (§15). **Hors champ** : `admettreSansDemande` / `appelerSansDemande` (copilote, commentaire
+  IA de l'avancement), qui n'ont ni demande ni mission, et les évaluations de non-régression. **Alertes**
+  (`alertesPlafondMission`) : 80 % puis 100 % de la consommation RÉELLE, une fois par seuil et par valeur du plafond (table
+  `ia_alertes_plafond_mission`, clé primaire cabinet + mission + plafond + seuil, `REVOKE UPDATE, DELETE` ; relever ou abaisser
+  le plafond réarme), notification interne aux associés actifs, sans montant et sans e-mail, type `ia_plafond_mission_alerte`.
+  Définir ou retirer le plafond est journalisé (`plafond_ia_mission`), sous le même verrou.
+- **Revue contradictoire (AGT-06, `0279`, `agents/contradicteur.ts`, `routes/agents.ts`)** : l'agent « contradicteur » relit un
+  brouillon IA (généré, en état « brouillon IA » ou « modifié », texte conservé) et liste contre-preuves, incohérences et
+  affirmations non sourcées.
+  - **À la demande seulement** : `POST /api/agents/revues-contradictoires` (`ia.utiliser`) ; `executerAgent` refuse cet agent
+    sans l'origine « consultant » (`AGENTS_SUR_DEMANDE_SEULEMENT`, 409 `AGENT_SUR_DEMANDE_SEULEMENT`) : une règle
+    d'automatisation ne peut pas le déclencher. La brique `revue_contradictoire` doit être déclarée avec un niveau
+    d'autonomie (sinon 409 `BRIQUE_NON_DECLAREE`) ; la préparation du prompt et du jeu d'essai
+    (`POST /api/agents/revues-contradictoires/preparation`) exige `agent.gerer`. Lecture : `GET /api/agents/revues-contradictoires`
+    et `GET /api/agents/revues-contradictoires/:id`, sous `ia.utiliser`.
+  - **Droits** : `ia.utiliser`, droits du registre de l'agent revérifiés pour le déclencheur (`droitsManquants` ; `mission.lire`
+    et `preuve.lire` selon le commentaire de `contradicteur.ts`), niveau d'autonomie effectif, coupe-circuit et non-régression du
+    prompt comme pour tout agent ; le brouillon relu doit être visible de l'utilisateur (visibilité de sa mission) : un brouillon
+    inexistant, d'autrui ou invisible répond 404. Fermée au portail (absente de `LISTE_BLANCHE_PORTAIL`).
+  - **Brouillon non bloquant** : la sortie est un brouillon IA à part (nouvelle demande et exécution tracée, entité liée = le
+    brouillon relu) ; la revue n'écrit JAMAIS sur le brouillon relu (ni statut, ni contenu, ni version) et la validation de
+    celui-ci n'en dépend pas (`bloquante: false`). Une revue ne se relit pas.
+  - **Une revue active par brouillon** : index unique partiel `ia_demandes_revue_active_idx` (demandes « en file » ou
+    « en cours », 23505 traduit en 409 `REVUE_DEJA_ACTIVE`) ; le déclencheur `controler_ia_revue_contradictoire` (`MQI50`, 409
+    `REVUE_INCOHERENTE`) refuse une revue dont le brouillon relu est introuvable, est lui-même une revue ou est d'une autre
+    mission.
+  - **Contenu relu = donnée non fiable** (AGT-07) : encadré et neutralisé, jamais dans les consignes ; seul le contexte
+    (mission, décompte du registre des preuves, sans contenu de preuve) est fiable et produit par le code. **Aucun chiffre de
+    son cru** : les seuls nombres citables sont ceux du brouillon que sa propre garde-chiffres n'avait pas signalés (100 au plus) ;
+    tout autre nombre marque la revue « chiffres non vérifiés ». Pas de donnée financière dans le contexte (FIN-02).
+  - **Plafond de mission atteint = refus** (`repliSiPlafond: false`, 409 `PLAFOND_MISSION_ATTEINT`) : jamais de revue vide en
+    mode dégradé, qui laisserait croire à l'absence d'objection ; une sortie inexploitable répond une erreur
+    (`revueNonProduite`). Le journal (`revue_contradictoire_demandee`) ne contient jamais le contenu.
 - **Validation humaine** (SOC-06, `ia/generations.ts`) : versions en ajout seul
   (`ia_generations`) ; « valider » fige le contenu (`MPI04`) ; séparation des
   tâches (§5) ; seul un contenu validé est `livrable_client`, et **jamais** un
@@ -1333,11 +1835,22 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
   d'expérience (`capitalisation/ia.ts`, §5 sexies) et l'appel d'un agent par une
   automatisation (job `automatisation_agent`, §5 quinquies, qui passe par
   `executerAgent`) ; ni la notation, ni les plans, ni les rapports ne lancent de
-  génération (rédaction assistée non faite) ; seul le routage du copilote (AGT-08, plus bas) appelle
-  le fournisseur sans passer par l'orchestrateur, et ne produit aucun contenu.
+  génération (rédaction assistée non faite) hormis, depuis le 2026-10-21, les trois brouillons du lot 5a
+  (explication de la notation, synthèse d'un atelier, explication d'une re-prévision, §5 bis, rattachés à
+  `ia_demandes.entite_type` et `entite_id`) et les causes racines du redressement
+  (`redressement/causes-ia.ts`, seul fichier du module qui importe `ia/`, §8 nonies) ; depuis le lot 6
+  (2026-10-22), l'ingestion de documents (§8 undecies) : le TEXTE des pages d'un PDF ou d'un classeur lu par le
+  cabinet (jamais le fichier lui-même) entre dans l'orchestrateur, comme contenu client non fiable, pour proposer des
+  lignes d'état financier, une lecture de rapport ou de salle de données de due diligence, ou une proposition de standard ;
+  les noms du cabinet sont masqués avant envoi pour ce seul dernier usage (§8 undecies). Le routage du copilote
+  (AGT-08, plus bas) ne produit aucun contenu, mais ne contourne plus l'orchestrateur : il passe par
+  son point d'entrée `admettreSansDemande` / `appelerSansDemande` (`ia/orchestrateur.ts`).
 - **Agents IA** (lot AGT de la vague 1, ADR-005, migrations `0260`–`0267` et
   `0270`, `agents/`, `routes/agents.ts`) : l'orchestrateur reste le SEUL composant qui
-  appelle un modèle pour produire un contenu (le routage du copilote, plus bas, est la seule exception) ;
+  appelle un modèle (le routage du copilote, plus bas, passe lui aussi par son point d'entrée
+  `admettreSansDemande` / `appelerSansDemande` : plus aucun import de `fournisseurDepuisConfig` dans
+  `apps/api/src/copilote/`, inventaire dans `copilote-masquage-noms.test.ts` ; le fournisseur n'est appelé que
+  depuis l'orchestrateur et le rejeu `agents/evaluations-openrouter.ts`) ;
   une exécution d'agent EST une demande de l'orchestrateur
   (`agents/executions.ts` : `executerAgent`, `enregistrerExecutionAgent`).
   - **Droits du déclencheur** : `ia.utiliser` et les permissions déclarées par
@@ -1407,8 +1920,15 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     (ci-dessous). Les routes `routes/ia-prompts.ts` et `routes/ia-parametres.ts`
     traduisent `MPG04` en 409 `NON_REGRESSION_REQUISE` ; une nouvelle version d'un
     prompt doté d'un jeu d'essai est créée inactive quand `activer` est omis (409
-    si `activer: true` explicite : elle n'a encore aucune évaluation). **Limite** :
-    revenir au modèle recommandé n'est pas gardé.
+    si `activer: true` explicite : elle n'a encore aucune évaluation). Depuis `0276`, l'activation
+    exige une évaluation sur le modèle ROUTÉ du cabinet (`ia_modeles_taches`, sinon le modèle
+    recommandé : `modele_route`, `modele_recommande`) et `controler_execution_evaluee` est alignée ;
+    l'ancienne limite « `prompt_evalue` avec un modèle nul » est levée. **Limite** : revenir au modèle
+    recommandé (suppression de la ligne de `ia_modeles_taches`) n'est pas gardé à l'activation ;
+    l'exécution d'un prompt non évalué avec ce modèle reste refusée (filet `exigerPromptEvalue`).
+    `modele_recommande()` en SQL duplique `MODELES_RECOMMANDES` (`ia/modeles.ts`) : un test les compare, et
+    changer un modèle recommandé exige une migration. Reste non contrôlé : un contenu client réel dans
+    un jeu d'essai.
   - **Rejeu réel sur OpenRouter** (AGT-04, migration `0270`,
     `agents/evaluations-openrouter.ts`, job `agents_evaluation_openrouter`) :
     - **Provenance** : une évaluation `fournisseur = 'openrouter'` n'existe que née d'une
@@ -1418,9 +1938,25 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
       nombre de cas et, pour une évaluation réussie, au moins `cas_total` appels inscrits en
       succès dans `ia_consommations` (colonne `evaluation_demande_id`) ; SQLSTATE `MPG09`
       (409 `EVALUATION_INCOHERENTE`). Une évaluation incomplète, échouée ou arrêtée par un
-      plafond a `reussie = false` et ne peut jamais activer. **Limite** : ces gardes arrêtent
-      un `INSERT` direct ou un code qui oublierait la provenance ; elles n'arrêtent pas du SQL
-      arbitraire exécuté par le même rôle applicatif (§15).
+      plafond a `reussie = false` et ne peut jamais activer. **Garde de provenance faite dans la mesure
+      du possible (`0275`, 2026-10-21)** : trois fonctions `SECURITY DEFINER`, `rejeu_evaluation_demarrer`,
+      `rejeu_evaluation_inscrire_appel` et `rejeu_evaluation_terminer` (§4), sont désormais les SEULES
+      à écrire la demande en cours, les appels d'évaluation et l'évaluation `openrouter` ; le rôle
+      applicatif perd les droits d'écriture directs (INSERT de `agents_evaluations` limité aux 12
+      colonnes d'une évaluation locale ; INSERT de `agents_evaluations_demandes` limité à 8 colonnes et
+      UPDATE limité à `statut`, `cause`, `termine_le`, `job_id`) ; un INSERT dans `ia_consommations`
+      portant `evaluation_demande_id` est refusé par déclencheur (`MPG12`, 409
+      `ECRITURE_RESERVEE_REJEU`) ; les jobs `agents_evaluation_openrouter` naissent `en_attente` avec
+      `tentatives_max = 1`, type, charge, clé et cabinet figés, et ne sont jamais `en_cours` à la main ;
+      un contexte ou un job d'un autre cabinet est refusé (`MPG13`), une demande dans un état incompatible
+      aussi (`MPG14`), un paramètre hors bornes (jetons d'entrée ≤ 2 000 000, de sortie ≤ 1 000 000, coût
+      ≤ 100 USD, durée ≤ 1 h, horodatages du job : 1 minute avant le début, 1 jour après maintenant) de même
+      (`MPG15`). **Limite résiduelle** : du SQL arbitraire à plusieurs instructions du même rôle applicatif
+      peut mettre en file une demande et son job, réserver ce job lui-même par `reserver_job_a` (accordée
+      à ce rôle) puis appeler les trois fonctions en déclarant des appels `succes` (coût, jetons et issue
+      sont déclarés par l'appelant : la base ne connaît pas les tarifs) ; les traces restent (évaluation et
+      appels en ajout seul, `job_id` posé une fois) mais la ligne du job reste supprimable. La garde
+      complète suppose un rôle PostgreSQL distinct pour le worker (§15).
     - **Coût** : plafond par évaluation de 2 USD (`PLAFOND_EVALUATION_MICRO_USD`, à valider)
       vérifié avant chaque appel sur le coût engagé et l'estimation du cas ; plafond mensuel du
       cabinet réservé avant chaque appel (`reserverAppel`) ; les appels comptent dans
@@ -1462,7 +1998,8 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     contribution (AGT-05) mesurée par le moteur pur, textes non recopiés
     (empreintes SHA-256). Plafond de coût par mission (AGT-06) vérifié avant
     l'appel sous verrou consultatif de la mission, dans la transaction qui réserve le coût
-    (deux exécutions simultanées sont sérialisées).
+    (deux exécutions simultanées sont sérialisées) ; généralisé à tout appel rattaché à une mission
+    par le lot 4c (bullet « Plafond de coût par mission » ci-dessus).
     Toutes les tables `agents_*` et `autonomie_*` sont `portail_interdit`.
 - **Copilote conversationnel (AGT-08)** (lacune de la vague 2 ; ADR-005, migrations
   `0271`–`0274`, `copilote/`, `routes/copilote.ts`, moteur `packages/engines/src/copilote`, tests
@@ -1484,18 +2021,27 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     lisible et le plafond mensuel non atteint (réservation du coût sous verrou avant l'appel, une
     seule tentative payante, coût réel inscrit dans `ia_consommations` avec `copilote = true`, `0272`) ;
     sinon, ou en cas d'erreur du fournisseur, le routage déterministe répond et la réponse porte
-    « mode sans IA » avec sa raison. Le copilote appelle le fournisseur unique (`ia/fournisseur.ts`) sans
-    passer par l'orchestrateur (aucune demande de génération ni garde des chiffres : rien d'autre que le
-    choix d'un outil ne revient du modèle).
-  - **Outils** (catalogue fermé du moteur) : six de LECTURE (mes tâches, feuilles de temps à soumettre,
-    résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07), chacun sous
+    « mode sans IA » avec sa raison. Depuis le 2026-10-21, aucun appel direct au fournisseur depuis
+    `copilote/` : le routage passe par le point d'entrée `admettreSansDemande` / `appelerSansDemande` de
+    `ia/orchestrateur.ts` (admission, réservation du plafond sous verrou, une seule tentative, règlement, coût
+    avec `copilote = true`, journal sans contenu), sans demande de génération ni garde des chiffres : rien
+    d'autre que le choix d'un outil ne revient du modèle. Le journal d'échange ajoute `termes_masques` (un
+    compte seulement).
+  - **Outils** (catalogue fermé du moteur) : huit de LECTURE (mes tâches, feuilles de temps à soumettre,
+    résumé d'une mission, KPI au rouge de mes missions, factures échues, recherche unifiée CAP-07, et depuis le
+    2026-10-21 `missions_en_retard` et `retard_feuilles_temps`), chacun sous
     la permission de l'écran qui sert la même information (`copilote/catalogue.ts`) et la visibilité des
-    missions ; une mission inexistante, d'autrui ou invisible répond la même phrase que l'accès refusé. Les
+    missions. `missions_en_retard` : `mission.lire`, missions dont l'utilisateur est directeur, chef ou membre,
+    jalon non atteint dépassé, ou date de fin dépassée pour une mission signée ou en cours.
+    `retard_feuilles_temps` : `temps.saisir` ET (`temps.valider` OU `indicateurs.cabinet` OU
+    `mission.lire_toutes`), périmètre de `routes/discipline-temps.ts`, quatre dernières semaines écoulées, des
+    noms et des nombres de semaines seulement ; une mission inexistante, d'autrui ou invisible répond la même phrase que l'accès refusé. Les
     « factures échues » suivent la permission de la balance âgée (`facture.lire` et `encaissement.gerer` ou
     `indicateurs.cabinet`), les montants exigent en plus `finance.lire` (FIN-02, champ absent). Les réponses
     ne recopient aucun contenu client (verbatim, réponse de questionnaire, extrait de document) et sont
     bornées à 10 éléments.
-  - **UNE action modifiante, `creer_tache`, JAMAIS exécutée directement** : proposition stockée dans
+  - **TROIS actions modifiantes, `creer_tache`, `ajouter_commentaire` et `planifier_relance`, JAMAIS exécutées
+    directement** (le texte qui suit décrit le mécanisme commun, établi pour `creer_tache`) : proposition stockée dans
     `copilote_actions` (`0271` ; RLS `isolation` et `portail_interdit`, `REVOKE DELETE`, `UPDATE` limité aux
     colonnes de décision) avec paramètres déjà validés et résolus, résumé construit par le code, empreinte
     SHA-256 des paramètres et expiration à 5 minutes ; transitions en ajout seul (`MPG10` : état terminal figé ;
@@ -1505,7 +2051,17 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     (retirée : proposition « refusee », 403) et l'empreinte relue (altérée : « refusee ») ; l'écriture passe par
     le service commun `collaboration/taches.ts`, le même que `POST /taches-collaboration`, sous les droits de
     l'utilisateur (entité visible des deux personnes, assigné interne actif), le journal notant `via:
-    copilote`. L'annulation est permise à tout niveau.
+    copilote`. L'annulation est permise à tout niveau. **`ajouter_commentaire`** (`copilote/action-commentaire.ts`) :
+    texte de 600 caractères au plus, stocké dans `copilote_actions.parametres` et `resume` (donc anonymisé à 30
+    jours, ci-dessous), jamais dans le journal d'échange ; l'écriture passe par `collaboration/commentaires.ts`,
+    extrait sans changement de comportement de `routes/commentaires.ts`. **`planifier_relance`**
+    (`copilote/action-relance.ts`) : relance MANUELLE de niveau suivant d'une facture échue, **sans e-mail au
+    client** et sans montant dans le résumé ; service commun `finance/relance-manuelle.ts` (extrait de
+    `routes/relances.ts`) ; **une relance copilote par facture et par jour**, règle revérifiée À LA CONFIRMATION
+    sous verrou consultatif par facture : la seconde confirmation répond 409 `RELANCE_DEJA_ENREGISTREE` (la
+    proposition reste « proposee » jusqu'à son expiration). Sous N1, les outils d'action sont retirés de l'aide
+    et du catalogue envoyé au modèle ; une demande d'action reçoit 200 `statut: refuse` (« Cette action n'est
+    pas disponible… ») au lieu de 409, tandis que la confirmation d'une proposition antérieure reste 409.
   - **Niveau d'autonomie effectif ≥ N2 pour proposer et confirmer** (409 `COPILOTE_ACTION_NON_AUTORISEE`) ;
     la lecture dès N1 ; agent désactivé ou N0 : 409 `COPILOTE_DESACTIVE` (message compris). Le registre standard
     relève le plafond du copilote de N1 à N2 par la version 2 de l'agent (`0273`, ajout seul `MPG01`) ; un
@@ -1532,9 +2088,21 @@ n'est posée (à valider, `DECISIONS.md`, §12) ; les gabarits standard de CV pa
     par cabinet et par jour, clé `copilote_purge:AAAA-MM-JJ`, `planifier_purge_copilote`, inscrit au
     `REGISTRE_JOBS`) ; une proposition « proposee » échue est d'abord marquée « expiree ». Le déclencheur
     n'admet que cette anonymisation, jamais un `UPDATE` libre (modèle `0104`).
-  - **Limites** : un nom propre tapé dans le message (collaborateur, client, mission) part en CLAIR vers le
-    fournisseur, le masque du copilote n'ayant aucun terme sensible (`creerMasque([])`) ; **aucune vérification
-    avec un vrai modèle** (aucune clé) : qualité du routage et format JSON réel non vérifiés (§15).
+  - **Masquage des noms connus du cabinet** (`copilote/noms-propres.ts`, 2026-10-21) : les raisons sociales des
+    clients, noms des utilisateurs, des contacts clients et intitulés de missions, écrits EN ENTIER, sont masqués
+    avant envoi (jetons restitués localement), en plus des formats de §7 bis « Masquage avant envoi ». La même
+    présélection sert l'amorçage du standard (STD-13) avec des bornes élargies à un document long
+    (`BORNES_NOMS_INGESTION`, §8 undecies) ; le copilote garde sa tranche unique de 200 mots.
+  - **Conversation du navigateur.** La conversation peut être conservée dans le `sessionStorage` de l'onglet
+    (`lib/copilote-session.ts`) : jamais envoyée au serveur, 20 questions au plus, 30 minutes d'inactivité,
+    bouton « Effacer la conversation » (aussi appelé par `BoutonDeconnexion`), propositions d'action en attente
+    jamais restaurées, portée = identifiant de l'utilisateur. Le serveur ne conserve toujours aucune
+    conversation.
+  - **Limites** : PARTENT en CLAIR vers le fournisseur un nom absent des fiches du cabinet, un fragment seul
+    (prénom, un mot d'une raison sociale), une faute de frappe ou des lettres espacées, le texte libre autour,
+    le nom d'un autre cabinet tapé par l'utilisateur ; au-delà de 2 000 noms candidats par table ou de 200 noms
+    distincts par message, le surplus part en clair ; **aucune vérification avec un vrai modèle** (aucune
+    clé) : qualité du routage et format JSON réel non vérifiés (§15).
 
 ## 8. Fichiers privés
 
@@ -1621,6 +2189,10 @@ du stockage (§8 bis).
   lui-même est limité à 5 000 lignes ; les exécutions d'un cabinet sont
   sérialisées par un verrou consultatif, et une feuille créée par une saisie
   pendant l'import répond 409 `IMPORT_CONCURRENT` (`temps/import.ts`).
+- **Ingestion de documents** (lot 6) : un PDF ou un classeur téléversé pour être LU (états financiers, due diligence,
+  amorçage du standard) suit la même réception, la même détection par le contenu et le même quota, puis est analysé et
+  son objet de stockage est effacé (jamais conservé) ; ce qui est lu, borné et conservé (le texte des pages) est décrit en
+  §8 undecies.
 - **Non couvert** : chiffrement des fichiers au repos (le disque l'assure ou non),
   analyse antivirus (y compris pour les fichiers qu'un tiers externe, le client, téléverse par le
   portail et que le cabinet lit : §15), sauvegarde du dossier `STORAGE_DIR` (rien dans le dépôt),
@@ -1645,13 +2217,24 @@ du stockage (§8 bis).
   `mission.lire`, `plan.lire` ET `plan.valider`, une version VALIDÉE du modèle financier (409
   `MODELE_NON_VALIDE`, doublé en base : `MPR03`), ne reprend que des contenus validés et PAS l'annexe
   « Sources » (registre des preuves interne) ; niveau « plan », même suivi qualité et mêmes plafonds
-  que les autres rapports. Le **dossier de revue de performance** des KPI (§5 quater) est rendu par
+  que les autres rapports. **Rapport de clôture du redressement** (RED-08, `0551`, modèle
+  `cloture_redressement`, niveau `red`, §8 nonies) et **rapport d'état financier** du dossier client (`0552`,
+  modèle `etat_financier`, niveau `dossier`, `POST
+  /api/dossiers/:id/rapports/etat-financier?format=pdf|docx&mission_id&exercices`, corps facultatif
+  `{commentaire}`, moteur pur `synthese-etats.ts`, lecture `dossier.lire`) : données DU CLIENT, jamais FIN-02,
+  jamais de commentaire produit par l'IA (non branché). `0551` puis `0552` REDÉFINISSENT successivement les
+  contraintes `modele_check`, `niveau_check` et `source_check` de `rapports_mission` (après `0508`) en
+  reprenant l'UNION en vigueur ; toute nouvelle redéfinition porte un numéro supérieur à `0552` et reprend
+  cette union (modèles `etat_avancement`, `notation`, `plan_strategique`, `dossier_bancaire`, `note_comite`,
+  `cloture_redressement`, `etat_financier` ; niveaux `base`, `jours`, `finance`, `notation`, `plan`, `dd`,
+  `red`, `dossier`) ; `0552` fonctionne avec ou sans la colonne `red_cloture_id`. Le **dossier de revue de performance** des KPI (§5 quater) est rendu par
   la même infrastructure (PDF, Word, PowerPoint) mais n'est pas enregistré ; il porte la mention
   de confidentialité neutre des rendus.
 - **Niveau** calculé par le code d'après les sections incluses
   (`rapports/niveaux.ts`) : `base`, `jours` (`budget.lire_jours`), `finance`
   (`budget.lire_jours` et `finance.lire`), `notation` (`notation.lire`), `plan`
-  (`plan.lire`). Lecture revérifiée à **chaque**
+  (`plan.lire`), `dd` (`dd.lire`, note au comité), `red` (`redressement.lire`, rapport de clôture du
+  redressement, fermé au portail) et `dossier` (`dossier.lire`, rapport d'état financier). Lecture revérifiée à **chaque**
   appel : mission visible, `mission.lire` et permissions du niveau, sans
   condition d'auteur (`stockage/fichiers.ts`).
 - **Débit** : au plus 10 générations par utilisateur sur 10 minutes glissantes
@@ -1761,16 +2344,25 @@ migrations `0240`–`0242`, durcissement `0243` (audit du 2026-10-08).
   codes du moteur (`PREUVE_INVALIDE`, `ASSERTION_INVALIDE`, `DIMENSION_INVALIDE`,
   `OPTIONS_INVALIDES`).
 - **Limites connues** : une dimension se désactive mais ne se supprime pas ; la
-  détection automatique des contradictions (agent contradicteur) n'existe pas
-  encore, le lien « contre » est posé par un consultant ; le lien vers un fichier
+  détection automatique des contradictions du registre n'existe pas encore, le lien « contre » est posé
+  par un consultant (l'agent contradicteur du lot 4c relit un brouillon IA à la demande, §7 bis, et n'écrit rien
+  dans le registre) ; le lien vers un fichier
   est vérifié par rattachement (`MPV02`), pas contre le droit de lecture du fichier ;
-  PRV-06 : l'annexe des sources des rapports PDF et Word est faite
-  (§8 bis), pas les citations cliquables des livrables web.
+  PRV-06 : l'annexe des sources des rapports PDF et Word (§8 bis) ET les
+  citations du web sont faites (lot 4b, 2026-10-21, voir ci-dessous).
+- **Sources d'un livrable (PRV-06 web)** : `GET /api/missions/:id/livrables/:livrable/sources` et
+  `GET /api/missions/:id/livrables/:livrable/sources/:preuveId`, sous `preuve.lire` ET mission visible
+  (`preuves/citations.ts`, qui produit aussi la numérotation [n] de l'annexe « Sources » des exports, donc
+  la même pour le web et les fichiers). L'ouverture d'une citation répond **404** si la preuve n'est pas citée
+  par ce livrable de cette mission (même 404 qu'une preuve inexistante ou d'autrui) ; le verbatim nominatif sans
+  accord reste masqué pour tous (`vuePreuve`). Composant `components/preuves/CitationsLivrable.tsx` monté sur
+  les pages du plan et de la notation. Le rapport « dossier bancaire », destiné à une banque, n'a toujours pas
+  d'annexe de sources. Routes fermées au portail.
 
 ## 8 quater. Dossier client vivant (DOS-01 à DOS-07)
 
 Routes de `routes/dossier-client.ts`, logique dans `apps/api/src/dossier/`, tables
-des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
+des migrations `0220`–`0225`, moteurs `packages/engines/src/dossier/`.
 
 - **Droits et visibilité** (règle écrite en tête de `dossier/acces.ts`) :
   `dossier.lire` pour lire, `dossier.ecrire` pour écrire et exporter, toujours sur
@@ -1778,7 +2370,8 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
   client dont on voit au moins une mission (directeur, chef, équipe). La fiche
   client (`clients.lire`) n'ouvre pas le dossier. Dossier invisible, d'un autre
   cabinet ou inexistant : même 404. Aucune route n'est ouverte au portail client :
-  `portail_interdit` sur les sept tables, aucune entrée dans `LISTE_BLANCHE_PORTAIL`.
+  `portail_interdit` sur les huit tables (sept en `0220`–`0224`, plus `dossier_participations`),
+  aucune entrée dans `LISTE_BLANCHE_PORTAIL`.
 - **Ajout seul** : faits, décisions, facteurs, états, lignes, décisions d'état,
   instantanés de fiabilité et exports ne se modifient ni ne se suppriment
   (`REVOKE UPDATE, DELETE`, déclencheurs `MPO01`, même pour le propriétaire). Une
@@ -1810,7 +2403,8 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
   `lireClasseurTemps` de `temps/import-excel.ts`) ou CSV en JSON (200 000
   caractères au plus). Le fichier n'est jamais conservé : nom assaini, empreinte
   SHA-256 et taille sont tracés avec l'état. Montants lus exactement par le moteur
-  (`lireMontantTexte`, refus plutôt qu'arrondi).
+  (`lireMontantTexte`, refus plutôt qu'arrondi). Le PDF d'état financier (`POST
+  /dossiers/:id/etats-financiers/document`) passe par l'ingestion de documents (§8 undecies).
 - **Document cité en source** : un `document_id` doit être lisible par l'auteur
   (`exigerFichierLisible`, 404 sinon) ; un fichier cité par un fait ou un facteur n'est
   pas orphelin et n'est pas purgé (`fichier_orphelin`, migration `0268`).
@@ -1831,15 +2425,31 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
   `DOSSIER_PLEIN` ; écritures d'un dossier sérialisées par verrou consultatif.
 - **Codes d'erreur** : `VALIDATION_REQUISE`, `DOSSIER_PLEIN`, `DOSSIER_AJOUT_SEUL`,
   `REMPLACEMENT_INVALIDE`, `DECISION_INVALIDE`, `ACCEPTATION_REFUSEE`,
-  `DEJA_DECIDE`, `DEJA_REMPLACE`, `CONTEXTE_INVALIDE` (400), `IMPORT_INVALIDE` (lignes en erreur dans
-  `erreur.details.erreurs`), `EXCEL_INVALIDE`, `FICHIER_TROP_VOLUMINEUX`,
+  `DEJA_DECIDE`, `DEJA_REMPLACE`, `CONTEXTE_INVALIDE` (400), `IMPORT_INVALIDE` (`AppError` depuis le lot 4b, lignes en erreur dans
+  `erreur.details.erreurs`, tronquées à 200 lignes par la liste blanche de `errors.ts`, le message donnant le total), `EXCEL_INVALIDE`, `FICHIER_TROP_VOLUMINEUX`,
   `FICHIERS_OCCUPE`, et les codes du moteur (`LIGNES_INVALIDES`,
   `CODE_LIGNE_INVALIDE`, `CODE_LIGNE_EN_DOUBLE`, `PARENT_INCONNU`,
   `PARENT_INVALIDE`, `CYCLE_PARENTS`, `ROLE_INVALIDE`, `MONTANT_INVALIDE`,
   `TOLERANCE_INVALIDE`).
-- **Limites connues** : l'extraction par l'IA depuis un PDF (DOS-03) n'est pas
-  branchée (la colonne `origine` l'accueillera) ; groupes et filiales (DOS-05) hors
-  lot ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
+- **Groupes et filiales (DOS-05, lot 4b, `0225`, mise à jour du 2026-10-21)** : table
+  `dossier_participations` (une participation = détenteur, filiale, points de base 0 à 10 000, date d'effet,
+  motif ; 0 point = fin de détention, motif obligatoire), en ajout seul, RLS `isolation` + `portail_interdit`
+  RESTRICTIVE, **jamais ouverte au portail** (aucune route dans `LISTE_BLANCHE_PORTAIL`). SQLSTATE
+  `MQF01` cycle, `MQF02` total des parts supérieur à 100 %, `MQF03` fin de détention sans détention
+  antérieure, `MQF04` profondeur de plus de 8 liens (ajouté par la correction de relecture du 2026-10-21) ;
+  l'API répond **409** pour tout refus de détention, qu'il vienne du moteur ou du déclencheur
+  (`dossier/erreurs.ts`) ; l'auto-détention reste 400. Routes `GET /api/dossiers/:id/groupe`, `GET` et `POST
+  /api/dossiers/:id/participations` (`dossier.lire` / `dossier.ecrire`, dossier visible exigé). Moteur pur
+  `packages/engines/src/dossier/groupe.ts` : parts directes et cumulées exactes (BigInt, tous chemins),
+  consolidation simple (seuil de contrôle supérieur à 50 % pour la vue intégrale ; conversion EUR, XAF et XOF
+  au taux fixe 655,957, USD exclu et consolidation marquée partielle ; pas une consolidation légale). **Un
+  dossier non visible de l'utilisateur apparaît comme nœud anonyme** (niveau et part, sans identifiant, nom ni
+  montant) et son état est exclu de la consolidation, signalée « partielle ». **FIN-02** : la réponse ne porte
+  que des données du client, identique avec ou sans `finance.lire`. Le rapport d'état financier du groupe est
+  réservé à `dossier.lire` (§8 bis).
+- **Limites connues** : l'extraction depuis un PDF (DOS-03) est livrée depuis le
+  lot 6 (origine `pdf`, `0523` ; §8 undecies) ; les PDF scannés sont lus par l'OCR local depuis le lot 11 (`0525`,
+  §8 undecies : un état issu d'un OCR part toujours en revue) ; la feuille d'origine d'un classeur n'est pas nommée (première feuille
   visible) ; barème de
   fiabilité et seuils de classe posés par défaut, à calibrer au pilote.
 
@@ -1862,8 +2472,21 @@ des migrations `0220`–`0224`, moteurs `packages/engines/src/dossier/`.
 - **Immuabilité** : version publiée et son contenu figés (`MPM01`, même pour le
   propriétaire) ; une version se crée en brouillon ; `mission_methodes`,
   `derogation_validations` en ajout seul (`MPM03`, `REVOKE UPDATE, DELETE`) ;
-  dictionnaire, facteurs, services et notes en ajout seul pour le rôle
-  applicatif (`REVOKE UPDATE, DELETE`).
+  dictionnaire, services et notes en ajout seul pour le rôle
+  applicatif (`REVOKE UPDATE, DELETE`). **Exception STD-11 (lot 4a, `0210`, 2026-10-21)** : `facteurs_contexte`
+  accorde au rôle applicatif `UPDATE (libelle, description, valeurs, min, max)` seulement (jamais l'identité :
+  code, type, porteur, propriétaire ; `DELETE` toujours refusé), sous la politique `isolation` : une ligne du
+  standard (`cabinet_id` NULL) n'est jamais modifiable. Le déclencheur `controler_modification_facteur`, qui
+  vaut aussi pour le propriétaire, refuse l'identité modifiée ou un facteur du standard (`MQS01`, 409
+  `FACTEUR_FIGE`) et une valeur d'énumération retirée ou une borne resserrée (`MQS02`, 409
+  `FACTEUR_RETRAIT_INTERDIT`) : un facteur lu par des règles, des cas types et des contextes déjà enregistrés
+  s'enrichit, il ne s'appauvrit pas. Un facteur du standard modifié par l'API : 403 `STANDARD_LECTURE_SEULE`.
+- **Routes ajoutées par STD-11** (cinq, toutes sous `exiger`, fermées au portail) : `PATCH
+  /api/methodes/versions/:id/elements/:enfantId`, `PATCH …/rubriques/:enfantId`, `PUT
+  …/cas-types/:enfantId`, `PATCH /api/standard/facteurs/:id` (`standard.gerer`) et `POST
+  /api/methodes/versions/:id/apercu` (`standard.lire`, n'écrit rien). Le contrôle de cohérence
+  `REGLES_CONTRADICTOIRES` (deux règles actives de même priorité, de condition identique et d'effets
+  contraires) est une ERREUR bloquante ; `CONFLIT_MEME_PRIORITE` reste un avertissement.
 - **Variante du cabinet** (STD-02, `0207`) : publier une variante exige le quatre yeux
   (le créateur de la version ne la publie pas, sauf associé : 403 `SEPARATION_DES_TACHES`,
   `MPM08`) et refuse qu'elle abaisse la classe de risque ou relève le niveau d'autonomie
@@ -2032,11 +2655,41 @@ fonction du portail qui écrit un fichier (§4 bis).
 Service #2 : dossiers, analyses, hypothèses et verdicts sourcés, dimensionnement de marché,
 filtrage environnemental et social, plan des 100 jours, note au comité. Vingt tables `dd_*`
 (migrations `0500`–`0508`), routes `/api/dd/**`, SQLSTATE `MPZ21`–`MPZ32` (lettre `Z` partagée avec
-le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER`.
+le redressement) et `MPR04`. Mise à jour du 2026-10-21 : sept tables de plus, soit 27 (cinq `dd_portail_*`,
+`0509`, et deux tables de modèles sectoriels, `0511`), SQLSTATE `MQD01`–`MQD08` et `MQD11` (second préfixe,
+§5 ter). Aucune IA, aucun réseau, aucune fonction `SECURITY DEFINER` dans le lot d'origine ; depuis le lot 6
+(2026-10-22), l'import de rapports PDF (DD-02) et la lecture de la salle de données (DD-10) passent par l'ingestion de
+documents et l'orchestrateur IA (§8 undecies, mode texte natif, `dd.valider`), sans changer les garanties ci-dessous.
 
-- **Isolation et portail.** Chaque table porte RLS (`isolation`) et la politique RESTRICTIVE
-  `portail_interdit` ; aucune route ne figure à `LISTE_BLANCHE_PORTAIL`. Une ressource d'une mission
-  invisible répond le même 404 que l'inexistante. L'investisseur-client ne voit rien (repoussé).
+- **Isolation et portail.** Chaque table porte RLS (`isolation`) ; les tables du cabinet portent la politique
+  RESTRICTIVE `portail_interdit` et aucune route du cabinet (`/api/dd/**`) ne figure à `LISTE_BLANCHE_PORTAIL`.
+  Une ressource d'une mission invisible répond le même 404 que l'inexistante.
+- **Portail investisseur (lot 3b-bis, `0509`, mise à jour du 2026-10-21).** Un compte portail
+  `client_investisseur` invité sur un dossier (et seulement si l'option du cabinet est active, désactivée par
+  défaut) lit en lecture seule l'INSTANTANÉ d'une version de note VALIDÉE et publiée, et télécharge les pièces
+  choisies. Permissions : `dd.portail.configurer` (associé seul : l'option du cabinet), `dd.portail.gerer`
+  (associé et directeur de mission : inviter, publier, retirer), `portail.dd.lire` (`client_investisseur` seul).
+  Trois routes dans `LISTE_BLANCHE_PORTAIL` (§4 bis), en `GET` et `HEAD` :
+  `/api/portail/due-diligence/publications`, `/api/portail/due-diligence/publications/:id` et
+  `/api/portail/due-diligence/publications/:id/pieces/:pieceId/fichier` ; huit routes du cabinet
+  (`routes/due-diligence-portail.ts`) et trois du portail (`routes/due-diligence-portail-investisseur.ts`).
+  Les tables `dd_notes`, `dd_note_versions` (`base_figee`), `dd_dossiers` et `rapports_mission` restent
+  `portail_interdit`. Cinq tables `dd_portail_*` en ajout seul : politique RESTRICTIVE `portail` en lecture +
+  `portail_sans_insert/update/delete`. **Aucun identifiant de dossier, de note, de mission ou de rapport, aucun nom
+  de membre du cabinet, aucun coût ni honoraire (FIN-02) n'est servi au portail.** Le téléchargement d'une pièce
+  passe par la sortie `horsContextePortail` (§4 bis), après les contrôles de `avecPortail`, et sa lecture interne
+  revérifie tout explicitement. **Piège** : une politique contenant `NOT EXISTS (retraits)` laisse tout passer si
+  la table des retraits est invisible du portail ; les retraits portent donc le `client_id` de leur publication
+  (`MQD06`) et sont lisibles pour ce client. `dd_portail_options` n'est PAS `portail_interdit` (la politique des
+  publications la lit) : sa lecture est réduite aux comptes invités au moins une fois. Une publication dont la
+  note a une version plus récente reste visible de l'investisseur (marquée « périmée » côté cabinet) ; au plus 10
+  pièces par publication, une seule publication active par note, seule la dernière version soumise et validée est
+  publiable, pièces figées à la publication, invitation et publication refusées après la clôture de la mission
+  (retraits possibles). **Limite connue** : du SQL arbitraire du rôle applicatif contourne les gardes de
+  cohérence (comme `MPZ29`, §15).
+- **Modèles sectoriels (DD-07, `0511`, `MQD11`).** Véhicule seulement : modèles d'analyse par secteur, vides par
+  défaut, rédigés par le cabinet (200 modèles par cabinet, 50 points par modèle, 300 caractères par point, 40 000
+  octets de points par version) ; aucun contenu sectoriel n'est livré.
 - **Droits.** `dd.lire`, `dd.ecrire`, `dd.valider`, `dd.referentiel.gerer` ; tout détenteur de
   `dd.ecrire` détient `preuve.ecrire`. Aucune donnée FIN-02 dans le module ni dans la note.
 - **Ajout seul.** Aucun `UPDATE` ni `DELETE` (`REVOKE` et déclencheur `MPZ21`) : une correction est une
@@ -2072,27 +2725,39 @@ le redressement) et `MPR04`. Aucune IA, aucun réseau, aucune fonction `SECURITY
   (jamais reçue du client, validée par `noteBaseSchema`, sans verbatim nominatif). Validation par un
   tiers, avec les bloquants revérifiés (`NOTE_BLOQUEE`). Le rapport ne se rend que pour la dernière
   version soumise, validée (`NOTE_NON_VALIDEE`, `NOTE_PERIMEE`, doublé en base par `MPR04`), après
-  nouvelle vérification des bloquants, et porte la date de figeage de la base.
+  nouvelle vérification des bloquants, et porte la date de figeage de la base. **Source de la décision (lot 13b,
+  2026-10-23, R-03).** La dernière version d'une note reste `soumise` en base une fois jugée (migration `0507`) : la
+  décision vit dans `dd_note_validations` (une ligne par version). La synthèse du dossier (`derniereNote`,
+  `due-diligence/synthese.ts`) joint cette table et déduit `validee` ou `rejetee`, comme `etatDeNote` (`notes.ts`) pour les
+  écrans de notes ; aucune garde ni migration ne change. R-04 (même lot) : l'associé, dispensé de la séparation des
+  tâches (`peutValiderSansConflit`), ne voit plus le message « une autre personne doit le valider », réservé à l'auteur non
+  associé (`messageAuteurVerdict`) ; l'API était correcte.
 - **Limites connues.** Du SQL arbitraire du rôle applicatif contourne les gardes de l'API (comme
   §15) ; la conservation du contenu d'une due diligence reste à décider avec le conseil juridique.
 ## 8 nonies. Redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14)
 
 Lot 3a de la vague 4 (service #5 ; ADR-011, `docs/workflows/specs/SPEC-3a-redressement.md` ; migrations
-`0480`–`0486`, code `apps/api/src/redressement/`, routes `routes/redressement*.ts`, moteur
+`0480`–`0486` (lot 3a-bis, mise à jour du 2026-10-21 : `0487`–`0492` et `0551`), code `apps/api/src/redressement/`, routes `routes/redressement*.ts`, moteur
 `packages/engines/src/redressement`, schémas `schemas/redressement.ts`, tests `test/redressement-*.test.ts`).
 Un dossier par mission : correspondance de postes, ratios, urgence, score d'alerte précoce, trésorerie à 13
 semaines, créanciers et négociations, plan et leviers. Données parmi les plus sensibles du client (dettes,
 trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
 
-- **Cloisonnement** : quinze tables (`red_dossiers`, `red_correspondances`, `red_urgences`,
+- **Cloisonnement** : trente tables, dont quinze du lot 3a (`red_dossiers`, `red_correspondances`, `red_urgences`,
   `red_seuils_versions`, `red_scores`, `red_creanciers`, `red_creances`, `red_negociation_evenements`,
   `red_echeances`, `red_tresorerie_versions`, `red_tresorerie_lignes`, `red_tresorerie_realises`,
-  `red_actions`, `red_action_evenements`, `red_plan_versions`), toutes à RLS (`isolation`, `USING` et
+  `red_actions`, `red_action_evenements`, `red_plan_versions`) et quinze du lot 3a-bis (`red_checklist_modeles`,
+  `red_checklist_versions`, `red_checklists`, `red_checklist_reponses` en `0487` ; `red_causes_versions`,
+  `red_causes_historique` en `0488` ; `red_covenants_versions`, `red_covenants_lignes`,
+  `red_financement_versions`, `red_financement_lignes` en `0489` ; `red_clotures` en `0490` ; `red_suivi_plans`,
+  `red_suivi_jalons`, `red_suivi_releves`, `red_suivi_evenements` en `0491`), toutes à RLS (`isolation`, `USING` et
   `WITH CHECK`), RESTRICTIVE `portail_interdit`, FK composites `(cabinet_id, dossier_id, id)` (un enfant ne vise
-  jamais un parent d'un autre dossier) et aucun `DELETE` pour le rôle applicatif. **Portail fermé** : aucune des 37
-  routes n'est dans `LISTE_BLANCHE_PORTAIL` (403 `PORTAIL_ROUTE_INTERDITE`, test `redressement-portail.test.ts`) ;
+  jamais un parent d'un autre dossier) et aucun `DELETE` pour le rôle applicatif (ni `UPDATE` pour les tables en
+  ajout seul). **Portail fermé** : aucune des 69 routes (37 du lot 3a, 32 du lot 3a-bis : `redressement-checklists`
+  10, `-causes` 4, `-financement` 6, `-cloture` 6, `-suivi` 4, `-tableau` 2) n'est dans `LISTE_BLANCHE_PORTAIL` (403 `PORTAIL_ROUTE_INTERDITE`, test `redressement-portail.test.ts`) ;
   les inventaires `isolation.test.ts` et `portail-acces.test.ts` restent verts sans exception. Aucune fonction
-  `SECURITY DEFINER` (§4), aucun fichier reçu, aucune dépendance ni variable d'environnement nouvelle.
+  `SECURITY DEFINER` (§4, y compris pour `0487`–`0492`), aucune colonne vers `fichiers`, aucun fichier reçu,
+  aucune dépendance ni variable d'environnement nouvelle.
 - **Droits** (`redressement/acces.ts`, règle écrite en tête) : `redressement.lire` (lecture), `.ecrire`,
   `.valider`, `.parametrer` (§2), toujours avec la visibilité de la mission. Écrire exige de pouvoir modifier la
   mission ou d'en être membre, un dossier non clos (409 `RED_DOSSIER_CLOS`) et une mission non clôturée (409
@@ -2106,18 +2771,21 @@ trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
   `finance.lire`. Le module ne joint ni n'expose aucune donnée du cabinet (honoraires, budget, factures, coûts,
   taux, marge de mission). Test `redressement-fin02.test.ts` : un chef de mission sans `finance.lire` lit ratios,
   trésorerie et créanciers, la réponse ne contient aucune clé de coût ou de marge du cabinet (parcours récursif), un
-  gestionnaire (qui a `finance.lire`) reçoit 403 sur les 37 routes. Écart de lecture du PRD à confirmer (§15 et
+  gestionnaire (qui a `finance.lire`) reçoit 403 sur les 37 routes du lot 3a (et, depuis le lot 3a-bis, sur les 32 autres). Écart de lecture du PRD à confirmer (§15 et
   §16) : les réserver à `finance.lire` rendrait le module inutilisable par le chef de mission.
 - **Séparation des tâches, doublée en base** (`MPZ07`, mêmes règles que l'API, même test de refus) : une version de
   plan est validée par un détenteur de `redressement.valider` (associé ou directeur) qui n'en est pas le créateur, sauf
-  associé (`0486`, `plan.ts`) ; une version de seuils d'un secteur est publiée par un `expert_metier` ou un associé
+  associé (`0486`, `plan.ts`) **et, depuis le 2026-10-21, par le directeur de la mission seul** (voir « Validation du
+  plan et du bilan de clôture par le directeur de la mission ») ; une version de seuils d'un secteur est publiée par un `expert_metier` ou un associé
   qui n'en est pas l'auteur, sauf associé (`0483`, `seuils.ts`). L'associé n'est dispensé que par
   `red_valideur_dispense` (utilisateur actif, rôle lu sur la ligne `utilisateurs`, `0480`). L'empreinte du plan
   (SHA-256) est recalculée À LA VALIDATION depuis les actions actuelles : une modification entre-temps donne 409
   `RED_PLAN_MODIFIE` ; `contenu` n'est jamais reçu d'un client. Un score ne référence que des seuils **publiés**, du
   **même secteur** et **identiques** à son instantané (`MPZ02`).
-- **Aucune IA, aucun job, aucune qualification juridique** : aucun import de `ia/`, `agents/` ou `jobs/` dans le
-  module, aucune table `ia_*`, aucun appel réseau (test `redressement-sans-ia.test.ts`) ; le score d'alerte, les voyants
+- **Aucune IA hors `causes-ia.ts`, aucun job, aucune qualification juridique** : aucun import de `ia/`, `agents/` ou
+  `jobs/` dans le module, aucune table `ia_*`, aucun appel réseau, à l'UNIQUE exception de `redressement/causes-ia.ts`
+  (voir « Causes racines » ci-dessous ; test `redressement-sans-ia.test.ts`, qui vérifie qu'aucun autre fichier du
+  module n'importe `ia/`) ; le score d'alerte, les voyants
   d'urgence, les ratios et l'impact d'un levier sortent du moteur pur. Aucun libellé du moteur ni de l'écran ne parle
   de « cessation des paiements », de « faillite » ou de « défaillance » (vérifié par test du moteur, `alerte.test.ts`,
   et par la liste de mots interdits de `apps/web/src/lib/redressement.ts`) ; le mot « alerte » ne
@@ -2153,9 +2821,362 @@ trésorerie, négociations) : tout ce qui suit est vérifiable dans le code.
 - **Données du dossier client** : lecture seule, aucune écriture dans `dossier_*` ; seuls les états **acceptés** et
   **courants** entrent dans un calcul ; `accepte_sous_reserve` et `analyses_indicatives` sont transmis, jamais cachés
   (`redressement/etats.ts`).
+- **Validation du plan et du bilan de clôture par le directeur de la mission** (lot 3a-bis, décision du
+  2026-10-21 ; `VALIDATION_PLAN_RESERVEE_AU_DIRECTEUR` dans `redressement/plan.ts`) : seul le directeur de la
+  mission valide un plan ET un bilan de clôture ; une mission SANS directeur (`directeur_id` nul) ne valide ni l'un
+  ni l'autre (409 `DIRECTEUR_REQUIS`, qui invite à désigner un directeur), au lieu de retomber sur
+  `redressement.valider`. La règle est **doublée en base par `0492`** (qui redéfinit `red_controler_plan_version()` de
+  `0486` et `red_controler_cloture()` de `0490` : valideur = directeur de la mission, mission sans directeur
+  refusée, SQLSTATE `MPZ07` avec un message distinct, aucun nouveau code) ; la séparation des tâches (créateur ≠
+  valideur, sauf associé) est conservée en base. `droits.valider` du dossier (`dossiers.ts`) est aligné : un associé
+  qui n'est pas directeur de la mission ne voit plus le bouton de clôture du dossier (la route de clôture,
+  `redressement.valider`, est inchangée).
+- **Check-lists, causes, financement, clôture, suivi (lot 3a-bis, `0487`–`0492`)** :
+  - **SQLSTATE** `MPZ12` check-list archivée figée ; `MPZ13` historique des causes en ajout seul, rangs consécutifs,
+    contenu modifiable seulement avec un rang « modifié » de la même transaction ; `MPZ14` cartographie d'origine IA
+    « validée » seulement si le dernier rang est « validé » et les nombres non vérifiés acquittés ; `MPZ15` covenant
+    (doublon ratio/opérateur, plancher > plafond) ; `MPZ16` période hors du plan de financement ; `MPZ17` bilan
+    validé figé ; `MPZ18` validation sans contrôles de complétude vrais ; `MPZ19` suivi d'un dossier non clos ;
+    `MPZ20` suivi incohérent. `MPZ12`–`MPZ20` sont PRIS : **la lettre `Z` est épuisée pour le redressement**
+    (`MPZ01`–`MPZ20`). Code de rapport `MPR05` (`0551`) : source de rapport de clôture incohérente (bilan d'une autre
+    mission, non validé, version différente), 409 `RED_CLOTURE_NON_VALIDEE`.
+  - **Check-lists** (RED-03) : modèles de cabinet versionnés ; la publication par un expert autre que l'auteur
+    (sauf associé), trois check-lists de départ « à valider par un expert » ; réponses en ajout seul.
+  - **Tables du suivi (`0491`)** : elles N'UTILISENT PAS `red_controler_mission_ouverte` : elles exigent au
+    contraire un dossier CLOS (`MPZ19`) et s'écrivent MÊME mission clôturée (exception voulue : le suivi suit la fin
+    de mission). Alertes du suivi CALCULÉES À LA LECTURE : aucun job, aucun envoi, aucun accès du portail.
+  - **Causes racines (RED-04) par l'IA** : unique point d'entrée `redressement/causes-ia.ts`, qui passe par
+    `ia/orchestrateur.ts` (jamais un fournisseur). Le contexte envoyé au modèle ne contient que des chiffres issus
+    des moteurs (`contexteChiffresCauses`, liste blanche) ; les noms propres sont masqués (`termesSensibles`) ; le
+    texte libre du consultant est une variable non fiable (`variablesNonFiables`) ; le brief de l'historique (rang 1)
+    ne garde que des indicateurs. Statuts brouillon IA, modifié, validé, historique en ajout seul, validation par un
+    consultant autre que le demandeur ou l'auteur (sauf associé), acquittement des nombres non vérifiés, repli
+    déterministe sans IA. Une cartographie non validée n'entre JAMAIS dans le rapport de clôture ni n'est présentée
+    comme validée dans le tableau de bord (testé).
+  - **Rapport de clôture** : modèle `cloture_redressement`, niveau `red` (`redressement.lire`) ; sa lecture
+    revérifie la mission visible et le niveau à chaque appel (`exigerFichierLisible`, inchangé) ; un rôle sans
+    `redressement.lire` obtient 404 sur `GET /api/fichiers/:id` ; débit `TROP_DE_RAPPORTS` existant (§8 bis).
+  - **Partage externe du tableau de bord (RED-15) NON ouvert** : aucune route du portail, aucune politique `portail`,
+    aucune option de cabinet. Le tableau de bord est INTERNE ; `calculerEtatVoyant` sert au tableau de bord interne
+    (`redressement/tableau.ts`) et, depuis le lot 8b, au brief quotidien (voyant rouge, §5 septies) ; `etatVoyantDossier`
+    reste exporté sans appelant, et ni le portail ni l'automatisation (événement, notification, canal) n'appellent
+    le voyant : NON branchés. À rouvrir avec le portail investisseur : politique RLS
+    `portail` + `portail_sans_*` + entrée explicite dans `LISTE_BLANCHE_PORTAIL` + option du cabinet désactivée par
+    défaut.
 - **Valeurs par défaut** : seuils d'alerte du secteur « général » (les autres secteurs retombent dessus tant
   qu'aucun expert n'a publié), grille d'urgence, plafonds et débits sont **provisoires**, sans source normative
   (DECISIONS.md, section « Redressement ») : le score est indicatif et l'écran le dit.
+
+## 8 decies. Services candidats (lot 7 : diagnostic flash, business plan bancable)
+
+Lot 7 de la vague 4 (décision n° 6 du PRD complémentaire, §21 ; migrations `0560`–`0563`, code
+`apps/api/src/services-candidats/`, routes `routes/services-candidats.ts`, moteur
+`packages/engines/src/services-candidats/guichets.ts`, schémas `schemas/services-candidats.ts`). Surtout du
+CONTENU de standard (deux méthodes publiées par migration, `0560` et `0561`, contenu provisoire « à valider par un
+expert ») ; du code seulement pour le prix fixe paramétrable, la liste des guichets de financement et le
+rapprochement.
+
+- **Cloisonnement** : deux tables neuves, `services_candidats_parametres` (prix fixe par cabinet et par service,
+  `0562`, un paramètre se remplace, il ne se supprime pas) et `guichets_financement` (liste du cabinet, vide par
+  défaut, `0563`), toutes deux à RLS `isolation` et `portail_interdit`. `guichets_financement` n'a AUCUN `DELETE`
+  : on désactive un guichet. `rapports_mission` n'est pas modifiée.
+- **Garde en base** : identité d'un guichet (id, cabinet, auteur, création) figée par `MQV01`, doublée pour le
+  propriétaire de base et NON atteignable par HTTP (schémas stricts, pas de suppression) ; plafond de 500 guichets
+  par cabinet (`MQV02`, 409 `PLAFOND_GUICHETS_ATTEINT`) compté sous `pg_advisory_xact_lock` par cabinet, sans quoi
+  deux créations simultanées dépasseraient le plafond ; une contrainte `CHECK` violée (`23514`) est traduite en 400
+  `REQUETE_INVALIDE` par `services-candidats/erreurs.ts`. Table des codes en §5 ter.
+- **Droits** : `services_candidats.lire` aux mêmes rôles que `catalogue.lire` (services, prix, types activés,
+  guichets, rapprochement ; `expert_externe` : aucun accès) ; `services_candidats.gerer` à l'associé ET au
+  directeur de mission (activation des types de mission, prix fixe, création et modification des guichets). Le
+  rapprochement lancé depuis un `client_id` exige EN PLUS `dossier.lire` et un client visible (404 sinon) : le dossier
+  est plus sensible que l'annuaire de guichets.
+- **Routes** : 8, toutes sous `exiger` avec l'une de ces deux permissions, AUCUNE dans `LISTE_BLANCHE_PORTAIL`
+  (portail fermé par défaut) : `GET /services-candidats`, `POST /services-candidats/activer`,
+  `PUT /services-candidats/:code/prix`, `GET|POST /guichets-financement`, `GET|PATCH /guichets-financement/:id`,
+  `POST /guichets-financement/rapprochement`. Aucune route de création de mission : elle passe par les routes
+  existantes (`POST /missions`, `PUT /missions/:id/methode`), donc par leurs gardes. `POST /services-candidats/activer`
+  sème aussi les grades manquants du catalogue.
+- **Chiffres et prix** : aucun prix par défaut : le diagnostic flash est « à fixer par le cabinet » et son type de
+  mission ne s'active pas tant que le prix n'est pas saisi (409 `PRIX_A_FIXER`) ; le business plan est « sur devis »
+  (montant nul admis). Le prix de la démonstration est marqué `DÉMONSTRATION` (colonne `commentaire`). Le moteur
+  `rapprocherGuichets` est pur et déterministe, SANS conversion de devise (devises différentes : critère « inconnu »,
+  jamais de taux inventé) ; aucun chiffre ne vient du modèle de langage.
+- **Liste tronquée** : `GET /guichets-financement` et le rapprochement renvoient `tronque` (le rapprochement lit
+  jusqu'à 500 guichets).
+- **Entrée depuis la fiche client** (lot 8b) : le lien « Proposer un diagnostic flash » (`cheminDiagnosticFlash`,
+  `apps/web/src/lib/clients.ts`) n'est qu'une navigation vers `/services-candidats` (service et client en
+  paramètres encodés), visible avec `catalogue.lire` et pour un client actif ; il n'ajoute aucune route ni
+  aucun droit, la page et les routes gardent les leurs (ci-dessus).
+
+## 8 undecies. Ingestion de documents (lot 6 : DOS-03, DD-02, DD-10, STD-13, ADR-009)
+
+Lecture, par le cabinet, de documents PDF et de classeurs Excel pour quatre usages : états financiers du client
+(DOS-03, usage `etat_financier`), rapports et salle de données d'une due diligence (DD-02 et DD-10, usages `dd_rapport`
+et `dd_salle`) et amorçage du standard à partir de documents historiques (STD-13, usage `standard_historique`).
+Migrations `0521` à `0526` (`0525` et `0526` : OCR local, lot 11 ; prochain numéro libre : `0527`), trois tables (`ingestion_documents`,
+`ingestion_pages`, `ingestion_extractions`), deux fonctions `SECURITY DEFINER` (`purger_textes_ingestion` et
+`planifier_ingestion_maintenance`, `0524`), SQLSTATE `MQG01`–`MQG03` (§5 ter, §6), code `apps/api/src/ingestion/`,
+routes `routes/ingestion.ts`, `routes/ingestion-dd.ts` et `routes/ingestion-standard.ts` (18 routes), moteurs purs
+`packages/engines/src/ingestion/`, schémas et plafonds `packages/shared/src/schemas/ingestion.ts`
+(`PLAFONDS_INGESTION`). Texte natif depuis le lot 6, **OCR local** depuis le lot 11 (2026-10-22, voir « OCR local »
+ci-dessous). Modèle de menace : un PDF ou un classeur est une entrée **non fiable** (un client, un tiers ou
+un salarié le fournit) ; son texte est un contenu client non fiable (AGT-07) ; la sortie d'un modèle de langage est une
+proposition qu'aucun chiffre ne valide.
+
+- **Chaîne et traitement local.** `POST` d'un document : type décidé par le CONTENU (`detecterType`, jamais l'extension
+  ni l'en-tête ; seuls PDF et XLSX, 415 `TYPE_DOCUMENT_REFUSE` sinon ; un PDF actif est déjà refusé par
+  `stockage/detection.ts`, §8), plafond de taille (413 `FICHIER_TROP_VOLUMINEUX`, `gardeTailleMultipart` avant
+  l'authentification), enregistrement du fichier (quota de stockage du cabinet), ligne `ingestion_documents` et job
+  `ingestion_extraction` dans la MÊME transaction ; la route répond 202. Le job lit le texte des pages
+  (`ingestion_pages`, ajout seul), puis met en file `ingestion_structuration` (états financiers, lecture d'un document,
+  proposition de standard). Une erreur définitive donne le statut `echec` avec un code stable (`CODES_ERREUR_INGESTION`),
+  jamais un message de bibliothèque ni un contenu du document. Le contenu n'est jamais exécuté ni rendu. **Aucun service
+  externe** de lecture de documents ni d'OCR : décision d'architecture ADR-009 (mode LOCAL). Un modèle de langage n'est
+  appelé que par l'orchestrateur IA (§7 bis), jamais par l'ingestion.
+- **Isolation et portail fermé par défaut.** Les trois tables portent RLS (`isolation`) ET la politique RESTRICTIVE
+  `portail_interdit` (`0521`, `0522`) ; `ingestion_documents` n'a aucun `DELETE` pour le rôle applicatif ni de suppression
+  par déclencheur (`MQG01`), `ingestion_extractions` non plus (`MQG02`) ; `ingestion_pages` est en ajout seul
+  (`REVOKE UPDATE, DELETE`), seule la fonction de purge supprime. Aucune route d'ingestion ne figure à `LISTE_BLANCHE_PORTAIL` (`portail/garde.ts` ne cite ni
+  `ingestion`, ni `/dd/documents`, ni `/amorcage`) : 403 pour un compte du portail, y compris investisseur. Aucune clé
+  étrangère vers `fichiers` : `fichier_orphelin` n'est pas redéfinie. Tests : `apps/api/test/isolation.test.ts` (toute
+  table à RLS porte `portail` ou `portail_interdit`), `ingestion-securite.test.ts`, `ingestion-dd-securite.test.ts`,
+  `ingestion-standard.test.ts` (portail fermé, autre cabinet en 404 même en téléversement, aucune réponse ne porte coût,
+  clé de stockage ni identifiant de fichier).
+- **Routes et droits** (la permission est exigée AVANT tout accès aux données, puis la visibilité de l'objet cible, 404
+  sinon, y compris pour un autre cabinet ; le corps n'est lu qu'après ces contrôles : un dossier d'autrui ne consomme
+  rien). DOS-03 : `POST /dossiers/:id/etats-financiers/document` (`dossier.ecrire`, dossier client visible) et 3 `GET`
+  `/dossiers/:id/ingestions[...]` (`dossier.lire`). DD (7 routes) : `POST /dd/dossiers/:id/documents?type=rapport|salle`,
+  `POST /dd/documents/:docId/lecture` (relance) et `PATCH /dd/extractions/:id` (`dd.ecrire` ; `ia.utiliser` en plus pour la
+  relance), `GET` (`dd.lire`), `POST /dd/extractions/:id/decision` (`dd.valider`) ; mission visible et ouverte (409
+  `MISSION_CLOTUREE` sur une mission clôturée : lecture seule). STD-13 (7 routes) : toutes sous `standard.gerer`
+  (`POST /methodes/versions/:id/amorcage/documents`, `/amorcage/documents/:docId[/pages/:numero]`,
+  `POST /amorcage/documents/:docId/proposition` avec `ia.utiliser` en plus, `PATCH` et `POST .../decision` sur
+  `/amorcage/extractions/:id`), uniquement sur un BROUILLON de méthode du cabinet (404 pour le standard livré ou une
+  version d'un autre cabinet ; 409 `VERSION_PUBLIEE` si elle est publiée, doublé par `MQG03`). Aucune réponse ne porte de
+  coût ni clé de stockage (FIN-02).
+- **PDF hostile : pré-contrôle avant tout worker** (`ingestion/pdf-controle.ts`, `pdf-controle-worker.mjs`). Menace : un
+  PDF de quelques Mo dont un flux se décompresse en centaines de Mo ou en Go (un piège de 3 Mo à flux de 1,5 Go avait
+  porté le RSS de l'API à 3,4 Go sans franchir le plafond de tas du worker, revue de sécurité du 2026-10-21, constat C1),
+  ou dont la structure fait relire des Mo à chaque début de flux candidat (une chaîne de blocs deflate « stockés » vides
+  bloquait la boucle d'événements de l'API de 73 à 80 s, tous cabinets, et un PDF de 9,30 Mo était même ACCEPTÉ ; troisième
+  vérification). Contrôle : avant d'instancier pdf.js, le PDF est balayé sans lire le dictionnaire (tout `stream` dont les
+  octets forment un en-tête zlib valide est décompressé sous plafond strict ; fin de ligne après `stream` non supposée,
+  `endstream` dans les données ignoré, `CINFO` non contraint comme pdf.js) **dans un `worker_thread` DÉDIÉ** (tas de 64 Mo,
+  délai de 5 s puis `terminate()`, verdict `PLAFOND_TEXTE` si le délai ou la mémoire du contrôle est dépassé, `PDF_ILLISIBLE`
+  si le worker tombe) : le fil principal ne fait que créer le worker et attendre. Budgets (`PLAFONDS_CONTROLE_PDF`) :
+  ENTRÉE 64 Mo cumulés fournis à zlib ; SORTIE 32 Mo par flux et 128 Mo cumulés ; TRAVAIL 512 Mo (chaque appel zlib, succès
+  ou échec, compte pour le PLUS GRAND de ses octets d'entrée et de sortie) ; 16 384 mots `stream` examinés au plus ; 4 096
+  flux Flate au plus ; cascades Flate sur Flate suivies jusqu'à épuisement des budgets avec un garde-fou de 64 couches. Un
+  dépassement refuse le document (`PLAFOND_TEXTE`) SANS lancer le worker d'extraction. Mesures (Node 24, 2026-10-22) : piège
+  K 73,4 s -> 164 à 221 ms (refusé), K2 7,5 s et accepté -> 145 à 182 ms (refusé), 5 000 flux invalides 247 à 575 ms, PDF
+  légitimes de 9 à 12,5 Mo acceptés (balayage 17 à 235 ms, verdict de bout en bout 68 à 112 ms), retard maximal de la
+  boucle <= 15 ms, surcoût du worker de contrôle 43 à 100 ms. Tests : `apps/api/test/ingestion-pdf.test.ts` (bombe de 300
+  Mo refusée sans créer de worker d'extraction ; les cinq contournements testés `espace-avant-eol`, `filtre-lointain`,
+  `texte-avant-eol`, `endstream-interne` et `flate-sur-flate` ; `CINFO > 7` ; pré-contrôle linéaire et borné sur des flux
+  corrompus et des mots `stream` en masse ; délai du contrôle ; PDF légitimes de 9 à 10 Mo acceptés ; outils
+  `ingestion-pdf-outils.ts`).
+- **Worker d'extraction à mémoire plafonnée et surveillance** (`ingestion/pdf.ts`, `pdf-worker.mjs`). L'extraction du texte
+  (`unpdf`, pdf.js sans évaluation de code, sans police ni ressource distante, sans rendu) tourne dans un `worker_thread`
+  dont le TAS est borné (`resourceLimits`, 256 Mo de génération ancienne) ; le nombre de pages est lu et plafonné AVANT toute
+  extraction ; délai total 30 s (`DELAI_DEPASSE`, sans reprise), deux extractions simultanées au plus par processus
+  (sémaphore à file d'attente, partagé avec le pré-contrôle), donc **35 s au pire** par document (5 s de contrôle plus 30 s
+  d'extraction). `resourceLimits` ne borne PAS la mémoire hors tas (tampons de pdf.js, zlib natif), qui appartient au
+  processus : une **surveillance toutes les 150 ms** (`SURVEILLANCE_MEMOIRE`) termine le worker et échoue le document
+  `PLAFOND_TEXTE` si la mémoire externe du worker dépasse **256 Mo** ou si le RSS du processus monte de plus de **512 Mo**
+  depuis le départ du worker. La mesure de la mémoire externe (`worker.getHeapStatistics()`) exige **Node >= 22.16** ; la
+  garde est défensive : méthode absente ou en échec, seule la surveillance du RSS joue (testé). Seuils fixés sur mesures :
+  PDF légitimes de ~10 Mo = 21 à 88 Mo de mémoire externe et +28 à +147 Mo de RSS ; cascade `ASCIIHex` puis Flate de 1,5 Go
+  qui échappe au pré-contrôle : coupée en 2,6 à 3,0 s avec un pic de +321 à +363 Mo (anciens seuils 512 Mo / 768 Mo : 3,4 à
+  5,1 s, +589 à +628 Mo ; surveillance du RSS seule, cas Node < 22.16 : 4,5 s, +529 Mo). Les mesures « ~1 s, +70 Mo » citées
+  plus tôt venaient de seuils abaissés pour les tests et ne sont pas à retenir. Tests : `ingestion-pdf.test.ts` (la
+  surveillance termine un worker qui gonfle hors tas ; garde Node < 22.16 ; sémaphore libéré après échec ; deux extractions
+  simultanées au plus).
+- **Faux refus connus** (l'utilisateur re-soumet un PDF régénéré, par exemple réimprimé en PDF) : un flux Flate de plus de
+  32 Mo ; un scan Flate brut de plus de 5 pages A4 en RGB (cumul de 128 Mo) ; un PDF abîmé dont environ 7 flux Flate sont
+  tronqués (relecture jusqu'à la fin du fichier à chaque échec : budget d'entrée de 64 Mo dépassé) ; plus de 4 096 flux
+  Flate. Tous répondent `PLAFOND_TEXTE`.
+- **Document effacé après analyse** (jamais conservé). L'objet de stockage est marqué (`marquerFichierSupprime` : ligne
+  `fichiers_suppressions`, motif `retire`) dans la transaction du job d'extraction, puis effacé physiquement
+  (`supprimerObjet`) une fois les pages durables (début de la structuration) ou à l'échec définitif ; `fichier_id` repasse
+  à NULL. Un échec du stockage laisse l'objet : il est journalisé (`ingestion.effacement_echoue`, sans contenu) et la
+  **purge quotidienne le reprend** (`effacerObjetsMarques`, branchée au job `ingestion_maintenance`, `maintenance.ts` :
+  200 objets au plus par passage, les plus récemment marqués d'abord). Comme `fichiers_suppressions` est en ajout seul et
+  n'enregistre pas l'effacement, la planification (`planifier_ingestion_maintenance`) ne retient que les marquages de moins
+  de **30 jours** ; passé ce délai la reprise n'est plus planifiée seule, mais reste tentée à chaque exécution du job. Restent
+  de ce document son empreinte SHA-256, son nom assaini, sa taille et le texte de ses pages. Tests : `ingestion-securite.test.ts`
+  (objet effacé après traitement, panne du stockage), `ingestion-maintenance.test.ts` (reprise d'un objet marqué encore
+  présent, échec compté sans faire échouer la maintenance, aucun objet temporaire résiduel, condition de planification qui
+  ne reste pas vraie indéfiniment).
+- **Texte des pages : conservation limitée** (décision de l'utilisateur du 2026-10-22). Le texte est conservé jusqu'à la
+  décision sur l'extraction (validée ou rejetée) ou sur l'état financier, **plus 90 jours** (`CONSERVATION_TEXTE_JOURS`,
+  bornes SQL 90 à 3 650), puis purgé par le job `ingestion_maintenance` (03 h 45 UTC, un job par cabinet et par jour, clé
+  `ingestion_maintenance:AAAA-MM-JJ`, 1 000 documents au plus par passage) par la fonction `purger_textes_ingestion`
+  (`SECURITY DEFINER`, `search_path` fixé, cabinet du contexte, `REVOKE ALL FROM PUBLIC`, date refusée si elle dépasse
+  l'horloge de la base de plus d'une minute, `0524`). Un brouillon ouvert, un état financier en revue ou un document non
+  terminal n'est jamais purgé ; l'état financier, ses lignes, les brouillons et le document restent (seuls les références de
+  page et les extraits déjà recopiés survivent). `texte_purge_le` est exposé ; une page purgée répond 404 `TEXTE_PURGE`, une
+  relance de lecture 409. Pendant ce délai le texte est en base **sans masquage des montants** (dette, §15). Tests :
+  `ingestion-maintenance.test.ts` (89 jours : rien ; 91 jours : seulement les documents tranchés ; brouillon ouvert et état
+  en revue jamais purgés ; idempotence ; paramètres hors bornes ; le rôle applicatif ne supprime aucune page ; le journal
+  ne contient que des compteurs), `ingestion-standard.test.ts` (404 « texte purgé », relance 409).
+- **Les chiffres ne viennent jamais du modèle (DOS-03).** Un montant n'est retenu que s'il se retrouve, lu exactement, comme
+  PREMIER montant (colonne de l'exercice N) d'une ligne de la page citée dont le **libellé normalisé COMPLET** est celui du
+  poste (`packages/engines/src/ingestion/ancrage.ts` : insensible à la casse, aux accents, aux espaces et à la ponctuation ;
+  un simple préfixe n'est admis que s'il est unique, d'au moins 12 caractères et couvre 80 % du libellé source) ; plusieurs
+  lignes candidates donnent le rejet `libelle_ambigu` (jamais de choix au hasard), trois montants ou plus `montants_ambigus`.
+  Deux lignes de même libellé sur une page sont toujours rejetées (peut produire des revues sur de vrais états). Les
+  additions, l'équilibre actif = passif et la cohérence du résultat sont ceux de `controlerEtatFinancier` ; **acceptation
+  automatique** (`ingererEtat`, option `forcerRevue`, base `MPO04` en doublon) seulement si tous les contrôles passent à
+  tolérance nulle ET aucune ligne n'est rejetée ou non lue ET le texte vient d'une couche texte (jamais d'une lecture par
+OCR, méthode `ocr` ou `ocr_simule` : un tel état part TOUJOURS en revue) ET aucun état
+  accepté par un humain n'est remplacé ; sinon `en_revue`. Chaque ligne porte `reference.page` (PDF) ou `reference.cellule`
+  (Excel) ; origine `pdf` (`0523`). Sans IA (désactivée, sans clé, plafond atteint, sortie inexploitable) : règles
+  déterministes du moteur, mises en revue. Test : `packages/engines/src/ingestion/etat-ia.test.ts`,
+  `apps/api/test/ingestion-etats.test.ts`.
+- **DD-02 et DD-10 : lecture d'un rapport ou d'un document de la salle de données.** L'IA propose un résumé et des éléments
+  (fait, risque, chiffre, engagement, autre), chacun avec sa page et un extrait recopié ; le moteur vérifie que l'extrait et
+  chaque nombre cité se retrouvent dans la page. Le résultat est un BROUILLON (`brouillon_ia`, `modifie`, `valide`,
+  `rejete`) : rien n'alimente un verdict, le registre des preuves ni un rapport sans validation par un détenteur de
+  `dd.valider` (séparation des tâches ci-dessous) ; un brouillon qui contient des éléments non vérifiés exige un acquittement
+  explicite (409 `CHIFFRES_A_ACQUITTER`). La validation ne pousse rien ailleurs. L'adaptateur de données ouvertes
+  (`due-diligence/donnees-ouvertes.ts`) reste simulé, sans route ni appel réseau. Tests : `ingestion-dd.test.ts`,
+  `ingestion-dd-securite.test.ts`, `ingestion-dd-resume.test.ts`.
+- **STD-13 : amorçage du standard.** L'IA propose étapes, briques, éléments et rubriques à partir de documents historiques
+  téléversés vers un brouillon de méthode du cabinet ; les experts (`standard.gerer`) corrigent puis valident ; la
+  validation applique au brouillon par les fonctions de l'éditeur STD-11 (bornes et journal compris) avec des valeurs
+  prudentes (classe de risque R3, autonomie maximale N1, brique inactive par défaut, sans moteur ni agent) ; un code déjà
+  présent est ignoré et listé, jamais écrasé ; un dépassement de borne annule tout (409). **Rien n'est publié** : la
+  publication reste l'acte séparé de l'éditeur. Test : `ingestion-standard.test.ts`.
+- **FIN-02 sur les documents d'amorçage.** (1) Le texte des pages d'un document d'amorçage n'est servi (`GET
+  /amorcage/documents/:docId/pages/:numero`) qu'à son AUTEUR ou à un détenteur de `finance.lire` (403 sinon), le détail du
+  document (métadonnées sans texte) restant ouvert à `standard.gerer` : **hypothèse métier à valider** (un document
+  historique peut porter des taux journaliers et des honoraires), réversible (lever la condition revient en arrière). (2)
+  `contientDonneeFinanciere` (`packages/engines/src/ingestion/proposition.ts`) détecte un nombre de 3 chiffres ou plus
+  (séparateurs de milliers compris), une mention de monnaie (FCFA, F CFA, CFA, XOF, XAF, EUR, euro(s), USD, dollar(s), CHF,
+  franc(s), €, $, £) ou un mot de nombre (cent, mille, million, milliard), en mots entiers, sans égard à la casse ni aux
+  accents : la ligne est rejetée à la lecture (`donnee_financiere`) et la correction humaine est refusée (400), sur les
+  propositions d'amorçage ET sur les CODES bruts (donc tout code de 3 chiffres ou plus est refusé, dette ci-dessous). C'est
+  une **heuristique de prudence** : « cent pour cent » est un faux positif assumé, « 3k » ou une autre langue passent ; la
+  barrière réelle reste la validation humaine. Le détail d'une proposition ne peut exposer ni taux ni honoraires. Tests :
+  `ingestion-standard.test.ts` (descriptions FIN-02 du texte et des codes, route des pages), `proposition.test.ts`.
+- **Noms masqués avant envoi à l'IA (amorçage seulement).** Pour `standard_historique`, les noms de clients, d'utilisateurs,
+  de contacts clients et de missions connus du cabinet (`copilote/noms-propres.ts`) sont masqués avant l'envoi, sur TOUT le
+  texte transmis : 40 tranches de 200 mots distincts au plus et 200 termes au plus (`BORNES_NOMS_INGESTION` ; le copilote
+  garde une tranche), puis démasquage de la sortie ; **toute ligne de proposition qui recopie un nom masqué est écartée**
+  (un nom de client n'entre jamais dans le standard du cabinet). **Limites** : noms écrits en entier seulement ; un nom
+  ajouté par correction humaine n'est pas filtré ; `dd_rapport` et `dd_salle` ne sont PAS masqués (non demandé) ; les
+  montants du texte envoyé ne sont pas masqués (§15). Tests : `ingestion-standard-noms.test.ts` (nom après le 300e mot
+  masqué, copilote inchangé), `ingestion-standard.test.ts`.
+- **L'IA propose, l'expert dispose ; séparation des tâches.** Le valideur d'un brouillon n'est ni l'auteur du téléversement,
+  ni le demandeur de la lecture (téléversement ou relance : colonnes `derniere_demande_par` du document et `demande_par` de
+  l'extraction), ni le dernier modificateur (`modifie_par`), sauf associé : contrôle de l'API avant l'application (403
+  `VALIDATION_REQUISE`) DOUBLÉ par le déclencheur `MQG02` (le contournement par SQL direct est refusé, l'associé passe). Un
+  brouillon contenant des éléments non vérifiés se valide après acquittement. Un texte de document qui contient une
+  consigne est une donnée : il n'entre dans un prompt que par une variable déclarée non fiable (masquée, neutralisée,
+  encadrée par l'orchestrateur), jamais dans les consignes ; la sortie du modèle ne déclenche aucune action. Tests :
+  `ingestion-extractions.test.ts`, `ingestion-standard.test.ts` (séparation des tâches, contournement par SQL),
+  `ingestion-dd.test.ts`.
+- **Quotas et plafonds** (`PLAFONDS_INGESTION`, valeurs provisoires à valider) : PDF 10 Mo, XLSX 2 Mo (plafond du lecteur
+  borné `temps/import-excel.ts`, formules jamais évaluées, première feuille visible) ; 60 pages ; 25 000 caractères par
+  page et 400 000 par document (refus `PLAFOND_PAGES` / `PLAFOND_TEXTE`, jamais de troncature silencieuse) ; extraction
+  30 s ; **5 documents en traitement et 40 créations par 24 heures glissantes par cabinet** (409 `INGESTION_PLEIN`, compté
+  sous `pg_advisory_xact_lock` par cabinet ; un document en traitement depuis plus de 30 minutes n'est plus compté, il n'a
+  plus de job actif) ; 40 000 caractères au plus transmis au modèle (les pages utiles d'abord, le reste signalé
+  « tronqué »). Test : `ingestion-securite.test.ts` (6e document refusé et son objet effacé ; 40 créations par jour ;
+  document bloqué de plus de 30 minutes).
+- **Signal de réveil du worker de jobs (lot 13b, 2026-10-23 ; R-08).** Le worker attendait son intervalle (30 s) avant de
+  traiter un document importé. Un signal en mémoire (`jobs/reveil.ts` : `signalerJobCree`, `ecouterJobCree`) est émis
+  APRÈS le COMMIT (`creerDocument` après `enregistrerFichier`, routes de relance `ingestion-dd.ts` et
+  `ingestion-standard.ts` après leur transaction) ; le worker avance son prochain cycle à 400 ms. Un cycle qui a traité
+  un job est suivi d'un cycle à 1 s (enchaînement extraction puis structuration) ; un cycle déclenché par signal qui
+  revient vide programme UN cycle de rattrapage à 2 s, une seule fois, puis le worker retombe à l'intervalle normal de
+  30 s : aucune scrutation rapide permanente, donc aucun coût en base de plus. Deux cycles ne tournent jamais en
+  parallèle ; `arreter()` se désabonne. **Inchangés** : `reserver_job_a` (équité par cabinet, `0305`), les migrations,
+  les plafonds, l'isolation entre cabinets ; aucune surface réseau nouvelle. Limite : le signal est **local au
+  processus** (un worker lancé dans un autre processus que l'API, ou une API sans worker, garde 30 s ; un job créé par un
+  autre chemin n'émet pas de signal) ; voir §15. Test : `apps/api/test/jobs-reveil.test.ts`.
+- **OCR local (lot 11, 2026-10-22 ; ADR-009, décision 16 et « Décision OCR »).** Décision de l'utilisateur : OCR **LOCAL**,
+  installé sur le serveur, hors ligne strict, **jamais un service externe**. Un port `Ocr` (`ingestion/ocr.ts`) et deux
+  adaptateurs : `OcrLocal` (`ingestion/ocr-local.ts`, moteur `tesseract.js` 7.0.0, WebAssembly, méthode `ocr`) et
+  `OcrSimule` (conteneur de test `%MPOCRSIM1:`, refus `OCR_NON_SIMULE` de tout autre document, méthode `ocr_simule`). La
+  fabrique (`ingestion/fabrique.ts`, `creerOcr`) suit `OCR_LOCAL` (`auto`, `off`, `local`, `simule` ; `config.ts`) : `auto` =
+  local s'il est disponible, en production comme en développement ; en test (`NODE_ENV=test`) simulé par défaut ; le simulé
+  n'existe qu'en développement et en test ; sinon aucun adaptateur (`OCR_INDISPONIBLE`). Un PDF sans texte natif est OCRisé ;
+  `PDF_SANS_TEXTE` signifie désormais que l'OCR a tourné et n'a rien lu. Menace : un PDF scanné est une entrée non fiable
+  qu'un décodeur d'images (pdf.js) et un moteur WebAssembly lisent.
+  - **Isolation : un sous-processus Node PAR DOCUMENT** (`ocr-processus.mjs`), jamais le processus de l'API : environnement
+    VIDE (ni secret de l'API ni `NODE_OPTIONS` hérité), `--max-old-space-size=256`, `--no-addons`, **modèle de permissions de
+    Node** (`--permission` avec `--allow-worker`, lectures limitées au script, aux données de langue et aux dossiers
+    `node_modules` nécessaires ; aucune écriture, aucun processus enfant, `package.json` racine refusé : testé), et un **garde
+    réseau** préchargé par `--require` (`ocr-garde-reseau.cjs`, CommonJS : `--import` ne s'applique pas aux `worker_threads`).
+    Le modèle de permissions ne filtre pas le réseau avant Node 25 : c'est le rôle du garde.
+  - **Garde réseau.** Bloque ET compte, dans le fil principal et dans tout `worker_threads` (10 fils testés, dont
+    `execArgv: []`, `eval`, `--expose-internals`, imbriqués) : `net`, `tls`, `fetch`, WebSocket, `dns` (`lookup`, `Resolver`),
+    `dgram` (`Socket.send` compris), `http` et `https` (`Agent`, `ClientRequest`), `http2`, `cluster`, `child_process`, `import()`
+    ESM, `process.binding`, `dlopen`, `v8.setFlagsFromString` et l'inspecteur. Faille corrigée par la vérification : un
+    `new Worker(…, { execArgv: [] })` perdait le garde ET `--permission` ; le garde **ENVELOPPE désormais
+    `worker_threads.Worker`** (`require`, `node:`, `getBuiltinModule`, `import`), IGNORE l'`execArgv` de l'appelant et impose
+    l'héritage des options du fil parent (garde, permissions, `--no-addons`) ; chargé sans `--require`, il refuse toute
+    création de worker ; le compteur de tentatives est agrégé. Sans `langPath` local le moteur irait chercher ses langues sur
+    jsDelivr : le garde le refuse (testé). **Défense en profondeur, rien de plus** : sans effet sur une faille native ou
+    WebAssembly dans le moteur ; le pare-feu sortant du serveur reste nécessaire (§15). Tests : `ocr-garde.test.ts`.
+  - **Faille trouvée et corrigée : le dossier courant.** En écrivant le test « droits de lecture insuffisants », on a constaté
+    que, sous Node 24.12, un `worker_thread` créé sous `--permission` LIT le dossier courant du processus et ses
+    sous-dossiers hors `--allow-fs-read` (le fil principal est refusé). Le sous-processus héritait du dossier courant de
+    l'API (en production, la racine de l'application, où peut se trouver un `.env`). Correctif : `fork(…)` avec
+    `cwd` = dossier du script (`ocr-local.ts`), dossier déjà lisible. Le test « droits de lecture insuffisants » échouait
+    avant le correctif. Non mesuré sous Linux ni sous Node 22 : le correctif s'applique partout. Chaque dossier est passé à
+    `--allow-fs-read` sous sa forme exacte et avec séparateur final, jamais avec joker (mesuré : ni le parent ni un voisin de
+    préfixe commun) ; si une version de Node ne le couvrait pas, l'OCR échoue **FERMÉ** (`OCR_ECHEC`), jamais ouvert (test
+    `sansLectureDonnees` : lecture refusée, aucune tentative réseau, sous-processus mort).
+  - **Node >= 22.13 exigé en production.** `--permission` n'existe qu'à partir de Node 22.13 (de 22.0 à 22.12 il est sans
+    effet : AUCUNE restriction). `permissionNodeDisponible()` exige la version ET le drapeau ; `engines.node` du
+    `package.json` racine est `>=22.13`. En **production** (tout `NODE_ENV` autre que `development` et `test`, **staging
+    compris**) sans modèle de permissions, l'adaptateur est indisponible : `diagnosticOcrLocal` rend `permissions`,
+    `creerOcr` rend `null`, un scan échoue `OCR_INDISPONIBLE` et `OcrLocal.reconnaitre` refuse avant la file et tout
+    sous-processus. Hors production : toléré, avec UN seul `console.warn` par processus, sans contenu.
+  - **Bornes.** Veille du RSS du sous-processus (`ocr-veille.mjs`, **768 Mo**, mesure toutes les 100 ms, réactive ; le parent
+    coupe à +10 %), **60 s par étape** (démarrage du moteur, une page), `SIGKILL` puis constat de la MORT du processus avant de
+    rendre l'issue, `PLAFONDS_OCR` (`packages/shared/src/schemas/ingestion.ts` : 30 pages, 240 s, 20 Mpx par image, 6 images par
+    page ; au-delà `PLAFOND_PAGES`, `DELAI_DEPASSE`, `IMAGE_TROP_GRANDE`), **une reconnaissance à la fois par processus d'API**
+    (file de 8 ; au-delà `OCR_ECHEC` définitif, inatteignable par la file `jobs` qui traite un job à la fois par processus).
+    L'OCR s'exécute HORS sémaphore des extractions natives, avec un délai de secours `PLAFONDS_OCR.dureeMs` + 10 s ; le
+    pré-contrôle de bombe de flux passe AVANT l'OCR. Réglages : `fra+eng`, PSM 3, agrandissement des scans de moins de 200 dpi,
+    page sans encre non soumise au moteur, lignes de confiance inférieure à 50 % écartées.
+  - **Données de langue vendorées.** `tessdata_fast` 4.1.0, `fra` + `eng` (5,2 Mo), dans `apps/api/ocr-data/` avec `SHA256SUMS`,
+    `LICENSE` et `README.md`. Vérifiées par empreinte au premier usage (empreinte fausse = moteur indisponible, sans bruit) et
+    par `node scripts/ocr-verifier-donnees.cjs` (Node pur, sans réseau). Hors ligne : `langPath` local, aucun cache, aucun
+    téléchargement.
+  - **Un état issu d'une lecture par OCR (méthode `ocr` ou `ocr_simule`) part TOUJOURS en revue humaine**, jamais accepté
+    automatiquement. Chaque ligne lue par OCR porte `reference: { fichier, page, ocr: true, confiance_pm }`
+    (`referenceValeurSchema`), et le web affiche « lu par OCR : à vérifier » avec la confiance de la page (hypothèse
+    prudente : tout état d'un document `ocr` ou `ocr_simule` est traité comme lu par OCR).
+  - **Corrections proposées, jamais appliquées.** `corrections_ocr` (`0525`, `packages/engines/src/ingestion/ocr-confusions.ts` :
+    confusions O/0, l/I/1, séparateurs) ne sert qu'à PROPOSER au relecteur ; la ligne reste hors de l'état ; plafonnées à
+    `CORRECTIONS_OCR_MAX` (100) et validées par `correctionOcrSchema`. **Purge** (`0526_ingestion_purge_corrections_ocr.sql`) :
+    `corrections_ocr` suit la rétention du texte des pages (décision + 90 jours) ; `purger_textes_ingestion` est redéfinie à
+    l'identique de `0524` (`SECURITY DEFINER`, `search_path` figé, droits) plus `corrections_ocr = NULL`, et le déclencheur
+    `controler_ingestion_document` est redéfini à l'identique de `0521` sauf la branche de datation de la purge (la comparaison
+    exclut `corrections_ocr` et exige qu'elle soit NULL) ; annuler SEULES les corrections reste refusé (`MQG01`).
+  - **Journal et isolation.** Le journal ne porte aucun contenu ; le processus de test n'ouvre aucun socket ; l'isolation entre
+    cabinets est testée. Tests : `ocr-moteur.test.ts` (moteur réel, sans base), `ocr-garde.test.ts`, `ocr-outils.test.ts`,
+    `ingestion-ocr-reel.test.ts`, `ingestion-ocr-integration.test.ts`, `ingestion-ocr-isolation.test.ts`,
+    `ingestion-ocr-corrections.test.ts`, `ingestion-purge-ocr.test.ts` (89 jours rien, 91 jours purgé, brouillon ouvert et état
+    en revue jamais, isolation, droits). Les tests du moteur réel sont sautés AVEC message si le moteur manque ;
+    `OCR_LOCAL_EXIGE=1` (posé sur le job `api` de la CI) les rend obligatoires, y compris celui des permissions.
+  - **Limites mesurées** (Node 24.12, Windows) : 30 pages x 3 images = 124 s ; une page à 60 images décodées donne `OCR_ECHEC` ;
+    un scan A4 à 600 dpi (environ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (refaire le scan à 300-400 dpi) ; un PDF mêlant pages
+    natives et pages scannées est lu par sa seule couche texte ; un scan négatif est vu comme une page sans encre ; 100 % des
+    montants lus sur les scans nets, dégradés et anglais de test, mais qualité sur de vraies liasses SYSCOHADA non mesurée.
+    Dettes ouvertes de l'OCR : §15.
+- **Journal d'audit.** `ingestion.creer`, `.brouillon`, `.modifier`, `.valider`, `.rejeter`, `.relancer`, `.echec`,
+  `.terminer`, `.effacement_echoue` et `.maintenance` (et `dd_document_televerse`, `dd_lecture_*` pour la DD) portent des
+  identifiants, compteurs, usage, format, taille et empreinte, **jamais** de texte, d'extrait ni de montant ; le nom assaini
+  du fichier figure dans l'événement `televersement` du code partagé de téléversement.
+- **Dettes** : parseur PDF dans le processus de l'API, cascades non Flate et PDF chiffrés bornés seulement par la
+  surveillance, worker de contrôle sans surveillance mémoire, `stockage/detection.ts`, relance et téléversement DD, lecture
+  DD non masquée, limites du masquage, codes de 3 chiffres, texte conservé 90 jours avec ses montants, OCR local sans
+  conteneur ni pare-feu sortant posé : §15.
 
 ## 9. Paiements et webhooks
 
@@ -2215,7 +3236,8 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   jours au moins, date future refusée, réglage `app.horloge_test` honoré dans une base `_test`
   seulement). `rg -n "GRANT EXECUTE" apps/api/migrations` : quatre lignes de plus (recherche n° 16).
 - **Sorties du contexte RLS du portail** (`horsContextePortail`, inventaire de
-  `test/portail-contexte.test.ts`) : deux fichiers nouveaux, `routes/portail-canaux.ts` (4 appels :
+  `test/portail-contexte.test.ts`, cinq fichiers au total avec `routes/portail-kpi.ts`,
+  `salle-mission/accuses.ts` et `routes/due-diligence-portail-investisseur.ts`, §4 bis) : deux fichiers nouveaux, `routes/portail-canaux.ts` (4 appels :
   lecture des comptes de canal actifs, fermés au portail ; contrôles avant l'écriture d'un numéro ;
   mise en file du code de vérification ; lecture des faits de la synthèse hebdomadaire) et
   `routes/portail-signatures.ts` (3 appels : lecture du PDF, signature avec reconfirmation d'identité,
@@ -2265,6 +3287,46 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
 - **Signature** : fournisseur local, niveau « simple simulée », SANS valeur juridique ; reconfirmation
   d'identité avec second facteur actif, ordre parallèle ou séquentiel, journal de preuves chaîné en ajout
   seul (`MPH10`), aucun effet sur la mission ni sur le budget.
+- **Horodatage d'une preuve et rejeu (lot 10, mise à jour du 2026-10-22).** `ajouterPreuve` (`canaux/preuves.ts`) lit
+  l'horloge de la base (`clock_timestamp()`, à la milliseconde) puis fait l'INSERT dans une seconde requête, car
+  l'horodatage entre dans l'empreinte chaînée, calculée côté API : il ne peut pas être pris dans l'INSERT lui-même. Le
+  déclencheur de `0547` (inchangé) refuse un horodatage éloigné de plus de 5 s de l'horloge de la base ou antérieur à celui
+  de la preuve précédente (`MPH10`) ; un processus affamé de CPU entre les deux requêtes dépassait la fenêtre (409
+  `PREUVE_IMMUABLE`, reproduit sous charge). L'INSERT est donc protégé par un point de sauvegarde (la transaction de
+  l'appelant survit au refus) et, SI le refus est un `MPH10` dont le message cite l'horodatage, il est rejoué avec une
+  horloge relue et une empreinte recalculée, 3 essais au plus (`ESSAIS_HORODATAGE`). Les autres refus `MPH10` (rang,
+  empreinte précédente, empreinte du document) ne sont JAMAIS rejoués : la chaîne reste gardée par la base, le rejeu ne
+  l'assouplit pas, et un horodatage décroissant (même message) échoue encore après 3 essais. Test de non-régression :
+  `apps/api/test/signatures-routes.test.ts` (`journal de preuves : ajout seul et chaîne`, un `pg_sleep(5.5)` injecté
+  avant le premier INSERT : sans le rejeu le test échoue).
+- **PDF de signature servi `inline`, sans `sandbox`** (mise à jour du 2026-10-21 ; `GET /signatures/:id/document`
+  et `GET /portail/signatures/:id/document`, `routes/signatures.ts`, `routes/portail-signatures.ts`) : type
+  `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none';
+  frame-ancestors 'none'` SANS `sandbox` (il empêche la visionneuse PDF du navigateur de fonctionner), avec repli
+  `attachment` + `sandbox` si le type stocké n'est pas PDF. **Risque résiduel** : une faille de la visionneuse PDF
+  du navigateur ou un contournement du filtre de contenu actif (`stockage/detection.ts`) ; la route générique
+  `GET /fichiers/:id` garde `sandbox` (§15).
+- **Média entrant en flux** (mise à jour du 2026-10-21) : le port `telechargerMedia(compte, refMedia)` rend un
+  `MediaFlux` (`flux` en `AsyncIterable<Uint8Array>`, `typeMime`, `tailleDeclaree` facultative) ; `MediaRecu` est
+  supprimé. La limite de 15 Mo est appliquée EN FLUX par `lireFluxPlafonne` (`canaux/media-flux.ts`) : taille
+  déclarée contrôlée avant lecture, compteur d'octets, flux fermé au dépassement, jamais de lecture complète ; un
+  type MIME hors liste blanche ferme le flux sans lecture. Reste, pour un futur adaptateur réel : corps non
+  bufferisé, hôte de confiance (SSRF), délai (timeout) sur le flux (§15).
+- **Alertes de KPI sortantes** (O-26, mise à jour du 2026-10-21 ; `kpi/suivi.ts`, `canaux/alertes-kpi.ts`,
+  `0549`) : après l'enregistrement d'une alerte et pour le rappel de mesure, mise en file d'un message
+  `alerte_kpi` (catégorie `alerte`, objet `kpi_alerte`, clés `kpi_alerte:<alerte>:<destinataire>` et
+  `kpi_rappel:<rappel>:<destinataire>`) vers les seuls responsables INTERNES autorisés, avec numéro vérifié et
+  consentement accordé. **Option du compte `canaux_comptes.alerte_kpi` DÉSACTIVÉE par défaut** (`boolean NOT NULL
+  DEFAULT false`). Variables : nom du cabinet et lien `/portail/` ; **aucune valeur chiffrée, aucun libellé de
+  KPI**. Le bloc est dans un `SAVEPOINT` (il ne fait jamais échouer le suivi) ; une alerte `MESURE_EN_RETARD` ne
+  part pas seule (le rappel du même passage la couvre). La valeur confirmée par canal puis reprise par le cabinet
+  est une `kpi_mesures` d'origine `cabinet`, comptée comme toute autre ; la provenance reste traçable (commentaire
+  de la mesure et jointure `canaux_saisies_kpi.mesure_id`).
+- **Retrait des consentements à la désactivation** (mise à jour du 2026-10-21) : la source
+  `desactivation_utilisateur` est écrite à la désactivation d'un utilisateur du portail
+  (`routes/portail-gestion.ts`) ET d'un utilisateur du cabinet (`routes/utilisateurs.ts`, `PATCH`, passage de
+  `actif` de vrai à faux, même transaction) par `retirerConsentementsUtilisateur` (`canaux/consentements.ts`) ; le
+  destinataire n'est jamais supprimé ni modifié.
 
 ## 10. Secrets et configuration
 
@@ -2275,6 +3337,12 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   absent, `development` ou `test` **et** que les deux URL de base désignent
   l'hôte local ; sinon l'API refuse de démarrer. Hors développement, une valeur
   égale à celle de développement est refusée (test : `test/config.test.ts`).
+- **Intégration continue** (lot 8a, `.github/workflows/ci.yml`, mise à jour du 2026-10-21) : déclenchée par les
+  pull requests vers `main` et à la main (`workflow_dispatch`), avec `permissions: contents: read` et **aucun
+  secret** ; les identifiants du PostgreSQL jetable de chaque partition de tests (`DATABASE_OWNER_URL` et
+  `DATABASE_URL`, hôte `127.0.0.1:55440`) reprennent les valeurs PUBLIQUES de développement de `.env.example` et de
+  `apps/api/src/config.ts`. Les actions sont épinglées par version majeure (`@v4`), non par empreinte. La CI n'a
+  pas été exécutée sur GitHub à la livraison du lot ; elle ne lance pas `pnpm audit` (§14).
 - **Secrets distincts** : `TFA_MASTER_KEY` ≠ `SESSION_SECRET` ; la clé
   précédente ≠ la courante ; `SESSION_SECRET` sert de clé de version 1 pour les
   chiffrés antérieurs (`auth/chiffrement.ts`).
@@ -2331,8 +3399,9 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   10 minutes, 20 dossiers et 50 extractions par fiche, 100 gabarits de CV par cabinet, §6) ;
   capitalisation (60 recherches par utilisateur et par minute, 50 déclarations de niveau par couple,
   §5 sexies) ; plans (30 propositions de portefeuille par utilisateur et par 10 minutes, §5 bis) ;
-  brief quotidien (60 requêtes par utilisateur et par 10 minutes, compteur EN MÉMOIRE propre à chaque
-  processus, §5 septies) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
+  brief quotidien (60 requêtes par utilisateur et par 10 minutes, limiteur PERSISTANT en base partagé entre
+  les instances, espace `brief_requetes`, §5 septies) ; simulations de Monte-Carlo (30 par utilisateur et par 10
+  minutes, 100 par plan, rejeux limités à 5 par plan et par 10 minutes, tous utilisateurs confondus, §5 bis) ; copilote (30 messages par utilisateur et par 10 minutes, 5 appels de l'outil
   « KPI au rouge » par 10 minutes, comptés sur `journal_audit`, §7 bis).
   Pas de limite générale par IP : voir §15.
 
@@ -2369,8 +3438,8 @@ fichiers déposés par le client dans la salle de mission.
   mission et les retours d'expérience n'ont ni procédure d'effacement ni durée.
 - **Copilote** (lacune de la vague 2) : le texte du message n'est ni conservé ni journalisé ; les
   paramètres et le résumé d'une proposition d'action terminée sont anonymisés après 30 jours (valeur
-  posée par défaut, à valider avec le conseil juridique : `0274`, §7 bis). Un nom propre saisi dans un
-  message part en clair vers le fournisseur IA (§15).
+  posée par défaut, à valider avec le conseil juridique : `0274`, §7 bis). Les noms connus du cabinet sont masqués
+  avant envoi ; un nom absent des fiches ou un fragment part en clair vers le fournisseur IA (§7 bis, §15).
 
 ## 13. Conduite à tenir en cas de faille
 
@@ -2401,6 +3470,19 @@ développement via `vitest` (`apps/api`, `packages/engines` : `vitest`,
 `@vitest/mocker`, `tinypool`, `vite`, `esbuild`) : à traiter par une montée de
 version de Vitest.
 
+**Mise à jour du 2026-10-22 (lot 12) : constat soldé.** Le relevé du lot 9e (même jour) avait montré que le résultat du
+2026-10-06 n'était plus vrai : `pnpm audit --prod` rendait 3 vulnérabilités, `next` 15.5.27 (GHSA-2464-fhr4-w9xw critique,
+exécution de code par l'optimisation d'images SVG ; GHSA-p3m5-59mp-jv5r haute, déni de service des Server Actions) et
+`fastify` 5.12.5 (GHSA-389g-gv7q-r4x8 basse, contournement de validation d'en-tête), publiées après les lots 6 et 10 (leur
+seul ajout au `pnpm-lock.yaml` était `unpdf`). Elles sont corrigées : `next` **15.5.28** (`apps/web/package.json`) et `fastify`
+**5.12.6** (`apps/api/package.json`), en versions exactes, comme `unpdf`. `pnpm audit --prod` : **aucune vulnérabilité
+connue** le 2026-10-22. Le lockfile ne change que pour `next`, `@next/env`, `@next/swc-*` et `fastify` ; aucune dépendance
+transitive n'est ajoutée ni retirée. **La règle d'âge de 2 semaines est LEVÉE pour ce correctif, par décision de
+l'utilisateur (validée le 2026-10-22)** : `next` 15.5.28 a 8 jours (publiée le 2026-10-14) et `fastify` 5.12.6 en a 9
+(2026-10-13), aucune version corrigée plus ancienne n'existant (`next` 15.5.28 est la seule de la branche 15.5 qui corrige ;
+passer à la 16 serait un saut de version majeure, hors périmètre) ;
+choix de la plus petite version qui corrige chaque avis, réversible (deux lignes de `package.json` et le lockfile).
+
 Ajouter une dépendance exige de justifier le choix : le SMTP, le TOTP, le
 chiffrement et l'appel OpenRouter (`fetch`) sont écrits sur `node:*` sans
 bibliothèque. Bibliothèques ajoutées en V2 (commit `41603e5`) : `docx`,
@@ -2409,6 +3491,34 @@ Chrome, sans navigateur téléchargé) et `exceljs` (import Excel). `exceljs`
 remplace le paquet `xlsx` de npm, écarté pour ses vulnérabilités connues ; il
 ne reçoit jamais le fichier d'origine mais une archive reconstruite après
 contrôle (§8).
+
+Bibliothèque ajoutée par le lot 6 (2026-10-22, ADR-009) : `unpdf` **1.8.1** (version exacte, dans `apps/api/package.json`),
+la lecture du texte des PDF de l'ingestion de documents (§8 undecies). C'est la SEULE dépendance ajoutée et elle n'a
+aucune dépendance transitive (`pnpm-lock.yaml` : aucune entrée `dependencies` ; le pair `@napi-rs/canvas`, nécessaire au
+seul rendu d'images, est optionnel et jamais installé). Elle empaquette pdf.js de Mozilla (distribution « serverless »,
+maintenue activement, polices intégrées et flux compressés courants) sans binaire ni accès réseau ; elle est utilisée en
+mode texte seulement (aucune évaluation de code, aucune police ni ressource distante, aucun rendu). Choix écartés (ADR-009) :
+`pdfjs-dist` direct (configuration Node plus lourde, dépendance native optionnelle), `pdf-parse` et `pdf2json` (non
+maintenus). Cette dépendance implique **Node 22 au minimum** : `unpdf` 1.8.1 exige Node >= 22 et la mesure de la mémoire
+externe du worker d'extraction (`worker.getHeapStatistics()`) n'existe qu'à partir de Node 22.16 (§8 undecies). `engines.node`
+du `package.json` racine est passé à **`>=22.13`** par le lot 11 (modèle de permissions de Node pour l'OCR, ci-dessous) et la CI
+(`.github/workflows/ci.yml`, deux jobs) tourne sur Node 22. Un parseur de PDF non fiable s'exécute dans le processus de l'API,
+dans un `worker_thread` à mémoire plafonnée : voir §15 (dette de sécurité).
+
+Bibliothèque ajoutée par le lot 11 (2026-10-22, ADR-009, décision OCR) : `tesseract.js` **7.0.0** (version exacte, dans
+`apps/api/package.json`), le moteur de l'OCR local (§8 undecies). Une dépendance directe et 12 transitives, soit 13 paquets
+ajoutés au `pnpm-lock.yaml` (`tesseract.js-core`, `bmp-js`, `idb-keyval`, `is-url`, `node-fetch`, `whatwg-url`, `tr46`,
+`webidl-conversions`, `opencollective-postinstall`, `regenerator-runtime`, `wasm-feature-detect`, `zlibjs`), tous de plus de
+deux semaines à l'installation (règle d'âge tenue, `--config.minimumReleaseAge=20160`). **Aucun binaire natif** (le moteur est
+du WebAssembly). Un script `postinstall` (`opencollective-postinstall`, bandeau publicitaire) est **bloqué** par pnpm 10 :
+`onlyBuiltDependencies` du dépôt ne le liste pas, et il ne faut pas l'y ajouter. `node-fetch`, `idb-keyval` et `is-url` ne
+servent qu'aux chemins réseau ou navigateur de tesseract.js, jamais empruntés ici (le garde réseau le prouve). Coût :
+`tesseract.js-core` ajoute environ 45 Mo à `node_modules` ; les données de langue (5,2 Mo) sont vendorées dans le dépôt avec
+leurs empreintes (§8 undecies). Mettre à jour le moteur : version exacte, âge d'au moins 2 semaines, `VERSION_MOTEUR_OCR`
+(`ocr-local.ts`, sinon l'OCR se désactive), relecture du chargement des langues et de la création du worker, puis
+`ocr-moteur.test.ts` ; une montée automatique est donc exclue. Choix écartés (ADR-009) : binaire `tesseract` du système
+(prérequis serveur et surface native), PaddleOCR et `onnxruntime-node` (addon natif de plus de 100 Mo, `--allow-addons`),
+`ocrad.js` (GPL, abandonné) et `scribe.js-ocr` (AGPL-3.0, incompatible).
 
 ## 15. Risques acceptés et dette de sécurité connue
 
@@ -2433,15 +3543,15 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Date d'atteinte d'un jalon non horodatée : approchée par la dernière modification (indicateur de respect des jalons)                            | `finance/indicateurs.ts`                                                  |
 | Migrations appliquées par nom, sans somme de contrôle : l'immuabilité d'une migration appliquée est une convention de relecture, non vérifiée par l'outil | `db/migrate.ts`                                                           |
 | Rejeu réel des évaluations d'agents (levée de l'ancienne dette « agents inutilisables en production ») : aucune clé OpenRouter dans l'environnement de développement, le vrai fournisseur n'a été exercé que contre un serveur factice local ; AUCUN appel réel n'a eu lieu, donc qualité d'un vrai modèle, coûts et jetons réels et comparaison du modèle servi non vérifiés (un identifiant daté renvoyé par OpenRouter ferait échouer tout rejeu, sans danger) | `agents/evaluations-openrouter.ts` (`memeModele`), `ia/fournisseur.ts`, `test/agents-evaluations-openrouter.test.ts` |
-| Rejeu réel : la file `jobs` est FIFO globale entre cabinets, un rejeu de 8 à 13 minutes (`DUREE_MAX_EVALUATION_MS` plus un appel) retarde les jobs de tous les cabinets, et chaque cabinet peut en avoir un (N cabinets, N rejeux) ; plafond par évaluation (2 USD), 5 rejeux par 24 heures, durée maximale et péremptions (1 h en file, 30 min en cours) sont des valeurs de départ à valider | `agents/evaluations-openrouter.ts`, `jobs/worker.ts`, `ia/modeles.ts`, `DECISIONS.md` |
-| Rejeu réel : la garde de provenance en base (`MPG09`, `0270`) reste contournable par du SQL arbitraire du même rôle applicatif, qui peut forger la demande, les appels inscrits et l'évaluation ; la garde complète (fonction `SECURITY DEFINER` réservée au job, `REVOKE INSERT, UPDATE` pour le rôle applicatif) n'est pas faite. Autres limites : `prompt_evalue` avec `p_modele` nul (activation d'un prompt) ne lie pas l'activation au modèle routé (antérieur au chantier ; filet à l'exécution par `exigerPromptEvalue`) ; l'interdiction de contenu client réel dans un jeu d'essai est documentée, non contrôlée (le masque d'un rejeu n'a aucun terme sensible) | `migrations/0270_agents_evaluations_openrouter.sql`, `migrations/0265_agents_evaluations_fournisseur.sql`, `agents/executions.ts` (`exigerPromptEvalue`) |
+| Rejeu réel, après la réclamation équitable des jobs (`0305`, 2026-10-21 : cabinet ayant le moins de jobs `en_cours`, puis tourniquet sur le dernier `verrouille_le`, puis plus ancien `execute_a`) : le worker traite UN job à la fois (`traiterUn`) ; un rejeu de 8 à 13 minutes (`DUREE_MAX_EVALUATION_MS` plus un appel) bloque la boucle, l'équité joue à la réservation et non à l'exécution (piste : file dédiée aux jobs longs ou second worker) ; après un échec ou une libération de job bloqué, `verrouille_le` est remis à NULL et le tourniquet perd la date de ce job (le critère « moins de jobs en cours » garde l'équité) ; chaque cabinet peut avoir un rejeu (N cabinets, N rejeux) ; plafond par évaluation (2 USD), 5 rejeux par 24 heures, durée maximale et péremptions (1 h en file, 30 min en cours) sont des valeurs de départ à valider | `jobs/worker.ts`, `migrations/0305_jobs_reservation_equitable.sql`, `agents/evaluations-openrouter.ts`, `ia/modeles.ts`, `DECISIONS.md` |
+| Rejeu réel, garde de provenance faite dans la mesure du possible (`0275`) : du SQL arbitraire à plusieurs instructions du même rôle applicatif peut encore mettre en file une demande et son job, réserver ce job par `reserver_job_a` (accordée à ce rôle), puis appeler les trois fonctions `rejeu_evaluation_*` en déclarant des appels `succes` (coût, jetons et issue sont déclarés par l'appelant : la base ne connaît pas les tarifs) ; les traces restent (évaluation et appels en ajout seul, `job_id` posé une fois) mais la ligne du job reste supprimable. Garde complète = rôle PostgreSQL DISTINCT pour le worker, seul à exécuter `reserver_job_a`, `reserver_job` et ces fonctions : nouvel ADR et connexion dédiée, NON faits | `migrations/0275_agents_rejeu_provenance.sql`, `db/pool.ts`, `config.ts`, `jobs/worker.ts` |
+| IA, activation d'un prompt et jeux d'essai (`0276`) : revenir au modèle recommandé (suppression de la ligne de `ia_modeles_taches`) n'est pas gardé à l'activation, l'exécution d'un prompt non évalué avec ce modèle restant refusée par le filet `exigerPromptEvalue` ; `modele_recommande()` en SQL duplique `MODELES_RECOMMANDES` (un test les compare, changer un modèle recommandé exige une migration) ; l'interdiction de contenu client réel dans un jeu d'essai est documentée, non contrôlée (le masque d'un rejeu n'a aucun terme sensible) | `migrations/0276_agents_activation_modele_route.sql`, `ia/modeles.ts`, `agents/executions.ts` (`exigerPromptEvalue`) |
 | Automatisation, observation non traitée : le job d'appel d'agent relit le responsable COURANT de l'automatisation, alors que la garde a décidé sous l'identité de l'exécution ; une action d'agent déjà autorisée sous l'ancienne identité peut donc partir sous la nouvelle si l'automatisation est désactivée puis réactivée par une autre personne avant le job (parade possible : comparer `automatisation_executions.executant_id` au responsable courant avant l'appel, en mode « responsable ») | `automatisation/execution.ts` (`lireActionAgent`, `creerHandlerAgentAutomatisation`) |
 | Automatisation : 50 automatisations actives par cabinet et 30 simulations par utilisateur et par 10 minutes sont des valeurs de départ « à valider » ; la définition d'une automatisation (gabarits de texte) est lisible de tout détenteur de `automatisation.lire`, chef de mission compris ; un événement traité pendant une coupure n'est pas rejoué à la levée | `automatisation/regles.ts`, `automatisation/simulation.ts`, `automatisation/coupe-circuits.ts`, `DECISIONS.md` |
 | KPI : pas de quatre yeux sur la clôture d'une revue ni sur l'exécution d'une décision (le responsable peut clore ce qu'il a décidé) ; le dossier de revue, non enregistré, n'ouvre pas de suivi qualité (QUA) et n'est pas horodaté contre la falsification une fois sorti de la plateforme | `kpi/revues.ts`, `kpi/dossier-revue.ts`, `routes/kpi-pilotage.ts` (§5 quater) |
 | Salle de mission : un tiers externe (le client) téléverse des fichiers que le cabinet ouvre, sans antivirus ; l'accusé de réception d'un dépôt est traité hors file, après la transaction : si le processus s'arrête entre les deux, l'accusé n'est pas rejoué (l'échec est seulement journalisé) | `salle-mission/accuses.ts` (`suiteDepotPortail`), `stockage/detection.ts` (§8 septies) |
 | CV de la banque des appels d'offres : lisibles de tout détenteur de `ao.lire` ; aucune durée de conservation automatique (à valider) ; le texte d'une offre technique déjà rédigée peut citer le nom d'un expert et n'est pas réécrit par l'anonymisation (versions en ajout seul) | `banque-ao/cv.ts`, `migrations/0386_ao_cv_anonymisation.sql`, `DECISIONS.md` |
 | Capitalisation : le chef de mission peut valider la version IA du retour d'expérience qu'il a lui-même demandée (exception voulue, conforme au PRD, `MPJ08` n'exige qu'un responsable de la mission) ; niveaux de compétence, fichiers de la salle et retours d'expérience sans durée de conservation ni procédure d'effacement | `capitalisation/retours.ts`, `migrations/0465_capitalisation_durcissement.sql` |
-| `semaineQuerySchema` (`packages/shared/src/schemas/temps.ts`) n'est pas borné : une semaine extrême sur `GET /api/temps/preremplissage` et `GET /api/feuilles-temps/semaine` n'est pas testée (contrairement aux dates bornées par `dateIsoBorneeSchema`) | `routes/previsions.ts`, `routes/feuilles-temps.ts` |
 | Seuils, poids et plafonds des vagues 2 et 3 (confiance de notation, go/no-go, estimation, plafonds de débit) : valeurs de départ à calibrer au pilote ; valeurs de départ du rejeu réel des évaluations d'agents (2 USD par évaluation, 5 rejeux par 24 heures, 8 minutes, péremptions 1 h et 30 min) : voir les lignes « Rejeu réel » | `DECISIONS.md`, `notation/confiance.ts`, `appels-offres/go-no-go.ts` |
 | Recette navigateur du 2026-10-10, observations non tranchées. **Jours de budget** : un consultant membre de l'équipe voit les JOURS de budget et de temps réel dans la section « Écarts » d'un retour d'expérience (`budget.lire_jours`, FIN-02 ne vise que les montants) : décision produit à confirmer | `capitalisation/retours.ts` (`sansJours`), `packages/shared/src/roles.ts`, `DECISIONS.md` |
 | Retour d'expérience : générer la version « gabarit » (sans clé IA, plafond atteint ou sortie inexploitable) inscrit une NOUVELLE version qui remplace le texte courant rédigé par un humain ; l'ancien texte reste lisible dans la version précédente (ajout seul), rien n'est perdu mais l'écran n'avertit pas | `capitalisation/ia.ts` (`genererRetourIa`), `capitalisation/retours.ts` (`inscrireVersionGeneree`) |
@@ -2449,19 +3559,63 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Montants du PDF du dossier bancaire : à l'extraction du texte, ils paraissent sans séparateur de milliers alors que le moteur insère l'espace fine U+202F ; à vérifier visuellement sur un PDF réel | `plans/bancabilite.ts`, `rapports/pdf.ts`, `packages/engines/src/finance/monnaie.ts` |
 | Export d'un CV : un message d'erreur réseau 503 a été signalé alors que le fichier produit est valide ; cause non établie, à clarifier | `routes/banque-ao.ts` (`/banque-ao/cv/:id/export`), `rapports/pdf.ts` |
 | Copilote (AGT-08) : AUCUNE vérification avec un vrai modèle (aucune clé OpenRouter en développement, fournisseur factice seulement) ; la qualité du routage, le format JSON réel renvoyé (clôture « ```json », valeurs nulles) et le coût d'un échange ne sont pas constatés ; le routage déterministe couvre en attendant les formulations simples | `copilote/routage-ia.ts` (`lireSortieModele`), `test/copilote-ia.test.ts`, ADR-005 |
-| Copilote : les noms propres tapés dans un message (collaborateur, client, mission) partent en CLAIR vers le fournisseur : le masque ne travaille que par formats (e-mails, téléphones, IBAN…), sans terme sensible (`creerMasque([])`) ; la page du copilote déconseille d'y saisir des données confidentielles de clients (`MENTION_CONFIDENTIALITE`) | `copilote/routage-ia.ts`, `ia/masquage.ts`, `apps/web/src/lib/copilote.ts` |
-| Brief quotidien : le plafond de débit de `GET /api/brief` (60 requêtes par utilisateur et par 10 minutes) est tenu EN MÉMOIRE, propre à chaque processus (n instances : n fois 60) et remis à zéro au redémarrage ; exception voulue au modèle `journal_audit`, à revoir si l'API tourne à plusieurs instances | `brief/debit.ts`, `routes/brief.ts` |
+| Copilote, masquage des noms CONNUS du cabinet (raisons sociales des clients, noms des utilisateurs, des contacts clients, intitulés de missions, écrits en entier : masqués avant envoi, jetons restitués localement) : PARTENT en clair un nom absent des fiches, un fragment seul (prénom, un mot d'une raison sociale), une faute de frappe ou des lettres espacées, le texte libre autour, le nom d'un autre cabinet tapé par l'utilisateur ; au-delà de 2 000 noms candidats par table ou 200 noms distincts par message, le surplus part en clair ; toujours non vérifié avec un vrai modèle ; la page du copilote déconseille d'y saisir des données confidentielles de clients (`MENTION_CONFIDENTIALITE`) | `copilote/noms-propres.ts`, `copilote/routage-ia.ts`, `ia/masquage.ts`, `apps/web/src/lib/copilote.ts` |
 | Copilote : l'anonymisation des propositions d'actions terminées au bout de 30 jours est une durée posée sans avis juridique ; une proposition non terminée n'est anonymisée qu'après son expiration puis 30 jours ; la purge (02:30 UTC) dépend du planificateur et du worker | `migrations/0274_copilote_purge.sql`, `copilote/purge.ts`, `DECISIONS.md` |
 | Copilote et brief : valeurs de départ à valider (30 messages par 10 minutes, 1 000 caractères, 5 minutes de validité d'une proposition, niveau N2 pour les actions, 30 jours, 5 appels « KPI au rouge » par 10 minutes, 60 requêtes du brief par 10 minutes, seuils de gravité du brief, 7 h UTC, anti-répétition de 10 minutes de `mission.cloture_demandee`) | `DECISIONS.md` (« Chantier lacunes de la vague 2 ») |
-| Pages web qui lisent `/api/missions` ou `/api/opportunites` : dix pages demandent des pages de 200 (plafond sûr) alors que ces deux routes admettent 500 : plus d'appels, sans perte de données ; la liste est signalée tronquée au-delà de 20 pages (CODING_STANDARDS §10) | `apps/web/src/lib/pagination.ts` |
+| Rapport d'état financier du dossier client : la liste des missions du client est lue en UNE seule page de 500 (`limite=500`) sans suivre le curseur ; au-delà de 500 missions, les suivantes ne sont pas proposées, sans message (les dix pages de liste qui lisent `/api/missions` ou `/api/opportunites` demandent désormais des pages de 500, le plafond de ces routes, et la liste est signalée tronquée au-delà de 20 pages, CODING_STANDARDS §10) | `apps/web/src/components/dossier/RapportEtatFinancier.tsx`, `apps/web/src/lib/rapport-etat-financier.ts` (`cheminMissionsClient`), `apps/web/src/lib/pagination.ts` |
 | Canaux (lot 3c) : `canaux.lire` (associé, directeur, chef de mission) ouvre, par `GET /canaux/destinataires` (le client demandé est seulement vérifié dans le cabinet) et `GET /canaux/envois`, les numéros MASQUÉS, consentements et envois de TOUS les clients du cabinet, pas seulement ceux des missions du chef ; décision produit à confirmer (restriction aux clients de ses missions non faite) | `routes/canaux.ts`, `packages/shared/src/roles.ts`, `SPEC-3c-canaux-simules.md` |
 | Canaux : un consentement « recueilli par le cabinet » (`recueilli_cabinet`) repose sur une référence de preuve saisie par un associé ou un directeur de mission (au moins 10 caractères), non vérifiée par la plateforme : le cabinet peut déclarer un accord que la personne n'a pas donné (risque interne ; l'historique est en ajout seul, `MPH01`, et seule la personne redonne son accord après un STOP, `MPH02`) | `canaux/consentements.ts`, `migrations/0541_canaux_destinataires_consentements.sql` |
-| Canaux : la taille d'un média entrant n'est contrôlée qu'APRÈS son téléchargement en mémoire par l'adaptateur (le simulateur lit un média déposé par les tests) ; avant tout adaptateur RÉEL, contrôler la taille en flux (en-tête puis compteur d'octets) et n'appeler qu'une URL d'hôte de confiance fournie par le fournisseur, jamais une URL reçue dans le message (SSRF) ; aucun adaptateur réel n'existe | `canaux/entrants.ts` (`transcrireMedia`, `MEDIA_ENTRANT_OCTETS_MAX`), `canaux/ports.ts` |
+| Canaux, média entrant : la taille de 15 Mo est désormais appliquée EN FLUX côté appelant (`lireFluxPlafonne` : taille déclarée contrôlée avant lecture, compteur d'octets, flux fermé au dépassement, type MIME hors liste blanche refusé sans lecture) ; RESTE pour le futur adaptateur réel (aucun n'existe) : corps non bufferisé, appel d'un hôte de confiance fourni par le fournisseur et jamais d'une URL reçue dans le message (SSRF), délai (timeout) sur le flux | `canaux/media-flux.ts`, `canaux/entrants.ts` (`transcrireMedia`, `MEDIA_ENTRANT_OCTETS_MAX`), `canaux/ports.ts` (`telechargerMedia`) |
 | Webhook WhatsApp : la garde mémoire des signatures invalides (100 au total, 50 par adresse `request.ip` sur 5 minutes) est propre à chaque processus (n instances : n fois) et repart à zéro au redémarrage ; l'adresse vue est celle du relais si l'API est derrière un proxy (pas de `trustProxy`) ; le corps reste à 64 Kio avant authentification, le format réel du fournisseur (O-13) pourrait permettre de le réduire | `canaux/limite-memoire.ts`, `canaux/webhook.ts`, `routes/canaux-webhook.ts` |
 | Redressement (lot 3a) : du SQL arbitraire du rôle applicatif peut insérer un score dont `entrees` ne correspond pas au calcul (le déclencheur ne vérifie que les seuils, pas le résultat : pas de calcul en base), de même qu'un impact de levier stocké, comme pour la garde de provenance des évaluations ; la correspondance de postes est faite à la main sans second regard (une erreur fausse ratios et score : version tracée, avertissement « indicative », postes manquants jamais comptés comme zéro) | `migrations/0483_redressement_alerte.sql`, `redressement/alerte.ts`, `redressement/leviers.ts`, `redressement/correspondances.ts` |
 | Redressement : AUCUN seuil d'alerte par secteur, ni grille d'urgence, n'a de source normative (ni ONUDI ni OHADA ne fixent de seuil chiffré à notre connaissance) : les valeurs sont des conventions provisoires, à faire valider par un expert avant tout usage au pilote ; plafonds de volume (100 à 1 000) et débits (30, 30, 60 par 10 minutes) à calibrer ; aucune durée de conservation des données du client posée (avis du conseil juridique) ; les trois routes de calcul pur n'ont pas de compteur de débit ; un dossier `clos` est terminal ; aucun suivi qualité R3 du plan (aucun livrable produit) ; kanban sans synchronisation avec `taches_collaboration` | `packages/engines/src/redressement` (constantes `SEUILS_ALERTE_DEFAUT`, `GRILLE_URGENCE`), `apps/api/src/redressement/limites.ts`, `DECISIONS.md` (section « Redressement ») |
+| Rapports « validés non diffusés » (source du brief écartée) : `rapports_mission` est en ajout seul, son `statut` `valide` est fixé à la génération par le code et aucune table d'envoi, de partage du portail ni de signature ne le référence (le seul vestige, `journal_audit` `telechargement`, est interne) ; à rouvrir quand une trace de diffusion au client existera | `rapports/enregistrement.ts`, `brief/` (§5 septies), `migrations/0130_rapports.sql` |
+| Qualité R3 du rapport de clôture du redressement : `brancherRapport` ouvre un suivi de type `rapport` (R2 au minimum) ; passer à R3 automatiquement exigerait un type de livrable dédié (`CLASSE_MINIMALE_PAR_TYPE`, `packages/shared` et `qualite/`) ; contournement : `POST /api/qualite/suivis/:id/classe` (R3, motif) | `qualite/branchements.ts` (`brancherRapport`), `qualite/suivis.ts`, `packages/shared/src/schemas/qualite.ts` |
+| Rejeu de Monte-Carlo (PLA-16) : limité depuis le lot 8b à 5 rejeux par PLAN et par 10 minutes, tous utilisateurs confondus (429 `TROP_DE_REJEUX`) ; le plafond n'est pas par utilisateur, donc un seul utilisateur peut épuiser les 5 rejeux du plan et en priver les autres pendant la fenêtre (décision du superviseur, provisoire) ; 5 par 10 minutes à valider (les 30 simulations par utilisateur et par 10 minutes et les 100 par plan, `MQL14` et `MQL12`, sont inchangés) | `plans/montecarlo.ts` (`verifierDebitRejeu`), `routes/plans-montecarlo.ts`, `migrations/0432_plan_montecarlo_rejeux.sql`, `DECISIONS.md` |
+| Ateliers du plan : `candidatsAtelier` (liste des invitables) lit au plus 500 utilisateurs du cabinet, en rend 200 au plus (et 200 dirigeants au plus) et signale `tronque: true` sans pagination : au-delà, un invitable peut manquer à la liste sans que l'on puisse le choisir ; seuil de 3 participants ayant contribué avant tout agrégat (par méthode) et plafonds de candidats : valeurs provisoires à valider | `plans/ateliers.ts` (`candidatsAtelier`), `plans/ateliers-resultats.ts` (`SEUIL_PARTICIPANTS_AGREGATS`), `DECISIONS.md` |
+| Brief, voyant rouge du redressement : 50 dossiers lus et 20 ÉVALUÉS par requête (au-delà, famille tronquée : le nombre de voyants rouges est inconnu) ; valeurs provisoires à valider, chaque évaluation lisant plusieurs tables sous le plafond de 60 requêtes par 10 minutes ; l'automatisation du voyant (événement, notification) n'est pas branchée | `brief/derives.ts` (`PLAFOND_DOSSIERS_VOYANT`, `PLAFOND_EVALUATIONS_VOYANT`), `redressement/voyant.ts`, `DECISIONS.md` |
+| PDF de signature servi `inline` SANS `sandbox` (`GET /signatures/:id/document` et `GET /portail/signatures/:id/document`) : type `application/pdf` fixé, `nosniff`, `private, no-store`, `Referrer-Policy: no-referrer`, CSP `default-src 'none'; frame-ancestors 'none'` ; risque résiduel = faille de la visionneuse PDF du navigateur ou contournement du filtre de contenu actif ; repli `attachment` + `sandbox` si le type stocké n'est pas PDF ; la route générique `GET /fichiers/:id` garde `sandbox` ; rendu `inline` dans Chrome non vérifié | `routes/signatures.ts` (`CSP_LECTURE_PDF`), `routes/portail-signatures.ts`, `stockage/detection.ts` |
+| Portail investisseur de la due diligence : du SQL arbitraire du rôle applicatif contourne les gardes de cohérence des publications (comme `MPZ29`) ; le rendu navigateur des pages, le PDF de la note en portail (seul le Word est testé) et la navigation clavier de l'arbre ne sont pas vérifiés | `migrations/0509_dd_portail_investisseur.sql`, `routes/due-diligence-portail-investisseur.ts` |
+| Alertes de KPI sortantes par canal (option `alerte_kpi`, désactivée par défaut) : mise en file seulement, vers les seuls responsables INTERNES autorisés disposant d'un numéro vérifié et d'un consentement ; le routage vers des internes sans numéro et le lien `/portail/` de l'alerte restent des décisions produit à confirmer (une alerte `MESURE_EN_RETARD` ne part pas seule : le rappel du même passage la couvre) ; source `desactivation_utilisateur` écrite à la désactivation d'un utilisateur du portail ET du cabinet, le destinataire n'étant jamais supprimé | `canaux/alertes-kpi.ts`, `kpi/suivi.ts`, `migrations/0549_canaux_alerte_kpi.sql`, `canaux/consentements.ts` |
+| Revue à froid (QUA-05) : deux implémentations alignées de l'indépendance du relecteur (moteur `evaluerIndependanceRelecteur` et déclencheur `qualite_froide_violations()`) ; la grille « complète » de 8 critères est codée en dur dans le déclencheur (une grille v2 exige une migration) ; valeurs de départ (conclusions, plafonds, tirage cyrb53) à valider | `migrations/0287_qualite_froide_campagnes.sql`, `migrations/0288_qualite_froide_revue.sql`, `qualite/froide-revue.ts`, `DECISIONS.md` |
+| Contenus IA des lots 2 et 5a (causes racines du redressement, explication de la notation, synthèse d'un atelier, explication d'une re-prévision) : essayés seulement contre un fournisseur simulé, aucun vrai modèle ; qualité, format réel et coût non constatés ; seule la validation humaine (brouillon IA, modifié, validé) les rend livrables | `redressement/causes-ia.ts`, `plans/ateliers-synthese.ts`, `plans/reprevision-explication.ts`, `ia/orchestrateur.ts` |
+| Veille des appels d'offres (AO-01) : adaptateurs SIMULÉS seulement, aucun adaptateur réel ; un adaptateur réel exigera un ADR (SSRF : hôte de confiance et jamais l'URL d'un avis, délai, clé) avant toute mise en service ; la collecte n'est pas planifiée (déclenchée à la main) | `appels-offres/veille-sources.ts`, `test/appels-offres-veille.test.ts` |
+| Observatoire (CAP-04) : COLLUSION non traitée (trois contributeurs concertés reconstituent la valeur d'un quatrième ; à encadrer par les conditions d'adhésion) ; avec exactement 3 contributeurs une case est masquée pour chacun d'eux ; le retrait d'adhésion ou de contributions est IMMÉDIAT (la différence entre deux lectures est approchée) ; les contributions d'un cabinet retiré restent en base (exclues des agrégats) tant qu'il ne les retire pas ; un seul indicateur ; secteur classé par mots-clés (faux positifs possibles) ; valeurs de départ à valider (5 entreprises, 3 cabinets) | `migrations/0472_observatoire_agregats.sql`, `capitalisation/observatoire.ts`, `packages/engines/src/capitalisation/observatoire.ts`, `DECISIONS.md` |
+| Services candidats (lot 7) : tout le contenu métier des deux méthodes (briques, temps types, règles, cas types, guichets) est PROVISOIRE, « à valider par un expert » ; plafond de 500 guichets par cabinet à valider ; les briques `bancabilite_pla17`, `plan_financement` et `veille_guichets` (`0561`) ont `moteur` NULL faute de code dans `MOTEURS_STANDARD` (dette fonctionnelle, nouvelle version de méthode à publier) ; affichage des deux pages web non vérifié dans un navigateur | `migrations/0560_services_candidats_diagnostic_flash.sql`, `migrations/0561_services_candidats_business_plan.sql`, `packages/shared/src/schemas/standard.ts` |
+| IA, cache des réponses (AGT-06, désactivé par défaut) : un nom propre absent des termes sensibles n'est pas masqué ; il est déjà envoyé au fournisseur, et le cache le garde en plus au plus 24 heures, chiffré (AES-GCM, AAD cabinet + clé), dans le seul cabinet ; aucune entrée ne traverse un cabinet ; la durée de 24 heures est posée sans avis juridique | `ia/cache.ts`, `ia/masquage.ts`, `migrations/0278_ia_cache_reponses.sql` |
+| IA, plafond de coût par mission : le dépassement est borné par le coût estimé du dernier appel admis (le contrôle porte sur « consommé + réservé ≥ plafond » avant l'appel) ; le commentaire IA de l'avancement et le copilote (`appelerSansDemande`) ainsi que les évaluations ne sont pas soumis au plafond de mission, seulement au plafond mensuel du cabinet | `agents/plafonds.ts`, `ia/orchestrateur.ts`, `automatisation/avancement-ia.ts` |
+| Rapport d'avancement hebdomadaire (AUT-10) : pas de rendu PDF ni Word (consultation web seule, décision du lot 4c) ; écrans du cabinet et du portail (rapport, cache, contre-analyse) NON vérifiés dans un navigateur ; commentaire IA essayé seulement contre un fournisseur simulé ; planification en jours ouvrés, lots de 25 missions et 40 lots par semaine : valeurs de départ à valider ; du SQL arbitraire du rôle applicatif peut insérer un rapport dont `contenu` n'est pas celui du moteur (le déclencheur ne recalcule pas) | `automatisation/avancement-job.ts`, `automatisation/avancement-ia.ts`, `migrations/0307_avancement_rapports.sql` |
+| Ingestion de documents (lot 6) : un parseur de PDF NON FIABLE (`unpdf`, pdf.js) s'exécute dans le PROCESSUS de l'API, dans un `worker_thread` à tas plafonné (256 Mo) avec pré-contrôle des flux, délais (5 s plus 30 s, 35 s au pire par document) et surveillance de la mémoire externe (256 Mo) et du RSS (+512 Mo) toutes les 150 ms ; PAS de processus ni de conteneur séparé (une faille d'exécution de code dans pdf.js, ou une mémoire hors tas qui monte entre deux mesures, touche le processus de l'API) ; pas d'antivirus ; un document occupe le worker de jobs jusqu'à 35 s, la file `jobs` étant partagée entre cabinets | `ingestion/pdf.ts`, `ingestion/pdf-controle.ts`, `ingestion/pdf-worker.mjs`, ADR-009 |
+| Ingestion, PDF : les cascades dont la PREMIÈRE couche n'est pas Flate (`ASCIIHex`, `ASCII85`, `LZW`, `RunLength`, puis Flate) et les PDF chiffrés échappent au pré-contrôle et ne sont bornés que par la surveillance de la mémoire (défense RÉACTIVE : cascade de 1,5 Go coupée en 2,6 à 3,0 s avec un pic de +321 à +363 Mo de RSS, jusqu'à 2 workers d'extraction simultanés) ; le worker de contrôle n'a pas de surveillance mémoire (borné par l'algorithme, environ 100 Mo au pire) ; faux refus connus (`PLAFOND_TEXTE` : flux Flate de plus de 32 Mo, scan Flate brut de plus de 5 pages A4 en RGB, PDF abîmé aux environ 7 flux tronqués, plus de 4 096 flux : l'utilisateur re-soumet un PDF régénéré) | `ingestion/pdf-controle.ts`, `ingestion/pdf.ts` (`SURVEILLANCE_MEMOIRE`), `test/ingestion-pdf.test.ts` |
+| Détection des PDF à la réception (§8) : `inflerBorne` garde `CINFO <= 7` (refus sans danger, alors que le pré-contrôle de l'ingestion l'accepte comme pdf.js) et ne compte pas l'ENTRÉE lue par zlib sur les flux d'objets (le pré-contrôle de l'ingestion la compte) : à examiner séparément | `stockage/detection.ts` (`inflerBorne`), `ingestion/pdf-controle.ts` |
+| Ingestion, effacement de l'objet de stockage (M1, ancienne dette de la revue du 2026-10-21 : « effacerObjetsMarques non branchée », désormais branchée au job `ingestion_maintenance`) : RESTE que `effacerObjetsMarques` ne distingue pas l'origine du marquage `retire` et efface physiquement tout objet marqué `retire` du cabinet, donc aussi les dépôts retirés de la salle de mission (`salle-mission/depots.ts` ne les marquait que, sans effacer l'objet) : effet de bord irréversible à confirmer, 200 objets par passage, les plus récemment marqués d'abord ; qu'un objet dont l'effacement échoue plus de 30 jours de suite n'est plus planifié seul (il reste tenté si le job tourne) ; et que `fichiers_suppressions` ne dit pas si l'objet a été effacé | `ingestion/fichier-temporaire.ts` (`effacerObjetsMarques`), `ingestion/maintenance.ts`, `migrations/0524_ingestion_purge_textes.sql` |
+| Ingestion, relance et téléversement : (M5) la structuration d'une relance de lecture agit avec les droits et le quota IA de l'AUTEUR du document (`authDe(doc.cree_par)`), non du demandeur de la relance ; (M7) le téléversement d'un document DD s'exécute en TROIS transactions (contrôle du dossier, création du document, journal DD) : un échec entre la deuxième et la troisième laisse un document sans ligne de journal DD ; le détail d'une extraction `lecture_document` de la due diligence n'est pas masqué (ni noms ni montants, `dd_rapport` et `dd_salle` n'ont pas de masquage) | `ingestion/job-structuration.ts`, `routes/ingestion-dd.ts`, `ingestion/ia-lignes.ts`, `docs/workflows/notes-lots/lot-6.md` |
+| Ingestion, amorçage du standard (STD-13) : le masquage des noms ne couvre que les noms COMPLETS connus du cabinet (un fragment, une faute de frappe, un nom absent des fiches, un nom ajouté par correction humaine partent ou passent en clair), au plus 40 tranches de 200 mots distincts et 200 termes ; toute donnée financière à 3 chiffres ou plus est refusée, y compris dans un CODE (à assouplir si le métier veut des codes numérotés) ; le détecteur `contientDonneeFinanciere` est une heuristique (« cent pour cent » faux positif, « 3k » faux négatif) ; la restriction du texte des pages à l'auteur ou à `finance.lire` est une hypothèse métier à valider ; toujours aucune vérification avec un vrai modèle (aucune clé) | `copilote/noms-propres.ts` (`BORNES_NOMS_INGESTION`), `ingestion/ia-lignes.ts`, `packages/engines/src/ingestion/proposition.ts`, `routes/ingestion-standard.ts` |
+| Ingestion, texte des pages conservé en base jusqu'à la décision plus 90 jours, SANS masquage des montants dans cette copie (durée décidée par l'utilisateur le 2026-10-22 ; état financier, lignes et brouillons restent) ; plafonds (10 Mo, 60 pages, 5 en traitement, 40 par 24 h…) et 35 s : valeurs provisoires à valider ; le texte lu par OCR et les `corrections_ocr` suivent la même rétention (`0526`) | `ingestion/maintenance.ts` (`CONSERVATION_TEXTE_JOURS`), `migrations/0524_ingestion_purge_textes.sql`, `packages/shared/src/schemas/ingestion.ts` |
+| Ingestion, deux lignes mineures de la recherche n° 8 (arrondis), non corrigées : `Math.round` de la confiance OCR en millièmes (`pdf.ts`, ligne 361 depuis le lot 11 ; la note du lot 6 citait la ligne 239) et `Math.floor` de la taille en Mo dans le message de dépassement (`erreurs.ts`, ligne 29) ; aucun montant n'est arrondi | `ingestion/pdf.ts`, `ingestion/erreurs.ts` |
+| OCR local (lot 11), isolation : le moteur WebAssembly et pdf.js lisent un fichier NON FIABLE dans un sous-processus Node par document, SANS conteneur ni seccomp ; la mémoire HORS TAS n'est bornée que par la veille RÉACTIVE du RSS (768 Mo, mesure toutes les 100 ms : une montée entre deux mesures n'est pas retenue) ; le garde réseau (`--require`) et le modèle de permissions sont des défenses APPLICATIVES, sans effet sur une faille native ou WebAssembly ; **contournement résiduel connu (vérification du 2026-10-22, gravité moyenne, précondition : code déjà exécuté dans le sous-processus)** : la poignée native d'un socket déjà construit (`socket._handle`) n'est pas couverte par le garde, un paquet UDP a pu sortir sous les options réelles de production, sans refus ni comptage (cas TCP/TLS ni confirmé ni infirmé) ; le renforcement demandé n'a pas été fait (voir lot-11.md) : le **pare-feu sortant du serveur est À POSER** et OBLIGATOIRE (aucun trafic sortant depuis l'hôte de l'API hors fournisseurs déclarés) ; l'effet de `--permission` sous Node 22 n'est vérifié que par la CI (mesures faites sous Node 24.12) | `ingestion/ocr-local.ts`, `ingestion/ocr-garde-reseau.cjs`, `ingestion/ocr-veille.mjs`, `test/ocr-garde.test.ts`, ADR-009 |
+| OCR local, exploitation : l'OCR s'exécute DANS la transaction du job d'extraction (ligne du document verrouillée, une connexion du pool retenue), au pire 30 s + 240 s + 10 s, sous le délai de blocage des jobs (15 minutes) ; dette acceptée, non restructurée ; une file OCR pleine (8 documents derrière la reconnaissance en cours, un seul traitement à la fois par processus d'API) donne `OCR_ECHEC` DÉFINITIF (inatteignable par la file `jobs` qui traite un job à la fois par processus, atteignable par des appels directs en rafale) ; sous Windows l'environnement du sous-processus n'est pas tout à fait vide (libuv recopie 11 variables système : `PATH`, `SYSTEMROOT`, `TEMP`, `USERNAME`… ; aucun secret de l'API ; vide sous Linux) | `ingestion/job-extraction.ts`, `ingestion/ocr-local.ts` (`LIMITES_OCR_LOCAL`, file), ADR-009 |
+| OCR local, limites et qualité non établies : 30 pages x 3 images = 124 s (sous les 240 s) ; une page à 60 images décodées = `OCR_ECHEC` ; un scan A4 à 600 dpi (environ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (le client refait le scan à 300-400 dpi) ; images JPX, CCITT et JBIG2 NON testées ; la vérification de secours sur les dimensions DÉCODÉES (`ocr-processus.mjs`) n'a pu être déclenchée par aucun fichier hostile (pdf.js ramène une image menteuse aux dimensions déclarées) : défense non éprouvée ; un document mêlant pages natives et pages scannées est lu par sa seule couche texte (pas d'OCR des pages vides) ; un scan négatif est vu comme une page sans encre ; la qualité sur de VRAIES liasses SYSCOHADA scannées n'est pas mesurée (jeux inventés seulement) ; faux positifs possibles des corrections proposées | `ingestion/ocr-processus.mjs`, `ingestion/pdf.ts`, `test/ocr-evaluation.ts`, `packages/engines/src/ingestion/ocr-confusions.ts` |
+| Affichage, contournement `DebloqueurRendu` (lot 13a) : il masque un défaut du React embarqué par Next 15.5.28 (réveil perdu sous une frontière `Suspense`) sans le corriger ; il dépend de Resource Timing (un navigateur sans cette API garde l'écran périmé, avec les filets de `useRafraichir`) et du défaut amont (à REVOIR à chaque montée de Next ou de React) ; un blocage plus d'une seconde après la dernière réponse RSC ne serait pas rattrapé ; non mesuré sur téléphone réel, Firefox, Safari ; jusqu'à 4 rendus d'un composant vide après chaque réponse RSC. Aucun enjeu de confidentialité | `apps/web/src/components/shell/DebloqueurRendu.tsx`, `debloqueur.ts`, `docs/workflows/notes-lots/lot-13a.md` |
+| Worker de jobs, signal de réveil (lot 13b, R-08) : local au PROCESSUS (un worker dans un autre processus que l'API, ou une API sans worker, garde l'intervalle de 30 s ; un job créé hors `mettreEnFileExtraction` et `mettreEnFileStructuration` n'émet pas de signal) ; pas de réveil multi-processus (`LISTEN/NOTIFY` non fait). Limites de rendu du même lot, sans enjeu de sécurité : R-05 (largeurs minimales des 7 colonnes de l'échantillon de la revue à froid, marge de 32 px à 1036 px de viewport, à confirmer en navigateur à 768, 1036 et 1280 px) et A-09 (le bandeau de synthèse reste jusqu'au prochain clic si la grille se complète sans changer la synthèse) | `jobs/reveil.ts`, `jobs/worker.ts`, `test/jobs-reveil.test.ts`, `docs/workflows/notes-lots/lot-13b.md` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
+
+Soldé le 2026-10-22 (lots 6 et 10, aucune ligne du tableau n'existait pour ces points) : l'ingestion de documents PDF et
+Excel avait été repoussée faute d'ADR (l'ADR-009 était citée sans avoir été écrite ; elle l'est, §8 undecies) ; la
+fragilité de l'horodatage des preuves de signature sous charge (409 `PREUVE_IMMUABLE`, rejeu borné en §9 bis, migration
+`0547` inchangée) ; la reprise des objets de stockage dont l'effacement échoue (M1, branchée au job d'ingestion, reste
+décrit dans la ligne « effacement de l'objet de stockage » ci-dessus) ; la dette « `router.refresh()` direct » du web
+(entièrement soldée par le lot 12 : plus aucun appel direct hors `FormulaireConnexion`, §5) ; l'OCR des PDF scannés (lot 11,
+local, §8 undecies : ses dettes sont les trois lignes « OCR local » ci-dessus) ; les 3 vulnérabilités de `pnpm audit --prod`
+du relevé du lot 9e (`next` et `fastify`, corrigées par le lot 12, §14). Le prérequis Node passe à 22 au minimum (§14), puis à
+22.13 (lot 11).
+
+Soldé le 2026-10-23 (lot 13a, défaut de fiabilité d'affichage, sans enjeu de confidentialité) : A-04 (écran périmé après une
+écriture, jusque-là de cause non prouvée) est soldé par contournement : la cause est démontrée (défaut du React embarqué
+par Next, §5) et `DebloqueurRendu` la masque ; reste le risque résiduel de dépendance à un défaut amont, inscrit dans la
+première ligne ci-dessus. R-01 (même cause) et R-02 (liens `<Link>` sans effet pendant 30 à 60 s, même cause) sont soldés
+avec lui.
 
 ## 16. Points ouverts
 
@@ -2485,9 +3639,13 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
 - **Rejeu réel des évaluations d'agents** (§7 bis, §15) : valider les valeurs de départ
   (plafond de 2 USD par évaluation, 5 rejeux par 24 heures, durée maximale de 8 minutes,
   péremptions de 1 h et 30 min, un rejeu par cabinet) ; constater un premier rejeu réel avec
-  une clé (modèle servi, coûts, jetons) ; décider de la garde complète de provenance
-  (fonction `SECURITY DEFINER`) et d'une file `jobs` dédiée aux jobs longs.
-- **Bornes de dates** : `semaineQuerySchema` (§15).
+  une clé (modèle servi, coûts, jetons) ; décider du rôle PostgreSQL distinct pour le worker (nouvel ADR, garde
+  complète de provenance, la garde par fonctions `SECURITY DEFINER` étant faite par `0275`) et d'une file `jobs`
+  dédiée aux jobs longs (le worker traite un job à la fois).
+- **Valeurs provisoires du lot 8b** (§5 bis, §5 ter, §5 septies, §15 ; `DECISIONS.md`) : 5 rejeux Monte-Carlo par plan
+  et par 10 minutes, tous utilisateurs confondus (ou aussi par utilisateur ?) ; seuil de 3 participants ayant
+  contribué avant tout agrégat d'atelier ; plafonds de candidats d'atelier (500 lus, 200 rendus) ; pages de
+  « mes revues » de 50 (100 au plus) ; 50 dossiers lus et 20 évalués pour le voyant rouge du brief.
 - **Jours de budget dans les retours d'expérience** : un consultant membre de l'équipe lit les jours
   de la section « Écarts » (§5 sexies, §15) ; décision produit à confirmer (`DECISIONS.md`).
 - **Recette du 2026-10-10, à clarifier** (§15) : pied de page « relu et validé par un consultant » sur
@@ -2502,6 +3660,20 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
 - **Lacunes de la vague 2** (construites le 2026-10-11 : `mission.cloture_demandee` publié par la base,
   brief quotidien AUT-07, copilote AGT-08) : valider les valeurs de départ (§15 et `DECISIONS.md`, section
   « Chantier lacunes de la vague 2 ») ; **constater un premier échange du copilote avec un vrai modèle**
-  (qualité du routage, format JSON réel, coût) ; décider du masquage des noms propres avant l'envoi au
-  fournisseur ; décider d'un compteur de débit du brief partagé entre instances (base ou cache) si l'API tourne
-  à plusieurs instances ; trancher la durée de conservation des propositions du copilote avec le conseil juridique.
+  (qualité du routage, format JSON réel, coût) ; décider de l'extension du masquage des noms (limite résiduelle :
+  noms absents des fiches, fragments, fautes de frappe, §7 bis) ; trancher la durée de conservation des
+  propositions du copilote avec le conseil juridique. (Le compteur de débit du brief est devenu persistant et
+  partagé entre instances le 2026-10-21 : point soldé.)
+- **Ingestion de documents (lot 6, §8 undecies, §15 ; ADR-009, `DECISIONS.md`)** : **OCR local livré** (lot 11,
+  2026-10-22 ; §8 undecies) : reste ouvert, à surveiller, le moteur `tesseract.js` 7.0.0 (avis de sécurité du moteur et de
+  `tesseract.js-core`, à lire à chaque montée de version ; `pnpm audit --prod` à chaque livraison, §14) ; à poser, le
+  **pare-feu sortant du serveur** (le garde réseau est applicatif) ; à décider, un conteneur ou seccomp pour le
+  sous-processus OCR (§15) ; à constater, l'effet de `--permission` sous Node 22 (CI avec `OCR_LOCAL_EXIGE=1`), la qualité
+  sur de vraies liasses SYSCOHADA scannées et les formats JPX, CCITT et JBIG2 (§15) ; **à confirmer par le métier** : la restriction du texte des pages d'amorçage à l'auteur ou à
+  `finance.lire` (hypothèse FIN-02), l'assouplissement du refus des codes à 3 chiffres ou plus, le masquage des noms pour
+  `dd_rapport` et `dd_salle` (non demandé), les plafonds (10 Mo, 60 pages, 5 documents en traitement, 40 par 24 h) ;
+  **à trancher** : un processus ou conteneur séparé pour le parseur de PDF (§15), la portée de `effacerObjetsMarques`
+  (§15), le recueil d'un avis juridique sur la durée de 90 jours du texte des pages ; **à confirmer en navigateur** :
+  l'affichage de `/observatoire` après adhésion (versement, retrait, A-01) et, depuis le lot 13a, le contournement
+  `DebloqueurRendu` du défaut d'affichage périmé (A-04, cause démontrée en §5) sur téléphone réel, Firefox et Safari, à
+  revoir à chaque montée de Next ou de React.

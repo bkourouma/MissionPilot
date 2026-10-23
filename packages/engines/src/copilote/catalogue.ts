@@ -17,9 +17,15 @@ export const OUTILS_LECTURE_COPILOTE = [
   "kpi_rouges",
   "factures_echues",
   "recherche",
+  "missions_en_retard",
+  "retard_feuilles_temps",
 ] as const;
 
-export const OUTILS_ACTION_COPILOTE = ["creer_tache"] as const;
+export const OUTILS_ACTION_COPILOTE = [
+  "creer_tache",
+  "ajouter_commentaire",
+  "planifier_relance",
+] as const;
 
 export const OUTILS_COPILOTE = [...OUTILS_LECTURE_COPILOTE, ...OUTILS_ACTION_COPILOTE] as const;
 
@@ -44,6 +50,18 @@ export interface ParametresCopilote {
     pour?: string;
     /** Nom (ou fragment) de la mission liée. */
     mission?: string;
+  };
+  missions_en_retard: Record<string, never>;
+  retard_feuilles_temps: Record<string, never>;
+  ajouter_commentaire: {
+    /** Texte brut du commentaire (contenu : jamais journalisé). */
+    texte: string;
+    /** Nom (ou fragment) de la mission ; absent : la mission du contexte de l'écran. */
+    mission?: string;
+  };
+  planifier_relance: {
+    /** Numéro de la facture échue, ou nom (fragment) de son client. */
+    facture: string;
   };
 }
 
@@ -113,6 +131,39 @@ export const DEFINITIONS_OUTILS_COPILOTE: Readonly<Record<OutilCopilote, Definit
         '"pour": "nom du collaborateur (facultatif)", "mission": "nom de la mission (facultatif)"}',
       modifiant: true,
     },
+    missions_en_retard: {
+      libelle: "Mes missions en retard",
+      description:
+        "Liste les missions de l'utilisateur (dont il est responsable ou membre) qui ont des " +
+        "jalons en retard ou dont la date de fin prévue est dépassée.",
+      format_parametres: "{}",
+      modifiant: false,
+    },
+    retard_feuilles_temps: {
+      libelle: "Retards sur les feuilles de temps",
+      description:
+        "Liste les collaborateurs de l'équipe de l'utilisateur dont la feuille de temps d'une " +
+        "semaine écoulée n'est pas soumise (noms et nombre de semaines, jamais de coût).",
+      format_parametres: "{}",
+      modifiant: false,
+    },
+    ajouter_commentaire: {
+      libelle: "Ajouter un commentaire",
+      description:
+        "Propose d'ajouter un commentaire (texte brut) sur une mission ; l'utilisateur " +
+        "confirme avant toute publication.",
+      format_parametres:
+        '{"texte": "texte du commentaire", "mission": "nom de la mission (facultatif)"}',
+      modifiant: true,
+    },
+    planifier_relance: {
+      libelle: "Relancer une facture échue",
+      description:
+        "Propose d'enregistrer une relance pour une facture échue (aucun e-mail n'est envoyé au " +
+        "client) ; l'utilisateur confirme avant tout enregistrement.",
+      format_parametres: '{"facture": "numéro de la facture ou nom du client"}',
+      modifiant: true,
+    },
   };
 
 export const estOutilCopilote = (valeur: unknown): valeur is OutilCopilote =>
@@ -125,3 +176,5 @@ export const estOutilModifiant = (outil: OutilCopilote): boolean =>
 export const LIMITE_ELEMENTS_COPILOTE = 10;
 /** Message de l'utilisateur : longueur maximale, en caractères. */
 export const MESSAGE_COPILOTE_MAX = 1000;
+/** Retards de feuilles de temps : nombre de semaines écoulées examinées (valeur PROPOSÉE). */
+export const SEMAINES_RETARD_FEUILLES_COPILOTE = 4;

@@ -1,9 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
-import type { Devise } from "../../lib/format";
+import { libelleDevise, type Devise } from "../../lib/format";
 import {
   cheminDepuisBibliotheque,
   messageBibliotheque,
@@ -16,6 +15,7 @@ import { optionsResponsables, type PersonnePlan } from "../../lib/plan-elements"
 import type { Resultat } from "../../lib/saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -41,7 +41,7 @@ export function CreationDepuisBibliotheque({
   parents,
   personnes,
 }: CreationDepuisBibliothequeProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const f = useFormulaire<keyof SaisieDepuisBibliotheque>();
   const [ouvert, setOuvert] = useState(false);
   const [s, setS] = useState<SaisieDepuisBibliotheque>(SAISIE_DEPUIS_BIBLIOTHEQUE_VIDE);
@@ -68,7 +68,7 @@ export function CreationDepuisBibliotheque({
     if (ok) {
       setOuvert(false);
       setS(SAISIE_DEPUIS_BIBLIOTHEQUE_VIDE);
-      router.refresh();
+      rafraichir();
     }
   }
 
@@ -124,7 +124,7 @@ export function CreationDepuisBibliotheque({
           {...champ("echeance")}
         />
         <Champ
-          libelle={`Budget (${devisePlan})`}
+          libelle={`Budget (${libelleDevise(devisePlan)})`}
           inputMode="decimal"
           aide={type.devise === devisePlan ? "Vide : coût type." : undefined}
           {...champ("budget")}

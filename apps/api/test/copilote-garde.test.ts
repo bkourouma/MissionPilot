@@ -85,12 +85,14 @@ describe("niveau d'autonomie du copilote : N2 pour une action", () => {
     await plafonner(a, "N1");
     // Lecture : permise.
     expect((await demander(a.chef, "mes tâches")).statut).toBe("ok");
-    // Nouvelle proposition : refusée, rien n'est inscrit.
+    // Nouvelle proposition : refusée par un message clair (200, pas une erreur), rien n'est inscrit.
     const compte = await propositions(a);
-    const refus = await poser(a.chef, "Crée une tâche : interdite par le cabinet");
-    expect(refus.statusCode, refus.body).toBe(409);
-    expect(refus.json().erreur.code).toBe("COPILOTE_ACTION_NON_AUTORISEE");
-    expect(refus.json().erreur.message).toContain("niveau d'autonomie N2");
+    const refus = await demander(a.chef, "Crée une tâche : interdite par le cabinet");
+    expect(refus).toMatchObject({ outil: "creer_tache", statut: "refuse", elements: [] });
+    expect(refus.action).toBeUndefined();
+    expect(refus.texte).toContain(
+      "Cette action n'est pas disponible : l'agent est limité à la lecture",
+    );
     expect(await propositions(a)).toBe(compte);
     // Confirmation d'une proposition antérieure : refusée, rien n'est créé ni décidé.
     const conf = await a.directeur.post(`/api/copilote/actions/${avant.action_id}/confirmer`);

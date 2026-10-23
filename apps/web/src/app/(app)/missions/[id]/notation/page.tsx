@@ -12,6 +12,7 @@ import { HistoriqueAjustements } from "../../../../../components/notation/Histor
 import { ParcoursRevue } from "../../../../../components/notation/ParcoursRevue";
 import { GenerationLivrable } from "../../../../../components/rapports/GenerationLivrable";
 import { SyntheseNotation } from "../../../../../components/notation/SyntheseNotation";
+import { CitationsLivrable } from "../../../../../components/preuves/CitationsLivrable";
 import { TableauDimensions } from "../../../../../components/notation/TableauDimensions";
 import { VersionsNotation } from "../../../../../components/notation/VersionsNotation";
 import "../../../../../components/notation/notation.css";
@@ -208,6 +209,8 @@ export default async function PageNotationMission({
           <GenerationLivrable type="notation" id={notation.id} cloturee={m.statut === "cloturee"} />
         </Carte>
       ) : null}
+
+      <CitationsLivrable missionId={m.id} livrable="notation" />
 
       {vue && !vue.ok ? (
         <EtatErreur

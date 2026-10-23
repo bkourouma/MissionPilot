@@ -6,7 +6,11 @@ import {
   etatsCourants,
   formatFichierEtat,
   formaterConstat,
+  AVERTISSEMENT_OCR,
+  etatLuParOcr,
   formaterReference,
+  ligneLueParOcr,
+  marqueurOcrLigne,
   formaterSource,
   formaterValeurFacteur,
   formaterValeurFait,
@@ -91,6 +95,16 @@ describe("mise en forme", () => {
       formaterConstat({ ...ecart, statut: "ok", cible: "AZ", code: "SOUS_TOTAL" }, "XOF"),
     ).toBe("Sous-total (AZ) : conforme.");
     expect(
+      formaterConstat(
+        { ...ecart, statut: "non_verifiable", message: "Ligne L1_17 absente." },
+        "XOF",
+      ),
+    ).not.toMatch(/Ld+_d+/);
+    // R-07 : la cible générée « L1_17 » ne s'affiche jamais brute.
+    expect(
+      formaterConstat({ ...ecart, statut: "ok", cible: "L1_17", code: "SOUS_TOTAL" }, "XOF"),
+    ).toBe("Sous-total (page 1, ligne 17) : conforme.");
+    expect(
       formaterConstat({ ...ecart, statut: "non_verifiable", message: "Actif absent." }, "XOF"),
     ).toBe("Équilibre du bilan : non vérifiable. Actif absent.");
   });
@@ -169,6 +183,7 @@ describe("liste et chemins", () => {
       "/dossiers/id/faits",
       "/dossiers/id/finances",
       "/dossiers/id/frise",
+      "/dossiers/id/groupe",
     ]);
   });
 });
@@ -387,5 +402,56 @@ describe("import d'un état financier", () => {
     ]);
     expect(erreursImport(null)).toEqual([]);
     expect(erreursImport({ erreurs: "x" })).toEqual([]);
+  });
+});
+
+describe("origine d'un état lu dans un PDF", () => {
+  it("a un libellé clair et la référence de page s'affiche", async () => {
+    const { ORIGINE_ETAT_LIBELLES, formaterReference } = await import("./dossier");
+    expect(ORIGINE_ETAT_LIBELLES.pdf).toBe("PDF");
+    expect(formaterReference({ page: 3 })).toBe("p. 3");
+  });
+});
+
+describe("lecture par OCR d'un état", () => {
+  const ligne = (reference: Record<string, unknown>) => ({ reference }) as never;
+  it("repère les lignes et les états lus par OCR", () => {
+    expect(ligneLueParOcr(ligne({ page: 3, ocr: true }))).toBe(true);
+    expect(ligneLueParOcr(ligne({ page: 3 }))).toBe(false);
+    expect(etatLuParOcr({ lignes: [ligne({ ocr: true })] })).toBe(true);
+    expect(
+      etatLuParOcr({
+        lignes: [],
+        ingestion: { document_id: "d", methode: "ocr", corrections_ocr: null },
+      }),
+    ).toBe(true);
+    expect(
+      etatLuParOcr({
+        lignes: [],
+        ingestion: { document_id: "d", methode: "ocr_simule", corrections_ocr: null },
+      }),
+    ).toBe(true);
+  });
+  it("laisse un état sans OCR inchangé", () => {
+    expect(etatLuParOcr({ lignes: [ligne({ page: 2 })], ingestion: null })).toBe(false);
+    expect(
+      etatLuParOcr({
+        lignes: [],
+        ingestion: { document_id: "d", methode: "texte", corrections_ocr: null },
+      }),
+    ).toBe(false);
+    expect(etatLuParOcr(null)).toBe(false);
+    expect(marqueurOcrLigne(ligne({ page: 2 }))).toBeNull();
+    expect(formaterReference({ page: 3, ocr: false })).toBe("p. 3");
+  });
+  it("formate le marqueur textuel et la référence", () => {
+    expect(marqueurOcrLigne(ligne({ ocr: true, confiance_pm: 820 }))).toBe(
+      "lu par OCR : à vérifier (confiance de la page : 82 %)",
+    );
+    expect(marqueurOcrLigne(ligne({ ocr: true }))).toBe("lu par OCR : à vérifier");
+    expect(formaterReference({ fichier: "scan.pdf", page: 3, ocr: true })).toBe(
+      "scan.pdf, p. 3 · lu par OCR",
+    );
+    expect(AVERTISSEMENT_OCR).toContain("jamais accepté automatiquement");
   });
 });

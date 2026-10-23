@@ -7,6 +7,7 @@ import "../../../../../../components/plan/plan.css";
 import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../../../components/ui/Onglets";
+import { libelleDevise } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { hrefBancabilite } from "../../../../../../lib/plan-bancabilite";
@@ -66,6 +67,10 @@ export default async function LayoutPlan({
     { id: "portefeuille", libelle: "Portefeuille", href: hrefPortefeuille(id, plan.id) },
     { id: "modele", libelle: "Modèle financier", href: hrefModele(id, plan.id) },
     { id: "bancabilite", libelle: "Bancabilité", href: hrefBancabilite(id, plan.id) },
+    // Lot 5a : ateliers (PLA-15), simulation de Monte-Carlo (PLA-16), plan vivant (PLA-18).
+    { id: "ateliers", libelle: "Ateliers", href: `${hrefPlan(id, plan.id)}/ateliers` },
+    { id: "simulation", libelle: "Simulation", href: `${hrefPlan(id, plan.id)}/simulation` },
+    { id: "plan-vivant", libelle: "Plan vivant", href: `${hrefPlan(id, plan.id)}/plan-vivant` },
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: hrefKpiPlan(id, plan.id) }]
       : []),
@@ -87,7 +92,7 @@ export default async function LayoutPlan({
               : `${d.valides} contenu${d.valides > 1 ? "s" : ""} validé${d.valides > 1 ? "s" : ""} sur ${d.total}`}
           </BadgeStatut>
           <span className="mp-texte-doux mp-texte-petit">
-            {`Horizon ${plan.horizon} ans · montants en ${plan.devise}`}
+            {`Horizon ${plan.horizon} ans · montants en ${libelleDevise(plan.devise)}`}
           </span>
         </div>
       </section>

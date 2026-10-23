@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
+import { effacerConversation, stockageSession } from "../../lib/copilote-session";
 import { purgerDonneesHorsLigne } from "../../lib/hors-ligne/magasins";
 import { Bouton } from "../ui/Bouton";
 
@@ -21,6 +22,9 @@ export function BoutonDeconnexion({ pleineLargeur = false }: { pleineLargeur?: b
       } catch {
         // Stockage indisponible : rien de plus à faire.
       }
+      // Conversation du copilote gardée dans l'onglet : effacée à la déconnexion (sans effet si le
+      // stockage est indisponible).
+      effacerConversation(stockageSession());
       // Rechargement complet : vide l'état client et le cache du routeur.
       window.location.assign("/connexion");
     } catch (e) {

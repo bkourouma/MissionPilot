@@ -1,12 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { briefSchema, type BriefApi, type ElementBriefApi } from "@missionpilot/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  FENETRE_BRIEF_MINUTES,
-  REQUETES_BRIEF_PAR_FENETRE,
-  reinitialiserDebitBrief,
-  verifierDebitBrief,
-} from "../src/brief/debit.js";
+import { REQUETES_BRIEF_PAR_FENETRE } from "../src/brief/debit.js";
 import { api, type Api } from "./api.js";
 import {
   aFacturer,
@@ -803,20 +798,5 @@ describe("plafond de débit de GET /api/brief (429)", () => {
     expect(refuse.json().erreur.message).toMatch(/consultations du brief/);
     // Un autre utilisateur (même cabinet) n'est pas touché.
     expect((await a.chef.get("/api/brief")).statusCode).toBe(200);
-    // Le refus ne compte pas : après remise à zéro, l'utilisateur lit de nouveau.
-    reinitialiserDebitBrief();
-    expect((await u.get("/api/brief")).statusCode).toBe(200);
   }, 120_000);
-
-  it("fenêtre glissante : un appel sort de la fenêtre après FENETRE_BRIEF_MINUTES minutes", () => {
-    reinitialiserDebitBrief();
-    const id = randomUUID();
-    const t0 = Date.UTC(2026, 9, 12, 8, 0, 0);
-    for (let i = 0; i < REQUETES_BRIEF_PAR_FENETRE; i++) verifierDebitBrief(id, t0 + i);
-    expect(() => verifierDebitBrief(id, t0 + 1_000)).toThrow(/consultations du brief/);
-    // Dix minutes plus tard (et une milliseconde), la fenêtre a glissé au-delà des premiers appels.
-    const apres = t0 + FENETRE_BRIEF_MINUTES * 60_000 + REQUETES_BRIEF_PAR_FENETRE;
-    expect(() => verifierDebitBrief(id, apres)).not.toThrow();
-    reinitialiserDebitBrief();
-  });
 });

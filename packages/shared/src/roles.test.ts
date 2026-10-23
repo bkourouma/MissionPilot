@@ -177,6 +177,13 @@ describe("V3, vague 1 : méthodes, dossier client, preuves, agents, qualité", (
     expect(aPermission(["consultant"], "qualite.relire")).toBe(false);
   });
 
+  it("revue à froid (QUA-05) : l'associé gère ; relecteurs : associé, directeur de mission, expert", () => {
+    expect(qui("qualite.froide.gerer")).toEqual(["associe"]);
+    expect(qui("qualite.froide.relire")).toEqual(["associe", "directeur_mission", "expert_metier"]);
+    expect(aPermission(["chef_mission"], "qualite.froide.relire")).toBe(false);
+    expect(aPermission(["gestionnaire"], "qualite.froide.relire")).toBe(false);
+  });
+
   it("ni ressources, ni gestionnaire, ni expert externe, ni portail", () => {
     for (const role of ["ressources", "gestionnaire", "expert_externe", ...ROLES_CLIENT] as const) {
       for (const p of NOUVELLES) expect(aPermission([role], p), `${role} ${p}`).toBe(false);
@@ -242,6 +249,9 @@ describe("portail client (SOC-09)", () => {
       "portail.canaux.gerer",
       "portail.signature.signer",
       "portail.synthese.lire",
+      "portail.dd.lire",
+      "portail.ateliers.participer",
+      "portail.avancement.lire",
     ]);
     // Toute permission « portail.* » détenue par un client est une permission du portail.
     expect(PERMISSIONS.filter((p) => p.startsWith("portail.") && p !== "portail.gerer")).toEqual([
@@ -619,5 +629,113 @@ describe("V3, vague 4 : redressement", () => {
     expect(financiers).toContain("gestionnaire");
     expect(aPermission(["gestionnaire"], "finance.lire")).toBe(true);
     for (const p of QUATRE) expect(aPermission(["gestionnaire"], p)).toBe(false);
+  });
+});
+
+describe("V3, vague 4 : portail investisseur de la due diligence", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("l'option du cabinet : associé SEUL ; la gestion des invitations et publications : associé et directeur", () => {
+    expect(qui("dd.portail.configurer")).toEqual(["associe"]);
+    expect(qui("dd.portail.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("dd.portail.gerer suppose dd.lire (la publication lit la note)", () => {
+    for (const r of TOUS_LES_ROLES.filter((x) => aPermission([x], "dd.portail.gerer"))) {
+      expect(aPermission([r], "dd.lire"), r).toBe(true);
+    }
+  });
+
+  it("lecture côté portail : l'investisseur SEUL, jamais un rôle interne", () => {
+    expect(qui("portail.dd.lire")).toEqual(["client_investisseur"]);
+    expect(PERMISSIONS_PORTAIL_CLIENT).toContain("portail.dd.lire");
+    expect(PERMISSIONS_PAR_ROLE.client_investisseur).toEqual([
+      "portail.acceder",
+      "portail.dd.lire",
+    ]);
+  });
+
+  it("ateliers stratégiques (PLA-15) : le dirigeant du client seul, jamais un rôle interne", () => {
+    expect(qui("portail.ateliers.participer")).toEqual(["client_dirigeant"]);
+    expect(PERMISSIONS_PORTAIL_CLIENT).toContain("portail.ateliers.participer");
+    for (const r of ROLES) {
+      expect(aPermission([r], "portail.ateliers.participer"), r).toBe(false);
+    }
+  });
+
+  it("aucun rôle du portail ne configure ni ne gère le partage ; aucune ne donne un droit financier", () => {
+    for (const r of ROLES_CLIENT) {
+      expect(aPermission([r], "dd.portail.configurer"), r).toBe(false);
+      expect(aPermission([r], "dd.portail.gerer"), r).toBe(false);
+      expect(aPermission([r], "finance.lire"), r).toBe(false);
+    }
+    for (const p of ["dd.portail.configurer", "dd.portail.gerer"] as const) {
+      expect(PERMISSIONS_PORTAIL_CLIENT as readonly string[]).not.toContain(p);
+    }
+  });
+});
+
+describe("Services candidats : lecture comme le catalogue, gestion à l'associé et au directeur de mission", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("services_candidats.lire : mêmes rôles que catalogue.lire", () => {
+    expect(qui("services_candidats.lire")).toEqual(qui("catalogue.lire"));
+  });
+
+  it("services_candidats.gerer : l'associé et le directeur de mission", () => {
+    expect(qui("services_candidats.gerer")).toEqual(["associe", "directeur_mission"]);
+  });
+
+  it("aucun rôle client ni l'expert externe n'y touche (portail fermé)", () => {
+    for (const p of ["services_candidats.lire", "services_candidats.gerer"] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe("V3, lot 5b : observatoire inter-cabinets (CAP-04)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("observatoire.lire : associé et directeur de mission ; adhérer : associé seul", () => {
+    expect(qui("observatoire.lire")).toEqual(["associe", "directeur_mission"]);
+    expect(qui("observatoire.adherer")).toEqual(["associe"]);
+  });
+
+  it("jamais au portail ni à l'expert externe", () => {
+    for (const p of ["observatoire.lire", "observatoire.adherer"] as const) {
+      for (const r of [...ROLES_CLIENT, "expert_externe"] as const) {
+        expect(aPermission([r], p), `${r} ${p}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe("V3, vague 4 : rapport d'avancement hebdomadaire (AUT-10)", () => {
+  const qui = (p: Parameters<typeof aPermission>[1]) =>
+    TOUS_LES_ROLES.filter((r) => aPermission([r], p)).sort();
+
+  it("lecture et validation : associé, directeur et chef de mission seulement", () => {
+    const trois = ["associe", "chef_mission", "directeur_mission"];
+    expect(qui("avancement.lire")).toEqual(trois);
+    expect(qui("avancement.valider")).toEqual(trois);
+  });
+
+  it("portail : lecture par le dirigeant et le contributeur, jamais par un rôle interne ni l'investisseur", () => {
+    expect(qui("portail.avancement.lire")).toEqual(["client_contributeur", "client_dirigeant"]);
+    expect(PERMISSIONS_PORTAIL_CLIENT).toContain("portail.avancement.lire");
+    for (const r of ROLES) expect(aPermission([r], "portail.avancement.lire"), r).toBe(false);
+  });
+
+  it("aucun rôle client ne lit ni ne valide côté cabinet ; aucune ne donne un droit financier", () => {
+    for (const r of ROLES_CLIENT) {
+      expect(aPermission([r], "avancement.lire"), r).toBe(false);
+      expect(aPermission([r], "avancement.valider"), r).toBe(false);
+    }
+    expect(qui("finance.lire")).toEqual(["associe", "gestionnaire"]);
   });
 });

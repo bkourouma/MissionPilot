@@ -3,11 +3,13 @@
 Lancer, configurer et dépanner le projet. En cas de désaccord avec
 [AGENTS.md](../../AGENTS.md), AGENTS.md prime.
 
+Mis à jour le 2026-10-23 (lot 9g : réveil du worker de jobs et débloqueur de rendu des lots 13a et 13b), après le 2026-10-22 (lot 9f : OCR local du lot 11, Node 22.13 minimum, mises à jour de sécurité du lot 12).
+
 ## Prérequis
 
 | Outil          | Version attendue                       | Vérifié le 2026-10-06 |
 | -------------- | -------------------------------------- | --------------------- |
-| Node           | ≥ 20 (`engines` du `package.json`)     | 24.12.0               |
+| Node           | ≥ 22.13 (`engines` du `package.json` racine ; **requis en production** pour l'OCR : modèle de permissions) ; 22.16 ou plus pour la surveillance mémoire complète de l'import de PDF | 24.12.0               |
 | pnpm           | 10 (`packageManager` : 10.26.2)        | 10.26.2               |
 | Docker         | pour PostgreSQL (`docker-compose.yml`) | 29.1.3                |
 | PostgreSQL     | 16, conteneur `missionpilot-postgres`  | image `postgres:16-alpine` |
@@ -15,7 +17,9 @@ Lancer, configurer et dépanner le projet. En cas de désaccord avec
 | Lefthook       | dépendance de développement du dépôt   | `node_modules/.bin/lefthook` présent |
 | Chrome/Chromium | facultatif : rapports PDF (`CHROMIUM_PATH`) | Chrome sous Windows seulement (aucun essai sous Linux) |
 
-Vérifier : `node -v`, `pnpm -v`, `docker --version`. Les autres conteneurs
+Aucun fichier `.nvmrc` ni `.node-version` n'existe : la version se choisit à la
+main (toute version ≥ 22.13 ; la CI tourne sur Node 22, dernière version mineure). Vérifier : `node -v`,
+`pnpm -v`, `docker --version`. Les autres conteneurs
 PostgreSQL de la machine sont à d'autres projets : n'y pas toucher.
 
 ## Installation
@@ -65,6 +69,7 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `QUOTA_STOCKAGE_CABINET_OCTETS` | quota de stockage par cabinet (défaut 2 Go, 1 Mo au minimum)                       | non                            |
 | `CHROMIUM_PATH`             | Chrome/Chromium des rapports PDF, chemin **absolu** vérifié au démarrage ; absent : Chrome installé en développement Windows, sinon PDF indisponible (503) | non (oui pour les PDF) |
 | `JOBS_WORKER`               | `actif` ou `inactif` ; actif par défaut, inactif par défaut en test                    | non                            |
+| `OCR_LOCAL`                 | OCR des PDF scannés : `auto` (défaut, moteur local s'il est disponible), `local`, `simule` (développement et test seulement) ou `off` ; voir « OCR local » | non |
 | `OPENROUTER_API_KEY`        | clé IA **de plateforme** (facultative, jamais journalisée) : sert aux cabinets qui ont activé l'IA sans clé propre ; sans aucune clé, gabarits déterministes | non |
 | `OPENROUTER_BASE_URL`       | point d'accès OpenRouter (défaut `https://openrouter.ai/api/v1`) ; HTTPS obligatoire, HTTP admis pour la seule boucle locale | non |
 | `IA_TIMEOUT_MS`             | délai maximal d'un appel au modèle (défaut 60 000, de 1 000 à 300 000)                 | non                            |
@@ -176,6 +181,74 @@ La connexion rapide **refuse** ces comptes (`CONNEXION_RAPIDE_2FA`, elle ne cont
   connexion rapide serait refusée). Les PDF sont écrits dans le stockage de
   développement (`~/.missionpilot/stockage`, ou `STORAGE_DIR`).
 
+#### Canaux simulés, redressement et services candidats de démonstration
+
+`db:seed-demo` ajoute, en fin de course et après les comptes du portail et les
+comptes 2FA, trois sous-semis :
+
+- **les canaux simulés** (`apps/api/src/db/seed-demo-canaux.ts`) : un compte
+  WhatsApp simulé actif, avec la saisie de KPI activée (l'alerte KPI garde sa
+  valeur par défaut, désactivée) ; deux destinataires, aux seuls numéros de test
+  du simulateur : Salimata Bakayoko (`+2250000000012`, joignable, consentement
+  donné depuis le portail) et Nadège Yapi (`+2250000000000`, non joignable,
+  consentement recueilli par le cabinet avec sa référence) ; une relance vers le
+  numéro non joignable (échec visible dans le journal d'envois) ; une demande de
+  signature « Lettre de mission - signature electronique (DÉMONSTRATION) »,
+  envoyée, avec Fanta Doumbia pour le cabinet et Salimata Bakayoko pour le client
+  (2FA active, personne n'a encore signé) ; une transcription « DÉMONSTRATION » à
+  relire. Aucun envoi réel, aucune clé, aucun appel réseau : les fournisseurs
+  sont simulés ou locaux.
+- **le redressement** (`apps/api/src/db/seed-demo-redressement.ts`), pour le client
+  « Transports Akwaba (fictif) » : le dossier « Redressement Transports Akwaba
+  (fictif) », actif et complet (états du client, diagnostic, trésorerie, créanciers,
+  plan validé par le directeur de la mission, check-list, causes racines,
+  covenants, bilan de clôture en brouillon), et le dossier « Redressement express
+  Transports Akwaba (fictif) », clos par le directeur, avec son plan de suivi et un
+  relevé.
+- **les services candidats** (`apps/api/src/db/seed-demo-services-candidats.ts`,
+  appelé par une ligne de `seed-demo.ts`), pour le client de démonstration du
+  portail : le **prix du diagnostic flash**, fixé à 1 000 000 XOF et marqué
+  `DÉMONSTRATION` (colonne `commentaire`), car le produit n'a aucun prix par
+  défaut ; l'activation des types de mission « diagnostic flash » et « business
+  plan bancable » ; une mission de chaque service, « Diagnostic flash
+  (DÉMONSTRATION) » et « Business plan bancable (DÉMONSTRATION) », liées à leur
+  méthode du standard ; deux **guichets de financement FICTIFS** (« Guichet fictif
+  A » et « B », marqués `DÉMONSTRATION, à valider`, aucune source réelle). Tout passe
+  par les routes de l'API (droits et journal d'audit), sans appel réseau. À voir
+  dans l'interface, connecté en associé ou directeur de mission : pages
+  `/services-candidats` (prix, activation, création d'une mission) et
+  `/services-candidats/guichets` (liste et rapprochement) ; `/observatoire` n'est
+  pas semé (adhésion et versement se font à la main).
+- **les deux liens vers ces services** : la fiche d'un client **actif** affiche le
+  bouton « Proposer un diagnostic flash » (visible avec `catalogue.lire`, il mène à
+  `/services-candidats`) ; le brief quotidien (`/brief`) peut afficher un élément
+  « voyant rouge » (famille « Ça dérive », lien `/missions/<id>/redressement`)
+  seulement pour un dossier de redressement NON clos dont le voyant calculé est
+  rouge, sur une mission visible et non clôturée, connecté avec `redressement.lire`.
+  Le semis ne force pas ce cas : le dossier de démonstration actif n'y figure que
+  si son état calculé est rouge (à vérifier dans l'interface, aucun montant n'y
+  apparaît). Un dossier de redressement clos n'apparaît jamais dans le brief.
+
+Sur une base déjà peuplée, ces trois sous-semis se relancent séparément ; il n'y a
+pas de script npm dédié :
+
+```bash
+pnpm --filter @missionpilot/api exec tsx src/db/seed-demo-canaux.ts     # exige les comptes du portail et les comptes 2FA
+cd apps/api && npx tsx src/db/seed-demo-redressement.ts                  # exige le cabinet de démonstration
+pnpm --filter @missionpilot/api exec tsx src/db/seed-demo-services-candidats.ts   # exige le cabinet de démonstration
+```
+
+- Canaux : idempotent étape par étape. Un compte, un numéro, un consentement, un
+  document, une demande ou une transcription déjà présents ne sont pas recréés ; si
+  rien n'est créé, le script le dit et sort avec le code 0.
+- Redressement : si le dossier « Redressement Transports Akwaba (fictif) » existe
+  déjà, le script le vérifie avant toute écriture, n'écrit rien et sort avec le
+  code 2.
+- Services candidats : idempotent (missions retrouvées par intitulé, guichets par
+  nom, prix posé seulement s'il n'est pas déjà personnalisé) ; sans rien à écrire,
+  le script le dit et sort avec le code 0. Il échoue (code 1) si le client de
+  démonstration du portail est absent : lancer d'abord `db:seed-demo`.
+
 **Connexion rapide (sans mot de passe)** pour la recette : démarrer l'API avec
 `CONNEXION_RAPIDE_DEMO=oui` ; la page de connexion affiche alors le bloc
 « Comptes de démonstration (environnement local) » en deux groupes, « Espace
@@ -216,10 +289,203 @@ Le worker de jobs démarre avec l'API (rappels de temps, relances des factures
 et des questionnaires, suivi quotidien des KPI, générations IA, purge des
 fichiers orphelins, file d'e-mails, anonymisation du texte des générations IA
 `ia_conservation` et purge des rapports `purge_rapports`, une fois par jour et par
-cabinet concerné) ; `JOBS_WORKER=inactif` le coupe. L'IA est
+cabinet concerné ; lot 6 : extraction et structuration des documents importés, à
+l'envoi, et `ingestion_maintenance` une fois par jour, voir « Import de documents ») ;
+`JOBS_WORKER=inactif` le coupe. L'IA est
 désactivée par défaut dans chaque cabinet : tant qu'un associé ne l'active pas
 (`/parametres/ia`), les générations utilisent les gabarits déterministes. L'interface est sur
 `http://localhost:3100` (connexion avec un compte de démonstration).
+
+## Rapport d'avancement hebdomadaire, cache IA et contradicteur (lot 4c)
+
+Exploitation du lot 4c (AUT-10, AGT-06). Valeurs et droits : `docs/DECISIONS.md`, section « lot 4c ». **L'interface de
+ce lot n'a pas été vérifiée dans un navigateur** (note du lot) : les libellés ci-dessous viennent du code, à confirmer
+à la première recette.
+
+### Job `avancement_hebdo`
+
+- **Planification** : le worker de jobs (démarré avec l'API) appelle le planificateur récurrent ; du lundi au vendredi,
+  il crée au plus une tâche par cabinet et par semaine (clé `avancement_hebdo:<lundi>`), prévue à 06:30 UTC, pour les
+  cabinets qui ont au moins une mission signée ou en cours et n'ont pas désactivé la fonction. Rien le week-end.
+  Traitement par lots de 25 missions, 40 lots au plus par semaine ; une mission qui a déjà un rapport pour la semaine
+  est écartée.
+- **En développement** : lancer `pnpm dev` un jour ouvré après 06:30 UTC (la tâche est alors due tout de suite), ou
+  sans attendre, ouvrir l'onglet « Avancement » d'une mission et cliquer « Préparer le rapport de cette semaine »
+  (génération manuelle, même moteur). `JOBS_WORKER=inactif` coupe le worker, donc le job.
+- **Où voir les rapports** : onglet « Avancement » de la mission (`/missions/<id>/avancement`), section « Rapports
+  d'avancement hebdomadaires ». Le chef de mission (à défaut le directeur) reçoit une notification interne « Rapport
+  d'avancement à relire », sans e-mail.
+- **Échecs** : un échec sur une mission n'arrête pas les autres ; il est consigné dans les journaux de l'API **sans
+  contenu** (code, contrainte, table, identifiants de mission et de semaine). Une mission en échec n'est pas retentée
+  avant la semaine suivante : utiliser le bouton manuel. Le dépassement des 40 lots est consigné de la même façon.
+- **Désactiver** : carte « Paramètre du cabinet » de l'onglet « Avancement » (droit `automatisation.gerer`). L'envoi par
+  e-mail est refusé par l'API et par la base : il n'existe pas.
+
+### Cache des réponses IA et plafond par mission
+
+- **Cache** : `/parametres/ia`, carte « Cache des réponses » (droit `ia.configurer`). Désactivé par défaut. Bouton
+  « Activer le cache » ; durée de vie 24 h, non réglable. « Désactiver et vider le cache » supprime les entrées du
+  cabinet. Une réponse servie par le cache est marquée `servie_par_cache` et compte en « Servies par le cache » dans
+  la carte des coûts, à coût nul. Jamais utilisé par le copilote ni pour du contenu de client.
+- **Plafond par mission** : `PUT /api/agents/missions/:id/plafond` (corps `plafond_micro_usd`, droit `ia.configurer`),
+  `GET` au même chemin pour l'état. **Aucun écran** ne le règle dans le web actuel. Alertes aux associés à 80 % et à
+  100 % (notification dans l'application, sans montant). Plafond atteint : l'appel IA rattaché à la mission est refusé.
+
+### Onglet « Avancement » d'une mission et portail
+
+- **Cabinet** : l'onglet apparaît avec le droit `avancement.lire` (associé, directeur de mission, chef de mission),
+  sur les missions visibles. Modifier la note d'introduction et le commentaire, « Enregistrer », « Régénérer les
+  chiffres » et « Valider le rapport » exigent en plus d'être associé, directeur ou chef de **cette** mission. Les
+  chiffres ne se modifient pas à la main.
+- **Valider un rapport** : ouvrir le rapport de la semaine (brouillon), relire, compléter, « Enregistrer », puis
+  « Valider le rapport » et confirmer. Si un commentaire a été proposé par l'IA (« Suggérer un commentaire (IA) »), il
+  faut d'abord cliquer « J'ai relu ce commentaire » (ou le réécrire ou l'effacer), sinon 409 `COMMENTAIRE_IA_A_RELIRE`.
+  Un rapport validé est figé.
+- **Portail** : entrée « Avancement » (`/portail/avancement`, titre « Avancement de vos missions »), pour
+  `client_dirigeant` et `client_contributeur` seulement. Elle liste les rapports **validés** de leur client sur les
+  missions partagées ; un brouillon, une autre mission ou un autre client donnent le même 404. Aucune donnée financière,
+  aucun budget en jours, aucun temps par personne.
+- **Compte de démonstration** : `dirigeant.client@lagune-conseil.test` ou `contributeur.client@lagune-conseil.test`
+  (cabinet « Lagune Conseil & Associés (démo) », voir « Comptes du portail client de démonstration »). Le seed
+  `db:seed-demo` **ne crée aucun rapport d'avancement** : pour en voir un côté portail, se connecter en
+  `associe@lagune-conseil.test` (le chef de la mission du seed n'est pas garanti), ouvrir la mission en cours « Accompagnement à la
+  mise en œuvre du plan Cacao Savane » (partagée avec le portail par le seed), préparer puis valider le rapport, puis se connecter
+  en compte portail.
+
+### Contradicteur (contre-analyse)
+
+- **Préparer** (droit `agent.gerer`) : page « Autonomie des agents » (`/agents/autonomie`), carte « Revue contradictoire
+  (agent contradicteur) » : « Préparer la revue contradictoire » (prompt et jeu d'essai, sans risque à relancer),
+  puis lancer l'évaluation de non-régression.
+- **Déclarer la brique** : même carte, « Déclarer la brique » avec le niveau d'autonomie maximal (N0 à N3, N2 proposé,
+  classe R1). Sans cette déclaration, la revue répond 409 `BRIQUE_NON_DECLAREE`.
+- **Utiliser** : sur un brouillon IA, bouton « Demander une contre-analyse » du panneau de contenu IA (droit
+  `ia.utiliser`). Le résultat est un brouillon IA à part, non bloquant ; le brouillon relu n'est jamais modifié.
+  Une seule revue à la fois par brouillon ; le plafond de la mission, le coupe-circuit ou le niveau N0 la refusent.
+
+## Import de documents (états financiers, due diligence, amorçage du standard)
+
+Exploitation du lot 6 (ADR-009 ; règles de sécurité : `docs/governance/SECURITY.md`, section « 8 undecies.
+Ingestion de documents »). **L'interface de ce lot n'a pas été essayée dans un navigateur** (note du lot) :
+les libellés viennent du code. Le lot 6 n'ajoute aucune variable d'environnement ; les plafonds sont des constantes du code. Seule exception, ajoutée par le lot 11 : `OCR_LOCAL` (voir « OCR local »).
+
+### Où importer
+
+| Usage                         | Page web                                                                                                                  | Route d'envoi                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| États financiers (DOS-03)     | carte d'import sur `/dossiers/[id]/finances` ; détail `.../finances/documents/[docId]`                                     | `POST /api/dossiers/:id/etats-financiers/document` (droit `dossier.ecrire`)            |
+| Due diligence (DD-02, DD-10)  | onglet « Documents » du dossier DD (`/missions/[id]/due-diligence/[dossierId]/documents` ; détail `.../documents/[docId]`) | `POST /api/dd/dossiers/:id/documents?type=rapport` ou `type=salle` (droit `dd.ecrire`) |
+| Amorçage du standard (STD-13) | `/methodes/versions/[id]/amorcage` ; détail `.../amorcage/[docId]`                                                         | `POST /api/methodes/versions/:id/amorcage/documents`                                   |
+
+- **Formats** : PDF et classeur Excel `.xlsx`. Le type est décidé par le **contenu** du fichier ; autre chose :
+  415 `TYPE_DOCUMENT_REFUSE`.
+- **Plafonds** (`PLAFONDS_INGESTION`, `packages/shared/src/schemas/ingestion.ts` ; constantes, pas de variable) :
+  PDF 10 Mo, XLSX 2 Mo (413 `FICHIER_TROP_VOLUMINEUX` au-delà) ; 60 pages ; 25 000 caractères par page et
+  400 000 par document ; extraction 30 s ; 5 documents en traitement et 40 créations par 24 h glissantes et par
+  cabinet (409 `INGESTION_PLEIN`) ; 40 000 caractères transmis au modèle.
+- **Conservation** : le fichier est analysé puis **effacé** (jamais conservé). Le **texte des pages** reste en base
+  jusqu'à la décision + 90 jours (job `ingestion_maintenance`), puis il est purgé ; les références de page restent.
+- **Lecture IA** : pour la due diligence et l'amorçage, elle exige l'IA activée pour le cabinet (`/parametres/ia`,
+  droit `ia.configurer`) avec une clé du cabinet ou la clé de plateforme `OPENROUTER_API_KEY`, et le droit
+  `ia.utiliser` de l'utilisateur ; elle compte dans les plafonds et quotas IA du cabinet
+  (`IA_PLAFOND_PLATEFORME_MICRO_USD`). Sans IA disponible, le document se termine avec le résultat
+  `ia_indisponible` (rien n'est inventé) et la lecture se relance une fois l'IA configurée
+  (`POST /api/dd/documents/:docId/lecture`, `POST /api/amorcage/documents/:docId/proposition`). Pour un état
+  financier en PDF, l'IA est facultative : sans elle, des règles déterministes lisent le texte ; un classeur Excel
+  se lit par règles seules.
+- **OCR** : un PDF sans couche texte (scan) est lu par l'**OCR local** installé sur le serveur (lot 11, ADR-009
+  décision 16), jamais par un service externe. Voir « OCR local » ci-dessous. Un état issu d'un OCR part toujours
+  en revue humaine. Si l'OCR n'est pas disponible, le scan échoue avec `OCR_INDISPONIBLE` ; fournir alors un PDF
+  avec texte (export du logiciel source, pas une photo), saisir l'état à la main, ou l'importer en CSV ou Excel.
+- **Suivi** : la page de détail d'un document en cours se rafraîchit seule (toutes les 3 s).
+
+### Jobs
+
+| Type de job               | Déclenchement                                | Rôle                                                                                       |
+| ------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `ingestion_extraction`    | à l'envoi du document                        | extrait le texte des pages (PDF dans un `worker_thread`, XLSX par le lecteur de classeur), puis efface le fichier |
+| `ingestion_structuration` | après l'extraction, et à une relance         | lit le texte (IA ou règles) et produit le brouillon (`ingestion_extractions`)              |
+| `ingestion_maintenance`   | quotidien, **03 h 45 UTC**, par cabinet concerné (clé `ingestion_maintenance:AAAA-MM-JJ`) | purge le texte des pages décidées depuis 90 jours (fonction `SECURITY DEFINER` `purger_textes_ingestion`) et reprend les effacements d'objets échoués (fenêtre de 30 jours après le marquage) |
+
+La planification quotidienne passe par `planifier_ingestion_maintenance` (migration `0524`), appelée par le
+planificateur du worker (`apps/api/src/jobs/planificateur.ts`) ; les types sont déclarés dans
+`apps/api/src/jobs/registre.ts`. `JOBS_WORKER=inactif` coupe aussi ces trois jobs : aucun document n'avance.
+
+**Réveil du worker (lot 13b, R-08).** Le worker ne laisse plus passer son intervalle normal (30 s) avant de traiter un
+document importé : la création du document (et la relance d'une ingestion de due diligence ou du standard) émet, APRÈS le
+COMMIT, un signal en mémoire (`apps/api/src/jobs/reveil.ts`) qui avance le prochain cycle à 400 ms ; un cycle utile est
+suivi d'un cycle à 1 s (extraction puis structuration), un cycle déclenché par signal qui revient vide est suivi d'un seul
+rattrapage à 2 s, puis le worker retombe à 30 s. Le signal est local au processus : un worker lancé dans un autre
+processus que l'API, ou une API sans worker (tests), garde l'intervalle de 30 s. Un document qui met 30 s à démarrer
+alors qu'un worker tourne dans l'API est donc anormal : vérifier `JOBS_WORKER`, puis les journaux de l'API.
+
+### OCR local
+
+L'OCR (`tesseract.js` 7.0.0, WebAssembly) tourne **sur le serveur**, hors ligne, dans un sous-processus Node
+isolé par document. Règles de sécurité : `docs/governance/SECURITY.md`, section « 8 undecies » ; décision et
+mesures : ADR-009 (« Décision OCR (lot 11) ») et `docs/workflows/notes-lots/lot-11.md`.
+
+- **Prérequis** : **aucun binaire système** (pas de `tesseract-ocr` à installer). `tesseract.js-core` ajoute
+  environ 45 Mo à `node_modules` (`pnpm install`) ; les données de langue (`fra` + `eng`, `tessdata_fast`) pèsent
+  5,2 Mo et sont **dans le dépôt** (`apps/api/ocr-data/`, avec `SHA256SUMS`). Aucun téléchargement à l'exécution.
+- **Node 22.13 minimum, requis en production** : le sous-processus s'appuie sur le modèle de permissions de Node
+  (`--permission`), qui n'existe qu'à partir de 22.13. Sur une version plus ancienne, ou si le drapeau manque,
+  l'OCR est **refusé en production** (tout `NODE_ENV` autre que `development` ou `test`, **staging compris**) :
+  le scan échoue `OCR_INDISPONIBLE`. Hors production, il est toléré avec un seul avertissement dans le journal.
+- **Variable `OCR_LOCAL`** (facultative ; `.env.example`) : `auto` (défaut) = moteur local s'il est disponible,
+  sinon rien en production (simulé en développement) ; en test (`NODE_ENV=test`), le simulé reste le défaut.
+  `local` = moteur local demandé même en test. `simule` = moteur simulé (développement et test seulement).
+  `off` = aucun moteur local (le scan échoue `OCR_INDISPONIBLE`).
+- **Vérifier les données de langue** : `node scripts/ocr-verifier-donnees.cjs` (Node pur, sans réseau ; code de
+  sortie 1 si une empreinte diffère). L'API fait la même vérification au premier usage : une empreinte fausse rend
+  le moteur indisponible, sans bruit.
+- **Pare-feu sortant à prévoir** : le moteur n'a besoin d'aucun accès réseau. Le garde réseau du sous-processus
+  est une défense applicative ; **bloquer le trafic sortant du serveur d'API** (hors PostgreSQL, SMTP et IA
+  configurés) reste à poser côté exploitation (dette ouverte, SECURITY §15).
+- **Limites** : 30 pages scannées au plus, 240 s au total, 20 Mpx par image, 6 images par page ; 256 Mo de tas,
+  coupure à 768 Mo de RSS, 60 s par étape ; une reconnaissance à la fois par processus d'API (file de 8). Mesuré :
+  environ 2 à 4 s par page ; 30 pages en 60 à 70 s sur un poste de développement.
+- **Mettre à jour le moteur ou les données** : voir `docs/workflows/notes-lots/lot-11.md` (« Mettre à jour le
+  moteur ou les données ») et `apps/api/ocr-data/README.md`.
+- **CI** : `OCR_LOCAL_EXIGE=1` (job `api`) rend obligatoires les tests du moteur réel ; sans lui, ils sont sautés
+  avec un message si le moteur manque.
+
+### Mémoire du worker PDF
+
+- Un **pré-contrôle** (`pdf-controle.ts`, dans son propre `worker_thread`, délai de 5 s) refuse un PDF « bombe »
+  (flux compressés qui gonflent) avant tout worker d'extraction.
+- L'extraction est surveillée toutes les 150 ms : mémoire **externe** du worker à **256 Mo**, hausse du **RSS** du
+  processus de **+512 Mo**. Si l'un est franchi, le worker est terminé et le document passe en échec `PLAFOND_TEXTE`.
+- **Ne pas abaisser ces seuils en production** : ils sont mesurés sur des PDF légitimes (21 à 88 Mo externes) et
+  ne sont abaissés que dans les tests.
+- Au plus **2 extractions simultanées** par processus (`EXTRACTIONS_SIMULTANEES_MAX`) ; les autres attendent.
+- **Node 22.16 ou plus** : la mesure de la mémoire externe (`worker.getHeapStatistics()`) n'existe qu'à partir de
+  Node 22.16. En dessous, seule la surveillance du RSS joue (coupure plus lente : 4,5 s au lieu de 2,6 à 3,0 s sur
+  le cas mesuré, pic plus haut) : fonctionnel, mais à éviter en production.
+
+### Dépannage de l'import
+
+- **Document « en cours » depuis plus de 30 minutes** : il n'est plus compté dans le quota de 5 documents en
+  traitement. Vérifier que le worker tourne (`JOBS_WORKER` actif, API démarrée), puis téléverser de nouveau.
+- **Refus `PLAFOND_TEXTE`** : PDF trop lourd à décompresser (flux de plus de 32 Mo, plus de 4 096 flux Flate, scan
+  Flate brut de plus de 5 pages A4 en RVB, PDF abîmé), texte au-delà des plafonds de caractères, ou worker coupé
+  par la surveillance mémoire. Re-soumettre un PDF régénéré ou compressé autrement (réexport, « imprimer en PDF »).
+- **`OCR_INDISPONIBLE`** : scan sans OCR utilisable. Vérifier dans l'ordre : `OCR_LOCAL` n'est pas `off` ; Node
+  ≥ 22.13 (`node -v`) ; `node scripts/ocr-verifier-donnees.cjs` ; `pnpm install` fait (dépendance `tesseract.js`).
+  En production, une version de Node sans modèle de permissions suffit à le provoquer.
+- **`OCR_ECHEC`** : le moteur a échoué (image trop dégradée ou page à plus de 60 images décodées, délai ou
+  mémoire dépassés, file de 8 reconnaissances pleine, sous-processus coupé). Refaire le scan plus net ; relancer
+  si la charge du serveur était en cause.
+- **`IMAGE_TROP_GRANDE`** : une image dépasse 20 Mpx (un A4 scanné à 600 dpi fait environ 35 Mpx). Refaire le
+  scan à 300-400 dpi.
+- **`PDF_SANS_TEXTE`** : l'OCR a tourné et **n'a rien lu** (page blanche, scan négatif, image illisible) ; avant le
+  lot 11 il signifiait « scan sans OCR ». Fournir un scan plus net ou un PDF avec texte. **`PDF_ILLISIBLE`** : PDF
+  protégé ou corrompu. Un PDF qui mêle pages natives et pages scannées n'est lu que par sa couche texte.
+- **404 `TEXTE_PURGE`** : le texte de la page a été purgé (décision + 90 jours) ; les références de page restent.
+- **409 à la relance** : le texte du document est purgé (téléverser de nouveau), le document n'est pas terminé,
+  un brouillon est déjà ouvert (`EXTRACTION_OUVERTE`) ou la lecture est déjà aboutie (`LECTURE_NON_RELANCABLE`).
+- **409 `INGESTION_PLEIN`** : 5 documents en traitement ou 40 créations en 24 h pour ce cabinet ; attendre.
+- **`pnpm install` refuse de s'exécuter** : Node inférieur à 22.13 (voir « Autres pannes connues »).
 
 ## Ports
 
@@ -255,11 +521,57 @@ pnpm --filter @missionpilot/web build          # build de production du web
 - **Jamais deux suites API en parallèle** (même base) : un seul `vitest` API à la
   fois, dans toutes les sessions et tous les worktrees qui visent le même
   PostgreSQL. Vitest lui-même exécute les fichiers l'un après l'autre.
+- **Pas plus de 3 ou 4 suites API à la fois sur un même PostgreSQL**, même avec des
+  bases distinctes (`missionpilot_<id>`) : au-delà, le global-setup peut échouer avec
+  l'erreur `53200` (`max_locks_per_transaction`).
 - Pour une base de test distincte (deuxième worktree, CI) : fournir
   `DATABASE_OWNER_URL` et `DATABASE_URL` pointant vers une autre base ou un
   autre serveur local ; le nom de base reçoit le suffixe `_test` s'il manque
   (`test/urls.ts`), et le global-setup refuse un nom qui ne finit pas par
   `_test`. Les URL doivent rester sur un hôte local (règle de `loadConfig`).
+- **CI GitHub** : `.github/workflows/ci.yml` lance les tests API en quatre
+  partitions (`--shard=1/4` à `4/4`, job `api`). Chaque partition tourne sur son
+  propre runner, avec son PostgreSQL 16 jetable (`docker run postgres:16-alpine`
+  avec `max_locks_per_transaction=256`, port 55440 lié à `127.0.0.1`) : aucune
+  partition ne partage donc une base avec une autre. Pour rejouer une partition
+  en local, avec une base de test dédiée comme ci-dessus :
+  `cd apps/api && npx vitest run --shard=1/4` (remplacer `1` par la partition
+  voulue). `CI=true` reproduit le rejeu du runner (voir « Intégration continue »).
+
+## Intégration continue
+
+Workflow `.github/workflows/ci.yml`, nommé « CI ».
+
+- **Déclencheurs** : `pull_request` vers `main` et `workflow_dispatch`
+  (lancement manuel). Pas de déclenchement à chaque poussée.
+- **Concurrence** : une nouvelle exécution sur la même PR (ou sur la même branche,
+  lancée à la main) annule la précédente. Permissions réduites à la lecture du
+  contenu ; aucun secret. Les URL de base du job `api` reprennent les valeurs
+  publiques de développement, pour un PostgreSQL jetable lié à `127.0.0.1` du runner.
+- **Version de Node** : Node 22 dans les deux jobs (`node-version: 22`, dernière version mineure, donc ≥ 22.13 comme l'exige `engines`).
+- **Job `qualite`** (20 minutes au plus) : `pnpm install --frozen-lockfile`, puis
+  `pnpm typecheck`, `pnpm lint`, `pnpm format`, les tests des moteurs (couverture
+  ≥ 90 %), ceux de `shared`, ceux du web.
+- **Job `api`** (45 minutes au plus par partition) : quatre partitions
+  `--shard=i/4`, `fail-fast: false` (une partition en échec ne coupe pas les autres).
+  Le détail est dans « Tests API et base de test ».
+- **Rejeu** : `apps/api/vitest.config.ts` met `retry: 1` seulement si la variable
+  `CI` est définie (GitHub Actions la définit) ; en local, `retry: 0`.
+- **Relancer** : sur la PR, onglet « Checks », puis « Re-run failed jobs » (seules
+  les parties en échec repartent). Ou pousser un commit, qui annule l'exécution en
+  cours. Ou lancer à la main : onglet « Actions », « CI », « Run workflow » (choisir
+  la branche), ou `gh workflow run CI --ref <branche>`. Le lancement manuel suppose
+  que `ci.yml` figure sur la branche par défaut (`main`) : à vérifier tant que la
+  CI n'y est pas fusionnée.
+- **État** : la CI n'a jamais été exécutée sur GitHub à la livraison du lot 8a. Les
+  vérifications faites en local portent sur la syntaxe et le schéma du workflow, les
+  commandes du job `qualite` et une partition (`--shard=1/4` avec `CI=true`). À
+  vérifier sur la première PR qui l'introduit, puis corriger au besoin. Une
+  partition a été mesurée à environ 19 minutes sur une machine chargée : la limite
+  de 45 minutes est à revoir après la première exécution réelle.
+- **Hors dépôt** (réglage GitHub, à faire par l'utilisateur) : après une première
+  exécution verte, déclarer `qualite` et les quatre partitions `api (partition i/4)`
+  comme contrôles requis dans la protection de la branche `main`.
 
 ## Bus d'agents
 
@@ -289,7 +601,8 @@ de chaque paquet (`apps/*`, `packages/*`) contient des liens vers le magasin :
 une jonction globale désynchronise aussi ces liens quand les deux checkouts sont
 sur des révisions différentes. Pour les tests API d'un worktree : base de test
 distincte (voir « Tests API et base de test »), jamais en parallèle d'une autre
-suite sur la même base.
+suite sur la même base. Le worktree utilise le Node de la machine : Node 22.13 ou plus
+(sinon `pnpm install` y refuse de s'exécuter).
 
 ## Dépannage
 
@@ -315,6 +628,19 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   authentifiées ; l'erreur PostgreSQL cite `utilisateurs_2fa`, `defis_2fa` ou
   `etat_tfa_session`) : migrations `0050`–`0052` non appliquées sur la base
   utilisée. Correctif : `pnpm db:migrate`, puis relancer l'API.
+- **`pnpm install` échoue (« Unsupported engine », moteur incompatible)** : la version de
+  Node est inférieure à 22.13 (`engines.node` du `package.json` racine). Installer Node 22.13
+  ou plus (`node -v` pour vérifier), puis relancer `pnpm install`. Les PDF exigent
+  Node ≥ 22 (`unpdf` 1.8.1), l'OCR Node ≥ 22.13 (modèle de permissions) ; la surveillance
+  mémoire complète du worker d'import exige Node ≥ 22.16, sinon seule la surveillance du RSS joue.
+- **L'écran ne se met plus à jour après une écriture, ou un lien du menu reste sans effet pendant plusieurs secondes**
+  (A-04, R-01, R-02) : défaut du React embarqué par Next 15.5.28 (réveil perdu sous une frontière `Suspense`),
+  contourné par le composant `DebloqueurRendu`, monté dans `apps/web/src/app/layout.tsx`. Si le symptôme revient
+  (typiquement après une montée de `next` ou de `react`) : vérifier que le composant est toujours monté
+  (`rg -n "DebloqueurRendu" apps/web/src/app/layout.tsx` rend 2 lignes), puis refaire une écriture sur un onglet au premier
+  plan avec un build de production (`pnpm --filter @missionpilot/web build`, puis `start`) : la donnée doit apparaître
+  en moins d'une seconde. Ne pas ajouter de minuterie ni de rechargement pour « forcer » l'affichage. Le diagnostic et
+  la cause sont dans `docs/workflows/notes-lots/lot-13a.md` ; le composant est à revoir à chaque montée de Next ou de React.
 - **Port occupé** (`EADDRINUSE` sur 4100 ou 3100 ; PostgreSQL : le conteneur ne
   démarre pas sur 55440) : une ancienne instance tourne encore. Identifier le
   processus (`netstat -ano | findstr :4100` sous Windows), l'arrêter, relancer.
@@ -388,3 +714,6 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   global-setup recrée le schéma). Arrêter l'une, relancer l'autre.
 - **Compte de démonstration refusé** : le seed n'a pas été lancé sur la base
   migrée, ou l'e-mail ne reprend pas la forme `<role>@demo.missionpilot.test`.
+- **Canaux ou redressement de démonstration absents** : sous-semis non lancé sur
+  cette base (voir « Canaux simulés et redressement de démonstration »). Les canaux
+  exigent d'abord les comptes du portail et les comptes 2FA.

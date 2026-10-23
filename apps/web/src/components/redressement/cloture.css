@@ -1,0 +1,169 @@
+/* Onglets « Clôture » (bilan de clôture) et « Suivi » (suivi post-mission). */
+
+.mp-clo-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-clo-versions a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: 44px;
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  color: inherit;
+  text-decoration: none;
+}
+
+.mp-clo-versions a[aria-current="page"] {
+  border-color: var(--mp-accent, currentColor);
+  font-weight: 650;
+}
+
+.mp-clo-meta,
+.mp-sui-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  margin: 0;
+}
+
+.mp-clo-compteurs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-clo-compteurs dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-clo-compteurs dd {
+  margin: 0;
+  font-weight: 650;
+  font-size: var(--mp-taille-l);
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-clo-liste-def {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-clo-liste-def dt {
+  color: var(--mp-texte-doux);
+  overflow-wrap: anywhere;
+}
+
+.mp-clo-liste-def dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.mp-clo-controles,
+.mp-sui-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-clo-controles > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-clo-controles__libelle {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-clo-rapport-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}
+
+.mp-sui-jalon {
+  display: grid;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-sui-jalon__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-sui-jalon__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mp-sui-formulaires {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--mp-esp-4);
+  align-items: start;
+}
+
+.mp-sui-ratios {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-sui-lignes-jalons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-sui-ligne-jalon {
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) auto;
+  gap: var(--mp-esp-2);
+  align-items: end;
+}
+
+@media (max-width: 40rem) {
+  .mp-sui-ligne-jalon {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mp-clo-liste-def > div {
+  display: contents;
+}

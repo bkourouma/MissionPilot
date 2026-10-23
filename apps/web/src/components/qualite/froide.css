@@ -1,0 +1,266 @@
+/*
+ * Revue à froid des missions clôturées (QUA-05). Mobile d'abord, CSS pur, jetons du cadre.
+ * La couleur ne porte jamais seule le sens : statuts, notes et conclusions sont écrits.
+ */
+
+.mp-froide__pile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-froide__pile p,
+.mp-froide__pile ul {
+  margin: 0;
+}
+
+.mp-froide__liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-froide__element {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-froide__def {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--mp-esp-1) var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-froide__def dt {
+  font-weight: 600;
+}
+
+.mp-froide__def dd {
+  margin: 0 0 var(--mp-esp-2);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .mp-froide__def {
+    grid-template-columns: minmax(10rem, max-content) 1fr;
+  }
+
+  .mp-froide__def dd {
+    margin: 0;
+  }
+}
+
+.mp-froide__indicateurs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 720px) {
+  .mp-froide__indicateurs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.mp-froide__indicateur {
+  display: flex;
+  flex-direction: column;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide__indicateur strong {
+  font-size: var(--mp-taille-l);
+}
+
+/* ---------- Grille de revue ---------- */
+.mp-froide-critere {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mp-froide-notes legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.mp-froide-note {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: 44px;
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide-note:has(input:checked) {
+  border-color: var(--mp-primaire);
+  font-weight: 600;
+}
+
+.mp-froide-note:has(input:focus-visible) {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-froide-note input {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.mp-froide-note label {
+  cursor: pointer;
+}
+
+/* ---------- Dossier de la mission ---------- */
+.mp-froide-dossier details {
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-froide-dossier summary {
+  min-height: 44px;
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mp-froide-dossier summary:focus-visible {
+  outline: 3px solid var(--mp-focus);
+  outline-offset: 2px;
+}
+
+.mp-froide-dossier__corps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  padding: 0 var(--mp-esp-3) var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-froide-dossier__corps p,
+.mp-froide-dossier__corps ul {
+  margin: 0;
+}
+
+.mp-froide-dossier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+
+.mp-froide-ineligibles {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}
+
+/*
+ * Tableau « Échantillon » d'une campagne (R-05, A-10). Jamais de mot coupé en pleine lettre : les
+ * cellules ne passent à la ligne qu'aux espaces (overflow-wrap normal), les entêtes, dates et
+ * statuts restent sur une ligne, chaque colonne a une largeur minimale. Quand la place manque,
+ * le tableau défile horizontalement DANS son cadre, la page ne déborde pas. Le
+ * sélecteur de relecteur ne prend pas la largeur de son option la plus longue mais celle de sa cellule.
+ * Sous 640 px, le tableau devient des fiches (composants.css) : on garde le repli de sécurité.
+ */
+.mp-froide__echantillon .mp-tableau th,
+.mp-froide__echantillon .mp-tableau td {
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .mp-froide__echantillon .mp-tableau {
+    overflow-x: auto;
+  }
+
+  .mp-froide__echantillon .mp-tableau th,
+  .mp-froide__echantillon .mp-tableau td {
+    padding-inline: var(--mp-esp-2);
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: manual;
+  }
+
+  .mp-froide__echantillon .mp-tableau th {
+    white-space: nowrap;
+  }
+
+  /* Largeurs minimales (border-box) : somme 43,75 rem = 700 px, sous les ~732 px utiles à 1036 px
+     de viewport (moins menu 240 px et marges 64 px) et les 736 px à 768 px. Client et Directeur
+     passent à la ligne aux espaces. Plafond gardé par qualite-froide-css.test.ts. */
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Mission"] {
+    min-width: 5rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Client"],
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Directeur"] {
+    min-width: 5.5rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Clôture"] {
+    min-width: 5.75rem;
+    white-space: nowrap;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Statut"] {
+    min-width: 5.5rem;
+    white-space: nowrap;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Relecteur"] {
+    min-width: 11rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Score et conclusion"] {
+    min-width: 5.5rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td .mp-champ {
+    min-width: 10rem;
+    max-width: 100%;
+  }
+
+  .mp-froide__echantillon .mp-tableau td .mp-champ__controle {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+}

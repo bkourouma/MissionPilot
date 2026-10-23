@@ -151,6 +151,8 @@ export const PERMISSIONS = [
   "autonomie.decider", // promouvoir une brique de N2 à N3 : décision d'un associé SEUL (AGT-03)
   "qualite.relire", // relire un livrable : chef de mission, second expert R3 (QUA-03, QUA-04)
   "qualite.signer", // signer un livrable R3 : directeur de mission (QUA-04, QUA-06)
+  "qualite.froide.gerer", // revue à froid des missions clôturées : tirer l'échantillon, affecter, plan d'amélioration (QUA-05) : associé
+  "qualite.froide.relire", // être relecteur indépendant d'une mission tirée : grille, constats (QUA-05)
   // --- V3, vague 3 (PRD complémentaire §12) : capitalisation. Visibilité de la mission TOUJOURS
   // exigée en plus pour ce qui s'y rattache (retours d'expérience, recherche).
   "connaissance.lire", // recherche unifiée, retours d'expérience, base d'estimation (CAP-01, 02, 07)
@@ -196,12 +198,29 @@ export const PERMISSIONS = [
   "dd.ecrire", // saisir cadrage, analyses, hypothèses, verdicts proposés, marché, filtrages, plan, notes
   "dd.valider", // valider ou rejeter un verdict ou une note ; décider d'une exclusion (tiers, MPZ25/26/28)
   "dd.referentiel.gerer", // bibliothèque de signaux et listes d'exclusion du cabinet
+  // Portail investisseur de la due diligence (option du cabinet DÉSACTIVÉE par défaut) : visibilité
+  // de la mission TOUJOURS exigée en plus. Attributions provisoires (DECISIONS.md).
+  "dd.portail.configurer", // activer ou désactiver l'option du cabinet : associé seul (« tout »)
+  "dd.portail.gerer", // inviter ou retirer un compte investisseur ; publier ou retirer une note validée
   // --- V3, vague 4 (PRD complémentaire §11.5) : redressement. Visibilité de la mission TOUJOURS
   // exigée en plus ; ni ressources, ni gestionnaire, ni expert externe (données du client).
   "redressement.lire", // dossier de redressement : ratios, urgence, scores, trésorerie, créanciers, plan, leviers, seuils
   "redressement.ecrire", // ouvrir un dossier, saisir correspondance, urgence, trésorerie, créanciers, actions, versions de plan
   "redressement.valider", // valider une version de plan, clore un dossier (autre que le créateur, sauf associé)
   "redressement.parametrer", // rédiger et publier les seuils d'alerte par secteur (experts du cabinet)
+  // --- Services candidats (diagnostic flash, veille des guichets de financement) : mêmes lecteurs
+  // que le catalogue ; la gestion (prix fixe, activation des types, guichets) est à l'associé et au directeur de mission.
+  "services_candidats.lire", // lire prix, types activés et guichets de financement du cabinet
+  "services_candidats.gerer", // prix fixe, activation des types, liste des guichets : associé et directeur de mission
+  // --- V3, lot 5b (PRD complémentaire §12, CAP-04) : observatoire inter-cabinets, adhésion
+  // VOLONTAIRE du cabinet (désactivée par défaut), agrégats anonymes seulement (k-anonymat).
+  "observatoire.lire", // consulter les agrégats de l'observatoire : cabinet CONTRIBUTEUR seulement
+  "observatoire.adherer", // adhérer, se retirer, verser ou retirer ses contributions : associé SEUL
+  // --- V3, vague 4 (lot 4c, AUT-10) : rapport d'avancement hebdomadaire au client. Visibilité de la
+  // mission TOUJOURS exigée en plus ; valider, modifier et régénérer sont en outre réservés à l'associé
+  // et au directeur ou chef DE LA MISSION (route et déclencheur MQU02). Aucun droit financier.
+  "avancement.lire", // lire les brouillons et rapports d'avancement hebdomadaires d'une mission
+  "avancement.valider", // modifier le commentaire, régénérer, valider : chef ou directeur de la mission, associé
   // --- Portail client (SOC-09) : réservées aux rôles client, jamais à un rôle interne.
   "portail.acceder", // son profil et son entreprise (/api/portail/moi)
   "portail.missions.lire", // missions, jalons et livrables PARTAGÉS de son entreprise
@@ -216,6 +235,14 @@ export const PERMISSIONS = [
   "portail.canaux.gerer", // ses propres numéros et consentements (dirigeant et contributeur)
   "portail.signature.signer", // ses demandes de signature (dirigeant client, CLI-05)
   "portail.synthese.lire", // sa synthèse hebdomadaire (dirigeant client, CLI-07)
+  // Portail investisseur de la due diligence : notes validées PUBLIÉES et pièces choisies des
+  // dossiers sur lesquels le compte est invité (investisseur seul, lecture seule).
+  "portail.dd.lire",
+  // Ateliers stratégiques en ligne (PLA-15, lot 5a) : voter, prioriser et placer dans une matrice
+  // sur les ateliers où le dirigeant du client est invité (jamais le contributeur ni l'investisseur).
+  "portail.ateliers.participer",
+  // Rapports d'avancement hebdomadaires VALIDÉS des missions partagées de son entreprise (AUT-10).
+  "portail.avancement.lire",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -232,6 +259,9 @@ export const PERMISSIONS_PORTAIL_CLIENT = [
   "portail.canaux.gerer",
   "portail.signature.signer",
   "portail.synthese.lire",
+  "portail.dd.lire",
+  "portail.ateliers.participer",
+  "portail.avancement.lire",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -250,6 +280,7 @@ const TOUS: readonly Permission[] = PERMISSIONS.filter(
 export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
   associe: TOUS,
   directeur_mission: [
+    "observatoire.lire",
     "brief.lire",
     "copilote.utiliser",
     "connaissance.lire",
@@ -259,6 +290,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "clients.ecrire",
     "collaborateurs.lire",
     "catalogue.lire",
+    "services_candidats.lire",
+    "services_candidats.gerer",
     "pipeline.gerer",
     // Pas de « proposition.valider » : une proposition est validée par un associé (PRD, MIS-05).
     "mission.lire",
@@ -306,6 +339,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "qualite.relire",
     "qualite.signer",
+    "qualite.froide.relire",
     "salle.lire",
     "salle.gerer",
     "ao.lire",
@@ -325,9 +359,12 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.ecrire",
     "dd.valider",
     "dd.referentiel.gerer",
+    "dd.portail.gerer",
     "redressement.lire",
     "redressement.ecrire",
     "redressement.valider",
+    "avancement.lire",
+    "avancement.valider",
   ],
   chef_mission: [
     "brief.lire",
@@ -336,6 +373,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "clients.lire",
     "collaborateurs.lire",
     "catalogue.lire",
+    "services_candidats.lire",
     "pipeline.gerer",
     "mission.lire",
     "salle.lire",
@@ -390,6 +428,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "dd.valider",
     "redressement.lire",
     "redressement.ecrire",
+    "avancement.lire",
+    "avancement.valider",
   ],
   consultant: [
     "brief.lire",
@@ -397,6 +437,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "connaissance.lire",
     "clients.lire",
     "catalogue.lire",
+    "services_candidats.lire",
     "mission.lire",
     "salle.lire",
     "salle.gerer",
@@ -440,6 +481,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "collaborateurs.lire",
     "collaborateurs.ecrire",
     "catalogue.lire",
+    "services_candidats.lire",
     "mission.lire",
     "budget.lire_jours",
     "affectation.gerer",
@@ -461,6 +503,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "collaborateurs.lire",
     "collaborateurs.ecrire",
     "catalogue.lire",
+    "services_candidats.lire",
     "mission.lire",
     "budget.lire_jours",
     "finance.lire",
@@ -490,6 +533,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "copilote.utiliser",
     "connaissance.lire",
     "catalogue.lire",
+    "services_candidats.lire",
     "catalogue.ecrire",
     "mission.lire",
     "salle.lire",
@@ -513,6 +557,7 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "agent.lire",
     "agent.gerer",
     "qualite.relire",
+    "qualite.froide.relire",
     "ao.lire",
     "canaux.moi",
     "transcription.lire",
@@ -542,6 +587,8 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.canaux.gerer",
     "portail.signature.signer",
     "portail.synthese.lire",
+    "portail.ateliers.participer",
+    "portail.avancement.lire",
   ],
   client_contributeur: [
     "portail.acceder",
@@ -550,9 +597,11 @@ export const PERMISSIONS_PAR_ROLE: Record<Role, readonly Permission[]> = {
     "portail.questionnaires.repondre",
     "portail.salle.deposer",
     "portail.canaux.gerer",
+    "portail.avancement.lire",
   ],
-  // Investisseur (lecture d'une notation, V3) : profil seulement d'ici là.
-  client_investisseur: ["portail.acceder"],
+  // Investisseur : son profil et, sur invitation explicite à un dossier, les notes de due
+  // diligence validées que le cabinet publie (option du cabinet active).
+  client_investisseur: ["portail.acceder", "portail.dd.lire"],
 };
 
 /** Les associés et gestionnaires seuls voient coûts, taux et marges (FIN-02). */

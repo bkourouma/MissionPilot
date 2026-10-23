@@ -286,3 +286,26 @@ export const controleQuerySchema = z.object({ livrable: texte(200).optional() })
 export const contradictionsQuerySchema = z
   .object({ resolues: z.enum(["oui", "non"]).default("non") })
   .strict();
+
+// ---------------------------------------------------------------------------
+// Citations des livrables web (PRV-06)
+// ---------------------------------------------------------------------------
+
+/** Livrables dont les assertions retenues sont citées (même numérotation que l'annexe « Sources »). */
+export const LIVRABLES_CITATION = ["notation", "plan"] as const;
+export type LivrableCitation = (typeof LIVRABLES_CITATION)[number];
+export const livrableCitationSchema = z.enum(LIVRABLES_CITATION);
+export const LIVRABLE_CITATION_LIBELLES: Record<LivrableCitation, string> = {
+  notation: "Notation",
+  plan: "Plan stratégique",
+};
+
+/** Mission et livrable d'une liste de sources. */
+export const paramsSourcesLivrable = z
+  .object({ id: uuid, livrable: livrableCitationSchema })
+  .strict();
+
+/** Ouverture d'une citation : mission, livrable et preuve citée. */
+export const paramsCitation = z
+  .object({ id: uuid, livrable: livrableCitationSchema, preuveId: uuid })
+  .strict();

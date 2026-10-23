@@ -38,6 +38,7 @@ describe("table de navigation", () => {
       "Clients",
       "Collaborateurs",
       "Catalogue",
+      "Services candidats",
       "Questionnaires",
       "Notation",
       "Méthodes",
@@ -46,6 +47,7 @@ describe("table de navigation", () => {
       "Agents IA",
       "Qualité",
       "Connaissances",
+      "Observatoire",
       "Plan de charge",
       "Prévisions",
       "Facturation",
@@ -84,6 +86,26 @@ describe("table de navigation", () => {
   });
 });
 
+describe("rubrique Services candidats", () => {
+  it("est ouverte par services_candidats.lire, sur deux sous-pages", () => {
+    const e = NAVIGATION.find((x) => x.id === "services-candidats");
+    expect(e?.permission).toBe("services_candidats.lire");
+    expect(e?.sousPages?.map((p) => [p.id, p.href])).toEqual([
+      ["services", "/services-candidats"],
+      ["guichets", "/services-candidats/guichets"],
+    ]);
+    expect(ids(["associe"])).toContain("services-candidats");
+    expect(ids(["client_dirigeant"])).not.toContain("services-candidats");
+    expect(ids(["expert_externe"])).not.toContain("services-candidats");
+  });
+
+  it("repère la sous-page active", () => {
+    const pages = sousPagesAutorisees("services-candidats", ["associe"]);
+    expect(sousPageActive(pages, "/services-candidats")).toBe("services");
+    expect(sousPageActive(pages, "/services-candidats/guichets")).toBe("guichets");
+  });
+});
+
 describe("entreesAutorisees", () => {
   it("donne tout à l'associé", () => {
     expect(ids(["associe"])).toEqual(NAVIGATION.map((e) => e.id));
@@ -102,6 +124,7 @@ describe("entreesAutorisees", () => {
       "banques-ao",
       "clients",
       "catalogue",
+      "services-candidats",
       "questionnaires",
       "notation",
       "methodes",
@@ -132,6 +155,7 @@ describe("entreesAutorisees", () => {
     expect(onglets("expert_metier")).toEqual([
       "recherche",
       "retours",
+      "efficacite",
       "competences",
       "derogations",
     ]);
@@ -340,6 +364,7 @@ describe("sous-pages", () => {
     expect(sousPageActive(pages, "/parametres/due-diligence")).toBe("due-diligence");
     expect(sousPageActive(pages, "/parametres/due-diligence/signaux")).toBe("due-diligence");
     expect(sousPageActive(pages, "/parametres/due-diligence/exclusions")).toBe("due-diligence");
+    expect(sousPageActive(pages, "/parametres/due-diligence/modeles")).toBe("due-diligence");
   });
 
   it("paramètres : l'onglet actif est le plus long préfixe (cloture-mission n'est pas cloture)", () => {
@@ -545,6 +570,8 @@ describe("redressement (lot 3a)", () => {
     expect(e?.sousPages?.map((p) => [p.libelle, p.href])).toEqual([
       ["Dossiers", "/redressement"],
       ["Seuils d'alerte", "/redressement/seuils"],
+      ["Check-lists", "/redressement/checklists"],
+      ["Tableau de bord", "/redressement/tableau-de-bord"],
     ]);
     const ordre = NAVIGATION.map((x) => x.id);
     expect(ordre.indexOf("redressement")).toBe(ordre.indexOf("dossiers-clients") + 1);

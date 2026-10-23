@@ -8,6 +8,7 @@ import {
   resumeBrief,
 } from "../../lib/brief";
 import { formaterDate } from "../../lib/format";
+import { aujourdhui } from "../../lib/periode";
 import { classesBouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
 import { EtatVide } from "../ui/EtatListe";
@@ -29,13 +30,15 @@ export function BriefDuJour({ brief }: { brief: BriefApi }) {
       </EtatVide>
     );
   }
+  // Brief rejoué à une date passée (?date=) : l'ancienneté se lit à cette date, pas à aujourd'hui.
+  const rejoue = brief.date_reference !== aujourdhui();
   return (
     <div className="mp-pile mp-pile--large">
       <p className="mp-texte-doux">
         {`Brief du ${formaterDate(brief.date_reference)} : ${resumeBrief(brief)}.`}
       </p>
       {FAMILLES_AFFICHEES.map((f) => (
-        <CarteFamilleBrief key={f} famille={f} donnees={brief.familles[f]} />
+        <CarteFamilleBrief key={f} famille={f} donnees={brief.familles[f]} rejoue={rejoue} />
       ))}
     </div>
   );

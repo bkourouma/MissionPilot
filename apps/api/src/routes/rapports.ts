@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import {
   aPermission,
+  rapportEtatFinancierCorpsSchema,
+  rapportEtatFinancierQuerySchema,
   rapportNoteQuerySchema,
   rapportServiceQuerySchema,
   rapportsListeQuerySchema,
@@ -25,6 +27,7 @@ import {
   type ModeleRapport,
   type SourceRapport,
 } from "../rapports/enregistrement.js";
+import { construireRapportEtatFinancier } from "../rapports/etat-financier.js";
 import { rapportEtatAvancement } from "../rapports/etat-avancement.js";
 import { listerRapports } from "../rapports/liste.js";
 import type { Rapport } from "../rapports/modele.js";
@@ -80,6 +83,12 @@ const rapportQuerySchema = z.object({ format: z.enum(FORMATS_RAPPORT) }).strict(
  *   note au comité de la due diligence (DD-13 ; « mission.lire » et « dd.lire ») depuis la
  *   version VALIDÉE de la note (409 NOTE_NON_VALIDEE sinon ; doublé en base, MPR04), les deux
  *   variantes depuis la même base figée (rapports/note-comite.ts) ; niveau « dd », confidentiel.
+ * - POST /dossiers/:id/rapports/etat-financier?format=pdf|docx&mission_id=<uuid>[&exercices=n] —
+ *   rapport d'état financier du client (« mission.lire » et « dossier.lire » ; corps optionnel
+ *   {commentaire} du consultant) depuis les états ACCEPTÉS de son dossier (n exercices récents, 3 par
+ *   défaut ; 409 AUCUN_ETAT_ACCEPTE sinon) ; dossier visible (404), mission visible ET du client
+ *   (400 sinon) ; chiffres du moteur de synthèse ; niveau « dossier », confidentiel, sans donnée
+ *   FIN-02 (rapports/etat-financier.ts). Absent du portail client (liste blanche).
  *
  * Listes paginées (plus récent d'abord ; seuls les niveaux lisibles par
  * l'appelant, fichiers supprimés ou purgés exclus, jamais la clé de stockage) :
@@ -100,6 +109,8 @@ interface Construit {
   niveau: NiveauRapport;
   missionId: string;
   source?: SourceRapport;
+  /** Identifiants ajoutés au journal d'audit de la génération (jamais de montant). */
+  audit?: Record<string, unknown>;
 }
 
 /** « mission.lire » et chacune des permissions, sinon 401/403 avant tout accès aux données. */
@@ -153,6 +164,7 @@ async function generer(
     niveau: c.niveau,
     contenu,
     source: c.source,
+    audit: c.audit,
   });
 }
 
@@ -279,6 +291,40 @@ export const routesRapports: FastifyPluginAsync = async (app) => {
     });
   });
 
+  /* ----- État financier du dossier client (migration 0552) ----- */
+
+  app.post("/dossiers/:id/rapports/etat-financier", async (request, reply) => {
+    const auth = exigerToutes(request, ["dossier.lire"]);
+    const { id } = paramsId.parse(request.params);
+    const {
+      format,
+      mission_id: missionId,
+      exercices,
+    } = rapportEtatFinancierQuerySchema.parse(request.query);
+    const { commentaire } = rapportEtatFinancierCorpsSchema.parse(request.body ?? {});
+    const resultat = await generer(
+      app,
+      auth,
+      "etat_financier",
+      format,
+      missionId,
+      async (db, date) => {
+        const c = await construireRapportEtatFinancier(
+          db,
+          auth,
+          id,
+          missionId,
+          exercices,
+          commentaire,
+          date,
+        );
+        return { rapport: c.rapport, niveau: c.niveau, missionId, audit: c.audit };
+      },
+    );
+    reply.status(201);
+    return resultat;
+  });
+
   /* ----- Note au comité de la due diligence (DD-13) ----- */
 
   app.post("/dd/notes/:id/rapports", async (request, reply) => {
@@ -291,7 +337,12 @@ export const routesRapports: FastifyPluginAsync = async (app) => {
         rapport,
         niveau: "dd",
         missionId: source.missionId,
-        source: { noteId: source.noteId, variante: source.variante, version: source.version },
+        source: {
+          noteId: source.noteId,
+          variante: source.variante,
+          version: source.version,
+          titreNote: source.titre,
+        },
       };
     });
     reply.status(201);

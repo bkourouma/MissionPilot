@@ -4,7 +4,8 @@ import type { RedSeuilsVersionVue } from "@missionpilot/shared";
 import { formaterDateHeure } from "../../lib/format";
 import {
   cheminPublicationSeuils,
-  libelleStatutSeuils,
+  libelleEtatVersionSeuils,
+  tonaliteEtatVersionSeuils,
   TEXTE_PUBLICATION_SEUILS,
 } from "../../lib/redressement";
 import { BadgeStatut } from "../ui/BadgeStatut";
@@ -36,8 +37,8 @@ export function VersionsSeuils({
             cle: "statut",
             entete: "Statut",
             rendu: (v) => (
-              <BadgeStatut tonalite={v.statut === "publiee" ? "succes" : "attention"}>
-                {libelleStatutSeuils(v.statut)}
+              <BadgeStatut tonalite={tonaliteEtatVersionSeuils(v)}>
+                {libelleEtatVersionSeuils(v)}
               </BadgeStatut>
             ),
           },

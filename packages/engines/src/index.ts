@@ -11,6 +11,8 @@ export * from "./modulation/index";
 export * from "./autonomie/index";
 export * from "./contribution/index";
 export * from "./dossier/index";
+// Lot 6 : ingestion de documents (ADR-009).
+export * from "./ingestion/index";
 export * from "./nps/index";
 // Vague 2, lot AUT-CORE : moteur d'automatisation (AUT-01 à AUT-06).
 export * from "./automatisation/index";
@@ -31,3 +33,7 @@ export * from "./canaux/index";
 export * from "./due-diligence/index";
 // Vague 4, lot 3a : service #5 redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14).
 export * from "./redressement/index";
+// Services candidats : veille des guichets de financement (rapprochement déterministe).
+export * from "./services-candidats/guichets";
+// Vague 4, lot 4c : rapport d'avancement hebdomadaire au client (AUT-10).
+export * from "./avancement/index";

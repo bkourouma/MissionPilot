@@ -9,7 +9,7 @@ import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { Tableau } from "../../../components/ui/Tableau";
 import { chargerServeur, type Chargement } from "../../../lib/api-serveur";
-import { chargerToutesLesPages } from "../../../lib/pagination";
+import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
 import { formaterDate, formaterMontantMineur, formaterNombre } from "../../../lib/format";
 import {
   ETAPE_LIBELLES,
@@ -39,6 +39,7 @@ export default async function PagePipeline({
     chargerToutesLesPages<Opportunite>(
       chargerServeur,
       `/api/opportunites?${requeteOpportunites(filtres)}`,
+      { limiteMax: LIMITE_PAGE_MAX },
     ),
     chargerServeur<AgregatPipeline>("/api/opportunites/pipeline"),
     chargerClientsActifs(utilisateur.roles),

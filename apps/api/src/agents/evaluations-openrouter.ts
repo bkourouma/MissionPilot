@@ -13,12 +13,11 @@ import type { Database, Db } from "../db/pool.js";
 import { introuvable, requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer } from "../http/outils.js";
 import {
-  enregistrerConsommation,
+  alertesPlafond,
   estimerCoutAppel,
   etatPlafond,
   reserverAppel,
   solderReservation,
-  type Consommation,
   type IssueConsommation,
 } from "../ia/couts.js";
 import { CONSIGNE_DONNEES_NON_FIABLES } from "../ia/donnees-non-fiables.js";
@@ -38,7 +37,12 @@ import {
   type ReponseLlm,
 } from "../ia/fournisseur.js";
 import { blocChiffres } from "../ia/gabarits.js";
-import { PLAFOND_EVALUATION_MICRO_USD, MAX_TOKENS_SORTIE, modeleAutorise } from "../ia/modeles.js";
+import {
+  coutMicroUsd,
+  PLAFOND_EVALUATION_MICRO_USD,
+  MAX_TOKENS_SORTIE,
+  modeleAutorise,
+} from "../ia/modeles.js";
 import type { DependancesIa } from "../ia/orchestrateur.js";
 import {
   lireParametres,
@@ -111,8 +115,12 @@ import { lireAgents } from "./registre.js";
  * anonymisés seulement). Une variable de cas insérée dans le message système du prompt est refusée
  * (400 à la demande, comme l'orchestrateur ; cause JEU_ESSAI_INVALIDE si elle apparaît à l'exécution).
  *
- * PROVENANCE : la base n'admet une évaluation `openrouter` que née de la demande en cours, avec ses
- * appels inscrits dans `ia_consommations` (migration 0270) ; limite restante : voir cette migration.
+ * PROVENANCE (migrations 0270, 0275) : le passage « en_cours », chaque appel inscrit dans
+ * `ia_consommations` et l'évaluation `openrouter` finale ne s'écrivent que par trois fonctions
+ * SECURITY DEFINER (`rejeu_evaluation_demarrer`, `rejeu_evaluation_inscrire_appel`,
+ * `rejeu_evaluation_terminer`) qui exigent le job de rejeu EN COURS de cette demande et recomptent en
+ * base coût, jetons, appels et cas réussis ; le rôle applicatif n'a plus d'écriture directe sur ces
+ * lignes. Limite résiduelle (même rôle pour l'API et le worker) : voir l'en-tête de 0275.
  *
  * AUCUNE NOUVELLE TENTATIVE d'un appel payant : le job a `tentatives_max = 1` et le fournisseur est
  * construit avec une seule tentative. Une erreur du fournisseur arrête l'évaluation (échouée, coût
@@ -449,6 +457,8 @@ const ISSUES_FACTURABLES: Partial<Record<CodeErreurLlm, IssueConsommation>> = {
 
 interface Depart {
   demandeId: string;
+  /** Job de rejeu en cours (exigé par les fonctions de provenance, migration 0275). */
+  jobId: string;
   prompt: PromptDb;
   reference: PromptDb | null;
   cas: CasEssai[];
@@ -463,6 +473,12 @@ interface Depart {
 }
 
 type ResultatDepart = { type: "pret"; depart: Depart } | { type: "rien" };
+
+/** Job de rejeu en cours et sa demande (charge du job). */
+interface JobRejeu {
+  jobId: string;
+  demandeId: string;
+}
 
 /** Terminer sans appel (état « ignoree », rien dans agents_evaluations) : tracé et journalisé. */
 async function ignorer(
@@ -509,9 +525,10 @@ async function demarrer(
   db: Db,
   deps: DependancesIa,
   cabinetId: string,
-  demandeId: string,
+  job: JobRejeu,
   maintenant: Date,
 ): Promise<ResultatDepart> {
+  const { demandeId } = job;
   const r = await db.query(
     `SELECT id, prompt_id, jeu_id, modele, statut, demande_par, plafond_evaluation_micro_usd::text AS plafond_ev
      FROM agents_evaluations_demandes WHERE id = $1 FOR UPDATE`,
@@ -544,14 +561,17 @@ async function demarrer(
     return ignorerPour("JEU_ESSAI_INVALIDE");
   }
   const actif = await chargerPromptActif(db, prompt.nom);
-  await db.query(
-    "UPDATE agents_evaluations_demandes SET statut = 'en_cours', debut_le = $2 WHERE id = $1",
-    [demandeId, maintenant],
-  );
+  // Seule voie vers « en_cours » : la base revérifie le job, le jeu courant et le nombre de cas.
+  await db.query("SELECT rejeu_evaluation_demarrer($1, $2, $3)", [
+    job.jobId,
+    demandeId,
+    maintenant,
+  ]);
   return {
     type: "pret",
     depart: {
       demandeId,
+      jobId: job.jobId,
       prompt,
       reference: actif.id === prompt.id ? null : actif,
       cas,
@@ -588,6 +608,45 @@ const nonEvalue = (code: string): ResultatCasReel => ({
   tokens_sortie: 0,
   cout_micro_usd: 0,
 });
+
+/** Appel facturé (ou peut-être facturé) à inscrire : issue, jetons, durée. */
+interface AppelInscrit {
+  issue: IssueConsommation;
+  tokensEntree: number;
+  tokensSortie: number;
+  dureeMs: number;
+}
+
+/**
+ * Inscrit un appel du rejeu par la fonction de provenance (migration 0275) : ligne de
+ * `ia_consommations` rattachée à la demande et progression cumulée en base (coût, jetons, appels).
+ * Coût au tarif de ia/modeles.ts, comme toute génération ; alertes de plafond mensuel ensuite.
+ */
+async function inscrireAppel(
+  db: Db,
+  cabinetId: string,
+  d: Depart,
+  a: AppelInscrit,
+  maintenant: Date,
+): Promise<{ cout: number; notifications: (NotificationCreee | null)[] }> {
+  const { cout, connu } = coutMicroUsd(d.modele, a.tokensEntree, a.tokensSortie);
+  await db.query(
+    "SELECT rejeu_evaluation_inscrire_appel($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+    [
+      d.jobId,
+      d.demandeId,
+      a.issue,
+      d.cle.source,
+      a.tokensEntree,
+      a.tokensSortie,
+      cout,
+      connu,
+      a.dureeMs,
+      maintenant,
+    ],
+  );
+  return { cout, notifications: await alertesPlafond(db, cabinetId, d.plafond, maintenant) };
+}
 
 /**
  * Rejoue UN cas sur le fournisseur réel : réservation du plafond mensuel avant l'appel, appel hors
@@ -665,16 +724,7 @@ async function jouerCas(
       arret: { cause: "GENERATIONS_SIMULTANEES", statut: "incomplete" },
     };
   }
-  const base = {
-    cabinetId,
-    demandeId: null,
-    evaluationDemandeId: d.demandeId,
-    missionId: null,
-    tache: prompt.tache,
-    modele: d.modele,
-    sourceCle: d.cle.source,
-  } as const;
-  let consommation: Consommation | null = null;
+  let consommation: AppelInscrit | null = null;
   let raisons: RaisonCas[] = [];
   let arret: Arret | undefined;
   let tokensEntree = 0;
@@ -699,7 +749,7 @@ async function jouerCas(
       // L'appel a pu être facturé sans réponse exploitable : coût ESTIMÉ.
       tokensEntree = estimerTokens(prepare.caracteres);
       tokensSortie = MAX_TOKENS_SORTIE[prompt.tache];
-      consommation = { ...base, issue, tokensEntree, tokensSortie, dureeMs: 0 };
+      consommation = { issue, tokensEntree, tokensSortie, dureeMs: 0 };
     }
   }
   if (rep) {
@@ -722,7 +772,7 @@ async function jouerCas(
         arret = { cause: "ERREUR_INATTENDUE", statut: "echouee" };
       }
     }
-    consommation = { ...base, issue, tokensEntree, tokensSortie, dureeMs: rep.dureeMs };
+    consommation = { issue, tokensEntree, tokensSortie, dureeMs: rep.dureeMs };
   }
   const aInscrire = consommation;
   let cout = 0;
@@ -730,20 +780,7 @@ async function jouerCas(
     cout = await transacteur(async (db) => {
       await solderReservation(db, reservation.id);
       if (!aInscrire) return 0;
-      const c = await enregistrerConsommation(db, aInscrire, d.plafond, maintenant);
-      // Progression lisible pendant l'exécution : coût, jetons, appels (la ligne est à nous).
-      await db.query(
-        `UPDATE agents_evaluations_demandes
-         SET cout_micro_usd = $2, tokens_entree = $3, tokens_sortie = $4, appels = $5
-         WHERE id = $1`,
-        [
-          d.demandeId,
-          etat.cout + c.cout,
-          etat.tokensEntree + tokensEntree,
-          etat.tokensSortie + tokensSortie,
-          etat.appels + 1,
-        ],
-      );
+      const c = await inscrireAppel(db, cabinetId, d, aInscrire, maintenant);
       etat.notifications.push(...c.notifications);
       return c.cout;
     });
@@ -780,10 +817,11 @@ async function executerEvaluation(
   transacteur: Transacteur,
   deps: DependancesIa,
   cabinetId: string,
-  demandeId: string,
+  job: JobRejeu,
 ): Promise<(NotificationCreee | null)[]> {
+  const { demandeId } = job;
   const horloge = () => (deps.horloge ?? (() => new Date()))();
-  const depart = await transacteur((db) => demarrer(db, deps, cabinetId, demandeId, horloge()));
+  const depart = await transacteur((db) => demarrer(db, deps, cabinetId, job, horloge()));
   if (depart.type === "rien") return [];
   const d = depart.depart;
   const etat: EtatRejeu = {
@@ -850,36 +888,21 @@ async function executerEvaluation(
   const maintenant = horloge();
 
   await transacteur(async (db) => {
-    const ev = await avecErreursAgents(() =>
-      db.query(
-        `INSERT INTO agents_evaluations (cabinet_id, jeu_id, prompt_id, prompt_reference_id, modele,
-           fournisseur, cas_total, cas_reussis, regressions, reussie, resultats, cout_micro_usd,
-           tokens_entree, tokens_sortie, statut, cause, demande_id, lance_par)
-         SELECT d.cabinet_id, d.jeu_id, d.prompt_id, $2::uuid, d.modele, 'openrouter', $3::int, $4::int,
-           $5::int, $6::boolean, $7::jsonb, $8::bigint, $9::bigint, $10::bigint, $11::text, $12::text,
-           d.id, d.demande_par
-         FROM agents_evaluations_demandes d WHERE d.id = $1 RETURNING id`,
-        [
-          demandeId,
-          d.reference?.id ?? null,
-          details.length,
-          reussis,
-          regressions,
-          statut === "reussie",
-          JSON.stringify(details),
-          etat.cout,
-          etat.tokensEntree,
-          etat.tokensSortie,
-          statut,
-          cause,
-        ],
-      ),
-    );
-    await db.query(
-      `UPDATE agents_evaluations_demandes
-       SET statut = $2, cause = $3, evaluation_id = $4, cas_traites = $5, termine_le = $6
-       WHERE id = $1`,
-      [demandeId, statut, cause, ev.rows[0].id, traites, maintenant],
+    // Évaluation et état terminal par la fonction de provenance : coût et jetons sont ceux cumulés
+    // en base par les inscriptions, les cas réussis sont recomptés dans le détail.
+    await avecErreursAgents(() =>
+      db.query("SELECT rejeu_evaluation_terminer($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", [
+        d.jobId,
+        demandeId,
+        statut,
+        cause,
+        reussis,
+        regressions,
+        traites,
+        JSON.stringify(details),
+        d.reference?.id ?? null,
+        maintenant,
+      ]),
     );
     await journaliser(db, {
       cabinetId,
@@ -944,7 +967,10 @@ export function creerHandlerEvaluationOpenRouter(dependances: () => DependancesI
     }
     const transacteur: Transacteur = (fn) => database.withTenant(ctx.cabinetId, fn);
     try {
-      return await executerEvaluation(transacteur, dependances(), ctx.cabinetId, demandeId);
+      return await executerEvaluation(transacteur, dependances(), ctx.cabinetId, {
+        jobId: ctx.jobId,
+        demandeId,
+      });
     } catch {
       // Le message natif n'est jamais repris (il pourrait citer un contenu) : cause stable. Le job
       // passe en échec définitif (tentatives_max = 1) ; le coût déjà engagé reste compté.

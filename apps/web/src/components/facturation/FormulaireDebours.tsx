@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useRef, useState, type FormEvent } from "react";
 import { api, appelerApi } from "../../lib/api";
 import { OPTIONS_DEVISES } from "../../lib/cabinet";
@@ -77,7 +77,7 @@ export function FormulaireDebours({
   onFin,
   onEnregistre,
 }: FormulaireDeboursProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [s, setS] = useState<SaisieDebours>(initial);
   const [missionId, setMissionId] = useState(missions.length === 1 ? missions[0]!.id : "");
   const mission = missions.find((m) => m.id === missionId);
@@ -171,7 +171,7 @@ export function FormulaireDebours({
 
   function annuler() {
     // Un débours créé (ou un justificatif retiré) pendant la saisie doit apparaître dans la liste.
-    if (changeSurServeur) router.refresh();
+    if (changeSurServeur) rafraichir();
     onFin();
   }
 

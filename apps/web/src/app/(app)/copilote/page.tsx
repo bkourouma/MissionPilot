@@ -29,7 +29,11 @@ export default async function PageCopilote({
         soustitre="Posez vos questions en français : le copilote répond dans vos droits et propose, sans jamais les effectuer seul, les actions que vous confirmez."
       />
       <Carte>
-        <Copilote suggestions={suggestionsPour(utilisateur.roles)} missionId={missionId} />
+        <Copilote
+          suggestions={suggestionsPour(utilisateur.roles)}
+          missionId={missionId}
+          portee={utilisateur.id}
+        />
       </Carte>
     </div>
   );

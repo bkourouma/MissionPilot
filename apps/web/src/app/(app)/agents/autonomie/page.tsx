@@ -23,6 +23,8 @@ import {
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDate } from "../../../../lib/format";
 import { obtenirSession } from "../../../../lib/session";
+import { briqueContradicteurDeclaree } from "./contradicteur-agent";
+import { PreparationContradicteur } from "./PreparationContradicteur";
 
 export const metadata: Metadata = { title: "Autonomie des agents" };
 
@@ -136,6 +138,14 @@ export default async function PageAutonomie({
           />
         ) : null}
       </section>
+
+      {droits.gerer ? (
+        <Carte titre="Revue contradictoire (agent contradicteur)">
+          <PreparationContradicteur
+            declaree={r.ok && briqueContradicteurDeclaree(r.donnees.elements)}
+          />
+        </Carte>
+      ) : null}
 
       {droits.gerer && agents?.ok ? (
         <Carte titre="Confier une brique à un agent">

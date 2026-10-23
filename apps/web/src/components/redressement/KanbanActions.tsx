@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import {
   RED_COLONNES_KANBAN,
@@ -29,6 +28,7 @@ import { texteOuNull, type Resultat } from "../../lib/saisie";
 import { dateValide } from "../../lib/periode";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -219,10 +219,12 @@ function CarteAction({
   colonne: readonly CarteRang[];
   outils: OutilsCarte;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
   const refAlerte = useRef<HTMLDivElement>(null);
   const terminal = action.statut === "terminee" || action.statut === "abandonnee";
 
@@ -236,7 +238,7 @@ function CarteAction({
       for (const m of majs) {
         await api.post(cheminDeplacementAction(m.id), { statut: action.statut, rang: m.rang });
       }
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageRedressement(e));
       refAlerte.current?.focus();

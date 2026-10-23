@@ -37,6 +37,7 @@ pas de mise à jour.
 acc.config.json   configuration du standard (commandes, ports, gardes)
 .acc/             manifeste du standard (géré : ne pas modifier)
 .claude/          agents, compétences, règles, hooks, settings.json
+.github/          CI GitHub (workflows/ci.yml : PR vers main et lancement manuel)
 docs/             PRD, décisions, workflows, gouvernance, ADR
 scripts/          bus d'agents, garde pre-push, installation des hooks git
 apps/api          API Fastify (migrations SQL, RLS, routes), tests Vitest sur vrai PostgreSQL
@@ -151,9 +152,12 @@ d'agent ne vaut pas accord :
 
 ## Règles propres au projet
 
-Règles **décidées** dans la spécification ; aucune n'est encore implémentée,
-le fichier de référence est donc le document qui la pose. Quand le code
-existera, y ajouter le fichier qui l'illustre.
+Règles **décidées** dans la spécification (PRD, `docs/DECISIONS.md`). Plusieurs
+sont déjà implémentées (moteurs de `packages/engines`, politiques RLS des
+migrations, statuts de validation des contenus produits par l'IA dans le
+redressement) ; d'autres ne le sont pas encore. En cas de doute, le document qui
+pose la règle fait foi ; une règle implémentée se vérifie par son code et ses
+tests. Quand une règle est implémentée, y ajouter le fichier qui l'illustre.
 
 - **L'IA propose, l'expert dispose.** Aucun contenu produit par l'IA n'atteint
   un client sans validation d'un consultant ; chaque contenu porte un statut
@@ -189,10 +193,26 @@ existera, y ajouter le fichier qui l'illustre.
   (script `prepare`) ; aucun hook `pre-commit` n'est déclaré dans
   `.lefthook.yml`. Un worktree neuf n'a ni dépendances ni hooks tant que
   `pnpm install` n'y a pas tourné (RUNBOOK, « Worktrees »).
+- **CI GitHub.** `.github/workflows/ci.yml` (PR vers `main` et lancement manuel) ;
+  le job `api` est partitionné en 4 ; une modification de `apps/api/vitest.config.ts`,
+  du global-setup ou de `docker-compose.yml` (`max_locks_per_transaction`) doit
+  rester cohérente avec le workflow.
 - **Tests API et agents.** Le global-setup recrée le schéma de la base de test
   à chaque exécution : jamais deux suites API sur la même base ; un agent qui
-  teste en parallèle d'un autre utilise sa propre base (`missionpilot_<id>`,
-  voir RUNBOOK).
+  teste en parallèle d'un autre utilise sa propre base de test (`DATABASE_OWNER_URL`
+  et `DATABASE_URL` vers un nom distinct, suffixe `_test` ; voir RUNBOOK, « Tests
+  API et base de test »).
+- **Migrations de queue (≥ 0549).** Numéros attribués centralement : `0549` canaux,
+  `0550` brief, `0551` redressement, `0552` rapport d'état financier, `0560–0563`
+  réservés aux services candidats (`CODING_STANDARDS.md` §1). Le migrateur applique
+  par ordre alphabétique : une redéfinition de `tentatives_auth_regles` doit porter
+  un numéro supérieur à `0550`, une redéfinition des CHECK de `rapports_mission` un
+  numéro supérieur à `0552`, et reprendre l'union en vigueur.
+- **SQLSTATE à deux lettres.** Second préfixe `MQ` + lettre de domaine + deux
+  chiffres (`MQD`, `MQC`…) ; plus aucune lettre simple libre (`CODING_STANDARDS.md` §2).
+- **Validation réservée au directeur.** Le plan et le bilan de clôture du
+  redressement ne se valident que par le directeur de la mission (doublé en base par
+  `0492`) ; mission sans directeur : 409 `DIRECTEUR_REQUIS`.
 - **Portail client fermé par défaut.** Une route n'est atteignable depuis le
   portail que si elle figure dans `LISTE_BLANCHE_PORTAIL`
   (`apps/api/src/portail/garde.ts`) ; une table à RLS doit porter une politique

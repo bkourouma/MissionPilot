@@ -45,6 +45,8 @@ import { chargerPrompt, validerSortie } from "./prompts.js";
 
 const MESSAGES_ECHEC: Record<string, string> = {
   PLAFOND_IA_ATTEINT: "Plafond mensuel de coût IA atteint.",
+  // AGT-06 : plafond de la mission constaté à l'exécution d'une génération en file.
+  PLAFOND_MISSION_ATTEINT: "Plafond de coût IA de la mission atteint.",
   GENERATIONS_SIMULTANEES: "Trop de générations IA en cours pour le cabinet.",
   ENTREE_ILLISIBLE: "Entrée de la génération illisible (clé de chiffrement changée ?).",
   ERREUR_INTERNE: "Erreur interne pendant la génération.",
@@ -71,7 +73,9 @@ const COLONNES = `d.id, d.tache, d.prompt_id, d.prompt_nom, d.prompt_version, pr
   g.auteur_id AS g_auteur_id, g.cree_le AS g_cree_le, g.texte_purge_le AS g_texte_purge_le,
   p.fournisseur AS p_fournisseur, p.modele AS p_modele, p.duree_ms AS p_duree_ms,
   p.tokens_entree AS p_tokens_entree, p.tokens_sortie AS p_tokens_sortie,
-  p.cout_micro_usd::text AS p_cout, p.gabarit AS p_gabarit, p.sources AS p_sources`;
+  p.cout_micro_usd::text AS p_cout, p.gabarit AS p_gabarit, p.sources AS p_sources,
+  EXISTS (SELECT 1 FROM ia_consommations cc WHERE cc.demande_id = d.id AND cc.issue = 'cache')
+    AS servie_par_cache`;
 
 const DEPUIS = `ia_demandes d JOIN utilisateurs u ON u.id = d.demandeur_id
   JOIN ia_prompts pr ON pr.id = d.prompt_id
@@ -187,6 +191,9 @@ export function vueGeneration(
     // Texte anonymisé à l'échéance de la durée de conservation du cabinet (migration 0104).
     texte_purge_le: d.g_texte_purge_le ?? null,
     gabarit: d.p_gabarit ?? null,
+    // AGT-06 : générée à partir du cache des réponses (aucun appel au fournisseur, coût nul). Le CHECK de
+    // ia_generations.fournisseur (0102) est partagé : le marqueur est lu dans ia_consommations (issue « cache »).
+    servie_par_cache: d.servie_par_cache === true,
     chiffres_non_verifies: d.g_chiffres_non_verifies ?? null,
     nombres_non_verifies: d.g_nombres_non_verifies ?? [],
     chiffres_acquittes: d.g_chiffres_acquittes ?? null,

@@ -301,7 +301,7 @@ describe("contexte RLS du portail posé à chaque transaction (constat n° 1)", 
     expect(direct.client).toBeNull();
   });
 
-  it("la sortie horsContextePortail n'est employée que par les alertes KPI, l'accusé de réception et les canaux simulés", async () => {
+  it("la sortie horsContextePortail n'est employée que par les alertes KPI, l'accusé de réception, les canaux simulés et les pièces de la due diligence", async () => {
     const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src");
     const usages: string[] = [];
     const parcourir = async (dossier: string): Promise<void> => {
@@ -325,7 +325,11 @@ describe("contexte RLS du portail posé à chaque transaction (constat n° 1)", 
     // de canal et de la synthèse (routes/portail-canaux.ts) ; signature d'un document, qui écrit les
     // preuves et exige la reconfirmation d'identité (routes/portail-signatures.ts). Contrôle fait
     // d'abord dans `avecPortail`, filtres explicites sur l'utilisateur et le client.
+    // Portail investisseur de la due diligence (0509) : lecture du fichier d'une pièce publiée
+    // (rapports et fichiers fermés au portail), après le contrôle dans `avecPortail` ; la lecture
+    // interne revérifie rattachement, option, invitation, retrait et pièce (portail-dd-*.test.ts).
     expect(usages.sort()).toEqual([
+      "routes/due-diligence-portail-investisseur.ts",
       "routes/portail-canaux.ts",
       "routes/portail-kpi.ts",
       "routes/portail-signatures.ts",

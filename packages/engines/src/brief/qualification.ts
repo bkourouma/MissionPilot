@@ -39,6 +39,9 @@ export const GRAVITE_PLANCHER_BRIEF: Readonly<Partial<Record<TypeElementBrief, G
   relance_prete: "moyenne",
 };
 
+/** Motifs d'un voyant rouge repris dans l'élément (les plus graves d'abord). */
+export const MOTIFS_VOYANT_BRIEF_MAX = 5;
+
 export const LIBELLES_TYPE_BRIEF: Readonly<Record<TypeElementBrief, string>> = {
   facture_a_approuver: "Facture à approuver",
   debours_a_valider: "Débours à valider",
@@ -53,6 +56,9 @@ export const LIBELLES_TYPE_BRIEF: Readonly<Record<TypeElementBrief, string>> = {
   brouillon_automatisation: "Brouillon d'automatisation à décider",
   retour_a_valider: "Retour d'expérience à valider",
   cloture_en_attente: "Clôture de mission en attente",
+  offre_technique_a_valider: "Offre technique à valider",
+  plan_a_valider: "Plan stratégique à valider",
+  revision_budget_a_valider: "Révision de budget à valider",
   kpi_rouge: "KPI au rouge",
   kpi_orange_consecutif: "KPI à l'orange deux périodes de suite",
   atterrissage_depasse: "Atterrissage au-delà du budget",
@@ -61,6 +67,7 @@ export const LIBELLES_TYPE_BRIEF: Readonly<Record<TypeElementBrief, string>> = {
   tache_en_retard: "Tâche en retard",
   feuille_non_soumise: "Feuille de temps non soumise",
   questionnaire_sans_reponse: "Questionnaire sans réponse",
+  voyant_rouge: "Voyant de redressement au rouge",
   proposition_a_envoyer: "Proposition validée à envoyer",
   facture_a_emettre: "Facture approuvée à émettre",
   facture_a_envoyer: "Facture émise à envoyer",
@@ -123,6 +130,7 @@ interface Qualifie {
   anciennete_jours: number;
   suite?: string;
   ecart_pct?: number;
+  motifs?: readonly string[];
 }
 
 function qualifierAttente(c: CandidatBrief, depuis: string | null, ref: string): Qualifie {
@@ -178,6 +186,26 @@ function qualifierAtterrissage(budget: number, atterrissage: number): Qualifie |
   };
 }
 
+/** Voyant de redressement : seul le rouge fait un élément, toujours de gravité haute. */
+function qualifierVoyant(
+  voyant: string,
+  motifs: readonly string[],
+  depuis: string | null,
+  ref: string,
+): Qualifie | null {
+  if (voyant !== "rouge") return null;
+  const retenus = motifs
+    .map((m) => tronquer(m.trim()))
+    .filter((m) => m.length > 0)
+    .slice(0, MOTIFS_VOYANT_BRIEF_MAX);
+  return {
+    type: "voyant_rouge",
+    gravite: "haute",
+    anciennete_jours: depuis === null ? 0 : Math.max(0, ecartJours(depuis, ref)),
+    motifs: retenus,
+  };
+}
+
 function qualifier(c: CandidatBrief, ref: string): Qualifie | null {
   const f = c.faits;
   switch (f.nature) {
@@ -189,6 +217,8 @@ function qualifier(c: CandidatBrief, ref: string): Qualifie | null {
       return qualifierKpi(f.statuts, f.depuis, ref);
     case "atterrissage":
       return qualifierAtterrissage(f.jours_budget, f.jours_atterrissage);
+    case "voyant":
+      return qualifierVoyant(f.voyant, f.motifs, f.depuis, ref);
   }
 }
 
@@ -202,6 +232,7 @@ const NATURES_PAR_TYPE: Readonly<Record<string, string>> = {
   tache_en_retard: "retard",
   feuille_non_soumise: "retard",
   questionnaire_sans_reponse: "retard",
+  voyant_rouge: "voyant",
 };
 
 /** Contrôle la cohérence d'un candidat ; lève `ErreurBrief` sinon. */
@@ -241,6 +272,7 @@ export function qualifierCandidat(c: CandidatBrief, dateReference: string): Elem
     gravite: plancher ? plusGrave(q.gravite, plancher) : q.gravite,
     anciennete_jours: q.anciennete_jours,
     ...(q.ecart_pct === undefined ? {} : { ecart_pct: q.ecart_pct }),
+    ...(q.motifs === undefined ? {} : { motifs: q.motifs }),
     ...(c.montant === undefined ? {} : { montant: c.montant }),
     ...(c.devise === undefined ? {} : { devise: c.devise }),
   };

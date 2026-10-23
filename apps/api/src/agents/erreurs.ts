@@ -17,11 +17,22 @@ import { AppError, requeteInvalide } from "../errors.js";
  * - MPG08 action réservée (levée d'une restriction d'associé, décision sur une
  *   exécution ; 0267) → 403 ACTION_RESERVEE ;
  * - MPG09 demande de rejeu réel d'une évaluation incohérente (état, jeu, prompt, évaluation
- *   « openrouter » sans demande ni appel inscrit ; 0270) → 409 EVALUATION_INCOHERENTE.
+ *   « openrouter » sans demande ni appel inscrit ; 0270) → 409 EVALUATION_INCOHERENTE ;
+ * - MPG12 écriture réservée au job de rejeu (demande en cours, appel d'évaluation, évaluation
+ *   « openrouter », job de rejeu ; 0275) → 409 ECRITURE_RESERVEE_REJEU ;
+ * - MPG13 job de rejeu invalide, MPG14 demande de rejeu dans un état incompatible, MPG15 paramètre
+ *   de rejeu invalide (fonctions de provenance, 0275) → 409 EVALUATION_INCOHERENTE.
  *
  * Rejeu réel (agents/evaluations-openrouter.ts) : 409 EVALUATION_EN_COURS (un seul rejeu en file
  * ou en cours par cabinet), 409 EVALUATION_DEJA_REUSSIE, 429 TROP_DE_REJEUX (quota sur 24 h),
  * 409 PLAFOND_EVALUATION_ESTIME (estimation au-dessus du plafond par évaluation).
+ *
+ * Revue contradictoire (agents/contradicteur.ts, migration 0279) : 409 REVUE_DEJA_ACTIVE (une seule
+ * revue en cours par brouillon ; index unique `ia_demandes_revue_active_idx`, SQLSTATE 23505),
+ * 409 BROUILLON_NON_REVISABLE, 409 BRIQUE_NON_DECLAREE, 409 AGENT_SUR_DEMANDE_SEULEMENT,
+ * 409 IA_DESACTIVEE / IA_NON_CONFIGUREE, 502 REVUE_NON_PRODUITE ;
+ * - MQI50 revue contradictoire incohérente avec son brouillon (inexistant, autre mission, déjà
+ *   une revue) → 409 REVUE_INCOHERENTE.
  */
 
 const erreur = (statut: number, code: string, message: string) =>
@@ -143,6 +154,52 @@ export const plafondEvaluationAtteint = () =>
   );
 export const actionReservee = (message = "Action réservée à un associé.") =>
   erreur(403, "ACTION_RESERVEE", message);
+/* ----- Revue contradictoire ----- */
+
+export const revueDejaActive = () =>
+  erreur(
+    409,
+    "REVUE_DEJA_ACTIVE",
+    "Une revue contradictoire de ce brouillon est déjà en cours : attendez sa fin.",
+  );
+export const brouillonNonRevisable = (raison: string) =>
+  erreur(409, "BROUILLON_NON_REVISABLE", `Ce contenu ne peut pas être relu : ${raison}`);
+export const briqueRevueAbsente = () =>
+  erreur(
+    409,
+    "BRIQUE_NON_DECLAREE",
+    "La brique « revue_contradictoire » n'est pas confiée à l'agent contradicteur : un responsable " +
+      "doit la déclarer (niveau d'autonomie, coupe-circuit) avant la première revue.",
+  );
+export const agentSurDemandeSeulement = () =>
+  erreur(
+    409,
+    "AGENT_SUR_DEMANDE_SEULEMENT",
+    "Cet agent ne s'exécute qu'à la demande explicite d'un consultant : ni automatisation, ni déclenchement automatique.",
+  );
+export const revueIaIndisponible = (raison: "desactivee" | "non_configuree") =>
+  raison === "desactivee"
+    ? erreur(
+        409,
+        "IA_DESACTIVEE",
+        "L'IA est désactivée pour le cabinet : la revue contradictoire est impossible.",
+      )
+    : erreur(
+        409,
+        "IA_NON_CONFIGUREE",
+        "Aucune clé API d'IA n'est disponible (cabinet ou plateforme) : la revue contradictoire est impossible.",
+      );
+export const revueNonProduite = () =>
+  erreur(
+    502,
+    "REVUE_NON_PRODUITE",
+    "Le modèle n'a pas produit de revue exploitable : aucune objection n'est à lire. Réessayez plus tard.",
+  );
+const revueIncoherente = () =>
+  erreur(409, "REVUE_INCOHERENTE", "Revue contradictoire incohérente avec le brouillon relu.");
+
+const evaluationIncoherente = () =>
+  erreur(409, "EVALUATION_INCOHERENTE", "Demande d'évaluation incohérente avec son état.");
 const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG01: () => erreur(409, "HISTORIQUE_AGENTS_FIGE", "Historique des agents en ajout seul."),
   MPG02: plafondAgent,
@@ -153,9 +210,21 @@ const PAR_SQLSTATE: Record<string, () => AppError> = {
   MPG06: sortieNonConforme,
   MPG07: classeRisqueRefusee,
   MPG08: () => actionReservee(),
-  MPG09: () =>
-    erreur(409, "EVALUATION_INCOHERENTE", "Demande d'évaluation incohérente avec son état."),
+  MPG09: evaluationIncoherente,
+  MPG12: () =>
+    erreur(
+      409,
+      "ECRITURE_RESERVEE_REJEU",
+      "Écriture réservée au job de rejeu réel des évaluations.",
+    ),
+  MPG13: evaluationIncoherente,
+  MPG14: evaluationIncoherente,
+  MPG15: evaluationIncoherente,
+  MQI50: revueIncoherente,
 };
+
+/** Index unique : une seule revue contradictoire active par brouillon (0279). */
+const INDEX_REVUE_ACTIVE = "ia_demandes_revue_active_idx";
 
 function codePg(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error
@@ -167,6 +236,9 @@ function codePg(error: unknown): string | undefined {
 export function traduireErreurAgents(error: unknown): unknown {
   const code = codePg(error);
   if (code && PAR_SQLSTATE[code]) return PAR_SQLSTATE[code]();
+  if (code === "23505" && (error as { constraint?: unknown }).constraint === INDEX_REVUE_ACTIVE) {
+    return revueDejaActive();
+  }
   if (error instanceof ErreurAutonomie || error instanceof ErreurContribution) {
     return requeteInvalide(error.message);
   }

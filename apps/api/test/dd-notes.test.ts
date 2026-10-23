@@ -267,6 +267,12 @@ describe("R51 : validation par un tiers", () => {
     expect(deux.json().erreur.code).toBe("NOTE_DEJA_DECIDEE");
     const l = attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/notes`));
     expect(l.elements[0]).toMatchObject({ etat: "validee", validee_version: v });
+    // R-03 : la synthèse du dossier suit la décision (la version reste « soumise » en base).
+    const synthese = attendu(
+      200,
+      await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/synthese`),
+    );
+    expect(synthese.note).toMatchObject({ id: n.id, derniere_version: v, etat: "validee" });
     expect(
       attendu(200, await s.expertMetier.get(`/api/dd/notes/${n.id}`)).validations,
     ).toHaveLength(1);
@@ -301,6 +307,34 @@ describe("R51 : validation par un tiers", () => {
     const b = attendu(201, await creerNote(dossierId, s.consultantEquipe));
     const vb = attendu(201, await soumettre(b.id, 1)).version;
     expect((await valider(b.id, vb, s.consultantEquipe)).statusCode).toBe(403);
+  });
+
+  it("R-03 : la synthèse suit la dernière version (soumise, brouillon ou resoumise après une validée)", async () => {
+    const { dossierId } = await dossierPret(s);
+    const etatSynthese = async () =>
+      attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/synthese`)).note.etat;
+    const n = attendu(201, await creerNote(dossierId));
+    expect(await etatSynthese()).toBe("brouillon");
+    const v1 = attendu(201, await soumettre(n.id, 1)).version;
+    // Soumise sans décision : « soumise », jamais « validée ».
+    expect(await etatSynthese()).toBe("soumise");
+    attendu(201, await valider(n.id, v1, s.expertMetier));
+    expect(await etatSynthese()).toBe("validee");
+    // Nouveau brouillon après une version validée : « brouillon ».
+    attendu(
+      201,
+      await s.consultantEquipe.post(`/api/dd/notes/${n.id}/versions`, {
+        ...CONTENU,
+        version_courante: v1,
+        motif: "Nouvelle rédaction.",
+      }),
+    );
+    expect(await etatSynthese()).toBe("brouillon");
+    // Nouvelle version soumise après la validée : « soumise » tant qu'elle n'est pas jugée.
+    const v3 = attendu(201, await soumettre(n.id, v1 + 1)).version;
+    expect(await etatSynthese()).toBe("soumise");
+    attendu(201, await valider(n.id, v3, s.expertMetier));
+    expect(await etatSynthese()).toBe("validee");
   });
 
   it("NOTE_PERIMEE : seule la dernière version soumise se valide", async () => {
@@ -346,6 +380,9 @@ describe("R51 : validation par un tiers", () => {
     expect(
       attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/notes`)).elements[0]
         .etat,
+    ).toBe("rejetee");
+    expect(
+      attendu(200, await s.expertMetier.get(`/api/dd/dossiers/${dossierId}/synthese`)).note.etat,
     ).toBe("rejetee");
     expect((await valider(INCONNU, v, s.expertMetier)).statusCode).toBe(404);
     expect((await valider(n.id, v, s.b.associe)).statusCode).toBe(404);

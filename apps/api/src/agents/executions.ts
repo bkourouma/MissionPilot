@@ -40,6 +40,7 @@ import { enregistrerContributionLivrable } from "./contributions.js";
 import {
   actionReservee,
   agentInactif,
+  agentSurDemandeSeulement,
   autonomieN0,
   avecErreursAgents,
   contenuNonValide,
@@ -85,6 +86,21 @@ import { droitsManquants, lireAgent, type AgentCabinet } from "./registre.js";
  *   mesure de la contribution de l'IA (AGT-05).
  */
 
+/**
+ * Agents qui ne s'exécutent qu'à la demande explicite d'un consultant (route dédiée) : jamais
+ * par une règle d'automatisation ni par un autre déclencheur (AGT-06, contradicteur).
+ */
+export const AGENTS_SUR_DEMANDE_SEULEMENT: readonly string[] = ["contradicteur"];
+
+/** Origine d'une exécution : « consultant » = demande explicite d'un humain par sa route dédiée. */
+export type OrigineExecution = "consultant";
+
+function exigerOrigine(agentCode: string, origine: OrigineExecution | undefined): void {
+  if (AGENTS_SUR_DEMANDE_SEULEMENT.includes(agentCode) && origine !== "consultant") {
+    throw agentSurDemandeSeulement();
+  }
+}
+
 export interface EntreeEnregistrement {
   auth: Auth;
   agentCode: string;
@@ -96,21 +112,28 @@ export interface EntreeEnregistrement {
   signauxInjection?: readonly string[];
   /** Environnement : hors production, une évaluation locale est admise (0265). Absent : strict. */
   config?: Pick<Config, "NODE_ENV">;
+  /** Obligatoire pour un agent « sur demande seulement » (AGENTS_SUR_DEMANDE_SEULEMENT). */
+  origine?: OrigineExecution;
 }
 
-interface Contexte {
+export interface Contexte {
   agent: AgentCabinet;
   brique: BriqueDb | null;
   niveau: string;
 }
 
-/** Contrôles communs : agent actif, droits du déclencheur, brique de l'agent, niveau ≠ N0. */
-async function controlerAgent(
+/**
+ * Contrôles communs : agent sur demande seulement, agent actif, droits du déclencheur, brique de
+ * l'agent (niveau effectif : plafonds, coupe-circuit), niveau ≠ N0.
+ */
+export async function controlerAgent(
   db: Db,
   auth: Auth,
   agentCode: string,
   briqueCode: string | null | undefined,
+  origine?: OrigineExecution,
 ): Promise<Contexte> {
+  exigerOrigine(agentCode, origine);
   const agent = await lireAgent(db, agentCode);
   if (!agent.actif) throw agentInactif();
   if (droitsManquants(auth, agent).length > 0) throw interdit();
@@ -136,7 +159,13 @@ export async function enregistrerExecutionAgent(
   db: Db,
   e: EntreeEnregistrement,
 ): Promise<Record<string, unknown>> {
-  const { agent, brique, niveau } = await controlerAgent(db, e.auth, e.agentCode, e.briqueCode);
+  const { agent, brique, niveau } = await controlerAgent(
+    db,
+    e.auth,
+    e.agentCode,
+    e.briqueCode,
+    e.origine,
+  );
   const d = await db.query(
     `SELECT d.id, d.mission_id, d.demandeur_id, d.prompt_nom, d.prompt_version, d.tache, d.statut,
        d.entree_empreinte, g.fournisseur, g.modele, g.cout_micro_usd::text AS cout, g.sources,
@@ -229,6 +258,8 @@ export interface DemandeExecutionAgent {
   entite?: EntiteLiee;
   /** Plafond (cabinet ou mission) atteint : mode dégradé par gabarit au lieu d'un refus. */
   repliSiPlafond?: boolean;
+  /** « consultant » : demande explicite d'un humain ; requis pour un agent sur demande seulement. */
+  origine?: OrigineExecution;
 }
 
 /** Variables non fiables d'une exécution (AGT-07) : par défaut toutes, pour un agent lecteur. */
@@ -310,7 +341,7 @@ export async function executerAgent(
   const maintenant = (deps.horloge ?? (() => new Date()))();
   const missionId = d.entite?.missionId ?? null;
   const nonFiables = await database.withTenant(auth.cabinetId, async (db) => {
-    const { agent } = await controlerAgent(db, auth, d.agentCode, d.briqueCode);
+    const { agent } = await controlerAgent(db, auth, d.agentCode, d.briqueCode, d.origine);
     const prompt = await chargerPromptActif(db, d.promptNom);
     if (!(agent.taches as string[]).includes(prompt.tache)) {
       throw requeteInvalide("Le prompt ne sert aucune tâche de cet agent.");
@@ -371,6 +402,7 @@ export async function executerAgent(
       variablesNonFiables: nonFiables,
       signauxInjection: signaux,
       config: deps.config,
+      ...(d.origine ? { origine: d.origine } : {}),
     }),
   );
   return { statut: "terminee", execution, resultat };

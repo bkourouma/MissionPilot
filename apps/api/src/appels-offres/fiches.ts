@@ -128,7 +128,7 @@ async function exigerResponsable(db: Db, auth: Auth, id: string | null | undefin
   }
 }
 
-async function inserer(
+export async function inserer(
   db: Db,
   auth: Auth,
   f: ChampsFiche,

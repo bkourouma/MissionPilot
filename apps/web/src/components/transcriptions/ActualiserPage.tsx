@@ -1,13 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Bouton } from "../ui/Bouton";
 
 /** « Actualiser » : recharge les données de la page (transcription en file ou en cours). */
 export function ActualiserPage() {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   return (
-    <Bouton variante="secondaire" icone="historique" onClick={() => router.refresh()}>
+    <Bouton variante="secondaire" icone="historique" onClick={() => rafraichir()}>
       Actualiser
     </Bouton>
   );

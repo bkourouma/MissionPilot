@@ -34,6 +34,10 @@ import {
   TYPE_JOB_AGENT_AUTOMATISATION,
 } from "../automatisation/execution.js";
 import { creerHandlerBriefQuotidien, TYPE_JOB_BRIEF_QUOTIDIEN } from "../brief/quotidien.js";
+import {
+  creerHandlerAvancementHebdo,
+  TYPE_JOB_AVANCEMENT_HEBDO,
+} from "../automatisation/avancement-job.js";
 import { loadConfig } from "../config.js";
 import { creerHandlerCopilotePurge, TYPE_JOB_COPILOTE_PURGE } from "../copilote/purge.js";
 import { creerHandlerRelances, TYPE_JOB_RELANCES } from "../finance/relances.js";
@@ -44,6 +48,17 @@ import {
   relanceQuestionnaire,
   TYPE_JOB_RELANCE_QUESTIONNAIRE,
 } from "../questionnaires/relances.js";
+import { dependancesIngestionParDefaut } from "../ingestion/fabrique.js";
+import { creerHandlerIngestionExtraction } from "../ingestion/job-extraction.js";
+import {
+  creerHandlerIngestionMaintenance,
+  TYPE_JOB_INGESTION_MAINTENANCE,
+} from "../ingestion/maintenance.js";
+import { creerHandlerIngestionStructuration } from "../ingestion/job-structuration.js";
+import {
+  TYPE_JOB_INGESTION_EXTRACTION,
+  TYPE_JOB_INGESTION_STRUCTURATION,
+} from "../ingestion/types.js";
 import { creerHandlerPurgeRapports, TYPE_JOB_PURGE_RAPPORTS } from "../rapports/purge.js";
 import { relanceSalleMission, TYPE_JOB_RELANCE_SALLE } from "../salle-mission/relances.js";
 import { stockageDe } from "../stockage/index.js";
@@ -112,6 +127,7 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_RELANCE_QUESTIONNAIRE]: relanceQuestionnaire, // relances J+3 / J+7 (V2)
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
   [TYPE_JOB_BRIEF_QUOTIDIEN]: creerHandlerBriefQuotidien(), // brief du jour par utilisateur (AUT-07)
+  [TYPE_JOB_AVANCEMENT_HEBDO]: creerHandlerAvancementHebdo(), // rapport d'avancement hebdomadaire (AUT-10)
   // Moteur d'automatisation (AUT-01 à AUT-06, ADR-006) : événements, appels d'agents, détection.
   [TYPE_JOB_EVENEMENT_AUTOMATISATION]: creerHandlerEvenementAutomatisation(),
   [TYPE_JOB_AGENT_AUTOMATISATION]: creerHandlerAgentAutomatisation(dependancesIaParDefaut),
@@ -126,6 +142,12 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_CANAL_ENTRANT_AUDIO]: creerHandlerCanalEntrantAudio(dependancesCanauxParDefaut), // KPI-14 vocal
   [TYPE_JOB_CANAL_TRANSCRIPTION]: creerHandlerCanalTranscription(dependancesCanauxParDefaut), // AGT-11
   [TYPE_JOB_CANAUX_MAINTENANCE]: creerHandlerCanauxMaintenance(dependancesCanauxParDefaut), // conservation
+  // Ingestion de documents (lot 6, ADR-009) : extraction du texte puis structuration selon l'usage.
+  [TYPE_JOB_INGESTION_EXTRACTION]: creerHandlerIngestionExtraction(dependancesIngestionParDefaut),
+  [TYPE_JOB_INGESTION_STRUCTURATION]: creerHandlerIngestionStructuration(
+    dependancesIngestionParDefaut,
+  ),
+  [TYPE_JOB_INGESTION_MAINTENANCE]: creerHandlerIngestionMaintenance(dependancesIngestionParDefaut), // conservation
 });
 
 /** Registre dont la purge des fichiers utilise ce stockage (configuration du serveur). */

@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { base32Decoder, totp } from "../src/auth/totp.js";
+import { ajouterPreuve, lireDossierPreuves } from "../src/canaux/preuves.js";
+import type { Db } from "../src/db/pool.js";
 import { maintenirA } from "./canaux-outils.js";
 import { ECHANTILLONS, televerser } from "./fichiers-outils.js";
 import { MOT_DE_PASSE_TEST, proprietaire } from "./helpers.js";
@@ -27,6 +29,14 @@ let clientA2: string;
 let dirigeantA2: UtilisateurPortail;
 let contributeur: UtilisateurPortail;
 
+/** Instant « dans n jours » lu sur l'horloge de la base (jamais celle du processus de test). */
+const dansJoursBase = async (jours: number): Promise<Date> =>
+  proprietaire(
+    async (c) =>
+      (await c.query("SELECT now() + make_interval(days => $1::int) AS quand", [jours])).rows[0]
+        .quand as Date,
+  );
+
 const code = (secret: string) => totp(base32Decoder(secret), Date.now());
 
 /** Active la 2FA du compte ; renvoie le secret (anti-rejeu remis à zéro avant chaque usage). */
@@ -47,6 +57,21 @@ const confirmation = async (utilisateurId: string, secret: string) => {
   await reinitialiserAntiRejeu(utilisateurId);
   return { mot_de_passe: MOT_DE_PASSE_TEST, code: code(secret) };
 };
+
+/**
+ * Lecture du document d'une demande de signature : dans le navigateur (`inline`, type fixé par le
+ * serveur), jamais mise en cache, sans reniflage, et SANS CSP `sandbox` (la visionneuse PDF du
+ * navigateur refuse un document sandboxé).
+ */
+function attendreLectureEnLigne(entetes: Record<string, unknown>): void {
+  expect(entetes["content-type"]).toBe("application/pdf");
+  expect(String(entetes["content-disposition"])).toMatch(/^inline; filename="/);
+  expect(entetes["x-content-type-options"]).toBe("nosniff");
+  expect(entetes["cache-control"]).toBe("private, no-store");
+  const csp = String(entetes["content-security-policy"]);
+  expect(csp).toContain("default-src 'none'");
+  expect(csp).not.toContain("sandbox");
+}
 
 async function pdf(
   nom: string,
@@ -234,7 +259,9 @@ describe("signature (G-04, G-06, G-12)", () => {
     );
     expect(sansLecture.statusCode).toBe(409);
     expect(sansLecture.json().erreur.code).toBe("DOCUMENT_NON_CONSULTE");
-    attendre(200, await a.directeur.get(`/api/signatures/${id}/document`), "lecture du document");
+    const lectureCabinet = await a.directeur.get(`/api/signatures/${id}/document`);
+    attendre(200, lectureCabinet, "lecture du document");
+    attendreLectureEnLigne(lectureCabinet.headers);
     // Un directeur qui n'est pas signataire : 404 (même sans 2FA).
     const chefSansTfa = await a.avecRoles(["directeur_mission"]);
     expect(
@@ -281,11 +308,9 @@ describe("signature (G-04, G-06, G-12)", () => {
       ).statusCode,
     ).toBe(409);
     // Le dirigeant du client, par le portail : lit le document puis signe.
-    attendre(
-      200,
-      await a.dirigeant.get(`/api/portail/signatures/${id}/document`),
-      "document du portail",
-    );
+    const lecturePortail = await a.dirigeant.get(`/api/portail/signatures/${id}/document`);
+    attendre(200, lecturePortail, "document du portail");
+    attendreLectureEnLigne(lecturePortail.headers);
     const s2 = await a.dirigeant.post(
       `/api/portail/signatures/${id}/signer`,
       await confirmation(a.dirigeant.utilisateurId, secretDirigeant),
@@ -472,7 +497,7 @@ describe("refus, annulation, expiration (G-07, G-08, G-09)", () => {
   it("expiration à la maintenance (31e jour) : expiree, signataires expire, preuve ; une signature ensuite : 409", async () => {
     const { documentId } = await pdf("Lettre de mission nº 7");
     const id = await creerEtEnvoyer(documentId);
-    const bilan = await maintenirA(ctx, a.cabinetId, new Date(Date.now() + 31 * 86_400_000));
+    const bilan = await maintenirA(ctx, a.cabinetId, await dansJoursBase(31));
     expect(bilan.demandes_expirees).toBeGreaterThanOrEqual(1);
     const d = (await a.associe.get(`/api/signatures/${id}/preuves`)).json();
     expect(d.demande.statut).toBe("expiree");
@@ -493,43 +518,51 @@ describe("refus, annulation, expiration (G-07, G-08, G-09)", () => {
 describe("document servi au portail : seulement une demande ouverte ou signée, signataire invité (M2)", () => {
   const document = (id: string) => a.dirigeant.get(`/api/portail/signatures/${id}/document`);
 
-  it("annulée, refusée, expirée : le statut est rendu, jamais le contenu (404)", async () => {
-    // Annulée.
-    const { documentId: d1 } = await pdf("Lettre M2 annulée");
-    const annulee = await creerEtEnvoyer(d1);
-    attendre(200, await document(annulee), "ouverte : document servi");
-    attendre(
-      200,
-      await a.associe.post(`/api/signatures/${annulee}/annuler`, { motif: "Document remplacé" }),
-      "annulation",
-    );
-    expect((await document(annulee)).statusCode).toBe(404);
-    const vueAnnulee = await a.dirigeant.get(`/api/portail/signatures/${annulee}`);
-    attendre(200, vueAnnulee, "statut d'une demande annulée");
-    expect(vueAnnulee.json()).toMatchObject({ statut: "annulee", peut_signer: false });
-    // Refusée.
-    const { documentId: d2 } = await pdf("Lettre M2 refusée");
-    const refusee = await creerEtEnvoyer(d2);
-    attendre(
-      200,
-      await a.dirigeant.post(`/api/portail/signatures/${refusee}/refuser`, { motif: "Désaccord" }),
-      "refus",
-    );
-    expect((await document(refusee)).statusCode).toBe(404);
-    expect((await a.dirigeant.get(`/api/portail/signatures/${refusee}`)).json().statut).toBe(
-      "refusee",
-    );
-    // Expirée.
-    const { documentId: d3 } = await pdf("Lettre M2 expirée");
-    const expiree = await creerEtEnvoyer(d3);
-    attendre(200, await document(expiree), "ouverte avant l'échéance");
-    await maintenirA(ctx, a.cabinetId, new Date(Date.now() + 31 * 86_400_000));
-    expect((await a.associe.get(`/api/signatures/${expiree}`)).json().statut).toBe("expiree");
-    expect((await document(expiree)).statusCode).toBe(404);
-    expect((await a.dirigeant.get(`/api/portail/signatures/${expiree}`)).json().statut).toBe(
-      "expiree",
-    );
-  });
+  it(
+    "annulée, refusée, expirée : le statut est rendu, jamais le contenu (404)",
+    { timeout: 90_000 },
+    async () => {
+      // Annulée.
+      const { documentId: d1 } = await pdf("Lettre M2 annulée");
+      const annulee = await creerEtEnvoyer(d1);
+      attendre(200, await document(annulee), "ouverte : document servi");
+      attendre(
+        200,
+        await a.associe.post(`/api/signatures/${annulee}/annuler`, {
+          motif: "Document remplacé",
+        }),
+        "annulation",
+      );
+      expect((await document(annulee)).statusCode).toBe(404);
+      const vueAnnulee = await a.dirigeant.get(`/api/portail/signatures/${annulee}`);
+      attendre(200, vueAnnulee, "statut d'une demande annulée");
+      expect(vueAnnulee.json()).toMatchObject({ statut: "annulee", peut_signer: false });
+      // Refusée.
+      const { documentId: d2 } = await pdf("Lettre M2 refusée");
+      const refusee = await creerEtEnvoyer(d2);
+      attendre(
+        200,
+        await a.dirigeant.post(`/api/portail/signatures/${refusee}/refuser`, {
+          motif: "Désaccord",
+        }),
+        "refus",
+      );
+      expect((await document(refusee)).statusCode).toBe(404);
+      expect((await a.dirigeant.get(`/api/portail/signatures/${refusee}`)).json().statut).toBe(
+        "refusee",
+      );
+      // Expirée.
+      const { documentId: d3 } = await pdf("Lettre M2 expirée");
+      const expiree = await creerEtEnvoyer(d3);
+      attendre(200, await document(expiree), "ouverte avant l'échéance");
+      await maintenirA(ctx, a.cabinetId, await dansJoursBase(31));
+      expect((await a.associe.get(`/api/signatures/${expiree}`)).json().statut).toBe("expiree");
+      expect((await document(expiree)).statusCode).toBe(404);
+      expect((await a.dirigeant.get(`/api/portail/signatures/${expiree}`)).json().statut).toBe(
+        "expiree",
+      );
+    },
+  );
 
   it("signataire non encore invité (ordre séquentiel, rang 2) : le document n'est pas servi (404)", async () => {
     const { documentId } = await pdf("Avenant M2 séquentiel", "autre");
@@ -544,6 +577,54 @@ describe("document servi au portail : seulement une demande ouverte ou signée, 
 });
 
 describe("journal de preuves : ajout seul et chaîne (G-10, G-11)", () => {
+  it("processus retardé de plus de 5 s entre la lecture de l'horloge et l'écriture : la preuve est rejouée, jamais de 409", async () => {
+    const { documentId } = await pdf("Lettre de mission nº 8 bis");
+    const id = await creerEtEnvoyer(documentId);
+    const empreinteDocument = await proprietaire(
+      async (c) =>
+        (await c.query("SELECT empreinte_document FROM signatures_demandes WHERE id = $1", [id]))
+          .rows[0].empreinte_document as string,
+    );
+    await proprietaire(async (c) => {
+      await c.query("BEGIN");
+      try {
+        const avant = (await lireDossierPreuves(c as unknown as Db, id, empreinteDocument)).preuves
+          .length;
+        // Simule un processus affamé : le premier INSERT part 5,5 s après la lecture de l'horloge,
+        // au-delà de la tolérance du déclencheur (5 s). Le point de sauvegarde garde la transaction vivante.
+        let retarde = false;
+        const lent = new Proxy(c, {
+          get(cible, nom) {
+            if (nom !== "query") return Reflect.get(cible, nom);
+            return async (texte: unknown, ...reste: unknown[]) => {
+              if (
+                !retarde &&
+                typeof texte === "string" &&
+                texte.includes("INSERT INTO signatures_preuves")
+              ) {
+                retarde = true;
+                await cible.query("SELECT pg_sleep(5.5)");
+              }
+              return (cible.query as (...a: unknown[]) => Promise<unknown>)(texte, ...reste);
+            };
+          },
+        }) as unknown as Db;
+        await ajouterPreuve(lent, {
+          cabinetId: a.cabinetId,
+          demandeId: id,
+          empreinteDocument,
+          type: "document_consulte",
+        });
+        expect(retarde).toBe(true);
+        const apres = await lireDossierPreuves(c as unknown as Db, id, empreinteDocument);
+        expect(apres.preuves).toHaveLength(avant + 1);
+        expect(apres.verification.valide).toBe(true);
+      } finally {
+        await c.query("ROLLBACK");
+      }
+    });
+  }, 90_000);
+
   it("UPDATE, DELETE, rang manquant, empreinte précédente fausse : MPH10 ; rôle applicatif : droit refusé ; altération détectée à la lecture", async () => {
     const { documentId } = await pdf("Lettre de mission nº 8");
     const id = await creerEtEnvoyer(documentId);

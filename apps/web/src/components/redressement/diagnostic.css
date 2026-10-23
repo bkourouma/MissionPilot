@@ -1,0 +1,91 @@
+/* Onglet « Diagnostic » (check-lists, causes racines) et modèles de check-lists. */
+
+.mp-diag-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-diag-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-diag-taux {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-diag-taux dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-diag-taux dd {
+  margin: 0;
+  font-weight: 650;
+  font-size: var(--mp-taille-l);
+}
+
+.mp-diag-item,
+.mp-diag-cause {
+  display: grid;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-diag-item__titre {
+  padding: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-diag-reponses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2) var(--mp-esp-4);
+}
+
+.mp-diag-reponses label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: 44px;
+}
+
+.mp-diag-cause__texte {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.mp-diag-cause__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-diag-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.mp-diag-historique {
+  margin: 0;
+  padding-left: var(--mp-esp-4);
+}

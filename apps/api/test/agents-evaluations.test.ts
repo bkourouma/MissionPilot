@@ -387,16 +387,22 @@ describe("corrections d'audit des évaluations (AGT-04)", () => {
           ).rows,
       )
     )[0] as { id: string; n: number };
-    await proprietaire((c) =>
-      semerEvaluationOpenRouter(c, {
-        cabinetId: a.cabinetId,
-        jeuId: jeu.id,
-        promptId: ids.garde1!,
-        modele: "anthropic/claude-sonnet-4.5",
-        utilisateurId: a.associeId,
-        casTotal: jeu.n,
-      }),
-    );
+    const semer = (modele: string) =>
+      proprietaire((c) =>
+        semerEvaluationOpenRouter(c, {
+          cabinetId: a.cabinetId,
+          jeuId: jeu.id,
+          promptId: ids.garde1!,
+          modele,
+          utilisateurId: a.associeId,
+          casTotal: jeu.n,
+        }),
+      );
+    // Liée au MODÈLE ROUTÉ de la tâche (0276) : le cabinet A route « redaction » sur Haiku ; une
+    // évaluation réelle réussie avec un autre modèle (Sonnet) ne suffit pas.
+    await semer("anthropic/claude-sonnet-4.5");
+    await expect(activer(false)).rejects.toMatchObject({ code: "MPG04" });
+    await semer("anthropic/claude-haiku-4.5");
     await activer(false);
   });
 

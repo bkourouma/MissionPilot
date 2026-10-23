@@ -299,6 +299,8 @@ describe("seuils d'alerte", () => {
     expect(s.criteres.liquidite_generale).toEqual({ orange: "1,2", rouge: "1", poids: "15" });
     expect(s.criteres.marge_nette).toEqual({ orange: "2", rouge: "0", poids: "10" });
     expect(s.criteres.bfr_jours.orange).toBe("60");
+    // Une variation de marge se saisit en points de pourcentage (500 points de base = 5 points).
+    expect(s.criteres.variation_marge_brute).toEqual({ orange: "0", rouge: "-5", poids: "5" });
     const corps = ok(corpsSeuilsDepuisFormulaire("btp", s));
     expect(corps.seuils).toEqual(defaut);
     expect(corps.secteur).toBe("btp");

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { api, messageErreur } from "../../lib/api";
 import {
@@ -17,6 +16,7 @@ import type { Resultat } from "../../lib/saisie";
 import type { ContexteModulationApi } from "@missionpilot/shared";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
@@ -178,11 +178,13 @@ export function MigrationMethode({
   missionId: string;
   versionId: string;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [analyse, setAnalyse] = useState<AnalyseMigration | null>(null);
   const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState(false);
+  const [envoiEnCours, setEnCours] = useState(false);
+  // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
+  const enCours = envoiEnCours || enAttente;
 
   async function analyser() {
     setErreur(null);
@@ -213,7 +215,7 @@ export function MigrationMethode({
         version_id: versionId,
         motif: motif.trim(),
       });
-      router.refresh();
+      rafraichir();
     } catch (err) {
       setErreur(messageMethodes(err) ?? messageErreur(err));
     } finally {

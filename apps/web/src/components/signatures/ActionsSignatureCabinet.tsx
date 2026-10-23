@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { api } from "../../lib/api";
 import {
   SAISIE_CONFIRMATION_VIDE,
@@ -43,7 +43,7 @@ export function ActionsSignatureCabinet({
   actions,
   tfaActive,
 }: ActionsSignatureCabinetProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
   const bascule = (p: Exclude<Panneau, null>) => setPanneau((c) => (c === p ? null : p));
@@ -56,7 +56,7 @@ export function ActionsSignatureCabinet({
         {},
         { redirigerSi401: false },
       );
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreurEnvoi(messageErreurSignature(e));

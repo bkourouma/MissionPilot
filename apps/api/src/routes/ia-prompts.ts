@@ -7,11 +7,12 @@ import {
 import { journaliser } from "../audit.js";
 import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
-import { avecErreursAgents, nonRegressionRequise } from "../agents/erreurs.js";
+import { nonRegressionRequise, traduireErreurAgents } from "../agents/erreurs.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
 import { reglerEvaluationLocale } from "../ia/evaluation.js";
+import { lireParametres, modeleDe } from "../ia/parametres.js";
 import {
   assurerPromptsExemple,
   chargerPrompt,
@@ -28,9 +29,10 @@ import {
  *   aucune évaluation, elle est donc créée INACTIVE quand `activer` est omis, et
  *   `activer: true` explicite répond 409 NON_REGRESSION_REQUISE (rien n'est créé).
  * - POST /:id/activer (ia.configurer) : réactive une version existante ; la base
- *   refuse une version sans évaluation réussie (MPG04 → 409 NON_REGRESSION_REQUISE) ;
- *   hors production seulement, une évaluation sur le fournisseur local suffit
- *   (`reglerEvaluationLocale`, migration 0265).
+ *   refuse une version sans évaluation réussie AVEC LE MODÈLE ROUTÉ de sa tâche
+ *   (migration 0276 ; MPG04 → 409 NON_REGRESSION_REQUISE, qui nomme ce modèle) :
+ *   une évaluation sur un autre modèle ne suffit pas ; hors production seulement,
+ *   une évaluation sur le fournisseur local suffit (`reglerEvaluationLocale`, 0265).
  * Les prompts « exemple » de base sont semés à la première lecture.
  */
 
@@ -185,20 +187,30 @@ export const routesIaPrompts: FastifyPluginAsync = async (app) => {
     promptActivationSchema.parse(request.body ?? {});
     return app.db.withTenant(auth.cabinetId, async (db) => {
       const prompt = await chargerPrompt(db, id);
+      // Modèle routé de la tâche (celui du cabinet, sinon le recommandé) : la base l'exige aussi.
+      const modele = modeleDe(await lireParametres(db), prompt.tache);
       await reglerEvaluationLocale(db, app.config);
-      await avecErreursAgents(() =>
-        db.query(
+      try {
+        await db.query(
           "INSERT INTO ia_prompt_activations (cabinet_id, nom, prompt_id, active_par) VALUES ($1, $2, $3, $4)",
           [auth.cabinetId, prompt.nom, id, auth.utilisateurId],
-        ),
-      );
+        );
+      } catch (error) {
+        if ((error as { code?: unknown }).code === "MPG04") {
+          throw nonRegressionRequise(
+            "Activation refusée : cette version n'a pas réussi le dernier jeu d'essai avec le " +
+              `modèle routé de sa tâche (${modele}).`,
+          );
+        }
+        throw traduireErreurAgents(error);
+      }
       await journaliser(db, {
         cabinetId: auth.cabinetId,
         utilisateurId: auth.utilisateurId,
         action: "activation_prompt_ia",
         entite: "ia_prompt",
         entiteId: id,
-        details: { nom: prompt.nom, version: prompt.version },
+        details: { nom: prompt.nom, version: prompt.version, modele },
       });
       return lireAvecEtat(db, id);
     });

@@ -32,13 +32,13 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-import { useRouter } from "next/navigation";
 import { BadgeNiveauRisque } from "./BadgesDd";
 import { ChampsAffirmation } from "./ChampsAffirmation";
 
@@ -214,7 +214,7 @@ function LigneSignal({
   peutEcrire: boolean;
   onCreerRisque: (s: SignalDossier) => void;
 }) {
-  const router = useRouter();
+  const { rafraichir, enAttente } = useRafraichir();
   const [ecarter, setEcarter] = useState(false);
   const [commentaire, setCommentaire] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
@@ -232,7 +232,7 @@ function LigneSignal({
       await api.post(cheminConstatSignal(dossierId, signal.signal_id), v.charge);
       setEcarter(false);
       setCommentaire("");
-      router.refresh();
+      rafraichir();
     } catch (e) {
       setErreur(messageDd(e));
     } finally {
@@ -283,7 +283,7 @@ function LigneSignal({
           <div className="mp-barre-actions mp-barre-actions--compacte">
             <Bouton
               variante="secondaire"
-              disabled={enCours}
+              disabled={enCours || enAttente}
               onClick={() => void constater("constate")}
             >
               Constaté
@@ -292,7 +292,7 @@ function LigneSignal({
               <>
                 <Bouton
                   variante="secondaire"
-                  disabled={enCours}
+                  disabled={enCours || enAttente}
                   onClick={() => void constater("ecarte")}
                 >
                   Confirmer : écarté
@@ -302,18 +302,26 @@ function LigneSignal({
                 </Bouton>
               </>
             ) : (
-              <Bouton variante="secondaire" disabled={enCours} onClick={() => setEcarter(true)}>
+              <Bouton
+                variante="secondaire"
+                disabled={enCours || enAttente}
+                onClick={() => setEcarter(true)}
+              >
                 Écarté
               </Bouton>
             )}
             <Bouton
               variante="secondaire"
-              disabled={enCours}
+              disabled={enCours || enAttente}
               onClick={() => void constater("a_verifier")}
             >
               À vérifier
             </Bouton>
-            <Bouton variante="primaire" disabled={enCours} onClick={() => onCreerRisque(signal)}>
+            <Bouton
+              variante="primaire"
+              disabled={enCours || enAttente}
+              onClick={() => onCreerRisque(signal)}
+            >
               Créer le risque
             </Bouton>
           </div>
@@ -348,7 +356,7 @@ export function EspaceRisques({
   peutEcrire,
   peutSigner,
 }: EspaceRisquesProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [signal, setSignal] = useState<SignalDossier | null>(null);
   const ancre = useRef<HTMLDivElement>(null);
 
@@ -406,7 +414,7 @@ export function EspaceRisques({
             signal={signal}
             onCree={() => {
               setSignal(null);
-              router.refresh();
+              rafraichir();
             }}
           />
         </section>

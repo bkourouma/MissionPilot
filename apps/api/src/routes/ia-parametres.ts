@@ -24,6 +24,7 @@ import {
   fournisseurDepuisConfig,
   type ReponseLlm,
 } from "../ia/fournisseur.js";
+import { DUREE_CACHE_IA_MS, viderCache } from "../ia/cache.js";
 import { reglerEvaluationLocale } from "../ia/evaluation.js";
 import { MODELES_AUTORISES, modeleAutorise } from "../ia/modeles.js";
 import { generationsSimultanees, ISSUES_FACTURABLES } from "../ia/orchestrateur.js";
@@ -35,6 +36,7 @@ import {
   resoudreCle,
   sourceCleDisponible,
   vueModeles,
+  vueRoutage,
 } from "../ia/parametres.js";
 import {
   associesActifs,
@@ -58,6 +60,11 @@ import {
  *   changement de clé est journalisé (sans la valeur) et signalé aux associés
  *   par notification et e-mail en file : une clé substituée détournerait les
  *   données vers un autre compte.
+ * - AGT-06 : le GET expose aussi le ROUTAGE par tâche (`routage` : modèle
+ *   recommandé et appliqué, critère coût/qualité/latence, motif, plafond de
+ *   jetons ; ia/modeles.ts) et l'état du CACHE des réponses (`cache_actif`,
+ *   `cache_duree_heures`) ; le PUT règle `cache_actif` (désactivé par défaut,
+ *   sans reconfirmation) et VIDE le cache du cabinet quand il le désactive.
  * - POST /tester (ia.configurer) : appel minimal du modèle de la tâche, IA
  *   activée seulement (409 sinon) ; coût réservé sous le plafond puis compté
  *   (issue « test »).
@@ -87,6 +94,9 @@ export const routesIaParametres: FastifyPluginAsync = async (app) => {
         source_cle: source,
         mode: p.ia_activee && source ? "ia" : "gabarit",
         modeles: vueModeles(p),
+        routage: vueRoutage(p),
+        cache_actif: p.cache_actif,
+        cache_duree_heures: DUREE_CACHE_IA_MS / 3_600_000,
         ...(configurer
           ? {
               plafond_mensuel_micro_usd: p.plafond_mensuel_micro_usd,
@@ -149,6 +159,15 @@ export const routesIaParametres: FastifyPluginAsync = async (app) => {
           [m.ia_activee ?? null, m.plafond_mensuel_micro_usd ?? null, auth.utilisateurId],
         );
       }
+      let cacheVide: number | undefined;
+      if (m.cache_actif !== undefined) {
+        await db.query(
+          `UPDATE ia_parametres_cabinet SET cache_actif = $1, modifie_par = $2, modifie_le = now()`,
+          [m.cache_actif, auth.utilisateurId],
+        );
+        // Désactivé : plus aucune réponse gardée (le déclencheur refuse déjà toute écriture).
+        if (!m.cache_actif) cacheVide = await viderCache(db);
+      }
       if (cleModifiee) {
         const c = m.cle_api ? chiffrerCle(trousseau, auth.cabinetId, m.cle_api) : null;
         await db.query(
@@ -190,6 +209,8 @@ export const routesIaParametres: FastifyPluginAsync = async (app) => {
           plafond_mensuel_micro_usd: m.plafond_mensuel_micro_usd,
           cle_api: !cleModifiee ? undefined : m.cle_api === null ? "retiree" : "definie",
           modeles: m.modeles,
+          cache_actif: m.cache_actif,
+          ...(cacheVide !== undefined ? { cache_entrees_supprimees: cacheVide } : {}),
           ...(facteur ? { facteur } : {}),
         },
       });

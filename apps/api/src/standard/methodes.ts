@@ -11,7 +11,7 @@ import type { Db } from "../db/pool.js";
 import { traduireErreursPg } from "../db/outils.js";
 import { AppError, conflit, introuvable, requeteInvalide } from "../errors.js";
 import { decoderCurseur, paginer } from "../http/outils.js";
-import { validerVersion } from "./coherence.js";
+import { controlerVersion, PLAFOND_CHAINE_HERITAGE, type ChaineHeritage } from "./coherence.js";
 import {
   copierContenu,
   dernierePubliee,
@@ -382,12 +382,62 @@ export async function analyserMiseAJourVariante(db: Db, versionId: string) {
   };
 }
 
+/**
+ * Chaîne d'héritage d'une version, lue sous RLS : la version et ses `base_standard_id` en cascade,
+ * la méthode de chacune et ses parents. Plafonnée à `PLAFOND_CHAINE_HERITAGE` maillons par chaîne ;
+ * un cycle s'arrête au premier maillon déjà lu (le moteur le signale).
+ */
+async function lireChaineHeritage(db: Db, versionId: string): Promise<ChaineHeritage> {
+  const versions = new Map<string, ChaineHeritage["versions"][number]>();
+  let tronquee = false;
+  let courant: string | null = versionId;
+  while (courant !== null && !versions.has(courant)) {
+    if (versions.size >= PLAFOND_CHAINE_HERITAGE) {
+      tronquee = true;
+      break;
+    }
+    const r = await db.query(
+      `SELECT id, methode_id, base_standard_id, statut FROM methode_versions WHERE id = $1`,
+      [courant],
+    );
+    const v = r.rows[0] as ChaineHeritage["versions"][number] | undefined;
+    if (!v) break;
+    versions.set(v.id, v);
+    courant = v.base_standard_id;
+  }
+  const methodes = new Map<string, ChaineHeritage["methodes"][number]>();
+  const aLire = [...new Set([...versions.values()].map((v) => v.methode_id))];
+  for (const depart of aLire) {
+    let m: string | null = depart;
+    let maillons = 0;
+    while (m !== null && !methodes.has(m)) {
+      if (maillons >= PLAFOND_CHAINE_HERITAGE) {
+        tronquee = true;
+        break;
+      }
+      maillons += 1;
+      const r = await db.query(`SELECT id, parent_id FROM methodes WHERE id = $1`, [m]);
+      const ligne = r.rows[0] as ChaineHeritage["methodes"][number] | undefined;
+      if (!ligne) break;
+      methodes.set(ligne.id, ligne);
+      m = ligne.parent_id;
+    }
+  }
+  return { methodes: [...methodes.values()], versions: [...versions.values()], tronquee };
+}
+
+/** Contrôle étendu d'une version stockée (STD-11) : structure, références, règles, rubriques, héritage, cas types. */
 export async function validerVersionStockee(db: Db, versionId: string) {
   const contenu = await lireContenu(db, versionId);
   const base = contenu.version.base_standard_id
     ? sansIdentifiants(await lireContenu(db, contenu.version.base_standard_id))
     : null;
-  return validerVersion(sansIdentifiants(contenu), await lireFacteurs(db), base);
+  return controlerVersion(
+    sansIdentifiants(contenu),
+    await lireFacteurs(db),
+    base,
+    await lireChaineHeritage(db, versionId),
+  );
 }
 
 /** Publication : brouillon du cabinet, cohérent, notes de version dès la version 2. */

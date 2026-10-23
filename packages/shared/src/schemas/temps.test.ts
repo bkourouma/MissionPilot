@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import { aPermission, ROLES } from "../roles";
 import {
   correctionDemandeSchema,
+  feuilleCreationSchema,
+  feuillesListeQuerySchema,
   feuilleRejetSchema,
   feuilleValidationSchema,
   importTempsQuerySchema,
   ligneTempsSaisieSchema,
   moisSchema,
+  semaineQuerySchema,
   tempsParametresSchema,
 } from "./temps";
 
@@ -70,5 +73,19 @@ describe("schémas des temps", () => {
       "associe",
       "gestionnaire",
     ]);
+  });
+});
+
+describe("dates de semaine bornées (2000-2100)", () => {
+  it("refuse une date valide mais hors bornes avant la base", () => {
+    expect(semaineQuerySchema.safeParse({ semaine: "1900-01-01" }).success).toBe(false);
+    expect(semaineQuerySchema.safeParse({ semaine: "2101-01-01" }).success).toBe(false);
+    expect(feuilleCreationSchema.safeParse({ semaine: "1900-01-01" }).success).toBe(false);
+    expect(feuillesListeQuerySchema.safeParse({ semaine: "1900-01-01" }).success).toBe(false);
+  });
+  it("accepte une date dans les bornes et l'absence de date", () => {
+    expect(semaineQuerySchema.safeParse({ semaine: "2026-11-04" }).success).toBe(true);
+    expect(semaineQuerySchema.safeParse({ semaine: "2000-01-01" }).success).toBe(true);
+    expect(semaineQuerySchema.safeParse({}).success).toBe(true);
   });
 });

@@ -46,6 +46,9 @@ export const TYPES_ELEMENT_BRIEF_API = [
   "brouillon_automatisation",
   "retour_a_valider",
   "cloture_en_attente",
+  "offre_technique_a_valider",
+  "plan_a_valider",
+  "revision_budget_a_valider",
   "kpi_rouge",
   "kpi_orange_consecutif",
   "atterrissage_depasse",
@@ -54,6 +57,7 @@ export const TYPES_ELEMENT_BRIEF_API = [
   "tache_en_retard",
   "feuille_non_soumise",
   "questionnaire_sans_reponse",
+  "voyant_rouge",
   "proposition_a_envoyer",
   "facture_a_emettre",
   "facture_a_envoyer",
@@ -85,6 +89,8 @@ export const elementBriefSchema = z
     gravite: graviteBriefSchema,
     anciennete_jours: z.number().int().min(0),
     ecart_pct: z.number().optional(),
+    /** Voyant de redressement : motifs critiques en texte, sans montant. */
+    motifs: z.array(z.string().min(1).max(200)).max(5).optional(),
     montant: z.number().int().optional(),
     devise: z.string().min(1).max(8).optional(),
   })

@@ -232,3 +232,12 @@ export function validerContact(s: SaisieContact): Resultat<ContactCreation, Cham
     },
   };
 }
+
+/**
+ * Lien « Proposer un diagnostic flash » de la fiche client : la page des services candidats
+ * s'ouvre sur ce service et ce client. Paramètres encodés.
+ */
+export function cheminDiagnosticFlash(clientId: string): string {
+  const q = new URLSearchParams({ service: "diagnostic_flash", client: clientId });
+  return `/services-candidats?${q.toString()}`;
+}

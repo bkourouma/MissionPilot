@@ -20,6 +20,7 @@ import {
   chargerPreuvesMission,
 } from "../../../../../../../lib/due-diligence-serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
+import { libelleDevise } from "../../../../../../../lib/format";
 import { exigerPermission } from "../../../../../../../lib/session";
 
 export const metadata: Metadata = { title: "Marché" };
@@ -59,7 +60,7 @@ export default async function PageMarcheDd({
   return (
     <>
       <p className="mp-texte-doux">
-        {`Les montants sont exprimés en ${devise}. Chaque paramètre cite une preuve de la mission ou un avis d'expert motivé ; le moteur calcule la fourchette, la sensibilité et la couverture des sources.`}
+        {`Les montants sont exprimés en ${libelleDevise(devise)}. Chaque paramètre cite une preuve de la mission ou un avis d'expert motivé ; le moteur calcule la fourchette, la sensibilité et la couverture des sources.`}
       </p>
       {r.donnees.recoupement ? (
         <Carte titre="Recoupement des deux méthodes" niveauTitre={3}>

@@ -24,21 +24,29 @@ import {
   NIVEAUX_CONFIANCE,
   SOURCES_IMPACT,
   cheminConfiance,
+  cheminCommentaireExplication,
   cheminConstats,
   cheminExplication,
   cheminPropositionPlan,
   formaterPointsSignes,
+  AVERTISSEMENT_RECHERCHE_TRONQUEE,
   formaterRatio,
   hrefAnalyseNotation,
+  libelleEtapeCombinaison,
   lireCapacite,
   lireCible,
+  peutGenererCommentaire,
+  phraseCombinaisons,
   phraseSimulation,
+  type CombinaisonsNotation,
+  type CommentaireExplication,
   type ConfianceNotation,
   type ConstatsNotation,
   type ExplicationNotation,
   type PlanActionPropose,
 } from "../../../../../../lib/notation-augmentee";
 import { exigerLectureNotation } from "../../../../../../lib/notation-serveur";
+import { CommentaireIa } from "./CommentaireIa";
 import { EnregistrerPlan } from "./EnregistrerPlan";
 
 export const metadata: Metadata = { title: "Analyse de la notation" };
@@ -90,10 +98,11 @@ export default async function PageAnalyseNotation({
     );
   }
   const numero = choix.numero;
-  const [confiance, constats, explication, plan] = await Promise.all([
+  const [confiance, constats, explication, commentaire, plan] = await Promise.all([
     chargerServeur<ConfianceNotation>(cheminConfiance(notation.id, numero)),
     chargerServeur<ConstatsNotation>(cheminConstats(notation.id, numero)),
     chargerServeur<ExplicationNotation>(cheminExplication(notation.id, numero, cible)),
+    chargerServeur<CommentaireExplication>(cheminCommentaireExplication(notation.id, numero)),
     chargerServeur<PlanActionPropose>(cheminPropositionPlan(notation.id, numero, capacite)),
   ]);
   const reessayer = hrefAnalyseNotation(m.id, numero);
@@ -178,6 +187,24 @@ export default async function PageAnalyseNotation({
             hrefCible={(c) =>
               `${hrefAnalyseNotation(m.id, numero)}&cible=${c}&capacite=${capacite}`
             }
+          />
+        )}
+      </Carte>
+
+      <Carte titre="Commentaire de l'IA (brouillon)">
+        {!commentaire.ok ? (
+          <Alerte tonalite="info" annonce="aucune">
+            <p>{commentaire.message}</p>
+          </Alerte>
+        ) : (
+          <CommentaireIa
+            key={`${numero}/${commentaire.donnees.commentaire?.id ?? "aucun"}`}
+            notationId={notation.id}
+            numero={numero}
+            cible={cible}
+            initial={commentaire.donnees.commentaire}
+            peutGenerer={peutGenererCommentaire(utilisateur.roles, m.statut === "cloturee")}
+            utilisateur={{ id: utilisateur.id, roles: utilisateur.roles }}
           />
         )}
       </Carte>
@@ -312,6 +339,7 @@ function ExplicationNote({
       ) : (
         <p className="mp-texte-doux">Classe A atteinte : aucune simulation proposée.</p>
       )}
+      {e.combinaisons ? <CombinaisonsMinimales c={e.combinaisons} /> : null}
       <p className="mp-texte-doux mp-texte-petit">
         Simuler une autre classe :{" "}
         {LISTE_CLASSES.filter((c) => c !== "E").map((c, i) => (
@@ -323,5 +351,69 @@ function ExplicationNote({
         . Projection indicative calculée par le moteur ; elle ne crée aucune note.
       </p>
     </div>
+  );
+}
+
+/**
+ * Combinaisons MINIMALES d'améliorations (moteur exact, NOT-12) : le plus petit nombre de
+ * pratiques à relever, puis le moins de paliers. Une recherche tronquée est signalée, jamais
+ * présentée comme une impossibilité.
+ */
+function CombinaisonsMinimales({ c }: { c: CombinaisonsNotation }) {
+  return (
+    <section className="mp-notation__section" aria-label="Combinaisons minimales d'améliorations">
+      <h3>Chemin le plus court vers la classe {c.cible}</h3>
+      <p>
+        <strong>{phraseCombinaisons(c)}</strong>
+      </p>
+      {c.tronquee ? (
+        <Alerte tonalite="attention" titre="Recherche interrompue" annonce="aucune">
+          <p>{AVERTISSEMENT_RECHERCHE_TRONQUEE}</p>
+        </Alerte>
+      ) : null}
+      {c.combinaisons.length > 0 ? (
+        <>
+          <Tableau
+            legende={`Combinaisons minimales vers la classe ${c.cible} (la première est la plus économe en paliers)`}
+            cleLigne={(x) => String(x.rang)}
+            lignes={c.combinaisons.map((k, i) => ({ ...k, rang: i + 1 }))}
+            colonnes={[
+              {
+                cle: "rang",
+                entete: "Option",
+                alignement: "droite",
+                rendu: (k) => (k.rang === 1 ? "1 (recommandée)" : String(k.rang)),
+              },
+              {
+                cle: "etapes",
+                entete: "Pratiques à relever",
+                rendu: (k) => (
+                  <ul>
+                    {k.etapes.map((x) => (
+                      <li key={`${x.dimension}/${x.indicateur}`}>
+                        {x.libelle} — {libelleEtapeCombinaison(x)}
+                      </li>
+                    ))}
+                  </ul>
+                ),
+              },
+              { cle: "nombre_paliers", entete: "Paliers", alignement: "droite" },
+              {
+                cle: "score_projete",
+                entete: "Score projeté",
+                alignement: "droite",
+                rendu: (k) => `${formaterScore(k.score_projete)} (classe ${k.classe_projetee})`,
+              },
+            ]}
+          />
+          <p className="mp-texte-doux mp-texte-petit">
+            {c.exhaustive
+              ? "Liste complète des combinaisons de cette taille (dans la limite demandée)."
+              : "Liste partielle."}{" "}
+            Projection indicative calculée par le moteur ; elle ne crée aucune note.
+          </p>
+        </>
+      ) : null}
+    </section>
   );
 }

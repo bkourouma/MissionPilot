@@ -3,6 +3,7 @@ import { RED_DOMAINES, RED_COLONNES_KANBAN, type RedDossierVue } from "@missionp
 import { formaterDate, formaterMontantMineur, formaterNombre } from "../../lib/format";
 import {
   hrefRedressement,
+  LIBELLE_BESOIN_FINANCEMENT,
   libelleDomaine,
   libellePremiereTension,
   libelleScore,
@@ -100,7 +101,7 @@ export function CartesSynthese({
                 </dd>
               </div>
               <div>
-                <dt>Besoin de financement</dt>
+                <dt>{LIBELLE_BESOIN_FINANCEMENT}</dt>
                 <dd className="mp-red-valeur">
                   {formaterMontantMineur(t.besoin_financement, devise)}
                 </dd>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
@@ -11,6 +10,7 @@ import {
 } from "../../lib/plan-feuille-de-route";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 
 export interface RecalageFeuilleDeRouteProps {
@@ -30,7 +30,7 @@ export function RecalageFeuilleDeRoute({
   initiatives,
   partage,
 }: RecalageFeuilleDeRouteProps) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [attente, attendre] = useAttenteRafraichissement(initiatives.join(","));
@@ -50,11 +50,11 @@ export function RecalageFeuilleDeRoute({
       });
       setSucces(messageRecalage(r, partage));
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       setErreur(messageFeuilleDeRoute(e));
-      router.refresh();
+      rafraichir();
       return false;
     }
   }

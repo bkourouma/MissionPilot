@@ -4,7 +4,11 @@ import {
   libelleAnciennete,
   libelleGravite,
   libelleMontant,
+  libelleMotifs,
   libelleNombre,
+  dateSaisieBrief,
+  hrefBrief,
+  libelleRejeuBrief,
   lienInterne,
   lireDateBrief,
   MESSAGE_BRIEF_VIDE,
@@ -74,6 +78,9 @@ describe("formats", () => {
     expect(libelleAnciennete(0)).toBe("Aujourd'hui");
     expect(libelleAnciennete(-3)).toBe("Aujourd'hui");
     expect(libelleAnciennete(Number.NaN)).toBe("Aujourd'hui");
+    // R-09 : brief rejoué à une date passée, jamais « Aujourd'hui ».
+    expect(libelleAnciennete(0, true)).toBe("Ce jour-là");
+    expect(libelleAnciennete(3, true)).toBe("Depuis 3 jours");
     expect(libelleAnciennete(1)).toBe("Depuis 1 jour");
     expect(libelleAnciennete(12)).toBe("Depuis 12 jours");
   });
@@ -107,6 +114,14 @@ describe("formats", () => {
     expect(libelleMontant({ ...element, montant: 0, devise: "XOF" })).toContain("0");
     expect(libelleMontant({ ...element, montant: 5000 })).toBeNull();
     expect(libelleMontant({ ...element, montant: 5000, devise: "GBP" })).toBeNull();
+  });
+});
+
+describe("motifs d'un voyant de redressement", () => {
+  it("texte des motifs, ou rien", () => {
+    expect(libelleMotifs(element)).toBeNull();
+    expect(libelleMotifs({ ...element, motifs: [] })).toBeNull();
+    expect(libelleMotifs({ ...element, motifs: ["Un.", "Deux."] })).toBe("Un. Deux.");
   });
 });
 
@@ -169,5 +184,19 @@ describe("requête et date de rejeu", () => {
       expect(lireDateBrief({ date: d }), String(d)).toBeUndefined();
     }
     expect(lireDateBrief({})).toBeUndefined();
+  });
+
+  it("adresse et libellé du rejeu : la date vit dans l'URL, le libellé la nomme", () => {
+    expect(hrefBrief()).toBe("/brief");
+    expect(hrefBrief("2026-10-12")).toBe("/brief?date=2026-10-12");
+    expect(libelleRejeuBrief()).toBe("Brief du jour");
+    expect(libelleRejeuBrief("2026-10-12")).toMatch(/^Brief du 12 oct\.? 2026 \(rejeu\)$/);
+  });
+
+  it("date saisie dans le sélecteur : valide et bornée (2000 à 2100), sinon refusée", () => {
+    expect(dateSaisieBrief("2026-10-12")).toBe("2026-10-12");
+    for (const d of ["1999-12-31", "2101-01-01", "2026-02-30", "", "12/10/2026"]) {
+      expect(dateSaisieBrief(d), d).toBeUndefined();
+    }
   });
 });

@@ -105,3 +105,18 @@ export async function exigerCopiloteActif(
     throw copiloteActionNonAutorisee();
   }
 }
+
+/**
+ * Les actions modifiantes sont-elles disponibles pour ce cabinet ? Vrai quand l'agent « copilote »
+ * est actif et que son niveau maximal effectif atteint N2. Ne lève jamais d'erreur : le service s'en
+ * sert pour ne PAS proposer les outils d'action (aide, catalogue du modèle) quand le cabinet limite
+ * l'agent à la lecture, et pour répondre par un message clair plutôt que par un 409 brut. La garde
+ * qui refuse réellement reste `exigerCopiloteActif(db, "action")` (proposition et confirmation).
+ */
+export async function actionsCopiloteDisponibles(db: Db): Promise<boolean> {
+  const agent = await lireAgent(db, CODE_AGENT_COPILOTE);
+  return (
+    agent.actif &&
+    rangNiveauAutonomie(agent.niveau_max) >= rangNiveauAutonomie(NIVEAU_MIN_ACTION_COPILOTE)
+  );
+}

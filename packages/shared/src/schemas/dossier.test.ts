@@ -3,9 +3,18 @@ import {
   etatDecisionSchema,
   etatFinancierExcelQuerySchema,
   etatFinancierSaisieSchema,
+  ligneEtatFinancierSchema,
   facteurValeurCreationSchema,
   faitCreationSchema,
   faitDecisionSchema,
+  groupeQuerySchema,
+  INDICATEURS_GROUPE,
+  INDICATEUR_GROUPE_LIBELLES,
+  MOTIFS_EXCLUSION_GROUPE,
+  MOTIF_DETENTION_MAX,
+  MOTIF_EXCLUSION_GROUPE_LIBELLES,
+  PARTICIPATIONS_PAR_CABINET_MAX,
+  participationCreationSchema,
   sourceDossierSchema,
   valeurFacteurConforme,
 } from "./dossier";
@@ -58,6 +67,29 @@ describe("schémas du dossier client", () => {
     expect(valeurFacteurConforme("nombre", 3)).toBe(true);
   });
 
+  it("référence d'une ligne d'état lue par OCR : ocr vrai seulement, confiance de 0 à 1000", () => {
+    const ligne = { code: "AZ", libelle: "Actif", section: "actif", montant: 1 };
+    const avec = (reference: unknown) =>
+      ligneEtatFinancierSchema.safeParse({ ...ligne, reference });
+    const ok = avec({ fichier: "scan.pdf", page: 2, ocr: true, confiance_pm: 910 });
+    expect(ok.success && ok.data.reference).toEqual({
+      fichier: "scan.pdf",
+      page: 2,
+      ocr: true,
+      confiance_pm: 910,
+    });
+    expect(avec({ fichier: "a.pdf", page: 1 }).success).toBe(true);
+    expect(avec({ page: 1, ocr: true, confiance_pm: null }).success).toBe(true);
+    expect(avec({ page: 1, confiance_pm: 0 }).success).toBe(true);
+    expect(avec({ page: 1, confiance_pm: 1000 }).success).toBe(true);
+    expect(avec({ page: 1, ocr: false }).success).toBe(false);
+    expect(avec({ page: 1, ocr: "oui" }).success).toBe(false);
+    expect(avec({ page: 1, confiance_pm: 1001 }).success).toBe(false);
+    expect(avec({ page: 1, confiance_pm: -1 }).success).toBe(false);
+    expect(avec({ page: 1, confiance_pm: 9.5 }).success).toBe(false);
+    expect(avec({ page: 1, texte: "x" }).success).toBe(false);
+  });
+
   it("état financier : bornes des lignes, requête d'import Excel", () => {
     const ligne = { code: "AZ", libelle: "Actif", section: "actif", montant: 1 };
     const etat = { exercice: 2025, date_cloture: "2025-12-31", devise: "XOF", lignes: [ligne] };
@@ -80,5 +112,74 @@ describe("schémas du dossier client", () => {
         devise: "XOF",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("schémas des groupes et filiales (DOS-05)", () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const b = "22222222-2222-4222-8222-222222222222";
+  const base = { detenteur_id: a, filiale_id: b, points_base: 6000, date_effet: "2026-01-01" };
+
+  it("participation valide, bornes 0 et 10 000", () => {
+    expect(participationCreationSchema.parse(base).points_base).toBe(6000);
+    expect(participationCreationSchema.safeParse({ ...base, points_base: 10_000 }).success).toBe(
+      true,
+    );
+    expect(participationCreationSchema.safeParse({ ...base, points_base: 10_001 }).success).toBe(
+      false,
+    );
+    expect(participationCreationSchema.safeParse({ ...base, points_base: -1 }).success).toBe(false);
+    expect(participationCreationSchema.safeParse({ ...base, points_base: 50.5 }).success).toBe(
+      false,
+    );
+  });
+
+  it("motif obligatoire pour une fin de détention, borné à 500", () => {
+    expect(participationCreationSchema.safeParse({ ...base, points_base: 0 }).success).toBe(false);
+    expect(
+      participationCreationSchema.safeParse({ ...base, points_base: 0, motif: "Cession" }).success,
+    ).toBe(true);
+    expect(participationCreationSchema.safeParse({ ...base, motif: "x".repeat(501) }).success).toBe(
+      false,
+    );
+    expect(participationCreationSchema.safeParse({ ...base, motif: "x".repeat(500) }).success).toBe(
+      true,
+    );
+  });
+
+  it("refuse l'auto-détention, les champs inconnus et les dates hors bornes", () => {
+    expect(participationCreationSchema.safeParse({ ...base, filiale_id: a }).success).toBe(false);
+    expect(participationCreationSchema.safeParse({ ...base, extra: 1 }).success).toBe(false);
+    expect(
+      participationCreationSchema.safeParse({ ...base, date_effet: "1999-12-31" }).success,
+    ).toBe(false);
+    expect(participationCreationSchema.safeParse({ ...base, detenteur_id: "x" }).success).toBe(
+      false,
+    );
+  });
+
+  it("requête de groupe : défauts, coercition et bornes", () => {
+    expect(groupeQuerySchema.parse({}).vue).toBe("tete");
+    expect(
+      groupeQuerySchema.parse({ exercice: "2025", vue: "client", date: "2026-03-01" }),
+    ).toEqual({
+      exercice: 2025,
+      vue: "client",
+      date: "2026-03-01",
+    });
+    expect(groupeQuerySchema.safeParse({ exercice: 1989 }).success).toBe(false);
+    expect(groupeQuerySchema.safeParse({ exercice: 2101 }).success).toBe(false);
+    expect(groupeQuerySchema.safeParse({ vue: "autre" }).success).toBe(false);
+    expect(groupeQuerySchema.safeParse({ inconnu: 1 }).success).toBe(false);
+  });
+
+  it("libellés français complets", () => {
+    for (const c of INDICATEURS_GROUPE) expect(INDICATEUR_GROUPE_LIBELLES[c]).toBeTruthy();
+    for (const m of MOTIFS_EXCLUSION_GROUPE) {
+      expect(MOTIF_EXCLUSION_GROUPE_LIBELLES[m]).toBeTruthy();
+    }
+    expect(MOTIF_EXCLUSION_GROUPE_LIBELLES.NON_VISIBLE).toBe("Dossier non visible avec vos droits");
+    expect(PARTICIPATIONS_PAR_CABINET_MAX).toBe(5000);
+    expect(MOTIF_DETENTION_MAX).toBe(500);
   });
 });

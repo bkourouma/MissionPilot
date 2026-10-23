@@ -1,0 +1,436 @@
+{
+  "version": 1,
+  "generePar": "apps/api/test/fixtures/ocr/generer.mjs",
+  "note": "Textes inventés. Les montants sont des entiers (unité monétaire), séparateur de milliers : espace (fra) ou virgule (eng).",
+  "fichiers": [
+    {
+      "nom": "etat-net.jpg",
+      "role": "Scan propre, cas nominal (français).",
+      "langue": "fra",
+      "format": "jpeg",
+      "largeur": 1654,
+      "hauteur": 2339,
+      "dpi": 200,
+      "octets": 108555,
+      "verite_stricte": true,
+      "entete": "ENTREPRISE EXEMPLE SA - Exercice clos le 31 décembre 2025",
+      "lignes": [
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AD",
+          "libelle": "Immobilisations incorporelles",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AE",
+          "libelle": "Immobilisations corporelles",
+          "montant": 8750000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AF",
+          "libelle": "Stocks et en-cours",
+          "montant": 2300000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AG",
+          "libelle": "Créances clients",
+          "montant": 3100000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AH",
+          "libelle": "Trésorerie",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "BZ",
+          "libelle": "Total actif",
+          "montant": 16550000,
+          "role": "total"
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CA",
+          "libelle": "Capital",
+          "montant": 10000000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CB",
+          "libelle": "Réserves",
+          "montant": 1500000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CJ",
+          "libelle": "Résultat net de l'exercice",
+          "montant": 1050000,
+          "role": "resultat_exercice"
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DA",
+          "libelle": "Emprunts et dettes financières",
+          "montant": 2300000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DB",
+          "libelle": "Dettes fournisseurs",
+          "montant": 1700000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DZ",
+          "libelle": "Total passif",
+          "montant": 16550000,
+          "role": "total"
+        }
+      ]
+    },
+    {
+      "nom": "etat-degrade.jpg",
+      "role": "Même contenu que etat-net, dégradé façon scanner : rotation 0,6°, bruit, contraste réduit, 150 dpi, JPEG qualité 55.",
+      "langue": "fra",
+      "format": "jpeg",
+      "largeur": 1240,
+      "hauteur": 1754,
+      "dpi": 150,
+      "octets": 99567,
+      "verite_stricte": true,
+      "entete": "ENTREPRISE EXEMPLE SA - Exercice clos le 31 décembre 2025",
+      "lignes": [
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AD",
+          "libelle": "Immobilisations incorporelles",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AE",
+          "libelle": "Immobilisations corporelles",
+          "montant": 8750000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AF",
+          "libelle": "Stocks et en-cours",
+          "montant": 2300000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AG",
+          "libelle": "Créances clients",
+          "montant": 3100000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AH",
+          "libelle": "Trésorerie",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "BZ",
+          "libelle": "Total actif",
+          "montant": 16550000,
+          "role": "total"
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CA",
+          "libelle": "Capital",
+          "montant": 10000000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CB",
+          "libelle": "Réserves",
+          "montant": 1500000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CJ",
+          "libelle": "Résultat net de l'exercice",
+          "montant": 1050000,
+          "role": "resultat_exercice"
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DA",
+          "libelle": "Emprunts et dettes financières",
+          "montant": 2300000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DB",
+          "libelle": "Dettes fournisseurs",
+          "montant": 1700000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DZ",
+          "libelle": "Total passif",
+          "montant": 16550000,
+          "role": "total"
+        }
+      ]
+    },
+    {
+      "nom": "etat-anglais.jpg",
+      "role": "Petit état en anglais, pour le secours « eng ».",
+      "langue": "eng",
+      "format": "jpeg",
+      "largeur": 1240,
+      "hauteur": 1754,
+      "dpi": 150,
+      "octets": 70028,
+      "verite_stricte": true,
+      "entete": "EXAMPLE TRADING LTD - Year ended 31 December 2025",
+      "lignes": [
+        {
+          "page": 1,
+          "section": "assets",
+          "code": null,
+          "libelle": "Fixed assets",
+          "montant": 5000000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "assets",
+          "code": null,
+          "libelle": "Inventory",
+          "montant": 1500000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "assets",
+          "code": null,
+          "libelle": "Cash",
+          "montant": 500000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "assets",
+          "code": null,
+          "libelle": "Total assets",
+          "montant": 7000000,
+          "role": "total"
+        },
+        {
+          "page": 1,
+          "section": "liabilities",
+          "code": null,
+          "libelle": "Share capital",
+          "montant": 4000000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "liabilities",
+          "code": null,
+          "libelle": "Retained earnings",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "liabilities",
+          "code": null,
+          "libelle": "Net income",
+          "montant": 800000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "liabilities",
+          "code": null,
+          "libelle": "Loans",
+          "montant": 1000000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "liabilities",
+          "code": null,
+          "libelle": "Total liabilities",
+          "montant": 7000000,
+          "role": "total"
+        }
+      ]
+    },
+    {
+      "nom": "etat-confusions.jpg",
+      "role": "Cas difficile : police Georgia (chiffres elzéviriens, 0 proche de o, 1 proche de l / I), encre pâle. Pas de vérité terrain stricte.",
+      "langue": "fra",
+      "format": "jpeg",
+      "largeur": 1240,
+      "hauteur": 1754,
+      "dpi": 150,
+      "octets": 86719,
+      "verite_stricte": false,
+      "entete": "ENTREPRISE EXEMPLE SA - Exercice clos le 31 décembre 2025",
+      "lignes": [
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AD",
+          "libelle": "Immobilisations incorporelles",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AE",
+          "libelle": "Immobilisations corporelles",
+          "montant": 8750000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AF",
+          "libelle": "Stocks et en-cours",
+          "montant": 2300000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AG",
+          "libelle": "Créances clients",
+          "montant": 3100000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "AH",
+          "libelle": "Trésorerie",
+          "montant": 1200000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "actif",
+          "code": "BZ",
+          "libelle": "Total actif",
+          "montant": 16550000,
+          "role": "total"
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CA",
+          "libelle": "Capital",
+          "montant": 10000000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CB",
+          "libelle": "Réserves",
+          "montant": 1500000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "CJ",
+          "libelle": "Résultat net de l'exercice",
+          "montant": 1050000,
+          "role": "resultat_exercice"
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DA",
+          "libelle": "Emprunts et dettes financières",
+          "montant": 2300000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DB",
+          "libelle": "Dettes fournisseurs",
+          "montant": 1700000,
+          "role": null
+        },
+        {
+          "page": 1,
+          "section": "passif",
+          "code": "DZ",
+          "libelle": "Total passif",
+          "montant": 16550000,
+          "role": "total"
+        }
+      ]
+    },
+    {
+      "nom": "page-blanche.png",
+      "role": "Page blanche à grain léger : aucun texte (l'OCR doit renvoyer un texte vide ou négligeable).",
+      "langue": "fra",
+      "format": "png",
+      "largeur": 827,
+      "hauteur": 1169,
+      "dpi": 100,
+      "octets": 39034,
+      "verite_stricte": true,
+      "entete": "",
+      "lignes": []
+    }
+  ]
+}

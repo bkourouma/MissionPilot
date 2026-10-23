@@ -1,4 +1,4 @@
-import type { TacheGenerative, TacheIa } from "@missionpilot/shared";
+import type { CritereRoutageIa, TacheGenerative, TacheIa } from "@missionpilot/shared";
 import { diviserAuDessus } from "./fournisseur.js";
 
 /*
@@ -16,6 +16,11 @@ import { diviserAuDessus } from "./fournisseur.js";
  * TARIF_INCONNU, pour que le plafond mensuel reste protecteur.
  */
 
+/**
+ * Miroir en base : `modele_recommande(tache)` (migration 0276), dont dépend la garde d'activation
+ * d'un prompt (modèle routé). Changer une valeur ici exige une migration qui redéfinit cette
+ * fonction (test : agents-provenance-rejeu.test.ts).
+ */
 export const MODELES_RECOMMANDES: Readonly<Record<TacheIa, string>> = {
   // Rédaction et analyse : modèle Claude (PRD, « Décisions techniques »).
   redaction: "anthropic/claude-sonnet-4.5",
@@ -56,6 +61,62 @@ export const MAX_TOKENS_SORTIE: Readonly<Record<TacheGenerative, number>> = {
   analyse: 4_000,
   extraction: 2_000,
   classification: 500,
+};
+
+/**
+ * ROUTAGE DES MODÈLES PAR TÂCHE (AGT-06 : coût, qualité, latence). Table explicite et documentée
+ * du choix par défaut ; elle ne crée aucun comportement : le modèle appliqué reste celui que
+ * `modeleDe` (ia/parametres.ts) résout — choix du cabinet (`ia_modeles_taches`, parmi
+ * MODELES_AUTORISES), sinon MODELES_RECOMMANDES. Exposée en lecture par GET /api/ia/parametres
+ * (`routage`) avec le modèle effectivement appliqué au cabinet.
+ *
+ * - `critere` : ce qui a primé dans le choix du modèle recommandé ;
+ * - `plafondJetonsSortie` : MAX_TOKENS_SORTIE de la tâche (borne aussi le coût estimé réservé
+ *   avant chaque appel), null pour la vectorisation qui ne produit pas de texte.
+ * Le cache des réponses (ia/cache.ts) et les plafonds (couts.ts, agents/plafonds.ts) s'appliquent
+ * à toutes les tâches de la même façon.
+ */
+export interface RouteTacheIa {
+  modele: string;
+  critere: CritereRoutageIa;
+  motif: string;
+  plafondJetonsSortie: number | null;
+}
+
+export const ROUTAGE_TACHES: Readonly<Record<TacheIa, RouteTacheIa>> = {
+  redaction: {
+    modele: MODELES_RECOMMANDES.redaction,
+    critere: "qualite",
+    motif:
+      "Texte destiné, après validation, à un livrable client : la qualité de rédaction prime sur le coût.",
+    plafondJetonsSortie: MAX_TOKENS_SORTIE.redaction,
+  },
+  analyse: {
+    modele: MODELES_RECOMMANDES.analyse,
+    critere: "qualite",
+    motif:
+      "Raisonnement sur plusieurs sources et chiffres des moteurs : la qualité d'analyse prime.",
+    plafondJetonsSortie: MAX_TOKENS_SORTIE.analyse,
+  },
+  extraction: {
+    modele: MODELES_RECOMMANDES.extraction,
+    critere: "cout",
+    motif:
+      "Lecture structurée de documents parfois longs : un modèle léger suffit et réduit le coût.",
+    plafondJetonsSortie: MAX_TOKENS_SORTIE.extraction,
+  },
+  classification: {
+    modele: MODELES_RECOMMANDES.classification,
+    critere: "latence",
+    motif: "Réponse courte et fréquente : un modèle rapide et économique.",
+    plafondJetonsSortie: MAX_TOKENS_SORTIE.classification,
+  },
+  embedding: {
+    modele: MODELES_RECOMMANDES.embedding,
+    critere: "cout",
+    motif: "Vectorisation pour la recherche sémantique : modèle dédié, très bon marché.",
+    plafondJetonsSortie: null,
+  },
 };
 
 /** Plafond mensuel de départ d'un cabinet : 50 USD (à valider par le métier). */

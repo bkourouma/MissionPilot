@@ -10,6 +10,7 @@ import {
   kpisQuiDerivent,
   questionnairesSansReponse,
   tachesEnRetard,
+  voyantsRedressementRouges,
 } from "./derives.js";
 import {
   cloturesEnAttente,
@@ -19,6 +20,7 @@ import {
   feuillesAValider,
   propositionsAValider,
   retoursAValider,
+  revisionsBudgetAValider,
 } from "./decisions.js";
 import {
   demandesSalleAEnvoyer,
@@ -34,13 +36,20 @@ import {
   livrablesARelire,
   livrablesASigner,
   notationsAPublier,
+  offresTechniquesAValider,
   piecesAExaminer,
+  plansAValider,
 } from "./validations.js";
 
 /*
  * Brief quotidien d'un utilisateur (AUT-07) : calcul DÉTERMINISTE, aucun appel IA. Chaque source
  * est consultée dans les droits de l'utilisateur ; le moteur du brief compose le résultat. Les
  * sources sont lues l'une après l'autre : une transaction ne porte qu'une requête à la fois.
+ *
+ * 31 types d'éléments (À décider 16, Ça dérive 9, Prêt à envoyer 6) pour 30 sources. Source encore
+ * ÉCARTÉE : les rapports « validés non diffusés ». `rapports_mission` est en ajout seul, son statut
+ * « valide » est fixé à la génération, et aucun envoi, partage du portail ni signature ne le
+ * référence : rien ne distingue un rapport validé d'un rapport diffusé.
  */
 
 /** Sources dans l'ordre de lecture ; l'ordre du résultat est celui du moteur, pas celui-ci. */
@@ -59,6 +68,9 @@ export const EXTRACTEURS_BRIEF: readonly Extracteur[] = [
   brouillonsAutomatisation,
   retoursAValider,
   cloturesEnAttente,
+  offresTechniquesAValider,
+  plansAValider,
+  revisionsBudgetAValider,
   // Ça dérive
   kpisQuiDerivent,
   atterrissagesDepasses,
@@ -67,6 +79,7 @@ export const EXTRACTEURS_BRIEF: readonly Extracteur[] = [
   tachesEnRetard,
   feuillesNonSoumises,
   questionnairesSansReponse,
+  voyantsRedressementRouges,
   // Prêt à envoyer
   propositionsAEnvoyer,
   facturesAEmettre,

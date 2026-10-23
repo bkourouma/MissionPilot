@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { etatNotationChange } from "../../lib/notation";
@@ -42,6 +43,7 @@ function useRetour() {
 /** Nouvelle version (brouillon) d'une grille, à partir de sa dernière version. */
 export function NouvelleVersionGrille({ grilleId }: { grilleId: string }) {
   const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const r = useRetour();
   async function creer() {
     r.setErreur(null);
@@ -52,7 +54,7 @@ export function NouvelleVersionGrille({ grilleId }: { grilleId: string }) {
       return true;
     } catch (e) {
       r.setErreur(messageGrille(e));
-      if (etatNotationChange(e)) router.refresh();
+      if (etatNotationChange(e)) rafraichir();
       return false;
     }
   }
@@ -87,7 +89,7 @@ export function ValiderVersionGrille({
   /** Les sommes de la version ENREGISTRÉE font 100 (sinon simple avertissement). */
   sommesConformes: boolean;
 }) {
-  const router = useRouter();
+  const { rafraichir } = useRafraichir();
   const r = useRetour();
   const [attente, attendre] = useAttenteRafraichissement(statut);
   async function valider() {
@@ -97,11 +99,11 @@ export function ValiderVersionGrille({
       await api.post(cheminValiderVersion(versionId));
       r.setSucces(`Version ${numero} validée : elle est figée et peut servir au calcul.`);
       attendre();
-      router.refresh();
+      rafraichir();
       return true;
     } catch (e) {
       r.setErreur(messageGrille(e));
-      if (etatNotationChange(e)) router.refresh();
+      if (etatNotationChange(e)) rafraichir();
       return false;
     }
   }

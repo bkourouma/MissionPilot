@@ -1,0 +1,147 @@
+/* Tableau de bord du redressement (RED-15, interne) : écran et feuille d'impression. */
+
+.mp-tdb-voyant {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-tdb-voyant-grand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-3);
+  font-size: var(--mp-taille-l);
+  font-weight: 650;
+}
+
+.mp-tdb-motifs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-tdb-motif {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+
+.mp-tdb-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mp-esp-4);
+}
+
+@media (min-width: 900px) {
+  .mp-tdb-grille {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mp-tdb-bloc {
+  break-inside: avoid;
+}
+
+.mp-tdb-liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  margin: 0;
+}
+
+.mp-tdb-liste__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  border-bottom: 1px solid var(--mp-bordure);
+  padding-bottom: var(--mp-esp-2);
+}
+
+.mp-tdb-liste dt {
+  color: var(--mp-texte-doux, inherit);
+}
+
+.mp-tdb-liste dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.mp-tdb-synthese {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-tdb-synthese__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-tdb-synthese__nombre {
+  font-weight: 700;
+}
+
+.mp-tdb-indic {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--mp-taille-s, 0.875rem);
+}
+
+.mp-tdb-entete-impression {
+  display: none;
+}
+
+@media print {
+  /* Seul le contenu du tableau est imprimé : ni navigation, ni boutons, ni liens d'action. */
+  .mp-tdb-hors-impression,
+  nav,
+  aside,
+  header[role="banner"],
+  [role="tablist"] {
+    display: none !important;
+  }
+
+  .mp-tdb-entete-impression {
+    display: block;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .mp-tdb-grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mp-tdb-bloc,
+  .mp-carte {
+    border: 1px solid #000;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}

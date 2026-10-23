@@ -140,3 +140,50 @@
   margin: 0;
   padding-left: var(--mp-esp-4);
 }
+
+/* ---------- Citations des livrables (PRV-06) ---------- */
+.mp-citations-assertions,
+.mp-citations-sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-citation-assertion,
+.mp-citation-source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+  padding: var(--mp-esp-3) var(--mp-esp-4);
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+  overflow-wrap: anywhere;
+}
+
+.mp-citation-assertion p,
+.mp-citation-source p {
+  margin: 0;
+}
+
+.mp-citation-source:target {
+  outline: 2px solid var(--mp-bordure);
+  outline-offset: 2px;
+}
+
+.mp-citations-sous-titre {
+  margin: 0 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-m);
+}
+
+.mp-citation-renvois {
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-citation-ancre {
+  font-size: var(--mp-taille-s);
+}

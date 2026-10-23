@@ -151,13 +151,22 @@ interface NoteResume {
   nb_conditions: number;
 }
 
-/** Dernière note d'un dossier (la plus récente), avec l'état de sa dernière version. */
+/**
+ * Dernière note d'un dossier (la plus récente), avec l'état de sa dernière version. La version reste
+ * `soumise` en base une fois jugée (0507) : la décision vit dans `dd_note_validations`, comme pour
+ * `etatDeNote` (notes.ts). `validee` et `rejetee` en sont déduits ici, sans quoi la synthèse
+ * afficherait « en attente » pour une note validée (R-03).
+ */
 export async function derniereNote(db: Db, dossierId: string): Promise<NoteResume | null> {
   const r = await db.query(
-    `SELECT n.id, n.titre, v.version, v.etat, v.recommandation, cardinality(v.conditions) AS nb
+    `SELECT n.id, n.titre, v.version, v.recommandation, cardinality(v.conditions) AS nb,
+       CASE WHEN v.etat = 'soumise' AND x.decision = 'valide' THEN 'validee'
+            WHEN v.etat = 'soumise' AND x.decision = 'rejete' THEN 'rejetee'
+            ELSE v.etat END AS etat
      FROM dd_notes n
        JOIN LATERAL (SELECT * FROM dd_note_versions nv WHERE nv.note_id = n.id
                      ORDER BY nv.version DESC LIMIT 1) v ON true
+       LEFT JOIN dd_note_validations x ON x.note_version_id = v.id
      WHERE n.dossier_id = $1 ORDER BY n.numero DESC LIMIT 1`,
     [dossierId],
   );

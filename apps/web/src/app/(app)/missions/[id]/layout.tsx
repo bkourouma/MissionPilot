@@ -16,7 +16,7 @@ import { exigerPermission } from "../../../../lib/session";
 
 /**
  * En-tête commun d'une mission et onglets Fiche / Découpage / Planning / Affectations /
- * Documents / Rapports / KPI / Redressement / Due diligence / Suivi / Budget / Débours / Facturation
+ * Documents / Rapports / KPI / Redressement / Due diligence / Avancement (rapport hebdomadaire) / Suivi / Budget / Débours / Facturation
  * (selon les droits), les onglets « Signatures » et « Transcriptions » des canaux simulés
  * (`ongletsMissionCanaux`), plus deux
  * onglets qui mènent hors de la rubrique : « Méthode » (référentiel, `standard.lire`, page
@@ -75,6 +75,9 @@ export default async function LayoutMission({
       : []),
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: `${base}/kpi` }]
+      : []),
+    ...(aPermission(utilisateur.roles, "avancement.lire")
+      ? [{ id: "avancement", libelle: "Avancement", href: `${base}/avancement` }]
       : []),
     ...(aPermission(utilisateur.roles, "redressement.lire")
       ? [{ id: "redressement", libelle: "Redressement", href: `${base}/redressement` }]
