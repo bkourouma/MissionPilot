@@ -1,9 +1,9 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { ROLES, ROLES_CLIENT, type Role } from "@missionpilot/shared";
+import { estUtilisateurPortail, ROLES, ROLES_CLIENT, type Role } from "@missionpilot/shared";
 import { journaliser } from "../audit.js";
 import { serviceIdentite, tropDeTentatives } from "../auth/confirmer-identite.js";
-import { lireEtat } from "../auth/double-authentification.js";
+import { lireEtat, rolesObligatoires } from "../auth/double-authentification.js";
 import { creerLimiteur } from "../auth/limiteur.js";
 import { creerSession, poserCookieSession } from "../auth/ouvrir-session.js";
 import { hacherJeton, nouveauJeton } from "../auth/session.js";
@@ -12,6 +12,7 @@ import {
   demoConnexionActive,
   demoPubliqueHorsLocal,
 } from "../config.js";
+import type { Config } from "../config.js";
 import type { Database } from "../db/pool.js";
 import { AppError } from "../errors.js";
 import { poserCookiePlateforme } from "../plateforme/session.js";
@@ -30,7 +31,9 @@ import { sansCache } from "./auth.js";
  *   (migration 0580) : cabinets et super admins marqués démo PAR LE SQL propriétaire, actifs,
  *   comptes actifs de famille de rôles pure. L'API n'ajoute aucun filtre, ne pose jamais
  *   `est_demo` et n'a aucun autre accès à ces comptes.
- * - GET /demo : liste publique, sans cache. Le seul identifiant exposé est celui du cabinet
+ * - GET /demo : liste publique, sans cache, sans les comptes que la 2FA rendrait inconnectables
+ *   (2FA active ou obligatoire : base 0583, plancher TOTP_REQUIS : ici) ; ils restent refusés
+ *   en 403 si on les demande. Le seul identifiant exposé est celui du cabinet
  *   (aucun identifiant d'utilisateur, de client ni haché).
  * - POST /demo/connexion : limiteur de l'espace `connexion` réservé AVANT tout travail (même
  *   compteur que la connexion par mot de passe), 401 uniforme pour tout compte hors liste
@@ -112,12 +115,25 @@ function grouperParCabinet(lignes: readonly LigneCompte[]): CabinetListe[] {
   return cabinets.sort((a, b) => a.nom.localeCompare(b.nom, "fr") || a.id.localeCompare(b.id));
 }
 
-async function lireListe(database: Database) {
+/**
+ * Plancher plateforme (TOTP_REQUIS=oui) : la 2FA devient obligatoire pour les rôles sensibles du
+ * cabinet. La base écarte déjà la 2FA active et la politique du cabinet (0583) ; ce plancher est
+ * une variable de l'API, donc écarté ici, comme le fait `lireEtat` à la connexion.
+ */
+function sansTfaPlancher(lignes: LigneCompte[], config: Config): LigneCompte[] {
+  const obligatoires = rolesObligatoires([], config);
+  if (obligatoires.length === 0) return lignes;
+  return lignes.filter(
+    (l) => estUtilisateurPortail(l.roles) || !l.roles.some((r) => obligatoires.includes(r)),
+  );
+}
+
+async function lireListe(database: Database, config: Config) {
   return database.withoutTenant(async (db) => {
     const comptes = await db.query("SELECT * FROM demo_lister_comptes()");
     const admins = await db.query("SELECT * FROM demo_lister_super_admins()");
     return {
-      comptes: comptes.rows as LigneCompte[],
+      comptes: sansTfaPlancher(comptes.rows as LigneCompte[], config),
       superAdmin: admins.rows[0] as { email: string; nom: string } | undefined,
     };
   });
@@ -146,7 +162,7 @@ export const routesConnexionDemoPublique: FastifyPluginAsync = async (app) => {
   const limiteur = creerLimiteur(app.db, "connexion", serviceIdentite(app).trousseau);
 
   app.get("/demo", async (_request, reply) => {
-    const { comptes, superAdmin } = await lireListe(app.db);
+    const { comptes, superAdmin } = await lireListe(app.db, app.config);
     sansCache(reply);
     return {
       actif: true,
