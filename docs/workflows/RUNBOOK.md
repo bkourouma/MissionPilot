@@ -3,7 +3,7 @@
 Lancer, configurer et dépanner le projet. En cas de désaccord avec
 [AGENTS.md](../../AGENTS.md), AGENTS.md prime.
 
-Mis à jour le 2026-10-22 (lot 9f : OCR local du lot 11, Node 22.13 minimum, mises à jour de sécurité du lot 12).
+Mis à jour le 2026-10-23 (lot 9g : réveil du worker de jobs et débloqueur de rendu des lots 13a et 13b), après le 2026-10-22 (lot 9f : OCR local du lot 11, Node 22.13 minimum, mises à jour de sécurité du lot 12).
 
 ## Prérequis
 
@@ -411,6 +411,14 @@ La planification quotidienne passe par `planifier_ingestion_maintenance` (migrat
 planificateur du worker (`apps/api/src/jobs/planificateur.ts`) ; les types sont déclarés dans
 `apps/api/src/jobs/registre.ts`. `JOBS_WORKER=inactif` coupe aussi ces trois jobs : aucun document n'avance.
 
+**Réveil du worker (lot 13b, R-08).** Le worker ne laisse plus passer son intervalle normal (30 s) avant de traiter un
+document importé : la création du document (et la relance d'une ingestion de due diligence ou du standard) émet, APRÈS le
+COMMIT, un signal en mémoire (`apps/api/src/jobs/reveil.ts`) qui avance le prochain cycle à 400 ms ; un cycle utile est
+suivi d'un cycle à 1 s (extraction puis structuration), un cycle déclenché par signal qui revient vide est suivi d'un seul
+rattrapage à 2 s, puis le worker retombe à 30 s. Le signal est local au processus : un worker lancé dans un autre
+processus que l'API, ou une API sans worker (tests), garde l'intervalle de 30 s. Un document qui met 30 s à démarrer
+alors qu'un worker tourne dans l'API est donc anormal : vérifier `JOBS_WORKER`, puis les journaux de l'API.
+
 ### OCR local
 
 L'OCR (`tesseract.js` 7.0.0, WebAssembly) tourne **sur le serveur**, hors ligne, dans un sous-processus Node
@@ -625,6 +633,14 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   ou plus (`node -v` pour vérifier), puis relancer `pnpm install`. Les PDF exigent
   Node ≥ 22 (`unpdf` 1.8.1), l'OCR Node ≥ 22.13 (modèle de permissions) ; la surveillance
   mémoire complète du worker d'import exige Node ≥ 22.16, sinon seule la surveillance du RSS joue.
+- **L'écran ne se met plus à jour après une écriture, ou un lien du menu reste sans effet pendant plusieurs secondes**
+  (A-04, R-01, R-02) : défaut du React embarqué par Next 15.5.28 (réveil perdu sous une frontière `Suspense`),
+  contourné par le composant `DebloqueurRendu`, monté dans `apps/web/src/app/layout.tsx`. Si le symptôme revient
+  (typiquement après une montée de `next` ou de `react`) : vérifier que le composant est toujours monté
+  (`rg -n "DebloqueurRendu" apps/web/src/app/layout.tsx` rend 2 lignes), puis refaire une écriture sur un onglet au premier
+  plan avec un build de production (`pnpm --filter @missionpilot/web build`, puis `start`) : la donnée doit apparaître
+  en moins d'une seconde. Ne pas ajouter de minuterie ni de rechargement pour « forcer » l'affichage. Le diagnostic et
+  la cause sont dans `docs/workflows/notes-lots/lot-13a.md` ; le composant est à revoir à chaque montée de Next ou de React.
 - **Port occupé** (`EADDRINUSE` sur 4100 ou 3100 ; PostgreSQL : le conteneur ne
   démarre pas sur 55440) : une ancienne instance tourne encore. Identifier le
   processus (`netstat -ano | findstr :4100` sous Windows), l'arrêter, relancer.

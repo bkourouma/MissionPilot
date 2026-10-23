@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-23 (lot 9g).
+
 # Lot 13b : corrections de la recette finale du 2026-10-23
 
 Anomalies R-03 à R-09, A-05 et A-09 résiduelles (`docs/recette/2026-10-23-recette-finale.md`). Les

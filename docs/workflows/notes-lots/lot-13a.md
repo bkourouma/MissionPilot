@@ -1,3 +1,5 @@
+Reporté dans la documentation le 2026-10-23 (lot 9g).
+
 # Lot 13a : cause racine des écrans périmés après écriture (A-04, R-01) et des liens sans effet (R-02)
 
 Anomalies de la recette finale du 2026-10-23 (`docs/recette/2026-10-23-recette-finale.md`, R-01 et
