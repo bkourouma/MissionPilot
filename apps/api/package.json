@@ -13,7 +13,9 @@
     "db:seed-demo": "tsx src/db/seed-demo.ts",
     "db:seed-demo-portail": "tsx src/db/seed-demo-portail.ts",
     "db:seed-demo-2fa": "tsx src/db/seed-demo-2fa.ts",
-    "db:code-2fa-demo": "tsx src/db/seed-demo-2fa.ts --code"
+    "db:code-2fa-demo": "tsx src/db/seed-demo-2fa.ts --code",
+    "db:seed-defaut": "tsx src/db/seed-defaut.ts",
+    "db:creer-super-admin": "tsx src/db/creer-super-admin.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",

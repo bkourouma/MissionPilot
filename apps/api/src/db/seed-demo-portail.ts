@@ -5,16 +5,18 @@ import { ajouterJours } from "@missionpilot/engines";
 import { buildApp } from "../app.js";
 import { hacherJeton, nouveauJeton } from "../auth/session.js";
 import { dossierStockage, type Config } from "../config.js";
-import { createDatabase, type Database } from "./pool.js";
+import type { Database } from "./pool.js";
 import {
   attendre,
   aujourdhuiISO,
   configDemo,
   construireMission,
+  demoPubliqueConfirmee,
   emailAbidjan,
   lundi,
   MOT_DE_PASSE_DEMO_ABIDJAN,
   NOM_CABINET_ABIDJAN,
+  ouvrirBaseDemo,
   ouvrirSession,
   signerEtDemarrer,
   type Session,
@@ -591,15 +593,62 @@ export async function semerPortailDemo(
   }
 }
 
+/**
+ * Ajoute un compte du portail pour chaque rôle client donné (filet de `db:seed-defaut` : tous
+ * les rôles client doivent avoir un compte actif). Mêmes routes que le seed : invitation puis
+ * acceptation, rattaché au client de démonstration, mot de passe commun de démonstration.
+ * Renvoie les adresses créées. Refuse si le cabinet ou le client de démonstration manque.
+ */
+export async function completerRolesClientDemo(
+  database: Database,
+  config: Config,
+  roles: readonly ComptePortail["role"][],
+): Promise<string[]> {
+  if (roles.length === 0) return [];
+  const stockage = dossierStockage({ NODE_ENV: config.NODE_ENV, STORAGE_DIR: config.STORAGE_DIR });
+  const app = await buildApp(
+    { ...config, NODE_ENV: "test", TOTP_REQUIS: "non", STORAGE_DIR: stockage },
+    database,
+  );
+  try {
+    const associe = await session(app, emailAbidjan("associe"));
+    const cabinetId = (
+      await app.inject({
+        method: "GET",
+        url: "/api/auth/moi",
+        headers: { cookie: associe.cookie },
+      })
+    ).json().cabinet_id as string;
+    const { clientId } = await trouverClientEtCloturee(associe);
+    const creees: string[] = [];
+    for (const role of roles) {
+      const modele = COMPTES_PORTAIL.find((c) => c.role === role) as ComptePortail;
+      const compte: ComptePortail = {
+        ...modele,
+        cle: `${modele.cle}.complement`,
+        nom: `${modele.nom} (complément)`,
+      };
+      await inviterEtAccepter(app, database, cabinetId, associe, clientId, compte);
+      creees.push(emailAbidjan(compte.cle));
+    }
+    return creees;
+  } finally {
+    await app.close();
+  }
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   let config: Config;
   try {
-    config = configDemo();
+    config = configDemo(process.env, process.argv.slice(2));
   } catch (error) {
     console.error((error as Error).message);
     process.exit(1);
   }
-  const database = createDatabase(config);
+  const database = ouvrirBaseDemo(
+    config,
+    demoPubliqueConfirmee(process.env, process.argv.slice(2)),
+  );
   semerPortailDemo(database, config)
     .then((r) => {
       if (!r) {
