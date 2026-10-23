@@ -8,7 +8,7 @@ import type { Auth } from "../auth/contexte.js";
 import { hashPassword } from "../auth/password.js";
 import { baseLocale, estLocal, loadConfig, type Config } from "../config.js";
 import { emettre, lireFacture } from "../facturation/factures.js";
-import { createDatabase, type Database } from "./pool.js";
+import { createDatabase, type Database, type Db } from "./pool.js";
 import type { ResumePortail } from "./seed-demo-portail.js";
 
 /*
@@ -214,12 +214,46 @@ function lignesSemaine(
   return lignes;
 }
 
-/* ----- Garde : base locale, hors production ----- */
+/* ----- Garde : base locale, hors production (sauf démonstration publique confirmée) ----- */
 
-/** Refuse net toute exécution hors machine locale ; renvoie la configuration validée. */
-export function configDemo(env: NodeJS.ProcessEnv = process.env): Config {
+/** Option de ligne de commande qui confirme la démonstration publique (avec DEMO_PUBLIQUE=oui). */
+export const OPTION_CONFIRMER_DEMO = "--confirmer-demo";
+
+/**
+ * Vrai si la démonstration publique est demandée ET confirmée : variable DEMO_PUBLIQUE=oui dans
+ * l'environnement ET option `--confirmer-demo` sur la ligne de commande. L'une sans l'autre ne
+ * change rien (comportement par défaut : développement local seulement).
+ */
+export function demoPubliqueConfirmee(env: NodeJS.ProcessEnv, argv: readonly string[]): boolean {
+  return env.DEMO_PUBLIQUE === "oui" && argv.includes(OPTION_CONFIRMER_DEMO);
+}
+
+/**
+ * Refuse net toute exécution hors machine locale ; renvoie la configuration validée.
+ *
+ * Par défaut : NODE_ENV local, bases locales, SMTP_HOST absent. Seule exception : démonstration
+ * publique confirmée (`demoPubliqueConfirmee`), pour le serveur de démonstration. La
+ * configuration complète du serveur est alors validée telle quelle (`loadConfig`), puis tout
+ * paramètre SMTP est RETIRÉ de la configuration rendue : aucun transport SMTP n'est créé par les
+ * seeds (ils montent en outre l'application en NODE_ENV=test, transport muet).
+ *
+ * Le mode public n'est examiné que si l'appelant passe explicitement `argv` (seuls
+ * `seed-defaut.ts`, `seed-demo.ts` et `seed-demo-portail.ts` le font, avec
+ * `neutraliserEnvois`) : les autres seeds, appelés sans `argv`, restent strictement locaux.
+ */
+export function configDemo(env: NodeJS.ProcessEnv = process.env, argv?: readonly string[]): Config {
+  if (argv && demoPubliqueConfirmee(env, argv)) {
+    const config = { ...loadConfig(env) };
+    delete config.SMTP_HOST;
+    delete config.SMTP_USER;
+    delete config.SMTP_PASS;
+    return config;
+  }
   if (env.NODE_ENV === "production" || !estLocal(env.NODE_ENV)) {
-    throw new Error("Le seed de démonstration est interdit hors développement (NODE_ENV).");
+    throw new Error(
+      "Le seed de démonstration est interdit hors développement (NODE_ENV). Sur un serveur de " +
+        `démonstration publique seulement : DEMO_PUBLIQUE=oui et l'option ${OPTION_CONFIRMER_DEMO}.`,
+    );
   }
   if (!baseLocale(env.DATABASE_URL) || !baseLocale(env.DATABASE_OWNER_URL)) {
     throw new Error(
@@ -233,6 +267,37 @@ export function configDemo(env: NodeJS.ProcessEnv = process.env): Config {
     );
   }
   return loadConfig(env);
+}
+
+/**
+ * Enveloppe de base pour la démonstration PUBLIQUE : tout job « en_attente » créé par une
+ * transaction du seed (tous types, sans exception) est passé en « echec » (charge effacée) AVANT la validation de cette
+ * transaction. Les e-mails passent par la file de tâches (job « envoyer_email », charge
+ * chiffrée) et le worker du serveur les enverrait par le vrai SMTP à des adresses en `.test` :
+ * en neutralisant dans la même transaction, le worker ne les voit jamais (`cree_le = now()`
+ * désigne exactement les jobs créés par la transaction courante).
+ */
+export function neutraliserEnvois(database: Database): Database {
+  const neutraliser = async <T>(db: Db, resultat: T): Promise<T> => {
+    await db.query(
+      `UPDATE jobs SET statut = 'echec', charge = '{}'::jsonb,
+         erreur = 'Neutralisé : seed de démonstration publique.'
+       WHERE statut = 'en_attente' AND cree_le = now()`,
+    );
+    return resultat;
+  };
+  return {
+    withTenant: (cabinetId, fn) =>
+      database.withTenant(cabinetId, async (db) => neutraliser(db, await fn(db))),
+    withoutTenant: (fn) => database.withoutTenant(async (db) => neutraliser(db, await fn(db))),
+    close: () => database.close(),
+  };
+}
+
+/** Base du seed : celle de la configuration, enveloppée par `neutraliserEnvois` en mode public. */
+export function ouvrirBaseDemo(config: Config, publique: boolean): Database {
+  const base = createDatabase(config);
+  return publique ? neutraliserEnvois(base) : base;
 }
 
 /* ----- Semis ----- */
@@ -899,12 +964,15 @@ export async function semerDemoAbidjan(
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   let config: Config;
   try {
-    config = configDemo();
+    config = configDemo(process.env, process.argv.slice(2));
   } catch (error) {
     console.error((error as Error).message);
     process.exit(1);
   }
-  const database = createDatabase(config);
+  const database = ouvrirBaseDemo(
+    config,
+    demoPubliqueConfirmee(process.env, process.argv.slice(2)),
+  );
   semerDemoAbidjan(database, config)
     .then((r) => {
       if (!r) {
