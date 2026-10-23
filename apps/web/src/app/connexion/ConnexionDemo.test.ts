@@ -7,7 +7,7 @@ import type { Demo } from "../../lib/demo-connexion";
 // La configuration Vitest du web n'active pas le runtime JSX automatique : les composants (.tsx)
 // attendent `React` global, d'où l'import dynamique après sa mise en place.
 (globalThis as { React?: unknown }).React = React;
-const { EtapeChoix, EtapeComptes, EtapeSuperAdmin } = await import("./EtapesDemo");
+const { EtapeChoix, EtapeComptes } = await import("./EtapesDemo");
 const { Alerte } = await import("../../components/ui/Alerte");
 
 const demo: Demo = {
@@ -118,27 +118,23 @@ describe("EtapeComptes", () => {
   });
 });
 
-describe("EtapeSuperAdmin", () => {
-  const rendre = (enCours = false) =>
-    renderToStaticMarkup(
-      createElement(EtapeSuperAdmin, { superAdmin: demo.superAdmin!, occupe: enCours, enCours }),
-    );
-
-  it("confirmation à un clic", () => {
-    const html = rendre();
-    expect(html).toContain("Se connecter en tant que Awa Plateforme ?");
-    expect(html).toContain("Se connecter");
-    expect(html).toContain("Retour");
-    expect(html).toContain('tabindex="-1"');
-    expect(html).not.toContain("aria-busy");
+describe("EtapeChoix : connexion directe du super administrateur", () => {
+  it("la carte est un bouton qui connecte (plus d'étape de confirmation)", () => {
+    const html = choix(demo);
+    expect(html).not.toContain("Se connecter en tant que");
+    expect(html).not.toContain('id="titre-demo-super-admin"');
   });
 
-  it("en cours : indicateur, bouton actif non retiré du focus, Retour désactivé", () => {
-    const html = rendre(true);
+  it("en cours : indicateur, texte et aria-busy sur la carte, elle reste focalisable, les autres sont désactivées", () => {
+    const html = renderToStaticMarkup(
+      createElement(EtapeChoix, { demo, occupe: true, ouverture: { type: "super_admin" } }),
+    );
     expect(html).toContain("Connexion en cours…");
-    expect(html).toContain('aria-busy="true"');
-    expect(compter(html, /disabled=""/g)).toBe(1);
-    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain("mp-bouton__indicateur");
+    expect(compter(html, /aria-busy="true"/g)).toBe(1);
+    expect(compter(html, /aria-disabled="true"/g)).toBe(1);
+    expect(compter(html, /disabled=""/g)).toBe(2);
+    expect(html).not.toContain("Créer des cabinets et gérer leurs comptes");
   });
 });
 

@@ -8,7 +8,6 @@ import {
   type Demo,
   type DemoCabinet,
   type DemoCompte,
-  type DemoSuperAdmin,
 } from "../../lib/demo-connexion";
 
 /**
@@ -40,6 +39,7 @@ function TitreEtape({
 export function EtapeChoix({
   demo,
   occupe,
+  ouverture = null,
   refTitre,
   enregistrerCarte,
   surCabinet,
@@ -47,6 +47,8 @@ export function EtapeChoix({
 }: {
   demo: Demo;
   occupe: boolean;
+  /** Ouverture de session en cours (la carte « Super administrateur » affiche le chargement). */
+  ouverture?: OuvertureDemo;
   refTitre?: Ref<HTMLHeadingElement>;
   /** Mémorise le bouton d'une carte (clé : `CLE_SUPER_ADMIN_DEMO` ou id du cabinet). */
   enregistrerCarte?: (cle: string, element: HTMLButtonElement | null) => void;
@@ -54,6 +56,7 @@ export function EtapeChoix({
   surSuperAdmin?: () => void;
 }) {
   const vide = demo.superAdmin === null && demo.cabinets.length === 0;
+  const superAdminEnCours = ouverture?.type === "super_admin";
   return (
     <div className="mp-demo__etape" aria-labelledby="titre-demo-choix" role="group">
       <TitreEtape id="titre-demo-choix" refTitre={refTitre}>
@@ -72,13 +75,24 @@ export function EtapeChoix({
                 type="button"
                 ref={(el) => enregistrerCarte?.(CLE_SUPER_ADMIN_DEMO, el)}
                 className={`${classesBouton("secondaire", true)} mp-demo__carte`}
-                disabled={occupe}
+                aria-busy={superAdminEnCours || undefined}
+                aria-disabled={superAdminEnCours || undefined}
+                disabled={occupe && !superAdminEnCours}
                 onClick={() => surSuperAdmin?.()}
               >
+                {superAdminEnCours ? <Indicateur /> : null}
                 <span className="mp-demo__texte">
                   <span className="mp-demo__nom">Super administrateur</span>
-                  <span className="mp-demo__detail">Créer des cabinets et gérer leurs comptes</span>
-                  <span className="mp-demo__detail">{demo.superAdmin.nom}</span>
+                  {superAdminEnCours ? (
+                    <span className="mp-demo__detail">Connexion en cours…</span>
+                  ) : (
+                    <>
+                      <span className="mp-demo__detail">
+                        Créer des cabinets et gérer leurs comptes
+                      </span>
+                      <span className="mp-demo__detail">{demo.superAdmin.nom}</span>
+                    </>
+                  )}
                 </span>
               </button>
             </li>
@@ -184,55 +198,6 @@ export function EtapeComptes({
           </section>
         ))
       )}
-    </div>
-  );
-}
-
-export function EtapeSuperAdmin({
-  superAdmin,
-  occupe,
-  enCours,
-  refTitre,
-  surConfirmer,
-  surRetour,
-}: {
-  superAdmin: DemoSuperAdmin;
-  occupe: boolean;
-  /** Connexion du super administrateur en cours. */
-  enCours: boolean;
-  refTitre?: Ref<HTMLHeadingElement>;
-  surConfirmer?: () => void;
-  surRetour?: () => void;
-}) {
-  return (
-    <div className="mp-demo__etape" aria-labelledby="titre-demo-super-admin" role="group">
-      <TitreEtape id="titre-demo-super-admin" refTitre={refTitre}>
-        {`Se connecter en tant que ${superAdmin.nom} ?`}
-      </TitreEtape>
-      <p className="mp-texte-doux mp-demo__detail">
-        Espace plateforme : créer des cabinets et gérer leurs comptes.
-      </p>
-      <div className="mp-barre-actions">
-        <button
-          type="button"
-          className={classesBouton("primaire")}
-          aria-busy={enCours || undefined}
-          aria-disabled={enCours || undefined}
-          disabled={occupe && !enCours}
-          onClick={() => surConfirmer?.()}
-        >
-          {enCours ? <Indicateur /> : null}
-          <span>{enCours ? "Connexion en cours…" : "Se connecter"}</span>
-        </button>
-        <button
-          type="button"
-          className={classesBouton("discret")}
-          disabled={occupe}
-          onClick={() => surRetour?.()}
-        >
-          Retour
-        </button>
-      </div>
     </div>
   );
 }

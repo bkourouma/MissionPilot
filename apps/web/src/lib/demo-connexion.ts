@@ -163,13 +163,9 @@ export function grouperComptesCabinet(comptes: readonly DemoCompte[]): GroupeCom
  */
 export type EtatDemo =
   | { etape: "choix"; cabinetId: null; focus: string | null }
-  | { etape: "cabinet"; cabinetId: string; focus: string }
-  | { etape: "super_admin"; cabinetId: null; focus: string };
+  | { etape: "cabinet"; cabinetId: string; focus: string };
 
-export type EvenementDemo =
-  | { type: "choisir_cabinet"; cabinetId: string }
-  | { type: "choisir_super_admin" }
-  | { type: "retour" };
+export type EvenementDemo = { type: "choisir_cabinet"; cabinetId: string } | { type: "retour" };
 
 export const CLE_SUPER_ADMIN_DEMO = "super-admin";
 export const ETAT_DEMO_INITIAL: EtatDemo = { etape: "choix", cabinetId: null, focus: null };
@@ -179,10 +175,6 @@ export function transitionDemo(etat: EtatDemo, ev: EvenementDemo): EtatDemo {
     case "choisir_cabinet":
       return etat.etape === "choix"
         ? { etape: "cabinet", cabinetId: ev.cabinetId, focus: ev.cabinetId }
-        : etat;
-    case "choisir_super_admin":
-      return etat.etape === "choix"
-        ? { etape: "super_admin", cabinetId: null, focus: CLE_SUPER_ADMIN_DEMO }
         : etat;
     case "retour":
       return etat.etape === "choix" ? etat : { etape: "choix", cabinetId: null, focus: etat.focus };

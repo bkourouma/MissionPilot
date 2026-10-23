@@ -4,7 +4,6 @@ import {
   CHEMIN_DEMO,
   CHEMIN_DEMO_CONNEXION,
   CHEMIN_DEMO_CONNEXION_PLATEFORME,
-  CLE_SUPER_ADMIN_DEMO,
   connecterCompteDemo,
   connecterSuperAdminDemo,
   connexionCompteReussie,
@@ -206,21 +205,10 @@ describe("transitionDemo", () => {
     expect(e2).toEqual({ etape: "choix", cabinetId: null, focus: "c1" });
   });
 
-  it("confirmation du super administrateur puis retour", () => {
-    const e1 = transitionDemo(ETAT_DEMO_INITIAL, { type: "choisir_super_admin" });
-    expect(e1.etape).toBe("super_admin");
-    expect(transitionDemo(e1, { type: "retour" })).toEqual({
-      etape: "choix",
-      cabinetId: null,
-      focus: CLE_SUPER_ADMIN_DEMO,
-    });
-  });
-
   it("événements hors étape ignorés", () => {
     expect(transitionDemo(ETAT_DEMO_INITIAL, { type: "retour" })).toBe(ETAT_DEMO_INITIAL);
     const e1 = transitionDemo(ETAT_DEMO_INITIAL, { type: "choisir_cabinet", cabinetId: "c1" });
     expect(transitionDemo(e1, { type: "choisir_cabinet", cabinetId: "c2" })).toBe(e1);
-    expect(transitionDemo(e1, { type: "choisir_super_admin" })).toBe(e1);
   });
 });
 
