@@ -87,7 +87,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0552`        | dossier client : modèle de rapport `etat_financier`, niveau `dossier` ; REDÉFINIT les CHECK de `rapports_mission` |
   | `0560–0563`   | services candidats (lot 7, plage attribuée par le superviseur) : service et méthode du standard `diagnostic_flash` v1 publiée (`0560`), service et méthode `business_plan_bancable` v1 publiée (`0561`), prix fixe par cabinet et par service (`0562`), guichets de financement du cabinet, sans suppression (`0563`, `MQV01-02`) ; 2 tables, `portail_interdit` ; contenu des méthodes PROVISOIRE, `a_valider = true` |
   | `0570–0573`   | plateforme, super admin (chantier du 2026-10-23, plage `0570–0579` attribuée par le superviseur) : colonnes `cabinets.actif` et `cabinets.est_demo` réservées au propriétaire par déclencheur, et REDÉFINITION de `trouver_connexion` et `resoudre_session` (un cabinet désactivé coupe la connexion et les sessions) (`0570`) ; tables `super_admins`, `plateforme_sessions` (jeton haché, 8 h) et `journal_plateforme` en ajout seul (`0571`) ; fonctions de connexion et de session (`0572`) et d'opération (`0573`) ; 3 tables, `portail_interdit`, aucun droit direct du rôle applicatif ; 11 fonctions `SECURITY DEFINER` `plateforme_*` accordées (5 en `0572`, 6 en `0573`) ; `MQP01-06` |
-  | `0580–0582`   | démonstration (même chantier, plage `0580–0589`) : fonctions `demo_*` de la connexion « un clic » (`0580` : liste et recherche des comptes `est_demo`, session de plateforme du super admin de démo), `demo_super_admin_est_demo` (`0581`), bac à sable du super admin de démo (`0582` : REDÉFINIT les six fonctions `plateforme_*` d'opération de `0573` ; cabinets `est_demo` seuls visibles, adresses `.test`, plafonds de 30 cabinets et de 40 comptes par cabinet) ; aucune table, aucun nouveau SQLSTATE ; 5 fonctions `demo_*` accordées |
+  | `0580–0583`   | démonstration (même chantier, plage `0580–0589`) : fonctions `demo_*` de la connexion « un clic » (`0580` : liste et recherche des comptes `est_demo`, session de plateforme du super admin de démo), `demo_super_admin_est_demo` (`0581`), bac à sable du super admin de démo (`0582` : REDÉFINIT les six fonctions `plateforme_*` d'opération de `0573` ; cabinets `est_demo` seuls visibles, adresses `.test`, plafonds de 30 cabinets et de 40 comptes par cabinet), liste sans comptes 2FA (`0583` : fonction interne `demo_tfa_bloquante`, non accordée, et REDÉFINITION de `demo_lister_comptes`, même signature et mêmes droits) ; aucune table, aucun nouveau SQLSTATE ; 5 fonctions `demo_*` accordées |
 
   Plages libres : `0151–0159`, `0161–0169`, `0170–0179`, `0185–0199`. Plages
   réservées par lot (PRD complémentaire) : `0200–0219` référentiel de méthodes
@@ -116,10 +116,10 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0520–0539`, donc hors de cette queue (aucune redéfinition d'objet partagé : `0526` ne redéfinit que des objets
   de l'ingestion, `purger_textes_ingestion` et `controler_ingestion_document` ; prochain libre `0527`) ;
   services candidats (lot 7) `0560–0563` (prochains libres de cette attribution : `0564–0569`) ;
-  plateforme et démonstration (chantier du 2026-10-23) `0570–0573` et `0580–0582`, consommées
-  (prochains libres : `0574–0579` pour la plateforme, `0583–0589` pour la démonstration). Deux objets
+  plateforme et démonstration (chantier du 2026-10-23) `0570–0573` et `0580–0583`, consommées
+  (prochains libres : `0574–0579` pour la plateforme, `0584–0589` pour la démonstration). Trois objets
   partagés y sont redéfinis : `trouver_connexion` et `resoudre_session` (`0570`, colonne `cabinets.actif`),
-  et les six fonctions d'opération `plateforme_*` (`0582` redéfinit celles de `0573`) ; toute nouvelle
+  les six fonctions d'opération `plateforme_*` (`0582` redéfinit celles de `0573`) et `demo_lister_comptes` (`0583` redéfinit celle de `0580`) ; toute nouvelle
   redéfinition porte un numéro supérieur et reprend la définition en vigueur ; `0553–0559` non
   attribués (à demander au superviseur).
   Deux objets partagés sont REDÉFINIS en entier à chaque évolution :
@@ -143,7 +143,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
   QUA `0291`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
-  candidats `0564` (`0564–0569` libres), plateforme `0574` (`0574–0579` libres), démonstration `0583` (`0583–0589` libres), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
+  candidats `0564` (`0564–0569` libres), plateforme `0574` (`0574–0579` libres), démonstration `0584` (`0584–0589` libres), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
@@ -156,7 +156,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0487`–`0492`, `0509`, `0511`, `0521`–`0526`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
   aucune modification ni suppression par rapport à `origin/main`
   (`git diff --name-status origin/main -- apps/api/migrations` ne rend que 52 lignes `A`) : toutes sont
-  immuables dès la fusion de la branche dans `main`. Au 2026-10-23, la branche du chantier super admin (copie `super-admin-lot-4`) compte 239 fichiers (`ls apps/api/migrations | wc -l`) : les 7 de plus que les 232 ci-dessus sont `0570`–`0573` et `0580`–`0582`, des ajouts (`git log --diff-filter=MD --name-only --format= -- apps/api/migrations` ne rend rien).
+  immuables dès la fusion de la branche dans `main`. Au 2026-10-23, la branche du chantier super admin (copie `super-admin-lot-4`) compte 239 fichiers (`ls apps/api/migrations | wc -l`) ; la tête du lot 7 en compte 240 (avec `0583`) : les 8 de plus que les 232 ci-dessus sont `0570`–`0573` et `0580`–`0583`, des ajouts (`git log --diff-filter=MD --name-only --format= -- apps/api/migrations` ne rend rien).
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next

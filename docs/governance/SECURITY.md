@@ -273,7 +273,7 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   explicite valable dans N'IMPORTE QUEL `NODE_ENV`, production comprise, désactivée par défaut, jamais
   posée par la CI. Hors développement local, le démarrage journalise l'avertissement
   `AVERTISSEMENT_DEMO_PUBLIQUE`. **Périmètre** : uniquement ce que renvoient les cinq fonctions
-  `SECURITY DEFINER` `demo_*` (`0580`, `0581`) : les cabinets `est_demo` ET `actif` (au plus 50, avec au plus 50
+  `SECURITY DEFINER` `demo_*` (`0580`, `0581` ; `0583` redéfinit `demo_lister_comptes`) : les cabinets `est_demo` ET `actif` (au plus 50, avec au plus 50
   comptes chacun), leurs comptes actifs d'une famille de rôles pure (cabinet ou portail, ce dernier avec un
   rattachement actif à un client actif), et les super admins `est_demo` ET `actif` (au plus 20) ; un
   cabinet réel et un super admin réel ne sont jamais listés ni connectables sans mot de passe. L'API ne pose
@@ -285,7 +285,7 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   `connexion` (clés `demo:<e-mail>` et `demo-plateforme:<e-mail>`), répondent le même 401
   `COMPTE_DEMO_INCONNU` pour tout compte hors liste, et **ne contournent jamais la 2FA** : 403
   `CONNEXION_RAPIDE_2FA` si la 2FA est active ou obligatoire (politique du cabinet, du portail ou
-  `TOTP_REQUIS=oui`, qui rend donc les comptes de démonstration inconnectables en un clic). La session
+  `TOTP_REQUIS=oui`, qui rend donc les comptes de démonstration inconnectables en un clic). **La liste n'affiche plus ces comptes** (`0583`, lot 5) : `demo_lister_comptes` écarte, par la fonction interne `demo_tfa_bloquante`, les comptes dont la 2FA est active, ou obligatoire pour leurs rôles (cabinet) ou pour le portail ; la route `GET /api/auth/demo` écarte en plus TOUS les comptes quand `TOTP_REQUIS=oui` (plancher lu dans `routes/connexion-demo-public.ts`, variable de l'API que SQL ne connaît pas). Seule la liste filtre : `demo_trouver_compte` est inchangée, donc un compte non listé mais connu reste refusé en 403 `CONNEXION_RAPIDE_2FA` (et non 401). « Listé implique trouvable », la réciproque est fausse ; les bornes (50 comptes par cabinet) s'appliquent avant ce filtre. La session
   de cabinet est ouverte comme `POST /connexion` (session hachée, cookie httpOnly, audit `connexion` avec
   `demo: true`) ; celle de plateforme par `demo_ouvrir_session_plateforme` (ligne verrouillée, deux lignes
   `connexion` dans `journal_plateforme`, la seconde avec `demo: true`). **Refus du mot de passe public** :
@@ -379,9 +379,9 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   deux de plus avec l'observatoire (§5 sexies) : `obs_agregats` (`0472`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC`)
   et `obs_adhesion_active` (`0470`, fonction d'INVOCATEUR, sans `SECURITY DEFINER`, `search_path` figé, `EXECUTE` retiré à `PUBLIC` ; deux de plus avec le lot 4c : `planifier_conservation_ia`, redéfinie en `0278` (nouvelle ligne `GRANT`),
   et `planifier_avancement_hebdo`, `0308`).
-  Plateforme et démonstration (chantier du 2026-10-23, `0570`–`0582`), toutes `SECURITY DEFINER`,
+  Plateforme et démonstration (chantier du 2026-10-23, `0570`–`0583`), toutes `SECURITY DEFINER`,
   `search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE` accordé à `missionpilot_app`
-  (6 lignes `GRANT EXECUTE` de plus : `0570`, `0572`, `0573`, `0580`, `0581`, `0582`) : `trouver_connexion` et
+  (7 lignes `GRANT EXECUTE` de plus : `0570`, `0572`, `0573`, `0580`, `0581`, `0582`, `0583`) : `trouver_connexion` et
   `resoudre_session` REDÉFINIES par `0570` (mêmes signatures et colonnes ; un compte n'est actif que si son cabinet
   l'est : `u.actif AND c.actif`) ; `0572` : `plateforme_trouver_connexion`, `plateforme_ouvrir_session`,
   `plateforme_echec_connexion`, `plateforme_resoudre_session`, `plateforme_fermer_session` ; `0573` :
@@ -389,16 +389,16 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   `plateforme_lister_utilisateurs`, `plateforme_creer_utilisateur`, `plateforme_modifier_utilisateur` (redéfinies
   à l'identique de signature par `0582`, qui reconduit les `GRANT`) : ce sont les 11 fonctions `plateforme_*`
   accordées ; `0580` : `demo_lister_comptes`, `demo_lister_super_admins`, `demo_trouver_compte`,
-  `demo_ouvrir_session_plateforme` ; `0581` : `demo_super_admin_est_demo`. Fonctions internes NON accordées
+  `demo_ouvrir_session_plateforme` ; `0581` : `demo_super_admin_est_demo` ; `0583` REDÉFINIT `demo_lister_comptes` (même signature, `GRANT` reconduit) et ajoute la fonction interne `demo_tfa_bloquante` (invocateur, appelée depuis `demo_lister_comptes`, `REVOKE ALL … FROM PUBLIC`, NON accordée). Fonctions internes NON accordées
   (elles ne s'exécutent que dans une fonction `SECURITY DEFINER`, avec les droits du propriétaire) :
   `plateforme_roles_cabinet`, `plateforme_session_verifiee`, `plateforme_exiger_nom`, `_email`, `_pays`, `_hash`,
   `_roles`, `plateforme_journaliser`, `plateforme_journal_cabinet`, `plateforme_retirer_consentements`,
-  `plateforme_admin_demo`, `plateforme_cabinet_visible`, `demo_roles_client`, `demo_comptes_ouvrables`,
+  `plateforme_admin_demo`, `plateforme_cabinet_visible`, `demo_roles_client`, `demo_comptes_ouvrables`, `demo_tfa_bloquante`,
   `cabinets_garder_etat_plateforme` et `journal_plateforme_ajout_seul` (déclencheurs). Les tables `super_admins`,
   `plateforme_sessions` et `journal_plateforme` n'ont AUCUN droit pour le rôle applicatif (ni sur leur séquence).
   `cabinets.actif` et `cabinets.est_demo` ne se modifient que par le propriétaire des tables (déclencheur
   `cabinets_etat_plateforme_maj`, 42501 pour le rôle applicatif, y compris par une route de cabinet détournée) ou
-  par ces fonctions. Total reproductible : `rg -n "GRANT EXECUTE" apps/api/migrations` rend 41 lignes au 2026-10-23.
+  par ces fonctions. Total reproductible : `rg -n "GRANT EXECUTE" apps/api/migrations` rend 42 lignes au 2026-10-23.
   Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
   d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,

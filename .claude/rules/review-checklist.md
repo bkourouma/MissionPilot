@@ -792,7 +792,20 @@ comparaison de fichiers (`git diff --stat 9c798e2 HEAD` : 63 fichiers, tous des 
 aucun `package.json` ni lockfile), non par supposition. Les commentaires de la liste de commandes ci-dessous citent les lots jusqu'au
 12 : les lots 13a et 13b n'y changent que les numéros de ligne signalés (n° 7, 8, 18, 19) et la recherche large du n° 22.
 
-**Relevé tête finale du 2026-10-23 (super admin).** Copie de travail `super-admin-lot-4` (branche `orch/2026-10-23-super-admin-lot-4`,
+**Relevé tête finale du 2026-10-23 (super admin, lots 1 à 6).** Copie de travail `super-admin-lot-7` (branche
+`orch/2026-10-23-super-admin-lot-7`, HEAD `4514c8f` = fusion du lot 5 ; base `main` = `378c48d`). Il REMPLACE le relevé
+« super admin » du lot 4 ci-dessous pour les lignes qui changent. Commandes EXACTES relancées depuis la racine de la copie :
+n° 1 : 4 lignes ; n° 2 : 1 ; n° 3 : 14 ; n° 4, 5, 6 : 0 ; n° 7 : 19 ; n° 8 : 24 ; n° 9 : 5 ; n° 10 : « 1002 14 » ; n° 16 : **42 lignes**
+(41 avant : +1, `0583` accorde `demo_lister_comptes` redéfinie ; `demo_tfa_bloquante`, interne, n'est PAS accordée) ; n° 22 : 1 ligne
+(`FormulaireConnexion.tsx:55`) et 10 lignes à la recherche large. n° 13 : 240 fichiers (239 + `0583`) ; `git diff --name-status main --
+apps/api/migrations` ne rend que 8 lignes « A » (`0570`–`0573`, `0580`–`0583`). ATTENTION : `git log --diff-filter=MD ...` rend
+3 fichiers (`0570`, `0573`, `0580`) sur cette branche, à cause du commit de documentation `e6b294b` (lot 4), qui n'a changé que des
+lignes de COMMENTAIRE de ces migrations avant leur fusion dans `main` ; elles ne sont pas encore immuables (jamais dans `main`),
+et la comparaison à `main` fait foi. N° 11 (script ponctuel) NON relancé : les lots 5 et 6 touchent `routes/connexion-demo-public.ts`
+et deux fichiers de seed, sans nouveau gabarit connu ; valeur du lot 4 conservée, à confirmer au prochain relevé complet.
+Les lots 5 et 6 ne posent aucune route (1002 / 14 inchangé) ; le lot 6 ne touche aucune recherche web.
+
+**Relevé tête finale du 2026-10-23 (super admin, lot 4).** Copie de travail `super-admin-lot-4` (branche `orch/2026-10-23-super-admin-lot-4`,
 HEAD `b131f37` = fusion du lot 2b, lots 1, 2a, 2b et 3 du chantier « super admin, tenants et connexion de démonstration »
 fusionnés ; base `9fdf052`). Les recherches n° 1 à 30 ont été relancées avec les commandes EXACTES ci-dessous, depuis la
 racine de la copie ; les n° 10, 11 et 12 par script ponctuel hors dépôt (n° 10 : le `node -e` de la commande, à l'identique ;
@@ -814,8 +827,8 @@ worker, ni `DebloqueurRendu`) :
 | 10 | « 1002 14 » puis 14 lignes | 990 / 9 avant : +12 routes (9 sous `/api/plateforme`, 3 sous `/api/auth/demo*`) dont 5 SANS `exiger`, toutes publiques par construction : `plateforme.ts` `POST /connexion` et `POST /deconnexion` (la session de plateforme est vérifiée par `exigerPlateforme`, pas par `exiger`, sur les 7 autres), `connexion-demo-public.ts` `GET /demo`, `POST /demo/connexion`, `POST /demo/connexion-plateforme`. Les 9 lignes antérieures sont inchangées (`auth.ts` x3, `canaux-webhook.ts`, `connexion-demo.ts` x2, `portail-gestion.ts` `/invitations/accepter`, `sante.ts`, `utilisateurs.ts` `/invitations/accepter`). Liste complète des 14 : voir la commande |
 | 11 | 1 732 gabarits, 1 681 hors seed, 835 interpolations, 247 expressions | 1 727 / 1 680 / 835 / 247 avant : +5 / +1 / 0 / 0. Les +5 : `db/seed-defaut.ts` +3, `db/seed-demo.ts` +1 (seeds, exclus du deuxième nombre) et `db/creer-super-admin.ts` +1 (insertion du super admin, aucune interpolation). Les fonctions `plateforme_*` et `demo_*` sont appelées par des chaînes entre guillemets (`SELECT * FROM plateforme_…($1, …)`), hors recherche. Aucune expression distincte nouvelle |
 | 12 | 904 `z.object`, dont 893 `.strict()` et 11 non stricts VOLONTAIRES (inchangé) ; +10 `z.object` strictes HORS du périmètre de la commande | `packages/shared/src/schemas` inchangé (somme `rg -U -c` : 904). Les schémas du chantier vivent dans `apps/api` : `plateforme/schemas.ts` (8 `z.object`, 8 `.strict()`) et `routes/connexion-demo-public.ts` (2, 2 `.strict()`), donc hors du périmètre de la recherche mais TOUS stricts (comptés par `rg -U -o 'z\s*\.object\('`). Écart de périmètre signalé, pas un défaut |
-| 13 | 239 migrations, 0 modifiée ni supprimée dans l'historique | 232 avant : +7 (`0570`–`0573`, `0580`–`0582`) ; `git log --diff-filter=MD --name-only --format= -- apps/api/migrations \| sort -u` ne rend rien |
-| 16 | 41 lignes | 35 avant : +6, une par migration `0570`, `0572`, `0573`, `0580`, `0581`, `0582` (`0570` reconduit les `GRANT` de `trouver_connexion` et `resoudre_session` ; `0582` reconduit ceux des six `plateforme_*` de `0573`, qui comptent donc deux fois). Liste relue en SECURITY.md §4 : toutes `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE` accordé à `missionpilot_app` |
+| 13 | 239 migrations, 0 modifiée ni supprimée dans l'historique (240 au lot 7, voir le relevé ci-dessus) | 232 avant : +7 (`0570`–`0573`, `0580`–`0582`) ; `git log --diff-filter=MD --name-only --format= -- apps/api/migrations \| sort -u` ne rend rien |
+| 16 | 41 lignes (42 au lot 7, voir le relevé ci-dessus) | 35 avant : +6, une par migration `0570`, `0572`, `0573`, `0580`, `0581`, `0582` (`0570` reconduit les `GRANT` de `trouver_connexion` et `resoudre_session` ; `0582` reconduit ceux des six `plateforme_*` de `0573`, qui comptent donc deux fois). Liste relue en SECURITY.md §4 : toutes `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE` accordé à `missionpilot_app` |
 | 19 | 77 lignes dans 61 fichiers | inchangé (aucune des nouvelles pages ne passe de fonction à un composant) |
 | 22 | 1 ligne (`app/connexion/FormulaireConnexion.tsx:55`) | `:60` avant : le lot 3 (écran « un clic ») réécrit ce fichier ; même appel direct admis. La recherche large `rg -n "\.refresh\(\)" apps/web/src` donne toujours 10 lignes |
 
@@ -1074,7 +1087,8 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     approximative (le lot 2 touche aussi les rapports).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne (tête super admin du 2026-10-23 : 239 fichiers,
-#     0 ligne ; les 7 de plus sont `0570`–`0573` et `0580`–`0582`)
+#     0 ligne ; les 7 de plus sont `0570`–`0573` et `0580`–`0582` ; lot 7 : 240 fichiers avec `0583`, et 3 lignes (`0570`, `0573`, `0580`) car
+#     le commit de documentation `e6b294b` a retouché des commentaires avant la fusion dans `main` : comparer à `main`, qui ne rend que des « A »)
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
 # ne doit montrer que des lignes « A » (ajouts). Le 2026-10-23 (tête finale, lots 11, 12, 13a et 13b compris ; les lots 13 n'en posent aucune) : 52 lignes « A »,
@@ -1118,7 +1132,7 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 41 lignes sur la tête super admin du 2026-10-23 (35 + 6 : `0570`, `0572`, `0573`, `0580`, `0581`, `0582`) ; 35 lignes au 2026-10-22, lots 4c, 6, 8b, 8c, 10, 11 et 12 compris (34 avant le lot 11 : +1 de `0526`, `purger_textes_ingestion` (`:74`), REDÉFINIE à l'identique de `0524` plus `corrections_ocr = NULL` (`GRANT EXECUTE` reconduit, relue : `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`) : la ligne de `0524` reste, la fonction compte donc deux fois ; `0525` et le lot 12 : 0 ; 32 avant le lot 6 : +2 de `0524`,
+#     SECURITY.md §4. Attendu : 42 lignes sur la tête du lot 7 du 2026-10-23 (41 + 1 : `0583`, `demo_lister_comptes` redéfinie) ; 41 lignes sur la tête super admin du lot 4 (35 + 6 : `0570`, `0572`, `0573`, `0580`, `0581`, `0582`) ; 35 lignes au 2026-10-22, lots 4c, 6, 8b, 8c, 10, 11 et 12 compris (34 avant le lot 11 : +1 de `0526`, `purger_textes_ingestion` (`:74`), REDÉFINIE à l'identique de `0524` plus `corrections_ocr = NULL` (`GRANT EXECUTE` reconduit, relue : `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`) : la ligne de `0524` reste, la fonction compte donc deux fois ; `0525` et le lot 12 : 0 ; 32 avant le lot 6 : +2 de `0524`,
 #     `purger_textes_ingestion` (`:84`) et `planifier_ingestion_maintenance` (`:123`), relues : `SECURITY DEFINER`, `SET search_path =
 #     public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `GRANT EXECUTE … TO missionpilot_app`, première bornée au cabinet du contexte
 #     par `app_cabinet_id()` ; le lot 10 n'en pose aucune ; inchangé par 8b et 8c : `0290` et `0432` n'en portent aucune ; 30 avant 4c ; 28 au 2026-10-21 ; 27 sur `main` : 23 avant la vague 4, plus

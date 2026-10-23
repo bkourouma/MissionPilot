@@ -108,6 +108,10 @@ mp run --rm api node_modules/.bin/tsx src/db/creer-super-admin.ts --email prenom
    mp run --rm api node_modules/.bin/tsx src/db/seed-defaut.ts --confirmer-demo
    ```
 
+   Durée : `pnpm --filter @missionpilot/api db:seed-defaut` met environ 50 s sur une base vide (relevé de la recette locale) ;
+   avec `DEMO_PUBLIQUE=oui` et `--confirmer-demo` sur le serveur, le délai est du même ordre. Première installation : le
+   lancer une fois, puis vérifier le bloc de connexion (étape 4). Les comptes à 2FA active ou obligatoire n'y sont pas listés.
+
 3. Recréer l'API et le web ensemble (la variable est lue au démarrage ; l'API journalise alors l'avertissement de démonstration
    publique) :
 
