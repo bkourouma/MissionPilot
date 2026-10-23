@@ -9,6 +9,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # Appelée comme barrière qualité par deploy.yml.
+  workflow_call:
 
 # Une nouvelle exécution sur la même PR (ou la même branche lancée à la main) annule la précédente.
 concurrency:

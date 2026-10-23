@@ -9,6 +9,17 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `ci/deploiement-vps` — 2026-10-23 (déploiement de cabinetpilot.allianceconsultants.net)
+
+Pipeline GitHub (`deploy.yml` : ci → image GHCR → ssh) et pièces serveur dans `deploy/`, `Dockerfile`,
+`docs/workflows/DEPLOIEMENT.md` (à lire). Serveur amorcé (env à secrets générés, certificat, vhost nginx, clé SSH
+dédiée `github-actions-missionpilot`, 5 secrets GitHub). **À faire par l'utilisateur** : renseigner le vrai SMTP dans
+`/home/deployer/missionpilot.env` (valeur provisoire `smtp.invalid`) ; décider du rendu PDF en conteneur (Chromium
+sans sandbox, voir DEPLOIEMENT « Limites ») ; décider d'une sauvegarde de `missionpilot_pgdata` ; créer le premier
+cabinet en production. Fusion de la PR : à l'utilisateur.
+
+---
+
 ## Branche `orch/2026-10-20-reste` — 2026-10-23 (PR vers `main` à fusionner par l'utilisateur)
 
 **État.** `main` = `3d5a252` (vagues 0 à 4 : gestion de mission, fondations, automatisation, services

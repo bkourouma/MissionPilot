@@ -1,0 +1,109 @@
+# Déploiement de MissionPilot sur le VPS Alliance (cabinetpilot.allianceconsultants.net).
+#
+# push sur main (après fusion d'une PR) ou lancement manuel : barrière qualité (ci.yml) → image
+# Docker construite sur GitHub et poussée sur GHCR → déploiement par SSH (deploy/deploy.sh,
+# idempotent, avec retour à la version précédente si les contrôles de santé échouent).
+#
+# Secrets du dépôt : VPS_HOST, VPS_PORT, VPS_USER, VPS_SSH_KEY (clé dédiée à ce dépôt),
+# VPS_KNOWN_HOSTS (empreinte du serveur : pas de confiance au premier contact).
+# Le dépôt est public : ce workflow ne se déclenche JAMAIS sur une pull request, donc les secrets
+# ne sont jamais exposés au code d'un fork. Ne pas ajouter de déclencheur pull_request ici.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deux déploiements simultanés se marcheraient dessus (mêmes conteneurs, mêmes volumes, même base) :
+# on sérialise, sans annuler celui qui tourne (une migration interrompue laisse la base à moitié faite).
+concurrency:
+  group: deploy-cabinetpilot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/bkourouma/missionpilot
+  DEPLOY_DIR: /home/deployer/missionpilot
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  build:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construire et pousser l'image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Préparer l'accès SSH au VPS
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CONF
+          Host vps
+            HostName $VPS_HOST
+            Port $VPS_PORT
+            User $VPS_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          CONF
+
+      - name: Copier les fichiers de déploiement
+        run: |
+          ssh -o BatchMode=yes vps "mkdir -p $DEPLOY_DIR"
+          scp -o BatchMode=yes deploy/deploy.sh deploy/docker-compose.prod.yml "vps:$DEPLOY_DIR/"
+
+      - name: Déployer
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh -o BatchMode=yes vps \
+            "MP_IMAGE=$IMAGE:${{ github.sha }} GHCR_USER=$GHCR_USER bash $DEPLOY_DIR/deploy.sh"
