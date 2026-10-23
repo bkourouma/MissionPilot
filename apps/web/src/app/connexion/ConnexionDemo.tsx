@@ -17,7 +17,7 @@ import {
   type EtatDemo,
   type EvenementDemo,
 } from "../../lib/demo-connexion";
-import { EtapeChoix, EtapeComptes, EtapeSuperAdmin, type OuvertureDemo } from "./EtapesDemo";
+import { EtapeChoix, EtapeComptes, type OuvertureDemo } from "./EtapesDemo";
 import "./comptes-demo.css";
 
 /**
@@ -135,26 +135,18 @@ export function ConnexionDemo({
           surCompte={(compte) => void ouvrirCompte(cabinet, compte)}
           surRetour={() => naviguer({ type: "retour" })}
         />
-      ) : etat.etape === "super_admin" && demo.superAdmin ? (
-        <EtapeSuperAdmin
-          superAdmin={demo.superAdmin}
-          occupe={occupe}
-          enCours={occupe}
-          refTitre={titre}
-          surConfirmer={() => void ouvrirSuperAdmin()}
-          surRetour={() => naviguer({ type: "retour" })}
-        />
       ) : (
         <EtapeChoix
           demo={demo}
           occupe={occupe}
+          ouverture={ouverture}
           refTitre={titre}
           enregistrerCarte={(cle, el) => {
             if (el) cartes.current.set(cle, el);
             else cartes.current.delete(cle);
           }}
           surCabinet={(c) => naviguer({ type: "choisir_cabinet", cabinetId: c.id })}
-          surSuperAdmin={() => naviguer({ type: "choisir_super_admin" })}
+          surSuperAdmin={() => void ouvrirSuperAdmin()}
         />
       )}
       <p className="mp-visuellement-cache" role="status" aria-live="polite">
