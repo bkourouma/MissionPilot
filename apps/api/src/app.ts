@@ -260,6 +260,11 @@ export async function buildApp(
   await app.register((await import("./routes/connexion-demo.js")).routesConnexionDemo, {
     prefix: "/api/auth",
   });
+  // Connexion de démonstration « un clic » (multi-cabinets, super admin) : même garde de config.
+  await app.register(
+    (await import("./routes/connexion-demo-public.js")).routesConnexionDemoPublique,
+    { prefix: "/api/auth" },
+  );
   await app.register(routesReferentiels, { prefix: "/api" });
   await app.register(routesCycleMission, { prefix: "/api" });
   await app.register(routesPlanification, { prefix: "/api" });

@@ -3,6 +3,8 @@ import { serviceIdentite, tropDeTentatives } from "../auth/confirmer-identite.js
 import { creerLimiteur } from "../auth/limiteur.js";
 import { FAUX_HASH, verifyPassword } from "../auth/password.js";
 import { hacherJeton, nouveauJeton } from "../auth/session.js";
+import { demoConnexionActive } from "../config.js";
+import type { Database } from "../db/pool.js";
 import { nonAuthentifie } from "../errors.js";
 import {
   connexionSchema,
@@ -23,6 +25,14 @@ import {
 import { sansCache } from "./auth.js";
 
 const UUID_NUL = "00000000-0000-0000-0000-000000000000";
+
+/** Super admin marqué démonstration (fonction SQL dédiée : un booléen, rien d'autre). */
+async function superAdminDemo(database: Database, id: string): Promise<boolean> {
+  return database.withoutTenant(async (db) => {
+    const r = await db.query("SELECT demo_super_admin_est_demo($1) AS demo", [id]);
+    return r.rows[0]?.demo === true;
+  });
+}
 
 /** Session plateforme de la requête, ou 401 `NON_AUTHENTIFIE`. */
 export function exigerPlateforme(request: FastifyRequest): SessionPlateforme {
@@ -60,7 +70,13 @@ export const routesPlateforme: FastifyPluginAsync = async (app) => {
     const trouve = await service.trouverConnexion(app.db, email);
     // Toujours calculer un hachage : le temps de réponse ne révèle pas si l'e-mail existe.
     const valide = await verifyPassword(motDePasse, trouve?.mot_de_passe_hash ?? FAUX_HASH);
-    if (!trouve || !valide || !trouve.actif) {
+    // Mot de passe public d'un super admin de démonstration : refusé tant que la démo est
+    // inactive (un serveur qui quitte la démo ne garde pas un super admin ouvert). Même
+    // requête que l'e-mail existe ou non, même réponse que tout identifiant invalide.
+    const demoFermee =
+      !demoConnexionActive(app.config) &&
+      (await superAdminDemo(app.db, trouve?.super_admin_id ?? UUID_NUL));
+    if (!trouve || !valide || !trouve.actif || demoFermee) {
       // Même appel que l'e-mail existe ou non (identifiant nul : la fonction ne journalise
       // rien) : le temps de réponse ne révèle pas si le compte existe.
       await service.echecConnexion(app.db, trouve?.super_admin_id ?? UUID_NUL);

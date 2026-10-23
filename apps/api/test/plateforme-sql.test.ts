@@ -338,6 +338,8 @@ describe("plateforme : aucun accès direct du rôle applicatif", () => {
     expect(internes.map((i) => i.nom).sort()).toEqual([
       "cabinets_garder_etat_plateforme",
       "journal_plateforme_ajout_seul",
+      "plateforme_admin_demo", // 0582 (bac à sable de démonstration)
+      "plateforme_cabinet_visible", // 0582
       "plateforme_exiger_email",
       "plateforme_exiger_hash",
       "plateforme_exiger_nom",

@@ -57,14 +57,29 @@ interface LigneUtilisateur {
 export const identifiantsInvalides = () =>
   new AppError(401, "IDENTIFIANTS_INVALIDES", "E-mail ou mot de passe incorrect.");
 
+/**
+ * Refus propres au super admin de démonstration (migration 0582) : MQP04 portant un indice
+ * SQL (HINT) stable. Le message renvoyé est celui-ci, jamais le texte de l'erreur SQL.
+ */
+const REFUS_DEMO: Readonly<Record<string, string>> = {
+  demo_email_test: "Une adresse en .test est exigée en mode démonstration.",
+  demo_plafond_cabinets: "Plafond de la démonstration atteint : 30 cabinets au plus.",
+  demo_plafond_utilisateurs:
+    "Plafond de la démonstration atteint : 40 comptes au plus par cabinet.",
+};
+
 /** Traduit les erreurs `MQP` (et l'unicité d'e-mail) en erreurs d'API ; le reste remonte tel quel. */
 export function traduireErreurPlateforme(error: unknown): never {
   const code = (error as { code?: unknown } | null)?.code;
   if (code === "MQP01") throw nonAuthentifie();
   if (code === "MQP02") throw introuvable("Cabinet");
   if (code === "MQP03") throw introuvable("Utilisateur");
-  if (code === "MQP04")
+  if (code === "MQP04") {
+    const indice = (error as { hint?: unknown }).hint;
+    if (typeof indice === "string" && Object.hasOwn(REFUS_DEMO, indice))
+      throw requeteInvalide(REFUS_DEMO[indice]!);
     throw requeteInvalide("Données refusées : rôle, nom, e-mail ou pays invalide.");
+  }
   if (code === "MQP05")
     throw new AppError(
       409,
