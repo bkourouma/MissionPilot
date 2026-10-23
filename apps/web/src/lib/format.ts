@@ -15,6 +15,14 @@ export const VALEUR_ABSENTE = "—";
 const NBSP = "\u00a0";
 
 const SYMBOLES: Record<Devise, string> = { XOF: "FCFA", XAF: "FCFA", EUR: "€", USD: "$US" };
+/**
+ * Devise telle qu'on l'écrit dans un en-tête ou une consigne : « FCFA » pour XOF et XAF (une seule
+ * convention d'affichage, comme les montants), le code ISO sinon.
+ */
+export function libelleDevise(devise: string): string {
+  return devise === "XOF" || devise === "XAF" ? "FCFA" : devise;
+}
+
 /** Le franc CFA n'a pas de subdivision en usage. */
 const DECIMALES: Record<Devise, number> = { XOF: 0, XAF: 0, EUR: 2, USD: 2 };
 

@@ -12,7 +12,7 @@ import {
   TAILLES_CLIENT,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
-import type { Devise } from "./format";
+import { libelleDevise, type Devise } from "./format";
 import { cheminPlan, hrefPlan } from "./plan-strategique";
 import { decouperListe, lireMontant, lireNombre, montantVersSaisie } from "./saisie";
 
@@ -133,7 +133,7 @@ export function validerDepuisBibliotheque(
   const budget = lireMontant(s.budget, devisePlan);
   if (Number.isNaN(budget)) erreurs.budget = "Montant invalide.";
   if (budget === null && t.devise !== devisePlan) {
-    erreurs.budget = `Coût type en ${t.devise}, plan en ${devisePlan} : saisissez le budget.`;
+    erreurs.budget = `Coût type en ${libelleDevise(t.devise)}, plan en ${libelleDevise(devisePlan)} : saisissez le budget.`;
   }
   if (s.titre.trim().length > 200) erreurs.titre = "200 caractères au plus.";
   if (Object.keys(erreurs).length) return { erreurs, corps: null };

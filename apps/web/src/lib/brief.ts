@@ -74,9 +74,12 @@ export const TONALITE_GRAVITE: Record<GraviteBriefApi, TonaliteStatut> = {
 
 export const libelleGravite = (g: GraviteBriefApi): string => LIBELLES_GRAVITE_BRIEF[g];
 
-/** « Aujourd'hui », « Depuis 1 jour », « Depuis 12 jours ». */
-export function libelleAnciennete(jours: number): string {
-  if (!Number.isFinite(jours) || jours <= 0) return "Aujourd'hui";
+/**
+ * « Aujourd'hui », « Depuis 1 jour », « Depuis 12 jours ». Pour un brief rejoué à une date passée
+ * (`rejoue`), l'ancienneté est relative à cette date : « Ce jour-là » et non « Aujourd'hui ».
+ */
+export function libelleAnciennete(jours: number, rejoue = false): string {
+  if (!Number.isFinite(jours) || jours <= 0) return rejoue ? "Ce jour-là" : "Aujourd'hui";
   const n = Math.floor(jours);
   return `Depuis ${n} jour${n > 1 ? "s" : ""}`;
 }

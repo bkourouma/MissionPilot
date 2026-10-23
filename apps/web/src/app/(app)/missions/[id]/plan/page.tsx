@@ -7,7 +7,7 @@ import { Alerte } from "../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
-import { formaterDate } from "../../../../../lib/format";
+import { formaterDate, libelleDevise } from "../../../../../lib/format";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import {
   cheminPlansMission,
@@ -83,7 +83,7 @@ export default async function PagePlansMission({
                   <div className="mp-plan__badges">
                     <BadgePartage partage={p.partage_client} />
                     <span className="mp-texte-doux mp-texte-petit">
-                      {`Horizon ${p.horizon} ans · ${p.devise} · créé le ${formaterDate(p.cree_le, "Africa/Abidjan")}`}
+                      {`Horizon ${p.horizon} ans · ${libelleDevise(p.devise)} · créé le ${formaterDate(p.cree_le, "Africa/Abidjan")}`}
                     </span>
                   </div>
                 </li>

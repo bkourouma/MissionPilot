@@ -19,13 +19,19 @@ import { Icone } from "../ui/Icone";
  * Une ligne du brief : libellé (lien vers l'écran concerné), mission liée, ancienneté et, avec
  * `finance.lire` seulement, le montant servi par l'API ; la gravité vient du moteur.
  */
-export function LigneBrief({ element }: { element: ElementBriefApi }) {
+export function LigneBrief({
+  element,
+  rejoue = false,
+}: {
+  element: ElementBriefApi;
+  rejoue?: boolean;
+}) {
   const lien = lienInterne(element.lien);
   const montant = libelleMontant(element);
   const motifs = libelleMotifs(element);
   const details = [
     element.mission_libelle,
-    libelleAnciennete(element.anciennete_jours),
+    libelleAnciennete(element.anciennete_jours, rejoue),
     montant ? `Montant : ${montant}` : null,
   ].filter((d): d is string => Boolean(d));
   return (
@@ -55,9 +61,11 @@ export function LigneBrief({ element }: { element: ElementBriefApi }) {
 export function CarteFamilleBrief({
   famille,
   donnees,
+  rejoue = false,
 }: {
   famille: FamilleBriefApi;
   donnees: FamilleComposeeBriefApi;
+  rejoue?: boolean;
 }) {
   const p = PRESENTATION_FAMILLE[famille];
   const note = noteTroncature(donnees);
@@ -85,7 +93,7 @@ export function CarteFamilleBrief({
       ) : (
         <ul className="mp-alertes-derive">
           {donnees.elements.map((e) => (
-            <LigneBrief key={`${e.type}:${e.entite_id}`} element={e} />
+            <LigneBrief key={`${e.type}:${e.entite_id}`} element={e} rejoue={rejoue} />
           ))}
         </ul>
       )}

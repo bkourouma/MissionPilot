@@ -3,7 +3,7 @@
 import { useId, useState, type FormEvent } from "react";
 import type { TypeElementPlan } from "@missionpilot/shared";
 import { api, ErreurApi } from "../../lib/api";
-import type { Devise } from "../../lib/format";
+import { libelleDevise, type Devise } from "../../lib/format";
 import {
   MESSAGE_CONTENU_IDENTIQUE,
   memeContenu,
@@ -215,7 +215,7 @@ function ChampsInitiative(p: ChampsProps & ContexteInitiative) {
           erreur={erreurs.echeance}
         />
         <Champ
-          libelle={`Budget (${devise})`}
+          libelle={`Budget (${libelleDevise(devise)})`}
           required
           inputMode="decimal"
           autoComplete="off"
@@ -237,7 +237,7 @@ function ChampsInitiative(p: ChampsProps & ContexteInitiative) {
         />
       ) : null}
       <fieldset className="mp-plan-annuel" aria-describedby={`${id}-gains-aide`}>
-        <legend className="mp-champ__libelle">{`Gains nets annuels (${devise}, facultatif)`}</legend>
+        <legend className="mp-champ__libelle">{`Gains nets annuels (${libelleDevise(devise)}, facultatif)`}</legend>
         <p className="mp-champ__aide" id={`${id}-gains-aide`}>
           {`Une valeur par année d'horizon (${horizon} ans), signe moins pour une perte. Laissez toutes les années vides si les gains ne sont pas encore estimés : le ROI ne sera pas calculé. La VAN et le TRI sont calculés par le moteur.`}
         </p>

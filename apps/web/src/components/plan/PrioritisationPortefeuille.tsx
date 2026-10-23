@@ -2,7 +2,12 @@
 
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { formaterMontantMineur, formaterNombre, type Devise } from "../../lib/format";
+import {
+  formaterMontantMineur,
+  formaterNombre,
+  libelleDevise,
+  type Devise,
+} from "../../lib/format";
 import {
   cheminArbitrer,
   cheminProposition,
@@ -153,7 +158,7 @@ export function PrioritisationPortefeuille({
       ) : null}
       <div className="mp-grille-champs">
         <Champ
-          libelle={`Budget maximal (${devise})`}
+          libelle={`Budget maximal (${libelleDevise(devise)})`}
           inputMode="decimal"
           aide="Vide : sans limite."
           {...champ("budget_max")}

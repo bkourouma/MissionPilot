@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
-import type { Devise } from "../../lib/format";
+import { libelleDevise, type Devise } from "../../lib/format";
 import {
   cheminDepuisBibliotheque,
   messageBibliotheque,
@@ -124,7 +124,7 @@ export function CreationDepuisBibliotheque({
           {...champ("echeance")}
         />
         <Champ
-          libelle={`Budget (${devisePlan})`}
+          libelle={`Budget (${libelleDevise(devisePlan)})`}
           inputMode="decimal"
           aide={type.devise === devisePlan ? "Vide : coût type." : undefined}
           {...champ("budget")}

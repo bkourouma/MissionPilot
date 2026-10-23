@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { Devise } from "../../lib/format";
+import { libelleDevise, type Devise } from "../../lib/format";
 import {
   apportVide,
   APPORTS_MAX,
@@ -122,7 +122,7 @@ export function EditeurEffectifs({
                     aide="Ex. « Consultants seniors »."
                   />
                   <Champ
-                    libelle={`Salaire annuel brut par personne (${devise})`}
+                    libelle={`Salaire annuel brut par personne (${libelleDevise(devise)})`}
                     required
                     inputMode="decimal"
                     value={e.salaire}

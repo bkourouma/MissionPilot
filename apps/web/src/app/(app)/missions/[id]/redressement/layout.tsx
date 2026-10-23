@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import "../../../../../components/redressement/redressement.css";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Onglets } from "../../../../../components/ui/Onglets";
-import { formaterDate } from "../../../../../lib/format";
+import { formaterDate, libelleDevise } from "../../../../../lib/format";
 import {
   libelleSecteur,
   libelleStatutDossier,
@@ -37,7 +37,7 @@ export default async function LayoutRedressement({
               {libelleStatutDossier(d.donnees.statut)}
             </BadgeStatut>
             <span className="mp-texte-doux">
-              {libelleSecteur(d.donnees.secteur)} · {d.donnees.devise} · ouvert le{" "}
+              {libelleSecteur(d.donnees.secteur)} · {libelleDevise(d.donnees.devise)} · ouvert le{" "}
               {formaterDate(d.donnees.ouvert_le)}
             </span>
           </div>
