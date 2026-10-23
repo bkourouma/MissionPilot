@@ -2321,7 +2321,11 @@ du stockage (§8 bis).
   délai de 30 s (504), fermeture bornée puis SIGKILL ; au plus 2 rendus
   simultanés et 1 par cabinet (503 `RENDU_OCCUPE`). Navigateur = `CHROMIUM_PATH`
   (absolu, vérifié au démarrage) ou, en développement Windows seulement, Chrome
-  installé ; sinon PDF indisponible (503). Aucun `--no-sandbox` n'est passé.
+  installé ; sinon PDF indisponible (503). Aucun `--no-sandbox` n'est passé : la sandbox
+  de Chromium reste active, y compris en conteneur de production, grâce au profil seccomp dédié
+  `deploy/seccomp-chromium.json` (profil par défaut de Docker plus `clone` et `unshare` pour les seuls drapeaux
+  `CLONE_NEWUSER`, `CLONE_NEWPID` et `CLONE_NEWNET`, sans `privileged`, `cap_add` ni `seccomp=unconfined`) ; elle
+  suppose un noyau d'hôte qui autorise les espaces de noms utilisateur (`DEPLOIEMENT.md`, « Limites connues »).
 - **Conservation** (`0132`, `rapports/purge.ts`) : le fichier d'un rapport est
   purgé au-delà de `rapports_parametres.conservation_jours` (1 095 jours par
   défaut, 90 à 3 650 par cabinet) par le job `purge_rapports` (un par cabinet et
@@ -3612,7 +3616,7 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | `mot_de_passe_hash` lisible par le rôle applicatif (reconfirmation d'identité) ; atténué dans le portail par la politique `portail` des utilisateurs | `migrations/0114_portail_rls_complements.sql`                             |
 | IA : masquage limité aux termes déclarés et aux formats connus ; garde-chiffres aveugle aux nombres en lettres ; clause « pas d'entraînement » à vérifier par modèle | `ia/masquage.ts`, `ia/garde-chiffres.ts`, `ia/fournisseur.ts`            |
 | Durées de conservation par défaut (texte IA 365 jours, rapports 3 ans) posées sans avis juridique ; `conservation_jours` de l'IA non exposé par l'API IA | `migrations/0104_ia_conservation.sql`, `migrations/0132_rapports_conservation.sql`, `ia/conservation.ts` |
-| Chrome headless testé seulement sous Windows ; sous Linux, la sandbox du navigateur est à prévoir (aucun `--no-sandbox`, utilisateur non root)  | `rapports/pdf.ts`                                                         |
+| Chrome headless : sous Linux en conteneur, essayé seulement sous Docker Desktop (noyau WSL2), jamais sur le serveur ; la sandbox exige le profil seccomp dédié et un noyau qui autorise les espaces de noms utilisateur (aucun `--no-sandbox`, utilisateur non root) | `rapports/pdf.ts`                                                         |
 | Réception des fichiers : la place du sémaphore (4 par instance, 2 par cabinet) n'est prise qu'après la lecture du corps ; les tampons en lecture ne sont bornés que par `fileSize` et le délai de réception de 5 min | `routes/fichiers.ts`, `app.ts` |
 | Plan partagé au client jamais servi par le portail : le partage est prêt côté cabinet, aucune route du portail ne le lit | `plans/partage.ts`, `portail/garde.ts`                                    |
 | Date d'atteinte d'un jalon non horodatée : approchée par la dernière modification (indicateur de respect des jalons)                            | `finance/indicateurs.ts`                                                  |

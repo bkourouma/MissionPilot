@@ -98,7 +98,7 @@ jobs:
       - name: Copier les fichiers de déploiement
         run: |
           ssh -o BatchMode=yes vps "mkdir -p $DEPLOY_DIR"
-          scp -o BatchMode=yes deploy/deploy.sh deploy/docker-compose.prod.yml "vps:$DEPLOY_DIR/"
+          scp -o BatchMode=yes deploy/deploy.sh deploy/docker-compose.prod.yml deploy/seccomp-chromium.json "vps:$DEPLOY_DIR/"
 
       - name: Déployer
         env:

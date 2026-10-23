@@ -758,11 +758,13 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   503 `RENDU_OCCUPE` : deux rendus en cours, ou déjà un pour ce cabinet ;
   réessayer. 504 : rendu de plus de 30 s. Le relais Next attend jusqu'à 90 s
   (`experimental.proxyTimeout`). Word et PowerPoint n'ont pas besoin de Chrome.
-- **Chrome sous Linux** (non essayé) : l'API ne passe pas `--no-sandbox`. Faire
-  tourner l'API sous un utilisateur **non root** sur un noyau qui autorise les
-  espaces de noms utilisateur (ou fournir la sandbox SUID de Chromium) ; ne pas
-  ajouter `--no-sandbox` sans décision écrite (`docs/governance/SECURITY.md`
-  §8 bis).
+- **Chrome sous Linux** : l'API ne passe pas `--no-sandbox`. Faire tourner l'API
+  sous un utilisateur **non root** sur un noyau qui autorise les espaces de noms
+  utilisateur ; ne pas ajouter `--no-sandbox` sans décision écrite
+  (`docs/governance/SECURITY.md` §8 bis). En conteneur Docker, le profil seccomp
+  par défaut les interdit : la production utilise `deploy/seccomp-chromium.json`
+  (testé en local seulement ; vérifications du noyau du serveur dans
+  `docs/workflows/DEPLOIEMENT.md`, « Limites connues »).
 - **Téléversement : 503 `FICHIERS_OCCUPE`** : 4 réceptions de fichiers sont déjà
   en cours sur cette instance (constante `FICHIERS_ANALYSES_SIMULTANEES_MAX` de
   `routes/fichiers.ts`, pas une variable d'environnement) ; réessayer.

@@ -31,7 +31,7 @@ Le web relaie `/api/*` vers l'API (`API_URL=http://127.0.0.1:4100`, figée au bu
 | Élément                                      | Rôle                                                                                             |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `/home/deployer/missionpilot.env` (mode 600) | secrets : mots de passe PostgreSQL, `SESSION_SECRET`, `TFA_MASTER_KEY`, SMTP. Créé par `deploy/bootstrap-serveur.sh` |
-| `/home/deployer/missionpilot/`               | `deploy.sh` et `docker-compose.prod.yml`, recopiés à chaque déploiement                          |
+| `/home/deployer/missionpilot/`               | `deploy.sh`, `docker-compose.prod.yml` et `seccomp-chromium.json`, recopiés à chaque déploiement |
 | `/home/deployer/missionpilot.last-good`      | image de la dernière version saine (cible du retour arrière)                                     |
 | volumes Docker `missionpilot_pgdata`, `missionpilot_stockage` | base et fichiers téléversés : survivent aux redéploiements                      |
 | `/etc/nginx/sites-available/cabinetpilot.allianceconsultants.net` | copie de `deploy/nginx-cabinetpilot.conf`                                   |
@@ -241,8 +241,29 @@ planifiée ; il n'existe pas. Suivi : HANDOFF, section `orch/2026-10-23-super-ad
 
 ## Limites connues
 
-- **Rapports PDF (Chromium) indisponibles en conteneur** : Chromium refuse de démarrer sans sandbox et le profil
-  seccomp par défaut de Docker interdit les espaces de noms utilisateur. `--no-sandbox` est interdit sans décision
-  écrite (`SECURITY.md` §8 bis). Word et PowerPoint fonctionnent. Décision de sécurité à prendre : profil seccomp
-  dédié, ou rendu PDF dans un conteneur séparé.
+- **Rapports PDF (Chromium) : solution prête, jamais éprouvée sur le serveur.** Chromium garde sa sandbox (aucun
+  `--no-sandbox`, `SECURITY.md` §8 bis) mais le profil seccomp par défaut de Docker interdit les espaces de noms
+  utilisateur dont elle a besoin (« No usable sandbox! », API : 503 `RENDU_PDF_INDISPONIBLE`). Le service `api` utilise
+  donc le profil dédié `deploy/seccomp-chromium.json` (`security_opt: seccomp=./seccomp-chromium.json`) : profil par
+  défaut de Docker 29.1.3 (moby/profiles seccomp v0.1.0) plus `clone` et `unshare` pour les seuls drapeaux
+  `CLONE_NEWUSER`, `CLONE_NEWPID` et `CLONE_NEWNET` ; `clone3` reste refusé (ENOSYS, repli sur `clone`), `setns`
+  reste réservé à `CAP_SYS_ADMIN`. Ni `privileged`, ni `cap_add`, ni `seccomp=unconfined`. Le workflow copie le profil
+  à côté du compose ; `deploy.sh` refuse de partir sans lui et, après les contrôles de santé, lance un Chromium de
+  vérification dans le conteneur (avertissement « ⚠ » dans le journal du déploiement s'il échoue : le déploiement
+  n'est pas annulé, Word et PowerPoint n'en dépendent pas).
+  - **Testé en local seulement** (Docker Desktop 29.1.3, noyau WSL2 6.6.87.2) : sans le profil, Chromium échoue ; avec
+    lui, `chromium --headless=new` démarre sans `--no-sandbox` (rendu et zygote dans leurs propres espaces de noms
+    utilisateur et processus) et `htmlEnPdf` (le code de l'API) produit un PDF. Le noyau du serveur n'est pas celui de
+    Docker Desktop : **aucun déploiement n'a été fait et le serveur n'a pas été consulté**.
+  - **À vérifier sur le serveur avant ou au premier déploiement** (le noyau doit autoriser les espaces de noms
+    utilisateur non privilégiés, ce que Docker ne peut pas contourner) :
+    `sysctl user.max_user_namespaces` (doit être > 0), `sysctl kernel.unprivileged_userns_clone` (doit valoir 1 ;
+    la clé n'existe pas sur tous les noyaux : son absence est normale) et, sous Ubuntu 23.10 ou plus récent,
+    `sysctl kernel.apparmor_restrict_unprivileged_userns` (1 = restriction active : voir ci-dessous). Test direct,
+    équivalent à celui de `deploy.sh` : `mp exec -T api chromium --headless=new --disable-gpu
+    --user-data-dir=/tmp/cr --dump-dom about:blank` doit afficher `<html><head></head><body></body></html>`. Si
+    la valeur est insuffisante, c'est un réglage du serveur à décider par l'administrateur (jamais `--no-sandbox`) ;
+    si AppArmor restreint les espaces de noms, il faut un profil AppArmor adapté et non son retrait global.
+  - Sans ce prérequis, la fonction reste désactivée de fait : l'API répond 503 `RENDU_PDF_INDISPONIBLE`
+    (« navigateur introuvable ou en échec ») ; la solution de repli serait un conteneur de rendu séparé (non réalisé).
 - **IP des clients** : l'API n'active pas `trustProxy` ; seule la limitation du webhook entrant (désactivé) utilise l'IP.
