@@ -9,6 +9,26 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## DÉCISIONS EN ATTENTE (utilisateur) — 2026-10-23
+
+Rien de ce qui suit n'est fait sans l'utilisateur ; tout est préparé et sans effet tant qu'il n'agit pas.
+
+- **Fusionner la PR du chantier** (super admin, démo, sauvegarde, PDF) : le déploiement part à la fusion (`deploy.yml`) et appliquera les
+  migrations `0570–0583`. Avant de fusionner : décider si le profil seccomp des rapports PDF doit partir avec (voir ci-dessous).
+- **SMTP** : `SMTP_HOST=smtp.invalid` et `MAIL_FROM` provisoires dans `/home/deployer/missionpilot.env` ; aucun e-mail ne part. Fournir le vrai SMTP.
+- **Démo publique** : ne pas poser `DEMO_PUBLIQUE=oui` sur le serveur sans décision (mot de passe du tenant de démonstration public dans le
+  dépôt). Procédure : `DEPLOIEMENT.md` (activer, désactiver, remise à zéro). Premier **vrai** super admin : `db:creer-super-admin` sur le serveur.
+- **Rapports PDF** : profil seccomp dédié `deploy/seccomp-chromium.json` (sandbox de Chromium active, jamais `--no-sandbox`), testé en
+  LOCAL seulement ; à valider sur le noyau du serveur (`user.max_user_namespaces`, AppArmor, voir `DEPLOIEMENT.md` « Limites connues »).
+  Il assouplit le confinement du conteneur `api` (espaces de noms utilisateur) : décision de sécurité à confirmer.
+- **Sauvegarde de la base** : `deploy/sauvegarde.sh`, `restauration.sh`, `test-sauvegarde.sh` prêts et testés en local (rotation 7 jours),
+  **non installés** sur le serveur (crontab à poser par l'utilisateur) ; copie hors serveur et sauvegarde du volume des fichiers à décider.
+- **Bases de développement locales** (environ 210 bases de test sur le conteneur `missionpilot-postgres`) : aucune purge faite ; à décider.
+- **Reste technique du chantier** : cabinet désactivé laissant actifs invitations, jobs planifiés, webhooks de canaux, 2FA (SECURITY §15) ;
+  plafonds permanents de la démo et remise à zéro à scripter ; 2FA et déblocage du limiteur pour le super admin ; listes plateforme non paginées.
+
+---
+
 ## Branche `orch/2026-10-23-super-admin` — 2026-10-23 (super admin de plateforme, tenants, connexion de démonstration)
 
 **État.** Chantier demandé par l'utilisateur le 2026-10-23 : un super admin crée des tenants (cabinets) et leurs comptes ; un script
@@ -17,8 +37,8 @@ sème un tenant par défaut avec tous les rôles ; une page de connexion « un c
 `orch/2026-10-23-super-admin-lot-N` (tiret, pas de barre : conflit de refs avec la branche d'intégration), copies de travail
 `D:\APP\MissionPilot-worktrees\super-admin-lot-N`. Suivi, décisions D1 à D6 et hypothèses :
 `D:\APP\MissionPilot\.orchestration\2026-10-23-super-admin\suivi.md` (local, exclu de git). Décision consignée : `DECISIONS.md`
-(« Super admin de plateforme et démonstration publique »). **Rien n'est sur `main` ni poussé** tant que l'utilisateur n'a pas
-fusionné la PR (merge commit, jamais de rebase).
+(« Super admin de plateforme et démonstration publique »). **Rien n'est sur `main`** tant que l'utilisateur n'a pas
+fusionné la PR (branche poussée sur `origin`) (merge commit, jamais de rebase).
 
 **Livré (par lot).**
 
@@ -40,6 +60,10 @@ dans `apps/api`), 240 migrations (avec `0583`), 42 `GRANT EXECUTE`.
 charge). Documentation (lot 4) : recherches mécaniques de la checklist relancées sur la tête (sauf `pnpm audit`, réseau) ; Prettier propre sur
 les fichiers touchés (binaire du dépôt principal : le worktree du lot 4 n'a pas de `node_modules`) ; ESLint non exécuté (même cause) ; le lot 4
 ne change que des commentaires hors de `docs/`.
+**Tête d'intégration (lots 1 à 7, avant la fusion des branches ops), vérifiée le 2026-10-23** : typecheck, eslint, Prettier, tests engines et shared, web
+(2 560 tests), build web de production verts ; suite API complète : 3 619 verts sur 3 623, les 4 échecs (`ingestion-standard`,
+`jobs-reveil` ×2, `kpi-alertes`) sont des dépassements de délai sous charge et passent seuls (43/43). Recette navigateur : connexion un clic du
+super admin et d'un associé, création d'un cabinet depuis la console. Pas rejoués : recette mobile 375 px, parcours d'erreur de la console.
 
 **NON vérifié (à ne pas affirmer).**
 
