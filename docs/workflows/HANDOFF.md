@@ -89,7 +89,7 @@ Observatoire : seuils de 5 entreprises et 3 cabinets calculés hors cabinet appe
 contributeurs. Efficacité des recommandations : 5 observations, effet à 30 jours. Import de documents :
 noms masqués avant envoi à l'IA ; texte extrait conservé jusqu'à la décision + 90 jours ; **OCR local
 installé sur le serveur, jamais de service externe**. Failles de `next` et `fastify` : correctifs gardés
-malgré la règle d'âge de 14 jours (les versions n'ont que 8 et 9 jours ; faille critique).
+malgré la règle d'âge de 14 jours (les versions n'ont que 8 et 9 jours ; faille critique). Garde réseau de l'OCR : limite documentée acceptée (2026-10-23), pare-feu sortant obligatoire à l'hébergement.
 
 **À valider par l'utilisateur ou un expert (provisoire, dans la PR sous « À valider »).**
 
@@ -123,9 +123,8 @@ malgré la règle d'âge de 14 jours (les versions n'ont que 8 et 9 jours ; fail
 2. **Recette navigateur de contrôle** (R-05 à 1 036 px, OCR sur un vrai scan, mobile ; A-04 déjà mesurée).
 3. **Dettes ouvertes** (détail : `SECURITY.md` §15 et `CODING_STANDARDS.md` §10) : **garde réseau de l'OCR
    contournable par la poignée native d'un socket** (un paquet UDP est sorti en essai ; précondition : code
-   déjà exécuté dans le sous-processus ; renforcement non fait — la plateforme a interrompu l'agent qui
-   devait écrire les tests d'attaque ; **pare-feu sortant du serveur obligatoire**, à reprendre par un
-   conteneur sans sortie ou un autre garde, à décider avec l'utilisateur) ; parseur PDF et OCR dans le
+   déjà exécuté dans le sous-processus ; renforcement non fait ; **limite acceptée par l'utilisateur le 2026-10-23, avec pare-feu sortant du
+   serveur obligatoire à l'hébergement** ; un conteneur sans sortie reste une option si le risque change) ; parseur PDF et OCR dans le
    processus de l'API (sous-processus Node sans conteneur ni seccomp) ; `effacerObjetsMarques` efface
    tout objet marqué `retire` du cabinet (effet de bord possible sur les dépôts de salle de mission, à
    confirmer) ; M5 (relance de lecture avec les droits de l'auteur) et M7 (téléversement DD en trois
