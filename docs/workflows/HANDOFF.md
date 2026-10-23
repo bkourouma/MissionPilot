@@ -29,9 +29,12 @@ fusionné la PR (merge commit, jamais de rebase).
 | 2b | Connexion « un clic » multi-cabinets (`GET /api/auth/demo`, `POST /api/auth/demo/connexion`, `/connexion-plateforme`), interrupteur `DEMO_PUBLIQUE`, migrations `0580–0582` (fonctions `demo_*`, refus du mot de passe public hors démo, bac à sable du super admin de démonstration) |
 | 3 | Web : `/connexion` (bloc « Mode démonstration », choix du super admin ou d'un cabinet puis d'un compte), console `/plateforme` (cabinets, comptes), middleware de cookie `mp_plateforme` |
 | 4 | Documentation (ce lot) : CODING_STANDARDS §1, §2, §10 ; SECURITY §3, §4, §6, §10, §15 ; RUNBOOK ; DEPLOIEMENT ; AGENTS « Pièges connus » ; DECISIONS ; checklist (relevé tête finale du 2026-10-23, super admin) ; commentaires SQL devenus faux (0570, 0573, 0580, test `plateforme-sql`) |
+| 5 | Liste de démo sans comptes 2FA : migration `0583` (fonction interne `demo_tfa_bloquante`, non accordée ; `demo_lister_comptes` redéfinie) ; `GET /api/auth/demo` ne liste plus les comptes à 2FA active ou obligatoire, plancher `TOTP_REQUIS=oui` compris (`routes/connexion-demo-public.ts`) ; un compte non listé mais connu reste refusé en 403 `CONNEXION_RAPIDE_2FA` (« listé implique trouvable », la réciproque est fausse) |
+| 6 | Web : un clic sur la carte « Super administrateur » de `/connexion` connecte directement (plus d'étape de confirmation) |
+| 7 | Documentation finale (ce lot) : CODING_STANDARDS (`0580–0583`, prochains libres démo `0584–0589`), SECURITY §3 et §4, checklist (relevé lot 7), RUNBOOK, DEPLOIEMENT (durée du semis, ~50 s sur base vide) |
 
 Chiffres de la tête (checklist) : 1 002 routes dont 14 sans `exiger`, 904 `z.object` dans `packages/shared` dont 893 `.strict()` (+10 `z.object` stricts
-dans `apps/api`), 239 migrations, 41 `GRANT EXECUTE`.
+dans `apps/api`), 240 migrations (avec `0583`), 42 `GRANT EXECUTE`.
 
 **Vérifié.** Lot 1 : 81 tests plateforme verts, suite API 3 503 / 3 504 (suivi du 2026-10-23 ; l'échec, `kpi-alertes`, est un délai sous
 charge). Documentation (lot 4) : recherches mécaniques de la checklist relancées sur la tête (sauf `pnpm audit`, réseau) ; Prettier propre sur
@@ -98,7 +101,7 @@ pnpm --filter @missionpilot/api db:seed-defaut             # tenant de démonstr
 
 ---
 
-## Branche `orch/2026-10-20-reste` — 2026-10-23 (PR vers `main` à fusionner par l'utilisateur)
+## Branche `orch/2026-10-20-reste` — 2026-10-23 (PR n° 16 fusionnée dans `main`, merge commit `378c48d`)
 
 **État.** `main` = `3d5a252` (vagues 0 à 4 : gestion de mission, fondations, automatisation, services
 augmentés, appels d'offres, redressement, due diligence, canaux simulés). La branche

@@ -324,7 +324,9 @@ ici. Les adresses en `.test` ne doivent jamais être de vrais comptes (SECURITY.
 **Page de connexion « un clic »** : quand la démonstration est active (`CONNEXION_RAPIDE_DEMO=oui` en local, ou
 `DEMO_PUBLIQUE=oui`), `/connexion` affiche le bloc « Mode démonstration » : on choisit d'abord un espace (« Super
 administrateur » ou un cabinet), puis, pour un cabinet, un compte (« Espace cabinet » ou « Espace client (portail) ») ; un
-clic ouvre la session, sans e-mail ni mot de passe. Un compte à 2FA active ou obligatoire est refusé (utiliser le formulaire).
+clic ouvre la session, sans e-mail ni mot de passe. Un clic sur la carte « Super administrateur » connecte DIRECTEMENT, sans étape
+de confirmation, et mène à `/plateforme`. La liste n'affiche pas les comptes à 2FA active ou obligatoire (utiliser le formulaire
+pour ceux-là).
 Le lien « Accès administrateur de la plateforme », toujours affiché sous le formulaire, mène à `/plateforme/connexion`
 (e-mail et mot de passe d'un super admin). Le bloc n'apparaît que si `GET /api/auth/demo` répond 200.
 
@@ -717,9 +719,13 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   `missionpilot.env` ET l'API recréée (`mp up -d --force-recreate api web`). `GET /api/auth/demo` en 200 mais liste vide : aucun
   cabinet `est_demo` actif (lancer `db:seed-defaut`, ou `--confirmer-demo` sur le serveur ; ou le cabinet a été désactivé dans la
   console). Le bloc n'apparaît qu'après un 200 : le web lit la liste à chaque affichage, sans reconstruction.
-- **Un compte de démonstration refuse le clic (403 `CONNEXION_RAPIDE_2FA`)** : sa 2FA est active ou obligatoire. Avec `TOTP_REQUIS=oui`
-  (plancher plateforme), TOUS les comptes de démonstration aux rôles sensibles deviennent inconnectables en un clic : retirer la
-  variable sur un serveur de démonstration, ou se connecter par le formulaire (adresse, mot de passe, code à 6 chiffres).
+- **Un compte de démonstration manque dans la liste « un clic »** : depuis `0583`, `GET /api/auth/demo` ne liste pas les comptes dont
+  la 2FA est active ou obligatoire (politique du cabinet pour leurs rôles, du portail, ou plancher `TOTP_REQUIS=oui`, qui vide
+  TOUTE la liste des comptes de cabinet et du portail). Ce n'est pas une panne : retirer la variable sur un serveur de démonstration,
+  désactiver la 2FA du compte, ou se connecter par le formulaire (adresse, mot de passe, code à 6 chiffres).
+- **Un compte de démonstration refuse le clic (403 `CONNEXION_RAPIDE_2FA`)** : le compte n'est plus listé mais reste connu (une
+  liste web ancienne, ou un appel direct) et sa 2FA est active ou obligatoire. Règle : « listé implique trouvable », la réciproque est
+  fausse. Même remède que ci-dessus.
 - **Super admin : 401 « E-mail ou mot de passe incorrect »** : adresse ou mot de passe faux, compte inactif, ou, pour le super admin de
   démonstration, démonstration inactive (son mot de passe public est alors refusé). Dix échecs en 15 minutes sur la même adresse
   bloquent la connexion (429) ; aucun outil de déblocage pour un super admin, attendre la fin de la fenêtre. Console qui ramène à
