@@ -12,6 +12,7 @@ import {
   MOTIF_MAX,
   type ChampAdhesion,
 } from "../../lib/observatoire";
+import { messageVersement, nombreVerse } from "../../lib/observatoire-versement";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -125,11 +126,15 @@ export function ActionsContributions({ aDesContributions }: { aDesContributions:
   const fVerser = useFormulaire<never>();
   const fRetirer = useFormulaire<never>();
 
+  // Le message dépend du nombre d'éléments réellement versés (réponse de l'API), pas d'un texte fixe.
+  const [succesVersement, setSuccesVersement] = useState<string | null>(null);
+
   async function verser() {
+    setSuccesVersement(null);
     await fVerser.envoyer(
       { ok: true, charge: { indicateur: "notation_score_global" as const } },
       (c) => api.post(CHEMIN_CONTRIBUTIONS, c),
-      { ...OPTS, succes: "Vos données ont été versées ; elles seront retenues le mois suivant." },
+      { ...OPTS, apres: (r) => setSuccesVersement(messageVersement(nombreVerse(r))) },
     );
   }
 
@@ -145,7 +150,7 @@ export function ActionsContributions({ aDesContributions }: { aDesContributions:
     <div className="mp-observatoire__actions">
       <RetourFormulaire
         erreur={fVerser.erreurGlobale}
-        succes={fVerser.succes}
+        succes={succesVersement}
         refAlerte={fVerser.refAlerte}
         titreErreur="Versement impossible"
       />

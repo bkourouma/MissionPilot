@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 import { cheminTerminer, messageFroide } from "../../lib/qualite-froide";
-import { erreurChampAffichee, validerTerminaison } from "../../lib/qualite-froide-saisie";
+import {
+  erreurChampAffichee,
+  erreurGlobaleAffichee,
+  validerTerminaison,
+} from "../../lib/qualite-froide-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -21,6 +25,9 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
   // L'erreur du champ vient du dernier envoi : elle ne vaut plus dès que la synthèse change ou
   // que le panneau de confirmation s'ouvre.
   const [erreurPerimee, setErreurPerimee] = useState(false);
+  // Idem pour le bandeau d'erreur de l'API (ex. « grille incomplète ») : périmé dès que la synthèse
+  // change ou que la confirmation s'ouvre ; remis à faux avant chaque nouvel envoi.
+  const [globalePerimee, setGlobalePerimee] = useState(false);
   const validation = validerTerminaison(synthese);
 
   return (
@@ -33,14 +40,17 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
         if (!confirmation) {
           if (validation.ok) {
             setErreurPerimee(true);
+            setGlobalePerimee(true);
             setConfirmation(true);
           } else {
             setErreurPerimee(false);
+            setGlobalePerimee(false);
             await f.envoyer(validation, async () => undefined);
           }
           return;
         }
         setErreurPerimee(false);
+        setGlobalePerimee(false);
         const fait = await f.envoyer(
           validation,
           (charge) => api.post(cheminTerminer(echantillonId), charge),
@@ -50,7 +60,7 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
       }}
     >
       <RetourFormulaire
-        erreur={f.erreurGlobale}
+        erreur={erreurGlobaleAffichee(f.erreurGlobale, globalePerimee)}
         succes={f.succes}
         refAlerte={f.refAlerte}
         titreErreur="La revue n'a pas pu être terminée"
@@ -64,6 +74,7 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
         onChange={(e) => {
           setSynthese(e.target.value);
           setErreurPerimee(true);
+          setGlobalePerimee(true);
           setConfirmation(false);
         }}
         erreur={erreurChampAffichee(f.erreurs.synthese, erreurPerimee)}

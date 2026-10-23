@@ -192,25 +192,55 @@
 }
 
 /*
- * Tableau « Échantillon » d'une campagne : pas de défilement horizontal interne à ~1000 px.
- * Les cellules passent à la ligne, les entêtes aussi, et le sélecteur de relecteur ne prend plus
- * la largeur de son option la plus longue (« non éligible : … ») mais celle de sa cellule.
+ * Tableau « Échantillon » d'une campagne (R-05, A-10). Jamais de mot coupé en pleine lettre : les
+ * cellules ne passent à la ligne qu'aux espaces (overflow-wrap normal), les entêtes, dates et
+ * statuts restent sur une ligne, chaque colonne a une largeur minimale. Quand la place manque (~1000 px
+ * avec le menu), le tableau défile horizontalement DANS son cadre, la page ne déborde pas. Le
+ * sélecteur de relecteur ne prend pas la largeur de son option la plus longue mais celle de sa cellule.
+ * Sous 640 px, le tableau devient des fiches (composants.css) : on garde le repli de sécurité.
  */
-.mp-froide__echantillon .mp-tableau {
-  overflow-x: visible;
-}
-
 .mp-froide__echantillon .mp-tableau th,
 .mp-froide__echantillon .mp-tableau td {
   padding: var(--mp-esp-2) var(--mp-esp-3);
   overflow-wrap: anywhere;
 }
 
-.mp-froide__echantillon .mp-tableau th {
-  white-space: normal;
-}
-
 @media (min-width: 640px) {
+  .mp-froide__echantillon .mp-tableau {
+    overflow-x: auto;
+  }
+
+  .mp-froide__echantillon .mp-tableau th,
+  .mp-froide__echantillon .mp-tableau td {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: manual;
+  }
+
+  .mp-froide__echantillon .mp-tableau th {
+    white-space: nowrap;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Mission"],
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Client"],
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Directeur"] {
+    min-width: 9rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Clôture"],
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Statut"] {
+    min-width: 7.5rem;
+    white-space: nowrap;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Relecteur"] {
+    min-width: 14rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Score et conclusion"] {
+    min-width: 9rem;
+  }
+
   .mp-froide__echantillon .mp-tableau td .mp-champ {
     min-width: 11rem;
     max-width: 100%;

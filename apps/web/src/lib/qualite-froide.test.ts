@@ -405,3 +405,14 @@ describe("erreur de champ périmée", () => {
     expect(erreurChampAffichee(undefined, false)).toBeUndefined();
   });
 });
+
+describe("erreur globale périmée", () => {
+  it("disparaît quand l'état fautif a changé, jamais si elle est fraîche", async () => {
+    const { erreurGlobaleAffichee } = await import("./qualite-froide-saisie");
+    expect(erreurGlobaleAffichee("La grille doit être complète", false)).toBe(
+      "La grille doit être complète",
+    );
+    expect(erreurGlobaleAffichee("La grille doit être complète", true)).toBeNull();
+    expect(erreurGlobaleAffichee(null, false)).toBeNull();
+  });
+});

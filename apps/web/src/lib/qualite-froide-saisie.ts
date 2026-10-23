@@ -336,3 +336,11 @@ export const erreurChampAffichee = (
   erreur: string | undefined,
   perimee: boolean,
 ): string | undefined => (perimee ? undefined : erreur);
+
+/**
+ * Erreur globale (bandeau de l'API) à afficher : celle du dernier envoi, sauf si l'état qui l'a
+ * causée a changé depuis (synthèse modifiée, panneau de confirmation ouvert). Une erreur d'un
+ * nouvel envoi n'est jamais périmée : l'appelant réinitialise `perimee` avant d'envoyer.
+ */
+export const erreurGlobaleAffichee = (erreur: string | null, perimee: boolean): string | null =>
+  perimee ? null : erreur;
