@@ -101,6 +101,10 @@ export interface OptionsRafraichir {
  * au bout de 1,5 s (une seule relance par fenêtre pour tous les hooks de la page), abandon de l'attente à 8 s. `marquer` ne demande rien à Next : il signale
  * seulement qu'un rafraîchissement est attendu (l'appelant le lance lui-même). Sans `cle`,
  * l'attente est la transition React, plafonnée à 8 s : elle ne peut jamais rester bloquée plus longtemps.
+ *
+ * Lot 13a : la cause des écrans périmés (perte du « ping » de React sous une frontière Suspense)
+ * est contournée pour toute l'application par `DebloqueurRendu` (layout racine). La relance à
+ * 1,5 s et le secours à 8 s restent des filets de sécurité ; ils ne devraient plus servir.
  */
 export function useRafraichir(options: OptionsRafraichir = {}) {
   const router = useRouter();
