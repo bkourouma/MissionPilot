@@ -360,5 +360,9 @@ export async function buildApp(
   await app.register((await import("./routes/services-candidats.js")).routesServicesCandidats, {
     prefix: "/api",
   });
+  // Super admin de plateforme : cookie et session propres (routes/plateforme.ts).
+  await app.register((await import("./routes/plateforme.js")).routesPlateforme, {
+    prefix: "/api/plateforme",
+  });
   return app;
 }
