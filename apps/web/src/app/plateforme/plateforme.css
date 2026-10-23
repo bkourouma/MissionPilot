@@ -1,0 +1,159 @@
+/*
+ * Console de plateforme (super administrateur) : coque minimale sans menu métier, liste des
+ * cabinets et formulaire de création. Jetons de tokens.css uniquement (aucune couleur en dur) :
+ * le mode sombre suit les jetons. Mobile d'abord, aucune largeur fixe.
+ */
+
+/* ---------- Coque ---------- */
+.mp-plateforme {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-plateforme__entete {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  min-height: var(--mp-hauteur-entete);
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
+  background: var(--mp-surface);
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-plateforme__marque {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  min-width: 0;
+  color: var(--mp-primaire);
+}
+
+.mp-plateforme__marque-textes {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.mp-plateforme__produit {
+  color: var(--mp-texte);
+  font-weight: 700;
+}
+
+.mp-plateforme__espace {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  font-weight: 500;
+}
+
+.mp-plateforme__compte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-plateforme__identite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  min-width: 0;
+  font-size: var(--mp-taille-s);
+}
+
+.mp-plateforme__nom {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-plateforme__email {
+  color: var(--mp-texte-doux);
+  overflow-wrap: anywhere;
+}
+
+.mp-plateforme__contenu {
+  flex: 1;
+  min-width: 0;
+  padding: var(--mp-esp-5) var(--mp-esp-4);
+  padding-bottom: calc(var(--mp-esp-5) + env(safe-area-inset-bottom));
+}
+
+.mp-plateforme__contenu:focus {
+  outline: none;
+}
+
+.mp-plateforme__contenu > .mp-page {
+  margin-inline: auto;
+}
+
+/* ---------- Console des cabinets ---------- */
+.mp-console {
+  min-width: 0;
+}
+
+.mp-console > * {
+  min-width: 0;
+}
+
+.mp-console__nom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-2);
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.mp-console__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+.mp-console__actions .mp-bouton {
+  min-height: var(--mp-cible);
+}
+
+.mp-console__confirmation {
+  margin-top: var(--mp-esp-3);
+}
+
+.mp-console__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.mp-console__section legend {
+  padding: 0;
+  font-size: var(--mp-taille-l);
+  font-weight: 600;
+}
+
+.mp-console__grille {
+  display: grid;
+  gap: var(--mp-esp-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .mp-console__grille {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

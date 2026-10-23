@@ -1,21 +1,21 @@
 import { appelerApi } from "../../lib/api";
 import { urlApi } from "../../lib/api-serveur";
-import { CHEMIN_COMPTES_DEMO, lireComptesDemo, type CompteDemo } from "../../lib/connexion-demo";
+import { CHEMIN_DEMO, lireDemo, type Demo } from "../../lib/demo-connexion";
 
 /**
- * Comptes de démonstration, lus par le SERVEUR web sans cookie (route publique) : le navigateur
- * n'émet aucune requête, il ne reste donc aucune trace quand la fonction est désactivée.
+ * Démonstration multi-cabinets, lue par le SERVEUR web sans cookie (route publique) : le
+ * navigateur n'émet aucune requête, il ne reste donc aucune trace quand la démo est désactivée.
  * `null` (aucun bloc affiché) dès que l'API ne répond pas 200 avec la forme attendue : 404 quand
- * `CONNEXION_RAPIDE_DEMO` n'est pas activée, API injoignable, délai dépassé.
+ * la démonstration n'est pas activée, API injoignable, délai dépassé.
  */
-export async function chargerComptesDemo(): Promise<CompteDemo[] | null> {
+export async function chargerDemo(): Promise<Demo | null> {
   try {
-    const corps = await appelerApi<unknown>(CHEMIN_COMPTES_DEMO, {
+    const corps = await appelerApi<unknown>(CHEMIN_DEMO, {
       baseUrl: urlApi(),
       redirigerSi401: false,
       delaiMs: 3_000,
     });
-    return lireComptesDemo(corps);
+    return lireDemo(corps);
   } catch {
     return null;
   }

@@ -1,28 +1,47 @@
-/* Connexion rapide de démonstration (recette locale) : app/connexion/ComptesDemo.tsx. */
-.mp-comptes-demo {
+/* Mode démonstration de la page de connexion : app/connexion/ConnexionDemo.tsx. */
+.mp-demo {
   display: flex;
   flex-direction: column;
   gap: var(--mp-esp-3);
-  margin-top: var(--mp-esp-4);
-  padding-top: var(--mp-esp-4);
-  border-top: 1px dashed var(--mp-bordure-controle);
+  min-width: 0;
+  margin-top: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  background: var(--mp-primaire-pale);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
 }
 
-.mp-comptes-demo__titre {
-  font-size: var(--mp-taille-m);
+.mp-demo__titre {
+  font-size: var(--mp-taille-l);
 }
 
-.mp-comptes-demo__aide {
+.mp-demo__aide {
   font-size: var(--mp-taille-s);
 }
 
-.mp-comptes-demo__groupe {
+.mp-demo__etape,
+.mp-demo__groupe {
   display: flex;
   flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-demo__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--mp-esp-2);
 }
 
-.mp-comptes-demo__sous-titre {
+.mp-demo__etape-titre {
+  min-width: 0;
+  font-size: var(--mp-taille-m);
+  overflow-wrap: anywhere;
+}
+
+.mp-demo__sous-titre {
   font-size: var(--mp-taille-s);
   font-weight: 600;
   text-transform: uppercase;
@@ -30,21 +49,27 @@
   color: var(--mp-texte-doux);
 }
 
-.mp-comptes-demo__liste {
+.mp-demo__liste {
   display: flex;
   flex-direction: column;
   gap: var(--mp-esp-2);
+  min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.mp-comptes-demo__compte {
+.mp-demo__liste > li {
+  min-width: 0;
+}
+
+.mp-demo__carte {
   justify-content: flex-start;
+  min-width: 0;
   text-align: start;
 }
 
-.mp-comptes-demo__texte {
+.mp-demo__texte {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -52,12 +77,34 @@
   min-width: 0;
 }
 
-.mp-comptes-demo__nom {
+.mp-demo__nom {
   overflow-wrap: anywhere;
 }
 
-.mp-comptes-demo__role {
+.mp-demo__detail,
+.mp-demo__email {
+  max-width: 100%;
   color: var(--mp-texte-doux);
   font-size: var(--mp-taille-s);
   font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.mp-demo__email {
+  font-size: var(--mp-taille-xs);
+}
+
+/* Formulaire e-mail / mot de passe, secondaire quand la démonstration est active. */
+.mp-connexion__classique {
+  margin-top: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-connexion__classique > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  color: var(--mp-primaire);
+  font-weight: 600;
+  cursor: pointer;
 }
