@@ -221,7 +221,8 @@ describe("démo : liste GET /api/auth/demo", () => {
 
     const miens = (corps.cabinets as { id: string }[]).filter((c) => cabinetsDemo.includes(c.id));
     // Alpha avant Zeta (tri par nom), cabinets désactivé et réel absents.
-    expect(miens.map((c) => c.id)).toEqual([alpha, cabinetTfaObligatoire, zeta]);
+    // Le cabinet dont le seul compte est sous 2FA obligatoire (cabinetTfaObligatoire) n'est pas listé.
+    expect(miens.map((c) => c.id)).toEqual([alpha, zeta]);
     expect(corps.cabinets.map((c: { id: string }) => c.id)).not.toContain(eteint);
     expect(corps.cabinets.map((c: { id: string }) => c.id)).not.toContain(reel);
 
@@ -233,7 +234,6 @@ describe("démo : liste GET /api/auth/demo", () => {
         { email: a.associe.email, nom: a.associe.nom, roles: ["associe"], portail: false },
         { email: a.chef.email, nom: a.chef.nom, roles: ["chef_mission"], portail: false },
         { email: a.consultant.email, nom: a.consultant.nom, roles: ["consultant"], portail: false },
-        { email: tfa.email, nom: tfa.nom, roles: ["consultant"], portail: false },
         { email: dirigeant.email, nom: dirigeant.nom, roles: ["client_dirigeant"], portail: true },
         {
           email: a.investisseur.email,
@@ -248,8 +248,73 @@ describe("démo : liste GET /api/auth/demo", () => {
     });
     expect(r.body).not.toContain(eteintCompte.email);
     expect(r.body).not.toContain(reelCompte.email);
+    // Jamais listés : la connexion rapide ne contourne pas la 2FA (active ou obligatoire).
+    expect(r.body).not.toContain(tfa.email);
+    expect(r.body).not.toContain(tfaObligatoire.email);
     expect(r.body).not.toContain("sans-rattachement");
     expect(r.body).not.toContain("desactive");
+  });
+
+  it("2FA du portail : compte à 2FA active ou portail à 2FA obligatoire non listés, mais refusés en 403", async () => {
+    const cab2fa = await cabinet(`Portail 2FA ${suf}`);
+    await compte(cab2fa, "p-conso", "Conso Portail", ["consultant"]);
+    const libre = await comptePortail(cab2fa, "p-libre", "Client Libre", "client_dirigeant");
+    const avec2fa = await comptePortail(cab2fa, "p-tfa", "Client Deuxfa", "client_contributeur");
+    await sql(
+      `INSERT INTO utilisateurs_2fa (utilisateur_id, cabinet_id, secret_chiffre, cle_version, active_le)
+       VALUES ($1, $2, $3, 1, now())`,
+      [avec2fa.id, cab2fa, randomBytes(48)],
+    );
+    const cabPolitique = await cabinet(`Portail obligatoire ${suf}`);
+    await compte(cabPolitique, "q-conso", "Conso Politique", ["consultant"]);
+    const oblige = await comptePortail(
+      cabPolitique,
+      "q-oblige",
+      "Client Obligé",
+      "client_dirigeant",
+    );
+    await sql("INSERT INTO portail_parametres (cabinet_id, tfa_obligatoire) VALUES ($1, true)", [
+      cabPolitique,
+    ]);
+
+    const corps = (await lister()).json();
+    const parId = new Map(
+      (corps.cabinets as { id: string; comptes: { email: string }[] }[]).map((c) => [c.id, c]),
+    );
+    const emails = (id: string) => parId.get(id)!.comptes.map((c) => c.email);
+    expect(emails(cab2fa)).toContain(libre.email);
+    expect(emails(cab2fa)).not.toContain(avec2fa.email);
+    expect(emails(cabPolitique)).not.toContain(oblige.email);
+    expect(emails(cabPolitique)).toHaveLength(1);
+    // Non listés mais connus : 403 (et non 401), jamais de session.
+    for (const [cab, c] of [
+      [cab2fa, avec2fa],
+      [cabPolitique, oblige],
+    ] as const) {
+      const r = await connexion(cab, c.email);
+      expect(r.statusCode).toBe(403);
+      expect(r.json().erreur.code).toBe("CONNEXION_RAPIDE_2FA");
+      expect(r.cookies).toHaveLength(0);
+    }
+  });
+
+  it("plancher plateforme TOTP_REQUIS=oui : les rôles sensibles du cabinet ne sont plus listés", async () => {
+    const i = await instance({ CONNEXION_RAPIDE_DEMO: "oui", TOTP_REQUIS: "oui" });
+    try {
+      const corps = (await lister(i)).json();
+      const parId = new Map(
+        (corps.cabinets as { id: string; comptes: { email: string }[] }[]).map((c) => [c.id, c]),
+      );
+      const emails = (id: string) => parId.get(id)!.comptes.map((c) => c.email);
+      expect(emails(alpha)).not.toContain(a.associe.email);
+      expect(emails(alpha)).toContain(a.chef.email);
+      expect(emails(alpha)).toContain(dirigeant.email); // le portail n'est pas concerné
+      expect(emails(zeta)).toEqual([zetaConsultant.email]);
+      const r = await connexion(alpha, a.associe.email, {}, i);
+      expect(r.statusCode).toBe(403);
+    } finally {
+      await fermer(i);
+    }
   });
 
   it("super admin : réel et démo désactivé absents (un seul, démo actif)", async () => {

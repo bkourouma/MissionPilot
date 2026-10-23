@@ -275,7 +275,8 @@ describe("seed du tenant par défaut (mode par défaut)", () => {
 
   it("le super admin de démonstration se connecte par POST /api/plateforme/connexion", async () => {
     const base = b1 as BaseJetable;
-    const app = await buildApp({ ...base.config, NODE_ENV: "test" }, base.db);
+    // Mot de passe public du super admin de démonstration : accepté seulement si la démo est active.
+    const app = await buildApp({ ...base.config, NODE_ENV: "test", DEMO_PUBLIQUE: "oui" }, base.db);
     try {
       const ok = await app.inject({
         method: "POST",

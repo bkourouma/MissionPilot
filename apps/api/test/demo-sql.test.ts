@@ -61,7 +61,7 @@ const FONCTIONS: { nom: string; args: string; resultat: string; volatilite: stri
     volatilite: "s",
   },
 ];
-const INTERNES = ["demo_comptes_ouvrables", "demo_roles_client"];
+const INTERNES = ["demo_comptes_ouvrables", "demo_roles_client", "demo_tfa_bloquante"];
 
 const sha256 = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
 const nouveauJetonHash = () => sha256(randomBytes(32).toString("base64url"));
@@ -580,7 +580,7 @@ describe("démo : recherche d'un compte", () => {
     expect(await trouver("00000000-0000-4000-8000-000000000000", associeA.email)).toEqual([]);
   });
 
-  it("listé ⇔ trouvable, pour chaque compte des cabinets du jeu de données", async () => {
+  it("listé ⇔ trouvable (hors comptes sous 2FA, trouvables mais non listés), pour chaque compte du jeu de données", async () => {
     const liste = await listerComptes();
     const listes = new Set(liste.map((l) => `${l.cabinet_id}|${l.email}`));
     const comptes: [string, Compte][] = [
@@ -610,6 +610,45 @@ describe("démo : recherche d'un compte", () => {
         portail: l.portail,
       });
     }
+  });
+
+  it("2FA : un compte à 2FA active ou rendu inconnectable par la politique n'est pas listé, mais reste trouvable", async () => {
+    const cab = await creerCabinet(`Démo 2FA ${suf}`);
+    const libre = await creerCompte(cab, email("a-libre"), ["consultant"]);
+    const avec2fa = await creerCompte(cab, email("b-2fa"), ["chef_mission"]);
+    const associePolitique = await creerCompte(cab, email("c-associe"), ["associe"]);
+    const client = await creerClient(cab);
+    const portailLibre = await creerCompte(cab, email("d-portail"), ["client_dirigeant"]);
+    await rattacher(portailLibre, cab, client);
+    const portail2fa = await creerCompte(cab, email("e-portail-2fa"), ["client_contributeur"]);
+    await rattacher(portail2fa, cab, client);
+    for (const c of [avec2fa, portail2fa]) {
+      await proprio(
+        `INSERT INTO utilisateurs_2fa (utilisateur_id, cabinet_id, secret_chiffre, cle_version, active_le)
+         VALUES ($1, $2, $3, 1, now())`,
+        [c.id, cab, randomBytes(48)],
+      );
+    }
+    await proprio("UPDATE cabinets SET tfa_obligatoire = '{associe}' WHERE id = $1", [cab]);
+    const emails = async () =>
+      (await listerComptes()).filter((l) => l.cabinet_id === cab).map((l) => l.email);
+
+    expect(await emails()).toEqual([libre.email, portailLibre.email]);
+    for (const c of [avec2fa, associePolitique, portail2fa]) {
+      expect(await trouver(cab, c.email), c.email).toHaveLength(1); // refusé en 403 par l'API
+    }
+    // Portail à 2FA obligatoire : plus aucun compte du portail listé, le cabinet reste trouvable.
+    await proprio(
+      "INSERT INTO portail_parametres (cabinet_id, tfa_obligatoire) VALUES ($1, true)",
+      [cab],
+    );
+    expect(await emails()).toEqual([libre.email]);
+    expect(await trouver(cab, portailLibre.email)).toHaveLength(1);
+    // Les colonnes de la liste restent exactes.
+    const [ligne] = await listerComptes();
+    expect(Object.keys(ligne!).sort()).toEqual(
+      ["cabinet_id", "cabinet_nom", "email", "nom", "portail", "roles"].sort(),
+    );
   });
 
   it("aucune fuite : colonnes exactes, aucun haché", async () => {
