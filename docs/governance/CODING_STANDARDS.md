@@ -4,7 +4,7 @@ En cas de désaccord avec [AGENTS.md](../../AGENTS.md), AGENTS.md prime. Ce
 document décrit les conventions **observées dans le code** (état de `main`
 après la fusion de la PR n° 14, `3d5a252`, complétée aux 2026-10-21 et 2026-10-22 par les lots 1 à 5b, 6, 7, 4c, 8a, 8b, 8c et 10 de la branche
 d'intégration ; vagues 1 à 3, rejeu réel OpenRouter, lacunes de la vague 2 — événement `mission.cloture_demandee`,
-brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés ; lots 5b et 7 : observatoire, veille, services candidats ; lot 4c : rapport d'avancement hebdomadaire, cache et plafond de mission de l'IA, contradicteur ; lot 6 : ingestion de documents, ADR-009 ; lot 10 : corrections de la recette navigateur), avec un fichier de
+brief quotidien, copilote — et vague 4 : redressement, due diligence, canaux simulés ; lots 5b et 7 : observatoire, veille, services candidats ; lot 4c : rapport d'avancement hebdomadaire, cache et plafond de mission de l'IA, contradicteur ; lot 6 : ingestion de documents, ADR-009 ; lot 10 : corrections de la recette navigateur ; lots 13a et 13b : écrans périmés, réveil des jobs, libellés, le 2026-10-23), avec un fichier de
 référence pour chacune, pas un idéal. Les
 contrôles mécaniques sont dans `.claude/rules/review-checklist.md`.
 
@@ -335,6 +335,15 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   (immuabilité, numérotation, périodes closes, séparation des tâches de la
   notation et des plans, cloisonnement du portail) sont des déclencheurs ou des
   politiques SQL.
+- **Réveil du worker de jobs** (lot 13b, R-08, `apps/api/src/jobs/reveil.ts` : `signalerJobCree`,
+  `ecouterJobCree`). Tout nouveau chemin qui crée un job d'ingestion appelle `signalerJobCree()` APRÈS son
+  COMMIT, jamais dans la transaction (le worker lirait avant la validation) ; appelants actuels :
+  `creerDocument` (`ingestion/documents.ts`) et les routes de relance `routes/ingestion-dd.ts` et
+  `routes/ingestion-standard.ts`. `WorkerJobs` (`jobs/worker.ts`) s'abonne dans `demarrer` et se désabonne dans
+  `arreter()` : réveil à 400 ms (`delaiReveilMs`), nouveau cycle 1 s après un cycle utile
+  (`delaiEnchainementMs`), un seul rattrapage à 2 s (`delaiRattrapageMs`) quand un cycle déclenché par signal
+  revient vide, puis retour à l'intervalle normal (30 s) ; deux cycles ne tournent jamais en parallèle. Le
+  signal est local au processus.
 - **Web** : `app/` pages et layouts, `lib/` logique pure testée, `components/`
   composants ; la garde d'une page est `exigerPermission` (`lib/session.ts`).
 - **Rafraîchir les données après une écriture : `useRafraichir`** (lot 10, A-04,
@@ -354,6 +363,28 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `rg -n "\.refresh\(\)" apps/web/src`) : plus aucun appel direct hors `FormulaireConnexion.tsx` (l. 60) ;
   les autres occurrences sont `useRafraichir.ts` (l. 19, 29, 56, 99, le seul appel réel étant l. 29) et son test
   (l. 13), et des commentaires de `useAttenteRafraichissement.ts` (l. 6) et `useFermetureDifferee.ts` (l. 8).
+  La relance à 1,5 s et le secours à 8 s sont des filets : la cause des écrans périmés est traitée par
+  `DebloqueurRendu` (règle suivante).
+- **`DebloqueurRendu` : ne pas le retirer sans avoir vérifié A-04** (lot 13a, R-01, R-02 ;
+  `apps/web/src/components/shell/DebloqueurRendu.tsx`, noyau pur testable `debloqueur.ts`, test
+  `debloqueur.test.ts`, 13 tests). Monté dans `apps/web/src/app/layout.tsx` à côté de `<HorsLigne />`, il
+  contourne un défaut du React 19.2 canary embarqué par Next 15.5.28 : sous une frontière Suspense
+  (`loading.tsx`), le réveil est perdu quand un morceau Flight passe à `resolved_model` pendant le rendu ; la
+  transition reste « suspendue » et l'ancien écran (ou un lien sans effet) demeure jusqu'à la prochaine mise à
+  jour d'état. Après une réponse RSC ou un morceau de page, il programme quelques mises à jour d'état minuscules
+  qui débloquent la transition. Cause démontrée par le lot 13a (`docs/workflows/notes-lots/lot-13a.md`). À
+  revoir à chaque montée de Next ou de React. Après une écriture : utiliser `useRafraichir` ou
+  `useFormulaire` ; ne pas ajouter de minuterie, de rechargement complet ni de `router.refresh()` répété pour
+  « forcer » l'affichage. Un écran périmé se diagnostique par `root.suspendedLanes` (voir la note du lot 13a).
+- **Libellés affichés : helpers du lot 13b.** Tout libellé de devise passe par `libelleDevise`
+  (`lib/format.ts`) : « FCFA » pour XOF et XAF, en-têtes et consignes du plan et du redressement compris ; les
+  codes stockés ne changent pas. Un poste d'état financier passe par `libellePosteEtat` et la cible d'un
+  contrôle par `libelleCibleControle` (`lib/codes-lisibles.ts`) : un code de ligne généré type `L1_13` devient
+  « Poste sans code source (page 1, ligne 13) », une cible « page 1, ligne 17 », et les codes du document
+  (`TA1`) restent tels quels. `messageAucunePage` (`lib/ingestion-detail.ts`) ; `libellePeriode`
+  (`lib/kpi-libelles.ts`) pour les périodes de KPI du rapport d'avancement ; `messageAuteurVerdict`
+  (`lib/due-diligence.ts`) : un associé est dispensé de la séparation des tâches, le message « une autre
+  personne doit le valider » n'est affiché qu'à l'auteur non associé.
 - **403 métier d'une page serveur : `codes403Metier`** (lot 10, A-01, `lib/api-serveur.ts`).
   `appelerApiServeur` et `chargerServeur` redirigent tout 403 vers `/acces-refuse`, sauf si son code figure
   dans la liste opt-in `codes403Metier` de l'appel : l'erreur remonte alors à la page (`ErreurApi`, ou
@@ -793,11 +824,21 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   DECISIONS.md.
 - **Corrections de la recette (lot 10, 2026-10-22)** : A-10 (règles CSS de la section « Échantillon »,
   `froide.css`) justifié par la lecture du CSS, non revérifié dans un navigateur, de même que le correctif
-  A-04 (`useRafraichir` : mécanisme non prouvé, cinq points à confirmer sur un onglet visible dans la note du
-  lot 10) ; A-11 : l'écart avec le brief demeure, `format.ts` n'a pas de formateur numérique `JJ/MM/AAAA`
+  A-04 (`useRafraichir` : mécanisme alors non prouvé ; cause démontrée et soldée par le lot 13a, voir plus bas) ; A-11 : l'écart avec le brief demeure, `format.ts` n'a pas de formateur numérique `JJ/MM/AAAA`
   (`formaterDate` rend « 15 oct. 2026 ») ; A-05 : une règle de méthode sans `libelle` garde un repli sans
   accents (par exemple « Recfin t3 a »), et le journal de modulation partagé change d'affichage dans le
   simulateur et la page des missions de méthode. Soldés par le lot 10 : tests API sensibles à la charge (voir
   la dette « Intégration continue »), commentaire de `qualite/froide-revue.ts` (« MQQ01 à MQQ13 »), appels
   directs à `router.refresh()` hors lot 6 et `FormulaireConnexion` (ceux du lot 6 l'ont été par le lot 12),
   Node 20 (§1, Node 22.13 minimum depuis le lot 11).
+- **Recette finale (lots 13a et 13b, 2026-10-23)** : soldées, A-04 par contournement (cause démontrée : perte du
+  réveil de React 19.2 canary sous une frontière Suspense, `DebloqueurRendu`), R-01 (écran périmé après
+  écriture) et R-02 (lien sans effet), mesures dans `docs/workflows/notes-lots/lot-13a.md`. Dettes nouvelles :
+  (1) le contournement `DebloqueurRendu` est à revoir à chaque montée de Next ou de React (inutile mais
+  inoffensif si le défaut est corrigé) ; sa preuve de bout en bout est une mesure en navigateur, pas un test, et
+  téléphone réel, Firefox et Safari ne sont pas mesurés ; (2) le signal de réveil des jobs est local au
+  processus : un worker dans un autre processus, ou un job créé hors des appelants de `signalerJobCree`, garde
+  l'intervalle de 30 s ; (3) R-05 : les largeurs minimales des 7 colonnes de la revue à froide totalisent
+  43,75 rem pour 732 px utiles (marge de 32 px) ; seule la garde CSS `qualite-froide-css.test.ts` existe, le
+  rendu à 768, 1036 et 1280 px reste à confirmer en navigateur ; (4) A-09 : si la grille se complète sans
+  changement de synthèse et sans clic sur « Terminer », le bandeau de synthèse reste jusqu'au prochain clic.

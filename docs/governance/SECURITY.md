@@ -45,6 +45,12 @@ en §15 et points ouverts en §16) : 990 routes (recherche n° 10, 972 + 18 : 4 
 230 fichiers de migration (226, plus `0521` à `0524`), 34 lignes `GRANT EXECUTE` (32, plus `purger_textes_ingestion` et
 `planifier_ingestion_maintenance` en `0524`) ; domaine SQLSTATE `MQG` (§5 ter). Le lot 10 (corrections de la recette
 navigateur du 2026-10-22) ne change ni migration ni route.
+Mise à jour du 2026-10-23 (lot 9g, report des lots 13a et 13b de la recette finale : cause racine démontrée du défaut
+d'affichage périmé A-04, R-01 et R-02 et contournement `DebloqueurRendu` en §5, source de la décision d'une note de due
+diligence R-03 en §8 octies, signal de réveil du worker de jobs R-08 en §8 undecies, dettes et dépendances en §15) :
+aucune route, aucune migration, aucun `GRANT EXECUTE` de plus. Comptes relevés le 2026-10-23 sur la tête finale :
+990 routes, 232 fichiers de migration et 35 lignes `GRANT EXECUTE` (230 et 34 à la mise à jour du lot 9e : l'écart est
+celui du lot 11, `0525` et `0526`, déjà reporté en §8 undecies ; les lots 13a et 13b n'y changent rien).
 
 ## 1. Actifs à protéger
 
@@ -580,9 +586,10 @@ soit le code appelant).
 - **Rafraîchissement après écriture (A-04, lot 10).** Ce n'est pas une garde de sécurité. Le hook
   `components/formulaires/useRafraichir.ts` remplace les appels directs à `router.refresh()` (interdits hors
   `FormulaireConnexion`) : le rafraîchissement a lieu dans une transition du composant, une relance à 1,5 s est
-  dédoublonnée par page, et l'attente est plafonnée à 8 s, de sorte qu'aucun bouton ne reste verrouillé. La cause exacte
-  du défaut d'affichage périmé observé à la recette reste **NON PROUVÉE** (hypothèse : commit de la transition à basse
-  priorité sur un onglet bridé), à confirmer sur un onglet visible au premier plan. Soldé le 2026-10-22 (lot 12) : les
+  dédoublonnée par page, et l'attente est plafonnée à 8 s, de sorte qu'aucun bouton ne reste verrouillé. La cause du
+  défaut d'affichage périmé observé à la recette, longtemps restée non prouvée (hypothèse du lot 10 : commit de la
+  transition à basse priorité sur un onglet bridé, **écartée**), est **démontrée** depuis le lot 13a (2026-10-23, voir
+  « Écran périmé après écriture » ci-dessous). Soldé le 2026-10-22 (lot 12) : les
   écrans web du lot 6 (ingestion, §8 undecies : `ImportEtatDocument`, `ImportEtatDocumentListe`, `BoutonRelance`,
   `DocumentsLecture`, `DocumentsListe`, `DocumentsTeleversement`, `AmorcageDocuments`, `AmorcageProposition`), qui
   appelaient encore `router.refresh()` en direct (12 appels dans 9 composants, fusionnés après le lot 10), passent par le
@@ -591,6 +598,28 @@ soit le code appelant).
   tick) mais `rafraichirEnTransition`, exporté par `useRafraichir.ts`, et saute un tick tant que la transition du
   précédent n'est pas terminée (aucun empilement). Plus aucun appel direct à `router.refresh()` dans `apps/web/src`
   hors `FormulaireConnexion`, voulu. Sans enjeu de sécurité.
+- **Écran périmé après écriture : cause démontrée et contournement (lot 13a, 2026-10-23 ; A-04, R-01, R-02).** Ce n'est
+  **pas une faille de sécurité** (aucune fuite de donnée, aucun contournement de droit) mais un défaut de **fiabilité
+  d'affichage**, inscrit ici parce qu'un écran périmé expose à agir sur une donnée obsolète. Cause : défaut du React
+  compilé embarqué par Next 15.5.28 pour l'App Router (`next/dist/compiled/react-dom`, version
+  `19.2.0-canary-0bdb9206-20250818`, et non le `react@19.3.0` du `package.json`). Un « ping » (réveil) est perdu quand un
+  morceau du flux RSC (Flight) passe à l'état `resolved_model` pendant le rendu d'une transition qui suspend sous une
+  frontière `Suspense` déjà affichée (celle de `loading.tsx`) : la racine garde sa voie de transition « suspendue » et
+  l'ancien écran reste affiché jusqu'à la prochaine mise à jour d'état non transitoire (frappe, secours à 8 s de
+  `useRafraichir`, minuterie de 60 s de la cloche de notifications, d'où les 30 à 60 s des liens `<Link>` sans effet de
+  R-02). Ce n'est ni un cache de données, ni l'onglet en arrière-plan, ni `useRafraichir`. Contournement :
+  `DebloqueurRendu` (`apps/web/src/components/shell/DebloqueurRendu.tsx`, noyau pur `debloqueur.ts`), monté une fois dans
+  `app/layout.tsx`. Un `PerformanceObserver` de type `resource`, limité aux réponses `_rsc` et aux morceaux
+  `/_next/static/chunks/` de la même origine, programme 4 mises à jour d'état minuscules et non transitoires à +40, +150,
+  +400 et +1 000 ms, qui effacent l'état « suspendu » de la racine. **Aucun réseau, aucune donnée lue** (seuls les noms
+  des ressources de la page, via Resource Timing, même origine), aucun nouvel en-tête, aucune route : ce n'est pas une
+  garde de sécurité. Mesures en build de production : donnée visible en 185 à 321 ms au lieu de 8,1 s dans les parcours
+  testés. **À REVOIR à chaque montée de Next ou de React** : si la version embarquée corrige le réveil, le composant
+  devient inutile mais reste inoffensif. Limites : non mesuré sur téléphone réel, Firefox et Safari ; un navigateur sans
+  Resource Timing garde le comportement d'origine, avec les filets de `useRafraichir` ; un blocage plus d'une seconde
+  après la dernière réponse ne serait pas rattrapé (aucun cas observé). Notes : `docs/workflows/notes-lots/lot-13a.md`.
+  Test : `apps/web/src/components/shell/debloqueur.test.ts` (noyau pur seulement ; la preuve de bout en bout est la
+  mesure dans le navigateur).
 
 ## 5 bis. Questionnaires, notation, KPI et plans (V2)
 
@@ -2696,7 +2725,13 @@ documents et l'orchestrateur IA (§8 undecies, mode texte natif, `dd.valider`), 
   (jamais reçue du client, validée par `noteBaseSchema`, sans verbatim nominatif). Validation par un
   tiers, avec les bloquants revérifiés (`NOTE_BLOQUEE`). Le rapport ne se rend que pour la dernière
   version soumise, validée (`NOTE_NON_VALIDEE`, `NOTE_PERIMEE`, doublé en base par `MPR04`), après
-  nouvelle vérification des bloquants, et porte la date de figeage de la base.
+  nouvelle vérification des bloquants, et porte la date de figeage de la base. **Source de la décision (lot 13b,
+  2026-10-23, R-03).** La dernière version d'une note reste `soumise` en base une fois jugée (migration `0507`) : la
+  décision vit dans `dd_note_validations` (une ligne par version). La synthèse du dossier (`derniereNote`,
+  `due-diligence/synthese.ts`) joint cette table et déduit `validee` ou `rejetee`, comme `etatDeNote` (`notes.ts`) pour les
+  écrans de notes ; aucune garde ni migration ne change. R-04 (même lot) : l'associé, dispensé de la séparation des
+  tâches (`peutValiderSansConflit`), ne voit plus le message « une autre personne doit le valider », réservé à l'auteur non
+  associé (`messageAuteurVerdict`) ; l'API était correcte.
 - **Limites connues.** Du SQL arbitraire du rôle applicatif contourne les gardes de l'API (comme
   §15) ; la conservation du contenu d'une due diligence reste à décider avec le conseil juridique.
 ## 8 nonies. Redressement (RED-01, 02, 05, 06, 07, 10, 11, 12, 14)
@@ -3049,6 +3084,17 @@ OCR, méthode `ocr` ou `ocr_simule` : un tel état part TOUJOURS en revue) ET au
   plus de job actif) ; 40 000 caractères au plus transmis au modèle (les pages utiles d'abord, le reste signalé
   « tronqué »). Test : `ingestion-securite.test.ts` (6e document refusé et son objet effacé ; 40 créations par jour ;
   document bloqué de plus de 30 minutes).
+- **Signal de réveil du worker de jobs (lot 13b, 2026-10-23 ; R-08).** Le worker attendait son intervalle (30 s) avant de
+  traiter un document importé. Un signal en mémoire (`jobs/reveil.ts` : `signalerJobCree`, `ecouterJobCree`) est émis
+  APRÈS le COMMIT (`creerDocument` après `enregistrerFichier`, routes de relance `ingestion-dd.ts` et
+  `ingestion-standard.ts` après leur transaction) ; le worker avance son prochain cycle à 400 ms. Un cycle qui a traité
+  un job est suivi d'un cycle à 1 s (enchaînement extraction puis structuration) ; un cycle déclenché par signal qui
+  revient vide programme UN cycle de rattrapage à 2 s, une seule fois, puis le worker retombe à l'intervalle normal de
+  30 s : aucune scrutation rapide permanente, donc aucun coût en base de plus. Deux cycles ne tournent jamais en
+  parallèle ; `arreter()` se désabonne. **Inchangés** : `reserver_job_a` (équité par cabinet, `0305`), les migrations,
+  les plafonds, l'isolation entre cabinets ; aucune surface réseau nouvelle. Limite : le signal est **local au
+  processus** (un worker lancé dans un autre processus que l'API, ou une API sans worker, garde 30 s ; un job créé par un
+  autre chemin n'émet pas de signal) ; voir §15. Test : `apps/api/test/jobs-reveil.test.ts`.
 - **OCR local (lot 11, 2026-10-22 ; ADR-009, décision 16 et « Décision OCR »).** Décision de l'utilisateur : OCR **LOCAL**,
   installé sur le serveur, hors ligne strict, **jamais un service externe**. Un port `Ocr` (`ingestion/ocr.ts`) et deux
   adaptateurs : `OcrLocal` (`ingestion/ocr-local.ts`, moteur `tesseract.js` 7.0.0, WebAssembly, méthode `ocr`) et
@@ -3550,6 +3596,8 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | OCR local (lot 11), isolation : le moteur WebAssembly et pdf.js lisent un fichier NON FIABLE dans un sous-processus Node par document, SANS conteneur ni seccomp ; la mémoire HORS TAS n'est bornée que par la veille RÉACTIVE du RSS (768 Mo, mesure toutes les 100 ms : une montée entre deux mesures n'est pas retenue) ; le garde réseau (`--require`) et le modèle de permissions sont des défenses APPLICATIVES, sans effet sur une faille native ou WebAssembly ; **contournement résiduel connu (vérification du 2026-10-22, gravité moyenne, précondition : code déjà exécuté dans le sous-processus)** : la poignée native d'un socket déjà construit (`socket._handle`) n'est pas couverte par le garde, un paquet UDP a pu sortir sous les options réelles de production, sans refus ni comptage (cas TCP/TLS ni confirmé ni infirmé) ; le renforcement demandé n'a pas été fait (voir lot-11.md) : le **pare-feu sortant du serveur est À POSER** et OBLIGATOIRE (aucun trafic sortant depuis l'hôte de l'API hors fournisseurs déclarés) ; l'effet de `--permission` sous Node 22 n'est vérifié que par la CI (mesures faites sous Node 24.12) | `ingestion/ocr-local.ts`, `ingestion/ocr-garde-reseau.cjs`, `ingestion/ocr-veille.mjs`, `test/ocr-garde.test.ts`, ADR-009 |
 | OCR local, exploitation : l'OCR s'exécute DANS la transaction du job d'extraction (ligne du document verrouillée, une connexion du pool retenue), au pire 30 s + 240 s + 10 s, sous le délai de blocage des jobs (15 minutes) ; dette acceptée, non restructurée ; une file OCR pleine (8 documents derrière la reconnaissance en cours, un seul traitement à la fois par processus d'API) donne `OCR_ECHEC` DÉFINITIF (inatteignable par la file `jobs` qui traite un job à la fois par processus, atteignable par des appels directs en rafale) ; sous Windows l'environnement du sous-processus n'est pas tout à fait vide (libuv recopie 11 variables système : `PATH`, `SYSTEMROOT`, `TEMP`, `USERNAME`… ; aucun secret de l'API ; vide sous Linux) | `ingestion/job-extraction.ts`, `ingestion/ocr-local.ts` (`LIMITES_OCR_LOCAL`, file), ADR-009 |
 | OCR local, limites et qualité non établies : 30 pages x 3 images = 124 s (sous les 240 s) ; une page à 60 images décodées = `OCR_ECHEC` ; un scan A4 à 600 dpi (environ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (le client refait le scan à 300-400 dpi) ; images JPX, CCITT et JBIG2 NON testées ; la vérification de secours sur les dimensions DÉCODÉES (`ocr-processus.mjs`) n'a pu être déclenchée par aucun fichier hostile (pdf.js ramène une image menteuse aux dimensions déclarées) : défense non éprouvée ; un document mêlant pages natives et pages scannées est lu par sa seule couche texte (pas d'OCR des pages vides) ; un scan négatif est vu comme une page sans encre ; la qualité sur de VRAIES liasses SYSCOHADA scannées n'est pas mesurée (jeux inventés seulement) ; faux positifs possibles des corrections proposées | `ingestion/ocr-processus.mjs`, `ingestion/pdf.ts`, `test/ocr-evaluation.ts`, `packages/engines/src/ingestion/ocr-confusions.ts` |
+| Affichage, contournement `DebloqueurRendu` (lot 13a) : il masque un défaut du React embarqué par Next 15.5.28 (réveil perdu sous une frontière `Suspense`) sans le corriger ; il dépend de Resource Timing (un navigateur sans cette API garde l'écran périmé, avec les filets de `useRafraichir`) et du défaut amont (à REVOIR à chaque montée de Next ou de React) ; un blocage plus d'une seconde après la dernière réponse RSC ne serait pas rattrapé ; non mesuré sur téléphone réel, Firefox, Safari ; jusqu'à 4 rendus d'un composant vide après chaque réponse RSC. Aucun enjeu de confidentialité | `apps/web/src/components/shell/DebloqueurRendu.tsx`, `debloqueur.ts`, `docs/workflows/notes-lots/lot-13a.md` |
+| Worker de jobs, signal de réveil (lot 13b, R-08) : local au PROCESSUS (un worker dans un autre processus que l'API, ou une API sans worker, garde l'intervalle de 30 s ; un job créé hors `mettreEnFileExtraction` et `mettreEnFileStructuration` n'émet pas de signal) ; pas de réveil multi-processus (`LISTEN/NOTIFY` non fait). Limites de rendu du même lot, sans enjeu de sécurité : R-05 (largeurs minimales des 7 colonnes de l'échantillon de la revue à froid, marge de 32 px à 1036 px de viewport, à confirmer en navigateur à 768, 1036 et 1280 px) et A-09 (le bandeau de synthèse reste jusqu'au prochain clic si la grille se complète sans changer la synthèse) | `jobs/reveil.ts`, `jobs/worker.ts`, `test/jobs-reveil.test.ts`, `docs/workflows/notes-lots/lot-13b.md` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 
@@ -3562,6 +3610,12 @@ décrit dans la ligne « effacement de l'objet de stockage » ci-dessus) ; la de
 local, §8 undecies : ses dettes sont les trois lignes « OCR local » ci-dessus) ; les 3 vulnérabilités de `pnpm audit --prod`
 du relevé du lot 9e (`next` et `fastify`, corrigées par le lot 12, §14). Le prérequis Node passe à 22 au minimum (§14), puis à
 22.13 (lot 11).
+
+Soldé le 2026-10-23 (lot 13a, défaut de fiabilité d'affichage, sans enjeu de confidentialité) : A-04 (écran périmé après une
+écriture, jusque-là de cause non prouvée) est soldé par contournement : la cause est démontrée (défaut du React embarqué
+par Next, §5) et `DebloqueurRendu` la masque ; reste le risque résiduel de dépendance à un défaut amont, inscrit dans la
+première ligne ci-dessus. R-01 (même cause) et R-02 (liens `<Link>` sans effet pendant 30 à 60 s, même cause) sont soldés
+avec lui.
 
 ## 16. Points ouverts
 
@@ -3619,6 +3673,7 @@ Points ouverts des vagues 2 et 3 (à trancher avant le pilote, `DECISIONS.md`) :
   `finance.lire` (hypothèse FIN-02), l'assouplissement du refus des codes à 3 chiffres ou plus, le masquage des noms pour
   `dd_rapport` et `dd_salle` (non demandé), les plafonds (10 Mo, 60 pages, 5 documents en traitement, 40 par 24 h) ;
   **à trancher** : un processus ou conteneur séparé pour le parseur de PDF (§15), la portée de `effacerObjetsMarques`
-  (§15), le recueil d'un avis juridique sur la durée de 90 jours du texte des pages ; **à confirmer sur un onglet visible**
-  (lot 10, A-04) : la cause du défaut d'affichage périmé après une écriture reste NON PROUVÉE (§5), et l'affichage de
-  `/observatoire` après adhésion (versement, retrait, A-01).
+  (§15), le recueil d'un avis juridique sur la durée de 90 jours du texte des pages ; **à confirmer en navigateur** :
+  l'affichage de `/observatoire` après adhésion (versement, retrait, A-01) et, depuis le lot 13a, le contournement
+  `DebloqueurRendu` du défaut d'affichage périmé (A-04, cause démontrée en §5) sur téléphone réel, Firefox et Safari, à
+  revoir à chaque montée de Next ou de React.

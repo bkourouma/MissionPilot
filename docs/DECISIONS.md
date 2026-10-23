@@ -1052,12 +1052,83 @@ Les points ci-dessous sont des **décisions du superviseur** (réversibles) ou d
   `PREUVE_IMMUABLE` sous charge).
 - **Assertion 503 resserrée** : le test « PDF sans navigateur » de `redressement-cloture` attend **503** (et non plus
   `[201, 503]`) ; il pose temporairement `NODE_ENV = production` sans `CHROMIUM_PATH`, d'où un refus immédiat.
-- **Affichage périmé après une écriture (A-04, à confirmer)** : correctif général par le hook `useRafraichir`
+- **Affichage périmé après une écriture (A-04, cause démontrée au lot 13a, 2026-10-23)** : le hook `useRafraichir`
   (`apps/web/src/components/formulaires/useRafraichir.ts` : attente jusqu'à l'arrivée des données, une relance à 1,5 s,
-  abandon à 8 s). Cause non prouvée ; **à confirmer sur un onglet visible au premier plan** (liste des vérifications
-  dans la note du lot). Le lot 12 (2026-10-22) a migré vers ce hook les 12 appels directs à `router.refresh()` que le
-  lot 6 avait réintroduits (9 composants) ; `ingestion/ActualisationAuto` combine `useTransition` et
-  `rafraichirEnTransition` et saute un tick tant que la transition précédente n'est pas terminée ; seul
-  `FormulaireConnexion.tsx` appelle encore `router.refresh()` (voulu).
+  abandon à 8 s) du lot 10 ne traitait pas la cause, qui était alors non prouvée. Elle est maintenant **démontrée** et
+  traitée à la racine : voir la section « Recette finale du 2026-10-23, lots 13a et 13b » plus bas. La relance à 1,5 s
+  et l'abandon à 8 s sont **conservés comme filets de sécurité**. Le lot 12 (2026-10-22) a migré vers ce hook les 12
+  appels directs à `router.refresh()` que le lot 6 avait réintroduits (9 composants) ; `ingestion/ActualisationAuto`
+  combine `useTransition` et `rafraichirEnTransition` et saute un tick tant que la transition précédente n'est pas
+  terminée ; seul `FormulaireConnexion.tsx` appelle encore `router.refresh()` (voulu).
 - **Tests sensibles à la charge** : ne pas lancer plus de 3 ou 4 suites API en parallèle sur le même PostgreSQL (erreur
   53200, `max_locks_per_transaction`, dans le global-setup).
+
+## Recette finale du 2026-10-23, lots 13a et 13b (report du lot 9g, 2026-10-23)
+
+Anomalies A-04, R-01 à R-09 et A-09 de `docs/recette/2026-10-23-recette-finale.md`. Aucune migration, aucun changement
+de dépendances. Sources : `docs/workflows/notes-lots/lot-13a.md` et `lot-13b.md`. Les valeurs et libellés marqués
+« provisoire » ou « à valider » ne sont pas tranchés.
+
+### Débloqueur de rendu (lot 13a : A-04, R-01, R-02)
+
+**Cause démontrée.** Défaut du React compilé embarqué par Next 15.5.28 pour l'App Router (`react-dom`
+`19.2.0-canary-0bdb9206-20250818`, et non le `react@19.3.0` du `package.json`) : quand un morceau Flight passe à
+`resolved_model` pendant le rendu d'une transition qui suspend sous une frontière `<Suspense>` déjà affichée (celle des
+`loading.tsx`), le réveil est perdu. Les données sont reçues mais plus rien ne relance le rendu, et l'ancien écran reste
+jusqu'à la prochaine mise à jour d'état non transitoire (le secours à 8 s de `useRafraichir`, d'où les 8,1 s, ou la
+minuterie de 60 s de la cloche des notifications, d'où les 30 à 60 s des liens sans effet de R-02).
+
+**Correctif** : contournement `DebloqueurRendu` (`apps/web/src/components/shell/DebloqueurRendu.tsx`, noyau pur
+`debloqueur.ts`, monté dans `apps/web/src/app/layout.tsx`).
+
+| Sujet | Valeur | Statut |
+| ----- | ------ | ------ |
+| Mises à jour d'état après chaque réponse de rendu (`_rsc` ou chunk `/_next/static/chunks/` de même origine) | **4**, à **+40, +150, +400 et +1 000 ms** ; échéances proches **fusionnées à 25 ms** | **Provisoire / à valider** : valeurs choisies par mesure (donnée visible en 185 à 433 ms au lieu de 8,1 s ; 16 essais sur 16 sur la veille) ; **à revoir à chaque montée de Next ou de React** |
+| `useRafraichir` | Relance à 1,5 s et abandon à 8 s **conservés** comme filets de sécurité | Inchangé |
+| Limites | Un blocage plus d'une seconde après la dernière réponse de rendu ne serait pas rattrapé (aucun cas observé) ; non mesuré sur téléphone réel, Firefox et Safari ; si une version embarquée corrige le réveil, le composant devient inutile mais inoffensif | Constat |
+
+Règle : ne pas retirer `DebloqueurRendu` tant que Next embarque un React sans correctif ; ne pas ajouter de minuterie ni de
+`router.refresh()` répété pour « forcer » l'affichage.
+
+### Worker de jobs : latence d'ingestion (lot 13b, R-08)
+
+| Sujet | Valeur | Statut |
+| ----- | ------ | ------ |
+| Délai de réveil après un signal « job créé » (`delaiReveilMs`) | **400 ms** | **Provisoire / à valider** |
+| Enchaînement après un cycle utile (`delaiEnchainementMs`) | **1 s** (extraction puis structuration) | **Provisoire / à valider** |
+| Rattrapage si le cycle déclenché par signal revient vide (`delaiRattrapageMs`) | **Un seul** cycle à **2 s**, puis retour à l'intervalle normal | **Provisoire / à valider** |
+| Intervalle normal | **30 s**, inchangé ; aucune scrutation rapide permanente | Inchangé |
+
+Le signal (`apps/api/src/jobs/reveil.ts`) est émis **après le COMMIT** et reste **local au processus** : un worker lancé
+hors du processus de l'API, ou un job créé par un autre chemin que `mettreEnFileExtraction` et
+`mettreEnFileStructuration`, garde l'intervalle normal.
+
+### Revue à froid : largeurs de colonnes (R-05)
+
+Les largeurs minimales des **7 colonnes** de l'échantillon totalisent **43,75 rem (700 px)** pour 732 px utiles à
+1036 px de viewport (736 px à 768 px, 976 px à 1280 px), soit une marge de **32 px**. **Provisoire** : seule une garde
+CSS (`qualite-froide-css.test.ts`) existe ; le rendu est **à confirmer en navigateur à 768, 1036 et 1280 px**.
+
+### Libellés (à valider par l'utilisateur ou le métier)
+
+| Sujet | Libellé | Statut |
+| ----- | ------- | ------ |
+| Code de ligne généré (R-07, `libellePosteEtat`, `apps/web/src/lib/`) | « Poste sans code source (page N, ligne M) » ; les codes du document (`TA1`) restent tels quels | **À valider** (question métier) |
+| Cible d'un contrôle (`libelleCibleControle`) | « page N, ligne M » | **À valider** |
+| Brief rejoué à une date passée (R-09) | « **Ce jour-là** » au lieu de « Aujourd'hui » | **À valider** |
+| Devises dans les textes affichés (`libelleDevise`, `lib/format.ts`) | « **FCFA** » pour XOF et XAF, comme la règle existante (voir A-08, section précédente) ; les codes stockés ne changent pas | Règle existante |
+
+### Règles de gestion et arbitrages
+
+- **R-03, source de vérité de l'état d'une note de due diligence** : `dd_note_validations` (une ligne par version). La
+  dernière version d'une note reste `soumise` en base une fois jugée (migration 0507) ; la synthèse du dossier
+  (`derniereNote`) et `etatDeNote` en déduisent `validee` ou `rejetee`. *Règle de gestion déjà décidée.*
+- **R-04, séparation des tâches** : un associé est dispensé (`peutValiderSansConflit`) ; le message « une autre personne
+  doit le valider » n'est affiché qu'à l'auteur non associé (`messageAuteurVerdict`). *Règle déjà décidée ; l'API était
+  correcte.*
+- **R-06, observatoire** : le message de versement vient du nombre `versees` renvoyé par l'API. Le **retrait d'adhésion
+  reste SANS confirmation** ; **arbitrage de spécification EN ATTENTE** (à trancher par l'utilisateur : ajouter ou non
+  une confirmation).
+- **A-09, limite connue (à arbitrer)** : si la grille se complète sans que la synthèse change et sans clic sur
+  « Terminer », le bandeau de synthèse reste jusqu'au prochain clic. Aucune correction : cosmétique, sans perte de
+  donnée ; **à arbitrer par l'utilisateur**.
