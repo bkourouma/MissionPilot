@@ -37,6 +37,13 @@ services:
       WEB_ORIGIN: https://cabinetpilot.allianceconsultants.net
     working_dir: /app/apps/api
     command: ["node_modules/.bin/tsx", "src/server.ts"]
+    # Rapports PDF : Chromium garde sa sandbox (aucun --no-sandbox). Le profil seccomp par défaut de Docker
+    # interdit les espaces de noms utilisateur dont cette sandbox a besoin ; ce profil dédié (défaut de Docker
+    # + clone/unshare avec CLONE_NEWUSER/NEWPID/NEWNET seulement) est copié sur le serveur à côté de ce fichier
+    # par le workflow de déploiement. Chemin relatif : résolu par docker compose depuis ce dossier.
+    # Ni privileged, ni cap_add, ni seccomp=unconfined. Prérequis noyau de l'hôte : DEPLOIEMENT.md, « Limites connues ».
+    security_opt:
+      - seccomp=./seccomp-chromium.json
     volumes:
       - stockage:/data/stockage
     # Le web partage l'espace réseau de ce conteneur (l'API n'écoute que sur 127.0.0.1) :

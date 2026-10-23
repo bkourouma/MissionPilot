@@ -6,13 +6,14 @@
 #   MP_IMAGE=ghcr.io/bkourouma/missionpilot:<sha> GHCR_USER=<compte> bash deploy.sh < jeton-ghcr
 #
 # Entrée standard : jeton de lecture de GHCR (docker login). Ce que fait le script :
-#   1. contrôles préalables (fichier d'environnement, compose valide) ;
+#   1. contrôles préalables (fichier d'environnement, profil seccomp de Chromium, compose valide) ;
 #   2. docker pull de l'image, démarrage de PostgreSQL ;
 #   3. migrations (rôle propriétaire ; crée aussi le rôle applicatif) ;
 #   4. démarrage de l'API puis du web ;
 #   5. contrôles de santé (local, puis URL publique). Au moindre échec : retour à la version
 #      précédente (fichier last-good) et sortie en ÉCHEC, pour que le workflow reste rouge ;
 #   6. version mémorisée dans last-good, nettoyage des vieilles images.
+# Le workflow copie aussi seccomp-chromium.json (profil de l'API, nécessaire à la sandbox de Chromium).
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -23,6 +24,7 @@ URL_PUBLIQUE=https://cabinetpilot.allianceconsultants.net
 : "${MP_IMAGE:?MP_IMAGE absente}"
 : "${GHCR_USER:?GHCR_USER absent}"
 [ -f "$ENV_FILE" ] || { echo "Fichier d'environnement absent : $ENV_FILE (voir docs/workflows/DEPLOIEMENT.md)"; exit 1; }
+[ -f seccomp-chromium.json ] || { echo "Profil seccomp absent : $PWD/seccomp-chromium.json (copié par le workflow, voir docs/workflows/DEPLOIEMENT.md)"; exit 1; }
 export MP_IMAGE
 
 dc() { docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml "$@"; }
@@ -58,6 +60,15 @@ echo "→ démarrage"
 dc up -d --force-recreate api web
 
 if sante && curl -fsS --max-time 15 -o /dev/null "$URL_PUBLIQUE/api/sante"; then
+  # Rapports PDF : Chromium doit démarrer AVEC sa sandbox (sans --no-sandbox) sous le profil seccomp dédié.
+  # Avertissement seulement (le reste de l'application ne dépend pas du PDF) : voir DEPLOIEMENT.md, « Limites connues ».
+  if timeout 90 docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T api \
+    chromium --headless=new --disable-gpu --user-data-dir=/tmp/cr-sante --dump-dom about:blank >/dev/null 2>&1; then
+    echo "✔ Chromium démarre avec sa sandbox (rapports PDF disponibles)"
+  else
+    echo "⚠ Chromium ne démarre pas avec sa sandbox : les rapports PDF répondront 503."
+    echo "  Vérifier le noyau de l'hôte (sysctl user.max_user_namespaces, kernel.unprivileged_userns_clone, AppArmor) : DEPLOIEMENT.md."
+  fi
   echo "$MP_IMAGE" > "$LAST_GOOD"
   docker image prune -f >/dev/null
   echo "✔ déploiement réussi : $MP_IMAGE"
