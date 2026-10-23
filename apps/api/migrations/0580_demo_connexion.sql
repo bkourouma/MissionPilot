@@ -9,7 +9,8 @@
 -- droit existant n'est modifié ; aucun nouveau SQLSTATE (un refus rend zéro ligne).
 --
 -- Périmètre, posé UNIQUEMENT par le SQL propriétaire (aucune fonction ni route ne pose
--- `est_demo` à vrai, voir 0570) :
+-- `est_demo` à vrai, voir 0570, sauf la création d'un cabinet par un super admin de
+-- démonstration, 0582) :
 -- - les cabinets `est_demo` ET `actif`, leurs comptes actifs d'une famille de rôles pure
 --   (que des rôles du cabinet, ou que des rôles client ; jamais un mélange, un rôle
 --   inconnu ni un tableau vide) ; un compte du portail client (rôles client) seulement
