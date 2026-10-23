@@ -6,6 +6,7 @@ import {
   formaterMontantMineur,
   formaterNombre,
   formaterPourcentage,
+  libelleDevise,
   lireDate,
   VALEUR_ABSENTE,
 } from "./format";
@@ -53,6 +54,14 @@ describe("formaterMontantMineur (unités mineures de l'API)", () => {
     expect(formaterMontantMineur(undefined)).toBe(VALEUR_ABSENTE);
     expect(formaterMontantMineur(Number.NaN)).toBe(VALEUR_ABSENTE);
     expect(formaterMontantMineur(Number.POSITIVE_INFINITY)).toBe(VALEUR_ABSENTE);
+  });
+});
+
+describe("libelleDevise", () => {
+  it("une seule convention : FCFA pour XOF et XAF, le code ISO sinon", () => {
+    expect(libelleDevise("XOF")).toBe("FCFA");
+    expect(libelleDevise("XAF")).toBe("FCFA");
+    expect(libelleDevise("EUR")).toBe("EUR");
   });
 });
 

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
-import type { Devise } from "../../lib/format";
+import { libelleDevise, type Devise } from "../../lib/format";
 import {
   CHAMPS_OUVERTURE,
   CLES_OUVERTURE,
@@ -82,7 +82,7 @@ function SectionActivite({ s, maj, erreurs, devise, exercices }: SectionProps) {
           aide="Millésime de l'année 1 (ex. 2027)."
         />
         <Champ
-          libelle={`Chiffre d'affaires de référence (${devise})`}
+          libelle={`Chiffre d'affaires de référence (${libelleDevise(devise)})`}
           required
           inputMode="decimal"
           value={s.caReference}
@@ -120,7 +120,7 @@ function SectionActivite({ s, maj, erreurs, devise, exercices }: SectionProps) {
         exercices={exercices}
       />
       <ChampParAnnee
-        legende={`Charges externes fixes annuelles (${devise}, facultatif)`}
+        legende={`Charges externes fixes annuelles (${libelleDevise(devise)}, facultatif)`}
         valeur={s.fixes}
         onChange={(v) => maj({ fixes: v })}
         cle="fixes"
@@ -218,7 +218,7 @@ function SectionOuverture({ s, maj, erreurs, devise }: SectionProps) {
           return (
             <Champ
               key={k}
-              libelle={c.nature === "duree" ? c.libelle : `${c.libelle} (${devise})`}
+              libelle={c.nature === "duree" ? c.libelle : `${c.libelle} (${libelleDevise(devise)})`}
               inputMode={c.nature === "duree" ? "numeric" : "decimal"}
               value={s.ouverture[k]}
               onChange={(e) => maj({ ouverture: { ...s.ouverture, [k]: e.target.value } })}
@@ -365,8 +365,8 @@ export function FormulaireHypotheses({
           {versionSource
             ? `Hypothèses reprises de la version ${versionSource} : modifiez-les puis simulez, ou enregistrez une nouvelle version.`
             : "Saisissez les hypothèses, simulez autant de fois que nécessaire, puis enregistrez une version."}{" "}
-          Taux en points (25 pour 25 %), montants en {devise}. Horizon : {horizon} ans, fixé à la
-          création du plan.
+          Taux en points (25 pour 25 %), montants en {libelleDevise(devise)}. Horizon : {horizon}{" "}
+          ans, fixé à la création du plan.
         </p>
         <RetourFormulaire
           erreur={f.erreurGlobale}

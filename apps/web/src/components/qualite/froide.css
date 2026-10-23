@@ -192,27 +192,68 @@
 }
 
 /*
- * Tableau « Échantillon » d'une campagne : pas de défilement horizontal interne à ~1000 px.
- * Les cellules passent à la ligne, les entêtes aussi, et le sélecteur de relecteur ne prend plus
- * la largeur de son option la plus longue (« non éligible : … ») mais celle de sa cellule.
+ * Tableau « Échantillon » d'une campagne (R-05, A-10). Jamais de mot coupé en pleine lettre : les
+ * cellules ne passent à la ligne qu'aux espaces (overflow-wrap normal), les entêtes, dates et
+ * statuts restent sur une ligne, chaque colonne a une largeur minimale. Quand la place manque,
+ * le tableau défile horizontalement DANS son cadre, la page ne déborde pas. Le
+ * sélecteur de relecteur ne prend pas la largeur de son option la plus longue mais celle de sa cellule.
+ * Sous 640 px, le tableau devient des fiches (composants.css) : on garde le repli de sécurité.
  */
-.mp-froide__echantillon .mp-tableau {
-  overflow-x: visible;
-}
-
 .mp-froide__echantillon .mp-tableau th,
 .mp-froide__echantillon .mp-tableau td {
   padding: var(--mp-esp-2) var(--mp-esp-3);
   overflow-wrap: anywhere;
 }
 
-.mp-froide__echantillon .mp-tableau th {
-  white-space: normal;
-}
-
 @media (min-width: 640px) {
-  .mp-froide__echantillon .mp-tableau td .mp-champ {
+  .mp-froide__echantillon .mp-tableau {
+    overflow-x: auto;
+  }
+
+  .mp-froide__echantillon .mp-tableau th,
+  .mp-froide__echantillon .mp-tableau td {
+    padding-inline: var(--mp-esp-2);
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: manual;
+  }
+
+  .mp-froide__echantillon .mp-tableau th {
+    white-space: nowrap;
+  }
+
+  /* Largeurs minimales (border-box) : somme 43,75 rem = 700 px, sous les ~732 px utiles à 1036 px
+     de viewport (moins menu 240 px et marges 64 px) et les 736 px à 768 px. Client et Directeur
+     passent à la ligne aux espaces. Plafond gardé par qualite-froide-css.test.ts. */
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Mission"] {
+    min-width: 5rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Client"],
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Directeur"] {
+    min-width: 5.5rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Clôture"] {
+    min-width: 5.75rem;
+    white-space: nowrap;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Statut"] {
+    min-width: 5.5rem;
+    white-space: nowrap;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Relecteur"] {
     min-width: 11rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td[data-libelle="Score et conclusion"] {
+    min-width: 5.5rem;
+  }
+
+  .mp-froide__echantillon .mp-tableau td .mp-champ {
+    min-width: 10rem;
     max-width: 100%;
   }
 

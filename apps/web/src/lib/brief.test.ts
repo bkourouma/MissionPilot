@@ -78,6 +78,9 @@ describe("formats", () => {
     expect(libelleAnciennete(0)).toBe("Aujourd'hui");
     expect(libelleAnciennete(-3)).toBe("Aujourd'hui");
     expect(libelleAnciennete(Number.NaN)).toBe("Aujourd'hui");
+    // R-09 : brief rejoué à une date passée, jamais « Aujourd'hui ».
+    expect(libelleAnciennete(0, true)).toBe("Ce jour-là");
+    expect(libelleAnciennete(3, true)).toBe("Depuis 3 jours");
     expect(libelleAnciennete(1)).toBe("Depuis 1 jour");
     expect(libelleAnciennete(12)).toBe("Depuis 12 jours");
   });

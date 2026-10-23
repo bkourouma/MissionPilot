@@ -182,8 +182,15 @@ export function lignesAjustements(
   );
 }
 
+/** Valeurs d'une formulation (choix d'un gabarit de lecture) : « Standard ou saisonnière » (migration 0205). */
+const LIBELLES_FORMULATION: Record<string, string> = {
+  standard: "standard",
+  saisonniere: "saisonnière",
+};
+
 function formaterValeur(v: unknown, lisible = false): string {
   if (typeof v === "number") return formaterNombre(v, 4);
+  if (typeof v === "string" && LIBELLES_FORMULATION[v]) return LIBELLES_FORMULATION[v];
   return lisible && typeof v === "string" ? libelleLisible(v).toLowerCase() : String(v);
 }
 

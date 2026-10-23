@@ -7,6 +7,7 @@ import "../../../../../../components/plan/plan.css";
 import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../../../components/ui/Onglets";
+import { libelleDevise } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { hrefBancabilite } from "../../../../../../lib/plan-bancabilite";
@@ -91,7 +92,7 @@ export default async function LayoutPlan({
               : `${d.valides} contenu${d.valides > 1 ? "s" : ""} validé${d.valides > 1 ? "s" : ""} sur ${d.total}`}
           </BadgeStatut>
           <span className="mp-texte-doux mp-texte-petit">
-            {`Horizon ${plan.horizon} ans · montants en ${plan.devise}`}
+            {`Horizon ${plan.horizon} ans · montants en ${libelleDevise(plan.devise)}`}
           </span>
         </div>
       </section>

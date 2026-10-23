@@ -1,5 +1,5 @@
 import type { RedImpactLevierVue } from "@missionpilot/shared";
-import { formaterMontantMineur } from "../../lib/format";
+import { formaterMontantMineur, libelleDevise } from "../../lib/format";
 import { libelleLevier } from "../../lib/redressement";
 
 /**
@@ -32,7 +32,7 @@ export function ImpactLevier({ impact }: { impact: RedImpactLevierVue }) {
           </div>
         ) : null}
       </dl>
-      <p className="mp-texte-doux mp-texte-petit">Montants en {impact.devise}.</p>
+      <p className="mp-texte-doux mp-texte-petit">Montants en {libelleDevise(impact.devise)}.</p>
       {impact.hypotheses.length > 0 ? (
         <>
           <p className="mp-texte-petit">Hypothèses retenues :</p>

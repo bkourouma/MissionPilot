@@ -11,6 +11,7 @@ import {
   type ContenuAvancementPortail,
 } from "../../lib/avancement";
 import { formaterDate } from "../../lib/format";
+import { libellePeriode } from "../../lib/kpi-libelles";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import "./avancement.css";
@@ -161,7 +162,9 @@ export function ChiffresRapport({
                 <li key={`${k.libelle}-${i}`} className="mp-avc-ligne">
                   <span>
                     <strong>{k.libelle}</strong>
-                    {k.periode ? <span className="mp-texte-doux">{` · ${k.periode}`}</span> : null}
+                    {k.periode ? (
+                      <span className="mp-texte-doux">{` · ${libellePeriode(k.periode)}`}</span>
+                    ) : null}
                   </span>
                   <span>
                     {`${formaterValeurKpi(k.valeur, k.unite)}`}

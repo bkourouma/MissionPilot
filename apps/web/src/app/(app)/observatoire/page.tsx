@@ -32,6 +32,7 @@ import {
   OBSERVATOIRE_PAGE_INDICATEUR,
   peutAdhererObservatoire,
 } from "../../../lib/observatoire";
+import { messageAgregatsIndisponibles } from "../../../lib/observatoire-versement";
 import { exigerPermission } from "../../../lib/session";
 
 export const metadata: Metadata = { title: "Observatoire inter-cabinets" };
@@ -111,7 +112,7 @@ export default async function PageObservatoire() {
       </Alerte>
       {!agregatsR.ok && estEtatMetierAgregats(agregatsR) ? (
         <Alerte tonalite="info" titre="Agrégats non disponibles" annonce="aucune">
-          <p>{agregatsR.message}</p>
+          <p>{messageAgregatsIndisponibles(agregatsR.code, agregatsR.message, peutAdherer)}</p>
         </Alerte>
       ) : !agregatsR.ok ? (
         <EtatErreur

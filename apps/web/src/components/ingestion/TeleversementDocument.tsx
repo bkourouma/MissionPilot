@@ -6,13 +6,13 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import {
   ACCEPT_INGESTION,
-  aideLimitesIngestion,
   avecRequete,
   controlerFichierIngestion,
   messageErreur,
   televerserDocument,
   type DocumentIngestion,
 } from "../../lib/ingestion";
+import { aideTeleversement, type UsageTeleversement } from "../../lib/ingestion-detail";
 
 export interface TeleversementDocumentProps {
   /** Point d'API de téléversement, sans requête (ex. `/api/dossiers/<id>/etats-financiers/document`). */
@@ -30,6 +30,8 @@ export interface TeleversementDocumentProps {
   children?: ReactNode;
   /** Désactive l'envoi. */
   desactive?: boolean;
+  /** Seul l'import d'un état financier affiche la consigne OCR (« part toujours en revue »). */
+  usage?: UsageTeleversement;
 }
 
 /**
@@ -45,6 +47,7 @@ export function TeleversementDocument({
   libelleFichier = "Fichier (PDF ou Excel)",
   children,
   desactive = false,
+  usage = "autre",
 }: TeleversementDocumentProps) {
   const [fichier, setFichier] = useState<File | null>(null);
   const [erreurFichier, setErreurFichier] = useState<string | undefined>();
@@ -93,7 +96,7 @@ export function TeleversementDocument({
         type="file"
         required
         accept={ACCEPT_INGESTION}
-        aide={aideLimitesIngestion()}
+        aide={aideTeleversement(usage)}
         onChange={(e) => {
           setFichier(e.target.files?.[0] ?? null);
           setErreurFichier(undefined);

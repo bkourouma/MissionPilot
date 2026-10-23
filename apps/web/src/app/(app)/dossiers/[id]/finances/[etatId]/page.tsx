@@ -10,6 +10,7 @@ import { Carte } from "../../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../../components/ui/Tableau";
+import { libellePosteEtat } from "../../../../../../lib/codes-lisibles";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import {
   AVERTISSEMENT_OCR,
@@ -140,7 +141,10 @@ export default async function PageEtat({
             {
               cle: "code",
               entete: "Poste",
-              rendu: (l) => (l.parent ? `${l.code} (dans ${l.parent})` : l.code),
+              rendu: (l) =>
+                l.parent
+                  ? `${libellePosteEtat(l.code)} (dans ${libellePosteEtat(l.parent)})`
+                  : libellePosteEtat(l.code),
             },
             { cle: "libelle", entete: "Libellé" },
             {

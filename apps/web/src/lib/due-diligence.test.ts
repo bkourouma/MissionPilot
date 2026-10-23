@@ -92,6 +92,7 @@ import {
   PARAMETRE_DIMENSIONNEMENT_LIBELLES,
   parentsPossibles,
   peutSignerAvisDd,
+  messageAuteurVerdict,
   peutValiderSansConflit,
   PHASE_PLAN_LIBELLES,
   pointsDeControle,
@@ -309,6 +310,18 @@ describe("droits d'affichage (confort : l'API reste juge)", () => {
     // Sans dd.valider : jamais.
     expect(peutValiderSansConflit(["consultant"], "u1", ["u2"])).toBe(false);
     expect(peutValiderSansConflit(["expert_metier"], "u1", [null, undefined])).toBe(true);
+  });
+
+  it("R-04 : le message d'auteur n'apparaît que si la validation lui est refusée", () => {
+    // Expert métier auteur : un tiers doit valider, un associé peut le faire.
+    expect(messageAuteurVerdict(["expert_metier"], "u1", "u1")).toContain(
+      "un associé peut le faire",
+    );
+    // Associé auteur : « Valider » lui est proposé, aucun message contradictoire.
+    expect(messageAuteurVerdict(["associe"], "u1", "u1")).toBeNull();
+    // Autre auteur, ou aucun droit de validation : pas de message.
+    expect(messageAuteurVerdict(["expert_metier"], "u1", "u2")).toBeNull();
+    expect(messageAuteurVerdict(["consultant"], "u1", "u1")).toBeNull();
   });
 });
 

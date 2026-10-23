@@ -11,6 +11,7 @@ import {
 } from "@missionpilot/shared";
 import { exiger } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
+import { signalerJobCree } from "../jobs/reveil.js";
 import { AppError, conflit, interdit, introuvable } from "../errors.js";
 import { decoderCurseur, paginer, paramsId } from "../http/outils.js";
 import { fichierTropVolumineux } from "../ingestion/erreurs.js";
@@ -181,6 +182,7 @@ export const routesIngestionStandard: FastifyPluginAsync = async (app) => {
       await relancerStructuration(db, auth, doc.id, new Date());
       return vueDocument(await exigerDocument(db, docId, { usages: USAGES }));
     });
+    signalerJobCree(); // après le COMMIT de la relance
     reply.status(202);
     return vue;
   });
