@@ -29,6 +29,7 @@ import {
   textePurge,
   typeDocumentRefuse,
 } from "./erreurs.js";
+import { signalerJobCree } from "../jobs/reveil.js";
 import { listerExtractions, type VueExtraction } from "./extractions.js";
 import {
   TENTATIVES_INGESTION,
@@ -331,6 +332,9 @@ export async function mettreEnFileExtraction(
       TENTATIVES_INGESTION,
     ],
   );
+  // L'INSERT peut ne pas être encore validé (transaction de l'appelant) : le worker attend un
+  // court délai avant son cycle de réveil, ce qui couvre ce cas.
+  signalerJobCree();
 }
 
 /**
@@ -359,6 +363,8 @@ export async function mettreEnFileStructuration(
       TENTATIVES_INGESTION,
     ],
   );
+  // Même remarque que pour l'extraction : le délai de réveil du worker couvre l'INSERT non validé.
+  signalerJobCree();
 }
 
 /**
