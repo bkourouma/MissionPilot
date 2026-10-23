@@ -19,8 +19,9 @@
 -- E-mail déjà pris : violation d'unicité 23505 laissée telle quelle (API : 409).
 --
 -- Cette migration :
--- 1. ajoute `cabinets.actif` et `cabinets.est_demo` ; aucune fonction ni route ne pose
---    `est_demo` à vrai ;
+-- 1. ajoute `cabinets.actif` et `cabinets.est_demo` ; aucune route ne pose `est_demo` à vrai,
+--    et les fonctions de cette migration non plus (SEULE exception : `plateforme_creer_cabinet`
+--    redéfinie par 0582 pose `est_demo` pour un cabinet créé par un super admin de démonstration) ;
 -- 2. réserve ces deux colonnes au propriétaire des tables (donc aux fonctions SECURITY
 --    DEFINER de la plateforme) : un rôle qui n'en est pas membre (le rôle applicatif,
 --    même par une route de cabinet détournée) ne les modifie pas (42501). Déclencheur

@@ -9,7 +9,9 @@
 -- Périmètre : fiches des cabinets (identité, état) et comptes du cabinet (les 8 rôles du
 -- cabinet). Les comptes du portail client (rôles client_*) ne sont ni listés, ni comptés,
 -- ni modifiés (MQP03), ni créés (MQP04). Aucune donnée métier n'est lue ni renvoyée.
--- Aucune fonction ne pose `est_demo` à vrai.
+-- Aucune fonction de cette migration ne pose `est_demo` à vrai (0582 redéfinit
+-- `plateforme_creer_cabinet` et l'y pose, pour un cabinet créé par un super admin de
+-- démonstration seulement).
 
 -- Traçabilité côté cabinet : toute écriture plateforme laisse aussi une ligne dans le
 -- journal d'audit DU CABINET cible (utilisateur_id NULL : l'auteur est un super admin, dont

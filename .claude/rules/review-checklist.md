@@ -12,7 +12,8 @@ paths:
 Complète le tronc commun de `.claude/agents/code-reviewer.md` et
 `.claude/agents/security-auditor.md`. AGENTS.md prime en cas de désaccord.
 Chaque contrôle cite le fichier de référence qui montre la bonne pratique et,
-si possible, une recherche mécanique qui repère l'écart. Les nombres attendus
+si possible, une recherche mécanique qui repère l'écart. Relevé tête finale du 2026-10-23 (super admin) : voir « Recherches
+mécaniques », il remplace les lignes qui changent du relevé suivant. Les nombres attendus
 ont été relevés le 2026-10-23 en lançant les commandes ci-dessous dans la copie de travail
 `reste-lot-9g` (branche d'intégration finale, HEAD `fe24b89` = fusion du lot 13b, tous les lots fusionnés, documentation des
 lots 9a à 9f reportée) : `main`, identique à
@@ -791,6 +792,33 @@ comparaison de fichiers (`git diff --stat 9c798e2 HEAD` : 63 fichiers, tous des 
 aucun `package.json` ni lockfile), non par supposition. Les commentaires de la liste de commandes ci-dessous citent les lots jusqu'au
 12 : les lots 13a et 13b n'y changent que les numéros de ligne signalés (n° 7, 8, 18, 19) et la recherche large du n° 22.
 
+**Relevé tête finale du 2026-10-23 (super admin).** Copie de travail `super-admin-lot-4` (branche `orch/2026-10-23-super-admin-lot-4`,
+HEAD `b131f37` = fusion du lot 2b, lots 1, 2a, 2b et 3 du chantier « super admin, tenants et connexion de démonstration »
+fusionnés ; base `9fdf052`). Les recherches n° 1 à 30 ont été relancées avec les commandes EXACTES ci-dessous, depuis la
+racine de la copie ; les n° 10, 11 et 12 par script ponctuel hors dépôt (n° 10 : le `node -e` de la commande, à l'identique ;
+n° 11 : script réécrit, qui retrouve 1 727 / 1 680 / 835 / 247 sur l'état d'avant le chantier, `git archive 9fdf052`) ; les listes
+triées des n° 7 et 8 (sans numéros de ligne) sont identiques à celles de `9fdf052`. `node scripts/ocr-verifier-donnees.cjs` (n° 28) aussi (2 fichiers conformes, code de sortie 0) ; `pnpm audit --prod` (n° 15)
+n'a PAS été relancé (réseau requis ; aucun `package.json` ni lockfile ne change dans le chantier) : valeur du relevé précédent conservée. Il REMPLACE le relevé du
+`reste-lot-9g` ci-dessous pour les lignes qui changent (le reste est inchangé, le chantier ne touchant ni l'ingestion, ni le
+worker, ni `DebloqueurRendu`) :
+
+| N° | Attendu (tête du 2026-10-23, super admin) | Explication (écart avec le relevé de `reste-lot-9g`) |
+| --- | --- | --- |
+| 1 | 4 lignes | 2 avant : +2, deux scripts hors application qui se connectent avec le rôle PROPRIÉTAIRE par un `pg.Client` : `db/creer-super-admin.ts:146` (création du premier vrai super admin) et `db/seed-defaut.ts:227` (marquage `est_demo`). Hors `pool.ts` et `migrate.ts`, mais ce sont des scripts de ligne de commande (`package.json` : `db:creer-super-admin`, `db:seed-defaut`), jamais chargés par l'API. Tout autre `pg.Client` dans `apps/api/src` est un écart |
+| 2 | 1 ligne | inchangé (`pool.connect`) |
+| 3 | 14 lignes | 7 avant : +7, toutes dans des scripts : `db/seed-demo.ts` (`:244` signature de `configDemo`, qui passe de `:220` à `:244`, `:967` et `:974`, lectures de `process.env` et `process.argv` pour le mode démonstration publique), `db/seed-demo-portail.ts:643` et `:650`, `db/seed-defaut.ts:278` et `:284`, `db/creer-super-admin.ts:220`. `config.ts` : la ligne de `loadConfig` passe de `:191` à `:200` (variable `DEMO_PUBLIQUE`, lue par le schéma, pas par `process.env` direct). Aucune lecture dans `src/plateforme/` ni dans `routes/` |
+| 4 à 6, 14, 17, 18, 20, 21, 23 à 30 | inchangés (0, 0, 0, 0, 2, 7, 24, 1, 3, 3 tables et 3 politiques, 7, 8, 4, 2 puis « 2 fichier(s) conforme(s) », 2, 9) | — (aucune requête agrégée, aucun `innerHTML`, aucun `NEXT_PUBLIC_`, aucun texte d'interface en anglais ajouté ; n° 17, 18 et 20 : mêmes nombres, mêmes appels) |
+| 7 | 19 lignes | inchangé (liste triée identique, sans numéros de ligne) ; le chantier n'ajoute aucun `LIMIT` littéral > 1 (les listes de la plateforme n'ont ni `LIMIT` ni curseur : dette déclarée, CODING_STANDARDS §10) |
+| 8 | 24 lignes | inchangé (liste triée identique) |
+| 9 | 5 lignes | 3 avant : +2, `db/creer-super-admin.ts:221` (`console.log`) et `:222` (`console.error`), la sortie du script, qui affiche le mot de passe généré UNE seule fois (jamais un mot de passe fourni) ; hors `seed*` et `migrate.ts` par le nom de fichier. Les trois autres lignes sont inchangées (`mailer.ts:91`, `ocr-local.ts:147` et `:307`) |
+| 10 | « 1002 14 » puis 14 lignes | 990 / 9 avant : +12 routes (9 sous `/api/plateforme`, 3 sous `/api/auth/demo*`) dont 5 SANS `exiger`, toutes publiques par construction : `plateforme.ts` `POST /connexion` et `POST /deconnexion` (la session de plateforme est vérifiée par `exigerPlateforme`, pas par `exiger`, sur les 7 autres), `connexion-demo-public.ts` `GET /demo`, `POST /demo/connexion`, `POST /demo/connexion-plateforme`. Les 9 lignes antérieures sont inchangées (`auth.ts` x3, `canaux-webhook.ts`, `connexion-demo.ts` x2, `portail-gestion.ts` `/invitations/accepter`, `sante.ts`, `utilisateurs.ts` `/invitations/accepter`). Liste complète des 14 : voir la commande |
+| 11 | 1 732 gabarits, 1 681 hors seed, 835 interpolations, 247 expressions | 1 727 / 1 680 / 835 / 247 avant : +5 / +1 / 0 / 0. Les +5 : `db/seed-defaut.ts` +3, `db/seed-demo.ts` +1 (seeds, exclus du deuxième nombre) et `db/creer-super-admin.ts` +1 (insertion du super admin, aucune interpolation). Les fonctions `plateforme_*` et `demo_*` sont appelées par des chaînes entre guillemets (`SELECT * FROM plateforme_…($1, …)`), hors recherche. Aucune expression distincte nouvelle |
+| 12 | 904 `z.object`, dont 893 `.strict()` et 11 non stricts VOLONTAIRES (inchangé) ; +10 `z.object` strictes HORS du périmètre de la commande | `packages/shared/src/schemas` inchangé (somme `rg -U -c` : 904). Les schémas du chantier vivent dans `apps/api` : `plateforme/schemas.ts` (8 `z.object`, 8 `.strict()`) et `routes/connexion-demo-public.ts` (2, 2 `.strict()`), donc hors du périmètre de la recherche mais TOUS stricts (comptés par `rg -U -o 'z\s*\.object\('`). Écart de périmètre signalé, pas un défaut |
+| 13 | 239 migrations, 0 modifiée ni supprimée dans l'historique | 232 avant : +7 (`0570`–`0573`, `0580`–`0582`) ; `git log --diff-filter=MD --name-only --format= -- apps/api/migrations \| sort -u` ne rend rien |
+| 16 | 41 lignes | 35 avant : +6, une par migration `0570`, `0572`, `0573`, `0580`, `0581`, `0582` (`0570` reconduit les `GRANT` de `trouver_connexion` et `resoudre_session` ; `0582` reconduit ceux des six `plateforme_*` de `0573`, qui comptent donc deux fois). Liste relue en SECURITY.md §4 : toutes `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE` accordé à `missionpilot_app` |
+| 19 | 77 lignes dans 61 fichiers | inchangé (aucune des nouvelles pages ne passe de fonction à un composant) |
+| 22 | 1 ligne (`app/connexion/FormulaireConnexion.tsx:55`) | `:60` avant : le lot 3 (écran « un clic ») réécrit ce fichier ; même appel direct admis. La recherche large `rg -n "\.refresh\(\)" apps/web/src` donne toujours 10 lignes |
+
 **Relevé du 2026-10-23 de la tête finale (branche d'intégration, copie `reste-lot-9g`, HEAD `fe24b89`, tous les lots
 fusionnés, lots 13a et 13b compris).** Il REMPLACE le relevé du 2026-10-22 (copie `reste-lot-9f`, HEAD `bdf8c72`, lots 11 et 12
 compris), dont le détail des écarts attribués aux lots 11 et 12 est conservé plus bas. Les comptes de toutes les recherches sont
@@ -845,13 +873,15 @@ ceux du n° 19 sont ceux du 2026-10-22 ; les valeurs en vigueur sont celles du t
 | 28 (neuve) | 2 lignes, puis « 2 fichier(s) conforme(s) » | Lot 11 : `apps/api/package.json:30` (`"tesseract.js": "7.0.0"`) et `ocr-local.ts:51` (`VERSION_MOTEUR_OCR = "7.0.0"`), les deux versions identiques ; `node scripts/ocr-verifier-donnees.cjs` : `fra.traineddata` (1 130 365 octets) et `eng.traineddata` (4 113 088 octets) conformes à `SHA256SUMS`, code de sortie 0 |
 
 ```bash
-# 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes
+# 1. Pas de client PostgreSQL hors pool.ts et migrate.ts. Attendu : 2 lignes (4 sur la tête super admin du 2026-10-23 : plus
+#    les scripts propriétaire `db/creer-super-admin.ts` et `db/seed-defaut.ts`, voir le relevé en tête de section)
 rg -n "new (pg\.)?(Pool|Client)\(" apps/api/src
 
 # 2. Pas d'appel direct au pool hors db/pool.ts. Attendu : 1 ligne (pool.connect)
 rg -n "\bpool\.(query|connect)" apps/api/src
 
-# 3. Lectures de process.env hors tests. Attendu (2026-10-23, lot 11 compris) : 7 lignes
+# 3. Lectures de process.env hors tests. Attendu (2026-10-23, lot 11 compris) : 7 lignes (14 sur la tête super admin : +7, scripts de
+#    seed et de création, voir le relevé en tête de section)
 #    (config.ts, seed.ts x2, seed-demo.ts, web/lib/api-serveur.ts, plus 2 du lot 11 dans `ingestion/` :
 #    `ocr-local.ts:280`, lecture de `NODE_ENV` de `productionOcrParDefaut`, et `ocr-processus.mjs:76`, les NOMS des
 #    variables du sous-processus OCR, preuve de l'environnement vide ; toute autre lecture dans l'ingestion est un écart)
@@ -915,12 +945,14 @@ rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
 #    numeric(20,10), dette) ; toute autre ligne est un calcul de montant à déplacer
 rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
 
-# 9. console.* hors seed et migrate. Attendu (2026-10-23, lot 11 compris) : 3 lignes (mailer.ts, transport
+# 9. console.* hors seed et migrate. Attendu (2026-10-23, lot 11 compris) : 3 lignes (5 sur la tête super admin : plus
+#    `db/creer-super-admin.ts:221-222`, sortie du script) (mailer.ts, transport
 #    « journal » de développement, plus 2 du lot 11 dans `ingestion/ocr-local.ts` : `:147`, un commentaire, et `:307`,
 #    l'unique `console.warn` « sans modèle de permissions », hors production, sans contenu)
 rg -n "console\.(log|info|debug|warn|error)" apps/api/src --glob '!**/seed*' --glob '!**/migrate.ts'
 
-# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu (2026-10-23, tête finale, lots 6, 10, 11 et 12 compris) : "990 9".
+# 10. Route sans exiger (par gestionnaire ; exigerPortail compte). Attendu (2026-10-23, tête finale, lots 6, 10, 11 et 12 compris) : "990 9" ; sur la tête super admin du même jour : "1002 14"
+#     (+12 routes dont 5 publiques sans `exiger` : voir le relevé en tête de section).
 #     Les lots 11 et 12 ne posent aucune route (990 / 9 relevés aussi sur `38e22ae`).
 #     990 routes = 972 avant les lots 6 et 10 + 18 du lot 6 (comparaison fichier à fichier avec `48eb2fa` et `9aba318`) :
 #     `ingestion.ts` +4 (DOS-03 et lecture des ingestions du dossier), `ingestion-dd.ts` +7 (DD-02, DD-10), `ingestion-standard.ts` +7
@@ -1041,7 +1073,8 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     `git archive 6e17248`, et 867 et 0 non strict avant 4c). L'attribution du +2 de `rapports` au lot 4b est
 #     approximative (le lot 2 touche aussi les rapports).
 
-# 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne
+# 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne (tête super admin du 2026-10-23 : 239 fichiers,
+#     0 ligne ; les 7 de plus sont `0570`–`0573` et `0580`–`0582`)
 git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Dans une branche : git diff --name-status main -- apps/api/migrations
 # ne doit montrer que des lignes « A » (ajouts). Le 2026-10-23 (tête finale, lots 11, 12, 13a et 13b compris ; les lots 13 n'en posent aucune) : 52 lignes « A »,
@@ -1085,7 +1118,7 @@ pnpm audit --prod
 
 # 16. Fonctions SECURITY DEFINER accordées au rôle applicatif : relire chaque
 #     migration qui en ajoute (search_path, REVOKE FROM PUBLIC) et comparer à
-#     SECURITY.md §4. Attendu : 35 lignes au 2026-10-22, lots 4c, 6, 8b, 8c, 10, 11 et 12 compris (34 avant le lot 11 : +1 de `0526`, `purger_textes_ingestion` (`:74`), REDÉFINIE à l'identique de `0524` plus `corrections_ocr = NULL` (`GRANT EXECUTE` reconduit, relue : `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`) : la ligne de `0524` reste, la fonction compte donc deux fois ; `0525` et le lot 12 : 0 ; 32 avant le lot 6 : +2 de `0524`,
+#     SECURITY.md §4. Attendu : 41 lignes sur la tête super admin du 2026-10-23 (35 + 6 : `0570`, `0572`, `0573`, `0580`, `0581`, `0582`) ; 35 lignes au 2026-10-22, lots 4c, 6, 8b, 8c, 10, 11 et 12 compris (34 avant le lot 11 : +1 de `0526`, `purger_textes_ingestion` (`:74`), REDÉFINIE à l'identique de `0524` plus `corrections_ocr = NULL` (`GRANT EXECUTE` reconduit, relue : `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`) : la ligne de `0524` reste, la fonction compte donc deux fois ; `0525` et le lot 12 : 0 ; 32 avant le lot 6 : +2 de `0524`,
 #     `purger_textes_ingestion` (`:84`) et `planifier_ingestion_maintenance` (`:123`), relues : `SECURITY DEFINER`, `SET search_path =
 #     public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `GRANT EXECUTE … TO missionpilot_app`, première bornée au cabinet du contexte
 #     par `app_cabinet_id()` ; le lot 10 n'en pose aucune ; inchangé par 8b et 8c : `0290` et `0432` n'en portent aucune ; 30 avant 4c ; 28 au 2026-10-21 ; 27 sur `main` : 23 avant la vague 4, plus
@@ -1169,7 +1202,7 @@ rg -n "INSERT INTO agents_evaluations\b" apps/api/src
 # 22. Rafraîchissement web après écriture : plus aucun `router.refresh()` direct hors du hook `useRafraichir`
 #     (`components/formulaires/useRafraichir.ts`, qui appelle `routeur.refresh()` par une autre variable) et de
 #     `FormulaireConnexion`. La commande écarte les lignes de commentaire (première marque non blanche `*` ou `/`).
-#     Attendu (2026-10-23, tête finale, lot 12 compris) : 1 ligne (`app/connexion/FormulaireConnexion.tsx:60`), CIBLE
+#     Attendu (2026-10-23, tête finale, lot 12 compris) : 1 ligne (`app/connexion/FormulaireConnexion.tsx:60` ; `:55` sur la tête super admin du 2026-10-23), CIBLE
 #     ATTEINTE. 13 lignes dans 10 fichiers avant le lot 12 (12 appels directs du lot 6, développé avant le hook, dans 9
 #     composants : `BoutonRelance`, `ActualisationAuto` (`setInterval`), `ImportEtatDocument`, `ImportEtatDocumentListe`,
 #     `DocumentsTeleversement`, `DocumentsListe`, `DocumentsLecture`, `AmorcageDocuments`, `AmorcageProposition`) ; 98

@@ -20,7 +20,9 @@ import {
  * - Un cabinet désactivé coupe connexion (trouver_connexion) et sessions
  *   (resoudre_session) de tous ses comptes.
  * - Le journal est en ajout seul, même pour le propriétaire (MQP06), et sans secret.
- * - Aucune fonction ne pose est_demo ; aucune ne renvoie de donnée métier.
+ * - Aucune fonction de 0570-0573 ne pose est_demo (seule exception : la création d'un cabinet
+ *   par un super admin de démonstration, migration 0582, testée à part) ; aucune ne renvoie de
+ *   donnée métier.
  *
  * Les super admins de test sont créés avec le rôle propriétaire (aucune fonction n'en crée).
  */
