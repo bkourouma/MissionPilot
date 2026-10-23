@@ -18,7 +18,8 @@ import { ErreurJobDefinitive, REGISTRE_JOBS, type RegistreJobs } from "./registr
  * - Un job resté « en_cours » au-delà du délai de blocage (worker arrêté
  *   brutalement) est remis en attente.
  * - Réveil : `signalerJobCree()` (jobs/reveil.ts) avance le prochain cycle (~400 ms) ; un cycle
- *   productif est suivi d'un cycle court (1 s). Cycle vide : intervalle normal. Les workers d'un
+ *   productif est suivi d'un cycle court (1 s). Cycle vide : intervalle normal, sauf un cycle de
+ *   réveil vide (COMMIT lent) qui programme UN cycle de rattrapage (~2 s), sans jamais en chaîner. Les workers d'un
  *   autre processus ne reçoivent pas le signal et gardent l'intervalle normal.
  * - L'horloge est injectable : aucun test ne dépend de l'heure réelle.
  */
@@ -37,7 +38,11 @@ export interface OptionsWorker {
   delaiBlocageMs?: number;
   /** Délai avant la tentative suivante, selon le numéro de la tentative échouée. */
   delaiReprise?: (tentative: number) => number;
+  /** Délai du cycle de rattrapage unique après un cycle de réveil resté vide (défaut 2 s). */
+  delaiRattrapageMs?: number;
   journal?: (message: string) => void;
+  /** Rappelé à la fin de chaque cycle de la boucle, avec le nombre de jobs traités (utile aux tests). */
+  apresCycle?: (traites: number) => void;
 }
 
 export interface ResultatJob {
@@ -59,6 +64,7 @@ interface JobReserve {
 const MAX_JOBS_PAR_CYCLE = 100;
 const DELAI_REVEIL_DEFAUT_MS = 400;
 const DELAI_ENCHAINEMENT_DEFAUT_MS = 1_000;
+const DELAI_RATTRAPAGE_DEFAUT_MS = 2_000;
 
 /**
  * Délai de blocage par défaut : un job « en_cours » plus ancien est remis en attente. Un job
@@ -180,16 +186,28 @@ export class WorkerJobs {
 
   private async boucle(): Promise<void> {
     this.minuterie = null;
+    const parSignal = this.reveilPlanifie;
     this.reveilPlanifie = false;
     if (this.arrete) return;
     this.enCours = this.cycleProtege();
     const traites = (await this.enCours) as number;
     this.enCours = null;
+    try {
+      this.options.apresCycle?.(traites);
+    } catch {
+      // Un rappel de test défaillant ne casse pas la boucle.
+    }
     if (this.arrete) return;
     // Signal reçu pendant le cycle, ou cycle productif (la structuration est mise en file par
     // l'extraction) : cycle court. Cycle vide : retour à l'intervalle normal.
     const court = this.reveilPendantCycle || traites > 0;
     this.reveilPendantCycle = false;
+    // Cycle de réveil vide (le COMMIT du job a pu dépasser le délai de réveil) : un seul rattrapage.
+    // Le cycle de rattrapage n'est pas « par signal » : s'il est vide, retour à l'intervalle normal.
+    if (!court && parSignal) {
+      this.programmer(this.options.delaiRattrapageMs ?? DELAI_RATTRAPAGE_DEFAUT_MS);
+      return;
+    }
     this.programmer(
       court
         ? (this.options.delaiEnchainementMs ?? DELAI_ENCHAINEMENT_DEFAUT_MS)

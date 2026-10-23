@@ -332,9 +332,8 @@ export async function mettreEnFileExtraction(
       TENTATIVES_INGESTION,
     ],
   );
-  // L'INSERT peut ne pas être encore validé (transaction de l'appelant) : le worker attend un
-  // court délai avant son cycle de réveil, ce qui couvre ce cas.
-  signalerJobCree();
+  // Pas de signal ici : l'INSERT est dans la transaction de l'appelant, qui émet `signalerJobCree()`
+  // APRÈS le COMMIT (creerDocument, routes de relance).
 }
 
 /**
@@ -363,8 +362,8 @@ export async function mettreEnFileStructuration(
       TENTATIVES_INGESTION,
     ],
   );
-  // Même remarque que pour l'extraction : le délai de réveil du worker couvre l'INSERT non validé.
-  signalerJobCree();
+  // Pas de signal ici (voir mettreEnFileExtraction). Depuis le worker, le job d'extraction enchaîne
+  // déjà par `delaiEnchainementMs`.
 }
 
 /**
@@ -536,6 +535,8 @@ export async function creerDocument(
       },
     });
     if (id === null) throw new Error("Document non créé.");
+    // La transaction de `enregistrerFichier` est validée : le job d'extraction est visible.
+    signalerJobCree();
     return id as string;
   });
   return app.db.withTenant(auth.cabinetId, async (db) => {

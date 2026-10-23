@@ -13,6 +13,7 @@ import {
 } from "@missionpilot/shared";
 import { exiger, type Auth } from "../auth/contexte.js";
 import type { Db } from "../db/pool.js";
+import { signalerJobCree } from "../jobs/reveil.js";
 import { dossierAccessible, exigerAussi, type DossierLu } from "../due-diligence/acces.js";
 import { journalDd } from "../due-diligence/journal.js";
 import { AppError, conflit, introuvable } from "../errors.js";
@@ -198,6 +199,7 @@ export const routesIngestionDd: FastifyPluginAsync = async (app) => {
       const relu = await lireDocument(db, doc.id);
       return vueDocument(relu as DocumentIngestion);
     });
+    signalerJobCree(); // après le COMMIT de la relance
     reply.status(202);
     return vue;
   });

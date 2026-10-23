@@ -1,6 +1,7 @@
 /*
  * Signal de réveil des workers (BUG-2026-10-23-008).
- * Un code qui vient de mettre un job en file appelle `signalerJobCree()` ; les workers du même
+ * Un code qui vient de mettre un job en file appelle `signalerJobCree()` APRÈS le COMMIT de sa
+ * transaction (jamais dedans : un COMMIT lent viderait le cycle de réveil) ; les workers du même
  * processus qui écoutent avancent leur prochain cycle au lieu d'attendre l'intervalle normal.
  * Signal purement en mémoire : sans worker dans le processus (tests, API seule), il est sans effet,
  * et un worker d'un autre processus garde son intervalle habituel.
