@@ -1,0 +1,13 @@
+.mp-connexion__admin {
+  margin: var(--mp-esp-3) 0 0;
+  font-size: var(--mp-taille-s);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.mp-connexion__admin a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
+  color: var(--mp-texte-doux);
+}

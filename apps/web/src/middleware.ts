@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE_SESSION, ENTETE_CHEMIN, PAGES_PUBLIQUES } from "./lib/connexion";
+import {
+  CHEMIN_CONNEXION_PLATEFORME,
+  COOKIE_PLATEFORME,
+  estCheminPlateforme,
+  estPagePubliquePlateforme,
+} from "./lib/plateforme-routes";
 import { PAGES_PUBLIQUES_PORTAIL } from "./lib/portail-routes";
 
 /**
@@ -12,6 +18,21 @@ import { PAGES_PUBLIQUES_PORTAIL } from "./lib/portail-routes";
  */
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // Console de plateforme : session propre (`mp_plateforme`), étanche à `mp_session`. Même
+  // limite que ci-dessous : le cookie n'est qu'un premier filtre, la garde réelle est serveur.
+  if (estCheminPlateforme(pathname)) {
+    if (!request.cookies.has(COOKIE_PLATEFORME) && !estPagePubliquePlateforme(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = CHEMIN_CONNEXION_PLATEFORME;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    const entetes = new Headers(request.headers);
+    entetes.set(ENTETE_CHEMIN, pathname + search);
+    return NextResponse.next({ request: { headers: entetes } });
+  }
+
   const connecte = request.cookies.has(COOKIE_SESSION);
   const publique = PAGES_PUBLIQUES.includes(pathname) || PAGES_PUBLIQUES_PORTAIL.includes(pathname);
 
