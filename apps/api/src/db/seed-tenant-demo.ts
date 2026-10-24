@@ -3,11 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { Config } from "../config.js";
 import { createDatabase } from "./pool.js";
 import { configDemo, demoPubliqueConfirmee } from "./seed-demo.js";
-import {
-  EMAIL_FONDATEUR_TENANT,
-  MOT_DE_PASSE_DEMO_TENANT,
-  NOM_CABINET_TENANT_DEMO,
-} from "./tenant-demo/constantes.js";
+import { EMAIL_FONDATEUR_TENANT, NOM_CABINET_TENANT_DEMO } from "./tenant-demo/constantes.js";
 import { semerTenantDemo, type ResumeTenantDemo } from "./tenant-demo/index.js";
 
 /*
@@ -43,7 +39,7 @@ function afficher(resume: ResumeTenantDemo, publique: boolean): void {
   for (const p of resume.phases) console.log(`  phase ${p.nom} : ${p.statut}`);
   console.log(
     `Compte fondateur : ${EMAIL_FONDATEUR_TENANT}. Mot de passe commun : MOT_DE_PASSE_DEMO_TENANT ` +
-      `(${MOT_DE_PASSE_DEMO_TENANT}, tenant-demo/constantes.ts) : démonstration uniquement, jamais à ` +
+      `(voir tenant-demo/constantes.ts) : démonstration uniquement, jamais à ` +
       "réutiliser ailleurs.",
   );
   if (publique) {

@@ -229,22 +229,32 @@ export async function marquerPhase(ctx: ContexteTenantDemo, nom: string): Promis
 
 /* ----- Antidatage (SQL propriétaire) ----- */
 
+/** Tables dont `cree_le` peut être antidaté (liste fermée, requêtes littérales ci-dessous). */
+export type TableAntidatable =
+  "cabinets" | "utilisateurs" | "collaborateurs" | "clients" | "contacts_client";
+
+const REQUETES_ANTIDATAGE: Record<TableAntidatable, string> = {
+  cabinets: "UPDATE cabinets SET cree_le = $2::timestamptz WHERE id = $1",
+  utilisateurs: "UPDATE utilisateurs SET cree_le = $2::timestamptz WHERE id = $1",
+  collaborateurs: "UPDATE collaborateurs SET cree_le = $2::timestamptz WHERE id = $1",
+  clients: "UPDATE clients SET cree_le = $2::timestamptz WHERE id = $1",
+  contacts_client: "UPDATE contacts_client SET cree_le = $2::timestamptz WHERE id = $1",
+};
+
 /**
  * Remonte `cree_le` d'une ligne à `dateISO` (midi UTC) : les routes créent tout « maintenant »,
- * or le cabinet doit paraître ancien. Réservé aux tables à colonne `cree_le` et à clé `id`
- * (nom de table validé : minuscules et tirets bas seulement). Ne touche pas aux autres colonnes.
+ * or le cabinet doit paraître ancien. Réservé aux tables de `TableAntidatable` (colonne `cree_le`,
+ * clé `id`) ; requêtes SQL littérales, aucune interpolation. Pour une autre table, un lot écrit sa
+ * propre requête littérale via `ctx.proprietaire.query` (aucune interpolation). Ne touche pas aux
+ * autres colonnes.
  */
 export async function antidater(
   ctx: ContexteTenantDemo,
-  table: string,
+  table: TableAntidatable,
   id: string,
   dateISO: string,
 ): Promise<void> {
-  if (!/^[a-z][a-z_]*$/.test(table)) throw new Error(`Nom de table invalide : ${table}`);
-  await ctx.proprietaire.query(`UPDATE ${table} SET cree_le = $2::timestamptz WHERE id = $1`, [
-    id,
-    `${dateISO}T12:00:00Z`,
-  ]);
+  await ctx.proprietaire.query(REQUETES_ANTIDATAGE[table], [id, `${dateISO}T12:00:00Z`]);
 }
 
 export { attendre };
