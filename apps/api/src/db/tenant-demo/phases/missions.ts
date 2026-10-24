@@ -1,12 +1,16 @@
 import type { ContexteTenantDemo } from "../contexte.js";
+import { semerCasting } from "../missions/orchestration.js";
+import { semerPipelineComplementaire } from "../missions/pipeline.js";
 
 /*
- * Phase « missions » du seed « Tenant démo » : missions, temps, facturation et finance.
- *
- * STUB du lot 1 : ne fait rien aujourd'hui. Le lot de domaine remplit CE fichier et lui seul
- * (aucune autre modification du socle ni de phases/index.ts n'est nécessaire). Contrat :
- * voir contexte.ts (routes réelles, droits, horloge fictive, hasard à graine, reprise).
+ * Phase « missions » du seed « Tenant démo » : casting des 11 missions (voir
+ * missions/donnees-casting.ts) créées par les vraies routes, du pipeline commercial à la
+ * signature, au démarrage et, pour les missions terminées, à l'état « à clôturer ».
+ * La clôture elle-même (missions/cloture.ts) vient APRÈS les phases de temps, de facturation et
+ * d'encaissement : une mission clôturée refuse toute écriture. Le pipeline commercial
+ * complémentaire (opportunités perdues ou ouvertes) suit le casting.
  */
-export async function semerMissions(_ctx: ContexteTenantDemo): Promise<void> {
-  // Rien à semer pour l'instant.
+export async function semerMissions(ctx: ContexteTenantDemo): Promise<void> {
+  await semerCasting(ctx);
+  await semerPipelineComplementaire(ctx);
 }
