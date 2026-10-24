@@ -1,0 +1,108 @@
+/* Gestion des utilisateurs d'un cabinet (console de plateforme). */
+.mp-gu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-5);
+  min-width: 0;
+}
+
+.mp-gu__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+}
+
+.mp-gu__titre {
+  margin: 0;
+  font-size: var(--mp-taille-l);
+}
+
+.mp-gu__retour {
+  min-width: 0;
+}
+
+.mp-gu__identite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-gu__nom {
+  font-weight: 600;
+}
+
+.mp-gu__email,
+.mp-gu__roles {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mp-gu__email {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-gu__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-gu__actions .mp-bouton,
+.mp-gu__barre .mp-bouton {
+  min-height: var(--mp-cible);
+}
+
+.mp-gu__barre {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  align-items: center;
+}
+
+.mp-gu__formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-4);
+  min-width: 0;
+}
+
+.mp-gu__mdp {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-gu__panneau {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface-2);
+  min-width: 0;
+}
+
+.mp-gu__panneau-titre {
+  margin: 0;
+  font-size: var(--mp-taille-m);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.mp-gu__aide {
+  margin: 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-gu__formulaire[hidden] {
+  display: none;
+}

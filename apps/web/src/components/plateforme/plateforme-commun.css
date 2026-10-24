@@ -1,0 +1,52 @@
+/* Composants communs de la console de plateforme (MotDePasseGenere, ConfirmationAction). */
+.mp-mdp-genere {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  border: 2px solid var(--mp-attention);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface);
+}
+
+.mp-mdp-genere__ligne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  align-items: stretch;
+}
+
+.mp-mdp-genere__valeur {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
+.mp-confirmation-plateforme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface-2);
+  min-width: 0;
+}
+
+.mp-confirmation-plateforme__titre {
+  margin: 0;
+  font-weight: 600;
+}
+
+.mp-confirmation-plateforme__texte {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+  overflow-wrap: anywhere;
+}
+
+.mp-confirmation-plateforme__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+}

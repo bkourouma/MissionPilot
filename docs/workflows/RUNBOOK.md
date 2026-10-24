@@ -63,6 +63,7 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `MAIL_FROM`                 | expéditeur, adresse ASCII, obligatoire dès que `SMTP_HOST` est défini                  | oui avec SMTP                  |
 | `TOTP_REQUIS`               | `oui` impose la 2FA aux rôles sensibles de tous les cabinets (plancher plateforme)     | non                            |
 | `CONNEXION_RAPIDE_DEMO`     | `oui` : liste des comptes de démonstration sur la page de connexion, un clic ouvre la session **sans mot de passe** (recette locale, voir « Cabinet de démonstration ») ; défaut `non` ; `oui` refusé au démarrage hors `NODE_ENV` local avec bases locales | jamais (interdit)  |
+| `DEMO_PUBLIQUE`             | `oui` : ouvre la connexion « un clic » (`GET /api/auth/demo`, `POST /api/auth/demo/connexion` et `/connexion-plateforme`) dans N'IMPORTE QUEL `NODE_ENV`, production comprise, pour les SEULS cabinets et super admins marqués `est_demo` ; le mot de passe du super admin de démonstration n'est refusé que si elle est inactive ; défaut `non` ; journalise un avertissement hors développement local ; relue au démarrage de l'API (recréer `api` et `web`) ; **à n'activer que sur un serveur de démonstration** (mots de passe de démonstration publics, SECURITY.md §3 et §15) | non (jamais en production réelle) |
 | `STORAGE_DRIVER`            | `disque` (défaut) ; `s3` est refusé au démarrage (non implémenté)                      | non                            |
 | `STORAGE_DIR`               | dossier **absolu** des fichiers téléversés, hors du dépôt, jamais servi en statique ; défaut en développement `~/.missionpilot/stockage` (en test : dossier temporaire) | oui |
 | `FICHIER_TAILLE_MAX_OCTETS` | plafond par fichier téléversé (défaut 15 Mo, de 1 Kio à 100 Mo)                        | non                            |
@@ -277,6 +278,63 @@ Remove-Item Env:CONNEXION_RAPIDE_DEMO                                # désactiv
   absent), ou si une URL de base n'est pas locale. Jamais sur un serveur.
 - Sans la variable, les routes n'existent pas (404) et la page n'affiche rien
   de plus.
+
+### Super admin de plateforme, tenant par défaut et démonstration « un clic »
+
+Chantier du 2026-10-23 (sécurité : `docs/governance/SECURITY.md` §3, §4 et §15). Un **super admin de plateforme** crée
+des cabinets (tenants) et leurs comptes, sans jamais lire de donnée métier ; il se connecte à la **console `/plateforme`**
+avec un cookie et une session distincts de ceux d'un cabinet.
+
+**Scripts** (base locale ; le rôle propriétaire est lu dans `DATABASE_OWNER_URL`) :
+
+```bash
+# Tenant de démonstration par défaut : cabinet « Lagune Conseil & Associés (démo) » avec un compte actif sans 2FA pour
+# CHAQUE rôle du cabinet et du portail, marqué est_demo, plus le super admin de démonstration. Idempotent.
+pnpm --filter @missionpilot/api db:seed-defaut
+
+# Premier VRAI super admin (jamais marqué démonstration). Mot de passe généré et affiché UNE seule fois s'il n'est pas fourni.
+pnpm --filter @missionpilot/api db:creer-super-admin -- --email prenom.nom@exemple.org --nom "Prénom Nom"
+```
+
+- `db:seed-defaut` : cabinet absent, il est créé (plusieurs minutes, par les routes réelles) ; présent, rien n'est dupliqué,
+  le portail est repris s'il manque, un compte est ajouté pour tout rôle sans compte actif sans 2FA, `est_demo` est posé et
+  le super admin de démonstration est créé. Mêmes gardes que `db:seed-demo` (base locale, pas de `SMTP_HOST`) ; refus net si
+  l'adresse fondatrice appartient à un autre cabinet, ou si l'adresse du super admin de démonstration appartient à un super
+  admin réel. Mots de passe : constantes **publiques** du dépôt (`MOT_DE_PASSE_DEMO_ABIDJAN` dans `seed-demo.ts`,
+  `MOT_DE_PASSE_DEMO_SUPER_ADMIN` dans `seed-defaut.ts`) : démonstration uniquement, ne jamais les recopier ni les réutiliser.
+- `db:creer-super-admin` : écrit avec le rôle propriétaire, ne modifie jamais un super admin existant. Mot de passe : option
+  `--mot-de-passe`, sinon variable `SUPER_ADMIN_MOT_DE_PASSE` (évite l'historique du shell), sinon généré et affiché une seule
+  fois (le noter aussitôt, rien ne le redonnera) ; un mot de passe fourni n'est jamais réaffiché. Codes de sortie : 0, 1
+  (arguments, configuration ou échec technique), 2 (e-mail déjà pris).
+- Sur le serveur (image de production, depuis `/home/deployer/missionpilot`, alias `mp` de `DEPLOIEMENT.md`) :
+
+```bash
+mp run --rm api node_modules/.bin/tsx src/db/creer-super-admin.ts --email prenom.nom@exemple.org --nom "Prénom Nom"
+# DEMO_PUBLIQUE=oui doit être dans missionpilot.env AVANT cette commande ; --confirmer-demo est obligatoire
+mp run --rm api node_modules/.bin/tsx src/db/seed-defaut.ts --confirmer-demo
+```
+
+  Procédures complètes (création, activation, désactivation, remise à zéro) : `docs/workflows/DEPLOIEMENT.md`.
+
+**Comptes de démonstration** : le tenant par défaut est le cabinet « Lagune Conseil & Associés (démo) » décrit plus haut
+(`<role>@lagune-conseil.test`, mot de passe commun = constante de `seed-demo.ts`). Le **super admin de démonstration** a
+l'adresse `superadmin@demo.missionpilot.test` ; son mot de passe est la constante de `seed-defaut.ts` et n'est pas recopié
+ici. Les adresses en `.test` ne doivent jamais être de vrais comptes (SECURITY.md §15).
+
+**Page de connexion « un clic »** : quand la démonstration est active (`CONNEXION_RAPIDE_DEMO=oui` en local, ou
+`DEMO_PUBLIQUE=oui`), `/connexion` affiche le bloc « Mode démonstration » : on choisit d'abord un espace (« Super
+administrateur » ou un cabinet), puis, pour un cabinet, un compte (« Espace cabinet » ou « Espace client (portail) ») ; un
+clic ouvre la session, sans e-mail ni mot de passe. Un clic sur la carte « Super administrateur » connecte DIRECTEMENT, sans étape
+de confirmation, et mène à `/plateforme`. La liste n'affiche pas les comptes à 2FA active ou obligatoire (utiliser le formulaire
+pour ceux-là).
+Le lien « Accès administrateur de la plateforme », toujours affiché sous le formulaire, mène à `/plateforme/connexion`
+(e-mail et mot de passe d'un super admin). Le bloc n'apparaît que si `GET /api/auth/demo` répond 200.
+
+**Console `/plateforme`** : liste des cabinets (création avec son premier associé, activation et désactivation) puis page
+d'un cabinet (comptes : création, rôles, activation et désactivation). Un mot de passe généré s'affiche une seule fois,
+à la création. Désactiver un cabinet coupe à l'instant la connexion et les sessions de tous ses comptes. Le dernier associé
+actif d'un cabinet ne se désactive pas (409 `DERNIER_ASSOCIE`). Le super admin de démonstration ne voit et ne crée que des
+cabinets de démonstration, avec des adresses en `.test`, dans la limite de 30 cabinets et de 40 comptes par cabinet.
 
 ## Lancer
 
@@ -651,11 +709,28 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   `SESSION_SECRET` ; `SMTP_HOST` absent ou `SMTP_TLS=aucun` en production ;
   `SMTP_USER` sans `SMTP_PASS` ; `STORAGE_DIR` absent ou relatif ;
   `CHROMIUM_PATH` relatif ou inexistant ; `OPENROUTER_BASE_URL` en HTTP hors
-  boucle locale ; `CONNEXION_RAPIDE_DEMO=oui` hors développement local.
+  boucle locale ; `CONNEXION_RAPIDE_DEMO=oui` hors développement local (la voie hors local est `DEMO_PUBLIQUE=oui`).
 - **Bloc « Comptes de démonstration » absent** : l'API ne tourne pas avec
   `CONNEXION_RAPIDE_DEMO=oui` (relancer l'API), ou elle est injoignable par le
   web (`API_URL`). Bloc présent mais vide : lancer `db:seed-demo` sur la base
   utilisée ; groupe « Espace client » vide : lancer `db:seed-demo-portail`.
+- **Démonstration « un clic » absente** (aucun bloc « Mode démonstration » sur `/connexion`) : `GET /api/auth/demo` répond 404 tant que ni
+  `CONNEXION_RAPIDE_DEMO=oui` (local) ni `DEMO_PUBLIQUE=oui` n'est défini pour l'API ; sur un serveur, `DEMO_PUBLIQUE` doit être dans
+  `missionpilot.env` ET l'API recréée (`mp up -d --force-recreate api web`). `GET /api/auth/demo` en 200 mais liste vide : aucun
+  cabinet `est_demo` actif (lancer `db:seed-defaut`, ou `--confirmer-demo` sur le serveur ; ou le cabinet a été désactivé dans la
+  console). Le bloc n'apparaît qu'après un 200 : le web lit la liste à chaque affichage, sans reconstruction.
+- **Un compte de démonstration manque dans la liste « un clic »** : depuis `0583`, `GET /api/auth/demo` ne liste pas les comptes dont
+  la 2FA est active ou obligatoire (politique du cabinet pour leurs rôles, du portail, ou plancher `TOTP_REQUIS=oui`, qui vide
+  TOUTE la liste des comptes de cabinet et du portail). Ce n'est pas une panne : retirer la variable sur un serveur de démonstration,
+  désactiver la 2FA du compte, ou se connecter par le formulaire (adresse, mot de passe, code à 6 chiffres).
+- **Un compte de démonstration refuse le clic (403 `CONNEXION_RAPIDE_2FA`)** : le compte n'est plus listé mais reste connu (une
+  liste web ancienne, ou un appel direct) et sa 2FA est active ou obligatoire. Règle : « listé implique trouvable », la réciproque est
+  fausse. Même remède que ci-dessus.
+- **Super admin : 401 « E-mail ou mot de passe incorrect »** : adresse ou mot de passe faux, compte inactif, ou, pour le super admin de
+  démonstration, démonstration inactive (son mot de passe public est alors refusé). Dix échecs en 15 minutes sur la même adresse
+  bloquent la connexion (429) ; aucun outil de déblocage pour un super admin, attendre la fin de la fenêtre. Console qui ramène à
+  `/plateforme/connexion` : cookie `mp_plateforme` absent ou session expirée (8 h).
+- **Un compte d'un cabinet désactivé ne se connecte plus** : normal (`cabinets.actif`). Le réactiver dans la console `/plateforme`.
 - **`DATABASE_URL doit utiliser le rôle missionpilot_app`** (migrations) :
   l'URL applicative pointe vers un autre rôle.
 - **Erreurs de connexion à PostgreSQL** juste après `pnpm db:up` : le conteneur
@@ -683,11 +758,13 @@ hooks), ou `node scripts/install-git-hooks.cjs` ensuite. État vérifié le
   503 `RENDU_OCCUPE` : deux rendus en cours, ou déjà un pour ce cabinet ;
   réessayer. 504 : rendu de plus de 30 s. Le relais Next attend jusqu'à 90 s
   (`experimental.proxyTimeout`). Word et PowerPoint n'ont pas besoin de Chrome.
-- **Chrome sous Linux** (non essayé) : l'API ne passe pas `--no-sandbox`. Faire
-  tourner l'API sous un utilisateur **non root** sur un noyau qui autorise les
-  espaces de noms utilisateur (ou fournir la sandbox SUID de Chromium) ; ne pas
-  ajouter `--no-sandbox` sans décision écrite (`docs/governance/SECURITY.md`
-  §8 bis).
+- **Chrome sous Linux** : l'API ne passe pas `--no-sandbox`. Faire tourner l'API
+  sous un utilisateur **non root** sur un noyau qui autorise les espaces de noms
+  utilisateur ; ne pas ajouter `--no-sandbox` sans décision écrite
+  (`docs/governance/SECURITY.md` §8 bis). En conteneur Docker, le profil seccomp
+  par défaut les interdit : la production utilise `deploy/seccomp-chromium.json`
+  (testé en local seulement ; vérifications du noyau du serveur dans
+  `docs/workflows/DEPLOIEMENT.md`, « Limites connues »).
 - **Téléversement : 503 `FICHIERS_OCCUPE`** : 4 réceptions de fichiers sont déjà
   en cours sur cette instance (constante `FICHIERS_ANALYSES_SIMULTANEES_MAX` de
   `routes/fichiers.ts`, pas une variable d'environnement) ; réessayer.

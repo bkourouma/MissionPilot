@@ -86,6 +86,8 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `0551`        | redressement : modèle de rapport `cloture_redressement`, niveau `red`, colonne `red_cloture_id` ; REDÉFINIT les CHECK de `rapports_mission` et `controler_source_rapport()` (`MPR05`) |
   | `0552`        | dossier client : modèle de rapport `etat_financier`, niveau `dossier` ; REDÉFINIT les CHECK de `rapports_mission` |
   | `0560–0563`   | services candidats (lot 7, plage attribuée par le superviseur) : service et méthode du standard `diagnostic_flash` v1 publiée (`0560`), service et méthode `business_plan_bancable` v1 publiée (`0561`), prix fixe par cabinet et par service (`0562`), guichets de financement du cabinet, sans suppression (`0563`, `MQV01-02`) ; 2 tables, `portail_interdit` ; contenu des méthodes PROVISOIRE, `a_valider = true` |
+  | `0570–0573`   | plateforme, super admin (chantier du 2026-10-23, plage `0570–0579` attribuée par le superviseur) : colonnes `cabinets.actif` et `cabinets.est_demo` réservées au propriétaire par déclencheur, et REDÉFINITION de `trouver_connexion` et `resoudre_session` (un cabinet désactivé coupe la connexion et les sessions) (`0570`) ; tables `super_admins`, `plateforme_sessions` (jeton haché, 8 h) et `journal_plateforme` en ajout seul (`0571`) ; fonctions de connexion et de session (`0572`) et d'opération (`0573`) ; 3 tables, `portail_interdit`, aucun droit direct du rôle applicatif ; 11 fonctions `SECURITY DEFINER` `plateforme_*` accordées (5 en `0572`, 6 en `0573`) ; `MQP01-06` |
+  | `0580–0583`   | démonstration (même chantier, plage `0580–0589`) : fonctions `demo_*` de la connexion « un clic » (`0580` : liste et recherche des comptes `est_demo`, session de plateforme du super admin de démo), `demo_super_admin_est_demo` (`0581`), bac à sable du super admin de démo (`0582` : REDÉFINIT les six fonctions `plateforme_*` d'opération de `0573` ; cabinets `est_demo` seuls visibles, adresses `.test`, plafonds de 30 cabinets et de 40 comptes par cabinet), liste sans comptes 2FA (`0583` : fonction interne `demo_tfa_bloquante`, non accordée, et REDÉFINITION de `demo_lister_comptes`, même signature et mêmes droits) ; aucune table, aucun nouveau SQLSTATE ; 5 fonctions `demo_*` accordées |
 
   Plages libres : `0151–0159`, `0161–0169`, `0170–0179`, `0185–0199`. Plages
   réservées par lot (PRD complémentaire) : `0200–0219` référentiel de méthodes
@@ -113,8 +115,12 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   dossier (rapport d'état financier) ; l'ingestion de documents (lots 6 et 11) `0521–0526` se trouve dans la plage
   `0520–0539`, donc hors de cette queue (aucune redéfinition d'objet partagé : `0526` ne redéfinit que des objets
   de l'ingestion, `purger_textes_ingestion` et `controler_ingestion_document` ; prochain libre `0527`) ;
-  services candidats (lot 7) `0560–0563`,
-  consommées (prochains libres de l'attribution : `0564–0579`) ; `0553–0559` non
+  services candidats (lot 7) `0560–0563` (prochains libres de cette attribution : `0564–0569`) ;
+  plateforme et démonstration (chantier du 2026-10-23) `0570–0573` et `0580–0583`, consommées
+  (prochains libres : `0574–0579` pour la plateforme, `0584–0589` pour la démonstration). Trois objets
+  partagés y sont redéfinis : `trouver_connexion` et `resoudre_session` (`0570`, colonne `cabinets.actif`),
+  les six fonctions d'opération `plateforme_*` (`0582` redéfinit celles de `0573`) et `demo_lister_comptes` (`0583` redéfinit celle de `0580`) ; toute nouvelle
+  redéfinition porte un numéro supérieur et reprend la définition en vigueur ; `0553–0559` non
   attribués (à demander au superviseur).
   Deux objets partagés sont REDÉFINIS en entier à chaque évolution :
   - `tentatives_auth_regles` (limiteur persistant) : la définition en vigueur est
@@ -137,7 +143,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
   QUA `0291`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
-  candidats `0564` (`0564–0579` libres), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
+  candidats `0564` (`0564–0569` libres), plateforme `0574` (`0574–0579` libres), démonstration `0584` (`0584–0589` libres), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui
@@ -150,7 +156,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0487`–`0492`, `0509`, `0511`, `0521`–`0526`, `0549`–`0552`, `0560`–`0563`) sont des ajouts,
   aucune modification ni suppression par rapport à `origin/main`
   (`git diff --name-status origin/main -- apps/api/migrations` ne rend que 52 lignes `A`) : toutes sont
-  immuables dès la fusion de la branche dans `main`.
+  immuables dès la fusion de la branche dans `main`. Au 2026-10-23, la branche du chantier super admin (copie `super-admin-lot-4`) compte 239 fichiers (`ls apps/api/migrations | wc -l`) ; la tête du lot 7 en compte 240 (avec `0583`) : les 8 de plus que les 232 ci-dessus sont `0570`–`0573` et `0580`–`0583`, des ajouts (`git log --diff-filter=MD --name-only --format= -- apps/api/migrations` ne rend rien).
 - Les imports relatifs de l'API portent l'extension `.js` (ex.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next
@@ -208,7 +214,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   lots suivants** : un second préfixe de deux lettres `MQ` + lettre de domaine +
   deux chiffres, déclaré dans ce document et dans l'en-tête de la première
   migration du lot, et jamais un numéro déjà employé par un autre lot d'une même
-  lettre. Préfixes `MQ` déclarés (relevé du 2026-10-22, lot 6 compris ; `grep -ohE "MQ[A-Z][0-9]{2}" apps/api/migrations/*.sql | cut -c1-3 | sort -u` rend `MQA`, `MQD`, `MQF`, `MQG`, `MQI`, `MQK`, `MQL`, `MQQ`, `MQS`, `MQU`, `MQV` ; `MQC` et `MQN` sont déclarés sans code employé) :
+  lettre. Préfixes `MQ` déclarés (relevé du 2026-10-22, lot 6 compris ; `grep -ohE "MQ[A-Z][0-9]{2}" apps/api/migrations/*.sql | cut -c1-3 | sort -u` rend `MQA`, `MQD`, `MQF`, `MQG`, `MQI`, `MQK`, `MQL`, `MQQ`, `MQS`, `MQU`, `MQV` ; `MQP` (plateforme, `0570` à `0582`) s'y ajoute depuis le chantier du 2026-10-23 ; `MQC` et `MQN` sont déclarés sans code employé) :
 
   | Préfixe | Domaine                              | Codes employés                                                                                         | Migrations      |
   | ------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------- |
@@ -225,6 +231,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   | `MQI`   | IA : cache et contradicteur (lot 4c) | `MQI01` écriture du cache refusée quand il est désactivé pour le cabinet, `MQI50` revue contradictoire incohérente (brouillon relu introuvable, revue relue, mission différente) ; libres : `MQI02-49`, `MQI51+` ; l'unicité de la revue active est portée par l'index unique partiel (SQLSTATE 23505), non par un code | `0278`, `0279` |
   | `MQU`   | rapport d'avancement (AUT-10, lot 4c) | `MQU01` rapport validé figé, `MQU02` validateur non autorisé, `MQU03` naissance hors brouillon ou identité modifiée, `MQU04` client différent de celui de la mission, `MQU05` mission non active, `MQU07` suppression interdite ; `MQU06` non employé ; `MQU08-10` réservés au chantier ; libres : `MQU11+` | `0306`, `0307` |
   | `MQG`   | ingestion de documents (lot 6)       | `MQG01` transition de statut ou identité d'un document (pas de suppression, naissance « en_file », identité figée, document terminé non modifiable), `MQG02` extraction : machine à états, séparation des tâches (le valideur n'est ni l'auteur du téléversement, ni le demandeur de la lecture, ni le dernier modificateur, sauf associé) et identité, `MQG03` version cible d'un amorçage (brouillon du cabinet) ; libres : `MQG04+` | `0521`, `0522` |
+  | `MQP`   | plateforme, super admin (2026-10-23) | `MQP01` session de plateforme invalide ou expirée, ou super admin inactif (API : 401), `MQP02` cabinet introuvable (404 ; pour un super admin de démo, aussi tout cabinet qui n'est pas de démonstration), `MQP03` utilisateur introuvable dans ce cabinet ou compte du portail client (404), `MQP04` paramètre invalide (rôle hors des 8 rôles du cabinet, liste de rôles vide, trop longue ou avec doublon, nom, e-mail, pays ou haché invalide, modification sans champ ; en démonstration, adresse hors `.test` ou plafond atteint, avec un indice stable) (400), `MQP05` l'opération laisserait le cabinet sans associé actif (409), `MQP06` `journal_plateforme` en ajout seul (UPDATE, DELETE et TRUNCATE refusés, même au propriétaire) ; libres : `MQP07+` | `0570`–`0573`, `0582` |
 
   Les ADR-010 et ADR-013 citaient `MPH11` et `MPH07` avant le lot canaux : ils sont
   tranchés, `MPH11` (empreinte du document signé, `0546`) et `MPH07` (validation
@@ -842,3 +849,9 @@ en vague 0, collision de `MPT01` (`0076`), incohérence de `notation.publier`
   43,75 rem pour 732 px utiles (marge de 32 px) ; seule la garde CSS `qualite-froide-css.test.ts` existe, le
   rendu à 768, 1036 et 1280 px reste à confirmer en navigateur ; (4) A-09 : si la grille se complète sans
   changement de synthèse et sans clic sur « Terminer », le bandeau de synthèse reste jusqu'au prochain clic.
+- **Listes de la plateforme non paginées (super admin, 2026-10-23)** : `GET /api/plateforme/cabinets` et
+  `GET /api/plateforme/cabinets/:id/utilisateurs` (`plateforme_lister_cabinets`, `plateforme_lister_utilisateurs`)
+  rendent toute la liste sans curseur, choix DÉCLARÉ : une plateforme compte peu de cabinets et un cabinet peu de
+  comptes. À paginer par curseur si le nombre de cabinets dépasse quelques centaines (le super admin de démo est,
+  lui, plafonné à 30 cabinets et 40 comptes par cabinet par `0582`). Les listes de la connexion de
+  démonstration sont bornées en SQL (50 cabinets, 50 comptes par cabinet, 20 super admins, `0580`).
