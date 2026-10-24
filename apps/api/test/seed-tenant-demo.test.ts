@@ -313,14 +313,15 @@ describe("seed du Tenant démo (socle)", () => {
     expect(appels).toEqual([tenantId]);
   });
 
-  it("les phases enregistrées sont les cinq stubs, dans l'ordre", async () => {
+  it("les phases enregistrées sont les six stubs, dans l'ordre", async () => {
     const { PHASES } = await import("../src/db/tenant-demo/phases/index.js");
     expect(PHASES.map((p) => p.nom)).toEqual([
       "missions",
       "notation-plans",
-      "redressement-dd-ao",
-      "ia-canaux-qualite",
-      "portail-collab",
+      "redressement-dd",
+      "appels-offres-canaux",
+      "ia-qualite-standard",
+      "gestion",
     ]);
   });
 
