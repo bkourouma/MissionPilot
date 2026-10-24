@@ -17,6 +17,9 @@ afterAll(() => ctx.fermer());
 const MOT_DE_PASSE = "Mot-de-passe-fourni-12";
 const ENV = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
   ...process.env,
+  // Base de test migrée : sans cela le script viserait la base de développement (ou, en CI, une base non migrée).
+  DATABASE_OWNER_URL: configTest().DATABASE_OWNER_URL,
+  DATABASE_URL: configTest().DATABASE_URL,
   SUPER_ADMIN_MOT_DE_PASSE: "",
   ...extra,
 });
