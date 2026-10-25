@@ -392,7 +392,7 @@ pnpm --filter @missionpilot/api db:seed-tenant-demo --phase=missions           #
 - **Une phase échouée ou interrompue repart d'une base NEUVE** : seules certaines étapes sont reprises sans doublon (étapes
   marquées `semis_tenant_demo_etape`), et une phase à moitié écrite peut laisser des lignes que les routes refusent de recréer ou
   que l'antidatage a déjà déplacées. Sur une base de développement jetable, la recréer (`DROP DATABASE`, `pnpm db:migrate`) coûte
-  moins qu'un diagnostic. Relancer la commande sur un cabinet complet est sûr : toutes les phases sont `deja_faite`.
+  moins qu'un diagnostic. Relancer la commande sur un cabinet complet est sûr : toutes les phases sont `deja_faite`. Le rejeu ne crée aucun doublon métier, mais il n'est pas strictement inerte : il relit le socle par les routes et modifie `grades`, `parametres_temps`, `journal_audit` et `sessions`.
 - `--phase=<nom>` ne lance que les phases nommées (le socle est toujours repris) ; l'ordre des dépendances reste celui du tableau.
 
 **Phases et lots** (registre `apps/api/src/db/tenant-demo/phases/index.ts`, dans l'ordre d'exécution ; une phase = un fichier mince
@@ -414,7 +414,7 @@ terminées ne sont clôturées qu'à la fin de la phase `gestion` (leurs routes 
 **Connexion « un clic »** : le cabinet est `est_demo`, donc proposé par le bloc « Mode démonstration » de `/connexion` (avec
 `CONNEXION_RAPIDE_DEMO=oui` en local, ou `DEMO_PUBLIQUE=oui`). La fonction `demo_lister_comptes` est **bornée à 50 comptes par
 cabinet** (migration `0580`, avant le filtre `0583`) : le Tenant démo en compte 48 actifs (cabinet 20, portail 28), dont 2 comptes signataires à 2FA
-de la phase `appels-offres-canaux` ; la liste en montre 46 (20 cabinet + 26 portail) et reste sous la borne, ne pas y ajouter de comptes sans la relire. Les comptes à 2FA active ne
+de la phase `appels-offres-canaux` ; la liste en montre 46 (19 cabinet + 27 portail) et reste sous la borne, ne pas y ajouter de comptes sans la relire. Les comptes à 2FA active ne
 sont jamais listés : on se connecte par le formulaire (e-mail, mot de passe commun, puis code du moment par
 `pnpm --filter @missionpilot/api db:code-2fa-demo`, secret TOTP PUBLIC de `seed-demo-2fa.ts`).
 
