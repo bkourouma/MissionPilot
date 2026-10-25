@@ -54,7 +54,7 @@ export default async function PagePlansMission({
         Le plan stratégique réunit le diagnostic, l&apos;analyse SWOT, la vision, les axes, les
         objectifs, les initiatives et le modèle financier prévisionnel. L&apos;expert dispose :
         chaque contenu est validé par un responsable de la mission avant tout partage au client, et
-        les chiffres du modèle sont calculés par le moteur de MissionPilot.
+        les chiffres du modèle sont calculés par le moteur de CabinetPilot.
       </p>
 
       <Carte titre="Plans de la mission">

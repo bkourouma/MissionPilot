@@ -137,9 +137,14 @@
   flex-direction: column;
   gap: var(--mp-esp-3);
   margin: 0;
-  padding: 0 0 0 var(--mp-esp-3);
+  padding: var(--mp-esp-3);
   list-style: none;
-  border-left: 3px solid var(--mp-bordure);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-plan-element__enfants .mp-plan-element__enfants {
+  background: var(--mp-primaire-pale);
 }
 
 @media (min-width: 640px) {

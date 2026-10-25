@@ -162,7 +162,7 @@ export const LIBELLE_BROUILLON_IA = "Brouillon IA à relire";
 export const MENTION_BROUILLON_IA =
   "Le commentaire ci-dessous a été proposé par l'IA. Relisez-le, corrigez-le ou effacez-le : un rapport ne peut pas être validé tant que ce brouillon n'a pas été relu.";
 export const MENTION_CHIFFRES_MOTEUR =
-  "Ces chiffres sont calculés par MissionPilot à partir des données de la mission. Ils ne se modifient pas ici ; « Régénérer les chiffres » les recalcule à la date du jour.";
+  "Ces chiffres sont calculés par CabinetPilot à partir des données de la mission. Ils ne se modifient pas ici ; « Régénérer les chiffres » les recalcule à la date du jour.";
 export const LIBELLE_ENVOI_EMAIL = "Envoyer par e-mail au client";
 export const AIDE_ENVOI_EMAIL = "Non disponible : aucun envoi automatique au client";
 

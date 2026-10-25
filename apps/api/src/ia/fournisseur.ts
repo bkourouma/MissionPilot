@@ -218,7 +218,7 @@ export function creerFournisseurOpenRouter(options: OptionsOpenRouter): LlmProvi
         authorization: `Bearer ${requete.cleApi}`,
         "content-type": "application/json",
         accept: "application/json",
-        "x-title": options.titre ?? "MissionPilot",
+        "x-title": options.titre ?? "CabinetPilot",
       };
       if (options.referer) entetes["http-referer"] = options.referer;
 
@@ -342,7 +342,7 @@ export function fournisseurDepuisConfig(
     baseUrl: config.OPENROUTER_BASE_URL,
     timeoutMs: config.IA_TIMEOUT_MS,
     referer: config.WEB_ORIGIN,
-    titre: "MissionPilot",
+    titre: "CabinetPilot",
     ...(journal ? { journal } : {}),
     ...(options.tentativesMax !== undefined ? { tentativesMax: options.tentativesMax } : {}),
   });

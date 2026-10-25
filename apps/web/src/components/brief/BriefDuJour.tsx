@@ -62,7 +62,7 @@ export function CarteBriefAccueil({ brief }: { brief: BriefApi }) {
     >
       <p>{resumeBrief(brief)}</p>
       <p>
-        <Link href={CHEMIN_BRIEF} className={classesBouton("secondaire")}>
+        <Link href={CHEMIN_BRIEF} className={classesBouton("primaire")}>
           Ouvrir mon brief
         </Link>
       </p>

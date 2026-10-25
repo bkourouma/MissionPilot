@@ -7,8 +7,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MissionPilot",
-    short_name: "MissionPilot",
+    name: "CabinetPilot",
+    short_name: "CabinetPilot",
     description: "Gestion des missions, du temps et de la facturation des cabinets de conseil.",
     lang: "fr",
     dir: "ltr",
@@ -16,8 +16,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
-    background_color: "#f5f6f8",
-    theme_color: "#1b4f7a",
+    background_color: "#f4f1fb",
+    theme_color: "#2b1468",
     categories: ["business", "productivity"],
     icons: [
       { src: "/icones/icone.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },

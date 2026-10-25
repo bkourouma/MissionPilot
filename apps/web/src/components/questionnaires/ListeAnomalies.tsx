@@ -40,7 +40,7 @@ export function ListeAnomalies({
       <p>
         {origine === "locale"
           ? "Contrôle de forme effectué avant l'envoi : rien n'a été enregistré."
-          : "Contrôle de cohérence du moteur MissionPilot (conditions, références, échelles) : rien n'a été enregistré."}
+          : "Contrôle de cohérence du moteur CabinetPilot (conditions, références, échelles) : rien n'a été enregistré."}
       </p>
       <ol className="mp-qe-anomalies">
         {anomalies.map((a, i) => {

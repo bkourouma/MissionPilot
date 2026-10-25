@@ -1,29 +1,50 @@
 /*
- * Jetons du design system MissionPilot.
+ * Jetons du design system CabinetPilot, direction « Plan de vol ».
+ * Marque : violet nuit (rail, en-têtes), violet vif (liens, sélection), or (cap réel et action
+ * principale, rien d'autre), lavande (fonds).
  * Contrastes vérifiés (WCAG 2.1) : texte ≥ 4,5:1 sur son fond, bordures de contrôle ≥ 3:1.
- *   clair : texte 15,2:1 · texte doux 6,9:1 · primaire/blanc 8,6:1 · statuts 5,7 à 6,2:1
- *   sombre : texte 15,6:1 · texte doux 8,1:1 · primaire 8,8:1 · statuts 7,6 à 8,5:1
+ *   clair : texte 15,6:1 · texte doux 7,2:1 · primaire/blanc 7,3:1 · texte sur or 7,1:1
+ *   sombre : texte 15,1:1 · texte doux 8,0:1 · primaire 8,3:1 · statuts 7,6 à 8,5:1
+ * L'or n'est jamais une couleur de texte sur fond clair (1,9:1) : il n'apparaît qu'en aplat
+ * sous un texte nuit, en trait de trajectoire ou sur le rail violet nuit.
  */
 :root {
   color-scheme: light dark;
 
   /* Surfaces */
-  --mp-fond: #f5f6f8;
+  --mp-fond: #f4f1fb;
   --mp-surface: #ffffff;
-  --mp-surface-2: #eef1f4;
-  --mp-bordure: #d5dbe1;
-  --mp-bordure-controle: #6b7785;
+  --mp-surface-2: #ece7f7;
+  --mp-bordure: #ddd6f0;
+  --mp-bordure-controle: #6f6590;
 
   /* Texte */
-  --mp-texte: #16202a;
-  --mp-texte-doux: #4a5663;
+  --mp-texte: #1d1636;
+  --mp-texte-doux: #5a5278;
 
-  /* Marque */
-  --mp-primaire: #1b4f7a;
-  --mp-primaire-survol: #153e60;
+  /* Marque : violet vif pour les liens, la sélection et le focus */
+  --mp-primaire: #5b2fc4;
+  --mp-primaire-survol: #4a22a6;
   --mp-sur-primaire: #ffffff;
-  --mp-primaire-pale: #e5eef6;
-  --mp-focus: #1b4f7a;
+  --mp-primaire-pale: #efeafa;
+  --mp-focus: #5b2fc4;
+
+  /* Or : action principale, trajectoire réelle, repère actif du rail */
+  --mp-or: #e5a72f;
+  --mp-or-survol: #f0b848;
+  --mp-sur-or: #2b1468;
+
+  /* Pastille de compteur (cloche) : rouge d'alerte fixe, texte blanc (7:1), clair comme sombre */
+  --mp-pastille: #a4262c;
+  --mp-sur-pastille: #ffffff;
+
+  /* Rail de navigation : violet nuit, identique en clair et en sombre */
+  --mp-nuit: #2b1468;
+  --mp-nuit-actif: #3b1f8c;
+  --mp-nuit-survol: #34197a;
+  --mp-sur-nuit: #ffffff;
+  --mp-sur-nuit-doux: #cfc2f1;
+  --mp-focus-nuit: #ffffff;
 
   /* Statuts : couleur de texte/icône et fond associé */
   --mp-succes: #1e6b3a;
@@ -32,15 +53,18 @@
   --mp-attention-fond: #fff1db;
   --mp-danger: #a4262c;
   --mp-danger-fond: #fde8e8;
-  --mp-neutre: #4a5663;
-  --mp-neutre-fond: #eef1f4;
-  --mp-info: #1b4f7a;
-  --mp-info-fond: #e5eef6;
+  --mp-neutre: #4f4870;
+  --mp-neutre-fond: #efeaf7;
+  --mp-info: #4a22a6;
+  --mp-info-fond: #efeaf7;
 
-  /* Typographie : polices système, aucune police à télécharger (3G). */
+  /* Typographie : Figtree (texte) et Sora (titres, chiffres de tête), fichiers locaux. */
   --mp-police:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
-  --mp-police-chiffres: var(--mp-police);
+    "Figtree Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue",
+    Arial, sans-serif;
+  --mp-police-titre:
+    "Sora Variable", "Figtree Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mp-police-chiffres: var(--mp-police-titre);
   --mp-taille-xs: 0.8125rem;
   --mp-taille-s: 0.875rem;
   --mp-taille-m: 1rem;
@@ -58,40 +82,41 @@
   --mp-esp-6: 2rem;
   --mp-esp-7: 3rem;
 
-  /* Formes */
-  --mp-rayon: 6px;
-  --mp-rayon-l: 10px;
-  --mp-ombre: 0 1px 2px rgb(16 24 32 / 0.06), 0 1px 3px rgb(16 24 32 / 0.08);
-  --mp-ombre-l: 0 8px 24px rgb(16 24 32 / 0.16);
+  /* Formes : surfaces à plat, bordure d'un pixel, aucune ombre sur les cartes */
+  --mp-rayon: 8px;
+  --mp-rayon-l: 12px;
+  --mp-ombre: none;
+  --mp-ombre-l: 0 12px 32px rgb(29 22 54 / 0.2);
 
   /* Accessibilité tactile : cible minimale 44 px */
   --mp-cible: 44px;
 
   /* Mise en page */
   --mp-hauteur-entete: 56px;
-  --mp-largeur-nav: 240px;
+  --mp-largeur-nav: 248px;
   --mp-hauteur-barre-basse: 64px;
   --mp-largeur-contenu: 1200px;
 
   --mp-duree: 150ms;
+  --mp-sortie: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --mp-fond: #0e141b;
-    --mp-surface: #151d26;
-    --mp-surface-2: #1d2833;
-    --mp-bordure: #2c3a48;
-    --mp-bordure-controle: #7d8b99;
+    --mp-fond: #130d26;
+    --mp-surface: #1b1336;
+    --mp-surface-2: #251b47;
+    --mp-bordure: #35295c;
+    --mp-bordure-controle: #8c80b4;
 
-    --mp-texte: #e7ecf1;
-    --mp-texte-doux: #a9b4bf;
+    --mp-texte: #ece8f8;
+    --mp-texte-doux: #b6acd6;
 
-    --mp-primaire: #8cc0ee;
-    --mp-primaire-survol: #a9d1f3;
-    --mp-sur-primaire: #0e141b;
-    --mp-primaire-pale: #142739;
-    --mp-focus: #8cc0ee;
+    --mp-primaire: #b9a2f5;
+    --mp-primaire-survol: #cdbcf8;
+    --mp-sur-primaire: #1a0f3d;
+    --mp-primaire-pale: #2a1f52;
+    --mp-focus: #cdbcf8;
 
     --mp-succes: #7fd19b;
     --mp-succes-fond: #12301f;
@@ -99,12 +124,11 @@
     --mp-attention-fond: #33240e;
     --mp-danger: #f49a9e;
     --mp-danger-fond: #3a1517;
-    --mp-neutre: #b7c1cb;
-    --mp-neutre-fond: #232e39;
-    --mp-info: #8cc0ee;
-    --mp-info-fond: #142739;
+    --mp-neutre: #c4bbe2;
+    --mp-neutre-fond: #2a2147;
+    --mp-info: #b9a2f5;
+    --mp-info-fond: #2a1f52;
 
-    --mp-ombre: 0 1px 2px rgb(0 0 0 / 0.4);
-    --mp-ombre-l: 0 8px 24px rgb(0 0 0 / 0.5);
+    --mp-ombre-l: 0 12px 32px rgb(0 0 0 / 0.55);
   }
 }

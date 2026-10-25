@@ -23,8 +23,22 @@
   min-height: var(--mp-hauteur-entete);
   padding: var(--mp-esp-2) var(--mp-esp-4);
   padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
-  background: var(--mp-surface);
-  border-bottom: 1px solid var(--mp-bordure);
+  background: var(--mp-nuit);
+  color: var(--mp-sur-nuit);
+}
+
+.mp-plateforme__entete :focus-visible {
+  outline-color: var(--mp-focus-nuit);
+}
+
+.mp-plateforme__entete .mp-bouton--secondaire {
+  background: transparent;
+  border-color: var(--mp-sur-nuit-doux);
+  color: var(--mp-sur-nuit);
+}
+.mp-plateforme__entete .mp-bouton--secondaire:hover:not(:disabled) {
+  background: var(--mp-nuit-survol);
+  color: var(--mp-sur-nuit);
 }
 
 .mp-plateforme__marque {
@@ -32,24 +46,15 @@
   align-items: center;
   gap: var(--mp-esp-2);
   min-height: var(--mp-cible);
+  gap: var(--mp-esp-3);
   min-width: 0;
-  color: var(--mp-primaire);
-}
-
-.mp-plateforme__marque-textes {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.2;
-}
-
-.mp-plateforme__produit {
-  color: var(--mp-texte);
-  font-weight: 700;
+  color: var(--mp-sur-nuit);
 }
 
 .mp-plateforme__espace {
-  color: var(--mp-texte-doux);
+  padding-left: var(--mp-esp-3);
+  border-left: 1px solid var(--mp-nuit-actif);
+  color: var(--mp-sur-nuit-doux);
   font-size: var(--mp-taille-s);
   font-weight: 500;
 }
@@ -78,7 +83,7 @@
 }
 
 .mp-plateforme__email {
-  color: var(--mp-texte-doux);
+  color: var(--mp-sur-nuit-doux);
   overflow-wrap: anywhere;
 }
 

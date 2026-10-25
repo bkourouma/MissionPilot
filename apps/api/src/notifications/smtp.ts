@@ -110,7 +110,7 @@ export function construireMessage(
   const de = adresseSure(expediteur);
   const domaine = de.split("@")[1]!;
   // Nom affiché : lettres, chiffres, espace, point, apostrophe, tiret ; sinon nom par défaut.
-  const nomSur = /^[\p{L}\p{N} .'-]{1,60}$/u.test(nomExpediteur) ? nomExpediteur : "MissionPilot";
+  const nomSur = /^[\p{L}\p{N} .'-]{1,60}$/u.test(nomExpediteur) ? nomExpediteur : "CabinetPilot";
   const nom = /^[A-Za-z0-9 ]+$/.test(nomSur) ? nomSur : encoderEntete(nomSur);
   return [
     `From: ${nom} <${de}>`,
@@ -292,7 +292,7 @@ export async function envoyerSmtp(options: OptionsSmtp, message: MessageSmtp): P
   const contenu = construireMessage(
     message,
     options.expediteur,
-    options.nomExpediteur ?? "MissionPilot",
+    options.nomExpediteur ?? "CabinetPilot",
   );
   const a = adresseSure(message.a);
   const de = adresseSure(options.expediteur);

@@ -24,7 +24,7 @@ export const standardLectureSeule = () =>
   new AppError(
     403,
     "STANDARD_LECTURE_SEULE",
-    "Le standard MissionPilot est en lecture seule : créer une variante du cabinet.",
+    "Le standard CabinetPilot est en lecture seule : créer une variante du cabinet.",
   );
 
 export const separationVariante = () =>
@@ -38,7 +38,7 @@ export const facteurStandardLectureSeule = () =>
   new AppError(
     403,
     "STANDARD_LECTURE_SEULE",
-    "Un facteur du standard MissionPilot est en lecture seule : créer un facteur du cabinet.",
+    "Un facteur du standard CabinetPilot est en lecture seule : créer un facteur du cabinet.",
   );
 
 export const facteurFige = () =>

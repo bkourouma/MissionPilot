@@ -112,7 +112,7 @@ export default async function PageNotationMission({
   return (
     <div className="mp-notation">
       <p className="mp-texte-doux">
-        Le score est calculé par le moteur de MissionPilot à partir des réponses soumises par le
+        Le score est calculé par le moteur de CabinetPilot à partir des réponses soumises par le
         client et de la grille choisie ; il peut être ajusté avec un motif, puis doit être relu et
         publié par un expert métier avant toute diffusion.
       </p>

@@ -11,7 +11,7 @@ export function AvertissementSignature() {
     <div className="mp-pile">
       <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_SIGNATURE_SIMULEE}>
         <p>
-          La signature se fait dans MissionPilot, après reconfirmation de votre identité. Elle ne
+          La signature se fait dans CabinetPilot, après reconfirmation de votre identité. Elle ne
           remplace ni une signature électronique qualifiée ni une signature manuscrite, et elle
           n&apos;a aucun effet sur le budget ni sur le statut de la mission.
         </p>

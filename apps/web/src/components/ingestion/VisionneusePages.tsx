@@ -94,7 +94,7 @@ export function VisionneusePages({
             style={{
               padding: "0.5rem 0.75rem",
               marginBottom: "0.5rem",
-              border: citee ? "2px solid currentColor" : "1px solid rgba(128,128,128,0.4)",
+              border: citee ? "2px solid currentColor" : "1px solid var(--mp-bordure)",
               borderRadius: "0.5rem",
             }}
           >

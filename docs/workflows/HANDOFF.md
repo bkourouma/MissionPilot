@@ -9,6 +9,24 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Refonte CabinetPilot « Plan de vol » — fusionnée le 2026-10-25 (PR n° 19, `c7ed11f`, déployée)
+
+Déploiement vérifié : workflow Deploy vert, `/connexion` et `/api/sante` répondent 200 sur cabinetpilot.allianceconsultants.net.
+Non vérifié en production : les pages connectées (pas de compte de démonstration en production). Système documenté dans
+`apps/web/DESIGN.md` et `apps/web/PRODUCT.md` ; mocks, captures et scripts de rendu dans `apps/web/.impeccable/` (ignoré par git).
+
+**Pièges.** (1) Renommage côté API fait ; restent volontairement « MissionPilot » : mot de passe de démonstration, adresses
+`@demo.missionpilot.test`, noms de rôle, de base et de paquet, prompts du modèle de langage (empreintes testées), migrations, commentaires.
+(2) Rail = colonne fixe de 248 px en grille (`.mp-cadre` ≥ 960 px), groupes repliables ; `lib/navigation.ts` : `grouperEntrees`, `entreeActive`.
+(3) Non implémentés faute de donnée : courbe « Cap du cabinet » dans le temps (aucune série temporelle servie), recherche globale.
+(4) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
+
+**Reste à faire (facultatif).** 24 écarts « design-system » signalés par le détecteur (tailles de police hors échelle, polices mono,
+quelques rayons et couleurs en dur dans `styles/` et `components/*/*.css`) ; recette des modules sans données de démonstration
+(due diligence, redressement, plan, notation) et de la console plateforme connectée ; faire défiler l'onglet actif de la fiche mission dans la vue.
+
+---
+
 ## DÉCISIONS EN ATTENTE (utilisateur) — 2026-10-23
 
 Rien de ce qui suit n'est fait sans l'utilisateur ; tout est préparé et sans effet tant qu'il n'agit pas.
@@ -26,6 +44,11 @@ Rien de ce qui suit n'est fait sans l'utilisateur ; tout est préparé et sans e
 - **Bases de développement locales** (environ 210 bases de test sur le conteneur `missionpilot-postgres`) : aucune purge faite ; à décider.
 - **Reste technique du chantier** : cabinet désactivé laissant actifs invitations, jobs planifiés, webhooks de canaux, 2FA (SECURITY §15) ;
   plafonds permanents de la démo et remise à zéro à scripter ; 2FA et déblocage du limiteur pour le super admin ; listes plateforme non paginées.
+
+**Recette navigateur autonome (2026-10-24, non commitée).** `docs/recette/SCENARIO-E2E-NAVIGATEUR.md` (+ `docs/recette/fixtures/`,
+3 fichiers de test) : scénario pour Claude in Chrome, anomalies M/m/c consignées, arrêt à la première bloquante avec prompt de
+correction. Rédigé par lecture du code, **jamais rejoué** : les libellés et chiffres hors chaîne principale sont à confirmer à la
+première exécution. Base dédiée `missionpilot_e2e` (commandes dans le scénario, § 2).
 
 ---
 

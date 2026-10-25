@@ -11,7 +11,7 @@ export function BadgeContenuIa({ statut }: { statut: StatutContenu | null | unde
   if (!statut) return null;
   const s = STATUT_CONTENU_IA[statut];
   return (
-    <span className={`mp-badge mp-badge--${s.tonalite}`} title={s.aide}>
+    <span className={`mp-badge mp-badge--${s.tonalite} mp-badge--ia`} title={s.aide}>
       <Icone nom={s.icone} taille={14} />
       <span>{s.libelle}</span>
     </span>

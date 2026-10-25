@@ -1,3 +1,4 @@
+import "../../../../../components/dossier/dossier.css";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -57,7 +58,7 @@ export default async function PageFrise({ params }: { params: Promise<{ id: stri
       ) : (
         grouperFriseParAnnee(frise.donnees.evenements).map((g) => (
           <Carte key={g.annee} titre={g.annee}>
-            <ol className="mp-pile">
+            <ol className="mp-frise">
               {g.evenements.map((e) => (
                 <li key={`${e.type}-${e.id}`}>
                   <BadgeStatut tonalite="neutre" sansIcone>

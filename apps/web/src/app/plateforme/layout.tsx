@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./plateforme.css";
 
 export const metadata: Metadata = {
-  title: { default: "Console plateforme", template: "%s — Console plateforme MissionPilot" },
+  title: { default: "Console plateforme", template: "%s — Console plateforme CabinetPilot" },
 };
 
 /**

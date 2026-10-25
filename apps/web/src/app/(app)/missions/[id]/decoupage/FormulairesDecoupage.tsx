@@ -121,7 +121,7 @@ export function FormulaireTache({
         onChange={(e) => setS((x) => ({ ...x, libelle: e.target.value }))}
         erreur={f.erreurs.libelle}
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Début souhaité"
           type="date"
@@ -186,7 +186,7 @@ export function FormulaireBudgetTache({
         <fieldset className="mp-groupe">
           <legend className="mp-champ__libelle">Jours par grade</legend>
           <p className="mp-champ__aide">Au centième de jour (ex. 2,5). Vide : grade absent.</p>
-          <div className="mp-grille-champs mp-grille-champs--serree">
+          <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {grades.map((g) => (
               <Champ
                 key={g.id}

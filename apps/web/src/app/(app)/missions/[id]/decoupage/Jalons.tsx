@@ -189,7 +189,7 @@ function FormulaireJalon({
     >
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Libellé"
           required

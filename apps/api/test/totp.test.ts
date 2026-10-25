@@ -86,13 +86,13 @@ describe("TOTP (RFC 6238, SHA-1)", () => {
 
   it("URI otpauth:// conforme (SHA1, 6 chiffres, 30 s)", () => {
     const uri = uriOtpauth(SECRET_RFC, "a@exemple.test");
-    expect(uri.startsWith("otpauth://totp/MissionPilot:a%40exemple.test?")).toBe(true);
+    expect(uri.startsWith("otpauth://totp/CabinetPilot:a%40exemple.test?")).toBe(true);
     const params = new URL(uri).searchParams;
     expect(params.get("secret")).toBe(base32Encoder(SECRET_RFC));
     expect(params.get("algorithm")).toBe("SHA1");
     expect(params.get("digits")).toBe("6");
     expect(params.get("period")).toBe("30");
-    expect(params.get("issuer")).toBe("MissionPilot");
+    expect(params.get("issuer")).toBe("CabinetPilot");
   });
 });
 

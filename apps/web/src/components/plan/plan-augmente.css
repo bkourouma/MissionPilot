@@ -18,14 +18,15 @@
   flex-direction: column;
   gap: var(--mp-esp-1);
   padding: var(--mp-esp-2) var(--mp-esp-3);
-  border-left: 3px solid var(--mp-bordure);
+  background: var(--mp-surface-2);
+  border-radius: var(--mp-rayon);
   /* Retrait selon la profondeur, borné pour rester lisible sur téléphone. */
   margin-left: min(calc(var(--profondeur, 0) * var(--mp-esp-4)), 40%);
   min-width: 0;
 }
 
 .mp-cascade__noeud--trou {
-  border-left-color: var(--mp-attention, var(--mp-bordure));
+  background: var(--mp-attention-fond);
 }
 
 .mp-cascade__entete {

@@ -18,7 +18,7 @@ import { exigerPermission } from "../../../lib/session";
 export const metadata: Metadata = { title: "Méthodes" };
 
 /**
- * Catalogue du référentiel de méthodes (STD-02, STD-03) : méthodes du standard MissionPilot
+ * Catalogue du référentiel de méthodes (STD-02, STD-03) : méthodes du standard CabinetPilot
  * (lecture seule), variantes et méthodes du cabinet, dernière version publiée et brouillon.
  */
 export default async function PageCatalogueMethodes({
@@ -34,7 +34,7 @@ export default async function PageCatalogueMethodes({
     <div className="mp-page">
       <EnteteDePage
         titre="Méthodes"
-        soustitre="Toutes les missions parlent la même grammaire : méthodes versionnées, étapes, briques, règles de contexte. Le standard MissionPilot se lit ; le cabinet l'adapte dans ses variantes."
+        soustitre="Toutes les missions parlent la même grammaire : méthodes versionnées, étapes, briques, règles de contexte. Le standard CabinetPilot se lit ; le cabinet l'adapte dans ses variantes."
       />
       {!r.ok ? (
         <EtatErreur
@@ -44,7 +44,7 @@ export default async function PageCatalogueMethodes({
         />
       ) : r.donnees.elements.length === 0 ? (
         <EtatVide titre="Aucune méthode." icone="livre">
-          <p>Le standard MissionPilot n&apos;est pas encore installé sur ce serveur.</p>
+          <p>Le standard CabinetPilot n&apos;est pas encore installé sur ce serveur.</p>
         </EtatVide>
       ) : (
         <ul className="mp-liste-lignes">

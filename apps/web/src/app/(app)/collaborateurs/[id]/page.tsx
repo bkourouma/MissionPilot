@@ -107,7 +107,7 @@ export default async function PageCollaborateur({ params }: { params: Promise<{ 
           <div>
             <dt>Compte utilisateur</dt>
             <dd>
-              {c.utilisateur_id ? "Rattaché à un compte MissionPilot" : "Aucun compte rattaché"}
+              {c.utilisateur_id ? "Rattaché à un compte CabinetPilot" : "Aucun compte rattaché"}
             </dd>
           </div>
         </dl>

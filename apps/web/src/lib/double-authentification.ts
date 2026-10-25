@@ -286,7 +286,7 @@ export function grouperSecret(secret: string): string {
 /** Contenu du fichier texte des codes de secours (téléchargement). */
 export function texteCodesSecours(codes: readonly string[], email: string, date: string): string {
   return [
-    "MissionPilot — codes de secours de la double authentification",
+    "CabinetPilot — codes de secours de la double authentification",
     `Compte : ${email}`,
     `Générés le : ${date}`,
     "",

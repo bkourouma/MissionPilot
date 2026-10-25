@@ -311,9 +311,9 @@ export const routesUtilisateurs: FastifyPluginAsync = async (app) => {
       journal: (m) => request.log.warn(m),
       message: {
         a: email,
-        sujet: `Invitation à rejoindre ${nomCabinet} sur MissionPilot`,
+        sujet: `Invitation à rejoindre ${nomCabinet} sur CabinetPilot`,
         texte: [
-          `${auth.nom} vous invite à rejoindre ${nomCabinet} sur MissionPilot`,
+          `${auth.nom} vous invite à rejoindre ${nomCabinet} sur CabinetPilot`,
           `(rôles : ${roles.map((r) => ROLE_LIBELLES[r]).join(", ")}).`,
           "",
           "Pour créer votre compte, ouvrez ce lien :",

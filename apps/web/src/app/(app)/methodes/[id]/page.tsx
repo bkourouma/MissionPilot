@@ -72,7 +72,7 @@ export default async function PageMethode({ params }: { params: Promise<{ id: st
           ) : (
             <div className="mp-pile">
               <p>
-                Le standard MissionPilot se lit sans se modifier. Pour l&apos;adapter (ajouts,
+                Le standard CabinetPilot se lit sans se modifier. Pour l&apos;adapter (ajouts,
                 pondérations, gabarits à votre charte), créez la variante du cabinet : elle hérite
                 de la dernière version publiée, et ses différences restent visibles.
               </p>

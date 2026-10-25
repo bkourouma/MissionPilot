@@ -293,7 +293,7 @@ function FormulaireEcheance({
     >
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         {creation ? (
           <Select
             libelle="Type"
@@ -436,7 +436,7 @@ function Generation({
         </p>
       ) : null}
       {besoin === "part_variable" ? (
-        <div className="mp-grille-champs">
+        <div className="mp-grille-champs mp-grille-champs--bas">
           {champ("pv_libelle", "Libellé de la part variable", { maxLength: 200 })}
           {champ("pv_montant_maximum", `Montant maximum (${libelleDevise(devise)})`, {
             inputMode: "decimal",
@@ -447,7 +447,7 @@ function Generation({
         </div>
       ) : null}
       {besoin === "abonnement" ? (
-        <div className="mp-grille-champs">
+        <div className="mp-grille-champs mp-grille-champs--bas">
           {champ("ab_libelle", "Libellé", { maxLength: 200 })}
           {champ("ab_montant", `Montant par période (${libelleDevise(devise)})`, {
             inputMode: "decimal",

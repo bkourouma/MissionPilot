@@ -60,7 +60,19 @@ export function CarteChaine({ missionId, dossierId, etapes }: CarteChaineProps) 
             </button>
             {i < etapes.length - 1 ? (
               <span className="mp-chaine__fleche" aria-hidden="true">
-                →
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  focusable="false"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
               </span>
             ) : null}
           </li>

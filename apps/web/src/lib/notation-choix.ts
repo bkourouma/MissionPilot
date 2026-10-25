@@ -35,7 +35,7 @@ export function optionsEnvois(envois: readonly EnvoiQuestionnaire[]): OptionNota
 export const envoisNotables = (envois: readonly EnvoiQuestionnaire[]) =>
   envois.filter((e) => e.reponses_soumises > 0);
 
-export const NOM_GRILLE_GENERIQUE = "Grille générique MissionPilot";
+export const NOM_GRILLE_GENERIQUE = "Grille générique CabinetPilot";
 export const LIBELLE_GRILLE_GENERIQUE = `${NOM_GRILLE_GENERIQUE} (par défaut)`;
 
 /** Grilles utilisables au calcul : la générique, puis celles du cabinet qui ont une version validée. */

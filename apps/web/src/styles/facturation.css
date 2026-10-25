@@ -5,6 +5,16 @@
   margin-bottom: var(--mp-esp-4);
 }
 
+/* Période d'une facture : deux lignes en tableau, un bloc aligné à droite dans la fiche du téléphone. */
+.mp-periode {
+  display: block;
+}
+@media (max-width: 639px) {
+  .mp-periode {
+    text-align: right;
+  }
+}
+
 /* ---------- Montants ---------- */
 .mp-montant {
   font-variant-numeric: tabular-nums;
@@ -140,8 +150,13 @@ dl.mp-totaux dd {
 
 @media print {
   .mp-entete,
+  .mp-rail,
   .mp-nav-laterale,
   .mp-barre-basse {
     display: none;
+  }
+  .mp-cadre {
+    display: block;
+    background: none;
   }
 }

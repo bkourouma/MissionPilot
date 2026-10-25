@@ -1,0 +1,196 @@
+/* Missions en vol (tableau de bord) et trajectoire d'une mission. */
+.mp-missions-en-vol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-missions-en-vol__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mp-esp-2);
+}
+
+.mp-missions-en-vol__titre {
+  font-size: var(--mp-taille-m);
+}
+
+/* Les noms de mission se lisent comme du texte, le lien se révèle au survol et au focus. */
+.mp-missions-en-vol .mp-tableau a {
+  color: var(--mp-texte);
+  font-weight: 600;
+  text-decoration: none;
+}
+.mp-missions-en-vol .mp-tableau a:hover,
+.mp-missions-en-vol .mp-tableau a:focus-visible {
+  color: var(--mp-primaire);
+  text-decoration: underline;
+}
+
+.mp-trajectoire {
+  display: block;
+  overflow: visible;
+}
+
+/* Cap prévu : violet. Chemin réel : or, trait épais. Estimation : pointillé. */
+.mp-trajectoire__prevu,
+.mp-trajectoire__repere {
+  stroke: var(--mp-primaire);
+  stroke-width: 2;
+}
+
+.mp-trajectoire__reel {
+  stroke: var(--mp-or);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.mp-trajectoire__pointe,
+.mp-trajectoire__depart {
+  fill: var(--mp-or);
+}
+
+.mp-trajectoire__estimation {
+  stroke: var(--mp-primaire);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.mp-trajectoire__estimation--depasse {
+  stroke: var(--mp-danger);
+}
+
+/* Cap de la mission : trajectoire large, puis les quatre chiffres du suivi. */
+.mp-cap {
+  display: grid;
+  gap: var(--mp-esp-4);
+  align-items: center;
+}
+
+.mp-cap__trajectoire .mp-trajectoire {
+  width: 100%;
+  max-width: 48rem;
+  height: auto;
+}
+
+.mp-cap__chiffres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--mp-esp-4);
+  margin: 0;
+}
+
+.mp-cap__chiffres dt {
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+.mp-cap__chiffres dd {
+  margin: 0;
+  font-family: var(--mp-police-chiffres);
+  font-size: var(--mp-taille-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-cap__sur {
+  color: var(--mp-texte-doux);
+  font-family: var(--mp-police);
+  font-size: var(--mp-taille-s);
+  font-weight: 500;
+}
+
+/* Cellules resserrées : le tableau tient dans une colonne de 700 px sans défiler. */
+@media (min-width: 640px) {
+  .mp-missions-en-vol .mp-tableau th,
+  .mp-missions-en-vol .mp-tableau td {
+    padding: var(--mp-esp-3) var(--mp-esp-2);
+  }
+  .mp-missions-en-vol .mp-tableau th:first-child,
+  .mp-missions-en-vol .mp-tableau td:first-child {
+    min-width: 11rem;
+    padding-left: var(--mp-esp-3);
+  }
+  .mp-missions-en-vol .mp-tableau td:nth-child(2) {
+    white-space: nowrap;
+  }
+}
+
+.mp-cap__marques {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+/* Marque « Calculé » : valeur issue d'un moteur de calcul testé, jamais du modèle de langage. */
+.mp-calcule {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  padding: 0.125rem var(--mp-esp-2);
+  border-radius: 999px;
+  background: var(--mp-neutre-fond);
+  color: var(--mp-neutre);
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Téléphone : chaque mission tient sur deux lignes (nom ; jours et écart) puis sa trajectoire. */
+@media (max-width: 639px) {
+  .mp-missions-en-vol .mp-tableau tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    column-gap: var(--mp-esp-3);
+    padding: var(--mp-esp-3);
+  }
+  .mp-missions-en-vol .mp-tableau td {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  .mp-missions-en-vol .mp-tableau td::before {
+    display: none;
+  }
+  .mp-missions-en-vol .mp-tableau td:nth-child(1) {
+    grid-column: 1 / -1;
+    margin-bottom: var(--mp-esp-1);
+  }
+  .mp-missions-en-vol .mp-tableau td:nth-child(2) {
+    grid-column: 1;
+  }
+  .mp-missions-en-vol .mp-tableau td:last-child {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+  .mp-missions-en-vol .mp-tableau td:nth-child(3) {
+    grid-column: 1 / -1;
+    margin-top: var(--mp-esp-2);
+  }
+  .mp-missions-en-vol .mp-tableau td:nth-child(4):not(:last-child) {
+    grid-column: 1 / -1;
+    margin-top: var(--mp-esp-1);
+    color: var(--mp-texte-doux);
+    font-size: var(--mp-taille-s);
+  }
+  .mp-missions-en-vol .mp-tableau td:nth-child(4):not(:last-child)::before {
+    content: "Marge : ";
+    display: inline;
+  }
+  /* Une marge absente n'occupe pas de ligne sur téléphone. */
+  .mp-missions-en-vol .mp-tableau td:has(> [data-vide]) {
+    display: none;
+  }
+  .mp-missions-en-vol .mp-trajectoire {
+    width: 100%;
+    max-width: 12rem;
+    height: auto;
+  }
+}

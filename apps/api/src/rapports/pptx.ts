@@ -138,7 +138,7 @@ export async function rapportEnPptx(r: Rapport): Promise<Buffer> {
   pptx.layout = "LAYOUT_16x9";
   pptx.author = r.emetteur;
   pptx.title = r.titre;
-  pptx.subject = "Rapport généré par MissionPilot";
+  pptx.subject = "Rapport généré par CabinetPilot";
   const titre = pptx.addSlide();
   titre.addText(r.titre, {
     x: 0.5,

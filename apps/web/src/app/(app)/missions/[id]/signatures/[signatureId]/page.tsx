@@ -181,7 +181,7 @@ export default async function PageDetailSignature({
         </Alerte>
         <FriseSignature preuves={preuves} signataires={signataires} />
         <p className="mp-texte-doux mp-texte-petit">
-          Les dates viennent de l&apos;horloge de MissionPilot : ce n&apos;est pas un horodatage
+          Les dates viennent de l&apos;horloge de CabinetPilot : ce n&apos;est pas un horodatage
           qualifié.
         </p>
       </Carte>

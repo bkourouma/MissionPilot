@@ -254,7 +254,7 @@ function EtapeCode({
       <p className="mp-texte-doux">
         {secours
           ? "Saisissez l'un des codes de secours remis lors de l'activation. Chaque code ne sert qu'une fois."
-          : "Ouvrez votre application d'authentification et saisissez le code à 6 chiffres affiché pour MissionPilot."}
+          : "Ouvrez votre application d'authentification et saisissez le code à 6 chiffres affiché pour CabinetPilot."}
       </p>
       {etat.message ? (
         <Alerte ref={alerte} tonalite="danger" titre="Code refusé">

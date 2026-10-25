@@ -165,8 +165,10 @@
 }
 
 .mp-notation-chronologie li {
-  padding-left: var(--mp-esp-3);
-  border-left: 3px solid var(--mp-bordure);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
   overflow-wrap: anywhere;
 }
 
@@ -311,7 +313,7 @@
   grid-column: 1 / -1;
   height: 0.75rem;
   background: var(--mp-surface-2);
-  border-radius: 4px;
+  border-radius: var(--mp-rayon);
 }
 
 .mp-notation-barre__remplissage {
@@ -319,7 +321,7 @@
   height: 100%;
   max-width: 100%;
   background: var(--mp-primaire);
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 var(--mp-rayon) var(--mp-rayon) 0;
 }
 
 .mp-notation-barre__repere {

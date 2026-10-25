@@ -435,7 +435,7 @@ export async function rapportPlan(
         texte:
           `Plan « ${tronquer(d.plan.titre, 150)} ». Seuls les contenus validés par un responsable ` +
           `de la mission sont reproduits. Les chiffres (budgets et gains saisis, VAN, TRI, états ` +
-          `prévisionnels) sont calculés par les moteurs de MissionPilot ; aucun chiffre ni texte ` +
+          `prévisionnels) sont calculés par les moteurs de CabinetPilot ; aucun chiffre ni texte ` +
           `de ce rapport n'est produit par l'IA sans validation.`,
       },
     ]),

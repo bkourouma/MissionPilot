@@ -243,7 +243,7 @@ function FacturesDues({ r }: { r: Chargement<{ elements: Creance[] }> }) {
           ]}
         />
       )}
-      <p className="mp-texte-doux">
+      <p className="mp-texte-doux mp-note-sous-tableau">
         L&apos;historique des relances et la relance manuelle se trouvent sur la fiche de chaque
         facture.
       </p>

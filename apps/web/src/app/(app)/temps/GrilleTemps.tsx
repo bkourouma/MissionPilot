@@ -330,7 +330,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
               <tr>
                 <th scope="col">Tâche ou activité</th>
                 {(weekend || weekendRempli ? jours : visibles).map((d) => (
-                  <th scope="col" key={d} className="mp-aligne-droite">
+                  <th scope="col" key={d} className="mp-feuille__jour">
                     <span aria-hidden="true">{libelleJourCourt(d)}</span>
                     <span className="mp-visuellement-cache">{libelleJourLong(d)}</span>
                     {clos.has(d) ? (
@@ -401,7 +401,11 @@ export function GrilleTemps(props: GrilleTempsProps) {
               <tr>
                 <th scope="row">Total du jour</th>
                 {(weekend || weekendRempli ? jours : visibles).map((d) => (
-                  <td key={d} data-jour={libelleJourCourt(d)} className="mp-feuille__total">
+                  <td
+                    key={d}
+                    data-jour={libelleJourCourt(d)}
+                    className="mp-feuille__total mp-feuille__total--jour"
+                  >
                     {formaterValeur(totalJour(d), unite)}
                   </td>
                 ))}

@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { classesBouton } from "../components/ui/Bouton";
+import { Icone } from "../components/ui/Icone";
 
 export const metadata: Metadata = { title: "Page introuvable" };
 
 export default function PageIntrouvable() {
   return (
     <main className="mp-page mp-page--message mp-page--isolee">
+      <Icone nom="recherche" taille={40} className="mp-page__icone" />
       <p className="mp-page__code">Erreur 404</p>
       <h1 className="mp-page__titre">Page introuvable</h1>
       <p>

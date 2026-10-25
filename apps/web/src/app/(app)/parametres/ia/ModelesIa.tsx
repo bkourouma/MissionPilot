@@ -20,7 +20,7 @@ import {
 import { useEnregistrementIa } from "./useEnregistrementIa";
 
 /**
- * Modèle OpenRouter par tâche : le modèle recommandé par MissionPilot (signalé), ou un modèle
+ * Modèle OpenRouter par tâche : le modèle recommandé par CabinetPilot (signalé), ou un modèle
  * choisi par le cabinet dans la liste FERMÉE que l'API autorise (`modeles_autorises` : tarif
  * connu, pour un plafond fiable). Aucune saisie libre : un modèle hors liste est refusé (400).
  */
@@ -61,7 +61,7 @@ export function ModelesIa({
       <RetourFormulaire erreur={e.f.erreurGlobale} succes={e.f.succes} refAlerte={e.f.refAlerte} />
       <p className="mp-texte-petit mp-texte-doux">
         {autorises.length > 0
-          ? "Seuls les modèles au tarif connu de MissionPilot sont proposés. Avant d'en retenir un, vérifiez chez OpenRouter que son fournisseur ne s'entraîne pas sur les données envoyées."
+          ? "Seuls les modèles au tarif connu de CabinetPilot sont proposés. Avant d'en retenir un, vérifiez chez OpenRouter que son fournisseur ne s'entraîne pas sur les données envoyées."
           : "Aucun autre modèle n'est proposé pour l'instant : chaque tâche suit le modèle recommandé."}
       </p>
       <div className="mp-ia-modeles">
@@ -128,12 +128,12 @@ function LigneModele({
         <span className="mp-ia-code">{m.modele}</span>
       </div>
       <p className="mp-texte-petit">
-        Recommandé par MissionPilot : <span className="mp-ia-code">{m.recommande}</span>
+        Recommandé par CabinetPilot : <span className="mp-ia-code">{m.recommande}</span>
       </p>
       {choixPossible ? (
         <CaseACocher
           libelle="Suivre le modèle recommandé"
-          aide="Il suit les mises à jour de MissionPilot."
+          aide="Il suit les mises à jour de CabinetPilot."
           checked={s.recommande}
           onChange={(ev) => maj({ recommande: ev.target.checked, modele: s.modele || m.modele })}
         />

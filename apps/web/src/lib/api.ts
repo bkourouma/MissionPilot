@@ -14,7 +14,7 @@ export const MESSAGE_RESEAU =
 export const MESSAGE_DELAI =
   "Le serveur met trop de temps à répondre. Vérifiez votre réseau puis réessayez.";
 export const MESSAGE_SERVICE_INDISPONIBLE =
-  "Le service MissionPilot est momentanément indisponible. Réessayez dans quelques instants.";
+  "Le service CabinetPilot est momentanément indisponible. Réessayez dans quelques instants.";
 export const MESSAGE_INATTENDU = "Une erreur inattendue est survenue. Réessayez dans un instant.";
 
 export class ErreurApi extends Error {
@@ -184,7 +184,7 @@ export const MESSAGE_TFA_A_CONFIGURER =
 /** Code de l'API : la requête vient d'une autre adresse que celle du web (garde d'origine). */
 export const CODE_ORIGINE_REFUSEE = "ORIGINE_REFUSEE";
 export const MESSAGE_ORIGINE_REFUSEE =
-  "Requête refusée : ouvrez MissionPilot à son adresse habituelle (celle indiquée par votre administrateur) puis réessayez.";
+  "Requête refusée : ouvrez CabinetPilot à son adresse habituelle (celle indiquée par votre administrateur) puis réessayez.";
 
 /** Message d'erreur affichable (toujours en français) pour une erreur d'appel. */
 export function messageErreur(e: unknown): string {

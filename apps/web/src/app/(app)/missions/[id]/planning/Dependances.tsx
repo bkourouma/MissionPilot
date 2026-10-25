@@ -94,7 +94,7 @@ export function Dependances({ missionId, dependances, taches, modifiable }: Depe
         >
           <p className="mp-sous-formulaire__titre">Ajouter une dépendance</p>
           <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
-          <div className="mp-grille-champs">
+          <div className="mp-grille-champs mp-grille-champs--bas">
             <Select
               libelle="Tâche précédente"
               options={taches}

@@ -123,7 +123,7 @@ export function Signature({
             : "Taux de change appliqué automatiquement (parité fixe)."}
         </p>
       ) : null}
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Date de signature"
           name="date_signature"

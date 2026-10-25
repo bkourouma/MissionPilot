@@ -84,7 +84,7 @@ export default async function PageDictionnaire({
                   {x.description ? <span>{x.description}</span> : null}
                   {x.origine === "standard" ? (
                     <span className="mp-texte-doux mp-texte-petit">
-                      Facteur du standard MissionPilot : en lecture seule. Pour en tenir compte
+                      Facteur du standard CabinetPilot : en lecture seule. Pour en tenir compte
                       autrement, ajoutez un facteur propre au cabinet.
                     </span>
                   ) : gere ? (

@@ -228,7 +228,7 @@
   align-items: flex-start;
   gap: var(--mp-esp-2);
   padding: var(--mp-esp-2) var(--mp-esp-3);
-  border-left: 4px solid currentColor;
+  border: 1px solid currentColor;
   border-radius: var(--mp-rayon);
 }
 
@@ -389,8 +389,8 @@
 }
 
 .mp-kpi-ligne--active {
-  background: var(--mp-surface);
-  border-left: 4px solid var(--mp-succes);
+  background: var(--mp-succes-fond);
+  border-color: var(--mp-succes);
 }
 
 .mp-kpi-ligne__entete {

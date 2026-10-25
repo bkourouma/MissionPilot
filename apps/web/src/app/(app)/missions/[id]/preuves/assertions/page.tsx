@@ -212,7 +212,7 @@ export default async function PageAssertions({
           Pour chaque type de source indépendant (questionnaire, entretien, observation, document,
           donnée externe), la meilleure fiabilité est retenue ; la somme est plafonnée puis ramenée
           entre 0 et 1. Une contradiction non arbitrée divise l&apos;indice par deux. Ces valeurs
-          sont calculées par le moteur de MissionPilot et à calibrer au pilote.
+          sont calculées par le moteur de CabinetPilot et à calibrer au pilote.
         </p>
       </Carte>
     </>

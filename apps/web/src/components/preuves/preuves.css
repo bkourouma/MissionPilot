@@ -51,8 +51,10 @@
 
 .mp-preuve-extrait {
   margin: 0;
-  padding-left: var(--mp-esp-3);
-  border-left: 3px solid var(--mp-bordure);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -185,5 +187,28 @@
 }
 
 .mp-citation-ancre {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
   font-size: var(--mp-taille-s);
+}
+
+/* Groupe de cases à cocher (fieldset) : cadre doux, légende dans l'échelle typographique. */
+.mp-groupe-cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--mp-esp-4);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
+}
+
+.mp-groupe-cases > legend {
+  padding: 0 var(--mp-esp-2);
+  font-size: var(--mp-taille-s);
+  font-weight: 650;
+  color: var(--mp-texte);
 }

@@ -289,7 +289,12 @@ export function FormulaireOperationnel({ parametres }: { parametres: ParametresF
         onChange={(e) => maj("valeurs_validees", e.target.checked)}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          chargement={f.enCours}
+          texteChargement="Enregistrement…"
+        >
           Enregistrer
         </Bouton>
       </div>

@@ -172,7 +172,7 @@ export function DepotDocument({
           {`Le fichier deviendra la version ${version.version_courante + 1} ; les versions précédentes restent consultables.`}
         </p>
       ) : null}
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         {version ? null : (
           <>
             <Select

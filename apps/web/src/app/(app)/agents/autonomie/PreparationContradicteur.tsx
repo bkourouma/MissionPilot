@@ -68,7 +68,12 @@ export function PreparationContradicteur({ declaree }: { declaree: boolean }) {
           relancée sans risque. Lancez ensuite l'évaluation de non-régression.
         </p>
         <div className="mp-actions-formulaire">
-          <Bouton type="submit" chargement={prep.enCours} texteChargement="Préparation…">
+          <Bouton
+            type="submit"
+            variante="secondaire"
+            chargement={prep.enCours}
+            texteChargement="Préparation…"
+          >
             Préparer la revue contradictoire
           </Bouton>
         </div>
@@ -99,7 +104,12 @@ export function PreparationContradicteur({ declaree }: { declaree: boolean }) {
               erreur={decl.erreurs.niveau_max}
             />
             <div className="mp-actions-formulaire">
-              <Bouton type="submit" chargement={decl.enCours} texteChargement="Enregistrement…">
+              <Bouton
+                type="submit"
+                variante="secondaire"
+                chargement={decl.enCours}
+                texteChargement="Enregistrement…"
+              >
                 Déclarer la brique
               </Bouton>
             </div>

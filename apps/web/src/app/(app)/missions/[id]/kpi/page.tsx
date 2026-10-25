@@ -85,7 +85,7 @@ export default async function PageKpiMission({
     <div className="mp-kpi">
       <p className="mp-texte-doux">
         Statuts, atteintes, tendances, projections, scores et alertes sont calculés par le moteur de
-        MissionPilot à partir des mesures saisies et des cibles en vigueur ; un statut est toujours
+        CabinetPilot à partir des mesures saisies et des cibles en vigueur ; un statut est toujours
         écrit, jamais signalé par la seule couleur.
       </p>
 
