@@ -180,8 +180,11 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
     `collaborateurs`, `clients`, `contacts_client`, une requête littérale par table) ; un autre antidatage s'écrit en requête
     littérale dans le module de la phase.
   - **Levée de déclencheurs** : seulement par `transactionAntidatage` (`missions/declencheurs.ts`, 7 déclencheurs nommés, ordre fixe,
-    `lock_timeout`) ou, pour une colonne de date d'une table en ajout seul, `appliquerSql` (`redressement-dd/commun.ts`) ; jamais
-    pour contourner une règle métier (SECURITY.md §15).
+    `lock_timeout`) ou, pour une colonne de date d'une table en ajout seul, `appliquerSql` (`redressement-dd/commun.ts`), qui pose `SET LOCAL session_replication_role = replica` (supprime TOUS
+    les déclencheurs de la transaction). Même paramètre dans `redressement-dd/dd-outils.ts`, `gestion/collaboration-outils.ts`,
+    `gestion/ingestion-outils.ts`, `gestion/qualite-rapports-dates.ts` et `gestion/rapports-avancement.ts` : dates seulement, SQL
+    littéral ; le rôle propriétaire doit pouvoir le poser (superutilisateur d'amorçage en développement et dans l'image postgres) ;
+    jamais pour contourner une règle métier (SECURITY.md §15).
   - **Déterminisme** : dates par l'horloge fictive (`ctx.jour`, `ctx.dateAvant`, `ctx.aujourdhui`) et hasard par
     `ctx.alea.deriver("<phase>")` ; jamais `Math.random()` ni `Date.now()` pour une donnée métier. Les écritures par routes portent
     pourtant l'horloge réelle (limite déclarée, SECURITY.md §15).

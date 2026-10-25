@@ -10,7 +10,7 @@ import { semerRedressementDd } from "./redressement-dd.js";
  * Registre ORDONNÉ des phases de domaine du seed « Tenant démo », exécutées après le socle.
  *
  * Une phase = un fichier `phases/<nom>.ts` dont le lot de domaine est seul propriétaire. Les
- * lots ne modifient JAMAIS ce registre : les six phases y sont déjà inscrites (stubs au lot 1).
+ * lots ne modifient JAMAIS ce registre : les six phases y sont inscrites et implémentées.
  *
  * L'ordre est celui des dépendances de données :
  *   1. missions               missions (les autres phases s'y accrochent)

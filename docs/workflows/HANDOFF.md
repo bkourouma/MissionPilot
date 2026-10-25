@@ -32,7 +32,7 @@ Rien de ce qui suit n'est fait sans l'utilisateur ; tout est préparé et sans e
 ## Branche `orch/2026-10-24-tenant-demo` — 2026-10-24 (cabinet de démonstration « Tenant démo »)
 
 **État.** Chantier demandé par l'utilisateur le 2026-10-24 : en plus de « Lagune Conseil & Associés (démo) », un cabinet « Tenant démo »
-(`est_demo`, cabinet de deux ans d'activité, 43 comptes actifs, 11 missions dont 5 terminées de types différents, toutes les tables
+(`est_demo`, cabinet de deux ans d'activité, 48 comptes actifs (cabinet 20 : associe 3, directeur_mission 2, chef_mission 2, consultant 5, ressources 2, gestionnaire 2, expert_metier 2, expert_externe 2 ; portail 28 : client_dirigeant 13, client_contributeur 12, client_investisseur 3), dont 2 comptes à 2FA non listés par la connexion « un clic » (46 comptes listés : 20 cabinet + 26 portail), 11 missions dont 5 terminées de types différents, toutes les tables
 utiles remplies), semé par `pnpm --filter @missionpilot/api db:seed-tenant-demo [--phase=<nom>] [--confirmer-demo]`. Base
 `origin/main` @ `a2d7be6` (PR n° 18, super admin, fusionnée). Branche d'intégration `orch/2026-10-24-tenant-demo` (HEAD `231b25e` à la
 rédaction), un lot = une branche `orch/2026-10-24-tenant-demo-lot-N`, copies `D:\APP\MissionPilot-worktrees\tenant-demo-lot-N`. Suivi,
@@ -47,7 +47,7 @@ Décision consignée, **à valider par l'utilisateur** : `DECISIONS.md` (« Tena
 | 0 | Inventaire de couverture des tables (216 à remplir, 12 vides) |
 | 1 | Socle : cabinet, comptes (43 actifs, tous rôles et types de collaborateurs), paramètres, grades, collaborateurs, absences, clients, contacts, dossiers, portail ; contrat de phase (`tenant-demo/contexte.ts`, `phases/index.ts`), horloge fictive et hasard à graine |
 | 2a | Phase `missions` : casting des 11 missions, équipe, budget figé, signature, démarrage, pipeline ; devises par client (Gabon en USD) ; levée bornée de 7 déclencheurs (`missions/declencheurs.ts`) |
-| 2b | Phase `gestion` (temps, facturation, encaissements, rapports, salle de mission, ingestion, portail et collaboration, clôture des 5 missions terminées) : **stub dans la tête `231b25e`**, le lot 2b n'y est pas encore fusionné |
+| 2b | Phase `gestion` (temps, facturation, encaissements, rapports, salle de mission, ingestion, portail et collaboration, clôture des 5 missions terminées) : fusionnée dans l'intégration (tous les lots 1 à 8 le sont, HEAD `cfabfe1` avant le lot 9) |
 | 3 | Phase `notation-plans` : notation, plans stratégiques, KPI, questionnaires |
 | 4 | Phase `redressement-dd` : preuves, redressement, due diligence |
 | 5 | Phase `appels-offres-canaux` : appels d'offres, canaux, capitalisation, observatoire, services candidats ; 2 comptes signataires à 2FA |
@@ -57,8 +57,11 @@ Décision consignée, **à valider par l'utilisateur** : `DECISIONS.md` (« Tena
 
 **Reste à faire.**
 
-- Fusionner le lot 2b (phase `gestion` : sans elle, factures, temps, rapports et la clôture des 5 missions terminées manquent) puis
-  relancer un semis COMPLET sur une base neuve et mesurer la durée.
+- **Dette** : les rapports validés du Tenant démo le sont par `UPDATE` SQL faute de route de validation ; à remplacer par une route.
+- **Marges de démonstration** : `collaborateur_couts` est unique par date quelle que soit la devise ; les missions en XAF ou EUR ont donc une
+  marge d'environ 100 % et seules SICAFE (57 %) et Sahel Coton (58 %) ont une marge significative.
+- **Nettoyage** : supprimer le dossier `C:\Users\BABA\AppData\Local\Temp\claude\D--APP-MissionPilot\23299cbb-f4db-4ee4-af85-2151d270ecad\apps`
+  (extraction `git archive`).
 - Recette navigateur du Tenant démo (connexion « un clic », tableau de bord, une mission de chaque type).
 - Décisions de l'utilisateur : valider `DECISIONS.md` « Tenant démo » (H1 nom exact, devises, coûts IA simulés, 2FA au secret public) ;
   supprimer le cabinet « Tenant démo » PARTIEL créé par erreur dans la base de développement `missionpilot` (id
@@ -66,8 +69,8 @@ Décision consignée, **à valider par l'utilisateur** : `DECISIONS.md` (« Tena
   de nombreuses tables le référencent) ; purger les bases de travail `missionpilot_td*` et `missionpilot_verif*` (même règle).
 - Corriger côté API l'avertissement pg `client.query() already executing` émis par `cloreAtelier` (`apps/api/src/plans/ateliers.ts:411` ;
   hors périmètre du seed).
-- Hors chantier : arbitrer l'écart de la recherche n° 8 de la checklist (52 arrondis de génération de données dans `db/tenant-demo/`,
-  dont des conversions de devise fixes : étendre la glob de la commande ou déplacer le calcul dans `packages/engines`).
+- Recherche n° 8 de la checklist : tranchée au lot 9, la commande exclut `**/tenant-demo/**` (données de démonstration ; 77 arrondis de
+  génération de données, dont des conversions de devise fixes, hors de l'API en service).
 
 **Pièges.**
 
@@ -81,7 +84,7 @@ Décision consignée, **à valider par l'utilisateur** : `DECISIONS.md` (« Tena
 - **Docker se bloque** parfois sous charge (conteneur `missionpilot-postgres` ou Docker Desktop) : `docker start missionpilot-postgres`,
   attendre `healthy`, relancer Docker Desktop si besoin ; ne pas lancer de requêtes pendant ce temps.
 - **Durées** : une suite `seed-tenant-demo*.test.ts` prend de 3 à 17 minutes sous charge (plusieurs lots en parallèle) ; le semis
-  complet, plusieurs minutes à plusieurs dizaines de minutes. Plafonner à 2 suites API simultanées par lot.
+  complet, environ 12 minutes sur une machine de développement (mesuré le 2026-10-25). Plafonner à 2 suites API simultanées par lot.
 - **Limite des liaisons de méthode** : `mission_methodes` est en ajout seul et non antidatée ; 3 liaisons du lot 5 sont postérieures à la
   clôture de leur mission (SECURITY §15).
 - **Rétro-planning d'un appel d'offres** (`ao-fiches-encours.ts`) : calculé à partir de la date RÉELLE, donc le jeu de données change avec
@@ -96,7 +99,14 @@ Décision consignée, **à valider par l'utilisateur** : `DECISIONS.md` (« Tena
   (`seed-tenant-demo.ts:54` et `:60`), n° 8 de 24 à 76, n° 9 de 5 à 7, n° 11 de 1 732 à 1 847 gabarits ; les autres sont inchangées
   (1 002 routes dont 14 sans `exiger`, 240 migrations, 42 `GRANT EXECUTE`). Prettier propre sur les fichiers touchés.
 - Tests de chaque domaine : rapports des lots dans `suivi.md` (non relancés par le lot 8, qui ne touche aucun code).
-- Semis complet (toutes phases, base neuve, durée, nombre de lignes par table) : **À COMPLÉTER PAR LE SUPERVISEUR**.
+- Vérifications du 2026-10-25 sur l'intégration : typecheck, lint et prettier propres ; tests `shared` 532, `engines` 2 240 (couverture
+  99,88 %), `web` 2 611 ; build web ; 9 suites API ciblées vertes.
+- Lot 9 : `seed-tenant-demo-ia-qualite-standard.test.ts` (459 lignes) scindé en `seed-tenant-demo-ia-agents.test.ts` et
+  `seed-tenant-demo-qualite-standard.test.ts` (outils communs : `seed-tenant-demo-iqs-outils.ts`) ; tsc, eslint et prettier propres,
+  suites non lancées (à faire tourner par le superviseur).
+- Semis complet mesuré (base neuve, toutes phases) : durée totale environ 12 minutes (socle 33 s, missions 46 s, notation-plans 1 min 57,
+  redressement-dd 53 s, appels-offres-canaux 1 min 29, ia-qualite-standard 33 s, gestion 5 min 41) ; 48 comptes actifs (cabinet 20 : associe 3, directeur_mission 2, chef_mission 2, consultant 5, ressources 2, gestionnaire 2, expert_metier 2, expert_externe 2 ; portail 28 : client_dirigeant 13, client_contributeur 12, client_investisseur 3), dont 2 comptes à 2FA non listés par la connexion « un clic » (46 comptes listés : 20 cabinet + 26 portail) ; 0 table à remplir
+  restée vide sur 216 (les 9 tables vides sont des tables « à ne pas remplir »).
 - Recette navigateur (connexion « un clic », écrans, anomalies) : **À COMPLÉTER PAR LE SUPERVISEUR**.
 
 ---
