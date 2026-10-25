@@ -279,6 +279,32 @@ describe("seed du Tenant démo : redressement, preuves, due diligence", () => {
     expect(val).toHaveLength(0);
   });
 
+  it("missions terminées : l'équipe n'a gardé aucun compte ajouté par la phase", async () => {
+    const ajouts = await lignes<{ mission_id: string }>(
+      `SELECT DISTINCT a.entite_id AS mission_id FROM journal_audit a
+         JOIN mission_equipe e ON e.mission_id::text = a.entite_id::text
+          AND e.utilisateur_id::text = a.details->>'utilisateur_id'
+        WHERE a.cabinet_id = $1 AND a.action = 'semis_tenant_demo_equipe'`,
+      [cabinetId],
+    );
+    const terminees = await lignes<{ id: string }>(
+      "SELECT id FROM missions WHERE cabinet_id = $1 AND intitule = ANY($2)",
+      [
+        cabinetId,
+        [
+          MISSIONS.plan2025,
+          MISSIONS.notation,
+          MISSIONS.redressementTermine,
+          MISSIONS.ddTerminee,
+          MISSIONS.businessPlan,
+        ],
+      ],
+    );
+    const ids = terminees.map((t) => t.id);
+    expect(ids).toHaveLength(5);
+    expect(ajouts.filter((x) => ids.includes(x.mission_id))).toEqual([]);
+  });
+
   it("aucune qualification juridique dans les libellés semés", async () => {
     const motif =
       "cessation|faillite|insolvab|liquidation judiciaire|banqueroute|d[ée]faillan|proc[ée]dure collective";

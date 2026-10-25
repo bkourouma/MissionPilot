@@ -182,7 +182,14 @@ export async function etape(
 
 /* ----- Équipe de mission ----- */
 
-/** Ajoute les comptes à l'équipe de la mission (déjà membre = rien). */
+const ACTION_EQUIPE = "semis_tenant_demo_equipe";
+
+/**
+ * Ajoute à l'équipe de la mission les comptes qui n'en font pas déjà partie (un membre existant
+ * n'est jamais touché) et consigne chaque AJOUT au journal d'audit : `retirerEquipesAjoutees`
+ * retire ensuite ces ajouts des missions terminées (la revue à froide veut des relecteurs hors
+ * équipe).
+ */
 export async function assurerEquipe(
   ctx: ContexteTenantDemo,
   missionId: string,
@@ -190,9 +197,55 @@ export async function assurerEquipe(
 ): Promise<void> {
   const a = acteurs(ctx);
   for (const u of utilisateurs) {
+    const deja = await ctx.proprietaire.query(
+      "SELECT 1 FROM mission_equipe WHERE mission_id = $1 AND utilisateur_id = $2 AND cabinet_id = $3",
+      [missionId, u, ctx.cabinetId],
+    );
+    if (deja.rowCount) continue;
     const r = await a.associe.post(`/api/missions/${missionId}/equipe`, { utilisateur_id: u });
-    if (r.statusCode !== 201 && r.statusCode !== 409) attendre(201, r, `équipe ${missionId}`);
+    if (r.statusCode === 409) continue;
+    attendre(201, r, `équipe ${missionId}`);
+    await ctx.database.withTenant(ctx.cabinetId, (db) =>
+      journaliser(db, {
+        cabinetId: ctx.cabinetId,
+        utilisateurId: null,
+        action: ACTION_EQUIPE,
+        entite: "mission",
+        entiteId: missionId,
+        details: { utilisateur_id: u },
+      }),
+    );
   }
+}
+
+/**
+ * Retire des équipes des missions données les comptes AJOUTÉS par cette phase (jamais un membre
+ * du casting). Appelé en fin de phase pour les missions terminées : les contenus restent attribués
+ * à leurs auteurs, mais l'équipe retrouve la composition du casting.
+ */
+export async function retirerEquipesAjoutees(
+  ctx: ContexteTenantDemo,
+  missionIds: readonly string[],
+): Promise<number> {
+  const a = acteurs(ctx);
+  const ajouts = await ctx.database.withTenant(ctx.cabinetId, async (db) => {
+    const r = await db.query(
+      "SELECT DISTINCT entite_id AS mission_id, details->>'utilisateur_id' AS utilisateur_id FROM journal_audit WHERE action = $1",
+      [ACTION_EQUIPE],
+    );
+    return r.rows as { mission_id: string; utilisateur_id: string }[];
+  });
+  let retires = 0;
+  for (const x of ajouts.filter((y) => missionIds.includes(y.mission_id))) {
+    const r = await ctx.app.inject({
+      method: "DELETE",
+      url: `/api/missions/${x.mission_id}/equipe/${x.utilisateur_id}`,
+      headers: { cookie: a.associe.cookie },
+    });
+    if (r.statusCode === 200) retires += 1;
+    else if (r.statusCode !== 404) attendre(200, r, `retrait de l'équipe ${x.mission_id}`);
+  }
+  return retires;
 }
 
 /* ----- Antidatage littéral ----- */
