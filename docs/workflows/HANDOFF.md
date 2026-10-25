@@ -9,9 +9,9 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `design/plan-de-vol` — 2026-10-25 (refonte visuelle CabinetPilot, non commitée)
+## Branche `design/plan-de-vol` — 2026-10-25 (refonte visuelle CabinetPilot, commitée, non poussée)
 
-Créée depuis `ci/deploiement-vps` (`8f14ca0`) ; **rien n'est commité**, ni poussé. Direction « Plan de vol » choisie par
+Créée depuis `ci/deploiement-vps` (`8f14ca0`) ; commits `4339321` (scénario de recette) et `8b771e3` (refonte), **non poussés**. Direction « Plan de vol » choisie par
 l'utilisateur sur esquisses (`apps/web/.impeccable/mocks/`, ignoré par git) : logo violet et or imposé, nom **CabinetPilot**
 partout dans l'interface web. Contrat de direction : `apps/web/.impeccable/surfaces/` ; produit : `apps/web/PRODUCT.md`.
 
@@ -32,7 +32,7 @@ temporelle servie), recherche globale. (4) La base de développement `missionpil
 lancer l'application. (5) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
 Captures et scripts de rendu (Chrome headless) : `apps/web/.impeccable/review/`, jamais commités.
 
-**Reste à faire.** Décision de l'utilisateur sur le renommage côté API ; commit, push et PR (à l'utilisateur) ; revue de recette
+**Reste à faire.** Décision de l'utilisateur sur le renommage côté API ; push et PR (à l'utilisateur) ; revue de recette
 navigateur des modules rares (portail client complet, appels d'offres, due diligence) ; vérifier les graphiques de `plan-montecarlo`
 et la fiche `salle de mission` en sombre.
 
