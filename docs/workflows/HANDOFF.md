@@ -9,30 +9,21 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `design/plan-de-vol` — 2026-10-25 (refonte visuelle CabinetPilot, PR n° 19)
+## Refonte CabinetPilot « Plan de vol » — fusionnée le 2026-10-25 (PR n° 19, `c7ed11f`, déployée)
 
-Créée depuis `ci/deploiement-vps` (`8f14ca0`) ; commits `4339321` (scénario de recette) et `8b771e3` (refonte), poussés ; PR n° 19 vers `main`, `main` fusionné dans la branche (conflits : `connexion/page.tsx`, ce fichier). Direction « Plan de vol » choisie par
-l'utilisateur sur esquisses (`apps/web/.impeccable/mocks/`, ignoré par git) : logo violet et or imposé, nom **CabinetPilot**
-partout dans l'interface web. Contrat de direction : `apps/web/.impeccable/surfaces/` ; produit : `apps/web/PRODUCT.md`.
+Déploiement vérifié : workflow Deploy vert, `/connexion` et `/api/sante` répondent 200 sur cabinetpilot.allianceconsultants.net.
+Non vérifié en production : les pages connectées (pas de compte de démonstration en production). Système documenté dans
+`apps/web/DESIGN.md` et `apps/web/PRODUCT.md` ; mocks, captures et scripts de rendu dans `apps/web/.impeccable/` (ignoré par git).
 
-**Fait (apps/web seulement, routes, droits et fonctions inchangés).** Jetons violet nuit / lavande / or (`styles/tokens.css`),
-Sora (titres, chiffres) et Figtree (texte) par `@fontsource-variable/*` (dépendances ajoutées, fichiers servis par l'application,
-rien d'externe) ; rail violet nuit groupé par métier, groupes repliables (seul celui de la page courante est ouvert ; `lib/navigation.ts` : `grouperEntrees`, `entreeActive` = correspondance la plus longue, 6 groupes, la table NAVIGATION et ses
-droits sont inchangés), menu du téléphone groupé de même ; logo en SVG (`components/shell/Marque.tsx`) ; connexion et invitation
-en deux panneaux (`VisuelMarque.tsx`) ; bouton principal or ; tableau de bord : « Missions en vol » (tableau + `Trajectoire.tsx`) et
-modules groupés ; fiche mission : carte « Cap de la mission » (`CapMission.tsx`, lit `/api/missions/:id/suivi`) ; portail client :
-même marque en en-tête ; 15 bordures gauches épaisses signalées par le détecteur remplacées par des fonds teintés. Icônes, manifeste,
-couleur de thème mis à jour.
+**Pièges.** (1) Renommage côté API fait ; restent volontairement « MissionPilot » : mot de passe de démonstration, adresses
+`@demo.missionpilot.test`, noms de rôle, de base et de paquet, prompts du modèle de langage (empreintes testées), migrations, commentaires.
+(2) Rail = colonne fixe de 248 px en grille (`.mp-cadre` ≥ 960 px), groupes repliables ; `lib/navigation.ts` : `grouperEntrees`, `entreeActive`.
+(3) Non implémentés faute de donnée : courbe « Cap du cabinet » dans le temps (aucune série temporelle servie), recherche globale.
+(4) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
 
-**Pièges.** (1) Renommage côté API fait (e-mails, rapports, émetteur TOTP, titre OpenRouter, SMS) ; restent volontairement « MissionPilot » : mot de passe de démonstration `Demo-MissionPilot-2026`, adresses `@demo.missionpilot.test`, noms de rôle, de base et de paquet, prompts du modèle de langage (empreintes testées), migrations SQL, commentaires. (2) Le `.rail` est une colonne fixe de 248 px en grille (`.mp-cadre` ≥ 960 px) : l'en-tête est la case du logo, le contenu s'étend
-sur les deux lignes. (3) Non implémentés faute de donnée ou de fonction existante : courbe « Cap du cabinet » dans le temps (pas de série
-temporelle servie), recherche globale. (4) La base de développement `missionpilot` a reçu les migrations manquantes (0210 à 0563) pour
-lancer l'application. (5) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
-Captures et scripts de rendu (Chrome headless) : `apps/web/.impeccable/review/`, jamais commités.
-
-**Reste à faire.** Le rail défile quand plusieurs groupes sont ouverts ; fusion de la PR n° 19 ; revue de recette
-navigateur des modules rares (portail client complet, appels d'offres, due diligence) ; vérifier les graphiques de `plan-montecarlo`
-et la fiche `salle de mission` en sombre.
+**Reste à faire (facultatif).** 24 écarts « design-system » signalés par le détecteur (tailles de police hors échelle, polices mono,
+quelques rayons et couleurs en dur dans `styles/` et `components/*/*.css`) ; recette des modules sans données de démonstration
+(due diligence, redressement, plan, notation) et de la console plateforme connectée ; faire défiler l'onglet actif de la fiche mission dans la vue.
 
 ---
 
