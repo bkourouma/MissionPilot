@@ -266,6 +266,6 @@ export async function suiviM3(ctx: ContexteTenantDemo): Promise<void> {
       { type: "realise", dateEffet: "2026-05-28" },
       "2026-05-28",
     );
-    await saisirReleve(ctx, dossierId, a.consultant2, j2.id, RELEVE_SUIVI_JALON_2, "2026-10-15");
+    await saisirReleve(ctx, dossierId, a.consultant2, j2.id, RELEVE_SUIVI_JALON_2, "2026-09-12");
   });
 }

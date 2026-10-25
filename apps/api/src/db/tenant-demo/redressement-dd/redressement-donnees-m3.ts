@@ -226,7 +226,7 @@ export const RELEVE_SUIVI_JALON_1 = {
 } as const;
 
 export const RELEVE_SUIVI_JALON_2 = {
-  jour: "2026-10-15",
+  jour: "2026-09-10",
   // Dégradation volontaire : liquidité et autonomie en baisse, endettement en hausse.
   ratios: { liquidite_generale: 17_800, autonomie_financiere: 4_300, endettement: 5_900 },
   commentaire:

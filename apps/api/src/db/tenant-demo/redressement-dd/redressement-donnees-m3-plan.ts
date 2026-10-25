@@ -108,7 +108,7 @@ export const ACTIONS_M3_VAGUE_2: readonly ActionDef[] = [
     description: "Tableau de bord mensuel et prix de revient par gamme.",
     volet: "restructuration",
     domaine: "exploitation",
-    echeance: "2025-12-31",
+    echeance: "2025-11-07",
     responsable: "consultant.junior",
     creeLe: "2025-05-20",
     par: "consultant",

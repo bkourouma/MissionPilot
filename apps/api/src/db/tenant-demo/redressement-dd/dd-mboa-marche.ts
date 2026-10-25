@@ -20,7 +20,7 @@ import type { Referentiel } from "./dd-referentiel.js";
  * - filtrage E&S : premier filtrage sur la liste standard du cabinet, second sur la liste propre
  *   au client (le dernier filtrage reçoit les décisions). Les décisions viennent de comptes
  *   `dd.valider` qui n'ont rédigé aucun filtrage (séparation des tâches, MPZ28) ;
- * - plan des 100 jours : actions posées par les consultants, une avancée en cours.
+ * - plan des 100 jours : actions posées mi-septembre, suivies jusqu'à leur achèvement (toutes terminées).
  */
 
 function parametres(ch: Chantier, liste: DefParametre[]) {
@@ -145,7 +145,7 @@ async function plan(ch: Chantier): Promise<void> {
         description: act.description,
         jour_debut: act.jour_debut,
         jour_fin: act.jour_fin,
-        statut_action: act.statut,
+        statut_action: "a_faire",
         responsable_id: act.responsable ? ch.par(act.responsable).utilisateurId : null,
       },
       `action ${act.libelle}`,
@@ -153,17 +153,21 @@ async function plan(ch: Chantier): Promise<void> {
     ids.push(r.id);
     await ch.dater(act.j);
   }
-  await ecrire(
-    ch.par("consultant"),
-    `/api/dd/actions/${ids[2]}/versions`,
-    {
-      version_courante: 1,
-      motif: "Travail engagé avec le directeur financier du vendeur.",
-      statut_action: "en_cours",
-    },
-    "action v2",
+  // Suivi jusqu'à la fin : chaque action passe « en cours » puis « terminée » (versions successives).
+  const versions = ACTIONS.map(() => 1);
+  const etapes = ACTIONS.flatMap((act, i) => act.suivi.map((s) => ({ i, act, ...s }))).sort(
+    (x, y) => x.j - y.j,
   );
-  await ch.dater(100);
+  for (const e of etapes) {
+    await ecrire(
+      ch.par(e.act.responsable ?? "consultant"),
+      `/api/dd/actions/${ids[e.i]}/versions`,
+      { version_courante: versions[e.i], motif: e.motif, statut_action: e.statut },
+      `action ${e.act.libelle} : ${e.statut}`,
+    );
+    versions[e.i] = (versions[e.i] ?? 1) + 1;
+    await ch.dater(e.j);
+  }
 }
 
 export async function semerMarcheMboa(ch: Chantier, ref: Referentiel): Promise<void> {

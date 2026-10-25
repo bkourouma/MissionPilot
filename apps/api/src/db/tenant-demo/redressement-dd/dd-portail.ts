@@ -84,7 +84,7 @@ export async function semerPortailMboa(ctx: ContexteTenantDemo, m: ContexteMboa)
   // Retrait de la première publication, correction de la note, republication.
   const retrait = await a.directeur.post(`/api/dd/portail/publications/${pub1}/retrait`);
   attendre(201, retrait, "retrait de la première publication");
-  await dateRetrait(ctx, pub1, jour(24));
+  await dateRetrait(ctx, pub1, jour(-2));
   if ((await publicationsVisibles(inv.session)).length !== 0) {
     throw new Error("Une publication retirée reste visible sur le portail.");
   }
@@ -95,11 +95,11 @@ export async function semerPortailMboa(ctx: ContexteTenantDemo, m: ContexteMboa)
     m.comiteVersion,
     contenuComite(f, "corrigee"),
     MOTIF_CORRECTION_COMITE,
-    jour(24),
+    jour(-2),
   );
-  const v5 = await soumettre(ctx, a.consultant2, m.comiteNoteId, v4, jour(25));
-  await decider(ctx, a.expert, m.comiteNoteId, v5, "valide", null, jour(26));
-  const r2 = await rapports(ctx, a.consultant, m.comiteNoteId, v5, jour(26));
+  const v5 = await soumettre(ctx, a.consultant2, m.comiteNoteId, v4, jour(-1));
+  await decider(ctx, a.expert, m.comiteNoteId, v5, "valide", null, jour(0));
+  const r2 = await rapports(ctx, a.consultant, m.comiteNoteId, v5, jour(0));
   const pub2 = await publier(
     a.directeur,
     m.comiteNoteId,
@@ -107,7 +107,7 @@ export async function semerPortailMboa(ctx: ContexteTenantDemo, m: ContexteMboa)
     r2.map((x) => x.rapportId),
     "republication",
   );
-  await datePublication(ctx, pub2, jour(27));
+  await datePublication(ctx, pub2, jour(1));
   await verifierLecture(inv.session, pub2, 2);
   // Les investisseurs des autres clients (SICAFÉ, Banque du Sahel) ne voient rien.
   for (const autre of [a.investisseur, a.investisseur2]) {
