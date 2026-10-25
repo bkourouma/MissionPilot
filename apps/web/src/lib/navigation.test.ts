@@ -4,6 +4,7 @@ import { PERMISSIONS_RUBRIQUE, sousPagesConnaissances } from "./capitalisation";
 import {
   autorise,
   entreesAutorisees,
+  entreeActive,
   entreesBarreBasse,
   estActive,
   grouperEntrees,
@@ -628,5 +629,14 @@ describe("navigation par métier", () => {
     expect(groupes.length).toBeGreaterThan(0);
     for (const g of groupes) expect(g.entrees.length).toBeGreaterThan(0);
     expect(groupes[0]?.libelle).toBe("Piloter");
+  });
+});
+
+describe("entrée active", () => {
+  it("retient la plus spécifique quand deux chemins correspondent", () => {
+    const e = [{ href: "/appels-offres" }, { href: "/appels-offres/banques" }];
+    expect(entreeActive(e, "/appels-offres/banques/cv")?.href).toBe("/appels-offres/banques");
+    expect(entreeActive(e, "/appels-offres/veille")?.href).toBe("/appels-offres");
+    expect(entreeActive(e, "/clients")).toBeNull();
   });
 });

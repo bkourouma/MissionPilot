@@ -34,6 +34,10 @@
   --mp-or-survol: #f0b848;
   --mp-sur-or: #2b1468;
 
+  /* Pastille de compteur (cloche) : rouge d'alerte fixe, texte blanc (7:1), clair comme sombre */
+  --mp-pastille: #a4262c;
+  --mp-sur-pastille: #ffffff;
+
   /* Rail de navigation : violet nuit, identique en clair et en sombre */
   --mp-nuit: #2b1468;
   --mp-nuit-actif: #3b1f8c;

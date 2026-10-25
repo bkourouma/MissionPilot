@@ -61,7 +61,7 @@
   flex-direction: column;
   gap: var(--mp-esp-1);
   min-width: 0;
-  flex: 1 1 20rem;
+  flex: 1 1 28rem;
 }
 .mp-entete-page__textes .mp-page__titre {
   overflow-wrap: anywhere;
@@ -99,8 +99,8 @@
   overflow-x: auto;
   /* Bords estompés tant qu'il reste des onglets hors de vue (ombres de défilement). */
   background:
-    linear-gradient(to right, var(--mp-fond) 30%, transparent) 0 0 / 2.5rem 100% no-repeat local,
-    linear-gradient(to left, var(--mp-fond) 30%, transparent) 100% 0 / 2.5rem 100% no-repeat local,
+    linear-gradient(to right, var(--mp-fond) 30%, transparent) 0 0 / 1.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--mp-fond) 30%, transparent) 100% 0 / 1.5rem 100% no-repeat local,
     radial-gradient(farthest-side at 0 50%, var(--mp-bordure-controle), transparent) 0 0 / 0.5rem
       100% no-repeat scroll,
     radial-gradient(farthest-side at 100% 50%, var(--mp-bordure-controle), transparent) 100% 0 /
@@ -147,7 +147,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
   gap: var(--mp-esp-4);
-  align-items: start;
+  /* Cellules de même hauteur : libellés alignés en haut, saisies alignées en bas. */
+  align-items: stretch;
+}
+
+.mp-grille-champs > .mp-champ > .mp-champ__controle {
+  margin-top: auto;
 }
 
 .mp-grille-champs--serree {

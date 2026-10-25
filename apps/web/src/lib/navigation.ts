@@ -623,6 +623,22 @@ export function estActive(entree: Pick<EntreeNavigation, "href">, chemin: string
   return chemin === entree.href || chemin.startsWith(`${entree.href}/`);
 }
 
+/**
+ * Entrée à marquer active pour un chemin : parmi celles qui correspondent, la plus spécifique
+ * (chemin le plus long). `/appels-offres/banques` ne rend donc pas aussi « Appels d'offres » actif.
+ */
+export function entreeActive<T extends Pick<EntreeNavigation, "href">>(
+  entrees: readonly T[],
+  chemin: string,
+): T | null {
+  let meilleure: T | null = null;
+  for (const e of entrees) {
+    if (!estActive(e, chemin)) continue;
+    if (!meilleure || e.href.length > meilleure.href.length) meilleure = e;
+  }
+  return meilleure;
+}
+
 /** Sous-pages d'une rubrique visibles pour ces rôles. */
 export function sousPagesAutorisees(id: string, roles: readonly Role[]): SousPage[] {
   const entree = NAVIGATION.find((e) => e.id === id);

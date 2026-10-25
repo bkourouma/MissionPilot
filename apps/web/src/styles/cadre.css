@@ -709,3 +709,39 @@ button.mp-nav__lien:hover {
   background: var(--mp-nuit-survol);
   color: var(--mp-sur-nuit);
 }
+
+/* Groupes repliables du rail : le titre est un bouton, le chevron se tourne à l'ouverture. */
+.mp-nav__liste[hidden] {
+  display: none;
+}
+
+.mp-nav__groupe-titre--repliable {
+  padding: 0;
+}
+
+.mp-nav__groupe-bouton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--mp-esp-3);
+  border: 0;
+  border-radius: var(--mp-rayon);
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.mp-nav__groupe-bouton:hover {
+  background: var(--mp-nuit-survol);
+}
+
+.mp-nav__chevron {
+  transition: transform var(--mp-duree) var(--mp-sortie);
+}
+.mp-nav__groupe-bouton[aria-expanded="true"] .mp-nav__chevron {
+  transform: rotate(90deg);
+}

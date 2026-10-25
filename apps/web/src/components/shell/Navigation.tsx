@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   CHEMIN_SECURITE_COMPTE,
   entreesBarreBasse,
-  estActive,
+  entreeActive,
   grouperEntrees,
   type EntreeNavigation,
 } from "../../lib/navigation";
@@ -25,40 +25,91 @@ export interface NavigationProps {
   roles: string;
 }
 
-/** Navigation regroupée par métier : un titre par groupe, puis ses entrées. */
+/** Identifiants des groupes qui contiennent l'entrée de la page courante. */
+function groupesActifs(entrees: readonly EntreeNavigation[], chemin: string): string[] {
+  const actif = entreeActive(entrees, chemin)?.id;
+  return grouperEntrees(entrees)
+    .filter((g) => g.entrees.some((e) => e.id === actif))
+    .map((g) => g.id);
+}
+
+/**
+ * Navigation regroupée par métier : un titre par groupe, puis ses entrées. Dans le rail
+ * (`repliable`), un groupe se replie : seul celui de la page courante est ouvert au départ, ce
+ * qui garde les six groupes à portée d'un coup d'œil ; l'ouvrir ne ferme pas les autres.
+ */
 function ListeGroupee({
   entrees,
   chemin,
   onNaviguer,
   idPrefixe,
+  repliable = false,
 }: {
   entrees: readonly EntreeNavigation[];
   chemin: string;
   onNaviguer?: () => void;
   idPrefixe: string;
+  repliable?: boolean;
 }) {
+  const actif = entreeActive(entrees, chemin)?.id;
+  const [ouverts, setOuverts] = useState<ReadonlySet<string>>(
+    () => new Set(groupesActifs(entrees, chemin)),
+  );
+  // Aller sur une page ouvre son groupe (les autres gardent l'état choisi par la personne).
+  useEffect(() => {
+    setOuverts((avant) => {
+      const actifs = groupesActifs(entrees, chemin);
+      return actifs.every((id) => avant.has(id)) ? avant : new Set([...avant, ...actifs]);
+    });
+  }, [entrees, chemin]);
+  const basculer = (id: string) =>
+    setOuverts((avant) => {
+      const apres = new Set(avant);
+      if (!apres.delete(id)) apres.add(id);
+      return apres;
+    });
   return (
     <div className="mp-nav__groupes">
-      {grouperEntrees(entrees).map((g) => (
-        <div key={g.id} className="mp-nav__groupe">
-          <p className="mp-nav__groupe-titre" id={`${idPrefixe}-${g.id}`}>
-            {g.libelle}
-          </p>
-          <ul className="mp-nav__liste" aria-labelledby={`${idPrefixe}-${g.id}`}>
-            {g.entrees.map((e) => (
-              <li key={e.id}>
-                <LienNavigation
-                  entree={e}
-                  active={estActive(e, chemin)}
-                  forme="liste"
-                  pastille={pastilleDe(e)}
-                  onNaviguer={onNaviguer}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      {grouperEntrees(entrees).map((g) => {
+        const idTitre = `${idPrefixe}-${g.id}`;
+        const idListe = `${idPrefixe}-liste-${g.id}`;
+        const ouvert = !repliable || ouverts.has(g.id);
+        return (
+          <div key={g.id} className="mp-nav__groupe">
+            {repliable ? (
+              <p className="mp-nav__groupe-titre mp-nav__groupe-titre--repliable" id={idTitre}>
+                <button
+                  type="button"
+                  className="mp-nav__groupe-bouton"
+                  aria-expanded={ouvert}
+                  aria-controls={idListe}
+                  onClick={() => basculer(g.id)}
+                >
+                  <span>{g.libelle}</span>
+                  <Icone nom="chevronDroit" taille={16} className="mp-nav__chevron" />
+                </button>
+              </p>
+            ) : (
+              <p className="mp-nav__groupe-titre" id={idTitre}>
+                {g.libelle}
+              </p>
+            )}
+            <ul className="mp-nav__liste" id={idListe} aria-labelledby={idTitre} hidden={!ouvert}>
+              {g.entrees.map((e) => (
+                <li key={e.id}>
+                  <LienNavigation
+                    entree={e}
+                    active={e.id === actif}
+                    forme="liste"
+                    pastille={pastilleDe(e)}
+                    onNaviguer={onNaviguer}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -78,7 +129,7 @@ export function NavigationLaterale({
   return (
     <div className="mp-rail">
       <nav ref={nav} className="mp-nav-laterale" aria-label="Navigation principale">
-        <ListeGroupee entrees={entrees} chemin={chemin} idPrefixe="rail" />
+        <ListeGroupee entrees={entrees} chemin={chemin} idPrefixe="rail" repliable />
       </nav>
       <div className="mp-rail__utilisateur">
         <div className="mp-rail__ligne">
@@ -118,6 +169,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
   }, [ouvert]);
 
   const principales = entreesBarreBasse(entrees);
+  const actifBarre = entreeActive(principales, chemin)?.id;
   return (
     <>
       <nav className="mp-barre-basse" aria-label="Navigation principale">
@@ -126,7 +178,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
             <li key={e.id}>
               <LienNavigation
                 entree={e}
-                active={estActive(e, chemin)}
+                active={e.id === actifBarre}
                 forme="barre"
                 pastille={pastilleDe(e)}
               />

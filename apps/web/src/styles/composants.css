@@ -339,7 +339,8 @@ h4.mp-carte__titre {
 .mp-tableau td {
   padding: var(--mp-esp-3) var(--mp-esp-4);
   text-align: left;
-  vertical-align: top;
+  /* Les liens de 44 px et le texte d'une même ligne se centrent sur le même axe. */
+  vertical-align: middle;
   border-bottom: 1px solid var(--mp-bordure);
 }
 
@@ -397,6 +398,7 @@ h4.mp-carte__titre {
   }
   .mp-tableau td {
     display: flex;
+    align-items: baseline;
     justify-content: space-between;
     gap: var(--mp-esp-3);
     padding: var(--mp-esp-2) var(--mp-esp-3);
