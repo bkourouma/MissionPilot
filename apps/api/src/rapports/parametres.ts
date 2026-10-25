@@ -30,7 +30,7 @@ export const CONSERVATION_JOURS_MIN = 90;
 export const CONSERVATION_JOURS_MAX = 3650;
 
 export const MENTION_IA_DEFAUT =
-  "Document établi par le cabinet avec MissionPilot : les chiffres sont calculés par des " +
+  "Document établi par le cabinet avec CabinetPilot : les chiffres sont calculés par des " +
   "moteurs vérifiables ; tout contenu préparé avec l'aide de l'IA a été relu et validé par un consultant.";
 
 export interface ParametresRapports {

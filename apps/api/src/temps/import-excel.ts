@@ -602,7 +602,7 @@ function lireFeuille(classeur: ExcelJS.Workbook): TableauImport {
 /* ----- Modèle téléchargeable ----- */
 
 const AIDE: [string, string][] = [
-  ["Collaborateur", "Nom du collaborateur actif, tel qu'il figure dans MissionPilot."],
+  ["Collaborateur", "Nom du collaborateur actif, tel qu'il figure dans CabinetPilot."],
   ["Mission", "Intitulé exact de la mission (sans tenir compte des accents ni de la casse)."],
   ["Tâche", "Libellé exact d'une tâche de cette mission."],
   [
@@ -639,7 +639,7 @@ export function modeleExcelTemps(): Promise<Buffer> {
 
 async function genererModele(): Promise<Buffer> {
   const classeur = new ExcelJS.Workbook();
-  classeur.creator = "MissionPilot";
+  classeur.creator = "CabinetPilot";
   const temps = classeur.addWorksheet("Temps", { views: [{ state: "frozen", ySplit: 1 }] });
   temps.columns = [
     { header: "Collaborateur", width: 32 },

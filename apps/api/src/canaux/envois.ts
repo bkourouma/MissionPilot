@@ -311,7 +311,7 @@ function rendreSms(
     if (variables.length !== 1 || code === undefined || !/^\d{6}$/.test(code)) {
       throw new ErreurCanaux("VARIABLE_INVALIDE");
     }
-    const texte = `MissionPilot : votre code de verification est ${code}. Il expire dans 10 minutes.`;
+    const texte = `CabinetPilot : votre code de verification est ${code}. Il expire dans 10 minutes.`;
     return { texte, longueur: texte.length, variables: [code] };
   }
   throw new ErreurCanaux("VARIANTE_SMS_ABSENTE");

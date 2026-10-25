@@ -240,9 +240,9 @@ export const routesPortailGestion: FastifyPluginAsync = async (app) => {
       journal: (m) => request.log.warn(m),
       message: {
         a: email,
-        sujet: `Invitation au portail client de ${nomCabinet} sur MissionPilot`,
+        sujet: `Invitation au portail client de ${nomCabinet} sur CabinetPilot`,
         texte: [
-          `${auth.nom} vous invite à suivre vos missions avec ${nomCabinet} sur le portail client MissionPilot`,
+          `${auth.nom} vous invite à suivre vos missions avec ${nomCabinet} sur le portail client CabinetPilot`,
           `(rôles : ${roles.map((r) => ROLE_LIBELLES[r]).join(", ")}).`,
           "",
           "Pour créer votre accès, ouvrez ce lien :",

@@ -84,7 +84,7 @@ export async function notifier(db: Db, n: NouvelleNotification): Promise<Notific
     email: n.email
       ? {
           a: destinataire.rows[0].email as string,
-          sujet: `MissionPilot — ${titre}`,
+          sujet: `CabinetPilot — ${titre}`,
           texte: corps,
         }
       : null,

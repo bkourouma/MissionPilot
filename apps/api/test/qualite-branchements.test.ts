@@ -362,7 +362,7 @@ describe("éléments de revue tirés d'un rapport (plan, état d'avancement)", (
       ["rapport:x:chiffre:0.1.1", "Synthèse — VAN : 4 500 000 FCFA"],
     ]);
     expect(chiffres[0]!.source).toBe(
-      "Rapport « Plan stratégique », section « Synthèse » : valeur mise en forme depuis les moteurs MissionPilot",
+      "Rapport « Plan stratégique », section « Synthèse » : valeur mise en forme depuis les moteurs CabinetPilot",
     );
     expect(recommandationsDuRapport(rapport, "rapport:x").map((r) => r.libelle)).toEqual([
       "Initiative recommandée : Tableau de bord mensuel",

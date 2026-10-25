@@ -79,7 +79,7 @@ export function chiffresDuRapport(rapport: Rapport, prefixe: string): ElementRev
           ),
           ordre: 1000 + chiffres.length,
           source: tronquerSource(
-            `Rapport « ${rapport.titre} », section « ${section.titre} » : valeur mise en forme depuis les moteurs MissionPilot`,
+            `Rapport « ${rapport.titre} », section « ${section.titre} » : valeur mise en forme depuis les moteurs CabinetPilot`,
           ),
           source_type: "moteur",
         });

@@ -99,7 +99,7 @@ describe("double authentification : activation (SOC-02)", () => {
     expect(r.headers["cache-control"]).toBe("no-store");
     const { secret, uri } = r.json();
     expect(secret).toMatch(/^[A-Z2-7]{32}$/);
-    expect(uri).toMatch(/^otpauth:\/\/totp\/MissionPilot:/);
+    expect(uri).toMatch(/^otpauth:\/\/totp\/CabinetPilot:/);
     expect(uri).toContain(`secret=${secret}`);
     const ligne = await proprietaire(
       async (cl) =>

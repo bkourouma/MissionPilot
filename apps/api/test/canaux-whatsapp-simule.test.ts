@@ -252,7 +252,7 @@ describe("PasserelleSmsSimulee", () => {
       "GABARIT_REFUSE",
     );
     const bon =
-      "MissionPilot : un questionnaire attend votre reponse : http://localhost:3100/portail/questionnaires/3f2c9b1e-0000-4000-8000-000000000001 STOP pour arreter";
+      "CabinetPilot : un questionnaire attend votre reponse : http://localhost:3100/portail/questionnaires/3f2c9b1e-0000-4000-8000-000000000001 STOP pour arreter";
     expect(bon).toHaveLength(154);
     expect(await p.envoyer(sms(bon))).toMatchObject({
       statut: "accepte",

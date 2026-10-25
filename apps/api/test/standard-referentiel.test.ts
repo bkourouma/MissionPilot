@@ -51,7 +51,7 @@ afterAll(async () => {
   await ctx.fermer();
 });
 
-describe("catalogue et standard MissionPilot", () => {
+describe("catalogue et standard CabinetPilot", () => {
   it("sans session : 401 ; sans standard.lire (gestionnaire) : 403", async () => {
     expect((await api(ctx).get("/api/methodes")).statusCode).toBe(401);
     expect((await api(ctx).get("/api/standard/facteurs")).statusCode).toBe(401);

@@ -296,7 +296,7 @@ export async function rapportDossierBancaire(
       paragraphe(
         `Dossier établi depuis la version ${reference.resume.version} du modèle financier du plan ` +
           `« ${tronquer(d.plan.titre, 150)} », validée par un responsable de la mission. Ratios, plan ` +
-          `de financement et états prévisionnels sont calculés par les moteurs de MissionPilot ; ` +
+          `de financement et états prévisionnels sont calculés par les moteurs de CabinetPilot ; ` +
           `l'appréciation et les seuils sont indicatifs et ne préjugent pas de la décision de la ` +
           `banque. Aucun chiffre de ce dossier n'est produit par l'IA.`,
       ),

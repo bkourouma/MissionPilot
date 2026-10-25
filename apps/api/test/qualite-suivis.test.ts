@@ -322,7 +322,7 @@ describe("rapport R2 : définition de terminé, revue guidée, garde, signature 
     });
     expect(fin.signature.empreinte_sha256).toMatch(/^[0-9a-f]{64}$/);
     // Mention de contribution IA : politique du cabinet (active par défaut).
-    expect(fin.signature.mention_ia).toContain("MissionPilot");
+    expect(fin.signature.mention_ia).toContain("CabinetPilot");
 
     // Plus rien ne bouge sur un livrable signé.
     expect((await s.c.directeur.post(`/api/qualite/suivis/${id}/signature`, {})).statusCode).toBe(

@@ -124,7 +124,7 @@ export async function rapportEnDocx(r: Rapport): Promise<Buffer> {
   const doc = new Document({
     creator: r.emetteur,
     title: r.titre,
-    description: "Rapport généré par MissionPilot",
+    description: "Rapport généré par CabinetPilot",
     sections: [
       {
         properties: {
