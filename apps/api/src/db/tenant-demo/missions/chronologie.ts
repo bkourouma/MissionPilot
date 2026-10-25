@@ -41,13 +41,19 @@ export function chronologieCommerciale(def: {
   };
 }
 
-/** Dernier jour où l'on date une clôture : la veille d'« aujourd'hui » fictif. */
+/** Jours entre la fin de la mission et sa clôture fictive, au minimum. */
 export const DELAI_CLOTURE_JOURS = 6;
+
+/**
+ * Marge laissée après la clôture pour les campagnes de revue à froide du lot qualité (jusqu'à 31
+ * jours après la clôture) sans dépasser « aujourd'hui » : la clôture est plafonnée à aujourd'hui − 40.
+ */
+export const DELAI_REVUE_FROIDE_JOURS = 40;
 
 /**
  * Date fictive de clôture d'une mission terminée : deux jours après le plus tardif de la fin de
  * mission + 6 jours et de la dernière date métier connue (facture, avoir, encaissement, rapport,
- * temps, jalon, document), plafonnée à `plafond`. Fonction pure.
+ * temps, débours, jalon), plafonnée à `plafond`. Fonction pure.
  */
 export function dateClotureFictive(
   dateFin: string,

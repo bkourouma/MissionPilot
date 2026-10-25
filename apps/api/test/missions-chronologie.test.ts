@@ -28,6 +28,11 @@ describe("dateClotureFictive", () => {
     expect(dateClotureFictive("2026-05-29", "2026-12-01", plafond)).toBe(plafond);
   });
 
+  it("plafonnée à aujourd'hui - 40 jours pour laisser place à la revue à froide", () => {
+    expect(dateClotureFictive("2026-05-29", "2026-09-13", "2026-09-14")).toBe("2026-09-14");
+    expect(dateClotureFictive("2026-05-29", null, "2026-09-14")).toBe("2026-06-06");
+  });
+
   it("toujours postérieure à la dernière date métier tant que le plafond le permet", () => {
     for (const derniere of ["2025-12-01", "2026-02-10", "2026-10-01"]) {
       expect(dateClotureFictive("2025-11-14", derniere, plafond) > derniere).toBe(true);
