@@ -1,12 +1,17 @@
 import type { ContexteTenantDemo } from "../contexte.js";
+import { MODULES } from "../ia-qualite-standard/modules.js";
 
 /*
- * Phase « ia-qualite-standard » du seed « Tenant démo » : IA, qualité et standard.
+ * Phase « ia-qualite-standard » du seed « Tenant démo » : standard et méthodes, IA, agents,
+ * copilote, automatisation, avancement et qualité (49 tables ; voir l'inventaire des tables).
  *
- * STUB du lot 1 : ne fait rien aujourd'hui. Le lot de domaine remplit CE fichier et lui seul
- * (aucune autre modification du socle ni de phases/index.ts n'est nécessaire). Contrat :
- * voir contexte.ts (routes réelles, droits, horloge fictive, hasard à graine, reprise).
+ * Mince : chaque domaine vit dans `tenant-demo/ia-qualite-standard/` et se rejoue sans doublon.
+ * Les missions du casting (phase « missions ») sont retrouvées par intitulé exact. Aucune clé IA,
+ * aucun appel réseau : l'IA est simulée (gabarit déterministe, fournisseur local de test).
  */
-export async function semerIaQualiteStandard(_ctx: ContexteTenantDemo): Promise<void> {
-  // Rien à semer pour l'instant.
+export async function semerIaQualiteStandard(ctx: ContexteTenantDemo): Promise<void> {
+  for (const [nom, module] of Object.entries(MODULES)) {
+    ctx.journal(`  module « ${nom} »`);
+    await module(ctx);
+  }
 }
