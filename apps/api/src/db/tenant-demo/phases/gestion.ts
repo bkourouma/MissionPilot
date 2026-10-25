@@ -1,5 +1,6 @@
 import type { ContexteTenantDemo } from "../contexte.js";
 import { lireCasting } from "../gestion/casting.js";
+import { alignerDatesActions } from "../gestion/alignement-dates.js";
 import { semerCollaboration } from "../gestion/collaboration.js";
 import { semerFacturation } from "../gestion/facturation.js";
 import { semerIngestion } from "../gestion/ingestion.js";
@@ -40,4 +41,6 @@ export async function semerGestion(ctx: ContexteTenantDemo): Promise<void> {
   await signerRapportsTerminees(ctx, casting);
   await cloturerMissionsTerminees(ctx);
   await semerRevuesFroides(ctx);
+  // Dernière étape : dates d'action de la phase ramenées avant la clôture des missions terminées.
+  await alignerDatesActions(ctx);
 }

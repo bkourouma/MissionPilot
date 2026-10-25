@@ -41,6 +41,17 @@ export async function antedaterFacturation(ctx: ContexteTenantDemo): Promise<voi
          AND f.soumise_le IS NOT NULL AND f.approuvee_le IS NOT NULL`,
       p,
     );
+    // Liens facture <-> échéance/débours : créés avec la facture, libérés à son annulation par avoir.
+    await c.query(
+      `UPDATE facturation_liens l SET
+         cree_le = f.cree_le + interval '1 minute',
+         libere_le = CASE WHEN l.libere_le IS NULL THEN NULL
+                          ELSE coalesce(f.annulee_le, f.modifie_le) END
+       FROM factures f
+       WHERE l.cabinet_id = $1 AND f.id = l.facture_id AND f.statut IN ('emise', 'annulee')
+         AND f.date_emission IS NOT NULL`,
+      p,
+    );
     // Encaissements, imputations, relances manuelles.
     await c.query(
       `UPDATE encaissements SET saisi_le = date_encaissement::timestamptz + interval '10 hours'
