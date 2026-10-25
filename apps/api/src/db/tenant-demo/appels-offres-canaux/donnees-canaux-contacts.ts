@@ -106,7 +106,12 @@ export interface KpiMessagerie {
   contributeurs: readonly CleCompte[];
 }
 
-/** KPI dont la mesure arrive par message. Libellés distinctifs : clé d'idempotence. */
+/**
+ * KPI dont la mesure arrive par message. Libellés distinctifs : clé d'idempotence ET mots propres à
+ * chaque KPI (« cacao », « livraison », « décaissés ») : l'analyse du message exige qu'un seul KPI du
+ * contributeur satisfasse tous les mots, or la phase « notation-plans » crée des KPI voisins
+ * (« Encours de crédit aux PME », « Délai moyen de recouvrement ») sur les mêmes missions.
+ */
 export const KPI_MESSAGERIE: readonly KpiMessagerie[] = [
   {
     libelle: "KPI messagerie — Volume de cacao collecté",
@@ -129,7 +134,7 @@ export const KPI_MESSAGERIE: readonly KpiMessagerie[] = [
     contributeurs: ["contributeur.client", "dirigeant.client"],
   },
   {
-    libelle: "KPI messagerie — Encours de crédit PME",
+    libelle: "KPI messagerie — Prêts PME décaissés",
     mission: "notationBanqueSahel",
     unite: "M FCFA",
     sens: "plus_haut_mieux",
@@ -179,12 +184,12 @@ export const ENTRANTS_CANAUX: readonly EntrantCanal[] = [
   // Reprise sous le seuil d'alerte : déclenche l'alerte de KPI sortante vers les responsables.
   {
     de: "dirigeant.client.2",
-    texte: "encours credit 3100",
+    texte: "prets decaisses 3100",
     suite: "reprendre",
     dateMesure: "2026-09-30",
   },
   // En attente de confirmation : jamais confirmée.
   { de: "dirigeant.client", texte: "volume cacao 1290" },
   // Numéro non joignable (`…00`) : la réponse du service échoue, l'envoi reste « échec » au journal.
-  { de: "contributeur.client.2", texte: "encours credit 3650" },
+  { de: "contributeur.client.2", texte: "prets decaisses 3650" },
 ];
