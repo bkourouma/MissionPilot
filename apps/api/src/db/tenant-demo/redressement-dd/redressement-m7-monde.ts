@@ -12,7 +12,7 @@ import {
  * étapes de redressement-m7.ts (ouverture, diagnostic, trésorerie, créanciers, conformité) et de
  * redressement-m7-plan.ts (plan d'actions, causes racines). La devise n'est jamais écrite en dur :
  * elle est lue sur la mission (USD pour ce client) et les données, écrites en millions de XOF,
- * passent par l'échelle de cette devise (1 million de XOF = 5 000 USD).
+ * passent par l'échelle de cette devise (1 million de XOF = 5 000 USD = 500 000 centimes).
  */
 
 export interface MondeM7 {

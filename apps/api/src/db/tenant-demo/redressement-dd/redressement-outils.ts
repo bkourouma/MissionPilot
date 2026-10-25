@@ -39,14 +39,16 @@ export type Echelle = (montantXof: number) => number;
 export const ECHELLE_IDENTITE: Echelle = (m) => m;
 
 /**
- * Échelle simple, entière et cohérente : 1 million de XOF des données = 5 000 USD (donc un chiffre
- * d'affaires de 9 600 millions de XOF = 48 000 000 USD, celui du fait du socle). Les nombres qui ne
- * sont pas des montants (jours, taux, points de base, semaines) ne passent jamais par ici.
+ * Échelle simple, entière et cohérente. Les schémas attendent des UNITÉS MINEURES (`montantSchema`,
+ * packages/shared/src/schemas/commun.ts) : XOF/XAF en francs, EUR/USD en CENTIMES. 1 million de XOF
+ * des données = 5 000 USD = 500 000 centimes (donc un chiffre d'affaires de 9 600 millions de XOF
+ * = 48 000 000 USD affichés, envoyés en 4 800 000 000 centimes). Les nombres qui ne sont pas des
+ * montants (jours, taux, points de base, semaines) ne passent jamais par ici.
  */
 export function echelleDevise(devise: string): Echelle {
   if (devise === "XOF" || devise === "XAF") return ECHELLE_IDENTITE;
-  if (devise === "USD") return (m) => Math.round(m / 200);
-  if (devise === "EUR") return (m) => Math.round(m / 656);
+  if (devise === "USD") return (m) => Math.round(m / 2);
+  if (devise === "EUR") return (m) => Math.round((m * 100) / 656);
   throw new Error(`Devise « ${devise} » non prévue par le semis du redressement.`);
 }
 
