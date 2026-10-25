@@ -150,3 +150,17 @@ async function verifierDevises(lignes: Lire, cabinetId: string): Promise<void> {
     if (mission?.budgets) expect(mission.budgets, d.nom).toEqual([attendue]);
   }
 }
+
+/** 5 bilans archivés ; au moins deux clôtureurs différents, et chacun étant l associé de l équipe de sa mission. */
+export async function verifierBilansEtCloturants(lignes: Lire, cabinetId: string): Promise<void> {
+  const bilans = await lignes<{ n: string }>(
+    "SELECT count(*) n FROM bilans_mission WHERE cabinet_id = $1",
+    [cabinetId],
+  );
+  expect(Number(bilans[0]?.n)).toBe(5);
+  const c = await lignes<{ n: string }>(
+    "SELECT count(DISTINCT cloturee_par) n FROM missions WHERE cabinet_id = $1 AND statut = 'cloturee'",
+    [cabinetId],
+  );
+  expect(Number(c[0]?.n), "clôtureurs différents").toBeGreaterThanOrEqual(2);
+}
