@@ -9,6 +9,7 @@ import {
   type MissionTrouvee,
   type NomMission,
 } from "./commun.js";
+import { etatRegistre } from "./preuves-garde.js";
 
 /*
  * Moteur du registre des preuves de la démonstration (PRV-01 à PRV-05) : types des définitions
@@ -347,28 +348,9 @@ export async function semerRegistreMission(
   def: DefMissionPreuves,
 ): Promise<void> {
   const mission = await trouverMission(ctx, def.mission);
-  const compte = async (sql: string): Promise<number> =>
-    ((await ctx.proprietaire.query(sql, [mission.id])).rows[0]?.n as number) ?? 0;
-  const nPreuves = await compte("SELECT count(*)::int n FROM preuves WHERE mission_id = $1");
-  const nAssertions = await compte("SELECT count(*)::int n FROM assertions WHERE mission_id = $1");
-  const nArbitrages = await compte(
-    "SELECT count(*)::int n FROM preuve_arbitrages WHERE mission_id = $1",
-  );
-  if (nPreuves + nAssertions + nArbitrages > 0) {
-    const attenduArbitrages = def.assertions.filter((x) => x.arbitrage).length;
-    if (
-      nPreuves === def.preuves.length &&
-      nAssertions >= def.assertions.length &&
-      nArbitrages >= attenduArbitrages
-    ) {
-      ctx.journal(`  registre « ${def.mission} » déjà semé.`);
-      return;
-    }
-    throw new Error(
-      `Registre « ${def.mission} » PARTIELLEMENT semé (preuves ${nPreuves}/${def.preuves.length}, ` +
-        `assertions ${nAssertions}/${def.assertions.length}, arbitrages ${nArbitrages}/` +
-        `${attenduArbitrages}) : repartir d'une base neuve.`,
-    );
+  if ((await etatRegistre(ctx, mission.id, def)) === "complet") {
+    ctx.journal(`  registre « ${def.mission} » déjà semé.`);
+    return;
   }
   const a = await acteursPour(ctx, def.mission);
   const sessions: Record<CleActeur, SessionDemo> = {
