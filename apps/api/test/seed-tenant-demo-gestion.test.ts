@@ -13,6 +13,12 @@ import {
 } from "../src/db/tenant-demo/gestion/casting.js";
 import { MOT_DE_PASSE_DEMO_TENANT } from "../src/db/tenant-demo/constantes.js";
 import {
+  CLIENTS_PORTAIL_ATTENDUS,
+  REQUETES_CHRONOLOGIE,
+  TABLES_IDEMPOTENCE,
+  TABLES_NON_VIDES,
+} from "./seed-tenant-demo-gestion-outils.js";
+import {
   creerBaseJetable,
   lireSql,
   supprimerBaseJetable,
@@ -26,106 +32,6 @@ import {
  * clôture des 5 missions terminées puis revues à froid. Le déroulé complet dure plusieurs
  * dizaines de minutes ; la phase `gestion` est ensuite rejouée une seconde fois (idempotence).
  */
-
-/** Tables du périmètre de la phase, non vides à la fin de la chaîne. */
-const TABLES_NON_VIDES = [
-  // Temps
-  "feuilles_temps",
-  "lignes_temps",
-  "feuille_validations",
-  "periodes_temps",
-  "corrections_temps",
-  "parametres_temps",
-  "rappels_temps",
-  "reste_a_faire",
-  "alertes_suivi",
-  "cabinet_feries",
-  "taux_clients",
-  // Facturation, encaissements, débours
-  "echeances_facturation",
-  "facturation_liens",
-  "factures",
-  "facture_lignes",
-  "sequences_facturation",
-  "encaissements",
-  "imputations",
-  "contre_passations",
-  "relances_factures",
-  "parametres_relances",
-  "plan_comptable_cabinet",
-  "plan_comptable_validation",
-  "debours",
-  // Rapports, clôture
-  "rapports_mission",
-  "rapports_parametres",
-  "bilans_mission",
-  "cloture_modele_items",
-  "cloture_derogations",
-  // Salle de mission
-  "salle_demandes",
-  "salle_modeles",
-  "salle_pieces",
-  "salle_relances",
-  "salle_depots",
-  "salle_piece_evenements",
-  "salle_accuses",
-  // Ingestion
-  "ingestion_documents",
-  "ingestion_pages",
-  "ingestion_extractions",
-  // Collaboration, portail, fichiers
-  "commentaires",
-  "commentaire_revisions",
-  "commentaire_suppressions",
-  "taches_collaboration",
-  "fichiers_suppressions",
-  "portail_clients",
-  "portail_validations_jalons",
-  "portail_partages",
-  // Revues à froid (après la clôture)
-  "qualite_froide_campagnes",
-  "qualite_froide_echantillon",
-  "qualite_froide_constats",
-  "qualite_froide_evaluations",
-  "qualite_froide_actions",
-  "qualite_froide_actions_historique",
-] as const;
-
-/** Tables dont le nombre de lignes ne doit pas bouger au rejeu de la phase. */
-const TABLES_IDEMPOTENCE = [
-  "feuilles_temps",
-  "lignes_temps",
-  "periodes_temps",
-  "corrections_temps",
-  "echeances_facturation",
-  "factures",
-  "encaissements",
-  "debours",
-  "relances_factures",
-  "rapports_mission",
-  "salle_demandes",
-  "salle_depots",
-  "ingestion_documents",
-  "ingestion_extractions",
-  "commentaires",
-  "taches_collaboration",
-  "portail_validations_jalons",
-  "portail_partages",
-  "qualite_suivis",
-  "qualite_froide_campagnes",
-  "utilisateurs",
-  "missions",
-] as const;
-
-/** Clients dont le dirigeant du portail doit voir des factures (motif LIKE sur la raison sociale). */
-const CLIENTS_PORTAIL_ATTENDUS = [
-  "Société Ivoirienne de Café%",
-  "Sahel Coton%",
-  "Brasseries du Wouri%",
-  "Mboa%",
-  "Atlantique Retail%",
-  "Baobab%",
-] as const;
 
 let dossier: string;
 let base: BaseJetable | undefined;
@@ -385,6 +291,13 @@ describe("seed du Tenant démo (phase gestion, chaîne complète, démonstration
       const xof = (Number(d.montant) / 100) * (d.devise === "EUR" ? 655.957 : 600);
       expect(xof).toBeGreaterThan(50_000);
       expect(xof).toBeLessThan(10_000_000);
+    }
+  });
+
+  it("chronologie : aucune date d'action postérieure à la clôture d'une mission clôturée", async () => {
+    // Chaque requête compte les lignes fautives (action datée après `cloturee_le`).
+    for (const [table, requete] of Object.entries(REQUETES_CHRONOLOGIE)) {
+      expect(await nombre(requete), table).toBe(0);
     }
   });
 
