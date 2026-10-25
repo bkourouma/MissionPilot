@@ -29,7 +29,7 @@ export const CADRAGE_V1 = {
   cible_nom: "Mboa Énergie Solaire",
   type_operation: "acquisition",
   devise: "XOF",
-  date_operation: "2026-01-30",
+  date_operation: "2025-09-15",
   question_investissement:
     "Faut-il acquérir une participation majoritaire dans Mboa Énergie Solaire au prix proposé par le vendeur ?",
   perimetre:

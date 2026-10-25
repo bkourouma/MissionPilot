@@ -333,6 +333,60 @@ describe("seed du Tenant démo : redressement, preuves, due diligence", () => {
     expect(ajouts.filter((x) => ids.includes(x.mission_id))).toEqual([]);
   });
 
+  it("DD Mboa (mission terminée) : plan des 100 jours achevé, tout daté avant la fin de la mission", async () => {
+    const m = await missionId(MISSIONS.ddTerminee);
+    const actions = await lignes<{ statut_action: string }>(
+      `SELECT v.statut_action FROM dd_elements e
+         JOIN dd_dossiers d ON d.id = e.dossier_id
+         JOIN dd_element_versions v ON v.element_id = e.id
+        WHERE d.mission_id = $1 AND e.type = 'action_100j'
+          AND v.version = (SELECT max(x.version) FROM dd_element_versions x WHERE x.element_id = e.id)`,
+      [m],
+    );
+    expect(actions).toHaveLength(5);
+    expect(actions.every((x) => x.statut_action === "terminee")).toBe(true);
+    // Rien n'est daté plus de 6 jours après la fin de la mission (2025-12-19).
+    const apres = await lignes<{ t: string; n: string }>(
+      `SELECT 'publications' t, count(*) n FROM dd_portail_publications p
+         JOIN dd_dossiers d ON d.id = p.dossier_id WHERE d.mission_id = $1 AND p.cree_le > '2025-12-25'
+       UNION ALL SELECT 'notes', count(*) FROM dd_note_versions v JOIN dd_notes n ON n.id = v.note_id
+         JOIN dd_dossiers d ON d.id = n.dossier_id WHERE d.mission_id = $1 AND v.cree_le > '2025-12-25'
+       UNION ALL SELECT 'elements', count(*) FROM dd_element_versions v JOIN dd_elements e ON e.id = v.element_id
+         JOIN dd_dossiers d ON d.id = e.dossier_id WHERE d.mission_id = $1 AND v.cree_le > '2025-12-25'
+       UNION ALL SELECT 'rapports', count(*) FROM rapports_mission r WHERE r.mission_id = $1 AND r.genere_le > '2025-12-25'`,
+      [m],
+    );
+    expect(apres.filter((x) => Number(x.n) > 0)).toEqual([]);
+  });
+
+  it("redressement mission 3 : dates de référence et événements cohérents avec la période", async () => {
+    const m = await missionId(MISSIONS.redressementTermine);
+    const d = await lignes<{ id: string }>("SELECT id FROM red_dossiers WHERE mission_id = $1", [
+      m,
+    ]);
+    const id = d[0]?.id;
+    const refs = await lignes<{ t: string; ref: string }>(
+      `SELECT 'score' t, date_reference::text ref FROM red_scores WHERE dossier_id = $1
+       UNION ALL SELECT 'bilan', date_reference::text FROM red_clotures WHERE dossier_id = $1`,
+      [id],
+    );
+    expect(refs.length).toBeGreaterThan(1);
+    for (const r of refs) {
+      expect(r.ref >= "2025-03-10" && r.ref <= "2025-11-20", `${r.t} ${r.ref}`).toBe(true);
+    }
+    const bilan = await lignes<{ contenu: { date_reference: string }; date_reference: string }>(
+      "SELECT contenu, date_reference::text FROM red_clotures WHERE dossier_id = $1",
+      [id],
+    );
+    for (const b of bilan) expect(b.contenu.date_reference).toBe(b.date_reference);
+    // Aucune écriture du suivi après le plafond de la clôture fictive des missions (2026-09-14).
+    const tard = await lignes(
+      `SELECT 1 FROM red_suivi_releves WHERE dossier_id = $1 AND (cree_le > '2026-09-14' OR date_releve > '2026-09-14')`,
+      [id],
+    );
+    expect(tard).toHaveLength(0);
+  });
+
   it("aucune qualification juridique dans les libellés semés", async () => {
     const motif =
       "cessation|faillite|insolvab|liquidation judiciaire|banqueroute|d[ée]faillan|proc[ée]dure collective";

@@ -258,58 +258,100 @@ export const THEMES_FILTRAGE_2 = [
   { code: "patrimoine_culturel", niveau: "non_concerne", justification: null },
 ] as const;
 
+/** Étape de suivi d'une action du plan des 100 jours (nouvelle version de l'action). */
+export interface SuiviAction {
+  /** Jours après le début de la mission. */
+  j: number;
+  statut: "en_cours" | "terminee";
+  motif: string;
+}
+
 export interface DefAction {
   libelle: string;
   description: string;
   jour_debut: number;
   jour_fin: number;
-  statut: "a_faire" | "en_cours";
   responsable?: Auteur;
+  /** Jour de création de l'action (jours après le début de la mission). */
   j: number;
+  /** Suivi jusqu'à la fin : toutes les actions sont TERMINÉES (mission terminée). */
+  suivi: SuiviAction[];
 }
 
+/**
+ * Plan des 100 jours de la mission terminée : la date de l'opération est le 15 septembre 2025
+ * (cadrage), donc les actions (jours 0 à 90) s'achèvent au plus tard le 14 décembre, avant la fin
+ * de la mission (19 décembre). Création mi-septembre, suivi par les routes de versions.
+ */
 export const ACTIONS: DefAction[] = [
   {
     libelle: "Formaliser la délégation de la direction technique",
     description: "Nommer un adjoint au directeur technique et documenter les délégations.",
     jour_debut: 0,
     jour_fin: 30,
-    statut: "a_faire",
     responsable: "consultant",
-    j: 92,
+    j: 14,
+    suivi: [
+      { j: 20, statut: "en_cours", motif: "Entretiens avec la direction technique engagés." },
+      { j: 44, statut: "terminee", motif: "Adjoint nommé et délégations signées par le vendeur." },
+    ],
   },
   {
     libelle: "Mettre en place un programme de nettoyage préventif des panneaux",
     description: "Calendrier de nettoyage par site et suivi des écarts de production.",
     jour_debut: 10,
     jour_fin: 60,
-    statut: "a_faire",
     responsable: "consultant2",
-    j: 93,
+    j: 15,
+    suivi: [
+      { j: 30, statut: "en_cours", motif: "Calendrier par site en cours de validation." },
+      { j: 72, statut: "terminee", motif: "Programme déployé sur les douze sites." },
+    ],
   },
   {
     libelle: "Réviser le coût de maintenance dans le modèle financier",
     description: "Retenir 9 000 XOF/kWc et par an et mesurer l'effet sur la marge.",
     jour_debut: 0,
     jour_fin: 20,
-    statut: "a_faire",
     responsable: "consultant",
-    j: 94,
+    j: 16,
+    suivi: [
+      {
+        j: 19,
+        statut: "en_cours",
+        motif: "Travail engagé avec le directeur financier du vendeur.",
+      },
+      {
+        j: 40,
+        statut: "terminee",
+        motif: "Modèle financier révisé et effet sur la marge chiffré.",
+      },
+    ],
   },
   {
     libelle: "Renégocier les contrats à tarif de 112 XOF/kWh non justifié",
     description: "Examiner les contrats hors accord négocié et proposer une grille de prix.",
     jour_debut: 30,
     jour_fin: 90,
-    statut: "a_faire",
-    j: 95,
+    j: 17,
+    suivi: [
+      { j: 55, statut: "en_cours", motif: "Revue des contrats hors accord négocié." },
+      { j: 104, statut: "terminee", motif: "Grille de prix proposée aux clients concernés." },
+    ],
   },
   {
     libelle: "Documenter la couverture des achats en devises",
     description: "Recenser les achats hors zone franc et définir une politique de couverture.",
     jour_debut: 20,
     jour_fin: 70,
-    statut: "a_faire",
-    j: 96,
+    j: 18,
+    suivi: [
+      { j: 40, statut: "en_cours", motif: "Recensement des achats hors zone franc." },
+      {
+        j: 85,
+        statut: "terminee",
+        motif: "Politique de couverture adoptée par le comité d'achats.",
+      },
+    ],
   },
 ];

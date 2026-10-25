@@ -34,7 +34,13 @@ import {
 } from "./redressement-diagnostic.js";
 import { monde7 } from "./redressement-m7-monde.js";
 import { causesM7, planLancementM7, planOctobreM7, planSuiviM7 } from "./redressement-m7-plan.js";
-import { creer, dateEtatsClient, debutAppel, type Echelle } from "./redressement-outils.js";
+import {
+  creer,
+  dateEtatsClient,
+  dateReferenceBilan,
+  debutAppel,
+  type Echelle,
+} from "./redressement-outils.js";
 import { lignesAccords, semerVersionTresorerie } from "./redressement-tresorerie.js";
 
 /*
@@ -206,7 +212,8 @@ async function conformiteM7(ctx: ContexteTenantDemo): Promise<void> {
       "2026-10-08",
     );
     // Bilan de clôture au brouillon (incomplet tant que les causes ne sont pas validées).
-    await construireBilan(ctx, dossierId, a.chef, "2026-10-20");
+    const bilan = await construireBilan(ctx, dossierId, a.chef, "2026-10-20");
+    await dateReferenceBilan(ctx, bilan.id as string);
   });
 }
 

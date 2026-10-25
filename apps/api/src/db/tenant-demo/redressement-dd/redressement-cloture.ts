@@ -2,6 +2,7 @@ import type { ContexteTenantDemo, SessionDemo } from "../contexte.js";
 import {
   creer,
   dateDecision,
+  dateReferenceBilan,
   dateRapport,
   dater,
   debutAppel,
@@ -49,6 +50,7 @@ export async function validerBilan(
     "validation du bilan de clôture",
   );
   await dateDecision(ctx, "cloture_valide", dossierId, debut, jour);
+  await dateReferenceBilan(ctx, bilanId);
 }
 
 /** Clôture du dossier (motif d'au moins 10 caractères), par le directeur de la mission. */

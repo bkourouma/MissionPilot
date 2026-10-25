@@ -1,4 +1,5 @@
 import { ajouterJours } from "@missionpilot/engines";
+import { empreinteBilan } from "../../../redressement/cloture.js";
 import type { ContexteTenantDemo, SessionDemo } from "../contexte.js";
 import {
   acteurs,
@@ -107,7 +108,7 @@ const CREATION_PAR_DOSSIER = {
   red_urgences:
     "UPDATE red_urgences SET cree_le = $1::timestamptz WHERE dossier_id = $2 AND cree_le >= $3::timestamptz",
   red_scores:
-    "UPDATE red_scores SET cree_le = $1::timestamptz WHERE dossier_id = $2 AND cree_le >= $3::timestamptz",
+    "UPDATE red_scores SET cree_le = $1::timestamptz, date_reference = ($1::timestamptz AT TIME ZONE 'UTC')::date WHERE dossier_id = $2 AND cree_le >= $3::timestamptz",
   red_correspondances:
     "UPDATE red_correspondances SET cree_le = $1::timestamptz WHERE dossier_id = $2 AND cree_le >= $3::timestamptz",
   red_tresorerie_versions:
@@ -332,4 +333,32 @@ export function uid(
   const id = ctx.utilisateurs[cle];
   if (!id) throw new Error(`Utilisateur « ${cle} » introuvable dans le contexte.`);
   return id;
+}
+
+/**
+ * Date de référence d'un bilan de clôture. La route la fixe au jour RÉEL du serveur et son
+ * empreinte couvre le contenu (qui la porte) : après la création (brouillon jamais validé) ou la
+ * validation (le contrôle de péremption rejoue le bilan à la date d'origine), la date de référence
+ * du bilan, celle de son contenu et l'empreinte sont remontées au jour de CRÉATION du bilan (déjà
+ * antidaté). L'empreinte d'origine est vérifiée avant modification.
+ */
+export async function dateReferenceBilan(ctx: ContexteTenantDemo, bilanId: string): Promise<void> {
+  const r = await ctx.proprietaire.query(
+    `SELECT contenu, empreinte, (cree_le AT TIME ZONE 'UTC')::date::text AS jour
+       FROM red_clotures WHERE id = $1 AND cabinet_id = $2`,
+    [bilanId, ctx.cabinetId],
+  );
+  const l = r.rows[0] as { contenu: Json; empreinte: string; jour: string } | undefined;
+  if (!l) throw new Error(`Bilan de clôture ${bilanId} introuvable.`);
+  if (empreinteBilan(l.contenu) !== l.empreinte) {
+    throw new Error(
+      "Empreinte du bilan de clôture non reproductible : date de référence inchangée.",
+    );
+  }
+  const contenu = { ...l.contenu, date_reference: l.jour };
+  await appliquerSql(
+    ctx,
+    "UPDATE red_clotures SET date_reference = $1::date, contenu = $2::jsonb, empreinte = $3 WHERE id = $4 AND cabinet_id = $5",
+    [l.jour, JSON.stringify(contenu), empreinteBilan(contenu), bilanId, ctx.cabinetId],
+  );
 }

@@ -181,12 +181,12 @@ const CONDITIONS_V2 = [
 function corpsComite(f: FaitsDossier, avecSources: boolean): string {
   const date = f.dateOperation ?? "la date prévue";
   return paragraphes(
-    `Opération examinée : ${f.titre} (décision visée : ${date}).`,
+    `Opération examinée : ${f.titre} (date de l'opération retenue pour le plan des 100 jours : ${date}).`,
     `Recommandation : réservée. L'équipe ne recommande pas l'engagement dans les conditions du plan d'affaires présenté par le vendeur.`,
     resumeHypotheses(f),
     lectureMarche(f),
     `Risques : ${f.risquesTotal} risques recensés, dont ${f.risquesEleves} de niveau élevé. Environnement et social : niveau global ${f.esNiveau ?? "non évalué"}, ${f.esBloquantes} correspondance bloquante.`,
-    `Plan des 100 jours : ${f.actions.length} actions préparées pour sécuriser une éventuelle reprise.`,
+    `Plan des 100 jours : ${f.actions.length} actions suivies jusqu'à leur achèvement pour sécuriser la reprise.`,
     ...(avecSources
       ? [
           lectureSources(f),
