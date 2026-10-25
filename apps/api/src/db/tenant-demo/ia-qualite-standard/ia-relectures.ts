@@ -70,8 +70,8 @@ const RELECTURES: readonly Relecture[] = [
     valideur: "directeur",
   },
   {
-    id: "atlantique-synthese",
-    mission: "bp-atlantique",
+    id: "sahel-synthese",
+    mission: "notation-banque-sahel",
     prompt: "synthese_comite",
     avant: 15,
     heure: 11,
@@ -81,8 +81,8 @@ const RELECTURES: readonly Relecture[] = [
     valideur: "associe",
   },
   {
-    id: "mboa-compte-rendu",
-    mission: "dd-mboa",
+    id: "teranga-compte-rendu",
+    mission: "flash-teranga",
     prompt: "compte_rendu_reunion",
     avant: 12,
     heure: 15,
@@ -121,8 +121,8 @@ const RELECTURES: readonly Relecture[] = [
     modifie: false,
   },
   {
-    id: "sicafe-piece",
-    mission: "plan-sicafe",
+    id: "baobab-piece",
+    mission: "plan-baobab",
     prompt: "classement_piece",
     avant: 6,
     heure: 10,
@@ -131,8 +131,8 @@ const RELECTURES: readonly Relecture[] = [
     modifie: false,
   },
   {
-    id: "wouri-synthese",
-    mission: "redressement-wouri",
+    id: "gabon-synthese",
+    mission: "redressement-gabon",
     prompt: "synthese_comite",
     avant: 10,
     heure: 13,

@@ -196,8 +196,15 @@ export function distribuer(
   const consultants = info.equipe.filter((a) => a.role === "consultant");
   const auteur = premier([...consultants, info.chef], [], "l'auteur");
   const relecteur = premier([info.chef, info.directeur, associe], [auteur], "la relecture du chef");
-  const seconds = info.indice % 2 === 0 ? [associe2, directeur2] : [directeur2, associe2];
-  const second = premier(seconds, [auteur, relecteur], "le second expert");
+  // Second expert HORS ÉQUIPE : ni l'auteur, ni le relecteur, ni le chef, ni le directeur de la
+  // mission, ni un membre de son équipe (associé n° 2, directeur n° 2 ou, à défaut, l'associé).
+  const seconds =
+    info.indice % 2 === 0 ? [associe2, directeur2, associe] : [directeur2, associe2, associe];
+  const second = premier(
+    seconds,
+    [auteur, relecteur, info.chef, info.directeur, ...info.equipe],
+    "le second expert",
+  );
   const signataire = premier(
     [info.directeur, associe, associe2],
     [auteur, relecteur, second],

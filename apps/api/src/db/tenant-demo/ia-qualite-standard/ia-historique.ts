@@ -19,10 +19,16 @@ import { TEXTES_ESSAI, TEXTES_MISSION } from "./ia-donnees.js";
  * (aucun appel réseau). Aucun contenu historique n'est modifié ni validé ici : seules les
  * relectures récentes (ia.ts) le sont, par les routes.
  *
- * Coûts : l'orchestrateur n'inscrit rien sans appel au modèle. Le coût estimé (jetons selon le
- * tarif connu du modèle routé) est inscrit par `enregistrerConsommation` à la date de la demande,
- * comme le ferait l'orchestrateur avec une clé du cabinet. Mois et missions restent sous 80 % de
- * leurs plafonds (aucune alerte de plafond n'est semée).
+ * COÛTS SIMULÉS DE DÉMONSTRATION — AUCUN APPEL RÉEL. Le cabinet n'a aucune clé fournisseur : toutes
+ * les générations sont des gabarits (fournisseur « gabarit », coût 0 dans ia_generations, table en
+ * ajout seul). Pour que l'écran des coûts soit renseigné, une consommation SIMULÉE (jetons tirés
+ * à graine fixe, coût calculé au tarif connu du modèle routé par ia/modeles.ts) est inscrite par
+ * `enregistrerConsommation` à la date de la demande, comme le ferait l'orchestrateur avec une clé
+ * du cabinet. Règles : exactement UNE consommation par demande terminée (même mission, modèle de
+ * la tâche, issue « succes » ou « sortie_invalide », cette dernière étant précisément le cas où le
+ * gabarit prend le relais en comptant l'appel) ; les consommations « test » n'ont pas de demande ;
+ * chaque mois civil reste sous 80 % du plafond mensuel (aucune alerte de plafond n'est semée) ;
+ * aucune ligne ne dépasse la date de fin de sa mission (clôture simulée à fin + 6 jours).
  */
 
 const PROMPTS_MISSION = [
@@ -105,8 +111,9 @@ async function scenariosMissions(
     const acteurs = await acteursMission(ctx, m);
     if (!acteurs) continue;
     const client = await nomClient(ctx, m.clientId);
-    const debut = ajouterJours(c.debut, 4);
-    const fin = c.fin < ctx.jour(-23) ? c.fin : ctx.jour(-23);
+    const debut = ajouterJours(m.debut ?? c.debut, 4);
+    const finMission = m.fin ?? c.fin;
+    const fin = finMission < ctx.jour(-23) ? finMission : ctx.jour(-23);
     const duree = Math.max(1, Math.round((Date.parse(fin) - Date.parse(debut)) / 86_400_000));
     const n = Math.min(14, Math.max(5, Math.round(duree / 22)));
     for (let i = 0; i < n; i++) {
@@ -223,4 +230,62 @@ export async function semerHistorique(
     consommations += 1;
   }
   return { demandes, consommations };
+}
+
+/**
+ * Complète les consommations SIMULÉES manquantes : une par demande terminée sans consommation
+ * (relectures récentes, essais par les routes, exécutions d'agents). Appelée par les modules « ia »
+ * et « agents ». Échoue si un mois dépasse 80 % du plafond mensuel du cabinet.
+ */
+export async function completerConsommations(ctx: ContexteTenantDemo): Promise<number> {
+  const alea = ctx.alea.deriver("ia-conso");
+  const params = await ctx.database.withTenant(ctx.cabinetId, (db) => lireParametres(db));
+  const r = await ctx.proprietaire.query<{
+    id: string;
+    mission_id: string | null;
+    tache: TacheIa;
+    cree_le: Date;
+  }>(
+    `SELECT d.id, d.mission_id, d.tache, d.cree_le FROM ia_demandes d
+      WHERE d.cabinet_id = $1 AND d.statut = 'terminee'
+        AND NOT EXISTS (SELECT 1 FROM ia_consommations c WHERE c.demande_id = d.id)
+      ORDER BY d.cree_le, d.id`,
+    [ctx.cabinetId],
+  );
+  for (const d of r.rows) {
+    const classification = d.tache === "classification";
+    const tokensEntree = d.mission_id ? alea.entier(3000, 9000) : alea.entier(500, 2400);
+    const tokensSortie = classification ? alea.entier(60, 250) : alea.entier(400, 1200);
+    const dureeMs = alea.entier(1800, 16000);
+    await ctx.database.withTenant(ctx.cabinetId, (db) =>
+      enregistrerConsommation(
+        db,
+        {
+          cabinetId: ctx.cabinetId,
+          demandeId: d.id,
+          missionId: d.mission_id,
+          tache: d.tache,
+          modele: modeleDe(params, d.tache),
+          issue: "succes",
+          sourceCle: "cabinet",
+          tokensEntree,
+          tokensSortie,
+          dureeMs,
+        },
+        params.plafond_mensuel_micro_usd,
+        d.cree_le,
+      ),
+    );
+  }
+  const mois = await ctx.proprietaire.query<{ m: string; total: string }>(
+    `SELECT to_char(cree_le AT TIME ZONE 'UTC', 'YYYY-MM') AS m, sum(cout_micro_usd)::text AS total
+       FROM ia_consommations WHERE cabinet_id = $1 GROUP BY 1`,
+    [ctx.cabinetId],
+  );
+  for (const x of mois.rows) {
+    if (Number(x.total) * 100 > params.plafond_mensuel_micro_usd * 80) {
+      throw new Error(`Consommations simulées de ${x.m} au-dessus de 80 % du plafond mensuel.`);
+    }
+  }
+  return r.rows.length;
 }

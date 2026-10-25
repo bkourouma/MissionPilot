@@ -57,40 +57,41 @@ export const SCENARIOS: Scenario[] = [
     decisions: [],
   },
   {
-    mission: "bp-atlantique",
-    brique: "dossier_bancaire",
+    mission: "plan-sicafe-export",
+    brique: "calcul_modele",
     nature: "adapter_brique",
-    description: "Dossier bancaire remis en deux lots selon le calendrier du pool bancaire.",
+    description:
+      "Ajouter un scénario de change euro-franc CFA pour les ventes de cacao à l'export.",
     motif:
-      "Le pool bancaire instruit d'abord la ligne de trésorerie, puis le financement des investissements.",
+      "Les acheteurs de Sicafe Export facturent en euros : le plan doit être lu sous un scénario de change défavorable.",
     decisions: [
-      RELECTURE("associe", "Découpage cohérent avec le calendrier du pool."),
+      RELECTURE("associe", "Scénario pertinent pour un exportateur."),
       {
         etape: "revue_second_expert",
         par: "associe.2",
         decision: "approuve",
-        commentaire: "Les deux lots restent traçables jusqu'aux hypothèses.",
+        commentaire: "Le scénario reste traçable jusqu'aux hypothèses.",
       },
       {
         etape: "signature_directeur_mission",
         par: "directeur.mission",
         decision: "approuve",
-        commentaire: "Signé, sous réserve de remettre le second lot avant la fin du mois.",
+        commentaire: "Signé : le scénario figure en annexe du plan.",
       },
     ],
   },
   {
-    mission: "bp-atlantique",
-    brique: "bfr_saisonnier",
-    nature: "activer_brique",
-    motif: "Demande d'ajouter le besoin en fonds de roulement saisonnier au dossier de la banque.",
+    mission: "dd-wouri-distribution",
+    brique: "verification_preuves",
+    nature: "retirer_brique",
+    motif:
+      "Le vendeur propose de se contenter de ses attestations au lieu de pièces justificatives.",
     decisions: [
       {
         etape: "relecture_chef_mission",
         par: "directeur.mission",
         decision: "refuse",
-        commentaire:
-          "Activité non saisonnière : la brique n'apporte rien et allongerait le dossier.",
+        commentaire: "Sans pièces justificatives, aucun verdict ne peut être sourcé : refus.",
       },
     ],
   },
@@ -140,21 +141,12 @@ export const SCENARIOS: Scenario[] = [
     brique: "communication_banques",
     nature: "retirer_brique",
     motif:
-      "Le client a déjà informé ses banques lors du comité de crédit du mois dernier : la note du cabinet fait double emploi.",
+      "Gabon Offshore Services a déjà informé ses banques lors de son dernier comité de crédit : la note du cabinet fait double emploi.",
     decisions: [],
   },
   {
-    // Même brique, même nature et même méthode que Gabon : la récurrence alimente l'analyse CAP-05.
-    mission: "redressement-wouri",
-    brique: "communication_banques",
-    nature: "retirer_brique",
-    motif:
-      "Les banques de Brasseries du Wouri ont déjà reçu la situation de trésorerie de la direction : la note du cabinet fait double emploi.",
-    decisions: [],
-  },
-  {
-    mission: "dd-mboa",
-    brique: "verification_preuves",
+    mission: "dd-wouri-distribution",
+    brique: "analyse_financiere_dd",
     nature: "adapter_brique",
     description:
       "Accepter les attestations de l'expert-comptable pour les pièces antérieures à l'exercice audité.",

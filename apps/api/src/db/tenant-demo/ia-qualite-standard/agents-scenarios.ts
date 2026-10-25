@@ -43,8 +43,8 @@ export const TEXTES_AGENT: Record<string, readonly string[]> = {
   ],
   capitalisation_rex: [
     "Mission pour {client} : plan stratégique sur plusieurs mois. Points forts : implication du comité de direction, ateliers productifs. Difficultés : collecte documentaire lente. Enseignement : cadrer les pièces attendues dès le lancement.",
-    "Mission pour {client} : notation financière. Points forts : méthode claire, échanges réguliers. Difficultés : qualité inégale des données comptables. Enseignement : prévoir une phase de fiabilisation.",
-    "Mission pour {client} : due diligence. Points forts : calendrier tenu. Difficultés : accès tardif aux contrats. Enseignement : demander la liste des contrats clés avant le démarrage.",
+    "Mission pour {client} : notation financière d'un portefeuille. Points forts : méthode claire, échanges réguliers. Difficultés : qualité inégale des données comptables. Enseignement : prévoir une phase de fiabilisation.",
+    "Mission pour {client} : diagnostic flash. Points forts : calendrier tenu. Difficultés : accès tardif aux données d'exploitation. Enseignement : demander une extraction unique avant le démarrage.",
   ],
   qualite_controle_livrable: [
     "Rapport de diagnostic de {client} avec résumé, constats, recommandations et annexes sourcées.",
@@ -55,17 +55,17 @@ export const TEXTES_AGENT: Record<string, readonly string[]> = {
 
 export const SCENARIOS_EXECUTION: readonly ScenarioExecution[] = [
   {
-    id: "red-sicafe",
+    id: "red-teranga",
     prompt: "redacteur_section_rapport",
-    mission: "plan-sicafe",
+    mission: "flash-teranga",
     declencheur: "chef",
     issue: "complete",
     entree: 0,
   },
   {
-    id: "red-wouri",
+    id: "red-sahel",
     prompt: "redacteur_section_rapport",
-    mission: "redressement-wouri",
+    mission: "notation-banque-sahel",
     declencheur: "chef",
     issue: "legere",
     entree: 1,
@@ -89,9 +89,9 @@ export const SCENARIOS_EXECUTION: readonly ScenarioExecution[] = [
       "Ton trop promotionnel et recommandations sans lien avec les constats : à reprendre avec le plan de trésorerie.",
   },
   {
-    id: "red-atlantique",
+    id: "red-export",
     prompt: "redacteur_section_rapport",
-    mission: "bp-atlantique",
+    mission: "plan-sicafe-export",
     declencheur: "directeur",
     issue: "telle_quelle",
     entree: 2,
@@ -172,41 +172,41 @@ export const SCENARIOS_EXECUTION: readonly ScenarioExecution[] = [
       "Une clause de limitation de responsabilité ne correspond pas au mandat : projet écarté.",
   },
   {
-    id: "rex-sicafe",
+    id: "rex-baobab",
     prompt: "capitalisation_rex",
-    mission: "plan-sicafe",
+    mission: "plan-baobab",
     declencheur: "directeur",
     issue: "complete",
     entree: 0,
   },
   {
-    id: "rex-coton",
+    id: "rex-sahel",
     prompt: "capitalisation_rex",
-    mission: "notation-sahel-coton",
+    mission: "notation-banque-sahel",
     declencheur: "chef",
     issue: "legere",
     entree: 1,
   },
   {
-    id: "rex-mboa",
+    id: "rex-teranga",
     prompt: "capitalisation_rex",
-    mission: "dd-mboa",
+    mission: "flash-teranga",
     declencheur: "chef",
     issue: "attente",
     entree: 2,
   },
   {
-    id: "qual-wouri",
+    id: "qual-gabon",
     prompt: "qualite_controle_livrable",
-    mission: "redressement-wouri",
+    mission: "redressement-gabon",
     declencheur: "chef",
     issue: "telle_quelle",
     entree: 0,
   },
   {
-    id: "qual-atlantique",
+    id: "qual-teranga",
     prompt: "qualite_controle_livrable",
-    mission: "bp-atlantique",
+    mission: "flash-teranga",
     declencheur: "directeur",
     issue: "telle_quelle",
     entree: 1,
@@ -224,16 +224,16 @@ export const SCENARIOS_EXECUTION: readonly ScenarioExecution[] = [
 
 /** Texte de relecture complet par scénario « complete » (le consultant réécrit le brouillon). */
 export const TEXTES_FINAUX: Record<string, string> = {
-  "red-sicafe":
-    "Les décisions d'investissement du groupe reposent aujourd'hui sur deux dirigeants et sur des critères non formalisés. Cette situation ralentit les arbitrages et rend leur justification difficile devant le conseil. Nous recommandons de mettre en place un comité d'investissement doté de critères écrits, d'un calendrier de réunions et d'un compte rendu systématique. Cette organisation fait l'objet de la section suivante, consacrée à la gouvernance.",
+  "red-teranga":
+    "L'information d'exploitation de Teranga Logistique circule aujourd'hui de façon inégale entre les sites : chaque entrepôt tient ses propres tableaux et les arbitrages de transport se prennent à l'oral. Cette situation ralentit la réponse aux clients et rend les écarts difficiles à expliquer à la direction. Nous recommandons un tableau de suivi commun, alimenté chaque semaine, et un point d'exploitation hebdomadaire entre les responsables de site. Cette organisation fait l'objet de la section suivante.",
   "red-baobab":
     "La gouvernance de Baobab Assurances repose sur un conseil qui se réunit régulièrement, mais dont les décisions ne sont pas suivies de façon uniforme. Les comptes rendus n'identifient pas toujours un responsable ni une échéance. Nous proposons un tableau de suivi des décisions, présenté à chaque séance, afin de relier chaque orientation stratégique à une action et à une personne.",
   "comite-baobab":
     "Note du comité de pilotage — Baobab Assurances.\n\nAvancement : les entretiens avec la direction générale et les responsables de branche sont terminés ; l'analyse documentaire se poursuit.\nPoints à décider : date de l'atelier de restitution ; périmètre de la phase suivante.\nRisques : disponibilité des directeurs de branche en fin de mois ; transmission tardive des états de la branche vie.\nProchaines étapes : confirmer l'atelier et finaliser le diagnostic partagé.",
   "lettre-teranga":
     "Projet de lettre de mission — Diagnostic flash de Teranga Logistique.\n\nObjet : analyser l'organisation logistique de l'entreprise et formuler des recommandations à court terme.\nLivrables : un rapport court et une séance de restitution à la direction.\nHypothèses : accès aux données d'exploitation des sites et disponibilité de la direction d'exploitation pour deux entretiens.\nLe présent projet reste soumis à la validation du directeur de mission avant tout envoi.",
-  "rex-sicafe":
-    "Retour d'expérience — mission de plan stratégique (client anonymisé).\n\nCe qui a bien fonctionné : l'implication du comité de direction et la qualité des ateliers de priorisation.\nDifficultés : la collecte documentaire a été plus lente que prévu, faute de liste des pièces attendues dès le lancement.\nEnseignements : cadrer les pièces à fournir lors de la réunion de lancement et désigner un point focal côté client.",
+  "rex-baobab":
+    "Retour d'expérience intermédiaire — mission de plan stratégique (client anonymisé).\n\nCe qui a bien fonctionné : l'implication du comité de direction et la qualité des ateliers de cadrage.\nDifficultés : la collecte documentaire est plus lente que prévu, faute de liste des pièces attendues dès le lancement.\nEnseignements : cadrer les pièces à fournir lors de la réunion de lancement et désigner un point focal côté client.",
 };
 
 /** Paragraphe ajouté par le consultant pour une retouche légère du brouillon. */

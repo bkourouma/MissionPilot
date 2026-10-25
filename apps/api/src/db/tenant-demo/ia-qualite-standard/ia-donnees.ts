@@ -154,10 +154,10 @@ export const TEXTES_RELECTURE: Record<string, string> = {
     "Analyse des risques — diagnostic flash Teranga Logistique.\n\n1. Disponibilité des dirigeants : mesure — fixer dès maintenant les créneaux d'entretien et désigner un point focal.\n2. Données d'exploitation dispersées entre sites : mesure — demander une extraction unique et la faire valider par le directeur d'exploitation.\n3. Calendrier serré avant le conseil d'administration : mesure — livrer une version courte du diagnostic une semaine avant la date limite.",
   "banque-sahel-reponse":
     "Bonjour,\n\nNous vous confirmons que le rapport intermédiaire vous sera remis à la date convenue lors de la dernière réunion. Pour y parvenir, nous attendons encore deux documents : l'extraction du portefeuille PME à la dernière date d'arrêté et la note de politique de crédit en vigueur.\n\nNous restons disponibles pour en parler à votre convenance.\n\nCordialement,\nL'équipe de mission",
-  "atlantique-synthese":
-    "Synthèse de fin de mission — Atlantique Retail.\n\nLe business plan a été finalisé avec la direction financière et présenté aux partenaires bancaires. Les hypothèses ont été documentées et les scénarios validés. Les points ouverts concernent le suivi des engagements pris auprès de la banque, qui reviennent à la direction du client.",
-  "mboa-compte-rendu":
-    "Compte rendu de la réunion de clôture de la due diligence — Mboa Énergie Solaire.\n\nParticipants : investisseur, direction de Mboa, équipe du cabinet.\nDécisions : les réserves émises sur les contrats d'achat d'électricité sont consignées dans le rapport final.\nActions : l'investisseur revient vers le cabinet sous quinzaine ; le cabinet transmet les annexes au format convenu.",
+  "sahel-synthese":
+    "Synthèse pour le comité de pilotage — notation du portefeuille PME de la Banque du Sahel.\n\nLa méthode de notation a été présentée à la direction des risques et les premiers dossiers sont en cours d'analyse. Les données comptables des petites entreprises sont de qualité inégale, ce qui demandera une phase de fiabilisation. Le point ouvert concerne le calendrier de transmission des extractions du portefeuille.",
+  "teranga-compte-rendu":
+    "Compte rendu de la réunion de restitution intermédiaire — Teranga Logistique.\n\nParticipants : direction générale, direction d'exploitation, équipe du cabinet.\nDécisions : les constats sur la circulation des informations entre sites sont validés ; une version courte du diagnostic sera remise avant le conseil d'administration.\nActions : la direction d'exploitation transmet l'extraction unique des données ; le cabinet adresse le projet de synthèse.",
   "essai-reformulation":
     "Le diagnostic a été restitué à la direction et aux responsables de filiale. Les constats ont été largement partagés, et les priorités d'action ont été arrêtées d'un commun accord. Une version de synthèse destinée aux administrateurs sera préparée.",
 };
