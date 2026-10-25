@@ -66,7 +66,7 @@ export const PROPOSITIONS: Proposition[] = [
     auteur: "expert.metier",
     cible: "acceptee",
     relecteur: "expert.metier.2",
-    avis: "Acceptée ; à remonter au comité méthode du standard, car la méthode est celle de MissionPilot.",
+    avis: "Acceptée ; à remonter au comité méthode du standard, car la méthode est celle de CabinetPilot.",
   },
   {
     titre: "Suppression de l'atelier unique de la notation",

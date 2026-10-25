@@ -11,7 +11,7 @@ export const PARAMETRES_RAPPORTS = {
   conservation_jours: 1825,
   mention_ia_active: true,
   mention_ia:
-    "Document établi par le cabinet avec MissionPilot : les chiffres sont calculés par des moteurs vérifiables et tout contenu préparé avec l'aide de l'IA a été relu et validé par un consultant.",
+    "Document établi par le cabinet avec CabinetPilot :les chiffres sont calculés par des moteurs vérifiables et tout contenu préparé avec l'aide de l'IA a été relu et validé par un consultant.",
 } as const;
 
 /** Rapports d'avancement (état d'avancement) : fractions de la période écoulée où ils sont émis. */

@@ -76,7 +76,7 @@ async function documentLettre(cc: ContexteCanaux, d: DemandeDemo, missionId: str
     "/api/fichiers",
     `lettre-de-mission-${d.mission}-demonstration.pdf`,
     pdfDemo(`Lettre de mission - ${d.client} (${MARQUE_CANAUX})`, [
-      "Document fictif genere pour la recette locale de MissionPilot.",
+      "Document fictif genere pour la recette locale de CabinetPilot.",
       "Signature electronique SIMULEE : aucune valeur juridique, aucun fournisseur reel.",
     ]),
     "application/pdf",
