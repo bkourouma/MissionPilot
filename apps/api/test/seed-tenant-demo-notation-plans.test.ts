@@ -263,4 +263,78 @@ describe("phase notation-plans du Tenant démo", () => {
     );
     expect(Number(enCours[0]?.n)).toBeGreaterThanOrEqual(1);
   });
+  it("date les notations, questionnaires et plans des missions terminées dans la période de la mission", async () => {
+    const hors = async (sql: string): Promise<string[]> =>
+      (await lignes<{ intitule: string }>(sql, [cabinetId])).map((l) => l.intitule);
+    const borne = (colonne: string) =>
+      `AND (${colonne} < m.date_debut OR ${colonne} > m.date_fin + interval '6 days')`;
+    // Notations : calcul, ajustements, événements (soumission, renvoi, publication).
+    expect(
+      await hors(
+        `SELECT DISTINCT m.intitule FROM notation_versions v
+           JOIN notations n ON n.id = v.notation_id JOIN missions m ON m.id = n.mission_id
+          WHERE v.cabinet_id = $1 AND m.statut = 'a_cloturer' ${borne("v.calcule_le")}`,
+      ),
+    ).toEqual([]);
+    expect(
+      await hors(
+        `SELECT DISTINCT m.intitule FROM notation_evenements e
+           JOIN notation_versions v ON v.id = e.version_id
+           JOIN notations n ON n.id = v.notation_id JOIN missions m ON m.id = n.mission_id
+          WHERE e.cabinet_id = $1 AND m.statut = 'a_cloturer' ${borne("e.le")}`,
+      ),
+    ).toEqual([]);
+    // Questionnaires : envoi, clôture, réponses ; l'envoi précède sa date limite.
+    expect(
+      await hors(
+        `SELECT DISTINCT m.intitule FROM questionnaire_envois q JOIN missions m ON m.id = q.mission_id
+          WHERE q.cabinet_id = $1 AND m.statut = 'a_cloturer'
+            AND (q.envoye_le < m.date_debut OR q.envoye_le > m.date_fin + interval '6 days'
+                 OR q.envoye_le::date > q.date_limite)`,
+      ),
+    ).toEqual([]);
+    // Plans : création, partage.
+    expect(
+      await hors(
+        `SELECT DISTINCT m.intitule FROM plans_strategiques p JOIN missions m ON m.id = p.mission_id
+          WHERE p.cabinet_id = $1 AND m.statut = 'a_cloturer'
+            AND (p.cree_le < m.date_debut OR p.cree_le > m.date_fin + interval '6 days'
+                 OR p.partage_le > m.date_fin + interval '6 days')`,
+      ),
+    ).toEqual([]);
+    // La notation de la mission 2 est publiée pendant sa mission.
+    const pub = await lignes<{ le: Date; fin: string }>(
+      `SELECT e.le, m.date_fin::text AS fin FROM notation_evenements e
+         JOIN notation_versions v ON v.id = e.version_id
+         JOIN notations n ON n.id = v.notation_id JOIN missions m ON m.id = n.mission_id
+        WHERE e.cabinet_id = $1 AND e.action = 'publication' AND m.intitule = $2`,
+      [cabinetId, CASTING.sahelCoton.intitule],
+    );
+    expect(pub[0]?.le.toISOString().slice(0, 4)).toBe("2025");
+  });
+
+  it("met fin au suivi des KPI des missions terminées sans alerte de retard et appuie la confiance sur des preuves", async () => {
+    const actifs = await lignes<{ n: string }>(
+      `SELECT count(*) n FROM kpi_definitions d JOIN missions m ON m.id = d.mission_id
+        WHERE d.cabinet_id = $1 AND m.statut = 'a_cloturer' AND d.actif`,
+      [cabinetId],
+    );
+    expect(Number(actifs[0]?.n)).toBe(0);
+    const retards = await lignes<{ n: string }>(
+      `SELECT count(*) n FROM kpi_alertes a
+         JOIN kpi_definitions d ON d.id = a.kpi_id JOIN missions m ON m.id = d.mission_id
+        WHERE a.cabinet_id = $1 AND a.code = 'MESURE_EN_RETARD' AND m.statut = 'a_cloturer'`,
+      [cabinetId],
+    );
+    expect(Number(retards[0]?.n)).toBe(0);
+    const confiances = await lignes<{ valeur: string }>(
+      `SELECT (c.composantes->'preuves'->>'valeur') AS valeur FROM notation_confiances c
+         JOIN notation_versions v ON v.id = c.version_id JOIN notations n ON n.id = v.notation_id
+         JOIN missions m ON m.id = n.mission_id
+        WHERE c.cabinet_id = $1 AND m.intitule = $2`,
+      [cabinetId, CASTING.sahelCoton.intitule],
+    );
+    expect(confiances.length).toBeGreaterThanOrEqual(1);
+    for (const c of confiances) expect(Number(c.valeur)).toBeGreaterThan(0);
+  });
 });
