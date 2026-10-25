@@ -32,14 +32,16 @@ export const xaf = (montant: number): ValeurFaitDossier => ({
   montant,
   devise: "XAF",
 });
+/** Montant en EUROS (unités majeures) ; l'API attend des CENTIMES (`montantSchema`) : × 100. */
 export const eur = (montant: number): ValeurFaitDossier => ({
   type: "montant",
-  montant,
+  montant: Math.round(montant * 100),
   devise: "EUR",
 });
+/** Montant en DOLLARS (unités majeures) ; l'API attend des CENTIMES (`montantSchema`) : × 100. */
 export const usd = (montant: number): ValeurFaitDossier => ({
   type: "montant",
-  montant,
+  montant: Math.round(montant * 100),
   devise: "USD",
 });
 export const oui = (booleen: boolean): ValeurFaitDossier => ({ type: "booleen", booleen });

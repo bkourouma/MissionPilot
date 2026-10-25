@@ -10,6 +10,7 @@ import {
   PARTICIPATIONS,
   TAUX_CLIENTS,
   tauxNegocie,
+  versUnitesMineures,
   type DefTauxClient,
 } from "./donnees-dossiers.js";
 import { FAITS } from "./donnees-faits.js";
@@ -195,7 +196,11 @@ async function assurerEtats(ctx: ContexteTenantDemo, associe: SessionDemo): Prom
       date_cloture: `${e.exercice}-12-31`,
       devise: def.devise,
       source_libelle: `États financiers ${e.exercice} remis par le client`,
-      lignes: lignesEtat(e, flux.deriver(`etat-${e.cle}-${e.exercice}`)),
+      // EUR et USD en centimes (montantSchema) ; `lignesEtat` produit des unités majeures.
+      lignes: lignesEtat(e, flux.deriver(`etat-${e.cle}-${e.exercice}`)).map((l) => ({
+        ...l,
+        montant: versUnitesMineures(def.devise, l.montant),
+      })),
     });
     attendre(201, r, `état financier ${e.cle} ${e.exercice}`);
   }
