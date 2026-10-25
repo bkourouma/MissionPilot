@@ -1,12 +1,12 @@
 import type { ContexteTenantDemo } from "../contexte.js";
+import { executerEtapes } from "../notation-plans/etapes.js";
 
 /*
- * Phase « notation-plans » du seed « Tenant démo » : notation, plans stratégiques et KPI.
- *
- * STUB du lot 1 : ne fait rien aujourd'hui. Le lot de domaine remplit CE fichier et lui seul
- * (aucune autre modification du socle ni de phases/index.ts n'est nécessaire). Contrat :
- * voir contexte.ts (routes réelles, droits, horloge fictive, hasard à graine, reprise).
+ * Phase « notation-plans » du seed « Tenant démo » (lot 3) : questionnaires, notation financière,
+ * KPI et plans stratégiques, rattachés aux missions créées par la phase « missions » (casting :
+ * notation-plans/casting.ts). Tout passe par les vraies routes ; les chiffres sortent des moteurs.
+ * Les étapes (notation-plans/etapes.ts) sont idempotentes : une phase interrompue se rejoue.
  */
-export async function semerNotationPlans(_ctx: ContexteTenantDemo): Promise<void> {
-  // Rien à semer pour l'instant.
+export async function semerNotationPlans(ctx: ContexteTenantDemo): Promise<void> {
+  await executerEtapes(ctx);
 }
