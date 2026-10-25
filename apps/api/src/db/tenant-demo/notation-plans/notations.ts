@@ -9,6 +9,7 @@ import {
   versionGrilleValidee,
 } from "./notations-outils.js";
 import { jouerVersions } from "./notations-parcours.js";
+import { signerSuiviNotation, suiviDeNotation, type ActeursQualite } from "./notations-qualite.js";
 import { NOTATIONS, type DefNotation } from "./notations-donnees.js";
 import { exiger } from "./outils.js";
 
@@ -60,6 +61,33 @@ import { exiger } from "./outils.js";
  * ligne écrite (notations-parcours.ts) ; plans et commentaires IA sont contrôlés avant écriture.
  */
 
+/**
+ * Mission terminée (casting 1 à 5, clôturée à la fin de la phase « gestion ») : le contrôle de
+ * clôture « livrables_signes » exige que TOUS les suivis qualité R2/R3 soient signés, y compris
+ * ceux des versions renvoyées puis remplacées. On mène donc chaque suivi ouvert jusqu'à la
+ * signature, avec les acteurs qui signent la version publiée. Une mission non terminée
+ * (9, en cours) garde ses suivis en brouillon.
+ */
+function acteursSignature(def: DefNotation): ActeursQualite | undefined {
+  if (def.mission.numero > 5) return undefined;
+  const publication = def.versions.flat().find((a) => a.t === "publier");
+  return publication?.t === "publier" ? publication.qualite : undefined;
+}
+
+/** Filet : un suivi encore ouvert (reprise d'un passage interrompu) est mené à la signature. */
+async function signerSuivisDesMissionsTerminees(
+  ctx: ContexteTenantDemo,
+  notationId: string,
+  def: DefNotation,
+): Promise<void> {
+  const acteurs = acteursSignature(def);
+  if (!acteurs) return;
+  for (let numero = 1; numero <= def.versions.length; numero++) {
+    if (!(await suiviDeNotation(ctx, notationId, numero))) continue;
+    await signerSuiviNotation(ctx, notationId, numero, acteurs);
+  }
+}
+
 async function semerNotation(ctx: ContexteTenantDemo, def: DefNotation): Promise<void> {
   const mission = await trouverMission(ctx, def.mission);
   ctx.journal(`    notation « ${mission.intitule} »…`);
@@ -82,7 +110,9 @@ async function semerNotation(ctx: ContexteTenantDemo, def: DefNotation): Promise
     envoiId: await envoiNotationClos(ctx, mission.id),
     grilleVersionId: await versionGrilleValidee(ctx, def.grille),
     versions: def.versions,
+    ...(acteursSignature(def) ? { qualiteTerminee: acteursSignature(def) as ActeursQualite } : {}),
   });
+  await signerSuivisDesMissionsTerminees(ctx, notationId, def);
   await assurerPlans(ctx, notationId, def.plans);
   await assurerCommentaires(ctx, notationId, def.commentaires);
   await verifierLectures(
