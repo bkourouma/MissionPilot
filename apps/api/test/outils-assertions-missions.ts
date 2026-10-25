@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { CLIENTS } from "../src/db/tenant-demo/donnees-clients.js";
+import { TAUX_VENTE_GRADE } from "../src/db/tenant-demo/donnees-equipe.js";
 import { CASTING } from "../src/db/tenant-demo/missions/donnees-casting.js";
 
 /* Assertions de la phase « missions » (budget, jours alloués, pipeline), partagées avec le test de semis. */
@@ -116,9 +117,55 @@ export async function verifierPipelineGagne(lignes: Lire, cabinetId: string): Pr
     expect(x.valide_ok, x.intitule).toBe(true);
   }
   await verifierDevises(lignes, cabinetId);
+  await verifierEchelleMontants(lignes, cabinetId);
 }
 
 /** Devise de chaque mission, de sa proposition, de son opportunité et de son budget = devise du client (socle). */
+const XOF_PAR_UNITE: Record<string, number> = { XOF: 1, XAF: 1, EUR: 655.957, USD: 600 };
+const FACTEUR_MINEUR: Record<string, number> = { XOF: 1, XAF: 1, EUR: 100, USD: 100 };
+
+/**
+ * Montants en unités mineures : pour chaque mission, le prix journalier moyen pondéré des
+ * honoraires (équivalent XOF au taux fictif) est du même ordre de grandeur (écart < 2x) que celui
+ * des missions XOF/XAF ; les honoraires des missions EUR/USD restent proches de jours x barème.
+ */
+async function verifierEchelleMontants(lignes: Lire, cabinetId: string): Promise<void> {
+  const r = await lignes<{ intitule: string; devise: string; prix: string; honoraires: string }>(
+    `SELECT m.intitule, m.devise,
+            sum(l.jours * l.prix_journalier) / nullif(sum(l.jours), 0) AS prix,
+            sum(l.jours * l.prix_journalier) AS honoraires
+       FROM missions m JOIN budget_versions v ON v.mission_id = m.id AND v.numero = 1
+       JOIN budget_lignes l ON l.version_id = v.id AND l.nature = 'honoraires'
+      WHERE m.cabinet_id = $1 GROUP BY m.intitule, m.devise`,
+    [cabinetId],
+  );
+  const xof = (x: { devise: string; prix: string }): number =>
+    (Number(x.prix) / (FACTEUR_MINEUR[x.devise] ?? 1)) * (XOF_PAR_UNITE[x.devise] ?? 1);
+  const reference = r.filter((x) => x.devise === "XOF" || x.devise === "XAF").map(xof);
+  const moyenne = reference.reduce((a, b) => a + b, 0) / reference.length;
+  for (const x of r.filter((y) => y.devise === "EUR" || y.devise === "USD")) {
+    expect(xof(x) / moyenne, `prix journalier de ${x.intitule}`).toBeGreaterThan(0.5);
+    expect(xof(x) / moyenne, `prix journalier de ${x.intitule}`).toBeLessThan(2);
+  }
+  // Honoraires budgétés (équivalent XOF) = jours x barème du cabinet, à un facteur 2 près (taux négociés).
+  for (const x of r.filter((y) => y.devise === "EUR" || y.devise === "USD")) {
+    const jours = await lignes<{ grade_code: string; jours: string }>(
+      `SELECT l.grade_code, sum(l.jours) AS jours FROM budget_lignes l
+         JOIN budget_versions v ON v.id = l.version_id AND v.numero = 1
+         JOIN missions m ON m.id = v.mission_id
+        WHERE m.cabinet_id = $1 AND m.intitule = $2 AND l.nature = 'honoraires' GROUP BY 1`,
+      [cabinetId, x.intitule],
+    );
+    const bareme = jours.reduce(
+      (s, g) => s + Number(g.jours) * (TAUX_VENTE_GRADE[g.grade_code] ?? 0),
+      0,
+    );
+    const honoraires = (Number(x.honoraires) / 100) * (XOF_PAR_UNITE[x.devise] ?? 1);
+    expect(honoraires / bareme, `honoraires de ${x.intitule}`).toBeGreaterThan(0.5);
+    expect(honoraires / bareme, `honoraires de ${x.intitule}`).toBeLessThan(2);
+  }
+}
+
 async function verifierDevises(lignes: Lire, cabinetId: string): Promise<void> {
   const r = await lignes<{
     intitule: string;

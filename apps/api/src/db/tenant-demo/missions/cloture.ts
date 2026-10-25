@@ -2,7 +2,7 @@ import { ajouterJours } from "@missionpilot/engines";
 import type { CleCompte } from "../cles.js";
 import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 import { etalerJournal, maintenantBase } from "./antidatage.js";
-import { dateClotureFictive } from "./chronologie.js";
+import { dateClotureFictive, DELAI_REVUE_FROIDE_JOURS } from "./chronologie.js";
 import { transactionAntidatage } from "./declencheurs.js";
 import { CASTING, type DefMission } from "./donnees-casting.js";
 
@@ -66,8 +66,8 @@ export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promis
       );
     const jourCloture = dateClotureFictive(
       def.fin,
-      await derniereDateMetier(ctx, lue.id),
-      ctx.jour(-1),
+      await derniereDateMetier(ctx, lue.id, ctx.jour(-1)),
+      ctx.jour(-DELAI_REVUE_FROIDE_JOURS),
     );
     if (lue.statut === "cloturee") {
       if (lue.jour === jourCloture) continue;
@@ -111,34 +111,38 @@ export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promis
 }
 
 /**
- * Dernière date métier connue de la mission (SQL propriétaire littéral, filtré par cabinet et par
- * mission) : factures et avoirs émis, imputations d'encaissements, rapports générés, temps saisis,
- * débours, jalons prévus et documents. `null` si la mission n'a rien de tout cela.
+ * Dernière date MÉTIER connue de la mission (SQL propriétaire littéral, filtré par cabinet et par
+ * mission) : factures et avoirs émis, imputations et encaissements, rapports générés (`genere_le`,
+ * antidaté par les phases qui le produisent), temps saisis, débours et jalons prévus. Les
+ * horodatages TECHNIQUES écrits à l'horloge réelle du semis (validation des feuilles de temps,
+ * création des documents…) sont exclus ; toute valeur postérieure à `limite` (donc écrite à
+ * l'horloge réelle) est ignorée au lieu de dominer. `null` si rien ne subsiste.
  */
 async function derniereDateMetier(
   ctx: ContexteTenantDemo,
   missionId: string,
+  limite: string,
 ): Promise<string | null> {
   const r = await ctx.proprietaire.query(
     `SELECT greatest(
-        (SELECT max(date_emission) FROM factures WHERE cabinet_id = $1 AND mission_id = $2),
+        (SELECT max(date_emission) FROM factures
+          WHERE cabinet_id = $1 AND mission_id = $2 AND date_emission <= $3::date),
         (SELECT max(i.date_imputation) FROM imputations i JOIN factures f ON f.id = i.facture_id
-          WHERE f.cabinet_id = $1 AND f.mission_id = $2),
+          WHERE f.cabinet_id = $1 AND f.mission_id = $2 AND i.date_imputation <= $3::date),
         (SELECT max(e.date_encaissement) FROM encaissements e
            JOIN imputations i ON i.encaissement_id = e.id JOIN factures f ON f.id = i.facture_id
-          WHERE f.cabinet_id = $1 AND f.mission_id = $2),
+          WHERE f.cabinet_id = $1 AND f.mission_id = $2 AND e.date_encaissement <= $3::date),
         (SELECT max((genere_le AT TIME ZONE 'UTC')::date) FROM rapports_mission
-          WHERE cabinet_id = $1 AND mission_id = $2),
-        (SELECT max(date) FROM lignes_temps WHERE cabinet_id = $1 AND mission_id = $2),
-        (SELECT max((f.validee_le AT TIME ZONE 'UTC')::date) FROM feuilles_temps f
-          WHERE f.cabinet_id = $1 AND f.id IN
-            (SELECT feuille_id FROM lignes_temps WHERE cabinet_id = $1 AND mission_id = $2)),
-        (SELECT max(date) FROM debours WHERE cabinet_id = $1 AND mission_id = $2),
-        (SELECT max(date_prevue) FROM mission_jalons WHERE cabinet_id = $1 AND mission_id = $2),
-        (SELECT max((cree_le AT TIME ZONE 'UTC')::date) FROM mission_documents
-          WHERE cabinet_id = $1 AND mission_id = $2)
+          WHERE cabinet_id = $1 AND mission_id = $2
+            AND (genere_le AT TIME ZONE 'UTC')::date <= $3::date),
+        (SELECT max(date) FROM lignes_temps
+          WHERE cabinet_id = $1 AND mission_id = $2 AND date <= $3::date),
+        (SELECT max(date) FROM debours
+          WHERE cabinet_id = $1 AND mission_id = $2 AND date <= $3::date),
+        (SELECT max(date_prevue) FROM mission_jalons
+          WHERE cabinet_id = $1 AND mission_id = $2 AND date_prevue <= $3::date)
       )::text AS derniere`,
-    [ctx.cabinetId, missionId],
+    [ctx.cabinetId, missionId, limite],
   );
   return (r.rows[0]?.derniere as string | null | undefined) ?? null;
 }
