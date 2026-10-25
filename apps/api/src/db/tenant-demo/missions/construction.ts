@@ -2,6 +2,7 @@ import { ajouterJours } from "@missionpilot/engines";
 import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 import type { DefMission } from "./donnees-casting.js";
 import { placerTaches } from "./calendrier.js";
+import { completerTaux, deviseDuClient, TAUX_USD_XOF, versDevise } from "./devises.js";
 
 /*
  * Construction d'une mission du casting par les VRAIES routes : opportunité -> proposition
@@ -51,6 +52,7 @@ async function creerDepuisPipeline(
     client_id: ctx.client(def.client),
     intitule: def.nom,
     type_mission_id: typeId,
+    devise: deviseDuClient(def.client),
     probabilite: 35,
     etape: "qualification",
     responsable_id: chef.utilisateurId,
@@ -68,6 +70,7 @@ async function creerDepuisPipeline(
   });
   attendre(201, prop, `proposition ${def.nom}`);
   const propId = prop.json().id as string;
+  await completerTaux(chef, propId, prop.json(), deviseDuClient(def.client));
   const url = `/api/propositions/${propId}`;
   attendre(200, await chef.post(`${url}/statut`, { statut: "a_valider" }), "proposition à valider");
   attendre(200, await associe.post(`${url}/statut`, { statut: "validee" }), "proposition validée");
@@ -231,20 +234,23 @@ async function signerEtDemarrer(ctx: ContexteTenantDemo, m: MissionBatie): Promi
   const def = m.def;
   if (!def.signature) return;
   // La sous-traitance est une donnée financière (FIN-02) : elle est saisie par un associé.
-  const signataire = def.sousTraitance?.length
-    ? ctx.session("associe")
-    : sessionDe(ctx, def.directeur);
+  // Un taux de change flottant (USD) est saisi par un associé, lui aussi.
+  const devise = deviseDuClient(def.client);
+  const signataire =
+    def.sousTraitance?.length || devise === "USD"
+      ? ctx.session("associe")
+      : sessionDe(ctx, def.directeur);
   const lignes = [
     ...def.debours.map((d) => ({
       nature: "debours",
       libelle: d.libelle,
-      montant: d.montant,
+      montant: versDevise(d.montant, devise),
       refacturable: d.refacturable,
     })),
     ...(def.sousTraitance ?? []).map((s) => ({
       nature: "sous_traitance",
       libelle: s.libelle,
-      montant: s.montant,
+      montant: versDevise(s.montant, devise),
       refacturable: false,
     })),
   ];
@@ -252,6 +258,7 @@ async function signerEtDemarrer(ctx: ContexteTenantDemo, m: MissionBatie): Promi
     200,
     await signataire.post(`/api/missions/${m.id}/signer`, {
       date_signature: def.signature,
+      ...(devise === "USD" ? { taux_change: TAUX_USD_XOF } : {}),
       lignes_supplementaires: lignes,
     }),
     `signature de ${def.nom}`,
