@@ -117,6 +117,16 @@ const TABLES_IDEMPOTENCE = [
   "missions",
 ] as const;
 
+/** Clients dont le dirigeant du portail doit voir des factures (motif LIKE sur la raison sociale). */
+const CLIENTS_PORTAIL_ATTENDUS = [
+  "Société Ivoirienne de Café%",
+  "Sahel Coton%",
+  "Brasseries du Wouri%",
+  "Mboa%",
+  "Atlantique Retail%",
+  "Baobab%",
+] as const;
+
 let dossier: string;
 let base: BaseJetable | undefined;
 let resume: ResumeTenantDemo;
@@ -294,9 +304,15 @@ describe("seed du Tenant démo (phase gestion, chaîne complète, démonstration
     ).toBeGreaterThanOrEqual(1);
   });
 
-  it("portail : aucune facture partagée au client ; validations de jalons par des comptes du client", async () => {
+  it("portail : factures émises partagées, jamais de donnée interne ; validations par des dirigeants", async () => {
+    // Une mission dont une facture est émise est partagée avec `factures` vrai.
     expect(
-      await nombre("SELECT count(*) AS n FROM portail_partages WHERE cabinet_id = $1 AND factures"),
+      await nombre(
+        `SELECT count(*) AS n FROM factures f WHERE f.cabinet_id = $1 AND f.statut = 'emise'
+            AND NOT EXISTS (SELECT 1 FROM portail_partages p WHERE p.mission_id = f.mission_id
+                              AND p.document_id IS NULL AND p.factures)
+            AND EXISTS (SELECT 1 FROM portail_partages p WHERE p.mission_id = f.mission_id)`,
+      ),
     ).toBe(0);
     expect(
       await nombre(
@@ -304,6 +320,72 @@ describe("seed du Tenant démo (phase gestion, chaîne complète, démonstration
           WHERE v.cabinet_id = $1 AND NOT (u.roles && ARRAY['client_dirigeant'])`,
       ),
     ).toBe(0);
+  });
+
+  it("portail : le dirigeant de chaque client principal voit ses factures, sans donnée interne", async () => {
+    const b = base as BaseJetable;
+    const app = await buildApp({ ...b.config, NODE_ENV: "test", TOTP_REQUIS: "non" }, b.db);
+    try {
+      for (const client of CLIENTS_PORTAIL_ATTENDUS) {
+        const comptes = await sql<{ email: string }>(
+          `SELECT u.email FROM utilisateurs u JOIN utilisateurs_portail p ON p.utilisateur_id = u.id
+             JOIN clients c ON c.id = p.client_id
+            WHERE u.cabinet_id = $1 AND u.actif AND p.statut = 'actif'
+              AND u.roles && ARRAY['client_dirigeant'] AND c.raison_sociale LIKE $2
+            ORDER BY u.cree_le LIMIT 1`,
+          [cabinetId, client],
+        );
+        expect(comptes[0], `dirigeant de ${client}`).toBeDefined();
+        const c = await app.inject({
+          method: "POST",
+          url: "/api/auth/connexion",
+          payload: { email: comptes[0]?.email, mot_de_passe: MOT_DE_PASSE_DEMO_TENANT },
+        });
+        expect(c.statusCode, client).toBe(200);
+        const cookie = `${c.cookies[0]?.name}=${c.cookies[0]?.value}`;
+        const lire = async (url: string): Promise<{ n: number; corps: string }> => {
+          const r = await app.inject({ method: "GET", url, headers: { cookie } });
+          expect(r.statusCode, `${client} ${url}`).toBe(200);
+          const j = r.json() as { elements?: unknown[] } | unknown[];
+          return { n: Array.isArray(j) ? j.length : (j.elements?.length ?? 0), corps: r.body };
+        };
+        const factures = await lire("/api/portail/factures");
+        expect(factures.n, `factures visibles de ${client}`).toBeGreaterThan(0);
+        expect((await lire("/api/portail/kpi")).n, `KPI visibles de ${client}`).toBeGreaterThan(0);
+        expect(
+          (await lire("/api/portail/avancement")).n,
+          `rapports d'avancement visibles de ${client}`,
+        ).toBeGreaterThan(0);
+        expect(factures.corps).not.toMatch(/cout|marge|taux_vente|taux_journalier/i);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("montants : les missions en EUR et USD sont du même ordre de grandeur qu'en FCFA", async () => {
+    const lignes = await sql<{ devise: string; ht: string }>(
+      `SELECT f.devise, f.total_ht AS ht FROM factures f
+        WHERE f.cabinet_id = $1 AND f.nature = 'facture' AND f.statut = 'emise' AND f.devise IN ('EUR', 'USD')`,
+      [cabinetId],
+    );
+    expect(lignes.length).toBeGreaterThan(0);
+    for (const l of lignes) {
+      // Unités mineures (centimes) -> équivalent XOF : EUR 655,957 ; USD 600 (taux fictifs du seed).
+      const xof = (Number(l.ht) / 100) * (l.devise === "EUR" ? 655.957 : 600);
+      expect(xof, `facture ${l.devise}`).toBeGreaterThan(300_000);
+      expect(xof, `facture ${l.devise}`).toBeLessThan(60_000_000);
+    }
+    const debours = await sql<{ devise: string; montant: string }>(
+      `SELECT m.devise, d.montant FROM debours d JOIN missions m ON m.id = d.mission_id
+        WHERE d.cabinet_id = $1 AND m.devise IN ('EUR', 'USD')`,
+      [cabinetId],
+    );
+    for (const d of debours) {
+      const xof = (Number(d.montant) / 100) * (d.devise === "EUR" ? 655.957 : 600);
+      expect(xof).toBeGreaterThan(50_000);
+      expect(xof).toBeLessThan(10_000_000);
+    }
   });
 
   it("FIN-02 : un consultant n'accède ni aux factures ni aux encaissements ni aux prévisions", async () => {

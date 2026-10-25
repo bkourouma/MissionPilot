@@ -2,8 +2,9 @@ import { ajouterJours } from "@missionpilot/engines";
 import type { ContexteTenantDemo, SessionDemo } from "../contexte.js";
 import { lundisEntre } from "../horloge.js";
 import type { Casting, MissionLue } from "./casting.js";
-import { MISSIONS_EN_COURS } from "./casting.js";
+import { MISSIONS_EN_COURS, MISSIONS_TERMINEES } from "./casting.js";
 import { commentaire, introduction, SEMAINES_HEBDO } from "./donnees-rapports.js";
+import { ancrer, encadrer } from "./collaboration-outils.js";
 import { sessionDe } from "./rapports-outils.js";
 import { ok } from "./outils.js";
 
@@ -120,7 +121,32 @@ async function traiterSemaine(
   return cree;
 }
 
-/** Rapports hebdomadaires de toutes les missions en cours du casting ; renvoie le nombre créé. */
+/** Change le statut d'une mission (route réelle) ; journal et notifications datés du `jour` fictif. */
+async function changerStatut(
+  ctx: ContexteTenantDemo,
+  m: MissionLue,
+  directeur: SessionDemo,
+  statut: "en_cours" | "a_cloturer",
+  jour: string,
+): Promise<void> {
+  const { fenetre } = await encadrer(ctx, async () => {
+    ok(
+      200,
+      await directeur.post(`/api/missions/${m.id}/statut`, { statut }),
+      `mission ${m.cle} : statut ${statut}`,
+    );
+  });
+  await ancrer(ctx, fenetre, `${jour}T08:00:00Z`, true);
+}
+
+/** Semaines de fin de mission couvertes pour les missions terminées (visibles du client au portail). */
+const SEMAINES_FIN_TERMINEES = 3;
+
+/**
+ * Rapports hebdomadaires des missions en cours du casting (les dernières semaines, la courante en
+ * brouillon) et, pour les missions terminées encore ouvertes, ceux de leurs dernières semaines
+ * d'activité (tous validés) ; renvoie le nombre créé.
+ */
 export async function semerAvancementHebdo(
   ctx: ContexteTenantDemo,
   casting: Casting,
@@ -146,6 +172,26 @@ export async function semerAvancementHebdo(
     for (const [i, semaine] of lundis.entries()) {
       const courante = i === lundis.length - 1;
       if (await traiterSemaine(ctx, m, chef, directeur, semaine, i, courante)) crees += 1;
+    }
+  }
+  for (const cle of MISSIONS_TERMINEES) {
+    const m = casting.missions[cle];
+    if (!m || m.statut === "cloturee" || !m.debut || !m.fin) continue;
+    const chef = sessionDe(ctx, m.chefId);
+    const directeur = sessionDe(ctx, m.directeurId);
+    if (!chef || !directeur || m.chefId === m.directeurId) continue;
+    const lundis = lundisEntre(m.debut, m.fin).slice(-SEMAINES_FIN_TERMINEES);
+    // La route refuse un rapport hebdomadaire hors mission signée ou en cours : la mission « à
+    // clôturer » est rouverte (transition prévue, a_cloturer -> en_cours) le temps de les produire,
+    // puis remise à clôturer (même fin, `cloturerMissionsTerminees` la clôt ensuite).
+    const rouvrir = m.statut === "a_cloturer";
+    if (rouvrir) await changerStatut(ctx, m, directeur, "en_cours", lundis[0] ?? m.fin);
+    try {
+      for (const [i, semaine] of lundis.entries()) {
+        if (await traiterSemaine(ctx, m, chef, directeur, semaine, i, false)) crees += 1;
+      }
+    } finally {
+      if (rouvrir) await changerStatut(ctx, m, directeur, "a_cloturer", m.fin);
     }
   }
   return crees;

@@ -1,5 +1,5 @@
 import type { CleCompte } from "../cles.js";
-import { affectationsAvecCompte } from "./outils.js";
+import { affectationsAvecCompte, montantMineur } from "./outils.js";
 import { cleDeCompte, type CleMission, type MissionLue } from "./casting.js";
 import type { DeboursSpec } from "./donnees-facturation.js";
 import {
@@ -60,12 +60,13 @@ async function trouver(
   m: MissionLue,
   s: DeboursSpec,
   jour: string,
+  montant: number,
 ): Promise<Ligne | undefined> {
   const r = await lire(
     env,
     `SELECT id, statut, justificatif_fichier_id FROM debours
       WHERE mission_id = $1 AND date = $2 AND montant = $3 AND categorie = $4`,
-    [m.id, jour, s.montant, s.categorie],
+    [m.id, jour, montant, s.categorie],
   );
   const l = r[0];
   return l
@@ -92,7 +93,9 @@ async function jouerEtape(
   const auteur = session(env, cleAuteur);
   const validateur = session(env, validateurDe(equipe, cleAuteur));
   const jour = ouvre(env, s.jour);
-  let d = await trouver(env, m, s, jour);
+  // Les montants du casting sont des valeurs de référence en FCFA : unités mineures de la devise.
+  const montant = montantMineur(s.montant, m.devise);
+  let d = await trouver(env, m, s, jour, montant);
 
   await etape(env, date, async () => {
     if (etapeNom === "saisir") {
@@ -104,7 +107,7 @@ async function jouerEtape(
             date: jour,
             categorie: s.categorie,
             libelle: s.libelle,
-            montant: s.montant,
+            montant,
             refacturable: s.refacturable,
           }),
         );
@@ -112,7 +115,8 @@ async function jouerEtape(
         d = { id: cree.id as string, statut: "brouillon", fichier: null };
       }
       if (d.statut === "brouillon") {
-        if (!d.fichier) await televerserJustificatif(env, auteur, d.id, s.libelle, s.montant, jour);
+        if (!d.fichier)
+          await televerserJustificatif(env, auteur, d.id, s.libelle, montant, jour, m.devise);
         await appel(200, "soumission du débours", auteur.post(`/api/debours/${d.id}/soumettre`));
       }
       return;
@@ -134,7 +138,7 @@ async function jouerEtape(
         "correction du débours",
         auteur.patch(`/api/debours/${d.id}`, { libelle: `${s.libelle} (reçu officiel joint)` }),
       );
-      await televerserJustificatif(env, auteur, d.id, s.libelle, s.montant, jour);
+      await televerserJustificatif(env, auteur, d.id, s.libelle, montant, jour, m.devise);
       await appel(200, "nouvelle soumission", auteur.post(`/api/debours/${d.id}/soumettre`));
     }
   });

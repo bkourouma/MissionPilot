@@ -1,4 +1,3 @@
-import { ajouterJours } from "@missionpilot/engines";
 import { cleDeCompte, type Casting } from "./casting.js";
 import type { CleCompte } from "../cles.js";
 import type { ContexteTenantDemo, SessionDemo } from "../contexte.js";
@@ -307,12 +306,10 @@ export async function jouerFeuille(
   const rng = env.rng.deriver(`jouer|${plan.cle}|${plan.semaine}`);
   const cle = `${plan.collaborateurId}|${plan.semaine}`;
   let etat = env.existantes.get(cle);
-  if (
-    (!etat || etat.statut === "brouillon") &&
-    env.moisClos.has(plan.semaine.slice(0, 7)) &&
-    env.moisClos.has(ajouterJours(plan.semaine, 4).slice(0, 7))
-  ) {
-    // Reprise : la période est déjà close, une feuille manquante ou restée brouillon n'y serait plus remplie.
+  // Reprise après une exécution complète (les périodes sont closes, dernière étape du module) : le
+  // plan dépend des missions encore ouvertes, donc il diffère du premier passage ; aucune feuille
+  // n'est créée ni remplie de nouveau.
+  if (env.moisClos.size > 0) {
     env.compteurs.deja++;
     return;
   }

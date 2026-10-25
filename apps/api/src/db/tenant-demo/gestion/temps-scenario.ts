@@ -42,7 +42,7 @@ export function scenarioFeuille(
   if (plan.semaine === courant) final = rng.proba(0.6) ? "soumise" : "brouillon";
   else if (plan.semaine === precedent) {
     const r = rng.suivant();
-    final = r < 0.05 ? "validee" : r < 0.9 ? "soumise" : "brouillon";
+    final = r < 0.8 ? "validee" : r < 0.97 ? "soumise" : "brouillon";
   }
   const tard = options.tard || (final === "validee" && rng.proba(PROBA_SOUMISSION_TARDIVE));
   const jourSoumission = tard

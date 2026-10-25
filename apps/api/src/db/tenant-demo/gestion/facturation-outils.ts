@@ -17,7 +17,7 @@ import {
   type CleMission,
   type MissionLue,
 } from "./casting.js";
-import { ok } from "./outils.js";
+import { libelleMontant, ok } from "./outils.js";
 
 /*
  * Outils communs du module FACTURATION : environnement, événements datés, jours ouvrés, datation
@@ -210,11 +210,12 @@ export async function televerserJustificatif(
   libelle: string,
   montant: number,
   jour: string,
+  devise = "XOF",
 ): Promise<void> {
   const pdf = pdfDemo("Justificatif de debours (demonstration)", [
     `Depense du ${jour}`,
     libelle,
-    `Montant : ${montant} FCFA`,
+    `Montant : ${libelleMontant(montant, devise)}`,
     "Document fictif genere pour la demonstration.",
   ]);
   const m = multipart(`justificatif-${deboursId.slice(0, 8)}.pdf`, pdf, deboursId.slice(0, 12));

@@ -7,6 +7,7 @@ import {
   type FactureSpec,
 } from "./donnees-facturation.js";
 import { evenementsDebours } from "./facturation-debours.js";
+import { antedaterFacturation } from "./facturation-dates.js";
 import { evenementsEcheancier } from "./facturation-echeancier.js";
 import {
   echeancesDe,
@@ -120,6 +121,7 @@ export async function semerFacturation(ctx: ContexteTenantDemo, casting: Casting
   await verifierTauxClients(env);
   await verifierPrevisions(env);
   await bilan(env);
+  await antedaterFacturation(ctx);
   const c = env.compteurs;
   ctx.journal(
     `facturation : terminé en ${((Date.now() - debut) / 1000).toFixed(1)} s ` +

@@ -183,9 +183,9 @@ async function filsFactures(
     if (!m || !equipe) continue;
     const f = (
       await ctx.proprietaire.query(
-        `SELECT id, numero, (emise_le AT TIME ZONE 'UTC')::date::text AS jour FROM factures
+        `SELECT id, numero, date_emission::text AS jour FROM factures
           WHERE cabinet_id = $1 AND mission_id = $2 AND nature = 'facture' AND statut = 'emise'
-            AND numero IS NOT NULL ORDER BY emise_le, id LIMIT 1`,
+            AND numero IS NOT NULL ORDER BY date_emission, id LIMIT 1`,
         [ctx.cabinetId, m.id],
       )
     ).rows[0];

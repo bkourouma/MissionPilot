@@ -16,6 +16,7 @@ import {
   PARAMETRES_RAPPORTS,
 } from "./donnees-rapports.js";
 import { semerAvancementHebdo } from "./rapports-avancement.js";
+import { daterRapports } from "./rapports-dates.js";
 import { formatDuRang, genererRapport, sessionDe } from "./rapports-outils.js";
 import { ok } from "./outils.js";
 
@@ -258,4 +259,7 @@ export async function semerRapports(ctx: ContexteTenantDemo, casting: Casting): 
 
   const hebdo = await semerAvancementHebdo(ctx, casting);
   ctx.journal(`[rapports] rapports hebdomadaires créés : ${hebdo}`);
+  ctx.journal(
+    `[rapports] noms de fichiers ramenés à la date de génération : ${await daterRapports(ctx)}`,
+  );
 }

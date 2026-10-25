@@ -1,6 +1,8 @@
 import { CLES_CLIENTS } from "../cles.js";
+import { deviseDuClient } from "../missions/devises.js";
 import { MISSIONS_TERMINEES } from "./casting.js";
 import { appel, lire, session, type Env } from "./facturation-outils.js";
+import { montantMineur } from "./outils.js";
 
 /*
  * Vérifications de fin de module (lecture seule, hors taux manquants) : taux négociés des clients
@@ -35,7 +37,10 @@ export async function verifierTauxClients(env: Env): Promise<void> {
       await appel(
         201,
         `taux ${code} de ${cle}`,
-        g.post(`/api/clients/${id}/taux`, { grade_id: gradeId, taux }),
+        g.post(`/api/clients/${id}/taux`, {
+          grade_id: gradeId,
+          taux: montantMineur(taux, deviseDuClient(cle)),
+        }),
       );
     }
     env.ctx.journal(`facturation : taux négociés complétés pour ${cle}.`);

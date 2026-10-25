@@ -1,4 +1,6 @@
+import { PARITE_EUR_FCFA } from "@missionpilot/engines";
 import { attendre } from "../contexte.js";
+import { TAUX_USD_XOF } from "../missions/devises.js";
 import type { AffectationLue, MissionLue } from "./casting.js";
 
 /*
@@ -30,3 +32,27 @@ export const affectationsAvecCompte = (
   m: MissionLue,
 ): (AffectationLue & { utilisateurId: string })[] =>
   m.affectations.filter((a): a is AffectationLue & { utilisateurId: string } => !!a.utilisateurId);
+
+/** Valeur d'une unité majeure de la devise en XOF (EUR : parité fixe ; USD : taux fictif du seed). */
+export function valeurEnXof(devise: string): number {
+  if (devise === "EUR") return PARITE_EUR_FCFA;
+  if (devise === "USD") return TAUX_USD_XOF;
+  return 1;
+}
+
+/**
+ * Montant de référence écrit en FCFA, exprimé en UNITÉS MINEURES de la devise de la mission, comme
+ * l'attend l'API (`montantSchema` : FCFA en unités entières, EUR et USD en centimes). Pour l'EUR et
+ * l'USD, arrondi à l'unité majeure entière (au moins 1) puis converti en centimes.
+ */
+export function montantMineur(montantXof: number, devise: string): number {
+  const valeur = valeurEnXof(devise);
+  if (valeur === 1) return montantXof;
+  return Math.max(1, Math.round(montantXof / valeur)) * 100;
+}
+
+/** Libellé lisible d'un montant en unités mineures (justificatifs) : « 1 829 EUR » ou « 1 200 000 XOF ». */
+export function libelleMontant(minor: number, devise: string): string {
+  const majeur = valeurEnXof(devise) === 1 ? minor : minor / 100;
+  return `${majeur.toLocaleString("fr-FR")} ${devise}`;
+}

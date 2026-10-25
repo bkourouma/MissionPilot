@@ -190,3 +190,53 @@ export async function semerCorrections(
   }
   return faites;
 }
+
+/**
+ * Antidate les horodatages de VALIDATION des feuilles (`validee_le`, `verrouillee_le`, `cree_le`,
+ * `modifie_le`), que les routes posent « maintenant » et qu'un déclencheur fige ensuite. Sans cela
+ * la dernière date d'activité d'une mission terminée serait celle de l'exécution du seed, et sa
+ * clôture fictive serait repoussée à la veille d'aujourd'hui. Une seule requête littérale, sous le
+ * rôle `replica` le temps de la transaction (comme `appliquerSql` du lot 4), qui ne touche que des
+ * dates : la décision de validation (`feuille_validations.decide_le`, déjà datée) fait foi, la date
+ * de verrouillage est celle de la clôture mensuelle de la période. Idempotente.
+ */
+export async function antedaterFeuilles(ctx: ContexteTenantDemo): Promise<number> {
+  const c = ctx.proprietaire;
+  await c.query("BEGIN");
+  try {
+    await c.query("SET LOCAL session_replication_role = replica");
+    const r = await c.query(
+      `UPDATE feuilles_temps f SET
+         cree_le = least(f.cree_le,
+                         coalesce(f.premiere_soumission_le, f.soumise_le, f.cree_le) - interval '2 hours'),
+         validee_le = CASE WHEN f.validee_le IS NULL THEN NULL
+                           ELSE coalesce(
+                             (SELECT max(v.decide_le) FROM feuille_validations v
+                               WHERE v.feuille_id = f.id AND v.decision = 'validee'), f.validee_le) END,
+         verrouillee_le = CASE WHEN f.verrouillee_le IS NULL THEN NULL
+                               ELSE greatest(
+                                 coalesce(
+                                   (SELECT p.cloturee_le FROM periodes_temps p
+                                     WHERE p.cabinet_id = f.cabinet_id
+                                       AND p.mois = to_char(f.semaine + 4, 'YYYY-MM')),
+                                   f.verrouillee_le),
+                                 coalesce(
+                                   (SELECT max(v.decide_le) FROM feuille_validations v
+                                     WHERE v.feuille_id = f.id AND v.decision = 'validee'),
+                                   f.validee_le)) END
+       WHERE f.cabinet_id = $1 AND f.statut IN ('validee', 'verrouillee', 'soumise')`,
+      [ctx.cabinetId],
+    );
+    await c.query(
+      `UPDATE feuilles_temps f SET
+         modifie_le = greatest(f.cree_le, coalesce(f.verrouillee_le, f.validee_le, f.soumise_le, f.cree_le))
+       WHERE f.cabinet_id = $1 AND f.statut IN ('validee', 'verrouillee', 'soumise')`,
+      [ctx.cabinetId],
+    );
+    await c.query("COMMIT");
+    return r.rowCount ?? 0;
+  } catch (e) {
+    await c.query("ROLLBACK");
+    throw e;
+  }
+}
