@@ -29,6 +29,78 @@ Rien de ce qui suit n'est fait sans l'utilisateur ; tout est préparé et sans e
 
 ---
 
+## Branche `orch/2026-10-24-tenant-demo` — 2026-10-24 (cabinet de démonstration « Tenant démo »)
+
+**État.** Chantier demandé par l'utilisateur le 2026-10-24 : en plus de « Lagune Conseil & Associés (démo) », un cabinet « Tenant démo »
+(`est_demo`, cabinet de deux ans d'activité, 43 comptes actifs, 11 missions dont 5 terminées de types différents, toutes les tables
+utiles remplies), semé par `pnpm --filter @missionpilot/api db:seed-tenant-demo [--phase=<nom>] [--confirmer-demo]`. Base
+`origin/main` @ `a2d7be6` (PR n° 18, super admin, fusionnée). Branche d'intégration `orch/2026-10-24-tenant-demo` (HEAD `231b25e` à la
+rédaction), un lot = une branche `orch/2026-10-24-tenant-demo-lot-N`, copies `D:\APP\MissionPilot-worktrees\tenant-demo-lot-N`. Suivi,
+brief commun et inventaire des 216 tables : `D:\APP\MissionPilot\.orchestration\2026-10-24-tenant-demo\` (local, exclu de git).
+Décision consignée, **à valider par l'utilisateur** : `DECISIONS.md` (« Tenant démo »), dont l'hypothèse H1 (nom exact « Tenant démo »).
+**Rien n'est sur `main`**, aucune PR ouverte à la rédaction. Pas de nouvelle migration.
+
+**Fait (par lot).**
+
+| Lot | Contenu |
+| --- | --- |
+| 0 | Inventaire de couverture des tables (216 à remplir, 12 vides) |
+| 1 | Socle : cabinet, comptes (43 actifs, tous rôles et types de collaborateurs), paramètres, grades, collaborateurs, absences, clients, contacts, dossiers, portail ; contrat de phase (`tenant-demo/contexte.ts`, `phases/index.ts`), horloge fictive et hasard à graine |
+| 2a | Phase `missions` : casting des 11 missions, équipe, budget figé, signature, démarrage, pipeline ; devises par client (Gabon en USD) ; levée bornée de 7 déclencheurs (`missions/declencheurs.ts`) |
+| 2b | Phase `gestion` (temps, facturation, encaissements, rapports, salle de mission, ingestion, portail et collaboration, clôture des 5 missions terminées) : **stub dans la tête `231b25e`**, le lot 2b n'y est pas encore fusionné |
+| 3 | Phase `notation-plans` : notation, plans stratégiques, KPI, questionnaires |
+| 4 | Phase `redressement-dd` : preuves, redressement, due diligence |
+| 5 | Phase `appels-offres-canaux` : appels d'offres, canaux, capitalisation, observatoire, services candidats ; 2 comptes signataires à 2FA |
+| 6 | Phase `ia-qualite-standard` : IA (coûts simulés), agents, automatisation, copilote, qualité, standard et méthodes |
+| 7 | Connexion « un clic » : Tenant démo dans le sélecteur, vérification dans le navigateur |
+| 8 | Documentation (ce lot) : RUNBOOK « Tenant démo », DEPLOIEMENT (e), SECURITY §3 et §15, CODING_STANDARDS §1, DECISIONS, checklist (relevé du 2026-10-24), ce carnet |
+
+**Reste à faire.**
+
+- Fusionner le lot 2b (phase `gestion` : sans elle, factures, temps, rapports et la clôture des 5 missions terminées manquent) puis
+  relancer un semis COMPLET sur une base neuve et mesurer la durée.
+- Recette navigateur du Tenant démo (connexion « un clic », tableau de bord, une mission de chaque type).
+- Décisions de l'utilisateur : valider `DECISIONS.md` « Tenant démo » (H1 nom exact, devises, coûts IA simulés, 2FA au secret public) ;
+  supprimer le cabinet « Tenant démo » PARTIEL créé par erreur dans la base de développement `missionpilot` (id
+  `13970f72-2bc1-4df1-ad88-6639ace95b71`, semis lancé sans `DATABASE_OWNER_URL` ni `DATABASE_URL` : pas de suppression sans accord,
+  de nombreuses tables le référencent) ; purger les bases de travail `missionpilot_td*` et `missionpilot_verif*` (même règle).
+- Corriger côté API l'avertissement pg `client.query() already executing` émis par `cloreAtelier` (`apps/api/src/plans/ateliers.ts:411` ;
+  hors périmètre du seed).
+- Hors chantier : arbitrer l'écart de la recherche n° 8 de la checklist (52 arrondis de génération de données dans `db/tenant-demo/`,
+  dont des conversions de devise fixes : étendre la glob de la commande ou déplacer le calcul dans `packages/engines`).
+
+**Pièges.**
+
+- **Une base par agent** : jamais deux suites API (ni deux semis) sur la même base ; le global-setup recrée le schéma de test à chaque
+  exécution. Bases de travail `missionpilot_td<lot>` pour le semis, dérivées en `_test` pour les tests ; `missionpilot_verif*` pour les
+  vérificateurs.
+- **Variables d'environnement à exporter à CHAQUE appel du shell** (`DATABASE_OWNER_URL`, `DATABASE_URL`) : l'outil Bash repart d'un
+  environnement neuf. Sans elles, le semis vise la base de développement `missionpilot` (c'est ainsi que le cabinet partiel y est né).
+- **Watchdog de 600 s** : un outil qui coupe une commande silencieuse interrompt le semis en cours de phase. Lancer en arrière-plan et
+  surveiller le journal. Une phase interrompue repart d'une base NEUVE (RUNBOOK « Tenant démo »).
+- **Docker se bloque** parfois sous charge (conteneur `missionpilot-postgres` ou Docker Desktop) : `docker start missionpilot-postgres`,
+  attendre `healthy`, relancer Docker Desktop si besoin ; ne pas lancer de requêtes pendant ce temps.
+- **Durées** : une suite `seed-tenant-demo*.test.ts` prend de 3 à 17 minutes sous charge (plusieurs lots en parallèle) ; le semis
+  complet, plusieurs minutes à plusieurs dizaines de minutes. Plafonner à 2 suites API simultanées par lot.
+- **Limite des liaisons de méthode** : `mission_methodes` est en ajout seul et non antidatée ; 3 liaisons du lot 5 sont postérieures à la
+  clôture de leur mission (SECURITY §15).
+- **Rétro-planning d'un appel d'offres** (`ao-fiches-encours.ts`) : calculé à partir de la date RÉELLE, donc le jeu de données change avec
+  le jour du semis ; et toute écriture par route porte l'horloge réelle (une journée après la date fictive).
+- Le semis refuse de tourner si `OPENROUTER_API_KEY` est définie ; le retirer de l'environnement du terminal.
+- Serveur : arrêter le conteneur `api` pendant un semis (verrous brefs) ; `DEPLOIEMENT.md` (e).
+
+**Vérifié.**
+
+- Documentation (lot 8) : recherches mécaniques de la checklist relancées sur la copie `tenant-demo-lot-8` (HEAD `231b25e`), sauf
+  `pnpm audit` (réseau, aucun `package.json` de dépendances ne change) : n° 1 passe de 4 à 5 (`tenant-demo/index.ts:53`), n° 3 de 14 à 16
+  (`seed-tenant-demo.ts:54` et `:60`), n° 8 de 24 à 76, n° 9 de 5 à 7, n° 11 de 1 732 à 1 847 gabarits ; les autres sont inchangées
+  (1 002 routes dont 14 sans `exiger`, 240 migrations, 42 `GRANT EXECUTE`). Prettier propre sur les fichiers touchés.
+- Tests de chaque domaine : rapports des lots dans `suivi.md` (non relancés par le lot 8, qui ne touche aucun code).
+- Semis complet (toutes phases, base neuve, durée, nombre de lignes par table) : **À COMPLÉTER PAR LE SUPERVISEUR**.
+- Recette navigateur (connexion « un clic », écrans, anomalies) : **À COMPLÉTER PAR LE SUPERVISEUR**.
+
+---
+
 ## Branche `orch/2026-10-23-super-admin` — 2026-10-23 (super admin de plateforme, tenants, connexion de démonstration)
 
 **État.** Chantier demandé par l'utilisateur le 2026-10-23 : un super admin crée des tenants (cabinets) et leurs comptes ; un script
