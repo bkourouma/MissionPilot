@@ -203,6 +203,34 @@ describe("seed du Tenant démo : redressement, preuves, due diligence", () => {
     }
   });
 
+  it("unités mineures : USD en centimes (CA 2025 = 48 000 000 USD), XAF en francs entiers", async () => {
+    const lire = async (nom: string, code: string) =>
+      lignes<{ montant: string }>(
+        `SELECT l.montant::text FROM dossier_etats_lignes l
+           JOIN dossier_etats_financiers e ON e.id = l.etat_id
+           JOIN missions m ON m.client_id = e.client_id
+          WHERE m.intitule = $1 AND e.exercice = 2025 AND l.code = $2`,
+        [nom, code],
+      );
+    const ca7 = await lire(MISSIONS.redressementEnCours, "XB");
+    expect(ca7.map((x) => Number(x.montant))).toEqual([4_800_000_000]);
+    const soldeInitial = await lignes<{ solde_initial: string }>(
+      `SELECT v.solde_initial::text FROM red_tresorerie_versions v
+         JOIN red_dossiers d ON d.id = v.dossier_id JOIN missions m ON m.id = d.mission_id
+        WHERE m.intitule = $1 ORDER BY v.version LIMIT 1`,
+      [MISSIONS.redressementEnCours],
+    );
+    // 380 M XOF des données = 1 900 000 USD = 190 000 000 centimes.
+    expect(Number(soldeInitial[0]?.solde_initial)).toBe(190_000_000);
+    const m3 = await lignes<{ solde_initial: string }>(
+      `SELECT v.solde_initial::text FROM red_tresorerie_versions v
+         JOIN red_dossiers d ON d.id = v.dossier_id JOIN missions m ON m.id = d.mission_id
+        WHERE m.intitule = $1`,
+      [MISSIONS.redressementTermine],
+    );
+    for (const x of m3) expect(Number.isInteger(Number(x.solde_initial))).toBe(true);
+  });
+
   it("preuves : contradictions arbitrées par quelqu'un d'autre que l'auteur de l'assertion", async () => {
     const r = await lignes<{ n: string }>(
       `SELECT count(*) n FROM preuve_arbitrages b JOIN assertions a ON a.id = b.assertion_id

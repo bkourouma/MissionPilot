@@ -26,6 +26,7 @@ import {
   tresorerieV3M3,
   tresorerieV4M3,
 } from "./redressement-m3-etapes-2.js";
+import { renoterM3 } from "./redressement-m3-renotation.js";
 import { recalibrerIndustrie2025 } from "./redressement-parametrage.js";
 
 /*
@@ -58,6 +59,7 @@ export async function semerM3(ctx: ContexteTenantDemo): Promise<void> {
   await causesV2M3(ctx);
   await conformiteFinM3(ctx);
   await diagnosticFinM3(ctx);
+  await renoterM3(ctx);
   await clotureM3(ctx);
   await suiviM3(ctx);
 }
