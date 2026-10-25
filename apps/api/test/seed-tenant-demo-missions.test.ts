@@ -16,6 +16,7 @@ import {
   parNom,
   SIGNEES,
   TERMINEES,
+  verifierBilansEtCloturants,
   verifierBudget,
   verifierJoursAlloues,
   verifierPipelineGagne,
@@ -130,7 +131,6 @@ describe("seed du Tenant démo (phase missions)", () => {
       expect(trouvees[0]?.date_fin, `fin de ${d.nom}`).toBe(d.fin);
       expect(trouvees[0]?.client_id, `client de ${d.nom}`).toBeTruthy();
     }
-    // Un client distinct par mission du casting.
     expect(new Set(CASTING.map((d) => d.client)).size).toBe(11);
     expect(new Set(avantCloture.map((m) => m.client_id)).size).toBe(11);
   });
@@ -265,7 +265,7 @@ describe("seed du Tenant démo (phase missions)", () => {
         expect(m.cloturee_le, d.nom).toBeNull();
       }
     }
-    expect(await nombre("SELECT count(*) n FROM bilans_mission WHERE cabinet_id = $1")).toBe(5);
+    await verifierBilansEtCloturants(lignes, cabinetId);
     expect(clotureAuditApres3).toBeGreaterThan(0);
     expect(clotureAuditApres4).toBe(clotureAuditApres3);
     expect(await lireMissions()).toEqual(apresCloture);
@@ -305,7 +305,6 @@ describe("seed du Tenant démo (phase missions)", () => {
           AND p.validee_le < p.envoyee_le AND p.envoyee_le < p.repondue_le
           AND p.repondue_le <= m.cree_le`);
     expect(ok).toBe(11);
-    // Toutes les propositions (pipeline complémentaire compris) : validée <= envoyée <= répondue.
     expect(
       await nombre(`SELECT count(*) n FROM propositions WHERE cabinet_id = $1 AND NOT (
           cree_le <= validee_le AND (envoyee_le IS NULL OR validee_le <= envoyee_le)

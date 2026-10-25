@@ -1,8 +1,9 @@
 import { ajouterJours } from "@missionpilot/engines";
-import { attendre, type ContexteTenantDemo } from "../contexte.js";
+import type { CleCompte } from "../cles.js";
+import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 import { etalerJournal, maintenantBase } from "./antidatage.js";
 import { transactionAntidatage } from "./declencheurs.js";
-import { CASTING } from "./donnees-casting.js";
+import { CASTING, type DefMission } from "./donnees-casting.js";
 
 /*
  * Clôture réelle des missions TERMINÉES du casting, par les routes de clôture (check-list
@@ -20,8 +21,37 @@ import { CASTING } from "./donnees-casting.js";
 /** Jours après la fin de la mission où l'on date la clôture (facturation et solde réglés). */
 const DELAI_CLOTURE_JOURS = 6;
 
+/**
+ * Associé qui clôt la mission : l'associé de l'équipe de la mission (il la signe), à défaut l'autre
+ * associé. Celui qui a accordé une dérogation en vigueur ne clôt pas (séparation des tâches, MPX03).
+ * Les clôtureurs diffèrent d'une mission à l'autre : l'autre associé reste indépendant et peut
+ * être relecteur de la revue à froid (QUA-05). Seuls les comptes qui ont une session sont retenus.
+ */
+async function choisirCloturer(
+  ctx: ContexteTenantDemo,
+  def: DefMission,
+  missionId: string,
+): Promise<SessionDemo> {
+  const equipe = (def.equipe.associe ?? []).filter((c) => c === "associe" || c === "associe.2");
+  const candidats = [...new Set([...equipe, "associe", "associe.2"])] as CleCompte[];
+  const deroge = await ctx.database.withTenant(ctx.cabinetId, async (db) => {
+    const r = await db.query(
+      `SELECT d.par FROM (
+         SELECT DISTINCT ON (controle) par, action FROM cloture_derogations
+          WHERE mission_id = $1 ORDER BY controle, le DESC, id DESC) d
+        WHERE d.action = 'accordee'`,
+      [missionId],
+    );
+    return new Set(r.rows.map((x) => x.par as string));
+  });
+  for (const cle of candidats) {
+    const session = ctx.sessions[cle];
+    if (session && !deroge.has(session.utilisateurId)) return session;
+  }
+  throw new Error(`Aucun associé ne peut clore « ${def.nom} » (dérogations en vigueur).`);
+}
+
 export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promise<void> {
-  const associe = ctx.session("associe");
   for (const def of CASTING.filter((d) => d.etat === "terminee")) {
     const lue = await ctx.database.withTenant(ctx.cabinetId, async (db) => {
       const r = await db.query(
@@ -64,7 +94,8 @@ export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promis
       .session(def.chef)
       .post(`/api/missions/${lue.id}/cloture/evaluer`, {});
     attendre(200, evaluation, `évaluation de clôture de ${def.nom}`);
-    const cloture = await associe.post(`/api/missions/${lue.id}/cloturer`);
+    const cloturer = await choisirCloturer(ctx, def, lue.id);
+    const cloture = await cloturer.post(`/api/missions/${lue.id}/cloturer`);
     attendre(200, cloture, `clôture de ${def.nom}`);
     await antidaterCloture(ctx, lue.id, jourCloture);
     await etalerJournal(
