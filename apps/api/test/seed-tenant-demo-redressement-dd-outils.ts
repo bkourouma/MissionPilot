@@ -201,3 +201,23 @@ async function poserDevise(ctx: ContexteTenantDemo, id: string, devise: string):
     throw e;
   }
 }
+
+/** Les 44 tables du périmètre : aucune ne doit rester vide pour le cabinet. */
+export const TABLES_PERIMETRE = (
+  "dossier_facteurs dossier_exports dossier_faits_decisions preuve_dimensions preuves " +
+  "preuve_versions assertions assertion_versions assertion_preuve_liens preuve_arbitrages " +
+  "red_seuils_versions red_checklist_modeles red_checklist_versions red_suivi_evenements " +
+  "red_action_evenements red_actions red_causes_historique red_causes_versions " +
+  "red_checklist_reponses red_checklists red_clotures red_correspondances red_covenants_lignes " +
+  "red_covenants_versions red_creances red_creanciers red_dossiers red_echeances " +
+  "red_financement_lignes red_financement_versions red_negociation_evenements red_plan_versions " +
+  "red_scores red_suivi_jalons red_suivi_plans red_suivi_releves red_tresorerie_lignes " +
+  "red_tresorerie_realises red_tresorerie_versions red_urgences " +
+  "dd_dossiers dd_signaux dd_exclusion_listes dd_portail_options dd_modeles_secteur " +
+  "dd_cadrage_versions dd_signal_versions dd_elements dd_dimensionnements " +
+  "dd_exclusion_liste_versions dd_ajustements dd_notes dd_portail_invites " +
+  "dd_modele_secteur_versions dd_element_versions dd_signal_constats dd_hypothese_liens " +
+  "dd_verdicts dd_dimensionnement_versions dd_filtrages dd_note_versions " +
+  "dd_verdict_validations dd_filtrage_decisions dd_note_validations dd_portail_publications " +
+  "dd_portail_pieces dd_portail_publication_retraits portail_parametres"
+).split(" ");

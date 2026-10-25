@@ -57,10 +57,12 @@ export async function idsActions(
   a: Acteurs,
   dossierId: string,
 ): Promise<Map<string, { id: string; statut: string }>> {
-  const plan = await lire(a.chef, urlD(dossierId, "/plan"), "plan");
+  const plan = (await lire(a.chef, urlD(dossierId, "/plan"), "plan")) as {
+    kanban: { colonnes: Record<string, Json[]>; abandonnees: Json[] };
+  };
   const toutes: Json[] = [
-    ...Object.values(plan.kanban.colonnes as Record<string, Json[]>).flat(),
-    ...(plan.kanban.abandonnees as Json[]),
+    ...Object.values(plan.kanban.colonnes).flat(),
+    ...plan.kanban.abandonnees,
   ];
   return new Map(
     toutes.map((x) => [x.titre as string, { id: x.id as string, statut: x.statut as string }]),
