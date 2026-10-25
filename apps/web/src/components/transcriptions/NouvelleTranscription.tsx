@@ -161,7 +161,7 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
         erreur={erreurFichier ?? undefined}
         progression={progression}
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
           libelle="Langue de l'enregistrement"
           required

@@ -269,3 +269,13 @@
   margin: 0;
   font-size: var(--mp-taille-m);
 }
+
+/*
+ * Badge de contenu IA (brouillon IA, modifié, validé) : étiquette à coins nets et bordure
+ * pleine, pour ne jamais se confondre avec la pastille arrondie « Calculé » d'un chiffre issu
+ * d'un moteur de calcul.
+ */
+.mp-badge--ia {
+  border-radius: calc(var(--mp-rayon) / 2);
+  font-weight: 700;
+}

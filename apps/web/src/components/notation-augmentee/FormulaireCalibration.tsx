@@ -78,7 +78,7 @@ export function FormulaireCalibration() {
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
 
       <fieldset className="mp-na-groupe">
-        <legend>Session</legend>
+        <legend>Paramètres</legend>
         <Champ
           libelle="Titre de la session"
           required

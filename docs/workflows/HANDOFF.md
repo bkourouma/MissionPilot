@@ -17,22 +17,20 @@ partout dans l'interface web. Contrat de direction : `apps/web/.impeccable/surfa
 
 **Fait (apps/web seulement, routes, droits et fonctions inchangés).** Jetons violet nuit / lavande / or (`styles/tokens.css`),
 Sora (titres, chiffres) et Figtree (texte) par `@fontsource-variable/*` (dépendances ajoutées, fichiers servis par l'application,
-rien d'externe) ; rail violet nuit groupé par métier (`lib/navigation.ts` : `grouperEntrees`, 6 groupes, la table NAVIGATION et ses
+rien d'externe) ; rail violet nuit groupé par métier, groupes repliables (seul celui de la page courante est ouvert ; `lib/navigation.ts` : `grouperEntrees`, `entreeActive` = correspondance la plus longue, 6 groupes, la table NAVIGATION et ses
 droits sont inchangés), menu du téléphone groupé de même ; logo en SVG (`components/shell/Marque.tsx`) ; connexion et invitation
 en deux panneaux (`VisuelMarque.tsx`) ; bouton principal or ; tableau de bord : « Missions en vol » (tableau + `Trajectoire.tsx`) et
 modules groupés ; fiche mission : carte « Cap de la mission » (`CapMission.tsx`, lit `/api/missions/:id/suivi`) ; portail client :
 même marque en en-tête ; 15 bordures gauches épaisses signalées par le détecteur remplacées par des fonds teintés. Icônes, manifeste,
 couleur de thème mis à jour.
 
-**Pièges.** (1) Chaînes « MissionPilot » restées côté **API** (e-mails, rapports générés, émetteur TOTP `uriOtpauth`, titre OpenRouter,
-mot de passe de démonstration `Demo-MissionPilot-2026` : ne pas le changer sans le seed) : renommage visible à décider, non fait.
-(2) Le `.rail` est une colonne fixe de 248 px en grille (`.mp-cadre` ≥ 960 px) : l'en-tête est la case du logo, le contenu s'étend
+**Pièges.** (1) Renommage côté API fait (e-mails, rapports, émetteur TOTP, titre OpenRouter, SMS) ; restent volontairement « MissionPilot » : mot de passe de démonstration `Demo-MissionPilot-2026`, adresses `@demo.missionpilot.test`, noms de rôle, de base et de paquet, prompts du modèle de langage (empreintes testées), migrations SQL, commentaires. (2) Le `.rail` est une colonne fixe de 248 px en grille (`.mp-cadre` ≥ 960 px) : l'en-tête est la case du logo, le contenu s'étend
 sur les deux lignes. (3) Non implémentés faute de donnée ou de fonction existante : courbe « Cap du cabinet » dans le temps (pas de série
 temporelle servie), recherche globale. (4) La base de développement `missionpilot` a reçu les migrations manquantes (0210 à 0563) pour
 lancer l'application. (5) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
 Captures et scripts de rendu (Chrome headless) : `apps/web/.impeccable/review/`, jamais commités.
 
-**Reste à faire.** Décision de l'utilisateur sur le renommage côté API ; fusion de la PR n° 19 (à l'utilisateur) ; revue de recette
+**Reste à faire.** Le rail défile quand plusieurs groupes sont ouverts ; fusion de la PR n° 19 ; revue de recette
 navigateur des modules rares (portail client complet, appels d'offres, due diligence) ; vérifier les graphiques de `plan-montecarlo`
 et la fiche `salle de mission` en sombre.
 

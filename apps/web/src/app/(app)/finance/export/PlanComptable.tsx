@@ -78,7 +78,7 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
         />
         <fieldset className="mp-groupe">
           <legend className="mp-champ__libelle">Comptes</legend>
-          <div className="mp-grille-champs mp-grille-champs--serree">
+          <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {p.comptes.map((c) => (
               <Champ
                 key={c.cle}
@@ -97,7 +97,7 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
         </fieldset>
         <fieldset className="mp-groupe">
           <legend className="mp-champ__libelle">Codes journaux</legend>
-          <div className="mp-grille-champs mp-grille-champs--serree">
+          <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {p.journaux.map((j) => (
               <Champ
                 key={j.cle}

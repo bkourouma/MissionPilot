@@ -119,8 +119,8 @@
   }
 
   body {
-    background: #fff !important;
-    color: #000 !important;
+    background: white !important;
+    color: black !important;
   }
 
   .mp-tdb-grille {
@@ -129,7 +129,7 @@
 
   .mp-tdb-bloc,
   .mp-carte {
-    border: 1px solid #000;
+    border: 1px solid black;
     box-shadow: none;
     break-inside: avoid;
   }

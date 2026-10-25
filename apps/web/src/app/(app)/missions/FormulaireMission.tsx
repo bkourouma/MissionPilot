@@ -90,7 +90,7 @@ export function FormulaireMission({
         onChange={(e) => maj("intitule")(e.target.value)}
         erreur={f.erreurs.intitule}
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         {creation ? (
           <>
             <Select
@@ -181,7 +181,7 @@ export function FormulaireMission({
       </div>
       <fieldset className="mp-groupe">
         <legend className="mp-champ__libelle">Axes analytiques (facultatifs)</legend>
-        <div className="mp-grille-champs">
+        <div className="mp-grille-champs mp-grille-champs--bas">
           <Champ
             libelle="Activité"
             name="activite"

@@ -90,3 +90,28 @@
   padding: 0;
   border: 0;
 }
+
+/* Champ fichier : le bouton natif prend l'allure d'un bouton secondaire du système. */
+input[type="file"] {
+  max-width: 100%;
+  color: var(--mp-texte-doux);
+  font: inherit;
+  font-size: var(--mp-taille-s);
+}
+
+input[type="file"]::file-selector-button {
+  min-height: var(--mp-cible);
+  margin-inline-end: var(--mp-esp-3);
+  padding: var(--mp-esp-2) var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+input[type="file"]:hover::file-selector-button {
+  background: var(--mp-surface-2);
+}

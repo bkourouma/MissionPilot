@@ -124,7 +124,7 @@ export function FormulaireEncaissement({
         refAlerte={form.refAlerte}
         titreErreur="Encaissement refusé"
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
           libelle="Client"
           required

@@ -145,76 +145,78 @@ function Resultats({ r }: { r: ReponseRentabilite }) {
           <p>Élargissez la période ou vérifiez que des temps ont été validés.</p>
         </EtatVide>
       ) : (
-        <Tableau
-          legende={`Rentabilité par ${NIVEAU_RENTABILITE_LIBELLES[r.niveau].toLowerCase()}, montants en ${r.devise}`}
-          legendeVisible
-          lignes={r.elements}
-          cleLigne={(l) => l.cle}
-          colonnes={[
-            {
-              cle: "libelle",
-              entete: NIVEAU_RENTABILITE_LIBELLES[r.niveau],
-              rendu: (l) =>
-                r.niveau === "mission" ? (
-                  <Link href={`/missions/${encodeURIComponent(l.cle)}/budget`}>{l.libelle}</Link>
-                ) : (
-                  `${l.libelle} (${l.nombre_missions} mission${l.nombre_missions > 1 ? "s" : ""})`
-                ),
-            },
-            {
-              cle: "hon",
-              entete: "Honoraires",
-              alignement: "droite",
-              rendu: (l) => m(l.honoraires),
-            },
-            {
-              cle: "couts",
-              entete: "Coûts internes",
-              alignement: "droite",
-              rendu: (l) => m(l.couts_internes),
-            },
-            {
-              cle: "debours",
-              entete: "Débours non refacturés",
-              alignement: "droite",
-              rendu: (l) => m(l.debours_non_refactures),
-            },
-            {
-              cle: "st",
-              entete: "Sous-traitance",
-              alignement: "droite",
-              rendu: (l) => m(l.sous_traitance),
-            },
-            { cle: "marge", entete: "Marge", alignement: "droite", rendu: (l) => m(l.marge) },
-            {
-              cle: "taux",
-              entete: "Marge en %",
-              alignement: "droite",
-              rendu: (l) => {
-                const s = statutMarge(l.taux_marge, l.marge);
-                return (
-                  <span className="mp-pile-inline">
-                    <span>{formaterPourcentage(l.taux_marge)}</span>
-                    <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>
-                  </span>
-                );
+        <div className="mp-tableau-dense">
+          <Tableau
+            legende={`Rentabilité par ${NIVEAU_RENTABILITE_LIBELLES[r.niveau].toLowerCase()}, montants en ${r.devise}`}
+            legendeVisible
+            lignes={r.elements}
+            cleLigne={(l) => l.cle}
+            colonnes={[
+              {
+                cle: "libelle",
+                entete: NIVEAU_RENTABILITE_LIBELLES[r.niveau],
+                rendu: (l) =>
+                  r.niveau === "mission" ? (
+                    <Link href={`/missions/${encodeURIComponent(l.cle)}/budget`}>{l.libelle}</Link>
+                  ) : (
+                    `${l.libelle} (${l.nombre_missions} mission${l.nombre_missions > 1 ? "s" : ""})`
+                  ),
               },
-            },
-            {
-              cle: "budget",
-              entete: "Marge budgétée",
-              alignement: "droite",
-              rendu: (l) => m(l.budget.marge),
-            },
-            {
-              cle: "jours",
-              entete: "Jours : budget / réalisé / atterrissage",
-              alignement: "droite",
-              rendu: (l) =>
-                `${formaterJours(l.budget.jours)} / ${formaterJours(l.realise.jours)} / ${formaterJours(l.atterrissage.jours)}`,
-            },
-          ]}
-        />
+              {
+                cle: "hon",
+                entete: "Honoraires",
+                alignement: "droite",
+                rendu: (l) => m(l.honoraires),
+              },
+              {
+                cle: "couts",
+                entete: "Coûts internes",
+                alignement: "droite",
+                rendu: (l) => m(l.couts_internes),
+              },
+              {
+                cle: "debours",
+                entete: "Débours non refacturés",
+                alignement: "droite",
+                rendu: (l) => m(l.debours_non_refactures),
+              },
+              {
+                cle: "st",
+                entete: "Sous-traitance",
+                alignement: "droite",
+                rendu: (l) => m(l.sous_traitance),
+              },
+              { cle: "marge", entete: "Marge", alignement: "droite", rendu: (l) => m(l.marge) },
+              {
+                cle: "taux",
+                entete: "Marge en %",
+                alignement: "droite",
+                rendu: (l) => {
+                  const s = statutMarge(l.taux_marge, l.marge);
+                  return (
+                    <span className="mp-pile-inline">
+                      <span>{formaterPourcentage(l.taux_marge)}</span>
+                      <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>
+                    </span>
+                  );
+                },
+              },
+              {
+                cle: "budget",
+                entete: "Marge budgétée",
+                alignement: "droite",
+                rendu: (l) => m(l.budget.marge),
+              },
+              {
+                cle: "jours",
+                entete: "Jours : budget / réalisé / atterrissage",
+                alignement: "droite",
+                rendu: (l) =>
+                  `${formaterJours(l.budget.jours)} / ${formaterJours(l.realise.jours)} / ${formaterJours(l.atterrissage.jours)}`,
+              },
+            ]}
+          />
+        </div>
       )}
     </>
   );

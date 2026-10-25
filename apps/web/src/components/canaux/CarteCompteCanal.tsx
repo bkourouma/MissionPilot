@@ -177,6 +177,7 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
           <div className="mp-actions-formulaire">
             <Bouton
               type="submit"
+              variante={avecOptions ? "primaire" : "secondaire"}
               chargement={f.enCours}
               texteChargement="Enregistrement…"
               disabled={!modifie}

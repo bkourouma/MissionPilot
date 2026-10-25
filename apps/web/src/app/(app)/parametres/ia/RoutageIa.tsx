@@ -15,10 +15,10 @@ const COLONNES: readonly ColonneTableau<RouteTacheVue>[] = [
     cle: "critere",
     entete: "Critère du choix",
     rendu: (l) => (
-      <>
+      <span>
         <BadgeStatut tonalite="neutre">{libelleCritere(l.critere)}</BadgeStatut>
         {l.motif ? <span className="mp-texte-petit mp-texte-doux"> {l.motif}</span> : null}
-      </>
+      </span>
     ),
   },
   {
@@ -30,12 +30,12 @@ const COLONNES: readonly ColonneTableau<RouteTacheVue>[] = [
     cle: "modele_applique",
     entete: "Modèle appliqué",
     rendu: (l) => (
-      <>
+      <span>
         <span className="mp-ia-code">{l.modele_applique}</span>
         {l.personnalise ? (
           <span className="mp-texte-petit mp-texte-doux"> (choisi par le cabinet)</span>
         ) : null}
-      </>
+      </span>
     ),
   },
   {

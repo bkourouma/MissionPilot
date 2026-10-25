@@ -365,7 +365,7 @@
 .mp-red-graphique__graduation,
 .mp-red-graphique__abscisse {
   fill: var(--mp-texte-doux);
-  font-size: 12px;
+  font-size: var(--mp-taille-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -608,4 +608,20 @@
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+
+/* Le bouton de filtre garde sa largeur naturelle (comme les filtres des autres modules). */
+.mp-filtres > .mp-bouton {
+  align-self: flex-start;
+}
+
+/* Ouverture du dossier, posée dans l'état vide : champs alignés à gauche, sur une colonne. */
+.mp-red-ouverture {
+  width: 100%;
+  max-width: 36rem;
+  text-align: left;
+}
+
+.mp-red-ouverture .mp-grille-champs {
+  grid-template-columns: minmax(0, 1fr);
 }

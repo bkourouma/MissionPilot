@@ -132,7 +132,13 @@ export function AjoutActivite() {
         onChange={(e) => setSaisie((s) => ({ ...s, est_absence: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="plus" chargement={f.enCours} texteChargement="Ajout…">
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          icone="plus"
+          chargement={f.enCours}
+          texteChargement="Ajout…"
+        >
           Ajouter l&apos;activité
         </Bouton>
       </div>

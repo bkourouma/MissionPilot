@@ -300,8 +300,8 @@ h4.mp-qe-entete__titre {
 
 @media (min-width: 640px) {
   .mp-apercu__choix--echelle {
-    flex-direction: row;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     column-gap: var(--mp-esp-4);
   }
 }

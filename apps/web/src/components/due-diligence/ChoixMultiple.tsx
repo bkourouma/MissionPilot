@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { Bouton } from "../ui/Bouton";
+import { Icone } from "../ui/Icone";
 import { Select, type OptionSelect } from "../ui/Select";
 
 export interface ChoixMultipleProps {
@@ -79,7 +80,7 @@ export function ChoixMultiple({
                 aria-label={`Retirer ${libelleDe(v)}`}
                 onClick={() => onChange(valeurs.filter((x) => x !== v))}
               >
-                ×
+                <Icone nom="fermer" taille={14} />
               </button>
             </li>
           ))}

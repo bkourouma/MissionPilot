@@ -16,7 +16,11 @@ export function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevisions 
   const m = (v: number) => formaterMontantMineur(v, r.devise);
 
   const colonnesCa: ColonneTableau<MoisPrevision>[] = [
-    { cle: "mois", entete: "Mois", rendu: (l) => libelleMois(l.mois) },
+    {
+      cle: "mois",
+      entete: "Mois",
+      rendu: (l) => <span className="mp-sans-coupure">{libelleMois(l.mois)}</span>,
+    },
     { cle: "carnet", entete: "Carnet signé", alignement: "droite", rendu: (l) => m(l.ca_carnet) },
     {
       cle: "pipeline",
@@ -33,7 +37,11 @@ export function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevisions 
   ];
 
   const colonnesCharge: ColonneTableau<MoisPrevision>[] = [
-    { cle: "mois", entete: "Mois", rendu: (l) => libelleMois(l.mois) },
+    {
+      cle: "mois",
+      entete: "Mois",
+      rendu: (l) => <span className="mp-sans-coupure">{libelleMois(l.mois)}</span>,
+    },
     {
       cle: "capacite",
       entete: "Capacité",

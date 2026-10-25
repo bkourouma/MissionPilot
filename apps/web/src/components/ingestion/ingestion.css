@@ -78,7 +78,7 @@
 .mp-ing-definitions dt {
   margin: 0;
   color: var(--mp-texte-doux);
-  font-size: 0.875rem;
+  font-size: var(--mp-taille-s);
 }
 
 .mp-ing-definitions dd {

@@ -182,7 +182,7 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
           ) : null
         }
       >
-        <p className="mp-texte-doux">
+        <p className="mp-texte-doux" style={{ marginBottom: "var(--mp-esp-4)" }}>
           Les documents de la mission (versions, validation) sont dans l&apos;onglet{" "}
           <Link href={`/missions/${m.id}/documents`}>Documents</Link>.
         </p>
