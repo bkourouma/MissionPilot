@@ -11,7 +11,12 @@ import { api } from "../../../../../lib/api";
 import { CATEGORIE_LIBELLES, type Debours } from "../../../../../lib/debours";
 import type { Echeance } from "../../../../../lib/echeancier";
 import { messageFacture, validerCreationFacture } from "../../../../../lib/factures";
-import { formaterDate, formaterMontantMineur, type Devise } from "../../../../../lib/format";
+import {
+  formaterDate,
+  formaterMontantMineur,
+  type Devise,
+  libelleDevise,
+} from "../../../../../lib/format";
 
 export interface CreationFactureProps {
   missionId: string;
@@ -98,7 +103,7 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
       </fieldset>
       <Champ
         libelle="Objet de la facture"
-        aide={`Facultatif. Devise : ${devise}.`}
+        aide={`Facultatif. Devise : ${libelleDevise(devise)}.`}
         maxLength={300}
         value={objet}
         onChange={(e) => setObjet(e.target.value)}

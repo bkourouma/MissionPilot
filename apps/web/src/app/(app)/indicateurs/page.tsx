@@ -13,7 +13,7 @@ import { EtatErreur } from "../../../components/ui/EtatListe";
 import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { chargerServeur } from "../../../lib/api-serveur";
-import { formaterDate } from "../../../lib/format";
+import { formaterDate, libelleDevise } from "../../../lib/format";
 import {
   alertesDerive,
   indicateursAffiches,
@@ -105,7 +105,7 @@ export default async function PageIndicateurs({
               {`Cabinet du ${formaterDate(r.donnees.du)} au ${formaterDate(r.donnees.au)}`}
             </h2>
             <p className="mp-texte-doux">
-              {`Montants en ${r.donnees.devise}. Jalons et feuilles évalués au ${formaterDate(r.donnees.date_reference)}. Les statuts de couleur appliquent des seuils de lecture de départ, à valider par le cabinet.`}
+              {`Montants en ${libelleDevise(r.donnees.devise)}. Jalons et feuilles évalués au ${formaterDate(r.donnees.date_reference)}. Les statuts de couleur appliquent des seuils de lecture de départ, à valider par le cabinet.`}
             </p>
             {r.donnees.missions_exclues && r.donnees.missions_exclues.length > 0 ? (
               <Alerte tonalite="attention" annonce="aucune">

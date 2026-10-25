@@ -18,7 +18,12 @@ import {
   type SaisieLigne,
   type TypeRemise,
 } from "../../../../lib/factures";
-import { formaterMontantMineur, formaterNombre, type Devise } from "../../../../lib/format";
+import {
+  formaterMontantMineur,
+  formaterNombre,
+  type Devise,
+  libelleDevise,
+} from "../../../../lib/format";
 import { montantVersSaisie } from "../../../../lib/saisie";
 
 const NBSP = " ";
@@ -220,7 +225,7 @@ export function ChampsRemise({
         options={[
           { valeur: "", libelle: "Aucune" },
           { valeur: "pourcentage", libelle: "En pourcentage" },
-          { valeur: "montant", libelle: `En montant (${devise})` },
+          { valeur: "montant", libelle: `En montant (${libelleDevise(devise)})` },
         ]}
         value={saisie.type}
         onChange={(e) => {
@@ -233,7 +238,11 @@ export function ChampsRemise({
       />
       {saisie.type ? (
         <Champ
-          libelle={saisie.type === "pourcentage" ? `${libelle} (%)` : `${libelle} (${devise})`}
+          libelle={
+            saisie.type === "pourcentage"
+              ? `${libelle} (%)`
+              : `${libelle} (${libelleDevise(devise)})`
+          }
           required
           inputMode="decimal"
           value={saisie.valeur}

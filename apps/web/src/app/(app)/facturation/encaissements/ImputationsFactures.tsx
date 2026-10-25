@@ -7,7 +7,12 @@ import { Champ } from "../../../../components/ui/Champ";
 import { Icone } from "../../../../components/ui/Icone";
 import { Squelette } from "../../../../components/ui/Squelette";
 import type { Creance } from "../../../../lib/encaissements";
-import { formaterDate, formaterMontantMineur, type Devise } from "../../../../lib/format";
+import {
+  formaterDate,
+  formaterMontantMineur,
+  type Devise,
+  libelleDevise,
+} from "../../../../lib/format";
 import { montantVersSaisie } from "../../../../lib/saisie";
 
 /**
@@ -73,7 +78,7 @@ export function ImputationsFactures({
                   </p>
                   {autreDevise ? (
                     <p className="mp-texte-doux mp-texte-petit">
-                      {`Facture en ${c.devise} : choisissez cette devise pour l'imputer.`}
+                      {`Facture en ${libelleDevise(c.devise)} : choisissez cette devise pour l'imputer.`}
                     </p>
                   ) : null}
                 </div>

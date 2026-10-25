@@ -10,7 +10,12 @@ import { Select } from "../../../components/ui/Select";
 import { Tableau } from "../../../components/ui/Tableau";
 import { chargerServeur, type Chargement } from "../../../lib/api-serveur";
 import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
-import { formaterDate, formaterMontantMineur, formaterNombre } from "../../../lib/format";
+import {
+  formaterDate,
+  formaterMontantMineur,
+  formaterNombre,
+  libelleDevise,
+} from "../../../lib/format";
 import {
   ETAPE_LIBELLES,
   formaterProbabilite,
@@ -215,7 +220,7 @@ function SyntheseAgregat({ agregat }: { agregat: Chargement<AgregatPipeline> }) 
             {a.totaux.map((t) => (
               <li key={t.devise} className="mp-totaux__element">
                 <span className="mp-totaux__libelle">
-                  {`${formaterNombre(t.nombre, 0)} opportunité(s) en ${t.devise}`}
+                  {`${formaterNombre(t.nombre, 0)} opportunité(s) en ${libelleDevise(t.devise)}`}
                 </span>
                 <span className="mp-totaux__valeur">
                   {formaterMontantMineur(t.montant_pondere, t.devise)}

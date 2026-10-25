@@ -2,6 +2,7 @@ import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import { Alerte } from "../ui/Alerte";
 import { Tableau } from "../ui/Tableau";
+import { libelleDevise } from "../../lib/format";
 import {
   AVERTISSEMENT_GROUPE,
   formaterFiabiliteGroupe,
@@ -53,7 +54,7 @@ export function ConsolidationGroupe({ groupe }: { groupe: GroupeApi }) {
       <h2 id="titre-consolidation" className="mp-carte__titre">
         Consolidation simple
         {c.exercice !== null ? ` · exercice ${c.exercice}` : ""}
-        {c.devise ? ` · ${c.devise}` : ""}{" "}
+        {c.devise ? ` · ${libelleDevise(c.devise)}` : ""}{" "}
         {c.partielle ? (
           <BadgeStatut tonalite="attention">Consolidation partielle</BadgeStatut>
         ) : null}

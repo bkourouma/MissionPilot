@@ -14,6 +14,7 @@ import {
   formaterDateHeure,
   formaterJours,
   formaterMontantMineur,
+  libelleDevise,
 } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { optionsPersonnes } from "../../../../../lib/personnes";
@@ -206,7 +207,7 @@ export default async function PageProposition({ params }: { params: Promise<{ id
         <dl className="mp-liste-def">
           <div>
             <dt>Devise</dt>
-            <dd>{p.devise}</dd>
+            <dd>{libelleDevise(p.devise)}</dd>
           </div>
           <div>
             <dt>Date de référence des taux</dt>
