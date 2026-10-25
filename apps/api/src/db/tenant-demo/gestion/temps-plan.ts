@@ -19,7 +19,7 @@ import { maxDate, minDate } from "./outils.js";
  * - mission TERMINÉE : 96 à 103 % des jours alloués de chaque affectation, sauf
  *   `wouri-redressement` (~150 %, dépassement voulu) ;
  * - mission EN COURS : prorata de l'avancement à la date du jour (100 %), sauf
- *   `gabon-redressement` (~135 % du prorata, dépassement voulu) ;
+ *   `gabon-redressement` (~120 % du prorata, dépassement voulu) ;
  * - les tâches (une tâche = une phase) se consomment dans l'ordre du casting, sur des fenêtres
  *   proportionnelles à leurs jours alloués : les premières phases sont terminées, la phase
  *   courante est entamée.

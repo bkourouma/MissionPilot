@@ -70,14 +70,13 @@ export const DONNEES_C: Partial<Record<CleMission, MissionFacturation>> = {
         date: "2026-09-29",
         objet: "Restitution du diagnostic stratégique",
         etat: "emise",
-        paiements: [{ jours: 17, part: "reste", mode: "virement" }],
       },
       {
         cle: "F4",
         echeances: ["D"],
         date: "2026-10-15",
         objet: "Séminaire de validation avec le comité de direction",
-        etat: "emise",
+        etat: "a_approuver",
       },
       {
         cle: "FAV",
@@ -229,25 +228,23 @@ export const DONNEES_C: Partial<Record<CleMission, MissionFacturation>> = {
         date: "2026-08-21",
         objet: "Acompte à la signature de la notation du portefeuille",
         etat: "emise",
-        paiements: [{ jours: 20, part: "reste", mode: "virement" }],
+        paiements: [
+          { jours: 20, part: 50, mode: "virement", commentaire: "Règlement partiel de l'acompte" },
+        ],
       },
       {
         cle: "F2",
         echeances: ["B"],
         date: "2026-09-14",
         objet: "Lancement et cahier des charges de la notation",
-        etat: "emise",
-        paiements: [{ jours: 28, part: "reste", mode: "virement" }],
+        etat: "brouillon",
       },
       {
         cle: "FAV",
         echeances: ["AV"],
         date: "2026-10-08",
         objet: "Avenant n°1 : extension à quinze PME supplémentaires",
-        etat: "emise",
-        paiements: [
-          { jours: 12, part: 50, mode: "virement", commentaire: "Règlement partiel de l'avenant" },
-        ],
+        etat: "a_approuver",
       },
       {
         cle: "FD",

@@ -11,6 +11,7 @@ import {
   sansDeclencheurs,
 } from "./collaboration-outils.js";
 import type { AccesClient, AccesDirigeant } from "./portail-acces.js";
+import { designerContributeursKpi } from "./portail-kpi.js";
 import { COMMENTAIRES_VALIDATION } from "./portail-donnees.js";
 import { ok } from "./outils.js";
 
@@ -20,11 +21,11 @@ import { ok } from "./outils.js";
  * - Partages : l'associé remplace, client par client, les partages (`PUT /api/portail/partages`) :
  *   missions avec leurs jalons, livrables et lettres de mission VALIDÉS, contact principal du client
  *   (ce qui renseigne `portail_clients`). Les partages déjà posés par d'autres modules sont repris
- *   (la route remplace en bloc) et jamais réduits. Les FACTURES ne sont jamais partagées : aucune
- *   donnée financière n'atteint le portail.
+ *   (la route remplace en bloc) et jamais réduits. Les FACTURES ÉMISES de la mission sont partagées
+ *   (`factures` vrai : le client voit SES factures, jamais un coût, un taux interne ni une marge).
  * - Validations : le dirigeant du client valide les jalons atteints (`POST /api/portail/missions/
  *   :id/jalons/:jalonId/valider`) ; sur une mission en cours, le dernier jalon atteint reste « à
- *   valider ». Le client lit ensuite son espace (moi, missions, jalons, livrables).
+ *   valider ». Le client lit ensuite son espace (moi, missions, factures, jalons, livrables).
  * Dates : partage peu après le démarrage de la mission et l'activation du compte ; validation
  * peu après la date prévue du jalon, jamais avant le partage ni la création du compte.
  */
@@ -51,7 +52,7 @@ async function partagerClient(
   ctx: ContexteTenantDemo,
   casting: Casting,
   client: CleClient,
-  acces: AccesDirigeant,
+  acces: AccesClient,
 ): Promise<Map<string, string>> {
   const clientId = ctx.client(client);
   const missions = Object.values(casting.missions).filter(
@@ -71,9 +72,18 @@ async function partagerClient(
   for (const e of existants.filter((x) => x.document_id === null)) {
     missionsVoulues.set(e.mission_id, { jalons: e.jalons, factures: e.factures });
   }
+  const avecFactures = new Set<string>();
   for (const m of missions) {
+    const emises = await q(
+      "SELECT 1 FROM factures WHERE cabinet_id = $1 AND mission_id = $2 AND statut = 'emise' LIMIT 1",
+      [ctx.cabinetId, m.id],
+    );
+    if (emises.rows.length > 0) avecFactures.add(m.id);
     const e = missionsVoulues.get(m.id);
-    missionsVoulues.set(m.id, { jalons: true, factures: e?.factures ?? false });
+    missionsVoulues.set(m.id, {
+      jalons: true,
+      factures: (e?.factures ?? false) || avecFactures.has(m.id),
+    });
   }
   const docsVoulus = new Set(
     existants.filter((x) => x.document_id).map((x) => x.document_id as string),
@@ -98,7 +108,13 @@ async function partagerClient(
   const dejaCompletes =
     existants.length > 0 &&
     missions.every((m) =>
-      existants.some((e) => e.mission_id === m.id && e.document_id === null && e.jalons),
+      existants.some(
+        (e) =>
+          e.mission_id === m.id &&
+          e.document_id === null &&
+          e.jalons &&
+          (e.factures || !avecFactures.has(m.id)),
+      ),
     ) &&
     [...docsVoulus].every((id) => existants.some((e) => e.document_id === id));
   if (!dejaCompletes) {
@@ -216,6 +232,7 @@ async function validerJalons(
         ok(200, await s.get(url), `portail ${url}`);
       await lire(acces.dirigeant, "/api/portail/moi");
       await lire(acces.dirigeant, "/api/portail/missions");
+      await lire(acces.dirigeant, "/api/portail/factures");
       for (const missionId of jours.keys()) {
         await lire(acces.dirigeant, `/api/portail/missions/${missionId}/jalons`);
         await lire(acces.dirigeant, `/api/portail/missions/${missionId}/livrables`);
@@ -239,11 +256,12 @@ export async function semerPartagesEtValidations(
 ): Promise<number> {
   let validations = 0;
   for (const [client, a] of acces) {
+    const jours = await partagerClient(ctx, casting, client, a);
+    await designerContributeursKpi(ctx, casting, client, a);
     if (!a.dirigeant) {
-      ctx.journal(`  portail ${client} : aucun dirigeant actif, partages et validations sautés.`);
+      ctx.journal(`  portail ${client} : aucun dirigeant actif, validations de jalons sautées.`);
       continue;
     }
-    const jours = await partagerClient(ctx, casting, client, a as AccesDirigeant);
     validations += await validerJalons(ctx, casting, client, a as AccesDirigeant, jours);
   }
   return validations;

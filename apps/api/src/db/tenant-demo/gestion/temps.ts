@@ -6,7 +6,7 @@ import type { ContexteTenantDemo } from "../contexte.js";
 import { DEBUT_ACTIVITE } from "../constantes.js";
 import { lundiDe, type Alea } from "../horloge.js";
 import type { GenreProfil } from "./donnees-temps.js";
-import { cloturerPeriodes, semerCorrections } from "./temps-cloture.js";
+import { antedaterFeuilles, cloturerPeriodes, semerCorrections } from "./temps-cloture.js";
 import { choisirImport, importerSemaine } from "./temps-import.js";
 import { construirePaquets } from "./temps-paquets.js";
 import { motifRejet, scenarioFeuille } from "./temps-scenario.js";
@@ -297,6 +297,7 @@ export async function semerTemps(ctx: ContexteTenantDemo, casting: Casting): Pro
 
   // 5. Reste à faire (alertes de suivi évaluées par les routes), puis remise à la date.
   const restes = await declarerRestes(ctx, casting, paquets, rng.deriver("restes"));
+  await antedaterFeuilles(ctx);
   const alertes = await antedaterAlertes(ctx, casting, borne, rng.deriver("alertes"));
   await remettreNotificationsALHeure(ctx, casting, borne);
 

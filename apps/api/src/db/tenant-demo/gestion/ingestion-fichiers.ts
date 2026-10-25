@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import { lignesEtat } from "../donnees-dossiers.js";
 import type { Alea } from "../horloge.js";
+import { deviseDuClient } from "../missions/devises.js";
+import { valeurEnXof } from "./outils.js";
 import type { EtatDoc } from "./donnees-ingestion.js";
 
 /*
@@ -30,17 +32,26 @@ type Cellule = string | number | null;
 
 /** Lignes (cellules) de la liasse d'un état : sections en titres, puis code, libellé, N, N-1. */
 export function lignesLiasse(e: EtatDoc, alea: Alea): Cellule[][] {
+  // Les produits et charges du casting sont en valeur de référence FCFA : ramenés à l'échelle de la
+  // devise du client (EUR, USD), les montants du tableur restent du même ordre qu'en FCFA.
+  const k = valeurEnXof(deviseDuClient(e.client));
   const lignes = lignesEtat(
-    { cle: e.client, exercice: e.exercice, produits: e.produits, charges: e.charges },
+    {
+      cle: e.client,
+      exercice: e.exercice,
+      produits: Math.round(e.produits / k),
+      charges: Math.round(e.charges / k),
+    },
     alea,
   );
+  const ecart = ECART[e.variante] === 0 ? 0 : Math.max(1, Math.round(ECART[e.variante] / k));
   const rangs: Cellule[][] = [
     [`LIASSE ${e.client.toUpperCase()} - EXERCICE ${e.exercice}`, null, null, null],
   ];
   for (const section of SECTIONS) {
     rangs.push([section.toUpperCase(), null, null, null]);
     for (const l of lignes.filter((x) => x.section === section)) {
-      const montant = l.code === "TP" ? l.montant + ECART[e.variante] : l.montant;
+      const montant = l.code === "TP" ? l.montant + ecart : l.montant;
       rangs.push([l.code, l.libelle, montant, millier(l.montant * 0.91)]);
     }
   }

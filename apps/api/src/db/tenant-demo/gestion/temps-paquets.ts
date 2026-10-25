@@ -82,7 +82,7 @@ export function construirePaquets(
     if (m.debut > aujourdhui) continue;
     const fenetres = fenetresTaches(m, m.debut, m.fin, rang);
     const terminee = MISSIONS_TERMINEES.includes(cleM);
-    const facteur = cleM === MISSION_DEPASSEMENT ? 1.35 : 1;
+    const facteur = cleM === MISSION_DEPASSEMENT ? 1.2 : 1;
     const sansCompte = m.affectations.filter((a) => !a.utilisateurId).length;
     if (sansCompte > 0) {
       avertir(
