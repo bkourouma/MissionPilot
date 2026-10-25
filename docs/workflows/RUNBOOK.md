@@ -341,7 +341,7 @@ cabinets de démonstration, avec des adresses en `.test`, dans la limite de 30 c
 Chantier du 2026-10-24 (décision à valider : `docs/DECISIONS.md`, « Tenant démo » ; sécurité : `docs/governance/SECURITY.md` §3 et
 §15 ; conventions : `CODING_STANDARDS.md` §1). En plus de « Lagune Conseil & Associés (démo) », un cabinet **« Tenant démo »**
 (`cabinets.est_demo`, adresses `<clé>@tenant-demo.test`) donne l'image d'un cabinet en activité depuis plus de deux ans : activité
-d'octobre 2024 au 24 octobre 2026 (« aujourd'hui » fictif des données), 43 comptes actifs, 11 missions dont 5 terminées de types
+d'octobre 2024 au 24 octobre 2026 (« aujourd'hui » fictif des données), 48 comptes actifs (20 cabinet, 28 portail, dont 2 à 2FA non listés), 11 missions dont 5 terminées de types
 différents (plan stratégique, notation, redressement, due diligence, business plan bancable), 3 en cours plus un diagnostic flash,
 une signée et une en préparation, et toutes les tables utiles remplies. Il est semé PAR LES VRAIES ROUTES (traçabilité, audit,
 moteurs de calcul) ; le SQL du rôle propriétaire ne sert qu'à antidater.
@@ -370,9 +370,11 @@ pnpm --filter @missionpilot/api db:seed-tenant-demo --phase=missions           #
   « Tenant démo » partiel (incident du 2026-10-24, voir HANDOFF). Un semis se fait dans une base neuve (par exemple
   `missionpilot_demo`), jamais dans la base où l'on développe. Les variables s'exportent à CHAQUE appel du shell si l'outil ne
   conserve pas l'environnement entre deux commandes.
-- **Durée** : plusieurs minutes à plusieurs dizaines de minutes selon la machine (des milliers d'appels de routes). À lancer en
+- **Durée** : environ 12 minutes sur une machine de développement (mesuré le 2026-10-25 ; des milliers d'appels de routes). À lancer en
   arrière-plan ou dans un terminal dédié : un outil qui coupe une commande silencieuse (watchdog de 600 s) l'interrompt en cours de
   phase (voir « Idempotence et reprise »). Durée de référence du semis complet : voir HANDOFF (mesurée par le lot de contrôle).
+- **Jobs en attente** : après un semis non public, des jobs `envoyer_email` (environ 79) et `relance_questionnaire` (environ 28) restent
+  en attente ; démarrer l'API avec `JOBS_WORKER=inactif` sur une base de démonstration locale (le mode public les neutralise).
 - **Serveur** : arrêter le conteneur `api` pendant un semis (`mp stop api`, alias de `DEPLOIEMENT.md`), car le semis pose des verrous
   brefs (`lock_timeout` de 5 s) pour lever, le temps d'une transaction, quelques déclencheurs d'immuabilité (SECURITY.md §15) ; le
   relancer ensuite (`mp up -d api`). Commande du serveur : `DEPLOIEMENT.md`.
@@ -410,8 +412,8 @@ terminées ne sont clôturées qu'à la fin de la phase `gestion` (leurs routes 
 
 **Connexion « un clic »** : le cabinet est `est_demo`, donc proposé par le bloc « Mode démonstration » de `/connexion` (avec
 `CONNEXION_RAPIDE_DEMO=oui` en local, ou `DEMO_PUBLIQUE=oui`). La fonction `demo_lister_comptes` est **bornée à 50 comptes par
-cabinet** (migration `0580`, avant le filtre `0583`) : le Tenant démo en compte 43 actifs, plus les 2 comptes signataires à 2FA de
-la phase `appels-offres-canaux` ; il reste sous la borne, ne pas y ajouter de comptes sans la relire. Les comptes à 2FA active ne
+cabinet** (migration `0580`, avant le filtre `0583`) : le Tenant démo en compte 48 actifs (cabinet 20, portail 28), dont 2 comptes signataires à 2FA
+de la phase `appels-offres-canaux` ; la liste en montre 46 (20 cabinet + 26 portail) et reste sous la borne, ne pas y ajouter de comptes sans la relire. Les comptes à 2FA active ne
 sont jamais listés : on se connecte par le formulaire (e-mail, mot de passe commun, puis code du moment par
 `pnpm --filter @missionpilot/api db:code-2fa-demo`, secret TOTP PUBLIC de `seed-demo-2fa.ts`).
 

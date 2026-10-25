@@ -1,13 +1,9 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ROLES, ROLES_CLIENT } from "@missionpilot/shared";
 import { buildApp } from "../src/app.js";
-import type { Config } from "../src/config.js";
-import { migrate } from "../src/db/migrate.js";
-import { createDatabase, type Database } from "../src/db/pool.js";
 import { semerDefaut } from "../src/db/seed-defaut.js";
 import { NOM_CABINET_ABIDJAN } from "../src/db/seed-demo.js";
 import { semerTenantDemo, type ResumeTenantDemo } from "../src/db/tenant-demo/index.js";
@@ -18,7 +14,12 @@ import {
 } from "../src/db/tenant-demo/constantes.js";
 import { CLES_CLIENTS } from "../src/db/tenant-demo/cles.js";
 import type { PhaseTenantDemo } from "../src/db/tenant-demo/phases/index.js";
-import { configTest } from "./helpers.js";
+import {
+  creerBaseJetable,
+  lireSql,
+  supprimerBaseJetable,
+  type BaseJetable,
+} from "./outils-base-jetable.js";
 
 /*
  * Socle du seed « Tenant démo » (db/tenant-demo/, db/seed-tenant-demo.ts). Le déroulé complet
@@ -28,66 +29,8 @@ import { configTest } from "./helpers.js";
  * pour prouver que les deux cabinets cohabitent et que Lagune n'est pas touché.
  */
 
-function remplacerBase(url: string, nom: string): string {
-  const u = new URL(url);
-  u.pathname = `/${nom}`;
-  return u.toString();
-}
-
-interface BaseJetable {
-  nom: string;
-  config: Config;
-  db: Database;
-}
-
-async function creerBaseJetable(suffixe: string, dossier: string): Promise<BaseJetable> {
-  const base = configTest();
-  const nomPartage = new URL(base.DATABASE_OWNER_URL).pathname.slice(1);
-  const nom = `${nomPartage}_${suffixe}`;
-  const admin = new pg.Client({
-    connectionString: remplacerBase(base.DATABASE_OWNER_URL, "postgres"),
-  });
-  await admin.connect();
-  await admin.query(`DROP DATABASE IF EXISTS "${nom}" WITH (FORCE)`);
-  await admin.query(`CREATE DATABASE "${nom}"`);
-  await admin.end();
-  const owner = remplacerBase(base.DATABASE_OWNER_URL, nom);
-  const app = remplacerBase(base.DATABASE_URL, nom);
-  await migrate(owner, app);
-  const config: Config = {
-    ...base,
-    DATABASE_OWNER_URL: owner,
-    DATABASE_URL: app,
-    STORAGE_DIR: dossier,
-  };
-  return { nom, config, db: createDatabase(config) };
-}
-
-async function supprimerBaseJetable(b: BaseJetable | undefined): Promise<void> {
-  if (!b) return;
-  await b.db.close();
-  const base = configTest();
-  const admin = new pg.Client({
-    connectionString: remplacerBase(base.DATABASE_OWNER_URL, "postgres"),
-  });
-  await admin.connect();
-  await admin.query(`DROP DATABASE IF EXISTS "${b.nom}" WITH (FORCE)`);
-  await admin.end();
-}
-
-async function lignes<T = Record<string, unknown>>(
-  b: BaseJetable,
-  sql: string,
-  p: unknown[] = [],
-): Promise<T[]> {
-  const client = new pg.Client({ connectionString: b.config.DATABASE_OWNER_URL });
-  await client.connect();
-  try {
-    return (await client.query(sql, p)).rows as T[];
-  } finally {
-    await client.end();
-  }
-}
+/** Requête en SQL propriétaire (hors RLS) sur la base jetable : lignes brutes. */
+const lignes = lireSql;
 
 const TABLES_COMPTEES = [
   "cabinets",
@@ -313,7 +256,7 @@ describe("seed du Tenant démo (socle)", () => {
     expect(appels).toEqual([tenantId]);
   });
 
-  it("les phases enregistrées sont les six stubs, dans l'ordre", async () => {
+  it("les phases enregistrées sont les six phases de domaine, dans l'ordre", async () => {
     const { PHASES } = await import("../src/db/tenant-demo/phases/index.js");
     expect(PHASES.map((p) => p.nom)).toEqual([
       "missions",

@@ -242,7 +242,7 @@ planifiée ; il n'existe pas. Suivi : HANDOFF, section `orch/2026-10-23-super-ad
 ### (e) Semer le « Tenant démo » (cabinet à historique long)
 
 Chantier du 2026-10-24 (décision à valider : DECISIONS.md, « Tenant démo »). Cabinet « Tenant démo » (adresses `@tenant-demo.test`,
-43 comptes actifs, 11 missions, deux ans d'activité fictive), à côté de « Lagune Conseil & Associés (démo) » ; description, phases
+48 comptes actifs, 11 missions, deux ans d'activité fictive), à côté de « Lagune Conseil & Associés (démo) » ; description, phases
 et reprise : `docs/workflows/RUNBOOK.md`, « Tenant démo ». Mêmes précautions que (b) : serveur de DÉMONSTRATION sans donnée réelle,
 `DEMO_PUBLIQUE=oui` dans `missionpilot.env` AVANT la commande (le script exige la variable ET `--confirmer-demo`, retire toute
 configuration SMTP et neutralise les jobs qu'il crée).
@@ -256,8 +256,7 @@ mp up -d --force-recreate api web    # le web partage l'espace réseau de l'API 
 L'étape centrale est l'équivalent de `docker compose run --rm api node_modules/.bin/tsx src/db/seed-tenant-demo.ts
 --confirmer-demo` depuis `/home/deployer/missionpilot`.
 
-- **Fenêtre sans visiteurs** : planifier le semis quand personne n'utilise la démonstration. Il dure de plusieurs minutes à
-  plusieurs dizaines de minutes ; l'API est arrêtée et `/connexion` indisponible pendant ce temps. Ne pas lancer deux semis à la
+- **Fenêtre sans visiteurs** : planifier le semis quand personne n'utilise la démonstration. Il dure environ 12 minutes sur une machine de développement (mesuré le 2026-10-25) ; l'API est arrêtée et `/connexion` indisponible pendant ce temps. Ne pas lancer deux semis à la
   fois. Le lancer dans un terminal qui survit à la déconnexion (`tmux`), pas dans une session SSH fragile.
 - **Aucune clé IA** : le semis échoue net si `OPENROUTER_API_KEY` est définie dans `missionpilot.env` (aucun appel réseau, aucun
   coût ; coûts IA SIMULÉS). Si le serveur a une clé pour un autre usage, la retirer le temps du semis puis la remettre.
@@ -267,7 +266,7 @@ L'étape centrale est l'équivalent de `docker compose run --rm api node_modules
 - **Remise à zéro** : toujours pas de script. Après un vandalisme, le plus sûr est de repartir d'une base neuve ((d)), puis de
   resemer Lagune (`seed-defaut.ts --confirmer-demo`, étape (b)) et le Tenant démo (cette étape). Sauvegarder la base juste après le
   semis complet (« Sauvegarde de la base ») donne un point de restauration plus rapide qu'un nouveau semis.
-- **Vérifier** : `/connexion` propose « Tenant démo » (43 comptes ; les 2 comptes à 2FA des signatures n'y figurent pas). Le bloc
+- **Vérifier** : `/connexion` propose « Tenant démo » (46 comptes listés sur 48 actifs ; les 2 comptes à 2FA des signatures n'y figurent pas). Le bloc
   est borné à 50 cabinets et 50 comptes par cabinet (migration `0580`).
 - **Limites des données** : horodatages des routes en horloge réelle (une journée après la date fictive), voir RUNBOOK.
 

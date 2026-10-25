@@ -794,12 +794,13 @@ aucun `package.json` ni lockfile), non par supposition. Les commentaires de la l
 12 : les lots 13a et 13b n'y changent que les numéros de ligne signalés (n° 7, 8, 18, 19) et la recherche large du n° 22.
 
 **Relevé du 2026-10-24, branche orch/2026-10-24-tenant-demo.** Copie de travail `tenant-demo-lot-8` (branche
-`orch/2026-10-24-tenant-demo-lot-8`, HEAD `231b25e` ; base `a2d7be6` = PR n° 18 super admin fusionnée dans `main`). Il REMPLACE le
+`orch/2026-10-24-tenant-demo-lot-8`, HEAD `231b25e`), décomptes de fichiers et n° 8 et 11 recomptés au lot 9 sur `cfabfe1` ; base `a2d7be6` = PR n° 18 super admin fusionnée dans `main`). Il REMPLACE le
 relevé super admin du 2026-10-23 pour les lignes qui changent. Le chantier ajoute un semis de démonstration, sans migration ni route :
-`apps/api/src/db/seed-tenant-demo.ts`, `apps/api/src/db/tenant-demo/**` (256 fichiers `.ts`, 6 sous-dossiers), 10 fichiers dans
-`apps/api/test/` (`seed-tenant-demo*.test.ts` et leurs outils) et une ligne de `apps/api/package.json` (script `db:seed-tenant-demo`) ;
-`git diff --name-status a2d7be6 HEAD` : 267 fichiers ajoutés, 1 modifié (`apps/api/package.json`), aucun dans `apps/api/migrations`,
-`packages/` ni `apps/web`. Les recherches n° 1 à 30 ont été relancées avec les commandes EXACTES, depuis la racine de la copie ; le n° 10
+`apps/api/src/db/seed-tenant-demo.ts`, `apps/api/src/db/tenant-demo/**` (312 fichiers `.ts`, 7 sous-dossiers dont `phases/`), 11 fichiers de
+test `seed-tenant-demo*` dans `apps/api/test/` (tests et outils), `outils-base-jetable.ts` et `outils-assertions-missions.ts`, et une ligne de
+`apps/api/package.json` (script `db:seed-tenant-demo`) ; la connexion web est refaite (`apps/web/src/app/connexion/**` et
+`apps/web/src/lib/demo-connexion-comptes*`) ; `git diff --name-status a2d7be6 cfabfe1` (avant le lot 9) : 327 fichiers ajoutés, 12 modifiés
+(dont `apps/api/package.json`, la connexion web et la documentation), aucun dans `apps/api/migrations` ni `packages/`. Les recherches n° 1 à 30 ont été relancées avec les commandes EXACTES, depuis la racine de la copie ; le n° 10
 par le `node -e` de la commande, les n° 11 et 12 par script ponctuel hors dépôt (réécrit pour ce relevé), qui retrouve sur
 `git archive a2d7be6` 1 732 / 1 681 / 835 / 247 (n° 11) et 904 `z.object`, 893 stricts, 11 non stricts aux lignes 733 à 798 (n° 12),
 c'est-à-dire le relevé précédent. Les recherches par `rg` ont aussi été lancées sur `a2d7be6` : les listes triées sans numéros de ligne
@@ -811,9 +812,9 @@ ne diffèrent que par les lignes citées ci-dessous. `node scripts/ocr-verifier-
 | --- | --- | --- |
 | 1 | 5 lignes | 4 avant : +1, `db/tenant-demo/index.ts:53` (`new pg.Client` avec `DATABASE_OWNER_URL` : le semis écrit avec le rôle PROPRIÉTAIRE, comme `seed-defaut.ts:227`). Script de ligne de commande (`package.json` : `db:seed-tenant-demo`), jamais chargé par l'API. Tout autre `pg.Client` dans `apps/api/src` est un écart |
 | 3 | 16 lignes | 14 avant : +2, toutes dans `db/seed-tenant-demo.ts` : `:54` (`configDemo(process.env, argv)`) et `:60` (`demoPubliqueConfirmee(process.env, argv)`), même gabarit que `seed-demo.ts` et `seed-defaut.ts` ; `process.argv` est lu aux lignes `:50` et `:51` (hors recherche). Aucune lecture dans `db/tenant-demo/`. Les 14 autres lignes sont identiques |
-| 8 | 76 lignes | 24 avant : +52, toutes dans `db/tenant-demo/` (arrondis, `Math.floor` et `Math.max` du générateur de données : horloge et aléa déterministes de `horloge.ts`, calendriers de missions, séries de KPI, historiques IA et qualité, questionnaires, états et plans avancés, trésorerie du redressement, notes de due diligence, `missions/devises.ts:27` et `redressement-dd/redressement-outils.ts:48-49` : conversions de montants XOF vers EUR et USD à taux fixes du semis). Aucun n'est appelé par l'API en service : ce sont des données de démonstration, mais la glob `!**/seed*` ne les exclut pas (le dossier se nomme `tenant-demo`, pas `seed*`). Les 24 lignes antérieures sont identiques. À trancher : étendre la glob de la commande à `!**/tenant-demo/**` (le nombre redeviendrait 24) ou déplacer les calculs de montant dans `packages/engines` |
+| 8 | 24 lignes (commande ci-dessous, données de démonstration exclues) | 24 avant ; 77 lignes de plus dans `db/tenant-demo`, arrondis de génération de données (avec l'ancienne glob `!**/seed*`, 99 lignes), toutes dans `db/tenant-demo/` (arrondis, `Math.floor` et `Math.max` du générateur de données : horloge et aléa déterministes de `horloge.ts`, calendriers de missions, séries de KPI, historiques IA et qualité, questionnaires, états et plans avancés, trésorerie du redressement, notes de due diligence, `missions/devises.ts:27` et `redressement-dd/redressement-outils.ts:48-49` : conversions de montants XOF vers EUR et USD à taux fixes du semis). Aucun n'est appelé par l'API en service : ce sont des données de démonstration, exclues par `!**/tenant-demo/**` comme les seeds. Les 24 lignes antérieures sont identiques |
 | 9 | 7 lignes | 5 avant : +2, `db/tenant-demo/contexte.ts:155` (`journal: entrees.journal ?? ((ligne) => console.log(ligne))`) et `db/tenant-demo/index.ts:50` (`options.journal ?? console.log`), le journal par défaut du semis, remplaçable par les tests ; hors `seed*` par le nom de fichier. `seed-tenant-demo.ts` (`console.log` et `console.error`) est exclu par la glob. Les 5 autres lignes sont inchangées |
-| 11 | 1 847 gabarits, 1 796 hors `db/seed*`, 835 interpolations, 247 expressions | 1 732 / 1 681 / 835 / 247 avant : +115 / +115 / 0 / 0, tous dans `db/tenant-demo/` (39 fichiers, au plus 9 par fichier : `ia-qualite-standard/qualite-froide-historique.ts` 9, `missions/antidatage.ts` 8, `appels-offres-canaux/ao-fiches-reponse.ts` 7, `redressement-dd/dd-outils.ts` 7) ; AUCUNE interpolation (gabarits constants à paramètres `$n`), aucune expression distincte nouvelle. `seed-tenant-demo.ts` : 0 gabarit. Au sens large (« seed » = `db/seed*` ou `db/tenant-demo/**`) le deuxième nombre reste 1 681 |
+| 11 | 1 897 gabarits, 1 846 hors `db/seed*`, 835 interpolations, 247 expressions | 1 732 / 1 681 / 835 / 247 avant : +165 / +165 / 0 / 0, tous dans `db/tenant-demo/` (165 gabarits constants, sans interpolation ; au plus 9 par fichier pour les premiers lots : `ia-qualite-standard/qualite-froide-historique.ts` 9, `missions/antidatage.ts` 8, `appels-offres-canaux/ao-fiches-reponse.ts` 7, `redressement-dd/dd-outils.ts` 7) ; AUCUNE interpolation (gabarits constants à paramètres `$n`), aucune expression distincte nouvelle. `seed-tenant-demo.ts` : 0 gabarit. Au sens large (« seed » = `db/seed*` ou `db/tenant-demo/**`) le deuxième nombre reste 1 681 |
 | 2, 4 à 7, 10, 12 à 14, 16 à 30 | inchangés (1, 0, 0, 0, 19, « 1002 14 », 904 / 893 / 11, 240 migrations, 0, 42, 2, 7, 77, 24, 1, 1, 3, 3 tables et 3 politiques, 7, 8, 4, 2 puis « 2 fichier(s) conforme(s) », 2, 9) | — (n° 6 : 0, le semis n'écrit aucun `SUM(` ni `AVG(` ; n° 7 : liste triée identique, aucun `LIMIT` littéral > 1 ajouté ; n° 10 : mêmes 14 lignes, aucune route ajoutée ; n° 12 : `packages/shared` intact, aucun `z.object` dans `db/tenant-demo` ; n° 13 : 240 fichiers, aucune migration ajoutée, modifiée ni supprimée depuis `a2d7be6` (`git log --diff-filter=MD` rend les mêmes 3 fichiers que le 2026-10-23 : `0570`, `0573`, `0580`) ; n° 15 non relancé ; n° 22 : `FormulaireConnexion.tsx:55`) |
 
 **Relevé tête finale du 2026-10-23 (super admin, lots 1 à 6).** Copie de travail `super-admin-lot-7` (branche
@@ -970,8 +971,8 @@ rg -n "SUM\(|AVG\(" apps/api/src --glob '!db/seed*'
 #    en paramètre : MAX_LISTE (500) de routes/portail-gestion.ts est une dette connue.
 rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
 
-# 8. Arrondis dans l'API (hors moteur). Attendu (2026-10-23, tête finale, lots 6, 10, 11 et 12 compris) : 24 lignes (76 sur la tête
-#    Tenant démo : +52, toutes dans `db/tenant-demo/`, données de démonstration, voir le relevé en tête de section ; relevé du 2026-10-24, branche orch/2026-10-24-tenant-demo)
+# 8. Arrondis dans l'API (hors moteur). Attendu (2026-10-23, tête finale, lots 6, 10, 11 et 12 compris) : 24 lignes (la commande exclut
+#    `**/tenant-demo/**`, données de démonstration : 77 lignes de plus dans `db/tenant-demo`, arrondis de génération de données ; relevé du 2026-10-24, branche orch/2026-10-24-tenant-demo)
 #    (12 inchangées depuis le 2026-10-14, plus 2 du lot 6 : `ingestion/pdf.ts:361` (`:297` avant le lot 11), `Math.round`
 #    de la confiance de l'OCR en pour mille, qui n'est pas un montant, et `ingestion/erreurs.ts:29`, `Math.floor` de la
 #    taille en Mo dans le message de dépassement, plus 10 du lot 11, aucune n'étant un montant :
@@ -983,7 +984,7 @@ rg -n "\bLIMIT [0-9]+" apps/api/src | grep -v "LIMIT 1\b"
 #    message), canaux/signatures.ts (nombre de jours d'une durée), routes/canaux.ts (horodatage en
 #    secondes du simulateur), routes/missions.ts (inverse de la parité EUR/FCFA, arrondi à
 #    numeric(20,10), dette) ; toute autre ligne est un calcul de montant à déplacer
-rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src
+rg -n "Math\.(round|floor|ceil|trunc)|toFixed\(" apps/api/src --glob '!**/tenant-demo/**'
 
 # 9. console.* hors seed et migrate. Attendu (2026-10-23, lot 11 compris) : 3 lignes (5 sur la tête super admin : plus
 #    `db/creer-super-admin.ts:221-222`, sortie du script ; 7 sur la tête Tenant démo : plus `db/tenant-demo/contexte.ts:155` et
@@ -1036,7 +1037,7 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     dépôt (appels `.query(` ou `.query<T>(` dont le premier argument est un gabarit à accent grave ;
 #     ${…} extraits en suivant l'imbrication, y compris les gabarits imbriqués ; seed = `db/seed*`) :
 #     1 727 gabarits dans apps/api/src (1 680 hors db/seed*), 835 interpolations hors seed, 247 expressions
-#     (1 847 / 1 796 / 835 / 247 sur la tête Tenant démo : +115 gabarits constants dans `db/tenant-demo/`, sans interpolation, script
+#     (1 897 / 1 846 / 835 / 247 sur la tête Tenant démo : +165 gabarits constants dans `db/tenant-demo/`, sans interpolation, script
 #     retrouvant 1 732 / 1 681 / 835 / 247 sur `git archive a2d7be6` ; relevé du 2026-10-24, branche orch/2026-10-24-tenant-demo)
 #     distinctes (tête finale, lots 6, 10, 11 et 12 compris). Relancé le 2026-10-23 (lots 13a et 13b compris) : IDENTIQUE, +0 / +0 / +0 / +0,
 #     le script retrouvant 1 727 / 1 680 / 835 / 247 sur l'état d'avant les lots 13 (`git archive 9c798e2`) puis sur la tête. Le script, réécrit pour ce relevé, a d'abord été lancé sur l'état
