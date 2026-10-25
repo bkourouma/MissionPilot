@@ -2,6 +2,7 @@ import { ajouterJours } from "@missionpilot/engines";
 import type { CleCompte } from "../cles.js";
 import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 import { etalerJournal, maintenantBase } from "./antidatage.js";
+import { dateClotureFictive } from "./chronologie.js";
 import { transactionAntidatage } from "./declencheurs.js";
 import { CASTING, type DefMission } from "./donnees-casting.js";
 
@@ -17,9 +18,6 @@ import { CASTING, type DefMission } from "./donnees-casting.js";
  * les missions terminées restent « à clôturer » (leur préparation est faite par la phase
  * « missions »). Une clôture refusée (item bloquant de la check-list) lève une erreur claire.
  */
-
-/** Jours après la fin de la mission où l'on date la clôture (facturation et solde réglés). */
-const DELAI_CLOTURE_JOURS = 6;
 
 /**
  * Associé qui clôt la mission : l'associé de l'équipe de la mission (il la signe), à défaut l'autre
@@ -66,7 +64,11 @@ export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promis
       throw new Error(
         `Mission « ${def.nom} » introuvable : exécuter d'abord la phase « missions ».`,
       );
-    const jourCloture = ajouterJours(def.fin, DELAI_CLOTURE_JOURS);
+    const jourCloture = dateClotureFictive(
+      def.fin,
+      await derniereDateMetier(ctx, lue.id),
+      ctx.jour(-1),
+    );
     if (lue.statut === "cloturee") {
       if (lue.jour === jourCloture) continue;
       // Clôture réelle faite, antidatage interrompu : on répare les dates sans rouvrir ni reclore.
@@ -106,6 +108,39 @@ export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promis
     );
     ctx.journal(`  mission « ${def.nom} » clôturée.`);
   }
+}
+
+/**
+ * Dernière date métier connue de la mission (SQL propriétaire littéral, filtré par cabinet et par
+ * mission) : factures et avoirs émis, imputations d'encaissements, rapports générés, temps saisis,
+ * débours, jalons prévus et documents. `null` si la mission n'a rien de tout cela.
+ */
+async function derniereDateMetier(
+  ctx: ContexteTenantDemo,
+  missionId: string,
+): Promise<string | null> {
+  const r = await ctx.proprietaire.query(
+    `SELECT greatest(
+        (SELECT max(date_emission) FROM factures WHERE cabinet_id = $1 AND mission_id = $2),
+        (SELECT max(i.date_imputation) FROM imputations i JOIN factures f ON f.id = i.facture_id
+          WHERE f.cabinet_id = $1 AND f.mission_id = $2),
+        (SELECT max(e.date_encaissement) FROM encaissements e
+           JOIN imputations i ON i.encaissement_id = e.id JOIN factures f ON f.id = i.facture_id
+          WHERE f.cabinet_id = $1 AND f.mission_id = $2),
+        (SELECT max((genere_le AT TIME ZONE 'UTC')::date) FROM rapports_mission
+          WHERE cabinet_id = $1 AND mission_id = $2),
+        (SELECT max(date) FROM lignes_temps WHERE cabinet_id = $1 AND mission_id = $2),
+        (SELECT max((f.validee_le AT TIME ZONE 'UTC')::date) FROM feuilles_temps f
+          WHERE f.cabinet_id = $1 AND f.id IN
+            (SELECT feuille_id FROM lignes_temps WHERE cabinet_id = $1 AND mission_id = $2)),
+        (SELECT max(date) FROM debours WHERE cabinet_id = $1 AND mission_id = $2),
+        (SELECT max(date_prevue) FROM mission_jalons WHERE cabinet_id = $1 AND mission_id = $2),
+        (SELECT max((cree_le AT TIME ZONE 'UTC')::date) FROM mission_documents
+          WHERE cabinet_id = $1 AND mission_id = $2)
+      )::text AS derniere`,
+    [ctx.cabinetId, missionId],
+  );
+  return (r.rows[0]?.derniere as string | null | undefined) ?? null;
 }
 
 /** Remonte les horodatages de la clôture à sa date fictive (SQL propriétaire, requêtes littérales). */

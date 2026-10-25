@@ -16,6 +16,7 @@ import {
   parNom,
   SIGNEES,
   TERMINEES,
+  ajouterJalonTardif,
   verifierBilansEtCloturants,
   verifierBudget,
   verifierJoursAlloues,
@@ -105,6 +106,7 @@ describe("seed du Tenant démo (phase missions)", () => {
     avantCloture = await lireMissions();
     declencheursApresPhase = await etatDeclencheurs();
     try {
+      await ajouterJalonTardif(lignes);
       await lancer("cloture", cloturerMissionsTerminees);
       clotureAuditApres3 = await compterClotures();
       apresCloture = await lireMissions();
@@ -286,7 +288,6 @@ describe("seed du Tenant démo (phase missions)", () => {
       [cabinetId],
     );
     expect(ouvertes).toHaveLength(4); // une opportunité ouverte à chacune des 4 étapes
-    // Une proposition refusée appartient à une opportunité perdue ; elle a été validée avant d'être envoyée.
     const refusees = await lignes<{ n: string }>(
       `SELECT count(*) n FROM propositions p JOIN opportunites o ON o.id = p.opportunite_id
          WHERE p.cabinet_id = $1 AND p.statut = 'refusee' AND o.statut = 'perdue'
