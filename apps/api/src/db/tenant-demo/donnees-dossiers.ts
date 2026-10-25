@@ -14,7 +14,7 @@ import type { DeviseClient } from "./donnees-clients.js";
 export const GRADES_TAUX = ["senior", "manager", "directeur", "associe"] as const;
 export type GradeTaux = (typeof GRADES_TAUX)[number];
 
-/** Taux journaliers de vente de référence (unités entières de la devise) avant remise du client. */
+/** Taux journaliers de vente de référence (unités MAJEURES de la devise, avant passage en centimes) avant remise du client. */
 export const TAUX_REFERENCE: Record<DeviseClient, Record<GradeTaux, number>> = {
   XOF: { senior: 180_000, manager: 260_000, directeur: 380_000, associe: 520_000 },
   XAF: { senior: 180_000, manager: 260_000, directeur: 380_000, associe: 520_000 },
@@ -49,10 +49,18 @@ export const TAUX_CLIENTS: readonly DefTauxClient[] = [
   { cle: "gabon-offshore", pourcentage: 105, valide_du: "2026-07-01" },
 ];
 
-/** Taux arrondi au millier (XOF, XAF) ou à 5 unités (EUR, USD). */
+/** EUR et USD sont saisis en UNITÉS MINEURES (centimes), comme l'exige `montantSchema` ; XOF et XAF en unités. */
+export const versUnitesMineures = (devise: DeviseClient, montant: number): number =>
+  devise === "EUR" || devise === "USD" ? montant * 100 : montant;
+
+/**
+ * Taux arrondi au millier (XOF, XAF) ou à 5 unités majeures (EUR, USD), rendu en UNITÉS MINEURES
+ * de la devise (centimes pour EUR et USD : 750 EUR -> 75 000).
+ */
 export function tauxNegocie(devise: DeviseClient, grade: GradeTaux, pourcentage: number): number {
   const pas = devise === "XOF" || devise === "XAF" ? 1000 : 5;
-  return Math.round((TAUX_REFERENCE[devise][grade] * pourcentage) / 100 / pas) * pas;
+  const arrondi = Math.round((TAUX_REFERENCE[devise][grade] * pourcentage) / 100 / pas) * pas;
+  return versUnitesMineures(devise, arrondi);
 }
 
 /* ----- Participations ----- */

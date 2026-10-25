@@ -210,6 +210,44 @@ describe("seed du Tenant démo (socle)", () => {
     expect(Number(groupes[0]?.n)).toBeGreaterThanOrEqual(3);
   });
 
+  it("montants EUR et USD en unités mineures (centimes), XOF et XAF en unités", async () => {
+    const b = base as BaseJetable;
+    const ca = await lignes<{ montant: string }>(
+      b,
+      `SELECT f.valeur->>'montant' AS montant FROM dossier_faits f
+       JOIN clients c ON c.id = f.client_id
+       WHERE f.cabinet_id = $1 AND c.raison_sociale = 'Gabon Offshore Services SA'
+         AND f.cle = 'chiffre_affaires_2025'`,
+      [tenantId],
+    );
+    // 48 000 000 USD = 4 800 000 000 centimes.
+    expect(ca.map((l) => l.montant)).toEqual(["4800000000"]);
+    const taux = await lignes<{ devise: string; mini: string; maxi: string }>(
+      b,
+      `SELECT devise, min(taux)::text AS mini, max(taux)::text AS maxi FROM taux_clients
+       WHERE cabinet_id = $1 GROUP BY devise`,
+      [tenantId],
+    );
+    const parDevise = Object.fromEntries(taux.map((t) => [t.devise, t]));
+    // Taux journaliers de 700 à 2 500 EUR ou USD, soit 70 000 à 250 000 centimes ; FCFA en unités.
+    for (const d of ["EUR", "USD"]) {
+      expect(Number(parDevise[d]?.mini)).toBeGreaterThanOrEqual(70_000);
+      expect(Number(parDevise[d]?.maxi)).toBeLessThanOrEqual(250_000);
+    }
+    expect(Number(parDevise.XOF?.mini)).toBeGreaterThanOrEqual(100_000);
+    // État financier EUR : le plus gros poste 2025 d'Atlantique Retail (335 M EUR) est en centimes.
+    const etat = await lignes<{ total: string }>(
+      b,
+      `SELECT max(l.montant)::text AS total FROM dossier_etats_financiers e
+       JOIN dossier_etats_lignes l ON l.etat_id = e.id
+       JOIN clients c ON c.id = e.client_id
+       WHERE e.cabinet_id = $1 AND c.raison_sociale = 'Atlantique Retail Group SAS'
+         AND e.exercice = 2025`,
+      [tenantId],
+    );
+    expect(Number(etat[0]?.total)).toBeGreaterThanOrEqual(33_500_000_000);
+  });
+
   it("apparaît dans la liste de la connexion de démonstration (GET /api/auth/demo)", async () => {
     const b = base as BaseJetable;
     const app = await buildApp(
