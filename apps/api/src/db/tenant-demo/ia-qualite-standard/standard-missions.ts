@@ -142,20 +142,41 @@ export async function semerLiaisons(ctx: ContexteTenantDemo): Promise<void> {
     });
     attendre(200, r, `liaison de méthode ${l.mission}`);
   }
-  // Plan de Baobab : migration motivée vers la version 2 de la variante (revue par un pair).
+  // Plan de Baobab : migration motivée vers la version 2 de la variante (revue par un pair), SEULEMENT
+  // si la mission est liée à cette variante en version 1 : un autre lot a pu la lier à une autre
+  // méthode (le plan Baobab du lot 3), auquel cas la route refuse (409 VERSION_NON_LIABLE).
   const baobab = await exigerMission(ctx, "plan-baobab");
-  const v2 = await versionPubliee(ctx, "plan_strategique_cabinet", 2);
-  const migree = await ctx.proprietaire.query(
-    "SELECT 1 FROM mission_methodes WHERE mission_id = $1 AND evenement = 'migration'",
+  const courante = await ctx.proprietaire.query<{
+    code: string;
+    version: number;
+    evenement: string;
+  }>(
+    `SELECT me.code, v.version, mm.evenement
+       FROM mission_methodes mm
+       JOIN methode_versions v ON v.id = mm.methode_version_id
+       JOIN methodes me ON me.id = v.methode_id
+      WHERE mm.mission_id = $1 ORDER BY mm.rang DESC LIMIT 1`,
     [baobab.id],
   );
-  if (!migree.rowCount) {
+  const ligne = courante.rows[0];
+  if (!ligne || ligne.code !== "plan_strategique_cabinet" || ligne.version >= 2) {
+    ctx.journal(
+      ligne
+        ? `  migration du plan de Baobab ignorée : méthode « ${ligne.code} » v${ligne.version} déjà en place.`
+        : "  migration du plan de Baobab ignorée : aucune méthode liée.",
+    );
+  } else {
+    const v2 = await versionPubliee(ctx, "plan_strategique_cabinet", 2);
     const r = await directeur.post(`/api/missions/${baobab.id}/methode/migration`, {
       version_id: v2,
       motif:
         "Adoption de la revue par un pair avant la restitution du plan, souhaitée par le comité de pilotage du client.",
     });
-    attendre(200, r, "migration du plan de Baobab");
+    if (r.statusCode === 409) {
+      ctx.journal(`  migration du plan de Baobab refusée par la route (409), ignorée : ${r.body}`);
+    } else {
+      attendre(200, r, "migration du plan de Baobab");
+    }
   }
   ctx.journal("  missions rattachées à leur méthode.");
 }

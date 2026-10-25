@@ -1,8 +1,13 @@
 import { ajouterJours } from "@missionpilot/engines";
 import { abreger } from "../../../qualite/texte.js";
-import { attendre, type ContexteTenantDemo } from "../contexte.js";
+import {
+  attendre,
+  ouvrirSessionTenant,
+  type ContexteTenantDemo,
+  type SessionDemo,
+} from "../contexte.js";
 import { ORDRE_CRITERES, REVUES } from "./qualite-froide-donnees.js";
-import type { MissionCloturee } from "./qualite-froide-historique.js";
+import { relecteursIndependants, type MissionCloturee } from "./qualite-froide-historique.js";
 import { acteurDe } from "./qualite-outils.js";
 
 /*
@@ -13,7 +18,8 @@ import { acteurDe } from "./qualite-outils.js";
  * Reprise possible : chaque étape lit l'état avant d'écrire.
  */
 
-const INTITULE = "Revue à froid — missions clôturées de juillet 2025 à mai 2026";
+/** Intitulé de la campagne du jour ; la période exacte dépend des missions réellement tirables. */
+const PREFIXE_INTITULE = "Revue à froid — missions clôturées du ";
 
 interface Echantillon {
   id: string;
@@ -30,24 +36,91 @@ interface DetailRevue {
 const rangRole = (role: string): number =>
   role === "expert_metier" ? 0 : role === "directeur_mission" ? 1 : 2;
 
+/**
+ * Session d'un relecteur : la session du contexte si le compte en a une, sinon une connexion par
+ * e-mail pour un compte ajouté par un autre lot SANS double authentification (un compte à 2FA ne
+ * peut pas ouvrir de session ici). undefined : relecteur inutilisable pour la campagne du jour.
+ */
+async function sessionDe(ctx: ContexteTenantDemo, id: string): Promise<SessionDemo | undefined> {
+  const a = acteurDe(ctx, id);
+  if (a) return ctx.sessions[a.cle];
+  const r = await ctx.proprietaire.query<{ email: string }>(
+    `SELECT u.email FROM utilisateurs u WHERE u.id = $1 AND u.actif
+        AND NOT EXISTS (SELECT 1 FROM utilisateurs_2fa f WHERE f.utilisateur_id = u.id)`,
+    [id],
+  );
+  const email = r.rows[0]?.email;
+  if (!email) return undefined;
+  try {
+    return await ouvrirSessionTenant(ctx.app, email, id);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Plus longue suite de missions clôturées, non encore revues et CONSÉCUTIVES par date de clôture,
+ * dont chacune a un relecteur indépendant utilisable : la campagne du jour s'y limite (le tirage
+ * de la route porte sur toute la période), de sorte qu'aucune mission tirée ne reste sans relecteur.
+ */
+async function fenetreTirable(
+  ctx: ContexteTenantDemo,
+  chronologie: MissionCloturee[],
+): Promise<MissionCloturee[]> {
+  const revues = await ctx.proprietaire.query<{ mission_id: string }>(
+    "SELECT mission_id FROM qualite_froide_echantillon WHERE cabinet_id = $1",
+    [ctx.cabinetId],
+  );
+  const dejaRevues = new Set(revues.rows.map((r) => r.mission_id));
+  const restantes = chronologie.filter((m) => !dejaRevues.has(m.id));
+  const tirable: boolean[] = [];
+  for (const m of restantes) {
+    let ok = false;
+    for (const r of await relecteursIndependants(ctx, m.id, null)) {
+      if (await sessionDe(ctx, r.id)) {
+        ok = true;
+        break;
+      }
+    }
+    tirable.push(ok);
+  }
+  let meilleure: MissionCloturee[] = [];
+  let courante: MissionCloturee[] = [];
+  restantes.forEach((m, i) => {
+    courante = tirable[i] ? [...courante, m] : [];
+    if (courante.length > meilleure.length) meilleure = courante;
+  });
+  const debut = meilleure[0]?.cloture;
+  const fin = meilleure[meilleure.length - 1]?.cloture;
+  if (!debut || !fin) return [];
+  // Une mission non tirable qui partage une date de clôture avec la suite entrerait dans la période.
+  const intruse = restantes.some((m, i) => !tirable[i] && m.cloture >= debut && m.cloture <= fin);
+  return intruse ? [] : meilleure;
+}
+
 export async function campagneDuJour(
   ctx: ContexteTenantDemo,
   chronologie: MissionCloturee[],
 ): Promise<void> {
   const gestion = ctx.session("associe");
-  const debut = chronologie[2];
-  const fin = chronologie[chronologie.length - 1];
-  if (!debut || !fin) throw new Error("Pas assez de missions clôturées pour la campagne du jour.");
-
   let campagneId = (
     await ctx.proprietaire.query<{ id: string }>(
-      "SELECT id FROM qualite_froide_campagnes WHERE intitule = $1",
-      [INTITULE],
+      "SELECT id FROM qualite_froide_campagnes WHERE intitule LIKE $1 ORDER BY cree_le DESC LIMIT 1",
+      [`${PREFIXE_INTITULE}%`],
     )
   ).rows[0]?.id;
   if (!campagneId) {
+    const fenetre = await fenetreTirable(ctx, chronologie);
+    const debut = fenetre[0];
+    const fin = fenetre[fenetre.length - 1];
+    if (!debut || !fin) {
+      ctx.journal(
+        "  campagne de revue à froid du jour ignorée : aucune mission restante avec relecteur indépendant utilisable.",
+      );
+      return;
+    }
     const r = await gestion.post("/api/qualite/revue-froide/campagnes", {
-      intitule: INTITULE,
+      intitule: `${PREFIXE_INTITULE}${debut.cloture} au ${fin.cloture}`,
       criteres: {
         periode_debut: debut.cloture,
         periode_fin: fin.cloture,
@@ -56,7 +129,7 @@ export async function campagneDuJour(
         stratifier_par: null,
         exclure_deja_revues: true,
       },
-      taille: 2,
+      taille: Math.min(2, fenetre.length),
       graine: "froide-2026-t4",
     });
     attendre(201, r, "création de la campagne du jour");
@@ -76,15 +149,21 @@ export async function campagneDuJour(
       `/api/qualite/revue-froide/echantillons/${e.id}/relecteurs-eligibles`,
     );
     attendre(200, r, "relecteurs éligibles");
-    const choix = (r.json() as { relecteurs: { id: string; eligible: boolean }[] }).relecteurs
-      .filter((u) => u.eligible)
-      .map((u) => acteurDe(ctx, u.id))
-      .filter(
-        (a): a is NonNullable<typeof a> => a !== undefined && ctx.sessions[a.cle] !== undefined,
-      )
-      .sort((a, b) => rangRole(a.role) - rangRole(b.role) || a.cle.localeCompare(b.cle));
+    const proposes = (
+      r.json() as { relecteurs: { id: string; eligible: boolean; roles?: string[] }[] }
+    ).relecteurs.filter((u) => u.eligible);
+    const choix: { id: string; rang: number; nom: string }[] = [];
+    for (const u of proposes) {
+      if (!(await sessionDe(ctx, u.id))) continue;
+      const a = acteurDe(ctx, u.id);
+      choix.push({ id: u.id, rang: rangRole(a?.role ?? u.roles?.[0] ?? ""), nom: a?.cle ?? u.id });
+    }
+    choix.sort((x, y) => x.rang - y.rang || x.nom.localeCompare(y.nom));
     const relecteur = choix[e.rang - 1] ?? choix[0];
-    if (!relecteur) throw new Error(`Aucun relecteur indépendant éligible pour la revue ${e.id}.`);
+    if (!relecteur) {
+      ctx.journal(`  revue ${e.id} laissée à affecter : aucun relecteur indépendant utilisable.`);
+      continue;
+    }
     attendre(
       200,
       await gestion.post(`/api/qualite/revue-froide/echantillons/${e.id}/affectation`, {
@@ -96,6 +175,7 @@ export async function campagneDuJour(
 
   // Grille et constats par le relecteur affecté : revue n° 1 terminée, revue n° 2 à moitié remplie.
   for (const e of await lireCampagne()) {
+    if (e.statut === "a_affecter") continue; // aucun relecteur utilisable : revue laissée à affecter
     const mission = chronologie.find((m) => m.id === e.mission_id);
     const modele = mission ? REVUES[mission.cle as keyof typeof REVUES] : undefined;
     if (!modele) throw new Error(`Pas de jeu de revue à froid pour la mission ${e.mission_id}.`);
@@ -103,9 +183,8 @@ export async function campagneDuJour(
     attendre(200, d0, "lecture de la revue");
     const relecteurId = (d0.json() as { echantillon: { relecteur: { id: string } } }).echantillon
       .relecteur.id;
-    const relecteur = acteurDe(ctx, relecteurId);
-    if (!relecteur) throw new Error("Relecteur hors des comptes du seed.");
-    const s = ctx.session(relecteur.cle);
+    const s = await sessionDe(ctx, relecteurId);
+    if (!s) throw new Error("Relecteur sans session utilisable.");
     const detail = d0.json() as DetailRevue;
     if (detail.echantillon.statut === "terminee") continue;
     const aEvaluer = e.rang === 1 ? ORDRE_CRITERES : ORDRE_CRITERES.slice(0, 4);

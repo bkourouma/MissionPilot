@@ -38,30 +38,57 @@ export interface MissionCloturee {
 
 const POIDS = CRITERES_REVUE_FROIDE.map((c) => ({ code: c.code, poids: c.poids }));
 
-/** Relecteur indépendant et présent au cabinet à la date, de préférence un expert métier. */
+export interface RelecteurChoisi {
+  id: string;
+  role: string;
+}
+
+const rangRoles = (roles: readonly string[]): number =>
+  roles.includes("expert_metier") ? 0 : roles.includes("directeur_mission") ? 1 : 2;
+
+/**
+ * Relecteurs INDÉPENDANTS de la mission (règle QUA-05 jugée par le moteur d'indépendance : ni
+ * directeur, chef, membre d'équipe, affecté du planning, créateur, clôtureur, signataire, ni
+ * auteur, ouvreur, valideur, signataire ou attestateur d'un suivi qualité de la mission). Le
+ * vivier est celui de l'API : TOUS les comptes actifs habilités à relire, avec ou sans clé du
+ * contexte (comptes ajoutés par d'autres lots). `date` : un compte du seed n'est retenu que s'il
+ * est déjà arrivé au cabinet à cette date (null : aucune contrainte de présence). Experts métier
+ * d'abord, puis directeurs de mission, puis les autres ; ordre stable par nom.
+ */
+export async function relecteursIndependants(
+  ctx: ContexteTenantDemo,
+  missionId: string,
+  date: string | null,
+): Promise<RelecteurChoisi[]> {
+  return ctx.database.withTenant(ctx.cabinetId, async (db) => {
+    const contexte = await contexteIndependance(db, missionId);
+    return (await candidatsRelecteurs(db))
+      .filter((u) => jugerIndependance(contexte, u.id).independant)
+      .filter((u) => {
+        const a = acteurDe(ctx, u.id);
+        return date === null || a === undefined || present(a.cle, date);
+      })
+      .map((u) => ({ id: u.id, role: u.roles[0] ?? "", rang: rangRoles(u.roles) }))
+      .sort((x, y) => x.rang - y.rang)
+      .map(({ id, role }) => ({ id, role }));
+  });
+}
+
+/** Un relecteur indépendant (rotation parmi les meilleurs rangs), ou null s'il n'y en a aucun. */
 export async function choisirRelecteur(
   ctx: ContexteTenantDemo,
   missionId: string,
   date: string,
   rotation: number,
-): Promise<{ id: string; cle: NonNullable<ReturnType<typeof acteurDe>>["cle"]; role: string }> {
-  const eligibles = await ctx.database.withTenant(ctx.cabinetId, async (db) => {
-    const contexte = await contexteIndependance(db, missionId);
-    return (await candidatsRelecteurs(db))
-      .filter((u) => jugerIndependance(contexte, u.id).independant)
-      .map((u) => acteurDe(ctx, u.id))
-      .filter((a): a is NonNullable<typeof a> => a !== undefined && present(a.cle, date));
-  });
-  const rang = (role: string): number =>
-    role === "expert_metier" ? 0 : role === "directeur_mission" ? 1 : 2;
-  const tries = [...eligibles].sort(
-    (a, b) => rang(a.role) - rang(b.role) || a.cle.localeCompare(b.cle),
-  );
-  if (tries.length === 0) {
-    throw new Error(`Aucun relecteur indépendant disponible pour la mission ${missionId}.`);
-  }
-  const meilleurs = tries.filter((a) => rang(a.role) === rang((tries[0] as { role: string }).role));
-  return meilleurs[rotation % meilleurs.length] as (typeof tries)[number];
+): Promise<RelecteurChoisi | null> {
+  const tries =
+    (await relecteursIndependants(ctx, missionId, date)).length > 0
+      ? await relecteursIndependants(ctx, missionId, date)
+      : await relecteursIndependants(ctx, missionId, null);
+  if (tries.length === 0) return null;
+  const rang = (r: RelecteurChoisi): number => rangRoles([r.role]);
+  const meilleurs = tries.filter((r) => rang(r) === rang(tries[0] as RelecteurChoisi));
+  return meilleurs[rotation % meilleurs.length] as RelecteurChoisi;
 }
 
 function modeleDe(cle: CleMission): RevueModele {
@@ -81,6 +108,7 @@ async function revuePassee(
 ): Promise<{ fin: string; constats: string[] }> {
   const modele = modeleDe(mission.cle);
   const relecteur = await choisirRelecteur(ctx, mission.id, chrono.date(), rotation);
+  if (!relecteur) throw new Error(`Aucun relecteur indépendant disponible pour ${mission.cle}.`);
   const c = ctx.proprietaire;
   await c.query(
     `UPDATE qualite_froide_echantillon SET relecteur_id = $2, affecte_par = $3, affecte_le = $4, statut = 'affectee'
@@ -173,6 +201,7 @@ export async function campagnePassee(
   );
   const gestionnaire = acteur(ctx, modele.creePar);
 
+  let creee = true;
   await transaction(ctx, async () => {
     const c = ctx.proprietaire;
     const criteres = {
@@ -193,8 +222,22 @@ export async function campagnePassee(
         ORDER BY m.id`,
       [ctx.cabinetId, criteres.periode_debut, criteres.periode_fin],
     );
+    // Une mission sans relecteur indépendant ne peut pas être revue : elle n'entre pas dans le tirage.
+    const tirables: CandidatEchantillon[] = [];
+    for (const m of pop.rows) {
+      if ((await relecteursIndependants(ctx, m.id, null)).length > 0) tirables.push(m);
+      else {
+        const cle = chronologie.find((x) => x.id === m.id)?.cle ?? m.id;
+        ctx.journal(`  revue à froid : ${cle} écartée du tirage (aucun relecteur indépendant).`);
+      }
+    }
+    if (tirables.length === 0) {
+      ctx.journal(`  campagne « ${modele.intitule} » ignorée : aucune mission tirable.`);
+      creee = false;
+      return;
+    }
     const tirage = tirerEchantillon(
-      pop.rows,
+      tirables,
       { ...criteres, exclus: [] },
       modele.taille,
       modele.graine,
@@ -301,5 +344,5 @@ export async function campagnePassee(
       }
     }
   });
-  return true;
+  return creee;
 }

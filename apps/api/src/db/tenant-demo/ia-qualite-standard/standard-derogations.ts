@@ -168,6 +168,85 @@ async function trouver(
   return r.rows[0]?.id ?? null;
 }
 
+/** Vrai si la brique existe dans la version de méthode actuellement liée à la mission. */
+async function briqueConnue(
+  ctx: ContexteTenantDemo,
+  missionId: string,
+  brique: string,
+): Promise<boolean> {
+  const r = await ctx.proprietaire.query(
+    `SELECT 1 FROM methode_briques b
+      WHERE b.code = $2 AND b.version_id =
+        (SELECT methode_version_id FROM mission_methodes WHERE mission_id = $1 ORDER BY rang DESC LIMIT 1)`,
+    [missionId, brique],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/**
+ * Récurrence (CAP-05) : une même dérogation (méthode, brique, nature) sur deux missions distinctes
+ * alimente l'analyse des dérogations fréquentes. Si les scénarios ci-dessus n'en produisent aucune
+ * (la méthode liée à une mission a pu être choisie par un autre lot), la première dérogation d'une
+ * mission OUVERTE est répétée sur une autre mission ouverte de la même méthode.
+ */
+async function assurerRecurrence(ctx: ContexteTenantDemo): Promise<void> {
+  const c = ctx.proprietaire;
+  const deja = await c.query(
+    `SELECT 1 FROM derogations d
+       JOIN mission_methodes mm ON mm.id = d.mission_methode_id
+       JOIN methode_versions v ON v.id = mm.methode_version_id
+      WHERE d.cabinet_id = $1
+      GROUP BY v.methode_id, d.brique_code, d.nature HAVING count(DISTINCT d.mission_id) >= 2
+      LIMIT 1`,
+    [ctx.cabinetId],
+  );
+  if ((deja.rowCount ?? 0) > 0) return;
+  const source = await c.query<{
+    mission_id: string;
+    brique_code: string;
+    nature: Scenario["nature"];
+    methode_id: string;
+  }>(
+    `SELECT d.mission_id, d.brique_code, d.nature, v.methode_id
+       FROM derogations d
+       JOIN missions m ON m.id = d.mission_id AND m.statut IN ('en_cours', 'signee')
+       JOIN mission_methodes mm ON mm.id = d.mission_methode_id
+       JOIN methode_versions v ON v.id = mm.methode_version_id
+      WHERE d.cabinet_id = $1 AND d.nature = 'adapter_brique' ORDER BY d.cree_le, d.id`,
+    [ctx.cabinetId],
+  );
+  for (const origine of source.rows) {
+    const cible = await c.query<{ id: string; intitule: string }>(
+      `SELECT m.id, m.intitule FROM missions m
+         JOIN LATERAL (SELECT methode_version_id FROM mission_methodes WHERE mission_id = m.id
+                        ORDER BY rang DESC LIMIT 1) l ON true
+         JOIN methode_versions v ON v.id = l.methode_version_id
+        WHERE m.cabinet_id = $1 AND m.statut IN ('en_cours', 'signee') AND m.id <> $2
+          AND v.methode_id = $3
+          AND EXISTS (SELECT 1 FROM methode_briques b WHERE b.version_id = v.id AND b.code = $4)
+          AND NOT EXISTS (SELECT 1 FROM derogations d WHERE d.mission_id = m.id
+                           AND d.brique_code = $4 AND d.nature = $5)
+        ORDER BY m.intitule LIMIT 1`,
+      [ctx.cabinetId, origine.mission_id, origine.methode_id, origine.brique_code, origine.nature],
+    );
+    const mission = cible.rows[0];
+    if (!mission) continue;
+    const acteurs = await acteursMission(ctx, { id: mission.id });
+    if (!acteurs) continue;
+    const r = await ctx.session(acteurs.chef).post(`/api/missions/${mission.id}/derogations`, {
+      brique_code: origine.brique_code,
+      nature: origine.nature,
+      description: "Même adaptation que sur une autre mission du cabinet, demandée par le client.",
+      motif: `Le client de « ${mission.intitule} » demande la même adaptation de la brique que sur une autre mission en cours : le livrable doit pouvoir être lu dans les mêmes conditions.`,
+    });
+    attendre(201, r, `dérogation de récurrence ${origine.brique_code}`);
+    return;
+  }
+  ctx.journal(
+    "  aucune récurrence de dérogations possible (pas deux missions ouvertes de même méthode).",
+  );
+}
+
 export async function semerDerogations(ctx: ContexteTenantDemo): Promise<void> {
   for (const s of SCENARIOS) {
     const mission = await exigerMission(ctx, s.mission);
@@ -182,6 +261,12 @@ export async function semerDerogations(ctx: ContexteTenantDemo): Promise<void> {
       par === "directeur.mission" ? acteurs.directeur : par === "chef.mission" ? acteurs.chef : par;
     let id = await trouver(ctx, mission.id, s);
     if (!id) {
+      if (!(await briqueConnue(ctx, mission.id, s.brique))) {
+        ctx.journal(
+          `  dérogation ${s.mission}/${s.brique} ignorée : brique absente de la méthode liée à la mission.`,
+        );
+        continue;
+      }
       const r = await chef.post(`/api/missions/${mission.id}/derogations`, {
         brique_code: s.brique,
         nature: s.nature,
@@ -205,5 +290,6 @@ export async function semerDerogations(ctx: ContexteTenantDemo): Promise<void> {
       attendre(200, rep, `décision ${d.etape} sur ${s.mission}/${s.brique}`);
     }
   }
+  await assurerRecurrence(ctx);
   ctx.journal("  dérogations demandées et décidées.");
 }
