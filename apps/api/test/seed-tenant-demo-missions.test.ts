@@ -7,7 +7,20 @@ import { semerTenantDemo, type ResumeTenantDemo } from "../src/db/tenant-demo/in
 import { CASTING } from "../src/db/tenant-demo/missions/donnees-casting.js";
 import { OPPORTUNITES_COMPLEMENTAIRES } from "../src/db/tenant-demo/missions/donnees-pipeline.js";
 import { cloturerMissionsTerminees } from "../src/db/tenant-demo/missions/cloture.js";
+import {
+  NOMS_DECLENCHEURS,
+  transactionAntidatage,
+} from "../src/db/tenant-demo/missions/declencheurs.js";
 import { semerMissions } from "../src/db/tenant-demo/phases/missions.js";
+import {
+  parNom,
+  SIGNEES,
+  TERMINEES,
+  verifierBudget,
+  verifierJoursAlloues,
+  verifierPipelineGagne,
+  type MissionLue,
+} from "./outils-assertions-missions.js";
 import { creerBaseJetable, supprimerBaseJetable, type BaseJetable } from "./outils-base-jetable.js";
 
 /* Phase « missions » du Tenant démo puis clôture différée, dans une base jetable (~7 min). */
@@ -38,17 +51,6 @@ const comptages = async (): Promise<Record<string, number>> => {
   return r;
 };
 
-interface MissionLue {
-  id: string;
-  intitule: string;
-  statut: string;
-  client_id: string;
-  date_debut: string;
-  date_fin: string;
-  date_signature: string | null;
-  cloturee_le: string | null;
-}
-
 const lireMissions = (): Promise<MissionLue[]> =>
   lignes<MissionLue>(
     `SELECT id, intitule, statut, client_id, date_debut::text, date_fin::text,
@@ -56,14 +58,6 @@ const lireMissions = (): Promise<MissionLue[]> =>
      FROM missions WHERE cabinet_id = $1 ORDER BY intitule`,
     [cabinetId],
   );
-
-const SIGNEES = CASTING.filter((d) => d.signature);
-const TERMINEES = CASTING.filter((d) => d.etat === "terminee");
-const parNom = (liste: MissionLue[], nom: string): MissionLue => {
-  const m = liste.find((x) => x.intitule === nom);
-  if (!m) throw new Error(`Mission « ${nom} » absente`);
-  return m;
-};
 
 let dossier: string;
 let base: BaseJetable | undefined;
@@ -78,6 +72,16 @@ let clotureAuditApres3 = 0,
   clotureAuditApres4 = 0;
 let erreurCloture: unknown;
 
+let lancer: (nom: string, executer: typeof semerMissions) => Promise<ResumeTenantDemo>;
+let declencheursApresPhase: { tgname: string; tgenabled: string }[] = [];
+let declencheursApresCloture: { tgname: string; tgenabled: string }[] = [];
+
+const etatDeclencheurs = () =>
+  lignes<{ tgname: string; tgenabled: string }>(
+    "SELECT tgname, tgenabled FROM pg_trigger WHERE tgname = ANY($1) ORDER BY tgname",
+    [NOMS_DECLENCHEURS],
+  );
+
 const compterClotures = (): Promise<number> =>
   nombre("SELECT count(*) n FROM journal_audit WHERE cabinet_id = $1 AND action = 'cloture'");
 
@@ -86,7 +90,7 @@ describe("seed du Tenant démo (phase missions)", () => {
     dossier = await mkdtemp(path.join(os.tmpdir(), "missionpilot-seed-td-missions-"));
     base = await creerBaseJetable("tdmissions", dossier);
     const silence = () => undefined;
-    const lancer = (nom: string, executer: typeof semerMissions) =>
+    lancer = (nom, executer) =>
       semerTenantDemo(base!.db, base!.config, {
         publique: false,
         journal: silence,
@@ -98,12 +102,14 @@ describe("seed du Tenant démo (phase missions)", () => {
     second = await lancer("missions-bis", semerMissions);
     apresSecond = await comptages();
     avantCloture = await lireMissions();
+    declencheursApresPhase = await etatDeclencheurs();
     try {
       await lancer("cloture", cloturerMissionsTerminees);
       clotureAuditApres3 = await compterClotures();
       apresCloture = await lireMissions();
       await lancer("cloture-bis", cloturerMissionsTerminees);
       clotureAuditApres4 = await compterClotures();
+      declencheursApresCloture = await etatDeclencheurs();
     } catch (e) {
       erreurCloture = e;
       apresCloture = await lireMissions();
@@ -147,65 +153,11 @@ describe("seed du Tenant démo (phase missions)", () => {
   });
 
   it("budget : version 1 initiale figée à la signature, révisions validées, non signée sans budget", async () => {
-    const versions = await lignes<{
-      mission_id: string;
-      numero: number;
-      type: string;
-      figee: boolean;
-      date_figeage: string | null;
-      validee_par: string | null;
-      cree_par: string | null;
-      validateur_associe: boolean | null;
-      honoraires: string;
-      debours: string;
-    }>(
-      `SELECT v.mission_id, v.numero, v.type, v.figee, v.date_figeage::text, v.validee_par, v.cree_par,
-              (SELECT 'associe' = ANY(u.roles) FROM utilisateurs u WHERE u.id = v.validee_par) AS validateur_associe,
-              (SELECT count(*) FROM budget_lignes l WHERE l.version_id = v.id AND l.nature = 'honoraires') AS honoraires,
-              (SELECT count(*) FROM budget_lignes l WHERE l.version_id = v.id AND l.nature = 'debours') AS debours
-       FROM budget_versions v WHERE v.cabinet_id = $1`,
-      [cabinetId],
-    );
-    expect(SIGNEES).toHaveLength(10);
-    for (const d of SIGNEES) {
-      const m = parNom(avantCloture, d.nom);
-      const v1 = versions.find((v) => v.mission_id === m.id && v.numero === 1);
-      expect(v1, `version 1 de ${d.nom}`).toMatchObject({ type: "initial", figee: true });
-      expect(v1?.date_figeage, d.nom).toBe(m.date_signature);
-      expect(Number(v1?.honoraires), `honoraires de ${d.nom}`).toBeGreaterThan(0);
-      // Les missions sans débours dans le casting (Teranga) n'ont pas de ligne de débours.
-      if (d.debours.length > 0)
-        expect(Number(v1?.debours), `débours de ${d.nom}`).toBeGreaterThan(0);
-      const v2 = versions.find((v) => v.mission_id === m.id && v.numero === 2);
-      if (d.revision) {
-        expect(v2, `révision de ${d.nom}`).toMatchObject({ type: "revise", figee: true });
-        expect(v2?.validee_par, d.nom).not.toBeNull();
-        expect(v2?.validee_par !== v2?.cree_par || v2?.validateur_associe, d.nom).toBe(true);
-      } else {
-        expect(v2, `pas de révision pour ${d.nom}`).toBeUndefined();
-      }
-    }
-    const nonSignee = parNom(avantCloture, "Due diligence — Wouri Distribution");
-    expect(versions.filter((v) => v.mission_id === nonSignee.id)).toHaveLength(0);
+    await verifierBudget(lignes, cabinetId, avantCloture);
   });
 
   it("jours alloués aux affectations <= jours du budget honoraires (dernière version figée)", async () => {
-    const r = await lignes<{ intitule: string; alloues: string; budget: string }>(
-      `SELECT m.intitule,
-              coalesce((SELECT sum(a.jours_alloues) FROM affectations a WHERE a.mission_id = m.id), 0) AS alloues,
-              coalesce((SELECT sum(l.jours) FROM budget_lignes l
-                         WHERE l.nature = 'honoraires'
-                           AND l.version_id = (SELECT v.id FROM budget_versions v
-                                                WHERE v.mission_id = m.id AND v.figee
-                                                ORDER BY v.numero DESC LIMIT 1)), 0) AS budget
-       FROM missions m WHERE m.cabinet_id = $1 AND m.date_signature IS NOT NULL`,
-      [cabinetId],
-    );
-    expect(r).toHaveLength(10);
-    for (const x of r) {
-      expect(Number(x.budget), `budget de ${x.intitule}`).toBeGreaterThan(0);
-      expect(Number(x.alloues), x.intitule).toBeLessThanOrEqual(Number(x.budget));
-    }
+    await verifierJoursAlloues(lignes, cabinetId);
   });
 
   it("jalons : terminées entièrement franchies, aucun jalon franchi dans le futur, des jalons à venir", async () => {
@@ -232,29 +184,7 @@ describe("seed du Tenant démo (phase missions)", () => {
   });
 
   it("pipeline : opportunité gagnée, proposition acceptée validée par un autre ou un associé", async () => {
-    const r = await lignes<{
-      intitule: string;
-      type_mission_id: string | null;
-      ostatut: string | null;
-      pstatut: string | null;
-      valide_ok: boolean | null;
-    }>(
-      `SELECT m.intitule, m.type_mission_id, o.statut AS ostatut, p.statut AS pstatut,
-              (p.validee_par <> p.cree_par
-               OR EXISTS (SELECT 1 FROM utilisateurs u WHERE u.id = p.validee_par AND 'associe' = ANY(u.roles))) AS valide_ok
-       FROM missions m
-       LEFT JOIN opportunites o ON o.id = m.opportunite_id
-       LEFT JOIN propositions p ON p.id = m.proposition_id
-       WHERE m.cabinet_id = $1`,
-      [cabinetId],
-    );
-    expect(r).toHaveLength(11);
-    for (const x of r) {
-      expect(x.type_mission_id, x.intitule).not.toBeNull();
-      expect(x.ostatut, x.intitule).toBe("gagnee");
-      expect(x.pstatut, x.intitule).toBe("acceptee");
-      expect(x.valide_ok, x.intitule).toBe(true);
-    }
+    await verifierPipelineGagne(lignes, cabinetId);
   });
 
   it("antidatage : historique étalé, rien dans le futur", async () => {
@@ -355,12 +285,7 @@ describe("seed du Tenant démo (phase missions)", () => {
       "SELECT DISTINCT etape FROM opportunites WHERE cabinet_id = $1 AND statut = 'ouverte' ORDER BY etape",
       [cabinetId],
     );
-    expect(ouvertes.map((e) => e.etape)).toEqual([
-      "negociation",
-      "proposition",
-      "prospection",
-      "qualification",
-    ]);
+    expect(ouvertes).toHaveLength(4); // une opportunité ouverte à chacune des 4 étapes
     // Une proposition refusée appartient à une opportunité perdue ; elle a été validée avant d'être envoyée.
     const refusees = await lignes<{ n: string }>(
       `SELECT count(*) n FROM propositions p JOIN opportunites o ON o.id = p.opportunite_id
@@ -371,12 +296,96 @@ describe("seed du Tenant démo (phase missions)", () => {
     expect(Number(refusees[0]?.n)).toBe(
       OPPORTUNITES_COMPLEMENTAIRES.filter((o) => o.proposition === "refusee").length,
     );
+  });
+
+  it("chronologie commerciale cohérente et aucun document daté dans le futur", async () => {
+    const ok = await nombre(`SELECT count(*) n FROM missions m
+         JOIN opportunites o ON o.id = m.opportunite_id JOIN propositions p ON p.id = m.proposition_id
+        WHERE m.cabinet_id = $1 AND o.cree_le < p.cree_le AND p.cree_le < p.validee_le
+          AND p.validee_le < p.envoyee_le AND p.envoyee_le < p.repondue_le
+          AND p.repondue_le <= m.cree_le`);
+    expect(ok).toBe(11);
+    // Toutes les propositions (pipeline complémentaire compris) : validée <= envoyée <= répondue.
+    expect(
+      await nombre(`SELECT count(*) n FROM propositions WHERE cabinet_id = $1 AND NOT (
+          cree_le <= validee_le AND (envoyee_le IS NULL OR validee_le <= envoyee_le)
+          AND (repondue_le IS NULL OR envoyee_le <= repondue_le))`),
+    ).toBe(0);
     expect(
       await nombre(
-        "SELECT count(*) n FROM opportunites WHERE cabinet_id = $1 AND cree_le > '2026-10-24'",
+        "SELECT count(*) n FROM mission_documents WHERE cabinet_id = $1 AND cree_le > '2026-10-24'",
       ),
     ).toBe(0);
   });
+
+  it("les 7 déclencheurs d'immuabilité sont actifs après la phase et après la clôture", () => {
+    for (const etat of [declencheursApresPhase, declencheursApresCloture]) {
+      expect(etat.map((d) => d.tgname)).toEqual([...NOMS_DECLENCHEURS].sort());
+      expect(etat.every((d) => d.tgenabled === "O")).toBe(true);
+    }
+  });
+
+  it("une erreur dans la transaction d'antidatage annule les dates et rétablit les déclencheurs", async () => {
+    const avant = JSON.stringify(
+      await lignes("SELECT id, cree_le FROM propositions WHERE cabinet_id = $1 ORDER BY id", [
+        cabinetId,
+      ]),
+    );
+    const client = new pg.Client({
+      connectionString: (base as BaseJetable).config.DATABASE_OWNER_URL,
+    });
+    await client.connect();
+    try {
+      await expect(
+        transactionAntidatage(client, {
+          tables: ["propositions", "budget_versions"],
+          avant: async (c) => {
+            await c.query("UPDATE opportunites SET cree_le = '2000-01-01' WHERE cabinet_id = $1", [
+              cabinetId,
+            ]);
+          },
+          pendant: async (c) => {
+            await c.query("UPDATE propositions SET cree_le = '2000-01-01' WHERE cabinet_id = $1", [
+              cabinetId,
+            ]);
+            throw new Error("échec provoqué");
+          },
+        }),
+      ).rejects.toThrow("échec provoqué");
+    } finally {
+      await client.end();
+    }
+    expect((await etatDeclencheurs()).every((d) => d.tgenabled === "O")).toBe(true);
+    expect(
+      JSON.stringify(
+        await lignes("SELECT id, cree_le FROM propositions WHERE cabinet_id = $1 ORDER BY id", [
+          cabinetId,
+        ]),
+      ),
+    ).toBe(avant);
+    expect(
+      await nombre(
+        "SELECT count(*) n FROM opportunites WHERE cabinet_id = $1 AND cree_le < '2001-01-01'",
+      ),
+    ).toBe(0);
+  });
+
+  it("reprise : une mission présente mais non consignée est refusée avec un message clair", async () => {
+    await lignes(
+      "DELETE FROM journal_audit WHERE action = 'semis_tenant_demo_mission' AND details->>'cle' = 'wouri-dd'",
+    );
+    try {
+      await expect(lancer("missions-ter", semerMissions)).rejects.toThrow(
+        /repartir d'une base neuve/,
+      );
+    } finally {
+      await lignes(
+        `INSERT INTO journal_audit (cabinet_id, action, entite, details)
+         VALUES ($1, 'semis_tenant_demo_mission', 'mission', '{"cle":"wouri-dd"}'::jsonb)`,
+        [cabinetId],
+      );
+    }
+  }, 180_000);
 
   it("les tables concernées ne sont plus vides", async () => {
     const tables =

@@ -1,7 +1,7 @@
 import { journaliser } from "../../../audit.js";
 import type { ContexteTenantDemo } from "../contexte.js";
 import { batirMission, type MissionBatie } from "./construction.js";
-import { CASTING, type DefMission } from "./donnees-casting.js";
+import { CASTING } from "./donnees-casting.js";
 import { constituerEquipe, pressentirEquipe } from "./equipe.js";
 import { antidaterMission, maintenantBase } from "./antidatage.js";
 import { reviserBudget } from "./budget-revision.js";
@@ -47,19 +47,8 @@ async function consigner(ctx: ContexteTenantDemo, m: MissionBatie): Promise<void
   );
 }
 
-/** Mission du casting par `cle`, pour les étapes qui suivent (relue si elle a été consignée). */
-export function parCle(cle: string): DefMission {
-  const def = CASTING.find((d) => d.cle === cle);
-  if (!def) throw new Error(`Mission « ${cle} » absente du casting.`);
-  return def;
-}
-
-export async function semerCasting(
-  ctx: ContexteTenantDemo,
-  suite?: (ctx: ContexteTenantDemo, m: MissionBatie) => Promise<void>,
-): Promise<MissionBatie[]> {
+export async function semerCasting(ctx: ContexteTenantDemo): Promise<void> {
   await assurerReferentiels(ctx);
-  const batis: MissionBatie[] = [];
   for (const def of CASTING) {
     if (await missionConsignee(ctx, def.cle)) {
       ctx.journal(`  mission « ${def.nom} » déjà faite.`);
@@ -85,9 +74,6 @@ export async function semerCasting(
       debut: debutReel,
       fin: await maintenantBase(ctx),
     });
-    if (suite) await suite(ctx, m);
     await consigner(ctx, m);
-    batis.push(m);
   }
-  return batis;
 }

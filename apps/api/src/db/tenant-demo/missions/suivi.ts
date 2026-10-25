@@ -1,6 +1,6 @@
-import { ajouterJours } from "@missionpilot/engines";
 import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 import type { CleCompte } from "../cles.js";
+import { chronologieCommerciale } from "./chronologie.js";
 import type { MissionBatie, TacheLue } from "./construction.js";
 
 /*
@@ -63,13 +63,16 @@ export async function deposerDocuments(
     type: "proposition",
     nom: "Proposition technique et financière",
   });
-  deposes.push({ id: propId, date: ajouterJours(def.opp, 24) });
+  deposes.push({ id: propId, date: chronologieCommerciale(def).envoyee });
   if (!def.signature) return deposes;
-  const lancement = await deposer(chef, m, {
-    type: "autre",
-    nom: "Compte rendu de la réunion de lancement",
-  });
-  deposes.push({ id: lancement, date: def.debut });
+  // Le compte rendu de lancement n'existe que si la réunion a eu lieu (début passé).
+  if (def.debut <= ctx.aujourdhui) {
+    const lancement = await deposer(chef, m, {
+      type: "autre",
+      nom: "Compte rendu de la réunion de lancement",
+    });
+    deposes.push({ id: lancement, date: def.debut });
+  }
 
   const auteur = auteurLivrables(ctx, m);
   const limite = ctx.jour(-2);
