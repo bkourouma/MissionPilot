@@ -20,22 +20,23 @@
   text-decoration: none;
   cursor: pointer;
   transition:
-    background-color var(--mp-duree),
-    border-color var(--mp-duree),
-    color var(--mp-duree);
+    background-color var(--mp-duree) var(--mp-sortie),
+    border-color var(--mp-duree) var(--mp-sortie),
+    color var(--mp-duree) var(--mp-sortie);
 }
 
 .mp-bouton--plein {
   width: 100%;
 }
 
+/* Action principale : l'or de la marque, texte violet nuit (7,1:1). Une par écran en règle. */
 .mp-bouton--primaire {
-  background: var(--mp-primaire);
-  color: var(--mp-sur-primaire);
+  background: var(--mp-or);
+  color: var(--mp-sur-or);
 }
 .mp-bouton--primaire:hover:not(:disabled) {
-  background: var(--mp-primaire-survol);
-  color: var(--mp-sur-primaire);
+  background: var(--mp-or-survol);
+  color: var(--mp-sur-or);
 }
 
 .mp-bouton--secondaire {
@@ -187,6 +188,7 @@
 
 .mp-carte__titre {
   font-size: var(--mp-taille-l);
+  font-weight: 700;
 }
 
 h3.mp-carte__titre,
@@ -337,15 +339,18 @@ h4.mp-carte__titre {
 .mp-tableau td {
   padding: var(--mp-esp-3) var(--mp-esp-4);
   text-align: left;
-  vertical-align: top;
+  /* Les liens de 44 px et le texte d'une même ligne se centrent sur le même axe. */
+  vertical-align: middle;
   border-bottom: 1px solid var(--mp-bordure);
 }
 
 .mp-tableau th {
   background: var(--mp-surface-2);
   color: var(--mp-texte-doux);
-  font-size: var(--mp-taille-s);
-  font-weight: 650;
+  font-size: var(--mp-taille-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -393,6 +398,7 @@ h4.mp-carte__titre {
   }
   .mp-tableau td {
     display: flex;
+    align-items: baseline;
     justify-content: space-between;
     gap: var(--mp-esp-3);
     padding: var(--mp-esp-2) var(--mp-esp-3);

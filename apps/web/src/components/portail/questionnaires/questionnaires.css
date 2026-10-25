@@ -171,8 +171,10 @@
 }
 
 .mp-pq-question--erreur {
-  padding-left: var(--mp-esp-3);
-  border-left: 3px solid var(--mp-danger);
+  padding: var(--mp-esp-3);
+  background: var(--mp-danger-fond);
+  border: 1px solid var(--mp-danger);
+  border-radius: var(--mp-rayon);
 }
 
 .mp-pq-groupe {

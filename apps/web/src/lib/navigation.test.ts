@@ -4,8 +4,10 @@ import { PERMISSIONS_RUBRIQUE, sousPagesConnaissances } from "./capitalisation";
 import {
   autorise,
   entreesAutorisees,
+  entreeActive,
   entreesBarreBasse,
   estActive,
+  grouperEntrees,
   NAVIGATION,
   ongletsMissionCanaux,
   sousPageActive,
@@ -604,5 +606,37 @@ describe("redressement (lot 3a)", () => {
     const pages = sousPagesAutorisees("redressement", ["associe"]);
     expect(sousPageActive(pages, "/redressement")).toBe("dossiers");
     expect(sousPageActive(pages, "/redressement/seuils")).toBe("seuils");
+  });
+});
+
+describe("navigation par métier", () => {
+  it("range chaque entrée dans un groupe, une seule fois", () => {
+    const groupes = grouperEntrees(NAVIGATION);
+    const classees = groupes.flatMap((g) => g.entrees.map((e) => e.id));
+    expect(classees.sort()).toEqual(NAVIGATION.map((e) => e.id).sort());
+    expect(groupes.map((g) => g.libelle)).toEqual([
+      "Piloter",
+      "Produire",
+      "Conseil IA",
+      "Vendre",
+      "Facturer",
+      "Cabinet",
+    ]);
+  });
+
+  it("n'affiche que les entrées permises et masque un groupe vide", () => {
+    const groupes = grouperEntrees(entreesAutorisees(["consultant"]));
+    expect(groupes.length).toBeGreaterThan(0);
+    for (const g of groupes) expect(g.entrees.length).toBeGreaterThan(0);
+    expect(groupes[0]?.libelle).toBe("Piloter");
+  });
+});
+
+describe("entrée active", () => {
+  it("retient la plus spécifique quand deux chemins correspondent", () => {
+    const e = [{ href: "/appels-offres" }, { href: "/appels-offres/banques" }];
+    expect(entreeActive(e, "/appels-offres/banques/cv")?.href).toBe("/appels-offres/banques");
+    expect(entreeActive(e, "/appels-offres/veille")?.href).toBe("/appels-offres");
+    expect(entreeActive(e, "/clients")).toBeNull();
   });
 });

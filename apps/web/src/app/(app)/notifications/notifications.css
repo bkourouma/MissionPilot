@@ -1,0 +1,9 @@
+/*
+ * Notification non lue : jamais de barre latérale épaisse ni d'ombre portée. L'état se lit par la
+ * pastille « Non lue » (texte), le fond pâle et la bordure violette d'un pixel.
+ */
+.mp-notification.mp-notification--non-lue {
+  background: var(--mp-primaire-pale);
+  border-color: var(--mp-primaire);
+  box-shadow: none;
+}

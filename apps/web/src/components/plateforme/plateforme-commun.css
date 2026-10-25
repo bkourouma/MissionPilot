@@ -19,7 +19,7 @@
 .mp-mdp-genere__valeur {
   flex: 1 1 14rem;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: monospace;
   letter-spacing: 0.02em;
 }
 

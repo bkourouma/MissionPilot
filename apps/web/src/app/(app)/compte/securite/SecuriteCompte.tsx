@@ -228,7 +228,7 @@ function EtapeScan({
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <p className="mp-sous-formulaire__titre">
-        Étape 2 sur 3 : ajoutez MissionPilot à votre application
+        Étape 2 sur 3 : ajoutez CabinetPilot à votre application
       </p>
       <div className="mp-qrcode-bloc">
         <QrCodeTotp uri={secret.uri} />

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./portail.css";
 
 export const metadata: Metadata = {
-  title: { default: "Espace client", template: "%s — Espace client MissionPilot" },
+  title: { default: "Espace client", template: "%s — Espace client CabinetPilot" },
 };
 
 /**

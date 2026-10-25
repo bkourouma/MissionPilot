@@ -48,7 +48,7 @@ export default async function PageArbresKpi({ params }: { params: Promise<{ id: 
       </div>
       <p className="mp-texte-doux">
         Décomposez un KPI en leviers pour comprendre ce qui a fait bouger le résultat. Les
-        contributions sont calculées par le moteur de MissionPilot à partir des mesures des KPI liés
+        contributions sont calculées par le moteur de CabinetPilot à partir des mesures des KPI liés
         ; elles décrivent une variation observée, pas une cause démontrée.
       </p>
       {!arbres.ok ? (

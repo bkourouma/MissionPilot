@@ -315,7 +315,7 @@ export async function rapportNotation(
       {
         type: "paragraphe",
         texte:
-          `Scores calculés par le moteur de notation de MissionPilot à partir des réponses soumises ` +
+          `Scores calculés par le moteur de notation de CabinetPilot à partir des réponses soumises ` +
           `au questionnaire (grille « ${tronquer(v.version.grille.titre, 120)} », version ` +
           `${v.version.grille.version} ; ${STRATEGIES[v.version.strategie] ?? v.version.strategie}). ` +
           `Barème des classes : A à partir de 80, B à partir de 65, C à partir de 50, D à partir de 35, E en dessous.`,

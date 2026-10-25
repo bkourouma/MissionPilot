@@ -385,7 +385,7 @@ export async function rapportEtatAvancement(
         {
           type: "paragraphe",
           texte:
-            `Chiffres calculés par les moteurs de MissionPilot à la date du ${dateAffichee(aujourdhui)} ` +
+            `Chiffres calculés par les moteurs de CabinetPilot à la date du ${dateAffichee(aujourdhui)} ` +
             `(temps validés, reste à faire déclaré, jalons du découpage). ` +
             `Document généré automatiquement : il reste un brouillon tant qu'un consultant ne l'a pas relu.`,
         },

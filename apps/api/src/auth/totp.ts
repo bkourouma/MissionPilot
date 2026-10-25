@@ -103,7 +103,7 @@ export function nouveauSecretTotp(): Buffer {
 }
 
 /** URI d'enrôlement (QR code) : otpauth://totp/Émetteur:compte?secret=…&issuer=… */
-export function uriOtpauth(secret: Buffer, compte: string, emetteur = "MissionPilot"): string {
+export function uriOtpauth(secret: Buffer, compte: string, emetteur = "CabinetPilot"): string {
   const libelle = `${encodeURIComponent(emetteur)}:${encodeURIComponent(compte)}`;
   const params = new URLSearchParams({
     secret: base32Encoder(secret),

@@ -44,7 +44,7 @@ function fournisseur(journal: EntreeJournalLlm[], extra: { timeoutMs?: number } 
     baseUrl: `${serveur.url}/`,
     timeoutMs: extra.timeoutMs ?? 2000,
     referer: "http://localhost:3100",
-    titre: "MissionPilot",
+    titre: "CabinetPilot",
     journal: (e) => journal.push(e),
     attendre: async (ms) => {
       attentes.push(ms);
@@ -84,7 +84,7 @@ describe("fournisseur OpenRouter (ADR-003)", () => {
     expect(recue.chemin).toBe("/api/v1/chat/completions");
     expect(recue.entetes.authorization).toBe(`Bearer ${CLE_PLATEFORME_FACTICE}`);
     expect(recue.entetes["http-referer"]).toBe("http://localhost:3100");
-    expect(recue.entetes["x-title"]).toBe("MissionPilot");
+    expect(recue.entetes["x-title"]).toBe("CabinetPilot");
     expect(recue.corps).toMatchObject({
       model: "anthropic/claude-sonnet-4.5",
       max_tokens: 100,

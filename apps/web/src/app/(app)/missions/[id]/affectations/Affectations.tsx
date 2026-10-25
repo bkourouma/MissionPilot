@@ -110,7 +110,7 @@ export function FormulaireAffectation({
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Avertissements liste={avertissements} />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
           libelle="Tâche"
           required
@@ -378,7 +378,7 @@ export function Replanification({
           refAlerte={f.refAlerte}
           titreErreur="Re-planification impossible"
         />
-        <div className="mp-grille-champs">
+        <div className="mp-grille-champs mp-grille-champs--bas">
           <Select
             libelle="Phase à décaler"
             options={phases}

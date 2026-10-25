@@ -28,7 +28,7 @@ function erreurImportConnue(
     return {
       titre,
       message:
-        "Le serveur a refusé l'envoi : la page n'est pas ouverte à l'adresse habituelle de MissionPilot. Rien n'a été importé : rouvrez MissionPilot à son adresse habituelle puis relancez la simulation. Si le problème persiste, prévenez l'administrateur.",
+        "Le serveur a refusé l'envoi : la page n'est pas ouverte à l'adresse habituelle de CabinetPilot. Rien n'a été importé : rouvrez CabinetPilot à son adresse habituelle puis relancez la simulation. Si le problème persiste, prévenez l'administrateur.",
     };
   }
   if (e.code === "IMPORT_CONCURRENT") {

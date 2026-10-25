@@ -124,7 +124,7 @@ export function FormulaireEncaissement({
         refAlerte={form.refAlerte}
         titreErreur="Encaissement refusé"
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
           libelle="Client"
           required
@@ -194,7 +194,7 @@ export function FormulaireEncaissement({
           maxLength={120}
           aide={
             s.mode === "mobile_money"
-              ? "Identifiant de transaction reçu par SMS (aucun paiement n'est déclenché par MissionPilot)."
+              ? "Identifiant de transaction reçu par SMS (aucun paiement n'est déclenché par CabinetPilot)."
               : undefined
           }
           value={s.reference}

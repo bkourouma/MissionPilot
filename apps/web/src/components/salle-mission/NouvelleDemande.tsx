@@ -122,7 +122,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
           <p>{erreurServeur}</p>
         </Alerte>
       ) : null}
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Titre"
           value={saisie.titre}

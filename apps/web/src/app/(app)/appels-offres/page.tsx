@@ -122,9 +122,11 @@ export default async function PageAppelsOffres({
               }))}
             />
           </div>
-          <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            Filtrer
-          </button>
+          <div className="mp-actions-formulaire">
+            <button type="submit" className="mp-bouton mp-bouton--secondaire">
+              Filtrer
+            </button>
+          </div>
         </form>
 
         {!r.ok ? (

@@ -32,7 +32,7 @@ export default async function PageSimulateurCanaux() {
     <div className="mp-page">
       <EnteteDePage
         titre="Simulateur (développement)"
-        soustitre="Ce que les canaux simulés « enverraient », et de quoi leur faire « recevoir » un message. Rien ne quitte MissionPilot."
+        soustitre="Ce que les canaux simulés « enverraient », et de quoi leur faire « recevoir » un message. Rien ne quitte CabinetPilot."
       />
       {!r.ok ? (
         simulateurIndisponible(r) ? (

@@ -87,7 +87,7 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
         refAlerte={refAlerte}
         titreErreur="Export refusé"
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Du"
           type="date"

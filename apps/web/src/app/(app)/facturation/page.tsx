@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { aPermission } from "@missionpilot/shared";
 import { BadgePaiement } from "../../../components/finance/BadgePaiement";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
@@ -36,13 +37,24 @@ interface PageFactures {
   curseur_suivant: string | null;
 }
 
-function periode(f: Facture): string {
+function periode(f: Facture): ReactNode {
+  const date = (iso: string, fuseau?: string) => (
+    <span className="mp-sans-coupure">{formaterDate(iso, fuseau)}</span>
+  );
   if (f.date_emission) {
-    return f.date_echeance && f.nature === "facture"
-      ? `Émise le ${formaterDate(f.date_emission)}, échéance ${formaterDate(f.date_echeance)}`
-      : `Émise le ${formaterDate(f.date_emission)}`;
+    return (
+      <span className="mp-periode">
+        Émise le {date(f.date_emission)}
+        {f.date_echeance && f.nature === "facture" ? (
+          <>
+            <br />
+            <span className="mp-texte-doux">échéance {date(f.date_echeance)}</span>
+          </>
+        ) : null}
+      </span>
+    );
   }
-  return `Créée le ${formaterDate(f.cree_le, "Africa/Abidjan")}`;
+  return <span className="mp-periode">Créée le {date(f.cree_le, "Africa/Abidjan")}</span>;
 }
 
 export default async function PageFacturation({

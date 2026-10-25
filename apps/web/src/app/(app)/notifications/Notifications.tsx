@@ -8,6 +8,7 @@ import { Alerte } from "../../../components/ui/Alerte";
 import { Bouton } from "../../../components/ui/Bouton";
 import { api, messageErreur } from "../../../lib/api";
 import { formaterDateHeure } from "../../../lib/format";
+import "./notifications.css";
 import { lienNotification, paragraphes, type Notification } from "../../../lib/notifications";
 
 function signaler() {

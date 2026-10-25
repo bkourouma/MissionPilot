@@ -43,6 +43,35 @@ h4 {
   text-wrap: balance;
 }
 
+h1,
+h2,
+h3 {
+  font-family: var(--mp-police-titre);
+  letter-spacing: -0.01em;
+}
+
+/* Chiffres alignés dans les tableaux et les valeurs de tête. */
+table,
+.mp-aligne-droite {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Éléments du navigateur : sélection, curseur de saisie, défilement. */
+::selection {
+  background: var(--mp-primaire);
+  color: var(--mp-sur-primaire);
+}
+
+input,
+textarea {
+  caret-color: var(--mp-primaire);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--mp-bordure-controle) transparent;
+}
+
 img,
 svg {
   display: block;

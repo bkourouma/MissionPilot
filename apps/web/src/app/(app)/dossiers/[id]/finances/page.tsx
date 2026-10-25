@@ -1,3 +1,4 @@
+import "../../../../../components/dossier/dossier.css";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -128,7 +129,7 @@ export default async function PageFinances({ params }: { params: Promise<{ id: s
       {peutEcrire ? (
         <Carte titre="Importer un état financier">
           <ImportEtat clientId={id} />
-          <p>
+          <p className="mp-note-import">
             Classeur ou CSV au gabarit à colonnes fixes. Un nouvel état du même exercice remplace
             l&apos;état courant (l&apos;historique reste consultable).
           </p>

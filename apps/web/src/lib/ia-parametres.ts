@@ -73,7 +73,7 @@ export interface ResultatTestIa {
 
 export const SOURCE_CLE_LIBELLES: Record<SourceCleIa, string> = {
   cabinet: "Clé du cabinet",
-  plateforme: "Clé de la plateforme MissionPilot",
+  plateforme: "Clé de la plateforme CabinetPilot",
 };
 
 export const libelleSourceCle = (s: SourceCleIa | null) =>
@@ -82,7 +82,7 @@ export const libelleSourceCle = (s: SourceCleIa | null) =>
 /** « … a répondu avec la clé du cabinet ». */
 export const SOURCE_CLE_PHRASES: Record<SourceCleIa, string> = {
   cabinet: "la clé du cabinet",
-  plateforme: "la clé de la plateforme MissionPilot",
+  plateforme: "la clé de la plateforme CabinetPilot",
 };
 
 /** Mode effectif : texte, tonalité et explication (la couleur ne porte jamais seule le sens). */

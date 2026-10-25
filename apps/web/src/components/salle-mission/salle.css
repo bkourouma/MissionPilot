@@ -39,7 +39,8 @@
 }
 
 .mp-salle__piece--a-fournir {
-  border-left: 4px solid var(--mp-attention, #b45309);
+  background: var(--mp-attention-fond);
+  border-color: var(--mp-attention);
 }
 
 .mp-salle__piece-titre {

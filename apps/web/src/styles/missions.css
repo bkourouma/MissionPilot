@@ -114,7 +114,7 @@
 }
 
 .mp-arbre__noeud--niveau-2 > .mp-arbre__element {
-  border-left: 4px solid var(--mp-bordure-controle);
+  background: var(--mp-surface-2);
 }
 
 .mp-total-jours {

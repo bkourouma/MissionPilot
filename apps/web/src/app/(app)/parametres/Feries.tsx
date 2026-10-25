@@ -73,7 +73,13 @@ export function AjoutFerie({ annee }: { annee: number }) {
         onChange={(e) => setSaisie((s) => ({ ...s, nationale: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="plus" chargement={f.enCours} texteChargement="Ajout…">
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          icone="plus"
+          chargement={f.enCours}
+          texteChargement="Ajout…"
+        >
           Ajouter le jour férié
         </Bouton>
       </div>

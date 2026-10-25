@@ -65,6 +65,11 @@ ul.mp-badges {
     width: 100%;
     font-size: var(--mp-taille-s);
   }
+  /* Avec « Cette semaine » au milieu : précédente et suivante côte à côte, puis elle en pied. */
+  .mp-semaine-nav__liens > li:nth-child(2):not(:last-child) {
+    grid-column: 1 / -1;
+    order: 3;
+  }
   .mp-semaine-nav__saut {
     width: 100%;
   }
@@ -93,7 +98,6 @@ ul.mp-badges {
 }
 .mp-jours-semaine__jour--courant {
   background: var(--mp-primaire-pale);
-  box-shadow: inset 4px 0 0 var(--mp-primaire);
 }
 
 .mp-jours-semaine__date {
@@ -212,9 +216,21 @@ ul.mp-badges {
 }
 
 .mp-feuille__total {
-  text-align: right;
   white-space: nowrap;
   font-weight: 600;
+}
+
+/* Alignements : les règles génériques des cellules (th, td) l'emportent sur une simple classe. */
+.mp-feuille__table .mp-feuille__total {
+  text-align: right;
+}
+.mp-feuille__table thead th.mp-aligne-droite {
+  text-align: right;
+}
+/* Jours : en-tête, saisie et total du jour partagent le même axe central. */
+.mp-feuille__table thead th.mp-feuille__jour,
+.mp-feuille__table .mp-feuille__total--jour {
+  text-align: center;
 }
 
 .mp-feuille__table tfoot th,
@@ -299,7 +315,7 @@ ul.mp-badges {
   }
   .mp-feuille__table tr {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(3.6rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
     gap: var(--mp-esp-2);
     margin-bottom: var(--mp-esp-3);
     padding: var(--mp-esp-3);
@@ -322,6 +338,11 @@ ul.mp-badges {
   .mp-feuille__table tbody th[scope="row"],
   .mp-feuille__table tfoot th {
     grid-column: 1 / -1;
+  }
+  .mp-feuille__case,
+  .mp-feuille__table .mp-feuille__total,
+  .mp-feuille__table .mp-feuille__total--jour {
+    text-align: left;
   }
   .mp-feuille__case,
   .mp-feuille__total {
@@ -466,8 +487,9 @@ ul.mp-badges {
   background: var(--mp-neutre-fond);
 }
 
-.mp-charge__fiche {
-  padding: 0;
+.mp-carte.mp-charge__fiche {
+  padding: 0; /* la ligne de résumé porte son propre remplissage */
+  gap: 0;
 }
 .mp-charge__fiche > .mp-liste-lignes {
   border: 0;
@@ -559,11 +581,11 @@ ul.mp-badges {
   min-width: 1.25rem;
   height: 1.25rem;
   padding: 0 4px;
-  color: #ffffff;
-  background: #a4262c;
+  color: var(--mp-sur-pastille);
+  background: var(--mp-pastille);
   border: 2px solid var(--mp-surface);
   border-radius: 999px;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1rem;
   text-align: center;
@@ -611,4 +633,11 @@ ul.mp-badges {
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-line;
+}
+
+/* Navigation de semaine : boutons de même hauteur, libellé sur une ligne tant que la place le permet. */
+.mp-semaine-nav__liens .mp-pagination__lien {
+  min-height: var(--mp-cible);
+  height: 100%;
+  white-space: nowrap;
 }

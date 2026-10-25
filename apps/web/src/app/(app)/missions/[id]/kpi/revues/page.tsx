@@ -56,7 +56,7 @@ export default async function PageRevuesKpi({
         </Link>
       </div>
       <p className="mp-texte-doux">
-        Le dossier et la présentation d&apos;une revue sont générés par MissionPilot à partir des
+        Le dossier et la présentation d&apos;une revue sont générés par CabinetPilot à partir des
         mesures, des alertes et des actions ; les décisions prises sont suivies jusqu&apos;à leur
         exécution.
       </p>

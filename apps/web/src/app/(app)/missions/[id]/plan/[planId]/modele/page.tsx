@@ -115,7 +115,7 @@ export default async function PageModelePlan({
       <p className="mp-texte-doux">
         Compte de résultat, bilan et tableau des flux prévisionnels au format SYSCOHADA révisé
         simplifié, indicateurs, scénarios et alertes : tous les chiffres sont calculés par le moteur
-        de MissionPilot à partir des hypothèses saisies, jamais par l&apos;IA. Impôt sur les
+        de CabinetPilot à partir des hypothèses saisies, jamais par l&apos;IA. Impôt sur les
         sociétés (25 %) et taux d&apos;actualisation (12 %) sont des valeurs de départ, à faire
         confirmer par un expert.
       </p>

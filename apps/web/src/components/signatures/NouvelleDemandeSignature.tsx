@@ -109,7 +109,7 @@ export function NouvelleDemandeSignature({
         refAlerte={f.refAlerte}
         titreErreur="Demande impossible"
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
           libelle="Ce que vous faites signer"
           required

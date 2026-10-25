@@ -213,7 +213,12 @@ export function FormulaireEvaluation({
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Évaluation…">
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          chargement={f.enCours}
+          texteChargement="Évaluation…"
+        >
           Lancer l&apos;évaluation
         </Bouton>
       </div>

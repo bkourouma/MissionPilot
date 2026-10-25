@@ -64,7 +64,7 @@ export function Duplication({
         refAlerte={f.refAlerte}
         titreErreur="Duplication impossible"
       />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Intitulé de la copie"
           required
@@ -128,7 +128,7 @@ export function Modele({
         Le découpage et les jours par grade deviennent un nouveau type du catalogue.
       </p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
-      <div className="mp-grille-champs">
+      <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
           libelle="Code du type"
           required

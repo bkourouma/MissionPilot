@@ -74,7 +74,7 @@ export default async function PageComite({
     <div className="mp-page">
       <EnteteDePage
         titre="Comité méthode"
-        soustitre="Circuit de proposition, revue et publication des évolutions du référentiel. Le standard MissionPilot lui-même évolue par ACC ; une proposition acceptée se publie dans la variante du cabinet."
+        soustitre="Circuit de proposition, revue et publication des évolutions du référentiel. Le standard CabinetPilot lui-même évolue par ACC ; une proposition acceptée se publie dans la variante du cabinet."
       />
       {gerer ? (
         <Carte titre="Proposer une évolution">

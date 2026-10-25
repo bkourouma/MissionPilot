@@ -7,7 +7,7 @@ import type { Resultat } from "./saisie";
 
 export interface SaisieModele {
   tache: TacheIa;
-  /** Suivre le modèle recommandé par MissionPilot (il peut évoluer). */
+  /** Suivre le modèle recommandé par CabinetPilot (il peut évoluer). */
   recommande: boolean;
   modele: string;
 }

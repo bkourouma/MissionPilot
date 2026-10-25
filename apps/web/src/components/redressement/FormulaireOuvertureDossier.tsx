@@ -63,7 +63,7 @@ export function FormulaireOuvertureDossier({
   return (
     <form
       ref={f.refFormulaire}
-      className="mp-formulaire"
+      className="mp-formulaire mp-red-ouverture"
       noValidate
       onSubmit={soumettre}
       aria-label="Ouvrir le dossier de redressement"

@@ -304,7 +304,7 @@ describe("transport SMTP (SOC-08)", () => {
       "noreply@missionpilot.test",
       "Nom <pirate@x.test>",
     );
-    expect(m).toMatch(/^From: MissionPilot <noreply@missionpilot\.test>/);
+    expect(m).toMatch(/^From: CabinetPilot <noreply@missionpilot\.test>/);
     expect(m).toMatch(/^Message-ID: <[0-9a-f]{32}@missionpilot\.test>$/m);
   });
 });

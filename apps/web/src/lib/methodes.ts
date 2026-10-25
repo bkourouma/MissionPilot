@@ -865,7 +865,7 @@ export function messageMethodes(e: unknown): string | null {
   if (!(e instanceof ErreurApi)) return null;
   switch (e.code) {
     case "STANDARD_LECTURE_SEULE":
-      return "Le standard MissionPilot ne se modifie pas : créez la variante du cabinet.";
+      return "Le standard CabinetPilot ne se modifie pas : créez la variante du cabinet.";
     case "VERSION_PUBLIEE":
       return "Cette version est publiée : créez une nouvelle version pour la modifier.";
     case "VERSION_INCOHERENTE":

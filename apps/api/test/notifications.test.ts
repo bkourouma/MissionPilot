@@ -126,7 +126,7 @@ describe("notifications in-app (SOC-08)", () => {
         email: true,
       }),
     );
-    expect(n?.email?.sujet).toBe("MissionPilot — X Bcc: tiers@exemple Y Z evil W");
+    expect(n?.email?.sujet).toBe("CabinetPilot — X Bcc: tiers@exemple Y Z evil W");
     const lue = (await u.get("/api/notifications")).json().elements[0];
     expect(lue.titre).toBe("X Bcc: tiers@exemple Y Z evil W");
     expect(titreUneLigne("a\n\n\nb")).toBe("a b");

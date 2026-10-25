@@ -199,3 +199,32 @@
 .mp-contre-passation__texte p {
   margin: 0;
 }
+
+/* Champs d'un formulaire dont certains portent un texte d'aide : les contrôles restent alignés par le bas. */
+.mp-grille-champs--bas {
+  align-items: end;
+}
+
+/* Note sous un tableau : ne colle pas à son bord. */
+.mp-note-sous-tableau {
+  margin: var(--mp-esp-3) 0 0;
+}
+
+/* Tableau large (8 colonnes) : marges de cellule resserrées pour tenir à 1440 px sans défiler. */
+/* Légende visible d'un tableau devenu fiches (téléphone) : pleine largeur, pas une colonne étroite.
+   Défaut du composant Tableau (composants.css) constaté sur Créances et Encours ; à reprendre à la source. */
+@media (max-width: 639px) {
+  .mp-tableau__legende {
+    display: block;
+  }
+}
+
+@media (min-width: 640px) {
+  .mp-tableau-dense .mp-tableau th,
+  .mp-tableau-dense .mp-tableau td {
+    padding-inline: var(--mp-esp-2);
+  }
+  .mp-tableau-dense .mp-tableau th {
+    letter-spacing: 0.02em;
+  }
+}

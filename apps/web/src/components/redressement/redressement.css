@@ -293,7 +293,8 @@
 }
 
 .mp-red-semaine--tension {
-  border-left: 4px solid var(--mp-danger);
+  background: var(--mp-danger-fond);
+  border-color: var(--mp-danger);
 }
 
 .mp-red-semaine__titre {
@@ -364,7 +365,7 @@
 .mp-red-graphique__graduation,
 .mp-red-graphique__abscisse {
   fill: var(--mp-texte-doux);
-  font-size: 12px;
+  font-size: var(--mp-taille-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -475,9 +476,8 @@
   flex-direction: column;
   gap: var(--mp-esp-1);
   padding: var(--mp-esp-3);
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-bordure);
-  border-left: 4px solid var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  border: 1px solid var(--mp-primaire);
   border-radius: var(--mp-rayon);
 }
 
@@ -608,4 +608,20 @@
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+
+/* Le bouton de filtre garde sa largeur naturelle (comme les filtres des autres modules). */
+.mp-filtres > .mp-bouton {
+  align-self: flex-start;
+}
+
+/* Ouverture du dossier, posée dans l'état vide : champs alignés à gauche, sur une colonne. */
+.mp-red-ouverture {
+  width: 100%;
+  max-width: 36rem;
+  text-align: left;
+}
+
+.mp-red-ouverture .mp-grille-champs {
+  grid-template-columns: minmax(0, 1fr);
 }

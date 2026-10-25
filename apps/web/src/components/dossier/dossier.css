@@ -1,0 +1,55 @@
+/* Fiche d'un dossier client : carte de fiabilité des données. */
+.mp-fiabilite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+}
+
+.mp-fiabilite p,
+.mp-fiabilite ul {
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .mp-fiabilite .mp-liste-def > div {
+    grid-template-columns: 16rem 1fr;
+  }
+}
+
+/* Le champ « Fichier » prend toute la largeur de la grille : son nom reste lisible. */
+.mp-grille-champs > :has(input[type="file"]) {
+  grid-column: 1 / -1;
+}
+
+/* Note sous un formulaire d'import. */
+.mp-note-import {
+  margin: var(--mp-esp-3) 0 0;
+  color: var(--mp-texte-doux);
+  font-size: var(--mp-taille-s);
+}
+
+/* Frise : une ligne par événement, sans puces numérotées. */
+.mp-frise {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mp-frise > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-1) var(--mp-esp-3);
+  padding: var(--mp-esp-2) 0;
+  border-bottom: 1px solid var(--mp-bordure);
+}
+
+.mp-frise > li:last-child {
+  border-bottom: 0;
+}
+
+.mp-frise time {
+  min-width: 6.5rem;
+  color: var(--mp-texte-doux);
+  font-variant-numeric: tabular-nums;
+}

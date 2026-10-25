@@ -575,7 +575,7 @@ describe("choix proposés au calcul", () => {
         { titre: "Brouillon", code: "b", version_validee_id: null },
       ]),
     ).toEqual([
-      { valeur: "", libelle: "Grille générique MissionPilot (par défaut)" },
+      { valeur: "", libelle: "Grille générique CabinetPilot (par défaut)" },
       { valeur: "v1", libelle: "Grille BTP (btp)" },
     ]);
   });

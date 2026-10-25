@@ -1,10 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROLE_LIBELLES, type Role } from "@missionpilot/shared";
-import { CHEMIN_SECURITE_COMPTE, type EntreeNavigation } from "../../lib/navigation";
-import { Icone } from "../ui/Icone";
-import { BoutonDeconnexion } from "./BoutonDeconnexion";
+import type { EntreeNavigation } from "../../lib/navigation";
 import { ClocheNotifications } from "./ClocheNotifications";
+import { Marque } from "./Marque";
 import { BarreNavigationBasse, NavigationLaterale } from "./Navigation";
 
 export function libellesRoles(roles: readonly Role[]): string {
@@ -27,47 +26,13 @@ export function CadreApplication({ nom, roles, entrees, children }: CadreApplica
         Aller au contenu principal
       </a>
       <header className="mp-entete">
-        <Link href="/" className="mp-entete__marque">
-          <svg
-            className="mp-entete__logo"
-            viewBox="0 0 32 32"
-            width="28"
-            height="28"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <rect width="32" height="32" rx="7" fill="currentColor" />
-            <path
-              d="M8 23V10l8 8 8-8v13"
-              fill="none"
-              stroke="var(--mp-sur-primaire)"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>MissionPilot</span>
+        <Link href="/" className="mp-entete__marque" aria-label="CabinetPilot, accueil">
+          <Marque />
         </Link>
-        <div className="mp-entete__utilisateur">
-          <ClocheNotifications />
-          <p className="mp-entete__identite">
-            <span className="mp-entete__nom">{nom}</span>
-            <span className="mp-entete__role">{libelles}</span>
-          </p>
-          <Link
-            href={CHEMIN_SECURITE_COMPTE}
-            className="mp-bouton mp-bouton--discret mp-entete__securite"
-          >
-            <Icone nom="cadenas" />
-            <span>Sécurité du compte</span>
-          </Link>
-          <div className="mp-entete__deconnexion">
-            <BoutonDeconnexion />
-          </div>
-        </div>
+        <ClocheNotifications />
       </header>
       <div className="mp-cadre__corps">
-        <NavigationLaterale entrees={entrees} />
+        <NavigationLaterale entrees={entrees} nom={nom} roles={libelles} />
         <main id="contenu" className="mp-contenu" tabIndex={-1}>
           {children}
         </main>

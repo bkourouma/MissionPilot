@@ -131,13 +131,15 @@ export default async function PageEncours() {
           {r.donnees.missions.length === 0 ? (
             <EtatVide titre="Aucune mission signée pour l'instant." icone="dossier" />
           ) : (
-            <Tableau
-              legende={`Encours par mission au ${formaterDate(r.donnees.date)}`}
-              legendeVisible
-              lignes={r.donnees.missions}
-              cleLigne={(e) => e.mission_id}
-              colonnes={colonnes}
-            />
+            <div className="mp-tableau-dense">
+              <Tableau
+                legende={`Encours par mission au ${formaterDate(r.donnees.date)}`}
+                legendeVisible
+                lignes={r.donnees.missions}
+                cleLigne={(e) => e.mission_id}
+                colonnes={colonnes}
+              />
+            </div>
           )}
         </>
       )}
