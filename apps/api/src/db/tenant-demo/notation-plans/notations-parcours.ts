@@ -29,6 +29,13 @@ export interface EntreesParcours {
   grilleVersionId: string;
   /** Une liste d'actions par version, dans l'ordre (la version n est `versions[n - 1]`). */
   versions: readonly (readonly Action[])[];
+  /**
+   * Mission terminée : le suivi qualité de CHAQUE version est mené jusqu'à la signature dès sa
+   * soumission en revue (c'est alors seulement que l'item « soumise en revue ou publiée » est
+   * conforme), avant un éventuel renvoi. Sans cela, le suivi d'une version renvoyée puis
+   * remplacée resterait en brouillon et bloquerait la clôture de la mission (« livrables_signes »).
+   */
+  qualiteTerminee?: ActeursQualite;
 }
 
 /** Lignes déjà écrites pour la version (0 : version pas encore calculée). */
@@ -84,6 +91,8 @@ async function executer(
     case "soumettre":
       exiger(await s.post(`${base}/soumettre`), 200, `soumission de la version ${numero}`);
       ctx.journal(`      v${numero} soumise en revue par ${a.par}`);
+      if (e.qualiteTerminee)
+        await signerSuiviNotation(ctx, e.notationId, numero, e.qualiteTerminee);
       return;
     case "renvoyer":
       exiger(

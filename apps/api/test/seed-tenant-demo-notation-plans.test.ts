@@ -241,4 +241,26 @@ describe("phase notation-plans du Tenant démo", () => {
     );
     expect(Number(avantDemarrage[0]?.n)).toBe(0);
   });
+  it("signe tous les suivis qualité de notation des missions terminées (clôture) et laisse ceux de la mission en cours", async () => {
+    const terminees = [
+      CASTING.sicafe.intitule,
+      CASTING.sahelCoton.intitule,
+      CASTING.atlantique.intitule,
+      "Redressement — Brasseries du Wouri",
+    ];
+    const ouverts = await lignes<{ n: string }>(
+      `SELECT count(*) n FROM qualite_suivis s JOIN missions m ON m.id = s.mission_id
+        WHERE s.cabinet_id = $1 AND s.type_livrable = 'notation' AND s.statut <> 'signe'
+          AND m.intitule = ANY ($2)`,
+      [cabinetId, terminees],
+    );
+    expect(Number(ouverts[0]?.n)).toBe(0);
+    const enCours = await lignes<{ n: string }>(
+      `SELECT count(*) n FROM qualite_suivis s JOIN missions m ON m.id = s.mission_id
+        WHERE s.cabinet_id = $1 AND s.type_livrable = 'notation' AND s.statut <> 'signe'
+          AND m.intitule = $2`,
+      [cabinetId, CASTING.banqueSahel.intitule],
+    );
+    expect(Number(enCours[0]?.n)).toBeGreaterThanOrEqual(1);
+  });
 });
