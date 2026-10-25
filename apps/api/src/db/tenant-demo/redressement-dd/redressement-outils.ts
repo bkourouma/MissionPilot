@@ -24,7 +24,7 @@ import {
  */
 
 /** JSON de réponse des routes (forme libre selon la route). */
-export type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type Json = Record<string, unknown>;
 
 export const M = 1_000_000;
 export const G = 1_000_000_000;
