@@ -16,6 +16,7 @@ import {
   formaterJours,
   formaterMontantMineur,
   formaterPourcentage,
+  libelleDevise,
 } from "../../../../lib/format";
 import { statutMarge } from "../../../../lib/indicateurs";
 import {
@@ -146,7 +147,7 @@ function Resultats({ r }: { r: ReponseRentabilite }) {
         </EtatVide>
       ) : (
         <Tableau
-          legende={`Rentabilité par ${NIVEAU_RENTABILITE_LIBELLES[r.niveau].toLowerCase()}, montants en ${r.devise}`}
+          legende={`Rentabilité par ${NIVEAU_RENTABILITE_LIBELLES[r.niveau].toLowerCase()}, montants en ${libelleDevise(r.devise)}`}
           legendeVisible
           lignes={r.elements}
           cleLigne={(l) => l.cle}

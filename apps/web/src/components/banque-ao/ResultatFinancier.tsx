@@ -1,5 +1,5 @@
 import { joursAffiches, type ResultatOffreFinanciere } from "../../lib/banque-ao";
-import { formaterMontantMineur, formaterNombre } from "../../lib/format";
+import { formaterMontantMineur, formaterNombre, libelleDevise } from "../../lib/format";
 import { Tableau } from "../ui/Tableau";
 
 /**
@@ -102,7 +102,7 @@ export function ResultatFinancier({
         </div>
         {r.conversion ? (
           <div>
-            <dt>{`Équivalent en ${r.conversion.devise_cible} (taux ${formaterNombre(r.conversion.taux, 6)})`}</dt>
+            <dt>{`Équivalent en ${libelleDevise(r.conversion.devise_cible)} (taux ${formaterNombre(r.conversion.taux, 6)})`}</dt>
             <dd>{formaterMontantMineur(r.conversion.total_ttc, r.conversion.devise_cible)}</dd>
           </div>
         ) : null}

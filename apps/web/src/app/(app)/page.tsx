@@ -12,7 +12,7 @@ import {
 } from "../../components/indicateurs/GrilleIndicateurs";
 import { chargerServeur } from "../../lib/api-serveur";
 import { messageBriefIndisponible, requeteBrief, type BriefApi } from "../../lib/brief";
-import { formaterDate } from "../../lib/format";
+import { formaterDate, libelleDevise } from "../../lib/format";
 import {
   alertesDerive,
   indicateursAffiches,
@@ -73,7 +73,7 @@ export default async function TableauDeBord() {
                 />
               </Carte>
               <p className="mp-texte-doux">
-                {`Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${pilotage.donnees.devise}. `}
+                {`Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${libelleDevise(pilotage.donnees.devise)}. `}
                 <Link href="/indicateurs">Changer de période ou de niveau de lecture</Link>
               </p>
               <GrilleIndicateurs indicateurs={indicateursAffiches(pilotage.donnees)} />

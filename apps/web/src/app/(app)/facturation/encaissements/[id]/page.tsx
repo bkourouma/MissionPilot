@@ -18,7 +18,12 @@ import {
   type ContrePassation,
   type EncaissementDetaille,
 } from "../../../../../lib/encaissements";
-import { formaterDate, formaterDateHeure, formaterMontantMineur } from "../../../../../lib/format";
+import {
+  formaterDate,
+  formaterDateHeure,
+  formaterMontantMineur,
+  libelleDevise,
+} from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { exigerPermission } from "../../../../../lib/session";
 import { DemandeContrePassation } from "../ContrePassations";
@@ -62,7 +67,7 @@ export default async function PageEncaissement({ params }: { params: Promise<{ i
       <EnteteDePage
         titre={`${e.montant < 0 ? "Contre-passation" : "Encaissement"} du ${formaterDate(e.date_encaissement)}`}
         retour={retour}
-        soustitre={`${e.client_raison_sociale} · ${libelleMoyen(e)} · ${e.devise}`}
+        soustitre={`${e.client_raison_sociale} · ${libelleMoyen(e)} · ${libelleDevise(e.devise)}`}
         badges={<BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>}
       />
       {e.contre_passation_de ? (

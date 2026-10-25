@@ -21,7 +21,7 @@ import {
   STATUT_FACTURE,
   type FactureDetaillee,
 } from "../../../../lib/factures";
-import { formaterDate, formaterDateHeure } from "../../../../lib/format";
+import { formaterDate, formaterDateHeure, libelleDevise } from "../../../../lib/format";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import type { MissionDetaillee } from "../../../../lib/missions";
 import type { ParametresFacturation } from "../../../../lib/parametres-facturation";
@@ -91,7 +91,7 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
             ) : null}
           </>
         }
-        soustitre={`${f.client_raison_sociale} · ${f.mission_intitule} · ${f.devise}`}
+        soustitre={`${f.client_raison_sociale} · ${f.mission_intitule} · ${libelleDevise(f.devise)}`}
       />
       <Bandeaux f={f} raison={actions.raisonRefusApprobation} />
       <Carte titre="Informations">

@@ -16,6 +16,7 @@ import {
   formaterMontantMineur,
   formaterPourcentage,
   type Devise,
+  libelleDevise,
 } from "../../../../../lib/format";
 import { formaterEcartJours, statutEcart, statutMarge } from "../../../../../lib/indicateurs";
 import { chargerMission } from "../../../../../lib/missions-serveur";
@@ -192,7 +193,7 @@ function BlocFinance({ f }: { f: FinanceBilan }) {
   const marge = statutMarge(f.realise.taux_marge, f.realise.marge);
   return (
     <Carte
-      titre={`Rentabilité (${d})`}
+      titre={`Rentabilité (${libelleDevise(d)})`}
       actions={<BadgeStatut tonalite={marge.tonalite}>{marge.libelle}</BadgeStatut>}
     >
       <div className="mp-pile">

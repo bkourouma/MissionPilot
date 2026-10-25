@@ -6,6 +6,7 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../components/ui/Onglets";
 import { MODE_LIBELLES } from "../../../../lib/catalogue";
+import { libelleDevise } from "../../../../lib/format";
 import { hrefMissionMethode } from "../../../../lib/methodes";
 import { hrefQualiteMission } from "../../../../lib/qualite";
 import { estIdentifiant } from "../../../../lib/identifiant";
@@ -112,7 +113,7 @@ export default async function LayoutMission({
       <EnteteDePage
         titre={m.intitule}
         retour={{ href: "/missions", libelle: "Missions" }}
-        soustitre={`${m.client_raison_sociale} · ${MODE_LIBELLES[m.mode_facturation]} · ${m.devise}`}
+        soustitre={`${m.client_raison_sociale} · ${MODE_LIBELLES[m.mode_facturation]} · ${libelleDevise(m.devise)}`}
         badges={<BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>}
       />
       <Onglets libelle="Sections de la mission" pages={pages} />
