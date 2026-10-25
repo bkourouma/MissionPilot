@@ -7,6 +7,12 @@ import { MISSION_BANQUE, MISSION_BAOBAB } from "./kpi-cat-baobab-banque.js";
 import { MISSION_ATLANTIQUE, MISSION_SAHEL } from "./kpi-cat-sahel-atlantique.js";
 import { MISSION_EXPORT, MISSION_SICAFE } from "./kpi-cat-sicafe.js";
 import { synchroniserDefinitions } from "./kpi-definitions.js";
+import {
+  datesDeSuivi,
+  fenetreMission,
+  verifierSpecDansFenetre,
+  type FenetreKpi,
+} from "./kpi-fenetre.js";
 import { semerArbre, semerRevue } from "./kpi-pilotage.js";
 import {
   ACTIONS_ATLANTIQUE,
@@ -25,16 +31,22 @@ import {
   REVUES_EXPORT,
 } from "./kpi-revues-b.js";
 import { synchroniserMesures } from "./kpi-saisies.js";
-import { genererSeries, moisEntre, PREMIER_MOIS } from "./kpi-series.js";
+import { genererSeries } from "./kpi-series.js";
 import type { SpecMissionKpi } from "./kpi-types.js";
 import { exiger, existe } from "./outils.js";
 
 /*
  * Étape « kpi » de la phase « notation-plans » : pilotage par KPI (service #4) des six missions du
- * casting, par les VRAIES routes (kpi.ts, kpi-pilotage.ts, portail-kpi.ts), 24 mois de mesures
- * MENSUELLES (octobre 2024 à septembre 2026 ; rien après le 30 septembre 2026, jamais de mesure
- * future), sur la clientèle de chaque mission. Les missions restent ouvertes pendant toute la
- * phase (leur clôture est faite plus tard par la phase « gestion »).
+ * casting, par les VRAIES routes (kpi.ts, kpi-pilotage.ts, portail-kpi.ts), avec des mesures
+ * MENSUELLES bornées à la FENÊTRE de chaque mission (kpi-fenetre.ts) : du mois qui précède le début
+ * de la mission (mesure de référence) au mois de min(fin de mission, 30 septembre 2026) ; jamais de
+ * mesure future ni après la fin de la mission. Mission 1 : octobre 2024 à avril 2025 ; 2 : janvier à
+ * juin 2025 ; 5 : décembre 2025 à mai 2026 ; 6 : mai à septembre 2026 ; 9 : juillet à septembre 2026 ;
+ * 10 (signée, démarrage le 2026-11-09) : AUCUNE mesure, ni revue, ni action, ni alerte (définitions,
+ * cibles et contributeurs seulement). Toute donnée datée (cibles, incidents, corrections, revues,
+ * échéances, passages du suivi) reste dans la fenêtre de sa mission ; seule la revue planifiée d'une
+ * mission en cours (6, 9) peut tomber dans les semaines qui suivent « aujourd'hui ». Les missions
+ * restent ouvertes pendant toute la phase (leur clôture est faite plus tard par la phase « gestion »).
  *
  * KPI PAR MISSION : libellé exact (clé naturelle dans la mission) ; entre parenthèses, la clé
  * interne du seed et, après « = », la règle des KPI calculés (valeur saisie, mais déduite des
@@ -98,7 +110,7 @@ const MISSIONS: readonly SpecMissionKpi[] = [
   { ...MISSION_EXPORT, revues: REVUES_EXPORT, actions: ACTIONS_EXPORT },
 ];
 
-/** Réglages du cabinet : délai de grâce de 7 jours, dégradation sur 4 périodes, valeurs validées. */
+/** Réglages du cabinet : délai de grâce de 7 jours, dégradation sur 3 périodes, valeurs validées. */
 async function reglerParametres(ctx: ContexteTenantDemo): Promise<void> {
   if (await existe(ctx, "SELECT 1 FROM kpi_parametres WHERE cabinet_id = $1", [ctx.cabinetId])) {
     return;
@@ -106,7 +118,7 @@ async function reglerParametres(ctx: ContexteTenantDemo): Promise<void> {
   const r = await ctx.session("associe").patch("/api/kpi/parametres", {
     rappels_actifs: true,
     delai_grace_jours: 7,
-    periodes_degradation: 4,
+    periodes_degradation: 3,
     valeurs_validees: true,
   });
   exiger(r, 200, "Paramètres KPI du cabinet");
@@ -115,6 +127,7 @@ async function reglerParametres(ctx: ContexteTenantDemo): Promise<void> {
 interface MissionSemee {
   spec: SpecMissionKpi;
   mission: MissionTrouvee;
+  fenetre: FenetreKpi;
   acteurs: ActeursMission;
   ids: ReadonlyMap<string, string>;
 }
@@ -122,10 +135,12 @@ interface MissionSemee {
 /** Définitions, cibles, contributeurs et mesures mensuelles d'une mission. */
 async function semerMesures(ctx: ContexteTenantDemo, spec: SpecMissionKpi): Promise<MissionSemee> {
   const mission = await trouverMission(ctx, spec.mission);
+  const fenetre = fenetreMission(mission, ctx.aujourdhui);
+  verifierSpecDansFenetre(spec, fenetre, ctx.aujourdhui);
   const acteurs = await acteursMission(ctx, mission.id);
   const portail = await comptesPortail(ctx, mission.clientId);
-  const semes = await synchroniserDefinitions(ctx, mission, spec, acteurs, portail);
-  const mois = moisEntre(PREMIER_MOIS, spec.dernierMois);
+  const semes = await synchroniserDefinitions(ctx, mission, spec, acteurs, portail, fenetre);
+  const mois = fenetre.mois;
   const series = genererSeries(
     ctx.alea.deriver("kpi").deriver(spec.mission.intitule),
     mois,
@@ -142,13 +157,13 @@ async function semerMesures(ctx: ContexteTenantDemo, spec: SpecMissionKpi): Prom
       portail,
       mois,
       valeurs: series.get(s.spec.cle) ?? [],
-      dateFin: null,
+      dateFin: fenetre.dateFinMission,
     });
   }
   ctx.journal(
-    `    kpi : ${mission.intitule} — ${semes.length} KPI, ${ecrites} lignes de mesure ajoutées`,
+    `    kpi : ${mission.intitule} — ${semes.length} KPI, ${mois.length} mois (${fenetre.debut} à ${fenetre.fin}), ${ecrites} lignes de mesure ajoutées`,
   );
-  return { spec, mission, acteurs, ids: new Map(semes.map((s) => [s.spec.cle, s.id])) };
+  return { spec, mission, fenetre, acteurs, ids: new Map(semes.map((s) => [s.spec.cle, s.id])) };
 }
 
 /** Arbre, actions hors revue et revues de la mission (après le suivi : les actions citent des alertes). */
@@ -162,20 +177,18 @@ async function semerPilotage(ctx: ContexteTenantDemo, m: MissionSemee): Promise<
 }
 
 /**
- * Suivi quotidien (kpi/suivi.ts) rejoué à des dates fictives : le 8 de chaque mois (délai de grâce
- * passé) de janvier 2025 à octobre 2026, puis « aujourd'hui ». Chaque passage détecte les alertes
- * (seuil, variation, dégradation, retard) telles qu'on les aurait vues ce jour-là, et les rappels
- * dus. Aucun envoi : ni canal WhatsApp ni courriel ne sont transmis, seules les notifications
- * internes sont écrites. Rejouable : une alerte ou un rappel existe une fois par (KPI, code, période).
+ * Suivi quotidien (kpi/suivi.ts) rejoué à des dates fictives, mission par mission et dans sa
+ * fenêtre : le 8 de chaque mois (délai de grâce passé) à partir du mois qui suit la mesure de
+ * référence, puis la fin de la mission (terminée) ou « aujourd'hui » (en cours : détecte les
+ * retards du dernier mois). Chaque passage détecte les alertes (seuil, variation, dégradation,
+ * retard) telles qu'on les aurait vues ce jour-là, et les rappels dus. Aucun envoi : ni canal
+ * WhatsApp ni courriel ne sont transmis, seules les notifications internes sont écrites. Une
+ * mission sans mesure (non démarrée) n'a aucun passage. Rejouable : une alerte ou un rappel existe
+ * une fois par (KPI, code, période).
  */
-async function suivreAuFilDuTemps(
-  ctx: ContexteTenantDemo,
-  kpiIds: readonly string[],
-): Promise<void> {
-  const dates = moisEntre("2025-01", ctx.aujourdhui.slice(0, 7))
-    .map((m) => `${m}-08`)
-    .filter((d) => d < ctx.aujourdhui);
-  for (const date of [...dates, ctx.aujourdhui]) {
+async function suivreAuFilDuTemps(ctx: ContexteTenantDemo, m: MissionSemee): Promise<void> {
+  const kpiIds = [...m.ids.values()];
+  for (const date of datesDeSuivi(m.fenetre, ctx.aujourdhui)) {
     await ctx.database.withTenant(ctx.cabinetId, (db) =>
       suivreKpis(db, ctx.cabinetId, date, { kpiIds }),
     );
@@ -188,9 +201,6 @@ export async function semerKpi(ctx: ContexteTenantDemo): Promise<void> {
   for (const spec of MISSIONS) semees.push(await semerMesures(ctx, spec));
   // Seulement les KPI de cette étape : ceux que les plans créent plus tard (objectifs) n'ont pas
   // de mesures et ne doivent pas produire d'alertes de retard à chaque rejeu.
-  await suivreAuFilDuTemps(
-    ctx,
-    semees.flatMap((m) => [...m.ids.values()]),
-  );
+  for (const m of semees) await suivreAuFilDuTemps(ctx, m);
   for (const m of semees) await semerPilotage(ctx, m);
 }

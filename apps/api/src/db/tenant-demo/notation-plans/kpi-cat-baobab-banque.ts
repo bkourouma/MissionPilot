@@ -16,9 +16,9 @@ const baobabKpis: SpecKpi[] = [
     alerteVariation: 0.25,
     cible: 2000,
     revision: {
-      mois: "2026-01",
+      mois: "2026-06",
       valeur: 2150,
-      motif: "Plan de développement 2026 adopté par le conseil",
+      motif: "Plan de développement 2026-2030 adopté par le conseil",
     },
     serie: { base: 1850, pente: 12, saison: 160, bruit: 60, decimales: 0 },
     proprio: "directeur",
@@ -87,7 +87,7 @@ const baobabKpis: SpecKpi[] = [
     serie: { base: 0.9, pente: 0, saison: 0.1, bruit: 0.08, decimales: 2 },
     proprio: "directeur",
     correction: {
-      mois: "2025-11",
+      mois: "2026-07",
       facteur: 10,
       motif: "Taux annuel saisi à la place du taux mensuel",
     },
@@ -113,7 +113,7 @@ const baobabKpis: SpecKpi[] = [
     },
     proprio: "chef",
     manque: ["2026-09"],
-    annulation: { mois: "2025-03", facteur: 0.1, motif: "Délai saisi en mois au lieu de jours" },
+    annulation: { mois: "2026-06", facteur: 0.1, motif: "Délai saisi en mois au lieu de jours" },
   },
   {
     cle: "bao.nps",
@@ -166,9 +166,9 @@ const banqueKpis: SpecKpi[] = [
     alerteVariation: 0.15,
     cible: 3100,
     revision: {
-      mois: "2026-01",
+      mois: "2026-08",
       valeur: 3300,
-      motif: "Budget 2026 validé par le comité de direction",
+      motif: "Budget 2026 révisé et validé par le comité de direction",
     },
     serie: {
       type: "somme",
@@ -191,7 +191,7 @@ const banqueKpis: SpecKpi[] = [
     ponderation: 2,
     cible: 42000,
     revision: {
-      mois: "2026-01",
+      mois: "2026-08",
       valeur: 45000,
       motif: "Objectif de développement du segment PME en 2026",
     },
@@ -200,9 +200,9 @@ const banqueKpis: SpecKpi[] = [
     manque: ["2026-09"],
     portail: {
       comptes: ["dirigeant", "contributeur"],
-      depuis: "2026-02",
+      depuis: "2026-07",
       correction: {
-        mois: "2026-05",
+        mois: "2026-08",
         facteur: 1.1,
         motif: "Encours brut transmis au lieu de l'encours sain",
       },
@@ -225,10 +225,10 @@ const banqueKpis: SpecKpi[] = [
       saison: 0.4,
       bruit: 0.2,
       decimales: 1,
-      incidents: { "2025-09": 7.1, "2025-10": 7.6, "2025-11": 8.1, "2025-12": 8.7 },
+      incidents: { "2026-07": 8, "2026-08": 8.6, "2026-09": 9 },
     },
     proprio: "chef",
-    portail: { comptes: ["contributeur"], depuis: "2026-03" },
+    portail: { comptes: ["contributeur"], depuis: "2026-07" },
   },
   {
     cle: "ban.coefexpl",
@@ -256,7 +256,7 @@ const banqueKpis: SpecKpi[] = [
     serie: { base: 19, pente: -0.2, saison: 2, bruit: 1.2, decimales: 0 },
     proprio: "chef",
     correction: {
-      mois: "2025-07",
+      mois: "2026-08",
       facteur: 2,
       motif: "Délais en jours calendaires comptés au lieu de jours ouvrés",
     },
@@ -272,13 +272,12 @@ const banqueKpis: SpecKpi[] = [
     cible: 40,
     serie: { base: 31, pente: 0.5, saison: 2, bruit: 1.8, decimales: 0 },
     proprio: "directeur",
-    portail: { comptes: ["dirigeant"], depuis: "2026-04" },
+    portail: { comptes: ["dirigeant"], depuis: "2026-07" },
   },
 ];
 
 export const MISSION_BAOBAB: SpecMissionKpi = {
   mission: CASTING.baobab,
-  dernierMois: "2026-09",
   kpis: baobabKpis,
   arbre: {
     racine: "bao.resultat",
@@ -296,7 +295,6 @@ export const MISSION_BAOBAB: SpecMissionKpi = {
 
 export const MISSION_BANQUE: SpecMissionKpi = {
   mission: CASTING.banqueSahel,
-  dernierMois: "2026-09",
   kpis: banqueKpis,
   arbre: {
     racine: "ban.pnb",

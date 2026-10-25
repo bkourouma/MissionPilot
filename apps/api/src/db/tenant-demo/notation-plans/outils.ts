@@ -13,13 +13,20 @@ export function exiger(r: Reponse, statuts: number | readonly number[], quoi: st
   }
 }
 
-/** Lignes d'une requête en lecture avec le rôle propriétaire (contrôles d'idempotence, identifiants). */
+/**
+ * Lignes d'une requête en LECTURE, dans une transaction du cabinet (rôle applicatif, RLS) : jamais
+ * de ligne d'un autre cabinet (Lagune cohabite dans la base), même si la requête n'a pas de
+ * filtre `cabinet_id`. Sert aux contrôles d'idempotence et à la recherche d'identifiants.
+ */
 export async function lire<T extends Record<string, unknown>>(
   ctx: ContexteTenantDemo,
   sql: string,
   params: unknown[] = [],
 ): Promise<T[]> {
-  return (await ctx.proprietaire.query<T>(sql, params)).rows;
+  return ctx.database.withTenant(
+    ctx.cabinetId,
+    async (db) => (await db.query(sql, params)).rows as T[],
+  );
 }
 
 /** Vrai si la requête (SELECT 1 ...) renvoie au moins une ligne : clé naturelle déjà semée. */
@@ -28,5 +35,5 @@ export async function existe(
   sql: string,
   params: unknown[] = [],
 ): Promise<boolean> {
-  return (await ctx.proprietaire.query(sql, params)).rowCount! > 0;
+  return (await lire(ctx, sql, params)).length > 0;
 }

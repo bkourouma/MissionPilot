@@ -2,7 +2,6 @@ import { hacherJeton, nouveauJeton } from "../../../auth/session.js";
 import type { CleClient } from "../cles.js";
 import { MOT_DE_PASSE_DEMO_TENANT } from "../constantes.js";
 import {
-  antidater,
   attendre,
   ouvrirSessionTenant,
   type ContexteTenantDemo,
@@ -132,7 +131,10 @@ export async function assurerDirigeants(
     let id = lignes[0]?.id;
     if (!id) {
       id = await inviterEtAccepter(ctx, def);
-      await antidater(ctx, "utilisateurs", id, def.depuis);
+      await ctx.proprietaire.query(
+        "UPDATE utilisateurs SET cree_le = $1::timestamptz WHERE id = $2 AND cabinet_id = $3",
+        [`${def.depuis}T12:00:00Z`, id, ctx.cabinetId],
+      );
       ctx.journal(`      compte de portail créé : ${def.email} (${def.nom})`);
     }
     resultat[cle] = {

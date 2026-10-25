@@ -5,11 +5,9 @@ import type { DeriveSerie, ParamSerie, SpecKpi } from "./kpi-types.js";
  * Séries mensuelles des KPI du seed. Les valeurs « de base » sont tirées d'un flux à graine
  * fixe (reproductible) ; les KPI de décomposition (marge, résultat, chiffre d'affaires
  * produit d'un trafic par un panier, ratio sinistres/primes) sont CALCULÉS à partir de leurs
- * leviers, pour que les arbres d'indicateurs n'aient aucun résidu. Le premier mois du suivi est
- * octobre 2024 (début d'activité du cabinet). Aucune valeur n'est écrite à la main.
+ * leviers, pour que les arbres d'indicateurs n'aient aucun résidu. Les mois couverts dépendent de la
+ * mission (voir kpi-fenetre.ts). Aucune valeur n'est écrite à la main.
  */
-
-export const PREMIER_MOIS = "2024-10";
 
 /** Mois `AAAA-MM` de `debut` à `fin` inclus. */
 export function moisEntre(debut: string, fin: string): string[] {

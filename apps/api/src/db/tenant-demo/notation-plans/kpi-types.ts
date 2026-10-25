@@ -110,8 +110,6 @@ export interface SpecRevue {
 
 export interface SpecMissionKpi {
   mission: MissionCasting;
-  /** Dernier mois de mesure (`AAAA-MM`) ; la date de fin de mission borne la dernière mesure. */
-  dernierMois: string;
   kpis: SpecKpi[];
   arbre?: SpecArbre;
   revues: SpecRevue[];

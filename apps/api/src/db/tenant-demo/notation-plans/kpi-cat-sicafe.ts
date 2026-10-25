@@ -2,12 +2,10 @@ import { CASTING } from "./casting.js";
 import type { SpecKpi, SpecMissionKpi } from "./kpi-types.js";
 
 /*
- * KPI de la mission 1 (SICAFE) et de la mission 10 (Sicafe Export, signée).
+ * KPI de la mission 1 (SICAFE) et de la mission 10 (Sicafe Export, signée, non démarrée : définitions
+ * et cibles seulement, aucune mesure, révision de cible ni correction).
  * Libellés exacts (clé naturelle) : voir l'en-tête de kpi.ts pour la liste par client.
  */
-
-const ERREUR_UNITE =
-  "Valeur saisie dans une autre unité que celle du suivi, corrigée après contrôle";
 
 const sicafeKpis: SpecKpi[] = [
   {
@@ -160,14 +158,8 @@ const exportKpis: SpecKpi[] = [
     ponderation: 2,
     alerteVariation: 0.25,
     cible: 5600,
-    revision: {
-      mois: "2026-01",
-      valeur: 6000,
-      motif: "Objectif relevé après la campagne export 2025",
-    },
     serie: { base: 5200, pente: 45, saison: 420, bruit: 150, decimales: 0 },
     proprio: "directeur",
-    correction: { mois: "2026-02", facteur: 10, motif: ERREUR_UNITE },
   },
   {
     cle: "export.otif",
@@ -223,7 +215,6 @@ const exportKpis: SpecKpi[] = [
 
 export const MISSION_SICAFE: SpecMissionKpi = {
   mission: CASTING.sicafe,
-  dernierMois: "2026-09",
   kpis: sicafeKpis,
   arbre: {
     racine: "sicafe.marge",
@@ -242,7 +233,6 @@ export const MISSION_SICAFE: SpecMissionKpi = {
 
 export const MISSION_EXPORT: SpecMissionKpi = {
   mission: CASTING.sicafeExport,
-  dernierMois: "2026-09",
   kpis: exportKpis,
   revues: [],
   actions: [],

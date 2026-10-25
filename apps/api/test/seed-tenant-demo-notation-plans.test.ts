@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { appliquerSeuil } from "../src/plans/ateliers-resultats.js";
 import { semerTenantDemo } from "../src/db/tenant-demo/index.js";
 import { CASTING } from "../src/db/tenant-demo/notation-plans/casting.js";
 import { semerMissions } from "../src/db/tenant-demo/phases/missions.js";
@@ -142,7 +143,7 @@ describe("phase notation-plans du Tenant démo", () => {
       `SELECT count(DISTINCT date_trunc('month', date_mesure)) n FROM kpi_mesures WHERE cabinet_id = $1`,
       [cabinetId],
     );
-    expect(Number(mois[0]?.n)).toBeGreaterThanOrEqual(24);
+    expect(Number(mois[0]?.n)).toBeGreaterThanOrEqual(15);
   });
   it("valide le plan de la mission terminée par une personne habilitée et laisse le plan en cours en brouillon", async () => {
     const etat = async (mission: string) =>
@@ -181,15 +182,63 @@ describe("phase notation-plans du Tenant démo", () => {
     expect(Number(liens[0]?.n)).toBeGreaterThanOrEqual(1);
   });
 
-  it("ne publie les agrégats d'un atelier clos qu'avec au moins 3 contributeurs", async () => {
-    const clos = await lignes<{ id: string; contributeurs: string }>(
-      `SELECT a.id, count(DISTINCT c.utilisateur_id) AS contributeurs
-         FROM plan_ateliers a LEFT JOIN plan_atelier_contributions c ON c.atelier_id = a.id
-        WHERE a.cabinet_id = $1 AND a.statut = 'clos' AND a.resultats IS NOT NULL
-        GROUP BY a.id`,
+  it("ne publie les agrégats d'un atelier clos qu'avec au moins 3 contributeurs PAR MÉTHODE", async () => {
+    const clos = await lignes<{ id: string; resultats: Record<string, unknown> }>(
+      `SELECT id, resultats FROM plan_ateliers
+        WHERE cabinet_id = $1 AND statut = 'clos' AND resultats IS NOT NULL`,
       [cabinetId],
     );
     expect(clos.length).toBeGreaterThanOrEqual(1);
-    for (const a of clos) expect(Number(a.contributeurs)).toBeGreaterThanOrEqual(3);
+    let atelierAvecAgregat = 0;
+    for (const a of clos) {
+      const parMethode = await lignes<{ methode: string; n: string }>(
+        `SELECT methode, count(DISTINCT utilisateur_id) n FROM plan_atelier_contributions
+          WHERE atelier_id = $1 GROUP BY methode`,
+        [a.id],
+      );
+      const effectif = new Map(parMethode.map((m) => [m.methode, Number(m.n)]));
+      const { visibles } = appliquerSeuil(a.resultats);
+      for (const m of visibles) expect(effectif.get(m) ?? 0).toBeGreaterThanOrEqual(3);
+      if (visibles.length > 0) atelierAvecAgregat++;
+    }
+    expect(atelierAvecAgregat).toBeGreaterThanOrEqual(1);
+  });
+
+  it("reste sous la borne de comptes de la connexion en un clic, sans 2FA sur le portail", async () => {
+    const total = await lignes<{ n: string }>(
+      "SELECT count(*) n FROM utilisateurs WHERE cabinet_id = $1",
+      [cabinetId],
+    );
+    expect(Number(total[0]?.n)).toBeLessThanOrEqual(45);
+    const tfa = await lignes<{ n: string }>(
+      `SELECT count(*) n FROM utilisateurs_2fa f
+         JOIN utilisateurs_portail p ON p.utilisateur_id = f.utilisateur_id
+        WHERE f.cabinet_id = $1`,
+      [cabinetId],
+    );
+    expect(Number(tfa[0]?.n)).toBe(0);
+  });
+
+  it("borne les mesures KPI de chaque mission entre un mois avant son début et sa fin", async () => {
+    const hors = await lignes<{ intitule: string; n: string }>(
+      `SELECT m.intitule, count(*) n
+         FROM kpi_mesures k
+         JOIN kpi_definitions d ON d.id = k.kpi_id
+         JOIN missions m ON m.id = d.mission_id
+        WHERE k.cabinet_id = $1
+          AND (k.date_mesure < (date_trunc('month', m.date_debut) - interval '1 month')::date
+               OR k.date_mesure > LEAST(COALESCE(m.date_fin, '2026-09-30'::date), '2026-09-30'::date))
+        GROUP BY m.intitule`,
+      [cabinetId],
+    );
+    expect(hors).toEqual([]);
+    const avantDemarrage = await lignes<{ n: string }>(
+      `SELECT count(*) n FROM kpi_mesures k
+         JOIN kpi_definitions d ON d.id = k.kpi_id
+         JOIN missions m ON m.id = d.mission_id
+        WHERE k.cabinet_id = $1 AND m.intitule = $2`,
+      [cabinetId, CASTING.sicafeExport.intitule],
+    );
+    expect(Number(avantDemarrage[0]?.n)).toBe(0);
   });
 });

@@ -14,7 +14,7 @@ export const REVUES_BAOBAB: SpecRevue[] = [
         libelle: "Réduire le délai moyen de règlement des sinistres sous 30 jours",
         kpi: "bao.reglement",
         responsable: "chef",
-        echeance: "2026-10-30",
+        echeance: "2026-09-25",
         fin: "executee",
         commentaire:
           "Circuit court de règlement en place pour les petits sinistres ; objectif intermédiaire atteint.",
@@ -38,7 +38,7 @@ export const REVUES_BAOBAB: SpecRevue[] = [
         libelle: "Contenir le taux de résiliation sous 0,8 % par un programme de fidélisation",
         kpi: "bao.resiliation",
         responsable: "directeur",
-        echeance: "2026-09-30",
+        echeance: "2026-09-18",
         fin: "executee",
         commentaire:
           "Programme de rappel des assurés démissionnaires déployé dans les douze agences.",
@@ -60,7 +60,7 @@ export const REVUES_BAOBAB: SpecRevue[] = [
         libelle: "Étendre l'enquête de satisfaction aux assurés de la branche santé",
         kpi: "bao.nps",
         responsable: "membre",
-        echeance: "2026-10-15",
+        echeance: "2026-09-30",
         fin: "abandonnee",
         motif:
           "Budget d'enquête non retenu pour 2026 : le sujet est reporté au plan de l'an prochain.",
@@ -76,7 +76,7 @@ export const REVUES_BAOBAB: SpecRevue[] = [
   },
   {
     titre: "Revue de performance — point d'étape de fin d'année",
-    date: "2026-11-20",
+    date: "2026-11-13",
     etat: "planifiee",
     compteRendu:
       "Ordre du jour proposé par le moteur à partir des KPI en alerte ; à compléter avant la séance.",
@@ -91,7 +91,7 @@ export const ACTIONS_BAOBAB: SpecAction[] = [
       "Suivi hebdomadaire des dossiers en attente d'expertise et relance automatique des experts.",
     kpi: "bao.reglement",
     responsable: "membre",
-    echeance: "2026-11-13",
+    echeance: "2026-09-30",
     fin: "en_cours",
     commentaires: [
       "Liste des dossiers en attente extraite ; relances en cours avec les cinq experts principaux.",
@@ -103,7 +103,7 @@ export const ACTIONS_BAOBAB: SpecAction[] = [
       "Réévaluer les tarifs pour ramener le ratio sinistres / primes vers la cible de 62 %.",
     kpi: "bao.sp",
     responsable: "directeur",
-    echeance: "2026-12-04",
+    echeance: "2026-09-30",
     fin: "a_faire",
   },
   {
@@ -121,17 +121,17 @@ export const ACTIONS_BAOBAB: SpecAction[] = [
 export const REVUES_BANQUE: SpecRevue[] = [
   {
     titre: "Revue de performance — cadrage de la notation du portefeuille PME",
-    date: "2026-10-09",
+    date: "2026-09-18",
     etat: "tenue",
     compteRendu:
-      "Le taux de créances douteuses a franchi 8 % fin 2025 avant de se résorber. L'encours de septembre n'est pas encore remonté par la direction des engagements. Le délai de traitement des dossiers s'améliore depuis le nouveau circuit de validation.",
+      "Le taux de créances douteuses a franchi 8,5 % en août et continue de monter. L'encours du mois arrive tard de la direction des engagements. Le délai de traitement des dossiers doit être réduit avant la restitution de la notation.",
     decisions: [
       {
         libelle:
           "Isoler les dossiers PME à créances douteuses de plus de 90 jours pour la notation",
         kpi: "ban.douteuses",
         responsable: "membre",
-        echeance: "2026-11-27",
+        echeance: "2026-09-30",
         fin: "en_cours",
         actions: [
           {
@@ -139,7 +139,7 @@ export const REVUES_BANQUE: SpecRevue[] = [
             description: "Extraction du système de crédit, avec ancienneté et garanties associées.",
             kpi: "ban.douteuses",
             responsable: "membre",
-            echeance: "2026-10-30",
+            echeance: "2026-09-28",
             fin: "en_cours",
             alerte: "SEUIL_HAUT",
           },
@@ -149,7 +149,7 @@ export const REVUES_BANQUE: SpecRevue[] = [
         libelle: "Fiabiliser la remontée mensuelle de l'encours par la direction des engagements",
         kpi: "ban.encours",
         responsable: "chef",
-        echeance: "2026-10-30",
+        echeance: "2026-09-30",
         fin: "ouverte",
         actions: [
           {
@@ -158,7 +158,7 @@ export const REVUES_BANQUE: SpecRevue[] = [
             description: "Date butoir de transmission de l'encours fixée au cinquième jour ouvré.",
             kpi: "ban.encours",
             responsable: "chef",
-            echeance: "2026-11-06",
+            echeance: "2026-09-30",
             fin: "a_faire",
           },
         ],
@@ -167,9 +167,9 @@ export const REVUES_BANQUE: SpecRevue[] = [
         libelle: "Réduire le délai de traitement des dossiers de crédit PME",
         kpi: "ban.delai",
         responsable: "chef",
-        echeance: "2026-10-23",
+        echeance: "2026-09-30",
         fin: "executee",
-        commentaire: "Circuit de validation à deux niveaux en place depuis le 1er octobre 2026.",
+        commentaire: "Circuit de validation à deux niveaux en place depuis le 22 septembre 2026.",
         actions: [
           {
             titre: "Supprimer la contre-signature pour les dossiers de moins de 20 MFCFA",
@@ -177,10 +177,10 @@ export const REVUES_BANQUE: SpecRevue[] = [
               "Délégation de signature aux responsables d'agence pour les petits dossiers.",
             kpi: "ban.delai",
             responsable: "membre",
-            echeance: "2026-10-02",
+            echeance: "2026-09-25",
             fin: "terminee",
-            dateEffet: "2026-10-01",
-            commentaire: "Date d'effet : note de service du 1er octobre 2026.",
+            dateEffet: "2026-09-22",
+            commentaire: "Date d'effet : note de service du 22 septembre 2026.",
           },
         ],
       },
@@ -188,7 +188,7 @@ export const REVUES_BANQUE: SpecRevue[] = [
   },
   {
     titre: "Revue de performance — restitution de la notation",
-    date: "2026-11-27",
+    date: "2026-11-13",
     etat: "planifiee",
     decisions: [],
   },
@@ -200,7 +200,7 @@ export const ACTIONS_BANQUE: SpecAction[] = [
     description: "Deuxième vague par appel téléphonique pour les clients qui n'ont pas répondu.",
     kpi: "ban.nps",
     responsable: "membre",
-    echeance: "2026-11-20",
+    echeance: "2026-09-30",
     fin: "en_cours",
   },
   {
@@ -213,27 +213,11 @@ export const ACTIONS_BANQUE: SpecAction[] = [
     fin: "terminee",
     dateEffet: "2026-09-21",
     commentaire: "Seuil de 8,5 % confirmé par la direction des risques.",
-    alerte: "DEGRADATION_CONSECUTIVE",
+    alerte: "SEUIL_HAUT",
   },
 ];
 
-export const REVUES_EXPORT: SpecRevue[] = [
-  {
-    titre: "Revue de performance — cadrage du plan stratégique",
-    date: "2026-11-18",
-    etat: "planifiee",
-    decisions: [],
-  },
-];
+/** Mission 10 (signée, non démarrée) : ni revue ni action, la fenêtre de ses données est vide. */
+export const REVUES_EXPORT: SpecRevue[] = [];
 
-export const ACTIONS_EXPORT: SpecAction[] = [
-  {
-    titre: "Collecter les données de service client export des douze derniers mois",
-    description:
-      "Préparer l'historique de livraison et de réclamations pour le diagnostic du plan.",
-    kpi: "export.otif",
-    responsable: "chef",
-    echeance: "2026-11-30",
-    fin: "a_faire",
-  },
-];
+export const ACTIONS_EXPORT: SpecAction[] = [];
