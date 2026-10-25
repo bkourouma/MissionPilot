@@ -103,7 +103,7 @@ export default async function PageBudget({
                 {budget.taux_change !== null &&
                 budget.devise_reference &&
                 budget.devise_reference !== budget.devise
-                  ? ` Taux figé à la signature : 1 ${libelleDevise(budget.devise)} = ${formaterNombre(budget.taux_change, 6)} ${budget.devise_reference}.`
+                  ? ` Taux figé à la signature : 1 ${libelleDevise(budget.devise)} = ${formaterNombre(budget.taux_change, 6)} ${libelleDevise(budget.devise_reference)}.`
                   : ""}{" "}
                 L&apos;initial signé reste dans l&apos;historique ; chaque révision validée devient
                 la référence.

@@ -237,7 +237,7 @@ function SyntheseAgregat({ agregat }: { agregat: Chargement<AgregatPipeline> }) 
             cleLigne={(l) => `${l.etape}-${l.devise}`}
             colonnes={[
               { cle: "etape", entete: "Étape", rendu: (l) => ETAPE_LIBELLES[l.etape] },
-              { cle: "devise", entete: "Devise" },
+              { cle: "devise", entete: "Devise", rendu: (l) => libelleDevise(l.devise) },
               {
                 cle: "nombre",
                 entete: "Nombre",

@@ -23,6 +23,11 @@ export function libelleDevise(devise: string): string {
   return devise === "XOF" || devise === "XAF" ? "FCFA" : devise;
 }
 
+/** Unité libre (KPI…) : les codes XOF et XAF y sont écrits « FCFA » (« 360 M XOF » → « 360 M FCFA »). */
+export function libelleUnite(unite: string): string {
+  return unite.replace(/\b(?:XOF|XAF)\b/g, "FCFA");
+}
+
 /** Le franc CFA n'a pas de subdivision en usage. */
 const DECIMALES: Record<Devise, number> = { XOF: 0, XAF: 0, EUR: 2, USD: 2 };
 

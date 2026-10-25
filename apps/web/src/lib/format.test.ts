@@ -6,6 +6,7 @@ import {
   formaterMontantMineur,
   formaterNombre,
   formaterPourcentage,
+  libelleUnite,
   libelleDevise,
   lireDate,
   VALEUR_ABSENTE,
@@ -121,5 +122,18 @@ describe("formaterDateHeure", () => {
     expect(formaterDateHeure("2027-01-12T14:05:00Z", "Africa/Douala")).toBe(
       "12 janv. 2027 à 15:05",
     );
+  });
+});
+
+describe("libelleUnite", () => {
+  it("écrit FCFA pour XOF et XAF dans une unité libre", () => {
+    expect(libelleUnite("M XOF")).toBe("M FCFA");
+    expect(libelleUnite("k XAF")).toBe("k FCFA");
+    expect(libelleUnite("XOF/jour")).toBe("FCFA/jour");
+  });
+  it("laisse les autres unités intactes", () => {
+    expect(libelleUnite("M EUR")).toBe("M EUR");
+    expect(libelleUnite("%")).toBe("%");
+    expect(libelleUnite("")).toBe("");
   });
 });

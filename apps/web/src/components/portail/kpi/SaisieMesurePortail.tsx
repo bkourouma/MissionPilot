@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { api } from "../../../lib/api";
-import { formaterDate } from "../../../lib/format";
+import { formaterDate, libelleUnite } from "../../../lib/format";
 import {
   COMMENTAIRE_MAX,
   dateMesureMax,
@@ -85,7 +85,7 @@ export function SaisieMesurePortail({
           aide={`Du ${formaterDate(kpi.debut_suivi)} au ${formaterDate(max)}.`}
         />
         <Champ
-          libelle={kpi.unite ? `Valeur (${kpi.unite})` : "Valeur"}
+          libelle={kpi.unite ? `Valeur (${libelleUnite(kpi.unite)})` : "Valeur"}
           required
           inputMode="decimal"
           autoComplete="off"

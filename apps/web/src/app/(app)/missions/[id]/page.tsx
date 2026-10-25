@@ -116,7 +116,7 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
           {m.taux_change !== null && m.devise_reference && m.devise_reference !== m.devise ? (
             <div>
               <dt>Taux de change figé</dt>
-              <dd>{`1 ${libelleDevise(m.devise)} = ${formaterNombre(m.taux_change, 6)} ${m.devise_reference}`}</dd>
+              <dd>{`1 ${libelleDevise(m.devise)} = ${formaterNombre(m.taux_change, 6)} ${libelleDevise(m.devise_reference)}`}</dd>
             </div>
           ) : null}
           {m.activite || m.secteur || m.bureau ? (
