@@ -71,7 +71,7 @@ const sahelKpis: SpecKpi[] = [
     },
     proprio: "chef",
     correction: {
-      mois: "2024-12",
+      mois: "2025-02",
       facteur: 0.9,
       motif: "Une facture d'avoir n'avait pas été déduite de l'encours client",
     },
@@ -145,9 +145,9 @@ const atlantiqueKpis: SpecKpi[] = [
     alerteVariation: 0.3,
     cible: 410000,
     revision: {
-      mois: "2025-10",
+      mois: "2026-01",
       valeur: 440000,
-      motif: "Ouverture de trois magasins à l'automne 2025",
+      motif: "Ouverture de trois magasins en fin d'année 2025",
     },
     serie: { type: "produit", facteurs: ["atl.tickets", "atl.panier"], decimales: 1 },
     proprio: "directeur",
@@ -178,7 +178,7 @@ const atlantiqueKpis: SpecKpi[] = [
     serie: { base: 52, pente: -0.4, saison: 3, bruit: 1.5, decimales: 0 },
     proprio: "chef",
     correction: {
-      mois: "2025-06",
+      mois: "2026-03",
       facteur: 1.6,
       motif: "Stock de fin de mois pris avant le rapprochement avec l'inventaire",
     },
@@ -208,7 +208,7 @@ const atlantiqueKpis: SpecKpi[] = [
     serie: { base: 28, pente: 0.7, saison: 2, bruit: 2, decimales: 0 },
     proprio: "chef",
     annulation: {
-      mois: "2025-09",
+      mois: "2026-02",
       facteur: 10,
       motif: "Score saisi sur une échelle de 0 à 1 000 au lieu de -100 à 100",
     },
@@ -217,7 +217,6 @@ const atlantiqueKpis: SpecKpi[] = [
 
 export const MISSION_SAHEL: SpecMissionKpi = {
   mission: CASTING.sahelCoton,
-  dernierMois: "2026-09",
   kpis: sahelKpis,
   revues: [],
   actions: [],
@@ -225,7 +224,6 @@ export const MISSION_SAHEL: SpecMissionKpi = {
 
 export const MISSION_ATLANTIQUE: SpecMissionKpi = {
   mission: CASTING.atlantique,
-  dernierMois: "2026-09",
   kpis: atlantiqueKpis,
   arbre: {
     racine: "atl.ca",

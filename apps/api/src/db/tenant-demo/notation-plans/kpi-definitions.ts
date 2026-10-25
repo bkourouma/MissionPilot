@@ -1,14 +1,15 @@
 import type { ContexteTenantDemo } from "../contexte.js";
 import type { MissionTrouvee } from "./casting.js";
 import type { ActeursMission, ComptesPortail } from "./kpi-acteurs.js";
-import { PREMIER_MOIS } from "./kpi-series.js";
+import type { FenetreKpi } from "./kpi-fenetre.js";
 import type { SpecKpi, SpecMissionKpi } from "./kpi-types.js";
 import { exiger, lire } from "./outils.js";
 
 /*
  * Définitions des KPI d'une mission, cibles (version initiale + révision) et contributeurs du
  * portail, par les VRAIES routes : POST /api/missions/:id/kpi, POST /api/kpi/:id/cibles,
- * PUT /api/kpi/:id/contributeurs. La clé naturelle d'un KPI est son libellé dans la mission : un
+ * PUT /api/kpi/:id/contributeurs. Le suivi débute le premier jour du mois précédant le début de la
+ * mission (fenêtre de kpi-fenetre.ts). La clé naturelle d'un KPI est son libellé dans la mission : un
  * KPI déjà présent n'est jamais recréé (ni modifié).
  */
 
@@ -21,6 +22,7 @@ export interface KpiSeme {
 function corpsCreation(
   spec: SpecKpi,
   proprietaireId: string,
+  debutSuivi: string,
 ): Record<string, string | number | boolean> {
   const corps: Record<string, string | number | boolean> = {
     libelle: spec.libelle,
@@ -30,7 +32,7 @@ function corpsCreation(
     sens: spec.sens,
     nature: spec.nature,
     frequence: "mensuelle",
-    debut_suivi: `${PREMIER_MOIS}-01`,
+    debut_suivi: debutSuivi,
     ponderation: spec.ponderation ?? 1,
     proprietaire_id: proprietaireId,
     cible: spec.cible,
@@ -52,6 +54,7 @@ export async function synchroniserDefinitions(
   spec: SpecMissionKpi,
   acteurs: ActeursMission,
   portail: ComptesPortail,
+  fenetre: FenetreKpi,
 ): Promise<KpiSeme[]> {
   const chef = ctx.session(acteurs.chef);
   const directeur = ctx.session(acteurs.directeur);
@@ -68,7 +71,7 @@ export async function synchroniserDefinitions(
       if (!proprio) throw new Error(`Propriétaire du KPI « ${k.libelle} » introuvable.`);
       const r = await (k.proprio === "chef" ? chef : directeur).post(
         `/api/missions/${mission.id}/kpi`,
-        corpsCreation(k, proprio),
+        corpsCreation(k, proprio, fenetre.debut),
       );
       exiger(r, 201, `Création du KPI « ${k.libelle} » (${mission.intitule})`);
       id = r.json().id as string;

@@ -93,8 +93,8 @@ export async function assurerRepondants(
       crees.n++;
       // Compte ouvert avant le début de la mission du client (les routes créent tout « maintenant »).
       await ctx.proprietaire.query(
-        "UPDATE utilisateurs SET cree_le = $1::timestamptz WHERE id = $2",
-        [`${def.depuis}T12:00:00Z`, id],
+        "UPDATE utilisateurs SET cree_le = $1::timestamptz WHERE id = $2 AND cabinet_id = $3",
+        [`${def.depuis}T12:00:00Z`, id, ctx.cabinetId],
       );
     }
     resultat.push({

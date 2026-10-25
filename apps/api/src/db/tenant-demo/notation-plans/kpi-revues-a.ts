@@ -48,7 +48,7 @@ export const REVUES_SICAFE: SpecRevue[] = [
         libelle: "Renégocier les prix d'achat du café vert avec les trois fournisseurs principaux",
         kpi: "sicafe.cout",
         responsable: "directeur",
-        echeance: "2025-06-30",
+        echeance: "2025-04-25",
         fin: "abandonnee",
         motif:
           "Contrats annuels en cours jusqu'en décembre : la renégociation est reportée à l'exercice suivant, hors du périmètre de la mission.",
@@ -123,10 +123,10 @@ export const ACTIONS_SAHEL: SpecAction[] = [
       "Rapprocher le fichier clients de la comptabilité pour neutraliser les avoirs et acomptes.",
     kpi: "sahel.recouvrement",
     responsable: "chef",
-    echeance: "2025-02-28",
+    echeance: "2025-04-30",
     fin: "terminee",
-    dateEffet: "2025-02-17",
-    commentaire: "Méthode de calcul en vigueur à compter de la clôture de janvier 2025.",
+    dateEffet: "2025-04-14",
+    commentaire: "Méthode de calcul en vigueur à compter de la clôture de mars 2025.",
     alerte: "SEUIL_HAUT",
   },
 ];

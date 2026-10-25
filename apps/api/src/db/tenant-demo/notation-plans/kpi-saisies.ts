@@ -6,8 +6,8 @@ import type { ErreurSaisie, SpecKpi } from "./kpi-types.js";
 import { exiger, lire } from "./outils.js";
 
 /*
- * Saisie des mesures mensuelles d'un KPI par les VRAIES routes, sur un historique de 24 mois au
- * plus : le cabinet (chef, directeur, consultants de l'équipe) par POST /api/kpi/:id/mesures, le
+ * Saisie des mesures mensuelles d'un KPI par les VRAIES routes, sur la fenêtre mensuelle de la mission
+ * (kpi-fenetre.ts) : le cabinet (chef, directeur, consultants de l'équipe) par POST /api/kpi/:id/mesures, le
  * client par POST /api/portail/kpi/:id/mesures pour les KPI dont des comptes du portail sont
  * contributeurs désignés. Corrections et annulations passent par leurs routes (motif obligatoire).
  * Rejouable : l'état de chaque date est relu (lignes en ajout seul) avant d'écrire.

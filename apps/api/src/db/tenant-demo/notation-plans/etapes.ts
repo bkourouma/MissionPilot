@@ -11,7 +11,7 @@ import { semerQuestionnaires } from "./questionnaires.js";
  * Étapes de la phase « notation-plans », dans l'ordre des dépendances de données :
  *   1. notation-referentiels  grilles validées, banque d'items, paramètres, initiatives types
  *   2. questionnaires         modèles, versions, envois, réponses, relances, historique IA
- *   3. kpi                    définitions, mesures sur 24 mois, cibles, alertes, arbres, revues, actions
+ *   3. kpi                    définitions, mesures mensuelles (fenêtre de chaque mission), cibles, alertes, arbres, revues, actions
  *   4. notations              notations des missions 2 et 9, versions, publication, calibrage, plans d'action
  *   5. plans-coeur            plans stratégiques (missions 1, 5, 6, 10), éléments, modèles, cascade, portefeuille
  *   5b. notations-complement  notations publiées complémentaires (classes A et E) et lien au diagnostic des plans
