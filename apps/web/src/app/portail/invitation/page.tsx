@@ -24,7 +24,7 @@ export default function PageInvitationPortail() {
               strokeLinejoin="round"
             />
           </svg>
-          <span>MissionPilot</span>
+          <span>CabinetPilot</span>
         </div>
         <h1 className="mp-connexion__titre">Activer votre espace client</h1>
         <p className="mp-texte-doux">

@@ -10,6 +10,7 @@ import {
   GrilleIndicateurs,
   ListeAlertesDerive,
 } from "../../components/indicateurs/GrilleIndicateurs";
+import { MissionsEnVol } from "../../components/indicateurs/MissionsEnVol";
 import { chargerServeur } from "../../lib/api-serveur";
 import { messageBriefIndisponible, requeteBrief, type BriefApi } from "../../lib/brief";
 import { formaterDate } from "../../lib/format";
@@ -21,7 +22,7 @@ import {
   type ElementMission,
   type ReponseIndicateurs,
 } from "../../lib/indicateurs";
-import { entreesAutorisees } from "../../lib/navigation";
+import { entreesAutorisees, grouperEntrees } from "../../lib/navigation";
 import { obtenirSession } from "../../lib/session";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
@@ -66,6 +67,7 @@ export default async function TableauDeBord() {
           </h2>
           {pilotage.ok ? (
             <>
+              <MissionsEnVol elements={pilotage.donnees.elements as ElementMission[]} />
               <Carte titre="Alertes de dérive" niveauTitre={3}>
                 <ListeAlertesDerive
                   alertes={alertesDerive(pilotage.donnees.elements as ElementMission[])}
@@ -92,43 +94,46 @@ export default async function TableauDeBord() {
           Vos modules
         </h2>
         <p className="mp-texte-doux">
-          Les modules accessibles avec votre rôle. Ceux marqués « Pas encore disponible » seront
-          ouverts au fil des livraisons.
+          Les modules accessibles avec votre rôle, regroupés par métier. Ceux marqués « Pas encore
+          disponible » seront ouverts au fil des livraisons.
         </p>
         {modules.length === 0 ? (
           <p>Votre rôle ne donne accès à aucun module pour l&apos;instant.</p>
         ) : (
-          <ul className="mp-grille-modules">
-            {modules.map((m) => (
-              <li key={m.id}>
-                <Carte
-                  niveauTitre={3}
-                  className={m.disponible ? "mp-module" : "mp-module mp-module--indisponible"}
-                  titre={
-                    <span className="mp-module__titre">
-                      <Icone nom={m.icone} />
-                      {m.disponible ? (
-                        <Link href={m.href} className="mp-lien-etendu">
-                          {m.libelle}
-                        </Link>
-                      ) : (
-                        m.libelle
-                      )}
-                    </span>
-                  }
-                  actions={
-                    m.disponible ? (
-                      <BadgeStatut tonalite="succes">Disponible</BadgeStatut>
-                    ) : (
-                      <BadgeStatut tonalite="neutre">Pas encore disponible</BadgeStatut>
-                    )
-                  }
-                >
-                  <p>{m.description}</p>
-                </Carte>
-              </li>
-            ))}
-          </ul>
+          grouperEntrees(modules).map((g) => (
+            <div key={g.id} className="mp-modules-groupe">
+              <h3 className="mp-modules-groupe__titre">{g.libelle}</h3>
+              <ul className="mp-grille-modules">
+                {g.entrees.map((m) => (
+                  <li key={m.id}>
+                    <Carte
+                      niveauTitre={4}
+                      className={m.disponible ? "mp-module" : "mp-module mp-module--indisponible"}
+                      titre={
+                        <span className="mp-module__titre">
+                          <Icone nom={m.icone} />
+                          {m.disponible ? (
+                            <Link href={m.href} className="mp-lien-etendu">
+                              {m.libelle}
+                            </Link>
+                          ) : (
+                            m.libelle
+                          )}
+                        </span>
+                      }
+                      actions={
+                        m.disponible ? null : (
+                          <BadgeStatut tonalite="neutre">Pas encore disponible</BadgeStatut>
+                        )
+                      }
+                    >
+                      <p>{m.description}</p>
+                    </Carte>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         )}
       </section>
 

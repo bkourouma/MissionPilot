@@ -24,7 +24,7 @@ interface Libelle {
 
 export const ORIGINE_MODELE: Record<OrigineModele, string> = {
   cabinet: "Créé par le cabinet",
-  gabarit: "Copie d'un gabarit MissionPilot",
+  gabarit: "Copie d'un gabarit CabinetPilot",
   copie: "Copie d'un modèle du cabinet",
 };
 

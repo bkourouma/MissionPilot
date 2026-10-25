@@ -125,7 +125,7 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       setAnomalies(null);
       setModifie(false);
       setSucces(
-        "Brouillon enregistré : la définition a passé le contrôle de cohérence du moteur MissionPilot.",
+        "Brouillon enregistré : la définition a passé le contrôle de cohérence du moteur CabinetPilot.",
       );
       rafraichir();
       return true;

@@ -4,7 +4,7 @@ import { libelleTache } from "../../../../lib/ia";
 import { libelleCritere, libellePlafondJetons, type RouteTacheVue } from "./routage-cache";
 
 /**
- * Routage des modèles par tâche (AGT-06), en lecture : modèle recommandé par MissionPilot et ce
+ * Routage des modèles par tâche (AGT-06), en lecture : modèle recommandé par CabinetPilot et ce
  * qui a guidé son choix (coût, qualité, rapidité), modèle appliqué au cabinet, plafond de jetons
  * de sortie de la tâche (il borne aussi le coût réservé avant chaque appel). Le choix du modèle
  * se fait dans « Modèle par tâche ».

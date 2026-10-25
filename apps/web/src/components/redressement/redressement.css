@@ -293,7 +293,8 @@
 }
 
 .mp-red-semaine--tension {
-  border-left: 4px solid var(--mp-danger);
+  background: var(--mp-danger-fond);
+  border-color: var(--mp-danger);
 }
 
 .mp-red-semaine__titre {
@@ -475,9 +476,8 @@
   flex-direction: column;
   gap: var(--mp-esp-1);
   padding: var(--mp-esp-3);
-  background: var(--mp-surface);
-  border: 1px solid var(--mp-bordure);
-  border-left: 4px solid var(--mp-primaire);
+  background: var(--mp-primaire-pale);
+  border: 1px solid var(--mp-primaire);
   border-radius: var(--mp-rayon);
 }
 

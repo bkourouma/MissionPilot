@@ -72,7 +72,7 @@
 .mp-canaux__mention {
   margin: 0;
   padding: var(--mp-esp-3);
-  border-left: 4px solid var(--mp-primaire);
+  border: 1px solid var(--mp-primaire);
   background: var(--mp-primaire-pale);
   border-radius: var(--mp-rayon);
   overflow-wrap: anywhere;
@@ -224,21 +224,23 @@
   gap: var(--mp-esp-1) var(--mp-esp-3);
   padding: var(--mp-esp-2) var(--mp-esp-3);
   border: 1px solid var(--mp-bordure);
-  border-left-width: 4px;
   border-radius: var(--mp-rayon);
   background: var(--mp-surface);
 }
 
 .mp-canaux__segment--bon {
-  border-left-color: var(--mp-succes);
+  border-color: var(--mp-succes);
+  background: var(--mp-succes-fond);
 }
 
 .mp-canaux__segment--moyen {
-  border-left-color: var(--mp-attention);
+  border-color: var(--mp-attention);
+  background: var(--mp-attention-fond);
 }
 
 .mp-canaux__segment--faible {
-  border-left-color: var(--mp-danger);
+  border-color: var(--mp-danger);
+  background: var(--mp-danger-fond);
 }
 
 .mp-canaux__segment-position {

@@ -47,7 +47,7 @@ export default async function PageDossiersDd({ params }: { params: Promise<{ id:
         Une due diligence analyse une opération d&apos;investissement : cadrage, analyses sourcées,
         chaîne de valeur, risques, hypothèses à confirmer ou à infirmer, marché, revue
         environnementale et sociale, plan des 100 jours et note au comité. Chaque affirmation est
-        sourcée ou signalée fragile ; les chiffres viennent des moteurs de MissionPilot.
+        sourcée ou signalée fragile ; les chiffres viennent des moteurs de CabinetPilot.
       </p>
       {droits.ecrire ? (
         <div>

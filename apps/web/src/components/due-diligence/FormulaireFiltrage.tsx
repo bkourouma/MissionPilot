@@ -165,7 +165,7 @@ export function FormulaireFiltrage({
       <fieldset className="mp-groupe">
         <legend className="mp-champ__libelle">Huit thèmes de revue</legend>
         <p className="mp-champ__aide">
-          Libellés propres à MissionPilot, provisoires, à valider par un expert E&amp;S. Cadre
+          Libellés propres à CabinetPilot, provisoires, à valider par un expert E&amp;S. Cadre
           public cité en référence seulement : normes de performance de la SFI (aucun texte
           reproduit).
         </p>

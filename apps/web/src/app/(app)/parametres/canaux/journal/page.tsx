@@ -45,7 +45,7 @@ export default async function PageJournalCanaux({
     <div className="mp-page">
       <EnteteDePage
         titre="Journal des envois"
-        soustitre="Chaque message préparé par MissionPilot, avec son issue. Le journal ne garde ni le texte des messages ni les numéros."
+        soustitre="Chaque message préparé par CabinetPilot, avec son issue. Le journal ne garde ni le texte des messages ni les numéros."
       />
       <form
         method="get"

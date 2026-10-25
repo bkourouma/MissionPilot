@@ -140,8 +140,13 @@ dl.mp-totaux dd {
 
 @media print {
   .mp-entete,
+  .mp-rail,
   .mp-nav-laterale,
   .mp-barre-basse {
     display: none;
+  }
+  .mp-cadre {
+    display: block;
+    background: none;
   }
 }

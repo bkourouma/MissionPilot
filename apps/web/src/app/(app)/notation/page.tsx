@@ -24,7 +24,7 @@ import { exigerLectureNotation } from "../../../lib/notation-serveur";
 export const metadata: Metadata = { title: "Grilles de notation" };
 
 /**
- * Grilles de notation du cabinet (NOT-01) : la grille générique MissionPilot (base par défaut
+ * Grilles de notation du cabinet (NOT-01) : la grille générique CabinetPilot (base par défaut
  * du calcul), les grilles du cabinet et leurs versions, la création par copie. La rédaction
  * est ouverte à qui gère ou publie les notations ; la validation revient à un expert métier.
  */
@@ -54,7 +54,7 @@ export default async function PageGrillesNotation({
         </p>
       ) : null}
 
-      <Carte titre="Grille générique MissionPilot">
+      <Carte titre="Grille générique CabinetPilot">
         <div className="mp-notation__section">
           <p>
             Grille propre fondée sur des principes publics de gestion :{" "}

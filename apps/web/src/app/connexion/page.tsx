@@ -4,6 +4,7 @@ import { cheminDeRetour } from "../../lib/connexion";
 import { destinationApresConnexion, estCheminPortail } from "../../lib/portail-routes";
 import { sessionFacultative } from "../../lib/session";
 import { chargerComptesDemo } from "./comptes-demo-serveur";
+import { VisuelMarque } from "../../components/shell/VisuelMarque";
 import { FormulaireConnexion } from "./FormulaireConnexion";
 
 export const metadata: Metadata = { title: "Connexion" };
@@ -24,28 +25,28 @@ export default async function PageConnexion({
 
   return (
     <main className="mp-connexion">
-      <div className="mp-connexion__panneau">
-        <div className="mp-connexion__marque">
-          <svg viewBox="0 0 32 32" width="40" height="40" aria-hidden="true" focusable="false">
-            <rect width="32" height="32" rx="7" fill="currentColor" />
-            <path
-              d="M8 23V10l8 8 8-8v13"
-              fill="none"
-              stroke="var(--mp-sur-primaire)"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>MissionPilot</span>
+      <VisuelMarque
+        titre={
+          espaceClient
+            ? "Suivez vos missions, vos documents et vos factures."
+            : "Pilotez chaque mission, de la proposition à la clôture."
+        }
+        texte={
+          espaceClient
+            ? "L'espace que votre cabinet partage avec vous, au même endroit."
+            : "Temps, budget, facturation et conseil augmenté par l'IA, dans un seul outil pour votre cabinet."
+        }
+      />
+      <div className="mp-connexion__zone">
+        <div className="mp-connexion__panneau">
+          <h1 className="mp-connexion__titre">Connexion</h1>
+          <p className="mp-texte-doux">
+            {espaceClient
+              ? "Accédez à votre espace client : missions, documents et factures partagés par votre cabinet."
+              : "Accédez à l'espace de votre cabinet."}
+          </p>
+          <FormulaireConnexion suite={suite} comptesDemo={comptesDemo} />
         </div>
-        <h1 className="mp-connexion__titre">Connexion</h1>
-        <p className="mp-texte-doux">
-          {espaceClient
-            ? "Accédez à votre espace client : missions, documents et factures partagés par votre cabinet."
-            : "Accédez à l'espace de votre cabinet."}
-        </p>
-        <FormulaireConnexion suite={suite} comptesDemo={comptesDemo} />
       </div>
     </main>
   );

@@ -332,7 +332,7 @@ function FormulaireConsentement({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <p className="mp-texte-doux">
         À utiliser quand la personne a donné son accord par écrit ou oralement, hors de
-        MissionPilot. La référence de la preuve est conservée dans l&apos;historique.
+        CabinetPilot. La référence de la preuve est conservée dans l&apos;historique.
       </p>
       <ZoneTexte
         libelle="Référence de la preuve"

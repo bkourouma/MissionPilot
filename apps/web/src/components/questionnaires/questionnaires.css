@@ -93,15 +93,15 @@ h4.mp-qe-entete__titre {
   flex-direction: column;
   gap: var(--mp-esp-3);
   min-width: 0;
-  padding: var(--mp-esp-3) var(--mp-esp-3) var(--mp-esp-3) var(--mp-esp-4);
+  padding: var(--mp-esp-3);
   background: var(--mp-surface);
   border: 1px solid var(--mp-bordure);
-  border-left: 4px solid var(--mp-primaire);
   border-radius: var(--mp-rayon);
 }
 
 .mp-qe-question--erreur {
-  border-left-color: var(--mp-danger);
+  background: var(--mp-danger-fond);
+  border-color: var(--mp-danger);
 }
 
 .mp-qe-repere {
@@ -176,7 +176,6 @@ h4.mp-qe-entete__titre {
   padding: var(--mp-esp-3);
   background: var(--mp-surface-2);
   border: 1px solid var(--mp-bordure);
-  border-left: 3px solid var(--mp-bordure-controle);
   border-radius: var(--mp-rayon);
 }
 

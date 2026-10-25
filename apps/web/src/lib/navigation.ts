@@ -641,3 +641,70 @@ export function sousPageActive(
   }
   return meilleure?.id ?? null;
 }
+
+/** Groupe de la navigation par métier du cabinet (rail latéral et menu du téléphone). */
+export interface GroupeNavigation {
+  id: string;
+  libelle: string;
+  entrees: EntreeNavigation[];
+}
+
+/**
+ * Regroupement par métier : l'ordre des identifiants est l'ordre d'affichage dans le groupe.
+ * La table NAVIGATION reste la source des entrées, des droits et des chemins ; une entrée
+ * absente d'ici tombe dans le dernier groupe plutôt que de disparaître.
+ */
+const GROUPES: readonly { id: string; libelle: string; ids: readonly string[] }[] = [
+  {
+    id: "piloter",
+    libelle: "Piloter",
+    ids: ["tableau-de-bord", "mon-planning", "feuille-de-temps", "plan-de-charge", "indicateurs"],
+  },
+  {
+    id: "produire",
+    libelle: "Produire",
+    ids: [
+      "missions",
+      "mes-taches",
+      "mon-brief",
+      "copilote",
+      "dossiers-clients",
+      "methodes",
+      "qualite",
+      "connaissances",
+    ],
+  },
+  {
+    id: "conseil-ia",
+    libelle: "Conseil IA",
+    ids: [
+      "notation",
+      "redressement",
+      "questionnaires",
+      "services-candidats",
+      "agents-ia",
+      "observatoire",
+    ],
+  },
+  {
+    id: "vendre",
+    libelle: "Vendre",
+    ids: ["pipeline", "appels-offres", "banques-ao", "clients"],
+  },
+  { id: "facturer", libelle: "Facturer", ids: ["facturation", "finance", "previsions"] },
+  { id: "cabinet", libelle: "Cabinet", ids: ["collaborateurs", "catalogue", "parametres"] },
+];
+
+/** Répartit les entrées visibles par groupe ; un groupe sans entrée visible disparaît. */
+export function grouperEntrees(entrees: readonly EntreeNavigation[]): GroupeNavigation[] {
+  const parId = new Map(entrees.map((e) => [e.id, e]));
+  const connus = new Set(GROUPES.flatMap((g) => g.ids));
+  const groupes = GROUPES.map((g) => ({
+    id: g.id,
+    libelle: g.libelle,
+    entrees: g.ids.flatMap((id) => parId.get(id) ?? []),
+  }));
+  const orphelines = entrees.filter((e) => !connus.has(e.id));
+  if (orphelines.length > 0) groupes[groupes.length - 1]?.entrees.push(...orphelines);
+  return groupes.filter((g) => g.entrees.length > 0);
+}

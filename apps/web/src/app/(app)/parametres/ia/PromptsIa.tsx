@@ -56,7 +56,7 @@ export function PromptsIa({ initiale }: { initiale: PageIa<PromptIa> }) {
       <p className="mp-texte-petit mp-texte-doux">
         Une génération utilise la version active de son prompt, figée dans sa traçabilité. Les
         variables entre doubles accolades sont remplies par l&apos;écran ; « chiffres » l&apos;est
-        par MissionPilot avec les résultats des moteurs de calcul.
+        par CabinetPilot avec les résultats des moteurs de calcul.
       </p>
       <ul className="mp-liste-lignes">
         {prompts.map((p) => (

@@ -9,7 +9,7 @@ import { exigerPermission } from "../../../lib/session";
 export const metadata: Metadata = { title: "Copilote" };
 
 /**
- * Copilote conversationnel (AGT-08) : une seule interface pour interroger MissionPilot en français,
+ * Copilote conversationnel (AGT-08) : une seule interface pour interroger CabinetPilot en français,
  * dans les droits de l'utilisateur. Les réponses sont construites par le serveur à partir des
  * données visibles de l'utilisateur ; toute action modifiante est proposée puis confirmée sur une
  * carte. Le droit `copilote.utiliser` est exigé ici (confort d'affichage) et par l'API (source de

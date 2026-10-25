@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import "@fontsource-variable/sora";
+import "@fontsource-variable/figtree";
 import "../styles/tokens.css";
 import "../styles/base.css";
 import "../styles/composants.css";
@@ -15,11 +17,11 @@ import { HorsLigne } from "../components/hors-ligne/HorsLigne";
 import { DebloqueurRendu } from "../components/shell/DebloqueurRendu";
 
 export const metadata: Metadata = {
-  title: { default: "MissionPilot", template: "%s — MissionPilot" },
+  title: { default: "CabinetPilot", template: "%s — CabinetPilot" },
   description: "Gestion des missions, du temps et de la facturation des cabinets de conseil.",
-  applicationName: "MissionPilot",
+  applicationName: "CabinetPilot",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "MissionPilot", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "CabinetPilot", statusBarStyle: "default" },
   formatDetection: { telephone: false },
   robots: { index: false, follow: false },
 };
@@ -30,8 +32,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1b4f7a" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e141b" },
+    { media: "(prefers-color-scheme: light)", color: "#2b1468" },
+    { media: "(prefers-color-scheme: dark)", color: "#130d26" },
   ],
 };
 

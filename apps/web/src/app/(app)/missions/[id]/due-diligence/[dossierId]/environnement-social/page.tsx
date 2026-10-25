@@ -66,7 +66,7 @@ export default async function PageEnvironnementSocialDd({
     <>
       <p className="mp-texte-doux">
         Référence : normes de performance de la SFI (cadre public) ; les libellés sont ceux de
-        MissionPilot et restent à valider par un expert E&amp;S.
+        CabinetPilot et restent à valider par un expert E&amp;S.
       </p>
 
       {dernier === null || s === null ? (

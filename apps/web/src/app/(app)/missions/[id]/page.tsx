@@ -16,6 +16,7 @@ import {
 } from "../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../lib/session";
 import { Commentaires } from "../../../../components/collaboration/Commentaires";
+import { CapMission } from "../../../../components/indicateurs/CapMission";
 import { hrefNouvelleTache } from "../../../../lib/taches-collaboration";
 import { ActionsMission } from "./ActionsMission";
 import { EquipeMission } from "./EquipeMission";
@@ -48,6 +49,8 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
 
   return (
     <div className="mp-pile mp-pile--large">
+      <CapMission missionId={m.id} />
+
       <Carte
         titre="Fiche mission"
         actions={

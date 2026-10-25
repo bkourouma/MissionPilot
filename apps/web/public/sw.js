@@ -1,5 +1,5 @@
 /*
- * Service worker de MissionPilot (PWA). Testé dans src/lib/hors-ligne/sw.test.ts.
+ * Service worker de CabinetPilot (PWA). Testé dans src/lib/hors-ligne/sw.test.ts.
  *
  * Stratégie explicite, par type de requête (même origine, GET seulement) :
  * - /_next/static/* : « cache d'abord », seulement pour les réponses marquées `immutable`
@@ -101,7 +101,7 @@ function pageHorsLigne(url) {
   const html =
     '<!doctype html><html lang="fr"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<meta name="color-scheme" content="light dark"><title>Hors connexion — MissionPilot</title>' +
+    '<meta name="color-scheme" content="light dark"><title>Hors connexion — CabinetPilot</title>' +
     "<style>" +
     ":root{--fond:#f5f6f8;--surface:#fff;--texte:#16202a;--doux:#4a5663;--primaire:#1b4f7a;--sur:#fff}" +
     "@media (prefers-color-scheme:dark){:root{--fond:#0e141b;--surface:#16202a;--texte:#e8edf2;--doux:#b4c0cc;--primaire:#8cc0ec;--sur:#0e141b}}" +
@@ -114,7 +114,7 @@ function pageHorsLigne(url) {
     "a:focus-visible{outline:3px solid var(--primaire);outline-offset:3px}" +
     "</style></head><body><main><section>" +
     "<h1>Vous êtes hors connexion</h1>" +
-    "<p>Cette page n'a pas pu être chargée : le réseau ne répond pas. MissionPilot ne garde " +
+    "<p>Cette page n'a pas pu être chargée : le réseau ne répond pas. CabinetPilot ne garde " +
     "aucune page de votre cabinet sur l'appareil.</p>" +
     '<p class="doux">Les saisies de temps faites avant la coupure restent sur cet appareil ' +
     "et seront envoyées au retour du réseau, depuis la feuille de temps.</p>" +

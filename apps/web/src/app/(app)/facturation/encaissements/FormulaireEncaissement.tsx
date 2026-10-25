@@ -194,7 +194,7 @@ export function FormulaireEncaissement({
           maxLength={120}
           aide={
             s.mode === "mobile_money"
-              ? "Identifiant de transaction reçu par SMS (aucun paiement n'est déclenché par MissionPilot)."
+              ? "Identifiant de transaction reçu par SMS (aucun paiement n'est déclenché par CabinetPilot)."
               : undefined
           }
           value={s.reference}

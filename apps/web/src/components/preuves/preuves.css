@@ -51,8 +51,10 @@
 
 .mp-preuve-extrait {
   margin: 0;
-  padding-left: var(--mp-esp-3);
-  border-left: 3px solid var(--mp-bordure);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-surface-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }

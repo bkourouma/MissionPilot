@@ -41,7 +41,7 @@ export function BandeauChiffresNonVerifies({
         titre={<span id={`${id}-titre`}>Chiffres non vérifiés : validation bloquée</span>}
       >
         <p>
-          Ces nombres ne viennent pas des moteurs de calcul de MissionPilot. Vérifiez chacun
+          Ces nombres ne viennent pas des moteurs de calcul de CabinetPilot. Vérifiez chacun
           d&apos;eux à la source ; corrigez ou retirez ceux qui sont faux en modifiant le texte,
           puis attestez-les pour pouvoir valider.
         </p>

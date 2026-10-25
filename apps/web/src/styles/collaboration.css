@@ -165,11 +165,9 @@
   padding: var(--mp-esp-3);
   background: var(--mp-surface);
   border: 1px solid var(--mp-bordure);
-  border-left: 3px solid var(--mp-primaire);
   border-radius: var(--mp-rayon);
 }
 .mp-commentaire--supprime {
-  border-left-color: var(--mp-bordure);
   background: var(--mp-surface-2);
 }
 .mp-commentaire__entete {

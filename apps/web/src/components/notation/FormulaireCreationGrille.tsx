@@ -74,7 +74,7 @@ export function FormulaireCreationGrille({ grilles }: FormulaireCreationGrillePr
               onChange={() => setSource("generique")}
             />
             <label htmlFor={`${id}-generique`} className="mp-case__libelle">
-              Copie de la grille générique MissionPilot
+              Copie de la grille générique CabinetPilot
               <span className="mp-case__aide">
                 10 dimensions en deux familles et 5 secteurs, à affiner par vos experts.
               </span>

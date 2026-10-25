@@ -470,7 +470,7 @@ export function FormulaireHypotheses({
             ) : null}
           </div>
           <p className="mp-texte-doux mp-texte-petit">
-            La simulation est recalculée par le moteur de MissionPilot et n&apos;est pas conservée ;
+            La simulation est recalculée par le moteur de CabinetPilot et n&apos;est pas conservée ;
             une version enregistrée est figée et horodatée, puis doit être validée par un
             responsable de la mission.
           </p>

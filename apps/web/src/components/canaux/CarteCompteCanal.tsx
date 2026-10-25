@@ -45,7 +45,7 @@ export interface CarteCompteCanalProps {
 /**
  * Compte d'un canal (WhatsApp ou SMS) : interrupteur « Activé » et options. Activer un compte
  * exige la reconfirmation d'identité de l'associé ; désactiver est immédiat. Tout est simulé :
- * rien n'est envoyé hors de MissionPilot.
+ * rien n'est envoyé hors de CabinetPilot.
  */
 export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCompteCanalProps) {
   const [enregistre, setEnregistre] = useState<EtatCompteEditable>(

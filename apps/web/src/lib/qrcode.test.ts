@@ -98,7 +98,7 @@ function relire(modules: boolean[][], fonction: (x: number, y: number) => boolea
 
 describe("genererQrCode", () => {
   const uri =
-    "otpauth://totp/MissionPilot:associe%40demo.missionpilot.test?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=MissionPilot&algorithm=SHA1&digits=6&period=30";
+    "otpauth://totp/CabinetPilot:associe%40demo.missionpilot.test?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=CabinetPilot&algorithm=SHA1&digits=6&period=30";
 
   it("dessine une matrice carrée de la bonne version avec ses motifs fixes", () => {
     const qr = genererQrCode(uri);
@@ -211,7 +211,7 @@ describe("genererQrCode", () => {
   });
 
   it("donne un tracé SVG avec la marge et une pénalité finie", () => {
-    const qr = genererQrCode("MissionPilot");
+    const qr = genererQrCode("CabinetPilot");
     expect(cheminSvg(qr)).toMatch(/^M4,4h1v1h-1z/);
     expect(Number.isFinite(penalite(qr.modules))).toBe(true);
   });

@@ -97,6 +97,14 @@
 .mp-onglets {
   border-bottom: 1px solid var(--mp-bordure);
   overflow-x: auto;
+  /* Bords estompés tant qu'il reste des onglets hors de vue (ombres de défilement). */
+  background:
+    linear-gradient(to right, var(--mp-fond) 30%, transparent) 0 0 / 2.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--mp-fond) 30%, transparent) 100% 0 / 2.5rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--mp-bordure-controle), transparent) 0 0 / 0.5rem
+      100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--mp-bordure-controle), transparent) 100% 0 /
+      0.5rem 100% no-repeat scroll;
 }
 
 .mp-onglets__liste {
@@ -211,8 +219,9 @@
 }
 
 .mp-groupe--erreur .mp-groupe__options {
-  padding-left: var(--mp-esp-3);
-  border-left: 3px solid var(--mp-danger);
+  padding: var(--mp-esp-2) var(--mp-esp-3);
+  background: var(--mp-danger-fond);
+  border-radius: var(--mp-rayon);
 }
 
 .mp-case {
@@ -470,7 +479,7 @@
 }
 
 .mp-arbre__noeud--niveau-1 > .mp-arbre__element {
-  border-left: 4px solid var(--mp-primaire);
+  background: var(--mp-primaire-pale);
 }
 
 .mp-arbre__titre {

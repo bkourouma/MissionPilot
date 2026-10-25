@@ -20,12 +20,12 @@
   gap: 2px;
   padding: var(--mp-esp-2) var(--mp-esp-3);
   background: var(--mp-surface-2);
-  border-left: 4px solid var(--mp-primaire);
+  border: 1px solid var(--mp-primaire);
   border-radius: var(--mp-rayon);
 }
 
 .mp-resume-portail__element--neutre {
-  border-left-color: var(--mp-bordure-controle);
+  border-color: var(--mp-bordure-controle);
 }
 
 /* ---------- Partages par mission ---------- */

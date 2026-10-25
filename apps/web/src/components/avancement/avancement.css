@@ -89,7 +89,7 @@
 
 .mp-avc-suggestion {
   padding: var(--mp-esp-3) var(--mp-esp-4);
-  border-left: 4px solid var(--mp-attention);
+  border: 1px solid var(--mp-attention);
   background: var(--mp-attention-fond);
   border-radius: var(--mp-rayon);
 }

@@ -177,7 +177,7 @@ function FormulaireSignature({
     >
       <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_SIGNATURE_SIMULEE}>
         <p>
-          Vous signez dans MissionPilot, sous votre identité. Lisez d&apos;abord le document : la
+          Vous signez dans CabinetPilot, sous votre identité. Lisez d&apos;abord le document : la
           lecture est inscrite dans le journal de preuves.
         </p>
       </Alerte>

@@ -150,7 +150,7 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
           <p className="mp-confirmation__question">Retirer la clé API du cabinet ?</p>
           <p className="mp-texte-petit">
             {parametres.cle_plateforme_disponible
-              ? "L'IA utilisera alors la clé de la plateforme MissionPilot."
+              ? "L'IA utilisera alors la clé de la plateforme CabinetPilot."
               : "Sans autre clé disponible, l'IA passera en mode gabarit."}
           </p>
           <ChampsReconfirmation

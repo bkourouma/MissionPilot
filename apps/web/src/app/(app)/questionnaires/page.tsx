@@ -27,7 +27,7 @@ const BASE = "/questionnaires";
 
 /**
  * Modèles de questionnaires du cabinet (SOC-10) : liste paginée, gabarits génériques de
- * MissionPilot à copier, création d'un modèle.
+ * CabinetPilot à copier, création d'un modèle.
  */
 export default async function PageQuestionnaires({
   searchParams,
@@ -82,7 +82,7 @@ export default async function PageQuestionnaires({
               {curseur
                 ? "Cette page est vide : revenez au début de la liste."
                 : gerer
-                  ? "Copiez un gabarit MissionPilot ci-dessous, ou créez un modèle vierge."
+                  ? "Copiez un gabarit CabinetPilot ci-dessous, ou créez un modèle vierge."
                   : "Un consultant, un chef de mission ou un associé doit d'abord en créer un."}
             </p>
           </EtatVide>
@@ -127,7 +127,7 @@ export default async function PageQuestionnaires({
 
       <section className="mp-pile" aria-labelledby="titre-gabarits">
         <h2 id="titre-gabarits" className="mp-section__titre">
-          Gabarits MissionPilot
+          Gabarits CabinetPilot
         </h2>
         <p className="mp-texte-doux">
           Points de départ génériques, fondés sur des principes publics : copiés dans le cabinet,

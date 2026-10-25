@@ -7,6 +7,7 @@ import {
   CHEMIN_SECURITE_COMPTE,
   entreesBarreBasse,
   estActive,
+  grouperEntrees,
   type EntreeNavigation,
 } from "../../lib/navigation";
 import { Icone } from "../ui/Icone";
@@ -24,24 +25,82 @@ export interface NavigationProps {
   roles: string;
 }
 
-/** Navigation latérale (grand écran). */
-export function NavigationLaterale({ entrees }: Pick<NavigationProps, "entrees">) {
-  const chemin = usePathname();
+/** Navigation regroupée par métier : un titre par groupe, puis ses entrées. */
+function ListeGroupee({
+  entrees,
+  chemin,
+  onNaviguer,
+  idPrefixe,
+}: {
+  entrees: readonly EntreeNavigation[];
+  chemin: string;
+  onNaviguer?: () => void;
+  idPrefixe: string;
+}) {
   return (
-    <nav className="mp-nav-laterale" aria-label="Navigation principale">
-      <ul className="mp-nav__liste">
-        {entrees.map((e) => (
-          <li key={e.id}>
-            <LienNavigation
-              entree={e}
-              active={estActive(e, chemin)}
-              forme="liste"
-              pastille={pastilleDe(e)}
-            />
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div className="mp-nav__groupes">
+      {grouperEntrees(entrees).map((g) => (
+        <div key={g.id} className="mp-nav__groupe">
+          <p className="mp-nav__groupe-titre" id={`${idPrefixe}-${g.id}`}>
+            {g.libelle}
+          </p>
+          <ul className="mp-nav__liste" aria-labelledby={`${idPrefixe}-${g.id}`}>
+            {g.entrees.map((e) => (
+              <li key={e.id}>
+                <LienNavigation
+                  entree={e}
+                  active={estActive(e, chemin)}
+                  forme="liste"
+                  pastille={pastilleDe(e)}
+                  onNaviguer={onNaviguer}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Rail de navigation (grand écran) : groupes par métier, puis la personne connectée. */
+export function NavigationLaterale({
+  entrees,
+  nom,
+  roles,
+}: Pick<NavigationProps, "entrees" | "nom" | "roles">) {
+  const chemin = usePathname();
+  const nav = useRef<HTMLElement>(null);
+  // L'entrée active reste visible dans le rail défilant, même au bas d'une longue liste.
+  useEffect(() => {
+    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
+  }, [chemin]);
+  return (
+    <div className="mp-rail">
+      <nav ref={nav} className="mp-nav-laterale" aria-label="Navigation principale">
+        <ListeGroupee entrees={entrees} chemin={chemin} idPrefixe="rail" />
+      </nav>
+      <div className="mp-rail__utilisateur">
+        <div className="mp-rail__ligne">
+          <p className="mp-rail__identite">
+            <span className="mp-rail__nom">{nom}</span>
+            <span className="mp-rail__role">{roles}</span>
+          </p>
+          <div className="mp-rail__actions">
+            <Link
+              href={CHEMIN_SECURITE_COMPTE}
+              className="mp-rail__icone"
+              aria-current={chemin === CHEMIN_SECURITE_COMPTE ? "page" : undefined}
+              aria-label="Sécurité du compte"
+              title="Sécurité du compte"
+            >
+              <Icone nom="cadenas" />
+            </Link>
+            <BoutonDeconnexion iconeSeule />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -115,19 +174,12 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
             <span>{roles}</span>
           </p>
           <nav aria-label="Toutes les rubriques">
-            <ul className="mp-nav__liste">
-              {entrees.map((e) => (
-                <li key={e.id}>
-                  <LienNavigation
-                    entree={e}
-                    active={estActive(e, chemin)}
-                    forme="liste"
-                    pastille={pastilleDe(e)}
-                    onNaviguer={() => setOuvert(false)}
-                  />
-                </li>
-              ))}
-            </ul>
+            <ListeGroupee
+              entrees={entrees}
+              chemin={chemin}
+              onNaviguer={() => setOuvert(false)}
+              idPrefixe="menu"
+            />
           </nav>
           <Link
             href={CHEMIN_SECURITE_COMPTE}

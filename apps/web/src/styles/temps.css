@@ -612,3 +612,10 @@ ul.mp-badges {
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
+
+/* Navigation de semaine : boutons de même hauteur, libellé sur une ligne tant que la place le permet. */
+.mp-semaine-nav__liens .mp-pagination__lien {
+  min-height: var(--mp-cible);
+  height: 100%;
+  white-space: nowrap;
+}

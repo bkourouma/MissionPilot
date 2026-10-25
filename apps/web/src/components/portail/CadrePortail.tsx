@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { EntreePortail } from "../../lib/portail";
 import { CHEMIN_PORTAIL, CHEMIN_SECURITE_PORTAIL } from "../../lib/portail-routes";
 import { BoutonDeconnexion } from "../shell/BoutonDeconnexion";
+import { Marque } from "../shell/Marque";
 import { Alerte } from "../ui/Alerte";
 import { NavigationPortail } from "./NavigationPortail";
 
@@ -14,30 +15,6 @@ export interface CadrePortailProps {
   /** Le cabinet exige la double authentification et elle n'est pas encore activée. */
   tfaAConfigurer: boolean;
   children: ReactNode;
-}
-
-/** Logo MissionPilot (décoratif : le texte voisin porte le nom). */
-function Logo() {
-  return (
-    <svg
-      className="mp-portail__logo"
-      viewBox="0 0 32 32"
-      width="28"
-      height="28"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect width="32" height="32" rx="7" fill="currentColor" />
-      <path
-        d="M8 23V10l8 8 8-8v13"
-        fill="none"
-        stroke="var(--mp-sur-primaire)"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 /** Cadre de l'espace client : en-tête sobre, navigation courte, contenu principal. */
@@ -55,12 +32,9 @@ export function CadrePortail({
       </a>
       <header className="mp-portail__entete">
         <Link href={CHEMIN_PORTAIL} className="mp-portail__marque">
-          <Logo />
-          <span className="mp-portail__marque-textes">
-            <span className="mp-portail__produit">MissionPilot</span>
-            <span className="mp-portail__espace">
-              {entreprise ? `Espace client · ${entreprise}` : "Espace client"}
-            </span>
+          <Marque tailleSymbole={30} />
+          <span className="mp-portail__espace">
+            {entreprise ? `Espace client · ${entreprise}` : "Espace client"}
           </span>
         </Link>
         <div className="mp-portail__compte">

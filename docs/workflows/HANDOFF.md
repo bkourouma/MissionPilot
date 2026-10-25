@@ -9,6 +9,35 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `design/plan-de-vol` — 2026-10-25 (refonte visuelle CabinetPilot, non commitée)
+
+Créée depuis `ci/deploiement-vps` (`8f14ca0`) ; **rien n'est commité**, ni poussé. Direction « Plan de vol » choisie par
+l'utilisateur sur esquisses (`apps/web/.impeccable/mocks/`, ignoré par git) : logo violet et or imposé, nom **CabinetPilot**
+partout dans l'interface web. Contrat de direction : `apps/web/.impeccable/surfaces/` ; produit : `apps/web/PRODUCT.md`.
+
+**Fait (apps/web seulement, routes, droits et fonctions inchangés).** Jetons violet nuit / lavande / or (`styles/tokens.css`),
+Sora (titres, chiffres) et Figtree (texte) par `@fontsource-variable/*` (dépendances ajoutées, fichiers servis par l'application,
+rien d'externe) ; rail violet nuit groupé par métier (`lib/navigation.ts` : `grouperEntrees`, 6 groupes, la table NAVIGATION et ses
+droits sont inchangés), menu du téléphone groupé de même ; logo en SVG (`components/shell/Marque.tsx`) ; connexion et invitation
+en deux panneaux (`VisuelMarque.tsx`) ; bouton principal or ; tableau de bord : « Missions en vol » (tableau + `Trajectoire.tsx`) et
+modules groupés ; fiche mission : carte « Cap de la mission » (`CapMission.tsx`, lit `/api/missions/:id/suivi`) ; portail client :
+même marque en en-tête ; 15 bordures gauches épaisses signalées par le détecteur remplacées par des fonds teintés. Icônes, manifeste,
+couleur de thème mis à jour.
+
+**Pièges.** (1) Chaînes « MissionPilot » restées côté **API** (e-mails, rapports générés, émetteur TOTP `uriOtpauth`, titre OpenRouter,
+mot de passe de démonstration `Demo-MissionPilot-2026` : ne pas le changer sans le seed) : renommage visible à décider, non fait.
+(2) Le `.rail` est une colonne fixe de 248 px en grille (`.mp-cadre` ≥ 960 px) : l'en-tête est la case du logo, le contenu s'étend
+sur les deux lignes. (3) Non implémentés faute de donnée ou de fonction existante : courbe « Cap du cabinet » dans le temps (pas de série
+temporelle servie), recherche globale. (4) La base de développement `missionpilot` a reçu les migrations manquantes (0210 à 0563) pour
+lancer l'application. (5) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
+Captures et scripts de rendu (Chrome headless) : `apps/web/.impeccable/review/`, jamais commités.
+
+**Reste à faire.** Décision de l'utilisateur sur le renommage côté API ; commit, push et PR (à l'utilisateur) ; revue de recette
+navigateur des modules rares (portail client complet, appels d'offres, due diligence) ; vérifier les graphiques de `plan-montecarlo`
+et la fiche `salle de mission` en sombre.
+
+---
+
 ## Branche `ci/deploiement-vps` — 2026-10-23 (déploiement de cabinetpilot.allianceconsultants.net)
 
 Pipeline GitHub (`deploy.yml` : ci → image GHCR → ssh) et pièces serveur dans `deploy/`, `Dockerfile`,
@@ -17,6 +46,11 @@ dédiée `github-actions-missionpilot`, 5 secrets GitHub). **À faire par l'util
 `/home/deployer/missionpilot.env` (valeur provisoire `smtp.invalid`) ; décider du rendu PDF en conteneur (Chromium
 sans sandbox, voir DEPLOIEMENT « Limites ») ; décider d'une sauvegarde de `missionpilot_pgdata` ; créer le premier
 cabinet en production. Fusion de la PR : à l'utilisateur.
+
+**Recette navigateur autonome (2026-10-24, non commitée).** `docs/recette/SCENARIO-E2E-NAVIGATEUR.md` (+ `docs/recette/fixtures/`,
+3 fichiers de test) : scénario pour Claude in Chrome, anomalies M/m/c consignées, arrêt à la première bloquante avec prompt de
+correction. Rédigé par lecture du code, **jamais rejoué** : les libellés et chiffres hors chaîne principale sont à confirmer à la
+première exécution. Base dédiée `missionpilot_e2e` (commandes dans le scénario, § 2).
 
 ---
 

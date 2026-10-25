@@ -31,7 +31,7 @@ export interface FormulaireModeleProps {
 const SOURCES: { valeur: SourceModele; libelle: string; aide: string }[] = [
   {
     valeur: "gabarit",
-    libelle: "Copier un gabarit MissionPilot",
+    libelle: "Copier un gabarit CabinetPilot",
     aide: "Questionnaire générique complet, à adapter.",
   },
   {

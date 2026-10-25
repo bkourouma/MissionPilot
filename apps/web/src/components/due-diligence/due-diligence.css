@@ -410,7 +410,8 @@
 }
 
 .mp-frise__action--retard {
-  border-left: 4px solid var(--mp-danger);
+  border: 1px solid var(--mp-danger);
+  background: var(--mp-danger-fond);
 }
 
 /* ---------- Exclusions et E&S ---------- */
