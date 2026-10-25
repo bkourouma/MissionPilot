@@ -2,6 +2,7 @@ import { ajouterJours } from "@missionpilot/engines";
 import { journaliser } from "../../../audit.js";
 import { attendre, type ContexteTenantDemo } from "../contexte.js";
 import { etalerJournal, maintenantBase } from "./antidatage.js";
+import { transactionAntidatage } from "./declencheurs.js";
 import { OPPORTUNITES_COMPLEMENTAIRES, type DefOpportunite } from "./donnees-pipeline.js";
 
 /*
@@ -70,18 +71,19 @@ async function antidater(
   def: DefOpportunite,
   ids: { id: string; propositionId: string | null },
 ): Promise<void> {
-  const c = ctx.proprietaire;
   const cloture = def.perdue ? midi(def.perdue.date) : null;
   const dernier = def.perdue?.date ?? ajouterJours(def.date, def.proposition ? 20 : 0);
   const repondue = def.perdue ? midi(ajouterJours(def.perdue.date, -3)) : null;
-  await c.query("BEGIN");
-  try {
-    await c.query("ALTER TABLE propositions DISABLE TRIGGER propositions_figee");
-    await c.query(
-      "UPDATE opportunites SET cree_le = $2, modifie_le = $3, cloturee_le = $4 WHERE id = $1",
-      [ids.id, midi(def.date), midi(dernier), cloture],
-    );
-    if (ids.propositionId) {
+  await transactionAntidatage(ctx.proprietaire, {
+    tables: ["propositions"],
+    avant: async (c) => {
+      await c.query(
+        "UPDATE opportunites SET cree_le = $2, modifie_le = $3, cloturee_le = $4 WHERE id = $1",
+        [ids.id, midi(def.date), midi(dernier), cloture],
+      );
+    },
+    pendant: async (c) => {
+      if (!ids.propositionId) return;
       await c.query(
         `UPDATE propositions SET cree_le = $2, validee_le = $3,
            envoyee_le = CASE WHEN envoyee_le IS NULL THEN NULL ELSE $4::timestamptz END,
@@ -96,13 +98,8 @@ async function antidater(
           midi(dernier),
         ],
       );
-    }
-    await c.query("ALTER TABLE propositions ENABLE TRIGGER propositions_figee");
-    await c.query("COMMIT");
-  } catch (error) {
-    await c.query("ROLLBACK");
-    throw error;
-  }
+    },
+  });
 }
 
 /** Opportunités complémentaires du pipeline. Reprise : tout ou rien (marqueur au journal d'audit). */

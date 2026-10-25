@@ -1,6 +1,8 @@
 import { ajouterJours } from "@missionpilot/engines";
 import type { ContexteTenantDemo } from "../contexte.js";
+import { chronologieCommerciale } from "./chronologie.js";
 import type { MissionBatie } from "./construction.js";
+import { transactionAntidatage } from "./declencheurs.js";
 import type { DocumentDepose } from "./suivi.js";
 
 /*
@@ -8,10 +10,9 @@ import type { DocumentDepose } from "./suivi.js";
  * montrer une histoire de deux ans. Chaque ligne est remontée à sa date fictive par du SQL du rôle
  * PROPRIÉTAIRE, avec des requêtes littérales (aucun nom de table interpolé).
  *
- * Trois déclencheurs d'immuabilité protègent des lignes figées (proposition validée, version de
- * budget figée, document validé) : ils sont désactivés le temps de la transaction qui remonte les
- * DATES (jamais le contenu) et réactivés avant le COMMIT. DDL transactionnelle : une erreur
- * annule le tout, déclencheurs rétablis compris.
+ * Les déclencheurs d'immuabilité qui protègent des lignes figées (proposition validée, version de
+ * budget figée, document validé, notes et vérifications en ajout seul) sont levés le temps
+ * strictement nécessaire par `transactionAntidatage` (declencheurs.ts), jamais pour du contenu.
  */
 
 const midi = (date: string): string => `${date}T12:00:00Z`;
@@ -59,16 +60,11 @@ export async function antidaterMission(
   fenetre: FenetreReelle,
 ): Promise<void> {
   const def = m.def;
-  const c = ctx.proprietaire;
-  const opp = midi(def.opp);
-  const cree = midi(ajouterJours(def.opp, 14));
-  const validee = midi(ajouterJours(def.opp, 21));
-  const envoyee = midi(ajouterJours(def.opp, 24));
-  const repondueJour = def.signature ? ajouterJours(def.signature, -4) : ajouterJours(def.opp, 18);
-  const repondue = midi(repondueJour);
-  const missionCree = midi(ajouterJours(repondueJour, 1));
+  const ch = chronologieCommerciale(def);
+  const opp = midi(ch.opportunite);
+  const missionCree = midi(ch.mission);
   const signature = def.signature ? midi(def.signature) : missionCree;
-  const equipeLe = midi(ajouterJours(def.signature ?? repondueJour, 1));
+  const equipeLe = midi(ajouterJours(def.signature ?? ch.repondue, 1));
   const derniere = midi(
     def.etat === "terminee"
       ? def.fin
@@ -77,129 +73,126 @@ export async function antidaterMission(
         : signature.slice(0, 10),
   );
   const rev = def.revision;
+  const jourRev = (n: number): string => midi(ajouterJours(rev?.date ?? def.debut, n));
 
-  await c.query("BEGIN");
-  try {
-    await c.query("ALTER TABLE propositions DISABLE TRIGGER propositions_figee");
-    await c.query("ALTER TABLE budget_versions DISABLE TRIGGER budget_versions_figees");
-    await c.query("ALTER TABLE mission_documents DISABLE TRIGGER mission_documents_statut");
-    await c.query(
-      "ALTER TABLE qualite_satisfactions DISABLE TRIGGER qualite_satisfactions_ajout_seul",
-    );
-    await c.query(
-      "ALTER TABLE cloture_verifications DISABLE TRIGGER cloture_verifications_ajout_seul",
-    );
-
-    await c.query(
-      "UPDATE opportunites SET cree_le = $2, modifie_le = $3, cloturee_le = $3 WHERE id = $1",
-      [m.opportuniteId, opp, repondue],
-    );
-    await c.query(
-      `UPDATE propositions SET cree_le = $2, validee_le = $3, envoyee_le = $4, repondue_le = $5,
-         modifie_le = $5 WHERE id = $1`,
-      [m.propositionId, cree, validee, envoyee, repondue],
-    );
-    await c.query("UPDATE missions SET cree_le = $2, modifie_le = $3 WHERE id = $1", [
-      m.id,
-      missionCree,
-      derniere,
-    ]);
-    await c.query("UPDATE mission_phases SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
-      m.id,
-      missionCree,
-    ]);
-    await c.query("UPDATE mission_lots SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
-      m.id,
-      missionCree,
-    ]);
-    await c.query("UPDATE mission_taches SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
-      m.id,
-      missionCree,
-    ]);
-    await c.query("UPDATE mission_jalons SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
-      m.id,
-      missionCree,
-    ]);
-    await c.query("UPDATE mission_dependances SET cree_le = $2 WHERE mission_id = $1", [
-      m.id,
-      missionCree,
-    ]);
-    await c.query("UPDATE mission_equipe SET ajoute_le = $2 WHERE mission_id = $1", [
-      m.id,
-      equipeLe,
-    ]);
-    await c.query("UPDATE affectations SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
-      m.id,
-      equipeLe,
-    ]);
-    if (def.signature) {
+  await transactionAntidatage(ctx.proprietaire, {
+    tables: [
+      "budget_versions",
+      "cloture_verifications",
+      "mission_documents",
+      "propositions",
+      "qualite_satisfactions",
+    ],
+    avant: async (c) => {
       await c.query(
-        `UPDATE budget_versions SET cree_le = $2, validee_le = $2
-         WHERE mission_id = $1 AND numero = 1`,
-        [m.id, signature],
+        "UPDATE opportunites SET cree_le = $2, modifie_le = $3, cloturee_le = $3 WHERE id = $1",
+        [m.opportuniteId, opp, midi(ch.repondue)],
       );
-      await c.query(
-        `UPDATE mission_documents SET cree_le = $2
-         WHERE mission_id = $1 AND type = 'lettre_de_mission'`,
-        [m.id, signature],
-      );
-    }
-    if (rev && versionRevisee) {
-      await c.query(
-        `UPDATE budget_versions SET cree_le = $2, validee_le = $3, date_figeage = $4::date
-         WHERE id = $1`,
-        [versionRevisee, midi(ajouterJours(rev.date, -5)), midi(rev.date), rev.date],
-      );
-      await c.query(
-        "UPDATE mission_taches SET cree_le = $3 WHERE mission_id = $1 AND libelle = $2",
-        [m.id, rev.tache.libelle, midi(ajouterJours(rev.date, -5))],
-      );
-      await c.query(
-        `UPDATE affectations SET cree_le = $3, modifie_le = $3
-         WHERE mission_id = $1 AND tache_id IN
-           (SELECT id FROM mission_taches WHERE mission_id = $1 AND libelle = $2)`,
-        [m.id, rev.tache.libelle, midi(ajouterJours(rev.date, 1))],
-      );
-    }
-    for (const d of documents) {
-      await c.query(
-        `UPDATE mission_documents SET cree_le = $2,
-           valide_le = CASE WHEN valide_le IS NULL THEN NULL ELSE $3::timestamptz END
-         WHERE id = $1`,
-        [d.id, midi(d.date), midi(ajouterJours(d.date, 3))],
-      );
-      await c.query(
-        `UPDATE mission_document_statuts SET cree_le = CASE statut
-             WHEN 'valide' THEN $3::timestamptz WHEN 'modifie' THEN $4::timestamptz
-             ELSE $2::timestamptz END
-         WHERE document_id = $1`,
-        [d.id, midi(d.date), midi(ajouterJours(d.date, 3)), midi(ajouterJours(d.date, 1))],
-      );
-    }
-
-    await c.query("ALTER TABLE propositions ENABLE TRIGGER propositions_figee");
-    await c.query("ALTER TABLE budget_versions ENABLE TRIGGER budget_versions_figees");
-    if (def.etat === "terminee") {
-      await c.query("UPDATE qualite_satisfactions SET saisi_le = $2 WHERE mission_id = $1", [
+      await c.query("UPDATE missions SET cree_le = $2, modifie_le = $3 WHERE id = $1", [
         m.id,
-        midi(def.fin),
+        missionCree,
+        derniere,
       ]);
-      await c.query("UPDATE cloture_verifications SET verifie_le = $2 WHERE mission_id = $1", [
+      await c.query(
+        "UPDATE mission_phases SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1",
+        [m.id, missionCree],
+      );
+      await c.query("UPDATE mission_lots SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
         m.id,
-        midi(def.fin),
+        missionCree,
       ]);
-    }
-    await c.query("ALTER TABLE mission_documents ENABLE TRIGGER mission_documents_statut");
-    await c.query(
-      "ALTER TABLE qualite_satisfactions ENABLE TRIGGER qualite_satisfactions_ajout_seul",
-    );
-    await c.query(
-      "ALTER TABLE cloture_verifications ENABLE TRIGGER cloture_verifications_ajout_seul",
-    );
-    await c.query("COMMIT");
-  } catch (error) {
-    await c.query("ROLLBACK");
-    throw error;
-  }
+      await c.query(
+        "UPDATE mission_taches SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1",
+        [m.id, missionCree],
+      );
+      await c.query(
+        "UPDATE mission_jalons SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1",
+        [m.id, missionCree],
+      );
+      await c.query("UPDATE mission_dependances SET cree_le = $2 WHERE mission_id = $1", [
+        m.id,
+        missionCree,
+      ]);
+      await c.query("UPDATE mission_equipe SET ajoute_le = $2 WHERE mission_id = $1", [
+        m.id,
+        equipeLe,
+      ]);
+      await c.query("UPDATE affectations SET cree_le = $2, modifie_le = $2 WHERE mission_id = $1", [
+        m.id,
+        equipeLe,
+      ]);
+      if (rev) {
+        await c.query(
+          "UPDATE mission_taches SET cree_le = $3 WHERE mission_id = $1 AND libelle = $2",
+          [m.id, rev.tache.libelle, jourRev(-5)],
+        );
+        await c.query(
+          `UPDATE affectations SET cree_le = $3, modifie_le = $3
+           WHERE mission_id = $1 AND tache_id IN
+             (SELECT id FROM mission_taches WHERE mission_id = $1 AND libelle = $2)`,
+          [m.id, rev.tache.libelle, jourRev(1)],
+        );
+      }
+      for (const d of documents) {
+        await c.query(
+          `UPDATE mission_document_statuts SET cree_le = CASE statut
+               WHEN 'valide' THEN $3::timestamptz WHEN 'modifie' THEN $4::timestamptz
+               ELSE $2::timestamptz END
+           WHERE document_id = $1`,
+          [d.id, midi(d.date), midi(ajouterJours(d.date, 3)), midi(ajouterJours(d.date, 1))],
+        );
+      }
+    },
+    pendant: async (c) => {
+      await c.query(
+        `UPDATE propositions SET cree_le = $2, validee_le = $3, envoyee_le = $4, repondue_le = $5,
+           modifie_le = $5 WHERE id = $1`,
+        [
+          m.propositionId,
+          midi(ch.proposition),
+          midi(ch.validee),
+          midi(ch.envoyee),
+          midi(ch.repondue),
+        ],
+      );
+      if (def.signature) {
+        await c.query(
+          `UPDATE budget_versions SET cree_le = $2, validee_le = $2
+           WHERE mission_id = $1 AND numero = 1`,
+          [m.id, signature],
+        );
+        await c.query(
+          `UPDATE mission_documents SET cree_le = $2
+           WHERE mission_id = $1 AND type = 'lettre_de_mission'`,
+          [m.id, signature],
+        );
+      }
+      if (rev && versionRevisee) {
+        await c.query(
+          `UPDATE budget_versions SET cree_le = $2, validee_le = $3, date_figeage = $4::date
+           WHERE id = $1`,
+          [versionRevisee, jourRev(-5), midi(rev.date), rev.date],
+        );
+      }
+      for (const d of documents) {
+        await c.query(
+          `UPDATE mission_documents SET cree_le = $2,
+             valide_le = CASE WHEN valide_le IS NULL THEN NULL ELSE $3::timestamptz END
+           WHERE id = $1`,
+          [d.id, midi(d.date), midi(ajouterJours(d.date, 3))],
+        );
+      }
+      if (def.etat === "terminee") {
+        await c.query("UPDATE qualite_satisfactions SET saisi_le = $2 WHERE mission_id = $1", [
+          m.id,
+          midi(def.fin),
+        ]);
+        await c.query("UPDATE cloture_verifications SET verifie_le = $2 WHERE mission_id = $1", [
+          m.id,
+          midi(def.fin),
+        ]);
+      }
+    },
+  });
   await etalerJournal(ctx, fenetre, def.opp, derniere.slice(0, 10));
 }

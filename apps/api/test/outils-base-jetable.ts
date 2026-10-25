@@ -18,6 +18,12 @@ export interface BaseJetable {
   db: Database;
 }
 
+/** Nom de base accepté avant tout DROP DATABASE : minuscules, chiffres et tirets bas seulement. */
+function nomSur(nom: string): string {
+  if (!/^[a-z0-9_]+$/.test(nom)) throw new Error(`Nom de base jetable refusé : « ${nom} ».`);
+  return nom;
+}
+
 async function sqlAdmin(base: Config, ...requetes: string[]): Promise<void> {
   const admin = new pg.Client({
     connectionString: remplacerBase(base.DATABASE_OWNER_URL, "postgres"),
@@ -29,7 +35,7 @@ async function sqlAdmin(base: Config, ...requetes: string[]): Promise<void> {
 
 export async function creerBaseJetable(suffixe: string, dossier: string): Promise<BaseJetable> {
   const base = configTest();
-  const nom = `${new URL(base.DATABASE_OWNER_URL).pathname.slice(1)}_${suffixe}`;
+  const nom = nomSur(`${new URL(base.DATABASE_OWNER_URL).pathname.slice(1)}_${suffixe}`);
   await sqlAdmin(base, `DROP DATABASE IF EXISTS "${nom}" WITH (FORCE)`, `CREATE DATABASE "${nom}"`);
   const owner = remplacerBase(base.DATABASE_OWNER_URL, nom);
   const app = remplacerBase(base.DATABASE_URL, nom);
@@ -46,5 +52,20 @@ export async function creerBaseJetable(suffixe: string, dossier: string): Promis
 export async function supprimerBaseJetable(b: BaseJetable | undefined): Promise<void> {
   if (!b) return;
   await b.db.close();
-  await sqlAdmin(configTest(), `DROP DATABASE IF EXISTS "${b.nom}" WITH (FORCE)`);
+  await sqlAdmin(configTest(), `DROP DATABASE IF EXISTS "${nomSur(b.nom)}" WITH (FORCE)`);
+}
+
+/** Requête en SQL propriétaire (hors RLS) sur la base jetable : lignes brutes. */
+export async function lireSql<T = Record<string, unknown>>(
+  b: BaseJetable,
+  sql: string,
+  parametres: unknown[] = [],
+): Promise<T[]> {
+  const client = new pg.Client({ connectionString: b.config.DATABASE_OWNER_URL });
+  await client.connect();
+  try {
+    return (await client.query(sql, parametres)).rows as T[];
+  } finally {
+    await client.end();
+  }
 }

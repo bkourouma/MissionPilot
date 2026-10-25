@@ -1,0 +1,117 @@
+import { expect } from "vitest";
+import { CASTING } from "../src/db/tenant-demo/missions/donnees-casting.js";
+
+/* Assertions de la phase « missions » (budget, jours alloués, pipeline), partagées avec le test de semis. */
+
+export interface MissionLue {
+  id: string;
+  intitule: string;
+  statut: string;
+  client_id: string;
+  date_debut: string;
+  date_fin: string;
+  date_signature: string | null;
+  cloturee_le: string | null;
+}
+
+export type Lire = <T = Record<string, unknown>>(sql: string, p?: unknown[]) => Promise<T[]>;
+
+export const SIGNEES = CASTING.filter((d) => d.signature);
+export const TERMINEES = CASTING.filter((d) => d.etat === "terminee");
+
+export const parNom = (liste: MissionLue[], nom: string): MissionLue => {
+  const m = liste.find((x) => x.intitule === nom);
+  if (!m) throw new Error(`Mission « ${nom} » absente`);
+  return m;
+};
+
+export async function verifierBudget(
+  lignes: Lire,
+  cabinetId: string,
+  avantCloture: MissionLue[],
+): Promise<void> {
+  const versions = await lignes<{
+    mission_id: string;
+    numero: number;
+    type: string;
+    figee: boolean;
+    date_figeage: string | null;
+    validee_par: string | null;
+    cree_par: string | null;
+    validateur_associe: boolean | null;
+    honoraires: string;
+    debours: string;
+  }>(
+    `SELECT v.mission_id, v.numero, v.type, v.figee, v.date_figeage::text, v.validee_par, v.cree_par,
+              (SELECT 'associe' = ANY(u.roles) FROM utilisateurs u WHERE u.id = v.validee_par) AS validateur_associe,
+              (SELECT count(*) FROM budget_lignes l WHERE l.version_id = v.id AND l.nature = 'honoraires') AS honoraires,
+              (SELECT count(*) FROM budget_lignes l WHERE l.version_id = v.id AND l.nature = 'debours') AS debours
+       FROM budget_versions v WHERE v.cabinet_id = $1`,
+    [cabinetId],
+  );
+  expect(SIGNEES).toHaveLength(10);
+  for (const d of SIGNEES) {
+    const m = parNom(avantCloture, d.nom);
+    const v1 = versions.find((v) => v.mission_id === m.id && v.numero === 1);
+    expect(v1, `version 1 de ${d.nom}`).toMatchObject({ type: "initial", figee: true });
+    expect(v1?.date_figeage, d.nom).toBe(m.date_signature);
+    expect(Number(v1?.honoraires), `honoraires de ${d.nom}`).toBeGreaterThan(0);
+    // Les missions sans débours dans le casting (Teranga) n'ont pas de ligne de débours.
+    if (d.debours.length > 0) expect(Number(v1?.debours), `débours de ${d.nom}`).toBeGreaterThan(0);
+    const v2 = versions.find((v) => v.mission_id === m.id && v.numero === 2);
+    if (d.revision) {
+      expect(v2, `révision de ${d.nom}`).toMatchObject({ type: "revise", figee: true });
+      expect(v2?.validee_par, d.nom).not.toBeNull();
+      expect(v2?.validee_par !== v2?.cree_par || v2?.validateur_associe, d.nom).toBe(true);
+    } else {
+      expect(v2, `pas de révision pour ${d.nom}`).toBeUndefined();
+    }
+  }
+  const nonSignee = parNom(avantCloture, "Due diligence — Wouri Distribution");
+  expect(versions.filter((v) => v.mission_id === nonSignee.id)).toHaveLength(0);
+}
+
+export async function verifierJoursAlloues(lignes: Lire, cabinetId: string): Promise<void> {
+  const r = await lignes<{ intitule: string; alloues: string; budget: string }>(
+    `SELECT m.intitule,
+              coalesce((SELECT sum(a.jours_alloues) FROM affectations a WHERE a.mission_id = m.id), 0) AS alloues,
+              coalesce((SELECT sum(l.jours) FROM budget_lignes l
+                         WHERE l.nature = 'honoraires'
+                           AND l.version_id = (SELECT v.id FROM budget_versions v
+                                                WHERE v.mission_id = m.id AND v.figee
+                                                ORDER BY v.numero DESC LIMIT 1)), 0) AS budget
+       FROM missions m WHERE m.cabinet_id = $1 AND m.date_signature IS NOT NULL`,
+    [cabinetId],
+  );
+  expect(r).toHaveLength(10);
+  for (const x of r) {
+    expect(Number(x.budget), `budget de ${x.intitule}`).toBeGreaterThan(0);
+    expect(Number(x.alloues), x.intitule).toBeLessThanOrEqual(Number(x.budget));
+  }
+}
+
+export async function verifierPipelineGagne(lignes: Lire, cabinetId: string): Promise<void> {
+  const r = await lignes<{
+    intitule: string;
+    type_mission_id: string | null;
+    ostatut: string | null;
+    pstatut: string | null;
+    valide_ok: boolean | null;
+  }>(
+    `SELECT m.intitule, m.type_mission_id, o.statut AS ostatut, p.statut AS pstatut,
+              (p.validee_par <> p.cree_par
+               OR EXISTS (SELECT 1 FROM utilisateurs u WHERE u.id = p.validee_par AND 'associe' = ANY(u.roles))) AS valide_ok
+       FROM missions m
+       LEFT JOIN opportunites o ON o.id = m.opportunite_id
+       LEFT JOIN propositions p ON p.id = m.proposition_id
+       WHERE m.cabinet_id = $1`,
+    [cabinetId],
+  );
+  expect(r).toHaveLength(11);
+  for (const x of r) {
+    expect(x.type_mission_id, x.intitule).not.toBeNull();
+    expect(x.ostatut, x.intitule).toBe("gagnee");
+    expect(x.pstatut, x.intitule).toBe("acceptee");
+    expect(x.valide_ok, x.intitule).toBe(true);
+  }
+}
