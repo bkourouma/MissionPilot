@@ -1,6 +1,7 @@
 import type { ContexteTenantDemo } from "../contexte.js";
 import type { Acteurs } from "./commun.js";
 import {
+  ECHELLE_IDENTITE,
   appeler,
   creer,
   dateAction,
@@ -11,6 +12,7 @@ import {
   lire,
   uid,
   urlD,
+  type Echelle,
   type Json,
 } from "./redressement-outils.js";
 
@@ -76,11 +78,36 @@ export async function leviersPossibles(a: Acteurs, dossierId: string): Promise<b
   return dernier !== undefined && dernier.devise === dossier.devise;
 }
 
+/** Paramètres de levier exprimés en montant (les autres : jours, points de base, mois). */
+const CLES_MONETAIRES = new Set([
+  "chargesFixesAnnuelles",
+  "prixCession",
+  "valeurComptableNette",
+  "fraisEtImpots",
+]);
+
+function levierEchelonne(
+  levier: NonNullable<ActionDef["levier"]>,
+  echelle: Echelle,
+): NonNullable<ActionDef["levier"]> {
+  return {
+    code: levier.code,
+    parametres: Object.fromEntries(
+      Object.entries(levier.parametres).map(([cle, v]) => [
+        cle,
+        CLES_MONETAIRES.has(cle) ? echelle(v) : v,
+      ]),
+    ),
+  };
+}
+
+/** Crée les actions absentes ; les montants des leviers (XOF) passent par `echelle`. */
 export async function creerActions(
   ctx: ContexteTenantDemo,
   a: Acteurs,
   dossierId: string,
   defs: readonly ActionDef[],
+  echelle: Echelle = ECHELLE_IDENTITE,
 ): Promise<void> {
   const existantes = await idsActions(a, dossierId);
   const avecLevier = await leviersPossibles(a, dossierId);
@@ -102,7 +129,7 @@ export async function creerActions(
         domaine: d.domaine,
         echeance: d.echeance,
         responsable_id: uid(ctx, d.responsable),
-        ...(d.levier && avecLevier ? { levier: d.levier } : {}),
+        ...(d.levier && avecLevier ? { levier: levierEchelonne(d.levier, echelle) } : {}),
       },
       `action « ${d.titre} »`,
     );

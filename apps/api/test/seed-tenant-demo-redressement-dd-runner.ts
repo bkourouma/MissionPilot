@@ -12,8 +12,7 @@ import { creerMissionsCasting } from "./seed-tenant-demo-redressement-dd-outils.
  *   tsx test/seed-tenant-demo-redressement-dd-runner.ts <base> [<fichier>:<fonction> ...]
  *   ex. : tsx test/seed-tenant-demo-redressement-dd-runner.ts missionpilot_td4_red redressement:semerRedressement
  *
- * `<base>` doit exister (CREATE DATABASE … TEMPLATE missionpilot_td4_tpl, voir clone-base.sh) ou être
- * migrée. Un module déjà exécuté avec succès dans cette base est sauté ; un module échoué se
+ * `<base>` doit exister et être migrée (un clone d'une base déjà semée convient). Un module déjà exécuté avec succès dans cette base est sauté ; un module échoué se
  * rejoue : repartir d'un clone neuf si la base est à moitié semée.
  */
 const [base, ...modules] = process.argv.slice(2);

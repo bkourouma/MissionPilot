@@ -139,6 +139,15 @@ export class Datation {
           p,
         );
       }
+      if (d !== null) {
+        // Dimensions de preuve de la mission, créées avec le dossier de due diligence.
+        await c.query(
+          `UPDATE preuve_dimensions SET cree_le = $1::timestamptz
+            WHERE mission_id = (SELECT mission_id FROM dd_dossiers WHERE id = $2)
+              AND cree_le >= $3::timestamptz`,
+          [t, d, m3],
+        );
+      }
       if (m !== null) {
         const p = [t, m, m3];
         await c.query(
@@ -168,33 +177,33 @@ export class Datation {
 
   /** Remonte au jour ISO donné les lignes du référentiel du cabinet créées depuis le marqueur. */
   async daterReferentiel(jourIso: string): Promise<void> {
-    const p = [midi(jourIso), this.marqueur];
+    const p = [midi(jourIso), this.marqueur, this.ctx.cabinetId];
     const c = this.ctx.proprietaire;
     await c.query("BEGIN");
     try {
       await c.query("SET LOCAL session_replication_role = replica");
       await c.query(
-        "UPDATE dd_signaux SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz",
+        "UPDATE dd_signaux SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz AND cabinet_id = $3",
         p,
       );
       await c.query(
-        "UPDATE dd_signal_versions SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz",
+        "UPDATE dd_signal_versions SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz AND cabinet_id = $3",
         p,
       );
       await c.query(
-        "UPDATE dd_exclusion_listes SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz",
+        "UPDATE dd_exclusion_listes SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz AND cabinet_id = $3",
         p,
       );
       await c.query(
-        "UPDATE dd_exclusion_liste_versions SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz",
+        "UPDATE dd_exclusion_liste_versions SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz AND cabinet_id = $3",
         p,
       );
       await c.query(
-        "UPDATE dd_modeles_secteur SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz",
+        "UPDATE dd_modeles_secteur SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz AND cabinet_id = $3",
         p,
       );
       await c.query(
-        "UPDATE dd_modele_secteur_versions SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz",
+        "UPDATE dd_modele_secteur_versions SET cree_le = $1::timestamptz WHERE cree_le >= $2::timestamptz AND cabinet_id = $3",
         p,
       );
       await c.query("COMMIT");

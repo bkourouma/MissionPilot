@@ -347,13 +347,28 @@ export async function semerRegistreMission(
   def: DefMissionPreuves,
 ): Promise<void> {
   const mission = await trouverMission(ctx, def.mission);
-  const deja = await ctx.proprietaire.query(
-    "SELECT count(*)::int AS n FROM preuves WHERE mission_id = $1",
-    [mission.id],
+  const compte = async (sql: string): Promise<number> =>
+    ((await ctx.proprietaire.query(sql, [mission.id])).rows[0]?.n as number) ?? 0;
+  const nPreuves = await compte("SELECT count(*)::int n FROM preuves WHERE mission_id = $1");
+  const nAssertions = await compte("SELECT count(*)::int n FROM assertions WHERE mission_id = $1");
+  const nArbitrages = await compte(
+    "SELECT count(*)::int n FROM preuve_arbitrages WHERE mission_id = $1",
   );
-  if ((deja.rows[0]?.n as number) > 0) {
-    ctx.journal(`  registre « ${def.mission} » déjà semé.`);
-    return;
+  if (nPreuves + nAssertions + nArbitrages > 0) {
+    const attenduArbitrages = def.assertions.filter((x) => x.arbitrage).length;
+    if (
+      nPreuves === def.preuves.length &&
+      nAssertions >= def.assertions.length &&
+      nArbitrages >= attenduArbitrages
+    ) {
+      ctx.journal(`  registre « ${def.mission} » déjà semé.`);
+      return;
+    }
+    throw new Error(
+      `Registre « ${def.mission} » PARTIELLEMENT semé (preuves ${nPreuves}/${def.preuves.length}, ` +
+        `assertions ${nAssertions}/${def.assertions.length}, arbitrages ${nArbitrages}/` +
+        `${attenduArbitrages}) : repartir d'une base neuve.`,
+    );
   }
   const a = await acteursPour(ctx, def.mission);
   const sessions: Record<CleActeur, SessionDemo> = {

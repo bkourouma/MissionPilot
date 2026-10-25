@@ -1,6 +1,16 @@
 import type { Alea } from "../horloge.js";
 import type { ContexteTenantDemo, SessionDemo } from "../contexte.js";
-import { creer, dater, debutAppel, M, plus, urlD, type Json } from "./redressement-outils.js";
+import {
+  ECHELLE_IDENTITE,
+  creer,
+  dater,
+  debutAppel,
+  M,
+  plus,
+  urlD,
+  type Echelle,
+  type Json,
+} from "./redressement-outils.js";
 
 /*
  * Trésorerie à 13 semaines : versions de prévision successives (fenêtre glissante) et réalisés
@@ -11,7 +21,8 @@ import { creer, dater, debutAppel, M, plus, urlD, type Json } from "./redresseme
  * est tendue, décaissements un peu au-dessus), avec le hasard à graine du semis. Les soldes, les
  * écarts, les semaines de tension et le besoin de financement sont calculés par le MOTEUR à chaque
  * lecture : rien n'est écrit à la main. Chaque version et chaque réalisé est antidaté à son jour :
- * une version à son jour de création, un réalisé le lundi qui suit sa semaine.
+ * une version à son jour de création, un réalisé le lundi qui suit sa semaine. Les montants sont
+ * écrits en XOF ; `echelle` les convertit vers la devise de la mission (identité par défaut).
  */
 
 export const ENCAISSEMENTS = [
@@ -60,14 +71,15 @@ export interface RealisesSpec {
   saisieAuPlusTard: string;
 }
 
-export function lignesDe(series: Series): Json[] {
+export function lignesDe(series: Series, echelle: Echelle = ECHELLE_IDENTITE): Json[] {
   const lignes: Json[] = [];
   for (const [categorie, valeurs] of Object.entries(series) as [Categorie, readonly number[]][]) {
     const sens = (ENCAISSEMENTS as readonly string[]).includes(categorie)
       ? "encaissement"
       : "decaissement";
     valeurs.forEach((v, i) => {
-      if (v > 0) lignes.push({ semaine: i + 1, sens, categorie, montant: Math.round(v * M) });
+      if (v > 0)
+        lignes.push({ semaine: i + 1, sens, categorie, montant: echelle(Math.round(v * M)) });
     });
   }
   return lignes;
@@ -112,16 +124,17 @@ export async function semerVersionTresorerie(
   spec: PrevisionSpec,
   realises: RealisesSpec,
   alea: Alea,
+  echelle: Echelle = ECHELLE_IDENTITE,
 ): Promise<void> {
   const debut = await debutAppel(ctx);
-  const lignes = [...lignesDe(spec.series), ...(spec.lignesSupplementaires ?? [])];
+  const lignes = [...lignesDe(spec.series, echelle), ...(spec.lignesSupplementaires ?? [])];
   await creer(
     par,
     urlD(dossierId, "/tresorerie/versions"),
     {
       date_debut: spec.debut,
-      solde_initial: Math.round(spec.soldeInitial * M),
-      seuil_tension: Math.round(spec.seuilTension * M),
+      solde_initial: echelle(Math.round(spec.soldeInitial * M)),
+      seuil_tension: echelle(Math.round(spec.seuilTension * M)),
       lignes,
       motif: spec.motif,
     },

@@ -143,30 +143,64 @@ describe("seed du Tenant démo : redressement, preuves, due diligence", () => {
     expect(suivi.length).toBeGreaterThan(0);
   });
 
-  it("mission 7 : dossier ouvert, plan en brouillon, actions en retard, accords limités", async () => {
+  it("mission 7 : dossier en mise en oeuvre, plan v1 validé par le directeur, v2 en brouillon, actions en retard", async () => {
     const m = await missionId(MISSIONS.redressementEnCours);
-    const d = await lignes<{ id: string; statut: string }>(
-      "SELECT id, statut FROM red_dossiers WHERE mission_id = $1",
+    const d = await lignes<{ id: string; statut: string; directeur_id: string }>(
+      `SELECT d.id, d.statut, m.directeur_id FROM red_dossiers d JOIN missions m ON m.id = d.mission_id
+        WHERE d.mission_id = $1`,
       [m],
     );
     expect(d).toHaveLength(1);
-    expect(d[0]?.statut).not.toBe("clos");
-    const plans = await lignes<{ statut: string }>(
-      "SELECT statut FROM red_plan_versions WHERE dossier_id = $1",
+    expect(d[0]?.statut).toBe("mise_en_oeuvre");
+    const plans = await lignes<{
+      version: number;
+      statut: string;
+      valide_par: string | null;
+      cree_par: string;
+    }>(
+      "SELECT version, statut, valide_par, cree_par FROM red_plan_versions WHERE dossier_id = $1 ORDER BY version",
       [d[0]?.id],
     );
-    expect(plans.length).toBeGreaterThan(0);
-    expect(plans.every((p) => p.statut === "brouillon")).toBe(true);
+    expect(plans[0]?.statut).toBe("valide");
+    expect(plans[0]?.valide_par).toBe(d[0]?.directeur_id);
+    expect(plans[0]?.valide_par).not.toBe(plans[0]?.cree_par);
+    expect(plans.at(-1)?.statut).toBe("brouillon");
     const retard = await lignes(
       "SELECT 1 FROM red_actions WHERE dossier_id = $1 AND statut NOT IN ('terminee', 'abandonnee') AND echeance < '2026-10-24'",
       [d[0]?.id],
     );
     expect(retard.length).toBeGreaterThan(0);
+    const statuts = await lignes<{ statut: string }>(
+      "SELECT DISTINCT statut FROM red_actions WHERE dossier_id = $1",
+      [d[0]?.id],
+    );
+    expect(statuts.map((x) => x.statut)).toEqual(expect.arrayContaining(["terminee", "en_cours"]));
     const clos = await lignes(
       "SELECT 1 FROM red_clotures WHERE dossier_id = $1 AND statut = 'valide'",
       [d[0]?.id],
     );
     expect(clos).toHaveLength(0);
+  });
+
+  it("devises : dossier, mission et états alignés (XAF mission 3, USD mission 7) et leviers chiffrés", async () => {
+    for (const [nom, devise] of [
+      [MISSIONS.redressementTermine, "XAF"],
+      [MISSIONS.redressementEnCours, "USD"],
+    ] as const) {
+      const r = await lignes<{ md: string; dd: string; etats: string[]; leviers: string }>(
+        `SELECT m.devise md, d.devise dd,
+                (SELECT array_agg(DISTINCT e.devise) FROM dossier_etats_financiers e
+                  WHERE e.client_id = m.client_id) etats,
+                (SELECT count(*) FROM red_actions a
+                  WHERE a.dossier_id = d.id AND a.levier_code IS NOT NULL AND a.impact IS NOT NULL) leviers
+           FROM missions m JOIN red_dossiers d ON d.mission_id = m.id WHERE m.intitule = $1`,
+        [nom],
+      );
+      expect(r[0]?.md, nom).toBe(devise);
+      expect(r[0]?.dd, nom).toBe(devise);
+      expect(r[0]?.etats, nom).toEqual([devise]);
+      expect(Number(r[0]?.leviers), nom).toBeGreaterThan(0);
+    }
   });
 
   it("preuves : contradictions arbitrées par quelqu'un d'autre que l'auteur de l'assertion", async () => {
@@ -246,7 +280,8 @@ describe("seed du Tenant démo : redressement, preuves, due diligence", () => {
   });
 
   it("aucune qualification juridique dans les libellés semés", async () => {
-    const motif = "cessation des paiements|faillite|insolvab|liquidation judiciaire|banqueroute";
+    const motif =
+      "cessation|faillite|insolvab|liquidation judiciaire|banqueroute|d[ée]faillan|proc[ée]dure collective";
     for (const t of TABLES_PERIMETRE) {
       const r = await lignes<{ n: string }>(
         `SELECT count(*) n FROM ${t} x WHERE cabinet_id = $1 AND row_to_json(x)::text ~* $2`,

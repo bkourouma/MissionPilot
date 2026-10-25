@@ -2,13 +2,24 @@ import { M } from "./redressement-outils.js";
 import type { ActionDef, MouvementDef } from "./redressement-plan.js";
 
 /*
- * Plan d'actions du dossier « Gabon Offshore Services » : huit actions en deux volets, dont cinq avec
- * un levier chiffré par le moteur d'après l'exercice 2025 du client. Le plan reste en BROUILLON
- * (deux versions non validées) ; au 24 octobre 2026, quatre actions dont l'échéance est passée ne
- * sont pas terminées (en retard) : relance clients, facturation, report bancaire, stocks.
+ * Plan d'actions du dossier « Gabon Offshore Services » (montants des leviers en XOF, convertis dans
+ * la devise de la mission par l'échelle de redressement-outils.ts). Dix actions en deux volets, dont
+ * cinq avec un levier chiffré par le moteur d'après l'exercice 2025 du client.
+ *
+ * Deux versions de plan : la version 1 (5 août 2026) ne porte que les gains rapides de la phase de
+ * lancement et est VALIDÉE par le directeur de la mission le 7 août ; la version 2 (5 octobre)
+ * intègre la restructuration et reste en BROUILLON (révision en cours, non soumise au directeur).
+ * Au 24 octobre 2026 : trois actions terminées, une bloquée, cinq en cours dont trois en retard
+ * d'échéance, une à faire ; quatre actions non terminées ont une échéance passée.
  */
 
-export const ACTIONS_M7: readonly ActionDef[] = [
+export const JOUR_PLAN_V1_M7 = "2026-08-05";
+export const JOUR_VALIDATION_PLAN_V1_M7 = "2026-08-07";
+export const JOUR_MISE_EN_OEUVRE_M7 = "2026-08-08";
+export const JOUR_PLAN_V2_M7 = "2026-10-05";
+
+/** Phase de lancement (juillet et début août) : quatre gains rapides, plan v1. */
+export const ACTIONS_M7_VAGUE_1: readonly ActionDef[] = [
   {
     titre: "Mettre en place le suivi hebdomadaire de trésorerie",
     description:
@@ -53,6 +64,20 @@ export const ACTIONS_M7: readonly ActionDef[] = [
     creeLe: "2026-08-03",
     par: "chef",
   },
+];
+
+/** Suite du plan (août à septembre) : suivi des fournisseurs, stocks, restructuration. */
+export const ACTIONS_M7_VAGUE_2: readonly ActionDef[] = [
+  {
+    titre: "Construire le tableau de suivi des échéances fournisseurs",
+    description: "Calendrier des dettes fournisseurs et sous-traitants, priorités de règlement.",
+    volet: "quick_win",
+    domaine: "tresorerie",
+    echeance: "2026-09-18",
+    responsable: "consultant.junior.2",
+    creeLe: "2026-08-17",
+    par: "chef",
+  },
   {
     titre: "Réduire les stocks de pièces détachées",
     description: "Inventaire physique puis restitution ou revente des pièces dormantes.",
@@ -61,6 +86,16 @@ export const ACTIONS_M7: readonly ActionDef[] = [
     echeance: "2026-10-20",
     responsable: "consultant.2",
     levier: { code: "reduction_stocks", parametres: { reductionPb: 1_500 } },
+    creeLe: "2026-09-28",
+    par: "chef",
+  },
+  {
+    titre: "Négocier un étalement avec l'administration fiscale",
+    description: "Dépôt de la demande d'étalement des impôts et taxes en retard de paiement.",
+    volet: "quick_win",
+    domaine: "financement",
+    echeance: "2026-10-15",
+    responsable: "chef.mission.2",
     creeLe: "2026-09-28",
     par: "chef",
   },
@@ -105,10 +140,17 @@ export const ACTIONS_M7: readonly ActionDef[] = [
   },
 ];
 
-/** Version 1 du plan à la fin de la phase de lancement (août), version 2 fin septembre. */
-export const JOUR_PLAN_V1_M7 = "2026-08-05";
-export const JOUR_PLAN_V2_M7 = "2026-10-05";
-export const ACTIONS_M7_LANCEMENT = 4;
+const T = {
+  suivi: "Mettre en place le suivi hebdomadaire de trésorerie",
+  relance: "Relancer les opérateurs pétroliers en retard de paiement",
+  facturer: "Facturer les jalons de maintenance en attente",
+  banque: "Négocier un report d'échéances avec la banque",
+  fournisseurs: "Construire le tableau de suivi des échéances fournisseurs",
+  stocks: "Réduire les stocks de pièces détachées",
+  fisc: "Négocier un étalement avec l'administration fiscale",
+  sousTraitance: "Renégocier les contrats de sous-traitance maritime",
+  navire: "Céder un navire d'appui inutilisé",
+} as const;
 
 const mouv = (
   jour: string,
@@ -117,23 +159,37 @@ const mouv = (
   extra: Partial<MouvementDef>,
 ): MouvementDef => ({ jour, action, par, ...extra });
 
+/** Mouvements du kanban, du lancement (juillet) à la mi-octobre, dans l'ordre chronologique. */
 export const MOUVEMENTS_M7: readonly MouvementDef[] = [
-  mouv("2026-07-27", "Mettre en place le suivi hebdomadaire de trésorerie", "chef2", {
-    statut: "en_cours",
-  }),
-  mouv("2026-08-12", "Mettre en place le suivi hebdomadaire de trésorerie", "chef2", {
+  mouv("2026-07-27", T.suivi, "chef2", { statut: "en_cours" }),
+  mouv("2026-08-10", T.relance, "consultant2", { statut: "en_cours" }),
+  mouv("2026-08-12", T.suivi, "chef2", {
     statut: "terminee",
     commentaire: "Point du lundi tenu depuis trois semaines avec la direction financière.",
   }),
-  mouv("2026-08-10", "Relancer les opérateurs pétroliers en retard de paiement", "consultant2", {
-    statut: "en_cours",
+  mouv("2026-08-18", T.banque, "directeur", { statut: "en_cours" }),
+  mouv("2026-08-24", T.fournisseurs, "consultant2", { statut: "en_cours" }),
+  mouv("2026-09-16", T.fournisseurs, "consultant2", {
+    statut: "terminee",
+    commentaire: "Tableau livré à la direction financière, mis à jour chaque vendredi.",
   }),
-  mouv("2026-09-14", "Négocier un report d'échéances avec la banque", "directeur", {
-    statut: "en_cours",
+  mouv("2026-09-19", T.banque, "directeur", {
+    statut: "terminee",
+    commentaire: "Accord signé le 18 septembre : huit mensualités à compter du 15 octobre.",
   }),
-  mouv("2026-09-29", "Facturer les jalons de maintenance en attente", "consultant2", {
+  mouv("2026-09-29", T.facturer, "consultant2", {
     statut: "bloquee",
     motif: "Attente des bons de réception signés par deux opérateurs.",
   }),
-  mouv("2026-10-01", "Céder un navire d'appui inutilisé", "directeur", { statut: "en_cours" }),
+  mouv("2026-10-01", T.navire, "directeur", { statut: "en_cours" }),
+  mouv("2026-10-05", T.fisc, "chef2", {
+    statut: "en_cours",
+    commentaire: "Proposition de six mensualités transmise au service de recouvrement.",
+  }),
+  mouv("2026-10-06", T.stocks, "consultant2", { statut: "en_cours" }),
+  mouv("2026-10-12", T.sousTraitance, "chef", { statut: "en_cours" }),
 ];
+
+/** Précision ajoutée par un consultant à la première cause racine (statut « modifié »). */
+export const PRECISION_CAUSES_M7 =
+  "Deux opérateurs représentent 62 % du chiffre d'affaires et règlent à plus de 120 jours ; les bons de réception manquants retardent la facturation de la maintenance.";

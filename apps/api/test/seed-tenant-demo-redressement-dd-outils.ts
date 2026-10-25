@@ -13,6 +13,8 @@ interface Def {
   /** 1 = directeur.mission, 2 = directeur.mission.2 (idem chef) : répartition du vrai casting. */
   directeur: 1 | 2;
   chef: 1 | 2;
+  /** Devise du client du socle (la mission porte la même). */
+  devise?: "XAF" | "EUR" | "USD";
   nom: string;
   client: CleClient;
   debut: string;
@@ -41,6 +43,7 @@ const CASTING: Def[] = [
   },
   {
     nom: MISSIONS.redressementTermine,
+    devise: "XAF",
     directeur: 1,
     chef: 1,
     client: "brasseries-wouri",
@@ -50,6 +53,7 @@ const CASTING: Def[] = [
   },
   {
     nom: MISSIONS.ddTerminee,
+    devise: "XAF",
     directeur: 2,
     chef: 2,
     client: "mboa-solaire",
@@ -59,6 +63,7 @@ const CASTING: Def[] = [
   },
   {
     nom: MISSIONS.businessPlan,
+    devise: "EUR",
     directeur: 1,
     chef: 2,
     client: "atlantique-retail",
@@ -77,6 +82,7 @@ const CASTING: Def[] = [
   },
   {
     nom: MISSIONS.redressementEnCours,
+    devise: "USD",
     directeur: 1,
     chef: 2,
     client: "gabon-offshore",
@@ -113,6 +119,7 @@ const CASTING: Def[] = [
   },
   {
     nom: MISSIONS.ddPreparation,
+    devise: "XAF",
     directeur: 1,
     chef: 2,
     client: "wouri-distribution",
@@ -150,6 +157,7 @@ export async function creerMissionsCasting(ctx: ContexteTenantDemo): Promise<voi
       attendre(201, r, `mission ${d.nom}`);
       id = r.json().id as string;
     } else if ((deja.rows[0] as { statut: string }).statut !== "proposition") continue;
+    if (d.devise) await poserDevise(ctx, id, d.devise);
     if (d.statut === "proposition") continue;
     const cloture = false;
     const c = ctx.proprietaire;
@@ -158,16 +166,38 @@ export async function creerMissionsCasting(ctx: ContexteTenantDemo): Promise<voi
       await c.query("SET LOCAL session_replication_role = replica");
       await c.query(
         `UPDATE missions SET statut = $2, date_signature = $3::date, signee_par = $4::uuid,
-                taux_change = 1, devise_reference = 'XOF',
+                taux_change = $7::numeric, devise_reference = 'XOF',
                 cloturee_le = CASE WHEN $5::boolean THEN $6::timestamptz END,
                 cloturee_par = CASE WHEN $5::boolean THEN $4::uuid END
           WHERE id = $1`,
-        [id, d.statut, d.debut, directeur.utilisateurId, cloture, `${d.fin}T12:00:00Z`],
+        [
+          id,
+          d.statut,
+          d.debut,
+          directeur.utilisateurId,
+          cloture,
+          `${d.fin}T12:00:00Z`,
+          d.devise === "USD" ? 600 : d.devise === "EUR" ? 655.957 : 1,
+        ],
       );
       await c.query("COMMIT");
     } catch (e) {
       await c.query("ROLLBACK");
       throw e;
     }
+  }
+}
+
+/** Devise de la mission = devise du client du socle (le casting réel les aligne). */
+async function poserDevise(ctx: ContexteTenantDemo, id: string, devise: string): Promise<void> {
+  const c = ctx.proprietaire;
+  await c.query("BEGIN");
+  try {
+    await c.query("SET LOCAL session_replication_role = replica");
+    await c.query("UPDATE missions SET devise = $2 WHERE id = $1", [id, devise]);
+    await c.query("COMMIT");
+  } catch (e) {
+    await c.query("ROLLBACK");
+    throw e;
   }
 }

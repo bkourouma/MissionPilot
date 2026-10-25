@@ -30,6 +30,37 @@ export const G = 1_000_000_000;
 
 export const plus = (jour: string, n: number): string => ajouterJours(jour, n);
 
+/* ----- Devise d'une mission ----- */
+
+/** Conversion d'un montant écrit en XOF (données de la mission 7) vers la devise de la mission. */
+export type Echelle = (montantXof: number) => number;
+
+/** Identité : XOF et XAF sont à parité fixe, les montants ne changent pas. */
+export const ECHELLE_IDENTITE: Echelle = (m) => m;
+
+/**
+ * Échelle simple, entière et cohérente : 1 million de XOF des données = 5 000 USD (donc un chiffre
+ * d'affaires de 9 600 millions de XOF = 48 000 000 USD, celui du fait du socle). Les nombres qui ne
+ * sont pas des montants (jours, taux, points de base, semaines) ne passent jamais par ici.
+ */
+export function echelleDevise(devise: string): Echelle {
+  if (devise === "XOF" || devise === "XAF") return ECHELLE_IDENTITE;
+  if (devise === "USD") return (m) => Math.round(m / 200);
+  if (devise === "EUR") return (m) => Math.round(m / 656);
+  throw new Error(`Devise « ${devise} » non prévue par le semis du redressement.`);
+}
+
+/** Devise de la mission (figée sur le dossier de redressement à son ouverture). */
+export async function deviseDeMission(ctx: ContexteTenantDemo, missionId: string): Promise<string> {
+  const r = await ctx.proprietaire.query(
+    "SELECT devise FROM missions WHERE id = $1 AND cabinet_id = $2",
+    [missionId, ctx.cabinetId],
+  );
+  const devise = (r.rows[0] as { devise: string } | undefined)?.devise;
+  if (!devise) throw new Error(`Mission ${missionId} introuvable pour lire sa devise.`);
+  return devise;
+}
+
 export type Methode = "get" | "post" | "patch";
 
 /** Appelle une route avec la session donnée ; exige le statut attendu (200 par défaut). */
@@ -188,15 +219,15 @@ export async function dateAction(
 /* ----- Paramétrage du cabinet (seuils, modèles de check-list) ----- */
 
 const CREATION_SEUILS =
-  "UPDATE red_seuils_versions SET cree_le = $1::timestamptz WHERE secteur = $2 AND cree_le >= $3::timestamptz";
+  "UPDATE red_seuils_versions SET cree_le = $1::timestamptz WHERE secteur = $2 AND cree_le >= $3::timestamptz AND cabinet_id = $4";
 const PUBLICATION_SEUILS =
-  "UPDATE red_seuils_versions SET publiee_le = $1::timestamptz WHERE secteur = $2 AND publiee_le >= $3::timestamptz";
+  "UPDATE red_seuils_versions SET publiee_le = $1::timestamptz WHERE secteur = $2 AND publiee_le >= $3::timestamptz AND cabinet_id = $4";
 const CREATION_MODELES =
-  "UPDATE red_checklist_modeles SET cree_le = $1::timestamptz WHERE code = $2 AND cree_le >= $3::timestamptz";
+  "UPDATE red_checklist_modeles SET cree_le = $1::timestamptz WHERE code = $2 AND cree_le >= $3::timestamptz AND cabinet_id = $4";
 const CREATION_VERSIONS_MODELE =
-  "UPDATE red_checklist_versions SET cree_le = $1::timestamptz WHERE modele_id IN (SELECT id FROM red_checklist_modeles WHERE code = $2) AND cree_le >= $3::timestamptz";
+  "UPDATE red_checklist_versions SET cree_le = $1::timestamptz WHERE modele_id IN (SELECT id FROM red_checklist_modeles WHERE code = $2 AND cabinet_id = $4) AND cree_le >= $3::timestamptz AND cabinet_id = $4";
 const PUBLICATION_VERSIONS_MODELE =
-  "UPDATE red_checklist_versions SET publiee_le = $1::timestamptz WHERE modele_id IN (SELECT id FROM red_checklist_modeles WHERE code = $2) AND publiee_le >= $3::timestamptz";
+  "UPDATE red_checklist_versions SET publiee_le = $1::timestamptz WHERE modele_id IN (SELECT id FROM red_checklist_modeles WHERE code = $2 AND cabinet_id = $4) AND publiee_le >= $3::timestamptz AND cabinet_id = $4";
 
 export async function dateSeuilsCrees(
   ctx: ContexteTenantDemo,
@@ -204,7 +235,7 @@ export async function dateSeuilsCrees(
   debut: string,
   jour: string,
 ): Promise<void> {
-  await appliquerSql(ctx, CREATION_SEUILS, [midi(jour), secteur, debut]);
+  await appliquerSql(ctx, CREATION_SEUILS, [midi(jour), secteur, debut, ctx.cabinetId]);
 }
 export async function dateSeuilsPublies(
   ctx: ContexteTenantDemo,
@@ -212,7 +243,7 @@ export async function dateSeuilsPublies(
   debut: string,
   jour: string,
 ): Promise<void> {
-  await appliquerSql(ctx, PUBLICATION_SEUILS, [midi(jour), secteur, debut]);
+  await appliquerSql(ctx, PUBLICATION_SEUILS, [midi(jour), secteur, debut, ctx.cabinetId]);
 }
 export async function dateModeleCree(
   ctx: ContexteTenantDemo,
@@ -220,8 +251,8 @@ export async function dateModeleCree(
   debut: string,
   jour: string,
 ): Promise<void> {
-  await appliquerSql(ctx, CREATION_MODELES, [midi(jour), code, debut]);
-  await appliquerSql(ctx, CREATION_VERSIONS_MODELE, [midi(jour), code, debut]);
+  await appliquerSql(ctx, CREATION_MODELES, [midi(jour), code, debut, ctx.cabinetId]);
+  await appliquerSql(ctx, CREATION_VERSIONS_MODELE, [midi(jour), code, debut, ctx.cabinetId]);
 }
 export async function dateVersionModeleCree(
   ctx: ContexteTenantDemo,
@@ -229,7 +260,7 @@ export async function dateVersionModeleCree(
   debut: string,
   jour: string,
 ): Promise<void> {
-  await appliquerSql(ctx, CREATION_VERSIONS_MODELE, [midi(jour), code, debut]);
+  await appliquerSql(ctx, CREATION_VERSIONS_MODELE, [midi(jour), code, debut, ctx.cabinetId]);
 }
 export async function dateVersionModelePubliee(
   ctx: ContexteTenantDemo,
@@ -237,7 +268,7 @@ export async function dateVersionModelePubliee(
   debut: string,
   jour: string,
 ): Promise<void> {
-  await appliquerSql(ctx, PUBLICATION_VERSIONS_MODELE, [midi(jour), code, debut]);
+  await appliquerSql(ctx, PUBLICATION_VERSIONS_MODELE, [midi(jour), code, debut, ctx.cabinetId]);
 }
 
 /** Date de génération du rapport de clôture et de son fichier. */
