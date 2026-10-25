@@ -260,6 +260,11 @@ export async function buildApp(
   await app.register((await import("./routes/connexion-demo.js")).routesConnexionDemo, {
     prefix: "/api/auth",
   });
+  // Connexion de démonstration « un clic » (multi-cabinets, super admin) : même garde de config.
+  await app.register(
+    (await import("./routes/connexion-demo-public.js")).routesConnexionDemoPublique,
+    { prefix: "/api/auth" },
+  );
   await app.register(routesReferentiels, { prefix: "/api" });
   await app.register(routesCycleMission, { prefix: "/api" });
   await app.register(routesPlanification, { prefix: "/api" });
@@ -359,6 +364,10 @@ export async function buildApp(
   // Services candidats (diagnostic flash, business plan bancable) et guichets de financement.
   await app.register((await import("./routes/services-candidats.js")).routesServicesCandidats, {
     prefix: "/api",
+  });
+  // Super admin de plateforme : cookie et session propres (routes/plateforme.ts).
+  await app.register((await import("./routes/plateforme.js")).routesPlateforme, {
+    prefix: "/api/plateforme",
   });
   return app;
 }

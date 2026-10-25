@@ -9,9 +9,9 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `design/plan-de-vol` — 2026-10-25 (refonte visuelle CabinetPilot, commitée, non poussée)
+## Branche `design/plan-de-vol` — 2026-10-25 (refonte visuelle CabinetPilot, PR n° 19)
 
-Créée depuis `ci/deploiement-vps` (`8f14ca0`) ; commits `4339321` (scénario de recette) et `8b771e3` (refonte), **non poussés**. Direction « Plan de vol » choisie par
+Créée depuis `ci/deploiement-vps` (`8f14ca0`) ; commits `4339321` (scénario de recette) et `8b771e3` (refonte), poussés ; PR n° 19 vers `main`, `main` fusionné dans la branche (conflits : `connexion/page.tsx`, ce fichier). Direction « Plan de vol » choisie par
 l'utilisateur sur esquisses (`apps/web/.impeccable/mocks/`, ignoré par git) : logo violet et or imposé, nom **CabinetPilot**
 partout dans l'interface web. Contrat de direction : `apps/web/.impeccable/surfaces/` ; produit : `apps/web/PRODUCT.md`.
 
@@ -32,20 +32,29 @@ temporelle servie), recherche globale. (4) La base de développement `missionpil
 lancer l'application. (5) Le serveur de développement Next utilise `.next` : arrêter `pnpm dev` avant un `next build`.
 Captures et scripts de rendu (Chrome headless) : `apps/web/.impeccable/review/`, jamais commités.
 
-**Reste à faire.** Décision de l'utilisateur sur le renommage côté API ; push et PR (à l'utilisateur) ; revue de recette
+**Reste à faire.** Décision de l'utilisateur sur le renommage côté API ; fusion de la PR n° 19 (à l'utilisateur) ; revue de recette
 navigateur des modules rares (portail client complet, appels d'offres, due diligence) ; vérifier les graphiques de `plan-montecarlo`
 et la fiche `salle de mission` en sombre.
 
 ---
 
-## Branche `ci/deploiement-vps` — 2026-10-23 (déploiement de cabinetpilot.allianceconsultants.net)
+## DÉCISIONS EN ATTENTE (utilisateur) — 2026-10-23
 
-Pipeline GitHub (`deploy.yml` : ci → image GHCR → ssh) et pièces serveur dans `deploy/`, `Dockerfile`,
-`docs/workflows/DEPLOIEMENT.md` (à lire). Serveur amorcé (env à secrets générés, certificat, vhost nginx, clé SSH
-dédiée `github-actions-missionpilot`, 5 secrets GitHub). **À faire par l'utilisateur** : renseigner le vrai SMTP dans
-`/home/deployer/missionpilot.env` (valeur provisoire `smtp.invalid`) ; décider du rendu PDF en conteneur (Chromium
-sans sandbox, voir DEPLOIEMENT « Limites ») ; décider d'une sauvegarde de `missionpilot_pgdata` ; créer le premier
-cabinet en production. Fusion de la PR : à l'utilisateur.
+Rien de ce qui suit n'est fait sans l'utilisateur ; tout est préparé et sans effet tant qu'il n'agit pas.
+
+- **Fusionner la PR du chantier** (super admin, démo, sauvegarde, PDF) : le déploiement part à la fusion (`deploy.yml`) et appliquera les
+  migrations `0570–0583`. Avant de fusionner : décider si le profil seccomp des rapports PDF doit partir avec (voir ci-dessous).
+- **SMTP** : `SMTP_HOST=smtp.invalid` et `MAIL_FROM` provisoires dans `/home/deployer/missionpilot.env` ; aucun e-mail ne part. Fournir le vrai SMTP.
+- **Démo publique** : ne pas poser `DEMO_PUBLIQUE=oui` sur le serveur sans décision (mot de passe du tenant de démonstration public dans le
+  dépôt). Procédure : `DEPLOIEMENT.md` (activer, désactiver, remise à zéro). Premier **vrai** super admin : `db:creer-super-admin` sur le serveur.
+- **Rapports PDF** : profil seccomp dédié `deploy/seccomp-chromium.json` (sandbox de Chromium active, jamais `--no-sandbox`), testé en
+  LOCAL seulement ; à valider sur le noyau du serveur (`user.max_user_namespaces`, AppArmor, voir `DEPLOIEMENT.md` « Limites connues »).
+  Il assouplit le confinement du conteneur `api` (espaces de noms utilisateur) : décision de sécurité à confirmer.
+- **Sauvegarde de la base** : `deploy/sauvegarde.sh`, `restauration.sh`, `test-sauvegarde.sh` prêts et testés en local (rotation 7 jours),
+  **non installés** sur le serveur (crontab à poser par l'utilisateur) ; copie hors serveur et sauvegarde du volume des fichiers à décider.
+- **Bases de développement locales** (environ 210 bases de test sur le conteneur `missionpilot-postgres`) : aucune purge faite ; à décider.
+- **Reste technique du chantier** : cabinet désactivé laissant actifs invitations, jobs planifiés, webhooks de canaux, 2FA (SECURITY §15) ;
+  plafonds permanents de la démo et remise à zéro à scripter ; 2FA et déblocage du limiteur pour le super admin ; listes plateforme non paginées.
 
 **Recette navigateur autonome (2026-10-24, non commitée).** `docs/recette/SCENARIO-E2E-NAVIGATEUR.md` (+ `docs/recette/fixtures/`,
 3 fichiers de test) : scénario pour Claude in Chrome, anomalies M/m/c consignées, arrêt à la première bloquante avec prompt de
@@ -54,7 +63,103 @@ première exécution. Base dédiée `missionpilot_e2e` (commandes dans le scéna
 
 ---
 
-## Branche `orch/2026-10-20-reste` — 2026-10-23 (PR vers `main` à fusionner par l'utilisateur)
+## Branche `orch/2026-10-23-super-admin` — 2026-10-23 (super admin de plateforme, tenants, connexion de démonstration)
+
+**État.** Chantier demandé par l'utilisateur le 2026-10-23 : un super admin crée des tenants (cabinets) et leurs comptes ; un script
+sème un tenant par défaut avec tous les rôles ; une page de connexion « un clic » permet de choisir un espace puis un compte. Base
+`main` @ `9fdf052` (PR n° 17, déploiement, fusionnée). Branche d'intégration `orch/2026-10-23-super-admin`, un lot = une branche
+`orch/2026-10-23-super-admin-lot-N` (tiret, pas de barre : conflit de refs avec la branche d'intégration), copies de travail
+`D:\APP\MissionPilot-worktrees\super-admin-lot-N`. Suivi, décisions D1 à D6 et hypothèses :
+`D:\APP\MissionPilot\.orchestration\2026-10-23-super-admin\suivi.md` (local, exclu de git). Décision consignée : `DECISIONS.md`
+(« Super admin de plateforme et démonstration publique »). **Rien n'est sur `main`** tant que l'utilisateur n'a pas
+fusionné la PR (branche poussée sur `origin`) (merge commit, jamais de rebase).
+
+**Livré (par lot).**
+
+| Lot | Contenu |
+| --- | --- |
+| 1 | Super admin : migrations `0570–0573` (`cabinets.actif` / `est_demo` réservés au propriétaire, `trouver_connexion` et `resoudre_session` redéfinies, tables `super_admins`, `plateforme_sessions`, `journal_plateforme`, 11 fonctions `plateforme_*`), SQLSTATE `MQP01-06`, routes `/api/plateforme/*` (cookie `mp_plateforme`), tests `plateforme-*` |
+| 2a | `db:seed-defaut` (tenant « Lagune Conseil & Associés (démo) » avec un compte par rôle, portail compris, marqué `est_demo`, plus super admin de démonstration) et `db:creer-super-admin` (premier vrai super admin, mot de passe affiché une fois) |
+| 2b | Connexion « un clic » multi-cabinets (`GET /api/auth/demo`, `POST /api/auth/demo/connexion`, `/connexion-plateforme`), interrupteur `DEMO_PUBLIQUE`, migrations `0580–0582` (fonctions `demo_*`, refus du mot de passe public hors démo, bac à sable du super admin de démonstration) |
+| 3 | Web : `/connexion` (bloc « Mode démonstration », choix du super admin ou d'un cabinet puis d'un compte), console `/plateforme` (cabinets, comptes), middleware de cookie `mp_plateforme` |
+| 4 | Documentation (ce lot) : CODING_STANDARDS §1, §2, §10 ; SECURITY §3, §4, §6, §10, §15 ; RUNBOOK ; DEPLOIEMENT ; AGENTS « Pièges connus » ; DECISIONS ; checklist (relevé tête finale du 2026-10-23, super admin) ; commentaires SQL devenus faux (0570, 0573, 0580, test `plateforme-sql`) |
+| 5 | Liste de démo sans comptes 2FA : migration `0583` (fonction interne `demo_tfa_bloquante`, non accordée ; `demo_lister_comptes` redéfinie) ; `GET /api/auth/demo` ne liste plus les comptes à 2FA active ou obligatoire, plancher `TOTP_REQUIS=oui` compris (`routes/connexion-demo-public.ts`) ; un compte non listé mais connu reste refusé en 403 `CONNEXION_RAPIDE_2FA` (« listé implique trouvable », la réciproque est fausse) |
+| 6 | Web : un clic sur la carte « Super administrateur » de `/connexion` connecte directement (plus d'étape de confirmation) |
+| 7 | Documentation finale (ce lot) : CODING_STANDARDS (`0580–0583`, prochains libres démo `0584–0589`), SECURITY §3 et §4, checklist (relevé lot 7), RUNBOOK, DEPLOIEMENT (durée du semis, ~50 s sur base vide) |
+
+Chiffres de la tête (checklist) : 1 002 routes dont 14 sans `exiger`, 904 `z.object` dans `packages/shared` dont 893 `.strict()` (+10 `z.object` stricts
+dans `apps/api`), 240 migrations (avec `0583`), 42 `GRANT EXECUTE`.
+
+**Vérifié.** Lot 1 : 81 tests plateforme verts, suite API 3 503 / 3 504 (suivi du 2026-10-23 ; l'échec, `kpi-alertes`, est un délai sous
+charge). Documentation (lot 4) : recherches mécaniques de la checklist relancées sur la tête (sauf `pnpm audit`, réseau) ; Prettier propre sur
+les fichiers touchés (binaire du dépôt principal : le worktree du lot 4 n'a pas de `node_modules`) ; ESLint non exécuté (même cause) ; le lot 4
+ne change que des commentaires hors de `docs/`.
+**Tête d'intégration (lots 1 à 7, avant la fusion des branches ops), vérifiée le 2026-10-23** : typecheck, eslint, Prettier, tests engines et shared, web
+(2 560 tests), build web de production verts ; suite API complète : 3 619 verts sur 3 623, les 4 échecs (`ingestion-standard`,
+`jobs-reveil` ×2, `kpi-alertes`) sont des dépassements de délai sous charge et passent seuls (43/43). Recette navigateur : connexion un clic du
+super admin et d'un associé, création d'un cabinet depuis la console. Pas rejoués : recette mobile 375 px, parcours d'erreur de la console.
+
+**NON vérifié (à ne pas affirmer).**
+
+- **Recette navigateur** de `/connexion` (parcours super admin et cabinet, compte client vers `/portail`, refus 2FA), de la console
+  `/plateforme` (création d'un cabinet, mot de passe affiché une fois, désactivation, 409 du dernier associé) et de la mise en page mobile :
+  jamais ouverts dans un navigateur.
+- **Suite API complète à rejouer sur la tête finale** (lots 1, 2a, 2b, 3 fusionnés) : seule la suite du lot 1 a été rejouée en entier.
+  Échecs connus sensibles à la charge : `jobs-reveil`, `kpi-alertes`, `kpi-pilotage` (les rejouer seuls avant de conclure, 3 ou 4
+  suites au plus sur un même PostgreSQL).
+- Le semis `db:seed-defaut --confirmer-demo` et `db:creer-super-admin` **sur le serveur** (image de production, `mp run --rm api …`) :
+  procédures écrites dans `DEPLOIEMENT.md`, jamais exécutées. La CI GitHub n'a pas encore vu ces fichiers.
+- Aucun envoi réel d'e-mail, aucune démonstration publique activée sur le serveur.
+
+**Pièges.**
+
+- `cabinets.actif` / `est_demo` : déclencheur, modifiables par le seul propriétaire ou les fonctions `plateforme_*` ; un test qui les change
+  doit passer par le propriétaire (`test/plateforme-outils.ts`). Un nouveau chemin d'authentification doit tenir compte de `cabinets.actif`.
+- `DEMO_PUBLIQUE=oui` ouvre une connexion sans mot de passe dans tout `NODE_ENV` : jamais dans la CI, jamais sur un serveur avec données
+  réelles. Les mots de passe du cabinet de démonstration et du super admin de démonstration sont des constantes publiques du dépôt.
+- `TOTP_REQUIS=oui` rend les comptes de démonstration inconnectables en un clic (403 `CONNEXION_RAPIDE_2FA`).
+- Le limiteur est partagé par adresse (`plateforme:…`, `demo:…`, `demo-plateforme:…`) : 10 essais ratés bloquent 15 minutes, pas de déblocage
+  pour un super admin.
+- Seed de démonstration publique : tous les jobs qu'il crée sont passés en `echec` (« Neutralisé… ») ; des écrans peuvent les afficher.
+- Migrations : plages `0570–0573` et `0580–0582` consommées ; prochains libres `0574–0579`, `0583–0589` (CODING_STANDARDS §1). Un test qui crée des
+  cabinets `est_demo` doit les remettre à faux ou les désactiver (sinon la liste « un clic » des autres fichiers change).
+- Le suivi du chantier est un fichier local exclu de git : le conserver jusqu'à la fusion.
+
+**Reste à faire (par priorité).**
+
+1. **Recette navigateur** du chantier, puis **suite API complète** sur la tête finale ; fusion de la PR (utilisateur).
+2. **Cabinet désactivé** : faire tenir compte de `cabinets.actif` à `resoudre_invitation` et `resoudre_invitation_portail`, aux jobs planifiés
+   (`planifier_*`), aux webhooks des canaux et à la 2FA (lot de suite à planifier, SECURITY.md §15).
+3. **Plafonds et remise à zéro de la démonstration** : les plafonds du bac à sable (30 cabinets, 40 comptes) sont permanents et la démonstration
+   publique est vandalisable ; écrire `db:reinitialiser-demo` (suppression des seuls cabinets `est_demo`, nouveau semis) et une tâche planifiée.
+   Aujourd'hui : SQL propriétaire seulement (DEPLOIEMENT « Remise à zéro »).
+4. **2FA et réinitialisation du mot de passe du super admin** (aucun aujourd'hui) ; **outil de déblocage du limiteur** pour les super admins.
+5. **Pagination** des listes de la plateforme (aujourd'hui sans curseur, dette déclarée, CODING_STANDARDS §10).
+6. **Valider H1, H2, H3** (DECISIONS) ; décider du SMTP muet pour la démonstration (e-mails de visiteurs vers des adresses `.test`).
+7. **Purge du worktree** : `D:\APP\MissionPilot-worktrees\super-admin-lot-1`, `-2a`, `-2b`, `-3`, `-4` et les branches `orch/2026-10-23-super-admin-lot-*`
+   après fusion (suppression de dossiers et de branches : accord requis).
+8. **Déploiement du serveur (reste de la branche `ci/deploiement-vps`, fusionnée en PR n° 17, serveur amorcé et déployé le 2026-10-23)** : renseigner le
+   vrai SMTP dans `/home/deployer/missionpilot.env` (valeur provisoire `smtp.invalid`) ; décider du rendu PDF en conteneur (Chromium sans sandbox,
+   DEPLOIEMENT « Limites connues ») ; décider d'une sauvegarde de `missionpilot_pgdata` (aucune en place) ; créer le premier cabinet et le premier vrai
+   super admin en production (DEPLOIEMENT (a)).
+
+**Commandes de reprise.**
+
+```bash
+cd D:/APP/MissionPilot-worktrees/super-admin-lot-4         # ou le worktree d'intégration
+git status && git log --oneline 9fdf052..HEAD              # lots 1, 2a, 2b, 3 fusionnés
+pnpm typecheck && pnpm lint && pnpm format
+# tests ciblés (une base de test dédiée, suffixe _test ; jamais deux suites sur la même base)
+pnpm --filter @missionpilot/api exec vitest run test/plateforme-sql.test.ts test/plateforme-routes.test.ts test/plateforme-acces.test.ts \
+  test/plateforme-bac-a-sable.test.ts test/demo-sql.test.ts test/demo-routes.test.ts test/demo-plateforme-motdepasse.test.ts \
+  test/seed-defaut.test.ts test/creer-super-admin.test.ts test/connexion-demo.test.ts test/isolation.test.ts
+pnpm --filter @missionpilot/web exec vitest run src/lib/plateforme src/lib/demo-connexion
+pnpm --filter @missionpilot/api db:seed-defaut             # tenant de démonstration local
+```
+
+---
+
+## Branche `orch/2026-10-20-reste` — 2026-10-23 (PR n° 16 fusionnée dans `main`, merge commit `378c48d`)
 
 **État.** `main` = `3d5a252` (vagues 0 à 4 : gestion de mission, fondations, automatisation, services
 augmentés, appels d'offres, redressement, due diligence, canaux simulés). La branche

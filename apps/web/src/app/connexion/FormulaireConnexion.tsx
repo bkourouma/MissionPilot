@@ -7,9 +7,9 @@ import { Bouton } from "../../components/ui/Bouton";
 import { Champ } from "../../components/ui/Champ";
 import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
 import { validerConnexion, type ErreursConnexion } from "../../lib/connexion";
-import type { CompteDemo } from "../../lib/connexion-demo";
+import type { Demo } from "../../lib/demo-connexion";
 import { destinationApresConnexion } from "../../lib/portail-routes";
-import { ComptesDemo } from "./ComptesDemo";
+import { ConnexionDemo } from "./ConnexionDemo";
 import {
   chargeConnexion2fa,
   ETAT_INITIAL,
@@ -31,16 +31,11 @@ function messageErreur(e: unknown): string {
  * le demande. Le défi reste dans l'état mémoire de ce composant (jamais dans l'URL ni le
  * stockage du navigateur) et disparaît dès la connexion, l'abandon ou son expiration.
  *
- * `comptesDemo` (recette locale, seulement si l'API a servi la liste) : la connexion rapide
- * passe par le même automate, donc par la même redirection que la connexion normale.
+ * `demo` (seulement si l'API a servi la démonstration) : le parcours en un clic passe par le
+ * même automate, donc par la même redirection que la connexion normale ; le formulaire reste
+ * disponible, replié sous le bloc de démonstration.
  */
-export function FormulaireConnexion({
-  suite,
-  comptesDemo = null,
-}: {
-  suite: string;
-  comptesDemo?: readonly CompteDemo[] | null;
-}) {
+export function FormulaireConnexion({ suite, demo = null }: { suite: string; demo?: Demo | null }) {
   const router = useRouter();
   const [etat, setEtat] = useState<EtatConnexion>(ETAT_INITIAL);
   const avancer = (ev: EvenementConnexion) => setEtat((e) => transitionConnexion(e, ev));
@@ -67,20 +62,25 @@ export function FormulaireConnexion({
   if (etat.etape === "code") {
     return <EtapeCode etat={etat} avancer={avancer} />;
   }
+  const messageInitial = etat.etape === "identifiants" ? etat.message : null;
+  const connecte = etat.etape === "connecte";
+  const formulaire = (
+    <EtapeIdentifiants messageInitial={messageInitial} connecte={connecte} avancer={avancer} />
+  );
+  // Démonstration inactive : le formulaire seul, comme avant. Démonstration active : le bloc reste
+  // monté pendant l'ouverture de session (la ligne cliquée garde son état de chargement).
+  if (!demo) return formulaire;
+  const aDesComptes = demo.superAdmin !== null || demo.cabinets.length > 0;
   return (
     <>
-      <EtapeIdentifiants
-        messageInitial={etat.etape === "identifiants" ? etat.message : null}
-        connecte={etat.etape === "connecte"}
-        avancer={avancer}
+      <ConnexionDemo
+        demo={demo}
+        surConnexion={(corps) => avancer({ type: "reponse_identifiants", corps })}
       />
-      {comptesDemo ? (
-        <ComptesDemo
-          comptes={comptesDemo}
-          connecte={etat.etape === "connecte"}
-          surConnexion={(corps) => avancer({ type: "reponse_identifiants", corps })}
-        />
-      ) : null}
+      <details className="mp-connexion__classique" open={!aDesComptes || messageInitial !== null}>
+        <summary>Se connecter avec une adresse e-mail et un mot de passe</summary>
+        {formulaire}
+      </details>
     </>
   );
 }

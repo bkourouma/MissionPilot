@@ -204,12 +204,14 @@ tests. Quand une règle est implémentée, y ajouter le fichier qui l'illustre.
   API et base de test »).
 - **Migrations de queue (≥ 0549).** Numéros attribués centralement : `0549` canaux,
   `0550` brief, `0551` redressement, `0552` rapport d'état financier, `0560–0563`
-  réservés aux services candidats (`CODING_STANDARDS.md` §1). Le migrateur applique
+  réservés aux services candidats, `0570–0573` plateforme (super admin) et `0580–0582`
+  démonstration, consommées (prochains libres : plateforme `0574–0579`, démonstration `0583–0589`, services candidats `0564–0569`)
+  (`CODING_STANDARDS.md` §1). Le migrateur applique
   par ordre alphabétique : une redéfinition de `tentatives_auth_regles` doit porter
   un numéro supérieur à `0550`, une redéfinition des CHECK de `rapports_mission` un
   numéro supérieur à `0552`, et reprendre l'union en vigueur.
 - **SQLSTATE à deux lettres.** Second préfixe `MQ` + lettre de domaine + deux
-  chiffres (`MQD`, `MQC`…) ; plus aucune lettre simple libre (`CODING_STANDARDS.md` §2).
+  chiffres (`MQD`, `MQC`, `MQP` plateforme `MQP01-06`…) ; plus aucune lettre simple libre (`CODING_STANDARDS.md` §2).
 - **Validation réservée au directeur.** Le plan et le bilan de clôture du
   redressement ne se valident que par le directeur de la mission (doublé en base par
   `0492`) ; mission sans directeur : 409 `DIRECTEUR_REQUIS`.
@@ -217,3 +219,14 @@ tests. Quand une règle est implémentée, y ajouter le fichier qui l'illustre.
   portail que si elle figure dans `LISTE_BLANCHE_PORTAIL`
   (`apps/api/src/portail/garde.ts`) ; une table à RLS doit porter une politique
   `portail` ou `portail_interdit`, sinon `isolation.test.ts` échoue.
+- **Super admin et tenants.** Le super admin de plateforme vit hors cabinet (`super_admins`,
+  session et cookie `mp_plateforme`, routes `/api/plateforme/*`) et ne lit jamais de donnée
+  métier. `cabinets.actif` et `cabinets.est_demo` ne se modifient que par le propriétaire des
+  tables ou par les fonctions `plateforme_*` (déclencheur, 42501 sinon) ; tout NOUVEAU chemin
+  d'authentification ou de planification doit tenir compte de `cabinets.actif` (aujourd'hui
+  seuls `trouver_connexion` et `resoudre_session` le font ; liste des oublis : `SECURITY.md` §15).
+  Création du premier super admin : `db:creer-super-admin`, jamais par une route.
+- **`DEMO_PUBLIQUE`.** Variable qui ouvre la connexion « un clic » sans mot de passe dans tout
+  `NODE_ENV`, pour les seuls cabinets et super admins `est_demo` ; mots de passe de démonstration
+  publics dans le dépôt : à n'activer que sur un serveur de démonstration, jamais en production
+  réelle (`docs/workflows/DEPLOIEMENT.md`, `SECURITY.md` §3 et §15). Ne jamais la poser dans la CI.

@@ -51,6 +51,11 @@ diligence R-03 en §8 octies, signal de réveil du worker de jobs R-08 en §8 un
 aucune route, aucune migration, aucun `GRANT EXECUTE` de plus. Comptes relevés le 2026-10-23 sur la tête finale :
 990 routes, 232 fichiers de migration et 35 lignes `GRANT EXECUTE` (230 et 34 à la mise à jour du lot 9e : l'écart est
 celui du lot 11, `0525` et `0526`, déjà reporté en §8 undecies ; les lots 13a et 13b n'y changent rien).
+Mise à jour du 2026-10-23 (chantier super admin de plateforme, tenants et connexion de démonstration, lots 1 à 3 : §3 super admin
+et connexion de démonstration réécrite, §4 fonctions accordées, §5 ter et §6 domaine SQLSTATE `MQP01`–`MQP06`, §10 variable
+`DEMO_PUBLIQUE`, §15 douze risques nouveaux) : 1002 routes (990, plus 9 routes `/api/plateforme/*` et 3 routes
+`/api/auth/demo*` ; recherche n° 10 : 14 sans `exiger`, dont les 5 publiques de ce chantier), 239 fichiers de migration (232, plus
+`0570`–`0573` et `0580`–`0582`) et 41 lignes `GRANT EXECUTE` (35, plus 6).
 
 ## 1. Actifs à protéger
 
@@ -228,34 +233,78 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   la base, jamais du corps. À la création : 409 si une invitation interne ou au
   portail d'un autre client est en attente pour l'e-mail, alerte de tous les
   associés à chaque invitation (`routes/portail-gestion.ts`).
-- **Connexion rapide de démonstration** (recette humaine locale,
-  `routes/connexion-demo.ts`) : session **sans mot de passe**, traitée comme
-  une porte dérobée potentielle. Garde-fous : désactivée par défaut ; les
-  routes n'existent (sinon 404) que si `CONNEXION_RAPIDE_DEMO=oui` **et**
-  `NODE_ENV` local (jamais `production`) **et** les deux URL de base locales
-  (`connexionRapideDemoActive`, revérifié à l'enregistrement) ; `oui` dans un
-  autre contexte fait refuser le démarrage (`verifierConnexionRapideDemo`,
-  `config.ts`). `GET /api/auth/comptes-demo` (publique) ne renvoie que e-mail,
-  nom et rôles (au plus 50) des comptes actifs en `@lagune-conseil.test` du
-  cabinet « Lagune Conseil & Associés (démo) » titulaire du compte fondateur
-  `associe@lagune-conseil.test` (retrouvé par `trouver_connexion` : aucune
-  nouvelle fonction en base) ; jamais un autre cabinet, même homonyme ou du
-  même domaine. Elle couvre aussi les comptes du **portail client de
-  démonstration** (`db/seed-demo-portail.ts`, rôles client), mêmes garde-fous :
-  même filtre (domaine, cabinet de démo) et, en plus, un rattachement actif à
-  un client actif ; refus 2FA y compris pour la politique 2FA du portail ; la
-  session ouverte reste soumise à la liste blanche du portail
-  (`PORTAIL_ROUTE_INTERDITE`). `POST /api/auth/connexion-demo`
-  réserve d'abord une tentative du limiteur `connexion` (compteur partagé avec
-  le mot de passe), répond le même 401 `COMPTE_DEMO_INCONNU` pour tout e-mail
-  hors de cette liste, **refuse (403 `CONNEXION_RAPIDE_2FA`) tout compte dont
-  la 2FA est active ou obligatoire** (politique du cabinet ou `TOTP_REQUIS`),
-  puis ouvre la session comme `POST /connexion` (session hachée, cookie
-  httpOnly, `no-store`, audit `connexion` avec `demo: true`). Garde d'origine
-  et crochet 2FA d'`app.ts` inchangés (motifs sous `/api/auth/*`). Le web
-  (`app/connexion/`) lit la liste côté serveur et n'affiche le bloc que sur une
-  réponse 200 (`lib/connexion-demo.ts`). Risque : §15. Test :
-  `test/connexion-demo.test.ts`, `test/config.test.ts`.
+- **Super admin de plateforme** (chantier du 2026-10-23 ; `routes/plateforme.ts`,
+  `plateforme/`, migrations `0570`–`0573`) : opérateur de la plateforme, distinct de tout
+  cabinet. Compte dans une table à part (`super_admins`, hors cabinet : RLS activée sans politique
+  permissive et politique `portail_interdit`, aucun droit direct du rôle applicatif). Mot de passe haché
+  par scrypt comme les autres (le CHECK de la table refuse un autre format). **Session et cookie
+  distincts** : table `plateforme_sessions` (jeton aléatoire, seul son SHA-256 est stocké, durée FIXE de 8 h
+  décidée en SQL, 20 sessions simultanées au plus, la plus ancienne supprimée), cookie `mp_plateforme`
+  (`httpOnly`, `sameSite=lax`, `secure` hors développement et test) ; `mp_session` n'est jamais lu par
+  les routes `/api/plateforme/*` et `mp_plateforme` n'est lu par aucune route de cabinet (crochet
+  `onRequest` encapsulé dans le plugin). Connexion `POST /api/plateforme/connexion` : limiteur de l'espace
+  `connexion` (clé `plateforme:<e-mail>`) réservé avant le calcul, hachage factice si l'e-mail est inconnu,
+  401 uniforme ; garde d'origine (CSRF) d'`app.ts` appliquée. **Aucune donnée métier de cabinet
+  lisible** : les seules fonctions accordées (§4) listent et modifient les fiches des cabinets (nom, pays,
+  état, compteurs) et les comptes du cabinet (e-mail, nom, rôles, état) ; les comptes du portail client ne
+  sont ni listés, ni modifiés (MQP03), ni créés. Chaque fonction revérifie la session (MQP01) et journalise
+  dans `journal_plateforme` (ajout seul, MQP06, sans secret ni e-mail) ET dans le `journal_audit` du cabinet
+  cible. Désactiver un cabinet (`cabinets.actif`) coupe à l'instant la connexion et les sessions de tous
+  ses comptes (`trouver_connexion` et `resoudre_session` redéfinies, `0570`). Un mot de passe généré
+  n'est renvoyé qu'une fois, dans la réponse de création (`no-store`), jamais journalisé. Le premier
+  super admin se crée hors de l'application, au rôle propriétaire (`db/creer-super-admin.ts`, RUNBOOK,
+  DEPLOIEMENT) : aucune route n'en crée. **Pas de 2FA ni de réinitialisation de mot de passe pour le super
+  admin** : risque déclaré (§15). Tests : `plateforme-sql.test.ts`, `plateforme-routes.test.ts`,
+  `plateforme-acces.test.ts`, `plateforme-journal-cabinet.test.ts`, `creer-super-admin.test.ts`,
+  `isolation.test.ts`.
+- **Connexion rapide de démonstration** : session **sans mot de passe**, traitée comme une porte dérobée
+  potentielle. Deux familles de routes, deux gardes.
+  *Historique, local seulement* (`routes/connexion-demo.ts`, inchangée) : `GET /api/auth/comptes-demo`
+  et `POST /api/auth/connexion-demo`, uniquement si `CONNEXION_RAPIDE_DEMO=oui` **et** `NODE_ENV` local
+  (jamais `production`) **et** les deux URL de base locales (`connexionRapideDemoActive`, revérifié à
+  l'enregistrement) ; `oui` dans un autre contexte fait refuser le démarrage
+  (`verifierConnexionRapideDemo`, `config.ts`). Elle ne sert que les comptes en `@lagune-conseil.test` du
+  cabinet « Lagune Conseil & Associés (démo) » titulaire du compte fondateur (retrouvé par
+  `trouver_connexion`), portail client de démonstration compris (rattachement actif à un client actif,
+  liste blanche du portail, `PORTAIL_ROUTE_INTERDITE`).
+  *Démonstration « un clic »* (`routes/connexion-demo-public.ts` : `GET /api/auth/demo`,
+  `POST /api/auth/demo/connexion`, `POST /api/auth/demo/connexion-plateforme`) : les routes n'EXISTENT
+  (sinon 404) que si `demoConnexionActive` : connexion rapide locale OU **`DEMO_PUBLIQUE=oui`**, variable
+  explicite valable dans N'IMPORTE QUEL `NODE_ENV`, production comprise, désactivée par défaut, jamais
+  posée par la CI. Hors développement local, le démarrage journalise l'avertissement
+  `AVERTISSEMENT_DEMO_PUBLIQUE`. **Périmètre** : uniquement ce que renvoient les cinq fonctions
+  `SECURITY DEFINER` `demo_*` (`0580`, `0581` ; `0583` redéfinit `demo_lister_comptes`) : les cabinets `est_demo` ET `actif` (au plus 50, avec au plus 50
+  comptes chacun), leurs comptes actifs d'une famille de rôles pure (cabinet ou portail, ce dernier avec un
+  rattachement actif à un client actif), et les super admins `est_demo` ET `actif` (au plus 20) ; un
+  cabinet réel et un super admin réel ne sont jamais listés ni connectables sans mot de passe. L'API ne pose
+  jamais `est_demo` : la colonne est réservée au propriétaire par déclencheur et posée par le seed
+  (`db/seed-defaut.ts`) ou, pour un cabinet créé par un super admin de démonstration, par les fonctions
+  `plateforme_*` (bac à sable ci-dessous). `GET /api/auth/demo` (publique, sans cache) n'expose que
+  l'identifiant du cabinet, les e-mails, noms et rôles, jamais un identifiant d'utilisateur ni un haché.
+  `POST /api/auth/demo/connexion` et `/connexion-plateforme` réservent d'abord une tentative du limiteur
+  `connexion` (clés `demo:<e-mail>` et `demo-plateforme:<e-mail>`), répondent le même 401
+  `COMPTE_DEMO_INCONNU` pour tout compte hors liste, et **ne contournent jamais la 2FA** : 403
+  `CONNEXION_RAPIDE_2FA` si la 2FA est active ou obligatoire (politique du cabinet, du portail ou
+  `TOTP_REQUIS=oui`, qui rend donc les comptes de démonstration inconnectables en un clic). **La liste n'affiche plus ces comptes** (`0583`, lot 5) : `demo_lister_comptes` écarte, par la fonction interne `demo_tfa_bloquante`, les comptes dont la 2FA est active, ou obligatoire pour leurs rôles (cabinet) ou pour le portail ; la route `GET /api/auth/demo` écarte en plus TOUS les comptes quand `TOTP_REQUIS=oui` (plancher lu dans `routes/connexion-demo-public.ts`, variable de l'API que SQL ne connaît pas). Seule la liste filtre : `demo_trouver_compte` est inchangée, donc un compte non listé mais connu reste refusé en 403 `CONNEXION_RAPIDE_2FA` (et non 401). « Listé implique trouvable », la réciproque est fausse ; les bornes (50 comptes par cabinet) s'appliquent avant ce filtre. La session
+  de cabinet est ouverte comme `POST /connexion` (session hachée, cookie httpOnly, audit `connexion` avec
+  `demo: true`) ; celle de plateforme par `demo_ouvrir_session_plateforme` (ligne verrouillée, deux lignes
+  `connexion` dans `journal_plateforme`, la seconde avec `demo: true`). **Refus du mot de passe public** :
+  un super admin de démonstration a un mot de passe qui est une constante du dépôt ; `POST
+  /api/plateforme/connexion` le refuse (même 401 uniforme) tant que `demoConnexionActive` est faux
+  (`demo_super_admin_est_demo`, `0581`) : un serveur qui quitte la démonstration ne garde pas de super
+  admin ouvert. **Le super admin de démonstration est un bac à sable** (`0582`) : il ne voit et ne crée que
+  des cabinets `est_demo` (les autres répondent MQP02, comme un cabinet inconnu, sans verrou posé sur le
+  cabinet réel) ; il ne crée un compte qu'avec une adresse en `.test` (sinon MQP04 avant toute lecture des
+  comptes : les e-mails sont uniques sur toute la plateforme, une adresse réelle serait sinon un oracle
+  d'existence) ; plafonds durs de 30 cabinets `est_demo` dans toute la base (semis compris) et de 40 comptes
+  par cabinet de démonstration, contrôlés sous verrou consultatif ; un cabinet qu'il crée naît `est_demo`
+  (c'est la SEULE voie de l'application qui pose le drapeau). Un super admin réel garde le comportement
+  de `0573`, sans plafond ni contrainte d'adresse. Le web (`app/connexion/`, `lib/demo-connexion.ts`) lit
+  la liste côté serveur et n'affiche le bloc que sur une réponse 200 ; la console est `/plateforme`. Le
+  seed de démonstration publique (`seed-defaut.ts --confirmer-demo`) retire toute configuration SMTP et
+  neutralise les jobs qu'il crée (§15). Risques : §15. Tests : `connexion-demo.test.ts`,
+  `demo-routes.test.ts`, `demo-sql.test.ts`, `demo-plateforme-motdepasse.test.ts`,
+  `plateforme-bac-a-sable.test.ts`, `seed-defaut.test.ts`, `config.test.ts`.
 
 ## 4. Isolation entre cabinets et cloisonnement des données
 
@@ -330,6 +379,26 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   deux de plus avec l'observatoire (§5 sexies) : `obs_agregats` (`0472`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `EXECUTE` retiré à `PUBLIC`)
   et `obs_adhesion_active` (`0470`, fonction d'INVOCATEUR, sans `SECURITY DEFINER`, `search_path` figé, `EXECUTE` retiré à `PUBLIC` ; deux de plus avec le lot 4c : `planifier_conservation_ia`, redéfinie en `0278` (nouvelle ligne `GRANT`),
   et `planifier_avancement_hebdo`, `0308`).
+  Plateforme et démonstration (chantier du 2026-10-23, `0570`–`0583`), toutes `SECURITY DEFINER`,
+  `search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE` accordé à `missionpilot_app`
+  (7 lignes `GRANT EXECUTE` de plus : `0570`, `0572`, `0573`, `0580`, `0581`, `0582`, `0583`) : `trouver_connexion` et
+  `resoudre_session` REDÉFINIES par `0570` (mêmes signatures et colonnes ; un compte n'est actif que si son cabinet
+  l'est : `u.actif AND c.actif`) ; `0572` : `plateforme_trouver_connexion`, `plateforme_ouvrir_session`,
+  `plateforme_echec_connexion`, `plateforme_resoudre_session`, `plateforme_fermer_session` ; `0573` :
+  `plateforme_lister_cabinets`, `plateforme_creer_cabinet`, `plateforme_modifier_cabinet`,
+  `plateforme_lister_utilisateurs`, `plateforme_creer_utilisateur`, `plateforme_modifier_utilisateur` (redéfinies
+  à l'identique de signature par `0582`, qui reconduit les `GRANT`) : ce sont les 11 fonctions `plateforme_*`
+  accordées ; `0580` : `demo_lister_comptes`, `demo_lister_super_admins`, `demo_trouver_compte`,
+  `demo_ouvrir_session_plateforme` ; `0581` : `demo_super_admin_est_demo` ; `0583` REDÉFINIT `demo_lister_comptes` (même signature, `GRANT` reconduit) et ajoute la fonction interne `demo_tfa_bloquante` (invocateur, appelée depuis `demo_lister_comptes`, `REVOKE ALL … FROM PUBLIC`, NON accordée). Fonctions internes NON accordées
+  (elles ne s'exécutent que dans une fonction `SECURITY DEFINER`, avec les droits du propriétaire) :
+  `plateforme_roles_cabinet`, `plateforme_session_verifiee`, `plateforme_exiger_nom`, `_email`, `_pays`, `_hash`,
+  `_roles`, `plateforme_journaliser`, `plateforme_journal_cabinet`, `plateforme_retirer_consentements`,
+  `plateforme_admin_demo`, `plateforme_cabinet_visible`, `demo_roles_client`, `demo_comptes_ouvrables`, `demo_tfa_bloquante`,
+  `cabinets_garder_etat_plateforme` et `journal_plateforme_ajout_seul` (déclencheurs). Les tables `super_admins`,
+  `plateforme_sessions` et `journal_plateforme` n'ont AUCUN droit pour le rôle applicatif (ni sur leur séquence).
+  `cabinets.actif` et `cabinets.est_demo` ne se modifient que par le propriétaire des tables (déclencheur
+  `cabinets_etat_plateforme_maj`, 42501 pour le rôle applicatif, y compris par une route de cabinet détournée) ou
+  par ces fonctions. Total reproductible : `rg -n "GRANT EXECUTE" apps/api/migrations` rend 42 lignes au 2026-10-23.
   Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
   d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
@@ -912,7 +981,7 @@ pas la séparation des tâches.
   groupes et filiales (`0225`, §8 quater), `MQL` plans stratégiques (§5 bis), `MQN` notation (déclaré, aucun
   code employé), `MQK` capitalisation (efficacité des recommandations et observatoire, §5 sexies), `MQA`
   veille des appels d'offres (§6) `MQV` services candidats (§8 decies), `MQI` IA (cache, revue contradictoire, §7 bis), `MQU` rapport d'avancement
-  hebdomadaire (§5 octies) et `MQG` ingestion de documents (`0521` et `0522`, §8 undecies). Table des codes de ce paragraphe et
+  hebdomadaire (§5 octies) `MQG` ingestion de documents (`0521` et `0522`, §8 undecies) et `MQP` plateforme (`0570` à `0582`, §6). Table des codes de ce paragraphe et
   du STD-11 (les codes d'API sont ceux des routes ; codes `MQD`, `MQF`, `MQL` : §6) :
 
   | SQLSTATE | Code d'API                     | HTTP | Sens                                                               |
@@ -1473,6 +1542,7 @@ VALIDÉ est visible du client.
   | `MQA01-05` | veille des appels d'offres (AO-01) : historique en ajout seul (`MQA01`), transition de statut d'un résultat (`MQA02`), plafond de 5 000 résultats par cabinet (`MQA03`), plafond de 500 occurrences par résultat (`MQA04`), décision incohérente avec l'état du résultat (`MQA05`) ; table en §5 ter ; `MQA06` et suivants libres | `0364`–`0367` |
   | `MQV01-02` | services candidats (lot 7, §8 decies) : identité d'un guichet figée (`MQV01`), plafond de 500 guichets par cabinet sous verrou consultatif (`MQV02`) ; table en §5 ter ; `MQV03` et suivants libres | `0563` |
   | `MQG01-03` | ingestion de documents (lot 6, §8 undecies) : transition de statut ou identité d'un document, suppression, document terminé figé hors relance et datation de la purge du texte (`MQG01`) ; extraction : machine à états, séparation des tâches (le valideur n'est ni l'auteur du téléversement, ni le demandeur de la lecture, ni le dernier modificateur, sauf associé), identité figée (`MQG02`) ; version cible d'un amorçage qui n'est pas un brouillon du cabinet (`MQG03`) ; table en §5 ter ; `MQG04` et suivants libres | `0521`, `0522` |
+  | `MQP01-06` | plateforme, super admin (chantier du 2026-10-23, §3) : `MQP01` session de plateforme invalide ou expirée, ou super admin inactif (401 `NON_AUTHENTIFIE`) ; `MQP02` cabinet introuvable, aussi pour un cabinet réel vu par un super admin de démonstration (404) ; `MQP03` utilisateur introuvable dans ce cabinet ou compte du portail client (404) ; `MQP04` paramètre invalide (400 `REQUETE_INVALIDE` ; en démonstration, adresse hors `.test` ou plafond de 30 cabinets / 40 comptes, indice stable traduit en message fixe) ; `MQP05` le cabinet n'aurait plus d'associé actif (409 `DERNIER_ASSOCIE`) ; `MQP06` `journal_plateforme` en ajout seul (UPDATE, DELETE, TRUNCATE) ; l'e-mail déjà pris reste une violation d'unicité 23505 (409) ; `MQP07` et suivants libres | `0570`–`0573`, `0582` |
 
   Ajout seul par `REVOKE UPDATE, DELETE` (ou `DELETE` seul), entre autres :
   fichiers, révisions et suppressions de commentaires (`0070`, `0074`),
@@ -2251,7 +2321,11 @@ du stockage (§8 bis).
   délai de 30 s (504), fermeture bornée puis SIGKILL ; au plus 2 rendus
   simultanés et 1 par cabinet (503 `RENDU_OCCUPE`). Navigateur = `CHROMIUM_PATH`
   (absolu, vérifié au démarrage) ou, en développement Windows seulement, Chrome
-  installé ; sinon PDF indisponible (503). Aucun `--no-sandbox` n'est passé.
+  installé ; sinon PDF indisponible (503). Aucun `--no-sandbox` n'est passé : la sandbox
+  de Chromium reste active, y compris en conteneur de production, grâce au profil seccomp dédié
+  `deploy/seccomp-chromium.json` (profil par défaut de Docker plus `clone` et `unshare` pour les seuls drapeaux
+  `CLONE_NEWUSER`, `CLONE_NEWPID` et `CLONE_NEWNET`, sans `privileged`, `cap_add` ni `seccomp=unconfined`) ; elle
+  suppose un noyau d'hôte qui autorise les espaces de noms utilisateur (`DEPLOIEMENT.md`, « Limites connues »).
 - **Conservation** (`0132`, `rapports/purge.ts`) : le fichier d'un rapport est
   purgé au-delà de `rapports_parametres.conservation_jours` (1 095 jours par
   défaut, 90 à 3 650 par cabinet) par le job `purge_rapports` (un par cabinet et
@@ -3361,6 +3435,11 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
 - **Connexion rapide de démonstration** : `CONNEXION_RAPIDE_DEMO` (`oui` ou
   `non`, défaut `non`) ; `oui` refusé au démarrage hors `NODE_ENV` local avec
   bases locales (§3).
+- **Démonstration publique** : `DEMO_PUBLIQUE` (`oui` ou `non`, défaut `non`) ; `oui` est admis dans tout
+  `NODE_ENV`, production comprise (c'est son but) et journalise `AVERTISSEMENT_DEMO_PUBLIQUE` hors développement
+  local ; à n'activer que sur un serveur de démonstration sans donnée réelle (§3, §15). Les mots de passe des
+  comptes de démonstration (cabinet et super admin de démonstration) sont des constantes PUBLIQUES du dépôt.
+  Jamais posée par la CI.
 - **Côté web** : seule `API_URL` est lue (`next.config.mjs`,
   `lib/api-serveur.ts`), sans secret ; aucune variable `NEXT_PUBLIC_*`. Le
   navigateur n'atteint l'API que par `/api/*` relayé sur l'origine du web, de
@@ -3533,11 +3612,11 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Pas d'en-têtes de sécurité sur les réponses JSON de l'API (ni HSTS, ni CSP du web, hors document de facture et fichiers) ; l'API n'est pas censée être exposée directement | `app.ts`, `apps/web/next.config.mjs`                                      |
 | Pas de limitation de débit générale par IP (X-Forwarded-For falsifiable, l'API voit l'IP du relais web)                                         | `auth/limiteur.ts` (en-tête)                                              |
 | Limiteur par e-mail : un tiers qui connaît seulement l'e-mail peut bloquer la connexion de son titulaire ; parade = déblocage par `cabinet.gerer` | `auth/limiteur.ts`, `routes/limiteur-admin.ts`                            |
-| Connexion rapide de démonstration : avec `CONNEXION_RAPIDE_DEMO=oui`, quiconque atteint l'API locale ouvre sans secret la session d'un compte de démo sans 2FA (associé compris, ou compte client du portail de démonstration) ; acceptable sur un poste de développement seulement ; un serveur dont `NODE_ENV` serait local et la base sur la même machine passerait la garde | `routes/connexion-demo.ts`, `config.ts` (`connexionRapideDemoActive`) |
+| Connexion rapide de démonstration LOCALE (routes historiques ; la démonstration publique est décrite par les lignes suivantes) : avec `CONNEXION_RAPIDE_DEMO=oui`, quiconque atteint l'API locale ouvre sans secret la session d'un compte de démo sans 2FA (associé compris, ou compte client du portail de démonstration) ; acceptable sur un poste de développement seulement ; un serveur dont `NODE_ENV` serait local et la base sur la même machine passerait la garde | `routes/connexion-demo.ts`, `config.ts` (`connexionRapideDemoActive`) |
 | `mot_de_passe_hash` lisible par le rôle applicatif (reconfirmation d'identité) ; atténué dans le portail par la politique `portail` des utilisateurs | `migrations/0114_portail_rls_complements.sql`                             |
 | IA : masquage limité aux termes déclarés et aux formats connus ; garde-chiffres aveugle aux nombres en lettres ; clause « pas d'entraînement » à vérifier par modèle | `ia/masquage.ts`, `ia/garde-chiffres.ts`, `ia/fournisseur.ts`            |
 | Durées de conservation par défaut (texte IA 365 jours, rapports 3 ans) posées sans avis juridique ; `conservation_jours` de l'IA non exposé par l'API IA | `migrations/0104_ia_conservation.sql`, `migrations/0132_rapports_conservation.sql`, `ia/conservation.ts` |
-| Chrome headless testé seulement sous Windows ; sous Linux, la sandbox du navigateur est à prévoir (aucun `--no-sandbox`, utilisateur non root)  | `rapports/pdf.ts`                                                         |
+| Chrome headless : sous Linux en conteneur, essayé seulement sous Docker Desktop (noyau WSL2), jamais sur le serveur ; la sandbox exige le profil seccomp dédié et un noyau qui autorise les espaces de noms utilisateur (aucun `--no-sandbox`, utilisateur non root) | `rapports/pdf.ts`                                                         |
 | Réception des fichiers : la place du sémaphore (4 par instance, 2 par cabinet) n'est prise qu'après la lecture du corps ; les tampons en lecture ne sont bornés que par `fileSize` et le délai de réception de 5 min | `routes/fichiers.ts`, `app.ts` |
 | Plan partagé au client jamais servi par le portail : le partage est prêt côté cabinet, aucune route du portail ne le lit | `plans/partage.ts`, `portail/garde.ts`                                    |
 | Date d'atteinte d'un jalon non horodatée : approchée par la dernière modification (indicateur de respect des jalons)                            | `finance/indicateurs.ts`                                                  |
@@ -3598,6 +3677,18 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | OCR local, limites et qualité non établies : 30 pages x 3 images = 124 s (sous les 240 s) ; une page à 60 images décodées = `OCR_ECHEC` ; un scan A4 à 600 dpi (environ 35 Mpx) est refusé `IMAGE_TROP_GRANDE` (le client refait le scan à 300-400 dpi) ; images JPX, CCITT et JBIG2 NON testées ; la vérification de secours sur les dimensions DÉCODÉES (`ocr-processus.mjs`) n'a pu être déclenchée par aucun fichier hostile (pdf.js ramène une image menteuse aux dimensions déclarées) : défense non éprouvée ; un document mêlant pages natives et pages scannées est lu par sa seule couche texte (pas d'OCR des pages vides) ; un scan négatif est vu comme une page sans encre ; la qualité sur de VRAIES liasses SYSCOHADA scannées n'est pas mesurée (jeux inventés seulement) ; faux positifs possibles des corrections proposées | `ingestion/ocr-processus.mjs`, `ingestion/pdf.ts`, `test/ocr-evaluation.ts`, `packages/engines/src/ingestion/ocr-confusions.ts` |
 | Affichage, contournement `DebloqueurRendu` (lot 13a) : il masque un défaut du React embarqué par Next 15.5.28 (réveil perdu sous une frontière `Suspense`) sans le corriger ; il dépend de Resource Timing (un navigateur sans cette API garde l'écran périmé, avec les filets de `useRafraichir`) et du défaut amont (à REVOIR à chaque montée de Next ou de React) ; un blocage plus d'une seconde après la dernière réponse RSC ne serait pas rattrapé ; non mesuré sur téléphone réel, Firefox, Safari ; jusqu'à 4 rendus d'un composant vide après chaque réponse RSC. Aucun enjeu de confidentialité | `apps/web/src/components/shell/DebloqueurRendu.tsx`, `debloqueur.ts`, `docs/workflows/notes-lots/lot-13a.md` |
 | Worker de jobs, signal de réveil (lot 13b, R-08) : local au PROCESSUS (un worker dans un autre processus que l'API, ou une API sans worker, garde l'intervalle de 30 s ; un job créé hors `mettreEnFileExtraction` et `mettreEnFileStructuration` n'émet pas de signal) ; pas de réveil multi-processus (`LISTEN/NOTIFY` non fait). Limites de rendu du même lot, sans enjeu de sécurité : R-05 (largeurs minimales des 7 colonnes de l'échantillon de la revue à froid, marge de 32 px à 1036 px de viewport, à confirmer en navigateur à 768, 1036 et 1280 px) et A-09 (le bandeau de synthèse reste jusqu'au prochain clic si la grille se complète sans changer la synthèse) | `jobs/reveil.ts`, `jobs/worker.ts`, `test/jobs-reveil.test.ts`, `docs/workflows/notes-lots/lot-13b.md` |
+| Super admin de plateforme, ouverture de session sans preuve du mot de passe : `plateforme_ouvrir_session(uuid, text)` (accordée au rôle applicatif) ouvre une session sur la seule foi d'un identifiant de super admin et d'un haché de jeton ; la vérification du mot de passe est faite par l'API. Même modèle de confiance que les sessions de cabinet (`sessions`, droit d'insertion du rôle applicatif) : du SQL arbitraire du rôle applicatif, ou un identifiant de super admin connu, ouvre une session de plateforme. Parade : l'identifiant d'un super admin n'est exposé par aucune route de cabinet, la base n'est pas joignable de l'extérieur (§11), chaque ouverture est journalisée | `migrations/0572_plateforme_sessions.sql`, `routes/plateforme.ts` |
+| Super admin de plateforme, SANS 2FA ni réinitialisation de mot de passe : un mot de passe volé ou deviné (10 essais par 15 minutes et par adresse, hachage scrypt) ouvre toute la console (créer un cabinet et son premier associé, désactiver un cabinet, créer des comptes avec un rôle d'associé). Aucun outil de changement ni de réinitialisation du mot de passe : seule une écriture SQL au rôle propriétaire le change. À traiter avant d'ouvrir la console à plusieurs opérateurs (lot de suite : 2FA du super admin, DECISIONS.md) | `routes/plateforme.ts`, `db/creer-super-admin.ts`, migration `0571` |
+| Journal de la plateforme (`journal_plateforme`) qui peut se remplir : en ajout seul même pour le propriétaire (`MQP06`), sans purge ni plafond ; chaque connexion réussie (deux lignes pour une connexion de démonstration) et chaque échec d'un super admin connu y ajoute une ligne, et la connexion de démonstration, qui libère son compteur de limiteur à chaque réussite, peut être répétée sans limite. Croissance lente en usage normal, rapide sous abus ; vidage ou archivage par SQL propriétaire seulement (désactiver le déclencheur est une opération de maintenance) | `migrations/0571_plateforme_tables.sql`, `migrations/0580_demo_connexion.sql` |
+| Limiteur partagé par e-mail (plateforme et démonstration) : les clés `plateforme:<e-mail>`, `demo:<e-mail>` et `demo-plateforme:<e-mail>` sont dans l'espace `connexion` (10 essais par fenêtre glissante de 15 minutes). Un tiers qui connaît l'adresse d'un super admin, ou du super admin de démonstration (publique), peut le bloquer 15 minutes en insistant (sur la démonstration publique : bloquer l'écran « un clic » du super admin) ; AUCUN outil de déblocage pour les super admins (`debloquer-connexion` ne vise que les utilisateurs d'un cabinet) : attendre la fin de la fenêtre ou effacer la ligne par SQL propriétaire | `routes/plateforme.ts`, `routes/connexion-demo-public.ts`, `auth/limiteur.ts` |
+| Cabinet désactivé (`cabinets.actif = false`) : la connexion et les sessions de ses comptes sont coupées (`trouver_connexion`, `resoudre_session`, `0570`), MAIS d'autres chemins ne regardent pas `cabinets.actif` : `resoudre_invitation` et `resoudre_invitation_portail` (une invitation en attente reste acceptable, le compte créé ne peut toutefois pas ouvrir de session), les jobs planifiés par cabinet (`planifier_*` : brief, relances, avancement hebdomadaire ; rien n'exclut un cabinet désactivé, donc des jobs, et des e-mails, restent possibles), les webhooks des canaux (WhatsApp, résolus par le compte du canal) et la 2FA (`resoudre_defi_2fa`). Lot de suite à planifier : faire tenir compte de `cabinets.actif` à chacun, et à tout nouveau chemin d'authentification | `migrations/0570_plateforme_cabinets.sql`, `migrations/0001_socle.sql`, `migrations/0030_temps.sql`, `migrations/0050_double_authentification.sql`, `routes/canaux-webhook.ts` |
+| Démonstration publique vandalisable : avec `DEMO_PUBLIQUE=oui`, tout visiteur connecte un compte de démonstration SANS mot de passe, y compris un associé du cabinet semé : il peut renommer ou désactiver le cabinet de démonstration, désactiver ses comptes, changer leurs mots de passe ou y créer des données. Le super admin de démonstration peut désactiver tout cabinet `est_demo`. Les plafonds du bac à sable (30 cabinets, 40 comptes par cabinet) sont PERMANENTS : une fois atteints par des créations de visiteurs, plus rien ne se crée tant que quelqu'un ne supprime pas des cabinets par SQL propriétaire. Aucune remise à zéro automatique (DEPLOIEMENT : à faire par SQL, script à prévoir). N'activer que sur un serveur de démonstration sans donnée réelle | `routes/connexion-demo-public.ts`, `migrations/0582_plateforme_bac_a_sable_demo.sql`, `db/seed-defaut.ts` |
+| Compte du super admin de démonstration partagé : tous les visiteurs de la démonstration publique utilisent le MÊME compte, donc la même limite de 20 sessions de plateforme (la plus ancienne est fermée à la 21e ouverture : une session de démonstration peut être coupée par un autre visiteur) et le même compteur du limiteur (10 essais ratés en 15 minutes bloquent la démonstration pour tous) ; son mot de passe est une constante du dépôt, refusé hors démonstration (`demo_super_admin_est_demo`) | `migrations/0572_plateforme_sessions.sql`, `migrations/0581_demo_super_admin_mot_de_passe.sql`, `routes/plateforme.ts` |
+| Adresses en `.test` de la démonstration : le bac à sable n'accepte que des adresses `.test` (TLD réservé, RFC 2606), mais cette règle est une convention : si quelqu'un crée à la main, par SQL ou par un super admin réel, un compte réel sous une adresse `.test`, ou une adresse `.test` routée en interne, un visiteur de la démonstration pourrait se connecter à son compte s'il est dans un cabinet `est_demo`. Les e-mails `.test` ne doivent JAMAIS être de vrais comptes ; le marquage `est_demo` d'un cabinet est la seule frontière | `migrations/0582_plateforme_bac_a_sable_demo.sql`, `db/seed-defaut.ts` |
+| E-mails de la démonstration : un visiteur qui invite un utilisateur ou déclenche une notification dans un cabinet de démonstration crée un job `envoyer_email` vers une adresse `.test`, que le worker du serveur envoie par le VRAI SMTP s'il est configuré (rebond, réputation de l'expéditeur, fuite de contenu vers un domaine inexistant). Seul le seed de démonstration publique est neutralisé (ligne suivante) ; le trafic des visiteurs ne l'est pas. À régler avant d'ouvrir la démonstration : SMTP absent ou muet sur le serveur de démonstration (DEPLOIEMENT : SMTP provisoire `smtp.invalid`) | `db/seed-demo.ts` (`neutraliserEnvois`), `notifications/mailer.ts`, `jobs/worker.ts` |
+| Jobs du seed en démonstration publique neutralisés : `neutraliserEnvois` passe en `echec` (charge effacée) TOUT job `en_attente` créé par une transaction du seed, pas seulement les e-mails ; les écrans de démonstration (jobs, notifications, suivi des envois) peuvent donc afficher des jobs en échec « Neutralisé : seed de démonstration publique. » et un envoi attendu n'a jamais lieu | `db/seed-demo.ts`, `db/seed-defaut.ts` |
+| Retrait du consentement d'un compte désactivé par la plateforme : la désactivation d'un compte retire ses consentements de canaux ; la contrainte du schéma `0541` exige un acteur hors STOP, et aucun membre du cabinet n'est à l'origine, donc l'acteur enregistré est le compte désactivé LUI-MÊME. L'origine réelle (le super admin) figure dans `journal_audit` du cabinet (`plateforme.utilisateur_modification`, `super_admin_id` dans `details`) et dans `journal_plateforme` | `migrations/0573_plateforme_operations.sql` (`plateforme_retirer_consentements`), `migrations/0541_canaux_destinataires_consentements.sql` |
+| `est_demo` posé par la plateforme : la colonne n'est modifiable que par le propriétaire des tables, mais les fonctions `SECURITY DEFINER` `plateforme_creer_cabinet` (`0582`) la posent à vrai pour tout cabinet créé par un super admin de démonstration (exception unique à « aucune fonction ne pose `est_demo` »). Si un super admin RÉEL était marqué `est_demo` par erreur, il deviendrait connectable sans mot de passe dès `DEMO_PUBLIQUE=oui` (en bac à sable) et les cabinets qu'il créerait seraient des cabinets de démonstration : le marquage d'un super admin ne se fait que par `db/seed-defaut.ts` (qui refuse d'en marquer un existant) | `migrations/0570_plateforme_cabinets.sql`, `migrations/0582_plateforme_bac_a_sable_demo.sql` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 

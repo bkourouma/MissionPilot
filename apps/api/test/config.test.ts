@@ -3,7 +3,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   baseLocale,
+  AVERTISSEMENT_DEMO_PUBLIQUE,
   connexionRapideDemoActive,
+  demoConnexionActive,
+  demoPubliqueHorsLocal,
   dossierStockage,
   loadConfig,
 } from "../src/config.js";
@@ -131,6 +134,83 @@ describe("configuration : connexion rapide de démonstration (sans mot de passe)
       connexionRapideDemoActive({ ...base, DATABASE_OWNER_URL: DISTANTE.DATABASE_OWNER_URL }),
     ).toBe(false);
     expect(connexionRapideDemoActive({ ...base, CONNEXION_RAPIDE_DEMO: "non" })).toBe(false);
+  });
+});
+
+describe("configuration : démonstration publique (DEMO_PUBLIQUE)", () => {
+  const LOCALE = {
+    DATABASE_OWNER_URL: "postgres://missionpilot_owner:x@127.0.0.1:55440/mp",
+    DATABASE_URL: "postgres://missionpilot_app:x@localhost:55440/mp",
+  };
+  const REFUS = /CONNEXION_RAPIDE_DEMO=oui est réservé au développement local/;
+
+  it("désactivée par défaut ; valeurs invalides refusées", () => {
+    const c = loadConfig({});
+    expect(c.DEMO_PUBLIQUE).toBe("non");
+    expect(demoConnexionActive(c)).toBe(false);
+    expect(demoPubliqueHorsLocal(c)).toBe(false);
+    for (const valeur of ["Oui", "OUI", "1", "true", "yes"]) {
+      expect(() => loadConfig({ DEMO_PUBLIQUE: valeur })).toThrow();
+    }
+  });
+
+  it("« oui » accepté en production et avec base distante, sans CONNEXION_RAPIDE_DEMO", () => {
+    const prod = loadConfig({ ...PROD, DEMO_PUBLIQUE: "oui" });
+    expect(prod.DEMO_PUBLIQUE).toBe("oui");
+    expect(prod.CONNEXION_RAPIDE_DEMO).toBe("non");
+    const distante = loadConfig({ ...PROD, ...DISTANTE, DEMO_PUBLIQUE: "oui" });
+    expect(distante.DEMO_PUBLIQUE).toBe("oui");
+  });
+
+  it("CONNEXION_RAPIDE_DEMO=oui hors local reste refusé, même avec DEMO_PUBLIQUE=oui", () => {
+    expect(() =>
+      loadConfig({ ...PROD, CONNEXION_RAPIDE_DEMO: "oui", DEMO_PUBLIQUE: "oui" }),
+    ).toThrow(REFUS);
+    expect(() =>
+      loadConfig({
+        ...PROD,
+        ...LOCALE,
+        CONNEXION_RAPIDE_DEMO: "oui",
+        DEMO_PUBLIQUE: "oui",
+      }),
+    ).toThrow(REFUS);
+  });
+
+  it("table de vérité de demoConnexionActive et demoPubliqueHorsLocal", () => {
+    const local = loadConfig({});
+    const cas = [
+      // [configuration, demoConnexionActive, demoPubliqueHorsLocal]
+      ["aucun", local, false, false],
+      ["local + rapide", { ...local, CONNEXION_RAPIDE_DEMO: "oui" as const }, true, false],
+      ["local + publique", { ...local, DEMO_PUBLIQUE: "oui" as const }, true, false],
+      ["production + aucun", loadConfig(PROD), false, false],
+      ["production + publique", loadConfig({ ...PROD, DEMO_PUBLIQUE: "oui" }), true, true],
+      [
+        "production + rapide (construite sans loadConfig)",
+        { ...loadConfig(PROD), CONNEXION_RAPIDE_DEMO: "oui" as const },
+        false,
+        false,
+      ],
+      [
+        "base distante + publique",
+        { ...local, ...DISTANTE, DEMO_PUBLIQUE: "oui" as const },
+        true,
+        true,
+      ],
+    ] as const;
+    for (const [nom, config, active, horsLocal] of cas) {
+      expect(demoConnexionActive(config), nom).toBe(active);
+      expect(demoPubliqueHorsLocal(config), nom).toBe(horsLocal);
+    }
+    // La connexion rapide seule reste gardée par ses propres règles.
+    expect(connexionRapideDemoActive({ ...loadConfig(PROD), CONNEXION_RAPIDE_DEMO: "oui" })).toBe(
+      false,
+    );
+  });
+
+  it("le message d'avertissement nomme la variable", () => {
+    expect(AVERTISSEMENT_DEMO_PUBLIQUE).toContain("DEMO_PUBLIQUE");
+    expect(AVERTISSEMENT_DEMO_PUBLIQUE).toContain("SANS mot de passe");
   });
 });
 

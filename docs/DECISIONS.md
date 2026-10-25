@@ -1132,3 +1132,27 @@ CSS (`qualite-froide-css.test.ts`) existe ; le rendu est **à confirmer en navig
 - **A-09, limite connue (à arbitrer)** : si la grille se complète sans que la synthèse change et sans clic sur
   « Terminer », le bandeau de synthèse reste jusqu'au prochain clic. Aucune correction : cosmétique, sans perte de
   donnée ; **à arbitrer par l'utilisateur**.
+
+## Super admin de plateforme et démonstration publique (2026-10-23)
+
+Statut : **DÉCIDÉ par l'utilisateur le 2026-10-23** (demande du chantier « super admin, tenants et connexion de démonstration »,
+suivi `.orchestration/2026-10-23-super-admin/suivi.md`) ; les hypothèses H1, H2 et H3 ci-dessous sont **à valider**. Mécanismes :
+`docs/governance/SECURITY.md` §3, §4 et §15 ; migrations `0570–0573` et `0580–0582`.
+
+- **Super admin de plateforme** : opérateur hors cabinet, qui crée les tenants (cabinets) et leurs comptes, désactive un cabinet ou
+  un compte, sans jamais lire de donnée métier. Compte et session propres (`mp_plateforme`), console `/plateforme`, journal d'audit
+  de la plateforme. Le premier super admin se crée par script au rôle propriétaire (aucune route). Pas de 2FA ni de
+  réinitialisation de mot de passe pour lui (risque déclaré, lot de suite).
+- **Démonstration publique** : interrupteur explicite `DEMO_PUBLIQUE=oui`, jamais posé par la CI. Connexion « un clic » sans mot de
+  passe UNIQUEMENT pour les cabinets et super admins marqués `est_demo`, jamais pour un compte à 2FA active ou obligatoire.
+  Le super admin de démonstration est un bac à sable (cabinets de démonstration seulement, adresses `.test`, 30 cabinets et 40
+  comptes par cabinet au plus). Écran web : `/connexion` (choix du super admin ou d'un cabinet, puis d'un compte).
+- **H1** : la connexion « un clic » existe sur le site déployé, derrière `DEMO_PUBLIQUE=oui` posée par l'utilisateur sur le serveur.
+- **H2** : le super admin ne gère pas les comptes du portail client (comptes de cabinet seulement en V1 de cette fonction).
+- **H3** : le dernier associé actif d'un cabinet ne peut pas être désactivé par le super admin (409 `DERNIER_ASSOCIE`, comme pour
+  les associés d'un cabinet).
+- **Valeurs provisoires (à valider)** : session de plateforme de 8 h, 20 sessions simultanées ; plafonds du bac à sable de la
+  démonstration (30 cabinets, 40 comptes par cabinet) ; bornes de la liste de démonstration (50 cabinets, 50 comptes, 20 super
+  admins). Listes de la plateforme non paginées (peu de cabinets).
+- **Reste à décider** : sort d'un cabinet désactivé pour les invitations, jobs planifiés, webhooks et 2FA ; remise à zéro de la
+  démonstration ; 2FA du super admin ; déblocage du limiteur pour un super admin.
