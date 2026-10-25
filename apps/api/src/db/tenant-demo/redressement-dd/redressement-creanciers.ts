@@ -1,6 +1,15 @@
 import type { ContexteTenantDemo } from "../contexte.js";
 import type { Acteurs } from "./commun.js";
-import { creer, dater, debutAppel, lire, urlD, type Json } from "./redressement-outils.js";
+import {
+  ECHELLE_IDENTITE,
+  creer,
+  dater,
+  debutAppel,
+  lire,
+  urlD,
+  type Echelle,
+  type Json,
+} from "./redressement-outils.js";
 
 /*
  * Registre des créanciers, créances, négociations, accords et échéanciers (RED-12) : exécution,
@@ -8,6 +17,7 @@ import { creer, dater, debutAppel, lire, urlD, type Json } from "./redressement-
  * l'avancement des accords sont recalculés par le moteur à chaque lecture. Les événements sont
  * joués dans l'ordre chronologique, chacun avec la session d'un compte de l'équipe, et antidatés à
  * leur jour ; un paiement reprend le montant de l'échéance visée (jamais un montant inventé).
+ * Les montants des définitions sont en XOF ; `echelle` les convertit vers la devise du dossier.
  */
 
 export type Equipier = keyof Acteurs;
@@ -64,6 +74,7 @@ export async function creerCreanciers(
   a: Acteurs,
   dossierId: string,
   defs: readonly CreancierDef[],
+  echelle: Echelle = ECHELLE_IDENTITE,
 ): Promise<void> {
   const existants = await listeCreanciers(a, dossierId);
   for (const d of defs) {
@@ -77,8 +88,8 @@ export async function creerCreanciers(
         categorie: d.categorie,
         garanti: d.garanti,
         ...(d.reference ? { reference: d.reference } : {}),
-        principal: d.principal,
-        interets: d.interets,
+        principal: echelle(d.principal),
+        interets: echelle(d.interets),
         date_arrete: d.arrete,
         ...(d.echeanceInitiale ? { echeance_initiale: d.echeanceInitiale } : {}),
         nature: d.nature,
@@ -89,7 +100,7 @@ export async function creerCreanciers(
   }
 }
 
-function corpsEvenement(e: EvenementDef, accord: Json | null): Json {
+function corpsEvenement(e: EvenementDef, accord: Json | null, echelle: Echelle): Json {
   const base = { type: e.type, date_evenement: e.jour };
   switch (e.type) {
     case "accord": {
@@ -97,7 +108,7 @@ function corpsEvenement(e: EvenementDef, accord: Json | null): Json {
       if (!ech || e.montant === undefined) throw new Error("Accord sans échéancier ni montant.");
       return {
         ...base,
-        montant: e.montant,
+        montant: echelle(e.montant),
         ...(e.conditions ? { conditions: e.conditions } : {}),
         echeancier:
           ech.mode === "regulier"
@@ -107,7 +118,10 @@ function corpsEvenement(e: EvenementDef, accord: Json | null): Json {
                 date_premiere: ech.premiere,
                 periodicite_mois: ech.periodiciteMois,
               }
-            : { mode: "explicite", lignes: ech.lignes },
+            : {
+                mode: "explicite",
+                lignes: ech.lignes.map((x) => ({ date: x.date, montant: echelle(x.montant) })),
+              },
       };
     }
     case "paiement": {
@@ -130,7 +144,7 @@ function corpsEvenement(e: EvenementDef, accord: Json | null): Json {
     default:
       return {
         ...base,
-        ...(e.montant !== undefined ? { montant: e.montant } : {}),
+        ...(e.montant !== undefined ? { montant: echelle(e.montant) } : {}),
         ...(e.conditions ? { conditions: e.conditions } : {}),
       };
   }
@@ -147,6 +161,7 @@ export async function jouerEvenements(
   defs: readonly CreancierDef[],
   apres: string,
   jusquau: string,
+  echelle: Echelle = ECHELLE_IDENTITE,
 ): Promise<void> {
   const ids = await listeCreanciers(a, dossierId);
   const aJouer = defs.flatMap((d) =>
@@ -165,8 +180,8 @@ export async function jouerEvenements(
         a[e.par],
         `/api/redressement/creanciers/${id}/creances`,
         {
-          principal: c.principal,
-          interets: c.interets,
+          principal: echelle(c.principal),
+          interets: echelle(c.interets),
           date_arrete: c.arrete,
           nature: d.nature,
           commentaire: c.commentaire,
@@ -184,7 +199,7 @@ export async function jouerEvenements(
     await creer(
       a[e.par],
       `/api/redressement/creanciers/${id}/evenements`,
-      corpsEvenement(e, detail),
+      corpsEvenement(e, detail, echelle),
       `événement ${e.type} ${d.nom}`,
     );
     await dater(ctx, dossierId, debut, e.jour, "red_negociation_evenements");
