@@ -5,10 +5,13 @@ import { attendre, type ContexteTenantDemo } from "../contexte.js";
 import { chargerMissions, type ModuleLot } from "./commun.js";
 import { exigerSansCle, instant } from "./ia-aide.js";
 import { CONSIGNES, PROMPTS_CABINET, TEXTES_ESSAI, TEXTES_RELECTURE } from "./ia-donnees.js";
-import { semerHistorique } from "./ia-historique.js";
+import { completerConsommations, semerHistorique } from "./ia-historique.js";
 import { etatContenu, relectures } from "./ia-relectures.js";
 
 /*
+ * COÛTS SIMULÉS DE DÉMONSTRATION, AUCUN APPEL RÉEL : sans clé fournisseur, les consommations IA sont
+ * inscrites à titre de démonstration (voir ia-historique.ts), une par demande terminée.
+ *
  * Module « ia » : paramètres IA du cabinet, prompts, historique de générations, relectures
  * récentes et coûts. Aucune clé fournisseur, aucun appel réseau : l'orchestrateur retombe sur le
  * gabarit déterministe (`fournisseur = 'gabarit'`).
@@ -228,7 +231,8 @@ export const semerIa: ModuleLot = async (ctx) => {
   const r = await relectures(ctx, missions);
   await essaisRoute(ctx);
   await versionDeux(ctx);
+  const c = await completerConsommations(ctx);
   ctx.journal(
-    `ia : ${h.demandes} demande(s) historique(s), ${h.consommations} consommation(s), ${r} relecture(s) récente(s).`,
+    `ia : ${h.demandes} demande(s) historique(s), ${h.consommations + c} consommation(s) simulée(s), ${r} relecture(s) récente(s).`,
   );
 };

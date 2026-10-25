@@ -9,6 +9,7 @@ import { cloturerMissionsTerminees } from "../src/db/tenant-demo/missions/clotur
 import { semerAppelsOffresCanaux } from "../src/db/tenant-demo/phases/appels-offres-canaux.js";
 import { semerIaQualiteStandard } from "../src/db/tenant-demo/phases/ia-qualite-standard.js";
 import { semerMissions } from "../src/db/tenant-demo/phases/missions.js";
+import { coutMicroUsd } from "../src/ia/modeles.js";
 import { creerBaseJetable, supprimerBaseJetable, type BaseJetable } from "./outils-base-jetable.js";
 
 /*
@@ -18,7 +19,7 @@ import { creerBaseJetable, supprimerBaseJetable, type BaseJetable } from "./outi
  * clôture des missions terminées, revues à froid jouées deux fois.
  */
 
-/** Les 47 tables de la phase (hors revues à froid, semées après la clôture). */
+/** Les 44 tables de la phase (hors revues à froid, semées après la clôture). */
 const TABLES_PHASE = [
   // IA et copilote
   "ia_modeles_taches",
@@ -92,7 +93,49 @@ const TABLES_A_LAISSER_VIDES = [
   "autonomie_coupe_circuit",
 ] as const;
 
+/** Tables non vides avant : leur nombre de lignes ne doit pas bouger au rejeu de la phase. */
+const TABLES_IDEMPOTENCE = ["ia_demandes", "taches_collaboration", "commentaires"] as const;
+
 type Comptages = Record<string, number>;
+
+/**
+ * Chronologie : aucune ligne de la phase n'est datée APRÈS la clôture d'une mission clôturée (la
+ * clôture finale antidate cloturee_le à fin de mission + 6 jours). Chaque requête compte les
+ * lignes fautives. NB : les écritures passées par les routes portent l'horloge RÉELLE du serveur
+ * (environ une journée après « aujourd'hui » fictif) ; elles ne doivent donc concerner que des
+ * missions ouvertes, ce que cet invariant garantit. mission_methodes en est exclue : les 3 liaisons
+ * de missions terminées viennent du lot 5 (route, horloge réelle) ; la phase n'en ajoute aucune (test dédié).
+ */
+const REQUETES_CHRONOLOGIE: Record<string, string> = {
+  ia_demandes:
+    "SELECT count(*) AS n FROM ia_demandes x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.cree_le > m.cloturee_le",
+  ia_consommations:
+    "SELECT count(*) AS n FROM ia_consommations x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.cree_le > m.cloturee_le",
+  agents_executions:
+    "SELECT count(*) AS n FROM agents_executions x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.cree_le > m.cloturee_le",
+  agents_contributions:
+    "SELECT count(*) AS n FROM agents_contributions x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.cree_le > m.cloturee_le",
+  agents_plafonds_mission:
+    "SELECT count(*) AS n FROM agents_plafonds_mission x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.modifie_le > m.cloturee_le",
+  derogations:
+    "SELECT count(*) AS n FROM derogations x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.cree_le > m.cloturee_le",
+  derogation_validations:
+    "SELECT count(*) AS n FROM derogation_validations v JOIN derogations x ON x.id = v.derogation_id JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND v.cree_le > m.cloturee_le",
+  automatisation_brouillons:
+    "SELECT count(*) AS n FROM automatisation_brouillons x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.cree_le > m.cloturee_le",
+  qualite_suivis:
+    "SELECT count(*) AS n FROM qualite_suivis x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.ouvert_le > m.cloturee_le",
+  qualite_evenements:
+    "SELECT count(*) AS n FROM qualite_evenements v JOIN qualite_suivis x ON x.id = v.suivi_id JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND v.le > m.cloturee_le",
+  qualite_validations:
+    "SELECT count(*) AS n FROM qualite_validations v JOIN qualite_suivis x ON x.id = v.suivi_id JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND v.valide_le > m.cloturee_le",
+  qualite_signatures:
+    "SELECT count(*) AS n FROM qualite_signatures v JOIN qualite_suivis x ON x.id = v.suivi_id JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND v.signe_le > m.cloturee_le",
+  qualite_acceptations:
+    "SELECT count(*) AS n FROM qualite_acceptations x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.evalue_le > m.cloturee_le",
+  qualite_satisfactions:
+    "SELECT count(*) AS n FROM qualite_satisfactions x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND x.saisi_le > m.cloturee_le",
+};
 
 async function compter(ctx: ContexteTenantDemo, tables: readonly string[]): Promise<Comptages> {
   const r: Comptages = {};
@@ -123,6 +166,11 @@ let coutsAssocie = 0;
 let coutsConsultant = 0;
 let missionsCloturees = 0;
 const invariants: Record<string, number> = {};
+let jobsAvant = 0;
+let liaisonsTermineesAvant = 0;
+let liaisonsTermineesApres = 0;
+let jobsApres = 0;
+let demandesAvant: string[] = [];
 
 describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
   beforeAll(async () => {
@@ -136,11 +184,29 @@ describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
         { nom: "missions", executer: semerMissions },
         // Phase précédente de l'intégration : elle lie déjà des méthodes à 3 missions terminées.
         { nom: "appels-offres-canaux", executer: semerAppelsOffresCanaux },
+        {
+          nom: "avant-phase",
+          executer: async (ctx) => {
+            jobsAvant = await nombre(
+              ctx,
+              "SELECT count(*) AS n FROM jobs WHERE cabinet_id = $1 AND statut = 'en_attente'",
+            );
+            liaisonsTermineesAvant = await nombre(
+              ctx,
+              "SELECT count(*) AS n FROM mission_methodes x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut IN ('a_cloturer', 'cloturee')",
+            );
+            const r = await ctx.proprietaire.query(
+              "SELECT id FROM ia_demandes WHERE cabinet_id = $1",
+              [ctx.cabinetId],
+            );
+            demandesAvant = r.rows.map((x: { id: string }) => x.id);
+          },
+        },
         { nom: "ia-qualite-standard", executer: semerIaQualiteStandard },
         {
           nom: "mesure-1",
           executer: async (ctx) => {
-            apresPremier = await compter(ctx, TABLES_PHASE);
+            apresPremier = await compter(ctx, [...TABLES_PHASE, ...TABLES_IDEMPOTENCE]);
             toutesTables = await compter(ctx, TABLES_A_LAISSER_VIDES);
           },
         },
@@ -148,7 +214,78 @@ describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
         {
           nom: "mesure-2",
           executer: async (ctx) => {
-            apresSecond = await compter(ctx, TABLES_PHASE);
+            apresSecond = await compter(ctx, [...TABLES_PHASE, ...TABLES_IDEMPOTENCE]);
+            // Aucun envoi réel : la phase ne crée aucun job en attente et la règle de relance
+            // automatique du client (envoi réel) n'est jamais activée ni exécutée.
+            jobsApres = await nombre(
+              ctx,
+              "SELECT count(*) AS n FROM jobs WHERE cabinet_id = $1 AND statut = 'en_attente'",
+            );
+            // mission_methodes (ajout seul, horloge réelle de la route) : la phase ne lie aucune
+            // méthode à une mission terminée (elle serait postérieure à la clôture antidatée).
+            liaisonsTermineesApres = await nombre(
+              ctx,
+              "SELECT count(*) AS n FROM mission_methodes x JOIN missions m ON m.id = x.mission_id WHERE m.cabinet_id = $1 AND m.statut IN ('a_cloturer', 'cloturee')",
+            );
+            invariants["relance_active_ou_executee"] = await nombre(
+              ctx,
+              `SELECT (SELECT count(*) FROM automatisations
+                         WHERE cabinet_id = $1 AND nom ILIKE '%relance automatique%' AND active)
+                    + (SELECT count(*) FROM automatisation_executions x
+                         JOIN automatisations a ON a.id = x.automatisation_id
+                        WHERE x.cabinet_id = $1 AND a.nom ILIKE '%relance automatique%') AS n`,
+            );
+            invariants["relance_declaree"] = await nombre(
+              ctx,
+              "SELECT count(*) AS n FROM automatisations WHERE cabinet_id = $1 AND nom ILIKE '%relance automatique%'",
+            );
+            // Coûts IA SIMULÉS de démonstration : cohérents avec les demandes de la phase.
+            const mesDemandes = "d.cabinet_id = $1 AND d.id <> ALL($2::uuid[])";
+            const requete = async (sql: string): Promise<number> =>
+              Number((await ctx.proprietaire.query(sql, [ctx.cabinetId, demandesAvant])).rows[0].n);
+            invariants["demandes_sans_une_consommation"] = await requete(
+              `SELECT count(*) AS n FROM ia_demandes d
+                WHERE ${mesDemandes} AND d.statut = 'terminee'
+                  AND (SELECT count(*) FROM ia_consommations c WHERE c.demande_id = d.id) <> 1`,
+            );
+            invariants["consommation_autre_mission"] = await requete(
+              `SELECT count(*) AS n FROM ia_consommations c JOIN ia_demandes d ON d.id = c.demande_id
+                WHERE ${mesDemandes} AND c.mission_id IS DISTINCT FROM d.mission_id`,
+            );
+            invariants["consommation_succes_sans_demande_terminee"] = await requete(
+              `SELECT count(*) AS n FROM ia_consommations c JOIN ia_demandes d ON d.id = c.demande_id
+                WHERE ${mesDemandes} AND c.issue = 'succes' AND d.statut <> 'terminee'`,
+            );
+            invariants["consommation_test_avec_demande"] = await requete(
+              `SELECT count(*) AS n FROM ia_consommations d
+                WHERE d.cabinet_id = $1 AND $2::uuid[] IS NOT NULL
+                  AND ((d.issue = 'test') <> (d.demande_id IS NULL))`,
+            );
+            const lignes = await ctx.proprietaire.query(
+              "SELECT modele, tokens_entree, tokens_sortie, cout_micro_usd, issue FROM ia_consommations WHERE cabinet_id = $1",
+              [ctx.cabinetId],
+            );
+            invariants["consommations_total"] = lignes.rows.length;
+            invariants["cout_different_du_tarif"] = lignes.rows.filter(
+              (c: {
+                modele: string;
+                tokens_entree: number;
+                tokens_sortie: number;
+                cout_micro_usd: string;
+                issue: string;
+              }) =>
+                c.issue !== "cache" &&
+                Number(c.cout_micro_usd) !==
+                  coutMicroUsd(c.modele, c.tokens_entree, c.tokens_sortie).cout,
+            ).length;
+            invariants["mois_au_dessus_du_plafond"] = await nombre(
+              ctx,
+              `SELECT count(*) AS n FROM (
+                 SELECT date_trunc('month', c.cree_le) AS mois, sum(c.cout_micro_usd) AS total
+                   FROM ia_consommations c WHERE c.cabinet_id = $1 GROUP BY 1) t
+                WHERE t.total > (SELECT plafond_mensuel_micro_usd FROM ia_parametres_cabinet
+                                  WHERE cabinet_id = $1)`,
+            );
             // Droits FIN-02 : les coûts IA ne sont lisibles qu'avec finance.lire.
             coutsAssocie = (await ctx.session("associe").get("/api/ia/couts")).statusCode;
             coutsConsultant = (await ctx.session("consultant").get("/api/ia/couts")).statusCode;
@@ -209,6 +346,9 @@ describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
           nom: "mesure-3",
           executer: async (ctx) => {
             froidesApres = await compter(ctx, TABLES_FROIDES);
+            for (const [table, sql] of Object.entries(REQUETES_CHRONOLOGIE)) {
+              invariants[`apres_cloture_${table}`] = await nombre(ctx, sql);
+            }
             invariants["froide_relecteur_non_equipe"] = await nombre(
               ctx,
               `SELECT count(*) AS n FROM qualite_froide_echantillon e
@@ -241,7 +381,7 @@ describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
     await rm(dossier, { recursive: true, force: true });
   }, 120_000);
 
-  it("les 47 tables de la phase ne sont plus vides", () => {
+  it("les 44 tables de la phase ne sont plus vides", () => {
     const vides = TABLES_PHASE.filter((t) => !((apresPremier[t] ?? 0) > 0));
     expect(vides).toEqual([]);
   });
@@ -281,6 +421,35 @@ describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
   it("séparation des tâches : un directeur ne signe pas son propre livrable ; relecteurs à froid indépendants", () => {
     expect(invariants["signature_par_auteur"]).toBe(0);
     expect(invariants["froide_relecteur_non_equipe"]).toBe(0);
+  });
+
+  it("chronologie : aucune ligne de la phase n'est datée après la clôture de sa mission", () => {
+    const fautes = Object.fromEntries(
+      Object.keys(REQUETES_CHRONOLOGIE).map((t) => [t, invariants[`apres_cloture_${t}`]]),
+    );
+    expect(fautes).toEqual(
+      Object.fromEntries(Object.keys(REQUETES_CHRONOLOGIE).map((t) => [t, 0])),
+    );
+  });
+
+  it("la phase ne lie aucune méthode à une mission terminée (liaison postérieure à la clôture)", () => {
+    expect(liaisonsTermineesApres).toBe(liaisonsTermineesAvant);
+  });
+
+  it("aucun envoi réel : pas de job en attente créé, relance automatique jamais active", () => {
+    expect(jobsApres).toBe(jobsAvant);
+    expect(invariants["relance_declaree"]).toBeGreaterThan(0);
+    expect(invariants["relance_active_ou_executee"]).toBe(0);
+  });
+
+  it("coûts IA simulés cohérents : une consommation par demande, tarif du modèle, plafond mensuel", () => {
+    expect(invariants["consommations_total"]).toBeGreaterThan(0);
+    expect(invariants["demandes_sans_une_consommation"]).toBe(0);
+    expect(invariants["consommation_autre_mission"]).toBe(0);
+    expect(invariants["consommation_succes_sans_demande_terminee"]).toBe(0);
+    expect(invariants["consommation_test_avec_demande"]).toBe(0);
+    expect(invariants["cout_different_du_tarif"]).toBe(0);
+    expect(invariants["mois_au_dessus_du_plafond"]).toBe(0);
   });
 
   it("les coûts IA ne sont lisibles qu'avec finance.lire (FIN-02)", () => {

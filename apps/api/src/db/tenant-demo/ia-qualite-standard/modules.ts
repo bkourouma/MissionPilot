@@ -5,7 +5,6 @@ import { semerAvancement } from "./avancement.js";
 import { semerCopilote } from "./copilote.js";
 import { semerIa } from "./ia.js";
 import { semerQualite } from "./qualite.js";
-import { semerRevuesFroides } from "./qualite-froide.js";
 import { semerStandard } from "./standard.js";
 
 /*
@@ -23,10 +22,6 @@ export const MODULES = {
 } as const satisfies Record<string, ModuleLot>;
 
 /*
- * Étapes à lancer APRÈS la clôture des 5 missions terminées (fin de la phase « gestion ») : la
- * revue à froide (QUA-05) exige des missions clôturées. Non exécutées par la phase
- * « ia-qualite-standard » ; la phase « gestion » appelle `semerRevuesFroides(ctx)`.
+ * La revue à froid (QUA-05) n'est PAS dans cette liste : elle exige des missions clôturées. La
+ * phase « gestion » appelle `semerRevuesFroides(ctx)` (qualite-froide.ts) après la clôture finale.
  */
-export const MODULES_APRES_CLOTURE = {
-  "revues-froides": semerRevuesFroides,
-} as const satisfies Record<string, ModuleLot>;

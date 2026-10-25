@@ -8,9 +8,10 @@ import { methodeStandard, versionPubliee } from "./standard-aide.js";
  * variante. Le contexte est celui du dossier client (facteurs du dictionnaire) ; un contexte qui
  * active une brique de classe R2 ou R3 exige un motif : il est toujours fourni.
  *
- * Limite assumée : `mission_methodes` est en ajout seul (MPM03), les lignes portent l'horodatage
- * du seed. Les rattachements des missions terminées sont donc présentés comme une mise en
- * conformité rétroactive au référentiel de méthodes (motif), pas comme une liaison d'époque.
+ * Limite assumée : `mission_methodes` est en ajout seul (MPM03) et la route date « maintenant » ;
+ * les missions TERMINÉES (clôturées en fin de seed, antidatées) ne reçoivent donc aucune liaison
+ * ici (elle serait postérieure à leur clôture). Les liaisons des missions terminées éventuelles
+ * viennent du lot qui prépare leurs briques (capitalisation).
  */
 
 type Contexte = Record<string, string | number | boolean | string[]>;
@@ -24,85 +25,9 @@ interface Liaison {
   motif: string;
 }
 
-const RETRO =
-  "Rattachement rétroactif à la méthode lors de la mise en place du référentiel de méthodes.";
 const CADRAGE = "Méthode retenue au cadrage de la mission avec le directeur de mission.";
 
 export const LIAISONS: Liaison[] = [
-  {
-    mission: "plan-sicafe",
-    methode: "standard:plan_strategique",
-    contexte: {
-      pays: "ci",
-      zone: "uemoa",
-      secteur: "citi_a",
-      filieres: ["cacao", "cafe"],
-      agricole: true,
-      taille: "grande",
-      situation: "stabilite",
-      saisonnalite: "campagne_agricole",
-    },
-    motif: RETRO,
-  },
-  {
-    mission: "notation-sahel-coton",
-    methode: "standard:notation_entreprise",
-    contexte: {
-      pays: "ml",
-      zone: "uemoa",
-      secteur: "citi_a",
-      filieres: ["coton"],
-      agricole: true,
-      taille: "moyenne",
-      fiabilite_comptes: "reconstitues",
-      actionnariat: "cooperative",
-    },
-    motif: RETRO,
-  },
-  {
-    mission: "redressement-wouri",
-    methode: "redressement_cabinet",
-    contexte: {
-      pays: "cm",
-      zone: "cemac",
-      secteur: "citi_c",
-      filieres: ["agroalimentaire"],
-      taille: "grande",
-      situation: "difficulte",
-      fiabilite_comptes: "certifies",
-    },
-    motif: RETRO,
-  },
-  {
-    mission: "dd-mboa",
-    methode: "due_diligence_cabinet",
-    contexte: {
-      pays: "cm",
-      zone: "cemac",
-      secteur: "citi_d",
-      taille: "petite",
-      actionnariat: "startup_financee",
-      situation: "croissance",
-    },
-    motif: RETRO,
-  },
-  {
-    mission: "bp-atlantique",
-    methode: "standard:business_plan_bancable",
-    contexte: {
-      pays: "ci",
-      zone: "uemoa",
-      secteur: "citi_g",
-      taille: "grande",
-      effectif: 640,
-      situation: "croissance",
-      fiabilite_comptes: "certifies",
-      part_informel: "faible",
-      financeur: "banque",
-      actionnariat: "filiale_groupe",
-    },
-    motif: RETRO,
-  },
   {
     mission: "plan-baobab",
     methode: "plan_strategique_cabinet",

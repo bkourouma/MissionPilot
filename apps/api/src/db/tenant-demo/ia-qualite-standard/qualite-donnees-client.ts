@@ -180,8 +180,6 @@ export interface NotesSatisfaction {
   mission: CleMission;
   /** Notes des jalons dans l'ordre (les jalons sans date ou futurs sont ignorés). */
   jalons: number[];
-  /** Note de clôture (mission terminée) et correction éventuelle. */
-  cloture?: { note: number; correction?: number };
   repondant: string;
   commentaires: string[];
 }
@@ -190,7 +188,6 @@ export const SATISFACTIONS: readonly NotesSatisfaction[] = [
   {
     mission: "plan-sicafe",
     jalons: [9, 8, 9],
-    cloture: { note: 9 },
     repondant: "Kouadio Brou, directeur général de SICAFE",
     commentaires: [
       "Diagnostic très partagé par le comité de direction.",
@@ -201,7 +198,6 @@ export const SATISFACTIONS: readonly NotesSatisfaction[] = [
   {
     mission: "notation-sahel-coton",
     jalons: [8, 8],
-    cloture: { note: 8 },
     repondant: "Awa Sanogo, directrice financière de Sahel Coton",
     commentaires: [
       "Méthode de notation bien expliquée.",
@@ -211,7 +207,6 @@ export const SATISFACTIONS: readonly NotesSatisfaction[] = [
   {
     mission: "redressement-wouri",
     jalons: [7, 5, 8, 8],
-    cloture: { note: 7 },
     repondant: "Ernest Mbarga, président des Brasseries du Wouri",
     commentaires: [
       "Rythme de travail soutenu mais utile.",
@@ -223,7 +218,6 @@ export const SATISFACTIONS: readonly NotesSatisfaction[] = [
   {
     mission: "dd-mboa",
     jalons: [9, 9],
-    cloture: { note: 9 },
     repondant: "Léonie Tchakounté, directrice de Mboa Solaire",
     commentaires: [
       "Compréhension rapide de notre modèle économique.",
@@ -233,7 +227,6 @@ export const SATISFACTIONS: readonly NotesSatisfaction[] = [
   {
     mission: "bp-atlantique",
     jalons: [8, 9],
-    cloture: { note: 8, correction: 9 },
     repondant: "Samba Diop, directeur général d'Atlantique Retail",
     commentaires: ["Modèle financier solide.", "Dossier bien reçu par les banques."],
   },

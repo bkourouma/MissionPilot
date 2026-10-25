@@ -297,43 +297,5 @@ export async function semerSatisfactions(
         );
       }
     }
-    if (!s.cloture) continue;
-    const fin = CASTING[s.mission].fin;
-    const noteCloture = async (
-      rang: number,
-      note: number,
-      jours: number,
-      texte: string,
-    ): Promise<void> => {
-      if (
-        (await compterLignes(
-          ctx,
-          "SELECT count(*) AS n FROM qualite_satisfactions WHERE mission_id = $1 AND cle = 'cloture' AND rang = $2",
-          [m.id, rang],
-        )) > 0
-      )
-        return;
-      const quand = new Chrono(ajouterJours(fin, jours), alea, ctx.aujourdhui).iso();
-      await ctx.proprietaire.query(
-        `INSERT INTO qualite_satisfactions (cabinet_id, mission_id, moment, jalon_id, cle, rang, note,
-           commentaire, repondant, saisi_par, saisi_le)
-         VALUES ($1, $2, 'cloture', NULL, 'cloture', $3, $4, $5, $6, $7, $8)`,
-        [ctx.cabinetId, m.id, rang, note, texte, s.repondant, info.directeur.id, quand],
-      );
-    };
-    await noteCloture(
-      1,
-      s.cloture.note,
-      3,
-      "Bilan de fin de mission recueilli lors de la restitution finale.",
-    );
-    if (s.cloture.correction !== undefined) {
-      await noteCloture(
-        2,
-        s.cloture.correction,
-        12,
-        "Note revue à la hausse après la décision de financement des banques.",
-      );
-    }
   }
 }

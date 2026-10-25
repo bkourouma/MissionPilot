@@ -15,6 +15,7 @@ import { BRIQUES, PROMPTS_AGENTS, RESTRICTIONS, type PromptAgent } from "./agent
 import { semerExecutions } from "./agents-flux.js";
 import { semerGouvernance } from "./agents-gouvernance.js";
 import { exigerSansCle } from "./ia-aide.js";
+import { completerConsommations } from "./ia-historique.js";
 
 /*
  * Module « agents » : prompts des agents, briques et niveaux d'autonomie, jeux d'essai et
@@ -252,6 +253,7 @@ export const semerAgents: ModuleLot = async (ctx) => {
   await versionsDeux(ctx);
   await restrictions(ctx);
   const { ids, crees } = await semerExecutions(ctx, missions);
+  await completerConsommations(ctx);
   await semerGouvernance(ctx, missions, ids);
   await demandesRejeu(ctx);
   ctx.journal(`agents : ${crees} exécution(s) créée(s), ${Object.keys(ids).length} au total.`);
