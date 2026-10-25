@@ -342,8 +342,8 @@ Chantier du 2026-10-24 (décision à valider : `docs/DECISIONS.md`, « Tenant d�
 §15 ; conventions : `CODING_STANDARDS.md` §1). En plus de « Lagune Conseil & Associés (démo) », un cabinet **« Tenant démo »**
 (`cabinets.est_demo`, adresses `<clé>@tenant-demo.test`) donne l'image d'un cabinet en activité depuis plus de deux ans : activité
 d'octobre 2024 au 24 octobre 2026 (« aujourd'hui » fictif des données), 48 comptes actifs (20 cabinet, 28 portail, dont 2 à 2FA non listés), 11 missions dont 5 terminées de types
-différents (plan stratégique, notation, redressement, due diligence, business plan bancable), 3 en cours plus un diagnostic flash,
-une signée et une en préparation, et toutes les tables utiles remplies. Il est semé PAR LES VRAIES ROUTES (traçabilité, audit,
+différents (plan stratégique, notation, redressement, due diligence, business plan bancable), 4 en cours (dont un diagnostic flash),
+une signée à démarrer et une en préparation, et toutes les tables utiles remplies. Il est semé PAR LES VRAIES ROUTES (traçabilité, audit,
 moteurs de calcul) ; le SQL du rôle propriétaire ne sert qu'à antidater.
 
 **Prérequis**
@@ -370,9 +370,10 @@ pnpm --filter @missionpilot/api db:seed-tenant-demo --phase=missions           #
   « Tenant démo » partiel (incident du 2026-10-24, voir HANDOFF). Un semis se fait dans une base neuve (par exemple
   `missionpilot_demo`), jamais dans la base où l'on développe. Les variables s'exportent à CHAQUE appel du shell si l'outil ne
   conserve pas l'environnement entre deux commandes.
-- **Durée** : environ 12 minutes sur une machine de développement (mesuré le 2026-10-25 ; des milliers d'appels de routes). À lancer en
+- **Durée** : environ 12 minutes en mode normal (727 s mesurées le 2026-10-25) et 10 à 14 minutes en mode public, sur une machine de développement
+  (des milliers d'appels de routes ; la phase `gestion` en prend près de la moitié). À lancer en
   arrière-plan ou dans un terminal dédié : un outil qui coupe une commande silencieuse (watchdog de 600 s) l'interrompt en cours de
-  phase (voir « Idempotence et reprise »). Durée de référence du semis complet : voir HANDOFF (mesurée par le lot de contrôle).
+  phase (voir « Idempotence et reprise »). Détail par phase : HANDOFF (« Vérifié »).
 - **Jobs en attente** : après un semis non public, des jobs `envoyer_email` (environ 79) et `relance_questionnaire` (environ 28) restent
   en attente ; démarrer l'API avec `JOBS_WORKER=inactif` sur une base de démonstration locale (le mode public les neutralise).
 - **Serveur** : arrêter le conteneur `api` pendant un semis (`mp stop api`, alias de `DEPLOIEMENT.md`), car le semis pose des verrous
@@ -405,7 +406,7 @@ pnpm --filter @missionpilot/api db:seed-tenant-demo --phase=missions           #
 | 3     | `redressement-dd`      | `redressement-dd/`       | preuves, redressement, due diligence                                                                                   | 4   |
 | 4     | `appels-offres-canaux` | `appels-offres-canaux/`  | appels d'offres, canaux, capitalisation, observatoire, services candidats                                              | 5   |
 | 5     | `ia-qualite-standard`  | `ia-qualite-standard/`   | IA, agents, automatisation, copilote, qualité, standard et méthodes                                                    | 6   |
-| 6     | `gestion`              | `gestion/`               | temps, facturation, encaissements, rapports, salle de mission, ingestion, portail et collaboration (stub tant que le lot 2b n'est pas fusionné) | 2b  |
+| 6     | `gestion`              | `gestion/`               | temps, facturation, encaissements, rapports, salle de mission, ingestion, portail et collaboration, clôture des 5 missions terminées | 2b  |
 
 `gestion` passe en dernier : elle lit les notations, plans et redressements publiés par les phases précédentes. Les missions
 terminées ne sont clôturées qu'à la fin de la phase `gestion` (leurs routes acceptent donc les écritures jusque-là).
@@ -420,7 +421,11 @@ sont jamais listés : on se connecte par le formulaire (e-mail, mot de passe com
 **Limites connues des données** (détail : HANDOFF) : les écritures par routes sont datées de l'horloge RÉELLE du semis, soit une
 journée après la date fictive du jeu de données ; `mission_methodes` est en ajout seul et n'est pas antidatée (trois liaisons de
 méthode du lot 5 sont postérieures à la clôture de leur mission) ; le rétro-planning d'un appel d'offres dépend de la date réelle ;
-l'API journalise parfois l'avertissement pg `client.query() already executing` à la clôture d'un atelier de plan (`cloreAtelier`).
+l'API journalise parfois l'avertissement pg `client.query() already executing` à la clôture d'un atelier de plan (`cloreAtelier`). Autres limites
+(recette du 2026-10-25) : horodatages techniques et `journal_audit` à la date réelle du semis (y compris 10 horodatages de `signatures_preuves`
+prises dans la chaîne de hachage) ; occupation et facturabilité basses, réalisation à 157 % ; marge à 100 % sur les missions XAF, EUR et USD
+(le moteur de marge ignore les coûts d'une autre devise, décision produit en attente) ; taux négociés EUR/USD supérieurs à ceux du budget ;
+semis non strictement reproductible entre le mode public et le mode normal (4 050 contre 4 089 lignes de temps).
 
 **Tests** : `apps/api/test/seed-tenant-demo*.test.ts` (un fichier par domaine, base `_test` dédiée : jamais deux suites API sur la
 même base, voir « Tests API et base de test ») ; sous charge de plusieurs agents, une suite prend de 3 à 17 minutes.
