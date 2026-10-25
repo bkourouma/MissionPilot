@@ -63,7 +63,98 @@
   min-width: 0;
 }
 
+/* Cartes en grille : deux colonnes dès que le panneau élargi le permet, une seule sur téléphone. */
+.mp-demo__liste--grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--mp-esp-2);
+}
+.mp-demo__liste--grille > li > .mp-demo__carte {
+  height: 100%;
+}
+
+.mp-demo__identite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-demo__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem var(--mp-esp-2);
+  border: 1px solid var(--mp-bordure);
+  border-radius: 999px;
+  color: var(--mp-texte-doux);
+  background: var(--mp-surface);
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.mp-demo__nombre {
+  color: var(--mp-texte-doux);
+  font-weight: 400;
+}
+
+/* Filtres : espace (segments) puis rôle (puces), boutons à bascule (aria-pressed). */
+.mp-demo__filtre {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-2);
+  min-width: 0;
+}
+
+.mp-demo__segment,
+.mp-demo__puce {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-1);
+  min-height: 2.25rem;
+  padding: var(--mp-esp-1) var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: 999px;
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  font: inherit;
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mp-demo__puce {
+  font-weight: 500;
+}
+.mp-demo__segment:hover,
+.mp-demo__puce:hover {
+  background: var(--mp-surface-2);
+}
+.mp-demo__segment[aria-pressed="true"],
+.mp-demo__puce[aria-pressed="true"] {
+  border-color: var(--mp-primaire);
+  background: var(--mp-primaire);
+  color: var(--mp-sur-primaire);
+}
+.mp-demo__segment[aria-pressed="true"] .mp-demo__nombre,
+.mp-demo__puce[aria-pressed="true"] .mp-demo__nombre {
+  color: inherit;
+}
+@media (pointer: coarse) {
+  .mp-demo__segment,
+  .mp-demo__puce {
+    min-height: var(--mp-cible);
+  }
+}
+
+/* Panneau de connexion élargi quand la démonstration est affichée. */
+.mp-connexion__panneau:has(.mp-demo) {
+  max-width: 40rem;
+}
+
 .mp-demo__carte {
+  align-items: flex-start;
   justify-content: flex-start;
   min-width: 0;
   text-align: start;
