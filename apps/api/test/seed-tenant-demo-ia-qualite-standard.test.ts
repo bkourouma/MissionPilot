@@ -6,7 +6,6 @@ import type { ContexteTenantDemo } from "../src/db/tenant-demo/contexte.js";
 import { semerTenantDemo } from "../src/db/tenant-demo/index.js";
 import { semerRevuesFroides } from "../src/db/tenant-demo/ia-qualite-standard/qualite-froide.js";
 import { cloturerMissionsTerminees } from "../src/db/tenant-demo/missions/cloture.js";
-import { semerAppelsOffresCanaux } from "../src/db/tenant-demo/phases/appels-offres-canaux.js";
 import { semerIaQualiteStandard } from "../src/db/tenant-demo/phases/ia-qualite-standard.js";
 import { semerMissions } from "../src/db/tenant-demo/phases/missions.js";
 import { coutMicroUsd } from "../src/ia/modeles.js";
@@ -103,8 +102,8 @@ type Comptages = Record<string, number>;
  * clôture finale antidate cloturee_le à fin de mission + 6 jours). Chaque requête compte les
  * lignes fautives. NB : les écritures passées par les routes portent l'horloge RÉELLE du serveur
  * (environ une journée après « aujourd'hui » fictif) ; elles ne doivent donc concerner que des
- * missions ouvertes, ce que cet invariant garantit. mission_methodes en est exclue : les 3 liaisons
- * de missions terminées viennent du lot 5 (route, horloge réelle) ; la phase n'en ajoute aucune (test dédié).
+ * missions ouvertes, ce que cet invariant garantit. mission_methodes en est exclue : sa liaison est posée par la route à l'horloge
+ * réelle ; la phase n'en ajoute aucune à une mission terminée (test dédié).
  */
 const REQUETES_CHRONOLOGIE: Record<string, string> = {
   ia_demandes:
@@ -182,8 +181,9 @@ describe("seed du Tenant démo (phase ia-qualite-standard)", () => {
       journal: silence,
       phases: [
         { nom: "missions", executer: semerMissions },
-        // Phase précédente de l'intégration : elle lie déjà des méthodes à 3 missions terminées.
-        { nom: "appels-offres-canaux", executer: semerAppelsOffresCanaux },
+        // Seule la phase « missions » précède ici (les lignes des autres lots, datées à l'horloge
+        // réelle, fausseraient l'invariant de chronologie) ; la tolérance aux liaisons de méthode
+        // posées par d'autres lots est vérifiée sur la chaîne réelle des phases (seed complet).
         {
           nom: "avant-phase",
           executer: async (ctx) => {

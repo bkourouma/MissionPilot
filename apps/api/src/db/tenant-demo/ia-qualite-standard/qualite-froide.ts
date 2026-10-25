@@ -51,6 +51,17 @@ export const semerRevuesFroides: ModuleLot = async (ctx) => {
   }
   await campagneDuJour(ctx, chronologie);
   await controler(ctx);
+  // Au moins trois missions terminées doivent avoir été revues (campagnes passées et du jour).
+  const revues = await ctx.proprietaire.query<{ n: string }>(
+    "SELECT count(DISTINCT mission_id) AS n FROM qualite_froide_echantillon WHERE cabinet_id = $1",
+    [ctx.cabinetId],
+  );
+  if (Number(revues.rows[0]?.n ?? 0) < 3) {
+    throw new Error(
+      `Revues à froid : ${revues.rows[0]?.n ?? 0} mission(s) revue(s) seulement (3 au moins attendues) : ` +
+        "trop peu de missions terminées ont un relecteur indépendant (voir le journal).",
+    );
+  }
   ctx.journal(
     `Revues à froid : ${creees} campagne(s) passée(s) ajoutée(s), campagne du jour et contrôle réussis.`,
   );
