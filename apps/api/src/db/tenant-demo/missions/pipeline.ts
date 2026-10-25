@@ -3,6 +3,7 @@ import { journaliser } from "../../../audit.js";
 import { attendre, type ContexteTenantDemo } from "../contexte.js";
 import { etalerJournal, maintenantBase } from "./antidatage.js";
 import { transactionAntidatage } from "./declencheurs.js";
+import { completerTaux, deviseDuClient, versDevise } from "./devises.js";
 import { OPPORTUNITES_COMPLEMENTAIRES, type DefOpportunite } from "./donnees-pipeline.js";
 
 /*
@@ -25,7 +26,8 @@ async function creer(ctx: ContexteTenantDemo, def: DefOpportunite) {
     client_id: ctx.client(def.client),
     intitule: def.intitule,
     type_mission_id: typeId,
-    montant_estime: def.montant,
+    devise: deviseDuClient(def.client),
+    montant_estime: versDevise(def.montant, deviseDuClient(def.client)),
     probabilite: def.probabilite,
     etape: def.etape === "prospection" ? "prospection" : "qualification",
     responsable_id: chef.utilisateurId,
@@ -40,6 +42,7 @@ async function creer(ctx: ContexteTenantDemo, def: DefOpportunite) {
     });
     attendre(201, prop, `proposition ${def.intitule}`);
     propositionId = prop.json().id as string;
+    await completerTaux(chef, propositionId, prop.json(), deviseDuClient(def.client));
     const url = `/api/propositions/${propositionId}`;
     attendre(200, await chef.post(`${url}/statut`, { statut: "a_valider" }), "à valider");
     attendre(200, await associe.post(`${url}/statut`, { statut: "validee" }), "validée");

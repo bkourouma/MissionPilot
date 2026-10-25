@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { CLIENTS } from "../src/db/tenant-demo/donnees-clients.js";
 import { CASTING } from "../src/db/tenant-demo/missions/donnees-casting.js";
 
 /* Assertions de la phase « missions » (budget, jours alloués, pipeline), partagées avec le test de semis. */
@@ -113,5 +114,39 @@ export async function verifierPipelineGagne(lignes: Lire, cabinetId: string): Pr
     expect(x.ostatut, x.intitule).toBe("gagnee");
     expect(x.pstatut, x.intitule).toBe("acceptee");
     expect(x.valide_ok, x.intitule).toBe(true);
+  }
+  await verifierDevises(lignes, cabinetId);
+}
+
+/** Devise de chaque mission, de sa proposition, de son opportunité et de son budget = devise du client (socle). */
+async function verifierDevises(lignes: Lire, cabinetId: string): Promise<void> {
+  const r = await lignes<{
+    intitule: string;
+    client: string;
+    mission: string;
+    proposition: string;
+    opportunite: string;
+    budgets: string[] | null;
+  }>(
+    `SELECT m.intitule, c.raison_sociale AS client, m.devise AS mission, p.devise AS proposition,
+            o.devise AS opportunite,
+            (SELECT array_agg(DISTINCT v.devise) FROM budget_versions v WHERE v.mission_id = m.id) AS budgets
+       FROM missions m JOIN clients c ON c.id = m.client_id
+       JOIN propositions p ON p.id = m.proposition_id JOIN opportunites o ON o.id = m.opportunite_id
+      WHERE m.cabinet_id = $1`,
+    [cabinetId],
+  );
+  expect(r).toHaveLength(CASTING.length);
+  for (const d of CASTING) {
+    const mission = r.find((x) => x.intitule === d.nom);
+    const attendue = CLIENTS.find((c) => c.cle === d.client)?.devise;
+    expect(attendue, `client de ${d.nom}`).toBeDefined();
+    expect(mission?.client, d.nom).toBe(CLIENTS.find((c) => c.cle === d.client)?.raison_sociale);
+    expect([mission?.mission, mission?.proposition, mission?.opportunite], d.nom).toEqual([
+      attendue,
+      attendue,
+      attendue,
+    ]);
+    if (mission?.budgets) expect(mission.budgets, d.nom).toEqual([attendue]);
   }
 }
