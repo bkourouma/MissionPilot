@@ -8,6 +8,7 @@ import { MOT_DE_PASSE_DEMO_TENANT, emailTenant } from "../src/db/tenant-demo/con
 import { semerTenantDemo, type ResumeTenantDemo } from "../src/db/tenant-demo/index.js";
 import { APPELS_OFFRES_DEMO } from "../src/db/tenant-demo/appels-offres-canaux/donnees-ao-liste.js";
 import { semerAppelsOffresCanaux } from "../src/db/tenant-demo/phases/appels-offres-canaux.js";
+import { MODULES_APPELS_OFFRES_CANAUX } from "../src/db/tenant-demo/phases/appels-offres-canaux.js";
 import { semerMissions } from "../src/db/tenant-demo/phases/missions.js";
 import { creerBaseJetable, supprimerBaseJetable, type BaseJetable } from "./outils-base-jetable.js";
 
@@ -19,7 +20,9 @@ import { creerBaseJetable, supprimerBaseJetable, type BaseJetable } from "./outi
  */
 
 /** Tables du périmètre qui doivent être non vides. `cap_propositions_derogations` en est exclue :
- *  elle dépend de `propositions_standard` (phase « ia-qualite-standard », qui passe après). */
+ *  elle dépend de `propositions_standard` (phase « ia-qualite-standard », qui passe après).
+ *  `obs_contributions` aussi : elle ne reçoit que le versement de la route à partir de notations
+ *  PUBLIÉES (phase « notation-plans », absente de ce test) ; voir le test dédié plus bas. */
 const TABLES_REMPLIES = [
   "appels_offres",
   "appels_offres_evenements",
@@ -66,7 +69,6 @@ const TABLES_REMPLIES = [
   "cap_recommandation_statuts",
   "cap_efficacite_mesures",
   "obs_adhesion_evenements",
-  "obs_contributions",
   "services_candidats_parametres",
   "guichets_financement",
 ] as const;
@@ -288,6 +290,29 @@ describe("seed du Tenant démo (phase appels-offres-canaux)", () => {
     }
   });
 
+  it("journal d'audit des appels d'offres clos : une décision go/no-go journalisée par appel", async () => {
+    const sans = await nombre(
+      `SELECT count(*) n FROM appels_offres a
+       WHERE a.cabinet_id = $1 AND NOT EXISTS (
+         SELECT 1 FROM journal_audit j WHERE j.cabinet_id = a.cabinet_id AND j.entite = 'appel_offres'
+           AND j.entite_id = a.id::text AND j.action = 'decision_go_no_go')`,
+    );
+    expect(sans).toBe(0);
+  });
+
+  it("observatoire : aucune valeur écrite à la main (contributions seulement si des notations sont publiées)", async () => {
+    const publiees = await nombre(
+      `SELECT count(*) n FROM notation_evenements e
+       JOIN notation_versions v ON v.id = e.version_id JOIN notations n ON n.id = v.notation_id
+       WHERE n.cabinet_id = $1 AND e.action = 'publication'`,
+    );
+    const contributions = await nombre(
+      "SELECT count(*) n FROM obs_contributions WHERE cabinet_id = $1",
+    );
+    if (publiees === 0) expect(contributions).toBe(0);
+    else expect(contributions).toBeGreaterThan(0);
+  });
+
   it("guichets de financement : une dizaine, devises cohérentes avec le pays", async () => {
     const g = await lignes<{ pays: string[]; devise_montant: string | null }>(
       "SELECT pays, devise_montant FROM guichets_financement WHERE cabinet_id = $1",
@@ -303,5 +328,67 @@ describe("seed du Tenant démo (phase appels-offres-canaux)", () => {
         if (cemac.has(pays)) expect(x.devise_montant).toBe("XAF");
       }
     }
+  });
+});
+
+/*
+ * Démonstration PUBLIQUE (`publique: true`, voie du serveur) : `neutraliserEnvois` passe en échec
+ * tout job en attente ; le module des canaux ouvre sa propre base qui épargne SEULEMENT les envois
+ * et les transcriptions simulés (exécutés sur place) et neutralise le reste (e-mails).
+ */
+describe("seed du Tenant démo (canaux en démonstration publique)", () => {
+  let basePublique: BaseJetable | undefined;
+  let dossierPublic: string;
+  let cabinetPublic: string;
+  const requete = async <T>(sql: string): Promise<T[]> => {
+    const client = new pg.Client({
+      connectionString: (basePublique as BaseJetable).config.DATABASE_OWNER_URL,
+    });
+    await client.connect();
+    try {
+      return (await client.query(sql, [cabinetPublic])).rows as T[];
+    } finally {
+      await client.end();
+    }
+  };
+
+  beforeAll(async () => {
+    dossierPublic = await mkdtemp(path.join(os.tmpdir(), "missionpilot-seed-td-aoc-pub-"));
+    basePublique = await creerBaseJetable("td_aoc_pub", dossierPublic);
+    const canaux = MODULES_APPELS_OFFRES_CANAUX.find(([nom]) => nom === "canaux");
+    if (!canaux) throw new Error("Module canaux introuvable.");
+    const r = await semerTenantDemo(basePublique.db, basePublique.config, {
+      publique: true,
+      journal: () => undefined,
+      phases: [
+        { nom: "missions", executer: semerMissions },
+        { nom: "canaux-public", executer: canaux[1] },
+      ],
+    });
+    cabinetPublic = r.socle.cabinetId;
+  }, 3_600_000);
+
+  afterAll(async () => {
+    await supprimerBaseJetable(basePublique);
+    await rm(dossierPublic, { recursive: true, force: true });
+  }, 120_000);
+
+  it("les envois et transcriptions simulés vont à leur terme, aucun e-mail du seed ne survit", async () => {
+    const [v] = await requete<{ n: string }>(
+      "SELECT count(*) n FROM transcriptions_versions WHERE cabinet_id = $1",
+    );
+    expect(Number(v?.n)).toBeGreaterThan(0);
+    const [reserves] = await requete<{ n: string }>(
+      "SELECT count(*) n FROM canaux_envois WHERE cabinet_id = $1 AND statut = 'reserve'",
+    );
+    expect(Number(reserves?.n)).toBe(0);
+    const [envois] = await requete<{ n: string }>(
+      "SELECT count(*) n FROM canaux_envois WHERE cabinet_id = $1",
+    );
+    expect(Number(envois?.n)).toBeGreaterThan(0);
+    const [attente] = await requete<{ n: string }>(
+      "SELECT count(*) n FROM jobs WHERE cabinet_id = $1 AND statut = 'en_attente' AND type = 'envoyer_email'",
+    );
+    expect(Number(attente?.n)).toBe(0);
   });
 });

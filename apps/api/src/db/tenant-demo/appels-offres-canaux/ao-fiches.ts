@@ -49,8 +49,8 @@ export async function semerFichesAo(ctx: ContexteTenantDemo): Promise<void> {
     const ligne = (
       await sql<{ id: string }>(
         ctx,
-        "SELECT id FROM appels_offres WHERE lower(reference) = lower($1)",
-        [ao.reference],
+        "SELECT id FROM appels_offres WHERE cabinet_id = $1 AND lower(reference) = lower($2)",
+        [ctx.cabinetId, ao.reference],
       )
     )[0];
     if (!ligne) throw new Error(`Appel d'offres ${ao.reference} absent après semis.`);

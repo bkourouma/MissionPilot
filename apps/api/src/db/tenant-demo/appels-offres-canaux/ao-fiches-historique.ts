@@ -7,7 +7,7 @@ import { lireProfilCabinet } from "../../../appels-offres/fiches.js";
 import type { CleCompte } from "../cles.js";
 import type { ContexteTenantDemo } from "../contexte.js";
 import type { AppelOffresDemo } from "./donnees-ao-liste.js";
-import { heure, repondre, uid } from "./ao-fiches-reponse.js";
+import { heure, journaliserAo, repondre, uid } from "./ao-fiches-reponse.js";
 import type { EvalScenario, ScenarioAo } from "./donnees-ao-scenarios.js";
 import { AO_ISSUS_DE_VEILLE } from "./donnees-ao-veille.js";
 import { missionDuCasting } from "./outils.js";
@@ -17,8 +17,9 @@ import { missionDuCasting } from "./outils.js";
  *
  * Les routes écrivent `cree_le = now()` et les tables d'historique sont en ajout seul (identité
  * figée par déclencheur) : ces appels d'offres sont donc écrits en SQL propriétaire à la date
- * fictive voulue, en recopiant EXACTEMENT ce que font les services (fiches.ts, go-no-go.ts,
- * exigences.ts, retroplanning.ts). Les chiffres sortent des moteurs (`evaluerGoNoGo`,
+ * fictive voulue, en recopiant ce que font les services (fiches.ts, go-no-go.ts,
+ * exigences.ts, retroplanning.ts), journal d'audit compris (`journaliserAo`, antidaté, mêmes
+ * actions et mêmes détails ; `signaux` d'injection du dossier : liste vide). Les chiffres sortent des moteurs (`evaluerGoNoGo`,
  * `rapprocherAppelOffres`, `retroPlanning`, `decouperExigences`). Les déclencheurs de contrôle
  * restent actifs : transitions, décision d'un associé, matrice satisfaite avant le dépôt.
  * Une transaction par appel d'offres : rejouable sans doublon (clé : référence).
@@ -44,6 +45,7 @@ async function passer(
        auteur_id, cree_le) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)`,
     [ctx.cabinetId, aoId, de, vers, motif, uid(ctx, auteur), quand],
   );
+  if (de !== null) await journaliserAo(ctx, auteur, "changement_statut", aoId, { de, vers }, quand);
 }
 
 async function evaluer(
@@ -92,7 +94,16 @@ async function evaluer(
       heure(ev.jour, "10:30"),
     ],
   );
-  return r.rows[0].id as string;
+  const evaluationId = r.rows[0].id as string;
+  await journaliserAo(
+    ctx,
+    ev.auteur,
+    "evaluation_go_no_go",
+    aoId,
+    { evaluation_id: evaluationId, score: resultat.score, recommandation: resultat.recommandation },
+    heure(ev.jour, "10:30"),
+  );
+  return evaluationId;
 }
 
 /** Écrit l'appel d'offres et tout son historique ; sans effet s'il existe déjà (clé : référence). */
@@ -153,6 +164,14 @@ export async function historiser(
       ],
     );
     const aoId = r.rows[0].id as string;
+    await journaliserAo(
+      ctx,
+      sc.createur,
+      "creation",
+      aoId,
+      { source: veille ? "import" : "saisie" },
+      cree,
+    );
     await passer(ctx, aoId, null, "detecte", null, sc.createur, cree);
     const evaluations: string[] = [];
     for (const [i, ev] of sc.evaluations.entries()) {
@@ -161,9 +180,9 @@ export async function historiser(
         await passer(ctx, aoId, "detecte", "go_no_go", null, ev.auteur, heure(ev.jour, "10:45"));
     }
     const d = sc.decision;
-    await ctx.proprietaire.query(
+    const decision = await ctx.proprietaire.query(
       `INSERT INTO ao_decisions (cabinet_id, ao_id, evaluation_id, decision, motif, decideur_id, cree_le)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz) RETURNING id`,
       [
         ctx.cabinetId,
         aoId,
@@ -173,6 +192,14 @@ export async function historiser(
         uid(ctx, d.decideur),
         heure(d.jour, "11:15"),
       ],
+    );
+    await journaliserAo(
+      ctx,
+      d.decideur,
+      "decision_go_no_go",
+      aoId,
+      { decision_id: decision.rows[0].id as string, decision: d.choix },
+      heure(d.jour, "11:15"),
     );
     await passer(
       ctx,

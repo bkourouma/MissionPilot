@@ -18,6 +18,26 @@ export function plusJours(jour: string, n: number): string {
   return new Date(Date.UTC(a, m - 1, j + n)).toISOString().slice(0, 10);
 }
 
+/**
+ * Entrée du journal d'audit ANTIDATÉE, équivalente à celle que les services d'appels d'offres
+ * écrivent (même action, entité `appel_offres`, même forme de détails, jamais de contenu). Le
+ * journal n'a pas de déclencheur : le propriétaire fixe `cree_le`.
+ */
+export async function journaliserAo(
+  ctx: ContexteTenantDemo,
+  auteur: CleCompte,
+  action: string,
+  aoId: string,
+  details: Record<string, unknown>,
+  quand: string,
+): Promise<void> {
+  await ctx.proprietaire.query(
+    `INSERT INTO journal_audit (cabinet_id, utilisateur_id, action, entite, entite_id, details, cree_le)
+     VALUES ($1, $2, $3, 'appel_offres', $4, $5, $6::timestamptz)`,
+    [ctx.cabinetId, uid(ctx, auteur), action, aoId, JSON.stringify(details), quand],
+  );
+}
+
 export const uid = (ctx: ContexteTenantDemo, cle: CleCompte): string => {
   const id = ctx.utilisateurs[cle];
   if (!id) throw new Error(`Utilisateur « ${cle} » introuvable dans le contexte.`);
@@ -96,6 +116,14 @@ async function matrice(
            modifie_le = $6::timestamptz WHERE id = $1`,
         [id, s.statut, s.commentaire, s.piece, responsable, s.quand],
       );
+      await journaliserAo(
+        ctx,
+        equipe[i % equipe.length] as CleCompte,
+        "suivi_exigence",
+        aoId,
+        { exigence_id: id, statut: s.statut },
+        s.quand,
+      );
     }
   }
 }
@@ -107,12 +135,21 @@ async function retro(
   sc: ScenarioAo,
 ): Promise<void> {
   const plan = retroPlanning(ao.date_limite, sc.decision.jour);
+  await journaliserAo(
+    ctx,
+    sc.createur,
+    "generation_retroplanning",
+    aoId,
+    { etapes: plan.etapes.length, compresse: plan.compresse },
+    heure(sc.decision.jour, "11:00"),
+  );
   for (const e of plan.etapes) {
     const faiteLe = heure(e.datePrevue, "15:00");
-    await ctx.proprietaire.query(
+    const etape = await ctx.proprietaire.query(
       `INSERT INTO ao_retroplanning_etapes (cabinet_id, ao_id, ordre, code, libelle, date_prevue,
          responsable_id, faite, faite_le, cree_par, cree_le, modifie_par, modifie_le)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8::timestamptz, $9, $10::timestamptz, $7, $8::timestamptz)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8::timestamptz, $9, $10::timestamptz, $7, $8::timestamptz)
+       RETURNING id`,
       [
         ctx.cabinetId,
         aoId,
@@ -125,6 +162,14 @@ async function retro(
         uid(ctx, sc.createur),
         heure(sc.decision.jour, "11:00"),
       ],
+    );
+    await journaliserAo(
+      ctx,
+      sc.responsable,
+      "suivi_retroplanning",
+      aoId,
+      { etape_id: etape.rows[0].id as string, faite: true },
+      faiteLe,
     );
   }
 }
@@ -151,6 +196,14 @@ export async function repondre(
     ],
   );
   const dossierId = dossier.rows[0].id as string;
+  await journaliserAo(
+    ctx,
+    reponse.auteurDossier,
+    "ajout_dossier",
+    aoId,
+    { dossier_id: dossierId, source: "texte", signaux: [] },
+    heure(reponse.dossierJour, "09:00"),
+  );
   const { exigences, tronque } = decouperExigences(texte);
   const extraire = async (propositions: ExigenceProposee[], quand: string) => {
     const r = await ctx.proprietaire.query(
@@ -168,20 +221,49 @@ export async function repondre(
         quand,
       ],
     );
-    return r.rows[0].id as string;
+    const extractionId = r.rows[0].id as string;
+    await journaliserAo(
+      ctx,
+      reponse.auteurDossier,
+      "extraction_exigences",
+      aoId,
+      {
+        extraction_id: extractionId,
+        methode: "ia",
+        gabarit: true,
+        nombre: propositions.length,
+        ia_demande_id: null,
+      },
+      quand,
+    );
+    return extractionId;
   };
-  const trancher = (
+  const trancher = async (
     id: string,
     statut: "validee" | "rejetee",
     retenues: number[] | null,
     motif: string | null,
     quand: string,
-  ) =>
-    ctx.proprietaire.query(
+  ) => {
+    await ctx.proprietaire.query(
       `UPDATE ao_extractions SET statut = $2, retenues = $3, motif = $4, tranche_par = $5,
          tranche_le = $6::timestamptz WHERE id = $1`,
       [id, statut, retenues, motif, uid(ctx, reponse.valideur), quand],
     );
+    await journaliserAo(
+      ctx,
+      reponse.valideur,
+      "validation_extraction",
+      aoId,
+      {
+        extraction_id: id,
+        decision: statut,
+        retenues: retenues?.length ?? 0,
+        acquitte_chiffres: false,
+      },
+      quand,
+    );
+  };
   if (sc.cle === "mboa-dd") {
     // Premier brouillon de l'IA rejeté (propositions trop fines), repris après relecture du dossier.
     const rejetee = await extraire(exigences.slice(0, 4), heure(reponse.dossierJour, "09:20"));

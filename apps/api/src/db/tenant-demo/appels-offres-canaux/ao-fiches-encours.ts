@@ -46,9 +46,11 @@ export async function semerEnCours(ctx: ContexteTenantDemo, ao: AppelOffresDemo)
   const directeur = ctx.session("directeur.mission");
 
   if (
-    !(await existe(ctx, "SELECT 1 FROM appels_offres WHERE lower(reference) = lower($1)", [
-      ao.reference,
-    ]))
+    !(await existe(
+      ctx,
+      "SELECT 1 FROM appels_offres WHERE cabinet_id = $1 AND lower(reference) = lower($2)",
+      [ctx.cabinetId, ao.reference],
+    ))
   ) {
     const r = await chef.post("/api/appels-offres", {
       reference: ao.reference,
@@ -70,8 +72,8 @@ export async function semerEnCours(ctx: ContexteTenantDemo, ao: AppelOffresDemo)
   const ligne = (
     await sql<{ id: string }>(
       ctx,
-      "SELECT id FROM appels_offres WHERE lower(reference) = lower($1)",
-      [ao.reference],
+      "SELECT id FROM appels_offres WHERE cabinet_id = $1 AND lower(reference) = lower($2)",
+      [ctx.cabinetId, ao.reference],
     )
   )[0];
   if (!ligne) throw new Error(`Appel d'offres ${ao.reference} introuvable après création.`);

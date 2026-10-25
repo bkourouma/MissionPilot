@@ -120,7 +120,7 @@ async function preparerContact(
     // Le gestionnaire du numéro est la personne elle-même (portail, responsable interne) ou, pour
     // un consentement recueilli, l'associé qui l'a enregistré.
     const acteurId = c.consentement === "cabinet" ? associeId : utilisateurId;
-    id = await cc.ctx.database.withTenant(cabinetId, async (db) => {
+    id = await cc.database.withTenant(cabinetId, async (db) => {
       const numero = await controlerAvantNumero(db, cc.deps, {
         utilisateurId,
         canal: "whatsapp",
@@ -187,7 +187,7 @@ async function poserConsentement(
       [cabinetId, destinataireId, c.reference, associeId, date],
     );
   }
-  await cc.ctx.database.withTenant(cabinetId, (db) =>
+  await cc.database.withTenant(cabinetId, (db) =>
     journaliser(db, {
       cabinetId,
       utilisateurId: c.consentement === "portail" ? utilisateurId : associeId,
