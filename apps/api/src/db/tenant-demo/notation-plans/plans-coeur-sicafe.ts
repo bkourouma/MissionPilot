@@ -25,7 +25,7 @@ export const PLAN_SICAFE: SpecPlan = {
         sens: "plus_bas_mieux",
         nature: "flux",
         frequence: "mensuelle",
-        debut_suivi: "2026-01-01",
+        debut_suivi: "2025-02-01",
         cible: 118,
       },
     },

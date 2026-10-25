@@ -129,6 +129,67 @@ export async function declarerRestes(
   return n;
 }
 
+/**
+ * Relevé FINAL des missions terminées (encore « à clôturer » : la route refuse une mission clôturée) :
+ * le chef de mission déclare un reste à faire NUL, pour chaque couple (tâche, collaborateur) qui a
+ * travaillé, la semaine de la fin de mission. L'avancement physique (livrables au reste déclaré nul)
+ * atteint alors 100 % et le « reste à faire » n'est plus estimé à partir du budget non consommé.
+ * Les alertes de consommation (≥ seuil) d'une mission close sont ensuite levées à sa fin : elles
+ * n'ont plus d'objet (les dépassements d'atterrissage, eux, restent actifs). Reprise : un relevé
+ * déjà posé cette semaine-là n'est pas refait.
+ */
+export async function declarerRestesFinaux(
+  ctx: ContexteTenantDemo,
+  casting: Casting,
+  paquets: readonly Paquet[],
+  rng: Alea,
+): Promise<number> {
+  let n = 0;
+  for (const cle of MISSIONS_TERMINEES) {
+    const m: MissionLue | undefined = casting.missions[cle];
+    if (!m || !m.debut || !m.fin) continue;
+    const semaine = lundiDe(m.fin);
+    const chef =
+      (m.chefId && (cleDeCompte(ctx, m.chefId) as CleCompte | undefined)) || "directeur.mission";
+    const couples = new Map<
+      string,
+      { tache_id: string; collaborateur_id: string; jours: number }
+    >();
+    for (const q of paquets.filter((p) => p.missionCle === cle)) {
+      couples.set(`${q.tacheId}|${q.collaborateurId}`, {
+        tache_id: q.tacheId,
+        collaborateur_id: q.collaborateurId,
+        jours: 0,
+      });
+    }
+    const dejaFait = await ctx.proprietaire.query(
+      "SELECT 1 FROM reste_a_faire WHERE cabinet_id = $1 AND mission_id = $2 AND semaine = $3 LIMIT 1",
+      [ctx.cabinetId, m.id, semaine],
+    );
+    if (m.statut !== "cloturee" && couples.size > 0 && (dejaFait.rowCount ?? 0) === 0) {
+      ok(
+        201,
+        await ctx
+          .session(chef)
+          .post(`/api/missions/${m.id}/reste-a-faire`, { semaine, lignes: [...couples.values()] }),
+        `reste à faire final ${cle} ${semaine}`,
+      );
+      await ctx.proprietaire.query(
+        `UPDATE reste_a_faire SET declare_le = $3::timestamptz
+          WHERE cabinet_id = $1 AND mission_id = $2 AND semaine = $4`,
+        [ctx.cabinetId, m.id, `${m.fin}T${rng.entier(15, 18)}:20:00Z`, semaine],
+      );
+      n++;
+    }
+    await ctx.proprietaire.query(
+      `UPDATE alertes_suivi SET active = false, levee_le = $3::timestamptz
+        WHERE cabinet_id = $1 AND mission_id = $2 AND type = 'consommation_seuil' AND active`,
+      [ctx.cabinetId, m.id, `${ajouterJours(m.fin, 1)}T09:00:00Z`],
+    );
+  }
+  return n;
+}
+
 /* ----- Alertes de suivi ----- */
 
 /** Date de déclenchement plausible des alertes posées par ce run (récentes, avant la fin de mission). */
@@ -155,6 +216,14 @@ export async function antedaterAlertes(
     await ctx.proprietaire.query(
       "UPDATE alertes_suivi SET declenchee_le = $2::timestamptz WHERE id = $1",
       [a.id, `${jour}T09:${String(rng.entier(10, 50))}:00Z`],
+    );
+    // Alerte levée par une route pendant ce semis (levée « maintenant ») : remise à la date métier,
+    // un à quatre jours après son déclenchement, sans dépasser la fin de mission.
+    let levee = ajouterJours(jour, rng.entier(1, 4));
+    if (terminee && m?.fin && levee > m.fin) levee = m.fin;
+    await ctx.proprietaire.query(
+      "UPDATE alertes_suivi SET levee_le = $2::timestamptz WHERE id = $1 AND levee_le >= $3::timestamptz",
+      [a.id, `${levee}T09:30:00Z`, depuis],
     );
   }
   return r.rowCount ?? 0;

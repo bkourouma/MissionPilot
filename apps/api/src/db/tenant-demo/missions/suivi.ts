@@ -1,5 +1,7 @@
+import { pdfDemo } from "../../seed-demo-portail.js";
 import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 import type { CleCompte } from "../cles.js";
+import { corpsMultipart } from "../gestion/salle-fichiers.js";
 import { chronologieCommerciale } from "./chronologie.js";
 import type { MissionBatie, TacheLue } from "./construction.js";
 
@@ -26,15 +28,48 @@ const slug = (texte: string): string =>
     .replace(/^-|-$/g, "")
     .slice(0, 60);
 
+/**
+ * Téléverse un petit PDF fictif DÉTERMINISTE (route `POST /api/fichiers`, session du déposant) et
+ * renvoie l'identifiant du fichier : un document de mission rattaché à un fichier réellement servi
+ * est téléchargeable (portail compris), contrairement à un simple chemin de stockage.
+ */
+async function televerserPdf(
+  ctx: ContexteTenantDemo,
+  session: SessionDemo,
+  m: MissionBatie,
+  doc: { type: string; nom: string },
+  version: number,
+): Promise<string> {
+  const contenu = pdfDemo(doc.nom, [
+    `Document fictif de demonstration (version ${version}).`,
+    `Mission : ${m.def.nom}.`,
+    `Type : ${doc.type}.`,
+    "Aucune donnee reelle : jeu de donnees du cabinet Tenant demo.",
+  ]);
+  const nomFichier = `${slug(doc.nom)}-v${version}.pdf`;
+  const corps = corpsMultipart(nomFichier, contenu);
+  const r = await ctx.app.inject({
+    method: "POST",
+    url: "/api/fichiers",
+    headers: { cookie: session.cookie, ...corps.headers },
+    payload: corps.payload,
+  });
+  attendre(201, r, `téléversement ${nomFichier}`);
+  return r.json().id as string;
+}
+
 async function deposer(
+  ctx: ContexteTenantDemo,
   session: SessionDemo,
   m: MissionBatie,
   doc: { type: string; nom: string; statut_contenu?: "brouillon_ia" },
+  version = 1,
 ): Promise<string> {
+  const fichierId = await televerserPdf(ctx, session, m, doc, version);
   const r = await session.post(`/api/missions/${m.id}/documents`, {
     type: doc.type,
     nom: doc.nom,
-    chemin_stockage: `missions/${m.def.cle}/${slug(doc.nom)}-v1.pdf`,
+    fichier_id: fichierId,
     ...(doc.statut_contenu ? { statut_contenu: doc.statut_contenu } : {}),
   });
   attendre(201, r, `document ${doc.nom}`);
@@ -59,15 +94,25 @@ export async function deposerDocuments(
   const chef = ctx.session(def.chef);
   const directeur = ctx.session(def.directeur);
   const deposes: DocumentDepose[] = [];
-  const propId = await deposer(chef, m, {
+  const propId = await deposer(ctx, chef, m, {
     type: "proposition",
     nom: "Proposition technique et financière",
   });
   deposes.push({ id: propId, date: chronologieCommerciale(def).envoyee });
   if (!def.signature) return deposes;
+  // La lettre de mission créée par la signature n'a pas de fichier : une version 2, PDF fictif
+  // déposé par l'associé (droit de signature), la rend téléchargeable. Elle est datée du jour de signature.
+  const lettreId = await deposer(
+    ctx,
+    ctx.session("associe"),
+    m,
+    { type: "lettre_de_mission", nom: "Lettre de mission" },
+    2,
+  );
+  deposes.push({ id: lettreId, date: def.signature });
   // Le compte rendu de lancement n'existe que si la réunion a eu lieu (début passé).
   if (def.debut <= ctx.aujourdhui) {
-    const lancement = await deposer(chef, m, {
+    const lancement = await deposer(ctx, chef, m, {
       type: "autre",
       nom: "Compte rendu de la réunion de lancement",
     });
@@ -79,7 +124,7 @@ export async function deposerDocuments(
   for (const t of m.taches.filter((x: TacheLue) => x.est_livrable)) {
     const fin = m.fenetres.get(t.id)?.fin;
     if (!fin || fin > limite) continue;
-    const id = await deposer(auteur, m, {
+    const id = await deposer(ctx, auteur, m, {
       type: "livrable",
       nom: t.libelle,
       statut_contenu: "brouillon_ia",

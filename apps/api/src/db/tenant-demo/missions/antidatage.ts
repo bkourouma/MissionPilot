@@ -134,6 +134,13 @@ export async function antidaterMission(
         );
       }
       for (const d of documents) {
+        // Fichier PDF du document (téléversé « maintenant ») : daté du dépôt du document.
+        await c.query(
+          `UPDATE fichiers SET cree_le = $2::timestamptz
+            WHERE cabinet_id = $3 AND id = (SELECT fichier_id FROM mission_documents
+                                             WHERE id = $1 AND cabinet_id = $3)`,
+          [d.id, midi(d.date), ctx.cabinetId],
+        );
         await c.query(
           `UPDATE mission_document_statuts SET cree_le = CASE statut
                WHEN 'valide' THEN $3::timestamptz WHEN 'modifie' THEN $4::timestamptz

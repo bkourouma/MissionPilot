@@ -5,6 +5,7 @@ import { etalerJournal, maintenantBase } from "./antidatage.js";
 import { dateClotureFictive, DELAI_REVUE_FROIDE_JOURS } from "./chronologie.js";
 import { transactionAntidatage } from "./declencheurs.js";
 import { CASTING, type DefMission } from "./donnees-casting.js";
+import { finirSuiviKpiMission } from "./kpi-fin-suivi.js";
 
 /*
  * Clôture réelle des missions TERMINÉES du casting, par les routes de clôture (check-list
@@ -85,6 +86,10 @@ export async function cloturerMissionsTerminees(ctx: ContexteTenantDemo): Promis
     }
     const debutReel = await maintenantBase(ctx);
     const directeur = ctx.session(def.directeur);
+    // Fin du suivi des KPI (PATCH réels, journal étalé avec la clôture) avant que la mission se ferme.
+    const kpiTermines = await finirSuiviKpiMission(ctx, def, lue.id, jourCloture);
+    if (kpiTermines > 0)
+      ctx.journal(`  mission « ${def.nom} » : suivi de ${kpiTermines} KPI terminé.`);
     if (lue.statut === "en_cours") {
       attendre(
         200,

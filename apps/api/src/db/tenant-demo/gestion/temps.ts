@@ -22,6 +22,7 @@ import {
 import {
   antedaterAlertes,
   declarerRestes,
+  declarerRestesFinaux,
   envoyerRappel,
   envoyerRelance,
   remettreNotificationsALHeure,
@@ -296,7 +297,9 @@ export async function semerTemps(ctx: ContexteTenantDemo, casting: Casting): Pro
   );
 
   // 5. Reste à faire (alertes de suivi évaluées par les routes), puis remise à la date.
-  const restes = await declarerRestes(ctx, casting, paquets, rng.deriver("restes"));
+  const restes =
+    (await declarerRestes(ctx, casting, paquets, rng.deriver("restes"))) +
+    (await declarerRestesFinaux(ctx, casting, paquets, rng.deriver("restes-finaux")));
   await antedaterFeuilles(ctx);
   const alertes = await antedaterAlertes(ctx, casting, borne, rng.deriver("alertes"));
   await remettreNotificationsALHeure(ctx, casting, borne);

@@ -11,7 +11,12 @@ import { chefDe, missionDuCasting, sql } from "./outils.js";
  * libellé distinctif, mesures et contributeurs complétés seulement s'il en manque.
  */
 
-const DEBUT_SUIVI = "2026-01-01";
+/** Mois `AAAA-MM` situé `n` mois après `mois`. */
+function moisPlus(mois: string, n: number): string {
+  const [a, m] = mois.split("-").map(Number) as [number, number];
+  const rang = a * 12 + (m - 1) + n;
+  return `${Math.floor(rang / 12)}-${String((rang % 12) + 1).padStart(2, "0")}`;
+}
 
 export interface KpiPret {
   id: string;
@@ -45,7 +50,7 @@ export async function assurerKpiMessagerie(cc: ContexteCanaux): Promise<KpiPret[
           sens: def.sens,
           nature: "stock",
           frequence: "mensuelle",
-          debut_suivi: DEBUT_SUIVI,
+          debut_suivi: `${def.premierMois}-01`,
           cible: def.cible,
           ...(def.alerteBas === undefined ? {} : { alerte_bas: def.alerteBas }),
           ...(def.alerteHaut === undefined ? {} : { alerte_haut: def.alerteHaut }),
@@ -62,11 +67,11 @@ export async function assurerKpiMessagerie(cc: ContexteCanaux): Promise<KpiPret[
     );
     if ((n[0]?.n ?? 0) === 0) {
       for (const [i, valeur] of def.historique.entries()) {
-        const mois = String(i + 1).padStart(2, "0");
+        const mois = moisPlus(def.premierMois, i);
         attendre(
           201,
           await cc.appel(auteur, "POST", `/api/kpi/${id}/mesures`, {
-            date_mesure: `2026-${mois}-28`,
+            date_mesure: `${mois}-28`,
             valeur,
           }),
           `mesure ${def.libelle} ${mois}`,

@@ -127,3 +127,32 @@ export const REQUETES_CHRONOLOGIE: Record<string, string> = {
   signatures_signataires:
     "SELECT count(*) AS n FROM signatures_signataires x JOIN signatures_demandes d ON d.id = x.demande_id JOIN missions m ON m.id = d.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND (x.invite_le > m.cloturee_le OR x.decide_le > m.cloturee_le)",
 };
+
+/**
+ * Cohérence des missions CLÔTURÉES (reste à faire, alertes, suivi des KPI, documents). Chaque requête
+ * compte les lignes fautives (paramètre $1 = cabinet) ; le résultat attendu est 0.
+ */
+export const REQUETES_COHERENCE_CLOTURE: Record<string, string> = {
+  // Une tâche sans relevé de reste à faire verrait son reste ESTIMÉ à partir du budget non consommé.
+  taches_sans_reste_declare:
+    "SELECT count(*) AS n FROM mission_taches t JOIN missions m ON m.id = t.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND NOT EXISTS (SELECT 1 FROM reste_a_faire r WHERE r.tache_id = t.id)",
+  // Dernière déclaration de chaque couple (tâche, collaborateur) : toutes nulles à la clôture.
+  reste_a_faire_non_nul:
+    "SELECT count(*) AS n FROM (SELECT DISTINCT ON (r.tache_id, r.collaborateur_id) r.centiemes FROM reste_a_faire r JOIN missions m ON m.id = r.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' ORDER BY r.tache_id, r.collaborateur_id, r.ordre DESC) d WHERE d.centiemes > 0",
+  alertes_consommation_actives:
+    "SELECT count(*) AS n FROM alertes_suivi a JOIN missions m ON m.id = a.mission_id WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND a.active AND a.type = 'consommation_seuil'",
+  // Suivi des KPI terminé dans la période de la mission (ni actif, ni début ou fin après la clôture).
+  kpi_actifs:
+    "SELECT count(*) AS n FROM kpi_definitions d JOIN missions m ON m.id = d.mission_id WHERE d.cabinet_id = $1 AND m.statut = 'cloturee' AND d.actif",
+  kpi_suivi_hors_periode:
+    "SELECT count(*) AS n FROM kpi_definitions d JOIN missions m ON m.id = d.mission_id WHERE d.cabinet_id = $1 AND m.statut = 'cloturee' AND (d.fin_suivi IS NULL OR d.fin_suivi > m.cloturee_le::date OR d.debut_suivi > m.cloturee_le::date)",
+  kpi_mesures_apres_cloture:
+    "SELECT count(*) AS n FROM kpi_mesures x JOIN kpi_definitions d ON d.id = x.kpi_id JOIN missions m ON m.id = d.mission_id WHERE d.cabinet_id = $1 AND m.statut = 'cloturee' AND (x.date_mesure > m.cloturee_le::date OR x.saisie_le > m.cloturee_le)",
+  kpi_instants_apres_cloture:
+    "SELECT count(*) AS n FROM kpi_definitions d JOIN missions m ON m.id = d.mission_id WHERE d.cabinet_id = $1 AND m.statut = 'cloturee' AND (d.cree_le > m.cloturee_le OR d.modifie_le > m.cloturee_le)",
+  // Tout document partagé au portail porte un fichier réellement servi (sinon « Fichier pas encore disponible »).
+  documents_partages_sans_fichier:
+    "SELECT count(*) AS n FROM portail_partages p JOIN mission_documents d ON d.id = p.document_id WHERE p.cabinet_id = $1 AND d.fichier_id IS NULL",
+  documents_apres_cloture:
+    "SELECT count(*) AS n FROM mission_documents d JOIN missions m ON m.id = d.mission_id WHERE d.cabinet_id = $1 AND m.statut = 'cloturee' AND d.cree_le > m.cloturee_le",
+};

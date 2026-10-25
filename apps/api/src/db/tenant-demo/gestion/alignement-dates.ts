@@ -132,6 +132,24 @@ export async function alignerDatesActions(ctx: ContexteTenantDemo): Promise<void
       p,
     );
 
+    // Document (PDF) de la lettre soumise à signature : déposé le jour de la signature de la lettre,
+    // une demi-heure avant la demande (créée à 10 h ci-dessous), avec son fichier.
+    await c.query(
+      `UPDATE mission_documents x SET
+         cree_le = m.date_signature::timestamptz + interval '9 hours 30 minutes'
+       FROM signatures_demandes d JOIN missions m ON m.id = d.mission_id
+       WHERE x.cabinet_id = $1 AND d.cabinet_id = $1 AND x.id = d.document_id
+         AND m.statut = 'cloturee' AND m.date_signature IS NOT NULL AND x.cree_le > m.cloturee_le`,
+      p,
+    );
+    await c.query(
+      `UPDATE fichiers f SET cree_le = x.cree_le
+       FROM mission_documents x JOIN missions m ON m.id = x.mission_id
+       WHERE f.cabinet_id = $1 AND x.cabinet_id = $1 AND f.id = x.fichier_id
+         AND m.statut = 'cloturee' AND f.cree_le > m.cloturee_le AND x.cree_le <= m.cloturee_le`,
+      p,
+    );
+
     // Signatures électroniques de la lettre de mission d'une mission clôturée (signataires d'abord).
     await c.query(
       `UPDATE signatures_signataires s SET

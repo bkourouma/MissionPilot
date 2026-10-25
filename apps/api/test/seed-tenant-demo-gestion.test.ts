@@ -15,6 +15,7 @@ import { MOT_DE_PASSE_DEMO_TENANT } from "../src/db/tenant-demo/constantes.js";
 import {
   CLIENTS_PORTAIL_ATTENDUS,
   REQUETES_CHRONOLOGIE,
+  REQUETES_COHERENCE_CLOTURE,
   TABLES_IDEMPOTENCE,
   TABLES_NON_VIDES,
 } from "./seed-tenant-demo-gestion-outils.js";
@@ -298,6 +299,36 @@ describe("seed du Tenant démo (phase gestion, chaîne complète, démonstration
     // Chaque requête compte les lignes fautives (action datée après `cloturee_le`).
     for (const [table, requete] of Object.entries(REQUETES_CHRONOLOGIE)) {
       expect(await nombre(requete), table).toBe(0);
+    }
+  });
+
+  it("missions clôturées : reste à faire nul, alertes de consommation levées, suivi des KPI terminé, documents servis", async () => {
+    for (const [nom, requete] of Object.entries(REQUETES_COHERENCE_CLOTURE)) {
+      expect(await nombre(requete), nom).toBe(0);
+    }
+    // La lettre de mission soumise à signature (mission clôturée) est datée du jour de signature.
+    const lettres = await sql<{ date: string; signature: string }>(
+      `SELECT (d.cree_le AT TIME ZONE 'UTC')::date::text AS date, m.date_signature::text AS signature
+         FROM mission_documents d JOIN signatures_demandes s ON s.document_id = d.id
+         JOIN missions m ON m.id = d.mission_id
+        WHERE d.cabinet_id = $1 AND m.statut = 'cloturee'`,
+      [cabinetId],
+    );
+    expect(lettres.length).toBeGreaterThan(0);
+    for (const l of lettres) expect(l.date).toBe(l.signature);
+    // Avancement physique final : jalons atteints et livrables au reste nul comptent pour 100 %.
+    const avancement = await sql<{ intitule: string; jalons: string; livrables: string }>(
+      `SELECT m.intitule,
+              (SELECT count(*) FROM mission_jalons j WHERE j.mission_id = m.id AND NOT j.atteint) AS jalons,
+              (SELECT count(*) FROM mission_taches t WHERE t.mission_id = m.id AND t.est_livrable
+                  AND NOT EXISTS (SELECT 1 FROM lignes_temps l WHERE l.tache_id = t.id)) AS livrables
+         FROM missions m WHERE m.cabinet_id = $1 AND m.statut = 'cloturee'`,
+      [cabinetId],
+    );
+    expect(avancement).toHaveLength(MISSIONS_TERMINEES.length);
+    for (const a of avancement) {
+      expect(Number(a.jalons), `jalons non atteints de ${a.intitule}`).toBe(0);
+      expect(Number(a.livrables), `livrables sans temps de ${a.intitule}`).toBe(0);
     }
   });
 

@@ -240,10 +240,11 @@ export const RECOMMANDATIONS: RecommandationDemo[] = [
       cible: 30,
     },
     statut: "mise_en_oeuvre",
-    miseEnOeuvre: "2026-09-10",
+    // Mission clôturée le 31 juillet 2026 : suivi et mesures restent avant la clôture.
+    miseEnOeuvre: "2026-07-16",
     mesures: [
-      ["2026-08-17", 55],
-      ["2026-09-10", 54],
+      ["2026-06-22", 55],
+      ["2026-07-16", 54],
     ],
   },
 ];

@@ -100,7 +100,13 @@ export interface KpiMessagerie {
   cible: number;
   alerteBas?: number;
   alerteHaut?: number;
-  /** Mesures mensuelles de janvier à août 2026 (historique de la vraisemblance). */
+  /**
+   * Premier mois (AAAA-MM) de l'historique : le suivi du KPI y débute (1er du mois) et ses mesures
+   * sont posées le 28 de chaque mois suivant. Pour une mission TERMINÉE, il reste dans sa période
+   * (aucune mesure après la clôture).
+   */
+  premierMois: string;
+  /** Mesures mensuelles à partir de `premierMois` (historique de la vraisemblance). */
   historique: readonly number[];
   /** Contributeurs du portail désignés pour ce KPI. */
   contributeurs: readonly CleCompte[];
@@ -120,6 +126,7 @@ export const KPI_MESSAGERIE: readonly KpiMessagerie[] = [
     sens: "plus_haut_mieux",
     cible: 1300,
     alerteBas: 1000,
+    premierMois: "2024-10",
     historique: [1180, 1215, 1240, 1262, 1290, 1275, 1310, 1325],
     contributeurs: ["contributeur.client", "dirigeant.client"],
   },
@@ -130,6 +137,7 @@ export const KPI_MESSAGERIE: readonly KpiMessagerie[] = [
     sens: "plus_bas_mieux",
     cible: 6,
     alerteHaut: 12,
+    premierMois: "2024-10",
     historique: [8, 7, 7, 8, 6, 7, 6, 6],
     contributeurs: ["contributeur.client", "dirigeant.client"],
   },
@@ -140,6 +148,7 @@ export const KPI_MESSAGERIE: readonly KpiMessagerie[] = [
     sens: "plus_haut_mieux",
     cible: 4500,
     alerteBas: 3500,
+    premierMois: "2026-01",
     historique: [3900, 3980, 4050, 4120, 4200, 4260, 4310, 4380],
     contributeurs: ["dirigeant.client.2", "contributeur.client.2"],
   },
@@ -170,7 +179,8 @@ export const ENTRANTS_CANAUX: readonly EntrantCanal[] = [
     de: "contributeur.client",
     texte: "volume cacao 1340",
     suite: "reprendre",
-    dateMesure: "2026-09-30",
+    // Mission SICAFE terminée en 2025 : la mesure reprise reste avant sa clôture (14 juin 2025).
+    dateMesure: "2025-06-13",
   },
   // Rejet du cabinet : confirmée par OUI, mais déjà saisie au portail.
   {
