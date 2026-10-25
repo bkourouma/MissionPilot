@@ -5,6 +5,7 @@ import { semerCanaux } from "../appels-offres-canaux/canaux.js";
 import { semerCapitalisation } from "../appels-offres-canaux/capitalisation.js";
 import { semerObservatoire } from "../appels-offres-canaux/observatoire.js";
 import { semerServicesCandidats } from "../appels-offres-canaux/services-candidats.js";
+import { refuserCleIa } from "../appels-offres-canaux/outils.js";
 import type { ContexteTenantDemo } from "../contexte.js";
 
 /*
@@ -28,6 +29,7 @@ export const MODULES_APPELS_OFFRES_CANAUX = [
 ] as const;
 
 export async function semerAppelsOffresCanaux(ctx: ContexteTenantDemo): Promise<void> {
+  refuserCleIa(ctx);
   for (const [nom, semer] of MODULES_APPELS_OFFRES_CANAUX) {
     ctx.journal(`  appels-offres-canaux : ${nom}…`);
     await semer(ctx);

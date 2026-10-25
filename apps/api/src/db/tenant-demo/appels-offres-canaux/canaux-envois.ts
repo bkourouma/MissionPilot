@@ -39,7 +39,7 @@ export async function planifierEnvoi(cc: ContexteCanaux, dests: Destinataires, e
   if (!destinataireId) throw new Error(`Destinataire « ${e.dest} » absent.`);
   const jour = e.jour > cc.ctx.aujourdhui ? cc.ctx.aujourdhui : e.jour;
   const maintenant = new Date(`${jour}T${e.heure}Z`);
-  const r = await cc.ctx.database.withTenant(cc.ctx.cabinetId, (db) =>
+  const r = await cc.database.withTenant(cc.ctx.cabinetId, (db) =>
     mettreEnFileEnvoi(db, cc.trousseau, {
       cabinetId: cc.ctx.cabinetId,
       canal: "whatsapp",
@@ -96,7 +96,7 @@ export async function semerEnvoisHistoriques(
   q: QuestionnairePret,
 ): Promise<void> {
   const cabinetId = cc.ctx.cabinetId;
-  const nom = await cc.ctx.database.withTenant(cabinetId, (db) => nomDuCabinet(db, cabinetId));
+  const nom = await cc.database.withTenant(cabinetId, (db) => nomDuCabinet(db, cabinetId));
   const planifies: EnvoiPlanifie[] = [];
 
   // Relances J+10 du questionnaire (SICAFÉ) : lecture par le dirigeant, simple remise pour l'autre.
@@ -145,8 +145,8 @@ export async function semerEnvoisHistoriques(
       [destId],
     );
     if (serie.length > 0 || consent[0]?.statut !== "accorde") continue;
-    const synthese = await cc.ctx.database.withTenant(cabinetId, (db) =>
-      apercuSynthese(cc.ctx.database, db, {
+    const synthese = await cc.database.withTenant(cabinetId, (db) =>
+      apercuSynthese(cc.database, db, {
         cabinetId,
         clientId,
         utilisateurId,
@@ -195,7 +195,7 @@ export async function semerEnvoisBloques(
   q: QuestionnairePret,
 ): Promise<void> {
   const cabinetId = cc.ctx.cabinetId;
-  const nom = await cc.ctx.database.withTenant(cabinetId, (db) => nomDuCabinet(db, cabinetId));
+  const nom = await cc.database.withTenant(cabinetId, (db) => nomDuCabinet(db, cabinetId));
   const maintenant = cc.ctx.aujourdhui;
   const alerte = await sql<{ id: string }>(
     cc.ctx,

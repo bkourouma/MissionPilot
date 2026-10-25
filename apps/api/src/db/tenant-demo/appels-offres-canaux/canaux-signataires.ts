@@ -59,7 +59,7 @@ async function inviterEtAccepter(
     `invitation ${String(invitation["email"])}`,
   );
   const jeton = nouveauJeton();
-  await cc.ctx.database.withTenant(cc.ctx.cabinetId, (db) =>
+  await cc.database.withTenant(cc.ctx.cabinetId, (db) =>
     db.query("UPDATE invitations SET jeton_hash = $1 WHERE id = $2 AND acceptee_le IS NULL", [
       hacherJeton(jeton),
       inv.id,
@@ -122,7 +122,7 @@ export async function assurerSignataires2fa(
 
 /** Active la 2FA de démonstration d'un compte (sans effet si elle est déjà active). */
 export async function activer2fa(cc: ContexteCanaux, utilisateurId: string): Promise<void> {
-  await cc.ctx.database.withTenant(cc.ctx.cabinetId, (db) =>
+  await cc.database.withTenant(cc.ctx.cabinetId, (db) =>
     activer2faDemo(db, cc.trousseau, cc.ctx.cabinetId, utilisateurId),
   );
 }

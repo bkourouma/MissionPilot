@@ -141,3 +141,18 @@ export const chefDe = (ctx: ContexteTenantDemo, missionId: string) =>
 /** Compte du directeur de la mission. */
 export const directeurDe = (ctx: ContexteTenantDemo, missionId: string) =>
   acteurDeMission(ctx, missionId, "directeur_id");
+
+/**
+ * Garde réseau : les offres techniques (`generation: "ia"`) et les extractions d'exigences
+ * (`mode: "ia"`) passent par l'orchestrateur d'IA, qui n'appelle un fournisseur réel (OpenRouter)
+ * QUE si une clé est configurée. Avec une clé, le seed refuse de tourner plutôt que de risquer un
+ * appel réseau (et un coût) ; sans clé, le repli est le gabarit déterministe.
+ */
+export function refuserCleIa(ctx: ContexteTenantDemo): void {
+  if (ctx.config.OPENROUTER_API_KEY?.trim()) {
+    throw new Error(
+      "OPENROUTER_API_KEY est définie : le seed du Tenant démo (appels d'offres) refuse de tourner " +
+        "avec une clé IA, pour qu'aucun appel réseau ne parte. Retirer la variable puis relancer.",
+    );
+  }
+}

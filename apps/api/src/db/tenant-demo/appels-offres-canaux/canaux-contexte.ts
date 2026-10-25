@@ -8,6 +8,7 @@ import type { Canaux } from "../../../canaux/ports.js";
 import { creerHandlerCanalTranscription } from "../../../canaux/transcriptions.js";
 import { dossierStockage, type Config } from "../../../config.js";
 import type { HandlerJob } from "../../../jobs/registre.js";
+import { createDatabase, type Database } from "../../pool.js";
 import type { CleCompte } from "../cles.js";
 import { attendre, type ContexteTenantDemo, type SessionDemo } from "../contexte.js";
 
@@ -27,6 +28,8 @@ export interface ContexteCanaux {
   ctx: ContexteTenantDemo;
   app: FastifyInstance;
   cfg: Config;
+  /** Base du module (voir `baseDuModule`) : à utiliser à la place de `ctx.database`. */
+  database: Database;
   canaux: Canaux;
   deps: DependancesDestinataires;
   trousseau: Trousseau;
@@ -47,6 +50,40 @@ export interface ContexteCanaux {
   ): Promise<ReponseHttp>;
 }
 
+/** Types de jobs menés à leur terme ICI, même en démonstration publique (ports simulés, aucun réseau). */
+const JOBS_SIMULES = ["canal_envoi", "canal_transcription"] as const;
+
+/**
+ * Base du module. Hors démonstration publique : celle du contexte. En démonstration publique,
+ * `ctx.database` neutralise TOUT job en attente (tous types) à la fin de chaque transaction, donc
+ * les envois et transcriptions simulés ne s'exécuteraient jamais : le module ouvre sa propre
+ * connexion, qui épargne SEULEMENT `canal_envoi` et `canal_transcription` (exécutés aussitôt par
+ * `executerTaches`, fournisseurs simulés) et neutralise tout le reste, en particulier
+ * `envoyer_email` (le worker du serveur ne verrait jamais un e-mail du seed).
+ */
+function baseDuModule(ctx: ContexteTenantDemo): { database: Database; fermer(): Promise<void> } {
+  if (!ctx.publique) return { database: ctx.database, fermer: async () => undefined };
+  const brute = createDatabase(ctx.config);
+  const neutraliser = async <T>(db: Parameters<Parameters<Database["withTenant"]>[1]>[0], r: T) => {
+    await db.query(
+      `UPDATE jobs SET statut = 'echec', charge = '{}'::jsonb,
+         erreur = 'Neutralisé : seed de démonstration publique.'
+       WHERE statut = 'en_attente' AND cree_le = now() AND NOT (type = ANY($1::text[]))`,
+      [[...JOBS_SIMULES]],
+    );
+    return r;
+  };
+  return {
+    database: {
+      withTenant: (cabinetId, fn) =>
+        brute.withTenant(cabinetId, async (db) => neutraliser(db, await fn(db))),
+      withoutTenant: (fn) => brute.withoutTenant(async (db) => neutraliser(db, await fn(db))),
+      close: () => brute.close(),
+    },
+    fermer: () => brute.close(),
+  };
+}
+
 export async function ouvrirContexteCanaux(
   ctx: ContexteTenantDemo,
 ): Promise<{ cc: ContexteCanaux; fermer(): Promise<void> }> {
@@ -64,7 +101,8 @@ export async function ouvrirContexteCanaux(
     SIGNATURE_FOURNISSEUR: "local",
   };
   const canaux = creerCanaux(cfg);
-  const app = await buildApp(cfg, ctx.database, { canaux });
+  const base = baseDuModule(ctx);
+  const app = await buildApp(cfg, base.database, { canaux });
   const trousseau = trousseauDepuisConfig(cfg);
   const brut =
     (cookie: string) =>
@@ -79,6 +117,7 @@ export async function ouvrirContexteCanaux(
     ctx,
     app,
     cfg,
+    database: base.database,
     canaux,
     trousseau,
     deps: { trousseau, canaux },
@@ -86,7 +125,13 @@ export async function ouvrirContexteCanaux(
       brut(ctx.session(cle).cookie)(method, url, payload, entetes),
     appelCookie: (cookie, method, url, payload) => brut(cookie)(method, url, payload),
   };
-  return { cc, fermer: () => app.close() };
+  return {
+    cc,
+    fermer: async () => {
+      await app.close();
+      await base.fermer();
+    },
+  };
 }
 
 /** Réponse attendue (statut) ou erreur claire ; renvoie le corps JSON. */
@@ -152,7 +197,7 @@ export async function executerTaches(cc: ContexteCanaux): Promise<number> {
   const cabinetId = cc.ctx.cabinetId;
   let n = 0;
   for (;;) {
-    const tache = await cc.ctx.database.withTenant(cabinetId, async (db) => {
+    const tache = await cc.database.withTenant(cabinetId, async (db) => {
       const r = await db.query(
         `SELECT id, type, charge, execute_a FROM jobs
          WHERE type = ANY($1::text[]) AND statut = 'en_attente' ORDER BY execute_a, id LIMIT 1`,
@@ -162,14 +207,14 @@ export async function executerTaches(cc: ContexteCanaux): Promise<number> {
         { id: string; type: string; charge: Record<string, unknown>; execute_a: Date } | undefined;
     });
     if (!tache) return n;
-    await cc.ctx.database.withTenant(cabinetId, async (db) => {
+    await cc.database.withTenant(cabinetId, async (db) => {
       await (handlers[tache.type] as HandlerJob)({
         db,
         cabinetId,
         jobId: tache.id,
         charge: tache.charge ?? {},
         maintenant: tache.execute_a < new Date() ? tache.execute_a : new Date(),
-        database: cc.ctx.database,
+        database: cc.database,
       });
       await db.query("UPDATE jobs SET statut = 'termine', progression = 100 WHERE id = $1", [
         tache.id,

@@ -110,7 +110,11 @@ async function controlerFin02(ctx: ContexteTenantDemo): Promise<void> {
     if (liste.statusCode !== 403) {
       throw new Error(`FIN-02 : ${cle} lit les offres financières (HTTP ${liste.statusCode}).`);
     }
-    const une = await sql<{ id: string }>(ctx, "SELECT id FROM ao_offres_financieres LIMIT 1");
+    const une = await sql<{ id: string }>(
+      ctx,
+      "SELECT id FROM ao_offres_financieres WHERE cabinet_id = $1 ORDER BY id LIMIT 1",
+      [ctx.cabinetId],
+    );
     const id = une[0]?.id;
     if (id) {
       const d = await ctx.session(cle).get(`/api/banque-ao/offres-financieres/${id}`);

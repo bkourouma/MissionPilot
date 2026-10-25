@@ -13,6 +13,12 @@ import { missionDuCasting, sql, type CleMissionCasting } from "./outils.js";
  * livrables suivis par la qualité) ; si aucune preuve n'existe pour la mission (les feuilles de temps
  * viennent de la phase « gestion », après celle-ci), des preuves de repli sont posées en SQL
  * propriétaire à partir du temps PLANIFIÉ des tâches rattachées (aucun temps réel inventé).
+ *
+ * ATTENTION : ces preuves de repli (type `temps_brique`, `ON CONFLICT DO NOTHING`) ne sont PAS
+ * remplacées par les temps réels de la phase « gestion » : la clé unique (collaborateur, compétence,
+ * type, source = mission) fait que le relevé ultérieur par `competences/actualiser` n'ajoute rien
+ * pour cette mission. Le détail de la preuve dit « Temps planifié » pour que ce ne soit pas pris
+ * pour du temps réel.
  */
 
 async function referentiel(ctx: ContexteTenantDemo): Promise<Map<string, string>> {
