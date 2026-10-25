@@ -55,6 +55,11 @@ explicite de l'utilisateur requis.** Pas de nouvelle migration.
 | 7 | Connexion « un clic » : Tenant démo dans le sélecteur, vérification dans le navigateur |
 | 8 | Documentation (ce lot) : RUNBOOK « Tenant démo », DEPLOIEMENT (e), SECURITY §3 et §15, CODING_STANDARDS §1, DECISIONS, checklist (relevé du 2026-10-24), ce carnet |
 
+**Clôture des 5 missions terminées (ajout du 2026-10-25, phase `gestion`).** Le semis déclare le reste à faire final nul par la vraie route ;
+il lève les alertes de consommation à la clôture (les alertes d'atterrissage au-dessus du budget restent actives volontairement : 8) ;
+il termine le suivi des KPI avant la clôture (`missions/kpi-fin-suivi.ts`) ; les documents partagés sont servis avec un petit PDF fictif ;
+la lettre de mission SICAFE est antidatée au jour de signature.
+
 **Reste à faire.**
 
 - **Dette** : les rapports validés du Tenant démo le sont par `UPDATE` SQL faute de route de validation ; à remplacer par une route.
@@ -70,6 +75,10 @@ explicite de l'utilisateur requis.** Pas de nouvelle migration.
   antidatables sans la rompre) ; taux négociés EUR/USD (`taux_clients`) de 2,2 à 2,8 fois les taux du budget de la même mission ;
   avertissement pg `client.query() already executing` dans `plans/ateliers.ts` (`cloreAtelier`) ; semis non strictement reproductible
   entre le mode public et le mode normal (4 050 lignes de temps contre 4 089 : horloge réelle et ordre d'exécution) ; `kpi_definitions.debut_suivi` vaut 2026-01-01 pour 3 KPI des missions 1 et 2, clôturées en 2025 ; `salle_demandes` et `salle_pieces` portent des horodatages techniques à la date réelle du semis.
+- **Horodatages et lettres au semis (ajout du 2026-10-25)** : `cap_recommandations.cree_le` (11 lignes), `cap_efficacite_mesures.calcule_le` (8)
+  et `lignes_temps.cree_le` (3, Brasseries du Wouri) portent l'horloge RÉELLE du semis ; les lettres de mission « (DÉMONSTRATION) » de Banque du
+  Sahel et de Gabon Offshore sont datées du jour du semis (la lettre SICAFE, elle, est antidatée au jour de signature) ; le message final du
+  socle affiche « 25 comptes » (cosmétique : le cabinet en compte 48 actifs).
 - **Constats applicatifs hors semis, NON corrigés** (recette navigateur) : rechargement dur (F5) en mode développement qui laisse le
   squelette « Chargement » (hydratation bloquée, à reconfirmer sur un build de production) ; tableau de bord sans graphique (cartes de
   chiffres seulement) ; le chef de mission voit Finance et Paramètres dans le menu mais reçoit 403 ; carnet de commandes différent selon
@@ -77,7 +86,9 @@ explicite de l'utilisateur requis.** Pas de nouvelle migration.
   n'est pas dans cette branche) ; libellé à revoir dans `EcheancierMission.tsx:180`.
 - **Nettoyage** : supprimer le dossier `C:\Users\BABA\AppData\Local\Temp\claude\D--APP-MissionPilot\23299cbb-f4db-4ee4-af85-2151d270ecad\apps`
   (extraction `git archive`).
-- Recette navigateur finale : voir la PR.
+- **Défaut applicatif NON corrigé (onglet Découpage)** : l'onglet affiche toujours « Réalisé 0 j / Reste = budget », car `agregerDecoupage`
+  (`apps/api/src/missions/decoupage.ts`) met `realise: 0` en dur. Correctif possible : faire utiliser `calculerSuiviMission` (`temps/suivi.ts`)
+  par la route `/missions/:id/synthese`. À traiter en suite, hors semis.
 - Décisions de l'utilisateur : valider `DECISIONS.md` « Tenant démo » (H1 nom exact, devises, coûts IA simulés, 2FA au secret public) ;
   **nettoyage à faire APRÈS accord de l'utilisateur** : supprimer le cabinet « Tenant démo » PARTIEL créé par erreur par un agent dans la
   base de développement `missionpilot` (id `13970f72-2bc1-4df1-ad88-6639ace95b71`, semis lancé sans `DATABASE_OWNER_URL` ni
@@ -100,7 +111,7 @@ explicite de l'utilisateur requis.** Pas de nouvelle migration.
 - **Docker se bloque** parfois sous charge (conteneur `missionpilot-postgres` ou Docker Desktop) : `docker start missionpilot-postgres`,
   attendre `healthy`, relancer Docker Desktop si besoin ; ne pas lancer de requêtes pendant ce temps.
 - **Durées** : une suite `seed-tenant-demo*.test.ts` prend de 3 à 17 minutes sous charge (plusieurs lots en parallèle) ; le semis
-  complet, environ 12 minutes en mode normal et 10 à 14 minutes en mode public sur une machine de développement (mesuré le 2026-10-25). Durée mesurée du semis complet sur `dc44786` : 9 min 56 s en mode normal. Plafonner à 2 suites API simultanées par lot.
+  complet dure 10 à 14 minutes selon la machine (mesure finale du 2026-10-25 sur la tête finale, base neuve : 846 s, soit environ 14 min, dont la phase `gestion` 391 s ; rejeu 20 s). Plafonner à 2 suites API simultanées par lot.
 - **Limite des liaisons de méthode** : `mission_methodes` est en ajout seul et non antidatée ; 3 liaisons du lot 5 sont postérieures à la
   clôture de leur mission (SECURITY §15).
 - **Rétro-planning d'un appel d'offres** (`ao-fiches-encours.ts`) : calculé à partir de la date RÉELLE, donc le jeu de données change avec
@@ -124,13 +135,15 @@ explicite de l'utilisateur requis.** Pas de nouvelle migration.
 - Lot 9 : `seed-tenant-demo-ia-qualite-standard.test.ts` (459 lignes) scindé en `seed-tenant-demo-ia-agents.test.ts` et
   `seed-tenant-demo-qualite-standard.test.ts` (outils communs : `seed-tenant-demo-iqs-outils.ts`) ; tsc, eslint et prettier propres,
   suites non lancées (à faire tourner par le superviseur).
-- Semis complet final mesuré le 2026-10-25 sur `6315381` (merge du lot 2b, précédant `dc44786`) (bases neuves, toutes phases, sortie 0 dans les deux modes, rejeu
-  sûr : 19 s, les 6 phases `deja_faite`) : mode normal 727 s (12 min 07), mode public 786 s (en parallèle) ; 6 phases (socle puis `missions`,
-  `notation-plans`, `redressement-dd`, `appels-offres-canaux`, `ia-qualite-standard`, `gestion`, cette dernière près de 6 min) ; 11 missions
+- Semis complet final mesuré le 2026-10-25 sur la tête finale de la branche (bases neuves, toutes phases, rejeu sûr : 20 s, toutes les phases
+  `deja_faite`) : 846 s (environ 14 min), mode public non remesuré sur cette tête ; 7 phases (socle puis `missions`, `notation-plans`,
+  `redressement-dd`, `appels-offres-canaux`, `ia-qualite-standard`, `gestion`, cette dernière 391 s) ; 11 missions
   dont 5 clôturées ; 48 comptes actifs (cabinet 20 : associe 3, directeur_mission 2, chef_mission 2, consultant 5, ressources 2, gestionnaire 2, expert_metier 2, expert_externe 2 ; portail 28 : client_dirigeant 13, client_contributeur 12, client_investisseur 3), dont 2 comptes à 2FA non listés par la connexion « un clic » (46 comptes listés : 19 cabinet + 27 portail) ; seules 9 tables sur 356 restent
   volontairement vides (automatisation_coupe_circuits, autonomie_coupe_circuit, ia_alertes_plafond, ia_alertes_plafond_mission,
   ia_cache_reponses, ia_reservations, journal_plateforme, plateforme_sessions, saisies_idempotence), identiques dans les deux modes.
-- Recette navigateur finale : voir la PR.
+- Recette navigateur finale du 2026-10-25 (15 profils testés, aucun 5xx, droits FIN-02 et portail respectés) : anomalies restantes = marge à
+  100 % sur les missions hors XOF (décision M2, ci-dessus), carnet de commandes variable selon le rôle, portail investisseur SICAFÉ vide,
+  tableau de bord de l'associé sans bloc « missions en cours ».
 
 ---
 

@@ -370,8 +370,8 @@ pnpm --filter @missionpilot/api db:seed-tenant-demo --phase=missions           #
   « Tenant démo » partiel (incident du 2026-10-24, voir HANDOFF). Un semis se fait dans une base neuve (par exemple
   `missionpilot_demo`), jamais dans la base où l'on développe. Les variables s'exportent à CHAQUE appel du shell si l'outil ne
   conserve pas l'environnement entre deux commandes.
-- **Durée** : environ 12 minutes en mode normal (727 s mesurées le 2026-10-25) et 10 à 14 minutes en mode public, sur une machine de développement
-  (des milliers d'appels de routes ; la phase `gestion` en prend près de la moitié). À lancer en
+- **Durée** : 10 à 14 minutes selon la machine (mesure finale du 2026-10-25 sur la tête finale, base neuve : 846 s, soit environ 14 min ; des
+  milliers d'appels de routes ; la phase `gestion` en prend 391 s, près de la moitié ; rejeu : 20 s). À lancer en
   arrière-plan ou dans un terminal dédié : un outil qui coupe une commande silencieuse (watchdog de 600 s) l'interrompt en cours de
   phase (voir « Idempotence et reprise »). Détail par phase : HANDOFF (« Vérifié »).
 - **Jobs en attente** : après un semis non public, des jobs `envoyer_email` (environ 79) et `relance_questionnaire` (environ 28) restent
@@ -418,6 +418,10 @@ de la phase `appels-offres-canaux` ; la liste en montre 46 (19 cabinet + 27 port
 sont jamais listés : on se connecte par le formulaire (e-mail, mot de passe commun, puis code du moment par
 `pnpm --filter @missionpilot/api db:code-2fa-demo`, secret TOTP PUBLIC de `seed-demo-2fa.ts`).
 
+**Missions clôturées (5)** : le semis déclare le reste à faire final nul par la vraie route, lève les alertes de consommation à la clôture (les
+alertes d'atterrissage au-dessus du budget restent actives volontairement : 8), termine le suivi des KPI avant la clôture
+(`missions/kpi-fin-suivi.ts`), sert les documents partagés avec un petit PDF fictif et antidate au jour de signature la lettre de mission SICAFE.
+
 **Limites connues des données** (détail : HANDOFF) : les écritures par routes sont datées de l'horloge RÉELLE du semis, soit une
 journée après la date fictive du jeu de données ; `mission_methodes` est en ajout seul et n'est pas antidatée (trois liaisons de
 méthode du lot 5 sont postérieures à la clôture de leur mission) ; le rétro-planning d'un appel d'offres dépend de la date réelle ;
@@ -426,6 +430,16 @@ l'API journalise parfois l'avertissement pg `client.query() already executing` �
 prises dans la chaîne de hachage) ; occupation et facturabilité basses, réalisation à 157 % ; marge à 100 % sur les missions XAF, EUR et USD
 (le moteur de marge ignore les coûts d'une autre devise, décision produit en attente) ; taux négociés EUR/USD supérieurs à ceux du budget ;
 semis non strictement reproductible entre le mode public et le mode normal (4 050 contre 4 089 lignes de temps).
+
+**Ajouts et limites du 2026-10-25** : `cap_recommandations.cree_le` (11 lignes), `cap_efficacite_mesures.calcule_le` (8) et `lignes_temps.cree_le`
+(3, Brasseries du Wouri) portent l'horloge réelle du semis ; les lettres de mission « (DÉMONSTRATION) » de Banque du Sahel et de Gabon Offshore
+sont datées du jour du semis ; le message final du socle affiche « 25 comptes » (cosmétique : 48 comptes actifs).
+**Recette navigateur finale (2026-10-25, 15 profils testés)** : aucun 5xx, droits FIN-02 et portail respectés ; anomalies restantes : marge à
+100 % sur les missions hors XOF (décision M2), carnet de commandes variable selon le rôle, portail investisseur SICAFÉ vide, tableau de bord de
+l'associé sans bloc « missions en cours ».
+**Défaut applicatif non corrigé** : l'onglet Découpage affiche toujours « Réalisé 0 j / Reste = budget », car `agregerDecoupage`
+(`apps/api/src/missions/decoupage.ts`) met `realise: 0` en dur ; correctif possible : faire utiliser `calculerSuiviMission` (`temps/suivi.ts`)
+par la route `/missions/:id/synthese`.
 
 **Tests** : `apps/api/test/seed-tenant-demo*.test.ts` (un fichier par domaine, base `_test` dédiée : jamais deux suites API sur la
 même base, voir « Tests API et base de test ») ; sous charge de plusieurs agents, une suite prend de 3 à 17 minutes.

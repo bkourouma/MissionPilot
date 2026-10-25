@@ -256,7 +256,7 @@ mp up -d --force-recreate api web    # le web partage l'espace réseau de l'API 
 L'étape centrale est l'équivalent de `docker compose run --rm api node_modules/.bin/tsx src/db/seed-tenant-demo.ts
 --confirmer-demo` depuis `/home/deployer/missionpilot`.
 
-- **Fenêtre sans visiteurs** : planifier le semis quand personne n'utilise la démonstration. Il dure environ 12 minutes sur une machine de développement (mesuré le 2026-10-25) ; l'API est arrêtée et `/connexion` indisponible pendant ce temps. Ne pas lancer deux semis à la
+- **Fenêtre sans visiteurs** : planifier le semis quand personne n'utilise la démonstration. Il dure 10 à 14 minutes sur une machine de développement (mesuré le 2026-10-25) ; l'API est arrêtée et `/connexion` indisponible pendant ce temps. Ne pas lancer deux semis à la
   fois. Le lancer dans un terminal qui survit à la déconnexion (`tmux`), pas dans une session SSH fragile.
 - **Aucune clé IA** : le semis échoue net si `OPENROUTER_API_KEY` est définie dans `missionpilot.env` (aucun appel réseau, aucun
   coût ; coûts IA SIMULÉS). Si le serveur a une clé pour un autre usage, la retirer le temps du semis puis la remettre.
