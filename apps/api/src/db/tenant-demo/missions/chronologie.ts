@@ -40,3 +40,23 @@ export function chronologieCommerciale(def: {
     mission: ajouterJours(repondue, 1),
   };
 }
+
+/** Dernier jour où l'on date une clôture : la veille d'« aujourd'hui » fictif. */
+export const DELAI_CLOTURE_JOURS = 6;
+
+/**
+ * Date fictive de clôture d'une mission terminée : deux jours après le plus tardif de la fin de
+ * mission + 6 jours et de la dernière date métier connue (facture, avoir, encaissement, rapport,
+ * temps, jalon, document), plafonnée à `plafond`. Fonction pure.
+ */
+export function dateClotureFictive(
+  dateFin: string,
+  derniereDateMetier: string | null,
+  plafond: string,
+): string {
+  const base = ajouterJours(dateFin, DELAI_CLOTURE_JOURS);
+  const pivot =
+    derniereDateMetier !== null && derniereDateMetier > base ? derniereDateMetier : base;
+  const date = ajouterJours(pivot, 2);
+  return date > plafond ? plafond : date;
+}

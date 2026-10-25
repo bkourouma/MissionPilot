@@ -152,6 +152,19 @@ async function verifierDevises(lignes: Lire, cabinetId: string): Promise<void> {
 }
 
 /** 5 bilans archivés ; au moins deux clôtureurs différents, et chacun étant l associé de l équipe de sa mission. */
+/** Un jalon tardif (écriture métier postérieure à fin + 6 jours) à ajouter avant la clôture de la mission. */
+export const JALON_TARDIF = { mission: "Due diligence — Mboa Solaire", date: "2026-02-10" };
+
+export async function ajouterJalonTardif(lignes: Lire): Promise<void> {
+  await lignes(
+    `UPDATE mission_jalons SET date_prevue = $2 WHERE id = (
+       SELECT j.id FROM mission_jalons j JOIN missions m ON m.id = j.mission_id
+        WHERE m.intitule = $1 ORDER BY j.id LIMIT 1)`,
+    [JALON_TARDIF.mission, JALON_TARDIF.date],
+  );
+}
+
+/** 5 bilans ; au moins deux clôtureurs ; aucune écriture métier postérieure à la clôture fictive. */
 export async function verifierBilansEtCloturants(lignes: Lire, cabinetId: string): Promise<void> {
   const bilans = await lignes<{ n: string }>(
     "SELECT count(*) n FROM bilans_mission WHERE cabinet_id = $1",
@@ -163,4 +176,19 @@ export async function verifierBilansEtCloturants(lignes: Lire, cabinetId: string
     [cabinetId],
   );
   expect(Number(c[0]?.n), "clôtureurs différents").toBeGreaterThanOrEqual(2);
+  const apres = await lignes<{ intitule: string }>(
+    `SELECT m.intitule FROM missions m WHERE m.cabinet_id = $1 AND m.statut = 'cloturee' AND (
+       EXISTS (SELECT 1 FROM factures f WHERE f.mission_id = m.id AND f.date_emission > m.cloturee_le::date)
+       OR EXISTS (SELECT 1 FROM rapports_mission r WHERE r.mission_id = m.id AND r.genere_le > m.cloturee_le)
+       OR EXISTS (SELECT 1 FROM lignes_temps l WHERE l.mission_id = m.id AND l.date > m.cloturee_le::date)
+       OR EXISTS (SELECT 1 FROM mission_jalons j WHERE j.mission_id = m.id AND j.date_prevue > m.cloturee_le::date)
+       OR EXISTS (SELECT 1 FROM mission_documents d WHERE d.mission_id = m.id AND d.cree_le > m.cloturee_le))`,
+    [cabinetId],
+  );
+  expect(apres, "écritures datées après la clôture").toEqual([]);
+  const tardive = await lignes<{ ok: boolean }>(
+    "SELECT cloturee_le::date > $2::date AS ok FROM missions WHERE cabinet_id = $1 AND intitule = $3",
+    [cabinetId, JALON_TARDIF.date, JALON_TARDIF.mission],
+  );
+  expect(tardive[0]?.ok, "clôture de Mboa après le jalon tardif").toBe(true);
 }
