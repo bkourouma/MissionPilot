@@ -1,5 +1,6 @@
 import {
   calculerBudget,
+  convertirVersDevise,
   ErreurFinance,
   figerTauxChange,
   GRILLE_SEUILS_PAR_DEFAUT,
@@ -205,11 +206,21 @@ export interface OptionsCalcul {
   tauxVente?: Record<string, number>;
   /** Prix journaliers de la version de référence, par clé de ligne (révision). */
   prixReference?: Map<string, number>;
+  /**
+   * Taux figé de la mission (devise de la mission → devise du cabinet) qui ramène les
+   * coûts journaliers d'une autre devise dans celle de la mission (moteur
+   * `convertirVersDevise`). À la signature, le taux qui va être figé ; par défaut, celui
+   * déjà enregistré sur la mission (révision).
+   */
+  tauxChange?: TauxChange;
 }
 
 export interface BudgetCalcule {
   lignes: LigneBudgetDb[];
-  /** Grades ou collaborateurs sans coût connu dans la devise : coût interne non budgété. */
+  /**
+   * Grades ou collaborateurs sans coût connu, ou dont le coût n'est pas convertible dans la
+   * devise de la mission (pas de taux figé) : coût interne non budgété.
+   */
   coutsManquants: string[];
 }
 
@@ -380,11 +391,29 @@ export function resoudreTauxVente(g: GrilleVente, grade: string, date: string): 
   );
 }
 
-/** Coût journalier moyen des collaborateurs internes actifs d'un grade, dans la devise. */
+/**
+ * Coût d'une ligne de `collaborateur_couts` ramené dans la devise de la mission au taux
+ * figé de la mission (moteur), ou null : coût absent ou non convertible.
+ */
+function coutEnDevise(
+  valeur: number | null,
+  deviseCout: string,
+  devise: Devise,
+  taux: TauxChange | undefined,
+): Montant | null {
+  if (valeur === null) return null;
+  return convertirVersDevise(montantMoteur(valeur, deviseCout as Devise), devise, taux);
+}
+
+/**
+ * Coût journalier moyen des collaborateurs internes actifs d'un grade, dans la devise de
+ * la mission (chaque coût converti au taux figé, puis moyenne arrondie par le moteur).
+ */
 async function coutMoyenParGrade(
   db: Db,
   couts: Awaited<ReturnType<typeof coutsALaDate>>,
   devise: Devise,
+  taux: TauxChange | undefined,
 ): Promise<Map<string, Montant>> {
   const r = await db.query(
     `SELECT c.id, g.code FROM collaborateurs c JOIN grades g ON g.id = c.grade_id
@@ -393,8 +422,9 @@ async function coutMoyenParGrade(
   const parGrade = new Map<string, Montant[]>();
   for (const c of r.rows) {
     const cout = couts.get(c.id);
-    if (!cout || cout.cout === null || cout.devise !== devise) continue;
-    parGrade.set(c.code, [...(parGrade.get(c.code) ?? []), montantMoteur(cout.cout, devise)]);
+    const converti = cout ? coutEnDevise(cout.cout, cout.devise, devise, taux) : null;
+    if (converti === null) continue;
+    parGrade.set(c.code, [...(parGrade.get(c.code) ?? []), converti]);
   }
   return new Map(
     [...parGrade].map(([code, liste]) => [
@@ -419,7 +449,8 @@ export async function calculerDepuisDecoupage(
   const groupes = await groupesDeJours(db, mission.id);
   const couts = await coutsALaDate(db, options.date);
   const grille = await chargerGrilleVente(db, mission, options.tauxVente ?? {});
-  const moyennes = await coutMoyenParGrade(db, couts, devise);
+  const taux = options.tauxChange ?? tauxChangeMission(mission);
+  const moyennes = await coutMoyenParGrade(db, couts, devise, taux);
   const lignes: LigneBudgetDb[] = [];
   const coutsManquants: string[] = [];
   for (const g of groupes) {
@@ -445,13 +476,12 @@ export async function calculerDepuisDecoupage(
       prix_journalier: prix,
     });
     const externe = g.collaborateurType !== null && g.collaborateurType !== "interne";
-    const cout = externe
-      ? perso && perso.devise === devise
-        ? perso.achat
-        : null
-      : g.collaborateurId !== null
-        ? perso && perso.devise === devise
-          ? perso.cout
+    // Coût d'une autre devise (FCFA sur une mission en euros…) : converti au taux figé.
+    const cout =
+      externe || g.collaborateurId !== null
+        ? perso
+          ? (coutEnDevise(externe ? perso.achat : perso.cout, perso.devise, devise, taux)?.valeur ??
+            null)
           : null
         : (moyennes.get(g.gradeCode ?? "")?.valeur ?? null);
     if (cout === null) {
@@ -472,7 +502,9 @@ export async function calculerDepuisDecoupage(
 /* ----- Taux de change figé et seuils d'approbation ----- */
 
 /** Taux figé de la mission vers la devise du cabinet (FIN-04), au format du moteur. */
-export function tauxChangeMission(mission: MissionAcces): TauxChange | undefined {
+export function tauxChangeMission(
+  mission: Pick<MissionAcces, "devise" | "date_signature" | "taux_change" | "devise_reference">,
+): TauxChange | undefined {
   if (!mission.date_signature || !mission.taux_change || !mission.devise_reference)
     return undefined;
   return figerTauxChange(

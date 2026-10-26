@@ -222,12 +222,56 @@ export function convertir(m: Montant, taux: TauxChange): Montant {
       `Le taux ${taux.source}→${taux.cible} ne s'applique pas à un montant en ${m.devise}.`,
     );
   }
-  const ecart = DECIMALES_DEVISE[taux.cible] - DECIMALES_DEVISE[taux.source];
+  return appliquerTaux(m, versRationnel(taux.taux, "taux de change"), taux.cible);
+}
+
+/** Multiplie par `facteur` (unités majeures) et passe des unités mineures de `m` à celles de `cible`. */
+function appliquerTaux(m: Montant, facteur: Rationnel, cible: Devise): Montant {
+  const ecart = DECIMALES_DEVISE[cible] - DECIMALES_DEVISE[m.devise];
   const echelle: Rationnel =
     ecart >= 0 ? { num: 10n ** BigInt(ecart), den: 1n } : { num: 1n, den: 10n ** BigInt(-ecart) };
-  const facteur = multiplierRationnels(versRationnel(taux.taux, "taux de change"), echelle);
-  const converti = multiplierParRationnel(m, facteur);
-  return montant(converti.valeur, taux.cible);
+  const converti = multiplierParRationnel(m, multiplierRationnels(facteur, echelle));
+  return montant(converti.valeur, cible);
+}
+
+/** Vrai pour une même devise, ou pour XOF et XAF (francs CFA à parité fixe 1 pour 1). */
+export function pariteUnitaire(a: Devise, b: Devise): boolean {
+  const fcfa = (d: Devise) => d === "XOF" || d === "XAF";
+  return a === b || (fcfa(a) && fcfa(b));
+}
+
+/**
+ * Ramène un montant (un coût interne, par exemple) dans la devise d'une mission
+ * avec le taux figé à la signature de cette mission (FIN-04) :
+ * - même devise : montant inchangé ;
+ * - XOF ↔ XAF : parité fixe 1 pour 1, sans taux ;
+ * - montant dans la devise de référence du taux (`taux.cible`, ou le franc CFA
+ *   équivalent) : taux inverse, montant ÷ taux. Exemple : 350 000 FCFA sur une
+ *   mission en euros figée à 655,957 → 35 000 000 / 655,957 = 53 357,15… →
+ *   53 357 centimes (533,57 €) ;
+ * - montant dans la devise source du taux : taux direct (comme `convertir`) ;
+ * - sinon (taux absent, ou qui ne relie pas les deux devises) : `null`.
+ *   L'appelant écarte alors le montant ET le signale ; il ne l'additionne
+ *   jamais tel quel.
+ * Calcul exact, une seule opération d'arrondi (règle de `calcul-exact.ts`).
+ */
+export function convertirVersDevise(m: Montant, devise: Devise, taux?: TauxChange): Montant | null {
+  if (pariteUnitaire(m.devise, devise)) return montant(m.valeur, devise);
+  if (taux === undefined) return null;
+  const r = versRationnel(taux.taux, "taux de change");
+  if (r.num <= 0n) {
+    throw new ErreurFinance(
+      "TAUX_CHANGE_INVALIDE",
+      `Le taux de change doit être positif (reçu ${taux.taux}).`,
+    );
+  }
+  if (pariteUnitaire(taux.source, devise) && pariteUnitaire(taux.cible, m.devise)) {
+    return appliquerTaux(m, { num: r.den, den: r.num }, devise);
+  }
+  if (pariteUnitaire(taux.source, m.devise) && pariteUnitaire(taux.cible, devise)) {
+    return appliquerTaux(m, r, devise);
+  }
+  return null;
 }
 
 /** Espace fine insécable (séparateur de milliers fr-FR, comme Intl). */

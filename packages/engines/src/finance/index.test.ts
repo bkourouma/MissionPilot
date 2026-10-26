@@ -7,6 +7,7 @@ describe("API publique du domaine finance", () => {
       "ErreurFinance",
       "montant",
       "convertir",
+      "convertirVersDevise",
       "formaterMontant",
       "repartir",
       "resoudreTauxGrade",

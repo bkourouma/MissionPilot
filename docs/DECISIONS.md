@@ -1188,8 +1188,34 @@ Statut : **À VALIDER PAR L'UTILISATEUR** (demande du chantier « Tenant démo �
   postérieures à la clôture de leur mission).
 - **Décision produit à prendre (marge)** : sur les missions XAF, EUR et USD, la marge sort à 100 % car le moteur de marge ignore les coûts
   exprimés dans une autre devise que celle de la mission. Suggestion : parité fixe XOF/XAF et évolution du moteur de calcul de marge
-  (`packages/engines`) pour convertir les coûts au taux figé ; non traité dans le semis.
+  (`packages/engines`) pour convertir les coûts au taux figé ; non traité dans le semis. **Appliquée le 2026-10-26** (hypothèse à
+  valider) : voir « Coûts internes d'une autre devise que la mission (M2) » ci-dessous.
 - **Reste à décider** : remise à zéro de la démonstration publique (toujours sans script ; un semis complet prend environ 12 minutes,
   10 à 14 en mode public, mesuré le 2026-10-25) ; suppression du cabinet « Tenant démo » partiel créé par erreur dans la base de
   développement `missionpilot` (HANDOFF) ; correction côté API de l'avertissement pg `client.query() already executing` de
   `cloreAtelier` (`apps/api/src/plans/ateliers.ts`).
+
+## Coûts internes d'une autre devise que la mission, « M2 » (2026-10-26)
+
+Statut : **HYPOTHÈSE APPLIQUÉE, À VALIDER PAR L'UTILISATEUR** (branche `orch/2026-10-26-reste`).
+
+- **Constat** : les coûts journaliers (`collaborateur_couts`, en XOF) d'une mission en EUR, USD ou XAF étaient écartés à deux endroits,
+  sans erreur : `calculerDepuisDecoupage` (`apps/api/src/missions/budget.ts`, budget initial à la signature et révision « depuis le
+  découpage » : aucune ligne de coût) et `analyserMissions` (`apps/api/src/finance/donnees.ts`, tous les jours en `jours_sans_cout`).
+  D'où « Coûts internes 0,00 € » et une marge de 100 % au budget, au bilan, en rentabilité, dans les indicateurs et le rapport d'état.
+- **Règle** : un coût dans une autre devise est ramené dans la devise de la mission au **taux figé à la signature de la mission**
+  (`missions.taux_change`, devise de la mission → `devise_reference`), en sens inverse (coût FCFA ÷ taux) ; XOF et XAF sont à
+  **parité fixe 1 pour 1**, sans taux. Calcul dans le moteur, fonction pure `convertirVersDevise`
+  (`packages/engines/src/finance/monnaie.ts`), exacte avec un seul arrondi (au plus proche, demi s'éloignant de zéro) : centimes
+  pour EUR et USD, unités pour XOF et XAF. Exemple : 350 000 FCFA à 655,957 → 53 357 centimes (533,57 €).
+- **Budget** : le coût journalier converti devient le prix de la ligne `cout_interne` (ou `sous_traitance`) ; à la signature, le
+  taux utilisé est celui que la signature fige (`routes/missions.ts`, `signer`). **Réalisé** : les coûts sont valorisés dans leur
+  devise puis convertis **une fois par total** (`valoriserCouts`), pas jour par jour.
+- **Sans taux utilisable** (mission sans taux figé, ou coût dans une troisième devise, USD sur une mission EUR) : comportement
+  inchangé et explicite, le coût n'est jamais additionné tel quel ; il reste hors budget (`coutsManquants`) et compté en
+  `jours_sans_cout`.
+- **Inchangé** : budget initial figé (les budgets déjà signés ne sont pas recalculés ; une base semée avant ce changement garde des
+  budgets sans coût sur ses missions EUR, USD et XAF, et un bilan de clôture déjà écrit reste immuable : il faut re-semer ou créer
+  une révision « depuis le découpage ») ; FIN-02 (coûts et marges réservés aux associés et gestionnaires) ; aucune migration.
+- **Alternatives non retenues** : taux à la date du coût (cours du jour) plutôt que le taux figé ; conversion des taux de vente
+  spécifiques des collaborateurs (`taux_vente_specifique`) et des débours d'une autre devise, toujours écartés comme avant.
