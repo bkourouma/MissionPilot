@@ -30,6 +30,7 @@ import {
   formaterNombre,
   formaterPourcentage,
   type Devise,
+  libelleDevise,
 } from "../../../../../lib/format";
 import { droitsMission } from "../../../../../lib/missions";
 import { chargerMission } from "../../../../../lib/missions-serveur";
@@ -98,11 +99,11 @@ export default async function PageBudget({
           <Carte titre="Versions de budget">
             <div className="mp-pile">
               <p className="mp-texte-doux">
-                {`Devise : ${budget.devise}.`}
+                {`Devise : ${libelleDevise(budget.devise)}.`}
                 {budget.taux_change !== null &&
                 budget.devise_reference &&
                 budget.devise_reference !== budget.devise
-                  ? ` Taux figé à la signature : 1 ${budget.devise} = ${formaterNombre(budget.taux_change, 6)} ${budget.devise_reference}.`
+                  ? ` Taux figé à la signature : 1 ${libelleDevise(budget.devise)} = ${formaterNombre(budget.taux_change, 6)} ${libelleDevise(budget.devise_reference)}.`
                   : ""}{" "}
                 L&apos;initial signé reste dans l&apos;historique ; chaque révision validée devient
                 la référence.

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../../../lib/api";
-import { formaterDate, formaterDateHeure } from "../../../lib/format";
+import { formaterDate, formaterDateHeure, libelleUnite } from "../../../lib/format";
 import { formaterValeurKpi, libellePeriode } from "../../../lib/kpi";
 import {
   COMMENTAIRE_MAX,
@@ -210,7 +210,7 @@ function FormulaireCorrection({
           erreur={f.erreurs.date_mesure}
         />
         <Champ
-          libelle={kpi.unite ? `Valeur corrigée (${kpi.unite})` : "Valeur corrigée"}
+          libelle={kpi.unite ? `Valeur corrigée (${libelleUnite(kpi.unite)})` : "Valeur corrigée"}
           required
           inputMode="decimal"
           autoComplete="off"

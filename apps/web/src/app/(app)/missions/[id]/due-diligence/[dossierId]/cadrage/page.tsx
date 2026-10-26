@@ -13,7 +13,7 @@ import {
   type VersionCadrage,
 } from "../../../../../../../lib/due-diligence";
 import { chargerDossier, chargerTaxonomies } from "../../../../../../../lib/due-diligence-serveur";
-import { formaterDate, formaterDateHeure } from "../../../../../../../lib/format";
+import { formaterDate, formaterDateHeure, libelleDevise } from "../../../../../../../lib/format";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
@@ -132,7 +132,7 @@ export default async function PageCadrageDd({
                 <p className="mp-texte-doux mp-texte-petit">{formaterDateHeure(v.cree_le)}</p>
                 {v.motif ? <p className="mp-dd-texte">{`Motif : ${v.motif}`}</p> : null}
                 <p className="mp-texte-petit">
-                  {`${v.titre} · ${TYPE_OPERATION_DD_LIBELLES[v.type_operation]} · ${libelleTaxonomie(taxonomies.secteurs, v.secteur_code)} · ${libelleTaxonomie(taxonomies.pays, v.pays_code)}${v.cible_nom ? ` · cible : ${v.cible_nom}` : ""} · ${v.devise}`}
+                  {`${v.titre} · ${TYPE_OPERATION_DD_LIBELLES[v.type_operation]} · ${libelleTaxonomie(taxonomies.secteurs, v.secteur_code)} · ${libelleTaxonomie(taxonomies.pays, v.pays_code)}${v.cible_nom ? ` · cible : ${v.cible_nom}` : ""} · ${libelleDevise(v.devise)}`}
                 </p>
               </li>
             ))}

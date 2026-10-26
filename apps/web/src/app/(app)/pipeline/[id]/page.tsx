@@ -9,7 +9,12 @@ import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { Icone } from "../../../../components/ui/Icone";
 import { Tableau } from "../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../lib/api-serveur";
-import { formaterDate, formaterDateHeure, formaterMontantMineur } from "../../../../lib/format";
+import {
+  formaterDate,
+  formaterDateHeure,
+  formaterMontantMineur,
+  libelleDevise,
+} from "../../../../lib/format";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import { nomPersonne } from "../../../../lib/personnes";
 import {
@@ -170,7 +175,7 @@ export default async function PageOpportunite({ params }: { params: Promise<{ id
               },
               { cle: "intitule", entete: "Intitulé" },
               { cle: "type", entete: "Type", rendu: (p) => nomType(p.type_mission_id) },
-              { cle: "devise", entete: "Devise" },
+              { cle: "devise", entete: "Devise", rendu: (p) => libelleDevise(p.devise) },
               {
                 cle: "statut",
                 entete: "Statut",

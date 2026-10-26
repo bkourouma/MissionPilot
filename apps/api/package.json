@@ -15,6 +15,7 @@
     "db:seed-demo-2fa": "tsx src/db/seed-demo-2fa.ts",
     "db:code-2fa-demo": "tsx src/db/seed-demo-2fa.ts --code",
     "db:seed-defaut": "tsx src/db/seed-defaut.ts",
+    "db:seed-tenant-demo": "tsx src/db/seed-tenant-demo.ts",
     "db:creer-super-admin": "tsx src/db/creer-super-admin.ts"
   },
   "dependencies": {

@@ -8,7 +8,13 @@ import type {
   SensLectureKpiApi,
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
-import { formaterDate, formaterNombre, formaterPourcentage, VALEUR_ABSENTE } from "./format";
+import {
+  formaterDate,
+  formaterNombre,
+  formaterPourcentage,
+  libelleUnite,
+  VALEUR_ABSENTE,
+} from "./format";
 import type {
   AlerteEnregistree,
   AtteinteKpiVue,
@@ -162,7 +168,7 @@ const NBSP = "\u00a0";
 export function formaterValeurKpi(valeur: number | null | undefined, unite: string): string {
   const n = formaterNombre(valeur, 6);
   if (n === VALEUR_ABSENTE) return n;
-  return unite ? `${n}${NBSP}${unite}` : n;
+  return unite ? `${n}${NBSP}${libelleUnite(unite)}` : n;
 }
 
 /** Taux d'atteinte ou score (fraction) → « 87,5 % ». */
@@ -178,7 +184,7 @@ function signe(v: number, options: Intl.NumberFormatOptions): string {
  */
 export function texteEcart(e: EcartKpiVue | null | undefined, unite: string): string {
   if (!e || !Number.isFinite(e.ecart)) return VALEUR_ABSENTE;
-  const brut = `${signe(e.ecart, { maximumFractionDigits: 6 })}${unite ? `${NBSP}${unite}` : ""}`;
+  const brut = `${signe(e.ecart, { maximumFractionDigits: 6 })}${unite ? `${NBSP}${libelleUnite(unite)}` : ""}`;
   const relatif =
     e.ecart_relatif === null || !Number.isFinite(e.ecart_relatif)
       ? ""

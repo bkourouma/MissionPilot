@@ -43,6 +43,7 @@ import {
   formaterMontantMineur,
   formaterNombre,
   type Devise,
+  libelleDevise,
 } from "../../../../../lib/format";
 import { aideMontant } from "../../../../../lib/saisie";
 
@@ -317,7 +318,7 @@ function FormulaireEcheance({
               libelle="Montant exprimé en"
               options={[
                 { valeur: "pourcentage", libelle: "Pourcentage du budget signé" },
-                { valeur: "montant", libelle: `Montant (${devise})` },
+                { valeur: "montant", libelle: `Montant (${libelleDevise(devise)})` },
               ]}
               value={s.mode}
               onChange={(e) =>
@@ -325,7 +326,9 @@ function FormulaireEcheance({
               }
             />
             <Champ
-              libelle={s.mode === "pourcentage" ? "Pourcentage (%)" : `Montant (${devise})`}
+              libelle={
+                s.mode === "pourcentage" ? "Pourcentage (%)" : `Montant (${libelleDevise(devise)})`
+              }
               aide={
                 s.mode === "pourcentage"
                   ? "Le montant est calculé par le serveur sur le budget signé."
@@ -435,7 +438,7 @@ function Generation({
       {besoin === "part_variable" ? (
         <div className="mp-grille-champs mp-grille-champs--bas">
           {champ("pv_libelle", "Libellé de la part variable", { maxLength: 200 })}
-          {champ("pv_montant_maximum", `Montant maximum (${devise})`, {
+          {champ("pv_montant_maximum", `Montant maximum (${libelleDevise(devise)})`, {
             inputMode: "decimal",
             aide: aideMontant(devise),
           })}
@@ -446,7 +449,7 @@ function Generation({
       {besoin === "abonnement" ? (
         <div className="mp-grille-champs mp-grille-champs--bas">
           {champ("ab_libelle", "Libellé", { maxLength: 200 })}
-          {champ("ab_montant", `Montant par période (${devise})`, {
+          {champ("ab_montant", `Montant par période (${libelleDevise(devise)})`, {
             inputMode: "decimal",
             aide: aideMontant(devise),
           })}

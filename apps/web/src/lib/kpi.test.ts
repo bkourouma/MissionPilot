@@ -92,6 +92,7 @@ describe("mise en forme des chiffres du moteur (aucun calcul)", () => {
   it("valeur avec unité, six décimales au plus, séparateurs insécables", () => {
     expect(espaces(formaterValeurKpi(1250.5, "kFCFA"))).toBe("1 250,5 kFCFA");
     expect(espaces(formaterValeurKpi(0.123456, "%"))).toBe("0,123456 %");
+    expect(espaces(formaterValeurKpi(360, "M XOF"))).toBe("360 M FCFA");
     expect(formaterValeurKpi(null, "jours")).toBe("—");
   });
 

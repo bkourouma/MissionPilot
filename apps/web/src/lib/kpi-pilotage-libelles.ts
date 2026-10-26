@@ -10,7 +10,13 @@ import {
   type StatutActionKpi,
   type StatutDecisionKpi,
 } from "@missionpilot/shared";
-import { formaterDate, formaterNombre, formaterPourcentage, VALEUR_ABSENTE } from "./format";
+import {
+  formaterDate,
+  formaterNombre,
+  formaterPourcentage,
+  libelleUnite,
+  VALEUR_ABSENTE,
+} from "./format";
 import {
   descriptionAlerte,
   METHODE_PROJECTION_LIBELLES,
@@ -98,7 +104,7 @@ export function texteContribution(v: number | null | undefined, unite = ""): str
     maximumFractionDigits: 4,
     signDisplay: "exceptZero",
   }).format(v);
-  return unite ? `${n}\u00a0${unite}` : n;
+  return unite ? `${n}\u00a0${libelleUnite(unite)}` : n;
 }
 
 export function texteFavorable(f: boolean | null): string {
@@ -119,7 +125,7 @@ export function texteEfficaciteDetail(e: EfficaciteVue, unite: string): string {
     ].filter(Boolean);
     return `Il manque ${manque.join(" et ")} mesurée(s) et close(s) pour conclure.`;
   }
-  const u = unite ? `\u00a0${unite}` : "";
+  const u = unite ? `\u00a0${libelleUnite(unite)}` : "";
   const rel =
     e.variation_relative === null ? "" : ` (${formaterPourcentage(e.variation_relative, 1)})`;
   return `Moyenne avant ${formaterNombre(e.moyenne_avant, 4)}${u}, après ${formaterNombre(e.moyenne_apres, 4)}${u} : variation ${texteContribution(e.variation, unite)}${rel}.`;
@@ -135,7 +141,7 @@ export function texteProjectionArrondie(
   }
   const methode = METHODE_PROJECTION_LIBELLES[p.methode] ?? p.methode;
   const valeur = formaterNombre(p.valeur_projetee, 2);
-  const u = unite ? `\u00a0${unite}` : "";
+  const u = unite ? `\u00a0${libelleUnite(unite)}` : "";
   const s = (n: number) => (n > 1 ? "s" : "");
   return `${valeur}${u} en fin de période (${methode}, ${p.jours_ecoules} jour${s(p.jours_ecoules)} écoulé${s(p.jours_ecoules)} sur ${p.jours_total})`;
 }

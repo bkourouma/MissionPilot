@@ -25,7 +25,12 @@ import {
   type ValeursBalance,
 } from "../../../../lib/creances";
 import type { Creance } from "../../../../lib/encaissements";
-import { formaterDate, formaterMontantMineur, type Devise } from "../../../../lib/format";
+import {
+  formaterDate,
+  formaterMontantMineur,
+  type Devise,
+  libelleDevise,
+} from "../../../../lib/format";
 import {
   formaterDelai,
   requeteIndicateurs,
@@ -139,7 +144,7 @@ export default async function PageCreances({
             balance.donnees.devises.map((d) => (
               <div key={d.devise} className="mp-pile">
                 <Tableau
-                  legende={`Balance âgée au ${formaterDate(balance.donnees.date)} en ${d.devise}, ancienneté depuis la ${BASE_LIBELLES[balance.donnees.base]}`}
+                  legende={`Balance âgée au ${formaterDate(balance.donnees.date)} en ${libelleDevise(d.devise)}, ancienneté depuis la ${BASE_LIBELLES[balance.donnees.base]}`}
                   legendeVisible
                   lignes={[
                     ...d.clients,

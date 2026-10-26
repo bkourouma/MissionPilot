@@ -1,0 +1,275 @@
+import type { CleMission } from "./casting.js";
+import type { MissionFacturation } from "./donnees-facturation.js";
+
+/* Données de facturation du Tenant démo (suite) : voir donnees-facturation.ts. */
+
+const REF_ACOMPTE = "Acompte à la signature";
+
+export const DONNEES_A: Partial<Record<CleMission, MissionFacturation>> = {
+  "sicafe-plan": {
+    manuel: false,
+    echeances: [
+      { cle: "A", libelle: `${REF_ACOMPTE} (30 %)`, type: "acompte", pct: 30, date: "2024-10-30" },
+      {
+        cle: "B",
+        libelle: "Restitution du diagnostic (40 %)",
+        type: "jalon",
+        pct: 40,
+        date: "2025-02-06",
+        jalon: "Restitution du diagnostic",
+      },
+      {
+        cle: "C",
+        libelle: "Solde à la remise du plan final (30 %)",
+        type: "jalon",
+        pct: 30,
+        date: "2025-04-30",
+        jalon: "Restitution finale",
+      },
+    ],
+    factures: [
+      {
+        cle: "F1",
+        echeances: ["A"],
+        date: "2024-10-31",
+        objet: "Acompte à la signature de la lettre de mission",
+        etat: "emise",
+        paiements: [{ jours: 24, part: "reste", mode: "virement" }],
+      },
+      {
+        cle: "F2",
+        echeances: ["B"],
+        date: "2025-02-10",
+        objet: "Restitution du diagnostic stratégique",
+        etat: "emise",
+        paiements: [
+          { jours: 27, part: 55, mode: "virement", commentaire: "Premier règlement partiel" },
+          { jours: 49, part: "reste", mode: "cheque", commentaire: "Solde par chèque" },
+        ],
+      },
+      {
+        cle: "F3",
+        echeances: ["C"],
+        debours: true,
+        date: "2025-05-05",
+        objet: "Solde de la mission et débours refacturés",
+        etat: "emise",
+        paiements: [{ jours: 38, part: "reste", mode: "virement" }],
+      },
+    ],
+    debours: [
+      {
+        jour: "2024-11-12",
+        categorie: "transport",
+        libelle: "Billets d'avion Abidjan-San Pedro (2 consultants), atelier de lancement",
+        montant: 336_000,
+        refacturable: true,
+      },
+      {
+        jour: "2024-11-13",
+        categorie: "hebergement",
+        libelle: "Hébergement à San Pedro, 3 nuits (2 chambres)",
+        montant: 270_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-01-21",
+        categorie: "transport",
+        libelle: "Location de véhicule avec chauffeur : visites de plantations",
+        montant: 214_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-02-04",
+        categorie: "restauration",
+        libelle: "Déjeuner de travail avec le comité de direction (restitution)",
+        montant: 96_000,
+        refacturable: false,
+      },
+      {
+        jour: "2025-03-03",
+        categorie: "hebergement",
+        libelle: "Hébergement à Yamoussoukro, séminaire de validation (2 nuits)",
+        montant: 240_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-04-11",
+        categorie: "fournitures",
+        libelle: "Impression et reliure du plan stratégique (30 exemplaires)",
+        montant: 372_000,
+        refacturable: true,
+      },
+    ],
+  },
+  "sahel-coton-notation": {
+    manuel: false,
+    echeances: [
+      {
+        cle: "A",
+        libelle: "Acompte à la commande (40 %)",
+        type: "acompte",
+        pct: 40,
+        date: "2025-01-29",
+      },
+      {
+        cle: "B",
+        libelle: "Solde à la restitution de la notation (60 %)",
+        type: "jalon",
+        pct: 60,
+        date: "2025-06-20",
+        jalon: "Restitution au client",
+      },
+    ],
+    factures: [
+      {
+        cle: "F1",
+        echeances: ["A"],
+        date: "2025-01-31",
+        objet: "Acompte à la commande de la notation financière",
+        etat: "emise",
+        paiements: [{ jours: 33, part: "reste", mode: "virement" }],
+      },
+      {
+        cle: "F2",
+        echeances: ["B"],
+        debours: true,
+        date: "2025-06-24",
+        objet: "Solde de la notation financière et débours refacturés",
+        etat: "emise",
+        paiements: [
+          {
+            jours: 21,
+            part: 40,
+            mode: "cheque",
+            commentaire: "Chèque de banque, premier versement",
+          },
+          { jours: 46, part: "reste", mode: "virement" },
+        ],
+      },
+    ],
+    debours: [
+      {
+        jour: "2025-02-10",
+        categorie: "transport",
+        libelle: "Billets d'avion Abidjan-Bamako (analyste et manager)",
+        montant: 412_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-02-12",
+        categorie: "hebergement",
+        libelle: "Hébergement à Bamako, 4 nuits",
+        montant: 288_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-02-11",
+        categorie: "autre",
+        libelle: "Frais de visa et de dossier : mission au Mali",
+        montant: 45_000,
+        refacturable: true,
+        parcours: "rejete_puis_valide",
+      },
+      {
+        jour: "2025-05-22",
+        categorie: "transport",
+        libelle: "Billets d'avion pour le comité de notation",
+        montant: 190_000,
+        refacturable: true,
+      },
+    ],
+  },
+  "wouri-redressement": {
+    manuel: true,
+    echeances: [
+      { cle: "A", libelle: `${REF_ACOMPTE} (30 %)`, type: "acompte", pct: 30, date: "2025-03-05" },
+      {
+        cle: "B",
+        libelle: "Étape 2 : validation du plan par le comité de pilotage (30 %)",
+        type: "avancement",
+        pct: 30,
+        date: "2025-08-22",
+        jalon: "Validation du plan par le comité de pilotage",
+      },
+      {
+        cle: "C",
+        libelle: "Solde : bilan de clôture du redressement (40 %)",
+        type: "jalon",
+        pct: 40,
+        date: "2025-11-14",
+        jalon: "Bilan de clôture du redressement",
+      },
+    ],
+    factures: [
+      {
+        cle: "F1",
+        echeances: ["A"],
+        date: "2025-03-07",
+        objet: "Acompte à la signature du redressement",
+        etat: "emise",
+        paiements: [{ jours: 41, part: "reste", mode: "virement" }],
+      },
+      {
+        cle: "F2",
+        echeances: ["B"],
+        date: "2025-08-25",
+        objet: "Étape 2 du redressement (plan validé)",
+        etat: "emise",
+      },
+      {
+        cle: "F3",
+        echeances: ["C"],
+        date: "2025-11-17",
+        objet: "Solde du redressement",
+        etat: "emise",
+      },
+      {
+        cle: "FD",
+        echeances: [],
+        debours: true,
+        date: "2025-11-17",
+        objet: "Débours refacturés (redressement)",
+        etat: "emise",
+        paiements: [{ jours: 30, part: "reste", mode: "virement" }],
+      },
+    ],
+    debours: [
+      {
+        jour: "2025-03-18",
+        categorie: "transport",
+        libelle: "Billets d'avion Abidjan-Douala (équipe de 3)",
+        montant: 585_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-03-19",
+        categorie: "hebergement",
+        libelle: "Hébergement à Douala, 5 nuits (3 chambres)",
+        montant: 735_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-06-25",
+        categorie: "per_diem",
+        libelle: "Per diem mission terrain, 6 jours (2 personnes)",
+        montant: 360_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-09-02",
+        categorie: "hebergement",
+        libelle: "Hébergement et repas : atelier du comité de pilotage",
+        montant: 412_000,
+        refacturable: true,
+      },
+      {
+        jour: "2025-09-15",
+        categorie: "sous_traitance_locale",
+        libelle: "Traduction assermentée des conventions bancaires",
+        montant: 140_000,
+        refacturable: false,
+      },
+    ],
+  },
+};

@@ -336,6 +336,114 @@ d'un cabinet (comptes : création, rôles, activation et désactivation). Un mot
 actif d'un cabinet ne se désactive pas (409 `DERNIER_ASSOCIE`). Le super admin de démonstration ne voit et ne crée que des
 cabinets de démonstration, avec des adresses en `.test`, dans la limite de 30 cabinets et de 40 comptes par cabinet.
 
+### Tenant démo : cabinet de démonstration à historique long
+
+Chantier du 2026-10-24 (décision à valider : `docs/DECISIONS.md`, « Tenant démo » ; sécurité : `docs/governance/SECURITY.md` §3 et
+§15 ; conventions : `CODING_STANDARDS.md` §1). En plus de « Lagune Conseil & Associés (démo) », un cabinet **« Tenant démo »**
+(`cabinets.est_demo`, adresses `<clé>@tenant-demo.test`) donne l'image d'un cabinet en activité depuis plus de deux ans : activité
+d'octobre 2024 au 24 octobre 2026 (« aujourd'hui » fictif des données), 48 comptes actifs (20 cabinet, 28 portail, dont 2 à 2FA non listés), 11 missions dont 5 terminées de types
+différents (plan stratégique, notation, redressement, due diligence, business plan bancable), 4 en cours (dont un diagnostic flash),
+une signée à démarrer et une en préparation, et toutes les tables utiles remplies. Il est semé PAR LES VRAIES ROUTES (traçabilité, audit,
+moteurs de calcul) ; le SQL du rôle propriétaire ne sert qu'à antidater.
+
+**Prérequis**
+
+- PostgreSQL de développement lancé (`pnpm db:up`, conteneur `missionpilot-postgres`, port 55440) et migrations appliquées
+  (`pnpm db:migrate`, qui applique aussi `0580`–`0583` de la connexion « un clic »).
+- **Aucune clé IA** : le semis REFUSE de tourner si `OPENROUTER_API_KEY` est définie (aucun appel réseau, aucun coût ; l'IA est
+  simulée, SECURITY.md §15). Retirer la variable de l'environnement du terminal avant de lancer.
+- Mêmes gardes que `db:seed-defaut` (`configDemo`) : développement ou test avec bases locales et pas de `SMTP_HOST`, ou démonstration
+  publique (`DEMO_PUBLIQUE=oui` ET `--confirmer-demo`, voir `DEPLOIEMENT.md`). Aucun courrier n'est envoyé.
+
+**Commande**
+
+```bash
+# TOUJOURS avec les deux URL explicites, sur une base DÉDIÉE (pas la base de développement habituelle : voir plus bas)
+export DATABASE_OWNER_URL=postgres://<propriétaire>@localhost:55440/<base>   # rôle propriétaire des tables
+export DATABASE_URL=postgres://<applicatif>@localhost:55440/<base>           # rôle applicatif (sans BYPASSRLS)
+pnpm --filter @missionpilot/api db:seed-tenant-demo                            # socle puis les six phases
+pnpm --filter @missionpilot/api db:seed-tenant-demo --phase=missions           # option répétable : seulement ces phases
+```
+
+- **Ne jamais lancer sans `DATABASE_OWNER_URL` et `DATABASE_URL` explicites.** Sans elles, la valeur par défaut de
+  `apps/api/src/config.ts` vise la base de développement `missionpilot` : un semis lancé ainsi par erreur y a créé un cabinet
+  « Tenant démo » partiel (incident du 2026-10-24, voir HANDOFF). Un semis se fait dans une base neuve (par exemple
+  `missionpilot_demo`), jamais dans la base où l'on développe. Les variables s'exportent à CHAQUE appel du shell si l'outil ne
+  conserve pas l'environnement entre deux commandes.
+- **Durée** : 10 à 14 minutes selon la machine (mesure finale du 2026-10-25 sur la tête finale, base neuve : 846 s, soit environ 14 min ; des
+  milliers d'appels de routes ; la phase `gestion` en prend 391 s, près de la moitié ; rejeu : 20 s). À lancer en
+  arrière-plan ou dans un terminal dédié : un outil qui coupe une commande silencieuse (watchdog de 600 s) l'interrompt en cours de
+  phase (voir « Idempotence et reprise »). Détail par phase : HANDOFF (« Vérifié »).
+- **Jobs en attente** : après un semis non public, des jobs `envoyer_email` (environ 79) et `relance_questionnaire` (environ 28) restent
+  en attente ; démarrer l'API avec `JOBS_WORKER=inactif` sur une base de démonstration locale (le mode public les neutralise).
+- **Serveur** : arrêter le conteneur `api` pendant un semis (`mp stop api`, alias de `DEPLOIEMENT.md`), car le semis pose des verrous
+  brefs (`lock_timeout` de 5 s) pour lever, le temps d'une transaction, quelques déclencheurs d'immuabilité (SECURITY.md §15) ; le
+  relancer ensuite (`mp up -d api`). Commande du serveur : `DEPLOIEMENT.md`.
+- Mot de passe commun : constante `MOT_DE_PASSE_DEMO_TENANT` (`apps/api/src/db/tenant-demo/constantes.ts`), PUBLIQUE dans le dépôt :
+  démonstration uniquement, jamais à recopier ni à réutiliser. Compte fondateur (associé) : `associe@tenant-demo.test`. La commande
+  affiche ces deux informations à la fin.
+
+**Idempotence et reprise**
+
+- Le **socle** (cabinet, comptes, paramètres, collaborateurs, absences, clients, contacts, portail) se reprend sans doublon, par clé
+  naturelle (e-mail, code, raison sociale).
+- Une **phase terminée** est marquée dans le journal d'audit du cabinet (action `semis_tenant_demo`) et sautée à la relance (statut
+  `deja_faite`). Une phase qui échoue n'est PAS marquée.
+- **Une phase échouée ou interrompue repart d'une base NEUVE** : seules certaines étapes sont reprises sans doublon (étapes
+  marquées `semis_tenant_demo_etape`), et une phase à moitié écrite peut laisser des lignes que les routes refusent de recréer ou
+  que l'antidatage a déjà déplacées. Sur une base de développement jetable, la recréer (`DROP DATABASE`, `pnpm db:migrate`) coûte
+  moins qu'un diagnostic. Relancer la commande sur un cabinet complet est sûr : toutes les phases sont `deja_faite`. Le rejeu ne crée aucun doublon métier, mais il n'est pas strictement inerte : il relit le socle par les routes et modifie `grades`, `parametres_temps`, `journal_audit` et `sessions`.
+- `--phase=<nom>` ne lance que les phases nommées (le socle est toujours repris) ; l'ordre des dépendances reste celui du tableau.
+
+**Phases et lots** (registre `apps/api/src/db/tenant-demo/phases/index.ts`, dans l'ordre d'exécution ; une phase = un fichier mince
+`phases/<nom>.ts` plus un dossier `tenant-demo/<domaine>/`)
+
+| Ordre | Phase (`--phase=`)     | Dossier                  | Périmètre                                                                                                              | Lot |
+| ----- | ---------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --- |
+| 0     | (socle)                | `tenant-demo/`           | cabinet, comptes, paramètres, grades, collaborateurs, absences, clients, contacts, dossiers, portail                   | 1   |
+| 1     | `missions`             | `missions/`              | casting des 11 missions : équipe, budget figé, signature, jalons, livrables, tâches, clôture des 5 terminées, pipeline | 2a  |
+| 2     | `notation-plans`       | `notation-plans/`        | notation, plans stratégiques, KPI, questionnaires                                                                      | 3   |
+| 3     | `redressement-dd`      | `redressement-dd/`       | preuves, redressement, due diligence                                                                                   | 4   |
+| 4     | `appels-offres-canaux` | `appels-offres-canaux/`  | appels d'offres, canaux, capitalisation, observatoire, services candidats                                              | 5   |
+| 5     | `ia-qualite-standard`  | `ia-qualite-standard/`   | IA, agents, automatisation, copilote, qualité, standard et méthodes                                                    | 6   |
+| 6     | `gestion`              | `gestion/`               | temps, facturation, encaissements, rapports, salle de mission, ingestion, portail et collaboration, clôture des 5 missions terminées | 2b  |
+
+`gestion` passe en dernier : elle lit les notations, plans et redressements publiés par les phases précédentes. Les missions
+terminées ne sont clôturées qu'à la fin de la phase `gestion` (leurs routes acceptent donc les écritures jusque-là).
+
+**Connexion « un clic »** : le cabinet est `est_demo`, donc proposé par le bloc « Mode démonstration » de `/connexion` (avec
+`CONNEXION_RAPIDE_DEMO=oui` en local, ou `DEMO_PUBLIQUE=oui`). La fonction `demo_lister_comptes` est **bornée à 50 comptes par
+cabinet** (migration `0580`, avant le filtre `0583`) : le Tenant démo en compte 48 actifs (cabinet 20, portail 28), dont 2 comptes signataires à 2FA
+de la phase `appels-offres-canaux` ; la liste en montre 46 (19 cabinet + 27 portail) et reste sous la borne, ne pas y ajouter de comptes sans la relire. Les comptes à 2FA active ne
+sont jamais listés : on se connecte par le formulaire (e-mail, mot de passe commun, puis code du moment par
+`pnpm --filter @missionpilot/api db:code-2fa-demo`, secret TOTP PUBLIC de `seed-demo-2fa.ts`).
+
+**Missions clôturées (5)** : le semis déclare le reste à faire final nul par la vraie route, lève les alertes de consommation à la clôture (les
+alertes d'atterrissage au-dessus du budget restent actives volontairement : 8), termine le suivi des KPI avant la clôture
+(`missions/kpi-fin-suivi.ts`), sert les documents partagés avec un petit PDF fictif et antidate au jour de signature la lettre de mission SICAFE.
+
+**Limites connues des données** (détail : HANDOFF) : les écritures par routes sont datées de l'horloge RÉELLE du semis, soit une
+journée après la date fictive du jeu de données ; `mission_methodes` est en ajout seul et n'est pas antidatée (trois liaisons de
+méthode du lot 5 sont postérieures à la clôture de leur mission) ; le rétro-planning d'un appel d'offres dépend de la date réelle ;
+l'API journalise parfois l'avertissement pg `client.query() already executing` à la clôture d'un atelier de plan (`cloreAtelier`). Autres limites
+(recette du 2026-10-25) : horodatages techniques et `journal_audit` à la date réelle du semis (y compris 10 horodatages de `signatures_preuves`
+prises dans la chaîne de hachage) ; occupation et facturabilité basses, réalisation à 157 % ; marge à 100 % sur les missions XAF, EUR et USD
+(le moteur de marge ignore les coûts d'une autre devise, décision produit en attente) ; taux négociés EUR/USD supérieurs à ceux du budget ;
+semis non strictement reproductible entre le mode public et le mode normal (4 050 contre 4 089 lignes de temps).
+
+**Ajouts et limites du 2026-10-25** : `cap_recommandations.cree_le` (11 lignes), `cap_efficacite_mesures.calcule_le` (8) et `lignes_temps.cree_le`
+(3, Brasseries du Wouri) portent l'horloge réelle du semis ; les lettres de mission « (DÉMONSTRATION) » de Banque du Sahel et de Gabon Offshore
+sont datées du jour du semis ; le message final du socle affiche « 25 comptes » (cosmétique : 48 comptes actifs).
+**Recette navigateur finale (2026-10-25, 15 profils testés)** : aucun 5xx, droits FIN-02 et portail respectés ; anomalies restantes : marge à
+100 % sur les missions hors XOF (décision M2), carnet de commandes variable selon le rôle, portail investisseur SICAFÉ vide, tableau de bord de
+l'associé sans bloc « missions en cours ».
+**Défaut applicatif non corrigé** : l'onglet Découpage affiche toujours « Réalisé 0 j / Reste = budget », car `agregerDecoupage`
+(`apps/api/src/missions/decoupage.ts`) met `realise: 0` en dur ; correctif possible : faire utiliser `calculerSuiviMission` (`temps/suivi.ts`)
+par la route `/missions/:id/synthese`.
+
+**Tests** : `apps/api/test/seed-tenant-demo*.test.ts` (un fichier par domaine, base `_test` dédiée : jamais deux suites API sur la
+même base, voir « Tests API et base de test ») ; sous charge de plusieurs agents, une suite prend de 3 à 17 minutes.
+
 ## Lancer
 
 ```bash

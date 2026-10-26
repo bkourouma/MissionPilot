@@ -161,6 +161,37 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `import … from "../audit.js"`).
 - Le web appelle l'API uniquement par `/api/*` relayé par Next
   (`apps/web/next.config.mjs`).
+- **Seed « Tenant démo » (2026-10-24), territoire `apps/api/src/db/tenant-demo/`** (point d'entrée
+  `apps/api/src/db/seed-tenant-demo.ts`, mode d'emploi : RUNBOOK « Tenant démo »). Aucune migration (la plage démonstration
+  `0584–0589` reste libre) ; le seed n'importe que `apps/api` et les paquets du dépôt, car il tourne dans l'image de production.
+  - **Contrat de phase** : une phase est `{ nom, executer(ctx) }` (`PhaseTenantDemo`, `phases/index.ts`, registre ORDONNÉ) ; le
+    socle (`socle.ts`) remplit `ContexteTenantDemo` (`contexte.ts` : sessions par clé de compte, identifiants de collaborateurs,
+    clients, grades, types de mission, horloge fictive, hasard à graine) ; une phase ne lit les travaux des phases précédentes
+    que par les routes ou par une requête sur le nom exact de la ligne, jamais par un champ ajouté au contexte. Le nom de la phase
+    est son marqueur d'idempotence (journal d'audit, action `semis_tenant_demo`) et l'option `--phase=`.
+  - **Une phase = un fichier mince + un dossier** : `phases/<nom>.ts` n'appelle que des modules de `tenant-demo/<domaine>/` ; un
+    fichier reste sous 400 lignes ; les jeux de données vont dans des fichiers `donnees-*.ts` (aucune logique) à côté du module
+    qui les consomme.
+  - **Routes d'abord** : tout ce qu'une vraie route sait faire passe par `ctx.session("<clé>")` avec le rôle qui a la permission
+    (traçabilité, audit, moteurs de `packages/engines`) ; le SQL du rôle propriétaire (`ctx.proprietaire`) est réservé à ce que les
+    routes interdisent (dates passées, tables sans route). Les chiffres sortent des moteurs, jamais écrits à la main.
+  - **Aucune interpolation d'un nom de table ou de colonne** dans une requête du seed : requêtes littérales uniquement, avec
+    paramètres `$n` ; `antidater` (`contexte.ts`) est à LISTE FERMÉE (`TableAntidatable` : `cabinets`, `utilisateurs`,
+    `collaborateurs`, `clients`, `contacts_client`, une requête littérale par table) ; un autre antidatage s'écrit en requête
+    littérale dans le module de la phase.
+  - **Levée de déclencheurs** : seulement par `transactionAntidatage` (`missions/declencheurs.ts`, 7 déclencheurs nommés, ordre fixe,
+    `lock_timeout`) ou, pour une colonne de date d'une table en ajout seul, `appliquerSql` (`redressement-dd/commun.ts`), qui pose `SET LOCAL session_replication_role = replica` (supprime TOUS
+    les déclencheurs de la transaction). Même paramètre dans `redressement-dd/dd-outils.ts`, `gestion/collaboration-outils.ts`,
+    `gestion/ingestion-outils.ts`, `gestion/qualite-rapports-dates.ts` et `gestion/rapports-avancement.ts` : dates seulement, SQL
+    littéral ; le rôle propriétaire doit pouvoir le poser (superutilisateur d'amorçage en développement et dans l'image postgres) ;
+    jamais pour contourner une règle métier (SECURITY.md §15).
+  - **Déterminisme** : dates par l'horloge fictive (`ctx.jour`, `ctx.dateAvant`, `ctx.aujourdhui`) et hasard par
+    `ctx.alea.deriver("<phase>")` ; jamais `Math.random()` ni `Date.now()` pour une donnée métier. Les écritures par routes portent
+    pourtant l'horloge réelle (limite déclarée, SECURITY.md §15).
+  - **Reprise** : une étape longue se marque (`semis_tenant_demo_etape`) ou se reprend par clé naturelle ; sinon elle échoue avec un
+    message clair. Aucune clé IA (le semis refuse `OPENROUTER_API_KEY`), aucun envoi réel, adresses en `@tenant-demo.test`.
+  - **Tests** : un fichier `apps/api/test/seed-tenant-demo-<domaine>.test.ts` par domaine (tables non vides plus deux ou trois
+    invariants métier) ; `seed-tenant-demo.test.ts` est celui du socle ; une base `_test` par suite.
 
 ## 2. Nommage
 

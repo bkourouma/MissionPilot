@@ -9,7 +9,7 @@ import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Champ } from "../../../../components/ui/Champ";
 import { Select } from "../../../../components/ui/Select";
 import { api } from "../../../../lib/api";
-import type { Devise } from "../../../../lib/format";
+import { libelleDevise, type Devise } from "../../../../lib/format";
 import {
   aujourdhuiIso,
   deviseFlottante,
@@ -113,7 +113,7 @@ export function Signature({
       {deviseFlottante(devise) && !peutSaisirTaux ? (
         <Alerte tonalite="info" annonce="aucune">
           <p>
-            {`Le taux de change ${devise} est saisi par un associé ou un gestionnaire : demandez-lui de signer.`}
+            {`Le taux de change ${libelleDevise(devise)} est saisi par un associé ou un gestionnaire : demandez-lui de signer.`}
           </p>
         </Alerte>
       ) : !deviseFlottante(devise) ? (
@@ -135,7 +135,7 @@ export function Signature({
         />
         {deviseFlottante(devise) && peutSaisirTaux ? (
           <Champ
-            libelle={`Taux de change : 1 ${devise} = … (devise du cabinet)`}
+            libelle={`Taux de change : 1 ${libelleDevise(devise)} = … (devise du cabinet)`}
             name="taux_change"
             required
             inputMode="decimal"
@@ -171,7 +171,7 @@ export function Signature({
                 erreur={erreurs[`lignes.${i}.libelle`]}
               />
               <Champ
-                libelle={`Montant en ${devise} (ligne ${i + 1})`}
+                libelle={`Montant en ${libelleDevise(devise)} (ligne ${i + 1})`}
                 inputMode="decimal"
                 autoComplete="off"
                 value={l.montant}

@@ -5,7 +5,12 @@ import { classesBouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
 import { Icone } from "../../../../components/ui/Icone";
 import { MODE_LIBELLES } from "../../../../lib/catalogue";
-import { formaterDate, formaterDateHeure, formaterNombre } from "../../../../lib/format";
+import {
+  formaterDate,
+  formaterDateHeure,
+  formaterNombre,
+  libelleDevise,
+} from "../../../../lib/format";
 import { droitsMission, naturesSupplementaires, STATUT_MISSION } from "../../../../lib/missions";
 import { chargerMission } from "../../../../lib/missions-serveur";
 import { nomPersonne, optionsPersonnes, type Personne } from "../../../../lib/personnes";
@@ -95,7 +100,7 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
           </div>
           <div>
             <dt>Devise</dt>
-            <dd>{m.devise}</dd>
+            <dd>{libelleDevise(m.devise)}</dd>
           </div>
           <div>
             <dt>Mode de facturation</dt>
@@ -114,7 +119,7 @@ export default async function PageFicheMission({ params }: { params: Promise<{ i
           {m.taux_change !== null && m.devise_reference && m.devise_reference !== m.devise ? (
             <div>
               <dt>Taux de change figé</dt>
-              <dd>{`1 ${m.devise} = ${formaterNombre(m.taux_change, 6)} ${m.devise_reference}`}</dd>
+              <dd>{`1 ${libelleDevise(m.devise)} = ${formaterNombre(m.taux_change, 6)} ${libelleDevise(m.devise_reference)}`}</dd>
             </div>
           ) : null}
           {m.activite || m.secteur || m.bureau ? (

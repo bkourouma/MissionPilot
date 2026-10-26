@@ -17,7 +17,14 @@ import {
   type EtatDemo,
   type EvenementDemo,
 } from "../../lib/demo-connexion";
-import { EtapeChoix, EtapeComptes, type OuvertureDemo } from "./EtapesDemo";
+import {
+  filtreInitial,
+  transitionFiltre,
+  type EvenementFiltreDemo,
+  type FiltreComptesDemo,
+} from "../../lib/demo-connexion-comptes";
+import { EtapeComptes } from "./EtapeComptesDemo";
+import { EtapeChoix, type OuvertureDemo } from "./EtapesDemo";
 import "./comptes-demo.css";
 
 /**
@@ -38,6 +45,7 @@ export function ConnexionDemo({
   surConnexion: (corps: unknown) => void;
 }) {
   const [etat, setEtat] = useState<EtatDemo>(ETAT_DEMO_INITIAL);
+  const [filtre, setFiltre] = useState<FiltreComptesDemo>({ espace: "equipe", role: null });
   const [ouverture, setOuverture] = useState<OuvertureDemo>(null);
   const [redirection, setRedirection] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -69,7 +77,17 @@ export function ConnexionDemo({
     if (occupe) return;
     setErreur(null);
     setAnnonce("");
+    // Chaque cabinet s'ouvre sur son premier espace non vide, sans rôle retenu.
+    if (ev.type === "choisir_cabinet") {
+      const choisi = demo.cabinets.find((c) => c.id === ev.cabinetId);
+      setFiltre(filtreInitial(choisi?.comptes ?? []));
+    }
     setEtat((e) => transitionDemo(e, ev));
+  }
+
+  function filtrer(ev: EvenementFiltreDemo) {
+    setFiltre((f) => transitionFiltre(f, ev));
+    setAnnonce("");
   }
 
   function echec(message: string) {
@@ -129,6 +147,8 @@ export function ConnexionDemo({
       {etat.etape === "cabinet" && cabinet ? (
         <EtapeComptes
           cabinet={cabinet}
+          filtre={filtre}
+          surFiltre={filtrer}
           occupe={occupe}
           ouverture={ouverture}
           refTitre={titre}

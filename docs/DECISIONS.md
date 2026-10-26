@@ -1156,3 +1156,40 @@ suivi `.orchestration/2026-10-23-super-admin/suivi.md`) ; les hypothèses H1, H2
   admins). Listes de la plateforme non paginées (peu de cabinets).
 - **Reste à décider** : sort d'un cabinet désactivé pour les invitations, jobs planifiés, webhooks et 2FA ; remise à zéro de la
   démonstration ; 2FA du super admin ; déblocage du limiteur pour un super admin.
+
+## Tenant démo : cabinet de démonstration à historique long (2026-10-24)
+
+Statut : **À VALIDER PAR L'UTILISATEUR** (demande du chantier « Tenant démo », suivi
+`.orchestration/2026-10-24-tenant-demo/suivi.md` ; branche d'intégration `orch/2026-10-24-tenant-demo`). Mode d'emploi :
+`docs/workflows/RUNBOOK.md`, « Tenant démo » ; déploiement : `docs/workflows/DEPLOIEMENT.md` (e) ; risques : `docs/governance/SECURITY.md`
+§3 et §15 ; conventions : `docs/governance/CODING_STANDARDS.md` §1.
+
+- **Cabinet distinct de Lagune** : « Tenant démo » est un NOUVEAU cabinet ajouté à côté de « Lagune Conseil & Associés (démo) »
+  (aucun renommage : constantes et tests de Lagune inchangés), marqué `est_demo` donc proposé par la connexion « un clic ». Adresses
+  en `@tenant-demo.test`, compte fondateur `associe@tenant-demo.test`, mot de passe commun = constante PUBLIQUE du dépôt.
+- **Contenu** : cabinet en activité d'octobre 2024 à octobre 2026 (« aujourd'hui » fictif : 2026-10-24), 48 comptes actifs (20 cabinet, 28 portail, dont 2 à 2FA non listés par la connexion « un clic »), **11
+  missions** dont 5 terminées de types différents (plan stratégique, notation, redressement, due diligence, business plan bancable),
+  4 en cours (dont un diagnostic flash), une signée à démarrer et une en préparation, et toutes les tables utiles remplies (216 tables
+  à remplir, 12 laissées vides : inventaire `.orchestration/2026-10-24-tenant-demo/inventaire-tables.md`).
+- **Méthode** : semis par les VRAIES routes (traçabilité, audit, moteurs de calcul : les chiffres ne viennent jamais d'un modèle ni
+  ne sont écrits à la main) ; SQL du rôle propriétaire seulement pour antidater. Six phases ordonnées (`missions`, `notation-plans`, `redressement-dd`, `appels-offres-canaux`, `ia-qualite-standard`, `gestion`), reprise par phase ;
+  **pas de nouvelle migration**.
+- **Devises par client** : chaque mission porte la devise de son client (XOF, XAF, EUR) et **le client du Gabon (Gabon Offshore
+  Services) est en USD**, pour exercer le multidevise (taux flottant fictif de 600 XOF pour 1 USD à la signature, parité fixe pour
+  l'EUR). Le barème du cabinet reste en XOF.
+- **Coûts IA SIMULÉS** : aucune clé IA, aucun appel réseau ; jetons, coûts et latences affichés sont des valeurs de démonstration, et
+  le semis refuse de tourner si `OPENROUTER_API_KEY` est définie. Contenus IA en brouillon ou modifiés, validés seulement quand un
+  consultant les valide par la route.
+- **H1 (à valider)** : nom exact « Tenant démo » (`cabinets.nom`, constante `NOM_CABINET_TENANT_DEMO`), domaine d'adresses
+  `tenant-demo.test`. Un autre nom ne demande que de changer la constante (c'est aussi le garde-fou du drapeau `est_demo`).
+- **Acceptés explicitement, à valider avec le reste** : deux comptes à 2FA (signataires) dont le secret TOTP est le secret PUBLIC de
+  `seed-demo-2fa.ts`, pour jouer la signature de bout en bout en démonstration publique ; écritures par routes datées de l'horloge
+  réelle du semis (une journée après la date fictive) ; `mission_methodes`, en ajout seul, non antidatée (3 liaisons de méthode
+  postérieures à la clôture de leur mission).
+- **Décision produit à prendre (marge)** : sur les missions XAF, EUR et USD, la marge sort à 100 % car le moteur de marge ignore les coûts
+  exprimés dans une autre devise que celle de la mission. Suggestion : parité fixe XOF/XAF et évolution du moteur de calcul de marge
+  (`packages/engines`) pour convertir les coûts au taux figé ; non traité dans le semis.
+- **Reste à décider** : remise à zéro de la démonstration publique (toujours sans script ; un semis complet prend environ 12 minutes,
+  10 à 14 en mode public, mesuré le 2026-10-25) ; suppression du cabinet « Tenant démo » partiel créé par erreur dans la base de
+  développement `missionpilot` (HANDOFF) ; correction côté API de l'avertissement pg `client.query() already executing` de
+  `cloreAtelier` (`apps/api/src/plans/ateliers.ts`).

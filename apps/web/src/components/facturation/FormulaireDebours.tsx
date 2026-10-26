@@ -17,7 +17,7 @@ import {
   TYPES_JUSTIFICATIF,
   type FichierMeta,
 } from "../../lib/fichiers";
-import { DEVISES, type Devise } from "../../lib/format";
+import { DEVISES, type Devise, libelleDevise } from "../../lib/format";
 import { aideMontant } from "../../lib/saisie";
 import { televerser } from "../../lib/televersement";
 import { ChoixFichier } from "../fichiers/ChoixFichier";
@@ -248,7 +248,7 @@ export function FormulaireDebours({
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle={`Montant (${deviseEffective})`}
+          libelle={`Montant (${libelleDevise(deviseEffective)})`}
           aide={aideMontant(deviseEffective)}
           required
           inputMode="decimal"
