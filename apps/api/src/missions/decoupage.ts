@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  agregerArborescence,
-  sommerJours,
-  type NoeudAgrege,
-  type NoeudPlanning,
-} from "@missionpilot/engines";
+import { sommerJours } from "@missionpilot/engines";
 import type { Db } from "../db/pool.js";
 import { ordonnerArbre } from "../routes/catalogue.js";
 import { gradesParCode, nombre } from "./outils.js";
@@ -252,45 +247,4 @@ export function joursParTache(lignes: Record<string, unknown>[]): Map<string, nu
     brut.set(id, [...(brut.get(id) ?? []), nombre(l.jours)]);
   }
   return new Map([...brut].map(([id, valeurs]) => [id, sommerJours(valeurs)]));
-}
-
-/**
- * Arborescence agrégée mission > phase > lot > tâche (PLN-02) par le moteur
- * planning. Sans temps saisis (vague « temps » à venir), le réalisé vaut 0 et
- * le reste à faire vaut le budget : l'atterrissage égale le budget.
- */
-export function agregerDecoupage(missionId: string, d: Decoupage): NoeudAgrege {
-  const jours = joursParTache(d.lignes);
-  const feuille = (t: Record<string, unknown>): NoeudPlanning => {
-    const budget = jours.get(t.id as string) ?? 0;
-    return {
-      id: t.id as string,
-      niveau: "tache",
-      libelle: t.libelle as string,
-      budget,
-      realise: 0,
-      resteAFaire: budget,
-    };
-  };
-  const racine: NoeudPlanning = {
-    id: missionId,
-    niveau: "mission",
-    enfants: d.phases.map((p) => ({
-      id: p.id as string,
-      niveau: "phase",
-      libelle: p.libelle as string,
-      enfants: [
-        ...d.lots
-          .filter((l) => l.phase_id === p.id)
-          .map((l): NoeudPlanning => ({
-            id: l.id as string,
-            niveau: "lot",
-            libelle: l.libelle as string,
-            enfants: d.taches.filter((t) => t.lot_id === l.id).map(feuille),
-          })),
-        ...d.taches.filter((t) => t.phase_id === p.id && t.lot_id === null).map(feuille),
-      ],
-    })),
-  };
-  return agregerArborescence(racine);
 }

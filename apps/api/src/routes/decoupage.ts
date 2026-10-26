@@ -32,8 +32,9 @@ import {
   exigerMissionVisible,
   type MissionAcces,
 } from "../missions/acces.js";
-import { agregerDecoupage, chargerDecoupage, type Decoupage } from "../missions/decoupage.js";
+import { chargerDecoupage, type Decoupage } from "../missions/decoupage.js";
 import { aujourdhui, chargerCalendrier } from "../missions/outils.js";
+import { calculerSuiviMission } from "../temps/suivi.js";
 
 const paramsElement = z.object({ id: z.string().uuid(), elementId: z.string().uuid() });
 
@@ -461,14 +462,18 @@ export const routesDecoupage: FastifyPluginAsync = async (app) => {
     });
   });
 
-  /** Synthèse en jours (PLN-02) : budget agrégé mission > phase > lot > tâche par le moteur. */
+  /**
+   * Synthèse en jours (PLN-02) : budget, réalisé (temps validés ou verrouillés) et reste à
+   * faire agrégés mission > phase > lot > tâche. Mêmes valeurs que `/temps/suivi` : le
+   * calcul est celui de `calculerSuiviMission`, sans aucun montant (FIN-02).
+   */
   app.get("/missions/:id/synthese", async (request) => {
     const auth = exiger(request, "budget.lire_jours");
     const { id } = paramsId.parse(request.params);
     return app.db.withTenant(auth.cabinetId, async (db) => {
       await exigerMissionVisible(db, auth, id);
-      const d = await chargerDecoupage(db, id);
-      return { arborescence: agregerDecoupage(id, d), jalons: d.jalons };
+      const s = await calculerSuiviMission(db, auth.cabinetId, id);
+      return { arborescence: s.arbre, jalons: s.decoupage.jalons };
     });
   });
 };
