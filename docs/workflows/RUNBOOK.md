@@ -437,9 +437,7 @@ sont datées du jour du semis ; le message final du socle affiche « 25 comptes 
 **Recette navigateur finale (2026-10-25, 15 profils testés)** : aucun 5xx, droits FIN-02 et portail respectés ; anomalies restantes : marge à
 100 % sur les missions hors XOF (décision M2), carnet de commandes variable selon le rôle, portail investisseur SICAFÉ vide, tableau de bord de
 l'associé sans bloc « missions en cours ».
-**Défaut applicatif non corrigé** : l'onglet Découpage affiche toujours « Réalisé 0 j / Reste = budget », car `agregerDecoupage`
-(`apps/api/src/missions/decoupage.ts`) met `realise: 0` en dur ; correctif possible : faire utiliser `calculerSuiviMission` (`temps/suivi.ts`)
-par la route `/missions/:id/synthese`.
+**Onglet Découpage : corrigé** (réalisé et reste à faire issus du suivi, route `/missions/:id/synthese`).
 
 **Tests** : `apps/api/test/seed-tenant-demo*.test.ts` (un fichier par domaine, base `_test` dédiée : jamais deux suites API sur la
 même base, voir « Tests API et base de test ») ; sous charge de plusieurs agents, une suite prend de 3 à 17 minutes.

@@ -5,12 +5,14 @@ import {
   appliquerPourcentage,
   comparer,
   convertir,
+  convertirVersDevise,
   figerTauxChange,
   formaterMontant,
   montant,
   montantDepuisDecimal,
   multiplier,
   oppose,
+  pariteUnitaire,
   repartir,
   repartirEgalement,
   sommer,
@@ -156,6 +158,76 @@ describe("conversion au taux figé (FIN-04)", () => {
       expect.objectContaining({ code: "DATE_INVALIDE" }),
     );
     expect(() => convertir(montant(100, "USD"), eurXof)).toThrow(attendu);
+  });
+});
+
+describe("coûts ramenés dans la devise de la mission (taux figé de la mission)", () => {
+  const eurXof = figerTauxChange("EUR", "XOF", PARITE_EUR_FCFA, "2026-10-06");
+  const usdXof = figerTauxChange("USD", "XOF", 600, "2026-10-06");
+  const usd = (v: number): Montant => montant(v, "USD");
+  const xaf = (v: number): Montant => montant(v, "XAF");
+
+  it("reconnaît la parité unitaire (même devise, XOF et XAF)", () => {
+    expect(pariteUnitaire("EUR", "EUR")).toBe(true);
+    expect(pariteUnitaire("XOF", "XAF")).toBe(true);
+    expect(pariteUnitaire("XAF", "XOF")).toBe(true);
+    expect(pariteUnitaire("EUR", "USD")).toBe(false);
+    expect(pariteUnitaire("XOF", "EUR")).toBe(false);
+  });
+
+  it("laisse inchangé un montant déjà dans la devise de la mission, même sans taux", () => {
+    expect(convertirVersDevise(xof(350_000), "XOF")).toEqual(xof(350_000));
+    expect(convertirVersDevise(eur(53_357), "EUR", eurXof)).toEqual(eur(53_357));
+    expect(convertirVersDevise(usd(1), "USD")).toEqual(usd(1));
+  });
+
+  it("EUR : coût en FCFA divisé par le taux figé, arrondi au centime", () => {
+    // 350 000 FCFA / 655,957 = 533,5715… € → 53 357 centimes.
+    expect(convertirVersDevise(xof(350_000), "EUR", eurXof)).toEqual(eur(53_357));
+    expect(convertirVersDevise(xof(655_957), "EUR", eurXof)).toEqual(eur(100_000));
+    // Un coût en XAF passe par la parité XAF = XOF.
+    expect(convertirVersDevise(xaf(350_000), "EUR", eurXof)).toEqual(eur(53_357));
+  });
+
+  it("USD : 1 USD = 600 FCFA, demi-centime arrondi en s'éloignant de zéro", () => {
+    // 350 000 / 600 = 583,333… $ → 58 333 centimes.
+    expect(convertirVersDevise(xof(350_000), "USD", usdXof)).toEqual(usd(58_333));
+    expect(convertirVersDevise(xof(3), "USD", usdXof)).toEqual(usd(1)); // 0,5 → 1
+    expect(convertirVersDevise(xof(9), "USD", usdXof)).toEqual(usd(2)); // 1,5 → 2
+    expect(convertirVersDevise(xof(-3), "USD", usdXof)).toEqual(usd(-1));
+    expect(convertirVersDevise(xof(1), "USD", usdXof)).toEqual(usd(0)); // 0,1667 → 0
+  });
+
+  it("XOF ↔ XAF : parité fixe 1 pour 1, sans taux", () => {
+    expect(convertirVersDevise(xof(350_000), "XAF")).toEqual(xaf(350_000));
+    expect(convertirVersDevise(xaf(275_000), "XOF")).toEqual(xof(275_000));
+    const xafXof = figerTauxChange("XAF", "XOF", 1, "2026-10-06");
+    expect(convertirVersDevise(xof(350_000), "XAF", xafXof)).toEqual(xaf(350_000));
+  });
+
+  it("applique le taux dans le sens direct quand le montant est dans la devise source", () => {
+    expect(convertirVersDevise(eur(100_000), "XOF", eurXof)).toEqual(xof(655_957));
+    expect(convertirVersDevise(eur(100_000), "XAF", eurXof)).toEqual(xaf(655_957));
+  });
+
+  it("rend null sans taux, ou avec un taux qui ne relie pas les deux devises", () => {
+    expect(convertirVersDevise(xof(350_000), "EUR")).toBeNull();
+    expect(convertirVersDevise(xof(350_000), "USD", eurXof)).toBeNull();
+    expect(convertirVersDevise(usd(10_000), "EUR", eurXof)).toBeNull();
+    expect(convertirVersDevise(eur(10_000), "USD", usdXof)).toBeNull();
+  });
+
+  it("refuse un taux non positif ou non fini", () => {
+    const nul = { source: "EUR", cible: "XOF", taux: 0, dateFixation: "2026-10-06" } as const;
+    expect(() => convertirVersDevise(xof(1), "EUR", nul)).toThrow(
+      expect.objectContaining({ code: "TAUX_CHANGE_INVALIDE" }),
+    );
+    expect(() => convertirVersDevise(xof(1), "EUR", { ...nul, taux: -655.957 })).toThrow(
+      expect.objectContaining({ code: "TAUX_CHANGE_INVALIDE" }),
+    );
+    expect(() => convertirVersDevise(xof(1), "EUR", { ...nul, taux: Number.NaN })).toThrow(
+      expect.objectContaining({ code: "NOMBRE_INVALIDE" }),
+    );
   });
 });
 

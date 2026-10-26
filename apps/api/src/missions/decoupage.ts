@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { sommerJours } from "@missionpilot/engines";
 import type { Db } from "../db/pool.js";
 import { ordonnerArbre } from "../routes/catalogue.js";
 import { gradesParCode, nombre } from "./outils.js";
@@ -237,14 +236,4 @@ export async function chargerDecoupage(db: Db, missionId: string): Promise<Decou
       await q(`SELECT id, predecesseur_id, successeur_id, decalage FROM mission_dependances
        WHERE mission_id = $1 ORDER BY cree_le, id`),
   };
-}
-
-/** Jours budgétés par tâche (somme des lignes, au centième, via le moteur). */
-export function joursParTache(lignes: Record<string, unknown>[]): Map<string, number> {
-  const brut = new Map<string, number[]>();
-  for (const l of lignes) {
-    const id = l.tache_id as string;
-    brut.set(id, [...(brut.get(id) ?? []), nombre(l.jours)]);
-  }
-  return new Map([...brut].map(([id, valeurs]) => [id, sommerJours(valeurs)]));
 }

@@ -331,6 +331,8 @@ async function signer(
   const calcul = await calculerDepuisDecoupage(db, mission, {
     date: corps.date_signature,
     tauxVente: corps.taux_vente,
+    // Coûts d'une autre devise ramenés au taux qui est figé par cette signature (M2).
+    tauxChange: taux,
   });
   if (!calcul.lignes.some((l) => l.nature === "honoraires")) {
     throw requeteInvalide(

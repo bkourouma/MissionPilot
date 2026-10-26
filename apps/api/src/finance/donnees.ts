@@ -1,6 +1,7 @@
 import {
   calculerBudget,
   convertir,
+  convertirVersDevise,
   ErreurFinance,
   figerTauxChange,
   montant as montantMoteur,
@@ -10,6 +11,7 @@ import {
   type Devise,
   type Montant,
   type SyntheseBudget,
+  type TauxChange,
   type TauxNegocie,
 } from "@missionpilot/engines";
 import type { Auth } from "../auth/contexte.js";
@@ -24,6 +26,7 @@ import {
   chargerGrilleVente,
   chargerVersions,
   resoudreTauxVente,
+  tauxChangeMission,
   versionDeReference,
   versVersionMoteur,
   type GrilleVente,
@@ -48,8 +51,12 @@ import { calculerSuiviMission, calculerSuivisMissions, type SuiviMission } from 
  *   grade dans la devise de la mission.
  * - Coûts : collaborateur interne → coût journalier chargé en vigueur à la
  *   date du temps (coûts internes) ; externe ou sous-traitant → coût d'achat
- *   en vigueur (sous-traitance). Coût absent ou dans une autre devise : jours
- *   comptés dans « jours_sans_cout ».
+ *   en vigueur (sous-traitance). Un coût dans une autre devise que la mission
+ *   (FCFA sur une mission en euros ou en dollars) est ramené dans la devise de
+ *   la mission au taux figé à la signature (XOF et XAF : parité 1 pour 1), par
+ *   le moteur `convertirVersDevise` (valorisation par devise, une conversion
+ *   par total ; voir `valoriserCouts`). Coût absent, ou non convertible faute
+ *   de taux figé : jours comptés dans « jours_sans_cout ».
  * - Honoraires facturés : HT des lignes d'échéances (hors débours refacturés)
  *   des factures émises et des avoirs émis (négatifs) : une facture annulée
  *   et son avoir s'annulent.
@@ -376,6 +383,35 @@ export function valoriser(
   );
 }
 
+/**
+ * Valeur de coûts journaliers exprimés dans une ou plusieurs devises, dans la devise de la
+ * mission : chaque devise est valorisée à part (`valoriser`), puis son total est converti
+ * UNE fois au taux figé de la mission (moteur `convertirVersDevise`), sans arrondir le coût
+ * journalier converti. Les lignes non convertibles ont été écartées par l'appelant.
+ */
+export function valoriserCouts(
+  lignes: readonly { jours: number; taux: Montant }[],
+  devise: Devise,
+  taux: TauxChange | undefined,
+): Montant {
+  const parDevise = new Map<Devise, { jours: number; taux: Montant }[]>();
+  for (const l of lignes)
+    parDevise.set(l.taux.devise, [...(parDevise.get(l.taux.devise) ?? []), l]);
+  return sommer(
+    [...parDevise].map(([d, liste]) => {
+      const converti = convertirVersDevise(valoriser(liste, d), devise, taux);
+      if (converti === null) {
+        throw new ErreurFinance(
+          "TAUX_CHANGE_INVALIDE",
+          `Coûts en ${d} non convertibles en ${devise} sans taux figé.`,
+        );
+      }
+      return converti;
+    }),
+    devise,
+  );
+}
+
 /* ----- Factures et débours ----- */
 
 /** HT des lignes d'échéances des factures et avoirs émis, par mission (moteur). */
@@ -500,6 +536,9 @@ export async function analyserMissions(
   const analyses: AnalyseMission[] = [];
   for (const mission of missions) {
     const devise = mission.devise;
+    // Taux figé à la signature (devise de la mission → devise du cabinet), inutile si elles coïncident.
+    const tauxMission =
+      mission.devise === mission.devise_reference ? undefined : tauxChangeMission(mission);
     const tarification = tarifications.get(mission.id) as Tarification;
     const lignes = tempsParMission.get(mission.id) ?? [];
     const vente: { jours: number; taux: Montant }[] = [];
@@ -518,7 +557,8 @@ export async function analyserMissions(
       else sansStandard.push(t.jours);
       const externe = t.collaborateur_type !== "interne";
       const cout = couts(t.collaborateur_id, t.date, externe);
-      if (cout && cout.devise === devise)
+      // Coût d'une autre devise : gardé dans sa devise, valorisé puis converti une fois (M2).
+      if (cout && convertirVersDevise(cout, devise, tauxMission) !== null)
         (externe ? externes : internes).push({ jours: t.jours, taux: cout });
       else sansCout.push(t.jours);
     }
@@ -534,8 +574,8 @@ export async function analyserMissions(
       valeur_produite: valoriser(vente, devise),
       valeur_standard: valoriser(standard, devise),
       honoraires_factures: sommeDevise(factures.get(mission.id) ?? [], devise).total,
-      couts_internes: valoriser(internes, devise),
-      sous_traitance: valoriser(externes, devise),
+      couts_internes: valoriserCouts(internes, devise, tauxMission),
+      sous_traitance: valoriserCouts(externes, devise, tauxMission),
       debours_non_refactures: d.total,
       debours_autre_devise: d.ecartes,
     });

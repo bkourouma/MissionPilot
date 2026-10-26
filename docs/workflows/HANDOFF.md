@@ -9,6 +9,47 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `orch/2026-10-26-reste` — 2026-10-26 (suite de la PR n° 21 « Tenant démo », fusionnée dans `main`)
+
+**État.** Branche `orch/2026-10-26-reste`, depuis `main` @ `5f1a422` (fusion de la PR n° 21). Dernier commit : `9c515a1`
+(synthèse du découpage). **Non commité** : la marge des missions hors XOF (b) et le retrait de `joursParTache` (nettoyage).
+Rien n'est poussé ni fusionné.
+
+**Fait.**
+
+- (a) L'onglet Découpage affiche le réalisé et le reste à faire du suivi : route `/missions/:id/synthese`, qui appelle
+  `calculerSuiviMission` (`temps/suivi.ts`). Commité (`9c515a1`). `agregerDecoupage`, qui mettait `realise: 0` en dur, n'existe plus.
+- (b) Marge des missions hors XOF : les coûts internes sont convertis au taux figé à la signature ; XOF et XAF à parité 1 ; fonction
+  pure `convertirVersDevise` (`packages/engines/src/finance/monnaie.ts`). Voir `docs/DECISIONS.md` « Coûts internes d'une autre
+  devise que la mission (M2) ». Non commité.
+- Nettoyage : `joursParTache` (code mort depuis la suppression de `agregerDecoupage`, aucun autre appelant dans le dépôt) et
+  l'import `sommerJours` retirés de `apps/api/src/missions/decoupage.ts`. Non commité.
+
+**Vérifié (mesures du chantier).** 19 suites API ; moteur 2 248 tests, couverture 99,88 % ; semis neuf en 13 min 29 s ; marges de
+12 à 58 % sur toutes les missions du Tenant démo. Après le retrait de `joursParTache` : typecheck API, eslint et prettier propres
+sur `decoupage.ts`.
+
+**À valider par l'utilisateur.**
+
+- Taux figé à la signature pour convertir les coûts internes (alternative non retenue : taux à la date du coût).
+- Débours et taux de vente spécifiques hors devise toujours écartés.
+
+**Pièges.**
+
+- Les budgets figés et le bilan de clôture déjà semés gardent des coûts à 0 : re-semer le Tenant démo, ou faire une révision
+  « depuis le découpage ».
+- Port 55440 de PostgreSQL dans une plage réservée par Windows : `netsh interface ipv4 show excludedportrange protocol=tcp` pour
+  le constater ; corriger avec `net stop winnat` puis `net start winnat` en administrateur, puis `docker start missionpilot-postgres`.
+
+**Reste à faire.**
+
+- Supprimer le conteneur temporaire `missionpilot-postgres-tmp` (port 55700, volume anonyme, bases `missionpilot_v1_test` et
+  `missionpilot_v2`) quand le principal revient. La base `missionpilot_final2` du conteneur principal est conservée.
+- Supprimer à la main le fichier `D:\tmp_verif4_tsc.log`.
+- Commiter (b) et le nettoyage après relecture ; faire valider le taux figé et les exclusions ci-dessus ; décider du re-semis.
+
+---
+
 ## Refonte CabinetPilot « Plan de vol » — fusionnée le 2026-10-25 (PR n° 19, `c7ed11f`, déployée)
 
 Déploiement vérifié : workflow Deploy vert, `/connexion` et `/api/sante` répondent 200 sur cabinetpilot.allianceconsultants.net.
@@ -109,14 +150,12 @@ la lettre de mission SICAFE est antidatée au jour de signature.
   n'est pas dans cette branche) ; libellé à revoir dans `EcheancierMission.tsx:180`.
 - **Nettoyage** : supprimer le dossier `C:\Users\BABA\AppData\Local\Temp\claude\D--APP-MissionPilot\23299cbb-f4db-4ee4-af85-2151d270ecad\apps`
   (extraction `git archive`).
-- **Défaut applicatif NON corrigé (onglet Découpage)** : l'onglet affiche toujours « Réalisé 0 j / Reste = budget », car `agregerDecoupage`
-  (`apps/api/src/missions/decoupage.ts`) met `realise: 0` en dur. Correctif possible : faire utiliser `calculerSuiviMission` (`temps/suivi.ts`)
-  par la route `/missions/:id/synthese`. À traiter en suite, hors semis.
+- **Onglet Découpage : corrigé** (réalisé et reste à faire issus du suivi, route `/missions/:id/synthese`).
 - Décisions de l'utilisateur : valider `DECISIONS.md` « Tenant démo » (H1 nom exact, devises, coûts IA simulés, 2FA au secret public) ;
   **nettoyage à faire APRÈS accord de l'utilisateur** : supprimer le cabinet « Tenant démo » PARTIEL créé par erreur par un agent dans la
   base de développement `missionpilot` (id `13970f72-2bc1-4df1-ad88-6639ace95b71`, semis lancé sans `DATABASE_OWNER_URL` ni
   `DATABASE_URL` : pas de suppression sans accord, de nombreuses tables le référencent) ; purger les bases jetables `missionpilot_td*`,
-  `missionpilot_verif*`, `missionpilot_full*` et `missionpilot_final*` (même règle) ; supprimer le fichier `D:	mp_verif4_tsc.log`.
+  `missionpilot_verif*`, `missionpilot_full*` et `missionpilot_final*` (même règle) ; supprimer le fichier `D:\tmp_verif4_tsc.log`.
 - Corriger côté API l'avertissement pg `client.query() already executing` émis par `cloreAtelier` (`apps/api/src/plans/ateliers.ts:411` ;
   hors périmètre du seed).
 - Recherche n° 8 de la checklist : tranchée au lot 9, la commande exclut `**/tenant-demo/**` (données de démonstration ; 77 arrondis de
