@@ -270,6 +270,23 @@ export function configDemo(env: NodeJS.ProcessEnv = process.env, argv?: readonly
 }
 
 /**
+ * Recoupe le drapeau `publique` reçu par un point d'entrée de semis avec la configuration : la
+ * démonstration publique exige DEMO_PUBLIQUE=oui (déjà vérifié par `configDemo`). Un appelant qui
+ * passerait `publique` sans la variable est refusé net, plutôt que de se fier au seul booléen.
+ */
+export function exigerDemoPubliqueCoherente(
+  config: Pick<Config, "DEMO_PUBLIQUE">,
+  publique: boolean | undefined,
+): void {
+  if (publique === true && config.DEMO_PUBLIQUE !== "oui") {
+    throw new Error(
+      "Semis en démonstration publique demandé sans DEMO_PUBLIQUE=oui dans la configuration : refus, " +
+        "rien n'a été écrit.",
+    );
+  }
+}
+
+/**
  * Enveloppe de base pour la démonstration PUBLIQUE : tout job « en_attente » créé par une
  * transaction du seed (tous types, sans exception) est passé en « echec » (charge effacée) AVANT la validation de cette
  * transaction. Les e-mails passent par la file de tâches (job « envoyer_email », charge
@@ -917,8 +934,16 @@ export interface ResumeDemo {
   portail: ResumePortail;
 }
 
-/** Crée le cabinet de démonstration ; renvoie null si le cabinet existe déjà (rien n'est écrit). */
-export async function semerDemoAbidjan(
+/** Étapes de `semerEtapesApresPortail` dont la création d'un cabinet NEUF exige l'écriture. */
+export const ETAPE_COMPTES_2FA = "comptes 2FA";
+export const ETAPE_REDRESSEMENT = "redressement";
+
+/**
+ * Première partie de `semerDemoAbidjan` : cabinet, comptes, référentiels, missions, absences, puis
+ * portail client. Renvoie null si le cabinet existe déjà (rien n'est écrit). La suite
+ * (`semerEtapesApresPortail`) est reprenable : `seed-defaut.ts` la relance sur un cabinet existant.
+ */
+export async function semerDemoAbidjanJusquAuPortail(
   database: Database,
   config: Config,
 ): Promise<ResumeDemo | null> {
@@ -942,23 +967,67 @@ export async function semerDemoAbidjan(
   const { semerPortailDemo } = await import("./seed-demo-portail.js");
   const portail = await semerPortailDemo(database, config);
   if (!portail) throw new Error("Les comptes du portail existent déjà dans un cabinet neuf.");
-  // Comptes avec double authentification active (signature de bout en bout) : même import dynamique.
+  return { cabinetId: cree.cabinetId, missions, portail };
+}
+
+/**
+ * Étapes qui suivent le portail : comptes 2FA, canaux simulés, redressement, services candidats.
+ * Chacune est idempotente (rien n'est dupliqué) : sur un cabinet complet, rien n'est écrit ; sur un
+ * cabinet dont la création s'est arrêtée après le portail (serveur de démonstration, 2026-10-27 :
+ * refus des canaux simulés hors base locale), les manquantes sont semées. Renvoie les étapes
+ * réellement écrites. `publique` : voir `semerDemoAbidjan`. Imports dynamiques : ces fichiers
+ * importent celui-ci.
+ */
+export async function semerEtapesApresPortail(
+  database: Database,
+  config: Config,
+  options: { publique?: boolean } = {},
+): Promise<string[]> {
+  exigerDemoPubliqueCoherente(config, options.publique);
+  const etapes: string[] = [];
+  // Comptes avec double authentification active (signature de bout en bout).
   const { semerComptes2faDemo } = await import("./seed-demo-2fa.js");
-  if (!(await semerComptes2faDemo(database, config))) {
+  if (await semerComptes2faDemo(database, config)) etapes.push(ETAPE_COMPTES_2FA);
+  // Canaux simulés (compte WhatsApp, destinataires de test, signature, transcription).
+  const { semerCanauxDemo, IDENTITES_CANAUX_DEMO } = await import("./seed-demo-canaux.js");
+  const canaux = await semerCanauxDemo(database, config, IDENTITES_CANAUX_DEMO, {
+    publique: options.publique,
+  });
+  if (canaux.creees.length > 0) etapes.push(`canaux (${canaux.creees.join(", ")})`);
+  // Service #5 Redressement (deux dossiers, par les routes du module).
+  const { semerRedressementDemo } = await import("./seed-demo-redressement.js");
+  if (await semerRedressementDemo(database, config)) etapes.push(ETAPE_REDRESSEMENT);
+  // Services candidats (diagnostic flash, business plan bancable, guichets fictifs).
+  const { semerServicesCandidatsDemo } = await import("./seed-demo-services-candidats.js");
+  const services = await semerServicesCandidatsDemo(database, config);
+  if (services.creees.length > 0) {
+    etapes.push(`services candidats (${services.creees.join(", ")})`);
+  }
+  return etapes;
+}
+
+/**
+ * Crée le cabinet de démonstration ; renvoie null si le cabinet existe déjà (rien n'est écrit).
+ * `publique` : démonstration publique CONFIRMÉE par l'appelant (`demoPubliqueConfirmee`), recoupée
+ * avec DEMO_PUBLIQUE=oui et transmise au semis des canaux simulés (`semerCanauxDemo`).
+ */
+export async function semerDemoAbidjan(
+  database: Database,
+  config: Config,
+  options: { publique?: boolean } = {},
+): Promise<ResumeDemo | null> {
+  exigerDemoPubliqueCoherente(config, options.publique);
+  const resume = await semerDemoAbidjanJusquAuPortail(database, config);
+  if (!resume) return null;
+  const etapes = await semerEtapesApresPortail(database, config, options);
+  // Cabinet NEUF : ces étapes ne peuvent pas avoir été faites avant.
+  if (!etapes.includes(ETAPE_COMPTES_2FA)) {
     throw new Error("Les comptes 2FA existent déjà dans un cabinet neuf.");
   }
-  // Canaux simulés (compte WhatsApp, destinataires de test, signature, transcription) : même import dynamique.
-  await (await import("./seed-demo-canaux.js")).semerCanauxDemo(database, config);
-  // Service #5 Redressement (deux dossiers, par les routes du module) : même import dynamique.
-  const { semerRedressementDemo } = await import("./seed-demo-redressement.js");
-  if (!(await semerRedressementDemo(database, config))) {
+  if (!etapes.includes(ETAPE_REDRESSEMENT)) {
     throw new Error("Le redressement de démonstration existe déjà dans un cabinet neuf.");
   }
-  // Services candidats (diagnostic flash, business plan bancable, guichets fictifs) : même import dynamique.
-  await (
-    await import("./seed-demo-services-candidats.js")
-  ).semerServicesCandidatsDemo(database, config);
-  return { cabinetId: cree.cabinetId, missions, portail };
+  return resume;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
@@ -969,11 +1038,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     console.error((error as Error).message);
     process.exit(1);
   }
-  const database = ouvrirBaseDemo(
-    config,
-    demoPubliqueConfirmee(process.env, process.argv.slice(2)),
-  );
-  semerDemoAbidjan(database, config)
+  const publique = demoPubliqueConfirmee(process.env, process.argv.slice(2));
+  const database = ouvrirBaseDemo(config, publique);
+  semerDemoAbidjan(database, config, { publique })
     .then((r) => {
       if (!r) {
         console.error(

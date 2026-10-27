@@ -9,6 +9,72 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `orch/2026-10-27-serveur-demo` — 2026-10-27 (serveur de staging/démonstration)
+
+**Décision.** `cabinetpilot.allianceconsultants.net` devient un serveur de STAGING/DÉMONSTRATION pour des prospects ; la vraie
+production sera une autre instance, sans `DEMO_PUBLIQUE`. Base : `origin/main` @ `989681f`.
+
+**Fait.**
+
+- `deploy/activer-demo.sh` : activation en une commande (contrôles dont seeds dans l'image et migrations, garde-fou « aucune donnée
+  réelle » en sortie 3, sauvegarde, `DEMO_PUBLIQUE=oui`, semis Lagune puis Tenant démo avec API arrêtée, `trap` qui restaure
+  l'environnement puis relance l'API en cas d'échec, santé, vérification de `GET /api/auth/demo`). Run réel : `--arriere-plan`
+  obligatoire (ou `--premier-plan`). Autres options : `--dry-run`, `--si-necessaire`, `--smtp-ok`, `--forcer-donnees-existantes`, `--aide`.
+- `deploy/test-activer-demo.sh` (faux docker, curl, flock) : 58 vérifications, dont échec de semis, tube fermé, verrou, idempotence.
+- `DEPLOIEMENT.md` : section (f) et en-tête (staging/démonstration). shellcheck absent du poste ; vrai `flock` et vrai docker non testés.
+
+**Incident du 2026-10-27 sur le serveur.** `seed-defaut.ts --confirmer-demo` (NODE_ENV=production, base sur l'hôte `postgres`)
+a échoué après ~20 s : « Un fournisseur de canal simulé est réservé au développement local… » (`canaux/fabrique.ts`, garde
+`contexteCanauxSimulesAdmis` : base non locale). Les seeds montent une application en processus avec des ports de canaux simulés ;
+les tests ne le voyaient pas (base toujours locale). **État du serveur (constaté, non revérifié depuis)** : « Lagune Conseil & Associés
+(démo) » semé à moitié, `est_demo = false` (sans canaux, redressement, services candidats ni super admin démo) ; ses comptes ont des
+mots de passe PUBLICS et restent connectables par le formulaire.
+
+**Correctif (dans l'arbre, non commité au moment de cette note).**
+
+- `creerCanaux(cfg, { seedDemonstrationPublique: true })` : option de code passée par `seed-demo-canaux.ts` (via `semerDemoAbidjan`,
+  option `publique`) et `tenant-demo/appels-offres-canaux/canaux-contexte.ts` (`ctx.publique`), en démonstration publique confirmée
+  seulement ; jamais lue de l'environnement. `simulateurCanauxAdmis` (fabrique) : routes `/api/canaux/simulateur/*` hors local pour
+  ces seuls ports. Secret de webhook éphémère pour le simulateur du Tenant démo si le serveur n'en a pas.
+- `seed-defaut.ts` : sur un Lagune existant, reprise idempotente des étapes après le portail (2FA, canaux, redressement, services
+  candidats) : un Lagune arrêté là est complété sans doublon et marqué `est_demo`. Étapes partagées avec la création
+  (`semerEtapesApresPortail`, `semerDemoAbidjanJusquAuPortail` dans `seed-demo.ts`).
+- Audit de sécurité (0 bloquant, 0 majeur, 3 mineurs appliqués) : l'option exige aussi `DEMO_PUBLIQUE=oui` dans la configuration ;
+  `semerDefaut`, `semerDemoAbidjan` et `semerCanauxDemo` refusent `publique` sans elle (`exigerDemoPubliqueCoherente`) ; test de
+  reprise d'un Lagune arrêté après le portail avec cabinet voisin intact (`seed-defaut.test.ts`).
+- Tests ajoutés : `apps/api/test/config.test.ts` (2 cas : refus sans l'option, en production et pour le serveur ; option non
+  obtenable par l'environnement ; routes du simulateur) et `seed-defaut.test.ts` (reprise sans écriture sur un cabinet complet).
+  `deploy/activer-demo.sh` inchangé. DEPLOIEMENT.md (f), « Incident ». Vérifié : typecheck API, eslint et prettier sur les
+  fichiers modifiés ; 9 suites (config, seed-defaut, connexion-demo, isolation, canaux-routes, canaux-webhook, seed-demo-canaux,
+  seed-tenant-demo, seed-tenant-demo-appels-offres-canaux) : 132 tests verts (base `missionpilot_srvt_test`, port 55700).
+  Après correctif, en conditions du serveur : Lagune 34 s, Tenant démo 14 min 15 s, puis API NODE_ENV=production (port 4160)
+  : `GET /api/auth/demo` 200 avec les deux cabinets (12 et 46 comptes) et le super admin démo, simulateur 404 ; démarrage
+  refusé avec `WHATSAPP_FOURNISSEUR=simule`.
+- Reproduction locale : conteneur `missionpilot-postgres-tmp` (port 55700), hôte `kubernetes.docker.internal` (→ 127.0.0.1, jugé
+  non local par `baseLocale`), NODE_ENV=production, DEMO_PUBLIQUE=oui, SMTP_HOST=smtp.invalid. Bases `missionpilot_srv1` et
+  `missionpilot_srv2` : échec avant correctif (même message, Lagune à moitié) ; `missionpilot_srv2` complété après correctif ;
+  `missionpilot_srv3` semé de zéro après correctif. Ces bases partent avec le conteneur temporaire.
+
+**Pièges.**
+
+- Le garde-fou de `activer-demo.sh` compte le Lagune à moitié (`est_demo = false`) comme cabinet réel : sortie 3 sans
+  `--forcer-donnees-existantes`.
+- Un cabinet désactivé n'est pas réactivé par le seed et ses comptes ne se connectent plus : réactiver Lagune avant la relance.
+- Limite non corrigée : en démonstration publique, les jobs `canal_envoi` et `canal_transcription` de Lagune sont neutralisés comme
+  les autres (`neutraliserEnvois`) : envoi non joignable et transcription restent en échec (le Tenant démo les épargne : `baseDuModule`).
+
+**Reste à faire.**
+
+- Après accord de l'utilisateur, sur le serveur : désactiver Lagune tout de suite (`UPDATE cabinets SET actif = false WHERE nom =
+  'Lagune Conseil & Associés (démo)'`, rôle propriétaire) ; une fois le correctif fusionné et déployé, le réactiver, puis
+  `ssh alliance 'bash -s -- --dry-run' < deploy/activer-demo.sh` (vérifier que Lagune est le seul cabinet non démo), puis
+  `--arriere-plan --forcer-donnees-existantes` et `tail -f /home/deployer/activer-demo.log` (10 à 14 minutes, `/connexion`
+  indisponible). Aucun déploiement CI pendant ce temps.
+- Ensuite vérifier `/connexion` (2 cabinets dont « Tenant démo », accès super admin), puis sauvegarder la base semée.
+- Le correctif n'a jamais tourné sur le serveur réel (image de production, réseau Docker) : seulement en local.
+
+---
+
 ## Branche `orch/2026-10-26-reste` — 2026-10-26 (suite de la PR n° 21 « Tenant démo », fusionnée dans `main`)
 
 **État.** Branche `orch/2026-10-26-reste`, depuis `main` @ `5f1a422` (fusion de la PR n° 21). Dernier commit : `9c515a1`

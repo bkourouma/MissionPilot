@@ -31,6 +31,7 @@ import {
   attendre,
   configDemo,
   emailAbidjan,
+  exigerDemoPubliqueCoherente,
   MOT_DE_PASSE_DEMO_ABIDJAN,
   NOM_CABINET_ABIDJAN,
   ouvrirSession,
@@ -41,8 +42,9 @@ import { COMPTE_ASSOCIE_2FA, COMPTE_DIRIGEANT_2FA } from "./seed-demo-2fa.js";
 
 /*
  * Données de démonstration des CANAUX SIMULÉS (lot 3c) : compte WhatsApp simulé, destinataires de
- * test, journal d'envois, demande de signature et transcription à relire. Jamais en production :
- * mêmes gardes que `seed-demo.ts` (NODE_ENV local, bases locales).
+ * test, journal d'envois, demande de signature et transcription à relire. Mêmes gardes que
+ * `seed-demo.ts` (NODE_ENV local, bases locales) ; sur un serveur de démonstration publique
+ * seulement, appelé par `seed-defaut.ts --confirmer-demo` avec `publique` (voir `OptionsCanauxDemo`).
  *
  * Règle ferme du lot : AUCUN envoi réel, aucune clé, aucun appel réseau. Les quatre ports sont les
  * fournisseurs SIMULÉS ou LOCAUX (`creerCanaux`) ; les numéros sont les seuls numéros de TEST du
@@ -425,12 +427,25 @@ async function semerTranscription(
 
 /* ----- Semis ----- */
 
+/** Options du semis des canaux. */
+export interface OptionsCanauxDemo {
+  /**
+   * Démonstration publique CONFIRMÉE par l'appelant (`demoPubliqueConfirmee` : DEMO_PUBLIQUE=oui ET
+   * `--confirmer-demo`) : les ports simulés de l'application EN PROCESSUS du seed sont admis hors
+   * base locale (`creerCanaux`, option `seedDemonstrationPublique`). Sans cette option, garde
+   * inchangée : développement local seulement.
+   */
+  publique?: boolean;
+}
+
 /** Ajoute les données de démonstration des canaux au cabinet de démonstration (idempotent). */
 export async function semerCanauxDemo(
   database: Database,
   config: Config,
   identites: IdentitesCanauxDemo = IDENTITES_CANAUX_DEMO,
+  options: OptionsCanauxDemo = {},
 ): Promise<ResumeCanauxDemo> {
+  exigerDemoPubliqueCoherente(config, options.publique);
   for (const [email, aide] of [
     [
       identites.associe,
@@ -463,8 +478,9 @@ export async function semerCanauxDemo(
     TRANSCRIPTION_FOURNISSEUR: "simule",
     SIGNATURE_FOURNISSEUR: "local",
   };
-  // Les ports : fournisseurs SIMULÉS ou LOCAUX seulement (`creerCanaux` refuse tout le reste).
-  const canaux: Canaux = creerCanaux(cfg);
+  // Les ports : fournisseurs SIMULÉS ou LOCAUX seulement (`creerCanaux` refuse tout le reste ;
+  // hors base locale, seulement en démonstration publique confirmée par l'appelant).
+  const canaux: Canaux = creerCanaux(cfg, { seedDemonstrationPublique: options.publique === true });
   const app = await buildApp(cfg, database, { canaux });
   const creees: string[] = [];
   try {

@@ -17,39 +17,76 @@ export type ConfigCanaux = Pick<
   | "NODE_ENV"
   | "DATABASE_URL"
   | "DATABASE_OWNER_URL"
+  | "DEMO_PUBLIQUE"
   | "WHATSAPP_FOURNISSEUR"
   | "SMS_FOURNISSEUR"
   | "TRANSCRIPTION_FOURNISSEUR"
   | "SIGNATURE_FOURNISSEUR"
 >;
 
+/** Options de `creerCanaux`. */
+export interface OptionsCanaux {
+  horloge?: () => Date;
+  /**
+   * RÉSERVÉ aux seeds de DÉMONSTRATION PUBLIQUE CONFIRMÉE (DEMO_PUBLIQUE=oui ET `--confirmer-demo`,
+   * `demoPubliqueConfirmee` de db/seed-demo.ts, vérifiée par le seed avant tout) : admet les
+   * fournisseurs simulés hors développement local, pour la SEULE application que le seed monte en
+   * processus (sans port, appels par `inject`), et seulement si la configuration porte aussi
+   * DEMO_PUBLIQUE=oui (recoupement : l'option seule ne suffit pas). Les ports restent les simulateurs en mémoire : aucun
+   * envoi réel. Paramètre de code uniquement : jamais lu depuis l'environnement ni la configuration ;
+   * `loadConfig`, `canauxParDefaut`, `dependancesCanauxParDefaut` et le serveur ne le passent jamais.
+   */
+  seedDemonstrationPublique?: boolean;
+}
+
+/** Ports créés par un seed de démonstration publique confirmée (voir `simulateurCanauxAdmis`). */
+const desSeedsPublics = new WeakSet<Canaux>();
+
 /**
  * Fabrique des ports selon la configuration. RÈGLE FERME : aucun adaptateur réel n'existe ; un
  * fournisseur différent de « aucun » hors développement local (configuration construite sans
  * `loadConfig`) est refusé ICI aussi, comme `connexionRapideDemoActive` à l'enregistrement des
- * routes de démonstration. « aucun » rend null : le canal n'existe pas.
+ * routes de démonstration. « aucun » rend null : le canal n'existe pas. Seule exception :
+ * `seedDemonstrationPublique` (option explicite des seeds de démonstration publique).
  */
-export function creerCanaux(config: ConfigCanaux, options: { horloge?: () => Date } = {}): Canaux {
+export function creerCanaux(config: ConfigCanaux, options: OptionsCanaux = {}): Canaux {
   const actifs = [
     config.WHATSAPP_FOURNISSEUR,
     config.SMS_FOURNISSEUR,
     config.TRANSCRIPTION_FOURNISSEUR,
     config.SIGNATURE_FOURNISSEUR,
   ].some((v) => v !== "aucun");
-  if (actifs && !contexteCanauxSimulesAdmis(config)) {
+  // Recoupement : l'option de code ET DEMO_PUBLIQUE=oui dans la configuration du seed.
+  const seedPublic = options.seedDemonstrationPublique === true && config.DEMO_PUBLIQUE === "oui";
+  if (actifs && !seedPublic && !contexteCanauxSimulesAdmis(config)) {
     throw new Error(
       "Un fournisseur de canal simulé est réservé au développement local : aucun fournisseur réel " +
         "n'est disponible.",
     );
   }
   const horloge = options.horloge ? { horloge: options.horloge } : {};
-  return {
+  const canaux: Canaux = {
     whatsapp: config.WHATSAPP_FOURNISSEUR === "simule" ? new CanalWhatsAppSimule(horloge) : null,
     sms: config.SMS_FOURNISSEUR === "simule" ? new PasserelleSmsSimulee(horloge) : null,
     transcripteur: config.TRANSCRIPTION_FOURNISSEUR === "simule" ? new TranscripteurSimule() : null,
     signature:
       config.SIGNATURE_FOURNISSEUR === "local" ? new FournisseurSignatureLocal(horloge) : null,
   };
+  if (seedPublic) desSeedsPublics.add(canaux);
+  return canaux;
+}
+
+/**
+ * Routes du simulateur (`/api/canaux/simulateur/*`) admises : développement local
+ * (`contexteCanauxSimulesAdmis`) ou ports créés par un seed de démonstration publique
+ * (`seedDemonstrationPublique`), injectés dans SA propre application en processus. L'application du
+ * serveur crée ses ports par `canauxParDefaut`, jamais avec cette option.
+ */
+export function simulateurCanauxAdmis(
+  config: Pick<Config, "NODE_ENV" | "DATABASE_URL" | "DATABASE_OWNER_URL">,
+  canaux: Canaux,
+): boolean {
+  return contexteCanauxSimulesAdmis(config) || desSeedsPublics.has(canaux);
 }
 
 const parDefaut = new WeakMap<object, Canaux>();
