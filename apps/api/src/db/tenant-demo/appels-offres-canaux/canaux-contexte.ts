@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../../app.js";
 import { trousseauDepuisConfig, type Trousseau } from "../../../auth/chiffrement.js";
@@ -99,8 +100,14 @@ export async function ouvrirContexteCanaux(
     SMS_FOURNISSEUR: "aucun",
     TRANSCRIPTION_FOURNISSEUR: "simule",
     SIGNATURE_FOURNISSEUR: "local",
+    // Le simulateur signe ses événements entrants avec ce secret et la route du webhook de CETTE
+    // application les vérifie avec le même : un serveur sans canal (aucun secret configuré) reçoit
+    // un secret éphémère, propre à ce processus, jamais écrit ni journalisé.
+    WHATSAPP_WEBHOOK_SECRET: ctx.config.WHATSAPP_WEBHOOK_SECRET ?? randomBytes(32).toString("hex"),
   };
-  const canaux = creerCanaux(cfg);
+  // Hors base locale, ports simulés admis SEULEMENT en démonstration publique confirmée par le
+  // point d'entrée (`ctx.publique` : DEMO_PUBLIQUE=oui ET --confirmer-demo) ; jamais par l'environnement.
+  const canaux = creerCanaux(cfg, { seedDemonstrationPublique: ctx.publique });
   const base = baseDuModule(ctx);
   const app = await buildApp(cfg, base.database, { canaux });
   const trousseau = trousseauDepuisConfig(cfg);

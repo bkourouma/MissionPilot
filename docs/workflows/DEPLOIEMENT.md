@@ -317,7 +317,8 @@ Codes de sortie : 0 succès ; 1 échec ; 2 option inconnue ou mode non choisi ; 
   `missionpilot.env.avant-demo`, pour ne pas exposer un Tenant démo à moitié construit), puis recrée `api` et `web`. Ce `trap` ne
   couvre **ni SIGKILL ni l'arrêt brutal du serveur**, et un run en premier plan peut être interrompu par la coupure SSH : d'où
   `--arriere-plan`. Commande de secours, sur le serveur : `cd /home/deployer/missionpilot && mp up -d --force-recreate api web`.
-  Après un semis à moitié fait : base neuve ((d) et (e)).
+  Après un semis à moitié fait : base neuve ((d) et (e)), sauf Lagune arrêté après son portail, que la relance complète (voir
+  « Incident du 2026-10-27 » ci-dessous).
 - **Sauvegarde** : avant toute écriture, via `sauvegarde.sh` s'il est dans le dossier (qui fait aussi une **rotation** : il supprime les
   dumps de plus de 7 jours), sinon `pg_dump -Fc` vers `/home/deployer/backups/missionpilot` (mode 600). C'est le point de retour d'avant démonstration.
 - **Désactivation** : voir (c) (retirer `DEMO_PUBLIQUE`, désactiver les cabinets et super admins `est_demo`). `missionpilot.env.avant-demo`
@@ -326,6 +327,37 @@ Codes de sortie : 0 succès ; 1 échec ; 2 option inconnue ou mode non choisi ; 
 - **Risques** : mots de passe de démonstration publics dans le dépôt ; tout visiteur ouvre sans mot de passe la session de n'importe quel
   compte listé (associé compris) ; vandalisme possible (renommage, désactivation, mots de passe changés) ; plafonds permanents de 30 cabinets
   et 40 comptes ; aucun e-mail ne part (SMTP `smtp.invalid`) et aucune IA n'est appelée (coûts SIMULÉS).
+
+**Incident du 2026-10-27 et correctif.** Sur le serveur, `seed-defaut.ts --confirmer-demo` a échoué après une vingtaine de secondes :
+« Un fournisseur de canal simulé est réservé au développement local : aucun fournisseur réel n'est disponible. » Cause : les
+seeds montent une application EN PROCESSUS (sans port, appels par `inject`) avec des ports de canaux SIMULÉS (`seed-demo-canaux.ts`
+pour Lagune, `tenant-demo/appels-offres-canaux/canaux-contexte.ts` pour le Tenant démo), et la fabrique `creerCanaux` les refusait
+hors base locale (`contexteCanauxSimulesAdmis` : la base du serveur est sur l'hôte `postgres`, pas sur `localhost`). Les tests locaux
+ne le voyaient pas, la base y étant toujours locale. Reproduit en local (NODE_ENV=production, base jointe par un nom d'hôte non local) :
+même message, Lagune laissé à moitié (`est_demo = false`, sans canaux, redressement ni services candidats, sans super admin démo).
+
+Correctif (branche `orch/2026-10-27-serveur-demo`) :
+
+- `creerCanaux(config, { seedDemonstrationPublique: true })` : option de CODE, passée seulement par ces deux seeds quand la démonstration
+  publique est confirmée (`DEMO_PUBLIQUE=oui` ET `--confirmer-demo`, déjà vérifiés par `configDemo`). Jamais lue depuis l'environnement
+  ni la configuration ; `loadConfig`, `canauxParDefaut` et le serveur ne la passent jamais : l'API de production refuse toujours les
+  fournisseurs simulés (tests dans `apps/api/test/config.test.ts`). Les routes du simulateur (`/api/canaux/simulateur/*`) ne sont
+  admises hors local que pour les ports créés avec cette option (`simulateurCanauxAdmis`), donc dans l'application du seed seulement.
+- Tenant démo : le simulateur WhatsApp signe ses événements avec un secret de webhook ÉPHÉMÈRE (aléatoire, propre au processus du seed)
+  quand le serveur n'en a pas.
+- `seed-defaut.ts` reprend, sur un Lagune déjà présent, les étapes qui suivent le portail (comptes 2FA, canaux, redressement, services
+  candidats), toutes idempotentes : relancer la commande COMPLÈTE le Lagune laissé à moitié, sans doublon, et pose `est_demo`.
+- Recoupement (audit du 2026-10-27) : l'option n'est admise que si la configuration porte aussi `DEMO_PUBLIQUE=oui`, et `semerDefaut`,
+  `semerDemoAbidjan` et `semerCanauxDemo` refusent un drapeau `publique` sans cette variable. Un test vérifie la reprise d'un Lagune
+  arrêté après le portail, et qu'un cabinet voisin reste intact (toutes ses lignes, hash du mot de passe compris).
+
+**Relance sur le serveur après déploiement du correctif.** Lagune à moitié semé porte `est_demo = false` : le garde-fou de
+`activer-demo.sh` le compte comme cabinet réel (sortie 3). Après avoir vérifié dans le journal du `--dry-run` que le seul cabinet non démo
+est « Lagune Conseil & Associés (démo) » et qu'il n'y a pas d'autre super admin réel que celui de (a), relancer avec
+`--arriere-plan --forcer-donnees-existantes`. En attendant, ses comptes ont des mots de passe PUBLICS et restent connectables par le
+formulaire : désactiver ce cabinet comme en (c) (`UPDATE cabinets SET actif = false WHERE nom = 'Lagune Conseil & Associés (démo)'`), puis
+le réactiver (`actif = true`) juste avant le semis : un cabinet désactivé n'est pas réactivé par le seed et ses comptes ne peuvent plus
+ouvrir de session, ce qui ferait échouer la reprise.
 
 ## Limites connues
 

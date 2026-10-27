@@ -21,9 +21,14 @@ import {
 import {
   configDemo,
   emailAbidjan,
+  ETAPE_COMPTES_2FA,
+  ETAPE_REDRESSEMENT,
   MOT_DE_PASSE_DEMO_ABIDJAN,
   NOM_CABINET_ABIDJAN,
+  semerDemoAbidjan,
+  semerDemoAbidjanJusquAuPortail,
 } from "../src/db/seed-demo.js";
+import { semerCanauxDemo } from "../src/db/seed-demo-canaux.js";
 import { creerMailer, MailerJournal } from "../src/notifications/mailer.js";
 import { configTest } from "./helpers.js";
 
@@ -161,6 +166,21 @@ describe("gardes du seed de démonstration (configDemo)", () => {
       configDemo({ ...PROD, DEMO_PUBLIQUE: "oui", SESSION_SECRET: "court" }, ARGV_PUBLIC),
     ).toThrow();
   });
+
+  it("`publique` sans DEMO_PUBLIQUE=oui dans la configuration : refus net avant toute écriture", async () => {
+    const sansVariable: Config = { ...configTest(), DEMO_PUBLIQUE: "non" };
+    const aucuneBase = {} as Database;
+    const refus = /sans DEMO_PUBLIQUE=oui/;
+    await expect(
+      semerDefaut(aucuneBase, sansVariable, { publique: true, journal: () => undefined }),
+    ).rejects.toThrow(refus);
+    await expect(semerDemoAbidjan(aucuneBase, sansVariable, { publique: true })).rejects.toThrow(
+      refus,
+    );
+    await expect(
+      semerCanauxDemo(aucuneBase, sansVariable, undefined, { publique: true }),
+    ).rejects.toThrow(refus);
+  });
 });
 
 /* ----- Mode par défaut : base jetable 1 ----- */
@@ -219,6 +239,8 @@ describe("seed du tenant par défaut (mode par défaut)", () => {
     expect(second.cabinetCree).toBe(false);
     expect(second.cabinetId).toBe(premier.cabinetId);
     expect(second.portailRepris).toBe(false);
+    // Reprise des étapes après le portail : rien à écrire sur un cabinet complet.
+    expect(second.etapesReprises).toEqual([]);
     expect(second.comptesAjoutes).toEqual([]);
     expect(second.superAdminCree).toBe(false);
     expect(await compter(b1 as BaseJetable)).toEqual(avant);
@@ -453,4 +475,132 @@ describe("seed du tenant par défaut (démonstration publique)", () => {
     const a = await lignes<{ est_demo: boolean }>(base, "SELECT est_demo FROM super_admins");
     expect(a).toEqual([{ est_demo: true }]);
   });
+});
+
+/* ----- Reprise d'un cabinet de démonstration interrompu après le portail : base jetable 3 ----- */
+
+/**
+ * Empreinte de TOUTES les lignes d'un cabinet (chaque table portant `cabinet_id`, plus sa ligne de
+ * `cabinets`) : la moindre écriture sur ce cabinet la change.
+ */
+async function empreinteCabinet(
+  b: BaseJetable,
+  cabinetId: string,
+): Promise<Record<string, string>> {
+  return proprietaire(b, async (c) => {
+    const tables = await c.query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.columns
+       WHERE table_schema = 'public' AND column_name = 'cabinet_id'
+         AND table_name IN (SELECT table_name FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_type = 'BASE TABLE')
+       ORDER BY table_name`,
+    );
+    const empreinte: Record<string, string> = {};
+    const lire = async (table: string, colonne: string) => {
+      const r = await c.query<{ n: string; h: string | null }>(
+        `SELECT count(*) AS n, md5(string_agg(t::text, '|' ORDER BY t::text)) AS h
+         FROM ${table} t WHERE ${colonne} = $1`,
+        [cabinetId],
+      );
+      empreinte[table] = `${r.rows[0]?.n}:${r.rows[0]?.h ?? ""}`;
+    };
+    await lire("cabinets", "id");
+    for (const { table_name } of tables.rows) await lire(`"${table_name}"`, "cabinet_id");
+    return empreinte;
+  });
+}
+
+describe("seed du tenant par défaut (reprise après le portail, cabinet voisin intact)", () => {
+  let b3: BaseJetable | undefined;
+  let dossier3: string;
+  let voisinId: string;
+  let laguneId: string;
+  let avantVoisin: Record<string, string>;
+
+  beforeAll(async () => {
+    dossier3 = await mkdtemp(path.join(os.tmpdir(), "missionpilot-seed-defaut-reprise-"));
+    b3 = await creerBaseJetable("defaut3", dossier3);
+    const hash = await hashPassword("Mot-de-passe-voisin-1");
+    voisinId = (
+      await lignes<{ id: string }>(b3, "SELECT creer_cabinet($1, 'CI', $2, $3, $4) AS id", [
+        "Cabinet voisin",
+        "associe@cabinet-voisin.test",
+        "Associé Voisin",
+        hash,
+      ])
+    )[0]?.id as string;
+    // Création interrompue après le portail (cas du serveur du 2026-10-27) : ni 2FA, ni canaux,
+    // ni redressement, ni services candidats, ni drapeau de démonstration, ni super admin.
+    const partiel = await semerDemoAbidjanJusquAuPortail(b3.db, b3.config);
+    laguneId = partiel?.cabinetId as string;
+    avantVoisin = await empreinteCabinet(b3, voisinId);
+  }, 900_000);
+
+  afterAll(async () => {
+    await supprimerBaseJetable(b3);
+    await rm(dossier3, { recursive: true, force: true });
+  }, 120_000);
+
+  it("les étapes manquantes sont reprises sans doublon ; le cabinet voisin n'a pas bougé", async () => {
+    const base = b3 as BaseJetable;
+    const avant = await lignes<{ est_demo: boolean }>(
+      base,
+      "SELECT est_demo FROM cabinets WHERE id = $1",
+      [laguneId],
+    );
+    expect(avant).toEqual([{ est_demo: false }]);
+
+    const r = await semerDefaut(base.db, base.config, {
+      publique: false,
+      journal: () => undefined,
+    });
+    expect(r.cabinetCree).toBe(false);
+    expect(r.cabinetId).toBe(laguneId);
+    expect(r.portailRepris).toBe(false);
+    expect(r.etapesReprises).toEqual(
+      expect.arrayContaining([
+        ETAPE_COMPTES_2FA,
+        ETAPE_REDRESSEMENT,
+        expect.stringMatching(/^canaux \(/),
+        expect.stringMatching(/^services candidats \(/),
+      ]),
+    );
+    expect(r.superAdminCree).toBe(true);
+    const marques = await lignes<{ nom: string; est_demo: boolean }>(
+      base,
+      "SELECT nom, est_demo FROM cabinets ORDER BY nom",
+    );
+    expect(marques).toEqual([
+      { nom: "Cabinet voisin", est_demo: false },
+      { nom: NOM_CABINET_ABIDJAN, est_demo: true },
+    ]);
+    const lagune = await empreinteCabinet(base, laguneId);
+
+    // Relance : plus rien à reprendre, aucune ligne du cabinet de démonstration ne change en nombre.
+    const encore = await semerDefaut(base.db, base.config, {
+      publique: false,
+      journal: () => undefined,
+    });
+    expect(encore.etapesReprises).toEqual([]);
+    expect(encore.comptesAjoutes).toEqual([]);
+    const nombres = (e: Record<string, string>) =>
+      Object.fromEntries(Object.entries(e).map(([t, v]) => [t, v.split(":")[0]]));
+    const apres = await empreinteCabinet(base, laguneId);
+    // Les journaux (audit, sessions, tentatives) avancent à chaque connexion des seeds : hors comparaison.
+    const metier = (e: Record<string, string>) =>
+      Object.fromEntries(
+        Object.entries(nombres(e)).filter(
+          ([t]) => !/journal|session|tentative|audit|limiteur|jobs/.test(t),
+        ),
+      );
+    expect(metier(apres)).toEqual(metier(lagune));
+    const doublons = await lignes(
+      base,
+      "SELECT lower(email) FROM utilisateurs GROUP BY 1 HAVING count(*) > 1",
+    );
+    expect(doublons).toEqual([]);
+
+    // Cabinet voisin : toutes ses lignes (compte, hash du mot de passe, actif, est_demo) inchangées.
+    expect(await empreinteCabinet(base, voisinId)).toEqual(avantVoisin);
+  }, 600_000);
 });

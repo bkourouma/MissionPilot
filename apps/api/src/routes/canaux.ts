@@ -52,7 +52,7 @@ import {
 } from "../canaux/destinataires.js";
 import { listerEnvois } from "../canaux/envois.js";
 import { canalNonActif, consentementRequis, traduireErreurCanaux } from "../canaux/erreurs.js";
-import { canalActif } from "../canaux/fabrique.js";
+import { canalActif, simulateurCanauxAdmis } from "../canaux/fabrique.js";
 import {
   CanalWhatsAppSimule,
   ENTETE_HORODATAGE,
@@ -62,7 +62,6 @@ import { PasserelleSmsSimulee } from "../canaux/sms-simule.js";
 import { fabriquerConteneurAudioSimule } from "../canaux/transcripteur-simule.js";
 import { listerSaisies, reprendreSaisie, rejeterSaisie } from "../canaux/saisies-kpi.js";
 import { apercuSynthese } from "../canaux/synthese.js";
-import { contexteCanauxSimulesAdmis } from "../config.js";
 import type { Db } from "../db/pool.js";
 import { AppError, conflit, interdit, introuvable } from "../errors.js";
 import { decoderCurseur, encoderCurseur, paginer } from "../http/outils.js";
@@ -725,11 +724,12 @@ export const routesCanaux: FastifyPluginAsync = async (app) => {
   routesEnvois(app);
   routesSaisies(app);
   routesMoi(app);
-  // Simulateur : jamais hors développement local avec un fournisseur simulé.
+  // Simulateur : jamais hors développement local avec un fournisseur simulé, sauf dans
+  // l'application en processus d'un seed de démonstration publique (`simulateurCanauxAdmis`).
   if (
     canalActif(app.canaux) &&
     app.canaux.whatsapp instanceof CanalWhatsAppSimule &&
-    contexteCanauxSimulesAdmis(app.config)
+    simulateurCanauxAdmis(app.config, app.canaux)
   ) {
     routesSimulateur(app);
   }

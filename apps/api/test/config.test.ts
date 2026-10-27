@@ -357,4 +357,119 @@ describe("configuration : canaux externes SIMULÉS (lot 3c, SPEC-3c §5)", () =>
       /réservé au développement local/,
     );
   });
+
+  /*
+   * Serveur de démonstration (2026-10-27) : NODE_ENV=production et base sur l'hôte « postgres » du
+   * réseau Docker (non locale). Les seeds de démonstration publique montent une application EN
+   * PROCESSUS avec des ports simulés : seule l'option de CODE `seedDemonstrationPublique` les admet ;
+   * le serveur (loadConfig, canauxParDefaut, buildApp sans ports injectés) refuse toujours.
+   */
+  it("serveur de démonstration : ports simulés admis par la seule option de code des seeds, jamais par l'environnement", async () => {
+    const { canauxParDefaut, creerCanaux, simulateurCanauxAdmis } =
+      await import("../src/canaux/fabrique.js");
+    const { buildApp } = await import("../src/app.js");
+    const SERVEUR = {
+      ...PROD,
+      DATABASE_OWNER_URL: "postgres://o:x@postgres:5432/missionpilot",
+      DATABASE_URL: "postgres://a:x@postgres:5432/missionpilot",
+      DEMO_PUBLIQUE: "oui",
+    };
+    const prod = loadConfig(SERVEUR);
+    expect(baseLocale(prod.DATABASE_URL)).toBe(false);
+    const simules = {
+      WHATSAPP_FOURNISSEUR: "simule",
+      SMS_FOURNISSEUR: "aucun",
+      TRANSCRIPTION_FOURNISSEUR: "simule",
+      SIGNATURE_FOURNISSEUR: "local",
+    } as const;
+    // Configuration en processus des seeds : NODE_ENV=test, base du serveur (non locale).
+    const seed = { ...prod, NODE_ENV: "test", ...simules };
+    for (const cfg of [{ ...prod, ...simules }, seed]) {
+      expect(() => creerCanaux(cfg)).toThrow(/réservé au développement local/);
+      expect(() => creerCanaux(cfg, { seedDemonstrationPublique: false })).toThrow(
+        /réservé au développement local/,
+      );
+      // Le chemin du serveur (ports par défaut de la configuration) n'a pas l'option.
+      expect(() => canauxParDefaut(cfg)).toThrow(/réservé au développement local/);
+    }
+    // Recoupement : l'option de code exige AUSSI DEMO_PUBLIQUE=oui dans la configuration.
+    for (const cfg of [
+      { ...prod, ...simules, DEMO_PUBLIQUE: "non" as const },
+      { ...seed, DEMO_PUBLIQUE: "non" as const },
+    ]) {
+      expect(() => creerCanaux(cfg, { seedDemonstrationPublique: true })).toThrow(
+        /réservé au développement local/,
+      );
+    }
+    expect(
+      creerCanaux({ ...prod, ...simules }, { seedDemonstrationPublique: true }).whatsapp?.mode,
+    ).toBe("simule");
+    const ports = creerCanaux(seed, { seedDemonstrationPublique: true });
+    expect([
+      ports.whatsapp?.mode,
+      ports.sms,
+      ports.transcripteur?.mode,
+      ports.signature?.mode,
+    ]).toEqual(["simule", null, "simule", "simule"]);
+    // Routes du simulateur : admises pour CES ports seulement, jamais pour d'autres hors local.
+    expect(simulateurCanauxAdmis(seed, ports)).toBe(true);
+    expect(simulateurCanauxAdmis(seed, { ...ports })).toBe(false);
+    expect(simulateurCanauxAdmis(seed, creerCanaux(prod))).toBe(false);
+
+    // L'environnement n'ouvre rien : aucune variable ne porte l'option, les fournisseurs simulés
+    // restent refusés au démarrage en production, démonstration publique comprise.
+    for (const nom of ["SEED_DEMONSTRATION_PUBLIQUE", "seedDemonstrationPublique"]) {
+      expect(() => loadConfig({ ...SERVEUR, ...simules, [nom]: "true" })).toThrow(
+        /réservé au développement local/,
+      );
+      expect(loadConfig({ ...SERVEUR, [nom]: "true" })).not.toHaveProperty(nom);
+    }
+    // L'API de production (buildApp sans ports injectés) refuse toujours les fournisseurs simulés.
+    const db = {} as Parameters<typeof buildApp>[1];
+    await expect(buildApp({ ...prod, ...simules }, db)).rejects.toThrow(
+      /réservé au développement local/,
+    );
+    await expect(buildApp(seed, db)).rejects.toThrow(/réservé au développement local/);
+  });
+
+  it("routes du simulateur : enregistrées pour les ports d'un seed public, jamais pour l'application du serveur", async () => {
+    const { creerCanaux } = await import("../src/canaux/fabrique.js");
+    const { buildApp } = await import("../src/app.js");
+    const { CanalWhatsAppSimule } = await import("../src/canaux/whatsapp-simule.js");
+    const prod = loadConfig({
+      ...PROD,
+      DATABASE_OWNER_URL: "postgres://o:x@postgres:5432/missionpilot",
+      DATABASE_URL: "postgres://a:x@postgres:5432/missionpilot",
+      DEMO_PUBLIQUE: "oui",
+    });
+    const seed = {
+      ...prod,
+      NODE_ENV: "test",
+      WHATSAPP_FOURNISSEUR: "simule",
+      WHATSAPP_WEBHOOK_SECRET: "un-secret-de-webhook-ephemere-0123456789",
+    } as const;
+    const db = {} as Parameters<typeof buildApp>[1];
+    const route = { method: "POST", url: "/api/canaux/simulateur/entrant" } as const;
+    const avecSeed = await buildApp(seed, db, {
+      canaux: creerCanaux(seed, { seedDemonstrationPublique: true }),
+    });
+    // Ports simulés fabriqués hors de `creerCanaux` (sans l'option) : pas de simulateur hors local.
+    const sansOption = await buildApp(seed, db, {
+      canaux: {
+        whatsapp: new CanalWhatsAppSimule(),
+        sms: null,
+        transcripteur: null,
+        signature: null,
+      },
+    });
+    const serveur = await buildApp(prod, db);
+    try {
+      await Promise.all([avecSeed.ready(), sansOption.ready(), serveur.ready()]);
+      expect(avecSeed.hasRoute(route)).toBe(true);
+      expect(sansOption.hasRoute(route)).toBe(false);
+      expect(serveur.hasRoute(route)).toBe(false);
+    } finally {
+      await Promise.all([avecSeed.close(), sansOption.close(), serveur.close()]);
+    }
+  });
 });

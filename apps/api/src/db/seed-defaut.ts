@@ -14,10 +14,12 @@ import {
   configDemo,
   demoPubliqueConfirmee,
   emailAbidjan,
+  exigerDemoPubliqueCoherente,
   MOT_DE_PASSE_DEMO_ABIDJAN,
   neutraliserEnvois,
   NOM_CABINET_ABIDJAN,
   semerDemoAbidjan,
+  semerEtapesApresPortail,
 } from "./seed-demo.js";
 
 /*
@@ -29,7 +31,9 @@ import {
  *   pnpm --filter @missionpilot/api db:seed-defaut
  *
  * Une seule commande, idempotente : cabinet absent, il est créé (plusieurs minutes, par les vraies
- * routes) ; présent, rien n'est dupliqué : le portail est repris s'il manque, un compte est ajouté
+ * routes) ; présent, rien n'est dupliqué : le portail est repris s'il manque, les étapes qui le
+ * suivent (comptes 2FA, canaux simulés, redressement, services candidats) sont reprises (chacune
+ * idempotente : semis de création interrompu après le portail), un compte est ajouté
  * pour tout rôle qui n'en aurait plus, le drapeau `est_demo` est posé (UPDATE avec le rôle
  * propriétaire, même si le cabinet existait avant), le super admin de démonstration est créé s'il
  * manque. `est_demo` n'est JAMAIS posé sur un autre cabinet : le cabinet visé est celui du compte
@@ -60,6 +64,8 @@ export interface ResumeDefaut {
   cabinetCree: boolean;
   /** Vrai si le portail client a été (re)semé par cette exécution (cabinet préexistant). */
   portailRepris: boolean;
+  /** Étapes après le portail réellement écrites par la reprise (cabinet préexistant). */
+  etapesReprises: string[];
   /** Adresses des comptes ajoutés pour couvrir un rôle manquant. */
   comptesAjoutes: string[];
   superAdminCree: boolean;
@@ -222,6 +228,7 @@ export async function semerDefaut(
   options: { publique: boolean; journal?: (ligne: string) => void },
 ): Promise<ResumeDefaut> {
   const journal = options.journal ?? console.log;
+  exigerDemoPubliqueCoherente(config, options.publique);
   // Démonstration publique : aucun job d'envoi créé par le seed ne survit à sa transaction.
   const database = options.publique ? neutraliserEnvois(baseBrute) : baseBrute;
   const proprietaire = new pg.Client({ connectionString: config.DATABASE_OWNER_URL });
@@ -230,6 +237,7 @@ export async function semerDefaut(
     const existant = await trouverCabinetDemo(database, proprietaire);
     let cabinetId: string;
     let portailRepris = false;
+    let etapesReprises: string[] = [];
     if (existant) {
       cabinetId = existant.id;
       if (!existant.actif) {
@@ -238,16 +246,27 @@ export async function semerDefaut(
       journal(`${NOM_CABINET_ABIDJAN} existe déjà : il est complété, pas recréé.`);
       // Reprise d'un semis interrompu avant le portail (null si les comptes du portail existent).
       portailRepris = (await semerPortailDemo(database, config)) !== null;
+      // Reprise des étapes suivantes (idempotentes) : 2FA, canaux, redressement, services candidats.
+      etapesReprises = await semerEtapesApresPortail(database, config, {
+        publique: options.publique,
+      });
     } else {
       journal(`Création de ${NOM_CABINET_ABIDJAN} (plusieurs minutes)…`);
-      const r = await semerDemoAbidjan(database, config);
+      const r = await semerDemoAbidjan(database, config, { publique: options.publique });
       if (!r) throw new Error("Le cabinet de démonstration existe déjà (création concurrente).");
       cabinetId = r.cabinetId;
     }
     const comptesAjoutes = await completerRoles(database, config, cabinetId);
     await marquerCabinetDemo(proprietaire, cabinetId);
     const superAdminCree = await semerSuperAdminDemo(proprietaire);
-    return { cabinetId, cabinetCree: !existant, portailRepris, comptesAjoutes, superAdminCree };
+    return {
+      cabinetId,
+      cabinetCree: !existant,
+      portailRepris,
+      etapesReprises,
+      comptesAjoutes,
+      superAdminCree,
+    };
   } finally {
     await proprietaire.end();
   }
@@ -258,6 +277,7 @@ function afficher(resume: ResumeDefaut, publique: boolean): void {
     `${NOM_CABINET_ABIDJAN} : ${resume.cabinetCree ? "créé" : "déjà présent"}, marqué démonstration.`,
   );
   if (resume.portailRepris) console.log("Portail client de démonstration repris.");
+  for (const etape of resume.etapesReprises) console.log(`Étape reprise : ${etape}.`);
   for (const email of resume.comptesAjoutes) console.log(`Compte ajouté pour un rôle : ${email}`);
   console.log(
     `Super admin de démonstration : ${EMAIL_SUPER_ADMIN_DEMO} (${resume.superAdminCree ? "créé" : "déjà présent"}).`,
@@ -287,8 +307,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     .catch((error: Error) => {
       console.error(`Échec du seed du tenant par défaut : ${error.message}`);
       console.error(
-        "Cabinet déjà présent : relancer la commande complète ce qui manque sans rien dupliquer. " +
-          "Cabinet à moitié semé à la création : repartir d'une base neuve.",
+        "Relancer la même commande : elle complète ce qui manque sans rien dupliquer (création " +
+          "arrêtée après le portail comprise). Création arrêtée plus tôt (missions) : repartir " +
+          "d'une base neuve.",
       );
       process.exitCode = 1;
     })
