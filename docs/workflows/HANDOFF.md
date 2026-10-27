@@ -9,6 +9,30 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `orch/2026-10-27-serveur-demo` — 2026-10-27 (serveur de staging/démonstration)
+
+**Décision.** `cabinetpilot.allianceconsultants.net` devient un serveur de STAGING/DÉMONSTRATION pour des prospects ; la vraie
+production sera une autre instance, sans `DEMO_PUBLIQUE`. Base : `origin/main` @ `989681f`.
+
+**Fait.**
+
+- `deploy/activer-demo.sh` : activation en une commande (contrôles dont seeds dans l'image et migrations, garde-fou « aucune donnée
+  réelle » en sortie 3, sauvegarde, `DEMO_PUBLIQUE=oui`, semis Lagune puis Tenant démo avec API arrêtée, `trap` qui restaure
+  l'environnement puis relance l'API en cas d'échec, santé, vérification de `GET /api/auth/demo`). Run réel : `--arriere-plan`
+  obligatoire (ou `--premier-plan`). Autres options : `--dry-run`, `--si-necessaire`, `--smtp-ok`, `--forcer-donnees-existantes`, `--aide`.
+- `deploy/test-activer-demo.sh` (faux docker, curl, flock) : 58 vérifications, dont échec de semis, tube fermé, verrou, idempotence.
+- `DEPLOIEMENT.md` : section (f) et en-tête (staging/démonstration). shellcheck absent du poste ; vrai `flock` et vrai docker non testés.
+
+**Reste à faire.**
+
+- Après accord de l'utilisateur : sur le serveur, mettre `SMTP_HOST=smtp.invalid` et retirer `OPENROUTER_API_KEY`, puis
+  `ssh alliance 'bash -s -- --dry-run' < deploy/activer-demo.sh`, puis `--arriere-plan` et
+  `tail -f /home/deployer/activer-demo.log` (10 à 14 minutes, `/connexion` indisponible). Aucun déploiement CI pendant ce temps.
+- Ensuite vérifier `/connexion` (2 cabinets dont « Tenant démo », accès super admin), puis sauvegarder la base semée.
+- Jamais exécuté sur le serveur : chemins de `mp run` et de `psql` non éprouvés là-bas.
+
+---
+
 ## Branche `orch/2026-10-26-reste` — 2026-10-26 (suite de la PR n° 21 « Tenant démo », fusionnée dans `main`)
 
 **État.** Branche `orch/2026-10-26-reste`, depuis `main` @ `5f1a422` (fusion de la PR n° 21). Dernier commit : `9c515a1`

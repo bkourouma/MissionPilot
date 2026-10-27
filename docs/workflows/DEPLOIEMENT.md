@@ -1,7 +1,7 @@
 # Déploiement — cabinetpilot.allianceconsultants.net
 
-Production sur le VPS Alliance (`147.93.44.169`, SSH port 2222, utilisateur `deployer`), qui héberge déjà une
-vingtaine d'applications derrière nginx. Le déploiement passe **toujours par GitHub** : jamais de copie à la main.
+Serveur de **staging/démonstration** (depuis le 2026-10-27, voir (f) ; la vraie production sera une autre instance) sur le VPS
+Alliance (`147.93.44.169`, SSH port 2222, utilisateur `deployer`), qui héberge déjà une vingtaine d'applications derrière nginx. Le déploiement passe **toujours par GitHub** : jamais de copie à la main.
 
 ```text
 push sur main ──> .github/workflows/deploy.yml
@@ -269,6 +269,63 @@ L'étape centrale est l'équivalent de `docker compose run --rm api node_modules
 - **Vérifier** : `/connexion` propose « Tenant démo » (46 comptes listés sur 48 actifs ; les 2 comptes à 2FA des signatures n'y figurent pas). Le bloc
   est borné à 50 cabinets et 50 comptes par cabinet (migration `0580`).
 - **Limites des données** : horodatages des routes en horloge réelle (une journée après la date fictive), voir RUNBOOK.
+
+### (f) Serveur de staging/démonstration : activation en une commande
+
+**Décision (2026-10-27).** Le serveur `cabinetpilot.allianceconsultants.net` est un serveur de **staging + démonstration pour des
+prospects**, pas une production. La vraie production sera une **autre instance**, sans `DEMO_PUBLIQUE`, avec SMTP réel et clé IA
+propre. Ce serveur ne doit donc jamais recevoir de donnée réelle de cabinet.
+
+`deploy/activer-demo.sh` enchaîne (b) et (e) : contrôles (fichier d'environnement, image de `last-good` contenant les seeds,
+migrations présentes, `OPENROUTER_API_KEY` absente, `SMTP_HOST=smtp.invalid`, 5 Go libres), garde-fou « aucune donnée réelle »,
+sauvegarde, `DEMO_PUBLIQUE=oui`, semis de Lagune puis du Tenant démo (API arrêtée, `timeout 45m` par semis), recréation de
+`api` et `web`, santé locale et vérification de `GET /api/auth/demo` en local puis en public. Il ne contient aucun secret,
+n'affiche jamais `missionpilot.env` et ne supprime ni volume ni base. Test local avec de faux outils : `bash deploy/test-activer-demo.sh`.
+
+`ssh alliance` est un alias du poste de travail (`~/.ssh/config`) ; forme explicite : `ssh -p 2222 deployer@147.93.44.169`.
+
+```bash
+ssh alliance 'bash -s -- --dry-run' < deploy/activer-demo.sh        # à blanc : lectures seules, rien n'est modifié
+ssh alliance 'bash -s -- --arriere-plan' < deploy/activer-demo.sh   # réel : survit à la déconnexion
+ssh alliance 'tail -f /home/deployer/activer-demo.log'              # suivre (10 à 14 minutes)
+```
+
+**Avant de lancer** (sur le serveur, sans afficher le fichier) :
+
+- mettre `SMTP_HOST=smtp.invalid` dans `/home/deployer/missionpilot.env` (l'API refuse de démarrer sans `SMTP_HOST` : absent ou vide
+  fait échouer le script ; un SMTP réel aussi, sauf `--smtp-ok`) ;
+- retirer `OPENROUTER_API_KEY` s'il y en a une, et **ne pas la remettre tant que `DEMO_PUBLIQUE=oui`** (des visiteurs feraient
+  consommer des appels IA payants) ;
+- ne lancer aucun déploiement (CI) pendant le semis : `deploy.sh` recrée `api` et `web` et casserait le semis ; attendre la ligne
+  `TERMINE` du journal.
+
+| Option                        | Effet                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--arriere-plan`              | **obligatoire pour un run réel** : contrôles en direct, puis semis relancé par `setsid nohup` (journal `activer-demo.log`)     |
+| `--premier-plan`              | run réel dans le terminal, avec avertissement (une coupure SSH peut laisser le site arrêté)                                    |
+| `--dry-run`                   | aucune écriture ni commande docker mutante ; lectures (SQL, `compose config`, test des seeds) permises                         |
+| `--si-necessaire`             | ne fait rien si `GET /api/auth/demo` liste déjà « Lagune » et « Tenant démo »                                                  |
+| `--smtp-ok`                   | accepte un `SMTP_HOST` réel                                                                                                    |
+| `--forcer-donnees-existantes` | passe outre le refus (sortie 3) si un cabinet non démo ou plus d'un super admin réel existe                                     |
+| `--aide`                      | rappel des options                                                                                                             |
+
+Codes de sortie : 0 succès ; 1 échec ; 2 option inconnue ou mode non choisi ; 3 donnée réelle détectée.
+
+- **Indisponibilité** : l'API est arrêtée pendant le semis, donc `/connexion` et toute l'application sont hors service 10 à 14 minutes.
+  **Relancer le script sans `--si-necessaire` refait le semis et recoupe le site 10 à 14 minutes**, même si tout est déjà en place.
+- **Reprise sur échec** : si un semis échoue, un `trap` restaure d'abord l'environnement (`DEMO_PUBLIQUE` retirée, depuis
+  `missionpilot.env.avant-demo`, pour ne pas exposer un Tenant démo à moitié construit), puis recrée `api` et `web`. Ce `trap` ne
+  couvre **ni SIGKILL ni l'arrêt brutal du serveur**, et un run en premier plan peut être interrompu par la coupure SSH : d'où
+  `--arriere-plan`. Commande de secours, sur le serveur : `cd /home/deployer/missionpilot && mp up -d --force-recreate api web`.
+  Après un semis à moitié fait : base neuve ((d) et (e)).
+- **Sauvegarde** : avant toute écriture, via `sauvegarde.sh` s'il est dans le dossier (qui fait aussi une **rotation** : il supprime les
+  dumps de plus de 7 jours), sinon `pg_dump -Fc` vers `/home/deployer/backups/missionpilot` (mode 600). C'est le point de retour d'avant démonstration.
+- **Désactivation** : voir (c) (retirer `DEMO_PUBLIQUE`, désactiver les cabinets et super admins `est_demo`). `missionpilot.env.avant-demo`
+  (mode 600) garde l'environnement d'avant l'activation.
+- **Remise à zéro** : toujours manuelle, voir (d).
+- **Risques** : mots de passe de démonstration publics dans le dépôt ; tout visiteur ouvre sans mot de passe la session de n'importe quel
+  compte listé (associé compris) ; vandalisme possible (renommage, désactivation, mots de passe changés) ; plafonds permanents de 30 cabinets
+  et 40 comptes ; aucun e-mail ne part (SMTP `smtp.invalid`) et aucune IA n'est appelée (coûts SIMULÉS).
 
 ## Limites connues
 
