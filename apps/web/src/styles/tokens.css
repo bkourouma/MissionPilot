@@ -9,7 +9,7 @@
  * sous un texte nuit, en trait de trajectoire ou sur le rail violet nuit.
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 
   /* Surfaces */
   --mp-fond: #f4f1fb;
@@ -101,34 +101,32 @@
   --mp-sortie: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --mp-fond: #130d26;
-    --mp-surface: #1b1336;
-    --mp-surface-2: #251b47;
-    --mp-bordure: #35295c;
-    --mp-bordure-controle: #8c80b4;
+:root[data-theme="dark"] {
+  --mp-fond: #130d26;
+  --mp-surface: #1b1336;
+  --mp-surface-2: #251b47;
+  --mp-bordure: #35295c;
+  --mp-bordure-controle: #8c80b4;
 
-    --mp-texte: #ece8f8;
-    --mp-texte-doux: #b6acd6;
+  --mp-texte: #ece8f8;
+  --mp-texte-doux: #b6acd6;
 
-    --mp-primaire: #b9a2f5;
-    --mp-primaire-survol: #cdbcf8;
-    --mp-sur-primaire: #1a0f3d;
-    --mp-primaire-pale: #2a1f52;
-    --mp-focus: #cdbcf8;
+  --mp-primaire: #b9a2f5;
+  --mp-primaire-survol: #cdbcf8;
+  --mp-sur-primaire: #1a0f3d;
+  --mp-primaire-pale: #2a1f52;
+  --mp-focus: #cdbcf8;
 
-    --mp-succes: #7fd19b;
-    --mp-succes-fond: #12301f;
-    --mp-attention: #f2b866;
-    --mp-attention-fond: #33240e;
-    --mp-danger: #f49a9e;
-    --mp-danger-fond: #3a1517;
-    --mp-neutre: #c4bbe2;
-    --mp-neutre-fond: #2a2147;
-    --mp-info: #b9a2f5;
-    --mp-info-fond: #2a1f52;
+  --mp-succes: #7fd19b;
+  --mp-succes-fond: #12301f;
+  --mp-attention: #f2b866;
+  --mp-attention-fond: #33240e;
+  --mp-danger: #f49a9e;
+  --mp-danger-fond: #3a1517;
+  --mp-neutre: #c4bbe2;
+  --mp-neutre-fond: #2a2147;
+  --mp-info: #b9a2f5;
+  --mp-info-fond: #2a1f52;
 
-    --mp-ombre-l: 0 12px 32px rgb(0 0 0 / 0.55);
-  }
+  --mp-ombre-l: 0 12px 32px rgb(0 0 0 / 0.55);
 }

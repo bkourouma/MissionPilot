@@ -101,10 +101,9 @@ function pageHorsLigne(url) {
   const html =
     '<!doctype html><html lang="fr"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<meta name="color-scheme" content="light dark"><title>Hors connexion — CabinetPilot</title>' +
+    '<meta name="color-scheme" content="light"><title>Hors connexion — CabinetPilot</title>' +
     "<style>" +
-    ":root{--fond:#f5f6f8;--surface:#fff;--texte:#16202a;--doux:#4a5663;--primaire:#1b4f7a;--sur:#fff}" +
-    "@media (prefers-color-scheme:dark){:root{--fond:#0e141b;--surface:#16202a;--texte:#e8edf2;--doux:#b4c0cc;--primaire:#8cc0ec;--sur:#0e141b}}" +
+    ":root{--fond:#f4f1fb;--surface:#fff;--texte:#16202a;--doux:#4a5663;--primaire:#2b1468;--sur:#fff}" +
     "body{margin:0;font:1rem/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--fond);color:var(--texte)}" +
     "main{max-width:32rem;margin:0 auto;padding:2rem 1rem}" +
     "section{background:var(--surface);border-radius:10px;padding:1.5rem}" +
