@@ -4,8 +4,15 @@ import path from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { appliquerSeuil } from "../src/plans/ateliers-resultats.js";
+import type { ContexteTenantDemo } from "../src/db/tenant-demo/contexte.js";
 import { semerTenantDemo } from "../src/db/tenant-demo/index.js";
-import { CASTING } from "../src/db/tenant-demo/notation-plans/casting.js";
+import { CASTING, trouverMission } from "../src/db/tenant-demo/notation-plans/casting.js";
+import {
+  assurerEnvoi,
+  type DefEnvoi,
+} from "../src/db/tenant-demo/notation-plans/questionnaires-envois.js";
+import { versionDe } from "../src/db/tenant-demo/notation-plans/questionnaires-modeles.js";
+import { assurerRepondants } from "../src/db/tenant-demo/notation-plans/questionnaires-portail.js";
 import { semerMissions } from "../src/db/tenant-demo/phases/missions.js";
 import { semerNotationPlans } from "../src/db/tenant-demo/phases/notation-plans.js";
 import { creerBaseJetable, supprimerBaseJetable, type BaseJetable } from "./outils-base-jetable.js";
@@ -337,4 +344,121 @@ describe("phase notation-plans du Tenant démo", () => {
     expect(confiances.length).toBeGreaterThanOrEqual(1);
     for (const c of confiances) expect(Number(c.valeur)).toBeGreaterThan(0);
   });
+
+  it("fait répondre et relance un envoi dont la date limite fictive est déjà dépassée en réel, y compris en reprise", async () => {
+    // Régression du 2026-10-31 (409 DATE_LIMITE_DEPASSEE au semis) : dates limites fictives
+    // ANTÉRIEURES à `AUJOURDHUI`, donc dépassées quel que soit le jour réel d'exécution du test.
+    const envoiTest = (
+      cle: string,
+      mission: DefEnvoi["mission"],
+      modele: string,
+      par: DefEnvoi["par"],
+      limiteDans: number,
+      repondants: DefEnvoi["repondants"],
+    ): DefEnvoi => ({
+      cle,
+      mission,
+      modele,
+      version: 1,
+      mode: "individuel",
+      par,
+      envoye: true,
+      limiteDans,
+      maturite: 0.6,
+      repondants,
+      relancer: true,
+      clos: false,
+    });
+    const reprise = envoiTest(
+      "horloge-reprise",
+      CASTING.baobab,
+      "satisfaction-client",
+      "directeur.mission",
+      -3,
+      [
+        { cle: "baobab.dg", etat: "soumise", biais: 0 },
+        { cle: "baobab.technique", etat: "partielle", fraction: 0.5, biais: 0 },
+        { cle: "baobab.rh", etat: "aucune", biais: 0 },
+      ],
+    );
+    const neuf = envoiTest(
+      "horloge-neuf",
+      CASTING.banqueSahel,
+      "climat-social",
+      "directeur.mission.2",
+      -2,
+      [
+        { cle: "banque.dg", etat: "soumise", biais: 0 },
+        { cle: "banque.controle", etat: "aucune", biais: 0 },
+      ],
+    );
+    const vu: { limites: Record<string, string>; refus?: string } = { limites: {} };
+    const phase = async (ctx: ContexteTenantDemo): Promise<void> => {
+      const repondants = await assurerRepondants(ctx);
+      // État d'un semis interrompu par l'ancien circuit : envoi créé et envoyé avec la date fictive
+      // dépassée, aucune réponse ; le portail refuse alors la saisie (le défaut d'origine).
+      const mission = await trouverMission(ctx, reprise.mission);
+      const versionId = await versionDe(ctx, reprise.modele, reprise.version);
+      const s = ctx.session(reprise.par);
+      const cree = await s.post(`/api/missions/${mission.id}/questionnaires`, {
+        version_id: versionId,
+        mode: "individuel",
+        repondants: reprise.repondants.map((r) => ({
+          utilisateur_id: repondants[r.cle].utilisateurId,
+        })),
+        relances_auto: true,
+        date_limite: ctx.jour(-3),
+      });
+      expect(cree.statusCode).toBe(201);
+      const id = cree.json().id as string;
+      expect((await s.post(`/api/questionnaires/envois/${id}/envoyer`)).statusCode).toBe(200);
+      const refus = await repondants["baobab.dg"].session.patch(
+        `/api/portail/questionnaires/${id}/reponses`,
+        { reponses: {} },
+      );
+      vu.refus = `${refus.statusCode} ${refus.json().erreur?.code}`;
+      for (const def of [reprise, neuf]) {
+        await assurerEnvoi(ctx, def, repondants);
+        await assurerEnvoi(ctx, def, repondants); // reprise sur un envoi complet : aucun effet
+        vu.limites[def.cle] = ctx.jour(def.limiteDans as number);
+      }
+    };
+    await semerTenantDemo((base as BaseJetable).db, (base as BaseJetable).config, {
+      publique: false,
+      journal: () => undefined,
+      phases: [{ nom: "horloge-reelle", executer: phase }],
+    });
+    expect(vu.refus).toBe("409 DATE_LIMITE_DEPASSEE");
+
+    for (const [def, mission] of [
+      [reprise, CASTING.baobab.intitule],
+      [neuf, CASTING.banqueSahel.intitule],
+    ] as const) {
+      const envois = await lignes<{ id: string; statut: string; date_limite: string }>(
+        `SELECT e.id, e.statut, e.date_limite::text AS date_limite FROM questionnaire_envois e
+           JOIN missions m ON m.id = e.mission_id
+           JOIN questionnaire_versions v ON v.id = e.version_id
+           JOIN questionnaire_modeles q ON q.id = v.modele_id
+          WHERE e.cabinet_id = $1 AND m.intitule = $2 AND q.code = $3`,
+        [cabinetId, mission, def.modele],
+      );
+      expect(envois).toHaveLength(1); // aucun doublon
+      const envoi = envois[0]!;
+      // État final identique à celui d'un semis joué le jour fictif : date fictive, envoi ouvert.
+      expect(envoi).toMatchObject({ statut: "envoye", date_limite: vu.limites[def.cle] });
+      const reponses = await lignes<{ statut: string }>(
+        "SELECT statut FROM questionnaire_reponses WHERE envoi_id = $1 ORDER BY statut",
+        [envoi.id],
+      );
+      expect(reponses.map((r) => r.statut)).toEqual(
+        def === reprise ? ["brouillon", "soumise"] : ["soumise"],
+      );
+      const relances = await lignes<{ n: string }>(
+        "SELECT count(*) n FROM questionnaire_relances WHERE envoi_id = $1 AND nature = 'manuelle'",
+        [envoi.id],
+      );
+      // Une relance par répondant en attente, une seule fois malgré la reprise.
+      expect(Number(relances[0]?.n)).toBe(def.repondants.length - 1);
+    }
+  }, 600_000);
 });

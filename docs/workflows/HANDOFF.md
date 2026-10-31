@@ -9,6 +9,29 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `fix/semis-demo-horloge-reelle` — 2026-10-31 (semis du Tenant démo et horloge réelle)
+
+**Incident du 2026-10-31 sur le serveur.** Deuxième essai de `deploy/activer-demo.sh` : Lagune complété, puis le Tenant démo échoue en
+phase `notation-plans` (`Saisie de baobab.dg (baobab-preliminaire) : 409 DATE_LIMITE_DEPASSEE`). `AUJOURDHUI` (fictif, 2026-10-24)
++ `limiteDans` donne une date limite que le portail et MPQ07 comparent au jour RÉEL : le semis cassait dès le 2026-10-31.
+Le script a restauré l'environnement et relancé l'API ; le serveur a un Tenant démo à moitié semé, `DEMO_PUBLIQUE` retirée.
+
+**Correctif.** `tenant-demo/notation-plans/questionnaires-envois.ts` : la date limite est levée (null) le temps des saisies du
+portail si elle est atteinte au jour réel, la date fictive est reposée avant la relance, la date finale avant la clôture ; reprise
+d'un envoi déjà créé avec une date dépassée. Tests : `seed-tenant-demo-horloge-unitaires.test.ts`, cas ajouté dans
+`seed-tenant-demo-notation-plans.test.ts`. Vérifié de bout en bout : base laissée à moitié par `main`, puis semis corrigé, puis rejeu
+sans doublon, `GET /api/auth/demo` 200 (Lagune 12 comptes, Tenant démo 46).
+
+**Risques d'horloge restants (non corrigés, sans blocage du semis : message au journal, état final différent).**
+1. `ao-fiches-encours.ts` : rétro-planning de l'appel d'offres en cours (date limite 2026-11-13) ; dès le 13 novembre réel,
+   `DATE_LIMITE_PASSEE` : pas d'étapes ni de tâches.
+2. `absences.ts` / `routes/absences.ts:229` : absences « annulées » des semaines 4 et 5 (vers le 16 et le 23 novembre 2026) : l'annulation
+   renvoie 409 et l'absence reste validée ou demandée.
+Un semis du Tenant démo lancé après ces dates donne donc un jeu légèrement différent ; à traiter avant de re-semer plus tard.
+Panne locale sans lien : l'horloge du conteneur Docker peut reculer d'environ 1 s (`SESSION_REVUE_CLOSE`), le rejeu reprend.
+
+---
+
 ## Branche `orch/2026-10-27-serveur-demo` — 2026-10-27 (serveur de staging/démonstration)
 
 **Décision.** `cabinetpilot.allianceconsultants.net` devient un serveur de STAGING/DÉMONSTRATION pour des prospects ; la vraie
