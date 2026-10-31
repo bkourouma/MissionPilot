@@ -14,6 +14,14 @@ import { creerProfil, debut, genererReponses } from "./questionnaires-reponses.j
  * d'un envoi est (mission, version de questionnaire) et chaque étape vérifie l'état déjà atteint.
  * Les dates des écritures sont celles de l'horloge réelle du serveur (les routes ne laissent
  * pas antidater un envoi ni une soumission) ; seules les dates limites suivent l'horloge fictive.
+ *
+ * Horloge réelle et date limite : le portail refuse saisie et soumission après la date limite
+ * comparée au jour RÉEL (409 DATE_LIMITE_DEPASSEE, déclencheur MPQ07), alors que la date voulue
+ * suit l'horloge fictive (`ctx.jour(limiteDans)`), dépassée dès que le semis tourne quelques jours
+ * après `AUJOURDHUI`. Le temps des saisies, une date limite atteinte est donc levée (null, ce que
+ * la route PATCH accepte tant que l'envoi n'est pas clos), puis la date fictive est reposée avant
+ * la relance (texte de la notification identique) et la clôture : l'état final ne dépend pas du
+ * jour d'exécution. Un envoi déjà créé avec une date dépassée (semis interrompu) est repris ainsi.
  */
 
 type EtatReponse = "soumise" | "partielle" | "aucune";
@@ -210,6 +218,46 @@ interface LigneEnvoi extends Record<string, unknown> {
   definition: DefinitionQuestionnaire;
 }
 
+/**
+ * Date limite à laisser en place pendant les saisies du portail, au jour réel `jourReel` (UTC) :
+ * la date voulue si le portail l'accepte encore, sinon aucune (null). Une date limite égale au
+ * jour réel est levée aussi : le semis dure plusieurs minutes et peut franchir minuit.
+ */
+export function limitePendantSaisie(limite: string | null, jourReel: string): string | null {
+  return limite !== null && limite <= jourReel ? null : limite;
+}
+
+/** Date limite posée à la création (et pendant la relance) : `limiteDans` sur l'horloge fictive. */
+export function limiteInitiale(
+  def: Pick<DefEnvoi, "limiteDans">,
+  jour: (offset: number) => string,
+): string | null {
+  return def.limiteDans === undefined ? null : jour(def.limiteDans);
+}
+
+/** Date limite de l'état final : la date passée voulue, sinon la date initiale. */
+export function limiteFinale(
+  def: Pick<DefEnvoi, "limiteDans" | "limitePassee">,
+  jour: (offset: number) => string,
+): string | null {
+  return def.limitePassee ?? limiteInitiale(def, jour);
+}
+
+/** Jour réel du serveur PostgreSQL (UTC), celui du déclencheur MPQ07. */
+async function jourReelBase(ctx: ContexteTenantDemo): Promise<string> {
+  const r = await ctx.proprietaire.query<{ jour: string }>(
+    "SELECT (now() AT TIME ZONE 'UTC')::date::text AS jour",
+  );
+  return r.rows[0]!.jour;
+}
+
+/** Jour réel retenu : le plus tardif de l'API (Node) et de la base, qui contrôlent tous deux. */
+async function jourReel(ctx: ContexteTenantDemo): Promise<string> {
+  const base = await jourReelBase(ctx);
+  const api = new Date().toISOString().slice(0, 10);
+  return base > api ? base : api;
+}
+
 async function lireEnvoi(
   ctx: ContexteTenantDemo,
   missionId: string,
@@ -243,16 +291,21 @@ async function statutReponse(
   return l[0]?.statut ?? null;
 }
 
-/** Réponses des répondants depuis le portail : brouillon commencé ou soumission. */
+/**
+ * Réponses des répondants depuis le portail : brouillon commencé ou soumission. `avantSaisie`
+ * est appelé une fois, juste avant la première écriture du portail (aucune si tout est déjà fait).
+ */
 async function repondre(
   ctx: ContexteTenantDemo,
   def: DefEnvoi,
   envoi: LigneEnvoi,
   repondants: Record<CleRepondant, Repondant>,
+  avantSaisie: () => Promise<void>,
 ): Promise<void> {
   const alea = ctx.alea.deriver(`questionnaire-${def.cle}`);
   const profil = creerProfil(def.maturite, alea);
   const collectif = def.mode === "collectif";
+  let pret = false;
   for (const r of def.repondants) {
     // Les tirages sont consommés même si la réponse existe déjà : résultat stable à la reprise.
     const complet = genererReponses(envoi.definition, profil, r.biais, alea, ctx.jour(-30));
@@ -261,6 +314,10 @@ async function repondre(
     const statut = await statutReponse(ctx, envoi.id, collectif, repondant.utilisateurId);
     if (statut === "soumise") continue;
     if (r.etat === "partielle" && statut !== null) continue;
+    if (!pret) {
+      await avantSaisie();
+      pret = true;
+    }
     const saisie = r.etat === "soumise" ? complet : debut(complet, r.fraction ?? 0.5);
     const patch = await repondant.session.patch(
       `/api/portail/questionnaires/${envoi.id}/reponses`,
@@ -292,8 +349,11 @@ export async function assurerEnvoi(
   const mission = await trouverMission(ctx, def.mission);
   const versionId = await versionDe(ctx, def.modele, def.version);
   const session = ctx.session(def.par);
+  const initiale = limiteInitiale(def, ctx.jour);
   let envoi = await lireEnvoi(ctx, mission.id, versionId);
   if (!envoi) {
+    // La création et l'envoi ne contrôlent pas la date limite : la date fictive est posée telle
+    // quelle (le texte de l'invitation la cite) ; seules les saisies du portail la contrôlent.
     const r = await session.post(`/api/missions/${mission.id}/questionnaires`, {
       version_id: versionId,
       mode: def.mode,
@@ -302,7 +362,7 @@ export async function assurerEnvoi(
         ...(def.mode === "par_fonction" ? { fonction: repondants[x.cle].fonction } : {}),
       })),
       relances_auto: def.relancesAuto ?? true,
-      date_limite: def.limiteDans === undefined ? null : ctx.jour(def.limiteDans),
+      date_limite: initiale,
     });
     exiger(r, 201, `Envoi ${def.cle}`);
     envoi = await lireEnvoi(ctx, mission.id, versionId);
@@ -317,17 +377,30 @@ export async function assurerEnvoi(
     envoi = (await lireEnvoi(ctx, mission.id, versionId)) as LigneEnvoi;
   }
   if (envoi.statut === "envoye") {
-    await repondre(ctx, def, envoi, repondants);
-    if (def.relancer) await relancer(ctx, def, envoi.id);
-    if (def.limitePassee && envoi.date_limite !== def.limitePassee) {
+    const courant = envoi;
+    /** Pose la date limite voulue par la route PATCH (refusée seulement sur un envoi clos). */
+    const poserLimite = async (limite: string | null, quoi: string): Promise<void> => {
+      if (courant.date_limite === limite) return;
       exiger(
-        await session.patch(`/api/questionnaires/envois/${envoi.id}`, {
-          date_limite: def.limitePassee,
-        }),
+        await session.patch(`/api/questionnaires/envois/${courant.id}`, { date_limite: limite }),
         200,
-        `Date limite de ${def.cle}`,
+        `${quoi} de ${def.cle}`,
       );
+      courant.date_limite = limite;
+    };
+    await repondre(ctx, def, courant, repondants, async () =>
+      poserLimite(
+        limitePendantSaisie(courant.date_limite, await jourReel(ctx)),
+        "Date limite levée le temps des saisies",
+      ),
+    );
+    if (def.relancer) {
+      // La relance ne contrôle pas la date limite : la date fictive est reposée avant, pour que
+      // le texte de la notification cite la même échéance qu'au premier passage.
+      await poserLimite(initiale, "Date limite reposée avant la relance");
+      await relancer(ctx, def, courant.id);
     }
+    await poserLimite(limiteFinale(def, ctx.jour), "Date limite");
     if (def.clos) {
       exiger(
         await session.post(`/api/questionnaires/envois/${envoi.id}/clore`),
