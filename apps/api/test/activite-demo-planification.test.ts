@@ -98,13 +98,14 @@ beforeAll(async () => {
     missionSignee: false,
   });
   cabinets.eligible = await cabinetCible("Activité démo : éligible", base);
-});
+}, 180_000);
 
 afterAll(async () => {
   await proprietaire(async (c) => {
     await c.query("DELETE FROM jobs WHERE type = 'activite_demo' AND cle = $1", [CLE]);
     const sql = "UPDATE cabinets SET est_demo = false, actif = true WHERE id = ANY ($1::uuid[])";
-    await c.query(sql, [Object.values(cabinets)]);
+    // Seuls les cabinets créés : une préparation interrompue laisse des identifiants vides.
+    await c.query(sql, [Object.values(cabinets).filter(Boolean)]);
   });
   await ctx.fermer();
 });

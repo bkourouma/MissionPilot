@@ -271,6 +271,27 @@ describe("gardes : aucune écriture", () => {
     expect(await compterActiviteDemo(a.cabinetId)).toEqual(avant);
   });
 
+  it("cabinet saisi à l'heure (DT10) : sauté sans rien écrire", async () => {
+    const avant = await compterActiviteDemo(a.cabinetId);
+    await proprietaire((c) =>
+      c.query("UPDATE cabinets SET unite_saisie_temps = 'heure' WHERE id = $1", [a.cabinetId]),
+    );
+    try {
+      for (const charge of [NOMINALE, { mois: "2026-10" }]) {
+        expect((await executer(a.cabinetId, charge, MAINTENANT)).statut).toBe(
+          "granularite_non_prise_en_charge",
+        );
+      }
+    } finally {
+      await proprietaire((c) =>
+        c.query("UPDATE cabinets SET unite_saisie_temps = 'demi_journee' WHERE id = $1", [
+          a.cabinetId,
+        ]),
+      );
+    }
+    expect(await compterActiviteDemo(a.cabinetId)).toEqual(avant);
+  });
+
   it("charge invalide (mois impossible, mardi, lundi d'un autre mois, clé inconnue) : échec définitif", async () => {
     const avant = await compterActiviteDemo(a.cabinetId);
     for (const charge of [

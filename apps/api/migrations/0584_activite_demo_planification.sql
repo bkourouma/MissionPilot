@@ -11,8 +11,10 @@
 -- en file les tâches de SUITE hebdomadaires (`activite_demo:AAAA-MM:AAAA-MM-JJ`), pas cette fonction.
 --
 -- Fonction STRICTE : aucun paramètre nul, clé cohérente avec le premier jour du mois visé, heure
--- d'exécution dans ce mois (UTC) : un appel ne peut ni occuper à l'avance la clé d'un mois lointain
--- pour tous les cabinets, ni différer la tâche hors du mois. Elle lit cabinets, collaborateurs,
+-- d'exécution dans ce mois (UTC). Elle n'impose PAS le mois courant : un appelant SQL du rôle
+-- applicatif peut poser la tâche d'un mois quelconque (les tests utilisent 2099-01), mais toujours
+-- avec une exécution DANS ce mois, donc ni la consommer sans exécution, ni la différer hors du mois
+-- (risque accepté : SECURITY.md §15). Elle lit cabinets, collaborateurs,
 -- utilisateurs et missions de tous les cabinets (propriétaire, hors RLS) mais ne renvoie qu'un
 -- nombre ; search_path figé, EXECUTE accordé au seul rôle applicatif. Le planificateur ne lui passe
 -- que des paramètres calculés par le code : une exception interromprait le cycle (worker.ts:178-184).

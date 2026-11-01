@@ -76,6 +76,7 @@ export async function preparerCabinetDemo(
   const missionRegie = await semerMissionRegie(c, nom, lundi, consultant, junior);
   const forfait = await semerMissionForfait(ctx, c, nom, lundi);
   await viderEmailsEnFile(c.cabinetId);
+  await antidaterArrivees(c.cabinetId, ajouterJours(lundi, -400));
   await marquerCabinet(c.cabinetId, o.estDemo ?? true, o.actif ?? true);
   return {
     ...c,
@@ -264,6 +265,16 @@ async function factureEmiseLe(
     emettre(db, emetteur, await lireFacture(db, id, true), date),
   );
   return id;
+}
+
+/**
+ * Antidate l'arrivée des collaborateurs du cabinet (`cree_le`, SQL propriétaire, comme le semis du
+ * Tenant démo) à la date de leurs coûts : la discipline de saisie n'attend une feuille qu'à partir
+ * de la semaine d'arrivée (finance/indicateurs.ts), et les tests rejouent des semaines passées.
+ */
+async function antidaterArrivees(cabinetId: string, arrivee: DateISO): Promise<void> {
+  const sql = "UPDATE collaborateurs SET cree_le = $2::timestamptz WHERE cabinet_id = $1";
+  await proprietaire((cl) => cl.query(sql, [cabinetId, `${arrivee}T00:00:00Z`]));
 }
 
 /** Pose `est_demo` et `actif` (colonnes réservées au propriétaire, `0570`). */
