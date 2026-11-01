@@ -33,9 +33,13 @@ mission hors budget, les 11 indicateurs renseignés, via un job d'arrière-plan 
   correctifs) ; en application (base `mp_verif_actdemo`, Lagune) : 3 avenants, 0 échec, tableau de bord associé avec les
   11 cartes, Kora « Dérive au-delà de 5 % » (127 j pour 113 j), période du 26 oct. au 1er nov. 2026.
 
-**Reste.** Pousser, ouvrir la PR. Fusion et déploiement : accord explicite de l'utilisateur ; le serveur de démonstration a
-`DEMO_PUBLIQUE=oui`, donc le déploiement ACTIVE le job (`DEMO_ACTIVITE_AUTO=auto`) — le dire avant de fusionner.
-Non vérifié dans le navigateur : vue directeur (3 cartes « Réservé »), Tenant démo.
+**État.** PR bkourouma/MissionPilot#26 ouverte (2026-11-01), CI verte 5/5 (suite API complète en 4 partitions), Auto-fix
+activé sur la PR.
+
+**Reste.** Fusion et déploiement : accord explicite de l'utilisateur ; le serveur de démonstration a `DEMO_PUBLIQUE=oui`,
+donc le déploiement ACTIVE le job (`DEMO_ACTIVITE_AUTO=auto`) — poser `DEMO_ACTIVITE_AUTO=non` pour l'éviter.
+Non vérifié dans le navigateur : vue directeur (3 cartes « Réservé »), Tenant démo. Nettoyage local (accord requis pour
+supprimer) : API 4100 et web 3100 de vérification, bases `mp_verif_actdemo`, `mp_actdemo_test`, `mp_actdemo2_test`.
 
 **Pièges.** Tests API : base dédiée par agent (`mp_actdemo_test`, `mp_actdemo2_test`). `config.test` « ports simulés » et
 les tests de performance d'ingestion du moteur dépassent leur délai en local avec couverture (préexistant, environnement).
