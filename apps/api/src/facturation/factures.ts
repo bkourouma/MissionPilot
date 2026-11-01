@@ -614,7 +614,11 @@ export async function emettre(
   db: Db,
   auth: Pick<Auth, "cabinetId" | "utilisateurId">,
   f: FactureDb,
-  /** Date d'émission : aujourd'hui ; une autre date n'est passée que par le seed de démonstration. */
+  /**
+   * Date d'émission : aujourd'hui ; une autre date n'est passée que par le seed de démonstration
+   * ou par la tâche activite_demo (date de son horloge, jamais antérieure à la dernière émission
+   * de l'exercice).
+   */
   dateEmission: string = aujourdhui(),
 ): Promise<void> {
   if (f.statut !== "approuvee") throw conflit("Seule une facture approuvée s'émet.");

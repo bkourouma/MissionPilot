@@ -116,8 +116,9 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0520–0539`, donc hors de cette queue (aucune redéfinition d'objet partagé : `0526` ne redéfinit que des objets
   de l'ingestion, `purger_textes_ingestion` et `controler_ingestion_document` ; prochain libre `0527`) ;
   services candidats (lot 7) `0560–0563` (prochains libres de cette attribution : `0564–0569`) ;
-  plateforme et démonstration (chantier du 2026-10-23) `0570–0573` et `0580–0583`, consommées
-  (prochains libres : `0574–0579` pour la plateforme, `0584–0589` pour la démonstration). Trois objets
+  plateforme et démonstration (chantier du 2026-10-23) `0570–0573` et `0580–0583`, consommées, puis `0584`
+  (activité de démonstration automatique, 2026-11-01 : `planifier_activite_demo`, aucune redéfinition d'objet
+  partagé) ; prochains libres : `0574–0579` pour la plateforme, `0585–0589` pour la démonstration. Trois objets
   partagés y sont redéfinis : `trouver_connexion` et `resoudre_session` (`0570`, colonne `cabinets.actif`),
   les six fonctions d'opération `plateforme_*` (`0582` redéfinit celles de `0573`) et `demo_lister_comptes` (`0583` redéfinit celle de `0580`) ; toute nouvelle
   redéfinition porte un numéro supérieur et reprend la définition en vigueur ; `0553–0559` non
@@ -143,7 +144,7 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
   `0446`, capitalisation `0468` (`0468–0469` puis `0473–0479` libres), redressement `0493` (`0493–0499`), due diligence
   `0510` puis `0512` (`0512–0519` libres), STD `0211`, DOS `0226`, PRV `0244`,
   QUA `0291`, AGT aucun (plage `0260–0279` épuisée par `0278` et `0279` ; `0269` reste inutilisé comme `0144`), services
-  candidats `0564` (`0564–0569` libres), plateforme `0574` (`0574–0579` libres), démonstration `0584` (`0584–0589` libres), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
+  candidats `0564` (`0564–0569` libres), plateforme `0574` (`0574–0579` libres), démonstration `0585` (`0585–0589` libres ; `0584` consommée par l'activité de démonstration automatique), ingestion de documents `0527` (`0527–0539` libres ; `0525–0526` consommées par le lot 11). Une
   migration **commitée** n'est jamais modifiée : on ajoute un
   fichier (voir §10 : l'outil ne le vérifie pas). Une migration encore **non
   commitée** peut être corrigée sur place, à condition de recréer les bases qui

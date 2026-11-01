@@ -1,4 +1,5 @@
 import { ajouterJours, lundiDeLaSemaine } from "@missionpilot/engines";
+import { planifierActiviteDemo } from "../activite-demo/planification.js";
 import { planifierDetectionAutomatisation } from "../automatisation/detection.js";
 import { planifierCanauxMaintenance } from "../canaux/maintenance.js";
 import { planifierSyntheseHebdo } from "../canaux/synthese.js";
@@ -32,6 +33,11 @@ import { planifierPurgeRapports } from "../rapports/purge.js";
  *   quotidienne à 3 h 15 (UTC), clé `canaux_maintenance:jour` (canaux/maintenance.ts).
  * - Ingestion de documents (lot 6) : maintenance quotidienne à 3 h 45 (UTC), clé
  *   `ingestion_maintenance:jour` (ingestion/maintenance.ts), pour les cabinets ayant un document à purger.
+ * - Activité de démonstration automatique (job « activite_demo », migration 0584) : une tâche par
+ *   MOIS, le 1er à 4 h (UTC), clé `activite_demo:AAAA-MM`, pour les seuls cabinets de démonstration
+ *   actifs (activite-demo/planification.ts), et SEULEMENT si le worker en a reçu l'option
+ *   `activiteDemo` (server.ts, DEMO_ACTIVITE_AUTO ; fausse par défaut, donc jamais en test) ; la
+ *   tâche met elle-même en file ses suites hebdomadaires (lundi à 5 h UTC).
  */
 
 export const HEURE_RAPPEL_UTC = "16:00:00";
@@ -47,6 +53,12 @@ export interface Planification {
   cle: string;
   executeA: Date;
   semaine: string;
+}
+
+/** Options de la planification récurrente (fournies par le worker). */
+export interface OptionsPlanification {
+  /** Planifie l'activité de démonstration automatique (défaut : non). */
+  activiteDemo?: boolean;
 }
 
 /** Relance des factures du jour de `maintenant` : clé unique par cabinet et par jour. */
@@ -100,7 +112,11 @@ export function planificationsDeLaSemaine(maintenant: Date): Planification[] {
 }
 
 /** Insère les tâches récurrentes manquantes ; renvoie le nombre de jobs créés. */
-export async function planifierRecurrents(database: Database, maintenant: Date): Promise<number> {
+export async function planifierRecurrents(
+  database: Database,
+  maintenant: Date,
+  options: OptionsPlanification = {},
+): Promise<number> {
   return database.withoutTenant(async (db) => {
     let total = 0;
     for (const p of planificationsDeLaSemaine(maintenant)) {
@@ -152,6 +168,8 @@ export async function planifierRecurrents(database: Database, maintenant: Date):
     total += await planifierCanauxMaintenance(db, maintenant);
     // Ingestion de documents (lot 6) : reprise des effacements et purge du texte, chaque jour 03:45 UTC.
     total += await planifierIngestionMaintenance(db, maintenant);
+    // Activité de démonstration (activite_demo) : une par cabinet démo et par mois, option du worker seulement.
+    total += await planifierActiviteDemo(db, maintenant, options.activiteDemo === true);
     return total;
   });
 }
