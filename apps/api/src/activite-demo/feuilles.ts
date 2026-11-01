@@ -12,7 +12,8 @@ import {
 } from "@missionpilot/engines";
 import type { LigneTempsSaisie } from "@missionpilot/shared";
 import type { Auth } from "../auth/contexte.js";
-import { conflit, requeteInvalide } from "../errors.js";
+import { AppError, conflit, requeteInvalide } from "../errors.js";
+import { exigerMissionVisible } from "../missions/acces.js";
 import { collaborateurAffectable } from "../planification/outils.js";
 import {
   appliquerControleCapacite,
@@ -333,9 +334,32 @@ async function estAffecte(
 }
 
 /**
+ * Miroir de routes/suivi-temps.ts:36-37 : mission visible de l'auteur, verrouillée, et non
+ * clôturée ; sinon la redéclaration est sautée et la feuille reste. Mémorisé par mission.
+ */
+async function missionRedeclarable(
+  c: ContexteActiviteDemo,
+  auteur: Auth,
+  missionId: string,
+  vues: Map<string, boolean>,
+): Promise<boolean> {
+  const connue = vues.get(missionId);
+  if (connue !== undefined) return connue;
+  let ok: boolean;
+  try {
+    ok = (await exigerMissionVisible(c.db, auteur, missionId, true)).statut !== "cloturee";
+  } catch (e) {
+    if (!(e instanceof AppError) || e.statut !== 404) throw e;
+    ok = false;
+  }
+  vues.set(missionId, ok);
+  return ok;
+}
+
+/**
  * Redéclarations « pour soi » du moteur (DT5 : `d − consommé` sur une tâche hors dérive où le
- * collaborateur a déclaré), miroir de routes/suivi-temps.ts:48-82 : collaborateur affectable,
- * tâche affectée, pas du cabinet. Une valeur égale à la déclaration en vigueur n'est pas
+ * collaborateur a déclaré), miroir de routes/suivi-temps.ts:36-82 : mission visible et non
+ * clôturée, collaborateur affectable, tâche affectée, pas du cabinet. Une valeur égale à la déclaration en vigueur n'est pas
  * réécrite ; une tâche désaffectée depuis sa déclaration est sautée (la feuille reste).
  * Renvoie le nombre de déclarations écrites.
  */
@@ -353,8 +377,10 @@ async function redeclarerDemo(
   );
   if (utiles.length === 0) return 0;
   await collaborateurAffectable(c.db, collaborateurId);
+  const missions = new Map<string, boolean>();
   let ecrites = 0;
   for (const r of utiles) {
+    if (!(await missionRedeclarable(c, auteur, r.missionId, missions))) continue;
     if (!(await estAffecte(c, r.tacheId, collaborateurId))) continue;
     if (!estPasValide(depuisCentiemes(r.centiemes), p.granularite, p.heuresParJour)) {
       throw requeteInvalide("Reste à faire hors du pas de saisie du cabinet.");

@@ -515,6 +515,7 @@ async function facturesASolder(
             dateEmission: facture.date_emission,
             soldeMineur: solde.valeur,
             emiseParJob: duJob.has(facture.id),
+            dateEcheance: facture.date_echeance,
           },
         ]
       : [],
@@ -561,9 +562,11 @@ async function encaisserSiAbsent(
 
 /**
  * Encaissement de la semaine (un au plus par cabinet) : solde entier d'une facture émise avant le
- * lundi, choisie par le moteur (DT8 : facture de la tâche d'au moins 21 jours, sinon facture non
- * issue de la tâche, sinon facture de la tâche d'au moins 7 jours), daté et imputé au jour `j`.
- * Aucune relance, donc aucun e-mail. Renvoie l'identifiant de l'encaissement.
+ * lundi, choisie par le moteur (DT8 : facture de la tâche échue avant la semaine suivante, sinon
+ * d'au moins 21 jours, sinon facture non issue de la tâche, sinon facture de la tâche d'au moins
+ * 7 jours), daté et imputé au jour `j`. La tâche n'émet aucune relance ; sauf exécution manquée,
+ * sa facture est soldée avant la relance automatique (FIN-09), même à délai de paiement raccourci.
+ * Renvoie l'identifiant de l'encaissement.
  */
 export async function encaisserSemaineDemo(
   c: ContexteActiviteDemo,

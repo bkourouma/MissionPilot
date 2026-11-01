@@ -3,7 +3,7 @@
  * (rotation entre missions), date d'émission compatible avec la numérotation chronologique de
  * l'exercice, et choix de la facture à solder. Pur ; aucun montant n'est calculé ici.
  */
-import { type DateISO, ecartJours, versJourUTC } from "../planning/dates";
+import { ajouterJours, type DateISO, ecartJours, versJourUTC } from "../planning/dates";
 import {
   PARAMETRES_ACTIVITE_DEMO,
   type ParametresActiviteDemo,
@@ -89,6 +89,8 @@ export interface FactureOuverteDemo {
   soldeMineur: number;
   /** Émise par le job (marqueur `activite_demo.facture`). */
   emiseParJob: boolean;
+  /** Échéance de la facture (délai de paiement du cabinet), si elle est connue. */
+  dateEcheance?: DateISO | null;
 }
 
 const plusAncienne = (a: FactureOuverteDemo, b: FactureOuverteDemo): number =>
@@ -96,9 +98,12 @@ const plusAncienne = (a: FactureOuverteDemo, b: FactureOuverteDemo): number =>
 
 /**
  * Facture à solder la semaine de `lundi` (DT8) : la plus ancienne de la première catégorie non
- * vide parmi (1) les factures du job âgées d'au moins 21 jours, (2) les factures d'une autre
- * origine, (3) les factures du job âgées d'au moins 7 jours. Une facture émise depuis le lundi,
- * ou sans solde, n'est jamais choisie : une facture du job est soldée avant son échéance de 30 j.
+ * vide parmi (0) les factures du job échues ou qui le seront avant la semaine suivante, (1) les
+ * factures du job âgées d'au moins 21 jours, (2) les factures d'une autre origine, (3) les
+ * factures du job âgées d'au moins 7 jours. Une facture émise depuis le lundi, ou sans solde,
+ * n'est jamais choisie. Au délai par défaut (30 j), une facture du job est soldée avant son
+ * échéance ; un délai raccourci par le cabinet la fait passer en tête (0), pour qu'elle soit
+ * soldée avant la relance automatique de FIN-09, qui part 7 jours après l'échéance.
  */
 export function choisirFactureASolderDemo(
   f: readonly FactureOuverteDemo[],
@@ -111,7 +116,11 @@ export function choisirFactureASolderDemo(
   const ouvertes = f.filter((x) => x.soldeMineur > 0 && ecartJours(x.dateEmission, lundi) > 0);
   const age = (x: FactureOuverteDemo): number => ecartJours(x.dateEmission, jour);
   const { cibleJours, minimumJours } = p.encaissement;
+  const semaineSuivante = ajouterJours(jour, 7);
+  const echueBientot = (x: FactureOuverteDemo): boolean =>
+    x.dateEcheance != null && ecartJours(x.dateEcheance, semaineSuivante) >= 0;
   const categories = [
+    ouvertes.filter((x) => x.emiseParJob && echueBientot(x)),
     ouvertes.filter((x) => x.emiseParJob && age(x) >= cibleJours),
     ouvertes.filter((x) => !x.emiseParJob),
     ouvertes.filter((x) => x.emiseParJob && age(x) >= minimumJours),

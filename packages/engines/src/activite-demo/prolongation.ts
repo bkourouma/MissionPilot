@@ -57,7 +57,11 @@ interface BesoinSemaine {
   centiemes: number;
 }
 
-/** Besoin d'une semaine : max(0, plancher_pas(capacité × cible %) − jours déjà affectés). */
+/**
+ * Besoin d'une semaine : plancher_pas(max(0, plancher_pas(capacité × cible %) − jours déjà
+ * affectés)). Une affectation à cheval sur deux semaines y est proratisée (1/3 de jour…) : sans
+ * le second plancher, le besoin sortirait du pas et l'affectation de l'avenant serait refusée.
+ */
 function besoinSemaine(
   e: EntreeBesoinDemo,
   semaine: Periode,
@@ -72,7 +76,7 @@ function besoinSemaine(
     if (a.personneId !== e.collaborateurId) continue;
     affecte += versCentiemes(joursAffectesSurPeriode(a, semaine, d.calendrier));
   }
-  return Math.max(0, visee - affecte);
+  return plancherPas(Math.max(0, visee - affecte), p.pasCentiemes);
 }
 
 /**

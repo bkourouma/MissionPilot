@@ -76,6 +76,14 @@ describe("besoin d'un membre sur la fenêtre du mois", () => {
     expect(besoin({ affectations: [couverte, partielle] })?.centiemes).toBe(1800);
   });
 
+  it("affectation proratisée sur deux semaines : chaque semaine reste au pas de 0,5 jour", () => {
+    // Vendredi, lundi, mardi : 1/3 de jour la première semaine, 2/3 la seconde.
+    const aCheval = affectation("2026-11-06", "2026-11-10", 1);
+    const b = besoin({ affectations: [aCheval] });
+    expect(b?.centiemes).toBe(2250);
+    expect((b?.centiemes ?? 0) % 50).toBe(0);
+  });
+
   it("ignore les affectations d'un autre collaborateur", () => {
     const autre = affectation("2026-10-26", "2026-12-04", 30, "j");
     expect(besoin({ affectations: [autre] })?.centiemes).toBe(2400);

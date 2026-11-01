@@ -1272,8 +1272,11 @@ Intitulés repris de la spécification ; leur formulation exacte est à confirme
   `activite_demo.derive` est ajustée ; choix de la mission stable par le marqueur.
 - **DT7** : feuille complète du lundi au vendredi ouvrés ; part mission ≤ min(jours affectés, 80 % de la capacité) ;
   le reste sur une activité interne active hors absence.
-- **DT8 — Encaissement** par `creerEncaissement` (verrou, trop-perçu, date) ; facture choisie : du job âgée d'au moins
-  21 jours, sinon antérieure au job émise avant le lundi, sinon du job âgée d'au moins 7 jours ; aucune relance.
+- **DT8 — Encaissement** par `creerEncaissement` (verrou, trop-perçu, date) ; facture choisie : du job échue au plus
+  tard 7 jours après le jour d'exécution (délai de paiement raccourci par le cabinet), sinon du job âgée d'au moins
+  21 jours, sinon antérieure au job émise avant le lundi, sinon du job âgée d'au moins 7 jours. Le job n'émet aucune
+  relance ; sa facture est soldée, sauf exécution hebdomadaire manquée, avant la relance automatique (FIN-09, 7 jours
+  après l'échéance).
 - **DT9** : `evaluerAlertes(…, { notifier: false })` met à jour `alertes_suivi` sans notifier.
 - **DT10** : cabinets à la demi-journée seulement ; un cabinet à l'heure est sauté avec un incident.
 - **DT11 — Fenêtres** : mois = [lundi du 1er, dernier lundi + 6] ; tâche d'avenant à partir du premier lundi à besoin,

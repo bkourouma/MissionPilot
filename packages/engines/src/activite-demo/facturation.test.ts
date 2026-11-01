@@ -123,6 +123,20 @@ describe("facture à solder (DT8)", () => {
     expect(choisirFactureASolderDemo([pile7], LUNDI, JOUR)).toBe("f7");
   });
 
+  it("priorité 0 : facture du job échue avant la semaine suivante (délai raccourci)", () => {
+    // Délai de paiement à 0 : la facture du job est échue dès son émission.
+    const jobEchue = { ...facture("f4", "2026-10-26", true), dateEcheance: "2026-10-26" };
+    expect(choisirFactureASolderDemo([semee, jobAncienne, jobEchue], LUNDI, JOUR)).toBe("f4");
+    const pileSemaine = { ...facture("f5", "2026-10-27", true), dateEcheance: "2026-11-11" };
+    expect(choisirFactureASolderDemo([semee, pileSemaine], LUNDI, JOUR)).toBe("f5");
+    const auDelai = { ...facture("f6", "2026-10-27", true), dateEcheance: "2026-11-12" };
+    expect(choisirFactureASolderDemo([semee, auDelai], LUNDI, JOUR)).toBe("s1");
+    const semeeEchue = { ...semee, dateEcheance: "2026-10-01" };
+    expect(choisirFactureASolderDemo([semeeEchue, jobAncienne], LUNDI, JOUR)).toBe("f1");
+    const deLaSemaineEchue = { ...facture("f8", LUNDI, true), dateEcheance: LUNDI };
+    expect(choisirFactureASolderDemo([deLaSemaineEchue], LUNDI, JOUR)).toBeNull();
+  });
+
   it("facture de la semaine, soldée ou trop récente : aucune", () => {
     const aucune = [jobTropRecente, deLaSemaine, soldee];
     expect(choisirFactureASolderDemo(aucune, LUNDI, JOUR)).toBeNull();
