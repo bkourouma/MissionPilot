@@ -204,8 +204,8 @@ tests. Quand une règle est implémentée, y ajouter le fichier qui l'illustre.
   API et base de test »).
 - **Migrations de queue (≥ 0549).** Numéros attribués centralement : `0549` canaux,
   `0550` brief, `0551` redressement, `0552` rapport d'état financier, `0560–0563`
-  réservés aux services candidats, `0570–0573` plateforme (super admin) et `0580–0582`
-  démonstration, consommées (prochains libres : plateforme `0574–0579`, démonstration `0583–0589`, services candidats `0564–0569`)
+  réservés aux services candidats, `0570–0573` plateforme (super admin) et `0580–0584`
+  démonstration (`0584` : activité de démonstration automatique), consommées (prochains libres : plateforme `0574–0579`, démonstration `0585–0589`, services candidats `0564–0569`)
   (`CODING_STANDARDS.md` §1). Le migrateur applique
   par ordre alphabétique : une redéfinition de `tentatives_auth_regles` doit porter
   un numéro supérieur à `0550`, une redéfinition des CHECK de `rapports_mission` un

@@ -2,6 +2,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  activiteDemoActive,
+  AVERTISSEMENT_ACTIVITE_DEMO,
   baseLocale,
   AVERTISSEMENT_DEMO_PUBLIQUE,
   connexionRapideDemoActive,
@@ -211,6 +213,63 @@ describe("configuration : démonstration publique (DEMO_PUBLIQUE)", () => {
   it("le message d'avertissement nomme la variable", () => {
     expect(AVERTISSEMENT_DEMO_PUBLIQUE).toContain("DEMO_PUBLIQUE");
     expect(AVERTISSEMENT_DEMO_PUBLIQUE).toContain("SANS mot de passe");
+  });
+});
+
+describe("configuration : activité de démonstration automatique (DEMO_ACTIVITE_AUTO)", () => {
+  it("« auto » par défaut : active si et seulement si DEMO_PUBLIQUE=oui", () => {
+    const c = loadConfig({});
+    expect(c.DEMO_ACTIVITE_AUTO).toBe("auto");
+    expect(activiteDemoActive(c)).toBe(false);
+    expect(activiteDemoActive(loadConfig({ DEMO_PUBLIQUE: "non" }))).toBe(false);
+    expect(activiteDemoActive(loadConfig({ DEMO_PUBLIQUE: "oui" }))).toBe(true);
+    expect(activiteDemoActive(loadConfig(PROD))).toBe(false);
+    expect(activiteDemoActive(loadConfig({ ...PROD, DEMO_PUBLIQUE: "oui" }))).toBe(true);
+  });
+
+  it("« oui » force l'activité, « non » la coupe même avec DEMO_PUBLIQUE=oui", () => {
+    expect(activiteDemoActive(loadConfig({ DEMO_ACTIVITE_AUTO: "oui" }))).toBe(true);
+    expect(
+      activiteDemoActive(loadConfig({ DEMO_ACTIVITE_AUTO: "oui", DEMO_PUBLIQUE: "non" })),
+    ).toBe(true);
+    expect(
+      activiteDemoActive(loadConfig({ DEMO_ACTIVITE_AUTO: "non", DEMO_PUBLIQUE: "oui" })),
+    ).toBe(false);
+    expect(
+      activiteDemoActive(loadConfig({ ...PROD, DEMO_ACTIVITE_AUTO: "non", DEMO_PUBLIQUE: "oui" })),
+    ).toBe(false);
+  });
+
+  it("valeur invalide refusée au démarrage ; chaîne vide = défaut", () => {
+    for (const valeur of ["Oui", "OUI", "Auto", "1", "true", "yes", "actif"]) {
+      expect(() => loadConfig({ DEMO_ACTIVITE_AUTO: valeur })).toThrow();
+    }
+    expect(loadConfig({ DEMO_ACTIVITE_AUTO: "" }).DEMO_ACTIVITE_AUTO).toBe("auto");
+    expect(activiteDemoActive(loadConfig({ DEMO_ACTIVITE_AUTO: "", DEMO_PUBLIQUE: "oui" }))).toBe(
+      true,
+    );
+  });
+
+  it("table de vérité de activiteDemoActive (configuration construite sans loadConfig)", () => {
+    const cas = [
+      ["auto", "non", false],
+      ["auto", "oui", true],
+      ["oui", "non", true],
+      ["oui", "oui", true],
+      ["non", "non", false],
+      ["non", "oui", false],
+    ] as const;
+    for (const [DEMO_ACTIVITE_AUTO, DEMO_PUBLIQUE, attendu] of cas) {
+      expect(
+        activiteDemoActive({ DEMO_ACTIVITE_AUTO, DEMO_PUBLIQUE }),
+        `${DEMO_ACTIVITE_AUTO}/${DEMO_PUBLIQUE}`,
+      ).toBe(attendu);
+    }
+  });
+
+  it("le message d'avertissement dit comment couper l'activité", () => {
+    expect(AVERTISSEMENT_ACTIVITE_DEMO).toContain("DEMO_ACTIVITE_AUTO=non");
+    expect(AVERTISSEMENT_ACTIVITE_DEMO).toContain("est_demo");
   });
 });
 

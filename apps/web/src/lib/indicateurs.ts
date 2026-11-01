@@ -15,7 +15,8 @@ import {
   NIVEAUX_INDICATEURS,
   type NiveauIndicateurs,
 } from "@missionpilot/shared";
-import { aujourdhui, debutDuMois, lirePeriode, type Periode } from "./periode";
+import { aujourdhui, lirePeriode, type Periode } from "./periode";
+import { ajouterJoursIso, lundiDe } from "./semaine";
 import { statutEcart, type StatutAffiche } from "./indicateurs-statuts";
 import type { ElementMission } from "./indicateurs-types";
 
@@ -83,9 +84,25 @@ export interface FiltresIndicateurs extends Periode {
 
 const un = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-/** Période par défaut : du début du mois à aujourd'hui (revue de fin de mois du parcours C). */
+/**
+ * Période par défaut : semaine ISO en cours, du lundi au dimanche (tableau de bord et
+ * /indicateurs).
+ */
 export function periodeParDefaut(jour: string = aujourdhui()): Periode {
-  return { du: debutDuMois(jour), au: jour };
+  const lundi = lundiDe(jour);
+  return { du: lundi, au: ajouterJoursIso(lundi, 6) };
+}
+
+/** Date d'évaluation des jalons et des feuilles : fin de période, jamais après aujourd'hui. */
+export function dateReferenceIndicateurs(p: Periode, jour: string = aujourdhui()): string {
+  return p.au < jour ? p.au : jour;
+}
+
+/** Lien vers /indicateurs qui garde la période affichée (et le niveau, s'il est donné). */
+export function lienIndicateurs(p: Periode, niveau?: NiveauIndicateurs): string {
+  const requete = new URLSearchParams({ du: p.du, au: p.au });
+  if (niveau) requete.set("niveau", niveau);
+  return `/indicateurs?${requete.toString()}`;
 }
 
 export function lireFiltresIndicateurs(
@@ -102,6 +119,11 @@ export function lireFiltresIndicateurs(
   };
 }
 
-export function requeteIndicateurs(f: Periode & { niveau: NiveauIndicateurs }): string {
-  return new URLSearchParams({ du: f.du, au: f.au, niveau: f.niveau }).toString();
+/** Requête de l'API des indicateurs ; `date_reference` n'y figure que s'il est fourni. */
+export function requeteIndicateurs(
+  f: Periode & { niveau: NiveauIndicateurs; date_reference?: string },
+): string {
+  const requete = new URLSearchParams({ du: f.du, au: f.au, niveau: f.niveau });
+  if (f.date_reference) requete.set("date_reference", f.date_reference);
+  return requete.toString();
 }

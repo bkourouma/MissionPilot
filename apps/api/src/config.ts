@@ -112,6 +112,13 @@ const schema = z.object({
    */
   DEMO_PUBLIQUE: z.enum(["oui", "non"]).default("non"),
   /**
+   * Activité de démonstration automatique (job « activite_demo », migration 0584) : « auto »
+   * (défaut) = active si et seulement si DEMO_PUBLIQUE=oui ; « oui » force (vérification locale) ;
+   * « non » coupe. Cabinets est_demo ET actifs seulement ; première écriture automatique sur un
+   * serveur (DEPLOIEMENT (f) : accord écrit de l'utilisateur). Une chaîne vide vaut le défaut.
+   */
+  DEMO_ACTIVITE_AUTO: z.enum(["auto", "oui", "non"]).default("auto"),
+  /**
    * Stockage des fichiers (SOC-05, FIN-05) : « disque » (dossier local) ;
    * « s3 » est un point d'extension non implémenté (refus au démarrage).
    */
@@ -270,6 +277,22 @@ export function demoPubliqueHorsLocal(config: ConfigDemo): boolean {
 
 export const AVERTISSEMENT_DEMO_PUBLIQUE =
   "DEMO_PUBLIQUE=oui hors développement local ouvre une connexion SANS mot de passe, à tous, pour les cabinets et super admins marqués démo : ne jamais l'activer sur un serveur contenant des données réelles dans ces comptes ; retirer la variable pour la fermer.";
+
+/**
+ * Activité de démonstration automatique ACTIVE (job « activite_demo ») : « oui » → vrai ; « non » →
+ * faux ; « auto » → DEMO_PUBLIQUE=oui. Lue au démarrage (option `activiteDemo` du worker,
+ * server.ts) et, à chaque exécution, par le handler du job (configuration relue).
+ */
+export function activiteDemoActive(
+  c: Pick<Config, "DEMO_ACTIVITE_AUTO" | "DEMO_PUBLIQUE">,
+): boolean {
+  if (c.DEMO_ACTIVITE_AUTO === "oui") return true;
+  if (c.DEMO_ACTIVITE_AUTO === "non") return false;
+  return c.DEMO_PUBLIQUE === "oui";
+}
+
+export const AVERTISSEMENT_ACTIVITE_DEMO =
+  "Activité de démonstration active : des temps, factures, encaissements et avenants sont écrits automatiquement chaque semaine dans les cabinets marqués démo (est_demo) ; DEMO_ACTIVITE_AUTO=non pour la couper.";
 
 /**
  * Une connexion sans mot de passe est une porte dérobée hors du poste de

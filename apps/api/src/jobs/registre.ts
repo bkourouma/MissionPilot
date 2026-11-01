@@ -1,3 +1,5 @@
+import { creerHandlerActiviteDemo } from "../activite-demo/job.js";
+import { TYPE_JOB_ACTIVITE_DEMO } from "../activite-demo/planification.js";
 import {
   creerHandlerEvaluationOpenRouter,
   TYPE_JOB_EVALUATION_OPENROUTER,
@@ -107,7 +109,8 @@ export function creerRegistre(handlers: Record<string, HandlerJob>): RegistreJob
  * Handlers de MissionPilot : rappels du vendredi et relances du lundi
  * (TPS-04), relances quotidiennes des factures échues (FIN-09), purge des
  * fichiers orphelins (SOC-05), générations IA, relances des questionnaires
- * (J+3 / J+7), suivi quotidien des KPI et brief quotidien (AUT-07). Un handler importe
+ * (J+3 / J+7), suivi quotidien des KPI et brief quotidien (AUT-07), activité de
+ * démonstration automatique (cabinets `est_demo` seulement). Un handler importe
  * `ErreurJobDefinitive` de jobs/erreurs.ts, jamais de ce module (pas
  * d'importation circulaire). Le stockage de la purge est celui de la
  * configuration de l'environnement ; server.ts le fournit explicitement
@@ -128,6 +131,9 @@ export const REGISTRE_JOBS: RegistreJobs = creerRegistre({
   [TYPE_JOB_SUIVI_KPI]: creerHandlerSuiviKpi(), // alertes et rappels des KPI (KPI-02, KPI-04)
   [TYPE_JOB_BRIEF_QUOTIDIEN]: creerHandlerBriefQuotidien(), // brief du jour par utilisateur (AUT-07)
   [TYPE_JOB_AVANCEMENT_HEBDO]: creerHandlerAvancementHebdo(), // rapport d'avancement hebdomadaire (AUT-10)
+  // Activité de démonstration automatique (DT14) : DEMO_ACTIVITE_AUTO relue à chaque exécution,
+  // inactive par défaut (aucune écriture) ; jamais d'e-mail.
+  [TYPE_JOB_ACTIVITE_DEMO]: creerHandlerActiviteDemo(),
   // Moteur d'automatisation (AUT-01 à AUT-06, ADR-006) : événements, appels d'agents, détection.
   [TYPE_JOB_EVENEMENT_AUTOMATISATION]: creerHandlerEvenementAutomatisation(),
   [TYPE_JOB_AGENT_AUTOMATISATION]: creerHandlerAgentAutomatisation(dependancesIaParDefaut),

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   alertesDerive,
+  dateReferenceIndicateurs,
   DEFINITIONS,
   formaterEcartJours,
   indicateursAffiches,
   LIBELLE_CARNET_FACTURE,
+  lienIndicateurs,
   lireCarnet,
   lireFiltresIndicateurs,
   MESSAGE_RESERVE,
+  periodeParDefaut,
   requeteIndicateurs,
   statutConsommation,
   statutDelai,
@@ -18,6 +21,7 @@ import {
   type IndicateursCabinet,
   type ReponseIndicateurs,
 } from "./indicateurs";
+import { ajouterJoursIso } from "./semaine";
 
 const ratio = (reussis: number, attendus: number) => ({
   reussis,
@@ -196,16 +200,86 @@ describe("alertes de dérive", () => {
   });
 });
 
+describe("période par défaut : semaine en cours", () => {
+  it.each([
+    ["2027-03-15", "2027-03-15", "2027-03-21"], // lundi
+    ["2027-03-17", "2027-03-15", "2027-03-21"], // mercredi
+    ["2026-11-01", "2026-10-26", "2026-11-01"], // dimanche
+    ["2026-12-31", "2026-12-28", "2027-01-03"], // la semaine change d'année
+    ["2027-01-01", "2026-12-28", "2027-01-03"], // idem, le 1er janvier
+  ])("pour le %s : du %s au %s", (jour, du, au) => {
+    expect(periodeParDefaut(jour)).toEqual({ du, au });
+  });
+
+  it("va toujours d'un lundi à un dimanche et contient le jour donné", () => {
+    const joursDeSemaine = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
+    for (let i = 0; i < 14; i++) {
+      const jour = ajouterJoursIso("2027-03-15", i);
+      const { du, au } = periodeParDefaut(jour);
+      expect(joursDeSemaine(du)).toBe(1);
+      expect(joursDeSemaine(au)).toBe(0);
+      expect(jour >= du && jour <= au).toBe(true);
+    }
+  });
+});
+
+describe("date de référence des indicateurs", () => {
+  const semaine = { du: "2026-10-26", au: "2026-11-01" };
+
+  it("reste à aujourd'hui quand la fin de période est à venir", () => {
+    expect(dateReferenceIndicateurs(semaine, "2026-10-29")).toBe("2026-10-29");
+  });
+
+  it("prend la fin de période quand elle est passée", () => {
+    const septembre = { du: "2026-09-01", au: "2026-09-30" };
+    expect(dateReferenceIndicateurs(semaine, "2026-11-03")).toBe("2026-11-01");
+    expect(dateReferenceIndicateurs(septembre, "2026-10-29")).toBe("2026-09-30");
+  });
+
+  it("vaut aujourd'hui quand la fin de période est aujourd'hui", () => {
+    expect(dateReferenceIndicateurs(semaine, "2026-11-01")).toBe("2026-11-01");
+  });
+});
+
+describe("liens et requêtes des indicateurs", () => {
+  const semaine = { du: "2026-10-26", au: "2026-11-01" };
+
+  it("garde la période dans le lien vers /indicateurs, avec ou sans niveau", () => {
+    expect(lienIndicateurs(semaine)).toBe("/indicateurs?du=2026-10-26&au=2026-11-01");
+    expect(lienIndicateurs(semaine, "mission")).toBe(
+      "/indicateurs?du=2026-10-26&au=2026-11-01&niveau=mission",
+    );
+  });
+
+  it("relit à l'identique la période et le niveau d'un lien produit", () => {
+    const url = new URL(lienIndicateurs(semaine, "grade"), "http://localhost");
+    const relu = lireFiltresIndicateurs(Object.fromEntries(url.searchParams), "2030-01-01");
+    expect(url.pathname).toBe("/indicateurs");
+    expect(relu).toEqual({ ...semaine, niveau: "grade", corrigee: false });
+  });
+
+  it("ajoute date_reference à la requête seulement s'il est fourni", () => {
+    const sans = requeteIndicateurs({ ...semaine, niveau: "mission" });
+    const avec = requeteIndicateurs({
+      ...semaine,
+      niveau: "mission",
+      date_reference: "2026-11-01",
+    });
+    expect(sans).toBe("du=2026-10-26&au=2026-11-01&niveau=mission");
+    expect(avec).toBe("du=2026-10-26&au=2026-11-01&niveau=mission&date_reference=2026-11-01");
+  });
+});
+
 describe("format et filtres", () => {
   it("met en forme un écart signé", () => {
     expect(formaterEcartJours(3, 0.1)).toBe("+3 j (+10 %)");
     expect(formaterEcartJours(-2.5, null)).toBe("−2,5 j");
   });
 
-  it("lit la période et le niveau, mois en cours par défaut", () => {
+  it("lit la période et le niveau, semaine en cours par défaut", () => {
     expect(lireFiltresIndicateurs({}, "2027-03-15")).toEqual({
-      du: "2027-03-01",
-      au: "2027-03-15",
+      du: "2027-03-15",
+      au: "2027-03-21",
       niveau: "cabinet",
       corrigee: false,
     });
@@ -218,7 +292,7 @@ describe("format et filtres", () => {
     // 366 jours au plus (règle de l'API) : au-delà, période par défaut signalée.
     expect(
       lireFiltresIndicateurs({ du: "2026-01-01", au: "2027-01-02" }, "2027-03-15"),
-    ).toMatchObject({ du: "2027-03-01", corrigee: true });
+    ).toMatchObject({ du: "2027-03-15", corrigee: true });
     expect(
       lireFiltresIndicateurs({ du: "2026-01-01", au: "2027-01-01" }, "2027-03-15").corrigee,
     ).toBe(false);

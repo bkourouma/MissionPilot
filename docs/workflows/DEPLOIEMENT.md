@@ -205,6 +205,10 @@ Précautions : la variable reste dans `missionpilot.env`, donc **tout redéploie
 (`smtp.invalid`, voir HANDOFF) tant que la démonstration est ouverte, les e-mails de visiteurs partant sinon par le vrai SMTP ;
 sauvegarder la base juste après le semis (voir (d)).
 
+Depuis le 2026-11-01, `DEMO_PUBLIQUE=oui` active AUSSI l'activité de démonstration automatique (écritures automatiques
+chaque mois et chaque lundi dans les cabinets de démonstration), sauf si `DEMO_ACTIVITE_AUTO=non` est posé : lire (g)
+et obtenir l'accord écrit de l'utilisateur AVANT l'étape 1.
+
 ### (c) Désactiver la démonstration
 
 1. Retirer la ligne `DEMO_PUBLIQUE` de `missionpilot.env`, puis `mp up -d --force-recreate api web`. Effets : `GET /api/auth/demo` et
@@ -358,6 +362,32 @@ est « Lagune Conseil & Associés (démo) » et qu'il n'y a pas d'autre super ad
 formulaire : désactiver ce cabinet comme en (c) (`UPDATE cabinets SET actif = false WHERE nom = 'Lagune Conseil & Associés (démo)'`), puis
 le réactiver (`actif = true`) juste avant le semis : un cabinet désactivé n'est pas réactivé par le seed et ses comptes ne peuvent plus
 ouvrir de session, ce qui ferait échouer la reprise.
+
+### (g) Activité de démonstration automatique (job `activite_demo`)
+
+Chantier du 2026-11-01 (décision à valider : DECISIONS.md, « Activité de démonstration automatique » ; exploitation :
+RUNBOOK, même titre ; risques : SECURITY.md §15). **C'est la première écriture AUTOMATIQUE de l'application sur un
+serveur** : chaque mois (le 1er, 04:00 UTC) puis chaque lundi (05:00 UTC), le worker écrit des feuilles de temps
+validées, un jalon, une facture émise, un encaissement et un avenant de prolongation dans TOUS les cabinets
+`est_demo` ET actifs (Lagune, Tenant démo, bacs à sable des visiteurs qui ont des données), au nom de leurs comptes.
+
+> **Accord écrit de l'utilisateur requis** avant de poser `DEMO_PUBLIQUE=oui` (qui l'active par défaut) ou
+> `DEMO_ACTIVITE_AUTO=oui` sur un serveur (AGENTS.md, « Jamais sans un oui explicite »). Aucune donnée réelle dans un
+> cabinet de démonstration : le seul garde-fou est le drapeau `est_demo`.
+
+- **Variable** : `DEMO_ACTIVITE_AUTO` dans `/home/deployer/missionpilot.env` : absente ou `auto` = active si et
+  seulement si `DEMO_PUBLIQUE=oui` ; `non` = coupée même en démonstration publique ; `oui` = forcée (à réserver à une
+  vérification locale). Lue au démarrage : `mp up -d --force-recreate api web` après tout changement. L'API journalise
+  alors « Activité de démonstration active… ».
+- **Vérifier** après le premier cycle (moins de 30 s), au rôle propriétaire :
+  `mp exec postgres psql -U missionpilot_owner -d missionpilot -c "SELECT cle, statut FROM jobs WHERE type = 'activite_demo' ORDER BY execute_a"` :
+  la tâche du mois est `termine`, les suites du mois sont `en_attente`. Les marqueurs : RUNBOOK, « Suivi ».
+- **Couper** : `DEMO_ACTIVITE_AUTO=non` dans `missionpilot.env`, puis `mp up -d --force-recreate api web` ; une
+  tâche déjà en file s'exécute sans rien écrire. Retirer `DEMO_PUBLIQUE` (voir (c)) la coupe aussi.
+- **Durée de vie** : chaque mission « socle » reçoit au plus 36 avenants (environ 3 ans) ; ensuite, l'incident
+  `plus_aucune_mission_alimentable` apparaît dans les journaux de l'API : remise à zéro ((d)) puis nouveau semis ((b)
+  et (e)). Volume par cabinet et par an : environ 1 000 feuilles, 52 factures et encaissements.
+- **SMTP** : le job n'envoie aucun e-mail ; la précaution de (b) (SMTP absent ou muet) reste valable pour les visiteurs.
 
 ## Limites connues
 
