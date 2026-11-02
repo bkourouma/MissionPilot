@@ -312,6 +312,23 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   par cabinet. Décisions et limites : mécanismes de levée des déclencheurs, IA simulée, deux comptes à 2FA au secret public,
   horodatage : §15 (cinq lignes « Tenant démo »). Mode d'emploi : RUNBOOK « Tenant démo ». Tests :
   `seed-tenant-demo*.test.ts`.
+  *Activité de démonstration automatique* (job `activite_demo`, `apps/api/src/activite-demo/`, migration `0584`,
+  2026-11-01, décision à valider : DECISIONS.md) : PREMIÈRE écriture automatique de l'application. Interrupteur
+  `DEMO_ACTIVITE_AUTO` (`auto` par défaut : active si et seulement si `DEMO_PUBLIQUE=oui` ; `oui` la force ; `non` la
+  coupe), lu au démarrage (option `activiteDemo` du worker, avertissement `AVERTISSEMENT_ACTIVITE_DEMO`) et relu à
+  chaque exécution par le handler. Une tâche mensuelle par cabinet (le 1er à 04:00 UTC, `planifier_activite_demo`,
+  §4) puis une tâche de suite chaque lundi (05:00 UTC, posée par le handler sous RLS) écrivent feuilles de temps
+  validées, déclarations de reste à faire, un jalon, une facture émise, un encaissement et un avenant de prolongation
+  (révision « depuis le découpage » figée), UNIQUEMENT dans les cabinets `est_demo` ET actifs (revérifiés dans la
+  transaction du cabinet, verrou consultatif par cabinet, `lock_timeout` 5 s, `statement_timeout` 30 s). Chaque
+  écriture est faite au nom d'un compte ACTIF du cabinet que la route correspondante accepterait (`activite-demo/acteurs.ts` :
+  mêmes permissions, même séparation des tâches ; l'auteur ne valide jamais ce qu'il a écrit, et l'associé n'est pas
+  dispensé pour l'approbation d'une facture), jamais sous une session ; le journal du job porte `utilisateur_id` nul
+  et des marqueurs `activite_demo.*` sans montant ni nom. Aucune notification ni e-mail (`evaluerAlertes` appelée
+  avec `notifier: false`, aucune relance de facture), aucune IA, aucun calcul hors moteur (`packages/engines`).
+  Une erreur métier n'annule que son étape (point de sauvegarde, incident `activite_demo_<étape>` sans contenu) ;
+  sérialisation, interblocage, délai et connexion font reprendre la tâche entière (idempotente). Risques : §15
+  (lignes « Activité de démonstration »). Tests : `activite-demo*.test.ts`, `config.test.ts`.
 
 ## 4. Isolation entre cabinets et cloisonnement des données
 
@@ -406,6 +423,14 @@ coûteux ; injection SQL, CSV, e-mail ou HTML.
   `cabinets.actif` et `cabinets.est_demo` ne se modifient que par le propriétaire des tables (déclencheur
   `cabinets_etat_plateforme_maj`, 42501 pour le rôle applicatif, y compris par une route de cabinet détournée) ou
   par ces fonctions. Total reproductible : `rg -n "GRANT EXECUTE" apps/api/migrations` rend 42 lignes au 2026-10-23.
+  Activité de démonstration automatique (2026-11-01, `0584`) : `planifier_activite_demo(p_cle text, p_execute_a
+  timestamptz, p_premier date)` (`SECURITY DEFINER`, `search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`,
+  `EXECUTE` accordé à `missionpilot_app` seul ; paramètres tous obligatoires, clé `activite_demo:AAAA-MM` imposée et
+  cohérente avec `p_premier`, qui doit être un 1er du mois, heure d'exécution dans le mois visé (UTC) ; une tâche par
+  cabinet `est_demo` ET actif ayant un collaborateur interne actif rattaché à un utilisateur actif et une mission
+  signée ou en cours ; lit ces tables de tous les cabinets en propriétaire mais ne renvoie qu'un nombre ; ne pose
+  JAMAIS de tâche de suite, que le handler écrit sous la RLS du cabinet) : 43 lignes `GRANT EXECUTE` avec `0584`.
+  Aucune table n'est créée (inventaires de `isolation.test.ts` inchangés). Test : `activite-demo-planification.test.ts`.
   Le redressement n'ajoute aucune fonction `SECURITY DEFINER` : ses déclencheurs sont
   d'invocateur et lisent sous la RLS du cabinet, `0480`–`0492`). Certains déclencheurs de contrôle
   sont aussi `SECURITY DEFINER` pour lire hors visibilité RLS (`0010`, `0013`,
@@ -3447,6 +3472,13 @@ Le numéro n'est accepté que dans la plage de test tant qu'un fournisseur est s
   local ; à n'activer que sur un serveur de démonstration sans donnée réelle (§3, §15). Les mots de passe des
   comptes de démonstration (cabinet et super admin de démonstration) sont des constantes PUBLIQUES du dépôt.
   Jamais posée par la CI.
+- **Activité de démonstration automatique** : `DEMO_ACTIVITE_AUTO` (`auto`, `oui` ou `non`, défaut `auto`, chaîne
+  vide = défaut ; toute autre valeur fait refuser le démarrage) ; `auto` = active si et seulement si
+  `DEMO_PUBLIQUE=oui` (`activiteDemoActive`, `config.ts`). Aucune valeur n'est refusée hors local (elle n'écrit que
+  dans des cabinets `est_demo`), mais l'API journalise `AVERTISSEMENT_ACTIVITE_DEMO` quand elle est active ; poser
+  `DEMO_PUBLIQUE=oui` sur un serveur l'active donc aussi (accord écrit de l'utilisateur, DEPLOIEMENT (g)). Jamais
+  posée par la CI ; en test, le défaut (avec `DEMO_PUBLIQUE=non`) est inactif et aucun worker de test ne planifie le
+  job (§3, §15).
 - **Côté web** : seule `API_URL` est lue (`next.config.mjs`,
   `lib/api-serveur.ts`), sans secret ; aucune variable `NEXT_PUBLIC_*`. Le
   navigateur n'atteint l'API que par `/api/*` relayé sur l'origine du web, de
@@ -3701,6 +3733,11 @@ Chaque ligne cite sa source ; ne rien y ajouter sans fichier.
 | Tenant démo, IA simulée : AUCUNE clé IA, aucun appel réseau ; les coûts IA, jetons et latences des contenus du cabinet sont des valeurs de DÉMONSTRATION simulées (gabarit déterministe ou fournisseur de test), sans rapport avec un coût réel, et les contenus IA restent des brouillons ou des textes modifiés (jamais « validés » d'office : AGENTS.md, « L'IA propose, l'expert dispose »). Garde : le semis REFUSE de tourner si `OPENROUTER_API_KEY` est définie (`ia-aide.ts`, `outils.ts`). Les chiffres métier sortent des moteurs de `packages/engines` via les routes, jamais d'un modèle ni écrits à la main | `db/tenant-demo/ia-qualite-standard/ia-aide.ts`, `db/tenant-demo/appels-offres-canaux/outils.ts` (`refuserCleIa`) |
 | Tenant démo, deux comptes à 2FA au secret PUBLIC : pour jouer la signature de bout en bout (409 `TFA_INACTIVE` sans second facteur), la phase `appels-offres-canaux` crée un associé signataire et un dirigeant du client signataire (`signataire.associe.2fa@tenant-demo.test`, `signataire.dirigeant.sicafe.2fa@tenant-demo.test`) dont la 2FA est activée avec `SECRET_2FA_DEMO_BASE32` de `db/seed-demo-2fa.ts`, secret TOTP PUBLIC dans le dépôt : n'importe qui calcule le code (`db:code-2fa-demo`) et, avec le mot de passe commun public, ouvre la session de ces deux comptes sur un serveur de démonstration. ACCEPTÉ explicitement pour la démonstration publique (décision à valider avec le reste du Tenant démo, DECISIONS.md) : ils n'ont que des droits de signature sur des documents de démonstration, et la connexion « un clic » les refuse (403 `CONNEXION_RAPIDE_2FA`, hors liste depuis `0583`). Désactivables par un associé | `db/tenant-demo/appels-offres-canaux/canaux-signataires.ts`, `db/seed-demo-2fa.ts` |
 | Tenant démo, horodatage et immuabilité : les écritures faites par les routes portent l'horloge RÉELLE du semis (une journée après la date fictive « 2026-10-24 » des données) ; l'antidatage ne couvre que les colonnes de dates prévues. `mission_methodes` est en ajout seul (`MPM03`) et NON antidatée : trois liaisons de méthode du lot 5 sont postérieures à la clôture de leur mission, ce qu'aucun contrôle ne rejette mais qu'un audit des dates relèverait. Le rétro-planning d'un appel d'offres est calculé à partir de la date réelle. Aucune de ces incohérences ne touche un chiffre de moteur ni l'isolation entre cabinets ; elles sont visibles dans les historiques | `db/tenant-demo/ia-qualite-standard/standard-missions.ts` (en-tête), `db/tenant-demo/appels-offres-canaux/ao-fiches-encours.ts`, `db/tenant-demo/contexte.ts` |
+| Activité de démonstration automatique (job `activite_demo`, 2026-11-01) : PREMIÈRE écriture automatique de l'application sur un serveur. Avec `DEMO_ACTIVITE_AUTO=auto` (défaut), poser `DEMO_PUBLIQUE=oui` l'active AUSSI : chaque mois puis chaque lundi, feuilles validées, déclarations, jalon, facture émise, encaissement et avenant de prolongation sont écrits dans TOUS les cabinets `est_demo` ET actifs, au nom de leurs comptes (chef, directeur, associé, gestionnaire choisis par `acteurs.ts`), journal du job à `utilisateur_id` nul. Accord ÉCRIT de l'utilisateur avant de poser l'une ou l'autre variable (DEPLOIEMENT (g)) ; `DEMO_ACTIVITE_AUTO=non` la coupe | `config.ts` (`activiteDemoActive`), `activite-demo/`, `migrations/0584_activite_demo_planification.sql` |
+| Activité de démonstration, bacs à sable des prospects : un cabinet `est_demo` créé par le super admin de démonstration (jusqu'à 30, `0582`) qui a un collaborateur rattaché à un utilisateur actif et une mission en vol reçoit lui aussi l'activité, au nom de ses comptes ; la seule frontière est le drapeau `est_demo` : aucune donnée réelle dans un cabinet de démonstration | `migrations/0584_activite_demo_planification.sql`, `migrations/0582_plateforme_bac_a_sable_demo.sql` |
+| Activité de démonstration, code miroir : les transitions de feuille (soumission, validation), de facture (soumission, approbation), de révision (création, validation) et d'affectation recopient les contrôles des routes (droits, séparation des tâches, verrous, budget figé), chaque bloc commenté « miroir de <route>:<lignes> » ; une évolution d'une de ces routes non reportée fait diverger le job (relecture : contrôle « Activité de démonstration » de la review-checklist) | `apps/api/src/activite-demo/`, `routes/feuilles-temps.ts`, `routes/factures.ts`, `routes/budget.ts`, `routes/affectations.ts` |
+| Activité de démonstration, `planifier_activite_demo` (`0584`) : `SECURITY DEFINER`, lit cabinets, collaborateurs, utilisateurs et missions de TOUS les cabinets (propriétaire, hors RLS) pour ne renvoyer qu'un nombre ; du SQL arbitraire du rôle applicatif peut l'appeler pour n'importe quel mois et poser une tâche mensuelle par cabinet de démonstration éligible (sans effet si l'activité est inactive : le handler relit la configuration et n'écrit rien ; la clé du mois est alors consommée) | `migrations/0584_activite_demo_planification.sql`, `test/activite-demo-planification.test.ts` |
+| Activité de démonstration, exploitation : une tâche mensuelle exécutée pendant que l'activité est inactive consomme la clé du mois sans rien écrire (remise en file par SQL propriétaire, RUNBOOK) ; un mois entier manqué n'est pas rattrapé ; une semaine rattrapée ne reçoit que ses feuilles ; un verrou tenu plus de 5 s ou une instruction de plus de 30 s fait reprendre la tâche entière (3 essais, idempotente) ; volume par cabinet et par an : environ 1 000 feuilles, 52 factures et encaissements, 12 versions de budget par mission socle, journal `activite_demo.*` en ajout seul ; valeurs de départ à valider (DECISIONS.md) | `activite-demo/commun.ts`, `jobs/worker.ts`, `docs/workflows/RUNBOOK.md` |
 | Dépendances de développement : 15 constats via `vitest`                                                                                          | §14                                                                       |
 | Registre des traitements, effacement, durées de conservation des autres données personnelles : non faits                                         | §12                                                                       |
 

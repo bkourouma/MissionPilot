@@ -16,13 +16,16 @@ import { messageBriefIndisponible, requeteBrief, type BriefApi } from "../../lib
 import { formaterDate, libelleDevise } from "../../lib/format";
 import {
   alertesDerive,
+  dateReferenceIndicateurs,
   indicateursAffiches,
+  lienIndicateurs,
   periodeParDefaut,
   requeteIndicateurs,
   type ElementMission,
   type ReponseIndicateurs,
 } from "../../lib/indicateurs";
 import { entreesAutorisees, grouperEntrees } from "../../lib/navigation";
+import { aujourdhui } from "../../lib/periode";
 import { obtenirSession } from "../../lib/session";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
@@ -30,13 +33,19 @@ export const metadata: Metadata = { title: "Tableau de bord" };
 export default async function TableauDeBord() {
   const { utilisateur } = await obtenirSession();
   const modules = entreesAutorisees(utilisateur.roles).filter((e) => e.id !== "tableau-de-bord");
+  // Semaine en cours (lundi au dimanche) ; jalons et feuilles évalués au plus tard aujourd'hui.
+  const jour = aujourdhui();
+  const periode = periodeParDefaut(jour);
+  const requetePilotage = requeteIndicateurs({
+    ...periode,
+    niveau: "mission",
+    date_reference: dateReferenceIndicateurs(periode, jour),
+  });
   // Pilotage du cabinet (parcours C) : une seule requête de niveau « mission » sert à la fois
   // les indicateurs du cabinet et les alertes de dérive.
   const [pilotage, brief] = await Promise.all([
     aPermission(utilisateur.roles, "indicateurs.cabinet")
-      ? chargerServeur<ReponseIndicateurs>(
-          `/api/indicateurs/cabinet?${requeteIndicateurs({ ...periodeParDefaut(), niveau: "mission" })}`,
-        )
+      ? chargerServeur<ReponseIndicateurs>(`/api/indicateurs/cabinet?${requetePilotage}`)
       : null,
     // Brief du jour (AUT-07) : résumé seulement, l'écran /brief porte le détail.
     aPermission(utilisateur.roles, "brief.lire") ? chargerServeur<BriefApi>(requeteBrief()) : null,
@@ -63,7 +72,7 @@ export default async function TableauDeBord() {
       {pilotage ? (
         <section aria-labelledby="titre-pilotage" className="mp-pile">
           <h2 id="titre-pilotage" className="mp-section__titre">
-            Pilotage du mois
+            Pilotage de la semaine
           </h2>
           {pilotage.ok ? (
             <>
@@ -76,14 +85,16 @@ export default async function TableauDeBord() {
               </Carte>
               <p className="mp-texte-doux">
                 {`Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${libelleDevise(pilotage.donnees.devise)}. `}
-                <Link href="/indicateurs">Changer de période ou de niveau de lecture</Link>
+                <Link href={lienIndicateurs(periode)}>
+                  Changer de période ou de niveau de lecture
+                </Link>
               </p>
               <GrilleIndicateurs indicateurs={indicateursAffiches(pilotage.donnees)} />
             </>
           ) : (
             <p className="mp-texte-doux">
               {`Indicateurs indisponibles : ${pilotage.message}`}{" "}
-              <Link href="/indicateurs">Ouvrir les indicateurs</Link>
+              <Link href={lienIndicateurs(periode)}>Ouvrir les indicateurs</Link>
             </p>
           )}
         </section>

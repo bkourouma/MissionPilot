@@ -64,6 +64,7 @@ n'écrivent les `.env` : leur création revient à l'utilisateur. Variables
 | `TOTP_REQUIS`               | `oui` impose la 2FA aux rôles sensibles de tous les cabinets (plancher plateforme)     | non                            |
 | `CONNEXION_RAPIDE_DEMO`     | `oui` : liste des comptes de démonstration sur la page de connexion, un clic ouvre la session **sans mot de passe** (recette locale, voir « Cabinet de démonstration ») ; défaut `non` ; `oui` refusé au démarrage hors `NODE_ENV` local avec bases locales | jamais (interdit)  |
 | `DEMO_PUBLIQUE`             | `oui` : ouvre la connexion « un clic » (`GET /api/auth/demo`, `POST /api/auth/demo/connexion` et `/connexion-plateforme`) dans N'IMPORTE QUEL `NODE_ENV`, production comprise, pour les SEULS cabinets et super admins marqués `est_demo` ; le mot de passe du super admin de démonstration n'est refusé que si elle est inactive ; défaut `non` ; journalise un avertissement hors développement local ; relue au démarrage de l'API (recréer `api` et `web`) ; **à n'activer que sur un serveur de démonstration** (mots de passe de démonstration publics, SECURITY.md §3 et §15) | non (jamais en production réelle) |
+| `DEMO_ACTIVITE_AUTO`        | activité de démonstration automatique (job `activite_demo`, voir « Activité de démonstration automatique ») : `auto` (défaut) = active si et seulement si `DEMO_PUBLIQUE=oui` ; `oui` la force (vérification locale) ; `non` la coupe ; n'écrit que dans les cabinets `est_demo` ET actifs ; lue au démarrage de l'API (recréer `api`) et relue par le job à chaque exécution ; **première écriture automatique sur un serveur : accord écrit de l'utilisateur** (DEPLOIEMENT (g)) | non (jamais en production réelle) |
 | `STORAGE_DRIVER`            | `disque` (défaut) ; `s3` est refusé au démarrage (non implémenté)                      | non                            |
 | `STORAGE_DIR`               | dossier **absolu** des fichiers téléversés, hors du dépôt, jamais servi en statique ; défaut en développement `~/.missionpilot/stockage` (en test : dossier temporaire) | oui |
 | `FICHIER_TAILLE_MAX_OCTETS` | plafond par fichier téléversé (défaut 15 Mo, de 1 Kio à 100 Mo)                        | non                            |
@@ -454,7 +455,8 @@ et des questionnaires, suivi quotidien des KPI, générations IA, purge des
 fichiers orphelins, file d'e-mails, anonymisation du texte des générations IA
 `ia_conservation` et purge des rapports `purge_rapports`, une fois par jour et par
 cabinet concerné ; lot 6 : extraction et structuration des documents importés, à
-l'envoi, et `ingestion_maintenance` une fois par jour, voir « Import de documents ») ;
+l'envoi, et `ingestion_maintenance` une fois par jour, voir « Import de documents » ; activité de démonstration
+`activite_demo`, seulement si `DEMO_ACTIVITE_AUTO` l'active, voir « Activité de démonstration automatique ») ;
 `JOBS_WORKER=inactif` le coupe. L'IA est
 désactivée par défaut dans chaque cabinet : tant qu'un associé ne l'active pas
 (`/parametres/ia`), les générations utilisent les gabarits déterministes. L'interface est sur
@@ -526,6 +528,61 @@ ce lot n'a pas été vérifiée dans un navigateur** (note du lot) : les libell�
 - **Utiliser** : sur un brouillon IA, bouton « Demander une contre-analyse » du panneau de contenu IA (droit
   `ia.utiliser`). Le résultat est un brouillon IA à part, non bloquant ; le brouillon relu n'est jamais modifié.
   Une seule revue à la fois par brouillon ; le plafond de la mission, le coupe-circuit ou le niveau N0 la refusent.
+
+## Activité de démonstration automatique (job `activite_demo`)
+
+Décision à valider : `docs/DECISIONS.md`, « Activité de démonstration automatique (2026-11-01) » ; sécurité :
+`docs/governance/SECURITY.md` §3 et §15 ; serveur : `docs/workflows/DEPLOIEMENT.md` (g). Le job fait vivre les
+cabinets de démonstration (`est_demo` ET actifs) : la semaine en cours a des temps validés, une mission en dérive,
+un jalon, une facture et un encaissement, et les 11 cartes du tableau de bord sont renseignées.
+
+- **Activation** : `DEMO_ACTIVITE_AUTO` (`auto` par défaut = active si et seulement si `DEMO_PUBLIQUE=oui` ;
+  `oui` force ; `non` coupe). L'API journalise l'avertissement « Activité de démonstration active… » au démarrage
+  quand elle est active. Le worker doit tourner (`JOBS_WORKER`, actif par défaut hors test).
+- **Planification** : le 1er de chaque mois à 04:00 UTC, une tâche par cabinet de démonstration éligible (clé
+  `activite_demo:AAAA-MM`, fonction `planifier_activite_demo`, migration `0584`) ; elle traite les semaines déjà
+  commencées du mois (au plus 6), pose l'avenant de prolongation du mois et met en file une tâche de SUITE pour
+  chaque lundi restant du mois (clé `activite_demo:AAAA-MM:AAAA-MM-JJ`, 05:00 UTC). Un mois entier manqué n'est pas
+  rattrapé ; une semaine rattrapée après une panne ne reçoit que ses feuilles.
+- **Ce qui est écrit** (au nom des comptes du cabinet, jamais d'e-mail) : une feuille validée du lundi au vendredi
+  par collaborateur interne actif rattaché à un utilisateur actif (rien si une feuille existe déjà), une déclaration
+  de reste à faire qui tient UNE mission en dérive, puis, pour la semaine en cours seulement, un jalon atteint, une
+  facture émise et un encaissement ; chaque mois, un avenant de prolongation par mission « socle ».
+- **Suivi** (SQL au rôle propriétaire ; sur le serveur : `mp exec postgres psql -U missionpilot_owner -d missionpilot -c "…"`) :
+
+  ```sql
+  SELECT cabinet_id, cle, statut, tentatives, execute_a, erreur FROM jobs
+   WHERE type = 'activite_demo' ORDER BY execute_a DESC LIMIT 30;
+  SELECT cabinet_id, cree_le, action, entite, entite_id, details FROM journal_audit
+   WHERE action LIKE 'activite\_demo.%' ORDER BY cree_le DESC LIMIT 50;
+  ```
+
+  Le marqueur `activite_demo.execution` résume chaque exécution (semaines, feuilles, factures, encaissements,
+  jalons, prolongations, échecs) ; tous les marqueurs ont `utilisateur_id` nul et ne portent ni montant ni nom.
+  Les échecs isolés sont consignés dans les journaux de l'API, sans contenu : `activite_demo_<étape>` (feuille,
+  derive, alertes, jalon, facture, encaissement, prolongation), `activite_demo_granularite` (cabinet saisi à
+  l'heure, non pris en charge), `activite_demo_plafond` (plus de 60 collaborateurs ou 50 missions lus) et
+  `plus_aucune_mission_alimentable` (plus aucune mission prolongeable : relancer le semis, DEPLOIEMENT (d) et (e)).
+- **Reprise** d'une tâche en échec (3 essais épuisés), au rôle propriétaire :
+
+  ```sql
+  UPDATE jobs SET statut = 'en_attente', tentatives = 0, erreur = NULL, execute_a = now()
+   WHERE type = 'activite_demo' AND cle = 'activite_demo:2026-11' AND statut = 'echec';
+  ```
+
+  Une tâche mensuelle exécutée pendant que l'activité était inactive est « terminée » sans rien écrire : la remettre
+  en file de la même façon avec `statut = 'termine'` dans la condition (le job est idempotent : feuilles uniques par
+  semaine, marqueurs relus avant chaque écriture).
+- **Couper** : `DEMO_ACTIVITE_AUTO=non`, puis recréer l'API (`mp up -d --force-recreate api web`) ; plus aucune
+  tâche n'est planifiée et une tâche déjà en file s'exécute sans rien écrire. Retirer `DEMO_PUBLIQUE` coupe aussi
+  l'activité tant que `DEMO_ACTIVITE_AUTO` vaut `auto`.
+- **En développement** : semer Lagune puis le Tenant démo, poser `DEMO_ACTIVITE_AUTO=oui` dans `.env` (à la main par
+  l'utilisateur) et lancer `pnpm --filter @missionpilot/api dev` : après un cycle du worker (moins de 30 s), la
+  tâche du mois est `termine` et ses suites sont en attente. Vérification de bout en bout : spécification, §8.
+- **Tests** : `activite-demo-planification`, `activite-demo-socle`, `activite-demo-sources` (puis, avec les autres
+  territoires, `activite-demo`, `activite-demo-evenements`, `activite-demo-prolongation`, `activite-demo-durabilite`).
+  Les tests planifient le mois 2099-01 (jamais échu pour un autre worker) et démarquent leurs cabinets en fin de
+  fichier.
 
 ## Import de documents (états financiers, due diligence, amorçage du standard)
 

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { TYPE_JOB_ACTIVITE_DEMO } from "../src/activite-demo/planification.js";
 import { trousseauDepuisConfig } from "../src/auth/chiffrement.js";
 import { TYPE_JOB_EVALUATION_OPENROUTER } from "../src/agents/evaluations-openrouter.js";
 import { TYPE_JOB_DETECTION_AUTOMATISATION } from "../src/automatisation/detection.js";
@@ -73,6 +74,8 @@ const DECLARES: Record<string, string> = {
   TYPE_JOB_INGESTION_EXTRACTION,
   TYPE_JOB_INGESTION_STRUCTURATION,
   TYPE_JOB_INGESTION_MAINTENANCE,
+  // Activité de démonstration automatique (cabinets est_demo, migration 0584).
+  TYPE_JOB_ACTIVITE_DEMO,
 };
 
 /** Constantes exclues de REGISTRE_JOBS, avec la raison (handler fourni par le serveur). */

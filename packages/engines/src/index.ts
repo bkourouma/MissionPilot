@@ -37,3 +37,5 @@ export * from "./redressement/index";
 export * from "./services-candidats/guichets";
 // Vague 4, lot 4c : rapport d'avancement hebdomadaire au client (AUT-10).
 export * from "./avancement/index";
+// Activité de démonstration automatique (job « activite_demo », 2026-11-01).
+export * from "./activite-demo/index";

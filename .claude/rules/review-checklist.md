@@ -429,6 +429,24 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   `UNIQUE (mission_id, semaine)`, un échec isolé consigné SANS contenu (`sansContenu` : code, contrainte, table).
   Tests : `avancement-hebdo.test.ts`,
   `avancement-ia.test.ts`, `packages/engines` (moteur).
+- **Activité de démonstration automatique** (job `activite_demo`, migration `0584`, `apps/api/src/activite-demo/`,
+  moteur `packages/engines/src/activite-demo`, 2026-11-01) : n'écrit QUE dans les cabinets `est_demo` ET actifs,
+  revérifiés dans la transaction du cabinet ; inactive par défaut en test (`DEMO_ACTIVITE_AUTO=auto` suit
+  `DEMO_PUBLIQUE`), relue à chaque exécution. Planification par `planifier_activite_demo` (`SECURITY DEFINER` stricte :
+  clé `activite_demo:AAAA-MM`, 1er du mois, heure dans le mois, `search_path` figé, `EXECUTE` au rôle applicatif seul) ;
+  les suites hebdomadaires sont posées par le handler, jamais par la fonction, et sans `signalerJobCree()`. Chaque
+  écriture est faite au nom d'un acteur que la route accepterait (`acteurs.ts`, `aPermission`, `satisfaitRole`) :
+  l'auteur ne valide JAMAIS ce qu'il a écrit (feuille, facture, révision), l'associé n'est pas dispensé pour
+  l'approbation d'une facture. Toute transition recopiée d'une route porte le commentaire « miroir de <route>:<lignes> »
+  et se relit contre la route à chaque diff qui touche l'une ou l'autre. Une étape tient dans un point de sauvegarde
+  (`dansPointDeSauvegarde`, SQL en chaînes constantes) ; une erreur isolable est consignée SANS contenu
+  (`sansContenu`) ; `40001`, `40P01`, `55P03`, `57014`, connexion et `ErreurJobDefinitive` remontent. Les marqueurs
+  `activite_demo.*` (journal, `utilisateur_id` nul) ne portent ni montant ni nom (`poserMarqueur` refuse ces clés).
+  Aucun e-mail ni notification : `evaluerAlertes(…, { notifier: false })` partout, aucune relance, aucun handler qui
+  renvoie une notification. Les chiffres viennent du moteur : aucun `SUM(`, `AVG(`, arrondi, `process.env` ni import
+  des semis ou de l'IA dans le module (`test/activite-demo-sources.test.ts`, recherche n° 31). Toute liste lue porte
+  un `LIMIT $n`. Tests : `activite-demo-planification`, `activite-demo-socle`, `activite-demo-sources`,
+  `activite-demo`, `activite-demo-evenements`, `activite-demo-prolongation`, `activite-demo-durabilite`.
 - **Agent contradicteur** (AGT-06, lot 4c ; `0279`, `agents/contradicteur.ts`, `routes/agents.ts`) : à la demande
   d'un consultant SEULEMENT (`AGENTS_SUR_DEMANDE_SEULEMENT`, 409 `AGENT_SUR_DEMANDE_SEULEMENT` sans l'origine
   « consultant » : aucune règle d'automatisation ne le déclenche), par `executerAgent` donc par l'orchestrateur
@@ -512,8 +530,10 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   `0549` et au-delà est attribuée CENTRALEMENT par le superviseur (jamais « prendre le
   numéro suivant » soi-même) : `0549` canaux (alerte KPI), `0550` brief (limiteur
   persistant), `0551` redressement (rapports de clôture), `0552` dossier (rapport d'état
-  financier), `0560`–`0563` consommées par les services candidats (`0564`–`0579` libres), `0553`–`0559`
-  non attribués.
+  financier), `0560`–`0563` consommées par les services candidats (`0564`–`0569` libres), `0553`–`0559`
+  non attribués ; plateforme `0570`–`0573` et démonstration `0580`–`0583` consommées, `0584` consommée par
+  l'activité de démonstration automatique (2026-11-01) : prochains libres plateforme `0574`–`0579`, démonstration
+  `0585`–`0589`.
   Une redéfinition de `tentatives_auth_regles` ou des CHECK de `rapports_mission` porte
   un numéro supérieur à la dernière (`0550`, `0552`) : voir les deux contrôles dédiés.
   Une fonction SQL déjà définie se redéfinit par `CREATE OR REPLACE` dans une
@@ -534,7 +554,7 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
   PRV `0244`, QUA `0291`, AGT aucun (plage `0260`–`0279` épuisée : `0278` et `0279` consommés), AUT `0309`–`0319`, AO-A `0368`–`0379`, NOT `0405`–`0419`,
   PLA `0427`–`0428` puis `0433`–`0439`, CAP `0468`–`0469` puis `0473`–`0479`, redressement
   `0493`–`0499`, due diligence `0510` puis `0512`–`0519`, ingestion de documents `0527`–`0539`
-  (plage `0520`–`0539`, `0521`–`0526` consommées), services candidats `0564`–`0579`.
+  (plage `0520`–`0539`, `0521`–`0526` consommées), services candidats `0564`–`0569`.
 - **Dates métier** : une date bornée par un `CHECK` SQL utilise `dateIsoBorneeSchema`
   (`packages/shared/src/schemas/commun.ts`, 2000 à 2100) ; le SQLSTATE 23514 qui
   échappe au schéma se traduit en 400, jamais en 500 (couches d'erreurs des domaines,
@@ -792,6 +812,27 @@ inchangé, les listes sont identiques, sauf les numéros de ligne cités dans le
 comparaison de fichiers (`git diff --stat 9c798e2 HEAD` : 63 fichiers, tous des lots 13a et 13b ; aucune migration, aucune route,
 aucun `package.json` ni lockfile), non par supposition. Les commentaires de la liste de commandes ci-dessous citent les lots jusqu'au
 12 : les lots 13a et 13b n'y changent que les numéros de ligne signalés (n° 7, 8, 18, 19) et la recherche large du n° 22.
+
+**Relevé ATTENDU après l'activité de démonstration automatique (2026-11-01, territoires T1 à T5).** Il remplace les
+relevés suivants pour les lignes qui changent ; à confirmer par une relance des commandes EXACTES sur la tête intégrée
+(la recherche n° 11, par script hors dépôt, est à relever après intégration). Le chantier ajoute une migration (`0584`,
+une fonction `SECURITY DEFINER`), un schéma partagé strict (`schemas/activite-demo.ts`), un module d'API
+(`apps/api/src/activite-demo/`) et un moteur (`packages/engines/src/activite-demo/`), sans route ni table :
+
+| N° | Attendu | Explication |
+| --- | --- | --- |
+| 3 | 16 lignes | inchangé : `DEMO_ACTIVITE_AUTO` est lue par le schéma de `loadConfig`, aucune lecture directe |
+| 6 | 0 | inchangé : aucun agrégat SQL dans `activite-demo/` (garde `activite-demo-sources.test.ts`) |
+| 7 | 19 lignes | inchangé : les lectures du module sont en `LIMIT $n` (garde du même test) |
+| 8 | 24 lignes | inchangé : aucun arrondi dans le module (calculs du moteur) |
+| 9 | 7 lignes | inchangé : aucun `console.*` (incidents par `journaliserIncident`) |
+| 10 | inchangé | aucune route ajoutée |
+| 11 | à relever après intégration | gabarits du module : seule interpolation du socle, la constante `COLONNES_FACTURE_PAIEMENT` (`lecture.ts`) |
+| 12 | 905 `z.object` (894 stricts, mêmes 11 non stricts) | +1 : `chargeActiviteDemoSchema` (`schemas/activite-demo.ts`, `.strict()`) |
+| 13 | 241 migrations, uniquement des ajouts | +1 : `0584_activite_demo_planification.sql` |
+| 16 | 43 lignes | +1 : `0584` (`planifier_activite_demo`, `SECURITY DEFINER`, `search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `EXECUTE` au rôle applicatif) |
+| 30 | inchangé | les suites du job sont différées : aucun `signalerJobCree()` dans le module |
+| 31 (neuve) | 0 ligne | garde du module de l'activité de démonstration : ni semis, ni IA, ni notification, ni variable d'environnement, ni arrondi |
 
 **Relevé du 2026-10-24, branche orch/2026-10-24-tenant-demo.** Copie de travail `tenant-demo-lot-8` (branche
 `orch/2026-10-24-tenant-demo-lot-8`, HEAD `231b25e`, base `a2d7be6` = PR n° 18 super admin fusionnée dans `main`) ; décomptes de fichiers et n° 8, 11 et 28 recomptés au lot 10 sur la tête d'intégration `dc44786`. Il REMPLACE le
@@ -1117,6 +1158,7 @@ console.log(n,s.length);console.log(s.join("\n"));'
 #     (`9aba318`), puis 903 avec 11 non stricts aujourd'hui (il avait aussi retrouvé 889 et 11 sur l'état d'avant 8b,
 #     `git archive 6e17248`, et 867 et 0 non strict avant 4c). L'attribution du +2 de `rapports` au lot 4b est
 #     approximative (le lot 2 touche aussi les rapports).
+#     Activité de démonstration automatique (2026-11-01) : 905 attendus (+1, `chargeActiviteDemoSchema`, strict).
 
 # 13. Migration existante modifiée ou supprimée dans l'historique git. Attendu : 0 ligne (tête super admin du 2026-10-23 : 239 fichiers,
 #     0 ligne ; les 7 de plus sont `0570`–`0573` et `0580`–`0582` ; lot 7 : 240 fichiers avec `0583`, et 3 lignes (`0570`, `0573`, `0580`) car
@@ -1142,6 +1184,7 @@ git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # 0289), lot 4b (0225, 0552), lot 5a (0425, 0426, 0429, 0430, 0431) ; le lot 8a n'en pose aucune.
 # `origin/main` compte 180 migrations (PR n° 12 à 14 fusionnées, égal à `main` local au 2026-10-21).
 # Les 52 sont à tenir pour immuables dès qu'elles sont commitées.
+# Activité de démonstration automatique (2026-11-01) : 241 fichiers, +1 ligne « A » (`0584_activite_demo_planification.sql`).
 
 # 14. Textes d'interface en anglais (échantillon). Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
@@ -1186,6 +1229,8 @@ pnpm audit --prod
 #     vague 2 (`planifier_brief_quotidien` `0304`, `anonymiser_copilote_actions` `0274`,
 #     `planifier_purge_copilote` `0274`) ont toutes search_path figé et REVOKE ALL FROM PUBLIC. Les
 #     fonctions `est_*` de `0243` et `0267` sont d'appelant, sous la RLS du cabinet
+#     Activité de démonstration automatique (2026-11-01) : 43 lignes (+1, `0584`, `planifier_activite_demo`, relue :
+#     `SECURITY DEFINER`, `SET search_path = public, pg_temp`, `REVOKE ALL … FROM PUBLIC`, `GRANT EXECUTE … TO missionpilot_app`).
 rg -n "GRANT EXECUTE" apps/api/migrations
 
 # 17. Écritures rejouables : tout en-tête Idempotency-Key passe par
@@ -1312,4 +1357,9 @@ rg -n "DebloqueurRendu" apps/web/src/app/layout.tsx
 #     `jobs/worker.ts:235` ; 3 commentaires). Tout appel dans `mettreEnFileExtraction` ou `mettreEnFileStructuration` (INSERT dans la
 #     transaction de l'appelant : le worker lirait avant la validation) ou tout écouteur hors `jobs/worker.ts` est un écart
 rg -n "signalerJobCree\(|ecouterJobCree\(" apps/api/src --glob '!*.test.*'
+
+# 31. Module de l'activité de démonstration (job `activite_demo`, 2026-11-01) : ni semis de démonstration, ni IA, ni
+#     notification, ni variable d'environnement, ni arrondi (les chiffres viennent du moteur). Attendu : 0 ligne
+#     (commentaires compris ; même garde dans `apps/api/test/activite-demo-sources.test.ts`)
+rg -n "tenant-demo|/seed|/ia/|notifier\(|process\.env|Math\." apps/api/src/activite-demo
 ```

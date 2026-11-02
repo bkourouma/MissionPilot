@@ -16,6 +16,7 @@ import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate, libelleDevise } from "../../../lib/format";
 import {
   alertesDerive,
+  dateReferenceIndicateurs,
   indicateursAffiches,
   lireFiltresIndicateurs,
   NIVEAU_LIBELLES,
@@ -24,6 +25,7 @@ import {
   type ElementMission,
   type ReponseIndicateurs,
 } from "../../../lib/indicateurs";
+import { aujourdhui } from "../../../lib/periode";
 import { exigerPermission } from "../../../lib/session";
 
 export const metadata: Metadata = { title: "Indicateurs du cabinet" };
@@ -34,15 +36,23 @@ export default async function PageIndicateurs({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("indicateurs.cabinet");
-  const f = lireFiltresIndicateurs(await searchParams);
+  const jour = aujourdhui();
+  const f = lireFiltresIndicateurs(await searchParams, jour);
+  // Jalons et feuilles évalués à la fin de la période, jamais après aujourd'hui.
+  const dateReference = dateReferenceIndicateurs(f, jour);
+  // Lien « Réessayer » : la période et le niveau suffisent, la date de référence se recalcule.
   const requete = requeteIndicateurs(f);
+  const requeteApi = requeteIndicateurs({ ...f, date_reference: dateReference });
+  const requeteMissions = requeteIndicateurs({
+    ...f,
+    niveau: "mission",
+    date_reference: dateReference,
+  });
   const [r, missions] = await Promise.all([
-    chargerServeur<ReponseIndicateurs>(`/api/indicateurs/cabinet?${requete}`),
+    chargerServeur<ReponseIndicateurs>(`/api/indicateurs/cabinet?${requeteApi}`),
     f.niveau === "mission"
       ? Promise.resolve(null)
-      : chargerServeur<ReponseIndicateurs>(
-          `/api/indicateurs/cabinet?${requeteIndicateurs({ ...f, niveau: "mission" })}`,
-        ),
+      : chargerServeur<ReponseIndicateurs>(`/api/indicateurs/cabinet?${requeteMissions}`),
   ]);
   const parMission = f.niveau === "mission" ? r : missions;
 
@@ -86,7 +96,7 @@ export default async function PageIndicateurs({
       {f.corrigee ? (
         <Alerte tonalite="attention" annonce="status">
           <p>
-            Période invalide ou de plus de 366 jours : la période par défaut (mois en cours) est
+            Période invalide ou de plus de 366 jours : la période par défaut (semaine en cours) est
             affichée.
           </p>
         </Alerte>

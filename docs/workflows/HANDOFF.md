@@ -9,6 +9,44 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
+## Branche `feat/activite-demo-auto` — 2026-11-01 (tableau de bord hebdomadaire et activité de démonstration)
+
+Worktree `D:\APP\MissionPilot-worktrees\activite-demo`, base `origin/main` @ `dfec1a3`.
+
+**Demande.** Tableau de bord : période par défaut = semaine en cours (lundi → dimanche) au lieu du seul jour, au moins une
+mission hors budget, les 11 indicateurs renseignés, via un job d'arrière-plan qui ajoute chaque mois des données s'il n'y en a pas.
+
+**Fait.**
+- Web : période ISO de la semaine, `date_reference = min(au, aujourd'hui)`, titre « Pilotage de la semaine », lien vers
+  `/indicateurs?du=…&au=…`, repli « semaine en cours » signalé quand la période dépasse 366 jours.
+- Job `activite_demo` (migration `0584`, `apps/api/src/activite-demo/`, moteur `packages/engines/src/activite-demo/`) : tâche
+  mensuelle le 1er à 04:00 UTC + suites le lundi à 05:00 UTC ; seulement dans les cabinets `est_demo` ET `actif` ; feuilles validées,
+  dérive d'une mission (reste à faire, bande ]80 ; 160] ‰), jalon, facture, encaissement, avenant mensuel de prolongation
+  (nouvelle version révisée validée, FIN-03 respecté) ; alertes sans notification ; marqueurs `activite_demo.*` au journal.
+  Activation `DEMO_ACTIVITE_AUTO` = `auto` (suit `DEMO_PUBLIQUE=oui`) | `oui` | `non` ; avertissement au démarrage.
+- Docs : DECISIONS (entrée « Activité de démonstration automatique (2026-11-01) », À VALIDER), SECURITY §3/§4/§10/§15,
+  RUNBOOK, DEPLOIEMENT (g), review-checklist, CODING_STANDARDS (0584 consommé ; démonstration libre `0585–0589`).
+- Correctifs après recette : besoin hebdomadaire de l'avenant ramené au pas de 0,5 j (affectation proratisée → 400
+  `REQUETE_INVALIDE` sur Kora) ; encaissement : facture du job échue avant la semaine suivante en tête (délai de paiement
+  raccourci par un visiteur → relances FIN-09) ; redéclaration du reste à faire : mission visible, verrouillée, non clôturée.
+- Vérifié : typecheck, lint, prettier, moteur 101/101, web 23/23, shared 4/4, suites API `activite-demo*` (108 avant les
+  correctifs) ; en application (base `mp_verif_actdemo`, Lagune) : 3 avenants, 0 échec, tableau de bord associé avec les
+  11 cartes, Kora « Dérive au-delà de 5 % » (127 j pour 113 j), période du 26 oct. au 1er nov. 2026.
+
+**État.** PR bkourouma/MissionPilot#26 ouverte (2026-11-01), CI verte 5/5 (suite API complète en 4 partitions), Auto-fix
+activé sur la PR.
+
+**Reste.** Fusion et déploiement : accord explicite de l'utilisateur ; le serveur de démonstration a `DEMO_PUBLIQUE=oui`,
+donc le déploiement ACTIVE le job (`DEMO_ACTIVITE_AUTO=auto`) — poser `DEMO_ACTIVITE_AUTO=non` pour l'éviter.
+Non vérifié dans le navigateur : vue directeur (3 cartes « Réservé »), Tenant démo. Nettoyage local (accord requis pour
+supprimer) : API 4100 et web 3100 de vérification, bases `mp_verif_actdemo`, `mp_actdemo_test`, `mp_actdemo2_test`.
+
+**Pièges.** Tests API : base dédiée par agent (`mp_actdemo_test`, `mp_actdemo2_test`). `config.test` « ports simulés » et
+les tests de performance d'ingestion du moteur dépassent leur délai en local avec couverture (préexistant, environnement).
+Le job exige une saisie à la demi-journée (cabinet à l'heure : sauté, incident `activite_demo_granularite`).
+
+---
+
 ## Branche `fix/semis-demo-horloge-reelle` — 2026-10-31 (semis du Tenant démo et horloge réelle)
 
 **Incident du 2026-10-31 sur le serveur.** Deuxième essai de `deploy/activer-demo.sh` : Lagune complété, puis le Tenant démo échoue en

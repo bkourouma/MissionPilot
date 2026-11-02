@@ -40,6 +40,12 @@ export interface OptionsWorker {
   delaiReprise?: (tentative: number) => number;
   /** Délai du cycle de rattrapage unique après un cycle de réveil resté vide (défaut 2 s). */
   delaiRattrapageMs?: number;
+  /**
+   * Planifie l'activité de démonstration automatique (job « activite_demo », DT14) : vrai
+   * seulement si server.ts l'a décidé (`activiteDemoActive(config)`) ; faux par défaut, donc aucun
+   * worker créé sans cette option (tests compris) ne la planifie.
+   */
+  activiteDemo?: boolean;
   journal?: (message: string) => void;
   /** Rappelé à la fin de chaque cycle de la boucle, avec le nombre de jobs traités (utile aux tests). */
   apresCycle?: (traites: number) => void;
@@ -157,7 +163,9 @@ export class WorkerJobs {
         `${Math.round((this.options.delaiBlocageMs ?? DELAI_BLOCAGE_JOB_DEFAUT_MS) / 1000)} seconds`,
       ]),
     );
-    await planifierRecurrents(this.database, maintenant);
+    await planifierRecurrents(this.database, maintenant, {
+      activiteDemo: this.options.activiteDemo === true,
+    });
     const resultats: ResultatJob[] = [];
     for (let i = 0; i < MAX_JOBS_PAR_CYCLE; i++) {
       const r = await this.traiterUn();

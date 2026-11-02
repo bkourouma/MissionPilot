@@ -1219,3 +1219,87 @@ Statut : **HYPOTHÈSE APPLIQUÉE, À VALIDER PAR L'UTILISATEUR** (branche `orch/
   une révision « depuis le découpage ») ; FIN-02 (coûts et marges réservés aux associés et gestionnaires) ; aucune migration.
 - **Alternatives non retenues** : taux à la date du coût (cours du jour) plutôt que le taux figé ; conversion des taux de vente
   spécifiques des collaborateurs (`taux_vente_specifique`) et des débours d'une autre devise, toujours écartés comme avant.
+
+## Activité de démonstration automatique (2026-11-01)
+
+Statut : **À VALIDER PAR L'UTILISATEUR**. Demande : au moins une mission hors budget au tableau de bord ; période par
+défaut d'une semaine commençant le lundi de la semaine en cours ; tous les indicateurs renseignés ; un job
+d'arrière-plan qui ajoute chaque mois des données pour le mois en cours s'il n'y en a pas. Spécification définitive
+« période hebdomadaire et job `activite_demo` » ; mécanismes : `docs/governance/SECURITY.md` §3, §4, §10 et §15 ;
+exploitation : RUNBOOK, « Activité de démonstration automatique » ; serveur : DEPLOIEMENT (g) ; migration `0584`
+(`planifier_activite_demo`) ; code : `apps/api/src/activite-demo/`, moteur `packages/engines/src/activite-demo/`.
+
+### Décisions de cadrage (D1 à D7)
+
+Intitulés repris de la spécification ; leur formulation exacte est à confirmer par l'utilisateur.
+
+- **D1 — Période par défaut** : semaine ISO en cours, du lundi au dimanche, sur le tableau de bord et `/indicateurs` ;
+  date de référence des jalons et des feuilles = fin de période, jamais après aujourd'hui ; titre « Pilotage de la
+  semaine ».
+- **D2 — Calendrier** : tâche mensuelle le 1er à 04:00 UTC (clé `activite_demo:AAAA-MM`), tâches de suite chaque lundi
+  à 05:00 UTC (clé `activite_demo:AAAA-MM:AAAA-MM-JJ`) ; la nouvelle semaine reste vide le lundi entre 00:00 et
+  05:00 UTC.
+- **D3 — Activation** : `DEMO_ACTIVITE_AUTO` (`auto` = `DEMO_PUBLIQUE=oui`, `oui`, `non`) ; cabinets `est_demo` ET
+  actifs seulement ; option `activiteDemo` du worker fausse par défaut ; configuration relue à chaque exécution.
+- **D4 — Feuilles** : une feuille complète par collaborateur et par semaine, validée dès le lundi (les temps futurs de
+  la semaine comptent donc d'avance dans la facturabilité) ; rien n'est écrit si une feuille existe déjà.
+- **D5 — Dérive et capacité** : une mission est tenue en dérive ; ailleurs, aucune tâche ne dépasse son budget (règle
+  de capacité DT5).
+- **D6 — Événements** : au plus un jalon, une facture et un encaissement par cabinet et par semaine.
+- **D7 — Indicateurs** : les 11 cartes du tableau de bord sont renseignées (occupation, facturabilité, consommation,
+  écart à terminaison, marge, réalisation, encours, délai d'encaissement, carnet de commandes, respect des jalons,
+  discipline de saisie).
+
+### Décisions tranchées (DT1 à DT16)
+
+- **DT1 — Durabilité** : un avenant de prolongation mensuel par mission « socle » (phase « Prolongations
+  (démonstration) », tâche « Prolongation — <mois> », budget en jours, révision « depuis le découpage » créée par le chef,
+  validée et figée par le directeur, ou par un associé si FIN-15 l'exige ; date de fin repoussée, affectations,
+  échéances hors régie). Le budget de référence n'est jamais modifié (FIN-03). Besoin calculé semaine par semaine, net
+  des affectations existantes. Gardes : 36 avenants par mission, 10 par mois et par cabinet, 1 à 60 jours par mission
+  et par mois. Rejetés : clonage d'une mission clôturée, passage `signee → en_cours`.
+- **DT2** : jalon, facture et encaissement pour la seule semaine qui contient le jour d'exécution ; une semaine
+  rattrapée ne reçoit que ses feuilles (exception explicite à D6) ; aucun antidatage, numérotation chronologique.
+- **DT3** : horodatages = horloge du worker ; dates d'émission et d'encaissement = J = min(jour de l'horloge,
+  aujourd'hui).
+- **DT4** : aucune route refondue ; le job compose les fonctions exportées et recopie, commentées « miroir de
+  <route>:<lignes> », les transitions privées aux routes. Seuls `temps/suivi.ts` (option de `evaluerAlertes`) et un
+  commentaire de `facturation/factures.ts` changent hors du module.
+- **DT5 — Capacité d'une tâche** pour un collaborateur : libre = max(0, budget − réalisé validé − attente − déjà
+  planifié) ; mission en dérive ou tâche sans déclaration : libre ; déclaration propre d : min(libre, d − déjà
+  planifié), puis redéclaration à d − consommé ; déclaration d'un autre seulement : 0.
+- **DT6 — Dérive** : bande ]80 ; 160] ‰ sans écriture, cible 120 ‰ ; seule la paire (tâche, collaborateur) du marqueur
+  `activite_demo.derive` est ajustée ; choix de la mission stable par le marqueur.
+- **DT7** : feuille complète du lundi au vendredi ouvrés ; part mission ≤ min(jours affectés, 80 % de la capacité) ;
+  le reste sur une activité interne active hors absence.
+- **DT8 — Encaissement** par `creerEncaissement` (verrou, trop-perçu, date) ; facture choisie : du job échue au plus
+  tard 7 jours après le jour d'exécution (délai de paiement raccourci par le cabinet), sinon du job âgée d'au moins
+  21 jours, sinon antérieure au job émise avant le lundi, sinon du job âgée d'au moins 7 jours. Le job n'émet aucune
+  relance ; sa facture est soldée, sauf exécution hebdomadaire manquée, avant la relance automatique (FIN-09, 7 jours
+  après l'échéance).
+- **DT9** : `evaluerAlertes(…, { notifier: false })` met à jour `alertes_suivi` sans notifier.
+- **DT10** : cabinets à la demi-journée seulement ; un cabinet à l'heure est sauté avec un incident.
+- **DT11 — Fenêtres** : mois = [lundi du 1er, dernier lundi + 6] ; tâche d'avenant à partir du premier lundi à besoin,
+  jamais avant le début de la mission ; fin d'affectation = min(fin du besoin, fin de la tâche, fin de la mission).
+- **DT12** : pas de révision « depuis le découpage » si le découpage ne correspond plus aux honoraires en jours de la
+  référence (saisie d'un visiteur préservée).
+- **DT13 — Noms** : type `activite_demo`, actions `activite_demo.*`, incidents `activite_demo_<étape>`.
+- **DT14** : activation relue à chaque exécution (`activiteDemoActive(loadConfig())`, faux sur erreur).
+- **DT15** : `lock_timeout` 5 s, `statement_timeout` 30 s, verrou consultatif par cabinet, point de sauvegarde par
+  étape ; sérialisation, interblocage, délais, connexion et charge définitive remontent au worker (3 essais).
+- **DT16** : une facture, un encaissement et un jalon au plus par cabinet et par semaine ; les factures alternent
+  entre missions (la moins récemment facturée d'abord).
+
+### Valeurs provisoires (à valider)
+
+80 % de la capacité au plus sur mission ; dérive 80 / 120 / 160 ‰, affichage dès 50 ‰ ; encaissement à 21 jours
+(minimum 7) ; occupation visée par l'avenant 85 % (50 % pour un chef ou un directeur sans affectation), 1 jour au moins
+par membre, 60 jours au plus par mission et par mois, 36 avenants par mission, 10 par mois ; 6 semaines par exécution,
+60 collaborateurs, 50 missions, 5 sources de facture essayées ; heures 04:00 et 05:00 UTC.
+
+### Points à signaler
+
+Mois clôturés, mentions légales et devise FCFA des cabinets de démonstration non vérifiés en base ; délai
+d'encaissement stabilisé vers 7 jours sans arriérés semés ; seule la mission est garantie en dérive (la carte
+« Écart à terminaison » du cabinet peut rester sous 5 %) ; seuils FIN-15 cumulés : un associé valide bientôt chaque
+avenant ; code miroir à relire à chaque évolution des routes citées (SECURITY.md §15).

@@ -515,17 +515,31 @@ export function vueNoeud(
 
 const LIBELLE_NIVEAU = { mission: "Mission", phase: "Phase" } as const;
 
+/** Options de l'évaluation des alertes. */
+export interface OptionsAlertes {
+  /**
+   * Faux : l'état des alertes (`alertes_suivi`) est mis à jour, mais aucune notification n'est
+   * créée (tâche « activite_demo », DECISIONS DT9). Une alerte ainsi déclenchée reste active :
+   * une évaluation ultérieure par défaut (validation d'une feuille par un visiteur) ne la notifie
+   * donc pas, ni par e-mail. Défaut (absent ou vrai) : comportement historique, chef et directeur
+   * notifiés au déclenchement.
+   */
+  notifier?: boolean;
+}
+
 /**
  * Évalue les alertes de la mission et de ses phases (moteur) après une
  * validation de temps, une correction ou une déclaration de reste à faire.
  * Une alerte n'est notifiée (chef et directeur de mission) qu'au moment où
  * elle se déclenche ; elle est levée quand la condition disparaît, et peut
  * se déclencher à nouveau ensuite. Aucun montant : des jours et des taux.
+ * `options.notifier = false` : l'état est tenu à jour sans aucune notification.
  */
 export async function evaluerAlertes(
   db: Db,
   cabinetId: string,
   missionId: string,
+  options: OptionsAlertes = {},
 ): Promise<NotificationCreee[]> {
   const m = await db.query(
     "SELECT intitule, chef_id, directeur_id, statut FROM missions WHERE id = $1",
@@ -579,7 +593,8 @@ export async function evaluerAlertes(
     );
     declenchees.push(a);
   }
-  if (declenchees.length === 0) return [];
+  // État à jour ; sans notification demandée (DT9), rien n'est créé ni envoyé.
+  if (declenchees.length === 0 || options.notifier === false) return [];
   const corps = declenchees
     .map((a) => {
       const s = a.noeud.suivi;

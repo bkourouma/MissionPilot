@@ -62,3 +62,5 @@ export * from "./schemas/appels-offres-veille";
 export * from "./grilles/index";
 // Services candidats : prix fixe et veille des guichets de financement.
 export * from "./schemas/services-candidats";
+// Activité de démonstration automatique : charge du job « activite_demo » (2026-11-01).
+export * from "./schemas/activite-demo";
