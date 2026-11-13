@@ -745,3 +745,55 @@ button.mp-nav__lien:hover {
 .mp-nav__groupe-bouton[aria-expanded="true"] .mp-nav__chevron {
   transform: rotate(90deg);
 }
+
+/* Sélecteur de langue (FR / EN) : deux boutons serrés, l'actif plein. */
+.mp-entete__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+.mp-langue {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  overflow: hidden;
+}
+.mp-langue__choix {
+  min-width: 2.5rem;
+  min-height: 2.25rem;
+  padding: 0 var(--mp-esp-2);
+  border: 0;
+  background: transparent;
+  color: var(--mp-texte);
+  font: inherit;
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.mp-langue__choix[aria-pressed="true"] {
+  background: var(--mp-primaire);
+  color: var(--mp-sur-primaire);
+}
+.mp-langue__choix:not([aria-pressed="true"]):hover {
+  background: var(--mp-primaire-pale);
+}
+.mp-langue--nuit {
+  border-color: var(--mp-sur-nuit-doux);
+}
+.mp-langue--nuit .mp-langue__choix {
+  color: var(--mp-sur-nuit);
+}
+.mp-langue--nuit .mp-langue__choix[aria-pressed="true"] {
+  background: var(--mp-sur-nuit);
+  color: var(--mp-nuit);
+}
+.mp-langue--nuit .mp-langue__choix:not([aria-pressed="true"]):hover {
+  background: var(--mp-nuit-actif);
+}
+.mp-connexion__langue {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--mp-esp-4);
+}

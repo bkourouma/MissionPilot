@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ROLE_LIBELLES, type Role } from "@missionpilot/shared";
+import { libelleRole, type Langue, type Role } from "@missionpilot/shared";
+import { obtenirLangue } from "../../lib/i18n/serveur";
+import { SelecteurLangue } from "../i18n/SelecteurLangue";
 import type { EntreeNavigation } from "../../lib/navigation";
 import { ClocheNotifications } from "./ClocheNotifications";
 import { Marque } from "./Marque";
 import { BarreNavigationBasse, NavigationLaterale } from "./Navigation";
 
-export function libellesRoles(roles: readonly Role[]): string {
-  return roles.length === 0 ? "Aucun rôle" : roles.map((r) => ROLE_LIBELLES[r]).join(", ");
+export function libellesRoles(roles: readonly Role[], langue: Langue = "fr"): string {
+  if (roles.length === 0) return langue === "en" ? "No role" : "Aucun rôle";
+  return roles.map((r) => libelleRole(r, langue)).join(", ");
 }
 
 export interface CadreApplicationProps {
@@ -18,18 +21,27 @@ export interface CadreApplicationProps {
 }
 
 /** En-tête, navigation latérale (grand écran) ou barre basse (téléphone), contenu principal. */
-export function CadreApplication({ nom, roles, entrees, children }: CadreApplicationProps) {
-  const libelles = libellesRoles(roles);
+export async function CadreApplication({ nom, roles, entrees, children }: CadreApplicationProps) {
+  const langue = await obtenirLangue();
+  const en = langue === "en";
+  const libelles = libellesRoles(roles, langue);
   return (
     <div className="mp-cadre">
       <a className="mp-lien-evitement" href="#contenu">
-        Aller au contenu principal
+        {en ? "Skip to main content" : "Aller au contenu principal"}
       </a>
       <header className="mp-entete">
-        <Link href="/" className="mp-entete__marque" aria-label="CabinetPilot, accueil">
+        <Link
+          href="/"
+          className="mp-entete__marque"
+          aria-label={en ? "CabinetPilot, home" : "CabinetPilot, accueil"}
+        >
           <Marque />
         </Link>
-        <ClocheNotifications />
+        <div className="mp-entete__actions">
+          <SelecteurLangue className="mp-langue--nuit" />
+          <ClocheNotifications />
+        </div>
       </header>
       <div className="mp-cadre__corps">
         <NavigationLaterale entrees={entrees} nom={nom} roles={libelles} />

@@ -1,4 +1,6 @@
 import { cookies, headers } from "next/headers";
+import { ENTETE_LANGUE } from "@missionpilot/shared";
+import { obtenirLangue } from "./i18n/serveur";
 import { redirect } from "next/navigation";
 import {
   appelerApi,
@@ -57,6 +59,8 @@ export async function appelerApiServeur<T>(
   try {
     return await appelerApi<T>(chemin, {
       ...optionsAppel,
+      // Messages d'erreur de l'API dans la langue de l'interface (pas de cookie navigateur ici).
+      entetes: { [ENTETE_LANGUE]: await obtenirLangue(), ...optionsAppel.entetes },
       baseUrl: urlApi(),
       cookie: await cookieSession(),
       redirigerSi401: false,

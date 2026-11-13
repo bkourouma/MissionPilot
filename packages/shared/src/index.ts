@@ -1,4 +1,5 @@
 export * from "./roles";
+export * from "./langue";
 export * from "./schemas/commun";
 export * from "./schemas/utilisateurs";
 export * from "./schemas/double-authentification";

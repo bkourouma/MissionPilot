@@ -15,16 +15,24 @@ import "../styles/collaboration.css";
 // Après les styles globaux : la feuille de style de l'indicateur de connexion vient ensuite.
 import { HorsLigne } from "../components/hors-ligne/HorsLigne";
 import { DebloqueurRendu } from "../components/shell/DebloqueurRendu";
+import { FournisseurLangue } from "../components/i18n/FournisseurLangue";
+import { obtenirLangue, obtenirT } from "../lib/i18n/serveur";
 
-export const metadata: Metadata = {
-  title: { default: "CabinetPilot", template: "%s — CabinetPilot" },
-  description: "Gestion des missions, du temps et de la facturation des cabinets de conseil.",
-  applicationName: "CabinetPilot",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "CabinetPilot", statusBarStyle: "default" },
-  formatDetection: { telephone: false },
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return {
+    title: { default: "CabinetPilot", template: "%s — CabinetPilot" },
+    description: t(
+      "Gestion des missions, du temps et de la facturation des cabinets de conseil.",
+      "Engagement, time and billing management for consulting firms.",
+    ),
+    applicationName: "CabinetPilot",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: "CabinetPilot", statusBarStyle: "default" },
+    formatDetection: { telephone: false },
+    robots: { index: false, follow: false },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -34,13 +42,16 @@ export const viewport: Viewport = {
   themeColor: "#2b1468",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const langue = await obtenirLangue();
   return (
-    <html lang="fr">
+    <html lang={langue}>
       <body>
-        <HorsLigne />
-        <DebloqueurRendu />
-        {children}
+        <FournisseurLangue langue={langue}>
+          <HorsLigne />
+          <DebloqueurRendu />
+          {children}
+        </FournisseurLangue>
       </body>
     </html>
   );
