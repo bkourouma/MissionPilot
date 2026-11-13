@@ -9,13 +9,14 @@ import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { api } from "../../lib/api";
 import {
   cheminApiDossier,
-  OPTIONS_CATEGORIES,
-  OPTIONS_FIABILITE,
-  OPTIONS_SOURCES,
-  OPTIONS_TYPES_VALEUR,
+  optionsCategories,
+  optionsFiabilite,
+  optionsSources,
+  optionsTypesValeur,
   SAISIE_FAIT_VIDE,
   validerFait,
   type ChampFait,
@@ -31,7 +32,7 @@ import type { Devise } from "../../lib/format";
 export function FormulaireFait({
   clientId,
   saisieInitiale = SAISIE_FAIT_VIDE,
-  titre = "Ajouter un fait",
+  titre,
   onTermine,
 }: {
   clientId: string;
@@ -39,6 +40,9 @@ export function FormulaireFait({
   titre?: string;
   onTermine?: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const libelleForm = titre ?? t("Ajouter un fait", "Add a fact");
   const [s, setS] = useState<SaisieFait>(saisieInitiale);
   const f = useFormulaire<ChampFait>();
   const maj = <K extends keyof SaisieFait>(k: K, v: SaisieFait[K]) =>
@@ -48,10 +52,12 @@ export function FormulaireFait({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerFait(s),
+      validerFait(s, langue),
       (charge) => api.post(`${cheminApiDossier(clientId)}/faits`, charge),
       {
-        succes: remplacement ? "Le fait est remplacé." : "Le fait est enregistré.",
+        succes: remplacement
+          ? t("Le fait est remplacé.", "The fact has been replaced.")
+          : t("Le fait est enregistré.", "The fact has been saved."),
         apres: () => {
           setS(saisieInitiale.remplace_id ? saisieInitiale : SAISIE_FAIT_VIDE);
           onTermine?.();
@@ -66,41 +72,44 @@ export function FormulaireFait({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={titre}
+      aria-label={libelleForm}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Select
-          libelle="Catégorie"
-          options={OPTIONS_CATEGORIES}
+          libelle={t("Catégorie", "Category")}
+          options={optionsCategories(langue)}
           value={s.categorie}
           disabled={remplacement}
           onChange={(e) => maj("categorie", e.target.value as SaisieFait["categorie"])}
         />
         <Champ
-          libelle="Clé"
+          libelle={t("Clé", "Key")}
           required
           maxLength={120}
           value={s.cle}
           disabled={remplacement}
           onChange={(e) => maj("cle", e.target.value)}
           erreur={f.erreurs.cle}
-          aide="Ce que décrit le fait, ex. effectif_total, actionnaire_principal."
+          aide={t(
+            "Ce que décrit le fait, ex. effectif_total, actionnaire_principal.",
+            "What the fact describes, e.g. effectif_total, actionnaire_principal.",
+          )}
           autoComplete="off"
         />
         <Select
-          libelle="Type de valeur"
-          options={OPTIONS_TYPES_VALEUR}
+          libelle={t("Type de valeur", "Value type")}
+          options={optionsTypesValeur(langue)}
           value={s.type_valeur}
           onChange={(e) => maj("type_valeur", e.target.value as SaisieFait["type_valeur"])}
         />
         {s.type_valeur === "booleen" ? (
           <Select
-            libelle="Valeur"
-            invite="Choisir…"
+            libelle={t("Valeur", "Value")}
+            invite={t("Choisir…", "Choose…")}
             options={[
-              { valeur: "oui", libelle: "Oui" },
-              { valeur: "non", libelle: "Non" },
+              { valeur: "oui", libelle: t("Oui", "Yes") },
+              { valeur: "non", libelle: t("Non", "No") },
             ]}
             value={s.valeur}
             onChange={(e) => maj("valeur", e.target.value)}
@@ -108,7 +117,7 @@ export function FormulaireFait({
           />
         ) : (
           <Champ
-            libelle="Valeur"
+            libelle={t("Valeur", "Value")}
             required
             type={s.type_valeur === "date" ? "date" : "text"}
             inputMode={
@@ -122,39 +131,45 @@ export function FormulaireFait({
         )}
         {s.type_valeur === "montant" ? (
           <Select
-            libelle="Devise"
+            libelle={t("Devise", "Currency")}
             options={DEVISES.map((d) => ({ valeur: d, libelle: d }))}
             value={s.devise}
             onChange={(e) => maj("devise", e.target.value as Devise)}
           />
         ) : null}
         <Champ
-          libelle="Date d'effet"
+          libelle={t("Date d'effet", "Effective date")}
           type="date"
           required
           value={s.date_effet}
           onChange={(e) => maj("date_effet", e.target.value)}
           erreur={f.erreurs.date_effet}
-          aide="Date à laquelle la valeur est vraie (ex. date de clôture, date de l'entretien)."
+          aide={t(
+            "Date à laquelle la valeur est vraie (ex. date de clôture, date de l'entretien).",
+            "Date on which the value holds (e.g. closing date, interview date).",
+          )}
         />
         <Select
-          libelle="Type de source"
-          options={OPTIONS_SOURCES}
+          libelle={t("Type de source", "Source type")}
+          options={optionsSources(langue)}
           value={s.source_type}
           onChange={(e) => maj("source_type", e.target.value as SaisieFait["source_type"])}
         />
         <Champ
-          libelle="Source"
+          libelle={t("Source", "Source")}
           required
           maxLength={300}
           value={s.source_libelle}
           onChange={(e) => maj("source_libelle", e.target.value)}
           erreur={f.erreurs.source_libelle}
-          aide="Ex. « Statuts mis à jour en 2024 », « Entretien avec le DAF du 12/09/2026 »."
+          aide={t(
+            "Ex. « Statuts mis à jour en 2024 », « Entretien avec le DAF du 12/09/2026 ».",
+            'E.g. "Articles of association updated in 2024", "Interview with the CFO on 12/09/2026".',
+          )}
         />
         {s.source_type === "document" ? (
           <Champ
-            libelle="Page du document"
+            libelle={t("Page du document", "Document page")}
             inputMode="numeric"
             value={s.source_page}
             onChange={(e) => maj("source_page", e.target.value)}
@@ -162,32 +177,43 @@ export function FormulaireFait({
           />
         ) : null}
         <Select
-          libelle="Fiabilité de la source"
-          options={OPTIONS_FIABILITE}
+          libelle={t("Fiabilité de la source", "Source reliability")}
+          options={optionsFiabilite(langue)}
           value={s.fiabilite}
           onChange={(e) => maj("fiabilite", e.target.value as SaisieFait["fiabilite"])}
         />
       </div>
       <ZoneTexte
-        libelle="Commentaire"
+        libelle={t("Commentaire", "Comment")}
         rows={2}
         maxLength={2000}
         value={s.commentaire}
         onChange={(e) => maj("commentaire", e.target.value)}
       />
       <CaseACocher
-        libelle="J'atteste ce fait"
-        aide="Sinon, il est proposé et un autre membre de l'équipe le confirmera."
+        libelle={t("J'atteste ce fait", "I attest this fact")}
+        aide={t(
+          "Sinon, il est proposé et un autre membre de l'équipe le confirmera.",
+          "Otherwise, it is proposed and another team member will confirm it.",
+        )}
         checked={s.confirmer}
         onChange={(e) => maj("confirmer", e.target.checked)}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {remplacement ? "Remplacer le fait" : s.confirmer ? "Enregistrer" : "Proposer"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {remplacement
+            ? t("Remplacer le fait", "Replace the fact")
+            : s.confirmer
+              ? t("Enregistrer", "Save")
+              : t("Proposer", "Propose")}
         </Bouton>
         {onTermine ? (
           <Bouton variante="discret" onClick={onTermine}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         ) : null}
       </div>

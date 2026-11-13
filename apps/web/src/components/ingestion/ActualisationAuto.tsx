@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useTransition } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { rafraichirEnTransition } from "../formulaires/useRafraichir";
 import { INTERVALLE_RAFRAICHISSEMENT_MS } from "./ListeDocumentsIngestion";
 
@@ -18,6 +19,7 @@ export function doitSauterTick(transitionEnCours: boolean): boolean {
  * requêtes RSC parasites à chaque tick. On n'utilise que la transition, sans relance.
  */
 export function ActualisationAuto({ actif }: { actif: boolean }) {
+  const t = useT();
   const router = useRouter();
   const [enTransition, demarrer] = useTransition();
   const enCours = useRef(false);
@@ -33,7 +35,10 @@ export function ActualisationAuto({ actif }: { actif: boolean }) {
   return (
     <p className="mp-visuellement-cache" role="status" aria-live="polite">
       {actif
-        ? "Lecture en cours : la page se met à jour automatiquement toutes les 3 secondes."
+        ? t(
+            "Lecture en cours : la page se met à jour automatiquement toutes les 3 secondes.",
+            "Reading in progress: the page updates automatically every 3 seconds.",
+          )
         : ""}
     </p>
   );

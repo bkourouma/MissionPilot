@@ -3,7 +3,7 @@
  * formulaires et règles d'affichage des actions. Logique pure, testée dans
  * `planification.test.ts`. Aucun coût ni taux : l'API n'en renvoie aucun dans ce module.
  */
-import { aPermission, type Role } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue, type Role } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import type { NomIcone } from "../components/ui/Icone";
 import { lireNombre, texteOuNull, type Resultat } from "./saisie";
@@ -42,6 +42,7 @@ export interface MonPlanning {
 /** Lignes de « Mon planning » groupées par mission, dans l'ordre de l'API. */
 export function groupesParMission(
   lignes: readonly LigneMonPlanning[],
+  langue: Langue = "fr",
 ): { cle: string; intitule: string; accessible: boolean; lignes: LigneMonPlanning[] }[] {
   const groupes = new Map<
     string,
@@ -50,7 +51,9 @@ export function groupesParMission(
   for (const l of lignes) {
     const g = groupes.get(l.mission.id) ?? {
       cle: l.mission.id,
-      intitule: l.mission.intitule ?? "Mission non accessible",
+      intitule:
+        l.mission.intitule ??
+        (langue === "en" ? "Engagement not accessible" : "Mission non accessible"),
       accessible: l.mission.accessible,
       lignes: [],
     };
@@ -73,6 +76,19 @@ export const TYPE_ABSENCE_LIBELLES: Record<TypeAbsence, string> = {
   autre: "Autre absence",
 };
 
+export const TYPE_ABSENCE_LIBELLES_EN: Record<TypeAbsence, string> = {
+  conge_paye: "Paid leave",
+  maladie: "Sick leave",
+  formation: "Training",
+  autre: "Other absence",
+};
+
+export const optionsTypesAbsence = (langue: Langue = "fr") =>
+  TYPES_ABSENCE.map((t) => ({
+    valeur: t,
+    libelle: (langue === "en" ? TYPE_ABSENCE_LIBELLES_EN : TYPE_ABSENCE_LIBELLES)[t],
+  }));
+
 export const OPTIONS_TYPES_ABSENCE = TYPES_ABSENCE.map((t) => ({
   valeur: t,
   libelle: TYPE_ABSENCE_LIBELLES[t],
@@ -85,6 +101,16 @@ export const STATUT_ABSENCE: Record<StatutAbsence, { libelle: string; tonalite: 
     refusee: { libelle: "Refusée", tonalite: "danger" },
     annulee: { libelle: "Annulée", tonalite: "neutre" },
   };
+
+const STATUT_ABSENCE_EN: Record<StatutAbsence, string> = {
+  demandee: "Pending approval",
+  validee: "Approved",
+  refusee: "Rejected",
+  annulee: "Cancelled",
+};
+
+export const presentationStatutAbsence = (s: StatutAbsence, langue: Langue = "fr") =>
+  langue === "en" ? { ...STATUT_ABSENCE[s], libelle: STATUT_ABSENCE_EN[s] } : STATUT_ABSENCE[s];
 
 export interface Absence {
   id: string;
@@ -119,22 +145,31 @@ export const SAISIE_ABSENCE_VIDE: SaisieAbsence = {
 
 export function validerAbsence(
   s: SaisieAbsence,
+  langue: Langue = "fr",
 ): Resultat<
   { type: TypeAbsence; date_debut: string; date_fin: string; commentaire: string | null },
   keyof SaisieAbsence
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieAbsence, string>> = {};
   if (!(TYPES_ABSENCE as readonly string[]).includes(s.type))
-    erreurs.type = "Choisissez le type d'absence.";
-  if (!estDateIso(s.date_debut)) erreurs.date_debut = "Indiquez la date de début.";
-  if (!estDateIso(s.date_fin)) erreurs.date_fin = "Indiquez la date de fin.";
+    erreurs.type = t("Choisissez le type d'absence.", "Choose the absence type.");
+  if (!estDateIso(s.date_debut))
+    erreurs.date_debut = t("Indiquez la date de début.", "Enter the start date.");
+  if (!estDateIso(s.date_fin))
+    erreurs.date_fin = t("Indiquez la date de fin.", "Enter the end date.");
   if (!erreurs.date_debut && !erreurs.date_fin) {
-    if (s.date_fin < s.date_debut) erreurs.date_fin = "La date de fin précède la date de début.";
+    if (s.date_fin < s.date_debut)
+      erreurs.date_fin = t(
+        "La date de fin précède la date de début.",
+        "The end date is before the start date.",
+      );
     else if (ajouterJoursIso(s.date_debut, 366) < s.date_fin)
-      erreurs.date_fin = "Une absence dure au plus un an.";
+      erreurs.date_fin = t("Une absence dure au plus un an.", "An absence lasts at most one year.");
   }
   const commentaire = s.commentaire.trim();
-  if (commentaire.length > 500) erreurs.commentaire = "500 caractères au plus.";
+  if (commentaire.length > 500)
+    erreurs.commentaire = t("500 caractères au plus.", "500 characters at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -253,20 +288,35 @@ export interface ChargeAffectation {
 function validerPeriodeEtJours(
   s: SaisieAffectation,
   erreurs: Partial<Record<ChampAffectation, string>>,
+  langue: Langue = "fr",
 ): number {
+  const t = creerTraduire(langue);
   const jours = lireNombre(s.jours_alloues);
-  if (jours === null) erreurs.jours_alloues = "Indiquez les jours alloués.";
+  if (jours === null)
+    erreurs.jours_alloues = t("Indiquez les jours alloués.", "Enter the allocated days.");
   else if (Number.isNaN(jours) || jours <= 0)
-    erreurs.jours_alloues = "Nombre de jours strictement positif (ex. 2,5).";
+    erreurs.jours_alloues = t(
+      "Nombre de jours strictement positif (ex. 2,5).",
+      "Strictly positive number of days (e.g. 2.5).",
+    );
   else if (Math.abs(jours * 100 - Math.round(jours * 100)) > 1e-6)
-    erreurs.jours_alloues = "Deux décimales au plus.";
-  else if (jours > 9999) erreurs.jours_alloues = "Valeur trop grande.";
-  if (!estDateIso(s.date_debut)) erreurs.date_debut = "Indiquez la date de début.";
-  if (!estDateIso(s.date_fin)) erreurs.date_fin = "Indiquez la date de fin.";
+    erreurs.jours_alloues = t("Deux décimales au plus.", "Two decimal places at most.");
+  else if (jours > 9999) erreurs.jours_alloues = t("Valeur trop grande.", "Value too large.");
+  if (!estDateIso(s.date_debut))
+    erreurs.date_debut = t("Indiquez la date de début.", "Enter the start date.");
+  if (!estDateIso(s.date_fin))
+    erreurs.date_fin = t("Indiquez la date de fin.", "Enter the end date.");
   if (!erreurs.date_debut && !erreurs.date_fin) {
-    if (s.date_fin < s.date_debut) erreurs.date_fin = "La date de fin précède la date de début.";
+    if (s.date_fin < s.date_debut)
+      erreurs.date_fin = t(
+        "La date de fin précède la date de début.",
+        "The end date is before the start date.",
+      );
     else if (ajouterJoursIso(s.date_debut, 365) < s.date_fin)
-      erreurs.date_fin = "Une affectation couvre au plus 366 jours.";
+      erreurs.date_fin = t(
+        "Une affectation couvre au plus 366 jours.",
+        "An assignment covers at most 366 days.",
+      );
   }
   return jours ?? 0;
 }
@@ -274,15 +324,19 @@ function validerPeriodeEtJours(
 /** Création : nominative (collaborateur) ou profil à pourvoir (grade, compétence). */
 export function validerAffectation(
   s: SaisieAffectation,
+  langue: Langue = "fr",
 ): Resultat<ChargeAffectation, ChampAffectation> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampAffectation, string>> = {};
-  if (!UUID.test(s.tache_id)) erreurs.tache_id = "Choisissez la tâche.";
+  if (!UUID.test(s.tache_id)) erreurs.tache_id = t("Choisissez la tâche.", "Choose the task.");
   if (s.mode === "nominative" && !UUID.test(s.collaborateur_id))
-    erreurs.collaborateur_id = "Choisissez la personne.";
-  if (s.mode === "profil" && !UUID.test(s.grade_id)) erreurs.grade_id = "Choisissez le grade.";
+    erreurs.collaborateur_id = t("Choisissez la personne.", "Choose the person.");
+  if (s.mode === "profil" && !UUID.test(s.grade_id))
+    erreurs.grade_id = t("Choisissez le grade.", "Choose the grade.");
   const competence = s.competence.trim();
-  if (s.mode === "profil" && competence.length > 80) erreurs.competence = "80 caractères au plus.";
-  const jours = validerPeriodeEtJours(s, erreurs);
+  if (s.mode === "profil" && competence.length > 80)
+    erreurs.competence = t("80 caractères au plus.", "80 characters at most.");
+  const jours = validerPeriodeEtJours(s, erreurs, langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -302,10 +356,12 @@ export function validerAffectation(
 export function validerModificationAffectation(
   s: SaisieAffectation,
   avant: Affectation,
+  langue: Langue = "fr",
 ): Resultat<Partial<Omit<ChargeAffectation, "collaborateur_id" | "profil">>, ChampAffectation> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampAffectation, string>> = {};
-  if (!UUID.test(s.tache_id)) erreurs.tache_id = "Choisissez la tâche.";
-  const jours = validerPeriodeEtJours(s, erreurs);
+  if (!UUID.test(s.tache_id)) erreurs.tache_id = t("Choisissez la tâche.", "Choose the task.");
+  const jours = validerPeriodeEtJours(s, erreurs, langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: Partial<Omit<ChargeAffectation, "collaborateur_id" | "profil">> = {};
   if (s.tache_id !== avant.tache_id) charge.tache_id = s.tache_id;
@@ -313,7 +369,10 @@ export function validerModificationAffectation(
   if (s.date_debut !== avant.date_debut) charge.date_debut = s.date_debut;
   if (s.date_fin !== avant.date_fin) charge.date_fin = s.date_fin;
   if (Object.keys(charge).length === 0)
-    return { ok: false, erreurs: { jours_alloues: "Aucune modification à enregistrer." } };
+    return {
+      ok: false,
+      erreurs: { jours_alloues: t("Aucune modification à enregistrer.", "No changes to save.") },
+    };
   return { ok: true, charge };
 }
 
@@ -362,16 +421,30 @@ export interface ResultatReplanification {
 export function validerReplanification(
   phaseId: string,
   decalage: string,
+  langue: Langue = "fr",
 ): Resultat<{ phase_id: string; decalage_jours_ouvres: number }, "phase_id" | "decalage"> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"phase_id" | "decalage", string>> = {};
-  if (!UUID.test(phaseId)) erreurs.phase_id = "Choisissez la phase à décaler.";
+  if (!UUID.test(phaseId))
+    erreurs.phase_id = t("Choisissez la phase à décaler.", "Choose the phase to shift.");
   const n = lireNombre(decalage);
-  if (n === null) erreurs.decalage = "Indiquez le décalage en jours ouvrés.";
+  if (n === null)
+    erreurs.decalage = t(
+      "Indiquez le décalage en jours ouvrés.",
+      "Enter the shift in business days.",
+    );
   else if (Number.isNaN(n) || !Number.isInteger(n))
-    erreurs.decalage = "Nombre entier de jours ouvrés (ex. 3 ou -2).";
-  else if (n === 0) erreurs.decalage = "Un décalage nul ne change rien.";
+    erreurs.decalage = t(
+      "Nombre entier de jours ouvrés (ex. 3 ou -2).",
+      "Whole number of business days (e.g. 3 or -2).",
+    );
+  else if (n === 0)
+    erreurs.decalage = t("Un décalage nul ne change rien.", "A zero shift changes nothing.");
   else if (Math.abs(n) > 260)
-    erreurs.decalage = "260 jours ouvrés au plus, dans un sens ou l'autre.";
+    erreurs.decalage = t(
+      "260 jours ouvrés au plus, dans un sens ou l'autre.",
+      "260 business days at most, in either direction.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { phase_id: phaseId, decalage_jours_ouvres: n as number } };
 }
@@ -399,6 +472,16 @@ export const ETAT_CHARGE: Record<
     tonalite: "neutre",
   },
 };
+
+const ETAT_CHARGE_EN: Record<EtatCharge, { libelle: string; court: string }> = {
+  surcharge: { libelle: "Overload", court: "Overload" },
+  normal: { libelle: "Normal workload", court: "Normal" },
+  sous_occupation: { libelle: "Under-utilization", court: "Under-util." },
+  indisponible: { libelle: "Unavailable (no capacity)", court: "Unavail." },
+};
+
+export const presentationEtatCharge = (e: EtatCharge, langue: Langue = "fr") =>
+  langue === "en" ? { ...ETAT_CHARGE[e], ...ETAT_CHARGE_EN[e] } : ETAT_CHARGE[e];
 
 export interface CelluleCharge {
   semaine: string;

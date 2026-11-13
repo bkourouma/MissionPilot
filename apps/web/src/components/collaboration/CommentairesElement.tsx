@@ -12,6 +12,7 @@ import {
 } from "../../lib/commentaires";
 import { formaterDateHeure } from "../../lib/format";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Squelette } from "../ui/Squelette";
 import { EditionCommentaire } from "./CommentairesSaisie";
@@ -45,13 +46,16 @@ export function ElementCommentaire({
   maintenant: number;
   onMaj: (c: Commentaire) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [edition, setEdition] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const a = actionsCommentaire(c, utilisateurId, associe, maintenant);
   const delai = a.modifier
-    ? libelleDelaiModification(secondesRestantes(c.modifiable_jusqu_au, maintenant))
+    ? libelleDelaiModification(secondesRestantes(c.modifiable_jusqu_au, maintenant), langue)
     : null;
-  const auteur = c.auteur_id === utilisateurId ? `${c.auteur_nom} (vous)` : c.auteur_nom;
+  const auteur =
+    c.auteur_id === utilisateurId ? `${c.auteur_nom} ${t("(vous)", "(you)")}` : c.auteur_nom;
 
   async function supprimer(): Promise<boolean> {
     setErreur(null);
@@ -67,7 +71,7 @@ export function ElementCommentaire({
       });
       return true;
     } catch (e) {
-      setErreur(messageCommentaire(e));
+      setErreur(messageCommentaire(e, langue));
       return false;
     }
   }
@@ -77,15 +81,18 @@ export function ElementCommentaire({
       <div className="mp-commentaire__entete">
         <strong>{auteur}</strong>
         <span className="mp-texte-doux mp-texte-petit">
-          <time dateTime={c.cree_le}>{formaterDateHeure(c.cree_le)}</time>
-          {c.modifie_le && !c.supprime ? " · modifié" : null}
+          <time dateTime={c.cree_le}>{formaterDateHeure(c.cree_le, undefined, langue)}</time>
+          {c.modifie_le && !c.supprime ? ` · ${t("modifié", "edited")}` : null}
         </span>
       </div>
       {c.supprime ? (
         <p className="mp-commentaire__texte mp-texte-doux">
           {c.supprime_le
-            ? `Commentaire supprimé le ${formaterDateHeure(c.supprime_le)}.`
-            : "Commentaire supprimé."}
+            ? t(
+                `Commentaire supprimé le ${formaterDateHeure(c.supprime_le)}.`,
+                `Comment deleted on ${formaterDateHeure(c.supprime_le, undefined, langue)}.`,
+              )
+            : t("Commentaire supprimé.", "Comment deleted.")}
         </p>
       ) : edition ? (
         <EditionCommentaire
@@ -111,20 +118,29 @@ export function ElementCommentaire({
               variante="discret"
               icone="crayon"
               onClick={() => setEdition(true)}
-              aria-label={`Modifier votre commentaire du ${formaterDateHeure(c.cree_le)}`}
+              aria-label={t(
+                `Modifier votre commentaire du ${formaterDateHeure(c.cree_le)}`,
+                `Edit your comment from ${formaterDateHeure(c.cree_le, undefined, langue)}`,
+              )}
             >
-              Modifier
+              {t("Modifier", "Edit")}
             </Bouton>
           ) : null}
           {a.supprimer ? (
             <BoutonConfirmation
-              libelle="Supprimer"
+              libelle={t("Supprimer", "Delete")}
               variante="discret"
               icone="corbeille"
-              ariaLabel={`Supprimer le commentaire de ${c.auteur_nom} du ${formaterDateHeure(c.cree_le)}`}
-              question="Supprimer ce commentaire ? Le fil gardera la trace de sa suppression."
-              libelleConfirmation="Oui, supprimer"
-              texteChargement="Suppression…"
+              ariaLabel={t(
+                `Supprimer le commentaire de ${c.auteur_nom} du ${formaterDateHeure(c.cree_le)}`,
+                `Delete the comment by ${c.auteur_nom} from ${formaterDateHeure(c.cree_le, undefined, langue)}`,
+              )}
+              question={t(
+                "Supprimer ce commentaire ? Le fil gardera la trace de sa suppression.",
+                "Delete this comment? The thread will keep a trace of its deletion.",
+              )}
+              libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+              texteChargement={t("Suppression…", "Deleting…")}
               action={supprimer}
             />
           ) : null}
@@ -137,6 +153,8 @@ export function ElementCommentaire({
 
 /** Versions successives d'un commentaire modifié, chargées à l'ouverture. */
 function Historique({ id }: { id: string }) {
+  const t = useT();
+  const langue = useLangue();
   const [etat, setEtat] = useState<
     | { phase: "ferme" }
     | { phase: "chargement" }
@@ -153,7 +171,7 @@ function Historique({ id }: { id: string }) {
       );
       setEtat({ phase: "pret", versions: r.elements });
     } catch (e) {
-      setEtat({ phase: "erreur", message: messageCommentaire(e) });
+      setEtat({ phase: "erreur", message: messageCommentaire(e, langue) });
     }
   }
 
@@ -164,9 +182,9 @@ function Historique({ id }: { id: string }) {
         if ((e.currentTarget as HTMLDetailsElement).open) void ouvrir();
       }}
     >
-      <summary>Historique des modifications</summary>
+      <summary>{t("Historique des modifications", "Edit history")}</summary>
       {etat.phase === "chargement" ? (
-        <Squelette lignes={2} libelle="Chargement de l'historique…" />
+        <Squelette lignes={2} libelle={t("Chargement de l'historique…", "Loading history…")} />
       ) : etat.phase === "erreur" ? (
         <p className="mp-champ__erreur" role="alert">
           {etat.message}
@@ -176,8 +194,10 @@ function Historique({ id }: { id: string }) {
           {etat.versions.map((v, i) => (
             <li key={`${v.cree_le}-${i}`}>
               <span className="mp-texte-doux mp-texte-petit">
-                {i === 0 ? "Texte initial, " : `Modification ${i}, `}
-                <time dateTime={v.cree_le}>{formaterDateHeure(v.cree_le)}</time>
+                {i === 0
+                  ? t("Texte initial, ", "Original text, ")
+                  : t(`Modification ${i}, `, `Edit ${i}, `)}
+                <time dateTime={v.cree_le}>{formaterDateHeure(v.cree_le, undefined, langue)}</time>
               </span>
               <p className="mp-commentaire__texte">{v.texte}</p>
             </li>

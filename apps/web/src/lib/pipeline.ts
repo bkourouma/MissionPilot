@@ -4,8 +4,10 @@
  * ne fait que lire les saisies, construire les charges utiles et choisir les libellés.
  */
 import {
+  creerTraduire,
   ETAPES_OPPORTUNITE,
   type EtapeOpportunite,
+  type Langue,
   type StatutOpportunite,
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
@@ -62,10 +64,23 @@ export const ETAPE_LIBELLES: Record<EtapeOpportunite, string> = {
   negociation: "Négociation",
 };
 
+export const ETAPE_LIBELLES_EN: Record<EtapeOpportunite, string> = {
+  prospection: "Prospecting",
+  qualification: "Qualification",
+  proposition: "Proposal",
+  negociation: "Negotiation",
+};
+
+export const libelleEtape = (e: EtapeOpportunite, langue: Langue = "fr") =>
+  (langue === "en" ? ETAPE_LIBELLES_EN : ETAPE_LIBELLES)[e];
+
 export const OPTIONS_ETAPES = ETAPES_OPPORTUNITE.map((e) => ({
   valeur: e,
   libelle: ETAPE_LIBELLES[e],
 }));
+
+export const optionsEtapes = (langue: Langue = "fr") =>
+  ETAPES_OPPORTUNITE.map((e) => ({ valeur: e, libelle: libelleEtape(e, langue) }));
 
 export const STATUT_OPPORTUNITE: Record<
   StatutOpportunite,
@@ -76,13 +91,40 @@ export const STATUT_OPPORTUNITE: Record<
   perdue: { libelle: "Perdue", tonalite: "danger" },
 };
 
+export const STATUT_OPPORTUNITE_EN: Record<
+  StatutOpportunite,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  ouverte: { libelle: "Open", tonalite: "neutre" },
+  gagnee: { libelle: "Won", tonalite: "succes" },
+  perdue: { libelle: "Lost", tonalite: "danger" },
+};
+
+export const statutOpportunite = (s: StatutOpportunite, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_OPPORTUNITE_EN : STATUT_OPPORTUNITE)[s];
+
 export const OPTIONS_DEVISES = DEVISES.map((d) => ({
   valeur: d,
   libelle: d === "XOF" ? "XOF (FCFA UEMOA)" : d === "XAF" ? "XAF (FCFA CEMAC)" : d,
 }));
 
+/** Devises proposées, libellées dans la langue de l'interface. */
+export const optionsDevises = (langue: Langue = "fr") =>
+  DEVISES.map((d) => ({
+    valeur: d,
+    libelle:
+      d === "XOF"
+        ? langue === "en"
+          ? "XOF (FCFA WAEMU)"
+          : "XOF (FCFA UEMOA)"
+        : d === "XAF"
+          ? "XAF (FCFA CEMAC)"
+          : d,
+  }));
+
 /** Probabilité saisie en points (0 à 100) → « 40 % » (espace insécable). */
-export const formaterProbabilite = (p: number) => formaterPourcentage(p / 100, 0);
+export const formaterProbabilite = (p: number, langue: Langue = "fr") =>
+  formaterPourcentage(p / 100, 0, langue);
 
 /** Étape suivante dans l'entonnoir, `null` à la négociation. */
 export function etapeSuivante(etape: EtapeOpportunite): EtapeOpportunite | null {
@@ -109,6 +151,18 @@ export const OPTIONS_FILTRE_STATUT: { valeur: FiltreStatutOpportunite; libelle: 
   { valeur: "perdues", libelle: "Perdues" },
   { valeur: "toutes", libelle: "Toutes" },
 ];
+
+export const optionsFiltreStatut = (
+  langue: Langue = "fr",
+): { valeur: FiltreStatutOpportunite; libelle: string }[] => {
+  const t = creerTraduire(langue);
+  return [
+    { valeur: "ouvertes", libelle: t("Ouvertes", "Open") },
+    { valeur: "gagnees", libelle: t("Gagnées", "Won") },
+    { valeur: "perdues", libelle: t("Perdues", "Lost") },
+    { valeur: "toutes", libelle: t("Toutes", "All") },
+  ];
+};
 
 /** Filtres lus dans l'URL ; toute valeur inconnue revient à la valeur par défaut. */
 export function lireFiltresPipeline(
@@ -224,33 +278,49 @@ const idOuNull = (v: string) => (v.trim() === "" ? null : v.trim());
 export function validerOpportunite(
   s: SaisieOpportunite,
   mode: "creation" | "modification",
+  langue: Langue = "fr",
 ): Resultat<ChargeOpportunite, ChampOpportunite> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampOpportunite, string>> = {};
   const intitule = s.intitule.trim();
-  if (intitule === "") erreurs.intitule = "Saisissez l'intitulé de l'opportunité.";
-  else if (intitule.length > 200) erreurs.intitule = "200 caractères au plus.";
-  if (!UUID.test(s.client_id)) erreurs.client_id = "Choisissez le client.";
+  if (intitule === "")
+    erreurs.intitule = t("Saisissez l'intitulé de l'opportunité.", "Enter the opportunity title.");
+  else if (intitule.length > 200)
+    erreurs.intitule = t("200 caractères au plus.", "200 characters at most.");
+  if (!UUID.test(s.client_id)) erreurs.client_id = t("Choisissez le client.", "Choose the client.");
   if (s.type_mission_id !== "" && !UUID.test(s.type_mission_id))
-    erreurs.type_mission_id = "Choisissez un type dans la liste.";
+    erreurs.type_mission_id = t(
+      "Choisissez un type dans la liste.",
+      "Choose a type from the list.",
+    );
   if (s.responsable_id !== "" && !UUID.test(s.responsable_id))
-    erreurs.responsable_id = "Choisissez une personne dans la liste.";
+    erreurs.responsable_id = t(
+      "Choisissez une personne dans la liste.",
+      "Choose a person from the list.",
+    );
   const devise = (DEVISES as readonly string[]).includes(s.devise) ? (s.devise as Devise) : null;
-  if (!devise) erreurs.devise = "Choisissez une devise.";
+  if (!devise) erreurs.devise = t("Choisissez une devise.", "Choose a currency.");
   const montant = devise ? lireMontant(s.montant_estime, devise) : null;
   if (devise && montant !== null && Number.isNaN(montant))
     erreurs.montant_estime =
       devise === "XOF" || devise === "XAF"
-        ? "Montant entier positif, sans décimale (ex. 15 000 000)."
-        : "Montant positif, deux décimales au plus (ex. 25 000,50).";
+        ? t(
+            "Montant entier positif, sans décimale (ex. 15 000 000).",
+            "Positive whole amount, no decimals (e.g. 15,000,000).",
+          )
+        : t(
+            "Montant positif, deux décimales au plus (ex. 25 000,50).",
+            "Positive amount, two decimals at most (e.g. 25,000.50).",
+          );
   const proba = lireNombre(s.probabilite);
   if (proba === null || Number.isNaN(proba) || !Number.isInteger(proba) || proba < 0 || proba > 100)
-    erreurs.probabilite = "Nombre entier entre 0 et 100.";
+    erreurs.probabilite = t("Nombre entier entre 0 et 100.", "Whole number between 0 and 100.");
   if (s.date_cloture_prevue !== "" && !DATE.test(s.date_cloture_prevue))
-    erreurs.date_cloture_prevue = "Date au format JJ/MM/AAAA.";
+    erreurs.date_cloture_prevue = t("Date au format JJ/MM/AAAA.", "Date in DD/MM/YYYY format.");
   const etape = (ETAPES_OPPORTUNITE as readonly string[]).includes(s.etape)
     ? (s.etape as EtapeOpportunite)
     : null;
-  if (mode === "creation" && !etape) erreurs.etape = "Choisissez une étape.";
+  if (mode === "creation" && !etape) erreurs.etape = t("Choisissez une étape.", "Choose a stage.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -276,10 +346,22 @@ export type ChargeIssue = { statut: "gagnee" } | { statut: "perdue"; motif_perte
 export function validerIssue(
   statut: "gagnee" | "perdue",
   motif: string,
+  langue: Langue = "fr",
 ): Resultat<ChargeIssue, "motif_perte"> {
+  const t = creerTraduire(langue);
   if (statut === "gagnee") return { ok: true, charge: { statut } };
   const m = motif.trim();
-  if (m === "") return { ok: false, erreurs: { motif_perte: "Indiquez le motif de la perte." } };
-  if (m.length > 1000) return { ok: false, erreurs: { motif_perte: "1000 caractères au plus." } };
+  if (m === "")
+    return {
+      ok: false,
+      erreurs: {
+        motif_perte: t("Indiquez le motif de la perte.", "Enter the reason for the loss."),
+      },
+    };
+  if (m.length > 1000)
+    return {
+      ok: false,
+      erreurs: { motif_perte: t("1000 caractères au plus.", "1000 characters at most.") },
+    };
   return { ok: true, charge: { statut, motif_perte: m } };
 }

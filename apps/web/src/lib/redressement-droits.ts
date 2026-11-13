@@ -2,6 +2,7 @@
 import {
   aPermission,
   type RedCausesVersionVue,
+  type Langue,
   type RedDossierResume,
   type Role,
 } from "@missionpilot/shared";
@@ -57,20 +58,38 @@ export function raisonSansEcriture(
   mission: Pick<MissionDetaillee, "statut">,
   dossier: Pick<RedDossierResume, "statut"> | null,
   roles: readonly Role[],
+  langue: Langue = "fr",
 ): string {
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   if (mission.statut === "cloturee") {
-    return "La mission est clôturée : le dossier de redressement est en lecture seule.";
+    return t(
+      "La mission est clôturée : le dossier de redressement est en lecture seule.",
+      "The engagement is closed: the turnaround file is read-only.",
+    );
   }
-  if (dossier?.statut === "clos") return "Le dossier est clos : il est en lecture seule.";
+  if (dossier?.statut === "clos") {
+    return t(
+      "Le dossier est clos : il est en lecture seule.",
+      "The file is closed: it is read-only.",
+    );
+  }
   if (!aPermission(roles, "redressement.ecrire")) {
-    return "Votre rôle permet de consulter le dossier de redressement, pas de le modifier.";
+    return t(
+      "Votre rôle permet de consulter le dossier de redressement, pas de le modifier.",
+      "Your role allows you to view the turnaround file, not to edit it.",
+    );
   }
-  return "La saisie est réservée au directeur, au chef de mission et aux membres de l'équipe.";
+  return t(
+    "La saisie est réservée au directeur, au chef de mission et aux membres de l'équipe.",
+    "Data entry is reserved for the engagement director, the engagement manager and team members.",
+  );
 }
 
 /** Raison affichée à l'auteur d'une cartographie qui ne peut pas la valider lui-même (RED-04). */
 export const TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS =
   "Vous avez participé à cette cartographie (demande ou modification) : elle doit être validée par un autre consultant. Un associé peut la valider lui-même.";
+export const TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS_EN =
+  "You took part in this mapping (request or edit): it must be approved by another consultant. A partner can approve it directly.";
 
 export interface ValidationCauses {
   /** Le bouton « Valider » est affiché (brouillon, écriture permise). */
@@ -91,13 +110,19 @@ export function validationCauses(
   peutEcrire: boolean,
   roles: readonly Role[],
   utilisateurId: string,
+  langue: Langue = "fr",
 ): ValidationCauses {
   if (!peutEcrire || version.statut !== "brouillon") {
     return { proposee: false, autorisee: false, raison: null };
   }
   const auteur = version.historique.some((r) => r.auteur.id === utilisateurId);
   if (auteur && !roles.includes("associe")) {
-    return { proposee: true, autorisee: false, raison: TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS };
+    return {
+      proposee: true,
+      autorisee: false,
+      raison:
+        langue === "en" ? TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS_EN : TEXTE_CAUSES_AUTEUR_NE_VALIDE_PAS,
+    };
   }
   return { proposee: true, autorisee: true, raison: null };
 }

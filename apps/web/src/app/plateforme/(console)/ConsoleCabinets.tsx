@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { ConfirmationAction } from "../../../components/plateforme/ConfirmationAction";
 import { MotDePasseGenere } from "../../../components/plateforme/MotDePasseGenere";
@@ -38,6 +39,8 @@ interface SecretAffiche {
  * l'état de ce composant uniquement, jusqu'à « J'ai noté le mot de passe ».
  */
 export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[] }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
@@ -64,13 +67,16 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
       setSucces(null);
       setSecret({
         motDePasse: creation.motDePasseGenere,
-        compte: libelleComptePremierAssocie(creation.cabinet.nom, creation.associe),
+        compte: libelleComptePremierAssocie(creation.cabinet.nom, creation.associe, langue),
       });
     } else {
       setSecret(null);
       setRetourFocus((n) => n + 1);
       setSucces(
-        `Le cabinet ${creation.cabinet.nom} a été créé. Son premier associé, ${creation.associe.nom} (${creation.associe.email}), se connecte avec le mot de passe que vous avez saisi.`,
+        t(
+          `Le cabinet ${creation.cabinet.nom} a été créé. Son premier associé, ${creation.associe.nom} (${creation.associe.email}), se connecte avec le mot de passe que vous avez saisi.`,
+          `The firm ${creation.cabinet.nom} has been created. Its first partner, ${creation.associe.nom} (${creation.associe.email}), signs in with the password you entered.`,
+        ),
       );
     }
     rafraichir();
@@ -84,7 +90,7 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
 
   async function confirmerChangement() {
     if (!aConfirmer) return;
-    const texte = texteActionEtat(aConfirmer);
+    const texte = texteActionEtat(aConfirmer, langue);
     setEnCours(true);
     setErreurEtat(null);
     try {
@@ -94,7 +100,7 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
       setSucces(texte.succes);
       rafraichir();
     } catch (e) {
-      setErreurEtat(messageErreurPlateforme(e));
+      setErreurEtat(messageErreurPlateforme(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -103,44 +109,55 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
   const colonnes: ColonneTableau<CabinetListe>[] = [
     {
       cle: "nom",
-      entete: "Cabinet",
+      entete: t("Cabinet", "Firm"),
       rendu: (c) => (
         <span className="mp-console__nom">
           <Link href={cheminCabinetPlateforme(c.id)}>{c.nom}</Link>
           {c.estDemo ? (
             <BadgeStatut tonalite="attention" sansIcone>
-              Démo
+              {t("Démo", "Demo")}
             </BadgeStatut>
           ) : null}
         </span>
       ),
     },
-    { cle: "pays", entete: "Pays", rendu: (c) => libellePays(c.pays) },
+    { cle: "pays", entete: t("Pays", "Country"), rendu: (c) => libellePays(c.pays, langue) },
     {
       cle: "etat",
-      entete: "État",
+      entete: t("État", "Status"),
       rendu: (c) =>
         c.actif ? (
-          <BadgeStatut tonalite="succes">Actif</BadgeStatut>
+          <BadgeStatut tonalite="succes">{t("Actif", "Active")}</BadgeStatut>
         ) : (
-          <BadgeStatut tonalite="neutre">Désactivé</BadgeStatut>
+          <BadgeStatut tonalite="neutre">{t("Désactivé", "Deactivated")}</BadgeStatut>
         ),
     },
-    { cle: "utilisateurs", entete: "Utilisateurs", rendu: libelleUtilisateursCabinet },
-    { cle: "creeLe", entete: "Créé le", rendu: (c) => formaterDate(c.creeLe) },
+    {
+      cle: "utilisateurs",
+      entete: t("Utilisateurs", "Users"),
+      rendu: (c) => libelleUtilisateursCabinet(c, langue),
+    },
+    {
+      cle: "creeLe",
+      entete: t("Créé le", "Created on"),
+      rendu: (c) => formaterDate(c.creeLe, "UTC", langue),
+    },
     {
       cle: "actions",
-      entete: "Actions",
+      entete: t("Actions", "Actions"),
       rendu: (c) => {
-        const texte = texteActionEtat(c);
+        const texte = texteActionEtat(c, langue);
         return (
           <span className="mp-console__actions">
             <Link
               href={cheminCabinetPlateforme(c.id)}
               className={classesBouton("secondaire")}
-              aria-label={`Gérer les comptes du cabinet ${c.nom}`}
+              aria-label={t(
+                `Gérer les comptes du cabinet ${c.nom}`,
+                `Manage the accounts of the firm ${c.nom}`,
+              )}
             >
-              Gérer les comptes
+              {t("Gérer les comptes", "Manage accounts")}
             </Link>
             <Bouton
               variante={c.actif ? "danger" : "secondaire"}
@@ -155,13 +172,16 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
     },
   ];
 
-  const texteConfirmation = aConfirmer ? texteActionEtat(aConfirmer) : null;
+  const texteConfirmation = aConfirmer ? texteActionEtat(aConfirmer, langue) : null;
 
   return (
     <div className="mp-page mp-console">
       <EnteteDePage
-        titre="Cabinets"
-        soustitre="Créez des cabinets et gérez leurs comptes. Cette console n'accède à aucune donnée de mission ou de facturation."
+        titre={t("Cabinets", "Firms")}
+        soustitre={t(
+          "Créez des cabinets et gérez leurs comptes. Cette console n'accède à aucune donnée de mission ou de facturation.",
+          "Create firms and manage their accounts. This console has no access to any engagement or billing data.",
+        )}
         actions={
           <Bouton
             icone="plus"
@@ -169,7 +189,7 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
             disabled={secret !== null}
             onClick={ouvrirFormulaire}
           >
-            Créer un cabinet
+            {t("Créer un cabinet", "Create a firm")}
           </Bouton>
         }
       />
@@ -225,21 +245,26 @@ export function ConsoleCabinets({ cabinets }: { cabinets: readonly CabinetListe[
 
       {cabinets.length === 0 ? (
         <EtatVide
-          titre="Aucun cabinet pour le moment."
+          titre={t("Aucun cabinet pour le moment.", "No firms yet.")}
           icone="immeuble"
           action={
             formulaireOuvert ? null : (
               <Bouton icone="plus" disabled={secret !== null} onClick={ouvrirFormulaire}>
-                Créer le premier cabinet
+                {t("Créer le premier cabinet", "Create the first firm")}
               </Bouton>
             )
           }
         >
-          <p>Créez un cabinet et son premier associé pour qu&apos;il puisse se connecter.</p>
+          <p>
+            {t(
+              "Créez un cabinet et son premier associé pour qu'il puisse se connecter.",
+              "Create a firm and its first partner so they can sign in.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <Tableau
-          legende="Liste des cabinets"
+          legende={t("Liste des cabinets", "List of firms")}
           colonnes={colonnes}
           lignes={cabinets}
           cleLigne={(c) => c.id}

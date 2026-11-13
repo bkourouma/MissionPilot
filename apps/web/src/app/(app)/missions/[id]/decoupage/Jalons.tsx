@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../../components/ui/CaseACocher";
@@ -29,13 +30,14 @@ export interface JalonsProps {
 
 /** Jalons de la mission (PLN-01) : date prévue, phase de rattachement, atteint ou non. */
 export function Jalons({ missionId, jalons, phases, modifiable }: JalonsProps) {
+  const t = useT();
   const [ajout, setAjout] = useState(false);
   const base = `/api/missions/${encodeURIComponent(missionId)}/jalons`;
   const nomPhase = (id: string | null) => phases.find((p) => p.valeur === id)?.libelle;
   return (
     <div className="mp-pile">
       {jalons.length === 0 ? (
-        <p className="mp-texte-doux">Aucun jalon défini.</p>
+        <p className="mp-texte-doux">{t("Aucun jalon défini.", "No milestone defined.")}</p>
       ) : (
         <ul className="mp-liste-lignes">
           {jalons.map((j) => (
@@ -53,7 +55,7 @@ export function Jalons({ missionId, jalons, phases, modifiable }: JalonsProps) {
       {modifiable ? (
         ajout ? (
           <FormulaireJalon
-            titre="Nouveau jalon"
+            titre={t("Nouveau jalon", "New milestone")}
             phases={phases}
             initial={SAISIE_JALON_VIDE}
             onFin={() => setAjout(false)}
@@ -62,7 +64,7 @@ export function Jalons({ missionId, jalons, phases, modifiable }: JalonsProps) {
         ) : (
           <div>
             <Bouton variante="secondaire" icone="drapeau" onClick={() => setAjout(true)}>
-              Ajouter un jalon
+              {t("Ajouter un jalon", "Add a milestone")}
             </Bouton>
           </div>
         )
@@ -84,6 +86,8 @@ function LigneJalon({
   modifiable: boolean;
   nomPhase: string | undefined;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [edition, setEdition] = useState(false);
   const f = useFormulaire<never>();
   const chemin = `${base}/${encodeURIComponent(jalon.id)}`;
@@ -93,15 +97,17 @@ function LigneJalon({
         <strong>{jalon.libelle}</strong>
         <span className="mp-texte-doux">
           {[
-            jalon.date_prevue ? `Prévu le ${formaterDate(jalon.date_prevue)}` : "Date à fixer",
-            nomPhase ? `Phase : ${nomPhase}` : null,
+            jalon.date_prevue
+              ? `${t("Prévu le", "Planned for")} ${formaterDate(jalon.date_prevue, "UTC", langue)}`
+              : t("Date à fixer", "Date to be set"),
+            nomPhase ? `${t("Phase : ", "Phase: ")}${nomPhase}` : null,
           ]
             .filter(Boolean)
             .join(" · ")}
         </span>
       </span>
       <BadgeStatut tonalite={jalon.atteint ? "succes" : "neutre"}>
-        {jalon.atteint ? "Atteint" : "À venir"}
+        {jalon.atteint ? t("Atteint", "Reached") : t("À venir", "Upcoming")}
       </BadgeStatut>
       {modifiable && !edition ? (
         <div className="mp-barre-actions mp-barre-actions--compacte">
@@ -116,28 +122,42 @@ function LigneJalon({
             }
             aria-label={
               jalon.atteint
-                ? `Marquer le jalon ${jalon.libelle} non atteint`
-                : `Marquer le jalon ${jalon.libelle} atteint`
+                ? t(
+                    `Marquer le jalon ${jalon.libelle} non atteint`,
+                    `Mark milestone ${jalon.libelle} as not reached`,
+                  )
+                : t(
+                    `Marquer le jalon ${jalon.libelle} atteint`,
+                    `Mark milestone ${jalon.libelle} as reached`,
+                  )
             }
           >
-            {jalon.atteint ? "Marquer non atteint" : "Marquer atteint"}
+            {jalon.atteint
+              ? t("Marquer non atteint", "Mark as not reached")
+              : t("Marquer atteint", "Mark as reached")}
           </Bouton>
           <Bouton
             variante="discret"
             icone="crayon"
             onClick={() => setEdition(true)}
-            aria-label={`Modifier le jalon ${jalon.libelle}`}
+            aria-label={t(`Modifier le jalon ${jalon.libelle}`, `Edit milestone ${jalon.libelle}`)}
           >
-            Modifier
+            {t("Modifier", "Edit")}
           </Bouton>
           <BoutonConfirmation
-            libelle="Supprimer"
+            libelle={t("Supprimer", "Delete")}
             variante="discret"
             icone="corbeille"
-            ariaLabel={`Supprimer le jalon ${jalon.libelle}`}
-            question={`Supprimer le jalon « ${jalon.libelle} » ?`}
-            libelleConfirmation="Oui, supprimer"
-            texteChargement="Suppression…"
+            ariaLabel={t(
+              `Supprimer le jalon ${jalon.libelle}`,
+              `Delete milestone ${jalon.libelle}`,
+            )}
+            question={t(
+              `Supprimer le jalon « ${jalon.libelle} » ?`,
+              `Delete milestone "${jalon.libelle}"?`,
+            )}
+            libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+            texteChargement={t("Suppression…", "Deleting…")}
             action={() => f.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin))}
           />
         </div>
@@ -145,11 +165,11 @@ function LigneJalon({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
       {edition ? (
         <FormulaireJalon
-          titre={`Modifier le jalon ${jalon.libelle}`}
+          titre={t(`Modifier le jalon ${jalon.libelle}`, `Edit milestone ${jalon.libelle}`)}
           phases={phases}
           initial={saisieDepuisJalon(jalon)}
           onFin={() => setEdition(false)}
@@ -173,11 +193,13 @@ function FormulaireJalon({
   onFin: () => void;
   envoyer: (charge: Record<string, unknown>) => Promise<unknown>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieJalon>(initial);
   const f = useFormulaire<"libelle" | "phase_id" | "date_prevue">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerJalon(s), envoyer, { apres: onFin });
+    await f.envoyer(validerJalon(s, langue), envoyer, { apres: onFin });
   }
   return (
     <form
@@ -191,7 +213,7 @@ function FormulaireJalon({
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           required
           maxLength={200}
           value={s.libelle}
@@ -199,15 +221,15 @@ function FormulaireJalon({
           erreur={f.erreurs.libelle}
         />
         <Select
-          libelle="Phase"
+          libelle={t("Phase", "Phase")}
           options={phases}
-          invite="Mission entière"
+          invite={t("Mission entière", "Whole engagement")}
           value={s.phase_id}
           onChange={(e) => setS((x) => ({ ...x, phase_id: e.target.value }))}
           erreur={f.erreurs.phase_id}
         />
         <Champ
-          libelle="Date prévue"
+          libelle={t("Date prévue", "Planned date")}
           type="date"
           value={s.date_prevue}
           onChange={(e) => setS((x) => ({ ...x, date_prevue: e.target.value }))}
@@ -215,16 +237,20 @@ function FormulaireJalon({
         />
       </div>
       <CaseACocher
-        libelle="Atteint"
+        libelle={t("Atteint", "Reached")}
         checked={s.atteint}
         onChange={(e) => setS((x) => ({ ...x, atteint: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer", "Save")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

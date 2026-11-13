@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { aPermission, type Role, type TypeEntiteCollaboration } from "@missionpilot/shared";
+import { obtenirT } from "../../lib/i18n/serveur";
 import { hrefNouvelleTache } from "../../lib/taches-collaboration";
 import { classesBouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
@@ -18,15 +19,16 @@ export interface CarteCommentairesProps {
  * Carte « Commentaires » d'une fiche (facture, opportunité, proposition…) avec, pour qui a
  * « tache.assigner », un lien pour assigner une tâche liée à l'élément.
  */
-export function CarteCommentaires({
+export async function CarteCommentaires({
   entiteType,
   entiteId,
   utilisateur,
   nomElement,
 }: CarteCommentairesProps) {
+  const t = await obtenirT();
   return (
     <Carte
-      titre="Commentaires"
+      titre={t("Commentaires", "Comments")}
       actions={
         aPermission(utilisateur.roles, "tache.assigner") ? (
           <Link
@@ -34,8 +36,10 @@ export function CarteCommentaires({
             className={classesBouton("secondaire")}
           >
             <Icone nom="taches" />
-            <span>Assigner une tâche</span>
-            <span className="mp-visuellement-cache">{` liée à ${nomElement}`}</span>
+            <span>{t("Assigner une tâche", "Assign a task")}</span>
+            <span className="mp-visuellement-cache">
+              {t(` liée à ${nomElement}`, ` linked to ${nomElement}`)}
+            </span>
           </Link>
         ) : null
       }

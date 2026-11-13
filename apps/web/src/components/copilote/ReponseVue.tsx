@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { ElementReponseCopilote, ReponseCopilote } from "@missionpilot/shared";
 import { libelleMode, libelleOutil, lienSur } from "../../lib/copilote";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 /** Éléments liés d'une réponse : libellés d'entités en texte brut, liens internes seulement. */
 export function ListeElements({ elements }: { elements: readonly ElementReponseCopilote[] }) {
@@ -22,8 +25,9 @@ export function ListeElements({ elements }: { elements: readonly ElementReponseC
  * mention du mode (sans IA, avec sa raison) accompagne toujours la réponse d'un routage sans modèle.
  */
 export function ReponseVue({ reponse }: { reponse: ReponseCopilote }) {
-  const mode = libelleMode(reponse);
-  const outil = reponse.statut === "ok" ? libelleOutil(reponse.outil) : null;
+  const langue = useLangue();
+  const mode = libelleMode(reponse, langue);
+  const outil = reponse.statut === "ok" ? libelleOutil(reponse.outil, langue) : null;
   return (
     <>
       {outil ? <p className="mp-copilote__outil">{outil}</p> : null}

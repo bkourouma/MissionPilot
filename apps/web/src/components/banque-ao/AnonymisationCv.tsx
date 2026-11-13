@@ -12,6 +12,7 @@ import {
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { ChampsReconfirmation } from "../securite/ChampsReconfirmation";
 import { Alerte } from "../ui/Alerte";
 import { Champ } from "../ui/Champ";
@@ -23,6 +24,8 @@ import { Champ } from "../ui/Champ";
  * Une fois anonymisé, le CV n'est plus exportable ni modifiable (409 CV_ANONYME côté API).
  */
 export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: boolean }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif" | ChampConfirmation>();
   const [motif, setMotif] = useState("");
   const [confirmation, setConfirmation] = useState<SaisieConfirmation>(SAISIE_CONFIRMATION_VIDE);
@@ -30,12 +33,19 @@ export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: 
 
   if (anonymise) {
     return (
-      <Alerte tonalite="succes" titre="CV anonymisé" annonce="status">
+      <Alerte tonalite="succes" titre={t("CV anonymisé", "CV anonymized")} annonce="status">
         <p>
-          Le parcours de cette personne est effacé (nom, employeurs, diplômes, langues). Ce CV ne
-          peut plus servir : plus d&apos;export, plus de nouvelle version, plus d&apos;offre.
-          {versions !== null ? ` ${versions} version(s) anonymisée(s).` : ""} La trace d&apos;audit
-          est conservée, sans donnée personnelle.
+          {t(
+            "Le parcours de cette personne est effacé (nom, employeurs, diplômes, langues). Ce CV ne peut plus servir : plus d'export, plus de nouvelle version, plus d'offre.",
+            "This person's background has been erased (name, employers, degrees, languages). This CV can no longer be used: no export, no new version, no bid.",
+          )}
+          {versions !== null
+            ? t(` ${versions} version(s) anonymisée(s).`, ` ${versions} version(s) anonymized.`)
+            : ""}{" "}
+          {t(
+            "La trace d'audit est conservée, sans donnée personnelle.",
+            "The audit trail is kept, without personal data.",
+          )}
         </p>
       </Alerte>
     );
@@ -43,7 +53,7 @@ export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: 
 
   async function anonymiser(): Promise<boolean> {
     const ok = await f.envoyer(
-      lireAnonymisationCv(motif, confirmation),
+      lireAnonymisationCv(motif, confirmation, langue),
       (c) =>
         api.post<{ id: string; anonymise: boolean; versions: number }>(
           `/api/banque-ao/cv/${encodeURIComponent(cvId)}/anonymisation`,
@@ -53,7 +63,7 @@ export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: 
       {
         apres: (r) => setVersions(r.versions),
         messageSpecifique: (e) =>
-          messageReconfirmation(e, confirmation.facteur) ?? messageBanqueAo(e),
+          messageReconfirmation(e, confirmation.facteur, langue) ?? messageBanqueAo(e, langue),
       },
     );
     // Mot de passe et code ne restent jamais à l'écran après une tentative.
@@ -63,13 +73,16 @@ export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: 
 
   return (
     <div className="mp-pile mp-pleine-largeur">
-      <Alerte tonalite="attention" titre="Action irréversible" annonce="aucune">
+      <Alerte
+        tonalite="attention"
+        titre={t("Action irréversible", "Irreversible action")}
+        annonce="aucune"
+      >
         <p>
-          L&apos;anonymisation efface le parcours de la personne (nom, employeurs, diplômes,
-          langues, nationalité) dans toutes les versions du CV et la détache de son collaborateur.
-          Elle ne peut pas être annulée. Le CV n&apos;est ensuite plus utilisable (export, nouvelle
-          version, offre). Le texte d&apos;une offre technique déjà rédigée, qui citerait son nom,
-          n&apos;est pas réécrit.
+          {t(
+            "L'anonymisation efface le parcours de la personne (nom, employeurs, diplômes, langues, nationalité) dans toutes les versions du CV et la détache de son collaborateur. Elle ne peut pas être annulée. Le CV n'est ensuite plus utilisable (export, nouvelle version, offre). Le texte d'une offre technique déjà rédigée, qui citerait son nom, n'est pas réécrit.",
+            "Anonymization erases the person's background (name, employers, degrees, languages, nationality) from every version of the CV and detaches it from their staff record. It cannot be undone. The CV can then no longer be used (export, new version, bid). The text of an already drafted technical bid that cites their name is not rewritten.",
+          )}
         </p>
       </Alerte>
       <form
@@ -77,16 +90,19 @@ export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: 
         className="mp-formulaire"
         noValidate
         onSubmit={(e) => e.preventDefault()}
-        aria-label="Anonymiser ce CV"
+        aria-label={t("Anonymiser ce CV", "Anonymize this CV")}
       >
         <RetourFormulaire
           erreur={f.erreurGlobale}
           refAlerte={f.refAlerte}
-          titreErreur="Anonymisation impossible"
+          titreErreur={t("Anonymisation impossible", "Anonymization failed")}
         />
         <Champ
-          libelle="Motif de l'anonymisation"
-          aide="Obligatoire, conservé dans le journal d'audit (départ, demande d'effacement…)."
+          libelle={t("Motif de l'anonymisation", "Reason for anonymization")}
+          aide={t(
+            "Obligatoire, conservé dans le journal d'audit (départ, demande d'effacement…).",
+            "Required, kept in the audit log (departure, erasure request…).",
+          )}
           required
           maxLength={MOTIF_ANONYMISATION_MAX}
           value={motif}
@@ -98,14 +114,18 @@ export function AnonymisationCv({ cvId, anonymise }: { cvId: string; anonymise: 
           onChange={setConfirmation}
           erreurs={f.erreurs}
           motif="anonymiser ce CV de façon irréversible"
+          motifEn="irreversibly anonymize this CV"
         />
         <div className="mp-actions-formulaire">
           <BoutonConfirmation
-            libelle="Anonymiser ce CV"
+            libelle={t("Anonymiser ce CV", "Anonymize this CV")}
             icone="cadenas"
-            question="Anonymiser ce CV ? Le parcours de la personne sera effacé définitivement, sans retour possible."
-            libelleConfirmation="Oui, anonymiser définitivement"
-            texteChargement="Anonymisation…"
+            question={t(
+              "Anonymiser ce CV ? Le parcours de la personne sera effacé définitivement, sans retour possible.",
+              "Anonymize this CV? The person's background will be erased permanently, with no way back.",
+            )}
+            libelleConfirmation={t("Oui, anonymiser définitivement", "Yes, anonymize permanently")}
+            texteChargement={t("Anonymisation…", "Anonymizing…")}
             variante="danger"
             action={anonymiser}
           />

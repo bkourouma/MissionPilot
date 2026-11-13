@@ -23,6 +23,7 @@ import {
   type PromptIa,
 } from "../../../../lib/ia";
 import { chargerFacultatif, type ChargementFacultatif } from "../../../../lib/ia-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 import { CleApiIa } from "./CleApiIa";
 import { CoutsIaSection } from "./CoutsIa";
@@ -34,7 +35,10 @@ import { PromptsIa } from "./PromptsIa";
 import { RoutageIa } from "./RoutageIa";
 import { lireEtatCache, lireRoutage } from "./routage-cache";
 
-export const metadata: Metadata = { title: "Intelligence artificielle" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Intelligence artificielle", "Artificial intelligence") };
+}
 
 const REFUSE = { etat: "refuse" } as const;
 
@@ -44,6 +48,8 @@ export default async function PageParametresIa({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("ia.configurer");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const q = await searchParams;
   const maintenant = new Date();
   const mois = lireMois(q.mois, maintenant);
@@ -62,37 +68,43 @@ export default async function PageParametresIa({
       ? chargerFacultatif<PageIa<CoutMissionIa>>(`/api/ia/couts/missions?${requeteMissions}`)
       : Promise.resolve<ChargementFacultatif<PageIa<CoutMissionIa>>>(REFUSE),
   ]);
-  const mode = p.ok ? presentationMode(p.donnees) : null;
+  const mode = p.ok ? presentationMode(p.donnees, langue) : null;
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Intelligence artificielle"
-        soustitre="Fournisseur OpenRouter, modèle par tâche, plafond de coût et prompts versionnés. L'IA propose, l'expert dispose : tout contenu généré reste un brouillon jusqu'à sa validation par un consultant, et aucun chiffre ne vient du modèle."
+        titre={t("Intelligence artificielle", "Artificial intelligence")}
+        soustitre={t(
+          "Fournisseur OpenRouter, modèle par tâche, plafond de coût et prompts versionnés. L'IA propose, l'expert dispose : tout contenu généré reste un brouillon jusqu'à sa validation par un consultant, et aucun chiffre ne vient du modèle.",
+          "OpenRouter provider, model per task, cost ceiling and versioned prompts. AI proposes, the expert decides: any generated content remains a draft until a consultant approves it, and no figure comes from the model.",
+        )}
         badges={
           mode ? <BadgeStatut tonalite={mode.tonalite}>{mode.libelle}</BadgeStatut> : undefined
         }
         actions={
           <Link href="/parametres/ia/essai" className={classesBouton("secondaire")}>
-            Essayer une génération
+            {t("Essayer une génération", "Try a generation")}
           </Link>
         }
       />
       {!p.ok ? (
         <EtatErreur
-          titre="Les paramètres IA n'ont pas pu être chargés."
+          titre={t(
+            "Les paramètres IA n'ont pas pu être chargés.",
+            "The AI settings could not be loaded.",
+          )}
           message={p.message}
           hrefReessayer="/parametres/ia"
         />
       ) : (
         <ParametresCabinet p={p.donnees} />
       )}
-      <Carte titre="Prompts versionnés">
+      <Carte titre={t("Prompts versionnés", "Versioned prompts")}>
         {prompts.ok ? (
           <PromptsIa initiale={prompts.donnees} />
         ) : (
           <EtatErreur
-            titre="Les prompts n'ont pas pu être chargés."
+            titre={t("Les prompts n'ont pas pu être chargés.", "The prompts could not be loaded.")}
             message={prompts.message}
             hrefReessayer="/parametres/ia"
           />
@@ -109,37 +121,39 @@ export default async function PageParametresIa({
   );
 }
 
-function ParametresCabinet({ p }: { p: ParametresIa }) {
-  const mode = presentationMode(p);
+async function ParametresCabinet({ p }: { p: ParametresIa }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const mode = presentationMode(p, langue);
   return (
     <>
-      <Carte titre="État de l'IA">
+      <Carte titre={t("État de l'IA", "AI status")}>
         <div className="mp-pile">
           <p>{mode.explication}</p>
           <dl className="mp-liste-def">
             <div>
-              <dt>Mode</dt>
+              <dt>{t("Mode", "Mode")}</dt>
               <dd>
                 <BadgeStatut tonalite={mode.tonalite}>{mode.libelle}</BadgeStatut>
               </dd>
             </div>
             <div>
-              <dt>IA du cabinet</dt>
-              <dd>{p.ia_activee ? "Activée" : "Non activée"}</dd>
+              <dt>{t("IA du cabinet", "Firm AI")}</dt>
+              <dd>{p.ia_activee ? t("Activée", "Enabled") : t("Non activée", "Not enabled")}</dd>
             </div>
             <div>
-              <dt>Fournisseur</dt>
+              <dt>{t("Fournisseur", "Provider")}</dt>
               <dd>OpenRouter</dd>
             </div>
             <div>
-              <dt>Clé utilisée</dt>
-              <dd>{libelleSourceCle(p.source_cle)}</dd>
+              <dt>{t("Clé utilisée", "Key used")}</dt>
+              <dd>{libelleSourceCle(p.source_cle, langue)}</dd>
             </div>
             {typeof p.plafond_effectif_micro_usd === "number" ? (
               <div>
-                <dt>Plafond appliqué ce mois</dt>
+                <dt>{t("Plafond appliqué ce mois", "Ceiling applied this month")}</dt>
                 <dd>
-                  {`${formaterMicroUsd(p.plafond_effectif_micro_usd)}${plafondBorne(p) ? " (borné par l'opérateur pour la clé de la plateforme)" : ""}`}
+                  {`${formaterMicroUsd(p.plafond_effectif_micro_usd, langue)}${plafondBorne(p) ? t(" (borné par l'opérateur pour la clé de la plateforme)", " (capped by the operator for the platform key)") : ""}`}
                 </dd>
               </div>
             ) : null}
@@ -147,27 +161,30 @@ function ParametresCabinet({ p }: { p: ParametresIa }) {
           <ActivationIa parametres={p} />
         </div>
       </Carte>
-      <Carte titre="Clé API OpenRouter">
+      <Carte titre={t("Clé API OpenRouter", "OpenRouter API key")}>
         <CleApiIa parametres={p} />
       </Carte>
-      <Carte titre="Test de connexion">
+      <Carte titre={t("Test de connexion", "Connection test")}>
         <TestConnexionIa iaActivee={p.ia_activee} cleDisponible={p.source_cle !== null} />
       </Carte>
-      <Carte titre="Plafond mensuel de coût">
+      <Carte titre={t("Plafond mensuel de coût", "Monthly cost ceiling")}>
         <PlafondIa parametres={p} />
       </Carte>
-      <Carte titre="Modèle par tâche">
+      <Carte titre={t("Modèle par tâche", "Model per task")}>
         <ModelesIa modeles={p.modeles} autorises={p.modeles_autorises ?? []} />
       </Carte>
-      <Carte titre="Routage des modèles par tâche">
+      <Carte titre={t("Routage des modèles par tâche", "Model routing per task")}>
         <RoutageIa routage={lireRoutage(p)} />
       </Carte>
-      <Carte titre="Cache des réponses">
+      <Carte titre={t("Cache des réponses", "Response cache")}>
         <CacheIa etat={lireEtatCache(p)} />
       </Carte>
       {p.modifie_le ? (
         <p className="mp-texte-petit mp-texte-doux">
-          Paramètres modifiés pour la dernière fois le {formaterDateHeure(p.modifie_le)}.
+          {t(
+            `Paramètres modifiés pour la dernière fois le ${formaterDateHeure(p.modifie_le)}.`,
+            `Settings last modified on ${formaterDateHeure(p.modifie_le, undefined, langue)}.`,
+          )}
         </p>
       ) : null}
     </>

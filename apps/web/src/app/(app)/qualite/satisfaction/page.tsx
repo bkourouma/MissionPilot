@@ -6,7 +6,8 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
-import { STATUT_MISSION, type Mission } from "../../../../lib/missions";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
+import { libelleStatutMission, STATUT_MISSION, type Mission } from "../../../../lib/missions";
 import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../../lib/pagination";
 import {
   droitsQualite,
@@ -16,7 +17,10 @@ import {
 } from "../../../../lib/qualite";
 import { exigerRelectureQualite } from "../../../../lib/qualite-serveur";
 
-export const metadata: Metadata = { title: "Satisfaction des clients" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Satisfaction des clients", "Client satisfaction") };
+}
 
 /**
  * Satisfaction des clients (QUA-08) : saisie par mission, NPS du cabinet visible de l'associé
@@ -24,6 +28,8 @@ export const metadata: Metadata = { title: "Satisfaction des clients" };
  */
 export default async function PageSatisfactions() {
   const session = await exigerRelectureQualite();
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const droits = droitsQualite(session.utilisateur.roles);
   const [synthese, missions] = await Promise.all([
     droits.associe
@@ -35,37 +41,65 @@ export default async function PageSatisfactions() {
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Satisfaction des clients"
-        soustitre="Une note de recommandation de 0 à 10 à chaque jalon et à la clôture de la mission."
-        retour={{ href: "/qualite", libelle: "Qualité" }}
+        titre={t("Satisfaction des clients", "Client satisfaction")}
+        soustitre={t(
+          "Une note de recommandation de 0 à 10 à chaque jalon et à la clôture de la mission.",
+          "A recommendation score from 0 to 10 at each milestone and at engagement close-out.",
+        )}
+        retour={{ href: "/qualite", libelle: t("Qualité", "Quality") }}
       />
 
       {synthese ? (
-        <Carte titre="NPS du cabinet">
+        <Carte titre={t("NPS du cabinet", "Firm NPS")}>
           {!synthese.ok ? (
             <EtatErreur
-              titre="La synthèse n'a pas pu être chargée."
+              titre={t("La synthèse n'a pas pu être chargée.", "The summary could not be loaded.")}
               message={synthese.message}
               hrefReessayer="/qualite/satisfaction"
             />
           ) : synthese.donnees.synthese.total === 0 ? (
-            <EtatVide titre="Aucune note recueillie." icone="info">
-              <p>Le NPS apparaîtra dès la première note saisie sur une mission.</p>
+            <EtatVide titre={t("Aucune note recueillie.", "No score collected.")} icone="info">
+              <p>
+                {t(
+                  "Le NPS apparaîtra dès la première note saisie sur une mission.",
+                  "The NPS will appear as soon as the first score is entered on an engagement.",
+                )}
+              </p>
             </EtatVide>
           ) : (
             <div className="mp-qualite__section">
               <div className="mp-qualite-nps">
                 <p
                   className="mp-qualite-nps__valeur"
-                  aria-label={`NPS : ${formaterNps(synthese.donnees.synthese.nps)}`}
+                  aria-label={`NPS : ${formaterNps(synthese.donnees.synthese.nps, langue)}`}
                 >
-                  {formaterNps(synthese.donnees.synthese.nps)}
+                  {formaterNps(synthese.donnees.synthese.nps, langue)}
                 </p>
                 <p className="mp-qualite-nps__detail">
-                  <span>{synthese.donnees.synthese.total} note(s)</span>
-                  <span>{synthese.donnees.synthese.promoteurs} promoteur(s)</span>
-                  <span>{synthese.donnees.synthese.passifs} passif(s)</span>
-                  <span>{synthese.donnees.synthese.detracteurs} détracteur(s)</span>
+                  <span>
+                    {t(
+                      `${synthese.donnees.synthese.total} note(s)`,
+                      `${synthese.donnees.synthese.total} score(s)`,
+                    )}
+                  </span>
+                  <span>
+                    {t(
+                      `${synthese.donnees.synthese.promoteurs} promoteur(s)`,
+                      `${synthese.donnees.synthese.promoteurs} promoter(s)`,
+                    )}
+                  </span>
+                  <span>
+                    {t(
+                      `${synthese.donnees.synthese.passifs} passif(s)`,
+                      `${synthese.donnees.synthese.passifs} passive(s)`,
+                    )}
+                  </span>
+                  <span>
+                    {t(
+                      `${synthese.donnees.synthese.detracteurs} détracteur(s)`,
+                      `${synthese.donnees.synthese.detracteurs} detractor(s)`,
+                    )}
+                  </span>
                 </p>
               </div>
               <ul className="mp-liste-lignes">
@@ -75,19 +109,24 @@ export default async function PageSatisfactions() {
                       <Link href={hrefSatisfaction(m.mission_id)} className="mp-lien-ligne">
                         {m.mission_intitule}
                       </Link>
-                      <span className="mp-texte-doux mp-texte-petit">{m.total} note(s)</span>
+                      <span className="mp-texte-doux mp-texte-petit">
+                        {t(`${m.total} note(s)`, `${m.total} score(s)`)}
+                      </span>
                     </div>
                     <BadgeStatut
                       tonalite={m.nps !== null && !m.nps.startsWith("-") ? "succes" : "attention"}
                     >
-                      NPS {formaterNps(m.nps)}
+                      NPS {formaterNps(m.nps, langue)}
                     </BadgeStatut>
                   </li>
                 ))}
               </ul>
               {synthese.donnees.tronque ? (
                 <p className="mp-texte-doux mp-texte-petit">
-                  Seules les premières missions sont listées.
+                  {t(
+                    "Seules les premières missions sont listées.",
+                    "Only the first engagements are listed.",
+                  )}
                 </p>
               ) : null}
             </div>
@@ -97,16 +136,19 @@ export default async function PageSatisfactions() {
 
       <section aria-labelledby="titre-missions" className="mp-pile">
         <h2 id="titre-missions" className="mp-section__titre">
-          Saisir une note
+          {t("Saisir une note", "Enter a score")}
         </h2>
         {!missions.ok ? (
           <EtatErreur
-            titre="Les missions n'ont pas pu être chargées."
+            titre={t(
+              "Les missions n'ont pas pu être chargées.",
+              "The engagements could not be loaded.",
+            )}
             message={missions.message}
             hrefReessayer="/qualite/satisfaction"
           />
         ) : missions.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune mission visible." icone="info" />
+          <EtatVide titre={t("Aucune mission visible.", "No visible engagement.")} icone="info" />
         ) : (
           <ul className="mp-liste-lignes">
             {missions.donnees.elements.map((m) => (
@@ -118,7 +160,7 @@ export default async function PageSatisfactions() {
                   <span className="mp-texte-doux mp-texte-petit">{m.client_raison_sociale}</span>
                 </div>
                 <BadgeStatut tonalite={STATUT_MISSION[m.statut].tonalite}>
-                  {STATUT_MISSION[m.statut].libelle}
+                  {libelleStatutMission(m.statut, langue)}
                 </BadgeStatut>
               </li>
             ))}

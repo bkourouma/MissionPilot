@@ -3,7 +3,7 @@
  * `taux-clients.test.ts`. Grille de taux confidentielle : rien n'est demandé, rendu ni
  * envoyé sans « finance.lire » ET « taux.gerer » (miroir de `routes/taux-clients.ts`).
  */
-import { aPermission, type Role } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue, type Role } from "@missionpilot/shared";
 import { DEVISES, type Devise } from "./format";
 import { estDateIso } from "./semaine";
 import { lireMontant, montantVersSaisie, type Resultat } from "./saisie";
@@ -26,11 +26,18 @@ export const voitTauxNegocies = (roles: readonly Role[]) =>
   aPermission(roles, "finance.lire") && aPermission(roles, "taux.gerer");
 
 /** Onglets de la fiche client : les taux négociés n'apparaissent qu'avec ces deux droits. */
-export function ongletsClient(id: string, roles: readonly Role[]) {
+export function ongletsClient(id: string, roles: readonly Role[], langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   return [
-    { id: "fiche", libelle: "Fiche", href: `/clients/${id}` },
+    { id: "fiche", libelle: t("Fiche", "Profile"), href: `/clients/${id}` },
     ...(voitTauxNegocies(roles)
-      ? [{ id: "taux", libelle: "Taux négociés", href: `/clients/${id}/taux` }]
+      ? [
+          {
+            id: "taux",
+            libelle: t("Taux négociés", "Negotiated rates"),
+            href: `/clients/${id}/taux`,
+          },
+        ]
       : []),
   ];
 }
@@ -66,15 +73,27 @@ export function saisieDepuisTaux(t: TauxClient): SaisieTaux {
 const dateOuVide = (d: string) =>
   d === "" || (estDateIso(d) && d >= "2000-01-01" && d <= "2100-12-31");
 
-function verifierValidite(s: SaisieTaux, erreurs: Partial<Record<ChampTaux, string>>) {
-  if (!dateOuVide(s.valide_du)) erreurs.valide_du = "Date invalide.";
-  if (!dateOuVide(s.valide_au)) erreurs.valide_au = "Date invalide.";
+function verifierValidite(
+  s: SaisieTaux,
+  erreurs: Partial<Record<ChampTaux, string>>,
+  langue: Langue,
+) {
+  const t = creerTraduire(langue);
+  if (!dateOuVide(s.valide_du)) erreurs.valide_du = t("Date invalide.", "Invalid date.");
+  if (!dateOuVide(s.valide_au)) erreurs.valide_au = t("Date invalide.", "Invalid date.");
   if (!erreurs.valide_du && !erreurs.valide_au && s.valide_du && s.valide_au)
-    if (s.valide_au < s.valide_du) erreurs.valide_au = "La fin de validité précède son début.";
+    if (s.valide_au < s.valide_du)
+      erreurs.valide_au = t(
+        "La fin de validité précède son début.",
+        "The validity end date is before its start date.",
+      );
 }
 
 /** Nouveau taux : grade, montant journalier (unités mineures), devise, validité facultative. */
-export function validerTaux(s: SaisieTaux): Resultat<
+export function validerTaux(
+  s: SaisieTaux,
+  langue: Langue = "fr",
+): Resultat<
   {
     grade_id: string;
     taux: number;
@@ -84,13 +103,15 @@ export function validerTaux(s: SaisieTaux): Resultat<
   },
   ChampTaux
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampTaux, string>> = {};
-  if (s.grade_id === "") erreurs.grade_id = "Choisissez le grade.";
+  if (s.grade_id === "") erreurs.grade_id = t("Choisissez le grade.", "Choose the grade.");
   const devise = (DEVISES as readonly string[]).includes(s.devise) ? (s.devise as Devise) : null;
-  if (!devise) erreurs.devise = "Choisissez la devise.";
+  if (!devise) erreurs.devise = t("Choisissez la devise.", "Choose the currency.");
   const taux = devise ? lireMontant(s.taux, devise) : null;
-  if (taux === null || Number.isNaN(taux)) erreurs.taux = "Taux journalier positif ou nul.";
-  verifierValidite(s, erreurs);
+  if (taux === null || Number.isNaN(taux))
+    erreurs.taux = t("Taux journalier positif ou nul.", "Daily rate must be zero or positive.");
+  verifierValidite(s, erreurs, langue);
   if (Object.keys(erreurs).length > 0 || !devise) return { ok: false, erreurs };
   return {
     ok: true,
@@ -108,11 +129,14 @@ export function validerTaux(s: SaisieTaux): Resultat<
 export function validerModificationTaux(
   s: SaisieTaux,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<{ taux: number; valide_du: string | null; valide_au: string | null }, ChampTaux> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampTaux, string>> = {};
   const taux = lireMontant(s.taux, devise);
-  if (taux === null || Number.isNaN(taux)) erreurs.taux = "Taux journalier positif ou nul.";
-  verifierValidite(s, erreurs);
+  if (taux === null || Number.isNaN(taux))
+    erreurs.taux = t("Taux journalier positif ou nul.", "Daily rate must be zero or positive.");
+  verifierValidite(s, erreurs, langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

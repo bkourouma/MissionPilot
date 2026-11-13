@@ -485,10 +485,20 @@ Monorepo pnpm (ADR-001), TypeScript strict (`tsconfig.base.json`), modules ESM.
 
 ## 6. Textes affichés et internationalisation
 
-Interface 100 % française en V1 (PRD, « Localisation »), anglais en V2. Il
-n'existe pas encore de mécanisme de traduction : les libellés sont écrits en
-français dans le code (`apps/web/src`), les rôles ont leurs libellés dans
-`ROLE_LIBELLES` (`packages/shared/src/roles.ts`). Toute date affichée passe par
+Interface bilingue français / anglais depuis le 2026-11-13 (ADR-014). Langue :
+cookie `mp_langue` (sélecteur FR / EN), sinon `Accept-Language`, sinon français
+(`packages/shared/src/langue.ts`). Chaque texte porte ses deux versions là où il
+est écrit : `t("Enregistrer", "Save")`, par `useT()` dans un composant client
+(`components/i18n/FournisseurLangue.tsx`), `await obtenirT()` dans un composant
+serveur ou `generateMetadata` (`lib/i18n/serveur.ts`), `<T fr="…" en="…" />` dans un
+composant sans directive partagé ; une bibliothèque de libellés prend un dernier
+paramètre facultatif `langue: Langue = "fr"` (les tests restent en français) ; une
+page serveur passe `langue`, jamais `t`, à un composant client. Rôles :
+`ROLE_LIBELLES`, `ROLE_LIBELLES_EN`, `libelleRole(role, langue)`
+(`packages/shared/src/roles.ts`). Messages d'erreur de l'API : écrits en français,
+traduits par le gestionnaire d'`app.ts` via `apps/api/src/i18n/messages-en.ts`.
+Hors champ : contenus saisis ou produits par l'IA, PDF, e-mails, notifications.
+Les fonctions de `lib/format.ts` prennent la langue en dernier paramètre facultatif. Toute date affichée passe par
 `formaterDate` (`apps/web/src/lib/format.ts`, « 12 janv. 2027 », jamais d'ISO brut : lot 10, A-11) ; un
 formateur numérique `JJ/MM/AAAA` n'existe pas (dette, §10). Montants formatés par le moteur (`formaterMontant`).
 Dans un TEXTE affiché, les devises XOF et XAF s'écrivent « FCFA » (`libelleDeviseAffichage`,

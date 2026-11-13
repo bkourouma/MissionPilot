@@ -26,6 +26,7 @@ import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import "./plan-ateliers.css";
 
 export interface FormulaireAtelierProps {
@@ -42,9 +43,11 @@ export interface FormulaireAtelierProps {
  */
 export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtelierProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampAtelier>();
   const [s, setS] = useState<SaisieAtelier>(() =>
-    atelier ? saisieDepuisAtelier(atelier) : saisieAtelierVide(),
+    atelier ? saisieDepuisAtelier(atelier) : saisieAtelierVide(langue),
   );
   const champ = (
     cle:
@@ -74,7 +77,7 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const v = validerAtelier(s);
+    const v = validerAtelier(s, langue);
     const validation: Resultat<NonNullable<typeof v.corps>, ChampAtelier> = v.corps
       ? { ok: true, charge: v.corps }
       : { ok: false, erreurs: v.erreurs };
@@ -85,8 +88,10 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
           ? api.patch<AtelierDetail>(cheminAtelier(planId, atelier.id), corps)
           : api.post<AtelierDetail>(cheminAteliers(planId), corps),
       {
-        succes: atelier ? "Atelier enregistré." : "Atelier créé en brouillon.",
-        messageSpecifique: messageAtelier,
+        succes: atelier
+          ? t("Atelier enregistré.", "Workshop saved.")
+          : t("Atelier créé en brouillon.", "Workshop created as a draft."),
+        messageSpecifique: (e) => messageAtelier(e, langue),
         rafraichir: Boolean(atelier),
         apres: (a) => {
           if (!atelier) router.push(hrefAtelier(missionId, planId, a.id));
@@ -101,28 +106,33 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={atelier ? "Modifier l'atelier" : "Nouvel atelier"}
+      aria-label={
+        atelier ? t("Modifier l'atelier", "Edit the workshop") : t("Nouvel atelier", "New workshop")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement refusé"
+        titreErreur={t("Enregistrement refusé", "Save failed")}
       />
-      <Champ libelle="Titre" required maxLength={200} {...champ("titre")} />
+      <Champ libelle={t("Titre", "Title")} required maxLength={200} {...champ("titre")} />
       <ZoneTexte
-        libelle="Consigne aux participants"
-        aide="Ce que vous attendez des participants (4 000 caractères au plus)."
+        libelle={t("Consigne aux participants", "Instructions for participants")}
+        aide={t(
+          "Ce que vous attendez des participants (4 000 caractères au plus).",
+          "What you expect from participants (4,000 characters at most).",
+        )}
         maxLength={4000}
         rows={4}
         {...champ("consigne")}
       />
       <fieldset className="mp-formulaire__groupe" aria-describedby="methodes-erreur">
-        <legend>Méthodes activées</legend>
+        <legend>{t("Méthodes activées", "Enabled methods")}</legend>
         {METHODES_ATELIER.map((m) => (
           <CaseACocher
             key={m}
-            libelle={libelleMethode(m)}
+            libelle={libelleMethode(m, langue)}
             checked={s.methodes.includes(m)}
             onChange={(e) => basculerMethode(m, e.target.checked)}
           />
@@ -136,14 +146,14 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
       {s.methodes.includes("vote") ? (
         <div className="mp-grille-champs">
           <Champ
-            libelle="Points à répartir par personne"
+            libelle={t("Points à répartir par personne", "Points to allocate per person")}
             required
             inputMode="numeric"
             {...champ("budget_points")}
           />
           <Champ
-            libelle="Plafond de points par option"
-            aide="Facultatif."
+            libelle={t("Plafond de points par option", "Points cap per option")}
+            aide={t("Facultatif.", "Optional.")}
             inputMode="numeric"
             {...champ("plafond_par_option")}
           />
@@ -153,26 +163,26 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
         <div className="mp-grille-champs">
           <div>
             <Champ
-              libelle="Premier axe (abscisse)"
+              libelle={t("Premier axe (abscisse)", "First axis (x-axis)")}
               required
               maxLength={60}
               {...champ("axe_x_libelle")}
             />
             <CaseACocher
-              libelle="Une note basse est favorable"
+              libelle={t("Une note basse est favorable", "A low score is favorable")}
               checked={s.axe_x_inverse}
               onChange={(e) => setS((x) => ({ ...x, axe_x_inverse: e.target.checked }))}
             />
           </div>
           <div>
             <Champ
-              libelle="Second axe (ordonnée)"
+              libelle={t("Second axe (ordonnée)", "Second axis (y-axis)")}
               required
               maxLength={60}
               {...champ("axe_y_libelle")}
             />
             <CaseACocher
-              libelle="Une note basse est favorable"
+              libelle={t("Une note basse est favorable", "A low score is favorable")}
               checked={s.axe_y_inverse}
               onChange={(e) => setS((x) => ({ ...x, axe_y_inverse: e.target.checked }))}
             />
@@ -180,7 +190,7 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
         </div>
       ) : null}
       <fieldset className="mp-formulaire__groupe" aria-describedby="options-erreur">
-        <legend>{`Options à départager (${OPTIONS_ATELIER_MIN} à ${OPTIONS_ATELIER_MAX})`}</legend>
+        <legend>{`${t("Options à départager", "Options to compare")} (${OPTIONS_ATELIER_MIN} ${t("à", "to")} ${OPTIONS_ATELIER_MAX})`}</legend>
         {s.options.map((o, i) => (
           <div key={i} className="mp-atelier__option-saisie">
             <Champ
@@ -191,7 +201,7 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
               onChange={(e) => majOption(i, "libelle", e.target.value)}
             />
             <Champ
-              libelle={`Description de l'option ${i + 1}`}
+              libelle={`${t("Description de l'option", "Option description")} ${i + 1}`}
               maxLength={500}
               value={o.description}
               onChange={(e) => majOption(i, "description", e.target.value)}
@@ -205,7 +215,7 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
                     setS((x) => ({ ...x, options: x.options.filter((_, j) => j !== i) }))
                   }
                 >
-                  {`Retirer l'option ${i + 1}`}
+                  {`${t("Retirer l'option", "Remove option")} ${i + 1}`}
                 </Bouton>
               </div>
             ) : null}
@@ -225,14 +235,18 @@ export function FormulaireAtelier({ missionId, planId, atelier }: FormulaireAtel
                 setS((x) => ({ ...x, options: [...x.options, { libelle: "", description: "" }] }))
               }
             >
-              Ajouter une option
+              {t("Ajouter une option", "Add an option")}
             </Bouton>
           </div>
         ) : null}
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {atelier ? "Enregistrer" : "Créer l'atelier"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {atelier ? t("Enregistrer", "Save") : t("Créer l'atelier", "Create the workshop")}
         </Bouton>
       </div>
     </form>

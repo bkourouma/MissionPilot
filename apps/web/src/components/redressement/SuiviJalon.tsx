@@ -2,19 +2,23 @@ import type {
   RedSuiviComparaisonVue,
   RedSuiviJalonVue,
   RedSuiviReleveVue,
+  Langue,
 } from "@missionpilot/shared";
-import { RED_SUIVI_RATIOS, RED_SUIVI_TYPE_EVENEMENT_LIBELLES } from "@missionpilot/shared";
+import { RED_SUIVI_RATIOS } from "@missionpilot/shared";
 import { formaterDate, formaterDateHeure } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { formaterVariationRatio } from "../../lib/redressement-cloture";
 import {
   formaterRatioSuivi,
   libelleEcheanceJalon,
   libelleGraviteSuivi,
+  libelleJalon,
   libelleRatioSuivi,
   libelleReports,
   libelleSensSuivi,
   libelleSourceReleve,
   libelleStatutJalon,
+  libelleTypeEvenementSuivi,
   tonaliteGraviteSuivi,
   tonaliteSensSuivi,
   tonaliteStatutJalon,
@@ -25,62 +29,35 @@ import { Tableau, type ColonneTableau } from "../ui/Tableau";
 import { SuiviEvenementForm } from "./SuiviEvenementForm";
 import { SuiviReleveForm } from "./SuiviReleveForm";
 
-const COLONNES: ColonneTableau<RedSuiviComparaisonVue>[] = [
-  { cle: "ratio", entete: "Ratio", rendu: (c) => libelleRatioSuivi(c.ratio) },
-  {
-    cle: "reference",
-    entete: "Clôture",
-    alignement: "droite",
-    rendu: (c) => formaterRatioSuivi(c.ratio, c.reference_pb),
-  },
-  {
-    cle: "releve",
-    entete: "Relevé",
-    alignement: "droite",
-    rendu: (c) => formaterRatioSuivi(c.ratio, c.releve_pb),
-  },
-  {
-    cle: "variation",
-    entete: "Variation (points)",
-    alignement: "droite",
-    rendu: (c) => formaterVariationRatio(c.ratio, c.variation_pb),
-  },
-  {
-    cle: "sens",
-    entete: "Sens",
-    rendu: (c) => (
-      <span>
-        <BadgeStatut tonalite={tonaliteSensSuivi(c.sens)}>{libelleSensSuivi(c.sens)}</BadgeStatut>
-        {c.gravite ? (
-          <>
-            {" "}
-            <BadgeStatut tonalite={tonaliteGraviteSuivi(c.gravite)} sansIcone>
-              {libelleGraviteSuivi(c.gravite)}
-            </BadgeStatut>
-          </>
-        ) : null}
-      </span>
-    ),
-  },
-];
-
-function Releve({ r }: { r: RedSuiviReleveVue }) {
+function Releve({
+  r,
+  langue,
+  t,
+}: {
+  r: RedSuiviReleveVue;
+  langue: Langue;
+  t: (fr: string, en: string) => string;
+}) {
   const ratios = RED_SUIVI_RATIOS.filter((k) => r.ratios[k] !== undefined);
+  const date = formaterDate(r.date_releve, "UTC", langue);
   return (
     <li className="mp-diag-item">
       <p className="mp-sui-meta">
-        <strong>{`Relevé du ${formaterDate(r.date_releve)}`}</strong>
+        <strong>{t(`Relevé du ${date}`, `Reading of ${date}`)}</strong>
         <BadgeStatut tonalite="neutre" sansIcone>
-          {libelleSourceReleve(r.source)}
+          {libelleSourceReleve(r.source, langue)}
         </BadgeStatut>
-        <span className="mp-texte-doux mp-texte-petit">{`${r.cree_par.nom}, ${formaterDateHeure(r.cree_le)}`}</span>
+        <span className="mp-texte-doux mp-texte-petit">{`${r.cree_par.nom}, ${formaterDateHeure(r.cree_le, undefined, langue)}`}</span>
       </p>
       {ratios.length > 0 ? (
-        <dl className="mp-clo-liste-def" aria-label="Ratios du relevé">
+        <dl
+          className="mp-clo-liste-def"
+          aria-label={t("Ratios du relevé", "Ratios of the reading")}
+        >
           {ratios.map((k) => (
             <div key={k}>
-              <dt>{libelleRatioSuivi(k)}</dt>
-              <dd>{formaterRatioSuivi(k, r.ratios[k])}</dd>
+              <dt>{libelleRatioSuivi(k, langue)}</dt>
+              <dd>{formaterRatioSuivi(k, r.ratios[k], langue)}</dd>
             </div>
           ))}
         </dl>
@@ -95,7 +72,7 @@ function Releve({ r }: { r: RedSuiviReleveVue }) {
  * relevé à la clôture (variation en points) et historique des événements. Les formulaires ne sont
  * proposés qu'à qui peut écrire ; le jalon réalisé n'a plus de formulaire d'événement.
  */
-export function SuiviJalon({
+export async function SuiviJalon({
   dossierId,
   jalon: j,
   jalons,
@@ -108,46 +85,109 @@ export function SuiviJalon({
   peutEcrire: boolean;
   aujourdhui: string;
 }) {
-  const reports = libelleReports(j.nombre_reports);
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const reports = libelleReports(j.nombre_reports, langue);
+  const colonnes: ColonneTableau<RedSuiviComparaisonVue>[] = [
+    { cle: "ratio", entete: "Ratio", rendu: (c) => libelleRatioSuivi(c.ratio, langue) },
+    {
+      cle: "reference",
+      entete: t("Clôture", "Close-out"),
+      alignement: "droite",
+      rendu: (c) => formaterRatioSuivi(c.ratio, c.reference_pb, langue),
+    },
+    {
+      cle: "releve",
+      entete: t("Relevé", "Reading"),
+      alignement: "droite",
+      rendu: (c) => formaterRatioSuivi(c.ratio, c.releve_pb, langue),
+    },
+    {
+      cle: "variation",
+      entete: t("Variation (points)", "Change (points)"),
+      alignement: "droite",
+      rendu: (c) => formaterVariationRatio(c.ratio, c.variation_pb, langue),
+    },
+    {
+      cle: "sens",
+      entete: t("Sens", "Direction"),
+      rendu: (c) => (
+        <span>
+          <BadgeStatut tonalite={tonaliteSensSuivi(c.sens)}>
+            {libelleSensSuivi(c.sens, langue)}
+          </BadgeStatut>
+          {c.gravite ? (
+            <>
+              {" "}
+              <BadgeStatut tonalite={tonaliteGraviteSuivi(c.gravite)} sansIcone>
+                {libelleGraviteSuivi(c.gravite, langue)}
+              </BadgeStatut>
+            </>
+          ) : null}
+        </span>
+      ),
+    },
+  ];
   return (
-    <Carte className="mp-sui-jalon" titre={`Jalon ${j.rang} : ${j.libelle}`} niveauTitre={3}>
+    <Carte className="mp-sui-jalon" titre={libelleJalon(j, langue)} niveauTitre={3}>
       <div className="mp-pile">
         <p className="mp-sui-meta">
           <BadgeStatut tonalite={tonaliteStatutJalon(j.statut)}>
-            {libelleStatutJalon(j.statut)}
+            {libelleStatutJalon(j.statut, langue)}
           </BadgeStatut>
           {reports ? (
             <BadgeStatut tonalite="neutre" sansIcone>
               {reports}
             </BadgeStatut>
           ) : null}
-          <span>{`Date prévue : ${formaterDate(j.date_prevue_courante)}`}</span>
+          <span>
+            {t(
+              `Date prévue : ${formaterDate(j.date_prevue_courante, "UTC", langue)}`,
+              `Planned date: ${formaterDate(j.date_prevue_courante, "UTC", langue)}`,
+            )}
+          </span>
           {j.date_prevue !== j.date_prevue_courante ? (
-            <span className="mp-texte-doux">{`(initialement ${formaterDate(j.date_prevue)})`}</span>
+            <span className="mp-texte-doux">
+              {t(
+                `(initialement ${formaterDate(j.date_prevue, "UTC", langue)})`,
+                `(originally ${formaterDate(j.date_prevue, "UTC", langue)})`,
+              )}
+            </span>
           ) : null}
           <span className="mp-texte-doux">
             {j.statut === "realise" && j.realise_le
-              ? `Réalisé le ${formaterDate(j.realise_le)}`
-              : libelleEcheanceJalon(j)}
+              ? t(
+                  `Réalisé le ${formaterDate(j.realise_le, "UTC", langue)}`,
+                  `Completed on ${formaterDate(j.realise_le, "UTC", langue)}`,
+                )
+              : libelleEcheanceJalon(j, langue)}
           </span>
         </p>
 
-        <h4 className="mp-rapport-contenu__titre">Relevés</h4>
+        <h4 className="mp-rapport-contenu__titre">{t("Relevés", "Readings")}</h4>
         {j.releves.length === 0 ? (
-          <p className="mp-texte-doux">Aucun relevé pour ce jalon.</p>
+          <p className="mp-texte-doux">
+            {t("Aucun relevé pour ce jalon.", "No reading for this milestone.")}
+          </p>
         ) : (
-          <ul className="mp-sui-liste" aria-label={`Relevés du jalon ${j.rang}`}>
+          <ul
+            className="mp-sui-liste"
+            aria-label={t(`Relevés du jalon ${j.rang}`, `Readings of milestone ${j.rang}`)}
+          >
             {j.releves.map((r) => (
-              <Releve key={r.id} r={r} />
+              <Releve key={r.id} r={r} langue={langue} t={t} />
             ))}
           </ul>
         )}
 
         {j.comparaisons.length > 0 ? (
           <Tableau
-            legende={`Dernier relevé du jalon ${j.rang} comparé à la clôture`}
+            legende={t(
+              `Dernier relevé du jalon ${j.rang} comparé à la clôture`,
+              `Latest reading of milestone ${j.rang} compared to close-out`,
+            )}
             legendeVisible
-            colonnes={COLONNES}
+            colonnes={colonnes}
             lignes={j.comparaisons}
             cleLigne={(c) => c.ratio}
           />
@@ -155,12 +195,15 @@ export function SuiviJalon({
 
         {j.evenements.length > 0 ? (
           <>
-            <h4 className="mp-rapport-contenu__titre">Historique</h4>
-            <ul className="mp-sui-liste" aria-label={`Historique du jalon ${j.rang}`}>
+            <h4 className="mp-rapport-contenu__titre">{t("Historique", "History")}</h4>
+            <ul
+              className="mp-sui-liste"
+              aria-label={t(`Historique du jalon ${j.rang}`, `History of milestone ${j.rang}`)}
+            >
               {j.evenements.map((e) => (
                 <li key={e.id}>
-                  {`${RED_SUIVI_TYPE_EVENEMENT_LIBELLES[e.type]} : ${formaterDate(e.date_effet)}`}
-                  {e.motif ? `, motif : ${e.motif}` : ""}
+                  {`${libelleTypeEvenementSuivi(e.type, langue)}${t(" : ", ": ")}${formaterDate(e.date_effet, "UTC", langue)}`}
+                  {e.motif ? `${t(", motif : ", ", reason: ")}${e.motif}` : ""}
                   <span className="mp-texte-doux mp-texte-petit">{` (${e.cree_par.nom})`}</span>
                 </li>
               ))}
@@ -171,7 +214,12 @@ export function SuiviJalon({
         {peutEcrire ? (
           <div className="mp-sui-formulaires">
             <details className="mp-diag-details">
-              <summary>{`Enregistrer un relevé pour le jalon ${j.rang}`}</summary>
+              <summary>
+                {t(
+                  `Enregistrer un relevé pour le jalon ${j.rang}`,
+                  `Save a reading for milestone ${j.rang}`,
+                )}
+              </summary>
               <SuiviReleveForm
                 dossierId={dossierId}
                 jalons={jalons}
@@ -181,7 +229,12 @@ export function SuiviJalon({
             </details>
             {j.statut === "realise" ? null : (
               <details className="mp-diag-details">
-                <summary>{`Réaliser ou reporter le jalon ${j.rang}`}</summary>
+                <summary>
+                  {t(
+                    `Réaliser ou reporter le jalon ${j.rang}`,
+                    `Complete or postpone milestone ${j.rang}`,
+                  )}
+                </summary>
                 <SuiviEvenementForm dossierId={dossierId} jalonId={j.id} aujourdhui={aujourdhui} />
               </details>
             )}

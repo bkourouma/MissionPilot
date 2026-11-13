@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import "../../../../../components/preuves/preuves.css";
 import { Onglets } from "../../../../../components/ui/Onglets";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { sousPagesPreuves } from "../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../lib/session";
 
@@ -17,10 +18,15 @@ export default async function LayoutPreuves({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   await exigerPermission("preuve.lire");
   return (
     <div className="mp-preuves">
-      <Onglets libelle="Sections du registre des preuves" pages={sousPagesPreuves(id)} />
+      <Onglets
+        libelle={t("Sections du registre des preuves", "Evidence register sections")}
+        pages={sousPagesPreuves(id, langue)}
+      />
       {children}
     </div>
   );

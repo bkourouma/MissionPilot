@@ -24,7 +24,7 @@ import {
   droitsPlan,
   hrefModele,
   lireCurseur,
-  MESSAGE_MISSION_CLOTUREE,
+  messageMissionCloturee,
   type ContextePlan,
 } from "../../../../../../../lib/plan-strategique";
 import {
@@ -36,9 +36,9 @@ import {
   hrefPlanVivant,
   lireExercice,
   lireIdReprevision,
-  MENTION_PLAN_VIVANT,
-  MESSAGE_AUCUN_REALISE,
-  MESSAGE_AUCUNE_VERSION_VALIDEE,
+  mentionPlanVivant,
+  messageAucunRealise,
+  messageAucuneVersionValidee,
   versionParDefaut,
   versionsValidees,
   type PageReprevisions,
@@ -47,8 +47,12 @@ import {
   type VersionRetenue,
 } from "../../../../../../../lib/plan-vivant";
 import { exigerPermission } from "../../../../../../../lib/session";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 
-export const metadata: Metadata = { title: "Plan vivant" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Plan vivant", "Living plan") };
+}
 
 const REPREVISIONS_PAR_PAGE = 10;
 /** Versions proposées au choix : les 100 plus récentes (maximum d'une page de l'API). */
@@ -67,6 +71,8 @@ export default async function PagePlanVivant({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id, planId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("plan.lire");
   const sp = await searchParams;
   const [mission, r] = await Promise.all([chargerMission(id), chargerPlan(planId)]);
@@ -131,40 +137,66 @@ export default async function PagePlanVivant({
   const lecture = droits.rediger
     ? null
     : droits.cloturee
-      ? MESSAGE_MISSION_CLOTUREE
-      : "La saisie des réalisés et la re-prévision sont réservées aux rédacteurs du plan.";
+      ? messageMissionCloturee(langue)
+      : t(
+          "La saisie des réalisés et la re-prévision sont réservées aux rédacteurs du plan.",
+          "Entering actuals and re-forecasting are reserved for the plan's editors.",
+        );
   const groupes = realises?.ok ? realises.donnees.realises : [];
 
   return (
     <>
       <Alerte tonalite="info" annonce="aucune">
-        <p>{MENTION_PLAN_VIVANT}</p>
+        <p>{mentionPlanVivant(langue)}</p>
       </Alerte>
 
       {!plan.modele || validees.length === 0 ? (
-        <Carte titre="Réalisés et re-prévision" niveauTitre={3}>
-          <EtatVide titre="Aucune version validée du modèle financier." icone="courbe">
+        <Carte titre={t("Réalisés et re-prévision", "Actuals and re-forecast")} niveauTitre={3}>
+          <EtatVide
+            titre={t(
+              "Aucune version validée du modèle financier.",
+              "No approved version of the financial model.",
+            )}
+            icone="courbe"
+          >
             <p>
-              {plan.modele ? MESSAGE_AUCUNE_VERSION_VALIDEE : "Aucune version du modèle financier."}{" "}
-              <Link href={hrefModele(m.id, plan.id)}>Ouvrir le modèle financier</Link>
+              {plan.modele
+                ? messageAucuneVersionValidee(langue)
+                : t(
+                    "Aucune version du modèle financier.",
+                    "No version of the financial model.",
+                  )}{" "}
+              <Link href={hrefModele(m.id, plan.id)}>
+                {t("Ouvrir le modèle financier", "Open the financial model")}
+              </Link>
             </p>
           </EtatVide>
         </Carte>
       ) : modeles && !modeles.ok ? (
         <EtatErreur
-          titre="Les versions du modèle n'ont pas pu être chargées."
+          titre={t(
+            "Les versions du modèle n'ont pas pu être chargées.",
+            "Model versions could not be loaded.",
+          )}
           message={modeles.message}
           hrefReessayer={reessayer}
         />
       ) : exercice === null ? (
         <EtatErreur
-          titre="L'horizon du modèle n'a pas pu être chargé."
-          message={versionHorizon && !versionHorizon.ok ? versionHorizon.message : "Réessayez."}
+          titre={t(
+            "L'horizon du modèle n'a pas pu être chargé.",
+            "The model horizon could not be loaded.",
+          )}
+          message={
+            versionHorizon && !versionHorizon.ok
+              ? versionHorizon.message
+              : t("Réessayez.", "Try again.")
+          }
           hrefReessayer={reessayer}
         />
       ) : (
         <>
-          <nav aria-label="Exercice">
+          <nav aria-label={t("Exercice", "Fiscal year")}>
             <ul className="mp-pv__exercices">
               {exercices.map((e) => (
                 <li key={e}>
@@ -173,17 +205,20 @@ export default async function PagePlanVivant({
                     href={hrefPlanVivant(m.id, plan.id, { exercice: e })}
                     aria-current={e === exercice ? "page" : undefined}
                   >
-                    Exercice {e}
+                    {t("Exercice", "Fiscal year")} {e}
                   </Link>
                 </li>
               ))}
             </ul>
           </nav>
 
-          <Carte titre={`Réalisés de l'exercice ${exercice}`} niveauTitre={3}>
+          <Carte
+            titre={t(`Réalisés de l'exercice ${exercice}`, `Actuals for fiscal year ${exercice}`)}
+            niveauTitre={3}
+          >
             {realises && !realises.ok ? (
               <EtatErreur
-                titre="Les réalisés n'ont pas pu être chargés."
+                titre={t("Les réalisés n'ont pas pu être chargés.", "Actuals could not be loaded.")}
                 message={realises.message}
                 hrefReessayer={reessayer}
               />
@@ -193,7 +228,7 @@ export default async function PagePlanVivant({
                   <p>{lecture}</p>
                 </Alerte>
                 {groupes.length === 0 ? (
-                  <p className="mp-texte-doux">{MESSAGE_AUCUN_REALISE}</p>
+                  <p className="mp-texte-doux">{messageAucunRealise(langue)}</p>
                 ) : null}
               </>
             ) : (
@@ -208,7 +243,10 @@ export default async function PagePlanVivant({
           </Carte>
 
           {droits.rediger ? (
-            <Carte titre="Re-prévoir l'exercice" niveauTitre={3}>
+            <Carte
+              titre={t("Re-prévoir l'exercice", "Re-forecast the fiscal year")}
+              niveauTitre={3}
+            >
               <FormulaireReprevision
                 missionId={m.id}
                 planId={plan.id}
@@ -222,34 +260,54 @@ export default async function PagePlanVivant({
         </>
       )}
 
-      <Carte titre="Résultat de la re-prévision" niveauTitre={3}>
+      <Carte titre={t("Résultat de la re-prévision", "Re-forecast result")} niveauTitre={3}>
         {introuvable ? (
-          <Alerte tonalite="attention" titre="Re-prévision introuvable" annonce="aucune">
+          <Alerte
+            tonalite="attention"
+            titre={t("Re-prévision introuvable", "Re-forecast not found")}
+            annonce="aucune"
+          >
             <p>
-              Cette re-prévision n&apos;existe pas pour ce plan.{" "}
-              <Link href={hrefPlanVivant(m.id, plan.id)}>Afficher la plus récente</Link>
+              {t(
+                "Cette re-prévision n'existe pas pour ce plan.",
+                "This re-forecast does not exist for this plan.",
+              )}{" "}
+              <Link href={hrefPlanVivant(m.id, plan.id)}>
+                {t("Afficher la plus récente", "Show the most recent")}
+              </Link>
             </p>
           </Alerte>
         ) : detail && !detail.ok ? (
           <EtatErreur
-            titre="Cette re-prévision n'a pas pu être chargée."
+            titre={t(
+              "Cette re-prévision n'a pas pu être chargée.",
+              "This re-forecast could not be loaded.",
+            )}
             message={detail.message}
             hrefReessayer={reessayer}
           />
         ) : reprevision ? (
           <ResultatReprevision reprevision={reprevision} devise={plan.devise} />
         ) : (
-          <EtatVide titre="Aucune re-prévision pour ce plan." icone="courbe">
+          <EtatVide
+            titre={t("Aucune re-prévision pour ce plan.", "No re-forecast for this plan.")}
+            icone="courbe"
+          >
             <p>
-              Saisissez les réalisés d&apos;un exercice puis lancez une re-prévision : les écarts
-              entre le plan et le réel s&apos;afficheront ici.
+              {t(
+                "Saisissez les réalisés d'un exercice puis lancez une re-prévision : les écarts entre le plan et le réel s'afficheront ici.",
+                "Enter the actuals for a fiscal year, then run a re-forecast: the variances between plan and actual will appear here.",
+              )}
             </p>
           </EtatVide>
         )}
       </Carte>
 
       {reprevision ? (
-        <Carte titre="Explication de l'IA (brouillon)" niveauTitre={3}>
+        <Carte
+          titre={t("Explication de l'IA (brouillon)", "AI explanation (draft)")}
+          niveauTitre={3}
+        >
           {explication && !explication.ok ? (
             <Alerte tonalite="info" annonce="aucune">
               <p>{explication.message}</p>
@@ -267,7 +325,7 @@ export default async function PagePlanVivant({
         </Carte>
       ) : null}
 
-      <Carte titre="Re-prévisions passées" niveauTitre={3}>
+      <Carte titre={t("Re-prévisions passées", "Past re-forecasts")} niveauTitre={3}>
         {liste.ok ? (
           <ListeReprevisions
             missionId={m.id}
@@ -280,7 +338,10 @@ export default async function PagePlanVivant({
           />
         ) : (
           <EtatErreur
-            titre="Les re-prévisions n'ont pas pu être chargées."
+            titre={t(
+              "Les re-prévisions n'ont pas pu être chargées.",
+              "Re-forecasts could not be loaded.",
+            )}
             message={liste.message}
             hrefReessayer={reessayer}
           />

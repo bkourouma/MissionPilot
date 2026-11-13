@@ -7,12 +7,15 @@ import {
   estExpiree,
   INTERVALLE_EXPIRATION_MS,
   LIBELLES_ETAT_ACTION,
+  LIBELLES_ETAT_ACTION_EN,
   libelleExpiration,
   peutDecider,
   peutReformuler,
   TEXTE_REPRISE,
+  TEXTE_REPRISE_EN,
   type EtatAction,
 } from "../../lib/copilote";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut, type TonaliteStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -54,6 +57,8 @@ export function CarteAction({
   onAnnuler,
   onReformuler,
 }: CarteActionProps) {
+  const t = useT();
+  const langue = useLangue();
   const [maintenant, setMaintenant] = useState(() => new Date());
   const ouverte = peutDecider(etat);
   const resultatRef = useRef<HTMLDivElement>(null);
@@ -62,8 +67,8 @@ export function CarteAction({
   // Compte à rebours : rafraîchi tant que la proposition peut encore être décidée.
   useEffect(() => {
     if (!ouverte) return;
-    const t = setInterval(() => setMaintenant(new Date()), INTERVALLE_EXPIRATION_MS);
-    return () => clearInterval(t);
+    const minuterie = setInterval(() => setMaintenant(new Date()), INTERVALLE_EXPIRATION_MS);
+    return () => clearInterval(minuterie);
   }, [ouverte]);
 
   // Focus sur le résultat quand la carte passe de « ouverte » à un état final.
@@ -77,21 +82,27 @@ export function CarteAction({
   const repriseAffichee = !resultat && !!onReformuler && peutReformuler(etatAffiche);
 
   return (
-    <section className="mp-copilote__action" aria-label={`Action proposée : ${action.libelle}`}>
+    <section
+      className="mp-copilote__action"
+      aria-label={t(`Action proposée : ${action.libelle}`, `Proposed action: ${action.libelle}`)}
+    >
       <div>
         <h3 className="mp-copilote__action-titre">{action.libelle}</h3>
         <BadgeStatut tonalite={TONALITES[etatAffiche]}>
-          {LIBELLES_ETAT_ACTION[etatAffiche]}
+          {(langue === "en" ? LIBELLES_ETAT_ACTION_EN : LIBELLES_ETAT_ACTION)[etatAffiche]}
         </BadgeStatut>
       </div>
       <p className="mp-copilote__action-resume">{action.resume}</p>
       {afficherLigneExpiration(ouverte, expiree, repriseAffichee) ? (
         <p className="mp-copilote__action-etat">
-          {libelleExpiration(action.expire_le, maintenant)}
+          {libelleExpiration(action.expire_le, maintenant, langue)}
         </p>
       ) : null}
       {erreur ? (
-        <Alerte tonalite="danger" titre="L'action n'a pas été effectuée">
+        <Alerte
+          tonalite="danger"
+          titre={t("L'action n'a pas été effectuée", "The action was not carried out")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -101,13 +112,13 @@ export function CarteAction({
             onClick={onConfirmer}
             disabled={expiree || etat === "en_cours"}
             chargement={etat === "en_cours"}
-            texteChargement="Confirmation…"
+            texteChargement={t("Confirmation…", "Confirming…")}
             icone="succes"
           >
-            Confirmer
+            {t("Confirmer", "Confirm")}
           </Bouton>
           <Bouton variante="secondaire" onClick={onAnnuler} disabled={etat === "en_cours"}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         </div>
       ) : null}
@@ -124,9 +135,9 @@ export function CarteAction({
       ) : null}
       {repriseAffichee ? (
         <div ref={resultatRef} tabIndex={-1} className="mp-copilote__reprise" role="status">
-          {erreur ? null : <p>{TEXTE_REPRISE}</p>}
+          {erreur ? null : <p>{t(TEXTE_REPRISE, TEXTE_REPRISE_EN)}</p>}
           <Bouton variante="secondaire" onClick={onReformuler}>
-            Reformuler
+            {t("Reformuler", "Rephrase")}
           </Bouton>
         </div>
       ) : null}

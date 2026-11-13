@@ -8,6 +8,7 @@ import {
   type Violation,
 } from "../../lib/qualite";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 /**
  * Action de l'écran qualité (marquer vu, vérifier, valider, signer…) : un appel à l'API,
@@ -16,6 +17,7 @@ import { useRafraichir } from "../formulaires/useRafraichir";
  * page est rafraîchie aussi.
  */
 export function useActionQualite() {
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function useActionQualite() {
       rafraichir();
       return r;
     } catch (e) {
-      setErreur(messageQualite(e));
+      setErreur(messageQualite(e, langue));
       setViolations(violationsDeErreur(e));
       if (etatQualiteChange(e)) rafraichir();
       return undefined;

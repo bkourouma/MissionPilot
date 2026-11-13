@@ -1,33 +1,37 @@
 import Link from "next/link";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { formaterDate } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
   etatDimension,
-  FIABILITES,
   hrefPreuve,
   libelleAuteur,
   libelleDimension,
+  libelleFiabiliteApi,
+  libelleTypeSourcePreuve,
   matriceTriangulation,
-  TYPE_SOURCE_LIBELLES,
   type CarteTriangulationVue,
   type DimensionVue,
   type PreuveVue,
 } from "../../lib/preuves";
 
 /** Étiquettes d'une preuve : type de source, fiabilité, nominatif. */
-export function EtiquettesPreuve({ preuve }: { preuve: PreuveVue }) {
+export async function EtiquettesPreuve({ preuve }: { preuve: PreuveVue }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <span className="mp-preuve-ligne__meta">
       <BadgeStatut tonalite="neutre" sansIcone>
-        {TYPE_SOURCE_LIBELLES[preuve.type_source]}
+        {libelleTypeSourcePreuve(preuve.type_source, langue)}
       </BadgeStatut>
-      <BadgeStatut
-        tonalite="neutre"
-        sansIcone
-      >{`Fiabilité ${FIABILITES[preuve.fiabilite]}`}</BadgeStatut>
+      <BadgeStatut tonalite="neutre" sansIcone>
+        {`${t("Fiabilité", "Reliability")} ${libelleFiabiliteApi(preuve.fiabilite, langue)}`}
+      </BadgeStatut>
       {preuve.nominatif ? (
         <BadgeStatut tonalite={preuve.accord_nominatif ? "succes" : "attention"}>
-          {preuve.accord_nominatif ? "Nominatif, accord recueilli" : "Nominatif, sans accord"}
+          {preuve.accord_nominatif
+            ? t("Nominatif, accord recueilli", "Named, consent obtained")
+            : t("Nominatif, sans accord", "Named, no consent")}
         </BadgeStatut>
       ) : null}
     </span>
@@ -35,12 +39,15 @@ export function EtiquettesPreuve({ preuve }: { preuve: PreuveVue }) {
 }
 
 /** Extrait d'une preuve, ou mention de masquage d'un verbatim nominatif sans accord. */
-export function ExtraitPreuve({ preuve }: { preuve: PreuveVue }) {
+export async function ExtraitPreuve({ preuve }: { preuve: PreuveVue }) {
+  const t = await obtenirT();
   if (preuve.masque) {
     return (
       <p className="mp-texte-doux mp-preuve-masquee">
-        Verbatim nominatif masqué : l&apos;accord de la personne n&apos;est pas recueilli. Seuls son
-        auteur et les responsables de la mission le voient.
+        {t(
+          "Verbatim nominatif masqué : l'accord de la personne n'est pas recueilli. Seuls son auteur et les responsables de la mission le voient.",
+          "Named verbatim hidden: the person's consent has not been obtained. Only its author and the engagement leads can see it.",
+        )}
       </p>
     );
   }
@@ -48,7 +55,7 @@ export function ExtraitPreuve({ preuve }: { preuve: PreuveVue }) {
   return <blockquote className="mp-preuve-extrait">{preuve.extrait}</blockquote>;
 }
 
-export function LignePreuve({
+export async function LignePreuve({
   missionId,
   preuve,
   dimensions,
@@ -57,6 +64,8 @@ export function LignePreuve({
   preuve: PreuveVue;
   dimensions: readonly DimensionVue[];
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <li className="mp-preuve-ligne">
       <h3 className="mp-preuve-ligne__titre">
@@ -64,7 +73,8 @@ export function LignePreuve({
       </h3>
       <EtiquettesPreuve preuve={preuve} />
       <p className="mp-texte-doux mp-texte-petit">
-        {formaterDate(preuve.date_preuve)} · recueillie par {libelleAuteur(preuve.auteur)}
+        {formaterDate(preuve.date_preuve, "UTC", langue)} · {t("recueillie par", "collected by")}{" "}
+        {libelleAuteur(preuve.auteur, langue)}
         {preuve.version > 1 ? ` · version ${preuve.version}` : ""}
         {preuve.dimensions.length > 0
           ? ` · ${preuve.dimensions.map((c) => libelleDimension(c, dimensions)).join(", ")}`
@@ -76,29 +86,38 @@ export function LignePreuve({
 }
 
 /** Tableau dimensions × types de source ; les zones non couvertes y sont écrites, pas seulement colorées. */
-export function TableauTriangulation({ carte }: { carte: CarteTriangulationVue }) {
+export async function TableauTriangulation({ carte }: { carte: CarteTriangulationVue }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const m = matriceTriangulation(carte);
   return (
-    <div className="mp-tableau" role="region" aria-label="Carte de triangulation" tabIndex={0}>
+    <div
+      className="mp-tableau"
+      role="region"
+      aria-label={t("Carte de triangulation", "Triangulation map")}
+      tabIndex={0}
+    >
       <table className="mp-triangulation">
         <caption className="mp-visuellement-cache">
-          Preuves par dimension et par type de source ; « Non couverte » signale une zone attendue
-          sans preuve.
+          {t(
+            "Preuves par dimension et par type de source ; « Non couverte » signale une zone attendue sans preuve.",
+            'Evidence by dimension and source type; "Not covered" flags an expected area with no evidence.',
+          )}
         </caption>
         <thead>
           <tr>
-            <th scope="col">Dimension</th>
-            {m.types.map((t) => (
-              <th key={t} scope="col">
-                {TYPE_SOURCE_LIBELLES[t]}
+            <th scope="col">{t("Dimension", "Dimension")}</th>
+            {m.types.map((type) => (
+              <th key={type} scope="col">
+                {libelleTypeSourcePreuve(type, langue)}
               </th>
             ))}
-            <th scope="col">Couverture</th>
+            <th scope="col">{t("Couverture", "Coverage")}</th>
           </tr>
         </thead>
         <tbody>
           {m.lignes.map((l) => {
-            const etat = etatDimension(l);
+            const etat = etatDimension(l, langue);
             return (
               <tr key={l.code}>
                 <th scope="row">{l.libelle}</th>
@@ -110,17 +129,25 @@ export function TableauTriangulation({ carte }: { carte: CarteTriangulationVue }
                     <span className="mp-triangulation__cellule">
                       {c.preuves > 0 ? (
                         <>
-                          <span>{`${c.preuves} preuve${c.preuves > 1 ? "s" : ""}`}</span>
+                          <span>
+                            {t(
+                              `${c.preuves} preuve${c.preuves > 1 ? "s" : ""}`,
+                              `${c.preuves} piece${c.preuves > 1 ? "s" : ""} of evidence`,
+                            )}
+                          </span>
                           {c.meilleure_fiabilite ? (
                             <span className="mp-texte-doux mp-texte-petit">
-                              {`meilleure fiabilité ${c.meilleure_fiabilite}`}
+                              {t(
+                                `meilleure fiabilité ${c.meilleure_fiabilite}`,
+                                `best reliability ${c.meilleure_fiabilite}`,
+                              )}
                             </span>
                           ) : null}
                         </>
                       ) : c.non_couverte ? (
-                        <span>Non couverte</span>
+                        <span>{t("Non couverte", "Not covered")}</span>
                       ) : (
-                        <span className="mp-texte-doux">Non attendue</span>
+                        <span className="mp-texte-doux">{t("Non attendue", "Not expected")}</span>
                       )}
                     </span>
                   </td>

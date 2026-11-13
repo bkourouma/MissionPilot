@@ -1,3 +1,4 @@
+import { obtenirT } from "../../lib/i18n/serveur";
 import { classesBouton, type VarianteBouton } from "../ui/Bouton";
 import { Icone } from "../ui/Icone";
 import { hrefFacturePdf } from "./livrables";
@@ -15,20 +16,25 @@ export interface LienFacturePdfProps {
  * origine (cookie httpOnly) : le navigateur enregistre la pièce jointe, rien n'est conservé
  * par la page. Le rendu peut prendre quelques secondes.
  */
-export function LienFacturePdf({
+export async function LienFacturePdf({
   factureId,
   contexte,
   variante = "secondaire",
 }: LienFacturePdfProps) {
+  const t = await obtenirT();
   return (
     <a
       className={classesBouton(variante)}
       href={hrefFacturePdf(factureId)}
       download
-      aria-label={contexte ? `Télécharger le PDF (${contexte})` : "Télécharger le PDF"}
+      aria-label={
+        contexte
+          ? `${t("Télécharger le PDF", "Download the PDF")} (${contexte})`
+          : t("Télécharger le PDF", "Download the PDF")
+      }
     >
       <Icone nom="telechargement" taille={18} />
-      <span>Télécharger le PDF</span>
+      <span>{t("Télécharger le PDF", "Download the PDF")}</span>
     </a>
   );
 }

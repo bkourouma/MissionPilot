@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../../lib/api";
+import { useT, useLangue } from "../../i18n/FournisseurLangue";
 import {
   ANNONCE_BROUILLON,
+  ANNONCE_BROUILLON_EN,
   cheminApiReponses,
   delaiNouvelleTentative,
   estReessayable,
@@ -49,6 +51,8 @@ type Passage = "envoye" | "rien" | "echec" | "reprendre";
  * n'est pas enregistrée, quitter la page demande une confirmation.
  */
 export function useSauvegardeQuestionnaire(options: OptionsSauvegarde) {
+  const t = useT();
+  const langue = useLangue();
   const [etat, setEtatAffiche] = useState<EtatSauvegarde>("a_jour");
   const [derniere, setDerniere] = useState<string | null>(options.derniereSauvegarde);
   const etatRef = useRef<EtatSauvegarde>("a_jour");
@@ -127,9 +131,9 @@ export function useSauvegardeQuestionnaire(options: OptionsSauvegarde) {
     const enAttente = Object.keys(reste.reponses).length > 0;
     setEtat(reste.invalides.length > 0 ? "refuse" : enAttente ? "modifie" : "a_jour");
     if (enAttente) programmer(DELAI_SAISIE_MS);
-    if (envoye) opts.current.annoncer(ANNONCE_BROUILLON);
+    if (envoye) opts.current.annoncer(langue === "en" ? ANNONCE_BROUILLON_EN : ANNONCE_BROUILLON);
     return { ok: !enAttente, envoye };
-  }, [passage, programmer, setEtat]);
+  }, [passage, programmer, setEtat, langue]);
 
   const enFileBilan = useCallback(() => {
     arreterMinuterie();
@@ -146,9 +150,13 @@ export function useSauvegardeQuestionnaire(options: OptionsSauvegarde) {
   const enregistrer = useCallback(async () => {
     tentatives.current = 0;
     const r = await enFileBilan();
-    if (r.ok && !r.envoye) opts.current.annoncer("Toutes vos réponses sont déjà enregistrées.");
+    if (r.ok && !r.envoye) {
+      opts.current.annoncer(
+        t("Toutes vos réponses sont déjà enregistrées.", "All your responses are already saved."),
+      );
+    }
     return r.ok;
-  }, [enFileBilan]);
+  }, [enFileBilan, t]);
 
   /** Exécute une tâche entre deux sauvegardes (jamais en même temps qu'un envoi). */
   const enFile = useCallback(<T>(tache: () => Promise<T>): Promise<T> => {

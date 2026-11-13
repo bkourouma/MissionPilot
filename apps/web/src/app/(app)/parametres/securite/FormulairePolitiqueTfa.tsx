@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { ChampsReconfirmation } from "../../../../components/securite/ChampsReconfirmation";
@@ -11,7 +12,8 @@ import {
   avecReconfirmation,
   confirmationDemandee,
   messageReconfirmation,
-  OPTIONS_ROLES_SENSIBLES,
+  messageSpecifiqueLangue,
+  optionsRolesSensibles,
   rolesPolitique,
   SAISIE_CONFIRMATION_VIDE,
   type PolitiqueTfa,
@@ -24,6 +26,8 @@ import {
  * renvoyée avec eux.
  */
 export function FormulairePolitiqueTfa({ politique }: { politique: PolitiqueTfa }) {
+  const t = useT();
+  const langue = useLangue();
   const [roles, setRoles] = useState<string[]>(politique.roles_obligatoires);
   const [confirmation, setConfirmation] = useState<SaisieConfirmation | null>(null);
   const f = useFormulaire<"mot_de_passe" | "code">();
@@ -34,13 +38,20 @@ export function FormulairePolitiqueTfa({ politique }: { politique: PolitiqueTfa 
       avecReconfirmation(
         { ok: true, charge: { roles_obligatoires: rolesPolitique(roles) } },
         confirmation,
+        langue,
       ),
       (c) => api.put("/api/auth/2fa/politique", c, { redirigerSi401: false }),
       {
-        succes: "Politique de double authentification enregistrée.",
+        succes: t(
+          "Politique de double authentification enregistrée.",
+          "Two-factor authentication policy saved.",
+        ),
         messageSpecifique: (e) => {
           if (confirmationDemandee(e)) setConfirmation((c) => c ?? SAISIE_CONFIRMATION_VIDE);
-          return messageReconfirmation(e, confirmation?.facteur ?? "totp");
+          return (
+            messageReconfirmation(e, confirmation?.facteur ?? "totp", langue) ??
+            messageSpecifiqueLangue(langue)(e)
+          );
         },
       },
     );
@@ -52,10 +63,16 @@ export function FormulairePolitiqueTfa({ politique }: { politique: PolitiqueTfa 
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <GroupeCases
-        legende="Exiger la double authentification pour"
-        aide="Les personnes concernées sans double authentification sont invitées à l'activer à chaque connexion."
+        legende={t(
+          "Exiger la double authentification pour",
+          "Require two-factor authentication for",
+        )}
+        aide={t(
+          "Les personnes concernées sans double authentification sont invitées à l'activer à chaque connexion.",
+          "Affected people without two-factor authentication are asked to turn it on at every sign-in.",
+        )}
         nom="roles-tfa"
-        options={OPTIONS_ROLES_SENSIBLES}
+        options={optionsRolesSensibles(langue)}
         valeurs={roles}
         onChange={setRoles}
       />
@@ -65,11 +82,16 @@ export function FormulairePolitiqueTfa({ politique }: { politique: PolitiqueTfa 
           onChange={setConfirmation}
           erreurs={f.erreurs}
           motif="modifier la politique de sécurité du cabinet"
+          motifEn="change the firm's security policy"
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la politique
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la politique", "Save the policy")}
         </Bouton>
       </div>
     </form>

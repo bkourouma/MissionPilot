@@ -1,28 +1,39 @@
 import type { RedCovenantsVue, RedFinancementVue } from "@missionpilot/shared";
-import { RED_FINANCEMENT_TYPE_PERIODE_LIBELLES } from "@missionpilot/shared";
 import { formaterDate, formaterDateHeure } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
+import { libelleTypePeriodeFinancement } from "../../lib/redressement-financement";
 import { Tableau } from "../ui/Tableau";
 
 type VersionCovenants = RedCovenantsVue["historique"][number];
 type VersionFinancement = RedFinancementVue["historique"][number];
 
 /** Historique des versions de covenants (ajout seul : rien n'est effacé). */
-export function HistoriqueCovenants({ versions }: { versions: VersionCovenants[] }) {
+export async function HistoriqueCovenants({ versions }: { versions: VersionCovenants[] }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <Tableau
-      legende="Historique des versions de covenants"
-      messageVide="Aucune version de covenants."
+      legende={t("Historique des versions de covenants", "Covenant version history")}
+      messageVide={t("Aucune version de covenants.", "No covenant version.")}
       colonnes={[
-        { cle: "version", entete: "Version", rendu: (v: VersionCovenants) => v.version },
+        {
+          cle: "version",
+          entete: t("Version", "Version"),
+          rendu: (v: VersionCovenants) => v.version,
+        },
         {
           cle: "nombre",
           entete: "Covenants",
           alignement: "droite",
           rendu: (v) => v.nombre_covenants,
         },
-        { cle: "auteur", entete: "Auteur", rendu: (v) => v.cree_par.nom },
-        { cle: "date", entete: "Créée le", rendu: (v) => formaterDateHeure(v.cree_le) },
-        { cle: "motif", entete: "Motif", rendu: (v) => v.motif ?? "—" },
+        { cle: "auteur", entete: t("Auteur", "Author"), rendu: (v) => v.cree_par.nom },
+        {
+          cle: "date",
+          entete: t("Créée le", "Created on"),
+          rendu: (v) => formaterDateHeure(v.cree_le, undefined, langue),
+        },
+        { cle: "motif", entete: t("Motif", "Reason"), rendu: (v) => v.motif ?? "—" },
       ]}
       lignes={versions}
       cleLigne={(v) => v.id}
@@ -31,24 +42,46 @@ export function HistoriqueCovenants({ versions }: { versions: VersionCovenants[]
 }
 
 /** Historique des versions du plan de financement (ajout seul). */
-export function HistoriqueFinancement({ versions }: { versions: VersionFinancement[] }) {
+export async function HistoriqueFinancement({ versions }: { versions: VersionFinancement[] }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <Tableau
-      legende="Historique des versions du plan de financement"
-      messageVide="Aucune version du plan de financement."
+      legende={t(
+        "Historique des versions du plan de financement",
+        "Financing plan version history",
+      )}
+      messageVide={t("Aucune version du plan de financement.", "No financing plan version.")}
       colonnes={[
-        { cle: "version", entete: "Version", rendu: (v: VersionFinancement) => v.version },
-        { cle: "debut", entete: "Début", rendu: (v) => formaterDate(v.date_debut) },
+        {
+          cle: "version",
+          entete: t("Version", "Version"),
+          rendu: (v: VersionFinancement) => v.version,
+        },
+        {
+          cle: "debut",
+          entete: t("Début", "Start"),
+          rendu: (v) => formaterDate(v.date_debut, "UTC", langue),
+        },
         {
           cle: "periodes",
-          entete: "Périodes",
+          entete: t("Périodes", "Periods"),
           rendu: (v) =>
-            `${v.nombre_periodes} (${RED_FINANCEMENT_TYPE_PERIODE_LIBELLES[v.type_periode].toLowerCase()})`,
+            `${v.nombre_periodes} (${libelleTypePeriodeFinancement(v.type_periode, langue).toLowerCase()})`,
         },
-        { cle: "lignes", entete: "Lignes", alignement: "droite", rendu: (v) => v.nombre_lignes },
-        { cle: "auteur", entete: "Auteur", rendu: (v) => v.cree_par.nom },
-        { cle: "date", entete: "Créée le", rendu: (v) => formaterDateHeure(v.cree_le) },
-        { cle: "motif", entete: "Motif", rendu: (v) => v.motif ?? "—" },
+        {
+          cle: "lignes",
+          entete: t("Lignes", "Lines"),
+          alignement: "droite",
+          rendu: (v) => v.nombre_lignes,
+        },
+        { cle: "auteur", entete: t("Auteur", "Author"), rendu: (v) => v.cree_par.nom },
+        {
+          cle: "date",
+          entete: t("Créée le", "Created on"),
+          rendu: (v) => formaterDateHeure(v.cree_le, undefined, langue),
+        },
+        { cle: "motif", entete: t("Motif", "Reason"), rendu: (v) => v.motif ?? "—" },
       ]}
       lignes={versions}
       cleLigne={(v) => v.id}

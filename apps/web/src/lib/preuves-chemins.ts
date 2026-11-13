@@ -1,3 +1,5 @@
+import type { Langue } from "@missionpilot/shared";
+
 /** Chemins d'API et liens des écrans du registre des preuves. */
 
 // --- Chemins --------------------------------------------------------------------------------
@@ -41,11 +43,24 @@ export const hrefTriangulation = (missionId: string) => `${base(missionId)}/tria
 export const hrefContradictions = (missionId: string) => `${base(missionId)}/contradictions`;
 
 /** Sous-pages de l'onglet « Preuves » (l'onglet actif est celui dont le href est le plus long). */
-export function sousPagesPreuves(missionId: string) {
+export function sousPagesPreuves(missionId: string, langue: Langue = "fr") {
+  const en = langue === "en";
   return [
-    { id: "registre", libelle: "Registre", href: base(missionId) },
-    { id: "assertions", libelle: "Assertions", href: hrefAssertions(missionId) },
-    { id: "triangulation", libelle: "Triangulation", href: hrefTriangulation(missionId) },
-    { id: "contradictions", libelle: "Contradictions", href: hrefContradictions(missionId) },
+    { id: "registre", libelle: en ? "Register" : "Registre", href: base(missionId) },
+    {
+      id: "assertions",
+      libelle: en ? "Assertions" : "Assertions",
+      href: hrefAssertions(missionId),
+    },
+    {
+      id: "triangulation",
+      libelle: en ? "Triangulation" : "Triangulation",
+      href: hrefTriangulation(missionId),
+    },
+    {
+      id: "contradictions",
+      libelle: en ? "Contradictions" : "Contradictions",
+      href: hrefContradictions(missionId),
+    },
   ] as const;
 }

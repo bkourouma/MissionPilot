@@ -10,21 +10,27 @@ import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import {
   grouperFriseParAnnee,
-  TYPE_EVENEMENT_LIBELLES,
+  libelleTypeEvenement,
   type EvenementFrise,
   type VueDossier,
 } from "../../../../../lib/dossier";
 import { formaterDate } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Frise du client" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Frise du client", "Client timeline") };
+}
 
 /** Frise chronologique (DOS-06) : notations, missions, décisions, alertes, selon vos droits. */
 export default async function PageFrise({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const [dossier, frise] = await Promise.all([
     chargerServeur<VueDossier>(`/api/dossiers/${id}`),
     chargerServeur<{ evenements: EvenementFrise[]; tronquee: boolean }>(
@@ -36,11 +42,11 @@ export default async function PageFrise({ params }: { params: Promise<{ id: stri
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Frise du client"
-          retour={{ href: `/dossiers/${id}`, libelle: "Dossier" }}
+          titre={t("Frise du client", "Client timeline")}
+          retour={{ href: `/dossiers/${id}`, libelle: t("Dossier", "File") }}
         />
         <EtatErreur
-          titre="La frise n'a pas pu être chargée."
+          titre={t("La frise n'a pas pu être chargée.", "The timeline could not be loaded.")}
           message={!dossier.ok ? dossier.message : !frise.ok ? frise.message : ""}
           hrefReessayer={`/dossiers/${id}/frise`}
         />
@@ -52,8 +58,16 @@ export default async function PageFrise({ params }: { params: Promise<{ id: stri
     <div className="mp-page">
       <EnteteDossier client={dossier.donnees.client} fiabilite={dossier.donnees.fiabilite} />
       {frise.donnees.evenements.length === 0 ? (
-        <EtatVide titre="Aucun événement à afficher." icone="historique">
-          <p>Missions, notations publiées, décisions et alertes du client apparaîtront ici.</p>
+        <EtatVide
+          titre={t("Aucun événement à afficher.", "No events to display.")}
+          icone="historique"
+        >
+          <p>
+            {t(
+              "Missions, notations publiées, décisions et alertes du client apparaîtront ici.",
+              "The client's engagements, published ratings, decisions and alerts will appear here.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         grouperFriseParAnnee(frise.donnees.evenements).map((g) => (
@@ -62,9 +76,9 @@ export default async function PageFrise({ params }: { params: Promise<{ id: stri
               {g.evenements.map((e) => (
                 <li key={`${e.type}-${e.id}`}>
                   <BadgeStatut tonalite="neutre" sansIcone>
-                    {TYPE_EVENEMENT_LIBELLES[e.type]}
+                    {libelleTypeEvenement(e.type, langue)}
                   </BadgeStatut>{" "}
-                  <time dateTime={e.date}>{formaterDate(e.date)}</time> —{" "}
+                  <time dateTime={e.date}>{formaterDate(e.date, "UTC", langue)}</time> —{" "}
                   {e.mission_id ? (
                     <Link href={`/missions/${e.mission_id}`}>{e.libelle}</Link>
                   ) : (
@@ -78,8 +92,10 @@ export default async function PageFrise({ params }: { params: Promise<{ id: stri
       )}
       {frise.donnees.tronquee ? (
         <p>
-          Seuls les 200 événements les plus récents sont affichés ; l&apos;export du dossier les
-          reprend.
+          {t(
+            "Seuls les 200 événements les plus récents sont affichés ; l'export du dossier les reprend.",
+            "Only the 200 most recent events are shown; the file export includes them.",
+          )}
         </p>
       ) : null}
     </div>

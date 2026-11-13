@@ -8,6 +8,7 @@ import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant, peut } from "../../../../../lib/portail";
 import {
   avancementPortail,
@@ -20,9 +21,12 @@ import {
   tonaliteStatutPortail,
 } from "../../../../../lib/portail-canaux";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
-import { AVERTISSEMENT_SIGNATURE_SIMULEE, libelleEcheance } from "../../../../../lib/signatures";
+import { avertissementSignatureSimulee, libelleEcheance } from "../../../../../lib/signatures";
 
-export const metadata: Metadata = { title: "Signature" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Signature", "Signature") };
+}
 
 /**
  * Une demande de signature de l'espace client : lecture du document, « Signer » ou « Refuser ».
@@ -34,20 +38,22 @@ export default async function DetailSignaturePortail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.signature.signer")) {
-    return <NonDisponible titre="Signature" />;
+    return <NonDisponible titre={t("Signature", "Signature")} />;
   }
   const r = await chargerPortail<DemandeSignaturePortailApi>(cheminApiSignaturePortail(id));
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: CHEMIN_SIGNATURES_PORTAIL, libelle: "Signatures" };
+  const retour = { href: CHEMIN_SIGNATURES_PORTAIL, libelle: t("Signatures", "Signatures") };
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Signature" retour={retour} />
+        <EnteteDePage titre={t("Signature", "Signature")} retour={retour} />
         <EtatErreur
-          titre="La demande n'a pas pu être chargée."
+          titre={t("La demande n'a pas pu être chargée.", "The request could not be loaded.")}
           message={r.message}
           hrefReessayer={cheminSignaturePortail(id)}
         />
@@ -55,37 +61,39 @@ export default async function DetailSignaturePortail({
     );
   }
   const d = r.donnees;
-  const etat = libelleMonStatut(d);
+  const etat = libelleMonStatut(d, langue);
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre={libelleObjetPortail(d.objet)}
+        titre={libelleObjetPortail(d.objet, langue)}
         retour={retour}
         badges={<BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>}
       />
-      <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_SIGNATURE_SIMULEE}>
+      <Alerte tonalite="attention" annonce="aucune" titre={avertissementSignatureSimulee(langue)}>
         <p>
-          Cette signature est un exercice : elle ne remplace ni une signature électronique qualifiée
-          ni une signature manuscrite.
+          {t(
+            "Cette signature est un exercice : elle ne remplace ni une signature électronique qualifiée ni une signature manuscrite.",
+            "This signature is an exercise: it replaces neither a qualified electronic signature nor a handwritten signature.",
+          )}
         </p>
       </Alerte>
-      <Carte titre="Demande" niveauTitre={2}>
+      <Carte titre={t("Demande", "Request")} niveauTitre={2}>
         <dl className="mp-liste-def">
           <div>
-            <dt>Statut de la demande</dt>
+            <dt>{t("Statut de la demande", "Request status")}</dt>
             <dd>
               <BadgeStatut tonalite={tonaliteStatutPortail(d.statut)}>
-                {libelleStatutPortail(d.statut)}
+                {libelleStatutPortail(d.statut, langue)}
               </BadgeStatut>
             </dd>
           </div>
           <div>
-            <dt>Avancement</dt>
-            <dd>{avancementPortail(d)}</dd>
+            <dt>{t("Avancement", "Progress")}</dt>
+            <dd>{avancementPortail(d, langue)}</dd>
           </div>
           <div>
-            <dt>Échéance</dt>
-            <dd>{libelleEcheance(d.expire_le)}</dd>
+            <dt>{t("Échéance", "Due date")}</dt>
+            <dd>{libelleEcheance(d.expire_le, langue)}</dd>
           </div>
         </dl>
         <SignaturePortail

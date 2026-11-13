@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
@@ -10,9 +11,10 @@ import { Select } from "../../../../components/ui/Select";
 import { ZoneTexte } from "../../../../components/ui/ZoneTexte";
 import { api } from "../../../../lib/api";
 import {
-  OPTIONS_TYPES_ABSENCE,
+  optionsTypesAbsence,
   SAISIE_ABSENCE_VIDE,
   TYPE_ABSENCE_LIBELLES,
+  TYPE_ABSENCE_LIBELLES_EN,
   validerAbsence,
   type SaisieAbsence,
 } from "../../../../lib/planification";
@@ -20,6 +22,8 @@ import { validerMotif } from "../../../../lib/temps";
 
 /** Demande d'absence pour soi (PLN-07). */
 export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
+  const t = useT();
+  const langue = useLangue();
   const [saisie, setSaisie] = useState<SaisieAbsence>(SAISIE_ABSENCE_VIDE);
   const f = useFormulaire<keyof SaisieAbsence>();
   const maj = (champ: keyof SaisieAbsence) => (v: string) =>
@@ -27,8 +31,14 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerAbsence(saisie), (c) => api.post("/api/absences", c), {
-      succes: `Demande de ${TYPE_ABSENCE_LIBELLES[saisie.type as keyof typeof TYPE_ABSENCE_LIBELLES]?.toLowerCase() ?? "absence"} envoyée : elle attend la validation du responsable des ressources.`,
+    const typeLibelle = (langue === "en" ? TYPE_ABSENCE_LIBELLES_EN : TYPE_ABSENCE_LIBELLES)[
+      saisie.type as keyof typeof TYPE_ABSENCE_LIBELLES
+    ]?.toLowerCase();
+    await f.envoyer(validerAbsence(saisie, langue), (c) => api.post("/api/absences", c), {
+      succes: t(
+        `Demande de ${typeLibelle ?? "absence"} envoyée : elle attend la validation du responsable des ressources.`,
+        `${typeLibelle ?? "absence"} request sent: it is awaiting approval by the resources manager.`,
+      ),
       apres: () => setSaisie(SAISIE_ABSENCE_VIDE),
     });
   }
@@ -39,27 +49,30 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Demander une absence"
+      aria-label={t("Demander une absence", "Request an absence")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Demande impossible"
+        titreErreur={t("Demande impossible", "Request not possible")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Type d'absence"
+          libelle={t("Type d'absence", "Absence type")}
           name="type"
           required
-          options={OPTIONS_TYPES_ABSENCE}
+          options={optionsTypesAbsence(langue)}
           value={saisie.type}
           onChange={(e) => maj("type")(e.target.value)}
           erreur={f.erreurs.type}
-          aide="Le type n'est visible que de vous et des valideurs des congés."
+          aide={t(
+            "Le type n'est visible que de vous et des valideurs des congés.",
+            "The type is visible only to you and to leave approvers.",
+          )}
         />
         <Champ
-          libelle="Premier jour d'absence"
+          libelle={t("Premier jour d'absence", "First day of absence")}
           type="date"
           name="date_debut"
           required
@@ -72,7 +85,7 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
           erreur={f.erreurs.date_debut}
         />
         <Champ
-          libelle="Dernier jour d'absence"
+          libelle={t("Dernier jour d'absence", "Last day of absence")}
           type="date"
           name="date_fin"
           required
@@ -83,7 +96,7 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
         />
       </div>
       <ZoneTexte
-        libelle="Commentaire (facultatif)"
+        libelle={t("Commentaire (facultatif)", "Comment (optional)")}
         name="commentaire"
         maxLength={500}
         value={saisie.commentaire}
@@ -91,8 +104,13 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
         erreur={f.erreurs.commentaire}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="envoyer" chargement={f.enCours} texteChargement="Envoi…">
-          Envoyer la demande
+        <Bouton
+          type="submit"
+          icone="envoyer"
+          chargement={f.enCours}
+          texteChargement={t("Envoi…", "Sending…")}
+        >
+          {t("Envoyer la demande", "Send request")}
         </Bouton>
       </div>
     </form>
@@ -101,20 +119,21 @@ export function DemandeAbsence({ aujourdhui }: { aujourdhui: string }) {
 
 /** Annulation par le demandeur d'une absence qui n'a pas commencé. */
 export function AnnulationAbsence({ id, libelle }: { id: string; libelle: string }) {
+  const t = useT();
   const f = useFormulaire<never>();
   return (
     <div className="mp-pile">
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Annulation impossible"
+        titreErreur={t("Annulation impossible", "Cancellation not possible")}
       />
       <BoutonConfirmation
-        libelle="Annuler la demande"
-        ariaLabel={`Annuler la demande : ${libelle}`}
-        question={`Annuler cette demande (${libelle}) ?`}
-        libelleConfirmation="Oui, annuler"
-        texteChargement="Annulation…"
+        libelle={t("Annuler la demande", "Cancel the request")}
+        ariaLabel={`${t("Annuler la demande", "Cancel the request")} : ${libelle}`}
+        question={t(`Annuler cette demande (${libelle}) ?`, `Cancel this request (${libelle})?`)}
+        libelleConfirmation={t("Oui, annuler", "Yes, cancel")}
+        texteChargement={t("Annulation…", "Cancelling…")}
         icone="fermer"
         action={() =>
           f.envoyer({ ok: true, charge: null }, () =>
@@ -128,6 +147,8 @@ export function AnnulationAbsence({ id, libelle }: { id: string; libelle: string
 
 /** Décision d'un valideur des congés : valider, ou refuser avec un motif obligatoire. */
 export function DecisionAbsence({ id, libelle }: { id: string; libelle: string }) {
+  const t = useT();
+  const langue = useLangue();
   const [refus, setRefus] = useState(false);
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
@@ -135,8 +156,11 @@ export function DecisionAbsence({ id, libelle }: { id: string; libelle: string }
 
   async function refuser(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerMotif(motif), (c) => api.post(`${base}/refuser`, c), {
-      succes: "Demande refusée : le collaborateur est prévenu.",
+    await f.envoyer(validerMotif(motif, langue), (c) => api.post(`${base}/refuser`, c), {
+      succes: t(
+        "Demande refusée : le collaborateur est prévenu.",
+        "Request rejected: the team member has been notified.",
+      ),
     });
   }
 
@@ -146,25 +170,33 @@ export function DecisionAbsence({ id, libelle }: { id: string; libelle: string }
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Décision impossible"
+        titreErreur={t("Décision impossible", "Decision not possible")}
       />
       {refus ? (
         <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={refuser}>
           <ZoneTexte
-            libelle="Motif du refus"
+            libelle={t("Motif du refus", "Reason for rejection")}
             required
             maxLength={500}
             value={motif}
             onChange={(e) => setMotif(e.target.value)}
             erreur={f.erreurs.motif}
-            aide="Le motif est transmis au collaborateur."
+            aide={t(
+              "Le motif est transmis au collaborateur.",
+              "The reason is passed on to the team member.",
+            )}
           />
           <div className="mp-barre-actions">
-            <Bouton type="submit" variante="danger" chargement={f.enCours} texteChargement="Refus…">
-              Refuser la demande
+            <Bouton
+              type="submit"
+              variante="danger"
+              chargement={f.enCours}
+              texteChargement={t("Refus…", "Rejecting…")}
+            >
+              {t("Refuser la demande", "Reject the request")}
             </Bouton>
             <Bouton variante="secondaire" onClick={() => setRefus(false)} disabled={f.enCours}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
@@ -173,23 +205,26 @@ export function DecisionAbsence({ id, libelle }: { id: string; libelle: string }
           <Bouton
             icone="succes"
             chargement={f.enCours}
-            texteChargement="Validation…"
-            aria-label={`Valider la demande : ${libelle}`}
+            texteChargement={t("Validation…", "Approving…")}
+            aria-label={`${t("Valider la demande", "Approve the request")} : ${libelle}`}
             onClick={() =>
               f.envoyer({ ok: true, charge: null }, () => api.post(`${base}/valider`), {
-                succes: "Demande validée : la capacité du collaborateur est mise à jour.",
+                succes: t(
+                  "Demande validée : la capacité du collaborateur est mise à jour.",
+                  "Request approved: the team member's capacity is updated.",
+                ),
               })
             }
           >
-            Valider
+            {t("Valider", "Approve")}
           </Bouton>
           <Bouton
             variante="secondaire"
             icone="fermer"
-            aria-label={`Refuser la demande : ${libelle}`}
+            aria-label={`${t("Refuser la demande", "Reject the request")} : ${libelle}`}
             onClick={() => setRefus(true)}
           >
-            Refuser…
+            {t("Refuser…", "Reject…")}
           </Bouton>
         </div>
       )}

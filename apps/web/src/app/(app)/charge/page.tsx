@@ -9,13 +9,16 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/
 import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { chargerServeur } from "../../../lib/api-serveur";
+import { obtenirLangue } from "../../../lib/i18n/serveur";
+import type { Langue } from "@missionpilot/shared";
 import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
-import { OPTIONS_TYPES, TYPE_LIBELLES } from "../../../lib/collaborateurs";
+import { libelleTypeCollaborateur, optionsTypes } from "../../../lib/collaborateurs";
 import { formaterJours, formaterNombre, formaterPourcentage } from "../../../lib/format";
 import type { Mission } from "../../../lib/missions";
 import {
   DUREES_PLAN,
   ETAT_CHARGE,
+  presentationEtatCharge,
   hrefPlan,
   lireFiltresPlan,
   requetePlan,
@@ -27,21 +30,27 @@ import { chargerGradesActifs } from "../../../lib/referentiels-serveur";
 import { ajouterJoursIso, aujourdhuiIso, libelleDateCourte, lundiDe } from "../../../lib/semaine";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Plan de charge" };
+export async function generateMetadata(): Promise<Metadata> {
+  const langue = await obtenirLangue();
+  return { title: langue === "en" ? "Workload" : "Plan de charge" };
+}
 
-function Cellule({ c, nom }: { c: CelluleCharge; nom: string }) {
-  const etat = ETAT_CHARGE[c.etat];
-  const description = `${nom}, semaine du ${libelleDateCourte(c.semaine)} : ${formaterJours(c.jours_affectes)} affectés pour ${formaterJours(c.capacite)} de capacité, ${c.taux_occupation === null ? "taux non calculable" : `taux d'occupation ${formaterPourcentage(c.taux_occupation, 0)}`}, ${etat.libelle.toLowerCase()}.`;
+function Cellule({ c, nom, langue }: { c: CelluleCharge; nom: string; langue: Langue }) {
+  const en = langue === "en";
+  const etat = presentationEtatCharge(c.etat, langue);
+  const description = en
+    ? `${nom}, week of ${libelleDateCourte(c.semaine, langue)}: ${formaterJours(c.jours_affectes, langue)} assigned for ${formaterJours(c.capacite, langue)} of capacity, ${c.taux_occupation === null ? "rate cannot be calculated" : `utilization rate ${formaterPourcentage(c.taux_occupation, 0, langue)}`}, ${etat.libelle.toLowerCase()}.`
+    : `${nom}, semaine du ${libelleDateCourte(c.semaine)} : ${formaterJours(c.jours_affectes)} affectés pour ${formaterJours(c.capacite)} de capacité, ${c.taux_occupation === null ? "taux non calculable" : `taux d'occupation ${formaterPourcentage(c.taux_occupation, 0)}`}, ${etat.libelle.toLowerCase()}.`;
   return (
     <td className={`mp-charge__cellule mp-charge__cellule--${c.etat}`}>
       <span className="mp-visuellement-cache">{description}</span>
       <span aria-hidden="true" className="mp-charge__contenu">
         <span className="mp-charge__taux">
           <Icone nom={etat.icone} taille={14} />
-          {c.taux_occupation === null ? "—" : formaterPourcentage(c.taux_occupation, 0)}
+          {c.taux_occupation === null ? "—" : formaterPourcentage(c.taux_occupation, 0, langue)}
         </span>
         <span className="mp-charge__detail">
-          {`${formaterNombre(c.jours_affectes)} / ${formaterNombre(c.capacite)} j`}
+          {`${formaterNombre(c.jours_affectes, 2, langue)} / ${formaterNombre(c.capacite, 2, langue)} ${en ? "d" : "j"}`}
         </span>
         <span className="mp-charge__etat">{etat.court}</span>
       </span>
@@ -55,6 +64,8 @@ export default async function PagePlanDeCharge({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("charge.lire");
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const f = lireFiltresPlan(await searchParams);
   const lundi = lundiDe(aujourdhuiIso());
   const requete = requetePlan(f, lundi);
@@ -75,88 +86,97 @@ export default async function PagePlanDeCharge({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Plan de charge"
-        soustitre="Jours affectés face à la capacité de chaque collaborateur (calendrier du cabinet, temps partiel, congés validés), semaine par semaine."
+        titre={t("Plan de charge", "Workload")}
+        soustitre={t(
+          "Jours affectés face à la capacité de chaque collaborateur (calendrier du cabinet, temps partiel, congés validés), semaine par semaine.",
+          "Assigned days against each team member's capacity (firm calendar, part-time, approved leave), week by week.",
+        )}
       />
 
       <form
         method="get"
         action="/charge"
         className="mp-filtres"
-        aria-label="Filtrer le plan de charge"
+        aria-label={t("Filtrer le plan de charge", "Filter the workload")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Champ
-            libelle="À partir de la semaine du"
+            libelle={t("À partir de la semaine du", "Starting from the week of")}
             type="date"
             name="debut"
             defaultValue={debut}
           />
           <Select
-            libelle="Durée"
+            libelle={t("Durée", "Duration")}
             name="semaines"
             defaultValue={String(f.semaines)}
-            options={DUREES_PLAN.map((n) => ({ valeur: String(n), libelle: `${n} semaines` }))}
+            options={DUREES_PLAN.map((n) => ({
+              valeur: String(n),
+              libelle: t(`${n} semaines`, `${n} weeks`),
+            }))}
           />
           <Select
-            libelle="Équipe d'une mission en cours"
+            libelle={t("Équipe d'une mission en cours", "Team of an ongoing engagement")}
             name="equipe"
-            invite="Tout le cabinet"
+            invite={t("Tout le cabinet", "Whole firm")}
             options={optionsMissions}
             defaultValue={f.equipe}
           />
           {grades.length > 0 ? (
             <Select
-              libelle="Grade"
+              libelle={t("Grade", "Grade")}
               name="grade_id"
-              invite="Tous les grades"
+              invite={t("Tous les grades", "All grades")}
               options={grades.map((g) => ({ valeur: g.id, libelle: g.libelle }))}
               defaultValue={f.grade_id}
             />
           ) : null}
           <Select
-            libelle="Type"
+            libelle={t("Type", "Type")}
             name="type"
-            invite="Tous les types"
-            options={OPTIONS_TYPES}
+            invite={t("Tous les types", "All types")}
+            options={optionsTypes(langue)}
             defaultValue={f.type}
           />
         </div>
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
             <Icone nom="entonnoir" />
-            <span>Afficher</span>
+            <span>{t("Afficher", "Show")}</span>
           </button>
           {filtre || f.debut || f.semaines !== 12 ? (
             <Link href="/charge" className={classesBouton("discret")}>
-              Réinitialiser
+              {t("Réinitialiser", "Reset")}
             </Link>
           ) : null}
         </div>
       </form>
 
-      <nav className="mp-navigation-annee" aria-label="Changer de période">
+      <nav className="mp-navigation-annee" aria-label={t("Changer de période", "Change period")}>
         <Link
           className="mp-pagination__lien"
           href={hrefPlan(f, { debut: ajouterJoursIso(debut, -7 * f.semaines) })}
         >
           <Icone nom="chevronGauche" taille={18} />
-          <span>Période précédente</span>
+          <span>{t("Période précédente", "Previous period")}</span>
         </Link>
         <Link
           className="mp-pagination__lien"
           href={hrefPlan(f, { debut: ajouterJoursIso(debut, 7 * f.semaines) })}
         >
-          <span>Période suivante</span>
+          <span>{t("Période suivante", "Next period")}</span>
           <Icone nom="chevronDroit" taille={18} />
         </Link>
       </nav>
 
-      <Legende />
+      <Legende langue={langue} />
 
       {!plan.ok ? (
         <EtatErreur
-          titre="Le plan de charge n'a pas pu être calculé."
+          titre={t(
+            "Le plan de charge n'a pas pu être calculé.",
+            "The workload could not be calculated.",
+          )}
           message={plan.message}
           hrefReessayer={hrefPlan(f)}
         />
@@ -164,17 +184,20 @@ export default async function PagePlanDeCharge({
         <EtatVide
           titre={
             filtre
-              ? "Aucun collaborateur ne correspond à ces filtres."
-              : "Aucun collaborateur actif."
+              ? t(
+                  "Aucun collaborateur ne correspond à ces filtres.",
+                  "No team member matches these filters.",
+                )
+              : t("Aucun collaborateur actif.", "No active team members.")
           }
           icone="personnes"
         />
       ) : (
         <>
-          <GrillePlan plan={plan.donnees} />
-          <ListePlan plan={plan.donnees} />
+          <GrillePlan plan={plan.donnees} langue={langue} />
+          <ListePlan plan={plan.donnees} langue={langue} />
           <PaginationCurseur
-            libelle="Pages de collaborateurs"
+            libelle={t("Pages de collaborateurs", "Team member pages")}
             hrefSuivante={
               plan.donnees.curseur_suivant
                 ? hrefPlan(f, { curseur: plan.donnees.curseur_suivant })
@@ -185,25 +208,41 @@ export default async function PagePlanDeCharge({
         </>
       )}
 
-      <Carte titre="Surcharges de la période">
+      <Carte titre={t("Surcharges de la période", "Overloads for the period")}>
         {!surcharges.ok ? (
           <EtatErreur
-            titre="Les surcharges n'ont pas pu être calculées."
+            titre={t(
+              "Les surcharges n'ont pas pu être calculées.",
+              "The overloads could not be calculated.",
+            )}
             message={surcharges.message}
             hrefReessayer={hrefPlan(f)}
           />
         ) : surcharges.donnees.elements.length === 0 ? (
-          <p className="mp-texte-doux">Aucune surcharge pour les collaborateurs affichés.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "Aucune surcharge pour les collaborateurs affichés.",
+              "No overload for the team members shown.",
+            )}
+          </p>
         ) : (
           <ul className="mp-liste-lignes">
             {surcharges.donnees.elements.map((s) => (
               <li key={`${s.collaborateur_id}-${s.semaine}`} className="mp-liste-lignes__ligne">
                 <span className="mp-liste-lignes__texte">
                   <strong>{s.collaborateur_nom}</strong>
-                  <span className="mp-texte-doux">{`Semaine du ${libelleDateCourte(s.semaine)}`}</span>
+                  <span className="mp-texte-doux">
+                    {t(
+                      `Semaine du ${libelleDateCourte(s.semaine)}`,
+                      `Week of ${libelleDateCourte(s.semaine, langue)}`,
+                    )}
+                  </span>
                 </span>
                 <BadgeStatut tonalite="danger">
-                  {`${formaterJours(s.jours_affectes)} pour ${formaterJours(s.capacite)}`}
+                  {t(
+                    `${formaterJours(s.jours_affectes)} pour ${formaterJours(s.capacite)}`,
+                    `${formaterJours(s.jours_affectes, langue)} for ${formaterJours(s.capacite, langue)}`,
+                  )}
                 </BadgeStatut>
               </li>
             ))}
@@ -214,13 +253,16 @@ export default async function PagePlanDeCharge({
   );
 }
 
-function Legende() {
+function Legende({ langue }: { langue: Langue }) {
   return (
-    <ul className="mp-charge__legende" aria-label="Légende des états de charge">
+    <ul
+      className="mp-charge__legende"
+      aria-label={langue === "en" ? "Workload status legend" : "Légende des états de charge"}
+    >
       {(Object.keys(ETAT_CHARGE) as (keyof typeof ETAT_CHARGE)[]).map((e) => (
         <li key={e} className={`mp-charge__cellule mp-charge__cellule--${e}`}>
           <Icone nom={ETAT_CHARGE[e].icone} taille={14} />
-          <span>{ETAT_CHARGE[e].libelle}</span>
+          <span>{presentationEtatCharge(e, langue).libelle}</span>
         </li>
       ))}
     </ul>
@@ -228,27 +270,30 @@ function Legende() {
 }
 
 /** Grand écran : tableau collaborateurs × semaines, première colonne figée, défilement maîtrisé. */
-function GrillePlan({ plan }: { plan: PlanDeCharge }) {
+function GrillePlan({ plan, langue }: { plan: PlanDeCharge; langue: Langue }) {
+  const en = langue === "en";
   return (
     <div
       className="mp-charge mp-charge--grille"
       role="region"
-      aria-label="Plan de charge, tableau"
+      aria-label={en ? "Workload, table" : "Plan de charge, tableau"}
       tabIndex={0}
     >
       <table className="mp-charge__table">
         <caption className="mp-visuellement-cache">
-          {`Plan de charge du ${libelleDateCourte(plan.debut)} au ${libelleDateCourte(plan.fin)} : taux d'occupation, jours affectés et capacité par semaine`}
+          {en
+            ? `Workload from ${libelleDateCourte(plan.debut, langue)} to ${libelleDateCourte(plan.fin, langue)}: utilization rate, assigned days and capacity per week`
+            : `Plan de charge du ${libelleDateCourte(plan.debut)} au ${libelleDateCourte(plan.fin)} : taux d'occupation, jours affectés et capacité par semaine`}
         </caption>
         <thead>
           <tr>
             <th scope="col" className="mp-charge__nom">
-              Collaborateur
+              {en ? "Team member" : "Collaborateur"}
             </th>
             {plan.semaines.map((s) => (
               <th key={s} scope="col">
-                <span className="mp-visuellement-cache">Semaine du </span>
-                {libelleDateCourte(s)}
+                <span className="mp-visuellement-cache">{en ? "Week of " : "Semaine du "}</span>
+                {libelleDateCourte(s, langue)}
               </th>
             ))}
           </tr>
@@ -261,7 +306,7 @@ function GrillePlan({ plan }: { plan: PlanDeCharge }) {
                 <span className="mp-texte-doux mp-texte-petit">
                   {[
                     l.collaborateur.grade_libelle,
-                    TYPE_LIBELLES[l.collaborateur.type],
+                    libelleTypeCollaborateur(l.collaborateur.type, langue),
                     l.collaborateur.capacite_pct !== 100
                       ? `${l.collaborateur.capacite_pct} %`
                       : null,
@@ -271,7 +316,7 @@ function GrillePlan({ plan }: { plan: PlanDeCharge }) {
                 </span>
               </th>
               {l.cellules.map((c) => (
-                <Cellule key={c.semaine} c={c} nom={l.collaborateur.nom} />
+                <Cellule key={c.semaine} c={c} nom={l.collaborateur.nom} langue={langue} />
               ))}
             </tr>
           ))}
@@ -282,11 +327,12 @@ function GrillePlan({ plan }: { plan: PlanDeCharge }) {
 }
 
 /** Téléphone : une fiche par collaborateur, une ligne par semaine (aucun défilement horizontal). */
-function ListePlan({ plan }: { plan: PlanDeCharge }) {
+function ListePlan({ plan, langue }: { plan: PlanDeCharge; langue: Langue }) {
+  const en = langue === "en";
   return (
     <ul
       className="mp-charge mp-charge--liste mp-liste-cartes"
-      aria-label="Plan de charge, par collaborateur"
+      aria-label={en ? "Workload, by team member" : "Plan de charge, par collaborateur"}
     >
       {plan.elements.map((l) => {
         const surcharges = l.cellules.filter((c) => c.etat === "surcharge").length;
@@ -297,23 +343,34 @@ function ListePlan({ plan }: { plan: PlanDeCharge }) {
                 <Icone nom="chevronDroit" taille={18} className="mp-charge__chevron" />
                 <span className="mp-charge__personne">{l.collaborateur.nom}</span>
                 <span className="mp-texte-doux mp-texte-petit">
-                  {[l.collaborateur.grade_libelle, TYPE_LIBELLES[l.collaborateur.type]]
+                  {[
+                    l.collaborateur.grade_libelle,
+                    libelleTypeCollaborateur(l.collaborateur.type, langue),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
                 {surcharges > 0 ? (
-                  <BadgeStatut tonalite="danger">{`${surcharges} semaine(s) en surcharge`}</BadgeStatut>
+                  <BadgeStatut tonalite="danger">
+                    {en
+                      ? `${surcharges} week(s) overloaded`
+                      : `${surcharges} semaine(s) en surcharge`}
+                  </BadgeStatut>
                 ) : null}
               </summary>
               <ul className="mp-liste-lignes">
                 {l.cellules.map((c) => {
-                  const etat = ETAT_CHARGE[c.etat];
+                  const etat = presentationEtatCharge(c.etat, langue);
                   return (
                     <li key={c.semaine} className="mp-liste-lignes__ligne">
                       <span className="mp-liste-lignes__texte">
-                        <strong>{`Semaine du ${libelleDateCourte(c.semaine)}`}</strong>
+                        <strong>
+                          {en
+                            ? `Week of ${libelleDateCourte(c.semaine, langue)}`
+                            : `Semaine du ${libelleDateCourte(c.semaine)}`}
+                        </strong>
                         <span className="mp-texte-doux">
-                          {`${formaterJours(c.jours_affectes)} sur ${formaterJours(c.capacite)}${c.taux_occupation === null ? "" : ` · ${formaterPourcentage(c.taux_occupation, 0)}`}`}
+                          {`${formaterJours(c.jours_affectes, langue)} ${en ? "of" : "sur"} ${formaterJours(c.capacite, langue)}${c.taux_occupation === null ? "" : ` · ${formaterPourcentage(c.taux_occupation, 0, langue)}`}`}
                         </span>
                       </span>
                       <BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>

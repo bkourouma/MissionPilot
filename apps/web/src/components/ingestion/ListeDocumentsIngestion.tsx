@@ -14,6 +14,7 @@ import {
   type ApiIngestion,
   type DocumentIngestion,
 } from "../../lib/ingestion";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { StatutDocument } from "./StatutDocument";
 
 /** Intervalle de rafraîchissement tant qu'un document est en cours de lecture. */
@@ -54,10 +55,12 @@ export function ListeDocumentsIngestion({
   hrefResultat,
   rendreLien = lienParDefaut,
   afficherUsage = false,
-  legende = "Documents importés",
-  messageVide = "Aucun document importé.",
+  legende,
+  messageVide,
   onTermine,
 }: ListeDocumentsIngestionProps) {
+  const t = useT();
+  const langue = useLangue();
   const [documents, setDocuments] = useState<readonly DocumentIngestion[]>(documentsInitiaux);
   const [annonce, setAnnonce] = useState("");
   const [echec, setEchec] = useState<string | null>(null);
@@ -75,11 +78,16 @@ export function ListeDocumentsIngestion({
 
   useEffect(() => {
     if (etaitEnCours.current && !enCours) {
-      setAnnonce("La lecture des documents est terminée.");
+      setAnnonce(
+        t("La lecture des documents est terminée.", "Reading of the documents is complete."),
+      );
       rappel.current?.();
     } else if (enCours) {
       setAnnonce(
-        "Lecture en cours : la liste se met à jour automatiquement toutes les 3 secondes.",
+        t(
+          "Lecture en cours : la liste se met à jour automatiquement toutes les 3 secondes.",
+          "Reading in progress: the list updates automatically every 3 seconds.",
+        ),
       );
     }
     etaitEnCours.current = enCours;
@@ -99,7 +107,12 @@ export function ListeDocumentsIngestion({
         })
         .catch((e: unknown) => {
           if (e instanceof ErreurApi && e.code === "ANNULE") return;
-          setEchec("L'actualisation automatique a échoué ; nouvel essai dans quelques secondes.");
+          setEchec(
+            t(
+              "L'actualisation automatique a échoué ; nouvel essai dans quelques secondes.",
+              "Automatic refresh failed; trying again in a few seconds.",
+            ),
+          );
         })
         .finally(() => {
           occupe = false;
@@ -114,31 +127,37 @@ export function ListeDocumentsIngestion({
   const colonnes: ColonneTableau<DocumentIngestion>[] = [
     {
       cle: "nom",
-      entete: "Document",
+      entete: t("Document", "Document"),
       rendu: (d) => (
         <>
           {rendreLien(hrefDocument(d), d.nom)}
           <br />
           <small>
-            {d.format === "pdf" ? "PDF" : "Excel"} · {formaterTaille(d.taille)}
+            {d.format === "pdf" ? "PDF" : "Excel"} · {formaterTaille(d.taille, langue)}
           </small>
         </>
       ),
     },
   ];
   if (afficherUsage) {
-    colonnes.push({ cle: "usage", entete: "Usage", rendu: (d) => libelleUsage(d.usage) });
+    colonnes.push({ cle: "usage", entete: "Usage", rendu: (d) => libelleUsage(d.usage, langue) });
   }
   colonnes.push(
-    { cle: "statut", entete: "Statut", rendu: (d) => <StatutDocument statut={d.statut} /> },
+    {
+      cle: "statut",
+      entete: t("Statut", "Status"),
+      rendu: (d) => <StatutDocument statut={d.statut} />,
+    },
     {
       cle: "resultat",
-      entete: "Résultat",
+      entete: t("Résultat", "Result"),
       rendu: (d) => {
         const lien = hrefResultat?.(d);
         return (
           <>
-            {d.statut === "echec" ? (erreurDocument(d) ?? "—") : libelleResultat(d.resultat)}
+            {d.statut === "echec"
+              ? (erreurDocument(d, langue) ?? "—")
+              : libelleResultat(d.resultat, langue)}
             {lien ? (
               <>
                 <br />
@@ -155,11 +174,11 @@ export function ListeDocumentsIngestion({
       alignement: "droite",
       rendu: (d) => (d.nb_pages === null ? "—" : String(d.nb_pages)),
     },
-    { cle: "auteur", entete: "Auteur", rendu: (d) => d.cree_par.nom },
+    { cle: "auteur", entete: t("Auteur", "Author"), rendu: (d) => d.cree_par.nom },
     {
       cle: "date",
       entete: "Date",
-      rendu: (d) => (d.cree_le ? formaterDateHeure(d.cree_le) : "—"),
+      rendu: (d) => (d.cree_le ? formaterDateHeure(d.cree_le, undefined, langue) : "—"),
     },
   );
 
@@ -170,10 +189,10 @@ export function ListeDocumentsIngestion({
       </p>
       {echec ? <p role="alert">{echec}</p> : null}
       <Tableau
-        legende={legende}
+        legende={legende ?? t("Documents importés", "Imported documents")}
         lignes={documents}
         cleLigne={(d) => d.id}
-        messageVide={messageVide}
+        messageVide={messageVide ?? t("Aucun document importé.", "No documents imported.")}
         colonnes={colonnes}
       />
     </div>

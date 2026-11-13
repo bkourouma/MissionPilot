@@ -10,9 +10,13 @@ import {
 import { api } from "../../lib/api";
 import {
   FREQUENCE_LIBELLES,
+  FREQUENCE_LIBELLES_EN,
   NATURE_LIBELLES,
+  NATURE_LIBELLES_EN,
   PERSPECTIVE_LIBELLES,
+  PERSPECTIVE_LIBELLES_EN,
   SENS_LIBELLES,
+  SENS_LIBELLES_EN,
 } from "../../lib/kpi";
 import { DESCRIPTION_MAX, LIBELLE_MAX, UNITE_MAX } from "../../lib/kpi-saisie";
 import {
@@ -24,6 +28,7 @@ import {
   type ObjectifAvecKpi,
   type SaisieKpiObjectif,
 } from "../../lib/plan-kpi";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -51,9 +56,14 @@ export function FormulaireKpiObjectif({
   objectif,
   aujourdhui,
 }: FormulaireKpiObjectifProps) {
+  const t = useT();
+  const langue = useLangue();
+  const en = langue === "en";
   const f = useFormulaire<ChampKpiObjectif>();
   const [ouvert, setOuvert] = useState(false);
-  const [s, setS] = useState<SaisieKpiObjectif>(() => saisieDepuisObjectif(objectif, aujourdhui));
+  const [s, setS] = useState<SaisieKpiObjectif>(() =>
+    saisieDepuisObjectif(objectif, aujourdhui, langue),
+  );
   const texte = (cle: ChampKpiObjectif) => ({
     value: s[cle],
     onChange: (e: { target: { value: string } }) => setS((x) => ({ ...x, [cle]: e.target.value })),
@@ -66,14 +76,16 @@ export function FormulaireKpiObjectif({
       validerKpiObjectif(s, aujourdhui),
       (charge) => api.post<ObjectifAvecKpi>(cheminKpiObjectif(planId, objectif.id), charge),
       {
-        succes:
+        succes: t(
           "KPI créé dans le module de pilotage : il apparaît dans l'onglet KPI de la mission.",
-        messageSpecifique: messageKpiPlan,
+          "KPI created in the performance module: it appears in the engagement's KPI tab.",
+        ),
+        messageSpecifique: (err) => messageKpiPlan(err, langue),
       },
     );
     if (ok) {
       setOuvert(false);
-      setS(saisieDepuisObjectif(objectif, aujourdhui));
+      setS(saisieDepuisObjectif(objectif, aujourdhui, langue));
     }
   }
 
@@ -83,7 +95,7 @@ export function FormulaireKpiObjectif({
         <RetourFormulaire erreur={null} succes={f.succes} refAlerte={f.refAlerte} />
         <div className="mp-barre-actions">
           <Bouton variante="secondaire" icone="plus" onClick={() => setOuvert(true)}>
-            Créer un KPI pour cet objectif
+            {t("Créer un KPI pour cet objectif", "Create a KPI for this objective")}
           </Bouton>
         </div>
       </div>
@@ -96,73 +108,87 @@ export function FormulaireKpiObjectif({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Créer un KPI pour l'objectif ${objectif.titre}`}
+      aria-label={t(
+        `Créer un KPI pour l'objectif ${objectif.titre}`,
+        `Create a KPI for objective ${objectif.titre}`,
+      )}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Création refusée"
+        titreErreur={t("Création refusée", "Creation refused")}
       />
       <div className="mp-grille-champs">
-        <Champ libelle="Libellé du KPI" required maxLength={LIBELLE_MAX} {...texte("libelle")} />
         <Champ
-          libelle="Unité"
+          libelle={t("Libellé du KPI", "KPI label")}
+          required
+          maxLength={LIBELLE_MAX}
+          {...texte("libelle")}
+        />
+        <Champ
+          libelle={t("Unité", "Unit")}
           required
           maxLength={UNITE_MAX}
-          aide="Ex. FCFA, %, jours, clients."
+          aide={t("Ex. FCFA, %, jours, clients.", "E.g. FCFA, %, days, clients.")}
           {...texte("unite")}
         />
         <Select
-          libelle="Perspective"
-          invite="Sans perspective"
-          options={options(PERSPECTIVES_KPI, PERSPECTIVE_LIBELLES)}
+          libelle={t("Perspective", "Perspective")}
+          invite={t("Sans perspective", "No perspective")}
+          options={options(PERSPECTIVES_KPI, en ? PERSPECTIVE_LIBELLES_EN : PERSPECTIVE_LIBELLES)}
           {...texte("perspective")}
         />
         <Select
-          libelle="Sens de lecture"
+          libelle={t("Sens de lecture", "Reading direction")}
           required
-          options={options(SENS_LECTURE_KPI, SENS_LIBELLES)}
+          options={options(SENS_LECTURE_KPI, en ? SENS_LIBELLES_EN : SENS_LIBELLES)}
           {...texte("sens")}
         />
         <Select
-          libelle="Nature"
+          libelle={t("Nature", "Type")}
           required
-          options={options(NATURES_KPI, NATURE_LIBELLES)}
+          options={options(NATURES_KPI, en ? NATURE_LIBELLES_EN : NATURE_LIBELLES)}
           {...texte("nature")}
         />
         <Select
-          libelle="Fréquence de mesure"
+          libelle={t("Fréquence de mesure", "Measurement frequency")}
           required
-          options={options(FREQUENCES_KPI, FREQUENCE_LIBELLES)}
+          options={options(FREQUENCES_KPI, en ? FREQUENCE_LIBELLES_EN : FREQUENCE_LIBELLES)}
           {...texte("frequence")}
         />
         <Champ
-          libelle="Début du suivi"
+          libelle={t("Début du suivi", "Tracking start")}
           type="date"
           required
-          aide="Ramené au début de sa période par le module de pilotage."
+          aide={t(
+            "Ramené au début de sa période par le module de pilotage.",
+            "Moved back to the start of its period by the performance module.",
+          )}
           {...texte("debut_suivi")}
         />
         <Champ
-          libelle="Cible initiale (facultatif)"
+          libelle={t("Cible initiale (facultatif)", "Initial target (optional)")}
           inputMode="decimal"
           autoComplete="off"
-          aide="Valeur chiffrée saisie par vous ; la cible de l'objectif est rappelée dans la description."
+          aide={t(
+            "Valeur chiffrée saisie par vous ; la cible de l'objectif est rappelée dans la description.",
+            "Figure entered by you; the objective's target is recalled in the description.",
+          )}
           {...texte("cible")}
         />
       </div>
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={DESCRIPTION_MAX}
         {...texte("description")}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Création…">
-          Créer le KPI
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Création…", "Creating…")}>
+          {t("Créer le KPI", "Create KPI")}
         </Bouton>
         <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setOuvert(false)}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

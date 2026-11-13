@@ -9,7 +9,7 @@
  * autre : seuls les types `…Portail` lui servent. Sous-modules : `plan-ateliers-types`,
  * `plan-ateliers-presentation`, `plan-ateliers-saisie`.
  */
-import type { MethodeAtelier } from "@missionpilot/shared";
+import { creerTraduire, type Langue, type MethodeAtelier } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import { CHEMIN_PORTAIL } from "./portail-routes";
 import { cheminPlan, hrefPlan } from "./plan-strategique";
@@ -27,27 +27,54 @@ export * from "./plan-ateliers-saisie";
 
 /* ----- Messages ----- */
 
-export function messageAtelier(e: unknown): string {
+export function messageAtelier(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     switch (e.code) {
       case "ATELIER_ETAT":
       case "ATELIER_FIGE":
-        return "L'atelier n'est plus dans l'état attendu : rechargez la page.";
+        return t(
+          "L'atelier n'est plus dans l'état attendu : rechargez la page.",
+          "The workshop is no longer in the expected state: reload the page.",
+        );
       case "ATELIER_INCOHERENT":
-        return "Pour ouvrir l'atelier : au moins deux options et un participant.";
+        return t(
+          "Pour ouvrir l'atelier : au moins deux options et un participant.",
+          "To open the workshop: at least two options and one participant.",
+        );
       case "ATELIER_PLAFOND":
-        return "Plafond atteint (100 ateliers par plan, 50 options, 100 participants, 20 versions d'une contribution).";
+        return t(
+          "Plafond atteint (100 ateliers par plan, 50 options, 100 participants, 20 versions d'une contribution).",
+          "Limit reached (100 workshops per plan, 50 options, 100 participants, 20 versions of a contribution).",
+        );
       case "ATELIER_PARTICIPANT_REFUSE":
-        return "Cette personne ne peut pas être invitée à cet atelier.";
+        return t(
+          "Cette personne ne peut pas être invitée à cet atelier.",
+          "This person cannot be invited to this workshop.",
+        );
       case "ATELIER_OPTION_INCONNUE":
-        return "Une option n'existe plus dans cet atelier : rechargez la page.";
+        return t(
+          "Une option n'existe plus dans cet atelier : rechargez la page.",
+          "An option no longer exists in this workshop: reload the page.",
+        );
       case "ATELIER_CONTRIBUTION_INVALIDE":
       case "ATELIER_CONTRIBUTION_INCOMPLETE":
       case "ATELIER_INVALIDE":
-        return "Contribution refusée : vérifiez le budget de points, les options et les notes.";
+        return t(
+          "Contribution refusée : vérifiez le budget de points, les options et les notes.",
+          "Contribution rejected: check the points budget, the options and the scores.",
+        );
     }
-    if (e.statut === 403) return "Votre rôle ne permet pas cette action sur les ateliers.";
-    if (e.statut === 404) return "Cet atelier est introuvable ou ne vous est plus accessible.";
+    if (e.statut === 403)
+      return t(
+        "Votre rôle ne permet pas cette action sur les ateliers.",
+        "Your role does not allow this action on workshops.",
+      );
+    if (e.statut === 404)
+      return t(
+        "Cet atelier est introuvable ou ne vous est plus accessible.",
+        "This workshop cannot be found or is no longer accessible to you.",
+      );
     if (e.statut === 409) return e.message;
   }
   return messageErreur(e);

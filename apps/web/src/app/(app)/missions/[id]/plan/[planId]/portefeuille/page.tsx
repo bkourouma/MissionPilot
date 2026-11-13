@@ -8,6 +8,7 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import { formaterDateHeure, formaterMontantMineur } from "../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import {
   cheminArbitrages,
@@ -19,12 +20,15 @@ import {
 import { chargerPlan } from "../../../../../../../lib/plan-serveur";
 import {
   droitsPlan,
-  MESSAGE_MISSION_CLOTUREE,
+  messageMissionCloturee,
   type ContextePlan,
 } from "../../../../../../../lib/plan-strategique";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Portefeuille d'initiatives" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Portefeuille d'initiatives", "Initiative portfolio") };
+}
 
 /**
  * Priorisation du portefeuille d'initiatives (PLA-14) : évaluation de chaque initiative (valeur,
@@ -37,6 +41,8 @@ export default async function PagePortefeuillePlan({
 }: {
   params: Promise<{ id: string; planId: string }>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, planId } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const [mission, r] = await Promise.all([chargerMission(id), chargerPlan(planId)]);
@@ -57,7 +63,10 @@ export default async function PagePortefeuillePlan({
   if (!p.ok) {
     return (
       <EtatErreur
-        titre="Le portefeuille d'initiatives n'a pas pu être chargé."
+        titre={t(
+          "Le portefeuille d'initiatives n'a pas pu être chargé.",
+          "The initiative portfolio could not be loaded.",
+        )}
         message={p.message}
         hrefReessayer={hrefPortefeuille(id, planId)}
       />
@@ -71,24 +80,34 @@ export default async function PagePortefeuillePlan({
     <>
       {droits.cloturee ? (
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MESSAGE_MISSION_CLOTUREE}</p>
+          <p>{messageMissionCloturee(langue)}</p>
         </Alerte>
       ) : null}
-      <Carte titre="Initiatives à évaluer" niveauTitre={3}>
+      <Carte titre={t("Initiatives à évaluer", "Initiatives to assess")} niveauTitre={3}>
         {d.initiatives.length === 0 ? (
-          <EtatVide titre="Aucune initiative candidate." icone="barres">
+          <EtatVide
+            titre={t("Aucune initiative candidate.", "No candidate initiatives.")}
+            icone="barres"
+          >
             <p>
-              Rédigez des initiatives dans l&apos;onglet « Contenus » (ou ajoutez-en depuis la
-              bibliothèque) : seules les initiatives actives, ni terminées ni abandonnées, se
-              priorisent.
+              {t(
+                "Rédigez des initiatives dans l'onglet « Contenus » (ou ajoutez-en depuis la bibliothèque) : seules les initiatives actives, ni terminées ni abandonnées, se priorisent.",
+                "Write initiatives in the \u201cContent\u201d tab (or add some from the library): only active initiatives, neither completed nor abandoned, can be prioritized.",
+              )}
             </p>
           </EtatVide>
         ) : (
           <div className="mp-plan__section">
             <p className="mp-texte-doux mp-texte-petit">
-              {`${evaluees} initiative${evaluees > 1 ? "s" : ""} évaluée${evaluees > 1 ? "s" : ""} sur ${d.initiatives.length}. Une initiative non évaluée reste hors proposition.`}
+              {t(
+                `${evaluees} initiative${evaluees > 1 ? "s" : ""} évaluée${evaluees > 1 ? "s" : ""} sur ${d.initiatives.length}. Une initiative non évaluée reste hors proposition.`,
+                `${evaluees} of ${d.initiatives.length} initiative${d.initiatives.length > 1 ? "s" : ""} assessed. An unassessed initiative stays out of the proposal.`,
+              )}
             </p>
-            <ul className="mp-liste-lignes" aria-label="Initiatives du portefeuille">
+            <ul
+              className="mp-liste-lignes"
+              aria-label={t("Initiatives du portefeuille", "Portfolio initiatives")}
+            >
               {d.initiatives.map((i) => (
                 <li key={i.id} className="mp-liste-lignes__ligne">
                   <div className="mp-liste-lignes__texte">
@@ -97,10 +116,13 @@ export default async function PagePortefeuillePlan({
                       {[
                         i.budget === null
                           ? null
-                          : `Budget ${formaterMontantMineur(i.budget, d.devise)}`,
+                          : `Budget ${formaterMontantMineur(i.budget, d.devise, langue)}`,
                         i.evaluation
-                          ? `Valeur ${i.evaluation.valeur} · effort ${i.evaluation.effort} · risque ${i.evaluation.risque} · charge ${i.evaluation.charge_jours} j-h · score ${i.evaluation.score}`
-                          : "Non évaluée",
+                          ? t(
+                              `Valeur ${i.evaluation.valeur} · effort ${i.evaluation.effort} · risque ${i.evaluation.risque} · charge ${i.evaluation.charge_jours} j-h · score ${i.evaluation.score}`,
+                              `Value ${i.evaluation.valeur} · effort ${i.evaluation.effort} · risk ${i.evaluation.risque} · workload ${i.evaluation.charge_jours} person-days · score ${i.evaluation.score}`,
+                            )
+                          : t("Non évaluée", "Not assessed"),
                       ]
                         .filter(Boolean)
                         .join(" · ")}
@@ -116,7 +138,9 @@ export default async function PagePortefeuillePlan({
                   </div>
                   <div className="mp-badges">
                     <BadgeStatut tonalite={i.evaluation ? "succes" : "attention"}>
-                      {i.evaluation ? `Version ${i.evaluation.version}` : "À évaluer"}
+                      {i.evaluation
+                        ? `Version ${i.evaluation.version}`
+                        : t("À évaluer", "To assess")}
                     </BadgeStatut>
                   </div>
                 </li>
@@ -125,7 +149,7 @@ export default async function PagePortefeuillePlan({
           </div>
         )}
       </Carte>
-      <Carte titre="Proposition et arbitrage" niveauTitre={3}>
+      <Carte titre={t("Proposition et arbitrage", "Proposal and prioritization")} niveauTitre={3}>
         <PrioritisationPortefeuille
           planId={planId}
           devise={d.devise}
@@ -134,33 +158,57 @@ export default async function PagePortefeuillePlan({
           arbitrer={droits.valider}
         />
       </Carte>
-      <Carte titre="Arbitrages enregistrés" niveauTitre={3}>
+      <Carte titre={t("Arbitrages enregistrés", "Saved prioritizations")} niveauTitre={3}>
         {!historique.ok ? (
-          <Alerte tonalite="attention" titre="Historique indisponible" annonce="aucune">
+          <Alerte
+            tonalite="attention"
+            titre={t("Historique indisponible", "History unavailable")}
+            annonce="aucune"
+          >
             <p>{historique.message}</p>
           </Alerte>
         ) : historique.donnees.elements.length === 0 ? (
-          <p>Aucun arbitrage enregistré pour ce plan.</p>
+          <p>
+            {t(
+              "Aucun arbitrage enregistré pour ce plan.",
+              "No prioritization saved for this plan.",
+            )}
+          </p>
         ) : (
-          <ul className="mp-liste-lignes" aria-label="Arbitrages du portefeuille">
+          <ul
+            className="mp-liste-lignes"
+            aria-label={t("Arbitrages du portefeuille", "Portfolio prioritizations")}
+          >
             {historique.donnees.elements.map((a) => (
               <li key={a.id} className="mp-liste-lignes__ligne">
                 <div className="mp-liste-lignes__texte">
-                  <strong>{`${formaterDateHeure(a.decide_le)} · ${a.decideur_nom}`}</strong>
+                  <strong>{`${formaterDateHeure(a.decide_le, undefined, langue)} · ${a.decideur_nom}`}</strong>
                   <span className="mp-texte-petit">
-                    {`Retenues : ${a.retenues.map((x) => titres.get(x) ?? "initiative retirée").join(", ") || "aucune"}`}
+                    {t(
+                      `Retenues : ${a.retenues.map((x) => titres.get(x) ?? "initiative retirée").join(", ") || "aucune"}`,
+                      `Selected: ${a.retenues.map((x) => titres.get(x) ?? "removed initiative").join(", ") || "none"}`,
+                    )}
                   </span>
                   {a.motifs.length ? (
-                    <ul className="mp-liste-simple" aria-label="Écarts à la proposition du moteur">
+                    <ul
+                      className="mp-liste-simple"
+                      aria-label={t(
+                        "Écarts à la proposition du moteur",
+                        "Deviations from the engine proposal",
+                      )}
+                    >
                       {a.motifs.map((m) => (
                         <li key={m.initiative_id}>
-                          {`${titres.get(m.initiative_id) ?? "Initiative retirée"} : ${m.motif}`}
+                          {`${titres.get(m.initiative_id) ?? t("Initiative retirée", "Removed initiative")}${langue === "en" ? ":" : " :"} ${m.motif}`}
                         </li>
                       ))}
                     </ul>
                   ) : (
                     <span className="mp-texte-doux mp-texte-petit">
-                      Conforme à la proposition du moteur.
+                      {t(
+                        "Conforme à la proposition du moteur.",
+                        "In line with the engine proposal.",
+                      )}
                     </span>
                   )}
                   {a.commentaire ? <p className="mp-coupure">{a.commentaire}</p> : null}
@@ -171,7 +219,10 @@ export default async function PagePortefeuillePlan({
         )}
         {historique.ok && historique.donnees.curseur_suivant ? (
           <p className="mp-texte-doux mp-texte-petit">
-            Seuls les 10 arbitrages les plus récents sont affichés.
+            {t(
+              "Seuls les 10 arbitrages les plus récents sont affichés.",
+              "Only the 10 most recent prioritizations are shown.",
+            )}
           </p>
         ) : null}
       </Carte>

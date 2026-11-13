@@ -8,7 +8,12 @@
  * Sous-modules : `redressement-saisie-base`, `-correspondance`, `-seuils`, `-tresorerie`,
  * `-creanciers` et `-plan`. Ce fichier les ré-exporte et porte la saisie du dossier.
  */
-import type { RedDossierCreation, RedSecteur } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  type Langue,
+  type RedDossierCreation,
+  type RedSecteur,
+} from "@missionpilot/shared";
 import type { Resultat } from "./saisie";
 
 export {
@@ -103,12 +108,26 @@ export type ChampDossier = "intitule";
 
 export function corpsDossierDepuisFormulaire(
   s: SaisieDossier,
+  langue: Langue = "fr",
 ): Resultat<RedDossierCreation, ChampDossier> {
+  const t = creerTraduire(langue);
   const intitule = s.intitule.trim();
-  if (intitule === "")
-    return { ok: false, erreurs: { intitule: "Saisissez l'intitulé du dossier." } };
+  if (intitule === "") {
+    return {
+      ok: false,
+      erreurs: { intitule: t("Saisissez l'intitulé du dossier.", "Enter the file title.") },
+    };
+  }
   if (intitule.length > 200) {
-    return { ok: false, erreurs: { intitule: "L'intitulé compte 200 caractères au plus." } };
+    return {
+      ok: false,
+      erreurs: {
+        intitule: t(
+          "L'intitulé compte 200 caractères au plus.",
+          "The title is 200 characters at most.",
+        ),
+      },
+    };
   }
   return { ok: true, charge: { intitule, secteur: s.secteur } };
 }
@@ -118,16 +137,31 @@ export type ChampStatutDossier = "motif";
 /** Clôture : un motif d'au moins 10 caractères est exigé (l'API revalide). */
 export function corpsCloture(
   motif: string,
+  langue: Langue = "fr",
 ): Resultat<{ statut: "clos"; motif: string }, ChampStatutDossier> {
+  const t = creerTraduire(langue);
   const m = motif.trim();
   if (m.length < 10) {
     return {
       ok: false,
-      erreurs: { motif: "Un motif d'au moins 10 caractères est exigé pour clore le dossier." },
+      erreurs: {
+        motif: t(
+          "Un motif d'au moins 10 caractères est exigé pour clore le dossier.",
+          "A reason of at least 10 characters is required to close the file.",
+        ),
+      },
     };
   }
   if (m.length > 1000) {
-    return { ok: false, erreurs: { motif: "Le motif compte 1 000 caractères au plus." } };
+    return {
+      ok: false,
+      erreurs: {
+        motif: t(
+          "Le motif compte 1 000 caractères au plus.",
+          "The reason is 1,000 characters at most.",
+        ),
+      },
+    };
   }
   return { ok: true, charge: { statut: "clos", motif: m } };
 }

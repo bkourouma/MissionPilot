@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue, type Traduire } from "@missionpilot/shared";
 import { CarteCommentaires } from "../../../../components/collaboration/CarteCommentaires";
 import { BadgePaiement } from "../../../../components/finance/BadgePaiement";
 import { LienFacturePdf } from "../../../../components/rapports/LienFacturePdf";
@@ -16,12 +16,15 @@ import {
   actionsFacture,
   designationFacture,
   factureDetailleeVisible,
-  NATURE_LIBELLES,
+  libelleNature,
+  libelleStatutFacture,
   ROLE_APPROBATEUR_LIBELLES,
+  ROLE_APPROBATEUR_LIBELLES_EN,
   STATUT_FACTURE,
   type FactureDetaillee,
 } from "../../../../lib/factures";
 import { formaterDate, formaterDateHeure, libelleDevise } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import type { MissionDetaillee } from "../../../../lib/missions";
 import type { ParametresFacturation } from "../../../../lib/parametres-facturation";
@@ -31,10 +34,15 @@ import { ActionsFacture } from "./ActionsFacture";
 import { PaiementFacture } from "./PaiementFacture";
 import { LignesFacture, TotauxFacture } from "./ContenuFacture";
 
-export const metadata: Metadata = { title: "Facture" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Facture", "Invoice") };
+}
 
 export default async function PageFacture({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("facture.lire");
   const roles = utilisateur.roles;
@@ -43,9 +51,12 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Facture" retour={{ href: "/facturation", libelle: "Facturation" }} />
+        <EnteteDePage
+          titre={t("Facture", "Invoice")}
+          retour={{ href: "/facturation", libelle: t("Facturation", "Billing") }}
+        />
         <EtatErreur
-          titre="La facture n'a pas pu être chargée."
+          titre={t("La facture n'a pas pu être chargée.", "The invoice could not be loaded.")}
           message={r.message}
           hrefReessayer={`/facturation/${id}`}
         />
@@ -64,11 +75,15 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
       ? chargerServeur<Paiement>(`/api/factures/${f.id}/paiement`)
       : Promise.resolve(null),
   ]);
-  const actions = actionsFacture(f, {
-    roles,
-    utilisateurId: utilisateur.id,
-    directeurId: mission.ok ? mission.donnees.directeur_id : null,
-  });
+  const actions = actionsFacture(
+    f,
+    {
+      roles,
+      utilisateurId: utilisateur.id,
+      directeurId: mission.ok ? mission.donnees.directeur_id : null,
+    },
+    langue,
+  );
   const statut = STATUT_FACTURE[f.statut];
   const tauxAutorises = parametres?.ok
     ? parametres.donnees.taux_tva_autorises
@@ -77,12 +92,16 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre={designationFacture(f)}
-        retour={{ href: "/facturation", libelle: "Facturation" }}
+        titre={designationFacture(f, langue)}
+        retour={{ href: "/facturation", libelle: t("Facturation", "Billing") }}
         badges={
           <>
-            <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
-            {f.envoyee_le ? <BadgeStatut tonalite="succes">Envoyée</BadgeStatut> : null}
+            <BadgeStatut tonalite={statut.tonalite}>
+              {libelleStatutFacture(f.statut, langue)}
+            </BadgeStatut>
+            {f.envoyee_le ? (
+              <BadgeStatut tonalite="succes">{t("Envoyée", "Sent")}</BadgeStatut>
+            ) : null}
             {paiement?.ok && paiement.donnees.statut_paiement ? (
               <BadgePaiement
                 statut={paiement.donnees.statut_paiement}
@@ -93,14 +112,14 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
         }
         soustitre={`${f.client_raison_sociale} · ${f.mission_intitule} · ${libelleDevise(f.devise)}`}
       />
-      <Bandeaux f={f} raison={actions.raisonRefusApprobation} />
-      <Carte titre="Informations">
-        <Informations f={f} />
+      <Bandeaux f={f} raison={actions.raisonRefusApprobation} langue={langue} />
+      <Carte titre={t("Informations", "Information")}>
+        <Informations f={f} langue={langue} />
       </Carte>
-      <Carte titre="Lignes">
+      <Carte titre={t("Lignes", "Lines")}>
         <LignesFacture facture={f} modifiable={actions.modifier} tauxAutorises={tauxAutorises} />
       </Carte>
-      <Carte titre="Totaux">
+      <Carte titre={t("Totaux", "Totals")}>
         <TotauxFacture facture={f} />
       </Carte>
       {paiement?.ok ? (
@@ -110,12 +129,13 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
           gererEncaissements={aPermission(roles, "encaissement.gerer")}
         />
       ) : null}
-      <Carte titre="Document">
+      <Carte titre={t("Document", "Document")}>
         <div className="mp-pile">
           <p className="mp-texte-doux">
-            Aperçu imprimable produit par le serveur (mentions légales, lignes et totaux). Il
-            s&apos;ouvre dans un nouvel onglet ; utilisez l&apos;impression du navigateur pour
-            l&apos;enregistrer en PDF.
+            {t(
+              "Aperçu imprimable produit par le serveur (mentions légales, lignes et totaux). Il s'ouvre dans un nouvel onglet ; utilisez l'impression du navigateur pour l'enregistrer en PDF.",
+              "Printable preview produced by the server (legal mentions, lines and totals). It opens in a new tab; use your browser's print function to save it as a PDF.",
+            )}
           </p>
           <div className="mp-barre-actions">
             <a
@@ -125,10 +145,13 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
               className="mp-bouton mp-bouton--secondaire"
             >
               <Icone nom="oeil" />
-              <span>Ouvrir le document</span>
-              <span className="mp-visuellement-cache"> (nouvel onglet)</span>
+              <span>{t("Ouvrir le document", "Open the document")}</span>
+              <span className="mp-visuellement-cache">{t(" (nouvel onglet)", " (new tab)")}</span>
             </a>
-            <LienFacturePdf factureId={f.id} contexte={designationFacture(f).toLowerCase()} />
+            <LienFacturePdf
+              factureId={f.id}
+              contexte={designationFacture(f, langue).toLowerCase()}
+            />
           </div>
         </div>
       </Carte>
@@ -137,33 +160,63 @@ export default async function PageFacture({ params }: { params: Promise<{ id: st
         entiteType="facture"
         entiteId={f.id}
         utilisateur={utilisateur}
-        nomElement={`la facture ${designationFacture(f)}`}
+        nomElement={t(
+          `la facture ${designationFacture(f, langue)}`,
+          `invoice ${designationFacture(f, langue)}`,
+        )}
       />
     </div>
   );
 }
 
-function Bandeaux({ f, raison }: { f: FactureDetaillee; raison: string | null }) {
+function Bandeaux({
+  f,
+  raison,
+  langue,
+}: {
+  f: FactureDetaillee;
+  raison: string | null;
+  langue: Langue;
+}) {
+  const t: Traduire = creerTraduire(langue);
+  const approbateurs = langue === "en" ? ROLE_APPROBATEUR_LIBELLES_EN : ROLE_APPROBATEUR_LIBELLES;
   return (
     <>
       {f.statut === "brouillon" && f.motif_rejet ? (
-        <Alerte tonalite="danger" annonce="aucune" titre="Facture rejetée lors de l'approbation">
-          <p>{`Motif : ${f.motif_rejet}`}</p>
+        <Alerte
+          tonalite="danger"
+          annonce="aucune"
+          titre={t("Facture rejetée lors de l'approbation", "Invoice rejected during approval")}
+        >
+          <p>{t(`Motif : ${f.motif_rejet}`, `Reason: ${f.motif_rejet}`)}</p>
         </Alerte>
       ) : null}
       {f.statut === "a_approuver" ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="En attente d'approbation">
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("En attente d'approbation", "Pending approval")}
+        >
           <p>
-            {`Approbation par ${ROLE_APPROBATEUR_LIBELLES[f.role_approbateur ?? "associe"]} (seuil calculé sur le montant).`}
+            {t(
+              `Approbation par ${approbateurs[f.role_approbateur ?? "associe"]} (seuil calculé sur le montant).`,
+              `Approval by ${approbateurs[f.role_approbateur ?? "associe"]} (threshold computed on the amount).`,
+            )}
             {raison ? ` ${raison}` : ""}
           </p>
         </Alerte>
       ) : null}
       {f.statut === "annulee" ? (
-        <Alerte tonalite="info" annonce="aucune" titre="Facture annulée par un avoir">
+        <Alerte
+          tonalite="info"
+          annonce="aucune"
+          titre={t("Facture annulée par un avoir", "Invoice cancelled by a credit note")}
+        >
           <p>
             {f.annulee_par_avoir_id ? (
-              <Link href={`/facturation/${f.annulee_par_avoir_id}`}>Voir l&apos;avoir</Link>
+              <Link href={`/facturation/${f.annulee_par_avoir_id}`}>
+                {t("Voir l'avoir", "View the credit note")}
+              </Link>
             ) : null}
           </p>
         </Alerte>
@@ -172,59 +225,69 @@ function Bandeaux({ f, raison }: { f: FactureDetaillee; raison: string | null })
   );
 }
 
-function Informations({ f }: { f: FactureDetaillee }) {
+function Informations({ f, langue }: { f: FactureDetaillee; langue: Langue }) {
+  const t: Traduire = creerTraduire(langue);
   return (
     <dl className="mp-liste-def">
       <div>
-        <dt>Nature</dt>
-        <dd>{NATURE_LIBELLES[f.nature]}</dd>
+        <dt>{t("Nature", "Type")}</dt>
+        <dd>{libelleNature(f.nature, langue)}</dd>
       </div>
       <div>
-        <dt>Numéro</dt>
-        <dd>{f.numero ?? "Attribué à l'émission"}</dd>
+        <dt>{t("Numéro", "Number")}</dt>
+        <dd>{f.numero ?? t("Attribué à l'émission", "Assigned at issuance")}</dd>
       </div>
       <div>
-        <dt>Objet</dt>
+        <dt>{t("Objet", "Subject")}</dt>
         <dd>{f.objet ?? "—"}</dd>
       </div>
       {f.motif ? (
         <div>
-          <dt>Motif</dt>
+          <dt>{t("Motif", "Reason")}</dt>
           <dd>{f.motif}</dd>
         </div>
       ) : null}
       <div>
-        <dt>Mission</dt>
+        <dt>{t("Mission", "Engagement")}</dt>
         <dd>
           <Link href={`/missions/${f.mission_id}/facturation`}>{f.mission_intitule}</Link>
         </dd>
       </div>
       {f.facture_origine_id ? (
         <div>
-          <dt>Facture d&apos;origine</dt>
+          <dt>{t("Facture d'origine", "Original invoice")}</dt>
           <dd>
-            <Link href={`/facturation/${f.facture_origine_id}`}>Voir la facture annulée</Link>
+            <Link href={`/facturation/${f.facture_origine_id}`}>
+              {t("Voir la facture annulée", "View the cancelled invoice")}
+            </Link>
           </dd>
         </div>
       ) : null}
       <div>
-        <dt>Émission</dt>
-        <dd>{f.date_emission ? formaterDate(f.date_emission) : "Non émise"}</dd>
+        <dt>{t("Émission", "Issued")}</dt>
+        <dd>
+          {f.date_emission
+            ? formaterDate(f.date_emission, "UTC", langue)
+            : t("Non émise", "Not issued")}
+        </dd>
       </div>
       <div>
-        <dt>Échéance de paiement</dt>
+        <dt>{t("Échéance de paiement", "Payment due date")}</dt>
         <dd>
           {f.nature === "avoir"
-            ? "Sans objet (avoir)"
+            ? t("Sans objet (avoir)", "Not applicable (credit note)")
             : f.date_echeance
-              ? formaterDate(f.date_echeance)
-              : `${f.delai_paiement_jours} jours après l'émission`}
+              ? formaterDate(f.date_echeance, "UTC", langue)
+              : t(
+                  `${f.delai_paiement_jours} jours après l'émission`,
+                  `${f.delai_paiement_jours} days after issuance`,
+                )}
         </dd>
       </div>
       {f.envoyee_le ? (
         <div>
-          <dt>Marquée envoyée le</dt>
-          <dd>{formaterDateHeure(f.envoyee_le)}</dd>
+          <dt>{t("Marquée envoyée le", "Marked as sent on")}</dt>
+          <dd>{formaterDateHeure(f.envoyee_le, undefined, langue)}</dd>
         </div>
       ) : null}
     </dl>

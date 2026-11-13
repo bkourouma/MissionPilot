@@ -5,6 +5,7 @@ import {
   FormulaireDebours,
   type MissionDebours,
 } from "../../../../components/facturation/FormulaireDebours";
+import { useT } from "../../../../components/i18n/FournisseurLangue";
 import { LigneDebours } from "../../../../components/facturation/LigneDebours";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { saisieDeboursVide, type Debours } from "../../../../lib/debours";
@@ -13,12 +14,15 @@ import { aPermission, type Role } from "@missionpilot/shared";
 
 /** Bouton puis formulaire de déclaration (mission à choisir). */
 export function DeclarationDebours({ missions }: { missions: MissionDebours[] }) {
+  const t = useT();
   const [ouvert, setOuvert] = useState(false);
   if (missions.length === 0) {
     return (
       <p className="mp-texte-doux">
-        Aucune mission ouverte ne vous est accessible : un débours se déclare sur une mission dont
-        vous faites partie.
+        {t(
+          "Aucune mission ouverte ne vous est accessible : un débours se déclare sur une mission dont vous faites partie.",
+          "No open engagement is available to you: an expense is declared on an engagement you are part of.",
+        )}
       </p>
     );
   }
@@ -26,14 +30,14 @@ export function DeclarationDebours({ missions }: { missions: MissionDebours[] })
     return (
       <div>
         <Bouton icone="plus" onClick={() => setOuvert(true)}>
-          Nouvelle dépense
+          {t("Nouvelle dépense", "New expense")}
         </Bouton>
       </div>
     );
   }
   return (
     <FormulaireDebours
-      titre="Nouvelle dépense"
+      titre={t("Nouvelle dépense", "New expense")}
       initial={saisieDeboursVide(aujourdhuiIso())}
       missions={missions}
       onFin={() => setOuvert(false)}
@@ -53,12 +57,14 @@ export function ListeMesDebours({
   utilisateurId: string;
   roles: Role[];
 }) {
-  const intitule = (id: string) => missions.find((m) => m.id === id)?.intitule ?? "Mission";
+  const t = useT();
+  const intitule = (id: string) =>
+    missions.find((m) => m.id === id)?.intitule ?? t("Mission", "Engagement");
   // Avec « mission.lire », la liste des missions ouvertes est complète : une mission absente
   // est clôturée. Sinon (expert externe), l'API tranche à la soumission.
   const listeComplete = aPermission(roles, "mission.lire");
   return (
-    <ul className="mp-liste-lignes" aria-label="Mes débours">
+    <ul className="mp-liste-lignes" aria-label={t("Mes débours", "My expenses")}>
       {liste.map((d) => (
         <LigneDebours
           key={d.id}

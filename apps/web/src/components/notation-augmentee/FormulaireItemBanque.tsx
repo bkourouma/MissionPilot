@@ -2,11 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import {
-  PUBLIC_ITEM_LIBELLES,
-  PUBLICS_ITEM_NOTATION,
-  type ItemBanqueDonnees,
-} from "@missionpilot/shared";
+import { PUBLICS_ITEM_NOTATION, type ItemBanqueDonnees } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   AIDE_ANCRAGES_LONGUEUR_MAX,
@@ -21,6 +17,7 @@ import {
   cheminItemBanque,
   compteurCaracteres,
   hrefItemBanque,
+  libellePublicItem,
   messageNotationAugmentee,
   saisieDepuisItem,
   saisieItemVide,
@@ -28,6 +25,7 @@ import {
   type ItemBanqueDetail,
   type SaisieItemBanque,
 } from "../../lib/notation-augmentee";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -64,6 +62,8 @@ export function FormulaireItemBanque({
   avertissement = null,
 }: FormulaireItemBanqueProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [saisie, setSaisie] = useState<SaisieItemBanque>(() =>
     base ? saisieDepuisItem(base) : saisieItemVide(),
@@ -89,16 +89,19 @@ export function FormulaireItemBanque({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerSaisieItem(saisie, base),
+      validerSaisieItem(saisie, base, langue),
       (charge) =>
         itemId
           ? api.put<ItemBanqueDetail>(cheminItemBanque(itemId), charge)
           : api.post<ItemBanqueDetail>(CHEMIN_BANQUE, charge),
       {
         succes: itemId
-          ? "Brouillon enregistré. Vous en êtes désormais le dernier modificateur : un autre expert métier devra le valider."
-          : "Brouillon créé : ouverture de l'item.",
-        messageSpecifique: messageNotationAugmentee,
+          ? t(
+              "Brouillon enregistré. Vous en êtes désormais le dernier modificateur : un autre expert métier devra le valider.",
+              "Draft saved. You are now its last editor: another business expert will have to approve it.",
+            )
+          : t("Brouillon créé : ouverture de l'item.", "Draft created: opening the item."),
+        messageSpecifique: (err) => messageNotationAugmentee(err, langue),
         rafraichir: itemId !== null,
         apres: (item) => {
           if (!itemId) router.push(hrefItemBanque(item.id));
@@ -122,21 +125,25 @@ export function FormulaireItemBanque({
       ) : null}
 
       <fieldset className="mp-na-groupe">
-        <legend>Identification</legend>
+        <legend>{t("Identification", "Identification")}</legend>
         {identifiantsFiges ? (
           <p className="mp-na-groupe__aide">
-            Le code, la dimension et la pratique ne changent pas d&apos;une version à l&apos;autre.
+            {t(
+              "Le code, la dimension et la pratique ne changent pas d'une version à l'autre.",
+              "The code, dimension and practice do not change from one version to the next.",
+            )}
           </p>
         ) : (
           <p className="mp-na-groupe__aide">
-            Identifiants en minuscules sans accent (lettres, chiffres, « _ », « . » ou « - »). La
-            dimension et la pratique proposent celles de la grille générique, mais la saisie reste
-            libre.
+            {t(
+              "Identifiants en minuscules sans accent (lettres, chiffres, « _ », « . » ou « - »). La dimension et la pratique proposent celles de la grille générique, mais la saisie reste libre.",
+              'Identifiers in lowercase without accents (letters, digits, "_", "." or "-"). Dimension and practice suggest those of the generic framework, but entry remains free.',
+            )}
           </p>
         )}
         <div className="mp-grille-champs">
           <Champ
-            libelle="Code de l'item"
+            libelle={t("Code de l'item", "Item code")}
             required
             value={saisie.code}
             onChange={(e) => maj("code", e.target.value)}
@@ -144,10 +151,10 @@ export function FormulaireItemBanque({
             readOnly={identifiantsFiges}
             maxLength={80}
             autoComplete="off"
-            aide="Ex. pilotage_revue_mensuelle"
+            aide={t("Ex. pilotage_revue_mensuelle", "E.g. steering_monthly_review")}
           />
           <Champ
-            libelle="Dimension"
+            libelle={t("Dimension", "Dimension")}
             required
             value={saisie.dimension}
             onChange={(e) => maj("dimension", e.target.value)}
@@ -156,10 +163,10 @@ export function FormulaireItemBanque({
             maxLength={80}
             autoComplete="off"
             list="na-dimensions"
-            aide="Ex. pilotage"
+            aide={t("Ex. pilotage", "E.g. steering")}
           />
           <Champ
-            libelle="Pratique évaluée"
+            libelle={t("Pratique évaluée", "Practice assessed")}
             required
             value={saisie.pratique}
             onChange={(e) => maj("pratique", e.target.value)}
@@ -168,7 +175,10 @@ export function FormulaireItemBanque({
             maxLength={80}
             autoComplete="off"
             list="na-pratiques"
-            aide="Une seule question par pratique dans un questionnaire."
+            aide={t(
+              "Une seule question par pratique dans un questionnaire.",
+              "One question per practice in a questionnaire.",
+            )}
           />
         </div>
         <datalist id="na-dimensions">
@@ -184,24 +194,26 @@ export function FormulaireItemBanque({
           ))}
         </datalist>
         <Champ
-          libelle="Intitulé de la pratique (énoncé)"
+          libelle={t("Intitulé de la pratique (énoncé)", "Practice title (statement)")}
           required
           value={saisie.intitule}
           onChange={(e) => maj("intitule", e.target.value)}
           erreur={f.erreurs.intitule}
           maxLength={INTITULE_LONGUEUR_MAX + 50}
-          aide={compteurCaracteres(saisie.intitule, INTITULE_LONGUEUR_MAX)}
+          aide={compteurCaracteres(saisie.intitule, INTITULE_LONGUEUR_MAX, langue)}
         />
       </fieldset>
 
       <fieldset className="mp-na-groupe">
-        <legend>Échelle et ancrages comportementaux</legend>
+        <legend>{t("Échelle et ancrages comportementaux", "Scale and behavioral anchors")}</legend>
         <p className="mp-na-groupe__aide">
-          Chaque niveau est décrit par un comportement observable : deux évaluateurs doivent arriver
-          au même niveau en lisant la même description.
+          {t(
+            "Chaque niveau est décrit par un comportement observable : deux évaluateurs doivent arriver au même niveau en lisant la même description.",
+            "Each level is described by an observable behavior: two raters should reach the same level when reading the same description.",
+          )}
         </p>
         <Select
-          libelle="Nombre de niveaux"
+          libelle={t("Nombre de niveaux", "Number of levels")}
           required
           value={saisie.niveaux}
           onChange={(e) => maj("niveaux", e.target.value)}
@@ -213,43 +225,57 @@ export function FormulaireItemBanque({
         />
         {niveaux.map((n) => (
           <div key={n} className="mp-na-niveau">
-            <p className="mp-na-niveau__titre">Niveau {n}</p>
+            <p className="mp-na-niveau__titre">
+              {t("Niveau", "Level")} {n}
+            </p>
             <Champ
-              libelle={`Libellé du niveau ${n}`}
+              libelle={t(`Libellé du niveau ${n}`, `Label of level ${n}`)}
               required
               value={saisie.libelles[n - 1] ?? ""}
               onChange={(e) => majListe("libelles", n - 1, e.target.value)}
               erreur={f.erreurs[`libelle-${n}`]}
               maxLength={LIBELLE_NIVEAU_LONGUEUR_MAX + 30}
-              aide={compteurCaracteres(saisie.libelles[n - 1] ?? "", LIBELLE_NIVEAU_LONGUEUR_MAX)}
+              aide={compteurCaracteres(
+                saisie.libelles[n - 1] ?? "",
+                LIBELLE_NIVEAU_LONGUEUR_MAX,
+                langue,
+              )}
             />
             <ZoneTexte
-              libelle={`Comportement observable du niveau ${n}`}
+              libelle={t(
+                `Comportement observable du niveau ${n}`,
+                `Observable behavior of level ${n}`,
+              )}
               required
               rows={3}
               value={saisie.ancrages[n - 1] ?? ""}
               onChange={(e) => majListe("ancrages", n - 1, e.target.value)}
               erreur={f.erreurs[`ancrage-${n}`] ?? (n === nombre ? f.erreurs.ancrages : undefined)}
               maxLength={ANCRAGE_LONGUEUR_MAX + 200}
-              aide={compteurCaracteres(saisie.ancrages[n - 1] ?? "", ANCRAGE_LONGUEUR_MAX)}
+              aide={compteurCaracteres(saisie.ancrages[n - 1] ?? "", ANCRAGE_LONGUEUR_MAX, langue)}
             />
           </div>
         ))}
         <p className="mp-na-aide" aria-live="polite">
-          Ancrages réunis (aide de la question) : {reuni} / {AIDE_ANCRAGES_LONGUEUR_MAX} caractères.
+          {t(
+            `Ancrages réunis (aide de la question) : ${reuni} / ${AIDE_ANCRAGES_LONGUEUR_MAX} caractères.`,
+            `Combined anchors (question help text): ${reuni} / ${AIDE_ANCRAGES_LONGUEUR_MAX} characters.`,
+          )}
         </p>
       </fieldset>
 
       <fieldset className="mp-na-groupe">
-        <legend>Formulations par public</legend>
+        <legend>{t("Formulations par public", "Wordings by audience")}</legend>
         <p className="mp-na-groupe__aide">
-          Une formulation par public visé ; à défaut, le questionnaire retient la formulation « Tous
-          publics ». Laissez vide un public sans formulation propre. Au moins une est obligatoire.
+          {t(
+            "Une formulation par public visé ; à défaut, le questionnaire retient la formulation « Tous publics ». Laissez vide un public sans formulation propre. Au moins une est obligatoire.",
+            'One wording per target audience; otherwise the questionnaire uses the "All audiences" wording. Leave an audience empty if it has no wording of its own. At least one is required.',
+          )}
         </p>
         {PUBLICS_ITEM_NOTATION.map((p) => (
           <ZoneTexte
             key={p}
-            libelle={PUBLIC_ITEM_LIBELLES[p]}
+            libelle={libellePublicItem(p, langue)}
             rows={2}
             value={saisie.formulations[p]}
             onChange={(e) => maj("formulations", { ...saisie.formulations, [p]: e.target.value })}
@@ -257,47 +283,53 @@ export function FormulaireItemBanque({
               f.erreurs[`formulation-${p}`] ?? (p === "tous" ? f.erreurs.formulations : undefined)
             }
             maxLength={FORMULATION_LONGUEUR_MAX + 100}
-            aide={compteurCaracteres(saisie.formulations[p], FORMULATION_LONGUEUR_MAX)}
+            aide={compteurCaracteres(saisie.formulations[p], FORMULATION_LONGUEUR_MAX, langue)}
           />
         ))}
       </fieldset>
 
       <fieldset className="mp-na-groupe">
-        <legend>Sélection dans un questionnaire</legend>
+        <legend>{t("Sélection dans un questionnaire", "Selection in a questionnaire")}</legend>
         <div className="mp-grille-champs">
           <Champ
-            libelle="Poids"
+            libelle={t("Poids", "Weight")}
             required
             inputMode="decimal"
             value={saisie.poids}
             onChange={(e) => maj("poids", e.target.value)}
             erreur={f.erreurs.poids}
-            aide="Supérieur à 0, au plus 100."
+            aide={t("Supérieur à 0, au plus 100.", "Greater than 0, at most 100.")}
           />
           <Champ
-            libelle="Priorité"
+            libelle={t("Priorité", "Priority")}
             required
             inputMode="numeric"
             value={saisie.priorite}
             onChange={(e) => maj("priorite", e.target.value)}
             erreur={f.erreurs.priorite}
-            aide="De 1 (cœur de la dimension) à 9."
+            aide={t("De 1 (cœur de la dimension) à 9.", "From 1 (core of the dimension) to 9.")}
           />
           <Champ
-            libelle="Durée de réponse (secondes)"
+            libelle={t("Durée de réponse (secondes)", "Answer time (seconds)")}
             required
             inputMode="numeric"
             value={saisie.duree}
             onChange={(e) => maj("duree", e.target.value)}
             erreur={f.erreurs.duree}
-            aide="De 5 à 600 secondes."
+            aide={t("De 5 à 600 secondes.", "From 5 to 600 seconds.")}
           />
         </div>
       </fieldset>
 
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {itemId ? "Enregistrer le brouillon" : "Créer le brouillon"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {itemId
+            ? t("Enregistrer le brouillon", "Save draft")
+            : t("Créer le brouillon", "Create draft")}
         </Bouton>
       </div>
     </form>

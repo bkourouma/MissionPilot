@@ -1,6 +1,7 @@
 import Link from "next/link";
-import type { RedCreancierResume } from "@missionpilot/shared";
+import { creerTraduire, type RedCreancierResume } from "@missionpilot/shared";
 import { formaterDate, formaterMontantMineur, type Devise } from "../../lib/format";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import {
   hrefCreancierRed,
   libelleCategorieCreancier,
@@ -14,7 +15,7 @@ import { Tableau } from "../ui/Tableau";
  * Registre des créanciers : encours restant, échu, accord et sa prochaine échéance, tels que
  * l'API les calcule (la situation est recalculée à chaque lecture, jamais stockée).
  */
-export function ListeCreanciers({
+export async function ListeCreanciers({
   missionId,
   elements,
   devise,
@@ -23,52 +24,62 @@ export function ListeCreanciers({
   elements: RedCreancierResume[];
   devise: Devise;
 }) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   return (
     <Tableau
-      legende="Registre des créanciers"
-      messageVide="Aucun créancier enregistré."
+      legende={t("Registre des créanciers", "Creditor register")}
+      messageVide={t("Aucun créancier enregistré.", "No creditor recorded.")}
       colonnes={[
         {
           cle: "nom",
-          entete: "Créancier",
+          entete: t("Créancier", "Creditor"),
           rendu: (c: RedCreancierResume) => (
             <>
               <Link href={hrefCreancierRed(missionId, c.id)}>{c.nom}</Link>
-              {c.actif ? null : <span className="mp-texte-doux"> (inactif)</span>}
+              {c.actif ? null : (
+                <span className="mp-texte-doux"> ({t("inactif", "inactive")})</span>
+              )}
             </>
           ),
         },
         {
           cle: "categorie",
-          entete: "Catégorie",
-          rendu: (c) => libelleCategorieCreancier(c.categorie),
+          entete: t("Catégorie", "Category"),
+          rendu: (c) => libelleCategorieCreancier(c.categorie, langue),
         },
-        { cle: "garanti", entete: "Garanti", rendu: (c) => (c.garanti ? "Oui" : "Non") },
+        {
+          cle: "garanti",
+          entete: t("Garanti", "Secured"),
+          rendu: (c) => (c.garanti ? t("Oui", "Yes") : t("Non", "No")),
+        },
         {
           cle: "encours",
-          entete: "Encours restant",
+          entete: t("Encours restant", "Outstanding"),
           alignement: "droite",
           rendu: (c) => (
             <span className="mp-red-valeur">
-              {formaterMontantMineur(c.situation.encours_restant, devise)}
+              {formaterMontantMineur(c.situation.encours_restant, devise, langue)}
             </span>
           ),
         },
         {
           cle: "echu",
-          entete: "Échu",
+          entete: t("Échu", "Overdue"),
           alignement: "droite",
           rendu: (c) => (
-            <span className="mp-red-valeur">{formaterMontantMineur(c.situation.echu, devise)}</span>
+            <span className="mp-red-valeur">
+              {formaterMontantMineur(c.situation.echu, devise, langue)}
+            </span>
           ),
         },
         {
           cle: "accord",
-          entete: "Accord",
+          entete: t("Accord", "Agreement"),
           rendu: (c) =>
             c.situation.accord ? (
               <BadgeStatut tonalite={tonaliteStatutAccord(c.situation.accord.statut)}>
-                {libelleStatutAccord(c.situation.accord.statut)}
+                {libelleStatutAccord(c.situation.accord.statut, langue)}
               </BadgeStatut>
             ) : (
               "—"
@@ -76,11 +87,11 @@ export function ListeCreanciers({
         },
         {
           cle: "prochaine",
-          entete: "Prochaine échéance",
+          entete: t("Prochaine échéance", "Next installment"),
           rendu: (c) => {
             const p = c.situation.accord?.prochaine_non_soldee;
             return p
-              ? `${formaterDate(p.date)} : ${formaterMontantMineur(p.montant_restant, devise)}`
+              ? `${formaterDate(p.date, "UTC", langue)} : ${formaterMontantMineur(p.montant_restant, devise, langue)}`
               : "—";
           },
         },

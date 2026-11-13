@@ -1,5 +1,5 @@
 /** IA : choix des modèles par tâche. */
-import { TACHE_IA_LIBELLES, type TacheIa } from "@missionpilot/shared";
+import { creerTraduire, TACHE_IA_LIBELLES, type Langue, type TacheIa } from "@missionpilot/shared";
 import type { ModeleTacheIa } from "./ia-parametres";
 import type { Resultat } from "./saisie";
 
@@ -14,13 +14,24 @@ export interface SaisieModele {
 
 export type ChampModele = `modele_${TacheIa}`;
 
-export const libelleTache = (t: TacheIa) => TACHE_IA_LIBELLES[t] ?? t;
+const TACHE_IA_LIBELLES_EN: Record<TacheIa, string> = {
+  redaction: "Drafting",
+  analyse: "Analysis",
+  extraction: "Extraction",
+  classification: "Classification",
+  embedding: "Vectorization (semantic search)",
+};
+
+export const libelleTache = (t: TacheIa, langue: Langue = "fr") =>
+  (langue === "en" ? TACHE_IA_LIBELLES_EN : TACHE_IA_LIBELLES)[t] ?? t;
 
 export const saisiesModeles = (modeles: readonly ModeleTacheIa[]): SaisieModele[] =>
   modeles.map((m) => ({ tache: m.tache, recommande: !m.personnalise, modele: m.modele }));
 
 export const ERREUR_MODELE_NON_AUTORISE =
   "Choisissez un modèle de la liste : seuls les modèles au tarif connu sont admis.";
+export const ERREUR_MODELE_NON_AUTORISE_EN =
+  "Choose a model from the list: only models with a known price are accepted.";
 
 /**
  * Modifications à envoyer : `null` rend une tâche au modèle recommandé, une chaîne fixe un
@@ -32,6 +43,7 @@ export function chargeModeles(
   saisies: readonly SaisieModele[],
   actuels: readonly ModeleTacheIa[],
   autorises: readonly string[],
+  langue: Langue = "fr",
 ): Resultat<{ modeles: Partial<Record<TacheIa, string | null>> }, ChampModele> {
   const modeles: Partial<Record<TacheIa, string | null>> = {};
   const erreurs: Partial<Record<ChampModele, string>> = {};
@@ -45,7 +57,8 @@ export function chargeModeles(
     const inchange = actuel.personnalise && s.modele === actuel.modele;
     if (inchange) continue;
     if (!autorises.includes(s.modele)) {
-      erreurs[`modele_${s.tache}`] = ERREUR_MODELE_NON_AUTORISE;
+      erreurs[`modele_${s.tache}`] =
+        langue === "en" ? ERREUR_MODELE_NON_AUTORISE_EN : ERREUR_MODELE_NON_AUTORISE;
       continue;
     }
     modeles[s.tache] = s.modele;
@@ -61,13 +74,18 @@ export function chargeModeles(
 export function optionsModele(
   m: ModeleTacheIa,
   autorises: readonly string[],
+  langue: Langue = "fr",
 ): { valeur: string; libelle: string; desactivee?: boolean }[] {
+  const t = creerTraduire(langue);
   const options = [...autorises].sort().map((a) => ({
     valeur: a,
-    libelle: a === m.recommande ? `${a} (recommandé)` : a,
+    libelle: a === m.recommande ? `${a} ${t("(recommandé)", "(recommended)")}` : a,
   }));
   if (!autorises.includes(m.modele)) {
-    options.unshift({ valeur: m.modele, libelle: `${m.modele} (plus autorisé : à remplacer)` });
+    options.unshift({
+      valeur: m.modele,
+      libelle: `${m.modele} ${t("(plus autorisé : à remplacer)", "(no longer allowed: replace it)")}`,
+    });
   }
   return options;
 }

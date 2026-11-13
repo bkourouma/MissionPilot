@@ -1,5 +1,9 @@
 /** Questionnaires du portail : contrats de l'API, chemins et date limite. */
-import type { DefinitionQuestionnaireDonnees, ModeEnvoiQuestionnaire } from "@missionpilot/shared";
+import type {
+  DefinitionQuestionnaireDonnees,
+  Langue,
+  ModeEnvoiQuestionnaire,
+} from "@missionpilot/shared";
 import { formaterDate } from "./format";
 import { CHEMIN_PORTAIL } from "./portail-routes";
 
@@ -100,9 +104,26 @@ export interface Echeance {
  * est APPLIQUÉE par l'API (MPQ07) : passé le jour de la date limite (inclus), ni saisie ni
  * soumission, sauf prolongation par le cabinet.
  */
-export function echeance(dateLimite: string | null, aujourdhui: string): Echeance | null {
+export function echeance(
+  dateLimite: string | null,
+  aujourdhui: string,
+  langue: Langue = "fr",
+): Echeance | null {
   if (!dateLimite) return null;
-  const date = formaterDate(dateLimite);
+  const date = formaterDate(dateLimite, undefined, langue);
+  if (langue === "en") {
+    if (aujourdhui > dateLimite) {
+      return {
+        texte: `Due date passed (${date}): responses are no longer accepted, unless the firm grants an extension`,
+        depassee: true,
+        dernierJour: false,
+      };
+    }
+    if (aujourdhui === dateLimite) {
+      return { texte: `Due date: today (${date})`, depassee: false, dernierJour: true };
+    }
+    return { texte: `Due date: ${date}`, depassee: false, dernierJour: false };
+  }
   if (aujourdhui > dateLimite) {
     return {
       texte: `Date limite dépassée (${date}) : les réponses ne sont plus acceptées, sauf prolongation par le cabinet`,

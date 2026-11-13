@@ -1,3 +1,4 @@
+import type { Langue } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import { hrefAssertions, hrefRegistre } from "./preuves-chemins";
 import { FIABILITES, STATUTS_ASSERTION, TYPE_SOURCE_LIBELLES } from "./preuves-libelles";
@@ -18,18 +19,33 @@ const MESSAGES_PREUVES: Record<string, string> = {
   AVIS_EXPERT_INVALIDE: "Un avis d'expert est signé par l'auteur de la version.",
 };
 
-const MESSAGE_INTROUVABLE = "Cet élément n'existe plus ou n'est pas accessible. Rechargez la page.";
+const MESSAGES_PREUVES_EN: Record<string, string> = {
+  MISSION_CLOTUREE: "The engagement is closed: the evidence register is frozen.",
+  DIMENSION_INCONNUE:
+    "A chosen dimension does not exist (or no longer exists) for this engagement.",
+  DIMENSION_EXISTANTE: "This dimension already exists for the engagement.",
+  PLAFOND_ATTEINT: "This engagement has reached the item limit of this register.",
+  ARBITRAGE_INVALIDE:
+    'This contradiction no longer needs arbitration: the evidence changed or is no longer linked "against". Reload the page.',
+  PREUVE_VERSION_CONCURRENTE: "Another correction was just saved. Reload the page, then try again.",
+  PREUVE_INCOHERENTE:
+    "The linked document or answer does not belong to this engagement, or the chosen author is not valid.",
+  AVIS_EXPERT_INVALIDE: "An expert opinion is signed by the author of the version.",
+};
 
-export function messagePreuves(e: unknown): string {
+const MESSAGE_INTROUVABLE = "Cet élément n'existe plus ou n'est pas accessible. Rechargez la page.";
+const MESSAGE_INTROUVABLE_EN = "This item no longer exists or is not accessible. Reload the page.";
+
+export function messagePreuves(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const specifique = MESSAGES_PREUVES[e.code];
+    const specifique = (langue === "en" ? MESSAGES_PREUVES_EN : MESSAGES_PREUVES)[e.code];
     if (specifique) return specifique;
-    if (e.statut === 404) return MESSAGE_INTROUVABLE;
+    if (e.statut === 404) return langue === "en" ? MESSAGE_INTROUVABLE_EN : MESSAGE_INTROUVABLE;
     if (e.statut === 409 || (e.statut === 400 && e.message !== "Données invalides.")) {
       return e.message;
     }
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }
 
 /** Après ce refus, l'écran est probablement périmé : rafraîchir les données. */

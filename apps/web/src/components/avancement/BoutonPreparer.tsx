@@ -10,6 +10,7 @@ import {
   type RapportAvancement,
 } from "../../lib/avancement";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 
 /**
@@ -18,6 +19,8 @@ import { Bouton } from "../ui/Bouton";
  */
 export function BoutonPreparer({ missionId }: { missionId: string }) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const verrou = useRef(false);
@@ -35,7 +38,7 @@ export function BoutonPreparer({ missionId }: { missionId: string }) {
       const r = await api.post<RapportAvancement>(cheminApiGenerationAvancement(missionId), {});
       router.push(hrefRapportAvancement(missionId, r.id));
     } catch (e) {
-      setErreur(messageAvancement(e));
+      setErreur(messageAvancement(e, langue));
     } finally {
       verrou.current = false;
       setEnCours(false);
@@ -47,16 +50,16 @@ export function BoutonPreparer({ missionId }: { missionId: string }) {
       <RetourFormulaire
         erreur={erreur}
         refAlerte={refAlerte}
-        titreErreur="Le rapport n'a pas pu être préparé"
+        titreErreur={t("Le rapport n'a pas pu être préparé", "The report could not be prepared")}
       />
       <div>
         <Bouton
           chargement={enCours}
-          texteChargement="Préparation…"
+          texteChargement={t("Préparation…", "Preparing…")}
           icone="plus"
           onClick={() => void preparer()}
         >
-          Préparer le rapport de cette semaine
+          {t("Préparer le rapport de cette semaine", "Prepare this week's report")}
         </Bouton>
       </div>
     </div>

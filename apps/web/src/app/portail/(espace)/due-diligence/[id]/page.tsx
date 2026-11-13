@@ -7,6 +7,7 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { Icone } from "../../../../../components/ui/Icone";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant, peut } from "../../../../../lib/portail";
 import {
   cheminApiDdPortail,
@@ -16,7 +17,6 @@ import {
   hrefDdPortail,
   hrefPieceDdPortail,
   libellePieceDdPortail,
-  MENTION_LECTURE_SEULE,
   mentionPublication,
   mentionValidation,
   piecesDdPortail,
@@ -24,7 +24,10 @@ import {
 } from "../../../../../lib/portail-dd";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
 
-export const metadata: Metadata = { title: "Note de due diligence" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Note de due diligence", "Due diligence note") };
+}
 
 /**
  * Une note de due diligence communiquée : recommandation, synthèse, conditions et documents à
@@ -38,19 +41,22 @@ export default async function DetailDueDiligencePortail({
 }) {
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.dd.lire")) {
-    return <NonDisponible titre="Due diligence" />;
+    return <NonDisponible titre={t("Due diligence", "Due diligence")} />;
   }
   const r = await chargerPortail<DdPortailPublicationDetail>(cheminApiDdPortail(id));
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: CHEMIN_DD_PORTAIL, libelle: "Due diligence" };
+  const retour = { href: CHEMIN_DD_PORTAIL, libelle: t("Due diligence", "Due diligence") };
+  const lectureSeule = t("Lecture seule", "Read-only");
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Note de due diligence" retour={retour} />
+        <EnteteDePage titre={t("Note de due diligence", "Due diligence note")} retour={retour} />
         <EtatErreur
-          titre="La note n'a pas pu être chargée."
+          titre={t("La note n'a pas pu être chargée.", "The note could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefDdPortail(id)}
         />
@@ -58,7 +64,7 @@ export default async function DetailDueDiligencePortail({
     );
   }
   const d = r.donnees;
-  const reco = etatRecommandationPortail(d.recommandation);
+  const reco = etatRecommandationPortail(d.recommandation, langue);
   const conditions = conditionsDdPortail(d.conditions);
   const pieces = piecesDdPortail(d.pieces);
   return (
@@ -70,19 +76,24 @@ export default async function DetailDueDiligencePortail({
           <>
             <BadgeStatut tonalite={reco.tonalite}>{reco.libelle}</BadgeStatut>
             <BadgeStatut tonalite="neutre" sansIcone>
-              {MENTION_LECTURE_SEULE}
+              {lectureSeule}
             </BadgeStatut>
           </>
         }
       />
-      <Alerte tonalite="info" annonce="aucune" titre={mentionValidation(d.valide_le)}>
-        <p>{`${mentionPublication(d.publie_le)}. Cette note est en lecture seule : elle reflète la version ${d.version} validée par le cabinet.`}</p>
+      <Alerte tonalite="info" annonce="aucune" titre={mentionValidation(d.valide_le, langue)}>
+        <p>
+          {t(
+            `${mentionPublication(d.publie_le)}. Cette note est en lecture seule : elle reflète la version ${d.version} validée par le cabinet.`,
+            `${mentionPublication(d.publie_le, langue)}. This note is read-only: it reflects version ${d.version} approved by the firm.`,
+          )}
+        </p>
       </Alerte>
-      <Carte titre="Synthèse" niveauTitre={2}>
+      <Carte titre={t("Synthèse", "Summary")} niveauTitre={2}>
         <p style={{ whiteSpace: "pre-line" }}>{d.synthese}</p>
       </Carte>
       {conditions.length > 0 ? (
-        <Carte titre="Conditions" niveauTitre={2}>
+        <Carte titre={t("Conditions", "Conditions")} niveauTitre={2}>
           <ul>
             {conditions.map((c, i) => (
               <li key={i}>{c}</li>
@@ -90,16 +101,23 @@ export default async function DetailDueDiligencePortail({
           </ul>
         </Carte>
       ) : null}
-      <Carte titre="Documents" niveauTitre={2}>
+      <Carte titre={t("Documents", "Documents")} niveauTitre={2}>
         {pieces.length === 0 ? (
-          <p className="mp-texte-doux">Aucun document n&apos;accompagne cette note.</p>
+          <p className="mp-texte-doux">
+            {t("Aucun document n'accompagne cette note.", "No document accompanies this note.")}
+          </p>
         ) : (
           <ul className="mp-pile">
             {pieces.map((p) => (
               <li key={p.id}>
                 <a className="mp-lien-action" href={hrefPieceDdPortail(d.id, p.id)} download>
                   <Icone nom="telechargement" taille={18} />
-                  <span>{`Télécharger : ${libellePieceDdPortail(p)}`}</span>
+                  <span>
+                    {t(
+                      `Télécharger : ${libellePieceDdPortail(p)}`,
+                      `Download: ${libellePieceDdPortail(p, langue)}`,
+                    )}
+                  </span>
                 </a>
               </li>
             ))}

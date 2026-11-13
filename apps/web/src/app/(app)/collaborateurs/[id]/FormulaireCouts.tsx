@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { Alerte } from "../../../../components/ui/Alerte";
@@ -8,7 +9,7 @@ import { Bouton } from "../../../../components/ui/Bouton";
 import { Champ } from "../../../../components/ui/Champ";
 import { Select } from "../../../../components/ui/Select";
 import { api } from "../../../../lib/api";
-import { OPTIONS_DEVISES } from "../../../../lib/cabinet";
+import { optionsDevises } from "../../../../lib/cabinet";
 import { validerCouts, type ChampCouts, type SaisieCouts } from "../../../../lib/collaborateurs";
 import type { Devise } from "../../../../lib/format";
 import { aideMontant } from "../../../../lib/saisie";
@@ -26,6 +27,8 @@ export function FormulaireCouts({
   collaborateurId: string;
   externe: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const vide: SaisieCouts = {
     cout_journalier: "",
     taux_vente_specifique: "",
@@ -37,14 +40,17 @@ export function FormulaireCouts({
   const f = useFormulaire<ChampCouts | "global">();
   const maj = (k: ChampCouts) => (e: { target: { value: string } }) =>
     setS((x) => ({ ...x, [k]: e.target.value }));
-  const aide = aideMontant(s.devise as Devise);
+  const aide = aideMontant(s.devise as Devise, langue);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerCouts(s),
+      validerCouts(s, langue),
       (c) => api.post(`/api/collaborateurs/${encodeURIComponent(collaborateurId)}/couts`, c),
-      { succes: "Nouvelle ligne de coûts enregistrée.", apres: () => setS(vide) },
+      {
+        succes: t("Nouvelle ligne de coûts enregistrée.", "New cost line saved."),
+        apres: () => setS(vide),
+      },
     );
   }
 
@@ -57,30 +63,32 @@ export function FormulaireCouts({
       aria-labelledby="titre-couts"
     >
       <h3 id="titre-couts" className="mp-sous-formulaire__titre">
-        Enregistrer de nouveaux coûts
+        {t("Enregistrer de nouveaux coûts", "Record new costs")}
       </h3>
       <p className="mp-texte-doux">
-        Les lignes passées ne sont jamais modifiées : une révision crée une nouvelle ligne à sa date
-        d&apos;effet.
+        {t(
+          "Les lignes passées ne sont jamais modifiées : une révision crée une nouvelle ligne à sa date d'effet.",
+          "Past lines are never edited: a revision creates a new line on its effective date.",
+        )}
       </p>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       {f.erreurs.global ? (
-        <Alerte tonalite="danger" titre="Montant manquant">
+        <Alerte tonalite="danger" titre={t("Montant manquant", "Missing amount")}>
           <p>{f.erreurs.global}</p>
         </Alerte>
       ) : null}
       <div className="mp-grille-champs">
         <Select
-          libelle="Devise"
+          libelle={t("Devise", "Currency")}
           name="devise"
           required
-          options={OPTIONS_DEVISES}
+          options={optionsDevises(langue)}
           value={s.devise}
           onChange={maj("devise")}
           erreur={f.erreurs.devise}
         />
         <Champ
-          libelle="Date d'effet"
+          libelle={t("Date d'effet", "Effective date")}
           type="date"
           name="depuis_le"
           required
@@ -89,7 +97,7 @@ export function FormulaireCouts({
           erreur={f.erreurs.depuis_le}
         />
         <Champ
-          libelle="Coût journalier chargé"
+          libelle={t("Coût journalier chargé", "Fully loaded daily cost")}
           name="cout_journalier"
           inputMode="decimal"
           value={s.cout_journalier}
@@ -99,31 +107,41 @@ export function FormulaireCouts({
           autoComplete="off"
         />
         <Champ
-          libelle="Taux de vente spécifique"
+          libelle={t("Taux de vente spécifique", "Specific selling rate")}
           name="taux_vente_specifique"
           inputMode="decimal"
           value={s.taux_vente_specifique}
           onChange={maj("taux_vente_specifique")}
           erreur={f.erreurs.taux_vente_specifique}
-          aide="Laisser vide pour appliquer le taux du grade."
+          aide={t(
+            "Laisser vide pour appliquer le taux du grade.",
+            "Leave empty to apply the grade rate.",
+          )}
           autoComplete="off"
         />
         {externe ? (
           <Champ
-            libelle="Coût d'achat journalier"
+            libelle={t("Coût d'achat journalier", "Daily purchase cost")}
             name="cout_achat"
             inputMode="decimal"
             value={s.cout_achat}
             onChange={maj("cout_achat")}
             erreur={f.erreurs.cout_achat}
-            aide="Prix payé par jour à l'expert externe ou au sous-traitant."
+            aide={t(
+              "Prix payé par jour à l'expert externe ou au sous-traitant.",
+              "Price paid per day to the external expert or subcontractor.",
+            )}
             autoComplete="off"
           />
         ) : null}
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer les coûts
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer les coûts", "Save costs")}
         </Bouton>
       </div>
     </form>

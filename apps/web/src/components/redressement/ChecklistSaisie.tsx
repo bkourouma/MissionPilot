@@ -8,7 +8,7 @@ import {
   cheminReponsesChecklist,
   libelleReponseChecklist,
   messageDiagnostic,
-  OPTIONS_REPONSES_CHECKLIST,
+  optionsReponsesChecklist,
 } from "../../lib/redressement-diagnostic";
 import {
   corpsReponses,
@@ -17,6 +17,7 @@ import {
 } from "../../lib/redressement-diagnostic-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -38,32 +39,42 @@ export function ChecklistSaisie({
   reponses: RedChecklistReponseVue[];
   lectureSeule: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [saisie, setSaisie] = useState<SaisieReponses>(() => saisieReponsesDepuis(items, reponses));
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsReponses(items, saisie, reponses),
+      corpsReponses(items, saisie, reponses, langue),
       async (lots) => {
         for (const lot of lots) await api.post(cheminReponsesChecklist(checklistId), lot);
       },
-      { succes: "Réponses enregistrées.", messageSpecifique: messageDiagnostic },
+      {
+        succes: t("Réponses enregistrées.", "Answers saved."),
+        messageSpecifique: (e) => messageDiagnostic(e, langue),
+      },
     );
   }
 
   if (lectureSeule) {
     return (
-      <ul className="mp-diag-liste" aria-label="Réponses de la check-list">
+      <ul
+        className="mp-diag-liste"
+        aria-label={t("Réponses de la check-list", "Checklist answers")}
+      >
         {items.map((i) => {
           const r = reponses.find((x) => x.item_id === i.id);
           return (
             <li key={i.id} className="mp-diag-item">
               <p className="mp-diag-item__titre">{i.libelle}</p>
-              <p className="mp-texte-doux mp-texte-petit">{libelleDomaine(i.domaine)}</p>
+              <p className="mp-texte-doux mp-texte-petit">{libelleDomaine(i.domaine, langue)}</p>
               <p>
-                {r ? libelleReponseChecklist(r.reponse) : "Non renseigné"}
-                {r?.commentaire ? ` : ${r.commentaire}` : ""}
+                {r
+                  ? libelleReponseChecklist(r.reponse, langue)
+                  : t("Non renseigné", "Not filled in")}
+                {r?.commentaire ? `${t(" : ", ": ")}${r.commentaire}` : ""}
               </p>
             </li>
           );
@@ -72,19 +83,20 @@ export function ChecklistSaisie({
     );
   }
 
+  const optionsReponses = optionsReponsesChecklist(langue);
   return (
     <form
       ref={f.refFormulaire}
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Réponses de la check-list"
+      aria-label={t("Réponses de la check-list", "Checklist answers")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Saving not possible")}
       />
       {f.erreurs.global ? (
         <Alerte tonalite="info" annonce="status">
@@ -99,11 +111,11 @@ export function ChecklistSaisie({
             <fieldset key={i.id} className="mp-diag-item">
               <legend className="mp-diag-item__titre">{i.libelle}</legend>
               <p className="mp-texte-doux mp-texte-petit">
-                {libelleDomaine(i.domaine)}
+                {libelleDomaine(i.domaine, langue)}
                 {i.aide ? ` · ${i.aide}` : ""}
               </p>
               <div className="mp-diag-reponses">
-                {OPTIONS_REPONSES_CHECKLIST.map((o) => (
+                {optionsReponses.map((o) => (
                   <label key={o.valeur}>
                     <input
                       type="radio"
@@ -119,7 +131,7 @@ export function ChecklistSaisie({
                 ))}
               </div>
               <Champ
-                libelle="Commentaire"
+                libelle={t("Commentaire", "Comment")}
                 autoComplete="off"
                 value={s.commentaire}
                 onChange={(e) =>
@@ -136,9 +148,9 @@ export function ChecklistSaisie({
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer les réponses
+          {t("Enregistrer les réponses", "Save the answers")}
         </Bouton>
       </div>
     </form>

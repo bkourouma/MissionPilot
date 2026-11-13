@@ -6,6 +6,7 @@ import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   deciderExtraction,
   messageErreur,
@@ -42,6 +43,8 @@ export function DecisionExtraction({
   raisonValidationImpossible,
   onDecide,
 }: DecisionExtractionProps) {
+  const t = useT();
+  const langue = useLangue();
   const [motif, setMotif] = useState("");
   const [acquitte, setAcquitte] = useState(false);
   const [erreurAcquittement, setErreurAcquittement] = useState<string | undefined>();
@@ -52,7 +55,7 @@ export function DecisionExtraction({
 
   async function decider(decision: "validee" | "rejetee") {
     const saisie = { decision, motif, acquitte, nonVerifies };
-    const erreur = erreurDecision(saisie);
+    const erreur = erreurDecision(saisie, langue);
     setErreurAcquittement(decision === "validee" ? (erreur ?? undefined) : undefined);
     setErreurMotif(decision === "rejetee" ? (erreur ?? undefined) : undefined);
     setEchec(null);
@@ -60,7 +63,11 @@ export function DecisionExtraction({
     setEnCours(decision);
     try {
       const vue = await deciderExtraction(api, extraction.id, corpsDecision(saisie));
-      setAnnonce(decision === "validee" ? "Brouillon validé." : "Brouillon rejeté.");
+      setAnnonce(
+        decision === "validee"
+          ? t("Brouillon validé.", "Draft approved.")
+          : t("Brouillon rejeté.", "Draft rejected."),
+      );
       onDecide(vue);
     } catch (e) {
       setEchec(messageErreur(e));
@@ -76,20 +83,31 @@ export function DecisionExtraction({
     <form
       className="mp-formulaire"
       noValidate
-      aria-label="Décision sur le brouillon"
+      aria-label={t("Décision sur le brouillon", "Decision on the draft")}
       onSubmit={(ev: FormEvent) => ev.preventDefault()}
     >
       {nonVerifies ? (
-        <Alerte tonalite="attention" titre="Des éléments ne sont pas retrouvés dans la source">
+        <Alerte
+          tonalite="attention"
+          titre={t(
+            "Des éléments ne sont pas retrouvés dans la source",
+            "Some elements were not found in the source",
+          )}
+        >
           <p>
-            Relisez chaque élément marqué « NON retrouvé dans la page » avant de valider :
-            corrigez-le, retirez-le ou confirmez-le en connaissance de cause.
+            {t(
+              "Relisez chaque élément marqué « NON retrouvé dans la page » avant de valider : corrigez-le, retirez-le ou confirmez-le en connaissance de cause.",
+              'Review each element marked "NOT found in the page" before approving: correct it, remove it or confirm it knowingly.',
+            )}
           </p>
         </Alerte>
       ) : null}
       {nonVerifies ? (
         <CaseACocher
-          libelle="J'ai relu les éléments non retrouvés dans la source"
+          libelle={t(
+            "J'ai relu les éléments non retrouvés dans la source",
+            "I have reviewed the elements not found in the source",
+          )}
           checked={acquitte}
           disabled={occupe || validationBloquee}
           onChange={(e) => {
@@ -111,7 +129,10 @@ export function DecisionExtraction({
         </Alerte>
       ) : null}
       <ZoneTexte
-        libelle="Motif du rejet (obligatoire pour rejeter)"
+        libelle={t(
+          "Motif du rejet (obligatoire pour rejeter)",
+          "Reason for rejection (required to reject)",
+        )}
         value={motif}
         maxLength={MOTIF_REJET_MAX}
         disabled={occupe}
@@ -126,7 +147,7 @@ export function DecisionExtraction({
           icone="succes"
           disabled={occupe || validationBloquee}
           chargement={enCours === "validee"}
-          texteChargement="Validation en cours…"
+          texteChargement={t("Validation en cours…", "Approving…")}
           onClick={() => void decider("validee")}
         >
           {libelleValider}
@@ -135,10 +156,10 @@ export function DecisionExtraction({
           variante="danger"
           disabled={occupe}
           chargement={enCours === "rejetee"}
-          texteChargement="Rejet en cours…"
+          texteChargement={t("Rejet en cours…", "Rejecting…")}
           onClick={() => void decider("rejetee")}
         >
-          Rejeter le brouillon
+          {t("Rejeter le brouillon", "Reject the draft")}
         </Bouton>
       </div>
       {aide ? <div className="mp-champ__aide">{aide}</div> : null}
@@ -146,7 +167,7 @@ export function DecisionExtraction({
         {annonce}
       </p>
       {echec ? (
-        <Alerte tonalite="danger" titre="Décision refusée">
+        <Alerte tonalite="danger" titre={t("Décision refusée", "Decision rejected")}>
           <p>{echec}</p>
         </Alerte>
       ) : null}

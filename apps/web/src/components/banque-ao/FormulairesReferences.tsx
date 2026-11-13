@@ -2,15 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import {
-  LIBELLES_ROLE_REFERENCE,
-  LIBELLES_TYPE_ATTESTATION,
-  ROLES_CABINET_REFERENCE,
-  TYPES_ATTESTATION,
-} from "@missionpilot/shared";
+import { ROLES_CABINET_REFERENCE, TYPES_ATTESTATION } from "@missionpilot/shared";
 import { api, messageErreur } from "../../lib/api";
 import { lireMotif } from "../../lib/agents";
 import {
+  libelleRoleReference,
+  libelleTypeAttestation,
   lireReference,
   messageBanqueAo,
   RACINE_BANQUES,
@@ -22,6 +19,7 @@ import { aideMontant, type Resultat } from "../../lib/saisie";
 import { televerser } from "../../lib/televersement";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -53,6 +51,8 @@ export function FormulaireReference({
   referenceId?: string;
   initial?: SaisieReference;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const f = useFormulaire<keyof SaisieReference | "motif">();
   const [s, setS] = useState<SaisieReference>(initial ?? VIDE);
@@ -62,9 +62,9 @@ export function FormulaireReference({
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const lu = lireReference(s);
+    const lu = lireReference(s, langue);
     if (referenceId) {
-      const m = lireMotif(motif, 500);
+      const m = lireMotif(motif, 500, langue);
       const validation: Resultat<
         { contenu: Record<string, unknown>; motif: string },
         keyof SaisieReference | "motif"
@@ -76,12 +76,15 @@ export function FormulaireReference({
       await f.envoyer(
         validation,
         (c) => api.post(`/api/banque-ao/references/${referenceId}/versions`, c),
-        { succes: "Nouvelle version enregistrée.", messageSpecifique: messageBanqueAo },
+        {
+          succes: t("Nouvelle version enregistrée.", "New version saved."),
+          messageSpecifique: (err) => messageBanqueAo(err, langue),
+        },
       );
       return;
     }
     await f.envoyer(lu, (c) => api.post<{ id: string }>("/api/banque-ao/references", c), {
-      messageSpecifique: messageBanqueAo,
+      messageSpecifique: (err) => messageBanqueAo(err, langue),
       rafraichir: false,
       apres: (r) => router.push(`${RACINE_BANQUES}/references/${r.id}`),
     });
@@ -92,7 +95,7 @@ export function FormulaireReference({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Intitulé de la mission"
+          libelle={t("Intitulé de la mission", "Engagement title")}
           required
           maxLength={300}
           value={s.titre}
@@ -100,7 +103,7 @@ export function FormulaireReference({
           erreur={f.erreurs.titre}
         />
         <Champ
-          libelle="Client"
+          libelle={t("Client", "Client")}
           required
           maxLength={200}
           value={s.client_nom}
@@ -108,8 +111,8 @@ export function FormulaireReference({
           erreur={f.erreurs.client_nom}
         />
         <Champ
-          libelle="Pays"
-          aide="Code à deux lettres (CI, SN, BF…)."
+          libelle={t("Pays", "Country")}
+          aide={t("Code à deux lettres (CI, SN, BF…).", "Two-letter code (CI, SN, BF…).")}
           required
           maxLength={2}
           value={s.pays}
@@ -117,21 +120,26 @@ export function FormulaireReference({
           erreur={f.erreurs.pays}
         />
         <Champ
-          libelle="Secteurs"
-          aide="Séparés par des virgules."
+          libelle={t("Secteurs", "Sectors")}
+          aide={t("Séparés par des virgules.", "Separated by commas.")}
           value={s.secteurs}
           onChange={maj("secteurs")}
         />
-        <Champ libelle="Bailleur" maxLength={120} value={s.bailleur} onChange={maj("bailleur")} />
+        <Champ
+          libelle={t("Bailleur", "Donor")}
+          maxLength={120}
+          value={s.bailleur}
+          onChange={maj("bailleur")}
+        />
         <Select
-          libelle="Devise"
+          libelle={t("Devise", "Currency")}
           value={s.devise}
           onChange={(e) => setS((x) => ({ ...x, devise: e.target.value as Devise }))}
           options={DEVISES.map((d) => ({ valeur: d, libelle: d }))}
         />
         <Champ
-          libelle="Montant du marché"
-          aide={aideMontant(s.devise)}
+          libelle={t("Montant du marché", "Contract amount")}
+          aide={aideMontant(s.devise, langue)}
           inputMode="decimal"
           required
           value={s.montant}
@@ -139,7 +147,7 @@ export function FormulaireReference({
           erreur={f.erreurs.montant}
         />
         <Champ
-          libelle="Début"
+          libelle={t("Début", "Start")}
           type="date"
           required
           value={s.date_debut}
@@ -147,32 +155,32 @@ export function FormulaireReference({
           erreur={f.erreurs.date_debut}
         />
         <Champ
-          libelle="Fin"
+          libelle={t("Fin", "End")}
           type="date"
           value={s.date_fin}
           onChange={maj("date_fin")}
           erreur={f.erreurs.date_fin}
         />
         <Select
-          libelle="Rôle du cabinet"
+          libelle={t("Rôle du cabinet", "Firm's role")}
           value={s.role_cabinet}
           onChange={maj("role_cabinet")}
           erreur={f.erreurs.role_cabinet}
           options={ROLES_CABINET_REFERENCE.map((r) => ({
             valeur: r,
-            libelle: LIBELLES_ROLE_REFERENCE[r],
+            libelle: libelleRoleReference(r, langue),
           }))}
         />
       </div>
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         maxLength={4000}
         value={s.description}
         onChange={maj("description")}
       />
       {referenceId ? (
         <Champ
-          libelle="Motif de la nouvelle version"
+          libelle={t("Motif de la nouvelle version", "Reason for the new version")}
           required
           maxLength={500}
           value={motif}
@@ -182,7 +190,9 @@ export function FormulaireReference({
       ) : null}
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours}>
-          {referenceId ? "Enregistrer la nouvelle version" : "Créer la référence"}
+          {referenceId
+            ? t("Enregistrer la nouvelle version", "Save the new version")
+            : t("Créer la référence", "Create the reference")}
         </Bouton>
       </div>
     </form>
@@ -191,6 +201,8 @@ export function FormulaireReference({
 
 /** Téléverse le fichier (non rattaché) puis le rattache comme pièce de la référence. */
 export function FormulairePiece({ referenceId }: { referenceId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"fichier" | "date_attestation" | "emetteur">();
   const [fichier, setFichier] = useState<File | null>(null);
   const [type, setType] = useState<string>(TYPES_ATTESTATION[0]);
@@ -202,11 +214,15 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const erreurs: Partial<Record<"fichier" | "date_attestation" | "emetteur", string>> = {};
-    const controle = fichier ? controlerFichier(fichier) : null;
-    if (!fichier) erreurs.fichier = "Choisissez le fichier de la pièce.";
+    const controle = fichier ? controlerFichier(fichier, undefined, undefined, langue) : null;
+    if (!fichier)
+      erreurs.fichier = t("Choisissez le fichier de la pièce.", "Choose the document file.");
     else if (controle && !controle.ok) erreurs.fichier = controle.message;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) erreurs.date_attestation = "Date obligatoire.";
-    if (emetteur.trim() === "") erreurs.emetteur = "L'émetteur est obligatoire.";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      erreurs.date_attestation = t("Date obligatoire.", "The date is required.");
+    }
+    if (emetteur.trim() === "")
+      erreurs.emetteur = t("L'émetteur est obligatoire.", "The issuer is required.");
     const validation =
       Object.keys(erreurs).length > 0 || !fichier
         ? { ok: false as const, erreurs }
@@ -214,20 +230,24 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
     const ok = await f.envoyer(
       validation,
       async (c) => {
-        const t = await televerser<FichierTeleverse>("/api/fichiers", c.fichier, c.fichier.name);
+        const envoye = await televerser<FichierTeleverse>(
+          "/api/fichiers",
+          c.fichier,
+          c.fichier.name,
+        );
         return api.post(`/api/banque-ao/references/${referenceId}/attestations`, {
-          fichier_id: t.id,
+          fichier_id: envoye.id,
           type,
           date_attestation: c.date,
           emetteur: c.emetteur,
         });
       },
       {
-        succes: "Pièce ajoutée.",
+        succes: t("Pièce ajoutée.", "Document added."),
         // Erreur propre à la banque (déjà rattaché…) sinon message du téléversement.
         messageSpecifique: (err) => {
-          const propre = messageBanqueAo(err);
-          return propre !== messageErreur(err) ? propre : messageTeleversement(err);
+          const propre = messageBanqueAo(err, langue);
+          return propre !== messageErreur(err, langue) ? propre : messageTeleversement(err, langue);
         },
       },
     );
@@ -247,23 +267,23 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
       <div className="mp-grille-champs">
         <Champ
           key={cleFichier}
-          libelle="Fichier"
+          libelle={t("Fichier", "File")}
           type="file"
           required
           onChange={(e) => setFichier(e.target.files?.[0] ?? null)}
           erreur={f.erreurs.fichier}
         />
         <Select
-          libelle="Nature de la pièce"
+          libelle={t("Nature de la pièce", "Document type")}
           value={type}
           onChange={(e) => setType(e.target.value)}
-          options={TYPES_ATTESTATION.map((t) => ({
-            valeur: t,
-            libelle: LIBELLES_TYPE_ATTESTATION[t],
+          options={TYPES_ATTESTATION.map((ty) => ({
+            valeur: ty,
+            libelle: libelleTypeAttestation(ty, langue),
           }))}
         />
         <Champ
-          libelle="Date de la pièce"
+          libelle={t("Date de la pièce", "Document date")}
           type="date"
           required
           value={date}
@@ -271,7 +291,7 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
           erreur={f.erreurs.date_attestation}
         />
         <Champ
-          libelle="Émetteur"
+          libelle={t("Émetteur", "Issuer")}
           required
           maxLength={200}
           value={emetteur}
@@ -281,7 +301,7 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
       </div>
       <div className="mp-actions-formulaire">
         <Bouton type="submit" variante="secondaire" chargement={f.enCours}>
-          Ajouter la pièce
+          {t("Ajouter la pièce", "Add the document")}
         </Bouton>
       </div>
     </form>
@@ -289,15 +309,20 @@ export function FormulairePiece({ referenceId }: { referenceId: string }) {
 }
 
 export function FormulaireRetraitPiece({ attestationId }: { attestationId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      lireMotif(motif, 500),
+      lireMotif(motif, 500, langue),
       (c) => api.post(`/api/banque-ao/attestations/${attestationId}/retrait`, c),
-      { succes: "Pièce retirée.", messageSpecifique: messageBanqueAo },
+      {
+        succes: t("Pièce retirée.", "Document withdrawn."),
+        messageSpecifique: (err) => messageBanqueAo(err, langue),
+      },
     );
   }
 
@@ -305,7 +330,7 @@ export function FormulaireRetraitPiece({ attestationId }: { attestationId: strin
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Champ
-        libelle="Motif du retrait"
+        libelle={t("Motif du retrait", "Reason for withdrawal")}
         required
         maxLength={500}
         value={motif}
@@ -314,7 +339,7 @@ export function FormulaireRetraitPiece({ attestationId }: { attestationId: strin
       />
       <div className="mp-actions-formulaire">
         <Bouton type="submit" variante="danger" chargement={f.enCours}>
-          Retirer la pièce
+          {t("Retirer la pièce", "Withdraw the document")}
         </Bouton>
       </div>
     </form>

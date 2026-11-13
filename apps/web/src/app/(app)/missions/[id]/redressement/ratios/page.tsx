@@ -18,6 +18,7 @@ import { Tableau } from "../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { cheminApiDossier, type EtatDetaille } from "../../../../../../lib/dossier";
 import { formaterDateHeure } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import {
   cheminCorrespondances,
   cheminRatios,
@@ -25,12 +26,17 @@ import {
   hrefRedressement,
   raisonSansEcriture,
   TEXTE_ANALYSES_INDICATIVES,
+  TEXTE_ANALYSES_INDICATIVES_EN,
   TEXTE_ETATS_ABSENTS,
+  TEXTE_ETATS_ABSENTS_EN,
   libellePoste,
 } from "../../../../../../lib/redressement";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Ratios du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Ratios du redressement", "Turnaround ratios") };
+}
 
 /**
  * Ratios (RED-02) calculés par l'API sur les trois derniers exercices ACCEPTÉS du dossier client
@@ -39,6 +45,8 @@ export const metadata: Metadata = { title: "Ratios du redressement" };
  */
 export default async function PageRatios({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -77,40 +85,52 @@ export default async function PageRatios({ params }: { params: Promise<{ id: str
     <div className="mp-red">
       {ratios.ok && ratios.donnees.analyses_indicatives ? (
         <BandeauIndicatif
-          texte={TEXTE_ANALYSES_INDICATIVES}
+          texte={t(TEXTE_ANALYSES_INDICATIVES, TEXTE_ANALYSES_INDICATIVES_EN)}
           hrefFinances={hrefFinancesClient(mission.client_id)}
         />
       ) : null}
 
       <section className="mp-red-section" aria-labelledby="titre-ratios">
         <h2 id="titre-ratios" className="mp-red-section__titre">
-          Ratios
+          {t("Ratios", "Ratios")}
         </h2>
         {!ratios.ok ? (
           <EtatErreur
-            titre="Les ratios n'ont pas pu être calculés."
+            titre={t("Les ratios n'ont pas pu être calculés.", "The ratios could not be computed.")}
             message={ratios.message}
             hrefReessayer={hrefRedressement(id, "ratios")}
           />
         ) : ratios.donnees.exercices.length === 0 ? (
-          <EtatVide titre="Aucun état financier accepté pour ce client." icone="barres">
-            <p>{TEXTE_ETATS_ABSENTS}</p>
+          <EtatVide
+            titre={t(
+              "Aucun état financier accepté pour ce client.",
+              "No accepted financial statement for this client.",
+            )}
+            icone="barres"
+          >
+            <p>{t(TEXTE_ETATS_ABSENTS, TEXTE_ETATS_ABSENTS_EN)}</p>
             <p>
               <Link
                 href={hrefFinancesClient(mission.client_id)}
                 className={classesBouton("secondaire")}
               >
-                Ouvrir les finances du client
+                {t("Ouvrir les finances du client", "Open the client's finances")}
               </Link>
             </p>
           </EtatVide>
         ) : (
           <>
             {ratios.donnees.correspondance_version === null ? (
-              <Alerte tonalite="attention" titre="Correspondance à renseigner" annonce="aucune">
+              <Alerte
+                tonalite="attention"
+                titre={t("Correspondance à renseigner", "Mapping to fill in")}
+                annonce="aucune"
+              >
                 <p>
-                  Sans correspondance de postes, aucun ratio ne peut être calculé : renseignez-la
-                  ci-dessous.
+                  {t(
+                    "Sans correspondance de postes, aucun ratio ne peut être calculé : renseignez-la ci-dessous.",
+                    "Without an item mapping, no ratio can be computed: fill it in below.",
+                  )}
                 </p>
               </Alerte>
             ) : null}
@@ -121,11 +141,14 @@ export default async function PageRatios({ params }: { params: Promise<{ id: str
 
       <section className="mp-red-section" aria-labelledby="titre-correspondance">
         <h2 id="titre-correspondance" className="mp-red-section__titre">
-          Correspondance de postes
+          {t("Correspondance de postes", "Item mapping")}
         </h2>
         {!correspondances.ok ? (
           <EtatErreur
-            titre="La correspondance n'a pas pu être chargée."
+            titre={t(
+              "La correspondance n'a pas pu être chargée.",
+              "The mapping could not be loaded.",
+            )}
             message={correspondances.message}
             hrefReessayer={hrefRedressement(id, "ratios")}
           />
@@ -145,44 +168,57 @@ export default async function PageRatios({ params }: { params: Promise<{ id: str
             ) : (
               <>
                 <p className="mp-texte-doux">
-                  {raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles)}
+                  {raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles, langue)}
                 </p>
                 {correspondances.donnees.courante ? (
                   <Tableau
-                    legende="Correspondance de postes courante"
+                    legende={t("Correspondance de postes courante", "Current item mapping")}
                     colonnes={[
                       {
                         cle: "poste",
-                        entete: "Poste",
-                        rendu: (l: { poste: string; codes: string }) => libellePoste(l.poste),
+                        entete: t("Poste", "Item"),
+                        rendu: (l: { poste: string; codes: string }) =>
+                          libellePoste(l.poste, langue),
                       },
-                      { cle: "codes", entete: "Codes de lignes", rendu: (l) => l.codes },
+                      {
+                        cle: "codes",
+                        entete: t("Codes de lignes", "Line codes"),
+                        rendu: (l) => l.codes,
+                      },
                     ]}
                     lignes={Object.entries(correspondances.donnees.courante.postes).map(
                       ([poste, a]) => ({
                         poste,
-                        codes: a.sans_objet ? "Sans objet" : a.codes.join(", "),
+                        codes: a.sans_objet
+                          ? t("Sans objet", "Not applicable")
+                          : a.codes.join(", "),
                       }),
                     )}
                     cleLigne={(l) => l.poste}
                   />
                 ) : (
-                  <p className="mp-texte-doux">Aucune correspondance enregistrée.</p>
+                  <p className="mp-texte-doux">
+                    {t("Aucune correspondance enregistrée.", "No mapping recorded.")}
+                  </p>
                 )}
               </>
             )}
             <Tableau
-              legende="Historique des versions de la correspondance"
-              messageVide="Aucune version enregistrée."
+              legende={t("Historique des versions de la correspondance", "Mapping version history")}
+              messageVide={t("Aucune version enregistrée.", "No version recorded.")}
               colonnes={[
                 {
                   cle: "version",
-                  entete: "Version",
+                  entete: t("Version", "Version"),
                   rendu: (h: RedCorrespondancesVue["historique"][number]) => h.version,
                 },
-                { cle: "date", entete: "Date", rendu: (h) => formaterDateHeure(h.cree_le) },
-                { cle: "auteur", entete: "Auteur", rendu: (h) => h.cree_par.nom },
-                { cle: "motif", entete: "Motif", rendu: (h) => h.motif ?? "—" },
+                {
+                  cle: "date",
+                  entete: "Date",
+                  rendu: (h) => formaterDateHeure(h.cree_le, undefined, langue),
+                },
+                { cle: "auteur", entete: t("Auteur", "Author"), rendu: (h) => h.cree_par.nom },
+                { cle: "motif", entete: t("Motif", "Reason"), rendu: (h) => h.motif ?? "—" },
               ]}
               lignes={correspondances.donnees.historique}
               cleLigne={(h) => String(h.version)}

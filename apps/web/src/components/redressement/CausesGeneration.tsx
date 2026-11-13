@@ -7,6 +7,7 @@ import { cheminGenerationCauses, messageDiagnostic } from "../../lib/redressemen
 import { corpsGenerationCauses } from "../../lib/redressement-diagnostic-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
@@ -23,17 +24,22 @@ export function CausesGeneration({
   /** Raison affichée quand la demande n'est pas possible (ex. droit « utiliser l'IA » absent). */
   desactiveParce?: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"contexte">();
   const [contexte, setContexte] = useState("");
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsGenerationCauses(contexte),
+      corpsGenerationCauses(contexte, langue),
       (charge) => api.post(cheminGenerationCauses(dossierId), charge),
       {
-        succes: "Proposition reçue : relisez-la, corrigez-la puis faites-la valider.",
-        messageSpecifique: messageDiagnostic,
+        succes: t(
+          "Proposition reçue : relisez-la, corrigez-la puis faites-la valider.",
+          "Proposal received: review it, correct it, then have it approved.",
+        ),
+        messageSpecifique: (e) => messageDiagnostic(e, langue),
         apres: () => setContexte(""),
       },
     );
@@ -45,17 +51,20 @@ export function CausesGeneration({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Demander une proposition de causes racines"
+      aria-label={t("Demander une proposition de causes racines", "Request a root-cause proposal")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Proposition impossible"
+        titreErreur={t("Proposition impossible", "Proposal not possible")}
       />
       <ZoneTexte
-        libelle="Contexte complémentaire (facultatif)"
-        aide={`Éléments connus du consultant, ${RED_CAUSES_CONTEXTE_MAX} caractères au plus. Évitez les noms de personnes.`}
+        libelle={t("Contexte complémentaire (facultatif)", "Additional context (optional)")}
+        aide={t(
+          `Éléments connus du consultant, ${RED_CAUSES_CONTEXTE_MAX} caractères au plus. Évitez les noms de personnes.`,
+          `Information known to the consultant, ${RED_CAUSES_CONTEXTE_MAX} characters at most. Avoid people's names.`,
+        )}
         value={contexte}
         onChange={(e) => setContexte(e.target.value)}
         disabled={desactiveParce !== undefined}
@@ -66,10 +75,10 @@ export function CausesGeneration({
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Proposition en cours…"
+          texteChargement={t("Proposition en cours…", "Generating proposal…")}
           disabled={desactiveParce !== undefined}
         >
-          Demander une proposition à l&apos;IA
+          {t("Demander une proposition à l'IA", "Request a proposal from the AI")}
         </Bouton>
         {desactiveParce ? (
           <span className="mp-texte-doux mp-texte-petit">{desactiveParce}</span>

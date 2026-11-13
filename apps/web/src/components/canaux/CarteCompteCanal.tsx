@@ -12,7 +12,7 @@ import {
   etatApresEnregistrement,
   etatEditableDepuisCompte,
   exigeReconfirmationCompte,
-  LIBELLES_OPTIONS_COMPTE,
+  libelleOptionCompte,
   libelleCanal,
   libelleEtatCompte,
   messageErreurCanaux,
@@ -31,6 +31,7 @@ import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { CaseACocher } from "../ui/CaseACocher";
 import "./canaux.css";
 
@@ -48,6 +49,8 @@ export interface CarteCompteCanalProps {
  * rien n'est envoyé hors de CabinetPilot.
  */
 export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCompteCanalProps) {
+  const t = useT();
+  const langue = useLangue();
   const [enregistre, setEnregistre] = useState<EtatCompteEditable>(
     etatEditableDepuisCompte(compte),
   );
@@ -64,7 +67,7 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
   // Un titulaire de `canaux.gerer` seul peut seulement désactiver un canal actif.
   const interrupteurLibre = peutConfigurer || (peutGerer && enregistre.actif);
   const avecOptions = canalAvecOptions(compte.canal);
-  const nom = libelleCanal(compte.canal);
+  const nom = libelleCanal(compte.canal, langue);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -74,6 +77,7 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
       edite,
       { gerer: peutGerer, configurer: peutConfigurer },
       reconfirmer ? confirmation : null,
+      langue,
     );
     if (!v.ok && v.erreurs.aucun !== undefined) {
       setInfo(v.erreurs.aucun);
@@ -86,9 +90,15 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
       {
         rafraichir: false,
         succes: edite.actif
-          ? `Compte ${nom} enregistré. Rappel : les envois restent simulés.`
-          : `Compte ${nom} enregistré : le canal est désactivé, plus aucun message ne partira.`,
-        messageSpecifique: (e) => messageErreurCanaux(e, confirmation.facteur),
+          ? t(
+              `Compte ${nom} enregistré. Rappel : les envois restent simulés.`,
+              `${nom} account saved. Reminder: sends remain simulated.`,
+            )
+          : t(
+              `Compte ${nom} enregistré : le canal est désactivé, plus aucun message ne partira.`,
+              `${nom} account saved: the channel is disabled, no message will be sent.`,
+            ),
+        messageSpecifique: (e) => messageErreurCanaux(e, confirmation.facteur, langue),
         apres: (r) => {
           const nouvel = etatApresEnregistrement(r, edite);
           setEnregistre(nouvel);
@@ -107,7 +117,7 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
       niveauTitre={3}
       actions={
         <BadgeStatut tonalite={enregistre.actif ? "succes" : "neutre"}>
-          {libelleEtatCompte(enregistre)}
+          {libelleEtatCompte(enregistre, langue)}
         </BadgeStatut>
       }
     >
@@ -117,14 +127,23 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
           <Alerte tonalite="info" annonce="aucune">
             <p>
               {peutGerer
-                ? "Seul un associé peut activer ce canal ou changer ses options. Vous pouvez le désactiver à tout moment."
-                : "Lecture seule : seul un associé peut modifier ce compte."}
+                ? t(
+                    "Seul un associé peut activer ce canal ou changer ses options. Vous pouvez le désactiver à tout moment.",
+                    "Only a partner can enable this channel or change its options. You can disable it at any time.",
+                  )
+                : t(
+                    "Lecture seule : seul un associé peut modifier ce compte.",
+                    "Read only: only a partner can modify this account.",
+                  )}
             </p>
           </Alerte>
         ) : null}
         <CaseACocher
-          libelle="Activé"
-          aide={`Un canal désactivé n'envoie rien. ${nom} est simulé : aucun message réel ne part.`}
+          libelle={t("Activé", "Enabled")}
+          aide={t(
+            `Un canal désactivé n'envoie rien. ${nom} est simulé : aucun message réel ne part.`,
+            `A disabled channel sends nothing. ${nom} is simulated: no real message is sent.`,
+          )}
           checked={edite.actif}
           disabled={!interrupteurLibre}
           onChange={(e) => {
@@ -134,13 +153,15 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
         />
         {avecOptions ? (
           <fieldset className="mp-groupe">
-            <legend className="mp-champ__libelle">Options du compte</legend>
+            <legend className="mp-champ__libelle">
+              {t("Options du compte", "Account options")}
+            </legend>
             <div className="mp-canaux__options">
               {CHAMPS_OPTIONS_COMPTE.map((champ) => (
                 <CaseACocher
                   key={champ}
-                  libelle={LIBELLES_OPTIONS_COMPTE[champ].libelle}
-                  aide={LIBELLES_OPTIONS_COMPTE[champ].aide}
+                  libelle={libelleOptionCompte(champ, langue).libelle}
+                  aide={libelleOptionCompte(champ, langue).aide}
                   checked={edite[champ]}
                   disabled={!peutConfigurer}
                   onChange={(e) => {
@@ -153,8 +174,10 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
           </fieldset>
         ) : (
           <p className="mp-texte-doux">
-            Le SMS sert de repli quand WhatsApp refuse un message (option du compte WhatsApp). Il
-            exige un consentement SMS distinct de la personne.
+            {t(
+              "Le SMS sert de repli quand WhatsApp refuse un message (option du compte WhatsApp). Il exige un consentement SMS distinct de la personne.",
+              "SMS is a fallback when WhatsApp rejects a message (WhatsApp account option). It requires a separate SMS consent from the person.",
+            )}
           </p>
         )}
         {reconfirmer ? (
@@ -163,6 +186,7 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
             onChange={setConfirmation}
             erreurs={f.erreurs}
             motif={`activer le canal ${nom}`}
+            motifEn={`enable the ${nom} channel`}
           />
         ) : null}
         {info ? (
@@ -171,7 +195,7 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
           </Alerte>
         ) : null}
         <p className="mp-texte-doux mp-texte-petit">
-          {`Dernière modification : ${dateHeureCourte(modifieLe)}`}
+          {`${t("Dernière modification", "Last modified")}${t(" : ", ": ")}${dateHeureCourte(modifieLe, langue)}`}
         </p>
         {peutGerer || peutConfigurer ? (
           <div className="mp-actions-formulaire">
@@ -179,10 +203,10 @@ export function CarteCompteCanal({ compte, peutConfigurer, peutGerer }: CarteCom
               type="submit"
               variante={avecOptions ? "primaire" : "secondaire"}
               chargement={f.enCours}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
               disabled={!modifie}
             >
-              {`Enregistrer le compte ${nom}`}
+              {t(`Enregistrer le compte ${nom}`, `Save the ${nom} account`)}
             </Bouton>
           </div>
         ) : null}

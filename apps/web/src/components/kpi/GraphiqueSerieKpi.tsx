@@ -1,3 +1,5 @@
+import { LOCALES_INTL, type Langue } from "@missionpilot/shared";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   formaterValeurKpi,
   libellePeriode,
@@ -23,10 +25,10 @@ export interface GraphiqueSerieKpiProps {
   idPrefixe: string;
 }
 
-function Repere({ p }: { p: PointSerie }) {
+function Repere({ p, langue }: { p: PointSerie; langue: Langue }) {
   const forme = formeRepere(p.statut);
   const classe = `mp-kpi-serie__repere mp-kpi-serie__repere--${p.statut}${p.close ? "" : " mp-kpi-serie__repere--en-cours"}`;
-  const titre = `${libellePeriode(p.periode)}${p.close ? "" : " (en cours)"} : ${p.valeur.toLocaleString("fr-FR", { maximumFractionDigits: 6 })}, ${libelleStatutKpi(p.statut).libelle}`;
+  const titre = `${libellePeriode(p.periode, langue)}${p.close ? "" : langue === "en" ? " (current)" : " (en cours)"} : ${p.valeur.toLocaleString(LOCALES_INTL[langue], { maximumFractionDigits: 6 })}, ${libelleStatutKpi(p.statut, langue).libelle}`;
   const contenu = <title>{titre}</title>;
   if (forme === "rond") {
     return (
@@ -63,6 +65,8 @@ function Repere({ p }: { p: PointSerie }) {
  * couleur. Le tableau qui suit porte toutes les valeurs (alternative accessible).
  */
 export function GraphiqueSerieKpi({ libelle, unite, periodes, idPrefixe }: GraphiqueSerieKpiProps) {
+  const t = useT();
+  const langue = useLangue();
   const g = geometrieSerie(
     periodes.map((p) => ({
       periode: p.periode,
@@ -71,7 +75,7 @@ export function GraphiqueSerieKpi({ libelle, unite, periodes, idPrefixe }: Graph
       statut: p.statut,
       close: p.close,
     })),
-    { libellePeriode: libellePeriodeCourt },
+    { libellePeriode: (cle) => libellePeriodeCourt(cle, langue), langue },
   );
   const idTitre = `${idPrefixe}-titre`;
   const idDesc = `${idPrefixe}-desc`;
@@ -82,7 +86,10 @@ export function GraphiqueSerieKpi({ libelle, unite, periodes, idPrefixe }: Graph
     <figure className="mp-kpi-serie">
       {g.vide ? (
         <p className="mp-texte-doux">
-          Aucune valeur ni cible à tracer sur ces périodes : le tableau ci-dessous les liste.
+          {t(
+            "Aucune valeur ni cible à tracer sur ces périodes : le tableau ci-dessous les liste.",
+            "No value or target to plot over these periods: the table below lists them.",
+          )}
         </p>
       ) : (
         <svg
@@ -91,21 +98,29 @@ export function GraphiqueSerieKpi({ libelle, unite, periodes, idPrefixe }: Graph
           role="img"
           aria-labelledby={`${idTitre} ${idDesc}`}
         >
-          <title id={idTitre}>{`Évolution de « ${libelle} » par période (${unite})`}</title>
+          <title id={idTitre}>
+            {t(
+              `Évolution de « ${libelle} » par période (${unite})`,
+              `Trend of "${libelle}" by period (${unite})`,
+            )}
+          </title>
           <desc id={idDesc}>
-            {`${periodes.length} période${periodes.length > 1 ? "s" : ""}${premiere && derniere ? `, de ${libellePeriode(premiere.periode)} à ${libellePeriode(derniere.periode)}` : ""}, dont ${mesurees} mesurée${mesurees > 1 ? "s" : ""}. Ligne continue : valeur ; ligne pointillée : cible. Les valeurs sont détaillées dans le tableau qui suit le graphique.`}
+            {t(
+              `${periodes.length} période${periodes.length > 1 ? "s" : ""}${premiere && derniere ? `, de ${libellePeriode(premiere.periode, langue)} à ${libellePeriode(derniere.periode, langue)}` : ""}, dont ${mesurees} mesurée${mesurees > 1 ? "s" : ""}. Ligne continue : valeur ; ligne pointillée : cible. Les valeurs sont détaillées dans le tableau qui suit le graphique.`,
+              `${periodes.length} period${periodes.length > 1 ? "s" : ""}${premiere && derniere ? `, from ${libellePeriode(premiere.periode, langue)} to ${libellePeriode(derniere.periode, langue)}` : ""}, of which ${mesurees} measured. Solid line: value; dotted line: target. The values are detailed in the table that follows the chart.`,
+            )}
           </desc>
-          {g.graduations.map((t) => (
-            <g key={t.valeur} aria-hidden="true">
+          {g.graduations.map((grad) => (
+            <g key={grad.valeur} aria-hidden="true">
               <line
                 className="mp-kpi-serie__grille"
                 x1={g.zone.gauche}
                 x2={g.zone.droite}
-                y1={t.y}
-                y2={t.y}
+                y1={grad.y}
+                y2={grad.y}
               />
-              <text className="mp-kpi-serie__graduation" x={g.zone.gauche - 6} y={t.y + 4}>
-                {t.libelle}
+              <text className="mp-kpi-serie__graduation" x={g.zone.gauche - 6} y={grad.y + 4}>
+                {grad.libelle}
               </text>
             </g>
           ))}
@@ -122,62 +137,82 @@ export function GraphiqueSerieKpi({ libelle, unite, periodes, idPrefixe }: Graph
               </text>
             ) : null,
           )}
-          {g.traitsCible.map((t) => (
-            <polyline key={`c${t}`} className="mp-kpi-serie__cible" points={t} />
+          {g.traitsCible.map((trait) => (
+            <polyline key={`c${trait}`} className="mp-kpi-serie__cible" points={trait} />
           ))}
-          {g.traitsValeur.map((t) => (
-            <polyline key={`v${t}`} className="mp-kpi-serie__valeur" points={t} />
+          {g.traitsValeur.map((trait) => (
+            <polyline key={`v${trait}`} className="mp-kpi-serie__valeur" points={trait} />
           ))}
           {g.points.map((p) => (
-            <Repere key={p.periode} p={p} />
+            <Repere key={p.periode} p={p} langue={langue} />
           ))}
         </svg>
       )}
       <figcaption className="mp-kpi-serie__legende">
         <span>
-          <span className="mp-kpi-legende mp-kpi-legende--valeur" aria-hidden="true" /> Valeur
+          <span className="mp-kpi-legende mp-kpi-legende--valeur" aria-hidden="true" />{" "}
+          {t("Valeur", "Value")}
         </span>
         <span>
-          <span className="mp-kpi-legende mp-kpi-legende--cible" aria-hidden="true" /> Cible
+          <span className="mp-kpi-legende mp-kpi-legende--cible" aria-hidden="true" />{" "}
+          {t("Cible", "Target")}
         </span>
-        <span>Repères : rond = vert, carré = orange, triangle = rouge, anneau = sans cible ;</span>
-        <span>contour pointillé = période en cours.</span>
+        <span>
+          {t(
+            "Repères : rond = vert, carré = orange, triangle = rouge, anneau = sans cible ;",
+            "Markers: circle = green, square = orange, triangle = red, ring = no target;",
+          )}
+        </span>
+        <span>
+          {t("contour pointillé = période en cours.", "dotted outline = current period.")}
+        </span>
       </figcaption>
       <details className="mp-details">
-        <summary>Tableau des valeurs par période</summary>
+        <summary>{t("Tableau des valeurs par période", "Table of values by period")}</summary>
         <Tableau
-          legende={`Valeurs de « ${libelle} » par période`}
+          legende={t(`Valeurs de « ${libelle} » par période`, `Values of "${libelle}" by period`)}
           colonnes={[
             {
               cle: "periode",
-              entete: "Période",
+              entete: t("Période", "Period"),
               rendu: (p: PeriodeKpiVue) =>
-                `${libellePeriode(p.periode)}${p.close ? "" : " (en cours)"}`,
+                `${libellePeriode(p.periode, langue)}${p.close ? "" : t(" (en cours)", " (current)")}`,
             },
             {
               cle: "valeur",
-              entete: "Valeur",
+              entete: t("Valeur", "Value"),
               alignement: "droite",
-              rendu: (p) => formaterValeurKpi(p.valeur, unite),
+              rendu: (p) => formaterValeurKpi(p.valeur, unite, langue),
             },
             {
               cle: "cible",
-              entete: "Cible",
+              entete: t("Cible", "Target"),
               alignement: "droite",
-              rendu: (p) => formaterValeurKpi(p.cible, unite),
+              rendu: (p) => formaterValeurKpi(p.cible, unite, langue),
             },
-            { cle: "atteinte", entete: "Atteinte", rendu: (p) => texteAtteinte(p.atteinte) },
-            { cle: "statut", entete: "Statut", rendu: (p) => <BadgeStatutKpi statut={p.statut} /> },
+            {
+              cle: "atteinte",
+              entete: t("Atteinte", "Attainment"),
+              rendu: (p) => texteAtteinte(p.atteinte, langue),
+            },
+            {
+              cle: "statut",
+              entete: t("Statut", "Status"),
+              rendu: (p) => <BadgeStatutKpi statut={p.statut} langue={langue} />,
+            },
             {
               cle: "nombre_mesures",
-              entete: "Mesures",
+              entete: t("Mesures", "Measurements"),
               alignement: "droite",
               rendu: (p) => String(p.nombre_mesures),
             },
           ]}
           lignes={periodes}
           cleLigne={(p) => p.periode}
-          messageVide="Aucune période évaluée à cette date."
+          messageVide={t(
+            "Aucune période évaluée à cette date.",
+            "No period assessed at this date.",
+          )}
         />
       </details>
     </figure>

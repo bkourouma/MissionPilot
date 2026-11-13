@@ -4,26 +4,32 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Alerte } from "../../components/ui/Alerte";
 import { Bouton } from "../../components/ui/Bouton";
+import { useLangue, useT } from "../../components/i18n/FournisseurLangue";
 import { Champ } from "../../components/ui/Champ";
-import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
+import { api, ErreurApi } from "../../lib/api";
 import { validerConnexion, type ErreursConnexion } from "../../lib/connexion";
 import type { Demo } from "../../lib/demo-connexion";
 import { destinationApresConnexion } from "../../lib/portail-routes";
 import { ConnexionDemo } from "./ConnexionDemo";
+import type { Langue } from "@missionpilot/shared";
 import {
   chargeConnexion2fa,
   ETAT_INITIAL,
+  messageErreurLangue,
   transitionConnexion,
   validerFacteur,
   type EtatConnexion,
   type EvenementConnexion,
 } from "../../lib/double-authentification";
 
-/** Message affiché pour une erreur de l'API ; l'API fournit déjà des messages en français. */
-function messageErreur(e: unknown): string {
-  if (!(e instanceof ErreurApi)) return MESSAGE_INATTENDU;
-  if (e.code === "REQUETE_INVALIDE") return "Vérifiez l'adresse e-mail et le mot de passe saisis.";
-  return e.message;
+/** Message affiché pour une erreur de l'API ; l'API fournit déjà des messages traduits. */
+function messageErreur(e: unknown, langue: Langue): string {
+  if (!(e instanceof ErreurApi)) return messageErreurLangue(e, langue);
+  if (e.code === "REQUETE_INVALIDE")
+    return langue === "en"
+      ? "Check the email address and password you entered."
+      : "Vérifiez l'adresse e-mail et le mot de passe saisis.";
+  return messageErreurLangue(e, langue);
 }
 
 /**
@@ -37,8 +43,10 @@ function messageErreur(e: unknown): string {
  */
 export function FormulaireConnexion({ suite, demo = null }: { suite: string; demo?: Demo | null }) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const [etat, setEtat] = useState<EtatConnexion>(ETAT_INITIAL);
-  const avancer = (ev: EvenementConnexion) => setEtat((e) => transitionConnexion(e, ev));
+  const avancer = (ev: EvenementConnexion) => setEtat((e) => transitionConnexion(e, ev, langue));
 
   useEffect(() => {
     if (etat.etape !== "connecte") return;
@@ -78,7 +86,12 @@ export function FormulaireConnexion({ suite, demo = null }: { suite: string; dem
         surConnexion={(corps) => avancer({ type: "reponse_identifiants", corps })}
       />
       <details className="mp-connexion__classique" open={!aDesComptes || messageInitial !== null}>
-        <summary>Se connecter avec une adresse e-mail et un mot de passe</summary>
+        <summary>
+          {t(
+            "Se connecter avec une adresse e-mail et un mot de passe",
+            "Sign in with an email address and password",
+          )}
+        </summary>
         {formulaire}
       </details>
     </>
@@ -94,6 +107,8 @@ function EtapeIdentifiants({
   connecte: boolean;
   avancer: (ev: EvenementConnexion) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [afficherMdp, setAfficherMdp] = useState(false);
@@ -111,7 +126,7 @@ function EtapeIdentifiants({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     setErreurGlobale(null);
-    const trouvees = validerConnexion({ email, motDePasse });
+    const trouvees = validerConnexion({ email, motDePasse }, langue);
     setErreurs(trouvees);
     if (trouvees.email) return champEmail.current?.focus();
     if (trouvees.motDePasse) return champMdp.current?.focus();
@@ -127,7 +142,7 @@ function EtapeIdentifiants({
       setMotDePasse("");
       avancer({ type: "reponse_identifiants", corps });
     } catch (e) {
-      setErreurGlobale(messageErreur(e));
+      setErreurGlobale(messageErreur(e, langue));
       setMotDePasse("");
     } finally {
       setEnCours(false);
@@ -137,13 +152,17 @@ function EtapeIdentifiants({
   return (
     <form className="mp-formulaire" noValidate onSubmit={soumettre} aria-busy={enCours}>
       {erreurGlobale ? (
-        <Alerte ref={alerte} tonalite="danger" titre="Connexion impossible">
+        <Alerte
+          ref={alerte}
+          tonalite="danger"
+          titre={t("Connexion impossible", "Unable to sign in")}
+        >
           <p>{erreurGlobale}</p>
         </Alerte>
       ) : null}
       <Champ
         ref={champEmail}
-        libelle="Adresse e-mail"
+        libelle={t("Adresse e-mail", "Email address")}
         type="email"
         name="email"
         autoComplete="username"
@@ -158,7 +177,7 @@ function EtapeIdentifiants({
       <div className="mp-champ-mdp">
         <Champ
           ref={champMdp}
-          libelle="Mot de passe"
+          libelle={t("Mot de passe", "Password")}
           type={afficherMdp ? "text" : "password"}
           name="mot_de_passe"
           autoComplete="current-password"
@@ -174,16 +193,20 @@ function EtapeIdentifiants({
           aria-pressed={afficherMdp}
           onClick={() => setAfficherMdp((v) => !v)}
         >
-          Afficher le mot de passe
+          {t("Afficher le mot de passe", "Show password")}
         </Bouton>
       </div>
       <Bouton
         type="submit"
         pleineLargeur
         chargement={enCours || connecte}
-        texteChargement={connecte ? "Ouverture de votre espace…" : "Connexion en cours…"}
+        texteChargement={
+          connecte
+            ? t("Ouverture de votre espace…", "Opening your workspace…")
+            : t("Connexion en cours…", "Signing in…")
+        }
       >
-        Se connecter
+        {t("Se connecter", "Sign in")}
       </Bouton>
     </form>
   );
@@ -196,6 +219,8 @@ function EtapeCode({
   etat: Extract<EtatConnexion, { etape: "code" }>;
   avancer: (ev: EvenementConnexion) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [saisie, setSaisie] = useState("");
   const [erreurChamp, setErreurChamp] = useState<string | undefined>();
   const [enCours, setEnCours] = useState(false);
@@ -220,7 +245,7 @@ function EtapeCode({
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const v = validerFacteur(saisie, etat.facteur);
+    const v = validerFacteur(saisie, etat.facteur, langue);
     if (!v.ok) {
       setErreurChamp(v.erreurs.code);
       champ.current?.focus();
@@ -249,15 +274,21 @@ function EtapeCode({
       aria-labelledby="titre-verification"
     >
       <h2 id="titre-verification" className="mp-section__titre">
-        Vérification en deux étapes
+        {t("Vérification en deux étapes", "Two-step verification")}
       </h2>
       <p className="mp-texte-doux">
         {secours
-          ? "Saisissez l'un des codes de secours remis lors de l'activation. Chaque code ne sert qu'une fois."
-          : "Ouvrez votre application d'authentification et saisissez le code à 6 chiffres affiché pour CabinetPilot."}
+          ? t(
+              "Saisissez l'un des codes de secours remis lors de l'activation. Chaque code ne sert qu'une fois.",
+              "Enter one of the backup codes given to you at activation. Each code can only be used once.",
+            )
+          : t(
+              "Ouvrez votre application d'authentification et saisissez le code à 6 chiffres affiché pour CabinetPilot.",
+              "Open your authenticator app and enter the 6-digit code shown for CabinetPilot.",
+            )}
       </p>
       {etat.message ? (
-        <Alerte ref={alerte} tonalite="danger" titre="Code refusé">
+        <Alerte ref={alerte} tonalite="danger" titre={t("Code refusé", "Code rejected")}>
           <p>{etat.message}</p>
         </Alerte>
       ) : null}
@@ -265,9 +296,12 @@ function EtapeCode({
         <Champ
           ref={champ}
           key="secours"
-          libelle="Code de secours"
+          libelle={t("Code de secours", "Backup code")}
           name="code_secours"
-          aide="Format : abcde-12345 (tirets et majuscules acceptés)."
+          aide={t(
+            "Format : abcde-12345 (tirets et majuscules acceptés).",
+            "Format: abcde-12345 (hyphens and capital letters accepted).",
+          )}
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
@@ -281,7 +315,7 @@ function EtapeCode({
         <Champ
           ref={champ}
           key="totp"
-          libelle="Code à 6 chiffres"
+          libelle={t("Code à 6 chiffres", "6-digit code")}
           name="code"
           inputMode="numeric"
           autoComplete="one-time-code"
@@ -295,15 +329,22 @@ function EtapeCode({
           erreur={erreurChamp}
         />
       )}
-      <Bouton type="submit" pleineLargeur chargement={enCours} texteChargement="Vérification…">
-        Valider
+      <Bouton
+        type="submit"
+        pleineLargeur
+        chargement={enCours}
+        texteChargement={t("Vérification…", "Verifying…")}
+      >
+        {t("Valider", "Verify")}
       </Bouton>
       <div className="mp-barre-actions">
         <Bouton variante="discret" onClick={() => avancer({ type: "changer_facteur" })}>
-          {secours ? "Utiliser le code de l'application" : "Utiliser un code de secours"}
+          {secours
+            ? t("Utiliser le code de l'application", "Use the app code")
+            : t("Utiliser un code de secours", "Use a backup code")}
         </Bouton>
         <Bouton variante="discret" onClick={() => avancer({ type: "abandonner" })}>
-          Revenir à la connexion
+          {t("Revenir à la connexion", "Back to sign in")}
         </Bouton>
       </div>
     </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
@@ -30,13 +31,25 @@ export interface TacheChoix extends OptionSelect {
 }
 
 function Avertissements({ liste }: { liste: AvertissementAffectation[] }) {
+  const t = useT();
   if (liste.length === 0) return null;
   return (
-    <Alerte tonalite="attention" titre="Affectation enregistrée, budget de la tâche dépassé">
+    <Alerte
+      tonalite="attention"
+      titre={t(
+        "Affectation enregistrée, budget de la tâche dépassé",
+        "Assignment saved, task budget exceeded",
+      )}
+    >
       {liste.map((a) => (
         <p key={a.message}>{a.message}</p>
       ))}
-      <p>Réduisez les jours alloués ou demandez une révision du budget.</p>
+      <p>
+        {t(
+          "Réduisez les jours alloués ou demandez une révision du budget.",
+          "Reduce the allocated days or request a budget revision.",
+        )}
+      </p>
     </Alerte>
   );
 }
@@ -59,6 +72,8 @@ export function FormulaireAffectation({
   bornes: { min?: string; max?: string };
   onTermine?: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [saisie, setSaisie] = useState<SaisieAffectation>(
     affectation ? saisieDepuisAffectation(affectation) : SAISIE_AFFECTATION_VIDE,
   );
@@ -69,12 +84,12 @@ export function FormulaireAffectation({
   const base = `/api/missions/${encodeURIComponent(missionId)}/affectations`;
 
   function choisirTache(id: string) {
-    const t = taches.find((x) => x.valeur === id);
+    const tache = taches.find((x) => x.valeur === id);
     setSaisie((s) => ({
       ...s,
       tache_id: id,
-      date_debut: s.date_debut || t?.debut || "",
-      date_fin: s.date_fin || t?.fin || "",
+      date_debut: s.date_debut || tache?.debut || "",
+      date_fin: s.date_fin || tache?.fin || "",
     }));
   }
 
@@ -88,15 +103,19 @@ export function FormulaireAffectation({
     };
     if (affectation) {
       await f.envoyer(
-        validerModificationAffectation(saisie, affectation),
+        validerModificationAffectation(saisie, affectation, langue),
         (c) => api.patch<ReponseAffectation>(`${base}/${encodeURIComponent(affectation.id)}`, c),
-        { succes: "Affectation modifiée.", apres },
+        { succes: t("Affectation modifiée.", "Assignment updated."), apres },
       );
     } else {
-      await f.envoyer(validerAffectation(saisie), (c) => api.post<ReponseAffectation>(base, c), {
-        succes: "Affectation créée.",
-        apres,
-      });
+      await f.envoyer(
+        validerAffectation(saisie, langue),
+        (c) => api.post<ReponseAffectation>(base, c),
+        {
+          succes: t("Affectation créée.", "Assignment created."),
+          apres,
+        },
+      );
     }
   }
 
@@ -106,26 +125,36 @@ export function FormulaireAffectation({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={affectation ? "Modifier l'affectation" : "Nouvelle affectation"}
+      aria-label={
+        affectation
+          ? t("Modifier l'affectation", "Edit the assignment")
+          : t("Nouvelle affectation", "New assignment")
+      }
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Avertissements liste={avertissements} />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
-          libelle="Tâche"
+          libelle={t("Tâche", "Task")}
           required
           options={taches}
-          invite="Choisir la tâche…"
+          invite={t("Choisir la tâche…", "Choose the task…")}
           value={saisie.tache_id}
           onChange={(e) => choisirTache(e.target.value)}
           erreur={f.erreurs.tache_id}
         />
         {affectation ? null : (
           <Select
-            libelle="Type d'affectation"
+            libelle={t("Type d'affectation", "Assignment type")}
             options={[
-              { valeur: "nominative", libelle: "Nominative (une personne)" },
-              { valeur: "profil", libelle: "Profil à pourvoir (grade)" },
+              {
+                valeur: "nominative",
+                libelle: t("Nominative (une personne)", "Named (one person)"),
+              },
+              {
+                valeur: "profil",
+                libelle: t("Profil à pourvoir (grade)", "Profile to fill (grade)"),
+              },
             ]}
             value={saisie.mode}
             onChange={(e) => maj("mode", e.target.value as SaisieAffectation["mode"])}
@@ -133,28 +162,35 @@ export function FormulaireAffectation({
         )}
         {affectation ? null : saisie.mode === "nominative" ? (
           <Select
-            libelle="Personne"
+            libelle={t("Personne", "Person")}
             required
             options={collaborateurs}
-            invite={collaborateurs.length ? "Choisir…" : "Aucun collaborateur actif"}
+            invite={
+              collaborateurs.length
+                ? t("Choisir…", "Choose…")
+                : t("Aucun collaborateur actif", "No active team members")
+            }
             value={saisie.collaborateur_id}
             onChange={(e) => maj("collaborateur_id", e.target.value)}
             erreur={f.erreurs.collaborateur_id}
-            aide="Internes, experts externes et sous-traitants actifs."
+            aide={t(
+              "Internes, experts externes et sous-traitants actifs.",
+              "Active internal staff, external experts and subcontractors.",
+            )}
           />
         ) : (
           <>
             <Select
-              libelle="Grade recherché"
+              libelle={t("Grade recherché", "Grade sought")}
               required
               options={grades}
-              invite="Choisir le grade…"
+              invite={t("Choisir le grade…", "Choose the grade…")}
               value={saisie.grade_id}
               onChange={(e) => maj("grade_id", e.target.value)}
               erreur={f.erreurs.grade_id}
             />
             <Champ
-              libelle="Compétence (facultatif)"
+              libelle={t("Compétence (facultatif)", "Skill (optional)")}
               maxLength={80}
               value={saisie.competence}
               onChange={(e) => maj("competence", e.target.value)}
@@ -163,17 +199,20 @@ export function FormulaireAffectation({
           </>
         )}
         <Champ
-          libelle="Jours alloués"
+          libelle={t("Jours alloués", "Allocated days")}
           required
           inputMode="decimal"
           autoComplete="off"
           value={saisie.jours_alloues}
           onChange={(e) => maj("jours_alloues", e.target.value)}
           erreur={f.erreurs.jours_alloues}
-          aide="Au pas de saisie du cabinet (ex. 2,5)."
+          aide={t(
+            "Au pas de saisie du cabinet (ex. 2,5).",
+            "In the firm's entry increment (e.g. 2.5).",
+          )}
         />
         <Champ
-          libelle="Du"
+          libelle={t("Du", "From")}
           type="date"
           required
           min={bornes.min}
@@ -183,7 +222,7 @@ export function FormulaireAffectation({
           erreur={f.erreurs.date_debut}
         />
         <Champ
-          libelle="Au"
+          libelle={t("Au", "To")}
           type="date"
           required
           min={saisie.date_debut || bornes.min}
@@ -198,13 +237,13 @@ export function FormulaireAffectation({
           type="submit"
           icone={affectation ? "succes" : "plus"}
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          {affectation ? "Enregistrer" : "Affecter"}
+          {affectation ? t("Enregistrer", "Save") : t("Affecter", "Assign")}
         </Bouton>
         {onTermine ? (
           <Bouton variante="secondaire" onClick={onTermine} disabled={f.enCours}>
-            Fermer
+            {t("Fermer", "Close")}
           </Bouton>
         ) : null}
       </div>
@@ -226,23 +265,31 @@ export function ActionsAffectation({
   collaborateurs: OptionSelect[];
   bornes: { min?: string; max?: string };
 }) {
+  const t = useT();
   const [mode, setMode] = useState<"repos" | "modifier" | "pourvoir">("repos");
+  const langue = useLangue();
   const [personne, setPersonne] = useState("");
   const [avertissements, setAvertissements] = useState<AvertissementAffectation[]>([]);
   const f = useFormulaire<"collaborateur_id">();
   const chemin = `/api/missions/${encodeURIComponent(missionId)}/affectations/${encodeURIComponent(a.id)}`;
   const nom = a.a_pourvoir
-    ? `profil ${a.grade_libelle ?? ""}`
-    : (a.collaborateur_nom ?? "affectation");
+    ? `${t("profil", "profile")} ${a.grade_libelle ?? ""}`
+    : (a.collaborateur_nom ?? t("affectation", "assignment"));
 
   async function pourvoir(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
       personne
         ? { ok: true, charge: { collaborateur_id: personne } }
-        : { ok: false, erreurs: { collaborateur_id: "Choisissez la personne." } },
+        : {
+            ok: false,
+            erreurs: { collaborateur_id: t("Choisissez la personne.", "Choose the person.") },
+          },
       (c) => api.post<ReponseAffectation>(`${chemin}/pourvoir`, c),
-      { succes: "Profil pourvu.", apres: (r) => setAvertissements(r.avertissements ?? []) },
+      {
+        succes: t("Profil pourvu.", "Profile filled."),
+        apres: (r) => setAvertissements(r.avertissements ?? []),
+      },
     );
   }
 
@@ -272,18 +319,25 @@ export function ActionsAffectation({
         >
           <div className="mp-ligne-action">
             <Select
-              libelle={`Pourvoir le profil ${a.grade_libelle ?? ""}`}
+              libelle={t(
+                `Pourvoir le profil ${a.grade_libelle ?? ""}`,
+                `Fill the profile ${a.grade_libelle ?? ""}`,
+              )}
               options={collaborateurs}
-              invite="Choisir la personne…"
+              invite={t("Choisir la personne…", "Choose the person…")}
               value={personne}
               onChange={(e) => setPersonne(e.target.value)}
               erreur={f.erreurs.collaborateur_id}
             />
-            <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-              Pourvoir
+            <Bouton
+              type="submit"
+              chargement={f.enCours}
+              texteChargement={t("Enregistrement…", "Saving…")}
+            >
+              {t("Pourvoir", "Fill")}
             </Bouton>
             <Bouton variante="secondaire" onClick={() => setMode("repos")}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
@@ -292,29 +346,32 @@ export function ActionsAffectation({
           <Bouton
             variante="discret"
             icone="crayon"
-            aria-label={`Modifier l'affectation : ${nom}`}
+            aria-label={`${t("Modifier l'affectation", "Edit the assignment")} : ${nom}`}
             onClick={() => setMode("modifier")}
           >
-            Modifier
+            {t("Modifier", "Edit")}
           </Bouton>
           {a.a_pourvoir ? (
             <Bouton
               variante="discret"
               icone="personnes"
-              aria-label={`Pourvoir : ${nom}`}
+              aria-label={`${t("Pourvoir", "Fill")} : ${nom}`}
               onClick={() => setMode("pourvoir")}
             >
-              Pourvoir
+              {t("Pourvoir", "Fill")}
             </Bouton>
           ) : null}
           <BoutonConfirmation
-            libelle="Supprimer"
+            libelle={t("Supprimer", "Delete")}
             variante="discret"
             icone="corbeille"
-            ariaLabel={`Supprimer l'affectation : ${nom}`}
-            question={`Supprimer l'affectation (${nom}, ${formaterDate(a.date_debut)} → ${formaterDate(a.date_fin)}) ?`}
-            libelleConfirmation="Oui, supprimer"
-            texteChargement="Suppression…"
+            ariaLabel={`${t("Supprimer l'affectation", "Delete the assignment")} : ${nom}`}
+            question={t(
+              `Supprimer l'affectation (${nom}, ${formaterDate(a.date_debut)} → ${formaterDate(a.date_fin)}) ?`,
+              `Delete the assignment (${nom}, ${formaterDate(a.date_debut, "UTC", langue)} → ${formaterDate(a.date_fin, "UTC", langue)})?`,
+            )}
+            libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+            texteChargement={t("Suppression…", "Deleting…")}
             action={() => f.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin))}
           />
         </div>
@@ -331,13 +388,15 @@ export function Replanification({
   missionId: string;
   phases: OptionSelect[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [phase, setPhase] = useState("");
   const [decalage, setDecalage] = useState("");
   const [apercu, setApercu] = useState<ResultatReplanification | null>(null);
   const [applique, setApplique] = useState<ResultatReplanification | null>(null);
   const f = useFormulaire<"phase_id" | "decalage">();
   const chemin = `/api/missions/${encodeURIComponent(missionId)}/replanifier`;
-  const validation = validerReplanification(phase, decalage);
+  const validation = validerReplanification(phase, decalage, langue);
 
   async function previsualiser(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -354,7 +413,10 @@ export function Replanification({
 
   async function appliquer() {
     await f.envoyer(validation, (c) => api.post<ResultatReplanification>(chemin, c), {
-      succes: "Re-planification appliquée : les personnes concernées sont prévenues.",
+      succes: t(
+        "Re-planification appliquée : les personnes concernées sont prévenues.",
+        "Rescheduling applied: the people concerned have been notified.",
+      ),
       apres: (r) => {
         setApplique(r);
         setApercu(null);
@@ -370,19 +432,19 @@ export function Replanification({
         className="mp-formulaire"
         noValidate
         onSubmit={previsualiser}
-        aria-label="Re-planifier une phase"
+        aria-label={t("Re-planifier une phase", "Reschedule a phase")}
       >
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Re-planification impossible"
+          titreErreur={t("Re-planification impossible", "Rescheduling not possible")}
         />
         <div className="mp-grille-champs mp-grille-champs--bas">
           <Select
-            libelle="Phase à décaler"
+            libelle={t("Phase à décaler", "Phase to shift")}
             options={phases}
-            invite="Choisir la phase…"
+            invite={t("Choisir la phase…", "Choose the phase…")}
             value={phase}
             onChange={(e) => {
               setPhase(e.target.value);
@@ -391,7 +453,7 @@ export function Replanification({
             erreur={f.erreurs.phase_id}
           />
           <Champ
-            libelle="Décalage en jours ouvrés"
+            libelle={t("Décalage en jours ouvrés", "Offset in business days")}
             inputMode="numeric"
             autoComplete="off"
             value={decalage}
@@ -400,7 +462,10 @@ export function Replanification({
               setApercu(null);
             }}
             erreur={f.erreurs.decalage}
-            aide="Positif pour retarder, négatif pour avancer (ex. 3 ou -2)."
+            aide={t(
+              "Positif pour retarder, négatif pour avancer (ex. 3 ou -2).",
+              "Positive to delay, negative to advance (e.g. 3 or -2).",
+            )}
           />
         </div>
         <div className="mp-actions-formulaire">
@@ -409,9 +474,9 @@ export function Replanification({
             variante="secondaire"
             icone="oeil"
             chargement={f.enCours && !apercu}
-            texteChargement="Calcul…"
+            texteChargement={t("Calcul…", "Calculating…")}
           >
-            Prévisualiser
+            {t("Prévisualiser", "Preview")}
           </Bouton>
         </div>
       </form>
@@ -421,10 +486,10 @@ export function Replanification({
           <Bouton
             icone="calendrier"
             chargement={f.enCours}
-            texteChargement="Application…"
+            texteChargement={t("Application…", "Applying…")}
             onClick={appliquer}
           >
-            Appliquer et prévenir les personnes
+            {t("Appliquer et prévenir les personnes", "Apply and notify the people")}
           </Bouton>
         </div>
       ) : null}
@@ -433,38 +498,60 @@ export function Replanification({
 }
 
 function ResultatReplanif({ r }: { r: ResultatReplanification }) {
+  const t = useT();
+  const langue = useLangue();
   if (r.taches.length === 0) {
     return (
-      <Alerte tonalite="info" titre="Aucune date ne change">
-        <p>Le décalage est absorbé (dépendances ou calendrier) : rien à appliquer.</p>
+      <Alerte tonalite="info" titre={t("Aucune date ne change", "No date changes")}>
+        <p>
+          {t(
+            "Le décalage est absorbé (dépendances ou calendrier) : rien à appliquer.",
+            "The offset is absorbed (dependencies or calendar): nothing to apply.",
+          )}
+        </p>
       </Alerte>
     );
   }
   return (
     <section
       className="mp-pile"
-      aria-label={r.apercu ? "Aperçu de la re-planification" : "Re-planification appliquée"}
+      aria-label={
+        r.apercu
+          ? t("Aperçu de la re-planification", "Rescheduling preview")
+          : t("Re-planification appliquée", "Rescheduling applied")
+      }
     >
       <h3 className="mp-sous-formulaire__titre">
-        {r.apercu ? "Aperçu : rien n'est encore modifié" : "Re-planification appliquée"}
+        {r.apercu
+          ? t("Aperçu : rien n'est encore modifié", "Preview: nothing has been changed yet")
+          : t("Re-planification appliquée", "Rescheduling applied")}
       </h3>
       <ul className="mp-liste-lignes">
-        {r.taches.map((t) => (
-          <li key={t.id} className="mp-liste-lignes__ligne">
+        {r.taches.map((x) => (
+          <li key={x.id} className="mp-liste-lignes__ligne">
             <span className="mp-liste-lignes__texte">
-              <strong>{t.libelle ?? "Tâche"}</strong>
+              <strong>{x.libelle ?? t("Tâche", "Task")}</strong>
               <span className="mp-texte-doux">
-                {`${formaterDate(t.avant.debut)} → ${formaterDate(t.avant.fin)} devient ${formaterDate(t.apres.debut)} → ${formaterDate(t.apres.fin)}`}
+                {t(
+                  `${formaterDate(x.avant.debut)} → ${formaterDate(x.avant.fin)} devient ${formaterDate(x.apres.debut)} → ${formaterDate(x.apres.fin)}`,
+                  `${formaterDate(x.avant.debut, "UTC", langue)} → ${formaterDate(x.avant.fin, "UTC", langue)} becomes ${formaterDate(x.apres.debut, "UTC", langue)} → ${formaterDate(x.apres.fin, "UTC", langue)}`,
+                )}
               </span>
             </span>
           </li>
         ))}
       </ul>
       <p>
-        {`${r.affectations.length} affectation(s) recalée(s). `}
+        {t(
+          `${r.affectations.length} affectation(s) recalée(s). `,
+          `${r.affectations.length} assignment(s) rescheduled. `,
+        )}
         {r.personnes.length === 0
-          ? "Aucune personne à prévenir."
-          : `Personnes ${r.apercu ? "qui seront prévenues" : "prévenues"} : ${r.personnes.map((p) => p.nom ?? "Collaborateur").join(", ")}.`}
+          ? t("Aucune personne à prévenir.", "No one to notify.")
+          : t(
+              `Personnes ${r.apercu ? "qui seront prévenues" : "prévenues"} : ${r.personnes.map((p) => p.nom ?? "Collaborateur").join(", ")}.`,
+              `People ${r.apercu ? "who will be notified" : "notified"}: ${r.personnes.map((p) => p.nom ?? "Team member").join(", ")}.`,
+            )}
       </p>
     </section>
   );

@@ -2,6 +2,7 @@
 
 import { seg } from "./ActionsAoBouton";
 import { useState } from "react";
+import type { Traduire } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   messageAo,
@@ -12,22 +13,33 @@ import {
 } from "../../lib/appels-offres";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
-const CHAMPS_EVALUATION: [keyof SaisieEvaluation, string, string?][] = [
-  ["adequation", "Adéquation (0 à 100)", "Vide : score de rapprochement de la fiche."],
-  ["references_pertinentes", "Références pertinentes", "Vide : références du secteur trouvées."],
-  ["references_exigees", "Références exigées"],
-  ["jours_disponibles", "Jours disponibles"],
-  ["jours_requis", "Jours requis"],
-  ["concurrents_connus", "Concurrents connus"],
-  ["concurrents_forts", "dont concurrents forts"],
+const champsEvaluation = (t: Traduire): [keyof SaisieEvaluation, string, string?][] => [
+  [
+    "adequation",
+    t("Adéquation (0 à 100)", "Fit (0 to 100)"),
+    t("Vide : score de rapprochement de la fiche.", "Empty: the record's matching score."),
+  ],
+  [
+    "references_pertinentes",
+    t("Références pertinentes", "Relevant references"),
+    t("Vide : références du secteur trouvées.", "Empty: sector references found."),
+  ],
+  ["references_exigees", t("Références exigées", "Required references")],
+  ["jours_disponibles", t("Jours disponibles", "Days available")],
+  ["jours_requis", t("Jours requis", "Days required")],
+  ["concurrents_connus", t("Concurrents connus", "Known competitors")],
+  ["concurrents_forts", t("dont concurrents forts", "of which strong competitors")],
 ];
 
 /** Entrées du score go/no-go (AO-02) ; la marge n'est proposée qu'avec `finance.lire`. */
 export function FormulaireEvaluationAo({ id, voitFinance }: { id: string; voitFinance: boolean }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<keyof SaisieEvaluation>();
   const [s, setS] = useState<SaisieEvaluation>(SAISIE_EVALUATION_VIDE);
   return (
@@ -38,9 +50,12 @@ export function FormulaireEvaluationAo({ id, voitFinance }: { id: string; voitFi
       onSubmit={async (e) => {
         e.preventDefault();
         await f.envoyer(
-          validerEvaluation(s, voitFinance),
+          validerEvaluation(s, voitFinance, langue),
           (c) => api.post(`/api/appels-offres/${seg(id)}/evaluations`, c),
-          { messageSpecifique: messageAo, succes: "Score go/no-go calculé." },
+          {
+            messageSpecifique: (err) => messageAo(err, langue),
+            succes: t("Score go/no-go calculé.", "Go/no-go score computed."),
+          },
         );
       }}
     >
@@ -48,10 +63,10 @@ export function FormulaireEvaluationAo({ id, voitFinance }: { id: string; voitFi
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Évaluation impossible"
+        titreErreur={t("Évaluation impossible", "Evaluation failed")}
       />
       <div className="mp-grille-champs">
-        {CHAMPS_EVALUATION.map(([cle, libelle, aide]) => (
+        {champsEvaluation(t).map(([cle, libelle, aide]) => (
           <Champ
             key={cle}
             libelle={libelle}
@@ -65,15 +80,18 @@ export function FormulaireEvaluationAo({ id, voitFinance }: { id: string; voitFi
         {voitFinance ? (
           <>
             <Champ
-              libelle="Marge estimée (%)"
+              libelle={t("Marge estimée (%)", "Estimated margin (%)")}
               inputMode="decimal"
               value={s.marge}
               onChange={(e) => setS((x) => ({ ...x, marge: e.target.value }))}
               erreur={f.erreurs.marge}
-              aide="Donnée financière (FIN-02) ; vide : critère non évalué."
+              aide={t(
+                "Donnée financière (FIN-02) ; vide : critère non évalué.",
+                "Financial data (FIN-02); empty: criterion not assessed.",
+              )}
             />
             <Champ
-              libelle="Marge cible (%)"
+              libelle={t("Marge cible (%)", "Target margin (%)")}
               inputMode="decimal"
               value={s.marge_cible}
               onChange={(e) => setS((x) => ({ ...x, marge_cible: e.target.value }))}
@@ -82,8 +100,8 @@ export function FormulaireEvaluationAo({ id, voitFinance }: { id: string; voitFi
           </>
         ) : null}
       </div>
-      <Bouton type="submit" chargement={f.enCours} texteChargement="Calcul…">
-        Calculer le score
+      <Bouton type="submit" chargement={f.enCours} texteChargement={t("Calcul…", "Computing…")}>
+        {t("Calculer le score", "Compute the score")}
       </Bouton>
     </form>
   );
@@ -99,18 +117,23 @@ export function FormulaireDecisionAo({
   evaluationId: string;
   goPossible: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
   const decider = (decision: "go" | "no_go") =>
     f.envoyer(
-      validerMotif(motif),
+      validerMotif(motif, langue),
       (m) =>
         api.post(`/api/appels-offres/${seg(id)}/decision`, {
           evaluation_id: evaluationId,
           decision,
           motif: m,
         }),
-      { messageSpecifique: messageAo, succes: "Décision enregistrée." },
+      {
+        messageSpecifique: (err) => messageAo(err, langue),
+        succes: t("Décision enregistrée.", "Decision saved."),
+      },
     );
   return (
     <form
@@ -123,10 +146,10 @@ export function FormulaireDecisionAo({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Décision impossible"
+        titreErreur={t("Décision impossible", "Decision failed")}
       />
       <ZoneTexte
-        libelle="Motif de la décision"
+        libelle={t("Motif de la décision", "Reason for the decision")}
         required
         maxLength={2000}
         value={motif}
@@ -136,11 +159,11 @@ export function FormulaireDecisionAo({
       <div className="mp-ao__actions">
         {goPossible ? (
           <Bouton chargement={f.enCours} onClick={() => decider("go")}>
-            Décider go
+            {t("Décider go", "Decide go")}
           </Bouton>
         ) : null}
         <Bouton variante="danger" chargement={f.enCours} onClick={() => decider("no_go")}>
-          Décider no-go
+          {t("Décider no-go", "Decide no-go")}
         </Bouton>
       </div>
     </form>

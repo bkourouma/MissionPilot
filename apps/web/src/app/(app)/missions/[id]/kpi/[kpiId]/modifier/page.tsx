@@ -9,6 +9,7 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import {
   candidatsProprietaire,
   cheminKpi,
@@ -22,7 +23,10 @@ import { aujourdhui } from "../../../../../../../lib/periode";
 import { chargerPersonnes } from "../../../../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Modifier un KPI" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Modifier un KPI", "Edit a KPI") };
+}
 
 /** Modification d'un KPI : sens, nature, fréquence et début de suivi restent figés. */
 export default async function PageModifierKpi({
@@ -33,6 +37,8 @@ export default async function PageModifierKpi({
   const { id, kpiId } = await params;
   if (!estIdentifiant(kpiId)) notFound();
   const { utilisateur } = await exigerPermission("kpi.gerer");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = await chargerMission(id);
   if (!r.ok) return null;
   const m = r.donnees;
@@ -41,7 +47,7 @@ export default async function PageModifierKpi({
   if (!k.ok) {
     return (
       <EtatErreur
-        titre="Le KPI n'a pas pu être chargé."
+        titre={t("Le KPI n'a pas pu être chargé.", "The KPI could not be loaded.")}
         message={k.message}
         hrefReessayer={hrefModifierKpi(m.id, kpiId)}
       />
@@ -52,17 +58,27 @@ export default async function PageModifierKpi({
   const droits = droitsKpi(utilisateur.roles, utilisateur.id, m, kpi);
   const retour = (
     <Link href={hrefKpi(m.id, kpi.id)} className={classesBouton("secondaire")}>
-      Revenir au KPI
+      {t("Revenir au KPI", "Back to the KPI")}
     </Link>
   );
   if (!droits.gerer) {
     return (
       <div className="mp-kpi">
-        <Alerte tonalite="info" titre="Modification non disponible" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("Modification non disponible", "Editing not available")}
+          annonce="aucune"
+        >
           <p>
             {m.statut === "cloturee"
-              ? "La mission est clôturée : ses KPI ne se modifient plus."
-              : "Seuls le directeur, le chef de mission et les personnes qui modifient toutes les missions modifient les KPI d'une mission."}
+              ? t(
+                  "La mission est clôturée : ses KPI ne se modifient plus.",
+                  "The engagement is closed: its KPIs can no longer be edited.",
+                )
+              : t(
+                  "Seuls le directeur, le chef de mission et les personnes qui modifient toutes les missions modifient les KPI d'une mission.",
+                  "Only the engagement director, the engagement manager and the people who edit all engagements edit an engagement's KPIs.",
+                )}
           </p>
         </Alerte>
         <div>{retour}</div>
@@ -73,11 +89,11 @@ export default async function PageModifierKpi({
   const noms = new Map(personnes.map((p) => [p.utilisateur_id, p.nom]));
   return (
     <div className="mp-kpi">
-      <Carte titre={`Modifier « ${kpi.libelle} »`}>
+      <Carte titre={t(`Modifier « ${kpi.libelle} »`, `Edit "${kpi.libelle}"`)}>
         <FormulaireKpi
           missionId={m.id}
           initial={kpi}
-          proprietaires={candidatsProprietaire(m, noms)}
+          proprietaires={candidatsProprietaire(m, noms, langue)}
           aujourdhui={aujourdhui()}
         />
       </Carte>

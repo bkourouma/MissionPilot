@@ -8,6 +8,7 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { pageDepuis } from "../../../../lib/canaux";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { hrefPage, lireCurseur, peut, requetePage } from "../../../../lib/portail";
 import {
   API_SIGNATURES_PORTAIL,
@@ -19,9 +20,12 @@ import {
   libelleStatutPortail,
 } from "../../../../lib/portail-canaux";
 import { chargerPortail, obtenirSessionPortail } from "../../../../lib/portail-serveur";
-import { AVERTISSEMENT_SIGNATURE_SIMULEE, libelleEcheance } from "../../../../lib/signatures";
+import { avertissementSignatureSimulee, libelleEcheance } from "../../../../lib/signatures";
 
-export const metadata: Metadata = { title: "Signatures" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Signatures", "Signatures") };
+}
 
 /** Documents que votre cabinet vous demande de signer. Signature SIMULÉE : sans valeur juridique. */
 export default async function SignaturesPortail({
@@ -29,9 +33,11 @@ export default async function SignaturesPortail({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.signature.signer")) {
-    return <NonDisponible titre="Signatures" />;
+    return <NonDisponible titre={t("Signatures", "Signatures")} />;
   }
   const curseur = lireCurseur((await searchParams).curseur);
   const r = await chargerPortail<unknown>(requetePage(API_SIGNATURES_PORTAIL, curseur));
@@ -40,29 +46,45 @@ export default async function SignaturesPortail({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Signatures"
-        soustitre="Les documents que votre cabinet vous demande de signer, et ceux que vous avez déjà signés."
+        titre={t("Signatures", "Signatures")}
+        soustitre={t(
+          "Les documents que votre cabinet vous demande de signer, et ceux que vous avez déjà signés.",
+          "The documents your firm asks you to sign, and those you have already signed.",
+        )}
       />
-      <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_SIGNATURE_SIMULEE}>
+      <Alerte tonalite="attention" annonce="aucune" titre={avertissementSignatureSimulee(langue)}>
         <p>
-          La signature se fait ici, après confirmation de votre identité. Aucun envoi réel n&apos;a
-          lieu.
+          {t(
+            "La signature se fait ici, après confirmation de votre identité. Aucun envoi réel n'a lieu.",
+            "Signing is done here, after confirming your identity. No real sending takes place.",
+          )}
         </p>
       </Alerte>
       {!r.ok ? (
         <EtatErreur
-          titre="La liste des signatures n'a pas pu être chargée."
+          titre={t(
+            "La liste des signatures n'a pas pu être chargée.",
+            "The list of signatures could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefPage(CHEMIN_SIGNATURES_PORTAIL, curseur)}
         />
       ) : page && page.elements.length === 0 ? (
-        <EtatVide titre="Aucun document à signer pour le moment." icone="signature">
-          <p>Quand votre cabinet vous enverra un document à signer, il apparaîtra ici.</p>
+        <EtatVide
+          titre={t("Aucun document à signer pour le moment.", "No document to sign for now.")}
+          icone="signature"
+        >
+          <p>
+            {t(
+              "Quand votre cabinet vous enverra un document à signer, il apparaîtra ici.",
+              "When your firm sends you a document to sign, it will appear here.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <ul className="mp-liste-cartes">
           {(page?.elements ?? []).map((d) => {
-            const etat = libelleMonStatut(d);
+            const etat = libelleMonStatut(d, langue);
             return (
               <li key={d.id}>
                 <Carte
@@ -70,13 +92,16 @@ export default async function SignaturesPortail({
                   niveauTitre={2}
                   titre={
                     <Link href={cheminSignaturePortail(d.id)} className="mp-lien-etendu">
-                      {libelleObjetPortail(d.objet)}
+                      {libelleObjetPortail(d.objet, langue)}
                     </Link>
                   }
                   actions={<BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>}
                 >
                   <p className="mp-texte-doux">
-                    {`${libelleStatutPortail(d.statut)} · ${avancementPortail(d)} · échéance : ${libelleEcheance(d.expire_le)}`}
+                    {t(
+                      `${libelleStatutPortail(d.statut)} · ${avancementPortail(d)} · échéance : ${libelleEcheance(d.expire_le)}`,
+                      `${libelleStatutPortail(d.statut, langue)} · ${avancementPortail(d, langue)} · due: ${libelleEcheance(d.expire_le, langue)}`,
+                    )}
                   </p>
                 </Carte>
               </li>
@@ -88,7 +113,7 @@ export default async function SignaturesPortail({
         <PaginationCurseur
           hrefSuivante={page.suivant ? hrefPage(CHEMIN_SIGNATURES_PORTAIL, page.suivant) : null}
           hrefDebut={curseur ? CHEMIN_SIGNATURES_PORTAIL : null}
-          libelle="Pages des signatures"
+          libelle={t("Pages des signatures", "Signature pages")}
         />
       ) : null}
     </div>

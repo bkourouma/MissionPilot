@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { obtenirLangue } from "../../lib/i18n/serveur";
+import { creerTraduire } from "@missionpilot/shared";
 import { Icone } from "../ui/Icone";
 import { aujourdhuiIso, libelleSemaine, navigationSemaine } from "../../lib/semaine";
 
@@ -14,38 +16,40 @@ export interface NavigationSemaineProps {
  * Navigation d'une semaine à l'autre par liens (l'état vit dans l'URL : partage, retour
  * arrière, reprise après coupure) et saut à une date par un formulaire GET sans JavaScript.
  */
-export function NavigationSemaine({ base, semaine, libelle }: NavigationSemaineProps) {
+export async function NavigationSemaine({ base, semaine, libelle }: NavigationSemaineProps) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   const liens = navigationSemaine(base, semaine.debut, aujourdhuiIso());
   return (
     <nav className="mp-semaine-nav" aria-label={libelle}>
       <p className="mp-semaine-nav__titre" aria-live="polite">
-        {libelleSemaine(semaine.debut, semaine.fin)}
+        {libelleSemaine(semaine.debut, semaine.fin, langue)}
       </p>
       <ul className="mp-semaine-nav__liens">
         <li>
           <Link className="mp-pagination__lien" href={liens.precedente} prefetch={false}>
             <Icone nom="chevronGauche" taille={18} />
-            <span>Semaine précédente</span>
+            <span>{t("Semaine précédente", "Previous week")}</span>
           </Link>
         </li>
         {liens.courante ? (
           <li>
             <Link className="mp-pagination__lien" href={liens.courante} prefetch={false}>
               <Icone nom="calendrier" taille={18} />
-              <span>Cette semaine</span>
+              <span>{t("Cette semaine", "This week")}</span>
             </Link>
           </li>
         ) : null}
         <li>
           <Link className="mp-pagination__lien" href={liens.suivante} prefetch={false}>
-            <span>Semaine suivante</span>
+            <span>{t("Semaine suivante", "Next week")}</span>
             <Icone nom="chevronDroit" taille={18} />
           </Link>
         </li>
       </ul>
       <form method="get" action={base} className="mp-semaine-nav__saut">
         <label className="mp-semaine-nav__libelle" htmlFor={`saut-${base.replace(/\W/g, "")}`}>
-          Aller à la semaine du
+          {t("Aller à la semaine du", "Go to the week of")}
         </label>
         <div className="mp-semaine-nav__ligne">
           <input
@@ -59,7 +63,7 @@ export function NavigationSemaine({ base, semaine, libelle }: NavigationSemaineP
             required
           />
           <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            <span>Afficher</span>
+            <span>{t("Afficher", "Show")}</span>
           </button>
         </div>
       </form>

@@ -1,5 +1,10 @@
 /** Catalogue des types de mission (MIS-01, MIS-02) : logique pure, testée dans `catalogue.test.ts`. */
-import { MODES_FACTURATION, type ModeFacturation } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  MODES_FACTURATION,
+  type Langue,
+  type ModeFacturation,
+} from "@missionpilot/shared";
 import { lireNombre, texteOuNull, type Resultat } from "./saisie";
 
 export interface MembreEquipe {
@@ -42,17 +47,37 @@ export const MODE_LIBELLES: Record<ModeFacturation, string> = {
   abonnement: "Abonnement",
 };
 
+export const MODE_LIBELLES_EN: Record<ModeFacturation, string> = {
+  forfait: "Fixed fee",
+  regie: "Time and materials",
+  forfait_variable: "Fixed fee with variable part",
+  abonnement: "Subscription",
+};
+
+export const libelleMode = (m: ModeFacturation, langue: Langue = "fr") =>
+  (langue === "en" ? MODE_LIBELLES_EN : MODE_LIBELLES)[m];
+
 export const OPTIONS_MODES = MODES_FACTURATION.map((m) => ({
   valeur: m,
   libelle: MODE_LIBELLES[m],
 }));
 
+export const optionsModes = (langue: Langue = "fr") =>
+  MODES_FACTURATION.map((m) => ({ valeur: m, libelle: libelleMode(m, langue) }));
+
 export const NIVEAU_LIBELLES: Record<number, string> = { 1: "Phase", 2: "Lot", 3: "Tâche" };
-export const libelleNiveau = (n: number) => NIVEAU_LIBELLES[n] ?? "Élément";
+export const NIVEAU_LIBELLES_EN: Record<number, string> = {
+  1: "Phase",
+  2: "Work package",
+  3: "Task",
+};
+export const libelleNiveau = (n: number, langue: Langue = "fr") =>
+  langue === "en" ? (NIVEAU_LIBELLES_EN[n] ?? "Item") : (NIVEAU_LIBELLES[n] ?? "Élément");
 /** Enfant qu'on peut ajouter sous un élément de ce niveau, avec son article (null : aucun). */
-export function libelleEnfant(n: number): string | null {
-  if (n === 1) return "un lot";
-  if (n === 2) return "une tâche";
+export function libelleEnfant(n: number, langue: Langue = "fr"): string | null {
+  const t = creerTraduire(langue);
+  if (n === 1) return t("un lot", "a work package");
+  if (n === 2) return t("une tâche", "a task");
   return null;
 }
 
@@ -142,30 +167,46 @@ const CODE = /^[a-z0-9_]{1,40}$/;
 
 export function validerTypeMission(
   s: SaisieTypeMission,
+  langue: Langue = "fr",
 ): Resultat<ChargeTypeMission, ChampTypeMission> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampTypeMission, string>> = {};
   const code = s.code.trim();
   if (!CODE.test(code))
-    erreurs.code =
-      "Code : minuscules, chiffres et tiret bas, 40 caractères au plus (ex. plan_strategique).";
+    erreurs.code = t(
+      "Code : minuscules, chiffres et tiret bas, 40 caractères au plus (ex. plan_strategique).",
+      "Code: lowercase letters, digits and underscores, 40 characters at most (e.g. strategic_plan).",
+    );
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Saisissez le libellé du type de mission.";
-  else if (libelle.length > 160) erreurs.libelle = "160 caractères au plus.";
-  if (s.domaine.trim().length > 120) erreurs.domaine = "120 caractères au plus.";
+  if (libelle === "")
+    erreurs.libelle = t(
+      "Saisissez le libellé du type de mission.",
+      "Enter the engagement type label.",
+    );
+  else if (libelle.length > 160)
+    erreurs.libelle = t("160 caractères au plus.", "160 characters at most.");
+  if (s.domaine.trim().length > 120)
+    erreurs.domaine = t("120 caractères au plus.", "120 characters at most.");
   if (!(MODES_FACTURATION as readonly string[]).includes(s.mode_facturation))
-    erreurs.mode_facturation = "Choisissez un mode de facturation.";
+    erreurs.mode_facturation = t("Choisissez un mode de facturation.", "Choose a billing mode.");
   const duree = lireNombre(s.duree_type_jours);
   if (
     duree !== null &&
     (Number.isNaN(duree) || !Number.isInteger(duree) || duree < 1 || duree > 3650)
   )
-    erreurs.duree_type_jours = "Nombre entier de jours entre 1 et 3650, ou laisser vide.";
+    erreurs.duree_type_jours = t(
+      "Nombre entier de jours entre 1 et 3650, ou laisser vide.",
+      "Whole number of days between 1 and 3650, or leave empty.",
+    );
   const equipe: MembreEquipe[] = [];
   for (const [grade, texte] of Object.entries(s.equipe)) {
     const n = lireNombre(texte);
     if (n === null || n === 0) continue;
     if (Number.isNaN(n) || !Number.isInteger(n) || n < 0 || n > 50)
-      erreurs[`equipe.${grade}`] = "Nombre entier entre 0 et 50.";
+      erreurs[`equipe.${grade}`] = t(
+        "Nombre entier entre 0 et 50.",
+        "Whole number between 0 and 50.",
+      );
     else equipe.push({ grade_code: grade, nombre: n });
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
@@ -184,11 +225,14 @@ export function validerTypeMission(
 }
 
 /** Code et libellé proposés pour une copie : « audit_copie », « Audit (copie) ». */
-export function propositionDuplication(t: Pick<TypeMission, "code" | "libelle">) {
-  const suffixe = "_copie";
+export function propositionDuplication(
+  t: Pick<TypeMission, "code" | "libelle">,
+  langue: Langue = "fr",
+) {
+  const suffixe = langue === "en" ? "_copy" : "_copie";
   return {
     code: `${t.code.slice(0, 40 - suffixe.length)}${suffixe}`,
-    libelle: `${t.libelle} (copie)`.slice(0, 160),
+    libelle: `${t.libelle} (${langue === "en" ? "copy" : "copie"})`.slice(0, 160),
   };
 }
 
@@ -232,11 +276,16 @@ export interface ChargeElement {
   est_jalon: boolean;
 }
 
-export function validerElement(s: SaisieElement): Resultat<ChargeElement, ChampElement> {
+export function validerElement(
+  s: SaisieElement,
+  langue: Langue = "fr",
+): Resultat<ChargeElement, ChampElement> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampElement, string>> = {};
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Saisissez un libellé.";
-  else if (libelle.length > 200) erreurs.libelle = "200 caractères au plus.";
+  if (libelle === "") erreurs.libelle = t("Saisissez un libellé.", "Enter a label.");
+  else if (libelle.length > 200)
+    erreurs.libelle = t("200 caractères au plus.", "200 characters at most.");
   const ordre = lireNombre(s.ordre);
   if (
     ordre === null ||
@@ -245,13 +294,16 @@ export function validerElement(s: SaisieElement): Resultat<ChargeElement, ChampE
     ordre < 0 ||
     ordre > 10000
   )
-    erreurs.ordre = "Nombre entier entre 0 et 10 000.";
+    erreurs.ordre = t("Nombre entier entre 0 et 10 000.", "Whole number between 0 and 10,000.");
   const jours: Record<string, number> = {};
   for (const [grade, texte] of Object.entries(s.jours)) {
     const n = lireNombre(texte);
     if (n === null) continue;
     if (Number.isNaN(n) || n < 0 || n > 1000 || !Number.isInteger(n * 2))
-      erreurs[`jours.${grade}`] = "Jours au pas de 0,5 (ex. 2 ou 2,5), entre 0 et 1000.";
+      erreurs[`jours.${grade}`] = t(
+        "Jours au pas de 0,5 (ex. 2 ou 2,5), entre 0 et 1000.",
+        "Days in steps of 0.5 (e.g. 2 or 2.5), between 0 and 1000.",
+      );
     else if (n > 0) jours[grade] = n;
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };

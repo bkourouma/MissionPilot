@@ -7,8 +7,9 @@ import { useFormulaire } from "../../../../../components/formulaires/useFormulai
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../../components/ui/CaseACocher";
 import { Champ } from "../../../../../components/ui/Champ";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../../lib/api";
-import { CATEGORIE_LIBELLES, type Debours } from "../../../../../lib/debours";
+import { libelleCategorie, type Debours } from "../../../../../lib/debours";
 import type { Echeance } from "../../../../../lib/echeancier";
 import { messageFacture, validerCreationFacture } from "../../../../../lib/factures";
 import {
@@ -33,6 +34,8 @@ export interface CreationFactureProps {
  */
 export function CreationFacture({ missionId, devise, echeances, debours }: CreationFactureProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const [echeanceIds, setEcheanceIds] = useState<string[]>([]);
   const [deboursIds, setDeboursIds] = useState<string[]>([]);
   const [objet, setObjet] = useState("");
@@ -43,8 +46,10 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
   if (echeances.length === 0 && debours.length === 0) {
     return (
       <p className="mp-texte-doux">
-        Rien à facturer : marquez une échéance « à facturer » dans l&apos;échéancier, ou faites
-        valider des débours refacturables.
+        {t(
+          "Rien à facturer : marquez une échéance « à facturer » dans l'échéancier, ou faites valider des débours refacturables.",
+          'Nothing to invoice: mark a due date "to invoice" in the schedule, or have re-billable expenses approved.',
+        )}
       </p>
     );
   }
@@ -52,12 +57,12 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerCreationFacture({ echeance_ids: echeanceIds, debours_ids: deboursIds, objet }),
+      validerCreationFacture({ echeance_ids: echeanceIds, debours_ids: deboursIds, objet }, langue),
       (c) => api.post<{ id: string }>(`/api/missions/${encodeURIComponent(missionId)}/factures`, c),
       {
         rafraichir: false,
         apres: (r) => router.push(`/facturation/${r.id}`),
-        messageSpecifique: messageFacture,
+        messageSpecifique: (e) => messageFacture(e, langue),
       },
     );
   }
@@ -67,20 +72,25 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Création impossible"
+        titreErreur={t("Création impossible", "Creation not possible")}
       />
       <fieldset
         className={f.erreurs.elements ? "mp-groupe mp-groupe--erreur" : "mp-groupe"}
         aria-invalid={f.erreurs.elements ? true : undefined}
         aria-describedby={f.erreurs.elements ? "erreur-elements" : undefined}
       >
-        <legend className="mp-champ__libelle">Éléments à facturer</legend>
+        <legend className="mp-champ__libelle">
+          {t("Éléments à facturer", "Items to invoice")}
+        </legend>
         {echeances.map((e) => (
           <CaseACocher
             key={e.id}
             name="echeances"
-            libelle={`${e.libelle} — ${formaterMontantMineur(e.montant, e.devise)}`}
-            aide={`Échéance prévue le ${formaterDate(e.date_prevue)}`}
+            libelle={`${e.libelle} — ${formaterMontantMineur(e.montant, e.devise, langue)}`}
+            aide={t(
+              `Échéance prévue le ${formaterDate(e.date_prevue)}`,
+              `Due date planned on ${formaterDate(e.date_prevue, "UTC", langue)}`,
+            )}
             checked={echeanceIds.includes(e.id)}
             onChange={(ev) => setEcheanceIds((l) => basculer(l, e.id, ev.target.checked))}
           />
@@ -89,8 +99,8 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
           <CaseACocher
             key={d.id}
             name="debours"
-            libelle={`Débours — ${d.libelle} — ${formaterMontantMineur(d.montant, d.devise)}`}
-            aide={`${CATEGORIE_LIBELLES[d.categorie]}, ${formaterDate(d.date)}, ${d.collaborateur_nom}`}
+            libelle={`${t("Débours", "Expenses")} — ${d.libelle} — ${formaterMontantMineur(d.montant, d.devise, langue)}`}
+            aide={`${libelleCategorie(d.categorie, langue)}, ${formaterDate(d.date, "UTC", langue)}, ${d.collaborateur_nom}`}
             checked={deboursIds.includes(d.id)}
             onChange={(ev) => setDeboursIds((l) => basculer(l, d.id, ev.target.checked))}
           />
@@ -102,8 +112,11 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
         ) : null}
       </fieldset>
       <Champ
-        libelle="Objet de la facture"
-        aide={`Facultatif. Devise : ${libelleDevise(devise)}.`}
+        libelle={t("Objet de la facture", "Invoice subject")}
+        aide={t(
+          `Facultatif. Devise : ${libelleDevise(devise)}.`,
+          `Optional. Currency: ${libelleDevise(devise)}.`,
+        )}
         maxLength={300}
         value={objet}
         onChange={(e) => setObjet(e.target.value)}
@@ -114,9 +127,9 @@ export function CreationFacture({ missionId, devise, echeances, debours }: Creat
           type="submit"
           icone="facture"
           chargement={f.enCours}
-          texteChargement="Création du brouillon…"
+          texteChargement={t("Création du brouillon…", "Creating the draft…")}
         >
-          Créer le brouillon de facture
+          {t("Créer le brouillon de facture", "Create the invoice draft")}
         </Bouton>
       </div>
     </form>

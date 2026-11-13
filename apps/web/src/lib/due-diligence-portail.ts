@@ -15,7 +15,9 @@ import {
   type DdPortailNotePubliable,
   type DdPortailPublicationCabinet,
   type DdPortailRapportPubliable,
+  creerTraduire,
   type FormatRapportDd,
+  type Langue,
   type Role,
   type VarianteRapportDd,
 } from "@missionpilot/shared";
@@ -69,13 +71,29 @@ export const CONFIRMATION_ACTIVATION =
 export const CONFIRMATION_DESACTIVATION =
   "Les investisseurs ne verront plus aucune note : leurs invitations et les publications sont conservées, mais plus rien ne leur est servi.";
 
+export const CONFIRMATION_ACTIVATION_EN =
+  "Invited investors will be able to view the approved memos you publish.";
+export const CONFIRMATION_DESACTIVATION_EN =
+  "Investors will no longer see any memo: their invitations and the publications are kept, but nothing is served to them anymore.";
+export const EXPLICATION_OPTION_DESACTIVEE_EN =
+  "Investor sharing is disabled for your firm. While it is, no memo is visible in the portal, even if published. A partner can enable it in the due diligence settings.";
+
 export const EXPLICATION_OPTION_DESACTIVEE =
   "Le partage avec les investisseurs est désactivé pour votre cabinet. Tant qu'il l'est, aucune note n'est visible dans le portail, même publiée. Un associé peut l'activer dans les paramètres de la due diligence.";
 
 /** Phrase d'état de l'option. */
-export function etatOption(actif: boolean, modifieLe: string | null): string {
-  if (!actif) return modifieLe ? "Désactivé" : "Désactivé (réglage par défaut)";
-  return "Activé";
+export function etatOption(
+  actif: boolean,
+  modifieLe: string | null,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  if (!actif) {
+    return modifieLe
+      ? t("Désactivé", "Disabled")
+      : t("Désactivé (réglage par défaut)", "Disabled (default setting)");
+  }
+  return t("Activé", "Enabled");
 }
 
 // --- Comptes ---------------------------------------------------------------------------------
@@ -88,15 +106,22 @@ export function actionCompte(c: Pick<DdPortailCompte, "admissible" | "invite">):
   return c.admissible ? "inviter" : null;
 }
 
-export function libelleCompte(c: Pick<DdPortailCompte, "admissible" | "invite">): {
+export function libelleCompte(
+  c: Pick<DdPortailCompte, "admissible" | "invite">,
+  langue: Langue = "fr",
+): {
   libelle: string;
   tonalite: "succes" | "attention" | "neutre";
 } {
+  const t = creerTraduire(langue);
   if (c.invite && !c.admissible)
-    return { libelle: "Invité, n'est plus admissible", tonalite: "attention" };
-  if (c.invite) return { libelle: "Invité", tonalite: "succes" };
-  if (c.admissible) return { libelle: "Non invité", tonalite: "neutre" };
-  return { libelle: "Non admissible", tonalite: "neutre" };
+    return {
+      libelle: t("Invité, n'est plus admissible", "Invited, no longer eligible"),
+      tonalite: "attention",
+    };
+  if (c.invite) return { libelle: t("Invité", "Invited"), tonalite: "succes" };
+  if (c.admissible) return { libelle: t("Non invité", "Not invited"), tonalite: "neutre" };
+  return { libelle: t("Non admissible", "Not eligible"), tonalite: "neutre" };
 }
 
 /** Un compte invité qui n'est plus admissible (désactivé, rôle changé) est à retirer. */
@@ -111,8 +136,17 @@ const VARIANTES: Record<VarianteRapportDd, string> = {
 };
 const FORMATS: Record<FormatRapportDd, string> = { pdf: "PDF", docx: "Word" };
 
-export function libelleRapport(r: Pick<DdPortailRapportPubliable, "variante" | "format">): string {
-  return `${VARIANTES[r.variante] ?? "Document"} (${FORMATS[r.format] ?? String(r.format).toUpperCase()})`;
+const VARIANTES_EN: Record<VarianteRapportDd, string> = {
+  executive: "Executive version",
+  detaillee: "Detailed version",
+};
+
+export function libelleRapport(
+  r: Pick<DdPortailRapportPubliable, "variante" | "format">,
+  langue: Langue = "fr",
+): string {
+  const variantes = langue === "en" ? VARIANTES_EN : VARIANTES;
+  return `${variantes[r.variante] ?? "Document"} (${FORMATS[r.format] ?? String(r.format).toUpperCase()})`;
 }
 
 /** Publication encore servie à l'investisseur (non retirée), la plus récente d'abord. */
@@ -124,27 +158,48 @@ export function publicationsActives(
     .sort((a, b) => b.publie_le.localeCompare(a.publie_le));
 }
 
-export function badgePublication(p: Pick<DdPortailPublicationCabinet, "perimee">): {
+export function badgePublication(
+  p: Pick<DdPortailPublicationCabinet, "perimee">,
+  langue: Langue = "fr",
+): {
   libelle: string;
   tonalite: "succes" | "attention";
 } {
+  const t = creerTraduire(langue);
   return p.perimee
-    ? { libelle: "Périmée : une version plus récente existe", tonalite: "attention" }
-    : { libelle: "À jour", tonalite: "succes" };
+    ? {
+        libelle: t(
+          "Périmée : une version plus récente existe",
+          "Outdated: a more recent version exists",
+        ),
+        tonalite: "attention",
+      }
+    : { libelle: t("À jour", "Up to date"), tonalite: "succes" };
 }
 
 /** Peut-on publier cette note ? Option active et aucune publication active à retirer d'abord. */
 export function publicationPossible(
   note: Pick<DdPortailNotePubliable, "publication_active_id">,
   optionActive: boolean,
+  langue: Langue = "fr",
 ): { possible: boolean; raison: string | null } {
+  const t = creerTraduire(langue);
   if (!optionActive) {
-    return { possible: false, raison: "Activez d'abord l'option dans les paramètres du cabinet." };
+    return {
+      possible: false,
+      raison: t(
+        "Activez d'abord l'option dans les paramètres du cabinet.",
+        "First enable the option in the firm settings.",
+      ),
+    };
   }
   if (note.publication_active_id !== null) {
     return {
       possible: false,
-      raison: "Une publication est active : retirez-la avant d'en publier une autre.",
+      raison: t(
+        "Une publication est active : retirez-la avant d'en publier une autre.",
+        "A publication is active: withdraw it before publishing another.",
+      ),
     };
   }
   return { possible: true, raison: null };
@@ -162,13 +217,18 @@ export function validerPublication(
   version: number,
   rapportsChoisis: readonly string[],
   disponibles: readonly Pick<DdPortailRapportPubliable, "id">[],
+  langue: Langue = "fr",
 ): Resultat<ChargePublication, ChampPublication> {
+  const t = creerTraduire(langue);
   const uniques = [...new Set(rapportsChoisis)];
   if (uniques.length > PLAFONDS_DD_PORTAIL.pieces_par_publication) {
     return {
       ok: false,
       erreurs: {
-        rapports: `Choisissez ${PLAFONDS_DD_PORTAIL.pieces_par_publication} rapports au plus.`,
+        rapports: t(
+          `Choisissez ${PLAFONDS_DD_PORTAIL.pieces_par_publication} rapports au plus.`,
+          `Choose at most ${PLAFONDS_DD_PORTAIL.pieces_par_publication} reports.`,
+        ),
       },
     };
   }
@@ -176,7 +236,12 @@ export function validerPublication(
   if (uniques.some((id) => !connus.has(id))) {
     return {
       ok: false,
-      erreurs: { rapports: "Un rapport choisi n'est plus proposé : rechargez la page." },
+      erreurs: {
+        rapports: t(
+          "Un rapport choisi n'est plus proposé : rechargez la page.",
+          "A selected report is no longer offered: reload the page.",
+        ),
+      },
     };
   }
   return { ok: true, charge: { version, rapports: uniques } };
@@ -200,13 +265,32 @@ export const MESSAGES_PORTAIL_DD: Record<string, string> = {
   PLAFOND_ATTEINT: "Le plafond d'éléments de ce type est atteint pour ce dossier ou cette note.",
 };
 
-/** Message français pour un refus de l'API ; `null` pour une erreur sans lien avec le partage. */
-export function messagePortailDd(e: unknown): string {
+export const MESSAGES_PORTAIL_DD_EN: Record<string, string> = {
+  DD_PORTAIL_COMPTE_NON_ADMISSIBLE:
+    "This account cannot be invited: it must be an active investor of this file's client.",
+  DD_PORTAIL_PIECE_NON_ADMISSIBLE:
+    "One of the selected reports cannot be attached: it must be a report of this version of the memo.",
+  DD_PORTAIL_DEJA_INVITE: "This account is already invited on this file.",
+  NOTE_NON_VALIDEE: "Only an approved version of the memo can be published.",
+  NOTE_PERIMEE:
+    "A more recent version of the memo has been submitted: publish the latest approved version.",
+  DD_PORTAIL_PUBLICATION_ACTIVE:
+    "A publication of this memo is already active: withdraw it before publishing another.",
+  DD_PORTAIL_PUBLICATION_RETIREE: "This publication is already withdrawn.",
+  MISSION_CLOTUREE: "The engagement is closed: investor sharing is frozen.",
+  PLAFOND_ATTEINT: "The limit for items of this type is reached for this file or this memo.",
+};
+
+/** Message pour un refus de l'API ; `null` pour une erreur sans lien avec le partage. */
+export function messagePortailDd(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const specifique = MESSAGES_PORTAIL_DD[e.code];
+    const specifique = (langue === "en" ? MESSAGES_PORTAIL_DD_EN : MESSAGES_PORTAIL_DD)[e.code];
     if (specifique) return specifique;
     if (e.statut === 404) {
-      return "Cet élément n'existe plus ou n'est plus accessible : rechargez la page.";
+      return creerTraduire(langue)(
+        "Cet élément n'existe plus ou n'est plus accessible : rechargez la page.",
+        "This item no longer exists or is no longer accessible: reload the page.",
+      );
     }
   }
   return messageErreur(e);

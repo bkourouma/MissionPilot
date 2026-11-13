@@ -1,18 +1,21 @@
+"use client";
+
 import { formaterMontantMineur, type Devise } from "../../lib/format";
 import {
   descriptionGraphique,
   geometrieTresorerie,
   MARQUEURS,
   pointsTriangle,
+  libelleTrait,
   seriesTresorerie,
-  TRAITS,
 } from "../../lib/plan-graphique";
 import {
+  libelleScenario,
   SCENARIOS,
-  SCENARIO_LIBELLES,
   type NomScenario,
   type ResultatScenarios,
 } from "../../lib/plan-modele";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 function Marqueur({ scenario, x, y }: { scenario: NomScenario; x: number; y: number }) {
   const classe = `mp-plan-graphique__point--${scenario}`;
@@ -52,9 +55,15 @@ export function GraphiqueTresorerie({
   devise: Devise;
   idPrefixe: string;
 }) {
-  const series = seriesTresorerie(resultat);
+  const t = useT();
+  const langue = useLangue();
+  const series = seriesTresorerie(resultat, langue);
   const g = geometrieTresorerie(series);
-  if (!g) return <p className="mp-texte-doux">Aucun exercice à représenter.</p>;
+  if (!g) {
+    return (
+      <p className="mp-texte-doux">{t("Aucun exercice à représenter.", "No year to display.")}</p>
+    );
+  }
   const idTitre = `${idPrefixe}-titre`;
   const idDesc = `${idPrefixe}-desc`;
   const idTableau = `${idPrefixe}-tableau`;
@@ -68,8 +77,13 @@ export function GraphiqueTresorerie({
         role="img"
         aria-labelledby={`${idTitre} ${idDesc}`}
       >
-        <title id={idTitre}>{`Trésorerie nette de clôture, de ${premier} à ${dernier}`}</title>
-        <desc id={idDesc}>{descriptionGraphique(resultat)}</desc>
+        <title id={idTitre}>
+          {t(
+            `Trésorerie nette de clôture, de ${premier} à ${dernier}`,
+            `Closing net cash, from ${premier} to ${dernier}`,
+          )}
+        </title>
+        <desc id={idDesc}>{descriptionGraphique(resultat, langue)}</desc>
         <rect
           className="mp-plan-graphique__cadre"
           x={g.gauche}
@@ -115,33 +129,39 @@ export function GraphiqueTresorerie({
             {s.marqueurs.map((m) => (
               <g key={m.exercice}>
                 <Marqueur scenario={s.scenario} x={m.x} y={m.y} />
-                <title>{`${s.libelle}, ${m.exercice} : ${formaterMontantMineur(m.valeur, devise)}`}</title>
+                <title>{`${s.libelle}, ${m.exercice}${langue === "en" ? ":" : " :"} ${formaterMontantMineur(m.valeur, devise, langue)}`}</title>
               </g>
             ))}
           </g>
         ))}
       </svg>
       <figcaption>
-        <ul className="mp-plan-legende" aria-label="Légende du graphique">
+        <ul className="mp-plan-legende" aria-label={t("Légende du graphique", "Chart legend")}>
           {SCENARIOS.map((s) => (
             <li key={s}>
               <Echantillon scenario={s} />
-              <span>{`${SCENARIO_LIBELLES[s]} (${TRAITS[s]})`}</span>
+              <span>{`${libelleScenario(s, langue)} (${libelleTrait(s, langue)})`}</span>
             </li>
           ))}
         </ul>
         <p className="mp-texte-doux mp-texte-petit">
-          Trait horizontal épais : trésorerie nulle. Valeurs exactes dans le tableau ci-dessous.
+          {t(
+            "Trait horizontal épais : trésorerie nulle. Valeurs exactes dans le tableau ci-dessous.",
+            "Thick horizontal line: zero cash. Exact values are in the table below.",
+          )}
         </p>
       </figcaption>
       <div className="mp-plan-etat" role="region" aria-labelledby={idTableau} tabIndex={0}>
         <table>
           <caption id={idTableau}>
-            Trésorerie nette de clôture par scénario (valeurs du graphique)
+            {t(
+              "Trésorerie nette de clôture par scénario (valeurs du graphique)",
+              "Closing net cash by scenario (chart values)",
+            )}
           </caption>
           <thead>
             <tr>
-              <th scope="col">Exercice</th>
+              <th scope="col">{t("Exercice", "Year")}</th>
               {series.map((s) => (
                 <th key={s.scenario} scope="col">
                   {s.libelle}
@@ -162,7 +182,7 @@ export function GraphiqueTresorerie({
                         typeof v === "number" && v < 0 ? "mp-plan-etat__negatif" : undefined
                       }
                     >
-                      {formaterMontantMineur(v, devise)}
+                      {formaterMontantMineur(v, devise, langue)}
                     </td>
                   );
                 })}

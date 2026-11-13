@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { texteCodesSecours } from "../../lib/double-authentification";
 import { formaterDate } from "../../lib/format";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
@@ -20,6 +21,8 @@ export interface CodesSecoursProps {
  * mémoire du composant parent.
  */
 export function CodesSecours({ codes, email, onTerminer }: CodesSecoursProps) {
+  const t = useT();
+  const langue = useLangue();
   const [note, setNote] = useState(false);
   const [retour, setRetour] = useState<string | null>(null);
   const titre = useRef<HTMLHeadingElement>(null);
@@ -28,15 +31,19 @@ export function CodesSecours({ codes, email, onTerminer }: CodesSecoursProps) {
     titre.current?.focus();
   }, []);
 
-  const contenu = () => texteCodesSecours(codes, email, formaterDate(new Date(), "Africa/Abidjan"));
+  const contenu = () =>
+    texteCodesSecours(codes, email, formaterDate(new Date(), "Africa/Abidjan", langue), langue);
 
   async function copier() {
     try {
       await navigator.clipboard.writeText(contenu());
-      setRetour("Codes copiés dans le presse-papiers.");
+      setRetour(t("Codes copiés dans le presse-papiers.", "Codes copied to the clipboard."));
     } catch {
       setRetour(
-        "Copie impossible sur cet appareil : téléchargez le fichier ou recopiez les codes.",
+        t(
+          "Copie impossible sur cet appareil : téléchargez le fichier ou recopiez les codes.",
+          "Copy is not possible on this device: download the file or copy the codes by hand.",
+        ),
       );
     }
   }
@@ -50,22 +57,27 @@ export function CodesSecours({ codes, email, onTerminer }: CodesSecoursProps) {
     lien.click();
     lien.remove();
     URL.revokeObjectURL(url);
-    setRetour("Fichier des codes téléchargé.");
+    setRetour(t("Fichier des codes téléchargé.", "Codes file downloaded."));
   }
 
   return (
     <div className="mp-pile">
       <h3 ref={titre} tabIndex={-1} className="mp-sous-formulaire__titre">
-        Vos 10 codes de secours
+        {t("Vos 10 codes de secours", "Your 10 backup codes")}
       </h3>
-      <Alerte tonalite="attention" annonce="aucune" titre="Affichés une seule fois">
+      <Alerte
+        tonalite="attention"
+        annonce="aucune"
+        titre={t("Affichés une seule fois", "Shown only once")}
+      >
         <p>
-          Chaque code permet une connexion si vous n&apos;avez plus votre téléphone, et ne sert
-          qu&apos;une fois. Conservez-les hors de votre téléphone (papier, coffre-fort de mots de
-          passe). Ils ne seront plus jamais affichés.
+          {t(
+            "Chaque code permet une connexion si vous n'avez plus votre téléphone, et ne sert qu'une fois. Conservez-les hors de votre téléphone (papier, coffre-fort de mots de passe). Ils ne seront plus jamais affichés.",
+            "Each code lets you sign in if you no longer have your phone, and can only be used once. Keep them away from your phone (paper, password manager). They will never be shown again.",
+          )}
         </p>
       </Alerte>
-      <ol className="mp-codes-secours" aria-label="Codes de secours">
+      <ol className="mp-codes-secours" aria-label={t("Codes de secours", "Backup codes")}>
         {codes.map((c) => (
           <li key={c}>
             <code>{c}</code>
@@ -74,10 +86,10 @@ export function CodesSecours({ codes, email, onTerminer }: CodesSecoursProps) {
       </ol>
       <div className="mp-barre-actions">
         <Bouton variante="secondaire" icone="copie" onClick={copier}>
-          Copier les codes
+          {t("Copier les codes", "Copy the codes")}
         </Bouton>
         <Bouton variante="secondaire" icone="flecheBas" onClick={telecharger}>
-          Télécharger (fichier texte)
+          {t("Télécharger (fichier texte)", "Download (text file)")}
         </Bouton>
       </div>
       {retour ? (
@@ -86,13 +98,16 @@ export function CodesSecours({ codes, email, onTerminer }: CodesSecoursProps) {
         </p>
       ) : null}
       <CaseACocher
-        libelle="J'ai noté mes codes de secours en lieu sûr"
+        libelle={t(
+          "J'ai noté mes codes de secours en lieu sûr",
+          "I have saved my backup codes in a safe place",
+        )}
         checked={note}
         onChange={(e) => setNote(e.target.checked)}
       />
       <div>
         <Bouton disabled={!note} onClick={onTerminer}>
-          Terminer
+          {t("Terminer", "Done")}
         </Bouton>
       </div>
     </div>

@@ -16,6 +16,7 @@
 import type {
   ConditionAffichage,
   DefinitionQuestionnaireDonnees,
+  Langue,
   QuestionQuestionnaire,
 } from "@missionpilot/shared";
 import { formaterDate, formaterNombre } from "./format";
@@ -117,8 +118,21 @@ function dateValide(v: string): boolean {
   );
 }
 
-function bornesNombre(min: number | undefined, max: number | undefined, unite?: string): string {
+function bornesNombre(
+  min: number | undefined,
+  max: number | undefined,
+  unite?: string,
+  langue: Langue = "fr",
+): string {
   const u = unite ? `${NBSP}${unite}` : "";
+  if (langue === "en") {
+    if (min !== undefined && max !== undefined) {
+      return `The value must be between ${formaterNombre(min, 4, langue)} and ${formaterNombre(max, 4, langue)}${u}.`;
+    }
+    if (min !== undefined)
+      return `The value must be at least ${formaterNombre(min, 4, langue)}${u}.`;
+    return `The value must be at most ${formaterNombre(max, 4, langue)}${u}.`;
+  }
   if (min !== undefined && max !== undefined) {
     return `La valeur doit être comprise entre ${formaterNombre(min, 4)} et ${formaterNombre(max, 4)}${u}.`;
   }
@@ -126,7 +140,18 @@ function bornesNombre(min: number | undefined, max: number | undefined, unite?: 
   return `La valeur doit être d'au plus ${formaterNombre(max, 4)}${u}.`;
 }
 
-function bornesDate(min: string | undefined, max: string | undefined): string {
+function bornesDate(
+  min: string | undefined,
+  max: string | undefined,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    if (min && max) {
+      return `The date must be between ${formaterDate(min, undefined, langue)} and ${formaterDate(max, undefined, langue)}.`;
+    }
+    if (min) return `The date must be ${formaterDate(min, undefined, langue)} or later.`;
+    return `The date must be ${formaterDate(max, undefined, langue)} or earlier.`;
+  }
   if (min && max) {
     return `La date doit être comprise entre le ${formaterDate(min)} et le ${formaterDate(max)}.`;
   }
@@ -137,36 +162,58 @@ function bornesDate(min: string | undefined, max: string | undefined): string {
 function lireChoixMultiple(
   q: Extract<QuestionQuestionnaire, { type: "choix_multiple" }>,
   s: ValeurSaisie,
+  langue: Langue = "fr",
 ): LectureSaisie {
-  if (!Array.isArray(s)) return s === null || s === undefined ? vide : refus("Cochez vos choix.");
+  const en = langue === "en";
+  if (!Array.isArray(s)) {
+    return s === null || s === undefined
+      ? vide
+      : refus(en ? "Select your choices." : "Cochez vos choix.");
+  }
   const codes = new Set(s);
   if (codes.size === 0) return vide;
   if ([...codes].some((c) => !q.options.some((o) => o.code === c))) {
-    return refus("Un choix n'est plus proposé : décochez-le.");
+    return refus(
+      en
+        ? "A choice is no longer offered: uncheck it."
+        : "Un choix n'est plus proposé : décochez-le.",
+    );
   }
   const min = q.minSelections ?? 1;
   const max = q.maxSelections ?? q.options.length;
-  if (codes.size < min) return refus(`Cochez au moins ${min} choix.`);
-  if (codes.size > max) return refus(`Cochez au plus ${max} choix.`);
+  if (codes.size < min)
+    return refus(en ? `Select at least ${min} choices.` : `Cochez au moins ${min} choix.`);
+  if (codes.size > max)
+    return refus(en ? `Select at most ${max} choices.` : `Cochez au plus ${max} choix.`);
   return { ok: true, valeur: q.options.filter((o) => codes.has(o.code)).map((o) => o.code) };
 }
 
 function lireNumerique(
   q: Extract<QuestionQuestionnaire, { type: "numerique" }>,
   s: ValeurSaisie,
+  langue: Langue = "fr",
 ): LectureSaisie {
+  const en = langue === "en";
   const n = typeof s === "number" ? s : typeof s === "string" ? lireNombre(s) : null;
   if (n === null) return vide;
   if (!Number.isFinite(n)) {
     return refus(
-      q.entier
-        ? "Saisissez un nombre entier, par exemple 12."
-        : "Saisissez un nombre, par exemple 12 ou 12,5.",
+      en
+        ? q.entier
+          ? "Enter a whole number, for example 12."
+          : "Enter a number, for example 12 or 12.5."
+        : q.entier
+          ? "Saisissez un nombre entier, par exemple 12."
+          : "Saisissez un nombre, par exemple 12 ou 12,5.",
     );
   }
-  if (q.entier && !Number.isInteger(n)) return refus("Saisissez un nombre entier, sans décimale.");
+  if (q.entier && !Number.isInteger(n)) {
+    return refus(
+      en ? "Enter a whole number, without decimals." : "Saisissez un nombre entier, sans décimale.",
+    );
+  }
   if ((q.min !== undefined && n < q.min) || (q.max !== undefined && n > q.max)) {
-    return refus(bornesNombre(q.min, q.max, q.unite));
+    return refus(bornesNombre(q.min, q.max, q.unite, langue));
   }
   return { ok: true, valeur: n };
 }
@@ -175,38 +222,65 @@ function lireNumerique(
  * Lit un champ : valeur prête pour l'API (`null` = pas de réponse), ou message d'erreur.
  * Mêmes contrôles que `validerReponse` du moteur (type, échelle, options, bornes, longueur).
  */
-export function lireSaisie(q: QuestionQuestionnaire, s: ValeurSaisie | undefined): LectureSaisie {
+export function lireSaisie(
+  q: QuestionQuestionnaire,
+  s: ValeurSaisie | undefined,
+  langue: Langue = "fr",
+): LectureSaisie {
+  const en = langue === "en";
   if (s === undefined || s === null) return vide;
   switch (q.type) {
     case "likert":
       if (typeof s !== "number" || !Number.isInteger(s) || s < 1 || s > q.points) {
-        return refus("Choisissez un niveau de l'échelle proposée.");
+        return refus(
+          en
+            ? "Choose a level from the proposed scale."
+            : "Choisissez un niveau de l'échelle proposée.",
+        );
       }
       return { ok: true, valeur: s };
     case "choix_unique":
       if (s === "") return vide;
       if (typeof s !== "string" || !q.options.some((o) => o.code === s)) {
-        return refus("Ce choix n'est plus proposé : choisissez parmi les options affichées.");
+        return refus(
+          en
+            ? "This choice is no longer offered: choose among the displayed options."
+            : "Ce choix n'est plus proposé : choisissez parmi les options affichées.",
+        );
       }
       return { ok: true, valeur: s };
     case "choix_multiple":
-      return lireChoixMultiple(q, s);
+      return lireChoixMultiple(q, s, langue);
     case "oui_non":
       return typeof s === "boolean" ? { ok: true, valeur: s } : vide;
     case "numerique":
-      return lireNumerique(q, s);
+      return lireNumerique(q, s, langue);
     case "texte": {
       if (typeof s !== "string") return vide;
       const t = s.trim();
       if (t === "") return vide;
       const max = q.longueurMax ?? LONGUEUR_TEXTE_DEFAUT;
-      if (t.length > max) return refus(`${max} caractères au plus (actuellement ${t.length}).`);
+      if (t.length > max) {
+        return refus(
+          en
+            ? `${max} characters at most (currently ${t.length}).`
+            : `${max} caractères au plus (actuellement ${t.length}).`,
+        );
+      }
       return { ok: true, valeur: t };
     }
     case "date": {
       if (typeof s !== "string" || s.trim() === "") return vide;
-      if (!dateValide(s)) return refus("Saisissez une date valide, par exemple 15/03/2027.");
-      if ((q.min && s < q.min) || (q.max && s > q.max)) return refus(bornesDate(q.min, q.max));
+      if (!dateValide(s)) {
+        return refus(
+          en
+            ? "Enter a valid date, for example 15/03/2027."
+            : "Saisissez une date valide, par exemple 15/03/2027.",
+        );
+      }
+      if ((q.min && s < q.min) || (q.max && s > q.max)) {
+        return refus(bornesDate(q.min, q.max, langue));
+      }
       return { ok: true, valeur: s };
     }
   }
@@ -426,7 +500,21 @@ export function reconcilier(
 
 // --- Contrôle avant l'envoi ----------------------------------------------------------------
 
-function messageObligatoire(q: QuestionQuestionnaire): string {
+function messageObligatoire(q: QuestionQuestionnaire, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    switch (q.type) {
+      case "likert":
+      case "choix_unique":
+      case "oui_non":
+        return "This question is required: choose a response.";
+      case "choix_multiple":
+        return "This question is required: select at least one choice.";
+      case "date":
+        return "This question is required: enter a date.";
+      default:
+        return "This question is required: enter a response.";
+    }
+  }
   switch (q.type) {
     case "likert":
     case "choix_unique":
@@ -447,6 +535,7 @@ export interface ErreurQuestion {
 }
 
 export const MESSAGE_CONFLIT = "Choisissez la réponse à garder avant d'envoyer.";
+export const MESSAGE_CONFLIT_EN = "Choose the response to keep before sending.";
 
 /**
  * Erreurs bloquant l'envoi, dans l'ordre du questionnaire : questions visibles obligatoires sans
@@ -456,19 +545,20 @@ export function erreursAvantEnvoi(
   def: DefinitionQuestionnaireDonnees,
   saisies: Readonly<Saisies>,
   conflits: Readonly<Record<string, unknown>> = {},
+  langue: Langue = "fr",
 ): ErreurQuestion[] {
   const visibles = visiblesDepuisSaisies(def, saisies);
   const erreurs: ErreurQuestion[] = [];
   for (const q of questionsDe(def)) {
     if (!visibles.has(q.id)) continue;
     if (possede(conflits, q.id)) {
-      erreurs.push({ id: q.id, message: MESSAGE_CONFLIT });
+      erreurs.push({ id: q.id, message: langue === "en" ? MESSAGE_CONFLIT_EN : MESSAGE_CONFLIT });
       continue;
     }
-    const r = lireSaisie(q, propre(saisies, q.id));
+    const r = lireSaisie(q, propre(saisies, q.id), langue);
     if (!r.ok) erreurs.push({ id: q.id, message: r.message });
     else if (r.valeur === null && q.obligatoire)
-      erreurs.push({ id: q.id, message: messageObligatoire(q) });
+      erreurs.push({ id: q.id, message: messageObligatoire(q, langue) });
   }
   return erreurs;
 }
@@ -476,7 +566,8 @@ export function erreursAvantEnvoi(
 // --- Aides d'affichage des champs ----------------------------------------------------------
 
 /** Aide sous un champ, construite d'après la question (bornes, nombre de choix, longueur). */
-export function aideChamp(q: QuestionQuestionnaire): string | null {
+export function aideChamp(q: QuestionQuestionnaire, langue: Langue = "fr"): string | null {
+  if (langue === "en") return aideChampEn(q);
   switch (q.type) {
     case "choix_multiple": {
       const min = q.minSelections ?? 1;
@@ -508,13 +599,53 @@ export function aideChamp(q: QuestionQuestionnaire): string | null {
   }
 }
 
+function aideChampEn(q: QuestionQuestionnaire): string | null {
+  const l: Langue = "en";
+  switch (q.type) {
+    case "choix_multiple": {
+      const min = q.minSelections ?? 1;
+      const max = q.maxSelections ?? q.options.length;
+      if (min === max) return `Select ${min} choices.`;
+      if (min > 1) return `Select between ${min} and ${max} choices.`;
+      return max < q.options.length
+        ? `Select ${max} choices at most.`
+        : "Several choices possible.";
+    }
+    case "numerique": {
+      if (q.min === undefined && q.max === undefined) {
+        const nature = q.entier ? "Whole number" : "Number, decimals separated by a period";
+        return q.unite ? `${nature}; unit: ${q.unite}.` : `${nature}.`;
+      }
+      const u = q.unite ? `${NBSP}${q.unite}` : "";
+      if (q.min !== undefined && q.max !== undefined) {
+        return `Between ${formaterNombre(q.min, 4, l)} and ${formaterNombre(q.max, 4, l)}${u}${q.entier ? ", whole number" : ""}.`;
+      }
+      return q.min !== undefined
+        ? `At least ${formaterNombre(q.min, 4, l)}${u}.`
+        : `At most ${formaterNombre(q.max, 4, l)}${u}.`;
+    }
+    case "date":
+      if (q.min && q.max) {
+        return `Between ${formaterDate(q.min, undefined, l)} and ${formaterDate(q.max, undefined, l)}.`;
+      }
+      if (q.min) return `From ${formaterDate(q.min, undefined, l)}.`;
+      if (q.max) return `Until ${formaterDate(q.max, undefined, l)}.`;
+      return null;
+    default:
+      return null;
+  }
+}
+
 /** Longueur maximale d'une réponse texte. */
 export const longueurMax = (q: Extract<QuestionQuestionnaire, { type: "texte" }>) =>
   q.longueurMax ?? LONGUEUR_TEXTE_DEFAUT;
 
 /** Compteur de caractères : « 120 caractères sur 2 000 ». */
-export function compteurCaracteres(texte: string, max: number): string {
+export function compteurCaracteres(texte: string, max: number, langue: Langue = "fr"): string {
   const n = texte.trim().length;
+  if (langue === "en") {
+    return `${formaterNombre(n, 0, langue)} character${n > 1 ? "s" : ""} of ${formaterNombre(max, 0, langue)}`;
+  }
   return `${formaterNombre(n, 0)} caractère${n > 1 ? "s" : ""} sur ${formaterNombre(max, 0)}`;
 }
 

@@ -1,3 +1,5 @@
+import type { Langue } from "@missionpilot/shared";
+import { T } from "../../i18n/T";
 import {
   pourcentageAffiche,
   texteProgression,
@@ -10,6 +12,8 @@ export interface ProgressionQuestionnaireProps {
   /** Identifiant unique dans la page (base des identifiants du libellé et du texte). */
   id: string;
   libelle?: string;
+  /** Langue de la phrase de progression (défaut "fr"), passée par l'appelant. */
+  langue?: Langue;
 }
 
 /**
@@ -19,7 +23,8 @@ export interface ProgressionQuestionnaireProps {
 export function ProgressionQuestionnaire({
   progression,
   id,
-  libelle = "Progression",
+  libelle,
+  langue = "fr",
 }: ProgressionQuestionnaireProps) {
   const p = pourcentageAffiche(progression);
   const idLibelle = `${id}-libelle`;
@@ -28,7 +33,7 @@ export function ProgressionQuestionnaire({
     <div className="mp-pq-progression">
       <div className="mp-pq-progression__entete">
         <span id={idLibelle} className="mp-pq-progression__libelle">
-          {libelle}
+          {libelle ?? <T fr="Progression" en="Progress" />}
         </span>
         <span className="mp-pq-progression__valeur" aria-hidden="true">
           {`${p}\u00a0%`}
@@ -45,7 +50,7 @@ export function ProgressionQuestionnaire({
         {`${p}\u00a0%`}
       </progress>
       <p id={idTexte} className="mp-pq-progression__texte">
-        {texteProgression(progression)}
+        {texteProgression(progression, langue)}
       </p>
     </div>
   );

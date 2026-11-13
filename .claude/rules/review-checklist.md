@@ -698,9 +698,13 @@ ne valent pour `main` qu'après la fusion de cette branche. Détail des mécanis
 
 ## Interface et textes affichés
 
-- Tout texte affiché, message d'erreur et libellé est en français
-  (PRD, « Localisation ») ; les identifiants de code restent ceux de
-  CODING_STANDARDS §2.
+- Tout texte affiché, message d'erreur et libellé a sa version française ET
+  anglaise (ADR-014) : `t("…", "…")` par `useT()` (client) ou `await obtenirT()`
+  (serveur), `<T fr en />` dans un composant partagé ; une bibliothèque de libellés
+  prend un dernier paramètre facultatif `langue` (défaut "fr") ; une page serveur
+  passe `langue`, jamais `t`, à un composant client. Un nouveau message d'erreur de
+  l'API s'ajoute à `apps/api/src/i18n/messages-en.ts` (sinon il reste en français).
+  Les identifiants de code restent ceux de CODING_STANDARDS §2.
 - Le navigateur n'appelle l'API que par `/api/*` via `apps/web/src/lib/api.ts`
   (cookie httpOnly, jamais de jeton en JavaScript). Pas de `localStorage` ni
   d'IndexedDB pour un secret ou un jeton ; usages admis : brouillon et file hors
@@ -1186,7 +1190,8 @@ git log --diff-filter=MD --name-only --format= -- apps/api/migrations | sort -u
 # Les 52 sont à tenir pour immuables dès qu'elles sont commitées.
 # Activité de démonstration automatique (2026-11-01) : 241 fichiers, +1 ligne « A » (`0584_activite_demo_planification.sql`).
 
-# 14. Textes d'interface en anglais (échantillon). Attendu : 0
+# 14. Textes d'interface en anglais HORS traduction (échantillon) : une version anglaise vit dans `t("…", "…")`, jamais seule
+#     entre deux balises. Attendu : 0
 rg -n ">\s*(Submit|Cancel|Save|Delete|Loading|Error|Login|Sign in|Logout|Search)\s*<" apps/web/src
 
 # 15. Dépendances vulnérables (réseau requis). RELANCÉ le 2026-10-23 (copie `reste-lot-9g`, tête finale, lots 13a et 13b compris : aucun
@@ -1347,8 +1352,8 @@ rg -n "^\s*(cwd:|env: environnementEnfant\(\)|const args = |args\.push\(\"--perm
 rg -n "VERSION_MOTEUR_OCR =|\"tesseract\.js\":" apps/api/src/ingestion/ocr-local.ts apps/api/package.json
 node scripts/ocr-verifier-donnees.cjs
 
-# 29. DebloqueurRendu monté au layout racine (lot 13a, A-04, R-01, R-02). Attendu : 2 lignes, `app/layout.tsx:15` (import) et `:43`
-#     (`<DebloqueurRendu />`). Une ligne ou aucune : le composant a été retiré (ou n'est plus monté) et les écrans périmés après
+# 29. DebloqueurRendu monté au layout racine (lot 13a, A-04, R-01, R-02). Attendu : 2 lignes, `app/layout.tsx:17` (import) et `:52`
+#     (`<DebloqueurRendu />`, dans `FournisseurLangue` depuis le 2026-11-13 ; `:15` et `:43` avant). Une ligne ou aucune : le composant a été retiré (ou n'est plus monté) et les écrans périmés après
 #     écriture et les liens sans effet reviennent. À revoir à chaque montée de Next ou de React
 rg -n "DebloqueurRendu" apps/web/src/app/layout.tsx
 

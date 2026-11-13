@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { ListeDocumentsIngestion } from "../ingestion/ListeDocumentsIngestion";
 import { TeleversementDocument } from "../ingestion/TeleversementDocument";
@@ -18,20 +19,25 @@ import {
  * avant la validation d'un expert.
  */
 export function AmorcageTeleversement({ versionId }: { versionId: string }) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   return (
     <div className="mp-pile">
-      <Alerte tonalite="info" titre="L'IA propose, l'expert dispose" annonce="aucune">
+      <Alerte
+        tonalite="info"
+        titre={t("L'IA propose, l'expert dispose", "AI proposes, the expert decides")}
+        annonce="aucune"
+      >
         <p>
-          Le document est lu en arrière-plan : l&apos;IA en tire une proposition d&apos;étapes, de
-          briques, d&apos;éléments et de rubriques. Rien n&apos;est appliqué ni publié tant que vous
-          n&apos;avez pas validé la proposition ; la validation l&apos;ajoute au brouillon de la
-          méthode, jamais à une version publiée.
+          {t(
+            "Le document est lu en arrière-plan : l'IA en tire une proposition d'étapes, de briques, d'éléments et de rubriques. Rien n'est appliqué ni publié tant que vous n'avez pas validé la proposition ; la validation l'ajoute au brouillon de la méthode, jamais à une version publiée.",
+            "The document is read in the background: the AI draws a proposal of steps, building blocks, elements and rubrics from it. Nothing is applied or published until you approve the proposal; approval adds it to the method's draft, never to a published version.",
+          )}
         </p>
       </Alerte>
       <TeleversementDocument
         chemin={cheminTeleversementAmorcage(versionId)}
-        libelleBouton="Importer et faire lire le document"
+        libelleBouton={t("Importer et faire lire le document", "Import and have the document read")}
         onCree={() => rafraichir()}
       />
     </div>
@@ -46,13 +52,17 @@ export function AmorcageListe({
   versionId: string;
   documents: readonly DocumentIngestion[];
 }) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   return (
     <ListeDocumentsIngestion
       api={apiIngestionStandard(versionId)}
       documentsInitiaux={documents}
-      legende="Documents historiques de l'amorçage"
-      messageVide="Aucun document importé pour cette version."
+      legende={t("Documents historiques de l'amorçage", "Historical documents for bootstrapping")}
+      messageVide={t(
+        "Aucun document importé pour cette version.",
+        "No document imported for this version.",
+      )}
       hrefDocument={(d) => hrefDocumentAmorcage(versionId, d.id)}
       rendreLien={(href, libelle) => <Link href={href}>{libelle}</Link>}
       onTermine={() => rafraichir()}

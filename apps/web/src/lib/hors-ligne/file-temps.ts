@@ -16,7 +16,8 @@
  * - Contenu : identifiants de feuille, de tâches et d'activités, valeurs saisies. Jamais de
  *   jeton, de cookie, de libellé de mission ni de donnée financière.
  */
-import { ErreurApi, MESSAGE_INATTENDU, messageErreur } from "../api";
+import type { Langue } from "@missionpilot/shared";
+import { ErreurApi, langueNavigateur, messageErreur, messageInattendu } from "../api";
 import type { LigneCharge, UniteSaisie } from "../temps";
 
 /** `en_attente` : à envoyer ; `a_corriger` : saisie illisible, jamais envoyée en l'état. */
@@ -208,16 +209,40 @@ const LIBELLES_CONFLIT: Record<string, string> = {
   INTERDIT: "Vous ne pouvez plus modifier cette feuille.",
 };
 
-/** Motif enregistré pour une erreur d'envoi (message de l'API en repli, toujours en français). */
-export function motifDepuisErreur(e: unknown): { code: string; message: string } {
-  if (!(e instanceof ErreurApi)) return { code: "ERREUR_INATTENDUE", message: MESSAGE_INATTENDU };
+const LIBELLES_CONFLIT_EN: Record<string, string> = {
+  PERIODE_CLOTUREE:
+    "Part of the period was closed in the meantime: this time can no longer be entered directly. Keep your entry for a correction request, or abandon it.",
+  CONFLIT:
+    "The timesheet was submitted or approved in the meantime: your entry was not applied. To change approved time, make a correction request.",
+  [CODE_NON_MODIFIABLE]:
+    "The timesheet can no longer be edited (submitted, approved or locked): your entry was not applied.",
+  [CODE_MODIFIEE_AILLEURS]:
+    "The timesheet was modified from another device after your entry: choose which version to keep.",
+  INTROUVABLE: "The timesheet no longer exists or is no longer accessible to you.",
+  INTERDIT: "You can no longer edit this timesheet.",
+};
+
+/**
+ * Motif enregistré pour une erreur d'envoi (message de l'API en repli). Sans `langue`, celle du
+ * navigateur (cookie du sélecteur) ; le message enregistré est un repli, l'affichage d'un code
+ * connu se refait dans la langue courante (`libelleMotif`).
+ */
+export function motifDepuisErreur(e: unknown, langue?: Langue): { code: string; message: string } {
+  const l = langue ?? langueNavigateur();
+  if (!(e instanceof ErreurApi)) return { code: "ERREUR_INATTENDUE", message: messageInattendu(l) };
   const code = e.statut === 404 ? "INTROUVABLE" : e.statut === 403 ? "INTERDIT" : e.code;
-  return { code, message: LIBELLES_CONFLIT[code] ?? messageErreur(e) };
+  return {
+    code,
+    message: (l === "en" ? LIBELLES_CONFLIT_EN : LIBELLES_CONFLIT)[code] ?? messageErreur(e, l),
+  };
 }
 
-export function libelleMotif(motif: { code: string; message: string } | undefined): string {
+export function libelleMotif(
+  motif: { code: string; message: string } | undefined,
+  langue: Langue = "fr",
+): string {
   if (!motif) return "";
-  return LIBELLES_CONFLIT[motif.code] ?? motif.message;
+  return (langue === "en" ? LIBELLES_CONFLIT_EN : LIBELLES_CONFLIT)[motif.code] ?? motif.message;
 }
 
 /** Demande de correction utile : temps validés ou période clôturée. */

@@ -10,9 +10,10 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/
 import { Tableau } from "../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDate } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import {
   HREF_NOUVEL_ITEM,
-  STATUTS_ITEM,
+  detailStatutItem,
   cheminBanque,
   hrefItemBanque,
   lireStatutBanque,
@@ -21,7 +22,10 @@ import {
 } from "../../../../lib/notation-augmentee";
 import { exigerLectureNotation } from "../../../../lib/notation-serveur";
 
-export const metadata: Metadata = { title: "Banque d'items de notation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Banque d'items de notation", "Rating item bank") };
+}
 
 /**
  * Banque d'items standard étalonnée du cabinet (NOT-09) : dernière version de chaque item,
@@ -34,6 +38,8 @@ export default async function PageBanqueNotation({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   await exigerLectureNotation();
   const q = await searchParams;
   const statut = lireStatutBanque(q.statut);
@@ -44,25 +50,28 @@ export default async function PageBanqueNotation({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Banque d'items"
-        soustitre="Pratiques évaluées, échelles à ancrages comportementaux et formulations par public. Seuls les items validés servent aux questionnaires adaptatifs."
+        titre={t("Banque d'items", "Item bank")}
+        soustitre={t(
+          "Pratiques évaluées, échelles à ancrages comportementaux et formulations par public. Seuls les items validés servent aux questionnaires adaptatifs.",
+          "Practices assessed, behaviorally anchored scales and wordings by audience. Only approved items are used in adaptive questionnaires.",
+        )}
         actions={
           <Link href={HREF_NOUVEL_ITEM} className={classesBouton("primaire")}>
-            Nouvel item
+            {t("Nouvel item", "New item")}
           </Link>
         }
       />
-      <nav aria-label="Filtrer par statut">
+      <nav aria-label={t("Filtrer par statut", "Filter by status")}>
         <p>
-          Filtrer : <Link href="/notation/banque">tous</Link> ·{" "}
-          <Link href="/notation/banque?statut=valide">validés</Link> ·{" "}
-          <Link href="/notation/banque?statut=brouillon">brouillons</Link>
+          {t("Filtrer :", "Filter:")} <Link href="/notation/banque">{t("tous", "all")}</Link> ·{" "}
+          <Link href="/notation/banque?statut=valide">{t("validés", "approved")}</Link> ·{" "}
+          <Link href="/notation/banque?statut=brouillon">{t("brouillons", "drafts")}</Link>
         </p>
       </nav>
-      <Carte titre="Items">
+      <Carte titre={t("Items", "Items")}>
         {!r.ok ? (
           <EtatErreur
-            titre="La banque n'a pas pu être chargée."
+            titre={t("La banque n'a pas pu être chargée.", "The bank could not be loaded.")}
             message={r.message}
             hrefReessayer={hrefListe}
           />
@@ -70,55 +79,68 @@ export default async function PageBanqueNotation({
           <EtatVide
             titre={
               statut
-                ? `Aucun item ${statut === "valide" ? "validé" : "en brouillon"}.`
-                : "Aucun item dans la banque."
+                ? statut === "valide"
+                  ? t("Aucun item validé.", "No approved item.")
+                  : t("Aucun item en brouillon.", "No draft item.")
+                : t("Aucun item dans la banque.", "No item in the bank.")
             }
             icone="info"
             action={
               <Link href={HREF_NOUVEL_ITEM} className={classesBouton("primaire")}>
-                Rédiger un item
+                {t("Rédiger un item", "Write an item")}
               </Link>
             }
           >
-            <p>Les items se rédigent en brouillon puis sont validés par un expert métier.</p>
+            <p>
+              {t(
+                "Les items se rédigent en brouillon puis sont validés par un expert métier.",
+                "Items are written as drafts, then approved by a business expert.",
+              )}
+            </p>
           </EtatVide>
         ) : (
           <>
             <Tableau
-              legende="Items de la banque"
+              legende={t("Items de la banque", "Bank items")}
               cleLigne={(i) => i.id}
               lignes={r.donnees.elements}
               colonnes={[
                 {
                   cle: "code",
-                  entete: "Code",
+                  entete: t("Code", "Code"),
                   rendu: (i) => <Link href={hrefItemBanque(i.id)}>{i.code}</Link>,
                 },
-                { cle: "intitule", entete: "Pratique" },
+                { cle: "intitule", entete: t("Pratique", "Practice") },
                 {
                   cle: "dimension",
-                  entete: "Dimension",
+                  entete: t("Dimension", "Dimension"),
                   rendu: (i) => libelleDimensionBanque(i.dimension),
                 },
-                { cle: "version", entete: "Version", alignement: "droite" },
+                { cle: "version", entete: t("Version", "Version"), alignement: "droite" },
                 {
                   cle: "statut",
-                  entete: "Statut",
+                  entete: t("Statut", "Status"),
                   rendu: (i) => (
-                    <BadgeStatut tonalite={STATUTS_ITEM[i.statut]?.tonalite ?? "neutre"}>
-                      {STATUTS_ITEM[i.statut]?.libelle ?? "Statut inconnu"}
+                    <BadgeStatut
+                      tonalite={detailStatutItem(i.statut, langue)?.tonalite ?? "neutre"}
+                    >
+                      {detailStatutItem(i.statut, langue)?.libelle ??
+                        t("Statut inconnu", "Unknown status")}
                     </BadgeStatut>
                   ),
                 },
                 {
                   cle: "version_validee",
-                  entete: "En service",
-                  rendu: (i) => (i.version_validee ? `version ${i.version_validee}` : "aucune"),
+                  entete: t("En service", "In use"),
+                  rendu: (i) =>
+                    i.version_validee
+                      ? `${t("version", "version")} ${i.version_validee}`
+                      : t("aucune", "none"),
                 },
                 {
                   cle: "modifie_le",
-                  entete: "Modifié le",
-                  rendu: (i) => formaterDate(i.modifie_le),
+                  entete: t("Modifié le", "Modified on"),
+                  rendu: (i) => formaterDate(i.modifie_le, "UTC", langue),
                 },
               ]}
             />
@@ -129,7 +151,7 @@ export default async function PageBanqueNotation({
                   : null
               }
               hrefDebut={curseur ? hrefListe : null}
-              libelle="Pagination de la banque"
+              libelle={t("Pagination de la banque", "Bank pagination")}
             />
           </>
         )}

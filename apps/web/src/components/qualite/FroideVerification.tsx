@@ -7,6 +7,7 @@ import { cheminVerification, type VerificationTirage } from "../../lib/qualite-f
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useT } from "../i18n/FournisseurLangue";
 import { useActionFroide } from "./useActionFroide";
 
 /**
@@ -14,6 +15,7 @@ import { useActionFroide } from "./useActionFroide";
  * critères enregistrés et compare le résultat à l'échantillon figé. Le web n'affiche que le verdict.
  */
 export function FroideVerification({ campagneId }: { campagneId: string }) {
+  const t = useT();
   const a = useActionFroide();
   const [resultat, setResultat] = useState<VerificationTirage | null>(null);
 
@@ -23,7 +25,7 @@ export function FroideVerification({ campagneId }: { campagneId: string }) {
         <Bouton
           variante="secondaire"
           chargement={a.enCours}
-          texteChargement="Vérification…"
+          texteChargement={t("Vérification…", "Verifying…")}
           onClick={async () => {
             setResultat(null);
             const r = await a.agir(
@@ -35,31 +37,45 @@ export function FroideVerification({ campagneId }: { campagneId: string }) {
             if (r.ok) setResultat(r.valeur);
           }}
         >
-          Vérifier la reproductibilité
+          {t("Vérifier la reproductibilité", "Check reproducibility")}
         </Bouton>
       </div>
       <RetourFormulaire
         erreur={a.erreur}
         refAlerte={a.refAlerte}
-        titreErreur="Vérification impossible"
+        titreErreur={t("Vérification impossible", "Verification failed")}
       />
       {resultat ? (
         <Alerte
           tonalite={resultat.reproductible ? "succes" : "danger"}
           titre={
             resultat.reproductible
-              ? "Le tirage est reproductible : les mêmes critères et la même graine redonnent le même échantillon."
-              : "Le tirage n'est pas reproductible : des écarts ont été constatés."
+              ? t(
+                  "Le tirage est reproductible : les mêmes critères et la même graine redonnent le même échantillon.",
+                  "The draw is reproducible: the same criteria and the same seed give the same sample.",
+                )
+              : t(
+                  "Le tirage n'est pas reproductible : des écarts ont été constatés.",
+                  "The draw is not reproducible: discrepancies were found.",
+                )
           }
           annonce="status"
         >
           <p>
-            Graine « {resultat.graine} » · population de {resultat.population_taille} mission(s) ·
-            empreinte{" "}
+            {t("Graine", "Seed")} « {resultat.graine} » ·{" "}
+            {t(
+              `population de ${resultat.population_taille} mission(s)`,
+              `population of ${resultat.population_taille} engagement(s)`,
+            )}{" "}
+            · {t("empreinte", "fingerprint")}{" "}
             <span title={resultat.empreinte_population}>
               {empreinteCourte(resultat.empreinte_population)}
             </span>{" "}
-            · échantillon de {resultat.taille_echantillon} mission(s).
+            ·{" "}
+            {t(
+              `échantillon de ${resultat.taille_echantillon} mission(s).`,
+              `sample of ${resultat.taille_echantillon} engagement(s).`,
+            )}
           </p>
           {resultat.ecarts.length > 0 ? (
             <ul>

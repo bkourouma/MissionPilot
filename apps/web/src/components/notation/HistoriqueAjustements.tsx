@@ -1,4 +1,5 @@
 import { formaterDate } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
   formaterEcart,
   formaterScore,
@@ -17,47 +18,59 @@ export interface HistoriqueAjustementsProps {
  * écart, score avant et après (calculés par le moteur), auteur et motif. Il ne se modifie ni ne
  * se supprime : une correction passe par un nouvel ajustement ou un nouveau calcul.
  */
-export function HistoriqueAjustements({ vue }: HistoriqueAjustementsProps) {
+export async function HistoriqueAjustements({ vue }: HistoriqueAjustementsProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const colonnes: readonly ColonneTableau<AjustementNotation>[] = [
-    { cle: "rang", entete: "N°", alignement: "droite" },
-    { cle: "date", entete: "Date", rendu: (a) => formaterDate(a.date) },
-    { cle: "dimension", entete: "Dimension", rendu: (a) => libelleDimension(vue, a.dimension) },
+    { cle: "rang", entete: t("N°", "No."), alignement: "droite" },
+    { cle: "date", entete: t("Date", "Date"), rendu: (a) => formaterDate(a.date, "UTC", langue) },
+    {
+      cle: "dimension",
+      entete: t("Dimension", "Dimension"),
+      rendu: (a) => libelleDimension(vue, a.dimension),
+    },
     {
       cle: "delta",
-      entete: "Écart",
+      entete: t("Écart", "Difference"),
       alignement: "droite",
-      rendu: (a) => `${formaterEcart(a.delta)} pt`,
+      rendu: (a) => `${formaterEcart(a.delta, langue)} ${t("pt", "pt")}`,
     },
     {
       cle: "scores",
-      entete: "Score avant → après",
+      entete: t("Score avant → après", "Score before → after"),
       alignement: "droite",
       rendu: (a) => (
         <>
-          {formaterScore(a.score_avant)} → {formaterScore(a.score_apres)}
+          {formaterScore(a.score_avant, langue)} → {formaterScore(a.score_apres, langue)}
           {a.plafonne ? (
             <>
               {" "}
-              <span className="mp-texte-doux">(borné à 0–100)</span>
+              <span className="mp-texte-doux">{t("(borné à 0–100)", "(capped to 0–100)")}</span>
             </>
           ) : null}
         </>
       ),
     },
-    { cle: "auteur", entete: "Auteur", rendu: (a) => a.auteur.nom },
+    { cle: "auteur", entete: t("Auteur", "Author"), rendu: (a) => a.auteur.nom },
     {
       cle: "motif",
-      entete: "Motif",
+      entete: t("Motif", "Reason"),
       rendu: (a) => <span className="mp-notation-motif">{a.motif}</span>,
     },
   ];
   return (
     <Tableau
-      legende={`Historique des ajustements de la version ${vue.numero}`}
+      legende={t(
+        `Historique des ajustements de la version ${vue.numero}`,
+        `Adjustment history of version ${vue.numero}`,
+      )}
       colonnes={colonnes}
       lignes={vue.ajustements}
       cleLigne={(a) => String(a.rang)}
-      messageVide="Aucun ajustement : les scores retenus sont ceux du calcul."
+      messageVide={t(
+        "Aucun ajustement : les scores retenus sont ceux du calcul.",
+        "No adjustment: the retained scores are those of the computation.",
+      )}
     />
   );
 }

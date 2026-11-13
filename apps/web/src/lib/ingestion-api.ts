@@ -5,6 +5,7 @@
  * la donnée simple (chaînes à trous) : elle passe sans risque d'un composant serveur à un composant
  * client. Aucune donnée de document n'est mise en cache dans le navigateur.
  */
+import type { Langue } from "@missionpilot/shared";
 import { api, type OptionsAppel } from "./api";
 import { televerser, type OptionsTeleversement } from "./televersement";
 import type {
@@ -238,6 +239,21 @@ export const TEXTE_ACCEPTATION_AUTO =
 export const TEXTE_TOLERANCE =
   "En unités mineures (FCFA, centimes) ; 0 par défaut. Seule une tolérance nulle permet " +
   "l'acceptation automatique : avec une tolérance positive, l'état part toujours en revue.";
+
+export const TEXTE_ACCEPTATION_AUTO_EN =
+  "AI proposes, the checks decide: the statement is accepted automatically only if all " +
+  "checks pass (assets = liabilities, consistent result) with zero tolerance, with no " +
+  "unread line and with text read directly from the document; otherwise it goes to review with " +
+  "its gaps.";
+
+export const TEXTE_TOLERANCE_EN =
+  "In minor units (FCFA, cents); 0 by default. Only a zero tolerance allows " +
+  "automatic acceptance: with a positive tolerance, the statement always goes to review.";
+
+export const texteAcceptationAuto = (langue: Langue = "fr") =>
+  langue === "en" ? TEXTE_ACCEPTATION_AUTO_EN : TEXTE_ACCEPTATION_AUTO;
+export const texteTolerance = (langue: Langue = "fr") =>
+  langue === "en" ? TEXTE_TOLERANCE_EN : TEXTE_TOLERANCE;
 
 /** Lien vers une page citée d'un document : `?page=N` la met en évidence, `#page-N` y fait défiler. */
 export const hrefPageCitee = (hrefDocument: string, numero: number) =>

@@ -9,9 +9,11 @@
  * visitée par le serveur : le lien s'affiche, c'est à l'utilisateur de l'ouvrir.
  */
 import {
+  creerTraduire,
   VEILLE_IMPORT_TEXTE_MAX,
   VEILLE_STATUT_LIBELLES,
   VEILLE_STATUTS,
+  type Langue,
   type VeilleStatut,
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
@@ -78,7 +80,15 @@ export interface BilanVeille {
 
 // --- Libellés ---------------------------------------------------------------------------------
 
-export const libelleStatutVeille = (s: VeilleStatut) => VEILLE_STATUT_LIBELLES[s];
+export const VEILLE_STATUT_LIBELLES_EN: Record<VeilleStatut, string> = {
+  nouveau: "New",
+  retenu: "Shortlisted",
+  ecarte: "Dismissed",
+  fiche_creee: "Record created",
+};
+
+export const libelleStatutVeille = (s: VeilleStatut, langue: Langue = "fr") =>
+  (langue === "en" ? VEILLE_STATUT_LIBELLES_EN : VEILLE_STATUT_LIBELLES)[s];
 
 export function tonaliteStatutVeille(s: VeilleStatut): TonaliteStatut {
   if (s === "fiche_creee") return "succes";
@@ -93,20 +103,39 @@ export function tonaliteScoreVeille(score: number): TonaliteStatut {
 }
 
 /** Phrase de bilan d'une collecte ou d'un import. */
-export function texteBilanVeille(b: BilanVeille): string {
+export function texteBilanVeille(b: BilanVeille, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const morceaux = [
-    `${b.lus} avis lu(s)`,
-    `${b.nouveaux} nouveau(x)`,
-    `${b.doublons} déjà connu(s)`,
+    t(`${b.lus} avis lu(s)`, `${b.lus} notice(s) read`),
+    t(`${b.nouveaux} nouveau(x)`, `${b.nouveaux} new`),
+    t(`${b.doublons} déjà connu(s)`, `${b.doublons} already known`),
   ];
-  if (b.plafond > 0) morceaux.push(`${b.plafond} refusé(s) : plafond de résultats atteint`);
-  if (b.erreurs && b.erreurs.length > 0) morceaux.push(`${b.erreurs.length} ligne(s) en erreur`);
+  if (b.plafond > 0) {
+    morceaux.push(
+      t(
+        `${b.plafond} refusé(s) : plafond de résultats atteint`,
+        `${b.plafond} rejected: results limit reached`,
+      ),
+    );
+  }
+  if (b.erreurs && b.erreurs.length > 0) {
+    morceaux.push(
+      t(`${b.erreurs.length} ligne(s) en erreur`, `${b.erreurs.length} line(s) in error`),
+    );
+  }
   return `${morceaux.join(" ; ")}.`;
 }
 
 /** Détail des lignes en erreur d'un import, une phrase par ligne (10 au plus). */
-export function texteErreursImport(erreurs: readonly { ligne: number; message: string }[]) {
-  return erreurs.slice(0, 10).map((e) => `Ligne ${e.ligne} : ${e.message}`);
+export function texteErreursImport(
+  erreurs: readonly { ligne: number; message: string }[],
+  langue: Langue = "fr",
+) {
+  return erreurs
+    .slice(0, 10)
+    .map((e) =>
+      langue === "en" ? `Line ${e.ligne}: ${e.message}` : `Ligne ${e.ligne} : ${e.message}`,
+    );
 }
 
 // --- Chemins et filtres -----------------------------------------------------------------------
@@ -162,13 +191,27 @@ export function hrefVeille(f: Partial<FiltresVeille> = {}): string {
 export type VerdictFichier = { ok: true; format: "csv" | "json" } | { ok: false; message: string };
 
 /** Contrôle avant lecture : extension .csv ou .json, 1 Mo au plus (l'API revérifie tout). */
-export function verifierFichierImport(f: { name: string; size: number }): VerdictFichier {
+export function verifierFichierImport(
+  f: { name: string; size: number },
+  langue: Langue = "fr",
+): VerdictFichier {
+  const t = creerTraduire(langue);
   const nom = f.name.toLowerCase();
   const format = nom.endsWith(".json") ? "json" : nom.endsWith(".csv") ? "csv" : null;
-  if (!format) return { ok: false, message: "Choisissez un fichier .csv ou .json." };
-  if (f.size === 0) return { ok: false, message: "Le fichier est vide." };
+  if (!format)
+    return {
+      ok: false,
+      message: t("Choisissez un fichier .csv ou .json.", "Choose a .csv or .json file."),
+    };
+  if (f.size === 0) return { ok: false, message: t("Le fichier est vide.", "The file is empty.") };
   if (f.size > VEILLE_IMPORT_TEXTE_MAX) {
-    return { ok: false, message: "Le fichier dépasse 1 Mo : découpez-le en plusieurs imports." };
+    return {
+      ok: false,
+      message: t(
+        "Le fichier dépasse 1 Mo : découpez-le en plusieurs imports.",
+        "The file exceeds 1 MB: split it into several imports.",
+      ),
+    };
   }
   return { ok: true, format };
 }
@@ -176,11 +219,15 @@ export function verifierFichierImport(f: { name: string; size: number }): Verdic
 // --- Erreurs ----------------------------------------------------------------------------------
 
 /** Message d'une erreur de la veille : le texte de l'API pour les conflits métier. */
-export function messageVeille(e: unknown): string {
+export function messageVeille(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     if (e.code.startsWith("AO_VEILLE_") || e.code === "AO_REFERENCE_EXISTANTE") return e.message;
-    if (e.statut === 404) return "Ce résultat de veille n'existe pas ou plus.";
+    if (e.statut === 404) {
+      return langue === "en"
+        ? "This monitoring result does not exist or no longer exists."
+        : "Ce résultat de veille n'existe pas ou plus.";
+    }
     if (e.statut === 409) return e.message;
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }

@@ -7,8 +7,9 @@
  * l'axe ne porte que le zéro, les valeurs exactes sont dans le tableau qui accompagne le
  * graphique (alternative accessible) et dans l'infobulle de chaque point.
  */
+import type { Langue } from "@missionpilot/shared";
 import type { NomScenario, ResultatScenarios } from "./plan-modele";
-import { exercicesTresorerieNegative, SCENARIOS, SCENARIO_LIBELLES } from "./plan-modele";
+import { exercicesTresorerieNegative, libelleScenario, SCENARIOS } from "./plan-modele";
 
 export interface PointTresorerie {
   exercice: number;
@@ -46,10 +47,13 @@ export interface GeometrieTresorerie {
 }
 
 /** Trésorerie nette de clôture de chaque scénario, telle que rendue par le moteur. */
-export function seriesTresorerie(r: Pick<ResultatScenarios, NomScenario>): SerieTresorerie[] {
+export function seriesTresorerie(
+  r: Pick<ResultatScenarios, NomScenario>,
+  langue: Langue = "fr",
+): SerieTresorerie[] {
   return SCENARIOS.map((s) => ({
     scenario: s,
-    libelle: SCENARIO_LIBELLES[s],
+    libelle: libelleScenario(s, langue),
     points: (r[s]?.annees ?? []).map((a) => ({
       exercice: a.exercice,
       valeur: a.bilan.tresorerieNette,
@@ -127,11 +131,35 @@ export const TRAITS: Record<NomScenario, string> = {
  * Description du graphique pour les lecteurs d'écran : motif de chaque scénario et années de
  * trésorerie négative (d'après les alertes du moteur, sans calcul).
  */
-export function descriptionGraphique(r: Pick<ResultatScenarios, NomScenario>): string {
+export const TRAITS_EN: Record<NomScenario, string> = {
+  base: "solid line and round points",
+  optimiste: "dashes and square points",
+  pessimiste: "dotted line and triangular points",
+};
+
+export const libelleTrait = (s: NomScenario, langue: Langue = "fr") =>
+  (langue === "en" ? TRAITS_EN : TRAITS)[s];
+
+export function descriptionGraphique(
+  r: Pick<ResultatScenarios, NomScenario>,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    const negatifsEn = SCENARIOS.map((s) => ({ s, annees: exercicesTresorerieNegative(r[s]) }))
+      .filter((x) => x.annees.length > 0)
+      .map((x) => `${libelleScenario(x.s, langue).toLowerCase()} in ${x.annees.join(", ")}`);
+    const traitsEn = SCENARIOS.map(
+      (s) => `${libelleScenario(s, langue).toLowerCase()} as ${TRAITS_EN[s]}`,
+    );
+    const tresorerieEn = negatifsEn.length
+      ? `Negative cash: ${negatifsEn.join("; ")}.`
+      : "Cash stays positive or zero in all three scenarios.";
+    return `Scenarios: ${traitsEn.join("; ")}. ${tresorerieEn} Exact values are in the table that follows.`;
+  }
   const negatifs = SCENARIOS.map((s) => ({ s, annees: exercicesTresorerieNegative(r[s]) }))
     .filter((x) => x.annees.length > 0)
-    .map((x) => `${SCENARIO_LIBELLES[x.s].toLowerCase()} en ${x.annees.join(", ")}`);
-  const traits = SCENARIOS.map((s) => `${SCENARIO_LIBELLES[s].toLowerCase()} en ${TRAITS[s]}`);
+    .map((x) => `${libelleScenario(x.s).toLowerCase()} en ${x.annees.join(", ")}`);
+  const traits = SCENARIOS.map((s) => `${libelleScenario(s).toLowerCase()} en ${TRAITS[s]}`);
   const tresorerie = negatifs.length
     ? `Trésorerie négative : ${negatifs.join(" ; ")}.`
     : "La trésorerie reste positive ou nulle dans les trois scénarios.";

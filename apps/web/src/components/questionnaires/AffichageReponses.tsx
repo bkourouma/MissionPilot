@@ -1,3 +1,4 @@
+import { useT, useLangue } from "../i18n/FournisseurLangue";
 import { formaterReponse, type Definition } from "../../lib/questionnaires-definition";
 import "./questionnaires.css";
 
@@ -15,6 +16,8 @@ export function AffichageReponses({
   reponses: Record<string, unknown>;
   idBase: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   let numero = 0;
   return (
     <div className="mp-pile mp-pile--large">
@@ -29,7 +32,7 @@ export function AffichageReponses({
               const valeur = Object.prototype.hasOwnProperty.call(reponses, q.id)
                 ? reponses[q.id]
                 : null;
-              const texte = formaterReponse(q, valeur);
+              const texte = formaterReponse(q, valeur, langue);
               return (
                 <div key={q.id}>
                   <dt>{`${numero}. ${q.libelle}`}</dt>
@@ -37,8 +40,11 @@ export function AffichageReponses({
                     {texte ?? (
                       <span className="mp-reponses__vide">
                         {q.condition || s.condition
-                          ? "Sans réponse (question conditionnelle, peut-être non affichée)"
-                          : "Sans réponse"}
+                          ? t(
+                              "Sans réponse (question conditionnelle, peut-être non affichée)",
+                              "No response (conditional question, possibly not displayed)",
+                            )
+                          : t("Sans réponse", "No response")}
                       </span>
                     )}
                   </dd>

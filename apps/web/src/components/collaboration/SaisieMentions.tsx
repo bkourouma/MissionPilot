@@ -10,6 +10,7 @@ import {
   type Mentionnable,
   type RequeteMention,
 } from "../../lib/commentaires";
+import { useT } from "../i18n/FournisseurLangue";
 import { CadreChamp, idsDescription } from "../ui/Champ";
 
 export interface SaisieMentionsProps {
@@ -48,6 +49,7 @@ export function SaisieMentions({
   onValider,
   ref,
 }: SaisieMentionsProps) {
+  const t = useT();
   const id = useId();
   const idListe = `${id}-suggestions`;
   const zone = useRef<HTMLTextAreaElement | null>(null);
@@ -97,9 +99,12 @@ export function SaisieMentions({
     if (!requete) return setAnnonce("");
     if (suggestions.length === 0) return setAnnonce("");
     setAnnonce(
-      `${suggestions.length === 1 ? "1 personne proposée" : `${suggestions.length} personnes proposées`} : flèches pour choisir, Entrée pour insérer.`,
+      t(
+        `${suggestions.length === 1 ? "1 personne proposée" : `${suggestions.length} personnes proposées`} : flèches pour choisir, Entrée pour insérer.`,
+        `${suggestions.length === 1 ? "1 person suggested" : `${suggestions.length} people suggested`}: arrow keys to choose, Enter to insert.`,
+      ),
     );
-  }, [requete, suggestions]);
+  }, [requete, suggestions, t]);
 
   // Replace le curseur après l'insertion d'une mention.
   useEffect(() => {
@@ -121,7 +126,7 @@ export function SaisieMentions({
     setRequete(null);
     setSuggestions([]);
     setCurseurApres(r.curseur);
-    setAnnonce(`${m.nom} mentionné.`);
+    setAnnonce(t(`${m.nom} mentionné.`, `${m.nom} mentioned.`));
   }
 
   function surTouche(ev: KeyboardEvent<HTMLTextAreaElement>) {
@@ -188,7 +193,7 @@ export function SaisieMentions({
         <ul
           id={idListe}
           role="listbox"
-          aria-label="Personnes à mentionner"
+          aria-label={t("Personnes à mentionner", "People to mention")}
           className="mp-mentions__liste"
         >
           {suggestions.map((m, i) => (

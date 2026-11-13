@@ -26,6 +26,7 @@ import {
 } from "../../lib/redressement";
 import { texteOuNull, type Resultat } from "../../lib/saisie";
 import { dateValide } from "../../lib/periode";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
@@ -59,8 +60,10 @@ function FormulaireDeplacement({
   action: RedActionVue;
   aujourdhui: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampDeplacement>();
-  const suggeres = statutsSuggeres(action.statut);
+  const suggeres = statutsSuggeres(action.statut, langue);
   const [vers, setVers] = useState<string>(suggeres[0]?.valeur ?? "");
   const [motif, setMotif] = useState("");
   const [termineLe, setTermineLe] = useState(aujourdhui);
@@ -69,13 +72,16 @@ function FormulaireDeplacement({
     e.preventDefault();
     const statut = vers as RedStatutAction;
     const erreurs: Partial<Record<ChampDeplacement, string>> = {};
-    if (vers === "") erreurs.vers = "Choisissez un statut.";
+    if (vers === "") erreurs.vers = t("Choisissez un statut.", "Choose a status.");
     const m = texteOuNull(motif);
     if (vers !== "" && exigeMotifAction(statut) && m === null) {
-      erreurs.motif = "Un motif est demandé pour ce statut.";
+      erreurs.motif = t(
+        "Un motif est demandé pour ce statut.",
+        "A reason is required for this status.",
+      );
     }
     if (vers !== "" && exigeDateFinAction(statut) && dateValide(termineLe) === null) {
-      erreurs.termine_le = "Saisissez la date de fin.";
+      erreurs.termine_le = t("Saisissez la date de fin.", "Enter the end date.");
     }
     const validation: Resultat<Record<string, unknown>, ChampDeplacement> = Object.keys(erreurs)
       .length > 0
@@ -92,8 +98,8 @@ function FormulaireDeplacement({
       validation,
       (charge) => api.post<RedActionVue>(cheminDeplacementAction(action.id), charge),
       {
-        succes: "Action déplacée.",
-        messageSpecifique: messageRedressement,
+        succes: t("Action déplacée.", "Action moved."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -101,7 +107,10 @@ function FormulaireDeplacement({
   if (suggeres.length === 0) {
     return (
       <p className="mp-texte-doux mp-texte-petit">
-        Une action terminée ou abandonnée ne change plus de statut.
+        {t(
+          "Une action terminée ou abandonnée ne change plus de statut.",
+          "A completed or dropped action no longer changes status.",
+        )}
       </p>
     );
   }
@@ -112,16 +121,16 @@ function FormulaireDeplacement({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Déplacer l'action ${action.numero}`}
+      aria-label={t(`Déplacer l'action ${action.numero}`, `Move action ${action.numero}`)}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Déplacement refusé"
+        titreErreur={t("Déplacement refusé", "Move refused")}
       />
       <Select
-        libelle="Déplacer vers…"
+        libelle={t("Déplacer vers…", "Move to…")}
         value={vers}
         onChange={(e) => setVers(e.target.value)}
         options={suggeres}
@@ -129,7 +138,7 @@ function FormulaireDeplacement({
       />
       {vers !== "" && exigeMotifAction(statut) ? (
         <ZoneTexte
-          libelle="Motif"
+          libelle={t("Motif", "Reason")}
           required
           maxLength={1000}
           value={motif}
@@ -139,7 +148,7 @@ function FormulaireDeplacement({
       ) : null}
       {vers !== "" && exigeDateFinAction(statut) ? (
         <Champ
-          libelle="Date de fin"
+          libelle={t("Date de fin", "End date")}
           type="date"
           required
           value={termineLe}
@@ -148,8 +157,8 @@ function FormulaireDeplacement({
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Déplacement…">
-          Déplacer
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Déplacement…", "Moving…")}>
+          {t("Déplacer", "Move")}
         </Bouton>
       </div>
     </form>
@@ -157,24 +166,31 @@ function FormulaireDeplacement({
 }
 
 function FormulaireCommentaire({ actionId }: { actionId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"commentaire">();
   const [texte, setTexte] = useState("");
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const t = texte.trim();
+    const net = texte.trim();
     const validation: Resultat<{ commentaire: string }, "commentaire"> =
-      t === "" || t.length > 1000
+      net === "" || net.length > 1000
         ? {
             ok: false,
-            erreurs: { commentaire: "Saisissez un commentaire de 1 000 caractères au plus." },
+            erreurs: {
+              commentaire: t(
+                "Saisissez un commentaire de 1 000 caractères au plus.",
+                "Enter a comment of 1,000 characters at most.",
+              ),
+            },
           }
-        : { ok: true, charge: { commentaire: t } };
+        : { ok: true, charge: { commentaire: net } };
     await f.envoyer(
       validation,
       (charge) => api.post<RedActionVue>(cheminCommentairesAction(actionId), charge),
       {
-        succes: "Commentaire ajouté.",
-        messageSpecifique: messageRedressement,
+        succes: t("Commentaire ajouté.", "Comment added."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
         apres: () => setTexte(""),
       },
     );
@@ -185,16 +201,16 @@ function FormulaireCommentaire({ actionId }: { actionId: string }) {
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Commenter l'action"
+      aria-label={t("Commenter l'action", "Comment on the action")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Commentaire refusé"
+        titreErreur={t("Commentaire refusé", "Comment refused")}
       />
       <ZoneTexte
-        libelle="Commentaire"
+        libelle={t("Commentaire", "Comment")}
         required
         maxLength={1000}
         value={texte}
@@ -202,8 +218,8 @@ function FormulaireCommentaire({ actionId }: { actionId: string }) {
         erreur={f.erreurs.commentaire}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Envoi…">
-          Commenter
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Envoi…", "Sending…")}>
+          {t("Commenter", "Comment")}
         </Bouton>
       </div>
     </form>
@@ -219,6 +235,8 @@ function CarteAction({
   colonne: readonly CarteRang[];
   outils: OutilsCarte;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -240,7 +258,7 @@ function CarteAction({
       }
       rafraichir();
     } catch (e) {
-      setErreur(messageRedressement(e));
+      setErreur(messageRedressement(e, langue));
       refAlerte.current?.focus();
     } finally {
       setEnCours(false);
@@ -251,27 +269,39 @@ function CarteAction({
   return (
     <li className="mp-red-action">
       <p className="mp-red-action__titre">
-        <span className="mp-texte-doux">n° {action.numero} · </span>
+        <span className="mp-texte-doux">
+          {t("n°", "No.")} {action.numero} ·{" "}
+        </span>
         {action.titre}
       </p>
       <div className="mp-red-action__meta">
         <BadgeStatut tonalite="neutre" sansIcone>
-          {libelleVolet(action.volet)}
+          {libelleVolet(action.volet, langue)}
         </BadgeStatut>
-        <span>{libelleDomaine(action.domaine)}</span>
-        <span>Échéance {formaterDate(action.echeance)}</span>
-        {action.en_retard ? <BadgeStatut tonalite="danger">En retard</BadgeStatut> : null}
+        <span>{libelleDomaine(action.domaine, langue)}</span>
+        <span>
+          {t("Échéance", "Due")} {formaterDate(action.echeance, "UTC", langue)}
+        </span>
+        {action.en_retard ? (
+          <BadgeStatut tonalite="danger">{t("En retard", "Overdue")}</BadgeStatut>
+        ) : null}
       </div>
-      <p className="mp-texte-petit">Responsable : {action.responsable.nom}</p>
+      <p className="mp-texte-petit">
+        {t("Responsable :", "Owner:")} {action.responsable.nom}
+      </p>
       {action.levier ? <ResumeImpact impact={action.levier.impact} /> : null}
       {action.motif ? (
-        <p className="mp-texte-petit mp-red-texte-libre">Motif : {action.motif}</p>
+        <p className="mp-texte-petit mp-red-texte-libre">
+          {t("Motif :", "Reason:")} {action.motif}
+        </p>
       ) : null}
       {action.termine_le ? (
-        <p className="mp-texte-petit">Terminée le {formaterDate(action.termine_le)}</p>
+        <p className="mp-texte-petit">
+          {t("Terminée le", "Completed on")} {formaterDate(action.termine_le, "UTC", langue)}
+        </p>
       ) : null}
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre="Déplacement refusé">
+        <Alerte ref={refAlerte} tonalite="danger" titre={t("Déplacement refusé", "Move refused")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -285,22 +315,28 @@ function CarteAction({
                 disabled={
                   enCours || majsRangApresDeplacement(colonne, action.id, "monter") === null
                 }
-                aria-label={`Monter l'action ${action.numero}`}
+                aria-label={t(
+                  `Monter l'action ${action.numero}`,
+                  `Move action ${action.numero} up`,
+                )}
                 onClick={() => void monterOuDescendre("monter")}
               >
                 <Icone nom="flecheHaut" taille={16} />
-                <span>Monter</span>
+                <span>{t("Monter", "Move up")}</span>
               </Bouton>
               <Bouton
                 variante="discret"
                 disabled={
                   enCours || majsRangApresDeplacement(colonne, action.id, "descendre") === null
                 }
-                aria-label={`Descendre l'action ${action.numero}`}
+                aria-label={t(
+                  `Descendre l'action ${action.numero}`,
+                  `Move action ${action.numero} down`,
+                )}
                 onClick={() => void monterOuDescendre("descendre")}
               >
                 <Icone nom="flecheBas" taille={16} />
-                <span>Descendre</span>
+                <span>{t("Descendre", "Move down")}</span>
               </Bouton>
             </>
           ) : null}
@@ -310,7 +346,7 @@ function CarteAction({
               aria-expanded={panneau === "deplacer"}
               onClick={() => bascule("deplacer")}
             >
-              Déplacer vers…
+              {t("Déplacer vers…", "Move to…")}
             </Bouton>
           ) : null}
           {!terminal ? (
@@ -319,7 +355,7 @@ function CarteAction({
               aria-expanded={panneau === "modifier"}
               onClick={() => bascule("modifier")}
             >
-              Modifier
+              {t("Modifier", "Edit")}
             </Bouton>
           ) : null}
           <Bouton
@@ -327,7 +363,7 @@ function CarteAction({
             aria-expanded={panneau === "commenter"}
             onClick={() => bascule("commenter")}
           >
-            Commenter
+            {t("Commenter", "Comment")}
           </Bouton>
         </div>
       ) : null}
@@ -381,6 +417,8 @@ export function KanbanActions({
   aujourdhui: string;
   peutAssignerTache: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const outils: OutilsCarte = {
     dossierId,
     peutEcrire,
@@ -399,10 +437,10 @@ export function KanbanActions({
           return (
             <section key={c} className="mp-red-colonne" aria-labelledby={`colonne-${c}`}>
               <h3 id={`colonne-${c}`} className="mp-red-colonne__titre">
-                {libelleStatutAction(c)} ({liste.length})
+                {libelleStatutAction(c, langue)} ({liste.length})
               </h3>
               {liste.length === 0 ? (
-                <p className="mp-texte-doux mp-texte-petit">Aucune action.</p>
+                <p className="mp-texte-doux mp-texte-petit">{t("Aucune action.", "No action.")}</p>
               ) : (
                 <ul className="mp-red-colonne__liste">
                   {liste.map((a) => (
@@ -416,7 +454,9 @@ export function KanbanActions({
       </div>
       {kanban.abandonnees.length > 0 ? (
         <details className="mp-details">
-          <summary>Abandonnées ({kanban.abandonnees.length})</summary>
+          <summary>
+            {t("Abandonnées", "Dropped")} ({kanban.abandonnees.length})
+          </summary>
           <ul className="mp-red-colonne__liste">
             {kanban.abandonnees.map((a) => (
               <CarteAction

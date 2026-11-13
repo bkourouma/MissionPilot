@@ -5,11 +5,13 @@
  */
 import {
   codeReferentielSchema,
+  creerTraduire,
+  type Langue,
   rubriqueCreationSchema,
   rubriqueModificationSchema,
 } from "@missionpilot/shared";
 import type { RubriqueVersion } from "./methodes";
-import { aDesErreurs, MESSAGE_CODE, vide } from "./methodes-editeur";
+import { aDesErreurs, messageCode, vide } from "./methodes-editeur";
 import type { Resultat } from "./saisie";
 
 type RubriqueCreationCorps = ReturnType<typeof rubriqueCreationSchema.parse>;
@@ -73,7 +75,9 @@ export function saisieDepuisRubrique(r: RubriqueVersion): SaisieRubrique {
 /** Ancrages saisis → cinq niveaux de l'API ; erreurs indexées `niveau1` … `niveau5`. */
 function construireAncrages(
   s: SaisieRubrique,
+  langue: Langue = "fr",
 ): { ancrages: CasAncrage[] } | { erreurs: Partial<Record<ChampRubrique, string>> } {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampRubrique, string>> = {};
   const ancrages = NIVEAUX_ANCRAGE.map((niveau, i) => {
     const a = s.ancrages[i] ?? { description: "", exemples: [] };
@@ -83,12 +87,18 @@ function construireAncrages(
       const texte = x.texte.trim();
       if (!contexte && !texte) continue;
       if (!contexte || !texte) {
-        erreurs[`niveau${niveau}`] = "Un exemple se compose d'un contexte ET d'un texte.";
+        erreurs[`niveau${niveau}`] = t(
+          "Un exemple se compose d'un contexte ET d'un texte.",
+          "An example consists of a context AND a text.",
+        );
       }
       exemples.push({ contexte, texte });
     }
     if (!a.description.trim()) {
-      erreurs[`niveau${niveau}`] ??= "Décrire le comportement observable de ce niveau.";
+      erreurs[`niveau${niveau}`] ??= t(
+        "Décrire le comportement observable de ce niveau.",
+        "Describe the observable behavior at this level.",
+      );
     }
     return { niveau, description: a.description.trim(), exemples };
   });
@@ -104,16 +114,17 @@ function champsRubrique(s: SaisieRubrique) {
   };
 }
 
-function erreursRubrique(s: SaisieRubrique, creation: boolean) {
+function erreursRubrique(s: SaisieRubrique, creation: boolean, langue: Langue = "fr") {
   const erreurs: Partial<Record<ChampRubrique, string>> = {};
-  if (!s.libelle.trim()) erreurs.libelle = "Libellé obligatoire.";
+  if (!s.libelle.trim())
+    erreurs.libelle = creerTraduire(langue)("Libellé obligatoire.", "Label required.");
   if (creation && !codeReferentielSchema.safeParse(s.code.trim()).success) {
-    erreurs.code = MESSAGE_CODE;
+    erreurs.code = messageCode(langue);
   }
   if (vide(s.dimension) !== null && !codeReferentielSchema.safeParse(s.dimension.trim()).success) {
-    erreurs.dimension = MESSAGE_CODE;
+    erreurs.dimension = messageCode(langue);
   }
-  const a = construireAncrages(s);
+  const a = construireAncrages(s, langue);
   if ("erreurs" in a) Object.assign(erreurs, a.erreurs);
   return { erreurs, ancrages: "ancrages" in a ? a.ancrages : [] };
 }
@@ -121,8 +132,9 @@ function erreursRubrique(s: SaisieRubrique, creation: boolean) {
 /** Création : `POST …/rubriques`. */
 export function validerRubriqueCreation(
   s: SaisieRubrique,
+  langue: Langue = "fr",
 ): Resultat<RubriqueCreationCorps, ChampRubrique> {
-  const { erreurs, ancrages } = erreursRubrique(s, true);
+  const { erreurs, ancrages } = erreursRubrique(s, true, langue);
   if (aDesErreurs(erreurs)) return { ok: false, erreurs };
   const p = rubriqueCreationSchema.safeParse({
     code: s.code.trim(),
@@ -133,21 +145,32 @@ export function validerRubriqueCreation(
     ? { ok: true, charge: p.data }
     : {
         ok: false,
-        erreurs: { ancrages: "Rubrique refusée : vérifier les cinq niveaux." },
+        erreurs: {
+          ancrages: creerTraduire(langue)(
+            "Rubrique refusée : vérifier les cinq niveaux.",
+            "Rubric rejected: check the five levels.",
+          ),
+        },
       };
 }
 
 /** Modification : `PATCH …/rubriques/:id` (le code ne change pas). */
 export function validerRubriqueModification(
   s: SaisieRubrique,
+  langue: Langue = "fr",
 ): Resultat<RubriqueModificationCorps, ChampRubrique> {
-  const { erreurs, ancrages } = erreursRubrique(s, false);
+  const { erreurs, ancrages } = erreursRubrique(s, false, langue);
   if (aDesErreurs(erreurs)) return { ok: false, erreurs };
   const p = rubriqueModificationSchema.safeParse({ ...champsRubrique(s), ancrages });
   return p.success
     ? { ok: true, charge: p.data }
     : {
         ok: false,
-        erreurs: { ancrages: "Rubrique refusée : vérifier les cinq niveaux." },
+        erreurs: {
+          ancrages: creerTraduire(langue)(
+            "Rubrique refusée : vérifier les cinq niveaux.",
+            "Rubric rejected: check the five levels.",
+          ),
+        },
       };
 }

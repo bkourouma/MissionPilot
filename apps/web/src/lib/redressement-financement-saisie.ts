@@ -6,6 +6,8 @@
  * `redressement-financement-saisie.test.ts`.
  */
 import {
+  creerTraduire,
+  type Langue,
   RED_COVENANT_FREQUENCES,
   RED_COVENANT_OPERATEURS,
   RED_COVENANT_RATIOS,
@@ -40,7 +42,11 @@ type Erreurs<K extends string> = Partial<Record<K, string>>;
 let compteur = 0;
 const nouvelleCle = (prefixe: string) => `${prefixe}-${++compteur}`;
 
-const MSG_MOTIF = "Le motif compte 500 caractères au plus.";
+const msgMotif = (langue: Langue) =>
+  creerTraduire(langue)(
+    "Le motif compte 500 caractères au plus.",
+    "The reason is limited to 500 characters.",
+  );
 
 // --- Covenants ----------------------------------------------------------------------------------------
 
@@ -64,10 +70,14 @@ export const facteurSeuilCovenant = (r: RedCovenantRatio) =>
   formeCovenant(r) === "pourcentage" ? 100 : 10_000;
 
 /** Écriture du seuil dans l'aide : « rapport (1,20) » ou « pourcentage (25) ». */
-export const uniteSeuilCovenant = (r: RedCovenantRatio) =>
+export const uniteSeuilCovenant = (r: RedCovenantRatio, langue: Langue = "fr") =>
   formeCovenant(r) === "pourcentage"
-    ? "pourcentage (par exemple 25 pour 25 %)"
-    : "rapport (par exemple 1,2)";
+    ? langue === "en"
+      ? "percentage (for example 25 for 25%)"
+      : "pourcentage (par exemple 25 pour 25 %)"
+    : langue === "en"
+      ? "ratio (for example 1.2)"
+      : "rapport (par exemple 1,2)";
 
 export function covenantVide(): SaisieCovenant {
   return {
@@ -114,35 +124,56 @@ export function lireSeuilCovenant(texte: string, ratio: RedCovenantRatio): numbe
 
 export function corpsCovenantsDepuisFormulaire(
   s: SaisieCovenants,
+  langue: Langue = "fr",
 ): Resultat<RedCovenantsVersionCreation, ChampCovenants> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampCovenants> = {};
   const covenants: RedCovenantsVersionCreation["covenants"] = [];
   if (s.covenants.length > RED_COVENANTS_PAR_VERSION_MAX) {
-    erreurs.covenants = `${RED_COVENANTS_PAR_VERSION_MAX} covenants au plus par version.`;
+    erreurs.covenants = t(
+      `${RED_COVENANTS_PAR_VERSION_MAX} covenants au plus par version.`,
+      `${RED_COVENANTS_PAR_VERSION_MAX} covenants at most per version.`,
+    );
   }
   s.covenants.forEach((c, i) => {
     if (erreurs.covenants) return;
     const numero = i + 1;
     if (!(RED_COVENANT_RATIOS as readonly string[]).includes(c.ratio)) {
-      erreurs.covenants = `Covenant ${numero} : choisissez un ratio de la liste.`;
+      erreurs.covenants = t(
+        `Covenant ${numero} : choisissez un ratio de la liste.`,
+        `Covenant ${numero}: choose a ratio from the list.`,
+      );
       return;
     }
     if (!(RED_COVENANT_OPERATEURS as readonly string[]).includes(c.operateur)) {
-      erreurs.covenants = `Covenant ${numero} : choisissez plancher ou plafond.`;
+      erreurs.covenants = t(
+        `Covenant ${numero} : choisissez plancher ou plafond.`,
+        `Covenant ${numero}: choose floor or ceiling.`,
+      );
       return;
     }
     if (!(RED_COVENANT_FREQUENCES as readonly string[]).includes(c.frequence)) {
-      erreurs.covenants = `Covenant ${numero} : choisissez une fréquence de la liste.`;
+      erreurs.covenants = t(
+        `Covenant ${numero} : choisissez une fréquence de la liste.`,
+        `Covenant ${numero}: choose a frequency from the list.`,
+      );
       return;
     }
     const seuil = lireSeuilCovenant(c.seuil, c.ratio);
     if (seuil === null || Number.isNaN(seuil)) {
-      erreurs.covenants = `Covenant ${numero} : saisissez un seuil lisible (${uniteSeuilCovenant(c.ratio)}, au plus ${formeCovenant(c.ratio) === "pourcentage" ? "deux" : "quatre"} décimales).`;
+      const pourcent = formeCovenant(c.ratio) === "pourcentage";
+      erreurs.covenants = t(
+        `Covenant ${numero} : saisissez un seuil lisible (${uniteSeuilCovenant(c.ratio)}, au plus ${pourcent ? "deux" : "quatre"} décimales).`,
+        `Covenant ${numero}: enter a readable threshold (${uniteSeuilCovenant(c.ratio, langue)}, at most ${pourcent ? "two" : "four"} decimals).`,
+      );
       return;
     }
     const preteur = texteOuNull(c.preteur);
     if (preteur !== null && preteur.length > 120) {
-      erreurs.covenants = `Covenant ${numero} : le prêteur compte 120 caractères au plus.`;
+      erreurs.covenants = t(
+        `Covenant ${numero} : le prêteur compte 120 caractères au plus.`,
+        `Covenant ${numero}: the lender is limited to 120 characters.`,
+      );
       return;
     }
     covenants.push({
@@ -158,7 +189,10 @@ export function corpsCovenantsDepuisFormulaire(
     for (const [i, c] of covenants.entries()) {
       const cle = `${c.ratio}|${c.operateur}`;
       if (vus.has(cle)) {
-        erreurs.covenants = `Covenant ${i + 1} : un même ratio ne porte pas deux fois le même opérateur.`;
+        erreurs.covenants = t(
+          `Covenant ${i + 1} : un même ratio ne porte pas deux fois le même opérateur.`,
+          `Covenant ${i + 1}: a ratio cannot carry the same operator twice.`,
+        );
         break;
       }
       vus.set(cle, c.seuil_pb);
@@ -167,14 +201,17 @@ export function corpsCovenantsDepuisFormulaire(
       for (const [i, c] of covenants.entries()) {
         const plafond = c.operateur === "min" ? vus.get(`${c.ratio}|max`) : undefined;
         if (plafond !== undefined && c.seuil_pb > plafond) {
-          erreurs.covenants = `Covenant ${i + 1} : le plancher d'un ratio ne dépasse pas son plafond.`;
+          erreurs.covenants = t(
+            `Covenant ${i + 1} : le plancher d'un ratio ne dépasse pas son plafond.`,
+            `Covenant ${i + 1}: a ratio's floor cannot exceed its ceiling.`,
+          );
           break;
         }
       }
     }
   }
   const motif = texteOuNull(s.motif);
-  if (motif !== null && motif.length > 500) erreurs.motif = MSG_MOTIF;
+  if (motif !== null && motif.length > 500) erreurs.motif = msgMotif(langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { covenants, ...(motif !== null ? { motif } : {}) } };
 }
@@ -290,18 +327,30 @@ export function appliquerProposition(
 }
 
 /** Compte rendu d'un pré-remplissage (lignes proposées, échéances hors du plan). */
-export function messageProposition(p: RedFinancementPropositionVue): string {
+export function messageProposition(p: RedFinancementPropositionVue, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const hors = p.anterieures + p.ulterieures;
   const parties = [
-    `${p.lignes.length} ligne(s) proposée(s), non enregistrée(s) : relisez-les avant d'enregistrer.`,
+    t(
+      `${p.lignes.length} ligne(s) proposée(s), non enregistrée(s) : relisez-les avant d'enregistrer.`,
+      `${p.lignes.length} line(s) proposed, not saved: review them before saving.`,
+    ),
   ];
   if (hors > 0) {
     parties.push(
-      `${p.anterieures} échéance(s) antérieure(s) et ${p.ulterieures} postérieure(s) au plan ne sont pas reprises.`,
+      t(
+        `${p.anterieures} échéance(s) antérieure(s) et ${p.ulterieures} postérieure(s) au plan ne sont pas reprises.`,
+        `${p.anterieures} due date(s) before and ${p.ulterieures} after the plan are not carried over.`,
+      ),
     );
   }
   if (p.besoin_hors_plan) {
-    parties.push("Le besoin de financement de la trésorerie tombe hors de la période du plan.");
+    parties.push(
+      t(
+        "Le besoin de financement de la trésorerie tombe hors de la période du plan.",
+        "The cash financing need falls outside the plan period.",
+      ),
+    );
   }
   return parties.join(" ");
 }
@@ -309,19 +358,33 @@ export function messageProposition(p: RedFinancementPropositionVue): string {
 export function corpsFinancementDepuisFormulaire(
   s: SaisieFinancement,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<RedFinancementVersionCreation, ChampFinancement> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampFinancement> = {};
   if (dateValide(s.date_debut) === null) {
-    erreurs.date_debut = "Date illisible : saisissez une date entre 2000 et 2100.";
+    erreurs.date_debut = t(
+      "Date illisible : saisissez une date entre 2000 et 2100.",
+      "Unreadable date: enter a date between 2000 and 2100.",
+    );
   } else if (!estPremierDuMois(s.date_debut)) {
-    erreurs.date_debut = "Un premier jour de mois est attendu.";
+    erreurs.date_debut = t(
+      "Un premier jour de mois est attendu.",
+      "A first day of the month is expected.",
+    );
   }
   if (!(RED_FINANCEMENT_TYPES_PERIODE as readonly string[]).includes(s.type_periode)) {
-    erreurs.type_periode = "Choisissez des années ou des semestres.";
+    erreurs.type_periode = t(
+      "Choisissez des années ou des semestres.",
+      "Choose years or half-years.",
+    );
   }
   const nombre = lireEntier(s.nombre_periodes, 1, RED_FINANCEMENT_PERIODES_MAX);
   if (nombre === null || Number.isNaN(nombre)) {
-    erreurs.nombre_periodes = `Saisissez un nombre de périodes de 1 à ${RED_FINANCEMENT_PERIODES_MAX}.`;
+    erreurs.nombre_periodes = t(
+      `Saisissez un nombre de périodes de 1 à ${RED_FINANCEMENT_PERIODES_MAX}.`,
+      `Enter a number of periods from 1 to ${RED_FINANCEMENT_PERIODES_MAX}.`,
+    );
   }
   const lignes: RedFinancementVersionCreation["lignes"] = [];
   s.lignes.forEach((l, i) => {
@@ -330,29 +393,47 @@ export function corpsFinancementDepuisFormulaire(
     if (l.montant.trim() === "") return;
     const montant = lireMontantRed(l.montant, devise);
     if (montant === null || Number.isNaN(montant)) {
-      erreurs.lignes = `Ligne ${numero} : saisissez un montant positif lisible.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : saisissez un montant positif lisible.`,
+        `Line ${numero}: enter a readable positive amount.`,
+      );
       return;
     }
     if (montant < 1) {
-      erreurs.lignes = `Ligne ${numero} : le montant doit être supérieur à zéro (laissez vide pour ne rien prévoir).`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : le montant doit être supérieur à zéro (laissez vide pour ne rien prévoir).`,
+        `Line ${numero}: the amount must be greater than zero (leave empty to plan nothing).`,
+      );
       return;
     }
     const periode = lireEntier(l.periode, 1, RED_FINANCEMENT_PERIODES_MAX);
     if (periode === null || Number.isNaN(periode)) {
-      erreurs.lignes = `Ligne ${numero} : choisissez une période.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : choisissez une période.`,
+        `Line ${numero}: choose a period.`,
+      );
       return;
     }
     if (typeof nombre === "number" && !Number.isNaN(nombre) && periode > nombre) {
-      erreurs.lignes = `Ligne ${numero} : la période dépasse le nombre de périodes du plan.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : la période dépasse le nombre de périodes du plan.`,
+        `Line ${numero}: the period exceeds the number of periods in the plan.`,
+      );
       return;
     }
     if (!naturesDuSens(l.sens).includes(l.nature)) {
-      erreurs.lignes = `Ligne ${numero} : choisissez une nature de ce sens.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : choisissez une nature de ce sens.`,
+        `Line ${numero}: choose a nature for this direction.`,
+      );
       return;
     }
     const libelle = texteOuNull(l.libelle);
     if (libelle !== null && libelle.length > 200) {
-      erreurs.lignes = `Ligne ${numero} : le libellé compte 200 caractères au plus.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : le libellé compte 200 caractères au plus.`,
+        `Line ${numero}: the label is limited to 200 characters.`,
+      );
       return;
     }
     lignes.push({
@@ -364,10 +445,13 @@ export function corpsFinancementDepuisFormulaire(
     });
   });
   if (lignes.length > RED_FINANCEMENT_LIGNES_MAX) {
-    erreurs.lignes = `${RED_FINANCEMENT_LIGNES_MAX} lignes au plus par version.`;
+    erreurs.lignes = t(
+      `${RED_FINANCEMENT_LIGNES_MAX} lignes au plus par version.`,
+      `${RED_FINANCEMENT_LIGNES_MAX} lines at most per version.`,
+    );
   }
   const motif = texteOuNull(s.motif);
-  if (motif !== null && motif.length > 500) erreurs.motif = MSG_MOTIF;
+  if (motif !== null && motif.length > 500) erreurs.motif = msgMotif(langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

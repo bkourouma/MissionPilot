@@ -12,7 +12,7 @@ import {
   MAX_CORRECTIONS_PAR_MESURE,
   messageAnnulationKpi,
   messageKpi,
-  ORIGINE_LIBELLES,
+  libelleOrigine,
   rangCorrection,
   type DefinitionKpi,
   type MesureKpi,
@@ -28,6 +28,7 @@ import {
   type ChampMesure,
   type SaisieMesure,
 } from "../../lib/kpi-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -63,6 +64,8 @@ export function HistoriqueMesures({
   saisir,
   annulerPortail,
 }: HistoriqueMesuresProps) {
+  const t = useT();
+  const langue = useLangue();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [annonce, setAnnonce] = useState<string | null>(null);
   const refAnnonce = useRef<HTMLDivElement>(null);
@@ -84,7 +87,8 @@ export function HistoriqueMesures({
       ) : null}
       <ol className="mp-kpi-historique">
         {lignes.map((m) => {
-          const etat = etatLigneMesure(m, lignes);
+          const etat = etatLigneMesure(m, lignes, langue);
+          const dateMesure = formaterDate(m.date_mesure, "UTC", langue);
           const rang = rangCorrection(m, lignes);
           const corrigeable = saisir && m.active;
           const annulable = corrigeable && (m.origine === "cabinet" || annulerPortail);
@@ -96,48 +100,56 @@ export function HistoriqueMesures({
             >
               <div className="mp-kpi-ligne__entete">
                 <p className="mp-kpi-ligne__date">
-                  {formaterDate(m.date_mesure)}
-                  <span className="mp-texte-doux"> · {libellePeriode(m.periode)}</span>
+                  {dateMesure}
+                  <span className="mp-texte-doux"> · {libellePeriode(m.periode, langue)}</span>
                 </p>
                 <span className="mp-badges">
                   <BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>
                   <BadgeStatut tonalite="neutre" sansIcone>
-                    {ORIGINE_LIBELLES[m.origine]}
+                    {libelleOrigine(m.origine, langue)}
                   </BadgeStatut>
                 </span>
               </div>
               <p className="mp-kpi-ligne__valeur">
-                {m.annulation ? "Annulation de la mesure" : formaterValeurKpi(m.valeur, kpi.unite)}
+                {m.annulation
+                  ? t("Annulation de la mesure", "Measurement cancellation")
+                  : formaterValeurKpi(m.valeur, kpi.unite, langue)}
               </p>
               <dl className="mp-kpi-ligne__details">
                 {m.remplace_id && !m.annulation ? (
                   <div>
-                    <dt>Nature</dt>
-                    <dd>Correction d&apos;une mesure précédente</dd>
+                    <dt>{t("Nature", "Type")}</dt>
+                    <dd>
+                      {t(
+                        "Correction d'une mesure précédente",
+                        "Correction of a previous measurement",
+                      )}
+                    </dd>
                   </div>
                 ) : null}
                 {m.motif ? (
                   <div>
-                    <dt>Motif</dt>
+                    <dt>{t("Motif", "Reason")}</dt>
                     <dd className="mp-texte-preserve">{m.motif}</dd>
                   </div>
                 ) : null}
                 {m.commentaire ? (
                   <div>
-                    <dt>Commentaire</dt>
+                    <dt>{t("Commentaire", "Comment")}</dt>
                     <dd className="mp-texte-preserve">{m.commentaire}</dd>
                   </div>
                 ) : null}
                 {m.justificatif ? (
                   <div>
-                    <dt>Justificatif</dt>
+                    <dt>{t("Justificatif", "Supporting document")}</dt>
                     <dd className="mp-coupure">{m.justificatif}</dd>
                   </div>
                 ) : null}
                 <div>
-                  <dt>Saisie</dt>
+                  <dt>{t("Saisie", "Entry")}</dt>
                   <dd>
-                    {formaterDateHeure(m.saisie_le)} par {m.saisie_par.nom ?? "un utilisateur"}
+                    {formaterDateHeure(m.saisie_le, undefined, langue)} {t("par", "by")}{" "}
+                    {m.saisie_par.nom ?? t("un utilisateur", "a user")}
                   </dd>
                 </div>
               </dl>
@@ -147,29 +159,37 @@ export function HistoriqueMesures({
                     variante="secondaire"
                     icone="crayon"
                     aria-expanded={ouvert === "corriger"}
-                    aria-label={`Corriger la mesure du ${formaterDate(m.date_mesure)}`}
+                    aria-label={t(
+                      `Corriger la mesure du ${dateMesure}`,
+                      `Correct the measurement of ${dateMesure}`,
+                    )}
                     onClick={() =>
                       setPanneau(ouvert === "corriger" ? null : { id: m.id, action: "corriger" })
                     }
                   >
-                    Corriger
+                    {t("Corriger", "Correct")}
                   </Bouton>
                   {annulable ? (
                     <Bouton
                       variante="discret"
                       icone="fermer"
                       aria-expanded={ouvert === "annuler"}
-                      aria-label={`Annuler la mesure du ${formaterDate(m.date_mesure)}`}
+                      aria-label={t(
+                        `Annuler la mesure du ${dateMesure}`,
+                        `Cancel the measurement of ${dateMesure}`,
+                      )}
                       onClick={() =>
                         setPanneau(ouvert === "annuler" ? null : { id: m.id, action: "annuler" })
                       }
                     >
-                      Annuler la mesure
+                      {t("Annuler la mesure", "Cancel the measurement")}
                     </Bouton>
                   ) : (
                     <p className="mp-texte-doux mp-texte-petit">
-                      Saisie depuis le portail : seul un responsable de la mission peut
-                      l&apos;annuler.
+                      {t(
+                        "Saisie depuis le portail : seul un responsable de la mission peut l'annuler.",
+                        "Entered from the portal: only an engagement lead can cancel it.",
+                      )}
                     </p>
                   )}
                 </div>
@@ -182,7 +202,10 @@ export function HistoriqueMesures({
                   rang={rang}
                   onSucces={() =>
                     reussi(
-                      `Correction enregistrée pour le ${formaterDate(m.date_mesure)} : l'ancienne valeur reste dans l'historique.`,
+                      t(
+                        `Correction enregistrée pour le ${dateMesure} : l'ancienne valeur reste dans l'historique.`,
+                        `Correction saved for ${dateMesure}: the old value stays in the history.`,
+                      ),
                     )
                   }
                 />
@@ -192,7 +215,10 @@ export function HistoriqueMesures({
                   mesure={m}
                   onSucces={() =>
                     reussi(
-                      `Mesure du ${formaterDate(m.date_mesure)} annulée : la date peut être saisie à nouveau.`,
+                      t(
+                        `Mesure du ${dateMesure} annulée : la date peut être saisie à nouveau.`,
+                        `Measurement of ${dateMesure} cancelled: the date can be entered again.`,
+                      ),
                     )
                   }
                 />
@@ -218,6 +244,8 @@ function FormulaireCorrection({
   rang: number;
   onSucces: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampMesure>();
   const [s, setS] = useState<SaisieMesure>({
     date_mesure: mesure.date_mesure,
@@ -233,9 +261,9 @@ function FormulaireCorrection({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerCorrection(s, kpi, aujourdhui),
+      validerCorrection(s, kpi, aujourdhui, langue),
       (charge) => api.post<MesureKpi>(cheminCorrectionMesure(mesure.id), charge),
-      { messageSpecifique: messageKpi, apres: onSucces },
+      { messageSpecifique: (err) => messageKpi(err, langue), apres: onSucces },
     );
   }
 
@@ -245,19 +273,25 @@ function FormulaireCorrection({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Corriger la mesure du ${formaterDate(mesure.date_mesure)}`}
+      aria-label={t(
+        `Corriger la mesure du ${formaterDate(mesure.date_mesure, "UTC", langue)}`,
+        `Correct the measurement of ${formaterDate(mesure.date_mesure, "UTC", langue)}`,
+      )}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Correction refusée"
+        titreErreur={t("Correction refusée", "Correction refused")}
       />
       <p className="mp-texte-doux mp-texte-petit">
-        {`La correction crée une nouvelle ligne ; l'ancienne reste visible. ${MAX_CORRECTIONS_PAR_MESURE} corrections successives au plus par mesure${rang > 0 ? ` (celle-ci en compte déjà au moins ${rang})` : ""} : au-delà, annulez la mesure puis saisissez-la à nouveau.`}
+        {t(
+          `La correction crée une nouvelle ligne ; l'ancienne reste visible. ${MAX_CORRECTIONS_PAR_MESURE} corrections successives au plus par mesure${rang > 0 ? ` (celle-ci en compte déjà au moins ${rang})` : ""} : au-delà, annulez la mesure puis saisissez-la à nouveau.`,
+          `The correction creates a new line; the old one stays visible. At most ${MAX_CORRECTIONS_PAR_MESURE} successive corrections per measurement${rang > 0 ? ` (this one already has at least ${rang})` : ""}: beyond that, cancel the measurement then enter it again.`,
+        )}
       </p>
       <div className="mp-grille-champs">
         <Champ
-          libelle="Date de la mesure"
+          libelle={t("Date de la mesure", "Measurement date")}
           type="date"
           required
           min={kpi.debut_suivi}
@@ -267,7 +301,7 @@ function FormulaireCorrection({
           erreur={f.erreurs.date_mesure}
         />
         <Champ
-          libelle={`Valeur corrigée (${kpi.unite})`}
+          libelle={`${t("Valeur corrigée", "Corrected value")} (${kpi.unite})`}
           required
           inputMode="decimal"
           autoComplete="off"
@@ -277,17 +311,17 @@ function FormulaireCorrection({
         />
       </div>
       <ZoneTexte
-        libelle="Motif de la correction"
+        libelle={t("Motif de la correction", "Reason for the correction")}
         required
         rows={2}
         maxLength={MOTIF_MAX}
         value={s.motif}
         onChange={maj("motif")}
         erreur={f.erreurs.motif}
-        aide="Obligatoire : il reste dans l'historique."
+        aide={t("Obligatoire : il reste dans l'historique.", "Required: it stays in the history.")}
       />
       <ZoneTexte
-        libelle="Commentaire"
+        libelle={t("Commentaire", "Comment")}
         rows={2}
         maxLength={COMMENTAIRE_MAX}
         value={s.commentaire}
@@ -295,15 +329,19 @@ function FormulaireCorrection({
         erreur={f.erreurs.commentaire}
       />
       <Champ
-        libelle="Justificatif"
+        libelle={t("Justificatif", "Supporting document")}
         maxLength={JUSTIFICATIF_MAX}
         value={s.justificatif}
         onChange={maj("justificatif")}
         erreur={f.erreurs.justificatif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la correction
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
       </div>
     </form>
@@ -311,15 +349,20 @@ function FormulaireCorrection({
 }
 
 function FormulaireAnnulation({ mesure, onSucces }: { mesure: MesureKpi; onSucces: () => void }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerAnnulation(motif),
+      validerAnnulation(motif, langue),
       (charge) => api.post<MesureKpi>(cheminAnnulationMesure(mesure.id), charge),
-      { messageSpecifique: (err) => messageAnnulationKpi(err, mesure.origine), apres: onSucces },
+      {
+        messageSpecifique: (err) => messageAnnulationKpi(err, mesure.origine, langue),
+        apres: onSucces,
+      },
     );
   }
 
@@ -329,35 +372,43 @@ function FormulaireAnnulation({ mesure, onSucces }: { mesure: MesureKpi; onSucce
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Annuler la mesure du ${formaterDate(mesure.date_mesure)}`}
+      aria-label={t(
+        `Annuler la mesure du ${formaterDate(mesure.date_mesure, "UTC", langue)}`,
+        `Cancel the measurement of ${formaterDate(mesure.date_mesure, "UTC", langue)}`,
+      )}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Annulation refusée"
+        titreErreur={t("Annulation refusée", "Cancellation refused")}
       />
       <p className="mp-texte-doux mp-texte-petit">
-        L&apos;annulation ajoute une ligne sans valeur ; la mesure annulée reste visible et la date
-        peut ensuite être saisie à nouveau.
+        {t(
+          "L'annulation ajoute une ligne sans valeur ; la mesure annulée reste visible et la date peut ensuite être saisie à nouveau.",
+          "The cancellation adds a line without a value; the cancelled measurement stays visible and the date can then be entered again.",
+        )}
       </p>
       <ZoneTexte
-        libelle="Motif de l'annulation"
+        libelle={t("Motif de l'annulation", "Reason for the cancellation")}
         required
         rows={2}
         maxLength={MOTIF_MAX}
         value={motif}
         onChange={(e) => setMotif(e.target.value)}
         erreur={f.erreurs.motif}
-        aide="Obligatoire : il reste dans l'historique (ex. « Saisie en double »)."
+        aide={t(
+          "Obligatoire : il reste dans l'historique (ex. « Saisie en double »).",
+          'Required: it stays in the history (e.g. "Duplicate entry").',
+        )}
       />
       <div className="mp-actions-formulaire">
         <Bouton
           type="submit"
           variante="danger"
           chargement={f.enCours}
-          texteChargement="Annulation…"
+          texteChargement={t("Annulation…", "Cancelling…")}
         >
-          Confirmer l&apos;annulation
+          {t("Confirmer l'annulation", "Confirm the cancellation")}
         </Bouton>
       </div>
     </form>

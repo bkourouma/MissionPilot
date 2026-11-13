@@ -21,21 +21,27 @@ import {
   formaterValeurFacteur,
   formaterValeurFait,
   grouperParCategorie,
-  STATUT_ETAT,
-  STATUT_FAIT,
+  statutEtat,
+  statutFait,
   type VueDossier,
 } from "../../../../lib/dossier";
 import { formaterDate, formaterMontantMineur } from "../../../../lib/format";
 import { estIdentifiant } from "../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Dossier client" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Dossier client", "Client file") };
+}
 
 /** Vue d'ensemble du dossier : fiabilité, propositions, profil, facteurs, finances. */
 export default async function PageDossier({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const peutEcrire = aPermission(utilisateur.roles, "dossier.ecrire");
   const r = await chargerServeur<VueDossier>(`/api/dossiers/${id}`);
   if (!r.ok && r.statut === 404) notFound();
@@ -43,11 +49,11 @@ export default async function PageDossier({ params }: { params: Promise<{ id: st
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Dossier client"
-          retour={{ href: "/dossiers", libelle: "Dossiers clients" }}
+          titre={t("Dossier client", "Client file")}
+          retour={{ href: "/dossiers", libelle: t("Dossiers clients", "Client files") }}
         />
         <EtatErreur
-          titre="Le dossier n'a pas pu être chargé."
+          titre={t("Le dossier n'a pas pu être chargé.", "The file could not be loaded.")}
           message={r.message}
           hrefReessayer={`/dossiers/${id}`}
         />
@@ -67,10 +73,10 @@ export default async function PageDossier({ params }: { params: Promise<{ id: st
             <>
               <a href={cheminExport(id, "zip")} className={classesBouton("secondaire")} download>
                 <Icone nom="telechargement" />
-                <span>Exporter (ZIP)</span>
+                <span>{t("Exporter (ZIP)", "Export (ZIP)")}</span>
               </a>
               <a href={cheminExport(id, "json")} className={classesBouton("discret")} download>
-                <span>Exporter (JSON)</span>
+                <span>{t("Exporter (JSON)", "Export (JSON)")}</span>
               </a>
             </>
           ) : null
@@ -80,22 +86,32 @@ export default async function PageDossier({ params }: { params: Promise<{ id: st
       <CarteFiabilite fiabilite={d.fiabilite} />
 
       {d.propositions.length > 0 ? (
-        <Carte titre={`Faits à confirmer (${d.propositions.length})`}>
+        <Carte
+          titre={t(
+            `Faits à confirmer (${d.propositions.length})`,
+            `Facts to confirm (${d.propositions.length})`,
+          )}
+        >
           <ul className="mp-pile">
             {d.propositions.map((f) => (
               <li key={f.id} className="mp-pile">
                 <p>
-                  <strong>{f.cle}</strong> : {formaterValeurFait(f.valeur)}{" "}
-                  <BadgeStatut tonalite={STATUT_FAIT[f.statut].tonalite}>
-                    {STATUT_FAIT[f.statut].libelle}
+                  <strong>{f.cle}</strong>
+                  {t(" : ", ": ")}
+                  {formaterValeurFait(f.valeur, langue)}{" "}
+                  <BadgeStatut tonalite={statutFait(f.statut, langue).tonalite}>
+                    {statutFait(f.statut, langue).libelle}
                   </BadgeStatut>
                   {f.origine === "ia" ? (
-                    <BadgeStatut tonalite="neutre">Extrait par l&apos;IA</BadgeStatut>
+                    <BadgeStatut tonalite="neutre">
+                      {t("Extrait par l'IA", "Extracted by AI")}
+                    </BadgeStatut>
                   ) : null}
                 </p>
                 <p>
-                  {formaterSource(f.source)} · fiabilité {f.fiabilite} · au{" "}
-                  {formaterDate(f.date_effet)} · proposé par {f.auteur.nom}
+                  {formaterSource(f.source, langue)} · {t("fiabilité", "reliability")} {f.fiabilite}{" "}
+                  · {t("au", "on")} {formaterDate(f.date_effet, "UTC", langue)} ·{" "}
+                  {t("proposé par", "proposed by")} {f.auteur.nom}
                 </p>
                 {peutEcrire ? (
                   <ActionsFait clientId={id} fait={f} utilisateurId={utilisateur.id} />
@@ -107,19 +123,27 @@ export default async function PageDossier({ params }: { params: Promise<{ id: st
       ) : null}
 
       <Carte
-        titre="Profil de l'entreprise"
+        titre={t("Profil de l'entreprise", "Company profile")}
         actions={
           <Link href={`/dossiers/${id}/faits`} className={classesBouton("discret")}>
-            Tous les faits
+            {t("Tous les faits", "All facts")}
           </Link>
         }
       >
         {d.profil.length === 0 ? (
-          <EtatVide titre="Aucun fait confirmé pour l'instant." icone="trombone">
-            <p>Chaque fait est daté, sourcé et confirmé par un membre de l&apos;équipe.</p>
+          <EtatVide
+            titre={t("Aucun fait confirmé pour l'instant.", "No confirmed fact yet.")}
+            icone="trombone"
+          >
+            <p>
+              {t(
+                "Chaque fait est daté, sourcé et confirmé par un membre de l'équipe.",
+                "Each fact is dated, sourced and confirmed by a team member.",
+              )}
+            </p>
           </EtatVide>
         ) : (
-          grouperParCategorie(d.profil).map((g) => (
+          grouperParCategorie(d.profil, langue).map((g) => (
             <section key={g.categorie} aria-label={g.libelle}>
               <h3 className="mp-section__titre">{g.libelle}</h3>
               <dl className="mp-liste-def">
@@ -127,9 +151,10 @@ export default async function PageDossier({ params }: { params: Promise<{ id: st
                   <div key={f.id}>
                     <dt>{f.cle}</dt>
                     <dd>
-                      {formaterValeurFait(f.valeur)}{" "}
+                      {formaterValeurFait(f.valeur, langue)}{" "}
                       <span>
-                        (au {formaterDate(f.date_effet)} ; {formaterSource(f.source)} ; fiabilité{" "}
+                        ({t("au", "on")} {formaterDate(f.date_effet, "UTC", langue)} ;{" "}
+                        {formaterSource(f.source, langue)} ; {t("fiabilité", "reliability")}{" "}
                         {f.fiabilite})
                       </span>
                     </dd>
@@ -141,78 +166,97 @@ export default async function PageDossier({ params }: { params: Promise<{ id: st
         )}
       </Carte>
 
-      <Carte titre="Facteurs de contexte">
+      <Carte titre={t("Facteurs de contexte", "Context factors")}>
         {d.facteurs.length === 0 ? (
           <p>
-            Aucun facteur renseigné : la fiabilité des comptes et la part de l&apos;informel
-            modulent les analyses.
+            {t(
+              "Aucun facteur renseigné : la fiabilité des comptes et la part de l'informel modulent les analyses.",
+              "No factor entered: the reliability of the accounts and the share of informal activity adjust the analyses.",
+            )}
           </p>
         ) : (
           <Tableau
-            legende="Facteurs de contexte en vigueur"
+            legende={t("Facteurs de contexte en vigueur", "Context factors in force")}
             lignes={d.facteurs}
             cleLigne={(f) => f.id}
             colonnes={[
-              { cle: "code", entete: "Facteur" },
-              { cle: "valeur", entete: "Valeur", rendu: (f) => formaterValeurFacteur(f.valeur) },
-              { cle: "date_effet", entete: "Depuis le", rendu: (f) => formaterDate(f.date_effet) },
-              { cle: "source", entete: "Source", rendu: (f) => formaterSource(f.source) },
+              { cle: "code", entete: t("Facteur", "Factor") },
+              {
+                cle: "valeur",
+                entete: t("Valeur", "Value"),
+                rendu: (f) => formaterValeurFacteur(f.valeur, langue),
+              },
+              {
+                cle: "date_effet",
+                entete: t("Depuis le", "Since"),
+                rendu: (f) => formaterDate(f.date_effet, "UTC", langue),
+              },
+              {
+                cle: "source",
+                entete: "Source",
+                rendu: (f) => formaterSource(f.source, langue),
+              },
             ]}
           />
         )}
         {peutEcrire ? (
           <details className="mp-details">
-            <summary>Renseigner un facteur</summary>
+            <summary>{t("Renseigner un facteur", "Set a factor")}</summary>
             <FormulaireFacteur clientId={id} />
           </details>
         ) : null}
       </Carte>
 
       <Carte
-        titre="Finances multi-exercices"
+        titre={t("Finances multi-exercices", "Multi-year finances")}
         actions={
           <Link href={`/dossiers/${id}/finances`} className={classesBouton("discret")}>
-            {peutEcrire ? "Importer et revoir" : "Détail"}
+            {peutEcrire ? t("Importer et revoir", "Import and review") : t("Détail", "Details")}
           </Link>
         }
       >
         <Tableau
-          legende="États financiers courants"
+          legende={t("États financiers courants", "Current financial statements")}
           lignes={etats}
           cleLigne={(e) => e.id}
-          messageVide="Aucun état financier ingéré."
+          messageVide={t("Aucun état financier ingéré.", "No financial statement ingested.")}
           colonnes={[
             {
               cle: "exercice",
-              entete: "Exercice",
+              entete: t("Exercice", "Fiscal year"),
               rendu: (e) => <Link href={`/dossiers/${id}/finances/${e.id}`}>{e.exercice}</Link>,
             },
             {
               cle: "statut",
-              entete: "Contrôles",
+              entete: t("Contrôles", "Checks"),
               rendu: (e) => (
-                <BadgeStatut tonalite={STATUT_ETAT[e.statut].tonalite}>
-                  {STATUT_ETAT[e.statut].libelle}
-                  {e.controles_ok ? "" : ` (${e.ecarts} écart(s))`}
+                <BadgeStatut tonalite={statutEtat(e.statut, langue).tonalite}>
+                  {statutEtat(e.statut, langue).libelle}
+                  {e.controles_ok ? "" : ` (${e.ecarts} ${t("écart(s)", "gap(s)")})`}
                 </BadgeStatut>
               ),
             },
             {
               cle: "actif",
-              entete: "Total actif",
+              entete: t("Total actif", "Total assets"),
               alignement: "droite",
-              rendu: (e) => formaterMontantMineur(e.totaux.actif, e.devise),
+              rendu: (e) => formaterMontantMineur(e.totaux.actif, e.devise, langue),
             },
             {
               cle: "resultat",
-              entete: "Résultat",
+              entete: t("Résultat", "Result"),
               alignement: "droite",
-              rendu: (e) => formaterMontantMineur(e.totaux.resultat, e.devise),
+              rendu: (e) => formaterMontantMineur(e.totaux.resultat, e.devise, langue),
             },
           ]}
         />
         {d.fiabilite.analyses_indicatives && etats.length > 0 ? (
-          <p>Analyses indicatives : la fiabilité des données du client appelle la prudence.</p>
+          <p>
+            {t(
+              "Analyses indicatives : la fiabilité des données du client appelle la prudence.",
+              "Indicative analyses: the reliability of the client's data calls for caution.",
+            )}
+          </p>
         ) : null}
       </Carte>
     </div>

@@ -4,6 +4,8 @@ import {
   pointsDeControle,
   type ControleNote as ControleNoteVue,
 } from "../../lib/due-diligence";
+import { obtenirLangue } from "../../lib/i18n/serveur";
+import { creerTraduire } from "@missionpilot/shared";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 
@@ -22,44 +24,69 @@ export interface ControleNoteProps {
  * de contrôle (`controlerNoteComite`) en une phrase française, avec le lien vers l'écran à
  * corriger. Un bloquant empêche la soumission ; un avertissement n'empêche rien.
  */
-export function ControleNote({
+export async function ControleNote({
   missionId,
   dossierId,
   controle,
-  titre = "Avant de soumettre la note",
+  titre,
   avecLiens = true,
 }: ControleNoteProps) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
+  const titreBloc = titre ?? t("Avant de soumettre la note", "Before submitting the memo");
   if (!controle) {
     return (
-      <Alerte tonalite="attention" titre={titre} annonce="aucune">
-        <p>Le contrôle de la note n&apos;est pas disponible pour le moment.</p>
+      <Alerte tonalite="attention" titre={titreBloc} annonce="aucune">
+        <p>
+          {t(
+            "Le contrôle de la note n'est pas disponible pour le moment.",
+            "The memo check is not available at the moment.",
+          )}
+        </p>
       </Alerte>
     );
   }
-  const points = pointsDeControle(controle);
+  const points = pointsDeControle(controle, langue);
   if (points.length === 0) {
     return (
-      <Alerte tonalite="succes" titre={titre} annonce="aucune">
-        <p>Aucun point bloquant ni avertissement : la note peut être soumise.</p>
+      <Alerte tonalite="succes" titre={titreBloc} annonce="aucune">
+        <p>
+          {t(
+            "Aucun point bloquant ni avertissement : la note peut être soumise.",
+            "No blocking issue or warning: the memo can be submitted.",
+          )}
+        </p>
       </Alerte>
     );
   }
   return (
-    <Alerte tonalite={controle.soumissible ? "attention" : "danger"} titre={titre} annonce="aucune">
+    <Alerte
+      tonalite={controle.soumissible ? "attention" : "danger"}
+      titre={titreBloc}
+      annonce="aucune"
+    >
       <p>
         {controle.soumissible
-          ? "La note peut être soumise ; ces avertissements méritent un regard."
-          : "La note ne peut pas être soumise tant que les points bloquants ne sont pas corrigés."}
+          ? t(
+              "La note peut être soumise ; ces avertissements méritent un regard.",
+              "The memo can be submitted; these warnings deserve a look.",
+            )
+          : t(
+              "La note ne peut pas être soumise tant que les points bloquants ne sont pas corrigés.",
+              "The memo cannot be submitted until the blocking issues are fixed.",
+            )}
       </p>
       <ul className="mp-dd-points-controle">
         {points.map((p) => (
           <li key={p.code}>
             <BadgeStatut tonalite={p.gravite === "bloquant" ? "danger" : "attention"}>
-              {p.gravite === "bloquant" ? "Bloquant" : "Avertissement"}
+              {p.gravite === "bloquant" ? t("Bloquant", "Blocking") : t("Avertissement", "Warning")}
             </BadgeStatut>{" "}
             {p.libelle}{" "}
             {avecLiens ? (
-              <Link href={hrefEcranDossier(missionId, dossierId, p.ecran)}>Corriger</Link>
+              <Link href={hrefEcranDossier(missionId, dossierId, p.ecran)}>
+                {t("Corriger", "Fix")}
+              </Link>
             ) : null}
           </li>
         ))}

@@ -6,6 +6,7 @@
  * cible versionnée, statut du moteur) : échelle, graduations, coordonnées SVG. Aucun chiffre
  * métier n'est calculé ici ; le tableau qui accompagne le graphique porte toutes les valeurs.
  */
+import { LOCALES_INTL, type Langue } from "@missionpilot/shared";
 import type { StatutKpi } from "./kpi";
 
 export interface PointSerieEntree {
@@ -50,6 +51,8 @@ export interface OptionsGeometrie {
   maxLibelles?: number;
   libellePeriode?: (cle: string) => string;
   libelleValeur?: (v: number) => string;
+  /** Langue des graduations par défaut (français si absente). */
+  langue?: Langue;
 }
 
 const arrondi = (v: number) => Math.round(v * 100) / 100;
@@ -82,7 +85,10 @@ export function echelle(valeurs: readonly number[], intervalles = 4): number[] {
   return Array.from({ length: n + 1 }, (_, i) => net(debut + i * pas));
 }
 
-const compact = new Intl.NumberFormat("fr-FR", { notation: "compact", maximumFractionDigits: 1 });
+const compactParLangue: Record<Langue, Intl.NumberFormat> = {
+  fr: new Intl.NumberFormat(LOCALES_INTL.fr, { notation: "compact", maximumFractionDigits: 1 }),
+  en: new Intl.NumberFormat(LOCALES_INTL.en, { notation: "compact", maximumFractionDigits: 1 }),
+};
 
 function trait(points: readonly { x: number; y: number }[]): string {
   return points.map((p) => `${p.x},${p.y}`).join(" ");
@@ -124,6 +130,7 @@ export function geometrieSerie(
   const hauteur = options.hauteur ?? 220;
   const maxLibelles = Math.max(2, options.maxLibelles ?? 5);
   const libellePeriode = options.libellePeriode ?? ((c: string) => c);
+  const compact = compactParLangue[options.langue ?? "fr"];
   const libelleValeur = options.libelleValeur ?? ((v: number) => compact.format(v));
   const zone = { gauche: 52, droite: largeur - 12, haut: 12, bas: hauteur - 32 };
   const n = entrees.length;

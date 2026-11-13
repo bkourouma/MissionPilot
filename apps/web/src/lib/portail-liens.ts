@@ -1,4 +1,5 @@
 /** Espace client : liens, pagination des listes et résumé des partages de l'accueil. */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import type { ProfilPortail } from "./portail-contrats";
 import { peut } from "./portail-menus";
 import { CHEMIN_PORTAIL } from "./portail-routes";
@@ -56,7 +57,9 @@ const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? pl
 export function resumePartages(
   partages: ProfilPortail["partages"],
   roles: readonly string[],
+  langue: Langue = "fr",
 ): ElementPartage[] {
+  const t = creerTraduire(langue);
   const missions = peut(roles, "portail.missions.lire");
   const nbMissions = partages.missions ?? 0;
   const nbDocuments = partages.documents ?? 0;
@@ -64,21 +67,27 @@ export function resumePartages(
   if (nbMissions > 0) {
     elements.push({
       id: "missions",
-      texte: pluriel(nbMissions, "mission partagée", "missions partagées"),
+      texte:
+        langue === "en"
+          ? `${nbMissions} shared engagement${nbMissions > 1 ? "s" : ""}`
+          : pluriel(nbMissions, "mission partagée", "missions partagées"),
       href: missions ? `${CHEMIN_PORTAIL}/missions` : null,
     });
   }
   if (nbDocuments > 0) {
     elements.push({
       id: "documents",
-      texte: pluriel(nbDocuments, "document mis à disposition", "documents mis à disposition"),
+      texte:
+        langue === "en"
+          ? `${nbDocuments} document${nbDocuments > 1 ? "s" : ""} made available`
+          : pluriel(nbDocuments, "document mis à disposition", "documents mis à disposition"),
       href: missions ? `${CHEMIN_PORTAIL}/missions` : null,
     });
   }
   if (partages.factures === true) {
     elements.push({
       id: "factures",
-      texte: "Factures émises consultables",
+      texte: t("Factures émises consultables", "Issued invoices available to view"),
       href: peut(roles, "portail.factures.lire") ? `${CHEMIN_PORTAIL}/factures` : null,
     });
   }

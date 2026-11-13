@@ -24,12 +24,16 @@ import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { formaterDate } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { hrefRedressement } from "../../../../../../lib/redressement";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
-import { MENTION_TABLEAU, TEXTE_TABLEAU_INTERNE } from "../../../../../../lib/redressement-tableau";
+import { textesTableau } from "../../../../../../lib/redressement-tableau";
 import { chargerTableauDossier } from "../../../../../../lib/redressement-tableau-serveur";
 
-export const metadata: Metadata = { title: "Tableau de bord du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Tableau de bord du redressement", "Turnaround dashboard") };
+}
 
 /**
  * Tableau de bord du dossier (RED-15), réservé au cabinet : voyant de pilotage indicatif et ses
@@ -38,6 +42,9 @@ export const metadata: Metadata = { title: "Tableau de bord du redressement" };
  */
 export default async function PageTableauDeBord({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const tr = await obtenirT();
+  const langue = await obtenirLangue();
+  const tx = textesTableau(langue);
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -52,7 +59,10 @@ export default async function PageTableauDeBord({ params }: { params: Promise<{ 
   if (!charge.ok) {
     return (
       <EtatErreur
-        titre="Le tableau de bord n'a pas pu être chargé."
+        titre={tr(
+          "Le tableau de bord n'a pas pu être chargé.",
+          "The dashboard could not be loaded.",
+        )}
         message={charge.message}
         hrefReessayer={hrefRedressement(id, "tableau-de-bord")}
       />
@@ -66,36 +76,47 @@ export default async function PageTableauDeBord({ params }: { params: Promise<{ 
       <section className="mp-red-section" aria-labelledby="titre-tdb">
         <div className="mp-red-entete">
           <h2 id="titre-tdb" className="mp-red-section__titre">
-            Tableau de bord
+            {tr("Tableau de bord", "Dashboard")}
           </h2>
           <TableauImprimer />
         </div>
         <p className="mp-texte-doux">
-          {t.dossier.client.raison_sociale} · {t.dossier.mission.intitule} · situation au{" "}
-          {formaterDate(t.date_calcul)}
+          {t.dossier.client.raison_sociale} · {t.dossier.mission.intitule} ·{" "}
+          {tr(
+            `situation au ${formaterDate(t.date_calcul)}`,
+            `position as of ${formaterDate(t.date_calcul, "UTC", langue)}`,
+          )}
         </p>
-        <p className="mp-texte-doux mp-tdb-hors-impression">{TEXTE_TABLEAU_INTERNE}</p>
+        <p className="mp-texte-doux mp-tdb-hors-impression">{tx.interne}</p>
       </section>
 
-      <Carte titre="Voyant de pilotage" niveauTitre={3} className="mp-tdb-bloc">
+      <Carte
+        titre={tr("Voyant de pilotage", "Steering light")}
+        niveauTitre={3}
+        className="mp-tdb-bloc"
+      >
         <div className="mp-pile">
           <div className="mp-tdb-voyant-grand">
             <VoyantPilotage voyant={t.voyant.voyant} />
           </div>
           <VoyantPilotageMotifs motifs={t.voyant.motifs} />
           <Alerte tonalite="info" annonce="aucune">
-            <p>{t.mention || MENTION_TABLEAU}</p>
+            <p>{t.mention || tx.mention}</p>
           </Alerte>
         </div>
       </Carte>
 
-      <Carte titre="Indicateurs clés" niveauTitre={3} className="mp-tdb-bloc">
+      <Carte
+        titre={tr("Indicateurs clés", "Key indicators")}
+        niveauTitre={3}
+        className="mp-tdb-bloc"
+      >
         <TableauIndicateurs indicateurs={t.indicateurs} />
       </Carte>
 
       <div className="mp-tdb-grille">
         <TableauBloc bloc="tresorerie" missionId={id} vide={t.tresorerie === null}>
-          {t.tresorerie ? <TableauTresorerie t={t.tresorerie} devise={devise} /> : null}
+          {t.tresorerie ? <TableauTresorerie tresorerie={t.tresorerie} devise={devise} /> : null}
         </TableauBloc>
         <TableauBloc bloc="covenants" missionId={id} vide={t.covenants === null}>
           {t.covenants ? <TableauCovenants c={t.covenants} /> : null}

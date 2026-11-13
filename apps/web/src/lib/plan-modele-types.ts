@@ -1,4 +1,5 @@
 /** Modèle financier du plan : types du résultat du moteur, des versions et de la comparaison. */
+import type { Langue } from "@missionpilot/shared";
 import type { Devise } from "./format";
 
 export type NomScenario = "base" | "optimiste" | "pessimiste";
@@ -8,6 +9,14 @@ export const SCENARIO_LIBELLES: Record<NomScenario, string> = {
   optimiste: "Optimiste",
   pessimiste: "Pessimiste",
 };
+
+export const SCENARIO_LIBELLES_EN: Record<NomScenario, string> = {
+  base: "Base",
+  optimiste: "Optimistic",
+  pessimiste: "Pessimistic",
+};
+export const libelleScenario = (s: NomScenario, langue: Langue = "fr") =>
+  (langue === "en" ? SCENARIO_LIBELLES_EN : SCENARIO_LIBELLES)[s];
 
 export interface CompteResultatPlan {
   chiffreAffaires: number;

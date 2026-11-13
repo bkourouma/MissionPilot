@@ -1,7 +1,12 @@
 /** Services candidats : saisie et résultat du rapprochement (module extrait de `services-candidats.ts`). */
 import { UUID, estDevise, lireEntier } from "./services-candidats-outils";
 import type { ResultatRapprochement, StatutRapprochement } from "./services-candidats-types";
-import { OBJETS_FINANCEMENT, type ObjetFinancement } from "@missionpilot/shared";
+import {
+  OBJETS_FINANCEMENT,
+  creerTraduire,
+  type Langue,
+  type ObjetFinancement,
+} from "@missionpilot/shared";
 import { type Devise } from "./format";
 import { decouperListe, texteOuNull, type Resultat } from "./saisie";
 
@@ -44,10 +49,12 @@ export interface CorpsRapprochement {
 /** Corps de POST /api/guichets-financement/rapprochement : seules les surcharges renseignées. */
 export function validerRapprochement(
   s: SaisieRapprochement,
+  langue: Langue = "fr",
 ): Resultat<CorpsRapprochement, ChampRapprochement> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampRapprochement, string>> = {};
   if (s.client_id !== "" && !UUID.test(s.client_id))
-    erreurs.client_id = "Choisissez dans la liste.";
+    erreurs.client_id = t("Choisissez dans la liste.", "Choose from the list.");
   const profil: NonNullable<CorpsRapprochement["profil"]> = {};
   const pays = texteOuNull(s.pays);
   const secteur = texteOuNull(s.secteur);
@@ -57,31 +64,39 @@ export function validerRapprochement(
     ["secteur", secteur],
     ["taille", taille],
   ] as const) {
-    if (v && v.length > 80) erreurs[champ] = "80 caractères au plus.";
+    if (v && v.length > 80) erreurs[champ] = t("80 caractères au plus.", "80 characters at most.");
   }
   if (pays) profil.pays = pays;
   if (secteur) profil.secteur = secteur;
   if (taille) profil.taille = taille;
   const filieres = decouperListe(s.filieres);
   if (filieres.length > 50 || filieres.some((f) => f.length > 80))
-    erreurs.filieres = "50 éléments de 80 caractères au plus.";
+    erreurs.filieres = t(
+      "50 éléments de 80 caractères au plus.",
+      "50 items of 80 characters at most.",
+    );
   if (filieres.length > 0) profil.filieres = filieres;
   if (s.objet !== "") {
     if (!(OBJETS_FINANCEMENT as readonly string[]).includes(s.objet))
-      erreurs.objet = "Choisissez un objet dans la liste.";
+      erreurs.objet = t("Choisissez un objet dans la liste.", "Choose a purpose from the list.");
     else profil.objet = s.objet as ObjetFinancement;
   }
   const montant = lireEntier(s.montant);
   if (montant !== null) {
-    if (Number.isNaN(montant)) erreurs.montant = "Montant entier positif attendu.";
+    if (Number.isNaN(montant))
+      erreurs.montant = t("Montant entier positif attendu.", "Positive whole amount expected.");
     else profil.montant = montant;
   }
-  if (s.devise !== "" && !estDevise(s.devise)) erreurs.devise = "Choisissez une devise.";
+  if (s.devise !== "" && !estDevise(s.devise))
+    erreurs.devise = t("Choisissez une devise.", "Choose a currency.");
   else if (s.devise !== "") profil.devise = s.devise as Devise;
   if (montant !== null && !Number.isNaN(montant) && s.devise === "")
-    erreurs.devise = "Précisez la devise du montant.";
+    erreurs.devise = t("Précisez la devise du montant.", "Specify the amount currency.");
   if (Object.keys(erreurs).length === 0 && s.client_id === "" && Object.keys(profil).length === 0) {
-    erreurs.client_id = "Choisissez un client ou renseignez au moins un critère.";
+    erreurs.client_id = t(
+      "Choisissez un client ou renseignez au moins un critère.",
+      "Choose a client or fill in at least one criterion.",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {

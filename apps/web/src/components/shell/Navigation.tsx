@@ -10,6 +10,7 @@ import {
   grouperEntrees,
   type EntreeNavigation,
 } from "../../lib/navigation";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
 import { BoutonDeconnexion } from "./BoutonDeconnexion";
 import { LienNavigation } from "./LienNavigation";
@@ -51,6 +52,7 @@ function ListeGroupee({
   idPrefixe: string;
   repliable?: boolean;
 }) {
+  const langue = useLangue();
   const actif = entreeActive(entrees, chemin)?.id;
   const [ouverts, setOuverts] = useState<ReadonlySet<string>>(
     () => new Set(groupesActifs(entrees, chemin)),
@@ -70,7 +72,7 @@ function ListeGroupee({
     });
   return (
     <div className="mp-nav__groupes">
-      {grouperEntrees(entrees).map((g) => {
+      {grouperEntrees(entrees, langue).map((g) => {
         const idTitre = `${idPrefixe}-${g.id}`;
         const idListe = `${idPrefixe}-liste-${g.id}`;
         const ouvert = !repliable || ouverts.has(g.id);
@@ -121,6 +123,7 @@ export function NavigationLaterale({
   roles,
 }: Pick<NavigationProps, "entrees" | "nom" | "roles">) {
   const chemin = usePathname();
+  const t = useT();
   const nav = useRef<HTMLElement>(null);
   // L'entrée active reste visible dans le rail défilant, même au bas d'une longue liste.
   useEffect(() => {
@@ -128,7 +131,11 @@ export function NavigationLaterale({
   }, [chemin]);
   return (
     <div className="mp-rail">
-      <nav ref={nav} className="mp-nav-laterale" aria-label="Navigation principale">
+      <nav
+        ref={nav}
+        className="mp-nav-laterale"
+        aria-label={t("Navigation principale", "Main navigation")}
+      >
         <ListeGroupee entrees={entrees} chemin={chemin} idPrefixe="rail" repliable />
       </nav>
       <div className="mp-rail__utilisateur">
@@ -142,8 +149,8 @@ export function NavigationLaterale({
               href={CHEMIN_SECURITE_COMPTE}
               className="mp-rail__icone"
               aria-current={chemin === CHEMIN_SECURITE_COMPTE ? "page" : undefined}
-              aria-label="Sécurité du compte"
-              title="Sécurité du compte"
+              aria-label={t("Sécurité du compte", "Account security")}
+              title={t("Sécurité du compte", "Account security")}
             >
               <Icone nom="cadenas" />
             </Link>
@@ -158,6 +165,7 @@ export function NavigationLaterale({
 /** Barre basse (téléphone) : premières entrées + bouton « Menu » ouvrant la liste complète. */
 export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
   const chemin = usePathname();
+  const t = useT();
   const dialogue = useRef<HTMLDialogElement>(null);
   const [ouvert, setOuvert] = useState(false);
 
@@ -172,7 +180,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
   const actifBarre = entreeActive(principales, chemin)?.id;
   return (
     <>
-      <nav className="mp-barre-basse" aria-label="Navigation principale">
+      <nav className="mp-barre-basse" aria-label={t("Navigation principale", "Main navigation")}>
         <ul className="mp-barre-basse__liste">
           {principales.map((e) => (
             <li key={e.id}>
@@ -193,7 +201,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
               onClick={() => setOuvert(true)}
             >
               <Icone nom="menu" />
-              <span className="mp-nav__libelle">Menu</span>
+              <span className="mp-nav__libelle">{t("Menu", "Menu")}</span>
             </button>
           </li>
         </ul>
@@ -211,21 +219,21 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
         <div className="mp-menu__contenu">
           <div className="mp-menu__entete">
             <h2 id="mp-menu-titre" className="mp-menu__titre">
-              Menu
+              {t("Menu", "Menu")}
             </h2>
             <button
               type="button"
               className="mp-bouton mp-bouton--discret mp-bouton--icone"
               onClick={() => setOuvert(false)}
             >
-              <Icone nom="fermer" libelle="Fermer le menu" />
+              <Icone nom="fermer" libelle={t("Fermer le menu", "Close menu")} />
             </button>
           </div>
           <p className="mp-menu__utilisateur">
             <strong>{nom}</strong>
             <span>{roles}</span>
           </p>
-          <nav aria-label="Toutes les rubriques">
+          <nav aria-label={t("Toutes les rubriques", "All sections")}>
             <ListeGroupee
               entrees={entrees}
               chemin={chemin}
@@ -240,7 +248,7 @@ export function BarreNavigationBasse({ entrees, nom, roles }: NavigationProps) {
             onClick={() => setOuvert(false)}
           >
             <Icone nom="cadenas" />
-            <span>Sécurité du compte</span>
+            <span>{t("Sécurité du compte", "Account security")}</span>
           </Link>
           <BoutonDeconnexion pleineLargeur />
         </div>

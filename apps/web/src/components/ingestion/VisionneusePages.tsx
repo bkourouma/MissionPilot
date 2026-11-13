@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formaterDate } from "../../lib/format";
 import { Bouton } from "../ui/Bouton";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   formaterCaracteres,
   formaterConfiancePage,
@@ -49,6 +50,8 @@ export function VisionneusePages({
   statut,
   motifEchec = null,
 }: VisionneusePagesProps) {
+  const t = useT();
+  const langue = useLangue();
   const [ouvertes, setOuvertes] = useState<Record<number, EtatPage | undefined>>({});
 
   async function basculer(numero: number) {
@@ -69,18 +72,23 @@ export function VisionneusePages({
   if (textePurge({ texte_purge_le: textePurgeLe })) {
     return (
       <p role="status">
-        Le texte de ce document a été purgé le {formaterDate(textePurgeLe)} conformément à la durée
-        de conservation ; les références de page restent valables.
+        {t(
+          `Le texte de ce document a été purgé le ${formaterDate(textePurgeLe, "UTC", langue)} conformément à la durée de conservation ; les références de page restent valables.`,
+          `The text of this document was purged on ${formaterDate(textePurgeLe, "UTC", langue)} in line with the retention period; page references remain valid.`,
+        )}
       </p>
     );
   }
 
   if (pages.length === 0) {
-    return <p role="status">{messageAucunePage(statut, motifEchec)}</p>;
+    return <p role="status">{messageAucunePage(statut, motifEchec, langue)}</p>;
   }
 
   return (
-    <ul aria-label="Pages du document" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+    <ul
+      aria-label={t("Pages du document", "Document pages")}
+      style={{ listStyle: "none", padding: 0, margin: 0 }}
+    >
       {pages.map((p) => {
         const e = ouvertes[p.numero];
         const citee = pageCitee === p.numero;
@@ -101,24 +109,31 @@ export function VisionneusePages({
             <div
               style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}
             >
-              <strong>Page {p.numero}</strong>
-              {citee ? <span>(page citée)</span> : null}
-              <span>{libelleMethode(p.methode)}</span>
-              <span>{formaterCaracteres(p.nb_caracteres)}</span>
+              <strong>
+                {t("Page", "Page")} {p.numero}
+              </strong>
+              {citee ? <span>{t("(page citée)", "(cited page)")}</span> : null}
+              <span>{libelleMethode(p.methode, langue)}</span>
+              <span>{formaterCaracteres(p.nb_caracteres, langue)}</span>
               {methodeOcr(p.methode) ? (
-                <span>Confiance {formaterConfiancePage(p.confiance_pm)}</span>
+                <span>
+                  {t("Confiance", "Confidence")} {formaterConfiancePage(p.confiance_pm)}
+                </span>
               ) : null}
               <Bouton
                 variante="discret"
                 aria-expanded={ouverte}
                 aria-controls={idTexte}
                 chargement={e?.etat === "chargement"}
-                texteChargement="Chargement…"
+                texteChargement={t("Chargement…", "Loading…")}
                 onClick={() => void basculer(p.numero)}
               >
                 {ouverte
-                  ? `Masquer le texte de la page ${p.numero}`
-                  : `Voir le texte de la page ${p.numero}`}
+                  ? t(
+                      `Masquer le texte de la page ${p.numero}`,
+                      `Hide the text of page ${p.numero}`,
+                    )
+                  : t(`Voir le texte de la page ${p.numero}`, `View the text of page ${p.numero}`)}
               </Bouton>
             </div>
             <div id={idTexte} aria-live="polite">

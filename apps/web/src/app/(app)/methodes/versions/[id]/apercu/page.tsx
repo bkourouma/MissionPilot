@@ -4,6 +4,7 @@ import { ApercuMission } from "../../../../../../components/methodes/ApercuMissi
 import { EnteteDePage } from "../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import {
   hrefApercu,
@@ -13,7 +14,10 @@ import {
 } from "../../../../../../lib/methodes";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Aperçu de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Aperçu de la mission", "Engagement preview") };
+}
 
 /**
  * Aperçu de la mission générée (STD-11) : la version appliquée à un contexte saisi, avec
@@ -23,6 +27,7 @@ export default async function PageApercuMission({ params }: { params: Promise<{ 
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   await exigerPermission("standard.lire");
+  const t = await obtenirT();
   const [r, f] = await Promise.all([
     chargerServeur<VersionDetail>(`/api/methodes/versions/${id}`),
     chargerServeur<{ elements: Facteur[] }>("/api/standard/facteurs"),
@@ -32,11 +37,11 @@ export default async function PageApercuMission({ params }: { params: Promise<{ 
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Aperçu de la mission"
-          retour={{ href: hrefVersion(id), libelle: "Version" }}
+          titre={t("Aperçu de la mission", "Engagement preview")}
+          retour={{ href: hrefVersion(id), libelle: t("Version", "Version") }}
         />
         <EtatErreur
-          titre="L'aperçu n'a pas pu être chargé."
+          titre={t("L'aperçu n'a pas pu être chargé.", "The preview could not be loaded.")}
           message={!r.ok ? r.message : !f.ok ? f.message : ""}
           hrefReessayer={hrefApercu(id)}
         />
@@ -47,12 +52,15 @@ export default async function PageApercuMission({ params }: { params: Promise<{ 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Aperçu de la mission générée"
+        titre={t("Aperçu de la mission générée", "Preview of the generated engagement")}
         retour={{
           href: hrefVersion(id),
-          libelle: `${v.methode.libelle} — version ${v.version.version}`,
+          libelle: `${v.methode.libelle} — ${t("version", "version")} ${v.version.version}`,
         }}
-        soustitre="Voyez la mission que cette version produirait pour un contexte donné : étapes, briques actives, durée type, niveaux de garde et règles déclenchées."
+        soustitre={t(
+          "Voyez la mission que cette version produirait pour un contexte donné : étapes, briques actives, durée type, niveaux de garde et règles déclenchées.",
+          "See the engagement this version would produce for a given context: steps, active building blocks, standard duration, safeguard levels and triggered rules.",
+        )}
       />
       <ApercuMission
         versionId={id}

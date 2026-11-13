@@ -1,8 +1,9 @@
+import { creerTraduire } from "@missionpilot/shared";
 import { formaterDate } from "../../lib/format";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import {
   libelleLienPlan,
-  PHASE_PLAN_LIBELLES,
-  STATUT_ACTION_100J_LIBELLES,
+  libellesDd,
   TONALITE_STATUT_ACTION,
   type ActionPlan100j,
   type PhasePlan,
@@ -21,28 +22,36 @@ export interface FrisePlan100jProps {
   edition: ChoixAction | null;
 }
 
-function plageJours(a: ActionPlan100j): string {
-  return a.jour_debut === a.jour_fin
-    ? `Jour ${a.jour_debut}`
-    : `Jours ${a.jour_debut} à ${a.jour_fin}`;
-}
-
 /**
  * Frise du plan des 100 jours (DD-15) : trois bandes (jours 0–30, 31–60, 61–100) avec les actions,
  * leurs dates (si la date d'opération est connue), leur statut, leur responsable et leurs liens vers
  * une initiative de plan et un indicateur. Un retard est écrit en texte en plus de la couleur.
  * Composant serveur : phases, dates et retards sont calculés par l'API.
  */
-export function FrisePlan100j({ dossierId, actions, avecDates, edition }: FrisePlan100jProps) {
+export async function FrisePlan100j({
+  dossierId,
+  actions,
+  avecDates,
+  edition,
+}: FrisePlan100jProps) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
+  const L = libellesDd(langue);
+  const plageJours = (a: ActionPlan100j): string =>
+    a.jour_debut === a.jour_fin
+      ? t(`Jour ${a.jour_debut}`, `Day ${a.jour_debut}`)
+      : t(`Jours ${a.jour_debut} à ${a.jour_fin}`, `Days ${a.jour_debut} to ${a.jour_fin}`);
   return (
     <div className="mp-frise">
       {PHASES.map((phase) => {
         const duPhase = actions.filter((a) => a.phase === phase);
         return (
-          <section key={phase} className="mp-frise__bande" aria-label={PHASE_PLAN_LIBELLES[phase]}>
-            <h3 className="mp-frise__titre">{PHASE_PLAN_LIBELLES[phase]}</h3>
+          <section key={phase} className="mp-frise__bande" aria-label={L.PHASE[phase]}>
+            <h3 className="mp-frise__titre">{L.PHASE[phase]}</h3>
             {duPhase.length === 0 ? (
-              <p className="mp-texte-doux mp-texte-petit">Aucune action dans cette phase.</p>
+              <p className="mp-texte-doux mp-texte-petit">
+                {t("Aucune action dans cette phase.", "No action in this phase.")}
+              </p>
             ) : (
               <ul className="mp-dd-liste">
                 {duPhase.map((a) => (
@@ -55,26 +64,39 @@ export function FrisePlan100j({ dossierId, actions, avecDates, edition }: FriseP
                     <p className="mp-dd-element__titre">{a.libelle}</p>
                     <span className="mp-dd-meta">
                       <BadgeStatut tonalite={TONALITE_STATUT_ACTION[a.statut_action]}>
-                        {STATUT_ACTION_100J_LIBELLES[a.statut_action]}
+                        {L.STATUT_ACTION[a.statut_action]}
                       </BadgeStatut>
-                      {a.en_retard ? <BadgeStatut tonalite="danger">En retard</BadgeStatut> : null}
+                      {a.en_retard ? (
+                        <BadgeStatut tonalite="danger">{t("En retard", "Overdue")}</BadgeStatut>
+                      ) : null}
                     </span>
                     <p className="mp-texte-petit">
                       {avecDates && a.date_debut && a.date_fin
-                        ? `Du ${formaterDate(a.date_debut)} au ${formaterDate(a.date_fin)} (${plageJours(a).toLowerCase()})`
+                        ? t(
+                            `Du ${formaterDate(a.date_debut)} au ${formaterDate(a.date_fin)} (${plageJours(a).toLowerCase()})`,
+                            `From ${formaterDate(a.date_debut, "UTC", langue)} to ${formaterDate(a.date_fin, "UTC", langue)} (${plageJours(a).toLowerCase()})`,
+                          )
                         : plageJours(a)}
                     </p>
                     {a.description ? (
                       <p className="mp-dd-texte mp-texte-doux">{a.description}</p>
                     ) : null}
                     <p className="mp-texte-petit">
-                      {`Responsable : ${a.responsable ? (a.responsable.nom ?? "utilisateur supprimé") : "non désigné"}`}
+                      {t(
+                        `Responsable : ${a.responsable ? (a.responsable.nom ?? "utilisateur supprimé") : "non désigné"}`,
+                        `Owner: ${a.responsable ? (a.responsable.nom ?? "deleted user") : "not assigned"}`,
+                      )}
                     </p>
-                    <p className="mp-texte-petit">{`Initiative du plan : ${libelleLienPlan(a.plan_element)}`}</p>
-                    <p className="mp-texte-petit">{`Indicateur : ${libelleLienPlan(a.kpi)}`}</p>
+                    <p className="mp-texte-petit">{`${t("Initiative du plan", "Plan initiative")} : ${libelleLienPlan(a.plan_element, langue)}`}</p>
+                    <p className="mp-texte-petit">{`${t("Indicateur", "KPI")} : ${libelleLienPlan(a.kpi, langue)}`}</p>
                     {edition ? (
                       <details className="mp-dd-details">
-                        <summary>{`Corriger l'action « ${a.libelle} »`}</summary>
+                        <summary>
+                          {t(
+                            `Corriger l'action « ${a.libelle} »`,
+                            `Edit the action “${a.libelle}”`,
+                          )}
+                        </summary>
                         <div className="mp-dd-details__corps">
                           <FormulaireAction dossierId={dossierId} choix={edition} action={a} />
                         </div>

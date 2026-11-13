@@ -3,6 +3,7 @@ import "../../../../../components/redressement/redressement.css";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Onglets } from "../../../../../components/ui/Onglets";
 import { formaterDate, libelleDevise } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import {
   libelleSecteur,
   libelleStatutDossier,
@@ -25,6 +26,8 @@ export default async function LayoutRedressement({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   await exigerPermission("redressement.lire");
   const d = await chargerDossierMission(id);
   return (
@@ -34,16 +37,16 @@ export default async function LayoutRedressement({
           <div className="mp-red-entete">
             <h2 className="mp-red-entete__titre">{d.donnees.intitule}</h2>
             <BadgeStatut tonalite={tonaliteStatutDossier(d.donnees.statut)}>
-              {libelleStatutDossier(d.donnees.statut)}
+              {libelleStatutDossier(d.donnees.statut, langue)}
             </BadgeStatut>
             <span className="mp-texte-doux">
-              {libelleSecteur(d.donnees.secteur)} · {libelleDevise(d.donnees.devise)} · ouvert le{" "}
-              {formaterDate(d.donnees.ouvert_le)}
+              {libelleSecteur(d.donnees.secteur, langue)} · {libelleDevise(d.donnees.devise)} ·{" "}
+              {t("ouvert le", "opened on")} {formaterDate(d.donnees.ouvert_le, "UTC", langue)}
             </span>
           </div>
           <Onglets
-            libelle="Sections du dossier de redressement"
-            pages={sousPagesRedressement(id)}
+            libelle={t("Sections du dossier de redressement", "Turnaround file sections")}
+            pages={sousPagesRedressement(id, langue)}
           />
         </>
       ) : null}

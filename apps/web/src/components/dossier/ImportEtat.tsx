@@ -7,13 +7,14 @@ import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { ErreurApi, api, messageErreur } from "../../lib/api";
 import {
-  AIDE_IMPORT_ETAT,
+  aideImportEtat,
   cheminApiDossier,
   cheminImportExcel,
   erreursImport,
-  STATUT_ETAT,
+  statutEtat,
   validerImportEtat,
   type ChampImportEtat,
   type EtatDetaille,
@@ -29,6 +30,8 @@ import { televerser } from "../../lib/televersement";
  * bloque l'import : rien n'est écrit, chaque ligne en erreur est citée.
  */
 export function ImportEtat({ clientId }: { clientId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [s, setS] = useState<SaisieImportEtat>({
     exercice: "",
@@ -51,7 +54,7 @@ export function ImportEtat({ clientId }: { clientId: string }) {
     ev.preventDefault();
     setEchec(null);
     setResultat(null);
-    const v = validerImportEtat(s, fichier);
+    const v = validerImportEtat(s, fichier, langue);
     if (!v.ok) return setErreurs(v.erreurs);
     setErreurs({});
     setEnCours(true);
@@ -91,12 +94,12 @@ export function ImportEtat({ clientId }: { clientId: string }) {
       className="mp-formulaire"
       noValidate
       onSubmit={envoyer}
-      aria-label="Importer un état financier"
+      aria-label={t("Importer un état financier", "Import a financial statement")}
     >
-      <p>{AIDE_IMPORT_ETAT}</p>
+      <p>{aideImportEtat(langue)}</p>
       <div className="mp-grille-champs">
         <Champ
-          libelle="Exercice"
+          libelle={t("Exercice", "Fiscal year")}
           required
           inputMode="numeric"
           maxLength={4}
@@ -105,7 +108,7 @@ export function ImportEtat({ clientId }: { clientId: string }) {
           erreur={erreurs.exercice}
         />
         <Champ
-          libelle="Date de clôture"
+          libelle={t("Date de clôture", "Closing date")}
           type="date"
           required
           value={s.date_cloture}
@@ -113,21 +116,24 @@ export function ImportEtat({ clientId }: { clientId: string }) {
           erreur={erreurs.date_cloture}
         />
         <Select
-          libelle="Devise"
+          libelle={t("Devise", "Currency")}
           options={DEVISES.map((d) => ({ valeur: d, libelle: d }))}
           value={s.devise}
           onChange={(e) => maj("devise", e.target.value as Devise)}
         />
         <Champ
-          libelle="Tolérance des contrôles"
+          libelle={t("Tolérance des contrôles", "Check tolerance")}
           inputMode="numeric"
           value={s.tolerance}
           onChange={(e) => maj("tolerance", e.target.value)}
           erreur={erreurs.tolerance}
-          aide="En unités mineures (FCFA, centimes) ; 0 par défaut. Utile pour des comptes arrondis."
+          aide={t(
+            "En unités mineures (FCFA, centimes) ; 0 par défaut. Utile pour des comptes arrondis.",
+            "In minor units (FCFA, cents); 0 by default. Useful for rounded accounts.",
+          )}
         />
         <Champ
-          libelle="Fichier"
+          libelle={t("Fichier", "File")}
           type="file"
           required
           accept=".xlsx,.csv"
@@ -136,7 +142,7 @@ export function ImportEtat({ clientId }: { clientId: string }) {
         />
       </div>
       {echec ? (
-        <Alerte tonalite="danger" titre="Import refusé">
+        <Alerte tonalite="danger" titre={t("Import refusé", "Import rejected")}>
           <p>{echec.message}</p>
           {echec.lignes.length > 0 ? (
             <ul>
@@ -150,16 +156,22 @@ export function ImportEtat({ clientId }: { clientId: string }) {
       {resultat ? (
         <Alerte
           tonalite={resultat.statut === "accepte" ? "succes" : "attention"}
-          titre={`État ${resultat.exercice} : ${STATUT_ETAT[resultat.statut].libelle.toLowerCase()}`}
+          titre={`${t("État", "Statement")} ${resultat.exercice}${t(" : ", ": ")}${statutEtat(resultat.statut, langue).libelle.toLowerCase()}`}
         >
           <p>
             {resultat.statut === "accepte"
-              ? "Tous les contrôles passent : l'état est accepté automatiquement."
-              : `${resultat.ecarts} écart(s), ${resultat.non_verifiables} contrôle(s) non vérifiable(s) : l'état attend une revue.`}{" "}
+              ? t(
+                  "Tous les contrôles passent : l'état est accepté automatiquement.",
+                  "All checks pass: the statement is accepted automatically.",
+                )
+              : t(
+                  `${resultat.ecarts} écart(s), ${resultat.non_verifiables} contrôle(s) non vérifiable(s) : l'état attend une revue.`,
+                  `${resultat.ecarts} gap(s), ${resultat.non_verifiables} check(s) that cannot be verified: the statement is awaiting review.`,
+                )}{" "}
             <a
               href={`/dossiers/${encodeURIComponent(clientId)}/finances/${encodeURIComponent(resultat.id)}`}
             >
-              Voir le détail
+              {t("Voir le détail", "View details")}
             </a>
           </p>
         </Alerte>
@@ -169,9 +181,9 @@ export function ImportEtat({ clientId }: { clientId: string }) {
           type="submit"
           icone="telechargement"
           chargement={enCours}
-          texteChargement="Import en cours…"
+          texteChargement={t("Import en cours…", "Importing…")}
         >
-          Importer et contrôler
+          {t("Importer et contrôler", "Import and check")}
         </Bouton>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formaterDateHeure } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { libelleValidationModele, type ResumeModele } from "../../lib/plan-modele";
 import { hrefModele } from "../../lib/plan-strategique";
 import { BadgeStatut } from "../ui/BadgeStatut";
@@ -16,7 +17,7 @@ export interface VersionsModeleProps {
 }
 
 /** Versions enregistrées du modèle, de la plus récente à la plus ancienne (pagination par curseur). */
-export function VersionsModele({
+export async function VersionsModele({
   missionId,
   planId,
   versions,
@@ -24,20 +25,24 @@ export function VersionsModele({
   curseur,
   curseurSuivant,
 }: VersionsModeleProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <>
       <Tableau
-        legende="Versions du modèle financier"
+        legende={t("Versions du modèle financier", "Financial model versions")}
         lignes={versions}
         cleLigne={(v) => v.id}
-        messageVide="Aucune version enregistrée."
+        messageVide={t("Aucune version enregistrée.", "No saved versions.")}
         colonnes={[
           {
             cle: "version",
-            entete: "Version",
+            entete: t("Version", "Version"),
             rendu: (v) =>
               v.version === courante ? (
-                <strong>{`Version ${v.version} (affichée)`}</strong>
+                <strong>
+                  {t(`Version ${v.version} (affichée)`, `Version ${v.version} (shown)`)}
+                </strong>
               ) : (
                 <Link
                   href={hrefModele(missionId, planId, {
@@ -45,46 +50,53 @@ export function VersionsModele({
                     curseur,
                   })}
                 >
-                  {`Afficher la version ${v.version}`}
+                  {t(`Afficher la version ${v.version}`, `Show version ${v.version}`)}
                 </Link>
               ),
           },
           {
             cle: "calcule_le",
-            entete: "Calculée le",
-            rendu: (v) => formaterDateHeure(v.calcule_le),
+            entete: t("Calculée le", "Computed on"),
+            rendu: (v) => formaterDateHeure(v.calcule_le, undefined, langue),
           },
-          { cle: "auteur_nom", entete: "Par", rendu: (v) => v.auteur_nom },
+          { cle: "auteur_nom", entete: t("Par", "By"), rendu: (v) => v.auteur_nom },
           {
             cle: "validation",
-            entete: "Validation",
+            entete: t("Validation", "Approval"),
             rendu: (v) => (
               <BadgeStatut tonalite={v.validation ? "succes" : "attention"}>
-                {libelleValidationModele(v)}
+                {libelleValidationModele(v, langue)}
               </BadgeStatut>
             ),
           },
           {
             cle: "alertes",
-            entete: "Alertes (base)",
+            entete: t("Alertes (base)", "Alerts (base)"),
             rendu: (v) =>
               v.alertes.length === 0 ? (
-                "Aucune"
+                t("Aucune", "None")
               ) : (
                 <BadgeStatut
                   tonalite={
                     v.alertes.some((a) => a.gravite === "critique") ? "danger" : "attention"
                   }
                 >
-                  {`${v.alertes.length} alerte${v.alertes.length > 1 ? "s" : ""}`}
+                  {t(
+                    `${v.alertes.length} alerte${v.alertes.length > 1 ? "s" : ""}`,
+                    `${v.alertes.length} alert${v.alertes.length > 1 ? "s" : ""}`,
+                  )}
                 </BadgeStatut>
               ),
           },
-          { cle: "commentaire", entete: "Commentaire", rendu: (v) => v.commentaire ?? "—" },
+          {
+            cle: "commentaire",
+            entete: t("Commentaire", "Comment"),
+            rendu: (v) => v.commentaire ?? "—",
+          },
         ]}
       />
       <PaginationCurseur
-        libelle="Pages des versions"
+        libelle={t("Pages des versions", "Version pages")}
         hrefSuivante={
           curseurSuivant
             ? hrefModele(missionId, planId, { version: courante, curseur: curseurSuivant })

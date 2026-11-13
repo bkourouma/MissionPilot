@@ -18,15 +18,21 @@ import {
 } from "../../../../../lib/banque-ao";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDate, formaterMontantMineur } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { obtenirSession } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Références" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Références", "References") };
+}
 
 type Parametres = Promise<Record<string, string | string[] | undefined>>;
 const CLES = ["q", "secteur", "pays", "bailleur", "devise", "montant_min", "montant_max"] as const;
 
 /** Banque de références (AO-05) : recherche par secteur, pays, bailleur et montant. */
 export default async function PageReferences({ searchParams }: { searchParams: Parametres }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSession();
   const droits = droitsBanqueAo(utilisateur.roles);
   const p = await searchParams;
@@ -55,59 +61,73 @@ export default async function PageReferences({ searchParams }: { searchParams: P
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Références et attestations"
-        soustitre="Missions réalisées et pièces de bonne exécution, à citer dans les offres. Un filtre de montant s'applique dans une seule devise."
+        titre={t("Références et attestations", "References and certificates")}
+        soustitre={t(
+          "Missions réalisées et pièces de bonne exécution, à citer dans les offres. Un filtre de montant s'applique dans une seule devise.",
+          "Completed engagements and performance certificates, to cite in bids. An amount filter applies in a single currency.",
+        )}
       />
       <form className="mp-formulaire mp-grille-champs" method="get">
-        {champ("q", "Texte")}
-        {champ("secteur", "Secteur")}
-        {champ("pays", "Pays", "Code à deux lettres.")}
-        {champ("bailleur", "Bailleur")}
-        {champ("devise", "Devise", "XOF, XAF, EUR ou USD.")}
-        {champ("montant_min", "Montant minimal")}
-        {champ("montant_max", "Montant maximal")}
+        {champ("q", t("Texte", "Text"))}
+        {champ("secteur", t("Secteur", "Sector"))}
+        {champ("pays", t("Pays", "Country"), t("Code à deux lettres.", "Two-letter code."))}
+        {champ("bailleur", t("Bailleur", "Donor"))}
+        {champ(
+          "devise",
+          t("Devise", "Currency"),
+          t("XOF, XAF, EUR ou USD.", "XOF, XAF, EUR or USD."),
+        )}
+        {champ("montant_min", t("Montant minimal", "Minimum amount"))}
+        {champ("montant_max", t("Montant maximal", "Maximum amount"))}
         <div className="mp-actions-formulaire">
           <button className={classesBouton("secondaire")} type="submit">
-            Rechercher
+            {t("Rechercher", "Search")}
           </button>
         </div>
       </form>
       {!r.ok ? (
         <EtatErreur
           hrefReessayer={chemin}
-          titre="Les références n'ont pas pu être chargées."
+          titre={t(
+            "Les références n'ont pas pu être chargées.",
+            "The references could not be loaded.",
+          )}
           message={r.message}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune référence ne correspond." />
+        <EtatVide titre={t("Aucune référence ne correspond.", "No matching reference.")} />
       ) : (
         <>
           <Tableau
-            legende="Références"
+            legende={t("Références", "References")}
             cleLigne={(x) => x.id}
             lignes={r.donnees.elements}
             colonnes={[
               {
                 cle: "titre",
-                entete: "Mission",
+                entete: t("Mission", "Engagement"),
                 rendu: (x) => <Link href={`${chemin}/${x.id}`}>{x.titre}</Link>,
               },
-              { cle: "client_nom", entete: "Client" },
-              { cle: "pays", entete: "Pays" },
-              { cle: "bailleur", entete: "Bailleur" },
+              { cle: "client_nom", entete: t("Client", "Client") },
+              { cle: "pays", entete: t("Pays", "Country") },
+              { cle: "bailleur", entete: t("Bailleur", "Donor") },
               {
                 cle: "montant",
-                entete: "Montant",
+                entete: t("Montant", "Amount"),
                 alignement: "droite",
-                rendu: (x) => formaterMontantMineur(x.montant, x.devise),
+                rendu: (x) => formaterMontantMineur(x.montant, x.devise, langue),
               },
-              { cle: "date_debut", entete: "Début", rendu: (x) => formaterDate(x.date_debut) },
+              {
+                cle: "date_debut",
+                entete: t("Début", "Start"),
+                rendu: (x) => formaterDate(x.date_debut, "UTC", langue),
+              },
               {
                 cle: "role_cabinet",
-                entete: "Rôle",
-                rendu: (x) => libelleRoleReference(x.role_cabinet),
+                entete: t("Rôle", "Role"),
+                rendu: (x) => libelleRoleReference(x.role_cabinet, langue),
               },
-              { cle: "attestations", entete: "Pièces", alignement: "droite" },
+              { cle: "attestations", entete: t("Pièces", "Documents"), alignement: "droite" },
             ]}
           />
           <PaginationCurseur
@@ -119,7 +139,7 @@ export default async function PageReferences({ searchParams }: { searchParams: P
         </>
       )}
       {droits.gerer ? (
-        <Carte titre="Ajouter une référence">
+        <Carte titre={t("Ajouter une référence", "Add a reference")}>
           <FormulaireReference />
         </Carte>
       ) : null}

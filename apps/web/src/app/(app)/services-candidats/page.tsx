@@ -8,12 +8,16 @@ import { chargerServeur } from "../../../lib/api-serveur";
 import { chargerClientsActifs } from "../../../lib/referentiels-serveur";
 import {
   lirePreremplissageService,
-  MENTION_A_VALIDER,
+  mentionAValider,
   type ServiceCandidat,
 } from "../../../lib/services-candidats";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Services candidats" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Services candidats", "Candidate services") };
+}
 
 export default async function PageServicesCandidats({
   searchParams,
@@ -21,6 +25,8 @@ export default async function PageServicesCandidats({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const preremplissage = lirePreremplissageService(await searchParams);
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await exigerPermission("services_candidats.lire");
   const roles = utilisateur.roles;
   const peutGerer = aPermission(roles, "services_candidats.gerer");
@@ -36,19 +42,27 @@ export default async function PageServicesCandidats({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Services candidats"
-        soustitre="Diagnostic flash et business plan bancable : méthodes du standard, prix fixe et création de mission."
+        titre={t("Services candidats", "Candidate services")}
+        soustitre={t(
+          "Diagnostic flash et business plan bancable : méthodes du standard, prix fixe et création de mission.",
+          "Flash diagnostic and bankable business plan: standard methods, fixed price and engagement creation.",
+        )}
       />
-      <Alerte tonalite="attention" annonce="aucune" titre={MENTION_A_VALIDER}>
+      <Alerte tonalite="attention" annonce="aucune" titre={mentionAValider(langue)}>
         <p>
-          Les méthodes, les types de mission et les prix de départ sont à valider par un expert
-          avant tout usage auprès d&apos;un client.
+          {t(
+            "Les méthodes, les types de mission et les prix de départ sont à valider par un expert avant tout usage auprès d'un client.",
+            "The methods, engagement types and starting prices must be approved by an expert before any use with a client.",
+          )}
         </p>
       </Alerte>
 
       {!r.ok ? (
         <EtatErreur
-          titre="Les services candidats n'ont pas pu être chargés."
+          titre={t(
+            "Les services candidats n'ont pas pu être chargés.",
+            "The candidate services could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer="/services-candidats"
         />

@@ -11,6 +11,7 @@ import { Carte } from "../../../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../../lib/api-serveur";
 import { formaterDateHeure } from "../../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../../../lib/identifiant";
 import {
   apiIngestionDd,
@@ -35,7 +36,10 @@ import {
 import { chargerMission } from "../../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Document du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Document du dossier", "File document") };
+}
 
 /**
  * Détail d'un document de due diligence (DD-02, DD-10) : statut, erreur lisible, pages lues et lecture
@@ -50,6 +54,8 @@ export default async function PageDocumentDd({
 }) {
   const { id, dossierId, docId } = await params;
   if (!estIdentifiant(dossierId) || !estIdentifiant(docId)) notFound();
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -60,7 +66,7 @@ export default async function PageDocumentDd({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="Le document n'a pas pu être chargé."
+        titre={t("Le document n'a pas pu être chargé.", "The document could not be loaded.")}
         message={r.message}
         hrefReessayer={hrefDocumentDd(id, dossierId, docId)}
       />
@@ -69,7 +75,7 @@ export default async function PageDocumentDd({
   const d = r.donnees;
   const droits = droitsIngestionDd(utilisateur.roles, mission.donnees);
   const enCours = documentEnCours(d);
-  const erreur = erreurDocument(d);
+  const erreur = erreurDocument(d, langue);
   const courante = extractionCourante(d.extractions);
   const lecture = courante?.nature === "lecture_document" ? courante : null;
   const relancable = relancePossible("dd", d, d.extractions);
@@ -79,73 +85,109 @@ export default async function PageDocumentDd({
     <div className="mp-dd-pile">
       <ActualisationAuto actif={enCours} />
       <p className="mp-texte-petit">
-        <Link href={hrefDocumentsDd(id, dossierId)}>Tous les documents du dossier</Link>
+        <Link href={hrefDocumentsDd(id, dossierId)}>
+          {t("Tous les documents du dossier", "All file documents")}
+        </Link>
       </p>
       <h3 className="mp-carte__titre">{d.nom}</h3>
       <div className="mp-dd-meta">
         <StatutDocument statut={d.statut} />
         <span className="mp-texte-petit">
-          {`${libelleUsage(d.usage)} · ${LIBELLES_FORMAT[d.format]} · ${formaterTaille(d.taille)} · importé par ${d.cree_par.nom}${d.cree_le ? ` le ${formaterDateHeure(d.cree_le)}` : ""}`}
+          {`${libelleUsage(d.usage, langue)} · ${LIBELLES_FORMAT[d.format]} · ${formaterTaille(d.taille, langue)} · ${t("importé par", "imported by")} ${d.cree_par.nom}${d.cree_le ? ` ${t("le", "on")} ${formaterDateHeure(d.cree_le, undefined, langue)}` : ""}`}
         </span>
       </div>
 
       {enCours ? (
-        <Alerte tonalite="info" titre="Lecture en cours" annonce="aucune">
-          <p>Le document est lu en arrière-plan ; cette page se met à jour toute seule.</p>
+        <Alerte
+          tonalite="info"
+          titre={t("Lecture en cours", "Reading in progress")}
+          annonce="aucune"
+        >
+          <p>
+            {t(
+              "Le document est lu en arrière-plan ; cette page se met à jour toute seule.",
+              "The document is being read in the background; this page updates by itself.",
+            )}
+          </p>
         </Alerte>
       ) : null}
 
       {d.statut === "echec" ? (
-        <Alerte tonalite="danger" titre="La lecture a échoué" annonce="aucune">
-          <p>{erreur ?? "Erreur inconnue."}</p>
+        <Alerte
+          tonalite="danger"
+          titre={t("La lecture a échoué", "Reading failed")}
+          annonce="aucune"
+        >
+          <p>{erreur ?? t("Erreur inconnue.", "Unknown error.")}</p>
         </Alerte>
       ) : null}
 
       {d.statut === "termine" && d.resultat === "ia_indisponible" ? (
-        <Alerte tonalite="attention" titre="L'IA n'est pas disponible" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("L'IA n'est pas disponible", "The AI is not available")}
+          annonce="aucune"
+        >
           <p>
-            Le texte du document est lu, mais l&apos;IA n&apos;a pas pu en proposer de lecture. Rien
-            n&apos;a été inventé : relancez la lecture quand l&apos;IA est de nouveau disponible.
+            {t(
+              "Le texte du document est lu, mais l'IA n'a pas pu en proposer de lecture. Rien n'a été inventé : relancez la lecture quand l'IA est de nouveau disponible.",
+              "The document text has been read, but the AI could not propose a reading. Nothing was invented: restart the reading when the AI is available again.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       {d.statut === "termine" && d.resultat === "rien_trouve" ? (
-        <Alerte tonalite="info" titre="Rien d'exploitable trouvé" annonce="aucune">
-          <p>L&apos;IA n&apos;a relevé aucun élément exploitable dans ce document.</p>
+        <Alerte
+          tonalite="info"
+          titre={t("Rien d'exploitable trouvé", "Nothing usable found")}
+          annonce="aucune"
+        >
+          <p>
+            {t(
+              "L'IA n'a relevé aucun élément exploitable dans ce document.",
+              "The AI found no usable item in this document.",
+            )}
+          </p>
         </Alerte>
       ) : null}
 
       {relancable ? (
         droits.relancer ? (
-          <BoutonRelance api={api} docId={d.id} libelle="Relancer la lecture" />
+          <BoutonRelance
+            api={api}
+            docId={d.id}
+            libelle={t("Relancer la lecture", "Restart the reading")}
+          />
         ) : (
           <p className="mp-texte-doux">
-            La lecture peut être relancée par un membre autorisé à écrire dans la due diligence et à
-            utiliser l&apos;IA.
+            {t(
+              "La lecture peut être relancée par un membre autorisé à écrire dans la due diligence et à utiliser l'IA.",
+              "The reading can be restarted by a member allowed to write in due diligence and to use the AI.",
+            )}
           </p>
         )
       ) : null}
 
-      <Carte titre="Lecture du document" niveauTitre={3}>
+      <Carte titre={t("Lecture du document", "Document reading")} niveauTitre={3}>
         <dl className="mp-liste-definitions">
-          <dt>Résultat</dt>
-          <dd>{libelleResultat(d.resultat)}</dd>
-          <dt>Méthode de lecture</dt>
-          <dd>{libelleMethode(d.methode)}</dd>
-          <dt>Pages lues</dt>
+          <dt>{t("Résultat", "Result")}</dt>
+          <dd>{libelleResultat(d.resultat, langue)}</dd>
+          <dt>{t("Méthode de lecture", "Reading method")}</dt>
+          <dd>{libelleMethode(d.methode, langue)}</dd>
+          <dt>{t("Pages lues", "Pages read")}</dt>
           <dd>{d.nb_pages ?? "—"}</dd>
           {d.termine_le ? (
             <>
-              <dt>Terminé le</dt>
-              <dd>{formaterDateHeure(d.termine_le)}</dd>
+              <dt>{t("Terminé le", "Completed on")}</dt>
+              <dd>{formaterDateHeure(d.termine_le, undefined, langue)}</dd>
             </>
           ) : null}
         </dl>
       </Carte>
 
       {lecture ? (
-        <Carte titre="Lecture IA (brouillon)" niveauTitre={3}>
+        <Carte titre={t("Lecture IA (brouillon)", "AI reading (draft)")} niveauTitre={3}>
           <DocumentsLecture
             api={api}
             extraction={lecture}
@@ -156,7 +198,7 @@ export default async function PageDocumentDd({
         </Carte>
       ) : null}
 
-      <Carte titre="Pages lues" niveauTitre={3}>
+      <Carte titre={t("Pages lues", "Pages read")} niveauTitre={3}>
         <VisionneusePages
           api={api}
           docId={d.id}

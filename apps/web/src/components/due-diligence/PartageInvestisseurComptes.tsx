@@ -10,6 +10,7 @@ import {
 } from "../../lib/due-diligence-portail";
 import { formaterDate } from "../../lib/format";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
@@ -25,13 +26,17 @@ export function PartageInvestisseurComptes({
   dossierId,
   comptes,
 }: PartageInvestisseurComptesProps) {
+  const t = useT();
+  const langue = useLangue();
   const p = usePartageInvestisseur();
 
   if (comptes.length === 0) {
     return (
       <p className="mp-texte-doux">
-        Aucun compte investisseur n&apos;existe pour le client de ce dossier. Invitez d&apos;abord
-        l&apos;investisseur dans l&apos;espace client (rôle « Investisseur »).
+        {t(
+          "Aucun compte investisseur n'existe pour le client de ce dossier. Invitez d'abord l'investisseur dans l'espace client (rôle « Investisseur »).",
+          "No investor account exists for this file's client. First invite the investor in the client space (“Investor” role).",
+        )}
       </p>
     );
   }
@@ -39,48 +44,62 @@ export function PartageInvestisseurComptes({
   return (
     <div className="mp-dd-pile">
       <PartageInvestisseurRetour erreur={p.erreur} succes={p.succes} />
-      <ul className="mp-dd-liste" aria-label="Comptes investisseurs du dossier">
+      <ul
+        className="mp-dd-liste"
+        aria-label={t("Comptes investisseurs du dossier", "Investor accounts of the file")}
+      >
         {comptes.map((c) => {
           const action = actionCompte(c);
-          const etat = libelleCompte(c);
+          const etat = libelleCompte(c, langue);
           return (
             <li key={c.utilisateur_id} className="mp-dd-element">
               <h4 className="mp-dd-element__titre">{c.nom}</h4>
               <span className="mp-dd-meta">
                 <BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>
                 {c.invite_le ? (
-                  <span className="mp-texte-doux mp-texte-petit">{`Invité le ${formaterDate(c.invite_le)}`}</span>
+                  <span className="mp-texte-doux mp-texte-petit">
+                    {t(
+                      `Invité le ${formaterDate(c.invite_le)}`,
+                      `Invited on ${formaterDate(c.invite_le, "UTC", langue)}`,
+                    )}
+                  </span>
                 ) : null}
               </span>
               {action === "inviter" ? (
                 <Bouton
                   variante="secondaire"
                   disabled={p.enCours}
-                  aria-label={`Inviter ${c.nom}`}
+                  aria-label={t(`Inviter ${c.nom}`, `Invite ${c.nom}`)}
                   onClick={() =>
                     void p.executer(
                       () =>
                         api.post(cheminInvitationsPortailDd(dossierId), {
                           utilisateur_id: c.utilisateur_id,
                         }),
-                      `${c.nom} est invité : les notes publiées lui seront visibles.`,
+                      t(
+                        `${c.nom} est invité : les notes publiées lui seront visibles.`,
+                        `${c.nom} is invited: published memos will be visible to them.`,
+                      ),
                     )
                   }
                 >
-                  Inviter
+                  {t("Inviter", "Invite")}
                 </Bouton>
               ) : null}
               {action === "retirer" ? (
                 <BoutonConfirmation
-                  libelle="Retirer"
-                  ariaLabel={`Retirer l'accès de ${c.nom}`}
-                  question={`Retirer l'accès de ${c.nom} aux notes de ce dossier ?`}
-                  libelleConfirmation="Oui, retirer"
-                  texteChargement="Retrait…"
+                  libelle={t("Retirer", "Remove")}
+                  ariaLabel={t(`Retirer l'accès de ${c.nom}`, `Remove access for ${c.nom}`)}
+                  question={t(
+                    `Retirer l'accès de ${c.nom} aux notes de ce dossier ?`,
+                    `Remove ${c.nom}'s access to the memos of this file?`,
+                  )}
+                  libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+                  texteChargement={t("Retrait…", "Removing…")}
                   action={() =>
                     p.executer(
                       () => api.post(cheminRetraitInvitationPortailDd(dossierId, c.utilisateur_id)),
-                      `L'accès de ${c.nom} est retiré.`,
+                      t(`L'accès de ${c.nom} est retiré.`, `${c.nom}'s access has been removed.`),
                     )
                   }
                 />

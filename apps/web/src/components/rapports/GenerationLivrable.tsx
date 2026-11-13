@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { formaterDateHeure } from "../../lib/format";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   DELAI_GENERATION_MS,
   formaterDuree,
@@ -20,12 +21,12 @@ import {
   avecVariante,
   filtrerLivrables,
   FORMATS_LIVRABLE,
-  FORMATS_LIVRABLE_LIBELLES,
+  formatLivrable,
   libelleFormatLivrable,
   libelleStatutLivrable,
   VARIANTES_LIVRABLE,
-  VARIANTES_LIVRABLE_LIBELLES,
-  LIVRABLES,
+  varianteLivrable,
+  livrable,
   messageLivrable,
   messageLivrableCree,
   type FormatLivrable,
@@ -80,8 +81,10 @@ export function GenerationLivrable({
   version,
   indisponible,
 }: GenerationLivrableProps) {
+  const t = useT();
+  const langue = useLangue();
   const cle = useId();
-  const config = LIVRABLES[type];
+  const config = livrable(type, langue);
   const [format, setFormat] = useState<FormatLivrable>("pdf");
   const [variante, setVariante] = useState<VarianteLivrable>("executive");
   const [enCours, setEnCours] = useState<FormatLivrable | null>(null);
@@ -101,9 +104,9 @@ export function GenerationLivrable({
       setListe(filtrerLivrables(type, page.elements));
       setErreurListe(null);
     } catch (e) {
-      setErreurListe(messageLivrable(type, e));
+      setErreurListe(messageLivrable(type, e, langue));
     }
-  }, [type, id]);
+  }, [type, id, langue]);
 
   useEffect(() => {
     void charger();
@@ -117,7 +120,7 @@ export function GenerationLivrable({
     return () => clearInterval(minuterie);
   }, [enCours]);
 
-  const attente = enCours ? messageAttente(enCours, secondes) : null;
+  const attente = enCours ? messageAttente(enCours, secondes, langue) : null;
   useEffect(() => {
     if (attente) setAnnonce(attente);
   }, [attente]);
@@ -147,7 +150,7 @@ export function GenerationLivrable({
       setAnnonce("");
       setEchec({
         format: f,
-        message: messageLivrable(type, e),
+        message: messageLivrable(type, e, langue),
         actualiser: peutEtreCree(e),
         reessayer: reessayable(e),
       });
@@ -167,14 +170,20 @@ export function GenerationLivrable({
       </p>
 
       {indisponible ? (
-        <Alerte tonalite="info" titre="Rapport indisponible" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("Rapport indisponible", "Report unavailable")}
+          annonce="aucune"
+        >
           <p id={idAide}>{indisponible}</p>
         </Alerte>
       ) : cloturee ? (
-        <Alerte tonalite="info" titre="Mission clôturée" annonce="aucune">
+        <Alerte tonalite="info" titre={t("Mission clôturée", "Engagement closed")} annonce="aucune">
           <p id={idAide}>
-            La génération est désactivée : une mission clôturée n&apos;évolue plus. Les rapports
-            déjà générés restent téléchargeables ci-dessous.
+            {t(
+              "La génération est désactivée : une mission clôturée n'évolue plus. Les rapports déjà générés restent téléchargeables ci-dessous.",
+              "Generation is disabled: a closed engagement no longer changes. Reports already generated remain downloadable below.",
+            )}
           </p>
         </Alerte>
       ) : (
@@ -185,7 +194,7 @@ export function GenerationLivrable({
 
       {avecVariante(type) ? (
         <fieldset className="mp-groupe" disabled={cloturee || occupe || Boolean(indisponible)}>
-          <legend className="mp-champ__libelle">Variante</legend>
+          <legend className="mp-champ__libelle">{t("Variante", "Variant")}</legend>
           <div className="mp-groupe__options mp-rapport-generation__formats">
             {VARIANTES_LIVRABLE.map((v) => (
               <div key={v} className="mp-case">
@@ -199,8 +208,8 @@ export function GenerationLivrable({
                   onChange={() => setVariante(v)}
                 />
                 <label htmlFor={`${cle}-v-${v}`} className="mp-case__libelle">
-                  {VARIANTES_LIVRABLE_LIBELLES[v].libelle}
-                  <span className="mp-case__aide">{VARIANTES_LIVRABLE_LIBELLES[v].aide}</span>
+                  {varianteLivrable(v, langue).libelle}
+                  <span className="mp-case__aide">{varianteLivrable(v, langue).aide}</span>
                 </label>
               </div>
             ))}
@@ -209,7 +218,7 @@ export function GenerationLivrable({
       ) : null}
 
       <fieldset className="mp-groupe" disabled={cloturee || occupe || Boolean(indisponible)}>
-        <legend className="mp-champ__libelle">Format du document</legend>
+        <legend className="mp-champ__libelle">{t("Format du document", "Document format")}</legend>
         <div className="mp-groupe__options mp-rapport-generation__formats">
           {FORMATS_LIVRABLE.map((f) => (
             <div key={f} className="mp-case">
@@ -224,9 +233,9 @@ export function GenerationLivrable({
                 aria-describedby={`${cle}-${f}-aide`}
               />
               <label htmlFor={`${cle}-${f}`} className="mp-case__libelle">
-                {FORMATS_LIVRABLE_LIBELLES[f].libelle}
+                {formatLivrable(f, langue).libelle}
                 <span id={`${cle}-${f}-aide`} className="mp-case__aide">
-                  {FORMATS_LIVRABLE_LIBELLES[f].aide}
+                  {formatLivrable(f, langue).aide}
                 </span>
               </label>
             </div>
@@ -238,7 +247,7 @@ export function GenerationLivrable({
         <Bouton
           icone="telechargement"
           chargement={occupe}
-          texteChargement="Génération en cours…"
+          texteChargement={t("Génération en cours…", "Generating…")}
           disabled={cloturee || Boolean(indisponible)}
           aria-describedby={idAide}
           onClick={() => void generer(format)}
@@ -252,28 +261,35 @@ export function GenerationLivrable({
           <p className="mp-rapport-attente__message">{attente}</p>
           <progress className="mp-rapport-attente__barre" aria-hidden="true" />
           <p className="mp-texte-doux mp-texte-petit">
-            {`Temps écoulé : ${formaterDuree(secondes)}`}
+            {`${t("Temps écoulé :", "Elapsed time:")} ${formaterDuree(secondes)}`}
           </p>
         </div>
       ) : null}
 
       {echec ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Génération impossible">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Génération impossible", "Generation failed")}
+        >
           <p>{echec.message}</p>
           {echec.actualiser || echec.reessayer ? (
             <div className="mp-barre-actions mp-barre-actions--compacte">
               {echec.actualiser ? (
                 <Bouton variante="secondaire" icone="historique" onClick={() => void charger()}>
-                  Actualiser la liste
+                  {t("Actualiser la liste", "Refresh the list")}
                 </Bouton>
               ) : null}
               {echec.reessayer && !cloturee ? (
                 <Bouton
                   variante="secondaire"
                   onClick={() => void generer(echec.format)}
-                  aria-label={`Réessayer la génération au format ${FORMATS_LIVRABLE_LIBELLES[echec.format].libelle}`}
+                  aria-label={t(
+                    `Réessayer la génération au format ${formatLivrable(echec.format).libelle}`,
+                    `Retry generating in ${formatLivrable(echec.format, "en").libelle} format`,
+                  )}
                 >
-                  Réessayer
+                  {t("Réessayer", "Try again")}
                 </Bouton>
               ) : null}
             </div>
@@ -282,43 +298,63 @@ export function GenerationLivrable({
       ) : null}
 
       {cree ? (
-        <Alerte ref={refSucces} tonalite="succes" titre="Rapport généré" annonce="aucune">
-          <p>{messageLivrableCree(type, cree)}</p>
-          <FichierJoint fichier={cree.fichier} contexte="(rapport qui vient d'être généré)" />
+        <Alerte
+          ref={refSucces}
+          tonalite="succes"
+          titre={t("Rapport généré", "Report generated")}
+          annonce="aucune"
+        >
+          <p>{messageLivrableCree(type, cree, langue)}</p>
+          <FichierJoint
+            fichier={cree.fichier}
+            contexte={t("(rapport qui vient d'être généré)", "(report just generated)")}
+          />
         </Alerte>
       ) : null}
 
       <section aria-labelledby={`${cle}-liste`} className="mp-pile">
         <h3 id={`${cle}-liste`} className="mp-rapport-contenu__titre">
-          Rapports déjà générés
+          {t("Rapports déjà générés", "Reports already generated")}
         </h3>
         {erreurListe ? (
-          <Alerte tonalite="attention" titre="Liste indisponible" annonce="aucune">
+          <Alerte
+            tonalite="attention"
+            titre={t("Liste indisponible", "List unavailable")}
+            annonce="aucune"
+          >
             <p>{erreurListe}</p>
             <Bouton variante="secondaire" icone="historique" onClick={() => void charger()}>
-              Réessayer
+              {t("Réessayer", "Try again")}
             </Bouton>
           </Alerte>
         ) : liste === null ? (
-          <p className="mp-texte-doux">Chargement des rapports…</p>
+          <p className="mp-texte-doux">{t("Chargement des rapports…", "Loading reports…")}</p>
         ) : liste.length === 0 ? (
-          <p className="mp-texte-doux">Aucun rapport généré pour le moment.</p>
+          <p className="mp-texte-doux">
+            {t("Aucun rapport généré pour le moment.", "No report generated yet.")}
+          </p>
         ) : (
-          <ul className="mp-liste-lignes" aria-label={`${config.titre} : rapports générés`}>
+          <ul
+            className="mp-liste-lignes"
+            aria-label={t(
+              `${config.titre} : rapports générés`,
+              `${config.titre}: generated reports`,
+            )}
+          >
             {liste.map((r) => {
-              const date = formaterDateHeure(r.genere_le);
-              const formatLibelle = libelleFormatLivrable(r.format);
+              const date = formaterDateHeure(r.genere_le, undefined, langue);
+              const formatLibelle = libelleFormatLivrable(r.format, langue);
               return (
                 <li key={r.id} className="mp-liste-lignes__ligne mp-rapport">
                   <div className="mp-rapport__texte">
                     <p className="mp-rapport__titre">
-                      {`${config.titre}${r.variante ? ` (${VARIANTES_LIVRABLE_LIBELLES[r.variante].libelle.toLowerCase()})` : ""} du ${date}`}
+                      {`${config.titre}${r.variante ? ` (${varianteLivrable(r.variante, langue).libelle.toLowerCase()})` : ""} ${t("du", "on")} ${date}`}
                       {r.version_source
                         ? ` — ${config.version.toLowerCase()} ${r.version_source}`
                         : ""}
                     </p>
                     <BadgeStatut tonalite={r.statut === "valide" ? "succes" : "neutre"} sansIcone>
-                      {libelleStatutLivrable(r.statut)}
+                      {libelleStatutLivrable(r.statut, langue)}
                     </BadgeStatut>
                     <FichierJoint fichier={r.fichier} contexte={`(${date}, ${formatLibelle})`} />
                   </div>

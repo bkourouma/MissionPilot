@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { entreeActive, type EntreePortail } from "../../lib/portail";
+import { entreeActive, libelleEntreePortail, type EntreePortail } from "../../lib/portail";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
 // Feuille des canaux : la barre défile sur téléphone quand elle compte plus de sept entrées.
 import "../canaux/canaux.css";
@@ -13,8 +14,13 @@ import "../canaux/canaux.css";
  */
 export function NavigationPortail({ entrees }: { entrees: readonly EntreePortail[] }) {
   const chemin = usePathname();
+  const t = useT();
+  const langue = useLangue();
   return (
-    <nav className="mp-portail__nav" aria-label="Rubriques de l'espace client">
+    <nav
+      className="mp-portail__nav"
+      aria-label={t("Rubriques de l'espace client", "Client space sections")}
+    >
       <ul className="mp-portail__nav-liste">
         {entrees.map((e) => (
           <li key={e.id}>
@@ -24,7 +30,7 @@ export function NavigationPortail({ entrees }: { entrees: readonly EntreePortail
               aria-current={entreeActive(chemin, e) ? "page" : undefined}
             >
               <Icone nom={e.icone} />
-              <span>{e.libelle}</span>
+              <span>{libelleEntreePortail(e, langue)}</span>
             </Link>
           </li>
         ))}

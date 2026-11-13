@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Role } from "@missionpilot/shared";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
 import { useAttenteRafraichissement } from "../../../components/formulaires/useAttenteRafraichissement";
 import { useFormulaire } from "../../../components/formulaires/useFormulaire";
@@ -16,7 +17,8 @@ import {
   actionsTache,
   enRetard,
   ENTITE_ICONES,
-  ENTITE_LIBELLES,
+  libelleEntite,
+  libelleStatutTache,
   lienEntite,
   STATUT_TACHE,
   transitionsStatut,
@@ -31,29 +33,37 @@ export interface CarteTacheProps {
   avecLienDetail?: boolean;
 }
 
-const CONFIRMATION: Record<TacheCollaboration["statut"], string> = {
-  a_faire: "remise à faire",
-  en_cours: "passée en cours",
-  fait: "marquée comme faite",
+const CONFIRMATION: Record<TacheCollaboration["statut"], [string, string]> = {
+  a_faire: ["remise à faire", "set back to to do"],
+  en_cours: ["passée en cours", "set to in progress"],
+  fait: ["marquée comme faite", "marked as done"],
 };
 
-const vous = (id: string, nom: string, moi: string) => (id === moi ? `${nom} (vous)` : nom);
+const vous = (id: string, nom: string, moi: string, you: string) =>
+  id === moi ? `${nom} (${you})` : nom;
 
 /** Une tâche assignée : titre, statut (texte + icône), échéance, élément lié, changement de statut. */
-export function CarteTache({ tache: t, utilisateurId, roles, avecLienDetail }: CarteTacheProps) {
+export function CarteTache({ tache, utilisateurId, roles, avecLienDetail }: CarteTacheProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<never>();
-  const [attente, marquer] = useAttenteRafraichissement(`${t.id}-${t.statut}-${t.modifie_le}`);
-  const a = actionsTache(t, utilisateurId, roles);
-  const statut = STATUT_TACHE[t.statut];
-  const retard = enRetard(t, aujourdhuiIso());
-  const lien = lienEntite(t);
+  const [attente, marquer] = useAttenteRafraichissement(
+    `${tache.id}-${tache.statut}-${tache.modifie_le}`,
+  );
+  const a = actionsTache(tache, utilisateurId, roles);
+  const statut = STATUT_TACHE[tache.statut];
+  const retard = enRetard(tache, aujourdhuiIso());
+  const lien = lienEntite(tache);
 
   const changer = (cible: TacheCollaboration["statut"]) =>
     f.envoyer(
       { ok: true, charge: { statut: cible } },
-      (c) => api.patch(`/api/taches-collaboration/${encodeURIComponent(t.id)}`, c),
+      (c) => api.patch(`/api/taches-collaboration/${encodeURIComponent(tache.id)}`, c),
       {
-        succes: `Tâche « ${t.titre} » ${CONFIRMATION[cible]}.`,
+        succes: t(
+          `Tâche « ${tache.titre} » ${CONFIRMATION[cible][0]}.`,
+          `Task "${tache.titre}" ${CONFIRMATION[cible][1]}.`,
+        ),
         apres: () => {
           marquer();
           window.dispatchEvent(new Event(EVENEMENT_TACHES));
@@ -62,70 +72,78 @@ export function CarteTache({ tache: t, utilisateurId, roles, avecLienDetail }: C
     );
 
   return (
-    <li className={t.statut === "fait" ? "mp-tache mp-tache--faite" : "mp-tache"}>
+    <li className={tache.statut === "fait" ? "mp-tache mp-tache--faite" : "mp-tache"}>
       <div className="mp-tache__entete">
         {avecLienDetail ? (
-          <Link href={`/mes-taches/${t.id}`} className="mp-tache__titre mp-coupure">
-            {t.titre}
+          <Link href={`/mes-taches/${tache.id}`} className="mp-tache__titre mp-coupure">
+            {tache.titre}
           </Link>
         ) : (
           // Fiche : le titre est déjà l'en-tête de la page.
-          <span className="mp-texte-doux mp-texte-petit">Statut et échéance</span>
+          <span className="mp-texte-doux mp-texte-petit">
+            {t("Statut et échéance", "Status and due date")}
+          </span>
         )}
-        <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
+        <BadgeStatut tonalite={statut.tonalite}>
+          {libelleStatutTache(tache.statut, langue)}
+        </BadgeStatut>
       </div>
       <dl className="mp-tache__infos">
         <div>
-          <dt>Échéance</dt>
+          <dt>{t("Échéance", "Due date")}</dt>
           <dd className={retard ? "mp-tache__retard" : undefined}>
-            <span>{t.echeance ? formaterDate(t.echeance) : "Sans échéance"}</span>
+            <span>
+              {tache.echeance
+                ? formaterDate(tache.echeance, "UTC", langue)
+                : t("Sans échéance", "No due date")}
+            </span>
             {retard ? (
               <span className="mp-tache__retard-libelle">
                 <Icone nom="attention" taille={14} />
-                <span>en retard</span>
+                <span>{t("en retard", "overdue")}</span>
               </span>
             ) : null}
           </dd>
         </div>
         <div>
-          <dt>Assignée à</dt>
-          <dd>{vous(t.assignee_id, t.assignee_nom, utilisateurId)}</dd>
+          <dt>{t("Assignée à", "Assigned to")}</dt>
+          <dd>{vous(tache.assignee_id, tache.assignee_nom, utilisateurId, t("vous", "you"))}</dd>
         </div>
         <div>
-          <dt>Créée par</dt>
-          <dd>{vous(t.cree_par, t.cree_par_nom, utilisateurId)}</dd>
+          <dt>{t("Créée par", "Created by")}</dt>
+          <dd>{vous(tache.cree_par, tache.cree_par_nom, utilisateurId, t("vous", "you"))}</dd>
         </div>
-        {t.entite_type ? (
+        {tache.entite_type ? (
           <div>
-            <dt>Lié à</dt>
+            <dt>{t("Lié à", "Linked to")}</dt>
             <dd>
-              <Icone nom={ENTITE_ICONES[t.entite_type]} taille={16} />
+              <Icone nom={ENTITE_ICONES[tache.entite_type]} taille={16} />
               {lien ? (
-                <Link href={lien}>{ENTITE_LIBELLES[t.entite_type]}</Link>
+                <Link href={lien}>{libelleEntite(tache.entite_type, langue)}</Link>
               ) : (
-                ENTITE_LIBELLES[t.entite_type]
+                libelleEntite(tache.entite_type, langue)
               )}
             </dd>
           </div>
         ) : null}
-        {t.statut === "fait" && t.fait_le ? (
+        {tache.statut === "fait" && tache.fait_le ? (
           <div>
-            <dt>Faite le</dt>
-            <dd>{formaterDate(t.fait_le, "Africa/Abidjan")}</dd>
+            <dt>{t("Faite le", "Done on")}</dt>
+            <dd>{formaterDate(tache.fait_le, "Africa/Abidjan", langue)}</dd>
           </div>
         ) : null}
       </dl>
       {a.changerStatut ? (
         <div className="mp-barre-actions mp-barre-actions--compacte">
-          {transitionsStatut(t.statut).map((x, i) => (
+          {transitionsStatut(tache.statut, langue).map((x, i) => (
             <Bouton
               key={x.cible}
               variante={i === 0 ? "secondaire" : "discret"}
               icone={x.cible === "fait" ? "succes" : undefined}
               chargement={f.enCours || attente}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
               onClick={() => void changer(x.cible)}
-              aria-label={`${x.libelle} : ${t.titre}`}
+              aria-label={`${x.libelle} : ${tache.titre}`}
             >
               {x.libelle}
             </Bouton>
@@ -136,7 +154,7 @@ export function CarteTache({ tache: t, utilisateurId, roles, avecLienDetail }: C
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Changement impossible"
+        titreErreur={t("Changement impossible", "Change not possible")}
       />
     </li>
   );

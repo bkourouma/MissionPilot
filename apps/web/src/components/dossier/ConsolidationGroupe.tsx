@@ -3,8 +3,10 @@ import { Carte } from "../ui/Carte";
 import { Alerte } from "../ui/Alerte";
 import { Tableau } from "../ui/Tableau";
 import { libelleDevise } from "../../lib/format";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import {
   AVERTISSEMENT_GROUPE,
+  AVERTISSEMENT_GROUPE_EN,
   formaterFiabiliteGroupe,
   formaterPart,
   libelleControle,
@@ -16,17 +18,25 @@ import {
   type LigneIndicateur,
 } from "../../lib/dossier-groupes";
 import "./groupe.css";
+import type { Langue } from "@missionpilot/shared";
 
 function TableauIndicateurs({
   legende,
   valeurs,
   groupe,
+  langue,
 }: {
   legende: string;
   valeurs: IndicateursConsolides;
   groupe: GroupeApi;
+  langue: Langue;
 }) {
-  const lignes = lignesIndicateurs(valeurs, groupe.consolidation.devise, groupe.indicateurs);
+  const lignes = lignesIndicateurs(
+    valeurs,
+    groupe.consolidation.devise,
+    groupe.indicateurs,
+    langue,
+  );
   return (
     <Tableau<LigneIndicateur>
       legende={legende}
@@ -34,8 +44,17 @@ function TableauIndicateurs({
       lignes={lignes}
       cleLigne={(l) => l.cle}
       colonnes={[
-        { cle: "libelle", entete: "Indicateur", rendu: (l) => l.libelle },
-        { cle: "valeur", entete: "Valeur", alignement: "droite", rendu: (l) => l.valeur },
+        {
+          cle: "libelle",
+          entete: langue === "en" ? "Indicator" : "Indicateur",
+          rendu: (l) => l.libelle,
+        },
+        {
+          cle: "valeur",
+          entete: langue === "en" ? "Value" : "Valeur",
+          alignement: "droite",
+          rendu: (l) => l.valeur,
+        },
       ]}
     />
   );
@@ -47,23 +66,31 @@ function TableauIndicateurs({
  * groupe est celle de la racine ; les entités XOF, XAF ou EUR sont converties par le moteur à la parité
  * fixe, l'USD (sans taux validé) est exclu.
  */
-export function ConsolidationGroupe({ groupe }: { groupe: GroupeApi }) {
+export async function ConsolidationGroupe({ groupe }: { groupe: GroupeApi }) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const c = groupe.consolidation;
   return (
     <section aria-labelledby="titre-consolidation" className="mp-groupe">
       <h2 id="titre-consolidation" className="mp-carte__titre">
-        Consolidation simple
-        {c.exercice !== null ? ` · exercice ${c.exercice}` : ""}
+        {t("Consolidation simple", "Simple consolidation")}
+        {c.exercice !== null ? ` · ${t("exercice", "fiscal year")} ${c.exercice}` : ""}
         {c.devise ? ` · ${libelleDevise(c.devise)}` : ""}{" "}
         {c.partielle ? (
-          <BadgeStatut tonalite="attention">Consolidation partielle</BadgeStatut>
+          <BadgeStatut tonalite="attention">
+            {t("Consolidation partielle", "Partial consolidation")}
+          </BadgeStatut>
         ) : null}
       </h2>
 
-      <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_GROUPE}>
+      <Alerte
+        tonalite="attention"
+        annonce="aucune"
+        titre={langue === "en" ? AVERTISSEMENT_GROUPE_EN : AVERTISSEMENT_GROUPE}
+      >
         <ul className="mp-groupe-regles">
-          {groupe.regles.textes.map((t) => (
-            <li key={t}>{t}</li>
+          {groupe.regles.textes.map((texte) => (
+            <li key={texte}>{texte}</li>
           ))}
         </ul>
       </Alerte>
@@ -71,68 +98,88 @@ export function ConsolidationGroupe({ groupe }: { groupe: GroupeApi }) {
       {c.partielle ? (
         <Alerte tonalite="attention" annonce="aucune">
           <p>
-            Au moins une entité du groupe est exclue du calcul : les totaux ci-dessous sous-estiment
-            le groupe. Le détail figure dans le périmètre.
+            {t(
+              "Au moins une entité du groupe est exclue du calcul : les totaux ci-dessous sous-estiment le groupe. Le détail figure dans le périmètre.",
+              "At least one group entity is excluded from the calculation: the totals below understate the group. Details are in the scope.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       <div className="mp-groupe-consolidation">
-        <Carte titre="Consolidation intégrale" niveauTitre={3}>
+        <Carte titre={t("Consolidation intégrale", "Full consolidation")} niveauTitre={3}>
           <TableauIndicateurs
-            legende="Consolidation intégrale (entités contrôlées à 100 %)"
+            legende={t(
+              "Consolidation intégrale (entités contrôlées à 100 %)",
+              "Full consolidation (entities controlled at 100%)",
+            )}
             valeurs={c.integrale}
             groupe={groupe}
+            langue={langue}
           />
         </Carte>
-        <Carte titre="Consolidation proportionnelle" niveauTitre={3}>
+        <Carte
+          titre={t("Consolidation proportionnelle", "Proportional consolidation")}
+          niveauTitre={3}
+        >
           <TableauIndicateurs
-            legende="Consolidation proportionnelle (pondérée par la part détenue)"
+            legende={t(
+              "Consolidation proportionnelle (pondérée par la part détenue)",
+              "Proportional consolidation (weighted by the share held)",
+            )}
             valeurs={c.proportionnelle}
             groupe={groupe}
+            langue={langue}
           />
         </Carte>
       </div>
 
-      <Carte titre="Périmètre" niveauTitre={3}>
+      <Carte titre={t("Périmètre", "Scope")} niveauTitre={3}>
         <p>
-          Fiabilité moyenne pondérée par la part cumulée :{" "}
-          <strong>{formaterFiabiliteGroupe(c.fiabilite.moyenne_ponderee)}</strong>
+          {t(
+            "Fiabilité moyenne pondérée par la part cumulée :",
+            "Average reliability weighted by cumulative share:",
+          )}{" "}
+          <strong>{formaterFiabiliteGroupe(c.fiabilite.moyenne_ponderee, langue)}</strong>
         </p>
-        <h4>Entités incluses</h4>
+        <h4>{t("Entités incluses", "Included entities")}</h4>
         {c.perimetre.inclus.length === 0 ? (
-          <p>Aucune entité incluse.</p>
+          <p>{t("Aucune entité incluse.", "No entities included.")}</p>
         ) : (
           <ul className="mp-groupe-perimetre">
             {c.perimetre.inclus.map((e) => (
               <li key={e.id}>
-                <strong>{e.nom}</strong> — part cumulée {formaterPart(e.part_cumulee_bps)} ·{" "}
-                {libelleControle(e.controlee)}
+                <strong>{e.nom}</strong> — {t("part cumulée", "cumulative share")}{" "}
+                {formaterPart(e.part_cumulee_bps, langue)} · {libelleControle(e.controlee, langue)}
               </li>
             ))}
           </ul>
         )}
         {(c.conversions ?? []).length > 0 ? (
           <>
-            <h4>Entités converties</h4>
+            <h4>{t("Entités converties", "Converted entities")}</h4>
             <ul className="mp-groupe-perimetre">
               {(c.conversions ?? []).map((v) => (
                 <li key={v.id}>
-                  <strong>{v.nom}</strong> — convertie de {v.de} en {v.vers} (parité fixe)
+                  <strong>{v.nom}</strong> —{" "}
+                  {t(
+                    `convertie de ${v.de} en ${v.vers} (parité fixe)`,
+                    `converted from ${v.de} to ${v.vers} (fixed parity)`,
+                  )}
                 </li>
               ))}
             </ul>
           </>
         ) : null}
-        <h4>Entités exclues</h4>
+        <h4>{t("Entités exclues", "Excluded entities")}</h4>
         {c.perimetre.exclus.length === 0 ? (
-          <p>Aucune entité exclue.</p>
+          <p>{t("Aucune entité exclue.", "No entities excluded.")}</p>
         ) : (
           <ul className="mp-groupe-perimetre">
             {c.perimetre.exclus.map((e, i) => (
               <li key={`${e.id ?? "anonyme"}-${i}`}>
-                <strong>{libelleNoeud({ visible: Boolean(e.id), nom: e.nom })}</strong> —{" "}
-                {libelleMotifExclusion(e.motif)}
+                <strong>{libelleNoeud({ visible: Boolean(e.id), nom: e.nom }, langue)}</strong> —{" "}
+                {libelleMotifExclusion(e.motif, langue)}
               </li>
             ))}
           </ul>

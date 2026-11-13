@@ -15,11 +15,7 @@ import { FichierJoint } from "../fichiers/FichierJoint";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { useRafraichir } from "../formulaires/useRafraichir";
-
-const ATTENTE: Record<FormatRapportCloture, string> = {
-  pdf: "Génération du PDF en cours : cela peut prendre une trentaine de secondes.",
-  docx: "Génération du document Word en cours.",
-};
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 /**
  * Génération du rapport de clôture (PDF ou Word) d'un bilan VALIDÉ. Un seul envoi à la fois ;
@@ -34,6 +30,8 @@ export function ClotureRapportGeneration({
   /** Raison affichée quand la génération n'est pas possible (bilan non validé, mission clôturée). */
   desactiveParce?: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState<FormatRapportCloture | null>(null);
   const [erreur, setErreur] = useState<{ message: string; actualiser: boolean } | null>(null);
@@ -43,6 +41,14 @@ export function ClotureRapportGeneration({
   useEffect(() => {
     if (erreur) refErreur.current?.focus();
   }, [erreur]);
+
+  const attente: Record<FormatRapportCloture, string> = {
+    pdf: t(
+      "Génération du PDF en cours : cela peut prendre une trentaine de secondes.",
+      "PDF generation in progress: this may take about thirty seconds.",
+    ),
+    docx: t("Génération du document Word en cours.", "Word document generation in progress."),
+  };
 
   async function generer(format: FormatRapportCloture) {
     if (verrou.current || desactiveParce) return;
@@ -59,7 +65,7 @@ export function ClotureRapportGeneration({
       setCree(r);
       rafraichir();
     } catch (e) {
-      setErreur({ message: messageCloture(e), actualiser: peutEtreCree(e) });
+      setErreur({ message: messageCloture(e, langue), actualiser: peutEtreCree(e) });
     } finally {
       verrou.current = false;
       setEnCours(null);
@@ -69,7 +75,7 @@ export function ClotureRapportGeneration({
   return (
     <div className="mp-pile">
       <p className="mp-visuellement-cache" role="status">
-        {enCours ? ATTENTE[enCours] : ""}
+        {enCours ? attente[enCours] : ""}
       </p>
       <div className="mp-clo-rapport-formats">
         {FORMATS_RAPPORT_CLOTURE.map((f) => (
@@ -78,28 +84,38 @@ export function ClotureRapportGeneration({
             variante="secondaire"
             icone="telechargement"
             chargement={enCours === f}
-            texteChargement="Génération en cours…"
+            texteChargement={t("Génération en cours…", "Generating…")}
             disabled={Boolean(desactiveParce) || (enCours !== null && enCours !== f)}
             onClick={() => void generer(f)}
           >
-            {`Générer le rapport (${FORMAT_RAPPORT_CLOTURE_LIBELLES[f]})`}
+            {t(
+              `Générer le rapport (${FORMAT_RAPPORT_CLOTURE_LIBELLES[f]})`,
+              `Generate the report (${FORMAT_RAPPORT_CLOTURE_LIBELLES[f]})`,
+            )}
           </Bouton>
         ))}
       </div>
       {desactiveParce ? <p className="mp-texte-doux mp-texte-petit">{desactiveParce}</p> : null}
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Génération impossible">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Génération impossible", "Generation not possible")}
+        >
           <p>{erreur.message}</p>
           {erreur.actualiser ? (
             <Bouton variante="secondaire" icone="historique" onClick={() => rafraichir()}>
-              Actualiser la liste
+              {t("Actualiser la liste", "Refresh the list")}
             </Bouton>
           ) : null}
         </Alerte>
       ) : null}
       {cree ? (
-        <Alerte tonalite="succes" titre="Rapport généré" annonce="status">
-          <FichierJoint fichier={cree.fichier} contexte="(rapport qui vient d'être généré)" />
+        <Alerte tonalite="succes" titre={t("Rapport généré", "Report generated")} annonce="status">
+          <FichierJoint
+            fichier={cree.fichier}
+            contexte={t("(rapport qui vient d'être généré)", "(report just generated)")}
+          />
         </Alerte>
       ) : null}
     </div>

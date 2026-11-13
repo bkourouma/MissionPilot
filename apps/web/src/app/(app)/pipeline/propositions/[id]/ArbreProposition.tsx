@@ -7,6 +7,7 @@ import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { Champ } from "../../../../../components/ui/Champ";
 import { EtatVide } from "../../../../../components/ui/EtatListe";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../../lib/api";
 import { joursAffiches, libelleNiveau } from "../../../../../lib/catalogue";
 import { formaterJours } from "../../../../../lib/format";
@@ -29,15 +30,27 @@ export interface ArbreProposeProps extends Contexte {
 
 /** Découpage de la proposition en listes imbriquées ; jours par grade modifiables en brouillon. */
 export function ArbreProposition({ arbre, ...ctx }: ArbreProposeProps) {
+  const t = useT();
   if (arbre.length === 0) {
     return (
-      <EtatVide titre="Cette proposition n'a pas de découpage." icone="livre">
-        <p>Le type de mission choisi n&apos;a pas de modèle : complétez-le dans le catalogue.</p>
+      <EtatVide
+        titre={t("Cette proposition n'a pas de découpage.", "This proposal has no work breakdown.")}
+        icone="livre"
+      >
+        <p>
+          {t(
+            "Le type de mission choisi n'a pas de modèle : complétez-le dans le catalogue.",
+            "The selected engagement type has no template: complete it in the catalog.",
+          )}
+        </p>
       </EtatVide>
     );
   }
   return (
-    <ol className="mp-arbre" aria-label="Découpage de la proposition">
+    <ol
+      className="mp-arbre"
+      aria-label={t("Découpage de la proposition", "Proposal work breakdown")}
+    >
       {arbre.map((n) => (
         <Noeud key={n.id} noeud={n} ctx={ctx} />
       ))}
@@ -46,9 +59,11 @@ export function ArbreProposition({ arbre, ...ctx }: ArbreProposeProps) {
 }
 
 function Noeud({ noeud, ctx }: { noeud: NoeudProposition; ctx: Contexte }) {
+  const t = useT();
+  const langue = useLangue();
   const [edition, setEdition] = useState(false);
   const jours = joursAffiches(noeud.jours_par_grade, ctx.grades);
-  const niveau = libelleNiveau(noeud.niveau);
+  const niveau = libelleNiveau(noeud.niveau, langue);
   return (
     <li className={`mp-arbre__noeud mp-arbre__noeud--niveau-${noeud.niveau}`}>
       <div className="mp-arbre__element">
@@ -59,12 +74,12 @@ function Noeud({ noeud, ctx }: { noeud: NoeudProposition; ctx: Contexte }) {
           <p className="mp-badges">
             {noeud.est_livrable ? (
               <BadgeStatut tonalite="neutre" sansIcone>
-                Livrable
+                {t("Livrable", "Deliverable")}
               </BadgeStatut>
             ) : null}
             {noeud.est_jalon ? (
               <BadgeStatut tonalite="neutre" sansIcone>
-                Jalon
+                {t("Jalon", "Milestone")}
               </BadgeStatut>
             ) : null}
           </p>
@@ -74,7 +89,7 @@ function Noeud({ noeud, ctx }: { noeud: NoeudProposition; ctx: Contexte }) {
             {jours.map((j) => (
               <div key={j.code} className="mp-jours__ligne">
                 <dt>{j.libelle}</dt>
-                <dd>{formaterJours(j.jours)}</dd>
+                <dd>{formaterJours(j.jours, langue)}</dd>
               </div>
             ))}
           </dl>
@@ -85,9 +100,9 @@ function Noeud({ noeud, ctx }: { noeud: NoeudProposition; ctx: Contexte }) {
               variante="discret"
               icone="crayon"
               onClick={() => setEdition(true)}
-              aria-label={`Modifier ${niveau.toLowerCase()} ${noeud.libelle}`}
+              aria-label={`${t("Modifier", "Edit")} ${niveau.toLowerCase()} ${noeud.libelle}`}
             >
-              Modifier
+              {t("Modifier", "Edit")}
             </Bouton>
           </div>
         ) : null}
@@ -96,7 +111,10 @@ function Noeud({ noeud, ctx }: { noeud: NoeudProposition; ctx: Contexte }) {
         ) : null}
       </div>
       {noeud.enfants.length > 0 ? (
-        <ol className="mp-arbre" aria-label={`Contenu de ${noeud.libelle}`}>
+        <ol
+          className="mp-arbre"
+          aria-label={t(`Contenu de ${noeud.libelle}`, `Contents of ${noeud.libelle}`)}
+        >
           {noeud.enfants.map((e) => (
             <Noeud key={e.id} noeud={e} ctx={ctx} />
           ))}
@@ -115,6 +133,8 @@ function FormulaireElement({
   ctx: Contexte;
   onFin: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [libelle, setLibelle] = useState(noeud.libelle);
   const [jours, setJours] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -125,10 +145,15 @@ function FormulaireElement({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     const l = libelle.trim();
-    const v = validerJoursParGrade(jours);
+    const v = validerJoursParGrade(jours, langue);
     const validation =
       l === "" || l.length > 200
-        ? { ok: false as const, erreurs: { libelle: "Libellé de 1 à 200 caractères." } }
+        ? {
+            ok: false as const,
+            erreurs: {
+              libelle: t("Libellé de 1 à 200 caractères.", "Label of 1 to 200 characters."),
+            },
+          }
         : v.ok
           ? { ok: true as const, charge: { libelle: l, ...v.charge } }
           : v;
@@ -142,7 +167,7 @@ function FormulaireElement({
       { apres: onFin },
     );
   }
-  const titre = `Modifier ${libelleNiveau(noeud.niveau).toLowerCase()} ${noeud.libelle}`;
+  const titre = `${t("Modifier", "Edit")} ${libelleNiveau(noeud.niveau, langue).toLowerCase()} ${noeud.libelle}`;
   return (
     <form
       ref={f.refFormulaire}
@@ -154,7 +179,7 @@ function FormulaireElement({
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <Champ
-        libelle="Libellé"
+        libelle={t("Libellé", "Label")}
         name="libelle"
         required
         maxLength={200}
@@ -163,8 +188,13 @@ function FormulaireElement({
         erreur={f.erreurs.libelle}
       />
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Jours par grade</legend>
-        <p className="mp-champ__aide">Au centième de jour (ex. 2,5). Vide : grade absent.</p>
+        <legend className="mp-champ__libelle">{t("Jours par grade", "Days per grade")}</legend>
+        <p className="mp-champ__aide">
+          {t(
+            "Au centième de jour (ex. 2,5). Vide : grade absent.",
+            "To the hundredth of a day (e.g. 2.5). Empty: grade absent.",
+          )}
+        </p>
         <div className="mp-grille-champs mp-grille-champs--serree">
           {ctx.grades.map((g) => (
             <Champ
@@ -181,11 +211,15 @@ function FormulaireElement({
         </div>
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer", "Save")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

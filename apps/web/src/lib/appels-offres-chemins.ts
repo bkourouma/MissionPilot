@@ -1,4 +1,4 @@
-import { STATUTS_APPEL_OFFRES, type StatutAppelOffres } from "@missionpilot/shared";
+import { STATUTS_APPEL_OFFRES, type Langue, type StatutAppelOffres } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import type { FicheAo } from "./appels-offres-types";
 
@@ -86,11 +86,15 @@ const CODES_MESSAGE_API = new Set([
   "FICHIER_TROP_VOLUMINEUX",
 ]);
 
-export function messageAo(e: unknown): string {
+export function messageAo(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     if (CODES_MESSAGE_API.has(e.code)) return e.message;
-    if (e.statut === 404) return "Cet appel d'offres n'existe pas ou plus.";
+    if (e.statut === 404) {
+      return langue === "en"
+        ? "This tender does not exist or no longer exists."
+        : "Cet appel d'offres n'existe pas ou plus.";
+    }
     if (e.statut === 409) return e.message;
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }

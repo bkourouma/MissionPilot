@@ -9,15 +9,19 @@ import {
   droitsDd,
   hrefEcranDossier,
   libelleTaxonomie,
-  TYPE_OPERATION_DD_LIBELLES,
+  libellesDd,
   type VersionCadrage,
 } from "../../../../../../../lib/due-diligence";
 import { chargerDossier, chargerTaxonomies } from "../../../../../../../lib/due-diligence-serveur";
 import { formaterDate, formaterDateHeure, libelleDevise } from "../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Cadrage du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Cadrage du dossier", "File scoping") };
+}
 
 /** Cadrage courant (DD-01), correction motivée (version suivante) et historique des versions. */
 export default async function PageCadrageDd({
@@ -26,6 +30,9 @@ export default async function PageCadrageDd({
   params: Promise<{ id: string; dossierId: string }>;
 }) {
   const { id, dossierId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
+  const L = libellesDd(langue);
   const { utilisateur } = await exigerPermission("dd.lire");
   const [mission, dossier, versions] = await Promise.all([
     chargerMission(id),
@@ -43,46 +50,64 @@ export default async function PageCadrageDd({
 
   return (
     <>
-      <Carte titre="Cadrage courant">
+      <Carte titre={t("Cadrage courant", "Current scoping")}>
         <dl className="mp-dd-pile">
           <div>
-            <dt className="mp-texte-doux mp-texte-petit">Opération</dt>
-            <dd>{TYPE_OPERATION_DD_LIBELLES[d.type_operation]}</dd>
+            <dt className="mp-texte-doux mp-texte-petit">{t("Opération", "Transaction")}</dt>
+            <dd>{L.TYPE_OPERATION[d.type_operation]}</dd>
           </div>
           <div>
-            <dt className="mp-texte-doux mp-texte-petit">Secteur, filière et pays</dt>
+            <dt className="mp-texte-doux mp-texte-petit">
+              {t("Secteur, filière et pays", "Sector, subsector and country")}
+            </dt>
             <dd>
               {[d.secteur_libelle, d.filiere_libelle, d.pays_libelle].filter(Boolean).join(" · ") ||
-                "Non précisés"}
+                t("Non précisés", "Not specified")}
             </dd>
           </div>
           <div>
-            <dt className="mp-texte-doux mp-texte-petit">Cible</dt>
-            <dd>{d.cible_nom ?? "Non précisée"}</dd>
+            <dt className="mp-texte-doux mp-texte-petit">{t("Cible", "Target")}</dt>
+            <dd>{d.cible_nom ?? t("Non précisée", "Not specified")}</dd>
           </div>
           <div>
-            <dt className="mp-texte-doux mp-texte-petit">Date d&apos;opération prévue</dt>
-            <dd>{d.date_operation ? formaterDate(d.date_operation) : "Non précisée"}</dd>
+            <dt className="mp-texte-doux mp-texte-petit">
+              {t("Date d'opération prévue", "Planned transaction date")}
+            </dt>
+            <dd>
+              {d.date_operation
+                ? formaterDate(d.date_operation, "UTC", langue)
+                : t("Non précisée", "Not specified")}
+            </dd>
           </div>
           <div>
-            <dt className="mp-texte-doux mp-texte-petit">Question d&apos;investissement</dt>
-            <dd className="mp-dd-texte">{d.question_investissement ?? "Non précisée"}</dd>
+            <dt className="mp-texte-doux mp-texte-petit">
+              {t("Question d'investissement", "Investment question")}
+            </dt>
+            <dd className="mp-dd-texte">
+              {d.question_investissement ?? t("Non précisée", "Not specified")}
+            </dd>
           </div>
           <div>
-            <dt className="mp-texte-doux mp-texte-petit">Périmètre</dt>
-            <dd className="mp-dd-texte">{d.perimetre ?? "Non précisé"}</dd>
+            <dt className="mp-texte-doux mp-texte-petit">{t("Périmètre", "Scope")}</dt>
+            <dd className="mp-dd-texte">{d.perimetre ?? t("Non précisé", "Not specified")}</dd>
           </div>
         </dl>
       </Carte>
 
       {droits.ecrire ? (
-        <Carte titre="Corriger le cadrage">
+        <Carte titre={t("Corriger le cadrage", "Edit the scoping")}>
           <p className="mp-texte-doux">
-            Une correction crée une nouvelle version, avec son motif ; les versions précédentes
-            restent consultables.
+            {t(
+              "Une correction crée une nouvelle version, avec son motif ; les versions précédentes restent consultables.",
+              "A correction creates a new version, with its reason; previous versions remain viewable.",
+            )}
           </p>
           {taxonomies.erreur ? (
-            <Alerte tonalite="attention" titre="Listes de choix incomplètes" annonce="aucune">
+            <Alerte
+              tonalite="attention"
+              titre={t("Listes de choix incomplètes", "Incomplete choice lists")}
+              annonce="aucune"
+            >
               <p>{taxonomies.erreur}</p>
             </Alerte>
           ) : null}
@@ -112,27 +137,34 @@ export default async function PageCadrageDd({
         </Carte>
       ) : null}
 
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         {!versions.ok ? (
           <EtatErreur
-            titre="L'historique n'a pas pu être chargé."
+            titre={t("L'historique n'a pas pu être chargé.", "The history could not be loaded.")}
             message={versions.message}
             hrefReessayer={hrefEcranDossier(id, dossierId, "cadrage")}
           />
         ) : liste.length === 0 ? (
-          <p className="mp-texte-doux">Aucune version enregistrée.</p>
+          <p className="mp-texte-doux">{t("Aucune version enregistrée.", "No version saved.")}</p>
         ) : (
           <ol
             className="mp-dd-liste"
-            aria-label="Versions du cadrage, de la plus récente à la plus ancienne"
+            aria-label={t(
+              "Versions du cadrage, de la plus récente à la plus ancienne",
+              "Scoping versions, from newest to oldest",
+            )}
           >
             {liste.map((v) => (
               <li key={v.version} className="mp-dd-element">
                 <p className="mp-dd-element__titre">{`Version ${v.version}`}</p>
-                <p className="mp-texte-doux mp-texte-petit">{formaterDateHeure(v.cree_le)}</p>
-                {v.motif ? <p className="mp-dd-texte">{`Motif : ${v.motif}`}</p> : null}
+                <p className="mp-texte-doux mp-texte-petit">
+                  {formaterDateHeure(v.cree_le, undefined, langue)}
+                </p>
+                {v.motif ? (
+                  <p className="mp-dd-texte">{`${t("Motif", "Reason")} : ${v.motif}`}</p>
+                ) : null}
                 <p className="mp-texte-petit">
-                  {`${v.titre} · ${TYPE_OPERATION_DD_LIBELLES[v.type_operation]} · ${libelleTaxonomie(taxonomies.secteurs, v.secteur_code)} · ${libelleTaxonomie(taxonomies.pays, v.pays_code)}${v.cible_nom ? ` · cible : ${v.cible_nom}` : ""} · ${libelleDevise(v.devise)}`}
+                  {`${v.titre} · ${L.TYPE_OPERATION[v.type_operation]} · ${libelleTaxonomie(taxonomies.secteurs, v.secteur_code, langue)} · ${libelleTaxonomie(taxonomies.pays, v.pays_code, langue)}${v.cible_nom ? ` · ${t("cible", "target")} : ${v.cible_nom}` : ""} · ${libelleDevise(v.devise)}`}
                 </p>
               </li>
             ))}

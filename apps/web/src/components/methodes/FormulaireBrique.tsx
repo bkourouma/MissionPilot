@@ -23,6 +23,7 @@ import {
   type SaisieBrique,
 } from "../../lib/methodes";
 import { saisieDepuisBrique, validerBriqueModification } from "../../lib/methodes-editeur";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -46,6 +47,8 @@ export function FormulaireBrique({
   etapes: Pick<EtapeVersion, "id" | "libelle">[];
   brique?: BriqueVersion;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampBrique>();
   const [s, setS] = useState<SaisieBrique>(
     brique ? saisieDepuisBrique(brique) : saisieBriqueVide(etapes[0]?.id ?? ""),
@@ -58,15 +61,18 @@ export function FormulaireBrique({
     e.preventDefault();
     if (brique) {
       await f.envoyer(
-        validerBriqueModification(s),
+        validerBriqueModification(s, langue),
         (charge) => api.patch(`${base}/${brique.id}`, charge),
-        { succes: "Brique modifiée.", messageSpecifique: messageMethodes },
+        {
+          succes: t("Brique modifiée.", "Building block updated."),
+          messageSpecifique: (e) => messageMethodes(e, langue),
+        },
       );
       return;
     }
-    const ok = await f.envoyer(validerBrique(s), (charge) => api.post(base, charge), {
-      succes: "Brique ajoutée.",
-      messageSpecifique: messageMethodes,
+    const ok = await f.envoyer(validerBrique(s, langue), (charge) => api.post(base, charge), {
+      succes: t("Brique ajoutée.", "Building block added."),
+      messageSpecifique: (e) => messageMethodes(e, langue),
     });
     if (ok) setS(saisieBriqueVide(s.etape_id));
   }
@@ -87,16 +93,16 @@ export function FormulaireBrique({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Select
-          libelle="Étape"
+          libelle={t("Étape", "Step")}
           required
           value={s.etape_id}
           onChange={(e) => maj("etape_id", e.target.value)}
           options={etapes.map((x) => ({ valeur: x.id, libelle: x.libelle }))}
-          invite="Choisir l'étape…"
+          invite={t("Choisir l'étape…", "Choose the step…")}
           erreur={f.erreurs.etape_id}
         />
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           required
           value={s.libelle}
           maxLength={200}
@@ -107,20 +113,20 @@ export function FormulaireBrique({
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle="Code"
+          libelle={t("Code", "Code")}
           required
           value={s.code}
           maxLength={120}
           spellCheck={false}
           autoComplete="off"
           readOnly={Boolean(brique)}
-          aide={brique ? "Le code ne change pas." : undefined}
+          aide={brique ? t("Le code ne change pas.", "The code does not change.") : undefined}
           onChange={(e) => maj("code", e.target.value)}
           erreur={f.erreurs.code}
         />
       </div>
       <ZoneTexte
-        libelle="Objet"
+        libelle={t("Objet", "Purpose")}
         required
         rows={2}
         maxLength={2000}
@@ -130,21 +136,21 @@ export function FormulaireBrique({
       />
       <div className="mp-grille-champs">
         <ZoneTexte
-          libelle="Entrées (contrat de données)"
+          libelle={t("Entrées (contrat de données)", "Inputs (data contract)")}
           rows={2}
           maxLength={2000}
           value={s.entrees}
           onChange={(e) => maj("entrees", e.target.value)}
         />
         <ZoneTexte
-          libelle="Sortie"
+          libelle={t("Sortie", "Output")}
           rows={2}
           maxLength={2000}
           value={s.sortie}
           onChange={(e) => maj("sortie", e.target.value)}
         />
         <ZoneTexte
-          libelle="Définition de terminé"
+          libelle={t("Définition de terminé", "Definition of done")}
           rows={2}
           maxLength={2000}
           value={s.definition_termine}
@@ -153,57 +159,63 @@ export function FormulaireBrique({
       </div>
       <div className="mp-grille-champs">
         <Select
-          libelle="Moteur de calcul"
+          libelle={t("Moteur de calcul", "Calculation engine")}
           value={s.moteur}
           onChange={(e) => maj("moteur", e.target.value)}
-          invite="Aucun (jugement de l'expert)"
+          invite={t("Aucun (jugement de l'expert)", "None (expert judgment)")}
           options={CODES_MOTEURS_STANDARD.map((c) => ({ valeur: c, libelle: MOTEURS_STANDARD[c] }))}
         />
         <Champ
-          libelle="Agent IA autorisé (code)"
+          libelle={t("Agent IA autorisé (code)", "Authorized AI agent (code)")}
           value={s.agent}
           maxLength={120}
           spellCheck={false}
           onChange={(e) => maj("agent", e.target.value)}
-          aide="Code du registre des agents, ex. redacteur ; vide : aucun agent."
+          aide={t(
+            "Code du registre des agents, ex. redacteur ; vide : aucun agent.",
+            "Code from the agent registry, e.g. redacteur; empty: no agent.",
+          )}
         />
         <Select
-          libelle="Classe de risque"
+          libelle={t("Classe de risque", "Risk class")}
           required
           value={s.classe_risque}
           onChange={(e) => changerClasse(e.target.value as ClasseRisque)}
-          options={CLASSES_RISQUE.map((c) => ({ valeur: c, libelle: libelleClasse(c) }))}
+          options={CLASSES_RISQUE.map((c) => ({ valeur: c, libelle: libelleClasse(c, langue) }))}
         />
         <Select
-          libelle="Autonomie de l'IA au plus"
+          libelle={t("Autonomie de l'IA au plus", "AI autonomy at most")}
           required
           value={s.niveau_autonomie_max}
           onChange={(e) => maj("niveau_autonomie_max", e.target.value as NiveauAutonomie)}
           options={niveauxAdmis(s.classe_risque).map((n) => ({
             valeur: n,
-            libelle: libelleNiveau(n),
+            libelle: libelleNiveau(n, langue),
           }))}
           erreur={f.erreurs.niveau_autonomie_max}
         />
         <Champ
-          libelle="Temps type (jours)"
+          libelle={t("Temps type (jours)", "Standard time (days)")}
           inputMode="decimal"
           value={s.temps_type_jours}
           onChange={(e) => maj("temps_type_jours", e.target.value)}
           erreur={f.erreurs.temps_type_jours}
-          aide="Par quart de jour, ex. 0,5."
+          aide={t("Par quart de jour, ex. 0,5.", "In quarter-day steps, e.g. 0.5.")}
         />
         <Champ
-          libelle="Profil"
+          libelle={t("Profil", "Profile")}
           value={s.profil_temps}
           maxLength={120}
           onChange={(e) => maj("profil_temps", e.target.value)}
-          aide="Ex. consultant senior."
+          aide={t("Ex. consultant senior.", "E.g. senior consultant.")}
         />
       </div>
       <CaseACocher
-        libelle="Active par défaut"
-        aide="Décochée : la brique ne s'active que par une règle de contexte ou une dérogation."
+        libelle={t("Active par défaut", "Active by default")}
+        aide={t(
+          "Décochée : la brique ne s'active que par une règle de contexte ou une dérogation.",
+          "Unchecked: the building block is only activated by a context rule or a waiver.",
+        )}
         checked={s.active_par_defaut}
         onChange={(e) => maj("active_par_defaut", e.target.checked)}
       />
@@ -212,9 +224,11 @@ export function FormulaireBrique({
           type="submit"
           icone={brique ? "succes" : "plus"}
           chargement={f.enCours}
-          texteChargement={brique ? "Enregistrement…" : "Ajout…"}
+          texteChargement={brique ? t("Enregistrement…", "Saving…") : t("Ajout…", "Adding…")}
         >
-          {brique ? "Enregistrer la brique" : "Ajouter la brique"}
+          {brique
+            ? t("Enregistrer la brique", "Save the building block")
+            : t("Ajouter la brique", "Add the building block")}
         </Bouton>
       </div>
     </form>

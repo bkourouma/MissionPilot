@@ -8,14 +8,15 @@ import {
   type ChampAffirmation,
   type SaisieAffirmation,
 } from "../../lib/due-diligence-saisie";
+import { useT } from "../i18n/FournisseurLangue";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
-const OPTIONS_CLASSE = CLASSES_AFFIRMATION.map((c) => ({
-  valeur: c,
-  libelle: `${c} · ${CLASSE_RISQUE_LIBELLES[c]}`,
-}));
+const CLASSE_RISQUE_LIBELLES_EN: Record<(typeof CLASSES_AFFIRMATION)[number], string> = {
+  R2: "Client deliverable",
+  R3: "Binding",
+};
 
 export interface ChampsAffirmationProps {
   valeur: SaisieAffirmation;
@@ -36,34 +37,51 @@ export function ChampsAffirmation({
   onChange,
   erreurs,
   peutSigner,
-  libelle = "Affirmation",
-  aide = "Une affirmation vérifiable. Elle devient une assertion du registre des preuves : reliez-lui ensuite des sources, sinon elle sera signalée fragile.",
+  libelle,
+  aide,
 }: ChampsAffirmationProps) {
+  const t = useT();
+  const optionsClasse = CLASSES_AFFIRMATION.map((c) => ({
+    valeur: c,
+    libelle: `${c} · ${t(CLASSE_RISQUE_LIBELLES[c], CLASSE_RISQUE_LIBELLES_EN[c])}`,
+  }));
   return (
     <>
       <ZoneTexte
-        libelle={libelle}
+        libelle={libelle ?? t("Affirmation", "Statement")}
         required
         rows={3}
         maxLength={ENONCE_MAX}
         value={valeur.enonce}
         onChange={(e) => onChange({ enonce: e.target.value })}
         erreur={erreurs.enonce}
-        aide={aide}
+        aide={
+          aide ??
+          t(
+            "Une affirmation vérifiable. Elle devient une assertion du registre des preuves : reliez-lui ensuite des sources, sinon elle sera signalée fragile.",
+            "A verifiable statement. It becomes a statement in the evidence register: then link sources to it, otherwise it will be flagged weak.",
+          )
+        }
       />
       <Select
-        libelle="Classe de risque"
+        libelle={t("Classe de risque", "Risk class")}
         required
-        options={OPTIONS_CLASSE}
+        options={optionsClasse}
         value={valeur.classe_risque}
         onChange={(e) => onChange({ classe_risque: e.target.value })}
         erreur={erreurs.classe_risque}
-        aide="R2 ou R3 : l'affirmation doit reposer sur une preuve ou sur un avis d'expert signé."
+        aide={t(
+          "R2 ou R3 : l'affirmation doit reposer sur une preuve ou sur un avis d'expert signé.",
+          "R2 or R3: the statement must rest on evidence or on a signed expert opinion.",
+        )}
       />
       <fieldset className="mp-groupe-cases">
-        <legend>Avis d&apos;expert</legend>
+        <legend>{t("Avis d'expert", "Expert opinion")}</legend>
         <CaseACocher
-          libelle="Cette affirmation est un avis d'expert, sans preuve"
+          libelle={t(
+            "Cette affirmation est un avis d'expert, sans preuve",
+            "This statement is an expert opinion, without evidence",
+          )}
           checked={valeur.avis_expert}
           onChange={(e) =>
             onChange({
@@ -75,7 +93,7 @@ export function ChampsAffirmation({
         {valeur.avis_expert ? (
           <>
             <ZoneTexte
-              libelle="Fondement de l'avis"
+              libelle={t("Fondement de l'avis", "Basis of the opinion")}
               required
               rows={2}
               maxLength={AVIS_MOTIF_MAX}
@@ -85,14 +103,16 @@ export function ChampsAffirmation({
             />
             {peutSigner ? (
               <CaseACocher
-                libelle="Je signe cet avis en mon nom"
+                libelle={t("Je signe cet avis en mon nom", "I sign this opinion in my name")}
                 checked={valeur.signer_avis}
                 onChange={(e) => onChange({ signer_avis: e.target.checked })}
               />
             ) : (
               <p className="mp-texte-doux mp-texte-petit">
-                La signature d&apos;un avis d&apos;expert revient à un expert métier ou à un
-                associé.
+                {t(
+                  "La signature d'un avis d'expert revient à un expert métier ou à un associé.",
+                  "Signing an expert opinion is reserved for a subject-matter expert or a partner.",
+                )}
               </p>
             )}
           </>

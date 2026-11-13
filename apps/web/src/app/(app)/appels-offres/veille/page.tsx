@@ -27,8 +27,12 @@ import {
   type SourceVeilleVue,
 } from "../../../../lib/appels-offres-veille";
 import { exigerLectureAo } from "../../../../lib/appels-offres-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 
-export const metadata: Metadata = { title: "Veille des appels d'offres" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Veille des appels d'offres", "Tender monitoring") };
+}
 
 /**
  * Veille multi-sources des appels d'offres (AO-01) : sources simulées activables par le cabinet,
@@ -41,6 +45,8 @@ export default async function PageVeille({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const session = await exigerLectureAo();
   const droits = droitsAppelsOffres(session.utilisateur.roles);
   const filtres = lireFiltresVeille(await searchParams);
@@ -53,39 +59,49 @@ export default async function PageVeille({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Veille des appels d'offres"
-        soustitre="Avis de plusieurs sources, dédoublonnés et rapprochés des compétences, références et secteurs du cabinet."
-        retour={{ href: "/appels-offres", libelle: "Appels d'offres" }}
+        titre={t("Veille des appels d'offres", "Tender monitoring")}
+        soustitre={t(
+          "Avis de plusieurs sources, dédoublonnés et rapprochés des compétences, références et secteurs du cabinet.",
+          "Notices from several sources, deduplicated and matched against the firm's skills, references and sectors.",
+        )}
+        retour={{ href: "/appels-offres", libelle: t("Appels d'offres", "Tenders") }}
       />
 
       {resume.ok ? (
         <p className="mp-texte-doux" role="status">
-          {resume.donnees.total} avis suivi(s) sur {resume.donnees.plafond} au plus ·{" "}
+          {t(
+            `${resume.donnees.total} avis suivi(s) sur ${resume.donnees.plafond} au plus`,
+            `${resume.donnees.total} notice(s) tracked out of ${resume.donnees.plafond} at most`,
+          )}{" "}
+          ·{" "}
           {VEILLE_STATUTS.map(
-            (s) => `${libelleStatutVeille(s)} : ${resume.donnees.par_statut[s] ?? 0}`,
+            (s) => `${libelleStatutVeille(s, langue)}: ${resume.donnees.par_statut[s] ?? 0}`,
           ).join(" · ")}
         </p>
       ) : null}
 
       <div className="mp-grille-cartes">
-        <Carte titre="Sources de veille">
+        <Carte titre={t("Sources de veille", "Monitoring sources")}>
           {sources.ok ? (
             <VeilleSources sources={sources.donnees.elements} gerer={droits.gerer} />
           ) : (
             <EtatErreur
-              titre="Les sources n'ont pas pu être chargées."
+              titre={t(
+                "Les sources n'ont pas pu être chargées.",
+                "The sources could not be loaded.",
+              )}
               message={sources.message}
               hrefReessayer={hrefVeille(filtres)}
             />
           )}
         </Carte>
         {droits.gerer ? (
-          <Carte titre="Importer un fichier">
+          <Carte titre={t("Importer un fichier", "Import a file")}>
             <VeilleImportFichier />
           </Carte>
         ) : null}
         {droits.gerer ? (
-          <Carte titre="Saisir un avis">
+          <Carte titre={t("Saisir un avis", "Enter a notice")}>
             <VeilleSaisieAvis />
           </Carte>
         ) : null}
@@ -93,25 +109,33 @@ export default async function PageVeille({
 
       <section aria-labelledby="titre-avis" className="mp-pile">
         <h2 id="titre-avis" className="mp-section__titre">
-          Avis
+          {t("Avis", "Notices")}
         </h2>
         <form
           method="get"
           action="/appels-offres/veille"
           className="mp-filtres"
-          aria-label="Filtrer les avis"
+          aria-label={t("Filtrer les avis", "Filter notices")}
         >
           <div className="mp-grille-champs mp-grille-champs--filtres">
-            <Champ libelle="Rechercher" name="q" defaultValue={filtres.q} maxLength={100} />
+            <Champ
+              libelle={t("Rechercher", "Search")}
+              name="q"
+              defaultValue={filtres.q}
+              maxLength={100}
+            />
             <Select
-              libelle="Statut"
+              libelle={t("Statut", "Status")}
               name="statut"
-              invite="Tous les statuts"
+              invite={t("Tous les statuts", "All statuses")}
               defaultValue={filtres.statut}
-              options={VEILLE_STATUTS.map((s) => ({ valeur: s, libelle: libelleStatutVeille(s) }))}
+              options={VEILLE_STATUTS.map((s) => ({
+                valeur: s,
+                libelle: libelleStatutVeille(s, langue),
+              }))}
             />
             <Champ
-              libelle="Score minimal"
+              libelle={t("Score minimal", "Minimum score")}
               name="score_min"
               type="number"
               min={0}
@@ -121,28 +145,33 @@ export default async function PageVeille({
           </div>
           <div className="mp-actions-formulaire">
             <button type="submit" className="mp-bouton mp-bouton--secondaire">
-              Filtrer
+              {t("Filtrer", "Filter")}
             </button>
           </div>
         </form>
 
         {!r.ok ? (
           <EtatErreur
-            titre="Les avis n'ont pas pu être chargés."
+            titre={t("Les avis n'ont pas pu être chargés.", "The notices could not be loaded.")}
             message={r.message}
             hrefReessayer={hrefVeille(filtres)}
           />
         ) : (
           <>
             <VeilleResultats resultats={r.donnees.elements} gerer={droits.gerer} />
-            <nav className="mp-ao__actions" aria-label="Pagination des avis">
+            <nav
+              className="mp-ao__actions"
+              aria-label={t("Pagination des avis", "Notices pagination")}
+            >
               {filtres.page > 1 ? (
                 <Link href={hrefVeille({ ...filtres, page: filtres.page - 1 })}>
-                  Page précédente
+                  {t("Page précédente", "Previous page")}
                 </Link>
               ) : null}
               {filtres.page * PAGE_VEILLE < r.donnees.total ? (
-                <Link href={hrefVeille({ ...filtres, page: filtres.page + 1 })}>Page suivante</Link>
+                <Link href={hrefVeille({ ...filtres, page: filtres.page + 1 })}>
+                  {t("Page suivante", "Next page")}
+                </Link>
               ) : null}
             </nav>
           </>

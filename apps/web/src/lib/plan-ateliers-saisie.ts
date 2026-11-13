@@ -3,6 +3,8 @@ import {
   METHODES_ATELIER,
   OPTIONS_ATELIER_MAX,
   OPTIONS_ATELIER_MIN,
+  creerTraduire,
+  type Langue,
   type MethodeAtelier,
 } from "@missionpilot/shared";
 import type { AtelierDetail, MaContribution } from "./plan-ateliers-types";
@@ -38,16 +40,17 @@ export type ChampAtelier =
   | "axe_y_libelle"
   | "options";
 
-export function saisieAtelierVide(): SaisieAtelier {
+export function saisieAtelierVide(langue: Langue = "fr"): SaisieAtelier {
+  const t = creerTraduire(langue);
   return {
     titre: "",
     consigne: "",
     methodes: ["vote"],
     budget_points: "10",
     plafond_par_option: "",
-    axe_x_libelle: "Valeur / impact",
+    axe_x_libelle: t("Valeur / impact", "Value / impact"),
     axe_x_inverse: false,
-    axe_y_libelle: "Effort",
+    axe_y_libelle: t("Effort", "Effort"),
     axe_y_inverse: true,
     options: [
       { libelle: "", description: "" },
@@ -78,21 +81,31 @@ function entierBorne(v: string, min: number, max: number): number | null {
   return n !== null && Number.isInteger(n) && n >= min && n <= max ? n : null;
 }
 
-export function validerAtelier(s: SaisieAtelier) {
+export function validerAtelier(s: SaisieAtelier, langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampAtelier, string>> = {};
   const titre = s.titre.trim();
   if (titre === "" || titre.length > 200 || CONTROLE.test(titre)) {
-    erreurs.titre = "Titre obligatoire, 200 caractères au plus.";
+    erreurs.titre = t(
+      "Titre obligatoire, 200 caractères au plus.",
+      "Title required, 200 characters at most.",
+    );
   }
-  if (s.consigne.trim().length > 4000) erreurs.consigne = "4 000 caractères au plus.";
-  if (s.methodes.length === 0) erreurs.methodes = "Choisissez au moins une méthode.";
+  if (s.consigne.trim().length > 4000)
+    erreurs.consigne = t("4 000 caractères au plus.", "4,000 characters at most.");
+  if (s.methodes.length === 0)
+    erreurs.methodes = t("Choisissez au moins une méthode.", "Choose at least one method.");
   const budget = entierBorne(s.budget_points, 1, 100);
-  if (budget === null) erreurs.budget_points = "Entier de 1 à 100.";
+  if (budget === null)
+    erreurs.budget_points = t("Entier de 1 à 100.", "Whole number from 1 to 100.");
   let plafond: number | null = null;
   if (s.plafond_par_option.trim() !== "") {
     plafond = entierBorne(s.plafond_par_option, 1, 100);
     if (plafond === null || (budget !== null && plafond > budget)) {
-      erreurs.plafond_par_option = "Entier de 1 au budget de points.";
+      erreurs.plafond_par_option = t(
+        "Entier de 1 au budget de points.",
+        "Whole number from 1 up to the points budget.",
+      );
     }
   }
   for (const [cle, v] of [
@@ -100,7 +113,10 @@ export function validerAtelier(s: SaisieAtelier) {
     ["axe_y_libelle", s.axe_y_libelle],
   ] as const) {
     if (v.trim() === "" || v.trim().length > 60 || CONTROLE.test(v)) {
-      erreurs[cle] = "Libellé obligatoire, 60 caractères au plus.";
+      erreurs[cle] = t(
+        "Libellé obligatoire, 60 caractères au plus.",
+        "Label required, 60 characters at most.",
+      );
     }
   }
   const options = s.options.map((o) => ({
@@ -118,7 +134,10 @@ export function validerAtelier(s: SaisieAtelier) {
         CONTROLE.test(o.libelle),
     )
   ) {
-    erreurs.options = `De ${OPTIONS_ATELIER_MIN} à ${OPTIONS_ATELIER_MAX} options, chacune avec un libellé (200 caractères au plus) et une description facultative (500 au plus).`;
+    erreurs.options = t(
+      `De ${OPTIONS_ATELIER_MIN} à ${OPTIONS_ATELIER_MAX} options, chacune avec un libellé (200 caractères au plus) et une description facultative (500 au plus).`,
+      `${OPTIONS_ATELIER_MIN} to ${OPTIONS_ATELIER_MAX} options, each with a label (200 characters at most) and an optional description (500 at most).`,
+    );
   }
   if (Object.keys(erreurs).length) return { erreurs, corps: null };
   return {
@@ -162,22 +181,35 @@ export function pointsRepartis(s: SaisieVote): number {
   }, 0);
 }
 
-export function validerVote(s: SaisieVote, budget: number, plafond: number | null) {
+export function validerVote(
+  s: SaisieVote,
+  budget: number,
+  plafond: number | null,
+  langue: Langue = "fr",
+) {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const points: { option_id: string; points: number }[] = [];
   for (const [id, v] of Object.entries(s)) {
     if (v.trim() === "") continue;
     const n = entierBorne(v, 0, 100);
-    if (n === null) erreurs[id] = "Entier de 0 à 100.";
+    if (n === null) erreurs[id] = t("Entier de 0 à 100.", "Whole number from 0 to 100.");
     else if (plafond !== null && n > plafond)
-      erreurs[id] = `${plafond} points au plus sur une option.`;
+      erreurs[id] = t(
+        `${plafond} points au plus sur une option.`,
+        `${plafond} points at most on one option.`,
+      );
     else points.push({ option_id: id, points: n });
   }
-  const somme = points.reduce((t, p) => t + p.points, 0);
+  const somme = points.reduce((total, p) => total + p.points, 0);
   let global: string | null = null;
-  if (somme > budget) global = `Vous répartissez ${somme} points ; le budget est de ${budget}.`;
+  if (somme > budget)
+    global = t(
+      `Vous répartissez ${somme} points ; le budget est de ${budget}.`,
+      `You are allocating ${somme} points; the budget is ${budget}.`,
+    );
   else if (somme === 0 && Object.keys(erreurs).length === 0)
-    global = "Répartissez au moins un point.";
+    global = t("Répartissez au moins un point.", "Allocate at least one point.");
   if (Object.keys(erreurs).length || global) return { erreurs, global, corps: null };
   return { erreurs, global, corps: { points: points.filter((p) => p.points > 0) } };
 }
@@ -201,8 +233,12 @@ export function deplacer(ordre: readonly string[], index: number, delta: number)
   return copie;
 }
 
-export function validerClassement(ordre: readonly string[]) {
-  if (ordre.length === 0) return { corps: null, global: "Classez au moins une option." };
+export function validerClassement(ordre: readonly string[], langue: Langue = "fr") {
+  if (ordre.length === 0)
+    return {
+      corps: null,
+      global: creerTraduire(langue)("Classez au moins une option.", "Rank at least one option."),
+    };
   return { corps: { classement: [...ordre] }, global: null };
 }
 
@@ -226,19 +262,21 @@ export const OPTIONS_NOTE_MATRICE = ["1", "2", "3", "4", "5"].map((v) => ({
   libelle: v,
 }));
 
-export function validerMatrice(s: SaisieMatrice) {
+export function validerMatrice(s: SaisieMatrice, langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const positions: { option_id: string; x: number; y: number }[] = [];
   for (const [id, p] of Object.entries(s)) {
     if (p.x === "" && p.y === "") continue;
     const x = /^[1-5]$/.test(p.x) ? Number(p.x) : null;
     const y = /^[1-5]$/.test(p.y) ? Number(p.y) : null;
-    if (x === null || y === null) erreurs[id] = "Les deux notes, de 1 à 5.";
+    if (x === null || y === null)
+      erreurs[id] = t("Les deux notes, de 1 à 5.", "Both scores, from 1 to 5.");
     else positions.push({ option_id: id, x, y });
   }
   let global: string | null = null;
   if (positions.length === 0 && Object.keys(erreurs).length === 0) {
-    global = "Placez au moins une option.";
+    global = t("Placez au moins une option.", "Place at least one option.");
   }
   if (Object.keys(erreurs).length || global) return { erreurs, global, corps: null };
   return { erreurs, global, corps: { positions } };

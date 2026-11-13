@@ -4,6 +4,7 @@ import {
   RED_STATUTS_DOSSIER,
   type RedSecteur,
   type RedStatutDossier,
+  type Langue,
 } from "@missionpilot/shared";
 
 // --- Chemins d'API (un par route de SPEC-3a §9.3) -----------------------------------------------
@@ -149,23 +150,57 @@ export const hrefFinancesClient = (clientId: string) => `/dossiers/${enc(clientI
 /** Sections du dossier, dans l'ordre des onglets. */
 export function sousPagesRedressement(
   missionId: string,
+  langue: Langue = "fr",
 ): { id: string; libelle: string; href: string }[] {
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   return [
-    { id: "synthese", libelle: "Synthèse", href: hrefRedressement(missionId) },
-    { id: "ratios", libelle: "Ratios", href: hrefRedressement(missionId, "ratios") },
-    { id: "urgence", libelle: "Urgence", href: hrefRedressement(missionId, "urgence") },
-    { id: "diagnostic", libelle: "Diagnostic", href: hrefRedressement(missionId, "diagnostic") },
-    { id: "alerte", libelle: "Alerte précoce", href: hrefRedressement(missionId, "alerte") },
-    { id: "tresorerie", libelle: "Trésorerie", href: hrefRedressement(missionId, "tresorerie") },
-    { id: "financement", libelle: "Financement", href: hrefRedressement(missionId, "financement") },
-    { id: "creanciers", libelle: "Créanciers", href: hrefRedressement(missionId, "creanciers") },
-    { id: "plan", libelle: "Plan", href: hrefRedressement(missionId, "plan") },
-    { id: "leviers", libelle: "Leviers", href: hrefRedressement(missionId, "leviers") },
-    { id: "cloture", libelle: "Clôture", href: hrefRedressement(missionId, "cloture") },
-    { id: "suivi", libelle: "Suivi", href: hrefRedressement(missionId, "suivi") },
+    { id: "synthese", libelle: t("Synthèse", "Summary"), href: hrefRedressement(missionId) },
+    { id: "ratios", libelle: t("Ratios", "Ratios"), href: hrefRedressement(missionId, "ratios") },
+    {
+      id: "urgence",
+      libelle: t("Urgence", "Urgency"),
+      href: hrefRedressement(missionId, "urgence"),
+    },
+    {
+      id: "diagnostic",
+      libelle: t("Diagnostic", "Diagnostic"),
+      href: hrefRedressement(missionId, "diagnostic"),
+    },
+    {
+      id: "alerte",
+      libelle: t("Alerte précoce", "Early warning"),
+      href: hrefRedressement(missionId, "alerte"),
+    },
+    {
+      id: "tresorerie",
+      libelle: t("Trésorerie", "Cash"),
+      href: hrefRedressement(missionId, "tresorerie"),
+    },
+    {
+      id: "financement",
+      libelle: t("Financement", "Financing"),
+      href: hrefRedressement(missionId, "financement"),
+    },
+    {
+      id: "creanciers",
+      libelle: t("Créanciers", "Creditors"),
+      href: hrefRedressement(missionId, "creanciers"),
+    },
+    { id: "plan", libelle: t("Plan", "Plan"), href: hrefRedressement(missionId, "plan") },
+    {
+      id: "leviers",
+      libelle: t("Leviers", "Levers"),
+      href: hrefRedressement(missionId, "leviers"),
+    },
+    {
+      id: "cloture",
+      libelle: t("Clôture", "Close-out"),
+      href: hrefRedressement(missionId, "cloture"),
+    },
+    { id: "suivi", libelle: t("Suivi", "Follow-up"), href: hrefRedressement(missionId, "suivi") },
     {
       id: "tableau-de-bord",
-      libelle: "Tableau de bord",
+      libelle: t("Tableau de bord", "Dashboard"),
       href: hrefRedressement(missionId, "tableau-de-bord"),
     },
   ];

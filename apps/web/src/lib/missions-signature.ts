@@ -1,5 +1,5 @@
 /** Missions : signature de la lettre de mission (MIS-07). */
-import { aPermission, type Role } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue, type Role } from "@missionpilot/shared";
 import type { Devise } from "./format";
 import { DATE } from "./missions-motifs";
 import { lireMontant, lireNombre, type Resultat } from "./saisie";
@@ -51,26 +51,44 @@ export function validerSignature(
   s: SaisieSignature,
   devise: Devise,
   naturesPermises: readonly NatureSupplementaire[],
+  langue: Langue = "fr",
 ): Resultat<ChargeSignature, string> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
-  if (!DATE.test(s.date_signature)) erreurs.date_signature = "Indiquez la date de signature.";
+  if (!DATE.test(s.date_signature))
+    erreurs.date_signature = t("Indiquez la date de signature.", "Enter the signing date.");
   const taux = deviseFlottante(devise) ? lireNombre(s.taux_change) : null;
   if (deviseFlottante(devise) && taux === null)
-    erreurs.taux_change = `Indiquez le taux de change de la devise ${devise}.`;
+    erreurs.taux_change = t(
+      `Indiquez le taux de change de la devise ${devise}.`,
+      `Enter the exchange rate for currency ${devise}.`,
+    );
   else if (taux !== null && (Number.isNaN(taux) || taux < 0.000001 || taux > 1_000_000))
-    erreurs.taux_change = "Nombre positif entre 0,000001 et 1 000 000 (ex. 605,25).";
+    erreurs.taux_change = t(
+      "Nombre positif entre 0,000001 et 1 000 000 (ex. 605,25).",
+      "Positive number between 0.000001 and 1,000,000 (e.g. 605.25).",
+    );
   const lignes: ChargeSignature["lignes_supplementaires"] = [];
   s.lignes.forEach((l, i) => {
     if (!naturesPermises.includes(l.nature)) {
-      erreurs[`lignes.${i}.nature`] = "Nature non autorisée pour votre rôle.";
+      erreurs[`lignes.${i}.nature`] = t(
+        "Nature non autorisée pour votre rôle.",
+        "Type not allowed for your role.",
+      );
       return;
     }
     const libelle = l.libelle.trim();
     if (libelle === "" || libelle.length > 200)
-      erreurs[`lignes.${i}.libelle`] = "Libellé de 1 à 200 caractères.";
+      erreurs[`lignes.${i}.libelle`] = t(
+        "Libellé de 1 à 200 caractères.",
+        "Label of 1 to 200 characters.",
+      );
     const montant = lireMontant(l.montant, devise);
     if (montant === null || Number.isNaN(montant))
-      erreurs[`lignes.${i}.montant`] = "Montant positif dans la devise de la mission.";
+      erreurs[`lignes.${i}.montant`] = t(
+        "Montant positif dans la devise de la mission.",
+        "Positive amount in the engagement currency.",
+      );
     lignes.push({
       nature: l.nature,
       libelle,
@@ -78,7 +96,7 @@ export function validerSignature(
       refacturable: l.nature === "debours" && l.refacturable,
     });
   });
-  if (s.lignes.length > 50) erreurs.lignes = "50 lignes au plus.";
+  if (s.lignes.length > 50) erreurs.lignes = t("50 lignes au plus.", "50 lines at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

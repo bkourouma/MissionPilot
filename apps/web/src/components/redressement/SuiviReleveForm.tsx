@@ -14,8 +14,7 @@ import {
   libelleRatioSuivi,
   libelleSourceReleve,
   messageSuivi,
-  TEXTE_SUIVI_RELEVE_INSTANTANE,
-  TEXTE_SUIVI_RELEVE_SAISIE,
+  textesSuivi,
 } from "../../lib/redressement-suivi";
 import {
   corpsReleve,
@@ -25,6 +24,7 @@ import {
 } from "../../lib/redressement-suivi-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -46,6 +46,9 @@ export function SuiviReleveForm({
   jalonId?: string;
   aujourdhui: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const tx = textesSuivi(langue);
   const f = useFormulaire<ChampReleve>();
   const [s, setS] = useState<SaisieReleve>(() => releveVide(aujourdhui, jalonId ?? ""));
   const verrou = useRef(false);
@@ -56,11 +59,15 @@ export function SuiviReleveForm({
     if (verrou.current) return;
     verrou.current = true;
     try {
-      await f.envoyer(corpsReleve(s), (charge) => api.post(cheminRelevesSuivi(dossierId), charge), {
-        succes: "Relevé enregistré.",
-        messageSpecifique: messageSuivi,
-        apres: () => setS((x) => ({ ...x, ratios: {}, commentaire: "" })),
-      });
+      await f.envoyer(
+        corpsReleve(s, langue),
+        (charge) => api.post(cheminRelevesSuivi(dossierId), charge),
+        {
+          succes: t("Relevé enregistré.", "Reading saved."),
+          messageSpecifique: (e) => messageSuivi(e, langue),
+          apres: () => setS((x) => ({ ...x, ratios: {}, commentaire: "" })),
+        },
+      );
     } finally {
       verrou.current = false;
     }
@@ -72,27 +79,27 @@ export function SuiviReleveForm({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Enregistrer un relevé"
+      aria-label={t("Enregistrer un relevé", "Save a reading")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Relevé impossible"
+        titreErreur={t("Relevé impossible", "Reading not possible")}
       />
       {jalonId ? null : (
         <Select
-          libelle="Jalon"
-          invite="Choisir un jalon…"
+          libelle={t("Jalon", "Milestone")}
+          invite={t("Choisir un jalon…", "Choose a milestone…")}
           value={s.jalon_id}
           onChange={(e) => setS({ ...s, jalon_id: e.target.value })}
           erreur={f.erreurs.jalon_id}
-          options={jalons.map((j) => ({ valeur: j.id, libelle: libelleJalon(j) }))}
+          options={jalons.map((j) => ({ valeur: j.id, libelle: libelleJalon(j, langue) }))}
           required
         />
       )}
       <Champ
-        libelle="Date du relevé"
+        libelle={t("Date du relevé", "Reading date")}
         type="date"
         min="2000-01-01"
         max="2100-12-31"
@@ -102,21 +109,21 @@ export function SuiviReleveForm({
         required
       />
       <Select
-        libelle="Source du relevé"
+        libelle={t("Source du relevé", "Reading source")}
         value={s.source}
         onChange={(e) => setS({ ...s, source: e.target.value as RedSuiviSourceReleve })}
         options={RED_SUIVI_SOURCES_RELEVE.map((v) => ({
           valeur: v,
-          libelle: libelleSourceReleve(v),
+          libelle: libelleSourceReleve(v, langue),
         }))}
-        aide={s.source === "saisie" ? TEXTE_SUIVI_RELEVE_SAISIE : TEXTE_SUIVI_RELEVE_INSTANTANE}
+        aide={s.source === "saisie" ? tx.releveSaisie : tx.releveInstantane}
       />
       {s.source === "saisie" ? (
         <fieldset
           className="mp-sui-ratios"
           aria-describedby={f.erreurs.ratios ? idErreurRatios : undefined}
         >
-          <legend className="mp-champ__libelle">Ratios relevés</legend>
+          <legend className="mp-champ__libelle">{t("Ratios relevés", "Ratios read")}</legend>
           {f.erreurs.ratios ? (
             <p id={idErreurRatios} className="mp-champ__erreur" role="alert">
               {f.erreurs.ratios}
@@ -125,7 +132,7 @@ export function SuiviReleveForm({
           {RED_SUIVI_RATIOS.map((r) => (
             <Champ
               key={r}
-              libelle={libelleRatioSuivi(r)}
+              libelle={libelleRatioSuivi(r, langue)}
               type="text"
               inputMode="decimal"
               value={s.ratios[r] ?? ""}
@@ -136,7 +143,7 @@ export function SuiviReleveForm({
         </fieldset>
       ) : null}
       <ZoneTexte
-        libelle="Commentaire (facultatif)"
+        libelle={t("Commentaire (facultatif)", "Comment (optional)")}
         value={s.commentaire}
         onChange={(e) => setS({ ...s, commentaire: e.target.value })}
         erreur={f.erreurs.commentaire}
@@ -146,9 +153,9 @@ export function SuiviReleveForm({
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer le relevé
+          {t("Enregistrer le relevé", "Save the reading")}
         </Bouton>
       </div>
     </form>

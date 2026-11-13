@@ -12,6 +12,7 @@ import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
 import { DELAIS_RELANCE_DEPART } from "@missionpilot/shared";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../lib/api";
 import {
   DELAIS_DEPART_TEXTE,
@@ -27,6 +28,8 @@ import {
  * par défaut : il ne s'active que par un bouton dédié, après confirmation explicite.
  */
 export function ParametresRelances({ parametres: p }: { parametres: Parametres }) {
+  const t = useT();
+  const langue = useLangue();
   const cle = `${p.delais_relance.join()}-${p.relances_actives}-${p.envoi_email_client}-${p.valeurs_validees}`;
   const [s, setS] = useState<SaisieRelances>({
     delais: p.delais_relance.join(", "),
@@ -40,10 +43,10 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await form.envoyer(
-      validerParametresRelances(s),
+      validerParametresRelances(s, langue),
       (c) => api.patch("/api/finance/parametres-relances", c),
       {
-        succes: "Paramètres de relance enregistrés.",
+        succes: t("Paramètres de relance enregistrés.", "Reminder settings saved."),
         apres: marquer,
       },
     );
@@ -54,59 +57,80 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
       (c) => api.patch("/api/finance/parametres-relances", c),
       {
         succes: actif
-          ? "Envoi automatique activé : les prochaines relances partiront par e-mail au client."
-          : "Envoi automatique désactivé : les relances sont seulement préparées.",
+          ? t(
+              "Envoi automatique activé : les prochaines relances partiront par e-mail au client.",
+              "Automatic sending enabled: the next reminders will be emailed to the client.",
+            )
+          : t(
+              "Envoi automatique désactivé : les relances sont seulement préparées.",
+              "Automatic sending disabled: reminders are only prepared.",
+            ),
         apres: marquer,
       },
     );
 
   return (
-    <Carte titre="Relances">
+    <Carte titre={t("Relances", "Reminders")}>
       <div className="mp-pile">
         <section aria-labelledby="titre-envoi-auto" className="mp-pile">
           <h3 id="titre-envoi-auto" className="mp-sous-formulaire__titre">
-            Envoi automatique de l&apos;e-mail au client
+            {t("Envoi automatique de l'e-mail au client", "Automatic email to the client")}
           </h3>
           <RetourFormulaire
             erreur={envoi.erreurGlobale}
             succes={envoi.succes}
             refAlerte={envoi.refAlerte}
-            titreErreur="Modification impossible"
+            titreErreur={t("Modification impossible", "Change not possible")}
           />
           {p.envoi_email_client ? (
             <>
               <p>
-                <BadgeStatut tonalite="attention">Activé</BadgeStatut> Chaque relance automatique
-                envoie un e-mail au contact principal du client (reste à payer et échéance).
+                <BadgeStatut tonalite="attention">{t("Activé", "Enabled")}</BadgeStatut>{" "}
+                {t(
+                  "Chaque relance automatique envoie un e-mail au contact principal du client (reste à payer et échéance).",
+                  "Each automatic reminder sends an email to the client's main contact (balance due and due date).",
+                )}
               </p>
               <div>
                 <Bouton
                   variante="secondaire"
                   chargement={envoi.enCours || attente}
-                  texteChargement="Mise à jour…"
+                  texteChargement={t("Mise à jour…", "Updating…")}
                   onClick={() => basculerEnvoi(false)}
                 >
-                  Désactiver l&apos;envoi automatique
+                  {t("Désactiver l'envoi automatique", "Disable automatic sending")}
                 </Bouton>
               </div>
             </>
           ) : (
             <>
-              <Alerte tonalite="info" annonce="aucune" titre="Désactivé (réglage par défaut)">
+              <Alerte
+                tonalite="info"
+                annonce="aucune"
+                titre={t("Désactivé (réglage par défaut)", "Disabled (default setting)")}
+              >
                 <p>
-                  Les relances sont créées et notifiées à l&apos;équipe, mais aucun e-mail ne part
-                  chez le client. Vous pouvez relancer à la main depuis chaque facture.
+                  {t(
+                    "Les relances sont créées et notifiées à l'équipe, mais aucun e-mail ne part chez le client. Vous pouvez relancer à la main depuis chaque facture.",
+                    "Reminders are created and notified to the team, but no email is sent to the client. You can send reminders manually from each invoice.",
+                  )}
                 </p>
               </Alerte>
               <div>
                 <BoutonConfirmation
                   key={cle}
-                  libelle="Activer l'envoi automatique"
+                  libelle={t("Activer l'envoi automatique", "Enable automatic sending")}
                   variante="secondaire"
                   icone="courrier"
-                  question="Activer l'envoi automatique ? Les clients en retard recevront un e-mail de relance à chaque niveau atteint, sans validation préalable."
-                  libelleConfirmation="Oui, activer l'envoi aux clients"
-                  texteChargement="Activation…"
+                  question={t(
+                    "Activer l'envoi automatique ? Les clients en retard recevront un e-mail de relance à chaque niveau atteint, sans validation préalable.",
+                    "Enable automatic sending? Overdue clients will receive a reminder email at each level reached, without prior approval.",
+                  )}
+                  libelleConfirmation={t(
+                    "Oui, activer l'envoi aux clients",
+                    "Yes, enable sending to clients",
+                  )}
+                  texteChargement={t("Activation…", "Enabling…")}
                   action={() => basculerEnvoi(true)}
                 />
               </div>
@@ -119,12 +143,23 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
           className="mp-formulaire mp-sous-formulaire"
           noValidate
           onSubmit={soumettre}
-          aria-label="Paramètres de relance"
+          aria-label={t("Paramètres de relance", "Reminder settings")}
         >
-          <p className="mp-sous-formulaire__titre">Délais et activation</p>
+          <p className="mp-sous-formulaire__titre">
+            {t("Délais et activation", "Delays and activation")}
+          </p>
           {!p.valeurs_validees ? (
-            <Alerte tonalite="attention" annonce="aucune" titre="Valeurs de départ à valider">
-              <p>{`Délais de départ : ${libelleDelais(DELAIS_RELANCE_DEPART)} après l'échéance. Faites-les valider par l'associé ou le responsable financier du cabinet.`}</p>
+            <Alerte
+              tonalite="attention"
+              annonce="aucune"
+              titre={t("Valeurs de départ à valider", "Starting values to approve")}
+            >
+              <p>
+                {t(
+                  `Délais de départ : ${libelleDelais(DELAIS_RELANCE_DEPART)} après l'échéance. Faites-les valider par l'associé ou le responsable financier du cabinet.`,
+                  `Starting delays: ${libelleDelais(DELAIS_RELANCE_DEPART)} after the due date. Have them approved by the partner or the firm's finance manager.`,
+                )}
+              </p>
             </Alerte>
           ) : null}
           <RetourFormulaire
@@ -133,21 +168,33 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
             refAlerte={form.refAlerte}
           />
           <Champ
-            libelle="Délais de relance (jours après l'échéance)"
-            aide={`Un délai par niveau, de 1 à 3, strictement croissants (ex. ${DELAIS_DEPART_TEXTE}). Niveaux : ${[1, 2, 3].map(libelleNiveau).join(", ")}.`}
+            libelle={t(
+              "Délais de relance (jours après l'échéance)",
+              "Reminder delays (days after the due date)",
+            )}
+            aide={t(
+              `Un délai par niveau, de 1 à 3, strictement croissants (ex. ${DELAIS_DEPART_TEXTE}). Niveaux : ${[1, 2, 3].map((n) => libelleNiveau(n)).join(", ")}.`,
+              `One delay per level, from 1 to 3, strictly increasing (e.g. ${DELAIS_DEPART_TEXTE}). Levels: ${[1, 2, 3].map((n) => libelleNiveau(n, langue)).join(", ")}.`,
+            )}
             required
             value={s.delais}
             onChange={(e) => setS((x) => ({ ...x, delais: e.target.value }))}
             erreur={form.erreurs.delais}
           />
           <CaseACocher
-            libelle="Créer les relances automatiquement chaque jour"
-            aide="La tâche quotidienne crée une relance pour chaque facture dont le retard atteint un nouveau niveau."
+            libelle={t(
+              "Créer les relances automatiquement chaque jour",
+              "Create reminders automatically every day",
+            )}
+            aide={t(
+              "La tâche quotidienne crée une relance pour chaque facture dont le retard atteint un nouveau niveau.",
+              "The daily task creates a reminder for each invoice whose delay reaches a new level.",
+            )}
             checked={s.relances_actives}
             onChange={(e) => setS((x) => ({ ...x, relances_actives: e.target.checked }))}
           />
           <CaseACocher
-            libelle="Délais validés par le cabinet"
+            libelle={t("Délais validés par le cabinet", "Delays approved by the firm")}
             checked={s.valeurs_validees}
             onChange={(e) => setS((x) => ({ ...x, valeurs_validees: e.target.checked }))}
           />
@@ -155,9 +202,9 @@ export function ParametresRelances({ parametres: p }: { parametres: Parametres }
             <Bouton
               type="submit"
               chargement={form.enCours || attente}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
             >
-              Enregistrer
+              {t("Enregistrer", "Save")}
             </Bouton>
           </div>
         </form>

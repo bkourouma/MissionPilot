@@ -1,5 +1,6 @@
 import { appelerApi, ErreurApi, messageErreur } from "./api";
 import { chargerServeur, cookieSession, urlApi, type Chargement } from "./api-serveur";
+import { obtenirLangue } from "./i18n/serveur";
 
 /**
  * Chargements serveur des écrans KPI qui ne doivent PAS rediriger sur un refus : la liste
@@ -20,6 +21,6 @@ export async function chargerSansRedirection<T>(chemin: string): Promise<Chargem
     if (!(e instanceof ErreurApi)) throw e;
     // 401 : `chargerServeur` redirige vers la connexion (hors du try, comme `redirect` l'exige).
     if (e.statut === 401) return chargerServeur<T>(chemin);
-    return { ok: false, message: messageErreur(e), statut: e.statut };
+    return { ok: false, message: messageErreur(e, await obtenirLangue()), statut: e.statut };
   }
 }

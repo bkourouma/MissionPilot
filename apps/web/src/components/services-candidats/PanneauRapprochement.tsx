@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -15,15 +16,15 @@ import {
   compterParStatut,
   libelleCritere,
   libelleStatut,
-  MENTION_GUICHETS_A_VALIDER,
+  libelleTypeGuichet,
+  libelleVerdict,
+  mentionGuichetsAValider,
   messageRapprochementTronque,
-  OPTIONS_DEVISES_SERVICE,
-  OPTIONS_OBJETS,
+  optionsDevisesService,
+  optionsObjets,
   SAISIE_RAPPROCHEMENT_VIDE,
-  STATUT_RAPPROCHEMENT,
-  TYPE_GUICHET_LIBELLES,
+  statutRapprochement,
   validerRapprochement,
-  VERDICT_LIBELLES,
   type ChampRapprochement,
   type ReponseRapprochement,
   type SaisieRapprochement,
@@ -37,6 +38,8 @@ export interface PanneauRapprochementProps {
 
 /** Rapprochement indicatif d'un client (ou d'un profil saisi) avec les guichets du cabinet. */
 export function PanneauRapprochement({ clients, nombreGuichets }: PanneauRapprochementProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampRapprochement>();
   const [s, setS] = useState<SaisieRapprochement>(SAISIE_RAPPROCHEMENT_VIDE);
   const [reponse, setReponse] = useState<ReponseRapprochement | null>(null);
@@ -46,7 +49,7 @@ export function PanneauRapprochement({ clients, nombreGuichets }: PanneauRapproc
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerRapprochement(s),
+      validerRapprochement(s, langue),
       (charge) => api.post<ReponseRapprochement>("/api/guichets-financement/rapprochement", charge),
       { rafraichir: false, apres: setReponse },
     );
@@ -55,82 +58,90 @@ export function PanneauRapprochement({ clients, nombreGuichets }: PanneauRapproc
   const comptes = reponse ? compterParStatut(reponse.resultats) : null;
 
   return (
-    <Carte titre="Rapprochement" niveauTitre={2}>
+    <Carte titre={t("Rapprochement", "Matching")} niveauTitre={2}>
       <div className="mp-pile">
         <p>
-          Compare un client, ou un profil saisi, aux guichets de votre cabinet. Les champs
-          renseignés ci-dessous remplacent ceux de la fiche du client.
+          {t(
+            "Compare un client, ou un profil saisi, aux guichets de votre cabinet. Les champs renseignés ci-dessous remplacent ceux de la fiche du client.",
+            "Compares a client, or an entered profile, with your firm's funding sources. The fields filled in below replace those of the client record.",
+          )}
         </p>
         <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
           <RetourFormulaire
             erreur={f.erreurGlobale}
             refAlerte={f.refAlerte}
-            titreErreur="Rapprochement impossible"
+            titreErreur={t("Rapprochement impossible", "Matching failed")}
           />
           <div className="mp-grille-champs">
             <Select
-              libelle="Client"
+              libelle={t("Client", "Client")}
               name="client_id"
               options={clients}
-              invite="Aucun client (profil saisi)"
+              invite={t("Aucun client (profil saisi)", "No client (entered profile)")}
               value={s.client_id}
               onChange={texte("client_id")}
               erreur={f.erreurs.client_id}
-              aide="Facultatif : pays, secteur, taille et filières viennent de son dossier."
+              aide={t(
+                "Facultatif : pays, secteur, taille et filières viennent de son dossier.",
+                "Optional: country, industry, size and value chains come from its file.",
+              )}
             />
             <Champ
-              libelle="Pays"
+              libelle={t("Pays", "Country")}
               name="pays"
               value={s.pays}
               onChange={texte("pays")}
               erreur={f.erreurs.pays}
             />
             <Champ
-              libelle="Secteur"
+              libelle={t("Secteur", "Industry")}
               name="secteur"
               value={s.secteur}
               onChange={texte("secteur")}
               erreur={f.erreurs.secteur}
             />
             <Champ
-              libelle="Filières"
+              libelle={t("Filières", "Value chains")}
               name="filieres"
               value={s.filieres}
               onChange={texte("filieres")}
               erreur={f.erreurs.filieres}
-              aide="Séparées par des virgules."
+              aide={t("Séparées par des virgules.", "Separated by commas.")}
             />
             <Champ
-              libelle="Taille d'entreprise"
+              libelle={t("Taille d'entreprise", "Company size")}
               name="taille"
               value={s.taille}
               onChange={texte("taille")}
               erreur={f.erreurs.taille}
             />
             <Select
-              libelle="Objet du financement"
+              libelle={t("Objet du financement", "Purpose of the financing")}
               name="objet"
-              options={OPTIONS_OBJETS}
-              invite="Non précisé"
+              options={optionsObjets(langue)}
+              invite={t("Non précisé", "Not specified")}
               value={s.objet}
               onChange={texte("objet")}
               erreur={f.erreurs.objet}
             />
             <Champ
-              libelle="Montant recherché"
+              libelle={t("Montant recherché", "Amount sought")}
               name="montant"
               inputMode="numeric"
               autoComplete="off"
               value={s.montant}
               onChange={texte("montant")}
               erreur={f.erreurs.montant}
-              aide="Montant entier ; jamais déduit du chiffre d'affaires du client."
+              aide={t(
+                "Montant entier ; jamais déduit du chiffre d'affaires du client.",
+                "Whole amount; never derived from the client's revenue.",
+              )}
             />
             <Select
-              libelle="Devise du montant"
+              libelle={t("Devise du montant", "Amount currency")}
               name="devise"
-              options={OPTIONS_DEVISES_SERVICE}
-              invite="Non précisée"
+              options={optionsDevisesService(langue)}
+              invite={t("Non précisée", "Not specified")}
               value={s.devise}
               onChange={texte("devise")}
               erreur={f.erreurs.devise}
@@ -141,44 +152,65 @@ export function PanneauRapprochement({ clients, nombreGuichets }: PanneauRapproc
               type="submit"
               icone="recherche"
               chargement={f.enCours}
-              texteChargement="Rapprochement…"
+              texteChargement={t("Rapprochement…", "Matching…")}
             >
-              Lancer le rapprochement
+              {t("Lancer le rapprochement", "Run the matching")}
             </Bouton>
           </div>
         </form>
 
         {nombreGuichets === 0 ? (
           <Alerte tonalite="info" annonce="aucune">
-            <p>Aucun guichet n&apos;est saisi : le rapprochement ne renverra aucun résultat.</p>
+            <p>
+              {t(
+                "Aucun guichet n'est saisi : le rapprochement ne renverra aucun résultat.",
+                "No funding source is entered: the matching will return no result.",
+              )}
+            </p>
           </Alerte>
         ) : null}
 
         {reponse ? (
-          <section aria-label="Résultats du rapprochement" className="mp-pile">
-            <Alerte tonalite="attention" annonce="status" titre="Résultat indicatif">
+          <section
+            aria-label={t("Résultats du rapprochement", "Matching results")}
+            className="mp-pile"
+          >
+            <Alerte
+              tonalite="attention"
+              annonce="status"
+              titre={t("Résultat indicatif", "Indicative result")}
+            >
               <p>{reponse.avertissement}</p>
-              <p>{MENTION_GUICHETS_A_VALIDER}</p>
+              <p>{mentionGuichetsAValider(langue)}</p>
             </Alerte>
             {reponse.tronque ? (
-              <Alerte tonalite="attention" annonce="status" titre="Liste tronquée">
-                <p>{messageRapprochementTronque(reponse.resultats.length)}</p>
+              <Alerte
+                tonalite="attention"
+                annonce="status"
+                titre={t("Liste tronquée", "Truncated list")}
+              >
+                <p>{messageRapprochementTronque(reponse.resultats.length, langue)}</p>
               </Alerte>
             ) : null}
             {reponse.dossier?.chiffre_affaires_millions != null ? (
               <p className="mp-texte-doux">
-                Chiffre d&apos;affaires du dossier :{" "}
-                {formaterNombre(reponse.dossier.chiffre_affaires_millions)} millions (information
-                seulement ; ce n&apos;est pas le montant recherché).
+                {t("Chiffre d'affaires du dossier :", "File revenue:")}{" "}
+                {formaterNombre(reponse.dossier.chiffre_affaires_millions, 2, langue)}{" "}
+                {t(
+                  "millions (information seulement ; ce n'est pas le montant recherché).",
+                  "million (for information only; this is not the amount sought).",
+                )}
               </p>
             ) : null}
             {reponse.resultats.length === 0 ? (
-              <p role="status">Aucun guichet à rapprocher.</p>
+              <p role="status">{t("Aucun guichet à rapprocher.", "No funding source to match.")}</p>
             ) : (
               <>
                 <p role="status">
-                  {comptes?.compatible ?? 0} compatible(s), {comptes?.partiel ?? 0} partiel(s),{" "}
-                  {comptes?.exclu ?? 0} exclu(s).
+                  {t(
+                    `${comptes?.compatible ?? 0} compatible(s), ${comptes?.partiel ?? 0} partiel(s), ${comptes?.exclu ?? 0} exclu(s).`,
+                    `${comptes?.compatible ?? 0} compatible, ${comptes?.partiel ?? 0} partial, ${comptes?.exclu ?? 0} excluded.`,
+                  )}
                 </p>
                 <ol className="mp-liste-cartes">
                   {reponse.resultats.map((r) => (
@@ -188,23 +220,28 @@ export function PanneauRapprochement({ clients, nombreGuichets }: PanneauRapproc
                         titre={r.guichet.nom}
                         actions={
                           <>
-                            <BadgeStatut tonalite={STATUT_RAPPROCHEMENT[r.statut].tonalite}>
-                              {libelleStatut(r.statut)}
+                            <BadgeStatut tonalite={statutRapprochement(r.statut, langue).tonalite}>
+                              {libelleStatut(r.statut, langue)}
                             </BadgeStatut>
-                            <span>Score : {formaterNombre(r.score, 0)}</span>
+                            <span>
+                              {t("Score : ", "Score: ")}
+                              {formaterNombre(r.score, 0, langue)}
+                            </span>
                           </>
                         }
                       >
                         <div className="mp-pile">
                           <p className="mp-texte-doux">
-                            {TYPE_GUICHET_LIBELLES[r.guichet.type] ?? r.guichet.type}
+                            {libelleTypeGuichet(r.guichet.type, langue) ?? r.guichet.type}
                             {r.guichet.date_limite
-                              ? ` · date limite ${formaterDate(r.guichet.date_limite)}`
+                              ? ` · ${t("date limite", "deadline")} ${formaterDate(r.guichet.date_limite, "UTC", langue)}`
                               : ""}
                           </p>
                           {r.raisons_exclusion.length > 0 ? (
                             <div>
-                              <p className="mp-champ__libelle">Raisons d&apos;exclusion</p>
+                              <p className="mp-champ__libelle">
+                                {t("Raisons d'exclusion", "Reasons for exclusion")}
+                              </p>
                               <ul>
                                 {r.raisons_exclusion.map((raison) => (
                                   <li key={raison}>{raison}</li>
@@ -213,12 +250,16 @@ export function PanneauRapprochement({ clients, nombreGuichets }: PanneauRapproc
                             </div>
                           ) : null}
                           <details>
-                            <summary>Critères évalués ({r.criteres.length})</summary>
+                            <summary>
+                              {t("Critères évalués", "Criteria evaluated")} ({r.criteres.length})
+                            </summary>
                             <ul>
                               {r.criteres.map((c) => (
                                 <li key={c.critere}>
-                                  <strong>{libelleCritere(c.critere)}</strong> —{" "}
-                                  {VERDICT_LIBELLES[c.verdict] ?? c.verdict} : {c.detail}
+                                  <strong>{libelleCritere(c.critere, langue)}</strong> —{" "}
+                                  {libelleVerdict(c.verdict, langue) ?? c.verdict}
+                                  {t(" : ", ": ")}
+                                  {c.detail}
                                 </li>
                               ))}
                             </ul>

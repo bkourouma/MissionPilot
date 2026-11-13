@@ -1,4 +1,5 @@
 /** Logique pure de la console de plateforme (libellés, destinations). Testée dans `console-logique.test.ts`. */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { libelleNombreUtilisateurs, type CabinetListe } from "../../../lib/plateforme";
 import { CHEMIN_CONNEXION_PLATEFORME } from "../../../lib/plateforme-routes";
 
@@ -10,15 +11,17 @@ export function destinationApresDeconnexion(estDemo: boolean): string {
 /** « 5 utilisateurs, 4 actifs » ; « Aucun utilisateur » sans compte. */
 export function libelleUtilisateursCabinet(
   c: Pick<CabinetListe, "nbUtilisateurs" | "nbUtilisateursActifs">,
+  langue: Langue = "fr",
 ): string {
-  const total = libelleNombreUtilisateurs(c.nbUtilisateurs);
+  const t = creerTraduire(langue);
+  const total = libelleNombreUtilisateurs(c.nbUtilisateurs, langue);
   if (c.nbUtilisateurs <= 0) return total;
   const actifs =
     c.nbUtilisateursActifs === 0
-      ? "aucun actif"
+      ? t("aucun actif", "none active")
       : c.nbUtilisateursActifs === 1
-        ? "1 actif"
-        : `${c.nbUtilisateursActifs} actifs`;
+        ? t("1 actif", "1 active")
+        : t(`${c.nbUtilisateursActifs} actifs`, `${c.nbUtilisateursActifs} active`);
   return `${total}, ${actifs}`;
 }
 
@@ -37,25 +40,34 @@ export interface TexteActionEtat {
 }
 
 /** Textes de l'action d'activation ou de désactivation d'un cabinet. */
-export function texteActionEtat(c: Pick<CabinetListe, "nom" | "actif">): TexteActionEtat {
+export function texteActionEtat(
+  c: Pick<CabinetListe, "nom" | "actif">,
+  langue: Langue = "fr",
+): TexteActionEtat {
+  const t = creerTraduire(langue);
   return c.actif
     ? {
-        bouton: "Désactiver",
-        nomAccessible: `Désactiver le cabinet ${c.nom}`,
-        titre: `Désactiver le cabinet ${c.nom} ?`,
-        consequences:
+        bouton: t("Désactiver", "Deactivate"),
+        nomAccessible: t(`Désactiver le cabinet ${c.nom}`, `Deactivate the firm ${c.nom}`),
+        titre: t(`Désactiver le cabinet ${c.nom} ?`, `Deactivate the firm ${c.nom}?`),
+        consequences: t(
           "Les utilisateurs de ce cabinet ne pourront plus se connecter. Leurs données sont conservées et vous pourrez réactiver le cabinet à tout moment.",
-        confirmer: "Désactiver le cabinet",
-        succes: `Le cabinet ${c.nom} est désactivé.`,
+          "Users of this firm will no longer be able to sign in. Their data is kept and you can reactivate the firm at any time.",
+        ),
+        confirmer: t("Désactiver le cabinet", "Deactivate the firm"),
+        succes: t(`Le cabinet ${c.nom} est désactivé.`, `The firm ${c.nom} is deactivated.`),
         actif: false,
       }
     : {
-        bouton: "Activer",
-        nomAccessible: `Activer le cabinet ${c.nom}`,
-        titre: `Réactiver le cabinet ${c.nom} ?`,
-        consequences: "Les utilisateurs actifs de ce cabinet pourront de nouveau se connecter.",
-        confirmer: "Activer le cabinet",
-        succes: `Le cabinet ${c.nom} est réactivé.`,
+        bouton: t("Activer", "Activate"),
+        nomAccessible: t(`Activer le cabinet ${c.nom}`, `Activate the firm ${c.nom}`),
+        titre: t(`Réactiver le cabinet ${c.nom} ?`, `Reactivate the firm ${c.nom}?`),
+        consequences: t(
+          "Les utilisateurs actifs de ce cabinet pourront de nouveau se connecter.",
+          "Active users of this firm will be able to sign in again.",
+        ),
+        confirmer: t("Activer le cabinet", "Activate the firm"),
+        succes: t(`Le cabinet ${c.nom} est réactivé.`, `The firm ${c.nom} is reactivated.`),
         actif: true,
       };
 }
@@ -64,6 +76,10 @@ export function texteActionEtat(c: Pick<CabinetListe, "nom" | "actif">): TexteAc
 export function libelleComptePremierAssocie(
   cabinet: string,
   associe: { nom: string; email: string },
+  langue: Langue = "fr",
 ): string {
-  return `Premier associé de ${cabinet} : ${associe.nom} (${associe.email})`;
+  return creerTraduire(langue)(
+    `Premier associé de ${cabinet} : ${associe.nom} (${associe.email})`,
+    `First partner of ${cabinet}: ${associe.nom} (${associe.email})`,
+  );
 }

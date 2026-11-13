@@ -7,6 +7,7 @@
  * qu'une somme d'affichage : la conversion en jours, le contrôle de capacité, l'affectation
  * des tâches et le verrouillage des périodes sont faits par l'API.
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { formaterNombre } from "./format";
 import { lireNombre, type Resultat } from "./saisie";
@@ -120,11 +121,35 @@ export const STATUT_FEUILLE: Record<StatutFeuille, { libelle: string; tonalite: 
     verrouillee: { libelle: "Verrouillée (période clôturée)", tonalite: "neutre" },
   };
 
+export const STATUT_FEUILLE_EN: Record<
+  StatutFeuille,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  brouillon: { libelle: "Draft", tonalite: "neutre" },
+  soumise: { libelle: "Submitted, pending approval", tonalite: "attention" },
+  validee: { libelle: "Approved", tonalite: "succes" },
+  rejetee: { libelle: "Rejected", tonalite: "danger" },
+  verrouillee: { libelle: "Locked (closed period)", tonalite: "neutre" },
+};
+
+export const statutFeuille = (s: StatutFeuille, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_FEUILLE_EN : STATUT_FEUILLE)[s];
+
 export const STATUT_PARTIE: Record<StatutPartie, { libelle: string; tonalite: TonaliteStatut }> = {
   en_attente: { libelle: "En attente", tonalite: "attention" },
   validee: { libelle: "Validée", tonalite: "succes" },
   rejetee: { libelle: "Rejetée", tonalite: "danger" },
 };
+
+export const STATUT_PARTIE_EN: Record<StatutPartie, { libelle: string; tonalite: TonaliteStatut }> =
+  {
+    en_attente: { libelle: "Pending", tonalite: "attention" },
+    validee: { libelle: "Approved", tonalite: "succes" },
+    rejetee: { libelle: "Rejected", tonalite: "danger" },
+  };
+
+export const statutPartie = (s: StatutPartie, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_PARTIE_EN : STATUT_PARTIE)[s];
 
 /** Unité affichée : « j » ou « h ». */
 export const SYMBOLE_UNITE: Record<UniteSaisie, string> = { demi_journee: "j", heure: "h" };
@@ -132,6 +157,12 @@ export const NOM_UNITE: Record<UniteSaisie, string> = {
   demi_journee: "jours (pas de 0,5)",
   heure: "heures",
 };
+
+export const symboleUnite = (u: UniteSaisie, langue: Langue = "fr") =>
+  u === "demi_journee" && langue === "en" ? "d" : SYMBOLE_UNITE[u];
+
+export const nomUnite = (u: UniteSaisie, langue: Langue = "fr") =>
+  langue === "en" ? (u === "heure" ? "hours" : "days (0.5 steps)") : NOM_UNITE[u];
 
 // --- Lecture d'une case ---------------------------------------------------------------
 
@@ -141,21 +172,35 @@ export type LectureCase = { ok: true; valeur: number | null } | { ok: false; mes
  * Texte d'une case → valeur dans l'unité du cabinet. Vide ou zéro : pas de ligne. Jours :
  * multiples de 0,5, 3 au plus. Heures : minutes entières, 24 au plus.
  */
-export function lireCase(texte: string, unite: UniteSaisie): LectureCase {
+export function lireCase(texte: string, unite: UniteSaisie, langue: Langue = "fr"): LectureCase {
+  const t = creerTraduire(langue);
   const n = lireNombre(texte);
   if (n === null) return { ok: true, valeur: null };
-  if (Number.isNaN(n)) return { ok: false, message: "Nombre invalide (ex. 0,5)." };
-  if (n < 0) return { ok: false, message: "Valeur positive attendue." };
+  if (Number.isNaN(n))
+    return { ok: false, message: t("Nombre invalide (ex. 0,5).", "Invalid number (e.g. 0.5).") };
+  if (n < 0)
+    return { ok: false, message: t("Valeur positive attendue.", "Positive value expected.") };
   if (n === 0) return { ok: true, valeur: null };
   if (unite === "demi_journee") {
-    if (n > 3) return { ok: false, message: "3 jours au plus par case." };
+    if (n > 3)
+      return { ok: false, message: t("3 jours au plus par case.", "3 days maximum per cell.") };
     if (Math.abs(n * 2 - Math.round(n * 2)) > 1e-9)
-      return { ok: false, message: "Par pas de 0,5 jour (0,5 ; 1 ; 1,5…)." };
+      return {
+        ok: false,
+        message: t("Par pas de 0,5 jour (0,5 ; 1 ; 1,5…).", "In steps of 0.5 day (0.5, 1, 1.5…)."),
+      };
     return { ok: true, valeur: n };
   }
-  if (n > 24) return { ok: false, message: "24 heures au plus par case." };
+  if (n > 24)
+    return { ok: false, message: t("24 heures au plus par case.", "24 hours maximum per cell.") };
   if (Math.abs(n * 60 - Math.round(n * 60)) > 1e-6)
-    return { ok: false, message: "Heures en minutes entières (ex. 1,5 ou 7,25)." };
+    return {
+      ok: false,
+      message: t(
+        "Heures en minutes entières (ex. 1,5 ou 7,25).",
+        "Hours in whole minutes (e.g. 1.5 or 7.25).",
+      ),
+    };
   return { ok: true, valeur: n };
 }
 
@@ -179,6 +224,9 @@ export interface Rangee {
 }
 
 export const GROUPE_INTERNE = "Activités internes";
+/** Libellé affiché d'un groupe de rangées (le nom du groupe interne se traduit). */
+export const libelleGroupe = (groupe: string, langue: Langue = "fr") =>
+  langue === "en" && groupe === GROUPE_INTERNE ? "Internal activities" : groupe;
 export const cleTache = (id: string) => `t:${id}`;
 export const cleActivite = (id: string) => `a:${id}`;
 export const cleCase = (rangee: string, date: string) => `${rangee}|${date}`;
@@ -210,7 +258,9 @@ export function rangeesInitiales(
   taches: readonly TacheAffectee[],
   activites: readonly ActiviteInterne[],
   clesSupplementaires: readonly string[] = [],
+  langue: Langue = "fr",
 ): Rangee[] {
+  const t = creerTraduire(langue);
   const parCle = new Map<string, Rangee>();
   for (const l of lignes) {
     if (l.tache_id) {
@@ -218,8 +268,8 @@ export function rangeesInitiales(
         cle: cleTache(l.tache_id),
         type: "tache",
         id: l.tache_id,
-        libelle: l.tache_libelle ?? "Tâche",
-        groupe: l.mission_intitule ?? "Mission",
+        libelle: l.tache_libelle ?? t("Tâche", "Task"),
+        groupe: l.mission_intitule ?? t("Mission", "Engagement"),
         mission_id: l.mission_id,
       });
     } else if (l.activite_id) {
@@ -227,23 +277,23 @@ export function rangeesInitiales(
         cle: cleActivite(l.activite_id),
         type: "activite",
         id: l.activite_id,
-        libelle: l.activite_libelle ?? "Activité interne",
+        libelle: l.activite_libelle ?? t("Activité interne", "Internal activity"),
         groupe: GROUPE_INTERNE,
         mission_id: null,
         est_absence: activites.find((a) => a.id === l.activite_id)?.est_absence ?? false,
       });
     }
   }
-  for (const t of taches) {
-    const cle = cleTache(t.tache_id);
+  for (const ta of taches) {
+    const cle = cleTache(ta.tache_id);
     if (parCle.has(cle)) continue;
     parCle.set(cle, {
       cle,
       type: "tache",
-      id: t.tache_id,
-      libelle: t.tache_libelle ?? "Tâche",
-      groupe: t.mission_intitule ?? "Mission",
-      mission_id: t.mission_id,
+      id: ta.tache_id,
+      libelle: ta.tache_libelle ?? t("Tâche", "Task"),
+      groupe: ta.mission_intitule ?? t("Mission", "Engagement"),
+      mission_id: ta.mission_id,
     });
   }
   for (const cle of clesSupplementaires) {
@@ -308,13 +358,14 @@ export function construireCharge(
   valeurs: Readonly<Record<string, string>>,
   jours: readonly string[],
   unite: UniteSaisie,
+  langue: Langue = "fr",
 ): Resultat<{ lignes: LigneCharge[] }, string> {
   const erreurs: Record<string, string> = {};
   const lignes: LigneCharge[] = [];
   for (const r of rangees) {
     for (const date of jours) {
       const cle = cleCase(r.cle, date);
-      const lu = lireCase(valeurs[cle] ?? "", unite);
+      const lu = lireCase(valeurs[cle] ?? "", unite, langue);
       if (!lu.ok) {
         erreurs[cle] = lu.message;
         continue;
@@ -347,8 +398,8 @@ export function sommeAffichage(textes: readonly string[], unite: UniteSaisie): n
 }
 
 /** « 2,5 j » ou « 7,5 h ». */
-export const formaterValeur = (v: number, unite: UniteSaisie) =>
-  `${formaterNombre(v, 2)}\u00a0${SYMBOLE_UNITE[unite]}`;
+export const formaterValeur = (v: number, unite: UniteSaisie, langue: Langue = "fr") =>
+  `${formaterNombre(v, 2, langue)}\u00a0${symboleUnite(unite, langue)}`;
 
 // --- Règles d'actions --------------------------------------------------------------------
 
@@ -362,13 +413,18 @@ export interface ActionsFeuille {
 export function actionsFeuille(
   f: Pick<Feuille, "statut" | "auteur_id"> | null,
   utilisateurId: string,
+  langue: Langue = "fr",
 ): ActionsFeuille {
+  const t = creerTraduire(langue);
   const auteur = f !== null && f.auteur_id === utilisateurId;
   const modifiable = auteur && (f.statut === "brouillon" || f.statut === "rejetee");
   return {
     modifier: modifiable,
     soumettre: modifiable,
-    libelleSoumettre: f?.statut === "rejetee" ? "Resoumettre la feuille" : "Soumettre la feuille",
+    libelleSoumettre:
+      f?.statut === "rejetee"
+        ? t("Resoumettre la feuille", "Resubmit the timesheet")
+        : t("Soumettre la feuille", "Submit the timesheet"),
   };
 }
 
@@ -386,10 +442,19 @@ export function peutDeciderPartie(
 }
 
 /** Motif d'un rejet ou d'un refus : obligatoire, 500 caractères au plus. */
-export function validerMotif(motif: string): Resultat<{ motif: string }, "motif"> {
+export function validerMotif(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
+  const t = creerTraduire(langue);
   const m = motif.trim();
-  if (m === "") return { ok: false, erreurs: { motif: "Indiquez le motif." } };
-  if (m.length > 500) return { ok: false, erreurs: { motif: "500 caractères au plus." } };
+  if (m === "")
+    return { ok: false, erreurs: { motif: t("Indiquez le motif.", "Enter the reason.") } };
+  if (m.length > 500)
+    return {
+      ok: false,
+      erreurs: { motif: t("500 caractères au plus.", "500 characters maximum.") },
+    };
   return { ok: true, charge: { motif: m } };
 }
 
@@ -419,6 +484,7 @@ export function chargesResteAFaire(
   saisies: readonly SaisieReste[],
   semaine: string,
   unite: UniteSaisie = "demi_journee",
+  langue: Langue = "fr",
 ): Resultat<
   {
     mission_id: string;
@@ -426,6 +492,7 @@ export function chargesResteAFaire(
   }[],
   string
 > {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const parMission = new Map<string, { tache_id: string; jours: number }[]>();
   for (const s of saisies) {
@@ -433,15 +500,18 @@ export function chargesResteAFaire(
     const n = lireNombre(s.texte);
     if (n === null) continue;
     if (Number.isNaN(n) || n < 0 || n > 9999) {
-      erreurs[s.tache_id] = "Nombre de jours positif (ex. 2,5).";
+      erreurs[s.tache_id] = t(
+        "Nombre de jours positif (ex. 2,5).",
+        "Positive number of days (e.g. 2.5).",
+      );
       continue;
     }
     if (unite === "demi_journee" && Math.abs(n * 2 - Math.round(n * 2)) > 1e-9) {
-      erreurs[s.tache_id] = "Par pas de 0,5 jour.";
+      erreurs[s.tache_id] = t("Par pas de 0,5 jour.", "In steps of 0.5 day.");
       continue;
     }
     if (Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) {
-      erreurs[s.tache_id] = "Deux décimales au plus.";
+      erreurs[s.tache_id] = t("Deux décimales au plus.", "Two decimals maximum.");
       continue;
     }
     parMission.set(s.mission_id, [

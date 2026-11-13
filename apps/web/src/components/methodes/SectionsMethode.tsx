@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { TYPE_ELEMENT_LIBELLES, type TypeElementMethode } from "@missionpilot/shared";
 import type { BriqueVersion, EtapeVersion, Facteur, VersionDetail } from "../../lib/methodes";
+import { libelleTypeElement } from "../../lib/methodes-apercu";
 import { saisieDepuisRegle } from "../../lib/methodes-editeur";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { BoutonAction } from "./BoutonAction";
 import { FormulaireBrique } from "./FormulaireBrique";
 import { FormulaireCasType } from "./FormulaireCasType";
@@ -27,7 +28,7 @@ function Repliable({ libelle, children }: { libelle: string; children: ReactNode
   );
 }
 
-function Suppression({
+async function Suppression({
   v,
   collection,
   id,
@@ -40,6 +41,7 @@ function Suppression({
   libelle: string;
   question: string;
 }) {
+  const t = await obtenirT();
   return (
     <BoutonAction
       libelle={libelle}
@@ -47,28 +49,30 @@ function Suppression({
       methode="DELETE"
       variante="discret"
       icone="corbeille"
-      confirmation={{ question, libelleConfirmation: "Oui, supprimer" }}
+      confirmation={{ question, libelleConfirmation: t("Oui, supprimer", "Yes, delete") }}
     />
   );
 }
 
-export function ModifierEtape({ v, etape }: { v: VersionDetail; etape: EtapeVersion }) {
+export async function ModifierEtape({ v, etape }: { v: VersionDetail; etape: EtapeVersion }) {
+  const t = await obtenirT();
   return (
-    <Repliable libelle="Modifier l'étape">
+    <Repliable libelle={t("Modifier l'étape", "Edit the step")}>
       <FormulaireEtape versionId={v.version.id} etape={etape} />
     </Repliable>
   );
 }
 
-export function ModifierBrique({ v, brique }: { v: VersionDetail; brique: BriqueVersion }) {
+export async function ModifierBrique({ v, brique }: { v: VersionDetail; brique: BriqueVersion }) {
+  const t = await obtenirT();
   return (
-    <Repliable libelle="Modifier la brique">
+    <Repliable libelle={t("Modifier la brique", "Edit the building block")}>
       <FormulaireBrique versionId={v.version.id} etapes={v.etapes} brique={brique} />
     </Repliable>
   );
 }
 
-export function ModifierRegle({
+export async function ModifierRegle({
   v,
   regle,
   facteurs,
@@ -77,9 +81,10 @@ export function ModifierRegle({
   regle: VersionDetail["regles"][number];
   facteurs: Facteur[];
 }) {
+  const t = await obtenirT();
   const saisie = saisieDepuisRegle(regle.regle);
   return (
-    <Repliable libelle="Modifier la règle">
+    <Repliable libelle={t("Modifier la règle", "Edit the rule")}>
       {saisie ? (
         <FormulaireRegle
           versionId={v.version.id}
@@ -89,8 +94,10 @@ export function ModifierRegle({
         />
       ) : (
         <p>
-          Cette règle utilise des conditions que l&apos;éditeur ne sait pas rouvrir (négation,
-          conditions imbriquées ou test d&apos;une brique). Supprimez-la puis recréez-la.
+          {t(
+            "Cette règle utilise des conditions que l'éditeur ne sait pas rouvrir (négation, conditions imbriquées ou test d'une brique). Supprimez-la puis recréez-la.",
+            "This rule uses conditions the editor cannot reopen (negation, nested conditions or a building block test). Delete it and create it again.",
+          )}
         </p>
       )}
     </Repliable>
@@ -98,33 +105,41 @@ export function ModifierRegle({
 }
 
 /** Livrables, items, KPI, initiatives, risques, gabarits. */
-export function SectionElements({ v, editable }: { v: VersionDetail; editable: boolean }) {
+export async function SectionElements({ v, editable }: { v: VersionDetail; editable: boolean }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <section className="mp-methode__etape" aria-labelledby="titre-elements">
       <h3 id="titre-elements" className="mp-section__titre">
-        Livrables, items, KPI, initiatives, risques, gabarits ({v.elements.length})
+        {t(
+          `Livrables, items, KPI, initiatives, risques, gabarits (${v.elements.length})`,
+          `Deliverables, items, KPIs, initiatives, risks, templates (${v.elements.length})`,
+        )}
       </h3>
       <ul className="mp-liste-simple">
         {v.elements.map((e) => (
           <li key={e.id} className="mp-methode__regle">
             <span>
-              {TYPE_ELEMENT_LIBELLES[e.type as TypeElementMethode] ?? e.type} — {e.libelle}{" "}
+              {libelleTypeElement(e.type, langue)} — {e.libelle}{" "}
               <span className="mp-methode__code">({e.code})</span>
-              {e.essentiel ? " · essentiel" : ""}
-              {e.actif_par_defaut ? "" : " · inactif par défaut"}
-              {e.brique_code ? ` · brique ${e.brique_code}` : ""}
+              {e.essentiel ? t(" · essentiel", " · essential") : ""}
+              {e.actif_par_defaut ? "" : t(" · inactif par défaut", " · inactive by default")}
+              {e.brique_code ? ` · ${t("brique", "building block")} ${e.brique_code}` : ""}
             </span>
             {editable ? (
               <>
-                <Repliable libelle="Modifier l'élément">
+                <Repliable libelle={t("Modifier l'élément", "Edit the element")}>
                   <FormulaireElement versionId={v.version.id} briques={idsBriques(v)} element={e} />
                 </Repliable>
                 <Suppression
                   v={v}
                   collection="elements"
                   id={e.id}
-                  libelle="Supprimer l'élément"
-                  question={`Supprimer l'élément « ${e.libelle} » du brouillon ?`}
+                  libelle={t("Supprimer l'élément", "Delete the element")}
+                  question={t(
+                    `Supprimer l'élément « ${e.libelle} » du brouillon ?`,
+                    `Delete the element "${e.libelle}" from the draft?`,
+                  )}
                 />
               </>
             ) : null}
@@ -136,24 +151,30 @@ export function SectionElements({ v, editable }: { v: VersionDetail; editable: b
 }
 
 /** Rubriques à ancrages : cinq niveaux, exemples par contexte. */
-export function SectionRubriques({ v, editable }: { v: VersionDetail; editable: boolean }) {
+export async function SectionRubriques({ v, editable }: { v: VersionDetail; editable: boolean }) {
   if (v.rubriques.length === 0) return null;
+  const t = await obtenirT();
   return (
     <section className="mp-methode__etape" aria-labelledby="titre-rubriques">
       <h3 id="titre-rubriques" className="mp-section__titre">
-        Rubriques à ancrages ({v.rubriques.length})
+        {t(
+          `Rubriques à ancrages (${v.rubriques.length})`,
+          `Anchored rubrics (${v.rubriques.length})`,
+        )}
       </h3>
       {v.rubriques.map((r) => (
         <div key={r.id} className="mp-methode__regle">
           <details className="mp-details">
             <summary>
               {r.libelle} <span className="mp-methode__code">({r.code})</span>
-              {r.brique_code ? ` · brique ${r.brique_code}` : " · aucune brique"}
+              {r.brique_code
+                ? ` · ${t("brique", "building block")} ${r.brique_code}`
+                : t(" · aucune brique", " · no building block")}
             </summary>
             <ol className="mp-liste-simple">
               {r.ancrages.map((a) => (
                 <li key={a.niveau}>
-                  <strong>Niveau {a.niveau} :</strong> {a.description}
+                  <strong>{t(`Niveau ${a.niveau} :`, `Level ${a.niveau}:`)}</strong> {a.description}
                   {a.exemples.map((x) => (
                     <span key={x.contexte} className="mp-texte-doux">
                       {" "}
@@ -166,15 +187,18 @@ export function SectionRubriques({ v, editable }: { v: VersionDetail; editable: 
           </details>
           {editable ? (
             <>
-              <Repliable libelle="Modifier la rubrique">
+              <Repliable libelle={t("Modifier la rubrique", "Edit the rubric")}>
                 <FormulaireRubrique versionId={v.version.id} briques={idsBriques(v)} rubrique={r} />
               </Repliable>
               <Suppression
                 v={v}
                 collection="rubriques"
                 id={r.id}
-                libelle="Supprimer la rubrique"
-                question={`Supprimer la rubrique « ${r.libelle} » du brouillon ?`}
+                libelle={t("Supprimer la rubrique", "Delete the rubric")}
+                question={t(
+                  `Supprimer la rubrique « ${r.libelle} » du brouillon ?`,
+                  `Delete the rubric "${r.libelle}" from the draft?`,
+                )}
               />
             </>
           ) : null}
@@ -185,7 +209,7 @@ export function SectionRubriques({ v, editable }: { v: VersionDetail; editable: 
 }
 
 /** Cas types : contextes types qui vérifient que les règles font ce qu'on attend. */
-export function SectionCasTypes({
+export async function SectionCasTypes({
   v,
   editable,
   facteurs,
@@ -195,11 +219,12 @@ export function SectionCasTypes({
   facteurs: Facteur[];
 }) {
   if (v.cas_types.length === 0) return null;
+  const t = await obtenirT();
   const regles = v.regles.map((r) => ({ code: r.code, libelle: r.regle.libelle ?? r.code }));
   return (
     <section className="mp-methode__etape" aria-labelledby="titre-cas-types">
       <h3 id="titre-cas-types" className="mp-section__titre">
-        Cas types ({v.cas_types.length})
+        {t(`Cas types (${v.cas_types.length})`, `Test cases (${v.cas_types.length})`)}
       </h3>
       <ul className="mp-liste-simple">
         {v.cas_types.map((c) => (
@@ -209,15 +234,21 @@ export function SectionCasTypes({
             </strong>
             <span className="mp-texte-doux">
               {(c.cas.attendu.regles_declenchees ?? []).length > 0
-                ? `Règles attendues : ${(c.cas.attendu.regles_declenchees ?? []).join(", ")}.`
-                : "Aucune règle précisée."}
+                ? t(
+                    `Règles attendues : ${(c.cas.attendu.regles_declenchees ?? []).join(", ")}.`,
+                    `Expected rules: ${(c.cas.attendu.regles_declenchees ?? []).join(", ")}.`,
+                  )
+                : t("Aucune règle précisée.", "No rule specified.")}
               {c.cas.attendu.conflits_non_resolus !== undefined
-                ? ` Conflits non résolus attendus : ${c.cas.attendu.conflits_non_resolus}.`
+                ? t(
+                    ` Conflits non résolus attendus : ${c.cas.attendu.conflits_non_resolus}.`,
+                    ` Expected unresolved conflicts: ${c.cas.attendu.conflits_non_resolus}.`,
+                  )
                 : ""}
             </span>
             {editable ? (
               <>
-                <Repliable libelle="Modifier le cas type">
+                <Repliable libelle={t("Modifier le cas type", "Edit the test case")}>
                   <FormulaireCasType
                     versionId={v.version.id}
                     facteurs={facteurs}
@@ -229,8 +260,11 @@ export function SectionCasTypes({
                   v={v}
                   collection="cas-types"
                   id={c.id}
-                  libelle="Supprimer le cas type"
-                  question={`Supprimer le cas type « ${c.libelle ?? c.code} » ?`}
+                  libelle={t("Supprimer le cas type", "Delete the test case")}
+                  question={t(
+                    `Supprimer le cas type « ${c.libelle ?? c.code} » ?`,
+                    `Delete the test case "${c.libelle ?? c.code}"?`,
+                  )}
                 />
               </>
             ) : null}

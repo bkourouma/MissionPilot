@@ -12,10 +12,14 @@ import {
   chargerPersonnes,
   chargerTypesActifs,
 } from "../../../../../lib/referentiels-serveur";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 import { FormulaireOpportunite } from "../../FormulaireOpportunite";
 
-export const metadata: Metadata = { title: "Modifier l'opportunité" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Modifier l'opportunité", "Edit the opportunity") };
+}
 
 export default async function PageModifierOpportunite({
   params,
@@ -23,6 +27,7 @@ export default async function PageModifierOpportunite({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("pipeline.gerer");
   const [r, clients, types, personnes] = await Promise.all([
@@ -36,12 +41,15 @@ export default async function PageModifierOpportunite({
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre="Modifier l'opportunité"
-        retour={{ href: `/pipeline/${id}`, libelle: "Opportunité" }}
+        titre={t("Modifier l'opportunité", "Edit the opportunity")}
+        retour={{ href: `/pipeline/${id}`, libelle: t("Opportunité", "Opportunity") }}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="L'opportunité n'a pas pu être chargée."
+          titre={t(
+            "L'opportunité n'a pas pu être chargée.",
+            "The opportunity could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={`/pipeline/${id}/modifier`}
         />

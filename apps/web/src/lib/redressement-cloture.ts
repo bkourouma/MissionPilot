@@ -8,6 +8,8 @@
  * un écart entre l'état d'ouverture et l'état de fin.
  */
 import {
+  creerTraduire,
+  type Langue,
   RED_CHANGEMENT_CLASSE_LIBELLES,
   RED_CONTROLES_CLOTURE,
   RED_EVOLUTION_CLOTURE_LIBELLES,
@@ -72,15 +74,108 @@ export const TEXTE_CLOTURE_LECTURE_SEULE =
 export const TEXTE_RENOTATION_NON_COMPARABLE =
   "La comparaison suppose deux versions publiées de la notation de la mission : sans elles, aucun écart n'est affiché.";
 
-export const libelleStatutCloture = (s: RedStatutCloture) => RED_STATUT_CLOTURE_LIBELLES[s] ?? s;
-export const libelleEvolution = (e: RedEvolutionCloture) => RED_EVOLUTION_CLOTURE_LIBELLES[e] ?? e;
-export const libelleChangementClasse = (c: RedChangementClasse) =>
-  RED_CHANGEMENT_CLASSE_LIBELLES[c] ?? c;
-export const libelleStatutReNotation = (s: RedStatutReNotation) =>
-  RED_STATUT_RENOTATION_LIBELLES[s] ?? s;
+/** Textes fixes de l'onglet, dans la langue demandée (le français reste celui des constantes). */
+export function textesCloture(langue: Langue = "fr") {
+  const t = creerTraduire(langue);
+  return {
+    intro: t(
+      TEXTE_CLOTURE_INTRO,
+      "The close-out review compares the state of the file at opening and at the end. It is built by the server from the file's computations; only the engagement director approves it, and an approved review is frozen.",
+    ),
+    aucun: t(
+      TEXTE_CLOTURE_AUCUN,
+      "No close-out review yet. Create one from the current state of the file: the completeness checks will show what is still to be filled in.",
+    ),
+    evolution: t(
+      TEXTE_CLOTURE_EVOLUTION,
+      "A change is an observation on the gap between opening and end; it does not characterize the client's situation.",
+    ),
+    valide: t(
+      TEXTE_CLOTURE_VALIDE,
+      "Review approved: it is frozen. Close-out reports are generated from this version.",
+    ),
+    rapportNonValide: t(
+      TEXTE_CLOTURE_RAPPORT_NON_VALIDE,
+      "The close-out report can only be generated from an approved review.",
+    ),
+    rapportCloturee: t(
+      TEXTE_CLOTURE_RAPPORT_CLOTUREE,
+      "The engagement is closed: generation is disabled. Reports already generated remain available for download.",
+    ),
+    perimee: t(
+      TEXTE_CLOTURE_PERIMEE,
+      "The file has changed since this review was built: it can no longer be approved.",
+    ),
+    lectureSeule: t(
+      TEXTE_CLOTURE_LECTURE_SEULE,
+      "Read-only: the review can be built as long as the file is not closed.",
+    ),
+    renotationNonComparable: t(
+      TEXTE_RENOTATION_NON_COMPARABLE,
+      "The comparison requires two published versions of the engagement's rating: without them, no gap is shown.",
+    ),
+  };
+}
+
+const STATUT_CLOTURE_EN: Record<RedStatutCloture, string> = {
+  brouillon: "Draft",
+  valide: "Approved",
+};
+const EVOLUTION_EN: Record<RedEvolutionCloture, string> = {
+  amelioration: "Improvement",
+  degradation: "Deterioration",
+  stable: "Stable",
+  non_comparable: "Not comparable",
+};
+const CHANGEMENT_CLASSE_EN: Record<RedChangementClasse, string> = {
+  amelioration: "Class improved",
+  degradation: "Class lowered",
+  inchangee: "Class unchanged",
+  non_comparable: "Not comparable",
+};
+const STATUT_RENOTATION_EN: Record<RedStatutReNotation, string> = {
+  compare: "Two published versions compared",
+  une_seule_version: "Only one published version: no comparison",
+  aucune_version_publiee: "No published version of the rating",
+};
+const CONTROLES_EN: Record<string, string> = {
+  ratios_fin: "At least one accepted fiscal year (end state)",
+  alerte_fin: "A computed alert score (end state)",
+  urgence_fin: "A recorded urgency assessment (end state)",
+  tresorerie_fin: "A 13-week cash forecast (end state)",
+  plan_present: "A plan with at least one action",
+  causes_validees: "A root-cause map approved by a consultant",
+  ouverture_comparable: "An opening state distinct from the end state (ratios, alert, urgency)",
+  creanciers_saisis: "Creditors entered",
+  checklists_saisies: "Checklists filled in",
+  covenants_definis: "Covenants defined",
+  notation_comparable: "Two published versions of the engagement rating",
+};
+const RATIO_EN: Record<string, string> = {
+  liquidite_generale: "Current ratio",
+  liquidite_reduite: "Quick ratio",
+  liquidite_immediate: "Cash ratio",
+  autonomie_financiere: "Financial autonomy",
+  solvabilite_generale: "General solvency",
+  endettement: "Debt ratio",
+  marge_brute: "Gross margin",
+  marge_nette: "Net margin",
+  couverture_charges_financieres: "Financial charges coverage",
+  bfr_jours: "Working capital need in days of revenue",
+};
+
+export const libelleStatutCloture = (s: RedStatutCloture, langue: Langue = "fr") =>
+  langue === "en" ? (STATUT_CLOTURE_EN[s] ?? s) : (RED_STATUT_CLOTURE_LIBELLES[s] ?? s);
+export const libelleEvolution = (e: RedEvolutionCloture, langue: Langue = "fr") =>
+  langue === "en" ? (EVOLUTION_EN[e] ?? e) : (RED_EVOLUTION_CLOTURE_LIBELLES[e] ?? e);
+export const libelleChangementClasse = (c: RedChangementClasse, langue: Langue = "fr") =>
+  langue === "en" ? (CHANGEMENT_CLASSE_EN[c] ?? c) : (RED_CHANGEMENT_CLASSE_LIBELLES[c] ?? c);
+export const libelleStatutReNotation = (s: RedStatutReNotation, langue: Langue = "fr") =>
+  langue === "en" ? (STATUT_RENOTATION_EN[s] ?? s) : (RED_STATUT_RENOTATION_LIBELLES[s] ?? s);
 
 /** Libellé d'un code de contrôle (repli : le code lui-même). */
-export function libelleControle(code: string): string {
+export function libelleControle(code: string, langue: Langue = "fr"): string {
+  if (langue === "en") return CONTROLES_EN[code] ?? code;
   return RED_CONTROLES_CLOTURE.find((c) => c.code === code)?.libelle ?? code;
 }
 
@@ -100,15 +195,22 @@ export function tonaliteEvolution(e: RedEvolutionCloture | RedChangementClasse):
 const avecSigne = (texte: string, n: number) => (n > 0 ? `+${texte}` : texte);
 
 /** Variation d'un score ou d'un compte : « +5 », « -3 », « 0 » ; `null` → « — ». */
-export function formaterVariationEntier(n: number | null | undefined): string {
+export function formaterVariationEntier(
+  n: number | null | undefined,
+  langue: Langue = "fr",
+): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return VALEUR_ABSENTE;
-  return avecSigne(formaterNombre(n, 0), n);
+  return avecSigne(formaterNombre(n, 0, langue), n);
 }
 
 /** Variation de points d'alerte : « +5 points ». */
-export function formaterVariationPoints(n: number | null | undefined): string {
+export function formaterVariationPoints(
+  n: number | null | undefined,
+  langue: Langue = "fr",
+): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return VALEUR_ABSENTE;
-  return `${formaterVariationEntier(n)} ${Math.abs(n) > 1 ? "points" : "point"}`;
+  const unite = langue === "en" || Math.abs(n) > 1 ? "points" : "point";
+  return `${formaterVariationEntier(n, langue)} ${unite}`;
 }
 
 /**
@@ -119,45 +221,54 @@ export function formaterVariationPoints(n: number | null | undefined): string {
 export function formaterVariationRatio(
   cle: RedCleRatio,
   variation: number | null | undefined,
+  langue: Langue = "fr",
 ): string {
   if (typeof variation !== "number" || !Number.isFinite(variation)) return VALEUR_ABSENTE;
   const forme = FORME_RATIO[cle];
   if (forme === "jours") {
-    return `${avecSigne(formaterNombre(variation, 0), variation)} ${Math.abs(variation) > 1 ? "jours" : "jour"}`;
+    const plusieurs = Math.abs(variation) > 1;
+    const unite = langue === "en" ? (plusieurs ? "days" : "day") : plusieurs ? "jours" : "jour";
+    return `${avecSigne(formaterNombre(variation, 0, langue), variation)} ${unite}`;
   }
   if (forme === "pourcentage") {
-    return `${avecSigne(formaterNombre(variation / 100, 2), variation)} points`;
+    return `${avecSigne(formaterNombre(variation / 100, 2, langue), variation)} points`;
   }
-  return avecSigne(formaterNombre(variation / 10_000, 2), variation);
+  return avecSigne(formaterNombre(variation / 10_000, 2, langue), variation);
 }
 
-export const libelleRatioCloture = (cle: RedCleRatio) => RED_RATIO_LIBELLES[cle] ?? cle;
+export const libelleRatioCloture = (cle: RedCleRatio, langue: Langue = "fr") =>
+  langue === "en" ? (RATIO_EN[cle] ?? cle) : (RED_RATIO_LIBELLES[cle] ?? cle);
 
 /** Montant signé en unités mineures : « +1 500 000 FCFA ». */
-export function formaterVariationMontant(n: number | null | undefined, devise: Devise): string {
+export function formaterVariationMontant(
+  n: number | null | undefined,
+  devise: Devise,
+  langue: Langue = "fr",
+): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return VALEUR_ABSENTE;
-  return avecSigne(formaterMontantMineur(n, devise), n);
+  return avecSigne(formaterMontantMineur(n, devise, langue), n);
 }
 
 /** Score de notation en dixièmes de point : 75 → « 7,5 » ; `null` → « — ». */
-export function formaterScoreDixiemes(d: number | null | undefined): string {
+export function formaterScoreDixiemes(d: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof d !== "number" || !Number.isFinite(d)) return VALEUR_ABSENTE;
-  return formaterNombre(d / 10, 1);
+  return formaterNombre(d / 10, 1, langue);
 }
 
-export function formaterEcartDixiemes(d: number | null | undefined): string {
+export function formaterEcartDixiemes(d: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof d !== "number" || !Number.isFinite(d)) return VALEUR_ABSENTE;
-  return avecSigne(formaterNombre(d / 10, 1), d);
+  return avecSigne(formaterNombre(d / 10, 1, langue), d);
 }
 
 /** « Semaine 4 » ou « Aucune » pour la première semaine de tension. */
-export function libelleSemaineTension(s: number | null | undefined): string {
+export function libelleSemaineTension(s: number | null | undefined, langue: Langue = "fr"): string {
+  if (langue === "en") return typeof s === "number" ? `week ${s}` : "none";
   return typeof s === "number" ? `semaine ${s}` : "aucune";
 }
 
 /** « 3 sur 8 » : décompte déjà calculé par le serveur. */
-export const libelleSurTotal = (n: number, total: number) =>
-  `${formaterNombre(n, 0)} sur ${formaterNombre(total, 0)}`;
+export const libelleSurTotal = (n: number, total: number, langue: Langue = "fr") =>
+  `${formaterNombre(n, 0, langue)} ${langue === "en" ? "of" : "sur"} ${formaterNombre(total, 0, langue)}`;
 
 // --- Messages d'erreur ------------------------------------------------------------------------------
 
@@ -168,10 +279,18 @@ export function manquantsDe(details: unknown): string[] {
 }
 
 /** « Contrôles à satisfaire : Un plan avec au moins une action ; … ». */
-export function messageClotureIncomplete(manquants: readonly string[]): string {
+export function messageClotureIncomplete(
+  manquants: readonly string[],
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    if (manquants.length === 0)
+      return "The review is incomplete: blocking checks remain to be satisfied.";
+    return `The review is incomplete. Blocking checks to satisfy: ${manquants.map((m) => libelleControle(m, "en")).join("; ")}.`;
+  }
   if (manquants.length === 0)
     return "Le bilan est incomplet : des contrôles bloquants restent à satisfaire.";
-  return `Le bilan est incomplet. Contrôles bloquants à satisfaire : ${manquants.map(libelleControle).join(" ; ")}.`;
+  return `Le bilan est incomplet. Contrôles bloquants à satisfaire : ${manquants.map((m) => libelleControle(m)).join(" ; ")}.`;
 }
 
 /** Vrai quand le bilan ne reflète plus l'état du dossier (il faut en établir un nouveau). */
@@ -182,11 +301,12 @@ export const clotureEstPerimee = (e: unknown) =>
  * Message affichable (français) d'une action sur le bilan. Les refus de l'API (403, 409, 429) sont
  * déjà en français et s'affichent tels quels, sauf l'incomplétude, détaillée par contrôle.
  */
-export function messageCloture(e: unknown): string {
+export function messageCloture(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     if (e.code === "RED_CLOTURE_INCOMPLETE")
-      return messageClotureIncomplete(manquantsDe(e.details));
-    if (e.code === "RED_CLOTURE_PERIMEE") return `${TEXTE_CLOTURE_PERIMEE} ${e.message}`.trim();
+      return messageClotureIncomplete(manquantsDe(e.details), langue);
+    if (e.code === "RED_CLOTURE_PERIMEE")
+      return `${textesCloture(langue).perimee} ${e.message}`.trim();
   }
-  return messageRedressement(e);
+  return messageRedressement(e, langue);
 }

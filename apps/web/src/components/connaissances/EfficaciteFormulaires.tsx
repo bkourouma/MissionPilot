@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import type { Langue } from "@missionpilot/shared";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -21,7 +23,9 @@ import {
  * abandonner, mesurer l'effet. L'API reste juge de chaque droit ; aucun chiffre n'est calculé ici.
  */
 
-const OPTS = { messageSpecifique: messageEfficacite };
+const optsLangue = (langue: Langue) => ({
+  messageSpecifique: (e: unknown) => messageEfficacite(e, langue),
+});
 
 export function FormulaireRecommandation({
   missionId,
@@ -30,6 +34,9 @@ export function FormulaireRecommandation({
   missionId: string;
   options: OptionsMission;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const OPTS = optsLangue(langue);
   const f = useFormulaire<"kpi_id" | "libelle" | "type_initiative" | "valeur_cible">();
   const [s, setS] = useState({
     kpi_id: "",
@@ -44,9 +51,9 @@ export function FormulaireRecommandation({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      lireRecommandation(missionId, s),
+      lireRecommandation(missionId, s, langue),
       (c) => api.post(`${CHEMIN_EFFICACITE}/recommandations`, c),
-      { ...OPTS, succes: "Recommandation enregistrée." },
+      { ...OPTS, succes: t("Recommandation enregistrée.", "Recommendation saved.") },
     );
   }
 
@@ -54,30 +61,30 @@ export function FormulaireRecommandation({
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Select
-        libelle="KPI observé"
+        libelle={t("KPI observé", "Observed KPI")}
         required
-        invite="Choisir un KPI"
+        invite={t("Choisir un KPI", "Choose a KPI")}
         value={s.kpi_id}
         onChange={maj("kpi_id")}
         erreur={f.erreurs.kpi_id}
         options={options.kpi.map((k) => ({
           valeur: k.id,
-          libelle: `${k.libelle} (${k.unite})${k.deja_recommande ? " : déjà recommandé" : ""}`,
+          libelle: `${k.libelle} (${k.unite})${k.deja_recommande ? t(" : déjà recommandé", ": already recommended") : ""}`,
           desactivee: k.deja_recommande,
         }))}
       />
       <Select
-        libelle="Initiative du plan (facultatif)"
-        invite="Aucune"
+        libelle={t("Initiative du plan (facultatif)", "Plan initiative (optional)")}
+        invite={t("Aucune", "None")}
         value={s.plan_initiative_id}
         onChange={maj("plan_initiative_id")}
         options={options.initiatives.map((i) => ({
           valeur: i.id,
-          libelle: i.titre ?? "Initiative sans titre",
+          libelle: i.titre ?? t("Initiative sans titre", "Untitled initiative"),
         }))}
       />
       <Champ
-        libelle="Recommandation"
+        libelle={t("Recommandation", "Recommendation")}
         required
         maxLength={200}
         value={s.libelle}
@@ -85,8 +92,11 @@ export function FormulaireRecommandation({
         erreur={f.erreurs.libelle}
       />
       <Champ
-        libelle="Type d'initiative"
-        aide="Sert à comparer des initiatives de même nature entre missions (80 caractères au plus)."
+        libelle={t("Type d'initiative", "Initiative type")}
+        aide={t(
+          "Sert à comparer des initiatives de même nature entre missions (80 caractères au plus).",
+          "Used to compare initiatives of the same kind across engagements (80 characters maximum).",
+        )}
         required
         maxLength={80}
         value={s.type_initiative}
@@ -94,7 +104,7 @@ export function FormulaireRecommandation({
         erreur={f.erreurs.type_initiative}
       />
       <Champ
-        libelle="Effet attendu : valeur cible du KPI"
+        libelle={t("Effet attendu : valeur cible du KPI", "Expected effect: KPI target value")}
         required
         inputMode="decimal"
         value={s.valeur_cible}
@@ -103,7 +113,7 @@ export function FormulaireRecommandation({
       />
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours}>
-          Enregistrer la recommandation
+          {t("Enregistrer la recommandation", "Save the recommendation")}
         </Bouton>
       </div>
     </form>
@@ -117,6 +127,9 @@ export function ActionsRecommandation({
   id: string;
   statut: "recommandee" | "mise_en_oeuvre" | "abandonnee";
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const OPTS = optsLangue(langue);
   const f = useFormulaire<"date" | "motif">();
   const [date, setDate] = useState("");
   const [motif, setMotif] = useState("");
@@ -133,16 +146,16 @@ export function ActionsRecommandation({
           onClick={() =>
             f.envoyer({ ok: true, charge: {} }, () => api.post(`${base}/mesurer`, {}), {
               ...OPTS,
-              succes: "Effet mesuré.",
+              succes: t("Effet mesuré.", "Effect measured."),
             })
           }
         >
-          Mesurer l&apos;effet
+          {t("Mesurer l'effet", "Measure the effect")}
         </Bouton>
       ) : (
         <>
           <Champ
-            libelle="Date de mise en oeuvre"
+            libelle={t("Date de mise en oeuvre", "Implementation date")}
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -152,16 +165,20 @@ export function ActionsRecommandation({
             variante="secondaire"
             chargement={f.enCours}
             onClick={() =>
-              f.envoyer(lireMiseEnOeuvre(date), (c) => api.post(`${base}/mise-en-oeuvre`, c), {
-                ...OPTS,
-                succes: "Mise en oeuvre enregistrée.",
-              })
+              f.envoyer(
+                lireMiseEnOeuvre(date, langue),
+                (c) => api.post(`${base}/mise-en-oeuvre`, c),
+                {
+                  ...OPTS,
+                  succes: t("Mise en oeuvre enregistrée.", "Implementation saved."),
+                },
+              )
             }
           >
-            Mettre en oeuvre
+            {t("Mettre en oeuvre", "Implement")}
           </Bouton>
           <Champ
-            libelle="Motif d'abandon"
+            libelle={t("Motif d'abandon", "Reason for abandoning")}
             maxLength={500}
             value={motif}
             onChange={(e) => setMotif(e.target.value)}
@@ -171,13 +188,13 @@ export function ActionsRecommandation({
             variante="secondaire"
             chargement={f.enCours}
             onClick={() =>
-              f.envoyer(lireAbandon(motif), (c) => api.post(`${base}/abandon`, c), {
+              f.envoyer(lireAbandon(motif, langue), (c) => api.post(`${base}/abandon`, c), {
                 ...OPTS,
-                succes: "Recommandation abandonnée.",
+                succes: t("Recommandation abandonnée.", "Recommendation abandoned."),
               })
             }
           >
-            Abandonner
+            {t("Abandonner", "Abandon")}
           </Bouton>
         </>
       )}

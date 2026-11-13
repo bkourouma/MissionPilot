@@ -10,6 +10,7 @@ import {
   libelleType,
   TAILLE_MAX_OCTETS,
 } from "../../lib/fichiers";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Icone } from "../ui/Icone";
 
@@ -50,6 +51,8 @@ export function ChoixFichier({
   requis = false,
 }: ChoixFichierProps) {
   const id = useId();
+  const t = useT();
+  const langue = useLangue();
   const [erreurLocale, setErreurLocale] = useState<string | null>(null);
   const [vignette, setVignette] = useState<string | null>(null);
 
@@ -66,7 +69,7 @@ export function ChoixFichier({
     // Permet de choisir à nouveau le même fichier après un retrait.
     ev.target.value = "";
     if (!f) return;
-    const c = controlerFichier(f, types);
+    const c = controlerFichier(f, types, undefined, langue);
     if (!c.ok) {
       setErreurLocale(c.message);
       onChoix(null);
@@ -83,7 +86,10 @@ export function ChoixFichier({
   const enEnvoi = progression !== null;
   const aideTexte =
     aide ??
-    `${extensionsLisibles(types)}, ${Math.floor(TAILLE_MAX_OCTETS / (1024 * 1024))} Mo au plus.`;
+    t(
+      `${extensionsLisibles(types)}, ${Math.floor(TAILLE_MAX_OCTETS / (1024 * 1024))} Mo au plus.`,
+      `${extensionsLisibles(types, langue)}, ${Math.floor(TAILLE_MAX_OCTETS / (1024 * 1024))} MB at most.`,
+    );
 
   return (
     <fieldset
@@ -97,7 +103,7 @@ export function ChoixFichier({
           <span className="mp-champ__requis">
             {" "}
             <span aria-hidden="true">*</span>
-            <span className="mp-visuellement-cache">(obligatoire)</span>
+            <span className="mp-visuellement-cache">{t("(obligatoire)", "(required)")}</span>
           </span>
         ) : null}
       </legend>
@@ -107,14 +113,18 @@ export function ChoixFichier({
       {fichier ? (
         <div className="mp-fichier__apercu">
           {vignette ? (
-            <img className="mp-fichier__vignette" src={vignette} alt="Aperçu du fichier choisi" />
+            <img
+              className="mp-fichier__vignette"
+              src={vignette}
+              alt={t("Aperçu du fichier choisi", "Preview of the chosen file")}
+            />
           ) : (
             <Icone nom="trombone" taille={28} className="mp-fichier__icone" />
           )}
           <span className="mp-fichier__meta">
             <strong className="mp-coupure">{fichier.name}</strong>
             <span className="mp-texte-doux mp-texte-petit">
-              {`${libelleType(fichier.type, fichier.name)} · ${formaterTaille(fichier.size)}`}
+              {`${libelleType(fichier.type, fichier.name, langue)} · ${formaterTaille(fichier.size, langue)}`}
             </span>
           </span>
           {enEnvoi ? null : (
@@ -125,9 +135,12 @@ export function ChoixFichier({
                 setErreurLocale(null);
                 onChoix(null);
               }}
-              aria-label={`Retirer le fichier choisi ${fichier.name}`}
+              aria-label={t(
+                `Retirer le fichier choisi ${fichier.name}`,
+                `Remove the chosen file ${fichier.name}`,
+              )}
             >
-              Retirer
+              {t("Retirer", "Remove")}
             </Bouton>
           )}
         </div>
@@ -137,7 +150,7 @@ export function ChoixFichier({
           <progress
             max={1}
             value={progression}
-            aria-label="Envoi du fichier"
+            aria-label={t("Envoi du fichier", "Uploading file")}
             aria-valuetext={`${Math.round(progression * 100)} %`}
           />
           <span className="mp-texte-petit" aria-hidden="true">{`${Math.round(
@@ -157,7 +170,11 @@ export function ChoixFichier({
                 aria-describedby={decrit}
               />
               <Icone nom="appareilPhoto" />
-              <span>{fichier ? "Reprendre la photo" : "Prendre une photo"}</span>
+              <span>
+                {fichier
+                  ? t("Reprendre la photo", "Retake photo")
+                  : t("Prendre une photo", "Take a photo")}
+              </span>
             </label>
           ) : null}
           <label className="mp-bouton mp-bouton--secondaire mp-fichier__declencheur">
@@ -170,7 +187,11 @@ export function ChoixFichier({
               aria-invalid={message ? true : undefined}
             />
             <Icone nom="trombone" />
-            <span>{fichier ? "Choisir un autre fichier" : "Choisir un fichier"}</span>
+            <span>
+              {fichier
+                ? t("Choisir un autre fichier", "Choose another file")
+                : t("Choisir un fichier", "Choose a file")}
+            </span>
           </label>
         </div>
       )}

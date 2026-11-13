@@ -5,9 +5,9 @@ import { NIVEAUX_ES } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   cheminFiltrages,
+  libellesDd,
   libelleTheme,
   messageDd,
-  NIVEAU_ES_LIBELLES,
   optionsDe,
   type EntreeTaxonomie,
   type FiltrageDd,
@@ -23,13 +23,13 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { ChoixMultiple } from "./ChoixMultiple";
 
-const OPTIONS_NIVEAU_ES = optionsDe(NIVEAUX_ES, NIVEAU_ES_LIBELLES);
 const optionsTaxonomie = (entrees: readonly EntreeTaxonomie[]) =>
   entrees.map((e) => ({ valeur: e.code, libelle: e.libelle }));
 
@@ -49,11 +49,11 @@ function saisieInitiale(
   dernier: FiltrageDd | null,
   parDefaut: FormulaireFiltrageProps["parDefaut"],
 ): SaisieFiltrage {
-  const themes: SaisieTheme[] = saisieThemesVides().map((t) => {
-    const connu = dernier?.themes.find((x) => x.code === t.code);
+  const themes: SaisieTheme[] = saisieThemesVides().map((th) => {
+    const connu = dernier?.themes.find((x) => x.code === th.code);
     return connu
-      ? { code: t.code, niveau: connu.niveau, justification: connu.justification ?? "" }
-      : t;
+      ? { code: th.code, niveau: connu.niveau, justification: connu.justification ?? "" }
+      : th;
   });
   return {
     liste_id: "",
@@ -78,20 +78,29 @@ export function FormulaireFiltrage({
   dernier,
   parDefaut,
 }: FormulaireFiltrageProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsNiveauEs = optionsDe(NIVEAUX_ES, libellesDd(langue).NIVEAU_ES);
   const f = useFormulaire<ChampFiltrage>();
   const [s, setS] = useState<SaisieFiltrage>(() => saisieInitiale(dernier, parDefaut));
   const maj = (p: Partial<SaisieFiltrage>) => setS((x) => ({ ...x, ...p }));
   const majTheme = (code: string, p: Partial<SaisieTheme>) =>
-    setS((x) => ({ ...x, themes: x.themes.map((t) => (t.code === code ? { ...t, ...p } : t)) }));
+    setS((x) => ({
+      ...x,
+      themes: x.themes.map((th) => (th.code === code ? { ...th, ...p } : th)),
+    }));
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerFiltrage(s),
+      validerFiltrage(s, langue),
       (charge) => api.post<{ id: string }>(cheminFiltrages(dossierId), charge),
       {
-        succes: "Revue enregistrée : les règles touchées sont listées ci-dessus.",
-        messageSpecifique: messageDd,
+        succes: t(
+          "Revue enregistrée : les règles touchées sont listées ci-dessus.",
+          "Review saved: the rules hit are listed above.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
       },
     );
   }
@@ -102,72 +111,97 @@ export function FormulaireFiltrage({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvelle revue environnementale et sociale"
+      aria-label={t(
+        "Nouvelle revue environnementale et sociale",
+        "New environmental and social review",
+      )}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Revue refusée"
+        titreErreur={t("Revue refusée", "Review refused")}
       />
       {erreurListes ? (
-        <Alerte tonalite="attention" titre="Listes d'exclusion indisponibles" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Listes d'exclusion indisponibles", "Exclusion lists unavailable")}
+          annonce="aucune"
+        >
           <p>{erreurListes}</p>
         </Alerte>
       ) : listes.length === 0 ? (
-        <Alerte tonalite="info" titre="Aucune liste d'exclusion" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("Aucune liste d'exclusion", "No exclusion list")}
+          annonce="aucune"
+        >
           <p>
-            Aucune liste n&apos;est définie pour le cabinet. Un expert peut en créer une depuis
-            Paramètres, Due diligence, Listes d&apos;exclusion.
+            {t(
+              "Aucune liste n'est définie pour le cabinet. Un expert peut en créer une depuis Paramètres, Due diligence, Listes d'exclusion.",
+              "No list is defined for the firm. An expert can create one from Settings, Due diligence, Exclusion lists.",
+            )}
           </p>
         </Alerte>
       ) : null}
       <Select
-        libelle="Liste d'exclusion"
+        libelle={t("Liste d'exclusion", "Exclusion list")}
         required
-        invite="Choisir…"
+        invite={t("Choisir…", "Choose…")}
         options={listes.map((l) => ({
           valeur: l.id,
-          libelle: `${l.nom} (${l.client_id ? (l.client_raison_sociale ?? "investisseur") : "générale"}, ${l.nb_regles} règle${l.nb_regles > 1 ? "s" : ""})`,
+          libelle: t(
+            `${l.nom} (${l.client_id ? (l.client_raison_sociale ?? "investisseur") : "générale"}, ${l.nb_regles} règle${l.nb_regles > 1 ? "s" : ""})`,
+            `${l.nom} (${l.client_id ? (l.client_raison_sociale ?? "investor") : "general"}, ${l.nb_regles} rule${l.nb_regles > 1 ? "s" : ""})`,
+          ),
         }))}
         value={s.liste_id}
         onChange={(e) => maj({ liste_id: e.target.value })}
         erreur={f.erreurs.liste_id}
-        aide="Générale ou propre à l'investisseur : la version courante de la liste est appliquée."
+        aide={t(
+          "Générale ou propre à l'investisseur : la version courante de la liste est appliquée.",
+          "General or specific to the investor: the current version of the list is applied.",
+        )}
       />
       <ZoneTexte
-        libelle="Activités de la cible"
+        libelle={t("Activités de la cible", "Target's activities")}
         rows={4}
         value={s.activites}
         onChange={(e) => maj({ activites: e.target.value })}
         erreur={f.erreurs.activites}
-        aide="Une activité par ligne (30 au plus), par exemple « Exploitation d'une plantation de cacao »."
+        aide={t(
+          "Une activité par ligne (30 au plus), par exemple « Exploitation d'une plantation de cacao ».",
+          "One activity per line (30 at most), for example “Operating a cocoa plantation”.",
+        )}
       />
       <div className="mp-grille-champs">
         <ChoixMultiple
-          libelle="Secteurs déclarés"
+          libelle={t("Secteurs déclarés", "Declared sectors")}
           options={optionsTaxonomie(secteurs)}
           valeurs={s.secteur_codes}
           onChange={(v) => maj({ secteur_codes: v })}
           erreur={f.erreurs.secteur_codes}
-          libelleAjout="Ajouter le secteur"
+          libelleAjout={t("Ajouter le secteur", "Add the sector")}
         />
         <ChoixMultiple
-          libelle="Pays déclarés"
+          libelle={t("Pays déclarés", "Declared countries")}
           options={optionsTaxonomie(pays)}
           valeurs={s.pays_codes}
           onChange={(v) => maj({ pays_codes: v })}
           erreur={f.erreurs.pays_codes}
-          libelleAjout="Ajouter le pays"
+          libelleAjout={t("Ajouter le pays", "Add the country")}
         />
       </div>
 
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Huit thèmes de revue</legend>
+        <legend className="mp-champ__libelle">
+          {t("Huit thèmes de revue", "Eight review themes")}
+        </legend>
         <p className="mp-champ__aide">
-          Libellés propres à CabinetPilot, provisoires, à valider par un expert E&amp;S. Cadre
-          public cité en référence seulement : normes de performance de la SFI (aucun texte
-          reproduit).
+          {t(
+            "Libellés propres à CabinetPilot, provisoires, à valider par un expert E&S. Cadre public cité en référence seulement : normes de performance de la SFI (aucun texte reproduit).",
+            "Labels specific to CabinetPilot, provisional, to be validated by an E&S expert. Public framework cited as a reference only: IFC performance standards (no text reproduced).",
+          )}
         </p>
         {f.erreurs.themes ? (
           <Alerte tonalite="danger" annonce="alert">
@@ -175,26 +209,26 @@ export function FormulaireFiltrage({
           </Alerte>
         ) : null}
         <div className="mp-themes-es">
-          {s.themes.map((t) => (
-            <div key={t.code} className="mp-theme-es">
+          {s.themes.map((th) => (
+            <div key={th.code} className="mp-theme-es">
               <Select
-                libelle={libelleTheme(t.code)}
-                invite="Non évalué"
-                options={OPTIONS_NIVEAU_ES}
-                value={t.niveau}
-                onChange={(e) => majTheme(t.code, { niveau: e.target.value })}
+                libelle={libelleTheme(th.code, langue)}
+                invite={t("Non évalué", "Not assessed")}
+                options={optionsNiveauEs}
+                value={th.niveau}
+                onChange={(e) => majTheme(th.code, { niveau: e.target.value })}
               />
-              {t.niveau !== "" ? (
+              {th.niveau !== "" ? (
                 <ZoneTexte
-                  libelle={`Justification : ${libelleTheme(t.code)}`}
+                  libelle={`${t("Justification", "Justification")} : ${libelleTheme(th.code, langue)}`}
                   rows={2}
-                  required={niveauEsExigeJustification(t.niveau)}
-                  value={t.justification}
-                  onChange={(e) => majTheme(t.code, { justification: e.target.value })}
+                  required={niveauEsExigeJustification(th.niveau)}
+                  value={th.justification}
+                  onChange={(e) => majTheme(th.code, { justification: e.target.value })}
                   aide={
-                    niveauEsExigeJustification(t.niveau)
-                      ? "Obligatoire dès le niveau modéré."
-                      : "Facultative."
+                    niveauEsExigeJustification(th.niveau)
+                      ? t("Obligatoire dès le niveau modéré.", "Required from the moderate level.")
+                      : t("Facultative.", "Optional.")
                   }
                 />
               ) : null}
@@ -203,8 +237,12 @@ export function FormulaireFiltrage({
         </div>
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Analyse en cours…">
-          Lancer la revue
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Analyse en cours…", "Analysis in progress…")}
+        >
+          {t("Lancer la revue", "Start the review")}
         </Bouton>
       </div>
     </form>

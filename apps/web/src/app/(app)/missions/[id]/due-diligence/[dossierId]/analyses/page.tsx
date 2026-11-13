@@ -13,13 +13,13 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import {
-  ANALYSE_DD_LIBELLES,
   cheminAnalyses,
   droitsDd,
   hrefAnalyses,
   hrefAssertionRegistre,
   hrefEcranDossier,
   libelleCategorie,
+  libellesDd,
   lireAnalyse,
   messageFragilite,
   peutSignerAvisDd,
@@ -29,10 +29,14 @@ import {
   cheminModelesDuDossier,
   type ModelesDuDossier,
 } from "../../../../../../../lib/due-diligence-modeles";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Analyses du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Analyses du dossier", "File analyses") };
+}
 
 /**
  * Analyses PESTEL, cinq forces, SWOT et opérationnelle (DD-03, DD-05) : chaque point est une
@@ -47,6 +51,9 @@ export default async function PageAnalysesDd({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id, dossierId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
+  const L = libellesDd(langue);
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -62,7 +69,7 @@ export default async function PageAnalysesDd({
 
   return (
     <>
-      <nav aria-label="Choix de l'analyse" className="mp-onglets">
+      <nav aria-label={t("Choix de l'analyse", "Choose the analysis")} className="mp-onglets">
         <ul className="mp-onglets__liste">
           {ANALYSES_DD.map((a) => (
             <li key={a}>
@@ -71,7 +78,7 @@ export default async function PageAnalysesDd({
                 className="mp-onglets__lien"
                 aria-current={a === analyse ? "page" : undefined}
               >
-                {ANALYSE_DD_LIBELLES[a]}
+                {L.ANALYSE[a]}
               </Link>
             </li>
           ))}
@@ -80,14 +87,17 @@ export default async function PageAnalysesDd({
 
       {!r.ok ? (
         <EtatErreur
-          titre="Les analyses n'ont pas pu être chargées."
+          titre={t("Les analyses n'ont pas pu être chargées.", "The analyses could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefAnalyses(id, dossierId, analyse)}
         />
       ) : (
         <>
           <p className="mp-texte-doux">
-            {`Couverture du dossier : ${r.donnees.couverture.points} point(s), dont ${r.donnees.couverture.solides} solide(s), ${r.donnees.couverture.etayes} étayé(s) et ${r.donnees.couverture.fragiles} fragile(s).`}
+            {t(
+              `Couverture du dossier : ${r.donnees.couverture.points} point(s), dont ${r.donnees.couverture.solides} solide(s), ${r.donnees.couverture.etayes} étayé(s) et ${r.donnees.couverture.fragiles} fragile(s).`,
+              `File coverage: ${r.donnees.couverture.points} item(s), of which ${r.donnees.couverture.solides} strong, ${r.donnees.couverture.etayes} supported and ${r.donnees.couverture.fragiles} weak.`,
+            )}
           </p>
           {modeles.ok ? <EncartModeleSecteur modeles={modeles.donnees.elements} /> : null}
           <div className="mp-dd-categories">
@@ -100,16 +110,16 @@ export default async function PageAnalysesDd({
                   aria-labelledby={`cat-${categorie}`}
                 >
                   <h3 id={`cat-${categorie}`} className="mp-dd-categorie__titre">
-                    {libelleCategorie(categorie)}
+                    {libelleCategorie(categorie, langue)}
                   </h3>
                   {points.length === 0 ? (
                     <p className="mp-texte-doux mp-texte-petit">
-                      Aucun point dans cette catégorie.
+                      {t("Aucun point dans cette catégorie.", "No item in this category.")}
                     </p>
                   ) : (
                     <ul className="mp-dd-liste">
                       {points.map((p) => {
-                        const fragilite = messageFragilite(p);
+                        const fragilite = messageFragilite(p, langue);
                         return (
                           <li key={p.id} className="mp-dd-element">
                             {p.libelle ? <p className="mp-dd-element__titre">{p.libelle}</p> : null}
@@ -121,23 +131,33 @@ export default async function PageAnalysesDd({
                                 <BadgeStatut tonalite="attention">{fragilite}</BadgeStatut>
                               ) : null}
                               {p.a_arbitrer > 0 ? (
-                                <BadgeStatut tonalite="danger">{`${p.a_arbitrer} contradiction(s) à arbitrer`}</BadgeStatut>
+                                <BadgeStatut tonalite="danger">
+                                  {t(
+                                    `${p.a_arbitrer} contradiction(s) à arbitrer`,
+                                    `${p.a_arbitrer} contradiction(s) to arbitrate`,
+                                  )}
+                                </BadgeStatut>
                               ) : null}
                             </span>
                             <p className="mp-texte-doux mp-texte-petit">
-                              {`${p.nb_pour} source(s) en faveur, ${p.nb_contre} contraire(s)`}
+                              {t(
+                                `${p.nb_pour} source(s) en faveur, ${p.nb_contre} contraire(s)`,
+                                `${p.nb_pour} source(s) in favor, ${p.nb_contre} against`,
+                              )}
                             </p>
                             <div className="mp-barre-actions mp-barre-actions--compacte">
                               <Link
                                 className="mp-lien-action"
                                 href={hrefAssertionRegistre(id, p.assertion_id)}
                               >
-                                Ajouter une source
+                                {t("Ajouter une source", "Add a source")}
                               </Link>
                             </div>
                             {droits.ecrire ? (
                               <details className="mp-dd-details">
-                                <summary>Corriger ou retirer ce point</summary>
+                                <summary>
+                                  {t("Corriger ou retirer ce point", "Edit or remove this item")}
+                                </summary>
                                 <div className="mp-dd-details__corps">
                                   <CorrectionPoint point={p} />
                                 </div>
@@ -150,7 +170,12 @@ export default async function PageAnalysesDd({
                   )}
                   {droits.ecrire ? (
                     <details className="mp-dd-details">
-                      <summary>{`Ajouter un point : ${libelleCategorie(categorie)}`}</summary>
+                      <summary>
+                        {t(
+                          `Ajouter un point : ${libelleCategorie(categorie, langue)}`,
+                          `Add an item: ${libelleCategorie(categorie, langue)}`,
+                        )}
+                      </summary>
                       <div className="mp-dd-details__corps">
                         <FormulairePoint
                           dossierId={dossierId}
@@ -165,14 +190,20 @@ export default async function PageAnalysesDd({
               );
             })}
           </div>
-          <Carte titre="Comment lire la solidité" niveauTitre={3}>
+          <Carte titre={t("Comment lire la solidité", "How to read strength")} niveauTitre={3}>
             <p className="mp-texte-doux">
-              La solidité d&apos;un point (solide, étayé, fragile) est calculée par le moteur du
-              registre des preuves à partir des sources reliées à l&apos;affirmation ; elle ne se
-              saisit pas. Une source se relie depuis la fiche de l&apos;assertion dans le{" "}
-              <Link href={`/missions/${id}/preuves/assertions`}>registre des preuves</Link>. Retour
-              à la{" "}
-              <Link href={hrefEcranDossier(id, dossierId, "risques")}>checklist des risques</Link>.
+              {t(
+                "La solidité d'un point (solide, étayé, fragile) est calculée par le moteur du registre des preuves à partir des sources reliées à l'affirmation ; elle ne se saisit pas. Une source se relie depuis la fiche de l'assertion dans le ",
+                "The strength of an item (strong, supported, weak) is computed by the evidence register engine from the sources linked to the statement; it is not entered. A source is linked from the statement page in the ",
+              )}
+              <Link href={`/missions/${id}/preuves/assertions`}>
+                {t("registre des preuves", "evidence register")}
+              </Link>
+              {t(". Retour à la ", ". Back to the ")}
+              <Link href={hrefEcranDossier(id, dossierId, "risques")}>
+                {t("checklist des risques", "risk checklist")}
+              </Link>
+              .
             </p>
           </Carte>
         </>

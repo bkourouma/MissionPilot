@@ -8,8 +8,10 @@
  * reste seule juge (trop-perçu, séparation des tâches).
  */
 import {
+  creerTraduire,
   MODES_ENCAISSEMENT,
   OPERATEURS_MOBILE_MONEY,
+  type Langue,
   type ModeEncaissement,
   type OperateurMobileMoney,
   type Role,
@@ -147,6 +149,46 @@ export const OPERATEUR_LIBELLES: Record<OperateurMobileMoney, string> = {
   autre: "Autre opérateur",
 };
 
+export const MODE_LIBELLES_EN: Record<ModeEncaissement, string> = {
+  virement: "Bank transfer",
+  cheque: "Check",
+  especes: "Cash",
+  mobile_money: "Mobile Money",
+};
+
+export const OPERATEUR_LIBELLES_EN: Record<OperateurMobileMoney, string> = {
+  orange_money: "Orange Money",
+  mtn_momo: "MTN Mobile Money",
+  wave: "Wave",
+  moov_money: "Moov Money",
+  autre: "Other operator",
+};
+
+export const libelleMode = (m: ModeEncaissement, langue: Langue = "fr") =>
+  (langue === "en" ? MODE_LIBELLES_EN : MODE_LIBELLES)[m];
+
+export const libelleOperateur = (o: OperateurMobileMoney, langue: Langue = "fr") =>
+  (langue === "en" ? OPERATEUR_LIBELLES_EN : OPERATEUR_LIBELLES)[o];
+
+export const optionsModes = (langue: Langue = "fr") =>
+  MODES_ENCAISSEMENT.map((m) => ({ valeur: m, libelle: libelleMode(m, langue) }));
+export const optionsOperateurs = (langue: Langue = "fr") =>
+  OPERATEURS_MOBILE_MONEY.map((o) => ({ valeur: o, libelle: libelleOperateur(o, langue) }));
+export const optionsDevises = (langue: Langue = "fr") =>
+  DEVISES.map((d) => ({
+    valeur: d,
+    libelle:
+      d === "XOF"
+        ? langue === "en"
+          ? "XOF (FCFA WAEMU)"
+          : "XOF (FCFA UEMOA)"
+        : d === "XAF"
+          ? langue === "en"
+            ? "XAF (FCFA CEMAC)"
+            : "XAF (FCFA CEMAC)"
+          : d,
+  }));
+
 export const OPTIONS_MODES = MODES_ENCAISSEMENT.map((m) => ({
   valeur: m,
   libelle: MODE_LIBELLES[m],
@@ -172,6 +214,17 @@ export const STATUT_PAIEMENT: Record<
   annulee: { libelle: "Annulée", tonalite: "neutre" },
 };
 
+export const STATUT_PAIEMENT_LIBELLES_EN: Record<StatutPaiement, string> = {
+  non_payee: "Unpaid",
+  partiellement_payee: "Partially paid",
+  soldee: "Paid in full",
+  en_retard: "Overdue",
+  annulee: "Cancelled",
+};
+
+export const libelleStatutPaiement = (s: StatutPaiement, langue: Langue = "fr") =>
+  langue === "en" ? STATUT_PAIEMENT_LIBELLES_EN[s] : STATUT_PAIEMENT[s].libelle;
+
 export const STATUT_CONTRE_PASSATION: Record<
   StatutContrePassation,
   { libelle: string; tonalite: TonaliteStatut }
@@ -181,6 +234,26 @@ export const STATUT_CONTRE_PASSATION: Record<
   rejetee: { libelle: "Rejetée", tonalite: "neutre" },
 };
 
+export const STATUT_CONTRE_PASSATION_LIBELLES_EN: Record<StatutContrePassation, string> = {
+  demandee: "Pending approval",
+  validee: "Approved",
+  rejetee: "Rejected",
+};
+
+export const libelleStatutContrePassation = (s: StatutContrePassation, langue: Langue = "fr") =>
+  langue === "en" ? STATUT_CONTRE_PASSATION_LIBELLES_EN[s] : STATUT_CONTRE_PASSATION[s].libelle;
+
+export const ORIGINE_IMPUTATION_EN: Record<ImputationEncaissement["origine"], string> = {
+  saisie: "At entry",
+  avance: "Advance allocation",
+  contre_passation: "Reversal",
+};
+
+export const libelleOrigineImputation = (
+  o: ImputationEncaissement["origine"],
+  langue: Langue = "fr",
+) => (langue === "en" ? ORIGINE_IMPUTATION_EN : ORIGINE_IMPUTATION)[o];
+
 export const ORIGINE_IMPUTATION: Record<ImputationEncaissement["origine"], string> = {
   saisie: "À la saisie",
   avance: "Imputation d'avance",
@@ -188,19 +261,27 @@ export const ORIGINE_IMPUTATION: Record<ImputationEncaissement["origine"], strin
 };
 
 /** Libellé du moyen de paiement : « Mobile Money (Wave) », « Chèque ». */
-export function libelleMoyen(e: Pick<Encaissement, "mode" | "operateur">): string {
-  const base = MODE_LIBELLES[e.mode] ?? e.mode;
+export function libelleMoyen(
+  e: Pick<Encaissement, "mode" | "operateur">,
+  langue: Langue = "fr",
+): string {
+  const base = libelleMode(e.mode, langue) ?? e.mode;
   return e.mode === "mobile_money" && e.operateur
-    ? `${base} (${OPERATEUR_LIBELLES[e.operateur]})`
+    ? `${base} (${libelleOperateur(e.operateur, langue)})`
     : base;
 }
 
 /** État affiché d'un encaissement : contre-passation, contre-passé, avance, imputé. */
-export function etatEncaissement(e: Encaissement): { libelle: string; tonalite: TonaliteStatut } {
-  if (e.contre_passation_de) return { libelle: "Contre-passation", tonalite: "neutre" };
-  if (e.contre_passe_par) return { libelle: "Contre-passé", tonalite: "danger" };
-  if (e.avance) return { libelle: "Avec avance", tonalite: "attention" };
-  return { libelle: "Imputé", tonalite: "succes" };
+export function etatEncaissement(
+  e: Encaissement,
+  langue: Langue = "fr",
+): { libelle: string; tonalite: TonaliteStatut } {
+  const t = creerTraduire(langue);
+  if (e.contre_passation_de)
+    return { libelle: t("Contre-passation", "Reversal"), tonalite: "neutre" };
+  if (e.contre_passe_par) return { libelle: t("Contre-passé", "Reversed"), tonalite: "danger" };
+  if (e.avance) return { libelle: t("Avec avance", "With advance"), tonalite: "attention" };
+  return { libelle: t("Imputé", "Allocated"), tonalite: "succes" };
 }
 
 // --- Règles d'actions (l'API reste seule juge) ----------------------------------------------
@@ -283,28 +364,50 @@ export function lireImputations(
   saisies: Record<string, string>,
   creances: readonly Pick<Creance, "facture_id" | "numero" | "solde" | "devise">[],
   devise: Devise,
+  langue: Langue = "fr",
 ):
   | { ok: true; imputations: { facture_id: string; montant: number }[] }
   | { ok: false; erreur: string } {
+  const t = creerTraduire(langue);
   const imputations: { facture_id: string; montant: number }[] = [];
   for (const c of creances) {
     const texte = saisies[c.facture_id] ?? "";
     if (texte.trim() === "") continue;
-    const nom = c.numero ? `la facture ${c.numero}` : "une facture";
+    const nom = c.numero
+      ? t(`la facture ${c.numero}`, `invoice ${c.numero}`)
+      : t("une facture", "an invoice");
     if (c.devise !== devise)
-      return { ok: false, erreur: `Devise différente de celle de ${nom} : ne l'imputez pas ici.` };
+      return {
+        ok: false,
+        erreur: t(
+          `Devise différente de celle de ${nom} : ne l'imputez pas ici.`,
+          `Currency differs from that of ${nom}: do not allocate it here.`,
+        ),
+      };
     const m = lireMontant(texte, devise);
     if (m === null || Number.isNaN(m) || m <= 0)
-      return { ok: false, erreur: `Montant imputé sur ${nom} : montant positif attendu.` };
+      return {
+        ok: false,
+        erreur: t(
+          `Montant imputé sur ${nom} : montant positif attendu.`,
+          `Amount allocated to ${nom}: a positive amount is expected.`,
+        ),
+      };
     if (m > c.solde)
       return {
         ok: false,
-        erreur: `Le montant imputé sur ${nom} dépasse son reste à payer : trop-perçu refusé. Imputez au plus le reste à payer et cochez « avance » pour le surplus.`,
+        erreur: t(
+          `Le montant imputé sur ${nom} dépasse son reste à payer : trop-perçu refusé. Imputez au plus le reste à payer et cochez « avance » pour le surplus.`,
+          `The amount allocated to ${nom} exceeds its balance due: overpayment refused. Allocate at most the balance due and tick "advance" for the surplus.`,
+        ),
       };
     imputations.push({ facture_id: c.facture_id, montant: m });
   }
   if (imputations.length > 50)
-    return { ok: false, erreur: "50 factures au plus par encaissement." };
+    return {
+      ok: false,
+      erreur: t("50 factures au plus par encaissement.", "50 invoices at most per payment."),
+    };
   return { ok: true, imputations };
 }
 
@@ -312,28 +415,50 @@ export function validerEncaissement(
   s: SaisieEncaissement,
   creances: readonly Pick<Creance, "facture_id" | "numero" | "solde" | "devise">[],
   dateDuJour: string,
+  langue: Langue = "fr",
 ): Resultat<ChargeEncaissement, ChampEncaissement> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampEncaissement, string>> = {};
-  if (!UUID.test(s.client_id)) erreurs.client_id = "Choisissez le client qui a payé.";
-  if (!dateValide(s.date)) erreurs.date = "Saisissez la date de l'encaissement.";
-  else if (s.date > dateDuJour) erreurs.date = "Un encaissement ne se date pas dans le futur.";
+  if (!UUID.test(s.client_id))
+    erreurs.client_id = t("Choisissez le client qui a payé.", "Choose the client who paid.");
+  if (!dateValide(s.date))
+    erreurs.date = t("Saisissez la date de l'encaissement.", "Enter the payment date.");
+  else if (s.date > dateDuJour)
+    erreurs.date = t(
+      "Un encaissement ne se date pas dans le futur.",
+      "A payment cannot be dated in the future.",
+    );
   const montant = lireMontant(s.montant, s.devise);
   if (montant === null || Number.isNaN(montant) || montant <= 0)
-    erreurs.montant = "Montant encaissé : nombre positif dans la devise choisie.";
-  if (s.mode === "") erreurs.mode = "Choisissez le moyen de paiement.";
+    erreurs.montant = t(
+      "Montant encaissé : nombre positif dans la devise choisie.",
+      "Amount received: positive number in the chosen currency.",
+    );
+  if (s.mode === "")
+    erreurs.mode = t("Choisissez le moyen de paiement.", "Choose the payment method.");
   if (s.mode === "mobile_money" && s.operateur === "")
-    erreurs.operateur = "Précisez l'opérateur Mobile Money.";
+    erreurs.operateur = t(
+      "Précisez l'opérateur Mobile Money.",
+      "Specify the Mobile Money operator.",
+    );
   const reference = texteOuNull(s.reference);
   if ((s.mode === "cheque" || s.mode === "mobile_money") && !reference)
     erreurs.reference =
       s.mode === "cheque"
-        ? "Saisissez le numéro du chèque."
-        : "Saisissez la référence de l'opération Mobile Money.";
+        ? t("Saisissez le numéro du chèque.", "Enter the check number.")
+        : t(
+            "Saisissez la référence de l'opération Mobile Money.",
+            "Enter the Mobile Money transaction reference.",
+          );
   else if (reference && (reference.length > 120 || /[\r\n]/.test(reference)))
-    erreurs.reference = "Une seule ligne de 120 caractères au plus.";
+    erreurs.reference = t(
+      "Une seule ligne de 120 caractères au plus.",
+      "A single line of 120 characters at most.",
+    );
   const commentaire = texteOuNull(s.commentaire);
-  if (commentaire && commentaire.length > 500) erreurs.commentaire = "500 caractères au plus.";
-  const imp = lireImputations(s.imputations, creances, s.devise);
+  if (commentaire && commentaire.length > 500)
+    erreurs.commentaire = t("500 caractères au plus.", "500 characters at most.");
+  const imp = lireImputations(s.imputations, creances, s.devise, langue);
   if (!imp.ok) erreurs.imputations = imp.erreur;
   if (Object.keys(erreurs).length > 0 || !imp.ok || s.mode === "") return { ok: false, erreurs };
   return {
@@ -358,31 +483,50 @@ export function validerImputationAvance(
   saisies: Record<string, string>,
   creances: readonly Pick<Creance, "facture_id" | "numero" | "solde" | "devise">[],
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<{ imputations: { facture_id: string; montant: number }[] }, "imputations"> {
-  const imp = lireImputations(saisies, creances, devise);
+  const imp = lireImputations(saisies, creances, devise, langue);
   if (!imp.ok) return { ok: false, erreurs: { imputations: imp.erreur } };
   if (imp.imputations.length === 0)
     return {
       ok: false,
-      erreurs: { imputations: "Saisissez le montant à imputer sur au moins une facture." },
+      erreurs: {
+        imputations: creerTraduire(langue)(
+          "Saisissez le montant à imputer sur au moins une facture.",
+          "Enter the amount to allocate to at least one invoice.",
+        ),
+      },
     };
   return { ok: true, charge: { imputations: imp.imputations } };
 }
 
 /** Motif d'une contre-passation ou de son rejet : obligatoire, 500 caractères au plus. */
-export function validerMotifContrePassation(motif: string): Resultat<{ motif: string }, "motif"> {
+export function validerMotifContrePassation(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
+  const t = creerTraduire(langue);
   const m = motif.trim();
   if (m === "")
     return {
       ok: false,
-      erreurs: { motif: "Le motif est obligatoire : il reste dans l'historique." },
+      erreurs: {
+        motif: t(
+          "Le motif est obligatoire : il reste dans l'historique.",
+          "The reason is required: it stays in the history.",
+        ),
+      },
     };
-  if (m.length > 500) return { ok: false, erreurs: { motif: "500 caractères au plus." } };
+  if (m.length > 500)
+    return {
+      ok: false,
+      erreurs: { motif: t("500 caractères au plus.", "500 characters at most.") },
+    };
   return { ok: true, charge: { motif: m } };
 }
 
 /** Message d'un refus métier des encaissements, en français et actionnable. */
-export function messageEncaissement(e: unknown): string | null {
+export function messageEncaissement(e: unknown, langue: Langue = "fr"): string | null {
   if (!(e instanceof ErreurApi)) return null;
   switch (e.code) {
     case "TROP_PERCU":
@@ -392,7 +536,10 @@ export function messageEncaissement(e: unknown): string | null {
     case "VALIDATION_REQUISE":
       return e.message;
     case "CONFLIT_CONCURRENT":
-      return "Une autre opération vient de modifier cet encaissement. Réessayez dans un instant.";
+      return creerTraduire(langue)(
+        "Une autre opération vient de modifier cet encaissement. Réessayez dans un instant.",
+        "Another operation has just modified this payment. Try again in a moment.",
+      );
     case "REQUETE_INVALIDE":
       return e.message !== "Données invalides." ? e.message : null;
     default:

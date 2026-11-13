@@ -25,10 +25,12 @@ import {
   libelleCompteur,
   majAction,
   MENTION_CONFIDENTIALITE,
+  MENTION_CONFIDENTIALITE_EN,
   messageErreurCopilote,
   questionAvant,
   saisieApresEnvoi,
   TEXTE_PROPOSITION_EXPIREE,
+  TEXTE_PROPOSITION_EXPIREE_EN,
   validerSaisie,
   type EntreeCopilote,
   type EntreeFil,
@@ -39,6 +41,7 @@ import {
   sauvegarderConversation,
   stockageSession,
 } from "../../lib/copilote-session";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -63,6 +66,8 @@ export interface CopiloteProps {
 }
 
 export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
+  const t = useT();
+  const langue = useLangue();
   const [fil, setFil] = useState<EntreeFil[]>([]);
   const [saisie, setSaisie] = useState("");
   const [erreurSaisie, setErreurSaisie] = useState<string | null>(null);
@@ -95,7 +100,7 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
   const envoyer = useCallback(
     async (brut: string) => {
       if (envoi) return;
-      const v = validerSaisie(brut);
+      const v = validerSaisie(brut, langue);
       if (!v.ok) {
         setErreurSaisie(v.erreur);
         champ.current?.focus();
@@ -110,12 +115,12 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
           corpsMessage(v.texte, missionId),
         );
         const lu = reponseCopiloteSchema.safeParse(brutReponse);
-        if (!lu.success) throw new Error("Réponse illisible.");
+        if (!lu.success) throw new Error(t("Réponse illisible.", "Unreadable response."));
         setFil((f) => ajouterReponse(f, prochainId(), lu.data));
         // Le serveur a répondu (même un refus ou « non compris ») : le champ est vidé.
         setSaisie((s) => saisieApresEnvoi(s, v.texte, true));
       } catch (e) {
-        setFil((f) => ajouterErreur(f, prochainId(), messageErreurCopilote(e)));
+        setFil((f) => ajouterErreur(f, prochainId(), messageErreurCopilote(e, langue)));
         // Requête échouée : la question n'est pas perdue, elle reste dans le champ pour être renvoyée.
         setSaisie((s) => saisieApresEnvoi(s, v.texte, false));
       } finally {
@@ -123,33 +128,36 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
         champ.current?.focus();
       }
     },
-    [envoi, missionId, prochainId],
+    [envoi, missionId, prochainId, langue, t],
   );
 
-  const decider = useCallback(async (entree: EntreeCopilote, confirmer: boolean) => {
-    const action = actionDe(entree);
-    if (!action) return;
-    setFil((f) => majAction(f, entree.id, { etatAction: "en_cours", erreurAction: null }));
-    try {
-      const brut = await api.post<unknown>(
-        confirmer ? cheminConfirmation(action.action_id) : cheminAnnulation(action.action_id),
-      );
-      const resultat = resultatActionCopiloteSchema.parse(brut);
-      setFil((f) =>
-        majAction(f, entree.id, {
-          etatAction: resultat.statut === "confirmee" ? "confirmee" : "annulee",
-          resultat,
-        }),
-      );
-    } catch (e) {
-      setFil((f) =>
-        majAction(f, entree.id, {
-          etatAction: etatApresErreur(e),
-          erreurAction: messageErreurCopilote(e),
-        }),
-      );
-    }
-  }, []);
+  const decider = useCallback(
+    async (entree: EntreeCopilote, confirmer: boolean) => {
+      const action = actionDe(entree);
+      if (!action) return;
+      setFil((f) => majAction(f, entree.id, { etatAction: "en_cours", erreurAction: null }));
+      try {
+        const brut = await api.post<unknown>(
+          confirmer ? cheminConfirmation(action.action_id) : cheminAnnulation(action.action_id),
+        );
+        const resultat = resultatActionCopiloteSchema.parse(brut);
+        setFil((f) =>
+          majAction(f, entree.id, {
+            etatAction: resultat.statut === "confirmee" ? "confirmee" : "annulee",
+            resultat,
+          }),
+        );
+      } catch (e) {
+        setFil((f) =>
+          majAction(f, entree.id, {
+            etatAction: etatApresErreur(e),
+            erreurAction: messageErreurCopilote(e, langue),
+          }),
+        );
+      }
+    },
+    [langue],
+  );
 
   const soumettre = (e: FormEvent) => {
     e.preventDefault();
@@ -196,13 +204,14 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
         aria-live="polite"
         aria-relevant="additions"
         aria-busy={envoi}
-        aria-label="Conversation avec le copilote"
+        aria-label={t("Conversation avec le copilote", "Conversation with the copilot")}
       >
         {fil.length === 0 ? (
           <p>
-            Posez une question sur votre activité : tâches, feuilles de temps, missions, KPI,
-            factures échues, recherche. Le copilote répond dans vos droits et ne modifie rien sans
-            votre confirmation.
+            {t(
+              "Posez une question sur votre activité : tâches, feuilles de temps, missions, KPI, factures échues, recherche. Le copilote répond dans vos droits et ne modifie rien sans votre confirmation.",
+              "Ask a question about your activity: tasks, timesheets, engagements, KPIs, overdue invoices, search. The copilot answers within your permissions and changes nothing without your confirmation.",
+            )}
           </p>
         ) : (
           <ol className="mp-copilote__fil">
@@ -210,16 +219,19 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
               <li key={e.id} className={`mp-copilote__entree mp-copilote__entree--${e.auteur}`}>
                 {e.auteur === "utilisateur" ? (
                   <>
-                    <span className="mp-copilote__auteur">Vous</span>
+                    <span className="mp-copilote__auteur">{t("Vous", "You")}</span>
                     <div className="mp-copilote__bulle">{e.texte}</div>
                   </>
                 ) : e.auteur === "erreur" ? (
-                  <Alerte tonalite="danger" titre="Le copilote n'a pas pu répondre">
+                  <Alerte
+                    tonalite="danger"
+                    titre={t("Le copilote n'a pas pu répondre", "The copilot could not answer")}
+                  >
                     <p>{e.texte}</p>
                   </Alerte>
                 ) : (
                   <>
-                    <span className="mp-copilote__auteur">Copilote</span>
+                    <span className="mp-copilote__auteur">{t("Copilote", "Copilot")}</span>
                     <div className="mp-copilote__bulle">
                       <ReponseVue reponse={e.reponse} />
                       {e.etatAction && e.reponse.action ? (
@@ -234,7 +246,9 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
                         />
                       ) : null}
                       {e.propositionExpiree ? (
-                        <p className="mp-copilote__expiree">{TEXTE_PROPOSITION_EXPIREE}</p>
+                        <p className="mp-copilote__expiree">
+                          {t(TEXTE_PROPOSITION_EXPIREE, TEXTE_PROPOSITION_EXPIREE_EN)}
+                        </p>
                       ) : null}
                     </div>
                   </>
@@ -248,18 +262,18 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
       {fil.length > 0 ? (
         <div className="mp-copilote__outils">
           <Bouton variante="secondaire" onClick={effacer} disabled={envoi}>
-            Effacer la conversation
+            {t("Effacer la conversation", "Clear the conversation")}
           </Bouton>
         </div>
       ) : null}
       {envoi ? (
         <p className="mp-copilote__attente" role="status">
-          Le copilote prépare sa réponse…
+          {t("Le copilote prépare sa réponse…", "The copilot is preparing its answer…")}
         </p>
       ) : null}
 
       {suggestions.length > 0 ? (
-        <section aria-label="Suggestions de questions">
+        <section aria-label={t("Suggestions de questions", "Suggested questions")}>
           <ul className="mp-copilote__suggestions">
             {suggestions.map((s) => (
               <li key={s}>
@@ -275,24 +289,34 @@ export function Copilote({ suggestions, missionId, portee }: CopiloteProps) {
       <form className="mp-copilote__formulaire" onSubmit={soumettre} noValidate>
         <ZoneTexte
           ref={champ}
-          libelle="Votre question"
+          libelle={t("Votre question", "Your question")}
           rows={2}
           value={saisie}
           maxLength={LONGUEUR_MESSAGE_MAX}
           onChange={(e) => setSaisie(e.target.value)}
           onKeyDown={touche}
           erreur={erreurSaisie ?? undefined}
-          aide="Entrée pour envoyer, Maj+Entrée pour passer à la ligne."
+          aide={t(
+            "Entrée pour envoyer, Maj+Entrée pour passer à la ligne.",
+            "Enter to send, Shift+Enter for a new line.",
+          )}
           autoComplete="off"
         />
         <div className="mp-copilote__pied-saisie">
-          <span className="mp-copilote__compteur">{libelleCompteur(saisie.length)}</span>
-          <Bouton type="submit" chargement={envoi} texteChargement="Envoi…" icone="envoyer">
-            Envoyer
+          <span className="mp-copilote__compteur">{libelleCompteur(saisie.length, langue)}</span>
+          <Bouton
+            type="submit"
+            chargement={envoi}
+            texteChargement={t("Envoi…", "Sending…")}
+            icone="envoyer"
+          >
+            {t("Envoyer", "Send")}
           </Bouton>
         </div>
       </form>
-      <p className="mp-copilote__mention">{MENTION_CONFIDENTIALITE}</p>
+      <p className="mp-copilote__mention">
+        {t(MENTION_CONFIDENTIALITE, MENTION_CONFIDENTIALITE_EN)}
+      </p>
     </div>
   );
 }

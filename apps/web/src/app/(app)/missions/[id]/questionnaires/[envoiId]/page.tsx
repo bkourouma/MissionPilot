@@ -6,11 +6,13 @@ import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Icone } from "../../../../../../components/ui/Icone";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { formaterDate, formaterDateHeure } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import {
   AIDE_MODE,
+  AIDE_MODE_EN,
   hrefEnvoi,
   libelleMode,
   libelleStatut,
@@ -21,7 +23,10 @@ import { exigerPermission } from "../../../../../../lib/session";
 import { ReponsesEnvoi } from "./ReponsesEnvoi";
 import { SuiviEnvoi } from "./SuiviEnvoi";
 
-export const metadata: Metadata = { title: "Suivi d'un questionnaire" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Suivi d'un questionnaire", "Questionnaire tracking") };
+}
 
 /**
  * Suivi d'un envoi de questionnaire (SOC-10) : réglages, actions, progression par répondant,
@@ -32,6 +37,8 @@ export default async function PageEnvoi({
 }: {
   params: Promise<{ id: string; envoiId: string }>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, envoiId } = await params;
   if (!estIdentifiant(envoiId)) notFound();
   const { utilisateur } = await exigerPermission("questionnaire.lire");
@@ -45,7 +52,10 @@ export default async function PageEnvoi({
   if (!e.ok) {
     return (
       <EtatErreur
-        titre="Le questionnaire n'a pas pu être chargé."
+        titre={t(
+          "Le questionnaire n'a pas pu être chargé.",
+          "The questionnaire could not be loaded.",
+        )}
         message={e.message}
         hrefReessayer={hrefEnvoi(m.id, envoiId)}
       />
@@ -53,14 +63,14 @@ export default async function PageEnvoi({
   }
   const envoi = e.donnees;
   if (envoi.mission_id !== m.id) notFound();
-  const statut = libelleStatut(STATUT_ENVOI, envoi.statut);
+  const statut = libelleStatut(STATUT_ENVOI, envoi.statut, langue);
   const { attendues, soumises } = envoi.completude;
 
   return (
     <div className="mp-pile mp-pile--large">
       <Link href={liste} className="mp-lien-retour">
         <Icone nom="chevronGauche" taille={18} />
-        <span>Questionnaires de la mission</span>
+        <span>{t("Questionnaires de la mission", "Engagement questionnaires")}</span>
       </Link>
       <section className="mp-pile" aria-labelledby="titre-envoi">
         <div className="mp-entete-section">
@@ -70,60 +80,80 @@ export default async function PageEnvoi({
           <span className="mp-badges">
             <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
             <BadgeStatut tonalite="neutre" sansIcone>
-              {libelleMode(envoi.mode)}
+              {libelleMode(envoi.mode, langue)}
             </BadgeStatut>
             {envoi.completude.complet && envoi.statut !== "brouillon" ? (
-              <BadgeStatut tonalite="succes">Toutes les réponses sont soumises</BadgeStatut>
+              <BadgeStatut tonalite="succes">
+                {t("Toutes les réponses sont soumises", "All responses are submitted")}
+              </BadgeStatut>
             ) : null}
           </span>
         </div>
         <dl className="mp-liste-def">
           <div>
-            <dt>Mode de réponse</dt>
-            <dd>{`${libelleMode(envoi.mode)} : ${AIDE_MODE[envoi.mode] ?? ""}`}</dd>
+            <dt>{t("Mode de réponse", "Response mode")}</dt>
+            <dd>{`${libelleMode(envoi.mode, langue)}${t(" : ", ": ")}${(langue === "en" ? AIDE_MODE_EN : AIDE_MODE)[envoi.mode] ?? ""}`}</dd>
           </div>
           <div>
-            <dt>Réponses soumises</dt>
+            <dt>{t("Réponses soumises", "Submitted responses")}</dt>
             <dd>
               {envoi.mode === "collectif"
                 ? soumises > 0
-                  ? "La réponse partagée est soumise."
-                  : "La réponse partagée n'est pas encore soumise."
-                : `${soumises} sur ${attendues} attendue${attendues > 1 ? "s" : ""}`}
+                  ? t("La réponse partagée est soumise.", "The shared response is submitted.")
+                  : t(
+                      "La réponse partagée n'est pas encore soumise.",
+                      "The shared response is not submitted yet.",
+                    )
+                : t(
+                    `${soumises} sur ${attendues} attendue${attendues > 1 ? "s" : ""}`,
+                    `${soumises} of ${attendues} expected`,
+                  )}
             </dd>
           </div>
           <div>
-            <dt>Date limite</dt>
+            <dt>{t("Date limite", "Due date")}</dt>
             <dd>
-              {envoi.date_limite ? formaterDate(envoi.date_limite) : "Aucune"}
+              {envoi.date_limite
+                ? formaterDate(envoi.date_limite, undefined, langue)
+                : t("Aucune", "None")}
               {envoi.date_limite && envoi.statut === "envoye" ? (
                 <span className="mp-texte-doux">
                   {" "}
-                  (passée, le portail n&apos;accepte plus de réponse : prolongez-la ici si besoin)
+                  {t(
+                    "(passée, le portail n'accepte plus de réponse : prolongez-la ici si besoin)",
+                    "(passed, the portal no longer accepts responses: extend it here if needed)",
+                  )}
                 </span>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt>Relances automatiques</dt>
+            <dt>{t("Relances automatiques", "Automatic reminders")}</dt>
             <dd>
               {envoi.relances_auto
-                ? "Activées : e-mail à J+3 puis J+7 après l'envoi, aux répondants qui n'ont pas soumis."
-                : "Désactivées : relances manuelles seulement."}
+                ? t(
+                    "Activées : e-mail à J+3 puis J+7 après l'envoi, aux répondants qui n'ont pas soumis.",
+                    "On: email at D+3 then D+7 after sending, to respondents who have not submitted.",
+                  )
+                : t("Désactivées : relances manuelles seulement.", "Off: manual reminders only.")}
             </dd>
           </div>
           <div>
-            <dt>Créé le</dt>
-            <dd>{formaterDateHeure(envoi.cree_le)}</dd>
+            <dt>{t("Créé le", "Created on")}</dt>
+            <dd>{formaterDateHeure(envoi.cree_le, undefined, langue)}</dd>
           </div>
           <div>
-            <dt>Envoyé le</dt>
-            <dd>{envoi.envoye_le ? formaterDateHeure(envoi.envoye_le) : "Pas encore envoyé"}</dd>
+            <dt>{t("Envoyé le", "Sent on")}</dt>
+            <dd>
+              {envoi.envoye_le
+                ? formaterDateHeure(envoi.envoye_le, undefined, langue)
+                : t("Pas encore envoyé", "Not sent yet")}
+            </dd>
           </div>
           {envoi.clos_le ? (
             <div>
-              <dt>Clos le</dt>
-              <dd>{formaterDateHeure(envoi.clos_le)}</dd>
+              <dt>{t("Clos le", "Closed on")}</dt>
+              <dd>{formaterDateHeure(envoi.clos_le, undefined, langue)}</dd>
             </div>
           ) : null}
         </dl>
@@ -138,8 +168,18 @@ export default async function PageEnvoi({
       <ReponsesEnvoi envoiId={envoi.id} definition={envoi.definition} soumises={soumises} />
 
       <details className="mp-details">
-        <summary>Voir le questionnaire envoyé (version figée)</summary>
-        <ApercuQuestionnaire definition={envoi.definition} prefixe="envoi-apercu" niveauTitre={3} />
+        <summary>
+          {t(
+            "Voir le questionnaire envoyé (version figée)",
+            "View the sent questionnaire (locked version)",
+          )}
+        </summary>
+        <ApercuQuestionnaire
+          definition={envoi.definition}
+          prefixe="envoi-apercu"
+          niveauTitre={3}
+          langue={langue}
+        />
       </details>
     </div>
   );

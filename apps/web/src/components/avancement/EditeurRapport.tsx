@@ -11,9 +11,9 @@ import {
   estConflitVersion,
   etatCommentaire,
   estFige,
-  LIBELLE_BROUILLON_IA,
+  libellesAvancement,
   LIBELLES_RAISON_SUGGESTION,
-  MENTION_BROUILLON_IA,
+  LIBELLES_RAISON_SUGGESTION_EN,
   messageAvancement,
   modifie,
   raisonValidationImpossible,
@@ -24,6 +24,7 @@ import {
   type ReponseSuggestionAvancement,
 } from "../../lib/avancement";
 import { formaterDateHeure, formaterNombre } from "../../lib/format";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -34,22 +35,25 @@ import { ZoneTexte } from "../ui/ZoneTexte";
 import "./avancement.css";
 
 function Compteur({ valeur, max }: { valeur: string; max: number }) {
+  const t = useT();
+  const langue = useLangue();
   const n = valeur.trim().length;
   return (
     <p className={n > max ? "mp-avc-compteur mp-avc-compteur--depasse" : "mp-avc-compteur"}>
-      {`${formaterNombre(n, 0)} / ${formaterNombre(max, 0)} caractères`}
+      {`${formaterNombre(n, 0, langue)} / ${formaterNombre(max, 0, langue)} ${t("caractères", "characters")}`}
     </p>
   );
 }
 
 /** Lecture seule d'un texte du chef de mission (rapport validé). */
 function TexteFige({ titre, texte }: { titre: string; texte: string | null }) {
+  const t = useT();
   return (
     <Carte titre={titre} niveauTitre={3}>
       {texte ? (
         <p className="mp-avc-texte">{texte}</p>
       ) : (
-        <p className="mp-texte-doux">Non renseigné.</p>
+        <p className="mp-texte-doux">{t("Non renseigné.", "Not provided.")}</p>
       )}
     </Carte>
   );
@@ -62,6 +66,9 @@ function TexteFige({ titre, texte }: { titre: string; texte: string | null }) {
  * est figé. L'API reste seule juge des droits et des états.
  */
 export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
+  const t = useT();
+  const langue = useLangue();
+  const libelles = libellesAvancement(langue);
   const { rafraichir } = useRafraichir();
   const depart = champsInitiaux(rapport);
   const cle = `${rapport.version}|${rapport.modifie_le}|${rapport.genere_le}`;
@@ -86,7 +93,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
 
   const fige = estFige(rapport);
   const aIA = rapport.statut_commentaire === "brouillon_ia";
-  const etat = etatCommentaire(rapport.statut_commentaire);
+  const etat = etatCommentaire(rapport.statut_commentaire, langue);
 
   if (fige) {
     return (
@@ -94,15 +101,23 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
         <Alerte
           tonalite="succes"
           annonce="aucune"
-          titre={`Rapport validé le ${formaterDateHeure(rapport.valide_le)}`}
+          titre={`${t("Rapport validé le", "Report approved on")} ${formaterDateHeure(rapport.valide_le, undefined, langue)}`}
         >
           <p>
-            {rapport.valide_par?.nom ? `Validé par ${rapport.valide_par.nom}. ` : ""}
-            Ce rapport est figé : il est visible du client et ne peut plus être modifié.
+            {rapport.valide_par?.nom
+              ? `${t("Validé par", "Approved by")} ${rapport.valide_par.nom}. `
+              : ""}
+            {t(
+              "Ce rapport est figé : il est visible du client et ne peut plus être modifié.",
+              "This report is locked: it is visible to the client and can no longer be edited.",
+            )}
           </p>
         </Alerte>
-        <TexteFige titre="Introduction" texte={rapport.introduction} />
-        <TexteFige titre="Commentaire du chef de mission" texte={rapport.commentaire} />
+        <TexteFige titre={t("Introduction", "Introduction")} texte={rapport.introduction} />
+        <TexteFige
+          titre={t("Commentaire du chef de mission", "Engagement manager's comment")}
+          texte={rapport.commentaire}
+        />
       </div>
     );
   }
@@ -110,16 +125,18 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
   const erreurIntro = erreurLongueur(
     champs.introduction,
     TAILLE_INTRODUCTION_AVANCEMENT,
-    "Introduction",
+    t("Introduction", "Introduction"),
+    langue,
   );
   const erreurCommentaire = erreurLongueur(
     champs.commentaire,
     TAILLE_COMMENTAIRE_AVANCEMENT,
-    "Commentaire",
+    t("Commentaire", "Comment"),
+    langue,
   );
   const modifiee = modifie(depart, champs);
   const corps = corpsModification(depart, champs, rapport.version);
-  const raisonValidation = raisonValidationImpossible(rapport, modifiee);
+  const raisonValidation = raisonValidationImpossible(rapport, modifiee, langue);
   const occupe = enCours !== null;
 
   async function executer(
@@ -139,7 +156,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageAvancement(e));
+      setErreur(messageAvancement(e, langue));
       setConflit(estConflitVersion(e));
       return false;
     } finally {
@@ -155,7 +172,9 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
     return executer(
       forcer ? "relecture" : "enregistrer",
       () => api.patch(chemin, c),
-      forcer ? "Commentaire relu et enregistré." : "Modifications enregistrées.",
+      forcer
+        ? t("Commentaire relu et enregistré.", "Comment reviewed and saved.")
+        : t("Modifications enregistrées.", "Changes saved."),
     );
   };
 
@@ -168,7 +187,10 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
           version: rapport.version,
         });
       },
-      "Suggestion enregistrée en brouillon IA : relisez-la avant de valider.",
+      t(
+        "Suggestion enregistrée en brouillon IA : relisez-la avant de valider.",
+        "Suggestion saved as an AI draft: review it before approving.",
+      ),
     );
     // L'IA n'a rien proposé (désactivée, droit, plafond, sortie rejetée…) : ce n'est pas une erreur.
     const r = reponse as ReponseSuggestionAvancement | null;
@@ -176,8 +198,10 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
       setSucces(null);
       setErreur(
         r.suggestion.raison
-          ? LIBELLES_RAISON_SUGGESTION[r.suggestion.raison]
-          : "Aucune suggestion n'a été proposée.",
+          ? (langue === "en" ? LIBELLES_RAISON_SUGGESTION_EN : LIBELLES_RAISON_SUGGESTION)[
+              r.suggestion.raison
+            ]
+          : t("Aucune suggestion n'a été proposée.", "No suggestion was proposed."),
       );
     }
   }
@@ -188,7 +212,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
         erreur={erreur}
         succes={succes}
         refAlerte={refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
       {conflit ? (
         <div className="mp-avc-actions">
@@ -200,10 +224,13 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
               rafraichir();
             }}
           >
-            Recharger la dernière version
+            {t("Recharger la dernière version", "Reload the latest version")}
           </Bouton>
           <span className="mp-texte-doux mp-texte-petit">
-            Vos saisies non enregistrées seront remplacées.
+            {t(
+              "Vos saisies non enregistrées seront remplacées.",
+              "Your unsaved entries will be replaced.",
+            )}
           </span>
         </div>
       ) : null}
@@ -214,13 +241,16 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
           e.preventDefault();
           if (!erreurIntro && !erreurCommentaire) void enregistrer(false);
         }}
-        aria-label="Textes du rapport"
+        aria-label={t("Textes du rapport", "Report texts")}
       >
-        <Carte titre="Introduction" niveauTitre={3}>
+        <Carte titre={t("Introduction", "Introduction")} niveauTitre={3}>
           <div className="mp-pile">
             <ZoneTexte
-              libelle="Note d'introduction (facultative)"
-              aide="Quelques mots de contexte pour le client. Les chiffres de la semaine sont ajoutés automatiquement."
+              libelle={t("Note d'introduction (facultative)", "Introductory note (optional)")}
+              aide={t(
+                "Quelques mots de contexte pour le client. Les chiffres de la semaine sont ajoutés automatiquement.",
+                "A few words of context for the client. This week's figures are added automatically.",
+              )}
               rows={4}
               value={champs.introduction}
               onChange={(e) => setChamps({ ...champs, introduction: e.target.value })}
@@ -231,7 +261,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
         </Carte>
 
         <Carte
-          titre="Commentaire du chef de mission"
+          titre={t("Commentaire du chef de mission", "Engagement manager's comment")}
           niveauTitre={3}
           actions={
             etat ? (
@@ -245,16 +275,22 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
             {aIA ? (
               <div className="mp-avc-suggestion" role="note">
                 <p>
-                  <strong>{LIBELLE_BROUILLON_IA}.</strong> {MENTION_BROUILLON_IA}
+                  <strong>{libelles.libelleBrouillonIa}.</strong> {libelles.mentionBrouillonIa}
                 </p>
               </div>
             ) : null}
             <ZoneTexte
-              libelle="Commentaire"
+              libelle={t("Commentaire", "Comment")}
               aide={
                 aIA
-                  ? "Texte proposé par l'IA : modifiez-le librement, ou effacez-le si vous n'en voulez pas."
-                  : "Votre analyse de la semaine, visible du client une fois le rapport validé."
+                  ? t(
+                      "Texte proposé par l'IA : modifiez-le librement, ou effacez-le si vous n'en voulez pas.",
+                      "Text proposed by the AI: edit it freely, or clear it if you do not want it.",
+                    )
+                  : t(
+                      "Votre analyse de la semaine, visible du client une fois le rapport validé.",
+                      "Your analysis of the week, visible to the client once the report is approved.",
+                    )
               }
               rows={8}
               value={champs.commentaire}
@@ -268,15 +304,18 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
                   variante="secondaire"
                   disabled={occupe || modifiee || !rapport.peut_valider}
                   chargement={enCours === "suggerer"}
-                  texteChargement="Demande à l'IA…"
+                  texteChargement={t("Demande à l'IA…", "Asking the AI…")}
                   onClick={() => void suggerer()}
                 >
-                  Suggérer un commentaire (IA)
+                  {t("Suggérer un commentaire (IA)", "Suggest a comment (AI)")}
                 </Bouton>
                 <span className="mp-texte-doux mp-texte-petit">
                   {modifiee
-                    ? "Enregistrez d'abord vos modifications."
-                    : "L'IA propose un brouillon à partir des chiffres de la semaine ; vous le relisez avant de valider."}
+                    ? t("Enregistrez d'abord vos modifications.", "Save your changes first.")
+                    : t(
+                        "L'IA propose un brouillon à partir des chiffres de la semaine ; vous le relisez avant de valider.",
+                        "The AI proposes a draft based on this week's figures; you review it before approving.",
+                      )}
                 </span>
               </div>
             ) : null}
@@ -286,15 +325,17 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
                   variante="secondaire"
                   disabled={occupe || Boolean(erreurCommentaire) || modifiee}
                   chargement={enCours === "relecture"}
-                  texteChargement="Enregistrement…"
+                  texteChargement={t("Enregistrement…", "Saving…")}
                   onClick={() => void enregistrer(true)}
                 >
-                  J&apos;ai relu ce commentaire
+                  {t("J'ai relu ce commentaire", "I have reviewed this comment")}
                 </Bouton>
                 {modifiee ? (
                   <span className="mp-texte-doux mp-texte-petit">
-                    Enregistrez d&apos;abord vos modifications : l&apos;enregistrement vaut
-                    relecture.
+                    {t(
+                      "Enregistrez d'abord vos modifications : l'enregistrement vaut relecture.",
+                      "Save your changes first: saving counts as a review.",
+                    )}
                   </span>
                 ) : null}
               </div>
@@ -306,31 +347,36 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
           <Bouton
             type="submit"
             chargement={enCours === "enregistrer"}
-            texteChargement="Enregistrement…"
+            texteChargement={t("Enregistrement…", "Saving…")}
             disabled={occupe || !corps || Boolean(erreurIntro) || Boolean(erreurCommentaire)}
           >
-            Enregistrer
+            {t("Enregistrer", "Save")}
           </Bouton>
           {!corps ? (
-            <span className="mp-texte-doux mp-texte-petit">Aucune modification à enregistrer.</span>
+            <span className="mp-texte-doux mp-texte-petit">
+              {t("Aucune modification à enregistrer.", "No changes to save.")}
+            </span>
           ) : null}
         </div>
       </form>
 
-      <Carte titre="Chiffres et validation" niveauTitre={3}>
+      <Carte titre={t("Chiffres et validation", "Figures and approval")} niveauTitre={3}>
         <div className="mp-pile">
           <div className="mp-avc-actions">
             <BoutonConfirmation
-              libelle="Régénérer les chiffres"
-              question="Recalculer les chiffres à la date du jour ? Votre introduction et votre commentaire sont conservés."
-              libelleConfirmation="Oui, régénérer"
-              texteChargement="Régénération…"
+              libelle={t("Régénérer les chiffres", "Regenerate figures")}
+              question={t(
+                "Recalculer les chiffres à la date du jour ? Votre introduction et votre commentaire sont conservés.",
+                "Recompute the figures as of today? Your introduction and comment are kept.",
+              )}
+              libelleConfirmation={t("Oui, régénérer", "Yes, regenerate")}
+              texteChargement={t("Régénération…", "Regenerating…")}
               variante="secondaire"
               action={() =>
                 executer(
                   "regenerer",
                   () => api.post(`${chemin}/regenerer`, { version: rapport.version }),
-                  "Chiffres régénérés.",
+                  t("Chiffres régénérés.", "Figures regenerated."),
                 )
               }
             />
@@ -339,7 +385,7 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
             {raisonValidation ? (
               <>
                 <Bouton variante="primaire" disabled aria-describedby="avc-raison-validation">
-                  Valider le rapport
+                  {t("Valider le rapport", "Approve the report")}
                 </Bouton>
                 <span id="avc-raison-validation" className="mp-texte-doux mp-texte-petit">
                   {raisonValidation}
@@ -347,16 +393,22 @@ export function EditeurRapport({ rapport }: { rapport: RapportAvancement }) {
               </>
             ) : (
               <BoutonConfirmation
-                libelle="Valider le rapport"
-                question="Valider ce rapport ? Il deviendra visible du client et ne pourra plus être modifié."
-                libelleConfirmation="Oui, valider"
-                texteChargement="Validation…"
+                libelle={t("Valider le rapport", "Approve the report")}
+                question={t(
+                  "Valider ce rapport ? Il deviendra visible du client et ne pourra plus être modifié.",
+                  "Approve this report? It will become visible to the client and can no longer be edited.",
+                )}
+                libelleConfirmation={t("Oui, valider", "Yes, approve")}
+                texteChargement={t("Validation…", "Approving…")}
                 variante="primaire"
                 action={() =>
                   executer(
                     "valider",
                     () => api.post(`${chemin}/valider`, { version: rapport.version }),
-                    "Rapport validé. Il est maintenant visible du client.",
+                    t(
+                      "Rapport validé. Il est maintenant visible du client.",
+                      "Report approved. It is now visible to the client.",
+                    ),
                   )
                 }
               />

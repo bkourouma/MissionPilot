@@ -9,6 +9,11 @@
  * `{ erreur: { code, message, details? } }` de l'API.
  */
 
+import type { Langue } from "@missionpilot/shared";
+import { langueNavigateur } from "./langue-navigateur";
+
+export { langueNavigateur };
+
 export const MESSAGE_RESEAU =
   "Connexion au serveur impossible. Vérifiez votre réseau puis réessayez.";
 export const MESSAGE_DELAI =
@@ -16,6 +21,28 @@ export const MESSAGE_DELAI =
 export const MESSAGE_SERVICE_INDISPONIBLE =
   "Le service CabinetPilot est momentanément indisponible. Réessayez dans quelques instants.";
 export const MESSAGE_INATTENDU = "Une erreur inattendue est survenue. Réessayez dans un instant.";
+
+/** Versions anglaises des messages ci-dessus (les constantes françaises restent la référence). */
+export const MESSAGE_RESEAU_EN = "Cannot reach the server. Check your network and try again.";
+export const MESSAGE_DELAI_EN =
+  "The server is taking too long to respond. Check your network and try again.";
+export const MESSAGE_SERVICE_INDISPONIBLE_EN =
+  "The CabinetPilot service is temporarily unavailable. Try again in a few moments.";
+export const MESSAGE_INATTENDU_EN = "An unexpected error occurred. Try again in a moment.";
+export const MESSAGE_TFA_A_CONFIGURER_EN =
+  'Two-factor authentication is required for your role: enable it from "Account security" to continue.';
+export const MESSAGE_ORIGINE_REFUSEE_EN =
+  "Request refused: open CabinetPilot at its usual address (the one given by your administrator) and try again.";
+
+/** Message réseau (`messageReseau(langue)`) et ses semblables, dans la langue demandée. */
+export const messageReseau = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_RESEAU_EN : MESSAGE_RESEAU;
+export const messageDelai = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_DELAI_EN : MESSAGE_DELAI;
+export const messageServiceIndisponible = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_SERVICE_INDISPONIBLE_EN : MESSAGE_SERVICE_INDISPONIBLE;
+export const messageInattendu = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_INATTENDU_EN : MESSAGE_INATTENDU;
 
 export class ErreurApi extends Error {
   readonly code: string;
@@ -37,29 +64,46 @@ function estObjet(v: unknown): v is Record<string, unknown> {
 }
 
 /** Construit l'erreur à partir du statut et du corps JSON (déjà lu) d'une réponse en échec. */
-export function erreurDepuisReponse(statut: number, corps: unknown): ErreurApi {
+export function erreurDepuisReponse(
+  statut: number,
+  corps: unknown,
+  langue: Langue = langueNavigateur(),
+): ErreurApi {
+  const en = langue === "en";
   const enveloppe = estObjet(corps) ? corps.erreur : undefined;
   if (estObjet(enveloppe) && typeof enveloppe.code === "string") {
     const message =
       typeof enveloppe.message === "string" && enveloppe.message.trim() !== ""
         ? enveloppe.message
-        : MESSAGE_INATTENDU;
+        : messageInattendu(langue);
     return new ErreurApi(enveloppe.code, message, statut, enveloppe.details);
   }
   if (statut === 401) {
-    return new ErreurApi("NON_AUTHENTIFIE", "Votre session a expiré. Reconnectez-vous.", statut);
+    return new ErreurApi(
+      "NON_AUTHENTIFIE",
+      en ? "Your session has expired. Sign in again." : "Votre session a expiré. Reconnectez-vous.",
+      statut,
+    );
   }
   if (statut === 403) {
-    return new ErreurApi("ACCES_REFUSE", "Vous n'avez pas accès à cette ressource.", statut);
+    return new ErreurApi(
+      "ACCES_REFUSE",
+      en ? "You do not have access to this resource." : "Vous n'avez pas accès à cette ressource.",
+      statut,
+    );
   }
   if (statut === 404) {
-    return new ErreurApi("INTROUVABLE", "Ressource introuvable.", statut);
+    return new ErreurApi(
+      "INTROUVABLE",
+      en ? "Resource not found." : "Ressource introuvable.",
+      statut,
+    );
   }
   if (statut >= 500) {
     // Réponse sans enveloppe : relais ou API injoignable (l'API répond toujours avec l'enveloppe).
-    return new ErreurApi("SERVICE_INDISPONIBLE", MESSAGE_SERVICE_INDISPONIBLE, statut);
+    return new ErreurApi("SERVICE_INDISPONIBLE", messageServiceIndisponible(langue), statut);
   }
-  return new ErreurApi("ERREUR_INATTENDUE", MESSAGE_INATTENDU, statut);
+  return new ErreurApi("ERREUR_INATTENDUE", messageInattendu(langue), statut);
 }
 
 export interface OptionsAppel {
@@ -100,13 +144,14 @@ function signalAvecDelai(delaiMs: number, signal?: AbortSignal): AbortSignal | u
 }
 
 function rendreErreurReseau(e: unknown): ErreurApi {
+  const langue = langueNavigateur();
   if (e instanceof DOMException && e.name === "TimeoutError") {
-    return new ErreurApi("DELAI_DEPASSE", MESSAGE_DELAI, 0);
+    return new ErreurApi("DELAI_DEPASSE", messageDelai(langue), 0);
   }
   if (e instanceof DOMException && e.name === "AbortError") {
-    return new ErreurApi("ANNULE", "Requête annulée.", 0);
+    return new ErreurApi("ANNULE", langue === "en" ? "Request cancelled." : "Requête annulée.", 0);
   }
-  return new ErreurApi("RESEAU_INDISPONIBLE", MESSAGE_RESEAU, 0);
+  return new ErreurApi("RESEAU_INDISPONIBLE", messageReseau(langue), 0);
 }
 
 function redirigerVersConnexion(): void {
@@ -186,14 +231,31 @@ export const CODE_ORIGINE_REFUSEE = "ORIGINE_REFUSEE";
 export const MESSAGE_ORIGINE_REFUSEE =
   "Requête refusée : ouvrez CabinetPilot à son adresse habituelle (celle indiquée par votre administrateur) puis réessayez.";
 
-/** Message d'erreur affichable (toujours en français) pour une erreur d'appel. */
-export function messageErreur(e: unknown): string {
-  if (!(e instanceof ErreurApi)) return MESSAGE_INATTENDU;
-  if (e.code === CODE_TFA_A_CONFIGURER) return MESSAGE_TFA_A_CONFIGURER;
-  if (e.code === CODE_ORIGINE_REFUSEE) return MESSAGE_ORIGINE_REFUSEE;
-  if (e.code === "REQUETE_INVALIDE" && e.message === "Données invalides.") {
-    return "Certaines valeurs ont été refusées. Vérifiez les champs signalés puis réessayez.";
+/**
+ * Message d'erreur affichable pour une erreur d'appel : français par défaut, anglais si la
+ * langue (par défaut celle du cookie du navigateur) est "en".
+ */
+export function messageErreur(e: unknown, langue: Langue = langueNavigateur()): string {
+  const en = langue === "en";
+  if (!(e instanceof ErreurApi)) return messageInattendu(langue);
+  if (e.code === CODE_TFA_A_CONFIGURER) {
+    return en ? MESSAGE_TFA_A_CONFIGURER_EN : MESSAGE_TFA_A_CONFIGURER;
   }
-  if (e.statut === 403) return "Votre rôle ne vous permet pas d'effectuer cette action.";
+  if (e.code === CODE_ORIGINE_REFUSEE) {
+    return en ? MESSAGE_ORIGINE_REFUSEE_EN : MESSAGE_ORIGINE_REFUSEE;
+  }
+  if (
+    e.code === "REQUETE_INVALIDE" &&
+    (e.message === "Données invalides." || e.message === "Invalid data.")
+  ) {
+    return en
+      ? "Some values were rejected. Check the flagged fields and try again."
+      : "Certaines valeurs ont été refusées. Vérifiez les champs signalés puis réessayez.";
+  }
+  if (e.statut === 403) {
+    return en
+      ? "Your role does not allow you to perform this action."
+      : "Votre rôle ne vous permet pas d'effectuer cette action.";
+  }
   return e.message;
 }

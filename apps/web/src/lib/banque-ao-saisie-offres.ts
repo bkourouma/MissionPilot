@@ -1,6 +1,8 @@
 import {
+  creerTraduire,
   LIBELLES_ROLE_REFERENCE,
   SECTIONS_OFFRE_TECHNIQUE,
+  type Langue,
   type SectionOffreTechnique,
 } from "@missionpilot/shared";
 import { lireNiveauLangue } from "./banque-ao-saisie-cv";
@@ -22,22 +24,30 @@ export interface SaisieExigences {
 /** Exigences d'un dossier d'appel d'offres (formulaire de contrôle d'un CV). */
 export function lireExigences(
   s: SaisieExigences,
+  langue: Langue = "fr",
 ): Resultat<Record<string, unknown>, keyof SaisieExigences> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieExigences, string>> = {};
   const entier = (v: string, champ: keyof SaisieExigences) => {
     const n = lireNombre(v);
     if (n === null) return undefined;
-    if (!Number.isInteger(n) || n < 0 || n > 60) erreurs[champ] = "Entier de 0 à 60.";
+    if (!Number.isInteger(n) || n < 0 || n > 60)
+      erreurs[champ] = t("Entier de 0 à 60.", "Whole number from 0 to 60.");
     return n;
   };
   const annees = entier(s.annees_min, "annees_min");
   const anneesSecteur = entier(s.annees_secteur, "annees_secteur");
   if (s.secteur.trim() !== "" && anneesSecteur === undefined) {
-    erreurs.annees_secteur = "Indiquez les années exigées dans ce secteur.";
+    erreurs.annees_secteur = t(
+      "Indiquez les années exigées dans ce secteur.",
+      "Enter the years required in this sector.",
+    );
   }
   const niveauLangue = s.langue.trim() === "" ? null : lireNiveauLangue(s.niveau_langue);
-  if (s.langue.trim() !== "" && !niveauLangue) erreurs.niveau_langue = "Choisissez le niveau.";
-  if (s.reference !== "" && !MOIS.test(s.reference)) erreurs.reference = "Mois AAAA-MM attendu.";
+  if (s.langue.trim() !== "" && !niveauLangue)
+    erreurs.niveau_langue = t("Choisissez le niveau.", "Choose the level.");
+  if (s.reference !== "" && !MOIS.test(s.reference))
+    erreurs.reference = t("Mois AAAA-MM attendu.", "Month in YYYY-MM format expected.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -71,19 +81,33 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function lireReference(
   s: SaisieReference,
+  langue: Langue = "fr",
 ): Resultat<Record<string, unknown>, ChampReference> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampReference, string>> = {};
-  if (s.titre.trim() === "") erreurs.titre = "Le titre est obligatoire.";
-  if (s.client_nom.trim() === "") erreurs.client_nom = "Le client est obligatoire.";
-  if (!/^[A-Za-z]{2}$/.test(s.pays.trim())) erreurs.pays = "Code pays à deux lettres (CI, SN…).";
-  const montant = lireMontant(s.montant, s.devise);
-  if (montant === null || Number.isNaN(montant)) erreurs.montant = "Montant du marché invalide.";
-  if (!DATE.test(s.date_debut)) erreurs.date_debut = "Date de début obligatoire.";
-  if (s.date_fin !== "" && !DATE.test(s.date_fin)) erreurs.date_fin = "Date invalide.";
-  else if (s.date_fin !== "" && s.date_fin < s.date_debut) {
-    erreurs.date_fin = "La fin précède le début.";
+  if (s.titre.trim() === "")
+    erreurs.titre = t("Le titre est obligatoire.", "The title is required.");
+  if (s.client_nom.trim() === "") {
+    erreurs.client_nom = t("Le client est obligatoire.", "The client is required.");
   }
-  if (!(s.role_cabinet in LIBELLES_ROLE_REFERENCE)) erreurs.role_cabinet = "Choisissez le rôle.";
+  if (!/^[A-Za-z]{2}$/.test(s.pays.trim())) {
+    erreurs.pays = t("Code pays à deux lettres (CI, SN…).", "Two-letter country code (CI, SN…).");
+  }
+  const montant = lireMontant(s.montant, s.devise);
+  if (montant === null || Number.isNaN(montant)) {
+    erreurs.montant = t("Montant du marché invalide.", "Invalid contract amount.");
+  }
+  if (!DATE.test(s.date_debut)) {
+    erreurs.date_debut = t("Date de début obligatoire.", "The start date is required.");
+  }
+  if (s.date_fin !== "" && !DATE.test(s.date_fin))
+    erreurs.date_fin = t("Date invalide.", "Invalid date.");
+  else if (s.date_fin !== "" && s.date_fin < s.date_debut) {
+    erreurs.date_fin = t("La fin précède le début.", "The end precedes the start.");
+  }
+  if (!(s.role_cabinet in LIBELLES_ROLE_REFERENCE)) {
+    erreurs.role_cabinet = t("Choisissez le rôle.", "Choose the role.");
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -136,17 +160,24 @@ export function requeteReferences(f: FiltresReferences, curseur: string | null =
 /** Sections modifiées d'une offre technique ; chacune obligatoire (20 000 caractères au plus). */
 export function lireSectionsOffre(
   s: SectionsOffre & { motif: string },
+  langue: Langue = "fr",
 ): Resultat<{ sections: SectionsOffre; motif: string }, SectionOffreTechnique | "motif"> {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<SectionOffreTechnique | "motif", string>> = {};
   const sections = {} as SectionsOffre;
   for (const cle of SECTIONS_OFFRE_TECHNIQUE) {
     const t = s[cle].trim();
-    if (t === "") erreurs[cle] = "Cette section est obligatoire.";
-    else if (t.length > 20_000) erreurs[cle] = "20 000 caractères au plus.";
+    if (t === "") erreurs[cle] = tr("Cette section est obligatoire.", "This section is required.");
+    else if (t.length > 20_000)
+      erreurs[cle] = tr("20 000 caractères au plus.", "20,000 characters at most.");
     sections[cle] = t;
   }
   const motif = s.motif.trim();
-  if (motif === "") erreurs.motif = "Le motif de la modification est obligatoire.";
+  if (motif === "")
+    erreurs.motif = tr(
+      "Le motif de la modification est obligatoire.",
+      "The reason for the change is required.",
+    );
   return Object.keys(erreurs).length > 0
     ? { ok: false, erreurs }
     : { ok: true, charge: { sections, motif } };
@@ -160,7 +191,9 @@ export function lireLignesOffre(
   v: string,
   devise: Devise,
   type: "honoraires" | "quantites",
+  langue: Langue = "fr",
 ): { ok: true; valeur: Record<string, unknown>[] } | { ok: false; erreur: string } {
+  const t = creerTraduire(langue);
   const sortie: Record<string, unknown>[] = [];
   for (const [i, l] of lignes(v).entries()) {
     const c = champs(l);
@@ -170,17 +203,26 @@ export function lireLignesOffre(
     if ((type === "honoraires" && !cle) || !libelle) {
       return {
         ok: false,
-        erreur: `Ligne ${i + 1} : ${type === "honoraires" ? "clé et libellé" : "libellé"} obligatoires.`,
+        erreur: t(
+          `Ligne ${i + 1} : ${type === "honoraires" ? "clé et libellé" : "libellé"} obligatoires.`,
+          `Line ${i + 1}: ${type === "honoraires" ? "key and label" : "label"} required.`,
+        ),
       };
     }
     if (quantite === null || Number.isNaN(quantite) || quantite < 0) {
       return {
         ok: false,
-        erreur: `Ligne ${i + 1} : ${type === "honoraires" ? "jours" : "quantité"} invalide.`,
+        erreur: t(
+          `Ligne ${i + 1} : ${type === "honoraires" ? "jours" : "quantité"} invalide.`,
+          `Line ${i + 1}: invalid ${type === "honoraires" ? "days" : "quantity"}.`,
+        ),
       };
     }
     if (montant === null || Number.isNaN(montant)) {
-      return { ok: false, erreur: `Ligne ${i + 1} : montant invalide.` };
+      return {
+        ok: false,
+        erreur: t(`Ligne ${i + 1} : montant invalide.`, `Line ${i + 1}: invalid amount.`),
+      };
     }
     sortie.push(
       type === "honoraires"
@@ -204,17 +246,22 @@ type ChampOffreFinanciere = keyof SaisieOffreFinanciere;
 
 export function lireOffreFinanciere(
   s: SaisieOffreFinanciere,
+  langue: Langue = "fr",
 ): Resultat<{ titre: string; entree: Record<string, unknown> }, ChampOffreFinanciere> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampOffreFinanciere, string>> = {};
-  if (s.titre.trim() === "") erreurs.titre = "Le titre est obligatoire.";
-  const hon = lireLignesOffre(s.honoraires, s.devise, "honoraires");
+  if (s.titre.trim() === "")
+    erreurs.titre = t("Le titre est obligatoire.", "The title is required.");
+  const hon = lireLignesOffre(s.honoraires, s.devise, "honoraires", langue);
   if (!hon.ok) erreurs.honoraires = hon.erreur;
-  const pd = lireLignesOffre(s.per_diem, s.devise, "quantites");
+  const pd = lireLignesOffre(s.per_diem, s.devise, "quantites", langue);
   if (!pd.ok) erreurs.per_diem = pd.erreur;
-  const deb = lireLignesOffre(s.debours, s.devise, "quantites");
+  const deb = lireLignesOffre(s.debours, s.devise, "quantites", langue);
   if (!deb.ok) erreurs.debours = deb.erreur;
   const tva = lireNombre(s.tva);
-  if (tva !== null && (Number.isNaN(tva) || tva < 0 || tva > 100)) erreurs.tva = "Taux de 0 à 100.";
+  if (tva !== null && (Number.isNaN(tva) || tva < 0 || tva > 100)) {
+    erreurs.tva = t("Taux de 0 à 100.", "Rate from 0 to 100.");
+  }
   if (Object.keys(erreurs).length > 0 || !hon.ok || !pd.ok || !deb.ok)
     return { ok: false, erreurs };
   return {

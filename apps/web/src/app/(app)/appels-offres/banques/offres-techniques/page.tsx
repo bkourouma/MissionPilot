@@ -10,7 +10,7 @@ import { lireCurseur } from "../../../../../lib/agents";
 import {
   droitsBanqueAo,
   hrefListe,
-  LIBELLES_STATUT_OFFRE,
+  libelleStatutOffre,
   RACINE_BANQUES,
   tonaliteStatutOffre,
   type OffreTechniqueResume,
@@ -18,14 +18,20 @@ import {
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { chargerChoixOffreTechnique } from "../../../../../lib/appels-offres-serveur";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { obtenirSession } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Offres techniques" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Offres techniques", "Technical bids") };
+}
 
 type Parametres = Promise<Record<string, string | string[] | undefined>>;
 
 /** Offres techniques (AO-06) : brouillons IA ou gabarits, modifiés puis validés par un humain. */
 export default async function PageOffresTechniques({ searchParams }: { searchParams: Parametres }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSession();
   const droits = droitsBanqueAo(utilisateur.roles);
   const curseur = lireCurseur((await searchParams).curseur);
@@ -41,40 +47,47 @@ export default async function PageOffresTechniques({ searchParams }: { searchPar
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Offres techniques"
-        soustitre="Compréhension des termes de référence, méthodologie, planning et organisation. L'IA propose un brouillon ; rien n'est utilisable avant la validation d'un consultant. Le planning et l'équipe viennent de la méthode du cabinet et de la banque de CV, jamais du modèle."
+        titre={t("Offres techniques", "Technical bids")}
+        soustitre={t(
+          "Compréhension des termes de référence, méthodologie, planning et organisation. L'IA propose un brouillon ; rien n'est utilisable avant la validation d'un consultant. Le planning et l'équipe viennent de la méthode du cabinet et de la banque de CV, jamais du modèle.",
+          "Understanding of the terms of reference, methodology, schedule and organization. The AI proposes a draft; nothing is usable until a consultant approves it. The schedule and team come from the firm's method and the CV bank, never from the model.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
           hrefReessayer={chemin}
-          titre="Les offres n'ont pas pu être chargées."
+          titre={t("Les offres n'ont pas pu être chargées.", "The bids could not be loaded.")}
           message={r.message}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune offre technique." />
+        <EtatVide titre={t("Aucune offre technique.", "No technical bids.")} />
       ) : (
         <>
           <Tableau
-            legende="Offres techniques"
+            legende={t("Offres techniques", "Technical bids")}
             cleLigne={(o) => o.id}
             lignes={r.donnees.elements}
             colonnes={[
               {
                 cle: "titre",
-                entete: "Offre",
+                entete: t("Offre", "Bid"),
                 rendu: (o) => <Link href={`${chemin}/${o.id}`}>{o.titre}</Link>,
               },
               {
                 cle: "statut",
-                entete: "Statut",
+                entete: t("Statut", "Status"),
                 rendu: (o) => (
                   <BadgeStatut tonalite={tonaliteStatutOffre(o.statut)}>
-                    {LIBELLES_STATUT_OFFRE[o.statut]}
+                    {libelleStatutOffre(o.statut, langue)}
                   </BadgeStatut>
                 ),
               },
               { cle: "version", entete: "Version", alignement: "droite" },
-              { cle: "cree_le", entete: "Créée le", rendu: (o) => formaterDate(o.cree_le) },
+              {
+                cle: "cree_le",
+                entete: t("Créée le", "Created on"),
+                rendu: (o) => formaterDate(o.cree_le, "UTC", langue),
+              },
             ]}
           />
           <PaginationCurseur
@@ -88,7 +101,7 @@ export default async function PageOffresTechniques({ searchParams }: { searchPar
         </>
       )}
       {droits.gerer ? (
-        <Carte titre="Rédiger une offre technique">
+        <Carte titre={t("Rédiger une offre technique", "Draft a technical bid")}>
           <FormulaireOffreTechnique
             redigerIa={droits.redigerIa}
             lierMethode={droits.lierMethode}

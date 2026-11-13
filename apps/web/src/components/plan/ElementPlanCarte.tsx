@@ -19,6 +19,7 @@ import {
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { BadgeRetire, BadgeStatutPlan } from "./BadgeStatutPlan";
@@ -67,6 +68,8 @@ export function ElementPlanCarte({
   niveauTitre = 4,
   children,
 }: ElementPlanCarteProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const idTitre = useId();
   const [edition, setEdition] = useState(false);
@@ -97,12 +100,12 @@ export function ElementPlanCarte({
               retire: nature === "retrait",
             });
       setFocaliserSucces(false);
-      setSucces(messageEcriture(nature, r, nature !== "validation" && partage));
+      setSucces(messageEcriture(nature, r, nature !== "validation" && partage, langue));
       attendre();
       rafraichir();
       return true;
     } catch (err) {
-      setErreur(messagePlan(err, nature === "validation" ? "valider" : "rediger"));
+      setErreur(messagePlan(err, nature === "validation" ? "valider" : "rediger", langue));
       if (etatPlanChange(err)) rafraichir();
       return false;
     }
@@ -118,19 +121,21 @@ export function ElementPlanCarte({
       aria-labelledby={idTitre}
     >
       <div className="mp-plan-element__entete">
-        {titre ? <span className="mp-plan-element__type">{libelleType(e.type)}</span> : null}
+        {titre ? (
+          <span className="mp-plan-element__type">{libelleType(e.type, langue)}</span>
+        ) : null}
         <Titre className="mp-plan-element__titre" id={idTitre}>
-          {titre ?? libelleType(e.type)}
+          {titre ?? libelleType(e.type, langue)}
         </Titre>
         <BadgeStatutPlan statut={e.statut_contenu} />
         {e.retire ? <BadgeRetire /> : null}
       </div>
       <p className="mp-plan-element__meta">
-        {libelleVersionElement({ ...e, cree_le: e.version_le })}
+        {libelleVersionElement({ ...e, cree_le: e.version_le }, langue)}
       </p>
 
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Action refusée">
+        <Alerte ref={refErreur} tonalite="danger" titre={t("Action refusée", "Action refused")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -181,16 +186,19 @@ export function ElementPlanCarte({
                 setEdition(true);
               }}
             >
-              Modifier
+              {t("Modifier", "Edit")}
             </Bouton>
           ) : null}
           {peutValider ? (
             <BoutonConfirmation
               key={`valider-${e.version}`}
-              libelle="Valider"
-              question={`Valider la version ${e.version} de ce contenu ? Elle deviendra la version de référence, partageable au client.`}
-              libelleConfirmation="Oui, valider"
-              texteChargement="Validation…"
+              libelle={t("Valider", "Approve")}
+              question={t(
+                `Valider la version ${e.version} de ce contenu ? Elle deviendra la version de référence, partageable au client.`,
+                `Approve version ${e.version} of this content? It will become the reference version, shareable with the client.`,
+              )}
+              libelleConfirmation={t("Oui, valider", "Yes, approve")}
+              texteChargement={t("Validation…", "Approving…")}
               variante="primaire"
               icone="succes"
               action={() => agir("validation")}
@@ -199,14 +207,24 @@ export function ElementPlanCarte({
           {droits.rediger ? (
             <BoutonConfirmation
               key={`retrait-${e.version}`}
-              libelle={e.retire ? "Rétablir" : "Retirer du plan"}
+              libelle={
+                e.retire ? t("Rétablir", "Restore") : t("Retirer du plan", "Remove from plan")
+              }
               question={
                 e.retire
-                  ? "Rétablir ce contenu dans le plan ? Une nouvelle version sera créée, à faire valider."
-                  : `Retirer ce contenu du plan ? Il reste dans l'historique ; le retrait crée une nouvelle version à faire valider.${partage ? " Le partage au client sera retiré." : ""}`
+                  ? t(
+                      "Rétablir ce contenu dans le plan ? Une nouvelle version sera créée, à faire valider.",
+                      "Restore this content to the plan? A new version will be created, to be approved.",
+                    )
+                  : t(
+                      `Retirer ce contenu du plan ? Il reste dans l'historique ; le retrait crée une nouvelle version à faire valider.${partage ? " Le partage au client sera retiré." : ""}`,
+                      `Remove this content from the plan? It stays in the history; the removal creates a new version to be approved.${partage ? " Sharing with the client will be withdrawn." : ""}`,
+                    )
               }
-              libelleConfirmation={e.retire ? "Oui, rétablir" : "Oui, retirer"}
-              texteChargement="Enregistrement…"
+              libelleConfirmation={
+                e.retire ? t("Oui, rétablir", "Yes, restore") : t("Oui, retirer", "Yes, remove")
+              }
+              texteChargement={t("Enregistrement…", "Saving…")}
               icone={e.retire ? "historique" : "fermer"}
               action={() => agir(e.retire ? "retablissement" : "retrait")}
             />

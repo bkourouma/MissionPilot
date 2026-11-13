@@ -15,16 +15,9 @@ import { EtatContexteRed } from "../../../../../../components/redressement/Etats
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../components/ui/EtatListe";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { hrefRedressement, raisonSansEcriture } from "../../../../../../lib/redressement";
-import {
-  cheminClotures,
-  TEXTE_CLOTURE_AUCUN,
-  TEXTE_CLOTURE_INTRO,
-  TEXTE_CLOTURE_LECTURE_SEULE,
-  TEXTE_CLOTURE_RAPPORT_CLOTUREE,
-  TEXTE_CLOTURE_RAPPORT_NON_VALIDE,
-  TEXTE_CLOTURE_VALIDE,
-} from "../../../../../../lib/redressement-cloture";
+import { cheminClotures, textesCloture } from "../../../../../../lib/redressement-cloture";
 import { choisirVersion } from "../../../../../../lib/redressement-cloture-saisie";
 import {
   chargerClotureDetail,
@@ -33,7 +26,10 @@ import {
 } from "../../../../../../lib/redressement-cloture-serveur";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Bilan de clôture du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Bilan de clôture du redressement", "Turnaround close-out review") };
+}
 
 /**
  * Bilan de clôture (RED-08) : versions, bilan courant (ratios, alerte, urgence, trésorerie, plan,
@@ -50,6 +46,9 @@ export default async function PageCloture({
 }) {
   const { id } = await params;
   const { version } = await searchParams;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const tx = textesCloture(langue);
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -68,7 +67,10 @@ export default async function PageCloture({
     return (
       <div className="mp-red">
         <EtatErreur
-          titre="Les bilans de clôture n'ont pas pu être chargés."
+          titre={t(
+            "Les bilans de clôture n'ont pas pu être chargés.",
+            "The close-out reviews could not be loaded.",
+          )}
           message={liste.message}
           hrefReessayer={retour}
         />
@@ -84,18 +86,21 @@ export default async function PageCloture({
 
   const etablir = droits.ecrire ? (
     <BoutonActionRed
-      libelle="Établir un bilan de clôture"
+      libelle={t("Établir un bilan de clôture", "Create a close-out review")}
       chemin={cheminClotures(dossier.id)}
-      succes="Bilan de clôture établi depuis l'état courant du dossier."
-      titreErreur="Établissement impossible"
-      texteChargement="Établissement…"
+      succes={t(
+        "Bilan de clôture établi depuis l'état courant du dossier.",
+        "Close-out review created from the current state of the file.",
+      )}
+      titreErreur={t("Établissement impossible", "Creation not possible")}
+      texteChargement={t("Établissement…", "Creating…")}
       variante="primaire"
     />
   ) : (
     <p className="mp-texte-doux">
       {dossier.statut === "clos" || mission.statut === "cloturee"
-        ? raisonSansEcriture(mission, dossier, roles)
-        : TEXTE_CLOTURE_LECTURE_SEULE}
+        ? raisonSansEcriture(mission, dossier, roles, langue)
+        : tx.lectureSeule}
     </p>
   );
 
@@ -103,10 +108,10 @@ export default async function PageCloture({
     <div className="mp-red">
       <section className="mp-red-section" aria-labelledby="titre-cloture">
         <h2 id="titre-cloture" className="mp-red-section__titre">
-          Bilan de clôture
+          {t("Bilan de clôture", "Close-out review")}
         </h2>
         <Alerte tonalite="info" annonce="aucune">
-          <p>{TEXTE_CLOTURE_INTRO}</p>
+          <p>{tx.intro}</p>
         </Alerte>
         {versions.length > 0 ? (
           <ClotureVersions missionId={id} versions={versions} courante={choisie?.version ?? 0} />
@@ -115,12 +120,12 @@ export default async function PageCloture({
       </section>
 
       {versions.length === 0 ? (
-        <EtatVide titre="Aucun bilan de clôture." icone="info">
-          <p>{TEXTE_CLOTURE_AUCUN}</p>
+        <EtatVide titre={t("Aucun bilan de clôture.", "No close-out review.")} icone="info">
+          <p>{tx.aucun}</p>
         </EtatVide>
       ) : detail && !detail.ok ? (
         <EtatErreur
-          titre="Le bilan n'a pas pu être chargé."
+          titre={t("Le bilan n'a pas pu être chargé.", "The review could not be loaded.")}
           message={detail.message}
           hrefReessayer={retour}
         />
@@ -135,19 +140,20 @@ export default async function PageCloture({
 
           <section className="mp-red-section" aria-labelledby="titre-validation">
             <h2 id="titre-validation" className="mp-red-section__titre">
-              Validation
+              {t("Validation", "Approval")}
             </h2>
             {bilan.statut === "valide" ? (
               <Alerte tonalite="succes" annonce="aucune">
-                <p>{TEXTE_CLOTURE_VALIDE}</p>
+                <p>{tx.valide}</p>
               </Alerte>
             ) : droits.valider ? (
-              <Carte titre="Valider le bilan" niveauTitre={3}>
+              <Carte titre={t("Valider le bilan", "Approve the review")} niveauTitre={3}>
                 {bilan.peut_valider ? null : (
                   <p className="mp-texte-doux">
-                    Le serveur indique que ce bilan ne peut pas être validé en l&apos;état par vous
-                    : contrôles bloquants, rôle ou séparation des tâches. La validation reste
-                    possible à tenter, son refus sera expliqué.
+                    {t(
+                      "Le serveur indique que ce bilan ne peut pas être validé en l'état par vous : contrôles bloquants, rôle ou séparation des tâches. La validation reste possible à tenter, son refus sera expliqué.",
+                      "The server indicates that this review cannot be approved as is by you: blocking checks, role or segregation of duties. You can still try to approve it; a refusal will be explained.",
+                    )}
                   </p>
                 )}
                 <ClotureValidation
@@ -158,37 +164,48 @@ export default async function PageCloture({
               </Carte>
             ) : (
               <p className="mp-texte-doux">
-                La validation est réservée au directeur de la mission.
+                {t(
+                  "La validation est réservée au directeur de la mission.",
+                  "Approval is reserved for the engagement director.",
+                )}
               </p>
             )}
           </section>
 
           <section className="mp-red-section" aria-labelledby="titre-rapports-cloture">
             <h2 id="titre-rapports-cloture" className="mp-red-section__titre">
-              Rapports de clôture
+              {t("Rapports de clôture", "Close-out reports")}
             </h2>
-            <Carte titre="Générer le rapport" niveauTitre={3}>
+            <Carte titre={t("Générer le rapport", "Generate the report")} niveauTitre={3}>
               <ClotureRapportGeneration
                 clotureId={bilan.id}
                 desactiveParce={
                   bilan.statut !== "valide"
-                    ? TEXTE_CLOTURE_RAPPORT_NON_VALIDE
+                    ? tx.rapportNonValide
                     : mission.statut === "cloturee"
-                      ? TEXTE_CLOTURE_RAPPORT_CLOTUREE
+                      ? tx.rapportCloturee
                       : undefined
                 }
               />
             </Carte>
             {rapports && !rapports.ok ? (
               <EtatErreur
-                titre="Les rapports n'ont pas pu être chargés."
+                titre={t(
+                  "Les rapports n'ont pas pu être chargés.",
+                  "The reports could not be loaded.",
+                )}
                 message={rapports.message}
                 hrefReessayer={retour}
               />
             ) : rapports ? (
               <ClotureRapportsListe rapports={rapports.donnees.elements} />
             ) : (
-              <p className="mp-texte-doux">Aucun rapport : le bilan n&apos;est pas validé.</p>
+              <p className="mp-texte-doux">
+                {t(
+                  "Aucun rapport : le bilan n'est pas validé.",
+                  "No report: the review is not approved.",
+                )}
+              </p>
             )}
           </section>
         </>

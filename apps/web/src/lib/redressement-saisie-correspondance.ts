@@ -1,8 +1,10 @@
 /** Redressement (saisie) : correspondance de postes, urgence et incidents de paiement. */
 import {
+  creerTraduire,
   RED_POSTES,
   RED_REPONSES_URGENCE,
   RED_DOMAINES,
+  type Langue,
   type RedCorrespondanceCreation,
   type RedDomaine,
   type RedPoste,
@@ -48,32 +50,51 @@ export function corpsCorrespondanceDepuisFormulaire(
   saisie: SaisieCorrespondance,
   motif: string,
   connus: readonly string[] = [],
+  langue: Langue = "fr",
 ): Resultat<RedCorrespondanceCreation, ChampCorrespondance> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampCorrespondance> = {};
   const postes: RedCorrespondanceCreation["postes"] = {};
   for (const p of RED_POSTES) {
     const s = saisie[p];
     const codes = parserCodes(s.codes, connus);
     if (s.sans_objet) {
-      if (codes.length > 0) erreurs[`poste.${p}`] = "Un poste sans objet ne porte aucun code.";
-      else postes[p] = { codes: [], sans_objet: true };
+      if (codes.length > 0) {
+        erreurs[`poste.${p}`] = t(
+          "Un poste sans objet ne porte aucun code.",
+          "A not-applicable item carries no code.",
+        );
+      } else postes[p] = { codes: [], sans_objet: true };
       continue;
     }
     if (codes.length === 0) continue;
     if (codes.length > CODES_PAR_POSTE_MAX) {
-      erreurs[`poste.${p}`] = `Cinquante codes au plus par poste (${codes.length} saisis).`;
+      erreurs[`poste.${p}`] = t(
+        `Cinquante codes au plus par poste (${codes.length} saisis).`,
+        `Fifty codes at most per item (${codes.length} entered).`,
+      );
     } else if (codes.some((c) => !FORMAT_CODE.test(c))) {
-      erreurs[`poste.${p}`] =
-        "Un code ne contient que des lettres, des chiffres, « . », « _ » ou « - » (40 caractères au plus).";
+      erreurs[`poste.${p}`] = t(
+        "Un code ne contient que des lettres, des chiffres, « . », « _ » ou « - » (40 caractères au plus).",
+        'A code contains only letters, digits, ".", "_" or "-" (40 characters at most).',
+      );
     } else {
       postes[p] = { codes, sans_objet: false };
     }
   }
   if (Object.keys(postes).length === 0 && Object.keys(erreurs).length === 0) {
-    erreurs.postes = "Renseignez au moins un poste : des codes de lignes, ou « Sans objet ».";
+    erreurs.postes = t(
+      "Renseignez au moins un poste : des codes de lignes, ou « Sans objet ».",
+      'Fill in at least one item: line codes, or "Not applicable".',
+    );
   }
   const m = texteOuNull(motif);
-  if (m !== null && m.length > 500) erreurs.motif = "Le motif compte 500 caractères au plus.";
+  if (m !== null && m.length > 500) {
+    erreurs.motif = t(
+      "Le motif compte 500 caractères au plus.",
+      "The reason is 500 characters at most.",
+    );
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: m === null ? { postes } : { postes, motif: m } };
 }
@@ -100,8 +121,11 @@ export function compterReponses(reponses: Readonly<Record<string, string | undef
 }
 
 /** « 12 questions sur 15 renseignées » (annoncé poliment). */
-export function libelleCompteur(repondues: number, total: number): string {
+export function libelleCompteur(repondues: number, total: number, langue: Langue = "fr"): string {
   const s = repondues > 1 ? "s" : "";
+  if (langue === "en") {
+    return `${repondues} question${s} out of ${total} answered`;
+  }
   return `${repondues} question${s} sur ${total} renseignée${s}`;
 }
 
@@ -113,7 +137,9 @@ export function corpsUrgenceDepuisFormulaire(
   dureeSecondes: number | null,
   commentaire: string,
   grille: GrilleUrgence,
+  langue: Langue = "fr",
 ): Resultat<RedUrgenceCreation, ChampUrgence> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampUrgence> = {};
   const codes = new Set(grille.map((q) => q.code));
   const choisies: Record<string, RedReponseUrgence> = {};
@@ -123,11 +149,18 @@ export function corpsUrgenceDepuisFormulaire(
     choisies[code] = r;
   }
   if (Object.keys(choisies).length === 0) {
-    erreurs.reponses = "Répondez à au moins une question pour lancer l'évaluation.";
+    erreurs.reponses = t(
+      "Répondez à au moins une question pour lancer l'évaluation.",
+      "Answer at least one question to run the assessment.",
+    );
   }
   const c = texteOuNull(commentaire);
-  if (c !== null && c.length > 2000)
-    erreurs.commentaire = "Le commentaire compte 2 000 caractères au plus.";
+  if (c !== null && c.length > 2000) {
+    erreurs.commentaire = t(
+      "Le commentaire compte 2 000 caractères au plus.",
+      "The comment is 2,000 characters at most.",
+    );
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: RedUrgenceCreation = { reponses: choisies };
   if (dureeSecondes !== null && Number.isFinite(dureeSecondes)) {
@@ -174,14 +207,17 @@ export function saisieIncidentsDepuis(
 
 export function corpsScoreDepuisFormulaire(
   s: SaisieIncidents,
+  langue: Langue = "fr",
 ): Resultat<RedScoreCreation, ChampIncidents> {
+  const msg = creerTraduire(langue)(
+    "Saisissez un nombre entier de 0 à 999.",
+    "Enter a whole number from 0 to 999.",
+  );
   const erreurs: Erreurs<ChampIncidents> = {};
   const rejets = lireEntier(s.rejets, 0, 999);
   const retards = lireEntier(s.retards, 0, 999);
-  if (rejets !== null && Number.isNaN(rejets))
-    erreurs.rejets = "Saisissez un nombre entier de 0 à 999.";
-  if (retards !== null && Number.isNaN(retards))
-    erreurs.retards = "Saisissez un nombre entier de 0 à 999.";
+  if (rejets !== null && Number.isNaN(rejets)) erreurs.rejets = msg;
+  if (retards !== null && Number.isNaN(retards)) erreurs.retards = msg;
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

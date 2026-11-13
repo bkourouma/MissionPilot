@@ -1,6 +1,7 @@
 import type { Devise } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
-  LIBELLES_SENS,
+  libelleSens,
   lignesEcartsSerie,
   lignesHypotheses,
   tableauxSynthese,
@@ -29,19 +30,20 @@ export interface FormulaireComparaisonProps {
  * Choix de deux versions à comparer : formulaire GET (fonctionne sans JavaScript, état dans
  * l'URL). Le numéro de la version affichée est conservé.
  */
-export function FormulaireComparaison({
+export async function FormulaireComparaison({
   action,
   versionAffichee,
   de,
   a,
   derniere,
 }: FormulaireComparaisonProps) {
+  const t = await obtenirT();
   return (
     <form method="get" action={action} className="mp-plan-formulaire-ligne">
       {versionAffichee ? <input type="hidden" name="version" value={versionAffichee} /> : null}
       <div className="mp-champ">
         <label className="mp-champ__libelle" htmlFor="comparaison-de">
-          Version de départ
+          {t("Version de départ", "Start version")}
         </label>
         <input
           id="comparaison-de"
@@ -57,7 +59,7 @@ export function FormulaireComparaison({
       </div>
       <div className="mp-champ">
         <label className="mp-champ__libelle" htmlFor="comparaison-a">
-          Version d&apos;arrivée
+          {t("Version d'arrivée", "End version")}
         </label>
         <input
           id="comparaison-a"
@@ -72,7 +74,7 @@ export function FormulaireComparaison({
         />
       </div>
       <button type="submit" className={classesBouton("secondaire")}>
-        Comparer
+        {t("Comparer", "Compare")}
       </button>
     </form>
   );
@@ -85,7 +87,7 @@ const SENS_CLASSE: Record<SensEcart, string> = {
   indetermine: "mp-plan-ecart",
 };
 
-function TableauEcarts({
+async function TableauEcarts({
   id,
   titre,
   premiereColonne,
@@ -100,6 +102,8 @@ function TableauEcarts({
   v2: string;
   lignes: readonly LigneEcart[];
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <div className="mp-plan-etat" role="region" aria-labelledby={id} tabIndex={0}>
       <table>
@@ -109,8 +113,8 @@ function TableauEcarts({
             <th scope="col">{premiereColonne}</th>
             <th scope="col">{v1}</th>
             <th scope="col">{v2}</th>
-            <th scope="col">Écart</th>
-            <th scope="col">Écart relatif</th>
+            <th scope="col">{t("Écart", "Difference")}</th>
+            <th scope="col">{t("Écart relatif", "Relative difference")}</th>
           </tr>
         </thead>
         <tbody>
@@ -121,7 +125,7 @@ function TableauEcarts({
               <td>{l.a}</td>
               <td className={SENS_CLASSE[l.sens]}>
                 {l.ecart}
-                <span className="mp-visuellement-cache">{` (${LIBELLES_SENS[l.sens]})`}</span>
+                <span className="mp-visuellement-cache">{` (${libelleSens(l.sens, langue)})`}</span>
               </td>
               <td>{l.relatif}</td>
             </tr>
@@ -137,71 +141,81 @@ function TableauEcarts({
  * valeurs), séries clés du scénario de base et synthèse des trois scénarios, avec les ÉCARTS
  * calculés par le moteur de l'API. Aucune différence n'est calculée dans le navigateur.
  */
-export function ResultatComparaison({
+export async function ResultatComparaison({
   comparaison: c,
   devise,
 }: {
   comparaison: Comparaison;
   devise: Devise;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const v1 = `Version ${c.de.version}`;
   const v2 = `Version ${c.a.version}`;
-  const hypotheses = lignesHypotheses(c);
-  const synthese = tableauxSynthese(c, devise);
+  const hypotheses = lignesHypotheses(c, langue);
+  const synthese = tableauxSynthese(c, devise, langue);
   return (
     <div className="mp-plan__section">
       <ul className="mp-liste-simple">
-        <li>{`${libelleVersionModele(c.de)} — ${libelleValidationModele(c.de)}`}</li>
-        <li>{`${libelleVersionModele(c.a)} — ${libelleValidationModele(c.a)}`}</li>
+        <li>{`${libelleVersionModele(c.de, langue)} — ${libelleValidationModele(c.de, langue)}`}</li>
+        <li>{`${libelleVersionModele(c.a, langue)} — ${libelleValidationModele(c.a, langue)}`}</li>
       </ul>
       <p className="mp-texte-doux mp-texte-petit">
-        Écart = valeur de la version d&apos;arrivée moins celle de la version de départ ; écart
-        relatif rapporté à la valeur de départ. Tous calculés par le moteur, sur les résultats figés
-        des deux versions.
+        {t(
+          "Écart = valeur de la version d'arrivée moins celle de la version de départ ; écart relatif rapporté à la valeur de départ. Tous calculés par le moteur, sur les résultats figés des deux versions.",
+          "Difference = end version value minus start version value; relative difference expressed against the start value. All computed by the engine, on the frozen results of the two versions.",
+        )}
       </p>
       <div className="mp-plan-comparaison">
         <section className="mp-plan__section" aria-labelledby="titre-hypotheses-modifiees">
           <h4 id="titre-hypotheses-modifiees" className="mp-plan__intertitre">
-            Hypothèses modifiées
+            {t("Hypothèses modifiées", "Modified assumptions")}
           </h4>
           {hypotheses.length ? (
             <ul className="mp-liste-simple">
               {hypotheses.map((h) => (
                 <li key={h.chemin}>
-                  {h.de !== null && h.a !== null ? `${h.libelle} : ${h.de} → ${h.a}` : h.libelle}
+                  {h.de !== null && h.a !== null
+                    ? `${h.libelle}${langue === "en" ? ":" : " :"} ${h.de} → ${h.a}`
+                    : h.libelle}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mp-texte-doux">Aucune : mêmes hypothèses dans les deux versions.</p>
+            <p className="mp-texte-doux">
+              {t(
+                "Aucune : mêmes hypothèses dans les deux versions.",
+                "None: same assumptions in both versions.",
+              )}
+            </p>
           )}
         </section>
         <section className="mp-plan__section" aria-labelledby="titre-ecarts-modifies">
           <h4 id="titre-ecarts-modifies" className="mp-plan__intertitre">
-            Écarts de scénario modifiés
+            {t("Écarts de scénario modifiés", "Modified scenario deviations")}
           </h4>
           {c.ecarts_modifies.length ? (
             <ul className="mp-liste-simple">
               {c.ecarts_modifies.map((h) => (
-                <li key={h}>{libelleChemin(h)}</li>
+                <li key={h}>{libelleChemin(h, langue)}</li>
               ))}
             </ul>
           ) : (
-            <p className="mp-texte-doux">Aucun.</p>
+            <p className="mp-texte-doux">{t("Aucun.", "None.")}</p>
           )}
         </section>
       </div>
       {synthese.length ? (
         <div className="mp-plan-comparaison">
-          {synthese.map((t) => (
+          {synthese.map((tab) => (
             <TableauEcarts
-              key={t.scenario}
-              id={`comparaison-synthese-${t.scenario}`}
-              titre={`${t.titre} : synthèse`}
-              premiereColonne="Indicateur"
+              key={tab.scenario}
+              id={`comparaison-synthese-${tab.scenario}`}
+              titre={`${tab.titre}${langue === "en" ? ": summary" : " : synthèse"}`}
+              premiereColonne={t("Indicateur", "Indicator")}
               v1={v1}
               v2={v2}
-              lignes={t.lignes}
+              lignes={tab.lignes}
             />
           ))}
         </div>
@@ -209,17 +223,17 @@ export function ResultatComparaison({
       <div className="mp-plan-comparaison">
         {c.series.map((s) => {
           const id = `comparaison-${s.cle}`;
-          const titre = `${s.libelle} (scénario de base)`;
+          const titre = `${s.libelle} ${t("(scénario de base)", "(base scenario)")}`;
           if (s.points?.length) {
             return (
               <TableauEcarts
                 key={s.cle}
                 id={id}
                 titre={titre}
-                premiereColonne="Exercice"
+                premiereColonne={t("Exercice", "Year")}
                 v1={v1}
                 v2={v2}
-                lignes={lignesEcartsSerie(s, devise)}
+                lignes={lignesEcartsSerie(s, devise, langue)}
               />
             );
           }
@@ -235,13 +249,13 @@ export function ResultatComparaison({
                 <caption id={id}>{titre}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Exercice</th>
+                    <th scope="col">{t("Exercice", "Year")}</th>
                     <th scope="col">{v1}</th>
                     <th scope="col">{v2}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lignesSerieComparee(s, devise).map((l) => (
+                  {lignesSerieComparee(s, devise, langue).map((l) => (
                     <tr key={l.exercice}>
                       <th scope="row">{l.exercice}</th>
                       <td>{l.de}</td>

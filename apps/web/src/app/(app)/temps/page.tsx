@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, creerTraduire } from "@missionpilot/shared";
 import { SaisiesEnAttente } from "../../../components/hors-ligne/SaisiesEnAttente";
 import { NavigationSemaine } from "../../../components/temps/NavigationSemaine";
 import { Alerte } from "../../../components/ui/Alerte";
@@ -8,6 +8,7 @@ import { BadgeStatut } from "../../../components/ui/BadgeStatut";
 import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../components/ui/EtatListe";
+import { obtenirLangue } from "../../../lib/i18n/serveur";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDateHeure, formaterJours } from "../../../lib/format";
 import type { MonPlanning } from "../../../lib/planification";
@@ -15,16 +16,19 @@ import { joursDeLaSemaine, libelleDateCourte, lireSemaine } from "../../../lib/s
 import { exigerPermission } from "../../../lib/session";
 import {
   actionsFeuille,
-  NOM_UNITE,
-  STATUT_FEUILLE,
-  STATUT_PARTIE,
+  nomUnite,
+  statutFeuille,
+  statutPartie,
   type SemaineTemps,
   type TacheAffectee,
 } from "../../../lib/temps";
 import { PreparationFeuille, ResteAFaire, type TacheReste } from "./ActionsFeuille";
 import { GrilleTemps } from "./GrilleTemps";
 
-export const metadata: Metadata = { title: "Feuille de temps" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = creerTraduire(await obtenirLangue());
+  return { title: t("Feuille de temps", "Timesheet") };
+}
 
 interface Declaration {
   tache_id: string;
@@ -61,6 +65,8 @@ export default async function PageFeuilleDeTemps({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("temps.saisir");
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   const semaine = lireSemaine((await searchParams).semaine);
   const q = semaine ? `?semaine=${semaine}` : "";
   const [r, planning] = await Promise.all([
@@ -70,9 +76,12 @@ export default async function PageFeuilleDeTemps({
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Feuille de temps" />
+        <EnteteDePage titre={t("Feuille de temps", "Timesheet")} />
         <EtatErreur
-          titre="Votre feuille de temps n'a pas pu être chargée."
+          titre={t(
+            "Votre feuille de temps n'a pas pu être chargée.",
+            "Your timesheet could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={`/temps${q}`}
         />
@@ -81,8 +90,8 @@ export default async function PageFeuilleDeTemps({
   }
   const s = r.donnees;
   const f = s.feuille;
-  const statut = f ? STATUT_FEUILLE[f.statut] : null;
-  const actions = actionsFeuille(f, utilisateur.id);
+  const statut = f ? statutFeuille(f.statut, langue) : null;
+  const actions = actionsFeuille(f, utilisateur.id, langue);
   const lignesPlanning = planning.ok ? planning.donnees.lignes : [];
   const taches: TacheAffectee[] = lignesPlanning
     .filter((l) => l.tache.libelle !== null)
@@ -111,8 +120,8 @@ export default async function PageFeuilleDeTemps({
         {
           tache_id: l.tache.id,
           mission_id: l.mission.id,
-          libelle: l.tache.libelle ?? "Tâche",
-          mission: l.mission.intitule ?? "Mission",
+          libelle: l.tache.libelle ?? t("Tâche", "Task"),
+          mission: l.mission.intitule ?? t("Mission", "Engagement"),
           dernier: declarations.get(l.tache.id) ?? null,
         },
       ]),
@@ -122,8 +131,11 @@ export default async function PageFeuilleDeTemps({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Feuille de temps"
-        soustitre={`Saisie en ${NOM_UNITE[s.unite_saisie_temps]}${s.unite_saisie_temps === "heure" ? ` (journée de ${s.heures_par_jour} h)` : ""}. Le brouillon s'enregistre tout seul, même hors connexion.`}
+        titre={t("Feuille de temps", "Timesheet")}
+        soustitre={t(
+          `Saisie en ${nomUnite(s.unite_saisie_temps)}${s.unite_saisie_temps === "heure" ? ` (journée de ${s.heures_par_jour} h)` : ""}. Le brouillon s'enregistre tout seul, même hors connexion.`,
+          `Entry in ${nomUnite(s.unite_saisie_temps, langue)}${s.unite_saisie_temps === "heure" ? ` (${s.heures_par_jour}-hour day)` : ""}. The draft saves itself, even offline.`,
+        )}
         badges={
           statut ? <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut> : null
         }
@@ -131,7 +143,7 @@ export default async function PageFeuilleDeTemps({
       <NavigationSemaine
         base="/temps"
         semaine={s.semaine}
-        libelle="Changer de semaine de la feuille"
+        libelle={t("Changer de semaine de la feuille", "Change the timesheet week")}
       />
 
       {s.collaborateur ? (
@@ -140,35 +152,44 @@ export default async function PageFeuilleDeTemps({
 
       {!s.collaborateur ? (
         <EtatVide
-          titre="Aucune fiche collaborateur n'est rattachée à votre compte."
+          titre={t(
+            "Aucune fiche collaborateur n'est rattachée à votre compte.",
+            "No employee record is linked to your account.",
+          )}
           icone="personnes"
         >
           <p>
-            La saisie des temps sera possible quand votre compte sera lié à votre fiche dans le
-            référentiel des collaborateurs.
+            {t(
+              "La saisie des temps sera possible quand votre compte sera lié à votre fiche dans le référentiel des collaborateurs.",
+              "Time entry will be possible once your account is linked to your record in the employee directory.",
+            )}
           </p>
         </EtatVide>
       ) : !f ? (
-        <Carte titre="Votre feuille de la semaine">
+        <Carte titre={t("Votre feuille de la semaine", "Your timesheet for the week")}>
           <div className="mp-pile">
             {s.pre_remplissage.length > 0 ? (
               <>
                 <p>
-                  Vos affectations proposent {s.pre_remplissage.length} ligne(s). Vous pourrez les
-                  ajuster avant de soumettre.
+                  {t(
+                    `Vos affectations proposent ${s.pre_remplissage.length} ligne(s). Vous pourrez les ajuster avant de soumettre.`,
+                    `Your assignments suggest ${s.pre_remplissage.length} row(s). You can adjust them before submitting.`,
+                  )}
                 </p>
                 <ul className="mp-liste-simple">
                   {s.pre_remplissage.map((l) => (
                     <li key={`${l.date}-${l.tache_id}`}>
-                      {`${libelleDateCourte(l.date)} — ${l.tache_libelle ?? "Tâche"} (${l.mission_intitule ?? "Mission"}) : ${formaterJours(l.jours)}`}
+                      {`${libelleDateCourte(l.date, langue)} — ${l.tache_libelle ?? t("Tâche", "Task")} (${l.mission_intitule ?? t("Mission", "Engagement")}) : ${formaterJours(l.jours, langue)}`}
                     </li>
                   ))}
                 </ul>
               </>
             ) : (
               <p className="mp-texte-doux">
-                Aucune affectation à reporter cette semaine : vous partirez d&apos;une feuille vide
-                (activités internes, congés…).
+                {t(
+                  "Aucune affectation à reporter cette semaine : vous partirez d'une feuille vide (activités internes, congés…).",
+                  "No assignment to carry over this week: you will start from an empty timesheet (internal activities, leave…).",
+                )}
               </p>
             )}
             <PreparationFeuille
@@ -182,11 +203,16 @@ export default async function PageFeuilleDeTemps({
           {f.statut === "rejetee" ? (
             <Alerte
               tonalite="danger"
-              titre="Feuille rejetée : à corriger puis resoumettre"
+              titre={t(
+                "Feuille rejetée : à corriger puis resoumettre",
+                "Timesheet rejected: correct it, then resubmit",
+              )}
               annonce="aucune"
             >
               {f.motif_rejet ? (
-                <p className="mp-texte-preserve">{`Motif : ${f.motif_rejet}`}</p>
+                <p className="mp-texte-preserve">
+                  {t(`Motif : ${f.motif_rejet}`, `Reason: ${f.motif_rejet}`)}
+                </p>
               ) : null}
               {f.parties
                 .filter((p) => p.statut === "rejetee" && p.motif && p.motif !== f.motif_rejet)
@@ -197,29 +223,49 @@ export default async function PageFeuilleDeTemps({
                 ))}
             </Alerte>
           ) : f.statut === "soumise" ? (
-            <Alerte tonalite="info" titre="Feuille soumise" annonce="aucune">
+            <Alerte
+              tonalite="info"
+              titre={t("Feuille soumise", "Timesheet submitted")}
+              annonce="aucune"
+            >
               <p>
-                {`Soumise le ${formaterDateHeure(f.soumise_le)}. Elle n'est plus modifiable : votre chef de mission la valide ou la rejette avec un motif.`}
+                {t(
+                  `Soumise le ${formaterDateHeure(f.soumise_le, "Africa/Abidjan", langue)}. Elle n'est plus modifiable : votre chef de mission la valide ou la rejette avec un motif.`,
+                  `Submitted on ${formaterDateHeure(f.soumise_le, "Africa/Abidjan", langue)}. It can no longer be edited: your engagement manager approves it or rejects it with a reason.`,
+                )}
               </p>
             </Alerte>
           ) : f.statut === "validee" || f.statut === "verrouillee" ? (
-            <Alerte tonalite="succes" titre={STATUT_FEUILLE[f.statut].libelle} annonce="aucune">
+            <Alerte
+              tonalite="succes"
+              titre={statutFeuille(f.statut, langue).libelle}
+              annonce="aucune"
+            >
               <p>
-                Pour modifier des temps validés, faites une{" "}
-                <Link href="/temps/corrections">demande de correction</Link>.
+                {t(
+                  "Pour modifier des temps validés, faites une ",
+                  "To change approved time, make a ",
+                )}
+                <Link href="/temps/corrections">
+                  {t("demande de correction", "correction request")}
+                </Link>
+                .
               </p>
             </Alerte>
           ) : null}
 
           {s.jours_clotures.length > 0 ? (
-            <Alerte tonalite="info" titre="Jours clôturés" annonce="aucune">
+            <Alerte tonalite="info" titre={t("Jours clôturés", "Closed days")} annonce="aucune">
               <p>
-                {`${s.jours_clotures.map(libelleDateCourte).join(", ")} : période clôturée, saisie verrouillée.`}
+                {t(
+                  `${s.jours_clotures.map((d) => libelleDateCourte(d, langue)).join(", ")} : période clôturée, saisie verrouillée.`,
+                  `${s.jours_clotures.map((d) => libelleDateCourte(d, langue)).join(", ")}: closed period, entry locked.`,
+                )}
               </p>
             </Alerte>
           ) : null}
 
-          <Carte titre="Temps de la semaine">
+          <Carte titre={t("Temps de la semaine", "Time for the week")}>
             <GrilleTemps
               key={`${f.id}-${f.statut}-${f.cycle}`}
               feuille={f}
@@ -235,19 +281,24 @@ export default async function PageFeuilleDeTemps({
           </Carte>
 
           {f.parties.length > 0 && f.statut !== "brouillon" ? (
-            <Carte titre="Validation par mission">
+            <Carte titre={t("Validation par mission", "Approval by engagement")}>
               <ul className="mp-liste-lignes">
                 {f.parties.map((p) => (
                   <li key={p.mission_id ?? "interne"} className="mp-liste-lignes__ligne">
                     <span className="mp-liste-lignes__texte">
                       <strong>{p.intitule}</strong>
                       {p.decide_le ? (
-                        <span className="mp-texte-doux">{`Décidée le ${formaterDateHeure(p.decide_le)}`}</span>
+                        <span className="mp-texte-doux">
+                          {t(
+                            `Décidée le ${formaterDateHeure(p.decide_le, "Africa/Abidjan", langue)}`,
+                            `Decided on ${formaterDateHeure(p.decide_le, "Africa/Abidjan", langue)}`,
+                          )}
+                        </span>
                       ) : null}
                     </span>
                     {p.statut ? (
-                      <BadgeStatut tonalite={STATUT_PARTIE[p.statut].tonalite}>
-                        {STATUT_PARTIE[p.statut].libelle}
+                      <BadgeStatut tonalite={statutPartie(p.statut, langue).tonalite}>
+                        {statutPartie(p.statut, langue).libelle}
                       </BadgeStatut>
                     ) : null}
                   </li>
@@ -261,11 +312,13 @@ export default async function PageFeuilleDeTemps({
       {s.collaborateur &&
       tachesReste.length > 0 &&
       aPermission(utilisateur.roles, "budget.lire_jours") ? (
-        <Carte titre="Reste à faire">
+        <Carte titre={t("Reste à faire", "Remaining work")}>
           <div className="mp-pile">
             <p className="mp-texte-doux">
-              Combien de jours vous reste-t-il sur chaque tâche ? L&apos;atterrissage de la mission
-              (réalisé + reste à faire) en dépend.
+              {t(
+                "Combien de jours vous reste-t-il sur chaque tâche ? L'atterrissage de la mission (réalisé + reste à faire) en dépend.",
+                "How many days do you have left on each task? The engagement forecast (actuals + remaining work) depends on it.",
+              )}
             </p>
             <ResteAFaire
               taches={tachesReste}

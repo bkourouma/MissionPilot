@@ -12,6 +12,7 @@
  * revue), `kpi-pilotage-libelles` (libellés, mise en forme), `kpi-pilotage-saisies` (contrôles
  * de saisie).
  */
+import type { Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import { messageKpi } from "./kpi";
 
@@ -43,11 +44,33 @@ export const MESSAGES_PILOTAGE: Record<string, string> = {
     "Le rendu PDF est indisponible sur ce serveur : choisissez le format Word ou PowerPoint.",
 };
 
+export const MESSAGES_PILOTAGE_EN: Record<string, string> = {
+  KPI_REVUE_OUVERTE:
+    "Decisions or actions of the review are still open: complete them, or abandon them with a reason, before closing.",
+  KPI_ARBRE_TROP_GRAND:
+    "A tree has at most 50 active nodes, 200 nodes in total (disabled ones included) and 6 levels below the root.",
+  KPI_NOEUD_PARENT_INVALIDE:
+    "The node's parent is disabled or belongs to another tree: reactivate the parent first.",
+  KPI_REVUE_FIGEE:
+    "The content of a held review (agenda, file, minutes) is frozen: it can no longer change.",
+  KPI_ACTION_REVUE:
+    "An action can only be linked to a decision of a held, unclosed review: this review is not held, or it is already closed. Choose another decision, or leave this field empty.",
+  KPI_ARBRE_UNITES:
+    "Different units: the sum makes no sense. Link a KPI with the same unit, or have the parent node combined by a product.",
+  KPI_COEFFICIENT_PRODUIT: "Under a product, a driver's coefficient is 1.",
+  KPI_NOEUD_NON_DESACTIVABLE:
+    "First disable the children of this node; the root cannot be disabled.",
+  TROP_DE_DOSSIERS_REVUE:
+    "Too many review files downloaded in a short time: try again in a few minutes.",
+  RENDU_PDF_INDISPONIBLE:
+    "PDF rendering is unavailable on this server: choose the Word or PowerPoint format.",
+};
+
 /** Message affiché pour une erreur du pilotage augmenté (message propre, sinon celui des KPI). */
-export function messagePilotage(e: unknown): string {
+export function messagePilotage(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const propre = MESSAGES_PILOTAGE[e.code];
+    const propre = (langue === "en" ? MESSAGES_PILOTAGE_EN : MESSAGES_PILOTAGE)[e.code];
     if (propre) return propre;
   }
-  return messageKpi(e);
+  return messageKpi(e, langue);
 }

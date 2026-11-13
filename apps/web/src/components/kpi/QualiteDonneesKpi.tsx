@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formaterDate } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { hrefKpi } from "../../lib/kpi";
 import {
   libelleMotifQualite,
@@ -31,19 +32,20 @@ export interface QualiteDonneesKpiProps {
  * mot) ; les motifs disent quoi corriger. Un score faible n'altère ni le statut ni le score
  * composite du KPI : il prévient seulement que la lecture est moins fiable.
  */
-export function QualiteDonneesKpi({ qualite, missionId }: QualiteDonneesKpiProps) {
+export async function QualiteDonneesKpi({ qualite, missionId }: QualiteDonneesKpiProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = qualite.repartition;
   return (
     <div className="mp-pile">
       <p className="mp-texte-doux">
-        Au {formaterDate(qualite.date_reference)} : {r.bon} KPI à données de bonne qualité,{" "}
-        {r.moyen} de qualité moyenne, {r.faible} de qualité faible
-        {r.non_evaluable > 0 ? `, ${r.non_evaluable} non évaluable(s)` : ""}. Fraîcheur : retard de
-        mesure ; complétude : périodes échues mesurées ; cohérence : corrections et valeurs
-        inhabituelles.
+        {t(
+          `Au ${formaterDate(qualite.date_reference, "UTC", langue)} : ${r.bon} KPI à données de bonne qualité, ${r.moyen} de qualité moyenne, ${r.faible} de qualité faible${r.non_evaluable > 0 ? `, ${r.non_evaluable} non évaluable(s)` : ""}. Fraîcheur : retard de mesure ; complétude : périodes échues mesurées ; cohérence : corrections et valeurs inhabituelles.`,
+          `As of ${formaterDate(qualite.date_reference, "UTC", langue)}: ${r.bon} KPI(s) with good-quality data, ${r.moyen} of medium quality, ${r.faible} of low quality${r.non_evaluable > 0 ? `, ${r.non_evaluable} not assessable` : ""}. Freshness: measurement delay; completeness: due periods measured; consistency: corrections and unusual values.`,
+        )}
       </p>
       <Tableau<Ligne>
-        legende="Qualité des données par KPI"
+        legende={t("Qualité des données par KPI", "Data quality by KPI")}
         colonnes={[
           {
             cle: "kpi",
@@ -52,46 +54,47 @@ export function QualiteDonneesKpi({ qualite, missionId }: QualiteDonneesKpiProps
           },
           {
             cle: "niveau",
-            entete: "Qualité",
+            entete: t("Qualité", "Quality"),
             rendu: (l) =>
               l.qualite.niveau ? (
                 <BadgeStatut tonalite={TONALITE[l.qualite.niveau]}>
-                  {libelleNiveauQualite(l.qualite.niveau)} ({texteScoreQualite(l.qualite.score)})
+                  {libelleNiveauQualite(l.qualite.niveau, langue)} (
+                  {texteScoreQualite(l.qualite.score, langue)})
                 </BadgeStatut>
               ) : (
-                libelleNiveauQualite(null)
+                libelleNiveauQualite(null, langue)
               ),
           },
           {
             cle: "fraicheur",
-            entete: "Fraîcheur",
+            entete: t("Fraîcheur", "Freshness"),
             alignement: "droite",
-            rendu: (l) => texteComposante(l.qualite.fraicheur),
+            rendu: (l) => texteComposante(l.qualite.fraicheur, langue),
           },
           {
             cle: "completude",
-            entete: "Complétude",
+            entete: t("Complétude", "Completeness"),
             alignement: "droite",
-            rendu: (l) => texteComposante(l.qualite.completude),
+            rendu: (l) => texteComposante(l.qualite.completude, langue),
           },
           {
             cle: "coherence",
-            entete: "Cohérence",
+            entete: t("Cohérence", "Consistency"),
             alignement: "droite",
-            rendu: (l) => texteComposante(l.qualite.coherence),
+            rendu: (l) => texteComposante(l.qualite.coherence, langue),
           },
           {
             cle: "motifs",
-            entete: "À corriger",
+            entete: t("À corriger", "To fix"),
             rendu: (l) =>
               l.qualite.motifs.length === 0
-                ? "Rien à signaler"
-                : l.qualite.motifs.map(libelleMotifQualite).join(" ; "),
+                ? t("Rien à signaler", "Nothing to report")
+                : l.qualite.motifs.map((m) => libelleMotifQualite(m, langue)).join(" ; "),
           },
         ]}
         lignes={qualite.kpis}
         cleLigne={(l) => l.kpi_id}
-        messageVide="Aucun KPI actif à évaluer."
+        messageVide={t("Aucun KPI actif à évaluer.", "No active KPI to assess.")}
       />
     </div>
   );

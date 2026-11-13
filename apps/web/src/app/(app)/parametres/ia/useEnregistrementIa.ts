@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
+import { useLangue } from "../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../lib/api";
 import {
   confirmationDemandee,
@@ -25,6 +26,7 @@ export interface OptionsEnregistrementIa {
  * CONFIRMATION_REQUISE). Mot de passe et code sont effacés après chaque envoi.
  */
 export function useEnregistrementIa<K extends string>() {
+  const langue = useLangue();
   const f = useFormulaire<K | ChampConfirmation>();
   const [confirmation, setConfirmation] = useState<SaisieConfirmation | null>(null);
 
@@ -42,7 +44,7 @@ export function useEnregistrementIa<K extends string>() {
         succes: options.succes,
         messageSpecifique: (e) => {
           if (confirmationDemandee(e)) setConfirmation((c) => c ?? SAISIE_CONFIRMATION_VIDE);
-          return messageReconfirmation(e, saisie?.facteur ?? "totp") ?? messageErreurIa(e);
+          return messageReconfirmation(e, saisie?.facteur ?? "totp") ?? messageErreurIa(e, langue);
         },
       },
     );

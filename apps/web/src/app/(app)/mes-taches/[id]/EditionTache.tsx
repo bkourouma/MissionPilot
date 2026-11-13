@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../components/ui/Bouton";
 import type { OptionSelect } from "../../../../components/ui/Select";
 import type { TacheCollaboration } from "../../../../lib/taches-collaboration";
@@ -14,12 +15,13 @@ export function EditionTache({
   tache: TacheCollaboration;
   personnes: OptionSelect[];
 }) {
+  const t = useT();
   const [ouvert, setOuvert] = useState(false);
   if (!ouvert) {
     return (
       <div>
         <Bouton variante="secondaire" icone="crayon" onClick={() => setOuvert(true)}>
-          Modifier la tâche
+          {t("Modifier la tâche", "Edit the task")}
         </Bouton>
       </div>
     );

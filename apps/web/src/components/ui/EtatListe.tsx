@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useId } from "react";
+import { T } from "../i18n/T";
 import type { ReactNode } from "react";
 import { Alerte } from "./Alerte";
 import { classesBouton } from "./Bouton";
@@ -39,7 +41,7 @@ export function EtatErreur({ titre, message, hrefReessayer }: EtatErreurProps) {
         <p>{message}</p>
       </Alerte>
       <Link href={hrefReessayer} className={classesBouton("secondaire")} prefetch={false}>
-        Réessayer
+        <T fr="Réessayer" en="Try again" />
       </Link>
     </div>
   );
@@ -57,27 +59,37 @@ export interface PaginationCurseurProps {
  * Pagination par curseur : « Page suivante » et « Revenir au début ». L'état vit dans l'URL
  * (partage, rechargement après coupure réseau).
  */
-export function PaginationCurseur({
-  hrefSuivante,
-  hrefDebut,
-  libelle = "Pagination",
-}: PaginationCurseurProps) {
+export function PaginationCurseur({ hrefSuivante, hrefDebut, libelle }: PaginationCurseurProps) {
+  const idLibelle = useId();
   if (!hrefSuivante && !hrefDebut) return null;
   return (
-    <nav className="mp-pagination" aria-label={libelle}>
+    <nav
+      className="mp-pagination"
+      aria-label={libelle}
+      aria-labelledby={libelle ? undefined : idLibelle}
+    >
+      {libelle ? null : (
+        <span id={idLibelle} className="mp-visuellement-cache">
+          <T fr="Pagination" en="Pagination" />
+        </span>
+      )}
       <ul className="mp-pagination__liste">
         {hrefDebut ? (
           <li>
             <Link className="mp-pagination__lien" href={hrefDebut}>
               <Icone nom="chevronGauche" taille={18} />
-              <span>Revenir au début</span>
+              <span>
+                <T fr="Revenir au début" en="Back to start" />
+              </span>
             </Link>
           </li>
         ) : null}
         {hrefSuivante ? (
           <li>
             <Link className="mp-pagination__lien" href={hrefSuivante} rel="next">
-              <span>Page suivante</span>
+              <span>
+                <T fr="Page suivante" en="Next page" />
+              </span>
               <Icone nom="chevronDroit" taille={18} />
             </Link>
           </li>

@@ -6,6 +6,7 @@ import { messageDd } from "../../lib/due-diligence";
 import { validerDecision } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
@@ -32,17 +33,19 @@ export function ValidationDecision({
   succesValide,
   succesRejete,
 }: ValidationDecisionProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
   const [rejet, setRejet] = useState(false);
 
   async function decider(decision: "valide" | "rejete") {
     await f.envoyer(
-      validerDecision(decision, motif),
+      validerDecision(decision, motif, langue),
       (charge) => api.post(chemin, { ...corps, ...charge }),
       {
         succes: decision === "valide" ? succesValide : succesRejete,
-        messageSpecifique: messageDd,
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => {
           setMotif("");
           setRejet(false);
@@ -57,40 +60,43 @@ export function ValidationDecision({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Décision refusée"
+        titreErreur={t("Décision refusée", "Decision refused")}
       />
       {rejet ? (
         <ZoneTexte
-          libelle={`Motif du rejet de ${objet}`}
+          libelle={t(`Motif du rejet de ${objet}`, `Reason for rejecting ${objet}`)}
           required
           rows={2}
           value={motif}
           onChange={(e) => setMotif(e.target.value)}
           erreur={f.erreurs.motif}
-          aide="Un rejet se motive ; le motif est conservé."
+          aide={t(
+            "Un rejet se motive ; le motif est conservé.",
+            "A rejection must be explained; the reason is kept.",
+          )}
         />
       ) : null}
       <div className="mp-barre-actions">
         {rejet ? (
           <>
             <Bouton variante="danger" disabled={f.enCours} onClick={() => void decider("rejete")}>
-              Confirmer le rejet
+              {t("Confirmer le rejet", "Confirm rejection")}
             </Bouton>
             <Bouton variante="discret" onClick={() => setRejet(false)}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </>
         ) : (
           <>
             <Bouton
               chargement={f.enCours}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
               onClick={() => void decider("valide")}
             >
-              Valider
+              {t("Valider", "Approve")}
             </Bouton>
             <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setRejet(true)}>
-              Rejeter
+              {t("Rejeter", "Reject")}
             </Bouton>
           </>
         )}

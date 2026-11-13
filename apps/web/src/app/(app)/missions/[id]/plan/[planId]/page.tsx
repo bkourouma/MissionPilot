@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import type { TypeElementPlan } from "@missionpilot/shared";
+import type { Langue, Traduire, TypeElementPlan } from "@missionpilot/shared";
 import { GenerationLivrable } from "../../../../../../components/rapports/GenerationLivrable";
 import { AjoutElement } from "../../../../../../components/plan/AjoutElement";
 import { CitationsLivrable } from "../../../../../../components/preuves/CitationsLivrable";
@@ -16,6 +16,7 @@ import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatVide } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { hrefNotation } from "../../../../../../lib/notation";
 import {
@@ -37,8 +38,8 @@ import {
   droitsPlan,
   ELEMENTS_PLAN_MAX,
   manquesPartage,
-  MESSAGE_ELEMENTS_MAX,
-  MESSAGE_MISSION_CLOTUREE,
+  messageElementsMax,
+  messageMissionCloturee,
   raisonValidationElement,
   structurerPlan,
   type AxeStructure,
@@ -49,9 +50,14 @@ import {
 import { chargerPersonnes } from "../../../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Plan stratégique" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Plan stratégique", "Strategic plan") };
+}
 
 interface Contexte {
+  t: Traduire;
+  langue: Langue;
   plan: PlanDetaille;
   ctx: ContextePlan;
   personnes: PersonnePlan[];
@@ -66,7 +72,7 @@ function droitsDe(e: ElementPlan, c: Contexte): DroitsElement {
   return {
     rediger: d.rediger,
     valider: d.valider,
-    raisonValidation: raisonValidationElement(e, c.ctx),
+    raisonValidation: raisonValidationElement(e, c.ctx, c.langue),
   };
 }
 
@@ -131,12 +137,21 @@ function Axe({ a, c }: { a: AxeStructure; c: Contexte }) {
   return (
     <Element element={a.axe} c={c} niveau={4}>
       {!vide ? (
-        <ul className="mp-plan-element__enfants" aria-label="Objectifs et initiatives de l'axe">
+        <ul
+          className="mp-plan-element__enfants"
+          aria-label={c.t(
+            "Objectifs et initiatives de l'axe",
+            "Objectives and initiatives of the axis",
+          )}
+        >
           {a.objectifs.map((o) => (
             <li key={o.objectif.id}>
               <Element element={o.objectif} c={c} niveau={5}>
                 {o.initiatives.length ? (
-                  <ul className="mp-plan-element__enfants" aria-label="Initiatives de l'objectif">
+                  <ul
+                    className="mp-plan-element__enfants"
+                    aria-label={c.t("Initiatives de l'objectif", "Initiatives of the objective")}
+                  >
                     {o.initiatives.map((i) => (
                       <li key={i.id}>
                         <Element element={i} c={c} niveau={6} />
@@ -149,7 +164,10 @@ function Axe({ a, c }: { a: AxeStructure; c: Contexte }) {
                     c={c}
                     type="initiative"
                     parentId={o.objectif.id}
-                    libelle="Ajouter une initiative à cet objectif"
+                    libelle={c.t(
+                      "Ajouter une initiative à cet objectif",
+                      "Add an initiative to this objective",
+                    )}
                   />
                 ) : null}
               </Element>
@@ -164,12 +182,17 @@ function Axe({ a, c }: { a: AxeStructure; c: Contexte }) {
       ) : null}
       {actif && c.ajout ? (
         <div className="mp-plan-element__actions">
-          <Ajout c={c} type="objectif" parentId={a.axe.id} libelle="Ajouter un objectif" />
+          <Ajout
+            c={c}
+            type="objectif"
+            parentId={a.axe.id}
+            libelle={c.t("Ajouter un objectif", "Add an objective")}
+          />
           <Ajout
             c={c}
             type="initiative"
             parentId={a.axe.id}
-            libelle="Ajouter une initiative à l'axe"
+            libelle={c.t("Ajouter une initiative à l'axe", "Add an initiative to the axis")}
           />
         </div>
       ) : null}
@@ -187,6 +210,8 @@ export default async function PageContenusPlan({
 }: {
   params: Promise<{ id: string; planId: string }>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, planId } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const [mission, r] = await Promise.all([chargerMission(id), chargerPlan(planId)]);
@@ -198,9 +223,16 @@ export default async function PageContenusPlan({
   const droits = droitsPlan(ctx);
   const cabinet = await chargerPersonnes(utilisateur.roles);
   const c: Contexte = {
+    t,
+    langue,
     plan,
     ctx,
-    personnes: personnesPlan(cabinet, m.equipe, { id: utilisateur.id, nom: utilisateur.nom }),
+    personnes: personnesPlan(
+      cabinet,
+      m.equipe,
+      { id: utilisateur.id, nom: utilisateur.nom },
+      langue,
+    ),
     initiatives: initiativesDuPlan(plan.elements),
     ajout: droits.rediger && plan.elements.length < ELEMENTS_PLAN_MAX,
   };
@@ -229,42 +261,48 @@ export default async function PageContenusPlan({
     <>
       {droits.cloturee ? (
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MESSAGE_MISSION_CLOTUREE}</p>
+          <p>{messageMissionCloturee(langue)}</p>
         </Alerte>
       ) : null}
       {droits.rediger ? <AvertissementPartage partage={plan.partage_client} /> : null}
       {droits.rediger && !c.ajout ? (
         <Alerte tonalite="attention" annonce="aucune">
-          <p>{MESSAGE_ELEMENTS_MAX}</p>
+          <p>{messageElementsMax(langue)}</p>
         </Alerte>
       ) : null}
 
-      <Carte titre="Partage au client" niveauTitre={3}>
+      <Carte titre={t("Partage au client", "Sharing with the client")} niveauTitre={3}>
         <PartagePlan
           planId={plan.id}
           partage={plan.partage_client}
           partageLe={plan.partage_le}
-          manques={manquesPartage(plan)}
+          manques={manquesPartage(plan, langue)}
           peutPartager={droits.partager}
           raisonSansDroit={
             droits.cloturee
-              ? MESSAGE_MISSION_CLOTUREE
-              : "Le partage est décidé par un responsable de la mission (directeur, chef de mission ou associé)."
+              ? messageMissionCloturee(langue)
+              : t(
+                  "Le partage est décidé par un responsable de la mission (directeur, chef de mission ou associé).",
+                  "Sharing is decided by an engagement lead (director, engagement manager or partner).",
+                )
           }
         />
       </Carte>
 
-      <Carte titre="Rapport du plan" niveauTitre={3}>
+      <Carte titre={t("Rapport du plan", "Plan report")} niveauTitre={3}>
         <GenerationLivrable type="plan" id={plan.id} cloturee={droits.cloturee} />
       </Carte>
 
       <CitationsLivrable missionId={id} livrable="plan" />
 
-      <Carte titre="Diagnostic" niveauTitre={3}>
+      <Carte titre={t("Diagnostic", "Diagnostic")} niveauTitre={3}>
         <SectionElementUnique
           {...unique("diagnostic", s.diagnostic)}
-          libelleAjout="Rédiger le diagnostic"
-          texteVide="Synthèse des constats sur l'entreprise : situation, marché, organisation, finances."
+          libelleAjout={t("Rédiger le diagnostic", "Write the diagnostic")}
+          texteVide={t(
+            "Synthèse des constats sur l'entreprise : situation, marché, organisation, finances.",
+            "Summary of findings about the company: situation, market, organization, finances.",
+          )}
         />
         {lien?.ok ? (
           <NotationDiagnostic
@@ -278,39 +316,54 @@ export default async function PageContenusPlan({
           />
         ) : lien ? (
           <Alerte tonalite="attention" annonce="aucune">
-            <p>{`La notation liée au diagnostic n'a pas pu être chargée : ${lien.message}`}</p>
+            <p>
+              {t(
+                `La notation liée au diagnostic n'a pas pu être chargée : ${lien.message}`,
+                `The rating linked to the diagnostic could not be loaded: ${lien.message}`,
+              )}
+            </p>
           </Alerte>
         ) : null}
       </Carte>
 
-      <Carte titre="Analyse SWOT" niveauTitre={3}>
+      <Carte titre={t("Analyse SWOT", "SWOT analysis")} niveauTitre={3}>
         <SectionElementUnique
           {...unique("swot", s.swot)}
-          libelleAjout="Rédiger l'analyse SWOT"
-          texteVide="Forces, faiblesses, opportunités et menaces, une entrée par ligne."
+          libelleAjout={t("Rédiger l'analyse SWOT", "Write the SWOT analysis")}
+          texteVide={t(
+            "Forces, faiblesses, opportunités et menaces, une entrée par ligne.",
+            "Strengths, weaknesses, opportunities and threats, one entry per line.",
+          )}
         />
       </Carte>
 
-      <Carte titre="Vision et mission" niveauTitre={3}>
+      <Carte titre={t("Vision et mission", "Vision and mission")} niveauTitre={3}>
         <SectionElementUnique
           {...unique("vision_mission", s.vision_mission)}
-          libelleAjout="Rédiger la vision et la mission"
-          texteVide="Ambition à l'horizon du plan, raison d'être et valeurs de l'entreprise."
+          libelleAjout={t("Rédiger la vision et la mission", "Write the vision and mission")}
+          texteVide={t(
+            "Ambition à l'horizon du plan, raison d'être et valeurs de l'entreprise.",
+            "Ambition at the plan horizon, purpose and values of the company.",
+          )}
         />
       </Carte>
 
-      <Carte titre="Axes, objectifs et initiatives" niveauTitre={3}>
+      <Carte
+        titre={t("Axes, objectifs et initiatives", "Axes, objectives and initiatives")}
+        niveauTitre={3}
+      >
         <div className="mp-plan__section">
           {s.axes.length === 0 ? (
-            <EtatVide titre="Aucun axe stratégique." icone="drapeau">
+            <EtatVide titre={t("Aucun axe stratégique.", "No strategic axis.")} icone="drapeau">
               <p>
-                Commencez par les axes : chaque axe porte des objectifs (selon les quatre
-                perspectives), et chaque objectif des initiatives avec responsable, dates, budget et
-                gains attendus.
+                {t(
+                  "Commencez par les axes : chaque axe porte des objectifs (selon les quatre perspectives), et chaque objectif des initiatives avec responsable, dates, budget et gains attendus.",
+                  "Start with the axes: each axis carries objectives (across the four perspectives), and each objective carries initiatives with owner, dates, budget and expected gains.",
+                )}
               </p>
             </EtatVide>
           ) : (
-            <ul className="mp-plan-liste" aria-label="Axes stratégiques">
+            <ul className="mp-plan-liste" aria-label={t("Axes stratégiques", "Strategic axes")}>
               {s.axes.map((a) => (
                 <li key={a.axe.id}>
                   <Axe a={a} c={c} />
@@ -319,7 +372,10 @@ export default async function PageContenusPlan({
             </ul>
           )}
           {s.orphelins.length ? (
-            <ul className="mp-plan-liste" aria-label="Contenus sans rattachement">
+            <ul
+              className="mp-plan-liste"
+              aria-label={t("Contenus sans rattachement", "Unattached content")}
+            >
               {s.orphelins.map((e) => (
                 <li key={e.id}>
                   <Element element={e} c={c} niveau={4} />
@@ -327,7 +383,11 @@ export default async function PageContenusPlan({
               ))}
             </ul>
           ) : null}
-          <Ajout c={c} type="axe" libelle="Ajouter un axe stratégique" />
+          <Ajout
+            c={c}
+            type="axe"
+            libelle={t("Ajouter un axe stratégique", "Add a strategic axis")}
+          />
         </div>
       </Carte>
     </>

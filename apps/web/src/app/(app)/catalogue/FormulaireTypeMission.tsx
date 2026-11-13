@@ -9,9 +9,10 @@ import { Bouton, classesBouton } from "../../../components/ui/Bouton";
 import { CaseACocher } from "../../../components/ui/CaseACocher";
 import { Champ } from "../../../components/ui/Champ";
 import { Select } from "../../../components/ui/Select";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { api } from "../../../lib/api";
 import {
-  OPTIONS_MODES,
+  optionsModes,
   SAISIE_TYPE_VIDE,
   saisieDepuisType,
   validerTypeMission,
@@ -27,6 +28,8 @@ export interface FormulaireTypeMissionProps {
 
 export function FormulaireTypeMission({ type, grades }: FormulaireTypeMissionProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieTypeMission>(() =>
     type ? saisieDepuisType(type) : SAISIE_TYPE_VIDE,
   );
@@ -46,12 +49,12 @@ export function FormulaireTypeMission({ type, grades }: FormulaireTypeMissionPro
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerTypeMission(s),
+      validerTypeMission(s, langue),
       (charge) =>
         type
           ? api.patch<TypeMission>(`/api/types-mission/${encodeURIComponent(type.id)}`, charge)
           : api.post<TypeMission>("/api/types-mission", charge),
-      { rafraichir: false, apres: (t) => router.push(`/catalogue/${t.id}`) },
+      { rafraichir: false, apres: (cree) => router.push(`/catalogue/${cree.id}`) },
     );
   }
 
@@ -60,17 +63,20 @@ export function FormulaireTypeMission({ type, grades }: FormulaireTypeMissionPro
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           name="libelle"
           required
           maxLength={160}
           value={s.libelle}
           onChange={maj("libelle")}
           erreur={f.erreurs.libelle}
-          aide="Ex. Plan stratégique, Audit organisationnel."
+          aide={t(
+            "Ex. Plan stratégique, Audit organisationnel.",
+            "E.g. Strategic plan, Organizational audit.",
+          )}
         />
         <Champ
-          libelle="Code"
+          libelle={t("Code", "Code")}
           name="code"
           required
           maxLength={40}
@@ -79,42 +85,51 @@ export function FormulaireTypeMission({ type, grades }: FormulaireTypeMissionPro
           value={s.code}
           onChange={maj("code")}
           erreur={f.erreurs.code}
-          aide="Identifiant stable : minuscules, chiffres et tiret bas (ex. plan_strategique)."
+          aide={t(
+            "Identifiant stable : minuscules, chiffres et tiret bas (ex. plan_strategique).",
+            "Stable identifier: lowercase letters, digits and underscores (e.g. strategic_plan).",
+          )}
         />
         <Champ
-          libelle="Domaine"
+          libelle={t("Domaine", "Domain")}
           name="domaine"
           maxLength={120}
           value={s.domaine}
           onChange={maj("domaine")}
           erreur={f.erreurs.domaine}
-          aide="Ex. Stratégie, Organisation, Finance."
+          aide={t("Ex. Stratégie, Organisation, Finance.", "E.g. Strategy, Organization, Finance.")}
         />
         <Select
-          libelle="Mode de facturation"
+          libelle={t("Mode de facturation", "Billing mode")}
           name="mode_facturation"
           required
-          options={OPTIONS_MODES}
+          options={optionsModes(langue)}
           value={s.mode_facturation}
           onChange={maj("mode_facturation")}
           erreur={f.erreurs.mode_facturation}
         />
         <Champ
-          libelle="Durée type (jours calendaires)"
+          libelle={t("Durée type (jours calendaires)", "Typical duration (calendar days)")}
           name="duree_type_jours"
           inputMode="numeric"
           value={s.duree_type_jours}
           onChange={maj("duree_type_jours")}
           erreur={f.erreurs.duree_type_jours}
-          aide="Facultatif, ex. 90."
+          aide={t("Facultatif, ex. 90.", "Optional, e.g. 90.")}
         />
       </div>
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Équipe type</legend>
+        <legend className="mp-champ__libelle">{t("Équipe type", "Typical team")}</legend>
         <p className="mp-champ__aide">
           {gradesEquipe.length === 0
-            ? "Aucun grade n'est défini : créez les grades du cabinet pour composer l'équipe type."
-            : "Nombre de collaborateurs par grade. Laisser vide si le grade n'intervient pas."}
+            ? t(
+                "Aucun grade n'est défini : créez les grades du cabinet pour composer l'équipe type.",
+                "No grade is defined: create the firm's grades to build the typical team.",
+              )
+            : t(
+                "Nombre de collaborateurs par grade. Laisser vide si le grade n'intervient pas.",
+                "Number of staff per grade. Leave empty if the grade is not involved.",
+              )}
         </p>
         {gradesEquipe.length > 0 ? (
           <div className="mp-grille-champs mp-grille-champs--serree">
@@ -136,20 +151,29 @@ export function FormulaireTypeMission({ type, grades }: FormulaireTypeMissionPro
         ) : null}
       </fieldset>
       <CaseACocher
-        libelle="Type actif"
-        aide="Un type archivé n'est plus proposé à la création de missions."
+        libelle={t("Type actif", "Active type")}
+        aide={t(
+          "Un type archivé n'est plus proposé à la création de missions.",
+          "An archived type is no longer offered when creating engagements.",
+        )}
         checked={s.actif}
         onChange={(e) => setS((x) => ({ ...x, actif: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {type ? "Enregistrer les modifications" : "Créer le type de mission"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {type
+            ? t("Enregistrer les modifications", "Save changes")
+            : t("Créer le type de mission", "Create engagement type")}
         </Bouton>
         <Link
           href={type ? `/catalogue/${type.id}` : "/catalogue"}
           className={classesBouton("discret")}
         >
-          Annuler
+          {t("Annuler", "Cancel")}
         </Link>
       </div>
     </form>

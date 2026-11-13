@@ -1,6 +1,9 @@
+"use client";
+
 import { BadgeContenuIa } from "../ia/BadgeContenuIa";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
-import { STATUT_CONTENU_PLAN } from "../../lib/plan-strategique";
+import { presentationStatutPlan, STATUT_CONTENU_PLAN } from "../../lib/plan-strategique";
 import type { StatutContenuPlan } from "@missionpilot/shared";
 
 /**
@@ -9,42 +12,51 @@ import type { StatutContenuPlan } from "@missionpilot/shared";
  * Texte toujours visible et icône propre : la couleur ne porte jamais seule le sens.
  */
 export function BadgeStatutPlan({ statut }: { statut: StatutContenuPlan | string }) {
+  const t = useT();
+  const langue = useLangue();
   if (statut === "brouillon_ia" || statut === "modifie" || statut === "valide") {
     return <BadgeContenuIa statut={statut} />;
   }
-  const s = STATUT_CONTENU_PLAN[statut as StatutContenuPlan];
+  const s = STATUT_CONTENU_PLAN[statut as StatutContenuPlan]
+    ? presentationStatutPlan(statut as StatutContenuPlan, langue)
+    : undefined;
   return (
     <span className={`mp-badge mp-badge--${s?.tonalite ?? "neutre"}`} title={s?.aide}>
       <Icone nom={s?.icone ?? "neutre"} taille={14} />
-      <span>{s?.libelle ?? "Statut inconnu"}</span>
+      <span>{s?.libelle ?? t("Statut inconnu", "Unknown status")}</span>
     </span>
   );
 }
 
 /** Contenu retiré du plan : il reste dans l'historique et doit être validé comme les autres. */
 export function BadgeRetire() {
+  const t = useT();
   return (
     <span
       className="mp-badge mp-badge--neutre"
-      title="Retiré du plan : conservé dans l'historique."
+      title={t(
+        "Retiré du plan : conservé dans l'historique.",
+        "Removed from the plan: kept in the history.",
+      )}
     >
       <Icone nom="fermer" taille={14} />
-      <span>Retiré</span>
+      <span>{t("Retiré", "Removed")}</span>
     </span>
   );
 }
 
 /** Partage du plan au client (portail). */
 export function BadgePartage({ partage }: { partage: boolean }) {
+  const t = useT();
   return partage ? (
     <span className="mp-badge mp-badge--succes">
       <Icone nom="oeil" taille={14} />
-      <span>Partagé au client</span>
+      <span>{t("Partagé au client", "Shared with the client")}</span>
     </span>
   ) : (
     <span className="mp-badge mp-badge--neutre">
       <Icone nom="cadenas" taille={14} />
-      <span>Non partagé</span>
+      <span>{t("Non partagé", "Not shared")}</span>
     </span>
   );
 }

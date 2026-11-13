@@ -18,6 +18,7 @@ import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { aPermission } from "@missionpilot/shared";
 import {
@@ -28,6 +29,7 @@ import {
   libelleEtapeGarde,
   libelleNature,
   libelleOrigine,
+  libelleStatutDerogation,
   peutDeroger,
   peutLier,
   STATUT_DEROGATION,
@@ -39,11 +41,19 @@ import {
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Méthode de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Méthode de la mission", "Engagement method") };
+}
 
 const EVENEMENTS = {
   liaison: "Liaison",
   contexte: "Contexte modifié",
+  migration: "Migration",
+} as const;
+const EVENEMENTS_EN = {
+  liaison: "Link",
+  contexte: "Context changed",
   migration: "Migration",
 } as const;
 
@@ -56,6 +66,8 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("standard.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const [mission, r, f, d] = await Promise.all([
     chargerMission(id),
     chargerServeur<MethodeMission>(`/api/missions/${id}/methode`),
@@ -63,13 +75,19 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
     chargerServeur<{ elements: Derogation[] }>(`/api/missions/${id}/derogations`),
   ]);
   if ((!r.ok && r.statut === 404) || (!mission.ok && mission.statut === 404)) notFound();
-  const titre = mission.ok ? mission.donnees.intitule : "Mission";
+  const titre = mission.ok ? mission.donnees.intitule : t("Mission", "Engagement");
   if (!r.ok || !f.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre={titre} retour={{ href: "/methodes/missions", libelle: "Missions" }} />
+        <EnteteDePage
+          titre={titre}
+          retour={{ href: "/methodes/missions", libelle: t("Missions", "Engagements") }}
+        />
         <EtatErreur
-          titre="La méthode de la mission n'a pas pu être chargée."
+          titre={t(
+            "La méthode de la mission n'a pas pu être chargée.",
+            "The engagement method could not be loaded.",
+          )}
           message={!r.ok ? r.message : !f.ok ? f.message : ""}
           hrefReessayer={hrefMissionMethode(id)}
         />
@@ -93,23 +111,26 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
     <div className="mp-page">
       <EnteteDePage
         titre={titre}
-        retour={{ href: "/methodes/missions", libelle: "Missions" }}
+        retour={{ href: "/methodes/missions", libelle: t("Missions", "Engagements") }}
         soustitre={
           m.version
-            ? `${m.version.methode_libelle} — version ${m.version.version} (${libelleOrigine(m.version.origine)})`
-            : "Aucune méthode liée"
+            ? `${m.version.methode_libelle} — version ${m.version.version} (${libelleOrigine(m.version.origine, langue)})`
+            : t("Aucune méthode liée", "No method linked")
         }
-        actions={<Link href={`/missions/${id}`}>Fiche de la mission</Link>}
+        actions={
+          <Link href={`/missions/${id}`}>{t("Fiche de la mission", "Engagement record")}</Link>
+        }
       />
 
       {!m.liaison ? (
         lier ? (
-          <Carte titre="Lier une méthode">
+          <Carte titre={t("Lier une méthode", "Link a method")}>
             {contexteDossier && Object.keys(contexteDossier.contexte).length > 0 ? (
               <p className="mp-texte-doux">
-                Contexte pré-rempli depuis le dossier du client (
-                {texteSourcesDossier(contexteDossier)}) : relisez-le et complétez-le avant de lier
-                la méthode.
+                {t(
+                  `Contexte pré-rempli depuis le dossier du client (${texteSourcesDossier(contexteDossier, langue)}) : relisez-le et complétez-le avant de lier la méthode.`,
+                  `Context pre-filled from the client file (${texteSourcesDossier(contexteDossier, langue)}): review and complete it before linking the method.`,
+                )}
               </p>
             ) : null}
             {catalogue?.ok ? (
@@ -121,26 +142,49 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
                   .filter((x) => x.derniere_publiee)
                   .map((x) => ({
                     id: x.derniere_publiee!.id,
-                    libelle: `${x.libelle} — version ${x.derniere_publiee!.version} (${libelleOrigine(x.origine)})`,
+                    libelle: `${x.libelle} — version ${x.derniere_publiee!.version} (${libelleOrigine(x.origine, langue)})`,
                   }))}
               />
             ) : (
-              <p>Le catalogue des méthodes n&apos;a pas pu être chargé.</p>
+              <p>
+                {t(
+                  "Le catalogue des méthodes n'a pas pu être chargé.",
+                  "The method catalog could not be loaded.",
+                )}
+              </p>
             )}
           </Carte>
         ) : (
-          <EtatVide titre="Aucune méthode liée à cette mission." icone="livre">
-            <p>Le chef ou le directeur de la mission la lie à une version publiée.</p>
+          <EtatVide
+            titre={t(
+              "Aucune méthode liée à cette mission.",
+              "No method linked to this engagement.",
+            )}
+            icone="livre"
+          >
+            <p>
+              {t(
+                "Le chef ou le directeur de la mission la lie à une version publiée.",
+                "The engagement manager or director links it to a published version.",
+              )}
+            </p>
           </EtatVide>
         )
       ) : (
         <>
           {m.mise_a_jour ? (
-            <Carte titre={`Version ${m.mise_a_jour.version} disponible`}>
+            <Carte
+              titre={t(
+                `Version ${m.mise_a_jour.version} disponible`,
+                `Version ${m.mise_a_jour.version} available`,
+              )}
+            >
               <div className="mp-pile">
                 <p>
-                  La mission reste figée sur la version {m.version?.version} tant que vous ne la
-                  migrez pas.
+                  {t(
+                    `La mission reste figée sur la version ${m.version?.version} tant que vous ne la migrez pas.`,
+                    `The engagement stays locked to version ${m.version?.version} until you migrate it.`,
+                  )}
                   {m.mise_a_jour.notes_version ? ` ${m.mise_a_jour.notes_version}` : ""}
                 </p>
                 {lier ? <MigrationMethode missionId={id} versionId={m.mise_a_jour.id} /> : null}
@@ -150,36 +194,44 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
 
           <section aria-labelledby="titre-methode" className="mp-pile">
             <h2 id="titre-methode" className="mp-section__titre">
-              Méthode effective
+              {t("Méthode effective", "Effective method")}
             </h2>
             {m.version ? (
-              <Link href={hrefVersion(m.version.id)}>Voir la version de référence</Link>
+              <Link href={hrefVersion(m.version.id)}>
+                {t("Voir la version de référence", "See the reference version")}
+              </Link>
             ) : null}
             {m.recommandations_candidates && m.recommandations_candidates.length > 0 ? (
-              <p>Recommandations candidates : {m.recommandations_candidates.join(", ")}.</p>
+              <p>
+                {t("Recommandations candidates : ", "Candidate recommendations: ")}
+                {m.recommandations_candidates.join(", ")}.
+              </p>
             ) : null}
             <VueMethodeEffective etapes={m.etapes ?? []} />
           </section>
 
           {m.modulation ? (
-            <Carte titre="Journal d'application des règles">
-              <JournalModulation r={m.modulation} />
+            <Carte titre={t("Journal d'application des règles", "Rule application log")}>
+              <JournalModulation r={m.modulation} langue={langue} />
             </Carte>
           ) : null}
 
           {lier ? (
-            <Carte titre="Contexte de la mission">
+            <Carte titre={t("Contexte de la mission", "Engagement context")}>
               <ContexteMission missionId={id} facteurs={facteurs} contexte={m.liaison.contexte} />
             </Carte>
           ) : null}
 
-          <Carte titre="Historique">
+          <Carte titre={t("Historique", "History")}>
             <ul className="mp-liste-simple">
               {(m.historique ?? []).map((h) => (
                 <li key={h.id}>
-                  {formaterDate(h.cree_le)} —{" "}
-                  {EVENEMENTS[h.evenement as keyof typeof EVENEMENTS] ?? h.evenement} (version{" "}
-                  {h.version}){h.cree_par_nom ? ` par ${h.cree_par_nom}` : ""}
+                  {formaterDate(h.cree_le, undefined, langue)} —{" "}
+                  {(langue === "en" ? EVENEMENTS_EN : EVENEMENTS)[
+                    h.evenement as keyof typeof EVENEMENTS
+                  ] ?? h.evenement}{" "}
+                  ({t("version", "version")} {h.version})
+                  {h.cree_par_nom ? t(` par ${h.cree_par_nom}`, ` by ${h.cree_par_nom}`) : ""}
                   {h.motif ? ` : ${h.motif}` : ""}
                 </li>
               ))}
@@ -188,45 +240,68 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
 
           <section aria-labelledby="titre-derogations" className="mp-pile">
             <h2 id="titre-derogations" className="mp-section__titre">
-              Dérogations
+              {t("Dérogations", "Waivers")}
             </h2>
             {!d.ok ? (
               <p>{d.message}</p>
             ) : d.donnees.elements.length === 0 ? (
               <p>
-                Aucune dérogation : la méthode s&apos;applique telle que modulée par le contexte.
+                {t(
+                  "Aucune dérogation : la méthode s'applique telle que modulée par le contexte.",
+                  "No waiver: the method applies as modulated by the context.",
+                )}
               </p>
             ) : (
               <ul className="mp-liste-cartes">
                 {d.donnees.elements.map((x) => (
                   <li key={x.id}>
-                    <Carte titre={`${libelleNature(x.nature)} — ${x.brique_code}`} niveauTitre={3}>
+                    <Carte
+                      titre={`${libelleNature(x.nature, langue)} — ${x.brique_code}`}
+                      niveauTitre={3}
+                    >
                       <div className="mp-pile">
                         <div className="mp-badges">
                           <BadgeStatut tonalite={STATUT_DEROGATION[x.statut].tonalite}>
-                            {STATUT_DEROGATION[x.statut].libelle}
+                            {libelleStatutDerogation(x.statut, langue)}
                           </BadgeStatut>
                           <BadgeStatut tonalite="neutre">{x.classe_risque}</BadgeStatut>
                         </div>
-                        <p>Motif : {x.motif}</p>
-                        {x.description ? <p>Adaptation : {x.description}</p> : null}
+                        <p>
+                          {t("Motif : ", "Reason: ")}
+                          {x.motif}
+                        </p>
+                        {x.description ? (
+                          <p>
+                            {t("Adaptation : ", "Adaptation: ")}
+                            {x.description}
+                          </p>
+                        ) : null}
                         <p className="mp-texte-doux mp-texte-petit">
-                          Demandée le {formaterDate(x.cree_le)}
-                          {x.demandeur_nom ? ` par ${x.demandeur_nom}` : ""}
+                          {t("Demandée le ", "Requested on ")}
+                          {formaterDate(x.cree_le, undefined, langue)}
+                          {x.demandeur_nom
+                            ? t(` par ${x.demandeur_nom}`, ` by ${x.demandeur_nom}`)
+                            : ""}
                         </p>
                         <ul className="mp-liste-simple">
                           {(x.validations ?? []).map((v) => (
                             <li key={v.etape}>
-                              {libelleEtapeGarde(v.etape)} :{" "}
-                              {v.decision === "approuve" ? "approuvée" : "refusée"}
-                              {v.acteur_nom ? ` par ${v.acteur_nom}` : ""}
+                              {libelleEtapeGarde(v.etape, langue)}
+                              {t(" : ", ": ")}
+                              {v.decision === "approuve"
+                                ? t("approuvée", "approved")
+                                : t("refusée", "refused")}
+                              {v.acteur_nom ? t(` par ${v.acteur_nom}`, ` by ${v.acteur_nom}`) : ""}
                               {v.commentaire ? ` — ${v.commentaire}` : ""}
                             </li>
                           ))}
                         </ul>
                         {x.statut === "demandee" && x.garde?.prochaine_etape ? (
                           <>
-                            <p>Prochaine étape : {libelleEtapeGarde(x.garde.prochaine_etape)}.</p>
+                            <p>
+                              {t("Prochaine étape : ", "Next step: ")}
+                              {libelleEtapeGarde(x.garde.prochaine_etape, langue)}.
+                            </p>
                             {x.demandeur_id !== utilisateur.id ? (
                               <DecisionDerogation
                                 derogationId={x.id}
@@ -242,7 +317,7 @@ export default async function PageMethodeMission({ params }: { params: Promise<{
               </ul>
             )}
             {peutDeroger(utilisateur.roles) ? (
-              <Carte titre="Demander une dérogation">
+              <Carte titre={t("Demander une dérogation", "Request a waiver")}>
                 <FormulaireDerogation
                   missionId={id}
                   briques={briques.map((b) => ({

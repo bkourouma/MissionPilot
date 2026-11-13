@@ -10,6 +10,7 @@ import {
   type Commentaire,
   type PageCommentaires,
 } from "../../lib/commentaires";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { EtatVide } from "../ui/EtatListe";
@@ -53,6 +54,8 @@ export function Commentaires({
   niveauTitre = 2,
   nomElement,
 }: CommentairesProps) {
+  const t = useT();
+  const langue = useLangue();
   const [etat, setEtat] = useState<Etat>({ phase: "chargement" });
   const [suite, setSuite] = useState<{ enCours: boolean; erreur: string | null }>({
     enCours: false,
@@ -71,10 +74,10 @@ export function Commentaires({
         setEtat({ phase: "pret", elements: r.elements, curseur: r.curseur_suivant });
       } catch (e) {
         if (signal?.aborted) return;
-        setEtat({ phase: "erreur", message: messageErreur(e) });
+        setEtat({ phase: "erreur", message: messageErreur(e, langue) });
       }
     },
-    [entiteType, entiteId],
+    [entiteType, entiteId, langue],
   );
 
   useEffect(() => {
@@ -94,8 +97,8 @@ export function Commentaires({
     );
   useEffect(() => {
     if (!fenetreOuverte) return;
-    const t = setInterval(() => setMaintenant(Date.now()), TIC_MS);
-    return () => clearInterval(t);
+    const minuterie = setInterval(() => setMaintenant(Date.now()), TIC_MS);
+    return () => clearInterval(minuterie);
   }, [fenetreOuverte]);
 
   const integrer = (nouveaux: Commentaire[], curseur?: string | null) =>
@@ -119,43 +122,57 @@ export function Commentaires({
       integrer(r.elements, r.curseur_suivant);
       setSuite({ enCours: false, erreur: null });
     } catch (e) {
-      setSuite({ enCours: false, erreur: messageErreur(e) });
+      setSuite({ enCours: false, erreur: messageErreur(e, langue) });
     }
   }
 
   const Titre = niveauTitre ? (`h${niveauTitre}` as const) : null;
   const nombre = etat.phase === "pret" ? etat.elements.length : null;
   return (
-    <section className="mp-commentaires" aria-label={Titre ? undefined : "Commentaires"}>
+    <section
+      className="mp-commentaires"
+      aria-label={Titre ? undefined : t("Commentaires", "Comments")}
+    >
       {Titre ? (
         <Titre className="mp-commentaires__titre">
           <Icone nom="bulle" />
-          <span>Commentaires</span>
+          <span>{t("Commentaires", "Comments")}</span>
           {nombre ? (
             <span className="mp-texte-doux">{` (${nombre}${etat.phase === "pret" && etat.curseur ? "+" : ""})`}</span>
           ) : null}
         </Titre>
       ) : null}
       {etat.phase === "chargement" ? (
-        <Squelette lignes={2} libelle="Chargement des commentaires…" />
+        <Squelette lignes={2} libelle={t("Chargement des commentaires…", "Loading comments…")} />
       ) : etat.phase === "erreur" ? (
         <div className="mp-pile">
-          <Alerte tonalite="danger" titre="Les commentaires n'ont pas pu être chargés.">
+          <Alerte
+            tonalite="danger"
+            titre={t(
+              "Les commentaires n'ont pas pu être chargés.",
+              "The comments could not be loaded.",
+            )}
+          >
             <p>{etat.message}</p>
           </Alerte>
           <div>
             <Bouton variante="secondaire" onClick={() => void charger()}>
-              Réessayer
+              {t("Réessayer", "Try again")}
             </Bouton>
           </div>
         </div>
       ) : (
         <>
           {etat.elements.length === 0 ? (
-            <EtatVide titre="Aucun commentaire pour l'instant." icone="bulle">
+            <EtatVide
+              titre={t("Aucun commentaire pour l'instant.", "No comments yet.")}
+              icone="bulle"
+            >
               <p>
-                Posez une question ou laissez une précision à l&apos;équipe ; mentionnez un collègue
-                avec « @ ».
+                {t(
+                  "Posez une question ou laissez une précision à l'équipe ; mentionnez un collègue avec « @ ».",
+                  'Ask a question or leave a note for the team; mention a colleague with "@".',
+                )}
               </p>
             </EtatVide>
           ) : (
@@ -183,10 +200,10 @@ export function Commentaires({
                 <Bouton
                   variante="secondaire"
                   chargement={suite.enCours}
-                  texteChargement="Chargement…"
+                  texteChargement={t("Chargement…", "Loading…")}
                   onClick={() => void chargerSuite()}
                 >
-                  Afficher les commentaires suivants
+                  {t("Afficher les commentaires suivants", "Show more comments")}
                 </Bouton>
               </div>
             </div>
@@ -211,6 +228,7 @@ export function Commentaires({
  * l'ouverture, pour épargner la connexion.
  */
 export function CommentairesRepliables(props: Omit<CommentairesProps, "niveauTitre">) {
+  const t = useT();
   const [ouvert, setOuvert] = useState(false);
   return (
     <details
@@ -220,9 +238,11 @@ export function CommentairesRepliables(props: Omit<CommentairesProps, "niveauTit
       <summary>
         <Icone nom="bulle" taille={18} />
         <span>
-          Commentaires
+          {t("Commentaires", "Comments")}
           {props.nomElement ? (
-            <span className="mp-visuellement-cache">{` sur ${props.nomElement}`}</span>
+            <span className="mp-visuellement-cache">
+              {t(` sur ${props.nomElement}`, ` on ${props.nomElement}`)}
+            </span>
           ) : null}
         </span>
       </summary>

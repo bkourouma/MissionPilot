@@ -16,9 +16,9 @@ import { chargerServeur } from "../../../../../lib/api-serveur";
 import {
   cheminSignaux,
   droitsDd,
-  FAMILLE_RISQUE_DD_LIBELLES,
   hrefSignaux,
   libelleTaxonomie,
+  libellesDd,
   lireFiltresSignaux,
   optionsDe,
   requeteSignaux,
@@ -27,9 +27,13 @@ import {
   type SignalBibliotheque,
 } from "../../../../../lib/due-diligence";
 import { chargerTaxonomies } from "../../../../../lib/due-diligence-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Signaux d'alerte" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Signaux d'alerte", "Warning signals") };
+}
 
 const premier = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -51,6 +55,9 @@ export default async function PageSignauxDd({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
+  const L = libellesDd(langue);
   const { utilisateur } = await exigerPermission("dd.lire");
   const droits = droitsDd(utilisateur.roles);
   const sp = await searchParams;
@@ -66,15 +73,23 @@ export default async function PageSignauxDd({
   ]);
   const filtre = Object.keys(filtres).length > 0;
   const secteursEtFilieres = [...taxonomies.secteurs, ...taxonomies.filieres];
+  const tous = t("tous", "all");
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Signaux d'alerte"
-        soustitre="Bibliothèque des signaux par secteur et pays, maintenue par les experts du cabinet. Le moteur propose à chaque dossier ceux qui s'appliquent."
+        titre={t("Signaux d'alerte", "Warning signals")}
+        soustitre={t(
+          "Bibliothèque des signaux par secteur et pays, maintenue par les experts du cabinet. Le moteur propose à chaque dossier ceux qui s'appliquent.",
+          "Library of signals by sector and country, maintained by the firm's experts. The engine offers each file the ones that apply.",
+        )}
       />
       {taxonomies.erreur ? (
-        <Alerte tonalite="attention" titre="Libellés incomplets" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Libellés incomplets", "Incomplete labels")}
+          annonce="aucune"
+        >
           <p>{taxonomies.erreur}</p>
         </Alerte>
       ) : null}
@@ -84,11 +99,11 @@ export default async function PageSignauxDd({
         action={hrefSignaux}
         className="mp-filtres"
         role="search"
-        aria-label="Filtrer les signaux"
+        aria-label={t("Filtrer les signaux", "Filter the signals")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Champ
-            libelle="Rechercher"
+            libelle={t("Rechercher", "Search")}
             type="search"
             name="q"
             maxLength={100}
@@ -96,33 +111,33 @@ export default async function PageSignauxDd({
             autoComplete="off"
           />
           <Select
-            libelle="Famille"
+            libelle={t("Famille", "Family")}
             name="famille"
-            invite="Toutes"
-            options={optionsDe(FAMILLES_RISQUE_DD, FAMILLE_RISQUE_DD_LIBELLES)}
+            invite={t("Toutes", "All")}
+            options={optionsDe(FAMILLES_RISQUE_DD, L.FAMILLE)}
             defaultValue={filtres.famille}
           />
           <Select
-            libelle="Secteur ou filière"
+            libelle={t("Secteur ou filière", "Sector or subsector")}
             name="secteur_code"
-            invite="Tous"
+            invite={t("Tous", "All")}
             options={secteursEtFilieres.map((e) => ({ valeur: e.code, libelle: e.libelle }))}
             defaultValue={filtres.secteur_code}
           />
           <Select
-            libelle="Pays"
+            libelle={t("Pays", "Country")}
             name="pays_code"
-            invite="Tous"
+            invite={t("Tous", "All")}
             options={taxonomies.pays.map((e) => ({ valeur: e.code, libelle: e.libelle }))}
             defaultValue={filtres.pays_code}
           />
           <Select
-            libelle="État"
+            libelle={t("État", "Status")}
             name="actif"
-            invite="Tous"
+            invite={t("Tous", "All")}
             options={[
-              { valeur: "true", libelle: "Actifs" },
-              { valeur: "false", libelle: "Inactifs" },
+              { valeur: "true", libelle: t("Actifs", "Active") },
+              { valeur: "false", libelle: t("Inactifs", "Inactive") },
             ]}
             defaultValue={filtres.actif}
           />
@@ -130,56 +145,74 @@ export default async function PageSignauxDd({
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("secondaire")}>
             <Icone nom="recherche" />
-            <span>Filtrer</span>
+            <span>{t("Filtrer", "Filter")}</span>
           </button>
         </div>
       </form>
 
       {!page.ok ? (
         <EtatErreur
-          titre="Les signaux n'ont pas pu être chargés."
+          titre={t("Les signaux n'ont pas pu être chargés.", "The signals could not be loaded.")}
           message={page.message}
           hrefReessayer={hrefPage(filtres, curseur)}
         />
       ) : page.donnees.elements.length === 0 ? (
         <EtatVide
-          titre={filtre ? "Aucun signal ne correspond." : "La bibliothèque est vide."}
+          titre={
+            filtre
+              ? t("Aucun signal ne correspond.", "No signal matches.")
+              : t("La bibliothèque est vide.", "The library is empty.")
+          }
           icone="drapeau"
         >
           <p>
             {filtre
-              ? "Élargissez les filtres pour revoir tous les signaux."
+              ? t(
+                  "Élargissez les filtres pour revoir tous les signaux.",
+                  "Widen the filters to see all signals again.",
+                )
               : droits.gererReferentiel
-                ? "Ajoutez les signaux d'alerte propres à vos secteurs et pays : aucun contenu n'est fourni par défaut."
-                : "Les experts du cabinet alimenteront la bibliothèque."}
+                ? t(
+                    "Ajoutez les signaux d'alerte propres à vos secteurs et pays : aucun contenu n'est fourni par défaut.",
+                    "Add the warning signals specific to your sectors and countries: no content is provided by default.",
+                  )
+                : t(
+                    "Les experts du cabinet alimenteront la bibliothèque.",
+                    "The firm's experts will fill the library.",
+                  )}
           </p>
         </EtatVide>
       ) : (
         <>
-          <ul className="mp-dd-liste" aria-label="Signaux d'alerte">
+          <ul className="mp-dd-liste" aria-label={t("Signaux d'alerte", "Warning signals")}>
             {page.donnees.elements.map((s) => (
               <li key={s.id} className="mp-dd-element">
                 <h3 className="mp-dd-element__titre">{s.libelle}</h3>
                 <span className="mp-dd-meta">
                   <BadgeNiveauRisque niveau={s.gravite_indicative} />
                   <BadgeStatut tonalite="neutre" sansIcone>
-                    {FAMILLE_RISQUE_DD_LIBELLES[s.famille]}
+                    {L.FAMILLE[s.famille]}
                   </BadgeStatut>
                   <BadgeStatut tonalite={s.actif ? "succes" : "neutre"}>
-                    {s.actif ? "Actif" : "Inactif"}
+                    {s.actif ? t("Actif", "Active") : t("Inactif", "Inactive")}
                   </BadgeStatut>
                 </span>
                 <p className="mp-texte-petit">
-                  {`Secteur : ${s.secteur_code ? libelleTaxonomie(secteursEtFilieres, s.secteur_code) : "tous"} · Pays : ${s.pays_code ? libelleTaxonomie(taxonomies.pays, s.pays_code) : "tous"} · version ${s.version}`}
+                  {t(
+                    `Secteur : ${s.secteur_code ? libelleTaxonomie(secteursEtFilieres, s.secteur_code, langue) : tous} · Pays : ${s.pays_code ? libelleTaxonomie(taxonomies.pays, s.pays_code, langue) : tous} · version ${s.version}`,
+                    `Sector: ${s.secteur_code ? libelleTaxonomie(secteursEtFilieres, s.secteur_code, langue) : tous} · Country: ${s.pays_code ? libelleTaxonomie(taxonomies.pays, s.pays_code, langue) : tous} · version ${s.version}`,
+                  )}
                 </p>
                 {s.question ? (
-                  <p className="mp-dd-texte">{`Question à poser : ${s.question}`}</p>
+                  <p className="mp-dd-texte">{`${t("Question à poser", "Question to ask")} : ${s.question}`}</p>
                 ) : null}
                 {s.reference_publique ? (
-                  <p className="mp-texte-doux mp-texte-petit">{`Référence publique : ${s.reference_publique}`}</p>
+                  <p className="mp-texte-doux mp-texte-petit">
+                    {`${t("Référence publique", "Public reference")} : ${s.reference_publique}`}
+                  </p>
                 ) : null}
                 <details className="mp-dd-details">
-                  <summary>Historique des versions</summary>
+                  <summary>{t("Historique des versions", "Version history")}</summary>
                   <div className="mp-dd-details__corps">
                     <HistoriqueVersions
                       type="signal"
@@ -191,7 +224,7 @@ export default async function PageSignauxDd({
                 </details>
                 {droits.gererReferentiel ? (
                   <details className="mp-dd-details">
-                    <summary>Corriger ce signal</summary>
+                    <summary>{t("Corriger ce signal", "Edit this signal")}</summary>
                     <div className="mp-dd-details__corps">
                       <FormulaireSignal
                         secteurs={taxonomies.secteurs}
@@ -206,7 +239,7 @@ export default async function PageSignauxDd({
             ))}
           </ul>
           <PaginationCurseur
-            libelle="Pagination des signaux"
+            libelle={t("Pagination des signaux", "Signal pagination")}
             hrefSuivante={
               page.donnees.curseur_suivant ? hrefPage(filtres, page.donnees.curseur_suivant) : null
             }
@@ -216,7 +249,7 @@ export default async function PageSignauxDd({
       )}
 
       {droits.gererReferentiel ? (
-        <Carte titre="Nouveau signal">
+        <Carte titre={t("Nouveau signal", "New signal")}>
           <FormulaireSignal
             secteurs={taxonomies.secteurs}
             filieres={taxonomies.filieres}
@@ -225,7 +258,12 @@ export default async function PageSignauxDd({
         </Carte>
       ) : (
         <Alerte tonalite="info" annonce="aucune">
-          <p>Lecture seule : la maintenance de la bibliothèque revient aux experts du cabinet.</p>
+          <p>
+            {t(
+              "Lecture seule : la maintenance de la bibliothèque revient aux experts du cabinet.",
+              "Read-only: library maintenance is up to the firm's experts.",
+            )}
+          </p>
         </Alerte>
       )}
     </div>

@@ -1,5 +1,5 @@
 /** Ateliers stratégiques (PLA-15) : contrats de l'API (cabinet et portail). */
-import type { MethodeAtelier, StatutAtelier } from "@missionpilot/shared";
+import type { Langue, MethodeAtelier, StatutAtelier } from "@missionpilot/shared";
 
 /* ----- Contrats de l'API (cabinet) ----- */
 
@@ -83,8 +83,10 @@ export interface MethodeMasquee {
 }
 
 /** Message affiché pour une méthode (ou l’atelier) dont les agrégats sont masqués. */
-export const phraseMasque = (seuil: number | undefined): string =>
-  `Agrégats masqués : au moins ${seuil ?? 3} participants requis.`;
+export const phraseMasque = (seuil: number | undefined, langue: Langue = "fr"): string =>
+  langue === "en"
+    ? `Aggregates hidden: at least ${seuil ?? 3} participants required.`
+    : `Agrégats masqués : au moins ${seuil ?? 3} participants requis.`;
 
 /** Agrégats figés à la clôture (sortie du moteur `synthetiserAtelier`). */
 export interface ResultatsAtelier {

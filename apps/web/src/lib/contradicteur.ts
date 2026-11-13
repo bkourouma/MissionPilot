@@ -3,7 +3,7 @@
  * `contradicteur.test.ts`. La revue est un brouillon IA à part : elle informe, ne bloque jamais et
  * ne modifie pas le brouillon relu. L'API reste seule juge des droits et des règles.
  */
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import { messageErreurIa } from "./ia";
 import type { UtilisateurIa } from "./ia-contenu";
@@ -13,8 +13,13 @@ export const TYPE_ENTITE_REVUE = "revue_contradictoire";
 export const MENTION_REVUE =
   "Brouillon IA : objections à examiner, non bloquantes ; le brouillon relu n'est pas modifié.";
 
+export const MENTION_REVUE_EN =
+  "AI draft: objections to consider, non-blocking; the reviewed draft is not modified.";
+
 export const MESSAGE_REVUE_ACTIVE =
   "Une contre-analyse de ce brouillon est déjà en cours : patientez, puis actualisez la liste.";
+export const MESSAGE_REVUE_ACTIVE_EN =
+  "A counter-analysis of this draft is already running: wait, then refresh the list.";
 
 export interface ContenuRevue {
   contre_preuves: string[];
@@ -61,6 +66,50 @@ export const SECTIONS_REVUE: readonly {
   },
 ];
 
+export const SECTIONS_REVUE_EN: Readonly<
+  Record<keyof ContenuRevue, { titre: string; aide: string }>
+> = {
+  contre_preuves: {
+    titre: "Counter-evidence",
+    aide: "Items in the file that contradict the draft.",
+  },
+  incoherences: {
+    titre: "Inconsistencies",
+    aide: "Passages that contradict each other.",
+  },
+  affirmations_non_sourcees: {
+    titre: "Unsourced claims",
+    aide: "Claims that nothing can support.",
+  },
+};
+
+export const MESSAGES_ERREURS_REVUE_EN: Readonly<Record<string, string>> = {
+  REVUE_DEJA_ACTIVE: MESSAGE_REVUE_ACTIVE_EN,
+  BROUILLON_NON_REVISABLE:
+    "This content cannot be reviewed: only an AI or edited draft that is not yet approved can be submitted for counter-analysis.",
+  BRIQUE_NON_DECLAREE:
+    "The counter-analysis is not yet declared for this firm: a partner must prepare it in the agents screen.",
+  AGENT_SUR_DEMANDE_SEULEMENT:
+    "This agent only runs at a consultant's request, never automatically.",
+  AGENT_INACTIF:
+    "The contradictor agent is disabled: a partner can re-enable it in the agents screen.",
+  AUTONOMIE_N0:
+    "The autonomy level of the counter-analysis is N0 (no AI): it must be raised in the agents screen.",
+  IA_DESACTIVEE: "AI is disabled for the firm: the counter-analysis is unavailable.",
+  IA_NON_CONFIGUREE:
+    "AI is not configured (no key available): the counter-analysis is unavailable.",
+  PLAFOND_MISSION_ATTEINT:
+    "The engagement's AI cost ceiling has been reached: the counter-analysis is refused until it is raised.",
+  JEU_ESSAI_REQUIS:
+    "No test set is saved for the counter-analysis prompt: a partner must prepare the review in the agents screen.",
+  NON_REGRESSION_REQUISE:
+    "The counter-analysis prompt has not yet passed the non-regression evaluation: a partner must run it in the agents screen.",
+  REVUE_INCOHERENTE:
+    "The counter-analysis produced is inconsistent with the reviewed draft and was discarded. You can run it again.",
+  REVUE_NON_PRODUITE:
+    "No usable counter-analysis was produced. The draft is not modified; you can try again.",
+};
+
 export const MESSAGES_ERREURS_REVUE: Readonly<Record<string, string>> = {
   REVUE_DEJA_ACTIVE: MESSAGE_REVUE_ACTIVE,
   BROUILLON_NON_REVISABLE:
@@ -89,13 +138,14 @@ export const MESSAGES_ERREURS_REVUE: Readonly<Record<string, string>> = {
 };
 
 /** Message français d'une erreur d'appel de contre-analyse. */
-export function messageErreurRevue(e: unknown): string {
+export function messageErreurRevue(e: unknown, langue: Langue = "fr"): string {
+  const messages = langue === "en" ? MESSAGES_ERREURS_REVUE_EN : MESSAGES_ERREURS_REVUE;
   if (e instanceof ErreurApi) {
-    const fixe = MESSAGES_ERREURS_REVUE[e.code];
+    const fixe = messages[e.code];
     if (fixe) return fixe;
-    if (e.statut === 502) return MESSAGES_ERREURS_REVUE.REVUE_NON_PRODUITE ?? messageErreurIa(e);
+    if (e.statut === 502) return messages.REVUE_NON_PRODUITE ?? messageErreurIa(e, langue);
   }
-  return messageErreurIa(e);
+  return messageErreurIa(e, langue);
 }
 
 export const estRevueDejaActive = (e: unknown) =>
@@ -148,9 +198,15 @@ export function normaliserListeRevues(brut: unknown): ListeRevues {
 export const nombreObjections = (c: ContenuRevue): number =>
   c.contre_preuves.length + c.incoherences.length + c.affirmations_non_sourcees.length;
 
-export function resumeRevue(c: ContenuRevue): string {
+export function resumeRevue(c: ContenuRevue, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const n = nombreObjections(c);
-  return n === 0 ? "Aucune objection relevée" : `${n} objection${n > 1 ? "s" : ""} à examiner`;
+  return n === 0
+    ? t("Aucune objection relevée", "No objection raised")
+    : t(
+        `${n} objection${n > 1 ? "s" : ""} à examiner`,
+        `${n} objection${n > 1 ? "s" : ""} to consider`,
+      );
 }
 
 /**

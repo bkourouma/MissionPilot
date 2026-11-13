@@ -1,5 +1,5 @@
 /** Questionnaires du portail : libellés, états affichés, progression et phrase de soumission. */
-import type { ModeEnvoiQuestionnaire } from "@missionpilot/shared";
+import type { Langue, ModeEnvoiQuestionnaire } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { formaterDateHeure } from "./format";
 import {
@@ -21,8 +21,22 @@ const MODES: Record<ModeEnvoiQuestionnaire, string> = {
   par_fonction: "Réponse par fonction",
 };
 
+const MODES_EN: Record<ModeEnvoiQuestionnaire, string> = {
+  individuel: "Individual response",
+  collectif: "Response shared by the company",
+  par_fonction: "Response by role",
+};
+
 /** Mode de réponse, en termes simples pour le client. */
-export function libelleMode(mode: string, fonction: string | null = null): string {
+export function libelleMode(
+  mode: string,
+  fonction: string | null = null,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    if (mode === "par_fonction" && fonction) return `Response as ${fonction}`;
+    return MODES_EN[mode as ModeEnvoiQuestionnaire] ?? "Individual response";
+  }
   if (mode === "par_fonction" && fonction) return `Réponse en tant que ${fonction}`;
   return MODES[mode as ModeEnvoiQuestionnaire] ?? "Réponse individuelle";
 }
@@ -44,7 +58,24 @@ export function estModifiable(
 export function etatQuestionnaire(
   q: Pick<QuestionnairePortail, "statut" | "mode" | "date_limite" | "reponse">,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): Libelle {
+  if (langue === "en") {
+    if (q.reponse.statut === "soumise") {
+      const partage = q.mode === "collectif" && q.reponse.soumission?.par_moi === false;
+      return { libelle: partage ? "Sent by your company" : "Sent", tonalite: "succes" };
+    }
+    if (q.statut === "clos") return { libelle: "Closed, no more responses", tonalite: "neutre" };
+    const depasseeEn = echeance(q.date_limite, aujourdhui)?.depassee === true;
+    if (q.reponse.statut === "brouillon") {
+      return depasseeEn
+        ? { libelle: "In progress, due date passed", tonalite: "danger" }
+        : { libelle: "In progress", tonalite: "attention" };
+    }
+    return depasseeEn
+      ? { libelle: "To start, due date passed", tonalite: "danger" }
+      : { libelle: "To start", tonalite: "neutre" };
+  }
   if (q.reponse.statut === "soumise") {
     const partage = q.mode === "collectif" && q.reponse.soumission?.par_moi === false;
     return { libelle: partage ? "Envoyé par votre entreprise" : "Envoyé", tonalite: "succes" };
@@ -62,7 +93,11 @@ export function etatQuestionnaire(
 }
 
 /** « 4 questions obligatoires sur 10 renseignées », d'après la progression calculée par l'API. */
-export function texteProgression(p: ProgressionPortail): string {
+export function texteProgression(p: ProgressionPortail, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    if (p.obligatoires_visibles === 0) return "No required question to answer";
+    return `${p.obligatoires_repondues} of ${p.obligatoires_visibles} required questions answered`;
+  }
   if (p.obligatoires_visibles === 0) return "Aucune question obligatoire à renseigner";
   const n = p.obligatoires_visibles;
   return `${p.obligatoires_repondues} question${p.obligatoires_repondues > 1 ? "s" : ""} obligatoire${
@@ -80,10 +115,19 @@ export function pourcentageAffiche(p: Pick<ProgressionPortail, "pourcentage">): 
 export function texteSoumission(
   q: Pick<QuestionnairePortail, "mode" | "reponse">,
   fuseau = "Africa/Abidjan",
+  langue: Langue = "fr",
 ): string | null {
   const s = q.reponse.soumission;
   if (q.reponse.statut !== "soumise" || !s) return null;
-  const quand = formaterDateHeure(s.le, fuseau);
+  const quand = formaterDateHeure(s.le, fuseau, langue);
+  if (langue === "en") {
+    if (q.mode === "collectif") {
+      return s.par_moi
+        ? `You sent your company's response on ${quand}.`
+        : `A colleague sent your company's response on ${quand}.`;
+    }
+    return `Your responses were sent on ${quand}.`;
+  }
   if (q.mode === "collectif") {
     return s.par_moi
       ? `Vous avez envoyé la réponse de votre entreprise le ${quand}.`

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { creerTraduire } from "@missionpilot/shared";
+import { useLangue } from "../i18n/FournisseurLangue";
 import type { Instantane, Stockage } from "../../lib/file-sauvegarde";
 import { rejouer, envoyerSaisie, type ReponseLignes } from "../../lib/hors-ligne/envoi";
 import type { EtatSaisie } from "../../lib/hors-ligne/etats";
@@ -59,6 +61,7 @@ const versInstantane = (e: SaisieEnAttente): Instantane => ({
  */
 export function useSauvegardeFeuille(options: OptionsSauvegarde) {
   const { feuilleId, utilisateurId } = options;
+  const langue = useLangue();
   const [etat, setEtat] = useState<EtatSaisie>("a_jour");
   const [erreur, setErreur] = useState<string | null>(null);
   const [erreursCases, setErreursCases] = useState<Record<string, string>>({});
@@ -91,7 +94,12 @@ export function useSauvegardeFeuille(options: OptionsSauvegarde) {
     const c = opts.current.construire(i);
     if (!c.ok) {
       setErreursCases(c.erreurs as Record<string, string>);
-      setErreur("Certaines cases sont invalides : corrigez-les pour enregistrer.");
+      setErreur(
+        creerTraduire(langue)(
+          "Certaines cases sont invalides : corrigez-les pour enregistrer.",
+          "Some cells are invalid: correct them to save.",
+        ),
+      );
       setEtat("refuse");
       return false;
     }
@@ -116,12 +124,17 @@ export function useSauvegardeFeuille(options: OptionsSauvegarde) {
     }
     if (reste.etat === "conflit" || reste.etat === "refuse") {
       setDeCote(reste);
-      setErreur(libelleMotif(reste.motif));
+      setErreur(libelleMotif(reste.motif, langue));
       setEtat(reste.etat);
       return false;
     }
     if (reste.etat === "a_corriger") {
-      setErreur("Certaines cases sont invalides : corrigez-les pour enregistrer.");
+      setErreur(
+        creerTraduire(langue)(
+          "Certaines cases sont invalides : corrigez-les pour enregistrer.",
+          "Some cells are invalid: correct them to save.",
+        ),
+      );
       setEtat("refuse");
       return false;
     }
@@ -138,7 +151,7 @@ export function useSauvegardeFeuille(options: OptionsSauvegarde) {
     // Une saisie plus récente est arrivée pendant le rejeu : `envoyer` relance.
     return true;
     // `envoyer` (relance différée) est stable : il ne dépend que de cette fonction.
-  }, [feuilleId, utilisateurId, entreeDeLaFeuille]);
+  }, [feuilleId, utilisateurId, entreeDeLaFeuille, langue]);
 
   /** Envoie la file ; un envoi déjà en cours est attendu, puis relancé. */
   const envoyer = useCallback(async (): Promise<boolean> => {
@@ -192,13 +205,13 @@ export function useSauvegardeFeuille(options: OptionsSauvegarde) {
       attente.current = versInstantane(e);
       if (e.etat === "conflit" || e.etat === "refuse") {
         setDeCote(e);
-        setErreur(libelleMotif(e.motif));
+        setErreur(libelleMotif(e.motif, langue));
         setEtat(e.etat);
         return;
       }
       void envoyer();
     },
-    [envoyer],
+    [envoyer, langue],
   );
 
   /** Décision sur une saisie mise de côté. */

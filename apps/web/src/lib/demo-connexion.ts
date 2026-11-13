@@ -6,14 +6,15 @@
  * Le navigateur ne reçoit que des identifiants de cabinet, des noms, des e-mails et des rôles ;
  * aucun stockage navigateur, aucun secret.
  */
-import { ROLE_LIBELLES, type Role } from "@missionpilot/shared";
 import {
-  api,
-  CODE_ORIGINE_REFUSEE,
-  ErreurApi,
-  MESSAGE_INATTENDU,
-  MESSAGE_ORIGINE_REFUSEE,
-} from "./api";
+  creerTraduire,
+  libelleRole as libelleRoleLangue,
+  ROLE_LIBELLES,
+  type Langue,
+  type Role,
+} from "@missionpilot/shared";
+import { api, CODE_ORIGINE_REFUSEE, ErreurApi, messageInattendu } from "./api";
+import { messageErreurLangue } from "./double-authentification";
 
 /** Liste de la démonstration (appel serveur de la page de connexion). */
 export const CHEMIN_DEMO = "/api/auth/demo";
@@ -117,18 +118,19 @@ export function lireDemo(corps: unknown): Demo | null {
 // --- Affichage ---------------------------------------------------------------------------------
 
 /** « 1 compte », « 12 comptes » ; « Aucun compte » à zéro. */
-export function libelleNombreComptes(n: number): string {
-  if (n <= 0) return "Aucun compte";
-  return n === 1 ? "1 compte" : `${n} comptes`;
+export function libelleNombreComptes(n: number, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (n <= 0) return t("Aucun compte", "No accounts");
+  return n === 1 ? t("1 compte", "1 account") : t(`${n} comptes`, `${n} accounts`);
 }
 
 const estRoleConnu = (r: string): r is Role => Object.hasOwn(ROLE_LIBELLES, r);
 
 /** Rôles en clair (`ROLE_LIBELLES` du paquet partagé) ; un rôle inconnu de cette version est écarté. */
-export function libelleRolesDemo(roles: readonly string[]): string {
+export function libelleRolesDemo(roles: readonly string[], langue: Langue = "fr"): string {
   return roles
     .filter(estRoleConnu)
-    .map((r) => ROLE_LIBELLES[r])
+    .map((r) => libelleRoleLangue(r, langue))
     .join(", ");
 }
 
@@ -142,15 +144,29 @@ export interface GroupeComptesDemo {
 
 export const TITRE_GROUPE_EQUIPE = "Équipe du cabinet";
 export const TITRE_GROUPE_PORTAIL = "Espace client (portail)";
+export const TITRE_GROUPE_EQUIPE_EN = "Firm team";
+export const TITRE_GROUPE_PORTAIL_EN = "Client space (portal)";
 
 /**
  * Comptes d'un cabinet répartis en « Équipe du cabinet » puis « Espace client (portail) »
  * (ordre de l'API conservé) ; un groupe vide est omis.
  */
-export function grouperComptesCabinet(comptes: readonly DemoCompte[]): GroupeComptesDemo[] {
+export function grouperComptesCabinet(
+  comptes: readonly DemoCompte[],
+  langue: Langue = "fr",
+): GroupeComptesDemo[] {
+  const t = creerTraduire(langue);
   const groupes: GroupeComptesDemo[] = [
-    { espace: "equipe", titre: TITRE_GROUPE_EQUIPE, comptes: comptes.filter((c) => !c.portail) },
-    { espace: "portail", titre: TITRE_GROUPE_PORTAIL, comptes: comptes.filter((c) => c.portail) },
+    {
+      espace: "equipe",
+      titre: t(TITRE_GROUPE_EQUIPE, TITRE_GROUPE_EQUIPE_EN),
+      comptes: comptes.filter((c) => !c.portail),
+    },
+    {
+      espace: "portail",
+      titre: t(TITRE_GROUPE_PORTAIL, TITRE_GROUPE_PORTAIL_EN),
+      comptes: comptes.filter((c) => c.portail),
+    },
   ];
   return groupes.filter((g) => g.comptes.length > 0);
 }
@@ -193,19 +209,39 @@ export const MESSAGE_DEMO_TROP_DE_TENTATIVES =
   "Trop de tentatives de connexion. Patientez quelques minutes avant de réessayer.";
 export const MESSAGE_DEMO_REFUSEE = "Ce compte de démonstration ne peut pas s'ouvrir en un clic.";
 
+export const MESSAGE_DEMO_REPONSE_INATTENDUE_EN =
+  "Unexpected response from the server. Reload the page or sign in with an email address and password.";
+const MESSAGE_DEMO_COMPTE_INCONNU_EN =
+  "This demo account no longer exists. Reload the page to refresh the list.";
+const MESSAGE_DEMO_DESACTIVEE_EN =
+  "Demo mode is no longer active on this server. Reload the page or sign in with an email address and password.";
+const MESSAGE_DEMO_TROP_DE_TENTATIVES_EN =
+  "Too many sign-in attempts. Wait a few minutes before trying again.";
+const MESSAGE_DEMO_REFUSEE_EN = "This demo account cannot be opened with one click.";
+
 const CODES_RESEAU = ["RESEAU_INDISPONIBLE", "DELAI_DEPASSE"];
 
 /** Message affiché après un échec de connexion de démonstration (toujours en français). */
-export function messageErreurDemo(e: unknown): string {
-  if (!(e instanceof ErreurApi)) return MESSAGE_INATTENDU;
-  if (e.code === CODE_ORIGINE_REFUSEE) return MESSAGE_ORIGINE_REFUSEE;
-  if (e.statut === 0 || CODES_RESEAU.includes(e.code)) return e.message;
-  if (e.statut === 401 && e.code === "COMPTE_DEMO_INCONNU") return MESSAGE_DEMO_COMPTE_INCONNU;
-  if (e.statut === 403) return e.message.trim() !== "" ? e.message : MESSAGE_DEMO_REFUSEE;
-  if (e.statut === 404) return MESSAGE_DEMO_DESACTIVEE;
-  if (e.statut === 429) return MESSAGE_DEMO_TROP_DE_TENTATIVES;
-  if (e.code === "REQUETE_INVALIDE") return MESSAGE_DEMO_REPONSE_INATTENDUE;
-  return e.message.trim() !== "" ? e.message : MESSAGE_INATTENDU;
+export function messageErreurDemo(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (!(e instanceof ErreurApi)) return messageErreurLangue(e, langue);
+  if (e.code === CODE_ORIGINE_REFUSEE) return messageErreurLangue(e, langue);
+  if (e.statut === 0 || CODES_RESEAU.includes(e.code)) return messageErreurLangue(e, langue);
+  if (e.statut === 401 && e.code === "COMPTE_DEMO_INCONNU")
+    return t(MESSAGE_DEMO_COMPTE_INCONNU, MESSAGE_DEMO_COMPTE_INCONNU_EN);
+  if (e.statut === 403)
+    return e.message.trim() !== "" ? e.message : t(MESSAGE_DEMO_REFUSEE, MESSAGE_DEMO_REFUSEE_EN);
+  if (e.statut === 404) return t(MESSAGE_DEMO_DESACTIVEE, MESSAGE_DEMO_DESACTIVEE_EN);
+  if (e.statut === 429)
+    return t(MESSAGE_DEMO_TROP_DE_TENTATIVES, MESSAGE_DEMO_TROP_DE_TENTATIVES_EN);
+  if (e.code === "REQUETE_INVALIDE")
+    return t(MESSAGE_DEMO_REPONSE_INATTENDUE, MESSAGE_DEMO_REPONSE_INATTENDUE_EN);
+  return e.message.trim() !== ""
+    ? e.message
+    : messageErreurLangue(
+        new ErreurApi("ERREUR_INATTENDUE", messageInattendu(langue), e.statut),
+        langue,
+      );
 }
 
 // --- Appels navigateur -------------------------------------------------------------------------

@@ -2,11 +2,12 @@
 import { entier, FORMAT_IDENTIFIANT } from "./notation-augmentee-commun";
 import {
   MESSAGE_IDENTIFIANT,
+  MESSAGE_IDENTIFIANT_EN,
   NIVEAUX_ITEM_MAX,
   NIVEAUX_ITEM_MIN,
 } from "./notation-augmentee-banque";
 import { formaterPointsSignes } from "./notation-augmentee-analyse";
-import { aPermission, type Role } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue, type Role } from "@missionpilot/shared";
 import { estExpertPublieur, type TonaliteNotation } from "./notation";
 import { codeDepuisTitre } from "./notation-grilles";
 import { type Resultat } from "./saisie";
@@ -140,7 +141,10 @@ export function codeCas(c: SaisieCasCalibration, rang: number): string {
  * d'erreur : `titre`, `niveaux`, `tolerance`, `cas`, `cas-code-I`, `cas-libelle-I` (I = rang de la
  * ligne saisie, à partir de 0).
  */
-export function validerSaisieCalibration(s: SaisieCalibration): Resultat<
+export function validerSaisieCalibration(
+  s: SaisieCalibration,
+  langue: Langue = "fr",
+): Resultat<
   {
     titre: string;
     cas: CasCalibration[];
@@ -150,21 +154,35 @@ export function validerSaisieCalibration(s: SaisieCalibration): Resultat<
   },
   string
 > {
+  const t = creerTraduire(langue);
   const e: Record<string, string> = {};
   const titre = s.titre.trim();
-  if (titre === "") e.titre = "Le titre de la session est obligatoire.";
-  else if (titre.length > TITRE_CALIBRATION_LONGUEUR_MAX) {
-    e.titre = `Titre de ${TITRE_CALIBRATION_LONGUEUR_MAX} caractères au plus.`;
+  if (titre === "") {
+    e.titre = t("Le titre de la session est obligatoire.", "The session title is required.");
+  } else if (titre.length > TITRE_CALIBRATION_LONGUEUR_MAX) {
+    e.titre = t(
+      `Titre de ${TITRE_CALIBRATION_LONGUEUR_MAX} caractères au plus.`,
+      `Title of ${TITRE_CALIBRATION_LONGUEUR_MAX} characters at most.`,
+    );
   }
   const niveaux = entier(s.niveaux);
   if (niveaux === null || niveaux < NIVEAUX_ITEM_MIN || niveaux > NIVEAUX_ITEM_MAX) {
-    e.niveaux = `Nombre de niveaux : entier de ${NIVEAUX_ITEM_MIN} à ${NIVEAUX_ITEM_MAX}.`;
+    e.niveaux = t(
+      `Nombre de niveaux : entier de ${NIVEAUX_ITEM_MIN} à ${NIVEAUX_ITEM_MAX}.`,
+      `Number of levels: integer from ${NIVEAUX_ITEM_MIN} to ${NIVEAUX_ITEM_MAX}.`,
+    );
   }
   const tolerance = entier(s.tolerance);
   if (tolerance === null || tolerance > TOLERANCE_CALIBRATION_MAX) {
-    e.tolerance = `Tolérance : entier de 0 à ${TOLERANCE_CALIBRATION_MAX}.`;
+    e.tolerance = t(
+      `Tolérance : entier de 0 à ${TOLERANCE_CALIBRATION_MAX}.`,
+      `Tolerance: integer from 0 to ${TOLERANCE_CALIBRATION_MAX}.`,
+    );
   } else if (niveaux !== null && tolerance >= niveaux) {
-    e.tolerance = "La tolérance est inférieure au nombre de niveaux.";
+    e.tolerance = t(
+      "La tolérance est inférieure au nombre de niveaux.",
+      "The tolerance must be lower than the number of levels.",
+    );
   }
 
   const cas: CasCalibration[] = [];
@@ -172,19 +190,36 @@ export function validerSaisieCalibration(s: SaisieCalibration): Resultat<
   s.cas.forEach((ligne, i) => {
     if (ligne.code.trim() === "" && ligne.libelle.trim() === "") return;
     const libelle = ligne.libelle.trim();
-    if (libelle === "") e[`cas-libelle-${i}`] = "Le libellé du cas est obligatoire.";
-    else if (libelle.length > LIBELLE_CAS_LONGUEUR_MAX) {
-      e[`cas-libelle-${i}`] = `Libellé de ${LIBELLE_CAS_LONGUEUR_MAX} caractères au plus.`;
+    if (libelle === "") {
+      e[`cas-libelle-${i}`] = t(
+        "Le libellé du cas est obligatoire.",
+        "The case label is required.",
+      );
+    } else if (libelle.length > LIBELLE_CAS_LONGUEUR_MAX) {
+      e[`cas-libelle-${i}`] = t(
+        `Libellé de ${LIBELLE_CAS_LONGUEUR_MAX} caractères au plus.`,
+        `Label of ${LIBELLE_CAS_LONGUEUR_MAX} characters at most.`,
+      );
     }
     const code = codeCas(ligne, i);
-    if (!FORMAT_IDENTIFIANT.test(code)) e[`cas-code-${i}`] = MESSAGE_IDENTIFIANT;
-    else if (vus.has(code)) e[`cas-code-${i}`] = "Ce code est déjà utilisé par un autre cas.";
+    if (!FORMAT_IDENTIFIANT.test(code)) {
+      e[`cas-code-${i}`] = langue === "en" ? MESSAGE_IDENTIFIANT_EN : MESSAGE_IDENTIFIANT;
+    } else if (vus.has(code)) {
+      e[`cas-code-${i}`] = t(
+        "Ce code est déjà utilisé par un autre cas.",
+        "This code is already used by another case.",
+      );
+    }
     vus.add(code);
     cas.push({ code, libelle });
   });
-  if (cas.length === 0) e.cas = "Au moins un cas à coter est obligatoire.";
-  else if (cas.length > CAS_CALIBRATION_MAX) {
-    e.cas = `${CAS_CALIBRATION_MAX} cas au plus par session.`;
+  if (cas.length === 0) {
+    e.cas = t("Au moins un cas à coter est obligatoire.", "At least one case to rate is required.");
+  } else if (cas.length > CAS_CALIBRATION_MAX) {
+    e.cas = t(
+      `${CAS_CALIBRATION_MAX} cas au plus par session.`,
+      `${CAS_CALIBRATION_MAX} cases at most per session.`,
+    );
   }
   if (Object.keys(e).length > 0) return { ok: false, erreurs: e };
   return {
@@ -205,15 +240,20 @@ export function validerCotation(
   niveauSaisi: string,
   motifSaisi: string,
   niveaux: number,
+  langue: Langue = "fr",
 ): Resultat<{ cotations: { cas: string; niveau: number; motif?: string }[] }, "niveau" | "motif"> {
+  const t = creerTraduire(langue);
   const e: Partial<Record<"niveau" | "motif", string>> = {};
   const niveau = entier(niveauSaisi);
   if (niveau === null || niveau < 1 || niveau > niveaux) {
-    e.niveau = `Choisissez un niveau de 1 à ${niveaux}.`;
+    e.niveau = t(`Choisissez un niveau de 1 à ${niveaux}.`, `Choose a level from 1 to ${niveaux}.`);
   }
   const motif = motifSaisi.trim();
   if (motif.length > MOTIF_COTATION_LONGUEUR_MAX) {
-    e.motif = `Motif de ${MOTIF_COTATION_LONGUEUR_MAX} caractères au plus.`;
+    e.motif = t(
+      `Motif de ${MOTIF_COTATION_LONGUEUR_MAX} caractères au plus.`,
+      `Reason of ${MOTIF_COTATION_LONGUEUR_MAX} characters at most.`,
+    );
   }
   if (e.niveau || e.motif) return { ok: false, erreurs: e };
   return {
@@ -223,15 +263,32 @@ export function validerCotation(
 }
 
 /** Conclusion obligatoire de la clôture d'une session. */
-export function validerConclusion(saisie: string): Resultat<{ conclusion: string }, "conclusion"> {
+export function validerConclusion(
+  saisie: string,
+  langue: Langue = "fr",
+): Resultat<{ conclusion: string }, "conclusion"> {
+  const t = creerTraduire(langue);
   const conclusion = saisie.trim();
   if (conclusion === "") {
-    return { ok: false, erreurs: { conclusion: "La conclusion de la session est obligatoire." } };
+    return {
+      ok: false,
+      erreurs: {
+        conclusion: t(
+          "La conclusion de la session est obligatoire.",
+          "The session conclusion is required.",
+        ),
+      },
+    };
   }
   if (conclusion.length > CONCLUSION_LONGUEUR_MAX) {
     return {
       ok: false,
-      erreurs: { conclusion: `Conclusion de ${CONCLUSION_LONGUEUR_MAX} caractères au plus.` },
+      erreurs: {
+        conclusion: t(
+          `Conclusion de ${CONCLUSION_LONGUEUR_MAX} caractères au plus.`,
+          `Conclusion of ${CONCLUSION_LONGUEUR_MAX} characters at most.`,
+        ),
+      },
     };
   }
   return { ok: true, charge: { conclusion } };
@@ -244,7 +301,11 @@ export interface DroitsCalibration {
 }
 
 /** Droits d'AFFICHAGE d'une session ; la clôture est réservée à un expert métier (MPN11). */
-export function droitsCalibration(roles: readonly Role[], close: boolean): DroitsCalibration {
+export function droitsCalibration(
+  roles: readonly Role[],
+  close: boolean,
+  langue: Langue = "fr",
+): DroitsCalibration {
   const redige = aPermission(roles, "notation.gerer") || aPermission(roles, "notation.publier");
   const expert = estExpertPublieur(roles);
   return {
@@ -252,7 +313,10 @@ export function droitsCalibration(roles: readonly Role[], close: boolean): Droit
     cloturer: !close && expert,
     explicationCloture:
       !close && !expert
-        ? "La clôture d'une session revient à un expert métier du cabinet : votre rôle permet de coter, pas de clore."
+        ? creerTraduire(langue)(
+            "La clôture d'une session revient à un expert métier du cabinet : votre rôle permet de coter, pas de clore.",
+            "Closing a session is up to a business expert of the firm: your role allows you to rate, not to close.",
+          )
         : null,
   };
 }
@@ -260,15 +324,23 @@ export function droitsCalibration(roles: readonly Role[], close: boolean): Droit
 export const LIBELLE_COTATIONS_MASQUEES =
   "Les cotations des autres évaluateurs restent masquées tant que la session est ouverte (cotation à l'aveugle). Un expert métier voit celles des cas qu'il a lui-même cotés ; tout le monde voit tout à la clôture.";
 
+export const LIBELLE_COTATIONS_MASQUEES_EN =
+  "The other raters' ratings stay hidden while the session is open (blind rating). A business expert sees those of the cases they rated themselves; everyone sees everything at close-out.";
+
 /** Accord d'un cas selon la mesure du moteur. */
-export function libelleAccord(accord: boolean | null): {
+export function libelleAccord(
+  accord: boolean | null,
+  langue: Langue = "fr",
+): {
   libelle: string;
   tonalite: TonaliteNotation;
 } {
-  if (accord === null) return { libelle: "Un seul évaluateur", tonalite: "neutre" };
+  const t = creerTraduire(langue);
+  if (accord === null)
+    return { libelle: t("Un seul évaluateur", "Single rater"), tonalite: "neutre" };
   return accord
-    ? { libelle: "En accord", tonalite: "succes" }
-    : { libelle: "À discuter", tonalite: "attention" };
+    ? { libelle: t("En accord", "In agreement"), tonalite: "succes" }
+    : { libelle: t("À discuter", "To discuss"), tonalite: "attention" };
 }
 
 /** Niveaux de l'échelle d'une session (1 à n), pour les listes de choix. */
@@ -276,10 +348,16 @@ export const niveauxEchelle = (n: number): number[] =>
   Array.from({ length: Math.max(0, Math.min(n, NIVEAUX_ITEM_MAX)) }, (_, i) => i + 1);
 
 /** Biais d'un évaluateur, en français (positif : plus généreux que ses pairs). */
-export function phraseBiais(biais: number | null): string {
-  if (biais === null) return "Non comparable";
-  if (Math.round(Math.abs(biais) * 100) === 0) return "Aligné sur ses pairs";
+export function phraseBiais(biais: number | null, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (biais === null) return t("Non comparable", "Not comparable");
+  if (Math.round(Math.abs(biais) * 100) === 0)
+    return t("Aligné sur ses pairs", "Aligned with peers");
+  const points = formaterPointsSignes(biais, langue);
   return biais > 0
-    ? `Plus généreux que ses pairs (${formaterPointsSignes(biais)} niveau)`
-    : `Plus sévère que ses pairs (${formaterPointsSignes(biais)} niveau)`;
+    ? t(
+        `Plus généreux que ses pairs (${points} niveau)`,
+        `More generous than peers (${points} level)`,
+      )
+    : t(`Plus sévère que ses pairs (${points} niveau)`, `Stricter than peers (${points} level)`);
 }

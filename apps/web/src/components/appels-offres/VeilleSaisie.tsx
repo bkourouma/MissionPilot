@@ -12,6 +12,7 @@ import {
   verifierFichierImport,
   type BilanVeille,
 } from "../../lib/appels-offres-veille";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -29,6 +30,8 @@ const VIDE = {
 
 /** Saisie manuelle d'un avis de veille : dédoublonné et rapproché par l'API. */
 export function VeilleSaisieAvis() {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [s, setS] = useState(VIDE);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -43,7 +46,12 @@ export function VeilleSaisieAvis() {
       Object.fromEntries(Object.entries(s).filter(([, v]) => v.trim() !== "")),
     );
     if (!lu.success) {
-      setErreur("Vérifiez l'intitulé, le pays (2 lettres) et la date limite (AAAA-MM-JJ).");
+      setErreur(
+        t(
+          "Vérifiez l'intitulé, le pays (2 lettres) et la date limite (AAAA-MM-JJ).",
+          "Check the title, the country (2 letters) and the deadline (YYYY-MM-DD).",
+        ),
+      );
       return;
     }
     setEnCours(true);
@@ -51,13 +59,16 @@ export function VeilleSaisieAvis() {
       const r = await api.post<{ nouveau: boolean }>(`${API_VEILLE}/avis`, lu.data);
       setMessage(
         r.nouveau
-          ? "Avis ajouté à la veille."
-          : "Avis déjà connu : une occurrence a été ajoutée au résultat existant.",
+          ? t("Avis ajouté à la veille.", "Notice added to monitoring.")
+          : t(
+              "Avis déjà connu : une occurrence a été ajoutée au résultat existant.",
+              "Notice already known: an occurrence was added to the existing result.",
+            ),
       );
       setS(VIDE);
       rafraichir();
     } catch (e) {
-      setErreur(messageVeille(e));
+      setErreur(messageVeille(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -73,7 +84,7 @@ export function VeilleSaisieAvis() {
       }}
     >
       <Champ
-        libelle="Intitulé de l'avis"
+        libelle={t("Intitulé de l'avis", "Notice title")}
         required
         maxLength={300}
         value={s.titre}
@@ -81,38 +92,38 @@ export function VeilleSaisieAvis() {
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Référence"
+          libelle={t("Référence", "Reference")}
           maxLength={80}
           value={s.reference}
           onChange={(e) => maj({ reference: e.target.value })}
         />
         <Champ
-          libelle="Bailleur"
+          libelle={t("Bailleur", "Donor")}
           maxLength={150}
           value={s.bailleur}
           onChange={(e) => maj({ bailleur: e.target.value })}
         />
         <Champ
-          libelle="Pays (code ISO)"
+          libelle={t("Pays (code ISO)", "Country (ISO code)")}
           maxLength={2}
           value={s.pays}
           onChange={(e) => maj({ pays: e.target.value })}
         />
         <Champ
-          libelle="Secteur"
+          libelle={t("Secteur", "Sector")}
           maxLength={120}
           value={s.secteur}
           onChange={(e) => maj({ secteur: e.target.value })}
         />
         <Champ
-          libelle="Date limite"
+          libelle={t("Date limite", "Deadline")}
           type="date"
           value={s.date_limite}
           onChange={(e) => maj({ date_limite: e.target.value })}
         />
       </div>
       <ZoneTexte
-        libelle="Objet"
+        libelle={t("Objet", "Subject")}
         rows={3}
         maxLength={4000}
         value={s.objet}
@@ -132,10 +143,10 @@ export function VeilleSaisieAvis() {
         type="submit"
         variante="secondaire"
         chargement={enCours}
-        texteChargement="Ajout…"
+        texteChargement={t("Ajout…", "Adding…")}
         disabled={s.titre.trim() === ""}
       >
-        Ajouter l&apos;avis
+        {t("Ajouter l'avis", "Add the notice")}
       </Bouton>
     </form>
   );
@@ -147,6 +158,8 @@ export function VeilleSaisieAvis() {
  * erreur sont signalées, les lignes valides sont importées.
  */
 export function VeilleImportFichier() {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [bilan, setBilan] = useState<BilanVeille | null>(null);
@@ -155,7 +168,7 @@ export function VeilleImportFichier() {
   async function importer(fichier: File) {
     setErreur(null);
     setBilan(null);
-    const verdict = verifierFichierImport(fichier);
+    const verdict = verifierFichierImport(fichier, langue);
     if (!verdict.ok) {
       setErreur(verdict.message);
       return;
@@ -168,7 +181,7 @@ export function VeilleImportFichier() {
       );
       rafraichir();
     } catch (e) {
-      setErreur(messageVeille(e));
+      setErreur(messageVeille(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -178,11 +191,13 @@ export function VeilleImportFichier() {
     <div className="mp-pile">
       <div className="mp-champ">
         <label className="mp-champ__libelle" htmlFor="veille-fichier">
-          Fichier d&apos;avis (.csv ou .json)
+          {t("Fichier d'avis (.csv ou .json)", "Notices file (.csv or .json)")}
         </label>
         <p className="mp-champ__aide">
-          1 Mo et 200 avis au plus. En-têtes admis : référence, titre, objet, bailleur, pays,
-          secteur, montant estimé, devise, date de publication, date limite, url, mots-clés.
+          {t(
+            "1 Mo et 200 avis au plus. En-têtes admis : référence, titre, objet, bailleur, pays, secteur, montant estimé, devise, date de publication, date limite, url, mots-clés.",
+            "1 MB and 200 notices at most. Accepted headers: référence, titre, objet, bailleur, pays, secteur, montant estimé, devise, date de publication, date limite, url, mots-clés.",
+          )}
         </p>
         <input
           id="veille-fichier"
@@ -198,7 +213,7 @@ export function VeilleImportFichier() {
       </div>
       {enCours ? (
         <p className="mp-texte-doux" role="status">
-          Import en cours…
+          {t("Import en cours…", "Import in progress…")}
         </p>
       ) : null}
       {erreur ? (
@@ -208,10 +223,10 @@ export function VeilleImportFichier() {
       ) : null}
       {bilan ? (
         <Alerte tonalite={bilan.erreurs && bilan.erreurs.length > 0 ? "attention" : "succes"}>
-          <p>{texteBilanVeille(bilan)}</p>
+          <p>{texteBilanVeille(bilan, langue)}</p>
           {bilan.erreurs && bilan.erreurs.length > 0 ? (
             <ul>
-              {texteErreursImport(bilan.erreurs).map((l) => (
+              {texteErreursImport(bilan.erreurs, langue).map((l) => (
                 <li key={l}>{l}</li>
               ))}
             </ul>

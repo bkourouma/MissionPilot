@@ -13,6 +13,7 @@ import { TresorerieMensuelleTableau } from "../../../../../../components/redress
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { aujourdhui as aujourdhuiIso } from "../../../../../../lib/periode";
 import { hrefRedressement, raisonSansEcriture } from "../../../../../../lib/redressement";
 import {
@@ -22,7 +23,10 @@ import {
 } from "../../../../../../lib/redressement-financement-serveur";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Financement du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Financement du dossier", "File financing") };
+}
 
 /**
  * Financement (RED-06, suite) : vue mensuelle de la trésorerie, covenants bancaires et plan de
@@ -31,6 +35,8 @@ export const metadata: Metadata = { title: "Financement du dossier" };
  */
 export default async function PageFinancement({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -52,7 +58,7 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
   const href = hrefRedressement(id, "financement");
   const sansEcriture = (
     <Alerte tonalite="info" annonce="aucune">
-      <p>{raisonSansEcriture(mission, dossier, session.utilisateur.roles)}</p>
+      <p>{raisonSansEcriture(mission, dossier, session.utilisateur.roles, langue)}</p>
     </Alerte>
   );
 
@@ -60,13 +66,16 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
     <div className="mp-red">
       <section className="mp-red-section" aria-labelledby="titre-mensuel">
         <h2 id="titre-mensuel" className="mp-red-section__titre">
-          Trésorerie par mois
+          {t("Trésorerie par mois", "Cash by month")}
         </h2>
         {mensuel.ok ? (
           <TresorerieMensuelleTableau vue={mensuel.donnees} devise={devise} />
         ) : (
           <EtatErreur
-            titre="La vue mensuelle n'a pas pu être chargée."
+            titre={t(
+              "La vue mensuelle n'a pas pu être chargée.",
+              "The monthly view could not be loaded.",
+            )}
             message={mensuel.message}
             hrefReessayer={href}
           />
@@ -81,12 +90,18 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
           <>
             <CovenantsTableau vue={covenants.donnees} />
             {covenants.donnees.historique.length > 0 ? (
-              <Carte titre="Historique des versions de covenants" niveauTitre={3}>
+              <Carte
+                titre={t("Historique des versions de covenants", "Covenant version history")}
+                niveauTitre={3}
+              >
                 <HistoriqueCovenants versions={covenants.donnees.historique} />
               </Carte>
             ) : null}
             {droits.ecrire ? (
-              <Carte titre="Nouvelle version de covenants" niveauTitre={3}>
+              <Carte
+                titre={t("Nouvelle version de covenants", "New covenant version")}
+                niveauTitre={3}
+              >
                 <CovenantsFormulaire
                   key={covenants.donnees.version?.id ?? "aucune"}
                   dossierId={dossier.id}
@@ -99,7 +114,10 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
           </>
         ) : (
           <EtatErreur
-            titre="Les covenants n'ont pas pu être chargés."
+            titre={t(
+              "Les covenants n'ont pas pu être chargés.",
+              "The covenants could not be loaded.",
+            )}
             message={covenants.message}
             hrefReessayer={href}
           />
@@ -108,18 +126,24 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
 
       <section className="mp-red-section" aria-labelledby="titre-plan">
         <h2 id="titre-plan" className="mp-red-section__titre">
-          Plan de financement
+          {t("Plan de financement", "Financing plan")}
         </h2>
         {financement.ok ? (
           <>
             <FinancementPlanTableau vue={financement.donnees} devise={devise} />
             {financement.donnees.historique.length > 0 ? (
-              <Carte titre="Historique des versions du plan" niveauTitre={3}>
+              <Carte
+                titre={t("Historique des versions du plan", "Plan version history")}
+                niveauTitre={3}
+              >
                 <HistoriqueFinancement versions={financement.donnees.historique} />
               </Carte>
             ) : null}
             {droits.ecrire ? (
-              <Carte titre="Nouvelle version du plan de financement" niveauTitre={3}>
+              <Carte
+                titre={t("Nouvelle version du plan de financement", "New financing plan version")}
+                niveauTitre={3}
+              >
                 <FinancementFormulaire
                   key={financement.donnees.version?.id ?? "aucune"}
                   dossierId={dossier.id}
@@ -134,7 +158,10 @@ export default async function PageFinancement({ params }: { params: Promise<{ id
           </>
         ) : (
           <EtatErreur
-            titre="Le plan de financement n'a pas pu être chargé."
+            titre={t(
+              "Le plan de financement n'a pas pu être chargé.",
+              "The financing plan could not be loaded.",
+            )}
             message={financement.message}
             hrefReessayer={href}
           />

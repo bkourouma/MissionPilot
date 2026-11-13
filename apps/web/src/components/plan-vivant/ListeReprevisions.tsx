@@ -8,6 +8,7 @@ import {
   montantOuNonSaisi,
   type ResumeReprevision,
 } from "../../lib/plan-vivant";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import { PaginationCurseur } from "../ui/EtatListe";
 import { Tableau } from "../ui/Tableau";
 
@@ -22,7 +23,7 @@ export interface ListeReprevisionsProps {
 }
 
 /** Re-prévisions passées du plan, de la plus récente à la plus ancienne (pagination par curseur). */
-export function ListeReprevisions({
+export async function ListeReprevisions({
   missionId,
   planId,
   devise,
@@ -31,46 +32,59 @@ export function ListeReprevisions({
   curseur,
   curseurSuivant,
 }: ListeReprevisionsProps) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   return (
     <>
       <Tableau
-        legende="Re-prévisions enregistrées"
+        legende={t("Re-prévisions enregistrées", "Saved re-forecasts")}
         cleLigne={(r) => r.id}
         lignes={reprevisions}
-        messageVide="Aucune re-prévision enregistrée pour ce plan."
+        messageVide={t(
+          "Aucune re-prévision enregistrée pour ce plan.",
+          "No re-forecast saved for this plan.",
+        )}
         colonnes={[
-          { cle: "cree_le", entete: "Date", rendu: (r) => formaterDateHeure(r.cree_le) },
+          {
+            cle: "cree_le",
+            entete: t("Date", "Date"),
+            rendu: (r) => formaterDateHeure(r.cree_le, undefined, langue),
+          },
           {
             cle: "exercice",
-            entete: "Exercice",
-            rendu: (r) => `${r.exercice} (re-prévision ${r.version})`,
+            entete: t("Exercice", "Fiscal year"),
+            rendu: (r) => `${r.exercice} (${t("re-prévision", "re-forecast")} ${r.version})`,
           },
           {
             cle: "dernier_trimestre",
-            entete: "Trimestres réalisés",
+            entete: t("Trimestres réalisés", "Actual quarters"),
             alignement: "droite",
           },
-          { cle: "methode", entete: "Méthode", rendu: (r) => libelleMethode(r.methode) },
+          {
+            cle: "methode",
+            entete: t("Méthode", "Method"),
+            rendu: (r) => libelleMethode(r.methode, langue),
+          },
           {
             cle: "ca",
-            entete: "Chiffre d'affaires re-prévu",
+            entete: t("Chiffre d'affaires re-prévu", "Re-forecast revenue"),
             alignement: "droite",
-            rendu: (r) => montantOuNonSaisi(r.reprevision.chiffreAffaires, devise),
+            rendu: (r) => montantOuNonSaisi(r.reprevision.chiffreAffaires, devise, langue),
           },
           {
             cle: "ecart",
-            entete: "Écart annuel de chiffre d'affaires",
+            entete: t("Écart annuel de chiffre d'affaires", "Annual revenue variance"),
             alignement: "droite",
             rendu: (r) =>
-              `${formaterEcart(r.ecarts_annuels.chiffreAffaires.ecart, devise)} (${formaterEcartRelatif(r.ecarts_annuels.chiffreAffaires.ecartRelatifPointsDeBase)})${r.ecarts_annuels.chiffreAffaires.significatif ? " — significatif" : ""}`,
+              `${formaterEcart(r.ecarts_annuels.chiffreAffaires.ecart, devise, langue)} (${formaterEcartRelatif(r.ecarts_annuels.chiffreAffaires.ecartRelatifPointsDeBase, langue)})${r.ecarts_annuels.chiffreAffaires.significatif ? t(" — significatif", " — significant") : ""}`,
           },
-          { cle: "auteur_nom", entete: "Auteur" },
+          { cle: "auteur_nom", entete: t("Auteur", "Author") },
           {
             cle: "action",
-            entete: "Résultat",
+            entete: t("Résultat", "Result"),
             rendu: (r) =>
               r.id === affichee ? (
-                <span>Affichée</span>
+                <span>{t("Affichée", "Shown")}</span>
               ) : (
                 <Link
                   href={hrefPlanVivant(missionId, planId, {
@@ -78,9 +92,12 @@ export function ListeReprevisions({
                     reprevision: r.id,
                     curseur,
                   })}
-                  aria-label={`Afficher la re-prévision ${r.version} de l'exercice ${r.exercice}`}
+                  aria-label={t(
+                    `Afficher la re-prévision ${r.version} de l'exercice ${r.exercice}`,
+                    `Show re-forecast ${r.version} for fiscal year ${r.exercice}`,
+                  )}
                 >
-                  Afficher
+                  {t("Afficher", "Show")}
                 </Link>
               ),
           },
@@ -93,7 +110,7 @@ export function ListeReprevisions({
             : null
         }
         hrefDebut={curseur ? hrefPlanVivant(missionId, planId, { reprevision: affichee }) : null}
-        libelle="Pagination des re-prévisions"
+        libelle={t("Pagination des re-prévisions", "Re-forecasts pagination")}
       />
     </>
   );

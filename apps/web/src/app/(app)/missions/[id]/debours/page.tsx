@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { SegmentsStatut } from "../../../../../components/facturation/SegmentsStatut";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import {
   lireStatutDebours,
-  OPTIONS_STATUTS_DEBOURS,
+  optionsStatutsDebours,
   valideurDeMission,
   type PageDebours,
 } from "../../../../../lib/debours";
@@ -12,7 +13,10 @@ import { chargerMission } from "../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 import { DeclarationDeboursMission, ListeDeboursMission } from "./DeboursMission";
 
-export const metadata: Metadata = { title: "Débours de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Débours de la mission", "Engagement expenses") };
+}
 
 /**
  * Débours de la mission (FIN-05). Le chef, le directeur de la mission et les associés voient
@@ -26,6 +30,8 @@ export default async function PageDeboursMission({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await exigerPermission("debours.saisir");
   const r = await chargerMission(id);
   if (!r.ok) return null;
@@ -43,8 +49,8 @@ export default async function PageDeboursMission({
     const u = new URLSearchParams();
     if (s) u.set("statut", s);
     if (cur) u.set("curseur", cur);
-    const t = u.toString();
-    return t ? `${base}?${t}` : base;
+    const qs = u.toString();
+    return qs ? `${base}?${qs}` : base;
   };
   const contexte = {
     roles: utilisateur.roles,
@@ -59,8 +65,14 @@ export default async function PageDeboursMission({
     <div className="mp-pile mp-pile--large">
       <p className="mp-texte-doux">
         {valideur
-          ? "Vous validez les débours de cette mission : ouvrez le justificatif joint avant de valider, ou rejetez avec un motif."
-          : "Vos débours sur cette mission. Le chef ou le directeur de la mission les valide après soumission."}
+          ? t(
+              "Vous validez les débours de cette mission : ouvrez le justificatif joint avant de valider, ou rejetez avec un motif.",
+              "You approve the expenses of this engagement: open the attached receipt before approving, or reject with a reason.",
+            )
+          : t(
+              "Vos débours sur cette mission. Le chef ou le directeur de la mission les valide après soumission.",
+              "Your expenses on this engagement. The engagement manager or director approves them after submission.",
+            )}
       </p>
       <DeclarationDeboursMission
         mission={{ id: m.id, intitule: m.intitule, devise: m.devise }}
@@ -68,19 +80,23 @@ export default async function PageDeboursMission({
       />
       <SegmentsStatut
         statut={statut}
-        options={OPTIONS_STATUTS_DEBOURS}
+        options={optionsStatutsDebours(langue)}
         href={(s) => href(s)}
-        libelle="Statut des débours affichés"
+        libelle={t("Statut des débours affichés", "Status of the expenses shown")}
       />
       {!liste.ok ? (
         <EtatErreur
-          titre="Les débours n'ont pas pu être chargés."
+          titre={t("Les débours n'ont pas pu être chargés.", "Expenses could not be loaded.")}
           message={liste.message}
           hrefReessayer={href(statut)}
         />
       ) : liste.donnees.elements.length === 0 ? (
         <EtatVide
-          titre={statut === "soumis" ? "Aucun débours en attente de validation." : "Aucun débours."}
+          titre={
+            statut === "soumis"
+              ? t("Aucun débours en attente de validation.", "No expenses pending approval.")
+              : t("Aucun débours.", "No expenses.")
+          }
           icone="facture"
         />
       ) : (
@@ -96,7 +112,7 @@ export default async function PageDeboursMission({
             liste.donnees.curseur_suivant ? href(statut, liste.donnees.curseur_suivant) : null
           }
           hrefDebut={curseur ? href(statut) : null}
-          libelle="Pages des débours"
+          libelle={t("Pages des débours", "Expense pages")}
         />
       ) : null}
     </div>

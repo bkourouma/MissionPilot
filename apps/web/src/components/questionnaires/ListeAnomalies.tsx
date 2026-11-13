@@ -5,6 +5,7 @@ import {
   type Anomalie,
   type Definition,
 } from "../../lib/questionnaires-definition";
+import { useT, useLangue } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import "./questionnaires.css";
 
@@ -29,22 +30,30 @@ export function ListeAnomalies({
   avecLiens = true,
   refAlerte,
 }: ListeAnomaliesProps) {
+  const t = useT();
+  const langue = useLangue();
   if (anomalies.length === 0) return null;
   const n = anomalies.length;
   const titre =
     n === 1
-      ? "Une anomalie à corriger avant d'enregistrer"
-      : `${n} anomalies à corriger avant d'enregistrer`;
+      ? t("Une anomalie à corriger avant d'enregistrer", "One issue to fix before saving")
+      : t(`${n} anomalies à corriger avant d'enregistrer`, `${n} issues to fix before saving`);
   return (
     <Alerte ref={refAlerte} tonalite="danger" titre={titre}>
       <p>
         {origine === "locale"
-          ? "Contrôle de forme effectué avant l'envoi : rien n'a été enregistré."
-          : "Contrôle de cohérence du moteur CabinetPilot (conditions, références, échelles) : rien n'a été enregistré."}
+          ? t(
+              "Contrôle de forme effectué avant l'envoi : rien n'a été enregistré.",
+              "Format check performed before sending: nothing was saved.",
+            )
+          : t(
+              "Contrôle de cohérence du moteur CabinetPilot (conditions, références, échelles) : rien n'a été enregistré.",
+              "Consistency check by the CabinetPilot engine (conditions, references, scales): nothing was saved.",
+            )}
       </p>
       <ol className="mp-qe-anomalies">
         {anomalies.map((a, i) => {
-          const lieu = localiserChemin(a.chemin, definition);
+          const lieu = localiserChemin(a.chemin, definition, langue);
           const ancre = avecLiens ? ancreChemin(a.chemin) : null;
           return (
             <li key={`${a.chemin}-${a.code}-${i}`} className="mp-qe-anomalie">
@@ -53,17 +62,20 @@ export function ListeAnomalies({
                 {ancre ? (
                   <a href={`#${ancre}`}>
                     {lieu}
-                    <span className="mp-visuellement-cache"> (aller à l'élément)</span>
+                    <span className="mp-visuellement-cache">
+                      {" "}
+                      {t("(aller à l'élément)", "(go to the item)")}
+                    </span>
                   </a>
                 ) : (
                   lieu
                 )}
               </span>
               <span className="mp-qe-anomalie__technique">
-                {"Code "}
+                {t("Code ", "Code ")}
                 <code>{a.code}</code>
-                {" · chemin "}
-                <code>{a.chemin === "" ? "(racine)" : a.chemin}</code>
+                {t(" · chemin ", " · path ")}
+                <code>{a.chemin === "" ? t("(racine)", "(root)") : a.chemin}</code>
               </span>
             </li>
           );

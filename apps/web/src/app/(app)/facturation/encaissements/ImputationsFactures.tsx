@@ -14,6 +14,7 @@ import {
   libelleDevise,
 } from "../../../../lib/format";
 import { montantVersSaisie } from "../../../../lib/saisie";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 
 /**
  * Imputation d'un encaissement sur une ou plusieurs factures du client : un montant par
@@ -38,6 +39,8 @@ export function ImputationsFactures({
   onChange: (v: Record<string, string>) => void;
   erreur?: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const id = useId();
   const idErreur = erreur ? `${id}-erreur` : undefined;
   return (
@@ -46,20 +49,37 @@ export function ImputationsFactures({
       aria-describedby={idErreur}
       aria-invalid={erreur ? true : undefined}
     >
-      <legend className="mp-champ__libelle">Imputation sur les factures</legend>
+      <legend className="mp-champ__libelle">
+        {t("Imputation sur les factures", "Allocation to invoices")}
+      </legend>
       {!clientChoisi ? (
-        <p className="mp-champ__aide">Choisissez le client pour voir ses factures restant dues.</p>
+        <p className="mp-champ__aide">
+          {t(
+            "Choisissez le client pour voir ses factures restant dues.",
+            "Choose the client to see its invoices still due.",
+          )}
+        </p>
       ) : chargement ? (
-        <Squelette lignes={2} libelle="Chargement des factures restant dues…" />
+        <Squelette
+          lignes={2}
+          libelle={t("Chargement des factures restant dues…", "Loading invoices still due…")}
+        />
       ) : erreurChargement ? (
         <p className="mp-champ__erreur" role="alert">
           <Icone nom="attention" taille={16} />
-          <span>{`Factures indisponibles : ${erreurChargement}`}</span>
+          <span>
+            {t(
+              `Factures indisponibles : ${erreurChargement}`,
+              `Invoices unavailable: ${erreurChargement}`,
+            )}
+          </span>
         </p>
       ) : creances.length === 0 ? (
         <p className="mp-champ__aide">
-          Aucune facture émise restant due pour ce client : l&apos;encaissement ne peut être
-          enregistré qu&apos;en avance (case ci-dessous).
+          {t(
+            "Aucune facture émise restant due pour ce client : l'encaissement ne peut être enregistré qu'en avance (case ci-dessous).",
+            "No issued invoice is still due for this client: the payment can only be recorded as an advance (box below).",
+          )}
         </p>
       ) : (
         <ul className="mp-imputations">
@@ -69,22 +89,37 @@ export function ImputationsFactures({
               <li key={c.facture_id} className="mp-imputations__ligne">
                 <div className="mp-imputations__facture">
                   <p className="mp-imputations__titre">
-                    <strong>{c.numero ? `Facture ${c.numero}` : "Facture"}</strong>{" "}
+                    <strong>
+                      {c.numero
+                        ? t(`Facture ${c.numero}`, `Invoice ${c.numero}`)
+                        : t("Facture", "Invoice")}
+                    </strong>{" "}
                     <BadgePaiement statut={c.statut_paiement} joursRetard={c.jours_retard} />
                   </p>
                   <p className="mp-texte-doux mp-texte-petit">
-                    {`Échéance ${formaterDate(c.date_echeance)} · reste à payer `}
-                    <span className="mp-montant">{formaterMontantMineur(c.solde, c.devise)}</span>
+                    {t(
+                      `Échéance ${formaterDate(c.date_echeance)} · reste à payer `,
+                      `Due ${formaterDate(c.date_echeance, "UTC", langue)} · balance due `,
+                    )}
+                    <span className="mp-montant">
+                      {formaterMontantMineur(c.solde, c.devise, langue)}
+                    </span>
                   </p>
                   {autreDevise ? (
                     <p className="mp-texte-doux mp-texte-petit">
-                      {`Facture en ${libelleDevise(c.devise)} : choisissez cette devise pour l'imputer.`}
+                      {t(
+                        `Facture en ${libelleDevise(c.devise)} : choisissez cette devise pour l'imputer.`,
+                        `Invoice in ${libelleDevise(c.devise)}: choose this currency to allocate to it.`,
+                      )}
                     </p>
                   ) : null}
                 </div>
                 <div className="mp-imputations__saisie">
                   <Champ
-                    libelle={`Montant imputé${c.numero ? ` sur ${c.numero}` : ""}`}
+                    libelle={t(
+                      `Montant imputé${c.numero ? ` sur ${c.numero}` : ""}`,
+                      `Amount allocated${c.numero ? ` to ${c.numero}` : ""}`,
+                    )}
                     inputMode="decimal"
                     disabled={autreDevise}
                     value={valeurs[c.facture_id] ?? ""}
@@ -99,9 +134,12 @@ export function ImputationsFactures({
                           [c.facture_id]: montantVersSaisie(c.solde, c.devise),
                         })
                       }
-                      aria-label={`Imputer tout le reste à payer${c.numero ? ` de ${c.numero}` : ""}`}
+                      aria-label={t(
+                        `Imputer tout le reste à payer${c.numero ? ` de ${c.numero}` : ""}`,
+                        `Allocate the entire balance due${c.numero ? ` of ${c.numero}` : ""}`,
+                      )}
                     >
-                      Tout le reste
+                      {t("Tout le reste", "Full balance")}
                     </Bouton>
                   ) : null}
                 </div>

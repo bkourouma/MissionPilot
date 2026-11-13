@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useT, useLangue } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { Bouton, classesBouton } from "../../../../components/ui/Bouton";
@@ -26,6 +27,8 @@ import {
  * formats connus (e-mails, téléphones).
  */
 export function FormulaireGenerationIa() {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const f = useFormulaire<ChampGenerationIa>();
   const [s, setS] = useState<SaisieGenerationIa>(SAISIE_GENERATION_IA_VIDE);
@@ -43,11 +46,11 @@ export function FormulaireGenerationIa() {
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerGenerationIa(s),
+      validerGenerationIa(s, langue),
       (charge) => api.post<VersionDetail>("/api/questionnaires/generation-ia", charge),
       {
         rafraichir: false,
-        messageSpecifique: messageQuestionnaire,
+        messageSpecifique: (e) => messageQuestionnaire(e, langue),
         apres: (v) => router.push(`/questionnaires/versions/${v.id}`),
       },
     );
@@ -58,41 +61,47 @@ export function FormulaireGenerationIa() {
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Génération impossible"
+        titreErreur={t("Génération impossible", "Generation impossible")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Service du cabinet"
+          libelle={t("Service du cabinet", "Firm service")}
           name="service"
           required
           maxLength={LONGUEURS_GENERATION_IA.service}
           value={s.service}
           erreur={f.erreurs.service}
-          aide="Ex. « Diagnostic de compétitivité »."
+          aide={t("Ex. « Diagnostic de compétitivité ».", 'E.g. "Competitiveness diagnostic".')}
           onChange={(e) => maj({ service: e.target.value })}
         />
         <Champ
-          libelle="Population interrogée"
+          libelle={t("Population interrogée", "Surveyed population")}
           name="population"
           required
           maxLength={LONGUEURS_GENERATION_IA.population}
           value={s.population}
           erreur={f.erreurs.population}
-          aide="Ex. « Dirigeants de PME agroalimentaires »."
+          aide={t(
+            "Ex. « Dirigeants de PME agroalimentaires ».",
+            'E.g. "Executives of agri-food SMEs".',
+          )}
           onChange={(e) => maj({ population: e.target.value })}
         />
         <Champ
-          libelle="Thème"
+          libelle={t("Thème", "Topic")}
           name="theme"
           required
           maxLength={LONGUEURS_GENERATION_IA.theme}
           value={s.theme}
           erreur={f.erreurs.theme}
-          aide="Ce que le questionnaire doit explorer, ex. « Pilotage de la production »."
+          aide={t(
+            "Ce que le questionnaire doit explorer, ex. « Pilotage de la production ».",
+            'What the questionnaire should explore, e.g. "Production management".',
+          )}
           onChange={(e) => maj({ theme: e.target.value })}
         />
         <Champ
-          libelle="Nombre de questions (au plus)"
+          libelle={t("Nombre de questions (au plus)", "Number of questions (at most)")}
           name="nombre_questions"
           type="number"
           inputMode="numeric"
@@ -102,7 +111,7 @@ export function FormulaireGenerationIa() {
           onChange={(e) => maj({ nombre_questions: e.target.value })}
         />
         <Champ
-          libelle="Code du modèle"
+          libelle={t("Code du modèle", "Template code")}
           name="code"
           required
           maxLength={80}
@@ -111,7 +120,10 @@ export function FormulaireGenerationIa() {
           spellCheck={false}
           value={s.code}
           erreur={f.erreurs.code}
-          aide="Identifiant stable, unique dans le cabinet : minuscules sans accent, chiffres, « _ », « . » ou « - »."
+          aide={t(
+            "Identifiant stable, unique dans le cabinet : minuscules sans accent, chiffres, « _ », « . » ou « - ».",
+            'Stable identifier, unique within the firm: lowercase letters without accents, digits, "_", "." or "-".',
+          )}
           onChange={(e) => {
             setCodeSaisi(e.target.value !== "");
             setS((x) => ({ ...x, code: e.target.value }));
@@ -119,19 +131,24 @@ export function FormulaireGenerationIa() {
         />
       </div>
       <ZoneTexte
-        libelle="Termes à masquer (facultatif)"
+        libelle={t("Termes à masquer (facultatif)", "Terms to mask (optional)")}
         name="termes_sensibles"
         rows={3}
         value={s.termes_sensibles}
         erreur={f.erreurs.termes_sensibles}
-        aide="Noms de personnes, d'entreprises ou sigles à ne pas transmettre au fournisseur d'IA : un par ligne. Les e-mails et numéros de téléphone sont masqués automatiquement."
+        aide={t(
+          "Noms de personnes, d'entreprises ou sigles à ne pas transmettre au fournisseur d'IA : un par ligne. Les e-mails et numéros de téléphone sont masqués automatiquement.",
+          "Names of people, companies or acronyms not to send to the AI provider: one per line. Emails and phone numbers are masked automatically.",
+        )}
         onChange={(e) => maj({ termes_sensibles: e.target.value })}
       />
       <p className="mp-indice mp-texte-doux mp-texte-petit">
         <Icone nom="info" taille={16} />
         <span>
-          La version 1 est créée en brouillon IA et s&apos;ouvre dans l&apos;éditeur. Les questions
-          sont des propositions : aucun chiffre n&apos;est produit par l&apos;IA.
+          {t(
+            "La version 1 est créée en brouillon IA et s'ouvre dans l'éditeur. Les questions sont des propositions : aucun chiffre n'est produit par l'IA.",
+            "Version 1 is created as an AI draft and opens in the editor. The questions are proposals: no figure is produced by the AI.",
+          )}
         </span>
       </p>
       <div className="mp-actions-formulaire">
@@ -139,12 +156,12 @@ export function FormulaireGenerationIa() {
           type="submit"
           icone="plus"
           chargement={f.enCours}
-          texteChargement="Génération en cours…"
+          texteChargement={t("Génération en cours…", "Generating…")}
         >
-          Générer le brouillon
+          {t("Générer le brouillon", "Generate the draft")}
         </Bouton>
         <Link href="/questionnaires" className={classesBouton("secondaire")}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Link>
       </div>
     </form>

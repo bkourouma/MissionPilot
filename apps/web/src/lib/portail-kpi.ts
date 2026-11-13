@@ -9,10 +9,16 @@
  * statut, ni atteinte, ni alerte : le portail ne montre que la définition, la cible en vigueur
  * et les mesures. Aucune saisie n'est gardée dans le navigateur.
  */
-import type { FrequenceKpiApi, NatureKpiApi, SensLectureKpiApi } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  type FrequenceKpiApi,
+  type Langue,
+  type NatureKpiApi,
+  type SensLectureKpiApi,
+} from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi } from "./api";
-import { MESSAGES_KPI } from "./kpi";
+import { MESSAGES_KPI, MESSAGES_KPI_EN } from "./kpi";
 import { CHEMIN_PORTAIL } from "./portail-routes";
 
 // --- Contrats de l'API ---------------------------------------------------------------------
@@ -98,12 +104,33 @@ const SENS: Record<SensLectureKpiApi, string> = {
   plus_bas_mieux: "Plus la valeur est basse, mieux c'est",
 };
 
-export const libelleFrequence = (f: string): string =>
-  FREQUENCES[f as FrequenceKpiApi] ?? "Fréquence à préciser";
+const FREQUENCES_EN: Record<FrequenceKpiApi, string> = {
+  hebdomadaire: "Every week",
+  mensuelle: "Every month",
+  trimestrielle: "Every quarter",
+  semestrielle: "Every half-year",
+  annuelle: "Every year",
+};
 
-export const libelleNature = (n: string): string => NATURES[n as NatureKpiApi] ?? "";
+const NATURES_EN: Record<NatureKpiApi, string> = {
+  flux: "Measurements of the same period add up (e.g. monthly revenue).",
+  stock: "The last value of the period prevails (e.g. cash at month end).",
+};
 
-export const libelleSens = (s: string): string => SENS[s as SensLectureKpiApi] ?? "";
+const SENS_EN: Record<SensLectureKpiApi, string> = {
+  plus_haut_mieux: "The higher the value, the better",
+  plus_bas_mieux: "The lower the value, the better",
+};
+
+export const libelleFrequence = (f: string, langue: Langue = "fr"): string =>
+  (langue === "en" ? FREQUENCES_EN : FREQUENCES)[f as FrequenceKpiApi] ??
+  creerTraduire(langue)("Fréquence à préciser", "Frequency to be specified");
+
+export const libelleNature = (n: string, langue: Langue = "fr"): string =>
+  (langue === "en" ? NATURES_EN : NATURES)[n as NatureKpiApi] ?? "";
+
+export const libelleSens = (s: string, langue: Langue = "fr"): string =>
+  (langue === "en" ? SENS_EN : SENS)[s as SensLectureKpiApi] ?? "";
 
 export interface EtatSaisieKpi {
   /** Une saisie est-elle possible (KPI actif et suivi commencé) ? */
@@ -116,19 +143,25 @@ export interface EtatSaisieKpi {
 export function etatSaisieKpi(
   k: Pick<KpiPortail, "actif" | "debut_suivi">,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): EtatSaisieKpi {
+  const t = creerTraduire(langue);
   if (!k.actif) {
     return {
       saisissable: false,
-      raison:
+      raison: t(
         "Ce KPI est suspendu par votre cabinet : aucune saisie n'est possible pour le moment.",
+        "This KPI is suspended by your firm: no entry is possible for now.",
+      ),
     };
   }
   if (k.debut_suivi > aujourdhui) {
     return {
       saisissable: false,
-      raison:
+      raison: t(
         "Le suivi de ce KPI n'a pas encore commencé : aucune mesure ne peut encore être datée.",
+        "Tracking of this KPI has not started yet: no measurement can be dated yet.",
+      ),
     };
   }
   return { saisissable: true, raison: null };
@@ -142,16 +175,27 @@ export interface EtatMesurePortail {
 /** Statut d'une ligne de l'historique. */
 export function etatMesurePortail(
   m: Pick<MesurePortail, "active" | "annulation">,
+  langue: Langue = "fr",
 ): EtatMesurePortail {
-  if (m.annulation) return { libelle: "Annulation", tonalite: "neutre" };
-  if (m.active) return { libelle: "Valeur retenue", tonalite: "succes" };
-  return { libelle: "Remplacée", tonalite: "neutre" };
+  const t = creerTraduire(langue);
+  if (m.annulation) return { libelle: t("Annulation", "Cancellation"), tonalite: "neutre" };
+  if (m.active) return { libelle: t("Valeur retenue", "Retained value"), tonalite: "succes" };
+  return { libelle: t("Remplacée", "Replaced"), tonalite: "neutre" };
 }
 
 /** Auteur affiché : le portail n'expose que « moi », l'entreprise ou le cabinet. */
-export function auteurMesure(m: Pick<MesurePortail, "origine" | "saisie_par_moi">): string {
-  if (m.origine === "cabinet") return "Saisie par le cabinet";
-  return m.saisie_par_moi ? "Saisie par vous" : "Saisie par un autre membre de votre entreprise";
+export function auteurMesure(
+  m: Pick<MesurePortail, "origine" | "saisie_par_moi">,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  if (m.origine === "cabinet") return t("Saisie par le cabinet", "Entered by the firm");
+  return m.saisie_par_moi
+    ? t("Saisie par vous", "Entered by you")
+    : t(
+        "Saisie par un autre membre de votre entreprise",
+        "Entered by another member of your company",
+      );
 }
 
 /** Peut-on corriger cette ligne ? (sa propre mesure active, KPI saisissable ; l'API juge) */
@@ -166,14 +210,21 @@ export function mesureCorrigeable(
 
 const MESSAGE_INTROUVABLE =
   "Ce KPI ou cette mesure n'est plus ouvert à votre saisie : rechargez la page ou contactez votre interlocuteur au cabinet.";
+const MESSAGE_INTROUVABLE_EN =
+  "This KPI or measurement is no longer open to your input: reload the page or contact your contact at the firm.";
 
-/** Message affichable (français, sans jargon) pour un refus de saisie ou de correction. */
-export function messagePortailKpi(e: unknown): string | null {
+/** Message affichable (français par défaut, sans jargon) pour un refus de saisie ou de correction. */
+export function messagePortailKpi(e: unknown, langue: Langue = "fr"): string | null {
   if (!(e instanceof ErreurApi)) return null;
-  const specifique = MESSAGES_KPI[e.code];
+  const specifique = (langue === "en" ? MESSAGES_KPI_EN : MESSAGES_KPI)[e.code];
   if (specifique && e.code !== "KPI_DEBUT_SUIVI_TROP_ANCIEN") return specifique;
-  if (e.statut === 404) return MESSAGE_INTROUVABLE;
-  if (e.statut === 403) return "Vous ne pouvez pas modifier cette mesure : elle n'est pas de vous.";
+  if (e.statut === 404) return langue === "en" ? MESSAGE_INTROUVABLE_EN : MESSAGE_INTROUVABLE;
+  if (e.statut === 403) {
+    return creerTraduire(langue)(
+      "Vous ne pouvez pas modifier cette mesure : elle n'est pas de vous.",
+      "You cannot edit this measurement: it is not yours.",
+    );
+  }
   // Conflits explicites de l'API (mission clôturée, mesure déjà corrigée) : message en français.
   if (e.statut === 409) return e.message;
   return null;

@@ -9,7 +9,6 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../componen
 import { Tableau, type ColonneTableau } from "../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import {
-  aucunRapportCabinet,
   CHEMIN_API_PARAMETRES_AVANCEMENT,
   cheminApiListeAvancement,
   etatCommentaire,
@@ -19,16 +18,20 @@ import {
   hrefRapportAvancement,
   libelleSemaineRapport,
   lireAvant,
-  MENTION_VISIBILITE_CLIENT,
+  libellesAvancement,
   type LigneAvancement,
   type PageAvancement,
   type ParametresAvancement as Parametres,
 } from "../../../../../lib/avancement";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Avancement de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Avancement de la mission", "Engagement progress") };
+}
 
 /**
  * Rapports d'avancement hebdomadaires d'une mission (AUT-10) : un brouillon par semaine, relu par le
@@ -43,6 +46,9 @@ export default async function PageAvancementMission({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const libelles = libellesAvancement(langue);
   const { utilisateur } = await exigerPermission("avancement.lire");
   const r = await chargerMission(id);
   // L'en-tête (layout) affiche déjà l'erreur de chargement de la mission.
@@ -62,39 +68,41 @@ export default async function PageAvancementMission({
   const colonnes: ColonneTableau<LigneAvancement>[] = [
     {
       cle: "semaine",
-      entete: "Semaine",
-      rendu: (l) => <Link href={hrefRapportAvancement(id, l.id)}>{libelleSemaineRapport(l)}</Link>,
+      entete: t("Semaine", "Week"),
+      rendu: (l) => (
+        <Link href={hrefRapportAvancement(id, l.id)}>{libelleSemaineRapport(l, langue)}</Link>
+      ),
     },
     {
       cle: "avancement",
-      entete: "Avancement",
+      entete: t("Avancement", "Progress"),
       alignement: "droite",
-      rendu: (l) => formaterAvancement(l.avancement_pourcentage),
+      rendu: (l) => formaterAvancement(l.avancement_pourcentage, langue),
     },
     {
       cle: "statut",
-      entete: "Statut",
+      entete: t("Statut", "Status"),
       rendu: (l) => {
-        const e = etatRapport(l.statut);
+        const e = etatRapport(l.statut, langue);
         return <BadgeStatut tonalite={e.tonalite}>{e.libelle}</BadgeStatut>;
       },
     },
     {
       cle: "commentaire",
-      entete: "Commentaire",
+      entete: t("Commentaire", "Comment"),
       rendu: (l) => {
-        const e = etatCommentaire(l.statut_commentaire);
+        const e = etatCommentaire(l.statut_commentaire, langue);
         return e ? (
           <BadgeStatut tonalite={e.tonalite}>{e.libelle}</BadgeStatut>
         ) : (
-          <span className="mp-texte-doux">Aucun</span>
+          <span className="mp-texte-doux">{t("Aucun", "None")}</span>
         );
       },
     },
     {
       cle: "valide_le",
-      entete: "Validé le",
-      rendu: (l) => (l.valide_le ? formaterDate(l.valide_le, "Africa/Abidjan") : "—"),
+      entete: t("Validé le", "Approved on"),
+      rendu: (l) => (l.valide_le ? formaterDate(l.valide_le, "Africa/Abidjan", langue) : "—"),
     },
   ];
 
@@ -102,32 +110,48 @@ export default async function PageAvancementMission({
     <div className="mp-pile mp-pile--large">
       <section aria-labelledby="titre-avancement" className="mp-pile">
         <h2 id="titre-avancement" className="mp-section__titre">
-          Rapports d&apos;avancement hebdomadaires
+          {t("Rapports d'avancement hebdomadaires", "Weekly progress reports")}
         </h2>
         <p className="mp-texte-doux mp-texte-petit">
-          Un point chiffré par semaine pour le client : vous relisez, complétez l&apos;introduction
-          et le commentaire, puis vous validez. Du plus récent au plus ancien.
+          {t(
+            "Un point chiffré par semaine pour le client : vous relisez, complétez l'introduction et le commentaire, puis vous validez. Du plus récent au plus ancien.",
+            "A weekly update with figures for the client: you review, complete the introduction and the comment, then approve. Most recent first.",
+          )}
         </p>
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MENTION_VISIBILITE_CLIENT}</p>
+          <p>{libelles.mentionVisibiliteClient}</p>
         </Alerte>
         {peutPreparer ? <BoutonPreparer missionId={id} /> : null}
         {!liste.ok ? (
           <EtatErreur
-            titre="Les rapports n'ont pas pu être chargés."
+            titre={t("Les rapports n'ont pas pu être chargés.", "The reports could not be loaded.")}
             message={liste.message}
             hrefReessayer={hrefAvancementMission(id, avant)}
           />
         ) : liste.donnees.elements.length === 0 ? (
           <EtatVide
-            titre={avant ? "Aucun autre rapport." : aucunRapportCabinet.titre}
+            titre={
+              avant
+                ? t("Aucun autre rapport.", "No more reports.")
+                : libelles.aucunRapportCabinet.titre
+            }
             icone="calendrier"
           >
-            <p>{avant ? "Vous avez atteint la fin de la liste." : aucunRapportCabinet.aide}</p>
+            <p>
+              {avant
+                ? t(
+                    "Vous avez atteint la fin de la liste.",
+                    "You have reached the end of the list.",
+                  )
+                : libelles.aucunRapportCabinet.aide}
+            </p>
           </EtatVide>
         ) : (
           <Tableau
-            legende="Rapports d'avancement hebdomadaires, du plus récent au plus ancien"
+            legende={t(
+              "Rapports d'avancement hebdomadaires, du plus récent au plus ancien",
+              "Weekly progress reports, most recent first",
+            )}
             colonnes={colonnes}
             lignes={liste.donnees.elements}
             cleLigne={(l) => l.id}
@@ -139,7 +163,7 @@ export default async function PageAvancementMission({
               liste.donnees.suivant ? hrefAvancementMission(id, liste.donnees.suivant) : null
             }
             hrefDebut={avant ? hrefAvancementMission(id) : null}
-            libelle="Pages des rapports d'avancement"
+            libelle={t("Pages des rapports d'avancement", "Progress report pages")}
           />
         ) : null}
       </section>

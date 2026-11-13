@@ -1,8 +1,10 @@
 import {
   CODE_BRIQUE_REVUE_CONTRADICTOIRE,
-  NIVEAU_AUTONOMIE_LIBELLES,
+  creerTraduire,
+  type Langue,
   type NiveauAutonomie,
 } from "@missionpilot/shared";
+import { libelleNiveau } from "../../../../lib/agents-libelles";
 
 /*
  * Préparation de l'agent contradicteur depuis l'écran des agents (AGT-06) : logique pure, testée
@@ -23,8 +25,8 @@ export const NIVEAUX_CONTRADICTEUR: readonly NiveauAutonomie[] = ["N0", "N1", "N
 /** Niveau proposé par défaut : N2, comme toute nouvelle brique confiée à un agent. */
 export const NIVEAU_CONTRADICTEUR_DEFAUT: NiveauAutonomie = "N2";
 
-export const libelleNiveauContradicteur = (n: NiveauAutonomie) =>
-  `${n} — ${NIVEAU_AUTONOMIE_LIBELLES[n]}`;
+export const libelleNiveauContradicteur = (n: NiveauAutonomie, langue: Langue = "fr") =>
+  libelleNiveau(n, langue);
 
 /** Charge du POST /api/agents/briques, ou null si le niveau n'est pas l'un des niveaux proposés. */
 export function chargeBriqueContradicteur(niveau: string) {
@@ -49,14 +51,21 @@ export interface PreparationRevue {
 }
 
 /** Message de succès de la préparation (prompt semé, jeu d'essai créé ou déjà présent). */
-export function messagePreparation(r: PreparationRevue): string {
+export function messagePreparation(r: PreparationRevue, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const version = r.prompt?.version;
   const prompt =
     typeof version === "number"
-      ? `Prompt de la revue contradictoire prêt (version ${version})`
-      : "Prompt de la revue contradictoire prêt";
+      ? t(
+          `Prompt de la revue contradictoire prêt (version ${version})`,
+          `Counter-analysis prompt ready (version ${version})`,
+        )
+      : t("Prompt de la revue contradictoire prêt", "Counter-analysis prompt ready");
   const jeu = r.jeu_essai_cree
-    ? "jeu d'essai recommandé enregistré"
-    : "jeu d'essai déjà enregistré";
-  return `${prompt}, ${jeu}. Lancez maintenant l'évaluation de non-régression.`;
+    ? t("jeu d'essai recommandé enregistré", "recommended test set saved")
+    : t("jeu d'essai déjà enregistré", "test set already saved");
+  return t(
+    `${prompt}, ${jeu}. Lancez maintenant l'évaluation de non-régression.`,
+    `${prompt}, ${jeu}. Now run the non-regression evaluation.`,
+  );
 }

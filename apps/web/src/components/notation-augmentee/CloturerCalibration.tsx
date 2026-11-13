@@ -10,6 +10,7 @@ import {
   validerConclusion,
   type SessionCalibration,
 } from "../../lib/notation-augmentee";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
@@ -22,15 +23,20 @@ import { ZoneTexte } from "../ui/ZoneTexte";
  * mesure d'écart est calculée sur tous les cas.
  */
 export function CloturerCalibration({ sessionId }: { sessionId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"conclusion">();
   const [conclusion, setConclusion] = useState("");
   const prete = conclusion.trim() !== "";
 
   function cloturer(): Promise<boolean> {
     return f.envoyer(
-      validerConclusion(conclusion),
+      validerConclusion(conclusion, langue),
       (charge) => api.post<SessionCalibration>(cheminCloture(sessionId), charge),
-      { succes: "Session close.", messageSpecifique: messageNotationAugmentee },
+      {
+        succes: t("Session close.", "Session closed."),
+        messageSpecifique: (err) => messageNotationAugmentee(err, langue),
+      },
     );
   }
 
@@ -45,37 +51,50 @@ export function CloturerCalibration({ sessionId }: { sessionId: string }) {
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Clôture impossible"
+        titreErreur={t("Clôture impossible", "Close-out failed")}
       />
       <ZoneTexte
-        libelle="Conclusion de la session"
+        libelle={t("Conclusion de la session", "Session conclusion")}
         required
         rows={4}
         value={conclusion}
         onChange={(e) => setConclusion(e.target.value)}
         erreur={f.erreurs.conclusion}
         maxLength={CONCLUSION_LONGUEUR_MAX + 300}
-        aide={`Ce qui ressort de la calibration : cas à discuter, consignes aux évaluateurs. ${compteurCaracteres(conclusion, CONCLUSION_LONGUEUR_MAX)}`}
+        aide={
+          t(
+            "Ce qui ressort de la calibration : cas à discuter, consignes aux évaluateurs.",
+            "What comes out of the calibration: cases to discuss, instructions to raters.",
+          ) +
+          " " +
+          compteurCaracteres(conclusion, CONCLUSION_LONGUEUR_MAX, langue)
+        }
       />
       <div className="mp-barre-actions">
         {prete ? (
           <BoutonConfirmation
-            libelle="Clore la session"
-            question="Clore cette session ? Plus aucune cotation ne sera acceptée ; les cotations de tous et la mesure d'écart deviennent visibles."
-            libelleConfirmation="Oui, clore la session"
-            texteChargement="Clôture…"
+            libelle={t("Clore la session", "Close the session")}
+            question={t(
+              "Clore cette session ? Plus aucune cotation ne sera acceptée ; les cotations de tous et la mesure d'écart deviennent visibles.",
+              "Close this session? No further rating will be accepted; everyone's ratings and the gap measure become visible.",
+            )}
+            libelleConfirmation={t("Oui, clore la session", "Yes, close the session")}
+            texteChargement={t("Clôture…", "Closing…")}
             variante="primaire"
             action={cloturer}
           />
         ) : (
           <Bouton variante="primaire" disabled>
-            Clore la session
+            {t("Clore la session", "Close the session")}
           </Bouton>
         )}
       </div>
       {!prete ? (
         <p className="mp-texte-doux mp-texte-petit">
-          Rédigez la conclusion pour pouvoir clore la session.
+          {t(
+            "Rédigez la conclusion pour pouvoir clore la session.",
+            "Write the conclusion to be able to close the session.",
+          )}
         </p>
       ) : null}
     </form>

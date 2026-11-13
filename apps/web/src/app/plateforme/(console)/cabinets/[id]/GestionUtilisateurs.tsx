@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { useRafraichir } from "../../../../../components/formulaires/useRafraichir";
 import { ConfirmationAction } from "../../../../../components/plateforme/ConfirmationAction";
 import { MotDePasseGenere } from "../../../../../components/plateforme/MotDePasseGenere";
@@ -14,7 +15,7 @@ import { Tableau, type ColonneTableau } from "../../../../../components/ui/Table
 import {
   libelleRolesCabinet,
   messageErreurPlateforme,
-  ROLES_PROPOSES,
+  rolesProposes,
   validerRoles,
   validerUtilisateur,
   type CabinetListe,
@@ -35,8 +36,8 @@ import {
   ouvrirConfirmationEtat,
   ouvrirEditeurRoles,
   rolesIdentiques,
-  SUCCES_ROLES_MIS_A_JOUR,
-  SUCCES_UTILISATEUR_AJOUTE,
+  succesRolesMisAJour,
+  succesUtilisateurAjoute,
   texteConfirmationEtat,
   type Panneau,
 } from "./gestion-utilisateurs";
@@ -51,7 +52,6 @@ export interface GestionUtilisateursProps {
 
 const SAISIE_VIDE: SaisieUtilisateur = { nom: "", email: "", roles: [], motDePasse: "" };
 const ID_FORMULAIRE = "formulaire-ajout-utilisateur";
-const OPTIONS_ROLES = ROLES_PROPOSES.map((r) => ({ valeur: r.valeur, libelle: r.libelle }));
 
 interface Secret {
   motDePasse: string;
@@ -64,6 +64,12 @@ export function GestionUtilisateurs({
   utilisateurs,
   ajoutOuvertInitial = false,
 }: GestionUtilisateursProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsRoles = rolesProposes(langue).map((r) => ({
+    valeur: r.valeur,
+    libelle: r.libelle,
+  }));
   const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
@@ -162,10 +168,10 @@ export function GestionUtilisateurs({
     if (enCours) return;
     setSucces(null);
     setErreurAjout(null);
-    const e = validerUtilisateur(saisie);
+    const e = validerUtilisateur(saisie, langue);
     if (Object.keys(e).length > 0) {
       setErreurs(e);
-      setTentative((t) => t + 1);
+      setTentative((n) => n + 1);
       return;
     }
     setErreurs({});
@@ -178,11 +184,11 @@ export function GestionUtilisateurs({
           : null,
       );
       fermerAjout();
-      setSucces(SUCCES_UTILISATEUR_AJOUTE);
+      setSucces(succesUtilisateurAjoute(langue));
       rafraichir();
     } catch (err) {
-      setErreurAjout(messageErreurPlateforme(err));
-      setTentative((t) => t + 1);
+      setErreurAjout(messageErreurPlateforme(err, langue));
+      setTentative((n) => n + 1);
     } finally {
       setEnCours(false);
     }
@@ -191,10 +197,10 @@ export function GestionUtilisateurs({
   async function enregistrerRoles() {
     if (enCours || panneau?.type !== "roles" || !utilisateurPanneau) return;
     const cle = clePanneau(panneau);
-    const manque = validerRoles(panneau.roles);
+    const manque = validerRoles(panneau.roles, langue);
     if (manque) {
       setPanneau({ ...panneau, erreur: manque });
-      setTentative((t) => t + 1);
+      setTentative((n) => n + 1);
       return;
     }
     if (rolesIdentiques(panneau.roles, utilisateurPanneau.roles)) {
@@ -206,11 +212,11 @@ export function GestionUtilisateurs({
     try {
       await modifierUtilisateur(cabinet.id, utilisateurPanneau.id, { roles: panneau.roles });
       fermerPanneau(cle);
-      setSucces(SUCCES_ROLES_MIS_A_JOUR);
+      setSucces(succesRolesMisAJour(langue));
       rafraichir();
     } catch (err) {
-      setPanneau({ ...panneau, erreur: messageErreurPlateforme(err) });
-      setTentative((t) => t + 1);
+      setPanneau({ ...panneau, erreur: messageErreurPlateforme(err, langue) });
+      setTentative((n) => n + 1);
     } finally {
       setEnCours(false);
     }
@@ -225,11 +231,11 @@ export function GestionUtilisateurs({
     try {
       await modifierUtilisateur(cabinet.id, utilisateurPanneau.id, { actif: actifApres });
       fermerPanneau(cle);
-      setSucces(messageSuccesEtat(actifApres));
+      setSucces(messageSuccesEtat(actifApres, langue));
       rafraichir();
     } catch (err) {
       // 409 DERNIER_ASSOCIE compris : le message reste dans la confirmation.
-      setPanneau({ ...panneau, erreur: messageErreurPlateforme(err) });
+      setPanneau({ ...panneau, erreur: messageErreurPlateforme(err, langue) });
     } finally {
       setEnCours(false);
     }
@@ -238,52 +244,52 @@ export function GestionUtilisateurs({
   const colonnes: ColonneTableau<UtilisateurPlateforme>[] = [
     {
       cle: "nom",
-      entete: "Nom",
+      entete: t("Nom", "Name"),
       rendu: (u) => <span className="mp-gu__nom mp-gu__identite">{u.nom}</span>,
     },
     {
       cle: "email",
-      entete: "E-mail",
+      entete: t("E-mail", "Email"),
       rendu: (u) => <span className="mp-gu__email">{u.email}</span>,
     },
     {
       cle: "roles",
-      entete: "Rôles",
-      rendu: (u) => <span className="mp-gu__roles">{libelleRolesCabinet(u.roles)}</span>,
+      entete: t("Rôles", "Roles"),
+      rendu: (u) => <span className="mp-gu__roles">{libelleRolesCabinet(u.roles, langue)}</span>,
     },
     {
       cle: "etat",
-      entete: "État",
+      entete: t("État", "Status"),
       rendu: (u) => (
         <BadgeStatut tonalite={u.actif ? "succes" : "neutre"}>
-          {libelleEtatUtilisateur(u.actif)}
+          {libelleEtatUtilisateur(u.actif, langue)}
         </BadgeStatut>
       ),
     },
     {
       cle: "actions",
-      entete: "Actions",
+      entete: t("Actions", "Actions"),
       rendu: (u) => (
         <div className="mp-gu__actions">
           <Bouton
             ref={refBouton(cleBouton.roles(u.id))}
             variante="secondaire"
-            aria-label={ariaModifierRoles(u)}
+            aria-label={ariaModifierRoles(u, langue)}
             aria-expanded={panneau?.type === "roles" && panneau.utilisateurId === u.id}
             disabled={enCours}
             onClick={() => ouvrirPanneau(ouvrirEditeurRoles(u))}
           >
-            Modifier les rôles
+            {t("Modifier les rôles", "Edit roles")}
           </Bouton>
           <Bouton
             ref={refBouton(cleBouton.etat(u.id))}
             variante={u.actif ? "discret" : "secondaire"}
-            aria-label={ariaActionEtat(u)}
+            aria-label={ariaActionEtat(u, langue)}
             aria-expanded={panneau?.type === "etat" && panneau.utilisateurId === u.id}
             disabled={enCours}
             onClick={() => ouvrirPanneau(ouvrirConfirmationEtat(u))}
           >
-            {libelleActionEtat(u.actif)}
+            {libelleActionEtat(u.actif, langue)}
           </Bouton>
         </div>
       ),
@@ -292,7 +298,7 @@ export function GestionUtilisateurs({
 
   const texteEtat =
     panneau?.type === "etat" && utilisateurPanneau
-      ? texteConfirmationEtat(utilisateurPanneau)
+      ? texteConfirmationEtat(utilisateurPanneau, langue)
       : null;
 
   return (
@@ -300,8 +306,10 @@ export function GestionUtilisateurs({
       {cabinet.actif ? null : (
         <Alerte tonalite="attention" annonce="aucune">
           <p>
-            Ce cabinet est désactivé : ses utilisateurs ne peuvent pas se connecter. Réactivez-le
-            depuis la liste des cabinets.
+            {t(
+              "Ce cabinet est désactivé : ses utilisateurs ne peuvent pas se connecter. Réactivez-le depuis la liste des cabinets.",
+              "This firm is deactivated: its users cannot sign in. Reactivate it from the list of firms.",
+            )}
           </p>
         </Alerte>
       )}
@@ -327,14 +335,17 @@ export function GestionUtilisateurs({
 
       <section className="mp-gu__section" aria-labelledby="titre-utilisateurs">
         <h2 id="titre-utilisateurs" className="mp-gu__titre">
-          Utilisateurs
+          {t("Utilisateurs", "Users")}
         </h2>
         <Tableau
-          legende={`Utilisateurs du cabinet ${cabinet.nom}`}
+          legende={t(`Utilisateurs du cabinet ${cabinet.nom}`, `Users of the firm ${cabinet.nom}`)}
           colonnes={colonnes}
           lignes={utilisateurs}
           cleLigne={(u) => u.id}
-          messageVide="Ce cabinet n'a encore aucun utilisateur. Ajoutez-en un ci-dessous."
+          messageVide={t(
+            "Ce cabinet n'a encore aucun utilisateur. Ajoutez-en un ci-dessous.",
+            "This firm has no users yet. Add one below.",
+          )}
         />
 
         {panneau?.type === "roles" && utilisateurPanneau ? (
@@ -348,18 +359,22 @@ export function GestionUtilisateurs({
             }}
           >
             <p id="titre-roles" className="mp-gu__panneau-titre">
-              Rôles de {utilisateurPanneau.nom}
+              {t(`Rôles de ${utilisateurPanneau.nom}`, `Roles of ${utilisateurPanneau.nom}`)}
             </p>
             {panneau.erreur && panneau.roles.length > 0 ? (
-              <Alerte ref={alerteRoles} tonalite="danger" titre="Enregistrement impossible">
+              <Alerte
+                ref={alerteRoles}
+                tonalite="danger"
+                titre={t("Enregistrement impossible", "Unable to save")}
+              >
                 <p>{panneau.erreur}</p>
               </Alerte>
             ) : null}
             <GroupeCases
-              legende="Rôles"
+              legende={t("Rôles", "Roles")}
               requis
               nom="roles-modification"
-              options={OPTIONS_ROLES}
+              options={optionsRoles}
               valeurs={panneau.roles}
               desactive={enCours}
               erreur={panneau.roles.length === 0 ? panneau.erreur : undefined}
@@ -368,17 +383,17 @@ export function GestionUtilisateurs({
             <div className="mp-gu__barre">
               <Bouton
                 chargement={enCours}
-                texteChargement="Enregistrement…"
+                texteChargement={t("Enregistrement…", "Saving…")}
                 onClick={() => void enregistrerRoles()}
               >
-                Enregistrer
+                {t("Enregistrer", "Save")}
               </Bouton>
               <Bouton
                 variante="secondaire"
                 disabled={enCours}
                 onClick={() => fermerPanneau(clePanneau(panneau))}
               >
-                Annuler
+                {t("Annuler", "Cancel")}
               </Bouton>
             </div>
           </div>
@@ -399,7 +414,7 @@ export function GestionUtilisateurs({
         ) : null}
       </section>
 
-      <Carte titre="Nouvel utilisateur">
+      <Carte titre={t("Nouvel utilisateur", "New user")}>
         <div className="mp-gu__formulaire">
           <div className="mp-gu__barre">
             <Bouton
@@ -418,10 +433,15 @@ export function GestionUtilisateurs({
                 }
               }}
             >
-              Ajouter un utilisateur
+              {t("Ajouter un utilisateur", "Add a user")}
             </Bouton>
             {secret ? (
-              <p className="mp-gu__aide">Notez d&apos;abord le mot de passe affiché ci-dessus.</p>
+              <p className="mp-gu__aide">
+                {t(
+                  "Notez d'abord le mot de passe affiché ci-dessus.",
+                  "First note the password shown above.",
+                )}
+              </p>
             ) : null}
           </div>
           <form
@@ -435,13 +455,17 @@ export function GestionUtilisateurs({
             {ajoutOuvert ? (
               <>
                 {erreurAjout ? (
-                  <Alerte ref={alerteAjout} tonalite="danger" titre="Ajout impossible">
+                  <Alerte
+                    ref={alerteAjout}
+                    tonalite="danger"
+                    titre={t("Ajout impossible", "Unable to add")}
+                  >
                     <p>{erreurAjout}</p>
                   </Alerte>
                 ) : null}
                 <Champ
                   ref={champNom}
-                  libelle="Nom"
+                  libelle={t("Nom", "Name")}
                   name="nom"
                   required
                   autoComplete="off"
@@ -451,7 +475,7 @@ export function GestionUtilisateurs({
                   erreur={erreurs.nom}
                 />
                 <Champ
-                  libelle="Adresse e-mail"
+                  libelle={t("Adresse e-mail", "Email address")}
                   name="email"
                   type="email"
                   required
@@ -463,37 +487,49 @@ export function GestionUtilisateurs({
                   erreur={erreurs.email}
                 />
                 <GroupeCases
-                  legende="Rôles"
+                  legende={t("Rôles", "Roles")}
                   requis
                   nom="roles"
-                  options={OPTIONS_ROLES}
+                  options={optionsRoles}
                   valeurs={saisie.roles}
                   erreur={erreurs.roles}
                   onChange={(roles) => setSaisie({ ...saisie, roles })}
                 />
                 <div className="mp-gu__mdp">
                   <Champ
-                    libelle="Mot de passe provisoire (facultatif)"
+                    libelle={t(
+                      "Mot de passe provisoire (facultatif)",
+                      "Temporary password (optional)",
+                    )}
                     name="motDePasse"
                     type={mdpVisible ? "text" : "password"}
                     autoComplete="new-password"
                     spellCheck={false}
                     maxLength={200}
-                    aide="Laissez vide pour générer un mot de passe provisoire. Sinon, au moins 12 caractères."
+                    aide={t(
+                      "Laissez vide pour générer un mot de passe provisoire. Sinon, au moins 12 caractères.",
+                      "Leave empty to generate a temporary password. Otherwise, at least 12 characters.",
+                    )}
                     value={saisie.motDePasse}
                     onChange={(e) => setSaisie({ ...saisie, motDePasse: e.target.value })}
                     erreur={erreurs.motDePasse}
                   />
                   <Bouton variante="discret" onClick={() => setMdpVisible((v) => !v)}>
-                    {mdpVisible ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    {mdpVisible
+                      ? t("Masquer le mot de passe", "Hide password")
+                      : t("Afficher le mot de passe", "Show password")}
                   </Bouton>
                 </div>
                 <div className="mp-gu__barre">
-                  <Bouton type="submit" chargement={enCours} texteChargement="Ajout en cours…">
-                    Ajouter l&apos;utilisateur
+                  <Bouton
+                    type="submit"
+                    chargement={enCours}
+                    texteChargement={t("Ajout en cours…", "Adding…")}
+                  >
+                    {t("Ajouter l'utilisateur", "Add the user")}
                   </Bouton>
                   <Bouton variante="secondaire" disabled={enCours} onClick={fermerAjout}>
-                    Annuler
+                    {t("Annuler", "Cancel")}
                   </Bouton>
                 </div>
               </>

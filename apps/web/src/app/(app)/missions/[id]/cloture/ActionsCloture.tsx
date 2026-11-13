@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRafraichir } from "../../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
@@ -29,13 +30,15 @@ export function ActionsItemCloture({
   item: ItemCloture;
   droits: DroitsCloture;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const base = `/api/missions/${encodeURIComponent(missionId)}/cloture`;
   const f = useFormulaire<"motif" | "note">();
   const [panneau, setPanneau] = useState<"aucun" | "derogation" | "retrait" | "attestation">(
     "aucun",
   );
   const [texte, setTexte] = useState("");
-  const nom = libelleControle(item.controle);
+  const nom = libelleControle(item.controle, langue);
 
   const peutAccorder = droits.deroger && item.etat === "bloque";
   const peutRetirer = droits.deroger && item.etat === "deroge";
@@ -51,30 +54,40 @@ export function ActionsItemCloture({
     ev.preventDefault();
     if (panneau === "derogation") {
       await f.envoyer(
-        validerMotifDerogation(texte),
+        validerMotifDerogation(texte, langue),
         (c) => api.post(`${base}/derogations`, { controle: item.controle, ...c }),
-        { succes: `Dérogation accordée pour « ${nom} ».`, apres: fermer },
+        {
+          succes: t(`Dérogation accordée pour « ${nom} ».`, `Waiver granted for "${nom}".`),
+          apres: fermer,
+        },
       );
     } else if (panneau === "retrait") {
       await f.envoyer(
-        validerMotifDerogation(texte),
+        validerMotifDerogation(texte, langue),
         (c) => api.post(`${base}/derogations/${item.controle}/retrait`, c),
-        { succes: `Dérogation retirée pour « ${nom} ».`, apres: fermer },
+        {
+          succes: t(`Dérogation retirée pour « ${nom} ».`, `Waiver withdrawn for "${nom}".`),
+          apres: fermer,
+        },
       );
     } else if (panneau === "attestation") {
-      await f.envoyer(validerAttestation(texte), (c) => api.post(`${base}/attestations`, c), {
-        succes: `« ${nom} » attestée.`,
-        apres: fermer,
-      });
+      await f.envoyer(
+        validerAttestation(texte, langue),
+        (c) => api.post(`${base}/attestations`, c),
+        {
+          succes: t(`« ${nom} » attestée.`, `"${nom}" attested.`),
+          apres: fermer,
+        },
+      );
     }
   }
 
   const titrePanneau =
     panneau === "derogation"
-      ? "Motif de la dérogation"
+      ? t("Motif de la dérogation", "Reason for the waiver")
       : panneau === "retrait"
-        ? "Motif du retrait"
-        : "Note d'attestation (facultative)";
+        ? t("Motif du retrait", "Reason for the withdrawal")
+        : t("Note d'attestation (facultative)", "Attestation note (optional)");
 
   return (
     <div className="mp-pile">
@@ -82,50 +95,55 @@ export function ActionsItemCloture({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action failed")}
       />
       {panneau === "aucun" ? (
         <div className="mp-barre-actions">
           {peutAccorder ? (
             <Bouton
               variante="secondaire"
-              aria-label={`Déroger : ${nom}`}
+              aria-label={t(`Déroger : ${nom}`, `Waive: ${nom}`)}
               onClick={() => setPanneau("derogation")}
             >
-              Déroger…
+              {t("Déroger…", "Waive…")}
             </Bouton>
           ) : null}
           {peutRetirer ? (
             <Bouton
               variante="secondaire"
-              aria-label={`Retirer la dérogation : ${nom}`}
+              aria-label={t(`Retirer la dérogation : ${nom}`, `Withdraw the waiver: ${nom}`)}
               onClick={() => setPanneau("retrait")}
             >
-              Retirer la dérogation…
+              {t("Retirer la dérogation…", "Withdraw the waiver…")}
             </Bouton>
           ) : null}
           {peutAttester && item.attestation?.attestee ? (
             <Bouton
               variante="discret"
-              aria-label={`Retirer l'attestation : ${nom}`}
+              aria-label={t(`Retirer l'attestation : ${nom}`, `Withdraw the attestation: ${nom}`)}
               onClick={() => {
                 void f.envoyer(
                   { ok: true, charge: { controle: item.controle, attestee: false } },
                   (c) => api.post(`${base}/attestations`, c),
-                  { succes: `Attestation retirée pour « ${nom} ».` },
+                  {
+                    succes: t(
+                      `Attestation retirée pour « ${nom} ».`,
+                      `Attestation withdrawn for "${nom}".`,
+                    ),
+                  },
                 );
               }}
             >
-              Retirer l&apos;attestation
+              {t("Retirer l'attestation", "Withdraw the attestation")}
             </Bouton>
           ) : null}
           {peutAttester && !item.attestation?.attestee ? (
             <Bouton
               variante="secondaire"
-              aria-label={`Attester : ${nom}`}
+              aria-label={t(`Attester : ${nom}`, `Attest: ${nom}`)}
               onClick={() => setPanneau("attestation")}
             >
-              Attester…
+              {t("Attester…", "Attest…")}
             </Bouton>
           ) : null}
         </div>
@@ -140,16 +158,26 @@ export function ActionsItemCloture({
             erreur={f.erreurs.motif ?? f.erreurs.note}
             aide={
               panneau === "attestation"
-                ? "Déclaré par vous, daté et conservé dans l'historique de la mission."
-                : "Au moins 10 caractères. Le motif est conservé dans l'historique de la mission."
+                ? t(
+                    "Déclaré par vous, daté et conservé dans l'historique de la mission.",
+                    "Declared by you, dated and kept in the engagement history.",
+                  )
+                : t(
+                    "Au moins 10 caractères. Le motif est conservé dans l'historique de la mission.",
+                    "At least 10 characters. The reason is kept in the engagement history.",
+                  )
             }
           />
           <div className="mp-barre-actions">
-            <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-              Enregistrer
+            <Bouton
+              type="submit"
+              chargement={f.enCours}
+              texteChargement={t("Enregistrement…", "Saving…")}
+            >
+              {t("Enregistrer", "Save")}
             </Bouton>
             <Bouton variante="secondaire" disabled={f.enCours} onClick={fermer}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
@@ -170,6 +198,7 @@ export function BarreCloture({
   activable: boolean;
   raison: string | null;
 }) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   const f = useFormulaire<never>();
   const base = `/api/missions/${encodeURIComponent(missionId)}`;
@@ -179,36 +208,41 @@ export function BarreCloture({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Clôture impossible"
+        titreErreur={t("Clôture impossible", "Close-out failed")}
       />
       <div className="mp-barre-actions">
         {droits.evaluer ? (
           <Bouton
             variante="secondaire"
             chargement={f.enCours}
-            texteChargement="Vérification…"
+            texteChargement={t("Vérification…", "Verifying…")}
             onClick={() => {
               void f.envoyer(
                 { ok: true, charge: null },
                 () => api.post(`${base}/cloture/evaluer`),
-                { succes: "Check-list vérifiée et enregistrée." },
+                {
+                  succes: t("Check-list vérifiée et enregistrée.", "Checklist verified and saved."),
+                },
               );
             }}
           >
-            Revérifier et enregistrer
+            {t("Revérifier et enregistrer", "Re-verify and save")}
           </Bouton>
         ) : null}
         {droits.cloturer && activable ? (
           <BoutonConfirmation
-            libelle="Clôturer la mission"
+            libelle={t("Clôturer la mission", "Close the engagement")}
             icone="cadenas"
             variante="primaire"
-            question="Clôturer définitivement la mission ? Elle ne pourra plus être modifiée."
-            libelleConfirmation="Oui, clôturer"
-            texteChargement="Clôture…"
+            question={t(
+              "Clôturer définitivement la mission ? Elle ne pourra plus être modifiée.",
+              "Permanently close the engagement? It can no longer be modified.",
+            )}
+            libelleConfirmation={t("Oui, clôturer", "Yes, close")}
+            texteChargement={t("Clôture…", "Closing…")}
             action={() =>
               f.envoyer({ ok: true, charge: null }, () => api.post(`${base}/cloturer`), {
-                succes: "Mission clôturée.",
+                succes: t("Mission clôturée.", "Engagement closed."),
                 messageSpecifique: messageClotureBloquee,
                 apres: () => rafraichir(),
               })
@@ -216,12 +250,12 @@ export function BarreCloture({
           />
         ) : droits.cloturer ? (
           <Bouton disabled icone="cadenas" aria-describedby="raison-cloture">
-            Clôturer la mission
+            {t("Clôturer la mission", "Close the engagement")}
           </Bouton>
         ) : null}
         {droits.parametrer ? (
           <Link className="mp-pagination__lien" href={HREF_PARAMETRAGE_CLOTURE}>
-            Paramétrer le modèle
+            {t("Paramétrer le modèle", "Configure the template")}
           </Link>
         ) : null}
       </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import type { Langue, Traduire } from "@missionpilot/shared";
 import { BoutonExportKpi } from "../../../../../components/kpi/BoutonExportKpi";
 import { CarteKpi } from "../../../../../components/kpi/CarteKpi";
 import { EvolutionKpi } from "../../../../../components/kpi/EvolutionKpi";
@@ -17,18 +18,19 @@ import { Icone } from "../../../../../components/ui/Icone";
 import { Tableau } from "../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import {
   bornesDateArrete,
   cheminKpiMission,
   cheminTableauKpi,
   droitsKpi,
-  FREQUENCE_LIBELLES,
   hrefKpi,
   hrefNouveauKpi,
   hrefParametresKpi,
   hrefTableauKpi,
   formaterTauxKpi,
   kpisParPerspective,
+  libelleFrequence,
   libellePerspective,
   lireDateArrete,
   type DefinitionKpi,
@@ -46,7 +48,10 @@ import { chargerMission } from "../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../lib/periode";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "KPI de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("KPI de la mission", "Engagement KPIs") };
+}
 
 /**
  * Tableau de bord des KPI d'une mission (KPI-03) à une date d'arrêté : score composite global
@@ -66,12 +71,14 @@ export default async function PageKpiMission({
 }) {
   const { id } = await params;
   const { utilisateur } = await exigerPermission("kpi.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = await chargerMission(id);
   // L'en-tête (layout) affiche déjà l'erreur de chargement de la mission.
   if (!r.ok) return null;
   const m = r.donnees;
   const jour = aujourdhui();
-  const arrete = lireDateArrete((await searchParams).date, jour);
+  const arrete = lireDateArrete((await searchParams).date, jour, langue);
   const droits = droitsKpi(utilisateur.roles, utilisateur.id, m);
   const [tableau, definitions, qualite] = await Promise.all([
     chargerServeur<TableauDeBordKpi>(cheminTableauKpi(m.id, arrete.date)),
@@ -84,68 +91,90 @@ export default async function PageKpiMission({
   return (
     <div className="mp-kpi">
       <p className="mp-texte-doux">
-        Statuts, atteintes, tendances, projections, scores et alertes sont calculés par le moteur de
-        CabinetPilot à partir des mesures saisies et des cibles en vigueur ; un statut est toujours
-        écrit, jamais signalé par la seule couleur.
+        {t(
+          "Statuts, atteintes, tendances, projections, scores et alertes sont calculés par le moteur de CabinetPilot à partir des mesures saisies et des cibles en vigueur ; un statut est toujours écrit, jamais signalé par la seule couleur.",
+          "Statuses, attainments, trends, projections, scores and alerts are computed by the CabinetPilot engine from the measurements entered and the targets in effect; a status is always written out, never signalled by color alone.",
+        )}
       </p>
 
       <SelecteurArrete
         missionId={m.id}
         date={arrete.date}
         jour={jour}
+        t={t}
+        langue={langue}
         actions={
           <>
             {droits.gerer ? (
               <Link href={hrefNouveauKpi(m.id)} className={classesBouton("primaire")}>
                 <Icone nom="plus" />
-                <span>Nouveau KPI</span>
+                <span>{t("Nouveau KPI", "New KPI")}</span>
               </Link>
             ) : null}
             <Link href={hrefParametresKpi(m.id)} className={classesBouton("discret")}>
               <Icone nom="reglages" />
-              <span>Réglages du pilotage</span>
+              <span>{t("Réglages du pilotage", "Management settings")}</span>
             </Link>
           </>
         }
       />
-      <nav aria-label="Pilotage augmenté" className="mp-actions-formulaire">
+      <nav
+        aria-label={t("Pilotage augmenté", "Advanced management")}
+        className="mp-actions-formulaire"
+      >
         <Link href={hrefArbres(m.id)} className={classesBouton("secondaire")}>
-          Arbres d&apos;indicateurs
+          {t("Arbres d'indicateurs", "KPI trees")}
         </Link>
         <Link href={hrefActions(m.id)} className={classesBouton("secondaire")}>
-          Actions correctives
+          {t("Actions correctives", "Corrective actions")}
         </Link>
         <Link href={hrefRevues(m.id)} className={classesBouton("secondaire")}>
-          Revues de performance
+          {t("Revues de performance", "Performance reviews")}
         </Link>
       </nav>
       {arrete.erreur ? (
-        <Alerte tonalite="attention" titre="Date d'arrêté écartée" annonce="status">
+        <Alerte
+          tonalite="attention"
+          titre={t("Date d'arrêté écartée", "Cut-off date discarded")}
+          annonce="status"
+        >
           <p>{arrete.erreur}</p>
         </Alerte>
       ) : null}
 
       {aucunKpi ? (
         <EtatVide
-          titre="Aucun KPI n'est encore suivi pour cette mission."
+          titre={t(
+            "Aucun KPI n'est encore suivi pour cette mission.",
+            "No KPI is tracked yet for this engagement.",
+          )}
           icone="courbe"
           action={
             droits.gerer ? (
               <Link href={hrefNouveauKpi(m.id)} className={classesBouton("primaire")}>
-                Définir un premier KPI
+                {t("Définir un premier KPI", "Define a first KPI")}
               </Link>
             ) : null
           }
         >
           <p>
             {droits.gerer
-              ? "Définissez les indicateurs du client (libellé, unité, sens de lecture, fréquence, cible) : ils apparaîtront ici avec leur statut dès les premières mesures."
-              : "Le directeur ou le chef de mission définit les KPI ; ils apparaîtront ici avec leur statut dès les premières mesures."}
+              ? t(
+                  "Définissez les indicateurs du client (libellé, unité, sens de lecture, fréquence, cible) : ils apparaîtront ici avec leur statut dès les premières mesures.",
+                  "Define the client's indicators (label, unit, reading direction, frequency, target): they will appear here with their status from the first measurements.",
+                )
+              : t(
+                  "Le directeur ou le chef de mission définit les KPI ; ils apparaîtront ici avec leur statut dès les premières mesures.",
+                  "The engagement director or manager defines the KPIs; they will appear here with their status from the first measurements.",
+                )}
           </p>
         </EtatVide>
       ) : !tableau.ok ? (
         <EtatErreur
-          titre="Le tableau de bord n'a pas pu être calculé."
+          titre={t(
+            "Le tableau de bord n'a pas pu être calculé.",
+            "The dashboard could not be computed.",
+          )}
           message={tableau.message}
           hrefReessayer={hrefTableauKpi(m.id, arrete.date)}
         />
@@ -158,22 +187,31 @@ export default async function PageKpiMission({
           gerer={droits.gerer}
           qualite={qualite.ok ? qualite.donnees : null}
           erreurQualite={qualite.ok ? null : qualite.message}
+          t={t}
+          langue={langue}
         />
       )}
 
       {!definitions.ok ? (
-        <Alerte tonalite="attention" titre="Liste des KPI indisponible" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Liste des KPI indisponible", "KPI list unavailable")}
+          annonce="aucune"
+        >
           <p>{definitions.message}</p>
         </Alerte>
       ) : null}
 
       {inactifs.length > 0 ? (
-        <Carte titre="KPI désactivés">
+        <Carte titre={t("KPI désactivés", "Disabled KPIs")}>
           <p className="mp-texte-doux">
-            Hors du tableau de bord, du score et des rappels ; leur historique est conservé.
+            {t(
+              "Hors du tableau de bord, du score et des rappels ; leur historique est conservé.",
+              "Outside the dashboard, the score and the reminders; their history is kept.",
+            )}
           </p>
           <Tableau
-            legende="KPI désactivés"
+            legende={t("KPI désactivés", "Disabled KPIs")}
             colonnes={[
               {
                 cle: "libelle",
@@ -182,13 +220,13 @@ export default async function PageKpiMission({
               },
               {
                 cle: "perspective",
-                entete: "Perspective",
-                rendu: (d) => libellePerspective(d.perspective),
+                entete: t("Perspective", "Perspective"),
+                rendu: (d) => libellePerspective(d.perspective, langue),
               },
               {
                 cle: "frequence",
-                entete: "Fréquence",
-                rendu: (d) => FREQUENCE_LIBELLES[d.frequence],
+                entete: t("Fréquence", "Frequency"),
+                rendu: (d) => libelleFrequence(d.frequence, langue),
               },
             ]}
             lignes={inactifs}
@@ -205,11 +243,15 @@ function SelecteurArrete({
   date,
   jour,
   actions,
+  t,
+  langue,
 }: {
   missionId: string;
   date: string | null;
   jour: string;
   actions: ReactNode;
+  t: Traduire;
+  langue: Langue;
 }) {
   const { min, max } = bornesDateArrete(jour);
   return (
@@ -219,20 +261,23 @@ function SelecteurArrete({
         action={hrefTableauKpi(missionId)}
         className="mp-kpi-barre__date"
         role="search"
-        aria-label="Date d'arrêté du tableau de bord"
+        aria-label={t("Date d'arrêté du tableau de bord", "Dashboard cut-off date")}
       >
         <Champ
-          libelle="Date d'arrêté"
+          libelle={t("Date d'arrêté", "Cut-off date")}
           type="date"
           name="date"
           min={min}
           max={max}
           defaultValue={date ?? jour}
-          aide={`Du ${formaterDate(min)} au ${formaterDate(max)}. Les mesures postérieures sont ignorées.`}
+          aide={t(
+            `Du ${formaterDate(min, "UTC", langue)} au ${formaterDate(max, "UTC", langue)}. Les mesures postérieures sont ignorées.`,
+            `From ${formaterDate(min, "UTC", langue)} to ${formaterDate(max, "UTC", langue)}. Later measurements are ignored.`,
+          )}
         />
         <button type="submit" className={classesBouton("secondaire")}>
           <Icone nom="calendrier" />
-          <span>Afficher</span>
+          <span>{t("Afficher", "Show")}</span>
         </button>
       </form>
       <div className="mp-actions-formulaire">{actions}</div>
@@ -248,6 +293,8 @@ function TableauDeBord({
   gerer,
   qualite,
   erreurQualite,
+  t,
+  langue,
 }: {
   missionId: string;
   tableau: TableauDeBordKpi;
@@ -257,35 +304,57 @@ function TableauDeBord({
   qualite: QualiteMission | null;
   /** Message de l'échec du calcul de la qualité des données (jamais ignoré en silence). */
   erreurQualite: string | null;
+  t: Traduire;
+  langue: Langue;
 }) {
-  const groupes = kpisParPerspective(tableau.kpis);
+  const groupes = kpisParPerspective(tableau.kpis, langue);
   const libelles = new Map(tableau.kpis.map((k) => [k.id, k]));
   return (
     <>
-      <h2 className="mp-kpi-section__titre">Situation au {formaterDate(tableau.date_reference)}</h2>
+      <h2 className="mp-kpi-section__titre">
+        {t(
+          `Situation au ${formaterDate(tableau.date_reference, "UTC", langue)}`,
+          `Situation as of ${formaterDate(tableau.date_reference, "UTC", langue)}`,
+        )}
+      </h2>
 
       {tableau.kpis.length === 0 ? (
-        <EtatVide titre="Aucun KPI actif à évaluer." icone="courbe">
+        <EtatVide
+          titre={t("Aucun KPI actif à évaluer.", "No active KPI to assess.")}
+          icone="courbe"
+        >
           <p>
             {gerer
-              ? "Tous les KPI de la mission sont désactivés : réactivez-en un depuis sa fiche, ou définissez-en un nouveau."
-              : "Tous les KPI de la mission sont désactivés."}
+              ? t(
+                  "Tous les KPI de la mission sont désactivés : réactivez-en un depuis sa fiche, ou définissez-en un nouveau.",
+                  "All the engagement's KPIs are disabled: reactivate one from its page, or define a new one.",
+                )
+              : t(
+                  "Tous les KPI de la mission sont désactivés.",
+                  "All the engagement's KPIs are disabled.",
+                )}
           </p>
         </EtatVide>
       ) : (
         <>
-          <Carte titre="Score composite">
+          <Carte titre={t("Score composite", "Composite score")}>
             <div className="mp-kpi-section">
               <ScoreKpi score={tableau.score_global} grand />
               {tableau.perspectives.length > 0 ? (
-                <ul className="mp-kpi-perspectives" aria-label="Score par perspective">
+                <ul
+                  className="mp-kpi-perspectives"
+                  aria-label={t("Score par perspective", "Score by perspective")}
+                >
                   {tableau.perspectives.map((p) => (
                     <li key={p.perspective ?? "sans"} className="mp-kpi-perspective">
                       <h3 className="mp-kpi-perspective__titre">
-                        {libellePerspective(p.perspective)}
+                        {libellePerspective(p.perspective, langue)}
                       </h3>
                       <p className="mp-texte-doux mp-texte-petit">
-                        {p.nombre_kpi} KPI suivi{p.nombre_kpi > 1 ? "s" : ""}
+                        {t(
+                          `${p.nombre_kpi} KPI suivi${p.nombre_kpi > 1 ? "s" : ""}`,
+                          `${p.nombre_kpi} KPI${p.nombre_kpi > 1 ? "s" : ""} tracked`,
+                        )}
                       </p>
                       <ScoreKpi score={p.score} />
                     </li>
@@ -293,16 +362,23 @@ function TableauDeBord({
                 </ul>
               ) : null}
               {tableau.score_global ? (
-                <DetailScore score={tableau.score_global} libelles={libelles} />
+                <DetailScore
+                  score={tableau.score_global}
+                  libelles={libelles}
+                  t={t}
+                  langue={langue}
+                />
               ) : null}
             </div>
           </Carte>
 
-          <Carte titre={`Alertes (${tableau.alertes.length})`}>
+          <Carte titre={`${t("Alertes", "Alerts")} (${tableau.alertes.length})`}>
             {tableau.alertes.length === 0 ? (
               <p className="mp-texte-doux">
-                Aucune alerte à cette date : ni dégradation continue, ni mesure en retard, ni seuil
-                franchi.
+                {t(
+                  "Aucune alerte à cette date : ni dégradation continue, ni mesure en retard, ni seuil franchi.",
+                  "No alert at this date: no continuous deterioration, no overdue measurement, no threshold crossed.",
+                )}
               </p>
             ) : (
               <ListeAlertesKpi
@@ -322,13 +398,16 @@ function TableauDeBord({
           </Carte>
 
           {qualite ? (
-            <Carte titre="Qualité des données">
+            <Carte titre={t("Qualité des données", "Data quality")}>
               <QualiteDonneesKpi qualite={qualite} missionId={missionId} />
             </Carte>
           ) : erreurQualite ? (
-            <Carte titre="Qualité des données">
+            <Carte titre={t("Qualité des données", "Data quality")}>
               <EtatErreur
-                titre="La qualité des données n'a pas pu être calculée."
+                titre={t(
+                  "La qualité des données n'a pas pu être calculée.",
+                  "The data quality could not be computed.",
+                )}
                 message={erreurQualite}
                 hrefReessayer={hrefTableauKpi(missionId, date)}
               />
@@ -352,17 +431,17 @@ function TableauDeBord({
             </section>
           ))}
 
-          <Carte titre="Évolution par période">
+          <Carte titre={t("Évolution par période", "Trend by period")}>
             <EvolutionKpi missionId={missionId} date={date} />
           </Carte>
 
-          <Carte titre="Export des données">
+          <Carte titre={t("Export des données", "Data export")}>
             <div className="mp-pile">
               <p className="mp-texte-doux">
-                Fichier JSON versionné (missionpilot.kpi.v1) : définitions, versions des cibles,
-                historique des mesures (corrections et annulations comprises), séries par période,
-                statuts et alertes à la date d&apos;arrêté. Destiné au rapport KPI ou à un outil
-                d&apos;analyse ; l&apos;export est consigné au journal.
+                {t(
+                  "Fichier JSON versionné (missionpilot.kpi.v1) : définitions, versions des cibles, historique des mesures (corrections et annulations comprises), séries par période, statuts et alertes à la date d'arrêté. Destiné au rapport KPI ou à un outil d'analyse ; l'export est consigné au journal.",
+                  "Versioned JSON file (missionpilot.kpi.v1): definitions, target versions, measurement history (corrections and cancellations included), series by period, statuses and alerts at the cut-off date. Intended for the KPI report or an analysis tool; the export is recorded in the log.",
+                )}
               </p>
               <BoutonExportKpi missionId={missionId} date={date} intitule={intitule} />
             </div>
@@ -376,41 +455,57 @@ function TableauDeBord({
 function DetailScore({
   score,
   libelles,
+  t,
+  langue,
 }: {
   score: ScoreKpiVue;
   libelles: ReadonlyMap<string, { libelle: string }>;
+  t: Traduire;
+  langue: Langue;
 }) {
   if (score.contributions.length === 0 && score.exclus.length === 0) return null;
   const lignes = [
     ...score.contributions.map((c) => ({
       id: c.kpi_id,
       libelle: libelles.get(c.kpi_id)?.libelle ?? "KPI",
-      poids: formaterTauxKpi(c.poids_normalise),
-      taux: formaterTauxKpi(c.taux),
-      retenu: "Retenu",
+      poids: formaterTauxKpi(c.poids_normalise, langue),
+      taux: formaterTauxKpi(c.taux, langue),
+      retenu: t("Retenu", "Retained"),
     })),
     ...score.exclus.map((x) => ({
       id: x.kpi_id,
       libelle: libelles.get(x.kpi_id)?.libelle ?? "KPI",
       poids: "—",
       taux: "—",
-      retenu: x.raison === "non_mesure" ? "Exclu : non mesuré" : "Exclu : sans cible",
+      retenu:
+        x.raison === "non_mesure"
+          ? t("Exclu : non mesuré", "Excluded: not measured")
+          : t("Exclu : sans cible", "Excluded: no target"),
     })),
   ];
   return (
     <details className="mp-details">
-      <summary>Détail du score composite</summary>
+      <summary>{t("Détail du score composite", "Composite score detail")}</summary>
       <p className="mp-texte-doux mp-texte-petit">
-        Chaque KPI retenu pèse selon sa pondération ; son atteinte est bornée entre 0 et 100 % (un
-        KPI très en avance ne compense pas un KPI en échec).
+        {t(
+          "Chaque KPI retenu pèse selon sa pondération ; son atteinte est bornée entre 0 et 100 % (un KPI très en avance ne compense pas un KPI en échec).",
+          "Each retained KPI weighs according to its weighting; its attainment is capped between 0 and 100% (a KPI far ahead does not offset a failing KPI).",
+        )}
       </p>
       <Tableau
-        legende="Contribution de chaque KPI au score composite"
+        legende={t(
+          "Contribution de chaque KPI au score composite",
+          "Contribution of each KPI to the composite score",
+        )}
         colonnes={[
           { cle: "libelle", entete: "KPI" },
-          { cle: "poids", entete: "Poids", alignement: "droite" },
-          { cle: "taux", entete: "Atteinte retenue", alignement: "droite" },
-          { cle: "retenu", entete: "Prise en compte" },
+          { cle: "poids", entete: t("Poids", "Weight"), alignement: "droite" },
+          {
+            cle: "taux",
+            entete: t("Atteinte retenue", "Attainment retained"),
+            alignement: "droite",
+          },
+          { cle: "retenu", entete: t("Prise en compte", "Treatment") },
         ]}
         lignes={lignes}
         cleLigne={(l) => l.id}

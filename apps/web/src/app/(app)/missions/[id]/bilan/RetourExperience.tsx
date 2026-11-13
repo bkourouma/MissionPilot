@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useAttenteRafraichissement } from "../../../../../components/formulaires/useAttenteRafraichissement";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { ZoneTexte } from "../../../../../components/ui/ZoneTexte";
 import { api, ErreurApi } from "../../../../../lib/api";
@@ -28,6 +29,8 @@ export function RetourExperience({
   raison: string | null;
   cle: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [valeur, setValeur] = useState(texte ?? "");
   const form = useFormulaire<"texte">();
   const [attente, marquer] = useAttenteRafraichissement(cle);
@@ -38,7 +41,12 @@ export function RetourExperience({
         {texte ? (
           <p className="mp-texte-preserve">{texte}</p>
         ) : (
-          <p className="mp-texte-doux">Aucun retour d&apos;expérience n&apos;a été rédigé.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "Aucun retour d'expérience n'a été rédigé.",
+              "No lessons learned have been written.",
+            )}
+          </p>
         )}
         {raison ? <p className="mp-texte-doux mp-texte-petit">{raison}</p> : null}
       </div>
@@ -48,10 +56,10 @@ export function RetourExperience({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await form.envoyer(
-      validerRetourExperience(valeur),
+      validerRetourExperience(valeur, langue),
       (c) => api.patch(`/api/missions/${encodeURIComponent(missionId)}/bilan/retour-experience`, c),
       {
-        succes: "Retour d'expérience enregistré.",
+        succes: t("Retour d'expérience enregistré.", "Lessons learned saved."),
         messageSpecifique: messageRetour,
         apres: marquer,
       },
@@ -64,7 +72,7 @@ export function RetourExperience({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Retour d'expérience"
+      aria-label={t("Retour d'expérience", "Lessons learned")}
     >
       <RetourFormulaire
         erreur={form.erreurGlobale}
@@ -72,8 +80,11 @@ export function RetourExperience({
         refAlerte={form.refAlerte}
       />
       <ZoneTexte
-        libelle="Retour d'expérience"
-        aide="Ce qui a bien fonctionné, les écarts et leurs causes, ce qu'il faudra refaire ou éviter."
+        libelle={t("Retour d'expérience", "Lessons learned")}
+        aide={t(
+          "Ce qui a bien fonctionné, les écarts et leurs causes, ce qu'il faudra refaire ou éviter.",
+          "What worked well, the variances and their causes, what to repeat or avoid.",
+        )}
         required
         rows={8}
         maxLength={10_000}
@@ -85,9 +96,9 @@ export function RetourExperience({
         <Bouton
           type="submit"
           chargement={form.enCours || attente}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer
+          {t("Enregistrer", "Save")}
         </Bouton>
       </div>
     </form>

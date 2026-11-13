@@ -4,13 +4,13 @@ import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
-  AIDE_ENVOI_EMAIL,
   CHEMIN_API_PARAMETRES_AVANCEMENT,
-  LIBELLE_ENVOI_EMAIL,
+  libellesAvancement,
   messageAvancement,
   type ParametresAvancement as Parametres,
 } from "../../lib/avancement";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
 import { CaseACocher } from "../ui/CaseACocher";
@@ -21,6 +21,9 @@ import { CaseACocher } from "../ui/CaseACocher";
  * à l'API (seule la valeur `false` serait acceptée).
  */
 export function ParametresAvancement({ parametres }: { parametres: Parametres }) {
+  const t = useT();
+  const langue = useLangue();
+  const libelles = libellesAvancement(langue);
   const { rafraichir, enAttente } = useRafraichir();
   const [actif, setActif] = useState(parametres.actif);
   const [enCours, setEnCours] = useState(false);
@@ -41,10 +44,10 @@ export function ParametresAvancement({ parametres }: { parametres: Parametres })
     setSucces(null);
     try {
       await api.put(CHEMIN_API_PARAMETRES_AVANCEMENT, { actif });
-      setSucces("Paramètre enregistré.");
+      setSucces(t("Paramètre enregistré.", "Setting saved."));
       rafraichir();
     } catch (err) {
-      setErreur(messageAvancement(err));
+      setErreur(messageAvancement(err, langue));
     } finally {
       verrou.current = false;
       setEnCours(false);
@@ -52,23 +55,29 @@ export function ParametresAvancement({ parametres }: { parametres: Parametres })
   }
 
   return (
-    <Carte titre="Paramètre du cabinet" niveauTitre={2}>
+    <Carte titre={t("Paramètre du cabinet", "Firm setting")} niveauTitre={2}>
       <form className="mp-pile" onSubmit={(e) => void enregistrer(e)}>
         <RetourFormulaire
           erreur={erreur}
           succes={succes}
           refAlerte={refAlerte}
-          titreErreur="Paramètre non enregistré"
+          titreErreur={t("Paramètre non enregistré", "Setting not saved")}
         />
         <CaseACocher
-          libelle="Préparer chaque semaine un rapport d'avancement pour les missions en cours"
-          aide="Le brouillon est généré automatiquement ; un chef de mission le relit puis le valide."
+          libelle={t(
+            "Préparer chaque semaine un rapport d'avancement pour les missions en cours",
+            "Prepare a weekly progress report for engagements in progress",
+          )}
+          aide={t(
+            "Le brouillon est généré automatiquement ; un chef de mission le relit puis le valide.",
+            "The draft is generated automatically; an engagement manager reviews and approves it.",
+          )}
           checked={actif}
           onChange={(e) => setActif(e.target.checked)}
         />
         <CaseACocher
-          libelle={LIBELLE_ENVOI_EMAIL}
-          aide={AIDE_ENVOI_EMAIL}
+          libelle={libelles.libelleEnvoiEmail}
+          aide={libelles.aideEnvoiEmail}
           checked={false}
           disabled
           readOnly
@@ -77,10 +86,10 @@ export function ParametresAvancement({ parametres }: { parametres: Parametres })
           <Bouton
             type="submit"
             chargement={enCours || enAttente}
-            texteChargement="Enregistrement…"
+            texteChargement={t("Enregistrement…", "Saving…")}
             disabled={actif === parametres.actif}
           >
-            Enregistrer
+            {t("Enregistrer", "Save")}
           </Bouton>
         </div>
       </form>

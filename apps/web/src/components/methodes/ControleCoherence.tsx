@@ -7,6 +7,7 @@ import {
   texteBlocage,
   tonalitePastille,
 } from "../../lib/methodes-coherence";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 
@@ -15,8 +16,10 @@ import { BadgeStatut } from "../ui/BadgeStatut";
  * (erreurs, avertissements ou « conforme »), puis les anomalies de chaque catégorie avec ce
  * qu'elles changent à la publication. Le chemin technique reste en second plan.
  */
-export function ControleCoherence({ validation }: { validation: ValidationVersion }) {
-  const groupes = grouperAnomalies(validation);
+export async function ControleCoherence({ validation }: { validation: ValidationVersion }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const groupes = grouperAnomalies(validation, langue);
   const bloquantes = nombreErreursBloquantes(validation);
   const cas = validation.cas_types;
   return (
@@ -24,32 +27,56 @@ export function ControleCoherence({ validation }: { validation: ValidationVersio
       {bloquantes === 0 ? (
         <Alerte tonalite="succes" annonce="aucune">
           <p>
-            Version cohérente : elle peut être publiée.
+            {t(
+              "Version cohérente : elle peut être publiée.",
+              "Consistent version: it can be published.",
+            )}
             {validation.anomalies.length > 0
-              ? " Les avertissements ci-dessous n'empêchent pas la publication."
+              ? t(
+                  " Les avertissements ci-dessous n'empêchent pas la publication.",
+                  " The warnings below do not prevent publication.",
+                )
               : ""}
           </p>
         </Alerte>
       ) : (
-        <Alerte tonalite="danger" annonce="aucune" titre="Version incohérente">
+        <Alerte
+          tonalite="danger"
+          annonce="aucune"
+          titre={t("Version incohérente", "Inconsistent version")}
+        >
           <p>
             {bloquantes === 1
-              ? "Une erreur bloque la publication : corrigez-la avant de publier."
-              : `${bloquantes} erreurs bloquent la publication : corrigez-les avant de publier.`}
+              ? t(
+                  "Une erreur bloque la publication : corrigez-la avant de publier.",
+                  "One error blocks publication: fix it before publishing.",
+                )
+              : t(
+                  `${bloquantes} erreurs bloquent la publication : corrigez-les avant de publier.`,
+                  `${bloquantes} errors block publication: fix them before publishing.`,
+                )}
           </p>
         </Alerte>
       )}
       {cas ? (
         <p>
-          Cas types : {cas.reussis} réussi(s), {cas.echoues} échoué(s).
+          {t(
+            `Cas types : ${cas.reussis} réussi(s), ${cas.echoues} échoué(s).`,
+            `Test cases: ${cas.reussis} passed, ${cas.echoues} failed.`,
+          )}
         </p>
       ) : null}
 
-      <ul className="mp-methode__pastilles" aria-label="Synthèse par catégorie">
+      <ul
+        className="mp-methode__pastilles"
+        aria-label={t("Synthèse par catégorie", "Summary by category")}
+      >
         {groupes.map((g) => (
           <li key={g.categorie}>
             <BadgeStatut tonalite={tonalitePastille(g)}>
-              {g.libelle} : {textePastille(g)}
+              {g.libelle}
+              {t(" : ", ": ")}
+              {textePastille(g, langue)}
             </BadgeStatut>
           </li>
         ))}
@@ -72,14 +99,16 @@ export function ControleCoherence({ validation }: { validation: ValidationVersio
                 <li key={`${a.code}-${a.chemin}-${i}`} className="mp-methode__regle">
                   <span>
                     <BadgeStatut tonalite={a.gravite === "erreur" ? "danger" : "attention"}>
-                      {a.gravite === "erreur" ? "Erreur" : "Avertissement"}
+                      {a.gravite === "erreur"
+                        ? t("Erreur", "Error")
+                        : t("Avertissement", "Warning")}
                     </BadgeStatut>{" "}
-                    <strong>{libelleAnomalie(a.code)}</strong>
+                    <strong>{libelleAnomalie(a.code, langue)}</strong>
                   </span>
                   <span>{a.message}</span>
                   <span className="mp-texte-petit">
-                    {texteBlocage(a)}
-                    {a.regle ? ` · règle « ${a.regle} »` : ""}
+                    {texteBlocage(a, langue)}
+                    {a.regle ? t(` · règle « ${a.regle} »`, ` · rule "${a.regle}"`) : ""}
                   </span>
                   <span className="mp-methode__code mp-texte-doux">{a.chemin}</span>
                 </li>

@@ -4,17 +4,18 @@ import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { DECISIONS_ARBITRAGE } from "@missionpilot/shared";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   cheminArbitragesAssertion,
   cheminDimension,
   cheminDimensions,
   cheminLienAssertion,
   cheminLiensAssertion,
-  DECISIONS,
   etatPreuvesChange,
+  libelleDecision,
+  libelleSens,
+  libelleTypeSourcePreuve,
   messagePreuves,
-  SENS_LIBELLES,
-  TYPE_SOURCE_LIBELLES,
   type DimensionVue,
   type PreuveVue,
 } from "../../lib/preuves";
@@ -39,12 +40,6 @@ import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
-const OPTIONS_SENS = (["pour", "contre"] as const).map((s) => ({
-  valeur: s,
-  libelle:
-    s === "pour" ? "Va dans le sens de l'assertion (pour)" : "Contredit l'assertion (contre)",
-}));
-
 export interface FormulaireLierProps {
   assertionId: string;
   /** Preuves de la mission pas encore liées à cette assertion. */
@@ -53,13 +48,25 @@ export interface FormulaireLierProps {
 
 /** Lier une preuve du registre à l'assertion, pour ou contre. Un lien contre ouvre une contradiction. */
 export function FormulaireLier({ assertionId, candidates }: FormulaireLierProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampLien>();
   const [s, setS] = useState<SaisieLien>({ preuve_id: "", sens: "pour" });
+  const optionsSens = (["pour", "contre"] as const).map((v) => ({
+    valeur: v,
+    libelle:
+      v === "pour"
+        ? t("Va dans le sens de l'assertion (pour)", "Supports the assertion (for)")
+        : t("Contredit l'assertion (contre)", "Contradicts the assertion (against)"),
+  }));
 
   if (candidates.length === 0) {
     return (
       <p className="mp-texte-doux">
-        Toutes les preuves de la mission sont déjà liées à cette assertion, ou le registre est vide.
+        {t(
+          "Toutes les preuves de la mission sont déjà liées à cette assertion, ou le registre est vide.",
+          "All the engagement's evidence is already linked to this assertion, or the register is empty.",
+        )}
       </p>
     );
   }
@@ -67,9 +74,15 @@ export function FormulaireLier({ assertionId, candidates }: FormulaireLierProps)
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      validerLien(s),
+      validerLien(s, langue),
       (charge) => api.post(cheminLiensAssertion(assertionId), charge),
-      { succes: "Preuve liée : l'indice a été recalculé.", messageSpecifique: messagePreuves },
+      {
+        succes: t(
+          "Preuve liée : l'indice a été recalculé.",
+          "Evidence linked: the index was recomputed.",
+        ),
+        messageSpecifique: (e) => messagePreuves(e, langue),
+      },
     );
     if (ok) setS((x) => ({ ...x, preuve_id: "" }));
   }
@@ -80,23 +93,23 @@ export function FormulaireLier({ assertionId, candidates }: FormulaireLierProps)
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Lier une preuve"
+      aria-label={t("Lier une preuve", "Link evidence")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Lien refusé"
+        titreErreur={t("Lien refusé", "Link rejected")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Preuve"
+          libelle={t("Preuve", "Evidence")}
           required
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           options={candidates.map((p) => ({
             valeur: p.id,
             libelle:
-              `${TYPE_SOURCE_LIBELLES[p.type_source]} · ${p.fiabilite} · ${p.source_precise}`.slice(
+              `${libelleTypeSourcePreuve(p.type_source, langue)} · ${p.fiabilite} · ${p.source_precise}`.slice(
                 0,
                 120,
               ),
@@ -106,17 +119,17 @@ export function FormulaireLier({ assertionId, candidates }: FormulaireLierProps)
           erreur={f.erreurs.preuve_id}
         />
         <Select
-          libelle="Sens"
+          libelle={t("Sens", "Direction")}
           required
-          options={OPTIONS_SENS}
+          options={optionsSens}
           value={s.sens}
           onChange={(e) => setS((x) => ({ ...x, sens: e.target.value }))}
           erreur={f.erreurs.sens}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Liaison…">
-          Lier la preuve
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Liaison…", "Linking…")}>
+          {t("Lier la preuve", "Link the evidence")}
         </Bouton>
       </div>
     </form>
@@ -131,6 +144,8 @@ export interface BoutonDelierProps {
 
 /** Retirer le lien (l'événement est conservé dans le journal du registre). */
 export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -142,7 +157,7 @@ export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps)
       await api.supprimer(cheminLienAssertion(assertionId, preuveId));
       rafraichir();
     } catch (e) {
-      setErreur(messagePreuves(e));
+      setErreur(messagePreuves(e, langue));
       if (etatPreuvesChange(e)) rafraichir();
     } finally {
       setEnCours(false);
@@ -151,8 +166,16 @@ export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps)
 
   return (
     <div className="mp-pile">
-      <Bouton variante="discret" chargement={enCours} texteChargement="Retrait…" onClick={delier}>
-        {`Retirer le lien « ${SENS_LIBELLES[sens].toLowerCase()} »`}
+      <Bouton
+        variante="discret"
+        chargement={enCours}
+        texteChargement={t("Retrait…", "Removing…")}
+        onClick={delier}
+      >
+        {t(
+          `Retirer le lien « ${libelleSens(sens).toLowerCase()} »`,
+          `Remove the "${libelleSens(sens, langue).toLowerCase()}" link`,
+        )}
       </Bouton>
       {erreur ? (
         <Alerte tonalite="danger" annonce="alert">
@@ -163,8 +186,6 @@ export function BoutonDelier({ assertionId, preuveId, sens }: BoutonDelierProps)
   );
 }
 
-const OPTIONS_DECISION = DECISIONS_ARBITRAGE.map((d) => ({ valeur: d, libelle: DECISIONS[d] }));
-
 export interface FormulaireArbitrageProps {
   assertionId: string;
   preuveId: string;
@@ -172,17 +193,26 @@ export interface FormulaireArbitrageProps {
 
 /** Arbitrage d'une contradiction par le consultant : décision et motif, conservés avec son nom. */
 export function FormulaireArbitrage({ assertionId, preuveId }: FormulaireArbitrageProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsDecision = DECISIONS_ARBITRAGE.map((d) => ({
+    valeur: d,
+    libelle: libelleDecision(d, langue),
+  }));
   const f = useFormulaire<ChampArbitrage>();
   const [s, setS] = useState<SaisieArbitrage>({ decision: "", motif: "" });
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerArbitrage(s, preuveId),
+      validerArbitrage(s, preuveId, langue),
       (charge) => api.post(cheminArbitragesAssertion(assertionId), charge),
       {
-        succes: "Contradiction arbitrée : l'indice a été recalculé.",
-        messageSpecifique: messagePreuves,
+        succes: t(
+          "Contradiction arbitrée : l'indice a été recalculé.",
+          "Contradiction arbitrated: the index was recomputed.",
+        ),
+        messageSpecifique: (e) => messagePreuves(e, langue),
       },
     );
   }
@@ -193,36 +223,43 @@ export function FormulaireArbitrage({ assertionId, preuveId }: FormulaireArbitra
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Arbitrer la contradiction"
+      aria-label={t("Arbitrer la contradiction", "Arbitrate the contradiction")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Arbitrage refusé"
+        titreErreur={t("Arbitrage refusé", "Arbitration rejected")}
       />
       <Select
-        libelle="Votre décision"
+        libelle={t("Votre décision", "Your decision")}
         required
-        invite="Choisir…"
-        options={OPTIONS_DECISION}
+        invite={t("Choisir…", "Choose…")}
+        options={optionsDecision}
         value={s.decision}
         onChange={(e) => setS((x) => ({ ...x, decision: e.target.value }))}
         erreur={f.erreurs.decision}
       />
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         required
         rows={2}
         maxLength={ARBITRAGE_MOTIF_MAX}
         value={s.motif}
         onChange={(e) => setS((x) => ({ ...x, motif: e.target.value }))}
         erreur={f.erreurs.motif}
-        aide="Conservé avec votre nom et la date. Corriger la preuve plus tard rouvre la contradiction."
+        aide={t(
+          "Conservé avec votre nom et la date. Corriger la preuve plus tard rouvre la contradiction.",
+          "Kept with your name and the date. Correcting the evidence later reopens the contradiction.",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer l&apos;arbitrage
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer l'arbitrage", "Save the arbitration")}
         </Bouton>
       </div>
     </form>
@@ -231,15 +268,20 @@ export function FormulaireArbitrage({ assertionId, preuveId }: FormulaireArbitra
 
 /** Déclarer une dimension (axe d'analyse) de la mission : base de la carte de triangulation. */
 export function FormulaireDimension({ missionId }: { missionId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampDimension>();
   const [s, setS] = useState<SaisieDimension>({ libelle: "", code: "" });
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      validerDimension(s),
+      validerDimension(s, langue),
       (charge) => api.post(cheminDimensions(missionId), charge),
-      { succes: "Dimension ajoutée.", messageSpecifique: messagePreuves },
+      {
+        succes: t("Dimension ajoutée.", "Dimension added."),
+        messageSpecifique: (e) => messagePreuves(e, langue),
+      },
     );
     if (ok) setS({ libelle: "", code: "" });
   }
@@ -250,26 +292,29 @@ export function FormulaireDimension({ missionId }: { missionId: string }) {
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvelle dimension"
+      aria-label={t("Nouvelle dimension", "New dimension")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Dimension refusée"
+        titreErreur={t("Dimension refusée", "Dimension rejected")}
       />
       <Champ
-        libelle="Dimension"
+        libelle={t("Dimension", "Dimension")}
         required
         maxLength={LIBELLE_DIMENSION_MAX}
         value={s.libelle}
         onChange={(e) => setS((x) => ({ ...x, libelle: e.target.value }))}
         erreur={f.erreurs.libelle}
-        aide="Un axe d'analyse de la mission : gouvernance, finance, ressources humaines…"
+        aide={t(
+          "Un axe d'analyse de la mission : gouvernance, finance, ressources humaines…",
+          "An analysis axis of the engagement: governance, finance, human resources…",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter la dimension
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Ajout…", "Adding…")}>
+          {t("Ajouter la dimension", "Add the dimension")}
         </Bouton>
       </div>
     </form>
@@ -284,6 +329,8 @@ export function BoutonActivationDimension({
   missionId: string;
   dimension: DimensionVue;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -295,7 +342,7 @@ export function BoutonActivationDimension({
       await api.patch(cheminDimension(missionId, dimension.id), { actif: !dimension.actif });
       rafraichir();
     } catch (e) {
-      setErreur(messagePreuves(e));
+      setErreur(messagePreuves(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -304,7 +351,7 @@ export function BoutonActivationDimension({
   return (
     <div className="mp-pile">
       <Bouton variante="discret" chargement={enCours} texteChargement="…" onClick={basculer}>
-        {dimension.actif ? "Désactiver" : "Réactiver"}
+        {dimension.actif ? t("Désactiver", "Deactivate") : t("Réactiver", "Reactivate")}
       </Bouton>
       {erreur ? <p className="mp-champ__erreur">{erreur}</p> : null}
     </div>

@@ -6,6 +6,7 @@ import { BoutonConfirmation } from "../../../../components/formulaires/BoutonCon
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useAttenteRafraichissement } from "../../../../components/formulaires/useAttenteRafraichissement";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
+import { useT } from "../../../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
@@ -40,6 +41,7 @@ export function ActionsMission({
   peutSaisirTaux,
   clients,
 }: ActionsMissionProps) {
+  const t = useT();
   const f = useFormulaire<never>();
   const chemin = `/api/missions/${encodeURIComponent(mission.id)}`;
   const [panneau, setPanneau] = useState<"aucun" | "duplication" | "modele">("aucun");
@@ -55,56 +57,67 @@ export function ActionsMission({
   if (rien) return null;
 
   return (
-    <Carte titre="Cycle de vie">
+    <Carte titre={t("Cycle de vie", "Lifecycle")}>
       <div className="mp-pile">
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Action impossible"
+          titreErreur={t("Action impossible", "Action not possible")}
         />
         {signee ? (
-          <Alerte tonalite="succes" titre="Lettre de mission signée">
-            <p>Le budget initial est figé (version 1). Consultez-le dans l&apos;onglet Budget.</p>
+          <Alerte
+            tonalite="succes"
+            titre={t("Lettre de mission signée", "Engagement letter signed")}
+          >
+            <p>
+              {t(
+                "Le budget initial est figé (version 1). Consultez-le dans l'onglet Budget.",
+                "The initial budget is locked (version 1). View it in the Budget tab.",
+              )}
+            </p>
           </Alerte>
         ) : null}
         {attente ? (
           <p className="mp-texte-doux" role="status">
-            Mise à jour de la page…
+            {t("Mise à jour de la page…", "Updating the page…")}
           </p>
         ) : droits.transitions.length > 0 || droits.cloturer ? (
           <div className="mp-barre-actions">
-            {droits.transitions.map((t) => (
+            {droits.transitions.map((tr) => (
               <Bouton
-                key={t.cible}
+                key={tr.cible}
                 variante="secondaire"
                 chargement={f.enCours}
-                texteChargement="Mise à jour…"
+                texteChargement={t("Mise à jour…", "Updating…")}
                 onClick={() =>
                   f.envoyer(
-                    { ok: true, charge: { statut: t.cible } },
+                    { ok: true, charge: { statut: tr.cible } },
                     (c) => api.post(`${chemin}/statut`, c),
                     {
-                      succes: "Statut mis à jour.",
+                      succes: t("Statut mis à jour.", "Status updated."),
                       apres: marquerAttente,
                     },
                   )
                 }
               >
-                {t.libelle}
+                {tr.libelle}
               </Bouton>
             ))}
             {droits.cloturer ? (
               <BoutonConfirmation
-                libelle="Clôturer la mission"
+                libelle={t("Clôturer la mission", "Close the engagement")}
                 icone="cadenas"
                 variante="primaire"
-                question="Clôturer définitivement la mission ? Elle ne pourra plus être modifiée."
-                libelleConfirmation="Oui, clôturer"
-                texteChargement="Clôture…"
+                question={t(
+                  "Clôturer définitivement la mission ? Elle ne pourra plus être modifiée.",
+                  "Permanently close the engagement? It can no longer be modified.",
+                )}
+                libelleConfirmation={t("Oui, clôturer", "Yes, close")}
+                texteChargement={t("Clôture…", "Closing…")}
                 action={() =>
                   f.envoyer({ ok: true, charge: null }, () => api.post(`${chemin}/cloturer`), {
-                    succes: "Mission clôturée.",
+                    succes: t("Mission clôturée.", "Engagement closed."),
                     apres: marquerAttente,
                   })
                 }
@@ -125,11 +138,14 @@ export function ActionsMission({
           ) : (
             <Alerte
               tonalite="attention"
-              titre="Signature impossible pour l'instant"
+              titre={t("Signature impossible pour l'instant", "Signing not possible yet")}
               annonce="aucune"
             >
               <p>
-                Désignez d&apos;abord le directeur de mission (bouton « Modifier » de la fiche).
+                {t(
+                  "Désignez d'abord le directeur de mission (bouton « Modifier » de la fiche).",
+                  "First assign the engagement director (\u201cEdit\u201d button on the overview).",
+                )}
               </p>
             </Alerte>
           )
@@ -144,7 +160,7 @@ export function ActionsMission({
                 aria-expanded={panneau === "duplication"}
                 onClick={() => setPanneau((p) => (p === "duplication" ? "aucun" : "duplication"))}
               >
-                Dupliquer
+                {t("Dupliquer", "Duplicate")}
               </Bouton>
             ) : null}
             {droits.enregistrerModele ? (
@@ -154,7 +170,7 @@ export function ActionsMission({
                 aria-expanded={panneau === "modele"}
                 onClick={() => setPanneau((p) => (p === "modele" ? "aucun" : "modele"))}
               >
-                Enregistrer comme modèle
+                {t("Enregistrer comme modèle", "Save as template")}
               </Bouton>
             ) : null}
           </div>

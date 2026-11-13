@@ -4,13 +4,15 @@ import {
   libelleAnciennete,
   libelleGravite,
   libelleMotifs,
+  libelleElementBrief,
   libelleMontant,
   libelleNombre,
   lienInterne,
   noteTroncature,
-  PRESENTATION_FAMILLE,
+  presentationFamille,
   TONALITE_GRAVITE,
 } from "../../lib/brief";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import { Icone } from "../ui/Icone";
@@ -19,36 +21,38 @@ import { Icone } from "../ui/Icone";
  * Une ligne du brief : libellé (lien vers l'écran concerné), mission liée, ancienneté et, avec
  * `finance.lire` seulement, le montant servi par l'API ; la gravité vient du moteur.
  */
-export function LigneBrief({
+export async function LigneBrief({
   element,
   rejoue = false,
 }: {
   element: ElementBriefApi;
   rejoue?: boolean;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const lien = lienInterne(element.lien);
-  const montant = libelleMontant(element);
+  const montant = libelleMontant(element, langue);
   const motifs = libelleMotifs(element);
   const details = [
     element.mission_libelle,
-    libelleAnciennete(element.anciennete_jours, rejoue),
-    montant ? `Montant : ${montant}` : null,
+    libelleAnciennete(element.anciennete_jours, rejoue, langue),
+    montant ? `${t("Montant :", "Amount:")} ${montant}` : null,
   ].filter((d): d is string => Boolean(d));
   return (
     <li className="mp-alertes-derive__ligne">
       <div className="mp-alertes-derive__texte">
         {lien ? (
           <Link href={lien} className="mp-alertes-derive__lien">
-            {element.libelle}
+            {libelleElementBrief(element, langue)}
           </Link>
         ) : (
-          <span className="mp-alertes-derive__lien">{element.libelle}</span>
+          <span className="mp-alertes-derive__lien">{libelleElementBrief(element, langue)}</span>
         )}
         <span className="mp-texte-doux mp-texte-petit">{details.join(" · ")}</span>
         {motifs ? <span className="mp-texte-doux mp-texte-petit">{motifs}</span> : null}
       </div>
       <BadgeStatut tonalite={TONALITE_GRAVITE[element.gravite]}>
-        {libelleGravite(element.gravite)}
+        {libelleGravite(element.gravite, langue)}
       </BadgeStatut>
     </li>
   );
@@ -58,7 +62,7 @@ export function LigneBrief({
  * Carte d'une famille du brief (« À décider », « Ça dérive », « Prêt à envoyer »). Propriétés
  * sérialisables seulement : la page serveur ne passe aucune fonction.
  */
-export function CarteFamilleBrief({
+export async function CarteFamilleBrief({
   famille,
   donnees,
   rejoue = false,
@@ -67,8 +71,9 @@ export function CarteFamilleBrief({
   donnees: FamilleComposeeBriefApi;
   rejoue?: boolean;
 }) {
-  const p = PRESENTATION_FAMILLE[famille];
-  const note = noteTroncature(donnees);
+  const langue = await obtenirLangue();
+  const p = presentationFamille(famille, langue);
+  const note = noteTroncature(donnees, langue);
   return (
     <Carte
       niveauTitre={2}
@@ -80,7 +85,7 @@ export function CarteFamilleBrief({
       }
       actions={
         <BadgeStatut tonalite={donnees.total > 0 ? "attention" : "succes"} sansIcone>
-          {libelleNombre(donnees.total)}
+          {libelleNombre(donnees.total, langue)}
         </BadgeStatut>
       }
     >

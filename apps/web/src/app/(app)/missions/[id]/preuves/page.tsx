@@ -8,24 +8,28 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../componen
 import { Icone } from "../../../../../components/ui/Icone";
 import { Select } from "../../../../../components/ui/Select";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import {
   cheminDimensions,
   droitsPreuves,
-  FIABILITES,
   hrefNouvellePreuve,
   hrefRegistre,
   hrefRegistreFiltre,
+  libelleFiabiliteApi,
+  libelleTypeSourcePreuve,
   lireParametresRegistre,
   requeteRegistre,
-  TYPE_SOURCE_LIBELLES,
   type DimensionVue,
   type PageApi,
   type PreuveVue,
 } from "../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Registre des preuves" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Registre des preuves", "Evidence register") };
+}
 
 /**
  * Registre des preuves de la mission (PRV-01) : éléments observés (réponse, entretien,
@@ -40,6 +44,8 @@ export default async function PageRegistrePreuves({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await exigerPermission("preuve.lire");
   const r = await chargerMission(id);
   // L'en-tête (layout) affiche déjà l'erreur de chargement de la mission.
@@ -56,14 +62,16 @@ export default async function PageRegistrePreuves({
   return (
     <>
       <p className="mp-texte-doux">
-        Une preuve est un élément observé ; elle se corrige par une nouvelle version, jamais en
-        l&apos;écrasant. L&apos;indice de solidité se lit sur les assertions.
+        {t(
+          "Une preuve est un élément observé ; elle se corrige par une nouvelle version, jamais en l'écrasant. L'indice de solidité se lit sur les assertions.",
+          "Evidence is an observed item; it is corrected with a new version, never by overwriting it. The solidity index is read on the assertions.",
+        )}
       </p>
       {droits.ecrire ? (
         <div>
           <Link href={hrefNouvellePreuve(id)} className={classesBouton("primaire")}>
             <Icone nom="plus" />
-            <span>Nouvelle preuve</span>
+            <span>{t("Nouvelle preuve", "New evidence")}</span>
           </Link>
         </div>
       ) : null}
@@ -73,11 +81,11 @@ export default async function PageRegistrePreuves({
         action={hrefRegistre(id)}
         className="mp-filtres"
         role="search"
-        aria-label="Filtrer les preuves"
+        aria-label={t("Filtrer les preuves", "Filter the evidence")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Champ
-            libelle="Rechercher"
+            libelle={t("Rechercher", "Search")}
             type="search"
             name="q"
             maxLength={100}
@@ -85,30 +93,30 @@ export default async function PageRegistrePreuves({
             autoComplete="off"
           />
           <Select
-            libelle="Type de source"
+            libelle={t("Type de source", "Source type")}
             name="type_source"
-            invite="Tous"
-            options={TYPES_SOURCE_PREUVE.map((t) => ({
-              valeur: t,
-              libelle: TYPE_SOURCE_LIBELLES[t],
+            invite={t("Tous", "All")}
+            options={TYPES_SOURCE_PREUVE.map((type) => ({
+              valeur: type,
+              libelle: libelleTypeSourcePreuve(type, langue),
             }))}
             defaultValue={p.type_source}
           />
           <Select
-            libelle="Fiabilité"
+            libelle={t("Fiabilité", "Reliability")}
             name="fiabilite"
-            invite="Toutes"
-            options={(["A", "B", "C", "D"] as const).map((f) => ({
-              valeur: f,
-              libelle: FIABILITES[f],
+            invite={t("Toutes", "All")}
+            options={(["A", "B", "C", "D"] as const).map((fi) => ({
+              valeur: fi,
+              libelle: libelleFiabiliteApi(fi, langue),
             }))}
             defaultValue={p.fiabilite}
           />
           {dims.length > 0 ? (
             <Select
-              libelle="Dimension"
+              libelle={t("Dimension", "Dimension")}
               name="dimension"
-              invite="Toutes"
+              invite={t("Toutes", "All")}
               options={dims.map((d) => ({ valeur: d.code, libelle: d.libelle }))}
               defaultValue={p.dimension}
             />
@@ -117,39 +125,58 @@ export default async function PageRegistrePreuves({
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("secondaire")}>
             <Icone nom="recherche" />
-            <span>Filtrer</span>
+            <span>{t("Filtrer", "Filter")}</span>
           </button>
         </div>
       </form>
 
       {!page.ok ? (
         <EtatErreur
-          titre="Le registre des preuves n'a pas pu être chargé."
+          titre={t(
+            "Le registre des preuves n'a pas pu être chargé.",
+            "The evidence register could not be loaded.",
+          )}
           message={page.message}
           hrefReessayer={hrefRegistreFiltre(id, p, p.curseur ?? null)}
         />
       ) : page.donnees.elements.length === 0 ? (
         <EtatVide
-          titre={filtre ? "Aucune preuve ne correspond." : "Aucune preuve enregistrée."}
+          titre={
+            filtre
+              ? t("Aucune preuve ne correspond.", "No evidence matches.")
+              : t("Aucune preuve enregistrée.", "No evidence recorded.")
+          }
           icone="dossier"
         >
           <p>
             {filtre
-              ? "Élargissez les filtres pour revoir toutes les preuves de la mission."
+              ? t(
+                  "Élargissez les filtres pour revoir toutes les preuves de la mission.",
+                  "Widen the filters to see all the engagement's evidence again.",
+                )
               : droits.ecrire
-                ? "Enregistrez les réponses, verbatims, observations et documents qui fondent vos conclusions."
-                : "Les preuves de la mission apparaîtront ici dès qu'un consultant les aura enregistrées."}
+                ? t(
+                    "Enregistrez les réponses, verbatims, observations et documents qui fondent vos conclusions.",
+                    "Record the answers, verbatims, observations and documents that underpin your conclusions.",
+                  )
+                : t(
+                    "Les preuves de la mission apparaîtront ici dès qu'un consultant les aura enregistrées.",
+                    "The engagement's evidence will appear here as soon as a consultant has recorded it.",
+                  )}
           </p>
         </EtatVide>
       ) : (
         <>
-          <ul className="mp-preuves-liste" aria-label="Preuves de la mission">
+          <ul
+            className="mp-preuves-liste"
+            aria-label={t("Preuves de la mission", "Engagement evidence")}
+          >
             {page.donnees.elements.map((preuve) => (
               <LignePreuve key={preuve.id} missionId={id} preuve={preuve} dimensions={dims} />
             ))}
           </ul>
           <PaginationCurseur
-            libelle="Pagination du registre"
+            libelle={t("Pagination du registre", "Register pagination")}
             hrefSuivante={
               page.donnees.curseur_suivant
                 ? hrefRegistreFiltre(id, p, page.donnees.curseur_suivant)

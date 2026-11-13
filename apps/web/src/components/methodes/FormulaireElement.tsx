@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import {
-  TYPE_ELEMENT_LIBELLES,
-  TYPES_ELEMENT_METHODE,
-  type TypeElementMethode,
-} from "@missionpilot/shared";
+import { TYPES_ELEMENT_METHODE, type TypeElementMethode } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import { codeDepuisLibelle, messageMethodes, type ElementVersion } from "../../lib/methodes";
+import { libelleTypeElement } from "../../lib/methodes-apercu";
 import {
   saisieDepuisElement,
   saisieElementVide,
@@ -16,6 +13,7 @@ import {
   type ChampElement,
   type SaisieElement,
 } from "../../lib/methodes-editeur";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -37,6 +35,8 @@ export function FormulaireElement({
   briques: { id: string; libelle: string }[];
   element?: ElementVersion;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampElement>();
   const [s, setS] = useState<SaisieElement>(
     element ? saisieDepuisElement(element) : saisieElementVide(),
@@ -48,15 +48,19 @@ export function FormulaireElement({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (element) {
-      await f.envoyer(validerElementModification(s), (c) => api.patch(`${base}/${element.id}`, c), {
-        succes: "Élément modifié.",
-        messageSpecifique: messageMethodes,
-      });
+      await f.envoyer(
+        validerElementModification(s, langue),
+        (c) => api.patch(`${base}/${element.id}`, c),
+        {
+          succes: t("Élément modifié.", "Element updated."),
+          messageSpecifique: (e) => messageMethodes(e, langue),
+        },
+      );
       return;
     }
-    const ok = await f.envoyer(validerElementCreation(s), (c) => api.post(base, c), {
-      succes: "Élément ajouté.",
-      messageSpecifique: messageMethodes,
+    const ok = await f.envoyer(validerElementCreation(s, langue), (c) => api.post(base, c), {
+      succes: t("Élément ajouté.", "Element added."),
+      messageSpecifique: (e) => messageMethodes(e, langue),
     });
     if (ok) setS((x) => ({ ...saisieElementVide(), type: x.type, brique_id: x.brique_id }));
   }
@@ -66,18 +70,18 @@ export function FormulaireElement({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Select
-          libelle="Type"
+          libelle={t("Type", "Type")}
           value={s.type}
           disabled={Boolean(element)}
-          aide={element ? "Le type ne change pas." : undefined}
+          aide={element ? t("Le type ne change pas.", "The type does not change.") : undefined}
           onChange={(e) => maj("type", e.target.value as TypeElementMethode)}
-          options={TYPES_ELEMENT_METHODE.map((t) => ({
-            valeur: t,
-            libelle: TYPE_ELEMENT_LIBELLES[t],
+          options={TYPES_ELEMENT_METHODE.map((te) => ({
+            valeur: te,
+            libelle: libelleTypeElement(te, langue),
           }))}
         />
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           required
           value={s.libelle}
           maxLength={200}
@@ -88,26 +92,26 @@ export function FormulaireElement({
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle="Code"
+          libelle={t("Code", "Code")}
           required
           value={s.code}
           maxLength={120}
           spellCheck={false}
           readOnly={Boolean(element)}
-          aide={element ? "Le code ne change pas." : undefined}
+          aide={element ? t("Le code ne change pas.", "The code does not change.") : undefined}
           onChange={(e) => maj("code", e.target.value)}
           erreur={f.erreurs.code}
         />
         <Select
-          libelle="Brique"
+          libelle={t("Brique", "Building block")}
           value={s.brique_id}
           onChange={(e) => maj("brique_id", e.target.value)}
-          invite="Aucune"
+          invite={t("Aucune", "None")}
           options={briques.map((b) => ({ valeur: b.id, libelle: b.libelle }))}
         />
       </div>
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={2000}
         value={s.description}
@@ -115,14 +119,14 @@ export function FormulaireElement({
         erreur={f.erreurs.description}
       />
       <CaseACocher
-        libelle="Actif par défaut"
+        libelle={t("Actif par défaut", "Active by default")}
         checked={s.actif_par_defaut}
         onChange={(e) => maj("actif_par_defaut", e.target.checked)}
       />
       {s.type === "item" ? (
         <CaseACocher
-          libelle="Item essentiel"
-          aide="Conservé par le questionnaire réduit."
+          libelle={t("Item essentiel", "Essential item")}
+          aide={t("Conservé par le questionnaire réduit.", "Kept by the short questionnaire.")}
           checked={s.essentiel}
           onChange={(e) => maj("essentiel", e.target.checked)}
         />
@@ -132,9 +136,11 @@ export function FormulaireElement({
           type="submit"
           icone={element ? "succes" : "plus"}
           chargement={f.enCours}
-          texteChargement={element ? "Enregistrement…" : "Ajout…"}
+          texteChargement={element ? t("Enregistrement…", "Saving…") : t("Ajout…", "Adding…")}
         >
-          {element ? "Enregistrer l'élément" : "Ajouter l'élément"}
+          {element
+            ? t("Enregistrer l'élément", "Save the element")
+            : t("Ajouter l'élément", "Add the element")}
         </Bouton>
       </div>
     </form>

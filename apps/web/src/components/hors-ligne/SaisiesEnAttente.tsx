@@ -12,6 +12,7 @@ import {
 } from "../../lib/hors-ligne/file-temps";
 import { abonner, obtenirMagasin } from "../../lib/hors-ligne/magasins";
 import { libelleDateCourte } from "../../lib/semaine";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { DecisionSaisie } from "./DecisionSaisie";
 
@@ -27,6 +28,8 @@ export interface SaisiesEnAttenteProps {
  * est vide. Les saisies d'un autre compte sont retirées (appareil partagé).
  */
 export function SaisiesEnAttente({ utilisateurId, feuilleCouranteId }: SaisiesEnAttenteProps) {
+  const t = useT();
+  const langue = useLangue();
   const [entrees, setEntrees] = useState<SaisieEnAttente[]>([]);
 
   const actualiser = useCallback(async () => {
@@ -74,12 +77,15 @@ export function SaisiesEnAttente({ utilisateurId, feuilleCouranteId }: SaisiesEn
   return (
     <section className="mp-pile" aria-labelledby="saisies-en-attente-titre">
       <h2 id="saisies-en-attente-titre" className="mp-visuellement-cache">
-        Saisies gardées sur cet appareil
+        {t("Saisies gardées sur cet appareil", "Entries kept on this device")}
       </h2>
       {enAttente.length > 0 ? (
-        <Alerte tonalite="info" titre={libelleNombreEnAttente(enAttente.length)}>
+        <Alerte tonalite="info" titre={libelleNombreEnAttente(enAttente.length, langue)}>
           <p>
-            {`Semaine(s) du ${enAttente.map((e) => libelleDateCourte(e.semaine)).join(", ")} : envoi automatique au retour du réseau.`}
+            {t(
+              `Semaine(s) du ${enAttente.map((e) => libelleDateCourte(e.semaine, langue)).join(", ")} : envoi automatique au retour du réseau.`,
+              `Week(s) of ${enAttente.map((e) => libelleDateCourte(e.semaine, langue)).join(", ")}: sent automatically when the network returns.`,
+            )}
           </p>
         </Alerte>
       ) : null}

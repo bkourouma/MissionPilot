@@ -1,5 +1,15 @@
 import { Squelette } from "../../../../../components/ui/Squelette";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 
-export default function Chargement() {
-  return <Squelette lignes={6} libelle="Chargement des questionnaires de la mission…" />;
+export default async function Chargement() {
+  const t = await obtenirT();
+  return (
+    <Squelette
+      lignes={6}
+      libelle={t(
+        "Chargement des questionnaires de la mission…",
+        "Loading the engagement questionnaires…",
+      )}
+    />
+  );
 }

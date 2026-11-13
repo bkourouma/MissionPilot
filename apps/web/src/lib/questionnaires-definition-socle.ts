@@ -3,6 +3,7 @@ import {
   ECHELLE_ACCORD,
   ECHELLE_MATURITE,
   type ConditionAffichage,
+  type Langue,
   type DefinitionQuestionnaireDonnees,
   type QuestionQuestionnaire,
   type SectionQuestionnaire,
@@ -50,6 +51,19 @@ export const MODELES_QUESTION = [
   "texte",
   "date",
 ] as const;
+
+/** Libellé d'une échelle de départ dans la langue demandée. */
+export const libelleEchelleType = (
+  id: (typeof ECHELLES_TYPES)[number]["id"],
+  langue: Langue = "fr",
+) =>
+  id === "accord"
+    ? langue === "en"
+      ? "Agreement scale"
+      : "Échelle d'accord"
+    : langue === "en"
+      ? "Maturity scale"
+      : "Échelle de maturité";
 export type ModeleQuestion = (typeof MODELES_QUESTION)[number];
 
 export const MODELE_QUESTION: Record<ModeleQuestion, { libelle: string; aide: string }> = {
@@ -68,6 +82,27 @@ export const MODELE_QUESTION: Record<ModeleQuestion, { libelle: string; aide: st
   texte: { libelle: "Texte libre", aide: "Réponse rédigée, longueur maximale réglable." },
   date: { libelle: "Date", aide: "Date, avec bornes facultatives." },
 };
+
+export const MODELE_QUESTION_EN: Record<ModeleQuestion, { libelle: string; aide: string }> = {
+  likert: {
+    libelle: "Scale (Likert)",
+    aide: 'From 2 to 10 labeled levels, e.g. from "Strongly disagree" to "Strongly agree".',
+  },
+  choix_unique: { libelle: "Single choice", aide: "A single answer among the proposed options." },
+  choix_multiple: {
+    libelle: "Multiple choice",
+    aide: "Several answers possible, with a minimum and a maximum.",
+  },
+  oui_non: { libelle: "Yes / no", aide: "Binary answer." },
+  pourcentage: { libelle: "Percentage", aide: "Number from 0 to 100%." },
+  numerique: { libelle: "Number", aide: "Numeric value, with optional bounds and unit." },
+  texte: { libelle: "Free text", aide: "Written answer, adjustable maximum length." },
+  date: { libelle: "Date", aide: "Date, with optional bounds." },
+};
+
+/** Libellé et aide d'un type de question dans la langue demandée. */
+export const modeleQuestionTexte = (m: ModeleQuestion, langue: Langue = "fr") =>
+  (langue === "en" ? MODELE_QUESTION_EN : MODELE_QUESTION)[m];
 
 export const estModeleQuestion = (v: string): v is ModeleQuestion =>
   (MODELES_QUESTION as readonly string[]).includes(v);

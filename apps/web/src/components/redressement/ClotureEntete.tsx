@@ -1,55 +1,78 @@
 import type { RedClotureVue } from "@missionpilot/shared";
 import { formaterDate, formaterDateHeure, formaterNombre } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
   libelleStatutCloture,
+  textesCloture,
   tonaliteStatutCloture,
-  TEXTE_CLOTURE_EVOLUTION,
 } from "../../lib/redressement-cloture";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 
 /** Bilan courant : statut, dates, auteurs et décompte des évolutions (déjà calculé par le moteur). */
-export function ClotureEntete({ bilan }: { bilan: RedClotureVue }) {
+export async function ClotureEntete({ bilan }: { bilan: RedClotureVue }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const s = bilan.contenu.synthese;
+  const nb = (v: number) => formaterNombre(v, 0, langue);
+  const dateRef = formaterDate(bilan.date_reference, "UTC", langue);
+  const creeLe = formaterDateHeure(bilan.cree_le, undefined, langue);
   return (
-    <Carte titre={`Bilan de clôture, version ${bilan.version}`} niveauTitre={2}>
+    <Carte
+      titre={t(
+        `Bilan de clôture, version ${bilan.version}`,
+        `Close-out review, version ${bilan.version}`,
+      )}
+      niveauTitre={2}
+    >
       <div className="mp-pile">
         <p className="mp-clo-meta">
           <BadgeStatut tonalite={tonaliteStatutCloture(bilan.statut)}>
-            {libelleStatutCloture(bilan.statut)}
+            {libelleStatutCloture(bilan.statut, langue)}
           </BadgeStatut>
-          <span>{`État au ${formaterDate(bilan.date_reference)}`}</span>
+          <span>{t(`État au ${dateRef}`, `State as of ${dateRef}`)}</span>
           <span className="mp-texte-doux">
-            {`Établi par ${bilan.cree_par.nom} le ${formaterDateHeure(bilan.cree_le)}`}
+            {t(
+              `Établi par ${bilan.cree_par.nom} le ${creeLe}`,
+              `Prepared by ${bilan.cree_par.nom} on ${creeLe}`,
+            )}
           </span>
           {bilan.valide_par && bilan.valide_le ? (
             <span className="mp-texte-doux">
-              {`Validé par ${bilan.valide_par.nom} le ${formaterDateHeure(bilan.valide_le)}`}
+              {t(
+                `Validé par ${bilan.valide_par.nom} le ${formaterDateHeure(bilan.valide_le, undefined, langue)}`,
+                `Approved by ${bilan.valide_par.nom} on ${formaterDateHeure(bilan.valide_le, undefined, langue)}`,
+              )}
             </span>
           ) : null}
         </p>
-        {bilan.motif ? <p className="mp-texte-doux">{`Motif : ${bilan.motif}`}</p> : null}
-        <dl className="mp-clo-compteurs" aria-label="Synthèse des évolutions">
+        {bilan.motif ? (
+          <p className="mp-texte-doux">{`${t("Motif :", "Reason:")} ${bilan.motif}`}</p>
+        ) : null}
+        <dl
+          className="mp-clo-compteurs"
+          aria-label={t("Synthèse des évolutions", "Summary of changes")}
+        >
           <div>
-            <dt>Améliorations</dt>
-            <dd>{formaterNombre(s.ameliorations, 0)}</dd>
+            <dt>{t("Améliorations", "Improvements")}</dt>
+            <dd>{nb(s.ameliorations)}</dd>
           </div>
           <div>
-            <dt>Dégradations</dt>
-            <dd>{formaterNombre(s.degradations, 0)}</dd>
+            <dt>{t("Dégradations", "Deteriorations")}</dt>
+            <dd>{nb(s.degradations)}</dd>
           </div>
           <div>
-            <dt>Stables</dt>
-            <dd>{formaterNombre(s.stables, 0)}</dd>
+            <dt>{t("Stables", "Stable")}</dt>
+            <dd>{nb(s.stables)}</dd>
           </div>
           <div>
-            <dt>Non comparables</dt>
-            <dd>{formaterNombre(s.non_comparables, 0)}</dd>
+            <dt>{t("Non comparables", "Not comparable")}</dt>
+            <dd>{nb(s.non_comparables)}</dd>
           </div>
         </dl>
         <Alerte tonalite="info" annonce="aucune">
-          <p>{TEXTE_CLOTURE_EVOLUTION}</p>
+          <p>{textesCloture(langue).evolution}</p>
         </Alerte>
       </div>
     </Carte>

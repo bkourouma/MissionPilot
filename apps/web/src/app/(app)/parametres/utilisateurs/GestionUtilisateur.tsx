@@ -2,16 +2,20 @@
 
 import { useState, type FormEvent } from "react";
 import { BoutonConfirmation } from "../../../../components/formulaires/BoutonConfirmation";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { GroupeCases } from "../../../../components/ui/CaseACocher";
 import { api } from "../../../../lib/api";
-import { peutReinitialiserTfa } from "../../../../lib/double-authentification";
+import {
+  messageSpecifiqueLangue,
+  peutReinitialiserTfa,
+} from "../../../../lib/double-authentification";
 import { ReinitialisationTfa } from "./ReinitialisationTfa";
 import {
   messageModificationUtilisateur,
-  OPTIONS_ROLES,
+  optionsRoles,
   rolesValides,
   validerRoles,
   type Utilisateur,
@@ -26,23 +30,28 @@ export interface GestionUtilisateurProps {
 
 /** Changement de rôles et activation d'un compte (refus « dernier associé » expliqué). */
 export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUtilisateurProps) {
+  const t = useT();
+  const langue = useLangue();
   const [ouvert, setOuvert] = useState(false);
   const [roles, setRoles] = useState<string[]>(utilisateur.roles);
   const f = useFormulaire<"roles">();
   const activation = useFormulaire<never>();
   const chemin = `/api/utilisateurs/${encodeURIComponent(utilisateur.id)}`;
 
+  const specifique = (e: unknown) =>
+    messageModificationUtilisateur(e, langue) ?? messageSpecifiqueLangue(langue)(e);
+
   async function enregistrerRoles(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const erreur = validerRoles(roles);
+    const erreur = validerRoles(roles, langue);
     await f.envoyer(
       erreur
         ? { ok: false, erreurs: { roles: erreur } }
         : { ok: true, charge: rolesValides(roles) },
       (r) => api.patch(chemin, { roles: r }),
       {
-        succes: `Rôles de ${utilisateur.nom} enregistrés.`,
-        messageSpecifique: messageModificationUtilisateur,
+        succes: t(`Rôles de ${utilisateur.nom} enregistrés.`, `Roles of ${utilisateur.nom} saved.`),
+        messageSpecifique: specifique,
       },
     );
   }
@@ -51,7 +60,7 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
     activation.envoyer(
       { ok: true, charge: { actif: !utilisateur.actif } },
       (c) => api.patch(chemin, c),
-      { messageSpecifique: messageModificationUtilisateur },
+      { messageSpecifique: specifique },
     );
 
   return (
@@ -59,7 +68,7 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
       <RetourFormulaire
         erreur={activation.erreurGlobale}
         refAlerte={activation.refAlerte}
-        titreErreur="Modification impossible"
+        titreErreur={t("Modification impossible", "Unable to update")}
       />
       <div className="mp-barre-actions">
         <Bouton
@@ -67,32 +76,47 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
           icone="crayon"
           aria-expanded={ouvert}
           onClick={() => setOuvert((v) => !v)}
-          aria-label={`Modifier les rôles de ${utilisateur.nom}`}
+          aria-label={t(
+            `Modifier les rôles de ${utilisateur.nom}`,
+            `Edit roles of ${utilisateur.nom}`,
+          )}
         >
-          Modifier les rôles
+          {t("Modifier les rôles", "Edit roles")}
         </Bouton>
         {utilisateur.actif ? (
           <BoutonConfirmation
-            libelle="Désactiver"
-            ariaLabel={`Désactiver le compte de ${utilisateur.nom}`}
+            libelle={t("Désactiver", "Deactivate")}
+            ariaLabel={t(
+              `Désactiver le compte de ${utilisateur.nom}`,
+              `Deactivate the account of ${utilisateur.nom}`,
+            )}
             question={
               estSoiMeme
-                ? "Désactiver votre propre compte ? Vous serez déconnecté."
-                : `Désactiver le compte de ${utilisateur.nom} ? Ses sessions seront fermées.`
+                ? t(
+                    "Désactiver votre propre compte ? Vous serez déconnecté.",
+                    "Deactivate your own account? You will be signed out.",
+                  )
+                : t(
+                    `Désactiver le compte de ${utilisateur.nom} ? Ses sessions seront fermées.`,
+                    `Deactivate the account of ${utilisateur.nom}? Their sessions will be closed.`,
+                  )
             }
-            libelleConfirmation="Oui, désactiver"
-            texteChargement="Désactivation…"
+            libelleConfirmation={t("Oui, désactiver", "Yes, deactivate")}
+            texteChargement={t("Désactivation…", "Deactivating…")}
             action={basculerActif}
           />
         ) : (
           <Bouton
             variante="secondaire"
             chargement={activation.enCours}
-            texteChargement="Réactivation…"
+            texteChargement={t("Réactivation…", "Reactivating…")}
             onClick={basculerActif}
-            aria-label={`Réactiver le compte de ${utilisateur.nom}`}
+            aria-label={t(
+              `Réactiver le compte de ${utilisateur.nom}`,
+              `Reactivate the account of ${utilisateur.nom}`,
+            )}
           >
-            Réactiver
+            {t("Réactiver", "Reactivate")}
           </Bouton>
         )}
       </div>
@@ -108,17 +132,21 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
         >
           <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
           <GroupeCases
-            legende={`Rôles de ${utilisateur.nom}`}
+            legende={t(`Rôles de ${utilisateur.nom}`, `Roles of ${utilisateur.nom}`)}
             nom={`roles-${utilisateur.id}`}
             requis
-            options={OPTIONS_ROLES}
+            options={optionsRoles(langue)}
             valeurs={roles}
             onChange={setRoles}
             erreur={f.erreurs.roles}
           />
           <div className="mp-actions-formulaire">
-            <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-              Enregistrer les rôles
+            <Bouton
+              type="submit"
+              chargement={f.enCours}
+              texteChargement={t("Enregistrement…", "Saving…")}
+            >
+              {t("Enregistrer les rôles", "Save roles")}
             </Bouton>
             <Bouton
               variante="discret"
@@ -127,7 +155,7 @@ export function GestionUtilisateur({ utilisateur, estSoiMeme, moiId }: GestionUt
                 setOuvert(false);
               }}
             >
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>

@@ -4,6 +4,7 @@
  * de la fin communs ; repli sur les lignes pour un long texte, `null` au-delà (comparaison trop
  * coûteuse pour le navigateur d'un téléphone). Logique pure, testée dans `ia-diff.test.ts`.
  */
+import type { Langue } from "@missionpilot/shared";
 
 export type NatureSegment = "egal" | "ajout" | "retrait";
 
@@ -119,17 +120,26 @@ export function resumeDiff(segments: readonly SegmentDiff[]): { ajouts: number; 
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
 /** « 3 mots ajoutés, 1 mot retiré » ; « Texte identique » sans changement. */
-export function libelleResumeDiff(segments: readonly SegmentDiff[]): string {
+export function libelleResumeDiff(segments: readonly SegmentDiff[], langue: Langue = "fr"): string {
+  const en = langue === "en";
   const { ajouts, retraits } = resumeDiff(segments);
   const changementEspaces = segments.some((s) => s.nature !== "egal");
   if (ajouts === 0 && retraits === 0) {
-    return changementEspaces
-      ? "Seuls des espaces ou des retours à la ligne changent."
-      : "Texte identique.";
+    if (changementEspaces) {
+      return en
+        ? "Only spaces or line breaks change."
+        : "Seuls des espaces ou des retours à la ligne changent.";
+    }
+    return en ? "Identical text." : "Texte identique.";
   }
   const parties: string[] = [];
-  if (ajouts > 0) parties.push(`${pluriel(ajouts, "mot")} ${ajouts > 1 ? "ajoutés" : "ajouté"}`);
-  if (retraits > 0)
-    parties.push(`${pluriel(retraits, "mot")} ${retraits > 1 ? "retirés" : "retiré"}`);
+  if (en) {
+    if (ajouts > 0) parties.push(`${pluriel(ajouts, "word")} added`);
+    if (retraits > 0) parties.push(`${pluriel(retraits, "word")} removed`);
+  } else {
+    if (ajouts > 0) parties.push(`${pluriel(ajouts, "mot")} ${ajouts > 1 ? "ajoutés" : "ajouté"}`);
+    if (retraits > 0)
+      parties.push(`${pluriel(retraits, "mot")} ${retraits > 1 ? "retirés" : "retiré"}`);
+  }
   return `${parties.join(", ")}.`;
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useT, useLangue } from "../../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
 import { Alerte } from "../../../../../components/ui/Alerte";
@@ -17,6 +18,7 @@ import { Squelette } from "../../../../../components/ui/Squelette";
 import { api, messageErreur } from "../../../../../lib/api";
 import {
   AIDE_MODE,
+  AIDE_MODE_EN,
   aideAucunRepondant,
   cheminModeles,
   cheminRepondantsEligibles,
@@ -28,12 +30,13 @@ import {
   messageCreationEnvoi,
   messageRepondantsEligibles,
   modelesEnvoyables,
-  OPTIONS_MODES,
+  optionsModes,
   PAGES_MAX_REPONDANTS,
   rolesRepondant,
   SAISIE_ENVOI_VIDE,
   TAILLE_PAGE_CHOIX,
   TITRE_AUCUN_REPONDANT,
+  TITRE_AUCUN_REPONDANT_EN,
   toutesLesPages,
   validerEnvoi,
   type ChampEnvoi,
@@ -58,12 +61,13 @@ export interface PreparationEnvoiProps {
 
 /** Bouton « Préparer un envoi » et formulaire, chargé à l'ouverture (connexion épargnée). */
 export function PreparationEnvoi(props: PreparationEnvoiProps) {
+  const t = useT();
   const [ouvert, setOuvert] = useState(false);
   if (!ouvert) {
     return (
       <div>
         <Bouton icone="envoyer" onClick={() => setOuvert(true)}>
-          Préparer un envoi
+          {t("Préparer un envoi", "Prepare a sending")}
         </Bouton>
       </div>
     );
@@ -71,7 +75,7 @@ export function PreparationEnvoi(props: PreparationEnvoiProps) {
   return (
     <section className="mp-sous-formulaire mp-pile" aria-labelledby="titre-preparation">
       <h2 id="titre-preparation" className="mp-sous-formulaire__titre">
-        Préparer l'envoi d'un questionnaire
+        {t("Préparer l'envoi d'un questionnaire", "Prepare the sending of a questionnaire")}
       </h2>
       <FormulaireEnvoi {...props} onAnnuler={() => setOuvert(false)} />
     </section>
@@ -94,6 +98,8 @@ function FormulaireEnvoi({
   hrefPortail,
   onAnnuler,
 }: PreparationEnvoiProps & { onAnnuler: () => void }) {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const [etat, setEtat] = useState<Chargement>({ phase: "chargement" });
   const [actualisation, setActualisation] = useState(false);
@@ -115,9 +121,9 @@ function FormulaireEnvoi({
       setS((x) => ({ ...x, repondants: garderRepondants(x.repondants, r.elements) }));
       return { ok: true, elements: r.elements, tronquee: r.tronquee };
     } catch (e) {
-      return { ok: false, message: messageRepondantsEligibles(e) };
+      return { ok: false, message: messageRepondantsEligibles(e, langue) };
     }
-  }, [missionId]);
+  }, [missionId, langue]);
 
   const charger = useCallback(async () => {
     setEtat({ phase: "chargement" });
@@ -153,21 +159,27 @@ function FormulaireEnvoi({
 
   if (etat.phase === "chargement") {
     return (
-      <Squelette lignes={5} libelle="Chargement des questionnaires validés et des répondants…" />
+      <Squelette
+        lignes={5}
+        libelle={t(
+          "Chargement des questionnaires validés et des répondants…",
+          "Loading approved questionnaires and respondents…",
+        )}
+      />
     );
   }
   if (etat.phase === "erreur") {
     return (
       <div className="mp-pile">
-        <Alerte tonalite="danger" titre="Préparation impossible">
+        <Alerte tonalite="danger" titre={t("Préparation impossible", "Preparation impossible")}>
           <p>{etat.message}</p>
         </Alerte>
         <div className="mp-barre-actions">
           <Bouton variante="secondaire" onClick={() => void charger()}>
-            Réessayer
+            {t("Réessayer", "Try again")}
           </Bouton>
           <Bouton variante="discret" onClick={onAnnuler}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         </div>
       </div>
@@ -176,18 +188,25 @@ function FormulaireEnvoi({
   if (etat.versions.length === 0) {
     return (
       <EtatVide
-        titre="Aucun questionnaire validé à envoyer."
+        titre={t("Aucun questionnaire validé à envoyer.", "No approved questionnaire to send.")}
         icone="bulle"
         action={
           <div className="mp-barre-actions">
-            <Link href="/questionnaires">Préparer et valider un modèle</Link>
+            <Link href="/questionnaires">
+              {t("Préparer et valider un modèle", "Prepare and approve a template")}
+            </Link>
             <Bouton variante="discret" onClick={onAnnuler}>
-              Fermer
+              {t("Fermer", "Close")}
             </Bouton>
           </div>
         }
       >
-        <p>Seule une version validée (figée) d'un modèle du cabinet s'envoie aux répondants.</p>
+        <p>
+          {t(
+            "Seule une version validée (figée) d'un modèle du cabinet s'envoie aux répondants.",
+            "Only an approved (locked) version of a firm template can be sent to respondents.",
+          )}
+        </p>
       </EtatVide>
     );
   }
@@ -210,7 +229,7 @@ function FormulaireEnvoi({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerEnvoi(s, aujourdhui),
+      validerEnvoi(s, aujourdhui, langue),
       async (charge) => {
         try {
           return await api.post<EnvoiDetail>(
@@ -225,7 +244,7 @@ function FormulaireEnvoi({
       },
       {
         rafraichir: false,
-        messageSpecifique: messageCreationEnvoi,
+        messageSpecifique: (e) => messageCreationEnvoi(e, langue),
         apres: (e) => router.push(hrefEnvoi(missionId, e.id)),
       },
     );
@@ -243,40 +262,50 @@ function FormulaireEnvoi({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Préparation impossible"
+        titreErreur={t("Préparation impossible", "Preparation impossible")}
       />
       <p className="mp-indice mp-texte-doux mp-texte-petit">
         <Icone nom="info" taille={16} />
         <span>
-          L'envoi est d'abord créé en brouillon : rien n'est transmis aux répondants avant que vous
-          ne l'envoyiez depuis sa page.
+          {t(
+            "L'envoi est d'abord créé en brouillon : rien n'est transmis aux répondants avant que vous ne l'envoyiez depuis sa page.",
+            "The sending is first created as a draft: nothing is sent to respondents until you send it from its page.",
+          )}
         </span>
       </p>
       <Select
-        libelle="Questionnaire (dernière version validée)"
+        libelle={t(
+          "Questionnaire (dernière version validée)",
+          "Questionnaire (latest approved version)",
+        )}
         name="version_id"
         required
-        invite="Choisir un questionnaire…"
+        invite={t("Choisir un questionnaire…", "Choose a questionnaire…")}
         options={etat.versions}
         value={s.version_id}
         erreur={f.erreurs.version_id}
         aide={
-          etat.tronquee ? "Liste partielle : seuls les premiers modèles sont proposés." : undefined
+          etat.tronquee
+            ? t(
+                "Liste partielle : seuls les premiers modèles sont proposés.",
+                "Partial list: only the first templates are offered.",
+              )
+            : undefined
         }
         onChange={(e) => setS((x) => ({ ...x, version_id: e.target.value }))}
       />
 
       <fieldset className="mp-groupe" aria-invalid={f.erreurs.mode ? true : undefined}>
         <legend className="mp-champ__libelle">
-          Mode de réponse
+          {t("Mode de réponse", "Response mode")}
           <span className="mp-champ__requis">
             {" "}
             <span aria-hidden="true">*</span>
-            <span className="mp-visuellement-cache">(obligatoire)</span>
+            <span className="mp-visuellement-cache">({t("obligatoire", "required")})</span>
           </span>
         </legend>
         <div className="mp-groupe__options">
-          {OPTIONS_MODES.map((o) => (
+          {optionsModes(langue).map((o) => (
             <div key={o.valeur} className="mp-case">
               <input
                 type="radio"
@@ -291,7 +320,7 @@ function FormulaireEnvoi({
               <label htmlFor={`envoi-mode-${o.valeur}`} className="mp-case__libelle">
                 {o.libelle}
                 <span id={`envoi-mode-${o.valeur}-aide`} className="mp-case__aide">
-                  {AIDE_MODE[o.valeur]}
+                  {(langue === "en" ? AIDE_MODE_EN : AIDE_MODE)[o.valeur]}
                 </span>
               </label>
             </div>
@@ -305,11 +334,14 @@ function FormulaireEnvoi({
         aria-describedby={idErreurRepondants}
       >
         <legend className="mp-champ__libelle">
-          {`Répondants de ${clientNom} (${choisis} choisi${choisis > 1 ? "s" : ""})`}
+          {t(
+            `Répondants de ${clientNom} (${choisis} choisi${choisis > 1 ? "s" : ""})`,
+            `Respondents of ${clientNom} (${choisis} selected)`,
+          )}
           <span className="mp-champ__requis">
             {" "}
             <span aria-hidden="true">*</span>
-            <span className="mp-visuellement-cache">(obligatoire)</span>
+            <span className="mp-visuellement-cache">({t("obligatoire", "required")})</span>
           </span>
         </legend>
         <ChoixRepondants
@@ -333,18 +365,24 @@ function FormulaireEnvoi({
 
       <div className="mp-grille-champs">
         <Champ
-          libelle="Date limite"
+          libelle={t("Date limite", "Due date")}
           name="date_limite"
           type="date"
           min={aujourdhui}
           value={s.date_limite}
           erreur={f.erreurs.date_limite}
-          aide="Facultative : rappelée dans les e-mails d'invitation et de relance. Passé ce jour (inclus), le portail refuse toute réponse jusqu'à ce que vous la prolongiez."
+          aide={t(
+            "Facultative : rappelée dans les e-mails d'invitation et de relance. Passé ce jour (inclus), le portail refuse toute réponse jusqu'à ce que vous la prolongiez.",
+            "Optional: mentioned in invitation and reminder emails. After this day (inclusive), the portal rejects any response until you extend it.",
+          )}
           onChange={(e) => setS((x) => ({ ...x, date_limite: e.target.value }))}
         />
         <CaseACocher
-          libelle="Relances automatiques par e-mail"
-          aide="À J+3 puis J+7 après l'envoi, aux seuls répondants qui n'ont pas soumis ; désactivables à tout moment."
+          libelle={t("Relances automatiques par e-mail", "Automatic email reminders")}
+          aide={t(
+            "À J+3 puis J+7 après l'envoi, aux seuls répondants qui n'ont pas soumis ; désactivables à tout moment.",
+            "At D+3 then D+7 after sending, only to respondents who have not submitted; can be turned off at any time.",
+          )}
           checked={s.relances_auto}
           onChange={(e) => setS((x) => ({ ...x, relances_auto: e.target.checked }))}
         />
@@ -355,13 +393,13 @@ function FormulaireEnvoi({
           type="submit"
           icone="plus"
           chargement={f.enCours}
-          texteChargement="Création…"
+          texteChargement={t("Création…", "Creating…")}
           disabled={comptes.length === 0 || actualisation}
         >
-          Créer l'envoi en brouillon
+          {t("Créer l'envoi en brouillon", "Create the sending as a draft")}
         </Bouton>
         <Bouton variante="secondaire" onClick={onAnnuler} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -392,19 +430,27 @@ function ChoixRepondants({
   onChoisir,
   onToutCocher,
 }: ChoixRepondantsProps) {
+  const t = useT();
+  const langue = useLangue();
   const actualiser = (
     <Bouton
       variante="discret"
       onClick={onActualiser}
       chargement={actualisation}
-      texteChargement="Actualisation…"
+      texteChargement={t("Actualisation…", "Refreshing…")}
     >
-      Actualiser la liste
+      {t("Actualiser la liste", "Refresh the list")}
     </Bouton>
   );
   if (!liste.ok) {
     return (
-      <Alerte tonalite="attention" titre="Les répondants n'ont pas pu être chargés.">
+      <Alerte
+        tonalite="attention"
+        titre={t(
+          "Les répondants n'ont pas pu être chargés.",
+          "The respondents could not be loaded.",
+        )}
+      >
         <p>{liste.message}</p>
         <div className="mp-barre-actions mp-barre-actions--compacte">{actualiser}</div>
       </Alerte>
@@ -412,11 +458,19 @@ function ChoixRepondants({
   }
   if (liste.elements.length === 0) {
     return (
-      <Alerte tonalite="attention" titre={TITRE_AUCUN_REPONDANT}>
-        <p>{aideAucunRepondant(hrefPortail !== null)}</p>
+      <Alerte
+        tonalite="attention"
+        titre={langue === "en" ? TITRE_AUCUN_REPONDANT_EN : TITRE_AUCUN_REPONDANT}
+      >
+        <p>{aideAucunRepondant(hrefPortail !== null, langue)}</p>
         <div className="mp-barre-actions mp-barre-actions--compacte">
           {hrefPortail ? (
-            <Link href={hrefPortail}>{`Ouvrir le portail client de ${clientNom}`}</Link>
+            <Link href={hrefPortail}>
+              {t(
+                `Ouvrir le portail client de ${clientNom}`,
+                `Open the client portal of ${clientNom}`,
+              )}
+            </Link>
           ) : null}
           {actualiser}
         </div>
@@ -426,20 +480,29 @@ function ChoixRepondants({
   return (
     <>
       <p className="mp-champ__aide">
-        Dirigeants et contributeurs actifs du portail du client.{" "}
+        {t(
+          "Dirigeants et contributeurs actifs du portail du client.",
+          "Active executives and contributors of the client portal.",
+        )}{" "}
         {saisie.mode === "par_fonction"
-          ? "En mode « par fonction », la fonction de chaque répondant est obligatoire."
-          : "La fonction est facultative dans ce mode."}
+          ? t(
+              "En mode « par fonction », la fonction de chaque répondant est obligatoire.",
+              'In "by role" mode, each respondent\'s role is required.',
+            )
+          : t("La fonction est facultative dans ce mode.", "The role is optional in this mode.")}
         {liste.tronquee
-          ? " Liste partielle : seuls les premiers répondants, par ordre alphabétique, sont proposés."
+          ? t(
+              " Liste partielle : seuls les premiers répondants, par ordre alphabétique, sont proposés.",
+              " Partial list: only the first respondents, in alphabetical order, are offered.",
+            )
           : null}
       </p>
       <div className="mp-barre-actions mp-barre-actions--compacte">
         <Bouton variante="discret" onClick={() => onToutCocher(true)}>
-          Tout cocher
+          {t("Tout cocher", "Select all")}
         </Bouton>
         <Bouton variante="discret" onClick={() => onToutCocher(false)}>
-          Tout décocher
+          {t("Tout décocher", "Deselect all")}
         </Bouton>
         {actualiser}
       </div>
@@ -452,13 +515,13 @@ function ChoixRepondants({
                 name="repondants"
                 value={c.id}
                 libelle={c.nom}
-                aide={`${rolesRepondant(c)} · ${c.email}`}
+                aide={`${rolesRepondant(c, langue)} · ${c.email}`}
                 checked={r.choisi}
                 onChange={(e) => onChoisir(c.id, { choisi: e.target.checked })}
               />
               {r.choisi ? (
                 <Champ
-                  libelle={`Fonction de ${c.nom}`}
+                  libelle={t(`Fonction de ${c.nom}`, `Role of ${c.nom}`)}
                   name={`fonction-${c.id}`}
                   required={saisie.mode === "par_fonction"}
                   maxLength={FONCTION_MAX}
@@ -466,7 +529,9 @@ function ChoixRepondants({
                   value={r.fonction}
                   erreur={erreurs[`fonction.${c.id}`]}
                   aide={
-                    saisie.mode === "par_fonction" ? "Ex. Directeur général, DAF." : "Facultative."
+                    saisie.mode === "par_fonction"
+                      ? t("Ex. Directeur général, DAF.", "E.g. CEO, CFO.")
+                      : t("Facultative.", "Optional.")
                   }
                   onChange={(e) => onChoisir(c.id, { fonction: e.target.value })}
                 />

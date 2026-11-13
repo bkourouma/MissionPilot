@@ -1,3 +1,5 @@
+import { T } from "../i18n/T";
+
 export interface SqueletteProps {
   /** Nombre de lignes de texte simulées. */
   lignes?: number;
@@ -12,14 +14,12 @@ export interface SqueletteProps {
  * d'assistance ; seul `libelle` est annoncé (role="status"). L'animation est coupée si
  * l'utilisateur préfère réduire les animations.
  */
-export function Squelette({
-  lignes = 3,
-  avecTitre = false,
-  libelle = "Chargement…",
-}: SqueletteProps) {
+export function Squelette({ lignes = 3, avecTitre = false, libelle }: SqueletteProps) {
   return (
     <div className="mp-squelette" role="status">
-      <span className="mp-visuellement-cache">{libelle}</span>
+      <span className="mp-visuellement-cache">
+        {libelle ?? <T fr="Chargement…" en="Loading…" />}
+      </span>
       <div aria-hidden="true">
         {avecTitre ? <div className="mp-squelette__forme mp-squelette__titre" /> : null}
         {Array.from({ length: lignes }, (_, i) => (

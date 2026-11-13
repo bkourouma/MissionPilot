@@ -4,7 +4,7 @@
  * Testé dans `periode.test.ts`.
  */
 
-import { ecartJours } from "@missionpilot/shared";
+import { ecartJours, type Langue } from "@missionpilot/shared";
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -65,8 +65,17 @@ export function lirePeriode(
 }
 
 /** Contrôle d'une période saisie dans un formulaire : message français, ou `null` si correcte. */
-export function erreurPeriode(du: string, au: string): string | null {
-  if (!dateValide(du) || !dateValide(au)) return "Saisissez deux dates valides (jj/mm/aaaa).";
-  if (au < du) return "La fin de la période précède son début.";
+export function erreurPeriode(du: string, au: string, langue: Langue = "fr"): string | null {
+  const en = langue === "en";
+  if (!dateValide(du) || !dateValide(au)) {
+    return en
+      ? "Enter two valid dates (dd/mm/yyyy)."
+      : "Saisissez deux dates valides (jj/mm/aaaa).";
+  }
+  if (au < du) {
+    return en
+      ? "The end of the period is before its start."
+      : "La fin de la période précède son début.";
+  }
   return null;
 }

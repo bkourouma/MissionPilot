@@ -10,6 +10,8 @@
 import {
   aPermission,
   CATEGORIES_DEBOURS,
+  creerTraduire,
+  type Langue,
   STATUTS_DEBOURS,
   type CategorieDebours,
   type Role,
@@ -62,10 +64,27 @@ export const CATEGORIE_LIBELLES: Record<CategorieDebours, string> = {
   autre: "Autre",
 };
 
+export const CATEGORIE_LIBELLES_EN: Record<CategorieDebours, string> = {
+  transport: "Transport",
+  hebergement: "Accommodation",
+  restauration: "Meals",
+  per_diem: "Per diem",
+  communication: "Communication",
+  fournitures: "Supplies",
+  sous_traitance_locale: "Local subcontracting",
+  autre: "Other",
+};
+
+export const libelleCategorie = (c: CategorieDebours, langue: Langue = "fr") =>
+  (langue === "en" ? CATEGORIE_LIBELLES_EN : CATEGORIE_LIBELLES)[c];
+
 export const OPTIONS_CATEGORIES = CATEGORIES_DEBOURS.map((c) => ({
   valeur: c,
   libelle: CATEGORIE_LIBELLES[c],
 }));
+
+export const optionsCategories = (langue: Langue = "fr") =>
+  CATEGORIES_DEBOURS.map((c) => ({ valeur: c, libelle: libelleCategorie(c, langue) }));
 
 export const STATUT_DEBOURS: Record<StatutDebours, { libelle: string; tonalite: TonaliteStatut }> =
   {
@@ -75,10 +94,26 @@ export const STATUT_DEBOURS: Record<StatutDebours, { libelle: string; tonalite: 
     rejete: { libelle: "Rejeté", tonalite: "danger" },
   };
 
+export const STATUT_DEBOURS_EN: Record<
+  StatutDebours,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  brouillon: { libelle: "Draft", tonalite: "neutre" },
+  soumis: { libelle: "Submitted", tonalite: "attention" },
+  valide: { libelle: "Approved", tonalite: "succes" },
+  rejete: { libelle: "Rejected", tonalite: "danger" },
+};
+
+export const statutDebours = (s: StatutDebours, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_DEBOURS_EN : STATUT_DEBOURS)[s];
+
 export const OPTIONS_STATUTS_DEBOURS = STATUTS_DEBOURS.map((s) => ({
   valeur: s,
   libelle: STATUT_DEBOURS[s].libelle,
 }));
+
+export const optionsStatutsDebours = (langue: Langue = "fr") =>
+  STATUTS_DEBOURS.map((s) => ({ valeur: s, libelle: statutDebours(s, langue).libelle }));
 
 export const lireStatutDebours = (v: string | string[] | undefined): StatutDebours | "" => {
   const s = Array.isArray(v) ? v[0] : v;
@@ -129,22 +164,36 @@ export interface ChargeDebours {
 export function validerDebours(
   s: SaisieDebours,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<ChargeDebours, ChampDebours> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampDebours, string>> = {};
   if (!estDateIso(s.date) || s.date < "2000-01-01" || s.date > "2100-12-31")
-    erreurs.date = "Saisissez la date de la dépense.";
+    erreurs.date = t("Saisissez la date de la dépense.", "Enter the expense date.");
   if (!(CATEGORIES_DEBOURS as readonly string[]).includes(s.categorie))
-    erreurs.categorie = "Choisissez une catégorie.";
+    erreurs.categorie = t("Choisissez une catégorie.", "Choose a category.");
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Décrivez la dépense (ex. Taxi aéroport – hôtel).";
-  else if (libelle.length > 200) erreurs.libelle = "200 caractères au plus.";
+  if (libelle === "")
+    erreurs.libelle = t(
+      "Décrivez la dépense (ex. Taxi aéroport – hôtel).",
+      "Describe the expense (e.g. Airport taxi – hotel).",
+    );
+  else if (libelle.length > 200)
+    erreurs.libelle = t("200 caractères au plus.", "200 characters maximum.");
   const montant = lireMontant(s.montant, devise);
-  if (montant === null) erreurs.montant = "Saisissez le montant de la dépense.";
+  if (montant === null)
+    erreurs.montant = t("Saisissez le montant de la dépense.", "Enter the expense amount.");
   else if (Number.isNaN(montant) || montant <= 0)
     erreurs.montant =
       devise === "XOF" || devise === "XAF"
-        ? "Montant positif, sans décimale (ex. 15 000)."
-        : "Montant positif, deux décimales au plus (ex. 45,50).";
+        ? t(
+            "Montant positif, sans décimale (ex. 15 000).",
+            "Positive amount, no decimals (e.g. 15,000).",
+          )
+        : t(
+            "Montant positif, deux décimales au plus (ex. 45,50).",
+            "Positive amount, up to two decimals (e.g. 45.50).",
+          );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

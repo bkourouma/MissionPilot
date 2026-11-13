@@ -11,9 +11,11 @@ import {
   TAILLE_FICHIER_MAX_DEFAUT,
   TYPES_FICHIER,
   TYPES_FICHIER_EN_LIGNE,
+  type Langue,
   type TypeFichier,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
+import { LOCALES_INTL } from "@missionpilot/shared";
 
 /** Métadonnées d'un fichier renvoyées par l'API (jamais le contenu). */
 export interface FichierMeta {
@@ -77,34 +79,59 @@ const LIBELLES_TYPES: Record<TypeFichier, string> = {
   "text/plain": "Texte",
 };
 
-/** Libellé français d'un type MIME ; repli sur l'extension du nom. */
-export function libelleType(typeMime: string, nom = ""): string {
-  const connu = LIBELLES_TYPES[typeMime as TypeFichier];
+const LIBELLES_TYPES_EN: Record<TypeFichier, string> = {
+  "application/pdf": "PDF",
+  "image/png": "PNG image",
+  "image/jpeg": "JPEG photo",
+  "image/webp": "WebP image",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel workbook",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "PowerPoint presentation",
+  "text/csv": "CSV file",
+  "text/plain": "Text",
+};
+
+/** Libellé d'un type MIME (français par défaut) ; repli sur l'extension du nom. */
+export function libelleType(typeMime: string, nom = "", langue: Langue = "fr"): string {
+  const en = langue === "en";
+  const connu = (en ? LIBELLES_TYPES_EN : LIBELLES_TYPES)[typeMime as TypeFichier];
   if (connu) return connu;
   const ext = extensionDe(nom);
+  if (en) return ext ? `${ext.toUpperCase()} file` : "File";
   return ext ? `Fichier ${ext.toUpperCase()}` : "Fichier";
 }
 
-const nombreFr = (n: number, decimales: number) =>
-  new Intl.NumberFormat("fr-FR", { maximumFractionDigits: decimales }).format(n);
+const nombreFr = (n: number, decimales: number, langue: Langue = "fr") =>
+  new Intl.NumberFormat(LOCALES_INTL[langue], { maximumFractionDigits: decimales }).format(n);
 
-/** Taille lisible : « 820 octets », « 12 Ko », « 1,4 Mo ». */
-export function formaterTaille(octets: number): string {
+/** Taille lisible : « 820 octets », « 12 Ko », « 1,4 Mo » (« 820 bytes », « 12 KB », « 1.4 MB »). */
+export function formaterTaille(octets: number, langue: Langue = "fr"): string {
+  const en = langue === "en";
   if (!Number.isFinite(octets) || octets < 0) return "—";
-  if (octets < 1024) return `${octets} octet${octets > 1 ? "s" : ""}`;
-  if (octets < 1024 * 1024) return `${nombreFr(Math.max(1, Math.round(octets / 1024)), 0)} Ko`;
-  return `${nombreFr(octets / (1024 * 1024), 1)} Mo`;
+  if (octets < 1024) {
+    return en
+      ? `${octets} byte${octets > 1 ? "s" : ""}`
+      : `${octets} octet${octets > 1 ? "s" : ""}`;
+  }
+  if (octets < 1024 * 1024) {
+    return `${nombreFr(Math.max(1, Math.round(octets / 1024)), 0, langue)} ${en ? "KB" : "Ko"}`;
+  }
+  return `${nombreFr(octets / (1024 * 1024), 1, langue)} ${en ? "MB" : "Mo"}`;
 }
 
 const MO_MAX = Math.floor(TAILLE_MAX_OCTETS / (1024 * 1024));
 
 /** Liste des extensions admises lisible : « PDF, PNG, JPG, JPEG ou WebP ». */
-export function extensionsLisibles(types: readonly TypeFichier[] = TYPES_FICHIER): string {
+export function extensionsLisibles(
+  types: readonly TypeFichier[] = TYPES_FICHIER,
+  langue: Langue = "fr",
+): string {
   const ext = types
     .flatMap((t) => EXTENSIONS_FICHIER[t])
     .map((e) => (e === "webp" ? "WebP" : e.toUpperCase()));
   if (ext.length <= 1) return ext.join("");
-  return `${ext.slice(0, -1).join(", ")} ou ${ext[ext.length - 1]}`;
+  return `${ext.slice(0, -1).join(", ")} ${langue === "en" ? "or" : "ou"} ${ext[ext.length - 1]}`;
 }
 
 export type ControleFichier = { ok: true } | { ok: false; message: string };
@@ -117,12 +144,23 @@ export function controlerFichier(
   f: { name: string; size: number },
   types: readonly TypeFichier[] = TYPES_FICHIER,
   tailleMax: number = TAILLE_MAX_OCTETS,
+  langue: Langue = "fr",
 ): ControleFichier {
-  if (f.size <= 0) return { ok: false, message: "Ce fichier est vide : choisissez-en un autre." };
+  const en = langue === "en";
+  if (f.size <= 0) {
+    return {
+      ok: false,
+      message: en
+        ? "This file is empty: choose another one."
+        : "Ce fichier est vide : choisissez-en un autre.",
+    };
+  }
   if (f.size > tailleMax) {
     return {
       ok: false,
-      message: `Fichier trop volumineux (${formaterTaille(f.size)}) : ${MO_MAX} Mo au plus.`,
+      message: en
+        ? `File too large (${formaterTaille(f.size, langue)}): ${MO_MAX} MB at most.`
+        : `Fichier trop volumineux (${formaterTaille(f.size)}) : ${MO_MAX} Mo au plus.`,
     };
   }
   const ext = extensionDe(f.name);
@@ -130,7 +168,9 @@ export function controlerFichier(
   if (!ext || !admises.includes(ext)) {
     return {
       ok: false,
-      message: `Type de fichier non accepté : choisissez un fichier ${extensionsLisibles(types)}.`,
+      message: en
+        ? `File type not accepted: choose a ${extensionsLisibles(types, langue)} file.`
+        : `Type de fichier non accepté : choisissez un fichier ${extensionsLisibles(types)}.`,
     };
   }
   return { ok: true };
@@ -155,8 +195,32 @@ export function erreurReprenable(e: unknown): boolean {
 }
 
 /** Message français pour une erreur de téléversement, selon le code de l'API. */
-export function messageTeleversement(e: unknown): string {
-  if (!(e instanceof ErreurApi)) return messageErreur(e);
+export function messageTeleversement(e: unknown, langue: Langue = "fr"): string {
+  if (!(e instanceof ErreurApi)) return messageErreur(e, langue);
+  if (langue === "en") {
+    switch (e.code) {
+      case "TYPE_FICHIER_REFUSE":
+        return `The server refused this file: its content does not match an accepted type (${extensionsLisibles(TYPES_FICHIER, langue)}), or it contains active elements. ${e.message}`;
+      case "MULTIPART_ATTENDU":
+        return "Malformed file upload. Reload the page, then choose the file again.";
+      case "FICHIER_TROP_VOLUMINEUX":
+        return `File too large: ${MO_MAX} MB at most. Reduce it (lighter photo, compressed PDF) and try again.`;
+      case "QUOTA_STOCKAGE_ATTEINT":
+        return "The firm's storage space is full: contact a partner to free up space.";
+      case "TELEVERSEMENTS_EN_ATTENTE":
+        return "You have too many uploaded files that are not yet attached. Finish or cancel your pending uploads, then try again.";
+      case "CONTENU_IDENTIQUE":
+        return "This file is identical to the current version of the document: no new version was created.";
+      case "JUSTIFICATIF_PAR_TELEVERSEMENT":
+        return "The supporting document must be uploaded as a file (photo or PDF).";
+      case "RESEAU_INDISPONIBLE":
+      case "DELAI_DEPASSE":
+        return "The upload was interrupted (connection lost or too slow). Your entries are kept: try again when the network is back.";
+      default:
+        if (e.statut === 413) return `File too large: ${MO_MAX} MB at most.`;
+        return messageErreur(e, langue);
+    }
+  }
   switch (e.code) {
     case "TYPE_FICHIER_REFUSE":
       return `Le serveur a refusé ce fichier : son contenu ne correspond pas à un type accepté (${extensionsLisibles()}), ou il contient des éléments actifs. ${e.message}`;

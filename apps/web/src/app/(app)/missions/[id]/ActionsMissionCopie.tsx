@@ -5,6 +5,7 @@ import { useRafraichir } from "../../../../components/formulaires/useRafraichir"
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { Champ } from "../../../../components/ui/Champ";
 import { Select, type OptionSelect } from "../../../../components/ui/Select";
@@ -28,6 +29,8 @@ export function Duplication({
   onFin: () => void;
 }) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [titre, setTitre] = useState(`${intitule} (copie)`.slice(0, 200));
   const [client, setClient] = useState("");
@@ -35,7 +38,7 @@ export function Duplication({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerDuplication(titre, client),
+      validerDuplication(titre, client, langue),
       (c) => api.post<Mission>(`/api/missions/${encodeURIComponent(missionId)}/dupliquer`, c),
       {
         rafraichir: false,
@@ -52,21 +55,25 @@ export function Duplication({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Dupliquer la mission"
+      aria-label={t("Dupliquer la mission", "Duplicate the engagement")}
     >
-      <p className="mp-sous-formulaire__titre">Dupliquer la mission</p>
+      <p className="mp-sous-formulaire__titre">
+        {t("Dupliquer la mission", "Duplicate the engagement")}
+      </p>
       <p className="mp-texte-doux">
-        La copie reprend le découpage, les jours budgétés et les dépendances, sans dates ni budget
-        signé.
+        {t(
+          "La copie reprend le découpage, les jours budgétés et les dépendances, sans dates ni budget signé.",
+          "The copy keeps the work breakdown, budgeted days and dependencies, without dates or signed budget.",
+        )}
       </p>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Duplication impossible"
+        titreErreur={t("Duplication impossible", "Duplication not possible")}
       />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Intitulé de la copie"
+          libelle={t("Intitulé de la copie", "Title of the copy")}
           required
           maxLength={200}
           value={titre}
@@ -74,20 +81,25 @@ export function Duplication({
           erreur={f.erreurs.intitule}
         />
         <Select
-          libelle="Client de la copie"
+          libelle={t("Client de la copie", "Client of the copy")}
           options={clients}
-          invite="Même client"
+          invite={t("Même client", "Same client")}
           value={client}
           onChange={(e) => setClient(e.target.value)}
           erreur={f.erreurs.client_id}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="copie" chargement={f.enCours} texteChargement="Duplication…">
-          Créer la copie
+        <Bouton
+          type="submit"
+          icone="copie"
+          chargement={f.enCours}
+          texteChargement={t("Duplication…", "Duplicating…")}
+        >
+          {t("Créer la copie", "Create the copy")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -104,15 +116,17 @@ export function Modele({
   onFin: () => void;
 }) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const [libelle, setLibelle] = useState(intitule.slice(0, 160));
   const [code, setCode] = useState(codeDepuisLibelle(intitule));
   const f = useFormulaire<"code" | "libelle">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerModele(code, libelle),
+      validerModele(code, libelle, langue),
       (c) => api.post<{ id: string }>(`/api/missions/${encodeURIComponent(missionId)}/modele`, c),
-      { rafraichir: false, apres: (t) => router.push(`/catalogue/${t.id}`) },
+      { rafraichir: false, apres: (cree) => router.push(`/catalogue/${cree.id}`) },
     );
   }
   return (
@@ -121,16 +135,21 @@ export function Modele({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Enregistrer comme modèle"
+      aria-label={t("Enregistrer comme modèle", "Save as template")}
     >
-      <p className="mp-sous-formulaire__titre">Enregistrer comme type de mission</p>
+      <p className="mp-sous-formulaire__titre">
+        {t("Enregistrer comme type de mission", "Save as an engagement type")}
+      </p>
       <p className="mp-texte-doux">
-        Le découpage et les jours par grade deviennent un nouveau type du catalogue.
+        {t(
+          "Le découpage et les jours par grade deviennent un nouveau type du catalogue.",
+          "The work breakdown and days by grade become a new catalog type.",
+        )}
       </p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Code du type"
+          libelle={t("Code du type", "Type code")}
           required
           maxLength={40}
           autoCapitalize="none"
@@ -138,10 +157,13 @@ export function Modele({
           value={code}
           onChange={(e) => setCode(e.target.value)}
           erreur={f.erreurs.code}
-          aide="Minuscules, chiffres et tiret bas."
+          aide={t(
+            "Minuscules, chiffres et tiret bas.",
+            "Lowercase letters, digits and underscores.",
+          )}
         />
         <Champ
-          libelle="Libellé du type"
+          libelle={t("Libellé du type", "Type label")}
           required
           maxLength={160}
           value={libelle}
@@ -154,12 +176,12 @@ export function Modele({
           type="submit"
           icone="livre"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer le modèle
+          {t("Enregistrer le modèle", "Save the template")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

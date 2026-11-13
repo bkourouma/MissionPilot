@@ -4,15 +4,16 @@ import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { api, ErreurApi } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { erreurReprenable, type FichierTeleverse } from "../../lib/fichiers";
 import { televerser } from "../../lib/televersement";
 import {
-  AVERTISSEMENT_TRANSCRIPTION,
+  avertissementTranscription,
   cheminApiAudioTranscription,
   cheminApiTranscriptions,
   hrefTranscription,
   messageErreurTranscription,
-  OPTIONS_LANGUE_TRANSCRIPTION,
+  optionsLangueTranscription,
   validerTranscription,
   type ChampTranscription,
   type ChargeTranscription,
@@ -44,6 +45,8 @@ function retirerOrphelin(id: string | null) {
  */
 export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps) {
   const router = useRouter();
+  const t = useT();
+  const langueUi = useLangue();
   const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [fichier, setFichier] = useState<File | null>(null);
@@ -61,7 +64,7 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
     return (
       <div>
         <Bouton icone="envoyer" onClick={() => setOuvert(true)}>
-          Transcrire un enregistrement
+          {t("Transcrire un enregistrement", "Transcribe a recording")}
         </Bouton>
       </div>
     );
@@ -74,7 +77,7 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
       enAttente.current = null;
       setProgression(0);
       try {
-        const t = await televerser<FichierTeleverse>(
+        const envoye = await televerser<FichierTeleverse>(
           cheminApiAudioTranscription(missionId),
           audio,
           audio.name,
@@ -82,8 +85,8 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
             onProgression: setProgression,
           },
         );
-        fichierId = t.id;
-        enAttente.current = { fichier: audio, id: t.id };
+        fichierId = envoye.id;
+        enAttente.current = { fichier: audio, id: envoye.id };
       } finally {
         setProgression(null);
       }
@@ -108,20 +111,30 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     setErreurFichier(null);
-    const v = validerTranscription({ langue, consenti, reference, dureeMinutes: duree });
+    const v = validerTranscription({ langue, consenti, reference, dureeMinutes: duree }, langueUi);
     if (!fichier) {
       // Le champ audio n'a pas de clé de validation : message sous le sélecteur.
-      setErreurFichier("Choisissez l'enregistrement à transcrire.");
+      setErreurFichier(
+        t("Choisissez l'enregistrement à transcrire.", "Choose the recording to transcribe."),
+      );
       if (v.ok) return;
     }
     await f.envoyer(v, (c) => transcrire(c, fichier as File), {
       rafraichir: false,
-      succes: "Enregistrement envoyé : la transcription est en cours.",
+      succes: t(
+        "Enregistrement envoyé : la transcription est en cours.",
+        "Recording uploaded: the transcription is in progress.",
+      ),
       messageSpecifique: (e) => {
         if (e instanceof ErreurApi && e.code === "TYPE_FICHIER_REFUSE") {
-          setErreurFichier("Enregistrement refusé : en mode simulé, seul un audio de test passe.");
+          setErreurFichier(
+            t(
+              "Enregistrement refusé : en mode simulé, seul un audio de test passe.",
+              "Recording rejected: in simulated mode, only a test audio is accepted.",
+            ),
+          );
         }
-        return messageErreurTranscription(e);
+        return messageErreurTranscription(e, langueUi);
       },
       apres: (r) => {
         if (r && typeof r.id === "string") router.push(hrefTranscription(missionId, r.id));
@@ -137,20 +150,25 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Transcrire un enregistrement"
+      aria-label={t("Transcrire un enregistrement", "Transcribe a recording")}
     >
-      <p className="mp-sous-formulaire__titre">Transcrire un enregistrement</p>
+      <p className="mp-sous-formulaire__titre">
+        {t("Transcrire un enregistrement", "Transcribe a recording")}
+      </p>
       <BandeauSimule>
         <p>
-          Le service de transcription est simulé : il ne décode que des enregistrements de test.
+          {t(
+            "Le service de transcription est simulé : il ne décode que des enregistrements de test.",
+            "The transcription service is simulated: it only decodes test recordings.",
+          )}
         </p>
       </BandeauSimule>
-      <p className="mp-texte-doux">{AVERTISSEMENT_TRANSCRIPTION}</p>
+      <p className="mp-texte-doux">{avertissementTranscription(langueUi)}</p>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Transcription impossible"
+        titreErreur={t("Transcription impossible", "Could not transcribe")}
       />
       <ChoixAudio
         fichier={fichier}
@@ -163,15 +181,15 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
       />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
-          libelle="Langue de l'enregistrement"
+          libelle={t("Langue de l'enregistrement", "Recording language")}
           required
           value={langue}
           onChange={(e) => setLangue(e.target.value)}
-          options={OPTIONS_LANGUE_TRANSCRIPTION}
+          options={optionsLangueTranscription(langueUi)}
           erreur={f.erreurs.langue}
         />
         <Champ
-          libelle="Durée annoncée (minutes, facultatif)"
+          libelle={t("Durée annoncée (minutes, facultatif)", "Stated duration (minutes, optional)")}
           type="number"
           inputMode="numeric"
           min={1}
@@ -179,35 +197,50 @@ export function NouvelleTranscription({ missionId }: NouvelleTranscriptionProps)
           value={duree}
           onChange={(e) => setDuree(e.target.value)}
           erreur={f.erreurs.dureeMinutes}
-          aide="Sans elle, le plafond mensuel compte 30 minutes."
+          aide={t(
+            "Sans elle, le plafond mensuel compte 30 minutes.",
+            "Without it, the monthly limit counts 30 minutes.",
+          )}
         />
       </div>
       <CaseACocher
-        libelle="La personne enregistrée a consenti à l'enregistrement et à sa transcription"
+        libelle={t(
+          "La personne enregistrée a consenti à l'enregistrement et à sa transcription",
+          "The person recorded consented to the recording and its transcription",
+        )}
         checked={consenti}
         onChange={(e) => setConsenti(e.target.checked)}
       />
       {f.erreurs.consenti ? <p className="mp-champ__erreur">{f.erreurs.consenti}</p> : null}
       <ZoneTexte
-        libelle="Référence du consentement"
+        libelle={t("Référence du consentement", "Consent reference")}
         required
         maxLength={500}
         value={reference}
         onChange={(e) => setReference(e.target.value)}
         erreur={f.erreurs.reference}
-        aide="Comment et quand le consentement a été recueilli (10 caractères au moins)."
+        aide={t(
+          "Comment et quand le consentement a été recueilli (10 caractères au moins).",
+          "How and when consent was obtained (at least 10 characters).",
+        )}
       />
       <div className="mp-actions-formulaire">
         <Bouton
           type="submit"
           icone={reprise ? "nuage" : "envoyer"}
           chargement={f.enCours}
-          texteChargement={progression !== null ? "Envoi de l'enregistrement…" : "Création…"}
+          texteChargement={
+            progression !== null
+              ? t("Envoi de l'enregistrement…", "Uploading the recording…")
+              : t("Création…", "Creating…")
+          }
         >
-          {reprise ? "Réessayer" : "Envoyer et transcrire"}
+          {reprise
+            ? t("Réessayer", "Try again")
+            : t("Envoyer et transcrire", "Upload and transcribe")}
         </Bouton>
         <Bouton variante="discret" onClick={() => setOuvert(false)} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CLASSES_RISQUE, CLASSE_RISQUE_LIBELLES, type ClasseRisque } from "@missionpilot/shared";
+import { CLASSES_RISQUE, type ClasseRisque } from "@missionpilot/shared";
 import { api } from "../../lib/api";
-import { cheminActionSuivi, validerRelevement } from "../../lib/qualite";
+import { cheminActionSuivi, libelleClasse, validerRelevement } from "../../lib/qualite";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -17,6 +18,8 @@ export interface ReleverClasseProps {
 
 /** Relèvement de la classe de risque (QUA-01) : jamais d'abaissement, motif obligatoire. */
 export function ReleverClasse({ suiviId, classe }: ReleverClasseProps) {
+  const t = useT();
+  const langue = useLangue();
   const a = useActionQualite();
   const superieures = CLASSES_RISQUE.slice(CLASSES_RISQUE.indexOf(classe) + 1);
   const [nouvelle, setNouvelle] = useState<string>(superieures[0] ?? "");
@@ -26,13 +29,16 @@ export function ReleverClasse({ suiviId, classe }: ReleverClasseProps) {
   if (superieures.length === 0) {
     return (
       <p className="mp-texte-doux">
-        La classe R3 est la plus élevée : elle ne peut plus être relevée.
+        {t(
+          "La classe R3 est la plus élevée : elle ne peut plus être relevée.",
+          "Class R3 is the highest: it can no longer be raised.",
+        )}
       </p>
     );
   }
 
   async function soumettre() {
-    const v = validerRelevement(nouvelle, motif, classe);
+    const v = validerRelevement(nouvelle, motif, classe, langue);
     if (!v.ok) {
       setErreurs(v.erreurs);
       return;
@@ -40,7 +46,10 @@ export function ReleverClasse({ suiviId, classe }: ReleverClasseProps) {
     setErreurs({});
     const r = await a.agir(
       () => api.post(cheminActionSuivi(suiviId, "classe"), v.charge),
-      "Classe relevée : la garde correspondante s'applique désormais.",
+      t(
+        "Classe relevée : la garde correspondante s'applique désormais.",
+        "Class raised: the corresponding safeguard now applies.",
+      ),
     );
     if (r !== undefined) setMotif("");
   }
@@ -61,19 +70,22 @@ export function ReleverClasse({ suiviId, classe }: ReleverClasseProps) {
         refAlerte={a.refAlerte}
       />
       <Select
-        libelle="Nouvelle classe"
+        libelle={t("Nouvelle classe", "New class")}
         required
         value={nouvelle}
         onChange={(e) => setNouvelle(e.target.value)}
         options={superieures.map((c) => ({
           valeur: c,
-          libelle: `${c} · ${CLASSE_RISQUE_LIBELLES[c]}`,
+          libelle: libelleClasse(c, langue),
         }))}
         erreur={erreurs.classe}
-        aide="La classe se relève ; elle ne s'abaisse jamais et reste au moins égale à la classe minimale du type de livrable."
+        aide={t(
+          "La classe se relève ; elle ne s'abaisse jamais et reste au moins égale à la classe minimale du type de livrable.",
+          "The class can only be raised, never lowered, and stays at least equal to the minimum class of the deliverable type.",
+        )}
       />
       <ZoneTexte
-        libelle="Motif du relèvement"
+        libelle={t("Motif du relèvement", "Reason for raising")}
         required
         rows={2}
         maxLength={1000}
@@ -86,9 +98,9 @@ export function ReleverClasse({ suiviId, classe }: ReleverClasseProps) {
           type="submit"
           variante="secondaire"
           chargement={a.enCours}
-          texteChargement="Relèvement…"
+          texteChargement={t("Relèvement…", "Raising…")}
         >
-          Relever la classe
+          {t("Relever la classe", "Raise class")}
         </Bouton>
       </div>
     </form>

@@ -5,6 +5,7 @@ import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { api } from "../../lib/api";
 import { cheminApiDossier, validerDecisionEtat, type ChampDecision } from "../../lib/dossier";
 
@@ -22,15 +23,20 @@ export function DecisionEtat({
   etatId: string;
   controlesOk: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [motif, setMotif] = useState("");
   const f = useFormulaire<ChampDecision>();
   const url = `${cheminApiDossier(clientId)}/etats-financiers/${encodeURIComponent(etatId)}/decision`;
   const decider = (decision: "accepte" | "rejete") =>
     f.envoyer(
-      validerDecisionEtat(decision, motif, controlesOk),
+      validerDecisionEtat(decision, motif, controlesOk, langue),
       (charge) => api.post(url, charge),
       {
-        succes: decision === "accepte" ? "État accepté." : "État rejeté.",
+        succes:
+          decision === "accepte"
+            ? t("État accepté.", "Statement accepted.")
+            : t("État rejeté.", "Statement rejected."),
       },
     );
 
@@ -39,17 +45,17 @@ export function DecisionEtat({
       ref={f.refFormulaire}
       className="mp-formulaire"
       noValidate
-      aria-label="Décision sur l'état financier"
+      aria-label={t("Décision sur l'état financier", "Decision on the financial statement")}
       onSubmit={(e) => e.preventDefault()}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Décision impossible"
+        titreErreur={t("Décision impossible", "Decision not possible")}
       />
       <ZoneTexte
-        libelle="Motif de la décision"
+        libelle={t("Motif de la décision", "Reason for the decision")}
         rows={3}
         maxLength={2000}
         value={motif}
@@ -57,20 +63,25 @@ export function DecisionEtat({
         erreur={f.erreurs.motif}
         aide={
           controlesOk
-            ? "Obligatoire pour un rejet."
-            : "Obligatoire : expliquez pourquoi les écarts sont admis, ou pourquoi l'état est rejeté."
+            ? t("Obligatoire pour un rejet.", "Required for a rejection.")
+            : t(
+                "Obligatoire : expliquez pourquoi les écarts sont admis, ou pourquoi l'état est rejeté.",
+                "Required: explain why the gaps are accepted, or why the statement is rejected.",
+              )
         }
       />
       <div className="mp-barre-actions">
         <Bouton
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
           onClick={() => void decider("accepte")}
         >
-          {controlesOk ? "Accepter" : "Accepter malgré les écarts"}
+          {controlesOk
+            ? t("Accepter", "Accept")
+            : t("Accepter malgré les écarts", "Accept despite the gaps")}
         </Bouton>
         <Bouton variante="danger" disabled={f.enCours} onClick={() => void decider("rejete")}>
-          Rejeter
+          {t("Rejeter", "Reject")}
         </Bouton>
       </div>
     </form>

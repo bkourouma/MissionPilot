@@ -243,10 +243,15 @@ export interface ListeArbres {
 }
 
 /** Mention d'une liste plafonnée par l'API, ou null si elle est complète. */
-export function avertissementTronque(tronque: boolean | undefined, quoi: string): string | null {
-  return tronque
-    ? `La liste des ${quoi} est limitée aux 500 premières : les suivantes ne sont pas affichées.`
-    : null;
+export function avertissementTronque(
+  tronque: boolean | undefined,
+  quoi: string,
+  langue: "fr" | "en" = "fr",
+): string | null {
+  if (!tronque) return null;
+  return langue === "en"
+    ? `The list of ${quoi} is limited to the first 500: the following ones are not shown.`
+    : `La liste des ${quoi} est limitée aux 500 premières : les suivantes ne sont pas affichées.`;
 }
 
 export interface PageRevues {

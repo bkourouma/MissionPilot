@@ -3,13 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   SAISIE_CONFIRMATION_VIDE,
   type ChampConfirmation,
   type SaisieConfirmation,
 } from "../../lib/double-authentification";
 import {
-  AVERTISSEMENT_SIGNATURE_SIMULEE,
+  avertissementSignatureSimulee,
   cheminApiActionSignature,
   messageErreurSignature,
   validerMotifSignature,
@@ -43,6 +44,8 @@ export function ActionsSignatureCabinet({
   actions,
   tfaActive,
 }: ActionsSignatureCabinetProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export function ActionsSignatureCabinet({
       rafraichir();
       return true;
     } catch (e) {
-      setErreurEnvoi(messageErreurSignature(e));
+      setErreurEnvoi(messageErreurSignature(e, "totp", langue));
       return false;
     }
   }
@@ -70,12 +73,15 @@ export function ActionsSignatureCabinet({
       <div className="mp-canaux__actions-ligne">
         {actions.envoyer ? (
           <BoutonConfirmation
-            libelle="Envoyer aux signataires"
-            question="Envoyer la demande ? Le document sera partagé avec le client et les signataires seront invités."
-            libelleConfirmation="Oui, envoyer"
+            libelle={t("Envoyer aux signataires", "Send to signatories")}
+            question={t(
+              "Envoyer la demande ? Le document sera partagé avec le client et les signataires seront invités.",
+              "Send the request? The document will be shared with the client and the signatories will be invited.",
+            )}
+            libelleConfirmation={t("Oui, envoyer", "Yes, send")}
             variante="primaire"
             icone="envoyer"
-            texteChargement="Envoi…"
+            texteChargement={t("Envoi…", "Sending…")}
             action={envoyer}
           />
         ) : null}
@@ -85,7 +91,7 @@ export function ActionsSignatureCabinet({
             aria-expanded={panneau === "signer"}
             onClick={() => bascule("signer")}
           >
-            Signer
+            {t("Signer", "Sign")}
           </Bouton>
         ) : null}
         {actions.refuser ? (
@@ -94,7 +100,7 @@ export function ActionsSignatureCabinet({
             aria-expanded={panneau === "refuser"}
             onClick={() => bascule("refuser")}
           >
-            Refuser de signer
+            {t("Refuser de signer", "Decline to sign")}
           </Bouton>
         ) : null}
         {actions.annuler ? (
@@ -103,12 +109,12 @@ export function ActionsSignatureCabinet({
             aria-expanded={panneau === "annuler"}
             onClick={() => bascule("annuler")}
           >
-            Annuler la demande
+            {t("Annuler la demande", "Cancel the request")}
           </Bouton>
         ) : null}
       </div>
       {erreurEnvoi ? (
-        <Alerte tonalite="danger" titre="Envoi impossible">
+        <Alerte tonalite="danger" titre={t("Envoi impossible", "Could not send")}>
           <p>{erreurEnvoi}</p>
         </Alerte>
       ) : null}
@@ -148,18 +154,23 @@ function FormulaireSignature({
 }) {
   const [confirmation, setConfirmation] = useState<SaisieConfirmation>(SAISIE_CONFIRMATION_VIDE);
   const f = useFormulaire<ChampConfirmation>();
+  const t = useT();
+  const langue = useLangue();
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerSignature(confirmation),
+      validerSignature(confirmation, langue),
       (charge) =>
         api.post(cheminApiActionSignature(signatureId, "signer"), charge, {
           redirigerSi401: false,
         }),
       {
-        succes: "Signature enregistrée (simulée, sans valeur juridique).",
-        messageSpecifique: (e) => messageErreurSignature(e, confirmation.facteur),
+        succes: t(
+          "Signature enregistrée (simulée, sans valeur juridique).",
+          "Signature saved (simulated, no legal value).",
+        ),
+        messageSpecifique: (e) => messageErreurSignature(e, confirmation.facteur, langue),
         apres: onFin,
       },
     );
@@ -173,19 +184,27 @@ function FormulaireSignature({
       className="mp-canaux__panneau"
       noValidate
       onSubmit={soumettre}
-      aria-label="Signer le document"
+      aria-label={t("Signer le document", "Sign the document")}
     >
-      <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_SIGNATURE_SIMULEE}>
+      <Alerte tonalite="attention" annonce="aucune" titre={avertissementSignatureSimulee(langue)}>
         <p>
-          Vous signez dans CabinetPilot, sous votre identité. Lisez d&apos;abord le document : la
-          lecture est inscrite dans le journal de preuves.
+          {t(
+            "Vous signez dans CabinetPilot, sous votre identité. Lisez d'abord le document : la lecture est inscrite dans le journal de preuves.",
+            "You sign in CabinetPilot, under your identity. Read the document first: the reading is recorded in the evidence log.",
+          )}
         </p>
       </Alerte>
       {!tfaActive ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Double authentification requise">
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Double authentification requise", "Two-factor authentication required")}
+        >
           <p>
-            Signer exige une double authentification active sur votre compte. Activez-la depuis «
-            Sécurité du compte », puis revenez ici.
+            {t(
+              "Signer exige une double authentification active sur votre compte. Activez-la depuis « Sécurité du compte », puis revenez ici.",
+              'Signing requires active two-factor authentication on your account. Enable it from "Account security", then come back here.',
+            )}
           </p>
         </Alerte>
       ) : null}
@@ -193,20 +212,21 @@ function FormulaireSignature({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Signature impossible"
+        titreErreur={t("Signature impossible", "Could not sign")}
       />
       <ChampsReconfirmation
         saisie={confirmation}
         onChange={setConfirmation}
         erreurs={f.erreurs}
         motif="signer ce document"
+        motifEn="sign this document"
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Signature…">
-          Signer le document
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Signature…", "Signing…")}>
+          {t("Signer le document", "Sign the document")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -224,19 +244,23 @@ function FormulaireMotif({
 }) {
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
+  const t = useT();
+  const langue = useLangue();
   const annulation = action === "annuler";
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerMotifSignature(motif, annulation ? "annulation" : "refus"),
+      validerMotifSignature(motif, annulation ? "annulation" : "refus", langue),
       (charge) =>
         api.post(cheminApiActionSignature(signatureId, action), charge, {
           redirigerSi401: false,
         }),
       {
-        succes: annulation ? "Demande annulée." : "Refus enregistré.",
-        messageSpecifique: (e) => messageErreurSignature(e),
+        succes: annulation
+          ? t("Demande annulée.", "Request canceled.")
+          : t("Refus enregistré.", "Refusal recorded."),
+        messageSpecifique: (e) => messageErreurSignature(e, "totp", langue),
         apres: onFin,
       },
     );
@@ -248,11 +272,19 @@ function FormulaireMotif({
       className="mp-canaux__panneau"
       noValidate
       onSubmit={soumettre}
-      aria-label={annulation ? "Annuler la demande" : "Refuser de signer"}
+      aria-label={
+        annulation
+          ? t("Annuler la demande", "Cancel the request")
+          : t("Refuser de signer", "Decline to sign")
+      }
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <ZoneTexte
-        libelle={annulation ? "Motif de l'annulation" : "Motif du refus"}
+        libelle={
+          annulation
+            ? t("Motif de l'annulation", "Reason for the cancellation")
+            : t("Motif du refus", "Reason for the refusal")
+        }
         required
         maxLength={500}
         value={motif}
@@ -260,11 +292,18 @@ function FormulaireMotif({
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="danger" chargement={f.enCours} texteChargement="Envoi…">
-          {annulation ? "Annuler la demande" : "Refuser de signer"}
+        <Bouton
+          type="submit"
+          variante="danger"
+          chargement={f.enCours}
+          texteChargement={t("Envoi…", "Sending…")}
+        >
+          {annulation
+            ? t("Annuler la demande", "Cancel the request")
+            : t("Refuser de signer", "Decline to sign")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin} disabled={f.enCours}>
-          Retour
+          {t("Retour", "Back")}
         </Bouton>
       </div>
     </form>

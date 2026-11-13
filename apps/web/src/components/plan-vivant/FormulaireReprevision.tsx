@@ -1,13 +1,14 @@
 "use client";
 
+import type { Langue } from "@missionpilot/shared";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
   cheminReprevisions,
-  EXPLICATION_METHODE,
+  explicationMethode,
   hrefPlanVivant,
-  LIBELLE_METHODE,
+  libelleMethode,
   libelleVersionRetenue,
   messagePlanVivant,
   METHODES_REPREVISION_PLAN,
@@ -23,6 +24,7 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface FormulaireReprevisionProps {
   missionId: string;
@@ -35,10 +37,11 @@ export interface FormulaireReprevisionProps {
   trimestresSaisis: number;
 }
 
-const OPTIONS_METHODE = METHODES_REPREVISION_PLAN.map((m) => ({
-  valeur: m,
-  libelle: LIBELLE_METHODE[m],
-}));
+const optionsMethode = (langue: Langue) =>
+  METHODES_REPREVISION_PLAN.map((m) => ({
+    valeur: m,
+    libelle: libelleMethode(m, langue),
+  }));
 
 /**
  * Lancement d'une re-prévision (PLA-18) : version validée du modèle, méthode et seuil de « significatif ».
@@ -53,6 +56,8 @@ export function FormulaireReprevision({
   trimestresSaisis,
 }: FormulaireReprevisionProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieReprevision>({
     version: versionInitiale === null ? "" : String(versionInitiale),
@@ -69,7 +74,7 @@ export function FormulaireReprevision({
   async function relancer(e: React.FormEvent) {
     e.preventDefault();
     setErreur(null);
-    const v = validerReprevision(s, exercice);
+    const v = validerReprevision(s, exercice, langue);
     setErreurs(v.erreurs);
     if (!v.corps) {
       const premier = (Object.keys(v.erreurs) as (keyof SaisieReprevision)[])[0];
@@ -82,7 +87,7 @@ export function FormulaireReprevision({
       router.push(hrefPlanVivant(missionId, planId, { exercice, reprevision: rev.id }));
       rafraichir();
     } catch (err) {
-      setErreur(messagePlanVivant(err));
+      setErreur(messagePlanVivant(err, langue));
       refErreur.current?.focus();
     } finally {
       setEnCours(false);
@@ -90,27 +95,39 @@ export function FormulaireReprevision({
   }
 
   return (
-    <form className="mp-pv" onSubmit={relancer} noValidate aria-label="Lancer une re-prévision">
+    <form
+      className="mp-pv"
+      onSubmit={relancer}
+      noValidate
+      aria-label={t("Lancer une re-prévision", "Run a re-forecast")}
+    >
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Re-prévision refusée">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Re-prévision refusée", "Re-forecast rejected")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
       {trimestresSaisis === 0 ? (
         <Alerte tonalite="attention" annonce="aucune">
           <p>
-            Saisissez au moins le premier trimestre réalisé pour pouvoir re-prévoir l&apos;exercice.
+            {t(
+              "Saisissez au moins le premier trimestre réalisé pour pouvoir re-prévoir l'exercice.",
+              "Enter at least the first actual quarter to be able to re-forecast the fiscal year.",
+            )}
           </p>
         </Alerte>
       ) : null}
       <div className="mp-grille-champs">
         <Select
           id="pv-rev-version"
-          libelle="Version validée du modèle financier"
-          invite="Choisir…"
+          libelle={t("Version validée du modèle financier", "Approved financial model version")}
+          invite={t("Choisir…", "Choose…")}
           options={versions.map((v) => ({
             valeur: String(v.version),
-            libelle: libelleVersionRetenue(v),
+            libelle: libelleVersionRetenue(v, langue),
           }))}
           value={s.version}
           onChange={(e) => setS((x) => ({ ...x, version: e.target.value }))}
@@ -119,18 +136,21 @@ export function FormulaireReprevision({
         />
         <Select
           id="pv-rev-methode"
-          libelle="Méthode de re-prévision"
-          options={OPTIONS_METHODE}
+          libelle={t("Méthode de re-prévision", "Re-forecast method")}
+          options={optionsMethode(langue)}
           value={s.methode}
           onChange={(e) => setS((x) => ({ ...x, methode: e.target.value }))}
-          aide={EXPLICATION_METHODE[s.methode as MethodeReprevisionPlan]}
+          aide={explicationMethode(s.methode as MethodeReprevisionPlan, langue)}
           erreur={erreurs.methode}
           required
         />
         <Champ
           id="pv-rev-seuil"
-          libelle="Seuil d'un écart significatif (%)"
-          aide="Un écart relatif au moins égal à ce seuil est marqué « significatif »."
+          libelle={t("Seuil d'un écart significatif (%)", "Significant variance threshold (%)")}
+          aide={t(
+            "Un écart relatif au moins égal à ce seuil est marqué « significatif ».",
+            "A relative variance at least equal to this threshold is marked “significant”.",
+          )}
           inputMode="decimal"
           value={s.seuil}
           onChange={(e) => setS((x) => ({ ...x, seuil: e.target.value }))}
@@ -142,10 +162,10 @@ export function FormulaireReprevision({
         <Bouton
           type="submit"
           chargement={enCours}
-          texteChargement="Calcul…"
+          texteChargement={t("Calcul…", "Computing…")}
           disabled={trimestresSaisis === 0 || versions.length === 0}
         >
-          Re-prévoir l&apos;exercice {exercice}
+          {t("Re-prévoir l'exercice", "Re-forecast fiscal year")} {exercice}
         </Bouton>
       </div>
     </form>

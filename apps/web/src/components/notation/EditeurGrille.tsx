@@ -18,6 +18,7 @@ import {
   type EditionGrille,
   type VersionGrille,
 } from "../../lib/notation-grilles";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -42,6 +43,7 @@ function Somme({
   portee: string;
   annoncer: boolean;
 }) {
+  const langue = useLangue();
   const ok = sommeConforme(total);
   return (
     <p
@@ -50,7 +52,7 @@ function Somme({
       aria-atomic={annoncer ? true : undefined}
     >
       <Icone nom={ok ? "succes" : "attention"} taille={18} />
-      <span>{messageSomme(total, portee)}</span>
+      <span>{messageSomme(total, portee, langue)}</span>
     </p>
   );
 }
@@ -63,13 +65,15 @@ function Somme({
  * ensuite, sur la version enregistrée.
  */
 export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGrilleProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [edition, setEdition] = useState<EditionGrille>(() => editionDepuisContenu(contenu));
   const [anomalies, setAnomalies] = useState<string[]>([]);
   const [nouveauCode, setNouveauCode] = useState("");
   const [nouveauLibelle, setNouveauLibelle] = useState("");
   const [erreurAjout, setErreurAjout] = useState<{ code?: string; libelle?: string }>({});
-  const totaux = totauxEdition(contenu.dimensions, edition);
+  const totaux = totauxEdition(contenu.dimensions, edition, langue);
   const defaut = (dim: string) => edition.poids[dim] ?? "";
 
   const poids = (dim: string, v: string) =>
@@ -88,7 +92,7 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
     }));
 
   function ajouter() {
-    const r = ajouterSecteur(edition, nouveauCode, nouveauLibelle);
+    const r = ajouterSecteur(edition, nouveauCode, nouveauLibelle, langue);
     if (!r.ok) {
       setErreurAjout(r.erreurs);
       return;
@@ -104,15 +108,18 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
     setAnomalies([]);
     const ecart = totaux.total !== null && !sommeConforme(totaux.total);
     await f.envoyer(
-      contenuDepuisEdition(contenu, edition),
+      contenuDepuisEdition(contenu, edition, langue),
       (charge) => api.put<VersionGrille>(cheminVersionGrille(versionId), { contenu: charge }),
       {
         succes: ecart
-          ? "Brouillon enregistré. Les poids par défaut ne totalisent pas 100 : le moteur les ramènera à 100 en proportion."
-          : "Brouillon enregistré.",
+          ? t(
+              "Brouillon enregistré. Les poids par défaut ne totalisent pas 100 : le moteur les ramènera à 100 en proportion.",
+              "Draft saved. The default weights do not total 100: the engine will scale them to 100 proportionally.",
+            )
+          : t("Brouillon enregistré.", "Draft saved."),
         messageSpecifique: (err) => {
           setAnomalies(anomaliesGrille(err));
-          return messageGrille(err);
+          return messageGrille(err, langue);
         },
       },
     );
@@ -124,10 +131,14 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
         erreur={f.erreurGlobale ?? f.erreurs.global ?? null}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Saving failed")}
       />
       {anomalies.length > 0 ? (
-        <Alerte tonalite="danger" titre="Anomalies relevées par le moteur" annonce="aucune">
+        <Alerte
+          tonalite="danger"
+          titre={t("Anomalies relevées par le moteur", "Anomalies found by the engine")}
+          annonce="aucune"
+        >
           <ul>
             {anomalies.map((a) => (
               <li key={a}>{a}</li>
@@ -142,7 +153,7 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
       ) : null}
 
       <Champ
-        libelle="Titre de la grille"
+        libelle={t("Titre de la grille", "Framework title")}
         required
         maxLength={200}
         value={edition.titre}
@@ -151,10 +162,14 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
       />
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Poids par défaut des dimensions</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Poids par défaut des dimensions", "Default weights of the dimensions")}
+        </legend>
         <p className="mp-texte-doux mp-texte-petit">
-          Seules les proportions comptent : le moteur ramène les poids à 100. Visez une somme de 100
-          pour qu&apos;un poids se lise directement comme une part du score global.
+          {t(
+            "Seules les proportions comptent : le moteur ramène les poids à 100. Visez une somme de 100 pour qu'un poids se lise directement comme une part du score global.",
+            "Only proportions matter: the engine scales the weights to 100. Aim for a sum of 100 so that a weight reads directly as a share of the overall score.",
+          )}
         </p>
         {totaux.familles.map((fam) => (
           <div key={fam.famille} className="mp-notation-poids">
@@ -174,36 +189,47 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
               ))}
             </div>
             <p className="mp-texte-doux mp-texte-petit">
-              {messageSousTotal(fam.total, fam.libelle)}
+              {messageSousTotal(fam.total, fam.libelle, langue)}
             </p>
           </div>
         ))}
-        <Somme total={totaux.total} portee="Total des dimensions" annoncer />
+        <Somme
+          total={totaux.total}
+          portee={t("Total des dimensions", "Total of dimensions")}
+          annoncer
+        />
       </fieldset>
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Pondérations par secteur</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Pondérations par secteur", "Weightings by sector")}
+        </legend>
         <p className="mp-texte-doux mp-texte-petit">
-          Un secteur remplace tout ou partie des poids par défaut ; un champ vide garde le poids par
-          défaut de la dimension (indiqué en exemple).
+          {t(
+            "Un secteur remplace tout ou partie des poids par défaut ; un champ vide garde le poids par défaut de la dimension (indiqué en exemple).",
+            "A sector replaces all or part of the default weights; an empty field keeps the dimension's default weight (shown as an example).",
+          )}
         </p>
         {edition.secteurs.length === 0 ? (
           <p className="mp-texte-doux">
-            Aucun secteur : seuls les poids par défaut s&apos;appliquent.
+            {t(
+              "Aucun secteur : seuls les poids par défaut s'appliquent.",
+              "No sector: only the default weights apply.",
+            )}
           </p>
         ) : null}
         <div className="mp-notation-secteurs">
           {edition.secteurs.map((s, rang) => (
             <div key={s.secteur} className="mp-sous-formulaire mp-notation-poids">
               <h3 className="mp-notation-barres__famille">
-                Secteur {s.libelle.trim() || s.secteur}{" "}
+                {t("Secteur", "Sector")} {s.libelle.trim() || s.secteur}{" "}
                 <span className="mp-texte-doux mp-texte-petit">({s.secteur})</span>
               </h3>
               {f.erreurs[`secteur.${rang}.code`] ? (
                 <p className="mp-champ__erreur">{f.erreurs[`secteur.${rang}.code`]}</p>
               ) : null}
               <Champ
-                libelle="Libellé du secteur"
+                libelle={t("Libellé du secteur", "Sector label")}
                 maxLength={200}
                 value={s.libelle}
                 onChange={(e) => libelleSecteur(rang, e.target.value)}
@@ -220,13 +246,19 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
                     value={s.poids[d.id] ?? ""}
                     onChange={(e) => poidsSecteur(rang, d.id, e.target.value)}
                     erreur={f.erreurs[`secteur.${rang}.${d.id}`]}
-                    aria-label={`${d.libelle}, secteur ${s.libelle.trim() || s.secteur} (vide : poids par défaut ${defaut(d.id) || "non renseigné"})`}
+                    aria-label={t(
+                      `${d.libelle}, secteur ${s.libelle.trim() || s.secteur} (vide : poids par défaut ${defaut(d.id) || "non renseigné"})`,
+                      `${d.libelle}, sector ${s.libelle.trim() || s.secteur} (empty: default weight ${defaut(d.id) || "not set"})`,
+                    )}
                   />
                 ))}
               </div>
               <Somme
                 total={totaux.secteurs[rang]?.total ?? null}
-                portee={`Secteur « ${s.libelle.trim() || s.secteur} »`}
+                portee={t(
+                  `Secteur « ${s.libelle.trim() || s.secteur} »`,
+                  `Sector "${s.libelle.trim() || s.secteur}"`,
+                )}
                 annoncer
               />
               <div className="mp-barre-actions">
@@ -235,27 +267,30 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
                   icone="corbeille"
                   onClick={() => setEdition((e) => retirerSecteur(e, rang))}
                 >
-                  Retirer ce secteur
+                  {t("Retirer ce secteur", "Remove this sector")}
                 </Bouton>
               </div>
             </div>
           ))}
         </div>
         <div className="mp-sous-formulaire mp-pile">
-          <h3 className="mp-notation-barres__famille">Ajouter un secteur</h3>
+          <h3 className="mp-notation-barres__famille">{t("Ajouter un secteur", "Add a sector")}</h3>
           <div className="mp-grille-champs">
             <Champ
-              libelle="Code du secteur"
+              libelle={t("Code du secteur", "Sector code")}
               value={nouveauCode}
               maxLength={80}
               autoComplete="off"
               spellCheck={false}
               onChange={(e) => setNouveauCode(e.target.value)}
               erreur={erreurAjout.code}
-              aide="Minuscules sans accent (ex. btp). Les poids partent des poids par défaut."
+              aide={t(
+                "Minuscules sans accent (ex. btp). Les poids partent des poids par défaut.",
+                "Lowercase without accents (e.g. construction). Weights start from the default weights.",
+              )}
             />
             <Champ
-              libelle="Libellé"
+              libelle={t("Libellé", "Label")}
               value={nouveauLibelle}
               maxLength={200}
               onChange={(e) => setNouveauLibelle(e.target.value)}
@@ -264,15 +299,19 @@ export function EditeurGrille({ versionId, contenu, avertissement }: EditeurGril
           </div>
           <div className="mp-barre-actions">
             <Bouton variante="secondaire" icone="plus" onClick={ajouter}>
-              Ajouter le secteur
+              {t("Ajouter le secteur", "Add the sector")}
             </Bouton>
           </div>
         </div>
       </fieldset>
 
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer le brouillon
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer le brouillon", "Save draft")}
         </Bouton>
       </div>
     </form>

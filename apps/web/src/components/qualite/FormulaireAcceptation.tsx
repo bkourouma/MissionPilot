@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import {
-  DECISION_ACCEPTATION_LIBELLES,
+  DECISIONS_ACCEPTATION,
   FACTEURS_RISQUE_CLIENT,
   NIVEAUX_RISQUE_CLIENT,
-  NIVEAU_RISQUE_LIBELLES,
 } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   cheminAcceptation,
+  libelleDecision,
+  libelleFacteurRisque,
+  libelleNiveauRisque,
   messageQualite,
   validerAcceptation,
   type SaisieAcceptation,
   type VueAcceptation,
 } from "../../lib/qualite";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
@@ -40,6 +43,8 @@ export function FormulaireAcceptation({
   conflits,
   peutDecider,
 }: FormulaireAcceptationProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"decision" | "motif" | "niveau_retenu">();
   const [saisie, setSaisie] = useState<SaisieAcceptation>({
     facteurs: [],
@@ -47,9 +52,7 @@ export function FormulaireAcceptation({
     decision: "en_attente",
     motif: "",
   });
-  const decisions = Object.entries(DECISION_ACCEPTATION_LIBELLES).filter(
-    ([d]) => peutDecider || d === "en_attente",
-  );
+  const decisions = DECISIONS_ACCEPTATION.filter((d) => peutDecider || d === "en_attente");
   const bascule = (code: string, coche: boolean) =>
     setSaisie((s) => ({
       ...s,
@@ -64,11 +67,14 @@ export function FormulaireAcceptation({
       onSubmit={async (e) => {
         e.preventDefault();
         await f.envoyer(
-          validerAcceptation(saisie, { conflits }),
+          validerAcceptation(saisie, { conflits }, langue),
           (charge) => api.post<VueAcceptation>(cheminAcceptation(missionId), charge),
           {
-            succes: "Évaluation enregistrée dans l'historique.",
-            messageSpecifique: messageQualite,
+            succes: t(
+              "Évaluation enregistrée dans l'historique.",
+              "Assessment saved in the history.",
+            ),
+            messageSpecifique: (e) => messageQualite(e, langue),
             apres: () => setSaisie((s) => ({ ...s, motif: "" })),
           },
         );
@@ -78,14 +84,17 @@ export function FormulaireAcceptation({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Évaluation refusée"
+        titreErreur={t("Évaluation refusée", "Assessment refused")}
       />
       <fieldset className="mp-qualite__facteurs">
-        <legend>Profil de risque du client</legend>
+        <legend>{t("Profil de risque du client", "Client risk profile")}</legend>
         {FACTEURS_RISQUE_CLIENT.map((x) => (
           <CaseACocher
             key={x.code}
-            libelle={`${x.libelle} (niveau ${NIVEAU_RISQUE_LIBELLES[x.niveau].toLowerCase()})`}
+            libelle={t(
+              `${libelleFacteurRisque(x.code)} (niveau ${libelleNiveauRisque(x.niveau).toLowerCase()})`,
+              `${libelleFacteurRisque(x.code, "en")} (${libelleNiveauRisque(x.niveau, "en").toLowerCase()} level)`,
+            )}
             checked={saisie.facteurs.includes(x.code)}
             onChange={(e) => bascule(x.code, e.target.checked)}
           />
@@ -93,33 +102,42 @@ export function FormulaireAcceptation({
       </fieldset>
       <div className="mp-grille-champs">
         <Select
-          libelle="Niveau retenu"
+          libelle={t("Niveau retenu", "Selected level")}
           value={saisie.niveau_retenu}
           onChange={(e) => setSaisie((s) => ({ ...s, niveau_retenu: e.target.value }))}
-          invite="Niveau calculé par les facteurs"
+          invite={t("Niveau calculé par les facteurs", "Level computed from the factors")}
           options={NIVEAUX_RISQUE_CLIENT.map((n) => ({
             valeur: n,
-            libelle: NIVEAU_RISQUE_LIBELLES[n],
+            libelle: libelleNiveauRisque(n, langue),
           }))}
           erreur={f.erreurs.niveau_retenu}
-          aide="Le niveau calculé est le plus élevé des facteurs cochés ; vous pouvez le relever, jamais le baisser."
+          aide={t(
+            "Le niveau calculé est le plus élevé des facteurs cochés ; vous pouvez le relever, jamais le baisser.",
+            "The computed level is the highest of the checked factors; you can raise it, never lower it.",
+          )}
         />
         <Select
-          libelle="Décision"
+          libelle={t("Décision", "Decision")}
           required
           value={saisie.decision}
           onChange={(e) => setSaisie((s) => ({ ...s, decision: e.target.value }))}
-          options={decisions.map(([valeur, libelle]) => ({ valeur, libelle }))}
+          options={decisions.map((valeur) => ({
+            valeur,
+            libelle: libelleDecision(valeur, langue),
+          }))}
           erreur={f.erreurs.decision}
           aide={
             peutDecider
               ? undefined
-              : "Seul un directeur de mission ou un associé décide ; vous pouvez enregistrer une évaluation."
+              : t(
+                  "Seul un directeur de mission ou un associé décide ; vous pouvez enregistrer une évaluation.",
+                  "Only an engagement director or a partner decides; you can save an assessment.",
+                )
           }
         />
       </div>
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         rows={3}
         maxLength={2000}
         value={saisie.motif}
@@ -127,13 +145,23 @@ export function FormulaireAcceptation({
         erreur={f.erreurs.motif}
         aide={
           conflits > 0
-            ? "Des conflits d'intérêts sont détectés : accepter, conditionner ou refuser exige un motif."
-            : "Obligatoire pour refuser ou accepter sous conditions."
+            ? t(
+                "Des conflits d'intérêts sont détectés : accepter, conditionner ou refuser exige un motif.",
+                "Conflicts of interest were detected: accepting, conditioning or declining requires a reason.",
+              )
+            : t(
+                "Obligatoire pour refuser ou accepter sous conditions.",
+                "Required to decline or accept with conditions.",
+              )
         }
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer l&apos;évaluation
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer l'évaluation", "Save assessment")}
         </Bouton>
       </div>
     </form>

@@ -18,6 +18,7 @@ import {
   type SaisieCalibration,
   type SessionCalibration,
 } from "../../lib/notation-augmentee";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -32,6 +33,8 @@ import { Select } from "../ui/Select";
  */
 export function FormulaireCalibration() {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [saisie, setSaisie] = useState<SaisieCalibration>(saisieCalibrationVide);
   // Clé stable de chaque ligne (une ligne retirée ne décale pas l'état des autres).
@@ -57,11 +60,14 @@ export function FormulaireCalibration() {
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerSaisieCalibration(saisie),
+      validerSaisieCalibration(saisie, langue),
       (charge) => api.post<SessionCalibration>(CHEMIN_CALIBRATIONS, charge),
       {
-        succes: "Session créée : ouverture de la session.",
-        messageSpecifique: messageNotationAugmentee,
+        succes: t(
+          "Session créée : ouverture de la session.",
+          "Session created: opening the session.",
+        ),
+        messageSpecifique: (err) => messageNotationAugmentee(err, langue),
         rafraichir: false,
         apres: (s) => router.push(hrefCalibration(s.id)),
       },
@@ -78,20 +84,20 @@ export function FormulaireCalibration() {
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
 
       <fieldset className="mp-na-groupe">
-        <legend>Paramètres</legend>
+        <legend>{t("Paramètres", "Settings")}</legend>
         <Champ
-          libelle="Titre de la session"
+          libelle={t("Titre de la session", "Session title")}
           required
           value={saisie.titre}
           onChange={(e) => maj("titre", e.target.value)}
           erreur={f.erreurs.titre}
           maxLength={TITRE_CALIBRATION_LONGUEUR_MAX + 50}
           autoComplete="off"
-          aide="Ex. Calibrage pilotage, T1 2027"
+          aide={t("Ex. Calibrage pilotage, T1 2027", "E.g. Steering calibration, Q1 2027")}
         />
         <div className="mp-grille-champs">
           <Select
-            libelle="Nombre de niveaux de l'échelle"
+            libelle={t("Nombre de niveaux de l'échelle", "Number of scale levels")}
             required
             value={saisie.niveaux}
             onChange={(e) => maj("niveaux", e.target.value)}
@@ -102,23 +108,27 @@ export function FormulaireCalibration() {
             }))}
           />
           <Champ
-            libelle="Tolérance d'accord (niveaux)"
+            libelle={t("Tolérance d'accord (niveaux)", "Agreement tolerance (levels)")}
             required
             inputMode="numeric"
             value={saisie.tolerance}
             onChange={(e) => maj("tolerance", e.target.value)}
             erreur={f.erreurs.tolerance}
-            aide={`0 : les évaluateurs doivent coter le même niveau. Au plus ${TOLERANCE_CALIBRATION_MAX}, inférieure au nombre de niveaux.`}
+            aide={t(
+              `0 : les évaluateurs doivent coter le même niveau. Au plus ${TOLERANCE_CALIBRATION_MAX}, inférieure au nombre de niveaux.`,
+              `0: raters must rate the same level. At most ${TOLERANCE_CALIBRATION_MAX}, lower than the number of levels.`,
+            )}
           />
         </div>
       </fieldset>
 
       <fieldset className="mp-na-groupe">
-        <legend>Cas à coter</legend>
+        <legend>{t("Cas à coter", "Cases to rate")}</legend>
         <p className="mp-na-groupe__aide">
-          Un cas est une situation réelle (une pratique d&apos;une entreprise) que chaque évaluateur
-          cote seul, à l&apos;aveugle. Le code, facultatif, se déduit du libellé. Les évaluateurs se
-          déclarent en cotant : aucune liste à saisir.
+          {t(
+            "Un cas est une situation réelle (une pratique d'une entreprise) que chaque évaluateur cote seul, à l'aveugle. Le code, facultatif, se déduit du libellé. Les évaluateurs se déclarent en cotant : aucune liste à saisir.",
+            "A case is a real situation (a company's practice) that each rater rates alone, blind. The code, optional, is derived from the label. Raters identify themselves by rating: no list to enter.",
+          )}
         </p>
         {f.erreurs.cas ? (
           <p className="mp-champ__erreur" role="alert">
@@ -128,7 +138,7 @@ export function FormulaireCalibration() {
         {saisie.cas.map((c, i) => (
           <div key={cles[i]} className="mp-na-ligne-cas">
             <Champ
-              libelle={`Libellé du cas ${i + 1}`}
+              libelle={t(`Libellé du cas ${i + 1}`, `Label of case ${i + 1}`)}
               value={c.libelle}
               onChange={(e) => majCas(i, "libelle", e.target.value)}
               erreur={f.erreurs[`cas-libelle-${i}`]}
@@ -136,7 +146,7 @@ export function FormulaireCalibration() {
               autoComplete="off"
             />
             <Champ
-              libelle="Code (facultatif)"
+              libelle={t("Code (facultatif)", "Code (optional)")}
               value={c.code}
               onChange={(e) => majCas(i, "code", e.target.value)}
               erreur={f.erreurs[`cas-code-${i}`]}
@@ -146,11 +156,11 @@ export function FormulaireCalibration() {
             <Bouton
               variante="discret"
               icone="fermer"
-              aria-label={`Retirer le cas ${i + 1}`}
+              aria-label={t(`Retirer le cas ${i + 1}`, `Remove case ${i + 1}`)}
               disabled={saisie.cas.length <= 1}
               onClick={() => retirerCas(i)}
             >
-              Retirer
+              {t("Retirer", "Remove")}
             </Bouton>
           </div>
         ))}
@@ -161,14 +171,14 @@ export function FormulaireCalibration() {
             disabled={saisie.cas.length >= CAS_CALIBRATION_MAX}
             onClick={ajouterCas}
           >
-            Ajouter un cas
+            {t("Ajouter un cas", "Add a case")}
           </Bouton>
         </div>
       </fieldset>
 
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Création…">
-          Créer la session
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Création…", "Creating…")}>
+          {t("Créer la session", "Create the session")}
         </Bouton>
       </div>
     </form>

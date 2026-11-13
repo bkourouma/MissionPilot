@@ -1,5 +1,7 @@
 import { SqueletteListe } from "../../../components/ui/SqueletteListe";
+import { obtenirT } from "../../../lib/i18n/serveur";
 
-export default function Chargement() {
-  return <SqueletteListe libelle="Chargement des temps…" />;
+export default async function Chargement() {
+  const t = await obtenirT();
+  return <SqueletteListe libelle={t("Chargement des temps…", "Loading time entries…")} />;
 }

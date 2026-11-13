@@ -8,12 +8,17 @@ import type { TypeMissionDetaille } from "../../../../../lib/catalogue";
 import type { Grade } from "../../../../../lib/collaborateurs";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { exigerPermission } from "../../../../../lib/session";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 import { FormulaireTypeMission } from "../../FormulaireTypeMission";
 
-export const metadata: Metadata = { title: "Modifier un type de mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Modifier un type de mission", "Edit an engagement type") };
+}
 
 export default async function PageModifierType({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
   if (!estIdentifiant(id)) notFound();
   await exigerPermission("catalogue.ecrire");
   const [r, grades] = await Promise.all([
@@ -24,8 +29,12 @@ export default async function PageModifierType({ params }: { params: Promise<{ i
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre={r.ok ? `Modifier ${r.donnees.libelle}` : "Modifier un type de mission"}
-        retour={{ href: `/catalogue/${id}`, libelle: "Type de mission" }}
+        titre={
+          r.ok
+            ? `${t("Modifier", "Edit")} ${r.donnees.libelle}`
+            : t("Modifier un type de mission", "Edit an engagement type")
+        }
+        retour={{ href: `/catalogue/${id}`, libelle: t("Type de mission", "Engagement type") }}
       />
       {r.ok ? (
         <Carte>
@@ -42,7 +51,10 @@ export default async function PageModifierType({ params }: { params: Promise<{ i
         </Carte>
       ) : (
         <EtatErreur
-          titre="Le type de mission n'a pas pu être chargé."
+          titre={t(
+            "Le type de mission n'a pas pu être chargé.",
+            "The engagement type could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={`/catalogue/${id}/modifier`}
         />

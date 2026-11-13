@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { Role } from "@missionpilot/shared";
+import { useT, useLangue } from "../../../../../../components/i18n/FournisseurLangue";
 import { BarreProgression } from "../../../../../../components/questionnaires/BarreProgression";
 import { BoutonConfirmation } from "../../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../../components/formulaires/RetourFormulaire";
@@ -47,7 +48,9 @@ const cheminEnvoi = (id: string, action = "") =>
  * Aucune réponse n'est lue ici : seule la progression d'une saisie est visible.
  */
 export function SuiviEnvoi({ envoi, roles, missionCloturee }: SuiviEnvoiProps) {
-  const a = actionsEnvoi(envoi, { roles, missionCloturee });
+  const t = useT();
+  const langue = useLangue();
+  const a = actionsEnvoi(envoi, { roles, missionCloturee }, langue);
   const enAttente = envoi.repondants.filter((r) => repondantEnAttente(envoi, r));
   const relancesTotal = envoi.repondants.reduce((n, r) => n + r.relances, 0);
   const cle = `${envoi.statut}-${relancesTotal}`;
@@ -69,9 +72,12 @@ export function SuiviEnvoi({ envoi, roles, missionCloturee }: SuiviEnvoiProps) {
       ) : null}
       <section className="mp-pile" aria-labelledby="titre-repondants">
         <h3 id="titre-repondants" className="mp-section__titre">
-          {`Répondants (${envoi.repondants.length})`}
+          {t(`Répondants (${envoi.repondants.length})`, `Respondents (${envoi.repondants.length})`)}
         </h3>
-        <ul className="mp-liste-lignes" aria-label="Répondants du questionnaire">
+        <ul
+          className="mp-liste-lignes"
+          aria-label={t("Répondants du questionnaire", "Questionnaire respondents")}
+        >
           {envoi.repondants.map((r) => (
             <LigneRepondant
               key={r.id}
@@ -97,6 +103,8 @@ function ActionsPrincipales({
   cle: string;
   actions: ReturnType<typeof actionsEnvoi>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<never>();
   const [annonce, setAnnonce] = useState<string | null>(null);
   const [attente, marquer] = useAttenteRafraichissement(cle);
@@ -111,7 +119,8 @@ function ActionsPrincipales({
       { ok: true, charge: action === "relancer" ? {} : undefined },
       (c) => api.post<{ relances?: number }>(cheminEnvoi(envoi.id, `/${action}`), c),
       {
-        messageSpecifique: action === "relancer" ? messageRelance : messageQuestionnaire,
+        messageSpecifique: (e) =>
+          action === "relancer" ? messageRelance(e, langue) : messageQuestionnaire(e, langue),
         apres: (r) => {
           setAnnonce(succes(r));
           marquer();
@@ -124,70 +133,105 @@ function ActionsPrincipales({
   return (
     <section className="mp-pile" aria-labelledby="titre-actions-envoi">
       <h3 id="titre-actions-envoi" className="mp-visuellement-cache">
-        Actions sur le questionnaire
+        {t("Actions sur le questionnaire", "Questionnaire actions")}
       </h3>
       <div className="mp-barre-actions">
         {actions.envoyer ? (
           <BoutonConfirmation
-            libelle={`Envoyer aux ${n} répondant${n > 1 ? "s" : ""}`}
+            libelle={t(
+              `Envoyer aux ${n} répondant${n > 1 ? "s" : ""}`,
+              `Send to the ${n} respondent${n > 1 ? "s" : ""}`,
+            )}
             icone="envoyer"
             variante="primaire"
-            question={`Envoyer « ${envoi.titre} » ? Chaque répondant reçoit une notification et un e-mail${envoi.relances_auto ? " ; les relances automatiques (J+3, J+7) sont programmées" : ""}.`}
-            libelleConfirmation="Oui, envoyer"
-            texteChargement="Envoi…"
+            question={t(
+              `Envoyer « ${envoi.titre} » ? Chaque répondant reçoit une notification et un e-mail${envoi.relances_auto ? " ; les relances automatiques (J+3, J+7) sont programmées" : ""}.`,
+              `Send "${envoi.titre}"? Each respondent receives a notification and an email${envoi.relances_auto ? "; automatic reminders (D+3, D+7) are scheduled" : ""}.`,
+            )}
+            libelleConfirmation={t("Oui, envoyer", "Yes, send")}
+            texteChargement={t("Envoi…", "Sending…")}
             action={() =>
-              executer("envoyer", () => `Questionnaire envoyé à ${n} répondant${n > 1 ? "s" : ""}.`)
+              executer("envoyer", () =>
+                t(
+                  `Questionnaire envoyé à ${n} répondant${n > 1 ? "s" : ""}.`,
+                  `Questionnaire sent to ${n} respondent${n > 1 ? "s" : ""}.`,
+                ),
+              )
             }
           />
         ) : null}
         {actions.relancer ? (
           enAttente > 0 ? (
             <BoutonConfirmation
-              libelle={`Relancer les ${enAttente} répondant${enAttente > 1 ? "s" : ""} en attente`}
+              libelle={t(
+                `Relancer les ${enAttente} répondant${enAttente > 1 ? "s" : ""} en attente`,
+                `Remind the ${enAttente} pending respondent${enAttente > 1 ? "s" : ""}`,
+              )}
               icone="courrier"
-              question={`Relancer par e-mail ${enAttente > 1 ? `les ${enAttente} répondants` : "le répondant"} qui n'${enAttente > 1 ? "ont" : "a"} pas soumis ? Un répondant relancé il y a moins de 24 h ne l'est pas de nouveau.`}
-              libelleConfirmation="Oui, relancer"
-              texteChargement="Relance…"
+              question={t(
+                `Relancer par e-mail ${enAttente > 1 ? `les ${enAttente} répondants` : "le répondant"} qui n'${enAttente > 1 ? "ont" : "a"} pas soumis ? Un répondant relancé il y a moins de 24 h ne l'est pas de nouveau.`,
+                `Remind by email ${enAttente > 1 ? `the ${enAttente} respondents` : "the respondent"} who ${enAttente > 1 ? "have" : "has"} not submitted? A respondent reminded less than 24 hours ago is not reminded again.`,
+              )}
+              libelleConfirmation={t("Oui, relancer", "Yes, remind")}
+              texteChargement={t("Relance…", "Reminding…")}
               action={() =>
                 executer("relancer", (r) => {
                   const k = r.relances ?? 0;
-                  return `${k} relance${k > 1 ? "s" : ""} envoyée${k > 1 ? "s" : ""} par e-mail.`;
+                  return t(
+                    `${k} relance${k > 1 ? "s" : ""} envoyée${k > 1 ? "s" : ""} par e-mail.`,
+                    `${k} reminder${k > 1 ? "s" : ""} sent by email.`,
+                  );
                 })
               }
             />
           ) : (
             <p className="mp-texte-doux">
-              Tous les répondants ont soumis : aucune relance à envoyer.
+              {t(
+                "Tous les répondants ont soumis : aucune relance à envoyer.",
+                "All respondents have submitted: no reminder to send.",
+              )}
             </p>
           )
         ) : null}
         {actions.clore ? (
           <BoutonConfirmation
-            libelle="Clore le questionnaire"
+            libelle={t("Clore le questionnaire", "Close the questionnaire")}
             icone="cadenas"
-            question="Clore le questionnaire ? Plus aucune saisie ni relance ne sera possible ; les réponses soumises restent lisibles."
-            libelleConfirmation="Oui, clore"
-            texteChargement="Clôture…"
-            action={() => executer("clore", () => "Questionnaire clos : la saisie est fermée.")}
+            question={t(
+              "Clore le questionnaire ? Plus aucune saisie ni relance ne sera possible ; les réponses soumises restent lisibles.",
+              "Close the questionnaire? No more entries or reminders will be possible; submitted responses remain readable.",
+            )}
+            libelleConfirmation={t("Oui, clore", "Yes, close")}
+            texteChargement={t("Clôture…", "Closing…")}
+            action={() =>
+              executer("clore", () =>
+                t(
+                  "Questionnaire clos : la saisie est fermée.",
+                  "Questionnaire closed: entry is closed.",
+                ),
+              )
+            }
           />
         ) : null}
       </div>
       {attente ? (
         <p className="mp-texte-doux mp-texte-petit" role="status">
-          Mise à jour du suivi…
+          {t("Mise à jour du suivi…", "Updating the tracking…")}
         </p>
       ) : null}
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={annonce}
         refAlerte={f.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
     </section>
   );
 }
 
 function ReglagesEnvoi({ envoi }: { envoi: EnvoiDetail }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieReglages>(() => reglagesDepuisEnvoi(envoi));
   const f = useFormulaire<"date_limite" | "relances_auto">();
   const aujourdhui = dateDuJour(new Date());
@@ -197,9 +241,12 @@ function ReglagesEnvoi({ envoi }: { envoi: EnvoiDetail }) {
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerReglages(s, envoi, aujourdhui),
+      validerReglages(s, envoi, aujourdhui, langue),
       (c) => api.patch<EnvoiDetail>(cheminEnvoi(envoi.id), c),
-      { succes: "Réglages enregistrés.", messageSpecifique: messageQuestionnaire },
+      {
+        succes: t("Réglages enregistrés.", "Settings saved."),
+        messageSpecifique: (e) => messageQuestionnaire(e, langue),
+      },
     );
   }
 
@@ -212,27 +259,36 @@ function ReglagesEnvoi({ envoi }: { envoi: EnvoiDetail }) {
       aria-labelledby="titre-reglages-envoi"
     >
       <h3 id="titre-reglages-envoi" className="mp-sous-formulaire__titre">
-        Réglages
+        {t("Réglages", "Settings")}
       </h3>
       <div className="mp-grille-champs">
         <CaseACocher
-          libelle="Relances automatiques par e-mail"
+          libelle={t("Relances automatiques par e-mail", "Automatic email reminders")}
           aide={
             envoi.statut === "brouillon"
-              ? "À J+3 puis J+7 après l'envoi, aux seuls répondants qui n'ont pas soumis."
-              : "J+3 puis J+7 après l'envoi, aux seuls répondants qui n'ont pas soumis. Désactivées, les relances à venir ne partent pas."
+              ? t(
+                  "À J+3 puis J+7 après l'envoi, aux seuls répondants qui n'ont pas soumis.",
+                  "At D+3 then D+7 after sending, only to respondents who have not submitted.",
+                )
+              : t(
+                  "J+3 puis J+7 après l'envoi, aux seuls répondants qui n'ont pas soumis. Désactivées, les relances à venir ne partent pas.",
+                  "D+3 then D+7 after sending, only to respondents who have not submitted. When off, upcoming reminders are not sent.",
+                )
           }
           checked={s.relances_auto}
           onChange={(e) => setS((x) => ({ ...x, relances_auto: e.target.checked }))}
         />
         <Champ
-          libelle="Date limite"
+          libelle={t("Date limite", "Due date")}
           name="date_limite"
           type="date"
           min={aujourdhui}
           value={s.date_limite}
           erreur={f.erreurs.date_limite ?? f.erreurs.relances_auto}
-          aide="Facultative. Passé ce jour (inclus), le portail refuse toute saisie et toute soumission : repoussez la date pour prolonger, ou videz-la pour lever la limite."
+          aide={t(
+            "Facultative. Passé ce jour (inclus), le portail refuse toute saisie et toute soumission : repoussez la date pour prolonger, ou videz-la pour lever la limite.",
+            "Optional. After this day (inclusive), the portal rejects any entry and submission: push the date back to extend, or clear it to remove the limit.",
+          )}
           onChange={(e) => setS((x) => ({ ...x, date_limite: e.target.value }))}
         />
       </div>
@@ -242,10 +298,10 @@ function ReglagesEnvoi({ envoi }: { envoi: EnvoiDetail }) {
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
           disabled={!modifie}
         >
-          Enregistrer les réglages
+          {t("Enregistrer les réglages", "Save settings")}
         </Bouton>
       </div>
     </form>
@@ -253,24 +309,35 @@ function ReglagesEnvoi({ envoi }: { envoi: EnvoiDetail }) {
 }
 
 function ReponsePartagee({ envoi }: { envoi: EnvoiDetail }) {
+  const t = useT();
+  const langue = useLangue();
   const c = envoi.reponse_collective;
   if (!c) return null;
-  const s = libelleStatut(STATUT_REPONSE, c.statut);
+  const s = libelleStatut(STATUT_REPONSE, c.statut, langue);
   return (
     <section className="mp-carte" aria-labelledby="titre-reponse-partagee">
       <div className="mp-carte__entete">
         <h3 id="titre-reponse-partagee" className="mp-carte__titre">
-          Réponse partagée
+          {t("Réponse partagée", "Shared response")}
         </h3>
         <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>
       </div>
-      <BarreProgression progression={c.progression} libelle="Progression de la réponse partagée" />
+      <BarreProgression
+        progression={c.progression}
+        libelle={t("Progression de la réponse partagée", "Progress of the shared response")}
+      />
       <p className="mp-texte-doux mp-texte-petit">
         {c.statut === "soumise" && c.soumise_le
-          ? `Soumise le ${formaterDateHeure(c.soumise_le)}${c.soumise_par_nom ? ` par ${c.soumise_par_nom}` : ""} : elle est verrouillée.`
+          ? t(
+              `Soumise le ${formaterDateHeure(c.soumise_le)}${c.soumise_par_nom ? ` par ${c.soumise_par_nom}` : ""} : elle est verrouillée.`,
+              `Submitted on ${formaterDateHeure(c.soumise_le, undefined, langue)}${c.soumise_par_nom ? ` by ${c.soumise_par_nom}` : ""}: it is locked.`,
+            )
           : c.derniere_saisie
-            ? `Dernière saisie le ${formaterDateHeure(c.derniere_saisie)}. Le contenu d'une saisie en cours n'est pas visible du cabinet.`
-            : "Aucune saisie pour l'instant."}
+            ? t(
+                `Dernière saisie le ${formaterDateHeure(c.derniere_saisie)}. Le contenu d'une saisie en cours n'est pas visible du cabinet.`,
+                `Last entry on ${formaterDateHeure(c.derniere_saisie, undefined, langue)}. The content of an entry in progress is not visible to the firm.`,
+              )
+            : t("Aucune saisie pour l'instant.", "No entry yet.")}
       </p>
     </section>
   );
@@ -285,11 +352,13 @@ function LigneRepondant({
   r: RepondantEnvoi;
   relancer: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<never>();
   const [annonce, setAnnonce] = useState<string | null>(null);
   const [attente, marquer] = useAttenteRafraichissement(`${r.relances}`);
   const recente = relanceRecente(r.derniere_relance, new Date());
-  const statut = r.statut ? libelleStatut(STATUT_REPONSE, r.statut) : null;
+  const statut = r.statut ? libelleStatut(STATUT_REPONSE, r.statut, langue) : null;
 
   return (
     <li className="mp-liste-lignes__ligne">
@@ -307,25 +376,37 @@ function LigneRepondant({
         </div>
         <div className="mp-repondant__suivi">
           {r.progression ? (
-            <BarreProgression progression={r.progression} libelle={`Progression de ${r.nom}`} />
+            <BarreProgression
+              progression={r.progression}
+              libelle={t(`Progression de ${r.nom}`, `Progress of ${r.nom}`)}
+            />
           ) : null}
           <span className="mp-texte-doux mp-texte-petit">
             {r.statut === "soumise" && r.soumise_le
-              ? `Soumis le ${formaterDateHeure(r.soumise_le)}`
+              ? t(
+                  `Soumis le ${formaterDateHeure(r.soumise_le)}`,
+                  `Submitted on ${formaterDateHeure(r.soumise_le, undefined, langue)}`,
+                )
               : r.derniere_saisie
-                ? `Dernière saisie le ${formaterDateHeure(r.derniere_saisie)}`
+                ? t(
+                    `Dernière saisie le ${formaterDateHeure(r.derniere_saisie)}`,
+                    `Last entry on ${formaterDateHeure(r.derniere_saisie, undefined, langue)}`,
+                  )
                 : envoi.mode === "collectif"
-                  ? "Contribue à la réponse partagée"
-                  : "Aucune saisie"}
+                  ? t("Contribue à la réponse partagée", "Contributes to the shared response")
+                  : t("Aucune saisie", "No entry")}
           </span>
           <span className="mp-texte-doux mp-texte-petit">
-            {`${texteRelances(r.relances)}${r.derniere_relance ? `, la dernière le ${formaterDateHeure(r.derniere_relance)}` : ""}`}
+            {`${texteRelances(r.relances, langue)}${r.derniere_relance ? t(`, la dernière le ${formaterDateHeure(r.derniere_relance)}`, `, the last on ${formaterDateHeure(r.derniere_relance, undefined, langue)}`) : ""}`}
           </span>
           {recente && relancer ? (
             <span className="mp-indice mp-texte-petit">
               <Icone nom="horloge" taille={16} />
               <span>
-                Relancé il y a moins de 24 h : une nouvelle relance sera refusée d'ici là.
+                {t(
+                  "Relancé il y a moins de 24 h : une nouvelle relance sera refusée d'ici là.",
+                  "Reminded less than 24 hours ago: a new reminder will be refused until then.",
+                )}
               </span>
             </span>
           ) : null}
@@ -336,19 +417,25 @@ function LigneRepondant({
               variante="secondaire"
               icone="courrier"
               chargement={f.enCours || attente}
-              texteChargement="Relance…"
-              aria-label={`Relancer ${r.nom} par e-mail`}
+              texteChargement={t("Relance…", "Reminding…")}
+              aria-label={t(`Relancer ${r.nom} par e-mail`, `Remind ${r.nom} by email`)}
               onClick={() =>
                 void f.envoyer(
                   { ok: true, charge: { repondant_ids: [r.id] } },
                   (c) => api.post<{ relances: number }>(cheminEnvoi(envoi.id, "/relancer"), c),
                   {
-                    messageSpecifique: messageRelance,
+                    messageSpecifique: (e) => messageRelance(e, langue),
                     apres: (res) => {
                       setAnnonce(
                         res.relances > 0
-                          ? `${r.nom} a été relancé par e-mail.`
-                          : `Aucune relance envoyée : ${r.nom} ne peut plus répondre (compte ou accès au portail inactif).`,
+                          ? t(
+                              `${r.nom} a été relancé par e-mail.`,
+                              `${r.nom} was reminded by email.`,
+                            )
+                          : t(
+                              `Aucune relance envoyée : ${r.nom} ne peut plus répondre (compte ou accès au portail inactif).`,
+                              `No reminder sent: ${r.nom} can no longer respond (inactive account or portal access).`,
+                            ),
                       );
                       marquer();
                     },
@@ -356,7 +443,7 @@ function LigneRepondant({
                 )
               }
             >
-              Relancer
+              {t("Relancer", "Remind")}
             </Bouton>
           </div>
         ) : null}
@@ -367,7 +454,7 @@ function LigneRepondant({
             erreur={f.erreurGlobale}
             succes={annonce}
             refAlerte={f.refAlerte}
-            titreErreur={`Relance de ${r.nom} impossible`}
+            titreErreur={t(`Relance de ${r.nom} impossible`, `Reminder for ${r.nom} impossible`)}
           />
         </div>
       ) : null}

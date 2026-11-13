@@ -5,6 +5,7 @@ import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import {
   cheminMethodes,
   hrefMethode,
@@ -15,7 +16,10 @@ import {
 } from "../../../lib/methodes";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Méthodes" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Méthodes", "Methods") };
+}
 
 /**
  * Catalogue du référentiel de méthodes (STD-02, STD-03) : méthodes du standard CabinetPilot
@@ -27,24 +31,34 @@ export default async function PageCatalogueMethodes({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("standard.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const curseur = lireCurseur((await searchParams).curseur);
   const r = await chargerServeur<PageMethodes>(cheminMethodes(curseur));
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Méthodes"
-        soustitre="Toutes les missions parlent la même grammaire : méthodes versionnées, étapes, briques, règles de contexte. Le standard CabinetPilot se lit ; le cabinet l'adapte dans ses variantes."
+        titre={t("Méthodes", "Methods")}
+        soustitre={t(
+          "Toutes les missions parlent la même grammaire : méthodes versionnées, étapes, briques, règles de contexte. Le standard CabinetPilot se lit ; le cabinet l'adapte dans ses variantes.",
+          "All engagements speak the same grammar: versioned methods, steps, building blocks, context rules. The CabinetPilot standard is read-only; the firm adapts it in its variants.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="Le catalogue n'a pas pu être chargé."
+          titre={t("Le catalogue n'a pas pu être chargé.", "The catalog could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefMethodes(curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune méthode." icone="livre">
-          <p>Le standard CabinetPilot n&apos;est pas encore installé sur ce serveur.</p>
+        <EtatVide titre={t("Aucune méthode.", "No method.")} icone="livre">
+          <p>
+            {t(
+              "Le standard CabinetPilot n'est pas encore installé sur ce serveur.",
+              "The CabinetPilot standard is not yet installed on this server.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <ul className="mp-liste-lignes">
@@ -56,21 +70,33 @@ export default async function PageCatalogueMethodes({
                 </Link>
                 <span className="mp-texte-doux mp-texte-petit">
                   {m.service_libelle}
-                  {m.parent_libelle ? ` · variante de « ${m.parent_libelle} »` : ""}
+                  {m.parent_libelle
+                    ? t(
+                        ` · variante de « ${m.parent_libelle} »`,
+                        ` · variant of "${m.parent_libelle}"`,
+                      )
+                    : ""}
                   {m.derniere_publiee
-                    ? ` · version ${m.derniere_publiee.version} publiée le ${formaterDate(m.derniere_publiee.publie_le)}`
-                    : " · aucune version publiée"}
+                    ? t(
+                        ` · version ${m.derniere_publiee.version} publiée le ${formaterDate(m.derniere_publiee.publie_le, undefined, langue)}`,
+                        ` · version ${m.derniere_publiee.version} published on ${formaterDate(m.derniere_publiee.publie_le, undefined, langue)}`,
+                      )
+                    : t(" · aucune version publiée", " · no published version")}
                 </span>
               </div>
               <div className="mp-badges">
                 <BadgeStatut tonalite={m.origine === "standard" ? "neutre" : "succes"}>
-                  {libelleOrigine(m.origine)}
+                  {libelleOrigine(m.origine, langue)}
                 </BadgeStatut>
                 {m.brouillon_id ? (
-                  <BadgeStatut tonalite="attention">Brouillon en cours</BadgeStatut>
+                  <BadgeStatut tonalite="attention">
+                    {t("Brouillon en cours", "Draft in progress")}
+                  </BadgeStatut>
                 ) : null}
                 {m.variante_id ? (
-                  <BadgeStatut tonalite="succes">Variante du cabinet</BadgeStatut>
+                  <BadgeStatut tonalite="succes">
+                    {t("Variante du cabinet", "Firm variant")}
+                  </BadgeStatut>
                 ) : null}
               </div>
             </li>
@@ -79,7 +105,7 @@ export default async function PageCatalogueMethodes({
       )}
       {r.ok ? (
         <PaginationCurseur
-          libelle="Pages du catalogue"
+          libelle={t("Pages du catalogue", "Catalog pages")}
           hrefSuivante={r.donnees.curseur_suivant ? hrefMethodes(r.donnees.curseur_suivant) : null}
           hrefDebut={curseur ? hrefMethodes() : null}
         />

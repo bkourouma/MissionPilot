@@ -1,10 +1,14 @@
+"use client";
+
 import type { Devise } from "../../lib/format";
 import {
   formaterValeur,
   grouperLignes,
+  libelleLigne,
   type ExercicePlan,
   type LigneEtat,
 } from "../../lib/plan-modele";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface TableauEtatProps {
   titre: string;
@@ -22,6 +26,8 @@ export interface TableauEtatProps {
  * sur téléphone, colonne des postes figée.
  */
 export function TableauEtat({ titre, lignes, annees, devise, idPrefixe }: TableauEtatProps) {
+  const t = useT();
+  const langue = useLangue();
   const idTitre = `${idPrefixe}-titre`;
   return (
     <div className="mp-plan-etat" role="region" aria-labelledby={idTitre} tabIndex={0}>
@@ -29,7 +35,7 @@ export function TableauEtat({ titre, lignes, annees, devise, idPrefixe }: Tablea
         <caption id={idTitre}>{titre}</caption>
         <thead>
           <tr>
-            <th scope="col">Poste</th>
+            <th scope="col">{t("Poste", "Line item")}</th>
             {annees.map((a) => (
               <th key={a.exercice} scope="col">
                 {a.exercice}
@@ -37,7 +43,7 @@ export function TableauEtat({ titre, lignes, annees, devise, idPrefixe }: Tablea
             ))}
           </tr>
         </thead>
-        {grouperLignes(lignes).map((g, i) => (
+        {grouperLignes(lignes, langue).map((g, i) => (
           <tbody key={g.titre ?? `groupe-${i}`}>
             {g.titre ? (
               <tr className="mp-plan-etat__groupe">
@@ -49,13 +55,15 @@ export function TableauEtat({ titre, lignes, annees, devise, idPrefixe }: Tablea
             {g.lignes.map((l) => (
               <tr key={l.cle} className={l.total ? "mp-plan-etat__total" : undefined}>
                 <th scope="row">
-                  {l.libelle}
+                  {libelleLigne(l, langue)}
                   {l.code ? (
                     <>
                       {" "}
                       <span className="mp-plan-etat__code">
-                        <span className="mp-visuellement-cache">code SYSCOHADA indicatif </span>(
-                        {l.code})
+                        <span className="mp-visuellement-cache">
+                          {t("code SYSCOHADA indicatif ", "indicative SYSCOHADA code ")}
+                        </span>
+                        ({l.code})
                       </span>
                     </>
                   ) : null}
@@ -71,7 +79,7 @@ export function TableauEtat({ titre, lignes, annees, devise, idPrefixe }: Tablea
                           : undefined
                       }
                     >
-                      {formaterValeur(l.format, v, devise)}
+                      {formaterValeur(l.format, v, devise, langue)}
                     </td>
                   );
                 })}

@@ -9,6 +9,7 @@ import {
   tachesOuvertes,
   type PageTaches,
 } from "../../lib/taches-collaboration";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 /** Événement émis après un changement de tâche (création, statut) pour relire la pastille. */
 export const EVENEMENT_TACHES = "mp:taches";
@@ -45,6 +46,7 @@ function relire(): Promise<void> {
 /** Pastille « tâches ouvertes » de l'entrée « Mes tâches » ; rien quand il n'y en a pas. */
 export function PastilleTaches() {
   const chemin = usePathname();
+  const langue = useLangue();
   const [n, setN] = useState<number | null>(valeur);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export function PastilleTaches() {
   return (
     <span className="mp-nav__pastille">
       <span aria-hidden="true">{texte}</span>
-      <span className="mp-visuellement-cache">{`, ${libellePastilleTaches(n)}`}</span>
+      <span className="mp-visuellement-cache">{`, ${libellePastilleTaches(n, langue)}`}</span>
     </span>
   );
 }

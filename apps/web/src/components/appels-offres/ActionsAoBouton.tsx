@@ -3,6 +3,7 @@
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type ReactNode } from "react";
 import { messageAo } from "../../lib/appels-offres";
+import { useLangue } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
 
@@ -20,6 +21,7 @@ export function BoutonActionAo({
   variante?: VarianteBouton;
   confirmation?: string;
 }) {
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function BoutonActionAo({
             await action();
             rafraichir();
           } catch (e) {
-            setErreur(messageAo(e));
+            setErreur(messageAo(e, langue));
           } finally {
             setEnCours(false);
           }

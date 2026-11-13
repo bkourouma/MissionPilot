@@ -13,6 +13,7 @@ import {
   type VersionElementPlan,
 } from "../../lib/plan-strategique";
 import { DiffTexteIa } from "../ia/DiffTexteIa";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { BadgeRetire, BadgeStatutPlan } from "./BadgeStatutPlan";
@@ -40,6 +41,8 @@ export function HistoriqueElement({
   devise,
   personnes,
 }: HistoriqueElementProps) {
+  const t = useT();
+  const langue = useLangue();
   const base = useId();
   const [versions, setVersions] = useState<VersionElementPlan[]>([]);
   const [curseur, setCurseur] = useState<string | null>(null);
@@ -49,10 +52,15 @@ export function HistoriqueElement({
   const [ouverte, setOuverte] = useState<number | null>(null);
 
   const texte = (v: VersionElementPlan) =>
-    `${v.retire ? "Retiré du plan.\n\n" : ""}${texteElement(type, v.donnees, {
-      devise,
-      nomResponsable: (id) => nomPersonnePlan(id, personnes),
-    })}`;
+    `${v.retire ? t("Retiré du plan.", "Removed from the plan.") + "\n\n" : ""}${texteElement(
+      type,
+      v.donnees,
+      {
+        devise,
+        nomResponsable: (id) => nomPersonnePlan(id, personnes, langue),
+        langue,
+      },
+    )}`;
 
   async function charger(suite: string | null) {
     setEnCours(true);
@@ -65,7 +73,7 @@ export function HistoriqueElement({
       setCurseur(page.curseur_suivant);
       setCharge(true);
     } catch (e) {
-      setErreur(messagePlan(e, "lire"));
+      setErreur(messagePlan(e, "lire", langue));
     } finally {
       setEnCours(false);
     }
@@ -78,25 +86,31 @@ export function HistoriqueElement({
         if ((e.currentTarget as HTMLDetailsElement).open && !charge && !enCours) void charger(null);
       }}
     >
-      <summary>Historique des versions</summary>
+      <summary>{t("Historique des versions", "Version history")}</summary>
       <div className="mp-plan__section">
         {enCours ? (
           <p className="mp-texte-doux" role="status">
-            Chargement de l&apos;historique…
+            {t("Chargement de l'historique…", "Loading history…")}
           </p>
         ) : null}
         {erreur ? (
-          <Alerte tonalite="danger" titre="L'historique n'a pas pu être chargé.">
+          <Alerte
+            tonalite="danger"
+            titre={t("L'historique n'a pas pu être chargé.", "The history could not be loaded.")}
+          >
             <p>{erreur}</p>
             <Bouton variante="secondaire" onClick={() => void charger(charge ? curseur : null)}>
-              Réessayer
+              {t("Réessayer", "Try again")}
             </Bouton>
           </Alerte>
         ) : null}
         {charge && versions.length > 0 ? (
           <ol
             className="mp-plan-historique"
-            aria-label="Versions, de la plus récente à la plus ancienne"
+            aria-label={t(
+              "Versions, de la plus récente à la plus ancienne",
+              "Versions, from newest to oldest",
+            )}
           >
             {versions.map((v, i) => {
               const precedente = versions[i + 1];
@@ -107,7 +121,7 @@ export function HistoriqueElement({
                   <div className="mp-plan-historique__ligne">
                     <BadgeStatutPlan statut={v.statut_contenu} />
                     {v.retire ? <BadgeRetire /> : null}
-                    <span>{libelleVersionElement(v)}</span>
+                    <span>{libelleVersionElement(v, langue)}</span>
                     <Bouton
                       variante="discret"
                       aria-expanded={ouvert}
@@ -115,10 +129,13 @@ export function HistoriqueElement({
                       onClick={() => setOuverte(ouvert ? null : v.version)}
                     >
                       {precedente
-                        ? `${ouvert ? "Masquer" : "Comparer avec"} la version ${precedente.version}`
+                        ? t(
+                            `${ouvert ? "Masquer" : "Comparer avec"} la version ${precedente.version}`,
+                            `${ouvert ? "Hide" : "Compare with"} version ${precedente.version}`,
+                          )
                         : ouvert
-                          ? "Masquer le contenu"
-                          : "Afficher le contenu"}
+                          ? t("Masquer le contenu", "Hide content")
+                          : t("Afficher le contenu", "Show content")}
                     </Bouton>
                   </div>
                   <div id={idDetail} hidden={!ouvert}>
@@ -136,23 +153,26 @@ export function HistoriqueElement({
           </ol>
         ) : null}
         {charge && versions.length === 0 && !erreur ? (
-          <p className="mp-texte-doux">Aucune version à afficher.</p>
+          <p className="mp-texte-doux">{t("Aucune version à afficher.", "No versions to show.")}</p>
         ) : null}
         {curseur ? (
           <div>
             <Bouton
               variante="secondaire"
               chargement={enCours}
-              texteChargement="Chargement…"
+              texteChargement={t("Chargement…", "Loading…")}
               onClick={() => void charger(curseur)}
             >
-              Afficher les versions plus anciennes
+              {t("Afficher les versions plus anciennes", "Show older versions")}
             </Bouton>
           </div>
         ) : null}
         {charge && !curseur && versions.length > 0 ? (
           <p className="mp-texte-doux mp-texte-petit">
-            Historique complet : les versions ne se modifient ni ne se suppriment.
+            {t(
+              "Historique complet : les versions ne se modifient ni ne se suppriment.",
+              "Complete history: versions can be neither edited nor deleted.",
+            )}
           </p>
         ) : null}
       </div>

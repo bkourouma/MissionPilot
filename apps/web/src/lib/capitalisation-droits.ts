@@ -1,4 +1,4 @@
-import { aPermission, type Permission, type Role } from "@missionpilot/shared";
+import { aPermission, type Langue, type Permission, type Role } from "@missionpilot/shared";
 
 /** Sous-pages de la rubrique « Connaissances » et droits d'affichage. */
 
@@ -67,9 +67,23 @@ export const PERMISSIONS_RUBRIQUE: readonly Permission[] = [
   "standard.gerer",
 ];
 
-export function sousPagesConnaissances(roles: readonly Role[]): SousPageConnaissances[] {
+const LIBELLES_SOUS_PAGES_EN: Record<string, string> = {
+  recherche: "Search",
+  retours: "Lessons learned",
+  estimation: "Estimation",
+  efficacite: "Effectiveness",
+  competences: "Skills",
+  derogations: "Standard changes",
+};
+
+export function sousPagesConnaissances(
+  roles: readonly Role[],
+  langue: Langue = "fr",
+): SousPageConnaissances[] {
   return SOUS_PAGES_CONNAISSANCES.filter(
     (p) => aPermission(roles, p.permission) && (!p.aussi || aPermission(roles, p.aussi)),
+  ).map((p) =>
+    langue === "en" ? { ...p, libelle: LIBELLES_SOUS_PAGES_EN[p.id] ?? p.libelle } : p,
   );
 }
 

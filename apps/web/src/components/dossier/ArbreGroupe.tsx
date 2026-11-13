@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import { EtatVide } from "../ui/EtatListe";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import { aplatirStructure, formaterPart, type GroupeApi } from "../../lib/dossier-groupes";
 import "./groupe.css";
 
@@ -11,8 +12,10 @@ import "./groupe.css";
  * dossier non visible avec les droits de l'utilisateur reste un noeud anonyme : ni nom ni lien.
  * Les parts sont des points de base de l'API divisés par 100 (aucun calcul métier ici).
  */
-export function ArbreGroupe({ groupe }: { groupe: GroupeApi }) {
-  const blocs = aplatirStructure(groupe);
+export async function ArbreGroupe({ groupe }: { groupe: GroupeApi }) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
+  const blocs = aplatirStructure(groupe, langue);
   const seul =
     groupe.structure.detenteurs.length === 0 &&
     groupe.structure.filiales.length === 0 &&
@@ -20,8 +23,19 @@ export function ArbreGroupe({ groupe }: { groupe: GroupeApi }) {
 
   if (seul) {
     return (
-      <EtatVide titre="Ce dossier n'a ni détenteur ni filiale à cette date." icone="trombone">
-        <p>Saisissez une participation ci-dessous pour constituer le groupe.</p>
+      <EtatVide
+        titre={t(
+          "Ce dossier n'a ni détenteur ni filiale à cette date.",
+          "This file has no holder or subsidiary at this date.",
+        )}
+        icone="trombone"
+      >
+        <p>
+          {t(
+            "Saisissez une participation ci-dessous pour constituer le groupe.",
+            "Enter a holding below to build the group.",
+          )}
+        </p>
       </EtatVide>
     );
   }
@@ -54,14 +68,26 @@ export function ArbreGroupe({ groupe }: { groupe: GroupeApi }) {
                     ) : (
                       l.libelle
                     )}{" "}
-                    {l.estDossier ? <BadgeStatut tonalite="neutre">Ce dossier</BadgeStatut> : null}
+                    {l.estDossier ? (
+                      <BadgeStatut tonalite="neutre">{t("Ce dossier", "This file")}</BadgeStatut>
+                    ) : null}
                   </span>
                   <span className="mp-groupe-noeud__parts">
-                    <span>Niveau {n.niveau}</span>
+                    <span>
+                      {t("Niveau", "Level")} {n.niveau}
+                    </span>
                     {n.part_directe_bps !== undefined && n.part_directe_bps !== null ? (
-                      <span>Part directe : {formaterPart(n.part_directe_bps)}</span>
+                      <span>
+                        {t("Part directe", "Direct share")}
+                        {t(" : ", ": ")}
+                        {formaterPart(n.part_directe_bps, langue)}
+                      </span>
                     ) : null}
-                    <span>Part cumulée : {formaterPart(n.part_cumulee_bps)}</span>
+                    <span>
+                      {t("Part cumulée", "Cumulative share")}
+                      {t(" : ", ": ")}
+                      {formaterPart(n.part_cumulee_bps, langue)}
+                    </span>
                   </span>
                 </li>
               );

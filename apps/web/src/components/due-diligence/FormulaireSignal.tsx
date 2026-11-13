@@ -6,9 +6,8 @@ import { api } from "../../lib/api";
 import {
   cheminSignaux,
   cheminVersionsSignal,
-  FAMILLE_RISQUE_DD_LIBELLES,
+  libellesDd,
   messageDd,
-  NIVEAU_RISQUE_DD_LIBELLES,
   optionsDe,
   type EntreeTaxonomie,
   type SignalBibliotheque,
@@ -26,14 +25,13 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
-const OPTIONS_FAMILLE = optionsDe(FAMILLES_RISQUE_DD, FAMILLE_RISQUE_DD_LIBELLES);
-const OPTIONS_GRAVITE = optionsDe(NIVEAUX_RISQUE_DD, NIVEAU_RISQUE_DD_LIBELLES);
 const optionsTaxonomie = (entrees: readonly EntreeTaxonomie[]) =>
   entrees.map((e) => ({ valeur: e.code, libelle: e.libelle }));
 
@@ -51,6 +49,11 @@ export interface FormulaireSignalProps {
  * publique (nom d'un document, jamais un extrait). Le code interne est tiré du titre.
  */
 export function FormulaireSignal({ secteurs, filieres, pays, signal }: FormulaireSignalProps) {
+  const t = useT();
+  const langue = useLangue();
+  const L = libellesDd(langue);
+  const optionsFamille = optionsDe(FAMILLES_RISQUE_DD, L.FAMILLE);
+  const optionsGravite = optionsDe(NIVEAUX_RISQUE_DD, L.NIVEAU_RISQUE);
   const f = useFormulaire<ChampSignal>();
   const correction = signal !== undefined;
   const [s, setS] = useState<SaisieSignal>(
@@ -75,7 +78,7 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerSignal(s, correction),
+      validerSignal(s, correction, [], langue),
       (charge) =>
         signal
           ? api.post<ReponseEcriture>(cheminVersionsSignal(signal.id), {
@@ -84,8 +87,10 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
             })
           : api.post<ReponseEcriture>(cheminSignaux(), charge),
       {
-        succes: correction ? "Nouvelle version enregistrée." : "Signal ajouté à la bibliothèque.",
-        messageSpecifique: messageDd,
+        succes: correction
+          ? t("Nouvelle version enregistrée.", "New version saved.")
+          : t("Signal ajouté à la bibliothèque.", "Signal added to the library."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => (correction ? maj({ motif: "" }) : setS(saisieSignalVide())),
       },
     );
@@ -97,16 +102,20 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={correction ? `Corriger le signal ${signal.libelle}` : "Nouveau signal d'alerte"}
+      aria-label={
+        correction
+          ? t(`Corriger le signal ${signal.libelle}`, `Edit the signal ${signal.libelle}`)
+          : t("Nouveau signal d'alerte", "New warning signal")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Signal refusé"
+        titreErreur={t("Signal refusé", "Signal refused")}
       />
       <Champ
-        libelle="Titre du signal"
+        libelle={t("Titre du signal", "Signal title")}
         required
         maxLength={TITRE_MAX}
         value={s.libelle}
@@ -115,19 +124,19 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Famille de risque"
+          libelle={t("Famille de risque", "Risk family")}
           required
-          invite="Choisir…"
-          options={OPTIONS_FAMILLE}
+          invite={t("Choisir…", "Choose…")}
+          options={optionsFamille}
           value={s.famille}
           onChange={(e) => maj({ famille: e.target.value })}
           erreur={f.erreurs.famille}
         />
         <Select
-          libelle="Gravité indicative"
+          libelle={t("Gravité indicative", "Indicative severity")}
           required
-          invite="Choisir…"
-          options={OPTIONS_GRAVITE}
+          invite={t("Choisir…", "Choose…")}
+          options={optionsGravite}
           value={s.gravite_indicative}
           onChange={(e) => maj({ gravite_indicative: e.target.value })}
           erreur={f.erreurs.gravite_indicative}
@@ -135,16 +144,16 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
       </div>
       <div className="mp-grille-champs">
         <Select
-          libelle="Secteur ou filière concerné"
-          invite="Tous les secteurs"
+          libelle={t("Secteur ou filière concerné", "Sector or subsector concerned")}
+          invite={t("Tous les secteurs", "All sectors")}
           options={optionsTaxonomie(secteursEtFilieres)}
           value={s.secteur_code}
           onChange={(e) => maj({ secteur_code: e.target.value })}
           erreur={f.erreurs.secteur_code}
         />
         <Select
-          libelle="Pays concerné"
-          invite="Tous les pays"
+          libelle={t("Pays concerné", "Country concerned")}
+          invite={t("Tous les pays", "All countries")}
           options={optionsTaxonomie(pays)}
           value={s.pays_code}
           onChange={(e) => maj({ pays_code: e.target.value })}
@@ -152,24 +161,30 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
         />
       </div>
       <ZoneTexte
-        libelle="Question à poser"
+        libelle={t("Question à poser", "Question to ask")}
         rows={2}
         maxLength={MOTIF_LONG_MAX}
         value={s.question}
         onChange={(e) => maj({ question: e.target.value })}
         erreur={f.erreurs.question}
-        aide="La question que l'analyste posera au dirigeant ou à la source."
+        aide={t(
+          "La question que l'analyste posera au dirigeant ou à la source.",
+          "The question the analyst will ask the executive or the source.",
+        )}
       />
       <Champ
-        libelle="Référence publique"
+        libelle={t("Référence publique", "Public reference")}
         maxLength={500}
         value={s.reference_publique}
         onChange={(e) => maj({ reference_publique: e.target.value })}
         erreur={f.erreurs.reference_publique}
-        aide="Le nom d'un document public, jamais un extrait."
+        aide={t(
+          "Le nom d'un document public, jamais un extrait.",
+          "The name of a public document, never an excerpt.",
+        )}
       />
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={MOTIF_VERDICT_MAX}
         value={s.description}
@@ -177,25 +192,34 @@ export function FormulaireSignal({ secteurs, filieres, pays, signal }: Formulair
         erreur={f.erreurs.description}
       />
       <CaseACocher
-        libelle="Signal actif (proposé aux dossiers concernés)"
+        libelle={t(
+          "Signal actif (proposé aux dossiers concernés)",
+          "Active signal (offered to the files concerned)",
+        )}
         checked={s.actif}
         onChange={(e) => maj({ actif: e.target.checked })}
       />
       {correction ? (
         <ZoneTexte
-          libelle="Motif de la correction"
+          libelle={t("Motif de la correction", "Reason for the correction")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => maj({ motif: e.target.value })}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique des versions."
+          aide={t("Conservé dans l'historique des versions.", "Kept in the version history.")}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {correction ? "Enregistrer la nouvelle version" : "Ajouter le signal"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {correction
+            ? t("Enregistrer la nouvelle version", "Save the new version")
+            : t("Ajouter le signal", "Add the signal")}
         </Bouton>
       </div>
     </form>

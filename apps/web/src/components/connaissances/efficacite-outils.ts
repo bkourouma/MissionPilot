@@ -1,7 +1,12 @@
-import { STATUT_EFFICACITE_LIBELLES, type StatutEfficacite } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  STATUT_EFFICACITE_LIBELLES,
+  type Langue,
+  type StatutEfficacite,
+} from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "../../lib/api";
 import { formaterDate } from "../../lib/format";
-import type { Resultat } from "../../lib/saisie";
+import { normaliserNombreSaisi, type Resultat } from "../../lib/saisie";
 
 /**
  * Efficacité des recommandations (CAP-03) : types des réponses de l'API, libellés, lecture des
@@ -57,16 +62,31 @@ const TAILLES: Record<string, string> = {
   grande_entreprise: "Grande entreprise",
 };
 
-export const libelleStatutEfficacite = (s: StatutEfficacite) => STATUT_EFFICACITE_LIBELLES[s];
+const TAILLES_EN: Record<string, string> = {
+  tpe: "Micro business",
+  pme: "SME",
+  eti: "Mid-cap",
+  grande_entreprise: "Large company",
+};
+
+const STATUT_EFFICACITE_LIBELLES_EN: Record<StatutEfficacite, string> = {
+  recommandee: "Recommended",
+  mise_en_oeuvre: "Implemented",
+  abandonnee: "Abandoned",
+};
+
+export const libelleStatutEfficacite = (s: StatutEfficacite, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_EFFICACITE_LIBELLES_EN : STATUT_EFFICACITE_LIBELLES)[s];
 
 export function tonaliteStatutEfficacite(s: StatutEfficacite): "neutre" | "succes" | "attention" {
   return s === "mise_en_oeuvre" ? "succes" : s === "recommandee" ? "attention" : "neutre";
 }
 
 /** « Formation · Agro-industrie · PME » : le contexte d'un score, dans l'ordre des dimensions. */
-export function libelleContexte(c: Pick<ContexteScore, "valeurs">): string {
+export function libelleContexte(c: Pick<ContexteScore, "valeurs">, langue: Langue = "fr"): string {
   const v = c.valeurs;
-  return [v.type_initiative, v.secteur, v.taille ? (TAILLES[v.taille] ?? v.taille) : undefined]
+  const tailles = langue === "en" ? TAILLES_EN : TAILLES;
+  return [v.type_initiative, v.secteur, v.taille ? (tailles[v.taille] ?? v.taille) : undefined]
     .filter((x): x is string => Boolean(x))
     .join(" · ");
 }
@@ -75,19 +95,25 @@ export function libelleContexte(c: Pick<ContexteScore, "valeurs">): string {
 export function libelleScore(
   c: Pick<ContexteScore, "score_moyen" | "effectif" | "raison">,
   seuil: number,
+  langue: Langue = "fr",
 ) {
   if (c.score_moyen === null) {
-    return `Effectif insuffisant (${seuil} observations requises)`;
+    return creerTraduire(langue)(
+      `Effectif insuffisant (${seuil} observations requises)`,
+      `Insufficient sample (${seuil} observations required)`,
+    );
   }
   return `${c.score_moyen} / 100`;
 }
 
 export function libelleScoreRecommandation(
   r: Pick<RecommandationResume, "score" | "evaluable" | "raison" | "statut">,
+  langue: Langue = "fr",
 ) {
+  const t = creerTraduire(langue);
   if (r.statut !== "mise_en_oeuvre") return "—";
-  if (r.evaluable === null) return "Effet non mesuré";
-  if (r.score === null) return r.raison ?? "Non évaluable";
+  if (r.evaluable === null) return t("Effet non mesuré", "Effect not measured");
+  if (r.score === null) return r.raison ?? t("Non évaluable", "Cannot be assessed");
   return `${r.score} / 100`;
 }
 
@@ -106,6 +132,7 @@ export function lireRecommandation(
     type_initiative: string;
     valeur_cible: string;
   },
+  langue: Langue = "fr",
 ): Resultat<
   {
     mission_id: string;
@@ -117,19 +144,23 @@ export function lireRecommandation(
   },
   ChampRecommandation
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampRecommandation, string>> = {};
   const libelle = s.libelle.trim();
   const type = s.type_initiative.trim();
-  const valeur = s.valeur_cible.trim().replace(",", ".");
-  if (s.kpi_id === "") erreurs.kpi_id = "Choisissez le KPI observé.";
+  const valeur = normaliserNombreSaisi(s.valeur_cible.trim(), langue);
+  if (s.kpi_id === "") erreurs.kpi_id = t("Choisissez le KPI observé.", "Choose the observed KPI.");
   if (libelle === "" || libelle.length > 200 || CONTROLE.test(libelle)) {
-    erreurs.libelle = "Libellé de 1 à 200 caractères.";
+    erreurs.libelle = t("Libellé de 1 à 200 caractères.", "Label of 1 to 200 characters.");
   }
   if (type === "" || type.length > 80 || CONTROLE.test(type)) {
-    erreurs.type_initiative = "Type de 1 à 80 caractères.";
+    erreurs.type_initiative = t("Type de 1 à 80 caractères.", "Type of 1 to 80 characters.");
   }
   if (!VALEUR.test(s.valeur_cible.trim())) {
-    erreurs.valeur_cible = "Un nombre (6 décimales au plus), par exemple 120 ou 4,5.";
+    erreurs.valeur_cible = t(
+      "Un nombre (6 décimales au plus), par exemple 120 ou 4,5.",
+      "A number (6 decimals maximum), for example 120 or 4.5.",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -145,16 +176,35 @@ export function lireRecommandation(
   };
 }
 
-export function lireMiseEnOeuvre(date: string): Resultat<{ mise_en_oeuvre_le: string }, "date"> {
+export function lireMiseEnOeuvre(
+  date: string,
+  langue: Langue = "fr",
+): Resultat<{ mise_en_oeuvre_le: string }, "date"> {
   const d = date.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return { ok: false, erreurs: { date: "Indiquez une date." } };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    return {
+      ok: false,
+      erreurs: { date: creerTraduire(langue)("Indiquez une date.", "Enter a date.") },
+    };
+  }
   return { ok: true, charge: { mise_en_oeuvre_le: d } };
 }
 
-export function lireAbandon(motif: string): Resultat<{ motif: string }, "motif"> {
+export function lireAbandon(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
   const m = motif.trim();
   if (m === "" || m.length > 500) {
-    return { ok: false, erreurs: { motif: "Motif de 1 à 500 caractères." } };
+    return {
+      ok: false,
+      erreurs: {
+        motif: creerTraduire(langue)(
+          "Motif de 1 à 500 caractères.",
+          "Reason of 1 to 500 characters.",
+        ),
+      },
+    };
   }
   return { ok: true, charge: { motif: m } };
 }
@@ -166,12 +216,25 @@ const MESSAGES: Record<string, string> = {
   DATE_FUTURE: "La date de mise en oeuvre ne peut pas être dans le futur.",
 };
 
-export function messageEfficacite(e: unknown): string {
-  if (e instanceof ErreurApi && MESSAGES[e.code]) return MESSAGES[e.code] as string;
+const MESSAGES_EN: Record<string, string> = {
+  RECOMMANDATION_EXISTANTE: "A recommendation already exists for this KPI of this engagement.",
+  TRANSITION_INTERDITE: "This recommendation has already been decided.",
+  NON_MISE_EN_OEUVRE: "The effect can only be measured once the recommendation is implemented.",
+  DATE_FUTURE: "The implementation date cannot be in the future.",
+};
+
+export function messageEfficacite(e: unknown, langue: Langue = "fr"): string {
+  const messages = langue === "en" ? MESSAGES_EN : MESSAGES;
+  if (e instanceof ErreurApi && messages[e.code]) return messages[e.code] as string;
   return messageErreur(e);
 }
 
 /** « · mise en œuvre le 15 oct. 2026 » (jamais la date ISO brute) ; chaîne vide sans date. */
-export function libelleMiseEnOeuvre(date: string | null): string {
-  return date ? ` · mise en œuvre le ${formaterDate(date)}` : "";
+export function libelleMiseEnOeuvre(date: string | null, langue: Langue = "fr"): string {
+  return date
+    ? creerTraduire(langue)(
+        ` · mise en œuvre le ${formaterDate(date)}`,
+        ` · implemented on ${formaterDate(date, "UTC", langue)}`,
+      )
+    : "";
 }

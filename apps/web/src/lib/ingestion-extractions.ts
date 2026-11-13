@@ -7,10 +7,12 @@
  */
 import {
   aPermission,
+  creerTraduire,
   LIBELLES_ELEMENT_LECTURE,
   TYPE_ELEMENT_LIBELLES,
   type ContenuLecture,
   type ContenuProposition,
+  type Langue,
   type Role,
   type StatutExtraction,
   type TypeElementLecture,
@@ -40,13 +42,25 @@ export const extractionCourante = (
 
 // --- Lecture d'un document (DD-02, DD-10) ----------------------------------------------------
 
-export function libelleTypeElementLecture(t: string): string {
-  return (LIBELLES_ELEMENT_LECTURE as Record<string, string>)[t as TypeElementLecture] ?? t;
+const LIBELLES_ELEMENT_LECTURE_EN: Record<string, string> = {
+  fait: "Fact",
+  risque: "Risk",
+  chiffre: "Figure",
+  engagement: "Commitment",
+  autre: "Other",
+};
+
+export function libelleTypeElementLecture(t: string, langue: Langue = "fr"): string {
+  const table = langue === "en" ? LIBELLES_ELEMENT_LECTURE_EN : LIBELLES_ELEMENT_LECTURE;
+  return (table as Record<string, string>)[t as TypeElementLecture] ?? t;
 }
 
 /** Texte du badge de vérification : le sens est écrit, la couleur ne le porte jamais seule. */
-export function libelleVerification(verifie: boolean): string {
-  return verifie ? "Vérifié dans la page" : "NON retrouvé dans la page";
+export function libelleVerification(verifie: boolean, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  return verifie
+    ? t("Vérifié dans la page", "Verified in the page")
+    : t("NON retrouvé dans la page", "NOT found in the page");
 }
 
 export const compterNonVerifies = (c: Pick<ContenuLecture, "elements">): number =>
@@ -61,10 +75,15 @@ export function retirerElementLecture(c: ContenuLecture, index: number): Contenu
 export const ENONCE_MAX = 500;
 
 /** Message si l'énoncé est inacceptable (vide ou trop long), sinon null. */
-export function erreurEnonce(enonce: string): string | null {
-  const t = enonce.trim();
-  if (t === "") return "L'énoncé ne peut pas être vide.";
-  if (t.length > ENONCE_MAX) return `L'énoncé est limité à ${ENONCE_MAX} caractères.`;
+export function erreurEnonce(enonce: string, langue: Langue = "fr"): string | null {
+  const t = creerTraduire(langue);
+  const e = enonce.trim();
+  if (e === "") return t("L'énoncé ne peut pas être vide.", "The statement cannot be empty.");
+  if (e.length > ENONCE_MAX)
+    return t(
+      `L'énoncé est limité à ${ENONCE_MAX} caractères.`,
+      `The statement is limited to ${ENONCE_MAX} characters.`,
+    );
   return null;
 }
 
@@ -97,8 +116,28 @@ export const LIBELLES_FAMILLE_PROPOSITION: Record<FamilleProposition, string> = 
   rubriques: "Rubriques de notation",
 };
 
-export function libelleTypeElementMethode(t: string): string {
-  return (TYPE_ELEMENT_LIBELLES as Record<string, string>)[t as TypeElementMethode] ?? t;
+export const LIBELLES_FAMILLE_PROPOSITION_EN: Record<FamilleProposition, string> = {
+  etapes: "Steps",
+  briques: "Building blocks",
+  elements: "Elements",
+  rubriques: "Rating criteria",
+};
+export const libelleFamilleProposition = (f: FamilleProposition, langue: Langue = "fr"): string =>
+  (langue === "en" ? LIBELLES_FAMILLE_PROPOSITION_EN : LIBELLES_FAMILLE_PROPOSITION)[f];
+
+const TYPE_ELEMENT_LIBELLES_EN: Record<string, string> = {
+  livrable: "Deliverable",
+  item: "Item",
+  kpi_type: "KPI type",
+  initiative_type: "Initiative type",
+  risque_type: "Risk type",
+  gabarit: "Template",
+  automatisation: "Automation",
+};
+
+export function libelleTypeElementMethode(t: string, langue: Langue = "fr"): string {
+  const table = langue === "en" ? TYPE_ELEMENT_LIBELLES_EN : TYPE_ELEMENT_LIBELLES;
+  return (table as Record<string, string>)[t as TypeElementMethode] ?? t;
 }
 
 export function compterProposition(c: ContenuProposition): Record<FamilleProposition, number> {
@@ -204,15 +243,23 @@ export interface SaisieDecision {
 }
 
 /** Message si la décision est incomplète (motif de rejet, acquittement), sinon null. */
-export function erreurDecision(s: SaisieDecision): string | null {
+export function erreurDecision(s: SaisieDecision, langue: Langue = "fr"): string | null {
+  const t = creerTraduire(langue);
   if (s.decision === "rejetee") {
     const m = s.motif.trim();
-    if (m === "") return "Précisez le motif du rejet.";
-    if (m.length > MOTIF_REJET_MAX) return `Le motif est limité à ${MOTIF_REJET_MAX} caractères.`;
+    if (m === "") return t("Précisez le motif du rejet.", "Specify the reason for rejection.");
+    if (m.length > MOTIF_REJET_MAX)
+      return t(
+        `Le motif est limité à ${MOTIF_REJET_MAX} caractères.`,
+        `The reason is limited to ${MOTIF_REJET_MAX} characters.`,
+      );
     return null;
   }
   if (s.nonVerifies && !s.acquitte) {
-    return "Cochez la case pour confirmer que vous avez relu les éléments non retrouvés dans la source.";
+    return t(
+      "Cochez la case pour confirmer que vous avez relu les éléments non retrouvés dans la source.",
+      "Tick the box to confirm that you have reviewed the elements not found in the source.",
+    );
   }
   return null;
 }
@@ -271,9 +318,24 @@ const LIBELLES_MOTIF_IGNORE: Record<string, string> = {
   invalide: "contenu refusé par l'éditeur de méthodes",
 };
 
-export const libelleFamilleApplication = (f: string): string =>
-  LIBELLES_FAMILLE_APPLICATION[f] ?? f;
-export const libelleMotifIgnore = (m: string): string => LIBELLES_MOTIF_IGNORE[m] ?? "non appliqué";
+const LIBELLES_FAMILLE_APPLICATION_EN: Record<string, string> = {
+  etape: "Step",
+  brique: "Building block",
+  element: "Element",
+  rubrique: "Criterion",
+};
+
+const LIBELLES_MOTIF_IGNORE_EN: Record<string, string> = {
+  code_existant: "this code already exists in the method (not overwritten)",
+  etape_introuvable: "the parent step cannot be found in the method",
+  invalide: "content rejected by the method editor",
+};
+
+export const libelleFamilleApplication = (f: string, langue: Langue = "fr"): string =>
+  (langue === "en" ? LIBELLES_FAMILLE_APPLICATION_EN : LIBELLES_FAMILLE_APPLICATION)[f] ?? f;
+export const libelleMotifIgnore = (m: string, langue: Langue = "fr"): string =>
+  (langue === "en" ? LIBELLES_MOTIF_IGNORE_EN : LIBELLES_MOTIF_IGNORE)[m] ??
+  creerTraduire(langue)("non appliqué", "not applied");
 
 /** Total d'éléments créés, pour l'annonce du résultat. */
 export const totalCrees = (r: ResultatApplicationVue): number =>

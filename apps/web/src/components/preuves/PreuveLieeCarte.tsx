@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { formaterDateHeure } from "../../lib/format";
-import { DECISIONS, hrefPreuve, libelleAuteur, type PreuveLiee } from "../../lib/preuves";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
+import { hrefPreuve, libelleAuteur, libelleDecision, type PreuveLiee } from "../../lib/preuves";
 import { EtiquettesPreuve, ExtraitPreuve } from "./AffichagePreuves";
 import { BoutonDelier, FormulaireArbitrage } from "./ActionsLiens";
 
@@ -16,13 +17,15 @@ export interface PreuveLieeCarteProps {
 }
 
 /** Une preuve liée à une assertion : source, extrait, état de l'arbitrage et actions. */
-export function PreuveLieeCarte({
+export async function PreuveLieeCarte({
   missionId,
   assertionId,
   preuve,
   ecrire,
   retrait = true,
 }: PreuveLieeCarteProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <li className="mp-preuve-ligne">
       <h4 className="mp-preuve-ligne__titre">
@@ -30,25 +33,36 @@ export function PreuveLieeCarte({
       </h4>
       <EtiquettesPreuve preuve={preuve} />
       <p className="mp-texte-doux mp-texte-petit">
-        {`Version ${preuve.version} · recueillie par ${libelleAuteur(preuve.auteur)}`}
+        {t(
+          `Version ${preuve.version} · recueillie par ${libelleAuteur(preuve.auteur)}`,
+          `Version ${preuve.version} · collected by ${libelleAuteur(preuve.auteur, "en")}`,
+        )}
       </p>
       <ExtraitPreuve preuve={preuve} />
       {preuve.sens === "contre" ? (
         preuve.a_arbitrer ? (
           <div className="mp-pile">
-            <BadgeStatut tonalite="danger">Contradiction à arbitrer</BadgeStatut>
+            <BadgeStatut tonalite="danger">
+              {t("Contradiction à arbitrer", "Contradiction to arbitrate")}
+            </BadgeStatut>
             {ecrire ? (
               <FormulaireArbitrage assertionId={assertionId} preuveId={preuve.id} />
             ) : (
-              <p className="mp-texte-doux">Un consultant de la mission doit arbitrer.</p>
+              <p className="mp-texte-doux">
+                {t(
+                  "Un consultant de la mission doit arbitrer.",
+                  "A consultant on the engagement must arbitrate.",
+                )}
+              </p>
             )}
           </div>
         ) : preuve.arbitrage ? (
           <div className="mp-pile">
-            <BadgeStatut tonalite="succes">Arbitrée</BadgeStatut>
+            <BadgeStatut tonalite="succes">{t("Arbitrée", "Arbitrated")}</BadgeStatut>
             <p className="mp-texte-petit">
-              {DECISIONS[preuve.arbitrage.decision]} · {libelleAuteur(preuve.arbitrage.arbitre)} ·{" "}
-              {formaterDateHeure(preuve.arbitrage.arbitre_le)}
+              {libelleDecision(preuve.arbitrage.decision, langue)} ·{" "}
+              {libelleAuteur(preuve.arbitrage.arbitre, langue)} ·{" "}
+              {formaterDateHeure(preuve.arbitrage.arbitre_le, undefined, langue)}
             </p>
             <p className="mp-texte-petit">{preuve.arbitrage.motif}</p>
           </div>

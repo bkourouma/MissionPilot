@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { BoutonConfirmation } from "../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
+import { useT } from "../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
 import { Select, type OptionSelect } from "../../../../components/ui/Select";
@@ -18,6 +19,7 @@ export interface EquipeMissionProps {
 
 /** Membres de l'équipe : ils voient la mission sans la modifier. */
 export function EquipeMission({ missionId, equipe, personnes, modifiable }: EquipeMissionProps) {
+  const t = useT();
   const [membre, setMembre] = useState("");
   const f = useFormulaire<"utilisateur_id">();
   const chemin = `/api/missions/${encodeURIComponent(missionId)}/equipe`;
@@ -28,23 +30,31 @@ export function EquipeMission({ missionId, equipe, personnes, modifiable }: Equi
     await f.envoyer(
       membre
         ? { ok: true, charge: { utilisateur_id: membre } }
-        : { ok: false, erreurs: { utilisateur_id: "Choisissez une personne." } },
+        : {
+            ok: false,
+            erreurs: { utilisateur_id: t("Choisissez une personne.", "Choose a person.") },
+          },
       (c) => api.post(chemin, c),
-      { succes: "Membre ajouté.", apres: () => setMembre("") },
+      { succes: t("Membre ajouté.", "Member added."), apres: () => setMembre("") },
     );
   }
 
   return (
-    <Carte titre="Équipe">
+    <Carte titre={t("Équipe", "Team")}>
       <div className="mp-pile">
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Modification de l'équipe impossible"
+          titreErreur={t("Modification de l'équipe impossible", "Team change not possible")}
         />
         {equipe.length === 0 ? (
-          <p className="mp-texte-doux">Aucun membre en plus du directeur et du chef de mission.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "Aucun membre en plus du directeur et du chef de mission.",
+              "No members besides the director and the engagement manager.",
+            )}
+          </p>
         ) : (
           <ul className="mp-liste-lignes">
             {equipe.map((e) => (
@@ -52,13 +62,13 @@ export function EquipeMission({ missionId, equipe, personnes, modifiable }: Equi
                 <span className="mp-liste-lignes__texte">{e.nom}</span>
                 {modifiable ? (
                   <BoutonConfirmation
-                    libelle="Retirer"
+                    libelle={t("Retirer", "Remove")}
                     variante="discret"
                     icone="corbeille"
-                    ariaLabel={`Retirer ${e.nom} de l'équipe`}
-                    question={`Retirer ${e.nom} de l'équipe ?`}
-                    libelleConfirmation="Oui, retirer"
-                    texteChargement="Retrait…"
+                    ariaLabel={t(`Retirer ${e.nom} de l'équipe`, `Remove ${e.nom} from the team`)}
+                    question={t(`Retirer ${e.nom} de l'équipe ?`, `Remove ${e.nom} from the team?`)}
+                    libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+                    texteChargement={t("Retrait…", "Removing…")}
                     action={() =>
                       f.envoyer({ ok: true, charge: null }, () =>
                         api.supprimer(`${chemin}/${encodeURIComponent(e.utilisateur_id)}`),
@@ -76,14 +86,18 @@ export function EquipeMission({ missionId, equipe, personnes, modifiable }: Equi
             className="mp-formulaire mp-formulaire--ligne"
             noValidate
             onSubmit={ajouter}
-            aria-label="Ajouter un membre à l'équipe"
+            aria-label={t("Ajouter un membre à l'équipe", "Add a member to the team")}
           >
             <div className="mp-ligne-action">
               <Select
-                libelle="Ajouter un membre"
+                libelle={t("Ajouter un membre", "Add a member")}
                 name="utilisateur_id"
                 options={disponibles}
-                invite={disponibles.length ? "Choisir une personne…" : "Aucune personne à ajouter"}
+                invite={
+                  disponibles.length
+                    ? t("Choisir une personne…", "Choose a person…")
+                    : t("Aucune personne à ajouter", "No one to add")
+                }
                 value={membre}
                 onChange={(e) => setMembre(e.target.value)}
                 erreur={f.erreurs.utilisateur_id}
@@ -93,9 +107,9 @@ export function EquipeMission({ missionId, equipe, personnes, modifiable }: Equi
                 variante="secondaire"
                 icone="plus"
                 chargement={f.enCours}
-                texteChargement="Ajout…"
+                texteChargement={t("Ajout…", "Adding…")}
               >
-                Ajouter
+                {t("Ajouter", "Add")}
               </Bouton>
             </div>
           </form>

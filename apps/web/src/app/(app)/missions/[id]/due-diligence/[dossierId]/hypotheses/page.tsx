@@ -13,10 +13,14 @@ import {
   parentsPossibles,
   type ReponseHypotheses,
 } from "../../../../../../../lib/due-diligence";
+import { obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Hypothèses du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Hypothèses du dossier", "File hypotheses") };
+}
 
 /**
  * Arbre d'hypothèses (DD-09, quatre niveaux au plus) : chaque hypothèse est confirmée, infirmée
@@ -28,6 +32,7 @@ export default async function PageHypothesesDd({
   params: Promise<{ id: string; dossierId: string }>;
 }) {
   const { id, dossierId } = await params;
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -36,7 +41,10 @@ export default async function PageHypothesesDd({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="Les hypothèses n'ont pas pu être chargées."
+        titre={t(
+          "Les hypothèses n'ont pas pu être chargées.",
+          "The hypotheses could not be loaded.",
+        )}
         message={r.message}
         hrefReessayer={hrefEcranDossier(id, dossierId, "hypotheses")}
       />
@@ -48,19 +56,32 @@ export default async function PageHypothesesDd({
   return (
     <>
       {arbre.incoherences.length > 0 ? (
-        <Alerte tonalite="attention" titre="Incohérences dans l'arbre" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Incohérences dans l'arbre", "Inconsistencies in the tree")}
+          annonce="aucune"
+        >
           <p>
-            {`${arbre.incoherences.length} hypothèse(s) ont un verdict contradictoire avec leurs sous-hypothèses (parent confirmé avec un enfant infirmé, ou parent infirmé dont tous les enfants sont confirmés). Revoyez-les avant de soumettre la note.`}
+            {t(
+              `${arbre.incoherences.length} hypothèse(s) ont un verdict contradictoire avec leurs sous-hypothèses (parent confirmé avec un enfant infirmé, ou parent infirmé dont tous les enfants sont confirmés). Revoyez-les avant de soumettre la note.`,
+              `${arbre.incoherences.length} hypothesis(es) have a verdict that contradicts their sub-hypotheses (confirmed parent with a refuted child, or refuted parent whose children are all confirmed). Review them before submitting the memo.`,
+            )}
           </p>
         </Alerte>
       ) : null}
-      <Carte titre="Arbre des hypothèses" niveauTitre={3}>
+      <Carte titre={t("Arbre des hypothèses", "Hypothesis tree")} niveauTitre={3}>
         {noeuds.length === 0 ? (
-          <EtatVide titre="Aucune hypothèse." icone="bulle">
+          <EtatVide titre={t("Aucune hypothèse.", "No hypothesis.")} icone="bulle">
             <p>
               {droits.ecrire
-                ? "Posez les hypothèses à confirmer ou à infirmer : chacune se jugera sur des assertions sourcées."
-                : "Les hypothèses apparaîtront ici dès qu'un consultant les aura posées."}
+                ? t(
+                    "Posez les hypothèses à confirmer ou à infirmer : chacune se jugera sur des assertions sourcées.",
+                    "Set the hypotheses to confirm or refute: each will be judged on sourced statements.",
+                  )
+                : t(
+                    "Les hypothèses apparaîtront ici dès qu'un consultant les aura posées.",
+                    "Hypotheses will appear here as soon as a consultant has set them.",
+                  )}
             </p>
           </EtatVide>
         ) : (
@@ -68,7 +89,7 @@ export default async function PageHypothesesDd({
         )}
       </Carte>
       {droits.ecrire ? (
-        <Carte titre="Nouvelle hypothèse" niveauTitre={3}>
+        <Carte titre={t("Nouvelle hypothèse", "New hypothesis")} niveauTitre={3}>
           <FormulaireHypothese dossierId={dossierId} parents={parents} />
         </Carte>
       ) : null}

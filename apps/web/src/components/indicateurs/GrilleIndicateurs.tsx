@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import {
-  MESSAGE_RESERVE,
+  messageReserve,
   formaterEcartJours,
   type AlerteDerive,
   type IndicateurAffiche,
@@ -13,7 +14,14 @@ import { Icone } from "../ui/Icone";
  * Un indicateur : libellé, définition (PRD), valeur servie par l'API, statut (couleur, icône et
  * texte). Un indicateur financier absent de la réponse affiche un message neutre, sans valeur.
  */
-export function CarteIndicateur({ indicateur: i }: { indicateur: IndicateurAffiche }) {
+export function CarteIndicateur({
+  indicateur: i,
+  langue = "fr",
+}: {
+  indicateur: IndicateurAffiche;
+  langue?: Langue;
+}) {
+  const t = creerTraduire(langue);
   const d = i.definition;
   const idTitre = `indicateur-${d.id}`;
   return (
@@ -35,20 +43,26 @@ export function CarteIndicateur({ indicateur: i }: { indicateur: IndicateurAffic
       ) : (
         <p className="mp-indicateur__reserve">
           <Icone nom="cadenas" taille={16} />
-          <span>{MESSAGE_RESERVE}</span>
+          <span>{messageReserve(langue)}</span>
         </p>
       )}
-      <p className="mp-indicateur__meta">{`Lecture : ${d.niveaux} · ${d.frequence}`}</p>
+      <p className="mp-indicateur__meta">{`${t("Lecture", "Level")} : ${d.niveaux} · ${d.frequence}`}</p>
     </article>
   );
 }
 
-export function GrilleIndicateurs({ indicateurs }: { indicateurs: readonly IndicateurAffiche[] }) {
+export function GrilleIndicateurs({
+  indicateurs,
+  langue = "fr",
+}: {
+  indicateurs: readonly IndicateurAffiche[];
+  langue?: Langue;
+}) {
   return (
     <ul className="mp-grille-indicateurs">
       {indicateurs.map((i) => (
         <li key={i.definition.id}>
-          <CarteIndicateur indicateur={i} />
+          <CarteIndicateur indicateur={i} langue={langue} />
         </li>
       ))}
     </ul>
@@ -59,16 +73,24 @@ export function GrilleIndicateurs({ indicateurs }: { indicateurs: readonly Indic
 export function ListeAlertesDerive({
   alertes,
   limite,
+  langue = "fr",
 }: {
   alertes: readonly AlerteDerive[];
   limite?: number;
+  langue?: Langue;
 }) {
+  const t = creerTraduire(langue);
   const affichees = limite ? alertes.slice(0, limite) : alertes;
   if (alertes.length === 0) {
     return (
       <p className="mp-texte-succes mp-ligne-icone">
         <Icone nom="succes" taille={18} />
-        <span>Aucune mission ne dépasse son budget à l&apos;atterrissage.</span>
+        <span>
+          {t(
+            "Aucune mission ne dépasse son budget à l'atterrissage.",
+            "No engagement exceeds its budget at landing.",
+          )}
+        </span>
       </p>
     );
   }
@@ -81,7 +103,10 @@ export function ListeAlertesDerive({
               {a.intitule}
             </Link>
             <span className="mp-texte-doux mp-texte-petit">
-              {`Atterrissage ${formaterJours(a.jours_atterrissage)} pour ${formaterJours(a.jours_budget)} budgétés · écart ${formaterEcartJours(a.ecart_jours, a.ecart_relatif)}`}
+              {t(
+                `Atterrissage ${formaterJours(a.jours_atterrissage, langue)} pour ${formaterJours(a.jours_budget, langue)} budgétés · écart ${formaterEcartJours(a.ecart_jours, a.ecart_relatif, langue)}`,
+                `Landing ${formaterJours(a.jours_atterrissage, langue)} for ${formaterJours(a.jours_budget, langue)} budgeted · variance ${formaterEcartJours(a.ecart_jours, a.ecart_relatif, langue)}`,
+              )}
             </span>
           </div>
           <BadgeStatut tonalite={a.statut.tonalite}>{a.statut.libelle}</BadgeStatut>
@@ -89,7 +114,12 @@ export function ListeAlertesDerive({
       ))}
       {limite && alertes.length > limite ? (
         <li>
-          <Link href="/indicateurs#alertes">{`Voir les ${alertes.length} missions en dérive`}</Link>
+          <Link href="/indicateurs#alertes">
+            {t(
+              `Voir les ${alertes.length} missions en dérive`,
+              `See the ${alertes.length} engagements drifting`,
+            )}
+          </Link>
         </li>
       ) : null}
     </ul>

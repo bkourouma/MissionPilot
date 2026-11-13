@@ -4,10 +4,10 @@ import { useState, type FormEvent } from "react";
 import { CLASSES_RISQUE, type ComparateurModulation } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
-  COMPARATEUR_LIBELLES,
   COMPARATEURS_PAR_TYPE,
   construireRegle,
-  EFFET_LIBELLES,
+  libelleComparateur,
+  libelleEffet,
   messageMethodes,
   saisieRegleVide,
   TYPES_EFFET_EDITEUR,
@@ -18,6 +18,7 @@ import {
   type SaisieRegle,
   type TypeEffetEditeur,
 } from "../../lib/methodes";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -46,6 +47,8 @@ export function FormulaireRegle({
   briques: { code: string; libelle: string }[];
   modification?: { id: string; active: boolean; saisie: SaisieRegle };
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampRegle>();
   const [s, setS] = useState<SaisieRegle>(modification?.saisie ?? saisieRegleVide());
   const [active, setActive] = useState(modification?.active ?? true);
@@ -61,21 +64,27 @@ export function FormulaireRegle({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const base = `/api/methodes/versions/${versionId}/regles`;
-    const regle = construireRegle(s, facteurs);
+    const regle = construireRegle(s, facteurs, langue);
     if (modification) {
       await f.envoyer(
         regle,
         (r) => api.put(`${base}/${modification.id}`, active ? r : { ...r, active: false }),
         {
-          succes: "Règle modifiée : vérifiez la cohérence avant publication.",
-          messageSpecifique: messageMethodes,
+          succes: t(
+            "Règle modifiée : vérifiez la cohérence avant publication.",
+            "Rule updated: check consistency before publishing.",
+          ),
+          messageSpecifique: (e) => messageMethodes(e, langue),
         },
       );
       return;
     }
     const ok = await f.envoyer(regle, (r) => api.post(base, r), {
-      succes: "Règle ajoutée : vérifiez la cohérence avant publication.",
-      messageSpecifique: messageMethodes,
+      succes: t(
+        "Règle ajoutée : vérifiez la cohérence avant publication.",
+        "Rule added: check consistency before publishing.",
+      ),
+      messageSpecifique: (e) => messageMethodes(e, langue),
     });
     if (ok) setS(saisieRegleVide());
   }
@@ -85,53 +94,64 @@ export function FormulaireRegle({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Code de la règle"
+          libelle={t("Code de la règle", "Rule code")}
           required
           value={s.code}
           maxLength={120}
           spellCheck={false}
           readOnly={Boolean(modification)}
-          aide={modification ? "Le code ne change pas." : undefined}
+          aide={modification ? t("Le code ne change pas.", "The code does not change.") : undefined}
           onChange={(e) => setS({ ...s, code: e.target.value })}
           erreur={f.erreurs.code}
         />
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           value={s.libelle}
           maxLength={200}
           onChange={(e) => setS({ ...s, libelle: e.target.value })}
         />
         <Champ
-          libelle="Priorité"
+          libelle={t("Priorité", "Priority")}
           inputMode="numeric"
           value={s.priorite}
           onChange={(e) => setS({ ...s, priorite: e.target.value })}
           erreur={f.erreurs.priorite}
-          aide="De 0 à 1 000 : la plus haute l'emporte en cas de conflit."
+          aide={t(
+            "De 0 à 1 000 : la plus haute l'emporte en cas de conflit.",
+            "From 0 to 1,000: the highest wins in case of conflict.",
+          )}
         />
       </div>
 
       {modification ? (
         <CaseACocher
-          libelle="Règle active"
-          aide="Décochée : la règle est conservée mais ne se déclenche plus."
+          libelle={t("Règle active", "Active rule")}
+          aide={t(
+            "Décochée : la règle est conservée mais ne se déclenche plus.",
+            "Unchecked: the rule is kept but no longer triggers.",
+          )}
           checked={active}
           onChange={(e) => setActive(e.target.checked)}
         />
       ) : null}
 
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Si le contexte vérifie…</legend>
+        <legend className="mp-champ__libelle">
+          {t("Si le contexte vérifie…", "If the context satisfies…")}
+        </legend>
         {s.comparaisons.length > 1 ? (
           <Select
-            libelle="Combinaison"
+            libelle={t("Combinaison", "Combination")}
             value={s.combinaison}
             onChange={(e) =>
               setS({ ...s, combinaison: e.target.value as SaisieRegle["combinaison"] })
             }
             options={[
-              { valeur: "tous", libelle: "Toutes les conditions" },
-              { valeur: "au_moins_un", libelle: "Au moins une condition" },
+              { valeur: "tous", libelle: t("Toutes les conditions", "All conditions") },
+              {
+                valeur: "au_moins_un",
+                libelle: t("Au moins une condition", "At least one condition"),
+              },
             ]}
           />
         ) : null}
@@ -142,55 +162,58 @@ export function FormulaireRegle({
             <div key={i} className="mp-sous-formulaire">
               <div className="mp-grille-champs mp-grille-champs--serree">
                 <Select
-                  libelle={`Facteur ${i + 1}`}
+                  libelle={t(`Facteur ${i + 1}`, `Factor ${i + 1}`)}
                   value={c.facteur}
                   onChange={(e) =>
                     majComparaison(i, { facteur: e.target.value, comparateur: "", valeur: "" })
                   }
-                  invite="Choisir…"
+                  invite={t("Choisir…", "Choose…")}
                   options={facteurs.map((x) => ({ valeur: x.code, libelle: x.libelle }))}
                 />
                 <Select
-                  libelle="Comparaison"
+                  libelle={t("Comparaison", "Comparison")}
                   value={c.comparateur}
                   onChange={(e) =>
                     majComparaison(i, { comparateur: e.target.value as ComparateurModulation })
                   }
-                  invite="Choisir…"
+                  invite={t("Choisir…", "Choose…")}
                   options={comparateurs.map((x) => ({
                     valeur: x,
-                    libelle: COMPARATEUR_LIBELLES[x],
+                    libelle: libelleComparateur(x, langue),
                   }))}
                 />
                 {facteur?.type === "booleen" ? (
                   <Select
-                    libelle="Valeur"
+                    libelle={t("Valeur", "Value")}
                     value={c.valeur}
                     onChange={(e) => majComparaison(i, { valeur: e.target.value })}
-                    invite="Choisir…"
+                    invite={t("Choisir…", "Choose…")}
                     options={[
-                      { valeur: "oui", libelle: "Oui" },
-                      { valeur: "non", libelle: "Non" },
+                      { valeur: "oui", libelle: t("Oui", "Yes") },
+                      { valeur: "non", libelle: t("Non", "No") },
                     ]}
                   />
                 ) : facteur?.valeurs &&
                   c.comparateur !== "dans" &&
                   facteur.type === "enumeration" ? (
                   <Select
-                    libelle="Valeur"
+                    libelle={t("Valeur", "Value")}
                     value={c.valeur}
                     onChange={(e) => majComparaison(i, { valeur: e.target.value })}
-                    invite="Choisir…"
+                    invite={t("Choisir…", "Choose…")}
                     options={facteur.valeurs.map((v) => ({ valeur: v.code, libelle: v.libelle }))}
                   />
                 ) : (
                   <Champ
-                    libelle="Valeur"
+                    libelle={t("Valeur", "Value")}
                     value={c.valeur}
                     onChange={(e) => majComparaison(i, { valeur: e.target.value })}
                     aide={
                       facteur?.valeurs
-                        ? `Codes séparés par des virgules : ${facteur.valeurs.map((v) => v.code).join(", ")}`
+                        ? t(
+                            `Codes séparés par des virgules : ${facteur.valeurs.map((v) => v.code).join(", ")}`,
+                            `Codes separated by commas: ${facteur.valeurs.map((v) => v.code).join(", ")}`,
+                          )
                         : undefined
                     }
                   />
@@ -205,7 +228,7 @@ export function FormulaireRegle({
                     setS({ ...s, comparaisons: s.comparaisons.filter((_, j) => j !== i) })
                   }
                 >
-                  Retirer la condition
+                  {t("Retirer la condition", "Remove the condition")}
                 </Bouton>
               ) : null}
             </div>
@@ -225,37 +248,37 @@ export function FormulaireRegle({
             })
           }
         >
-          Ajouter une condition
+          {t("Ajouter une condition", "Add a condition")}
         </Bouton>
       </fieldset>
 
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">…alors ajuster</legend>
+        <legend className="mp-champ__libelle">{t("…alors ajuster", "…then adjust")}</legend>
         {s.effets.map((ef, i) => (
           <div key={i} className="mp-sous-formulaire">
             <div className="mp-grille-champs mp-grille-champs--serree">
               <Select
-                libelle={`Effet ${i + 1}`}
+                libelle={t(`Effet ${i + 1}`, `Effect ${i + 1}`)}
                 value={ef.type}
                 onChange={(e) =>
                   majEffet(i, { type: e.target.value as TypeEffetEditeur, code: "", valeur: "" })
                 }
-                options={TYPES_EFFET_EDITEUR.map((t) => ({
-                  valeur: t,
-                  libelle: EFFET_LIBELLES[t],
+                options={TYPES_EFFET_EDITEUR.map((te) => ({
+                  valeur: te,
+                  libelle: libelleEffet(te, langue),
                 }))}
               />
               {EFFETS_SUR_BRIQUE.includes(ef.type) ? (
                 <Select
-                  libelle="Brique"
+                  libelle={t("Brique", "Building block")}
                   value={ef.code}
                   onChange={(e) => majEffet(i, { code: e.target.value })}
-                  invite="Choisir…"
+                  invite={t("Choisir…", "Choose…")}
                   options={briques.map((b) => ({ valeur: b.code, libelle: b.libelle }))}
                 />
               ) : (
                 <Champ
-                  libelle="Cible (code)"
+                  libelle={t("Cible (code)", "Target (code)")}
                   value={ef.code}
                   spellCheck={false}
                   onChange={(e) => majEffet(i, { code: e.target.value })}
@@ -263,15 +286,19 @@ export function FormulaireRegle({
               )}
               {ef.type === "relever_classe_risque" ? (
                 <Select
-                  libelle="Classe"
+                  libelle={t("Classe", "Class")}
                   value={ef.valeur}
                   onChange={(e) => majEffet(i, { valeur: e.target.value })}
-                  invite="Choisir…"
+                  invite={t("Choisir…", "Choose…")}
                   options={CLASSES_RISQUE.map((c) => ({ valeur: c, libelle: c }))}
                 />
               ) : EFFETS_A_CHOIX.includes(ef.type) || EFFETS_NUMERIQUES.includes(ef.type) ? (
                 <Champ
-                  libelle={EFFETS_NUMERIQUES.includes(ef.type) ? "Valeur" : "Choix (code)"}
+                  libelle={
+                    EFFETS_NUMERIQUES.includes(ef.type)
+                      ? t("Valeur", "Value")
+                      : t("Choix (code)", "Choice (code)")
+                  }
                   inputMode={EFFETS_NUMERIQUES.includes(ef.type) ? "decimal" : undefined}
                   value={ef.valeur}
                   onChange={(e) => majEffet(i, { valeur: e.target.value })}
@@ -285,7 +312,7 @@ export function FormulaireRegle({
                 icone="corbeille"
                 onClick={() => setS({ ...s, effets: s.effets.filter((_, j) => j !== i) })}
               >
-                Retirer l&apos;effet
+                {t("Retirer l'effet", "Remove the effect")}
               </Bouton>
             ) : null}
           </div>
@@ -299,7 +326,7 @@ export function FormulaireRegle({
             setS({ ...s, effets: [...s.effets, { type: "activer_brique", code: "", valeur: "" }] })
           }
         >
-          Ajouter un effet
+          {t("Ajouter un effet", "Add an effect")}
         </Bouton>
       </fieldset>
 
@@ -308,9 +335,11 @@ export function FormulaireRegle({
           type="submit"
           icone={modification ? "succes" : "plus"}
           chargement={f.enCours}
-          texteChargement={modification ? "Enregistrement…" : "Ajout…"}
+          texteChargement={modification ? t("Enregistrement…", "Saving…") : t("Ajout…", "Adding…")}
         >
-          {modification ? "Enregistrer la règle" : "Ajouter la règle"}
+          {modification
+            ? t("Enregistrer la règle", "Save the rule")
+            : t("Ajouter la règle", "Add the rule")}
         </Bouton>
       </div>
     </form>

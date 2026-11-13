@@ -6,12 +6,16 @@
 import {
   CATEGORIE_FAIT_LIBELLES,
   CATEGORIES_FAIT_DOSSIER,
+  SECTION_ETAT_LIBELLES,
+  type SectionEtatDossier,
   FIABILITES_PREUVE,
   TYPE_SOURCE_PREUVE_LIBELLES,
+  creerTraduire,
   TYPES_SOURCE_PREUVE,
   type CategorieFaitDossier,
   type CorrectionOcr,
   type FiabilitePreuve,
+  type Langue,
   type MethodeExtraction,
   type StatutEtatDossier,
   type StatutFaitDossier,
@@ -25,7 +29,7 @@ import {
   VALEUR_ABSENTE,
   type Devise,
 } from "./format";
-import { libelleCibleControle, remplacerCodesLignes } from "./codes-lisibles";
+import { libellePosteEtat } from "./codes-lisibles";
 import { lireMontant, lireNombre, texteOuNull, type Resultat } from "./saisie";
 
 // --- Types renvoyés par l'API ------------------------------------------------------------
@@ -243,6 +247,33 @@ export const STATUT_ETAT: Record<StatutEtatDossier, { libelle: string; tonalite:
     remplace: { libelle: "Remplacé", tonalite: "neutre" },
   };
 
+export const STATUT_FAIT_EN: Record<
+  StatutFaitDossier,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  propose: { libelle: "To confirm", tonalite: "attention" },
+  confirme: { libelle: "Confirmed", tonalite: "succes" },
+  rejete: { libelle: "Rejected", tonalite: "danger" },
+  remplace: { libelle: "Replaced", tonalite: "neutre" },
+};
+
+export const STATUT_ETAT_EN: Record<
+  StatutEtatDossier,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  en_revue: { libelle: "Under review", tonalite: "attention" },
+  accepte: { libelle: "Accepted", tonalite: "succes" },
+  rejete: { libelle: "Rejected", tonalite: "danger" },
+  remplace: { libelle: "Replaced", tonalite: "neutre" },
+};
+
+export function statutFait(s: StatutFaitDossier, langue: Langue = "fr") {
+  return (langue === "en" ? STATUT_FAIT_EN : STATUT_FAIT)[s];
+}
+export function statutEtat(s: StatutEtatDossier, langue: Langue = "fr") {
+  return (langue === "en" ? STATUT_ETAT_EN : STATUT_ETAT)[s];
+}
+
 export const CLASSE_FIABILITE: Record<
   Fiabilite["classe"],
   { libelle: string; tonalite: TonaliteStatut }
@@ -252,6 +283,43 @@ export const CLASSE_FIABILITE: Record<
   C: { libelle: "C — Données fragiles", tonalite: "attention" },
   D: { libelle: "D — Données insuffisantes", tonalite: "danger" },
 };
+
+export const CLASSE_FIABILITE_EN: Record<
+  Fiabilite["classe"],
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  A: { libelle: "A — Reliable data", tonalite: "succes" },
+  B: { libelle: "B — Sound data", tonalite: "succes" },
+  C: { libelle: "C — Fragile data", tonalite: "attention" },
+  D: { libelle: "D — Insufficient data", tonalite: "danger" },
+};
+
+export function classeFiabilite(c: Fiabilite["classe"], langue: Langue = "fr") {
+  return (langue === "en" ? CLASSE_FIABILITE_EN : CLASSE_FIABILITE)[c];
+}
+
+export function composantesFiabilite(langue: Langue = "fr") {
+  const t = creerTraduire(langue);
+  return [
+    {
+      cle: "certification",
+      libelle: t("Certification des comptes", "Accounts certification"),
+      max: 35,
+    },
+    { cle: "informel", libelle: t("Part de l'informel", "Share of informal activity"), max: 25 },
+    {
+      cle: "coherence",
+      libelle: t("Cohérence des états financiers", "Consistency of financial statements"),
+      max: 20,
+    },
+    {
+      cle: "anciennete",
+      libelle: t("Ancienneté du dernier exercice", "Age of the latest fiscal year"),
+      max: 10,
+    },
+    { cle: "sources", libelle: t("Qualité des sources", "Source quality"), max: 10 },
+  ] as { cle: keyof Fiabilite["detail"]; libelle: string; max: number }[];
+}
 
 export const COMPOSANTES_FIABILITE: {
   cle: keyof Fiabilite["detail"];
@@ -288,6 +356,88 @@ export const ORIGINE_ETAT_LIBELLES: Record<EtatFinancier["origine"], string> = {
   pdf: "PDF",
 };
 
+export function libelleControle(code: ConstatEtat["code"], langue: Langue = "fr"): string {
+  const en: Record<ConstatEtat["code"], string> = {
+    SOUS_TOTAL: "Subtotal",
+    TOTAL_SECTION: "Section total",
+    EQUILIBRE_BILAN: "Balance sheet balance",
+    RESULTAT_COMPTE: "Income statement result",
+    RESULTAT_BILAN: "Balance sheet result",
+  };
+  return (langue === "en" ? en : CONTROLE_LIBELLES)[code] ?? code;
+}
+
+export function libelleTypeEvenement(type: EvenementFrise["type"], langue: Langue = "fr"): string {
+  const en: Record<EvenementFrise["type"], string> = {
+    notation: "Rating",
+    mission: "Engagement",
+    decision: "Decision",
+    alerte: "Alert",
+    fait: "Fact",
+  };
+  return (langue === "en" ? en : TYPE_EVENEMENT_LIBELLES)[type];
+}
+
+export function libelleOrigineEtat(
+  origine: EtatFinancier["origine"],
+  langue: Langue = "fr",
+): string {
+  const en: Record<EtatFinancier["origine"], string> = {
+    saisie: "Manual entry",
+    csv: "CSV file",
+    excel: "Excel workbook",
+    pdf: "PDF",
+  };
+  return (langue === "en" ? en : ORIGINE_ETAT_LIBELLES)[origine];
+}
+
+const CATEGORIE_FAIT_LIBELLES_EN: Record<CategorieFaitDossier, string> = {
+  profil: "Profile",
+  organisation: "Organization",
+  processus: "Processes",
+  produits_marches: "Products and markets",
+  finances: "Finance",
+  risques: "Risks",
+  parties_prenantes: "Stakeholders",
+};
+export function libelleCategorieFait(c: CategorieFaitDossier, langue: Langue = "fr"): string {
+  return (langue === "en" ? CATEGORIE_FAIT_LIBELLES_EN : CATEGORIE_FAIT_LIBELLES)[c];
+}
+
+const TYPE_SOURCE_LIBELLES_EN: Record<TypeSourcePreuve, string> = {
+  questionnaire: "Questionnaire",
+  entretien: "Interview",
+  observation: "Field observation",
+  document: "Document",
+  donnee_externe: "External data",
+};
+export function libelleTypeSource(t: TypeSourcePreuve, langue: Langue = "fr"): string {
+  return (langue === "en" ? TYPE_SOURCE_LIBELLES_EN : TYPE_SOURCE_PREUVE_LIBELLES)[t];
+}
+
+const SECTION_ETAT_LIBELLES_EN: Record<SectionEtatDossier, string> = {
+  actif: "Assets",
+  passif: "Liabilities",
+  charges: "Expenses",
+  produits: "Income",
+  resultat: "Declared net result",
+};
+export function libelleSectionEtat(s: SectionEtatDossier, langue: Langue = "fr"): string {
+  return (langue === "en" ? SECTION_ETAT_LIBELLES_EN : SECTION_ETAT_LIBELLES)[s];
+}
+
+export const optionsCategories = (langue: Langue = "fr") =>
+  CATEGORIES_FAIT_DOSSIER.map((c) => ({ valeur: c, libelle: libelleCategorieFait(c, langue) }));
+export const optionsSources = (langue: Langue = "fr") =>
+  TYPES_SOURCE_PREUVE.map((t) => ({ valeur: t, libelle: libelleTypeSource(t, langue) }));
+export const optionsFiabilite = (langue: Langue = "fr") =>
+  FIABILITES_PREUVE.map((f) => ({
+    valeur: f,
+    libelle: (langue === "en"
+      ? { A: "A — very reliable", B: "B — reliable", C: "C — to cross-check", D: "D — unreliable" }
+      : { A: "A — très fiable", B: "B — fiable", C: "C — à recouper", D: "D — peu fiable" })[f],
+  }));
+
 export const OPTIONS_CATEGORIES = CATEGORIES_FAIT_DOSSIER.map((c) => ({
   valeur: c,
   libelle: CATEGORIE_FAIT_LIBELLES[c],
@@ -304,55 +454,75 @@ export const OPTIONS_FIABILITE = FIABILITES_PREUVE.map((f) => ({
 // --- Mise en forme -------------------------------------------------------------------------
 
 /** Valeur d'un fait, lisible : montant formaté, date JJ/MM/AAAA, Oui/Non. */
-export function formaterValeurFait(v: ValeurFait | null | undefined): string {
+export function formaterValeurFait(
+  v: ValeurFait | null | undefined,
+  langue: Langue = "fr",
+): string {
   if (!v) return VALEUR_ABSENTE;
   switch (v.type) {
     case "texte":
       return v.texte;
     case "nombre":
-      return formaterNombre(v.nombre, 4);
+      return formaterNombre(v.nombre, 4, langue);
     case "montant":
-      return formaterMontantMineur(v.montant, v.devise);
+      return formaterMontantMineur(v.montant, v.devise, langue);
     case "date":
-      return formaterDate(v.date);
+      return formaterDate(v.date, "UTC", langue);
     default:
-      return v.booleen ? "Oui" : "Non";
+      return v.booleen ? creerTraduire(langue)("Oui", "Yes") : creerTraduire(langue)("Non", "No");
   }
 }
 
 /** Valeur d'un facteur de contexte, lisible. */
-export function formaterValeurFacteur(v: ValeurFacteur | null | undefined): string {
+export function formaterValeurFacteur(
+  v: ValeurFacteur | null | undefined,
+  langue: Langue = "fr",
+): string {
   if (v === null || v === undefined) return VALEUR_ABSENTE;
-  if (typeof v === "boolean") return v ? "Oui" : "Non";
-  if (typeof v === "number") return formaterNombre(v, 4);
+  if (typeof v === "boolean")
+    return v ? creerTraduire(langue)("Oui", "Yes") : creerTraduire(langue)("Non", "No");
+  if (typeof v === "number") return formaterNombre(v, 4, langue);
   if (Array.isArray(v)) return v.length === 0 ? VALEUR_ABSENTE : v.join(", ");
   return v;
 }
 
 /** Source d'un fait : « Entretien — Entretien avec le DAF (p. 4) ». */
-export function formaterSource(s: SourceDossier): string {
+export function formaterSource(s: SourceDossier, langue: Langue = "fr"): string {
   const precision = [s.page ? `p. ${s.page}` : null, s.reference].filter(Boolean).join(", ");
-  return `${TYPE_SOURCE_PREUVE_LIBELLES[s.type] ?? s.type} — ${s.libelle}${precision ? ` (${precision})` : ""}`;
+  return `${libelleTypeSource(s.type, langue) ?? s.type} — ${s.libelle}${precision ? ` (${precision})` : ""}`;
 }
 
 /** Référence d'une valeur d'état financier : « liasse.xlsx, cellule D12 », « ligne 7 », « p. 3 ». */
-export function formaterReference(r: LigneEtat["reference"] | null | undefined): string {
+export function formaterReference(
+  r: LigneEtat["reference"] | null | undefined,
+  langue: Langue = "fr",
+): string {
   if (!r) return VALEUR_ABSENTE;
+  const t = creerTraduire(langue);
+  const court = t(MARQUEUR_OCR_COURT, "read by OCR");
   const morceaux = [
     r.fichier ?? null,
-    r.feuille ? `feuille ${r.feuille}` : null,
-    r.cellule ? `cellule ${r.cellule}` : r.ligne ? `ligne ${r.ligne}` : null,
+    r.feuille ? `${t("feuille", "sheet")} ${r.feuille}` : null,
+    r.cellule
+      ? `${t("cellule", "cell")} ${r.cellule}`
+      : r.ligne
+        ? `${t("ligne", "line")} ${r.ligne}`
+        : null,
     r.page ? `p. ${r.page}` : null,
   ].filter(Boolean);
-  if (morceaux.length === 0) return r.ocr ? MARQUEUR_OCR_COURT : VALEUR_ABSENTE;
+  if (morceaux.length === 0) return r.ocr ? court : VALEUR_ABSENTE;
   const base = morceaux.join(", ");
-  return r.ocr ? `${base} · ${MARQUEUR_OCR_COURT}` : base;
+  return r.ocr ? `${base} · ${court}` : base;
 }
 
 export const MARQUEUR_OCR_COURT = "lu par OCR";
 export const MARQUEUR_OCR_A_VERIFIER = "lu par OCR : à vérifier";
 export const AVERTISSEMENT_OCR =
   "Cet état a été lu par reconnaissance de caractères (OCR) : chaque chiffre doit être vérifié dans le document d'origine avant toute décision. Il n'est jamais accepté automatiquement.";
+
+export const MARQUEUR_OCR_A_VERIFIER_EN = "read by OCR: to be checked";
+export const AVERTISSEMENT_OCR_EN =
+  "This statement was read by optical character recognition (OCR): every figure must be checked against the original document before any decision. It is never accepted automatically.";
 
 /** La ligne porte une valeur lue par reconnaissance de caractères. */
 export function ligneLueParOcr(l: Pick<LigneEtat, "reference"> | null | undefined): boolean {
@@ -372,33 +542,52 @@ export function etatLuParOcr(
 }
 
 /** Mention accolée au montant d'une ligne lue par OCR : « lu par OCR : à vérifier (confiance de la page : 82 %) ». */
-export function marqueurOcrLigne(l: Pick<LigneEtat, "reference">): string | null {
+export function marqueurOcrLigne(
+  l: Pick<LigneEtat, "reference">,
+  langue: Langue = "fr",
+): string | null {
   if (!ligneLueParOcr(l)) return null;
+  const t = creerTraduire(langue);
+  const marqueur = t(MARQUEUR_OCR_A_VERIFIER, MARQUEUR_OCR_A_VERIFIER_EN);
   const c = l.reference.confiance_pm;
-  if (c === null || c === undefined || !Number.isFinite(c)) return MARQUEUR_OCR_A_VERIFIER;
+  if (c === null || c === undefined || !Number.isFinite(c)) return marqueur;
   const pct = Math.round(Math.min(1000, Math.max(0, c)) / 10);
-  return `${MARQUEUR_OCR_A_VERIFIER} (confiance de la page : ${pct} %)`;
+  return `${marqueur} (${t("confiance de la page", "page confidence")}${t(" : ", ": ")}${pct} %)`;
 }
 
 /** Constat de contrôle, lisible : « Équilibre du bilan : écart de −10 FCFA (attendu 1 000, constaté 990) ». */
-export function formaterConstat(c: ConstatEtat, devise: Devise): string {
-  const nom = `${CONTROLE_LIBELLES[c.code] ?? c.code}${c.cible ? ` (${libelleCibleControle(c.cible)})` : ""}`;
+export function formaterConstat(c: ConstatEtat, devise: Devise, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  const m = (v: number | null) => formaterMontantMineur(v, devise, langue);
+  const cible = (x: string) => {
+    const g = /^L(\d+)_(\d+)$/.exec(x.trim());
+    return g ? `${t("page", "page")} ${g[1]}, ${t("ligne", "line")} ${g[2]}` : x.trim();
+  };
+  const remplacer = (texte: string) =>
+    texte.replace(/\bL(\d+)_(\d+)\b/g, (code) => {
+      const g = /^L(\d+)_(\d+)$/.exec(code);
+      return langue === "en" && g
+        ? `Line without source code (page ${g[1]}, line ${g[2]})`
+        : libellePosteEtat(code);
+    });
+  const nom = `${libelleControle(c.code, langue)}${c.cible ? ` (${cible(c.cible)})` : ""}`;
   if (c.statut === "non_verifiable")
-    return `${nom} : non vérifiable. ${remplacerCodesLignes(c.message)}`;
-  if (c.statut === "ok") return `${nom} : conforme.`;
+    return `${nom}${t(" : non vérifiable. ", ": cannot be verified. ")}${remplacer(c.message)}`;
+  if (c.statut === "ok") return `${nom}${t(" : conforme.", ": compliant.")}`;
   return (
-    `${nom} : écart de ${formaterMontantMineur(c.ecart, devise)} ` +
-    `(attendu ${formaterMontantMineur(c.attendu, devise)}, constaté ${formaterMontantMineur(c.constate, devise)}).`
+    `${nom}${t(" : écart de ", ": gap of ")}${m(c.ecart)} ` +
+    `(${t("attendu", "expected")} ${m(c.attendu)}, ${t("constaté", "found")} ${m(c.constate)}).`
   );
 }
 
 /** Groupe des faits par catégorie, dans l'ordre des catégories ; catégories vides omises. */
 export function grouperParCategorie<T extends { categorie: CategorieFaitDossier }>(
   faits: readonly T[],
+  langue: Langue = "fr",
 ): { categorie: CategorieFaitDossier; libelle: string; faits: T[] }[] {
   return CATEGORIES_FAIT_DOSSIER.map((c) => ({
     categorie: c,
-    libelle: CATEGORIE_FAIT_LIBELLES[c],
+    libelle: libelleCategorieFait(c, langue),
     faits: faits.filter((f) => f.categorie === c),
   })).filter((g) => g.faits.length > 0);
 }
@@ -467,14 +656,15 @@ export const cheminExport = (id: string, format: "json" | "zip") =>
   `${cheminApiDossier(id)}/export?format=${format}`;
 
 /** Onglets d'un dossier. */
-export function ongletsDossier(id: string) {
+export function ongletsDossier(id: string, langue: Langue = "fr") {
   const base = `/dossiers/${enc(id)}`;
+  const t = creerTraduire(langue);
   return [
-    { id: "ensemble", libelle: "Vue d'ensemble", href: base },
-    { id: "faits", libelle: "Faits", href: `${base}/faits` },
-    { id: "finances", libelle: "Finances", href: `${base}/finances` },
-    { id: "frise", libelle: "Frise", href: `${base}/frise` },
-    { id: "groupe", libelle: "Groupe", href: `${base}/groupe` },
+    { id: "ensemble", libelle: t("Vue d'ensemble", "Overview"), href: base },
+    { id: "faits", libelle: t("Faits", "Facts"), href: `${base}/faits` },
+    { id: "finances", libelle: t("Finances", "Finance"), href: `${base}/finances` },
+    { id: "frise", libelle: t("Frise", "Timeline"), href: `${base}/frise` },
+    { id: "groupe", libelle: t("Groupe", "Group"), href: `${base}/groupe` },
   ];
 }
 
@@ -489,6 +679,19 @@ export const OPTIONS_TYPES_VALEUR: { valeur: TypeValeurFait; libelle: string }[]
   { valeur: "date", libelle: "Date" },
   { valeur: "booleen", libelle: "Oui / non" },
 ];
+
+export const optionsTypesValeur = (
+  langue: Langue = "fr",
+): { valeur: TypeValeurFait; libelle: string }[] => {
+  const t = creerTraduire(langue);
+  return [
+    { valeur: "texte", libelle: t("Texte", "Text") },
+    { valeur: "nombre", libelle: t("Nombre", "Number") },
+    { valeur: "montant", libelle: t("Montant", "Amount") },
+    { valeur: "date", libelle: t("Date", "Date") },
+    { valeur: "booleen", libelle: t("Oui / non", "Yes / no") },
+  ];
+};
 
 export interface SaisieFait {
   categorie: CategorieFaitDossier;
@@ -551,54 +754,75 @@ export function versCle(texte: string): string {
     .slice(0, 120);
 }
 
-function lireValeurFait(s: SaisieFait): ValeurFait | string {
+function lireValeurFait(s: SaisieFait, langue: Langue = "fr"): ValeurFait | string {
+  const tr = creerTraduire(langue);
   const t = s.valeur.trim();
   switch (s.type_valeur) {
     case "texte":
       return t === ""
-        ? "Saisissez la valeur."
+        ? tr("Saisissez la valeur.", "Enter the value.")
         : t.length > 2000
-          ? "2 000 caractères au plus."
+          ? tr("2 000 caractères au plus.", "2,000 characters at most.")
           : { type: "texte", texte: t };
     case "nombre": {
       const n = lireNombre(t);
       return n === null || Number.isNaN(n)
-        ? "Nombre attendu (ex. 42 ou 12,5)."
+        ? tr("Nombre attendu (ex. 42 ou 12,5).", "Number expected (e.g. 42 or 12.5).")
         : { type: "nombre", nombre: n };
     }
     case "montant": {
       const m = lireMontant(t, s.devise);
       return m === null || Number.isNaN(m)
-        ? "Montant positif attendu, à la précision de la devise."
+        ? tr(
+            "Montant positif attendu, à la précision de la devise.",
+            "Positive amount expected, at the currency's precision.",
+          )
         : { type: "montant", montant: m, devise: s.devise };
     }
     case "date":
-      return DATE.test(t) ? { type: "date", date: t } : "Date attendue.";
+      return DATE.test(t) ? { type: "date", date: t } : tr("Date attendue.", "Date expected.");
     default:
       return t === "oui" || t === "non"
         ? { type: "booleen", booleen: t === "oui" }
-        : "Choisissez oui ou non.";
+        : tr("Choisissez oui ou non.", "Choose yes or no.");
   }
 }
 
 /** Valide la saisie d'un fait → corps de `POST /api/dossiers/:id/faits`. */
-export function validerFait(s: SaisieFait): Resultat<Record<string, unknown>, ChampFait> {
+export function validerFait(
+  s: SaisieFait,
+  langue: Langue = "fr",
+): Resultat<Record<string, unknown>, ChampFait> {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<ChampFait, string>> = {};
   const cle = versCle(s.cle);
-  if (!CLE.test(cle)) erreurs.cle = "Clé attendue (lettres, chiffres, « _ »), ex. effectif_total.";
-  const valeur = lireValeurFait(s);
+  if (!CLE.test(cle))
+    erreurs.cle = tr(
+      "Clé attendue (lettres, chiffres, « _ »), ex. effectif_total.",
+      'Key expected (letters, digits, "_"), e.g. effectif_total.',
+    );
+  const valeur = lireValeurFait(s, langue);
   if (typeof valeur === "string") erreurs.valeur = valeur;
-  if (!DATE.test(s.date_effet)) erreurs.date_effet = "Date d'effet attendue.";
+  if (!DATE.test(s.date_effet))
+    erreurs.date_effet = tr("Date d'effet attendue.", "Effective date expected.");
   const libelle = texteOuNull(s.source_libelle);
-  if (!libelle) erreurs.source_libelle = "Précisez la source (document, entretien…).";
-  else if (libelle.length > 300) erreurs.source_libelle = "300 caractères au plus.";
+  if (!libelle)
+    erreurs.source_libelle = tr(
+      "Précisez la source (document, entretien…).",
+      "Specify the source (document, interview…).",
+    );
+  else if (libelle.length > 300)
+    erreurs.source_libelle = tr("300 caractères au plus.", "300 characters at most.");
   const page = texteOuNull(s.source_page);
   const numero = page === null ? null : Number(page);
   if (
     page !== null &&
     (s.source_type !== "document" || !Number.isInteger(numero) || (numero as number) < 1)
   ) {
-    erreurs.source_page = "Numéro de page (document seulement).";
+    erreurs.source_page = tr(
+      "Numéro de page (document seulement).",
+      "Page number (documents only).",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const commentaire = texteOuNull(s.commentaire);
@@ -658,24 +882,57 @@ export const FACTEURS_CONVENTION: {
   },
 ];
 
+/** Facteurs de convention, dans la langue demandée. */
+export function facteursConvention(langue: Langue = "fr"): typeof FACTEURS_CONVENTION {
+  if (langue !== "en") return FACTEURS_CONVENTION;
+  return [
+    {
+      code: "fiabilite_comptes",
+      libelle: "Reliability of the accounts",
+      valeurs: [
+        { valeur: "certifies", libelle: "Certified" },
+        { valeur: "non_certifies", libelle: "Not certified" },
+        { valeur: "reconstitues", libelle: "Reconstructed" },
+      ],
+    },
+    {
+      code: "part_informel",
+      libelle: "Share of informal activity and cash",
+      valeurs: [
+        { valeur: "faible", libelle: "Low" },
+        { valeur: "moyenne", libelle: "Medium" },
+        { valeur: "forte", libelle: "High" },
+      ],
+    },
+  ];
+}
+
 type LectureFacteur = { ok: true; valeur: ValeurFacteur } | { ok: false; message: string };
 
-function lireValeurFacteur(s: SaisieFacteur): LectureFacteur {
+function lireValeurFacteur(s: SaisieFacteur, langue: Langue = "fr"): LectureFacteur {
+  const tr = creerTraduire(langue);
   const t = s.valeur.trim();
   const ko = (message: string): LectureFacteur => ({ ok: false, message });
   if (s.type === "booleen") {
     return t === "oui" || t === "non"
       ? { ok: true, valeur: t === "oui" }
-      : ko("Choisissez oui ou non.");
+      : ko(tr("Choisissez oui ou non.", "Choose yes or no."));
   }
   if (s.type === "nombre") {
     const n = lireNombre(t);
-    return n === null || Number.isNaN(n) ? ko("Nombre attendu.") : { ok: true, valeur: n };
+    return n === null || Number.isNaN(n)
+      ? ko(tr("Nombre attendu.", "Number expected."))
+      : { ok: true, valeur: n };
   }
   if (s.type === "enumeration") {
     return CLE.test(t)
       ? { ok: true, valeur: t }
-      : ko("Code attendu (minuscules, chiffres, « _ »).");
+      : ko(
+          tr(
+            "Code attendu (minuscules, chiffres, « _ »).",
+            'Code expected (lowercase, digits, "_").',
+          ),
+        );
   }
   const liste = [
     ...new Set(
@@ -687,24 +944,33 @@ function lireValeurFacteur(s: SaisieFacteur): LectureFacteur {
   ];
   return liste.length > 0 && liste.every((x) => CLE.test(x))
     ? { ok: true, valeur: liste }
-    : ko("Liste de codes séparés par des virgules.");
+    : ko(tr("Liste de codes séparés par des virgules.", "List of codes separated by commas."));
 }
 
 /** Valide la saisie d'un facteur → corps de `POST /api/dossiers/:id/facteurs`. */
-export function validerFacteur(s: SaisieFacteur): Resultat<Record<string, unknown>, ChampFacteur> {
+export function validerFacteur(
+  s: SaisieFacteur,
+  langue: Langue = "fr",
+): Resultat<Record<string, unknown>, ChampFacteur> {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<ChampFacteur, string>> = {};
   const code = versCle(s.code);
-  if (!CLE.test(code)) erreurs.code = "Code du facteur attendu, ex. secteur_filiere.";
-  const convention = FACTEURS_CONVENTION.find((f) => f.code === code);
-  const lecture = lireValeurFacteur(convention ? { ...s, type: "enumeration" } : s);
+  if (!CLE.test(code))
+    erreurs.code = tr(
+      "Code du facteur attendu, ex. secteur_filiere.",
+      "Factor code expected, e.g. secteur_filiere.",
+    );
+  const convention = facteursConvention(langue).find((f) => f.code === code);
+  const lecture = lireValeurFacteur(convention ? { ...s, type: "enumeration" } : s, langue);
   if (convention && !(lecture.ok && convention.valeurs.some((v) => v.valeur === lecture.valeur))) {
-    erreurs.valeur = `Choisissez : ${convention.valeurs.map((v) => v.libelle).join(", ")}.`;
+    erreurs.valeur = `${tr("Choisissez", "Choose")}${tr(" : ", ": ")}${convention.valeurs.map((v) => v.libelle).join(", ")}.`;
   } else if (!lecture.ok) {
     erreurs.valeur = lecture.message;
   }
-  if (!DATE.test(s.date_effet)) erreurs.date_effet = "Date d'effet attendue.";
+  if (!DATE.test(s.date_effet))
+    erreurs.date_effet = tr("Date d'effet attendue.", "Effective date expected.");
   const libelle = texteOuNull(s.source_libelle);
-  if (!libelle) erreurs.source_libelle = "Précisez la source.";
+  if (!libelle) erreurs.source_libelle = tr("Précisez la source.", "Specify the source.");
   if (Object.keys(erreurs).length > 0 || !lecture.ok) return { ok: false, erreurs };
   return {
     ok: true,
@@ -728,7 +994,9 @@ export function validerDecisionEtat(
   decision: "accepte" | "rejete",
   motif: string,
   controlesOk: boolean,
+  langue: Langue = "fr",
 ): Resultat<{ decision: "accepte" | "rejete"; motif?: string }, ChampDecision> {
+  const tr = creerTraduire(langue);
   const m = texteOuNull(motif);
   if (!m && (decision === "rejete" || !controlesOk)) {
     return {
@@ -736,12 +1004,22 @@ export function validerDecisionEtat(
       erreurs: {
         motif:
           decision === "rejete"
-            ? "Motif obligatoire pour rejeter l'état."
-            : "Motif obligatoire pour accepter un état dont des contrôles échouent.",
+            ? tr(
+                "Motif obligatoire pour rejeter l'état.",
+                "A reason is required to reject the statement.",
+              )
+            : tr(
+                "Motif obligatoire pour accepter un état dont des contrôles échouent.",
+                "A reason is required to accept a statement with failed checks.",
+              ),
       },
     };
   }
-  if (m && m.length > 2000) return { ok: false, erreurs: { motif: "2 000 caractères au plus." } };
+  if (m && m.length > 2000)
+    return {
+      ok: false,
+      erreurs: { motif: tr("2 000 caractères au plus.", "2,000 characters at most.") },
+    };
   return { ok: true, charge: m ? { decision, motif: m } : { decision } };
 }
 
@@ -749,10 +1027,19 @@ export function validerDecisionEtat(
 export function validerDecisionFait(
   decision: "confirme" | "rejete",
   motif: string,
+  langue: Langue = "fr",
 ): Resultat<{ decision: "confirme" | "rejete"; motif?: string }, ChampDecision> {
   const m = texteOuNull(motif);
   if (decision === "rejete" && !m)
-    return { ok: false, erreurs: { motif: "Motif obligatoire pour rejeter." } };
+    return {
+      ok: false,
+      erreurs: {
+        motif: creerTraduire(langue)(
+          "Motif obligatoire pour rejeter.",
+          "A reason is required to reject.",
+        ),
+      },
+    };
   return { ok: true, charge: m ? { decision, motif: m } : { decision } };
 }
 
@@ -775,6 +1062,15 @@ export const AIDE_IMPORT_ETAT =
   "facultatives parent et rôle (total, résultat de l'exercice, résultat net). Classeur .xlsx " +
   "(2 Mo au plus, première feuille visible) ou CSV UTF-8 (séparateur « ; » ou « , »).";
 
+export function aideImportEtat(langue: Langue = "fr"): string {
+  if (langue !== "en") return AIDE_IMPORT_ETAT;
+  return (
+    "Columns: section (actif, passif, charges, produits, resultat), code, label, amount, and optional " +
+    "parent and role (total, result for the year, net result). .xlsx workbook " +
+    '(2 MB at most, first visible sheet) or UTF-8 CSV (separator ";" or ",").'
+  );
+}
+
 export function formatFichierEtat(nom: string): "excel" | "csv" | null {
   const n = nom.toLowerCase();
   if (n.endsWith(".xlsx")) return "excel";
@@ -786,6 +1082,7 @@ export function formatFichierEtat(nom: string): "excel" | "csv" | null {
 export function validerImportEtat(
   s: SaisieImportEtat,
   fichier: { name: string; size: number } | null,
+  langue: Langue = "fr",
 ): Resultat<
   {
     exercice: number;
@@ -796,25 +1093,41 @@ export function validerImportEtat(
   },
   ChampImportEtat
 > {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<ChampImportEtat, string>> = {};
   const exercice = Number(s.exercice);
   if (!/^\d{4}$/.test(s.exercice.trim()) || exercice < 1990 || exercice > 2100) {
-    erreurs.exercice = "Exercice sur quatre chiffres (ex. 2025).";
+    erreurs.exercice = tr(
+      "Exercice sur quatre chiffres (ex. 2025).",
+      "Fiscal year with four digits (e.g. 2025).",
+    );
   }
-  if (!DATE.test(s.date_cloture)) erreurs.date_cloture = "Date de clôture attendue.";
+  if (!DATE.test(s.date_cloture))
+    erreurs.date_cloture = tr("Date de clôture attendue.", "Closing date expected.");
   const tolerance = s.tolerance.trim() === "" ? 0 : Number(s.tolerance.trim());
   if (!Number.isInteger(tolerance) || tolerance < 0 || tolerance > 1_000_000) {
-    erreurs.tolerance = "Entier entre 0 et 1 000 000 (unités mineures).";
+    erreurs.tolerance = tr(
+      "Entier entre 0 et 1 000 000 (unités mineures).",
+      "Integer between 0 and 1,000,000 (minor units).",
+    );
   }
   const format = fichier ? formatFichierEtat(fichier.name) : null;
-  if (!fichier) erreurs.fichier = "Choisissez un classeur .xlsx ou un fichier .csv.";
-  else if (!format) erreurs.fichier = "Format accepté : .xlsx ou .csv.";
-  else if (fichier.size <= 0) erreurs.fichier = "Ce fichier est vide.";
+  if (!fichier)
+    erreurs.fichier = tr(
+      "Choisissez un classeur .xlsx ou un fichier .csv.",
+      "Choose an .xlsx workbook or a .csv file.",
+    );
+  else if (!format)
+    erreurs.fichier = tr("Format accepté : .xlsx ou .csv.", "Accepted format: .xlsx or .csv.");
+  else if (fichier.size <= 0) erreurs.fichier = tr("Ce fichier est vide.", "This file is empty.");
   else if (fichier.size > (format === "excel" ? TAILLE_EXCEL_MAX : TAILLE_CSV_MAX)) {
     erreurs.fichier =
       format === "excel"
-        ? "Classeur trop volumineux (2 Mo au plus)."
-        : "CSV trop volumineux (200 000 caractères au plus).";
+        ? tr("Classeur trop volumineux (2 Mo au plus).", "Workbook too large (2 MB at most).")
+        : tr(
+            "CSV trop volumineux (200 000 caractères au plus).",
+            "CSV too large (200,000 characters at most).",
+          );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {

@@ -1,11 +1,12 @@
 /** Import des temps : source envoyée à l'API, rapport vérifié et modèle Excel. */
+import type { Langue } from "@missionpilot/shared";
 import {
   api,
   ErreurApi,
   erreurDepuisReponse,
-  MESSAGE_DELAI,
-  MESSAGE_INATTENDU,
-  MESSAGE_RESEAU,
+  messageDelai,
+  messageInattendu,
+  messageReseau,
 } from "./api";
 import { controlerFichierImport, TYPE_XLSX, type FormatImport } from "./import-temps-fichier";
 import { televerser } from "./televersement";
@@ -19,6 +20,8 @@ export type PreparationImport =
 
 const LECTURE_IMPOSSIBLE =
   "Lecture du fichier impossible (déplacé ou modifié depuis son choix) : choisissez-le de nouveau.";
+const LECTURE_IMPOSSIBLE_EN =
+  "Cannot read the file (moved or modified since it was chosen): choose it again.";
 
 /**
  * Source de l'import : le fichier choisi s'il y en a un (contrôlé de nouveau), sinon le CSV
@@ -28,31 +31,41 @@ const LECTURE_IMPOSSIBLE =
 export async function preparerSource(
   fichier: (Blob & { name: string }) | null,
   csvColle: string,
+  langue: Langue = "fr",
 ): Promise<PreparationImport> {
   if (!fichier) {
     if (csvColle.trim() === "") {
       return {
         ok: false,
         champ: "fichier",
-        message: "Choisissez un fichier .xlsx ou .csv, ou collez le contenu d'un CSV.",
+        message:
+          langue === "en"
+            ? "Choose an .xlsx or .csv file, or paste the content of a CSV."
+            : "Choisissez un fichier .xlsx ou .csv, ou collez le contenu d'un CSV.",
       };
     }
-    const v = validerCsv(csvColle);
-    if (!v.ok) return { ok: false, champ: "csv", message: v.erreurs.csv ?? MESSAGE_INATTENDU };
+    const v = validerCsv(csvColle, langue);
+    if (!v.ok)
+      return { ok: false, champ: "csv", message: v.erreurs.csv ?? messageInattendu(langue) };
     return { ok: true, source: { format: "csv", csv: v.charge.csv } };
   }
-  const c = controlerFichierImport(fichier);
+  const c = controlerFichierImport(fichier, langue);
   if (!c.ok) return { ok: false, champ: "fichier", message: c.message };
   try {
     if (c.format === "xlsx") {
       const contenu = new Blob([await fichier.arrayBuffer()], { type: TYPE_XLSX });
       return { ok: true, source: { format: "xlsx", contenu } };
     }
-    const v = validerCsv(await fichier.text());
-    if (!v.ok) return { ok: false, champ: "fichier", message: v.erreurs.csv ?? MESSAGE_INATTENDU };
+    const v = validerCsv(await fichier.text(), langue);
+    if (!v.ok)
+      return { ok: false, champ: "fichier", message: v.erreurs.csv ?? messageInattendu(langue) };
     return { ok: true, source: { format: "csv", csv: v.charge.csv } };
   } catch {
-    return { ok: false, champ: "fichier", message: LECTURE_IMPOSSIBLE };
+    return {
+      ok: false,
+      champ: "fichier",
+      message: langue === "en" ? LECTURE_IMPOSSIBLE_EN : LECTURE_IMPOSSIBLE,
+    };
   }
 }
 
@@ -117,6 +130,7 @@ export async function envoyerImport(
   source: SourceImport,
   simulation: boolean,
   onProgression?: (fraction: number) => void,
+  langue: Langue = "fr",
 ): Promise<RapportImport> {
   const brut =
     source.format === "xlsx"
@@ -134,7 +148,7 @@ export async function envoyerImport(
           { delaiMs: DELAI_CSV_MS },
         );
   const rapport = lireRapport(brut);
-  if (!rapport) throw new ErreurApi("REPONSE_INVALIDE", MESSAGE_INATTENDU, 200);
+  if (!rapport) throw new ErreurApi("REPONSE_INVALIDE", messageInattendu(langue), 200);
   return rapport;
 }
 
@@ -148,7 +162,7 @@ const DELAI_MODELE_MS = 30_000;
  * Modèle .xlsx par un appel authentifié (cookie de session, même origine) : une erreur de l'API
  * devient un message au lieu d'un faux classeur enregistré sur le poste.
  */
-export async function telechargerModele(): Promise<Blob> {
+export async function telechargerModele(langue: Langue = "fr"): Promise<Blob> {
   let reponse: Response;
   try {
     reponse = await fetch(CHEMIN_MODELE, {
@@ -162,9 +176,9 @@ export async function telechargerModele(): Promise<Blob> {
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "TimeoutError") {
-      throw new ErreurApi("DELAI_DEPASSE", MESSAGE_DELAI, 0);
+      throw new ErreurApi("DELAI_DEPASSE", messageDelai(langue), 0);
     }
-    throw new ErreurApi("RESEAU_INDISPONIBLE", MESSAGE_RESEAU, 0);
+    throw new ErreurApi("RESEAU_INDISPONIBLE", messageReseau(langue), 0);
   }
   if (!reponse.ok) {
     let corps: unknown;

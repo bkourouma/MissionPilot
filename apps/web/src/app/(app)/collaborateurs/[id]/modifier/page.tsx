@@ -6,17 +6,22 @@ import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import type { Collaborateur, Grade } from "../../../../../lib/collaborateurs";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { exigerPermission } from "../../../../../lib/session";
 import { FormulaireCollaborateur } from "../../FormulaireCollaborateur";
 
-export const metadata: Metadata = { title: "Modifier un collaborateur" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Modifier un collaborateur", "Edit a team member") };
+}
 
 export default async function PageModifierCollaborateur({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = await obtenirT();
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("collaborateurs.ecrire");
@@ -30,8 +35,15 @@ export default async function PageModifierCollaborateur({
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre={r.ok ? `Modifier ${r.donnees.nom}` : "Modifier un collaborateur"}
-        retour={{ href: `/collaborateurs/${id}`, libelle: "Fiche collaborateur" }}
+        titre={
+          r.ok
+            ? t(`Modifier ${r.donnees.nom}`, `Edit ${r.donnees.nom}`)
+            : t("Modifier un collaborateur", "Edit a team member")
+        }
+        retour={{
+          href: `/collaborateurs/${id}`,
+          libelle: t("Fiche collaborateur", "Team member profile"),
+        }}
       />
       {r.ok ? (
         <Carte>
@@ -42,7 +54,10 @@ export default async function PageModifierCollaborateur({
         </Carte>
       ) : (
         <EtatErreur
-          titre="La fiche du collaborateur n'a pas pu être chargée."
+          titre={t(
+            "La fiche du collaborateur n'a pas pu être chargée.",
+            "The team member profile could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={`/collaborateurs/${id}/modifier`}
         />

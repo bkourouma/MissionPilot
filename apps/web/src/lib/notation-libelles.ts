@@ -1,6 +1,8 @@
 /** Notation : permissions, libellés et mise en forme (voir `notation.ts`). */
 import {
   aPermission,
+  LOCALES_INTL,
+  type Langue,
   SECTEURS_GRILLE_GENERIQUE,
   STATUT_VERSION_NOTATION_LIBELLES,
   type Permission,
@@ -45,14 +47,32 @@ export const CLASSES: Record<
   E: { libelle: "Critique", plage: "moins de 35", tonalite: "danger" },
 };
 
+const CLASSES_EN: Record<Classe, { libelle: string; plage: string }> = {
+  A: { libelle: "Very advanced", plage: "80 and above" },
+  B: { libelle: "Advanced", plage: "from 65 to under 80" },
+  C: { libelle: "Intermediate", plage: "from 50 to under 65" },
+  D: { libelle: "Fragile", plage: "from 35 to under 50" },
+  E: { libelle: "Critical", plage: "under 35" },
+};
+
+/** Libellé et plage d'une classe dans la langue demandée (le français reste `CLASSES`). */
+export function detailClasse(
+  classe: Classe,
+  langue: Langue = "fr",
+): { libelle: string; plage: string; tonalite: TonaliteNotation } {
+  const base = CLASSES[classe];
+  return langue === "en" ? { ...base, ...CLASSES_EN[classe] } : base;
+}
+
 export const LISTE_CLASSES: readonly Classe[] = ["A", "B", "C", "D", "E"];
 
 export const estClasse = (v: unknown): v is Classe =>
   typeof v === "string" && (LISTE_CLASSES as readonly string[]).includes(v);
 
 /** « Classe B — Avancé » ; « Non notable » sans classe. */
-export function libelleClasse(classe: Classe | null | undefined): string {
-  if (!estClasse(classe)) return "Non notable";
+export function libelleClasse(classe: Classe | null | undefined, langue: Langue = "fr"): string {
+  if (!estClasse(classe)) return langue === "en" ? "Not rated" : "Non notable";
+  if (langue === "en") return `Class ${classe} — ${CLASSES_EN[classe].libelle}`;
   return `Classe ${classe} — ${CLASSES[classe].libelle}`;
 }
 
@@ -66,7 +86,15 @@ export const TONALITE_STATUT: Record<StatutVersionNotation, TonaliteNotation> = 
   remplacee: "neutre",
 };
 
-export function libelleStatutVersion(statut: string): string {
+const STATUT_VERSION_EN: Record<string, string> = {
+  brouillon: "Draft",
+  en_revue: "In review (expert)",
+  publiee: "Published",
+  remplacee: "Replaced by a new computation",
+};
+
+export function libelleStatutVersion(statut: string, langue: Langue = "fr"): string {
+  if (langue === "en") return STATUT_VERSION_EN[statut] ?? "Unknown status";
   return (STATUT_VERSION_NOTATION_LIBELLES as Record<string, string>)[statut] ?? "Statut inconnu";
 }
 
@@ -84,17 +112,39 @@ export const STRATEGIES: Record<StrategieNotation, { libelle: string; aide: stri
   },
 };
 
-export const libelleStrategie = (s: string) =>
-  (STRATEGIES as Record<string, { libelle: string }>)[s]?.libelle ?? "Stratégie inconnue";
+export const STRATEGIES_EN: Record<StrategieNotation, { libelle: string; aide: string }> = {
+  ignorer: {
+    libelle: "Ignore missing answers (recommended)",
+    aide: "The score is computed on the answers given, renormalized. A dimension is rated only if half of its weight is answered.",
+  },
+  penaliser: {
+    libelle: "Penalize missing answers",
+    aide: "An applicable question with no answer counts for 0 points.",
+  },
+};
+
+/** Libellé et aide d'une stratégie dans la langue demandée. */
+export const detailStrategie = (s: StrategieNotation, langue: Langue = "fr") =>
+  langue === "en" ? STRATEGIES_EN[s] : STRATEGIES[s];
+
+export const libelleStrategie = (s: string, langue: Langue = "fr") =>
+  ((langue === "en" ? STRATEGIES_EN : STRATEGIES) as Record<string, { libelle: string }>)[s]
+    ?.libelle ?? (langue === "en" ? "Unknown strategy" : "Stratégie inconnue");
 
 const FAMILLES: Record<string, string> = {
   excellence: "Excellence opérationnelle",
   competitivite: "Compétitivité",
 };
 
+const FAMILLES_EN: Record<string, string> = {
+  excellence: "Operational excellence",
+  competitivite: "Competitiveness",
+};
+
 /** Libellé d'une famille de dimensions ; le code brut si la grille du cabinet en a ajouté une. */
-export const libelleFamille = (code: string) =>
-  FAMILLES[code] ?? (code.trim() === "" ? "Sans famille" : code);
+export const libelleFamille = (code: string, langue: Langue = "fr") =>
+  (langue === "en" ? FAMILLES_EN : FAMILLES)[code] ??
+  (code.trim() === "" ? (langue === "en" ? "No family" : "Sans famille") : code);
 
 export const EVOLUTIONS: Record<Evolution, string> = {
   hausse: "En hausse",
@@ -103,8 +153,17 @@ export const EVOLUTIONS: Record<Evolution, string> = {
   non_comparable: "Non comparable",
 };
 
-export const libelleEvolution = (e: string) =>
-  (EVOLUTIONS as Record<string, string>)[e] ?? EVOLUTIONS.non_comparable;
+export const EVOLUTIONS_EN: Record<Evolution, string> = {
+  hausse: "Up",
+  baisse: "Down",
+  stable: "Stable",
+  non_comparable: "Not comparable",
+};
+
+export const libelleEvolution = (e: string, langue: Langue = "fr") => {
+  const table = (langue === "en" ? EVOLUTIONS_EN : EVOLUTIONS) as Record<string, string>;
+  return table[e] ?? table.non_comparable;
+};
 
 export const ACTIONS_REVUE: Record<ActionRevue, string> = {
   soumission: "Soumise en revue",
@@ -112,54 +171,81 @@ export const ACTIONS_REVUE: Record<ActionRevue, string> = {
   publication: "Publiée",
 };
 
-export const libelleActionRevue = (a: string) =>
-  (ACTIONS_REVUE as Record<string, string>)[a] ?? "Étape de revue";
+export const ACTIONS_REVUE_EN: Record<ActionRevue, string> = {
+  soumission: "Submitted for review",
+  renvoi: "Sent back to draft",
+  publication: "Published",
+};
+
+export const libelleActionRevue = (a: string, langue: Langue = "fr") =>
+  ((langue === "en" ? ACTIONS_REVUE_EN : ACTIONS_REVUE) as Record<string, string>)[a] ??
+  (langue === "en" ? "Review step" : "Étape de revue");
+
+const SECTEURS_EN: Record<string, string> = {
+  agro_industrie: "Agribusiness",
+  numerique: "Digital",
+  industrie: "Industry",
+  services: "Services",
+  commerce: "Commerce and distribution",
+};
+
+/** Libellé d'un secteur de la grille générique dans la langue demandée. */
+export const libelleSecteurGenerique = (code: string, libelle: string, langue: Langue = "fr") =>
+  langue === "en" ? (SECTEURS_EN[code] ?? libelle) : libelle;
 
 /** Libellé d'un secteur : celui de la liste fournie, sinon celui de la grille générique. */
 export function libelleSecteur(
   code: string | null,
   secteurs: readonly { secteur: string; libelle?: string }[] = [],
+  langue: Langue = "fr",
 ): string {
-  if (code === null) return "Pondérations par défaut";
+  if (code === null) return langue === "en" ? "Default weightings" : "Pondérations par défaut";
   const s = secteurs.find((x) => x.secteur === code);
-  if (s?.libelle) return s.libelle;
-  return SECTEURS_GRILLE_GENERIQUE.find((x) => x.code === code)?.libelle ?? code;
+  const generique = SECTEURS_GRILLE_GENERIQUE.find((x) => x.code === code);
+  if (s?.libelle) return generique ? libelleSecteurGenerique(code, s.libelle, langue) : s.libelle;
+  return generique ? libelleSecteurGenerique(code, generique.libelle, langue) : code;
 }
 
 // --- Mise en forme (aucun calcul) ------------------------------------------------------------
 
-const FORMAT_SCORE = new Intl.NumberFormat("fr-FR", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
+const formatScore = (langue: Langue) =>
+  new Intl.NumberFormat(LOCALES_INTL[langue], {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
 
 const nombre = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
 /** Score de l'API (déjà arrondi à 1 décimale par le moteur) : 72.4 → « 72,4 ». */
-export function formaterScore(v: number | null | undefined): string {
-  return nombre(v) ? FORMAT_SCORE.format(v) : VALEUR_ABSENTE;
+export function formaterScore(v: number | null | undefined, langue: Langue = "fr"): string {
+  return nombre(v) ? formatScore(langue).format(v) : VALEUR_ABSENTE;
 }
 
 /** Écart signé fourni par l'API : 4.5 → « +4,5 », −4.5 → « −4,5 », 0 → « 0,0 ». */
-export function formaterEcart(v: number | null | undefined): string {
+export function formaterEcart(v: number | null | undefined, langue: Langue = "fr"): string {
   if (!nombre(v)) return VALEUR_ABSENTE;
-  if (v === 0) return FORMAT_SCORE.format(0);
-  const texte = FORMAT_SCORE.format(Math.abs(v));
+  if (v === 0) return formatScore(langue).format(0);
+  const texte = formatScore(langue).format(Math.abs(v));
   return v > 0 ? `+${texte}` : `−${texte}`;
 }
 
 /** Couverture (0-1) de l'API : 0.625 → « 62,5 % ». */
-export function formaterCouverture(v: number | null | undefined): string {
+export function formaterCouverture(v: number | null | undefined, langue: Langue = "fr"): string {
   if (!nombre(v)) return VALEUR_ABSENTE;
-  return new Intl.NumberFormat("fr-FR", { style: "percent", maximumFractionDigits: 1 }).format(v);
+  return new Intl.NumberFormat(LOCALES_INTL[langue], {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(v);
 }
 
 /** Écart de classes fourni par l'API : 1 → « +1 classe », −2 → « −2 classes ». */
-export function formaterEcartClasses(v: number | null | undefined): string {
+export function formaterEcartClasses(v: number | null | undefined, langue: Langue = "fr"): string {
   if (!nombre(v)) return VALEUR_ABSENTE;
-  if (v === 0) return "Même classe";
+  if (v === 0) return langue === "en" ? "Same class" : "Même classe";
   const n = Math.abs(v);
-  return `${v > 0 ? "+" : "−"}${n} classe${n > 1 ? "s" : ""}`;
+  const signe = v > 0 ? "+" : "−";
+  if (langue === "en") return `${signe}${n} ${n > 1 ? "classes" : "class"}`;
+  return `${signe}${n} classe${n > 1 ? "s" : ""}`;
 }
 
 /** « 1 réponse soumise », « 3 réponses soumises ». */

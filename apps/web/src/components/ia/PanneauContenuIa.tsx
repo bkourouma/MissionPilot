@@ -1,31 +1,37 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { TACHE_IA_LIBELLES } from "@missionpilot/shared";
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { api, ErreurApi } from "../../lib/api";
 import { formaterDateHeure, formaterNombre } from "../../lib/format";
 import { contreAnalysePossible } from "../../lib/contradicteur";
 import { messageErreurIa } from "../../lib/ia";
+import { libelleTache } from "../../lib/ia-modeles";
 import {
   actionsGeneration,
   AIDE_GABARIT,
+  AIDE_GABARIT_EN,
   cheminGeneration,
   estEssai,
   lignesTracabilite,
   MESSAGE_ESSAI,
+  MESSAGE_ESSAI_EN,
   MESSAGE_GABARIT,
+  MESSAGE_GABARIT_EN,
   messageEchecGeneration,
   messageSuccesValidation,
   messageValide,
+  presentationStatutContenu,
+  presentationStatutGeneration,
   statutConnu,
-  STATUT_CONTENU_IA,
-  STATUT_GENERATION_IA,
+  TYPE_SOURCE_IA_LIBELLES_EN,
   TYPE_SOURCE_LIBELLES,
   validerAcquittement,
   validerTexteModifie,
   type GenerationIa,
   type UtilisateurIa,
 } from "../../lib/ia-contenu";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -66,17 +72,19 @@ type Message = { tonalite: "succes" | "danger"; texte: string };
 export function PanneauContenuIa({
   generation,
   utilisateur,
-  titre = "Contenu généré",
+  titre,
   niveauTitre = 3,
   onChange,
   contreAnalyse = true,
 }: PanneauContenuIaProps) {
+  const t = useT();
+  const langue = useLangue();
   const suivi = useSuiviGeneration(generation, onChange);
   const g = suivi.generation;
   const statut = statutConnu(g.statut);
   // Refus APPROBATION_REQUISE déjà reçu (droits sur la mission) : « Valider » reste masqué.
   const [refusValidation, setRefusValidation] = useState<string | null>(null);
-  const actions = actionsGeneration(g, utilisateur, refusValidation);
+  const actions = actionsGeneration(g, utilisateur, refusValidation, langue);
   const idTitre = useId();
   const Titre = `h${niveauTitre}` as const;
   const [message, setMessage] = useState<Message | null>(null);
@@ -100,9 +108,9 @@ export function PanneauContenuIa({
       setMessage({ tonalite: "succes", texte: succes(r) });
       return true;
     } catch (e) {
-      setMessage({ tonalite: "danger", texte: messageErreurIa(e) });
+      setMessage({ tonalite: "danger", texte: messageErreurIa(e, langue) });
       if (action === "valider" && e instanceof ErreurApi && e.code === "APPROBATION_REQUISE") {
-        setRefusValidation(messageErreurIa(e));
+        setRefusValidation(messageErreurIa(e, langue));
       }
       // État changé ailleurs (validé par un autre, nombres recalculés) : relire.
       if (e instanceof ErreurApi && ["CONTENU_VALIDE", "CHIFFRES_NON_VERIFIES"].includes(e.code)) {
@@ -118,14 +126,14 @@ export function PanneauContenuIa({
     executer(
       "annuler",
       () => api.post<GenerationIa>(`${cheminGeneration(g.id)}/annuler`),
-      () => "Génération annulée.",
+      () => t("Génération annulée.", "Generation cancelled."),
     );
 
   return (
     <section className="mp-contenu-ia" aria-labelledby={idTitre}>
       <header className="mp-contenu-ia__entete">
         <Titre id={idTitre} className="mp-contenu-ia__titre">
-          {titre}
+          {titre ?? t("Contenu généré", "Generated content")}
         </Titre>
         <div className="mp-badges">
           <BadgeStatutGenerationIa statut={statut} />
@@ -134,17 +142,24 @@ export function PanneauContenuIa({
           {estEssai(g) ? <BadgeEssaiIa /> : null}
         </div>
         <p className="mp-contenu-ia__meta">
-          {`Prompt « ${g.prompt.nom} » (version ${g.prompt.version}) · ${TACHE_IA_LIBELLES[g.tache] ?? g.tache} · demandé par ${g.demandeur.nom} le ${formaterDateHeure(g.cree_le)}`}
+          {t(
+            `Prompt « ${g.prompt.nom} » (version ${g.prompt.version}) · ${libelleTache(g.tache)} · demandé par ${g.demandeur.nom} le ${formaterDateHeure(g.cree_le)}`,
+            `Prompt "${g.prompt.nom}" (version ${g.prompt.version}) · ${libelleTache(g.tache, "en")} · requested by ${g.demandeur.nom} on ${formaterDateHeure(g.cree_le, undefined, "en")}`,
+          )}
         </p>
       </header>
       <p className="mp-visuellement-cache" role="status">
-        {annonceStatut(g)}
+        {annonceStatut(g, langue)}
       </p>
       {message ? (
         <Alerte
           ref={refAlerte}
           tonalite={message.tonalite}
-          titre={message.tonalite === "danger" ? "Action impossible" : undefined}
+          titre={
+            message.tonalite === "danger"
+              ? t("Action impossible", "Action not possible")
+              : undefined
+          }
         >
           <p>{message.texte}</p>
         </Alerte>
@@ -155,8 +170,8 @@ export function PanneauContenuIa({
         </Alerte>
       ) : null}
       {g.gabarit ? (
-        <Alerte tonalite="info" annonce="aucune" titre={MESSAGE_GABARIT}>
-          <p>{AIDE_GABARIT}</p>
+        <Alerte tonalite="info" annonce="aucune" titre={t(MESSAGE_GABARIT, MESSAGE_GABARIT_EN)}>
+          <p>{t(AIDE_GABARIT, AIDE_GABARIT_EN)}</p>
         </Alerte>
       ) : null}
       <ExecutionIa
@@ -179,12 +194,26 @@ export function PanneauContenuIa({
 }
 
 /** Annonce polie d'un changement d'état (la région n'est lue qu'à ses changements). */
-function annonceStatut(g: GenerationIa): string {
-  const parties = [STATUT_GENERATION_IA[statutConnu(g.statut)].libelle];
-  if (g.statut_contenu) parties.push(`contenu : ${STATUT_CONTENU_IA[g.statut_contenu].libelle}`);
-  if (g.gabarit) parties.push("produit par un gabarit, sans IA");
+function annonceStatut(g: GenerationIa, langue: Langue): string {
+  const t = creerTraduire(langue);
+  const parties = [presentationStatutGeneration(statutConnu(g.statut), langue).libelle];
+  if (g.statut_contenu) {
+    parties.push(
+      t(
+        `contenu : ${presentationStatutContenu(g.statut_contenu, langue).libelle}`,
+        `content: ${presentationStatutContenu(g.statut_contenu, langue).libelle}`,
+      ),
+    );
+  }
+  if (g.gabarit)
+    parties.push(t("produit par un gabarit, sans IA", "produced by a template, no AI"));
   if (g.chiffres_non_verifies && g.statut_contenu !== "valide") {
-    parties.push("des chiffres non vérifiés sont à attester avant validation");
+    parties.push(
+      t(
+        "des chiffres non vérifiés sont à attester avant validation",
+        "unverified figures must be attested before approval",
+      ),
+    );
   }
   return parties.join(" ; ");
 }
@@ -203,18 +232,28 @@ function ExecutionIa({
   arrete: boolean;
   relire: () => Promise<void>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const statut = statutConnu(g.statut);
   if (statut === "echec") {
     return (
-      <Alerte tonalite="danger" annonce="aucune" titre="La génération a échoué">
-        <p>{messageEchecGeneration(g.erreur)}</p>
+      <Alerte
+        tonalite="danger"
+        annonce="aucune"
+        titre={t("La génération a échoué", "The generation failed")}
+      >
+        <p>{messageEchecGeneration(g.erreur, langue)}</p>
       </Alerte>
     );
   }
   if (statut === "annulee") {
     return (
-      <Alerte tonalite="info" annonce="aucune" titre="Génération annulée">
-        <p>Aucun contenu n&apos;a été produit.</p>
+      <Alerte
+        tonalite="info"
+        annonce="aucune"
+        titre={t("Génération annulée", "Generation cancelled")}
+      >
+        <p>{t("Aucun contenu n'a été produit.", "No content was produced.")}</p>
       </Alerte>
     );
   }
@@ -226,20 +265,27 @@ function ExecutionIa({
         <progress
           max={100}
           value={enFile ? undefined : g.progression}
-          aria-label="Progression de la génération"
+          aria-label={t("Progression de la génération", "Generation progress")}
         />
         <span>
-          {enFile ? "En attente de traitement…" : `${formaterNombre(g.progression, 0)} %`}
+          {enFile
+            ? t("En attente de traitement…", "Waiting to be processed…")
+            : `${formaterNombre(g.progression, 0, langue)} %`}
         </span>
       </div>
       <p className="mp-texte-petit">
-        Cet écran se met à jour tout seul ; vous pouvez le quitter et revenir plus tard.
+        {t(
+          "Cet écran se met à jour tout seul ; vous pouvez le quitter et revenir plus tard.",
+          "This screen updates by itself; you can leave it and come back later.",
+        )}
       </p>
       {arrete ? (
         <div className="mp-barre-actions">
-          <span className="mp-texte-petit">Le suivi automatique s&apos;est arrêté.</span>
+          <span className="mp-texte-petit">
+            {t("Le suivi automatique s'est arrêté.", "Automatic tracking has stopped.")}
+          </span>
           <Bouton variante="secondaire" onClick={() => void relire()}>
-            Actualiser
+            {t("Actualiser", "Refresh")}
           </Bouton>
         </div>
       ) : null}
@@ -249,10 +295,10 @@ function ExecutionIa({
             variante="secondaire"
             icone="fermer"
             chargement={annulation}
-            texteChargement="Annulation…"
+            texteChargement={t("Annulation…", "Cancelling…")}
             onClick={() => void annuler()}
           >
-            Annuler la génération
+            {t("Annuler la génération", "Cancel the generation")}
           </Bouton>
         </div>
       ) : null}
@@ -276,6 +322,8 @@ function CircuitHumainIa({
     succes: (g: GenerationIa) => string,
   ) => Promise<boolean>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [edition, setEdition] = useState(false);
   const [saisie, setSaisie] = useState("");
   const [acquitte, setAcquitte] = useState(false);
@@ -300,7 +348,7 @@ function CircuitHumainIa({
 
   async function enregistrer(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const v = validerTexteModifie(saisie, g.texte);
+    const v = validerTexteModifie(saisie, g.texte, langue);
     if (!v.ok) {
       setErreurs(v.erreurs);
       refTexte.current?.focus();
@@ -310,7 +358,11 @@ function CircuitHumainIa({
     const ok = await executer(
       "modifier",
       () => api.post<GenerationIa>(`${cheminGeneration(g.id)}/modifier`, v.charge),
-      (r) => `Version ${r.version ?? ""} enregistrée : contenu modifié, en attente de validation.`,
+      (r) =>
+        t(
+          `Version ${r.version ?? ""} enregistrée : contenu modifié, en attente de validation.`,
+          `Version ${r.version ?? ""} saved: content edited, pending approval.`,
+        ),
     );
     if (ok) {
       setEdition(false);
@@ -319,7 +371,7 @@ function CircuitHumainIa({
   }
 
   function demanderValidation() {
-    const v = validerAcquittement(g, acquitte);
+    const v = validerAcquittement(g, acquitte, langue);
     if (!v.ok) {
       setErreurs(v.erreurs);
       refAcquittement.current?.querySelector("input")?.focus();
@@ -330,12 +382,12 @@ function CircuitHumainIa({
   }
 
   async function valider() {
-    const v = validerAcquittement(g, acquitte);
+    const v = validerAcquittement(g, acquitte, langue);
     if (!v.ok) return;
     await executer(
       "valider",
       () => api.post<GenerationIa>(`${cheminGeneration(g.id)}/valider`, v.charge),
-      messageSuccesValidation,
+      (r) => messageSuccesValidation(r, langue),
     );
     setConfirmer(false);
   }
@@ -343,28 +395,41 @@ function CircuitHumainIa({
   return (
     <>
       {valide ? (
-        <Alerte tonalite="succes" annonce="aucune" titre="Contenu validé">
-          <p>{messageValide(g)}</p>
+        <Alerte tonalite="succes" annonce="aucune" titre={t("Contenu validé", "Content approved")}>
+          <p>{messageValide(g, langue)}</p>
         </Alerte>
       ) : (
         <Alerte
           tonalite="info"
           annonce="aucune"
-          titre={essai ? "Contenu d'essai à relire" : "À relire avant tout envoi au client"}
+          titre={
+            essai
+              ? t("Contenu d'essai à relire", "Test content to review")
+              : t(
+                  "À relire avant tout envoi au client",
+                  "To review before anything is sent to the client",
+                )
+          }
         >
-          <p>{STATUT_CONTENU_IA[statutContenu].aide}</p>
-          {essai ? <p>{MESSAGE_ESSAI}</p> : null}
+          <p>{presentationStatutContenu(statutContenu, langue).aide}</p>
+          {essai ? <p>{t(MESSAGE_ESSAI, MESSAGE_ESSAI_EN)}</p> : null}
         </Alerte>
       )}
       {edition ? (
         <form className="mp-formulaire" noValidate onSubmit={enregistrer}>
           <ZoneTexte
             ref={refTexte}
-            libelle="Texte du contenu"
+            libelle={t("Texte du contenu", "Content text")}
             aide={
               g.donnees
-                ? "Contenu structuré (JSON) : gardez la structure et les noms des champs."
-                : "Une nouvelle version « Modifié » est enregistrée ; l'historique est conservé."
+                ? t(
+                    "Contenu structuré (JSON) : gardez la structure et les noms des champs.",
+                    "Structured content (JSON): keep the structure and the field names.",
+                  )
+                : t(
+                    "Une nouvelle version « Modifié » est enregistrée ; l'historique est conservé.",
+                    'A new "Edited" version is saved; the history is kept.',
+                  )
             }
             rows={12}
             maxLength={100_000}
@@ -377,9 +442,9 @@ function CircuitHumainIa({
             <Bouton
               type="submit"
               chargement={enCours === "modifier"}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
             >
-              Enregistrer la version modifiée
+              {t("Enregistrer la version modifiée", "Save the edited version")}
             </Bouton>
             <Bouton
               variante="secondaire"
@@ -389,7 +454,7 @@ function CircuitHumainIa({
                 setErreurs({});
               }}
             >
-              Abandonner la modification
+              {t("Abandonner la modification", "Discard the changes")}
             </Bouton>
           </div>
         </form>
@@ -420,12 +485,12 @@ function CircuitHumainIa({
               disabled={enCours !== null}
               onClick={ouvrirEdition}
             >
-              Modifier le texte
+              {t("Modifier le texte", "Edit the text")}
             </Bouton>
           ) : null}
           {actions.valider ? (
             <Bouton icone="succes" disabled={enCours !== null} onClick={demanderValidation}>
-              Valider le contenu
+              {t("Valider le contenu", "Approve the content")}
             </Bouton>
           ) : null}
         </div>
@@ -460,6 +525,7 @@ function ConfirmationValidationIa({
   valider: () => Promise<void>;
   renoncer: () => void;
 }) {
+  const t = useT();
   const id = useId();
   const refOui = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -468,22 +534,25 @@ function ConfirmationValidationIa({
   return (
     <div className="mp-sous-formulaire mp-pile" role="group" aria-labelledby={id}>
       <p id={id} className="mp-confirmation__question">
-        Valider définitivement ce contenu ?
+        {t("Valider définitivement ce contenu ?", "Approve this content for good?")}
       </p>
       <p className="mp-texte-petit">
-        {`Une fois validé, il ne se modifie plus ; ${essai ? "contenu d'essai, il ne sera jamais transmis au client." : "seul un contenu validé peut être transmis au client."}${chiffres ? " Vous attestez les nombres signalés." : ""}`}
+        {t(
+          `Une fois validé, il ne se modifie plus ; ${essai ? "contenu d'essai, il ne sera jamais transmis au client." : "seul un contenu validé peut être transmis au client."}${chiffres ? " Vous attestez les nombres signalés." : ""}`,
+          `Once approved, it can no longer be edited; ${essai ? "as test content, it will never be sent to the client." : "only approved content can be sent to the client."}${chiffres ? " You attest the flagged numbers." : ""}`,
+        )}
       </p>
       <div className="mp-confirmation__boutons">
         <Bouton
           ref={refOui}
           chargement={enCours}
-          texteChargement="Validation…"
+          texteChargement={t("Validation…", "Approving…")}
           onClick={() => void valider()}
         >
-          Oui, valider
+          {t("Oui, valider", "Yes, approve")}
         </Bouton>
         <Bouton variante="secondaire" disabled={enCours} onClick={renoncer}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </div>
@@ -492,10 +561,12 @@ function ConfirmationValidationIa({
 
 /** Prompt, production (modèle ou gabarit), durée, jetons et coût (si l'API les fournit), sources. */
 function TracabiliteIa({ g }: { g: GenerationIa }) {
-  const lignes = lignesTracabilite(g);
+  const t = useT();
+  const langue = useLangue();
+  const lignes = lignesTracabilite(g, langue);
   return (
     <details className="mp-details">
-      <summary>Traçabilité</summary>
+      <summary>{t("Traçabilité", "Traceability")}</summary>
       <dl className="mp-liste-def mp-liste-def--compacte">
         {lignes.map(([dt, dd]) => (
           <div key={dt}>
@@ -504,15 +575,15 @@ function TracabiliteIa({ g }: { g: GenerationIa }) {
           </div>
         ))}
         <div>
-          <dt>Sources citées</dt>
+          <dt>{t("Sources citées", "Sources cited")}</dt>
           <dd>
             {g.sources.length === 0 ? (
-              "Aucune"
+              t("Aucune", "None")
             ) : (
               <ul className="mp-liste-simple">
                 {g.sources.map((s) => (
                   <li key={`${s.type}-${s.id}`}>
-                    {`${TYPE_SOURCE_LIBELLES[s.type] ?? s.type} : ${s.libelle}`}
+                    {`${(langue === "en" ? TYPE_SOURCE_IA_LIBELLES_EN : TYPE_SOURCE_LIBELLES)[s.type] ?? s.type}${t(" : ", ": ")}${s.libelle}`}
                   </li>
                 ))}
               </ul>

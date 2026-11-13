@@ -10,9 +10,11 @@ import {
   hrefRedressement,
   messageRedressement,
   TEXTE_LEVIERS,
+  TEXTE_LEVIERS_EN,
 } from "../../lib/redressement";
 import { corpsSimulationDepuisFormulaire } from "../../lib/redressement-saisie";
 import { aideMontant } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -24,6 +26,12 @@ const UNITES: Record<RedDefinitionLevierVue["parametres"][number]["unite"], stri
   pb: "points de base (100 = 1 %)",
   mois: "mois",
   montant: "montant",
+};
+const UNITES_EN: Record<RedDefinitionLevierVue["parametres"][number]["unite"], string> = {
+  jours: "days",
+  pb: "basis points (100 = 1%)",
+  mois: "months",
+  montant: "amount",
 };
 
 /** Un champ par paramètre du levier, avec son unité et ses bornes (celles du moteur). */
@@ -38,6 +46,8 @@ export function ChampsParametresLevier({
   onChange: (cle: string, valeur: string) => void;
   devise: Devise;
 }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-grille-champs">
       {definition.parametres.map((p) => (
@@ -51,8 +61,14 @@ export function ChampsParametresLevier({
           onChange={(e) => onChange(p.cle, e.target.value)}
           aide={
             p.unite === "montant"
-              ? `${aideMontant(devise)} Borne indicative du moteur : de ${formaterMontantMineur(p.min, devise)} à ${formaterMontantMineur(p.max, devise)}.`
-              : `En ${UNITES[p.unite]}, de ${p.min} à ${p.max}.`
+              ? t(
+                  `${aideMontant(devise)} Borne indicative du moteur : de ${formaterMontantMineur(p.min, devise)} à ${formaterMontantMineur(p.max, devise)}.`,
+                  `${aideMontant(devise, langue)} Indicative engine range: from ${formaterMontantMineur(p.min, devise, langue)} to ${formaterMontantMineur(p.max, devise, langue)}.`,
+                )
+              : t(
+                  `En ${UNITES[p.unite]}, de ${p.min} à ${p.max}.`,
+                  `In ${UNITES_EN[p.unite]}, from ${p.min} to ${p.max}.`,
+                )
           }
         />
       ))}
@@ -78,6 +94,8 @@ export function SimulateurLevier({
   leviers: RedDefinitionLevierVue[];
   codeInitial?: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [code, setCode] = useState(codeInitial ?? leviers[0]?.code ?? "");
   const [valeurs, setValeurs] = useState<Record<string, string>>({});
   const [impact, setImpact] = useState<RedImpactLevierVue | null>(null);
@@ -90,9 +108,11 @@ export function SimulateurLevier({
     e.preventDefault();
     setErreur(null);
     setErreurChamps(null);
-    const v = corpsSimulationDepuisFormulaire(definition, valeurs, devise);
+    const v = corpsSimulationDepuisFormulaire(definition, valeurs, devise, langue);
     if (!v.ok) {
-      setErreurChamps(v.erreurs.levier ?? v.erreurs.parametres ?? "Saisie invalide.");
+      setErreurChamps(
+        v.erreurs.levier ?? v.erreurs.parametres ?? t("Saisie invalide.", "Invalid input."),
+      );
       return;
     }
     setEnCours(true);
@@ -101,7 +121,7 @@ export function SimulateurLevier({
     } catch (err) {
       setImpact(null);
       setErreur({
-        message: messageRedressement(err),
+        message: messageRedressement(err, langue),
         baseIncomplete: err instanceof ErreurApi && err.code === "RED_BASE_INCOMPLETE",
       });
     } finally {
@@ -111,9 +131,14 @@ export function SimulateurLevier({
 
   return (
     <div className="mp-red-section">
-      <form className="mp-formulaire" noValidate onSubmit={simuler} aria-label="Simuler un levier">
+      <form
+        className="mp-formulaire"
+        noValidate
+        onSubmit={simuler}
+        aria-label={t("Simuler un levier", "Simulate a lever")}
+      >
         <Select
-          libelle="Levier"
+          libelle={t("Levier", "Lever")}
           value={code}
           onChange={(e) => {
             setCode(e.target.value);
@@ -137,18 +162,29 @@ export function SimulateurLevier({
           </Alerte>
         ) : null}
         <div className="mp-actions-formulaire">
-          <Bouton type="submit" chargement={enCours} texteChargement="Simulation…">
-            Simuler
+          <Bouton
+            type="submit"
+            chargement={enCours}
+            texteChargement={t("Simulation…", "Simulating…")}
+          >
+            {t("Simuler", "Simulate")}
           </Bouton>
         </div>
       </form>
       {erreur ? (
-        <Alerte tonalite="danger" titre="Simulation impossible" annonce="alert">
+        <Alerte
+          tonalite="danger"
+          titre={t("Simulation impossible", "Simulation not possible")}
+          annonce="alert"
+        >
           <p>{erreur.message}</p>
           {erreur.baseIncomplete ? (
             <p>
               <Link href={hrefRedressement(missionId, "ratios")}>
-                Compléter la correspondance dans l&apos;onglet « Ratios »
+                {t(
+                  "Compléter la correspondance dans l'onglet « Ratios »",
+                  'Complete the mapping in the "Ratios" tab',
+                )}
               </Link>
             </p>
           ) : null}
@@ -157,7 +193,7 @@ export function SimulateurLevier({
       {impact ? (
         <div className="mp-red-section" aria-live="polite">
           <ImpactLevier impact={impact} />
-          <p className="mp-texte-doux">{TEXTE_LEVIERS}</p>
+          <p className="mp-texte-doux">{t(TEXTE_LEVIERS, TEXTE_LEVIERS_EN)}</p>
         </div>
       ) : null}
     </div>

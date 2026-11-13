@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { libelleCloche, pastilleCloche, type PageNotifications } from "../../lib/notifications";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
 
 /** Événement émis par la page des notifications après « marquer lue » ou « tout lire ». */
@@ -20,6 +21,8 @@ const INTERVALLE_MS = 60_000;
  */
 export function ClocheNotifications() {
   const chemin = usePathname();
+  const t = useT();
+  const langue = useLangue();
   const [nonLues, setNonLues] = useState<number | null>(null);
   const [annonce, setAnnonce] = useState("");
   const precedent = useRef<number | null>(null);
@@ -33,7 +36,9 @@ export function ClocheNotifications() {
       const n = r.non_lues;
       if (precedent.current !== null && n > precedent.current) {
         setAnnonce(
-          n - precedent.current === 1 ? "Nouvelle notification." : "Nouvelles notifications.",
+          n - precedent.current === 1
+            ? t("Nouvelle notification.", "New notification.")
+            : t("Nouvelles notifications.", "New notifications."),
         );
       }
       precedent.current = n;
@@ -41,7 +46,7 @@ export function ClocheNotifications() {
     } catch {
       // Hors connexion ou API indisponible : on garde le dernier compteur connu.
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void relire();
@@ -71,7 +76,7 @@ export function ClocheNotifications() {
       <Link
         href="/notifications"
         className="mp-cloche"
-        aria-label={libelleCloche(nonLues)}
+        aria-label={libelleCloche(nonLues, langue)}
         aria-current={chemin === "/notifications" ? "page" : undefined}
       >
         <Icone nom="cloche" taille={22} />

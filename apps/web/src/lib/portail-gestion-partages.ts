@@ -7,7 +7,9 @@ import type {
   PartagesClient,
 } from "./portail-gestion-types";
 import {
+  creerTraduire,
   TYPES_DOCUMENT_PARTAGEABLES,
+  type Langue,
   type Role,
   type StatutMission,
   type TypeDocument,
@@ -27,6 +29,7 @@ export function documentPartageable(d: Pick<DocumentCandidat, "type" | "statut_c
 }
 
 export const RAISON_CONTENU_IA = "Contenu produit par l'IA : à valider avant tout partage.";
+const RAISON_CONTENU_IA_EN = "AI-generated content: must be approved before any sharing.";
 
 /** Document affiché dans les partages d'une mission. */
 export interface LigneDocumentPartage {
@@ -53,6 +56,7 @@ export function documentsDeMission(
   missionId: string,
   candidats: readonly DocumentCandidat[],
   partages: readonly DocumentPartageLu[],
+  langue: Langue = "fr",
 ): LigneDocumentPartage[] {
   const lignes: LigneDocumentPartage[] = [];
   const derniere = new Map<string, number>();
@@ -66,7 +70,7 @@ export function documentsDeMission(
       nom: d.nom,
       version: d.version,
       partageable,
-      raison: partageable ? null : RAISON_CONTENU_IA,
+      raison: partageable ? null : creerTraduire(langue)(RAISON_CONTENU_IA, RAISON_CONTENU_IA_EN),
       versionPlusRecente: null,
     });
   }
@@ -110,6 +114,7 @@ export function missionsPartageables(e: {
   documents: ReadonlyMap<string, readonly DocumentCandidat[] | null>;
   utilisateurId: string;
   roles: readonly Role[];
+  langue?: Langue;
 }): MissionPartageable[] {
   const partageParMission = new Map(e.partages.missions.map((p) => [p.mission_id, p]));
   const resultat: MissionPartageable[] = [];
@@ -122,7 +127,7 @@ export function missionsPartageables(e: {
       intitule,
       statut,
       gerable,
-      documents: documentsDeMission(id, candidats ?? [], e.partages.documents),
+      documents: documentsDeMission(id, candidats ?? [], e.partages.documents, e.langue),
       documentsIndisponibles: gerable && !candidats,
     });
   };

@@ -52,6 +52,9 @@ export const LIBELLE_CARNET_PRODUIT =
   "Honoraires signés non encore produits (missions non clôturées)";
 export const LIBELLE_CARNET_FACTURE =
   "Carnet fondé sur les honoraires facturés : signé moins déjà facturé";
+export const LIBELLE_CARNET_PRODUIT_EN = "Signed fees not yet produced (open engagements)";
+export const LIBELLE_CARNET_FACTURE_EN =
+  "Order book based on invoiced fees: signed minus already invoiced";
 
 /**
  * Carnet de commandes à afficher : celui fondé sur la production (finance.lire), sinon celui
@@ -59,11 +62,20 @@ export const LIBELLE_CARNET_FACTURE =
  */
 export function lireCarnet(
   v: Pick<VueMissions, "carnet_commandes" | "carnet_commandes_facture">,
+  langue: "fr" | "en" = "fr",
 ): { valeur: number; libelle: string; base: "produit" | "facture" } | null {
   if (typeof v.carnet_commandes === "number")
-    return { valeur: v.carnet_commandes, libelle: LIBELLE_CARNET_PRODUIT, base: "produit" };
+    return {
+      valeur: v.carnet_commandes,
+      libelle: langue === "en" ? LIBELLE_CARNET_PRODUIT_EN : LIBELLE_CARNET_PRODUIT,
+      base: "produit",
+    };
   if (typeof v.carnet_commandes_facture === "number")
-    return { valeur: v.carnet_commandes_facture, libelle: LIBELLE_CARNET_FACTURE, base: "facture" };
+    return {
+      valeur: v.carnet_commandes_facture,
+      libelle: langue === "en" ? LIBELLE_CARNET_FACTURE_EN : LIBELLE_CARNET_FACTURE,
+      base: "facture",
+    };
   return null;
 }
 

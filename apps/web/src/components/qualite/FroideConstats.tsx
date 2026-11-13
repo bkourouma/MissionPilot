@@ -16,6 +16,7 @@ import {
 import { validerConstat, type SaisieConstat } from "../../lib/qualite-froide-saisie";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -33,6 +34,8 @@ const VIDE: SaisieConstat = { critere: "", gravite: "", description: "", recomma
 
 /** Constats de la revue : liste, suppression (avec confirmation) et ajout. */
 export function FroideConstats({ echantillonId, constats, modifiable }: FroideConstatsProps) {
+  const t = useT();
+  const langue = useLangue();
   const a = useActionFroide();
   const f = useFormulaire<"critere" | "gravite" | "description" | "recommandation">();
   const [s, setS] = useState<SaisieConstat>(VIDE);
@@ -44,11 +47,11 @@ export function FroideConstats({ echantillonId, constats, modifiable }: FroideCo
         erreur={a.erreur}
         succes={a.succes}
         refAlerte={a.refAlerte}
-        titreErreur="Suppression impossible"
+        titreErreur={t("Suppression impossible", "Deletion failed")}
       />
       {constats.length === 0 ? (
         <p className="mp-texte-doux" role="status">
-          Aucun constat pour l&apos;instant.
+          {t("Aucun constat pour l'instant.", "No findings yet.")}
         </p>
       ) : (
         <ul className="mp-froide__liste">
@@ -56,28 +59,34 @@ export function FroideConstats({ echantillonId, constats, modifiable }: FroideCo
             <li key={c.id} className="mp-froide__element">
               <div className="mp-froide__ligne">
                 <BadgeStatut tonalite={tonaliteGravite(c.gravite)}>
-                  {libelleGravite(c.gravite)}
+                  {libelleGravite(c.gravite, langue)}
                 </BadgeStatut>
                 <span className="mp-texte-petit">
-                  {libelleCritere(c.critere)} · {formaterDateHeure(c.cree_le)}
+                  {libelleCritere(c.critere, langue)} ·{" "}
+                  {formaterDateHeure(c.cree_le, undefined, langue)}
                 </span>
               </div>
               <p>{c.description}</p>
               {c.recommandation ? (
-                <p className="mp-texte-petit">Recommandation : {c.recommandation}</p>
+                <p className="mp-texte-petit">
+                  {t("Recommandation", "Recommendation")} : {c.recommandation}
+                </p>
               ) : null}
               {modifiable ? (
                 <BoutonConfirmation
-                  libelle="Supprimer"
-                  ariaLabel={`Supprimer le constat « ${c.description.slice(0, 60)} »`}
-                  question="Supprimer ce constat ?"
-                  libelleConfirmation="Oui, supprimer"
-                  texteChargement="Suppression…"
+                  libelle={t("Supprimer", "Delete")}
+                  ariaLabel={t(
+                    `Supprimer le constat « ${c.description.slice(0, 60)} »`,
+                    `Delete the finding "${c.description.slice(0, 60)}"`,
+                  )}
+                  question={t("Supprimer ce constat ?", "Delete this finding?")}
+                  libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+                  texteChargement={t("Suppression…", "Deleting…")}
                   action={async () => {
                     const r = await a.agir(
                       () => api.supprimer(cheminConstat(echantillonId, c.id)),
                       {
-                        succes: "Constat supprimé.",
+                        succes: t("Constat supprimé.", "Finding deleted."),
                       },
                     );
                     return r.ok;
@@ -96,48 +105,54 @@ export function FroideConstats({ echantillonId, constats, modifiable }: FroideCo
           onSubmit={async (e) => {
             e.preventDefault();
             await f.envoyer(
-              validerConstat(s),
+              validerConstat(s, langue),
               (charge) => api.post(cheminConstats(echantillonId), charge),
               {
-                succes: "Constat ajouté.",
-                messageSpecifique: messageFroide,
+                succes: t("Constat ajouté.", "Finding added."),
+                messageSpecifique: (e) => messageFroide(e, langue),
                 apres: () => setS(VIDE),
               },
             );
           }}
         >
-          <h3 className="mp-qualite__sous-titre">Ajouter un constat</h3>
+          <h3 className="mp-qualite__sous-titre">{t("Ajouter un constat", "Add a finding")}</h3>
           <RetourFormulaire
             erreur={f.erreurGlobale}
             succes={f.succes}
             refAlerte={f.refAlerte}
-            titreErreur="Constat non ajouté"
+            titreErreur={t("Constat non ajouté", "Finding not added")}
           />
           <div className="mp-grille-champs">
             <Select
-              libelle="Gravité"
+              libelle={t("Gravité", "Severity")}
               required
               value={s.gravite}
               onChange={(e) => maj({ gravite: e.target.value })}
-              invite="Choisir la gravité"
+              invite={t("Choisir la gravité", "Choose the severity")}
               options={GRAVITES_CONSTAT_FROID.map((g) => ({
                 valeur: g,
-                libelle: libelleGravite(g),
+                libelle: libelleGravite(g, langue),
               }))}
               erreur={f.erreurs.gravite}
-              aide="Un constat critique impose une conclusion non conforme ; un constat majeur limite la conclusion aux réserves (calcul du moteur)."
+              aide={t(
+                "Un constat critique impose une conclusion non conforme ; un constat majeur limite la conclusion aux réserves (calcul du moteur).",
+                "A critical finding forces a non-compliant conclusion; a major finding limits the conclusion to reservations (engine computation).",
+              )}
             />
             <Select
-              libelle="Critère concerné"
+              libelle={t("Critère concerné", "Related criterion")}
               value={s.critere}
               onChange={(e) => maj({ critere: e.target.value })}
-              invite="Revue dans son ensemble"
-              options={CRITERES_REVUE_FROIDE.map((c) => ({ valeur: c.code, libelle: c.libelle }))}
+              invite={t("Revue dans son ensemble", "Review as a whole")}
+              options={CRITERES_REVUE_FROIDE.map((c) => ({
+                valeur: c.code,
+                libelle: libelleCritere(c.code, langue),
+              }))}
               erreur={f.erreurs.critere}
             />
           </div>
           <ZoneTexte
-            libelle="Description du constat"
+            libelle={t("Description du constat", "Finding description")}
             required
             rows={3}
             maxLength={2000}
@@ -146,7 +161,7 @@ export function FroideConstats({ echantillonId, constats, modifiable }: FroideCo
             erreur={f.erreurs.description}
           />
           <ZoneTexte
-            libelle="Recommandation"
+            libelle={t("Recommandation", "Recommendation")}
             rows={2}
             maxLength={2000}
             value={s.recommandation}
@@ -158,9 +173,9 @@ export function FroideConstats({ echantillonId, constats, modifiable }: FroideCo
               type="submit"
               variante="secondaire"
               chargement={f.enCours}
-              texteChargement="Ajout…"
+              texteChargement={t("Ajout…", "Adding…")}
             >
-              Ajouter le constat
+              {t("Ajouter le constat", "Add finding")}
             </Bouton>
           </div>
         </form>

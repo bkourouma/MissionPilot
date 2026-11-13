@@ -1,12 +1,13 @@
 /** Plan vivant (PLA-18) : lignes des tableaux d'écarts et phrase d'explication de l'écart d'EBE. */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { formaterMontantMineur, formaterPourcentage, type Devise } from "./format";
 import {
   formaterEcart,
   formaterEcartRelatif,
-  LIBELLE_MESURES,
-  LIBELLE_NON_SAISI,
-  LIBELLE_NON_SIGNIFICATIF,
-  LIBELLE_SIGNIFICATIF,
+  libelleMesures,
+  libelleNonSaisi,
+  libelleNonSignificatif,
+  libelleSignificatif,
   montantOuNonSaisi,
 } from "./plan-vivant-libelles";
 import type {
@@ -36,66 +37,71 @@ function ligneDe(
   mesure: string,
   m: EcartMesure,
   devise: Devise,
+  langue: Langue,
   reelLibelle?: (v: number | null) => string,
 ): LigneEcart {
   return {
     cle,
     mesure,
-    prevu: formaterMontantMineur(m.prevu, devise),
-    reel: reelLibelle ? reelLibelle(m.reel) : montantOuNonSaisi(m.reel, devise),
-    ecart: formaterEcart(m.ecart, devise),
-    ecartRelatif: formaterEcartRelatif(m.ecartRelatifPointsDeBase),
+    prevu: formaterMontantMineur(m.prevu, devise, langue),
+    reel: reelLibelle ? reelLibelle(m.reel) : montantOuNonSaisi(m.reel, devise, langue),
+    ecart: formaterEcart(m.ecart, devise, langue),
+    ecartRelatif: formaterEcartRelatif(m.ecartRelatifPointsDeBase, langue),
     significatif: m.significatif,
     marqueur:
       m.reel === null
-        ? LIBELLE_NON_SAISI
+        ? libelleNonSaisi(langue)
         : m.significatif
-          ? LIBELLE_SIGNIFICATIF
-          : LIBELLE_NON_SIGNIFICATIF,
+          ? libelleSignificatif(langue)
+          : libelleNonSignificatif(langue),
   };
 }
 
-export function lignesTrimestre(e: EcartsTrimestre, devise: Devise): LigneEcart[] {
+export function lignesTrimestre(
+  e: EcartsTrimestre,
+  devise: Devise,
+  langue: Langue = "fr",
+): LigneEcart[] {
   const c = `t${e.trimestre}`;
+  const L = libelleMesures(langue);
   return [
-    ligneDe(`${c}-ca`, LIBELLE_MESURES.chiffreAffaires, e.chiffreAffaires, devise),
-    ligneDe(
-      `${c}-ebe`,
-      LIBELLE_MESURES.excedentBrutExploitation,
-      e.excedentBrutExploitation,
-      devise,
-    ),
-    ligneDe(`${c}-rn`, LIBELLE_MESURES.resultatNet, e.resultatNet, devise),
-    ligneDe(`${c}-tr`, LIBELLE_MESURES.tresorerieFin, e.tresorerieFin, devise),
+    ligneDe(`${c}-ca`, L.chiffreAffaires, e.chiffreAffaires, devise, langue),
+    ligneDe(`${c}-ebe`, L.excedentBrutExploitation, e.excedentBrutExploitation, devise, langue),
+    ligneDe(`${c}-rn`, L.resultatNet, e.resultatNet, devise, langue),
+    ligneDe(`${c}-tr`, L.tresorerieFin, e.tresorerieFin, devise, langue),
   ];
 }
 
-export function lignesCumul(e: EcartsCumules, devise: Devise): LigneEcart[] {
+export function lignesCumul(e: EcartsCumules, devise: Devise, langue: Langue = "fr"): LigneEcart[] {
   const c = `cumul${e.trimestre}`;
+  const L = libelleMesures(langue);
   return [
-    ligneDe(`${c}-ca`, LIBELLE_MESURES.chiffreAffaires, e.chiffreAffaires, devise),
-    ligneDe(
-      `${c}-ebe`,
-      LIBELLE_MESURES.excedentBrutExploitation,
-      e.excedentBrutExploitation,
-      devise,
-    ),
-    ligneDe(`${c}-rn`, LIBELLE_MESURES.resultatNet, e.resultatNet, devise),
+    ligneDe(`${c}-ca`, L.chiffreAffaires, e.chiffreAffaires, devise, langue),
+    ligneDe(`${c}-ebe`, L.excedentBrutExploitation, e.excedentBrutExploitation, devise, langue),
+    ligneDe(`${c}-rn`, L.resultatNet, e.resultatNet, devise, langue),
   ];
 }
 
-export function lignesAnnuelles(e: EcartsAnnuels, devise: Devise): LigneEcart[] {
+export function lignesAnnuelles(
+  e: EcartsAnnuels,
+  devise: Devise,
+  langue: Langue = "fr",
+): LigneEcart[] {
+  const L = libelleMesures(langue);
   return [
-    ligneDe("an-ca", LIBELLE_MESURES.chiffreAffaires, e.chiffreAffaires, devise),
-    ligneDe("an-ebe", LIBELLE_MESURES.excedentBrutExploitation, e.excedentBrutExploitation, devise),
-    ligneDe("an-rn", LIBELLE_MESURES.resultatNet, e.resultatNet, devise),
-    ligneDe("an-tr", LIBELLE_MESURES.tresorerieCloture, e.tresorerieCloture, devise),
+    ligneDe("an-ca", L.chiffreAffaires, e.chiffreAffaires, devise, langue),
+    ligneDe("an-ebe", L.excedentBrutExploitation, e.excedentBrutExploitation, devise, langue),
+    ligneDe("an-rn", L.resultatNet, e.resultatNet, devise, langue),
+    ligneDe("an-tr", L.tresorerieCloture, e.tresorerieCloture, devise, langue),
   ];
 }
 
 /** Titre du tableau cumulé : « Cumul à fin du trimestre 2 ». */
-export const titreCumul = (trimestre: number) =>
-  `Cumul depuis le début de l'exercice, à fin du trimestre ${trimestre}`;
+export const titreCumul = (trimestre: number, langue: Langue = "fr") =>
+  creerTraduire(langue)(
+    `Cumul depuis le début de l'exercice, à fin du trimestre ${trimestre}`,
+    `Cumulative since the start of the fiscal year, at the end of quarter ${trimestre}`,
+  );
 
 /** Nombre de lignes significatives d'une série d'écarts (pour le résumé annoncé). */
 export function compterSignificatifs(lignes: readonly Pick<LigneEcart, "significatif">[]): number {
@@ -112,7 +118,9 @@ export function phraseEcartEbe(
   e: ExplicationEcartEbe | null,
   trimestres: number,
   devise: Devise,
+  langue: Langue = "fr",
 ): string {
+  if (langue === "en") return phraseEcartEbeEn(e, trimestres, devise);
   if (!e) {
     return "La décomposition de l'écart d'EBE n'est pas disponible : le chiffre d'affaires prévu est nul.";
   }
@@ -133,6 +141,36 @@ export function phraseEcartEbe(
           (e.tauxMargeReelPointsDeBase ?? 0) / 10_000,
           2,
         )} contre ${formaterPourcentage(e.tauxMargePrevuPointsDeBase / 10_000, 2)} prévu.`,
+  ];
+  return phrases.join(" ");
+}
+
+function phraseEcartEbeEn(
+  e: ExplicationEcartEbe | null,
+  trimestres: number,
+  devise: Devise,
+): string {
+  if (!e) {
+    return "The EBITDA variance breakdown is not available: planned revenue is zero.";
+  }
+  const langue: Langue = "en";
+  const m = (v: number) => formaterMontantMineur(Math.abs(v), devise, langue);
+  const sens = (v: number, plus: string, moins: string) => (v > 0 ? plus : v < 0 ? moins : "equal");
+  const periode = trimestres <= 1 ? "the first quarter" : `the first ${trimestres} quarters`;
+  const phrases = [
+    e.ecartEbe === 0
+      ? `Over ${periode}, actual EBITDA (${m(e.ebeReel)}) is equal to planned EBITDA.`
+      : `Over ${periode}, actual EBITDA (${m(e.ebeReel)}) is ${m(e.ecartEbe)} ${sens(e.ecartEbe, "higher", "lower")} than planned EBITDA (${m(e.ebePrevu)}).`,
+    e.effetVolume === 0
+      ? "The volume effect is zero."
+      : `The volume effect is ${sens(e.effetVolume, "favorable", "unfavorable")} by ${m(e.effetVolume)}: actual revenue (${m(e.chiffreAffairesReel)}) is ${e.chiffreAffairesReel >= e.chiffreAffairesPrevu ? "higher" : "lower"} than planned (${m(e.chiffreAffairesPrevu)}).`,
+    e.effetMarge === 0
+      ? "The margin effect is zero."
+      : `The margin effect is ${sens(e.effetMarge, "favorable", "unfavorable")} by ${m(e.effetMarge)}: the EBITDA margin is ${formaterPourcentage(
+          (e.tauxMargeReelPointsDeBase ?? 0) / 10_000,
+          2,
+          langue,
+        )} versus ${formaterPourcentage(e.tauxMargePrevuPointsDeBase / 10_000, 2, langue)} planned.`,
   ];
   return phrases.join(" ");
 }

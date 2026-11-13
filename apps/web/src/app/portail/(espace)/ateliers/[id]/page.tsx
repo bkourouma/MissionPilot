@@ -15,8 +15,12 @@ import {
 } from "../../../../../lib/plan-ateliers";
 import { estIdentifiant, peut } from "../../../../../lib/portail";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 
-export const metadata: Metadata = { title: "Atelier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Atelier", "Workshop") };
+}
 
 /**
  * Un atelier ouvert où vous êtes invité : l'énoncé, les options et le dépôt de VOTRE contribution,
@@ -29,20 +33,21 @@ export default async function DetailAtelierPortail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.ateliers.participer")) {
-    return <NonDisponible titre="Atelier" />;
+    return <NonDisponible titre={t("Atelier", "Workshop")} />;
   }
   const r = await chargerPortail<AtelierPortail>(cheminApiAtelierPortail(id));
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: CHEMIN_ATELIERS_PORTAIL, libelle: "Ateliers" };
+  const retour = { href: CHEMIN_ATELIERS_PORTAIL, libelle: t("Ateliers", "Workshops") };
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Atelier" retour={retour} />
+        <EnteteDePage titre={t("Atelier", "Workshop")} retour={retour} />
         <EtatErreur
-          titre="L'atelier n'a pas pu être chargé."
+          titre={t("L'atelier n'a pas pu être chargé.", "The workshop could not be loaded.")}
           message={r.message}
           hrefReessayer={cheminAtelierPortail(id)}
         />
@@ -53,14 +58,20 @@ export default async function DetailAtelierPortail({
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage titre={a.titre} retour={retour} />
-      <Alerte tonalite="info" annonce="aucune" titre="Votre contribution est confidentielle">
+      <Alerte
+        tonalite="info"
+        annonce="aucune"
+        titre={t("Votre contribution est confidentielle", "Your contribution is confidential")}
+      >
         <p>
-          Les autres participants ne voient pas vos réponses, et vous ne voyez pas les leurs. Vous
-          pouvez modifier votre contribution tant que l&apos;atelier est ouvert.
+          {t(
+            "Les autres participants ne voient pas vos réponses, et vous ne voyez pas les leurs. Vous pouvez modifier votre contribution tant que l'atelier est ouvert.",
+            "Other participants cannot see your answers, and you cannot see theirs. You can change your contribution as long as the workshop is open.",
+          )}
         </p>
       </Alerte>
       {a.consigne ? (
-        <Carte titre="Consigne" niveauTitre={2}>
+        <Carte titre={t("Consigne", "Instructions")} niveauTitre={2}>
           <p className="mp-coupure">{a.consigne}</p>
         </Carte>
       ) : null}

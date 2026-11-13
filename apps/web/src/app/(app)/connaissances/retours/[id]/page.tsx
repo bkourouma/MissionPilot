@@ -21,9 +21,13 @@ import {
   type VersionRetour,
 } from "../../../../../lib/capitalisation";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Retour d'expérience" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Retour d'expérience", "Lessons learned") };
+}
 
 /**
  * Un retour d'expérience (CAP-01) : version courante (brouillon automatique, brouillon IA ou
@@ -33,6 +37,8 @@ export const metadata: Metadata = { title: "Retour d'expérience" };
 export default async function PageRetour({ params }: { params: Promise<{ id: string }> }) {
   const { utilisateur } = await exigerPermission("connaissance.lire");
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = await chargerServeur<RetourDetail>(
     `/api/capitalisation/retours/${encodeURIComponent(id)}`,
   );
@@ -40,7 +46,10 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
     return (
       <div className="mp-page mp-connaissances">
         <EtatErreur
-          titre="Ce retour d'expérience n'a pas pu être chargé."
+          titre={t(
+            "Ce retour d'expérience n'a pas pu être chargé.",
+            "This lessons-learned review could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={`/connaissances/retours/${id}`}
         />
@@ -54,22 +63,38 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
-        titre={`Retour d'expérience : ${d.mission.intitule}`}
-        soustitre={`${d.mission.client} · ouvert le ${formaterDate(d.ouvert_le)}`}
-        retour={{ href: "/connaissances/retours", libelle: "Retours d'expérience" }}
+        titre={t(
+          `Retour d'expérience : ${d.mission.intitule}`,
+          `Lessons learned: ${d.mission.intitule}`,
+        )}
+        soustitre={t(
+          `${d.mission.client} · ouvert le ${formaterDate(d.ouvert_le)}`,
+          `${d.mission.client} · opened on ${formaterDate(d.ouvert_le, "UTC", langue)}`,
+        )}
+        retour={{
+          href: "/connaissances/retours",
+          libelle: t("Retours d'expérience", "Lessons learned"),
+        }}
         badges={
           <BadgeStatut tonalite={tonaliteStatutRetour(d.statut)}>
-            {d.statut === "valide" ? `Validé (version ${d.version_validee})` : "Brouillon"}
+            {d.statut === "valide"
+              ? t(
+                  `Validé (version ${d.version_validee})`,
+                  `Approved (version ${d.version_validee})`,
+                )
+              : t("Brouillon", "Draft")}
           </BadgeStatut>
         }
         actions={
-          <Link href={`/connaissances/missions/${d.mission_id}/briques`}>Briques des tâches</Link>
+          <Link href={`/connaissances/missions/${d.mission_id}/briques`}>
+            {t("Briques des tâches", "Task building blocks")}
+          </Link>
         }
       />
       {affichee ? <Version v={affichee} /> : null}
       {redigeable && d.version_courante ? (
         <>
-          <Carte titre="Valider ou améliorer">
+          <Carte titre={t("Valider ou améliorer", "Approve or improve")}>
             <ActionsRetour
               id={d.id}
               version={d.version_courante.version}
@@ -77,7 +102,7 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
               ia={droits.ia}
             />
           </Carte>
-          <Carte titre="Rédiger une nouvelle version">
+          <Carte titre={t("Rédiger une nouvelle version", "Write a new version")}>
             <FormulaireVersionRetour
               id={d.id}
               initiale={{
@@ -90,18 +115,18 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
           </Carte>
         </>
       ) : null}
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ul className="mp-liste-lignes">
           {d.historique.map((h) => (
             <li key={h.version} className="mp-liste-lignes__ligne">
               <span>
-                {`Version ${h.version} · ${libelleOrigine(h.origine)}`}
+                {`${t("Version", "Version")} ${h.version} · ${libelleOrigine(h.origine, langue)}`}
                 <span className="mp-texte-doux mp-texte-petit">
-                  {` · ${h.cree_par_nom ?? "—"} · ${formaterDate(h.cree_le)}`}
+                  {` · ${h.cree_par_nom ?? "—"} · ${formaterDate(h.cree_le, "UTC", langue)}`}
                 </span>
               </span>
               <BadgeStatut tonalite={h.statut_contenu === "valide" ? "succes" : "neutre"}>
-                {libelleStatutContenu(h.statut_contenu)}
+                {libelleStatutContenu(h.statut_contenu, langue)}
               </BadgeStatut>
             </li>
           ))}
@@ -111,26 +136,32 @@ export default async function PageRetour({ params }: { params: Promise<{ id: str
   );
 }
 
-function Version({ v }: { v: VersionRetour }) {
+async function Version({ v }: { v: VersionRetour }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <Carte
-      titre={`Version ${v.version} · ${libelleOrigine(v.origine)}`}
+      titre={`Version ${v.version} · ${libelleOrigine(v.origine, langue)}`}
       actions={
-        <BadgeStatut tonalite="neutre">{libelleStatutContenu(v.statut_contenu)}</BadgeStatut>
+        <BadgeStatut tonalite="neutre">
+          {libelleStatutContenu(v.statut_contenu, langue)}
+        </BadgeStatut>
       }
     >
       {v.chiffres_non_verifies ? (
-        <Alerte tonalite="attention" titre="Nombres à vérifier">
+        <Alerte tonalite="attention" titre={t("Nombres à vérifier", "Numbers to check")}>
           <p>
-            Des nombres de cette rédaction ne viennent pas des moteurs de calcul : relisez-les avant
-            de valider.
+            {t(
+              "Des nombres de cette rédaction ne viennent pas des moteurs de calcul : relisez-les avant de valider.",
+              "Some numbers in this draft do not come from the calculation engines: review them before approving.",
+            )}
           </p>
         </Alerte>
       ) : null}
       <dl className="mp-liste-def">
         {SECTIONS_RETOUR.map((k) => (
           <div key={k}>
-            <dt>{libelleSection(k)}</dt>
+            <dt>{libelleSection(k, langue)}</dt>
             <dd className="mp-connaissances__section">{v[k]}</dd>
           </div>
         ))}

@@ -10,6 +10,7 @@ import {
   ECHEANCE_MIN,
   STATUTS_TACHE_COLLABORATION,
   TYPES_ENTITE_COLLABORATION,
+  type Langue,
   type Role,
   type StatutTacheCollaboration,
   type TypeEntiteCollaboration,
@@ -50,6 +51,19 @@ export const STATUT_TACHE: Record<
   fait: { libelle: "Fait", tonalite: "succes" },
 };
 
+const STATUT_TACHE_EN: Record<StatutTacheCollaboration, string> = {
+  a_faire: "To do",
+  en_cours: "In progress",
+  fait: "Done",
+};
+
+/** Libellé d'un statut de tâche dans la langue de l'interface. */
+export const libelleStatutTache = (s: StatutTacheCollaboration, langue: Langue = "fr"): string =>
+  langue === "en" ? STATUT_TACHE_EN[s] : STATUT_TACHE[s].libelle;
+
+export const optionsStatutsTache = (langue: Langue = "fr") =>
+  STATUTS_TACHE_COLLABORATION.map((s) => ({ valeur: s, libelle: libelleStatutTache(s, langue) }));
+
 export const OPTIONS_STATUTS_TACHE = STATUTS_TACHE_COLLABORATION.map((s) => ({
   valeur: s,
   libelle: STATUT_TACHE[s].libelle,
@@ -63,6 +77,19 @@ export const ENTITE_LIBELLES: Record<TypeEntiteCollaboration, string> = {
   opportunite: "Opportunité",
   proposition: "Proposition",
 };
+
+export const ENTITE_LIBELLES_EN: Record<TypeEntiteCollaboration, string> = {
+  mission: "Engagement",
+  mission_tache: "Engagement task",
+  facture: "Invoice",
+  debours: "Expenses",
+  opportunite: "Opportunity",
+  proposition: "Proposal",
+};
+
+/** Libellé d'un type d'élément lié dans la langue de l'interface. */
+export const libelleEntite = (type: TypeEntiteCollaboration, langue: Langue = "fr"): string =>
+  langue === "en" ? ENTITE_LIBELLES_EN[type] : ENTITE_LIBELLES[type];
 
 export const ENTITE_ICONES: Record<TypeEntiteCollaboration, NomIcone> = {
   mission: "dossier",
@@ -139,7 +166,24 @@ export function actionsTache(
 /** Changements de statut proposés depuis le statut courant, action principale d'abord. */
 export function transitionsStatut(
   s: StatutTacheCollaboration,
+  langue: Langue = "fr",
 ): { cible: StatutTacheCollaboration; libelle: string }[] {
+  if (langue === "en") {
+    switch (s) {
+      case "a_faire":
+        return [
+          { cible: "en_cours", libelle: "Start" },
+          { cible: "fait", libelle: "Mark as done" },
+        ];
+      case "en_cours":
+        return [
+          { cible: "fait", libelle: "Mark as done" },
+          { cible: "a_faire", libelle: "Back to to do" },
+        ];
+      case "fait":
+        return [{ cible: "a_faire", libelle: "Reopen" }];
+    }
+  }
   switch (s) {
     case "a_faire":
       return [
@@ -250,23 +294,36 @@ function lireValeurEntite(v: string): { type: TypeEntiteCollaboration; id: strin
   return lireEntiteLiee({ entite_type: type, entite_id: id });
 }
 
-export function validerTache(s: SaisieTache): Resultat<ChargeTache, ChampTache> {
+export function validerTache(
+  s: SaisieTache,
+  langue: Langue = "fr",
+): Resultat<ChargeTache, ChampTache> {
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const erreurs: Partial<Record<ChampTache, string>> = {};
   const titre = s.titre.trim();
-  if (titre === "") erreurs.titre = "Donnez un titre à la tâche.";
-  else if (titre.length > 200) erreurs.titre = "200 caractères au plus.";
-  else if (CONTROLES.test(titre)) erreurs.titre = "Caractère non autorisé.";
+  if (titre === "") erreurs.titre = t("Donnez un titre à la tâche.", "Give the task a title.");
+  else if (titre.length > 200)
+    erreurs.titre = t("200 caractères au plus.", "200 characters at most.");
+  else if (CONTROLES.test(titre))
+    erreurs.titre = t("Caractère non autorisé.", "Character not allowed.");
   const description = s.description.trim();
-  if (description.length > 5000) erreurs.description = "5 000 caractères au plus.";
-  else if (CONTROLES.test(description)) erreurs.description = "Caractère non autorisé.";
-  if (!UUID.test(s.assignee_id)) erreurs.assignee_id = "Choisissez la personne assignée.";
+  if (description.length > 5000)
+    erreurs.description = t("5 000 caractères au plus.", "5,000 characters at most.");
+  else if (CONTROLES.test(description))
+    erreurs.description = t("Caractère non autorisé.", "Character not allowed.");
+  if (!UUID.test(s.assignee_id))
+    erreurs.assignee_id = t("Choisissez la personne assignée.", "Choose the assignee.");
   if (s.echeance !== "") {
-    if (!DATE.test(s.echeance)) erreurs.echeance = "Date invalide.";
+    if (!DATE.test(s.echeance)) erreurs.echeance = t("Date invalide.", "Invalid date.");
     else if (s.echeance < ECHEANCE_MIN || s.echeance > ECHEANCE_MAX)
-      erreurs.echeance = "Échéance entre les années 2000 et 2100.";
+      erreurs.echeance = t(
+        "Échéance entre les années 2000 et 2100.",
+        "Due date between the years 2000 and 2100.",
+      );
   }
   const entite = s.entite === "" ? null : lireValeurEntite(s.entite);
-  if (s.entite !== "" && !entite) erreurs.entite = "Élément lié invalide.";
+  if (s.entite !== "" && !entite)
+    erreurs.entite = t("Élément lié invalide.", "Invalid linked item.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -308,8 +365,12 @@ export function pastilleTaches(ouvertes: number | null): string | null {
   return ouvertes > 9 ? "9+" : String(ouvertes);
 }
 
-export function libellePastilleTaches(ouvertes: number | null): string {
+export function libellePastilleTaches(ouvertes: number | null, langue: Langue = "fr"): string {
   if (ouvertes === null || ouvertes <= 0) return "";
+  if (langue === "en") {
+    if (ouvertes > 9) return "more than 9 open tasks";
+    return ouvertes === 1 ? "1 open task" : `${ouvertes} open tasks`;
+  }
   if (ouvertes > 9) return "plus de 9 tâches ouvertes";
   return ouvertes === 1 ? "1 tâche ouverte" : `${ouvertes} tâches ouvertes`;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChampConfirmation, SaisieConfirmation } from "../../lib/double-authentification";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -11,6 +12,8 @@ export interface ChampsReconfirmationProps {
   erreurs: Partial<Record<ChampConfirmation | string, string>>;
   /** Pourquoi l'API redemande l'identité, ex. « modifier les coordonnées bancaires ». */
   motif: string;
+  /** Version anglaise du motif (« change the firm's bank details ») ; sans elle, un texte générique. */
+  motifEn?: string;
 }
 
 /**
@@ -22,17 +25,26 @@ export function ChampsReconfirmation({
   onChange,
   erreurs,
   motif,
+  motifEn,
 }: ChampsReconfirmationProps) {
+  const t = useT();
   const secours = saisie.facteur === "secours";
   return (
     <fieldset className="mp-groupe mp-sous-formulaire">
-      <legend className="mp-champ__libelle">Confirmez votre identité</legend>
+      <legend className="mp-champ__libelle">
+        {t("Confirmez votre identité", "Confirm your identity")}
+      </legend>
       <Alerte tonalite="info" annonce="status">
-        <p>{`Pour ${motif}, saisissez votre mot de passe et, si votre double authentification est active, le code de votre application.`}</p>
+        <p>
+          {t(
+            `Pour ${motif}, saisissez votre mot de passe et, si votre double authentification est active, le code de votre application.`,
+            `${motifEn ? `To ${motifEn}` : "To continue"}, enter your password and, if your two-factor authentication is active, the code from your app.`,
+          )}
+        </p>
       </Alerte>
       <div className="mp-grille-champs">
         <Champ
-          libelle="Mot de passe"
+          libelle={t("Mot de passe", "Password")}
           type="password"
           autoComplete="current-password"
           required
@@ -42,7 +54,9 @@ export function ChampsReconfirmation({
         />
         <Champ
           key={saisie.facteur}
-          libelle={secours ? "Code de secours" : "Code à 6 chiffres"}
+          libelle={
+            secours ? t("Code de secours", "Backup code") : t("Code à 6 chiffres", "6-digit code")
+          }
           inputMode={secours ? "text" : "numeric"}
           autoComplete={secours ? "off" : "one-time-code"}
           maxLength={secours ? 40 : 7}
@@ -56,7 +70,9 @@ export function ChampsReconfirmation({
           variante="discret"
           onClick={() => onChange({ ...saisie, code: "", facteur: secours ? "totp" : "secours" })}
         >
-          {secours ? "Utiliser le code de l'application" : "Utiliser un code de secours"}
+          {secours
+            ? t("Utiliser le code de l'application", "Use the app code")
+            : t("Utiliser un code de secours", "Use a backup code")}
         </Bouton>
       </div>
     </fieldset>

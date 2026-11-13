@@ -10,6 +10,7 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { formaterDateHeure } from "../../../../lib/format";
 import {
   cheminSuivi,
@@ -24,16 +25,22 @@ import {
 } from "../../../../lib/qualite";
 import { exigerConsultationQualite } from "../../../../lib/qualite-serveur";
 
-export const metadata: Metadata = { title: "Livrable suivi" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Livrable suivi", "Tracked deliverable") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const ACTIONS_EVENEMENT: Record<string, string> = {
-  ouverture: "Suivi ouvert",
-  relevement_classe: "Classe relevée",
-  passage_en_revue: "Revue ouverte",
-  validation_complete: "Garde satisfaite : livrable validé",
-  signature: "Livrable signé",
+const ACTIONS_EVENEMENT: Record<string, [string, string]> = {
+  ouverture: ["Suivi ouvert", "Follow-up opened"],
+  relevement_classe: ["Classe relevée", "Class raised"],
+  passage_en_revue: ["Revue ouverte", "Review opened"],
+  validation_complete: [
+    "Garde satisfaite : livrable validé",
+    "Safeguard satisfied: deliverable approved",
+  ],
+  signature: ["Livrable signé", "Deliverable signed"],
 };
 
 /**
@@ -43,6 +50,8 @@ const ACTIONS_EVENEMENT: Record<string, string> = {
  */
 export default async function PageSuivi({ params }: { params: Promise<{ id: string }> }) {
   const session = await exigerConsultationQualite();
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const r = await chargerServeur<DetailSuivi>(cheminSuivi(id));
@@ -50,9 +59,12 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Livrable suivi" retour={{ href: "/qualite", libelle: "Qualité" }} />
+        <EnteteDePage
+          titre={t("Livrable suivi", "Tracked deliverable")}
+          retour={{ href: "/qualite", libelle: t("Qualité", "Quality") }}
+        />
         <EtatErreur
-          titre="Le dossier n'a pas pu être chargé."
+          titre={t("Le dossier n'a pas pu être chargé.", "The file could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefSuivi(id)}
         />
@@ -69,26 +81,29 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
     <div className="mp-page">
       <EnteteDePage
         titre={suivi.libelle}
-        soustitre={`${libelleType(suivi.type_livrable)} · version ${suivi.version} · mission ${d.mission.intitule}`}
-        retour={{ href: "/qualite", libelle: "Qualité" }}
+        soustitre={t(
+          `${libelleType(suivi.type_livrable)} · version ${suivi.version} · mission ${d.mission.intitule}`,
+          `${libelleType(suivi.type_livrable, "en")} · version ${suivi.version} · engagement ${d.mission.intitule}`,
+        )}
+        retour={{ href: "/qualite", libelle: t("Qualité", "Quality") }}
         badges={
           <>
             <BadgeStatut tonalite={tonaliteClasse(suivi.classe)}>
-              {libelleClasse(suivi.classe)}
+              {libelleClasse(suivi.classe, langue)}
             </BadgeStatut>
             <BadgeStatut tonalite={tonaliteStatutSuivi(suivi.statut)}>
-              {libelleStatutSuivi(suivi.statut)}
+              {libelleStatutSuivi(suivi.statut, langue)}
             </BadgeStatut>
           </>
         }
       />
 
-      <Carte titre="Garde et signature">
+      <Carte titre={t("Garde et signature", "Safeguard and signature")}>
         <GardeEtSignature detail={d} droits={droits} />
       </Carte>
 
       <div className="mp-qualite__colonnes">
-        <Carte titre="Définition de terminé">
+        <Carte titre={t("Définition de terminé", "Definition of done")}>
           <DefinitionTermine
             suiviId={suivi.id}
             definition={d.definition}
@@ -97,10 +112,13 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
             enRevue={suivi.statut === "en_revue"}
           />
         </Carte>
-        <Carte titre="Revue guidée">
+        <Carte titre={t("Revue guidée", "Guided review")}>
           {suivi.statut === "brouillon" ? (
             <p className="mp-texte-doux">
-              Le parcours s&apos;ouvre dès que la définition de terminé a été vérifiée.
+              {t(
+                "Le parcours s'ouvre dès que la définition de terminé a été vérifiée.",
+                "The review path opens once the definition of done has been verified.",
+              )}
             </p>
           ) : (
             <ParcoursRevueGuidee
@@ -116,19 +134,21 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
       </div>
 
       {droits.relire && (suivi.statut === "brouillon" || suivi.statut === "en_revue") ? (
-        <Carte titre="Relever la classe de risque" niveauTitre={2}>
+        <Carte titre={t("Relever la classe de risque", "Raise the risk class")} niveauTitre={2}>
           <ReleverClasse suiviId={suivi.id} classe={suivi.classe} />
         </Carte>
       ) : null}
 
-      <Carte titre="Historique">
+      <Carte titre={t("Historique", "History")}>
         <ol className="mp-liste-lignes">
           {d.evenements.map((e) => (
             <li key={e.rang} className="mp-liste-lignes__ligne">
               <div className="mp-liste-lignes__texte">
-                <span>{ACTIONS_EVENEMENT[e.action] ?? e.action}</span>
+                <span>
+                  {ACTIONS_EVENEMENT[e.action] ? t(...ACTIONS_EVENEMENT[e.action]!) : e.action}
+                </span>
                 <span className="mp-texte-doux mp-texte-petit">
-                  {e.par_nom ?? "—"} · {formaterDateHeure(e.le)}
+                  {e.par_nom ?? "—"} · {formaterDateHeure(e.le, undefined, langue)}
                 </span>
               </div>
             </li>

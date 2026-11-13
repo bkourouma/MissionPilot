@@ -9,6 +9,7 @@
  * Sous-modules ré-exportés ici : `ia-parametres`, `ia-plafond` (clé, plafond, reconfirmation),
  * `ia-modeles`, `ia-prompts` et `ia-couts`.
  */
+import type { Langue } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 
 export * from "./ia-parametres";
@@ -33,6 +34,25 @@ export const CODES_ERREUR_FOURNISSEUR = [
 export const MESSAGE_CLE_ILLISIBLE =
   "Le serveur ne parvient plus à déchiffrer la clé API du cabinet (clé de chiffrement du serveur changée ?). Par sécurité, la clé de la plateforme ne la remplace pas : les contenus sont produits par les gabarits. Enregistrez de nouveau la clé OpenRouter du cabinet.";
 
+export const MESSAGE_CLE_ILLISIBLE_EN =
+  "The server can no longer decrypt the firm's API key (server encryption key changed?). For security, the platform key does not replace it: content is produced by templates. Save the firm's OpenRouter key again.";
+
+export const MESSAGES_ERREURS_IA_EN: Readonly<Record<string, string>> = {
+  PLAFOND_IA_ATTEINT:
+    "The firm's monthly AI cost ceiling has been reached: AI is refused until next month or until the ceiling is raised. Content can be produced from the template.",
+  CHIFFRES_NON_VERIFIES:
+    "Some numbers in this content do not come from the calculation engines: check them, tick the attestation box, then approve.",
+  CONTENU_VALIDE:
+    "This content has already been approved: it is final and can no longer be edited.",
+  CLE_IA_ABSENTE:
+    "No API key is available: AI runs in template mode. Save an OpenRouter key to use it.",
+  IA_DESACTIVEE:
+    'AI is disabled for the firm: enable it ("Enable AI" button) before testing the connection.',
+  CLE_IA_ILLISIBLE: MESSAGE_CLE_ILLISIBLE_EN,
+  GENERATIONS_SIMULTANEES:
+    "Too many AI generations are running for the firm: try again in a moment.",
+};
+
 export const MESSAGES_ERREURS_IA: Readonly<Record<string, string>> = {
   PLAFOND_IA_ATTEINT:
     "Le plafond mensuel de coût IA du cabinet est atteint : l'IA est refusée jusqu'au mois prochain ou au relèvement du plafond. Les contenus peuvent être produits par le gabarit.",
@@ -49,9 +69,9 @@ export const MESSAGES_ERREURS_IA: Readonly<Record<string, string>> = {
 };
 
 /** Message affichable d'une erreur d'appel IA (toujours en français). */
-export function messageErreurIa(e: unknown): string {
+export function messageErreurIa(e: unknown, langue: Langue = "fr"): string {
   if (!(e instanceof ErreurApi)) return messageErreur(e);
-  const fixe = MESSAGES_ERREURS_IA[e.code];
+  const fixe = (langue === "en" ? MESSAGES_ERREURS_IA_EN : MESSAGES_ERREURS_IA)[e.code];
   if (fixe) return fixe;
   // Refus explicites de l'API (séparation des tâches, fournisseur, quota journalier
   // QUOTA_IA_UTILISATEUR dont le nombre vient de l'API) : son message précis.
@@ -69,13 +89,23 @@ export const estPlafondAtteint = (e: unknown) =>
   e instanceof ErreurApi && e.code === "PLAFOND_IA_ATTEINT";
 
 /** Titre et texte de l'échec du test de connexion (clé illisible : alerte dédiée). */
-export function erreurTestConnexion(e: unknown): { titre: string; message: string } {
+export function erreurTestConnexion(
+  e: unknown,
+  langue: Langue = "fr",
+): { titre: string; message: string } {
   const code = e instanceof ErreurApi ? e.code : null;
+  const en = langue === "en";
   const titre =
     code === "CLE_IA_ILLISIBLE"
-      ? "Clé API du cabinet illisible"
+      ? en
+        ? "Firm API key unreadable"
+        : "Clé API du cabinet illisible"
       : code === "IA_DESACTIVEE"
-        ? "L'IA n'est pas activée"
-        : "La connexion a échoué";
-  return { titre, message: messageErreurIa(e) };
+        ? en
+          ? "AI is not enabled"
+          : "L'IA n'est pas activée"
+        : en
+          ? "The connection failed"
+          : "La connexion a échoué";
+  return { titre, message: messageErreurIa(e, langue) };
 }

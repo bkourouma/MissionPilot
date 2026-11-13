@@ -22,24 +22,30 @@ import {
 } from "../../../../../../lib/banque-ao";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { obtenirSession } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "CV" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("CV", "CV") };
+}
 
 /** Fiche d'un CV : version courante, historique, contrôle des exigences, export par bailleur. */
 export default async function PageDetailCv({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await obtenirSession();
   const droits = droitsBanqueAo(utilisateur.roles);
   const r = await chargerServeur<CvDetail>(`/api/banque-ao/cv/${encodeURIComponent(id)}`);
-  const retour = { href: `${RACINE_BANQUES}/cv`, libelle: "Banque de CV" };
+  const retour = { href: `${RACINE_BANQUES}/cv`, libelle: t("Banque de CV", "CV bank") };
   if (!r.ok) {
     return (
       <div className="mp-page">
         <EnteteDePage titre="CV" retour={retour} />
         <EtatErreur
           hrefReessayer={`${RACINE_BANQUES}/cv/${encodeURIComponent(id)}`}
-          titre="Ce CV n'a pas pu être chargé."
+          titre={t("Ce CV n'a pas pu être chargé.", "This CV could not be loaded.")}
           message={r.message}
         />
       </div>
@@ -53,56 +59,77 @@ export default async function PageDetailCv({ params }: { params: Promise<{ id: s
     <div className="mp-page">
       <EnteteDePage
         titre={cv.nom}
-        soustitre={`${c.titre} — ${cv.annees_experience} an(s) d'expérience au ${moisAffiche(cv.reference)} (version ${cv.courante.version}).`}
+        soustitre={t(
+          `${c.titre} — ${cv.annees_experience} an(s) d'expérience au ${moisAffiche(cv.reference)} (version ${cv.courante.version}).`,
+          `${c.titre} — ${cv.annees_experience} year(s) of experience as of ${moisAffiche(cv.reference, langue)} (version ${cv.courante.version}).`,
+        )}
         retour={retour}
       />
       {cv.anonymise ? (
-        <Alerte tonalite="info" titre="CV anonymisé" annonce="aucune">
+        <Alerte tonalite="info" titre={t("CV anonymisé", "CV anonymized")} annonce="aucune">
           <p>
-            Le parcours de cette personne a été effacé de façon irréversible : ce CV n&apos;est plus
-            exportable, ne reçoit plus de nouvelle version et ne peut plus entrer dans une offre.
+            {t(
+              "Le parcours de cette personne a été effacé de façon irréversible : ce CV n'est plus exportable, ne reçoit plus de nouvelle version et ne peut plus entrer dans une offre.",
+              "This person's background was irreversibly erased: this CV can no longer be exported, receives no new version and cannot enter a bid.",
+            )}
           </p>
         </Alerte>
       ) : null}
-      <Carte titre="Expériences">
+      <Carte titre={t("Expériences", "Experience")}>
         <Tableau
-          legende="Expériences"
+          legende={t("Expériences", "Experience")}
           cleLigne={(e) => `${e.debut}-${e.intitule}`}
           lignes={c.experiences}
-          messageVide="Aucune expérience."
+          messageVide={t("Aucune expérience.", "No experience.")}
           colonnes={[
             {
               cle: "debut",
-              entete: "Période",
-              rendu: (e) => `${moisAffiche(e.debut)} – ${moisAffiche(e.fin)}`,
+              entete: t("Période", "Period"),
+              rendu: (e) => `${moisAffiche(e.debut, langue)} – ${moisAffiche(e.fin, langue)}`,
             },
-            { cle: "intitule", entete: "Poste" },
-            { cle: "employeur", entete: "Employeur" },
-            { cle: "pays", entete: "Pays" },
-            { cle: "secteurs", entete: "Secteurs", rendu: (e) => e.secteurs.join(", ") },
-            { cle: "bailleur", entete: "Bailleur" },
+            { cle: "intitule", entete: t("Poste", "Position") },
+            { cle: "employeur", entete: t("Employeur", "Employer") },
+            { cle: "pays", entete: t("Pays", "Country") },
+            {
+              cle: "secteurs",
+              entete: t("Secteurs", "Sectors"),
+              rendu: (e) => e.secteurs.join(", "),
+            },
+            { cle: "bailleur", entete: t("Bailleur", "Donor") },
           ]}
         />
       </Carte>
-      <Carte titre="Diplômes et langues">
+      <Carte titre={t("Diplômes et langues", "Degrees and languages")}>
         <ul>
           {c.diplomes.map((d) => (
             <li key={`${d.annee}-${d.intitule}`}>
-              {d.annee} — {d.intitule} ({libelleNiveauDiplome(d.niveau)}, {d.domaine})
+              {d.annee} — {d.intitule} ({libelleNiveauDiplome(d.niveau, langue)}, {d.domaine})
             </li>
           ))}
         </ul>
-        <p>{c.langues.map((l) => `${l.langue} : ${libelleNiveauLangue(l.niveau)}`).join(" ; ")}</p>
-        {c.secteurs.length > 0 ? <p>Secteurs : {c.secteurs.join(", ")}</p> : null}
-        {c.competences.length > 0 ? <p>Compétences : {c.competences.join(", ")}</p> : null}
+        <p>
+          {c.langues
+            .map((l) => `${l.langue}${t(" : ", ": ")}${libelleNiveauLangue(l.niveau, langue)}`)
+            .join(" ; ")}
+        </p>
+        {c.secteurs.length > 0 ? (
+          <p>
+            {t("Secteurs :", "Sectors:")} {c.secteurs.join(", ")}
+          </p>
+        ) : null}
+        {c.competences.length > 0 ? (
+          <p>
+            {t("Compétences :", "Skills:")} {c.competences.join(", ")}
+          </p>
+        ) : null}
       </Carte>
       {cv.anonymise ? null : (
-        <Carte titre="Mise au format d'un bailleur">
+        <Carte titre={t("Mise au format d'un bailleur", "Format for a donor")}>
           {gabarits.ok ? (
             <ul>
               {gabarits.donnees.elements.map((g) => (
                 <li key={g.code}>
-                  {g.libelle} ({g.bailleur}) :{" "}
+                  {g.libelle} ({g.bailleur}){t(" :", ":")}{" "}
                   <a
                     className={classesBouton("discret")}
                     href={`/api/banque-ao/cv/${encodeURIComponent(cv.id)}/export?gabarit=${g.code}&format=docx`}
@@ -121,32 +148,40 @@ export default async function PageDetailCv({ params }: { params: Promise<{ id: s
           ) : (
             <EtatErreur
               hrefReessayer={`${RACINE_BANQUES}/cv/${encodeURIComponent(id)}`}
-              titre="Gabarits indisponibles."
+              titre={t("Gabarits indisponibles.", "Templates unavailable.")}
               message={gabarits.message}
             />
           )}
         </Carte>
       )}
-      <Carte titre="Contrôler contre les exigences d'un appel d'offres">
+      <Carte
+        titre={t(
+          "Contrôler contre les exigences d'un appel d'offres",
+          "Check against a tender's requirements",
+        )}
+      >
         <FormulaireControleCv cvId={cv.id} />
       </Carte>
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ul>
           {cv.versions.map((v) => (
             <li key={v.id}>
-              Version {v.version} du {formaterDate(v.cree_le)}
-              {v.motif ? ` : ${v.motif}` : " (création)"}
+              {t(
+                `Version ${v.version} du ${formaterDate(v.cree_le)}`,
+                `Version ${v.version} of ${formaterDate(v.cree_le, "UTC", langue)}`,
+              )}
+              {v.motif ? ` : ${v.motif}` : t(" (création)", " (creation)")}
             </li>
           ))}
         </ul>
       </Carte>
       {droits.gerer && !cv.anonymise ? (
-        <Carte titre="Nouvelle version">
+        <Carte titre={t("Nouvelle version", "New version")}>
           <FormulaireCv cvId={cv.id} initial={saisieDepuisCv(cv.nom, c)} />
         </Carte>
       ) : null}
       {droits.anonymiser ? (
-        <Carte titre="Anonymiser ce CV">
+        <Carte titre={t("Anonymiser ce CV", "Anonymize this CV")}>
           <AnonymisationCv cvId={cv.id} anonymise={cv.anonymise} />
         </Carte>
       ) : null}

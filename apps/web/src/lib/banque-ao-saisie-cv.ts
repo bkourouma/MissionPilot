@@ -1,6 +1,8 @@
 import {
+  creerTraduire,
   NIVEAUX_DIPLOME_AO,
   NIVEAUX_LANGUE_AO,
+  type Langue,
   type NiveauDiplomeAo,
   type NiveauLangueAo,
 } from "@missionpilot/shared";
@@ -15,6 +17,9 @@ export function lireNiveauDiplome(v: string): NiveauDiplomeAo | null {
   const alias: Record<string, NiveauDiplomeAo> = {
     licence: "bac_3",
     master: "bac_5",
+    masters: "bac_5",
+    bachelor: "bac_3",
+    doctorate: "doctorat",
     doctorat: "doctorat",
     phd: "doctorat",
     bts: "bac_2",
@@ -27,6 +32,13 @@ export function lireNiveauDiplome(v: string): NiveauDiplomeAo | null {
 export function lireNiveauLangue(v: string): NiveauLangueAo | null {
   const t = v.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   if (t === "langue maternelle") return "maternelle";
+  const alias: Record<string, NiveauLangueAo> = {
+    basic: "notions",
+    fluent: "courant",
+    bilingual: "bilingue",
+    native: "maternelle",
+  };
+  if (alias[t]) return alias[t];
   return (NIVEAUX_LANGUE_AO as readonly string[]).includes(t) ? (t as NiveauLangueAo) : null;
 }
 
@@ -36,7 +48,10 @@ export function lireNiveauLangue(v: string): NiveauLangueAo | null {
  */
 export function lireExperiences(
   v: string,
+  langue: Langue = "fr",
 ): { ok: true; valeur: ExperienceSaisie[] } | { ok: false; erreur: string } {
+  const t = creerTraduire(langue);
+  const ligneN = (i: number) => t(`Ligne ${i + 1} : `, `Line ${i + 1}: `);
   const sortie: ExperienceSaisie[] = [];
   for (const [i, l] of lignes(v).entries()) {
     const [
@@ -50,16 +65,36 @@ export function lireExperiences(
     ] = champs(l);
     const finLue = EN_COURS.has(fin.toLowerCase()) ? null : fin;
     if (!MOIS.test(debut) || (finLue !== null && !MOIS.test(finLue))) {
-      return { ok: false, erreur: `Ligne ${i + 1} : mois au format AAAA-MM attendus.` };
+      return {
+        ok: false,
+        erreur:
+          ligneN(i) + t("mois au format AAAA-MM attendus.", "months in YYYY-MM format expected."),
+      };
     }
     if (finLue !== null && finLue < debut) {
-      return { ok: false, erreur: `Ligne ${i + 1} : la fin précède le début.` };
+      return {
+        ok: false,
+        erreur: ligneN(i) + t("la fin précède le début.", "the end precedes the start."),
+      };
     }
     if (intitule === "" || employeur === "") {
-      return { ok: false, erreur: `Ligne ${i + 1} : intitulé et employeur sont obligatoires.` };
+      return {
+        ok: false,
+        erreur:
+          ligneN(i) +
+          t("intitulé et employeur sont obligatoires.", "title and employer are required."),
+      };
     }
     if (pays !== "" && !/^[A-Za-z]{2}$/.test(pays)) {
-      return { ok: false, erreur: `Ligne ${i + 1} : pays en code ISO à deux lettres (CI, SN…).` };
+      return {
+        ok: false,
+        erreur:
+          ligneN(i) +
+          t(
+            "pays en code ISO à deux lettres (CI, SN…).",
+            "country as a two-letter ISO code (CI, SN…).",
+          ),
+      };
     }
     sortie.push({
       intitule,
@@ -77,18 +112,35 @@ export function lireExperiences(
 /** Diplômes, un par ligne : « année | niveau (bac+5, master…) | intitulé | domaine | établissement ». */
 export function lireDiplomes(
   v: string,
+  langue: Langue = "fr",
 ): { ok: true; valeur: DiplomeSaisi[] } | { ok: false; erreur: string } {
+  const t = creerTraduire(langue);
+  const ligneN = (i: number) => t(`Ligne ${i + 1} : `, `Line ${i + 1}: `);
   const sortie: DiplomeSaisi[] = [];
   for (const [i, l] of lignes(v).entries()) {
     const [annee = "", niveau = "", intitule = "", domaine = "", etablissement = ""] = champs(l);
     const a = Number(annee);
     const n = lireNiveauDiplome(niveau);
     if (!/^\d{4}$/.test(annee) || a < 1950 || a > 2100) {
-      return { ok: false, erreur: `Ligne ${i + 1} : année sur quatre chiffres attendue.` };
+      return {
+        ok: false,
+        erreur: ligneN(i) + t("année sur quatre chiffres attendue.", "four-digit year expected."),
+      };
     }
-    if (!n) return { ok: false, erreur: `Ligne ${i + 1} : niveau inconnu (bac, bac+2… doctorat).` };
+    if (!n) {
+      return {
+        ok: false,
+        erreur:
+          ligneN(i) +
+          t("niveau inconnu (bac, bac+2… doctorat).", "unknown level (bac, bac+2… doctorate)."),
+      };
+    }
     if (intitule === "" || domaine === "") {
-      return { ok: false, erreur: `Ligne ${i + 1} : intitulé et domaine sont obligatoires.` };
+      return {
+        ok: false,
+        erreur:
+          ligneN(i) + t("intitulé et domaine sont obligatoires.", "title and field are required."),
+      };
     }
     sortie.push({
       annee: a,
@@ -104,15 +156,23 @@ export function lireDiplomes(
 /** Langues, une par ligne : « langue : niveau » (notions, courant, bilingue, maternelle). */
 export function lireLangues(
   v: string,
+  langue: Langue = "fr",
 ): { ok: true; valeur: LangueSaisie[] } | { ok: false; erreur: string } {
+  const t = creerTraduire(langue);
   const sortie: LangueSaisie[] = [];
   for (const [i, l] of lignes(v).entries()) {
-    const [langue = "", niveau = ""] = l.split(":").map((x) => x.trim());
+    const [nomLangue = "", niveau = ""] = l.split(":").map((x) => x.trim());
     const n = lireNiveauLangue(niveau);
-    if (langue === "" || !n) {
-      return { ok: false, erreur: `Ligne ${i + 1} : « langue : niveau » attendu.` };
+    if (nomLangue === "" || !n) {
+      return {
+        ok: false,
+        erreur: t(
+          `Ligne ${i + 1} : « langue : niveau » attendu.`,
+          `Line ${i + 1}: “language: level” expected.`,
+        ),
+      };
     }
-    sortie.push({ langue, niveau: n });
+    sortie.push({ langue: nomLangue, niveau: n });
   }
   return { ok: true, valeur: sortie };
 }
@@ -132,17 +192,23 @@ export interface SaisieCv {
 type ChampCv = keyof SaisieCv;
 
 /** Formulaire du CV → contenu attendu par l'API. */
-export function lireCv(s: SaisieCv): Resultat<{ nom: string; contenu: ContenuCv }, ChampCv> {
+export function lireCv(
+  s: SaisieCv,
+  langue: Langue = "fr",
+): Resultat<{ nom: string; contenu: ContenuCv }, ChampCv> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampCv, string>> = {};
   const nom = s.nom.trim();
   const titre = s.titre.trim();
-  if (nom === "") erreurs.nom = "Le nom de l'expert est obligatoire.";
-  if (titre === "") erreurs.titre = "Le titre ou poste est obligatoire.";
-  const experiences = lireExperiences(s.experiences);
+  if (nom === "")
+    erreurs.nom = t("Le nom de l'expert est obligatoire.", "The expert's name is required.");
+  if (titre === "")
+    erreurs.titre = t("Le titre ou poste est obligatoire.", "The title or position is required.");
+  const experiences = lireExperiences(s.experiences, langue);
   if (!experiences.ok) erreurs.experiences = experiences.erreur;
-  const diplomes = lireDiplomes(s.diplomes);
+  const diplomes = lireDiplomes(s.diplomes, langue);
   if (!diplomes.ok) erreurs.diplomes = diplomes.erreur;
-  const langues = lireLangues(s.langues);
+  const langues = lireLangues(s.langues, langue);
   if (!langues.ok) erreurs.langues = langues.erreur;
   if (Object.keys(erreurs).length > 0 || !experiences.ok || !diplomes.ok || !langues.ok) {
     return { ok: false, erreurs };

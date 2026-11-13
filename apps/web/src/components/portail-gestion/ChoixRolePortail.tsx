@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
 import "./portail-gestion.css";
 
@@ -23,6 +24,7 @@ export function ChoixRolePortail({
   erreur,
   desactive,
 }: ChoixRolePortailProps) {
+  const t = useT();
   const id = useId();
   const idErreur = erreur ? `${id}-erreur` : undefined;
   return (
@@ -33,11 +35,11 @@ export function ChoixRolePortail({
       disabled={desactive}
     >
       <legend className="mp-champ__libelle">
-        Rôle sur le portail
+        {t("Rôle sur le portail", "Role on the portal")}
         <span className="mp-champ__requis">
           {" "}
           <span aria-hidden="true">*</span>
-          <span className="mp-visuellement-cache">(obligatoire)</span>
+          <span className="mp-visuellement-cache">{t("(obligatoire)", "(required)")}</span>
         </span>
       </legend>
       <div className="mp-groupe__options mp-groupe__options--colonne">

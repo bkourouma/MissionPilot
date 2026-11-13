@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useId } from "react";
+import { T } from "../i18n/T";
 import { pagesAffichees } from "../../lib/pagination";
 import { Icone } from "./Icone";
 
@@ -15,31 +17,40 @@ export interface PaginationProps {
 }
 
 /** À utiliser depuis un Server Component (`hrefPage` est une fonction). */
-export function Pagination({
-  page,
-  totalPages,
-  hrefPage,
-  libelle = "Pagination",
-}: PaginationProps) {
+export function Pagination({ page, totalPages, hrefPage, libelle }: PaginationProps) {
+  const idLibelle = useId();
   if (totalPages <= 1) return null;
   const courante = Math.min(Math.max(1, page), totalPages);
   const elements = pagesAffichees(courante, totalPages);
   return (
-    <nav className="mp-pagination" aria-label={libelle}>
+    <nav
+      className="mp-pagination"
+      aria-label={libelle}
+      aria-labelledby={libelle ? undefined : idLibelle}
+    >
+      {libelle ? null : (
+        <span id={idLibelle} className="mp-visuellement-cache">
+          Pagination
+        </span>
+      )}
       <p className="mp-pagination__resume">
-        Page {courante} sur {totalPages}
+        <T fr={`Page ${courante} sur ${totalPages}`} en={`Page ${courante} of ${totalPages}`} />
       </p>
       <ul className="mp-pagination__liste">
         <li>
           {courante > 1 ? (
             <Link className="mp-pagination__lien" href={hrefPage(courante - 1)} rel="prev">
               <Icone nom="chevronGauche" taille={18} />
-              <span>Précédente</span>
+              <span>
+                <T fr="Précédente" en="Previous" />
+              </span>
             </Link>
           ) : (
             <span className="mp-pagination__lien" aria-disabled="true">
               <Icone nom="chevronGauche" taille={18} />
-              <span>Précédente</span>
+              <span>
+                <T fr="Précédente" en="Previous" />
+              </span>
             </span>
           )}
         </li>
@@ -64,12 +75,16 @@ export function Pagination({
         <li>
           {courante < totalPages ? (
             <Link className="mp-pagination__lien" href={hrefPage(courante + 1)} rel="next">
-              <span>Suivante</span>
+              <span>
+                <T fr="Suivante" en="Next" />
+              </span>
               <Icone nom="chevronDroit" taille={18} />
             </Link>
           ) : (
             <span className="mp-pagination__lien" aria-disabled="true">
-              <span>Suivante</span>
+              <span>
+                <T fr="Suivante" en="Next" />
+              </span>
               <Icone nom="chevronDroit" taille={18} />
             </span>
           )}

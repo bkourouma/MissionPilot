@@ -6,8 +6,10 @@
  */
 import {
   apercuMissionSchema,
+  creerTraduire,
   TYPE_ELEMENT_LIBELLES,
   type ClasseRisque,
+  type Langue,
 } from "@missionpilot/shared";
 import { libelleLisible } from "./codes-lisibles";
 import { formaterJours, formaterNombre } from "./format";
@@ -24,6 +26,8 @@ import type { Resultat } from "./saisie";
 /** Mention affichée sur toute page d'aperçu. */
 export const MENTION_APERCU =
   "Aperçu : rien n'est enregistré. Les chiffres viennent du moteur de calcul, pas de l'IA.";
+export const MENTION_APERCU_EN =
+  "Preview: nothing is saved. Figures come from the calculation engine, not from AI.";
 
 export type BriqueApercu = BriqueEffective;
 
@@ -90,60 +94,97 @@ export interface ApercuMission {
 export function construireCorpsApercu(
   saisie: SaisieContexte,
   facteurs: readonly Facteur[],
+  langue: Langue = "fr",
 ): Resultat<{ contexte: Record<string, unknown> }, string> {
-  const c = construireContexte(saisie, facteurs);
+  const c = construireContexte(saisie, facteurs, langue);
   if (!c.ok) return c;
   const p = apercuMissionSchema.safeParse({ contexte: c.charge });
   return p.success
     ? { ok: true, charge: p.data }
-    : { ok: false, erreurs: { contexte: "Contexte invalide." } };
+    : {
+        ok: false,
+        erreurs: { contexte: creerTraduire(langue)("Contexte invalide.", "Invalid context.") },
+      };
 }
 
 /** Pourquoi une brique est (ou n'est pas) dans la mission, en une phrase. */
-export function explicationOrigine(b: Pick<BriqueApercu, "active" | "origine">): string {
+export function explicationOrigine(
+  b: Pick<BriqueApercu, "active" | "origine">,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
   switch (b.origine) {
     case "modulation":
       return b.active
-        ? "Activée par une règle de contexte (elle est inactive par défaut)."
-        : "Retirée par une règle de contexte (elle est active par défaut).";
+        ? t(
+            "Activée par une règle de contexte (elle est inactive par défaut).",
+            "Activated by a context rule (it is inactive by default).",
+          )
+        : t(
+            "Retirée par une règle de contexte (elle est active par défaut).",
+            "Removed by a context rule (it is active by default).",
+          );
     case "derogation":
-      return "Modifiée par une dérogation.";
+      return t("Modifiée par une dérogation.", "Changed by a waiver.");
     default:
       return b.active
-        ? "Prévue par la méthode, sans règle de contexte."
-        : "Inactive par défaut dans la méthode, aucune règle ne l'active.";
+        ? t(
+            "Prévue par la méthode, sans règle de contexte.",
+            "Provided by the method, with no context rule.",
+          )
+        : t(
+            "Inactive par défaut dans la méthode, aucune règle ne l'active.",
+            "Inactive by default in the method, and no rule activates it.",
+          );
   }
 }
 
 /** « Classe R2, relevée depuis R1 » ou « Classe R1 » (le libellé de la classe est ajouté par l'écran). */
 export function texteClasseEffective(
   b: Pick<BriqueApercu, "classe_risque" | "classe_risque_base">,
+  langue: Langue = "fr",
 ) {
   return b.classe_risque === b.classe_risque_base
     ? b.classe_risque
-    : `${b.classe_risque}, relevée depuis ${b.classe_risque_base}`;
+    : `${b.classe_risque}, ${creerTraduire(langue)("relevée depuis", "raised from")} ${b.classe_risque_base}`;
 }
 
 export const briqueRelevee = (b: Pick<BriqueApercu, "classe_risque" | "classe_risque_base">) =>
   b.classe_risque !== b.classe_risque_base;
 
 /** Garde requise : étapes de validation humaine, quatre yeux et signature en toutes lettres. */
-export function texteGardeApercu(g: BriqueApercu["garde_requise"]): string {
-  if (g.etapes.length === 0) return "Automatique, journalisée";
-  const etapes = g.etapes.map(libelleEtapeGarde).join(" → ");
-  const marques = [g.quatre_yeux ? "quatre yeux" : null, g.signature ? "signature" : null].filter(
-    (m): m is string => m !== null,
-  );
+export function texteGardeApercu(g: BriqueApercu["garde_requise"], langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (g.etapes.length === 0) return t("Automatique, journalisée", "Automatic, logged");
+  const etapes = g.etapes.map((e) => libelleEtapeGarde(e, langue)).join(" → ");
+  const marques = [
+    g.quatre_yeux ? t("quatre yeux", "four-eyes") : null,
+    g.signature ? t("signature", "signature") : null,
+  ].filter((m): m is string => m !== null);
   return marques.length > 0 ? `${etapes} (${marques.join(", ")})` : etapes;
 }
 
 /** Temps type d'une brique : « 2,5 j » ou « non estimé ». */
-export const texteTempsBrique = (jours: number | null): string =>
-  jours === null ? "non estimé" : formaterJours(jours);
+export const texteTempsBrique = (jours: number | null, langue: Langue = "fr"): string =>
+  jours === null
+    ? creerTraduire(langue)("non estimé", "not estimated")
+    : formaterJours(jours, langue);
+
+const TYPE_ELEMENT_LIBELLES_EN: Record<string, string> = {
+  livrable: "Deliverable",
+  item: "Item",
+  kpi_type: "KPI type",
+  initiative_type: "Initiative type",
+  risque_type: "Risk type",
+  gabarit: "Template",
+  automatisation: "Automation",
+};
 
 /** Libellé d'un type d'élément (« Livrable »), sinon le type tel que rendu. */
-export function libelleTypeElement(type: string): string {
-  return (TYPE_ELEMENT_LIBELLES as Record<string, string>)[type] ?? type;
+export function libelleTypeElement(type: string, langue: Langue = "fr"): string {
+  const table =
+    langue === "en" ? TYPE_ELEMENT_LIBELLES_EN : (TYPE_ELEMENT_LIBELLES as Record<string, string>);
+  return table[type] ?? type;
 }
 
 /** Une ligne par classe de risque, de R0 à R3, avec le nombre de briques actives. */
@@ -165,19 +206,21 @@ export function libelleEtapeApercu(a: Pick<ApercuMission, "methode">, code: stri
 export function lignesAjustements(
   a: ApercuMission["methode"]["ajustements"],
   libelles?: Pick<LibellesApercu, "cible">,
+  langue: Langue = "fr",
 ): string[] {
+  const t = creerTraduire(langue);
   const rubriques: [string, Record<string, unknown>][] = [
-    ["Pondération", a.ponderations],
-    ["Seuil", a.seuils],
+    [t("Pondération", "Weighting"), a.ponderations],
+    [t("Seuil", "Threshold"), a.seuils],
     ["Benchmark", a.benchmarks],
-    ["Gabarit", a.gabarits],
-    ["Formulation", a.formulations],
-    ["Classe de risque relevée", a.classes_risque_relevees],
+    [t("Gabarit", "Template"), a.gabarits],
+    [t("Formulation", "Wording"), a.formulations],
+    [t("Classe de risque relevée", "Raised risk class"), a.classes_risque_relevees],
   ];
   return rubriques.flatMap(([nom, valeurs]) =>
     Object.entries(valeurs).map(
       ([cible, v]) =>
-        `${nom} — ${libelles ? libelles.cible(cible) : cible} : ${formaterValeur(v, libelles !== undefined)}`,
+        `${nom} — ${libelles ? libelles.cible(cible) : cible}${t(" : ", ": ")}${formaterValeur(v, libelles !== undefined, langue)}`,
     ),
   );
 }
@@ -188,17 +231,27 @@ const LIBELLES_FORMULATION: Record<string, string> = {
   saisonniere: "saisonnière",
 };
 
-function formaterValeur(v: unknown, lisible = false): string {
-  if (typeof v === "number") return formaterNombre(v, 4);
-  if (typeof v === "string" && LIBELLES_FORMULATION[v]) return LIBELLES_FORMULATION[v];
+const LIBELLES_FORMULATION_EN: Record<string, string> = {
+  standard: "standard",
+  saisonniere: "seasonal",
+};
+
+function formaterValeur(v: unknown, lisible = false, langue: Langue = "fr"): string {
+  if (typeof v === "number") return formaterNombre(v, 4, langue);
+  const formulations = langue === "en" ? LIBELLES_FORMULATION_EN : LIBELLES_FORMULATION;
+  if (typeof v === "string" && formulations[v]) return formulations[v];
   return lisible && typeof v === "string" ? libelleLisible(v).toLowerCase() : String(v);
 }
 
 /** Phrase de synthèse du temps type, en tenant compte des briques sans estimation. */
-export function phraseTemps(s: ApercuMission["synthese"]): string {
-  const base = `Durée type totale : ${formaterJours(s.temps_type_total_jours)}.`;
+export function phraseTemps(s: ApercuMission["synthese"], langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  const base = `${t("Durée type totale : ", "Total standard duration: ")}${formaterJours(s.temps_type_total_jours, langue)}.`;
   return s.briques_sans_temps.length > 0
-    ? `${base} ${s.briques_sans_temps.length} brique(s) active(s) sans temps estimé ne sont pas comptées.`
+    ? `${base} ${t(
+        `${s.briques_sans_temps.length} brique(s) active(s) sans temps estimé ne sont pas comptées.`,
+        `${s.briques_sans_temps.length} active building block(s) with no estimated time are not counted.`,
+      )}`
     : base;
 }
 
@@ -238,7 +291,20 @@ const TYPES_CLE: Record<string, string> = {
   benchmark: "Benchmark de",
 };
 
-export function creerLibelles(src: SourcesLibelles = {}): LibellesApercu {
+const TYPES_CLE_EN: Record<string, string> = {
+  brique: "Building block",
+  item: "Item",
+  recommandation: "Recommendation",
+  classe_risque: "Risk class of",
+  ponderation: "Weighting of",
+  seuil: "Threshold of",
+  gabarit: "Template of",
+  formulation: "Wording of",
+  benchmark: "Benchmark of",
+};
+
+export function creerLibelles(src: SourcesLibelles = {}, langue: Langue = "fr"): LibellesApercu {
+  const t = creerTraduire(langue);
   const index = (l?: readonly { code: string; libelle?: string | null }[]) =>
     new Map((l ?? []).filter((x) => x.libelle).map((x) => [x.code, x.libelle as string]));
   const briques = index(src.briques);
@@ -254,9 +320,9 @@ export function creerLibelles(src: SourcesLibelles = {}): LibellesApercu {
     cible,
     facteur: (code) => facteurs.get(code)?.libelle ?? libelleLisible(code),
     valeur(facteur, lu) {
-      if (lu === null || lu === undefined) return "non renseigné";
-      if (typeof lu === "boolean") return lu ? "Oui" : "Non";
-      if (typeof lu === "number") return formaterNombre(lu, 4);
+      if (lu === null || lu === undefined) return t("non renseigné", "not provided");
+      if (typeof lu === "boolean") return lu ? t("Oui", "Yes") : t("Non", "No");
+      if (typeof lu === "number") return formaterNombre(lu, 4, langue);
       const valeurs = facteur ? facteurs.get(facteur)?.valeurs : null;
       const un = (v: unknown) =>
         valeurs?.find((x) => x.code === v)?.libelle ?? libelleLisible(v).toLowerCase();
@@ -267,8 +333,8 @@ export function creerLibelles(src: SourcesLibelles = {}): LibellesApercu {
       if (i < 0) return libelleLisible(cle);
       const type = cle.slice(0, i);
       const reste = cle.slice(i + 1);
-      const prefixe = TYPES_CLE[type] ?? libelleLisible(type);
-      return `${prefixe} « ${cible(reste)} »`;
+      const prefixe = (langue === "en" ? TYPES_CLE_EN : TYPES_CLE)[type] ?? libelleLisible(type);
+      return langue === "en" ? `${prefixe} "${cible(reste)}"` : `${prefixe} « ${cible(reste)} »`;
     },
   };
 }

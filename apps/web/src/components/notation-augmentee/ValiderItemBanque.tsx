@@ -8,6 +8,7 @@ import {
   etatNotationAugmenteeChange,
   messageNotationAugmentee,
 } from "../../lib/notation-augmentee";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
 import { Alerte } from "../ui/Alerte";
@@ -35,6 +36,8 @@ export function ValiderItemBanque({
   statut,
   desactive,
 }: ValiderItemBanqueProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const idExplication = useId();
   const [erreur, setErreur] = useState<string | null>(null);
@@ -51,12 +54,17 @@ export function ValiderItemBanque({
     setSucces(null);
     try {
       await api.post(cheminValiderItem(itemId));
-      setSucces(`Version ${version} validée : elle est figée et peut servir aux questionnaires.`);
+      setSucces(
+        t(
+          `Version ${version} validée : elle est figée et peut servir aux questionnaires.`,
+          `Version ${version} approved: it is locked and can be used in questionnaires.`,
+        ),
+      );
       attendre();
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageNotationAugmentee(e));
+      setErreur(messageNotationAugmentee(e, langue));
       if (etatNotationAugmenteeChange(e)) rafraichir();
       return false;
     }
@@ -65,7 +73,11 @@ export function ValiderItemBanque({
   return (
     <div className="mp-pile">
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre="Validation impossible">
+        <Alerte
+          ref={refAlerte}
+          tonalite="danger"
+          titre={t("Validation impossible", "Approval failed")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -77,14 +89,17 @@ export function ValiderItemBanque({
       <div className="mp-barre-actions">
         {desactive ? (
           <Bouton variante="primaire" icone="succes" disabled aria-describedby={idExplication}>
-            Valider cet item
+            {t("Valider cet item", "Approve this item")}
           </Bouton>
         ) : (
           <BoutonConfirmation
-            libelle="Valider cet item"
-            question={`Valider la version ${version} de l'item « ${code} » ? Elle sera figée : seule une nouvelle version pourra la corriger.`}
-            libelleConfirmation="Oui, valider"
-            texteChargement="Validation…"
+            libelle={t("Valider cet item", "Approve this item")}
+            question={t(
+              `Valider la version ${version} de l'item « ${code} » ? Elle sera figée : seule une nouvelle version pourra la corriger.`,
+              `Approve version ${version} of item "${code}"? It will be locked: only a new version can correct it.`,
+            )}
+            libelleConfirmation={t("Oui, valider", "Yes, approve")}
+            texteChargement={t("Validation…", "Approving…")}
             variante="primaire"
             icone="succes"
             action={valider}

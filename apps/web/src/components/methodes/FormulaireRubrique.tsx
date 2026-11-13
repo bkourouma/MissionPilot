@@ -14,6 +14,7 @@ import {
   type SaisieAncrage,
   type SaisieRubrique,
 } from "../../lib/methodes-rubriques";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -35,6 +36,8 @@ export function FormulaireRubrique({
   briques: { id: string; libelle: string }[];
   rubrique?: RubriqueVersion;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampRubrique>();
   const [s, setS] = useState<SaisieRubrique>(
     rubrique ? saisieDepuisRubrique(rubrique) : saisieRubriqueVide(),
@@ -55,15 +58,18 @@ export function FormulaireRubrique({
     e.preventDefault();
     if (rubrique) {
       await f.envoyer(
-        validerRubriqueModification(s),
+        validerRubriqueModification(s, langue),
         (c) => api.patch(`${base}/${rubrique.id}`, c),
-        { succes: "Rubrique modifiée.", messageSpecifique: messageMethodes },
+        {
+          succes: t("Rubrique modifiée.", "Rubric updated."),
+          messageSpecifique: (e) => messageMethodes(e, langue),
+        },
       );
       return;
     }
-    const ok = await f.envoyer(validerRubriqueCreation(s), (c) => api.post(base, c), {
-      succes: "Rubrique ajoutée.",
-      messageSpecifique: messageMethodes,
+    const ok = await f.envoyer(validerRubriqueCreation(s, langue), (c) => api.post(base, c), {
+      succes: t("Rubrique ajoutée.", "Rubric added."),
+      messageSpecifique: (e) => messageMethodes(e, langue),
     });
     if (ok) setS(saisieRubriqueVide());
   }
@@ -73,7 +79,7 @@ export function FormulaireRubrique({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Libellé de la rubrique"
+          libelle={t("Libellé de la rubrique", "Rubric label")}
           required
           value={s.libelle}
           maxLength={200}
@@ -87,33 +93,39 @@ export function FormulaireRubrique({
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle="Code"
+          libelle={t("Code", "Code")}
           required
           value={s.code}
           maxLength={120}
           spellCheck={false}
           autoComplete="off"
           readOnly={Boolean(rubrique)}
-          aide={rubrique ? "Le code ne change pas." : undefined}
+          aide={rubrique ? t("Le code ne change pas.", "The code does not change.") : undefined}
           onChange={(e) => setS({ ...s, code: e.target.value })}
           erreur={f.erreurs.code}
         />
         <Champ
-          libelle="Dimension (facultatif)"
+          libelle={t("Dimension (facultatif)", "Dimension (optional)")}
           value={s.dimension}
           maxLength={120}
           spellCheck={false}
           onChange={(e) => setS({ ...s, dimension: e.target.value })}
           erreur={f.erreurs.dimension}
-          aide="Code de la dimension évaluée, ex. gouvernance."
+          aide={t(
+            "Code de la dimension évaluée, ex. gouvernance.",
+            "Code of the dimension being rated, e.g. gouvernance.",
+          )}
         />
         <Select
-          libelle="Brique (facultatif)"
+          libelle={t("Brique (facultatif)", "Building block (optional)")}
           value={s.brique_id}
           onChange={(e) => setS({ ...s, brique_id: e.target.value })}
-          invite="Aucune brique"
+          invite={t("Aucune brique", "No building block")}
           options={briques.map((b) => ({ valeur: b.id, libelle: b.libelle }))}
-          aide="Une rubrique rattachée à aucune brique n'est jamais utilisée."
+          aide={t(
+            "Une rubrique rattachée à aucune brique n'est jamais utilisée.",
+            "A rubric attached to no building block is never used.",
+          )}
         />
       </div>
 
@@ -122,9 +134,14 @@ export function FormulaireRubrique({
         const a = s.ancrages[i]!;
         return (
           <fieldset key={niveau} className="mp-groupe">
-            <legend className="mp-champ__libelle">Niveau {niveau} sur 5</legend>
+            <legend className="mp-champ__libelle">
+              {t(`Niveau ${niveau} sur 5`, `Level ${niveau} of 5`)}
+            </legend>
             <ZoneTexte
-              libelle={`Comportement observable au niveau ${niveau}`}
+              libelle={t(
+                `Comportement observable au niveau ${niveau}`,
+                `Observable behavior at level ${niveau}`,
+              )}
               required
               rows={2}
               maxLength={1000}
@@ -136,14 +153,17 @@ export function FormulaireRubrique({
               <div key={k} className="mp-sous-formulaire">
                 <div className="mp-grille-champs mp-grille-champs--serree">
                   <Champ
-                    libelle={`Contexte de l'exemple ${k + 1}`}
+                    libelle={t(`Contexte de l'exemple ${k + 1}`, `Context of example ${k + 1}`)}
                     value={x.contexte}
                     maxLength={120}
                     onChange={(e) => majExemple(i, k, { contexte: e.target.value })}
-                    aide="Ex. PME agricole, grand groupe."
+                    aide={t(
+                      "Ex. PME agricole, grand groupe.",
+                      "E.g. agricultural SME, large group.",
+                    )}
                   />
                   <ZoneTexte
-                    libelle="Exemple"
+                    libelle={t("Exemple", "Example")}
                     rows={2}
                     maxLength={1000}
                     value={x.texte}
@@ -156,7 +176,7 @@ export function FormulaireRubrique({
                   icone="corbeille"
                   onClick={() => majAncrage(i, { exemples: a.exemples.filter((_, j) => j !== k) })}
                 >
-                  Retirer l&apos;exemple
+                  {t("Retirer l'exemple", "Remove the example")}
                 </Bouton>
               </div>
             ))}
@@ -169,7 +189,7 @@ export function FormulaireRubrique({
                   majAncrage(i, { exemples: [...a.exemples, { contexte: "", texte: "" }] })
                 }
               >
-                Ajouter un exemple au niveau {niveau}
+                {t(`Ajouter un exemple au niveau ${niveau}`, `Add an example at level ${niveau}`)}
               </Bouton>
             ) : null}
           </fieldset>
@@ -181,9 +201,11 @@ export function FormulaireRubrique({
           type="submit"
           icone={rubrique ? "succes" : "plus"}
           chargement={f.enCours}
-          texteChargement={rubrique ? "Enregistrement…" : "Ajout…"}
+          texteChargement={rubrique ? t("Enregistrement…", "Saving…") : t("Ajout…", "Adding…")}
         >
-          {rubrique ? "Enregistrer la rubrique" : "Ajouter la rubrique"}
+          {rubrique
+            ? t("Enregistrer la rubrique", "Save the rubric")
+            : t("Ajouter la rubrique", "Add the rubric")}
         </Bouton>
       </div>
     </form>

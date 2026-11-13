@@ -1,4 +1,4 @@
-import { aPermission, type Permission, type Role } from "@missionpilot/shared";
+import { aPermission, type Langue, type Permission, type Role } from "@missionpilot/shared";
 
 /** Navigation de la rubrique « Agents IA » et droits d'affichage. */
 
@@ -29,8 +29,18 @@ export const SOUS_PAGES_AGENTS: readonly SousPageAgents[] = [
   },
 ];
 
-export function sousPagesAgents(roles: readonly Role[]): SousPageAgents[] {
-  return SOUS_PAGES_AGENTS.filter((p) => aPermission(roles, p.permission));
+const LIBELLES_SOUS_PAGES_EN: Record<string, string> = {
+  equipe: "Agent team",
+  autonomie: "Autonomy",
+  executions: "Executions",
+  evaluations: "Evaluations",
+  contribution: "AI contribution",
+};
+
+export function sousPagesAgents(roles: readonly Role[], langue: Langue = "fr"): SousPageAgents[] {
+  return SOUS_PAGES_AGENTS.filter((p) => aPermission(roles, p.permission)).map((p) =>
+    langue === "en" ? { ...p, libelle: LIBELLES_SOUS_PAGES_EN[p.id] ?? p.libelle } : p,
+  );
 }
 
 /** Droits d'affichage (l'API reste la source de vérité). */

@@ -1,8 +1,10 @@
 import {
   aPermission,
+  creerTraduire,
   MESSAGE_COPILOTE_LONGUEUR_MAX,
   type ActionProposeeCopilote,
   type IdentifiantOutilCopilote,
+  type Langue,
   type Permission,
   type ReponseCopilote,
   type ResultatActionCopilote,
@@ -37,6 +39,14 @@ export const MENTION_CONFIDENTIALITE =
   "d'informations confidentielles. Cette conversation reste dans votre onglet, n'est pas " +
   "envoyée au serveur et s'efface au bout de 30 minutes d'inactivité.";
 
+export const MENTION_CONFIDENTIALITE_EN =
+  "Answers come from your data, within your permissions. When AI is enabled by your firm, " +
+  "your question is sent to it after masking e-mails, numbers and the names of clients, " +
+  "staff and engagements already recorded in your firm. A name that is not " +
+  "recorded, a name fragment or free text is not masked: do not enter " +
+  "confidential information there. This conversation stays in your tab, is not " +
+  "sent to the server and is cleared after 30 minutes of inactivity.";
+
 /** Libellés des outils (identiques à ceux du serveur). */
 export const LIBELLES_OUTILS: Readonly<Record<IdentifiantOutilCopilote, string>> = {
   mes_taches: "Mes tâches",
@@ -52,9 +62,26 @@ export const LIBELLES_OUTILS: Readonly<Record<IdentifiantOutilCopilote, string>>
   planifier_relance: "Relancer une facture échue",
 };
 
+export const LIBELLES_OUTILS_EN: Readonly<Record<IdentifiantOutilCopilote, string>> = {
+  mes_taches: "My tasks",
+  mes_feuilles_temps: "My timesheets",
+  resume_mission: "Engagement summary",
+  kpi_rouges: "Red KPIs",
+  factures_echues: "Overdue invoices",
+  recherche: "Search",
+  missions_en_retard: "My overdue engagements",
+  retard_feuilles_temps: "Late timesheets",
+  creer_tache: "Create a task",
+  ajouter_commentaire: "Add a comment",
+  planifier_relance: "Remind an overdue invoice",
+};
+
 /** Libellé d'un outil ; null pour une réponse sans outil. */
-export const libelleOutil = (outil: IdentifiantOutilCopilote | null): string | null =>
-  outil ? LIBELLES_OUTILS[outil] : null;
+export const libelleOutil = (
+  outil: IdentifiantOutilCopilote | null,
+  langue: Langue = "fr",
+): string | null =>
+  outil ? (langue === "en" ? LIBELLES_OUTILS_EN : LIBELLES_OUTILS)[outil] : null;
 
 /* ----- Suggestions ----- */
 
@@ -81,13 +108,25 @@ export const SUGGESTIONS: readonly SuggestionCopilote[] = [
   // n'en cite aucun quand les actions sont désactivées.
 ];
 
+const SUGGESTIONS_EN: readonly string[] = [
+  "Which of my tasks are overdue?",
+  "Which timesheets do I need to submit?",
+  "Which KPIs are red on my engagements?",
+  "Which of my engagements are late?",
+  "Where does the engagement stand…",
+  "Which invoices are overdue?",
+  "Search ",
+];
+
 /** Suggestions utiles à ces rôles (le serveur reste la source de vérité des droits). */
-export function suggestionsPour(roles: readonly Role[]): string[] {
-  return SUGGESTIONS.filter((s) => {
-    if (s.permission === null) return true;
-    const liste = typeof s.permission === "string" ? [s.permission] : s.permission;
-    return liste.some((p) => aPermission(roles, p));
-  }).map((s) => s.texte);
+export function suggestionsPour(roles: readonly Role[], langue: Langue = "fr"): string[] {
+  return SUGGESTIONS.flatMap((s, i) => {
+    if (s.permission !== null) {
+      const liste = typeof s.permission === "string" ? [s.permission] : s.permission;
+      if (!liste.some((p) => aPermission(roles, p))) return [];
+    }
+    return [langue === "en" ? (SUGGESTIONS_EN[i] ?? s.texte) : s.texte];
+  });
 }
 
 /** Une suggestion à compléter (finit par « … », « : » ou une espace) remplit le champ au lieu de partir. */
@@ -110,22 +149,36 @@ export type SaisieValidee = { ok: true; texte: string } | { ok: false; erreur: s
 // eslint-disable-next-line no-control-regex
 const CONTROLES = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 
-export function validerSaisie(brut: string): SaisieValidee {
+export function validerSaisie(brut: string, langue: Langue = "fr"): SaisieValidee {
+  const t = creerTraduire(langue);
   const texte = brut.trim();
-  if (texte === "") return { ok: false, erreur: "Saisissez une question." };
+  if (texte === "") return { ok: false, erreur: t("Saisissez une question.", "Enter a question.") };
   if (texte.length > LONGUEUR_MESSAGE_MAX) {
     return {
       ok: false,
-      erreur: `Votre message dépasse ${LONGUEUR_MESSAGE_MAX} caractères (${texte.length}).`,
+      erreur: t(
+        `Votre message dépasse ${LONGUEUR_MESSAGE_MAX} caractères (${texte.length}).`,
+        `Your message exceeds ${LONGUEUR_MESSAGE_MAX} characters (${texte.length}).`,
+      ),
     };
   }
-  if (CONTROLES.test(texte))
-    return { ok: false, erreur: "Le message contient un caractère refusé." };
+  if (CONTROLES.test(texte)) {
+    return {
+      ok: false,
+      erreur: t(
+        "Le message contient un caractère refusé.",
+        "The message contains a forbidden character.",
+      ),
+    };
+  }
   return { ok: true, texte };
 }
 
-export const libelleCompteur = (longueur: number): string =>
-  `${longueur} / ${LONGUEUR_MESSAGE_MAX} caractères`;
+export const libelleCompteur = (longueur: number, langue: Langue = "fr"): string =>
+  creerTraduire(langue)(
+    `${longueur} / ${LONGUEUR_MESSAGE_MAX} caractères`,
+    `${longueur} / ${LONGUEUR_MESSAGE_MAX} characters`,
+  );
 
 export function corpsMessage(texte: string, missionId: string | null) {
   return missionId ? { message: texte, contexte: { mission_id: missionId } } : { message: texte };
@@ -150,28 +203,51 @@ export function lienSur(href: string): string {
 
 /* ----- Mode ----- */
 
-export function libelleMode(r: Pick<ReponseCopilote, "mode" | "repli">): string | null {
-  if (r.mode === "ia") return "Demande routée par l'IA du cabinet";
+export function libelleMode(
+  r: Pick<ReponseCopilote, "mode" | "repli">,
+  langue: Langue = "fr",
+): string | null {
+  const t = creerTraduire(langue);
+  if (r.mode === "ia")
+    return t("Demande routée par l'IA du cabinet", "Request routed by the firm's AI");
   if (r.repli === "ia_desactivee") {
-    return "Mode sans IA : l'IA n'est pas activée pour votre cabinet.";
+    return t(
+      "Mode sans IA : l'IA n'est pas activée pour votre cabinet.",
+      "No-AI mode: AI is not enabled for your firm.",
+    );
   }
   if (r.repli === "non_autorisee") {
-    return "Mode sans IA : l'IA n'est pas ouverte à votre rôle.";
+    return t(
+      "Mode sans IA : l'IA n'est pas ouverte à votre rôle.",
+      "No-AI mode: AI is not open to your role.",
+    );
   }
   if (r.repli === "indisponible") {
-    return "Mode sans IA : l'IA est momentanément indisponible.";
+    return t(
+      "Mode sans IA : l'IA est momentanément indisponible.",
+      "No-AI mode: AI is temporarily unavailable.",
+    );
   }
-  return "Mode sans IA";
+  return t("Mode sans IA", "No-AI mode");
 }
 
 /* ----- Erreurs ----- */
 
-export function messageErreurCopilote(e: unknown): string {
+export function messageErreurCopilote(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.statut === 429) {
-      return "Vous avez envoyé trop de messages en peu de temps. Patientez quelques minutes avant de poser une nouvelle question.";
+      return t(
+        "Vous avez envoyé trop de messages en peu de temps. Patientez quelques minutes avant de poser une nouvelle question.",
+        "You have sent too many messages in a short time. Wait a few minutes before asking a new question.",
+      );
     }
-    if (e.code === "COPILOTE_DESACTIVE") return "Le copilote est désactivé par votre cabinet.";
+    if (e.code === "COPILOTE_DESACTIVE") {
+      return t(
+        "Le copilote est désactivé par votre cabinet.",
+        "The copilot is disabled by your firm.",
+      );
+    }
     if (e.statut === 410) return e.message;
     if (e.statut === 409 || e.statut === 404 || e.statut === 400) return e.message;
   }
@@ -195,14 +271,25 @@ export function estExpiree(expireLe: string, maintenant: Date): boolean {
   return s === null || s <= 0;
 }
 
-export function libelleExpiration(expireLe: string, maintenant: Date): string {
+export function libelleExpiration(
+  expireLe: string,
+  maintenant: Date,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
   const s = secondesRestantes(expireLe, maintenant);
-  if (s === null) return "Délai de validité inconnu.";
+  if (s === null) return t("Délai de validité inconnu.", "Validity period unknown.");
   if (s <= 0)
-    return "Cette proposition a expiré : reformulez votre demande pour en obtenir une nouvelle.";
-  if (s < 60) return "Expire dans moins d'une minute.";
+    return t(
+      "Cette proposition a expiré : reformulez votre demande pour en obtenir une nouvelle.",
+      "This proposal has expired: rephrase your request to get a new one.",
+    );
+  if (s < 60) return t("Expire dans moins d'une minute.", "Expires in less than a minute.");
   const minutes = Math.ceil(s / 60);
-  return `Expire dans ${minutes} minute${minutes > 1 ? "s" : ""}.`;
+  return t(
+    `Expire dans ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+    `Expires in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+  );
 }
 
 export const LIBELLES_ETAT_ACTION: Readonly<Record<EtatAction, string>> = {
@@ -213,6 +300,16 @@ export const LIBELLES_ETAT_ACTION: Readonly<Record<EtatAction, string>> = {
   expiree: "Expirée",
   refusee: "Refusée",
   erreur: "Non effectuée",
+};
+
+export const LIBELLES_ETAT_ACTION_EN: Readonly<Record<EtatAction, string>> = {
+  proposee: "To confirm",
+  en_cours: "Confirming",
+  confirmee: "Confirmed",
+  annulee: "Cancelled",
+  expiree: "Expired",
+  refusee: "Refused",
+  erreur: "Not done",
 };
 
 /**
@@ -237,6 +334,12 @@ export const TEXTE_REPRISE =
 
 export const TEXTE_PROPOSITION_EXPIREE =
   "Proposition expirée au rechargement de la page : reformulez votre demande pour en obtenir une nouvelle.";
+
+export const TEXTE_REPRISE_EN =
+  "This proposal is no longer valid. Rephrase your request to get a new one.";
+
+export const TEXTE_PROPOSITION_EXPIREE_EN =
+  "Proposal expired when the page was reloaded: rephrase your request to get a new one.";
 
 /** Texte de la question de l'utilisateur qui précède l'entrée `id`, pour la reformuler. */
 export function questionAvant(fil: readonly EntreeFil[], id: string): string | null {

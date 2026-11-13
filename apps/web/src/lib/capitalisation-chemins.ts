@@ -1,6 +1,8 @@
 import {
   aPermission,
+  creerTraduire,
   TYPES_RESULTAT_RECHERCHE,
+  type Langue,
   type Role,
   type TypeResultatRecherche,
 } from "@missionpilot/shared";
@@ -141,6 +143,7 @@ export const SEUIL_DEROGATIONS_MAX = 100;
  */
 export function lireSeuilDerogations(
   v: string | string[] | undefined,
+  langue: Langue = "fr",
 ): Resultat<{ seuil: number | null }, "seuil"> {
   const brut = (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
   if (brut === "") return { ok: true, charge: { seuil: null } };
@@ -154,7 +157,10 @@ export function lireSeuilDerogations(
     return {
       ok: false,
       erreurs: {
-        seuil: `Indiquez un nombre entier de missions de ${SEUIL_DEROGATIONS_MIN} à ${SEUIL_DEROGATIONS_MAX}.`,
+        seuil: creerTraduire(langue)(
+          `Indiquez un nombre entier de missions de ${SEUIL_DEROGATIONS_MIN} à ${SEUIL_DEROGATIONS_MAX}.`,
+          `Enter a whole number of engagements from ${SEUIL_DEROGATIONS_MIN} to ${SEUIL_DEROGATIONS_MAX}.`,
+        ),
       },
     };
   }

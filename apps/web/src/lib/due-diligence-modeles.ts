@@ -4,8 +4,11 @@ import {
   CATEGORIES_ANALYSE_DD,
   estCategorieAnalyseDd,
   PLAFONDS_DD,
+  creerTraduire,
   type AnalyseDd,
+  type Langue,
 } from "@missionpilot/shared";
+import { CATEGORIE_ANALYSE_DD_LIBELLES_EN } from "./due-diligence";
 import type { Resultat } from "./saisie";
 
 /*
@@ -18,6 +21,7 @@ import type { Resultat } from "./saisie";
 export const LIBELLE_POINT_MAX = 300;
 export const MOTIF_MODELE_MAX = 500;
 export const MESSAGE_AUCUN_MODELE = "Aucun modèle : le cabinet les rédige selon son expertise.";
+export const MESSAGE_AUCUN_MODELE_EN = "No template: the firm writes them based on its expertise.";
 
 export interface PointModele {
   categorie: string;
@@ -64,17 +68,40 @@ export const ANALYSES_MODELE_LIBELLES: Record<AnalyseDd, string> = {
   operationnelle: "Analyse opérationnelle",
 };
 
+export const ANALYSES_MODELE_LIBELLES_EN: Record<AnalyseDd, string> = {
+  pestel: "PESTEL",
+  cinq_forces: "Porter's five forces",
+  swot: "SWOT",
+  operationnelle: "Operational analysis",
+};
+
 export const OPTIONS_ANALYSE_MODELE = ANALYSES_DD.map((a) => ({
   valeur: a,
   libelle: ANALYSES_MODELE_LIBELLES[a],
 }));
 
+/** Options d'analyse dans la langue demandée. */
+export const optionsAnalyseModele = (langue: Langue = "fr") =>
+  ANALYSES_DD.map((a) => ({
+    valeur: a,
+    libelle: (langue === "en" ? ANALYSES_MODELE_LIBELLES_EN : ANALYSES_MODELE_LIBELLES)[a],
+  }));
+
+const categoriesLibelles = (langue: Langue): Record<string, string> =>
+  (langue === "en" ? CATEGORIE_ANALYSE_DD_LIBELLES_EN : CATEGORIE_ANALYSE_DD_LIBELLES) as Record<
+    string,
+    string
+  >;
+
 /** Catégories proposées pour une analyse (liste vide si l'analyse n'est pas encore choisie). */
-export function optionsCategories(analyse: string): { valeur: string; libelle: string }[] {
+export function optionsCategories(
+  analyse: string,
+  langue: Langue = "fr",
+): { valeur: string; libelle: string }[] {
   if (!(ANALYSES_DD as readonly string[]).includes(analyse)) return [];
   return CATEGORIES_ANALYSE_DD[analyse as AnalyseDd].map((c) => ({
     valeur: c,
-    libelle: (CATEGORIE_ANALYSE_DD_LIBELLES as Record<string, string>)[c] ?? c,
+    libelle: categoriesLibelles(langue)[c] ?? c,
   }));
 }
 
@@ -82,11 +109,12 @@ export function optionsCategories(analyse: string): { valeur: string; libelle: s
 export function pointsParCategorie(
   analyse: AnalyseDd,
   points: readonly PointModele[],
+  langue: Langue = "fr",
 ): { categorie: string; libelle: string; points: string[] }[] {
   return CATEGORIES_ANALYSE_DD[analyse]
     .map((categorie) => ({
       categorie,
-      libelle: (CATEGORIE_ANALYSE_DD_LIBELLES as Record<string, string>)[categorie] ?? categorie,
+      libelle: categoriesLibelles(langue)[categorie] ?? categorie,
       points: points.filter((p) => p.categorie === categorie).map((p) => p.libelle),
     }))
     .filter((g) => g.points.length > 0);
@@ -152,12 +180,15 @@ export interface ChargeModele {
 export function validerModele(
   s: SaisieModele,
   correction: boolean,
+  langue: Langue = "fr",
 ): Resultat<ChargeModele, ChampModele> {
+  const t = creerTraduire(langue);
   const e: Partial<Record<ChampModele, string>> = {};
   if (!correction) {
-    if (s.secteur_code.trim() === "") e.secteur_code = "Choisissez le secteur.";
+    if (s.secteur_code.trim() === "")
+      e.secteur_code = t("Choisissez le secteur.", "Choose the sector.");
     if (!(ANALYSES_DD as readonly string[]).includes(s.analyse)) {
-      e.analyse = "Choisissez l'analyse.";
+      e.analyse = t("Choisissez l'analyse.", "Choose the analysis.");
     }
   }
   const points: PointModele[] = [];
@@ -165,27 +196,44 @@ export function validerModele(
     const libelle = p.libelle.trim();
     if (libelle === "" && p.categorie === "") continue;
     if (libelle === "" || p.categorie === "") {
-      e.points = "Chaque point précise sa catégorie et son libellé.";
+      e.points = t(
+        "Chaque point précise sa catégorie et son libellé.",
+        "Each item specifies its category and its label.",
+      );
     } else if (libelle.length > LIBELLE_POINT_MAX) {
-      e.points = `Un libellé de point compte ${LIBELLE_POINT_MAX} caractères au plus.`;
+      e.points = t(
+        `Un libellé de point compte ${LIBELLE_POINT_MAX} caractères au plus.`,
+        `An item label has at most ${LIBELLE_POINT_MAX} characters.`,
+      );
     } else if (
       (ANALYSES_DD as readonly string[]).includes(s.analyse) &&
       !estCategorieAnalyseDd(s.analyse as AnalyseDd, p.categorie)
     ) {
-      e.points = "Une catégorie ne correspond pas à l'analyse choisie.";
+      e.points = t(
+        "Une catégorie ne correspond pas à l'analyse choisie.",
+        "A category does not match the chosen analysis.",
+      );
     } else {
       points.push({ categorie: p.categorie, libelle });
     }
   }
-  if (!e.points && points.length === 0) e.points = "Ajoutez au moins un point à examiner.";
+  if (!e.points && points.length === 0) {
+    e.points = t("Ajoutez au moins un point à examiner.", "Add at least one item to examine.");
+  }
   if (!e.points && points.length > PLAFONDS_DD.points_par_modele) {
-    e.points = `Un modèle compte ${PLAFONDS_DD.points_par_modele} points au plus.`;
+    e.points = t(
+      `Un modèle compte ${PLAFONDS_DD.points_par_modele} points au plus.`,
+      `A template has at most ${PLAFONDS_DD.points_par_modele} items.`,
+    );
   }
   const motif = s.motif.trim();
   if (correction) {
-    if (motif === "") e.motif = "Expliquez la correction.";
+    if (motif === "") e.motif = t("Expliquez la correction.", "Explain the correction.");
     else if (motif.length > MOTIF_MODELE_MAX) {
-      e.motif = `${MOTIF_MODELE_MAX} caractères au plus.`;
+      e.motif = t(
+        `${MOTIF_MODELE_MAX} caractères au plus.`,
+        `${MOTIF_MODELE_MAX} characters at most.`,
+      );
     }
   }
   if (Object.keys(e).length > 0) return { ok: false, erreurs: e };

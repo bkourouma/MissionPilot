@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { sousPageActive, type SousPage } from "../../lib/navigation";
+import { libelleSousPage, sousPageActive, type SousPage } from "../../lib/navigation";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 export interface OngletsProps {
   /** Sous-pages déjà filtrées par les permissions (côté serveur). */
@@ -14,6 +15,7 @@ export interface OngletsProps {
 /** Navigation entre les sous-pages d'une rubrique (liens, pas un widget d'onglets ARIA). */
 export function Onglets({ pages, libelle }: OngletsProps) {
   const chemin = usePathname();
+  const langue = useLangue();
   const nav = useRef<HTMLElement>(null);
   // Téléphone : la barre d'onglets défile ; l'onglet actif est ramené dans la zone visible.
   useEffect(() => {
@@ -40,7 +42,7 @@ export function Onglets({ pages, libelle }: OngletsProps) {
               className="mp-onglets__lien"
               aria-current={p.id === active ? "page" : undefined}
             >
-              {p.libelle}
+              {libelleSousPage(p, langue)}
             </Link>
           </li>
         ))}

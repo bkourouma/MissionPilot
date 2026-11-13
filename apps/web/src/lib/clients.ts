@@ -1,8 +1,10 @@
 /** Fiches clients et contacts (SOC-03) : logique pure, testée dans `clients.test.ts`. */
 import {
+  creerTraduire,
   TAILLES_CLIENT,
   type ClientCreation,
   type ContactCreation,
+  type Langue,
   type TailleClient,
 } from "@missionpilot/shared";
 import { FORMAT_EMAIL, texteOuNull, type Resultat } from "./saisie";
@@ -48,10 +50,23 @@ export const TAILLE_LIBELLES: Record<TailleClient, string> = {
   grande_entreprise: "Grande entreprise",
 };
 
+export const TAILLE_LIBELLES_EN: Record<TailleClient, string> = {
+  tpe: "Micro-enterprise",
+  pme: "SME",
+  eti: "Mid-cap company",
+  grande_entreprise: "Large company",
+};
+
+export const libelleTaille = (t: TailleClient, langue: Langue = "fr") =>
+  (langue === "en" ? TAILLE_LIBELLES_EN : TAILLE_LIBELLES)[t];
+
 export const OPTIONS_TAILLES = TAILLES_CLIENT.map((t) => ({
   valeur: t,
   libelle: TAILLE_LIBELLES[t],
 }));
+
+export const optionsTailles = (langue: Langue = "fr") =>
+  TAILLES_CLIENT.map((t) => ({ valeur: t, libelle: libelleTaille(t, langue) }));
 
 // --- Liste --------------------------------------------------------------------
 
@@ -150,16 +165,21 @@ const LONGUEURS: Partial<Record<ChampClient, number>> = {
 /** Charge commune à la création et à la modification (sans `actif`). */
 export type ChargeClient = Omit<ClientCreation, "actif">;
 
-export function validerClient(s: SaisieClient): Resultat<ChargeClient, ChampClient> {
+export function validerClient(
+  s: SaisieClient,
+  langue: Langue = "fr",
+): Resultat<ChargeClient, ChampClient> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampClient, string>> = {};
-  if (s.raison_sociale.trim() === "") erreurs.raison_sociale = "Saisissez la raison sociale.";
+  if (s.raison_sociale.trim() === "")
+    erreurs.raison_sociale = t("Saisissez la raison sociale.", "Enter the company name.");
   for (const [champ, max] of Object.entries(LONGUEURS) as [ChampClient, number][]) {
     if (!erreurs[champ] && s[champ].trim().length > max)
-      erreurs[champ] = `${max} caractères au plus.`;
+      erreurs[champ] = t(`${max} caractères au plus.`, `${max} characters at most.`);
   }
-  if (!/^[A-Z]{2}$/.test(s.pays)) erreurs.pays = "Choisissez un pays.";
+  if (!/^[A-Z]{2}$/.test(s.pays)) erreurs.pays = t("Choisissez un pays.", "Choose a country.");
   if (s.taille !== "" && !(TAILLES_CLIENT as readonly string[]).includes(s.taille))
-    erreurs.taille = "Choisissez une taille dans la liste.";
+    erreurs.taille = t("Choisissez une taille dans la liste.", "Choose a size from the list.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -206,20 +226,30 @@ export function saisieDepuisContact(c: Contact): SaisieContact {
   };
 }
 
-export function validerContact(s: SaisieContact): Resultat<ContactCreation, ChampContact> {
+export function validerContact(
+  s: SaisieContact,
+  langue: Langue = "fr",
+): Resultat<ContactCreation, ChampContact> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampContact, string>> = {};
   const nom = s.nom.trim();
-  if (nom === "") erreurs.nom = "Saisissez le nom du contact.";
-  else if (nom.length > 160) erreurs.nom = "160 caractères au plus.";
-  if (s.fonction.trim().length > 120) erreurs.fonction = "120 caractères au plus.";
+  if (nom === "") erreurs.nom = t("Saisissez le nom du contact.", "Enter the contact name.");
+  else if (nom.length > 160) erreurs.nom = t("160 caractères au plus.", "160 characters at most.");
+  if (s.fonction.trim().length > 120)
+    erreurs.fonction = t("120 caractères au plus.", "120 characters at most.");
   const email = s.email.trim().toLowerCase();
   if (email !== "" && (!FORMAT_EMAIL.test(email) || email.length > 254))
-    erreurs.email = "Adresse e-mail invalide. Exemple : prenom.nom@entreprise.ci";
+    erreurs.email = t(
+      "Adresse e-mail invalide. Exemple : prenom.nom@entreprise.ci",
+      "Invalid email address. Example: first.last@company.ci",
+    );
   const tel = s.telephone.trim();
-  if (tel.length > 40) erreurs.telephone = "40 caractères au plus.";
+  if (tel.length > 40) erreurs.telephone = t("40 caractères au plus.", "40 characters at most.");
   else if (tel !== "" && !/^[+0-9 ().-]+$/.test(tel))
-    erreurs.telephone =
-      "Chiffres, espaces et signes + ( ) . - uniquement. Exemple : +225 07 00 00 00 00";
+    erreurs.telephone = t(
+      "Chiffres, espaces et signes + ( ) . - uniquement. Exemple : +225 07 00 00 00 00",
+      "Digits, spaces and the signs + ( ) . - only. Example: +225 07 00 00 00 00",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

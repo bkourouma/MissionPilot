@@ -5,6 +5,7 @@ import {
   hrefSimulation,
   type ResumeSimulation,
 } from "../../lib/plan-montecarlo";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import { PaginationCurseur } from "../ui/EtatListe";
 import { Tableau } from "../ui/Tableau";
 
@@ -18,7 +19,7 @@ export interface ListeSimulationsProps {
 }
 
 /** Simulations passées du plan, de la plus récente à la plus ancienne (pagination par curseur). */
-export function ListeSimulations({
+export async function ListeSimulations({
   missionId,
   planId,
   simulations,
@@ -26,48 +27,57 @@ export function ListeSimulations({
   curseur,
   curseurSuivant,
 }: ListeSimulationsProps) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   return (
     <>
       <Tableau
-        legende="Simulations enregistrées"
+        legende={t("Simulations enregistrées", "Saved simulations")}
         cleLigne={(s) => s.id}
         lignes={simulations}
-        messageVide="Aucune simulation enregistrée pour ce plan."
+        messageVide={t(
+          "Aucune simulation enregistrée pour ce plan.",
+          "No simulation saved for this plan.",
+        )}
         colonnes={[
-          { cle: "cree_le", entete: "Date", rendu: (s) => formaterDateHeure(s.cree_le) },
-          { cle: "version", entete: "Version du modèle" },
-          { cle: "graine", entete: "Graine", alignement: "droite" },
+          {
+            cle: "cree_le",
+            entete: t("Date", "Date"),
+            rendu: (s) => formaterDateHeure(s.cree_le, undefined, langue),
+          },
+          { cle: "version", entete: t("Version du modèle", "Model version") },
+          { cle: "graine", entete: t("Graine", "Seed"), alignement: "droite" },
           {
             cle: "tirages",
-            entete: "Tirages",
+            entete: t("Tirages", "Draws"),
             alignement: "droite",
-            rendu: (s) => formaterNombre(s.tirages, 0),
+            rendu: (s) => formaterNombre(s.tirages, 0, langue),
           },
           {
             cle: "probabilite_van_negative",
-            entete: "VAN négative",
+            entete: t("VAN négative", "Negative NPV"),
             alignement: "droite",
-            rendu: (s) => formaterProbabilite(s.probabilite_van_negative),
+            rendu: (s) => formaterProbabilite(s.probabilite_van_negative, langue),
           },
           {
             cle: "probabilite_tension",
-            entete: "Tension de trésorerie",
+            entete: t("Tension de trésorerie", "Cash strain"),
             alignement: "droite",
-            rendu: (s) => formaterProbabilite(s.probabilite_tension),
+            rendu: (s) => formaterProbabilite(s.probabilite_tension, langue),
           },
-          { cle: "auteur_nom", entete: "Auteur" },
+          { cle: "auteur_nom", entete: t("Auteur", "Author") },
           {
             cle: "action",
-            entete: "Résultat",
+            entete: t("Résultat", "Result"),
             rendu: (s) =>
               s.id === affichee ? (
-                <span>Affichée</span>
+                <span>{t("Affichée", "Shown")}</span>
               ) : (
                 <Link
                   href={hrefSimulation(missionId, planId, { simulation: s.id, curseur })}
-                  aria-label={`Afficher la simulation du ${formaterDateHeure(s.cree_le)}`}
+                  aria-label={`${t("Afficher la simulation du", "Show the simulation of")} ${formaterDateHeure(s.cree_le, undefined, langue)}`}
                 >
-                  Afficher
+                  {t("Afficher", "Show")}
                 </Link>
               ),
           },
@@ -80,7 +90,7 @@ export function ListeSimulations({
             : null
         }
         hrefDebut={curseur ? hrefSimulation(missionId, planId, { simulation: affichee }) : null}
-        libelle="Pagination des simulations"
+        libelle={t("Pagination des simulations", "Simulations pagination")}
       />
     </>
   );

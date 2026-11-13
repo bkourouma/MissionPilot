@@ -4,9 +4,13 @@ import { Copilote } from "../../../components/copilote/Copilote";
 import { Carte } from "../../../components/ui/Carte";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { lireMissionContexte, suggestionsPour } from "../../../lib/copilote";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Copilote" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Copilote", "Copilot") };
+}
 
 /**
  * Copilote conversationnel (AGT-08) : une seule interface pour interroger CabinetPilot en français,
@@ -21,16 +25,21 @@ export default async function PageCopilote({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("copilote.utiliser");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const missionId = lireMissionContexte(await searchParams);
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre="Copilote"
-        soustitre="Posez vos questions en français : le copilote répond dans vos droits et propose, sans jamais les effectuer seul, les actions que vous confirmez."
+        titre={t("Copilote", "Copilot")}
+        soustitre={t(
+          "Posez vos questions en français : le copilote répond dans vos droits et propose, sans jamais les effectuer seul, les actions que vous confirmez.",
+          "Ask your questions in plain language: the copilot answers within your permissions and proposes, without ever carrying them out alone, the actions you confirm.",
+        )}
       />
       <Carte>
         <Copilote
-          suggestions={suggestionsPour(utilisateur.roles)}
+          suggestions={suggestionsPour(utilisateur.roles, langue)}
           missionId={missionId}
           portee={utilisateur.id}
         />

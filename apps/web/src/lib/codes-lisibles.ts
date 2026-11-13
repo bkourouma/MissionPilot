@@ -3,6 +3,7 @@
  * l'utilisateur. Un libellé connu (table code -> libellé) est toujours préféré ; sans lui, repli
  * lisible : soulignés remplacés par des espaces. Ne plante jamais. Testé dans `codes-lisibles.test.ts`.
  */
+import type { Langue } from "@missionpilot/shared";
 
 /** Repli lisible d'un identifiant : « kpi_pertes_post_recolte » -> « Kpi pertes post recolte ». */
 export function libelleLisible(code: unknown): string {
@@ -48,10 +49,15 @@ const CODE_LIGNE_GENERE = /^L(\d+)_(\d+)$/;
  * n'est affirmée. Un autre code (« TA1 », « CA ») est un code du document : rendu tel quel ; vide ->
  * « Poste sans code ».
  */
-export function libellePosteEtat(code: unknown): string {
-  if (typeof code !== "string" || code.trim() === "") return "Poste sans code";
+export function libellePosteEtat(code: unknown, langue: Langue = "fr"): string {
+  const en = langue === "en";
+  if (typeof code !== "string" || code.trim() === "")
+    return en ? "Line without code" : "Poste sans code";
   const m = CODE_LIGNE_GENERE.exec(code.trim());
-  return m ? `Poste sans code source (page ${m[1]}, ligne ${m[2]})` : code.trim();
+  if (!m) return code.trim();
+  return en
+    ? `Line without source code (page ${m[1]}, row ${m[2]})`
+    : `Poste sans code source (page ${m[1]}, ligne ${m[2]})`;
 }
 
 /**
@@ -59,15 +65,16 @@ export function libellePosteEtat(code: unknown): string {
  * « Résultat du compte de résultat (L1_17) » -> « Résultat du compte de résultat (Poste sans code
  * source (page 1, ligne 17)) ».
  */
-export function remplacerCodesLignes(texte: string): string {
-  return texte.replace(/\bL(\d+)_(\d+)\b/g, (code) => libellePosteEtat(code));
+export function remplacerCodesLignes(texte: string, langue: Langue = "fr"): string {
+  return texte.replace(/\bL(\d+)_(\d+)\b/g, (code) => libellePosteEtat(code, langue));
 }
 
 /**
  * Cible d'un contrôle d'état financier, lisible : « L1_17 » -> « page 1, ligne 17 » ; un autre code
  * (« TA1 ») est rendu tel quel.
  */
-export function libelleCibleControle(cible: string): string {
+export function libelleCibleControle(cible: string, langue: Langue = "fr"): string {
   const m = CODE_LIGNE_GENERE.exec(cible.trim());
-  return m ? `page ${m[1]}, ligne ${m[2]}` : cible.trim();
+  if (!m) return cible.trim();
+  return langue === "en" ? `page ${m[1]}, row ${m[2]}` : `page ${m[1]}, ligne ${m[2]}`;
 }

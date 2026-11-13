@@ -7,7 +7,13 @@
  * La lecture de la réponse (`lireReponseTeleversement`) est pure et testée.
  */
 import { CHAMP_FICHIER } from "@missionpilot/shared";
-import { ErreurApi, erreurDepuisReponse, MESSAGE_DELAI, MESSAGE_RESEAU } from "./api";
+import {
+  ErreurApi,
+  erreurDepuisReponse,
+  langueNavigateur,
+  messageDelai,
+  messageReseau,
+} from "./api";
 
 /** 15 Mo en 3G (≈ 1 Mbit/s) : environ deux minutes ; marge confortable. */
 const DELAI_TELEVERSEMENT_MS = 5 * 60_000;
@@ -36,7 +42,10 @@ export function lireReponseTeleversement<T>(
   const corps = json(texte);
   if (statut >= 200 && statut < 300) return { ok: true, donnees: corps as T };
   if (statut === 0) {
-    return { ok: false, erreur: new ErreurApi("RESEAU_INDISPONIBLE", MESSAGE_RESEAU, 0) };
+    return {
+      ok: false,
+      erreur: new ErreurApi("RESEAU_INDISPONIBLE", messageReseau(langueNavigateur()), 0),
+    };
   }
   return { ok: false, erreur: erreurDepuisReponse(statut, corps) };
 }
@@ -71,9 +80,18 @@ export function televerser<T>(
         rejeter(r.erreur);
       }
     };
-    xhr.onerror = () => rejeter(new ErreurApi("RESEAU_INDISPONIBLE", MESSAGE_RESEAU, 0));
-    xhr.ontimeout = () => rejeter(new ErreurApi("DELAI_DEPASSE", MESSAGE_DELAI, 0));
-    xhr.onabort = () => rejeter(new ErreurApi("ANNULE", "Envoi annulé.", 0));
+    xhr.onerror = () =>
+      rejeter(new ErreurApi("RESEAU_INDISPONIBLE", messageReseau(langueNavigateur()), 0));
+    xhr.ontimeout = () =>
+      rejeter(new ErreurApi("DELAI_DEPASSE", messageDelai(langueNavigateur()), 0));
+    xhr.onabort = () =>
+      rejeter(
+        new ErreurApi(
+          "ANNULE",
+          langueNavigateur() === "en" ? "Upload cancelled." : "Envoi annulé.",
+          0,
+        ),
+      );
     options.signal?.addEventListener("abort", () => xhr.abort(), { once: true });
     const corps = new FormData();
     corps.append(CHAMP_FICHIER, fichier, nom);

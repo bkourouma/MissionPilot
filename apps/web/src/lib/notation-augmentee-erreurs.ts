@@ -1,4 +1,5 @@
 /** Notation augmentée : messages d'erreur de l'API (voir `notation-augmentee.ts`). */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import { messageNotation } from "./notation";
 
@@ -42,13 +43,30 @@ export function anomaliesErreur(e: unknown): AnomalieNotationAugmentee[] {
 }
 
 /** Chemin technique d'une anomalie → partie de l'item concernée, en français. */
-export function libelleCheminAnomalie(chemin: string): string {
+export function libelleCheminAnomalie(chemin: string, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const indexe = /^(formulations|ancrages)\[(\d+)\]$/.exec(chemin);
   if (indexe) {
     const rang = Number(indexe[2]) + 1;
-    return indexe[1] === "formulations" ? `Formulation n° ${rang}` : `Ancrage du niveau ${rang}`;
+    return indexe[1] === "formulations"
+      ? t(`Formulation n° ${rang}`, `Wording no. ${rang}`)
+      : t(`Ancrage du niveau ${rang}`, `Anchor of level ${rang}`);
   }
-  if (chemin.startsWith("etalonnage")) return "Étalonnage";
+  if (chemin.startsWith("etalonnage")) return t("Étalonnage", "Calibration");
+  const LIBELLES_EN: Record<string, string> = {
+    code: "Code",
+    dimension: "Dimension",
+    pratique: "Practice",
+    intitule: "Title",
+    "echelle.niveaux": "Scale",
+    "echelle.libelles": "Scale labels",
+    ancrages: "Anchors",
+    formulations: "Wordings",
+    poids: "Weight",
+    priorite: "Priority",
+    dureeSecondes: "Answer time",
+  };
+  if (langue === "en") return LIBELLES_EN[chemin] ?? "";
   const LIBELLES: Record<string, string> = {
     code: "Code",
     dimension: "Dimension",
@@ -71,20 +89,25 @@ export function libelleCheminAnomalie(chemin: string): string {
  * vide. »), règles métier de l'API (séparation des tâches, item figé, session close…), sinon le
  * message commun de la notation.
  */
-export function messageNotationAugmentee(e: unknown): string {
+export function messageNotationAugmentee(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     const anomalies = anomaliesErreur(e);
     if (anomalies.length > 0) {
       const lignes = anomalies.slice(0, 8).map((a) => {
-        const partie = libelleCheminAnomalie(a.chemin);
+        const partie = libelleCheminAnomalie(a.chemin, langue);
         return partie ? `${partie} : ${a.message}` : a.message;
       });
       return `${e.message} ${lignes.join(" ")}`;
     }
     if (CODES_MESSAGE_FRANCAIS.has(e.code)) return e.message;
-    if (e.statut === 404) return "Cet élément n'est plus accessible. Actualisez la page.";
+    if (e.statut === 404) {
+      return creerTraduire(langue)(
+        "Cet élément n'est plus accessible. Actualisez la page.",
+        "This item is no longer accessible. Refresh the page.",
+      );
+    }
   }
-  return messageNotation(e);
+  return messageNotation(e, langue);
 }
 
 /** Après ce refus, l'état affiché est probablement périmé : rafraîchir la page. */

@@ -10,12 +10,13 @@ import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Champ } from "../../../../components/ui/Champ";
 import { Select } from "../../../../components/ui/Select";
 import { ZoneTexte } from "../../../../components/ui/ZoneTexte";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { api, messageErreur } from "../../../../lib/api";
 import {
   messageEncaissement,
-  OPTIONS_DEVISES,
-  OPTIONS_MODES,
-  OPTIONS_OPERATEURS,
+  optionsDevises,
+  optionsModes,
+  optionsOperateurs,
   validerEncaissement,
   type ChampEncaissement,
   type Creance,
@@ -77,6 +78,8 @@ export function FormulaireEncaissement({
   /** Change quand la liste rafraîchie arrive (voir useAttenteRafraichissement). */
   cle: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieEncaissement>(() => VIDE(dateDuJour));
   const [version, setVersion] = useState(0);
   const form = useFormulaire<ChampEncaissement>();
@@ -88,11 +91,11 @@ export function FormulaireEncaissement({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await form.envoyer(
-      validerEncaissement(s, creances, dateDuJour),
+      validerEncaissement(s, creances, dateDuJour, langue),
       (c) => api.post("/api/finance/encaissements", c),
       {
-        succes: "Encaissement enregistré et imputé.",
-        messageSpecifique: messageEncaissement,
+        succes: t("Encaissement enregistré et imputé.", "Payment recorded and allocated."),
+        messageSpecifique: (e) => messageEncaissement(e, langue),
         apres: () => {
           setS((x) => ({ ...VIDE(dateDuJour), client_id: x.client_id, devise: x.devise }));
           setVersion((v) => v + 1);
@@ -105,7 +108,12 @@ export function FormulaireEncaissement({
   if (clients.length === 0) {
     return (
       <Alerte tonalite="info" annonce="aucune">
-        <p>Aucun client actif : créez d&apos;abord le client dans l&apos;annuaire.</p>
+        <p>
+          {t(
+            "Aucun client actif : créez d'abord le client dans l'annuaire.",
+            "No active client: first create the client in the directory.",
+          )}
+        </p>
       </Alerte>
     );
   }
@@ -116,26 +124,26 @@ export function FormulaireEncaissement({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Saisir un encaissement"
+      aria-label={t("Saisir un encaissement", "Record a payment")}
     >
       <RetourFormulaire
         erreur={form.erreurGlobale}
         succes={form.succes}
         refAlerte={form.refAlerte}
-        titreErreur="Encaissement refusé"
+        titreErreur={t("Encaissement refusé", "Payment refused")}
       />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
-          libelle="Client"
+          libelle={t("Client", "Client")}
           required
           options={clients}
-          invite="Choisir le client…"
+          invite={t("Choisir le client…", "Choose the client…")}
           value={s.client_id}
           onChange={(e) => setS((x) => ({ ...x, client_id: e.target.value, imputations: {} }))}
           erreur={form.erreurs.client_id}
         />
         <Champ
-          libelle="Date de l'encaissement"
+          libelle={t("Date de l'encaissement", "Payment date")}
           type="date"
           required
           max={dateDuJour}
@@ -144,26 +152,26 @@ export function FormulaireEncaissement({
           erreur={form.erreurs.date}
         />
         <Champ
-          libelle="Montant reçu"
+          libelle={t("Montant reçu", "Amount received")}
           required
           inputMode="decimal"
-          aide={aideMontant(s.devise)}
+          aide={aideMontant(s.devise, langue)}
           value={s.montant}
           onChange={(e) => maj("montant", e.target.value)}
           erreur={form.erreurs.montant}
         />
         <Select
-          libelle="Devise"
+          libelle={t("Devise", "Currency")}
           required
-          options={OPTIONS_DEVISES}
+          options={optionsDevises(langue)}
           value={s.devise}
           onChange={(e) => maj("devise", e.target.value as Devise)}
         />
         <Select
-          libelle="Moyen de paiement"
+          libelle={t("Moyen de paiement", "Payment method")}
           required
-          options={OPTIONS_MODES}
-          invite="Choisir…"
+          options={optionsModes(langue)}
+          invite={t("Choisir…", "Choose…")}
           value={s.mode}
           onChange={(e) => {
             const mode = e.target.value as SaisieEncaissement["mode"];
@@ -173,10 +181,10 @@ export function FormulaireEncaissement({
         />
         {s.mode === "mobile_money" ? (
           <Select
-            libelle="Opérateur Mobile Money"
+            libelle={t("Opérateur Mobile Money", "Mobile Money operator")}
             required
-            options={OPTIONS_OPERATEURS}
-            invite="Choisir l'opérateur…"
+            options={optionsOperateurs(langue)}
+            invite={t("Choisir l'opérateur…", "Choose the operator…")}
             value={s.operateur}
             onChange={(e) => maj("operateur", e.target.value as SaisieEncaissement["operateur"])}
             erreur={form.erreurs.operateur}
@@ -185,16 +193,19 @@ export function FormulaireEncaissement({
         <Champ
           libelle={
             s.mode === "cheque"
-              ? "Numéro du chèque"
+              ? t("Numéro du chèque", "Check number")
               : s.mode === "mobile_money"
-                ? "Référence de l'opération"
-                : "Référence (facultative)"
+                ? t("Référence de l'opération", "Transaction reference")
+                : t("Référence (facultative)", "Reference (optional)")
           }
           required={s.mode === "cheque" || s.mode === "mobile_money"}
           maxLength={120}
           aide={
             s.mode === "mobile_money"
-              ? "Identifiant de transaction reçu par SMS (aucun paiement n'est déclenché par CabinetPilot)."
+              ? t(
+                  "Identifiant de transaction reçu par SMS (aucun paiement n'est déclenché par CabinetPilot).",
+                  "Transaction ID received by SMS (CabinetPilot does not trigger any payment).",
+                )
               : undefined
           }
           value={s.reference}
@@ -213,13 +224,19 @@ export function FormulaireEncaissement({
         erreur={form.erreurs.imputations}
       />
       <CaseACocher
-        libelle="Accepter la part non imputée comme avance du client"
-        aide="Sans cette case, un encaissement supérieur aux montants imputés est refusé (trop-perçu). L'avance restera imputable plus tard."
+        libelle={t(
+          "Accepter la part non imputée comme avance du client",
+          "Accept the unallocated part as a client advance",
+        )}
+        aide={t(
+          "Sans cette case, un encaissement supérieur aux montants imputés est refusé (trop-perçu). L'avance restera imputable plus tard.",
+          "Without this box, a payment exceeding the allocated amounts is refused (overpayment). The advance can be allocated later.",
+        )}
         checked={s.avance}
         onChange={(e) => maj("avance", e.target.checked)}
       />
       <ZoneTexte
-        libelle="Commentaire (facultatif)"
+        libelle={t("Commentaire (facultatif)", "Comment (optional)")}
         maxLength={500}
         value={s.commentaire}
         onChange={(e) => maj("commentaire", e.target.value)}
@@ -230,9 +247,9 @@ export function FormulaireEncaissement({
           type="submit"
           icone="succes"
           chargement={form.enCours || attente}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer l&apos;encaissement
+          {t("Enregistrer l'encaissement", "Save the payment")}
         </Bouton>
       </div>
     </form>

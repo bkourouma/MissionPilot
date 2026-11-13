@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FAMILLES_AFFICHEES,
   libelleAnciennete,
+  libelleElementBrief,
   libelleGravite,
   libelleMontant,
   libelleMotifs,
@@ -114,6 +115,53 @@ describe("formats", () => {
     expect(libelleMontant({ ...element, montant: 0, devise: "XOF" })).toContain("0");
     expect(libelleMontant({ ...element, montant: 5000 })).toBeNull();
     expect(libelleMontant({ ...element, montant: 5000, devise: "GBP" })).toBeNull();
+  });
+});
+
+describe("libellé d'un élément en anglais", () => {
+  it("garde le libellé du moteur en français", () => {
+    expect(libelleElementBrief(element)).toBe(element.libelle);
+  });
+  it("traduit le type, l'élément et la suite connus, sans toucher aux noms", () => {
+    expect(libelleElementBrief(element, "en")).toBe(
+      "Overdue invoice: FAC-2026-0001 (20 days overdue)",
+    );
+    expect(
+      libelleElementBrief(
+        {
+          ...element,
+          type: "feuille_non_soumise",
+          libelle: "Feuille de temps non soumise : semaine du 02/11/2026 (1 jour de retard)",
+        },
+        "en",
+      ),
+    ).toBe("Timesheet not submitted: week of 02/11/2026 (1 day overdue)");
+    expect(
+      libelleElementBrief(
+        {
+          ...element,
+          type: "conge_a_valider",
+          libelle: "Demande de congé à valider : Mariam Traoré, à partir du 09/11/2026",
+        },
+        "en",
+      ),
+    ).toBe("Leave request to approve: Mariam Traoré, from 09/11/2026");
+    expect(
+      libelleElementBrief(
+        {
+          ...element,
+          type: "atterrissage_depasse",
+          libelle: "Atterrissage au-delà du budget : Audit (+12,5 %)",
+        },
+        "en",
+      ),
+    ).toBe("Landing above budget: Audit (+12.5 %)");
+    expect(
+      libelleElementBrief(
+        { ...element, type: "cloture_en_attente", libelle: "Clôture de mission en attente" },
+        "en",
+      ),
+    ).toBe("Engagement closure pending");
   });
 });
 

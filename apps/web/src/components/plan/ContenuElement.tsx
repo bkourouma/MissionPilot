@@ -1,3 +1,5 @@
+"use client";
+
 import type { TypeElementPlan } from "@missionpilot/shared";
 import { formaterDate, formaterMontantMineur, type Devise } from "../../lib/format";
 import {
@@ -12,13 +14,15 @@ import {
   lireListe,
   lireTexte,
 } from "../../lib/plan-strategique";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 function Swot({ d }: { d: Record<string, unknown> }) {
+  const t = useT();
   const cases = [
-    ["forces", "Forces"],
-    ["faiblesses", "Faiblesses"],
-    ["opportunites", "Opportunités"],
-    ["menaces", "Menaces"],
+    ["forces", t("Forces", "Strengths")],
+    ["faiblesses", t("Faiblesses", "Weaknesses")],
+    ["opportunites", t("Opportunités", "Opportunities")],
+    ["menaces", t("Menaces", "Threats")],
   ] as const;
   return (
     <div className="mp-plan-swot">
@@ -34,7 +38,7 @@ function Swot({ d }: { d: Record<string, unknown> }) {
                 ))}
               </ul>
             ) : (
-              <p className="mp-texte-doux">Aucun constat.</p>
+              <p className="mp-texte-doux">{t("Aucun constat.", "No findings.")}</p>
             )}
           </section>
         );
@@ -54,52 +58,66 @@ function Initiative({
   personnes: readonly PersonnePlan[];
   initiatives: readonly OptionInitiative[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const gains = Array.isArray(d.gains_annuels) ? (d.gains_annuels as number[]) : [];
   const dependances = lireListe(d, "dependances");
   return (
     <dl className="mp-liste-def">
       <div>
-        <dt>Responsable</dt>
-        <dd>{nomPersonnePlan(d.responsable_id, personnes)}</dd>
+        <dt>{t("Responsable", "Owner")}</dt>
+        <dd>{nomPersonnePlan(d.responsable_id, personnes, langue)}</dd>
       </div>
       <div>
-        <dt>Période</dt>
+        <dt>{t("Période", "Period")}</dt>
         <dd>
-          {lireTexte(d, "debut") ? `Du ${formaterDate(lireTexte(d, "debut"))} au ` : "Jusqu'au "}
-          {formaterDate(lireTexte(d, "echeance"))}
+          {lireTexte(d, "debut")
+            ? t(
+                `Du ${formaterDate(lireTexte(d, "debut"), "UTC", langue)} au `,
+                `From ${formaterDate(lireTexte(d, "debut"), "UTC", langue)} to `,
+              )
+            : t("Jusqu'au ", "Until ")}
+          {formaterDate(lireTexte(d, "echeance"), "UTC", langue)}
         </dd>
       </div>
       <div>
-        <dt>Budget</dt>
-        <dd>{formaterMontantMineur(typeof d.budget === "number" ? d.budget : null, devise)}</dd>
+        <dt>{t("Budget", "Budget")}</dt>
+        <dd>
+          {formaterMontantMineur(typeof d.budget === "number" ? d.budget : null, devise, langue)}
+        </dd>
       </div>
       <div>
-        <dt>Statut</dt>
-        <dd>{libelleStatutInitiative(d.statut)}</dd>
+        <dt>{t("Statut", "Status")}</dt>
+        <dd>{libelleStatutInitiative(d.statut, langue)}</dd>
       </div>
       <div>
-        <dt>Gains nets annuels</dt>
+        <dt>{t("Gains nets annuels", "Annual net gains")}</dt>
         <dd>
           {gains.length ? (
             <ol className="mp-liste-simple">
               {gains.map((g, i) => (
-                <li key={i}>{`Année ${i + 1} : ${formaterMontantMineur(g, devise)}`}</li>
+                <li key={i}>
+                  {`${t("Année", "Year")} ${i + 1}${langue === "en" ? ":" : " :"} ${formaterMontantMineur(g, devise, langue)}`}
+                </li>
               ))}
             </ol>
           ) : (
-            "Non estimés : le ROI de l'initiative n'est pas calculé."
+            t(
+              "Non estimés : le ROI de l'initiative n'est pas calculé.",
+              "Not estimated: the initiative's ROI is not computed.",
+            )
           )}
         </dd>
       </div>
       {dependances.length ? (
         <div>
-          <dt>Dépend de</dt>
-          <dd>{dependances.map((id) => nomInitiative(id, initiatives)).join(", ")}</dd>
+          <dt>{t("Dépend de", "Depends on")}</dt>
+          <dd>{dependances.map((id) => nomInitiative(id, initiatives, langue)).join(", ")}</dd>
         </div>
       ) : null}
       {lireTexte(d, "description") ? (
         <div>
-          <dt>Description</dt>
+          <dt>{t("Description", "Description")}</dt>
           <dd className="mp-plan-element__texte">{lireTexte(d, "description")}</dd>
         </div>
       ) : null}
@@ -108,11 +126,16 @@ function Initiative({
 }
 
 function Objectif({ d }: { d: Record<string, unknown> }) {
+  const t = useT();
+  const langue = useLangue();
   const lignes: [string, string | null][] = [
-    ["Perspective", libellePerspective(d.perspective)],
-    ["Indicateur", lireTexte(d, "indicateur")],
-    ["Cible", lireTexte(d, "cible")],
-    ["Échéance", lireTexte(d, "echeance") ? formaterDate(lireTexte(d, "echeance")) : null],
+    [t("Perspective", "Perspective"), libellePerspective(d.perspective, langue)],
+    [t("Indicateur", "Indicator"), lireTexte(d, "indicateur")],
+    [t("Cible", "Target"), lireTexte(d, "cible")],
+    [
+      t("Échéance", "Due date"),
+      lireTexte(d, "echeance") ? formaterDate(lireTexte(d, "echeance"), "UTC", langue) : null,
+    ],
   ];
   return (
     <>
@@ -148,6 +171,7 @@ export function ContenuElement({
   /** Initiatives du plan : noms des dépendances d'une initiative (PLA-05). */
   initiatives?: readonly OptionInitiative[];
 }) {
+  const t = useT();
   switch (type) {
     case "diagnostic":
       return <p className="mp-plan-element__texte">{lireTexte(donnees, "synthese") ?? "—"}</p>;
@@ -158,16 +182,16 @@ export function ContenuElement({
       return (
         <dl className="mp-liste-def">
           <div>
-            <dt>Vision</dt>
+            <dt>{t("Vision", "Vision")}</dt>
             <dd className="mp-plan-element__texte">{lireTexte(donnees, "vision") ?? "—"}</dd>
           </div>
           <div>
-            <dt>Mission</dt>
+            <dt>{t("Mission", "Mission")}</dt>
             <dd className="mp-plan-element__texte">{lireTexte(donnees, "mission") ?? "—"}</dd>
           </div>
           {valeurs.length ? (
             <div>
-              <dt>Valeurs</dt>
+              <dt>{t("Valeurs", "Values")}</dt>
               <dd>{valeurs.join(" · ")}</dd>
             </div>
           ) : null}

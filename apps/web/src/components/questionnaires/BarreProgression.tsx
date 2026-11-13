@@ -1,3 +1,4 @@
+import { useLangue } from "../i18n/FournisseurLangue";
 import { texteProgression, type ProgressionReponse } from "../../lib/questionnaires";
 import { ESPACE_INSECABLE } from "../../lib/questionnaires-definition";
 import "./questionnaires.css";
@@ -14,6 +15,7 @@ export function BarreProgression({
   /** Nom accessible de la barre, ex. « Progression de Ama Koné ». */
   libelle: string;
 }) {
+  const langue = useLangue();
   return (
     <div className="mp-progression">
       <div className="mp-progression__ligne">
@@ -22,7 +24,7 @@ export function BarreProgression({
         </progress>
         <span className="mp-progression__valeur">{`${progression.pourcentage}${ESPACE_INSECABLE}%`}</span>
       </div>
-      <span className="mp-texte-doux mp-texte-petit">{texteProgression(progression)}</span>
+      <span className="mp-texte-doux mp-texte-petit">{texteProgression(progression, langue)}</span>
     </div>
   );
 }

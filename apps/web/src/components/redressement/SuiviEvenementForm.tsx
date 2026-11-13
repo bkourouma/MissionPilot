@@ -1,12 +1,13 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import {
-  RED_SUIVI_TYPE_EVENEMENT_LIBELLES,
-  type RedSuiviTypeEvenement,
-} from "@missionpilot/shared";
+import type { RedSuiviTypeEvenement } from "@missionpilot/shared";
 import { api } from "../../lib/api";
-import { cheminEvenementsJalon, messageSuivi } from "../../lib/redressement-suivi";
+import {
+  cheminEvenementsJalon,
+  libelleTypeEvenementSuivi,
+  messageSuivi,
+} from "../../lib/redressement-suivi";
 import {
   corpsEvenement,
   type ChampEvenement,
@@ -14,6 +15,7 @@ import {
 } from "../../lib/redressement-suivi-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -34,6 +36,8 @@ export function SuiviEvenementForm({
   jalonId: string;
   aujourdhui: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampEvenement>();
   const [s, setS] = useState<SaisieEvenement>({
     type: "realise",
@@ -49,11 +53,13 @@ export function SuiviEvenementForm({
     verrou.current = true;
     try {
       await f.envoyer(
-        corpsEvenement(s),
+        corpsEvenement(s, langue),
         (charge) => api.post(cheminEvenementsJalon(dossierId, jalonId), charge),
         {
-          succes: reporte ? "Jalon reporté." : "Jalon marqué comme réalisé.",
-          messageSpecifique: messageSuivi,
+          succes: reporte
+            ? t("Jalon reporté.", "Milestone postponed.")
+            : t("Jalon marqué comme réalisé.", "Milestone marked as completed."),
+          messageSpecifique: (e) => messageSuivi(e, langue),
           apres: () => setS((x) => ({ ...x, motif: "" })),
         },
       );
@@ -68,22 +74,26 @@ export function SuiviEvenementForm({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Réaliser ou reporter ce jalon"
+      aria-label={t("Réaliser ou reporter ce jalon", "Complete or postpone this milestone")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Mise à jour impossible"
+        titreErreur={t("Mise à jour impossible", "Update not possible")}
       />
       <Select
-        libelle="Action sur le jalon"
+        libelle={t("Action sur le jalon", "Action on the milestone")}
         value={s.type}
         onChange={(e) => setS({ ...s, type: e.target.value as RedSuiviTypeEvenement })}
-        options={TYPES.map((t) => ({ valeur: t, libelle: RED_SUIVI_TYPE_EVENEMENT_LIBELLES[t] }))}
+        options={TYPES.map((v) => ({ valeur: v, libelle: libelleTypeEvenementSuivi(v, langue) }))}
       />
       <Champ
-        libelle={reporte ? "Nouvelle date prévue" : "Date de réalisation"}
+        libelle={
+          reporte
+            ? t("Nouvelle date prévue", "New planned date")
+            : t("Date de réalisation", "Completion date")
+        }
         type="date"
         min="2000-01-01"
         max="2100-12-31"
@@ -93,7 +103,11 @@ export function SuiviEvenementForm({
         required
       />
       <ZoneTexte
-        libelle={reporte ? "Motif du report" : "Commentaire (facultatif)"}
+        libelle={
+          reporte
+            ? t("Motif du report", "Reason for postponement")
+            : t("Commentaire (facultatif)", "Comment (optional)")
+        }
         value={s.motif}
         onChange={(e) => setS({ ...s, motif: e.target.value })}
         erreur={f.erreurs.motif}
@@ -104,9 +118,11 @@ export function SuiviEvenementForm({
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          {reporte ? "Reporter le jalon" : "Marquer comme réalisé"}
+          {reporte
+            ? t("Reporter le jalon", "Postpone the milestone")
+            : t("Marquer comme réalisé", "Mark as completed")}
         </Bouton>
       </div>
     </form>

@@ -5,6 +5,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "tresorerie_ouverture",
     libelle: "Trésorerie d'ouverture",
+    libelleEn: "Opening cash",
     code: "ZA",
     format: "montant",
     valeur: (a) => fl(a).tresorerieOuverture,
@@ -12,7 +13,9 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "capacite_autofinancement",
     groupe: "Activités opérationnelles",
+    groupeEn: "Operating activities",
     libelle: "Capacité d'autofinancement (CAF)",
+    libelleEn: "Cash flow from operations (CAF)",
     code: "FA",
     format: "montant",
     valeur: (a) => fl(a).capaciteAutofinancement,
@@ -20,6 +23,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "variation_bfr",
     libelle: "Variation du besoin en fonds de roulement (hausse = emploi)",
+    libelleEn: "Change in working capital requirement (increase = use of cash)",
     code: null,
     format: "montant",
     valeur: (a) => fl(a).variationBesoinFondsRoulement,
@@ -27,6 +31,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "flux_activites_operationnelles",
     libelle: "Flux des activités opérationnelles",
+    libelleEn: "Cash flow from operating activities",
     code: "ZB",
     format: "montant",
     total: true,
@@ -35,7 +40,9 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "acquisitions",
     groupe: "Investissement",
+    groupeEn: "Investing",
     libelle: "Acquisitions d'immobilisations",
+    libelleEn: "Acquisitions of fixed assets",
     code: null,
     format: "montant",
     valeur: (a) => fl(a).acquisitionsImmobilisations,
@@ -43,6 +50,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "flux_investissement",
     libelle: "Flux des activités d'investissement",
+    libelleEn: "Cash flow from investing activities",
     code: "ZC",
     format: "montant",
     total: true,
@@ -51,7 +59,9 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "augmentations_capital",
     groupe: "Financement",
+    groupeEn: "Financing",
     libelle: "Augmentations de capital",
+    libelleEn: "Capital increases",
     code: null,
     format: "montant",
     valeur: (a) => fl(a).augmentationsCapital,
@@ -59,6 +69,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "dividendes_verses",
     libelle: "Dividendes versés",
+    libelleEn: "Dividends paid",
     code: null,
     format: "montant",
     valeur: (a) => fl(a).dividendesVerses,
@@ -66,6 +77,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "flux_capitaux_propres",
     libelle: "Flux des capitaux propres",
+    libelleEn: "Cash flow from equity",
     code: "ZD",
     format: "montant",
     valeur: (a) => fl(a).fluxCapitauxPropres,
@@ -73,6 +85,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "emprunts_nouveaux",
     libelle: "Emprunts nouveaux",
+    libelleEn: "New borrowings",
     code: null,
     format: "montant",
     valeur: (a) => fl(a).empruntsNouveaux,
@@ -80,6 +93,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "remboursements_emprunts",
     libelle: "Remboursements d'emprunts",
+    libelleEn: "Loan repayments",
     code: null,
     format: "montant",
     valeur: (a) => fl(a).remboursementsEmprunts,
@@ -87,6 +101,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "flux_capitaux_etrangers",
     libelle: "Flux des capitaux étrangers",
+    libelleEn: "Cash flow from borrowed capital",
     code: "ZE",
     format: "montant",
     valeur: (a) => fl(a).fluxCapitauxEtrangers,
@@ -94,6 +109,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "flux_financement",
     libelle: "Flux des activités de financement",
+    libelleEn: "Cash flow from financing activities",
     code: "ZF",
     format: "montant",
     total: true,
@@ -102,7 +118,9 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "variation_tresorerie",
     groupe: "Trésorerie",
+    groupeEn: "Cash",
     libelle: "Variation de la trésorerie",
+    libelleEn: "Change in cash",
     code: "ZG",
     format: "montant",
     valeur: (a) => fl(a).variationTresorerie,
@@ -110,6 +128,7 @@ export const LIGNES_FLUX: readonly LigneEtat[] = [
   {
     cle: "tresorerie_cloture",
     libelle: "Trésorerie de clôture",
+    libelleEn: "Closing cash",
     code: "ZH",
     format: "montant",
     total: true,
@@ -121,6 +140,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "ebe",
     libelle: "Excédent brut d'exploitation (EBE)",
+    libelleEn: "Gross operating surplus (EBITDA)",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).excedentBrutExploitation,
@@ -128,6 +148,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "resultat_net",
     libelle: "Résultat net",
+    libelleEn: "Net income",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).resultatNet,
@@ -135,6 +156,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "caf",
     libelle: "Capacité d'autofinancement (CAF)",
+    libelleEn: "Cash flow from operations (CAF)",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).capaciteAutofinancement,
@@ -142,6 +164,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "tresorerie",
     libelle: "Trésorerie de fin d'exercice",
+    libelleEn: "Year-end cash",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).tresorerieFinExercice,
@@ -149,6 +172,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "point_mort",
     libelle: "Point mort (chiffre d'affaires)",
+    libelleEn: "Break-even point (revenue)",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).pointMort,
@@ -156,6 +180,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "point_mort_jours",
     libelle: "Point mort (date, en jours)",
+    libelleEn: "Break-even point (date, in days)",
     code: null,
     format: "jours",
     valeur: (a) => ind(a).pointMortJours,
@@ -163,6 +188,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "taux_marge_couts_variables",
     libelle: "Taux de marge sur coûts variables",
+    libelleEn: "Contribution margin rate",
     code: null,
     format: "pourcentage",
     valeur: (a) => ind(a).tauxMargeCoutsVariables,
@@ -170,6 +196,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "flux_libre",
     libelle: "Flux de trésorerie disponible",
+    libelleEn: "Free cash flow",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).fluxLibre,
@@ -177,6 +204,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "endettement_net",
     libelle: "Endettement net",
+    libelleEn: "Net debt",
     code: null,
     format: "montant",
     valeur: (a) => ind(a).endettementNet,
@@ -184,6 +212,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "ratio_endettement",
     libelle: "Dettes financières / capitaux propres",
+    libelleEn: "Financial debt / equity",
     code: null,
     format: "multiple",
     valeur: (a) => ind(a).ratioEndettement,
@@ -191,6 +220,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "capacite_remboursement",
     libelle: "Capacité de remboursement (dettes / CAF)",
+    libelleEn: "Repayment capacity (debt / CAF)",
     code: null,
     format: "annees",
     valeur: (a) => ind(a).capaciteRemboursement,
@@ -198,6 +228,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "autonomie_financiere",
     libelle: "Autonomie financière (capitaux propres / total du bilan)",
+    libelleEn: "Financial autonomy (equity / total balance sheet)",
     code: null,
     format: "pourcentage",
     valeur: (a) => ind(a).autonomieFinanciere,
@@ -205,6 +236,7 @@ export const LIGNES_INDICATEURS: readonly LigneEtat[] = [
   {
     cle: "couverture_service_dette",
     libelle: "Couverture du service de la dette",
+    libelleEn: "Debt service coverage",
     code: null,
     format: "multiple",
     valeur: (a) => ind(a).couvertureServiceDette,

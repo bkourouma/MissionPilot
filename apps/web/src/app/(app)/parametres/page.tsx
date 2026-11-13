@@ -10,18 +10,24 @@ import { anneeDemandee, type Cabinet, type Ferie } from "../../../lib/cabinet";
 import { formaterDate } from "../../../lib/format";
 import { redirect } from "next/navigation";
 import { aPermission } from "@missionpilot/shared";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { sousPagesAutorisees } from "../../../lib/navigation";
 import { obtenirSession } from "../../../lib/session";
 import { AjoutFerie, FeriesParDefaut, SuppressionFerie, ValidationFerie } from "./Feries";
 import { FormulaireCabinet } from "./FormulaireCabinet";
 
-export const metadata: Metadata = { title: "Paramètres du cabinet" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Paramètres du cabinet", "Firm settings") };
+}
 
 export default async function PageParametresCabinet({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSession();
   if (!aPermission(utilisateur.roles, "cabinet.gerer")) {
     // Gestionnaire (clôture, import) : première sous-page autorisée.
@@ -36,16 +42,22 @@ export default async function PageParametresCabinet({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Cabinet"
-        soustitre="Identité du cabinet, devise et calendrier de travail utilisés par les plannings, les temps et les budgets."
+        titre={t("Cabinet", "Firm")}
+        soustitre={t(
+          "Identité du cabinet, devise et calendrier de travail utilisés par les plannings, les temps et les budgets.",
+          "Firm identity, currency and work calendar used by schedules, time entries and budgets.",
+        )}
       />
 
-      <Carte titre="Informations générales">
+      <Carte titre={t("Informations générales", "General information")}>
         {cabinet.ok ? (
           <FormulaireCabinet cabinet={cabinet.donnees} />
         ) : (
           <EtatErreur
-            titre="Les paramètres du cabinet n'ont pas pu être chargés."
+            titre={t(
+              "Les paramètres du cabinet n'ont pas pu être chargés.",
+              "The firm settings could not be loaded.",
+            )}
             message={cabinet.message}
             hrefReessayer="/parametres"
           />
@@ -53,9 +65,9 @@ export default async function PageParametresCabinet({
       </Carte>
 
       <Carte
-        titre={`Jours fériés ${annee}`}
+        titre={t(`Jours fériés ${annee}`, `Public holidays ${annee}`)}
         actions={
-          <nav className="mp-navigation-annee" aria-label="Changer d'année">
+          <nav className="mp-navigation-annee" aria-label={t("Changer d'année", "Change year")}>
             <Link className="mp-pagination__lien" href={`/parametres?annee=${annee - 1}`}>
               <Icone nom="chevronGauche" taille={18} />
               <span>{annee - 1}</span>
@@ -68,32 +80,62 @@ export default async function PageParametresCabinet({
         }
       >
         <div className="mp-pile">
-          <Alerte tonalite="info" annonce="aucune" titre="À saisir chaque année">
+          <Alerte
+            tonalite="info"
+            annonce="aucune"
+            titre={t("À saisir chaque année", "To enter every year")}
+          >
             <p>
-              Les fêtes musulmanes (Korité, Tabaski, Maouloud…) suivent le calendrier lunaire : leur
-              date change chaque année. Saisissez-les dès leur annonce officielle.
+              {t(
+                "Les fêtes musulmanes (Korité, Tabaski, Maouloud…) suivent le calendrier lunaire : leur date change chaque année. Saisissez-les dès leur annonce officielle.",
+                "Muslim holidays (Korité, Tabaski, Maouloud…) follow the lunar calendar: their date changes every year. Enter them as soon as they are officially announced.",
+              )}
             </p>
           </Alerte>
           {!feries.ok ? (
             <EtatErreur
-              titre="Les jours fériés n'ont pas pu être chargés."
+              titre={t(
+                "Les jours fériés n'ont pas pu être chargés.",
+                "The public holidays could not be loaded.",
+              )}
               message={feries.message}
               hrefReessayer={`/parametres?annee=${annee}`}
             />
           ) : feries.donnees.elements.length === 0 ? (
-            <EtatVide titre={`Aucun jour férié enregistré pour ${annee}.`} icone="calendrier">
-              <p>Ajoutez les jours fériés de votre pays avec le formulaire ci-dessous.</p>
+            <EtatVide
+              titre={t(
+                `Aucun jour férié enregistré pour ${annee}.`,
+                `No public holiday recorded for ${annee}.`,
+              )}
+              icone="calendrier"
+            >
+              <p>
+                {t(
+                  "Ajoutez les jours fériés de votre pays avec le formulaire ci-dessous.",
+                  "Add your country's public holidays with the form below.",
+                )}
+              </p>
             </EtatVide>
           ) : (
-            <ul className="mp-liste-lignes" aria-label={`Jours fériés ${annee}`}>
+            <ul
+              className="mp-liste-lignes"
+              aria-label={t(`Jours fériés ${annee}`, `Public holidays ${annee}`)}
+            >
               {feries.donnees.elements.map((f) => (
                 <li key={f.id} className="mp-liste-lignes__ligne">
                   <div className="mp-liste-lignes__texte">
                     <strong>{f.libelle}</strong>
                     <span className="mp-texte-doux">
-                      {formaterDate(f.date)}
-                      {f.nationale ? " · fête nationale" : " · propre au cabinet"}
-                      {f.a_valider ? " · proposé par défaut, à vérifier" : ""}
+                      {formaterDate(f.date, "UTC", langue)}
+                      {f.nationale
+                        ? t(" · fête nationale", " · national holiday")
+                        : t(" · propre au cabinet", " · specific to the firm")}
+                      {f.a_valider
+                        ? t(
+                            " · proposé par défaut, à vérifier",
+                            " · suggested by default, to be checked",
+                          )
+                        : ""}
                     </span>
                   </div>
                   <div className="mp-barre-actions mp-barre-actions--compacte">

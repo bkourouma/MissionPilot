@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api, ErreurApi } from "../../lib/api";
+import { useLangue } from "../i18n/FournisseurLangue";
 import { messageErreurIa } from "../../lib/ia";
 import {
   cheminGeneration,
@@ -33,6 +34,7 @@ export function useSuiviGeneration(
   initiale: GenerationIa,
   onChange?: (g: GenerationIa) => void,
 ): SuiviGeneration {
+  const langue = useLangue();
   const [generation, setGeneration] = useState(initiale);
   const [erreur, setErreur] = useState<string | null>(null);
   const [arrete, setArrete] = useState(false);
@@ -53,7 +55,7 @@ export function useSuiviGeneration(
     try {
       remplacer(await api.get<GenerationIa>(cheminGeneration(id)));
     } catch (e) {
-      setErreur(messageErreurIa(e));
+      setErreur(messageErreurIa(e, langue));
     }
   };
 
@@ -95,11 +97,15 @@ export function useSuiviGeneration(
       } catch (e) {
         if (fini) return;
         if (e instanceof ErreurApi && (e.statut === 403 || e.statut === 404)) {
-          setErreur(messageErreurIa(e));
+          setErreur(messageErreurIa(e, langue));
           return;
         }
         erreurs += 1;
-        setErreur("Suivi de la génération interrompu (réseau) : nouvel essai dans un instant.");
+        setErreur(
+          langue === "en"
+            ? "Generation tracking interrupted (network): trying again in a moment."
+            : "Suivi de la génération interrompu (réseau) : nouvel essai dans un instant.",
+        );
         planifier();
       }
     };
@@ -110,7 +116,7 @@ export function useSuiviGeneration(
       if (minuterie) clearTimeout(minuterie);
       controleur.abort();
     };
-  }, [id, terminal]);
+  }, [id, terminal, langue]);
 
   return { generation, remplacer, relire, erreur, arrete };
 }

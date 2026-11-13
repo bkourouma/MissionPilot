@@ -3,13 +3,12 @@
 import { useState, type FormEvent } from "react";
 import {
   RED_CHECKLIST_ITEMS_MAX,
-  RED_DOMAINE_LIBELLES,
   RED_DOMAINES,
   type RedChecklistItemVue,
   type RedSecteur,
 } from "@missionpilot/shared";
 import { api } from "../../lib/api";
-import { OPTIONS_SECTEURS } from "../../lib/redressement";
+import { libelleDomaine, optionsSecteurs } from "../../lib/redressement";
 import {
   CHEMIN_CHECKLISTS_MODELES,
   cheminVersionsModele,
@@ -24,12 +23,11 @@ import {
 } from "../../lib/redressement-diagnostic-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
-
-const OPTIONS_DOMAINES = RED_DOMAINES.map((d) => ({ valeur: d, libelle: RED_DOMAINE_LIBELLES[d] }));
 
 /**
  * Éditeur d'items d'un modèle de check-list (domaine, libellé, aide). Sert à créer un modèle
@@ -46,6 +44,8 @@ export function ChecklistEditeur({
   secteurInitial: RedSecteur;
   depart?: RedChecklistItemVue[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [code, setCode] = useState("");
   const [intitule, setIntitule] = useState("");
@@ -54,24 +54,31 @@ export function ChecklistEditeur({
   const [items, setItems] = useState<SaisieItemModele[]>(() =>
     depart.length > 0 ? saisieItemsDepuis(depart) : [itemVide([])],
   );
+  const optionsDomaines = RED_DOMAINES.map((d) => ({
+    valeur: d,
+    libelle: libelleDomaine(d, langue),
+  }));
   const maj = (i: number, patch: Partial<SaisieItemModele>) =>
     setItems((l) => l.map((x, k) => (k === i ? { ...x, ...patch } : x)));
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const options = {
-      succes: "Brouillon enregistré : publiez-le depuis la liste des versions.",
-      messageSpecifique: messageDiagnostic,
+      succes: t(
+        "Brouillon enregistré : publiez-le depuis la liste des versions.",
+        "Draft saved: publish it from the version list.",
+      ),
+      messageSpecifique: (e: unknown) => messageDiagnostic(e, langue),
     };
     if (modeleId) {
       await f.envoyer(
-        corpsVersionModele(items, motif),
+        corpsVersionModele(items, motif, langue),
         (charge) => api.post(cheminVersionsModele(modeleId), charge),
         options,
       );
     } else {
       await f.envoyer(
-        corpsNouveauModele({ code, intitule, secteur, motif }, items),
+        corpsNouveauModele({ code, intitule, secteur, motif }, items, langue),
         (charge) => api.post(CHEMIN_CHECKLISTS_MODELES, charge),
         options,
       );
@@ -84,13 +91,17 @@ export function ChecklistEditeur({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={modeleId ? "Nouvelle version du modèle" : "Nouveau modèle de check-list"}
+      aria-label={
+        modeleId
+          ? t("Nouvelle version du modèle", "New template version")
+          : t("Nouveau modèle de check-list", "New checklist template")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Saving not possible")}
       />
       {f.erreurs.global ? (
         <Alerte tonalite="danger" annonce="alert">
@@ -100,34 +111,37 @@ export function ChecklistEditeur({
       {modeleId ? null : (
         <div className="mp-grille-champs">
           <Champ
-            libelle="Code du modèle"
-            aide="Minuscules, chiffres, tiret ou tiret bas."
+            libelle={t("Code du modèle", "Template code")}
+            aide={t(
+              "Minuscules, chiffres, tiret ou tiret bas.",
+              "Lowercase letters, digits, hyphen or underscore.",
+            )}
             autoComplete="off"
             value={code}
             onChange={(e) => setCode(e.target.value)}
             erreur={f.erreurs.code}
           />
           <Champ
-            libelle="Intitulé"
+            libelle={t("Intitulé", "Title")}
             autoComplete="off"
             value={intitule}
             onChange={(e) => setIntitule(e.target.value)}
             erreur={f.erreurs.intitule}
           />
           <Select
-            libelle="Secteur"
+            libelle={t("Secteur", "Sector")}
             value={secteur}
-            options={OPTIONS_SECTEURS}
+            options={optionsSecteurs(langue)}
             onChange={(e) => setSecteur(e.target.value as RedSecteur)}
             erreur={f.erreurs.secteur}
           />
         </div>
       )}
-      <ul className="mp-diag-liste" aria-label="Items du modèle">
+      <ul className="mp-diag-liste" aria-label={t("Items du modèle", "Template items")}>
         {items.map((it, i) => (
           <li key={it.id} className="mp-diag-item">
             <Champ
-              libelle={`Libellé de l'item ${i + 1}`}
+              libelle={t(`Libellé de l'item ${i + 1}`, `Label of item ${i + 1}`)}
               autoComplete="off"
               value={it.libelle}
               onChange={(e) => maj(i, { libelle: e.target.value })}
@@ -135,13 +149,13 @@ export function ChecklistEditeur({
             />
             <div className="mp-grille-champs">
               <Select
-                libelle="Domaine"
+                libelle={t("Domaine", "Area")}
                 value={it.domaine}
-                options={OPTIONS_DOMAINES}
+                options={optionsDomaines}
                 onChange={(e) => maj(i, { domaine: e.target.value as SaisieItemModele["domaine"] })}
               />
               <Champ
-                libelle="Aide (facultative)"
+                libelle={t("Aide (facultative)", "Help (optional)")}
                 autoComplete="off"
                 value={it.aide}
                 onChange={(e) => maj(i, { aide: e.target.value })}
@@ -152,17 +166,17 @@ export function ChecklistEditeur({
               <Bouton
                 variante="discret"
                 disabled={items.length <= 1}
-                aria-label={`Retirer l'item ${i + 1}`}
+                aria-label={t(`Retirer l'item ${i + 1}`, `Remove item ${i + 1}`)}
                 onClick={() => setItems((l) => l.filter((_, k) => k !== i))}
               >
-                Retirer
+                {t("Retirer", "Remove")}
               </Bouton>
             </div>
           </li>
         ))}
       </ul>
       <Champ
-        libelle="Motif de la version (facultatif)"
+        libelle={t("Motif de la version (facultatif)", "Version reason (optional)")}
         autoComplete="off"
         value={motif}
         onChange={(e) => setMotif(e.target.value)}
@@ -174,15 +188,15 @@ export function ChecklistEditeur({
           disabled={items.length >= RED_CHECKLIST_ITEMS_MAX}
           onClick={() => setItems((l) => [...l, itemVide(l)])}
         >
-          Ajouter un item
+          {t("Ajouter un item", "Add an item")}
         </Bouton>
         <Bouton
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer un brouillon
+          {t("Enregistrer un brouillon", "Save a draft")}
         </Bouton>
       </div>
     </form>

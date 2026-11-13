@@ -7,9 +7,11 @@
  * l'échéance d'une initiative créée depuis la bibliothèque aussi (début + durée type).
  */
 import {
+  creerTraduire,
   NIVEAU_RISQUE_INITIATIVE_LIBELLES,
   NIVEAUX_RISQUE_INITIATIVE,
   TAILLES_CLIENT,
+  type Langue,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import { libelleDevise, type Devise } from "./format";
@@ -66,8 +68,21 @@ const ORIGINES: Record<OrigineInitiativeType, string> = {
   variante: "Variante du cabinet",
   cabinet: "Propre au cabinet",
 };
-export const libelleOrigine = (o: string) =>
-  ORIGINES[o as OrigineInitiativeType] ?? "Origine inconnue";
+const ORIGINES_EN: Record<OrigineInitiativeType, string> = {
+  standard: "Standard",
+  variante: "Firm variant",
+  cabinet: "Firm-specific",
+};
+export const libelleOrigine = (o: string, langue: Langue = "fr") =>
+  (langue === "en" ? ORIGINES_EN : ORIGINES)[o as OrigineInitiativeType] ??
+  (langue === "en" ? "Unknown origin" : "Origine inconnue");
+
+const NIVEAUX_EN: Record<SyntheseContexte["niveau"], string> = {
+  secteur_taille_pays: "same sector, size and country",
+  secteur_taille: "same sector and size",
+  secteur: "same sector",
+  global: "all contexts",
+};
 
 const NIVEAUX: Record<SyntheseContexte["niveau"], string> = {
   secteur_taille_pays: "même secteur, même taille et même pays",
@@ -77,20 +92,36 @@ const NIVEAUX: Record<SyntheseContexte["niveau"], string> = {
 };
 
 /** « 70/100 (3 observations, même secteur et même taille) » ou l'échantillon insuffisant. */
-export function libelleEfficacite(e: EfficaciteObservee): string {
+export function libelleEfficacite(e: EfficaciteObservee, langue: Langue = "fr"): string {
   const r = e.retenue;
   if (!r) {
     const total = e.niveaux[e.niveaux.length - 1]?.observations ?? 0;
+    if (langue === "en") {
+      return `Insufficient sample (${total} observation${total > 1 ? "s" : ""}, ${e.seuil} required)`;
+    }
     return `Échantillon insuffisant (${total} observation${total > 1 ? "s" : ""}, ${e.seuil} requises)`;
+  }
+  if (langue === "en") {
+    return `${r.moyenne}/100 on average (${r.observations} observations, ${NIVEAUX_EN[r.niveau]})`;
   }
   return `${r.moyenne}/100 en moyenne (${r.observations} observations, ${NIVEAUX[r.niveau]})`;
 }
 
-export const libelleRisque = (r: { libelle: string; niveau: NiveauRisque }) =>
-  `${r.libelle} (${NIVEAU_RISQUE_INITIATIVE_LIBELLES[r.niveau] ?? r.niveau})`;
+const NIVEAU_RISQUE_EN: Record<NiveauRisque, string> = {
+  faible: "Low",
+  moyen: "Medium",
+  eleve: "High",
+};
+
+export const libelleRisque = (
+  r: { libelle: string; niveau: NiveauRisque },
+  langue: Langue = "fr",
+) =>
+  `${r.libelle} (${(langue === "en" ? NIVEAU_RISQUE_EN : NIVEAU_RISQUE_INITIATIVE_LIBELLES)[r.niveau] ?? r.niveau})`;
 
 /** Durée affichée : « 90 jours ». */
-export const libelleDuree = (jours: number) => `${jours} jour${jours > 1 ? "s" : ""}`;
+export const libelleDuree = (jours: number, langue: Langue = "fr") =>
+  langue === "en" ? `${jours} day${jours > 1 ? "s" : ""}` : `${jours} jour${jours > 1 ? "s" : ""}`;
 
 /* ----- Création d'une initiative du plan depuis la bibliothèque ----- */
 
@@ -122,20 +153,35 @@ export function validerDepuisBibliotheque(
   t: Pick<InitiativeType, "id" | "devise">,
   s: SaisieDepuisBibliotheque,
   devisePlan: Devise,
+  langue: Langue = "fr",
 ) {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieDepuisBibliotheque, string>> = {};
-  if (!s.parent_id) erreurs.parent_id = "Choisissez l'axe ou l'objectif de rattachement.";
-  if (!DATE.test(s.debut)) erreurs.debut = "La date de début est obligatoire.";
-  if (s.echeance && !DATE.test(s.echeance)) erreurs.echeance = "Date invalide.";
+  if (!s.parent_id)
+    erreurs.parent_id = tr(
+      "Choisissez l'axe ou l'objectif de rattachement.",
+      "Choose the axis or objective to attach it to.",
+    );
+  if (!DATE.test(s.debut))
+    erreurs.debut = tr("La date de début est obligatoire.", "The start date is required.");
+  if (s.echeance && !DATE.test(s.echeance))
+    erreurs.echeance = tr("Date invalide.", "Invalid date.");
   if (s.echeance && DATE.test(s.debut) && s.echeance < s.debut) {
-    erreurs.echeance = "L'échéance doit suivre le début.";
+    erreurs.echeance = tr(
+      "L'échéance doit suivre le début.",
+      "The due date must follow the start.",
+    );
   }
   const budget = lireMontant(s.budget, devisePlan);
-  if (Number.isNaN(budget)) erreurs.budget = "Montant invalide.";
+  if (Number.isNaN(budget)) erreurs.budget = tr("Montant invalide.", "Invalid amount.");
   if (budget === null && t.devise !== devisePlan) {
-    erreurs.budget = `Coût type en ${libelleDevise(t.devise)}, plan en ${libelleDevise(devisePlan)} : saisissez le budget.`;
+    erreurs.budget = tr(
+      `Coût type en ${libelleDevise(t.devise)}, plan en ${libelleDevise(devisePlan)} : saisissez le budget.`,
+      `Standard cost in ${libelleDevise(t.devise)}, plan in ${libelleDevise(devisePlan)}: enter the budget.`,
+    );
   }
-  if (s.titre.trim().length > 200) erreurs.titre = "200 caractères au plus.";
+  if (s.titre.trim().length > 200)
+    erreurs.titre = tr("200 caractères au plus.", "200 characters at most.");
   if (Object.keys(erreurs).length) return { erreurs, corps: null };
   return {
     erreurs,
@@ -227,15 +273,24 @@ function entierPositif(v: string, max: number): number | null | typeof Number.Na
 }
 
 /** Contrôle et `donnees` de l'API ; `avecCode` : création d'une initiative propre (code requis). */
-export function validerInitiativeType(s: SaisieInitiativeType, avecCode: boolean) {
+export function validerInitiativeType(
+  s: SaisieInitiativeType,
+  avecCode: boolean,
+  langue: Langue = "fr",
+) {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieInitiativeType, string>> = {};
   if (avecCode && !CODE.test(s.code.trim())) {
-    erreurs.code = "Code : minuscules, chiffres et tiret bas, 40 caractères au plus.";
+    erreurs.code = tr(
+      "Code : minuscules, chiffres et tiret bas, 40 caractères au plus.",
+      "Code: lowercase letters, digits and underscores, 40 characters at most.",
+    );
   }
-  if (!s.titre.trim()) erreurs.titre = "Le titre est obligatoire.";
+  if (!s.titre.trim()) erreurs.titre = tr("Le titre est obligatoire.", "The title is required.");
   const couts = (["cout_min", "cout_type", "cout_max"] as const).map((c) => {
     const v = lireMontant(s[c], s.devise);
-    if (v === null || Number.isNaN(v)) erreurs[c] = "Montant obligatoire, positif.";
+    if (v === null || Number.isNaN(v))
+      erreurs[c] = tr("Montant obligatoire, positif.", "A positive amount is required.");
     return v;
   });
   const [min, type, max] = couts as [number, number, number];
@@ -245,18 +300,31 @@ export function validerInitiativeType(s: SaisieInitiativeType, avecCode: boolean
     !erreurs.cout_max &&
     !(min <= type && type <= max)
   ) {
-    erreurs.cout_type = "Coûts ordonnés : minimum ≤ type ≤ maximum.";
+    erreurs.cout_type = tr(
+      "Coûts ordonnés : minimum ≤ type ≤ maximum.",
+      "Costs must be ordered: minimum ≤ standard ≤ maximum.",
+    );
   }
   const duree = entierPositif(s.duree_type_jours, 3650);
   if (duree === null || Number.isNaN(duree) || duree < 1) {
-    erreurs.duree_type_jours = "Durée type de 1 à 3 650 jours.";
+    erreurs.duree_type_jours = tr(
+      "Durée type de 1 à 3 650 jours.",
+      "Standard duration of 1 to 3,650 days.",
+    );
   }
   const charge = entierPositif(s.charge_type_jours, 100_000);
-  if (Number.isNaN(charge)) erreurs.charge_type_jours = "Nombre entier de jours-homme.";
+  if (Number.isNaN(charge))
+    erreurs.charge_type_jours = tr("Nombre entier de jours-homme.", "Whole number of person-days.");
   const risques = lireRisques(s.risques);
-  if (!risques) erreurs.risques = "Une ligne par risque : « libellé ; faible, moyen ou eleve ».";
+  if (!risques) {
+    erreurs.risques = tr(
+      "Une ligne par risque : « libellé ; faible, moyen ou eleve ».",
+      "One line per risk: \u201clabel ; faible, moyen or eleve\u201d (low, medium or high).",
+    );
+  }
   const prerequis = decouperListe(s.prerequis.replace(/;/g, ","));
-  if (prerequis.length > 20) erreurs.prerequis = "20 prérequis au plus.";
+  if (prerequis.length > 20)
+    erreurs.prerequis = tr("20 prérequis au plus.", "20 prerequisites at most.");
   if (Object.keys(erreurs).length) return { erreurs, donnees: null };
   return {
     erreurs,
@@ -293,20 +361,34 @@ export const SAISIE_OBSERVATION_VIDE: SaisieObservation = {
   commentaire: "",
 };
 
-export const OPTIONS_TAILLE = TAILLES_CLIENT.map((t) => ({
-  valeur: t,
-  libelle: { tpe: "TPE", pme: "PME", eti: "ETI", grande_entreprise: "Grande entreprise" }[t],
-}));
+export const optionsTaille = (langue: Langue = "fr") =>
+  TAILLES_CLIENT.map((t) => ({
+    valeur: t,
+    libelle: {
+      tpe: "TPE",
+      pme: "PME",
+      eti: "ETI",
+      grande_entreprise: langue === "en" ? "Large enterprise" : "Grande entreprise",
+    }[t],
+  }));
 
-export function validerObservation(s: SaisieObservation) {
+export const OPTIONS_TAILLE = optionsTaille();
+
+export function validerObservation(s: SaisieObservation, langue: Langue = "fr") {
+  const tr = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieObservation, string>> = {};
   const efficacite = entierPositif(s.efficacite, 100);
   if (efficacite === null || Number.isNaN(efficacite)) {
-    erreurs.efficacite = "Efficacité : entier de 0 à 100.";
+    erreurs.efficacite = tr(
+      "Efficacité : entier de 0 à 100.",
+      "Effectiveness: whole number from 0 to 100.",
+    );
   }
   const pays = s.pays.trim().toUpperCase();
-  if (pays && !/^[A-Z]{2}$/.test(pays)) erreurs.pays = "Code pays à deux lettres (ex. CI).";
-  if (s.secteur.trim().length > 80) erreurs.secteur = "80 caractères au plus.";
+  if (pays && !/^[A-Z]{2}$/.test(pays))
+    erreurs.pays = tr("Code pays à deux lettres (ex. CI).", "Two-letter country code (e.g. CI).");
+  if (s.secteur.trim().length > 80)
+    erreurs.secteur = tr("80 caractères au plus.", "80 characters at most.");
   if (Object.keys(erreurs).length) return { erreurs, corps: null };
   return {
     erreurs,
@@ -321,13 +403,20 @@ export function validerObservation(s: SaisieObservation) {
 }
 
 /** Message français d'un refus. */
-export function messageBibliotheque(e: unknown): string {
+export function messageBibliotheque(e: unknown, langue: Langue = "fr"): string {
+  const tr = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.statut === 403) {
-      return "Gérer la bibliothèque du cabinet est réservé aux experts métier et aux associés.";
+      return tr(
+        "Gérer la bibliothèque du cabinet est réservé aux experts métier et aux associés.",
+        "Managing the firm's library is restricted to subject-matter experts and partners.",
+      );
     }
     if (e.statut === 404)
-      return "Cette initiative ou ce plan est introuvable ou ne vous est plus accessible.";
+      return tr(
+        "Cette initiative ou ce plan est introuvable ou ne vous est plus accessible.",
+        "This initiative or plan cannot be found or is no longer accessible to you.",
+      );
     if (e.statut === 409 || e.code === "DEVISE_DIFFERENTE") return e.message;
   }
   return messageErreur(e);

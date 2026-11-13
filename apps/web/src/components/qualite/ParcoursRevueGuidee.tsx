@@ -14,6 +14,7 @@ import {
   type SessionRevue,
   type TempsRevue,
 } from "../../lib/qualite";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { RetourAction } from "./RetourAction";
@@ -45,6 +46,8 @@ export function ParcoursRevueGuidee({
   temps,
   utilisateurId,
 }: ParcoursRevueGuideeProps) {
+  const t = useT();
+  const langue = useLangue();
   const a = useActionQualite();
   const sessionOuverte: SessionRevue | undefined = temps.sessions.find(
     (s) => s.utilisateur_id === utilisateurId && s.fin === null,
@@ -57,20 +60,26 @@ export function ParcoursRevueGuidee({
         succes={a.succes}
         violations={a.violations}
         refAlerte={a.refAlerte}
-        titreErreur="Parcours impossible"
+        titreErreur={t("Parcours impossible", "Review path unavailable")}
       />
       <div className="mp-qualite-progres">
         <progress
           value={parcours.vus}
           max={Math.max(parcours.obligatoires, 1)}
-          aria-label="Éléments obligatoires que vous avez parcourus"
+          aria-label={t(
+            "Éléments obligatoires que vous avez parcourus",
+            "Mandatory items you have reviewed",
+          )}
         />
         <p>
-          <strong>{texteParcours(parcours)}</strong>
+          <strong>{texteParcours(parcours, langue)}</strong>
           {parcours.complet ? null : (
             <span className="mp-texte-doux">
               {" "}
-              — encore {parcours.restants} à parcourir avant de valider.
+              {t(
+                `— encore ${parcours.restants} à parcourir avant de valider.`,
+                `— ${parcours.restants} more to review before approving.`,
+              )}
             </span>
           )}
         </p>
@@ -82,37 +91,46 @@ export function ParcoursRevueGuidee({
             <Bouton
               variante="secondaire"
               chargement={a.enCours}
-              texteChargement="Arrêt…"
+              texteChargement={t("Arrêt…", "Stopping…")}
               onClick={() =>
                 a.agir(
                   () => api.post(cheminTerminerSession(sessionOuverte.id)),
-                  "Session de revue terminée : le temps passé est enregistré.",
+                  t(
+                    "Session de revue terminée : le temps passé est enregistré.",
+                    "Review session ended: the time spent is recorded.",
+                  ),
                 )
               }
             >
-              Terminer ma session de revue
+              {t("Terminer ma session de revue", "End my review session")}
             </Bouton>
           ) : (
             <Bouton
               variante="secondaire"
               chargement={a.enCours}
-              texteChargement="Démarrage…"
+              texteChargement={t("Démarrage…", "Starting…")}
               onClick={() =>
                 a.agir(
                   () => api.post(cheminActionSuivi(suiviId, "sessions")),
-                  "Session de revue démarrée.",
+                  t("Session de revue démarrée.", "Review session started."),
                 )
               }
             >
-              Démarrer une session de revue
+              {t("Démarrer une session de revue", "Start a review session")}
             </Bouton>
           )}
           <p className="mp-texte-doux mp-texte-petit">
             {temps.synthese.sessions === 0
-              ? "Aucune session de revue terminée."
-              : `${temps.synthese.sessions} session(s) terminée(s), ${formaterDuree(temps.synthese.totalSecondes)} au total.`}
+              ? t("Aucune session de revue terminée.", "No review session completed.")
+              : t(
+                  `${temps.synthese.sessions} session(s) terminée(s), ${formaterDuree(temps.synthese.totalSecondes)} au total.`,
+                  `${temps.synthese.sessions} session(s) completed, ${formaterDuree(temps.synthese.totalSecondes)} in total.`,
+                )}
             {sessionOuverte
-              ? ` Session ouverte depuis ${formaterDateHeure(sessionOuverte.debut)}.`
+              ? t(
+                  ` Session ouverte depuis ${formaterDateHeure(sessionOuverte.debut, undefined, langue)}.`,
+                  ` Session open since ${formaterDateHeure(sessionOuverte.debut, undefined, langue)}.`,
+                )
               : ""}
           </p>
         </div>
@@ -120,18 +138,23 @@ export function ParcoursRevueGuidee({
 
       {elements.length === 0 ? (
         <p className="mp-texte-doux">
-          Aucun élément à parcourir n&apos;a été déposé pour ce livrable : les modules plans,
-          rapports et preuves y déposent leurs assertions fragiles, leurs chiffres et leurs
-          recommandations.
+          {t(
+            "Aucun élément à parcourir n'a été déposé pour ce livrable : les modules plans, rapports et preuves y déposent leurs assertions fragiles, leurs chiffres et leurs recommandations.",
+            "No item to review has been added for this deliverable: the plans, reports and evidence modules add their weak assertions, figures and recommendations here.",
+          )}
         </p>
       ) : (
         ORDRE.map((kind) => {
           const groupe = elements.filter((e) => e.kind === kind);
           if (groupe.length === 0) return null;
           return (
-            <section key={kind} aria-label={libelleKind(kind)} className="mp-qualite__groupe">
+            <section
+              key={kind}
+              aria-label={libelleKind(kind, langue)}
+              className="mp-qualite__groupe"
+            >
               <h3 className="mp-qualite__sous-titre">
-                {libelleKind(kind)} ({groupe.length})
+                {libelleKind(kind, langue)} ({groupe.length})
               </h3>
               <ul className="mp-liste-lignes">
                 {groupe.map((e) => (
@@ -139,28 +162,35 @@ export function ParcoursRevueGuidee({
                     <div className="mp-liste-lignes__texte">
                       <span>{e.libelle}</span>
                       <span className="mp-texte-doux mp-texte-petit">
-                        {e.obligatoire ? "Obligatoire" : "Facultatif"}
+                        {e.obligatoire
+                          ? t("Obligatoire", "Mandatory")
+                          : t("Facultatif", "Optional")}
                         {e.source
-                          ? ` · Source : ${e.source}`
+                          ? ` · ${t("Source", "Source")} : ${e.source}`
                           : kind === "chiffre"
-                            ? " · Source non indiquée"
+                            ? ` · ${t("Source non indiquée", "Source not specified")}`
                             : ""}
                       </span>
                     </div>
                     {e.vu_par_moi ? (
-                      <BadgeStatut tonalite="succes">Parcouru</BadgeStatut>
+                      <BadgeStatut tonalite="succes">{t("Parcouru", "Reviewed")}</BadgeStatut>
                     ) : ouvert ? (
                       <Bouton
                         variante="secondaire"
                         chargement={a.enCours}
                         texteChargement="…"
-                        aria-label={`Marquer comme parcouru : ${e.libelle}`}
+                        aria-label={t(
+                          `Marquer comme parcouru : ${e.libelle}`,
+                          `Mark as reviewed: ${e.libelle}`,
+                        )}
                         onClick={() => a.agir(() => api.post(cheminVu(suiviId, e.id)))}
                       >
-                        Marquer comme parcouru
+                        {t("Marquer comme parcouru", "Mark as reviewed")}
                       </Bouton>
                     ) : (
-                      <BadgeStatut tonalite="neutre">Non parcouru</BadgeStatut>
+                      <BadgeStatut tonalite="neutre">
+                        {t("Non parcouru", "Not reviewed")}
+                      </BadgeStatut>
                     )}
                   </li>
                 ))}

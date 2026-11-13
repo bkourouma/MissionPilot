@@ -11,6 +11,7 @@
  * Sous-modules : `kpi-saisie-nombres` (nombres et textes), `kpi-saisie-definition` (définition
  * d'un KPI).
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { formaterDate } from "./format";
 import type { DefinitionKpi, ParametresKpi } from "./kpi";
 import { MAX_CONTRIBUTEURS_KPI } from "./kpi";
@@ -63,22 +64,39 @@ export interface ChargeCible {
 export function validerCible(
   s: SaisieCible,
   def: Pick<DefinitionKpi, "debut_suivi">,
+  langue: Langue = "fr",
 ): Resultat<ChargeCible, ChampCible> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampCible, string>> = {};
   let valeur: number | null = null;
   if (!s.sans_cible) {
-    const l = lireValeurKpi(s.valeur);
+    const l = lireValeurKpi(s.valeur, langue);
     if (l.erreur) erreurs.valeur = l.erreur;
-    else if (l.valeur === null) erreurs.valeur = "Saisissez la cible, ou cochez « Sans cible ».";
+    else if (l.valeur === null) {
+      erreurs.valeur = t(
+        "Saisissez la cible, ou cochez « Sans cible ».",
+        'Enter the target, or tick "No target".',
+      );
+    }
     valeur = l.valeur;
   }
-  if (s.a_partir_de === "") erreurs.a_partir_de = "La date d'application est obligatoire.";
-  else if (!dateValide(s.a_partir_de)) erreurs.a_partir_de = "Date invalide.";
+  if (s.a_partir_de === "") {
+    erreurs.a_partir_de = t(
+      "La date d'application est obligatoire.",
+      "The effective date is required.",
+    );
+  } else if (!dateValide(s.a_partir_de)) erreurs.a_partir_de = t("Date invalide.", "Invalid date.");
   else if (s.a_partir_de < def.debut_suivi) {
-    erreurs.a_partir_de = `Une cible ne peut pas précéder le début du suivi (${formaterDate(def.debut_suivi)}).`;
+    const debut = formaterDate(def.debut_suivi, "UTC", langue);
+    erreurs.a_partir_de = t(
+      `Une cible ne peut pas précéder le début du suivi (${debut}).`,
+      `A target cannot precede the tracking start (${debut}).`,
+    );
   }
   const motif = s.motif.trim();
-  if (motif.length > MOTIF_MAX) erreurs.motif = `${MOTIF_MAX} caractères au plus.`;
+  if (motif.length > MOTIF_MAX) {
+    erreurs.motif = t(`${MOTIF_MAX} caractères au plus.`, `${MOTIF_MAX} characters at most.`);
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -120,19 +138,43 @@ function lireMesure(
   def: Pick<DefinitionKpi, "debut_suivi" | "fin_suivi">,
   aujourdhui: string,
   erreurs: Partial<Record<ChampMesure, string>>,
+  langue: Langue = "fr",
 ): ChargeMesure {
+  const t = creerTraduire(langue);
   const max = dateMesureMax(def, aujourdhui);
-  if (s.date_mesure === "") erreurs.date_mesure = "La date de la mesure est obligatoire.";
-  else if (!dateValide(s.date_mesure)) erreurs.date_mesure = "Date invalide.";
+  if (s.date_mesure === "") {
+    erreurs.date_mesure = t(
+      "La date de la mesure est obligatoire.",
+      "The measurement date is required.",
+    );
+  } else if (!dateValide(s.date_mesure)) erreurs.date_mesure = t("Date invalide.", "Invalid date.");
   else if (s.date_mesure < def.debut_suivi || s.date_mesure > max) {
-    erreurs.date_mesure = `Date comprise entre le ${formaterDate(def.debut_suivi)} et le ${formaterDate(max)} attendue.`;
+    const du = formaterDate(def.debut_suivi, "UTC", langue);
+    const au = formaterDate(max, "UTC", langue);
+    erreurs.date_mesure = t(
+      `Date comprise entre le ${du} et le ${au} attendue.`,
+      `A date between ${du} and ${au} is expected.`,
+    );
   }
-  const l = lireValeurKpi(s.valeur);
+  const l = lireValeurKpi(s.valeur, langue);
   if (l.erreur) erreurs.valeur = l.erreur;
-  else if (l.valeur === null) erreurs.valeur = "La valeur est obligatoire.";
+  else if (l.valeur === null)
+    erreurs.valeur = t("La valeur est obligatoire.", "The value is required.");
   const libres = erreurs as Record<string, string>;
-  const commentaire = texteFacultatif(s.commentaire, COMMENTAIRE_MAX, libres, "commentaire");
-  const justificatif = texteFacultatif(s.justificatif, JUSTIFICATIF_MAX, libres, "justificatif");
+  const commentaire = texteFacultatif(
+    s.commentaire,
+    COMMENTAIRE_MAX,
+    libres,
+    "commentaire",
+    langue,
+  );
+  const justificatif = texteFacultatif(
+    s.justificatif,
+    JUSTIFICATIF_MAX,
+    libres,
+    "justificatif",
+    langue,
+  );
   return {
     date_mesure: s.date_mesure,
     valeur: l.valeur ?? 0,
@@ -146,17 +188,29 @@ export function validerMesure(
   s: SaisieMesure,
   def: Pick<DefinitionKpi, "debut_suivi" | "fin_suivi">,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): Resultat<ChargeMesure, ChampMesure> {
   const erreurs: Partial<Record<ChampMesure, string>> = {};
-  const charge = lireMesure(s, def, aujourdhui, erreurs);
+  const charge = lireMesure(s, def, aujourdhui, erreurs, langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge };
 }
 
-function lireMotif(v: string, erreurs: Partial<Record<ChampMesure, string>>): string {
+function lireMotif(
+  v: string,
+  erreurs: Partial<Record<ChampMesure, string>>,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
   const motif = v.trim();
-  if (motif === "") erreurs.motif = "Le motif est obligatoire : il reste dans l'historique.";
-  else if (motif.length > MOTIF_MAX) erreurs.motif = `${MOTIF_MAX} caractères au plus.`;
+  if (motif === "") {
+    erreurs.motif = t(
+      "Le motif est obligatoire : il reste dans l'historique.",
+      "The reason is required: it stays in the history.",
+    );
+  } else if (motif.length > MOTIF_MAX) {
+    erreurs.motif = t(`${MOTIF_MAX} caractères au plus.`, `${MOTIF_MAX} characters at most.`);
+  }
   return motif;
 }
 
@@ -165,18 +219,22 @@ export function validerCorrection(
   s: SaisieMesure,
   def: Pick<DefinitionKpi, "debut_suivi" | "fin_suivi">,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): Resultat<ChargeCorrection, ChampMesure> {
   const erreurs: Partial<Record<ChampMesure, string>> = {};
-  const charge = lireMesure(s, def, aujourdhui, erreurs);
-  const motif = lireMotif(s.motif, erreurs);
+  const charge = lireMesure(s, def, aujourdhui, erreurs, langue);
+  const motif = lireMotif(s.motif, erreurs, langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { ...charge, motif } };
 }
 
 /** Annulation d'une mesure saisie par erreur : motif obligatoire. */
-export function validerAnnulation(motif: string): Resultat<{ motif: string }, "motif"> {
+export function validerAnnulation(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
   const erreurs: Partial<Record<ChampMesure, string>> = {};
-  const m = lireMotif(motif, erreurs);
+  const m = lireMotif(motif, erreurs, langue);
   if (erreurs.motif) return { ok: false, erreurs: { motif: erreurs.motif } };
   return { ok: true, charge: { motif: m } };
 }
@@ -187,20 +245,30 @@ export function validerAnnulation(motif: string): Resultat<{ motif: string }, "m
 export function validerContributeurs(
   ids: readonly string[],
   eligibles: readonly string[],
+  langue: Langue = "fr",
 ): Resultat<{ utilisateurs: string[] }, "utilisateurs"> {
+  const t = creerTraduire(langue);
   const uniques = [...new Set(ids)];
   if (uniques.some((id) => !eligibles.includes(id))) {
     return {
       ok: false,
       erreurs: {
-        utilisateurs: "Choisissez les contributeurs parmi les comptes du portail du client.",
+        utilisateurs: t(
+          "Choisissez les contributeurs parmi les comptes du portail du client.",
+          "Choose the contributors among the client portal accounts.",
+        ),
       },
     };
   }
   if (uniques.length > MAX_CONTRIBUTEURS_KPI) {
     return {
       ok: false,
-      erreurs: { utilisateurs: `${MAX_CONTRIBUTEURS_KPI} contributeurs au plus par KPI.` },
+      erreurs: {
+        utilisateurs: t(
+          `${MAX_CONTRIBUTEURS_KPI} contributeurs au plus par KPI.`,
+          `${MAX_CONTRIBUTEURS_KPI} contributors at most per KPI.`,
+        ),
+      },
     };
   }
   return { ok: true, charge: { utilisateurs: uniques } };
@@ -226,15 +294,21 @@ export const saisieDepuisParametres = (p: ParametresKpi): SaisieParametres => ({
 export function validerParametres(
   s: SaisieParametres,
   actuel: ParametresKpi,
+  langue: Langue = "fr",
 ): Resultat<Partial<ParametresKpi>, ChampParametres> & { inchange?: boolean } {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampParametres, string>> = {};
-  const delai = lireEntier(s.delai_grace_jours, 0, 60);
-  const periodes = lireEntier(s.periodes_degradation, 1, 24);
+  const delai = lireEntier(s.delai_grace_jours, 0, 60, langue);
+  const periodes = lireEntier(s.periodes_degradation, 1, 24, langue);
   if (delai.erreur || delai.valeur === null) {
-    erreurs.delai_grace_jours = delai.erreur ?? "Nombre de jours obligatoire (0 à 60).";
+    erreurs.delai_grace_jours =
+      delai.erreur ??
+      t("Nombre de jours obligatoire (0 à 60).", "Number of days required (0 to 60).");
   }
   if (periodes.erreur || periodes.valeur === null) {
-    erreurs.periodes_degradation = periodes.erreur ?? "Nombre de périodes obligatoire (1 à 24).";
+    erreurs.periodes_degradation =
+      periodes.erreur ??
+      t("Nombre de périodes obligatoire (1 à 24).", "Number of periods required (1 to 24).");
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const apres: ParametresKpi = {

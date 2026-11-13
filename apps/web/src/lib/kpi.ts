@@ -10,7 +10,12 @@
  * Sous-modules : `kpi-types` (contrats, règles affichées), `kpi-libelles` (libellés et mise en
  * forme), `kpi-chemins` (chemins, curseur, date d'arrêté), `kpi-droits` (droits, personnes).
  */
-import { PERSPECTIVES_KPI, type PerspectiveKpi } from "@missionpilot/shared";
+import {
+  PERSPECTIVES_KPI,
+  creerTraduire,
+  type Langue,
+  type PerspectiveKpi,
+} from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { api, ErreurApi, messageErreur } from "./api";
 import { cheminExportKpi, cheminSerieKpi } from "./kpi-chemins";
@@ -34,11 +39,12 @@ export * from "./kpi-droits";
 /** KPI du tableau de bord regroupés par perspective, dans l'ordre du tableau de bord prospectif. */
 export function kpisParPerspective(
   kpis: readonly KpiTableau[],
+  langue: Langue = "fr",
 ): { perspective: PerspectiveKpi | null; libelle: string; kpis: KpiTableau[] }[] {
   return [...PERSPECTIVES_KPI, null]
     .map((perspective) => ({
       perspective,
-      libelle: libellePerspective(perspective),
+      libelle: libellePerspective(perspective, langue),
       kpis: kpis.filter((k) => (k.perspective ?? null) === perspective),
     }))
     .filter((g) => g.kpis.length > 0);
@@ -53,17 +59,24 @@ export interface EtatLigneMesure {
  * État d'une ligne de l'historique (ajout seul) : active, corrigée, annulée ou ligne
  * d'annulation. `lignes` sert à retrouver la ligne qui l'a remplacée quand elle est chargée.
  */
-export function etatLigneMesure(m: MesureKpi, lignes: readonly MesureKpi[]): EtatLigneMesure {
-  if (m.annulation) return { libelle: "Annulation", tonalite: "neutre" };
+export function etatLigneMesure(
+  m: MesureKpi,
+  lignes: readonly MesureKpi[],
+  langue: Langue = "fr",
+): EtatLigneMesure {
+  const t = creerTraduire(langue);
+  if (m.annulation) return { libelle: t("Annulation", "Cancellation"), tonalite: "neutre" };
   if (m.active) {
     return m.remplace_id
-      ? { libelle: "Active (correction)", tonalite: "succes" }
-      : { libelle: "Active", tonalite: "succes" };
+      ? { libelle: t("Active (correction)", "Active (correction)"), tonalite: "succes" }
+      : { libelle: t("Active", "Active"), tonalite: "succes" };
   }
   const remplacante = lignes.find((l) => l.remplace_id === m.id);
-  if (remplacante?.annulation) return { libelle: "Annulée", tonalite: "attention" };
-  if (remplacante) return { libelle: "Corrigée", tonalite: "attention" };
-  return { libelle: "Corrigée ou annulée", tonalite: "attention" };
+  if (remplacante?.annulation) {
+    return { libelle: t("Annulée", "Cancelled"), tonalite: "attention" };
+  }
+  if (remplacante) return { libelle: t("Corrigée", "Corrected"), tonalite: "attention" };
+  return { libelle: t("Corrigée ou annulée", "Corrected or cancelled"), tonalite: "attention" };
 }
 
 /**
@@ -105,31 +118,55 @@ export const MESSAGES_KPI: Record<string, string> = {
     "Choix refusé : un contributeur doit être un dirigeant ou un contributeur du portail de ce client.",
 };
 
+export const MESSAGES_KPI_EN: Record<string, string> = {
+  KPI_DEBUT_SUIVI_TROP_ANCIEN:
+    "A KPI's tracking starts at most 10 years before its creation (the date is moved back to the first day of its period): choose a more recent tracking start.",
+  KPI_TROP_DE_CORRECTIONS: `This measurement has already been corrected ${MAX_CORRECTIONS_PAR_MESURE} times, the maximum allowed: cancel it (with a reason), then enter the value again for this date.`,
+  KPI_MESURE_EN_DOUBLE:
+    "An active measurement already exists for this date: correct it from the history instead of entering a second one.",
+  KPI_HORS_PERIODE:
+    "The measurement date must fall between the tracking start and today (or the tracking end if it has passed).",
+  KPI_INACTIF: "This KPI is disabled: reactivate it before entering measurements.",
+  KPI_INCOHERENT:
+    "Choice refused: a contributor must be an executive or a contributor of this client's portal.",
+};
+
 const MESSAGE_INTROUVABLE_KPI =
   "Ce KPI ou cette mesure n'existe plus ou ne vous est plus accessible : rechargez la page.";
+const MESSAGE_INTROUVABLE_KPI_EN =
+  "This KPI or measurement no longer exists or is no longer accessible to you: reload the page.";
 
-/** Message affichable (français) pour une erreur des écrans KPI. */
-export function messageKpi(e: unknown): string {
+/** Message affichable (français par défaut) pour une erreur des écrans KPI. */
+export function messageKpi(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const specifique = MESSAGES_KPI[e.code];
+    const specifique = (langue === "en" ? MESSAGES_KPI_EN : MESSAGES_KPI)[e.code];
     if (specifique) return specifique;
     if (CODES_MESSAGE_API.has(e.code)) return e.message;
-    if (e.statut === 404) return MESSAGE_INTROUVABLE_KPI;
+    if (e.statut === 404) {
+      return langue === "en" ? MESSAGE_INTROUVABLE_KPI_EN : MESSAGE_INTROUVABLE_KPI;
+    }
     // Conflits explicites de l'API : déjà corrigée ou annulée, mission clôturée, plafond de KPI.
     if (e.statut === 409) return e.message;
     // Règles métier refusées par l'API (propriétaire, cible avant le suivi, invariant du
     // moteur…) : message français. « Données invalides. » (validation) reste générique.
     if (e.statut === 400 && e.message !== "Données invalides.") return e.message;
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }
 
 /** Refus d'annuler une mesure saisie depuis le portail (403). */
-export function messageAnnulationKpi(e: unknown, origine: MesureKpi["origine"]): string {
+export function messageAnnulationKpi(
+  e: unknown,
+  origine: MesureKpi["origine"],
+  langue: Langue = "fr",
+): string {
   if (e instanceof ErreurApi && e.statut === 403 && origine === "portail") {
-    return "Seul un responsable de la mission (directeur ou chef, avec la gestion des KPI) peut annuler une mesure saisie depuis le portail client.";
+    return creerTraduire(langue)(
+      "Seul un responsable de la mission (directeur ou chef, avec la gestion des KPI) peut annuler une mesure saisie depuis le portail client.",
+      "Only an engagement lead (director or manager, with KPI management) can cancel a measurement entered from the client portal.",
+    );
   }
-  return messageKpi(e);
+  return messageKpi(e, langue);
 }
 
 /** Après ce refus, l'écran est probablement périmé : rafraîchir les données. */

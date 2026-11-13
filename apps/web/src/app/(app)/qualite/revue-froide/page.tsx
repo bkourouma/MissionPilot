@@ -9,6 +9,7 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDate } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import {
   cheminCampagnes,
   droitsQualiteFroide,
@@ -32,7 +33,10 @@ import {
   exigerAccesFroide,
 } from "../../../../lib/qualite-froide-serveur";
 
-export const metadata: Metadata = { title: "Revue à froid" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Revue à froid", "Cold review") };
+}
 
 const CURSEUR = /^[A-Za-z0-9_-]{1,500}$/;
 
@@ -47,6 +51,8 @@ export default async function PageRevueFroide({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await exigerAccesFroide();
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const droits = droitsQualiteFroide(session.utilisateur.roles);
   const brut = (await searchParams).curseur;
   const curseur = typeof brut === "string" && CURSEUR.test(brut) ? brut : "";
@@ -60,12 +66,15 @@ export default async function PageRevueFroide({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Revue à froid"
-        soustitre="Un échantillon de missions clôturées est relu a posteriori par un relecteur indépendant, qui note huit critères et consigne ses constats ; l'associé en tire un plan d'amélioration."
-        retour={{ href: "/qualite", libelle: "Qualité" }}
+        titre={t("Revue à froid", "Cold review")}
+        soustitre={t(
+          "Un échantillon de missions clôturées est relu a posteriori par un relecteur indépendant, qui note huit critères et consigne ses constats ; l'associé en tire un plan d'amélioration.",
+          "A sample of closed engagements is reviewed after the fact by an independent reviewer, who scores eight criteria and records findings; the partner derives an improvement plan from them.",
+        )}
+        retour={{ href: "/qualite", libelle: t("Qualité", "Quality") }}
         actions={
           <Link href={HREF_MES_ACTIONS} className="mp-lien-ligne">
-            Mes actions d&apos;amélioration
+            {t("Mes actions d'amélioration", "My improvement actions")}
           </Link>
         }
       />
@@ -73,19 +82,31 @@ export default async function PageRevueFroide({
       {droits.relire ? (
         <section aria-labelledby="titre-mes-revues" className="mp-froide__pile">
           <h2 id="titre-mes-revues" className="mp-section__titre">
-            Mes revues
+            {t("Mes revues", "My reviews")}
           </h2>
           {!revues || !revues.ok ? (
             <EtatErreur
-              titre="Vos revues n'ont pas pu être chargées."
-              message={revues && !revues.ok ? revues.message : "Réponse indisponible."}
+              titre={t(
+                "Vos revues n'ont pas pu être chargées.",
+                "Your reviews could not be loaded.",
+              )}
+              message={
+                revues && !revues.ok
+                  ? revues.message
+                  : t("Réponse indisponible.", "Response unavailable.")
+              }
               hrefReessayer={HREF_REVUE_FROIDE}
             />
           ) : revues.donnees.elements.length === 0 ? (
-            <EtatVide titre="Aucune revue ne vous est affectée." icone="signature">
+            <EtatVide
+              titre={t("Aucune revue ne vous est affectée.", "No review is assigned to you.")}
+              icone="signature"
+            >
               <p>
-                Lorsqu&apos;un associé vous désignera relecteur indépendant d&apos;une mission
-                clôturée, elle apparaîtra ici.
+                {t(
+                  "Lorsqu'un associé vous désignera relecteur indépendant d'une mission clôturée, elle apparaîtra ici.",
+                  "When a partner appoints you as independent reviewer of a closed engagement, it will appear here.",
+                )}
               </p>
             </EtatVide>
           ) : (
@@ -97,20 +118,30 @@ export default async function PageRevueFroide({
                       {r.mission_intitule}
                     </Link>
                     <span className="mp-texte-doux mp-texte-petit">
-                      {r.client_nom} · campagne {r.campagne_intitule}
+                      {r.client_nom} · {t("campagne", "campaign")} {r.campagne_intitule}
                     </span>
                     <span className="mp-texte-doux mp-texte-petit">
-                      {texteProgression(r.criteres_evalues, r.criteres_total, "critères évalués")}
-                      {r.terminee_le ? ` · terminée le ${formaterDate(r.terminee_le)}` : ""}
-                      {r.conclusion ? ` · ${formaterScore(r.score)}` : ""}
+                      {texteProgression(
+                        r.criteres_evalues,
+                        r.criteres_total,
+                        t("critères évalués", "criteria assessed"),
+                        langue,
+                      )}
+                      {r.terminee_le
+                        ? t(
+                            ` · terminée le ${formaterDate(r.terminee_le, "UTC", langue)}`,
+                            ` · completed on ${formaterDate(r.terminee_le, "UTC", langue)}`,
+                          )
+                        : ""}
+                      {r.conclusion ? ` · ${formaterScore(r.score, langue)}` : ""}
                     </span>
                   </div>
                   <BadgeStatut tonalite={tonaliteStatutEchantillon(r.statut)}>
-                    {libelleStatutEchantillon(r.statut)}
+                    {libelleStatutEchantillon(r.statut, langue)}
                   </BadgeStatut>
                   {r.conclusion ? (
                     <BadgeStatut tonalite={tonaliteConclusion(r.conclusion)}>
-                      {libelleConclusion(r.conclusion)}
+                      {libelleConclusion(r.conclusion, langue)}
                     </BadgeStatut>
                   ) : null}
                 </li>
@@ -119,7 +150,10 @@ export default async function PageRevueFroide({
           )}
           {revues && revues.ok && revues.donnees.tronquee ? (
             <p className="mp-texte-doux mp-texte-petit">
-              La liste est partielle : seules les revues les plus récentes sont affichées.
+              {t(
+                "La liste est partielle : seules les revues les plus récentes sont affichées.",
+                "The list is partial: only the most recent reviews are shown.",
+              )}
             </p>
           ) : null}
         </section>
@@ -127,26 +161,42 @@ export default async function PageRevueFroide({
 
       {droits.gerer ? (
         <>
-          <Carte titre="Tirer un échantillon">
+          <Carte titre={t("Tirer un échantillon", "Draw a sample")}>
             <FroideFormulaireTirage types={types} directeurs={directeurs} />
           </Carte>
 
           <section aria-labelledby="titre-campagnes" className="mp-froide__pile">
             <h2 id="titre-campagnes" className="mp-section__titre">
-              Campagnes de revue
+              {t("Campagnes de revue", "Review campaigns")}
             </h2>
             {!campagnes || !campagnes.ok ? (
               <EtatErreur
-                titre="Les campagnes n'ont pas pu être chargées."
-                message={campagnes && !campagnes.ok ? campagnes.message : "Réponse indisponible."}
+                titre={t(
+                  "Les campagnes n'ont pas pu être chargées.",
+                  "The campaigns could not be loaded.",
+                )}
+                message={
+                  campagnes && !campagnes.ok
+                    ? campagnes.message
+                    : t("Réponse indisponible.", "Response unavailable.")
+                }
                 hrefReessayer={HREF_REVUE_FROIDE}
               />
             ) : campagnes.donnees.elements.length === 0 ? (
               <EtatVide
-                titre={curseur ? "Aucune autre campagne." : "Aucune campagne de revue."}
+                titre={
+                  curseur
+                    ? t("Aucune autre campagne.", "No more campaigns.")
+                    : t("Aucune campagne de revue.", "No review campaign.")
+                }
                 icone="signature"
               >
-                <p>Tirez un premier échantillon ci-dessus pour ouvrir une campagne.</p>
+                <p>
+                  {t(
+                    "Tirez un premier échantillon ci-dessus pour ouvrir une campagne.",
+                    "Draw a first sample above to open a campaign.",
+                  )}
+                </p>
               </EtatVide>
             ) : (
               <ul className="mp-liste-lignes">
@@ -157,15 +207,23 @@ export default async function PageRevueFroide({
                         {c.intitule}
                       </Link>
                       <span className="mp-texte-doux mp-texte-petit">
-                        Créée le {formaterDate(c.cree_le)} ·{" "}
-                        {texteProgression(c.terminees, c.taille_obtenue, "revues terminées")}
+                        {t("Créée le", "Created on")} {formaterDate(c.cree_le, "UTC", langue)} ·{" "}
+                        {texteProgression(
+                          c.terminees,
+                          c.taille_obtenue,
+                          t("revues terminées", "reviews completed"),
+                          langue,
+                        )}
                         {c.taille_obtenue < c.taille_demandee
-                          ? ` · ${c.taille_obtenue} mission(s) tirée(s) sur ${c.taille_demandee} demandée(s)`
+                          ? t(
+                              ` · ${c.taille_obtenue} mission(s) tirée(s) sur ${c.taille_demandee} demandée(s)`,
+                              ` · ${c.taille_obtenue} engagement(s) drawn out of ${c.taille_demandee} requested`,
+                            )
                           : ""}
                       </span>
                     </div>
                     <BadgeStatut tonalite={c.statut === "ouverte" ? "attention" : "neutre"}>
-                      {libelleStatutCampagne(c.statut)}
+                      {libelleStatutCampagne(c.statut, langue)}
                     </BadgeStatut>
                   </li>
                 ))}

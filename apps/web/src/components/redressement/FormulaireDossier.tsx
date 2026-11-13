@@ -7,7 +7,7 @@ import {
   cheminDossierRed,
   cheminStatutDossier,
   messageRedressement,
-  OPTIONS_SECTEURS,
+  optionsSecteurs,
 } from "../../lib/redressement";
 import {
   corpsCloture,
@@ -15,6 +15,7 @@ import {
   type ChampDossier,
   type ChampStatutDossier,
 } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -33,6 +34,8 @@ export function FormulaireDossier({
   intitule: string;
   secteur: RedSecteur;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampDossier>();
   const [intitule, setIntitule] = useState(intituleInitial);
   const [secteur, setSecteur] = useState<RedSecteur>(secteurInitial);
@@ -40,9 +43,12 @@ export function FormulaireDossier({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsDossierDepuisFormulaire({ intitule, secteur }),
+      corpsDossierDepuisFormulaire({ intitule, secteur }, langue),
       (charge) => api.patch<RedDossierVue>(cheminDossierRed(dossierId), charge),
-      { succes: "Dossier modifié.", messageSpecifique: messageRedressement },
+      {
+        succes: t("Dossier modifié.", "File updated."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
+      },
     );
   }
 
@@ -52,17 +58,17 @@ export function FormulaireDossier({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Modifier le dossier"
+      aria-label={t("Modifier le dossier", "Edit the file")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Modification refusée"
+        titreErreur={t("Modification refusée", "Edit refused")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Intitulé du dossier"
+          libelle={t("Intitulé du dossier", "File title")}
           required
           maxLength={200}
           autoComplete="off"
@@ -71,11 +77,14 @@ export function FormulaireDossier({
           erreur={f.erreurs.intitule}
         />
         <Select
-          libelle="Secteur d'activité"
+          libelle={t("Secteur d'activité", "Business sector")}
           value={secteur}
           onChange={(e) => setSecteur(e.target.value as RedSecteur)}
-          options={OPTIONS_SECTEURS}
-          aide="Un changement de secteur ne modifie jamais les scores déjà calculés."
+          options={optionsSecteurs(langue)}
+          aide={t(
+            "Un changement de secteur ne modifie jamais les scores déjà calculés.",
+            "Changing the sector never alters scores already computed.",
+          )}
         />
       </div>
       <div className="mp-actions-formulaire">
@@ -83,9 +92,9 @@ export function FormulaireDossier({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer
+          {t("Enregistrer", "Save")}
         </Bouton>
       </div>
     </form>
@@ -108,15 +117,20 @@ export function ActionsStatutDossier({
   peutEcrire: boolean;
   peutValider: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampStatutDossier>();
   const [motif, setMotif] = useState("");
 
   async function clore(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsCloture(motif),
+      corpsCloture(motif, langue),
       (charge) => api.post<RedDossierVue>(cheminStatutDossier(dossierId), charge),
-      { succes: "Dossier clos.", messageSpecifique: messageRedressement },
+      {
+        succes: t("Dossier clos.", "File closed."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
+      },
     );
   }
 
@@ -125,14 +139,14 @@ export function ActionsStatutDossier({
     <div className="mp-red-section">
       {peutEcrire && statut === "plan_valide" ? (
         <BoutonActionRed
-          libelle="Passer en mise en œuvre"
+          libelle={t("Passer en mise en œuvre", "Move to implementation")}
           chemin={cheminStatutDossier(dossierId)}
           corps={{ statut: "mise_en_oeuvre" }}
-          succes="Le dossier est en mise en œuvre."
+          succes={t("Le dossier est en mise en œuvre.", "The file is now in implementation.")}
           variante="primaire"
           confirmation={{
-            question: "Passer le dossier en mise en œuvre ?",
-            libelleConfirmation: "Oui, passer en mise en œuvre",
+            question: t("Passer le dossier en mise en œuvre ?", "Move the file to implementation?"),
+            libelleConfirmation: t("Oui, passer en mise en œuvre", "Yes, move to implementation"),
           }}
         />
       ) : null}
@@ -142,31 +156,34 @@ export function ActionsStatutDossier({
           className="mp-formulaire"
           noValidate
           onSubmit={clore}
-          aria-label="Clore le dossier"
+          aria-label={t("Clore le dossier", "Close the file")}
         >
           <RetourFormulaire
             erreur={f.erreurGlobale}
             succes={f.succes}
             refAlerte={f.refAlerte}
-            titreErreur="Clôture impossible"
+            titreErreur={t("Clôture impossible", "Could not close")}
           />
           <ZoneTexte
-            libelle="Motif de clôture"
+            libelle={t("Motif de clôture", "Closing reason")}
             required
             maxLength={1000}
             value={motif}
             onChange={(e) => setMotif(e.target.value)}
             erreur={f.erreurs.motif}
-            aide="Au moins 10 caractères. Un dossier clos ne reçoit plus d'écriture et ne se rouvre pas."
+            aide={t(
+              "Au moins 10 caractères. Un dossier clos ne reçoit plus d'écriture et ne se rouvre pas.",
+              "At least 10 characters. A closed file accepts no more entries and cannot be reopened.",
+            )}
           />
           <div className="mp-actions-formulaire">
             <Bouton
               type="submit"
               variante="danger"
               chargement={f.enCours}
-              texteChargement="Clôture…"
+              texteChargement={t("Clôture…", "Closing…")}
             >
-              Clore le dossier
+              {t("Clore le dossier", "Close the file")}
             </Bouton>
           </div>
         </form>

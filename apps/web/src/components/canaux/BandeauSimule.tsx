@@ -1,6 +1,9 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useLangue } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
-import { BANDEAU_SIMULE } from "../../lib/canaux";
+import { textesCanaux } from "../../lib/canaux";
 import "./canaux.css";
 
 export interface BandeauSimuleProps {
@@ -13,12 +16,14 @@ export interface BandeauSimuleProps {
  * réellement envoyé, aucune clé ni compte externe n'est utilisé (règle ferme du lot).
  */
 export function BandeauSimule({ children }: BandeauSimuleProps) {
+  const langue = useLangue();
   return (
-    <Alerte tonalite="info" annonce="aucune" titre={BANDEAU_SIMULE}>
+    <Alerte tonalite="info" annonce="aucune" titre={textesCanaux(langue).bandeauSimule}>
       {children ?? (
         <p>
-          Les canaux sont des simulateurs : ni WhatsApp, ni SMS, ni opérateur réel n&apos;est
-          contacté, et seuls des numéros de test sont acceptés.
+          {langue === "en"
+            ? "Channels are simulators: neither WhatsApp, SMS nor any real operator is contacted, and only test numbers are accepted."
+            : "Les canaux sont des simulateurs : ni WhatsApp, ni SMS, ni opérateur réel n'est contacté, et seuls des numéros de test sont acceptés."}
         </p>
       )}
     </Alerte>

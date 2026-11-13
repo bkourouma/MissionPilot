@@ -6,12 +6,13 @@ import { Bouton } from "../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Champ } from "../../../../components/ui/Champ";
 import { Select } from "../../../../components/ui/Select";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { messageErreur } from "../../../../lib/api";
 import {
   messageExport,
   nomFichierExport,
-  OPTIONS_FORMATS_DATE,
-  OPTIONS_SEPARATEURS,
+  optionsFormatsDate,
+  optionsSeparateurs,
   telechargerExport,
   validerExport,
   type ChampExport,
@@ -25,6 +26,8 @@ import {
  * et le format partent dans l'URL de la requête, jamais une donnée comptable.
  */
 export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDefaut: string }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieExport>({
     du: duDefaut,
     au: auDefaut,
@@ -47,7 +50,7 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
     ev.preventDefault();
     setErreur(null);
     setSucces(null);
-    const v = validerExport(s);
+    const v = validerExport(s, langue);
     if (!v.ok) {
       setErreurs(v.erreurs);
       return;
@@ -65,10 +68,13 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
       lien.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setSucces(
-        "Export téléchargé. Le serveur a vérifié que chaque pièce est équilibrée (débit = crédit).",
+        t(
+          "Export téléchargé. Le serveur a vérifié que chaque pièce est équilibrée (débit = crédit).",
+          "Export downloaded. The server checked that every entry is balanced (debit = credit).",
+        ),
       );
     } catch (e) {
-      setErreur(messageExport(e) ?? messageErreur(e));
+      setErreur(messageExport(e, langue) ?? messageErreur(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -79,17 +85,17 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
       className="mp-formulaire"
       noValidate
       onSubmit={exporter}
-      aria-label="Exporter les écritures"
+      aria-label={t("Exporter les écritures", "Export the entries")}
     >
       <RetourFormulaire
         erreur={erreur}
         succes={succes}
         refAlerte={refAlerte}
-        titreErreur="Export refusé"
+        titreErreur={t("Export refusé", "Export refused")}
       />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Du"
+          libelle={t("Du", "From")}
           type="date"
           required
           value={s.du}
@@ -97,24 +103,24 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
           erreur={erreurs.periode}
         />
         <Champ
-          libelle="Au"
+          libelle={t("Au", "To")}
           type="date"
           required
           value={s.au}
-          aide="Deux ans au plus."
+          aide={t("Deux ans au plus.", "Two years at most.")}
           onChange={(e) => setS((x) => ({ ...x, au: e.target.value }))}
         />
         <Select
-          libelle="Séparateur de colonnes"
-          options={OPTIONS_SEPARATEURS}
+          libelle={t("Séparateur de colonnes", "Column separator")}
+          options={optionsSeparateurs(langue)}
           value={s.separateur}
           onChange={(e) => setS((x) => ({ ...x, separateur: e.target.value as Separateur }))}
         />
         <Select
-          libelle="Séparateur décimal"
+          libelle={t("Séparateur décimal", "Decimal separator")}
           options={[
-            { valeur: "virgule", libelle: "Virgule (1 500,50)" },
-            { valeur: "point", libelle: "Point (1500.50)" },
+            { valeur: "virgule", libelle: t("Virgule (1 500,50)", "Comma (1 500,50)") },
+            { valeur: "point", libelle: t("Point (1500.50)", "Period (1500.50)") },
           ]}
           value={s.decimale}
           onChange={(e) =>
@@ -123,15 +129,18 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
           erreur={erreurs.decimale}
         />
         <Select
-          libelle="Format des dates"
-          options={OPTIONS_FORMATS_DATE}
+          libelle={t("Format des dates", "Date format")}
+          options={optionsFormatsDate(langue)}
           value={s.format_date}
           onChange={(e) => setS((x) => ({ ...x, format_date: e.target.value as FormatDate }))}
         />
       </div>
       <CaseACocher
-        libelle="Compatible Excel (UTF-8 avec BOM)"
-        aide="Les accents s'affichent correctement à l'ouverture directe dans Excel."
+        libelle={t("Compatible Excel (UTF-8 avec BOM)", "Excel-compatible (UTF-8 with BOM)")}
+        aide={t(
+          "Les accents s'affichent correctement à l'ouverture directe dans Excel.",
+          "Accented characters display correctly when opened directly in Excel.",
+        )}
         checked={s.bom}
         onChange={(e) => setS((x) => ({ ...x, bom: e.target.checked }))}
       />
@@ -140,9 +149,9 @@ export function ExportComptable({ duDefaut, auDefaut }: { duDefaut: string; auDe
           type="submit"
           icone="telechargement"
           chargement={enCours}
-          texteChargement="Préparation…"
+          texteChargement={t("Préparation…", "Preparing…")}
         >
-          Télécharger le fichier CSV
+          {t("Télécharger le fichier CSV", "Download the CSV file")}
         </Bouton>
       </div>
     </form>

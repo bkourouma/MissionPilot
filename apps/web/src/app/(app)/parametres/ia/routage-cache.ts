@@ -1,8 +1,11 @@
 import {
   CRITERE_ROUTAGE_LIBELLES,
+  creerTraduire,
   CRITERES_ROUTAGE_IA,
+  LOCALES_INTL,
   TACHES_IA,
   type CritereRoutageIa,
+  type Langue,
   type TacheIa,
 } from "@missionpilot/shared";
 import type { RouteTacheIa } from "../../../../lib/ia";
@@ -68,32 +71,57 @@ export function lireEtatCache(parametres: unknown): EtatCacheIa {
   };
 }
 
-export const libelleCritere = (c: CritereRoutageIa) => CRITERE_ROUTAGE_LIBELLES[c] ?? c;
+const CRITERE_ROUTAGE_LIBELLES_EN: Record<CritereRoutageIa, string> = {
+  qualite: "Quality",
+  cout: "Cost",
+  latence: "Speed",
+};
+
+export const libelleCritere = (c: CritereRoutageIa, langue: Langue = "fr") =>
+  (langue === "en" ? CRITERE_ROUTAGE_LIBELLES_EN : CRITERE_ROUTAGE_LIBELLES)[c] ?? c;
 
 /** Plafond de jetons de sortie lisible (« 4 000 jetons »), « — » sans sortie de texte. */
-export function libellePlafondJetons(n: number | null): string {
+export function libellePlafondJetons(n: number | null, langue: Langue = "fr"): string {
   if (n === null) return "—";
-  return `${new Intl.NumberFormat("fr-FR").format(n).replace(/\u202f/g, "\u00a0")}\u00a0jetons`;
+  return `${new Intl.NumberFormat(LOCALES_INTL[langue]).format(n).replace(/\u202f/g, "\u00a0")}\u00a0${creerTraduire(langue)("jetons", "tokens")}`;
 }
 
 /** Charge du PUT /api/ia/parametres pour (dés)activer le cache. */
 export const chargeCache = (actif: boolean) => ({ cache_actif: actif });
 
 /** Message de succès après le réglage du cache. */
-export const messageCache = (actif: boolean) =>
+export const messageCache = (actif: boolean, langue: Langue = "fr") =>
   actif
-    ? "Cache des réponses activé : une génération strictement identique pourra être reprise sans nouvel appel facturé."
-    : "Cache des réponses désactivé : les réponses gardées du cabinet ont été supprimées.";
+    ? creerTraduire(langue)(
+        "Cache des réponses activé : une génération strictement identique pourra être reprise sans nouvel appel facturé.",
+        "Response cache enabled: a strictly identical generation can be reused without a new billed call.",
+      )
+    : creerTraduire(langue)(
+        "Cache des réponses désactivé : les réponses gardées du cabinet ont été supprimées.",
+        "Response cache disabled: the firm's stored responses have been deleted.",
+      );
 
 /** Explication affichée à côté de l'interrupteur du cache. */
-export function explicationCache(e: EtatCacheIa): string {
-  const duree = `${e.dureeHeures}\u00a0heure${e.dureeHeures > 1 ? "s" : ""}`;
-  const commun =
+export function explicationCache(e: EtatCacheIa, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  const duree = t(
+    `${e.dureeHeures}\u00a0heure${e.dureeHeures > 1 ? "s" : ""}`,
+    `${e.dureeHeures}\u00a0hour${e.dureeHeures > 1 ? "s" : ""}`,
+  );
+  const commun = t(
     `Une génération strictement identique (même prompt et même version, même modèle, mêmes données masquées) ` +
-    `peut reprendre la réponse obtenue dans les ${duree} précédentes, sans nouvel appel facturé. ` +
-    "Le contenu repris reste un brouillon IA à valider ; les plafonds, la vérification des chiffres et les droits s'appliquent comme d'habitude. " +
-    "Jamais de cache pour le copilote, les entretiens, les contenus de clients ni une donnée identifiante restée en clair.";
+      `peut reprendre la réponse obtenue dans les ${duree} précédentes, sans nouvel appel facturé. ` +
+      "Le contenu repris reste un brouillon IA à valider ; les plafonds, la vérification des chiffres et les droits s'appliquent comme d'habitude. " +
+      "Jamais de cache pour le copilote, les entretiens, les contenus de clients ni une donnée identifiante restée en clair.",
+    `A strictly identical generation (same prompt and version, same model, same masked data) ` +
+      `can reuse the response obtained in the previous ${duree}, without a new billed call. ` +
+      "The reused content remains an AI draft to approve; ceilings, number checks and permissions apply as usual. " +
+      "No cache is ever used for the copilot, interviews, client content or identifying data left in clear.",
+  );
   return e.actif
-    ? `${commun} Le désactiver supprime aussitôt les réponses gardées du cabinet.`
-    : `Désactivé par défaut. ${commun}`;
+    ? t(
+        `${commun} Le désactiver supprime aussitôt les réponses gardées du cabinet.`,
+        `${commun} Disabling it immediately deletes the firm's stored responses.`,
+      )
+    : t(`Désactivé par défaut. ${commun}`, `Disabled by default. ${commun}`);
 }

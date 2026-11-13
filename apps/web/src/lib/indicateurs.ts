@@ -41,7 +41,10 @@ export interface AlerteDerive {
  * Missions dont l'atterrissage (servi par l'API) dépasse le budget, les plus fortes dérives
  * d'abord. Lecture d'une réponse de niveau « mission ».
  */
-export function alertesDerive(elements: readonly ElementMission[]): AlerteDerive[] {
+export function alertesDerive(
+  elements: readonly ElementMission[],
+  langue: "fr" | "en" = "fr",
+): AlerteDerive[] {
   return elements
     .filter((m) => m.ecart_terminaison.jours > 0)
     .map((m) => ({
@@ -51,7 +54,7 @@ export function alertesDerive(elements: readonly ElementMission[]): AlerteDerive
       ecart_relatif: m.ecart_terminaison.relatif_jours,
       jours_budget: m.jours_budget,
       jours_atterrissage: m.jours_atterrissage,
-      statut: statutEcart(m.ecart_terminaison.relatif_jours, m.ecart_terminaison.jours),
+      statut: statutEcart(m.ecart_terminaison.relatif_jours, m.ecart_terminaison.jours, langue),
     }))
     .sort(
       (a, b) =>
@@ -72,10 +75,26 @@ export const NIVEAU_LIBELLES: Record<NiveauIndicateurs, string> = {
   client: "Client",
 };
 
+export const NIVEAU_LIBELLES_EN: Record<NiveauIndicateurs, string> = {
+  cabinet: "Firm",
+  associe: "Partner or engagement director",
+  grade: "Grade",
+  collaborateur: "Consultant",
+  mission: "Engagement",
+  client: "Client",
+};
+
 export const OPTIONS_NIVEAUX = NIVEAUX_INDICATEURS.map((n) => ({
   valeur: n,
   libelle: NIVEAU_LIBELLES[n],
 }));
+
+/** Niveaux de lecture proposés, dans la langue demandée. */
+export const optionsNiveaux = (langue: "fr" | "en" = "fr") =>
+  NIVEAUX_INDICATEURS.map((n) => ({
+    valeur: n,
+    libelle: (langue === "en" ? NIVEAU_LIBELLES_EN : NIVEAU_LIBELLES)[n],
+  }));
 
 export interface FiltresIndicateurs extends Periode {
   niveau: NiveauIndicateurs;

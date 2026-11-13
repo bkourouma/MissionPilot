@@ -7,11 +7,13 @@ import { libelleSecteur } from "../../lib/redressement";
 import {
   cheminActivationChecklist,
   MENTION_CHECKLIST_A_VALIDER,
+  MENTION_CHECKLIST_A_VALIDER_EN,
   messageDiagnostic,
 } from "../../lib/redressement-diagnostic";
 import { corpsActivation } from "../../lib/redressement-diagnostic-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
 
@@ -35,21 +37,23 @@ export function ChecklistActivation({
   departs: OptionActivation[];
   modeles: OptionActivation[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"choix">();
   const [choix, setChoix] = useState("");
-  const libelle = (o: OptionActivation) => `${o.intitule} (${libelleSecteur(o.secteur)})`;
+  const libelle = (o: OptionActivation) => `${o.intitule} (${libelleSecteur(o.secteur, langue)})`;
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const c = corpsActivation(choix);
+    const c = corpsActivation(choix, langue);
     await f.envoyer(
       c.ok
         ? { ok: true as const, charge: c.charge }
         : { ok: false as const, erreurs: { choix: c.erreur } },
       (charge) => api.post(cheminActivationChecklist(dossierId), charge),
       {
-        succes: "Check-list activée.",
-        messageSpecifique: messageDiagnostic,
+        succes: t("Check-list activée.", "Checklist activated."),
+        messageSpecifique: (e) => messageDiagnostic(e, langue),
         apres: () => setChoix(""),
       },
     );
@@ -61,26 +65,33 @@ export function ChecklistActivation({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Activer une check-list"
+      aria-label={t("Activer une check-list", "Activate a checklist")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Activation impossible"
+        titreErreur={t("Activation impossible", "Activation not possible")}
       />
       <Select
-        libelle="Check-list à activer"
-        invite="Choisir une check-list…"
+        libelle={t("Check-list à activer", "Checklist to activate")}
+        invite={t("Choisir une check-list…", "Choose a checklist…")}
         value={choix}
         onChange={(e) => setChoix(e.target.value)}
         erreur={f.erreurs.choix}
-        aide={choix.startsWith("depart:") ? MENTION_CHECKLIST_A_VALIDER : undefined}
+        aide={
+          choix.startsWith("depart:")
+            ? t(MENTION_CHECKLIST_A_VALIDER, MENTION_CHECKLIST_A_VALIDER_EN)
+            : undefined
+        }
         options={[
-          ...departs.map((o) => ({ valeur: o.valeur, libelle: `Départ : ${libelle(o)}` })),
+          ...departs.map((o) => ({
+            valeur: o.valeur,
+            libelle: `${t("Départ", "Starter")}${t(" : ", ": ")}${libelle(o)}`,
+          })),
           ...modeles.map((o) => ({
             valeur: o.valeur,
-            libelle: `Modèle du cabinet : ${libelle(o)}`,
+            libelle: `${t("Modèle du cabinet", "Firm template")}${t(" : ", ": ")}${libelle(o)}`,
           })),
         ]}
       />
@@ -89,9 +100,9 @@ export function ChecklistActivation({
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Activation…"
+          texteChargement={t("Activation…", "Activating…")}
         >
-          Activer une check-list
+          {t("Activer une check-list", "Activate a checklist")}
         </Bouton>
       </div>
     </form>

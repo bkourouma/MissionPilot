@@ -5,12 +5,13 @@ import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../components/ui/Onglets";
-import { MODE_LIBELLES } from "../../../../lib/catalogue";
+import { libelleMode } from "../../../../lib/catalogue";
 import { libelleDevise } from "../../../../lib/format";
 import { hrefMissionMethode } from "../../../../lib/methodes";
 import { hrefQualiteMission } from "../../../../lib/qualite";
 import { estIdentifiant } from "../../../../lib/identifiant";
-import { STATUT_MISSION } from "../../../../lib/missions";
+import { obtenirT, obtenirLangue } from "../../../../lib/i18n/serveur";
+import { libelleStatutMission, STATUT_MISSION } from "../../../../lib/missions";
 import { ongletsMissionCanaux } from "../../../../lib/navigation";
 import { chargerMission } from "../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../lib/session";
@@ -32,6 +33,8 @@ export default async function LayoutMission({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("mission.lire");
   const r = await chargerMission(id);
@@ -39,9 +42,12 @@ export default async function LayoutMission({
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Mission" retour={{ href: "/missions", libelle: "Missions" }} />
+        <EnteteDePage
+          titre={t("Mission", "Engagement")}
+          retour={{ href: "/missions", libelle: t("Missions", "Engagements") }}
+        />
         <EtatErreur
-          titre="La mission n'a pas pu être chargée."
+          titre={t("La mission n'a pas pu être chargée.", "The engagement could not be loaded.")}
           message={r.message}
           hrefReessayer={`/missions/${id}`}
         />
@@ -52,24 +58,30 @@ export default async function LayoutMission({
   const statut = STATUT_MISSION[m.statut];
   const base = `/missions/${m.id}`;
   const pages = [
-    { id: "fiche", libelle: "Fiche", href: base },
-    { id: "decoupage", libelle: "Découpage", href: `${base}/decoupage` },
-    { id: "planning", libelle: "Planning", href: `${base}/planning` },
-    { id: "affectations", libelle: "Affectations", href: `${base}/affectations` },
+    { id: "fiche", libelle: t("Fiche", "Overview"), href: base },
+    { id: "decoupage", libelle: t("Découpage", "Work breakdown"), href: `${base}/decoupage` },
+    { id: "planning", libelle: t("Planning", "Schedule"), href: `${base}/planning` },
+    { id: "affectations", libelle: t("Affectations", "Assignments"), href: `${base}/affectations` },
     { id: "documents", libelle: "Documents", href: `${base}/documents` },
-    { id: "rapports", libelle: "Rapports", href: `${base}/rapports` },
+    { id: "rapports", libelle: t("Rapports", "Reports"), href: `${base}/rapports` },
     ...(aPermission(utilisateur.roles, "salle.lire")
-      ? [{ id: "salle", libelle: "Salle de mission", href: `${base}/salle` }]
+      ? [{ id: "salle", libelle: t("Salle de mission", "Engagement room"), href: `${base}/salle` }]
       : []),
     ...(aPermission(utilisateur.roles, "questionnaire.lire")
-      ? [{ id: "questionnaires", libelle: "Questionnaires", href: `${base}/questionnaires` }]
+      ? [
+          {
+            id: "questionnaires",
+            libelle: t("Questionnaires", "Questionnaires"),
+            href: `${base}/questionnaires`,
+          },
+        ]
       : []),
     ...(aPermission(utilisateur.roles, "notation.gerer") ||
     aPermission(utilisateur.roles, "notation.publier")
-      ? [{ id: "notation", libelle: "Notation", href: `${base}/notation` }]
+      ? [{ id: "notation", libelle: t("Notation", "Rating"), href: `${base}/notation` }]
       : []),
     ...(aPermission(utilisateur.roles, "plan.lire")
-      ? [{ id: "plan", libelle: "Plan stratégique", href: `${base}/plan` }]
+      ? [{ id: "plan", libelle: t("Plan stratégique", "Strategic plan"), href: `${base}/plan` }]
       : []),
     ...(aPermission(utilisateur.roles, "dd.lire")
       ? [{ id: "due-diligence", libelle: "Due diligence", href: `${base}/due-diligence` }]
@@ -78,45 +90,57 @@ export default async function LayoutMission({
       ? [{ id: "kpi", libelle: "KPI", href: `${base}/kpi` }]
       : []),
     ...(aPermission(utilisateur.roles, "avancement.lire")
-      ? [{ id: "avancement", libelle: "Avancement", href: `${base}/avancement` }]
+      ? [{ id: "avancement", libelle: t("Avancement", "Progress"), href: `${base}/avancement` }]
       : []),
     ...(aPermission(utilisateur.roles, "redressement.lire")
-      ? [{ id: "redressement", libelle: "Redressement", href: `${base}/redressement` }]
+      ? [
+          {
+            id: "redressement",
+            libelle: t("Redressement", "Turnaround"),
+            href: `${base}/redressement`,
+          },
+        ]
       : []),
     ...(aPermission(utilisateur.roles, "preuve.lire")
-      ? [{ id: "preuves", libelle: "Preuves", href: `${base}/preuves` }]
+      ? [{ id: "preuves", libelle: t("Preuves", "Evidence"), href: `${base}/preuves` }]
       : []),
-    ...ongletsMissionCanaux(utilisateur.roles, base),
+    ...ongletsMissionCanaux(utilisateur.roles, base, langue),
     ...(aPermission(utilisateur.roles, "standard.lire")
-      ? [{ id: "methode", libelle: "Méthode", href: hrefMissionMethode(m.id) }]
+      ? [{ id: "methode", libelle: t("Méthode", "Method"), href: hrefMissionMethode(m.id) }]
       : []),
-    { id: "qualite", libelle: "Qualité", href: hrefQualiteMission(m.id) },
+    { id: "qualite", libelle: t("Qualité", "Quality"), href: hrefQualiteMission(m.id) },
     ...(aPermission(utilisateur.roles, "budget.lire_jours")
       ? [
-          { id: "suivi", libelle: "Suivi", href: `${base}/suivi` },
+          { id: "suivi", libelle: t("Suivi", "Tracking"), href: `${base}/suivi` },
           { id: "budget", libelle: "Budget", href: `${base}/budget` },
         ]
       : []),
     ...(aPermission(utilisateur.roles, "debours.saisir")
-      ? [{ id: "debours", libelle: "Débours", href: `${base}/debours` }]
+      ? [{ id: "debours", libelle: t("Débours", "Expenses"), href: `${base}/debours` }]
       : []),
     ...(aPermission(utilisateur.roles, "facture.lire")
-      ? [{ id: "facturation", libelle: "Facturation", href: `${base}/facturation` }]
+      ? [{ id: "facturation", libelle: t("Facturation", "Billing"), href: `${base}/facturation` }]
       : []),
     ...(["en_cours", "a_cloturer", "cloturee"].includes(m.statut)
-      ? [{ id: "cloture", libelle: "Clôture", href: `${base}/cloture` }]
+      ? [{ id: "cloture", libelle: t("Clôture", "Close-out"), href: `${base}/cloture` }]
       : []),
-    ...(m.statut === "cloturee" ? [{ id: "bilan", libelle: "Bilan", href: `${base}/bilan` }] : []),
+    ...(m.statut === "cloturee"
+      ? [{ id: "bilan", libelle: t("Bilan", "Review"), href: `${base}/bilan` }]
+      : []),
   ];
   return (
     <div className="mp-page">
       <EnteteDePage
         titre={m.intitule}
-        retour={{ href: "/missions", libelle: "Missions" }}
-        soustitre={`${m.client_raison_sociale} · ${MODE_LIBELLES[m.mode_facturation]} · ${libelleDevise(m.devise)}`}
-        badges={<BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>}
+        retour={{ href: "/missions", libelle: t("Missions", "Engagements") }}
+        soustitre={`${m.client_raison_sociale} · ${libelleMode(m.mode_facturation, langue)} · ${libelleDevise(m.devise)}`}
+        badges={
+          <BadgeStatut tonalite={statut.tonalite}>
+            {libelleStatutMission(m.statut, langue)}
+          </BadgeStatut>
+        }
       />
-      <Onglets libelle="Sections de la mission" pages={pages} />
+      <Onglets libelle={t("Sections de la mission", "Engagement sections")} pages={pages} />
       {children}
     </div>
   );

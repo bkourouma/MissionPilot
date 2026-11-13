@@ -1,5 +1,5 @@
 /** Sous-module de `questionnaires.ts` : droits, actions d'un envoi et répondants. */
-import { aPermission, type RepondantEligible, type Role } from "@missionpilot/shared";
+import { aPermission, type Langue, type RepondantEligible, type Role } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import {
   type RepondantEnvoi,
@@ -37,6 +37,7 @@ export interface ActionsEnvoi {
 export function actionsEnvoi(
   envoi: Pick<EnvoiDetail, "statut">,
   c: ContexteQuestionnaires,
+  langue: Langue = "fr",
 ): ActionsEnvoi {
   const ecrire = peutEcrireEnvois(c);
   const a = {
@@ -45,6 +46,16 @@ export function actionsEnvoi(
     clore: ecrire && envoi.statut === "envoye",
     modifierReglages: ecrire && envoi.statut !== "clos",
   };
+  if (langue === "en") {
+    const raisonEn = c.missionCloturee
+      ? "Engagement closed: questionnaires remain viewable, but no sending, setting change or reminder is possible."
+      : !peutGererQuestionnaires(c.roles)
+        ? "Your role lets you view questionnaires, not send or remind them."
+        : envoi.statut === "clos"
+          ? "Questionnaire closed: no more entries or reminders."
+          : null;
+    return { ...a, raisonLectureSeule: raisonEn };
+  }
   const raisonLectureSeule = c.missionCloturee
     ? "Mission clôturée : les questionnaires restent consultables, plus aucun envoi, réglage ni relance n'est possible."
     : !peutGererQuestionnaires(c.roles)
@@ -88,9 +99,14 @@ export const ROLE_REPONDANT_LIBELLES: Record<(typeof ROLES_REPONDANTS)[number], 
 };
 
 /** « Dirigeant », « Contributeur », ou les deux. */
-export function rolesRepondant(c: { roles: readonly string[] }): string {
+export const ROLE_REPONDANT_LIBELLES_EN: Record<(typeof ROLES_REPONDANTS)[number], string> = {
+  client_dirigeant: "Executive",
+  client_contributeur: "Contributor",
+};
+
+export function rolesRepondant(c: { roles: readonly string[] }, langue: Langue = "fr"): string {
   return ROLES_REPONDANTS.filter((r) => c.roles.includes(r))
-    .map((r) => ROLE_REPONDANT_LIBELLES[r])
+    .map((r) => (langue === "en" ? ROLE_REPONDANT_LIBELLES_EN : ROLE_REPONDANT_LIBELLES)[r])
     .join(", ");
 }
 
@@ -98,7 +114,16 @@ export function rolesRepondant(c: { roles: readonly string[] }): string {
  * Échec du chargement des répondants désignables : 409 mission clôturée, 404 mission
  * invisible (uniforme), 403 rôle sans `questionnaire.gerer`.
  */
-export function messageRepondantsEligibles(e: unknown): string {
+export function messageRepondantsEligibles(e: unknown, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    if (!(e instanceof ErreurApi)) return "The list of respondents could not be loaded.";
+    if (e.statut === 409) return "Engagement closed: no more questionnaires can be sent.";
+    if (e.statut === 404) {
+      return "Engagement not found: it was removed, or you no longer have access to it.";
+    }
+    if (e.statut === 403) return "Your role does not allow preparing a questionnaire to be sent.";
+    return messageErreur(e);
+  }
   if (!(e instanceof ErreurApi)) return "La liste des répondants n'a pas pu être chargée.";
   if (e.statut === 409) {
     return "Mission clôturée : plus aucun envoi de questionnaire n'est possible.";
@@ -113,8 +138,17 @@ export function messageRepondantsEligibles(e: unknown): string {
 export const TITRE_AUCUN_REPONDANT =
   "Aucun répondant éligible : invitez d'abord des utilisateurs du portail du client.";
 
+export const TITRE_AUCUN_REPONDANT_EN = "No eligible respondent: first invite client portal users.";
+
 /** Explication de l'état vide, selon le droit d'inviter au portail (`portail.gerer`). */
-export function aideAucunRepondant(peutInviter: boolean): string {
+export function aideAucunRepondant(peutInviter: boolean, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    const rule =
+      "Only active executives and contributors of the client portal of a non-archived client can respond; investors and deactivated accounts are not offered.";
+    return peutInviter
+      ? `${rule} Invite them from the "Client portal" tab of the client record, then refresh the list.`
+      : `${rule} Portal invitations are handled by the partner, the engagement director or the engagement manager: ask them to invite the respondents, then refresh the list.`;
+  }
   const regle =
     "Seuls les dirigeants et contributeurs actifs du portail d'un client non archivé répondent ; les investisseurs et les comptes désactivés ne sont pas proposés.";
   return peutInviter
@@ -134,6 +168,9 @@ export function garderRepondants(
 export const MESSAGE_REPONDANT_REFUSE =
   "Un répondant choisi n'est plus désignable : son compte du portail a été désactivé ou retiré, ou le client a été archivé entre-temps. La liste des répondants est actualisée : vérifiez la sélection puis réessayez.";
 
+export const MESSAGE_REPONDANT_REFUSE_EN =
+  "A selected respondent can no longer be designated: their portal account was deactivated or removed, or the client was archived in the meantime. The list of respondents has been refreshed: check the selection and try again.";
+
 /**
  * Refus d'un répondant à la création d'un envoi : 400 métier sans détail de champ (compte
  * désactivé ou détaché, client archivé : `REQUETE_INVALIDE` de `creerEnvoi`) ou déclencheur
@@ -148,6 +185,10 @@ export function estRefusRepondant(e: unknown): boolean {
 }
 
 /** Message d'une création d'envoi refusée (sinon `null` : message générique). */
-export function messageCreationEnvoi(e: unknown): string | null {
-  return estRefusRepondant(e) ? MESSAGE_REPONDANT_REFUSE : messageQuestionnaire(e);
+export function messageCreationEnvoi(e: unknown, langue: Langue = "fr"): string | null {
+  return estRefusRepondant(e)
+    ? langue === "en"
+      ? MESSAGE_REPONDANT_REFUSE_EN
+      : MESSAGE_REPONDANT_REFUSE
+    : messageQuestionnaire(e, langue);
 }

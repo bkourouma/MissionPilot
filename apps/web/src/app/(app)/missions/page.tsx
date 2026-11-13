@@ -11,13 +11,15 @@ import { Select } from "../../../components/ui/Select";
 import { Tableau, type ColonneTableau } from "../../../components/ui/Tableau";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../lib/pagination";
-import { MODE_LIBELLES } from "../../../lib/catalogue";
+import { libelleMode } from "../../../lib/catalogue";
 import { formaterDate } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import {
   filtrerParDirecteur,
   hrefMissions,
   lireFiltresMissions,
-  OPTIONS_STATUTS_MISSION,
+  libelleStatutMission,
+  optionsStatutsMission,
   requeteMissions,
   STATUT_MISSION,
   type Mission,
@@ -26,7 +28,10 @@ import { nomPersonne, optionsPersonnes } from "../../../lib/personnes";
 import { chargerClientsActifs, chargerPersonnes } from "../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Missions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Missions", "Engagements") };
+}
 
 export default async function PageMissions({
   searchParams,
@@ -34,6 +39,8 @@ export default async function PageMissions({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("mission.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const roles = utilisateur.roles;
   const peutCreer = aPermission(roles, "mission.creer");
   const filtres = lireFiltresMissions(await searchParams);
@@ -53,20 +60,20 @@ export default async function PageMissions({
   const colonnes: ColonneTableau<Mission>[] = [
     {
       cle: "intitule",
-      entete: "Mission",
+      entete: t("Mission", "Engagement"),
       rendu: (m) => (
         <Link href={`/missions/${m.id}`} className="mp-lien-ligne">
           {m.intitule}
         </Link>
       ),
     },
-    { cle: "client", entete: "Client", rendu: (m) => m.client_raison_sociale },
+    { cle: "client", entete: t("Client", "Client"), rendu: (m) => m.client_raison_sociale },
     {
       cle: "statut",
-      entete: "Statut",
+      entete: t("Statut", "Status"),
       rendu: (m) => (
         <BadgeStatut tonalite={STATUT_MISSION[m.statut].tonalite}>
-          {STATUT_MISSION[m.statut].libelle}
+          {libelleStatutMission(m.statut, langue)}
         </BadgeStatut>
       ),
     },
@@ -74,36 +81,46 @@ export default async function PageMissions({
       ? [
           {
             cle: "directeur",
-            entete: "Directeur",
-            rendu: (m: Mission) => nomPersonne(m.directeur_id, personnes),
+            entete: t("Directeur", "Director"),
+            rendu: (m: Mission) => nomPersonne(m.directeur_id, personnes, langue),
           },
         ]
       : []),
     {
       cle: "periode",
-      entete: "Période",
+      entete: t("Période", "Period"),
       rendu: (m) =>
         m.date_debut || m.date_fin
-          ? `${formaterDate(m.date_debut)} → ${formaterDate(m.date_fin)}`
-          : "Non planifiée",
+          ? `${formaterDate(m.date_debut, "UTC", langue)} → ${formaterDate(m.date_fin, "UTC", langue)}`
+          : t("Non planifiée", "Not scheduled"),
     },
-    { cle: "mode", entete: "Facturation", rendu: (m) => MODE_LIBELLES[m.mode_facturation] },
+    {
+      cle: "mode",
+      entete: t("Facturation", "Billing"),
+      rendu: (m) => libelleMode(m.mode_facturation, langue),
+    },
   ];
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Missions"
+        titre={t("Missions", "Engagements")}
         soustitre={
           toutes
-            ? "Toutes les missions du cabinet : fiche, découpage, planning et budget."
-            : "Les missions que vous dirigez, pilotez ou auxquelles vous participez."
+            ? t(
+                "Toutes les missions du cabinet : fiche, découpage, planning et budget.",
+                "All the firm's engagements: sheet, work breakdown, schedule and budget.",
+              )
+            : t(
+                "Les missions que vous dirigez, pilotez ou auxquelles vous participez.",
+                "The engagements you direct, manage or take part in.",
+              )
         }
         actions={
           peutCreer ? (
             <Link href="/missions/nouvelle" className={classesBouton("primaire")}>
               <Icone nom="plus" />
-              <span>Nouvelle mission</span>
+              <span>{t("Nouvelle mission", "New engagement")}</span>
             </Link>
           ) : null
         }
@@ -114,40 +131,40 @@ export default async function PageMissions({
         action="/missions"
         className="mp-filtres"
         role="search"
-        aria-label="Rechercher une mission"
+        aria-label={t("Rechercher une mission", "Search for an engagement")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Champ
-            libelle="Rechercher"
+            libelle={t("Rechercher", "Search")}
             type="search"
             name="q"
             maxLength={100}
             defaultValue={filtres.q}
-            aide="Intitulé ou client."
+            aide={t("Intitulé ou client.", "Title or client.")}
             autoComplete="off"
           />
           <Select
-            libelle="Statut"
+            libelle={t("Statut", "Status")}
             name="statut"
-            options={OPTIONS_STATUTS_MISSION}
-            invite="Tous les statuts"
+            options={optionsStatutsMission(langue)}
+            invite={t("Tous les statuts", "All statuses")}
             defaultValue={filtres.statut}
           />
           {clients.length > 0 ? (
             <Select
-              libelle="Client"
+              libelle={t("Client", "Client")}
               name="client_id"
               options={clients}
-              invite="Tous les clients"
+              invite={t("Tous les clients", "All clients")}
               defaultValue={filtres.client_id}
             />
           ) : null}
           {personnes.length > 0 ? (
             <Select
-              libelle="Directeur de mission"
+              libelle={t("Directeur de mission", "Engagement director")}
               name="directeur_id"
               options={optionsPersonnes(personnes)}
-              invite="Tous les directeurs"
+              invite={t("Tous les directeurs", "All directors")}
               defaultValue={filtres.directeur_id}
             />
           ) : null}
@@ -155,11 +172,11 @@ export default async function PageMissions({
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
             <Icone nom="recherche" />
-            <span>Rechercher</span>
+            <span>{t("Rechercher", "Search")}</span>
           </button>
           {filtre ? (
             <Link href="/missions" className={classesBouton("discret")}>
-              Effacer les filtres
+              {t("Effacer les filtres", "Clear filters")}
             </Link>
           ) : null}
         </div>
@@ -167,7 +184,10 @@ export default async function PageMissions({
 
       {!liste.ok ? (
         <EtatErreur
-          titre="La liste des missions n'a pas pu être chargée."
+          titre={t(
+            "La liste des missions n'a pas pu être chargée.",
+            "The list of engagements could not be loaded.",
+          )}
           message={liste.message}
           hrefReessayer={hrefMissions(filtres)}
         />
@@ -175,32 +195,37 @@ export default async function PageMissions({
         <EtatVide
           titre={
             filtre
-              ? "Aucune mission ne correspond à ces critères."
-              : "Aucune mission pour l'instant."
+              ? t(
+                  "Aucune mission ne correspond à ces critères.",
+                  "No engagement matches these criteria.",
+                )
+              : t("Aucune mission pour l'instant.", "No engagements yet.")
           }
           icone="dossier"
           action={
             filtre ? (
               <Link href="/missions" className={classesBouton("secondaire")}>
-                Effacer les filtres
+                {t("Effacer les filtres", "Clear filters")}
               </Link>
             ) : peutCreer ? (
               <Link href="/missions/nouvelle" className={classesBouton("primaire")}>
-                Créer une mission
+                {t("Créer une mission", "Create an engagement")}
               </Link>
             ) : null
           }
         >
           {filtre ? null : (
             <p>
-              Une mission naît d&apos;une proposition acceptée (Pipeline) ou d&apos;un type du
-              catalogue.
+              {t(
+                "Une mission naît d'une proposition acceptée (Pipeline) ou d'un type du catalogue.",
+                "An engagement comes from an accepted proposal (Pipeline) or from a catalog type.",
+              )}
             </p>
           )}
         </EtatVide>
       ) : (
         <Tableau
-          legende="Liste des missions"
+          legende={t("Liste des missions", "List of engagements")}
           lignes={missions}
           cleLigne={(m) => m.id}
           colonnes={colonnes}

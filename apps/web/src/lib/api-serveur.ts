@@ -99,7 +99,9 @@ export async function chargerServeur<T>(
   } catch (e) {
     if (e instanceof ErreurApi) {
       const message =
-        e.statut === 403 && codes403Metier.includes(e.code) ? e.message : messageErreur(e);
+        e.statut === 403 && codes403Metier.includes(e.code)
+          ? e.message
+          : messageErreur(e, await obtenirLangue());
       return { ok: false, message, statut: e.statut, code: e.code };
     }
     throw e;

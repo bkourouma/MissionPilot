@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { formaterDate } from "../../lib/format";
 import { chargerSerieKpi, messageKpi, type SerieKpiMission } from "../../lib/kpi";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { GraphiqueSerieKpi } from "./GraphiqueSerieKpi";
@@ -29,6 +30,8 @@ type Etat =
  * conservé dans le navigateur : les données vivent le temps de l'affichage.
  */
 export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
+  const t = useT();
+  const langue = useLangue();
   const id = useId();
   const [etat, setEtat] = useState<Etat>({ etape: "repos" });
   const refAlerte = useRef<HTMLDivElement>(null);
@@ -42,7 +45,7 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
     try {
       setEtat({ etape: "pret", donnees: await chargerSerieKpi(missionId, date) });
     } catch (e) {
-      setEtat({ etape: "erreur", message: messageKpi(e) });
+      setEtat({ etape: "erreur", message: messageKpi(e, langue) });
     }
   }
 
@@ -52,9 +55,12 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
       : [];
   const annonce =
     etat.etape === "chargement"
-      ? "Chargement de l'évolution par période…"
+      ? t("Chargement de l'évolution par période…", "Loading the trend by period…")
       : etat.etape === "pret"
-        ? `Évolution chargée : ${kpis.length} KPI, arrêté au ${formaterDate(etat.donnees.date_reference)}.`
+        ? t(
+            `Évolution chargée : ${kpis.length} KPI, arrêté au ${formaterDate(etat.donnees.date_reference, "UTC", langue)}.`,
+            `Trend loaded: ${kpis.length} KPI${kpis.length > 1 ? "s" : ""}, as of ${formaterDate(etat.donnees.date_reference, "UTC", langue)}.`,
+          )
         : "";
 
   return (
@@ -65,11 +71,17 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
       {etat.etape === "repos" || etat.etape === "chargement" || etat.etape === "erreur" ? (
         <>
           <p className="mp-texte-doux">
-            Valeurs agrégées et cibles par période (36 dernières périodes au plus), avec le statut
-            calculé par le moteur. Le chargement peut prendre quelques secondes.
+            {t(
+              "Valeurs agrégées et cibles par période (36 dernières périodes au plus), avec le statut calculé par le moteur. Le chargement peut prendre quelques secondes.",
+              "Aggregated values and targets by period (last 36 periods at most), with the status computed by the engine. Loading may take a few seconds.",
+            )}
           </p>
           {etat.etape === "erreur" ? (
-            <Alerte ref={refAlerte} tonalite="danger" titre="Évolution indisponible">
+            <Alerte
+              ref={refAlerte}
+              tonalite="danger"
+              titre={t("Évolution indisponible", "Trend unavailable")}
+            >
               <p>{etat.message}</p>
             </Alerte>
           ) : null}
@@ -78,15 +90,22 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
               variante="secondaire"
               icone="courbe"
               chargement={etat.etape === "chargement"}
-              texteChargement="Chargement…"
+              texteChargement={t("Chargement…", "Loading…")}
               onClick={charger}
             >
-              {etat.etape === "erreur" ? "Réessayer" : "Afficher l'évolution par période"}
+              {etat.etape === "erreur"
+                ? t("Réessayer", "Try again")
+                : t("Afficher l'évolution par période", "Show the trend by period")}
             </Bouton>
           </div>
         </>
       ) : kpis.length === 0 ? (
-        <p className="mp-texte-doux">Aucun KPI actif à cette date : aucune série à afficher.</p>
+        <p className="mp-texte-doux">
+          {t(
+            "Aucun KPI actif à cette date : aucune série à afficher.",
+            "No active KPI at this date: no series to display.",
+          )}
+        </p>
       ) : (
         kpis.map((k) => (
           <section key={k.definition.id} className="mp-pile" aria-label={k.definition.libelle}>
@@ -99,7 +118,10 @@ export function EvolutionKpi({ missionId, date, kpiId }: EvolutionKpiProps) {
             />
             {k.periodes_total > k.periodes.length ? (
               <p className="mp-texte-doux mp-texte-petit">
-                {`Les ${k.periodes.length} dernières périodes sont affichées, sur ${k.periodes_total} depuis le début du suivi.`}
+                {t(
+                  `Les ${k.periodes.length} dernières périodes sont affichées, sur ${k.periodes_total} depuis le début du suivi.`,
+                  `The last ${k.periodes.length} periods are shown, out of ${k.periodes_total} since the start of tracking.`,
+                )}
               </p>
             ) : null}
           </section>

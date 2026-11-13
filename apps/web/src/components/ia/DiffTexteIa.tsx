@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { diffTextes, libelleResumeDiff } from "../../lib/ia-diff";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import "./ia.css";
 
 /**
@@ -9,20 +10,29 @@ import "./ia.css";
  * colorés), balisés `ins` / `del` avec un repère lu par les lecteurs d'écran.
  */
 export function DiffTexteIa({ avant, apres }: { avant: string; apres: string }) {
+  const t = useT();
+  const langue = useLangue();
   const segments = useMemo(() => diffTextes(avant, apres), [avant, apres]);
   if (!segments) {
     return (
       <p className="mp-texte-doux">
-        Textes trop longs et trop différents pour être comparés à l&apos;écran : consultez chaque
-        version séparément.
+        {t(
+          "Textes trop longs et trop différents pour être comparés à l'écran : consultez chaque version séparément.",
+          "Texts too long and too different to be compared on screen: view each version separately.",
+        )}
       </p>
     );
   }
   return (
     <div className="mp-diff-ia">
       <p className="mp-texte-petit">
-        {libelleResumeDiff(segments)}{" "}
-        <span className="mp-texte-doux">Ajouts soulignés, retraits barrés.</span>
+        {libelleResumeDiff(segments, langue)}{" "}
+        <span className="mp-texte-doux">
+          {t(
+            "Ajouts soulignés, retraits barrés.",
+            "Additions underlined, removals struck through.",
+          )}
+        </span>
       </p>
       <p className="mp-contenu-ia__texte">
         {segments.map((s, i) =>
@@ -30,15 +40,23 @@ export function DiffTexteIa({ avant, apres }: { avant: string; apres: string }) 
             <span key={i}>{s.texte}</span>
           ) : s.nature === "ajout" ? (
             <ins key={i}>
-              <span className="mp-visuellement-cache">[début d&apos;ajout] </span>
+              <span className="mp-visuellement-cache">
+                {t("[début d'ajout] ", "[start of addition] ")}
+              </span>
               {s.texte}
-              <span className="mp-visuellement-cache"> [fin d&apos;ajout]</span>
+              <span className="mp-visuellement-cache">
+                {t(" [fin d'ajout]", " [end of addition]")}
+              </span>
             </ins>
           ) : (
             <del key={i}>
-              <span className="mp-visuellement-cache">[début de retrait] </span>
+              <span className="mp-visuellement-cache">
+                {t("[début de retrait] ", "[start of removal] ")}
+              </span>
               {s.texte}
-              <span className="mp-visuellement-cache"> [fin de retrait]</span>
+              <span className="mp-visuellement-cache">
+                {t(" [fin de retrait]", " [end of removal]")}
+              </span>
             </del>
           ),
         )}

@@ -1,4 +1,9 @@
-import { appelOffresCreationSchema, type AppelOffresCreation } from "@missionpilot/shared";
+import {
+  appelOffresCreationSchema,
+  creerTraduire,
+  type AppelOffresCreation,
+  type Langue,
+} from "@missionpilot/shared";
 import type { Devise } from "./format";
 import { ou } from "./appels-offres-saisie-base";
 import { decouperListe, lireMontant, type Resultat } from "./saisie";
@@ -35,21 +40,31 @@ export const SAISIE_FICHE_VIDE: SaisieFiche = {
 };
 
 /** Saisie du formulaire → corps de création, ou erreurs par champ. */
-export function validerFiche(s: SaisieFiche): Resultat<AppelOffresCreation, keyof SaisieFiche> {
+export function validerFiche(
+  s: SaisieFiche,
+  langue: Langue = "fr",
+): Resultat<AppelOffresCreation, keyof SaisieFiche> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieFiche, string>> = {};
   const titre = s.titre.trim();
-  if (titre === "") erreurs.titre = "Donnez l'intitulé de l'appel d'offres.";
-  else if (titre.length > 300) erreurs.titre = "300 caractères au plus.";
+  if (titre === "")
+    erreurs.titre = t("Donnez l'intitulé de l'appel d'offres.", "Enter the tender title.");
+  else if (titre.length > 300)
+    erreurs.titre = t("300 caractères au plus.", "300 characters at most.");
   if (s.pays.trim() !== "" && !PAYS.test(s.pays.trim())) {
-    erreurs.pays = "Code pays à deux lettres (ex. CI, SN).";
+    erreurs.pays = t(
+      "Code pays à deux lettres (ex. CI, SN).",
+      "Two-letter country code (e.g. CI, SN).",
+    );
   }
   const montant = lireMontant(s.montant, s.devise);
-  if (montant !== null && Number.isNaN(montant)) erreurs.montant = "Montant illisible.";
+  if (montant !== null && Number.isNaN(montant))
+    erreurs.montant = t("Montant illisible.", "Unreadable amount.");
   if (s.date_limite.trim() !== "" && !DATE.test(s.date_limite.trim())) {
-    erreurs.date_limite = "Date au format AAAA-MM-JJ.";
+    erreurs.date_limite = t("Date au format AAAA-MM-JJ.", "Date in YYYY-MM-DD format.");
   }
   if (s.url.trim() !== "" && !/^https?:\/\/[^\s<>"]+$/i.test(s.url.trim())) {
-    erreurs.url = "Adresse http ou https.";
+    erreurs.url = t("Adresse http ou https.", "An http or https address.");
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -118,10 +133,14 @@ const sansAccents = (s: string) =>
  * Import manuel (AO-01) : texte CSV collé ou lu d'un fichier → fiches validées par le schéma
  * partagé, et erreurs par ligne (numéro de ligne du fichier, en-tête = 1). 200 fiches au plus.
  */
-export function analyserImportCsv(texte: string): {
+export function analyserImportCsv(
+  texte: string,
+  langue: Langue = "fr",
+): {
   fiches: AppelOffresCreation[];
   erreurs: { ligne: number; message: string }[];
 } {
+  const t = creerTraduire(langue);
   const lignes = texte
     .replace(/^\uFEFF/, "")
     .replace(/\r\n?/g, "\n")
@@ -131,7 +150,15 @@ export function analyserImportCsv(texte: string): {
     (entete.match(/;/g) ?? []).length >= (entete.match(/,/g) ?? []).length ? ";" : ",";
   const colonnes = cellulesCsv(entete, separateur).map(sansAccents);
   if (!colonnes.includes("titre")) {
-    return { fiches: [], erreurs: [{ ligne: 1, message: "En-tête sans colonne « titre »." }] };
+    return {
+      fiches: [],
+      erreurs: [
+        {
+          ligne: 1,
+          message: t("En-tête sans colonne « titre ».", "Header has no “titre” column."),
+        },
+      ],
+    };
   }
   const fiches: AppelOffresCreation[] = [];
   const erreurs: { ligne: number; message: string }[] = [];
@@ -139,32 +166,44 @@ export function analyserImportCsv(texte: string): {
     if (brute.trim() === "") continue;
     const numero = i + 2;
     if (fiches.length >= 200) {
-      erreurs.push({ ligne: numero, message: "200 fiches au plus par import." });
+      erreurs.push({
+        ligne: numero,
+        message: t("200 fiches au plus par import.", "200 records at most per import."),
+      });
       break;
     }
     const valeurs = cellulesCsv(brute, separateur);
     const v = (nom: string) => valeurs[colonnes.indexOf(nom)] ?? "";
     const devise = (v("devise").toUpperCase() || "XOF") as Devise;
-    const r = validerFiche({
-      ...SAISIE_FICHE_VIDE,
-      reference: v("reference"),
-      titre: v("titre"),
-      bailleur: v("bailleur"),
-      pays: v("pays"),
-      secteur: v("secteur"),
-      montant: v("montant"),
-      devise,
-      date_limite: v("date_limite"),
-      url: v("url"),
-      mots_cles: v("mots_cles"),
-    });
+    const r = validerFiche(
+      {
+        ...SAISIE_FICHE_VIDE,
+        reference: v("reference"),
+        titre: v("titre"),
+        bailleur: v("bailleur"),
+        pays: v("pays"),
+        secteur: v("secteur"),
+        montant: v("montant"),
+        devise,
+        date_limite: v("date_limite"),
+        url: v("url"),
+        mots_cles: v("mots_cles"),
+      },
+      langue,
+    );
     if (!r.ok) {
       erreurs.push({ ligne: numero, message: Object.values(r.erreurs).join(" ") });
       continue;
     }
     const controle = appelOffresCreationSchema.safeParse(r.charge);
     if (!controle.success) {
-      erreurs.push({ ligne: numero, message: "Valeurs refusées (devise, date ou longueur)." });
+      erreurs.push({
+        ligne: numero,
+        message: t(
+          "Valeurs refusées (devise, date ou longueur).",
+          "Values rejected (currency, date or length).",
+        ),
+      });
       continue;
     }
     fiches.push(controle.data);

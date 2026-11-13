@@ -11,11 +11,17 @@ import {
   type DetailSuivi,
   type DroitsQualite,
 } from "../../lib/qualite";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { RetourAction } from "./RetourAction";
 import { useActionQualite } from "./useActionQualite";
+
+const QUALITES_SIGNATAIRE_EN: Record<string, string> = {
+  directeur_mission: "engagement director",
+  associe: "partner",
+};
 
 export interface GardeEtSignatureProps {
   detail: DetailSuivi;
@@ -30,6 +36,8 @@ export interface GardeEtSignatureProps {
  */
 export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
   const { suivi, garde, validations, signature } = detail;
+  const t = useT();
+  const langue = useLangue();
   const a = useActionQualite();
   const [commentaire, setCommentaire] = useState("");
   const [erreurChamp, setErreurChamp] = useState<string | undefined>();
@@ -43,7 +51,7 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
     garde.peut_valider_prochaine_etape;
 
   async function valider(etape: NonNullable<typeof prochaine>) {
-    const v = validerCommentaire(commentaire, { obligatoire: false });
+    const v = validerCommentaire(commentaire, { obligatoire: false }, langue);
     if (!v.ok) {
       setErreurChamp(v.erreurs.commentaire);
       return;
@@ -55,13 +63,16 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
           etape,
           commentaire: v.charge.commentaire,
         }),
-      `Étape franchie : ${libelleEtape(etape)}.`,
+      t(
+        `Étape franchie : ${libelleEtape(etape)}.`,
+        `Step completed: ${libelleEtape(etape, "en")}.`,
+      ),
     );
     if (r !== undefined) setCommentaire("");
   }
 
   async function signer() {
-    const v = validerCommentaire(commentaire, { obligatoire: false });
+    const v = validerCommentaire(commentaire, { obligatoire: false }, langue);
     if (!v.ok) {
       setErreurChamp(v.erreurs.commentaire);
       return;
@@ -70,7 +81,10 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
     const r = await a.agir(
       () =>
         api.post(cheminActionSuivi(suivi.id, "signature"), { commentaire: v.charge.commentaire }),
-      "Livrable signé : l'empreinte du contenu est enregistrée.",
+      t(
+        "Livrable signé : l'empreinte du contenu est enregistrée.",
+        "Deliverable signed: the content fingerprint is recorded.",
+      ),
     );
     if (r !== undefined) setCommentaire("");
   }
@@ -82,34 +96,42 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
         succes={a.succes}
         violations={a.violations}
         refAlerte={a.refAlerte}
-        titreErreur="Étape refusée"
+        titreErreur={t("Étape refusée", "Step refused")}
       />
 
       {garde.automatique ? (
-        <p>Classe R0 : garde automatique, journalisée, sans étape humaine.</p>
+        <p>
+          {t(
+            "Classe R0 : garde automatique, journalisée, sans étape humaine.",
+            "Class R0: automatic, logged safeguard, no human step.",
+          )}
+        </p>
       ) : (
-        <ol className="mp-qualite-etapes" aria-label="Étapes de la garde">
+        <ol className="mp-qualite-etapes" aria-label={t("Étapes de la garde", "Safeguard steps")}>
           {garde.etapes_requises.map((e) => {
             const faite = validations.find((v) => v.etape === e);
             const courante = e === prochaine;
             return (
               <li key={e} aria-current={courante ? "step" : undefined}>
-                <span className="mp-qualite-etapes__nom">{libelleEtape(e)}</span>
+                <span className="mp-qualite-etapes__nom">{libelleEtape(e, langue)}</span>
                 {faite ? (
                   <span className="mp-texte-doux mp-texte-petit">
-                    {faite.acteur_nom ?? "—"} · {formaterDateHeure(faite.valide_le)}
+                    {faite.acteur_nom ?? "—"} ·{" "}
+                    {formaterDateHeure(faite.valide_le, undefined, langue)}
                     {faite.commentaire ? ` · « ${faite.commentaire} »` : ""}
                     {faite.a_reconfirmer ? (
                       <>
                         {" "}
-                        <BadgeStatut tonalite="attention">À reconfirmer</BadgeStatut>
+                        <BadgeStatut tonalite="attention">
+                          {t("À reconfirmer", "To reconfirm")}
+                        </BadgeStatut>
                       </>
                     ) : null}
                   </span>
                 ) : courante ? (
-                  <BadgeStatut tonalite="attention">Étape suivante</BadgeStatut>
+                  <BadgeStatut tonalite="attention">{t("Étape suivante", "Next step")}</BadgeStatut>
                 ) : (
-                  <BadgeStatut tonalite="neutre">À venir</BadgeStatut>
+                  <BadgeStatut tonalite="neutre">{t("À venir", "Upcoming")}</BadgeStatut>
                 )}
               </li>
             );
@@ -119,31 +141,45 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
 
       {garde.etapes_a_reconfirmer.length > 0 ? (
         <p className="mp-texte-doux">
-          Des éléments ont été déposés dans la revue après {garde.etapes_a_reconfirmer.length}{" "}
-          étape(s) déjà franchie(s) : leurs auteurs les parcourent pour les reconfirmer avant la
-          validation du livrable.
+          {t(
+            `Des éléments ont été déposés dans la revue après ${garde.etapes_a_reconfirmer.length} étape(s) déjà franchie(s) : leurs auteurs les parcourent pour les reconfirmer avant la validation du livrable.`,
+            `Items were added to the review after ${garde.etapes_a_reconfirmer.length} step(s) already completed: their authors go through them to reconfirm before the deliverable is approved.`,
+          )}
         </p>
       ) : null}
 
       {garde.violations.length > 0 ? (
         <p className="mp-texte-doux">
-          La garde enregistrée présente {garde.violations.length} anomalie(s) de séparation des
-          tâches : consultez le directeur de mission.
+          {t(
+            `La garde enregistrée présente ${garde.violations.length} anomalie(s) de séparation des tâches : consultez le directeur de mission.`,
+            `The recorded safeguard shows ${garde.violations.length} segregation-of-duties anomaly(ies): consult the engagement director.`,
+          )}
         </p>
       ) : null}
 
       {signature ? (
-        <div className="mp-qualite-signature" role="group" aria-label="Signature du livrable">
+        <div
+          className="mp-qualite-signature"
+          role="group"
+          aria-label={t("Signature du livrable", "Deliverable signature")}
+        >
           <p>
-            <strong>Signé</strong> par {signature.signataire_nom ?? "—"} (
-            {signature.qualite.replace("_", " ")}) le {formaterDateHeure(signature.signe_le)},
-            version {signature.version}.
+            <strong>{t("Signé", "Signed")}</strong> {t("par", "by")}{" "}
+            {signature.signataire_nom ?? "—"} (
+            {langue === "en"
+              ? (QUALITES_SIGNATAIRE_EN[signature.qualite] ?? signature.qualite.replace("_", " "))
+              : signature.qualite.replace("_", " ")}
+            ) {t("le", "on")} {formaterDateHeure(signature.signe_le, undefined, langue)},{" "}
+            {t("version", "version")} {signature.version}.
           </p>
           <p className="mp-texte-petit">
-            Empreinte SHA-256{" "}
+            {t("Empreinte SHA-256", "SHA-256 fingerprint")}{" "}
             {signature.portee_empreinte === "contenu"
-              ? "du contenu"
-              : "du dossier de revue (contenu non lisible par le module)"}{" "}
+              ? t("du contenu", "of the content")
+              : t(
+                  "du dossier de revue (contenu non lisible par le module)",
+                  "of the review file (content not readable by the module)",
+                )}{" "}
             :{" "}
             <code title={signature.empreinte_sha256}>
               {empreinteCourte(signature.empreinte_sha256)}
@@ -166,7 +202,7 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
           }}
         >
           <ZoneTexte
-            libelle="Commentaire (facultatif)"
+            libelle={t("Commentaire (facultatif)", "Comment (optional)")}
             rows={2}
             maxLength={2000}
             value={commentaire}
@@ -175,32 +211,57 @@ export function GardeEtSignature({ detail, droits }: GardeEtSignatureProps) {
           />
           <div className="mp-qualite__actions-ligne">
             {peutValider && prochaine ? (
-              <Bouton type="submit" chargement={a.enCours} texteChargement="Validation…">
-                {`Valider : ${libelleEtape(prochaine)}`}
+              <Bouton
+                type="submit"
+                chargement={a.enCours}
+                texteChargement={t("Validation…", "Approving…")}
+              >
+                {t(
+                  `Valider : ${libelleEtape(prochaine)}`,
+                  `Approve: ${libelleEtape(prochaine, "en")}`,
+                )}
               </Bouton>
             ) : (
-              <Bouton type="submit" chargement={a.enCours} texteChargement="Signature…">
-                Signer le livrable
+              <Bouton
+                type="submit"
+                chargement={a.enCours}
+                texteChargement={t("Signature…", "Signing…")}
+              >
+                {t("Signer le livrable", "Sign the deliverable")}
               </Bouton>
             )}
           </div>
           <p className="mp-texte-doux mp-texte-petit">
             {peutValider
-              ? "Vous devez avoir parcouru tous les éléments obligatoires de la revue, et la définition de terminé doit être satisfaite."
-              : "Le signataire parcourt lui aussi tous les éléments obligatoires. La signature est définitive."}
+              ? t(
+                  "Vous devez avoir parcouru tous les éléments obligatoires de la revue, et la définition de terminé doit être satisfaite.",
+                  "You must have gone through all mandatory review items, and the definition of done must be satisfied.",
+                )
+              : t(
+                  "Le signataire parcourt lui aussi tous les éléments obligatoires. La signature est définitive.",
+                  "The signer also goes through all mandatory items. The signature is final.",
+                )}
           </p>
         </form>
       ) : suivi.statut === "en_revue" && prochaine && !garde.automatique ? (
         <p className="mp-texte-doux">
-          Prochaine étape : {libelleEtape(prochaine)}.{" "}
+          {t("Prochaine étape", "Next step")} : {libelleEtape(prochaine, langue)}.{" "}
           {prochaine === "signature_directeur_mission"
-            ? "Elle suivra la validation des étapes précédentes."
-            : "Vous n'êtes pas habilité à la franchir sur cette mission, ou elle revient à une autre personne."}
+            ? t(
+                "Elle suivra la validation des étapes précédentes.",
+                "It will follow the approval of the previous steps.",
+              )
+            : t(
+                "Vous n'êtes pas habilité à la franchir sur cette mission, ou elle revient à une autre personne.",
+                "You are not authorized to complete it on this engagement, or it belongs to someone else.",
+              )}
         </p>
       ) : suivi.statut === "brouillon" ? (
         <p className="mp-texte-doux">
-          Lancez d&apos;abord la vérification de la définition de terminé : la revue humaine
-          s&apos;ouvre ensuite.
+          {t(
+            "Lancez d'abord la vérification de la définition de terminé : la revue humaine s'ouvre ensuite.",
+            "First run the definition-of-done verification: the human review opens afterwards.",
+          )}
         </p>
       ) : null}
     </div>

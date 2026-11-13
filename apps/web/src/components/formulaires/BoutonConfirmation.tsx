@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
 import type { NomIcone } from "../ui/Icone";
 
@@ -30,9 +31,10 @@ export function BoutonConfirmation({
   action,
   variante = "secondaire",
   icone,
-  texteChargement = "En cours…",
+  texteChargement,
   ariaLabel,
 }: BoutonConfirmationProps) {
+  const t = useT();
   const [etape, setEtape] = useState<"repos" | "question">("repos");
   const [enCours, setEnCours] = useState(false);
   const refConfirmer = useRef<HTMLButtonElement>(null);
@@ -81,7 +83,7 @@ export function BoutonConfirmation({
           ref={refConfirmer}
           variante="danger"
           chargement={enCours}
-          texteChargement={texteChargement}
+          texteChargement={texteChargement ?? t("En cours…", "In progress…")}
           onClick={confirmer}
         >
           {libelleConfirmation}
@@ -94,7 +96,7 @@ export function BoutonConfirmation({
             setEtape("repos");
           }}
         >
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </div>

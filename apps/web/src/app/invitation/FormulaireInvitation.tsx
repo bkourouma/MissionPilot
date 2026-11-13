@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../components/ui/Alerte";
 import { Bouton, classesBouton } from "../../components/ui/Bouton";
 import { Champ } from "../../components/ui/Champ";
@@ -19,6 +20,8 @@ import {
 type EtatJeton = "lecture" | "absent" | "present";
 
 export function FormulaireInvitation() {
+  const t = useT();
+  const langue = useLangue();
   const [etat, setEtat] = useState<EtatJeton>("lecture");
   const jeton = useRef<string | null>(null);
   const [nom, setNom] = useState("");
@@ -50,7 +53,7 @@ export function FormulaireInvitation() {
     ev.preventDefault();
     setErreurGlobale(null);
     const saisie = { nom, motDePasse, confirmation };
-    const trouvees = validerInvitation(saisie);
+    const trouvees = validerInvitation(saisie, langue);
     setErreurs(trouvees);
     if (trouvees.nom) return refNom.current?.focus();
     if (trouvees.motDePasse) return refMdp.current?.focus();
@@ -65,24 +68,33 @@ export function FormulaireInvitation() {
       // Rechargement complet : la session vient d'être ouverte par l'API (cookie httpOnly).
       window.location.assign("/");
     } catch (e) {
-      setErreurGlobale(messageErreurInvitation(e));
+      setErreurGlobale(messageErreurInvitation(e, langue));
       setEnCours(false);
     }
   }
 
-  if (etat === "lecture") return <Squelette lignes={4} libelle="Lecture de l'invitation…" />;
+  if (etat === "lecture")
+    return (
+      <Squelette lignes={4} libelle={t("Lecture de l'invitation…", "Reading the invitation…")} />
+    );
 
   if (etat === "absent") {
     return (
       <div className="mp-formulaire">
-        <Alerte tonalite="attention" titre="Lien d'invitation incomplet" annonce="alert">
+        <Alerte
+          tonalite="attention"
+          titre={t("Lien d'invitation incomplet", "Incomplete invitation link")}
+          annonce="alert"
+        >
           <p>
-            Ouvrez le lien complet reçu par e-mail, sans le modifier. S&apos;il ne fonctionne
-            toujours pas, demandez à un associé de votre cabinet de vous renvoyer une invitation.
+            {t(
+              "Ouvrez le lien complet reçu par e-mail, sans le modifier. S'il ne fonctionne toujours pas, demandez à un associé de votre cabinet de vous renvoyer une invitation.",
+              "Open the full link you received by email, without changing it. If it still does not work, ask a partner of your firm to send you a new invitation.",
+            )}
           </p>
         </Alerte>
         <Link href="/connexion" className={classesBouton("secondaire", true)}>
-          J&apos;ai déjà un compte : me connecter
+          {t("J'ai déjà un compte : me connecter", "I already have an account: sign in")}
         </Link>
       </div>
     );
@@ -92,13 +104,17 @@ export function FormulaireInvitation() {
   return (
     <form className="mp-formulaire" noValidate onSubmit={soumettre} aria-busy={enCours}>
       {erreurGlobale ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre="Création du compte impossible">
+        <Alerte
+          ref={refAlerte}
+          tonalite="danger"
+          titre={t("Création du compte impossible", "Unable to create the account")}
+        >
           <p>{erreurGlobale}</p>
         </Alerte>
       ) : null}
       <Champ
         ref={refNom}
-        libelle="Nom complet"
+        libelle={t("Nom complet", "Full name")}
         name="nom"
         autoComplete="name"
         required
@@ -106,12 +122,15 @@ export function FormulaireInvitation() {
         value={nom}
         onChange={(e) => setNom(e.target.value)}
         erreur={erreurs.nom}
-        aide="Tel qu'il apparaîtra à vos collègues, ex. Awa Koné."
+        aide={t(
+          "Tel qu'il apparaîtra à vos collègues, ex. Awa Koné.",
+          "As it will appear to your colleagues, e.g. Awa Koné.",
+        )}
       />
       <div className="mp-champ-mdp">
         <Champ
           ref={refMdp}
-          libelle="Mot de passe"
+          libelle={t("Mot de passe", "Password")}
           type={afficher ? "text" : "password"}
           name="mot_de_passe"
           autoComplete="new-password"
@@ -121,12 +140,20 @@ export function FormulaireInvitation() {
           erreur={erreurs.motDePasse}
           aide={
             <>
-              Au moins {MOT_DE_PASSE_MIN} caractères. Une phrase facile à retenir convient, ex. «
-              Mon cabinet ouvre à 8 h ».{" "}
+              {t(
+                `Au moins ${MOT_DE_PASSE_MIN} caractères. Une phrase facile à retenir convient, ex. « Mon cabinet ouvre à 8 h ».`,
+                `At least ${MOT_DE_PASSE_MIN} characters. An easy-to-remember phrase works, e.g. "My firm opens at 8 am".`,
+              )}{" "}
               <span className={longueur >= MOT_DE_PASSE_MIN ? "mp-indication-ok" : undefined}>
                 {longueur >= MOT_DE_PASSE_MIN
-                  ? `Longueur suffisante (${longueur} caractères).`
-                  : `${longueur} caractères saisis sur ${MOT_DE_PASSE_MIN} requis.`}
+                  ? t(
+                      `Longueur suffisante (${longueur} caractères).`,
+                      `Length is sufficient (${longueur} characters).`,
+                    )
+                  : t(
+                      `${longueur} caractères saisis sur ${MOT_DE_PASSE_MIN} requis.`,
+                      `${longueur} of ${MOT_DE_PASSE_MIN} required characters entered.`,
+                    )}
               </span>
             </>
           }
@@ -138,12 +165,12 @@ export function FormulaireInvitation() {
           aria-pressed={afficher}
           onClick={() => setAfficher((v) => !v)}
         >
-          Afficher les mots de passe
+          {t("Afficher les mots de passe", "Show passwords")}
         </Bouton>
       </div>
       <Champ
         ref={refConfirmation}
-        libelle="Confirmez le mot de passe"
+        libelle={t("Confirmez le mot de passe", "Confirm the password")}
         type={afficher ? "text" : "password"}
         name="confirmation"
         autoComplete="new-password"
@@ -156,9 +183,9 @@ export function FormulaireInvitation() {
         type="submit"
         pleineLargeur
         chargement={enCours}
-        texteChargement="Création du compte…"
+        texteChargement={t("Création du compte…", "Creating the account…")}
       >
-        Créer mon compte
+        {t("Créer mon compte", "Create my account")}
       </Bouton>
     </form>
   );

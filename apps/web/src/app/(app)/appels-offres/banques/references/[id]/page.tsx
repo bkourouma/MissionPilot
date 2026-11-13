@@ -18,27 +18,36 @@ import {
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterTaille } from "../../../../../../lib/fichiers";
 import { formaterDate, formaterMontantMineur } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { montantVersSaisie } from "../../../../../../lib/saisie";
 import { obtenirSession } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Référence" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Référence", "Reference") };
+}
 
 /** Fiche d'une référence : version courante, pièces justificatives, historique. */
 export default async function PageDetailReference({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await obtenirSession();
   const droits = droitsBanqueAo(utilisateur.roles);
   const r = await chargerServeur<ReferenceDetail>(
     `/api/banque-ao/references/${encodeURIComponent(id)}`,
   );
-  const retour = { href: `${RACINE_BANQUES}/references`, libelle: "Références" };
+  const retour = { href: `${RACINE_BANQUES}/references`, libelle: t("Références", "References") };
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Référence" retour={retour} />
+        <EnteteDePage titre={t("Référence", "Reference")} retour={retour} />
         <EtatErreur
           hrefReessayer={`${RACINE_BANQUES}/references/${encodeURIComponent(id)}`}
-          titre="Cette référence n'a pas pu être chargée."
+          titre={t(
+            "Cette référence n'a pas pu être chargée.",
+            "This reference could not be loaded.",
+          )}
           message={r.message}
         />
       </div>
@@ -54,46 +63,50 @@ export default async function PageDetailReference({ params }: { params: Promise<
         soustitre={`${c.client_nom} — ${c.pays}${c.bailleur ? ` — ${c.bailleur}` : ""}`}
         retour={retour}
       />
-      <Carte titre="Référence">
+      <Carte titre={t("Référence", "Reference")}>
         <dl className="mp-liste-def">
           <div>
-            <dt>Montant du marché</dt>
-            <dd>{formaterMontantMineur(c.montant, c.devise)}</dd>
+            <dt>{t("Montant du marché", "Contract amount")}</dt>
+            <dd>{formaterMontantMineur(c.montant, c.devise, langue)}</dd>
           </div>
           <div>
-            <dt>Période</dt>
+            <dt>{t("Période", "Period")}</dt>
             <dd>
-              {formaterDate(c.date_debut)} – {c.date_fin ? formaterDate(c.date_fin) : "en cours"}
+              {formaterDate(c.date_debut, "UTC", langue)} –{" "}
+              {c.date_fin ? formaterDate(c.date_fin, "UTC", langue) : t("en cours", "ongoing")}
             </dd>
           </div>
           <div>
-            <dt>Rôle du cabinet</dt>
-            <dd>{libelleRoleReference(c.role_cabinet)}</dd>
+            <dt>{t("Rôle du cabinet", "Firm's role")}</dt>
+            <dd>{libelleRoleReference(c.role_cabinet, langue)}</dd>
           </div>
           <div>
-            <dt>Secteurs</dt>
+            <dt>{t("Secteurs", "Sectors")}</dt>
             <dd>{c.secteurs.join(", ") || "—"}</dd>
           </div>
         </dl>
         {c.description ? <p>{c.description}</p> : null}
       </Carte>
-      <Carte titre="Pièces justificatives">
-        {ref.attestations.length === 0 ? <p>Aucune pièce.</p> : null}
+      <Carte titre={t("Pièces justificatives", "Supporting documents")}>
+        {ref.attestations.length === 0 ? <p>{t("Aucune pièce.", "No documents.")}</p> : null}
         <ul>
           {ref.attestations.map((a) => (
             <li key={a.id}>
-              {libelleTypeAttestation(a.type)} — {a.emetteur}, {formaterDate(a.date_attestation)}{" "}
+              {libelleTypeAttestation(a.type, langue)} — {a.emetteur},{" "}
+              {formaterDate(a.date_attestation, "UTC", langue)}{" "}
               {a.retiree ? (
-                <BadgeStatut tonalite="neutre">{`Retirée : ${a.motif_retrait ?? ""}`}</BadgeStatut>
+                <BadgeStatut tonalite="neutre">
+                  {t(`Retirée : ${a.motif_retrait ?? ""}`, `Withdrawn: ${a.motif_retrait ?? ""}`)}
+                </BadgeStatut>
               ) : (
                 <>
                   <a href={`/api/banque-ao/attestations/${encodeURIComponent(a.id)}/fichier`}>
                     {a.fichier.nom}
                   </a>{" "}
-                  ({formaterTaille(a.fichier.taille)})
+                  ({formaterTaille(a.fichier.taille, langue)})
                   {droits.gerer ? (
                     <details className="mp-details">
-                      <summary>Retirer cette pièce</summary>
+                      <summary>{t("Retirer cette pièce", "Withdraw this document")}</summary>
                       <FormulaireRetraitPiece attestationId={a.id} />
                     </details>
                   ) : null}
@@ -104,18 +117,21 @@ export default async function PageDetailReference({ params }: { params: Promise<
         </ul>
         {droits.gerer ? <FormulairePiece referenceId={ref.id} /> : null}
       </Carte>
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ul>
           {ref.versions.map((v) => (
             <li key={v.version}>
-              Version {v.version} du {formaterDate(v.cree_le)}
-              {v.motif ? ` : ${v.motif}` : " (création)"}
+              {t(
+                `Version ${v.version} du ${formaterDate(v.cree_le)}`,
+                `Version ${v.version} of ${formaterDate(v.cree_le, "UTC", langue)}`,
+              )}
+              {v.motif ? ` : ${v.motif}` : t(" (création)", " (creation)")}
             </li>
           ))}
         </ul>
       </Carte>
       {droits.gerer ? (
-        <Carte titre="Nouvelle version">
+        <Carte titre={t("Nouvelle version", "New version")}>
           <FormulaireReference
             referenceId={ref.id}
             initial={{

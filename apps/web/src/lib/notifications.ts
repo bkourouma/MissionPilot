@@ -3,7 +3,7 @@
  * dans `notifications.test.ts`. Titre et corps sont du texte brut : ils sont rendus comme du
  * texte par React (jamais interprétés comme du HTML).
  */
-import { lienInterneSur } from "@missionpilot/shared";
+import { lienInterneSur, type Langue } from "@missionpilot/shared";
 
 export interface Notification {
   id: string;
@@ -43,7 +43,11 @@ export function lienNotification(lien: string | null | undefined): string | null
 }
 
 /** Nom accessible de la cloche : « Notifications, 3 non lues ». */
-export function libelleCloche(nonLues: number | null): string {
+export function libelleCloche(nonLues: number | null, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    if (nonLues === null || nonLues <= 0) return "Notifications, none unread";
+    return `Notifications, ${nonLues} unread`;
+  }
   if (nonLues === null || nonLues <= 0) return "Notifications, aucune non lue";
   return nonLues === 1 ? "Notifications, 1 non lue" : `Notifications, ${nonLues} non lues`;
 }

@@ -13,12 +13,15 @@ import {
   LIBELLES_USAGE_INGESTION,
   PLAFONDS_INGESTION,
   PLAFONDS_OCR,
+  LOCALES_INTL,
+  creerTraduire,
   type CodeErreurIngestion,
   type ConfusionOcr,
   type CorrectionOcr,
   type ContenuLecture,
   type ContenuProposition,
   type FormatIngestion,
+  type Langue,
   type MethodeExtraction,
   type ResultatIngestion,
   type StatutDocumentIngestion,
@@ -124,6 +127,17 @@ export const STATUT_DOCUMENT: Record<
   echec: { libelle: "Échec", tonalite: "danger" },
 };
 
+export const STATUT_DOCUMENT_EN: Record<
+  StatutDocumentIngestion,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  en_file: { libelle: "Waiting to be read", tonalite: "neutre" },
+  extraction: { libelle: "Reading text", tonalite: "attention" },
+  structuration: { libelle: "Analysis in progress", tonalite: "attention" },
+  termine: { libelle: "Completed", tonalite: "succes" },
+  echec: { libelle: "Failed", tonalite: "danger" },
+};
+
 export const LIBELLES_RESULTAT: Record<ResultatIngestion, string> = {
   etat_cree: "État financier créé",
   brouillon_cree: "Brouillon à relire",
@@ -138,10 +152,64 @@ export const LIBELLES_METHODE: Record<MethodeExtraction, string> = {
   tableur: "Classeur",
 };
 
+export const LIBELLES_RESULTAT_EN: Record<ResultatIngestion, string> = {
+  etat_cree: "Financial statement created",
+  brouillon_cree: "Draft to review",
+  ia_indisponible: "AI unavailable: to be rerun",
+  rien_trouve: "Nothing usable found",
+};
+
+export const LIBELLES_METHODE_EN: Record<MethodeExtraction, string> = {
+  texte: "PDF text",
+  ocr_simule: "Character recognition (simulated)",
+  ocr: "Character recognition (local OCR)",
+  tableur: "Workbook",
+};
+
+const LIBELLES_USAGE_EN: Record<UsageIngestion, string> = {
+  etat_financier: "Financial statement",
+  dd_rapport: "Report (due diligence)",
+  dd_salle: "Data room (due diligence)",
+  standard_historique: "Historical document (framework seeding)",
+};
+
+const LIBELLES_STATUT_EXTRACTION_EN: Record<StatutExtraction, string> = {
+  brouillon_ia: "AI draft",
+  modifie: "Edited",
+  valide: "Approved",
+  rejete: "Rejected",
+};
+
+const LIBELLES_ERREUR_INGESTION_EN: Record<CodeErreurIngestion, string> = {
+  PDF_ILLISIBLE: "The PDF is unreadable or protected.",
+  PDF_SANS_TEXTE:
+    "No text could be read in this document (blank or unreadable page). Provide a PDF with text or a sharper scan.",
+  OCR_NON_SIMULE: "Simulated character recognition only reads its own test documents.",
+  OCR_INDISPONIBLE:
+    "Scanned document: character recognition is not available on this server. Provide a PDF with text or ask the administrator to enable scan reading.",
+  OCR_ECHEC: "Character recognition of the scan failed. Provide a PDF with text or a sharper scan.",
+  IMAGE_TROP_GRANDE: "An image in the document exceeds the size allowed for character recognition.",
+  PLAFOND_PAGES: "The document exceeds the allowed number of pages.",
+  PLAFOND_TEXTE: "The document text exceeds the allowed size.",
+  DELAI_DEPASSE: "Reading the document exceeded the allowed time.",
+  TABLEUR_ILLISIBLE: "The workbook is unreadable.",
+  FICHIER_ABSENT: "The uploaded file is no longer available: upload it again.",
+  UTILISATEUR_INACTIF: "The user who uploaded the file is no longer active.",
+  DOSSIER_INACCESSIBLE: "The file is no longer accessible to the user who uploaded the document.",
+  ETAT_INVALIDE: "The lines read do not form a usable statement.",
+  ERREUR_INTERNE: "Internal error: try again later.",
+};
+
+const LIBELLES_CONFUSION_OCR_EN: Record<ConfusionOcr, string> = {
+  o_zero: "letter O read for the digit 0",
+  l_un: "letter l or I read for the digit 1",
+  separateur: "comma and period confused",
+};
+
 export const LIBELLES_FORMAT: Record<FormatIngestion, string> = { pdf: "PDF", xlsx: "Excel" };
 
-export function libelleStatutDocument(s: StatutDocumentIngestion): string {
-  return STATUT_DOCUMENT[s]?.libelle ?? s;
+export function libelleStatutDocument(s: StatutDocumentIngestion, langue: Langue = "fr"): string {
+  return (langue === "en" ? STATUT_DOCUMENT_EN : STATUT_DOCUMENT)[s]?.libelle ?? s;
 }
 
 export function tonaliteStatutDocument(s: StatutDocumentIngestion): TonaliteStatut {
@@ -149,8 +217,11 @@ export function tonaliteStatutDocument(s: StatutDocumentIngestion): TonaliteStat
 }
 
 /** Résultat d'un document terminé ; « — » tant qu'il n'y en a pas. */
-export function libelleResultat(r: ResultatIngestion | null | undefined): string {
-  return r ? (LIBELLES_RESULTAT[r] ?? r) : "—";
+export function libelleResultat(
+  r: ResultatIngestion | null | undefined,
+  langue: Langue = "fr",
+): string {
+  return r ? ((langue === "en" ? LIBELLES_RESULTAT_EN : LIBELLES_RESULTAT)[r] ?? r) : "—";
 }
 
 /** Le texte des pages de ce document a été purgé (les références de page restent valables). */
@@ -158,16 +229,19 @@ export function textePurge(doc: { texte_purge_le?: string | null } | null | unde
   return Boolean(doc?.texte_purge_le);
 }
 
-export function libelleUsage(u: UsageIngestion): string {
-  return LIBELLES_USAGE_INGESTION[u] ?? u;
+export function libelleUsage(u: UsageIngestion, langue: Langue = "fr"): string {
+  return (langue === "en" ? LIBELLES_USAGE_EN : LIBELLES_USAGE_INGESTION)[u] ?? u;
 }
 
-export function libelleMethode(m: MethodeExtraction | null | undefined): string {
-  return m ? (LIBELLES_METHODE[m] ?? m) : "—";
+export function libelleMethode(
+  m: MethodeExtraction | null | undefined,
+  langue: Langue = "fr",
+): string {
+  return m ? ((langue === "en" ? LIBELLES_METHODE_EN : LIBELLES_METHODE)[m] ?? m) : "—";
 }
 
-export function libelleStatutExtraction(s: StatutExtraction): string {
-  return LIBELLES_STATUT_EXTRACTION[s] ?? s;
+export function libelleStatutExtraction(s: StatutExtraction, langue: Langue = "fr"): string {
+  return (langue === "en" ? LIBELLES_STATUT_EXTRACTION_EN : LIBELLES_STATUT_EXTRACTION)[s] ?? s;
 }
 
 /** Message lisible d'un code d'erreur d'ingestion ; repli sur l'erreur interne pour un code inconnu. */
@@ -177,46 +251,56 @@ export function methodeOcr(m: MethodeExtraction | null | undefined): boolean {
 }
 
 /** Phrase d'aide ajoutée au message d'un code d'erreur d'OCR (null si le code n'en demande pas). */
-export function aideErreurIngestion(code: string | null | undefined): string | null {
+export function aideErreurIngestion(
+  code: string | null | undefined,
+  langue: Langue = "fr",
+): string | null {
   return code === "OCR_INDISPONIBLE"
-    ? "Contactez l'administrateur : le moteur de lecture des scans n'est pas activé sur ce serveur."
+    ? creerTraduire(langue)(
+        "Contactez l'administrateur : le moteur de lecture des scans n'est pas activé sur ce serveur.",
+        "Contact the administrator: the scan reading engine is not enabled on this server.",
+      )
     : null;
 }
 
 /** Libellé d'une confusion de lecture : « lettre O lue pour le chiffre 0 ». */
-export function libelleConfusionOcr(c: ConfusionOcr): string {
-  return LIBELLES_CONFUSION_OCR[c] ?? c;
+export function libelleConfusionOcr(c: ConfusionOcr, langue: Langue = "fr"): string {
+  return (langue === "en" ? LIBELLES_CONFUSION_OCR_EN : LIBELLES_CONFUSION_OCR)[c] ?? c;
 }
 
 /** Confusions en clair, séparées par un point-virgule ; « — » s'il n'y en a pas. */
 export function decrireConfusionsOcr(
   confusions: readonly ConfusionOcr[] | null | undefined,
+  langue: Langue = "fr",
 ): string {
-  const l = (confusions ?? []).map(libelleConfusionOcr);
-  return l.length === 0 ? "—" : l.join(" ; ");
+  const l = (confusions ?? []).map((c) => libelleConfusionOcr(c, langue));
+  return l.length === 0 ? "—" : l.join(langue === "en" ? "; " : " ; ");
 }
 
-export function libelleErreurIngestion(code: string | null | undefined): string | null {
+export function libelleErreurIngestion(
+  code: string | null | undefined,
+  langue: Langue = "fr",
+): string | null {
   if (!code) return null;
-  return (
-    LIBELLES_ERREUR_INGESTION[code as CodeErreurIngestion] ??
-    LIBELLES_ERREUR_INGESTION.ERREUR_INTERNE
-  );
+  const table = langue === "en" ? LIBELLES_ERREUR_INGESTION_EN : LIBELLES_ERREUR_INGESTION;
+  return table[code as CodeErreurIngestion] ?? table.ERREUR_INTERNE;
 }
 
 /** Erreur d'un document : le message de l'API, sinon celui du code. */
 export function erreurDocument(
   d: Pick<DocumentIngestion, "erreur" | "erreur_code">,
+  langue: Langue = "fr",
 ): string | null {
-  return d.erreur ?? libelleErreurIngestion(d.erreur_code);
+  return d.erreur ?? libelleErreurIngestion(d.erreur_code, langue);
 }
 
 /** Message d'un document en échec suivi, le cas échéant, de la phrase d'aide de son code. */
 export function erreurDocumentAvecAide(
   d: Pick<DocumentIngestion, "erreur" | "erreur_code">,
+  langue: Langue = "fr",
 ): string | null {
-  const m = erreurDocument(d);
-  const aide = aideErreurIngestion(d.erreur_code);
+  const m = erreurDocument(d, langue);
+  const aide = aideErreurIngestion(d.erreur_code, langue);
   return m && aide ? `${m} ${aide}` : m;
 }
 
@@ -230,12 +314,14 @@ export function auMoinsUnEnCours(docs: readonly Pick<DocumentIngestion, "statut"
 }
 
 /** Taille lisible : « 850 o », « 12,5 Ko », « 1,2 Mo ». */
-export function formaterTaille(octets: number): string {
+export function formaterTaille(octets: number, langue: Langue = "fr"): string {
   if (!Number.isFinite(octets) || octets < 0) return "—";
-  const nf = (v: number) => new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(v);
-  if (octets < 1024) return `${Math.round(octets)} o`;
-  if (octets < 1024 * 1024) return `${nf(octets / 1024)} Ko`;
-  return `${nf(octets / (1024 * 1024))} Mo`;
+  const nf = (v: number) =>
+    new Intl.NumberFormat(LOCALES_INTL[langue], { maximumFractionDigits: 1 }).format(v);
+  const en = langue === "en";
+  if (octets < 1024) return `${Math.round(octets)} ${en ? "B" : "o"}`;
+  if (octets < 1024 * 1024) return `${nf(octets / 1024)} ${en ? "KB" : "Ko"}`;
+  return `${nf(octets / (1024 * 1024))} ${en ? "MB" : "Mo"}`;
 }
 
 /** Confiance d'une page lue par reconnaissance de caractères (millièmes, « 87 % »), sinon « — ». */
@@ -245,13 +331,16 @@ export function formaterConfiancePage(pm: number | null | undefined): string {
 }
 
 /** Taille d'une page pour la liste : « 1 240 caractères ». */
-export function formaterCaracteres(n: number): string {
-  return `${new Intl.NumberFormat("fr-FR").format(n)} caractère${n > 1 ? "s" : ""}`;
+export function formaterCaracteres(n: number, langue: Langue = "fr"): string {
+  const nombre = new Intl.NumberFormat(LOCALES_INTL[langue]).format(n);
+  return langue === "en"
+    ? `${nombre} character${n > 1 ? "s" : ""}`
+    : `${nombre} caractère${n > 1 ? "s" : ""}`;
 }
 
-/** Message d'erreur affichable (français) d'un appel d'ingestion. */
-export function messageErreur(e: unknown): string {
-  return messageErreurApi(e);
+/** Message d'erreur affichable d'un appel d'ingestion (langue du navigateur si non précisée). */
+export function messageErreur(e: unknown, langue?: Langue): string {
+  return messageErreurApi(e, langue);
 }
 
 // --- Contrôle du fichier côté client ---------------------------------------------------------
@@ -282,19 +371,40 @@ export type ControleFichier =
 /** Extension .pdf / .xlsx, fichier non vide, plafonds de `PLAFONDS_INGESTION` (10 Mo PDF, 2 Mo Excel). */
 export function controlerFichierIngestion(
   fichier: { name: string; size: number } | null | undefined,
+  langue: Langue = "fr",
 ): ControleFichier {
-  if (!fichier) return { ok: false, message: "Choisissez un fichier PDF ou Excel (.xlsx)." };
+  const t = creerTraduire(langue);
+  if (!fichier)
+    return {
+      ok: false,
+      message: t(
+        "Choisissez un fichier PDF ou Excel (.xlsx).",
+        "Choose a PDF or Excel (.xlsx) file.",
+      ),
+    };
   const format = formatDepuisNom(fichier.name);
   if (!format) {
-    return { ok: false, message: "Format accepté : PDF (.pdf) ou classeur Excel (.xlsx)." };
+    return {
+      ok: false,
+      message: t(
+        "Format accepté : PDF (.pdf) ou classeur Excel (.xlsx).",
+        "Accepted format: PDF (.pdf) or Excel workbook (.xlsx).",
+      ),
+    };
   }
-  if (fichier.size <= 0) return { ok: false, message: "Ce fichier est vide." };
+  if (fichier.size <= 0)
+    return { ok: false, message: t("Ce fichier est vide.", "This file is empty.") };
   if (fichier.size > plafondTaille(format)) {
     return {
       ok: false,
-      message: `Fichier trop volumineux : ${mo(plafondTaille(format))} Mo au plus pour un ${
-        format === "pdf" ? "PDF" : "classeur Excel"
-      } (celui-ci fait ${formaterTaille(fichier.size)}).`,
+      message: t(
+        `Fichier trop volumineux : ${mo(plafondTaille(format))} Mo au plus pour un ${
+          format === "pdf" ? "PDF" : "classeur Excel"
+        } (celui-ci fait ${formaterTaille(fichier.size)}).`,
+        `File too large: ${mo(plafondTaille(format))} MB at most for ${
+          format === "pdf" ? "a PDF" : "an Excel workbook"
+        } (this one is ${formaterTaille(fichier.size, langue)}).`,
+      ),
     };
   }
   return { ok: true, format };
@@ -306,8 +416,20 @@ export const TEXTE_SCAN_OCR =
   `(quelques secondes par page, ${PLAFONDS_OCR.pagesMax} pages au plus) ; ` +
   "l'état obtenu part toujours en revue et chaque chiffre est à vérifier dans le document.";
 
+export const TEXTE_SCAN_OCR_EN =
+  "A scanned PDF is read by character recognition (OCR) on the server, which is slower " +
+  `(a few seconds per page, ${PLAFONDS_OCR.pagesMax} pages at most); ` +
+  "the resulting statement always goes to review and every figure must be checked against the document.";
+
 /** Rappel des limites, affiché près du champ fichier. */
-export function aideLimitesIngestion(): string {
+export function aideLimitesIngestion(langue: Langue = "fr"): string {
+  if (langue === "en") {
+    return (
+      `PDF with text (${mo(PLAFONDS_INGESTION.tailleOctetsPdf)} MB and ${PLAFONDS_INGESTION.pagesMax} pages at most) ` +
+      `or Excel .xlsx workbook (${mo(PLAFONDS_INGESTION.tailleOctetsXlsx)} MB at most). ` +
+      TEXTE_SCAN_OCR_EN
+    );
+  }
   return (
     `PDF avec texte (${mo(PLAFONDS_INGESTION.tailleOctetsPdf)} Mo et ${PLAFONDS_INGESTION.pagesMax} pages au plus) ` +
     `ou classeur Excel .xlsx (${mo(PLAFONDS_INGESTION.tailleOctetsXlsx)} Mo au plus). ` +

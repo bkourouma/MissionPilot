@@ -1,11 +1,14 @@
 "use client";
 
+import { useLangue, useT } from "../../i18n/FournisseurLangue";
 import { useRafraichir } from "../../formulaires/useRafraichir";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   cheminApiDepot,
   etatSuivant,
   relancerAuRetour,
+  type EtatEnvoi,
+  type EvenementEnvoi,
   type ReponseDepot,
 } from "../../../lib/salle-mission-portail";
 import { televerser } from "../../../lib/televersement";
@@ -27,11 +30,16 @@ export interface DepotPieceProps {
  * (l'API reconnaît le même fichier). Réussi : la page est rechargée (statut « reçue »).
  */
 export function DepotPiece({ pieceId, libelle, redepot }: DepotPieceProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const rafraichirRef = useRef(rafraichir);
   rafraichirRef.current = rafraichir;
   const [fichier, setFichier] = useState<File | null>(null);
-  const [etat, envoyer] = useReducer(etatSuivant, { etape: "inactif" });
+  const [etat, envoyer] = useReducer(
+    (e: EtatEnvoi, ev: EvenementEnvoi) => etatSuivant(e, ev, langue),
+    { etape: "inactif" },
+  );
   const enCours = useRef(false);
 
   const lancer = useCallback(
@@ -72,7 +80,11 @@ export function DepotPiece({ pieceId, libelle, redepot }: DepotPieceProps) {
   return (
     <div className="mp-pile">
       <ChoixFichier
-        libelle={redepot ? `Nouvelle version de « ${libelle} »` : `Déposer « ${libelle} »`}
+        libelle={
+          redepot
+            ? t(`Nouvelle version de « ${libelle} »`, `New version of "${libelle}"`)
+            : t(`Déposer « ${libelle} »`, `Upload "${libelle}"`)
+        }
         fichier={fichier}
         onChoix={(f) => {
           setFichier(f);
@@ -95,8 +107,14 @@ export function DepotPiece({ pieceId, libelle, redepot }: DepotPieceProps) {
         <Alerte tonalite="succes" annonce="status">
           <p>
             {etat.rejoue
-              ? "Ce fichier était déjà bien reçu : rien n'a été envoyé en double."
-              : "Document envoyé. Un accusé de réception vous est adressé."}
+              ? t(
+                  "Ce fichier était déjà bien reçu : rien n'a été envoyé en double.",
+                  "This file was already received: nothing was sent twice.",
+                )
+              : t(
+                  "Document envoyé. Un accusé de réception vous est adressé.",
+                  "Document sent. An acknowledgment of receipt is being sent to you.",
+                )}
           </p>
         </Alerte>
       ) : null}
@@ -106,10 +124,12 @@ export function DepotPiece({ pieceId, libelle, redepot }: DepotPieceProps) {
             className="mp-salle-portail__envoyer"
             icone="envoyer"
             chargement={progression !== null}
-            texteChargement="Envoi en cours…"
+            texteChargement={t("Envoi en cours…", "Sending…")}
             onClick={() => void lancer(fichier)}
           >
-            {etat.etape === "attente_reseau" ? "Réessayer maintenant" : "Envoyer le document"}
+            {etat.etape === "attente_reseau"
+              ? t("Réessayer maintenant", "Try again now")
+              : t("Envoyer le document", "Send the document")}
           </Bouton>
         </div>
       ) : null}

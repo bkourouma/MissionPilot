@@ -17,21 +17,26 @@ import {
   libelleDevise,
 } from "../../../lib/format";
 import {
-  ETAPE_LIBELLES,
+  libelleEtape,
   formaterProbabilite,
   hrefPipeline,
   lireFiltresPipeline,
-  OPTIONS_ETAPES,
-  OPTIONS_FILTRE_STATUT,
+  optionsEtapes,
+  optionsFiltreStatut,
   requeteOpportunites,
-  STATUT_OPPORTUNITE,
+  statutOpportunite,
   type AgregatPipeline,
   type Opportunite,
 } from "../../../lib/pipeline";
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { chargerClientsActifs } from "../../../lib/referentiels-serveur";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Pipeline commercial" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Pipeline commercial", "Sales pipeline") };
+}
 
 export default async function PagePipeline({
   searchParams,
@@ -39,6 +44,8 @@ export default async function PagePipeline({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("pipeline.gerer");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const filtres = lireFiltresPipeline(await searchParams);
   const [liste, agregat, clients] = await Promise.all([
     chargerToutesLesPages<Opportunite>(
@@ -54,54 +61,57 @@ export default async function PagePipeline({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Pipeline commercial"
-        soustitre="Opportunités en cours, montant pondéré par la probabilité de gain, propositions et passage en mission."
+        titre={t("Pipeline commercial", "Sales pipeline")}
+        soustitre={t(
+          "Opportunités en cours, montant pondéré par la probabilité de gain, propositions et passage en mission.",
+          "Ongoing opportunities, amounts weighted by win probability, proposals and conversion into engagements.",
+        )}
         actions={
           <Link href="/pipeline/nouvelle" className={classesBouton("primaire")}>
             <Icone nom="plus" />
-            <span>Nouvelle opportunité</span>
+            <span>{t("Nouvelle opportunité", "New opportunity")}</span>
           </Link>
         }
       />
 
-      <SyntheseAgregat agregat={agregat} />
+      <SyntheseAgregat agregat={agregat} langue={langue} />
 
       <form
         method="get"
         action="/pipeline"
         className="mp-filtres"
-        aria-label="Filtrer les opportunités"
+        aria-label={t("Filtrer les opportunités", "Filter opportunities")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Select
-            libelle="Statut"
+            libelle={t("Statut", "Status")}
             name="statut"
-            options={OPTIONS_FILTRE_STATUT}
+            options={optionsFiltreStatut(langue)}
             defaultValue={filtres.statut}
           />
           <Select
-            libelle="Étape"
+            libelle={t("Étape", "Stage")}
             name="etape"
-            options={OPTIONS_ETAPES}
-            invite="Toutes les étapes"
+            options={optionsEtapes(langue)}
+            invite={t("Toutes les étapes", "All stages")}
             defaultValue={filtres.etape}
           />
           <Select
-            libelle="Client"
+            libelle={t("Client", "Client")}
             name="client_id"
             options={clients}
-            invite="Tous les clients"
+            invite={t("Tous les clients", "All clients")}
             defaultValue={filtres.client_id}
           />
         </div>
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
             <Icone nom="entonnoir" />
-            <span>Filtrer</span>
+            <span>{t("Filtrer", "Filter")}</span>
           </button>
           {filtre ? (
             <Link href="/pipeline" className={classesBouton("discret")}>
-              Effacer les filtres
+              {t("Effacer les filtres", "Clear filters")}
             </Link>
           ) : null}
         </div>
@@ -109,7 +119,10 @@ export default async function PagePipeline({
 
       {!liste.ok ? (
         <EtatErreur
-          titre="Les opportunités n'ont pas pu être chargées."
+          titre={t(
+            "Les opportunités n'ont pas pu être chargées.",
+            "The opportunities could not be loaded.",
+          )}
           message={liste.message}
           hrefReessayer={hrefPipeline(filtres)}
         />
@@ -117,70 +130,78 @@ export default async function PagePipeline({
         <EtatVide
           titre={
             filtre
-              ? "Aucune opportunité ne correspond à ces filtres."
-              : "Aucune opportunité ouverte."
+              ? t(
+                  "Aucune opportunité ne correspond à ces filtres.",
+                  "No opportunity matches these filters.",
+                )
+              : t("Aucune opportunité ouverte.", "No open opportunity.")
           }
           icone="entonnoir"
           action={
             filtre ? (
               <Link href="/pipeline" className={classesBouton("secondaire")}>
-                Effacer les filtres
+                {t("Effacer les filtres", "Clear filters")}
               </Link>
             ) : (
               <Link href="/pipeline/nouvelle" className={classesBouton("primaire")}>
-                Créer la première opportunité
+                {t("Créer la première opportunité", "Create the first opportunity")}
               </Link>
             )
           }
         >
           {filtre ? null : (
-            <p>Enregistrez une piste commerciale pour suivre sa probabilité de gain.</p>
+            <p>
+              {t(
+                "Enregistrez une piste commerciale pour suivre sa probabilité de gain.",
+                "Record a sales lead to track its win probability.",
+              )}
+            </p>
           )}
         </EtatVide>
       ) : (
         <Tableau
-          legende="Opportunités"
+          legende={t("Opportunités", "Opportunities")}
           lignes={liste.donnees.elements}
           cleLigne={(o) => o.id}
           colonnes={[
             {
               cle: "intitule",
-              entete: "Opportunité",
+              entete: t("Opportunité", "Opportunity"),
               rendu: (o) => (
                 <Link href={`/pipeline/${o.id}`} className="mp-lien-ligne">
                   {o.intitule}
                 </Link>
               ),
             },
-            { cle: "client", entete: "Client", rendu: (o) => o.client_raison_sociale },
+            { cle: "client", entete: t("Client", "Client"), rendu: (o) => o.client_raison_sociale },
             {
               cle: "etape",
-              entete: "Étape",
-              rendu: (o) => (o.statut === "ouverte" ? ETAPE_LIBELLES[o.etape] : "—"),
+              entete: t("Étape", "Stage"),
+              rendu: (o) => (o.statut === "ouverte" ? libelleEtape(o.etape, langue) : "—"),
             },
             {
               cle: "probabilite",
-              entete: "Probabilité",
+              entete: t("Probabilité", "Probability"),
               alignement: "droite",
-              rendu: (o) => formaterProbabilite(o.probabilite),
+              rendu: (o) => formaterProbabilite(o.probabilite, langue),
             },
             {
               cle: "montant",
-              entete: "Montant estimé",
+              entete: t("Montant estimé", "Estimated amount"),
               alignement: "droite",
-              rendu: (o) => formaterMontantMineur(o.montant_estime, o.devise),
+              rendu: (o) => formaterMontantMineur(o.montant_estime, o.devise, langue),
             },
             {
               cle: "cloture",
-              entete: "Clôture prévue",
-              rendu: (o) => formaterDate(o.date_cloture_prevue),
+              entete: t("Clôture prévue", "Expected close date"),
+              rendu: (o) => formaterDate(o.date_cloture_prevue, "UTC", langue),
             },
             {
               cle: "statut",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (o) => (
-                <BadgeStatut tonalite={STATUT_OPPORTUNITE[o.statut].tonalite}>
-                  {STATUT_OPPORTUNITE[o.statut].libelle}
+                <BadgeStatut tonalite={statutOpportunite(o.statut, langue).tonalite}>
+                  {statutOpportunite(o.statut, langue).libelle}
                 </BadgeStatut>
               ),
             },
@@ -191,11 +212,21 @@ export default async function PagePipeline({
   );
 }
 
-function SyntheseAgregat({ agregat }: { agregat: Chargement<AgregatPipeline> }) {
+function SyntheseAgregat({
+  agregat,
+  langue,
+}: {
+  agregat: Chargement<AgregatPipeline>;
+  langue: Langue;
+}) {
+  const t = creerTraduire(langue);
   if (!agregat.ok) {
     return (
       <EtatErreur
-        titre="La synthèse du pipeline n'a pas pu être chargée."
+        titre={t(
+          "La synthèse du pipeline n'a pas pu être chargée.",
+          "The pipeline summary could not be loaded.",
+        )}
         message={agregat.message}
         hrefReessayer="/pipeline"
       />
@@ -204,57 +235,76 @@ function SyntheseAgregat({ agregat }: { agregat: Chargement<AgregatPipeline> }) 
   const a = agregat.donnees;
   return (
     <Carte
-      titre="Synthèse des opportunités ouvertes"
+      titre={t("Synthèse des opportunités ouvertes", "Summary of open opportunities")}
       actions={
         <p className="mp-badges">
-          <BadgeStatut tonalite="succes">{`${formaterNombre(a.gagnees, 0)} gagnée(s)`}</BadgeStatut>
-          <BadgeStatut tonalite="danger">{`${formaterNombre(a.perdues, 0)} perdue(s)`}</BadgeStatut>
+          <BadgeStatut tonalite="succes">{`${formaterNombre(a.gagnees, 0, langue)} ${t("gagnée(s)", "won")}`}</BadgeStatut>
+          <BadgeStatut tonalite="danger">{`${formaterNombre(a.perdues, 0, langue)} ${t("perdue(s)", "lost")}`}</BadgeStatut>
         </p>
       }
     >
       {a.totaux.length === 0 ? (
-        <p className="mp-texte-doux">Aucune opportunité ouverte : rien à agréger.</p>
+        <p className="mp-texte-doux">
+          {t(
+            "Aucune opportunité ouverte : rien à agréger.",
+            "No open opportunity: nothing to aggregate.",
+          )}
+        </p>
       ) : (
         <div className="mp-pile">
           <ul className="mp-totaux">
-            {a.totaux.map((t) => (
-              <li key={t.devise} className="mp-totaux__element">
+            {a.totaux.map((tot) => (
+              <li key={tot.devise} className="mp-totaux__element">
                 <span className="mp-totaux__libelle">
-                  {`${formaterNombre(t.nombre, 0)} opportunité(s) en ${libelleDevise(t.devise)}`}
+                  {t(
+                    `${formaterNombre(tot.nombre, 0, langue)} opportunité(s) en ${libelleDevise(tot.devise)}`,
+                    `${formaterNombre(tot.nombre, 0, langue)} opportunity(ies) in ${libelleDevise(tot.devise)}`,
+                  )}
                 </span>
                 <span className="mp-totaux__valeur">
-                  {formaterMontantMineur(t.montant_pondere, t.devise)}
+                  {formaterMontantMineur(tot.montant_pondere, tot.devise, langue)}
                 </span>
                 <span className="mp-texte-doux">
-                  pondéré, sur {formaterMontantMineur(t.montant_estime, t.devise)} estimés
+                  {t(
+                    `pondéré, sur ${formaterMontantMineur(tot.montant_estime, tot.devise, langue)} estimés`,
+                    `weighted, out of ${formaterMontantMineur(tot.montant_estime, tot.devise, langue)} estimated`,
+                  )}
                 </span>
               </li>
             ))}
           </ul>
           <Tableau
-            legende="Montants par étape et par devise"
+            legende={t("Montants par étape et par devise", "Amounts by stage and currency")}
             lignes={a.par_etape}
             cleLigne={(l) => `${l.etape}-${l.devise}`}
             colonnes={[
-              { cle: "etape", entete: "Étape", rendu: (l) => ETAPE_LIBELLES[l.etape] },
-              { cle: "devise", entete: "Devise", rendu: (l) => libelleDevise(l.devise) },
+              {
+                cle: "etape",
+                entete: t("Étape", "Stage"),
+                rendu: (l) => libelleEtape(l.etape, langue),
+              },
+              {
+                cle: "devise",
+                entete: t("Devise", "Currency"),
+                rendu: (l) => libelleDevise(l.devise),
+              },
               {
                 cle: "nombre",
-                entete: "Nombre",
+                entete: t("Nombre", "Count"),
                 alignement: "droite",
-                rendu: (l) => formaterNombre(l.nombre, 0),
+                rendu: (l) => formaterNombre(l.nombre, 0, langue),
               },
               {
                 cle: "estime",
-                entete: "Montant estimé",
+                entete: t("Montant estimé", "Estimated amount"),
                 alignement: "droite",
-                rendu: (l) => formaterMontantMineur(l.montant_estime, l.devise),
+                rendu: (l) => formaterMontantMineur(l.montant_estime, l.devise, langue),
               },
               {
                 cle: "pondere",
-                entete: "Montant pondéré",
+                entete: t("Montant pondéré", "Weighted amount"),
                 alignement: "droite",
-                rendu: (l) => formaterMontantMineur(l.montant_pondere, l.devise),
+                rendu: (l) => formaterMontantMineur(l.montant_pondere, l.devise, langue),
               },
             ]}
           />

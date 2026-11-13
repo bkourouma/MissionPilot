@@ -14,9 +14,13 @@ import {
 } from "../../../../../lib/banque-ao";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDate, formaterMontantMineur } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Offres financières" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Offres financières", "Financial bids") };
+}
 
 type Parametres = Promise<Record<string, string | string[] | undefined>>;
 
@@ -26,6 +30,8 @@ export default async function PageOffresFinancieres({
 }: {
   searchParams: Parametres;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await exigerPermission("finance.lire");
   const droits = droitsBanqueAo(utilisateur.roles);
   const curseur = lireCurseur((await searchParams).curseur);
@@ -40,43 +46,50 @@ export default async function PageOffresFinancieres({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Offres financières"
-        soustitre="Jours par expert, taux journaliers, per diem, débours et taxes, calculés par le moteur de l'application avec des arrondis exacts. Données confidentielles du cabinet."
+        titre={t("Offres financières", "Financial bids")}
+        soustitre={t(
+          "Jours par expert, taux journaliers, per diem, débours et taxes, calculés par le moteur de l'application avec des arrondis exacts. Données confidentielles du cabinet.",
+          "Days per expert, daily rates, per diem, expenses and taxes, computed by the application's engine with exact rounding. Confidential firm data.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
           hrefReessayer={chemin}
-          titre="Les offres n'ont pas pu être chargées."
+          titre={t("Les offres n'ont pas pu être chargées.", "The bids could not be loaded.")}
           message={r.message}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune offre financière." />
+        <EtatVide titre={t("Aucune offre financière.", "No financial bids.")} />
       ) : (
         <>
           <Tableau
-            legende="Offres financières"
+            legende={t("Offres financières", "Financial bids")}
             cleLigne={(o) => o.id}
             lignes={r.donnees.elements}
             colonnes={[
               {
                 cle: "titre",
-                entete: "Offre",
+                entete: t("Offre", "Bid"),
                 rendu: (o) => <Link href={`${chemin}/${o.id}`}>{o.titre}</Link>,
               },
               { cle: "version", entete: "Version", alignement: "droite" },
               {
                 cle: "total_ht",
-                entete: "Total HT",
+                entete: t("Total HT", "Total excl. tax"),
                 alignement: "droite",
-                rendu: (o) => formaterMontantMineur(o.total_ht, o.devise),
+                rendu: (o) => formaterMontantMineur(o.total_ht, o.devise, langue),
               },
               {
                 cle: "total_ttc",
-                entete: "Total TTC",
+                entete: t("Total TTC", "Total incl. tax"),
                 alignement: "droite",
-                rendu: (o) => formaterMontantMineur(o.total_ttc, o.devise),
+                rendu: (o) => formaterMontantMineur(o.total_ttc, o.devise, langue),
               },
-              { cle: "cree_le", entete: "Créée le", rendu: (o) => formaterDate(o.cree_le) },
+              {
+                cle: "cree_le",
+                entete: t("Créée le", "Created on"),
+                rendu: (o) => formaterDate(o.cree_le, "UTC", langue),
+              },
             ]}
           />
           <PaginationCurseur
@@ -90,7 +103,7 @@ export default async function PageOffresFinancieres({
         </>
       )}
       {droits.ecrireFinance ? (
-        <Carte titre="Nouvelle offre financière">
+        <Carte titre={t("Nouvelle offre financière", "New financial bid")}>
           <FormulaireOffreFinanciere />
         </Carte>
       ) : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../components/ui/Bouton";
@@ -27,6 +28,8 @@ type Message = { tonalite: "succes" | "danger"; texte: string };
  * versions (lecture des consignes) et la réactivation d'une version (« ia.configurer »).
  */
 export function PromptsIa({ initiale }: { initiale: PageIa<PromptIa> }) {
+  const t = useT();
+  const langue = useLangue();
   const [prompts, setPrompts] = useState(initiale.elements);
   const [curseur, setCurseur] = useState(initiale.curseur_suivant);
   const [chargement, setChargement] = useState(false);
@@ -42,21 +45,26 @@ export function PromptsIa({ initiale }: { initiale: PageIa<PromptIa> }) {
       setPrompts((l) => [...l, ...r.elements]);
       setCurseur(r.curseur_suivant);
     } catch (e) {
-      setErreur(messageErreurIa(e));
+      setErreur(messageErreurIa(e, langue));
     } finally {
       setChargement(false);
     }
   }
 
   if (prompts.length === 0) {
-    return <EtatVide titre="Aucun prompt">Les prompts d&apos;exemple apparaissent ici.</EtatVide>;
+    return (
+      <EtatVide titre={t("Aucun prompt", "No prompt")}>
+        {t("Les prompts d'exemple apparaissent ici.", "Example prompts appear here.")}
+      </EtatVide>
+    );
   }
   return (
     <div className="mp-pile">
       <p className="mp-texte-petit mp-texte-doux">
-        Une génération utilise la version active de son prompt, figée dans sa traçabilité. Les
-        variables entre doubles accolades sont remplies par l&apos;écran ; « chiffres » l&apos;est
-        par CabinetPilot avec les résultats des moteurs de calcul.
+        {t(
+          "Une génération utilise la version active de son prompt, figée dans sa traçabilité. Les variables entre doubles accolades sont remplies par l'écran ; « chiffres » l'est par CabinetPilot avec les résultats des moteurs de calcul.",
+          'A generation uses the active version of its prompt, frozen in its traceability. Variables between double braces are filled in by the screen; "chiffres" is filled in by CabinetPilot with the results of the calculation engines.',
+        )}
       </p>
       <ul className="mp-liste-lignes">
         {prompts.map((p) => (
@@ -68,7 +76,13 @@ export function PromptsIa({ initiale }: { initiale: PageIa<PromptIa> }) {
         ))}
       </ul>
       {erreur ? (
-        <Alerte tonalite="danger" titre="La suite de la liste n'a pas pu être chargée.">
+        <Alerte
+          tonalite="danger"
+          titre={t(
+            "La suite de la liste n'a pas pu être chargée.",
+            "The rest of the list could not be loaded.",
+          )}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -77,10 +91,10 @@ export function PromptsIa({ initiale }: { initiale: PageIa<PromptIa> }) {
           <Bouton
             variante="secondaire"
             chargement={chargement}
-            texteChargement="Chargement…"
+            texteChargement={t("Chargement…", "Loading…")}
             onClick={suite}
           >
-            Afficher plus de prompts
+            {t("Afficher plus de prompts", "Show more prompts")}
           </Bouton>
         </div>
       ) : null}
@@ -89,6 +103,8 @@ export function PromptsIa({ initiale }: { initiale: PageIa<PromptIa> }) {
 }
 
 function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: PromptIa) => void }) {
+  const t = useT();
+  const langue = useLangue();
   const id = useId();
   const [ouvert, setOuvert] = useState(false);
   const [versions, setVersions] = useState<PromptIa[] | null>(null);
@@ -106,7 +122,7 @@ function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: Pro
       setCurseur(r.curseur_suivant);
       return true;
     } catch (e) {
-      setMessage({ tonalite: "danger", texte: messageErreurIa(e) });
+      setMessage({ tonalite: "danger", texte: messageErreurIa(e, langue) });
       return false;
     } finally {
       setChargement(false);
@@ -127,10 +143,13 @@ function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: Pro
       onActive(r);
       setMessage({
         tonalite: "succes",
-        texte: `Version ${r.version} de « ${r.nom} » activée : les prochaines générations l'utiliseront.`,
+        texte: t(
+          `Version ${r.version} de « ${r.nom} » activée : les prochaines générations l'utiliseront.`,
+          `Version ${r.version} of "${r.nom}" activated: the next generations will use it.`,
+        ),
       });
     } catch (e) {
-      setMessage({ tonalite: "danger", texte: messageErreurIa(e) });
+      setMessage({ tonalite: "danger", texte: messageErreurIa(e, langue) });
     } finally {
       setActivation(null);
     }
@@ -141,13 +160,15 @@ function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: Pro
       <div className="mp-liste-lignes__texte">
         <span>
           <span className="mp-ia-code">{prompt.nom}</span>
-          {` — ${libelleTache(prompt.tache)}`}
+          {` — ${libelleTache(prompt.tache, langue)}`}
         </span>
         <span className="mp-badges">
-          <BadgeStatut tonalite="succes">{`Version ${prompt.version} active`}</BadgeStatut>
+          <BadgeStatut tonalite="succes">
+            {t(`Version ${prompt.version} active`, `Version ${prompt.version} active`)}
+          </BadgeStatut>
           {prompt.exemple ? (
             <BadgeStatut tonalite="neutre" sansIcone>
-              Exemple
+              {t("Exemple", "Example")}
             </BadgeStatut>
           ) : null}
         </span>
@@ -160,10 +181,12 @@ function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: Pro
         aria-expanded={ouvert}
         aria-controls={id}
         chargement={chargement && versions === null}
-        texteChargement="Chargement…"
+        texteChargement={t("Chargement…", "Loading…")}
         onClick={basculer}
       >
-        {ouvert ? "Masquer les versions" : "Versions et consignes"}
+        {ouvert
+          ? t("Masquer les versions", "Hide the versions")
+          : t("Versions et consignes", "Versions and instructions")}
       </Bouton>
       {message && !ouvert ? (
         <div className="mp-ia-versions">
@@ -180,7 +203,10 @@ function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: Pro
                 <p>{message.texte}</p>
               </Alerte>
             ) : null}
-            <ol className="mp-versions-ia__liste" aria-label={`Versions du prompt ${prompt.nom}`}>
+            <ol
+              className="mp-versions-ia__liste"
+              aria-label={t(`Versions du prompt ${prompt.nom}`, `Versions of prompt ${prompt.nom}`)}
+            >
               {versions.map((v) => (
                 <VersionPrompt
                   key={v.id}
@@ -196,10 +222,10 @@ function LignePrompt({ prompt, onActive }: { prompt: PromptIa; onActive: (p: Pro
                 <Bouton
                   variante="discret"
                   chargement={chargement}
-                  texteChargement="Chargement…"
+                  texteChargement={t("Chargement…", "Loading…")}
                   onClick={() => void charger(curseur)}
                 >
-                  Versions plus anciennes
+                  {t("Versions plus anciennes", "Older versions")}
                 </Bouton>
               </div>
             ) : null}
@@ -221,49 +247,58 @@ function VersionPrompt({
   bloque: boolean;
   activer: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <li className="mp-versions-ia__element">
       <div className="mp-versions-ia__ligne">
         <strong>{`Version ${v.version}`}</strong>
-        <span className="mp-texte-doux">{`créée le ${formaterDateHeure(v.cree_le)}`}</span>
+        <span className="mp-texte-doux">
+          {t(
+            `créée le ${formaterDateHeure(v.cree_le)}`,
+            `created on ${formaterDateHeure(v.cree_le, undefined, langue)}`,
+          )}
+        </span>
         {v.actif ? (
-          <BadgeStatut tonalite="succes">Active</BadgeStatut>
+          <BadgeStatut tonalite="succes">{t("Active", "Active")}</BadgeStatut>
         ) : (
           <Bouton
             variante="secondaire"
             chargement={enCours}
             disabled={bloque && !enCours}
-            texteChargement="Activation…"
+            texteChargement={t("Activation…", "Activating…")}
             onClick={activer}
           >
-            {`Activer la version ${v.version}`}
+            {t(`Activer la version ${v.version}`, `Activate version ${v.version}`)}
           </Bouton>
         )}
       </div>
       <details className="mp-details">
-        <summary>{`Consignes de la version ${v.version}`}</summary>
+        <summary>
+          {t(`Consignes de la version ${v.version}`, `Instructions of version ${v.version}`)}
+        </summary>
         <dl className="mp-liste-def mp-liste-def--compacte">
           <div>
-            <dt>Consigne système</dt>
+            <dt>{t("Consigne système", "System instruction")}</dt>
             <dd>
               <p className="mp-contenu-ia__texte mp-ia-gabarit">{v.gabarit_systeme || "—"}</p>
             </dd>
           </div>
           <div>
-            <dt>Consigne utilisateur</dt>
+            <dt>{t("Consigne utilisateur", "User instruction")}</dt>
             <dd>
               <p className="mp-contenu-ia__texte mp-ia-gabarit">{v.gabarit_utilisateur}</p>
             </dd>
           </div>
           <div>
-            <dt>Variables</dt>
+            <dt>{t("Variables", "Variables")}</dt>
             <dd className="mp-ia-code">
-              {v.variables.length > 0 ? v.variables.join(", ") : "Aucune"}
+              {v.variables.length > 0 ? v.variables.join(", ") : t("Aucune", "None")}
             </dd>
           </div>
           <div>
-            <dt>Format de sortie</dt>
-            <dd>{resumeSchemaSortie(v.schema_sortie)}</dd>
+            <dt>{t("Format de sortie", "Output format")}</dt>
+            <dd>{resumeSchemaSortie(v.schema_sortie, langue)}</dd>
           </div>
         </dl>
       </details>

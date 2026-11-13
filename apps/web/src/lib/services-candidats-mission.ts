@@ -1,7 +1,12 @@
 /** Services candidats : création d'une mission depuis un service (module extrait de `services-candidats.ts`). */
 import { UUID, estDevise } from "./services-candidats-outils";
 import type { ServiceCandidat } from "./services-candidats-types";
-import { CODES_SERVICES_CANDIDATS, type CodeServiceCandidat } from "@missionpilot/shared";
+import {
+  CODES_SERVICES_CANDIDATS,
+  creerTraduire,
+  type CodeServiceCandidat,
+  type Langue,
+} from "@missionpilot/shared";
 import { type Devise } from "./format";
 import {
   SAISIE_MISSION_VIDE,
@@ -14,11 +19,23 @@ import { type Resultat } from "./saisie";
 // --- Création d'une mission depuis un service ----------------------------------------
 
 /** Pourquoi une mission ne peut pas encore être créée depuis ce service (`null` : possible). */
-export function obstacleCreationMission(s: ServiceCandidat): string | null {
-  if (!s.type_mission) return "Le type de mission n'est pas activé : activez-le d'abord.";
-  if (!s.methode) return "Aucune méthode publiée dans le standard pour ce service.";
+export function obstacleCreationMission(s: ServiceCandidat, langue: Langue = "fr"): string | null {
+  const t = creerTraduire(langue);
+  if (!s.type_mission)
+    return t(
+      "Le type de mission n'est pas activé : activez-le d'abord.",
+      "The engagement type is not enabled: enable it first.",
+    );
+  if (!s.methode)
+    return t(
+      "Aucune méthode publiée dans le standard pour ce service.",
+      "No method published in the standard for this service.",
+    );
   if (s.coherence && !s.coherence.valide)
-    return "La méthode du standard est incohérente : corrigez-la avant de créer une mission.";
+    return t(
+      "La méthode du standard est incohérente : corrigez-la avant de créer une mission.",
+      "The standard's method is inconsistent: fix it before creating an engagement.",
+    );
   return null;
 }
 
@@ -45,17 +62,21 @@ export const SAISIE_MISSION_SERVICE_VIDE: SaisieMissionService = {
 export function validerMissionService(
   s: SaisieMissionService,
   service: ServiceCandidat,
+  langue: Langue = "fr",
 ): Resultat<ChargeCreationMission, ChampMission> {
   const devise: Devise = estDevise(service.prix.devise) ? service.prix.devise : "XOF";
-  return validerCreationMission({
-    ...SAISIE_MISSION_VIDE,
-    client_id: s.client_id,
-    intitule: s.intitule,
-    date_debut: s.date_debut,
-    date_fin: s.date_fin,
-    type_mission_id: service.type_mission?.id ?? "",
-    devise,
-  });
+  return validerCreationMission(
+    {
+      ...SAISIE_MISSION_VIDE,
+      client_id: s.client_id,
+      intitule: s.intitule,
+      date_debut: s.date_debut,
+      date_fin: s.date_fin,
+      type_mission_id: service.type_mission?.id ?? "",
+      devise,
+    },
+    langue,
+  );
 }
 
 /** Corps de PUT /api/missions/:id/methode : version publiée de la méthode, contexte vide. */

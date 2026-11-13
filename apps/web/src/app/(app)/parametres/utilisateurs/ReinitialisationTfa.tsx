@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { BoutonConfirmation } from "../../../../components/formulaires/BoutonConfirmation";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { ChampsReconfirmation } from "../../../../components/securite/ChampsReconfirmation";
@@ -11,6 +12,7 @@ import {
   avecReconfirmation,
   confirmationDemandee,
   messageReconfirmation,
+  messageSpecifiqueLangue,
   SAISIE_CONFIRMATION_VIDE,
   type SaisieConfirmation,
 } from "../../../../lib/double-authentification";
@@ -26,20 +28,28 @@ export function ReinitialisationTfa({
   utilisateurId: string;
   nom: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [confirmation, setConfirmation] = useState<SaisieConfirmation | null>(null);
   const f = useFormulaire<"mot_de_passe" | "code">();
   const chemin = `/api/utilisateurs/${encodeURIComponent(utilisateurId)}/2fa/reinitialiser`;
 
   const envoyer = (c: SaisieConfirmation | null) =>
     f.envoyer(
-      avecReconfirmation({ ok: true, charge: {} }, c),
+      avecReconfirmation({ ok: true, charge: {} }, c, langue),
       (charge) => api.post(chemin, charge, { redirigerSi401: false }),
       {
-        succes: `Double authentification de ${nom} réinitialisée : ses sessions sont fermées.`,
+        succes: t(
+          `Double authentification de ${nom} réinitialisée : ses sessions sont fermées.`,
+          `Two-factor authentication of ${nom} reset: their sessions are closed.`,
+        ),
         apres: () => setConfirmation(null),
         messageSpecifique: (e) => {
           if (confirmationDemandee(e)) setConfirmation((x) => x ?? SAISIE_CONFIRMATION_VIDE);
-          return messageReconfirmation(e, c?.facteur ?? "totp");
+          return (
+            messageReconfirmation(e, c?.facteur ?? "totp", langue) ??
+            messageSpecifiqueLangue(langue)(e)
+          );
         },
       },
     );
@@ -56,7 +66,7 @@ export function ReinitialisationTfa({
         erreur={confirmation ? null : f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Réinitialisation impossible"
+        titreErreur={t("Réinitialisation impossible", "Unable to reset")}
       />
       {confirmation ? (
         <form
@@ -64,42 +74,55 @@ export function ReinitialisationTfa({
           className="mp-formulaire"
           noValidate
           onSubmit={soumettre}
-          aria-label={`Réinitialiser la double authentification de ${nom}`}
+          aria-label={t(
+            `Réinitialiser la double authentification de ${nom}`,
+            `Reset the two-factor authentication of ${nom}`,
+          )}
         >
           <RetourFormulaire
             erreur={f.erreurGlobale}
             refAlerte={f.refAlerte}
-            titreErreur="Réinitialisation impossible"
+            titreErreur={t("Réinitialisation impossible", "Unable to reset")}
           />
           <ChampsReconfirmation
             saisie={confirmation}
             onChange={setConfirmation}
             erreurs={f.erreurs}
             motif={`réinitialiser la double authentification de ${nom}`}
+            motifEn={`reset the two-factor authentication of ${nom}`}
           />
           <div className="mp-actions-formulaire">
             <Bouton
               type="submit"
               variante="danger"
               chargement={f.enCours}
-              texteChargement="Réinitialisation…"
+              texteChargement={t("Réinitialisation…", "Resetting…")}
             >
-              Confirmer la réinitialisation
+              {t("Confirmer la réinitialisation", "Confirm the reset")}
             </Bouton>
             <Bouton variante="discret" onClick={() => setConfirmation(null)}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
       ) : (
         <div>
           <BoutonConfirmation
-            libelle="Réinitialiser la double authentification"
+            libelle={t(
+              "Réinitialiser la double authentification",
+              "Reset two-factor authentication",
+            )}
             icone="cadenas"
-            ariaLabel={`Réinitialiser la double authentification de ${nom}`}
-            question={`Réinitialiser la double authentification de ${nom} ? Ses codes et ses sessions seront supprimés ; la personne devra la reconfigurer.`}
-            libelleConfirmation="Oui, réinitialiser"
-            texteChargement="Réinitialisation…"
+            ariaLabel={t(
+              `Réinitialiser la double authentification de ${nom}`,
+              `Reset the two-factor authentication of ${nom}`,
+            )}
+            question={t(
+              `Réinitialiser la double authentification de ${nom} ? Ses codes et ses sessions seront supprimés ; la personne devra la reconfigurer.`,
+              `Reset the two-factor authentication of ${nom}? Their codes and sessions will be deleted; the person will need to set it up again.`,
+            )}
+            libelleConfirmation={t("Oui, réinitialiser", "Yes, reset")}
+            texteChargement={t("Réinitialisation…", "Resetting…")}
             action={() => envoyer(null)}
           />
         </div>

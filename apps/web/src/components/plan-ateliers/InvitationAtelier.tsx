@@ -13,6 +13,7 @@ import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface InvitationAtelierProps {
   planId: string;
@@ -30,6 +31,8 @@ export function InvitationAtelier({
   atelierId,
   peutInviterClient,
 }: InvitationAtelierProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"utilisateur_id">();
   const [ouvert, setOuvert] = useState(false);
   const [candidats, setCandidats] = useState<Candidats | null>(null);
@@ -44,7 +47,7 @@ export function InvitationAtelier({
     try {
       setCandidats(await api.get<Candidats>(cheminCandidats(planId, atelierId)));
     } catch (e) {
-      setErreurChargement(messageAtelier(e));
+      setErreurChargement(messageAtelier(e, langue));
     } finally {
       setChargement(false);
     }
@@ -54,11 +57,17 @@ export function InvitationAtelier({
     e.preventDefault();
     const validation: Resultat<{ utilisateur_id: string }, "utilisateur_id"> = choix
       ? { ok: true, charge: { utilisateur_id: choix } }
-      : { ok: false, erreurs: { utilisateur_id: "Choisissez une personne." } };
+      : {
+          ok: false,
+          erreurs: { utilisateur_id: t("Choisissez une personne.", "Choose a person.") },
+        };
     const ok = await f.envoyer(
       validation,
       (corps) => api.post(cheminParticipants(planId, atelierId), corps),
-      { succes: "Participant invité.", messageSpecifique: messageAtelier },
+      {
+        succes: t("Participant invité.", "Participant invited."),
+        messageSpecifique: (e) => messageAtelier(e, langue),
+      },
     );
     if (ok) {
       setChoix("");
@@ -72,17 +81,20 @@ export function InvitationAtelier({
         <RetourFormulaire erreur={null} succes={f.succes} refAlerte={f.refAlerte} />
         <div>
           <Bouton variante="secondaire" icone="plus" onClick={ouvrir}>
-            Inviter un participant
+            {t("Inviter un participant", "Invite a participant")}
           </Bouton>
         </div>
       </div>
     );
   }
   const options = [
-    ...(candidats?.cabinet ?? []).map((c) => ({ valeur: c.id, libelle: `${c.nom} (cabinet)` })),
+    ...(candidats?.cabinet ?? []).map((c) => ({
+      valeur: c.id,
+      libelle: `${c.nom} ${t("(cabinet)", "(firm)")}`,
+    })),
     ...(peutInviterClient ? (candidats?.dirigeants ?? []) : []).map((c) => ({
       valeur: c.id,
-      libelle: `${c.nom} (dirigeant du client)`,
+      libelle: `${c.nom} ${t("(dirigeant du client)", "(client executive)")}`,
     })),
   ];
   return (
@@ -91,21 +103,24 @@ export function InvitationAtelier({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Inviter un participant"
+      aria-label={t("Inviter un participant", "Invite a participant")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale ?? erreurChargement}
         refAlerte={f.refAlerte}
-        titreErreur="Invitation impossible"
+        titreErreur={t("Invitation impossible", "Invitation failed")}
       />
       <Select
-        libelle="Participant"
+        libelle={t("Participant", "Participant")}
         required
-        invite={chargement ? "Chargement…" : "Choisir"}
+        invite={chargement ? t("Chargement…", "Loading…") : t("Choisir", "Choose")}
         options={options}
         aide={
           candidats?.tronque
-            ? "La liste est incomplète : seuls les premiers candidats par ordre alphabétique sont proposés."
+            ? t(
+                "La liste est incomplète : seuls les premiers candidats par ordre alphabétique sont proposés.",
+                "The list is incomplete: only the first candidates in alphabetical order are shown.",
+              )
             : undefined
         }
         value={choix}
@@ -113,11 +128,15 @@ export function InvitationAtelier({
         erreur={f.erreurs.utilisateur_id}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Invitation…">
-          Inviter
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Invitation…", "Inviting…")}
+        >
+          {t("Inviter", "Invite")}
         </Bouton>
         <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setOuvert(false)}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

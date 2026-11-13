@@ -1,4 +1,5 @@
 /** Saisie des hypothèses : lecture des blocs de la saisie pour construire le corps. */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import type { Devise } from "./format";
 import type { EcartsScenario } from "./plan-modele";
 import {
@@ -25,7 +26,11 @@ import {
 export interface ContexteSaisie {
   horizon: number;
   devise: Devise;
+  /** Langue des messages d'erreur (défaut "fr"). */
+  langue?: Langue;
 }
+
+const tr = (c: ContexteSaisie) => creerTraduire(c.langue ?? "fr");
 
 export function lireActivite(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisie) {
   const taux = (b: BornesTaux) => (v: string, cle: string, requis: boolean) =>
@@ -70,7 +75,11 @@ export function lireActivite(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisi
 }
 
 export function lireEffectifs(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisie) {
-  if (s.effectifs.length > EFFECTIFS_MAX) err.effectifs = `${EFFECTIFS_MAX} catégories au plus.`;
+  if (s.effectifs.length > EFFECTIFS_MAX)
+    err.effectifs = tr(c)(
+      `${EFFECTIFS_MAX} catégories au plus.`,
+      `${EFFECTIFS_MAX} categories at most.`,
+    );
   return s.effectifs.map((e, i) => {
     const k = `effectifs.${i}`;
     const revalorisation = lireTaux(e.revalorisation, `${k}.revalorisation`, err, {
@@ -104,7 +113,10 @@ export function lireEffectifs(s: SaisieHypotheses, err: Erreurs, c: ContexteSais
 
 export function lireInvestissements(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisie) {
   if (s.investissements.length > INVESTISSEMENTS_MAX) {
-    err.investissements = `${INVESTISSEMENTS_MAX} investissements au plus.`;
+    err.investissements = tr(c)(
+      `${INVESTISSEMENTS_MAX} investissements au plus.`,
+      `${INVESTISSEMENTS_MAX} investments at most.`,
+    );
   }
   return s.investissements.map((x, i) => {
     const k = `investissements.${i}`;
@@ -125,13 +137,17 @@ export function lireInvestissements(s: SaisieHypotheses, err: Erreurs, c: Contex
 }
 
 export function lireEmprunts(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisie) {
-  if (s.emprunts.length > EMPRUNTS_MAX) err.emprunts = `${EMPRUNTS_MAX} emprunts au plus.`;
+  if (s.emprunts.length > EMPRUNTS_MAX)
+    err.emprunts = tr(c)(`${EMPRUNTS_MAX} emprunts au plus.`, `${EMPRUNTS_MAX} loans at most.`);
   return s.emprunts.map((x, i) => {
     const k = `emprunts.${i}`;
     const duree = lireEntier(x.duree, `${k}.duree`, err, { requis: true, min: 1, max: 50 });
     const differe = lireEntier(x.differe, `${k}.differe`, err, { min: 0, max: 49 });
     if (differe !== undefined && duree !== undefined && differe >= duree) {
-      err[`${k}.differe`] = "Le différé doit rester inférieur à la durée de l'emprunt.";
+      err[`${k}.differe`] = tr(c)(
+        "Le différé doit rester inférieur à la durée de l'emprunt.",
+        "The deferral must remain shorter than the loan term.",
+      );
     }
     return {
       libelle: lireLibelle(x.libelle, `${k}.libelle`, err),
@@ -153,7 +169,11 @@ export function lireEmprunts(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisi
 }
 
 export function lireApports(s: SaisieHypotheses, err: Erreurs, c: ContexteSaisie) {
-  if (s.apports.length > APPORTS_MAX) err.apports = `${APPORTS_MAX} augmentations au plus.`;
+  if (s.apports.length > APPORTS_MAX)
+    err.apports = tr(c)(
+      `${APPORTS_MAX} augmentations au plus.`,
+      `${APPORTS_MAX} capital increases at most.`,
+    );
   return s.apports.map((x, i) => ({
     annee: lireEntier(x.annee, `apports.${i}.annee`, err, { requis: true, min: 1, max: c.horizon }),
     montant: lireMontantChamp(x.montant, `apports.${i}.montant`, err, c.devise, {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
@@ -46,6 +47,8 @@ export function FormulaireMissionService({
   clientInitial = null,
 }: FormulaireMissionServiceProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const f = useFormulaire<ChampMission>();
   const [s, setS] = useState<SaisieMissionService>(() => {
@@ -72,12 +75,16 @@ export function FormulaireMissionService({
     });
 
   async function lier(missionId: string): Promise<string | null> {
-    if (!liaison) return "Aucune méthode publiée à lier à la mission.";
+    if (!liaison)
+      return t(
+        "Aucune méthode publiée à lier à la mission.",
+        "No published method to link to the engagement.",
+      );
     try {
       await api.put(`/api/missions/${encodeURIComponent(missionId)}/methode`, liaison);
       return null;
     } catch (e) {
-      return messageMethodes(e) ?? messageErreur(e);
+      return messageMethodes(e, langue) ?? messageErreur(e, langue);
     }
   }
 
@@ -85,7 +92,7 @@ export function FormulaireMissionService({
     ev.preventDefault();
     setPartielle(null);
     await f.envoyer(
-      validerMissionService(s, service),
+      validerMissionService(s, service, langue),
       async (charge) => {
         const mission = await api.post<Mission>("/api/missions", charge);
         return { mission, erreurLiaison: await lier(mission.id) };
@@ -121,40 +128,53 @@ export function FormulaireMissionService({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Création impossible"
+        titreErreur={t("Création impossible", "Creation failed")}
       />
       {partielle ? (
-        <Alerte tonalite="attention" titre="Mission créée, méthode non liée" annonce="alert">
+        <Alerte
+          tonalite="attention"
+          titre={t("Mission créée, méthode non liée", "Engagement created, method not linked")}
+          annonce="alert"
+        >
           <p>
-            La mission a été créée, mais la méthode du standard n&apos;a pas pu y être liée :{" "}
+            {t(
+              "La mission a été créée, mais la méthode du standard n'a pas pu y être liée :",
+              "The engagement was created, but the standard's method could not be linked to it:",
+            )}{" "}
             {partielle.message}
           </p>
           <p>
-            <Link href={cheminMission(partielle.missionId)}>Ouvrir la mission créée</Link>
+            <Link href={cheminMission(partielle.missionId)}>
+              {t("Ouvrir la mission créée", "Open the created engagement")}
+            </Link>
           </p>
           <Bouton
             variante="secondaire"
             chargement={reliaison}
-            texteChargement="Liaison…"
+            texteChargement={t("Liaison…", "Linking…")}
             onClick={relancer}
           >
-            Réessayer la liaison de la méthode
+            {t("Réessayer la liaison de la méthode", "Retry linking the method")}
           </Bouton>
         </Alerte>
       ) : null}
       <div className="mp-grille-champs">
         <Select
-          libelle="Client"
+          libelle={t("Client", "Client")}
           name="client_id"
           required
           options={clients}
-          invite={clients.length ? "Choisir le client…" : "Aucun client actif disponible"}
+          invite={
+            clients.length
+              ? t("Choisir le client…", "Choose the client…")
+              : t("Aucun client actif disponible", "No active client available")
+          }
           value={s.client_id}
           onChange={(e) => choisirClient(e.target.value)}
           erreur={f.erreurs.client_id}
         />
         <Champ
-          libelle="Intitulé de la mission"
+          libelle={t("Intitulé de la mission", "Engagement title")}
           name="intitule"
           required
           maxLength={200}
@@ -166,22 +186,22 @@ export function FormulaireMissionService({
           erreur={f.erreurs.intitule}
         />
         <Champ
-          libelle="Date de début"
+          libelle={t("Date de début", "Start date")}
           name="date_debut"
           type="date"
           value={s.date_debut}
           onChange={(e) => setS((x) => ({ ...x, date_debut: e.target.value }))}
           erreur={f.erreurs.date_debut}
-          aide="Facultatif."
+          aide={t("Facultatif.", "Optional.")}
         />
         <Champ
-          libelle="Date de fin"
+          libelle={t("Date de fin", "End date")}
           name="date_fin"
           type="date"
           value={s.date_fin}
           onChange={(e) => setS((x) => ({ ...x, date_fin: e.target.value }))}
           erreur={f.erreurs.date_fin}
-          aide="Facultatif."
+          aide={t("Facultatif.", "Optional.")}
         />
       </div>
       <div className="mp-actions-formulaire">
@@ -189,14 +209,17 @@ export function FormulaireMissionService({
           type="submit"
           icone="plus"
           chargement={f.enCours}
-          texteChargement="Création…"
+          texteChargement={t("Création…", "Creating…")}
           disabled={partielle !== null}
         >
-          {`Créer une mission « ${service.libelle} »`}
+          {t(
+            `Créer une mission « ${service.libelle} »`,
+            `Create an engagement "${service.libelle}"`,
+          )}
         </Bouton>
         {partielle ? (
           <Link href={cheminMission(partielle.missionId)} className={classesBouton("discret")}>
-            Voir la mission
+            {t("Voir la mission", "View the engagement")}
           </Link>
         ) : null}
       </div>

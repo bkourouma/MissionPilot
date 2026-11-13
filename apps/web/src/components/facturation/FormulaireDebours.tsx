@@ -3,9 +3,9 @@
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useRef, useState, type FormEvent } from "react";
 import { api, appelerApi } from "../../lib/api";
-import { OPTIONS_DEVISES } from "../../lib/cabinet";
+import { optionsDevises } from "../../lib/cabinet";
 import {
-  OPTIONS_CATEGORIES,
+  optionsCategories,
   validerDebours,
   type ChampDebours,
   type Debours,
@@ -20,6 +20,7 @@ import {
 import { DEVISES, type Devise, libelleDevise } from "../../lib/format";
 import { aideMontant } from "../../lib/saisie";
 import { televerser } from "../../lib/televersement";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { ChoixFichier } from "../fichiers/ChoixFichier";
 import { FichierJoint } from "../fichiers/FichierJoint";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
@@ -78,6 +79,8 @@ export function FormulaireDebours({
   onEnregistre,
 }: FormulaireDeboursProps) {
   const { rafraichir } = useRafraichir();
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieDebours>(initial);
   const [missionId, setMissionId] = useState(missions.length === 1 ? missions[0]!.id : "");
   const mission = missions.find((m) => m.id === missionId);
@@ -141,12 +144,15 @@ export function FormulaireDebours({
     ev.preventDefault();
     setErreurFichier(undefined);
     setEchecJustificatif(false);
-    const v = validerDebours(s, deviseEffective);
+    const v = validerDebours(s, deviseEffective, langue);
     const validation =
       !idDebours && !mission
         ? {
             ok: false as const,
-            erreurs: { ...(v.ok ? {} : v.erreurs), mission: "Choisissez la mission." },
+            erreurs: {
+              ...(v.ok ? {} : v.erreurs),
+              mission: t("Choisissez la mission.", "Choose the engagement."),
+            },
           }
         : v;
     await f.envoyer(
@@ -157,13 +163,18 @@ export function FormulaireDebours({
       },
       {
         apres: onEnregistre ?? onFin,
-        succes: deboursId ? undefined : "Débours enregistré en brouillon.",
+        succes: deboursId
+          ? undefined
+          : t("Débours enregistré en brouillon.", "Expense saved as a draft."),
         messageSpecifique: (e) => {
           if (!(e instanceof EchecJustificatif)) return null;
           setEchecJustificatif(true);
-          const raison = messageTeleversement(e.origine);
+          const raison = messageTeleversement(e.origine, langue);
           if (!erreurReprenable(e.origine)) setErreurFichier(raison);
-          return `Le débours est enregistré en brouillon, mais le justificatif n'a pas été envoyé. ${raison}`;
+          return t(
+            `Le débours est enregistré en brouillon, mais le justificatif n'a pas été envoyé. ${raison}`,
+            `The expense is saved as a draft, but the supporting document was not sent. ${raison}`,
+          );
         },
       },
     );
@@ -184,10 +195,12 @@ export function FormulaireDebours({
       setJoint(null);
       setReference(null);
       setChangeSurServeur(true);
-      setAnnonce("Justificatif retiré du débours.");
+      setAnnonce(
+        t("Justificatif retiré du débours.", "Supporting document removed from the expense."),
+      );
       return true;
     } catch (e) {
-      setErreurFichier(messageTeleversement(e));
+      setErreurFichier(messageTeleversement(e, langue));
       return false;
     }
   }
@@ -205,7 +218,11 @@ export function FormulaireDebours({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur={echecJustificatif ? "Justificatif non envoyé" : undefined}
+        titreErreur={
+          echecJustificatif
+            ? t("Justificatif non envoyé", "Supporting document not sent")
+            : undefined
+        }
       />
       <span className="mp-visuellement-cache" role="status">
         {annonce}
@@ -213,9 +230,9 @@ export function FormulaireDebours({
       <div className="mp-grille-champs">
         {!idDebours && missions.length > 1 ? (
           <Select
-            libelle="Mission"
+            libelle={t("Mission", "Engagement")}
             options={missions.map((m) => ({ valeur: m.id, libelle: m.intitule }))}
-            invite="Choisir la mission…"
+            invite={t("Choisir la mission…", "Choose the engagement…")}
             required
             value={missionId}
             onChange={(e) => setMissionId(e.target.value)}
@@ -223,7 +240,7 @@ export function FormulaireDebours({
           />
         ) : null}
         <Champ
-          libelle="Date de la dépense"
+          libelle={t("Date de la dépense", "Expense date")}
           type="date"
           required
           value={s.date}
@@ -231,16 +248,16 @@ export function FormulaireDebours({
           erreur={f.erreurs.date}
         />
         <Select
-          libelle="Catégorie"
-          options={OPTIONS_CATEGORIES}
-          invite="Choisir…"
+          libelle={t("Catégorie", "Category")}
+          options={optionsCategories(langue)}
+          invite={t("Choisir…", "Choose…")}
           required
           value={s.categorie}
           onChange={(e) => maj("categorie", e.target.value)}
           erreur={f.erreurs.categorie}
         />
         <Champ
-          libelle="Description"
+          libelle={t("Description", "Description")}
           required
           maxLength={200}
           value={s.libelle}
@@ -248,8 +265,11 @@ export function FormulaireDebours({
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle={`Montant (${libelleDevise(deviseEffective)})`}
-          aide={aideMontant(deviseEffective)}
+          libelle={t(
+            `Montant (${libelleDevise(deviseEffective)})`,
+            `Amount (${libelleDevise(deviseEffective)})`,
+          )}
+          aide={aideMontant(deviseEffective, langue)}
           required
           inputMode="decimal"
           value={s.montant}
@@ -258,8 +278,8 @@ export function FormulaireDebours({
         />
         {mission && mission.devise === null ? (
           <Select
-            libelle="Devise de la mission"
-            options={OPTIONS_DEVISES}
+            libelle={t("Devise de la mission", "Engagement currency")}
+            options={optionsDevises(langue)}
             value={devise}
             onChange={(e) =>
               setDevise(
@@ -272,24 +292,33 @@ export function FormulaireDebours({
         ) : null}
       </div>
       <CaseACocher
-        libelle="Refacturable au client"
-        aide="Un débours refacturable validé peut être ajouté à une facture de la mission."
+        libelle={t("Refacturable au client", "Re-billable to the client")}
+        aide={t(
+          "Un débours refacturable validé peut être ajouté à une facture de la mission.",
+          "An approved re-billable expense can be added to an invoice of the engagement.",
+        )}
         checked={s.refacturable}
         onChange={(e) => maj("refacturable", e.target.checked)}
       />
       <div className="mp-pile">
         {joint ? (
           <div className="mp-justificatif-actuel">
-            <FichierJoint fichier={joint} prefixe="Justificatif joint" />
+            <FichierJoint
+              fichier={joint}
+              prefixe={t("Justificatif joint", "Supporting document attached")}
+            />
             {fichier ? null : (
               <div>
                 <BoutonConfirmation
-                  libelle="Retirer le justificatif"
+                  libelle={t("Retirer le justificatif", "Remove the supporting document")}
                   variante="discret"
                   icone="corbeille"
-                  question="Retirer le justificatif de ce débours ?"
-                  libelleConfirmation="Oui, retirer"
-                  texteChargement="Retrait…"
+                  question={t(
+                    "Retirer le justificatif de ce débours ?",
+                    "Remove the supporting document from this expense?",
+                  )}
+                  libelleConfirmation={t("Oui, retirer", "Yes, remove")}
+                  texteChargement={t("Retrait…", "Removing…")}
                   action={retirerJustificatif}
                 />
               </div>
@@ -297,12 +326,22 @@ export function FormulaireDebours({
           </div>
         ) : reference ? (
           <p className="mp-texte-petit mp-coupure">
-            {`Ancienne référence saisie : ${reference}. Joignez la photo ou le scan pour la remplacer.`}
+            {t(
+              `Ancienne référence saisie : ${reference}. Joignez la photo ou le scan pour la remplacer.`,
+              `Previously entered reference: ${reference}. Attach the photo or scan to replace it.`,
+            )}
           </p>
         ) : null}
         <ChoixFichier
-          libelle={joint ? "Remplacer le justificatif" : "Justificatif (photo ou scan)"}
-          aide="Photo du reçu ou scan : PDF, PNG, JPG ou WebP, 15 Mo au plus. Facultatif à l'enregistrement, attendu par le valideur."
+          libelle={
+            joint
+              ? t("Remplacer le justificatif", "Replace the supporting document")
+              : t("Justificatif (photo ou scan)", "Supporting document (photo or scan)")
+          }
+          aide={t(
+            "Photo du reçu ou scan : PDF, PNG, JPG ou WebP, 15 Mo au plus. Facultatif à l'enregistrement, attendu par le valideur.",
+            "Photo of the receipt or scan: PDF, PNG, JPG or WebP, 15 MB at most. Optional when saving, expected by the approver.",
+          )}
           types={TYPES_JUSTIFICATIF}
           photo
           fichier={fichier}
@@ -319,12 +358,16 @@ export function FormulaireDebours({
           type="submit"
           icone={reprise ? "nuage" : undefined}
           chargement={f.enCours}
-          texteChargement={progression !== null ? "Envoi du justificatif…" : "Enregistrement…"}
+          texteChargement={
+            progression !== null
+              ? t("Envoi du justificatif…", "Sending the supporting document…")
+              : t("Enregistrement…", "Saving…")
+          }
         >
-          {reprise ? "Réessayer l'envoi" : "Enregistrer"}
+          {reprise ? t("Réessayer l'envoi", "Retry sending") : t("Enregistrer", "Save")}
         </Bouton>
         <Bouton variante="discret" onClick={annuler} disabled={f.enCours}>
-          {idCree && !deboursId ? "Fermer" : "Annuler"}
+          {idCree && !deboursId ? t("Fermer", "Close") : t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

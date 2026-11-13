@@ -14,13 +14,15 @@ import { Icone } from "../../../components/ui/Icone";
 import { Select } from "../../../components/ui/Select";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate, libelleDevise } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import {
   alertesDerive,
   dateReferenceIndicateurs,
   indicateursAffiches,
   lireFiltresIndicateurs,
   NIVEAU_LIBELLES,
-  OPTIONS_NIVEAUX,
+  NIVEAU_LIBELLES_EN,
+  optionsNiveaux,
   requeteIndicateurs,
   type ElementMission,
   type ReponseIndicateurs,
@@ -28,7 +30,10 @@ import {
 import { aujourdhui } from "../../../lib/periode";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Indicateurs du cabinet" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Indicateurs du cabinet", "Firm indicators") };
+}
 
 export default async function PageIndicateurs({
   searchParams,
@@ -36,6 +41,8 @@ export default async function PageIndicateurs({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("indicateurs.cabinet");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const jour = aujourdhui();
   const f = lireFiltresIndicateurs(await searchParams, jour);
   // Jalons et feuilles évalués à la fin de la période, jamais après aujourd'hui.
@@ -59,52 +66,60 @@ export default async function PageIndicateurs({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Indicateurs du cabinet"
-        soustitre="Les onze indicateurs de pilotage, calculés par le moteur à partir des temps validés, des budgets, des factures et des encaissements."
+        titre={t("Indicateurs du cabinet", "Firm indicators")}
+        soustitre={t(
+          "Les onze indicateurs de pilotage, calculés par le moteur à partir des temps validés, des budgets, des factures et des encaissements.",
+          "The eleven management indicators, computed by the engine from approved time entries, budgets, invoices and payments received.",
+        )}
       />
       <form
         method="get"
         action="/indicateurs"
         className="mp-filtres"
         role="search"
-        aria-label="Période et niveau de lecture"
+        aria-label={t("Période et niveau de lecture", "Period and reading level")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
-          <Champ libelle="Du" type="date" name="du" defaultValue={f.du} required />
+          <Champ libelle={t("Du", "From")} type="date" name="du" defaultValue={f.du} required />
           <Champ
-            libelle="Au"
+            libelle={t("Au", "To")}
             type="date"
             name="au"
             defaultValue={f.au}
             required
-            aide="Période de 366 jours au plus."
+            aide={t("Période de 366 jours au plus.", "Period of 366 days at most.")}
           />
           <Select
-            libelle="Niveau de lecture"
+            libelle={t("Niveau de lecture", "Reading level")}
             name="niveau"
-            options={OPTIONS_NIVEAUX}
+            options={optionsNiveaux(langue)}
             defaultValue={f.niveau}
           />
         </div>
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
             <Icone nom="courbe" />
-            <span>Afficher</span>
+            <span>{t("Afficher", "Show")}</span>
           </button>
         </div>
       </form>
       {f.corrigee ? (
         <Alerte tonalite="attention" annonce="status">
           <p>
-            Période invalide ou de plus de 366 jours : la période par défaut (semaine en cours) est
-            affichée.
+            {t(
+              "Période invalide ou de plus de 366 jours : la période par défaut (semaine en cours) est affichée.",
+              "Invalid period or longer than 366 days: the default period (current week) is shown.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       {!r.ok ? (
         <EtatErreur
-          titre="Les indicateurs n'ont pas pu être calculés."
+          titre={t(
+            "Les indicateurs n'ont pas pu être calculés.",
+            "The indicators could not be computed.",
+          )}
           message={r.message}
           hrefReessayer={`/indicateurs?${requete}`}
         />
@@ -112,40 +127,64 @@ export default async function PageIndicateurs({
         <>
           <section aria-labelledby="titre-cabinet" className="mp-pile">
             <h2 id="titre-cabinet" className="mp-section__titre">
-              {`Cabinet du ${formaterDate(r.donnees.du)} au ${formaterDate(r.donnees.au)}`}
+              {t(
+                `Cabinet du ${formaterDate(r.donnees.du, "UTC", langue)} au ${formaterDate(r.donnees.au, "UTC", langue)}`,
+                `Firm from ${formaterDate(r.donnees.du, "UTC", langue)} to ${formaterDate(r.donnees.au, "UTC", langue)}`,
+              )}
             </h2>
             <p className="mp-texte-doux">
-              {`Montants en ${libelleDevise(r.donnees.devise)}. Jalons et feuilles évalués au ${formaterDate(r.donnees.date_reference)}. Les statuts de couleur appliquent des seuils de lecture de départ, à valider par le cabinet.`}
+              {t(
+                `Montants en ${libelleDevise(r.donnees.devise)}. Jalons et feuilles évalués au ${formaterDate(r.donnees.date_reference, "UTC", langue)}. Les statuts de couleur appliquent des seuils de lecture de départ, à valider par le cabinet.`,
+                `Amounts in ${libelleDevise(r.donnees.devise)}. Milestones and timesheets assessed as of ${formaterDate(r.donnees.date_reference, "UTC", langue)}. Color statuses apply starting reading thresholds, to be approved by the firm.`,
+              )}
             </p>
             {r.donnees.missions_exclues && r.donnees.missions_exclues.length > 0 ? (
               <Alerte tonalite="attention" annonce="aucune">
                 <p>
-                  {`${r.donnees.missions_exclues.length} mission(s) exclue(s) des montants : taux de change non figé.`}
+                  {t(
+                    `${r.donnees.missions_exclues.length} mission(s) exclue(s) des montants : taux de change non figé.`,
+                    `${r.donnees.missions_exclues.length} engagement(s) excluded from the amounts: exchange rate not frozen.`,
+                  )}
                 </p>
               </Alerte>
             ) : null}
-            <GrilleIndicateurs indicateurs={indicateursAffiches(r.donnees)} />
+            <GrilleIndicateurs
+              indicateurs={indicateursAffiches(r.donnees, langue)}
+              langue={langue}
+            />
           </section>
 
-          <Carte titre="Alertes de dérive" id="alertes">
+          <Carte titre={t("Alertes de dérive", "Drift alerts")} id="alertes">
             <div className="mp-pile">
               <p className="mp-texte-doux">
-                Missions dont l&apos;atterrissage dépasse le budget en jours. Ouvrez le suivi pour
-                voir l&apos;écart par phase, puis réallouez des jours ou demandez une révision de
-                budget.
+                {t(
+                  "Missions dont l'atterrissage dépasse le budget en jours. Ouvrez le suivi pour voir l'écart par phase, puis réallouez des jours ou demandez une révision de budget.",
+                  "Engagements whose landing exceeds the budget in days. Open the tracking to see the variance by phase, then reallocate days or request a budget revision.",
+                )}
               </p>
               {parMission?.ok ? (
                 <ListeAlertesDerive
-                  alertes={alertesDerive(parMission.donnees.elements as ElementMission[])}
+                  alertes={alertesDerive(parMission.donnees.elements as ElementMission[], langue)}
+                  langue={langue}
                 />
               ) : (
-                <p className="mp-texte-doux">Les alertes n&apos;ont pas pu être calculées.</p>
+                <p className="mp-texte-doux">
+                  {t(
+                    "Les alertes n'ont pas pu être calculées.",
+                    "The alerts could not be computed.",
+                  )}
+                </p>
               )}
             </div>
           </Carte>
 
           {r.donnees.niveau !== "cabinet" ? (
-            <Carte titre={`Détail par ${NIVEAU_LIBELLES[r.donnees.niveau].toLowerCase()}`}>
+            <Carte
+              titre={t(
+                `Détail par ${NIVEAU_LIBELLES[r.donnees.niveau].toLowerCase()}`,
+                `Detail by ${NIVEAU_LIBELLES_EN[r.donnees.niveau].toLowerCase()}`,
+              )}
+            >
               <TableauNiveau reponse={r.donnees} />
             </Carte>
           ) : null}

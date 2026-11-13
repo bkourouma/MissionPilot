@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLangue } from "../i18n/FournisseurLangue";
 import { messageReseau } from "../../lib/hors-ligne/etats";
 import { purgerDonneesHorsLigne } from "../../lib/hors-ligne/magasins";
 import "./hors-ligne.css";
@@ -15,6 +16,7 @@ const DUREE_RETOUR_MS = 6_000;
  *   aux lecteurs d'écran), visible seulement hors connexion et au retour du réseau.
  */
 export function HorsLigne() {
+  const langue = useLangue();
   const [enLigne, setEnLigne] = useState(true);
   const [retour, setRetour] = useState(false);
 
@@ -61,7 +63,7 @@ export function HorsLigne() {
     };
   }, []);
 
-  const texte = messageReseau(enLigne, retour);
+  const texte = messageReseau(enLigne, retour, langue);
   return (
     <div
       className={`mp-reseau${texte ? (enLigne ? " mp-reseau--retour" : " mp-reseau--hors-ligne") : ""}`}

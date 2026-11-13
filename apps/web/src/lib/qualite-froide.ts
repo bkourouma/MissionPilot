@@ -10,6 +10,8 @@
  */
 import {
   aPermission,
+  creerTraduire,
+  type Langue,
   CONCLUSION_REVUE_FROIDE_LIBELLES,
   CRITERES_REVUE_FROIDE,
   GRAVITE_CONSTAT_FROID_LIBELLES,
@@ -61,10 +63,30 @@ export const NOTES_REVUE_FROIDE: readonly { valeur: number; libelle: string }[] 
   { valeur: 5, libelle: "exemplaire" },
 ];
 
+export const NOTES_REVUE_FROIDE_EN: readonly { valeur: number; libelle: string }[] = [
+  { valeur: 1, libelle: "insufficient" },
+  { valeur: 2, libelle: "needs improvement" },
+  { valeur: 3, libelle: "satisfactory" },
+  { valeur: 4, libelle: "good" },
+  { valeur: 5, libelle: "exemplary" },
+];
+
 export const STRATES_LIBELLES: Record<StrateEchantillon, string> = {
   type_mission: "Par type de mission",
   directeur: "Par directeur de mission",
 };
+
+export const STRATES_LIBELLES_EN: Record<StrateEchantillon, string> = {
+  type_mission: "By engagement type",
+  directeur: "By engagement director",
+};
+
+export const libelleStrate = (s: StrateEchantillon, langue: Langue = "fr") =>
+  langue === "en" ? STRATES_LIBELLES_EN[s] : STRATES_LIBELLES[s];
+
+/** Libellés de note (1 à 5) dans la langue demandée. */
+export const notesRevueFroide = (langue: Langue = "fr") =>
+  langue === "en" ? NOTES_REVUE_FROIDE_EN : NOTES_REVUE_FROIDE;
 
 const LIBELLE_VIOLATION: Record<string, string> = {
   DIRECTEUR: "directeur de la mission",
@@ -77,28 +99,83 @@ const LIBELLE_VIOLATION: Record<string, string> = {
   INTERVENANT_QUALITE: "intervenu dans les suivis qualité de la mission",
 };
 
-/** Raison courte d'inéligibilité ; le message complet de l'API sert de repli. */
-export const libelleViolationIndependance = (v: ViolationIndependance) =>
-  LIBELLE_VIOLATION[v.code] ?? v.message;
+const LIBELLE_VIOLATION_EN: Record<string, string> = {
+  DIRECTEUR: "engagement director",
+  CHEF: "engagement manager",
+  EQUIPE: "engagement team member",
+  AFFECTE: "assigned to the engagement in the schedule",
+  CREATEUR: "created the engagement",
+  CLOTURE: "closed the engagement",
+  SIGNATAIRE: "signed the engagement",
+  INTERVENANT_QUALITE: "involved in the engagement's quality follow-ups",
+};
 
-export const libelleStatutCampagne = (s: StatutCampagneFroide) =>
-  STATUT_CAMPAGNE_FROIDE_LIBELLES[s] ?? s;
-export const libelleStatutEchantillon = (s: StatutEchantillonFroid) =>
-  STATUT_ECHANTILLON_FROID_LIBELLES[s] ?? s;
-export const libelleStatutAction = (s: StatutActionFroide) => STATUT_ACTION_FROIDE_LIBELLES[s] ?? s;
-export const libelleGravite = (g: GraviteConstatFroid) => GRAVITE_CONSTAT_FROID_LIBELLES[g] ?? g;
-export const libelleConclusion = (c: ConclusionRevueFroide | null) =>
-  c ? (CONCLUSION_REVUE_FROIDE_LIBELLES[c] ?? c) : "Pas encore de conclusion";
+/** Raison courte d'inéligibilité ; le message complet de l'API sert de repli. */
+export const libelleViolationIndependance = (v: ViolationIndependance, langue: Langue = "fr") =>
+  (langue === "en" ? LIBELLE_VIOLATION_EN[v.code] : LIBELLE_VIOLATION[v.code]) ?? v.message;
+
+const STATUT_CAMPAGNE_EN: Record<StatutCampagneFroide, string> = {
+  ouverte: "Open",
+  close: "Closed",
+};
+const STATUT_ECHANTILLON_EN: Record<StatutEchantillonFroid, string> = {
+  a_affecter: "To assign",
+  affectee: "Assigned",
+  en_revue: "In review",
+  terminee: "Completed",
+};
+const STATUT_ACTION_EN: Record<StatutActionFroide, string> = {
+  a_faire: "To do",
+  en_cours: "In progress",
+  faite: "Done",
+  abandonnee: "Abandoned",
+};
+const GRAVITE_EN: Record<GraviteConstatFroid, string> = {
+  mineur: "Minor",
+  majeur: "Major",
+  critique: "Critical",
+};
+const CONCLUSION_EN: Record<ConclusionRevueFroide, string> = {
+  conforme: "Compliant",
+  reserves: "Compliant with reservations",
+  non_conforme: "Non-compliant",
+};
+
+export const libelleStatutCampagne = (s: StatutCampagneFroide, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_CAMPAGNE_EN[s] : STATUT_CAMPAGNE_FROIDE_LIBELLES[s]) ?? s;
+export const libelleStatutEchantillon = (s: StatutEchantillonFroid, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_ECHANTILLON_EN[s] : STATUT_ECHANTILLON_FROID_LIBELLES[s]) ?? s;
+export const libelleStatutAction = (s: StatutActionFroide, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_ACTION_EN[s] : STATUT_ACTION_FROIDE_LIBELLES[s]) ?? s;
+export const libelleGravite = (g: GraviteConstatFroid, langue: Langue = "fr") =>
+  (langue === "en" ? GRAVITE_EN[g] : GRAVITE_CONSTAT_FROID_LIBELLES[g]) ?? g;
+export const libelleConclusion = (c: ConclusionRevueFroide | null, langue: Langue = "fr") =>
+  c
+    ? ((langue === "en" ? CONCLUSION_EN[c] : CONCLUSION_REVUE_FROIDE_LIBELLES[c]) ?? c)
+    : creerTraduire(langue)("Pas encore de conclusion", "No conclusion yet");
 
 const CRITERES_PAR_CODE = new Map<string, string>(
   CRITERES_REVUE_FROIDE.map((c) => [c.code, c.libelle]),
 );
-export const libelleCritere = (code: string | null) =>
-  code === null ? "Revue dans son ensemble" : (CRITERES_PAR_CODE.get(code) ?? code);
+const CRITERES_PAR_CODE_EN = new Map<string, string>([
+  ["conformite_methode", "Compliance with the method and quality safeguards"],
+  ["solidite_preuves", "Soundness of evidence and figures"],
+  ["relecture_signature", "Review, four eyes and signature"],
+  ["acceptation_independance", "Engagement acceptance and independence"],
+  ["satisfaction_client", "Satisfaction and client relationship"],
+  ["budget_delais", "Control of budget and deadlines"],
+  ["dossier_complet", "Completeness and traceability of the engagement file"],
+  ["usage_ia", "Controlled and disclosed use of AI"],
+]);
+export const libelleCritere = (code: string | null, langue: Langue = "fr") => {
+  if (code === null) return creerTraduire(langue)("Revue dans son ensemble", "Review as a whole");
+  const table = langue === "en" ? CRITERES_PAR_CODE_EN : CRITERES_PAR_CODE;
+  return table.get(code) ?? code;
+};
 
-/** Motif du moteur en français : codes de critères remplacés par leur libellé de grille. */
-export const libelleMotifRevue = (motif: string): string =>
-  remplacerCodesTechniques(motif, CRITERES_PAR_CODE);
+/** Motif du moteur : codes de critères remplacés par leur libellé de grille. */
+export const libelleMotifRevue = (motif: string, langue: Langue = "fr"): string =>
+  remplacerCodesTechniques(motif, langue === "en" ? CRITERES_PAR_CODE_EN : CRITERES_PAR_CODE);
 
 export function tonaliteConclusion(c: ConclusionRevueFroide | null): TonaliteStatut {
   if (c === "conforme") return "succes";
@@ -123,39 +200,59 @@ export const tonaliteGravite = (g: GraviteConstatFroid): TonaliteStatut =>
   g === "critique" ? "danger" : g === "majeur" ? "attention" : "neutre";
 
 /** « 3 sur 8 » : progression telle que l'API la compte (revues terminées, critères notés). */
-export const texteProgression = (fait: number, total: number, unite: string) =>
-  `${fait} sur ${total} ${unite}`;
+export const texteProgression = (
+  fait: number,
+  total: number,
+  unite: string,
+  langue: Langue = "fr",
+) => (langue === "en" ? `${fait} of ${total} ${unite}` : `${fait} sur ${total} ${unite}`);
 
 /** Score sur 100 du moteur, « 72,5 sur 100 » ; absence → « — ». */
-export function formaterScore(score: number | null): string {
+export function formaterScore(score: number | null, langue: Langue = "fr"): string {
   if (score === null) return "—";
-  return `${String(score).replace(".", ",")} sur 100`;
+  return langue === "en"
+    ? `${String(score)} out of 100`
+    : `${String(score).replace(".", ",")} sur 100`;
 }
 
 /** Couverture du moteur (0 à 1) → « 75 % ». Mise en forme seulement. */
-export const formaterCouverture = (c: number) => formaterPourcentage(c, 0);
+export const formaterCouverture = (c: number, langue: Langue = "fr") =>
+  formaterPourcentage(c, 0, langue);
 
 /** Taux de réalisation du moteur (0 à 100) → « 62,5 % ». */
-export const formaterTauxRealisation = (t: number) => `${String(t).replace(".", ",")} %`;
+export const formaterTauxRealisation = (t: number, langue: Langue = "fr") =>
+  langue === "en" ? `${String(t)}%` : `${String(t).replace(".", ",")} %`;
 
 /** Une ligne par clé PRÉSENTE du budget (FIN-02) : aucune clé absente n'est évoquée. */
-export function lignesBudget(b: BudgetDossier | undefined): { libelle: string; valeur: string }[] {
+export function lignesBudget(
+  b: BudgetDossier | undefined,
+  langue: Langue = "fr",
+): { libelle: string; valeur: string }[] {
   if (!b) return [];
+  const t = creerTraduire(langue);
   const devise = b.devise ?? "XOF";
-  const montant = (v: number | null | undefined) => formaterMontantMineur(v, devise);
+  const montant = (v: number | null | undefined) => formaterMontantMineur(v, devise, langue);
   const lignes: [string, boolean, string][] = [
-    ["Jours vendus", "budget_jours" in b, formaterJours(b.budget_jours)],
-    ["Honoraires", "honoraires" in b, montant(b.honoraires)],
-    ["Débours refacturables", "debours_refacturables" in b, montant(b.debours_refacturables)],
+    [t("Jours vendus", "Days sold"), "budget_jours" in b, formaterJours(b.budget_jours, langue)],
+    [t("Honoraires", "Fees"), "honoraires" in b, montant(b.honoraires)],
     [
-      "Débours non refacturables",
+      t("Débours refacturables", "Billable expenses"),
+      "debours_refacturables" in b,
+      montant(b.debours_refacturables),
+    ],
+    [
+      t("Débours non refacturables", "Non-billable expenses"),
       "debours_non_refacturables" in b,
       montant(b.debours_non_refacturables),
     ],
-    ["Coûts internes", "couts_internes" in b, montant(b.couts_internes)],
-    ["Sous-traitance", "sous_traitance" in b, montant(b.sous_traitance)],
-    ["Marge", "marge" in b, montant(b.marge)],
-    ["Taux de marge", "taux_marge" in b, formaterPourcentage(b.taux_marge)],
+    [t("Coûts internes", "Internal costs"), "couts_internes" in b, montant(b.couts_internes)],
+    [t("Sous-traitance", "Subcontracting"), "sous_traitance" in b, montant(b.sous_traitance)],
+    [t("Marge", "Margin"), "marge" in b, montant(b.marge)],
+    [
+      t("Taux de marge", "Margin rate"),
+      "taux_marge" in b,
+      formaterPourcentage(b.taux_marge, 1, langue),
+    ],
   ];
   return lignes
     .filter(([, present]) => present)
@@ -277,6 +374,7 @@ const CODES_MESSAGE_API = new Set([
 ]);
 
 export const MESSAGE_INTROUVABLE_FROIDE = "Cet élément n'est plus accessible. Actualisez la page.";
+export const MESSAGE_INTROUVABLE_FROIDE_EN = "This item is no longer accessible. Refresh the page.";
 
 function detailsDe(e: unknown): Record<string, unknown> {
   if (!(e instanceof ErreurApi)) return {};
@@ -306,14 +404,20 @@ export function violationsIndependance(e: unknown): ViolationIndependance[] {
   );
 }
 
-export function messageFroide(e: unknown): string {
+export function messageFroide(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     const manquants = criteresManquants(e);
     if (manquants.length > 0) {
-      return `La grille doit être complète. Il reste à évaluer : ${manquants.map(libelleCritere).join(" ; ")}.`;
+      const liste = manquants.map((c) => libelleCritere(c, langue)).join(" ; ");
+      return creerTraduire(langue)(
+        `La grille doit être complète. Il reste à évaluer : ${liste}.`,
+        `The grid must be complete. Still to assess: ${liste}.`,
+      );
     }
     if (CODES_MESSAGE_API.has(e.code)) return e.message;
-    if (e.statut === 404) return MESSAGE_INTROUVABLE_FROIDE;
+    if (e.statut === 404) {
+      return langue === "en" ? MESSAGE_INTROUVABLE_FROIDE_EN : MESSAGE_INTROUVABLE_FROIDE;
+    }
     if (e.statut === 409) return e.message;
   }
   return messageErreur(e);

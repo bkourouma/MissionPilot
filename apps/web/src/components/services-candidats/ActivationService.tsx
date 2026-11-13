@@ -5,13 +5,16 @@ import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { api } from "../../lib/api";
-import { MESSAGE_FIXER_PRIX_D_ABORD, type ServiceCandidat } from "../../lib/services-candidats";
+import { messageFixerPrixDAbord, type ServiceCandidat } from "../../lib/services-candidats";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 /**
  * Active le type de mission d'UN service (idempotent côté API). Un service à prix fixe dont le
  * prix n'est pas saisi (`a_fixer`) ne s'active pas : l'API répond 409 « PRIX_A_FIXER ».
  */
 export function ActivationService({ service }: { service: ServiceCandidat }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<never>();
   const [resultat, setResultat] = useState<string | null>(null);
   const bloque = service.prix.a_fixer;
@@ -27,8 +30,14 @@ export function ActivationService({ service }: { service: ServiceCandidat }) {
         apres: (r) =>
           setResultat(
             r.types_crees === 0
-              ? "Le type de mission était déjà activé : rien n'a été ajouté."
-              : "Type de mission activé. Ces valeurs de départ sont à valider par un expert.",
+              ? t(
+                  "Le type de mission était déjà activé : rien n'a été ajouté.",
+                  "The engagement type was already enabled: nothing was added.",
+                )
+              : t(
+                  "Type de mission activé. Ces valeurs de départ sont à valider par un expert.",
+                  "Engagement type enabled. These starting values must be approved by an expert.",
+                ),
           ),
       },
     );
@@ -39,7 +48,7 @@ export function ActivationService({ service }: { service: ServiceCandidat }) {
         erreur={f.erreurGlobale}
         succes={resultat}
         refAlerte={f.refAlerte}
-        titreErreur="Activation impossible"
+        titreErreur={t("Activation impossible", "Activation failed")}
       />
       <div>
         <Bouton
@@ -47,15 +56,15 @@ export function ActivationService({ service }: { service: ServiceCandidat }) {
           icone="livre"
           disabled={bloque}
           chargement={f.enCours}
-          texteChargement="Activation…"
+          texteChargement={t("Activation…", "Enabling…")}
           onClick={activer}
         >
-          Activer le type de mission
+          {t("Activer le type de mission", "Enable the engagement type")}
         </Bouton>
       </div>
       {bloque ? (
         <p className="mp-texte-doux" role="status">
-          {MESSAGE_FIXER_PRIX_D_ABORD}
+          {messageFixerPrixDAbord(langue)}
         </p>
       ) : null}
     </div>

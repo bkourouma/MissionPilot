@@ -9,6 +9,7 @@ import {
 import { api } from "../../lib/api";
 import { libelleEtapeGarde, libelleNature, messageMethodes } from "../../lib/methodes";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -25,6 +26,8 @@ export function FormulaireDerogation({
   missionId: string;
   briques: { code: string; libelle: string; active: boolean; classe_risque: string }[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampDerogation>();
   const [briqueCode, setBriqueCode] = useState("");
   const [nature, setNature] = useState<NatureDerogation>("retirer_brique");
@@ -34,10 +37,13 @@ export function FormulaireDerogation({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const erreurs: Partial<Record<ChampDerogation, string>> = {};
-    if (!briqueCode) erreurs.brique_code = "Choisir la brique.";
-    if (motif.trim().length < 10) erreurs.motif = "Motif de 10 caractères au moins.";
-    if (nature === "adapter_brique" && !description.trim())
-      erreurs.description = "Décrire l'adaptation.";
+    if (!briqueCode) erreurs.brique_code = t("Choisir la brique.", "Choose the building block.");
+    if (motif.trim().length < 10) {
+      erreurs.motif = t("Motif de 10 caractères au moins.", "Reason of at least 10 characters.");
+    }
+    if (nature === "adapter_brique" && !description.trim()) {
+      erreurs.description = t("Décrire l'adaptation.", "Describe the adaptation.");
+    }
     const charge = {
       brique_code: briqueCode,
       nature,
@@ -50,8 +56,8 @@ export function FormulaireDerogation({
       validation,
       (c) => api.post(`/api/missions/${missionId}/derogations`, c),
       {
-        succes: "Dérogation demandée.",
-        messageSpecifique: messageMethodes,
+        succes: t("Dérogation demandée.", "Waiver requested."),
+        messageSpecifique: (e) => messageMethodes(e, langue),
       },
     );
     if (ok) {
@@ -66,31 +72,34 @@ export function FormulaireDerogation({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Demande impossible"
+        titreErreur={t("Demande impossible", "Request not possible")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Brique"
+          libelle={t("Brique", "Building block")}
           required
           value={briqueCode}
           onChange={(e) => setBriqueCode(e.target.value)}
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           options={briques.map((b) => ({
             valeur: b.code,
-            libelle: `${b.libelle} (${b.classe_risque}${b.active ? "" : ", inactive"})`,
+            libelle: `${b.libelle} (${b.classe_risque}${b.active ? "" : t(", inactive", ", inactive")})`,
           }))}
           erreur={f.erreurs.brique_code}
         />
         <Select
-          libelle="Nature"
+          libelle={t("Nature", "Type")}
           value={nature}
           onChange={(e) => setNature(e.target.value as NatureDerogation)}
-          options={NATURES_DEROGATION.map((n) => ({ valeur: n, libelle: libelleNature(n) }))}
+          options={NATURES_DEROGATION.map((n) => ({
+            valeur: n,
+            libelle: libelleNature(n, langue),
+          }))}
         />
       </div>
       {nature === "adapter_brique" ? (
         <ZoneTexte
-          libelle="Adaptation demandée"
+          libelle={t("Adaptation demandée", "Requested adaptation")}
           required
           rows={2}
           maxLength={2000}
@@ -100,18 +109,26 @@ export function FormulaireDerogation({
         />
       ) : null}
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         required
         rows={3}
         maxLength={2000}
         value={motif}
         onChange={(e) => setMotif(e.target.value)}
         erreur={f.erreurs.motif}
-        aide="Obligatoire : il sera relu par les approbateurs et analysé par le comité méthode."
+        aide={t(
+          "Obligatoire : il sera relu par les approbateurs et analysé par le comité méthode.",
+          "Required: it will be read by the approvers and analyzed by the method committee.",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="drapeau" chargement={f.enCours} texteChargement="Envoi…">
-          Demander la dérogation
+        <Bouton
+          type="submit"
+          icone="drapeau"
+          chargement={f.enCours}
+          texteChargement={t("Envoi…", "Sending…")}
+        >
+          {t("Demander la dérogation", "Request the waiver")}
         </Bouton>
       </div>
     </form>
@@ -126,6 +143,8 @@ export function DecisionDerogation({
   derogationId: string;
   etape: EtapeGardeDerogation;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"commentaire">();
   const [commentaire, setCommentaire] = useState("");
 
@@ -135,11 +154,17 @@ export function DecisionDerogation({
       "commentaire"
     > =
       decision === "refuse" && !commentaire.trim()
-        ? { ok: false, erreurs: { commentaire: "Motiver le refus." } }
+        ? {
+            ok: false,
+            erreurs: { commentaire: t("Motiver le refus.", "Give a reason for the refusal.") },
+          }
         : { ok: true, charge: { etape, decision, commentaire: commentaire.trim() || null } };
     await f.envoyer(validation, (c) => api.post(`/api/derogations/${derogationId}/decisions`, c), {
-      succes: decision === "approuve" ? "Étape approuvée." : "Dérogation refusée.",
-      messageSpecifique: messageMethodes,
+      succes:
+        decision === "approuve"
+          ? t("Étape approuvée.", "Step approved.")
+          : t("Dérogation refusée.", "Waiver refused."),
+      messageSpecifique: (e) => messageMethodes(e, langue),
     });
   }
 
@@ -154,10 +179,10 @@ export function DecisionDerogation({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Décision impossible"
+        titreErreur={t("Décision impossible", "Decision not possible")}
       />
       <ZoneTexte
-        libelle={`Commentaire — ${libelleEtapeGarde(etape)}`}
+        libelle={`${t("Commentaire", "Comment")} — ${libelleEtapeGarde(etape, langue)}`}
         rows={2}
         maxLength={2000}
         value={commentaire}
@@ -171,7 +196,7 @@ export function DecisionDerogation({
           chargement={f.enCours}
           onClick={() => void decider("approuve")}
         >
-          Approuver
+          {t("Approuver", "Approve")}
         </Bouton>
         <Bouton
           type="button"
@@ -179,7 +204,7 @@ export function DecisionDerogation({
           disabled={f.enCours}
           onClick={() => void decider("refuse")}
         >
-          Refuser
+          {t("Refuser", "Refuse")}
         </Bouton>
       </div>
     </form>

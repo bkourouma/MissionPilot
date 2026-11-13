@@ -5,6 +5,7 @@ import { useState } from "react";
 import { VEILLE_MOTIF_MIN, type VeilleStatut } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import { API_VEILLE, messageVeille } from "../../lib/appels-offres-veille";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -20,6 +21,8 @@ function ActionAvecMotif({
   action: "ecarter" | "reexaminer";
   libelle: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [motif, setMotif] = useState("");
@@ -39,7 +42,10 @@ function ActionAvecMotif({
   return (
     <div className="mp-pile">
       <ZoneTexte
-        libelle={`Motif (${VEILLE_MOTIF_MIN} caractères au moins)`}
+        libelle={t(
+          `Motif (${VEILLE_MOTIF_MIN} caractères au moins)`,
+          `Reason (at least ${VEILLE_MOTIF_MIN} characters)`,
+        )}
         rows={2}
         maxLength={2000}
         value={motif}
@@ -66,16 +72,16 @@ function ActionAvecMotif({
               setMotif("");
               rafraichir();
             } catch (e) {
-              setErreur(messageVeille(e));
+              setErreur(messageVeille(e, langue));
             } finally {
               setEnCours(false);
             }
           }}
         >
-          Confirmer
+          {t("Confirmer", "Confirm")}
         </Bouton>
         <Bouton variante="discret" onClick={() => setOuvert(false)}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </div>
@@ -84,12 +90,13 @@ function ActionAvecMotif({
 
 /** Actions d'un résultat de veille selon son statut : Retenir, Écarter, Réexaminer, Créer la fiche. */
 export function VeilleActions({ id, statut }: { id: string; statut: VeilleStatut }) {
+  const t = useT();
   const base = `${API_VEILLE}/resultats/${encodeURIComponent(id)}`;
   if (statut === "fiche_creee") return null;
   if (statut === "ecarte") {
     return (
       <div className="mp-ao__actions">
-        <ActionAvecMotif id={id} action="reexaminer" libelle="Réexaminer" />
+        <ActionAvecMotif id={id} action="reexaminer" libelle={t("Réexaminer", "Reconsider")} />
       </div>
     );
   }
@@ -97,16 +104,19 @@ export function VeilleActions({ id, statut }: { id: string; statut: VeilleStatut
     <div className="mp-ao__actions">
       {statut === "nouveau" ? (
         <BoutonActionAo variante="secondaire" action={() => api.post(`${base}/retenir`, {})}>
-          Retenir
+          {t("Retenir", "Shortlist")}
         </BoutonActionAo>
       ) : null}
-      <ActionAvecMotif id={id} action="ecarter" libelle="Écarter" />
+      <ActionAvecMotif id={id} action="ecarter" libelle={t("Écarter", "Dismiss")} />
       <BoutonActionAo
         variante="primaire"
-        confirmation="Créer la fiche d'appel d'offres à partir de cet avis ?"
+        confirmation={t(
+          "Créer la fiche d'appel d'offres à partir de cet avis ?",
+          "Create the tender record from this notice?",
+        )}
         action={() => api.post(`${base}/fiche`, {})}
       >
-        Créer la fiche
+        {t("Créer la fiche", "Create the record")}
       </BoutonActionAo>
     </div>
   );

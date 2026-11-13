@@ -17,6 +17,7 @@ import {
   type SaisieEvenement,
 } from "../../lib/redressement-saisie";
 import { aideMontant } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -54,6 +55,8 @@ export function FormulaireEvenement({
     restantes: { rang: number; date: string; montant_restant: number }[];
   } | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampEvenement>();
   const [s, setS] = useState<SaisieEvenement>(() => evenementVide(aujourdhui, accord?.id ?? ""));
   const types: RedTypeEvenementNegociation[] = accord
@@ -76,11 +79,15 @@ export function FormulaireEvenement({
 
   async function envoyer() {
     await f.envoyer(
-      corpsEvenementDepuisFormulaire({ ...s, accord_id: accord?.id ?? s.accord_id }, devise),
+      corpsEvenementDepuisFormulaire(
+        { ...s, accord_id: accord?.id ?? s.accord_id },
+        devise,
+        langue,
+      ),
       (charge) => api.post<RedCreancierVue>(cheminEvenements(creancierId), charge),
       {
-        succes: "Événement enregistré.",
-        messageSpecifique: messageRedressement,
+        succes: t("Événement enregistré.", "Event saved."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
         apres: () =>
           setS((x) => ({
             ...x,
@@ -102,25 +109,25 @@ export function FormulaireEvenement({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Ajouter un événement de négociation"
+      aria-label={t("Ajouter un événement de négociation", "Add a negotiation event")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Could not save")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Type d'événement"
+          libelle={t("Type d'événement", "Event type")}
           value={s.type}
           onChange={(e) =>
             setS((x) => ({ ...x, type: e.target.value as RedTypeEvenementNegociation }))
           }
-          options={types.map((t) => ({ valeur: t, libelle: libelleTypeEvenement(t) }))}
+          options={types.map((tp) => ({ valeur: tp, libelle: libelleTypeEvenement(tp, langue) }))}
         />
         <Champ
-          libelle="Date de l'événement"
+          libelle={t("Date de l'événement", "Event date")}
           type="date"
           required
           value={s.date_evenement}
@@ -129,25 +136,30 @@ export function FormulaireEvenement({
         />
         {avecMontant ? (
           <Champ
-            libelle={s.type === "accord" ? "Montant convenu" : "Montant"}
+            libelle={
+              s.type === "accord" ? t("Montant convenu", "Agreed amount") : t("Montant", "Amount")
+            }
             required={montantObligatoire}
             inputMode="decimal"
             autoComplete="off"
             value={s.montant}
             onChange={(e) => setS((x) => ({ ...x, montant: e.target.value }))}
             erreur={f.erreurs.montant}
-            aide={aideMontant(devise)}
+            aide={aideMontant(devise, langue)}
           />
         ) : null}
         {s.type === "paiement" ? (
           <Select
-            libelle="Échéance concernée"
+            libelle={t("Échéance concernée", "Installment concerned")}
             value={s.echeance_rang}
-            invite="Aucune échéance précise"
+            invite={t("Aucune échéance précise", "No specific installment")}
             onChange={(e) => setS((x) => ({ ...x, echeance_rang: e.target.value }))}
             options={(accord?.restantes ?? []).map((r) => ({
               valeur: String(r.rang),
-              libelle: `Échéance ${r.rang} du ${formaterDate(r.date)} : ${formaterMontantMineur(r.montant_restant, devise)} restant`,
+              libelle: t(
+                `Échéance ${r.rang} du ${formaterDate(r.date)} : ${formaterMontantMineur(r.montant_restant, devise)} restant`,
+                `Installment ${r.rang} of ${formaterDate(r.date, "UTC", langue)}: ${formaterMontantMineur(r.montant_restant, devise, langue)} remaining`,
+              ),
             }))}
             erreur={f.erreurs.echeance_rang}
           />
@@ -161,22 +173,22 @@ export function FormulaireEvenement({
 
       {s.type === "accord" ? (
         <fieldset className="mp-red-fiche">
-          <legend>Échéancier de l&apos;accord</legend>
+          <legend>{t("Échéancier de l'accord", "Agreement installment schedule")}</legend>
           <Select
-            libelle="Mode"
+            libelle={t("Mode", "Mode")}
             value={s.mode}
             onChange={(e) =>
               setS((x) => ({ ...x, mode: e.target.value as SaisieEvenement["mode"] }))
             }
             options={[
-              { valeur: "regulier", libelle: "Échéancier régulier" },
-              { valeur: "explicite", libelle: "Échéancier explicite" },
+              { valeur: "regulier", libelle: t("Échéancier régulier", "Regular schedule") },
+              { valeur: "explicite", libelle: t("Échéancier explicite", "Explicit schedule") },
             ]}
           />
           {s.mode === "regulier" ? (
             <div className="mp-grille-champs">
               <Champ
-                libelle="Nombre d'échéances"
+                libelle={t("Nombre d'échéances", "Number of installments")}
                 inputMode="numeric"
                 autoComplete="off"
                 value={s.nombre_echeances}
@@ -184,14 +196,14 @@ export function FormulaireEvenement({
                 erreur={f.erreurs.nombre_echeances}
               />
               <Champ
-                libelle="Date de la première échéance"
+                libelle={t("Date de la première échéance", "First installment date")}
                 type="date"
                 value={s.date_premiere}
                 onChange={(e) => setS((x) => ({ ...x, date_premiere: e.target.value }))}
                 erreur={f.erreurs.date_premiere}
               />
               <Champ
-                libelle="Périodicité (mois)"
+                libelle={t("Périodicité (mois)", "Frequency (months)")}
                 inputMode="numeric"
                 autoComplete="off"
                 value={s.periodicite_mois}
@@ -210,7 +222,7 @@ export function FormulaireEvenement({
                 {s.lignes.map((l, i) => (
                   <li key={l.cle} className="mp-red-ligne">
                     <Champ
-                      libelle={`Échéance ${i + 1} : date`}
+                      libelle={t(`Échéance ${i + 1} : date`, `Installment ${i + 1}: date`)}
                       type="date"
                       value={l.date}
                       onChange={(e) =>
@@ -223,7 +235,7 @@ export function FormulaireEvenement({
                       }
                     />
                     <Champ
-                      libelle={`Échéance ${i + 1} : montant`}
+                      libelle={t(`Échéance ${i + 1} : montant`, `Installment ${i + 1}: amount`)}
                       inputMode="decimal"
                       autoComplete="off"
                       value={l.montant}
@@ -238,12 +250,12 @@ export function FormulaireEvenement({
                     />
                     <Bouton
                       variante="discret"
-                      aria-label={`Retirer l'échéance ${i + 1}`}
+                      aria-label={t(`Retirer l'échéance ${i + 1}`, `Remove installment ${i + 1}`)}
                       onClick={() =>
                         setS((x) => ({ ...x, lignes: x.lignes.filter((y) => y.cle !== l.cle) }))
                       }
                     >
-                      Retirer
+                      {t("Retirer", "Remove")}
                     </Bouton>
                   </li>
                 ))}
@@ -259,10 +271,12 @@ export function FormulaireEvenement({
                     }))
                   }
                 >
-                  Ajouter une échéance
+                  {t("Ajouter une échéance", "Add an installment")}
                 </Bouton>
                 {s.lignes.length >= 60 ? (
-                  <span className="mp-texte-doux mp-texte-petit">60 échéances au plus.</span>
+                  <span className="mp-texte-doux mp-texte-petit">
+                    {t("60 échéances au plus.", "60 installments at most.")}
+                  </span>
                 ) : null}
               </div>
             </div>
@@ -271,16 +285,23 @@ export function FormulaireEvenement({
       ) : null}
 
       <ZoneTexte
-        libelle="Conditions (facultatif)"
+        libelle={t("Conditions (facultatif)", "Terms (optional)")}
         maxLength={2000}
         value={s.conditions}
         onChange={(e) => setS((x) => ({ ...x, conditions: e.target.value }))}
         erreur={f.erreurs.conditions}
-        aide="Confidentielles : jamais reprises dans le journal d'audit."
+        aide={t(
+          "Confidentielles : jamais reprises dans le journal d'audit.",
+          "Confidential: never copied into the audit log.",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer l&apos;événement
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer l'événement", "Save the event")}
         </Bouton>
       </div>
     </form>
@@ -297,16 +318,20 @@ export function RompreAccord({
   accordId: string;
   aujourdhui: string;
 }) {
+  const t = useT();
   return (
     <BoutonActionRed
-      libelle="Rompre l'accord"
+      libelle={t("Rompre l'accord", "Break the agreement")}
       chemin={cheminEvenements(creancierId)}
       corps={{ type: "rupture", date_evenement: aujourdhui, accord_id: accordId }}
-      succes="Rupture de l'accord enregistrée."
+      succes={t("Rupture de l'accord enregistrée.", "Agreement break recorded.")}
       variante="danger"
       confirmation={{
-        question: "Rompre l'accord ? La rupture est enregistrée dans le fil de négociation.",
-        libelleConfirmation: "Oui, rompre l'accord",
+        question: t(
+          "Rompre l'accord ? La rupture est enregistrée dans le fil de négociation.",
+          "Break the agreement? The break is recorded in the negotiation timeline.",
+        ),
+        libelleConfirmation: t("Oui, rompre l'accord", "Yes, break the agreement"),
       }}
     />
   );

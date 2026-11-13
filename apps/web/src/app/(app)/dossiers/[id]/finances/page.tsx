@@ -16,23 +16,29 @@ import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import {
-  ORIGINE_ETAT_LIBELLES,
-  STATUT_ETAT,
+  libelleOrigineEtat,
+  statutEtat,
   type EtatFinancier,
   type VueDossier,
 } from "../../../../../lib/dossier";
 import { formaterDate, formaterMontantMineur } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import type { PageDocumentsIngestion } from "../../../../../lib/ingestion";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Finances du client" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Finances du client", "Client finances") };
+}
 
 /** États financiers multi-exercices : statut des contrôles, revue, historique, import. */
 export default async function PageFinances({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const peutEcrire = aPermission(utilisateur.roles, "dossier.ecrire");
   const [dossier, etats, documents] = await Promise.all([
     chargerServeur<VueDossier>(`/api/dossiers/${id}`),
@@ -44,11 +50,14 @@ export default async function PageFinances({ params }: { params: Promise<{ id: s
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Finances du client"
-          retour={{ href: `/dossiers/${id}`, libelle: "Dossier" }}
+          titre={t("Finances du client", "Client finances")}
+          retour={{ href: `/dossiers/${id}`, libelle: t("Dossier", "File") }}
         />
         <EtatErreur
-          titre="Les états financiers n'ont pas pu être chargés."
+          titre={t(
+            "Les états financiers n'ont pas pu être chargés.",
+            "The financial statements could not be loaded.",
+          )}
           message={!dossier.ok ? dossier.message : !etats.ok ? etats.message : ""}
           hrefReessayer={`/dossiers/${id}/finances`}
         />
@@ -62,91 +71,120 @@ export default async function PageFinances({ params }: { params: Promise<{ id: s
       <EnteteDossier client={dossier.donnees.client} fiabilite={dossier.donnees.fiabilite} />
 
       {enRevue > 0 ? (
-        <Alerte tonalite="attention" titre={`${enRevue} état(s) en revue`} annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t(`${enRevue} état(s) en revue`, `${enRevue} statement(s) under review`)}
+          annonce="aucune"
+        >
           <p>
-            Un état dont des contrôles échouent, ou qui ne peut pas être contrôlé entièrement,
-            n&apos;est jamais accepté automatiquement : ouvrez-le pour l&apos;accepter (avec un
-            motif) ou le rejeter.
+            {t(
+              "Un état dont des contrôles échouent, ou qui ne peut pas être contrôlé entièrement, n'est jamais accepté automatiquement : ouvrez-le pour l'accepter (avec un motif) ou le rejeter.",
+              "A statement with failed checks, or one that cannot be fully checked, is never accepted automatically: open it to accept it (with a reason) or reject it.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
-      <Carte titre="États financiers">
+      <Carte titre={t("États financiers", "Financial statements")}>
         <Tableau
-          legende="États financiers du client"
+          legende={t("États financiers du client", "Client financial statements")}
           lignes={etats.donnees.elements}
           cleLigne={(e) => e.id}
-          messageVide="Aucun état financier ingéré."
+          messageVide={t("Aucun état financier ingéré.", "No financial statement ingested.")}
           colonnes={[
             {
               cle: "exercice",
-              entete: "Exercice",
+              entete: t("Exercice", "Fiscal year"),
               rendu: (e) => (
                 <Link href={`/dossiers/${id}/finances/${e.id}`} className="mp-lien-ligne">
                   {e.exercice}
                 </Link>
               ),
             },
-            { cle: "date_cloture", entete: "Clôture", rendu: (e) => formaterDate(e.date_cloture) },
+            {
+              cle: "date_cloture",
+              entete: t("Clôture", "Closing"),
+              rendu: (e) => formaterDate(e.date_cloture, "UTC", langue),
+            },
             {
               cle: "statut",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (e) => (
-                <BadgeStatut tonalite={STATUT_ETAT[e.statut].tonalite}>
-                  {STATUT_ETAT[e.statut].libelle}
+                <BadgeStatut tonalite={statutEtat(e.statut, langue).tonalite}>
+                  {statutEtat(e.statut, langue).libelle}
                 </BadgeStatut>
               ),
             },
             {
               cle: "controles",
-              entete: "Contrôles",
+              entete: t("Contrôles", "Checks"),
               rendu: (e) =>
                 e.controles_ok
-                  ? "Tous passés"
-                  : `${e.ecarts} écart(s), ${e.non_verifiables} non vérifiable(s)`,
+                  ? t("Tous passés", "All passed")
+                  : t(
+                      `${e.ecarts} écart(s), ${e.non_verifiables} non vérifiable(s)`,
+                      `${e.ecarts} gap(s), ${e.non_verifiables} not verifiable`,
+                    ),
             },
-            { cle: "origine", entete: "Origine", rendu: (e) => ORIGINE_ETAT_LIBELLES[e.origine] },
+            {
+              cle: "origine",
+              entete: t("Origine", "Origin"),
+              rendu: (e) => libelleOrigineEtat(e.origine, langue),
+            },
             {
               cle: "actif",
-              entete: "Total actif",
+              entete: t("Total actif", "Total assets"),
               alignement: "droite",
-              rendu: (e) => formaterMontantMineur(e.totaux.actif, e.devise),
+              rendu: (e) => formaterMontantMineur(e.totaux.actif, e.devise, langue),
             },
             {
               cle: "resultat",
-              entete: "Résultat",
+              entete: t("Résultat", "Result"),
               alignement: "droite",
-              rendu: (e) => formaterMontantMineur(e.totaux.resultat, e.devise),
+              rendu: (e) => formaterMontantMineur(e.totaux.resultat, e.devise, langue),
             },
           ]}
         />
       </Carte>
 
-      <Carte titre="Rapport d'état financier">
+      <Carte titre={t("Rapport d'état financier", "Financial statement report")}>
         <RapportEtatFinancier clientId={id} />
       </Carte>
 
       {peutEcrire ? (
-        <Carte titre="Importer un état financier">
+        <Carte titre={t("Importer un état financier", "Import a financial statement")}>
           <ImportEtat clientId={id} />
           <p className="mp-note-import">
-            Classeur ou CSV au gabarit à colonnes fixes. Un nouvel état du même exercice remplace
-            l&apos;état courant (l&apos;historique reste consultable).
+            {t(
+              "Classeur ou CSV au gabarit à colonnes fixes. Un nouvel état du même exercice remplace l'état courant (l'historique reste consultable).",
+              "Workbook or CSV using the fixed-column template. A new statement for the same fiscal year replaces the current one (the history remains available).",
+            )}
           </p>
         </Carte>
       ) : null}
 
       {peutEcrire ? (
-        <Carte titre="Importer un état financier depuis un PDF ou un classeur">
+        <Carte
+          titre={t(
+            "Importer un état financier depuis un PDF ou un classeur",
+            "Import a financial statement from a PDF or workbook",
+          )}
+        >
           <ImportEtatDocument clientId={id} />
         </Carte>
       ) : null}
 
-      <Carte titre="Documents importés">
+      <Carte titre={t("Documents importés", "Imported documents")}>
         {documents.ok ? (
           <ImportEtatDocumentListe clientId={id} documents={documents.donnees.elements} />
         ) : (
-          <Alerte tonalite="danger" titre="Les documents importés n'ont pas pu être chargés.">
+          <Alerte
+            tonalite="danger"
+            titre={t(
+              "Les documents importés n'ont pas pu être chargés.",
+              "The imported documents could not be loaded.",
+            )}
+          >
             <p>{documents.message}</p>
           </Alerte>
         )}

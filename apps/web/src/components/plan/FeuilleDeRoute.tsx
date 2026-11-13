@@ -1,3 +1,4 @@
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import {
   datesPrevues,
@@ -16,7 +17,9 @@ import { libelleStatutContenu } from "../../lib/plan-strategique";
  * seule le sens : chaque case occupée porte un texte caché (« active »), chaque initiative
  * recalée, critique ou en conflit a son badge écrit et son explication.
  */
-export function FeuilleDeRoute({ feuille }: { feuille: Feuille }) {
+export async function FeuilleDeRoute({ feuille }: { feuille: Feuille }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const grille = grilleFeuilleDeRoute(feuille);
   return (
     <div className="mp-plan__section">
@@ -28,42 +31,57 @@ export function FeuilleDeRoute({ feuille }: { feuille: Feuille }) {
       >
         <table>
           <caption id="titre-grille-feuille">
-            {`Initiatives par ${feuille.pas === "semestre" ? "semestre" : "trimestre"} (dates recalées)`}
+            {feuille.pas === "semestre"
+              ? t(
+                  "Initiatives par semestre (dates recalées)",
+                  "Initiatives by half-year (rescheduled dates)",
+                )
+              : t(
+                  "Initiatives par trimestre (dates recalées)",
+                  "Initiatives by quarter (rescheduled dates)",
+                )}
           </caption>
           <thead>
             <tr>
-              <th scope="col">Initiative</th>
+              <th scope="col">{t("Initiative", "Initiative")}</th>
               {feuille.periodes.map((p) => (
                 <th scope="col" key={p.periode}>
-                  {libellePeriodeFeuille(p.periode)}
+                  {libellePeriodeFeuille(p.periode, langue)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {grille.map(({ initiative: i, cases }) => {
-              const prevues = datesPrevues(i);
+              const prevues = datesPrevues(i, langue);
               return (
                 <tr key={i.id}>
                   <th scope="row">
                     <span className="mp-plan-feuille__titre">
                       <span>{i.titre}</span>
                       <span className="mp-plan-feuille__meta">
-                        {`${periodeInitiative(i)} · ${i.statut_libelle} · ${libelleStatutContenu(i.statut_contenu)}`}
+                        {`${periodeInitiative(i, langue)} · ${i.statut_libelle} · ${libelleStatutContenu(i.statut_contenu, langue)}`}
                       </span>
                       {prevues ? <span className="mp-plan-feuille__meta">{prevues}</span> : null}
                       {i.recalee || i.critique || i.conflits.length ? (
                         <span className="mp-plan-feuille__marques">
                           {i.recalee ? (
                             <BadgeStatut tonalite="attention">
-                              {`Recalée ${libelleDecalage(i.decalage_jours)}`}
+                              {t(
+                                `Recalée ${libelleDecalage(i.decalage_jours)}`,
+                                `Rescheduled ${libelleDecalage(i.decalage_jours, langue)}`,
+                              )}
                             </BadgeStatut>
                           ) : null}
                           {i.conflits.length ? (
-                            <BadgeStatut tonalite="danger">Conflit de dates</BadgeStatut>
+                            <BadgeStatut tonalite="danger">
+                              {t("Conflit de dates", "Date conflict")}
+                            </BadgeStatut>
                           ) : null}
                           {i.critique ? (
-                            <BadgeStatut tonalite="neutre">Chemin critique</BadgeStatut>
+                            <BadgeStatut tonalite="neutre">
+                              {t("Chemin critique", "Critical path")}
+                            </BadgeStatut>
                           ) : null}
                         </span>
                       ) : null}
@@ -81,7 +99,7 @@ export function FeuilleDeRoute({ feuille }: { feuille: Feuille }) {
                             .filter(Boolean)
                             .join(" ")}
                         >
-                          <span className="mp-visuellement-cache">active</span>
+                          <span className="mp-visuellement-cache">{t("active", "active")}</span>
                         </span>
                       ) : null}
                     </td>
@@ -98,20 +116,23 @@ export function FeuilleDeRoute({ feuille }: { feuille: Feuille }) {
 }
 
 /** Explications écrites des recalages, conflits et dépendances ignorées. */
-function ExplicationsFeuille({ feuille }: { feuille: Feuille }) {
+async function ExplicationsFeuille({ feuille }: { feuille: Feuille }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const lignes = feuille.initiatives
-    .map((i) => ({ i, l: explicationsInitiative(i, feuille) }))
+    .map((i) => ({ i, l: explicationsInitiative(i, feuille, langue) }))
     .filter((x) => x.l.length > 0);
   if (!lignes.length) return null;
   return (
     <section className="mp-plan__section" aria-labelledby="titre-explications-feuille">
       <h4 id="titre-explications-feuille" className="mp-plan__intertitre">
-        Recalages et points d&apos;attention
+        {t("Recalages et points d'attention", "Rescheduling and points of attention")}
       </h4>
       <ul className="mp-plan-feuille__explications">
         {lignes.map(({ i, l }) => (
           <li key={i.id}>
-            <strong>{i.titre}</strong> : {l.join(" ")}
+            <strong>{i.titre}</strong>
+            {langue === "en" ? ":" : " :"} {l.join(" ")}
           </li>
         ))}
       </ul>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import type { ObjetSignature } from "@missionpilot/shared";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import type { VersionDocument } from "../../lib/documents";
 import {
   cheminApiSignatures,
@@ -13,8 +14,8 @@ import {
   libelleDocumentSignable,
   libellePartie,
   messageErreurSignature,
-  OPTIONS_OBJET_SIGNATURE,
-  OPTIONS_ORDRE_SIGNATURE,
+  optionsObjetSignature,
+  optionsOrdreSignature,
   PLAFONDS_SIGNATURES,
   validerDemandeSignature,
   type ChampDemandeSignature,
@@ -51,6 +52,8 @@ export function NouvelleDemandeSignature({
   noteClient,
 }: NouvelleDemandeSignatureProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [objet, setObjet] = useState<ObjetSignature>("lettre_mission");
@@ -65,7 +68,7 @@ export function NouvelleDemandeSignature({
     return (
       <div>
         <Bouton icone="signature" onClick={() => setOuvert(true)}>
-          Demander une signature
+          {t("Demander une signature", "Request a signature")}
         </Bouton>
       </div>
     );
@@ -77,6 +80,7 @@ export function NouvelleDemandeSignature({
       validerDemandeSignature(
         { document_id: documentId, objet, ordre, expire_jours: jours, signataires: choisis },
         proposes,
+        langue,
       ),
       (charge) =>
         api.post<{ id?: string }>(cheminApiSignatures(missionId), charge, {
@@ -84,8 +88,11 @@ export function NouvelleDemandeSignature({
         }),
       {
         rafraichir: false,
-        succes: "Demande créée en brouillon. Ouvrez-la pour l'envoyer aux signataires.",
-        messageSpecifique: (e) => messageErreurSignature(e),
+        succes: t(
+          "Demande créée en brouillon. Ouvrez-la pour l'envoyer aux signataires.",
+          "Request created as a draft. Open it to send it to the signatories.",
+        ),
+        messageSpecifique: (e) => messageErreurSignature(e, "totp", langue),
         apres: (r) => {
           if (r && typeof r.id === "string") router.push(hrefSignature(missionId, r.id));
           else rafraichir();
@@ -100,50 +107,58 @@ export function NouvelleDemandeSignature({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Demander une signature"
+      aria-label={t("Demander une signature", "Request a signature")}
     >
-      <p className="mp-sous-formulaire__titre">Demander une signature</p>
+      <p className="mp-sous-formulaire__titre">
+        {t("Demander une signature", "Request a signature")}
+      </p>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Demande impossible"
+        titreErreur={t("Demande impossible", "Could not create the request")}
       />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Select
-          libelle="Ce que vous faites signer"
+          libelle={t("Ce que vous faites signer", "What you are sending for signature")}
           required
           value={objet}
           onChange={(e) => {
             setObjet(e.target.value as ObjetSignature);
             setDocumentId("");
           }}
-          options={OPTIONS_OBJET_SIGNATURE}
+          options={optionsObjetSignature(langue)}
           erreur={f.erreurs.objet}
         />
         <Select
-          libelle="Document PDF de la mission"
+          libelle={t("Document PDF de la mission", "Engagement PDF document")}
           required
-          invite="Choisir un document…"
+          invite={t("Choisir un document…", "Choose a document…")}
           value={documentId}
           onChange={(e) => setDocumentId(e.target.value)}
-          options={signables.map((d) => ({ valeur: d.id, libelle: libelleDocumentSignable(d) }))}
+          options={signables.map((d) => ({
+            valeur: d.id,
+            libelle: libelleDocumentSignable(d, langue),
+          }))}
           erreur={f.erreurs.document_id}
           aide={
             signables.length === 0
-              ? "Aucun PDF de ce type n'est déposé dans la mission : ajoutez-le d'abord dans l'onglet « Documents »."
+              ? t(
+                  "Aucun PDF de ce type n'est déposé dans la mission : ajoutez-le d'abord dans l'onglet « Documents ».",
+                  'No PDF of this type has been uploaded to the engagement: add it first in the "Documents" tab.',
+                )
               : undefined
           }
         />
         <Select
-          libelle="Ordre des signatures"
+          libelle={t("Ordre des signatures", "Signing order")}
           value={ordre}
           onChange={(e) => setOrdre(e.target.value)}
-          options={OPTIONS_ORDRE_SIGNATURE}
+          options={optionsOrdreSignature(langue)}
           erreur={f.erreurs.ordre}
         />
         <Champ
-          libelle="Durée de validité (jours)"
+          libelle={t("Durée de validité (jours)", "Validity period (days)")}
           type="number"
           inputMode="numeric"
           min={PLAFONDS_SIGNATURES.validiteJoursMin}
@@ -151,22 +166,35 @@ export function NouvelleDemandeSignature({
           value={jours}
           onChange={(e) => setJours(e.target.value)}
           erreur={f.erreurs.expire_jours}
-          aide={`De ${PLAFONDS_SIGNATURES.validiteJoursMin} à ${PLAFONDS_SIGNATURES.validiteJoursMax} jours, à compter de l'envoi (l'échéance définitive est fixée à l'envoi).`}
+          aide={t(
+            `De ${PLAFONDS_SIGNATURES.validiteJoursMin} à ${PLAFONDS_SIGNATURES.validiteJoursMax} jours, à compter de l'envoi (l'échéance définitive est fixée à l'envoi).`,
+            `From ${PLAFONDS_SIGNATURES.validiteJoursMin} to ${PLAFONDS_SIGNATURES.validiteJoursMax} days, counted from sending (the final due date is set when sent).`,
+          )}
         />
       </div>
       {proposes.length === 0 ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Aucun signataire proposé">
-          <p>{noteClient ?? "Aucune personne ne peut être proposée comme signataire."}</p>
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Aucun signataire proposé", "No signatory proposed")}
+        >
+          <p>
+            {noteClient ??
+              t(
+                "Aucune personne ne peut être proposée comme signataire.",
+                "No one can be proposed as a signatory.",
+              )}
+          </p>
         </Alerte>
       ) : (
         <fieldset className={f.erreurs.signataires ? "mp-groupe mp-groupe--erreur" : "mp-groupe"}>
-          <legend className="mp-champ__libelle">Signataires</legend>
+          <legend className="mp-champ__libelle">{t("Signataires", "Signatories")}</legend>
           {noteClient ? <p className="mp-champ__aide">{noteClient}</p> : null}
           <div className="mp-canaux__options">
             {proposes.map((p) => (
               <CaseACocher
                 key={p.utilisateur_id}
-                libelle={`${p.nom} (${libellePartie(p.partie)})`}
+                libelle={`${p.nom} (${libellePartie(p.partie, langue)})`}
                 aide={p.detail}
                 checked={choisis.includes(p.utilisateur_id)}
                 onChange={(e) =>
@@ -185,11 +213,11 @@ export function NouvelleDemandeSignature({
         </fieldset>
       )}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Création…">
-          Créer la demande
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Création…", "Creating…")}>
+          {t("Créer la demande", "Create the request")}
         </Bouton>
         <Bouton variante="discret" onClick={() => setOuvert(false)} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

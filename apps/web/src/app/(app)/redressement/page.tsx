@@ -11,6 +11,7 @@ import { Select } from "../../../components/ui/Select";
 import { Tableau } from "../../../components/ui/Tableau";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import type { PageCurseur } from "../../../lib/pagination";
 import {
   cheminDossiersRed,
@@ -19,13 +20,16 @@ import {
   libelleSecteur,
   libelleStatutDossier,
   lireFiltresPortefeuille,
-  OPTIONS_SECTEURS,
-  OPTIONS_STATUTS_DOSSIER,
+  optionsSecteurs,
+  optionsStatutsDossier,
   tonaliteStatutDossier,
 } from "../../../lib/redressement";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Redressement", "Turnaround") };
+}
 
 /**
  * Portefeuille des dossiers de redressement (missions visibles seulement) : dossier, client,
@@ -38,99 +42,127 @@ export default async function PagePortefeuilleRedressement({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("redressement.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const filtres = lireFiltresPortefeuille(await searchParams);
   const r = await chargerServeur<PageCurseur<RedDossierResume>>(cheminDossiersRed(filtres));
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Redressement"
-        soustitre="Redressement : score d'alerte précoce indicatif, trésorerie à 13 semaines, créanciers et plan d'actions."
+        titre={t("Redressement", "Turnaround")}
+        soustitre={t(
+          "Redressement : score d'alerte précoce indicatif, trésorerie à 13 semaines, créanciers et plan d'actions.",
+          "Turnaround: indicative early-warning score, 13-week cash forecast, creditors and action plan.",
+        )}
       />
       <div className="mp-red">
         <form
           method="get"
           action="/redressement"
           className="mp-filtres"
-          aria-label="Filtrer les dossiers de redressement"
+          aria-label={t("Filtrer les dossiers de redressement", "Filter turnaround files")}
         >
           <div className="mp-grille-champs mp-grille-champs--filtres">
-            <Champ libelle="Rechercher" name="q" defaultValue={filtres.q} maxLength={100} />
-            <Select
-              libelle="Statut"
-              name="statut"
-              invite="Tous les statuts"
-              defaultValue={filtres.statut}
-              options={OPTIONS_STATUTS_DOSSIER}
+            <Champ
+              libelle={t("Rechercher", "Search")}
+              name="q"
+              defaultValue={filtres.q}
+              maxLength={100}
             />
             <Select
-              libelle="Secteur"
+              libelle={t("Statut", "Status")}
+              name="statut"
+              invite={t("Tous les statuts", "All statuses")}
+              defaultValue={filtres.statut}
+              options={optionsStatutsDossier(langue)}
+            />
+            <Select
+              libelle={t("Secteur", "Sector")}
               name="secteur"
-              invite="Tous les secteurs"
+              invite={t("Tous les secteurs", "All sectors")}
               defaultValue={filtres.secteur}
-              options={OPTIONS_SECTEURS}
+              options={optionsSecteurs(langue)}
             />
           </div>
           <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            Filtrer
+            {t("Filtrer", "Filter")}
           </button>
         </form>
 
         {!r.ok ? (
           <EtatErreur
-            titre="La liste des dossiers n'a pas pu être chargée."
+            titre={t(
+              "La liste des dossiers n'a pas pu être chargée.",
+              "The list of files could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={hrefPortefeuille(filtres)}
           />
         ) : r.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucun dossier de redressement." icone="attention">
+          <EtatVide
+            titre={t("Aucun dossier de redressement.", "No turnaround file.")}
+            icone="attention"
+          >
             <p>
-              Aucun dossier de redressement. Ouvrez-en un depuis l&apos;onglet « Redressement »
-              d&apos;une mission.
+              {t(
+                "Aucun dossier de redressement. Ouvrez-en un depuis l'onglet « Redressement » d'une mission.",
+                'No turnaround file. Open one from the "Turnaround" tab of an engagement.',
+              )}
             </p>
           </EtatVide>
         ) : (
           <Tableau
-            legende="Dossiers de redressement"
+            legende={t("Dossiers de redressement", "Turnaround files")}
             colonnes={[
               {
                 cle: "dossier",
-                entete: "Dossier",
+                entete: t("Dossier", "File"),
                 rendu: (d: RedDossierResume) => (
                   <Link href={hrefRedressement(d.mission.id)}>{d.intitule}</Link>
                 ),
               },
               { cle: "client", entete: "Client", rendu: (d) => d.client.raison_sociale },
-              { cle: "secteur", entete: "Secteur", rendu: (d) => libelleSecteur(d.secteur) },
+              {
+                cle: "secteur",
+                entete: t("Secteur", "Sector"),
+                rendu: (d) => libelleSecteur(d.secteur, langue),
+              },
               {
                 cle: "statut",
-                entete: "Statut",
+                entete: t("Statut", "Status"),
                 rendu: (d) => (
                   <BadgeStatut tonalite={tonaliteStatutDossier(d.statut)}>
-                    {libelleStatutDossier(d.statut)}
+                    {libelleStatutDossier(d.statut, langue)}
                   </BadgeStatut>
                 ),
               },
               {
                 cle: "urgence",
-                entete: "Dernier voyant d'urgence",
+                entete: t("Dernier voyant d'urgence", "Latest urgency indicator"),
                 rendu: (d) =>
                   d.dernier_voyant_urgence ? <Voyant voyant={d.dernier_voyant_urgence} /> : "—",
               },
               {
                 cle: "alerte",
-                entete: "Dernier niveau d'alerte",
+                entete: t("Dernier niveau d'alerte", "Latest alert level"),
                 rendu: (d) =>
                   d.dernier_niveau_alerte ? (
                     <>
                       <NiveauAlerte niveau={d.dernier_niveau_alerte} />{" "}
-                      <span className="mp-texte-doux mp-texte-petit">Indicatif</span>
+                      <span className="mp-texte-doux mp-texte-petit">
+                        {t("Indicatif", "Indicative")}
+                      </span>
                     </>
                   ) : (
                     "—"
                   ),
               },
-              { cle: "ouvert", entete: "Ouvert le", rendu: (d) => formaterDate(d.ouvert_le) },
+              {
+                cle: "ouvert",
+                entete: t("Ouvert le", "Opened on"),
+                rendu: (d) => formaterDate(d.ouvert_le, "UTC", langue),
+              },
             ]}
             lignes={r.donnees.elements}
             cleLigne={(d) => d.id}

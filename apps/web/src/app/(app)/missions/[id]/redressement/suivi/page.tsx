@@ -8,20 +8,22 @@ import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../components/ui/EtatListe";
 import { formaterDate } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { aujourdhui } from "../../../../../../lib/periode";
 import { hrefRedressement } from "../../../../../../lib/redressement";
 import {
   etatSuivi,
-  MENTION_SUIVI,
+  mentionSuivi,
   peutEcrireSuivi,
-  TEXTE_SUIVI_A_CREER,
-  TEXTE_SUIVI_LECTURE_SEULE,
-  TEXTE_SUIVI_NON_CLOS,
+  textesSuivi,
 } from "../../../../../../lib/redressement-suivi";
 import { chargerSuiviDossier } from "../../../../../../lib/redressement-suivi-serveur";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Suivi post-mission du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Suivi post-mission du redressement", "Turnaround post-engagement follow-up") };
+}
 
 /**
  * Suivi post-mission (RED-09), interne au cabinet : jalons après la clôture du dossier, alertes
@@ -30,6 +32,9 @@ export const metadata: Metadata = { title: "Suivi post-mission du redressement" 
  */
 export default async function PageSuivi({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const tx = textesSuivi(langue);
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -47,7 +52,7 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
     return (
       <div className="mp-red">
         <EtatErreur
-          titre="Le suivi n'a pas pu être chargé."
+          titre={t("Le suivi n'a pas pu être chargé.", "The follow-up could not be loaded.")}
           message={charge.message}
           hrefReessayer={retour}
         />
@@ -63,37 +68,40 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
     <div className="mp-red">
       <section className="mp-red-section" aria-labelledby="titre-suivi">
         <h2 id="titre-suivi" className="mp-red-section__titre">
-          Suivi post-mission
+          {t("Suivi post-mission", "Post-engagement follow-up")}
         </h2>
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MENTION_SUIVI}</p>
+          <p>{mentionSuivi(langue)}</p>
         </Alerte>
 
         {etat === "non_clos" ? (
-          <EtatVide titre="Le dossier n'est pas clos." icone="info">
-            <p>{TEXTE_SUIVI_NON_CLOS}</p>
+          <EtatVide titre={t("Le dossier n'est pas clos.", "The file is not closed.")} icone="info">
+            <p>{tx.nonClos}</p>
           </EtatVide>
         ) : etat === "a_creer" ? (
           <>
-            <EtatVide titre="Aucun suivi défini." icone="info">
-              <p>{TEXTE_SUIVI_A_CREER}</p>
+            <EtatVide titre={t("Aucun suivi défini.", "No follow-up defined.")} icone="info">
+              <p>{tx.aCreer}</p>
             </EtatVide>
             {peutEcrire ? (
-              <Carte titre="Créer le suivi" niveauTitre={3}>
+              <Carte titre={t("Créer le suivi", "Create the follow-up")} niveauTitre={3}>
                 <SuiviCreation dossierId={dossier.id} />
               </Carte>
             ) : (
-              <p className="mp-texte-doux">{TEXTE_SUIVI_LECTURE_SEULE}</p>
+              <p className="mp-texte-doux">{tx.lectureSeule}</p>
             )}
           </>
         ) : (
           <>
             <p className="mp-texte-doux">
               {suivi.plan
-                ? `Dossier clos le ${formaterDate(suivi.plan.date_cloture)} ; situation au ${formaterDate(suivi.date_reference)}.`
+                ? t(
+                    `Dossier clos le ${formaterDate(suivi.plan.date_cloture)} ; situation au ${formaterDate(suivi.date_reference)}.`,
+                    `File closed on ${formaterDate(suivi.plan.date_cloture, "UTC", langue)}; position as of ${formaterDate(suivi.date_reference, "UTC", langue)}.`,
+                  )
                 : null}
             </p>
-            {peutEcrire ? null : <p className="mp-texte-doux">{TEXTE_SUIVI_LECTURE_SEULE}</p>}
+            {peutEcrire ? null : <p className="mp-texte-doux">{tx.lectureSeule}</p>}
           </>
         )}
       </section>
@@ -103,7 +111,7 @@ export default async function PageSuivi({ params }: { params: Promise<{ id: stri
           <SuiviAlertes suivi={suivi} />
           <section className="mp-red-section" aria-labelledby="titre-jalons">
             <h2 id="titre-jalons" className="mp-red-section__titre">
-              Jalons
+              {t("Jalons", "Milestones")}
             </h2>
             {suivi.jalons.map((j) => (
               <SuiviJalon

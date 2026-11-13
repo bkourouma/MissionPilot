@@ -14,7 +14,13 @@
  * `portail-jalons`, `portail-liens` (liens, pagination, accueil) et `portail-erreurs`
  * (erreurs, invitation, mot de passe). Ce fichier garde les libellés et la mise en forme.
  */
-import { MOT_DE_PASSE_MIN, type StatutMission, type StatutPaiement } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  MOT_DE_PASSE_MIN,
+  type Langue,
+  type StatutMission,
+  type StatutPaiement,
+} from "@missionpilot/shared";
 import {
   DEVISES,
   formaterDate,
@@ -43,30 +49,56 @@ export const STATUT_MISSION_PORTAIL: Record<StatutMission, Libelle> = {
   cloturee: { libelle: "Terminée", tonalite: "neutre" },
 };
 
-export function statutMission(statut: string): Libelle {
-  return STATUT_MISSION_PORTAIL[statut as StatutMission] ?? { libelle: "—", tonalite: "neutre" };
+const STATUT_MISSION_PORTAIL_EN: Record<StatutMission, string> = {
+  opportunite: "Being prepared",
+  proposition: "Being prepared",
+  signee: "Signed, starting soon",
+  en_cours: "In progress",
+  a_cloturer: "Being finalized",
+  cloturee: "Completed",
+};
+
+export function statutMission(statut: string, langue: Langue = "fr"): Libelle {
+  const base = STATUT_MISSION_PORTAIL[statut as StatutMission] ?? {
+    libelle: "—",
+    tonalite: "neutre",
+  };
+  return langue === "en"
+    ? { ...base, libelle: STATUT_MISSION_PORTAIL_EN[statut as StatutMission] ?? base.libelle }
+    : base;
 }
 
 /** Période d'une mission : « Du 12 janv. 2027 au 30 juin 2027 », ou ce qui est connu. */
-export function periodeMission(debut: string | null, fin: string | null): string {
-  if (debut && fin) return `Du ${formaterDate(debut)} au ${formaterDate(fin)}`;
-  if (debut) return `Depuis le ${formaterDate(debut)}`;
-  if (fin) return `Jusqu'au ${formaterDate(fin)}`;
-  return "Dates à préciser";
+export function periodeMission(
+  debut: string | null,
+  fin: string | null,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  const d = debut ? formaterDate(debut, "UTC", langue) : "";
+  const f = fin ? formaterDate(fin, "UTC", langue) : "";
+  if (debut && fin) return t(`Du ${d} au ${f}`, `From ${d} to ${f}`);
+  if (debut) return t(`Depuis le ${d}`, `Since ${d}`);
+  if (fin) return t(`Jusqu'au ${f}`, `Until ${f}`);
+  return t("Dates à préciser", "Dates to be confirmed");
 }
 
 /** Rubriques consultables d'une mission partagée : « À consulter : jalons, documents et factures. » */
-export function rubriquesMission(partage: MissionPortail["partage"]): string {
+export function rubriquesMission(
+  partage: MissionPortail["partage"],
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
   const rubriques = [
-    ...(partage.jalons ? ["jalons"] : []),
+    ...(partage.jalons ? [t("jalons", "milestones")] : []),
     "documents",
-    ...(partage.factures ? ["factures"] : []),
+    ...(partage.factures ? [t("factures", "invoices")] : []),
   ];
   const liste =
     rubriques.length === 1
       ? rubriques[0]
-      : `${rubriques.slice(0, -1).join(", ")} et ${rubriques[rubriques.length - 1]}`;
-  return `À consulter : ${liste}.`;
+      : `${rubriques.slice(0, -1).join(", ")}${t(" et ", " and ")}${rubriques[rubriques.length - 1]}`;
+  return t(`À consulter : ${liste}.`, `To review: ${liste}.`);
 }
 
 /** Statut de paiement d'une facture, du point de vue du client. */
@@ -79,23 +111,51 @@ export const STATUT_PAIEMENT_PORTAIL: Record<StatutPaiement, Libelle> = {
 };
 
 /** Badge de paiement : « Échéance dépassée de 12 jours » ; un avoir n'a pas de paiement. */
-export function etatPaiement(f: Pick<FacturePortail, "nature" | "statut" | "paiement">): Libelle {
-  if (f.statut === "annulee") return { libelle: "Annulée par un avoir", tonalite: "neutre" };
-  if (f.nature === "avoir" || !f.paiement) return { libelle: "Sans objet", tonalite: "neutre" };
-  const s = STATUT_PAIEMENT_PORTAIL[f.paiement.statut_paiement] ?? {
+const STATUT_PAIEMENT_PORTAIL_EN: Record<StatutPaiement, string> = {
+  non_payee: "To be paid",
+  partiellement_payee: "Partially paid",
+  soldee: "Paid",
+  en_retard: "Past due",
+  annulee: "Cancelled",
+};
+
+export function etatPaiement(
+  f: Pick<FacturePortail, "nature" | "statut" | "paiement">,
+  langue: Langue = "fr",
+): Libelle {
+  const t = creerTraduire(langue);
+  if (f.statut === "annulee")
+    return { libelle: t("Annulée par un avoir", "Cancelled by a credit note"), tonalite: "neutre" };
+  if (f.nature === "avoir" || !f.paiement)
+    return { libelle: t("Sans objet", "Not applicable"), tonalite: "neutre" };
+  const base = STATUT_PAIEMENT_PORTAIL[f.paiement.statut_paiement] ?? {
     libelle: "—",
     tonalite: "neutre",
   };
+  const s =
+    langue === "en"
+      ? { ...base, libelle: STATUT_PAIEMENT_PORTAIL_EN[f.paiement.statut_paiement] ?? base.libelle }
+      : base;
   const retard = f.paiement.jours_retard;
   if (f.paiement.statut_paiement === "en_retard" && retard > 0) {
-    return { ...s, libelle: `${s.libelle} de ${retard} jour${retard > 1 ? "s" : ""}` };
+    return {
+      ...s,
+      libelle: t(
+        `${s.libelle} de ${retard} jour${retard > 1 ? "s" : ""}`,
+        `${s.libelle} by ${retard} day${retard > 1 ? "s" : ""}`,
+      ),
+    };
   }
   return s;
 }
 
 /** « Facture FA-2027-0012 », « Avoir AV-2027-0003 ». */
-export function designationFacturePortail(f: Pick<FacturePortail, "nature" | "numero">): string {
-  const nature = f.nature === "avoir" ? "Avoir" : "Facture";
+export function designationFacturePortail(
+  f: Pick<FacturePortail, "nature" | "numero">,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  const nature = f.nature === "avoir" ? t("Avoir", "Credit note") : t("Facture", "Invoice");
   return f.numero ? `${nature} ${f.numero}` : nature;
 }
 
@@ -103,11 +163,15 @@ export function designationFacturePortail(f: Pick<FacturePortail, "nature" | "nu
 const NBSP = String.fromCharCode(0xa0);
 
 /** Montant en unités mineures dans sa devise ; une devise inconnue reste lisible, sans conversion. */
-export function montantPortail(valeur: number | null | undefined, devise: string): string {
+export function montantPortail(
+  valeur: number | null | undefined,
+  devise: string,
+  langue: Langue = "fr",
+): string {
   if ((DEVISES as readonly string[]).includes(devise)) {
-    return formaterMontantMineur(valeur, devise as Devise);
+    return formaterMontantMineur(valeur, devise as Devise, langue);
   }
-  return `${formaterNombre(valeur, 0)}${NBSP}${devise}`;
+  return `${formaterNombre(valeur, 0, langue)}${NBSP}${devise}`;
 }
 
 const TYPES_LIVRABLE: Record<string, string> = {
@@ -115,4 +179,10 @@ const TYPES_LIVRABLE: Record<string, string> = {
   lettre_de_mission: "Lettre de mission",
 };
 
-export const libelleTypeLivrable = (type: string) => TYPES_LIVRABLE[type] ?? "Document";
+const TYPES_LIVRABLE_EN: Record<string, string> = {
+  livrable: "Deliverable",
+  lettre_de_mission: "Engagement letter",
+};
+
+export const libelleTypeLivrable = (type: string, langue: Langue = "fr") =>
+  (langue === "en" ? TYPES_LIVRABLE_EN : TYPES_LIVRABLE)[type] ?? "Document";

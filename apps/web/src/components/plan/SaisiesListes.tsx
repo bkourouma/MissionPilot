@@ -19,6 +19,7 @@ import {
   type SaisieInvestissement,
 } from "../../lib/plan-hypotheses";
 import { aideMontant } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -48,6 +49,7 @@ function Ligne({
   onSupprimer: () => void;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <li className="mp-plan-ligne-saisie">
       <p className="mp-plan-ligne-saisie__titre">{titre}</p>
@@ -57,9 +59,9 @@ function Ligne({
           variante="discret"
           icone="corbeille"
           onClick={onSupprimer}
-          aria-label={`Supprimer : ${titre}`}
+          aria-label={t(`Supprimer : ${titre}`, `Delete: ${titre}`)}
         >
-          Supprimer
+          {t("Supprimer", "Delete")}
         </Bouton>
       </div>
     </li>
@@ -84,9 +86,14 @@ function Ajouter({
   );
 }
 
-const MODES_EMPRUNT: { valeur: ModeEmprunt; libelle: string }[] = [
-  { valeur: "annuites_constantes", libelle: "Annuités constantes" },
-  { valeur: "amortissement_constant", libelle: "Amortissement constant du capital" },
+const modesEmprunt = (
+  t: (fr: string, en: string) => string,
+): { valeur: ModeEmprunt; libelle: string }[] => [
+  { valeur: "annuites_constantes", libelle: t("Annuités constantes", "Constant annuities") },
+  {
+    valeur: "amortissement_constant",
+    libelle: t("Amortissement constant du capital", "Constant principal repayment"),
+  },
 ];
 
 /** Catégories d'effectif : ETP, salaire brut annuel, charges sociales (obligatoires). */
@@ -98,6 +105,8 @@ export function EditeurEffectifs({
   devise,
   exercices,
 }: ListeProps<SaisieEffectif>) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-plan__section">
       {elements.length ? (
@@ -108,55 +117,73 @@ export function EditeurEffectifs({
             return (
               <Ligne
                 key={i}
-                titre={`Catégorie ${i + 1}${e.libelle.trim() ? ` : ${e.libelle.trim()}` : ""}`}
+                titre={`${t("Catégorie", "Category")} ${i + 1}${e.libelle.trim() ? `${langue === "en" ? ":" : " :"} ${e.libelle.trim()}` : ""}`}
                 onSupprimer={() => onChange(elements.filter((_, j) => j !== i))}
               >
                 <div className="mp-grille-champs">
                   <Champ
-                    libelle="Libellé"
+                    libelle={t("Libellé", "Label")}
                     required
                     maxLength={120}
                     value={e.libelle}
                     onChange={(ev) => maj({ libelle: ev.target.value })}
                     erreur={erreurs[`${k}.libelle`]}
-                    aide="Ex. « Consultants seniors »."
+                    aide={t("Ex. « Consultants seniors ».", "E.g. \u201cSenior consultants\u201d.")}
                   />
                   <Champ
-                    libelle={`Salaire annuel brut par personne (${libelleDevise(devise)})`}
+                    libelle={t(
+                      `Salaire annuel brut par personne (${libelleDevise(devise)})`,
+                      `Gross annual salary per person (${libelleDevise(devise)})`,
+                    )}
                     required
                     inputMode="decimal"
                     value={e.salaire}
                     onChange={(ev) => maj({ salaire: ev.target.value })}
                     erreur={erreurs[`${k}.salaire`]}
-                    aide={`En année 1. ${aideMontant(devise)}`}
+                    aide={`${t("En année 1.", "In year 1.")} ${aideMontant(devise, langue)}`}
                   />
                   <Champ
-                    libelle="Taux de charges sociales patronales (%)"
+                    libelle={t(
+                      "Taux de charges sociales patronales (%)",
+                      "Employer payroll tax rate (%)",
+                    )}
                     required
                     inputMode="decimal"
                     value={e.chargesSociales}
                     onChange={(ev) => maj({ chargesSociales: ev.target.value })}
                     erreur={erreurs[`${k}.chargesSociales`]}
-                    aide="Obligatoire : sans lui, le coût du personnel serait sous-estimé."
+                    aide={t(
+                      "Obligatoire : sans lui, le coût du personnel serait sous-estimé.",
+                      "Required: without it, staff cost would be underestimated.",
+                    )}
                   />
                   <Champ
-                    libelle="Revalorisation annuelle (%, facultatif)"
+                    libelle={t(
+                      "Revalorisation annuelle (%, facultatif)",
+                      "Annual raise (%, optional)",
+                    )}
                     inputMode="decimal"
                     value={e.revalorisation}
                     onChange={(ev) => maj({ revalorisation: ev.target.value })}
                     erreur={erreurs[`${k}.revalorisation`]}
-                    aide="Appliquée à partir de l'année 2."
+                    aide={t("Appliquée à partir de l'année 2.", "Applied from year 2.")}
                   />
                 </div>
                 <ChampParAnnee
-                  legende="Effectifs (équivalents temps plein)"
+                  legende={t(
+                    "Effectifs (équivalents temps plein)",
+                    "Headcount (full-time equivalents)",
+                  )}
                   requis
                   valeur={e.effectifs}
                   onChange={(v) => maj({ effectifs: v })}
                   cle={`${k}.effectifs`}
                   erreurs={erreurs}
                   exercices={exercices}
-                  aide="Décimales admises (ex. 2,5 pour un temps partiel)."
+                  aide={t(
+                    "Décimales admises (ex. 2,5 pour un temps partiel).",
+                    "Decimals allowed (e.g. 2.5 for part-time).",
+                  )}
                 />
               </Ligne>
             );
@@ -164,11 +191,14 @@ export function EditeurEffectifs({
         </ul>
       ) : (
         <p className="mp-texte-doux">
-          Aucune catégorie : le modèle ne compte aucune charge de personnel.
+          {t(
+            "Aucune catégorie : le modèle ne compte aucune charge de personnel.",
+            "No categories: the model includes no personnel expenses.",
+          )}
         </p>
       )}
       <Ajouter
-        libelle="Ajouter une catégorie d'effectif"
+        libelle={t("Ajouter une catégorie d'effectif", "Add a headcount category")}
         desactive={elements.length >= EFFECTIFS_MAX}
         onClick={() => onChange([...elements, effectifVide(horizon)])}
       />
@@ -185,6 +215,8 @@ export function EditeurInvestissements({
   devise,
   exercices,
 }: ListeProps<SaisieInvestissement>) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-plan__section">
       {elements.length ? (
@@ -196,12 +228,12 @@ export function EditeurInvestissements({
             return (
               <Ligne
                 key={i}
-                titre={`Investissement ${i + 1}${x.libelle.trim() ? ` : ${x.libelle.trim()}` : ""}`}
+                titre={`${t("Investissement", "Investment")} ${i + 1}${x.libelle.trim() ? `${langue === "en" ? ":" : " :"} ${x.libelle.trim()}` : ""}`}
                 onSupprimer={() => onChange(elements.filter((_, j) => j !== i))}
               >
                 <div className="mp-grille-champs">
                   <Champ
-                    libelle="Libellé"
+                    libelle={t("Libellé", "Label")}
                     required
                     maxLength={120}
                     value={x.libelle}
@@ -209,30 +241,36 @@ export function EditeurInvestissements({
                     erreur={erreurs[`${k}.libelle`]}
                   />
                   <Select
-                    libelle="Année d'acquisition"
+                    libelle={t("Année d'acquisition", "Acquisition year")}
                     required
                     value={x.annee}
                     onChange={(e) => maj({ annee: e.target.value })}
-                    options={optionsAnnees(horizon, exercices)}
+                    options={optionsAnnees(horizon, exercices, false, langue)}
                     erreur={erreurs[`${k}.annee`]}
                   />
                   <Champ
-                    libelle={`Montant (${libelleDevise(devise)})`}
+                    libelle={t(
+                      `Montant (${libelleDevise(devise)})`,
+                      `Amount (${libelleDevise(devise)})`,
+                    )}
                     required
                     inputMode="decimal"
                     value={x.montant}
                     onChange={(e) => maj({ montant: e.target.value })}
                     erreur={erreurs[`${k}.montant`]}
-                    aide={aideMontant(devise)}
+                    aide={aideMontant(devise, langue)}
                   />
                   <Champ
-                    libelle="Durée d'amortissement (années)"
+                    libelle={t("Durée d'amortissement (années)", "Depreciation period (years)")}
                     required
                     inputMode="numeric"
                     value={x.duree}
                     onChange={(e) => maj({ duree: e.target.value })}
                     erreur={erreurs[`${k}.duree`]}
-                    aide="Amortissement linéaire en année pleine dès l'acquisition."
+                    aide={t(
+                      "Amortissement linéaire en année pleine dès l'acquisition.",
+                      "Straight-line depreciation over full years from acquisition.",
+                    )}
                   />
                 </div>
               </Ligne>
@@ -240,10 +278,12 @@ export function EditeurInvestissements({
           })}
         </ul>
       ) : (
-        <p className="mp-texte-doux">Aucun investissement prévu.</p>
+        <p className="mp-texte-doux">
+          {t("Aucun investissement prévu.", "No planned investments.")}
+        </p>
       )}
       <Ajouter
-        libelle="Ajouter un investissement"
+        libelle={t("Ajouter un investissement", "Add an investment")}
         desactive={elements.length >= INVESTISSEMENTS_MAX}
         onClick={() => onChange([...elements, investissementVide()])}
       />
@@ -260,6 +300,8 @@ export function EditeurEmprunts({
   devise,
   exercices,
 }: ListeProps<SaisieEmprunt>) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-plan__section">
       {elements.length ? (
@@ -270,12 +312,12 @@ export function EditeurEmprunts({
             return (
               <Ligne
                 key={i}
-                titre={`Emprunt ${i + 1}${x.libelle.trim() ? ` : ${x.libelle.trim()}` : ""}`}
+                titre={`${t("Emprunt", "Loan")} ${i + 1}${x.libelle.trim() ? `${langue === "en" ? ":" : " :"} ${x.libelle.trim()}` : ""}`}
                 onSupprimer={() => onChange(elements.filter((_, j) => j !== i))}
               >
                 <div className="mp-grille-champs">
                   <Champ
-                    libelle="Libellé"
+                    libelle={t("Libellé", "Label")}
                     required
                     maxLength={120}
                     value={x.libelle}
@@ -283,25 +325,31 @@ export function EditeurEmprunts({
                     erreur={erreurs[`${k}.libelle`]}
                   />
                   <Select
-                    libelle="Année de déblocage"
+                    libelle={t("Année de déblocage", "Disbursement year")}
                     required
                     value={x.annee}
                     onChange={(e) => maj({ annee: e.target.value })}
-                    options={optionsAnnees(horizon, exercices, true)}
+                    options={optionsAnnees(horizon, exercices, true, langue)}
                     erreur={erreurs[`${k}.annee`]}
-                    aide="Année 0 : montant = capital restant dû, durée = durée restante."
+                    aide={t(
+                      "Année 0 : montant = capital restant dû, durée = durée restante.",
+                      "Year 0: amount = outstanding principal, term = remaining term.",
+                    )}
                   />
                   <Champ
-                    libelle={`Montant (${libelleDevise(devise)})`}
+                    libelle={t(
+                      `Montant (${libelleDevise(devise)})`,
+                      `Amount (${libelleDevise(devise)})`,
+                    )}
                     required
                     inputMode="decimal"
                     value={x.montant}
                     onChange={(e) => maj({ montant: e.target.value })}
                     erreur={erreurs[`${k}.montant`]}
-                    aide={aideMontant(devise)}
+                    aide={aideMontant(devise, langue)}
                   />
                   <Champ
-                    libelle="Taux d'intérêt annuel (%)"
+                    libelle={t("Taux d'intérêt annuel (%)", "Annual interest rate (%)")}
                     required
                     inputMode="decimal"
                     value={x.taux}
@@ -309,28 +357,34 @@ export function EditeurEmprunts({
                     erreur={erreurs[`${k}.taux`]}
                   />
                   <Champ
-                    libelle="Durée totale (années)"
+                    libelle={t("Durée totale (années)", "Total term (years)")}
                     required
                     inputMode="numeric"
                     value={x.duree}
                     onChange={(e) => maj({ duree: e.target.value })}
                     erreur={erreurs[`${k}.duree`]}
-                    aide="Différé compris."
+                    aide={t("Différé compris.", "Including deferral.")}
                   />
                   <Champ
-                    libelle="Différé d'amortissement (années, facultatif)"
+                    libelle={t(
+                      "Différé d'amortissement (années, facultatif)",
+                      "Repayment deferral (years, optional)",
+                    )}
                     inputMode="numeric"
                     value={x.differe}
                     onChange={(e) => maj({ differe: e.target.value })}
                     erreur={erreurs[`${k}.differe`]}
-                    aide="Années où seuls les intérêts sont payés."
+                    aide={t(
+                      "Années où seuls les intérêts sont payés.",
+                      "Years in which only interest is paid.",
+                    )}
                   />
                   <Select
-                    libelle="Mode de remboursement"
+                    libelle={t("Mode de remboursement", "Repayment mode")}
                     required
                     value={x.mode}
                     onChange={(e) => maj({ mode: e.target.value as ModeEmprunt })}
-                    options={MODES_EMPRUNT}
+                    options={modesEmprunt(t)}
                     erreur={erreurs[`${k}.mode`]}
                   />
                 </div>
@@ -339,10 +393,10 @@ export function EditeurEmprunts({
           })}
         </ul>
       ) : (
-        <p className="mp-texte-doux">Aucun emprunt.</p>
+        <p className="mp-texte-doux">{t("Aucun emprunt.", "No loans.")}</p>
       )}
       <Ajouter
-        libelle="Ajouter un emprunt"
+        libelle={t("Ajouter un emprunt", "Add a loan")}
         desactive={elements.length >= EMPRUNTS_MAX}
         onClick={() => onChange([...elements, empruntVide()])}
       />
@@ -359,6 +413,8 @@ export function EditeurApports({
   devise,
   exercices,
 }: ListeProps<SaisieApport>) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-plan__section">
       {elements.length ? (
@@ -369,26 +425,29 @@ export function EditeurApports({
             return (
               <Ligne
                 key={i}
-                titre={`Augmentation de capital ${i + 1}`}
+                titre={t(`Augmentation de capital ${i + 1}`, `Capital increase ${i + 1}`)}
                 onSupprimer={() => onChange(elements.filter((_, j) => j !== i))}
               >
                 <div className="mp-grille-champs">
                   <Select
-                    libelle="Année"
+                    libelle={t("Année", "Year")}
                     required
                     value={x.annee}
                     onChange={(e) => maj({ annee: e.target.value })}
-                    options={optionsAnnees(horizon, exercices)}
+                    options={optionsAnnees(horizon, exercices, false, langue)}
                     erreur={erreurs[`${k}.annee`]}
                   />
                   <Champ
-                    libelle={`Montant apporté (${libelleDevise(devise)})`}
+                    libelle={t(
+                      `Montant apporté (${libelleDevise(devise)})`,
+                      `Amount contributed (${libelleDevise(devise)})`,
+                    )}
                     required
                     inputMode="decimal"
                     value={x.montant}
                     onChange={(e) => maj({ montant: e.target.value })}
                     erreur={erreurs[`${k}.montant`]}
-                    aide={aideMontant(devise)}
+                    aide={aideMontant(devise, langue)}
                   />
                 </div>
               </Ligne>
@@ -396,10 +455,12 @@ export function EditeurApports({
           })}
         </ul>
       ) : (
-        <p className="mp-texte-doux">Aucune augmentation de capital.</p>
+        <p className="mp-texte-doux">
+          {t("Aucune augmentation de capital.", "No capital increases.")}
+        </p>
       )}
       <Ajouter
-        libelle="Ajouter une augmentation de capital"
+        libelle={t("Ajouter une augmentation de capital", "Add a capital increase")}
         desactive={elements.length >= APPORTS_MAX}
         onClick={() => onChange([...elements, apportVide()])}
       />

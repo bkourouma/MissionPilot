@@ -1,6 +1,7 @@
 "use client";
 
 import type { Facteur, SaisieContexte } from "../../lib/methodes";
+import { useT } from "../i18n/FournisseurLangue";
 import { GroupeCases } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -23,6 +24,7 @@ export function ChampsContexte({
   erreurs?: Partial<Record<string, string>>;
   prefixe: string;
 }) {
+  const t = useT();
   const maj = (code: string, v: string | string[]) => onChange({ ...valeur, [code]: v });
   return (
     <div className="mp-grille-champs">
@@ -56,8 +58,8 @@ export function ChampsContexte({
         const options =
           f.type === "booleen"
             ? [
-                { valeur: "oui", libelle: "Oui" },
-                { valeur: "non", libelle: "Non" },
+                { valeur: "oui", libelle: t("Oui", "Yes") },
+                { valeur: "non", libelle: t("Non", "No") },
               ]
             : (f.valeurs ?? []).map((x) => ({ valeur: x.code, libelle: x.libelle }));
         return (
@@ -66,7 +68,7 @@ export function ChampsContexte({
             libelle={f.libelle}
             value={typeof v === "string" ? v : ""}
             onChange={(e) => maj(f.code, e.target.value)}
-            invite="Non renseigné"
+            invite={t("Non renseigné", "Not provided")}
             options={options}
             erreur={erreurs[f.code]}
           />

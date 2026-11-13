@@ -1,6 +1,7 @@
 /** Sous-module de `questionnaires.ts` : saisie et validation d'un envoi, de ses réglages et d'un modèle. */
 import {
   dateIsoSchema,
+  type Langue,
   GABARITS_QUESTIONNAIRE,
   identifiantGrilleSchema,
   type GabaritQuestionnaire,
@@ -45,11 +46,22 @@ export interface ChargeEnvoi {
 }
 
 /** Erreur de date limite (format, date passée), `null` si valide ou vide. */
-export function erreurDateLimite(v: string, aujourdhui: string): string | null {
+export function erreurDateLimite(
+  v: string,
+  aujourdhui: string,
+  langue: Langue = "fr",
+): string | null {
+  const en = langue === "en";
   if (v.trim() === "") return null;
   if (!dateIsoSchema.safeParse(v).success)
-    return "Date invalide : choisissez une date du calendrier.";
-  if (v < aujourdhui) return "La date limite ne peut pas être déjà passée.";
+    return en
+      ? "Invalid date: choose a date from the calendar."
+      : "Date invalide : choisissez une date du calendrier.";
+  if (v < aujourdhui) {
+    return en
+      ? "The due date cannot already be in the past."
+      : "La date limite ne peut pas être déjà passée.";
+  }
   return null;
 }
 
@@ -57,25 +69,41 @@ export function erreurDateLimite(v: string, aujourdhui: string): string | null {
 export function validerEnvoi(
   s: SaisieEnvoi,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): Resultat<ChargeEnvoi, ChampEnvoi> {
+  const en = langue === "en";
   const erreurs: Partial<Record<ChampEnvoi, string>> = {};
-  if (s.version_id === "") erreurs.version_id = "Choisissez le questionnaire à envoyer.";
-  if (s.mode === "") erreurs.mode = "Choisissez le mode de réponse.";
+  if (s.version_id === "") {
+    erreurs.version_id = en
+      ? "Choose the questionnaire to send."
+      : "Choisissez le questionnaire à envoyer.";
+  }
+  if (s.mode === "") {
+    erreurs.mode = en ? "Choose the response mode." : "Choisissez le mode de réponse.";
+  }
   const choisis = Object.entries(s.repondants).filter(([, r]) => r.choisi);
-  if (choisis.length === 0) erreurs.repondants = "Choisissez au moins un répondant.";
-  else if (choisis.length > REPONDANTS_MAX) {
-    erreurs.repondants = `${REPONDANTS_MAX} répondants au plus par envoi.`;
+  if (choisis.length === 0) {
+    erreurs.repondants = en
+      ? "Choose at least one respondent."
+      : "Choisissez au moins un répondant.";
+  } else if (choisis.length > REPONDANTS_MAX) {
+    erreurs.repondants = en
+      ? `${REPONDANTS_MAX} respondents at most per sending.`
+      : `${REPONDANTS_MAX} répondants au plus par envoi.`;
   }
   for (const [id, r] of choisis) {
     const f = r.fonction.trim();
     if (s.mode === "par_fonction" && f === "") {
-      erreurs[`fonction.${id}`] =
-        "Indiquez la fonction de ce répondant (obligatoire en mode « par fonction »).";
+      erreurs[`fonction.${id}`] = en
+        ? 'Enter this respondent\'s role (required in "by role" mode).'
+        : "Indiquez la fonction de ce répondant (obligatoire en mode « par fonction »).";
     } else if (f.length > FONCTION_MAX) {
-      erreurs[`fonction.${id}`] = `${FONCTION_MAX} caractères au plus.`;
+      erreurs[`fonction.${id}`] = en
+        ? `${FONCTION_MAX} characters at most.`
+        : `${FONCTION_MAX} caractères au plus.`;
     }
   }
-  const date = erreurDateLimite(s.date_limite, aujourdhui);
+  const date = erreurDateLimite(s.date_limite, aujourdhui, langue);
   if (date) erreurs.date_limite = date;
   if (Object.keys(erreurs).length > 0 || s.mode === "") return { ok: false, erreurs };
   return {
@@ -111,6 +139,7 @@ export function validerReglages(
   s: SaisieReglages,
   envoi: Pick<EnvoiDetail, "relances_auto" | "date_limite">,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): Resultat<
   { relances_auto?: boolean; date_limite?: string | null },
   "date_limite" | "relances_auto"
@@ -120,12 +149,18 @@ export function validerReglages(
   if (s.relances_auto !== avant.relances_auto) charge.relances_auto = s.relances_auto;
   if (s.date_limite !== avant.date_limite) {
     // Une date limite déjà passée peut être conservée telle quelle, pas en être une nouvelle.
-    const e = erreurDateLimite(s.date_limite, aujourdhui);
+    const e = erreurDateLimite(s.date_limite, aujourdhui, langue);
     if (e) return { ok: false, erreurs: { date_limite: e } };
     charge.date_limite = s.date_limite.trim() === "" ? null : s.date_limite;
   }
   if (Object.keys(charge).length === 0) {
-    return { ok: false, erreurs: { relances_auto: "Aucune modification à enregistrer." } };
+    return {
+      ok: false,
+      erreurs: {
+        relances_auto:
+          langue === "en" ? "No changes to save." : "Aucune modification à enregistrer.",
+      },
+    };
   }
   return { ok: true, charge };
 }
@@ -149,20 +184,32 @@ export const TITRE_MAX = 200;
 export const estGabarit = (v: string): v is GabaritQuestionnaire =>
   (GABARITS_QUESTIONNAIRE as readonly string[]).includes(v);
 
-export function validerModele(s: SaisieModele): Resultat<ModeleQuestionnaireCreation, ChampModele> {
+export function validerModele(
+  s: SaisieModele,
+  langue: Langue = "fr",
+): Resultat<ModeleQuestionnaireCreation, ChampModele> {
+  const en = langue === "en";
   const erreurs: Partial<Record<ChampModele, string>> = {};
   const code = s.code.trim();
   const titre = s.titre.trim();
-  if (code === "") erreurs.code = "Le code est obligatoire.";
+  if (code === "") erreurs.code = en ? "The code is required." : "Le code est obligatoire.";
   else if (!identifiantGrilleSchema.safeParse(code).success) {
-    erreurs.code =
-      "Code invalide : minuscules sans accent, chiffres, « _ », « . » ou « - » (80 caractères au plus).";
+    erreurs.code = en
+      ? 'Invalid code: lowercase letters without accents, digits, "_", "." or "-" (80 characters at most).'
+      : "Code invalide : minuscules sans accent, chiffres, « _ », « . » ou « - » (80 caractères au plus).";
   }
-  if (s.source === "vierge" && titre === "") erreurs.titre = "Le titre est obligatoire.";
-  if (titre.length > TITRE_MAX) erreurs.titre = `${TITRE_MAX} caractères au plus.`;
-  if (s.source === "gabarit" && !estGabarit(s.gabarit)) erreurs.gabarit = "Choisissez un gabarit.";
-  if (s.source === "copie" && s.modele_id === "")
-    erreurs.modele_id = "Choisissez le modèle à copier.";
+  if (s.source === "vierge" && titre === "") {
+    erreurs.titre = en ? "The title is required." : "Le titre est obligatoire.";
+  }
+  if (titre.length > TITRE_MAX) {
+    erreurs.titre = en ? `${TITRE_MAX} characters at most.` : `${TITRE_MAX} caractères au plus.`;
+  }
+  if (s.source === "gabarit" && !estGabarit(s.gabarit)) {
+    erreurs.gabarit = en ? "Choose a template." : "Choisissez un gabarit.";
+  }
+  if (s.source === "copie" && s.modele_id === "") {
+    erreurs.modele_id = en ? "Choose the questionnaire to copy." : "Choisissez le modèle à copier.";
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const source: ModeleQuestionnaireCreation["source"] =
     s.source === "vierge"

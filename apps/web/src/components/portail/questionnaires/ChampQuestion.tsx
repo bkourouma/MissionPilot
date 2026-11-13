@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import type { QuestionQuestionnaire } from "@missionpilot/shared";
+import type { Langue, QuestionQuestionnaire } from "@missionpilot/shared";
+import { useT, useLangue } from "../../i18n/FournisseurLangue";
 import { Bouton } from "../../ui/Bouton";
 import { CadreChamp, Champ, idsDescription } from "../../ui/Champ";
 import { Icone } from "../../ui/Icone";
@@ -37,21 +38,22 @@ export interface ChampQuestionProps extends ProprietesChamp {
 }
 
 /** Aide de la question (définition) et contraintes de saisie (bornes, nombre de choix). */
-function aideDe(q: QuestionQuestionnaire, complement?: string): ReactNode {
+function aideDe(q: QuestionQuestionnaire, complement?: string, langue: Langue = "fr"): ReactNode {
   const aide = q.aide?.trim();
   // L'aide saisie par le cabinet devient une phrase, suivie des contraintes de saisie.
   const phrase = aide && !/[.!?…:]$/.test(aide) ? `${aide}.` : aide;
-  const parties = [phrase, aideChamp(q), complement].filter(Boolean);
+  const parties = [phrase, aideChamp(q, langue), complement].filter(Boolean);
   return parties.length > 0 ? parties.join(" ") : undefined;
 }
 
 function MarqueObligatoire({ obligatoire }: { obligatoire: boolean }) {
+  const t = useT();
   if (!obligatoire) return null;
   return (
     <span className="mp-champ__requis">
       {" "}
       <span aria-hidden="true">*</span>
-      <span className="mp-visuellement-cache">(obligatoire)</span>
+      <span className="mp-visuellement-cache">({t("obligatoire", "required")})</span>
     </span>
   );
 }
@@ -74,8 +76,10 @@ function GroupeRadio({
   options,
   disposition,
 }: ProprietesChamp & { options: OptionRadio[]; disposition: "colonne" | "ligne" | "echelle" }) {
+  const t = useT();
+  const langue = useLangue();
   const id = useId();
-  const aide = aideDe(q);
+  const aide = aideDe(q, undefined, langue);
   const { idAide, idErreur, describedBy } = idsDescription(id, Boolean(aide), Boolean(erreur));
   return (
     <fieldset className="mp-pq-groupe" aria-describedby={describedBy}>
@@ -116,7 +120,7 @@ function GroupeRadio({
       </div>
       {!q.obligatoire && valeur !== null && valeur !== undefined ? (
         <Bouton variante="discret" className="mp-pq-effacer" onClick={() => onChange(null)}>
-          Effacer la réponse
+          {t("Effacer la réponse", "Clear the response")}
           <span className="mp-visuellement-cache"> : {q.libelle}</span>
         </Bouton>
       ) : null}
@@ -125,13 +129,14 @@ function GroupeRadio({
 }
 
 function ChampLikert(p: ProprietesChamp<Question<"likert">>) {
+  const t = useT();
   const options = Array.from({ length: p.question.points }, (_, i) => ({
     cle: String(i + 1),
     valeur: i + 1,
     libelle: (
       <>
         <span className="mp-pq-niveau">{i + 1}</span>
-        <span>{p.question.libelles[i] ?? `Niveau ${i + 1}`}</span>
+        <span>{p.question.libelles[i] ?? t(`Niveau ${i + 1}`, `Level ${i + 1}`)}</span>
       </>
     ),
   }));
@@ -148,9 +153,10 @@ function ChampChoixUnique(p: ProprietesChamp<Question<"choix_unique">>) {
 }
 
 function ChampOuiNon(p: ProprietesChamp<Question<"oui_non">>) {
+  const t = useT();
   const options = [
-    { cle: "oui", valeur: true, libelle: "Oui" },
-    { cle: "non", valeur: false, libelle: "Non" },
+    { cle: "oui", valeur: true, libelle: t("Oui", "Yes") },
+    { cle: "non", valeur: false, libelle: t("Non", "No") },
   ];
   return <GroupeRadio {...p} options={options} disposition="ligne" />;
 }
@@ -162,8 +168,9 @@ function ChampChoixMultiple({
   erreur,
   onChange,
 }: ProprietesChamp<Question<"choix_multiple">>) {
+  const langue = useLangue();
   const id = useId();
-  const aide = aideDe(q);
+  const aide = aideDe(q, undefined, langue);
   const { idAide, idErreur, describedBy } = idsDescription(id, Boolean(aide), Boolean(erreur));
   const selection = Array.isArray(valeur) ? valeur : [];
   const basculer = (code: string, coche: boolean) =>
@@ -220,8 +227,9 @@ function ChampNombre({
   onChange,
   onBlur,
 }: ProprietesChamp<Question<"numerique">>) {
+  const langue = useLangue();
   const id = useId();
-  const aide = aideDe(q);
+  const aide = aideDe(q, undefined, langue);
   const { describedBy } = idsDescription(id, Boolean(aide), Boolean(erreur));
   return (
     <CadreChamp id={id} libelle={q.libelle} aide={aide} erreur={erreur} requis={q.obligatoire}>
@@ -257,9 +265,10 @@ function ChampTexte({
   onChange,
   onBlur,
 }: ProprietesChamp<Question<"texte">>) {
+  const langue = useLangue();
   const max = longueurMax(q);
   const texte = typeof valeur === "string" ? valeur : "";
-  const aide = aideDe(q, `${compteurCaracteres(texte, max)}.`);
+  const aide = aideDe(q, `${compteurCaracteres(texte, max, langue)}.`, langue);
   const communs = {
     libelle: q.libelle,
     aide,
@@ -291,11 +300,12 @@ function ChampDate({
   onChange,
   onBlur,
 }: ProprietesChamp<Question<"date">>) {
+  const langue = useLangue();
   return (
     <Champ
       type="date"
       libelle={q.libelle}
-      aide={aideDe(q)}
+      aide={aideDe(q, undefined, langue)}
       erreur={erreur}
       required={q.obligatoire}
       min={q.min}
@@ -339,22 +349,33 @@ function Conflit({
   onGarder: () => void;
   onReprendre: () => void;
 }) {
+  const t = useT();
   return (
-    <div className="mp-pq-conflit" role="group" aria-label={`Réponse à choisir : ${libelle}`}>
+    <div
+      className="mp-pq-conflit"
+      role="group"
+      aria-label={t(`Réponse à choisir : ${libelle}`, `Response to choose: ${libelle}`)}
+    >
       <p className="mp-pq-conflit__titre">
         <Icone nom="attention" taille={18} />
-        <span>Un collègue a aussi modifié cette réponse</span>
+        <span>
+          {t("Un collègue a aussi modifié cette réponse", "A colleague also edited this response")}
+        </span>
       </p>
       <p>
-        Sa réponse : <strong className="mp-pq-conflit__valeur">{leur}</strong>. La vôtre, affichée
-        ci-dessus, n&apos;est pas encore enregistrée.
+        {t("Sa réponse : ", "Their response: ")}
+        <strong className="mp-pq-conflit__valeur">{leur}</strong>
+        {t(
+          ". La vôtre, affichée ci-dessus, n'est pas encore enregistrée.",
+          ". Yours, displayed above, is not saved yet.",
+        )}
       </p>
       <div className="mp-barre-actions">
         <Bouton variante="secondaire" onClick={onGarder}>
-          Garder ma réponse
+          {t("Garder ma réponse", "Keep my response")}
         </Bouton>
         <Bouton variante="secondaire" onClick={onReprendre}>
-          Reprendre sa réponse
+          {t("Reprendre sa réponse", "Use their response")}
         </Bouton>
       </div>
     </div>
@@ -363,6 +384,7 @@ function Conflit({
 
 /** Une question du questionnaire : contrôle selon son type, mise à jour ou conflit éventuels. */
 export function ChampQuestion({ miseAJour, conflit, ...p }: ChampQuestionProps) {
+  const t = useT();
   return (
     <div
       id={idBlocQuestion(p.question.id)}
@@ -372,7 +394,7 @@ export function ChampQuestion({ miseAJour, conflit, ...p }: ChampQuestionProps) 
       {miseAJour ? (
         <p className="mp-pq-question__maj">
           <Icone nom="personnes" taille={16} />
-          <span>Réponse mise à jour par un collègue</span>
+          <span>{t("Réponse mise à jour par un collègue", "Response updated by a colleague")}</span>
         </p>
       ) : null}
       {conflit ? (

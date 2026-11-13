@@ -12,6 +12,7 @@ import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface ActionsAtelierProps {
   planId: string;
@@ -28,6 +29,8 @@ export function ActionsAtelier({
   statut,
   raisonOuverture,
 }: ActionsAtelierProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoiEnCours, setEnCours] = useState(false);
@@ -42,7 +45,7 @@ export function ActionsAtelier({
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageAtelier(e));
+      setErreur(messageAtelier(e, langue));
       refAlerte.current?.focus();
       return false;
     }
@@ -52,7 +55,7 @@ export function ActionsAtelier({
   return (
     <div className="mp-pile">
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre="Action refusée">
+        <Alerte ref={refAlerte} tonalite="danger" titre={t("Action refusée", "Action refused")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -62,14 +65,14 @@ export function ActionsAtelier({
             icone="succes"
             disabled={raisonOuverture !== null}
             chargement={enCours}
-            texteChargement="Ouverture…"
+            texteChargement={t("Ouverture…", "Opening…")}
             onClick={async () => {
               setEnCours(true);
               await executer(cheminOuvrirAtelier(planId, atelierId));
               setEnCours(false);
             }}
           >
-            Ouvrir l&apos;atelier aux participants
+            {t("Ouvrir l'atelier aux participants", "Open the workshop to participants")}
           </Bouton>
           {raisonOuverture ? (
             <p className="mp-texte-doux mp-texte-petit">{raisonOuverture}</p>
@@ -77,10 +80,13 @@ export function ActionsAtelier({
         </div>
       ) : (
         <BoutonConfirmation
-          libelle="Clore l'atelier"
-          question="Clore l'atelier ? Les contributions sont figées et les résultats calculés. Cette action est définitive."
-          libelleConfirmation="Oui, clore l'atelier"
-          texteChargement="Clôture…"
+          libelle={t("Clore l'atelier", "Close the workshop")}
+          question={t(
+            "Clore l'atelier ? Les contributions sont figées et les résultats calculés. Cette action est définitive.",
+            "Close the workshop? Contributions are frozen and the results are computed. This action is final.",
+          )}
+          libelleConfirmation={t("Oui, clore l'atelier", "Yes, close the workshop")}
+          texteChargement={t("Clôture…", "Closing…")}
           variante="primaire"
           action={() => executer(cheminCloreAtelier(planId, atelierId))}
         />

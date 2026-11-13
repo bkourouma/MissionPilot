@@ -12,8 +12,10 @@ import {
   elementMethodeModificationSchema,
   etapeCreationSchema,
   etapeModificationSchema,
+  creerTraduire,
   type ConditionModulationApi,
   type EffetModulationApi,
+  type Langue,
   type RegleModulationApi,
   type TypeElementMethode,
 } from "@missionpilot/shared";
@@ -32,6 +34,9 @@ import {
 import type { Resultat } from "./saisie";
 
 export const MESSAGE_CODE = "Code : minuscules, chiffres, « _ », « . » ou « - ».";
+export const MESSAGE_CODE_EN = 'Code: lowercase letters, digits, "_", "." or "-".';
+export const messageCode = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_CODE_EN : MESSAGE_CODE;
 export const vide = (v: string) => (v.trim() === "" ? null : v.trim());
 export const aDesErreurs = (e: object) => Object.keys(e).length > 0;
 
@@ -54,32 +59,50 @@ export const saisieDepuisEtape = (e: EtapeVersion): SaisieEtape => ({
 /** Création : `POST …/etapes`. */
 export function validerEtapeCreation(
   s: SaisieEtape,
+  langue: Langue = "fr",
 ): Resultat<{ code: string; libelle: string; description: string | null }, ChampEtape> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampEtape, string>> = {};
-  if (!s.libelle.trim()) erreurs.libelle = "Libellé obligatoire.";
-  if (!codeReferentielSchema.safeParse(s.code.trim()).success) erreurs.code = MESSAGE_CODE;
+  if (!s.libelle.trim()) erreurs.libelle = t("Libellé obligatoire.", "Label required.");
+  if (!codeReferentielSchema.safeParse(s.code.trim()).success) erreurs.code = messageCode(langue);
   if (aDesErreurs(erreurs)) return { ok: false, erreurs };
   const p = etapeCreationSchema.safeParse({
     code: s.code.trim(),
     libelle: s.libelle.trim(),
     description: vide(s.description),
   });
-  if (!p.success)
-    return { ok: false, erreurs: { libelle: "Étape refusée : vérifier les champs." } };
+  if (!p.success) {
+    return {
+      ok: false,
+      erreurs: {
+        libelle: t("Étape refusée : vérifier les champs.", "Step rejected: check the fields."),
+      },
+    };
+  }
   return { ok: true, charge: { ...p.data, description: p.data.description ?? null } };
 }
 
 /** Modification : `PATCH …/etapes/:id` (le code ne change pas). */
 export function validerEtapeModification(
   s: SaisieEtape,
+  langue: Langue = "fr",
 ): Resultat<{ libelle: string; description: string | null }, ChampEtape> {
-  if (!s.libelle.trim()) return { ok: false, erreurs: { libelle: "Libellé obligatoire." } };
+  const t = creerTraduire(langue);
+  if (!s.libelle.trim()) {
+    return { ok: false, erreurs: { libelle: t("Libellé obligatoire.", "Label required.") } };
+  }
   const p = etapeModificationSchema.safeParse({
     libelle: s.libelle.trim(),
     description: vide(s.description),
   });
-  if (!p.success)
-    return { ok: false, erreurs: { libelle: "Étape refusée : vérifier les champs." } };
+  if (!p.success) {
+    return {
+      ok: false,
+      erreurs: {
+        libelle: t("Étape refusée : vérifier les champs.", "Step rejected: check the fields."),
+      },
+    };
+  }
   return {
     ok: true,
     charge: { libelle: s.libelle.trim(), description: p.data.description ?? null },
@@ -113,14 +136,23 @@ type BriqueModificationCorps = ReturnType<typeof briqueModificationSchema.parse>
 /** Modification : `PATCH …/briques/:id` (mêmes contrôles que la création, sans le code). */
 export function validerBriqueModification(
   s: SaisieBrique,
+  langue: Langue = "fr",
 ): Resultat<BriqueModificationCorps, ChampBrique> {
-  const r = validerBrique(s);
+  const r = validerBrique(s, langue);
   if (!r.ok) return r;
   const sansCode = Object.fromEntries(Object.entries(r.charge).filter(([cle]) => cle !== "code"));
   const p = briqueModificationSchema.safeParse(sansCode);
   return p.success
     ? { ok: true, charge: p.data }
-    : { ok: false, erreurs: { libelle: "Brique refusée : vérifier les champs." } };
+    : {
+        ok: false,
+        erreurs: {
+          libelle: creerTraduire(langue)(
+            "Brique refusée : vérifier les champs.",
+            "Building block rejected: check the fields.",
+          ),
+        },
+      };
 }
 
 // --- Règle (relecture dans l'éditeur) ----------------------------------------------------------
@@ -219,10 +251,12 @@ type ElementModificationCorps = ReturnType<typeof elementMethodeModificationSche
 
 export function validerElementCreation(
   s: SaisieElement,
+  langue: Langue = "fr",
 ): Resultat<ElementCreationCorps, ChampElement> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampElement, string>> = {};
-  if (!s.libelle.trim()) erreurs.libelle = "Libellé obligatoire.";
-  if (!codeReferentielSchema.safeParse(s.code.trim()).success) erreurs.code = MESSAGE_CODE;
+  if (!s.libelle.trim()) erreurs.libelle = t("Libellé obligatoire.", "Label required.");
+  if (!codeReferentielSchema.safeParse(s.code.trim()).success) erreurs.code = messageCode(langue);
   if (aDesErreurs(erreurs)) return { ok: false, erreurs };
   const p = elementMethodeCreationSchema.safeParse({
     type: s.type,
@@ -235,14 +269,26 @@ export function validerElementCreation(
   });
   return p.success
     ? { ok: true, charge: p.data }
-    : { ok: false, erreurs: { libelle: "Élément refusé : vérifier les champs." } };
+    : {
+        ok: false,
+        erreurs: {
+          libelle: t(
+            "Élément refusé : vérifier les champs.",
+            "Element rejected: check the fields.",
+          ),
+        },
+      };
 }
 
 /** Modification : le code et le type ne changent pas. */
 export function validerElementModification(
   s: SaisieElement,
+  langue: Langue = "fr",
 ): Resultat<ElementModificationCorps, ChampElement> {
-  if (!s.libelle.trim()) return { ok: false, erreurs: { libelle: "Libellé obligatoire." } };
+  const t = creerTraduire(langue);
+  if (!s.libelle.trim()) {
+    return { ok: false, erreurs: { libelle: t("Libellé obligatoire.", "Label required.") } };
+  }
   const p = elementMethodeModificationSchema.safeParse({
     libelle: s.libelle.trim(),
     description: vide(s.description),
@@ -252,5 +298,13 @@ export function validerElementModification(
   });
   return p.success
     ? { ok: true, charge: p.data }
-    : { ok: false, erreurs: { libelle: "Élément refusé : vérifier les champs." } };
+    : {
+        ok: false,
+        erreurs: {
+          libelle: t(
+            "Élément refusé : vérifier les champs.",
+            "Element rejected: check the fields.",
+          ),
+        },
+      };
 }

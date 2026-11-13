@@ -21,6 +21,7 @@ import {
   type CoutsIa,
   type PageIa,
 } from "../../../../lib/ia";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import type { ChargementFacultatif } from "../../../../lib/ia-serveur";
 
 /**
@@ -28,7 +29,7 @@ import type { ChargementFacultatif } from "../../../../lib/ia-serveur";
  * mois, coût par mission rapporté à son prix (cible ≤ 5 %). Tous les chiffres viennent de
  * l'API ; l'écran les met seulement en forme. Sans droit (403), la section est masquée.
  */
-export function CoutsIaSection({
+export async function CoutsIaSection({
   mois,
   moisCourant,
   couts,
@@ -42,11 +43,13 @@ export function CoutsIaSection({
   curseurMissions: string | null;
 }) {
   if (couts.etat === "refuse") return null;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
-    <Carte titre="Coûts IA" id="couts">
+    <Carte titre={t("Coûts IA", "AI costs")} id="couts">
       {couts.etat === "erreur" ? (
         <EtatErreur
-          titre="Les coûts IA n'ont pas pu être chargés."
+          titre={t("Les coûts IA n'ont pas pu être chargés.", "The AI costs could not be loaded.")}
           message={couts.message}
           hrefReessayer={hrefCoutsIa(mois)}
         />
@@ -55,27 +58,31 @@ export function CoutsIaSection({
           <NavigationMois mois={mois} moisCourant={moisCourant} />
           <ResumeMois c={couts.donnees} />
           <Tableau
-            legende="Coût IA des douze derniers mois"
+            legende={t("Coût IA des douze derniers mois", "AI cost over the last twelve months")}
             legendeVisible
             colonnes={[
-              { cle: "mois", entete: "Mois", rendu: (l) => libelleMois(l.mois) },
+              {
+                cle: "mois",
+                entete: t("Mois", "Month"),
+                rendu: (l) => libelleMois(l.mois, langue),
+              },
               {
                 cle: "appels",
-                entete: "Appels facturés",
+                entete: t("Appels facturés", "Billed calls"),
                 alignement: "droite",
-                rendu: (l) => formaterNombre(l.appels, 0),
+                rendu: (l) => formaterNombre(l.appels, 0, langue),
               },
               {
                 cle: "cache",
-                entete: "Servies par le cache",
+                entete: t("Servies par le cache", "Served from cache"),
                 alignement: "droite",
-                rendu: (l) => formaterNombre(l.appels_cache ?? 0, 0),
+                rendu: (l) => formaterNombre(l.appels_cache ?? 0, 0, langue),
               },
               {
                 cle: "cout",
-                entete: "Coût estimé",
+                entete: t("Coût estimé", "Estimated cost"),
                 alignement: "droite",
-                rendu: (l) => formaterMicroUsd(l.cout_micro_usd),
+                rendu: (l) => formaterMicroUsd(l.cout_micro_usd, langue),
               },
             ]}
             lignes={couts.donnees.historique}
@@ -92,7 +99,10 @@ export function CoutsIaSection({
         />
       ) : missions.etat === "erreur" ? (
         <EtatErreur
-          titre="Le coût IA par mission n'a pas pu être chargé."
+          titre={t(
+            "Le coût IA par mission n'a pas pu être chargé.",
+            "The AI cost per engagement could not be loaded.",
+          )}
           message={missions.message}
           hrefReessayer={hrefCoutsIa(mois)}
         />
@@ -101,17 +111,19 @@ export function CoutsIaSection({
   );
 }
 
-function NavigationMois({ mois, moisCourant }: { mois: string; moisCourant: string }) {
+async function NavigationMois({ mois, moisCourant }: { mois: string; moisCourant: string }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
-    <nav className="mp-ia-mois" aria-label="Choix du mois">
+    <nav className="mp-ia-mois" aria-label={t("Choix du mois", "Month selection")}>
       <Link className="mp-pagination__lien" href={hrefCoutsIa(decalerMois(mois, -1))}>
         <Icone nom="chevronGauche" taille={18} />
-        <span>Mois précédent</span>
+        <span>{t("Mois précédent", "Previous month")}</span>
       </Link>
-      <h3 className="mp-ia-mois__titre">{libelleMois(mois)}</h3>
+      <h3 className="mp-ia-mois__titre">{libelleMois(mois, langue)}</h3>
       {mois < moisCourant ? (
         <Link className="mp-pagination__lien" href={hrefCoutsIa(decalerMois(mois, 1))}>
-          <span>Mois suivant</span>
+          <span>{t("Mois suivant", "Next month")}</span>
           <Icone nom="chevronDroit" taille={18} />
         </Link>
       ) : (
@@ -121,50 +133,60 @@ function NavigationMois({ mois, moisCourant }: { mois: string; moisCourant: stri
   );
 }
 
-function ResumeMois({ c }: { c: CoutsIa }) {
-  const etat = etatPlafond(c.part_plafond);
+async function ResumeMois({ c }: { c: CoutsIa }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const etat = etatPlafond(c.part_plafond, langue);
   const taux = c.taux_conversion;
   return (
     <>
       <dl className="mp-liste-def">
         <div>
-          <dt>Coût estimé du mois</dt>
-          <dd>{formaterMicroUsd(c.cout_micro_usd)}</dd>
+          <dt>{t("Coût estimé du mois", "Estimated cost for the month")}</dt>
+          <dd>{formaterMicroUsd(c.cout_micro_usd, langue)}</dd>
         </div>
         <div>
-          <dt>Appels facturés</dt>
-          <dd>{formaterNombre(c.appels, 0)}</dd>
+          <dt>{t("Appels facturés", "Billed calls")}</dt>
+          <dd>{formaterNombre(c.appels, 0, langue)}</dd>
         </div>
         <div>
-          <dt>Générations servies par le cache</dt>
-          <dd>{libelleServiesCache(c.appels_cache)}</dd>
+          <dt>{t("Générations servies par le cache", "Generations served from cache")}</dt>
+          <dd>{libelleServiesCache(c.appels_cache, langue)}</dd>
         </div>
         <div>
-          <dt>Plafond mensuel du cabinet</dt>
-          <dd>{formaterMicroUsd(c.plafond_mensuel_micro_usd)}</dd>
+          <dt>{t("Plafond mensuel du cabinet", "Firm's monthly ceiling")}</dt>
+          <dd>{formaterMicroUsd(c.plafond_mensuel_micro_usd, langue)}</dd>
         </div>
         {c.plafond_effectif_micro_usd !== c.plafond_mensuel_micro_usd ? (
           <div>
-            <dt>Plafond appliqué</dt>
-            <dd>{`${formaterMicroUsd(c.plafond_effectif_micro_usd)} (borné par l'opérateur pour la clé de la plateforme)`}</dd>
+            <dt>{t("Plafond appliqué", "Ceiling applied")}</dt>
+            <dd>
+              {t(
+                `${formaterMicroUsd(c.plafond_effectif_micro_usd)} (borné par l'opérateur pour la clé de la plateforme)`,
+                `${formaterMicroUsd(c.plafond_effectif_micro_usd, langue)} (capped by the operator for the platform key)`,
+              )}
+            </dd>
           </div>
         ) : null}
         <div>
-          <dt>Part du plafond appliqué consommée</dt>
+          <dt>{t("Part du plafond appliqué consommée", "Share of the applied ceiling used")}</dt>
           <dd className="mp-badges">
-            <span>{formaterPourcentage(c.part_plafond)}</span>
+            <span>{formaterPourcentage(c.part_plafond, 1, langue)}</span>
             <BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>
           </dd>
         </div>
       </dl>
       <p className="mp-texte-petit mp-texte-doux">
-        {`Coûts estimés d'après les tarifs publiés des modèles (en dollars US). Conversion vers la devise des missions au taux de départ du ${formaterDate(taux.date)}${taux.a_valider ? ", à valider par le métier" : ""}.`}
+        {t(
+          `Coûts estimés d'après les tarifs publiés des modèles (en dollars US). Conversion vers la devise des missions au taux de départ du ${formaterDate(taux.date)}${taux.a_valider ? ", à valider par le métier" : ""}.`,
+          `Costs estimated from the models' published prices (in US dollars). Converted to the engagements' currency at the starting rate of ${formaterDate(taux.date, "UTC", langue)}${taux.a_valider ? ", to be validated by the business" : ""}.`,
+        )}
       </p>
     </>
   );
 }
 
-function CoutsMissions({
+async function CoutsMissions({
   page,
   seuil,
   mois,
@@ -175,54 +197,60 @@ function CoutsMissions({
   mois: string;
   curseur: string | null;
 }) {
-  const libelleSeuil = seuil === null ? "le seuil" : formaterPourcentage(seuil, 0);
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const libelleSeuil =
+    seuil === null ? t("le seuil", "the threshold") : formaterPourcentage(seuil, 0, langue);
   return (
     <div className="mp-pile">
       <Tableau
-        legende="Coût IA cumulé par mission"
+        legende={t("Coût IA cumulé par mission", "Cumulative AI cost per engagement")}
         legendeVisible
-        messageVide="Aucune mission n'a encore consommé d'IA."
+        messageVide={t(
+          "Aucune mission n'a encore consommé d'IA.",
+          "No engagement has used AI yet.",
+        )}
         colonnes={[
           {
             cle: "mission",
-            entete: "Mission",
+            entete: t("Mission", "Engagement"),
             rendu: (l) => (
               <Link href={`/missions/${l.mission_id}`}>
-                {l.intitule ?? "Mission sans intitulé"}
+                {l.intitule ?? t("Mission sans intitulé", "Untitled engagement")}
               </Link>
             ),
           },
           {
             cle: "appels",
-            entete: "Appels",
+            entete: t("Appels", "Calls"),
             alignement: "droite",
-            rendu: (l) => formaterNombre(l.appels, 0),
+            rendu: (l) => formaterNombre(l.appels, 0, langue),
           },
           {
             cle: "cout",
-            entete: "Coût estimé",
+            entete: t("Coût estimé", "Estimated cost"),
             alignement: "droite",
             rendu: (l) =>
-              `${formaterMicroUsd(l.cout_micro_usd)} (${formaterMontantMineur(l.cout_devise, l.devise)})`,
+              `${formaterMicroUsd(l.cout_micro_usd, langue)} (${formaterMontantMineur(l.cout_devise, l.devise, langue)})`,
           },
           {
             cle: "prix",
-            entete: "Prix de la mission",
+            entete: t("Prix de la mission", "Engagement price"),
             alignement: "droite",
             rendu: (l) =>
               l.prix_mission === null
-                ? "Budget non figé"
-                : formaterMontantMineur(l.prix_mission, l.devise),
+                ? t("Budget non figé", "Budget not frozen")
+                : formaterMontantMineur(l.prix_mission, l.devise, langue),
           },
           {
             cle: "ratio",
-            entete: "Coût / prix",
+            entete: t("Coût / prix", "Cost / price"),
             rendu: (l) =>
               l.depasse_seuil === null ? (
-                <BadgeStatut tonalite="neutre">Non calculable</BadgeStatut>
+                <BadgeStatut tonalite="neutre">{t("Non calculable", "Not computable")}</BadgeStatut>
               ) : (
                 <BadgeStatut tonalite={l.depasse_seuil ? "danger" : "succes"}>
-                  {`${formaterPourcentage(l.ratio_cout_prix, 2)} : ${l.depasse_seuil ? `au-delà de ${libelleSeuil}` : `sous ${libelleSeuil}`}`}
+                  {`${formaterPourcentage(l.ratio_cout_prix, 2, langue)} : ${l.depasse_seuil ? t(`au-delà de ${libelleSeuil}`, `above ${libelleSeuil}`) : t(`sous ${libelleSeuil}`, `below ${libelleSeuil}`)}`}
                 </BadgeStatut>
               ),
           },
@@ -231,7 +259,7 @@ function CoutsMissions({
         cleLigne={(l) => l.mission_id}
       />
       <PaginationCurseur
-        libelle="Pages du coût par mission"
+        libelle={t("Pages du coût par mission", "Cost per engagement pages")}
         hrefSuivante={page.curseur_suivant ? hrefCoutsIa(mois, page.curseur_suivant) : null}
         hrefDebut={curseur ? hrefCoutsIa(mois) : null}
       />

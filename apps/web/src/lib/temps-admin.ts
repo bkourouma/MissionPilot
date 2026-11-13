@@ -3,7 +3,13 @@
  * internes, clôture mensuelle, corrections tracées et import de l'historique. Logique pure,
  * testée dans `temps-admin.test.ts`.
  */
-import { aPermission, type Role } from "@missionpilot/shared";
+import {
+  aPermission,
+  creerTraduire,
+  LOCALES_INTL,
+  type Langue,
+  type Role,
+} from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { lireNombre, texteOuNull, type Resultat } from "./saisie";
 import { estDateIso } from "./semaine";
@@ -23,19 +29,37 @@ export const CONTROLE_LIBELLES: Record<ParametresTemps["controle_capacite"], str
   refuser: "Refuser la saisie qui dépasse la capacité du jour",
 };
 
-export function validerParametresTemps(s: {
-  controle_capacite: string;
-  seuil_consommation_pct: string;
-}): Resultat<
+export const CONTROLE_LIBELLES_EN: Record<ParametresTemps["controle_capacite"], string> = {
+  signaler: "Flag the overrun (warning, the entry is accepted)",
+  refuser: "Reject any entry that exceeds the day's capacity",
+};
+
+export const libelleControle = (c: ParametresTemps["controle_capacite"], langue: Langue = "fr") =>
+  (langue === "en" ? CONTROLE_LIBELLES_EN : CONTROLE_LIBELLES)[c];
+
+export function validerParametresTemps(
+  s: {
+    controle_capacite: string;
+    seuil_consommation_pct: string;
+  },
+  langue: Langue = "fr",
+): Resultat<
   { controle_capacite: "signaler" | "refuser"; seuil_consommation_pct: number },
   "controle_capacite" | "seuil_consommation_pct"
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"controle_capacite" | "seuil_consommation_pct", string>> = {};
   if (s.controle_capacite !== "signaler" && s.controle_capacite !== "refuser")
-    erreurs.controle_capacite = "Choisissez le contrôle de capacité.";
+    erreurs.controle_capacite = t(
+      "Choisissez le contrôle de capacité.",
+      "Choose the capacity check.",
+    );
   const seuil = lireNombre(s.seuil_consommation_pct);
   if (seuil === null || Number.isNaN(seuil) || !Number.isInteger(seuil) || seuil < 1 || seuil > 100)
-    erreurs.seuil_consommation_pct = "Nombre entier entre 1 et 100 (ex. 80).";
+    erreurs.seuil_consommation_pct = t(
+      "Nombre entier entre 1 et 100 (ex. 80).",
+      "Whole number between 1 and 100 (e.g. 80).",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -48,18 +72,27 @@ export function validerParametresTemps(s: {
 
 const CODE = /^[a-z0-9_]{1,40}$/;
 
-export function validerActivite(s: {
-  code: string;
-  libelle: string;
-  est_absence: boolean;
-}): Resultat<{ code: string; libelle: string; est_absence: boolean }, "code" | "libelle"> {
+export function validerActivite(
+  s: {
+    code: string;
+    libelle: string;
+    est_absence: boolean;
+  },
+  langue: Langue = "fr",
+): Resultat<{ code: string; libelle: string; est_absence: boolean }, "code" | "libelle"> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"code" | "libelle", string>> = {};
   const code = s.code.trim();
   const libelle = s.libelle.trim();
   if (!CODE.test(code))
-    erreurs.code = "Minuscules, chiffres et tiret bas, 40 caractères au plus (ex. formation).";
-  if (libelle === "") erreurs.libelle = "Saisissez le libellé de l'activité.";
-  else if (libelle.length > 120) erreurs.libelle = "120 caractères au plus.";
+    erreurs.code = t(
+      "Minuscules, chiffres et tiret bas, 40 caractères au plus (ex. formation).",
+      "Lowercase letters, digits and underscores, 40 characters maximum (e.g. training).",
+    );
+  if (libelle === "")
+    erreurs.libelle = t("Saisissez le libellé de l'activité.", "Enter the activity label.");
+  else if (libelle.length > 120)
+    erreurs.libelle = t("120 caractères au plus.", "120 characters maximum.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { code, libelle, est_absence: s.est_absence } };
 }
@@ -76,17 +109,24 @@ export interface PeriodeTemps {
   motif_reouverture?: string | null;
 }
 
-const NOMS_MOIS = new Intl.DateTimeFormat("fr-FR", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
+const NOMS_MOIS = {
+  fr: new Intl.DateTimeFormat(LOCALES_INTL.fr, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }),
+  en: new Intl.DateTimeFormat(LOCALES_INTL.en, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }),
+};
 
 /** « 2026-09 » → « Septembre 2026 ». */
-export function libelleMois(mois: string): string {
+export function libelleMois(mois: string, langue: Langue = "fr"): string {
   const m = /^(\d{4})-(\d{2})$/.exec(mois);
   if (!m) return mois;
-  const t = NOMS_MOIS.format(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1)));
+  const t = NOMS_MOIS[langue].format(new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1)));
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
@@ -103,6 +143,17 @@ export const STATUT_PERIODE: Record<
   ouverte: { libelle: "Ouverte", tonalite: "succes" },
   cloturee: { libelle: "Clôturée", tonalite: "neutre" },
 };
+
+export const STATUT_PERIODE_EN: Record<
+  PeriodeTemps["statut"],
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  ouverte: { libelle: "Open", tonalite: "succes" },
+  cloturee: { libelle: "Closed", tonalite: "neutre" },
+};
+
+export const statutPeriode = (s: PeriodeTemps["statut"], langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_PERIODE_EN : STATUT_PERIODE)[s];
 
 /**
  * Actions sur un mois : clôturer un mois terminé et ouvert (temps.cloturer) ; rouvrir un mois
@@ -133,6 +184,18 @@ export const STATUT_CORRECTION: Record<
   validee: { libelle: "Validée", tonalite: "succes" },
   rejetee: { libelle: "Rejetée", tonalite: "danger" },
 };
+
+export const STATUT_CORRECTION_EN: Record<
+  StatutCorrection,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  demandee: { libelle: "Awaiting decision", tonalite: "attention" },
+  validee: { libelle: "Approved", tonalite: "succes" },
+  rejetee: { libelle: "Rejected", tonalite: "danger" },
+};
+
+export const statutCorrection = (s: StatutCorrection, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_CORRECTION_EN : STATUT_CORRECTION)[s];
 
 export interface Correction {
   id: string;
@@ -170,20 +233,35 @@ export function validerCorrection(
   s: SaisieCorrection,
   collaborateurId: string,
   unite: UniteSaisie,
+  langue: Langue = "fr",
 ): Resultat<Record<string, unknown>, keyof SaisieCorrection> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieCorrection, string>> = {};
-  if (!CIBLE.test(s.cible)) erreurs.cible = "Choisissez la tâche ou l'activité.";
-  if (!estDateIso(s.date)) erreurs.date = "Indiquez le jour à corriger.";
+  if (!CIBLE.test(s.cible))
+    erreurs.cible = t("Choisissez la tâche ou l'activité.", "Choose the task or activity.");
+  if (!estDateIso(s.date))
+    erreurs.date = t("Indiquez le jour à corriger.", "Enter the day to correct.");
   const v = lireNombre(s.valeur);
   if (v === null || Number.isNaN(v) || v < 0)
-    erreurs.valeur = "Valeur positive ou nulle (0 pour retirer).";
+    erreurs.valeur = t(
+      "Valeur positive ou nulle (0 pour retirer).",
+      "Zero or positive value (0 to remove).",
+    );
   else if (unite === "demi_journee" && (v > 3 || Math.abs(v * 2 - Math.round(v * 2)) > 1e-9))
-    erreurs.valeur = "Jours par pas de 0,5, 3 au plus.";
+    erreurs.valeur = t("Jours par pas de 0,5, 3 au plus.", "Days in steps of 0.5, 3 maximum.");
   else if (unite === "heure" && (v > 24 || Math.abs(v * 60 - Math.round(v * 60)) > 1e-6))
-    erreurs.valeur = "Heures en minutes entières, 24 au plus.";
+    erreurs.valeur = t(
+      "Heures en minutes entières, 24 au plus.",
+      "Hours in whole minutes, 24 maximum.",
+    );
   const motif = texteOuNull(s.motif);
-  if (!motif) erreurs.motif = "Indiquez le motif de la correction.";
-  else if (motif.length > 500) erreurs.motif = "500 caractères au plus.";
+  if (!motif)
+    erreurs.motif = t(
+      "Indiquez le motif de la correction.",
+      "Enter the reason for the correction.",
+    );
+  else if (motif.length > 500)
+    erreurs.motif = t("500 caractères au plus.", "500 characters maximum.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const id = s.cible.slice(2);
   return {
@@ -230,16 +308,27 @@ export interface RapportImport {
   avertissements: { ligne: number; message: string }[];
 }
 
-export function validerCsv(csv: string): Resultat<{ csv: string }, "csv"> {
+export function validerCsv(csv: string, langue: Langue = "fr"): Resultat<{ csv: string }, "csv"> {
+  const t = creerTraduire(langue);
   if (csv.trim() === "")
     return {
       ok: false,
-      erreurs: { csv: "Collez le contenu du fichier CSV ou choisissez un fichier." },
+      erreurs: {
+        csv: t(
+          "Collez le contenu du fichier CSV ou choisissez un fichier.",
+          "Paste the CSV file content or choose a file.",
+        ),
+      },
     };
   if (csv.length > IMPORT_MAX_CARACTERES)
     return {
       ok: false,
-      erreurs: { csv: "Fichier trop volumineux : 500 000 caractères au plus. Découpez-le." },
+      erreurs: {
+        csv: t(
+          "Fichier trop volumineux : 500 000 caractères au plus. Découpez-le.",
+          "File too large: 500,000 characters maximum. Split it.",
+        ),
+      },
     };
   const entete = (csv.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] ?? "").toLowerCase();
   const manquantes = ["collaborateur", "mission", "tache", "date", "jours"].filter(
@@ -248,7 +337,12 @@ export function validerCsv(csv: string): Resultat<{ csv: string }, "csv"> {
   if (manquantes.length > 0)
     return {
       ok: false,
-      erreurs: { csv: `En-tête incomplet : colonne(s) ${manquantes.join(", ")} manquante(s).` },
+      erreurs: {
+        csv: t(
+          `En-tête incomplet : colonne(s) ${manquantes.join(", ")} manquante(s).`,
+          `Incomplete header: missing column(s) ${manquantes.join(", ")}.`,
+        ),
+      },
     };
   return { ok: true, charge: { csv } };
 }

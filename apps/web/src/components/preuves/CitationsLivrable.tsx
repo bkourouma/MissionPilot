@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, type Langue, type Traduire } from "@missionpilot/shared";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import {
@@ -11,15 +11,16 @@ import {
   libelleFiabiliteSource,
   libelleSoliditeCitee,
   libelleTypeSource,
-  MESSAGE_VERBATIM_MASQUE,
+  messageVerbatimMasque,
   nomAccessibleRenvoi,
-  TITRE_SECTION_CITATIONS,
+  titreSectionCitations,
   type AssertionCiteeVue,
   type LivrableCitation,
   type SourceCiteeVue,
 } from "../../lib/citations";
 import { chargerSourcesLivrable } from "../../lib/citations-serveur";
 import { formaterDate } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { TONALITE_LECTURE } from "../../lib/preuves";
 import { obtenirSession } from "../../lib/session";
 import "./preuves.css";
@@ -30,12 +31,16 @@ function Renvois({
   numeros,
   sources,
   prefixe,
+  t,
+  langue,
 }: {
   missionId: string;
   livrable: LivrableCitation;
   numeros: number[];
   sources: Map<number, SourceCiteeVue>;
   prefixe?: string;
+  t: Traduire;
+  langue: Langue;
 }) {
   if (numeros.length === 0) return null;
   return (
@@ -50,14 +55,17 @@ function Renvois({
               href={
                 s ? hrefOuvertureCitation(missionId, livrable, s.preuve_id) : hrefAncreSource(n)
               }
-              aria-label={`${nomAccessibleRenvoi(n, s)} (ouvrir la source)`}
+              aria-label={`${nomAccessibleRenvoi(n, s, langue)} ${t("(ouvrir la source)", "(open the source)")}`}
             >
               {formaterRenvois([n])}
             </Link>{" "}
             <a
               href={hrefAncreSource(n)}
               className="mp-citation-ancre"
-              aria-label={`Aller à la source ${n} dans la liste`}
+              aria-label={t(
+                `Aller à la source ${n} dans la liste`,
+                `Go to source ${n} in the list`,
+              )}
             >
               <svg
                 width="14"
@@ -86,11 +94,15 @@ function LigneAssertion({
   livrable,
   assertion,
   sources,
+  t,
+  langue,
 }: {
   missionId: string;
   livrable: LivrableCitation;
   assertion: AssertionCiteeVue;
   sources: Map<number, SourceCiteeVue>;
+  t: Traduire;
+  langue: Langue;
 }) {
   const lecture = assertion.solidite?.lecture;
   return (
@@ -98,11 +110,11 @@ function LigneAssertion({
       <p className="mp-citation-assertion__enonce">{assertion.enonce}</p>
       <span className="mp-preuve-ligne__meta">
         <BadgeStatut tonalite={lecture ? TONALITE_LECTURE[lecture] : "neutre"}>
-          {`Solidité : ${libelleSoliditeCitee(assertion.solidite)}`}
+          {`${t("Solidité", "Solidity")} : ${libelleSoliditeCitee(assertion.solidite, langue)}`}
         </BadgeStatut>
         {assertion.avis_expert_signe ? (
           <BadgeStatut tonalite="neutre" sansIcone>
-            Avis d&apos;expert signé
+            {t("Avis d'expert signé", "Signed expert opinion")}
           </BadgeStatut>
         ) : null}
       </span>
@@ -113,6 +125,8 @@ function LigneAssertion({
             livrable={livrable}
             numeros={assertion.renvois.pour}
             sources={sources}
+            t={t}
+            langue={langue}
           />
           {assertion.renvois.pour.length > 0 && assertion.renvois.contre.length > 0 ? " · " : ""}
           <Renvois
@@ -120,11 +134,15 @@ function LigneAssertion({
             livrable={livrable}
             numeros={assertion.renvois.contre}
             sources={sources}
-            prefixe="contre :"
+            prefixe={t("contre :", "against:")}
+            t={t}
+            langue={langue}
           />
         </p>
       ) : (
-        <p className="mp-texte-doux mp-texte-petit">Aucune source liée.</p>
+        <p className="mp-texte-doux mp-texte-petit">
+          {t("Aucune source liée.", "No linked source.")}
+        </p>
       )}
     </li>
   );
@@ -146,6 +164,8 @@ export async function CitationsLivrable({
   missionId: string;
   livrable: LivrableCitation;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSession();
   if (!aPermission(utilisateur.roles, "preuve.lire")) return null;
   const vue = await chargerSourcesLivrable(missionId, livrable);
@@ -153,7 +173,11 @@ export async function CitationsLivrable({
   const sources = indexerSources(vue.sources);
 
   return (
-    <Carte titre={TITRE_SECTION_CITATIONS} niveauTitre={3} aria-label={TITRE_SECTION_CITATIONS}>
+    <Carte
+      titre={titreSectionCitations(langue)}
+      niveauTitre={3}
+      aria-label={titreSectionCitations(langue)}
+    >
       <div className="mp-pile">
         <ul className="mp-citations-assertions">
           {vue.assertions.map((a) => (
@@ -163,12 +187,14 @@ export async function CitationsLivrable({
               livrable={livrable}
               assertion={a}
               sources={sources}
+              t={t}
+              langue={langue}
             />
           ))}
         </ul>
         {vue.sources.length > 0 ? (
           <div>
-            <h4 className="mp-citations-sous-titre">Sources</h4>
+            <h4 className="mp-citations-sous-titre">{t("Sources", "Sources")}</h4>
             <ol className="mp-citations-sources">
               {vue.sources.map((s) => (
                 <li key={s.numero} id={ancreSource(s.numero)} className="mp-citation-source">
@@ -179,10 +205,12 @@ export async function CitationsLivrable({
                     </Link>
                   </p>
                   <p className="mp-texte-doux mp-texte-petit">
-                    {`${libelleTypeSource(s.type_source)} · ${formaterDate(s.date_preuve)} · fiabilité ${libelleFiabiliteSource(s.fiabilite)}`}
+                    {`${libelleTypeSource(s.type_source, langue)} · ${formaterDate(s.date_preuve, "UTC", langue)} · ${t("fiabilité", "reliability")} ${libelleFiabiliteSource(s.fiabilite, langue)}`}
                   </p>
                   {s.masque ? (
-                    <p className="mp-texte-doux mp-preuve-masquee">{MESSAGE_VERBATIM_MASQUE}</p>
+                    <p className="mp-texte-doux mp-preuve-masquee">
+                      {messageVerbatimMasque(langue)}
+                    </p>
                   ) : s.extrait ? (
                     <blockquote className="mp-preuve-extrait">{s.extrait}</blockquote>
                   ) : null}

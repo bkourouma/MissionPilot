@@ -7,7 +7,8 @@ import { BadgeStatut } from "../../../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
-import { FREQUENCE_LIBELLES } from "../../../../../../../lib/kpi";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
+import { FREQUENCE_LIBELLES, FREQUENCE_LIBELLES_EN } from "../../../../../../../lib/kpi";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../../../lib/periode";
 import {
@@ -24,14 +25,17 @@ import {
   droitsPlan,
   libellePerspective as perspectivePlan,
   libelleStatutContenu,
-  MESSAGE_MISSION_CLOTUREE,
+  messageMissionCloturee,
   type ContextePlan,
 } from "../../../../../../../lib/plan-strategique";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "KPI du plan" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("KPI du plan", "Plan KPIs") };
+}
 
-function Objectif({
+async function Objectif({
   o,
   missionId,
   planId,
@@ -44,6 +48,8 @@ function Objectif({
   creer: boolean;
   jour: string;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const idTitre = `objectif-kpi-${o.id}`;
   return (
     <article className="mp-plan-kpi" aria-labelledby={idTitre}>
@@ -52,29 +58,38 @@ function Objectif({
       </h4>
       <p className="mp-texte-doux mp-texte-petit">
         {[
-          perspectivePlan(o.perspective),
-          o.indicateur ? `Indicateur : ${o.indicateur}` : null,
-          o.cible ? `Cible : ${o.cible}` : null,
-          libelleStatutContenu(o.statut_contenu),
-          o.retire ? "Objectif retiré du plan" : null,
+          perspectivePlan(o.perspective, langue),
+          o.indicateur
+            ? `${t("Indicateur", "Indicator")}${langue === "en" ? ":" : " :"} ${o.indicateur}`
+            : null,
+          o.cible ? `${t("Cible", "Target")}${langue === "en" ? ":" : " :"} ${o.cible}` : null,
+          libelleStatutContenu(o.statut_contenu, langue),
+          o.retire ? t("Objectif retiré du plan", "Objective removed from the plan") : null,
         ]
           .filter(Boolean)
           .join(" · ")}
       </p>
       {o.kpis.length ? (
-        <ul className="mp-plan-kpi__liste" aria-label={`KPI issus de l'objectif ${o.titre}`}>
+        <ul
+          className="mp-plan-kpi__liste"
+          aria-label={t(`KPI issus de l'objectif ${o.titre}`, `KPIs from objective ${o.titre}`)}
+        >
           {o.kpis.map((k) => (
             <li key={k.id}>
               <Link href={hrefDetailKpi(missionId, k.id)}>{k.libelle}</Link>{" "}
               <span className="mp-texte-doux mp-texte-petit">
-                {`(${k.unite} · ${FREQUENCE_LIBELLES[k.frequence as keyof typeof FREQUENCE_LIBELLES] ?? k.frequence} · ${perspectivePlan(k.perspective)})`}
+                {`(${k.unite} · ${(langue === "en" ? FREQUENCE_LIBELLES_EN : FREQUENCE_LIBELLES)[k.frequence as keyof typeof FREQUENCE_LIBELLES] ?? k.frequence} · ${perspectivePlan(k.perspective, langue)})`}
               </span>{" "}
-              {k.actif ? null : <BadgeStatut tonalite="neutre">Désactivé</BadgeStatut>}
+              {k.actif ? null : (
+                <BadgeStatut tonalite="neutre">{t("Désactivé", "Disabled")}</BadgeStatut>
+              )}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mp-texte-doux">Aucun KPI pour cet objectif.</p>
+        <p className="mp-texte-doux">
+          {t("Aucun KPI pour cet objectif.", "No KPIs for this objective.")}
+        </p>
       )}
       {creer && !o.retire ? (
         <FormulaireKpiObjectif planId={planId} objectif={o} aujourdhui={jour} />
@@ -93,6 +108,8 @@ export default async function PageKpiPlan({
 }: {
   params: Promise<{ id: string; planId: string }>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, planId } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const [mission, r] = await Promise.all([chargerMission(id), chargerPlan(planId)]);
@@ -105,7 +122,12 @@ export default async function PageKpiPlan({
   if (!aPermission(utilisateur.roles, "kpi.lire")) {
     return (
       <Alerte tonalite="info" annonce="aucune">
-        <p>Votre rôle ne permet pas de consulter les KPI.</p>
+        <p>
+          {t(
+            "Votre rôle ne permet pas de consulter les KPI.",
+            "Your role does not allow viewing KPIs.",
+          )}
+        </p>
       </Alerte>
     );
   }
@@ -117,34 +139,46 @@ export default async function PageKpiPlan({
     <>
       {droits.cloturee ? (
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MESSAGE_MISSION_CLOTUREE}</p>
+          <p>{messageMissionCloturee(langue)}</p>
         </Alerte>
       ) : null}
-      <Carte titre="KPI issus des objectifs" niveauTitre={3}>
+      <Carte titre={t("KPI issus des objectifs", "KPIs from objectives")} niveauTitre={3}>
         <div className="mp-plan__section">
           {!k.ok ? (
             <EtatErreur
-              titre="Les KPI du plan n'ont pas pu être chargés."
+              titre={t(
+                "Les KPI du plan n'ont pas pu être chargés.",
+                "The plan KPIs could not be loaded.",
+              )}
               message={k.message}
               hrefReessayer={hrefKpiPlan(id, plan.id)}
             />
           ) : k.donnees.objectifs.length === 0 ? (
-            <EtatVide titre="Aucun objectif dans ce plan." icone="barres">
+            <EtatVide
+              titre={t("Aucun objectif dans ce plan.", "No objectives in this plan.")}
+              icone="barres"
+            >
               <p>
-                Ajoutez des objectifs (onglet « Contenus ») : chacun pourra porter un ou plusieurs
-                KPI suivis dans le module de pilotage.
+                {t(
+                  "Ajoutez des objectifs (onglet « Contenus ») : chacun pourra porter un ou plusieurs KPI suivis dans le module de pilotage.",
+                  "Add objectives (\u201cContent\u201d tab): each can carry one or more KPIs tracked in the performance module.",
+                )}
               </p>
             </EtatVide>
           ) : (
             <>
-              <p>{decompteObjectifsKpi(k.donnees)}</p>
+              <p>{decompteObjectifsKpi(k.donnees, langue)}</p>
               <p className="mp-texte-doux mp-texte-petit">
-                Chaque KPI est créé dans le module de pilotage de la mission, où se suivent ses
-                mesures, ses cibles et ses alertes. Les statuts et taux d&apos;atteinte sont
-                calculés par le moteur KPI.
+                {t(
+                  "Chaque KPI est créé dans le module de pilotage de la mission, où se suivent ses mesures, ses cibles et ses alertes. Les statuts et taux d'atteinte sont calculés par le moteur KPI.",
+                  "Each KPI is created in the engagement's performance module, where its measures, targets and alerts are tracked. Statuses and attainment rates are computed by the KPI engine.",
+                )}
                 {creer
                   ? ""
-                  : " Créer un KPI est réservé aux responsables de la mission qui gèrent les KPI."}
+                  : t(
+                      " Créer un KPI est réservé aux responsables de la mission qui gèrent les KPI.",
+                      " Creating a KPI is restricted to engagement leads who manage KPIs.",
+                    )}
               </p>
               {k.donnees.objectifs.map((o) => (
                 <Objectif

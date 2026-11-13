@@ -7,6 +7,8 @@ import {
 } from "../../lib/appels-offres-veille";
 import { hrefFiche } from "../../lib/appels-offres";
 import { formaterDate } from "../../lib/format";
+import { obtenirLangue } from "../../lib/i18n/serveur";
+import { creerTraduire } from "@missionpilot/shared";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Tableau } from "../ui/Tableau";
 import { VeilleActions } from "./VeilleActions";
@@ -15,23 +17,28 @@ import { VeilleActions } from "./VeilleActions";
  * Avis de la veille (AO-01) : score de rapprochement du moteur, raisons en français, sources où
  * l'avis a été vu et actions. L'adresse de l'avis est un lien : le serveur ne la visite jamais.
  */
-export function VeilleResultats({
+export async function VeilleResultats({
   resultats,
   gerer,
 }: {
   resultats: readonly ResultatVeille[];
   gerer: boolean;
 }) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   return (
     <Tableau
-      legende="Avis de la veille"
+      legende={t("Avis de la veille", "Monitoring notices")}
       lignes={resultats}
       cleLigne={(r) => r.id}
-      messageVide="Aucun avis : activez une source puis collectez, ou importez un fichier."
+      messageVide={t(
+        "Aucun avis : activez une source puis collectez, ou importez un fichier.",
+        "No notices: enable a source then collect, or import a file.",
+      )}
       colonnes={[
         {
           cle: "titre",
-          entete: "Avis",
+          entete: t("Avis", "Notice"),
           rendu: (r) => (
             <div className="mp-pile">
               {r.url ? (
@@ -46,7 +53,7 @@ export function VeilleResultats({
               </span>
               {r.date_limite ? (
                 <span className="mp-texte-doux mp-texte-petit">
-                  Limite {formaterDate(r.date_limite)}
+                  {t("Limite", "Deadline")} {formaterDate(r.date_limite, "UTC", langue)}
                 </span>
               ) : null}
             </div>
@@ -54,24 +61,26 @@ export function VeilleResultats({
         },
         {
           cle: "sources",
-          entete: "Vu dans",
+          entete: t("Vu dans", "Seen in"),
           rendu: (r) => (
             <span className="mp-texte-petit">
               {(r.sources ?? []).join(", ") || "—"}
-              {(r.nb_occurrences ?? 0) > 1 ? ` (${r.nb_occurrences} occurrences)` : ""}
+              {(r.nb_occurrences ?? 0) > 1
+                ? ` (${r.nb_occurrences} ${t("occurrences", "occurrences")})`
+                : ""}
             </span>
           ),
         },
         {
           cle: "score",
-          entete: "Rapprochement",
+          entete: t("Rapprochement", "Match"),
           rendu: (r) => (
             <div className="mp-pile">
               <BadgeStatut tonalite={tonaliteScoreVeille(r.score_rapprochement)}>
                 {r.score_rapprochement}/100
               </BadgeStatut>
               <details>
-                <summary>Pourquoi ce score ?</summary>
+                <summary>{t("Pourquoi ce score ?", "Why this score?")}</summary>
                 <ul className="mp-ao__liste-simple">
                   {r.rapprochement.raisons.map((raison) => (
                     <li key={raison} className="mp-texte-petit">
@@ -85,15 +94,15 @@ export function VeilleResultats({
         },
         {
           cle: "statut",
-          entete: "Statut",
+          entete: t("Statut", "Status"),
           rendu: (r) => (
             <div className="mp-pile">
               <BadgeStatut tonalite={tonaliteStatutVeille(r.statut)}>
-                {libelleStatutVeille(r.statut)}
+                {libelleStatutVeille(r.statut, langue)}
               </BadgeStatut>
               {r.fiche_id ? (
                 <Link href={hrefFiche(r.fiche_id)} className="mp-lien-ligne">
-                  Ouvrir la fiche
+                  {t("Ouvrir la fiche", "Open the record")}
                 </Link>
               ) : null}
             </div>
@@ -103,7 +112,7 @@ export function VeilleResultats({
           ? [
               {
                 cle: "actions",
-                entete: "Actions",
+                entete: t("Actions", "Actions"),
                 rendu: (r: ResultatVeille) => <VeilleActions id={r.id} statut={r.statut} />,
               },
             ]

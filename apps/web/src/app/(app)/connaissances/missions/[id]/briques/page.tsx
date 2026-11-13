@@ -5,9 +5,13 @@ import { EnteteDePage } from "../../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { droitsConnaissances } from "../../../../../../lib/capitalisation";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Briques des tâches" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Briques des tâches", "Task building blocks") };
+}
 
 interface Rattachements {
   taches: { tache_id: string; libelle: string; phase: string; brique_code: string | null }[];
@@ -22,6 +26,7 @@ interface Rattachements {
 export default async function PageBriquesMission({ params }: { params: Promise<{ id: string }> }) {
   const { utilisateur } = await exigerPermission("mission.lire");
   const { id } = await params;
+  const t = await obtenirT();
   const r = await chargerServeur<Rattachements>(
     `/api/capitalisation/missions/${encodeURIComponent(id)}/briques`,
   );
@@ -29,37 +34,48 @@ export default async function PageBriquesMission({ params }: { params: Promise<{
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
-        titre="Briques des tâches"
-        soustitre="Chaque tâche rattachée à une brique de la méthode nourrit la base d'estimation."
-        retour={{ href: `/missions/${id}`, libelle: "Mission" }}
+        titre={t("Briques des tâches", "Task building blocks")}
+        soustitre={t(
+          "Chaque tâche rattachée à une brique de la méthode nourrit la base d'estimation.",
+          "Each task linked to a building block of the method feeds the estimation base.",
+        )}
+        retour={{ href: `/missions/${id}`, libelle: t("Mission", "Engagement") }}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="Les tâches n'ont pas pu être chargées."
+          titre={t("Les tâches n'ont pas pu être chargées.", "The tasks could not be loaded.")}
           message={r.message}
           hrefReessayer={`/connaissances/missions/${id}/briques`}
         />
       ) : r.donnees.briques.length === 0 ? (
-        <EtatVide titre="Aucune méthode du référentiel n'est liée à cette mission." />
+        <EtatVide
+          titre={t(
+            "Aucune méthode du référentiel n'est liée à cette mission.",
+            "No method from the framework is linked to this engagement.",
+          )}
+        />
       ) : (
         <Carte>
           {r.donnees.taches.length === 0 ? (
-            <EtatVide titre="La mission n'a pas encore de tâches." />
+            <EtatVide
+              titre={t("La mission n'a pas encore de tâches.", "The engagement has no tasks yet.")}
+            />
           ) : (
             <ul className="mp-connaissances__resultats">
-              {r.donnees.taches.map((t) => (
-                <li key={t.tache_id}>
+              {r.donnees.taches.map((tache) => (
+                <li key={tache.tache_id}>
                   {modifiable ? (
                     <SelectBriqueTache
                       missionId={id}
-                      tacheId={t.tache_id}
-                      libelleTache={`${t.phase} · ${t.libelle}`}
-                      valeur={t.brique_code}
+                      tacheId={tache.tache_id}
+                      libelleTache={`${tache.phase} · ${tache.libelle}`}
+                      valeur={tache.brique_code}
                       briques={r.donnees.briques}
                     />
                   ) : (
                     <p>
-                      {t.phase} · {t.libelle} : <code>{t.brique_code ?? "aucune brique"}</code>
+                      {tache.phase} · {tache.libelle} :{" "}
+                      <code>{tache.brique_code ?? t("aucune brique", "no building block")}</code>
                     </p>
                   )}
                 </li>

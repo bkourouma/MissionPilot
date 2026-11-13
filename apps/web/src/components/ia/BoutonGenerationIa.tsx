@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { estPlafondAtteint, messageErreurIa } from "../../lib/ia";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { corpsGeneration, type DemandeGenerationIa, type GenerationIa } from "../../lib/ia-contenu";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
@@ -30,6 +31,8 @@ export interface BoutonGenerationIaProps {
 
 const AIDE_DEFAUT =
   "Le texte produit sera un brouillon : relisez-le et validez-le avant tout envoi au client.";
+const AIDE_DEFAUT_EN =
+  "The text produced will be a draft: review and approve it before anything is sent to the client.";
 
 /**
  * Lance une génération (essai en file par défaut, ou route d'un service). Plafond mensuel
@@ -40,10 +43,12 @@ export function BoutonGenerationIa({
   demande,
   lancer: lancerService,
   onGeneree,
-  libelle = "Générer un brouillon",
+  libelle,
   desactive,
-  aide = AIDE_DEFAUT,
+  aide,
 }: BoutonGenerationIaProps) {
+  const t = useT();
+  const langue = useLangue();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<{ texte: string; plafond: boolean } | null>(null);
   const refAlerte = useRef<HTMLDivElement>(null);
@@ -69,7 +74,7 @@ export function BoutonGenerationIa({
       const g = await appel();
       if (g) onGeneree(g);
     } catch (e) {
-      setErreur({ texte: messageErreurIa(e), plafond: !repli && estPlafondAtteint(e) });
+      setErreur({ texte: messageErreurIa(e, langue), plafond: !repli && estPlafondAtteint(e) });
     } finally {
       setEnCours(false);
     }
@@ -81,7 +86,7 @@ export function BoutonGenerationIa({
         <Alerte
           ref={refAlerte}
           tonalite={erreur.plafond ? "attention" : "danger"}
-          titre="Génération impossible"
+          titre={t("Génération impossible", "Generation not possible")}
         >
           <p>{erreur.texte}</p>
           {erreur.plafond ? (
@@ -89,10 +94,10 @@ export function BoutonGenerationIa({
               <Bouton
                 variante="secondaire"
                 chargement={enCours}
-                texteChargement="Envoi…"
+                texteChargement={t("Envoi…", "Sending…")}
                 onClick={() => void lancer(true)}
               >
-                Produire avec le gabarit
+                {t("Produire avec le gabarit", "Produce with the template")}
               </Bouton>
             </p>
           ) : null}
@@ -101,13 +106,15 @@ export function BoutonGenerationIa({
       <Bouton
         icone="plus"
         chargement={enCours}
-        texteChargement="Envoi de la demande…"
+        texteChargement={t("Envoi de la demande…", "Sending the request…")}
         disabled={desactive}
         onClick={() => void lancer(false)}
       >
-        {libelle}
+        {libelle ?? t("Générer un brouillon", "Generate a draft")}
       </Bouton>
-      {aide ? <p className="mp-champ__aide">{aide}</p> : null}
+      {(aide ?? t(AIDE_DEFAUT, AIDE_DEFAUT_EN)) !== "" ? (
+        <p className="mp-champ__aide">{aide ?? t(AIDE_DEFAUT, AIDE_DEFAUT_EN)}</p>
+      ) : null}
     </div>
   );
 }

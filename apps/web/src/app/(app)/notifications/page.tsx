@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../lib/api-serveur";
+import { obtenirT } from "../../../lib/i18n/serveur";
 import {
   hrefNotifications,
   lireParametresNotifications,
@@ -11,13 +12,17 @@ import {
 import { obtenirSession } from "../../../lib/session";
 import { ElementNotification, ToutLire } from "./Notifications";
 
-export const metadata: Metadata = { title: "Notifications" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Notifications", "Notifications") };
+}
 
 export default async function PageDesNotifications({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
   await obtenirSession();
   const { nonLues, curseur } = lireParametresNotifications(await searchParams);
   const q = new URLSearchParams({ limite: "30" });
@@ -28,16 +33,22 @@ export default async function PageDesNotifications({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Notifications"
+        titre={t("Notifications", "Notifications")}
         soustitre={
           r.ok
             ? r.donnees.non_lues === 0
-              ? "Aucune notification non lue."
-              : `${r.donnees.non_lues} notification(s) non lue(s), affichées en premier.`
+              ? t("Aucune notification non lue.", "No unread notifications.")
+              : t(
+                  `${r.donnees.non_lues} notification(s) non lue(s), affichées en premier.`,
+                  `${r.donnees.non_lues} unread notification(s), shown first.`,
+                )
             : undefined
         }
       />
-      <nav className="mp-onglets" aria-label="Filtrer les notifications">
+      <nav
+        className="mp-onglets"
+        aria-label={t("Filtrer les notifications", "Filter notifications")}
+      >
         <ul className="mp-onglets__liste">
           <li>
             <Link
@@ -45,7 +56,7 @@ export default async function PageDesNotifications({
               href={hrefNotifications(false)}
               aria-current={nonLues ? undefined : "page"}
             >
-              Toutes
+              {t("Toutes", "All")}
             </Link>
           </li>
           <li>
@@ -54,14 +65,17 @@ export default async function PageDesNotifications({
               href={hrefNotifications(true)}
               aria-current={nonLues ? "page" : undefined}
             >
-              Non lues
+              {t("Non lues", "Unread")}
             </Link>
           </li>
         </ul>
       </nav>
       {!r.ok ? (
         <EtatErreur
-          titre="Les notifications n'ont pas pu être chargées."
+          titre={t(
+            "Les notifications n'ont pas pu être chargées.",
+            "The notifications could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefNotifications(nonLues, curseur)}
         />
@@ -71,12 +85,17 @@ export default async function PageDesNotifications({
           {r.donnees.elements.length === 0 ? (
             <EtatVide
               titre={
-                nonLues ? "Aucune notification non lue." : "Aucune notification pour l'instant."
+                nonLues
+                  ? t("Aucune notification non lue.", "No unread notifications.")
+                  : t("Aucune notification pour l'instant.", "No notifications yet.")
               }
               icone="cloche"
             >
               <p>
-                Validations, rejets, alertes de suivi et changements de planning apparaîtront ici.
+                {t(
+                  "Validations, rejets, alertes de suivi et changements de planning apparaîtront ici.",
+                  "Approvals, rejections, follow-up alerts and schedule changes will appear here.",
+                )}
               </p>
             </EtatVide>
           ) : (
@@ -89,7 +108,7 @@ export default async function PageDesNotifications({
             </ul>
           )}
           <PaginationCurseur
-            libelle="Pages des notifications"
+            libelle={t("Pages des notifications", "Notification pages")}
             hrefSuivante={
               r.donnees.curseur_suivant
                 ? hrefNotifications(nonLues, r.donnees.curseur_suivant)

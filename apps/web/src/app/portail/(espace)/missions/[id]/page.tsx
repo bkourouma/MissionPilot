@@ -18,18 +18,25 @@ import {
   type LivrablePortail,
   type MissionPortail,
 } from "../../../../../lib/portail";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { CHEMIN_PORTAIL } from "../../../../../lib/portail-routes";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
 
-export const metadata: Metadata = { title: "Mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Mission", "Engagement") };
+}
 
 const CHEMIN_MISSIONS = `${CHEMIN_PORTAIL}/missions`;
 
 /** Détail d'une mission partagée : jalons (si partagés), documents, accès aux factures. */
 export default async function MissionPortailPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSessionPortail();
   const roles = utilisateur.roles;
-  if (!peut(roles, "portail.missions.lire")) return <NonDisponible titre="Mission" />;
+  if (!peut(roles, "portail.missions.lire"))
+    return <NonDisponible titre={t("Mission", "Engagement")} />;
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
 
@@ -39,9 +46,15 @@ export default async function MissionPortailPage({ params }: { params: Promise<{
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Mission" retour={{ href: CHEMIN_MISSIONS, libelle: "Vos missions" }} />
+        <EnteteDePage
+          titre={t("Mission", "Engagement")}
+          retour={{ href: CHEMIN_MISSIONS, libelle: t("Vos missions", "Your engagements") }}
+        />
         <EtatErreur
-          titre="Cette mission n'a pas pu être chargée."
+          titre={t(
+            "Cette mission n'a pas pu être chargée.",
+            "This engagement could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={`${CHEMIN_MISSIONS}/${id}`}
         />
@@ -54,7 +67,7 @@ export default async function MissionPortailPage({ params }: { params: Promise<{
     mission.partage.jalons ? chargerPortail<{ elements: JalonPortail[] }>(`${base}/jalons`) : null,
     chargerPortail<{ elements: LivrablePortail[] }>(`${base}/livrables`),
   ]);
-  const statut = statutMission(mission.statut);
+  const statut = statutMission(mission.statut, langue);
   const dirigeant = peut(roles, "portail.jalons.valider");
   const facturesVisibles = mission.partage.factures && peut(roles, "portail.factures.lire");
 
@@ -62,27 +75,45 @@ export default async function MissionPortailPage({ params }: { params: Promise<{
     <div className="mp-page">
       <EnteteDePage
         titre={mission.intitule}
-        retour={{ href: CHEMIN_MISSIONS, libelle: "Vos missions" }}
+        retour={{ href: CHEMIN_MISSIONS, libelle: t("Vos missions", "Your engagements") }}
         badges={<BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>}
-        soustitre={periodeMission(mission.date_debut, mission.date_fin)}
+        soustitre={periodeMission(mission.date_debut, mission.date_fin, langue)}
       />
 
       {jalons ? (
         <section className="mp-portail-section" aria-labelledby="titre-jalons">
           <h2 id="titre-jalons" className="mp-section__titre">
-            Jalons
+            {t("Jalons", "Milestones")}
           </h2>
           <p className="mp-texte-doux">
             {dirigeant
-              ? "Les étapes clés de la mission. Quand le cabinet marque un jalon comme atteint, vous pouvez le valider pour confirmer qu'il vous convient."
-              : "Les étapes clés de la mission et leur avancement."}
+              ? t(
+                  "Les étapes clés de la mission. Quand le cabinet marque un jalon comme atteint, vous pouvez le valider pour confirmer qu'il vous convient.",
+                  "The key steps of the engagement. When the firm marks a milestone as reached, you can approve it to confirm it suits you.",
+                )
+              : t(
+                  "Les étapes clés de la mission et leur avancement.",
+                  "The key steps of the engagement and their progress.",
+                )}
           </p>
           {!jalons.ok ? (
-            <Alerte tonalite="danger" titre="Les jalons n'ont pas pu être chargés.">
+            <Alerte
+              tonalite="danger"
+              titre={t(
+                "Les jalons n'ont pas pu être chargés.",
+                "The milestones could not be loaded.",
+              )}
+            >
               <p>{jalons.message}</p>
             </Alerte>
           ) : jalons.donnees.elements.length === 0 ? (
-            <EtatVide titre="Aucun jalon n'est encore défini pour cette mission." icone="drapeau" />
+            <EtatVide
+              titre={t(
+                "Aucun jalon n'est encore défini pour cette mission.",
+                "No milestone has been defined for this engagement yet.",
+              )}
+              icone="drapeau"
+            />
           ) : (
             <ul className="mp-liste-lignes" aria-labelledby="titre-jalons">
               {jalons.donnees.elements.map((j) => (
@@ -100,18 +131,32 @@ export default async function MissionPortailPage({ params }: { params: Promise<{
 
       <section className="mp-portail-section" aria-labelledby="titre-documents">
         <h2 id="titre-documents" className="mp-section__titre">
-          Documents
+          {t("Documents", "Documents")}
         </h2>
         {!livrables.ok ? (
-          <Alerte tonalite="danger" titre="Les documents n'ont pas pu être chargés.">
+          <Alerte
+            tonalite="danger"
+            titre={t(
+              "Les documents n'ont pas pu être chargés.",
+              "The documents could not be loaded.",
+            )}
+          >
             <p>{livrables.message}</p>
           </Alerte>
         ) : livrables.donnees.elements.length === 0 ? (
           <EtatVide
-            titre="Aucun document n'a encore été partagé pour cette mission."
+            titre={t(
+              "Aucun document n'a encore été partagé pour cette mission.",
+              "No document has been shared for this engagement yet.",
+            )}
             icone="trombone"
           >
-            <p>Les livrables apparaîtront ici dès que le cabinet les mettra à votre disposition.</p>
+            <p>
+              {t(
+                "Les livrables apparaîtront ici dès que le cabinet les mettra à votre disposition.",
+                "Deliverables will appear here as soon as the firm makes them available to you.",
+              )}
+            </p>
           </EtatVide>
         ) : (
           <ListeLivrables livrables={livrables.donnees.elements} idTitre="titre-documents" />
@@ -121,11 +166,15 @@ export default async function MissionPortailPage({ params }: { params: Promise<{
       {facturesVisibles ? (
         <section className="mp-portail-section" aria-labelledby="titre-factures">
           <h2 id="titre-factures" className="mp-section__titre">
-            Factures
+            {t("Factures", "Invoices")}
           </h2>
           <p>
-            Les factures émises pour cette mission sont consultables dans la rubrique{" "}
-            <Link href={`${CHEMIN_PORTAIL}/factures`}>Factures</Link>.
+            {t(
+              "Les factures émises pour cette mission sont consultables dans la rubrique",
+              "The invoices issued for this engagement can be viewed in the",
+            )}{" "}
+            <Link href={`${CHEMIN_PORTAIL}/factures`}>{t("Factures", "Invoices")}</Link>
+            {t(".", " section.")}
           </p>
         </section>
       ) : null}

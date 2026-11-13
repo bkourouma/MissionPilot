@@ -8,6 +8,7 @@ import {
   messageRecalage,
   type ResultatRecalage,
 } from "../../lib/plan-feuille-de-route";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
 import { useRafraichir } from "../formulaires/useRafraichir";
@@ -30,6 +31,8 @@ export function RecalageFeuilleDeRoute({
   initiatives,
   partage,
 }: RecalageFeuilleDeRouteProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -48,12 +51,12 @@ export function RecalageFeuilleDeRoute({
       const r = await api.post<ResultatRecalage>(cheminRecalage(planId), {
         initiatives: [...initiatives],
       });
-      setSucces(messageRecalage(r, partage));
+      setSucces(messageRecalage(r, partage, langue));
       attendre();
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageFeuilleDeRoute(e));
+      setErreur(messageFeuilleDeRoute(e, langue));
       rafraichir();
       return false;
     }
@@ -62,7 +65,11 @@ export function RecalageFeuilleDeRoute({
   return (
     <div className="mp-plan__section">
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Recalage refusé">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Recalage refusé", "Rescheduling refused")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -74,10 +81,16 @@ export function RecalageFeuilleDeRoute({
       {initiatives.length ? (
         <div className="mp-barre-actions">
           <BoutonConfirmation
-            libelle={`Appliquer le recalage (${initiatives.length})`}
-            question={`Enregistrer les dates recalées de ${initiatives.length} initiative${initiatives.length > 1 ? "s" : ""} ? Chacune reçoit une nouvelle version, à faire valider.${partage ? " Le partage au client sera retiré." : ""}`}
-            libelleConfirmation="Oui, appliquer"
-            texteChargement="Recalage…"
+            libelle={t(
+              `Appliquer le recalage (${initiatives.length})`,
+              `Apply rescheduling (${initiatives.length})`,
+            )}
+            question={t(
+              `Enregistrer les dates recalées de ${initiatives.length} initiative${initiatives.length > 1 ? "s" : ""} ? Chacune reçoit une nouvelle version, à faire valider.${partage ? " Le partage au client sera retiré." : ""}`,
+              `Save the rescheduled dates of ${initiatives.length} initiative${initiatives.length > 1 ? "s" : ""}? Each receives a new version, to be approved.${partage ? " Sharing with the client will be withdrawn." : ""}`,
+            )}
+            libelleConfirmation={t("Oui, appliquer", "Yes, apply")}
+            texteChargement={t("Recalage…", "Rescheduling…")}
             variante="primaire"
             icone="historique"
             action={appliquer}

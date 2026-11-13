@@ -22,6 +22,7 @@ import {
   libelleCategorie,
   libelleConformite,
   LIBELLES_SIGNAUX,
+  LIBELLES_SIGNAUX_EN,
   libelleStatutAo,
   tonaliteConformite,
   tonaliteStatutAo,
@@ -32,8 +33,12 @@ import {
 } from "../../../../../lib/appels-offres";
 import { exigerLectureAo } from "../../../../../lib/appels-offres-serveur";
 import { formaterDateHeure } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 
-export const metadata: Metadata = { title: "Matrice de conformité" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Matrice de conformité", "Compliance matrix") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,6 +49,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * de dépôt sont calculées par le moteur ; la matrice se fige au dépôt.
  */
 export default async function PageMatrice({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const signaux = langue === "en" ? LIBELLES_SIGNAUX_EN : LIBELLES_SIGNAUX;
   const session = await exigerLectureAo();
   const droits = droitsAppelsOffres(session.utilisateur.roles);
   const { id } = await params;
@@ -59,12 +67,12 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Matrice de conformité"
-          retour={{ href: hrefFiche(id), libelle: "Fiche" }}
+          titre={t("Matrice de conformité", "Compliance matrix")}
+          retour={{ href: hrefFiche(id), libelle: t("Fiche", "Record") }}
         />
         <EtatErreur
-          titre="La matrice n'a pas pu être chargée."
-          message="Réessayez dans un instant."
+          titre={t("La matrice n'a pas pu être chargée.", "The matrix could not be loaded.")}
+          message={t("Réessayez dans un instant.", "Try again in a moment.")}
           hrefReessayer={hrefMatrice(id)}
         />
       </div>
@@ -78,53 +86,60 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre={`Matrice : ${f.titre}`}
-        retour={{ href: hrefFiche(id), libelle: "Fiche" }}
+        titre={t(`Matrice : ${f.titre}`, `Matrix: ${f.titre}`)}
+        retour={{ href: hrefFiche(id), libelle: t("Fiche", "Record") }}
         badges={
           <BadgeStatut tonalite={tonaliteStatutAo(f.statut)}>
-            {libelleStatutAo(f.statut)}
+            {libelleStatutAo(f.statut, langue)}
           </BadgeStatut>
         }
       />
 
-      <Carte titre="Synthèse">
+      <Carte titre={t("Synthèse", "Summary")}>
         <p>
-          {synthese.total} exigence(s) · {synthese.obligatoiresSatisfaites}/{synthese.obligatoires}{" "}
-          obligatoire(s) satisfaite(s) · conformité{" "}
-          {synthese.tauxConformite === null ? "—" : `${synthese.tauxConformite} %`}
+          {t(
+            `${synthese.total} exigence(s) · ${synthese.obligatoiresSatisfaites}/${synthese.obligatoires} obligatoire(s) satisfaite(s) · conformité ${synthese.tauxConformite === null ? "—" : `${synthese.tauxConformite} %`}`,
+            `${synthese.total} requirement(s) · ${synthese.obligatoiresSatisfaites}/${synthese.obligatoires} mandatory met · compliance ${synthese.tauxConformite === null ? "—" : `${synthese.tauxConformite}%`}`,
+          )}
         </p>
         <BadgeStatut tonalite={synthese.pretAuDepot ? "succes" : "attention"}>
           {synthese.pretAuDepot
-            ? "Prête au dépôt"
-            : `${synthese.bloquantes} exigence(s) obligatoire(s) bloquent le dépôt`}
+            ? t("Prête au dépôt", "Ready for submission")
+            : t(
+                `${synthese.bloquantes} exigence(s) obligatoire(s) bloquent le dépôt`,
+                `${synthese.bloquantes} mandatory requirement(s) block submission`,
+              )}
         </BadgeStatut>
       </Carte>
 
       {modifiable ? (
-        <Carte titre="Dossier d'appel d'offres">
+        <Carte titre={t("Dossier d'appel d'offres", "Tender document")}>
           <FormulaireDossierAo id={f.id} />
         </Carte>
       ) : null}
 
       {dossiers.donnees.elements.length > 0 ? (
-        <Carte titre="Dossiers enregistrés">
+        <Carte titre={t("Dossiers enregistrés", "Saved documents")}>
           <ul className="mp-liste-lignes">
             {dossiers.donnees.elements.map((d) => (
               <li key={d.id} className="mp-liste-lignes__ligne">
                 <div className="mp-liste-lignes__texte">
                   <span>
-                    Dossier n° {d.numero} {d.nom_fichier ? `(${d.nom_fichier})` : ""} · {d.longueur}{" "}
-                    caractères
+                    {t(`Dossier n° ${d.numero}`, `Document #${d.numero}`)}{" "}
+                    {d.nom_fichier ? `(${d.nom_fichier})` : ""} · {d.longueur}{" "}
+                    {t("caractères", "characters")}
                   </span>
                   <span className="mp-texte-doux mp-texte-petit">
-                    {d.cree_par_nom} · {formaterDateHeure(d.cree_le)}
+                    {d.cree_par_nom} · {formaterDateHeure(d.cree_le, undefined, langue)}
                   </span>
                   {d.signaux_injection.length > 0 ? (
                     <Alerte tonalite="attention" annonce="aucune">
                       <p>
-                        Contenu à relire avec prudence (consignes adressées à l&apos;IA, jamais
-                        suivies) :{" "}
-                        {d.signaux_injection.map((s) => LIBELLES_SIGNAUX[s] ?? s).join(", ")}.
+                        {t(
+                          "Contenu à relire avec prudence (consignes adressées à l'IA, jamais suivies) :",
+                          "Content to review with caution (instructions aimed at the AI, never followed):",
+                        )}{" "}
+                        {d.signaux_injection.map((s) => signaux[s] ?? s).join(", ")}.
                       </p>
                     </Alerte>
                   ) : null}
@@ -142,17 +157,32 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
         ? brouillons.map((x) => (
             <Carte
               key={x.id}
-              titre={`Exigences proposées (${x.nombre})`}
+              titre={t(`Exigences proposées (${x.nombre})`, `Proposed requirements (${x.nombre})`)}
               actions={
                 <BadgeStatut tonalite="attention">
-                  {x.gabarit ? "Découpage automatique" : "Brouillon IA"}
+                  {x.gabarit
+                    ? t("Découpage automatique", "Automatic split")
+                    : t("Brouillon IA", "AI draft")}
                 </BadgeStatut>
               }
             >
               <p className="mp-texte-doux mp-texte-petit">
-                À relire et valider : rien n&apos;entre dans la matrice sans votre validation.
-                {x.tronque ? " Le dossier a été lu en partie seulement." : ""}
-                {x.chiffres_non_verifies ? " Des nombres sont à vérifier dans le dossier." : ""}
+                {t(
+                  "À relire et valider : rien n'entre dans la matrice sans votre validation.",
+                  "To review and approve: nothing enters the matrix without your approval.",
+                )}
+                {x.tronque
+                  ? t(
+                      " Le dossier a été lu en partie seulement.",
+                      " The document was only partly read.",
+                    )
+                  : ""}
+                {x.chiffres_non_verifies
+                  ? t(
+                      " Des nombres sont à vérifier dans le dossier.",
+                      " Some numbers need to be checked against the document.",
+                    )
+                  : ""}
               </p>
               <ValidationExtractionAo extraction={x} />
             </Carte>
@@ -161,10 +191,12 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
 
       <section aria-labelledby="titre-matrice" className="mp-pile">
         <h2 id="titre-matrice" className="mp-section__titre">
-          Exigences
+          {t("Exigences", "Requirements")}
         </h2>
         {exigences.length === 0 ? (
-          <p className="mp-texte-doux">Aucune exigence dans la matrice.</p>
+          <p className="mp-texte-doux">
+            {t("Aucune exigence dans la matrice.", "No requirements in the matrix.")}
+          </p>
         ) : (
           <ul className="mp-liste-lignes">
             {exigences.map((e) => (
@@ -175,16 +207,16 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
                     {e.libelle}
                   </span>
                   <span className="mp-texte-doux mp-texte-petit">
-                    {libelleCategorie(e.categorie)} ·{" "}
-                    {e.obligatoire ? "obligatoire" : "facultative"}
+                    {libelleCategorie(e.categorie, langue)} ·{" "}
+                    {e.obligatoire ? t("obligatoire", "mandatory") : t("facultative", "optional")}
                     {e.responsable_nom ? ` · ${e.responsable_nom}` : ""}
-                    {e.piece ? ` · pièce : ${e.piece}` : ""}
+                    {e.piece ? ` · ${t("pièce", "document")} : ${e.piece}` : ""}
                     {e.commentaire ? ` · ${e.commentaire}` : ""}
                   </span>
                   {modifiable ? <SuiviExigenceAo exigence={e} /> : null}
                 </div>
                 <BadgeStatut tonalite={tonaliteConformite(e.statut)}>
-                  {libelleConformite(e.statut)}
+                  {libelleConformite(e.statut, langue)}
                 </BadgeStatut>
               </li>
             ))}
@@ -193,7 +225,7 @@ export default async function PageMatrice({ params }: { params: Promise<{ id: st
       </section>
 
       {modifiable ? (
-        <Carte titre="Ajouter une exigence">
+        <Carte titre={t("Ajouter une exigence", "Add a requirement")}>
           <FormulaireExigenceAo id={f.id} />
         </Carte>
       ) : null}

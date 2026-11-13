@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "../../../../../components/i18n/FournisseurLangue";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { api } from "../../../../../lib/api";
@@ -29,30 +30,38 @@ export function NoeudLot({
   total: number;
   ctx: Contexte;
 }) {
+  const t = useT();
   const [mode, setMode] = useState<Mode>("lecture");
   const base = `/api/missions/${encodeURIComponent(ctx.missionId)}`;
-  const nom = `le lot ${lot.libelle}`;
+  const nom = t(`le lot ${lot.libelle}`, `work package ${lot.libelle}`);
   const deplacer = (sens: -1 | 1) => {
     const d = deplacementsEchange(phase.lots, lot.id, sens, "lot", phase.id);
-    if (d) void ctx.reorganiser(d, `Lot « ${lot.libelle} » ${sens < 0 ? "monté" : "descendu"}.`);
+    if (d)
+      void ctx.reorganiser(
+        d,
+        t(
+          `Lot « ${lot.libelle} » ${sens < 0 ? "monté" : "descendu"}.`,
+          `Work package "${lot.libelle}" moved ${sens < 0 ? "up" : "down"}.`,
+        ),
+      );
   };
   const autresPhases = ctx.decoupage.phases.map((p) => ({
     valeur: p.id,
-    libelle: `Phase : ${p.libelle}`,
+    libelle: `${t("Phase : ", "Phase: ")}${p.libelle}`,
   }));
   return (
     <li className="mp-arbre__noeud mp-arbre__noeud--niveau-2">
       <div className="mp-arbre__element">
         <div className="mp-arbre__ligne">
           <p className="mp-arbre__titre">
-            <span className="mp-arbre__niveau">Lot</span> {lot.libelle}
+            <span className="mp-arbre__niveau">{t("Lot", "Work package")}</span> {lot.libelle}
           </p>
           {ctx.droits.lireBudget ? <TotalJours valeur={ctx.budgets[lot.id]} /> : null}
         </div>
         {lot.est_livrable ? (
           <p className="mp-badges">
             <BadgeStatut tonalite="neutre" sansIcone>
-              Livrable
+              {t("Livrable", "Deliverable")}
             </BadgeStatut>
           </p>
         ) : null}
@@ -69,41 +78,44 @@ export function NoeudLot({
               variante="discret"
               icone="deplacer"
               onClick={() => setMode("parent")}
-              aria-label={`Déplacer ${nom} vers une autre phase`}
+              aria-label={t(`Déplacer ${nom} vers une autre phase`, `Move ${nom} to another phase`)}
             >
-              Déplacer vers…
+              {t("Déplacer vers…", "Move to…")}
             </Bouton>
             <Bouton
               variante="discret"
               icone="crayon"
               onClick={() => setMode("edition")}
-              aria-label={`Modifier ${nom}`}
+              aria-label={`${t("Modifier", "Edit")} ${nom}`}
             >
-              Modifier
+              {t("Modifier", "Edit")}
             </Bouton>
             <Bouton
               variante="discret"
               icone="plus"
               onClick={() => setMode("ajout-tache")}
-              aria-label={`Ajouter une tâche dans ${nom}`}
+              aria-label={t(`Ajouter une tâche dans ${nom}`, `Add a task in ${nom}`)}
             >
-              Ajouter une tâche
+              {t("Ajouter une tâche", "Add a task")}
             </Bouton>
             <Suppression
               libelle={nom}
               chemin={`${base}/lots/${encodeURIComponent(lot.id)}`}
               question={
                 lot.taches.length > 0
-                  ? `Supprimer « ${lot.libelle} », ses tâches et leurs budgets ?`
-                  : `Supprimer « ${lot.libelle} » ?`
+                  ? t(
+                      `Supprimer « ${lot.libelle} », ses tâches et leurs budgets ?`,
+                      `Delete "${lot.libelle}", its tasks and their budgets?`,
+                    )
+                  : t(`Supprimer « ${lot.libelle} » ?`, `Delete "${lot.libelle}"?`)
               }
             />
           </div>
         ) : null}
         {mode === "edition" ? (
           <FormulaireLibelle
-            titre={`Modifier ${nom}`}
-            libelleEnvoi="Enregistrer"
+            titre={`${t("Modifier", "Edit")} ${nom}`}
+            libelleEnvoi={t("Enregistrer", "Save")}
             initial={{ libelle: lot.libelle, est_livrable: lot.est_livrable }}
             avecLivrable
             onAnnuler={() => setMode("lecture")}
@@ -112,7 +124,7 @@ export function NoeudLot({
         ) : null}
         {mode === "parent" ? (
           <FormulaireParent
-            titre={`Déplacer ${nom}`}
+            titre={`${t("Déplacer", "Move")} ${nom}`}
             options={autresPhases}
             actuel={phase.id}
             onAnnuler={() => setMode("lecture")}
@@ -121,17 +133,21 @@ export function NoeudLot({
               const d = deplacementChangementParent("lot", lot.id, cible, lots);
               return api
                 .post(`${base}/reorganiser`, { deplacements: [d] })
-                .then(() => ctx.annoncer(`Lot « ${lot.libelle} » déplacé.`));
+                .then(() =>
+                  ctx.annoncer(
+                    t(`Lot « ${lot.libelle} » déplacé.`, `Work package "${lot.libelle}" moved.`),
+                  ),
+                );
             }}
           />
         ) : null}
       </div>
       {lot.taches.length > 0 || mode === "ajout-tache" ? (
-        <ol className="mp-arbre" aria-label={`Contenu de ${nom}`}>
-          {lot.taches.map((t, i) => (
+        <ol className="mp-arbre" aria-label={t(`Contenu de ${nom}`, `Contents of ${nom}`)}>
+          {lot.taches.map((ta, i) => (
             <NoeudTache
-              key={t.id}
-              tache={t}
+              key={ta.id}
+              tache={ta}
               freres={lot.taches}
               parentId={lot.id}
               rang={i}
@@ -141,8 +157,8 @@ export function NoeudLot({
           {mode === "ajout-tache" ? (
             <li className="mp-arbre__noeud">
               <FormulaireTache
-                titre={`Nouvelle tâche dans ${nom}`}
-                libelleEnvoi="Ajouter la tâche"
+                titre={t(`Nouvelle tâche dans ${nom}`, `New task in ${nom}`)}
+                libelleEnvoi={t("Ajouter la tâche", "Add the task")}
                 onAnnuler={() => setMode("lecture")}
                 envoyer={(c) =>
                   api.post(`${base}/taches`, {

@@ -10,6 +10,7 @@ import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../lib/api-serveur";
 import { formaterDate } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { libelleFamille, peutLireNotation } from "../../../lib/notation";
 import {
   cheminGrilles,
@@ -21,7 +22,10 @@ import {
 } from "../../../lib/notation-grilles";
 import { exigerLectureNotation } from "../../../lib/notation-serveur";
 
-export const metadata: Metadata = { title: "Grilles de notation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Grilles de notation", "Rating frameworks") };
+}
 
 /**
  * Grilles de notation du cabinet (NOT-01) : la grille générique CabinetPilot (base par défaut
@@ -33,6 +37,8 @@ export default async function PageGrillesNotation({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await exigerLectureNotation();
   // Les écrans liés ont la même garde (lecture des notations) : lien affiché seulement si permis.
   const voirBanqueEtCalibration = peutLireNotation(utilisateur.roles);
@@ -43,34 +49,44 @@ export default async function PageGrillesNotation({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Grilles de notation"
-        soustitre="Dimensions, familles et pondérations par secteur qui servent au calcul des notations. Une grille du cabinet ne sert qu'une fois validée par un expert métier."
+        titre={t("Grilles de notation", "Rating frameworks")}
+        soustitre={t(
+          "Dimensions, familles et pondérations par secteur qui servent au calcul des notations. Une grille du cabinet ne sert qu'une fois validée par un expert métier.",
+          "Dimensions, families and sector weightings used to compute ratings. A firm framework is used only once approved by a business expert.",
+        )}
       />
 
       {voirBanqueEtCalibration ? (
         <p>
-          Voir aussi : <Link href="/notation/banque">banque d&apos;items</Link> ·{" "}
-          <Link href="/notation/calibrations">calibration des évaluateurs</Link>
+          {t("Voir aussi :", "See also:")}{" "}
+          <Link href="/notation/banque">{t("banque d'items", "item bank")}</Link> ·{" "}
+          <Link href="/notation/calibrations">
+            {t("calibration des évaluateurs", "rater calibration")}
+          </Link>
         </p>
       ) : null}
 
-      <Carte titre="Grille générique CabinetPilot">
+      <Carte titre={t("Grille générique CabinetPilot", "CabinetPilot generic framework")}>
         <div className="mp-notation__section">
           <p>
-            Grille propre fondée sur des principes publics de gestion :{" "}
-            {GRILLE_GENERIQUE.dimensions.length} dimensions en {familles.length} familles (
-            {familles.map(libelleFamille).join(", ")}) et {(GRILLE_GENERIQUE.secteurs ?? []).length}{" "}
-            pondérations par secteur. Elle sert par défaut au calcul ; pour l&apos;affiner, créez-en
-            une copie ci-dessous.
+            {t(
+              `Grille propre fondée sur des principes publics de gestion : ${GRILLE_GENERIQUE.dimensions.length} dimensions en ${familles.length} familles (${familles.map((f) => libelleFamille(f, langue)).join(", ")}) et ${(GRILLE_GENERIQUE.secteurs ?? []).length} pondérations par secteur. Elle sert par défaut au calcul ; pour l'affiner, créez-en une copie ci-dessous.`,
+              `Proprietary framework based on public management principles: ${GRILLE_GENERIQUE.dimensions.length} dimensions in ${familles.length} families (${familles.map((f) => libelleFamille(f, langue)).join(", ")}) and ${(GRILLE_GENERIQUE.secteurs ?? []).length} sector weightings. It is used by default for computation; to refine it, create a copy below.`,
+            )}
           </p>
           <details className="mp-details">
-            <summary>Voir les pondérations de la grille générique</summary>
+            <summary>
+              {t(
+                "Voir les pondérations de la grille générique",
+                "View the generic framework weightings",
+              )}
+            </summary>
             <PonderationsGrille contenu={GRILLE_GENERIQUE} />
           </details>
         </div>
       </Carte>
 
-      <Carte titre="Créer une grille du cabinet">
+      <Carte titre={t("Créer une grille du cabinet", "Create a firm framework")}>
         <FormulaireCreationGrille
           grilles={
             r.ok ? r.donnees.elements.map((g) => ({ id: g.id, titre: g.titre, code: g.code })) : []
@@ -80,22 +96,31 @@ export default async function PageGrillesNotation({
 
       <section aria-labelledby="titre-grilles" className="mp-pile">
         <h2 id="titre-grilles" className="mp-section__titre">
-          Grilles du cabinet
+          {t("Grilles du cabinet", "Firm frameworks")}
         </h2>
         {!r.ok ? (
           <EtatErreur
-            titre="Les grilles n'ont pas pu être chargées."
+            titre={t(
+              "Les grilles n'ont pas pu être chargées.",
+              "The frameworks could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={hrefGrilles(curseur)}
           />
         ) : r.donnees.elements.length === 0 ? (
           <EtatVide
-            titre={curseur ? "Aucune autre grille." : "Aucune grille propre au cabinet."}
+            titre={
+              curseur
+                ? t("Aucune autre grille.", "No other framework.")
+                : t("Aucune grille propre au cabinet.", "No firm-specific framework.")
+            }
             icone="livre"
           >
             <p>
-              Le calcul utilise la grille générique. Créez une copie pour adapter les pondérations à
-              vos secteurs, puis faites-la valider par un expert métier.
+              {t(
+                "Le calcul utilise la grille générique. Créez une copie pour adapter les pondérations à vos secteurs, puis faites-la valider par un expert métier.",
+                "The computation uses the generic framework. Create a copy to adapt the weightings to your sectors, then have it approved by a business expert.",
+              )}
             </p>
           </EtatVide>
         ) : (
@@ -107,18 +132,24 @@ export default async function PageGrillesNotation({
                     {g.titre}
                   </Link>
                   <span className="mp-texte-doux mp-texte-petit">
-                    Code {g.code} · {libelleOrigine(g.origine)} · modifiée le{" "}
-                    {formaterDate(g.modifie_le)}
+                    {t("Code", "Code")} {g.code} · {libelleOrigine(g.origine, langue)} ·{" "}
+                    {t("modifiée le", "modified on")} {formaterDate(g.modifie_le, "UTC", langue)}
                   </span>
                 </div>
                 <div className="mp-badges">
                   {g.version_validee_id ? (
-                    <BadgeStatut tonalite="succes">Version validée</BadgeStatut>
+                    <BadgeStatut tonalite="succes">
+                      {t("Version validée", "Approved version")}
+                    </BadgeStatut>
                   ) : (
-                    <BadgeStatut tonalite="attention">Aucune version validée</BadgeStatut>
+                    <BadgeStatut tonalite="attention">
+                      {t("Aucune version validée", "No approved version")}
+                    </BadgeStatut>
                   )}
                   {g.brouillon ? (
-                    <BadgeStatut tonalite="neutre">Brouillon en cours</BadgeStatut>
+                    <BadgeStatut tonalite="neutre">
+                      {t("Brouillon en cours", "Draft in progress")}
+                    </BadgeStatut>
                   ) : null}
                 </div>
               </li>
@@ -127,7 +158,7 @@ export default async function PageGrillesNotation({
         )}
         {r.ok ? (
           <PaginationCurseur
-            libelle="Pages des grilles"
+            libelle={t("Pages des grilles", "Framework pages")}
             hrefSuivante={r.donnees.curseur_suivant ? hrefGrilles(r.donnees.curseur_suivant) : null}
             hrefDebut={curseur ? hrefGrilles() : null}
           />

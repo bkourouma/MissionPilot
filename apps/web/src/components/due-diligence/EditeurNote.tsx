@@ -9,9 +9,9 @@ import {
   cheminSoumissionNote,
   cheminVersionsNote,
   hrefNote,
+  libellesDd,
   messageDd,
   optionsDe,
-  RECOMMANDATION_NOTE_LIBELLES,
   type ReponseEcriture,
 } from "../../lib/due-diligence";
 import {
@@ -26,13 +26,12 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-
-const OPTIONS_RECOMMANDATION = optionsDe(RECOMMANDATIONS_NOTE, RECOMMANDATION_NOTE_LIBELLES);
 
 export interface EditeurNoteProps {
   missionId: string;
@@ -53,6 +52,9 @@ export interface EditeurNoteProps {
  * validation d'un tiers. Les chiffres du rapport viennent des moteurs, pas de ce texte.
  */
 export function EditeurNote({ missionId, dossierId, note }: EditeurNoteProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsRecommandation = optionsDe(RECOMMANDATIONS_NOTE, libellesDd(langue).RECOMMANDATION);
   const router = useRouter();
   const f = useFormulaire<ChampNote>();
   const version = note !== undefined;
@@ -72,7 +74,7 @@ export function EditeurNote({ missionId, dossierId, note }: EditeurNoteProps) {
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerNote(s, version ? "version" : "creation"),
+      validerNote(s, version ? "version" : "creation", langue),
       (charge) =>
         note
           ? api.post<ReponseEcriture>(cheminVersionsNote(note.id), {
@@ -84,8 +86,10 @@ export function EditeurNote({ missionId, dossierId, note }: EditeurNoteProps) {
             })
           : api.post<ReponseEcriture>(cheminNotes(dossierId), charge),
       {
-        succes: version ? "Nouveau brouillon enregistré." : "Note créée en brouillon.",
-        messageSpecifique: messageDd,
+        succes: version
+          ? t("Nouveau brouillon enregistré.", "New draft saved.")
+          : t("Note créée en brouillon.", "Memo created as a draft."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: (r) => {
           if (!note && r.id) router.push(hrefNote(missionId, dossierId, r.id));
           else maj({ motif: "" });
@@ -101,17 +105,21 @@ export function EditeurNote({ missionId, dossierId, note }: EditeurNoteProps) {
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={version ? "Nouvelle version de la note" : "Nouvelle note au comité"}
+      aria-label={
+        version
+          ? t("Nouvelle version de la note", "New version of the memo")
+          : t("Nouvelle note au comité", "New committee memo")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Note refusée"
+        titreErreur={t("Note refusée", "Memo refused")}
       />
       {!version ? (
         <Champ
-          libelle="Titre de la note"
+          libelle={t("Titre de la note", "Memo title")}
           required
           maxLength={TITRE_MAX}
           value={s.titre}
@@ -120,52 +128,67 @@ export function EditeurNote({ missionId, dossierId, note }: EditeurNoteProps) {
         />
       ) : null}
       <Select
-        libelle="Recommandation"
+        libelle={t("Recommandation", "Recommendation")}
         required
-        invite="Choisir…"
-        options={OPTIONS_RECOMMANDATION}
+        invite={t("Choisir…", "Choose…")}
+        options={optionsRecommandation}
         value={s.recommandation}
         onChange={(e) => maj({ recommandation: e.target.value })}
         erreur={f.erreurs.recommandation}
-        aide="« Favorable » est refusée à la soumission si une exclusion n'est pas levée ou si une hypothèse principale est infirmée."
+        aide={t(
+          "« Favorable » est refusée à la soumission si une exclusion n'est pas levée ou si une hypothèse principale est infirmée.",
+          "“Favorable” is refused at submission if an exclusion is not cleared or if a main hypothesis is refuted.",
+        )}
       />
       <ZoneTexte
-        libelle="Synthèse"
+        libelle={t("Synthèse", "Summary")}
         required
         rows={6}
         maxLength={NOTE_SYNTHESE_MAX}
         value={s.synthese}
         onChange={(e) => maj({ synthese: e.target.value })}
         erreur={f.erreurs.synthese}
-        aide="Le raisonnement de l'expert, en toutes lettres. Ne recopiez pas les chiffres : le rapport les reprend des moteurs."
+        aide={t(
+          "Le raisonnement de l'expert, en toutes lettres. Ne recopiez pas les chiffres : le rapport les reprend des moteurs.",
+          "The expert's reasoning, written out in full. Do not copy the figures: the report takes them from the engines.",
+        )}
       />
       <ZoneTexte
-        libelle="Conditions"
+        libelle={t("Conditions", "Conditions")}
         rows={4}
         value={s.conditions}
         onChange={(e) => maj({ conditions: e.target.value })}
         erreur={f.erreurs.conditions}
-        aide={`Une condition par ligne (${CONDITIONS_MAX} au plus). Obligatoire pour une recommandation « favorable sous conditions ».`}
+        aide={t(
+          `Une condition par ligne (${CONDITIONS_MAX} au plus). Obligatoire pour une recommandation « favorable sous conditions ».`,
+          `One condition per line (${CONDITIONS_MAX} at most). Required for a “favorable with conditions” recommendation.`,
+        )}
       />
       {version ? (
         <ZoneTexte
-          libelle="Motif de la modification"
+          libelle={t("Motif de la modification", "Reason for the change")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => maj({ motif: e.target.value })}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique des versions."
+          aide={t("Conservé dans l'historique des versions.", "Kept in the version history.")}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {version ? "Enregistrer un nouveau brouillon" : "Créer la note"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {version
+            ? t("Enregistrer un nouveau brouillon", "Save a new draft")
+            : t("Créer la note", "Create the memo")}
         </Bouton>
         {version ? null : (
           <Bouton variante="secondaire" onClick={() => router.back()}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         )}
       </div>
@@ -183,6 +206,8 @@ export interface SoumettreNoteProps {
 
 /** Soumission d'un brouillon à la validation d'un tiers : l'API fige la base calculée par les moteurs. */
 export function SoumettreNote({ noteId, version, bloque }: SoumettreNoteProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"version">();
   const [confirme, setConfirme] = useState(false);
 
@@ -191,8 +216,11 @@ export function SoumettreNote({ noteId, version, bloque }: SoumettreNoteProps) {
       { ok: true, charge: { version } },
       (charge) => api.post(cheminSoumissionNote(noteId), charge),
       {
-        succes: "Note soumise : elle attend la validation d'une autre personne.",
-        messageSpecifique: messageDd,
+        succes: t(
+          "Note soumise : elle attend la validation d'une autre personne.",
+          "Memo submitted: it is awaiting approval by another person.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => setConfirme(false),
       },
     );
@@ -204,18 +232,33 @@ export function SoumettreNote({ noteId, version, bloque }: SoumettreNoteProps) {
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Soumission refusée"
+        titreErreur={t("Soumission refusée", "Submission refused")}
       />
       {bloque ? (
-        <Alerte tonalite="danger" titre="Soumission impossible pour le moment" annonce="aucune">
-          <p>Corrigez les points bloquants listés dans le contrôle, puis soumettez la note.</p>
+        <Alerte
+          tonalite="danger"
+          titre={t("Soumission impossible pour le moment", "Submission not possible for now")}
+          annonce="aucune"
+        >
+          <p>
+            {t(
+              "Corrigez les points bloquants listés dans le contrôle, puis soumettez la note.",
+              "Fix the blocking issues listed in the check, then submit the memo.",
+            )}
+          </p>
         </Alerte>
       ) : null}
       {confirme ? (
-        <Alerte tonalite="attention" titre="Soumettre cette version ?" annonce="status">
+        <Alerte
+          tonalite="attention"
+          titre={t("Soumettre cette version ?", "Submit this version?")}
+          annonce="status"
+        >
           <p>
-            La base des chiffres est figée à cet instant. Une modification ultérieure du dossier ne
-            change plus cette version : il faudra une nouvelle version et une nouvelle validation.
+            {t(
+              "La base des chiffres est figée à cet instant. Une modification ultérieure du dossier ne change plus cette version : il faudra une nouvelle version et une nouvelle validation.",
+              "The figures base is frozen at this moment. A later change to the file no longer affects this version: a new version and a new approval will be needed.",
+            )}
           </p>
         </Alerte>
       ) : null}
@@ -224,18 +267,18 @@ export function SoumettreNote({ noteId, version, bloque }: SoumettreNoteProps) {
           <>
             <Bouton
               chargement={f.enCours}
-              texteChargement="Soumission…"
+              texteChargement={t("Soumission…", "Submitting…")}
               onClick={() => void soumettre()}
             >
-              Confirmer la soumission
+              {t("Confirmer la soumission", "Confirm submission")}
             </Bouton>
             <Bouton variante="discret" onClick={() => setConfirme(false)}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </>
         ) : (
           <Bouton disabled={bloque} onClick={() => setConfirme(true)} aria-disabled={bloque}>
-            Soumettre pour validation
+            {t("Soumettre pour validation", "Submit for approval")}
           </Bouton>
         )}
       </div>

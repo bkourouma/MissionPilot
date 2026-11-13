@@ -5,7 +5,9 @@
  */
 import {
   aPermission,
+  creerTraduire,
   NATURES_FINANCE,
+  type Langue,
   type NatureLigneBudget,
   type Role,
   type StatutMission,
@@ -100,12 +102,28 @@ export const TYPE_VERSION_LIBELLES: Record<TypeVersion, string> = {
   atterrissage: "Atterrissage",
 };
 
+export const TYPE_VERSION_LIBELLES_EN: Record<TypeVersion, string> = {
+  initial: "Initial budget (signed)",
+  revise: "Revision",
+  atterrissage: "Landing forecast",
+};
+
 export const NATURE_LIBELLES: Record<NatureLigneBudget, string> = {
   honoraires: "Honoraires",
   cout_interne: "Coût interne",
   debours: "Débours",
   sous_traitance: "Sous-traitance",
 };
+
+export const NATURE_LIBELLES_EN: Record<NatureLigneBudget, string> = {
+  honoraires: "Fees",
+  cout_interne: "Internal cost",
+  debours: "Expenses",
+  sous_traitance: "Subcontracting",
+};
+
+export const libelleNature = (n: NatureLigneBudget, langue: Langue = "fr") =>
+  (langue === "en" ? NATURE_LIBELLES_EN : NATURE_LIBELLES)[n];
 
 export const STATUT_ECART: Record<StatutEcart, { libelle: string; tonalite: TonaliteStatut }> = {
   ajoutee: { libelle: "Ajoutée", tonalite: "attention" },
@@ -114,18 +132,32 @@ export const STATUT_ECART: Record<StatutEcart, { libelle: string; tonalite: Tona
   inchangee: { libelle: "Inchangée", tonalite: "neutre" },
 };
 
+export const STATUT_ECART_EN: Record<StatutEcart, { libelle: string; tonalite: TonaliteStatut }> = {
+  ajoutee: { libelle: "Added", tonalite: "attention" },
+  supprimee: { libelle: "Removed", tonalite: "danger" },
+  modifiee: { libelle: "Changed", tonalite: "attention" },
+  inchangee: { libelle: "Unchanged", tonalite: "neutre" },
+};
+
+export const statutEcart = (s: StatutEcart, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_ECART_EN : STATUT_ECART)[s];
+
 /** Libellé court d'une version : « V1 — Budget initial (signé) ». */
-export const libelleVersion = (v: Pick<VersionBudget, "numero" | "type">) =>
-  `V${v.numero} — ${TYPE_VERSION_LIBELLES[v.type]}`;
+export const libelleVersion = (v: Pick<VersionBudget, "numero" | "type">, langue: Langue = "fr") =>
+  `V${v.numero} — ${(langue === "en" ? TYPE_VERSION_LIBELLES_EN : TYPE_VERSION_LIBELLES)[v.type]}`;
 
 export function etatVersion(
   v: Pick<VersionBudget, "figee" | "type">,
   referenceId: string | null,
   id: string,
+  langue: Langue = "fr",
 ): { libelle: string; tonalite: TonaliteStatut } {
-  if (!v.figee) return { libelle: "En cours de révision", tonalite: "attention" };
-  if (id === referenceId) return { libelle: "Figée — référence", tonalite: "succes" };
-  return { libelle: "Figée — historique", tonalite: "neutre" };
+  const t = creerTraduire(langue);
+  if (!v.figee)
+    return { libelle: t("En cours de révision", "Revision in progress"), tonalite: "attention" };
+  if (id === referenceId)
+    return { libelle: t("Figée — référence", "Frozen — baseline"), tonalite: "succes" };
+  return { libelle: t("Figée — historique", "Frozen — history"), tonalite: "neutre" };
 }
 
 // --- Masquage financier (FIN-02) -----------------------------------------------------------
@@ -246,7 +278,9 @@ export function actionsBudget(
   mission: { statut: StatutMission; modifiable: boolean },
   budget: Pick<BudgetMission, "en_cours_id" | "reference_id">,
   ctx: ContexteBudget,
+  langue: Langue = "fr",
 ): ActionsBudget {
+  const t = creerTraduire(langue);
   const ecrire = aPermission(roles, "budget.ecrire") && mission.modifiable;
   const signee = estSignee(mission.statut) && mission.statut !== "cloturee";
   const enCours = budget.en_cours_id !== null;
@@ -256,18 +290,36 @@ export function actionsBudget(
   let raison: string | null = null;
   if (!ecrire) raison = null;
   else if (!estSignee(mission.statut))
-    raison = "Le budget se révise après la signature de la lettre de mission.";
-  else if (mission.statut === "cloturee") raison = "La mission est clôturée.";
-  else if (enCours) raison = "Une révision est déjà en cours : la valider ou l'abandonner.";
-  else if (!budget.reference_id) raison = "La mission n'a pas encore de budget initial.";
+    raison = t(
+      "Le budget se révise après la signature de la lettre de mission.",
+      "The budget can be revised after the engagement letter is signed.",
+    );
+  else if (mission.statut === "cloturee")
+    raison = t("La mission est clôturée.", "The engagement is closed.");
+  else if (enCours)
+    raison = t(
+      "Une révision est déjà en cours : la valider ou l'abandonner.",
+      "A revision is already in progress: approve or abandon it.",
+    );
+  else if (!budget.reference_id)
+    raison = t(
+      "La mission n'a pas encore de budget initial.",
+      "The engagement has no initial budget yet.",
+    );
   const peutValider =
     aPermission(roles, "budget.reviser") && (associe || directeur) && (associe || !auteur);
   let raisonValidation: string | null = null;
   if (enCours && signee && !peutValider)
     raisonValidation =
       auteur && !associe
-        ? "Vous êtes l'auteur de cette révision : elle doit être validée par un associé."
-        : "Cette révision attend la validation du directeur de la mission ou d'un associé (selon le montant des écarts).";
+        ? t(
+            "Vous êtes l'auteur de cette révision : elle doit être validée par un associé.",
+            "You are the author of this revision: a partner must approve it.",
+          )
+        : t(
+            "Cette révision attend la validation du directeur de la mission ou d'un associé (selon le montant des écarts).",
+            "This revision is awaiting approval by the engagement director or a partner (depending on the size of the variances).",
+          );
   return {
     reviser: ecrire && signee && !enCours && budget.reference_id !== null,
     valider: peutValider && mission.modifiable && signee && enCours,
@@ -285,11 +337,25 @@ export interface SaisieRevision {
 /** Révision : motif obligatoire (2000 caractères au plus). */
 export function validerRevision(
   s: SaisieRevision,
+  langue: Langue = "fr",
 ): Resultat<{ motif: string; depuis_decoupage: boolean }, "motif"> {
+  const t = creerTraduire(langue);
   const motif = s.motif.trim();
   if (motif === "")
-    return { ok: false, erreurs: { motif: "Indiquez le motif de la révision (obligatoire)." } };
-  if (motif.length > 2000) return { ok: false, erreurs: { motif: "2000 caractères au plus." } };
+    return {
+      ok: false,
+      erreurs: {
+        motif: t(
+          "Indiquez le motif de la révision (obligatoire).",
+          "Enter the reason for the revision (required).",
+        ),
+      },
+    };
+  if (motif.length > 2000)
+    return {
+      ok: false,
+      erreurs: { motif: t("2000 caractères au plus.", "2,000 characters maximum.") },
+    };
   return { ok: true, charge: { motif, depuis_decoupage: s.depuis_decoupage } };
 }
 

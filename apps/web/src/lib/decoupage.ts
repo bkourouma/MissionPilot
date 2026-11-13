@@ -3,6 +3,7 @@
  * testée dans `decoupage.test.ts`. Agrégats, dates au plus tôt et couleurs viennent des
  * moteurs de l'API ; ce module réordonne, valide les saisies et met en page.
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { lireNombre, texteOuNull, type Resultat } from "./saisie";
 
@@ -112,6 +113,22 @@ export const COULEUR_BADGE: Record<Couleur, { tonalite: TonaliteStatut; libelle:
   rouge: { tonalite: "danger", libelle: "Dépassement" },
 };
 
+/** Libellés anglais de `COULEUR_BADGE`. */
+export const COULEUR_LIBELLES_EN: Record<Couleur, string> = {
+  vert: "Within budget",
+  orange: "Watch",
+  rouge: "Overrun",
+};
+
+/** Badge d'une couleur de pilotage dans la langue demandée. */
+export const couleurBadge = (
+  c: Couleur,
+  langue: Langue = "fr",
+): { tonalite: TonaliteStatut; libelle: string } | undefined => {
+  const b = COULEUR_BADGE[c];
+  return b && langue === "en" ? { ...b, libelle: COULEUR_LIBELLES_EN[c] } : b;
+};
+
 // --- Parcours de l'arbre ------------------------------------------------------------------
 
 export interface TacheSituee extends Tache {
@@ -138,10 +155,17 @@ export interface OptionParent {
 }
 
 /** Parents possibles d'une tâche : chaque phase et chaque lot. */
-export function parentsDeTache(d: Pick<Decoupage, "phases">): OptionParent[] {
+export function parentsDeTache(
+  d: Pick<Decoupage, "phases">,
+  langue: Langue = "fr",
+): OptionParent[] {
+  const t = creerTraduire(langue);
   return d.phases.flatMap((p) => [
-    { valeur: p.id, libelle: `Phase : ${p.libelle}` },
-    ...p.lots.map((l) => ({ valeur: l.id, libelle: `Lot : ${p.libelle} › ${l.libelle}` })),
+    { valeur: p.id, libelle: `${t("Phase : ", "Phase: ")}${p.libelle}` },
+    ...p.lots.map((l) => ({
+      valeur: l.id,
+      libelle: `${t("Lot : ", "Work package: ")}${p.libelle} › ${l.libelle}`,
+    })),
   ]);
 }
 
@@ -213,27 +237,35 @@ export const ordreSuivant = (freres: readonly { ordre: number }[]) =>
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function libelleValide(v: string, erreurs: Record<string, string>): string {
+function libelleValide(v: string, erreurs: Record<string, string>, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const l = v.trim();
-  if (l === "") erreurs.libelle = "Saisissez un libellé.";
-  else if (l.length > 200) erreurs.libelle = "200 caractères au plus.";
+  if (l === "") erreurs.libelle = t("Saisissez un libellé.", "Enter a label.");
+  else if (l.length > 200)
+    erreurs.libelle = t("200 caractères au plus.", "200 characters at most.");
   return l;
 }
 
-export function validerPhase(libelle: string): Resultat<{ libelle: string }, "libelle"> {
+export function validerPhase(
+  libelle: string,
+  langue: Langue = "fr",
+): Resultat<{ libelle: string }, "libelle"> {
   const erreurs: Record<string, string> = {};
-  const l = libelleValide(libelle, erreurs);
+  const l = libelleValide(libelle, erreurs, langue);
   return Object.keys(erreurs).length
     ? { ok: false, erreurs }
     : { ok: true, charge: { libelle: l } };
 }
 
-export function validerLot(s: {
-  libelle: string;
-  est_livrable: boolean;
-}): Resultat<{ libelle: string; est_livrable: boolean }, "libelle"> {
+export function validerLot(
+  s: {
+    libelle: string;
+    est_livrable: boolean;
+  },
+  langue: Langue = "fr",
+): Resultat<{ libelle: string; est_livrable: boolean }, "libelle"> {
   const erreurs: Record<string, string> = {};
-  const l = libelleValide(s.libelle, erreurs);
+  const l = libelleValide(s.libelle, erreurs, langue);
   return Object.keys(erreurs).length
     ? { ok: false, erreurs }
     : { ok: true, charge: { libelle: l, est_livrable: s.est_livrable } };
@@ -264,7 +296,10 @@ export const SAISIE_TACHE_VIDE: SaisieTache = {
   duree_jours_ouvres: "1",
 };
 
-export function validerTache(s: SaisieTache): Resultat<
+export function validerTache(
+  s: SaisieTache,
+  langue: Langue = "fr",
+): Resultat<
   {
     libelle: string;
     est_livrable: boolean;
@@ -273,12 +308,17 @@ export function validerTache(s: SaisieTache): Resultat<
   },
   ChampTache
 > {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
-  const libelle = libelleValide(s.libelle, erreurs);
-  if (s.date_debut !== "" && !DATE.test(s.date_debut)) erreurs.date_debut = "Date invalide.";
+  const libelle = libelleValide(s.libelle, erreurs, langue);
+  if (s.date_debut !== "" && !DATE.test(s.date_debut))
+    erreurs.date_debut = t("Date invalide.", "Invalid date.");
   const d = lireNombre(s.duree_jours_ouvres);
   if (d === null || Number.isNaN(d) || !Number.isInteger(d) || d < 1 || d > 1000)
-    erreurs.duree_jours_ouvres = "Nombre entier de jours ouvrés, entre 1 et 1000.";
+    erreurs.duree_jours_ouvres = t(
+      "Nombre entier de jours ouvrés, entre 1 et 1000.",
+      "Whole number of working days, between 1 and 1000.",
+    );
   if (Object.keys(erreurs).length) return { ok: false, erreurs };
   return {
     ok: true,
@@ -316,14 +356,18 @@ export function saisieDepuisJalon(j: Jalon): SaisieJalon {
 
 export function validerJalon(
   s: SaisieJalon,
+  langue: Langue = "fr",
 ): Resultat<
   { libelle: string; phase_id: string | null; date_prevue: string | null; atteint: boolean },
   "libelle" | "phase_id" | "date_prevue"
 > {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
-  const libelle = libelleValide(s.libelle, erreurs);
-  if (s.phase_id !== "" && !UUID.test(s.phase_id)) erreurs.phase_id = "Choisissez une phase.";
-  if (s.date_prevue !== "" && !DATE.test(s.date_prevue)) erreurs.date_prevue = "Date invalide.";
+  const libelle = libelleValide(s.libelle, erreurs, langue);
+  if (s.phase_id !== "" && !UUID.test(s.phase_id))
+    erreurs.phase_id = t("Choisissez une phase.", "Choose a phase.");
+  if (s.date_prevue !== "" && !DATE.test(s.date_prevue))
+    erreurs.date_prevue = t("Date invalide.", "Invalid date.");
   if (Object.keys(erreurs).length) return { ok: false, erreurs };
   return {
     ok: true,
@@ -343,10 +387,12 @@ export function validerJalon(
 export function validerBudgetTache(
   saisieParGrade: Record<string, string>,
   existantes: readonly LigneBudgetTache[],
+  langue: Langue = "fr",
 ): Resultat<
   { lignes: ({ grade_id: string; jours: number } | { collaborateur_id: string; jours: number })[] },
   string
 > {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const lignes: (
     { grade_id: string; jours: number } | { collaborateur_id: string; jours: number }
@@ -355,14 +401,18 @@ export function validerBudgetTache(
     const n = lireNombre(texte);
     if (n === null) continue;
     if (Number.isNaN(n) || n < 0 || n > 100_000 || Math.abs(n * 100 - Math.round(n * 100)) > 1e-9)
-      erreurs[gradeId] = "Jours positifs, au centième au plus (ex. 2,5).";
+      erreurs[gradeId] = t(
+        "Jours positifs, au centième au plus (ex. 2,5).",
+        "Positive days, to two decimals at most (e.g. 2.5).",
+      );
     else if (n > 0) lignes.push({ grade_id: gradeId, jours: n });
   }
   for (const l of existantes) {
     if (l.collaborateur_id && l.jours > 0)
       lignes.push({ collaborateur_id: l.collaborateur_id, jours: l.jours });
   }
-  if (lignes.length > 50) erreurs._ = "50 lignes au plus par tâche.";
+  if (lignes.length > 50)
+    erreurs._ = t("50 lignes au plus par tâche.", "50 lines at most per task.");
   if (Object.keys(erreurs).length) return { ok: false, erreurs };
   return { ok: true, charge: { lignes } };
 }
@@ -376,22 +426,34 @@ export function saisieBudgetDepuisTache(t: Tache): Record<string, string> {
   );
 }
 
-export function validerDependance(s: {
-  predecesseur_id: string;
-  successeur_id: string;
-  decalage: string;
-}): Resultat<
+export function validerDependance(
+  s: {
+    predecesseur_id: string;
+    successeur_id: string;
+    decalage: string;
+  },
+  langue: Langue = "fr",
+): Resultat<
   { predecesseur_id: string; successeur_id: string; decalage: number },
   "predecesseur_id" | "successeur_id" | "decalage"
 > {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
-  if (!UUID.test(s.predecesseur_id)) erreurs.predecesseur_id = "Choisissez la tâche précédente.";
-  if (!UUID.test(s.successeur_id)) erreurs.successeur_id = "Choisissez la tâche suivante.";
+  if (!UUID.test(s.predecesseur_id))
+    erreurs.predecesseur_id = t("Choisissez la tâche précédente.", "Choose the preceding task.");
+  if (!UUID.test(s.successeur_id))
+    erreurs.successeur_id = t("Choisissez la tâche suivante.", "Choose the following task.");
   else if (s.successeur_id === s.predecesseur_id)
-    erreurs.successeur_id = "Une tâche ne dépend pas d'elle-même.";
+    erreurs.successeur_id = t(
+      "Une tâche ne dépend pas d'elle-même.",
+      "A task cannot depend on itself.",
+    );
   const d = s.decalage.trim() === "" ? 0 : lireNombre(s.decalage);
   if (d === null || Number.isNaN(d) || !Number.isInteger(d) || d < -365 || d > 365)
-    erreurs.decalage = "Nombre entier de jours ouvrés entre -365 et 365.";
+    erreurs.decalage = t(
+      "Nombre entier de jours ouvrés entre -365 et 365.",
+      "Whole number of working days between -365 and 365.",
+    );
   if (Object.keys(erreurs).length) return { ok: false, erreurs };
   return {
     ok: true,

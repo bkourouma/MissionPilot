@@ -1,6 +1,8 @@
 /** Missions : droits de l'utilisateur sur une mission (miroir des règles de l'API). */
 import {
   aPermission,
+  creerTraduire,
+  type Langue,
   TYPES_DOCUMENT,
   type Role,
   type StatutMission,
@@ -36,13 +38,28 @@ export interface DroitsMission {
   transitions: { cible: StatutMission; libelle: string }[];
 }
 
-const TRANSITIONS_SIMPLES: Partial<
-  Record<StatutMission, { cible: StatutMission; libelle: string }[]>
-> = {
-  opportunite: [{ cible: "proposition", libelle: "Passer au stade de la proposition" }],
-  signee: [{ cible: "en_cours", libelle: "Démarrer la mission" }],
-  en_cours: [{ cible: "a_cloturer", libelle: "Passer « à clôturer »" }],
-  a_cloturer: [{ cible: "en_cours", libelle: "Rouvrir (retour en cours)" }],
+const transitionsSimples = (
+  langue: Langue,
+): Partial<Record<StatutMission, { cible: StatutMission; libelle: string }[]>> => {
+  const t = creerTraduire(langue);
+  return {
+    opportunite: [
+      {
+        cible: "proposition",
+        libelle: t("Passer au stade de la proposition", "Move to the proposal stage"),
+      },
+    ],
+    signee: [{ cible: "en_cours", libelle: t("Démarrer la mission", "Start the engagement") }],
+    en_cours: [
+      { cible: "a_cloturer", libelle: t("Passer « à clôturer »", "Mark as \u201cto close\u201d") },
+    ],
+    a_cloturer: [
+      {
+        cible: "en_cours",
+        libelle: t("Rouvrir (retour en cours)", "Reopen (back to in progress)"),
+      },
+    ],
+  };
 };
 
 /**
@@ -56,6 +73,7 @@ export function droitsMission(
   m: Pick<Mission, "statut" | "directeur_id" | "chef_id">,
   roles: readonly Role[],
   utilisateurId: string,
+  langue: Langue = "fr",
 ): DroitsMission {
   const a = (p: Parameters<typeof aPermission>[1]) => aPermission(roles, p);
   const associe = roles.includes("associe");
@@ -85,6 +103,6 @@ export function droitsMission(
               (responsable && (t !== "lettre_de_mission" || a("mission.signer"))),
           )
         : [],
-    transitions: planifier ? (TRANSITIONS_SIMPLES[m.statut] ?? []) : [],
+    transitions: planifier ? (transitionsSimples(langue)[m.statut] ?? []) : [],
   };
 }

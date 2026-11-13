@@ -3,7 +3,12 @@
  * retour d'expérience, testés dans `bilan.test.ts`. Tous les chiffres sont figés par l'API à
  * la clôture (moteurs) ; les blocs `finance` et `atterrissage` sont ABSENTS sans « finance.lire ».
  */
-import { DELAI_RETOUR_EXPERIENCE_JOURS, type Role } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  DELAI_RETOUR_EXPERIENCE_JOURS,
+  type Langue,
+  type Role,
+} from "@missionpilot/shared";
 import type { Devise } from "./format";
 import type { Resultat } from "./saisie";
 
@@ -99,24 +104,44 @@ export function retourModifiable(
     directeurId: string | null;
     maintenant: Date;
   },
+  langue: Langue = "fr",
 ): { modifiable: boolean; raison: string | null } {
+  const t = creerTraduire(langue);
   const limite = new Date(b.retour_modifiable_jusqu_au);
   if (Number.isNaN(limite.getTime()) || c.maintenant.getTime() > limite.getTime())
     return {
       modifiable: false,
-      raison: "Le délai de 30 jours après la clôture est écoulé : le retour d'expérience est figé.",
+      raison: t(
+        "Le délai de 30 jours après la clôture est écoulé : le retour d'expérience est figé.",
+        "The 30-day period after close-out has elapsed: the lessons learned are locked.",
+      ),
     };
   if (c.directeurId !== c.utilisateurId && !c.roles.includes("associe"))
     return {
       modifiable: false,
-      raison: "Le retour d'expérience est rédigé par le directeur de la mission ou un associé.",
+      raison: t(
+        "Le retour d'expérience est rédigé par le directeur de la mission ou un associé.",
+        "The lessons learned are written by the engagement director or a partner.",
+      ),
     };
   return { modifiable: true, raison: null };
 }
 
-export function validerRetourExperience(texte: string): Resultat<{ texte: string }, "texte"> {
+export function validerRetourExperience(
+  texte: string,
+  langue: Langue = "fr",
+): Resultat<{ texte: string }, "texte"> {
+  const tr = creerTraduire(langue);
   const t = texte.trim();
-  if (t === "") return { ok: false, erreurs: { texte: "Rédigez le retour d'expérience." } };
-  if (t.length > 10_000) return { ok: false, erreurs: { texte: "10 000 caractères au plus." } };
+  if (t === "")
+    return {
+      ok: false,
+      erreurs: { texte: tr("Rédigez le retour d'expérience.", "Write the lessons learned.") },
+    };
+  if (t.length > 10_000)
+    return {
+      ok: false,
+      erreurs: { texte: tr("10 000 caractères au plus.", "10,000 characters at most.") },
+    };
   return { ok: true, charge: { texte: t } };
 }

@@ -17,15 +17,19 @@ import type { VueDossier } from "../../../../../lib/dossier";
 import {
   cheminGroupe,
   formaterDateJour,
-  LIBELLES_VUES,
+  libelleVue,
   lireParametresGroupe,
   participationsActives,
 } from "../../../../../lib/dossier-groupes";
 import { chargerGroupe, chargerParticipations } from "../../../../../lib/dossier-groupes-serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Groupe du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Groupe du dossier", "File group") };
+}
 
 /**
  * Groupe et filiales du dossier (DOS-05) : structure de détention, consolidation simple,
@@ -41,6 +45,8 @@ export default async function PageGroupe({
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const peutEcrire = aPermission(utilisateur.roles, "dossier.ecrire");
   const parametres = lireParametresGroupe(await searchParams);
   const [dossier, groupe, historique] = await Promise.all([
@@ -60,11 +66,14 @@ export default async function PageGroupe({
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Groupe du dossier"
-          retour={{ href: `/dossiers/${id}`, libelle: "Dossier" }}
+          titre={t("Groupe du dossier", "File group")}
+          retour={{ href: `/dossiers/${id}`, libelle: t("Dossier", "File") }}
         />
         <EtatErreur
-          titre="Le groupe du dossier n'a pas pu être chargé."
+          titre={t(
+            "Le groupe du dossier n'a pas pu être chargé.",
+            "The file group could not be loaded.",
+          )}
           message={message}
           hrefReessayer={cheminGroupe(id, parametres)}
         />
@@ -79,46 +88,59 @@ export default async function PageGroupe({
       <EnteteDossier client={dossier.donnees.client} fiabilite={dossier.donnees.fiabilite} />
 
       <div className="mp-groupe">
-        <Carte titre="Situation affichée" niveauTitre={2}>
+        <Carte titre={t("Situation affichée", "Situation shown")} niveauTitre={2}>
           <p>
-            Situation au {formaterDateJour(g.date)}
-            {g.exercice !== null ? `, exercice ${g.exercice}` : ", aucun exercice de référence"}.
+            {t("Situation au", "Situation as of")} {formaterDateJour(g.date)}
+            {g.exercice !== null
+              ? `, ${t("exercice", "fiscal year")} ${g.exercice}`
+              : `, ${t("aucun exercice de référence", "no reference fiscal year")}`}
+            .
           </p>
           <div className="mp-groupe-vues">
-            <ul className="mp-groupe-vues__liens" aria-label="Point de départ de la lecture">
+            <ul
+              className="mp-groupe-vues__liens"
+              aria-label={t("Point de départ de la lecture", "Starting point of the reading")}
+            >
               {VUES_GROUPE.map((v) => (
                 <li key={v}>
                   <Link
                     href={cheminGroupe(id, { ...parametres, vue: v })}
                     aria-current={g.vue === v ? "true" : undefined}
                   >
-                    {LIBELLES_VUES[v]}
-                    {g.vue === v ? " (affichée)" : ""}
+                    {libelleVue(v, langue)}
+                    {g.vue === v ? t(" (affichée)", " (shown)") : ""}
                   </Link>
                 </li>
               ))}
             </ul>
-            <form method="get" className="mp-formulaire" aria-label="Choisir la date et l'exercice">
+            <form
+              method="get"
+              className="mp-formulaire"
+              aria-label={t("Choisir la date et l'exercice", "Choose the date and fiscal year")}
+            >
               <input type="hidden" name="vue" value={g.vue} />
               <div className="mp-grille-champs">
                 <Champ
-                  libelle="Situation au"
+                  libelle={t("Situation au", "Situation as of")}
                   name="date"
                   type="date"
                   defaultValue={parametres.date ?? ""}
                 />
                 <Champ
-                  libelle="Exercice"
+                  libelle={t("Exercice", "Fiscal year")}
                   name="exercice"
                   inputMode="numeric"
                   maxLength={4}
                   defaultValue={parametres.exercice ?? ""}
-                  aide="Par défaut : le plus récent exercice accepté."
+                  aide={t(
+                    "Par défaut : le plus récent exercice accepté.",
+                    "Default: the most recent accepted fiscal year.",
+                  )}
                 />
               </div>
               <div className="mp-actions-formulaire">
                 <Bouton type="submit" variante="secondaire">
-                  Afficher
+                  {t("Afficher", "Show")}
                 </Bouton>
               </div>
             </form>
@@ -129,7 +151,7 @@ export default async function PageGroupe({
         <ConsolidationGroupe groupe={g} />
 
         {peutEcrire ? (
-          <Carte titre="Saisir une participation" niveauTitre={2}>
+          <Carte titre={t("Saisir une participation", "Enter a holding")} niveauTitre={2}>
             <FormulaireParticipation
               clientId={id}
               dateParDefaut={g.date}

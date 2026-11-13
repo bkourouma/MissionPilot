@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { QuestionQuestionnaire } from "@missionpilot/shared";
+import type { Langue, QuestionQuestionnaire } from "@missionpilot/shared";
 import { api } from "../../../lib/api";
 import {
   annonceCollegues,
@@ -89,9 +89,10 @@ export function listeErreursQuestionnaire(
   def: Definition,
   c: Courant,
   refus: Record<string, string>,
+  langue: Langue = "fr",
 ): ErreurAffichee[] {
   const locales = new Map(
-    erreursAvantEnvoi(def, c.saisies, c.conflits).map((e) => [e.id, e.message]),
+    erreursAvantEnvoi(def, c.saisies, c.conflits, langue).map((e) => [e.id, e.message]),
   );
   const visibles = visiblesDepuisSaisies(def, c.saisies);
   const liste: ErreurAffichee[] = [];
@@ -113,13 +114,14 @@ export function erreurQuestion(
     touchees: ReadonlySet<string>;
     saisies: Saisies;
   },
+  langue: Langue = "fr",
 ): string | undefined {
   const serveur = propre(etat.refusees, q.id) ?? propre(etat.refusEnvoi, q.id);
   if (serveur) return serveur;
   const locale = etat.erreursEnvoi?.get(q.id);
   if (locale) return locale;
   if (etat.touchees.has(q.id) || q.type === "choix_multiple") {
-    const r = lireSaisie(q, propre(etat.saisies, q.id));
+    const r = lireSaisie(q, propre(etat.saisies, q.id), langue);
     if (!r.ok) return r.message;
   }
   return undefined;
@@ -131,17 +133,21 @@ export async function finParLecture(
   mode: QuestionnaireComplet["mode"],
   id: string,
   perdues: number,
+  langue: Langue = "fr",
 ): Promise<{ fin: FinSaisie; vue?: QuestionnairePortail }> {
   try {
     const vue = await api.get<QuestionnairePortail>(cheminApiQuestionnaire(id), {
       redirigerSi401: false,
     });
     return {
-      fin: issue === "echeance" ? finEcheance(vue, perdues) : finLectureSeule(vue, perdues),
+      fin:
+        issue === "echeance"
+          ? finEcheance(vue, perdues, langue)
+          : finLectureSeule(vue, perdues, undefined, langue),
       vue,
     };
   } catch {
-    return { fin: finInaccessible(issue, mode, perdues) };
+    return { fin: finInaccessible(issue, mode, perdues, langue) };
   }
 }
 
@@ -158,15 +164,24 @@ export function courantInitial(def: Definition, reponses: Reponses): Courant {
 export const MESSAGE_ENVOI_SUSPENDU =
   "Vos dernières réponses n'ont pas pu être enregistrées : l'envoi est suspendu. Consultez l'état du brouillon ci-dessus, puis réessayez.";
 
-export const annonceEnvoiImpossible = (n: number) =>
-  `Envoi impossible : ${n === 1 ? "une question demande" : `${n} questions demandent`} votre attention.`;
+export const MESSAGE_ENVOI_SUSPENDU_EN =
+  "Your latest responses could not be saved: sending is suspended. Check the draft status above, then try again.";
+
+export const annonceEnvoiImpossible = (n: number, langue: Langue = "fr") =>
+  langue === "en"
+    ? `Sending impossible: ${n === 1 ? "one question needs" : `${n} questions need`} your attention.`
+    : `Envoi impossible : ${n === 1 ? "une question demande" : `${n} questions demandent`} votre attention.`;
 
 /** Annonce regroupée après intégration d'une vue du serveur (collègues, questions affichées). */
 export const annonceIntegration = (
   misesAJour: number,
   conflits: number,
   ecart: { apparues: number; masquees: number },
+  langue: Langue = "fr",
 ) =>
-  [annonceCollegues(misesAJour, conflits), annonceVisibilite(ecart.apparues, ecart.masquees)]
+  [
+    annonceCollegues(misesAJour, conflits, langue),
+    annonceVisibilite(ecart.apparues, ecart.masquees, langue),
+  ]
     .filter(Boolean)
     .join(" ");

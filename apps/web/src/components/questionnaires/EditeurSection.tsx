@@ -5,7 +5,7 @@ import {
   avecChamp,
   conditionParDefaut,
   idAncreSection,
-  MODELE_QUESTION,
+  modeleQuestionTexte,
   MODELES_QUESTION,
   estModeleQuestion,
   texteFacultatif,
@@ -15,6 +15,7 @@ import {
   type QuestionIndexee,
   type Section,
 } from "../../lib/questionnaires-definition";
+import { useT, useLangue } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
@@ -66,10 +67,12 @@ export function EditeurSection({
   onDeplacer,
   onSupprimer,
 }: EditeurSectionProps) {
+  const t = useT();
+  const langue = useLangue();
   const [modele, setModele] = useState<ModeleQuestion>("likert");
   const base = `sections[${si}]`;
   const idBase = idAncreSection(si);
-  const nom = s.titre.trim() || `section ${si + 1}`;
+  const nom = s.titre.trim() || t(`section ${si + 1}`, `section ${si + 1}`);
   const propres = anomalies.filter(
     (a) =>
       a.chemin === base ||
@@ -96,27 +99,30 @@ export function EditeurSection({
             icone="flecheHaut"
             disabled={si === 0}
             onClick={() => onDeplacer(-1)}
-            aria-label={`Monter la section ${si + 1}`}
+            aria-label={t(`Monter la section ${si + 1}`, `Move up section ${si + 1}`)}
           >
-            Monter
+            {t("Monter", "Move up")}
           </Bouton>
           <Bouton
             variante="discret"
             icone="flecheBas"
             disabled={si === total - 1}
             onClick={() => onDeplacer(1)}
-            aria-label={`Descendre la section ${si + 1}`}
+            aria-label={t(`Descendre la section ${si + 1}`, `Move down section ${si + 1}`)}
           >
-            Descendre
+            {t("Descendre", "Move down")}
           </Bouton>
           {total > 1 ? (
             <BoutonConfirmation
-              libelle="Supprimer"
+              libelle={t("Supprimer", "Delete")}
               icone="corbeille"
               variante="discret"
-              ariaLabel={`Supprimer la section ${si + 1}`}
-              question={`Supprimer la section ${si + 1} « ${nom} » et ses ${s.questions.length} question(s) ?`}
-              libelleConfirmation="Oui, supprimer"
+              ariaLabel={t(`Supprimer la section ${si + 1}`, `Delete section ${si + 1}`)}
+              question={t(
+                `Supprimer la section ${si + 1} « ${nom} » et ses ${s.questions.length} question(s) ?`,
+                `Delete section ${si + 1} "${nom}" and its ${s.questions.length} question(s)?`,
+              )}
+              libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
               action={async () => onSupprimer()}
             />
           ) : null}
@@ -124,7 +130,10 @@ export function EditeurSection({
       </div>
 
       {autres.length > 0 ? (
-        <ul className="mp-qe-anomalies" aria-label={`Anomalies de la section ${si + 1}`}>
+        <ul
+          className="mp-qe-anomalies"
+          aria-label={t(`Anomalies de la section ${si + 1}`, `Issues in section ${si + 1}`)}
+        >
           {autres.map((a, i) => (
             <li key={`${a.chemin}-${i}`} className="mp-champ__erreur">
               <Icone nom="attention" taille={16} />
@@ -135,7 +144,7 @@ export function EditeurSection({
       ) : null}
 
       <Champ
-        libelle="Titre de la section"
+        libelle={t("Titre de la section", "Section title")}
         name={`${idBase}-titre-champ`}
         required
         maxLength={200}
@@ -144,21 +153,33 @@ export function EditeurSection({
         onChange={(e) => onChange({ ...s, titre: e.target.value })}
       />
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         name={`${idBase}-description`}
         rows={2}
         maxLength={2_000}
         value={s.description ?? ""}
-        aide="Facultative : texte d'introduction affiché aux répondants."
+        aide={t(
+          "Facultative : texte d'introduction affiché aux répondants.",
+          "Optional: introduction text displayed to respondents.",
+        )}
         erreur={erreurA(propres, `${base}.description`)}
         onChange={(e) => onChange(avecChamp(s, "description", texteFacultatif(e.target.value)))}
       />
       <CaseACocher
-        libelle="Afficher cette section seulement sous condition"
+        libelle={t(
+          "Afficher cette section seulement sous condition",
+          "Display this section only under a condition",
+        )}
         aide={
           candidatesSection.length === 0
-            ? "Une condition de section cite une question d'une autre section : ajoutez-en une d'abord."
-            : "Toutes les questions de la section sont masquées si la condition est fausse."
+            ? t(
+                "Une condition de section cite une question d'une autre section : ajoutez-en une d'abord.",
+                "A section condition refers to a question from another section: add one first.",
+              )
+            : t(
+                "Toutes les questions de la section sont masquées si la condition est fausse.",
+                "All questions in the section are hidden if the condition is false.",
+              )
         }
         disabled={candidatesSection.length === 0 && s.condition === undefined}
         checked={s.condition !== undefined}
@@ -175,7 +196,7 @@ export function EditeurSection({
           candidates={candidatesSection}
           questions={questions}
           idBase={`${idBase}-c`}
-          legende="Condition d'affichage de la section"
+          legende={t("Condition d'affichage de la section", "Section display condition")}
         />
       ) : null}
       <ChampIdentifiant
@@ -186,7 +207,10 @@ export function EditeurSection({
         onRenommer={(id) => onChange({ ...s, id })}
       />
 
-      <ol className="mp-qe-liste" aria-label={`Questions de la section ${si + 1}`}>
+      <ol
+        className="mp-qe-liste"
+        aria-label={t(`Questions de la section ${si + 1}`, `Questions of section ${si + 1}`)}
+      >
         {s.questions.map((q, qi) => (
           <li key={qi}>
             <EditeurQuestion
@@ -212,12 +236,12 @@ export function EditeurSection({
 
       <div className="mp-qe-ajout">
         <Select
-          libelle="Type de la nouvelle question"
+          libelle={t("Type de la nouvelle question", "Type of the new question")}
           name={`${idBase}-nouvelle`}
           value={modele}
           options={MODELES_QUESTION.map((m) => ({
             valeur: m,
-            libelle: MODELE_QUESTION[m].libelle,
+            libelle: modeleQuestionTexte(m, langue).libelle,
           }))}
           onChange={(e) => {
             if (estModeleQuestion(e.target.value)) setModele(e.target.value);
@@ -228,9 +252,12 @@ export function EditeurSection({
           icone="plus"
           disabled={s.questions.length >= QUESTIONS_MAX}
           onClick={() => onAjouterQuestion(modele)}
-          aria-label={`Ajouter une question à la section ${si + 1}`}
+          aria-label={t(
+            `Ajouter une question à la section ${si + 1}`,
+            `Add a question to section ${si + 1}`,
+          )}
         >
-          Ajouter la question
+          {t("Ajouter la question", "Add the question")}
         </Bouton>
       </div>
     </section>

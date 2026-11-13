@@ -1,10 +1,12 @@
-import type { RedChecklistModeleVue, RedChecklistVersionVue } from "@missionpilot/shared";
+import type { RedChecklistModeleVue, RedChecklistVersionVue, Langue } from "@missionpilot/shared";
 import { formaterDateHeure } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { libelleDomaine } from "../../lib/redressement";
 import {
   cheminPublicationChecklist,
   libelleStatutVersionChecklist,
   TEXTE_PUBLICATION_CHECKLIST,
+  TEXTE_PUBLICATION_CHECKLIST_EN,
   tonaliteStatutVersionChecklist,
 } from "../../lib/redressement-diagnostic";
 import { BadgeStatut } from "../ui/BadgeStatut";
@@ -13,17 +15,28 @@ import { Tableau } from "../ui/Tableau";
 import { BoutonActionRed } from "./BoutonActionRed";
 import { ChecklistEditeur } from "./ChecklistEditeur";
 
-function ItemsVersion({ version }: { version: RedChecklistVersionVue }) {
+function ItemsVersion({
+  version,
+  langue,
+  t,
+}: {
+  version: RedChecklistVersionVue;
+  langue: Langue;
+  t: (fr: string, en: string) => string;
+}) {
   const items = version.items ?? [];
   return (
     <details className="mp-diag-details">
       <summary>
-        Version {version.version} : {version.nombre_items} item(s)
+        {t(
+          `Version ${version.version} : ${version.nombre_items} item(s)`,
+          `Version ${version.version}: ${version.nombre_items} item(s)`,
+        )}
       </summary>
       <ul className="mp-diag-historique">
         {items.map((i) => (
           <li key={i.id}>
-            {i.libelle} <span className="mp-texte-doux">({libelleDomaine(i.domaine)})</span>
+            {i.libelle} <span className="mp-texte-doux">({libelleDomaine(i.domaine, langue)})</span>
           </li>
         ))}
       </ul>
@@ -36,13 +49,15 @@ function ItemsVersion({ version }: { version: RedChecklistVersionVue }) {
  * publication (séparation des tâches jugée par l'API) et éditeur d'une nouvelle version, ces
  * deux dernières actions réservées au droit « paramétrer ».
  */
-export function ChecklistModele({
+export async function ChecklistModele({
   modele: m,
   peutParametrer,
 }: {
   modele: RedChecklistModeleVue;
   peutParametrer: boolean;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <Carte
       titre={m.intitule}
@@ -52,37 +67,55 @@ export function ChecklistModele({
       <div className="mp-red-carte-corps">
         <p className="mp-texte-doux">
           {m.en_vigueur
-            ? `Version ${m.en_vigueur.version} en vigueur`
-            : "Aucune version en vigueur : le modèle ne peut pas encore être activé."}
-          {m.brouillon ? ` · brouillon version ${m.brouillon.version}` : ""}
+            ? t(
+                `Version ${m.en_vigueur.version} en vigueur`,
+                `Version ${m.en_vigueur.version} in force`,
+              )
+            : t(
+                "Aucune version en vigueur : le modèle ne peut pas encore être activé.",
+                "No version in force: the template cannot be activated yet.",
+              )}
+          {m.brouillon
+            ? t(
+                ` · brouillon version ${m.brouillon.version}`,
+                ` · draft version ${m.brouillon.version}`,
+              )
+            : ""}
         </p>
-        {m.en_vigueur ? <ItemsVersion version={m.en_vigueur} /> : null}
-        {m.brouillon ? <ItemsVersion version={m.brouillon} /> : null}
+        {m.en_vigueur ? <ItemsVersion version={m.en_vigueur} langue={langue} t={t} /> : null}
+        {m.brouillon ? <ItemsVersion version={m.brouillon} langue={langue} t={t} /> : null}
         <Tableau
-          legende={`Versions du modèle ${m.intitule}`}
-          messageVide="Aucune version."
+          legende={t(`Versions du modèle ${m.intitule}`, `Versions of template ${m.intitule}`)}
+          messageVide={t("Aucune version.", "No version.")}
           colonnes={[
-            { cle: "version", entete: "Version", rendu: (v: RedChecklistVersionVue) => v.version },
+            {
+              cle: "version",
+              entete: t("Version", "Version"),
+              rendu: (v: RedChecklistVersionVue) => v.version,
+            },
             {
               cle: "statut",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (v) => (
                 <BadgeStatut tonalite={tonaliteStatutVersionChecklist(v.statut)}>
-                  {libelleStatutVersionChecklist(v.statut)}
-                  {v.remplacee ? " (remplacée)" : ""}
+                  {libelleStatutVersionChecklist(v.statut, langue)}
+                  {v.remplacee ? t(" (remplacée)", " (replaced)") : ""}
                 </BadgeStatut>
               ),
             },
             {
               cle: "auteur",
-              entete: "Auteur",
-              rendu: (v) => `${v.cree_par.nom}, le ${formaterDateHeure(v.cree_le)}`,
+              entete: t("Auteur", "Author"),
+              rendu: (v) =>
+                `${v.cree_par.nom}${t(", le ", ", on ")}${formaterDateHeure(v.cree_le, undefined, langue)}`,
             },
             {
               cle: "publication",
-              entete: "Publication",
+              entete: t("Publication", "Publication"),
               rendu: (v) =>
-                v.publiee_par ? `${v.publiee_par.nom}, le ${formaterDateHeure(v.publiee_le)}` : "—",
+                v.publiee_par
+                  ? `${v.publiee_par.nom}${t(", le ", ", on ")}${formaterDateHeure(v.publiee_le, undefined, langue)}`
+                  : "—",
             },
             {
               cle: "action",
@@ -91,20 +124,26 @@ export function ChecklistModele({
                 v.statut === "brouillon" && peutParametrer ? (
                   v.peut_publier ? (
                     <BoutonActionRed
-                      libelle="Publier"
+                      libelle={t("Publier", "Publish")}
                       chemin={cheminPublicationChecklist(v.id)}
                       corps={{}}
-                      succes="Version publiée : elle peut être activée dans les dossiers."
-                      titreErreur="Publication impossible"
+                      succes={t(
+                        "Version publiée : elle peut être activée dans les dossiers.",
+                        "Version published: it can be activated in the files.",
+                      )}
+                      titreErreur={t("Publication impossible", "Publication not possible")}
                       variante="primaire"
                       confirmation={{
-                        question: `Publier la version ${v.version} ? Elle pourra être activée dans les dossiers.`,
-                        libelleConfirmation: "Oui, publier",
+                        question: t(
+                          `Publier la version ${v.version} ? Elle pourra être activée dans les dossiers.`,
+                          `Publish version ${v.version}? It will be able to be activated in the files.`,
+                        ),
+                        libelleConfirmation: t("Oui, publier", "Yes, publish"),
                       }}
                     />
                   ) : (
                     <span className="mp-texte-doux mp-texte-petit">
-                      {TEXTE_PUBLICATION_CHECKLIST}
+                      {t(TEXTE_PUBLICATION_CHECKLIST, TEXTE_PUBLICATION_CHECKLIST_EN)}
                     </span>
                   )
                 ) : (
@@ -117,7 +156,7 @@ export function ChecklistModele({
         />
         {peutParametrer && m.brouillon === null ? (
           <details className="mp-diag-details">
-            <summary>Rédiger une nouvelle version</summary>
+            <summary>{t("Rédiger une nouvelle version", "Draft a new version")}</summary>
             <ChecklistEditeur
               key={m.en_vigueur?.id ?? "vide"}
               modeleId={m.id}

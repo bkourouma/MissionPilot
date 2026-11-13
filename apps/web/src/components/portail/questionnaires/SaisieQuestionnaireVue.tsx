@@ -3,6 +3,7 @@
 import type { ComponentProps, Ref } from "react";
 import type { QuestionQuestionnaire } from "@missionpilot/shared";
 import { formaterDate } from "../../../lib/format";
+import { useT, useLangue } from "../../i18n/FournisseurLangue";
 import {
   echeance,
   hrefReconnexion,
@@ -85,14 +86,16 @@ export function SaisieQuestionnaireVue({
   onAllerA,
   annonce,
 }: SaisieQuestionnaireVueProps) {
+  const t = useT();
+  const langue = useLangue();
   const { id, mode } = questionnaire;
   const collectif = mode === "collectif";
   const sections = questionnaire.definition.sections
     .map((s) => ({ section: s, questions: s.questions.filter((q) => visibles.has(q.id)) }))
     .filter((x) => x.questions.length > 0);
-  const ech = echeance(questionnaire.date_limite, aujourdhui);
+  const ech = echeance(questionnaire.date_limite, aujourdhui, langue);
   const etatAlerte = ETATS_ALERTE.has(etatSauvegarde);
-  const texteEtat = texteSauvegarde(etatSauvegarde, derniereSauvegarde);
+  const texteEtat = texteSauvegarde(etatSauvegarde, derniereSauvegarde, undefined, langue);
 
   return (
     <>
@@ -103,10 +106,18 @@ export function SaisieQuestionnaireVue({
         actualisation={actualisation}
       />
       {ech?.depassee ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Date limite dépassée">
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Date limite dépassée", "Due date passed")}
+        >
           <p>
-            La date limite était le {formaterDate(questionnaire.date_limite)} : le cabinet doit la
-            prolonger pour que vos réponses soient de nouveau acceptées.
+            {t("La date limite était le ", "The due date was ")}
+            {formaterDate(questionnaire.date_limite, undefined, langue)}
+            {t(
+              " : le cabinet doit la prolonger pour que vos réponses soient de nouveau acceptées.",
+              ": the firm must extend it for your responses to be accepted again.",
+            )}
           </p>
         </Alerte>
       ) : null}
@@ -118,20 +129,23 @@ export function SaisieQuestionnaireVue({
           <span>{texteEtat}</span>
         </p>
         {erreurGlobale ? (
-          <Alerte tonalite="danger" titre="Attention">
+          <Alerte tonalite="danger" titre={t("Attention", "Warning")}>
             <p>{erreurGlobale}</p>
           </Alerte>
         ) : null}
         <p className="mp-pq-note">
-          Les questions marquées d&apos;un astérisque (*) sont obligatoires. Vos réponses sont
-          enregistrées automatiquement au fil de la saisie : vous pouvez vous interrompre et
-          reprendre plus tard.
+          {t(
+            "Les questions marquées d'un astérisque (*) sont obligatoires. Vos réponses sont enregistrées automatiquement au fil de la saisie : vous pouvez vous interrompre et reprendre plus tard.",
+            "Questions marked with an asterisk (*) are required. Your responses are saved automatically as you type: you can stop and resume later.",
+          )}
         </p>
       </div>
 
       {sections.length >= 3 ? (
         <details className="mp-details mp-pq-sommaire">
-          <summary>Sommaire ({sections.length} sections)</summary>
+          <summary>
+            {t("Sommaire", "Contents")} ({sections.length} {t("sections", "sections")})
+          </summary>
           <ol>
             {sections.map(({ section }) => (
               <li key={section.id}>
@@ -145,7 +159,10 @@ export function SaisieQuestionnaireVue({
       <form
         className="mp-pq-formulaire"
         noValidate
-        aria-label={`Réponses au questionnaire « ${questionnaire.titre} »`}
+        aria-label={t(
+          `Réponses au questionnaire « ${questionnaire.titre} »`,
+          `Responses to the questionnaire "${questionnaire.titre}"`,
+        )}
         onSubmit={(e) => e.preventDefault()}
       >
         {sections.map(({ section, questions: qs }) => {

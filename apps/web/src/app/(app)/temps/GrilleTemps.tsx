@@ -2,6 +2,7 @@
 
 import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { DecisionSaisie } from "../../../components/hors-ligne/DecisionSaisie";
 import {
   stockageLocal,
@@ -23,8 +24,8 @@ import {
 import {
   classeSaisie,
   iconeSaisie,
-  MESSAGE_MEMOIRE,
-  MESSAGE_SAISIE,
+  messageMemoire,
+  messageSaisie,
 } from "../../../lib/hors-ligne/etats";
 import {
   CODE_MODIFIEE_AILLEURS,
@@ -43,7 +44,8 @@ import {
   cleCase,
   construireCharge,
   formaterValeur,
-  NOM_UNITE,
+  libelleGroupe,
+  nomUnite,
   rangeeActivite,
   rangeesDepuisCles,
   rangeesInitiales,
@@ -91,9 +93,11 @@ function groupes(rangees: readonly Rangee[]): { nom: string; rangees: Rangee[] }
 export function GrilleTemps(props: GrilleTempsProps) {
   const { feuille, unite, jours, joursClotures, activites, taches, modifiable, utilisateurId } =
     props;
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [rangees, setRangees] = useState<Rangee[]>(() =>
-    rangeesInitiales(feuille.lignes, taches, activites),
+    rangeesInitiales(feuille.lignes, taches, activites, [], langue),
   );
   const [valeurs, setValeurs] = useState<Record<string, string>>(() =>
     valeursInitiales(feuille.lignes, unite),
@@ -116,8 +120,9 @@ export function GrilleTemps(props: GrilleTempsProps) {
         i.valeurs,
         jours.filter((d) => !joursClotures.includes(d)),
         unite,
+        langue,
       ),
-    [jours, joursClotures, unite],
+    [jours, joursClotures, unite, langue],
   );
   const s = useSauvegardeFeuille({
     feuilleId: feuille.id,
@@ -129,7 +134,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
 
   function restaurer(i: Pick<Instantane, "rangees" | "valeurs">) {
     setValeurs(i.valeurs);
-    setRangees(rangeesInitiales(feuille.lignes, taches, activites, i.rangees));
+    setRangees(rangeesInitiales(feuille.lignes, taches, activites, i.rangees, langue));
   }
 
   // Reprise d'une saisie restée sur l'appareil (coupure, fermeture de l'onglet).
@@ -181,7 +186,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
   async function abandonnerSaisie(e: SaisieEnAttente) {
     await s.decider("abandonner", e);
     setValeurs(valeursInitiales(feuille.lignes, unite));
-    setRangees(rangeesInitiales(feuille.lignes, taches, activites));
+    setRangees(rangeesInitiales(feuille.lignes, taches, activites, [], langue));
     setReprise(false);
     rafraichir();
   }
@@ -226,8 +231,10 @@ export function GrilleTemps(props: GrilleTempsProps) {
     if (!ok) {
       setSoumission({
         enCours: false,
-        erreur:
+        erreur: t(
           "Le brouillon n'a pas pu être enregistré : corrigez la saisie ou attendez le retour du réseau, puis soumettez.",
+          "The draft could not be saved: correct the entry or wait for the network to return, then submit.",
+        ),
       });
       refErreur.current?.focus();
       return;
@@ -238,7 +245,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
       rafraichir();
       setSoumission({ enCours: false, erreur: null });
     } catch (e) {
-      setSoumission({ enCours: false, erreur: messageErreur(e) });
+      setSoumission({ enCours: false, erreur: messageErreur(e, langue) });
       refErreur.current?.focus();
     }
   }
@@ -265,15 +272,21 @@ export function GrilleTemps(props: GrilleTempsProps) {
   return (
     <div className="mp-pile">
       {reprise ? (
-        <Alerte tonalite="info" titre="Saisie restaurée">
+        <Alerte tonalite="info" titre={t("Saisie restaurée", "Entry restored")}>
           <p>
-            Des modifications faites hors connexion ont été retrouvées sur cet appareil : elles sont
-            en cours d&apos;envoi.
+            {t(
+              "Des modifications faites hors connexion ont été retrouvées sur cet appareil : elles sont en cours d'envoi.",
+              "Changes made offline were found on this device: they are being sent.",
+            )}
           </p>
         </Alerte>
       ) : null}
       {s.avertissements.map((a) => (
-        <Alerte key={a.code + a.message} tonalite="attention" titre="Capacité dépassée">
+        <Alerte
+          key={a.code + a.message}
+          tonalite="attention"
+          titre={t("Capacité dépassée", "Capacity exceeded")}
+        >
           <p>{a.message}</p>
         </Alerte>
       ))}
@@ -284,16 +297,18 @@ export function GrilleTemps(props: GrilleTempsProps) {
           onRenvoyer={modifiable ? () => renvoyerSaisie(s.deCote as SaisieEnAttente) : undefined}
           onAbandonner={() => abandonnerSaisie(s.deCote as SaisieEnAttente)}
           libelleRenvoyer={
-            s.deCote.motif?.code === CODE_MODIFIEE_AILLEURS ? "Garder ma saisie" : undefined
+            s.deCote.motif?.code === CODE_MODIFIEE_AILLEURS
+              ? t("Garder ma saisie", "Keep my entry")
+              : undefined
           }
           libelleAbandonner={
             s.deCote.motif?.code === CODE_MODIFIEE_AILLEURS
-              ? "Garder la version enregistrée"
+              ? t("Garder la version enregistrée", "Keep the saved version")
               : undefined
           }
         />
       ) : s.erreur ? (
-        <Alerte tonalite="danger" titre="Brouillon non enregistré">
+        <Alerte tonalite="danger" titre={t("Brouillon non enregistré", "Draft not saved")}>
           <p>{s.erreur}</p>
         </Alerte>
       ) : null}
@@ -308,38 +323,52 @@ export function GrilleTemps(props: GrilleTempsProps) {
 
       {modifiable ? (
         <CaseACocher
-          libelle="Afficher le samedi et le dimanche"
+          libelle={t("Afficher le samedi et le dimanche", "Show Saturday and Sunday")}
           checked={weekend || weekendRempli}
           disabled={weekendRempli}
-          aide={weekendRempli ? "Des temps sont saisis le week-end." : undefined}
+          aide={
+            weekendRempli
+              ? t("Des temps sont saisis le week-end.", "Time is entered on the weekend.")
+              : undefined
+          }
           onChange={(e) => setWeekend(e.target.checked)}
         />
       ) : null}
 
       {rangees.length === 0 ? (
         <p className="mp-texte-doux">
-          Aucune tâche affectée cette semaine. Ajoutez une activité interne ci-dessous si besoin.
+          {t(
+            "Aucune tâche affectée cette semaine. Ajoutez une activité interne ci-dessous si besoin.",
+            "No task assigned this week. Add an internal activity below if needed.",
+          )}
         </p>
       ) : (
         <div className="mp-feuille">
           <table className="mp-feuille__table">
             <caption className="mp-visuellement-cache">
-              {`Temps de la semaine, en ${NOM_UNITE[unite]}`}
+              {t(
+                `Temps de la semaine, en ${nomUnite(unite)}`,
+                `Time for the week, in ${nomUnite(unite, langue)}`,
+              )}
             </caption>
             <thead>
               <tr>
-                <th scope="col">Tâche ou activité</th>
+                <th scope="col">{t("Tâche ou activité", "Task or activity")}</th>
                 {(weekend || weekendRempli ? jours : visibles).map((d) => (
                   <th scope="col" key={d} className="mp-feuille__jour">
-                    <span aria-hidden="true">{libelleJourCourt(d)}</span>
-                    <span className="mp-visuellement-cache">{libelleJourLong(d)}</span>
+                    <span aria-hidden="true">{libelleJourCourt(d, langue)}</span>
+                    <span className="mp-visuellement-cache">{libelleJourLong(d, langue)}</span>
                     {clos.has(d) ? (
-                      <Icone nom="cadenas" taille={14} libelle="période clôturée" />
+                      <Icone
+                        nom="cadenas"
+                        taille={14}
+                        libelle={t("période clôturée", "closed period")}
+                      />
                     ) : null}
                   </th>
                 ))}
                 <th scope="col" className="mp-aligne-droite">
-                  Total
+                  {t("Total", "Total")}
                 </th>
               </tr>
             </thead>
@@ -347,21 +376,27 @@ export function GrilleTemps(props: GrilleTempsProps) {
               <tbody key={g.nom}>
                 <tr className="mp-feuille__groupe">
                   <th scope="colgroup" colSpan={(weekend || weekendRempli ? 7 : 5) + 2}>
-                    {g.nom}
+                    {libelleGroupe(g.nom, langue)}
                   </th>
                 </tr>
                 {g.rangees.map((r) => (
                   <tr key={r.cle}>
                     <th scope="row" className="mp-feuille__libelle">
                       {r.libelle}
-                      {r.est_absence ? <span className="mp-texte-doux"> (absence)</span> : null}
+                      {r.est_absence ? (
+                        <span className="mp-texte-doux"> {t("(absence)", "(absence)")}</span>
+                      ) : null}
                     </th>
                     {(weekend || weekendRempli ? jours : visibles).map((d) => {
                       const cle = cleCase(r.cle, d);
                       const erreur = s.erreursCases[cle];
                       const id = `case-${cle.replace(/[^a-z0-9]/gi, "")}`;
                       return (
-                        <td key={d} data-jour={libelleJourCourt(d)} className="mp-feuille__case">
+                        <td
+                          key={d}
+                          data-jour={libelleJourCourt(d, langue)}
+                          className="mp-feuille__case"
+                        >
                           {modifiable && !clos.has(d) ? (
                             <>
                               <input
@@ -372,7 +407,10 @@ export function GrilleTemps(props: GrilleTempsProps) {
                                 enterKeyHint="next"
                                 autoComplete="off"
                                 maxLength={6}
-                                aria-label={`${libelleJourLong(d)}, ${r.libelle}, en ${NOM_UNITE[unite]}`}
+                                aria-label={t(
+                                  `${libelleJourLong(d, langue)}, ${r.libelle}, en ${nomUnite(unite)}`,
+                                  `${libelleJourLong(d, langue)}, ${r.libelle}, in ${nomUnite(unite, langue)}`,
+                                )}
                                 aria-invalid={erreur ? true : undefined}
                                 aria-describedby={erreur ? `${id}-erreur` : undefined}
                                 value={valeurs[cle] ?? ""}
@@ -390,8 +428,8 @@ export function GrilleTemps(props: GrilleTempsProps) {
                         </td>
                       );
                     })}
-                    <td data-jour="Total" className="mp-feuille__total">
-                      {formaterValeur(totalRangee(r), unite)}
+                    <td data-jour={t("Total", "Total")} className="mp-feuille__total">
+                      {formaterValeur(totalRangee(r), unite, langue)}
                     </td>
                   </tr>
                 ))}
@@ -399,18 +437,18 @@ export function GrilleTemps(props: GrilleTempsProps) {
             ))}
             <tfoot>
               <tr>
-                <th scope="row">Total du jour</th>
+                <th scope="row">{t("Total du jour", "Daily total")}</th>
                 {(weekend || weekendRempli ? jours : visibles).map((d) => (
                   <td
                     key={d}
-                    data-jour={libelleJourCourt(d)}
+                    data-jour={libelleJourCourt(d, langue)}
                     className="mp-feuille__total mp-feuille__total--jour"
                   >
-                    {formaterValeur(totalJour(d), unite)}
+                    {formaterValeur(totalJour(d), unite, langue)}
                   </td>
                 ))}
-                <td data-jour="Semaine" className="mp-feuille__total">
-                  <strong>{formaterValeur(totalSemaine, unite)}</strong>
+                <td data-jour={t("Semaine", "Week")} className="mp-feuille__total">
+                  <strong>{formaterValeur(totalSemaine, unite, langue)}</strong>
                 </td>
               </tr>
             </tfoot>
@@ -430,16 +468,19 @@ export function GrilleTemps(props: GrilleTempsProps) {
           >
             <Icone nom={iconeSaisie(s.etat)} taille={18} />
             <span>
-              {MESSAGE_SAISIE[s.etat]}
-              {s.memoireSeule ? ` ${MESSAGE_MEMOIRE}` : ""}
+              {messageSaisie(s.etat, langue)}
+              {s.memoireSeule ? ` ${messageMemoire(langue)}` : ""}
             </span>
           </p>
           <p className="mp-feuille__semaine">
-            Semaine : <strong>{formaterValeur(totalSemaine, unite)}</strong>
+            {t("Semaine :", "Week:")} <strong>{formaterValeur(totalSemaine, unite, langue)}</strong>
           </p>
           {soumission.erreur ? (
             <div ref={refErreur} tabIndex={-1} className="mp-pleine-largeur">
-              <Alerte tonalite="danger" titre="Soumission impossible">
+              <Alerte
+                tonalite="danger"
+                titre={t("Soumission impossible", "Submission not possible")}
+              >
                 <p>{soumission.erreur}</p>
               </Alerte>
             </div>
@@ -447,7 +488,7 @@ export function GrilleTemps(props: GrilleTempsProps) {
           <Bouton
             icone="envoyer"
             chargement={soumission.enCours || attente}
-            texteChargement="Soumission…"
+            texteChargement={t("Soumission…", "Submitting…")}
             disabled={totalSemaine === 0}
             onClick={soumettre}
           >
@@ -466,12 +507,13 @@ function AjoutActivite({
   activites: ActiviteInterne[];
   onAjouter: (id: string) => void;
 }) {
+  const t = useT();
   const [choix, setChoix] = useState("");
   return (
     <div className="mp-ligne-action">
       <div className="mp-champ">
         <label className="mp-champ__libelle" htmlFor="ajout-activite">
-          Ajouter une activité interne
+          {t("Ajouter une activité interne", "Add an internal activity")}
         </label>
         <select
           id="ajout-activite"
@@ -479,7 +521,7 @@ function AjoutActivite({
           value={choix}
           onChange={(e) => setChoix(e.target.value)}
         >
-          <option value="">Choisir une activité…</option>
+          <option value="">{t("Choisir une activité…", "Choose an activity…")}</option>
           {activites.map((a) => (
             <option key={a.id} value={a.id}>
               {a.libelle}
@@ -496,7 +538,7 @@ function AjoutActivite({
           setChoix("");
         }}
       >
-        Ajouter
+        {t("Ajouter", "Add")}
       </Bouton>
     </div>
   );

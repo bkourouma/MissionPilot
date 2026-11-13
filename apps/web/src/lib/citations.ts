@@ -9,10 +9,16 @@
 import {
   LIVRABLE_CITATION_LIBELLES,
   LIVRABLES_CITATION,
+  type Langue,
   type LectureSoliditeApi,
   type LivrableCitation,
 } from "@missionpilot/shared";
-import { FIABILITES, formaterIndice, libelleLecture, TYPE_SOURCE_LIBELLES } from "./preuves";
+import {
+  formaterIndice,
+  libelleFiabiliteApi,
+  libelleLecture,
+  libelleTypeSourcePreuve,
+} from "./preuves";
 
 export { LIVRABLE_CITATION_LIBELLES, LIVRABLES_CITATION };
 export type { LivrableCitation };
@@ -49,7 +55,23 @@ export interface SourcesLivrableVue {
 export const MESSAGE_VERBATIM_MASQUE =
   "Verbatim nominatif masqué : accord de la personne non recueilli";
 
+export const MESSAGE_VERBATIM_MASQUE_EN =
+  "Named verbatim hidden: the person's consent was not obtained";
+
 export const TITRE_SECTION_CITATIONS = "Sources et citations";
+export const TITRE_SECTION_CITATIONS_EN = "Sources and citations";
+
+export const messageVerbatimMasque = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_VERBATIM_MASQUE_EN : MESSAGE_VERBATIM_MASQUE;
+export const titreSectionCitations = (langue: Langue = "fr") =>
+  langue === "en" ? TITRE_SECTION_CITATIONS_EN : TITRE_SECTION_CITATIONS;
+
+const LIVRABLE_CITATION_LIBELLES_EN: Record<LivrableCitation, string> = {
+  notation: "Rating",
+  plan: "Strategic plan",
+};
+export const libelleLivrableCitation = (l: LivrableCitation, langue: Langue = "fr") =>
+  (langue === "en" ? LIVRABLE_CITATION_LIBELLES_EN : LIVRABLE_CITATION_LIBELLES)[l];
 
 /** Le segment d'URL désigne-t-il un livrable cité ? */
 export function estLivrableCitation(v: string): v is LivrableCitation {
@@ -57,14 +79,17 @@ export function estLivrableCitation(v: string): v is LivrableCitation {
 }
 
 /** Libellé du type de source ; une valeur inconnue de cette version du web est affichée telle quelle. */
-export function libelleTypeSource(type: string): string {
-  return (TYPE_SOURCE_LIBELLES as Record<string, string>)[type] ?? type;
+export function libelleTypeSource(type: string, langue: Langue = "fr"): string {
+  return libelleTypeSourcePreuve(type, langue);
 }
 
 /** « Solide (0,875) » ; « Non évaluée » sans évaluation. Le texte porte seul le sens. */
-export function libelleSoliditeCitee(s: AssertionCiteeVue["solidite"]): string {
-  if (!s) return "Non évaluée";
-  const lecture = libelleLecture(s.lecture);
+export function libelleSoliditeCitee(
+  s: AssertionCiteeVue["solidite"],
+  langue: Langue = "fr",
+): string {
+  if (!s) return langue === "en" ? "Not rated" : "Non évaluée";
+  const lecture = libelleLecture(s.lecture, langue);
   return `${lecture} (${formaterIndice(s.indice)})`;
 }
 
@@ -74,14 +99,20 @@ export function formaterRenvois(numeros: readonly number[]): string {
 }
 
 /** « contre : [3] » ; chaîne vide sans renvoi. */
-export function formaterRenvoisContre(numeros: readonly number[]): string {
-  return numeros.length > 0 ? `contre : ${formaterRenvois(numeros)}` : "";
+export function formaterRenvoisContre(numeros: readonly number[], langue: Langue = "fr"): string {
+  return numeros.length > 0
+    ? `${langue === "en" ? "against" : "contre"} : ${formaterRenvois(numeros)}`
+    : "";
 }
 
 /** Phrase d'accessibilité d'un renvoi : « Source 3 : Entretien, Compte rendu du 12 mars ». */
-export function nomAccessibleRenvoi(numero: number, source: SourceCiteeVue | undefined): string {
+export function nomAccessibleRenvoi(
+  numero: number,
+  source: SourceCiteeVue | undefined,
+  langue: Langue = "fr",
+): string {
   return source
-    ? `Source ${numero} : ${libelleTypeSource(source.type_source)}, ${source.source_precise}`
+    ? `Source ${numero} : ${libelleTypeSource(source.type_source, langue)}, ${source.source_precise}`
     : `Source ${numero}`;
 }
 
@@ -110,8 +141,14 @@ export const hrefOuvertureCitation = (
 export const hrefLivrableCitant = (missionId: string, livrable: LivrableCitation) =>
   livrable === "plan" ? `/missions/${missionId}/plan` : `/missions/${missionId}/notation`;
 
-export const libelleRetourLivrable = (livrable: LivrableCitation) =>
-  livrable === "plan" ? "Revenir au plan stratégique" : "Revenir à la notation";
+export const libelleRetourLivrable = (livrable: LivrableCitation, langue: Langue = "fr") =>
+  langue === "en"
+    ? livrable === "plan"
+      ? "Back to the strategic plan"
+      : "Back to the rating"
+    : livrable === "plan"
+      ? "Revenir au plan stratégique"
+      : "Revenir à la notation";
 
 /** Numéro [n] → source, pour nommer les renvois. */
 export function indexerSources(sources: readonly SourceCiteeVue[]): Map<number, SourceCiteeVue> {
@@ -119,6 +156,6 @@ export function indexerSources(sources: readonly SourceCiteeVue[]): Map<number, 
 }
 
 /** « A · Très fiable » ; une valeur inconnue est affichée telle quelle. */
-export function libelleFiabiliteSource(fiabilite: string): string {
-  return (FIABILITES as Record<string, string>)[fiabilite] ?? fiabilite;
+export function libelleFiabiliteSource(fiabilite: string, langue: Langue = "fr"): string {
+  return libelleFiabiliteApi(fiabilite, langue);
 }

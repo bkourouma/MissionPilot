@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
+import { useT } from "../../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { EtatVide } from "../../../../../components/ui/EtatListe";
 import { api } from "../../../../../lib/api";
@@ -28,6 +29,7 @@ export interface ArbreDecoupageProps {
  * boutons « Monter », « Descendre » et « Déplacer vers… » ; le résultat est annoncé.
  */
 export function ArbreDecoupage(props: ArbreDecoupageProps) {
+  const t = useT();
   const f = useFormulaire<never>();
   const [annonce, setAnnonce] = useState("");
   const [ajoutPhase, setAjoutPhase] = useState(false);
@@ -50,18 +52,31 @@ export function ArbreDecoupage(props: ArbreDecoupageProps) {
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
       {phases.length === 0 ? (
-        <EtatVide titre="Le découpage est vide." icone="livre">
+        <EtatVide titre={t("Le découpage est vide.", "The work breakdown is empty.")} icone="livre">
           {props.droits.planifier ? (
-            <p>Ajoutez une première phase, puis ses lots et ses tâches.</p>
+            <p>
+              {t(
+                "Ajoutez une première phase, puis ses lots et ses tâches.",
+                "Add a first phase, then its work packages and tasks.",
+              )}
+            </p>
           ) : (
-            <p>Le chef de mission n&apos;a pas encore découpé cette mission.</p>
+            <p>
+              {t(
+                "Le chef de mission n'a pas encore découpé cette mission.",
+                "The engagement manager has not yet broken down this engagement.",
+              )}
+            </p>
           )}
         </EtatVide>
       ) : (
-        <ol className="mp-arbre" aria-label="Découpage de la mission">
+        <ol
+          className="mp-arbre"
+          aria-label={t("Découpage de la mission", "Engagement work breakdown")}
+        >
           {phases.map((p, i) => (
             <NoeudPhase key={p.id} phase={p} rang={i} total={phases.length} ctx={ctx} />
           ))}
@@ -70,8 +85,8 @@ export function ArbreDecoupage(props: ArbreDecoupageProps) {
       {props.droits.planifier ? (
         ajoutPhase ? (
           <FormulaireLibelle
-            titre="Nouvelle phase"
-            libelleEnvoi="Ajouter la phase"
+            titre={t("Nouvelle phase", "New phase")}
+            libelleEnvoi={t("Ajouter la phase", "Add the phase")}
             initial={{ libelle: "" }}
             avecLivrable={false}
             onAnnuler={() => setAjoutPhase(false)}
@@ -80,7 +95,7 @@ export function ArbreDecoupage(props: ArbreDecoupageProps) {
         ) : (
           <div>
             <Bouton variante="secondaire" icone="plus" onClick={() => setAjoutPhase(true)}>
-              Ajouter une phase
+              {t("Ajouter une phase", "Add a phase")}
             </Bouton>
           </div>
         )

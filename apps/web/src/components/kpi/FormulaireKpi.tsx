@@ -13,12 +13,19 @@ import { api } from "../../lib/api";
 import { formaterDate } from "../../lib/format";
 import {
   FREQUENCE_LIBELLES,
+  FREQUENCE_LIBELLES_EN,
   hrefKpi,
   hrefTableauKpi,
+  libelleFrequence,
+  libelleNature,
+  libelleSens,
   messageKpi,
   NATURE_LIBELLES,
+  NATURE_LIBELLES_EN,
   PERSPECTIVE_LIBELLES,
+  PERSPECTIVE_LIBELLES_EN,
   SENS_LIBELLES,
+  SENS_LIBELLES_EN,
   cheminKpi,
   cheminKpiMission,
   type DetailKpi,
@@ -36,6 +43,7 @@ import {
   type ChampKpi,
   type SaisieKpi,
 } from "../../lib/kpi-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -68,6 +76,8 @@ export function FormulaireKpi({
   proprietaires,
   aujourdhui,
 }: FormulaireKpiProps) {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const f = useFormulaire<ChampKpi>();
   const [s, setS] = useState<SaisieKpi>(() =>
@@ -82,7 +92,13 @@ export function FormulaireKpi({
     initial?.proprietaire_id && !proprietaires.some((p) => p.valeur === initial.proprietaire_id)
       ? [
           ...proprietaires,
-          { valeur: initial.proprietaire_id, libelle: "Propriétaire actuel (hors de l'équipe)" },
+          {
+            valeur: initial.proprietaire_id,
+            libelle: t(
+              "Propriétaire actuel (hors de l'équipe)",
+              "Current owner (outside the team)",
+            ),
+          },
         ]
       : proprietaires;
   const maj = <K extends ChampKpi>(cle: K, v: SaisieKpi[K]) => {
@@ -99,23 +115,23 @@ export function FormulaireKpi({
     e.preventDefault();
     const ctx = { aujourdhui, proprietaires: proprietaires.map((p) => p.valeur) };
     if (initial) {
-      const v = validerModificationKpi(s, initial, ctx);
+      const v = validerModificationKpi(s, initial, ctx, langue);
       if (!v.ok && v.inchange) {
         setInchange(true);
         return;
       }
       await f.envoyer(v, (charge) => api.patch<DetailKpi>(cheminKpi(initial.id), charge), {
-        messageSpecifique: messageKpi,
+        messageSpecifique: (e) => messageKpi(e, langue),
         rafraichir: false,
         apres: (r) => router.push(hrefKpi(missionId, r.id, { modifie: "1" })),
       });
       return;
     }
     await f.envoyer(
-      validerCreationKpi(s, ctx),
+      validerCreationKpi(s, ctx, langue),
       (charge) => api.post<DetailKpi>(cheminKpiMission(missionId), charge),
       {
-        messageSpecifique: messageKpi,
+        messageSpecifique: (e) => messageKpi(e, langue),
         rafraichir: false,
         apres: (r) => router.push(hrefKpi(missionId, r.id, { cree: "1" })),
       },
@@ -128,81 +144,121 @@ export function FormulaireKpi({
       className="mp-formulaire mp-kpi-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={creation ? "Définir un KPI" : `Modifier le KPI ${initial.libelle}`}
+      aria-label={
+        creation
+          ? t("Définir un KPI", "Define a KPI")
+          : t(`Modifier le KPI ${initial.libelle}`, `Edit the KPI ${initial.libelle}`)
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur={creation ? "Création refusée" : "Modification refusée"}
+        titreErreur={
+          creation
+            ? t("Création refusée", "Creation refused")
+            : t("Modification refusée", "Edit refused")
+        }
       />
       {inchange ? (
         <Alerte tonalite="info" annonce="status">
-          <p>Aucune modification à enregistrer.</p>
+          <p>{t("Aucune modification à enregistrer.", "No change to save.")}</p>
         </Alerte>
       ) : null}
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Identification</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Identification", "Identification")}
+        </legend>
         <div className="mp-grille-champs">
-          <Champ libelle="Libellé" required maxLength={LIBELLE_MAX} {...texte("libelle")} />
           <Champ
-            libelle="Unité"
+            libelle={t("Libellé", "Label")}
+            required
+            maxLength={LIBELLE_MAX}
+            {...texte("libelle")}
+          />
+          <Champ
+            libelle={t("Unité", "Unit")}
             required
             maxLength={UNITE_MAX}
-            aide="Ex. FCFA, kFCFA, %, jours, clients."
+            aide={t("Ex. FCFA, kFCFA, %, jours, clients.", "E.g. FCFA, kFCFA, %, days, clients.")}
             {...texte("unite")}
           />
           <Select
-            libelle="Perspective"
-            invite="Sans perspective"
-            options={options(PERSPECTIVES_KPI, PERSPECTIVE_LIBELLES)}
-            aide="Regroupement du tableau de bord prospectif."
+            libelle={t("Perspective", "Perspective")}
+            invite={t("Sans perspective", "No perspective")}
+            options={options(
+              PERSPECTIVES_KPI,
+              langue === "en" ? PERSPECTIVE_LIBELLES_EN : PERSPECTIVE_LIBELLES,
+            )}
+            aide={t(
+              "Regroupement du tableau de bord prospectif.",
+              "Grouping of the balanced scorecard.",
+            )}
             {...texte("perspective")}
           />
         </div>
         <ZoneTexte
-          libelle="Description"
+          libelle={t("Description", "Description")}
           rows={3}
           maxLength={DESCRIPTION_MAX}
-          aide="Définition, source et mode de calcul de la valeur saisie."
+          aide={t(
+            "Définition, source et mode de calcul de la valeur saisie.",
+            "Definition, source and calculation method of the entered value.",
+          )}
           {...texte("description")}
         />
       </fieldset>
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Lecture et périodicité</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Lecture et périodicité", "Reading and frequency")}
+        </legend>
         {creation ? (
           <>
             <p className="mp-texte-doux">
-              Ces quatre réglages sont figés une fois le KPI créé : ils déterminent le calcul de
-              chaque période.
+              {t(
+                "Ces quatre réglages sont figés une fois le KPI créé : ils déterminent le calcul de chaque période.",
+                "These four settings are frozen once the KPI is created: they determine the calculation of each period.",
+              )}
             </p>
             <div className="mp-grille-champs">
               <Select
-                libelle="Sens de lecture"
+                libelle={t("Sens de lecture", "Reading direction")}
                 required
-                options={options(SENS_LECTURE_KPI, SENS_LIBELLES)}
+                options={options(
+                  SENS_LECTURE_KPI,
+                  langue === "en" ? SENS_LIBELLES_EN : SENS_LIBELLES,
+                )}
                 {...texte("sens")}
               />
               <Select
-                libelle="Nature"
+                libelle={t("Nature", "Type")}
                 required
-                options={options(NATURES_KPI, NATURE_LIBELLES)}
+                options={options(
+                  NATURES_KPI,
+                  langue === "en" ? NATURE_LIBELLES_EN : NATURE_LIBELLES,
+                )}
                 {...texte("nature")}
               />
               <Select
-                libelle="Fréquence de mesure"
+                libelle={t("Fréquence de mesure", "Measurement frequency")}
                 required
-                options={options(FREQUENCES_KPI, FREQUENCE_LIBELLES)}
+                options={options(
+                  FREQUENCES_KPI,
+                  langue === "en" ? FREQUENCE_LIBELLES_EN : FREQUENCE_LIBELLES,
+                )}
                 {...texte("frequence")}
               />
               <Champ
-                libelle="Début du suivi"
+                libelle={t("Début du suivi", "Tracking start")}
                 type="date"
                 required
                 min={ilYaDixAns(aujourdhui)}
-                aide={`Ramené au premier jour de sa période ; au plus 10 ans en arrière (pas avant le ${formaterDate(ilYaDixAns(aujourdhui))}).`}
+                aide={t(
+                  `Ramené au premier jour de sa période ; au plus 10 ans en arrière (pas avant le ${formaterDate(ilYaDixAns(aujourdhui), "UTC", langue)}).`,
+                  `Moved back to the first day of its period; at most 10 years back (not before ${formaterDate(ilYaDixAns(aujourdhui), "UTC", langue)}).`,
+                )}
                 {...texte("debut_suivi")}
               />
             </div>
@@ -210,132 +266,172 @@ export function FormulaireKpi({
         ) : (
           <dl className="mp-liste-def">
             <div>
-              <dt>Sens de lecture</dt>
-              <dd>{SENS_LIBELLES[initial.sens]}</dd>
+              <dt>{t("Sens de lecture", "Reading direction")}</dt>
+              <dd>{libelleSens(initial.sens, langue)}</dd>
             </div>
             <div>
-              <dt>Nature</dt>
-              <dd>{NATURE_LIBELLES[initial.nature]}</dd>
+              <dt>{t("Nature", "Type")}</dt>
+              <dd>{libelleNature(initial.nature, langue)}</dd>
             </div>
             <div>
-              <dt>Fréquence</dt>
-              <dd>{FREQUENCE_LIBELLES[initial.frequence]}</dd>
+              <dt>{t("Fréquence", "Frequency")}</dt>
+              <dd>{libelleFrequence(initial.frequence, langue)}</dd>
             </div>
             <div>
-              <dt>Début du suivi</dt>
-              <dd>{formaterDate(initial.debut_suivi)} (figé)</dd>
+              <dt>{t("Début du suivi", "Tracking start")}</dt>
+              <dd>
+                {formaterDate(initial.debut_suivi, "UTC", langue)} {t("(figé)", "(frozen)")}
+              </dd>
             </div>
           </dl>
         )}
         <div className="mp-grille-champs">
           <Champ
-            libelle="Fin du suivi"
+            libelle={t("Fin du suivi", "Tracking end")}
             type="date"
-            aide="Facultative : après cette date, plus aucune mesure n'est attendue."
+            aide={t(
+              "Facultative : après cette date, plus aucune mesure n'est attendue.",
+              "Optional: after this date, no more measurements are expected.",
+            )}
             {...texte("fin_suivi")}
           />
         </div>
       </fieldset>
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Cible et pondération</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Cible et pondération", "Target and weighting")}
+        </legend>
         <div className="mp-grille-champs">
           {creation ? (
             <Champ
-              libelle="Cible initiale"
+              libelle={t("Cible initiale", "Initial target")}
               inputMode="decimal"
               autoComplete="off"
-              aide="Facultative ; 15 chiffres significatifs et 6 décimales au plus. Les cibles suivantes se versionnent depuis la fiche du KPI."
+              aide={t(
+                "Facultative ; 15 chiffres significatifs et 6 décimales au plus. Les cibles suivantes se versionnent depuis la fiche du KPI.",
+                "Optional; 15 significant digits and 6 decimals at most. Later targets are versioned from the KPI page.",
+              )}
               {...texte("cible")}
             />
           ) : null}
           <Champ
-            libelle="Pondération"
+            libelle={t("Pondération", "Weighting")}
             required
             inputMode="decimal"
             autoComplete="off"
-            aide="Poids dans le score composite (0 à 1 000 ; 0 : suivi sans effet sur le score)."
+            aide={t(
+              "Poids dans le score composite (0 à 1 000 ; 0 : suivi sans effet sur le score).",
+              "Weight in the composite score (0 to 1,000; 0: tracking with no effect on the score).",
+            )}
             {...texte("ponderation")}
           />
         </div>
       </fieldset>
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Seuils de statut (facultatifs)</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Seuils de statut (facultatifs)", "Status thresholds (optional)")}
+        </legend>
         <p className="mp-texte-doux">
-          En pourcentage d&apos;atteinte de la cible. Sans seuils propres : vert dès 95 %, orange de
-          80 % à 95 %, rouge en dessous.
+          {t(
+            "En pourcentage d'atteinte de la cible. Sans seuils propres : vert dès 95 %, orange de 80 % à 95 %, rouge en dessous.",
+            "As a percentage of target attainment. Without own thresholds: green from 95%, orange from 80% to 95%, red below.",
+          )}
         </p>
         <div className="mp-grille-champs">
           <Champ
-            libelle="Vert à partir de (%)"
+            libelle={t("Vert à partir de (%)", "Green from (%)")}
             inputMode="decimal"
             autoComplete="off"
             {...texte("seuil_vert")}
           />
           <Champ
-            libelle="Orange à partir de (%)"
+            libelle={t("Orange à partir de (%)", "Orange from (%)")}
             inputMode="decimal"
             autoComplete="off"
-            aide="Inférieur au seuil vert."
+            aide={t("Inférieur au seuil vert.", "Lower than the green threshold.")}
             {...texte("seuil_orange")}
           />
         </div>
       </fieldset>
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Seuils d&apos;alerte (facultatifs)</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Seuils d'alerte (facultatifs)", "Alert thresholds (optional)")}
+        </legend>
         <div className="mp-grille-champs">
           <Champ
-            libelle="Alerte si la valeur dépasse"
+            libelle={t("Alerte si la valeur dépasse", "Alert if the value exceeds")}
             inputMode="decimal"
             autoComplete="off"
             {...texte("alerte_haut")}
           />
           <Champ
-            libelle="Alerte si la valeur passe sous"
+            libelle={t("Alerte si la valeur passe sous", "Alert if the value falls below")}
             inputMode="decimal"
             autoComplete="off"
             {...texte("alerte_bas")}
           />
           <Champ
-            libelle="Variation maximale d'une période à l'autre (%)"
+            libelle={t(
+              "Variation maximale d'une période à l'autre (%)",
+              "Maximum change from one period to the next (%)",
+            )}
             inputMode="decimal"
             autoComplete="off"
-            aide="Ex. 20 : alerte si la valeur varie de plus de 20 % (à la hausse ou à la baisse)."
+            aide={t(
+              "Ex. 20 : alerte si la valeur varie de plus de 20 % (à la hausse ou à la baisse).",
+              "E.g. 20: alert if the value changes by more than 20% (up or down).",
+            )}
             {...texte("alerte_variation")}
           />
         </div>
       </fieldset>
 
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Suivi</legend>
+        <legend className="mp-groupe-section__titre">{t("Suivi", "Follow-up")}</legend>
         <div className="mp-grille-champs">
           <Select
-            libelle="Propriétaire"
-            invite="Aucun propriétaire"
+            libelle={t("Propriétaire", "Owner")}
+            invite={t("Aucun propriétaire", "No owner")}
             options={choixProprietaires}
-            aide="Reçoit les alertes et les rappels ; choisi parmi le directeur, le chef et l'équipe de la mission."
+            aide={t(
+              "Reçoit les alertes et les rappels ; choisi parmi le directeur, le chef et l'équipe de la mission.",
+              "Receives alerts and reminders; chosen among the engagement director, manager and team.",
+            )}
             {...texte("proprietaire_id")}
           />
         </div>
         <CaseACocher
-          libelle="Rappels de saisie actifs pour ce KPI"
-          aide="Rappels au propriétaire et aux contributeurs du client quand une mesure est en retard (si les rappels du cabinet sont actifs)."
+          libelle={t(
+            "Rappels de saisie actifs pour ce KPI",
+            "Data entry reminders active for this KPI",
+          )}
+          aide={t(
+            "Rappels au propriétaire et aux contributeurs du client quand une mesure est en retard (si les rappels du cabinet sont actifs).",
+            "Reminders to the owner and the client's contributors when a measurement is overdue (if the firm's reminders are active).",
+          )}
           checked={s.rappels_actifs}
           onChange={(e) => maj("rappels_actifs", e.target.checked)}
         />
       </fieldset>
 
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {creation ? "Créer le KPI" : "Enregistrer les modifications"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {creation
+            ? t("Créer le KPI", "Create the KPI")
+            : t("Enregistrer les modifications", "Save changes")}
         </Bouton>
         <Link
           href={initial ? hrefKpi(missionId, initial.id) : hrefTableauKpi(missionId)}
           className={classesBouton("discret")}
         >
-          Annuler
+          {t("Annuler", "Cancel")}
         </Link>
       </div>
     </form>

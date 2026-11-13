@@ -4,6 +4,8 @@ import {
   OPTIONS_ATELIER_MIN,
   STATUT_ATELIER_LIBELLES,
   aPermission,
+  creerTraduire,
+  type Langue,
   type MethodeAtelier,
   type Role,
   type StatutAtelier,
@@ -20,9 +22,22 @@ export const TONALITE_STATUT_ATELIER: Record<StatutAtelier, TonaliteStatut> = {
   ouvert: "succes",
   clos: "neutre",
 };
-export const libelleStatutAtelier = (s: string) =>
-  STATUT_ATELIER_LIBELLES[s as StatutAtelier] ?? "—";
-export const libelleMethode = (m: string) => METHODE_ATELIER_LIBELLES[m as MethodeAtelier] ?? m;
+export const STATUT_ATELIER_LIBELLES_EN: Record<StatutAtelier, string> = {
+  brouillon: "Draft",
+  ouvert: "Open",
+  clos: "Closed",
+};
+export const libelleStatutAtelier = (s: string, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_ATELIER_LIBELLES_EN : STATUT_ATELIER_LIBELLES)[s as StatutAtelier] ??
+  "—";
+export const METHODE_ATELIER_LIBELLES_EN: Record<MethodeAtelier, string> = {
+  vote: "Point voting",
+  priorisation: "Ranking",
+  matrice: "Impact / effort matrix",
+};
+export const libelleMethode = (m: string, langue: Langue = "fr") =>
+  (langue === "en" ? METHODE_ATELIER_LIBELLES_EN : METHODE_ATELIER_LIBELLES)[m as MethodeAtelier] ??
+  m;
 
 export const QUADRANT_LIBELLES: Record<string, string> = {
   gains_rapides: "Gains rapides",
@@ -30,28 +45,48 @@ export const QUADRANT_LIBELLES: Record<string, string> = {
   complements: "Compléments",
   a_ecarter: "À écarter",
 };
-export const libelleQuadrant = (q: string | null) =>
-  q === null ? "Non placée" : (QUADRANT_LIBELLES[q] ?? q);
+export const QUADRANT_LIBELLES_EN: Record<string, string> = {
+  gains_rapides: "Quick wins",
+  projets_majeurs: "Major projects",
+  complements: "Fill-ins",
+  a_ecarter: "To drop",
+};
+export const libelleQuadrant = (q: string | null, langue: Langue = "fr") => {
+  if (q === null) return langue === "en" ? "Not placed" : "Non placée";
+  return (langue === "en" ? QUADRANT_LIBELLES_EN : QUADRANT_LIBELLES)[q] ?? q;
+};
 
 /** Centièmes de pourcent du moteur → « 66,67 % » (présentation seule). */
-export function formaterTauxCentiemes(n: number | null | undefined): string {
-  return n === null || n === undefined ? "—" : `${formaterNombre(n / 100, 2)} %`;
+export function formaterTauxCentiemes(n: number | null | undefined, langue: Langue = "fr"): string {
+  return n === null || n === undefined
+    ? "—"
+    : `${formaterNombre(n / 100, 2, langue)}${langue === "en" ? "%" : " %"}`;
 }
 
 /** Centièmes du moteur (moyenne, rang moyen) → « 4,00 » (présentation seule). */
-export function formaterCentiemes(n: number | null | undefined): string {
-  return n === null || n === undefined ? "—" : formaterNombre(n / 100, 2);
+export function formaterCentiemes(n: number | null | undefined, langue: Langue = "fr"): string {
+  return n === null || n === undefined ? "—" : formaterNombre(n / 100, 2, langue);
 }
 
 /** Phrase de participation pendant l'atelier. */
-export function phraseParticipation(p: ParticipationAtelier): string {
+export function phraseParticipation(p: ParticipationAtelier, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    if (p.ayant_contribue === null)
+      return `${p.invites} ${p.invites > 1 ? "people" : "person"} invited.`;
+    return `${p.ayant_contribue} ${p.ayant_contribue > 1 ? "participants" : "participant"} out of ${p.invites} invited (${formaterTauxCentiemes(p.taux_centiemes_pourcent, langue)}).`;
+  }
   if (p.ayant_contribue === null)
     return `${p.invites} personne${p.invites > 1 ? "s" : ""} invitée${p.invites > 1 ? "s" : ""}.`;
   return `${p.ayant_contribue} participant${p.ayant_contribue > 1 ? "s" : ""} sur ${p.invites} invité${p.invites > 1 ? "s" : ""} (${formaterTauxCentiemes(p.taux_centiemes_pourcent)}).`;
 }
 
-export const libelleOption = (options: readonly { id: string; libelle: string }[], id: string) =>
-  options.find((o) => o.id === id)?.libelle ?? "Option retirée";
+export const libelleOption = (
+  options: readonly { id: string; libelle: string }[],
+  id: string,
+  langue: Langue = "fr",
+) =>
+  options.find((o) => o.id === id)?.libelle ??
+  (langue === "en" ? "Option removed" : "Option retirée");
 
 /** Lignes d'un tableau de résultats, dans l'ordre des rangs (le moteur a déjà tranché les égalités). */
 export function lignesParRang<T extends { rang: number }>(lignes: readonly T[]): T[] {
@@ -93,9 +128,14 @@ export function peutContribuerCabinet(
 /** Pourquoi « Ouvrir » n'est pas proposé (null s'il l'est). */
 export function raisonOuvertureImpossible(
   a: Pick<AtelierDetail, "statut" | "options" | "participants">,
+  langue: Langue = "fr",
 ): string | null {
-  if (a.statut !== "brouillon") return "Seul un atelier en brouillon s'ouvre.";
-  if (a.options.length < OPTIONS_ATELIER_MIN) return "Ajoutez au moins deux options.";
-  if (a.participants.length < 1) return "Invitez au moins un participant.";
+  const t = creerTraduire(langue);
+  if (a.statut !== "brouillon")
+    return t("Seul un atelier en brouillon s'ouvre.", "Only a draft workshop can be opened.");
+  if (a.options.length < OPTIONS_ATELIER_MIN)
+    return t("Ajoutez au moins deux options.", "Add at least two options.");
+  if (a.participants.length < 1)
+    return t("Invitez au moins un participant.", "Invite at least one participant.");
   return null;
 }

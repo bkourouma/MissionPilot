@@ -13,6 +13,7 @@ import {
 } from "../../lib/plan-bibliotheque";
 import { optionsResponsables, type PersonnePlan } from "../../lib/plan-elements";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
@@ -41,6 +42,8 @@ export function CreationDepuisBibliotheque({
   parents,
   personnes,
 }: CreationDepuisBibliothequeProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const f = useFormulaire<keyof SaisieDepuisBibliotheque>();
   const [ouvert, setOuvert] = useState(false);
@@ -53,7 +56,7 @@ export function CreationDepuisBibliotheque({
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const v = validerDepuisBibliotheque(type, s, devisePlan);
+    const v = validerDepuisBibliotheque(type, s, devisePlan, langue);
     const validation: Resultat<Record<string, unknown>, keyof SaisieDepuisBibliotheque> = v.corps
       ? { ok: true, charge: v.corps }
       : { ok: false, erreurs: v.erreurs };
@@ -61,8 +64,11 @@ export function CreationDepuisBibliotheque({
       validation,
       (corps) => api.post(cheminDepuisBibliotheque(planId), corps),
       {
-        succes: "Initiative ajoutée au plan (brouillon à valider).",
-        messageSpecifique: messageBibliotheque,
+        succes: t(
+          "Initiative ajoutée au plan (brouillon à valider).",
+          "Initiative added to the plan (draft to be approved).",
+        ),
+        messageSpecifique: (e) => messageBibliotheque(e, langue),
       },
     );
     if (ok) {
@@ -83,12 +89,15 @@ export function CreationDepuisBibliotheque({
             disabled={parents.length === 0}
             onClick={() => setOuvert(true)}
           >
-            Ajouter au plan
+            {t("Ajouter au plan", "Add to plan")}
           </Bouton>
         </div>
         {parents.length === 0 ? (
           <p className="mp-texte-doux mp-texte-petit">
-            Rédigez d&apos;abord un axe ou un objectif dans l&apos;onglet « Contenus ».
+            {t(
+              "Rédigez d'abord un axe ou un objectif dans l'onglet « Contenus ».",
+              "First write an axis or an objective in the \u201cContent\u201d tab.",
+            )}
           </p>
         ) : null}
       </div>
@@ -101,52 +110,60 @@ export function CreationDepuisBibliotheque({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Ajouter « ${type.titre} » au plan`}
+      aria-label={t(
+        `Ajouter « ${type.titre} » au plan`,
+        `Add \u201c${type.titre}\u201d to the plan`,
+      )}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Ajout refusé"
+        titreErreur={t("Ajout refusé", "Add refused")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Rattacher à"
+          libelle={t("Rattacher à", "Attach to")}
           required
-          invite="Choisir un axe ou un objectif"
+          invite={t("Choisir un axe ou un objectif", "Choose an axis or an objective")}
           options={[...parents]}
           {...champ("parent_id")}
         />
-        <Champ libelle="Début" type="date" required {...champ("debut")} />
+        <Champ libelle={t("Début", "Start")} type="date" required {...champ("debut")} />
         <Champ
-          libelle="Échéance"
+          libelle={t("Échéance", "Due date")}
           type="date"
-          aide="Vide : début + durée type, calculée par le moteur."
+          aide={t(
+            "Vide : début + durée type, calculée par le moteur.",
+            "Empty: start + standard duration, computed by the engine.",
+          )}
           {...champ("echeance")}
         />
         <Champ
           libelle={`Budget (${libelleDevise(devisePlan)})`}
           inputMode="decimal"
-          aide={type.devise === devisePlan ? "Vide : coût type." : undefined}
+          aide={
+            type.devise === devisePlan ? t("Vide : coût type.", "Empty: standard cost.") : undefined
+          }
           {...champ("budget")}
         />
         <Champ
-          libelle="Titre"
+          libelle={t("Titre", "Title")}
           maxLength={200}
-          aide="Vide : titre de l'initiative type."
+          aide={t("Vide : titre de l'initiative type.", "Empty: title of the standard initiative.")}
           {...champ("titre")}
         />
         <Select
-          libelle="Responsable"
-          options={optionsResponsables(personnes, null)}
+          libelle={t("Responsable", "Owner")}
+          options={optionsResponsables(personnes, null, langue)}
           {...champ("responsable_id")}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Ajout…", "Adding…")}>
+          {t("Ajouter", "Add")}
         </Bouton>
         <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setOuvert(false)}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
