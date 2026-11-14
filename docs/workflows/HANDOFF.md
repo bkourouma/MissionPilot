@@ -33,9 +33,14 @@ Copie principale `D:\APP\MissionPilot`, base `main` @ `e8ea7e6` (PR n° 26 fusio
   `lang`, contenus) et en français ; erreur d'API anglaise avec `x-mp-langue: en`. Contrôle par script : aucun composant
   serveur `async` ni `obtenirT` atteignable depuis un fichier `"use client"`.
 
-**Reste.** Suite API complète (lancée en local le 2026-11-13, voir la PR) ; commit de la passe de traduction, poussée de la
-branche, PR (fusion = accord de l'utilisateur ; fusionner dans `main` déploie). Non vérifié à l'écran (le volet du navigateur
-ne dessinait pas) : sélecteur après connexion, écrans du portail client et de la console plateforme en anglais.
+**État.** Commits `4b4a12e` (socle), `911da1b` (traduction), `cb78ede` (test daté) poussés ; **PR n° 27 ouverte**
+(https://github.com/bkourouma/MissionPilot/pull/27), CI en cours au 2026-11-14. Suite API locale : 3 856 / 3 863 ; 6 échecs
+de charge (délais, réveil du worker) qui passent fichier seul, et `feuilles-temps.test.ts` « discipline de saisie », qui
+échouait depuis le 2026-11-08 quel que soit le code (horodatages réels de la soumission et de la création du collaborateur) :
+corrigé par `cb78ede`.
+
+**Reste.** Fusion de la PR n° 27 = accord de l'utilisateur (fusionner dans `main` déploie). Non vérifié à l'écran (le volet du
+navigateur ne dessinait pas) : sélecteur après connexion, écrans du portail client et de la console plateforme en anglais.
 
 **Pièges et limites.**
 - Restent en français par nature (données) : contenus stockés ou produits par l'API (libellés de lignes de budget, grades et
