@@ -5,6 +5,7 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { obtenirT } from "../../../../lib/i18n/serveur";
 import { CHEMIN_SECURITE_COMPTE } from "../../../../lib/navigation";
 import {
   CHEMIN_PARAMETRES_PORTAIL,
@@ -14,7 +15,10 @@ import {
 import { exigerPermission } from "../../../../lib/session";
 import { FormulairePolitiquePortail } from "./FormulairePolitiquePortail";
 
-export const metadata: Metadata = { title: "Portail client" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Portail client", "Client portal") };
+}
 
 /**
  * Politique de sécurité du portail client (SOC-09) : double authentification exigée ou non
@@ -23,18 +27,30 @@ export const metadata: Metadata = { title: "Portail client" };
  */
 export default async function PageParametresPortail() {
   const session = await exigerPermission("cabinet.gerer");
+  const t = await obtenirT();
   const r = await chargerServeur<ParametresPortail>(CHEMIN_PARAMETRES_PORTAIL);
   const tfaActive = session.tfa_active === true;
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Portail client"
-        soustitre="Sécurité des accès que vos clients utilisent sur le portail. Ce que voit chaque client se règle depuis sa fiche, onglet « Portail client »."
+        titre={t("Portail client", "Client portal")}
+        soustitre={t(
+          "Sécurité des accès que vos clients utilisent sur le portail. Ce que voit chaque client se règle depuis sa fiche, onglet « Portail client ».",
+          "Security of the access your clients use on the portal. What each client sees is set from their profile, \u201cClient portal\u201d tab.",
+        )}
       />
-      <Carte titre="Double authentification des utilisateurs du portail">
+      <Carte
+        titre={t(
+          "Double authentification des utilisateurs du portail",
+          "Two-factor authentication of portal users",
+        )}
+      >
         {!r.ok ? (
           <EtatErreur
-            titre="La politique du portail n'a pas pu être chargée."
+            titre={t(
+              "La politique du portail n'a pas pu être chargée.",
+              "The portal policy could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={HREF_POLITIQUE_PORTAIL}
           />
@@ -44,18 +60,30 @@ export default async function PageParametresPortail() {
               <Alerte
                 tonalite="attention"
                 annonce="aucune"
-                titre="Votre double authentification n'est pas active"
+                titre={t(
+                  "Votre double authentification n'est pas active",
+                  "Your two-factor authentication is not active",
+                )}
               >
                 <p>
-                  Modifier cette politique exige votre mot de passe et un code de votre application.{" "}
-                  <Link href={CHEMIN_SECURITE_COMPTE}>Activer ma double authentification</Link>
+                  {t(
+                    "Modifier cette politique exige votre mot de passe et un code de votre application.",
+                    "Changing this policy requires your password and a code from your app.",
+                  )}{" "}
+                  <Link href={CHEMIN_SECURITE_COMPTE}>
+                    {t(
+                      "Activer ma double authentification",
+                      "Turn on my two-factor authentication",
+                    )}
+                  </Link>
                 </p>
               </Alerte>
             )}
             <p className="mp-texte-doux">
-              {
-                "Les comptes du cabinet ne sont pas concernés : leur politique se règle dans « Sécurité »."
-              }
+              {t(
+                "Les comptes du cabinet ne sont pas concernés : leur politique se règle dans « Sécurité ».",
+                "Firm accounts are not affected: their policy is set in \u201cSecurity\u201d.",
+              )}
             </p>
             <FormulairePolitiquePortail parametres={r.donnees} tfaActive={tfaActive} />
           </div>

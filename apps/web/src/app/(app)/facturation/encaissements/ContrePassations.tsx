@@ -11,6 +11,7 @@ import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
 import { ZoneTexte } from "../../../../components/ui/ZoneTexte";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../lib/api";
 import {
   messageEncaissement,
@@ -33,8 +34,14 @@ export function ContrePassationsEnAttente({
   utilisateurId: string;
   roles: readonly Role[];
 }) {
+  const t = useT();
   return (
-    <Carte titre={`Contre-passations à valider (${demandes.length})`}>
+    <Carte
+      titre={t(
+        `Contre-passations à valider (${demandes.length})`,
+        `Reversals pending approval (${demandes.length})`,
+      )}
+    >
       <ul className="mp-liste-lignes">
         {demandes.map((d) => (
           <li key={d.id} className="mp-liste-lignes__ligne mp-contre-passation">
@@ -59,6 +66,8 @@ export function DemandeContrePassation({
   deMoi: boolean;
   peutDecider: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [rejet, setRejet] = useState(false);
   const op = useFormulaire<"motif">();
   const [attente, marquer] = useAttenteRafraichissement(d.statut);
@@ -67,48 +76,61 @@ export function DemandeContrePassation({
     <div className="mp-pile">
       <div className="mp-contre-passation__texte">
         <p>
-          <BadgeStatut tonalite="attention">À valider</BadgeStatut>{" "}
+          <BadgeStatut tonalite="attention">{t("À valider", "Pending approval")}</BadgeStatut>{" "}
           <Link href={`/facturation/encaissements/${d.encaissement_id}`}>
-            Voir l&apos;encaissement
+            {t("Voir l'encaissement", "View the payment")}
           </Link>
         </p>
-        <p>{`Motif : ${d.motif}`}</p>
+        <p>{t(`Motif : ${d.motif}`, `Reason: ${d.motif}`)}</p>
         <p className="mp-texte-doux mp-texte-petit">
-          {`Demandée ${deMoi ? "par vous" : "par une autre personne"} le ${formaterDateHeure(d.demandee_le)}`}
+          {t(
+            `Demandée ${deMoi ? "par vous" : "par une autre personne"} le ${formaterDateHeure(d.demandee_le)}`,
+            `Requested ${deMoi ? "by you" : "by someone else"} on ${formaterDateHeure(d.demandee_le, undefined, langue)}`,
+          )}
         </p>
       </div>
       <RetourFormulaire
         erreur={op.erreurGlobale}
         succes={op.succes}
         refAlerte={op.refAlerte}
-        titreErreur="Décision impossible"
+        titreErreur={t("Décision impossible", "Decision not possible")}
       />
       {peutDecider ? (
         <div className="mp-barre-actions">
           <BoutonConfirmation
-            libelle={attente ? "Mise à jour…" : "Valider la contre-passation"}
+            libelle={
+              attente
+                ? t("Mise à jour…", "Updating…")
+                : t("Valider la contre-passation", "Approve the reversal")
+            }
             variante="primaire"
             icone="succes"
-            question="Valider ? Un encaissement négatif est créé et les factures imputées redeviennent dues. C'est définitif."
-            libelleConfirmation="Oui, valider"
-            texteChargement="Validation…"
+            question={t(
+              "Valider ? Un encaissement négatif est créé et les factures imputées redeviennent dues. C'est définitif.",
+              "Approve? A negative payment is created and the allocated invoices become due again. This is final.",
+            )}
+            libelleConfirmation={t("Oui, valider", "Yes, approve")}
+            texteChargement={t("Validation…", "Approving…")}
             action={() =>
               op.envoyer({ ok: true, charge: null }, () => api.post(`${chemin}/valider`), {
-                succes: "Contre-passation validée.",
-                messageSpecifique: messageEncaissement,
+                succes: t("Contre-passation validée.", "Reversal approved."),
+                messageSpecifique: (e) => messageEncaissement(e, langue),
                 apres: marquer,
               })
             }
           />
           <Bouton variante="secondaire" aria-expanded={rejet} onClick={() => setRejet(!rejet)}>
-            Rejeter
+            {t("Rejeter", "Reject")}
           </Bouton>
         </div>
       ) : (
         <p className="mp-texte-doux">
           {deMoi
-            ? "Votre demande attend la validation d'un autre gestionnaire ou d'un associé."
-            : "En attente de décision."}
+            ? t(
+                "Votre demande attend la validation d'un autre gestionnaire ou d'un associé.",
+                "Your request is awaiting approval from another manager or a partner.",
+              )
+            : t("En attente de décision.", "Awaiting a decision.")}
         </p>
       )}
       {peutDecider && rejet ? (
@@ -127,16 +149,18 @@ function FormulaireRejet({
   onFin: () => void;
   apres: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [motif, setMotif] = useState("");
   const form = useFormulaire<"motif">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await form.envoyer(
-      validerMotifContrePassation(motif),
+      validerMotifContrePassation(motif, langue),
       (c) => api.post(`${chemin}/rejeter`, c),
       {
-        succes: "Demande rejetée.",
-        messageSpecifique: messageEncaissement,
+        succes: t("Demande rejetée.", "Request rejected."),
+        messageSpecifique: (e) => messageEncaissement(e, langue),
         apres,
       },
     );
@@ -147,11 +171,11 @@ function FormulaireRejet({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Rejeter la contre-passation"
+      aria-label={t("Rejeter la contre-passation", "Reject the reversal")}
     >
       <RetourFormulaire erreur={form.erreurGlobale} refAlerte={form.refAlerte} />
       <ZoneTexte
-        libelle="Motif du rejet"
+        libelle={t("Motif du rejet", "Reason for rejection")}
         required
         maxLength={500}
         value={motif}
@@ -159,11 +183,16 @@ function FormulaireRejet({
         erreur={form.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="danger" chargement={form.enCours} texteChargement="Rejet…">
-          Rejeter la demande
+        <Bouton
+          type="submit"
+          variante="danger"
+          chargement={form.enCours}
+          texteChargement={t("Rejet…", "Rejecting…")}
+        >
+          {t("Rejeter la demande", "Reject the request")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

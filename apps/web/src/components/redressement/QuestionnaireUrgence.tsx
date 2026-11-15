@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   RED_REPONSES_URGENCE,
-  RED_REPONSE_URGENCE_LIBELLES,
   type RedReponseUrgence,
   type RedUrgenceVue,
 } from "@missionpilot/shared";
@@ -11,8 +10,10 @@ import { api } from "../../lib/api";
 import {
   cheminUrgences,
   libelleDomaine,
+  libelleReponse,
   messageRedressement,
   TEXTE_URGENCE_INTRO,
+  TEXTE_URGENCE_INTRO_EN,
 } from "../../lib/redressement";
 import {
   compterReponses,
@@ -22,6 +23,7 @@ import {
   type ChampUrgence,
   type GrilleUrgence,
 } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -46,6 +48,8 @@ export function QuestionnaireUrgence({
   grille: GrilleUrgence;
   derniere: RedUrgenceVue | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampUrgence>();
   const [reponses, setReponses] = useState<Record<string, RedReponseUrgence | undefined>>({});
   const [commentaire, setCommentaire] = useState("");
@@ -63,11 +67,11 @@ export function QuestionnaireUrgence({
     e.preventDefault();
     const duree = debut.current === null ? null : Math.round((Date.now() - debut.current) / 1000);
     await f.envoyer(
-      corpsUrgenceDepuisFormulaire(reponses, duree, commentaire, grille),
+      corpsUrgenceDepuisFormulaire(reponses, duree, commentaire, grille, langue),
       (charge) => api.post<RedUrgenceVue>(cheminUrgences(dossierId), charge),
       {
-        succes: "Évaluation enregistrée.",
-        messageSpecifique: messageRedressement,
+        succes: t("Évaluation enregistrée.", "Assessment saved."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
         apres: (r) => setResultat(r),
       },
     );
@@ -75,22 +79,22 @@ export function QuestionnaireUrgence({
 
   return (
     <div className="mp-red-section">
-      <p className="mp-texte-doux">{TEXTE_URGENCE_INTRO}</p>
+      <p className="mp-texte-doux">{t(TEXTE_URGENCE_INTRO, TEXTE_URGENCE_INTRO_EN)}</p>
       <form
         ref={f.refFormulaire}
         className="mp-formulaire"
         noValidate
         onSubmit={soumettre}
-        aria-label="Questionnaire d'urgence"
+        aria-label={t("Questionnaire d'urgence", "Urgency questionnaire")}
       >
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Évaluation impossible"
+          titreErreur={t("Évaluation impossible", "Could not assess")}
         />
         <p className="mp-texte-doux" role="status" aria-live="polite">
-          {libelleCompteur(repondues, total)}
+          {libelleCompteur(repondues, total, langue)}
         </p>
         {f.erreurs.reponses ? (
           <Alerte tonalite="danger" annonce="alert">
@@ -110,14 +114,17 @@ export function QuestionnaireUrgence({
                 setReponses(reprises);
               }}
             >
-              Reprendre les réponses de la dernière évaluation
+              {t(
+                "Reprendre les réponses de la dernière évaluation",
+                "Reuse the answers of the latest assessment",
+              )}
             </Bouton>
           </div>
         ) : null}
 
         {groupes.map((g) => (
           <fieldset key={g.domaine} className="mp-red-fiche">
-            <legend>{libelleDomaine(g.domaine)}</legend>
+            <legend>{libelleDomaine(g.domaine, langue)}</legend>
             {g.questions.map((q) => (
               <fieldset key={q.code} className="mp-red-question">
                 <legend>{q.libelle}</legend>
@@ -131,7 +138,7 @@ export function QuestionnaireUrgence({
                         checked={reponses[q.code] === r}
                         onChange={() => setReponses((x) => ({ ...x, [q.code]: r }))}
                       />
-                      <span>{RED_REPONSE_URGENCE_LIBELLES[r]}</span>
+                      <span>{libelleReponse(r, langue)}</span>
                     </label>
                   ))}
                 </div>
@@ -141,21 +148,25 @@ export function QuestionnaireUrgence({
         ))}
 
         <ZoneTexte
-          libelle="Commentaire (facultatif)"
+          libelle={t("Commentaire (facultatif)", "Comment (optional)")}
           maxLength={2000}
           value={commentaire}
           onChange={(e) => setCommentaire(e.target.value)}
           erreur={f.erreurs.commentaire}
         />
         <div className="mp-actions-formulaire">
-          <Bouton type="submit" chargement={f.enCours} texteChargement="Évaluation…">
-            Évaluer
+          <Bouton
+            type="submit"
+            chargement={f.enCours}
+            texteChargement={t("Évaluation…", "Assessing…")}
+          >
+            {t("Évaluer", "Assess")}
           </Bouton>
         </div>
       </form>
 
       {resultat ? (
-        <Carte titre="Résultat de l'évaluation">
+        <Carte titre={t("Résultat de l'évaluation", "Assessment result")}>
           <ResultatUrgence resultat={resultat.resultat} />
         </Carte>
       ) : null}

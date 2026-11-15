@@ -1,4 +1,5 @@
 /** Sous-module de `canaux.ts` : navigation de la rubrique. */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { estObjet } from "./canaux-utilitaires";
 import {
   CHEMIN_PARAMETRES_CANAUX,
@@ -22,26 +23,35 @@ export interface OngletCanaux {
 }
 
 /** Onglets de `/parametres/canaux` selon les droits et le mode (simulateur : associé, mode simulé). */
-export function ongletsCanaux(droits: DroitsCanaux, options: { simule: boolean }): OngletCanaux[] {
+export function ongletsCanaux(
+  droits: DroitsCanaux,
+  options: { simule: boolean },
+  langue: Langue = "fr",
+): OngletCanaux[] {
+  const t = creerTraduire(langue);
   const onglets: OngletCanaux[] = [];
   if (droits.lire) {
     onglets.push(
-      { id: "comptes", libelle: "Comptes", href: CHEMIN_PARAMETRES_CANAUX },
+      { id: "comptes", libelle: t("Comptes", "Accounts"), href: CHEMIN_PARAMETRES_CANAUX },
       {
         id: "destinataires",
-        libelle: "Destinataires et consentements",
+        libelle: t("Destinataires et consentements", "Recipients and consents"),
         href: CHEMIN_CANAUX_DESTINATAIRES,
       },
-      { id: "journal", libelle: "Journal des envois", href: CHEMIN_CANAUX_JOURNAL },
+      { id: "journal", libelle: t("Journal des envois", "Send log"), href: CHEMIN_CANAUX_JOURNAL },
     );
   }
   if (droits.lire && droits.saisirKpi) {
-    onglets.push({ id: "saisies", libelle: "Saisies reçues", href: CHEMIN_CANAUX_SAISIES });
+    onglets.push({
+      id: "saisies",
+      libelle: t("Saisies reçues", "Entries received"),
+      href: CHEMIN_CANAUX_SAISIES,
+    });
   }
   if (droits.configurer && options.simule) {
     onglets.push({
       id: "simulateur",
-      libelle: "Simulateur (développement)",
+      libelle: t("Simulateur (développement)", "Simulator (development)"),
       href: CHEMIN_CANAUX_SIMULATEUR,
     });
   }

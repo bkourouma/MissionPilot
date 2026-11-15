@@ -11,6 +11,7 @@ import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterDate, formaterDateHeure } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../../lib/periode";
@@ -23,14 +24,17 @@ import {
   hrefRegistre,
   libelleAuteur,
   libelleDimension,
-  SENS_LIBELLES,
-  STATUTS_ASSERTION,
+  libelleSens,
+  libelleStatutAssertion,
   type DetailPreuve,
   type DimensionVue,
 } from "../../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Preuve" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Preuve", "Evidence") };
+}
 
 /**
  * Détail d'une preuve : version courante, assertions auxquelles elle est liée, correction
@@ -42,6 +46,8 @@ export default async function PageDetailPreuve({
   params: Promise<{ id: string; preuveId: string }>;
 }) {
   const { id, preuveId } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(preuveId)) notFound();
   const { utilisateur } = await exigerPermission("preuve.lire");
   const r = await chargerMission(id);
@@ -55,7 +61,7 @@ export default async function PageDetailPreuve({
   if (!detail.ok) {
     return (
       <EtatErreur
-        titre="La preuve n'a pas pu être chargée."
+        titre={t("La preuve n'a pas pu être chargée.", "The evidence could not be loaded.")}
         message={detail.message}
         hrefReessayer={hrefPreuve(id, preuveId)}
       />
@@ -65,17 +71,17 @@ export default async function PageDetailPreuve({
   if (p.mission_id !== id) notFound();
   const dims = dimensions.ok ? dimensions.donnees.elements : [];
   const lien = p.document_id
-    ? `document ${p.document_id}`
+    ? t(`document ${p.document_id}`, `document ${p.document_id}`)
     : p.fichier_id
-      ? `fichier ${p.fichier_id}`
+      ? t(`fichier ${p.fichier_id}`, `file ${p.fichier_id}`)
       : p.reponse_id
-        ? `réponse de questionnaire ${p.reponse_id}`
+        ? t(`réponse de questionnaire ${p.reponse_id}`, `questionnaire answer ${p.reponse_id}`)
         : null;
 
   return (
     <>
       <Link href={hrefRegistre(id)} className="mp-lien-retour">
-        Revenir au registre
+        {t("Revenir au registre", "Back to the register")}
       </Link>
       <Carte
         titre={p.source_precise}
@@ -88,25 +94,37 @@ export default async function PageDetailPreuve({
         <div className="mp-pile">
           <EtiquettesPreuve preuve={p} />
           <p className="mp-texte-doux mp-texte-petit">
-            {formaterDate(p.date_preuve)} · recueillie par {libelleAuteur(p.auteur)}
+            {formaterDate(p.date_preuve, "UTC", langue)} · {t("recueillie par", "collected by")}{" "}
+            {libelleAuteur(p.auteur, langue)}
             {p.dimensions.length > 0
               ? ` · ${p.dimensions.map((c) => libelleDimension(c, dims)).join(", ")}`
               : ""}
           </p>
           <ExtraitPreuve preuve={p} />
-          {lien ? <p className="mp-texte-doux mp-texte-petit">Lien : {lien}</p> : null}
+          {lien ? (
+            <p className="mp-texte-doux mp-texte-petit">
+              {t("Lien", "Link")} : {lien}
+            </p>
+          ) : null}
         </div>
       </Carte>
 
-      <Carte titre="Assertions qui s'appuient sur cette preuve">
+      <Carte
+        titre={t("Assertions qui s'appuient sur cette preuve", "Assertions based on this evidence")}
+      >
         {p.assertions.length === 0 ? (
-          <p className="mp-texte-doux">Cette preuve n&apos;est liée à aucune assertion.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "Cette preuve n'est liée à aucune assertion.",
+              "This evidence is not linked to any assertion.",
+            )}
+          </p>
         ) : (
           <ul className="mp-liste-simple">
             {p.assertions.map((a) => (
               <li key={a.assertion_id}>
                 <Link href={hrefAssertion(id, a.assertion_id)}>{a.enonce}</Link>
-                {` · ${SENS_LIBELLES[a.sens]} · ${a.classe_risque} · ${STATUTS_ASSERTION[a.statut]}`}
+                {` · ${libelleSens(a.sens, langue)} · ${a.classe_risque} · ${libelleStatutAssertion(a.statut, langue)}`}
               </li>
             ))}
           </ul>
@@ -114,11 +132,13 @@ export default async function PageDetailPreuve({
       </Carte>
 
       {droits.ecrire ? (
-        <Carte titre="Corriger la preuve">
+        <Carte titre={t("Corriger la preuve", "Correct the evidence")}>
           {p.masque ? (
             <p className="mp-texte-doux">
-              Cette preuve est un verbatim nominatif sans accord, masqué pour vous : son auteur et
-              les responsables de la mission peuvent la corriger.
+              {t(
+                "Cette preuve est un verbatim nominatif sans accord, masqué pour vous : son auteur et les responsables de la mission peuvent la corriger.",
+                "This evidence is a named verbatim without consent, hidden from you: its author and the engagement leads can correct it.",
+              )}
             </p>
           ) : (
             <FormulairePreuve
@@ -131,13 +151,13 @@ export default async function PageDetailPreuve({
         </Carte>
       ) : null}
 
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ol className="mp-liste-simple" reversed>
           {p.versions.map((v) => (
             <li key={v.version}>
               <strong>{`Version ${v.version}`}</strong>
-              {` · ${formaterDateHeure(v.version_cree_le)} · fiabilité ${v.fiabilite}`}
-              {v.motif ? ` · ${v.motif}` : " · enregistrement initial"}
+              {` · ${formaterDateHeure(v.version_cree_le, undefined, langue)} · ${t("fiabilité", "reliability")} ${v.fiabilite}`}
+              {v.motif ? ` · ${v.motif}` : t(" · enregistrement initial", " · initial entry")}
             </li>
           ))}
         </ol>

@@ -21,6 +21,7 @@ import {
   type SaisieAction,
   type SaisieStatutAction,
 } from "../../lib/kpi-pilotage";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -66,6 +67,8 @@ export function FormulaireAction({
   decisionId = "",
   jour,
 }: FormulaireActionProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampAction>();
   const vide: SaisieAction = {
     kpi_id: kpiId,
@@ -88,7 +91,7 @@ export function FormulaireAction({
     api
       .get<PageKpi<AlerteEnregistree>>(cheminAlertesKpi(s.kpi_id, { limite: 20 }))
       .then((p) => {
-        if (!annule) setChargees({ kpiId: s.kpi_id, options: optionsAlertes(p.elements) });
+        if (!annule) setChargees({ kpiId: s.kpi_id, options: optionsAlertes(p.elements, langue) });
       })
       .catch(() => {
         if (!annule) setChargees({ kpiId: s.kpi_id, options: [] });
@@ -96,7 +99,7 @@ export function FormulaireAction({
     return () => {
       annule = true;
     };
-  }, [s.kpi_id, kpiId]);
+  }, [s.kpi_id, kpiId, langue]);
   const alertesDuKpi =
     s.kpi_id === ""
       ? []
@@ -106,14 +109,17 @@ export function FormulaireAction({
           ? chargees.options
           : [];
   // Un message d'erreur de saisie disparaît dès que la valeur redevient valide.
-  const validation = validerAction(s);
+  const validation = validerAction(s, langue);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      validerAction(s),
+      validerAction(s, langue),
       (charge) => api.post<ActionKpi>(cheminActionsMission(missionId), charge),
-      { succes: "Action enregistrée.", messageSpecifique: messagePilotage },
+      {
+        succes: t("Action enregistrée.", "Action saved."),
+        messageSpecifique: (e) => messagePilotage(e, langue),
+      },
     );
     if (ok) setS(vide);
   }
@@ -124,19 +130,19 @@ export function FormulaireAction({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvelle action corrective"
+      aria-label={t("Nouvelle action corrective", "New corrective action")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Could not save")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="KPI concerné"
+          libelle={t("KPI concerné", "KPI concerned")}
           required
-          invite="Choisir un KPI…"
+          invite={t("Choisir un KPI…", "Choose a KPI…")}
           options={kpis}
           value={s.kpi_id}
           onChange={(e) =>
@@ -146,23 +152,30 @@ export function FormulaireAction({
           erreur={erreurEncoreValable(f.erreurs, validation, "kpi_id")}
         />
         <Select
-          libelle="Alerte à l'origine"
+          libelle={t("Alerte à l'origine", "Originating alert")}
           invite={
             s.kpi_id === ""
-              ? "Choisissez d'abord un KPI"
+              ? t("Choisissez d'abord un KPI", "Choose a KPI first")
               : alertesDuKpi.length === 0
-                ? "Aucune alerte pour ce KPI"
-                : "Aucune"
+                ? t("Aucune alerte pour ce KPI", "No alert for this KPI")
+                : t("Aucune", "None")
           }
           options={alertesDuKpi}
           disabled={alertesDuKpi.length === 0}
           value={s.alerte_id}
           onChange={(e) => setS((x) => ({ ...x, alerte_id: e.target.value }))}
-          aide="Facultatif. L'action est reliée à l'alerte pour suivre ce qui a été fait."
+          aide={t(
+            "Facultatif. L'action est reliée à l'alerte pour suivre ce qui a été fait.",
+            "Optional. The action is linked to the alert to track what has been done.",
+          )}
         />
         <Select
-          libelle="Décision de revue à l'origine"
-          invite={decisions.length === 0 ? "Aucune décision de revue tenue" : "Aucune"}
+          libelle={t("Décision de revue à l'origine", "Originating review decision")}
+          invite={
+            decisions.length === 0
+              ? t("Aucune décision de revue tenue", "No decision from a held review")
+              : t("Aucune", "None")
+          }
           options={decisions}
           disabled={decisions.length === 0}
           value={s.decision_id}
@@ -176,10 +189,13 @@ export function FormulaireAction({
               ...(kpiDecision && x.kpi_id === "" ? { kpi_id: kpiDecision, alerte_id: "" } : {}),
             }));
           }}
-          aide="Facultatif. Seule une décision d'une revue tenue et non clôturée accepte une action."
+          aide={t(
+            "Facultatif. Seule une décision d'une revue tenue et non clôturée accepte une action.",
+            "Optional. Only a decision of a held, unclosed review accepts an action.",
+          )}
         />
         <Champ
-          libelle="Titre de l'action"
+          libelle={t("Titre de l'action", "Action title")}
           required
           maxLength={200}
           value={s.titre}
@@ -187,16 +203,16 @@ export function FormulaireAction({
           erreur={erreurEncoreValable(f.erreurs, validation, "titre")}
         />
         <Select
-          libelle="Responsable"
+          libelle={t("Responsable", "Owner")}
           required
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           options={personnes}
           value={s.responsable_id}
           onChange={(e) => setS((x) => ({ ...x, responsable_id: e.target.value }))}
           erreur={erreurEncoreValable(f.erreurs, validation, "responsable_id")}
         />
         <Champ
-          libelle="Échéance"
+          libelle={t("Échéance", "Due date")}
           type="date"
           required
           value={s.echeance}
@@ -205,7 +221,7 @@ export function FormulaireAction({
         />
       </div>
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={3}
         maxLength={2000}
         value={s.description}
@@ -213,8 +229,12 @@ export function FormulaireAction({
         erreur={erreurEncoreValable(f.erreurs, validation, "description")}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer l&apos;action
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer l'action", "Save the action")}
         </Bouton>
       </div>
     </form>
@@ -233,6 +253,8 @@ export function FormulaireStatutAction({
   action: Pick<ActionKpi, "id" | "statut">;
   jour: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampStatutAction>();
   const [s, setS] = useState<SaisieStatutAction>({
     statut: "terminee",
@@ -243,8 +265,10 @@ export function FormulaireStatutAction({
   if (action.statut === "terminee" || action.statut === "abandonnee") {
     return (
       <p className="mp-texte-doux">
-        Cette action est {action.statut === "terminee" ? "terminée" : "abandonnée"} : elle ne se
-        rouvre pas. Ajoutez un commentaire si besoin.
+        {t(
+          `Cette action est ${action.statut === "terminee" ? "terminée" : "abandonnée"} : elle ne se rouvre pas. Ajoutez un commentaire si besoin.`,
+          `This action is ${action.statut === "terminee" ? "completed" : "abandoned"}: it cannot be reopened. Add a comment if needed.`,
+        )}
       </p>
     );
   }
@@ -252,9 +276,12 @@ export function FormulaireStatutAction({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerStatutAction(s, jour),
+      validerStatutAction(s, jour, langue),
       (charge) => api.post<ActionKpi>(cheminStatutAction(action.id), charge),
-      { succes: "Statut mis à jour.", messageSpecifique: messagePilotage },
+      {
+        succes: t("Statut mis à jour.", "Status updated."),
+        messageSpecifique: (e) => messagePilotage(e, langue),
+      },
     );
   }
 
@@ -262,10 +289,10 @@ export function FormulaireStatutAction({
     <div className="mp-pile">
       {action.statut === "a_faire" ? (
         <BoutonActionKpi
-          libelle="Démarrer l'action"
+          libelle={t("Démarrer l'action", "Start the action")}
           chemin={cheminStatutAction(action.id)}
           corps={{ statut: "en_cours" }}
-          succes="Action démarrée."
+          succes={t("Action démarrée.", "Action started.")}
         />
       ) : null}
       <form
@@ -273,19 +300,19 @@ export function FormulaireStatutAction({
         className="mp-formulaire"
         noValidate
         onSubmit={soumettre}
-        aria-label="Clôturer ou abandonner l'action"
+        aria-label={t("Clôturer ou abandonner l'action", "Complete or abandon the action")}
       >
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Changement impossible"
+          titreErreur={t("Changement impossible", "Could not change")}
         />
         <Select
-          libelle="Nouvelle situation"
+          libelle={t("Nouvelle situation", "New status")}
           options={[
-            { valeur: "terminee", libelle: "Terminée" },
-            { valeur: "abandonnee", libelle: "Abandonnée" },
+            { valeur: "terminee", libelle: t("Terminée", "Completed") },
+            { valeur: "abandonnee", libelle: t("Abandonnée", "Abandoned") },
           ]}
           value={s.statut}
           onChange={(e) =>
@@ -295,30 +322,39 @@ export function FormulaireStatutAction({
         {s.statut === "terminee" ? (
           <>
             <Champ
-              libelle="Date d'effet"
+              libelle={t("Date d'effet", "Effective date")}
               type="date"
               max={jour}
               value={s.date_effet}
               onChange={(e) => setS((x) => ({ ...x, date_effet: e.target.value }))}
               erreur={f.erreurs.date_effet}
-              aide={`Premier jour où l'action produit son effet : le moteur compare le KPI avant et après cette date. Au-delà de ${DELAI_DATE_EFFET_SANS_MOTIF_JOURS} jours dans le passé, une justification est exigée.`}
+              aide={t(
+                `Premier jour où l'action produit son effet : le moteur compare le KPI avant et après cette date. Au-delà de ${DELAI_DATE_EFFET_SANS_MOTIF_JOURS} jours dans le passé, une justification est exigée.`,
+                `First day on which the action takes effect: the engine compares the KPI before and after this date. Beyond ${DELAI_DATE_EFFET_SANS_MOTIF_JOURS} days in the past, a justification is required.`,
+              )}
             />
             {dateEffetExigeCommentaire(s.date_effet, jour) ? (
               <ZoneTexte
-                libelle="Justification de la date d'effet"
+                libelle={t(
+                  "Justification de la date d'effet",
+                  "Justification of the effective date",
+                )}
                 required
                 rows={2}
                 maxLength={1000}
                 value={s.commentaire}
                 onChange={(e) => setS((x) => ({ ...x, commentaire: e.target.value }))}
                 erreur={f.erreurs.commentaire}
-                aide="Conservée dans l'historique de l'action."
+                aide={t(
+                  "Conservée dans l'historique de l'action.",
+                  "Kept in the action's history.",
+                )}
               />
             ) : null}
           </>
         ) : (
           <ZoneTexte
-            libelle="Motif de l'abandon"
+            libelle={t("Motif de l'abandon", "Reason for abandoning")}
             required
             rows={2}
             maxLength={500}
@@ -328,8 +364,12 @@ export function FormulaireStatutAction({
           />
         )}
         <div className="mp-actions-formulaire">
-          <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-            Enregistrer
+          <Bouton
+            type="submit"
+            chargement={f.enCours}
+            texteChargement={t("Enregistrement…", "Saving…")}
+          >
+            {t("Enregistrer", "Save")}
           </Bouton>
         </div>
       </form>
@@ -339,6 +379,8 @@ export function FormulaireStatutAction({
 
 /** Commentaire ajouté à l'historique de l'action (jamais modifiable ensuite). */
 export function FormulaireCommentaireAction({ actionId }: { actionId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"commentaire">();
   const [commentaire, setCommentaire] = useState("");
 
@@ -347,12 +389,21 @@ export function FormulaireCommentaireAction({ actionId }: { actionId: string }) 
     const texte = commentaire.trim();
     const ok = await f.envoyer(
       texte === ""
-        ? { ok: false as const, erreurs: { commentaire: "Saisissez un commentaire." } }
+        ? {
+            ok: false as const,
+            erreurs: { commentaire: t("Saisissez un commentaire.", "Enter a comment.") },
+          }
         : texte.length > 1000
-          ? { ok: false as const, erreurs: { commentaire: "1 000 caractères au plus." } }
+          ? {
+              ok: false as const,
+              erreurs: { commentaire: t("1 000 caractères au plus.", "1,000 characters at most.") },
+            }
           : { ok: true as const, charge: { commentaire: texte } },
       (charge) => api.post(cheminCommentairesAction(actionId), charge),
-      { succes: "Commentaire ajouté.", messageSpecifique: messagePilotage },
+      {
+        succes: t("Commentaire ajouté.", "Comment added."),
+        messageSpecifique: (e) => messagePilotage(e, langue),
+      },
     );
     if (ok) setCommentaire("");
   }
@@ -363,16 +414,16 @@ export function FormulaireCommentaireAction({ actionId }: { actionId: string }) 
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Ajouter un commentaire"
+      aria-label={t("Ajouter un commentaire", "Add a comment")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Commentaire refusé"
+        titreErreur={t("Commentaire refusé", "Comment refused")}
       />
       <ZoneTexte
-        libelle="Commentaire"
+        libelle={t("Commentaire", "Comment")}
         rows={2}
         maxLength={1000}
         value={commentaire}
@@ -380,8 +431,13 @@ export function FormulaireCommentaireAction({ actionId }: { actionId: string }) 
         erreur={f.erreurs.commentaire}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="secondaire" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          chargement={f.enCours}
+          texteChargement={t("Ajout…", "Adding…")}
+        >
+          {t("Ajouter", "Add")}
         </Bouton>
       </div>
     </form>

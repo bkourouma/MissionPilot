@@ -14,15 +14,17 @@ import { Tableau } from "../../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import { formaterDate, formaterDateHeure } from "../../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { droitsKpi, hrefKpi } from "../../../../../../../lib/kpi";
 import {
   AVERTISSEMENT_EFFICACITE,
+  AVERTISSEMENT_EFFICACITE_EN,
   cheminAction,
   enRetard,
   hrefAction,
   hrefActions,
   hrefRevue,
-  LIBELLES_STATUT_ACTION,
+  libelleStatutAction,
   texteEfficaciteDetail,
   texteVerdict,
   type ActionKpi,
@@ -32,13 +34,16 @@ import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../../../lib/periode";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Action corrective" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Action corrective", "Corrective action") };
+}
 
-const TYPES: Record<EvenementAction["type"], string> = {
-  creation: "Création",
-  statut: "Changement de statut",
-  modification: "Modification",
-  commentaire: "Commentaire",
+const TYPES: Record<EvenementAction["type"], [string, string]> = {
+  creation: ["Création", "Creation"],
+  statut: ["Changement de statut", "Status change"],
+  modification: ["Modification", "Edit"],
+  commentaire: ["Commentaire", "Comment"],
 };
 
 /**
@@ -53,6 +58,8 @@ export default async function PageActionKpi({
   const { id, actionId } = await params;
   if (!estIdentifiant(actionId)) notFound();
   const { utilisateur } = await exigerPermission("kpi.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = await chargerMission(id);
   if (!r.ok) return null;
   const m = r.donnees;
@@ -61,7 +68,7 @@ export default async function PageActionKpi({
   if (!a.ok) {
     return (
       <EtatErreur
-        titre="L'action n'a pas pu être chargée."
+        titre={t("L'action n'a pas pu être chargée.", "The action could not be loaded.")}
         message={a.message}
         hrefReessayer={hrefAction(m.id, actionId)}
       />
@@ -78,57 +85,59 @@ export default async function PageActionKpi({
     <div className="mp-kpi">
       <div className="mp-actions-formulaire">
         <Link href={hrefActions(m.id)} className={classesBouton("secondaire")}>
-          Revenir aux actions
+          {t("Revenir aux actions", "Back to the actions")}
         </Link>
       </div>
       <h2 className="mp-kpi-section__titre">
-        Action {action.numero} — {action.titre}
+        {t("Action", "Action")} {action.numero} — {action.titre}
       </h2>
-      <Carte titre="Situation">
+      <Carte titre={t("Situation", "Situation")}>
         <dl className="mp-kpi-mesures">
           <div>
-            <dt>Statut</dt>
+            <dt>{t("Statut", "Status")}</dt>
             <dd>
-              {LIBELLES_STATUT_ACTION[action.statut]}
+              {libelleStatutAction(action.statut, langue)}
               {enRetard(action.echeance, action.statut, jour) ? (
                 <>
                   {" "}
-                  <BadgeStatut tonalite="danger">En retard</BadgeStatut>
+                  <BadgeStatut tonalite="danger">{t("En retard", "Overdue")}</BadgeStatut>
                 </>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt>KPI concerné</dt>
+            <dt>{t("KPI concerné", "KPI concerned")}</dt>
             <dd>
               <Link href={hrefKpi(m.id, action.kpi_id)}>{action.kpi_libelle}</Link>
             </dd>
           </div>
           <div>
-            <dt>Responsable</dt>
+            <dt>{t("Responsable", "Owner")}</dt>
             <dd>{action.responsable_nom ?? "—"}</dd>
           </div>
           <div>
-            <dt>Échéance</dt>
-            <dd>{formaterDate(action.echeance)}</dd>
+            <dt>{t("Échéance", "Due date")}</dt>
+            <dd>{formaterDate(action.echeance, "UTC", langue)}</dd>
           </div>
           {action.date_effet ? (
             <div>
-              <dt>Date d&apos;effet</dt>
-              <dd>{formaterDate(action.date_effet)}</dd>
+              <dt>{t("Date d'effet", "Effective date")}</dt>
+              <dd>{formaterDate(action.date_effet, "UTC", langue)}</dd>
             </div>
           ) : null}
           {action.motif ? (
             <div>
-              <dt>Motif de l&apos;abandon</dt>
+              <dt>{t("Motif de l'abandon", "Reason for abandoning")}</dt>
               <dd>{action.motif}</dd>
             </div>
           ) : null}
           {action.revue_id ? (
             <div>
-              <dt>Décidée en revue</dt>
+              <dt>{t("Décidée en revue", "Decided in review")}</dt>
               <dd>
-                <Link href={hrefRevue(m.id, action.revue_id)}>Voir la revue</Link>
+                <Link href={hrefRevue(m.id, action.revue_id)}>
+                  {t("Voir la revue", "See the review")}
+                </Link>
               </dd>
             </div>
           ) : null}
@@ -136,50 +145,64 @@ export default async function PageActionKpi({
         {action.description ? <p>{action.description}</p> : null}
       </Carte>
 
-      <Carte titre="Efficacité mesurée sur le KPI">
+      <Carte titre={t("Efficacité mesurée sur le KPI", "Effectiveness measured on the KPI")}>
         <p>
-          <strong>{texteVerdict(e)}</strong>
+          <strong>{texteVerdict(e, langue)}</strong>
         </p>
-        {e ? <p>{texteEfficaciteDetail(e, "")}</p> : null}
+        {e ? <p>{texteEfficaciteDetail(e, "", langue)}</p> : null}
         {e && e.periodes_avant.length + e.periodes_apres.length > 0 ? (
           <p className="mp-texte-doux">
-            Périodes comparées — avant :{" "}
-            {e.periodes_avant.map((p) => p.periode).join(", ") || "aucune"}; après :{" "}
-            {e.periodes_apres.map((p) => p.periode).join(", ") || "aucune"}.
+            {t("Périodes comparées — avant :", "Periods compared — before:")}{" "}
+            {e.periodes_avant.map((p) => p.periode).join(", ") || t("aucune", "none")}
+            {t("; après :", "; after:")}{" "}
+            {e.periodes_apres.map((p) => p.periode).join(", ") || t("aucune", "none")}.
           </p>
         ) : null}
-        <p className="mp-texte-doux">{AVERTISSEMENT_EFFICACITE}</p>
+        <p className="mp-texte-doux">
+          {langue === "en" ? AVERTISSEMENT_EFFICACITE_EN : AVERTISSEMENT_EFFICACITE}
+        </p>
       </Carte>
 
       {peutAgir ? (
         <>
-          <Carte titre="Faire avancer l'action">
+          <Carte titre={t("Faire avancer l'action", "Move the action forward")}>
             <FormulaireStatutAction action={action} jour={jour} />
           </Carte>
         </>
       ) : null}
       {peutAgir ? (
-        <Carte titre="Ajouter un commentaire">
+        <Carte titre={t("Ajouter un commentaire", "Add a comment")}>
           <FormulaireCommentaireAction actionId={action.id} />
         </Carte>
       ) : null}
 
-      <Carte titre="Historique">
+      <Carte titre={t("Historique", "History")}>
         <Tableau<EvenementAction>
-          legende="Historique de l'action (en ajout seul)"
+          legende={t(
+            "Historique de l'action (en ajout seul)",
+            "History of the action (append-only)",
+          )}
           colonnes={[
-            { cle: "date", entete: "Date", rendu: (x) => formaterDateHeure(x.cree_le) },
-            { cle: "type", entete: "Événement", rendu: (x) => TYPES[x.type] },
-            { cle: "auteur_nom", entete: "Auteur" },
+            {
+              cle: "date",
+              entete: t("Date", "Date"),
+              rendu: (x) => formaterDateHeure(x.cree_le, undefined, langue),
+            },
+            {
+              cle: "type",
+              entete: t("Événement", "Event"),
+              rendu: (x) => t(TYPES[x.type][0], TYPES[x.type][1]),
+            },
+            { cle: "auteur_nom", entete: t("Auteur", "Author") },
             {
               cle: "statut",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (x) =>
                 x.statut_avant && x.statut_avant !== x.statut_apres
-                  ? `${LIBELLES_STATUT_ACTION[x.statut_avant as ActionKpi["statut"]]} → ${LIBELLES_STATUT_ACTION[x.statut_apres as ActionKpi["statut"]]}`
-                  : LIBELLES_STATUT_ACTION[x.statut_apres as ActionKpi["statut"]],
+                  ? `${libelleStatutAction(x.statut_avant as ActionKpi["statut"], langue)} → ${libelleStatutAction(x.statut_apres as ActionKpi["statut"], langue)}`
+                  : libelleStatutAction(x.statut_apres as ActionKpi["statut"], langue),
             },
-            { cle: "commentaire", entete: "Commentaire" },
+            { cle: "commentaire", entete: t("Commentaire", "Comment") },
           ]}
           lignes={action.evenements ?? []}
           cleLigne={(x) => x.id}

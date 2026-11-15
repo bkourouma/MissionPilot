@@ -6,14 +6,16 @@ import { DEVISES } from "@missionpilot/shared";
 import { Alerte } from "../ui/Alerte";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { TeleversementDocument } from "../ingestion/TeleversementDocument";
 import { validerImportEtat, type ChampImportEtat, type SaisieImportEtat } from "../../lib/dossier";
 import type { Devise } from "../../lib/format";
 import {
   cheminApiDossierIngestion,
-  TEXTE_ACCEPTATION_AUTO,
   TEXTE_SCAN_OCR,
-  TEXTE_TOLERANCE,
+  TEXTE_SCAN_OCR_EN,
+  texteAcceptationAuto,
+  texteTolerance,
 } from "../../lib/ingestion";
 
 /**
@@ -22,6 +24,8 @@ import {
  * seulement si tout passe, sinon revue). Un PDF scanné est lu par OCR local et part en revue.
  */
 export function ImportEtatDocument({ clientId }: { clientId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [s, setS] = useState<SaisieImportEtat>({
     exercice: String(new Date().getFullYear() - 1),
@@ -35,7 +39,7 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
 
   // Les champs d'en-tête sont contrôlés comme pour l'import Excel ; le fichier l'est par le composant.
   function entetesValides(): boolean {
-    const v = validerImportEtat(s, { name: "x.xlsx", size: 1 });
+    const v = validerImportEtat(s, { name: "x.xlsx", size: 1 }, langue);
     if (v.ok) {
       setErreurs({});
       return true;
@@ -48,9 +52,13 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
 
   return (
     <div>
-      <Alerte tonalite="info" titre="L'IA propose, les contrôles décident" annonce="aucune">
-        <p>{TEXTE_ACCEPTATION_AUTO}</p>
-        <p>{TEXTE_SCAN_OCR}</p>
+      <Alerte
+        tonalite="info"
+        titre={t("L'IA propose, les contrôles décident", "AI proposes, the checks decide")}
+        annonce="aucune"
+      >
+        <p>{texteAcceptationAuto(langue)}</p>
+        <p>{langue === "en" ? TEXTE_SCAN_OCR_EN : TEXTE_SCAN_OCR}</p>
       </Alerte>
       <TeleversementDocument
         usage="etat_financier"
@@ -61,13 +69,13 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
           devise: s.devise,
           tolerance: Number.isFinite(tolerance) ? tolerance : 0,
         }}
-        libelleBouton="Importer et lire le document"
+        libelleBouton={t("Importer et lire le document", "Import and read the document")}
         avantEnvoi={entetesValides}
         onCree={() => rafraichir()}
       >
         <div className="mp-grille-champs">
           <Champ
-            libelle="Exercice"
+            libelle={t("Exercice", "Fiscal year")}
             required
             inputMode="numeric"
             maxLength={4}
@@ -76,7 +84,7 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
             erreur={erreurs.exercice}
           />
           <Champ
-            libelle="Date de clôture"
+            libelle={t("Date de clôture", "Closing date")}
             type="date"
             required
             value={s.date_cloture}
@@ -84,18 +92,18 @@ export function ImportEtatDocument({ clientId }: { clientId: string }) {
             erreur={erreurs.date_cloture}
           />
           <Select
-            libelle="Devise"
+            libelle={t("Devise", "Currency")}
             options={DEVISES.map((d) => ({ valeur: d, libelle: d }))}
             value={s.devise}
             onChange={(e) => maj("devise", e.target.value as Devise)}
           />
           <Champ
-            libelle="Tolérance des contrôles"
+            libelle={t("Tolérance des contrôles", "Check tolerance")}
             inputMode="numeric"
             value={s.tolerance}
             onChange={(e) => maj("tolerance", e.target.value)}
             erreur={erreurs.tolerance}
-            aide={TEXTE_TOLERANCE}
+            aide={texteTolerance(langue)}
           />
         </div>
       </TeleversementDocument>

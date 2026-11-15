@@ -13,6 +13,7 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { hrefAmorcage } from "../../../../../lib/ingestion";
 import {
@@ -31,7 +32,10 @@ import {
 import { raisonPublicationBloquee } from "../../../../../lib/methodes-coherence";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Version de méthode" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Version de méthode", "Method version") };
+}
 
 interface MiseAJour {
   disponible: boolean;
@@ -50,6 +54,8 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("standard.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const [r, f, val] = await Promise.all([
     chargerServeur<VersionDetail>(`/api/methodes/versions/${id}`),
     chargerServeur<{ elements: Facteur[] }>("/api/standard/facteurs"),
@@ -60,11 +66,11 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Version de méthode"
-          retour={{ href: "/methodes", libelle: "Méthodes" }}
+          titre={t("Version de méthode", "Method version")}
+          retour={{ href: "/methodes", libelle: t("Méthodes", "Methods") }}
         />
         <EtatErreur
-          titre="La version n'a pas pu être chargée."
+          titre={t("La version n'a pas pu être chargée.", "The version could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefVersion(id)}
         />
@@ -74,7 +80,7 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
   const v = r.donnees;
   const facteurs = f.ok ? f.donnees.elements : [];
   const editable = v.modifiable && peutGerer(utilisateur.roles);
-  const raisonPublication = raisonPublicationBloquee(val.ok ? val.donnees : null);
+  const raisonPublication = raisonPublicationBloquee(val.ok ? val.donnees : null, langue);
   const maj =
     v.methode.origine === "variante"
       ? await chargerServeur<MiseAJour>(`/api/methodes/versions/${id}/mise-a-jour`)
@@ -83,23 +89,29 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre={`${v.methode.libelle} — version ${v.version.version}`}
+        titre={`${v.methode.libelle} — ${t("version", "version")} ${v.version.version}`}
         retour={{ href: hrefMethode(v.methode.id), libelle: v.methode.libelle }}
         soustitre={v.version.notes_version ?? undefined}
         badges={
           <>
             <BadgeStatut tonalite={v.version.statut === "publiee" ? "succes" : "attention"}>
-              {v.version.statut === "publiee" ? "Publiée" : "Brouillon"}
+              {v.version.statut === "publiee" ? t("Publiée", "Published") : t("Brouillon", "Draft")}
             </BadgeStatut>
-            <BadgeStatut tonalite="neutre">{libelleOrigine(v.methode.origine)}</BadgeStatut>
+            <BadgeStatut tonalite="neutre">{libelleOrigine(v.methode.origine, langue)}</BadgeStatut>
           </>
         }
         actions={
           <>
-            <Link href={hrefApercu(v.version.id)}>Aperçu de la mission</Link>
-            <Link href={hrefSimulateur(v.version.id)}>Simuler les règles</Link>
+            <Link href={hrefApercu(v.version.id)}>
+              {t("Aperçu de la mission", "Engagement preview")}
+            </Link>
+            <Link href={hrefSimulateur(v.version.id)}>
+              {t("Simuler les règles", "Simulate the rules")}
+            </Link>
             {peutGerer(utilisateur.roles) && v.methode.cabinet_id !== null ? (
-              <Link href={hrefAmorcage(v.version.id)}>Amorçage depuis des documents</Link>
+              <Link href={hrefAmorcage(v.version.id)}>
+                {t("Amorçage depuis des documents", "Bootstrap from documents")}
+              </Link>
             ) : null}
           </>
         }
@@ -109,15 +121,21 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
         <Carte
           titre={
             v.differences.reference.nature === "standard"
-              ? `Différences avec le standard (version ${v.differences.reference.version})`
-              : `Différences avec la version ${v.differences.reference.version}`
+              ? t(
+                  `Différences avec le standard (version ${v.differences.reference.version})`,
+                  `Differences from the standard (version ${v.differences.reference.version})`,
+                )
+              : t(
+                  `Différences avec la version ${v.differences.reference.version}`,
+                  `Differences from version ${v.differences.reference.version}`,
+                )
           }
         >
           {v.differences.diff.identique ? (
-            <p>Aucune différence.</p>
+            <p>{t("Aucune différence.", "No difference.")}</p>
           ) : (
             <ul className="mp-liste-simple">
-              {resumeDifferences(v.differences.diff).map((l) => (
+              {resumeDifferences(v.differences.diff, langue).map((l) => (
                 <li key={l}>{l}</li>
               ))}
             </ul>
@@ -129,35 +147,46 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
         <section id="mise-a-jour">
           <Alerte
             tonalite="info"
-            titre={`Mise à jour du standard : version ${maj.donnees.standard?.version}`}
+            titre={t(
+              `Mise à jour du standard : version ${maj.donnees.standard?.version}`,
+              `Standard update: version ${maj.donnees.standard?.version}`,
+            )}
           >
             {maj.donnees.standard?.notes_version ? (
               <p>{maj.donnees.standard.notes_version}</p>
             ) : null}
-            <p>Évolutions du standard :</p>
+            <p>{t("Évolutions du standard :", "Changes to the standard:")}</p>
             <ul className="mp-liste-simple">
-              {resumeDifferences(maj.donnees.evolutions_standard!).map((l) => (
+              {resumeDifferences(maj.donnees.evolutions_standard!, langue).map((l) => (
                 <li key={l}>{l}</li>
               ))}
             </ul>
             {maj.donnees.conflits && maj.donnees.conflits.length > 0 ? (
               <p>
-                À arbitrer (modifiés par le cabinet ET par le standard ; le choix du cabinet sera
-                conservé) : {maj.donnees.conflits.map((c) => c.code).join(", ")}.
+                {t(
+                  "À arbitrer (modifiés par le cabinet ET par le standard ; le choix du cabinet sera conservé) : ",
+                  "To be decided (changed by both the firm AND the standard; the firm's choice will be kept): ",
+                )}
+                {maj.donnees.conflits.map((c) => c.code).join(", ")}.
               </p>
             ) : (
-              <p>Aucun conflit avec les choix du cabinet.</p>
+              <p>
+                {t(
+                  "Aucun conflit avec les choix du cabinet.",
+                  "No conflict with the firm's choices.",
+                )}
+              </p>
             )}
           </Alerte>
         </section>
       ) : null}
 
-      <Carte titre="Contrôle de cohérence">
+      <Carte titre={t("Contrôle de cohérence", "Consistency check")}>
         {!val.ok ? <p>{val.message}</p> : <ControleCoherence validation={val.donnees} />}
       </Carte>
 
       {editable ? (
-        <Carte titre="Publier">
+        <Carte titre={t("Publier", "Publish")}>
           <div className="mp-pile">
             <NotesVersion versionId={v.version.id} notes={v.version.notes_version} />
             {raisonPublication ? (
@@ -168,7 +197,7 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
                   disabled
                   aria-describedby="raison-publication"
                 >
-                  Publier cette version
+                  {t("Publier cette version", "Publish this version")}
                 </Bouton>
                 <p id="raison-publication" className="mp-champ__erreur">
                   {raisonPublication}
@@ -176,20 +205,28 @@ export default async function PageVersionMethode({ params }: { params: Promise<{
               </div>
             ) : (
               <BoutonAction
-                libelle="Publier cette version"
+                libelle={t("Publier cette version", "Publish this version")}
                 chemin={`/api/methodes/versions/${v.version.id}/publication`}
                 variante="primaire"
                 icone="succes"
                 confirmation={{
-                  question: "Publier ? Une version publiée ne se modifie plus.",
-                  libelleConfirmation: "Oui, publier",
+                  question: t(
+                    "Publier ? Une version publiée ne se modifie plus.",
+                    "Publish? A published version can no longer be edited.",
+                  ),
+                  libelleConfirmation: t("Oui, publier", "Yes, publish"),
                 }}
               />
             )}
           </div>
         </Carte>
       ) : v.version.statut === "brouillon" && v.methode.origine !== "standard" ? (
-        <p>Brouillon : seul un expert métier ou un associé le modifie et le publie.</p>
+        <p>
+          {t(
+            "Brouillon : seul un expert métier ou un associé le modifie et le publie.",
+            "Draft: only a domain expert or a partner can edit and publish it.",
+          )}
+        </p>
       ) : null}
 
       <ContenuVersion v={v} facteurs={facteurs} editable={editable} />

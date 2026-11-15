@@ -3,29 +3,43 @@ import { FormulairePreuve } from "../../../../../../components/preuves/Formulair
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../../lib/periode";
 import { cheminDimensions, droitsPreuves, type DimensionVue } from "../../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Nouvelle preuve" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Nouvelle preuve", "New evidence") };
+}
 
 /** Enregistrement d'une preuve (PRV-01). */
 export default async function PageNouvellePreuve({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("preuve.ecrire");
   const r = await chargerMission(id);
   if (!r.ok) return null;
   if (!droitsPreuves(utilisateur.roles, r.donnees).ecrire) {
     return (
-      <Alerte tonalite="info" titre="Enregistrement non disponible" annonce="aucune">
-        <p>La mission est clôturée : son registre des preuves est figé.</p>
+      <Alerte
+        tonalite="info"
+        titre={t("Enregistrement non disponible", "Saving is not available")}
+        annonce="aucune"
+      >
+        <p>
+          {t(
+            "La mission est clôturée : son registre des preuves est figé.",
+            "The engagement is closed: its evidence register is frozen.",
+          )}
+        </p>
       </Alerte>
     );
   }
   const dimensions = await chargerServeur<{ elements: DimensionVue[] }>(cheminDimensions(id));
   return (
-    <Carte titre="Nouvelle preuve">
+    <Carte titre={t("Nouvelle preuve", "New evidence")}>
       <FormulairePreuve
         missionId={id}
         dimensions={dimensions.ok ? dimensions.donnees.elements : []}

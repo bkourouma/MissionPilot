@@ -15,6 +15,7 @@ import {
   type ChampCasType,
   type SaisieCasType,
 } from "../../lib/methodes-cas-types";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -39,6 +40,8 @@ export function FormulaireCasType({
   regles: { code: string; libelle: string }[];
   casType?: CasTypeVersion;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampCasType>();
   const [s, setS] = useState<SaisieCasType>(
     casType ? saisieDepuisCasType(casType) : saisieCasTypeVide(),
@@ -53,17 +56,24 @@ export function FormulaireCasType({
       facteurs,
       regles.map((r) => r.code),
       casType?.cas,
+      langue,
     );
     if (casType) {
       await f.envoyer(validation, (c) => api.put(`${base}/${casType.id}`, c), {
-        succes: "Cas type modifié : vérifiez la cohérence avant publication.",
-        messageSpecifique: messageMethodes,
+        succes: t(
+          "Cas type modifié : vérifiez la cohérence avant publication.",
+          "Test case updated: check consistency before publishing.",
+        ),
+        messageSpecifique: (e) => messageMethodes(e, langue),
       });
       return;
     }
     const ok = await f.envoyer(validation, (c) => api.post(base, c), {
-      succes: "Cas type ajouté : vérifiez la cohérence avant publication.",
-      messageSpecifique: messageMethodes,
+      succes: t(
+        "Cas type ajouté : vérifiez la cohérence avant publication.",
+        "Test case added: check consistency before publishing.",
+      ),
+      messageSpecifique: (e) => messageMethodes(e, langue),
     });
     if (ok) setS(saisieCasTypeVide());
   }
@@ -73,7 +83,7 @@ export function FormulaireCasType({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Libellé du cas type"
+          libelle={t("Libellé du cas type", "Test case label")}
           required
           value={s.libelle}
           maxLength={200}
@@ -85,24 +95,29 @@ export function FormulaireCasType({
             }))
           }
           erreur={f.erreurs.libelle}
-          aide="Ex. PME agricole familiale de moins de 20 salariés."
+          aide={t(
+            "Ex. PME agricole familiale de moins de 20 salariés.",
+            "E.g. family-run agricultural SME with fewer than 20 employees.",
+          )}
         />
         <Champ
-          libelle="Code"
+          libelle={t("Code", "Code")}
           required
           value={s.code}
           maxLength={120}
           spellCheck={false}
           autoComplete="off"
           readOnly={Boolean(casType)}
-          aide={casType ? "Le code ne change pas." : undefined}
+          aide={casType ? t("Le code ne change pas.", "The code does not change.") : undefined}
           onChange={(e) => setS({ ...s, code: e.target.value })}
           erreur={f.erreurs.code}
         />
       </div>
 
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Contexte de la mission type</legend>
+        <legend className="mp-champ__libelle">
+          {t("Contexte de la mission type", "Context of the sample engagement")}
+        </legend>
         <ChampsContexte
           prefixe={prefixe}
           facteurs={facteurs}
@@ -115,8 +130,14 @@ export function FormulaireCasType({
       {regles.length > 0 ? (
         <GroupeCases
           nom={`${prefixe}-regles`}
-          legende="Règles qui doivent se déclencher dans ce contexte"
-          aide="Le contrôle de cohérence échoue si l'une d'elles ne se déclenche pas."
+          legende={t(
+            "Règles qui doivent se déclencher dans ce contexte",
+            "Rules that must trigger in this context",
+          )}
+          aide={t(
+            "Le contrôle de cohérence échoue si l'une d'elles ne se déclenche pas.",
+            "The consistency check fails if one of them does not trigger.",
+          )}
           options={regles.map((r) => ({ valeur: r.code, libelle: r.libelle }))}
           valeurs={s.regles}
           onChange={(regles) => setS({ ...s, regles })}
@@ -124,22 +145,33 @@ export function FormulaireCasType({
         />
       ) : (
         <p className="mp-texte-doux">
-          Cette version n&apos;a pas encore de règle de contexte : ajoutez-en une pour attendre son
-          déclenchement.
+          {t(
+            "Cette version n'a pas encore de règle de contexte : ajoutez-en une pour attendre son déclenchement.",
+            "This version has no context rule yet: add one to expect it to trigger.",
+          )}
         </p>
       )}
 
       <Champ
-        libelle="Conflits non résolus attendus (facultatif)"
+        libelle={t(
+          "Conflits non résolus attendus (facultatif)",
+          "Expected unresolved conflicts (optional)",
+        )}
         inputMode="numeric"
         value={s.conflits}
         onChange={(e) => setS({ ...s, conflits: e.target.value })}
         erreur={f.erreurs.conflits}
-        aide="Nombre de conflits entre règles que ce contexte doit laisser sans arbitrage ; 0 pour exiger qu'il n'y en ait aucun. Vide : non vérifié."
+        aide={t(
+          "Nombre de conflits entre règles que ce contexte doit laisser sans arbitrage ; 0 pour exiger qu'il n'y en ait aucun. Vide : non vérifié.",
+          "Number of conflicts between rules that this context must leave unresolved; 0 to require none. Empty: not checked.",
+        )}
       />
       {casType && (casType.cas.attendu.presents?.length || casType.cas.attendu.absents?.length) ? (
         <p className="mp-texte-doux mp-texte-petit">
-          Les effets attendus déjà enregistrés pour ce cas type sont conservés tels quels.
+          {t(
+            "Les effets attendus déjà enregistrés pour ce cas type sont conservés tels quels.",
+            "The expected effects already saved for this test case are kept as they are.",
+          )}
         </p>
       ) : null}
 
@@ -148,9 +180,11 @@ export function FormulaireCasType({
           type="submit"
           icone={casType ? "succes" : "plus"}
           chargement={f.enCours}
-          texteChargement={casType ? "Enregistrement…" : "Ajout…"}
+          texteChargement={casType ? t("Enregistrement…", "Saving…") : t("Ajout…", "Adding…")}
         >
-          {casType ? "Enregistrer le cas type" : "Ajouter le cas type"}
+          {casType
+            ? t("Enregistrer le cas type", "Save the test case")
+            : t("Ajouter le cas type", "Add the test case")}
         </Bouton>
       </div>
     </form>

@@ -3,15 +3,16 @@ import { BadgeStatut } from "../ui/BadgeStatut";
 import { EnteteDePage } from "../ui/EnteteDePage";
 import { Onglets } from "../ui/Onglets";
 import { nomPays } from "../../lib/cabinet";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import {
-  CLASSE_FIABILITE,
+  classeFiabilite,
   ongletsDossier,
   type ClientDossier,
   type Fiabilite,
 } from "../../lib/dossier";
 
 /** En-tête commun des pages d'un dossier : client, classe de fiabilité, onglets. */
-export function EnteteDossier({
+export async function EnteteDossier({
   client,
   fiabilite,
   actions,
@@ -20,28 +21,37 @@ export function EnteteDossier({
   fiabilite?: Fiabilite;
   actions?: ReactNode;
 }) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   return (
     <>
       <EnteteDePage
         titre={client.raison_sociale}
-        retour={{ href: "/dossiers", libelle: "Dossiers clients" }}
-        soustitre={[client.secteur, nomPays(client.pays)].filter(Boolean).join(" · ")}
+        retour={{ href: "/dossiers", libelle: t("Dossiers clients", "Client files") }}
+        soustitre={[client.secteur, nomPays(client.pays, langue)].filter(Boolean).join(" · ")}
         badges={
           <>
-            {client.actif ? null : <BadgeStatut tonalite="neutre">Client archivé</BadgeStatut>}
+            {client.actif ? null : (
+              <BadgeStatut tonalite="neutre">{t("Client archivé", "Archived client")}</BadgeStatut>
+            )}
             {fiabilite ? (
-              <BadgeStatut tonalite={CLASSE_FIABILITE[fiabilite.classe].tonalite}>
-                Fiabilité {CLASSE_FIABILITE[fiabilite.classe].libelle}
+              <BadgeStatut tonalite={classeFiabilite(fiabilite.classe, langue).tonalite}>
+                {t("Fiabilité", "Reliability")} {classeFiabilite(fiabilite.classe, langue).libelle}
               </BadgeStatut>
             ) : null}
             {fiabilite?.analyses_indicatives ? (
-              <BadgeStatut tonalite="attention">Analyses indicatives</BadgeStatut>
+              <BadgeStatut tonalite="attention">
+                {t("Analyses indicatives", "Indicative analyses")}
+              </BadgeStatut>
             ) : null}
           </>
         }
         actions={actions}
       />
-      <Onglets libelle="Sections du dossier" pages={ongletsDossier(client.id)} />
+      <Onglets
+        libelle={t("Sections du dossier", "File sections")}
+        pages={ongletsDossier(client.id, langue)}
+      />
     </>
   );
 }

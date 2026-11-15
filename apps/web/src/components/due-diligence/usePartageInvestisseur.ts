@@ -3,12 +3,15 @@
 import { useState } from "react";
 import { messagePortailDd, partageChange } from "../../lib/due-diligence-portail";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 /**
  * Action du partage avec l'investisseur : exécute l'appel, annonce le succès ou l'erreur traduite
- * en français, puis rafraîchit les données serveur (aussi après un refus qui rend l'écran périmé).
+ * dans la langue de l'interface, puis rafraîchit les données serveur (aussi après un refus qui rend
+ * l'écran périmé).
  */
 export function usePartageInvestisseur() {
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export function usePartageInvestisseur() {
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messagePortailDd(e));
+      setErreur(messagePortailDd(e, langue));
       if (partageChange(e)) rafraichir();
       return false;
     } finally {

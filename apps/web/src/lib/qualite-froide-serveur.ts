@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, type Langue } from "@missionpilot/shared";
 import { chargerServeur } from "./api-serveur";
 import { chargerToutesLesPages } from "./pagination";
 import {
@@ -75,6 +75,7 @@ export async function chargerResponsables(session: Session): Promise<OptionChoix
  */
 export async function chargerConstatsCampagne(
   echantillons: readonly Pick<LigneEchantillon, "id" | "statut" | "mission_intitule">[],
+  langue: Langue = "fr",
 ): Promise<OptionChoix[]> {
   const terminees = echantillons.filter((e) => e.statut === "terminee");
   const lectures = await Promise.all(
@@ -87,7 +88,7 @@ export async function chargerConstatsCampagne(
     r.ok
       ? r.donnees.constats.map((c) => ({
           valeur: c.id,
-          libelle: `${mission} (${libelleGravite(c.gravite).toLowerCase()}) : ${c.description.slice(0, 80)}`,
+          libelle: `${mission} (${libelleGravite(c.gravite, langue).toLowerCase()}) : ${c.description.slice(0, 80)}`,
         }))
       : [],
   );

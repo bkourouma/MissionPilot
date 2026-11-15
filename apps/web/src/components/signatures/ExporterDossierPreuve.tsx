@@ -1,6 +1,7 @@
 "use client";
 
 import { Bouton } from "../ui/Bouton";
+import { useT } from "../i18n/FournisseurLangue";
 
 export interface ExporterDossierPreuveProps {
   /** Dossier de preuve en JSON, déjà mis en forme côté serveur (propriété sérialisable). */
@@ -13,6 +14,7 @@ export interface ExporterDossierPreuveProps {
  * est fabriqué dans le navigateur à partir de ce qui est affiché.
  */
 export function ExporterDossierPreuve({ contenu, nomFichier }: ExporterDossierPreuveProps) {
+  const t = useT();
   function exporter() {
     const blob = new Blob([contenu], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -27,7 +29,7 @@ export function ExporterDossierPreuve({ contenu, nomFichier }: ExporterDossierPr
   }
   return (
     <Bouton variante="secondaire" icone="telechargement" onClick={exporter}>
-      Exporter le dossier de preuve
+      {t("Exporter le dossier de preuve", "Export the evidence file")}
     </Bouton>
   );
 }

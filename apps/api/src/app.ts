@@ -6,6 +6,7 @@ import type { Role } from "@missionpilot/shared";
 import { estLocal, type Config } from "./config.js";
 import type { Database } from "./db/pool.js";
 import { AppError, detailsPublics } from "./errors.js";
+import { langueDeRequete, traduireMessage } from "./i18n/langue.js";
 import { COOKIE_SESSION, hacherJeton } from "./auth/session.js";
 import { rolesObligatoires } from "./auth/double-authentification.js";
 import { creerMailer, type Mailer } from "./notifications/mailer.js";
@@ -214,18 +215,25 @@ export async function buildApp(
   });
 
   app.setErrorHandler((error, request, reply) => {
+    // Messages écrits en français dans le code ; rendus dans la langue de la requête.
+    const langue = langueDeRequete(request);
+    const traduit = (message: string) => traduireMessage(message, langue);
     if (error instanceof AppError) {
       // `details` : liste blanche de champs (CHAMPS_DETAILS_PUBLICS, errors.ts).
       const details = detailsPublics(error.details);
       return reply.status(error.statut).send({
-        erreur: { code: error.code, message: error.message, ...(details ? { details } : {}) },
+        erreur: {
+          code: error.code,
+          message: traduit(error.message),
+          ...(details ? { details } : {}),
+        },
       });
     }
     if (error instanceof ZodError) {
       return reply.status(400).send({
         erreur: {
           code: "REQUETE_INVALIDE",
-          message: "Données invalides.",
+          message: traduit("Données invalides."),
           details: error.flatten(),
         },
       });
@@ -234,7 +242,7 @@ export async function buildApp(
     if (statut && statut >= 400 && statut < 500) {
       return reply
         .status(statut)
-        .send({ erreur: { code: "REQUETE_INVALIDE", message: "Requête invalide." } });
+        .send({ erreur: { code: "REQUETE_INVALIDE", message: traduit("Requête invalide.") } });
     }
     // Pas d'objet d'erreur complet : le champ `detail` de PostgreSQL peut citer des données.
     const pgErreur = error as {
@@ -251,7 +259,7 @@ export async function buildApp(
     });
     return reply
       .status(500)
-      .send({ erreur: { code: "ERREUR_INTERNE", message: "Erreur interne." } });
+      .send({ erreur: { code: "ERREUR_INTERNE", message: traduit("Erreur interne.") } });
   });
 
   await app.register(routesSante, { prefix: "/api" });

@@ -1,5 +1,10 @@
 /** Missions : formulaire de création et de modification, et création depuis une proposition. */
-import { MODES_FACTURATION, type ModeFacturation } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  MODES_FACTURATION,
+  type Langue,
+  type ModeFacturation,
+} from "@missionpilot/shared";
 import { DEVISES, type Devise } from "./format";
 import { DATE, UUID } from "./missions-motifs";
 import type { Mission } from "./missions-types";
@@ -83,21 +88,32 @@ export interface ChargeModificationMission extends Partial<ChampsCommunsMission>
 function validerCommun(
   s: SaisieMission,
   erreurs: Partial<Record<ChampMission, string>>,
+  langue: Langue = "fr",
 ): ChampsCommunsMission {
+  const t = creerTraduire(langue);
   const intitule = s.intitule.trim();
-  if (intitule === "") erreurs.intitule = "Saisissez l'intitulé de la mission.";
-  else if (intitule.length > 200) erreurs.intitule = "200 caractères au plus.";
+  if (intitule === "")
+    erreurs.intitule = t("Saisissez l'intitulé de la mission.", "Enter the engagement title.");
+  else if (intitule.length > 200)
+    erreurs.intitule = t("200 caractères au plus.", "200 characters at most.");
   for (const champ of ["directeur_id", "chef_id"] as const) {
-    if (s[champ] !== "" && !UUID.test(s[champ])) erreurs[champ] = "Choisissez dans la liste.";
+    if (s[champ] !== "" && !UUID.test(s[champ]))
+      erreurs[champ] = t("Choisissez dans la liste.", "Choose from the list.");
   }
   for (const champ of ["date_debut", "date_fin"] as const) {
-    if (s[champ] !== "" && !DATE.test(s[champ])) erreurs[champ] = "Date invalide.";
+    if (s[champ] !== "" && !DATE.test(s[champ]))
+      erreurs[champ] = t("Date invalide.", "Invalid date.");
   }
   if (!erreurs.date_fin && s.date_debut && s.date_fin && s.date_fin < s.date_debut)
-    erreurs.date_fin = "La date de fin précède la date de début.";
-  if (!(DEVISES as readonly string[]).includes(s.devise)) erreurs.devise = "Choisissez une devise.";
+    erreurs.date_fin = t(
+      "La date de fin précède la date de début.",
+      "The end date is before the start date.",
+    );
+  if (!(DEVISES as readonly string[]).includes(s.devise))
+    erreurs.devise = t("Choisissez une devise.", "Choose a currency.");
   for (const champ of ["activite", "secteur", "bureau"] as const) {
-    if (s[champ].trim().length > 120) erreurs[champ] = "120 caractères au plus.";
+    if (s[champ].trim().length > 120)
+      erreurs[champ] = t("120 caractères au plus.", "120 characters at most.");
   }
   return {
     intitule,
@@ -118,16 +134,24 @@ const estMode = (v: string): v is ModeFacturation =>
 /** Création : depuis un type du catalogue (mode par défaut du type) ou vierge (mode requis). */
 export function validerCreationMission(
   s: SaisieMission,
+  langue: Langue = "fr",
 ): Resultat<ChargeCreationMission, ChampMission> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampMission, string>> = {};
-  const commun = validerCommun(s, erreurs);
-  if (!UUID.test(s.client_id)) erreurs.client_id = "Choisissez le client.";
+  const commun = validerCommun(s, erreurs, langue);
+  if (!UUID.test(s.client_id)) erreurs.client_id = t("Choisissez le client.", "Choose the client.");
   if (s.type_mission_id !== "" && !UUID.test(s.type_mission_id))
-    erreurs.type_mission_id = "Choisissez un type dans la liste.";
+    erreurs.type_mission_id = t(
+      "Choisissez un type dans la liste.",
+      "Choose a type from the list.",
+    );
   if (s.mode_facturation !== "" && !estMode(s.mode_facturation))
-    erreurs.mode_facturation = "Choisissez un mode de facturation.";
+    erreurs.mode_facturation = t("Choisissez un mode de facturation.", "Choose a billing mode.");
   if (s.type_mission_id === "" && s.mode_facturation === "")
-    erreurs.mode_facturation = "Sans type de mission, choisissez le mode de facturation.";
+    erreurs.mode_facturation = t(
+      "Sans type de mission, choisissez le mode de facturation.",
+      "Without an engagement type, choose the billing mode.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -148,11 +172,13 @@ export function validerCreationMission(
 export function validerModificationMission(
   s: SaisieMission,
   options: { signee: boolean; reaffecter: boolean; designerDirecteur: boolean },
+  langue: Langue = "fr",
 ): Resultat<ChargeModificationMission, ChampMission> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampMission, string>> = {};
-  const { directeur_id, chef_id, devise, ...commun } = validerCommun(s, erreurs);
+  const { directeur_id, chef_id, devise, ...commun } = validerCommun(s, erreurs, langue);
   if (!options.signee && !estMode(s.mode_facturation))
-    erreurs.mode_facturation = "Choisissez un mode de facturation.";
+    erreurs.mode_facturation = t("Choisissez un mode de facturation.", "Choose a billing mode.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -179,14 +205,18 @@ export interface SaisieDepuisProposition {
 
 export function validerDepuisProposition(
   s: SaisieDepuisProposition,
+  langue: Langue = "fr",
 ): Resultat<Record<string, string>, keyof SaisieDepuisProposition> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieDepuisProposition, string>> = {};
   const commun = validerCommun(
     { ...SAISIE_MISSION_VIDE, ...s, intitule: s.intitule || "x" },
     erreurs,
+    langue,
   );
   const intitule = s.intitule.trim();
-  if (intitule.length > 200) erreurs.intitule = "200 caractères au plus.";
+  if (intitule.length > 200)
+    erreurs.intitule = t("200 caractères au plus.", "200 characters at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: Record<string, string> = {};
   if (intitule) charge.intitule = intitule;

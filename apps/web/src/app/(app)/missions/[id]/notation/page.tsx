@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue } from "@missionpilot/shared";
 import { BarresFamilles } from "../../../../../components/notation/BarresFamilles";
 import { ComparaisonNotation } from "../../../../../components/notation/ComparaisonNotation";
 import { EcartsRepondants } from "../../../../../components/notation/EcartsRepondants";
@@ -21,6 +21,7 @@ import { classesBouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { chargerServeur, type Chargement } from "../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import {
   blocageCalcul,
@@ -44,7 +45,10 @@ import { cheminGrilles, type PageGrilles } from "../../../../../lib/notation-gri
 import { hrefAnalyseNotation } from "../../../../../lib/notation-augmentee";
 import { exigerLectureNotation } from "../../../../../lib/notation-serveur";
 
-export const metadata: Metadata = { title: "Notation de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Notation de la mission", "Engagement rating") };
+}
 
 /**
  * Notation de la mission (service 1) : calcul sur les réponses soumises d'un questionnaire,
@@ -62,6 +66,8 @@ export default async function PageNotationMission({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await exigerLectureNotation();
   const r = await chargerMission(id);
@@ -87,7 +93,7 @@ export default async function PageNotationMission({
   if (!resume.ok && resume.statut !== 404) {
     return (
       <EtatErreur
-        titre="La notation n'a pas pu être chargée."
+        titre={t("La notation n'a pas pu être chargée.", "The rating could not be loaded.")}
         message={resume.message}
         hrefReessayer={hrefNotation(m.id)}
       />
@@ -106,52 +112,75 @@ export default async function PageNotationMission({
 
   const listeEnvois = envois?.ok ? envois.donnees.elements : [];
   const statutDerniere = versions[0]?.statut ?? null;
-  const blocage = blocageCalcul(ctx, statutDerniere);
+  const blocage = blocageCalcul(ctx, statutDerniere, langue);
   const envoiVue = vue?.ok ? listeEnvois.find((e) => e.id === vue.donnees.envoi_id) : undefined;
 
   return (
     <div className="mp-notation">
       <p className="mp-texte-doux">
-        Le score est calculé par le moteur de CabinetPilot à partir des réponses soumises par le
-        client et de la grille choisie ; il peut être ajusté avec un motif, puis doit être relu et
-        publié par un expert métier avant toute diffusion.
+        {t(
+          "Le score est calculé par le moteur de CabinetPilot à partir des réponses soumises par le client et de la grille choisie ; il peut être ajusté avec un motif, puis doit être relu et publié par un expert métier avant toute diffusion.",
+          "The score is computed by the CabinetPilot engine from the answers submitted by the client and the chosen framework; it can be adjusted with a reason, then must be reviewed and published by a business expert before any distribution.",
+        )}
       </p>
 
       {choix.introuvable ? (
-        <Alerte tonalite="attention" titre="Version introuvable" annonce="aucune">
-          <p>La version demandée n&apos;existe pas : la plus récente est affichée.</p>
+        <Alerte
+          tonalite="attention"
+          titre={t("Version introuvable", "Version not found")}
+          annonce="aucune"
+        >
+          <p>
+            {t(
+              "La version demandée n'existe pas : la plus récente est affichée.",
+              "The requested version does not exist: the most recent one is shown.",
+            )}
+          </p>
         </Alerte>
       ) : null}
 
       {gerer ? (
-        <Carte titre={versions.length === 0 ? "Lancer la notation" : "Nouveau calcul"}>
+        <Carte
+          titre={
+            versions.length === 0
+              ? t("Lancer la notation", "Start the rating")
+              : t("Nouveau calcul", "New computation")
+          }
+        >
           {blocage ? (
             <Alerte tonalite="info" annonce="aucune">
               <p>{blocage}</p>
             </Alerte>
           ) : envois && !envois.ok ? (
             <EtatErreur
-              titre="Les questionnaires de la mission n'ont pas pu être chargés."
+              titre={t(
+                "Les questionnaires de la mission n'ont pas pu être chargés.",
+                "The engagement questionnaires could not be loaded.",
+              )}
               message={envois.message}
               hrefReessayer={hrefNotation(m.id, choix.numero)}
             />
           ) : envoisNotables(listeEnvois).length === 0 ? (
             <EtatVide
-              titre="Aucune réponse soumise à noter."
+              titre={t("Aucune réponse soumise à noter.", "No submitted answer to rate.")}
               icone="taches"
               action={
                 <Link
                   href={`/missions/${encodeURIComponent(m.id)}/questionnaires`}
                   className={classesBouton("secondaire")}
                 >
-                  Ouvrir les questionnaires de la mission
+                  {t(
+                    "Ouvrir les questionnaires de la mission",
+                    "Open the engagement questionnaires",
+                  )}
                 </Link>
               }
             >
               <p>
-                Envoyez le questionnaire de notation au client et attendez qu&apos;au moins un
-                répondant soumette ses réponses : le calcul porte uniquement sur des réponses
-                soumises.
+                {t(
+                  "Envoyez le questionnaire de notation au client et attendez qu'au moins un répondant soumette ses réponses : le calcul porte uniquement sur des réponses soumises.",
+                  "Send the rating questionnaire to the client and wait for at least one respondent to submit answers: the computation only covers submitted answers.",
+                )}
               </p>
             </EtatVide>
           ) : (
@@ -159,8 +188,10 @@ export default async function PageNotationMission({
               {grilles && !grilles.ok ? (
                 <Alerte tonalite="attention" annonce="aucune">
                   <p>
-                    Les grilles du cabinet n&apos;ont pas pu être chargées ({grilles.message}) :
-                    seule la grille générique est proposée.
+                    {t(
+                      `Les grilles du cabinet n'ont pas pu être chargées (${grilles.message}) : seule la grille générique est proposée.`,
+                      `The firm's frameworks could not be loaded (${grilles.message}): only the generic framework is offered.`,
+                    )}
                   </p>
                 </Alerte>
               ) : null}
@@ -176,28 +207,50 @@ export default async function PageNotationMission({
       ) : null}
 
       {versions.length === 0 ? (
-        <EtatVide titre="Aucune notation calculée pour cette mission." icone="barres">
+        <EtatVide
+          titre={t(
+            "Aucune notation calculée pour cette mission.",
+            "No rating computed for this engagement.",
+          )}
+          icone="barres"
+        >
           <p>
             {gerer
-              ? "Lancez un premier calcul ci-dessus : il apparaîtra ici en brouillon."
-              : "Le consultant ou le chef de mission n'a pas encore lancé de calcul. Vous pourrez relire et publier la notation une fois qu'elle sera soumise en revue."}
+              ? t(
+                  "Lancez un premier calcul ci-dessus : il apparaîtra ici en brouillon.",
+                  "Run a first computation above: it will appear here as a draft.",
+                )
+              : t(
+                  "Le consultant ou le chef de mission n'a pas encore lancé de calcul. Vous pourrez relire et publier la notation une fois qu'elle sera soumise en revue.",
+                  "The consultant or the engagement manager has not run a computation yet. You will be able to review and publish the rating once it is submitted for review.",
+                )}
           </p>
         </EtatVide>
       ) : null}
 
       {notation && versions.length > 0 && choix.numero !== null ? (
-        <Carte titre="Versions successives">
+        <Carte titre={t("Versions successives", "Successive versions")}>
           <VersionsNotation missionId={m.id} versions={versions} courante={choix.numero} />
         </Carte>
       ) : null}
 
       {notation && versions.length > 0 && choix.numero !== null ? (
-        <Carte titre="Confiance, explication et plan d'action">
+        <Carte
+          titre={t(
+            "Confiance, explication et plan d'action",
+            "Confidence, explanation and action plan",
+          )}
+        >
           <p>
-            Indice de confiance, constats de perception, contribution de chaque pratique, simulateur
-            de passage de classe et plan d&apos;action priorisé :{" "}
+            {t(
+              "Indice de confiance, constats de perception, contribution de chaque pratique, simulateur de passage de classe et plan d'action priorisé :",
+              "Confidence index, perception findings, contribution of each practice, class-change simulator and prioritized action plan:",
+            )}{" "}
             <Link href={hrefAnalyseNotation(m.id, choix.numero)}>
-              ouvrir l&apos;analyse de la version {choix.numero}
+              {t(
+                `ouvrir l'analyse de la version ${choix.numero}`,
+                `open the analysis of version ${choix.numero}`,
+              )}
             </Link>
             .
           </p>
@@ -205,7 +258,7 @@ export default async function PageNotationMission({
       ) : null}
 
       {notation && versions.some((v) => v.statut === "publiee") ? (
-        <Carte titre="Rapport de notation">
+        <Carte titre={t("Rapport de notation", "Rating report")}>
           <GenerationLivrable type="notation" id={notation.id} cloturee={m.statut === "cloturee"} />
         </Carte>
       ) : null}
@@ -214,7 +267,10 @@ export default async function PageNotationMission({
 
       {vue && !vue.ok ? (
         <EtatErreur
-          titre="Cette version de la notation n'a pas pu être chargée."
+          titre={t(
+            "Cette version de la notation n'a pas pu être chargée.",
+            "This version of the rating could not be loaded.",
+          )}
           message={vue.message}
           hrefReessayer={hrefNotation(m.id, choix.numero)}
         />
@@ -231,6 +287,7 @@ export default async function PageNotationMission({
           collectif={envoiVue?.mode === "collectif"}
           ctx={ctx}
           gerer={gerer}
+          langue={langue}
         />
       ) : null}
     </div>
@@ -247,6 +304,7 @@ function ResultatVersion({
   collectif,
   ctx,
   gerer,
+  langue,
 }: {
   missionId: string;
   notationId: string;
@@ -257,19 +315,21 @@ function ResultatVersion({
   collectif: boolean;
   ctx: ContexteNotation;
   gerer: boolean;
+  langue: Langue;
 }) {
-  const droits = droitsVersion(ctx, vue, derniere);
+  const t = creerTraduire(langue);
+  const droits = droitsVersion(ctx, vue, derniere, langue);
   const ajustables = vue.score.dimensions
     .filter((d) => d.scoreCalcule !== null)
     .map((d) => ({ dimension: d.dimension, libelle: d.libelle, score: d.score }));
   const reessayer = hrefNotation(missionId, vue.numero);
   return (
     <>
-      <Carte titre={`Résultat de la version ${vue.numero}`}>
+      <Carte titre={t(`Résultat de la version ${vue.numero}`, `Result of version ${vue.numero}`)}>
         <SyntheseNotation vue={vue} titreQuestionnaire={titreQuestionnaire} derniere={derniere} />
       </Carte>
 
-      <Carte titre="Revue et publication">
+      <Carte titre={t("Revue et publication", "Review and publication")}>
         <ParcoursRevue
           notationId={notationId}
           numero={vue.numero}
@@ -280,11 +340,14 @@ function ResultatVersion({
         />
       </Carte>
 
-      <Carte titre="Scores par dimension">
+      <Carte titre={t("Scores par dimension", "Scores by dimension")}>
         <div className="mp-notation__section">
           {rapport && !rapport.ok ? (
             <EtatErreur
-              titre="Les graphiques n'ont pas pu être chargés."
+              titre={t(
+                "Les graphiques n'ont pas pu être chargés.",
+                "The charts could not be loaded.",
+              )}
               message={rapport.message}
               hrefReessayer={reessayer}
             />
@@ -292,7 +355,7 @@ function ResultatVersion({
             <div className="mp-notation__colonnes">
               <section className="mp-notation__section" aria-labelledby="titre-radar">
                 <h3 id="titre-radar" className="mp-notation-barres__famille">
-                  Radar de maturité
+                  {t("Radar de maturité", "Maturity radar")}
                 </h3>
                 <GraphiqueRadar
                   radar={rapport.donnees.donnees.radar}
@@ -301,7 +364,7 @@ function ResultatVersion({
               </section>
               <section className="mp-notation__section" aria-labelledby="titre-barres">
                 <h3 id="titre-barres" className="mp-notation-barres__famille">
-                  Barres par famille
+                  {t("Barres par famille", "Bars by family")}
                 </h3>
                 <BarresFamilles barres={rapport.donnees.donnees.barres} />
               </section>
@@ -312,43 +375,54 @@ function ResultatVersion({
       </Carte>
 
       {rapport?.ok ? (
-        <Carte titre="Forces et faiblesses">
+        <Carte titre={t("Forces et faiblesses", "Strengths and weaknesses")}>
           <ForcesFaiblesses
             forces={rapport.donnees.donnees.forces}
             faiblesses={rapport.donnees.donnees.faiblesses}
           />
           <p className="mp-texte-doux mp-texte-petit">
-            Point fort : score de 65 et plus ; point faible : score sous 50. Les dimensions non
-            notables n&apos;apparaissent dans aucune liste.
+            {t(
+              "Point fort : score de 65 et plus ; point faible : score sous 50. Les dimensions non notables n'apparaissent dans aucune liste.",
+              "Strength: score of 65 and above; weakness: score below 50. Dimensions not rated appear in neither list.",
+            )}
           </p>
         </Carte>
       ) : null}
 
-      <Carte titre="Ajustements motivés">
+      <Carte titre={t("Ajustements motivés", "Reasoned adjustments")}>
         <div className="mp-notation__section">
           {droits.ajuster ? (
             <FormulaireAjustement notationId={notationId} dimensions={ajustables} />
           ) : (
-            <p className="mp-texte-doux">{messageSansAjustement(ctx, vue.statut, derniere)}</p>
+            <p className="mp-texte-doux">
+              {messageSansAjustement(ctx, vue.statut, derniere, langue)}
+            </p>
           )}
           <HistoriqueAjustements vue={vue} />
           <p className="mp-texte-doux mp-texte-petit">
-            Historique immuable : un ajustement ne se modifie ni ne se supprime. Il n&apos;est pas
-            reporté sur une version calculée ensuite.
+            {t(
+              "Historique immuable : un ajustement ne se modifie ni ne se supprime. Il n'est pas reporté sur une version calculée ensuite.",
+              "Immutable history: an adjustment can be neither edited nor deleted. It is not carried over to a version computed afterwards.",
+            )}
           </p>
         </div>
       </Carte>
 
-      <Carte titre="Écarts entre répondants">
+      <Carte titre={t("Écarts entre répondants", "Differences between respondents")}>
         <EcartsRepondants ecarts={vue.ecarts} collectif={collectif} />
       </Carte>
 
-      <Carte titre="Comparaison avec la notation précédente">
+      <Carte
+        titre={t("Comparaison avec la notation précédente", "Comparison with the previous rating")}
+      >
         {rapport?.ok ? (
           <ComparaisonNotation comparaison={rapport.donnees.comparaison} />
         ) : (
           <p className="mp-texte-doux">
-            Comparaison indisponible : le rapport n&apos;a pas pu être chargé.
+            {t(
+              "Comparaison indisponible : le rapport n'a pas pu être chargé.",
+              "Comparison unavailable: the report could not be loaded.",
+            )}
           </p>
         )}
       </Carte>

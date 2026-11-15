@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { creerTraduire } from "@missionpilot/shared";
 import { notFound } from "next/navigation";
 import { TableauLignes } from "../../../../../components/temps/TableauLignes";
 import { Alerte } from "../../../../../components/ui/Alerte";
@@ -6,6 +7,7 @@ import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
+import { obtenirLangue } from "../../../../../lib/i18n/serveur";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDateHeure } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
@@ -15,16 +17,21 @@ import type { ParametresTemps } from "../../../../../lib/temps-admin";
 import {
   lignesDePartie,
   peutDeciderPartie,
-  STATUT_FEUILLE,
-  STATUT_PARTIE,
+  statutFeuille,
+  statutPartie,
   type Feuille,
 } from "../../../../../lib/temps";
 import { DecisionPartie } from "./DecisionPartie";
 
-export const metadata: Metadata = { title: "Feuille de temps à examiner" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = creerTraduire(await obtenirLangue());
+  return { title: t("Feuille de temps à examiner", "Timesheet to review") };
+}
 
 export default async function PageFeuille({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("temps.saisir");
   const [r, p] = await Promise.all([
@@ -32,13 +39,16 @@ export default async function PageFeuille({ params }: { params: Promise<{ id: st
     chargerServeur<ParametresTemps>("/api/temps/parametres"),
   ]);
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: "/temps/validation", libelle: "Feuilles à valider" };
+  const retour = {
+    href: "/temps/validation",
+    libelle: t("Feuilles à valider", "Timesheets to approve"),
+  };
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Feuille de temps" retour={retour} />
+        <EnteteDePage titre={t("Feuille de temps", "Timesheet")} retour={retour} />
         <EtatErreur
-          titre="La feuille n'a pas pu être chargée."
+          titre={t("La feuille n'a pas pu être chargée.", "The timesheet could not be loaded.")}
           message={r.message}
           hrefReessayer={`/temps/feuilles/${id}`}
         />
@@ -55,27 +65,42 @@ export default async function PageFeuille({ params }: { params: Promise<{ id: st
       <EnteteDePage
         titre={f.collaborateur_nom}
         retour={retour}
-        soustitre={libelleSemaine(f.semaine, ajouterJoursIso(f.semaine, 6))}
+        soustitre={libelleSemaine(f.semaine, ajouterJoursIso(f.semaine, 6), langue)}
         badges={
-          <BadgeStatut tonalite={STATUT_FEUILLE[f.statut].tonalite}>
-            {STATUT_FEUILLE[f.statut].libelle}
+          <BadgeStatut tonalite={statutFeuille(f.statut, langue).tonalite}>
+            {statutFeuille(f.statut, langue).libelle}
           </BadgeStatut>
         }
       />
       {auteur ? (
-        <Alerte tonalite="info" titre="C'est votre feuille" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("C'est votre feuille", "This is your timesheet")}
+          annonce="aucune"
+        >
           <p>
-            Sa validation revient à vos chefs de mission : vous ne pouvez pas la valider vous-même.
+            {t(
+              "Sa validation revient à vos chefs de mission : vous ne pouvez pas la valider vous-même.",
+              "Its approval belongs to your engagement managers: you cannot approve it yourself.",
+            )}
           </p>
         </Alerte>
       ) : null}
       {f.vue_partielle ? (
         <p className="mp-texte-doux">
-          Seules les parties que vous pouvez examiner (vos missions) sont affichées.
+          {t(
+            "Seules les parties que vous pouvez examiner (vos missions) sont affichées.",
+            "Only the parts you can review (your engagements) are shown.",
+          )}
         </p>
       ) : null}
       {f.soumise_le ? (
-        <p className="mp-texte-doux">{`Soumise le ${formaterDateHeure(f.soumise_le)}${f.cycle > 1 ? ` (envoi n° ${f.cycle}, après rejet)` : ""}.`}</p>
+        <p className="mp-texte-doux">
+          {t(
+            `Soumise le ${formaterDateHeure(f.soumise_le, "Africa/Abidjan", langue)}${f.cycle > 1 ? ` (envoi n° ${f.cycle}, après rejet)` : ""}.`,
+            `Submitted on ${formaterDateHeure(f.soumise_le, "Africa/Abidjan", langue)}${f.cycle > 1 ? ` (submission no. ${f.cycle}, after rejection)` : ""}.`,
+          )}
+        </p>
       ) : null}
 
       {f.parties.map((partie) => {
@@ -87,21 +112,23 @@ export default async function PageFeuille({ params }: { params: Promise<{ id: st
             titre={partie.intitule}
             actions={
               partie.statut ? (
-                <BadgeStatut tonalite={STATUT_PARTIE[partie.statut].tonalite}>
-                  {STATUT_PARTIE[partie.statut].libelle}
+                <BadgeStatut tonalite={statutPartie(partie.statut, langue).tonalite}>
+                  {statutPartie(partie.statut, langue).libelle}
                 </BadgeStatut>
               ) : null
             }
           >
             <div className="mp-pile">
               <TableauLignes
-                legende={`Temps : ${partie.intitule}`}
+                legende={t(`Temps : ${partie.intitule}`, `Time: ${partie.intitule}`)}
                 lignes={lignes}
                 jours={jours}
                 unite={unite}
               />
               {partie.motif ? (
-                <p className="mp-texte-preserve">{`Motif : ${partie.motif}`}</p>
+                <p className="mp-texte-preserve">
+                  {t(`Motif : ${partie.motif}`, `Reason: ${partie.motif}`)}
+                </p>
               ) : null}
               {decider ? (
                 <DecisionPartie

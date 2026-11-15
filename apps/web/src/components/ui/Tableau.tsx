@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { T } from "../i18n/T";
 
 export interface ColonneTableau<T> {
   cle: string;
@@ -37,12 +38,12 @@ export function Tableau<T>({
   colonnes,
   lignes,
   cleLigne,
-  messageVide = "Aucun élément à afficher.",
+  messageVide,
 }: TableauProps<T>) {
   if (lignes.length === 0) {
     return (
       <p className="mp-tableau__vide" role="status">
-        {messageVide}
+        {messageVide ?? <T fr="Aucun élément à afficher." en="No items to display." />}
       </p>
     );
   }

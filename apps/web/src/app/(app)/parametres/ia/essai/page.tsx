@@ -20,10 +20,14 @@ import {
   statutConnu,
   type GenerationIa,
 } from "../../../../../lib/ia-contenu";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 import { EssaiGeneration } from "./EssaiGeneration";
 
-export const metadata: Metadata = { title: "Essai de génération IA" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Essai de génération IA", "AI generation test") };
+}
 
 function hrefEssai(p: { generation?: string | null; curseur?: string | null }): string {
   const q = new URLSearchParams();
@@ -39,6 +43,8 @@ export default async function PageEssaiIa({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("ia.configurer");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const q = await searchParams;
   const id = lireIdGeneration(q.generation);
   const curseur = typeof q.curseur === "string" && q.curseur !== "" ? q.curseur : null;
@@ -55,16 +61,22 @@ export default async function PageEssaiIa({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Essai de génération"
-        retour={{ href: "/parametres/ia", libelle: "Intelligence artificielle" }}
-        soustitre="Testez un prompt d'exemple : le contenu suit le circuit complet (brouillon IA, modification, validation) sans rien envoyer à un client."
+        titre={t("Essai de génération", "Generation test")}
+        retour={{
+          href: "/parametres/ia",
+          libelle: t("Intelligence artificielle", "Artificial intelligence"),
+        }}
+        soustitre={t(
+          "Testez un prompt d'exemple : le contenu suit le circuit complet (brouillon IA, modification, validation) sans rien envoyer à un client.",
+          "Test an example prompt: the content goes through the full process (AI draft, edit, approval) without anything being sent to a client.",
+        )}
       />
-      <Carte titre="Nouvel essai">
+      <Carte titre={t("Nouvel essai", "New test")}>
         {prompts.ok ? (
           <EssaiGeneration prompts={exemples} />
         ) : (
           <EtatErreur
-            titre="Les prompts n'ont pas pu être chargés."
+            titre={t("Les prompts n'ont pas pu être chargés.", "The prompts could not be loaded.")}
             message={prompts.message}
             hrefReessayer="/parametres/ia/essai"
           />
@@ -75,25 +87,28 @@ export default async function PageEssaiIa({
           key={detail.donnees.id}
           generation={detail.donnees}
           utilisateur={{ id: utilisateur.id, roles: utilisateur.roles }}
-          titre="Résultat de l'essai"
+          titre={t("Résultat de l'essai", "Test result")}
           niveauTitre={2}
         />
       ) : (
         <EtatErreur
-          titre="La génération n'a pas pu être chargée."
+          titre={t("La génération n'a pas pu être chargée.", "The generation could not be loaded.")}
           message={detail.message}
           hrefReessayer={hrefEssai({ generation: id })}
         />
       )}
-      <Carte titre="Générations récentes">
+      <Carte titre={t("Générations récentes", "Recent generations")}>
         {!recentes.ok ? (
           <EtatErreur
-            titre="Les générations récentes n'ont pas pu être chargées."
+            titre={t(
+              "Les générations récentes n'ont pas pu être chargées.",
+              "The recent generations could not be loaded.",
+            )}
             message={recentes.message}
             hrefReessayer="/parametres/ia/essai"
           />
         ) : recentes.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune génération pour l'instant." />
+          <EtatVide titre={t("Aucune génération pour l'instant.", "No generation yet.")} />
         ) : (
           <div className="mp-pile">
             <ul className="mp-liste-lignes">
@@ -101,9 +116,11 @@ export default async function PageEssaiIa({
                 <li key={g.id} className="mp-liste-lignes__ligne">
                   <div className="mp-liste-lignes__texte">
                     <Link href={hrefEssai({ generation: g.id, curseur })}>
-                      {`« ${g.prompt.nom} », ${formaterDateHeure(g.cree_le)}`}
+                      {`« ${g.prompt.nom} », ${formaterDateHeure(g.cree_le, undefined, langue)}`}
                     </Link>
-                    <span className="mp-texte-petit mp-texte-doux">{`Demandée par ${g.demandeur.nom}`}</span>
+                    <span className="mp-texte-petit mp-texte-doux">
+                      {t(`Demandée par ${g.demandeur.nom}`, `Requested by ${g.demandeur.nom}`)}
+                    </span>
                   </div>
                   <span className="mp-badges">
                     <BadgeStatutGenerationIa statut={statutConnu(g.statut)} />
@@ -115,7 +132,7 @@ export default async function PageEssaiIa({
               ))}
             </ul>
             <PaginationCurseur
-              libelle="Pages des générations récentes"
+              libelle={t("Pages des générations récentes", "Recent generation pages")}
               hrefSuivante={
                 recentes.donnees.curseur_suivant
                   ? hrefEssai({ generation: id, curseur: recentes.donnees.curseur_suivant })

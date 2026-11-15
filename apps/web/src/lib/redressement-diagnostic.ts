@@ -17,6 +17,7 @@ import {
   RED_NIVEAU_CONFIANCE_CAUSE_LIBELLES,
   RED_NIVEAUX_CONFIANCE_CAUSE,
   RED_STATUT_CONTENU_CAUSES_LIBELLES,
+  type Langue,
   type RedCausesVersionVue,
   type RedChecklistOrigine,
   type RedChecklistReponse,
@@ -64,46 +65,106 @@ export const cheminValidationCauses = (id: string) => `${cheminCartographie(id)}
 // --- Textes fixes -----------------------------------------------------------------------------------
 
 export const MENTION_CHECKLIST_A_VALIDER = RED_CHECKLIST_MENTION_A_VALIDER;
+export const MENTION_CHECKLIST_A_VALIDER_EN =
+  "Provisional starting content, to be approved by an expert before any reference use.";
 
 export const BANDEAU_CAUSES_IA =
   "Proposition de l'IA, à valider par un consultant : aucun chiffre ne vient du modèle.";
+export const BANDEAU_CAUSES_IA_EN =
+  "AI proposal, to be approved by a consultant: no figure comes from the model.";
 export const TEXTE_CAUSES_GABARIT = "Proposition de secours sans IA";
+export const TEXTE_CAUSES_GABARIT_EN = "Fallback proposal without AI";
 export const TEXTE_CAUSES_GABARIT_AIDE =
   "L'IA n'a pas pu répondre : un gabarit déterministe a été utilisé. Relisez-le et adaptez-le.";
+export const TEXTE_CAUSES_GABARIT_AIDE_EN =
+  "The AI could not respond: a deterministic template was used. Review and adapt it.";
 export const TEXTE_CAUSES_LECTURE_SEULE =
   "Cartographie validée : elle est en lecture seule. Demandez une nouvelle proposition pour la faire évoluer.";
+export const TEXTE_CAUSES_LECTURE_SEULE_EN =
+  "Approved mapping: it is read-only. Request a new proposal to update it.";
 export const TEXTE_CAUSES_AUCUNE =
   "Aucune cartographie pour l'instant. Demandez une proposition à l'IA : elle s'appuie sur le diagnostic du dossier.";
+export const TEXTE_CAUSES_AUCUNE_EN =
+  "No mapping yet. Ask the AI for a proposal: it relies on the file's diagnostic.";
 export const TEXTE_PUBLICATION_CHECKLIST =
   "La publication revient à un expert métier ou à un associé autre que l'auteur de la version.";
+export const TEXTE_PUBLICATION_CHECKLIST_EN =
+  "Publication is reserved for a subject-matter expert or a partner other than the version's author.";
 export const TEXTE_CHECKLISTS_LECTURE_SEULE =
   "Lecture seule : la saisie des réponses est réservée aux membres habilités du dossier.";
+export const TEXTE_CHECKLISTS_LECTURE_SEULE_EN =
+  "Read-only: entering answers is reserved for authorized members of the file.";
 export const TEXTE_MODELES_LECTURE_SEULE =
   "Lecture seule : la création et la publication des modèles reviennent aux experts du cabinet.";
+export const TEXTE_MODELES_LECTURE_SEULE_EN =
+  "Read-only: creating and publishing templates is reserved for the firm's experts.";
 
 // --- Libellés ---------------------------------------------------------------------------------------
 
-export const libelleReponseChecklist = (r: RedChecklistReponse) =>
-  RED_CHECKLIST_REPONSE_LIBELLES[r] ?? r;
-export const libelleOrigineChecklist = (o: RedChecklistOrigine) =>
-  RED_CHECKLIST_ORIGINE_LIBELLES[o] ?? o;
-export const libelleStatutChecklist = (s: RedChecklistStatut) =>
-  RED_CHECKLIST_STATUT_LIBELLES[s] ?? s;
-export const libelleStatutVersionChecklist = (s: RedChecklistStatutVersion) =>
-  RED_CHECKLIST_STATUT_VERSION_LIBELLES[s] ?? s;
-export const libelleStatutContenuCauses = (s: StatutContenu) =>
-  RED_STATUT_CONTENU_CAUSES_LIBELLES[s] ?? s;
-export const libelleConfianceCause = (c: RedNiveauConfianceCause | null) =>
-  c === null ? "Confiance non indiquée" : (RED_NIVEAU_CONFIANCE_CAUSE_LIBELLES[c] ?? c);
+const REPONSE_CHECKLIST_EN: Record<RedChecklistReponse, string> = {
+  oui: "Yes",
+  non: "No",
+  partiel: "Partially",
+  sans_objet: "N/A",
+};
+const ORIGINE_CHECKLIST_EN: Record<RedChecklistOrigine, string> = {
+  depart: "Starting content",
+  modele: "Firm template",
+};
+const STATUT_CHECKLIST_EN: Record<RedChecklistStatut, string> = {
+  active: "Active",
+  archivee: "Archived",
+};
+const STATUT_VERSION_CHECKLIST_EN: Record<RedChecklistStatutVersion, string> = {
+  brouillon: "Draft",
+  publiee: "Published",
+};
+const STATUT_CONTENU_CAUSES_EN: Record<StatutContenu, string> = {
+  brouillon_ia: "AI draft",
+  modifie: "Edited",
+  valide: "Approved",
+};
+const CONFIANCE_CAUSE_EN: Record<RedNiveauConfianceCause, string> = {
+  faible: "Low confidence",
+  moyen: "Medium confidence",
+  eleve: "High confidence",
+};
+
+export const libelleReponseChecklist = (r: RedChecklistReponse, langue: Langue = "fr") =>
+  (langue === "en" ? REPONSE_CHECKLIST_EN : RED_CHECKLIST_REPONSE_LIBELLES)[r] ?? r;
+export const libelleOrigineChecklist = (o: RedChecklistOrigine, langue: Langue = "fr") =>
+  (langue === "en" ? ORIGINE_CHECKLIST_EN : RED_CHECKLIST_ORIGINE_LIBELLES)[o] ?? o;
+export const libelleStatutChecklist = (s: RedChecklistStatut, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_CHECKLIST_EN : RED_CHECKLIST_STATUT_LIBELLES)[s] ?? s;
+export const libelleStatutVersionChecklist = (
+  s: RedChecklistStatutVersion,
+  langue: Langue = "fr",
+) =>
+  (langue === "en" ? STATUT_VERSION_CHECKLIST_EN : RED_CHECKLIST_STATUT_VERSION_LIBELLES)[s] ?? s;
+export const libelleStatutContenuCauses = (s: StatutContenu, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_CONTENU_CAUSES_EN : RED_STATUT_CONTENU_CAUSES_LIBELLES)[s] ?? s;
+export const libelleConfianceCause = (c: RedNiveauConfianceCause | null, langue: Langue = "fr") =>
+  c === null
+    ? langue === "en"
+      ? "Confidence not indicated"
+      : "Confiance non indiquée"
+    : ((langue === "en" ? CONFIANCE_CAUSE_EN : RED_NIVEAU_CONFIANCE_CAUSE_LIBELLES)[c] ?? c);
 
 export const OPTIONS_REPONSES_CHECKLIST = RED_CHECKLIST_REPONSES.map((r) => ({
   valeur: r,
   libelle: RED_CHECKLIST_REPONSE_LIBELLES[r],
 }));
+export const optionsReponsesChecklist = (langue: Langue = "fr") =>
+  RED_CHECKLIST_REPONSES.map((r) => ({ valeur: r, libelle: libelleReponseChecklist(r, langue) }));
 export const OPTIONS_CONFIANCE_CAUSE = RED_NIVEAUX_CONFIANCE_CAUSE.map((c) => ({
   valeur: c,
   libelle: RED_NIVEAU_CONFIANCE_CAUSE_LIBELLES[c],
 }));
+export const optionsConfianceCause = (langue: Langue = "fr") =>
+  RED_NIVEAUX_CONFIANCE_CAUSE.map((c) => ({
+    valeur: c,
+    libelle: libelleConfianceCause(c, langue),
+  }));
 
 export const tonaliteStatutChecklist = (s: RedChecklistStatut): TonaliteStatut =>
   s === "active" ? "succes" : "neutre";
@@ -113,9 +174,9 @@ export const tonaliteStatutVersionChecklist = (s: RedChecklistStatutVersion): To
 // --- Mise en forme ----------------------------------------------------------------------------------
 
 /** Taux en points de base du moteur (10 000 = 100 %) → « 75,00 % » ; `null` → « — ». */
-export function formaterTaux(pb: number | null | undefined): string {
+export function formaterTaux(pb: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof pb !== "number" || !Number.isFinite(pb)) return VALEUR_ABSENTE;
-  return formaterPointsDeBase(pb, "pourcentage");
+  return formaterPointsDeBase(pb, "pourcentage", langue);
 }
 
 // --- Règles d'affichage (l'API reste juge) ----------------------------------------------------------
@@ -155,18 +216,26 @@ export function corpsValidationCauses(
 export function raisonValidationBloquee(
   v: Pick<RedCausesVersionVue, "chiffres_non_verifies" | "chiffres_acquittes">,
   coche: boolean,
+  langue: Langue = "fr",
 ): string | null {
-  return acquittementRequis(v) && !coche
-    ? "Cochez l'attestation des nombres non vérifiés pour pouvoir valider."
-    : null;
+  if (!acquittementRequis(v) || coche) return null;
+  return langue === "en"
+    ? "Tick the attestation for unverified numbers to be able to approve."
+    : "Cochez l'attestation des nombres non vérifiés pour pouvoir valider.";
 }
 
-export function libelleRangHistorique(r: {
-  rang: number;
-  statut_contenu: StatutContenu;
-  auteur: { nom: string };
-}): string {
-  return `Rang ${r.rang} : ${libelleStatutContenuCauses(r.statut_contenu)}, par ${r.auteur.nom}`;
+export function libelleRangHistorique(
+  r: {
+    rang: number;
+    statut_contenu: StatutContenu;
+    auteur: { nom: string };
+  },
+  langue: Langue = "fr",
+): string {
+  const statut = libelleStatutContenuCauses(r.statut_contenu, langue);
+  return langue === "en"
+    ? `Rank ${r.rang}: ${statut}, by ${r.auteur.nom}`
+    : `Rang ${r.rang} : ${statut}, par ${r.auteur.nom}`;
 }
 
 // --- Messages d'erreur ------------------------------------------------------------------------------
@@ -198,13 +267,40 @@ const MESSAGES_DIAGNOSTIC: Record<string, string> = {
     "Ce modèle n'a aucune version publiée : il ne peut pas encore être activé.",
 };
 
-/** Message français d'une erreur d'API de l'onglet Diagnostic ou des modèles de check-lists. */
-export function messageDiagnostic(e: unknown): string {
+const MESSAGES_DIAGNOSTIC_EN: Record<string, string> = {
+  APPROBATION_REQUISE:
+    "Approval not possible: the mapping must be approved by a consultant other than the one who wrote or edited it, or by a partner.",
+  SEPARATION_DES_TACHES:
+    "Action not possible: it falls to a member other than the version's author, or to a partner.",
+  CHIFFRES_NON_VERIFIES:
+    "Some numbers in the proposal do not come from a calculation engine: check them, then tick the attestation before approving.",
+  RED_CAUSES_VALIDEES: "This mapping is approved: it can no longer be edited.",
+  RED_CAUSES_SANS_DIAGNOSTIC:
+    "No proposal possible: the file has no diagnostic yet (ratios or urgency to fill in).",
+  GENERATION_IA_ECHEC:
+    "The AI could not produce a proposal. Try again in a moment or write the causes by hand.",
+  RED_TROP_DE_PROPOSITIONS_CAUSES:
+    "Too many proposals requested in a short time: wait before trying again.",
+  RED_PLAFOND_ATTEINT: "The file's volume limit has been reached.",
+  RED_DOSSIER_CLOS: "The file is closed: it is read-only.",
+  RED_MISSION_CLOTUREE: "The engagement is closed: the file is read-only.",
+  RED_CHECKLIST_FIGEE: "This checklist is archived: it can no longer be edited.",
+  RED_CHECKLIST_DEJA_ACTIVE: "This checklist is already activated in the file.",
+  RED_CHECKLIST_CODE_EXISTE: "This template code already exists in the firm.",
+  RED_CHECKLIST_BROUILLON_EN_COURS:
+    "This template already has a draft: publish it before creating another.",
+  RED_CHECKLIST_NON_BROUILLON: "Only a draft version can be published.",
+  RED_CHECKLIST_SANS_VERSION_PUBLIEE:
+    "This template has no published version: it cannot be activated yet.",
+};
+
+/** Message d'une erreur d'API de l'onglet Diagnostic ou des modèles de check-lists. */
+export function messageDiagnostic(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const fixe = MESSAGES_DIAGNOSTIC[e.code];
+    const fixe = (langue === "en" ? MESSAGES_DIAGNOSTIC_EN : MESSAGES_DIAGNOSTIC)[e.code];
     if (fixe) return fixe;
   }
-  return messageRedressement(e);
+  return messageRedressement(e, langue);
 }
 
 /** Tous les textes fixes de ce module (relus par le test de vocabulaire). */

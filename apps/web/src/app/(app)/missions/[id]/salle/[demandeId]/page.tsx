@@ -5,6 +5,7 @@ import { aPermission } from "@missionpilot/shared";
 import { DemandeCabinet } from "../../../../../../components/salle-mission/DemandeCabinet";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { aujourdhui } from "../../../../../../lib/periode";
@@ -17,7 +18,10 @@ import {
 } from "../../../../../../lib/salle-mission";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Demande de documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Demande de documents", "Document request") };
+}
 
 /** Demande documentaire d'une mission : pièces, dépôts, décisions et relances. */
 export default async function PageDemandeSalle({
@@ -26,6 +30,7 @@ export default async function PageDemandeSalle({
   params: Promise<{ id: string; demandeId: string }>;
 }) {
   const { id, demandeId } = await params;
+  const t = await obtenirT();
   if (!estIdentifiant(demandeId)) notFound();
   const { utilisateur } = await exigerPermission("salle.lire");
   const m = await chargerMission(id);
@@ -34,7 +39,9 @@ export default async function PageDemandeSalle({
   if (!r.ok && r.statut === 404) notFound();
   const retour = (
     <p>
-      <Link href={hrefSalle(id)}>← Toutes les demandes de la mission</Link>
+      <Link href={hrefSalle(id)}>
+        {t("← Toutes les demandes de la mission", "← All the engagement's requests")}
+      </Link>
     </p>
   );
   if (!r.ok) {
@@ -42,7 +49,7 @@ export default async function PageDemandeSalle({
       <div className="mp-pile">
         {retour}
         <EtatErreur
-          titre="La demande n'a pas pu être chargée."
+          titre={t("La demande n'a pas pu être chargée.", "The request could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefDemande(id, demandeId)}
         />

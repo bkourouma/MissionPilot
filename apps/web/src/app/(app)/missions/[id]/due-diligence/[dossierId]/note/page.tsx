@@ -16,10 +16,14 @@ import {
   type SyntheseDossier,
 } from "../../../../../../../lib/due-diligence";
 import { formaterDate } from "../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Notes au comité" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Notes au comité", "Committee memos") };
+}
 
 /**
  * Notes au comité du dossier (DD-13) : brouillon, soumission (base de chiffres figée par les
@@ -31,6 +35,8 @@ export default async function PageNotesDd({
   params: Promise<{ id: string; dossierId: string }>;
 }) {
   const { id, dossierId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -47,23 +53,29 @@ export default async function PageNotesDd({
         dossierId={dossierId}
         controle={synthese.ok ? synthese.donnees.controle_note : null}
       />
-      <Carte titre="Notes au comité" niveauTitre={3}>
+      <Carte titre={t("Notes au comité", "Committee memos")} niveauTitre={3}>
         {!notes.ok ? (
           <EtatErreur
-            titre="Les notes n'ont pas pu être chargées."
+            titre={t("Les notes n'ont pas pu être chargées.", "The memos could not be loaded.")}
             message={notes.message}
             hrefReessayer={hrefEcranDossier(id, dossierId, "note")}
           />
         ) : notes.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune note au comité." icone="livre">
+          <EtatVide titre={t("Aucune note au comité.", "No committee memo.")} icone="livre">
             <p>
               {droits.ecrire
-                ? "Rédigez la recommandation et la synthèse : la note est contrôlée par le moteur, soumise, puis validée par une autre personne."
-                : "Les notes apparaîtront ici dès qu'un consultant en aura rédigé une."}
+                ? t(
+                    "Rédigez la recommandation et la synthèse : la note est contrôlée par le moteur, soumise, puis validée par une autre personne.",
+                    "Write the recommendation and the summary: the memo is checked by the engine, submitted, then approved by another person.",
+                  )
+                : t(
+                    "Les notes apparaîtront ici dès qu'un consultant en aura rédigé une.",
+                    "Memos will appear here as soon as a consultant has written one.",
+                  )}
             </p>
           </EtatVide>
         ) : (
-          <ul className="mp-dd-liste" aria-label="Notes au comité">
+          <ul className="mp-dd-liste" aria-label={t("Notes au comité", "Committee memos")}>
             {notes.donnees.elements.map((n) => (
               <li key={n.id} className="mp-dd-element">
                 <h4 className="mp-dd-element__titre">
@@ -73,17 +85,27 @@ export default async function PageNotesDd({
                   <BadgeEtatNote etat={n.etat} />
                   <span className="mp-texte-petit">{`Version ${n.derniere_version}`}</span>
                   {n.validee_version ? (
-                    <span className="mp-texte-petit">{`Validée : version ${n.validee_version}`}</span>
+                    <span className="mp-texte-petit">
+                      {t(
+                        `Validée : version ${n.validee_version}`,
+                        `Approved: version ${n.validee_version}`,
+                      )}
+                    </span>
                   ) : null}
                 </span>
-                <p className="mp-texte-doux mp-texte-petit">{`Créée le ${formaterDate(n.cree_le)}`}</p>
+                <p className="mp-texte-doux mp-texte-petit">
+                  {t(
+                    `Créée le ${formaterDate(n.cree_le)}`,
+                    `Created on ${formaterDate(n.cree_le, "UTC", langue)}`,
+                  )}
+                </p>
               </li>
             ))}
           </ul>
         )}
       </Carte>
       {droits.ecrire ? (
-        <Carte titre="Nouvelle note" niveauTitre={3}>
+        <Carte titre={t("Nouvelle note", "New memo")} niveauTitre={3}>
           <EditeurNote missionId={id} dossierId={dossierId} />
         </Carte>
       ) : null}

@@ -3,6 +3,7 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirLangue } from "../../../../../lib/i18n/serveur";
 import {
   geometrieGantt,
   tachesChronologiques,
@@ -16,15 +17,21 @@ import { chargerMission } from "../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 import { Dependances } from "./Dependances";
 
-export const metadata: Metadata = { title: "Planning de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const langue = await obtenirLangue();
+  return { title: langue === "en" ? "Engagement schedule" : "Planning de la mission" };
+}
 
 export default async function PagePlanning({ params }: { params: Promise<{ id: string }> }) {
+  const langue = await obtenirLangue();
+  const en = langue === "en";
+  const tr = (fr: string, e: string) => (en ? e : fr);
   const { id } = await params;
   const { utilisateur } = await exigerPermission("mission.lire");
   const r = await chargerMission(id);
   if (!r.ok) return null;
   const m = r.donnees;
-  const droits = droitsMission(m, utilisateur.roles, utilisateur.id);
+  const droits = droitsMission(m, utilisateur.roles, utilisateur.id, langue);
   const [planning, decoupage] = await Promise.all([
     chargerServeur<Planning>(`/api/missions/${m.id}/planning`),
     chargerServeur<Decoupage>(`/api/missions/${m.id}/decoupage`),
@@ -32,7 +39,7 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
   if (!planning.ok) {
     return (
       <EtatErreur
-        titre="Le planning n'a pas pu être calculé."
+        titre={tr("Le planning n'a pas pu être calculé.", "The schedule could not be calculated.")}
         message={planning.message}
         hrefReessayer={`/missions/${m.id}/planning`}
       />
@@ -43,7 +50,7 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
   const chemin = (tid: string) =>
     situees.find((t) => t.id === tid)?.chemin ??
     p.taches.find((t) => t.id === tid)?.libelle ??
-    "Tâche";
+    tr("Tâche", "Task");
   const taches = tachesChronologiques(p.taches);
   const jalons = [...p.jalons].sort((a, b) =>
     (a.date_prevue ?? "9999").localeCompare(b.date_prevue ?? "9999"),
@@ -54,20 +61,33 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
 
   return (
     <div className="mp-pile mp-pile--large">
-      <Carte titre="Planning">
+      <Carte titre={tr("Planning", "Schedule")}>
         {taches.length === 0 ? (
-          <EtatVide titre="Aucune tâche à planifier." icone="calendrier">
-            <p>Ajoutez des tâches dans l&apos;onglet Découpage.</p>
+          <EtatVide
+            titre={tr("Aucune tâche à planifier.", "No tasks to schedule.")}
+            icone="calendrier"
+          >
+            <p>
+              {tr(
+                "Ajoutez des tâches dans l'onglet Découpage.",
+                "Add tasks in the Work breakdown tab.",
+              )}
+            </p>
           </EtatVide>
         ) : (
           <div className="mp-pile">
             <p className="mp-texte-doux">
-              {`Dates au plus tôt en jours ouvrés du cabinet, calculées depuis le ${formaterDate(m.date_debut) === "—" ? "jour même (mission sans date de début)" : formaterDate(m.date_debut)} et les dépendances.`}
+              {en
+                ? `Earliest dates in firm business days, calculated from ${formaterDate(m.date_debut, "UTC", langue) === "—" ? "the same day (engagement with no start date)" : formaterDate(m.date_debut, "UTC", langue)} and the dependencies.`
+                : `Dates au plus tôt en jours ouvrés du cabinet, calculées depuis le ${formaterDate(m.date_debut) === "—" ? "jour même (mission sans date de début)" : formaterDate(m.date_debut)} et les dépendances.`}
             </p>
             {gantt ? (
               <figure className="mp-gantt" aria-labelledby="legende-gantt">
                 <figcaption id="legende-gantt" className="mp-gantt__legende">
-                  {`Diagramme de Gantt du ${formaterDate(gantt.debut)} au ${formaterDate(gantt.fin)} — le détail figure dans le tableau ci-dessous.`}
+                  {tr(
+                    `Diagramme de Gantt du ${formaterDate(gantt.debut)} au ${formaterDate(gantt.fin)} — le détail figure dans le tableau ci-dessous.`,
+                    `Gantt chart from ${formaterDate(gantt.debut, "UTC", langue)} to ${formaterDate(gantt.fin, "UTC", langue)} — details are in the table below.`,
+                  )}
                 </figcaption>
                 <ol className="mp-gantt__lignes" aria-hidden="true">
                   {taches.map((t) => {
@@ -90,7 +110,7 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
                     .filter((j) => gantt.jalons.has(j.id))
                     .map((j) => (
                       <li key={j.id} className="mp-gantt__ligne mp-gantt__ligne--jalon">
-                        <span className="mp-gantt__libelle">{`Jalon : ${j.libelle}`}</span>
+                        <span className="mp-gantt__libelle">{`${tr("Jalon", "Milestone")} : ${j.libelle}`}</span>
                         <span className="mp-gantt__piste">
                           <span
                             className="mp-gantt__jalon"
@@ -103,34 +123,46 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
                 <div className="mp-gantt__ligne" aria-hidden="true">
                   <span />
                   <span className="mp-gantt__axe">
-                    <span>{formaterDate(gantt.debut)}</span>
-                    <span>{formaterDate(gantt.fin)}</span>
+                    <span>{formaterDate(gantt.debut, "UTC", langue)}</span>
+                    <span>{formaterDate(gantt.fin, "UTC", langue)}</span>
                   </span>
                 </div>
               </figure>
             ) : null}
             <Tableau
-              legende="Tâches par ordre chronologique"
+              legende={tr("Tâches par ordre chronologique", "Tasks in chronological order")}
               legendeVisible
               lignes={taches}
               cleLigne={(t) => t.id}
               colonnes={[
                 {
                   cle: "tache",
-                  entete: "Tâche",
+                  entete: tr("Tâche", "Task"),
                   rendu: (t) => <span className="mp-coupure">{chemin(t.id)}</span>,
                 },
-                { cle: "debut", entete: "Début", rendu: (t) => formaterDate(t.debut) },
-                { cle: "fin", entete: "Fin", rendu: (t) => formaterDate(t.fin) },
+                {
+                  cle: "debut",
+                  entete: tr("Début", "Start"),
+                  rendu: (t) => formaterDate(t.debut, "UTC", langue),
+                },
+                {
+                  cle: "fin",
+                  entete: tr("Fin", "End"),
+                  rendu: (t) => formaterDate(t.fin, "UTC", langue),
+                },
                 {
                   cle: "duree",
-                  entete: "Durée",
+                  entete: tr("Durée", "Duration"),
                   alignement: "droite",
-                  rendu: (t) => `${formaterNombre(t.duree_jours_ouvres, 0)} j ouvré(s)`,
+                  rendu: (t) =>
+                    tr(
+                      `${formaterNombre(t.duree_jours_ouvres, 0)} j ouvré(s)`,
+                      `${formaterNombre(t.duree_jours_ouvres, 0, langue)} business d`,
+                    ),
                 },
                 {
                   cle: "apres",
-                  entete: "Après",
+                  entete: tr("Après", "After"),
                   rendu: (t) => {
                     const pred = predecesseurs(t.id);
                     return pred.length ? (
@@ -146,9 +178,14 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
         )}
       </Carte>
 
-      <Carte titre="Jalons">
+      <Carte titre={tr("Jalons", "Milestones")}>
         {jalons.length === 0 ? (
-          <p className="mp-texte-doux">Aucun jalon. Ajoutez-en depuis l&apos;onglet Découpage.</p>
+          <p className="mp-texte-doux">
+            {tr(
+              "Aucun jalon. Ajoutez-en depuis l'onglet Découpage.",
+              "No milestones. Add some from the Work breakdown tab.",
+            )}
+          </p>
         ) : (
           <ul className="mp-liste-lignes">
             {jalons.map((j) => (
@@ -156,17 +193,22 @@ export default async function PagePlanning({ params }: { params: Promise<{ id: s
                 <span className="mp-liste-lignes__texte">
                   <strong>{j.libelle}</strong>
                   <span className="mp-texte-doux">
-                    {j.date_prevue ? `Prévu le ${formaterDate(j.date_prevue)}` : "Date à fixer"}
+                    {j.date_prevue
+                      ? tr(
+                          `Prévu le ${formaterDate(j.date_prevue)}`,
+                          `Planned for ${formaterDate(j.date_prevue, "UTC", langue)}`,
+                        )
+                      : tr("Date à fixer", "Date to be set")}
                   </span>
                 </span>
-                <span>{j.atteint ? "Atteint" : "À venir"}</span>
+                <span>{j.atteint ? tr("Atteint", "Reached") : tr("À venir", "Upcoming")}</span>
               </li>
             ))}
           </ul>
         )}
       </Carte>
 
-      <Carte titre="Dépendances entre tâches">
+      <Carte titre={tr("Dépendances entre tâches", "Dependencies between tasks")}>
         <Dependances
           missionId={m.id}
           dependances={p.dependances.map((d) => ({

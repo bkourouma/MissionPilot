@@ -12,6 +12,8 @@
 import {
   EXERCICE_PLAN_VIVANT,
   METHODES_REPREVISION_PLAN,
+  creerTraduire,
+  type Langue,
   type MethodeReprevisionPlan,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
@@ -84,32 +86,61 @@ export function lireExercice(v: string | string[] | undefined): number | null {
 // --- Messages ---------------------------------------------------------------------------------
 
 /** Message français d'un refus de l'API (jamais de montant dans le message). */
-export function messagePlanVivant(e: unknown): string {
+export function messagePlanVivant(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     switch (e.code) {
       case "REALISE_TRIMESTRE_NON_CONSECUTIF":
-        return "Les trimestres se saisissent dans l'ordre, sans trou : saisissez d'abord le trimestre précédent.";
+        return t(
+          "Les trimestres se saisissent dans l'ordre, sans trou : saisissez d'abord le trimestre précédent.",
+          "Quarters are entered in order, with no gaps: enter the previous quarter first.",
+        );
       case "REALISES_PLAFOND":
-        return "Le nombre maximal de versions de réalisés est atteint pour ce trimestre.";
+        return t(
+          "Le nombre maximal de versions de réalisés est atteint pour ce trimestre.",
+          "The maximum number of actuals versions has been reached for this quarter.",
+        );
       case "REALISE_VERSION_CONFLIT":
       case "REPREVISION_VERSION_CONFLIT":
-        return "Une autre personne vient d'enregistrer : rechargez la page puis recommencez.";
+        return t(
+          "Une autre personne vient d'enregistrer : rechargez la page puis recommencez.",
+          "Someone else has just saved: reload the page and try again.",
+        );
       case "MODELE_NON_VALIDE":
-        return "La re-prévision se calcule sur une version validée du modèle financier.";
+        return t(
+          "La re-prévision se calcule sur une version validée du modèle financier.",
+          "The re-forecast is computed on an approved version of the financial model.",
+        );
       case "REPREVISION_EXERCICE_HORS_HORIZON":
-        return "Cet exercice ne fait pas partie de l'horizon de la version du modèle choisie.";
+        return t(
+          "Cet exercice ne fait pas partie de l'horizon de la version du modèle choisie.",
+          "This fiscal year is not part of the horizon of the selected model version.",
+        );
       case "REPREVISION_INVALIDE":
         return e.message;
       case "REPREVISIONS_PLAFOND":
-        return "Cet exercice a atteint le nombre maximal de re-prévisions enregistrées.";
+        return t(
+          "Cet exercice a atteint le nombre maximal de re-prévisions enregistrées.",
+          "This fiscal year has reached the maximum number of saved re-forecasts.",
+        );
       case "CONFLIT":
-        return "La mission est clôturée : le plan reste consultable mais ne se modifie plus.";
+        return t(
+          "La mission est clôturée : le plan reste consultable mais ne se modifie plus.",
+          "The engagement is closed: the plan remains viewable but can no longer be changed.",
+        );
       default:
         break;
     }
-    if (e.statut === 403) return "Cette action est réservée aux rédacteurs du plan.";
+    if (e.statut === 403)
+      return t(
+        "Cette action est réservée aux rédacteurs du plan.",
+        "This action is reserved for the plan's editors.",
+      );
     if (e.statut === 404) {
-      return "Ce plan, cette version du modèle ou cette re-prévision est introuvable ou ne vous est plus accessible.";
+      return t(
+        "Ce plan, cette version du modèle ou cette re-prévision est introuvable ou ne vous est plus accessible.",
+        "This plan, model version or re-forecast cannot be found or is no longer accessible to you.",
+      );
     }
   }
   return messageErreur(e);

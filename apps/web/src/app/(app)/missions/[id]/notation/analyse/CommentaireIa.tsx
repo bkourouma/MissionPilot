@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PanneauContenuIa } from "../../../../../../components/ia/PanneauContenuIa";
+import { useLangue, useT } from "../../../../../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../../../../../components/ui/Alerte";
 import { Bouton } from "../../../../../../components/ui/Bouton";
 import { api } from "../../../../../../lib/api";
@@ -30,6 +31,8 @@ export function CommentaireIa({
   peutGenerer: boolean;
   utilisateur: UtilisateurIa;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [generation, setGeneration] = useState<GenerationIa | null>(initial);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -38,16 +41,21 @@ export function CommentaireIa({
   async function generer() {
     setEnCours(true);
     setErreur(null);
-    setAnnonce("Génération du brouillon en cours.");
+    setAnnonce(t("Génération du brouillon en cours.", "Generating the draft."));
     try {
       const r = await api.post<CommentaireExplication>(
         `/api/notations/${encodeURIComponent(notationId)}/explication/commentaire`,
         { version: numero, ...(cible ? { cible } : {}) },
       );
       setGeneration(r.commentaire);
-      setAnnonce("Brouillon généré : à relire et valider avant tout usage.");
+      setAnnonce(
+        t(
+          "Brouillon généré : à relire et valider avant tout usage.",
+          "Draft generated: review and approve it before any use.",
+        ),
+      );
     } catch (e) {
-      setErreur(messageErreurIa(e));
+      setErreur(messageErreurIa(e, langue));
       setAnnonce("");
     } finally {
       setEnCours(false);
@@ -58,16 +66,17 @@ export function CommentaireIa({
     <div className="mp-notation__section">
       <Alerte tonalite="info" annonce="aucune">
         <p>
-          Brouillon de l&apos;IA : il commente les chiffres du moteur sans en calculer aucun. Il
-          n&apos;est ni transmis au client ni repris dans un rapport tant qu&apos;un consultant ne
-          l&apos;a pas validé.
+          {t(
+            "Brouillon de l'IA : il commente les chiffres du moteur sans en calculer aucun. Il n'est ni transmis au client ni repris dans un rapport tant qu'un consultant ne l'a pas validé.",
+            "AI draft: it comments on the engine's figures without computing any. It is neither sent to the client nor included in a report until a consultant has approved it.",
+          )}
         </p>
       </Alerte>
       <p className="mp-visuellement-cache" role="status">
         {annonce}
       </p>
       {erreur ? (
-        <Alerte tonalite="danger" titre="Commentaire non généré">
+        <Alerte tonalite="danger" titre={t("Commentaire non généré", "Comment not generated")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -76,12 +85,15 @@ export function CommentaireIa({
           key={generation.id}
           generation={generation}
           utilisateur={utilisateur}
-          titre="Commentaire de l'IA (brouillon)"
+          titre={t("Commentaire de l'IA (brouillon)", "AI comment (draft)")}
           niveauTitre={3}
         />
       ) : (
         <p className="mp-texte-doux">
-          Aucun commentaire n&apos;a encore été généré pour cette version.
+          {t(
+            "Aucun commentaire n'a encore été généré pour cette version.",
+            "No comment has been generated for this version yet.",
+          )}
         </p>
       )}
       {peutGenerer ? (
@@ -90,10 +102,12 @@ export function CommentaireIa({
             type="button"
             variante={generation ? "secondaire" : "primaire"}
             chargement={enCours}
-            texteChargement="Génération…"
+            texteChargement={t("Génération…", "Generating…")}
             onClick={generer}
           >
-            {generation ? "Générer un nouveau brouillon" : "Générer un brouillon de commentaire"}
+            {generation
+              ? t("Générer un nouveau brouillon", "Generate a new draft")
+              : t("Générer un brouillon de commentaire", "Generate a draft comment")}
           </Bouton>
         </div>
       ) : null}

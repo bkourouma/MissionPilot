@@ -6,10 +6,11 @@ import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/
 import { Select } from "../../../../components/ui/Select";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDateHeure } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 import {
-  ACTION_LIBELLES,
-  ENTITE_LIBELLES,
+  actionLibelles,
+  entiteLibelles,
   libelleAction,
   libelleEntite,
   lignesDetails,
@@ -19,7 +20,10 @@ import {
   type Utilisateur,
 } from "../../../../lib/utilisateurs";
 
-export const metadata: Metadata = { title: "Journal d'audit" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Journal d'audit", "Audit log") };
+}
 
 const options = (table: Record<string, string>) =>
   Object.entries(table).map(([valeur, libelle]) => ({ valeur, libelle }));
@@ -30,6 +34,8 @@ export default async function PageJournal({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("audit.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const filtres = lireFiltresAudit(await searchParams);
   const { curseur, ...sansCurseur } = filtres;
   const [journal, utilisateurs] = await Promise.all([
@@ -46,8 +52,11 @@ export default async function PageJournal({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Journal d'audit"
-        soustitre="Toutes les créations, modifications et suppressions du cabinet, de la plus récente à la plus ancienne."
+        titre={t("Journal d'audit", "Audit log")}
+        soustitre={t(
+          "Toutes les créations, modifications et suppressions du cabinet, de la plus récente à la plus ancienne.",
+          "All creations, updates and deletions in the firm, from most recent to oldest.",
+        )}
       />
 
       <form
@@ -55,68 +64,80 @@ export default async function PageJournal({
         action="/parametres/journal"
         className="mp-filtres"
         role="search"
-        aria-label="Filtrer le journal"
+        aria-label={t("Filtrer le journal", "Filter the log")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Select
-            libelle="Élément concerné"
+            libelle={t("Élément concerné", "Item concerned")}
             name="entite"
-            invite="Tous"
-            options={options(ENTITE_LIBELLES)}
+            invite={t("Tous", "All")}
+            options={options(entiteLibelles(langue))}
             defaultValue={filtres.entite ?? ""}
           />
           <Select
-            libelle="Action"
+            libelle={t("Action", "Action")}
             name="action"
-            invite="Toutes"
-            options={options(ACTION_LIBELLES)}
+            invite={t("Toutes", "All")}
+            options={options(actionLibelles(langue))}
             defaultValue={filtres.action ?? ""}
           />
           <Select
-            libelle="Auteur"
+            libelle={t("Auteur", "Author")}
             name="utilisateur_id"
-            invite="Tous"
+            invite={t("Tous", "All")}
             options={optionsUtilisateurs}
             defaultValue={filtres.utilisateur_id ?? ""}
           />
-          <Champ libelle="Du" type="date" name="du" defaultValue={filtres.du ?? ""} />
-          <Champ libelle="Au" type="date" name="au" defaultValue={filtres.au ?? ""} />
+          <Champ libelle={t("Du", "From")} type="date" name="du" defaultValue={filtres.du ?? ""} />
+          <Champ libelle={t("Au", "To")} type="date" name="au" defaultValue={filtres.au ?? ""} />
         </div>
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
-            Filtrer
+            {t("Filtrer", "Filter")}
           </button>
           <a href="/parametres/journal" className={classesBouton("discret")}>
-            Effacer les filtres
+            {t("Effacer les filtres", "Clear filters")}
           </a>
         </div>
       </form>
 
       {!journal.ok ? (
         <EtatErreur
-          titre="Le journal d'audit n'a pas pu être chargé."
+          titre={t(
+            "Le journal d'audit n'a pas pu être chargé.",
+            "The audit log could not be loaded.",
+          )}
           message={journal.message}
           hrefReessayer={ici}
         />
       ) : journal.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune entrée ne correspond à ces filtres.">
-          <p>Élargissez la période ou effacez les filtres.</p>
+        <EtatVide
+          titre={t("Aucune entrée ne correspond à ces filtres.", "No entry matches these filters.")}
+        >
+          <p>
+            {t(
+              "Élargissez la période ou effacez les filtres.",
+              "Widen the period or clear the filters.",
+            )}
+          </p>
         </EtatVide>
       ) : (
-        <ol className="mp-journal" aria-label="Entrées du journal">
+        <ol className="mp-journal" aria-label={t("Entrées du journal", "Log entries")}>
           {journal.donnees.elements.map((e) => {
-            const lignes = lignesDetails(e.details);
+            const lignes = lignesDetails(e.details, langue);
             return (
               <li key={e.id} className="mp-journal__entree">
                 <p className="mp-journal__titre">
-                  <strong>{libelleAction(e.action)}</strong> · {libelleEntite(e.entite)}
+                  <strong>{libelleAction(e.action, langue)}</strong> ·{" "}
+                  {libelleEntite(e.entite, langue)}
                 </p>
                 <p className="mp-texte-doux">
-                  {formaterDateHeure(e.cree_le)} · par {e.utilisateur_nom ?? "système"}
+                  {formaterDateHeure(e.cree_le, "Africa/Abidjan", langue)} · {t("par", "by")}{" "}
+                  {e.utilisateur_nom ?? t("système", "system")}
                 </p>
                 {lignes.length > 0 ? (
                   <details className="mp-journal__details">
-                    <summary>Voir le détail</summary>
+                    <summary>{t("Voir le détail", "View details")}</summary>
                     <ul>
                       {lignes.map((l, i) => (
                         <li key={i} className="mp-coupure">
@@ -134,7 +155,7 @@ export default async function PageJournal({
 
       {journal.ok ? (
         <PaginationCurseur
-          libelle="Pagination du journal"
+          libelle={t("Pagination du journal", "Log pagination")}
           hrefDebut={curseur ? `/parametres/journal${requete(sansCurseur)}` : null}
           hrefSuivante={
             journal.donnees.curseur_suivant

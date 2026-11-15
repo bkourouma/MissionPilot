@@ -10,6 +10,7 @@ import {
 } from "../../lib/plan-montecarlo";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface RejeuSimulationProps {
   planId: string;
@@ -22,6 +23,8 @@ export interface RejeuSimulationProps {
  * nouvelle simulation.
  */
 export function RejeuSimulation({ planId, simulationId }: RejeuSimulationProps) {
+  const t = useT();
+  const langue = useLangue();
   const [reponse, setReponse] = useState<ReponseRejeu | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -34,7 +37,7 @@ export function RejeuSimulation({ planId, simulationId }: RejeuSimulationProps) 
     try {
       setReponse(await api.post<ReponseRejeu>(cheminRejeu(planId, simulationId)));
     } catch (e) {
-      setErreur(messageMonteCarlo(e));
+      setErreur(messageMonteCarlo(e, langue));
       refErreur.current?.focus();
     } finally {
       setEnCours(false);
@@ -48,24 +51,28 @@ export function RejeuSimulation({ planId, simulationId }: RejeuSimulationProps) 
           variante="secondaire"
           icone="historique"
           chargement={enCours}
-          texteChargement="Rejeu en cours…"
+          texteChargement={t("Rejeu en cours…", "Replay in progress…")}
           onClick={rejouer}
         >
-          Rejouer à l&apos;identique
+          {t("Rejouer à l'identique", "Replay identically")}
         </Bouton>
       </div>
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Rejeu impossible">
+        <Alerte ref={refErreur} tonalite="danger" titre={t("Rejeu impossible", "Replay failed")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
       {reponse ? (
         <Alerte
           tonalite={reponse.identique ? "succes" : "attention"}
-          titre={reponse.identique ? "Identique" : "Écart constaté"}
+          titre={
+            reponse.identique
+              ? t("Identique", "Identical")
+              : t("Écart constaté", "Difference found")
+          }
           annonce="status"
         >
-          <p>{messageRejeu(reponse)}</p>
+          <p>{messageRejeu(reponse, langue)}</p>
         </Alerte>
       ) : null}
     </div>

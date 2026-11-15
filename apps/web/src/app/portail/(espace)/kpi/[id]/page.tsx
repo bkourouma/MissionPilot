@@ -9,6 +9,7 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { formaterValeurKpi, libellePeriode } from "../../../../../lib/kpi";
 import { estIdentifiant, lireCurseur, peut, type PagePortail } from "../../../../../lib/portail";
 import {
@@ -27,7 +28,10 @@ import { dateDuJour } from "../../../../../lib/portail-questionnaires";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
 import "../../../../../components/kpi/kpi.css";
 
-export const metadata: Metadata = { title: "Indicateur" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Indicateur", "Indicator") };
+}
 
 /**
  * Saisie d'une mesure et historique d'un indicateur confié à l'utilisateur. Inexistant, non
@@ -41,8 +45,10 @@ export default async function KpiPortailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await obtenirSessionPortail();
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!peut(utilisateur.roles, "portail.kpi.saisir")) {
-    return <NonDisponible titre="Indicateur" />;
+    return <NonDisponible titre={t("Indicateur", "Indicator")} />;
   }
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
@@ -53,13 +59,13 @@ export default async function KpiPortailPage({
     chargerPortail<PagePortail<MesurePortail>>(cheminApiMesuresPortail(id, curseur)),
   ]);
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: CHEMIN_KPI_PORTAIL, libelle: "Vos indicateurs" };
+  const retour = { href: CHEMIN_KPI_PORTAIL, libelle: t("Vos indicateurs", "Your indicators") };
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Indicateur" retour={retour} />
+        <EnteteDePage titre={t("Indicateur", "Indicator")} retour={retour} />
         <EtatErreur
-          titre="Cet indicateur n'a pas pu être chargé."
+          titre={t("Cet indicateur n'a pas pu être chargé.", "This indicator could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefKpiPortail(id)}
         />
@@ -69,7 +75,7 @@ export default async function KpiPortailPage({
 
   const kpi = r.donnees;
   const aujourdhui = dateDuJour(new Date());
-  const etat = etatSaisieKpi(kpi, aujourdhui);
+  const etat = etatSaisieKpi(kpi, aujourdhui, langue);
 
   return (
     <div className="mp-page">
@@ -79,43 +85,49 @@ export default async function KpiPortailPage({
         retour={retour}
         badges={
           etat.saisissable ? (
-            <BadgeStatut tonalite="attention">À renseigner</BadgeStatut>
+            <BadgeStatut tonalite="attention">{t("À renseigner", "To be filled in")}</BadgeStatut>
           ) : (
-            <BadgeStatut tonalite="neutre">Saisie fermée</BadgeStatut>
+            <BadgeStatut tonalite="neutre">{t("Saisie fermée", "Entry closed")}</BadgeStatut>
           )
         }
       />
-      <Carte titre="Ce que l'on vous demande" niveauTitre={2}>
+      <Carte titre={t("Ce que l'on vous demande", "What is asked of you")} niveauTitre={2}>
         <dl className="mp-kpi-mesures">
           <div>
-            <dt>Fréquence</dt>
-            <dd>{libelleFrequence(kpi.frequence)}</dd>
+            <dt>{t("Fréquence", "Frequency")}</dt>
+            <dd>{libelleFrequence(kpi.frequence, langue)}</dd>
           </div>
           <div>
-            <dt>Période en cours</dt>
-            <dd>{libellePeriode(kpi.periode_en_cours)}</dd>
+            <dt>{t("Période en cours", "Current period")}</dt>
+            <dd>{libellePeriode(kpi.periode_en_cours, langue)}</dd>
           </div>
           <div>
-            <dt>Cible en vigueur</dt>
+            <dt>{t("Cible en vigueur", "Target in effect")}</dt>
             <dd>
               {kpi.cible_actuelle === null
-                ? "Pas de cible définie"
-                : formaterValeurKpi(kpi.cible_actuelle, kpi.unite)}
+                ? t("Pas de cible définie", "No target defined")
+                : formaterValeurKpi(kpi.cible_actuelle, kpi.unite, langue)}
             </dd>
           </div>
           <div>
-            <dt>Suivi</dt>
+            <dt>{t("Suivi", "Tracking")}</dt>
             <dd>
               {kpi.fin_suivi
-                ? `Du ${formaterDate(kpi.debut_suivi)} au ${formaterDate(kpi.fin_suivi)}`
-                : `Depuis le ${formaterDate(kpi.debut_suivi)}`}
+                ? t(
+                    `Du ${formaterDate(kpi.debut_suivi, "UTC", langue)} au ${formaterDate(kpi.fin_suivi, "UTC", langue)}`,
+                    `From ${formaterDate(kpi.debut_suivi, "UTC", langue)} to ${formaterDate(kpi.fin_suivi, "UTC", langue)}`,
+                  )
+                : t(
+                    `Depuis le ${formaterDate(kpi.debut_suivi, "UTC", langue)}`,
+                    `Since ${formaterDate(kpi.debut_suivi, "UTC", langue)}`,
+                  )}
             </dd>
           </div>
         </dl>
-        <p className="mp-texte-doux mp-texte-petit">{libelleSens(kpi.sens)}.</p>
+        <p className="mp-texte-doux mp-texte-petit">{libelleSens(kpi.sens, langue)}.</p>
       </Carte>
 
-      <Carte titre="Saisir une mesure" niveauTitre={2}>
+      <Carte titre={t("Saisir une mesure", "Enter a measurement")} niveauTitre={2}>
         {etat.saisissable ? (
           <SaisieMesurePortail kpi={kpi} aujourdhui={aujourdhui} />
         ) : (
@@ -124,22 +136,30 @@ export default async function KpiPortailPage({
           </Alerte>
         )}
         {etat.saisissable ? (
-          <p className="mp-texte-doux mp-texte-petit">{libelleNature(kpi.nature)}</p>
+          <p className="mp-texte-doux mp-texte-petit">{libelleNature(kpi.nature, langue)}</p>
         ) : null}
       </Carte>
 
-      <Carte titre="Historique des mesures" niveauTitre={2}>
+      <Carte titre={t("Historique des mesures", "Measurement history")} niveauTitre={2}>
         {!historique.ok ? (
           <EtatErreur
-            titre="L'historique n'a pas pu être chargé."
+            titre={t("L'historique n'a pas pu être chargé.", "The history could not be loaded.")}
             message={historique.message}
             hrefReessayer={hrefKpiPortail(id)}
           />
         ) : historique.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune mesure n'a encore été saisie." icone="courbe">
+          <EtatVide
+            titre={t(
+              "Aucune mesure n'a encore été saisie.",
+              "No measurement has been entered yet.",
+            )}
+            icone="courbe"
+          >
             <p>
-              Les valeurs que vous enregistrerez apparaîtront ici, de la plus récente à la plus
-              ancienne.
+              {t(
+                "Les valeurs que vous enregistrerez apparaîtront ici, de la plus récente à la plus ancienne.",
+                "The values you save will appear here, from the most recent to the oldest.",
+              )}
             </p>
           </EtatVide>
         ) : (
@@ -158,7 +178,7 @@ export default async function KpiPortailPage({
                 : null
             }
             hrefDebut={curseur ? hrefKpiPortail(id) : null}
-            libelle="Pages de l'historique"
+            libelle={t("Pages de l'historique", "History pages")}
           />
         ) : null}
       </Carte>

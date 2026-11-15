@@ -5,14 +5,13 @@ import { useState, type FormEvent } from "react";
 import { SENS_LIEN_DD } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
-  ANALYSE_DD_LIBELLES,
   cheminAssertionsHypothese,
   cheminLiensHypothese,
   hrefAssertionRegistre,
   libelleCategorie,
+  libellesDd,
   messageDd,
   optionsDe,
-  SENS_LIEN_DD_LIBELLES,
   type LienHypothese,
 } from "../../lib/due-diligence";
 import {
@@ -25,14 +24,13 @@ import {
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeSolidite } from "../preuves/BadgeSolidite";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
 import { ChampsAffirmation } from "./ChampsAffirmation";
-
-const OPTIONS_SENS = optionsDe(SENS_LIEN_DD, SENS_LIEN_DD_LIBELLES);
 
 export interface LiensHypotheseProps {
   missionId: string;
@@ -46,7 +44,8 @@ export interface LiensHypotheseProps {
   peutSigner: boolean;
 }
 
-const tronquer = (t: string, max = 140) => (t.length > max ? `${t.slice(0, max - 1)}…` : t);
+const tronquer = (texte: string, max = 140) =>
+  texte.length > max ? `${texte.slice(0, max - 1)}…` : texte;
 
 function LigneLien({
   lien,
@@ -59,6 +58,9 @@ function LigneLien({
   hypotheseId: string;
   peutEcrire: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const L = libellesDd(langue);
   const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoiEnCours, setEnCours] = useState(false);
@@ -76,7 +78,7 @@ function LigneLien({
       });
       rafraichir();
     } catch (e) {
-      setErreur(messageDd(e));
+      setErreur(messageDd(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -87,12 +89,15 @@ function LigneLien({
       <p className="mp-dd-texte">{lien.enonce}</p>
       <span className="mp-dd-meta">
         <BadgeStatut tonalite={lien.sens === "soutient" ? "succes" : "danger"}>
-          {SENS_LIEN_DD_LIBELLES[lien.sens]}
+          {L.SENS_LIEN[lien.sens]}
         </BadgeStatut>
         <BadgeSolidite solidite={lien.solidite ?? undefined} />
         {lien.analyse_point ? (
           <span className="mp-texte-doux mp-texte-petit">
-            {`Issue de l'analyse ${ANALYSE_DD_LIBELLES[lien.analyse_point.analyse]} (${libelleCategorie(lien.analyse_point.categorie)})`}
+            {t(
+              `Issue de l'analyse ${L.ANALYSE[lien.analyse_point.analyse]} (${libelleCategorie(lien.analyse_point.categorie, langue)})`,
+              `From the ${L.ANALYSE[lien.analyse_point.analyse]} analysis (${libelleCategorie(lien.analyse_point.categorie, langue)})`,
+            )}
           </span>
         ) : null}
       </span>
@@ -103,11 +108,11 @@ function LigneLien({
       ) : null}
       <div className="mp-barre-actions mp-barre-actions--compacte">
         <Link className="mp-lien-action" href={hrefAssertionRegistre(missionId, lien.assertion_id)}>
-          Voir l&apos;assertion et ses sources
+          {t("Voir l'assertion et ses sources", "View the statement and its sources")}
         </Link>
         {peutEcrire ? (
           <Bouton variante="secondaire" disabled={enCours} onClick={() => void delier()}>
-            Délier de l&apos;hypothèse
+            {t("Délier de l'hypothèse", "Unlink from the hypothesis")}
           </Bouton>
         ) : null}
       </div>
@@ -129,6 +134,9 @@ export function LiensHypothese({
   peutEcrire,
   peutSigner,
 }: LiensHypotheseProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsSens = optionsDe(SENS_LIEN_DD, libellesDd(langue).SENS_LIEN);
   const fLien = useFormulaire<"assertion_id" | "sens">();
   const [assertionId, setAssertionId] = useState("");
   const [sensLien, setSensLien] = useState("");
@@ -142,11 +150,11 @@ export function LiensHypothese({
   async function lier(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await fLien.envoyer(
-      validerLien(assertionId, sensLien),
+      validerLien(assertionId, sensLien, langue),
       (charge) => api.post(cheminLiensHypothese(hypotheseId), charge),
       {
-        succes: "Assertion liée à l'hypothèse.",
-        messageSpecifique: messageDd,
+        succes: t("Assertion liée à l'hypothèse.", "Statement linked to the hypothesis."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => {
           setAssertionId("");
           setSensLien("");
@@ -158,12 +166,15 @@ export function LiensHypothese({
   async function creer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await fNouvelle.envoyer(
-      validerAssertionHypothese(nouvelle),
+      validerAssertionHypothese(nouvelle, langue),
       (charge) =>
         api.post<{ assertion_id: string }>(cheminAssertionsHypothese(hypotheseId), charge),
       {
-        succes: "Assertion créée et liée. Reliez-lui des sources depuis sa fiche.",
-        messageSpecifique: messageDd,
+        succes: t(
+          "Assertion créée et liée. Reliez-lui des sources depuis sa fiche.",
+          "Statement created and linked. Link sources to it from its page.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => setNouvelle(saisieAssertionHypotheseVide()),
       },
     );
@@ -173,11 +184,16 @@ export function LiensHypothese({
     <div className="mp-dd-pile">
       {liens.length === 0 ? (
         <p className="mp-texte-doux">
-          Aucune assertion n&apos;est liée à cette hypothèse : le moteur n&apos;a rien à évaluer et
-          l&apos;indication est « non concluante ».
+          {t(
+            "Aucune assertion n'est liée à cette hypothèse : le moteur n'a rien à évaluer et l'indication est « non concluante ».",
+            "No statement is linked to this hypothesis: the engine has nothing to assess and the indication is “inconclusive”.",
+          )}
         </p>
       ) : (
-        <ul className="mp-dd-liste" aria-label="Assertions liées à l'hypothèse">
+        <ul
+          className="mp-dd-liste"
+          aria-label={t("Assertions liées à l'hypothèse", "Statements linked to the hypothesis")}
+        >
           {liens.map((l) => (
             <LigneLien
               key={l.assertion_id}
@@ -193,16 +209,22 @@ export function LiensHypothese({
       {peutEcrire ? (
         <>
           <details className="mp-dd-details">
-            <summary>Lier une assertion existante</summary>
+            <summary>{t("Lier une assertion existante", "Link an existing statement")}</summary>
             <div className="mp-dd-details__corps">
               {erreurAssertions ? (
-                <Alerte tonalite="attention" titre="Assertions indisponibles" annonce="aucune">
+                <Alerte
+                  tonalite="attention"
+                  titre={t("Assertions indisponibles", "Statements unavailable")}
+                  annonce="aucune"
+                >
                   <p>{erreurAssertions}</p>
                 </Alerte>
               ) : assertionsDisponibles.length === 0 ? (
                 <p className="mp-texte-doux">
-                  Aucune autre assertion de la mission n&apos;est disponible. Créez-en une nouvelle
-                  ci-dessous.
+                  {t(
+                    "Aucune autre assertion de la mission n'est disponible. Créez-en une nouvelle ci-dessous.",
+                    "No other statement of the engagement is available. Create a new one below.",
+                  )}
                 </p>
               ) : (
                 <form
@@ -210,18 +232,18 @@ export function LiensHypothese({
                   className="mp-formulaire"
                   noValidate
                   onSubmit={lier}
-                  aria-label="Lier une assertion existante"
+                  aria-label={t("Lier une assertion existante", "Link an existing statement")}
                 >
                   <RetourFormulaire
                     erreur={fLien.erreurGlobale}
                     succes={fLien.succes}
                     refAlerte={fLien.refAlerte}
-                    titreErreur="Lien refusé"
+                    titreErreur={t("Lien refusé", "Link refused")}
                   />
                   <Select
-                    libelle="Assertion"
+                    libelle={t("Assertion", "Statement")}
                     required
-                    invite="Choisir…"
+                    invite={t("Choisir…", "Choose…")}
                     options={assertionsDisponibles.map((a) => ({
                       valeur: a.valeur,
                       libelle: tronquer(a.libelle),
@@ -231,10 +253,10 @@ export function LiensHypothese({
                     erreur={fLien.erreurs.assertion_id}
                   />
                   <Select
-                    libelle="Sens"
+                    libelle={t("Sens", "Direction")}
                     required
-                    invite="Choisir…"
-                    options={OPTIONS_SENS}
+                    invite={t("Choisir…", "Choose…")}
+                    options={optionsSens}
                     value={sensLien}
                     onChange={(e) => setSensLien(e.target.value)}
                     erreur={fLien.erreurs.sens}
@@ -243,9 +265,9 @@ export function LiensHypothese({
                     <Bouton
                       type="submit"
                       chargement={fLien.enCours}
-                      texteChargement="Enregistrement…"
+                      texteChargement={t("Enregistrement…", "Saving…")}
                     >
-                      Lier l&apos;assertion
+                      {t("Lier l'assertion", "Link the statement")}
                     </Bouton>
                   </div>
                 </form>
@@ -254,26 +276,29 @@ export function LiensHypothese({
           </details>
 
           <details className="mp-dd-details">
-            <summary>Nouvelle assertion</summary>
+            <summary>{t("Nouvelle assertion", "New statement")}</summary>
             <div className="mp-dd-details__corps">
               <form
                 ref={fNouvelle.refFormulaire}
                 className="mp-formulaire"
                 noValidate
                 onSubmit={creer}
-                aria-label="Nouvelle assertion pour l'hypothèse"
+                aria-label={t(
+                  "Nouvelle assertion pour l'hypothèse",
+                  "New statement for the hypothesis",
+                )}
               >
                 <RetourFormulaire
                   erreur={fNouvelle.erreurGlobale}
                   succes={fNouvelle.succes}
                   refAlerte={fNouvelle.refAlerte}
-                  titreErreur="Assertion refusée"
+                  titreErreur={t("Assertion refusée", "Statement refused")}
                 />
                 <Select
-                  libelle="Sens"
+                  libelle={t("Sens", "Direction")}
                   required
-                  invite="Choisir…"
-                  options={OPTIONS_SENS}
+                  invite={t("Choisir…", "Choose…")}
+                  options={optionsSens}
                   value={nouvelle.sens}
                   onChange={(e) => majNouvelle({ sens: e.target.value })}
                   erreur={fNouvelle.erreurs.sens}
@@ -283,15 +308,15 @@ export function LiensHypothese({
                   onChange={majNouvelle}
                   erreurs={fNouvelle.erreurs}
                   peutSigner={peutSigner}
-                  libelle="Assertion"
+                  libelle={t("Assertion", "Statement")}
                 />
                 <div className="mp-actions-formulaire">
                   <Bouton
                     type="submit"
                     chargement={fNouvelle.enCours}
-                    texteChargement="Enregistrement…"
+                    texteChargement={t("Enregistrement…", "Saving…")}
                   >
-                    Créer et lier l&apos;assertion
+                    {t("Créer et lier l'assertion", "Create and link the statement")}
                   </Bouton>
                 </div>
               </form>

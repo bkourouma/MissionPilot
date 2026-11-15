@@ -2,17 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import {
   cheminGenerationRapport,
   DELAI_GENERATION_MS,
   etatMissionChange,
-  FORMATS,
+  formatRapport,
   FORMATS_RAPPORT,
   formaterDuree,
   hrefRapports,
-  libelleFormat,
+  libelleFormatRapport,
   libelleModele,
   messageAttente,
   messageRapport,
@@ -60,6 +61,8 @@ export function GenerationRapport({
   premierePage,
 }: GenerationRapportProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const id = useId();
   const [format, setFormat] = useState<FormatRapport>("pdf");
@@ -81,7 +84,7 @@ export function GenerationRapport({
     return () => clearInterval(minuterie);
   }, [enCours]);
 
-  const attente = enCours ? messageAttente(enCours, secondes) : null;
+  const attente = enCours ? messageAttente(enCours, secondes, langue) : null;
   // Le message ne change qu'à quelques paliers : l'annonce reste rare.
   useEffect(() => {
     if (attente) setAnnonce(attente);
@@ -113,7 +116,7 @@ export function GenerationRapport({
       setAnnonce("");
       setEchec({
         format: f,
-        message: messageRapport(e),
+        message: messageRapport(e, langue),
         actualiser: peutEtreCree(e),
         reessayer: reessayable(e),
       });
@@ -126,7 +129,7 @@ export function GenerationRapport({
 
   function actualiser() {
     setEchec(null);
-    setAnnonce("Actualisation de la liste des rapports.");
+    setAnnonce(t("Actualisation de la liste des rapports.", "Refreshing the list of reports."));
     if (premierePage) rafraichir();
     else router.push(hrefRapports(missionId));
   }
@@ -142,10 +145,12 @@ export function GenerationRapport({
       </p>
 
       {cloturee ? (
-        <Alerte tonalite="info" titre="Mission clôturée" annonce="aucune">
+        <Alerte tonalite="info" titre={t("Mission clôturée", "Engagement closed")} annonce="aucune">
           <p id={idCloturee}>
-            La génération de rapports est désactivée : une mission clôturée n&apos;évolue plus. Les
-            rapports déjà générés restent téléchargeables ci-dessous.
+            {t(
+              "La génération de rapports est désactivée : une mission clôturée n'évolue plus. Les rapports déjà générés restent téléchargeables ci-dessous.",
+              "Report generation is disabled: a closed engagement no longer changes. Reports already generated remain downloadable below.",
+            )}
           </p>
         </Alerte>
       ) : (
@@ -153,7 +158,7 @@ export function GenerationRapport({
       )}
 
       <fieldset className="mp-groupe" disabled={cloturee || occupe}>
-        <legend className="mp-champ__libelle">Format du document</legend>
+        <legend className="mp-champ__libelle">{t("Format du document", "Document format")}</legend>
         <div className="mp-groupe__options mp-rapport-generation__formats">
           {FORMATS_RAPPORT.map((f) => (
             <div key={f} className="mp-case">
@@ -168,9 +173,9 @@ export function GenerationRapport({
                 aria-describedby={`${id}-${f}-aide`}
               />
               <label htmlFor={`${id}-${f}`} className="mp-case__libelle">
-                {FORMATS[f].libelle}
+                {formatRapport(f, langue).libelle}
                 <span id={`${id}-${f}-aide`} className="mp-case__aide">
-                  {FORMATS[f].aide}
+                  {formatRapport(f, langue).aide}
                 </span>
               </label>
             </div>
@@ -182,12 +187,12 @@ export function GenerationRapport({
         <Bouton
           icone="plus"
           chargement={occupe}
-          texteChargement="Génération en cours…"
+          texteChargement={t("Génération en cours…", "Generating…")}
           disabled={cloturee}
           aria-describedby={cloturee ? idCloturee : undefined}
           onClick={() => void generer(format)}
         >
-          Générer l&apos;état d&apos;avancement
+          {t("Générer l'état d'avancement", "Generate the progress report")}
         </Bouton>
       </div>
 
@@ -196,28 +201,35 @@ export function GenerationRapport({
           <p className="mp-rapport-attente__message">{attente}</p>
           <progress className="mp-rapport-attente__barre" aria-hidden="true" />
           <p className="mp-texte-doux mp-texte-petit">
-            {`Temps écoulé : ${formaterDuree(secondes)}`}
+            {`${t("Temps écoulé :", "Elapsed time:")} ${formaterDuree(secondes)}`}
           </p>
         </div>
       ) : null}
 
       {echec ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Génération impossible">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Génération impossible", "Generation failed")}
+        >
           <p>{echec.message}</p>
           {echec.actualiser || echec.reessayer ? (
             <div className="mp-barre-actions mp-barre-actions--compacte">
               {echec.actualiser ? (
                 <Bouton variante="secondaire" icone="historique" onClick={actualiser}>
-                  Actualiser la liste
+                  {t("Actualiser la liste", "Refresh the list")}
                 </Bouton>
               ) : null}
               {echec.reessayer && !cloturee ? (
                 <Bouton
                   variante="secondaire"
                   onClick={() => void generer(echec.format)}
-                  aria-label={`Réessayer la génération au format ${FORMATS[echec.format].court}`}
+                  aria-label={t(
+                    `Réessayer la génération au format ${formatRapport(echec.format).court}`,
+                    `Retry generating in ${formatRapport(echec.format).court} format`,
+                  )}
                 >
-                  Réessayer
+                  {t("Réessayer", "Try again")}
                 </Bouton>
               ) : null}
             </div>
@@ -226,11 +238,22 @@ export function GenerationRapport({
       ) : null}
 
       {cree ? (
-        <Alerte ref={refSucces} tonalite="succes" titre="Rapport généré" annonce="aucune">
+        <Alerte
+          ref={refSucces}
+          tonalite="succes"
+          titre={t("Rapport généré", "Report generated")}
+          annonce="aucune"
+        >
           <p>
-            {`${libelleModele(cree.rapport.modele)} au format ${libelleFormat(cree.rapport.format)}, au statut « Brouillon » : relisez-le avant toute diffusion. Il figure aussi dans la liste ci-dessous.`}
+            {t(
+              `${libelleModele(cree.rapport.modele)} au format ${libelleFormatRapport(cree.rapport.format)}, au statut « Brouillon » : relisez-le avant toute diffusion. Il figure aussi dans la liste ci-dessous.`,
+              `${libelleModele(cree.rapport.modele, "en")} in ${libelleFormatRapport(cree.rapport.format, "en")} format, with the “Draft” status: review it before any distribution. It also appears in the list below.`,
+            )}
           </p>
-          <FichierJoint fichier={cree.fichier} contexte="(rapport qui vient d'être généré)" />
+          <FichierJoint
+            fichier={cree.fichier}
+            contexte={t("(rapport qui vient d'être généré)", "(report just generated)")}
+          />
         </Alerte>
       ) : null}
     </div>

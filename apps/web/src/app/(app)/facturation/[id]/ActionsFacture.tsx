@@ -12,6 +12,7 @@ import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
 import { ZoneTexte } from "../../../../components/ui/ZoneTexte";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../lib/api";
 import {
   messageFacture,
@@ -36,6 +37,9 @@ export function ActionsFacture({
   actions: Actions;
 }) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
+  const messageSpecifique = (e: unknown) => messageFacture(e, langue);
   const cle = `${f.statut}-${f.modifie_le}-${f.envoyee_le}`;
   const [panneau, setPanneau, fermerApresRafraichissement] =
     useFermetureDifferee<Exclude<Panneau, null>>(cle);
@@ -49,19 +53,19 @@ export function ActionsFacture({
     op.envoyer({ ok: true, charge: null }, () => api.post(`${chemin}/${suffixe}`), {
       succes,
       apres: marquer,
-      messageSpecifique: messageFacture,
+      messageSpecifique,
     });
   const aucune = !Object.entries(a).some(([k, v]) => k !== "raisonRefusApprobation" && v === true);
   if (aucune) return null;
 
   return (
-    <Carte titre="Actions">
+    <Carte titre={t("Actions", "Actions")}>
       <div className="mp-pile">
         <RetourFormulaire
           erreur={op.erreurGlobale}
           succes={op.succes}
           refAlerte={op.refAlerte}
-          titreErreur="Action impossible"
+          titreErreur={t("Action impossible", "Action not possible")}
         />
         <div className="mp-barre-actions">
           {a.modifier ? (
@@ -71,27 +75,35 @@ export function ActionsFacture({
               aria-expanded={panneau === "entete"}
               onClick={() => setPanneau(panneau === "entete" ? null : "entete")}
             >
-              Objet, remise, retenue et délai
+              {t(
+                "Objet, remise, retenue et délai",
+                "Subject, discount, withholding and payment terms",
+              )}
             </Bouton>
           ) : null}
           {a.soumettre ? (
             <Bouton
               icone="envoyer"
               chargement={occupe}
-              texteChargement="Soumission…"
-              onClick={() => poster("soumettre", "Facture soumise à approbation.")}
+              texteChargement={t("Soumission…", "Submitting…")}
+              onClick={() =>
+                poster(
+                  "soumettre",
+                  t("Facture soumise à approbation.", "Invoice submitted for approval."),
+                )
+              }
             >
-              Soumettre à approbation
+              {t("Soumettre à approbation", "Submit for approval")}
             </Bouton>
           ) : null}
           {a.approuver ? (
             <Bouton
               icone="succes"
               chargement={occupe}
-              texteChargement="Approbation…"
-              onClick={() => poster("approuver", "Facture approuvée.")}
+              texteChargement={t("Approbation…", "Approving…")}
+              onClick={() => poster("approuver", t("Facture approuvée.", "Invoice approved."))}
             >
-              Approuver
+              {t("Approuver", "Approve")}
             </Bouton>
           ) : null}
           {a.rejeter ? (
@@ -100,28 +112,47 @@ export function ActionsFacture({
               aria-expanded={panneau === "rejet"}
               onClick={() => setPanneau(panneau === "rejet" ? null : "rejet")}
             >
-              Rejeter
+              {t("Rejeter", "Reject")}
             </Bouton>
           ) : null}
           {a.emettre ? (
             <BoutonConfirmation
-              libelle="Émettre la facture"
+              libelle={t("Émettre la facture", "Issue the invoice")}
               variante="primaire"
               icone="signature"
-              question="Émettre cette facture ? Elle reçoit son numéro définitif et ne pourra plus être modifiée : seule une annulation par avoir sera possible."
-              libelleConfirmation="Oui, émettre"
-              texteChargement="Émission…"
-              action={() => poster("emettre", "Facture émise : numéro définitif attribué.")}
+              question={t(
+                "Émettre cette facture ? Elle reçoit son numéro définitif et ne pourra plus être modifiée : seule une annulation par avoir sera possible.",
+                "Issue this invoice? It receives its final number and can no longer be edited: only a cancellation by credit note will be possible.",
+              )}
+              libelleConfirmation={t("Oui, émettre", "Yes, issue")}
+              texteChargement={t("Émission…", "Issuing…")}
+              action={() =>
+                poster(
+                  "emettre",
+                  t(
+                    "Facture émise : numéro définitif attribué.",
+                    "Invoice issued: final number assigned.",
+                  ),
+                )
+              }
             />
           ) : null}
           {a.marquerEnvoyee ? (
             <BoutonConfirmation
-              libelle="Marquer comme envoyée"
+              libelle={t("Marquer comme envoyée", "Mark as sent")}
               icone="courrier"
-              question="Confirmer que la facture a été envoyée au client ? Cette mention ne s'annule pas."
-              libelleConfirmation="Oui, marquer envoyée"
-              texteChargement="Enregistrement…"
-              action={() => poster("marquer-envoyee", "Facture marquée comme envoyée.")}
+              question={t(
+                "Confirmer que la facture a été envoyée au client ? Cette mention ne s'annule pas.",
+                "Confirm that the invoice was sent to the client? This mark cannot be undone.",
+              )}
+              libelleConfirmation={t("Oui, marquer envoyée", "Yes, mark as sent")}
+              texteChargement={t("Enregistrement…", "Saving…")}
+              action={() =>
+                poster(
+                  "marquer-envoyee",
+                  t("Facture marquée comme envoyée.", "Invoice marked as sent."),
+                )
+              }
             />
           ) : null}
           {a.avoir ? (
@@ -130,22 +161,25 @@ export function ActionsFacture({
               aria-expanded={panneau === "avoir"}
               onClick={() => setPanneau(panneau === "avoir" ? null : "avoir")}
             >
-              Annuler par un avoir
+              {t("Annuler par un avoir", "Cancel by credit note")}
             </Bouton>
           ) : null}
           {a.supprimer ? (
             <BoutonConfirmation
-              libelle="Supprimer le brouillon"
+              libelle={t("Supprimer le brouillon", "Delete the draft")}
               variante="discret"
               icone="corbeille"
-              question="Supprimer ce brouillon ? Ses échéances et débours redeviennent facturables."
-              libelleConfirmation="Oui, supprimer"
-              texteChargement="Suppression…"
+              question={t(
+                "Supprimer ce brouillon ? Ses échéances et débours redeviennent facturables.",
+                "Delete this draft? Its due dates and expenses become invoiceable again.",
+              )}
+              libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+              texteChargement={t("Suppression…", "Deleting…")}
               action={() =>
                 op.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin), {
                   rafraichir: false,
                   apres: () => router.push("/facturation"),
-                  messageSpecifique: messageFacture,
+                  messageSpecifique,
                 })
               }
             />
@@ -160,9 +194,12 @@ export function ActionsFacture({
         ) : null}
         {panneau === "rejet" ? (
           <FormulaireMotif
-            titre="Rejeter la facture"
-            aide="La facture revient en brouillon ; le motif est affiché à son auteur."
-            bouton="Rejeter la facture"
+            titre={t("Rejeter la facture", "Reject the invoice")}
+            aide={t(
+              "La facture revient en brouillon ; le motif est affiché à son auteur.",
+              "The invoice goes back to draft; the reason is shown to its author.",
+            )}
+            bouton={t("Rejeter la facture", "Reject the invoice")}
             appel={(c) => api.post(`${chemin}/rejeter`, c)}
             onFin={() => setPanneau(null)}
             onEnregistre={fermerApresRafraichissement}
@@ -170,9 +207,12 @@ export function ActionsFacture({
         ) : null}
         {panneau === "avoir" ? (
           <FormulaireMotif
-            titre="Annuler par un avoir total"
-            aide="Un avoir en brouillon reprend toute la facture. À son émission, la facture est annulée et ses échéances et débours redeviennent facturables."
-            bouton="Créer l'avoir (brouillon)"
+            titre={t("Annuler par un avoir total", "Cancel by full credit note")}
+            aide={t(
+              "Un avoir en brouillon reprend toute la facture. À son émission, la facture est annulée et ses échéances et débours redeviennent facturables.",
+              "A draft credit note covers the whole invoice. When it is issued, the invoice is cancelled and its due dates and expenses become invoiceable again.",
+            )}
+            bouton={t("Créer l'avoir (brouillon)", "Create the credit note (draft)")}
             appel={(c) => api.post<{ id: string }>(`${chemin}/avoir`, c)}
             onFin={() => setPanneau(null)}
             onEnregistre={fermerApresRafraichissement}
@@ -207,15 +247,17 @@ function FormulaireEnTete({
     retenue_active: f.retenue_active,
     delai_paiement_jours: String(f.delai_paiement_jours),
   });
+  const t = useT();
+  const langue = useLangue();
   const form = useFormulaire<ChampEnTete>();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await form.envoyer(
-      validerEnTete(s, f.devise),
+      validerEnTete(s, f.devise, langue),
       (c) => api.patch(`/api/factures/${encodeURIComponent(f.id)}`, c),
       {
         apres: onEnregistre,
-        messageSpecifique: messageFacture,
+        messageSpecifique: (e) => messageFacture(e, langue),
       },
     );
   }
@@ -225,26 +267,29 @@ function FormulaireEnTete({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Objet, remise, retenue et délai"
+      aria-label={t(
+        "Objet, remise, retenue et délai",
+        "Subject, discount, withholding and payment terms",
+      )}
     >
       <RetourFormulaire erreur={form.erreurGlobale} refAlerte={form.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Objet"
+          libelle={t("Objet", "Subject")}
           maxLength={300}
           value={s.objet}
           onChange={(e) => setS((x) => ({ ...x, objet: e.target.value }))}
           erreur={form.erreurs.objet}
         />
         <ChampsRemise
-          libelle="Remise globale"
+          libelle={t("Remise globale", "Overall discount")}
           saisie={s.remise}
           devise={f.devise}
           erreur={form.erreurs.remise}
           onChange={(remise) => setS((x) => ({ ...x, remise }))}
         />
         <Champ
-          libelle="Délai de paiement (jours)"
+          libelle={t("Délai de paiement (jours)", "Payment term (days)")}
           required
           inputMode="numeric"
           value={s.delai_paiement_jours}
@@ -253,16 +298,23 @@ function FormulaireEnTete({
         />
       </div>
       <CaseACocher
-        libelle={`Appliquer la retenue (${f.retenue_libelle})`}
+        libelle={t(
+          `Appliquer la retenue (${f.retenue_libelle})`,
+          `Apply the withholding (${f.retenue_libelle})`,
+        )}
         checked={s.retenue_active}
         onChange={(e) => setS((x) => ({ ...x, retenue_active: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={form.enCours} texteChargement="Recalcul…">
-          Enregistrer et recalculer
+        <Bouton
+          type="submit"
+          chargement={form.enCours}
+          texteChargement={t("Recalcul…", "Recalculating…")}
+        >
+          {t("Enregistrer et recalculer", "Save and recalculate")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -286,14 +338,16 @@ function FormulaireMotif({
   onEnregistre: () => void;
   apres?: (r: unknown) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [motif, setMotif] = useState("");
   const form = useFormulaire<"motif">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await form.envoyer(validerMotif(motif), appel, {
+    await form.envoyer(validerMotif(motif, langue), appel, {
       rafraichir: !apres,
       apres: apres ?? onEnregistre,
-      messageSpecifique: messageFacture,
+      messageSpecifique: (e) => messageFacture(e, langue),
     });
   }
   return (
@@ -307,7 +361,7 @@ function FormulaireMotif({
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={form.erreurGlobale} refAlerte={form.refAlerte} />
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         aide={aide}
         required
         maxLength={500}
@@ -320,12 +374,12 @@ function FormulaireMotif({
           type="submit"
           variante="danger"
           chargement={form.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
           {bouton}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

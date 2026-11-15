@@ -4,6 +4,7 @@ import {
   joindreListe,
   lireMontant,
   lireNombre,
+  normaliserNombreSaisi,
   montantUsuel,
   montantVersSaisie,
   texteOuNull,
@@ -23,6 +24,26 @@ describe("lireNombre", () => {
     expect(lireNombre("abc")).toBeNaN();
     expect(lireNombre("1,2,3")).toBeNaN();
     expect(lireNombre("1e5")).toBeNaN();
+  });
+});
+
+describe("lireNombre en anglais (virgule = milliers seulement)", () => {
+  it("lit les groupes de milliers et le point décimal", () => {
+    expect(lireNombre("150,000", "en")).toBe(150000);
+    expect(lireNombre("1,500.50", "en")).toBe(1500.5);
+    expect(lireNombre("-1,250,000.75", "en")).toBe(-1250000.75);
+    expect(lireNombre("2.5", "en")).toBe(2.5);
+    expect(lireNombre("1 500", "en")).toBe(1500);
+  });
+  it("refuse une virgule qui n'est pas un séparateur de milliers, jamais lue autrement", () => {
+    expect(lireNombre("2,5", "en")).toBeNaN();
+    expect(lireNombre("1,50", "en")).toBeNaN();
+    expect(lireNombre("1,5000", "en")).toBeNaN();
+  });
+  it("garde la lecture française par défaut (hors navigateur)", () => {
+    expect(lireNombre("150,000")).toBe(150);
+    expect(normaliserNombreSaisi("1 500,5", "fr")).toBe("1500.5");
+    expect(normaliserNombreSaisi("15,5 %", "en")).toBe("15,5%");
   });
 });
 

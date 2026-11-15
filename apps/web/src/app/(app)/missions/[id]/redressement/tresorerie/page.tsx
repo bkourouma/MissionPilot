@@ -16,19 +16,26 @@ import {
   formaterDateHeure,
   formaterMontantMineur,
 } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { aujourdhui as aujourdhuiIso } from "../../../../../../lib/periode";
 import {
   cheminRatios,
   cheminTresorerie,
   hrefRedressement,
   LIBELLE_BESOIN_FINANCEMENT,
+  LIBELLE_BESOIN_FINANCEMENT_EN,
   raisonSansEcriture,
   TEXTE_BESOIN_FINANCEMENT,
+  TEXTE_BESOIN_FINANCEMENT_EN,
   TEXTE_TENSION,
+  TEXTE_TENSION_EN,
 } from "../../../../../../lib/redressement";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Trésorerie à 13 semaines" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Trésorerie à 13 semaines", "13-week cash forecast") };
+}
 
 /**
  * Trésorerie à 13 semaines (RED-11) : synthèse, grille prévu / réalisé / écart / solde retenu,
@@ -37,6 +44,8 @@ export const metadata: Metadata = { title: "Trésorerie à 13 semaines" };
  */
 export default async function PageTresorerie({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -50,23 +59,26 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
   const { mission, dossier, droits } = ctx;
   const devise = dossier.devise;
   const jour = aujourdhuiIso();
-  const [t, ratios] = await Promise.all([
+  const [tres, ratios] = await Promise.all([
     chargerServeur<RedTresorerieVue>(cheminTresorerie(dossier.id)),
     chargerServeur<RedRatiosVue>(cheminRatios(dossier.id)),
   ]);
   const dernierExercice = ratios.ok ? ratios.donnees.exercices[0] : undefined;
 
-  if (!t.ok) {
+  if (!tres.ok) {
     return (
       <EtatErreur
-        titre="La trésorerie n'a pas pu être chargée."
-        message={t.message}
+        titre={t(
+          "La trésorerie n'a pas pu être chargée.",
+          "The cash forecast could not be loaded.",
+        )}
+        message={tres.message}
         hrefReessayer={hrefRedressement(id, "tresorerie")}
       />
     );
   }
-  const { version, projection, realises } = t.donnees;
-  const m = (v: number) => formaterMontantMineur(v, devise);
+  const { version, projection, realises } = tres.donnees;
+  const m = (v: number) => formaterMontantMineur(v, devise, langue);
   const correctionsParSemaine = new Map(realises.map((r) => [r.semaine_debut, r.corrections]));
   const semaineParDefaut =
     projection?.semaines.find((s) => s.realise === null)?.debut ??
@@ -75,79 +87,92 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
 
   return (
     <div className="mp-red">
-      <p className="mp-texte-doux">{TEXTE_TENSION}</p>
+      <p className="mp-texte-doux">{t(TEXTE_TENSION, TEXTE_TENSION_EN)}</p>
 
       {version === null || projection === null ? (
-        <EtatVide titre="Aucune prévision de trésorerie." icone="courbe">
+        <EtatVide titre={t("Aucune prévision de trésorerie.", "No cash forecast.")} icone="courbe">
           <p>
-            Aucune prévision de trésorerie. Créez la première version : date de début (un lundi),
-            solde bancaire initial, puis encaissements et décaissements attendus semaine par
-            semaine.
+            {t(
+              "Aucune prévision de trésorerie. Créez la première version : date de début (un lundi), solde bancaire initial, puis encaissements et décaissements attendus semaine par semaine.",
+              "No cash forecast. Create the first version: start date (a Monday), opening bank balance, then expected receipts and disbursements week by week.",
+            )}
           </p>
         </EtatVide>
       ) : (
         <>
           <div className="mp-red-cartes">
-            <Carte titre="Solde minimum prévu" niveauTitre={3}>
-              <p className="mp-red-chiffre">Semaine {projection.solde_minimum.semaine}</p>
+            <Carte titre={t("Solde minimum prévu", "Lowest projected balance")} niveauTitre={3}>
+              <p className="mp-red-chiffre">
+                {t("Semaine", "Week")} {projection.solde_minimum.semaine}
+              </p>
               <p className="mp-red-valeur">{m(projection.solde_minimum.montant)}</p>
             </Carte>
-            <Carte titre="Première semaine de tension" niveauTitre={3}>
+            <Carte titre={t("Première semaine de tension", "First tight week")} niveauTitre={3}>
               <p className="mp-red-chiffre">
                 {projection.premiere_semaine_tension !== null
-                  ? `Semaine ${projection.premiere_semaine_tension}`
-                  : "Aucune"}
+                  ? `${t("Semaine", "Week")} ${projection.premiere_semaine_tension}`
+                  : t("Aucune", "None")}
               </p>
               <p className="mp-texte-doux mp-texte-petit">
-                {projection.semaines_tension.length} semaine(s) en tension sur 13.
+                {t(
+                  `${projection.semaines_tension.length} semaine(s) en tension sur 13.`,
+                  `${projection.semaines_tension.length} tight week(s) out of 13.`,
+                )}
               </p>
             </Carte>
-            <Carte titre={LIBELLE_BESOIN_FINANCEMENT} niveauTitre={3}>
+            <Carte
+              titre={t(LIBELLE_BESOIN_FINANCEMENT, LIBELLE_BESOIN_FINANCEMENT_EN)}
+              niveauTitre={3}
+            >
               <p className="mp-red-chiffre mp-red-valeur">{m(projection.besoin_financement)}</p>
-              <p className="mp-texte-doux mp-texte-petit">{TEXTE_BESOIN_FINANCEMENT}</p>
+              <p className="mp-texte-doux mp-texte-petit">
+                {t(TEXTE_BESOIN_FINANCEMENT, TEXTE_BESOIN_FINANCEMENT_EN)}
+              </p>
             </Carte>
           </div>
 
-          <Carte titre="Fenêtre de la prévision">
+          <Carte titre={t("Fenêtre de la prévision", "Forecast window")}>
             <dl className="mp-liste-def">
               <div>
-                <dt>Version courante</dt>
+                <dt>{t("Version courante", "Current version")}</dt>
                 <dd>
-                  {version.version}, par {version.cree_par.nom} le{" "}
-                  {formaterDateHeure(version.cree_le)}
+                  {version.version}, {t("par", "by")} {version.cree_par.nom} {t("le", "on")}{" "}
+                  {formaterDateHeure(version.cree_le, undefined, langue)}
                 </dd>
               </div>
               <div>
-                <dt>Date de début</dt>
-                <dd>{formaterDate(version.date_debut)}</dd>
+                <dt>{t("Date de début", "Start date")}</dt>
+                <dd>{formaterDate(version.date_debut, "UTC", langue)}</dd>
               </div>
               <div>
-                <dt>Solde bancaire initial</dt>
+                <dt>{t("Solde bancaire initial", "Opening bank balance")}</dt>
                 <dd className="mp-red-valeur">{m(version.solde_initial)}</dd>
               </div>
               <div>
-                <dt>Seuil de tension</dt>
+                <dt>{t("Seuil de tension", "Tension threshold")}</dt>
                 <dd className="mp-red-valeur">{m(version.seuil_tension)}</dd>
               </div>
             </dl>
-            {t.donnees.realises_hors_fenetre > 0 ? (
+            {tres.donnees.realises_hors_fenetre > 0 ? (
               <p className="mp-texte-doux mp-texte-petit">
-                {t.donnees.realises_hors_fenetre} réalisé(s) hors de la fenêtre actuelle sont
-                conservés dans l&apos;historique.
+                {t(
+                  `${tres.donnees.realises_hors_fenetre} réalisé(s) hors de la fenêtre actuelle sont conservés dans l'historique.`,
+                  `${tres.donnees.realises_hors_fenetre} actual(s) outside the current window are kept in the history.`,
+                )}
               </p>
             ) : null}
           </Carte>
 
           <section className="mp-red-section" aria-labelledby="titre-grille">
             <h2 id="titre-grille" className="mp-red-section__titre">
-              Grille de 13 semaines
+              {t("Grille de 13 semaines", "13-week grid")}
             </h2>
             <GrilleTresorerie projection={projection} devise={devise} />
           </section>
 
           <section className="mp-red-section" aria-labelledby="titre-graphique">
             <h2 id="titre-graphique" className="mp-red-section__titre">
-              Soldes de clôture
+              {t("Soldes de clôture", "Closing balances")}
             </h2>
             <GraphiqueSoldes
               semaines={projection.semaines}
@@ -160,7 +185,7 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
 
       {droits.ecrire ? (
         <>
-          <Carte titre="Nouvelle version de la prévision">
+          <Carte titre={t("Nouvelle version de la prévision", "New forecast version")}>
             <FormulaireVersionTresorerie
               key={version?.id ?? "premiere"}
               dossierId={dossier.id}
@@ -170,7 +195,7 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
             />
           </Carte>
           {projection ? (
-            <Carte titre="Saisir le réalisé d'une semaine">
+            <Carte titre={t("Saisir le réalisé d'une semaine", "Enter a week's actuals")}>
               <SaisieRealise
                 key={realises.map((r) => r.id).join("-") || "aucun"}
                 dossierId={dossier.id}
@@ -188,11 +213,11 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
         </>
       ) : (
         <Alerte tonalite="info" annonce="aucune">
-          <p>{raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles)}</p>
+          <p>{raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles, langue)}</p>
         </Alerte>
       )}
 
-      <Carte titre="Point mort">
+      <Carte titre={t("Point mort", "Break-even point")}>
         <PointMort
           dossierId={dossier.id}
           devise={devise}
@@ -201,22 +226,30 @@ export default async function PageTresorerie({ params }: { params: Promise<{ id:
         />
       </Carte>
 
-      {t.donnees.historique.length > 0 ? (
-        <Carte titre="Historique des versions de la prévision">
+      {tres.donnees.historique.length > 0 ? (
+        <Carte titre={t("Historique des versions de la prévision", "Forecast version history")}>
           <Tableau
-            legende="Versions de la prévision de trésorerie"
+            legende={t("Versions de la prévision de trésorerie", "Cash forecast versions")}
             colonnes={[
               {
                 cle: "version",
-                entete: "Version",
+                entete: t("Version", "Version"),
                 rendu: (h: RedTresorerieVue["historique"][number]) => h.version,
               },
-              { cle: "debut", entete: "Date de début", rendu: (h) => formaterDate(h.date_debut) },
-              { cle: "auteur", entete: "Auteur", rendu: (h) => h.cree_par.nom },
-              { cle: "date", entete: "Créée le", rendu: (h) => formaterDateHeure(h.cree_le) },
-              { cle: "motif", entete: "Motif", rendu: (h) => h.motif ?? "—" },
+              {
+                cle: "debut",
+                entete: t("Date de début", "Start date"),
+                rendu: (h) => formaterDate(h.date_debut, "UTC", langue),
+              },
+              { cle: "auteur", entete: t("Auteur", "Author"), rendu: (h) => h.cree_par.nom },
+              {
+                cle: "date",
+                entete: t("Créée le", "Created on"),
+                rendu: (h) => formaterDateHeure(h.cree_le, undefined, langue),
+              },
+              { cle: "motif", entete: t("Motif", "Reason"), rendu: (h) => h.motif ?? "—" },
             ]}
-            lignes={t.donnees.historique}
+            lignes={tres.donnees.historique}
             cleLigne={(h) => h.id}
           />
         </Carte>

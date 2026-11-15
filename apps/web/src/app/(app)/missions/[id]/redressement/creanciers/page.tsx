@@ -9,9 +9,11 @@ import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterDate, formaterMontantMineur } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { aujourdhui as aujourdhuiIso } from "../../../../../../lib/periode";
 import {
   BANDEAU_CONFIDENTIALITE,
+  BANDEAU_CONFIDENTIALITE_EN,
   cheminCreanciers,
   formaterPart,
   hrefRedressement,
@@ -19,15 +21,12 @@ import {
 } from "../../../../../../lib/redressement";
 import { chargerContexteRed } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Créanciers du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Créanciers du redressement", "Turnaround creditors") };
+}
 
 type FiltreActifs = "true" | "false" | "tous";
-
-const FILTRES: { valeur: FiltreActifs; libelle: string }[] = [
-  { valeur: "true", libelle: "Actifs" },
-  { valeur: "false", libelle: "Inactifs" },
-  { valeur: "tous", libelle: "Tous" },
-];
 
 function lireActifs(v: string | string[] | undefined): FiltreActifs {
   const brut = Array.isArray(v) ? v[0] : v;
@@ -47,6 +46,13 @@ export default async function PageCreanciers({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const FILTRES: { valeur: FiltreActifs; libelle: string }[] = [
+    { valeur: "true", libelle: t("Actifs", "Active") },
+    { valeur: "false", libelle: t("Inactifs", "Inactive") },
+    { valeur: "tous", libelle: t("Tous", "All") },
+  ];
   const actifs = lireActifs((await searchParams).actifs);
   const base = hrefRedressement(id, "creanciers");
   const ctx = await chargerContexteRed(id);
@@ -55,43 +61,55 @@ export default async function PageCreanciers({
   }
   const { mission, dossier, droits } = ctx;
   const r = await chargerServeur<RedCreanciersVue>(cheminCreanciers(dossier.id, actifs));
-  const m = (v: number) => formaterMontantMineur(v, dossier.devise);
+  const m = (v: number) => formaterMontantMineur(v, dossier.devise, langue);
 
   return (
     <div className="mp-red">
       <Alerte tonalite="info" annonce="aucune">
-        <p>{BANDEAU_CONFIDENTIALITE}</p>
+        <p>{t(BANDEAU_CONFIDENTIALITE, BANDEAU_CONFIDENTIALITE_EN)}</p>
       </Alerte>
 
       {!r.ok ? (
         <EtatErreur
-          titre="Le registre des créanciers n'a pas pu être chargé."
+          titre={t(
+            "Le registre des créanciers n'a pas pu être chargé.",
+            "The creditor register could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={base}
         />
       ) : (
         <>
           <div className="mp-red-cartes">
-            <Carte titre="Total dû" niveauTitre={3}>
+            <Carte titre={t("Total dû", "Total due")} niveauTitre={3}>
               <p className="mp-red-chiffre mp-red-valeur">{m(r.donnees.synthese.total_encours)}</p>
             </Carte>
-            <Carte titre="Dont échu" niveauTitre={3}>
+            <Carte titre={t("Dont échu", "Of which overdue")} niveauTitre={3}>
               <p className="mp-red-chiffre mp-red-valeur">{m(r.donnees.synthese.total_echu)}</p>
             </Carte>
-            <Carte titre="Part garantie" niveauTitre={3}>
-              <p className="mp-red-chiffre">{formaterPart(r.donnees.synthese.part_garantie_pb)}</p>
-            </Carte>
-            <Carte titre="Concentration des trois plus gros" niveauTitre={3}>
+            <Carte titre={t("Part garantie", "Secured share")} niveauTitre={3}>
               <p className="mp-red-chiffre">
-                {formaterPart(r.donnees.synthese.concentration_top3_pb)}
+                {formaterPart(r.donnees.synthese.part_garantie_pb, langue)}
+              </p>
+            </Carte>
+            <Carte
+              titre={t("Concentration des trois plus gros", "Concentration of the three largest")}
+              niveauTitre={3}
+            >
+              <p className="mp-red-chiffre">
+                {formaterPart(r.donnees.synthese.concentration_top3_pb, langue)}
               </p>
               <p className="mp-texte-doux mp-texte-petit">
-                Situation au {formaterDate(r.donnees.date_reference)}.
+                {t("Situation au", "Position as of")}{" "}
+                {formaterDate(r.donnees.date_reference, "UTC", langue)}.
               </p>
             </Carte>
           </div>
 
-          <nav aria-label="Filtrer les créanciers" className="mp-filtre-segments">
+          <nav
+            aria-label={t("Filtrer les créanciers", "Filter creditors")}
+            className="mp-filtre-segments"
+          >
             {FILTRES.map((f) => (
               <Link
                 key={f.valeur}
@@ -105,8 +123,11 @@ export default async function PageCreanciers({
           </nav>
 
           {r.donnees.elements.length === 0 ? (
-            <EtatVide titre="Aucun créancier enregistré." icone="dossier">
-              <p>Aucun créancier enregistré.</p>
+            <EtatVide
+              titre={t("Aucun créancier enregistré.", "No creditor recorded.")}
+              icone="dossier"
+            >
+              <p>{t("Aucun créancier enregistré.", "No creditor recorded.")}</p>
             </EtatVide>
           ) : (
             <ListeCreanciers missionId={id} elements={r.donnees.elements} devise={dossier.devise} />
@@ -115,7 +136,7 @@ export default async function PageCreanciers({
       )}
 
       {droits.ecrire ? (
-        <Carte titre="Ajouter un créancier">
+        <Carte titre={t("Ajouter un créancier", "Add a creditor")}>
           <FormulaireCreancier
             dossierId={dossier.id}
             devise={dossier.devise}
@@ -124,7 +145,7 @@ export default async function PageCreanciers({
         </Carte>
       ) : (
         <p className="mp-texte-doux">
-          {raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles)}
+          {raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles, langue)}
         </p>
       )}
     </div>

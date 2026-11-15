@@ -10,6 +10,7 @@ import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Icone } from "../../../../components/ui/Icone";
 import { Tableau } from "../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { formaterDateHeure, VALEUR_ABSENTE } from "../../../../lib/format";
 import { estIdentifiant } from "../../../../lib/identifiant";
 import {
@@ -23,10 +24,15 @@ import {
 import { exigerPermission } from "../../../../lib/session";
 import { NouvelleVersion } from "./ActionsModele";
 
-export const metadata: Metadata = { title: "Modèle de questionnaire" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Modèle de questionnaire", "Questionnaire template") };
+}
 
 /** Modèle de questionnaire : versions (brouillon au plus un, validées figées), actions. */
 export default async function PageModele({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("questionnaire.lire");
@@ -37,11 +43,11 @@ export default async function PageModele({ params }: { params: Promise<{ id: str
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Modèle de questionnaire"
-          retour={{ href: "/questionnaires", libelle: "Questionnaires" }}
+          titre={t("Modèle de questionnaire", "Questionnaire template")}
+          retour={{ href: "/questionnaires", libelle: t("Questionnaires", "Questionnaires") }}
         />
         <EtatErreur
-          titre="Le modèle n'a pas pu être chargé."
+          titre={t("Le modèle n'a pas pu être chargé.", "The template could not be loaded.")}
           message={r.message}
           hrefReessayer={`/questionnaires/${id}`}
         />
@@ -57,13 +63,23 @@ export default async function PageModele({ params }: { params: Promise<{ id: str
     <div className="mp-page">
       <EnteteDePage
         titre={m.titre}
-        retour={{ href: "/questionnaires", libelle: "Questionnaires" }}
-        soustitre={`Code ${m.code} · ${origineModele(m.origine)} · créé le ${formaterDateHeure(m.cree_le)}`}
+        retour={{ href: "/questionnaires", libelle: t("Questionnaires", "Questionnaires") }}
+        soustitre={t(
+          `Code ${m.code} · ${origineModele(m.origine)} · créé le ${formaterDateHeure(m.cree_le)}`,
+          `Code ${m.code} · ${origineModele(m.origine, langue)} · created on ${formaterDateHeure(m.cree_le, undefined, langue)}`,
+        )}
         badges={
           validee ? (
-            <BadgeStatut tonalite="succes">{`Version ${validee.version} validée, envoyable`}</BadgeStatut>
+            <BadgeStatut tonalite="succes">
+              {t(
+                `Version ${validee.version} validée, envoyable`,
+                `Version ${validee.version} approved, can be sent`,
+              )}
+            </BadgeStatut>
           ) : (
-            <BadgeStatut tonalite="neutre">Aucune version validée</BadgeStatut>
+            <BadgeStatut tonalite="neutre">
+              {t("Aucune version validée", "No approved version")}
+            </BadgeStatut>
           )
         }
         actions={
@@ -73,17 +89,20 @@ export default async function PageModele({ params }: { params: Promise<{ id: str
               className={classesBouton("secondaire")}
             >
               <Icone nom="copie" />
-              <span>Copier ce modèle</span>
+              <span>{t("Copier ce modèle", "Copy this template")}</span>
             </Link>
           ) : null
         }
       />
 
-      <Carte titre="Version de travail">
+      <Carte titre={t("Version de travail", "Working version")}>
         {brouillon ? (
           <div className="mp-pile">
             <p>
-              {`La version ${brouillon.version} est un brouillon, modifié le ${formaterDateHeure(brouillon.modifie_le)}. Elle doit être validée pour pouvoir être envoyée.`}
+              {t(
+                `La version ${brouillon.version} est un brouillon, modifié le ${formaterDateHeure(brouillon.modifie_le)}. Elle doit être validée pour pouvoir être envoyée.`,
+                `Version ${brouillon.version} is a draft, edited on ${formaterDateHeure(brouillon.modifie_le, undefined, langue)}. It must be approved before it can be sent.`,
+              )}
             </p>
             <div>
               <Link
@@ -93,8 +112,14 @@ export default async function PageModele({ params }: { params: Promise<{ id: str
                 <Icone nom={gerer ? "crayon" : "oeil"} />
                 <span>
                   {gerer
-                    ? `Modifier la version ${brouillon.version}`
-                    : `Consulter la version ${brouillon.version}`}
+                    ? t(
+                        `Modifier la version ${brouillon.version}`,
+                        `Edit version ${brouillon.version}`,
+                      )
+                    : t(
+                        `Consulter la version ${brouillon.version}`,
+                        `View version ${brouillon.version}`,
+                      )}
                 </span>
               </Link>
             </div>
@@ -103,57 +128,75 @@ export default async function PageModele({ params }: { params: Promise<{ id: str
           <div className="mp-pile">
             <p>
               {m.versions.length > 0
-                ? `Les versions validées sont figées. Pour faire évoluer le questionnaire, créez la version ${prochaine} : elle reprend la dernière version et s'ouvre en brouillon.`
-                : "Ce modèle n'a pas encore de version."}
+                ? t(
+                    `Les versions validées sont figées. Pour faire évoluer le questionnaire, créez la version ${prochaine} : elle reprend la dernière version et s'ouvre en brouillon.`,
+                    `Approved versions are locked. To evolve the questionnaire, create version ${prochaine}: it takes over the latest version and opens as a draft.`,
+                  )
+                : t("Ce modèle n'a pas encore de version.", "This template has no version yet.")}
             </p>
             <NouvelleVersion modeleId={m.id} prochaine={prochaine} />
           </div>
         ) : (
-          <p className="mp-texte-doux">Aucun brouillon en cours.</p>
+          <p className="mp-texte-doux">{t("Aucun brouillon en cours.", "No draft in progress.")}</p>
         )}
       </Carte>
 
       {validee ? null : (
         <Alerte tonalite="info" annonce="aucune">
           <p>
-            Tant qu'aucune version n'est validée, ce modèle ne peut pas être envoyé aux répondants
-            d'une mission.
+            {t(
+              "Tant qu'aucune version n'est validée, ce modèle ne peut pas être envoyé aux répondants d'une mission.",
+              "Until a version is approved, this template cannot be sent to the respondents of an engagement.",
+            )}
           </p>
         </Alerte>
       )}
 
       <section className="mp-pile" aria-labelledby="titre-versions">
         <h2 id="titre-versions" className="mp-section__titre">
-          Versions
+          {t("Versions", "Versions")}
         </h2>
         <Tableau<VersionResume>
-          legende={`Versions du modèle ${m.titre}`}
+          legende={t(`Versions du modèle ${m.titre}`, `Versions of the template ${m.titre}`)}
           cleLigne={(v) => v.id}
           lignes={m.versions}
-          messageVide="Aucune version."
+          messageVide={t("Aucune version.", "No version.")}
           colonnes={[
-            { cle: "version", entete: "Version", rendu: (v) => `Version ${v.version}` },
+            {
+              cle: "version",
+              entete: t("Version", "Version"),
+              rendu: (v) => t(`Version ${v.version}`, `Version ${v.version}`),
+            },
             {
               cle: "statut",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (v) => {
-                const s = libelleStatut(STATUT_VERSION, v.statut);
+                const s = libelleStatut(STATUT_VERSION, v.statut, langue);
                 return <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>;
               },
             },
-            { cle: "cree_le", entete: "Créée le", rendu: (v) => formaterDateHeure(v.cree_le) },
+            {
+              cle: "cree_le",
+              entete: t("Créée le", "Created on"),
+              rendu: (v) => formaterDateHeure(v.cree_le, undefined, langue),
+            },
             {
               cle: "valide_le",
-              entete: "Validée le",
-              rendu: (v) => (v.valide_le ? formaterDateHeure(v.valide_le) : VALEUR_ABSENTE),
+              entete: t("Validée le", "Approved on"),
+              rendu: (v) =>
+                v.valide_le ? formaterDateHeure(v.valide_le, undefined, langue) : VALEUR_ABSENTE,
             },
             {
               cle: "ouvrir",
-              entete: "Définition",
+              entete: t("Définition", "Definition"),
               rendu: (v) => (
                 <Link href={`/questionnaires/versions/${v.id}`}>
-                  {v.statut === "brouillon" && gerer ? "Modifier" : "Consulter"}
-                  <span className="mp-visuellement-cache">{` la version ${v.version}`}</span>
+                  {v.statut === "brouillon" && gerer
+                    ? t("Modifier", "Edit")
+                    : t("Consulter", "View")}
+                  <span className="mp-visuellement-cache">
+                    {t(` la version ${v.version}`, ` version ${v.version}`)}
+                  </span>
                 </Link>
               ),
             },

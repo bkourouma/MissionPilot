@@ -1,4 +1,4 @@
-import { aPermission, type Permission, type Role } from "@missionpilot/shared";
+import { aPermission, type Langue, type Permission, type Role } from "@missionpilot/shared";
 import type { NomIcone } from "../components/ui/Icone";
 
 /**
@@ -565,7 +565,11 @@ export interface OngletMissionCanaux {
  * Onglets de mission « Signatures » (`signature.lire`) et « Transcriptions » (`transcription.lire`),
  * à insérer dans la mise en page de la mission (`base` : `/missions/<id>`).
  */
-export function ongletsMissionCanaux(roles: readonly Role[], base: string): OngletMissionCanaux[] {
+export function ongletsMissionCanaux(
+  roles: readonly Role[],
+  base: string,
+  langue: Langue = "fr",
+): OngletMissionCanaux[] {
   return [
     ...(aPermission(roles, "signature.lire")
       ? [{ id: "signatures" as const, libelle: "Signatures", href: `${base}/signatures` }]
@@ -574,7 +578,7 @@ export function ongletsMissionCanaux(roles: readonly Role[], base: string): Ongl
       ? [
           {
             id: "transcriptions" as const,
-            libelle: "Transcriptions",
+            libelle: langue === "en" ? "Transcripts" : "Transcriptions",
             href: `${base}/transcriptions`,
           },
         ]
@@ -712,15 +716,250 @@ const GROUPES: readonly { id: string; libelle: string; ids: readonly string[] }[
 ];
 
 /** Répartit les entrées visibles par groupe ; un groupe sans entrée visible disparaît. */
-export function grouperEntrees(entrees: readonly EntreeNavigation[]): GroupeNavigation[] {
+export function grouperEntrees(
+  entrees: readonly EntreeNavigation[],
+  langue: Langue = "fr",
+): GroupeNavigation[] {
   const parId = new Map(entrees.map((e) => [e.id, e]));
   const connus = new Set(GROUPES.flatMap((g) => g.ids));
   const groupes = GROUPES.map((g) => ({
     id: g.id,
-    libelle: g.libelle,
+    libelle: langue === "en" ? (GROUPES_EN[g.id] ?? g.libelle) : g.libelle,
     entrees: g.ids.flatMap((id) => parId.get(id) ?? []),
   }));
   const orphelines = entrees.filter((e) => !connus.has(e.id));
   if (orphelines.length > 0) groupes[groupes.length - 1]?.entrees.push(...orphelines);
   return groupes.filter((g) => g.entrees.length > 0);
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Version anglaise : le français de la table NAVIGATION reste la référence. Les libellés anglais
+ * sont résolus par identifiant (entrées, groupes) ou par chemin (sous-pages) à l'affichage.
+ * ------------------------------------------------------------------------------------------- */
+
+const GROUPES_EN: Record<string, string> = {
+  piloter: "Manage",
+  produire: "Deliver",
+  "conseil-ia": "AI advisory",
+  vendre: "Sell",
+  facturer: "Bill",
+  cabinet: "Firm",
+};
+
+const ENTREES_EN: Record<string, { libelle: string; court?: string; description: string }> = {
+  "tableau-de-bord": {
+    libelle: "Dashboard",
+    court: "Home",
+    description: "Overview and access to your modules.",
+  },
+  "mon-planning": {
+    libelle: "My schedule",
+    court: "Schedule",
+    description:
+      "Your tasks, allocated days, absences and public holidays for the week; your leave.",
+  },
+  "feuille-de-temps": {
+    libelle: "Timesheet",
+    court: "Time",
+    description:
+      "Weekly entry by task, remaining work, expenses and expense reports, approval and corrections.",
+  },
+  missions: {
+    libelle: "Engagements",
+    description: "Engagement files, work breakdown, schedule and budget versions.",
+  },
+  "mes-taches": {
+    libelle: "My tasks",
+    court: "Tasks",
+    description: "Tasks assigned to you and those you delegated, with their due dates.",
+  },
+  "mon-brief": {
+    libelle: "My brief",
+    court: "Brief",
+    description: "Your daily brief: what needs your attention, based on your role.",
+  },
+  copilote: {
+    libelle: "Copilot",
+    description:
+      "Ask your questions in plain language: answers within your rights, proposed actions you confirm.",
+  },
+  pipeline: {
+    libelle: "Pipeline",
+    description: "Sales opportunities, proposals and conversion to an engagement.",
+  },
+  "appels-offres": {
+    libelle: "Tenders",
+    court: "Tenders",
+    description: "Tenders spotted, partner go/no-go, compliance matrix and reverse schedule.",
+  },
+  "banques-ao": {
+    libelle: "Banks and bids",
+    court: "Bids",
+    description: "CVs and references for tenders, approved technical bids and financial bids.",
+  },
+  clients: { libelle: "Clients", description: "Directory of clients and their contacts." },
+  collaborateurs: {
+    libelle: "Team members",
+    court: "Team",
+    description: "Team framework: grades, skills, capacity.",
+  },
+  catalogue: {
+    libelle: "Catalog",
+    description: "Engagement types, work breakdowns and days per grade.",
+  },
+  "services-candidats": {
+    libelle: "Candidate services",
+    court: "Services",
+    description:
+      "Flash diagnostic and bankable business plan: fixed price, engagement creation and funding windows.",
+  },
+  questionnaires: {
+    libelle: "Questionnaires",
+    description:
+      "The firm's questionnaire templates, generic models, approved versions to send to clients.",
+  },
+  notation: {
+    libelle: "Rating",
+    description:
+      "The firm's rating grids: weightings by dimension and by sector, approval by a subject-matter expert.",
+  },
+  methodes: {
+    libelle: "Methods",
+    description:
+      "Method framework: building blocks, context factors, tailoring rules and exceptions.",
+  },
+  "dossiers-clients": {
+    libelle: "Client files",
+    court: "Files",
+    description: "Living file for each client: dated, sourced facts, finances, timeline.",
+  },
+  redressement: {
+    libelle: "Turnaround",
+    court: "Turnaround",
+    description:
+      "Turnaround: indicative early-warning score, 13-week cash, creditors and action plan.",
+  },
+  "agents-ia": {
+    libelle: "AI agents",
+    court: "Agents",
+    description: "Team of AI agents: autonomy levels per building block and measured contribution.",
+  },
+  qualite: {
+    libelle: "Quality",
+    description: "Guided reviews, four-eyes check and sign-off of binding deliverables.",
+  },
+  connaissances: {
+    libelle: "Knowledge",
+    court: "Knowledge",
+    description: "Unified search, engagement lessons learned, estimation base and skills.",
+  },
+  observatoire: {
+    libelle: "Observatory",
+    court: "Observ.",
+    description:
+      "Anonymous benchmarks by sector and size, reserved for contributing firms (voluntary membership).",
+  },
+  "plan-de-charge": {
+    libelle: "Workload",
+    court: "Workload",
+    description: "Team utilization, overloads and availability.",
+  },
+  previsions: {
+    libelle: "Forecasts",
+    description:
+      "Revenue and workload for the next 12 months: signed backlog and weighted pipeline.",
+  },
+  facturation: {
+    libelle: "Invoicing",
+    description:
+      "Invoices and credit notes, payments received and allocations, receivables, aging balance and reminders.",
+  },
+  finance: {
+    libelle: "Finance",
+    description: "Work in progress, engagement profitability and accounting export.",
+  },
+  indicateurs: {
+    libelle: "KPIs",
+    description:
+      "The eleven management KPIs: utilization, margin, work in progress, order book, variances.",
+  },
+  parametres: {
+    libelle: "Settings",
+    description:
+      "Firm, users, security, simulated messaging channels, time, invoicing, monthly close, import, due diligence and audit log.",
+  },
+};
+
+const SOUS_PAGES_EN: Record<string, string> = {
+  "/planning": "My week",
+  "/planning/conges": "My leave",
+  "/planning/conges/validation": "Leave to approve",
+  "/temps": "My timesheet",
+  "/temps/validation": "To approve",
+  "/temps/corrections": "Corrections",
+  "/temps/discipline": "Time entry discipline",
+  "/temps/debours": "My expenses",
+  "/catalogue": "Engagement types",
+  "/catalogue/grades": "Grades",
+  "/services-candidats": "Services",
+  "/services-candidats/guichets": "Funding windows",
+  "/redressement": "Cases",
+  "/redressement/seuils": "Alert thresholds",
+  "/redressement/checklists": "Checklists",
+  "/redressement/tableau-de-bord": "Dashboard",
+  "/facturation": "Invoices",
+  "/facturation/encaissements": "Payments received",
+  "/facturation/creances": "Receivables",
+  "/finance/encours": "Work in progress",
+  "/finance/rentabilite": "Profitability",
+  "/finance/export": "Accounting export",
+  "/parametres": "Firm",
+  "/parametres/utilisateurs": "Users",
+  "/parametres/securite": "Security",
+  "/parametres/portail": "Client portal",
+  "/parametres/canaux": "Channels",
+  "/parametres/temps": "Time",
+  "/parametres/facturation": "Invoicing",
+  "/parametres/cloture": "Time close",
+  "/parametres/cloture-mission": "Engagement close-out",
+  "/parametres/import-temps": "Time import",
+  "/parametres/notation": "Rating",
+  "/parametres/due-diligence": "Due diligence",
+  "/parametres/journal": "Audit log",
+  "/parametres/ia": "AI",
+};
+
+/** Libellé d'une entrée du menu (`court` : version de la barre basse du téléphone). */
+export function libelleEntree(
+  entree: Pick<EntreeNavigation, "id" | "libelle" | "libelleCourt">,
+  langue: Langue = "fr",
+  court = false,
+): string {
+  const fr = court ? (entree.libelleCourt ?? entree.libelle) : entree.libelle;
+  if (langue !== "en") return fr;
+  const en = ENTREES_EN[entree.id];
+  if (!en) return fr;
+  return court ? (en.court ?? en.libelle) : en.libelle;
+}
+
+/** Description d'une entrée (tableau de bord). */
+export function descriptionEntree(
+  entree: Pick<EntreeNavigation, "id" | "description">,
+  langue: Langue = "fr",
+): string {
+  if (langue !== "en") return entree.description;
+  return ENTREES_EN[entree.id]?.description ?? entree.description;
+}
+
+/** Libellé d'une sous-page (onglet de rubrique), résolu par son chemin. */
+export function libelleSousPage(
+  page: Pick<SousPage, "href" | "libelle">,
+  langue: Langue = "fr",
+): string {
+  if (langue !== "en") return page.libelle;
+  const direct = SOUS_PAGES_EN[page.href];
+  if (direct) return direct;
+  if (page.href.endsWith("/signatures")) return "Signatures";
+  if (page.href.endsWith("/transcriptions")) return "Transcripts";
+  return page.libelle;
 }

@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import type { SaisieParAnnee } from "../../lib/plan-hypotheses";
+import { useT } from "../i18n/FournisseurLangue";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 
@@ -33,6 +34,7 @@ export function ChampParAnnee({
   aide,
   exercices,
 }: ChampParAnneeProps) {
+  const t = useT();
   const id = useId();
   const annuel = valeur.mode === "annuel";
   return (
@@ -43,7 +45,7 @@ export function ChampParAnnee({
           <span className="mp-champ__requis">
             {" "}
             <span aria-hidden="true">*</span>
-            <span className="mp-visuellement-cache">(obligatoire)</span>
+            <span className="mp-visuellement-cache">{t("(obligatoire)", "(required)")}</span>
           </span>
         ) : null}
       </legend>
@@ -53,7 +55,7 @@ export function ChampParAnnee({
         </p>
       ) : null}
       <CaseACocher
-        libelle="Une valeur par année"
+        libelle={t("Une valeur par année", "One value per year")}
         checked={annuel}
         onChange={(e) => onChange({ ...valeur, mode: e.target.checked ? "annuel" : "unique" })}
       />
@@ -62,7 +64,7 @@ export function ChampParAnnee({
           {valeur.annees.map((v, i) => (
             <Champ
               key={i}
-              libelle={`Année ${i + 1}${exercices[i] ? ` (${exercices[i]})` : ""}`}
+              libelle={`${t("Année", "Year")} ${i + 1}${exercices[i] ? ` (${exercices[i]})` : ""}`}
               inputMode="decimal"
               autoComplete="off"
               value={v}
@@ -78,7 +80,7 @@ export function ChampParAnnee({
         </div>
       ) : (
         <Champ
-          libelle="Chaque année"
+          libelle={t("Chaque année", "Every year")}
           inputMode="decimal"
           autoComplete="off"
           value={valeur.unique}

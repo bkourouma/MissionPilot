@@ -11,16 +11,20 @@ import {
   estLivrableCitation,
   hrefLivrableCitant,
   hrefOuvertureCitation,
-  LIVRABLE_CITATION_LIBELLES,
+  libelleLivrableCitation,
   libelleRetourLivrable,
 } from "../../../../../../../../lib/citations";
 import { chargerSourceCitee } from "../../../../../../../../lib/citations-serveur";
 import { formaterDate } from "../../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../../../lib/identifiant";
 import { hrefPreuve, libelleAuteur } from "../../../../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Source citée" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Source citée", "Cited source") };
+}
 
 /**
  * Ouverture d'une source citée par un livrable (PRV-06). Les droits sont revérifiés par l'API :
@@ -33,6 +37,8 @@ export default async function PageSourceCitee({
   params: Promise<{ id: string; livrable: string; preuveId: string }>;
 }) {
   const { id, livrable, preuveId } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(id) || !estIdentifiant(preuveId) || !estLivrableCitation(livrable)) {
     notFound();
   }
@@ -42,7 +48,10 @@ export default async function PageSourceCitee({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="La source citée n'a pas pu être chargée."
+        titre={t(
+          "La source citée n'a pas pu être chargée.",
+          "The cited source could not be loaded.",
+        )}
         message={r.message}
         hrefReessayer={hrefOuvertureCitation(id, livrable, preuveId)}
       />
@@ -53,20 +62,26 @@ export default async function PageSourceCitee({
   return (
     <>
       <Link href={hrefLivrableCitant(id, livrable)} className="mp-lien-retour">
-        {libelleRetourLivrable(livrable)}
+        {libelleRetourLivrable(livrable, langue)}
       </Link>
       <Carte titre={p.source_precise}>
         <div className="mp-pile">
           <p className="mp-texte-doux mp-texte-petit">
-            {`Source citée par le livrable « ${LIVRABLE_CITATION_LIBELLES[livrable]} »`}
+            {t(
+              `Source citée par le livrable « ${libelleLivrableCitation(livrable)} »`,
+              `Source cited by the deliverable "${libelleLivrableCitation(livrable, "en")}"`,
+            )}
           </p>
           <EtiquettesPreuve preuve={p} />
           <p className="mp-texte-doux mp-texte-petit">
-            {formaterDate(p.date_preuve)} · recueillie par {libelleAuteur(p.auteur)}
+            {formaterDate(p.date_preuve, "UTC", langue)} · {t("recueillie par", "collected by")}{" "}
+            {libelleAuteur(p.auteur, langue)}
           </p>
           <ExtraitPreuve preuve={p} />
           <p>
-            <Link href={hrefPreuve(id, p.id)}>Voir la fiche complète de la preuve</Link>
+            <Link href={hrefPreuve(id, p.id)}>
+              {t("Voir la fiche complète de la preuve", "See the full evidence record")}
+            </Link>
           </p>
         </div>
       </Carte>

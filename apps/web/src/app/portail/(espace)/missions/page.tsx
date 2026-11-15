@@ -15,11 +15,15 @@ import {
   type MissionPortail,
   type PagePortail,
 } from "../../../../lib/portail";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { CHEMIN_PORTAIL } from "../../../../lib/portail-routes";
 import { chargerPortail, obtenirSessionPortail } from "../../../../lib/portail-serveur";
 import { NonDisponible } from "../../../../components/portail/NonDisponible";
 
-export const metadata: Metadata = { title: "Missions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Missions", "Engagements") };
+}
 
 const CHEMIN = `${CHEMIN_PORTAIL}/missions`;
 
@@ -29,9 +33,11 @@ export default async function MissionsPortail({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.missions.lire")) {
-    return <NonDisponible titre="Missions" />;
+    return <NonDisponible titre={t("Missions", "Engagements")} />;
   }
   const curseur = lireCurseur((await searchParams).curseur);
   const r = await chargerPortail<PagePortail<MissionPortail>>(
@@ -41,23 +47,40 @@ export default async function MissionsPortail({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Vos missions"
-        soustitre="Les missions que votre cabinet a choisi de partager avec vous. Ouvrez-en une pour suivre ses étapes et retrouver ses documents."
+        titre={t("Vos missions", "Your engagements")}
+        soustitre={t(
+          "Les missions que votre cabinet a choisi de partager avec vous. Ouvrez-en une pour suivre ses étapes et retrouver ses documents.",
+          "The engagements your firm has chosen to share with you. Open one to follow its steps and find its documents.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="La liste des missions n'a pas pu être chargée."
+          titre={t(
+            "La liste des missions n'a pas pu être chargée.",
+            "The list of engagements could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefPage(CHEMIN, curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune mission n'a encore été partagée avec vous." icone="dossier">
-          <p>Dès que votre cabinet partagera une mission, elle apparaîtra ici.</p>
+        <EtatVide
+          titre={t(
+            "Aucune mission n'a encore été partagée avec vous.",
+            "No engagement has been shared with you yet.",
+          )}
+          icone="dossier"
+        >
+          <p>
+            {t(
+              "Dès que votre cabinet partagera une mission, elle apparaîtra ici.",
+              "As soon as your firm shares an engagement, it will appear here.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <ul className="mp-liste-cartes">
           {r.donnees.elements.map((m) => {
-            const statut = statutMission(m.statut);
+            const statut = statutMission(m.statut, langue);
             return (
               <li key={m.id}>
                 <Carte
@@ -72,9 +95,11 @@ export default async function MissionsPortail({
                 >
                   <div className="mp-pile">
                     <p className="mp-portail-mission__meta">
-                      {periodeMission(m.date_debut, m.date_fin)}
+                      {periodeMission(m.date_debut, m.date_fin, langue)}
                     </p>
-                    <p className="mp-texte-doux mp-texte-petit">{rubriquesMission(m.partage)}</p>
+                    <p className="mp-texte-doux mp-texte-petit">
+                      {rubriquesMission(m.partage, langue)}
+                    </p>
                   </div>
                 </Carte>
               </li>
@@ -88,7 +113,7 @@ export default async function MissionsPortail({
             r.donnees.curseur_suivant ? hrefPage(CHEMIN, r.donnees.curseur_suivant) : null
           }
           hrefDebut={curseur ? CHEMIN : null}
-          libelle="Pages des missions"
+          libelle={t("Pages des missions", "Engagement pages")}
         />
       ) : null}
     </div>

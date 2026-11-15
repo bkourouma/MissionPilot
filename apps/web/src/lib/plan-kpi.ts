@@ -7,7 +7,7 @@
  * mêmes règles qu'une création depuis l'onglet KPI ; il y est ensuite suivi (mesures, cibles,
  * alertes). Aucun chiffre n'est calculé ici : la cible éventuelle est saisie par l'utilisateur.
  */
-import { aPermission, type Role } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue, type Role } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import { SAISIE_KPI_VIDE, validerCreationKpi, type SaisieKpi } from "./kpi-saisie";
 import { cheminPlan, hrefPlan } from "./plan-strategique";
@@ -63,8 +63,15 @@ const DESCRIPTION_MAX = 2000;
  * premier jour du mois courant. La cible chiffrée reste à saisir (la cible de l'objectif est
  * un texte libre : elle n'est jamais convertie en nombre).
  */
-export function saisieDepuisObjectif(o: ObjectifAvecKpi, aujourdhui: string): SaisieKpiObjectif {
-  const description = `Issu de l'objectif « ${o.titre} »${o.cible ? ` (cible : ${o.cible})` : ""}.`;
+export function saisieDepuisObjectif(
+  o: ObjectifAvecKpi,
+  aujourdhui: string,
+  langue: Langue = "fr",
+): SaisieKpiObjectif {
+  const description =
+    langue === "en"
+      ? `From the objective \u201c${o.titre}\u201d${o.cible ? ` (target: ${o.cible})` : ""}.`
+      : `Issu de l'objectif « ${o.titre} »${o.cible ? ` (cible : ${o.cible})` : ""}.`;
   return {
     libelle: (o.indicateur ?? o.titre).slice(0, 200),
     description: description.slice(0, DESCRIPTION_MAX),
@@ -89,10 +96,15 @@ export function objectifsActifs(p: Pick<KpiPlan, "objectifs">): ObjectifAvecKpi[
 }
 
 /** Décompte affiché (« 2 objectifs sur 3 ont un KPI »). */
-export function decompteObjectifsKpi(p: Pick<KpiPlan, "objectifs">): string {
+export function decompteObjectifsKpi(p: Pick<KpiPlan, "objectifs">, langue: Langue = "fr"): string {
   const actifs = objectifsActifs(p);
-  if (actifs.length === 0) return "Aucun objectif dans ce plan.";
+  if (actifs.length === 0) {
+    return langue === "en" ? "No objectives in this plan." : "Aucun objectif dans ce plan.";
+  }
   const avec = actifs.filter((o) => o.kpis.length > 0).length;
+  if (langue === "en") {
+    return `${avec} of ${actifs.length} objective${actifs.length > 1 ? "s" : ""} ${avec > 1 ? "have" : "has"} at least one KPI.`;
+  }
   return `${avec} objectif${avec > 1 ? "s" : ""} sur ${actifs.length} ${avec > 1 ? "ont" : "a"} au moins un KPI.`;
 }
 
@@ -102,12 +114,21 @@ export function peutCreerKpiPlan(roles: readonly Role[], missionCloturee: boolea
 }
 
 /** Message français d'un refus de création. */
-export function messageKpiPlan(e: unknown): string {
+export function messageKpiPlan(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.statut === 403) {
-      return "Créer un KPI exige de pouvoir rédiger le plan et gérer les KPI, en responsable de la mission (directeur, chef de mission ou associé).";
+      return t(
+        "Créer un KPI exige de pouvoir rédiger le plan et gérer les KPI, en responsable de la mission (directeur, chef de mission ou associé).",
+        "Creating a KPI requires being able to write the plan and manage KPIs, as an engagement lead (director, engagement manager or partner).",
+      );
     }
-    if (e.statut === 404) return "Cet objectif est introuvable ou ne vous est plus accessible.";
+    if (e.statut === 404) {
+      return t(
+        "Cet objectif est introuvable ou ne vous est plus accessible.",
+        "This objective cannot be found or is no longer accessible to you.",
+      );
+    }
     if (e.statut === 409) return e.message;
   }
   return messageErreur(e);

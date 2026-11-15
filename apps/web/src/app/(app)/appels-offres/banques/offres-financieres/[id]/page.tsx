@@ -12,9 +12,13 @@ import {
 } from "../../../../../../lib/banque-ao";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Offre financière" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Offre financière", "Financial bid") };
+}
 
 /** Offre financière : calcul figé de la dernière version, historique, nouvelle version. */
 export default async function PageDetailOffreFinanciere({
@@ -22,21 +26,26 @@ export default async function PageDetailOffreFinanciere({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await exigerPermission("finance.lire");
   const droits = droitsBanqueAo(utilisateur.roles);
   const r = await chargerServeur<OffreFinanciereDetail>(
     `/api/banque-ao/offres-financieres/${encodeURIComponent(id)}`,
   );
-  const retour = { href: `${RACINE_BANQUES}/offres-financieres`, libelle: "Offres financières" };
+  const retour = {
+    href: `${RACINE_BANQUES}/offres-financieres`,
+    libelle: t("Offres financières", "Financial bids"),
+  };
   if (!r.ok || !r.donnees.courante) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Offre financière" retour={retour} />
+        <EnteteDePage titre={t("Offre financière", "Financial bid")} retour={retour} />
         <EtatErreur
           hrefReessayer={`${RACINE_BANQUES}/offres-financieres/${encodeURIComponent(id)}`}
-          titre="Cette offre n'a pas pu être chargée."
-          message={r.ok ? "Offre sans version." : r.message}
+          titre={t("Cette offre n'a pas pu être chargée.", "This bid could not be loaded.")}
+          message={r.ok ? t("Offre sans version.", "Bid without a version.") : r.message}
         />
       </div>
     );
@@ -48,24 +57,34 @@ export default async function PageDetailOffreFinanciere({
     <div className="mp-page">
       <EnteteDePage
         titre={o.titre}
-        soustitre={`Version ${v.version} du ${formaterDate(v.cree_le)}`}
+        soustitre={t(
+          `Version ${v.version} du ${formaterDate(v.cree_le)}`,
+          `Version ${v.version} of ${formaterDate(v.cree_le, "UTC", langue)}`,
+        )}
         retour={retour}
       />
-      <Carte titre="Calcul">
-        <ResultatFinancier resultat={v.resultat} titre="Offre enregistrée" />
+      <Carte titre={t("Calcul", "Computation")}>
+        <ResultatFinancier
+          resultat={v.resultat}
+          titre={t("Offre enregistrée", "Saved bid")}
+          langue={langue}
+        />
       </Carte>
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ul>
           {o.versions.map((x) => (
             <li key={x.version}>
-              Version {x.version} du {formaterDate(x.cree_le)}
-              {x.motif ? ` : ${x.motif}` : " (création)"}
+              {t(
+                `Version ${x.version} du ${formaterDate(x.cree_le)}`,
+                `Version ${x.version} of ${formaterDate(x.cree_le, "UTC", langue)}`,
+              )}
+              {x.motif ? ` : ${x.motif}` : t(" (création)", " (creation)")}
             </li>
           ))}
         </ul>
       </Carte>
       {droits.ecrireFinance ? (
-        <Carte titre="Nouvelle version">
+        <Carte titre={t("Nouvelle version", "New version")}>
           <FormulaireOffreFinanciere
             offreId={o.id}
             initial={saisieDepuisOffreFinanciere(o.titre, v.resultat)}

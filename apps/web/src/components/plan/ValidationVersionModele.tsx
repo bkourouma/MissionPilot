@@ -7,9 +7,10 @@ import {
   etatModeleChange,
   libelleValidationModele,
   messageModele,
-  TEXTE_REGLE_VALIDATION_MODELE,
+  texteRegleValidationModele,
   type ResumeModele,
 } from "../../lib/plan-modele";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
 import { useRafraichir } from "../formulaires/useRafraichir";
@@ -37,6 +38,8 @@ export function ValidationVersionModele({
   peutValider,
   raison,
 }: ValidationVersionModeleProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -56,12 +59,17 @@ export function ValidationVersionModele({
     setErreur(null);
     try {
       await api.post<ResumeModele>(cheminValidationModele(planId, version));
-      setSucces(`Version ${version} validée : elle sert désormais de référence (ROI, rapport).`);
+      setSucces(
+        t(
+          `Version ${version} validée : elle sert désormais de référence (ROI, rapport).`,
+          `Version ${version} approved: it is now the reference (ROI, report).`,
+        ),
+      );
       attendre();
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageModele(e));
+      setErreur(messageModele(e, langue));
       if (etatModeleChange(e)) rafraichir();
       return false;
     }
@@ -70,7 +78,11 @@ export function ValidationVersionModele({
   return (
     <div className="mp-plan__section">
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Validation refusée">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Validation refusée", "Approval refused")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -80,25 +92,43 @@ export function ValidationVersionModele({
         </Alerte>
       ) : null}
       {validation ? (
-        <Alerte tonalite="succes" titre={libelleValidationModele({ validation })} annonce="aucune">
+        <Alerte
+          tonalite="succes"
+          titre={libelleValidationModele({ validation }, langue)}
+          annonce="aucune"
+        >
           <p>
-            Une version validée ne se modifie plus : toute correction crée une nouvelle version.
+            {t(
+              "Une version validée ne se modifie plus : toute correction crée une nouvelle version.",
+              "An approved version can no longer be edited: any correction creates a new version.",
+            )}
           </p>
         </Alerte>
       ) : (
-        <Alerte tonalite="attention" titre="Version non validée" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Version non validée", "Version not approved")}
+          annonce="aucune"
+        >
           <p>
-            {TEXTE_REGLE_VALIDATION_MODELE} Validation requise avant tout partage du plan au client.
+            {texteRegleValidationModele(langue)}{" "}
+            {t(
+              "Validation requise avant tout partage du plan au client.",
+              "Approval is required before the plan is shared with the client.",
+            )}
           </p>
         </Alerte>
       )}
       {!validation && peutValider && !raison ? (
         <div className="mp-barre-actions">
           <BoutonConfirmation
-            libelle={`Valider la version ${version}`}
-            question={`Valider la version ${version} du modèle financier ? Ses chiffres, calculés par le moteur, deviendront la référence du plan.`}
-            libelleConfirmation="Oui, valider"
-            texteChargement="Validation…"
+            libelle={t(`Valider la version ${version}`, `Approve version ${version}`)}
+            question={t(
+              `Valider la version ${version} du modèle financier ? Ses chiffres, calculés par le moteur, deviendront la référence du plan.`,
+              `Approve version ${version} of the financial model? Its figures, computed by the engine, will become the plan reference.`,
+            )}
+            libelleConfirmation={t("Oui, valider", "Yes, approve")}
+            texteChargement={t("Validation…", "Approving…")}
             variante="primaire"
             icone="succes"
             action={valider}

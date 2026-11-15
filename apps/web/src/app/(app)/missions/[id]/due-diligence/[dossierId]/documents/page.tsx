@@ -5,6 +5,7 @@ import { Alerte } from "../../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
 import {
   apiIngestionDd,
@@ -18,7 +19,10 @@ import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 import { notFound } from "next/navigation";
 
-export const metadata: Metadata = { title: "Documents du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Documents du dossier", "File documents") };
+}
 
 /**
  * Documents du dossier de due diligence (DD-02 rapports, DD-10 salle de données) : téléversement,
@@ -31,6 +35,7 @@ export default async function PageDocumentsDd({
 }) {
   const { id, dossierId } = await params;
   if (!estIdentifiant(dossierId)) notFound();
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -43,7 +48,10 @@ export default async function PageDocumentsDd({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="Les documents du dossier n'ont pas pu être chargés."
+        titre={t(
+          "Les documents du dossier n'ont pas pu être chargés.",
+          "The file documents could not be loaded.",
+        )}
         message={r.message}
         hrefReessayer={hrefDocumentsDd(id, dossierId)}
       />
@@ -53,21 +61,28 @@ export default async function PageDocumentsDd({
   return (
     <div className="mp-dd-pile">
       {droits.televerser ? (
-        <Carte titre="Importer un document" niveauTitre={3}>
+        <Carte titre={t("Importer un document", "Import a document")} niveauTitre={3}>
           <DocumentsTeleversement dossierId={dossierId} />
         </Carte>
       ) : (
         <Alerte tonalite="info" annonce="aucune">
           <p>
-            Vous pouvez consulter les documents du dossier ; l&apos;import est réservé aux membres
-            autorisés à écrire dans la due diligence (et impossible une fois la mission clôturée).
+            {t(
+              "Vous pouvez consulter les documents du dossier ; l'import est réservé aux membres autorisés à écrire dans la due diligence (et impossible une fois la mission clôturée).",
+              "You can view the file documents; import is reserved for members allowed to write in due diligence (and not possible once the engagement is closed).",
+            )}
           </p>
         </Alerte>
       )}
-      <Carte titre="Documents importés" niveauTitre={3}>
+      <Carte titre={t("Documents importés", "Imported documents")} niveauTitre={3}>
         <DocumentsListe missionId={id} dossierId={dossierId} documents={r.donnees.elements} />
         {r.donnees.curseur_suivant ? (
-          <p className="mp-texte-petit">Seuls les 30 documents les plus récents sont affichés.</p>
+          <p className="mp-texte-petit">
+            {t(
+              "Seuls les 30 documents les plus récents sont affichés.",
+              "Only the 30 most recent documents are shown.",
+            )}
+          </p>
         ) : null}
       </Carte>
     </div>

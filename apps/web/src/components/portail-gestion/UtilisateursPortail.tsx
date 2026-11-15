@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "../../lib/api";
+import { messageSpecifiqueLangue } from "../../lib/double-authentification";
 import { formaterDate } from "../../lib/format";
 import {
   cheminStatutUtilisateurPortail,
@@ -9,6 +10,7 @@ import {
   statutUtilisateurPortail,
   type UtilisateurPortail,
 } from "../../lib/portail-gestion";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useAttenteRafraichissement } from "../formulaires/useAttenteRafraichissement";
@@ -31,12 +33,21 @@ export function UtilisateursPortail({
   clientActif,
   tfaObligatoire,
 }: UtilisateursPortailProps) {
+  const t = useT();
   if (utilisateurs.length === 0) {
     return (
-      <EtatVide titre="Personne n'a encore accès au portail de ce client." icone="personnes">
+      <EtatVide
+        titre={t(
+          "Personne n'a encore accès au portail de ce client.",
+          "No one has access to this client's portal yet.",
+        )}
+        icone="personnes"
+      >
         <p>
-          Invitez une personne de l&apos;entreprise ci-dessous : elle créera son accès depuis le
-          lien reçu par e-mail.
+          {t(
+            "Invitez une personne de l'entreprise ci-dessous : elle créera son accès depuis le lien reçu par e-mail.",
+            "Invite a person from the company below: they will create their access from the link received by email.",
+          )}
         </p>
       </EtatVide>
     );
@@ -57,11 +68,21 @@ export function UtilisateursPortail({
 }
 
 function BadgeTfa({ active, obligatoire }: { active: boolean; obligatoire: boolean }) {
-  if (active) return <BadgeStatut tonalite="succes">Double authentification active</BadgeStatut>;
+  const t = useT();
+  if (active)
+    return (
+      <BadgeStatut tonalite="succes">
+        {t("Double authentification active", "Two-factor authentication on")}
+      </BadgeStatut>
+    );
   return obligatoire ? (
-    <BadgeStatut tonalite="attention">Double authentification à activer</BadgeStatut>
+    <BadgeStatut tonalite="attention">
+      {t("Double authentification à activer", "Two-factor authentication to turn on")}
+    </BadgeStatut>
   ) : (
-    <BadgeStatut tonalite="neutre">Sans double authentification</BadgeStatut>
+    <BadgeStatut tonalite="neutre">
+      {t("Sans double authentification", "No two-factor authentication")}
+    </BadgeStatut>
   );
 }
 
@@ -74,10 +95,12 @@ function CarteUtilisateurPortail({
   clientActif: boolean;
   tfaObligatoire: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<never>();
   // Après l'action, l'ancien bouton reste affiché jusqu'à l'arrivée du nouveau statut.
   const [attente, attendre] = useAttenteRafraichissement(u.statut);
-  const statut = statutUtilisateurPortail(u.statut);
+  const statut = statutUtilisateurPortail(u.statut, langue);
   const actif = u.statut === "actif";
 
   const changer = (action: "desactiver" | "reactiver") =>
@@ -87,13 +110,17 @@ function CarteUtilisateurPortail({
       {
         succes:
           action === "desactiver"
-            ? `Accès de ${u.nom} désactivé : ses sessions sont fermées.`
-            : `Accès de ${u.nom} réactivé.`,
+            ? t(
+                `Accès de ${u.nom} désactivé : ses sessions sont fermées.`,
+                `Access of ${u.nom} deactivated: their sessions are closed.`,
+              )
+            : t(`Accès de ${u.nom} réactivé.`, `Access of ${u.nom} reactivated.`),
         messageSpecifique: (e) =>
           messageErreurPortailGestion(
             e,
             action === "desactiver" ? "desactivation" : "reactivation",
-          ),
+            langue,
+          ) ?? messageSpecifiqueLangue(langue)(e),
         apres: () => attendre(),
       },
     );
@@ -113,41 +140,56 @@ function CarteUtilisateurPortail({
       <div className="mp-pile">
         <p className="mp-coupure">{u.email}</p>
         <p className="mp-texte-doux">
-          {libellesRolesPortail(u.roles)} · accès créé le{" "}
-          {formaterDate(u.cree_le, "Africa/Abidjan")}
+          {libellesRolesPortail(u.roles, langue)} · {t("accès créé le", "access created on")}{" "}
+          {formaterDate(u.cree_le, "Africa/Abidjan", langue)}
         </p>
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Modification impossible"
+          titreErreur={t("Modification impossible", "Unable to update")}
         />
         <div className="mp-barre-actions">
           {attente ? (
             <p className="mp-texte-doux" role="status">
-              Mise à jour de la liste…
+              {t("Mise à jour de la liste…", "Updating the list…")}
             </p>
           ) : actif ? (
             <BoutonConfirmation
-              libelle="Désactiver l'accès"
-              ariaLabel={`Désactiver l'accès de ${u.nom} au portail`}
-              question={`Désactiver l'accès de ${u.nom} au portail ? Ses sessions sont fermées immédiatement.`}
-              libelleConfirmation="Oui, désactiver"
-              texteChargement="Désactivation…"
+              libelle={t("Désactiver l'accès", "Deactivate access")}
+              ariaLabel={t(
+                `Désactiver l'accès de ${u.nom} au portail`,
+                `Deactivate the portal access of ${u.nom}`,
+              )}
+              question={t(
+                `Désactiver l'accès de ${u.nom} au portail ? Ses sessions sont fermées immédiatement.`,
+                `Deactivate the portal access of ${u.nom}? Their sessions are closed immediately.`,
+              )}
+              libelleConfirmation={t("Oui, désactiver", "Yes, deactivate")}
+              texteChargement={t("Désactivation…", "Deactivating…")}
               action={() => changer("desactiver")}
             />
           ) : clientActif ? (
             <BoutonConfirmation
-              libelle="Réactiver l'accès"
-              ariaLabel={`Réactiver l'accès de ${u.nom} au portail`}
-              question={`Réactiver l'accès de ${u.nom} au portail ? Cette personne retrouvera ce qui est partagé avec son entreprise.`}
-              libelleConfirmation="Oui, réactiver"
-              texteChargement="Réactivation…"
+              libelle={t("Réactiver l'accès", "Reactivate access")}
+              ariaLabel={t(
+                `Réactiver l'accès de ${u.nom} au portail`,
+                `Reactivate the portal access of ${u.nom}`,
+              )}
+              question={t(
+                `Réactiver l'accès de ${u.nom} au portail ? Cette personne retrouvera ce qui est partagé avec son entreprise.`,
+                `Reactivate the portal access of ${u.nom}? This person will see again what is shared with their company.`,
+              )}
+              libelleConfirmation={t("Oui, réactiver", "Yes, reactivate")}
+              texteChargement={t("Réactivation…", "Reactivating…")}
               action={() => changer("reactiver")}
             />
           ) : (
             <p className="mp-texte-doux">
-              Réactivation impossible tant que la fiche du client est archivée.
+              {t(
+                "Réactivation impossible tant que la fiche du client est archivée.",
+                "Reactivation is not possible while the client profile is archived.",
+              )}
             </p>
           )}
         </div>

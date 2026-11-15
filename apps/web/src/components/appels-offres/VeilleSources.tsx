@@ -10,6 +10,7 @@ import {
   type BilanVeille,
   type SourceVeilleVue,
 } from "../../lib/appels-offres-veille";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
@@ -25,6 +26,8 @@ export function VeilleSources({
   sources: readonly SourceVeilleVue[];
   gerer: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [enCours, setEnCours] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -38,7 +41,7 @@ export function VeilleSources({
       await action();
       rafraichir();
     } catch (e) {
-      setErreur(messageVeille(e));
+      setErreur(messageVeille(e, langue));
     } finally {
       setEnCours(null);
     }
@@ -51,7 +54,11 @@ export function VeilleSources({
           <li key={s.code} className="mp-liste-lignes__ligne">
             <CaseACocher
               libelle={s.libelle}
-              aide={s.active ? "Activée pour votre cabinet." : "Désactivée."}
+              aide={
+                s.active
+                  ? t("Activée pour votre cabinet.", "Enabled for your firm.")
+                  : t("Désactivée.", "Disabled.")
+              }
               checked={s.active}
               disabled={!gerer || enCours !== null}
               onChange={(e) =>
@@ -66,8 +73,10 @@ export function VeilleSources({
         ))}
       </ul>
       <p className="mp-texte-doux mp-texte-petit">
-        Sources simulées : des avis fictifs servent à essayer la veille. Aucune adresse n&apos;est
-        visitée par le serveur.
+        {t(
+          "Sources simulées : des avis fictifs servent à essayer la veille. Aucune adresse n'est visitée par le serveur.",
+          "Simulated sources: fictional notices are used to try out monitoring. No address is visited by the server.",
+        )}
       </p>
       {erreur ? (
         <Alerte tonalite="danger">
@@ -76,14 +85,14 @@ export function VeilleSources({
       ) : null}
       {bilan ? (
         <Alerte tonalite="succes">
-          <p>{texteBilanVeille(bilan)}</p>
+          <p>{texteBilanVeille(bilan, langue)}</p>
         </Alerte>
       ) : null}
       {gerer ? (
         <Bouton
           variante="primaire"
           chargement={enCours === "collecte"}
-          texteChargement="Collecte…"
+          texteChargement={t("Collecte…", "Collecting…")}
           disabled={actives === 0 || enCours !== null}
           onClick={() =>
             executer("collecte", async () => {
@@ -91,7 +100,7 @@ export function VeilleSources({
             })
           }
         >
-          Collecter maintenant
+          {t("Collecter maintenant", "Collect now")}
         </Bouton>
       ) : null}
     </div>

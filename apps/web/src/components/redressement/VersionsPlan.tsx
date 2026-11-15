@@ -8,7 +8,9 @@ import {
   libelleEcartPlan,
   libelleStatutVersionPlan,
   TEXTE_VALIDATION_PLAN,
+  TEXTE_VALIDATION_PLAN_EN,
 } from "../../lib/redressement";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Tableau } from "../ui/Tableau";
 import { BoutonActionRed } from "./BoutonActionRed";
@@ -32,38 +34,50 @@ export function VersionsPlan({
   peutEcrire: boolean;
   peutValider: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-red-section">
-      {ecart ? <p>{libelleEcartPlan(ecart)}</p> : null}
+      {ecart ? <p>{libelleEcartPlan(ecart, langue)}</p> : null}
       <Tableau
-        legende="Versions du plan"
-        messageVide="Aucune version du plan : créez-en une pour la soumettre à validation."
+        legende={t("Versions du plan", "Plan versions")}
+        messageVide={t(
+          "Aucune version du plan : créez-en une pour la soumettre à validation.",
+          "No plan version: create one to submit it for approval.",
+        )}
         colonnes={[
-          { cle: "version", entete: "Version", rendu: (v: RedPlanVersionVue) => v.version },
+          {
+            cle: "version",
+            entete: t("Version", "Version"),
+            rendu: (v: RedPlanVersionVue) => v.version,
+          },
           {
             cle: "statut",
-            entete: "Statut",
+            entete: t("Statut", "Status"),
             rendu: (v) => (
               <BadgeStatut tonalite={v.statut === "valide" ? "succes" : "attention"}>
-                {libelleStatutVersionPlan(v.statut)}
+                {libelleStatutVersionPlan(v.statut, langue)}
               </BadgeStatut>
             ),
           },
           {
             cle: "reference",
-            entete: "Date de référence",
-            rendu: (v) => formaterDate(v.date_reference),
+            entete: t("Date de référence", "Reference date"),
+            rendu: (v) => formaterDate(v.date_reference, "UTC", langue),
           },
           {
             cle: "auteur",
-            entete: "Auteur",
-            rendu: (v) => `${v.cree_par.nom}, le ${formaterDateHeure(v.cree_le)}`,
+            entete: t("Auteur", "Author"),
+            rendu: (v) =>
+              `${v.cree_par.nom}, ${t("le", "on")} ${formaterDateHeure(v.cree_le, undefined, langue)}`,
           },
           {
             cle: "validation",
-            entete: "Validation",
+            entete: t("Validation", "Approval"),
             rendu: (v) =>
-              v.valide_par ? `${v.valide_par.nom}, le ${formaterDateHeure(v.valide_le)}` : "—",
+              v.valide_par
+                ? `${v.valide_par.nom}, ${t("le", "on")} ${formaterDateHeure(v.valide_le, undefined, langue)}`
+                : "—",
           },
           {
             cle: "action",
@@ -71,15 +85,20 @@ export function VersionsPlan({
             rendu: (v) =>
               v.statut === "brouillon" && peutValider ? (
                 <BoutonActionRed
-                  libelle="Valider cette version"
+                  libelle={t("Valider cette version", "Approve this version")}
                   chemin={cheminValidationPlan(v.id)}
                   corps={{}}
-                  succes="Version du plan validée."
+                  succes={t("Version du plan validée.", "Plan version approved.")}
                   variante="primaire"
-                  desactiveParce={v.peut_valider ? undefined : TEXTE_VALIDATION_PLAN}
+                  desactiveParce={
+                    v.peut_valider ? undefined : t(TEXTE_VALIDATION_PLAN, TEXTE_VALIDATION_PLAN_EN)
+                  }
                   confirmation={{
-                    question: `Valider la version ${v.version} du plan ?`,
-                    libelleConfirmation: "Oui, valider",
+                    question: t(
+                      `Valider la version ${v.version} du plan ?`,
+                      `Approve version ${v.version} of the plan?`,
+                    ),
+                    libelleConfirmation: t("Oui, valider", "Yes, approve"),
                   }}
                 />
               ) : (
@@ -92,10 +111,13 @@ export function VersionsPlan({
       />
       {peutEcrire ? (
         <BoutonActionRed
-          libelle="Créer une version à valider"
+          libelle={t("Créer une version à valider", "Create a version for approval")}
           chemin={cheminVersionsPlan(dossierId)}
           corps={{}}
-          succes="Version du plan créée : elle attend sa validation."
+          succes={t(
+            "Version du plan créée : elle attend sa validation.",
+            "Plan version created: it awaits approval.",
+          )}
           variante="secondaire"
         />
       ) : null}

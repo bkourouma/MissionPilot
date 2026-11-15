@@ -76,6 +76,25 @@ export const ROLE_LIBELLES: Record<Role, string> = {
   client_investisseur: "Investisseur",
 };
 
+export const ROLE_LIBELLES_EN: Record<Role, string> = {
+  associe: "Partner",
+  directeur_mission: "Engagement director",
+  chef_mission: "Engagement manager",
+  consultant: "Consultant",
+  ressources: "Resource manager",
+  gestionnaire: "Finance and administration manager",
+  expert_metier: "Subject-matter expert",
+  expert_externe: "External expert",
+  client_dirigeant: "Client executive",
+  client_contributeur: "Client contributor",
+  client_investisseur: "Investor",
+};
+
+/** Libellé d'un rôle dans la langue de l'interface. */
+export function libelleRole(role: Role, langue: "fr" | "en" = "fr"): string {
+  return (langue === "en" ? ROLE_LIBELLES_EN : ROLE_LIBELLES)[role];
+}
+
 /** Droits fins, nommés par capacité plutôt que par écran. */
 export const PERMISSIONS = [
   "cabinet.gerer", // paramètres du cabinet, utilisateurs, invitations

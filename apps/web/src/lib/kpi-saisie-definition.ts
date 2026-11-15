@@ -3,12 +3,14 @@
  * d'entrée du module.
  */
 import {
+  creerTraduire,
   DATE_SUIVI_KPI_MIN,
   FREQUENCES_KPI,
   NATURES_KPI,
   PERSPECTIVES_KPI,
   SENS_LECTURE_KPI,
   type FrequenceKpiApi,
+  type Langue,
   type NatureKpiApi,
   type PerspectiveKpi,
   type SensLectureKpiApi,
@@ -151,39 +153,64 @@ export function ilYaDixAns(aujourdhui: string): string {
 const dansListe = <T extends string>(liste: readonly T[], v: string): v is T =>
   (liste as readonly string[]).includes(v);
 
-function lireChamps(s: SaisieKpi, ctx: ContexteKpi, erreurs: Record<string, string>): ChampsKpi {
+function lireChamps(
+  s: SaisieKpi,
+  ctx: ContexteKpi,
+  erreurs: Record<string, string>,
+  langue: Langue = "fr",
+): ChampsKpi {
+  const t = creerTraduire(langue);
   const lire = <T>(champ: ChampKpi, l: Lecture<T>) => {
     if (l.erreur) erreurs[champ] = l.erreur;
     return l.valeur;
   };
   const perspective = s.perspective === "" ? null : s.perspective;
   if (perspective !== null && !dansListe(PERSPECTIVES_KPI, perspective)) {
-    erreurs.perspective = "Choisissez une perspective de la liste.";
+    erreurs.perspective = t(
+      "Choisissez une perspective de la liste.",
+      "Choose a perspective from the list.",
+    );
   }
-  const seuilVert = lire("seuil_vert", lirePourcentage(s.seuil_vert, 100));
-  const seuilOrange = lire("seuil_orange", lirePourcentage(s.seuil_orange, 100));
+  const seuilVert = lire("seuil_vert", lirePourcentage(s.seuil_vert, 100, langue));
+  const seuilOrange = lire("seuil_orange", lirePourcentage(s.seuil_orange, 100, langue));
   if (!erreurs.seuil_vert && !erreurs.seuil_orange) {
     if ((seuilVert === null) !== (seuilOrange === null)) {
       const vide = seuilVert === null ? "seuil_vert" : "seuil_orange";
-      erreurs[vide] = "Renseignez les deux seuils, ou aucun (seuils par défaut : 95 % et 80 %).";
+      erreurs[vide] = t(
+        "Renseignez les deux seuils, ou aucun (seuils par défaut : 95 % et 80 %).",
+        "Fill in both thresholds, or none (default thresholds: 95% and 80%).",
+      );
     } else if (seuilVert !== null && seuilOrange !== null && seuilOrange >= seuilVert) {
-      erreurs.seuil_orange = "Le seuil orange doit être inférieur au seuil vert.";
+      erreurs.seuil_orange = t(
+        "Le seuil orange doit être inférieur au seuil vert.",
+        "The orange threshold must be lower than the green threshold.",
+      );
     }
   }
-  const haut = lire("alerte_haut", lireValeurKpi(s.alerte_haut));
-  const bas = lire("alerte_bas", lireValeurKpi(s.alerte_bas));
+  const haut = lire("alerte_haut", lireValeurKpi(s.alerte_haut, langue));
+  const bas = lire("alerte_bas", lireValeurKpi(s.alerte_bas, langue));
   if (haut !== null && bas !== null && bas > haut) {
-    erreurs.alerte_bas = "Le seuil d'alerte bas doit être inférieur ou égal au seuil haut.";
+    erreurs.alerte_bas = t(
+      "Le seuil d'alerte bas doit être inférieur ou égal au seuil haut.",
+      "The lower alert threshold must be lower than or equal to the upper threshold.",
+    );
   }
   const proprietaire = s.proprietaire_id === "" ? null : s.proprietaire_id;
   if (proprietaire !== null && !ctx.proprietaires.includes(proprietaire)) {
-    erreurs.proprietaire_id = "Choisissez le propriétaire parmi les responsables et l'équipe.";
+    erreurs.proprietaire_id = t(
+      "Choisissez le propriétaire parmi les responsables et l'équipe.",
+      "Choose the owner among the leads and the team.",
+    );
   }
   const debut = ctx.debutFixe ?? s.debut_suivi;
   const fin = s.fin_suivi === "" ? null : s.fin_suivi;
-  if (fin !== null && !dateValide(fin)) erreurs.fin_suivi = "Date de fin de suivi invalide.";
-  else if (fin !== null && dateValide(debut) && fin < debut) {
-    erreurs.fin_suivi = "La fin du suivi ne peut pas précéder son début.";
+  if (fin !== null && !dateValide(fin)) {
+    erreurs.fin_suivi = t("Date de fin de suivi invalide.", "Invalid tracking end date.");
+  } else if (fin !== null && dateValide(debut) && fin < debut) {
+    erreurs.fin_suivi = t(
+      "La fin du suivi ne peut pas précéder son début.",
+      "The tracking end cannot precede its start.",
+    );
   }
   return {
     libelle: texteObligatoire(
@@ -191,23 +218,28 @@ function lireChamps(s: SaisieKpi, ctx: ContexteKpi, erreurs: Record<string, stri
       LIBELLE_MAX,
       erreurs,
       "libelle",
-      "Le libellé est obligatoire.",
+      t("Le libellé est obligatoire.", "The label is required."),
+      langue,
     ),
-    description: texteFacultatif(s.description, DESCRIPTION_MAX, erreurs, "description"),
+    description: texteFacultatif(s.description, DESCRIPTION_MAX, erreurs, "description", langue),
     unite: texteObligatoire(
       s.unite,
       UNITE_MAX,
       erreurs,
       "unite",
-      "L'unité est obligatoire (ex. FCFA, %, jours, clients).",
+      t(
+        "L'unité est obligatoire (ex. FCFA, %, jours, clients).",
+        "The unit is required (e.g. FCFA, %, days, clients).",
+      ),
+      langue,
     ),
     perspective: perspective as PerspectiveKpi | null,
-    ponderation: lire("ponderation", lirePonderation(s.ponderation)) ?? 1,
+    ponderation: lire("ponderation", lirePonderation(s.ponderation, langue)) ?? 1,
     seuil_vert: seuilVert,
     seuil_orange: seuilOrange,
     alerte_haut: haut,
     alerte_bas: bas,
-    alerte_variation: lire("alerte_variation", lirePourcentage(s.alerte_variation, 10000)),
+    alerte_variation: lire("alerte_variation", lirePourcentage(s.alerte_variation, 10000, langue)),
     proprietaire_id: proprietaire,
     fin_suivi: fin,
     rappels_actifs: s.rappels_actifs,
@@ -218,20 +250,36 @@ function lireChamps(s: SaisieKpi, ctx: ContexteKpi, erreurs: Record<string, stri
 export function validerCreationKpi(
   s: SaisieKpi,
   ctx: ContexteKpi,
+  langue: Langue = "fr",
 ): Resultat<ChargeCreationKpi, ChampKpi> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
-  const champs = lireChamps(s, ctx, erreurs);
-  if (!dansListe(SENS_LECTURE_KPI, s.sens)) erreurs.sens = "Choisissez le sens de lecture.";
-  if (!dansListe(NATURES_KPI, s.nature)) erreurs.nature = "Choisissez la nature du KPI.";
-  if (!dansListe(FREQUENCES_KPI, s.frequence)) erreurs.frequence = "Choisissez une fréquence.";
-  const debut = s.debut_suivi;
-  if (debut === "") erreurs.debut_suivi = "Le début du suivi est obligatoire.";
-  else if (!dateValide(debut) || debut < DATE_SUIVI_KPI_MIN) {
-    erreurs.debut_suivi = "Date de début de suivi invalide.";
-  } else if (debut < ilYaDixAns(ctx.aujourdhui)) {
-    erreurs.debut_suivi = `Le suivi commence au plus 10 ans avant aujourd'hui (pas avant le ${formaterDate(ilYaDixAns(ctx.aujourdhui))}).`;
+  const champs = lireChamps(s, ctx, erreurs, langue);
+  if (!dansListe(SENS_LECTURE_KPI, s.sens)) {
+    erreurs.sens = t("Choisissez le sens de lecture.", "Choose the reading direction.");
   }
-  const cible = lireValeurKpi(s.cible);
+  if (!dansListe(NATURES_KPI, s.nature)) {
+    erreurs.nature = t("Choisissez la nature du KPI.", "Choose the nature of the KPI.");
+  }
+  if (!dansListe(FREQUENCES_KPI, s.frequence)) {
+    erreurs.frequence = t("Choisissez une fréquence.", "Choose a frequency.");
+  }
+  const debut = s.debut_suivi;
+  if (debut === "") {
+    erreurs.debut_suivi = t(
+      "Le début du suivi est obligatoire.",
+      "The tracking start is required.",
+    );
+  } else if (!dateValide(debut) || debut < DATE_SUIVI_KPI_MIN) {
+    erreurs.debut_suivi = t("Date de début de suivi invalide.", "Invalid tracking start date.");
+  } else if (debut < ilYaDixAns(ctx.aujourdhui)) {
+    const limite = formaterDate(ilYaDixAns(ctx.aujourdhui), "UTC", langue);
+    erreurs.debut_suivi = t(
+      `Le suivi commence au plus 10 ans avant aujourd'hui (pas avant le ${limite}).`,
+      `Tracking starts at most 10 years before today (not before ${limite}).`,
+    );
+  }
+  const cible = lireValeurKpi(s.cible, langue);
   if (cible.erreur) erreurs.cible = cible.erreur;
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: ChargeCreationKpi = {
@@ -273,13 +321,19 @@ export function validerModificationKpi(
   s: SaisieKpi,
   initial: DefinitionKpi,
   ctx: Omit<ContexteKpi, "debutFixe">,
+  langue: Langue = "fr",
 ): Resultat<ChargeModificationKpi, ChampKpi> & { inchange?: boolean } {
   const erreurs: Record<string, string> = {};
   // Le propriétaire actuel reste admis tel quel, même s'il a quitté l'équipe (non renvoyé).
   const proprietaires = initial.proprietaire_id
     ? [...ctx.proprietaires, initial.proprietaire_id]
     : ctx.proprietaires;
-  const champs = lireChamps(s, { ...ctx, proprietaires, debutFixe: initial.debut_suivi }, erreurs);
+  const champs = lireChamps(
+    s,
+    { ...ctx, proprietaires, debutFixe: initial.debut_suivi },
+    erreurs,
+    langue,
+  );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const avant: ChampsKpi = {
     libelle: initial.libelle,

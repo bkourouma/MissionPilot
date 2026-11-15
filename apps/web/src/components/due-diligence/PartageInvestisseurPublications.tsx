@@ -1,17 +1,16 @@
 "use client";
 
-import {
-  RECOMMANDATION_NOTE_LIBELLES,
-  type DdPortailPublicationCabinet,
-} from "@missionpilot/shared";
+import type { DdPortailPublicationCabinet } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   badgePublication,
   cheminRetraitPublication,
   libelleRapport,
 } from "../../lib/due-diligence-portail";
+import { libellesDd } from "../../lib/due-diligence";
 import { formaterDate } from "../../lib/format";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
 import { usePartageInvestisseur } from "./usePartageInvestisseur";
@@ -25,49 +24,70 @@ export interface PartageInvestisseurPublicationsProps {
 export function PartageInvestisseurPublications({
   publications,
 }: PartageInvestisseurPublicationsProps) {
+  const t = useT();
+  const langue = useLangue();
+  const L = libellesDd(langue);
   const p = usePartageInvestisseur();
   if (publications.length === 0) {
-    return <p className="mp-texte-doux">Aucune note n&apos;est publiée pour le moment.</p>;
+    return (
+      <p className="mp-texte-doux">
+        {t("Aucune note n'est publiée pour le moment.", "No memo is published at the moment.")}
+      </p>
+    );
   }
   return (
     <div className="mp-dd-pile">
       <PartageInvestisseurRetour erreur={p.erreur} succes={p.succes} />
-      <ul className="mp-dd-liste" aria-label="Publications actives">
+      <ul className="mp-dd-liste" aria-label={t("Publications actives", "Active publications")}>
         {publications.map((pub) => {
-          const badge = badgePublication(pub);
+          const badge = badgePublication(pub, langue);
           return (
             <li key={pub.id} className="mp-dd-element">
               <h4 className="mp-dd-element__titre">{pub.titre}</h4>
               <span className="mp-dd-meta">
                 <BadgeStatut tonalite={badge.tonalite}>{badge.libelle}</BadgeStatut>
                 <BadgeStatut tonalite="neutre" sansIcone>
-                  {RECOMMANDATION_NOTE_LIBELLES[pub.recommandation] ?? pub.recommandation}
+                  {L.RECOMMANDATION[pub.recommandation] ?? pub.recommandation}
                 </BadgeStatut>
               </span>
               <p className="mp-texte-doux mp-texte-petit">
-                {`Version ${pub.version} · validée le ${formaterDate(pub.valide_le)} · publiée le ${formaterDate(pub.publie_le)}`}
+                {t(
+                  `Version ${pub.version} · validée le ${formaterDate(pub.valide_le)} · publiée le ${formaterDate(pub.publie_le)}`,
+                  `Version ${pub.version} · approved on ${formaterDate(pub.valide_le, "UTC", langue)} · published on ${formaterDate(pub.publie_le, "UTC", langue)}`,
+                )}
               </p>
               {pub.perimee ? (
                 <p className="mp-texte-petit">
-                  Une version plus récente de la note a été soumise. Retirez cette publication puis
-                  publiez la nouvelle version une fois validée.
+                  {t(
+                    "Une version plus récente de la note a été soumise. Retirez cette publication puis publiez la nouvelle version une fois validée.",
+                    "A more recent version of the memo has been submitted. Withdraw this publication, then publish the new version once approved.",
+                  )}
                 </p>
               ) : null}
               <p className="mp-texte-petit">
                 {pub.pieces.length === 0
-                  ? "Aucun rapport joint."
-                  : `Rapports joints : ${pub.pieces.map(libelleRapport).join(", ")}.`}
+                  ? t("Aucun rapport joint.", "No report attached.")
+                  : t(
+                      `Rapports joints : ${pub.pieces.map((r) => libelleRapport(r)).join(", ")}.`,
+                      `Attached reports: ${pub.pieces.map((r) => libelleRapport(r, langue)).join(", ")}.`,
+                    )}
               </p>
               <BoutonConfirmation
-                libelle="Retirer"
-                ariaLabel={`Retirer la publication ${pub.titre}`}
-                question="Retirer cette publication ? Les investisseurs ne pourront plus la consulter."
-                libelleConfirmation="Oui, retirer"
-                texteChargement="Retrait…"
+                libelle={t("Retirer", "Withdraw")}
+                ariaLabel={t(
+                  `Retirer la publication ${pub.titre}`,
+                  `Withdraw the publication ${pub.titre}`,
+                )}
+                question={t(
+                  "Retirer cette publication ? Les investisseurs ne pourront plus la consulter.",
+                  "Withdraw this publication? Investors will no longer be able to view it.",
+                )}
+                libelleConfirmation={t("Oui, retirer", "Yes, withdraw")}
+                texteChargement={t("Retrait…", "Withdrawing…")}
                 action={() =>
                   p.executer(
                     () => api.post(cheminRetraitPublication(pub.id)),
-                    "Publication retirée.",
+                    t("Publication retirée.", "Publication withdrawn."),
                   )
                 }
               />

@@ -6,8 +6,9 @@ import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirLangue } from "../../../../../lib/i18n/serveur";
 import type { PageListe } from "../../../../../lib/clients";
-import { TYPE_LIBELLES, type Collaborateur } from "../../../../../lib/collaborateurs";
+import { libelleTypeCollaborateur, type Collaborateur } from "../../../../../lib/collaborateurs";
 import { tachesDansLOrdre, type Decoupage, type Planning } from "../../../../../lib/decoupage";
 import { formaterDate, formaterJours } from "../../../../../lib/format";
 import { droitsMission } from "../../../../../lib/missions";
@@ -22,7 +23,10 @@ import {
   type TacheChoix,
 } from "./Affectations";
 
-export const metadata: Metadata = { title: "Affectations de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const langue = await obtenirLangue();
+  return { title: langue === "en" ? "Engagement assignments" : "Affectations de la mission" };
+}
 
 const CURSEUR = /^[A-Za-z0-9_=-]{1,500}$/;
 
@@ -33,6 +37,8 @@ export default async function PageAffectations({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const { id } = await params;
   const { utilisateur } = await exigerPermission("mission.lire");
   const roles = utilisateur.roles;
@@ -42,7 +48,7 @@ export default async function PageAffectations({
   const brut = (await searchParams).curseur;
   const curseur = typeof brut === "string" && CURSEUR.test(brut) ? brut : "";
   const gerer = peutGererAffectations(m, roles, utilisateur.id);
-  const replanifier = droitsMission(m, roles, utilisateur.id).planifier;
+  const replanifier = droitsMission(m, roles, utilisateur.id, langue).planifier;
   const [liste, decoupage, planning, collaborateurs, grades] = await Promise.all([
     chargerServeur<{ elements: Affectation[]; curseur_suivant: string | null }>(
       `/api/missions/${m.id}/affectations?limite=200${curseur ? `&curseur=${encodeURIComponent(curseur)}` : ""}`,
@@ -66,7 +72,11 @@ export default async function PageAffectations({
   const optionsCollaborateurs = collaborateurs?.ok
     ? collaborateurs.donnees.elements.map((c) => ({
         valeur: c.id,
-        libelle: [c.nom, c.grade_libelle, c.type !== "interne" ? TYPE_LIBELLES[c.type] : null]
+        libelle: [
+          c.nom,
+          c.grade_libelle,
+          c.type !== "interne" ? libelleTypeCollaborateur(c.type, langue) : null,
+        ]
           .filter(Boolean)
           .join(" · "),
       }))
@@ -84,20 +94,27 @@ export default async function PageAffectations({
   return (
     <div className="mp-pile mp-pile--large">
       {gerer && !m.date_debut ? (
-        <Alerte tonalite="attention" titre="Mission sans date de début" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Mission sans date de début", "Engagement with no start date")}
+          annonce="aucune"
+        >
           <p>
-            Renseignez la date de début de la mission (onglet Fiche) avant d&apos;y affecter
-            quelqu&apos;un.
+            {t(
+              "Renseignez la date de début de la mission (onglet Fiche) avant d'y affecter quelqu'un.",
+              "Enter the engagement start date (Details tab) before assigning anyone to it.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       {gerer && m.date_debut ? (
-        <Carte titre="Nouvelle affectation">
+        <Carte titre={t("Nouvelle affectation", "New assignment")}>
           {taches.length === 0 ? (
             <p className="mp-texte-doux">
-              Ajoutez d&apos;abord des tâches dans l&apos;onglet{" "}
-              <Link href={`/missions/${m.id}/decoupage`}>Découpage</Link>.
+              {t("Ajoutez d'abord des tâches dans l'onglet", "First add tasks in the")}{" "}
+              <Link href={`/missions/${m.id}/decoupage`}>{t("Découpage", "Work breakdown")}</Link>
+              {t(".", " tab.")}
             </p>
           ) : (
             <FormulaireAffectation
@@ -113,19 +130,27 @@ export default async function PageAffectations({
 
       <section aria-labelledby="titre-affectations" className="mp-pile">
         <h2 id="titre-affectations" className="mp-section__titre">
-          Affectations par tâche
+          {t("Affectations par tâche", "Assignments by task")}
         </h2>
         {!liste.ok ? (
           <EtatErreur
-            titre="Les affectations n'ont pas pu être chargées."
+            titre={t(
+              "Les affectations n'ont pas pu être chargées.",
+              "The assignments could not be loaded.",
+            )}
             message={liste.message}
             hrefReessayer={`/missions/${m.id}/affectations`}
           />
         ) : parTache.length === 0 ? (
-          <EtatVide titre="Aucune affectation sur cette mission." icone="personnes">
+          <EtatVide
+            titre={t("Aucune affectation sur cette mission.", "No assignments on this engagement.")}
+            icone="personnes"
+          >
             <p>
-              Une affectation attribue des jours d&apos;une tâche à une personne, ou à un profil à
-              pourvoir (grade et compétence) en attendant de choisir la personne.
+              {t(
+                "Une affectation attribue des jours d'une tâche à une personne, ou à un profil à pourvoir (grade et compétence) en attendant de choisir la personne.",
+                "An assignment allocates days of a task to a person, or to a profile to fill (grade and skill) until the person is chosen.",
+              )}
             </p>
           </EtatVide>
         ) : (
@@ -139,22 +164,30 @@ export default async function PageAffectations({
                         <span className="mp-liste-lignes__texte">
                           <strong>
                             {a.a_pourvoir
-                              ? `Profil à pourvoir : ${a.grade_libelle ?? "grade"}${a.competence ? ` (${a.competence})` : ""}`
-                              : (a.collaborateur_nom ?? "Collaborateur")}
+                              ? t(
+                                  `Profil à pourvoir : ${a.grade_libelle ?? "grade"}${a.competence ? ` (${a.competence})` : ""}`,
+                                  `Profile to fill: ${a.grade_libelle ?? "grade"}${a.competence ? ` (${a.competence})` : ""}`,
+                                )
+                              : (a.collaborateur_nom ?? t("Collaborateur", "Team member"))}
                           </strong>
                           <span className="mp-texte-doux">
                             {[
-                              `${formaterJours(a.jours_alloues)} du ${formaterDate(a.date_debut)} au ${formaterDate(a.date_fin)}`,
+                              t(
+                                `${formaterJours(a.jours_alloues)} du ${formaterDate(a.date_debut)} au ${formaterDate(a.date_fin)}`,
+                                `${formaterJours(a.jours_alloues, langue)} from ${formaterDate(a.date_debut, "UTC", langue)} to ${formaterDate(a.date_fin, "UTC", langue)}`,
+                              ),
                               !a.a_pourvoir && a.grade_libelle ? a.grade_libelle : null,
                               a.collaborateur_type && a.collaborateur_type !== "interne"
-                                ? TYPE_LIBELLES[a.collaborateur_type]
+                                ? libelleTypeCollaborateur(a.collaborateur_type, langue)
                                 : null,
                             ]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
                           {a.a_pourvoir ? (
-                            <BadgeStatut tonalite="attention">À pourvoir</BadgeStatut>
+                            <BadgeStatut tonalite="attention">
+                              {t("À pourvoir", "To be filled")}
+                            </BadgeStatut>
                           ) : null}
                         </span>
                         {gerer ? (
@@ -176,7 +209,7 @@ export default async function PageAffectations({
         )}
         {liste.ok ? (
           <PaginationCurseur
-            libelle="Pages des affectations"
+            libelle={t("Pages des affectations", "Assignment pages")}
             hrefSuivante={
               liste.donnees.curseur_suivant
                 ? `/missions/${m.id}/affectations?curseur=${encodeURIComponent(liste.donnees.curseur_suivant)}`
@@ -188,12 +221,13 @@ export default async function PageAffectations({
       </section>
 
       {replanifier && phases.length > 0 ? (
-        <Carte titre="Re-planifier une phase">
+        <Carte titre={t("Re-planifier une phase", "Reschedule a phase")}>
           <div className="mp-pile">
             <p className="mp-texte-doux">
-              Décaler une phase recale ses tâches, les tâches qui en dépendent et leurs
-              affectations, puis prévient chaque personne concernée. Prévisualisez d&apos;abord :
-              rien n&apos;est modifié avant « Appliquer ».
+              {t(
+                "Décaler une phase recale ses tâches, les tâches qui en dépendent et leurs affectations, puis prévient chaque personne concernée. Prévisualisez d'abord : rien n'est modifié avant « Appliquer ».",
+                'Shifting a phase reschedules its tasks, the tasks that depend on them and their assignments, then notifies each person concerned. Preview first: nothing is changed before "Apply".',
+              )}
             </p>
             <Replanification missionId={m.id} phases={phases} />
           </div>

@@ -51,6 +51,9 @@ import {
   type TypeOperationDd,
   type VarianteNote,
   type VerdictDd,
+  type Langue,
+  type Traduire,
+  creerTraduire,
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi, messageErreur } from "./api";
@@ -673,10 +676,172 @@ export {
   VERDICT_DD_LIBELLES,
 };
 
+// Versions anglaises des libellés partagés (`@missionpilot/shared` ne porte que le français).
+export const ANALYSE_DD_LIBELLES_EN: Record<AnalyseDd, string> = {
+  pestel: "PESTEL",
+  cinq_forces: "Porter's five forces",
+  swot: "Strengths, weaknesses, opportunities, threats",
+  operationnelle: "Operational analysis",
+};
+export const CATEGORIE_ANALYSE_DD_LIBELLES_EN: Record<CategorieAnalyseDd, string> = {
+  politique: "Political",
+  economique: "Economic",
+  social: "Social",
+  technologique: "Technological",
+  environnemental: "Environmental",
+  juridique: "Legal",
+  rivalite: "Competitive rivalry",
+  nouveaux_entrants: "Threat of new entrants",
+  substituts: "Threat of substitutes",
+  pouvoir_clients: "Bargaining power of clients",
+  pouvoir_fournisseurs: "Bargaining power of suppliers",
+  forces: "Strengths",
+  faiblesses: "Weaknesses",
+  opportunites: "Opportunities",
+  menaces: "Threats",
+  processus: "Processes",
+  approvisionnement: "Supply",
+  goulots: "Bottlenecks",
+};
+export const FAMILLE_RISQUE_DD_LIBELLES_EN: Record<FamilleRisqueDd, string> = {
+  pays: "Country risk",
+  change: "Currency risk",
+  operationnel: "Operational risk",
+  reglementaire: "Regulatory risk",
+};
+export const NIVEAU_RISQUE_DD_LIBELLES_EN: Record<NiveauRisqueDd, string> = {
+  faible: "Low",
+  modere: "Moderate",
+  eleve: "High",
+  critique: "Critical",
+};
+export const VERDICT_DD_LIBELLES_EN: Record<VerdictDd, string> = {
+  confirmee: "Confirmed",
+  infirmee: "Refuted",
+  non_concluante: "Inconclusive",
+};
+export const SENS_LIEN_DD_LIBELLES_EN: Record<SensLienDd, string> = {
+  soutient: "Supports the hypothesis",
+  contredit: "Contradicts the hypothesis",
+};
+export const METHODE_DIMENSIONNEMENT_LIBELLES_EN: Record<MethodeDimensionnement, string> = {
+  descendant: "Top-down (from total market to capturable market)",
+  ascendant: "Bottom-up (from clients to revenue)",
+};
+export const RECOMMANDATION_NOTE_LIBELLES_EN: Record<RecommandationNote, string> = {
+  favorable: "Favorable",
+  favorable_sous_conditions: "Favorable with conditions",
+  reservee: "Reserved",
+  defavorable: "Unfavorable",
+};
+export const VARIANTE_NOTE_LIBELLES_EN: Record<VarianteNote, string> = {
+  executive: "Executive",
+  detaillee: "Detailed",
+};
+export const STATUT_ACTION_100J_LIBELLES_EN: Record<StatutAction100j, string> = {
+  a_faire: "To do",
+  en_cours: "In progress",
+  terminee: "Done",
+  bloquee: "Blocked",
+};
+export const ETAT_CONSTAT_SIGNAL_LIBELLES_EN: Record<EtatConstatSignal, string> = {
+  constate: "Observed",
+  ecarte: "Dismissed",
+  a_verifier: "To verify",
+};
+export const DECISION_EXCLUSION_LIBELLES_EN: Record<DecisionExclusion, string> = {
+  confirmee: "Exclusion confirmed",
+  ecartee: "Exclusion dismissed (false positive)",
+};
+export const NIVEAU_ES_LIBELLES_EN: Record<NiveauEs, string> = {
+  non_concerne: "Not concerned",
+  faible: "Low",
+  modere: "Moderate",
+  eleve: "High",
+  critique: "Critical",
+};
+export const THEME_ES_LIBELLES_EN: Record<ThemeEs, string> = {
+  evaluation_gestion: "E&S risk management",
+  main_oeuvre: "Labor",
+  ressources_pollution: "Resources and pollution",
+  sante_securite_communautes: "Community health and safety",
+  terres_reinstallation: "Land and resettlement",
+  biodiversite: "Biodiversity",
+  peuples_autochtones: "Indigenous peoples",
+  patrimoine_culturel: "Cultural heritage",
+};
+export const TYPE_OPERATION_DD_LIBELLES_EN: Record<TypeOperationDd, string> = {
+  acquisition: "Acquisition",
+  entree_marche: "Market entry",
+  partenariat: "Partnership",
+};
+export const PARAMETRE_DIMENSIONNEMENT_LIBELLES_EN: Record<CodeParametreDimensionnement, string> = {
+  marche_total: "Total market",
+  part_segment: "Target segment share",
+  part_adressable: "Addressable share",
+  part_capturable: "Capturable share",
+  clients_cibles: "Target clients",
+  taux_conquete: "Win rate",
+  volume_par_client: "Volume per client",
+  prix_unitaire: "Unit price",
+};
+export const CODE_BLOQUANT_NOTE_LIBELLES_EN: Record<CodeBloquantNote, string> = {
+  SANS_HYPOTHESE: "No hypothesis has been set.",
+  HYPOTHESE_SANS_VERDICT_VALIDE: "A hypothesis has no approved verdict.",
+  SOURCES_MANQUANTES: "Important statements have no source.",
+  EXCLUSION_NON_LEVEE_FAVORABLE:
+    "An exclusion has not been cleared: the recommendation cannot be favorable.",
+  HYPOTHESE_INFIRMEE_FAVORABLE:
+    "A main hypothesis is refuted: the recommendation cannot be favorable.",
+  CONDITIONS_MANQUANTES: "A recommendation with conditions requires at least one condition.",
+};
+export const CODE_AVERTISSEMENT_NOTE_LIBELLES_EN: Record<CodeAvertissementNote, string> = {
+  RISQUES_CRITIQUES_FRAGILES: "High or critical risks are poorly supported.",
+  AUCUN_DIMENSIONNEMENT: "No market sizing has been entered.",
+  RECOUPEMENT_MARCHE_DIVERGENT: "The two sizing methods diverge strongly.",
+  ARBRE_INCOHERENT: "The hypothesis tree contains inconsistent verdicts.",
+};
+
+/** Tables de libellés d'un vocabulaire, dans la langue demandée (français par défaut). */
+export function libellesDd(langue: Langue = "fr") {
+  const en = langue === "en";
+  return {
+    ANALYSE: en ? ANALYSE_DD_LIBELLES_EN : ANALYSE_DD_LIBELLES,
+    CATEGORIE: en ? CATEGORIE_ANALYSE_DD_LIBELLES_EN : CATEGORIE_ANALYSE_DD_LIBELLES,
+    FAMILLE: en ? FAMILLE_RISQUE_DD_LIBELLES_EN : FAMILLE_RISQUE_DD_LIBELLES,
+    NIVEAU_RISQUE: en ? NIVEAU_RISQUE_DD_LIBELLES_EN : NIVEAU_RISQUE_DD_LIBELLES,
+    VERDICT: en ? VERDICT_DD_LIBELLES_EN : VERDICT_DD_LIBELLES,
+    SENS_LIEN: en ? SENS_LIEN_DD_LIBELLES_EN : SENS_LIEN_DD_LIBELLES,
+    METHODE: en ? METHODE_DIMENSIONNEMENT_LIBELLES_EN : METHODE_DIMENSIONNEMENT_LIBELLES,
+    RECOMMANDATION: en ? RECOMMANDATION_NOTE_LIBELLES_EN : RECOMMANDATION_NOTE_LIBELLES,
+    VARIANTE: en ? VARIANTE_NOTE_LIBELLES_EN : VARIANTE_NOTE_LIBELLES,
+    STATUT_ACTION: en ? STATUT_ACTION_100J_LIBELLES_EN : STATUT_ACTION_100J_LIBELLES,
+    ETAT_CONSTAT: en ? ETAT_CONSTAT_SIGNAL_LIBELLES_EN : ETAT_CONSTAT_SIGNAL_LIBELLES,
+    DECISION_EXCLUSION: en ? DECISION_EXCLUSION_LIBELLES_EN : DECISION_EXCLUSION_LIBELLES,
+    NIVEAU_ES: en ? NIVEAU_ES_LIBELLES_EN : NIVEAU_ES_LIBELLES,
+    THEME_ES: en ? THEME_ES_LIBELLES_EN : THEME_ES_LIBELLES,
+    TYPE_OPERATION: en ? TYPE_OPERATION_DD_LIBELLES_EN : TYPE_OPERATION_DD_LIBELLES,
+    PARAMETRE: en ? PARAMETRE_DIMENSIONNEMENT_LIBELLES_EN : PARAMETRE_DIMENSIONNEMENT_LIBELLES,
+    CODE_BLOQUANT: en ? CODE_BLOQUANT_NOTE_LIBELLES_EN : CODE_BLOQUANT_NOTE_LIBELLES,
+    CODE_AVERTISSEMENT: en ? CODE_AVERTISSEMENT_NOTE_LIBELLES_EN : CODE_AVERTISSEMENT_NOTE_LIBELLES,
+    ETAT_HYPOTHESE: en ? ETAT_HYPOTHESE_LIBELLES_EN : ETAT_HYPOTHESE_LIBELLES,
+    ETAT_NOTE: en ? ETAT_NOTE_LIBELLES_EN : ETAT_NOTE_LIBELLES,
+    LECTURE: en ? LECTURE_SOLIDITE_DD_LIBELLES_EN : LECTURE_SOLIDITE_DD_LIBELLES,
+    PHASE: en ? PHASE_PLAN_LIBELLES_EN : PHASE_PLAN_LIBELLES,
+    CRITERE: en ? CRITERE_TOUCHE_LIBELLES_EN : CRITERE_TOUCHE_LIBELLES,
+    CIBLE_AJUSTEMENT: en ? CIBLE_AJUSTEMENT_LIBELLES_EN : CIBLE_AJUSTEMENT_LIBELLES,
+  };
+}
+
 export const ETAT_HYPOTHESE_LIBELLES: Record<EtatHypothese, string> = {
   ...VERDICT_DD_LIBELLES,
   en_attente: "En attente de validation",
   ouverte: "Ouverte",
+};
+export const ETAT_HYPOTHESE_LIBELLES_EN: Record<EtatHypothese, string> = {
+  ...VERDICT_DD_LIBELLES_EN,
+  en_attente: "Pending approval",
+  ouverte: "Open",
 };
 
 export const ETAT_NOTE_LIBELLES: Record<EtatNote, string> = {
@@ -685,11 +850,22 @@ export const ETAT_NOTE_LIBELLES: Record<EtatNote, string> = {
   validee: "Validée",
   rejetee: "Rejetée",
 };
+export const ETAT_NOTE_LIBELLES_EN: Record<EtatNote, string> = {
+  brouillon: "Draft",
+  soumise: "Pending approval",
+  validee: "Approved",
+  rejetee: "Rejected",
+};
 
 export const LECTURE_SOLIDITE_DD_LIBELLES: Record<LectureSolidite, string> = {
   solide: "Solide",
   etayee: "Étayée",
   fragile: "Fragile",
+};
+export const LECTURE_SOLIDITE_DD_LIBELLES_EN: Record<LectureSolidite, string> = {
+  solide: "Strong",
+  etayee: "Supported",
+  fragile: "Weak",
 };
 
 export const PHASE_PLAN_LIBELLES: Record<PhasePlan, string> = {
@@ -697,11 +873,21 @@ export const PHASE_PLAN_LIBELLES: Record<PhasePlan, string> = {
   jours_31_60: "Jours 31 à 60",
   jours_61_100: "Jours 61 à 100",
 };
+export const PHASE_PLAN_LIBELLES_EN: Record<PhasePlan, string> = {
+  jours_0_30: "Days 0 to 30",
+  jours_31_60: "Days 31 to 60",
+  jours_61_100: "Days 61 to 100",
+};
 
 export const CRITERE_TOUCHE_LIBELLES: Record<"mot_cle" | "secteur" | "pays", string> = {
   mot_cle: "Mot-clé",
   secteur: "Secteur",
   pays: "Pays",
+};
+export const CRITERE_TOUCHE_LIBELLES_EN: Record<"mot_cle" | "secteur" | "pays", string> = {
+  mot_cle: "Keyword",
+  secteur: "Sector",
+  pays: "Country",
 };
 
 export const COHERENCE_LIBELLES: Record<CoherenceParts, string> = {
@@ -710,11 +896,32 @@ export const COHERENCE_LIBELLES: Record<CoherenceParts, string> = {
   coherente: "cohérentes : le total est proche de 100 %",
   incoherente: "incohérentes : le total s'écarte de 100 %",
 };
+export const COHERENCE_LIBELLES_EN: Record<CoherenceParts, string> = {
+  vide: "No step entered.",
+  incomplete: "incomplete: at least one step has no share entered",
+  coherente: "consistent: the total is close to 100%",
+  incoherente: "inconsistent: the total differs from 100%",
+};
 
 export const CIBLE_AJUSTEMENT_LIBELLES: Record<AjustementDd["cible_type"], string> = {
   verdict: "Verdict d'hypothèse",
   risque: "Niveau de risque",
   dimensionnement: "Dimensionnement de marché",
+};
+export const CIBLE_AJUSTEMENT_LIBELLES_EN: Record<AjustementDd["cible_type"], string> = {
+  verdict: "Hypothesis verdict",
+  risque: "Risk level",
+  dimensionnement: "Market sizing",
+};
+
+const RAISON_VERDICT_LIBELLES_EN: Record<string, string> = {
+  AUCUNE_ASSERTION: "No statement is linked to the hypothesis.",
+  CONTRE_SOLIDE_SANS_SOUTIEN_SOLIDE:
+    "A strong statement contradicts the hypothesis and no strong statement supports it.",
+  CONFLIT_SOLIDE: "Strong statements contradict each other: the expert must arbitrate.",
+  CONTRE_ETAYE_OU_SOLIDE: "A supported or strong statement contradicts the hypothesis.",
+  SOUTIEN_SUFFISANT_SANS_CONTRE: "Support is sufficient and nothing strong contradicts it.",
+  SOUTIEN_INSUFFISANT: "Support is insufficient: too few strong or supported statements.",
 };
 
 export const RAISON_VERDICT_LIBELLES: Record<string, string> = {
@@ -727,8 +934,10 @@ export const RAISON_VERDICT_LIBELLES: Record<string, string> = {
   SOUTIEN_INSUFFISANT: "Le soutien est insuffisant : trop peu d'assertions solides ou étayées.",
 };
 
-export const libelleRaisonVerdict = (raison: string): string =>
-  RAISON_VERDICT_LIBELLES[raison] ?? "Indication du moteur.";
+export const libelleRaisonVerdict = (raison: string, langue: Langue = "fr"): string =>
+  langue === "en"
+    ? (RAISON_VERDICT_LIBELLES_EN[raison] ?? "Engine indication.")
+    : (RAISON_VERDICT_LIBELLES[raison] ?? "Indication du moteur.");
 
 /** Lecture du moteur → tonalité du badge (le texte est toujours affiché). */
 export const TONALITE_LECTURE_DD: Record<LectureSolidite, TonaliteStatut> = {
@@ -849,6 +1058,7 @@ export type LirePageDd = <T>(chemin: string) => Promise<PageDd<T>>;
 export function chargerVersionsListe(
   id: string,
   lire: LirePageDd,
+  langue: Langue = "fr",
 ): Promise<ChargementPage<{ elements: VersionListeExclusion[]; tronquee: boolean }>> {
   return chargerToutesLesPages<VersionListeExclusion>(
     async (chemin) => {
@@ -856,7 +1066,11 @@ export function chargerVersionsListe(
         const page = await lire<VersionListeExclusion>(chemin);
         return { ok: true, donnees: { elements: page.elements, suivant: page.curseur_suivant } };
       } catch (e) {
-        return { ok: false, message: messageDd(e), statut: e instanceof ErreurApi ? e.statut : 0 };
+        return {
+          ok: false,
+          message: messageDd(e, langue),
+          statut: e instanceof ErreurApi ? e.statut : 0,
+        };
       }
     },
     cheminVersionsListe(id),
@@ -874,8 +1088,13 @@ export async function chargerVersionCouranteListe(
 }
 
 /** Phrase de l'écran du filtrage pour les exclusions antérieures non levées (`null` s'il n'y en a pas). */
-export function phraseExclusionsAnterieures(n: number): string | null {
+export function phraseExclusionsAnterieures(n: number, langue: Langue = "fr"): string | null {
   if (n <= 0) return null;
+  if (langue === "en") {
+    return n === 1
+      ? "1 exclusion confirmed in an earlier review was not cleared in the latest review: it remains blocking."
+      : `${n} exclusions confirmed in an earlier review were not cleared in the latest review: they remain blocking.`;
+  }
   return n === 1
     ? "1 exclusion confirmée lors d'une revue antérieure n'a pas été levée dans la dernière revue : elle reste bloquante."
     : `${n} exclusions confirmées lors d'une revue antérieure n'ont pas été levées dans la dernière revue : elles restent bloquantes.`;
@@ -927,25 +1146,35 @@ export function sousPagesDd(
   missionId: string,
   dossierId: string,
   options: { partage?: boolean } = {},
+  langue: Langue = "fr",
 ) {
+  const t = creerTraduire(langue);
   const h = (e: EcranDossier) => hrefEcranDossier(missionId, dossierId, e);
   const base = [
-    { id: "synthese", libelle: "Synthèse", href: hrefDossier(missionId, dossierId) },
-    { id: "cadrage", libelle: "Cadrage", href: h("cadrage") },
-    { id: "analyses", libelle: "Analyses", href: h("analyses") },
-    { id: "chaine", libelle: "Chaîne de valeur", href: h("chaine") },
-    { id: "risques", libelle: "Risques", href: h("risques") },
-    { id: "hypotheses", libelle: "Hypothèses", href: h("hypotheses") },
-    { id: "marche", libelle: "Marché", href: h("marche") },
+    {
+      id: "synthese",
+      libelle: t("Synthèse", "Summary"),
+      href: hrefDossier(missionId, dossierId),
+    },
+    { id: "cadrage", libelle: t("Cadrage", "Scoping"), href: h("cadrage") },
+    { id: "analyses", libelle: t("Analyses", "Analyses"), href: h("analyses") },
+    { id: "chaine", libelle: t("Chaîne de valeur", "Value chain"), href: h("chaine") },
+    { id: "risques", libelle: t("Risques", "Risks"), href: h("risques") },
+    { id: "hypotheses", libelle: t("Hypothèses", "Hypotheses"), href: h("hypotheses") },
+    { id: "marche", libelle: t("Marché", "Market"), href: h("marche") },
     {
       id: "environnement-social",
-      libelle: "Environnement et social",
+      libelle: t("Environnement et social", "Environmental and social"),
       href: h("environnement-social"),
     },
-    { id: "plan-100-jours", libelle: "Plan des 100 jours", href: h("plan-100-jours") },
-    { id: "note", libelle: "Note au comité", href: h("note") },
-    { id: "documents", libelle: "Documents", href: h("documents") },
-    { id: "ajustements", libelle: "Ajustements", href: h("ajustements") },
+    {
+      id: "plan-100-jours",
+      libelle: t("Plan des 100 jours", "100-day plan"),
+      href: h("plan-100-jours"),
+    },
+    { id: "note", libelle: t("Note au comité", "Committee memo"), href: h("note") },
+    { id: "documents", libelle: t("Documents", "Documents"), href: h("documents") },
+    { id: "ajustements", libelle: t("Ajustements", "Adjustments"), href: h("ajustements") },
   ] as const;
   // Partage avec l'investisseur (dd.portail.gerer) : onglet ajouté seulement pour qui peut le gérer.
   return options.partage
@@ -953,7 +1182,7 @@ export function sousPagesDd(
         ...base,
         {
           id: "portail",
-          libelle: "Partage investisseur",
+          libelle: t("Partage investisseur", "Investor sharing"),
           href: `${hrefDossier(missionId, dossierId)}/portail`,
         },
       ] as const)
@@ -961,11 +1190,20 @@ export function sousPagesDd(
 }
 
 /** Onglets des paramètres de la due diligence. */
-export function sousPagesParametresDd(options: { portail?: boolean } = {}) {
+export function sousPagesParametresDd(options: { portail?: boolean } = {}, langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   const base = [
-    { id: "signaux", libelle: "Signaux d'alerte", href: hrefSignaux },
-    { id: "exclusions", libelle: "Listes d'exclusion", href: hrefListesExclusion },
-    { id: "modeles", libelle: "Modèles sectoriels", href: `${hrefParametresDd}/modeles` },
+    { id: "signaux", libelle: t("Signaux d'alerte", "Warning signals"), href: hrefSignaux },
+    {
+      id: "exclusions",
+      libelle: t("Listes d'exclusion", "Exclusion lists"),
+      href: hrefListesExclusion,
+    },
+    {
+      id: "modeles",
+      libelle: t("Modèles sectoriels", "Sector templates"),
+      href: `${hrefParametresDd}/modeles`,
+    },
   ] as const;
   // Option « portail investisseur » du cabinet (dd.portail.configurer, associé seul).
   return options.portail
@@ -973,7 +1211,7 @@ export function sousPagesParametresDd(options: { portail?: boolean } = {}) {
         ...base,
         {
           id: "portail",
-          libelle: "Portail investisseur",
+          libelle: t("Portail investisseur", "Investor portal"),
           href: `${hrefParametresDd}/portail`,
         },
       ] as const)
@@ -1002,19 +1240,24 @@ export interface PointDeControle {
 }
 
 /** Bloquants puis avertissements du moteur, chacun en une phrase française avec son écran. */
-export function pointsDeControle(controle: ControleNote | null | undefined): PointDeControle[] {
+export function pointsDeControle(
+  controle: ControleNote | null | undefined,
+  langue: Langue = "fr",
+): PointDeControle[] {
   if (!controle) return [];
+  const t = creerTraduire(langue);
+  const L = libellesDd(langue);
   return [
     ...controle.bloquants.map((code) => ({
       code,
       gravite: "bloquant" as const,
-      libelle: CODE_BLOQUANT_NOTE_LIBELLES[code] ?? "Point bloquant à corriger.",
+      libelle: L.CODE_BLOQUANT[code] ?? t("Point bloquant à corriger.", "Blocking issue to fix."),
       ecran: ECRAN_BLOQUANT[code] ?? "note",
     })),
     ...controle.avertissements.map((code) => ({
       code,
       gravite: "avertissement" as const,
-      libelle: CODE_AVERTISSEMENT_NOTE_LIBELLES[code] ?? "Point d'attention.",
+      libelle: L.CODE_AVERTISSEMENT[code] ?? t("Point d'attention.", "Point of attention."),
       ecran: ECRAN_BLOQUANT[code] ?? "note",
     })),
   ];
@@ -1094,7 +1337,54 @@ const MESSAGES_DD: Record<string, string> = {
   ACCES_REFUSE: "Votre rôle ne vous permet pas d'effectuer cette action.",
 };
 
+const MESSAGES_DD_EN: Record<string, string> = {
+  MISSION_CLOTUREE: "The engagement is closed: the due diligence file is frozen.",
+  PLAFOND_ATTEINT: "This file has reached the limit for items of this type.",
+  VERSION_PERIMEE: "Another change has just been saved. Reload the page and try again.",
+  CONFLIT: "Another change has just been saved. Reload the page and try again.",
+  TAXONOMIE_INCONNUE:
+    "The selected sector, subsector or country does not exist (or no longer exists), or the subsector does not belong to the sector.",
+  NOTE_BLOQUEE: "The memo cannot be submitted: blocking issues remain to be fixed (see the check).",
+  NOTE_TROP_VOLUMINEUSE: "The memo base exceeds the allowed size: reduce the file.",
+  NOTE_PERIMEE:
+    "This version is no longer the latest submitted. Reload the page to see the version to approve.",
+  NOTE_DEJA_DECIDEE: "A decision has already been made on this version of the memo.",
+  NOTE_NON_VALIDEE:
+    "No approved version of the memo: the report is generated only after a third party approves it.",
+  SEPARATION_DES_TACHES:
+    "Approval must come from someone other than the author: you contributed to this content. Ask a third party (a partner can do it).",
+  VERDICT_EN_ATTENTE:
+    "A verdict is already pending approval for this hypothesis: decide on it before proposing another.",
+  VERDICT_SANS_SOURCE:
+    "A confirmed or refuted verdict cites statements linked to the hypothesis in the right direction (supports for confirmed, contradicts for refuted).",
+  VERDICT_PERIME:
+    "This verdict is no longer the latest or the hypothesis has changed since. Reload the page.",
+  VERDICT_DEJA_DECIDE: "A decision has already been made on this verdict.",
+  MOTIF_ECART_REQUIS:
+    "The chosen level differs from the indicative severity of the warning signal: state the reason for the difference.",
+  MOTIF_DETAILLE_REQUIS:
+    "This verdict departs from the engine indication: a detailed reason (at least 20 characters) is required.",
+  LIEN_INCOHERENT:
+    "A selected link does not belong to this file or this client (step, signal, owner, initiative, KPI or list).",
+  RATTACHEMENT_INCOHERENT:
+    "The attachment is inconsistent: item from another engagement, missing link or unknown category.",
+  ARBRE_TROP_PROFOND: "The hypothesis tree cannot exceed four levels.",
+  ASSERTION_ABANDONNEE: "This statement is abandoned: it can no longer be linked.",
+  CLASSE_RISQUE_ABAISSEE:
+    "A statement's risk class cannot be lowered without expert authorization.",
+  PARAMETRE_SANS_SOURCE:
+    "Each parameter cites evidence from the engagement or a reasoned expert opinion (at least 10 characters).",
+  DIMENSIONNEMENT_INVALIDE:
+    "The sizing parameters are invalid: bounds low ≤ base ≤ high, percentages between 0 and 100%.",
+  DEPASSEMENT: "The result exceeds computing capacity: check the orders of magnitude entered.",
+  SIGNAL_EXISTANT: "A signal with this code already exists in the firm's library.",
+  LISTE_EXISTANTE: "An exclusion list with this name already exists.",
+  INTERDIT: "Your role does not allow you to perform this action.",
+  ACCES_REFUSE: "Your role does not allow you to perform this action.",
+};
+
 const MESSAGE_INTROUVABLE = "Cet élément n'existe plus ou n'est pas accessible. Rechargez la page.";
+const MESSAGE_INTROUVABLE_EN = "This item no longer exists or is not accessible. Reload the page.";
 
 /** Codes bloquants reçus dans `details.manquants` d'un refus `NOTE_BLOQUEE`. */
 export function codesManquants(e: unknown): CodeBloquantNote[] {
@@ -1107,25 +1397,27 @@ export function codesManquants(e: unknown): CodeBloquantNote[] {
 }
 
 /** Message français pour un refus de l'API du module (le code sert au test, le texte à l'écran). */
-export function messageDd(e: unknown): string {
+export function messageDd(e: unknown, langue: Langue = "fr"): string {
+  const en = langue === "en";
+  const messages = en ? MESSAGES_DD_EN : MESSAGES_DD;
   if (e instanceof ErreurApi) {
     if (e.code === "NOTE_BLOQUEE") {
       const manquants = codesManquants(e);
       if (manquants.length > 0) {
-        return `${MESSAGES_DD.NOTE_BLOQUEE} ${manquants
-          .map((c) => CODE_BLOQUANT_NOTE_LIBELLES[c])
-          .join(" ")}`;
+        const tables = libellesDd(langue).CODE_BLOQUANT;
+        return `${messages.NOTE_BLOQUEE} ${manquants.map((c) => tables[c]).join(" ")}`;
       }
     }
-    if (e.code === "TROP_DE_RAPPORTS" || e.code.startsWith("RENDU_")) return messageRapport(e);
-    const specifique = MESSAGES_DD[e.code];
+    if (e.code === "TROP_DE_RAPPORTS" || e.code.startsWith("RENDU_"))
+      return messageRapport(e, langue);
+    const specifique = messages[e.code];
     if (specifique) return specifique;
-    if (e.statut === 404) return MESSAGE_INTROUVABLE;
+    if (e.statut === 404) return en ? MESSAGE_INTROUVABLE_EN : MESSAGE_INTROUVABLE;
     if (e.statut === 409 || (e.statut === 400 && e.message !== "Données invalides.")) {
       return e.message;
     }
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }
 
 /** Après ce refus, l'écran est probablement périmé : rafraîchir les données. */
@@ -1138,9 +1430,11 @@ export const etatDdChange = (e: unknown): boolean =>
 const NBSP = String.fromCharCode(0xa0);
 
 /** Points de base → « 25,5 % » (affichage seulement ; les parts viennent des moteurs). */
-export function formaterBp(bp: number | null | undefined): string {
+export function formaterBp(bp: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof bp !== "number" || !Number.isFinite(bp)) return VALEUR_ABSENTE;
-  return `${formaterNombre(bp / 100, 2)}${NBSP}%`;
+  return langue === "en"
+    ? `${formaterNombre(bp / 100, 2, langue)}%`
+    : `${formaterNombre(bp / 100, 2)}${NBSP}%`;
 }
 
 /** Valeur d'un paramètre de dimensionnement selon son unité (nombre, pourcentage, montant). */
@@ -1148,11 +1442,12 @@ export function formaterValeurParametre(
   code: CodeParametreDimensionnement,
   valeur: number,
   devise: Devise,
+  langue: Langue = "fr",
 ): string {
   const unite = uniteParametre(code);
-  if (unite === "pourcentage_bp") return formaterBp(valeur);
-  if (unite === "montant") return formaterMontantMineur(valeur, devise);
-  return formaterNombre(valeur, 0);
+  if (unite === "pourcentage_bp") return formaterBp(valeur, langue);
+  if (unite === "montant") return formaterMontantMineur(valeur, devise, langue);
+  return formaterNombre(valeur, 0, langue);
 }
 
 export function uniteParametre(code: string): "nombre" | "pourcentage_bp" | "montant" {
@@ -1160,22 +1455,29 @@ export function uniteParametre(code: string): "nombre" | "pourcentage_bp" | "mon
   return tous.find((p) => p.code === code)?.unite ?? "nombre";
 }
 
-export const libelleParametre = (code: string): string =>
-  (PARAMETRE_DIMENSIONNEMENT_LIBELLES as Record<string, string>)[code] ?? "Paramètre";
+export const libelleParametre = (code: string, langue: Langue = "fr"): string =>
+  (libellesDd(langue).PARAMETRE as Record<string, string>)[code] ??
+  creerTraduire(langue)("Paramètre", "Parameter");
 
-export const libelleCategorie = (categorie: string): string =>
-  (CATEGORIE_ANALYSE_DD_LIBELLES as Record<string, string>)[categorie] ?? "Catégorie";
+export const libelleCategorie = (categorie: string, langue: Langue = "fr"): string =>
+  (libellesDd(langue).CATEGORIE as Record<string, string>)[categorie] ??
+  creerTraduire(langue)("Catégorie", "Category");
 
-export const libelleTheme = (code: string): string =>
-  (THEME_ES_LIBELLES as Record<string, string>)[code] ?? "Thème";
+export const libelleTheme = (code: string, langue: Langue = "fr"): string =>
+  (libellesDd(langue).THEME_ES as Record<string, string>)[code] ??
+  creerTraduire(langue)("Thème", "Theme");
 
 /** Libellé d'une taxonomie par code ; sans correspondance, un texte neutre (jamais un code). */
 export function libelleTaxonomie(
   entrees: readonly Pick<EntreeTaxonomie, "code" | "libelle">[],
   code: string | null | undefined,
+  langue: Langue = "fr",
 ): string {
   if (!code) return VALEUR_ABSENTE;
-  return entrees.find((e) => e.code === code)?.libelle ?? "Libellé indisponible";
+  return (
+    entrees.find((e) => e.code === code)?.libelle ??
+    creerTraduire(langue)("Libellé indisponible", "Label unavailable")
+  );
 }
 
 /** Secteur et pays d'un dossier : libellé reçu de l'API, sinon taxonomie chargée. */
@@ -1183,10 +1485,11 @@ export function libellesDossier(
   d: Pick<DossierResume, "secteur_code" | "pays_code" | "secteur_libelle" | "pays_libelle">,
   secteurs: readonly Pick<EntreeTaxonomie, "code" | "libelle">[],
   pays: readonly Pick<EntreeTaxonomie, "code" | "libelle">[],
+  langue: Langue = "fr",
 ): { secteur: string; pays: string } {
   return {
-    secteur: d.secteur_libelle ?? libelleTaxonomie(secteurs, d.secteur_code),
-    pays: d.pays_libelle ?? libelleTaxonomie(pays, d.pays_code),
+    secteur: d.secteur_libelle ?? libelleTaxonomie(secteurs, d.secteur_code, langue),
+    pays: d.pays_libelle ?? libelleTaxonomie(pays, d.pays_code, langue),
   };
 }
 
@@ -1197,10 +1500,16 @@ export function aAvisExpert(v: AvisExpertDd | undefined): boolean {
 }
 
 /** Texte de fragilité d'un point (porté par le texte, pas seulement par la couleur). */
-export function messageFragilite(p: Pick<PointAnalyse, "nb_pour" | "avis_expert">): string | null {
+export function messageFragilite(
+  p: Pick<PointAnalyse, "nb_pour" | "avis_expert">,
+  langue: Langue = "fr",
+): string | null {
+  const t = creerTraduire(langue);
   if (p.nb_pour === 0)
-    return aAvisExpert(p.avis_expert) ? "Avis d'expert, sans source" : "Aucune source";
-  if (p.nb_pour === 1) return "Source unique";
+    return aAvisExpert(p.avis_expert)
+      ? t("Avis d'expert, sans source", "Expert opinion, no source")
+      : t("Aucune source", "No source");
+  if (p.nb_pour === 1) return t("Source unique", "Single source");
   return null;
 }
 
@@ -1295,14 +1604,23 @@ export function etapesPourCarte(chaine: ReponseChaine): EtapeCarte[] {
 }
 
 /** Phrase sur les parts de coût (étapes incomplètes ou incohérentes), `null` si tout va bien. */
-export function messageCoherenceChaine(s: SyntheseChaine | null | undefined): string | null {
+export function messageCoherenceChaine(
+  s: SyntheseChaine | null | undefined,
+  langue: Langue = "fr",
+): string | null {
   if (!s) return null;
+  const t = creerTraduire(langue);
+  const coherence = langue === "en" ? COHERENCE_LIBELLES_EN : COHERENCE_LIBELLES;
   const messages: string[] = [];
   if (s.coherence_cout === "incomplete" || s.coherence_cout === "incoherente") {
-    messages.push(`Les parts de coût sont ${COHERENCE_LIBELLES[s.coherence_cout]}.`);
+    messages.push(
+      `${t("Les parts de coût sont", "Cost shares are")} ${coherence[s.coherence_cout]}.`,
+    );
   }
   if (s.coherence_marge === "incomplete" || s.coherence_marge === "incoherente") {
-    messages.push(`Les parts de marge sont ${COHERENCE_LIBELLES[s.coherence_marge]}.`);
+    messages.push(
+      `${t("Les parts de marge sont", "Margin shares are")} ${coherence[s.coherence_marge]}.`,
+    );
   }
   return messages.length > 0 ? messages.join(" ") : null;
 }
@@ -1420,27 +1738,36 @@ export function requeteSignaux(f: FiltresSignaux, curseur?: string | null): stri
   return u.toString();
 }
 
-export function libelleLienPlan(l: LienPlanKpi | null | undefined): string {
-  if (!l || l.id === null) return l?.masque ? "Lien non visible" : "Aucun";
-  return l.libelle ?? "Élément lié";
+export function libelleLienPlan(l: LienPlanKpi | null | undefined, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (!l || l.id === null) {
+    return l?.masque ? t("Lien non visible", "Link not visible") : t("Aucun", "None");
+  }
+  return l.libelle ?? t("Élément lié", "Linked item");
 }
 
 /** Résumé d'une opération (carte de dossier) : type, cible, devise. */
 export function resumeOperation(
   d: Pick<DossierResume, "type_operation" | "cible_nom" | "devise">,
+  langue: Langue = "fr",
 ): string {
-  const type = TYPE_OPERATION_DD_LIBELLES[d.type_operation];
+  const type = libellesDd(langue).TYPE_OPERATION[d.type_operation];
   return d.cible_nom ? `${type} · ${d.cible_nom}` : type;
 }
 
-export const libelleRecommandation = (r: RecommandationNote): string =>
-  RECOMMANDATION_NOTE_LIBELLES[r];
+export const libelleRecommandation = (r: RecommandationNote, langue: Langue = "fr"): string =>
+  libellesDd(langue).RECOMMANDATION[r];
 
-export const libelleVariante = (v: VarianteNote): string => VARIANTE_NOTE_LIBELLES[v];
+export const libelleVariante = (v: VarianteNote, langue: Langue = "fr"): string =>
+  libellesDd(langue).VARIANTE[v];
 
 export const METHODE_COURTE_LIBELLES: Record<MethodeDimensionnement, string> = {
   descendant: "Descendante",
   ascendant: "Ascendante",
+};
+export const METHODE_COURTE_LIBELLES_EN: Record<MethodeDimensionnement, string> = {
+  descendant: "Top-down",
+  ascendant: "Bottom-up",
 };
 
 /**
@@ -1466,10 +1793,14 @@ export function messageAuteurVerdict(
   roles: readonly Role[],
   utilisateurId: string,
   proposeePar: string | null | undefined,
+  langue: Langue = "fr",
 ): string | null {
   if (!aPermission(roles, "dd.valider") || proposeePar !== utilisateurId) return null;
   if (peutValiderSansConflit(roles, utilisateurId, [proposeePar])) return null;
-  return "Vous avez proposé ce verdict : une autre personne doit le valider (un associé peut le faire).";
+  return creerTraduire(langue)(
+    "Vous avez proposé ce verdict : une autre personne doit le valider (un associé peut le faire).",
+    "You proposed this verdict: someone else must approve it (a partner can do it).",
+  );
 }
 
 /** État d'une note : celui reçu, sinon dérivé de ses versions et de ses validations. */
@@ -1541,27 +1872,38 @@ export const CHAMP_AJUSTEMENT_LIBELLES: Record<string, string> = {
   niveau: "Niveau de risque",
   facteur: "Facteur d'ajustement",
 };
+export const CHAMP_AJUSTEMENT_LIBELLES_EN: Record<string, string> = {
+  verdict: "Verdict",
+  niveau: "Risk level",
+  facteur: "Adjustment factor",
+};
 
 /** Valeur avant ou après d'un ajustement : libellé français pour un verdict ou un niveau, sinon telle quelle. */
 export function libelleValeurAjustement(
   a: Pick<AjustementDd, "cible_type" | "champ">,
   valeur: string,
+  langue: Langue = "fr",
 ): string {
+  const L = libellesDd(langue);
   if (a.cible_type === "verdict") {
-    return (VERDICT_DD_LIBELLES as Record<string, string>)[valeur] ?? valeur;
+    return (L.VERDICT as Record<string, string>)[valeur] ?? valeur;
   }
   if (a.cible_type === "risque" && a.champ === "niveau") {
-    return (NIVEAU_RISQUE_DD_LIBELLES as Record<string, string>)[valeur] ?? valeur;
+    return (L.NIVEAU_RISQUE as Record<string, string>)[valeur] ?? valeur;
   }
   return valeur;
 }
 
 /** Phrase du jour courant d'un plan : avant la date d'opération, le nombre de jours restants. */
-export function phraseJourCourant(jour: number | null): string {
+export function phraseJourCourant(jour: number | null, langue: Langue = "fr"): string {
   if (jour === null) return "";
+  const t: Traduire = creerTraduire(langue);
   if (jour < 0) {
     const restants = -jour;
-    return ` L'opération n'a pas commencé : début dans ${restants} jour${restants > 1 ? "s" : ""}.`;
+    return t(
+      ` L'opération n'a pas commencé : début dans ${restants} jour${restants > 1 ? "s" : ""}.`,
+      ` The transaction has not started: starting in ${restants} day${restants > 1 ? "s" : ""}.`,
+    );
   }
-  return ` Jour courant : ${jour}.`;
+  return t(` Jour courant : ${jour}.`, ` Current day: ${jour}.`);
 }

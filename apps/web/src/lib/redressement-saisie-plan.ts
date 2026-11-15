@@ -1,19 +1,21 @@
 /** Redressement (saisie) : actions du plan et leviers. */
-import type {
-  RedActionCreation,
-  RedActionModification,
-  RedDefinitionLevierVue,
-  RedDomaine,
-  RedImpactLevierVue,
-  RedVolet,
+import {
+  creerTraduire,
+  type Langue,
+  type RedActionCreation,
+  type RedActionModification,
+  type RedDefinitionLevierVue,
+  type RedDomaine,
+  type RedImpactLevierVue,
+  type RedVolet,
 } from "@missionpilot/shared";
 import type { Devise } from "./format";
 import { dateValide } from "./periode";
 import { texteOuNull, type Resultat } from "./saisie";
 import {
   type Erreurs,
-  MSG_DATE,
-  MSG_MONTANT,
+  msgDate,
+  msgMontant,
   lireMontantRed,
   lireEntier,
 } from "./redressement-saisie-base";
@@ -43,11 +45,15 @@ export function parametresDepuisSaisie(
   definition: DefinitionParametres,
   saisie: Readonly<Record<string, string>>,
   devise: Devise,
+  langue: Langue = "fr",
 ): { parametres: Record<string, number>; erreur: string | null } {
+  const t = creerTraduire(langue);
   const parametres: Record<string, number> = {};
   for (const p of definition.parametres) {
     const texte = saisie[p.cle] ?? "";
-    if (texte.trim() === "") return { parametres, erreur: `Renseignez « ${p.libelle} ».` };
+    if (texte.trim() === "") {
+      return { parametres, erreur: t(`Renseignez « ${p.libelle} ».`, `Fill in "${p.libelle}".`) };
+    }
     const valeur =
       p.unite === "montant" ? lireMontantRed(texte, devise) : lireEntier(texte, p.min, p.max);
     if (valeur === null || Number.isNaN(valeur)) {
@@ -55,8 +61,11 @@ export function parametresDepuisSaisie(
         parametres,
         erreur:
           p.unite === "montant"
-            ? `« ${p.libelle} » : ${MSG_MONTANT(devise)}`
-            : `« ${p.libelle} » : saisissez un entier entre ${p.min} et ${p.max}.`,
+            ? `« ${p.libelle} » : ${msgMontant(devise, langue)}`
+            : t(
+                `« ${p.libelle} » : saisissez un entier entre ${p.min} et ${p.max}.`,
+                `"${p.libelle}": enter a whole number between ${p.min} and ${p.max}.`,
+              ),
       };
     }
     parametres[p.cle] = valeur;
@@ -85,35 +94,50 @@ export function corpsActionDepuisFormulaire(
   devise: Devise,
   definitions: readonly RedDefinitionLevierVue[],
   mode: "creation",
+  langue?: Langue,
 ): Resultat<RedActionCreation, ChampAction>;
 export function corpsActionDepuisFormulaire(
   s: SaisieAction,
   devise: Devise,
   definitions: readonly RedDefinitionLevierVue[],
   mode: "modification",
+  langue?: Langue,
 ): Resultat<RedActionModification, ChampAction>;
 export function corpsActionDepuisFormulaire(
   s: SaisieAction,
   devise: Devise,
   definitions: readonly RedDefinitionLevierVue[],
   mode: "creation" | "modification",
+  langue: Langue = "fr",
 ): Resultat<RedActionCreation | RedActionModification, ChampAction> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampAction> = {};
   const titre = s.titre.trim();
-  if (titre === "") erreurs.titre = "Saisissez le titre de l'action.";
-  else if (titre.length > 200) erreurs.titre = "Le titre compte 200 caractères au plus.";
+  if (titre === "") erreurs.titre = t("Saisissez le titre de l'action.", "Enter the action title.");
+  else if (titre.length > 200) {
+    erreurs.titre = t(
+      "Le titre compte 200 caractères au plus.",
+      "The title is 200 characters at most.",
+    );
+  }
   const description = texteOuNull(s.description);
   if (description !== null && description.length > 2000) {
-    erreurs.description = "La description compte 2 000 caractères au plus.";
+    erreurs.description = t(
+      "La description compte 2 000 caractères au plus.",
+      "The description is 2,000 characters at most.",
+    );
   }
-  if (dateValide(s.echeance) === null) erreurs.echeance = MSG_DATE;
-  if (s.responsable_id === "") erreurs.responsable_id = "Choisissez le responsable.";
+  if (dateValide(s.echeance) === null) erreurs.echeance = msgDate(langue);
+  if (s.responsable_id === "") {
+    erreurs.responsable_id = t("Choisissez le responsable.", "Choose the owner.");
+  }
   let levier: NonNullable<RedActionCreation["levier"]> | null = null;
   if (s.levier_code !== "") {
     const definition = definitions.find((d) => d.code === s.levier_code);
-    if (!definition) erreurs.levier = "Levier inconnu : rechargez la page.";
+    if (!definition)
+      erreurs.levier = t("Levier inconnu : rechargez la page.", "Unknown lever: reload the page.");
     else {
-      const p = parametresDepuisSaisie(definition, s.parametres, devise);
+      const p = parametresDepuisSaisie(definition, s.parametres, devise, langue);
       if (p.erreur) erreurs.parametres = p.erreur;
       else levier = { code: definition.code, parametres: p.parametres };
     }
@@ -149,12 +173,18 @@ export function corpsSimulationDepuisFormulaire(
   definition: RedDefinitionLevierVue | undefined,
   saisie: Readonly<Record<string, string>>,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<
   { code: RedDefinitionLevierVue["code"]; parametres: Record<string, number> },
   "levier" | "parametres"
 > {
-  if (!definition) return { ok: false, erreurs: { levier: "Choisissez un levier." } };
-  const p = parametresDepuisSaisie(definition, saisie, devise);
+  if (!definition) {
+    return {
+      ok: false,
+      erreurs: { levier: creerTraduire(langue)("Choisissez un levier.", "Choose a lever.") },
+    };
+  }
+  const p = parametresDepuisSaisie(definition, saisie, devise, langue);
   if (p.erreur) return { ok: false, erreurs: { parametres: p.erreur } };
   return { ok: true, charge: { code: definition.code, parametres: p.parametres } };
 }

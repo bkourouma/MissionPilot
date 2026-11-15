@@ -17,9 +17,13 @@ import {
   type RetourResume,
 } from "../../../../lib/capitalisation";
 import { formaterDate } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Retours d'expérience" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Retours d'expérience", "Lessons learned") };
+}
 
 /**
  * Retours d'expérience (CAP-01) des missions visibles : ouverts automatiquement à la clôture avec un
@@ -33,6 +37,8 @@ export default async function PageRetours({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("connaissance.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const params = await searchParams;
   const curseur = lireCurseurRetours(params.curseur);
   const curseurOuvrir = lireCurseurRetours(params.a_ouvrir);
@@ -48,20 +54,34 @@ export default async function PageRetours({
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
-        titre="Retours d'expérience"
-        soustitre="Contexte, méthode, écarts et leçons de chaque mission terminée. Seuls les retours validés par le chef de mission entrent dans la base de connaissances."
+        titre={t("Retours d'expérience", "Lessons learned")}
+        soustitre={t(
+          "Contexte, méthode, écarts et leçons de chaque mission terminée. Seuls les retours validés par le chef de mission entrent dans la base de connaissances.",
+          "Context, method, variances and lessons of each completed engagement. Only reviews approved by the engagement manager enter the knowledge base.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="Les retours d'expérience n'ont pas pu être chargés."
+          titre={t(
+            "Les retours d'expérience n'ont pas pu être chargés.",
+            "The lessons-learned reviews could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefRetours(curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre={curseur ? "Aucun autre retour." : "Aucun retour d'expérience."}>
+        <EtatVide
+          titre={
+            curseur
+              ? t("Aucun autre retour.", "No other review.")
+              : t("Aucun retour d'expérience.", "No lessons-learned review.")
+          }
+        >
           <p>
-            Un retour d&apos;expérience s&apos;ouvre automatiquement à la clôture d&apos;une mission
-            ; pour une mission clôturée avant cette fonction, ouvrez-le depuis la liste ci-dessous.
+            {t(
+              "Un retour d'expérience s'ouvre automatiquement à la clôture d'une mission ; pour une mission clôturée avant cette fonction, ouvrez-le depuis la liste ci-dessous.",
+              "A lessons-learned review opens automatically when an engagement is closed; for an engagement closed before this feature, open it from the list below.",
+            )}
           </p>
         </EtatVide>
       ) : (
@@ -73,12 +93,20 @@ export default async function PageRetours({
                   <strong>{x.mission_intitule}</strong>
                 </Link>
                 <span className="mp-texte-doux mp-texte-petit">
-                  {x.client} · ouvert le {formaterDate(x.ouvert_le)}
-                  {x.valide_le ? ` · validé le ${formaterDate(x.valide_le)}` : ""}
+                  {t(
+                    `${x.client} · ouvert le ${formaterDate(x.ouvert_le)}`,
+                    `${x.client} · opened on ${formaterDate(x.ouvert_le, "UTC", langue)}`,
+                  )}
+                  {x.valide_le
+                    ? t(
+                        ` · validé le ${formaterDate(x.valide_le)}`,
+                        ` · approved on ${formaterDate(x.valide_le, "UTC", langue)}`,
+                      )
+                    : ""}
                 </span>
               </div>
               <BadgeStatut tonalite={tonaliteStatutRetour(x.statut)}>
-                {x.statut === "valide" ? "Validé" : "Brouillon"}
+                {x.statut === "valide" ? t("Validé", "Approved") : t("Brouillon", "Draft")}
               </BadgeStatut>
             </li>
           ))}
@@ -91,10 +119,18 @@ export default async function PageRetours({
         />
       ) : null}
       {sansRetour ? (
-        <Carte titre="Missions clôturées sans retour d'expérience" niveauTitre={2}>
+        <Carte
+          titre={t(
+            "Missions clôturées sans retour d'expérience",
+            "Closed engagements without a lessons-learned review",
+          )}
+          niveauTitre={2}
+        >
           <p className="mp-texte-doux mp-texte-petit">
-            Ces missions ont été clôturées avant l&apos;ouverture automatique du retour
-            d&apos;expérience. Ouvrez-le pour en rédiger puis valider le contenu.
+            {t(
+              "Ces missions ont été clôturées avant l'ouverture automatique du retour d'expérience. Ouvrez-le pour en rédiger puis valider le contenu.",
+              "These engagements were closed before lessons-learned reviews opened automatically. Open it to write and then approve its content.",
+            )}
           </p>
           <ul className="mp-liste-lignes">
             {sansRetour.elements.map((x) => (
@@ -104,14 +140,20 @@ export default async function PageRetours({
                     <strong>{x.mission_intitule}</strong>
                   </Link>
                   <span className="mp-texte-doux mp-texte-petit">
-                    {x.client} · clôturée le {formaterDate(x.cloturee_le)}
+                    {t(
+                      `${x.client} · clôturée le ${formaterDate(x.cloturee_le)}`,
+                      `${x.client} · closed on ${formaterDate(x.cloturee_le, "UTC", langue)}`,
+                    )}
                   </span>
                 </div>
                 {x.peut_ouvrir ? (
                   <BoutonOuvrirRetour missionId={x.mission_id} />
                 ) : (
                   <span className="mp-texte-doux mp-texte-petit">
-                    Réservé au chef, au directeur de la mission ou à un associé.
+                    {t(
+                      "Réservé au chef, au directeur de la mission ou à un associé.",
+                      "Reserved for the engagement manager, the engagement director or a partner.",
+                    )}
                   </span>
                 )}
               </li>

@@ -302,9 +302,21 @@ describe("feuilles de temps (TPS-01, TPS-03)", () => {
 
   it("discipline de saisie : feuille soumise avant la date limite", async () => {
     const consultant = await consultantAffecte(a, m, { Diagnostic: 2 });
-    await saisirEtSoumettre(consultant, LUNDI, [
+    const feuilleId = await saisirEtSoumettre(consultant, LUNDI, [
       { date: LUNDI, tache_id: m.taches.Diagnostic, jours: 1 },
     ]);
+    // La soumission et la création du collaborateur portent l'horodatage réel : on les date
+    // de la semaine du 2 pour que le test ne dépende pas du jour où il tourne (passé le
+    // 2026-11-08, les semaines comptées partaient de la création et l'échéance était passée).
+    await proprietaire(async (c) => {
+      await c.query("UPDATE collaborateurs SET cree_le = '2026-11-02T08:00:00Z' WHERE id = $1", [
+        consultant.collaborateurId,
+      ]);
+      await c.query(
+        "UPDATE feuilles_temps SET premiere_soumission_le = '2026-11-06T10:00:00Z', soumise_le = '2026-11-06T10:00:00Z' WHERE id = $1",
+        [feuilleId],
+      );
+    });
     const r = await consultant.get(
       `/api/temps/discipline?debut=${LUNDI}&fin=2026-11-15&date_reference=2026-11-20`,
     );

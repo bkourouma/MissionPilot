@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useT } from "../i18n/FournisseurLangue";
 import { ListeDocumentsIngestion } from "../ingestion/ListeDocumentsIngestion";
 import {
   apiIngestionDossier,
@@ -23,16 +24,23 @@ export function ImportEtatDocumentListe({
   documents: readonly DocumentIngestion[];
 }) {
   const { rafraichir } = useRafraichir();
+  const t = useT();
   return (
     <ListeDocumentsIngestion
       api={apiIngestionDossier(clientId)}
       documentsInitiaux={documents}
-      legende="Documents d'états financiers importés"
-      messageVide="Aucun document importé pour ce client."
+      legende={t("Documents d'états financiers importés", "Imported financial statement documents")}
+      messageVide={t(
+        "Aucun document importé pour ce client.",
+        "No documents imported for this client.",
+      )}
       hrefDocument={(d) => hrefDocumentEtat(clientId, d.id)}
       hrefResultat={(d) =>
         d.etat_financier_id
-          ? { href: hrefEtatFinancier(clientId, d.etat_financier_id), libelle: "Voir l'état" }
+          ? {
+              href: hrefEtatFinancier(clientId, d.etat_financier_id),
+              libelle: t("Voir l'état", "View the statement"),
+            }
           : null
       }
       rendreLien={(href, libelle) => <Link href={href}>{libelle}</Link>}

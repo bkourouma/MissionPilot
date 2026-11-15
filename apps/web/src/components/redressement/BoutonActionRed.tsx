@@ -8,6 +8,7 @@ import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffacementSucces } from "../kpi/useEffacementSucces";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface BoutonActionRedProps {
   libelle: string;
@@ -36,12 +37,16 @@ export function BoutonActionRed({
   methode = "POST",
   corps = {},
   succes,
-  titreErreur = "Action impossible",
+  titreErreur,
   variante = "secondaire",
-  texteChargement = "En cours…",
+  texteChargement,
   desactiveParce,
   confirmation,
 }: BoutonActionRedProps) {
+  const t = useT();
+  const langue = useLangue();
+  const titreErreurAffiche = titreErreur ?? t("Action impossible", "Action not possible");
+  const texteChargementAffiche = texteChargement ?? t("En cours…", "In progress…");
   const { rafraichir, enAttente } = useRafraichir();
   const [envoiEnCours, setEnCours] = useState(false);
   // Reste vrai tant que les données rafraîchies ne sont pas arrivées : pas de double envoi.
@@ -73,7 +78,7 @@ export function BoutonActionRed({
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageRedressement(e));
+      setErreur(messageRedressement(e, langue));
       return false;
     } finally {
       verrou.current = false;
@@ -87,7 +92,7 @@ export function BoutonActionRed({
         erreur={erreur}
         succes={reussi}
         refAlerte={refAlerte}
-        titreErreur={titreErreur}
+        titreErreur={titreErreurAffiche}
       />
       <div className="mp-actions-formulaire">
         {desactiveParce ? (
@@ -105,14 +110,14 @@ export function BoutonActionRed({
             question={confirmation.question}
             libelleConfirmation={confirmation.libelleConfirmation}
             variante={variante}
-            texteChargement={texteChargement}
+            texteChargement={texteChargementAffiche}
             action={lancer}
           />
         ) : (
           <Bouton
             variante={variante}
             chargement={enCours}
-            texteChargement={texteChargement}
+            texteChargement={texteChargementAffiche}
             onClick={() => void lancer()}
           >
             {libelle}

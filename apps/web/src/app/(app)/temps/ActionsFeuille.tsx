@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../components/formulaires/useFormulaire";
 import { Alerte } from "../../../components/ui/Alerte";
@@ -17,26 +18,29 @@ export function PreparationFeuille({
   semaine: string;
   prerempli: boolean;
 }) {
+  const t = useT();
   const f = useFormulaire<never>();
   return (
     <div className="mp-pile">
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Création impossible"
+        titreErreur={t("Création impossible", "Could not create")}
       />
       <div className="mp-actions-formulaire">
         <Bouton
           icone="plus"
           chargement={f.enCours}
-          texteChargement="Préparation…"
+          texteChargement={t("Préparation…", "Preparing…")}
           onClick={() =>
             f.envoyer({ ok: true, charge: { semaine, pre_remplir: true } }, (c) =>
               api.post("/api/feuilles-temps", c),
             )
           }
         >
-          {prerempli ? "Commencer ma feuille pré-remplie" : "Commencer ma feuille"}
+          {prerempli
+            ? t("Commencer ma feuille pré-remplie", "Start my pre-filled timesheet")
+            : t("Commencer ma feuille", "Start my timesheet")}
         </Bouton>
       </div>
     </div>
@@ -65,8 +69,10 @@ export function ResteAFaire({
   semaine: string;
   unite: UniteSaisie;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const initiales = Object.fromEntries(
-    taches.map((t) => [t.tache_id, t.dernier ? String(t.dernier.jours).replace(".", ",") : ""]),
+    taches.map((x) => [x.tache_id, x.dernier ? String(x.dernier.jours).replace(".", ",") : ""]),
   );
   const [textes, setTextes] = useState<Record<string, string>>(initiales);
   const [info, setInfo] = useState<string | null>(null);
@@ -74,14 +80,18 @@ export function ResteAFaire({
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const saisies: SaisieReste[] = taches.map((t) => ({
-      tache_id: t.tache_id,
-      mission_id: t.mission_id,
-      texte: textes[t.tache_id] ?? "",
-      initial: initiales[t.tache_id] ?? "",
+    const saisies: SaisieReste[] = taches.map((x) => ({
+      tache_id: x.tache_id,
+      mission_id: x.mission_id,
+      texte: textes[x.tache_id] ?? "",
+      initial: initiales[x.tache_id] ?? "",
     }));
-    const r = chargesResteAFaire(saisies, semaine, unite);
-    setInfo(r.ok && r.charge.length === 0 ? "Aucune valeur modifiée : rien à déclarer." : null);
+    const r = chargesResteAFaire(saisies, semaine, unite, langue);
+    setInfo(
+      r.ok && r.charge.length === 0
+        ? t("Aucune valeur modifiée : rien à déclarer.", "No value changed: nothing to declare.")
+        : null,
+    );
     if (r.ok && r.charge.length === 0) return;
     await f.envoyer(
       r,
@@ -93,7 +103,12 @@ export function ResteAFaire({
           );
         }
       },
-      { succes: "Reste à faire déclaré : l'atterrissage des missions est mis à jour." },
+      {
+        succes: t(
+          "Reste à faire déclaré : l'atterrissage des missions est mis à jour.",
+          "Remaining work declared: the engagement forecasts are updated.",
+        ),
+      },
     );
   }
 
@@ -103,13 +118,13 @@ export function ResteAFaire({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Déclarer le reste à faire"
+      aria-label={t("Déclarer le reste à faire", "Declare remaining work")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Déclaration impossible"
+        titreErreur={t("Déclaration impossible", "Could not declare")}
       />
       {info ? (
         <Alerte tonalite="info" annonce="status">
@@ -117,18 +132,24 @@ export function ResteAFaire({
         </Alerte>
       ) : null}
       <ul className="mp-liste-lignes">
-        {taches.map((t) => {
-          const id = `reste-${t.tache_id}`;
-          const erreur = f.erreurs[t.tache_id];
+        {taches.map((x) => {
+          const id = `reste-${x.tache_id}`;
+          const erreur = f.erreurs[x.tache_id];
           return (
-            <li key={t.tache_id} className="mp-liste-lignes__ligne mp-reste">
+            <li key={x.tache_id} className="mp-liste-lignes__ligne mp-reste">
               <label className="mp-liste-lignes__texte" htmlFor={id}>
-                <strong className="mp-coupure">{t.libelle}</strong>
+                <strong className="mp-coupure">{x.libelle}</strong>
                 <span className="mp-texte-doux">
-                  {t.mission}
-                  {t.dernier
-                    ? ` · dernière déclaration : ${formaterJours(t.dernier.jours)} (semaine du ${formaterDate(t.dernier.semaine)})`
-                    : " · jamais déclaré (estimé : budget moins réalisé)"}
+                  {x.mission}
+                  {x.dernier
+                    ? t(
+                        ` · dernière déclaration : ${formaterJours(x.dernier.jours, langue)} (semaine du ${formaterDate(x.dernier.semaine, "UTC", langue)})`,
+                        ` · last declaration: ${formaterJours(x.dernier.jours, langue)} (week of ${formaterDate(x.dernier.semaine, "UTC", langue)})`,
+                      )
+                    : t(
+                        " · jamais déclaré (estimé : budget moins réalisé)",
+                        " · never declared (estimated: budget minus actuals)",
+                      )}
                 </span>
               </label>
               <span className="mp-reste__saisie">
@@ -139,12 +160,12 @@ export function ResteAFaire({
                   inputMode="decimal"
                   autoComplete="off"
                   maxLength={7}
-                  value={textes[t.tache_id] ?? ""}
+                  value={textes[x.tache_id] ?? ""}
                   aria-invalid={erreur ? true : undefined}
                   aria-describedby={erreur ? `${id}-erreur` : undefined}
-                  onChange={(e) => setTextes((s) => ({ ...s, [t.tache_id]: e.target.value }))}
+                  onChange={(e) => setTextes((s) => ({ ...s, [x.tache_id]: e.target.value }))}
                 />
-                <span aria-hidden="true">j</span>
+                <span aria-hidden="true">{t("j", "d")}</span>
                 {erreur ? (
                   <span id={`${id}-erreur`} className="mp-feuille__erreur">
                     {erreur}
@@ -160,9 +181,9 @@ export function ResteAFaire({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Déclaration…"
+          texteChargement={t("Déclaration…", "Declaring…")}
         >
-          Déclarer le reste à faire
+          {t("Déclarer le reste à faire", "Declare remaining work")}
         </Bouton>
       </div>
     </form>

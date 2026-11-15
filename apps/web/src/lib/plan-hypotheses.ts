@@ -15,6 +15,7 @@
  * Sous-modules : `plan-hypotheses-saisie` (état du formulaire), `plan-hypotheses-lecture`
  * (contrôles de forme) et `plan-hypotheses-corps` (lecture des blocs).
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { lireNombre, type Resultat } from "./saisie";
 import type { EcartsScenarios, HypothesesSaisies } from "./plan-modele";
 import {
@@ -22,7 +23,7 @@ import {
   type SaisieHypotheses,
   type SaisieParAnnee,
 } from "./plan-hypotheses-saisie";
-import { lireParAnnee, lireTaux, type Erreurs } from "./plan-hypotheses-lecture";
+import { creerErreurs, lireParAnnee, lireTaux } from "./plan-hypotheses-lecture";
 import {
   compact,
   lireActivite,
@@ -38,8 +39,11 @@ import {
 export * from "./plan-hypotheses-saisie";
 export {
   MESSAGE_ENTIER,
+  MESSAGE_ENTIER_EN,
   MESSAGE_NOMBRE,
+  MESSAGE_NOMBRE_EN,
   MESSAGE_REQUIS,
+  MESSAGE_REQUIS_EN,
   lireMontantSigne,
 } from "./plan-hypotheses-lecture";
 
@@ -56,7 +60,7 @@ export function validerHypotheses(
   s: SaisieHypotheses,
   c: ContexteSaisie,
 ): Resultat<ChargeHypotheses> {
-  const err: Erreurs = {};
+  const err = creerErreurs(c.langue);
   const activite = lireActivite(s, err, c);
   const effectifs = lireEffectifs(s, err, c);
   const investissements = lireInvestissements(s, err, c);
@@ -107,10 +111,21 @@ export function validerHypotheses(
 }
 
 /** Commentaire facultatif d'une version enregistrée. */
-export function validerCommentaire(v: string): Resultat<{ commentaire?: string }, "commentaire"> {
+export function validerCommentaire(
+  v: string,
+  langue: Langue = "fr",
+): Resultat<{ commentaire?: string }, "commentaire"> {
   const t = v.trim();
   if (t.length > COMMENTAIRE_MAX) {
-    return { ok: false, erreurs: { commentaire: `${COMMENTAIRE_MAX} caractères au plus.` } };
+    return {
+      ok: false,
+      erreurs: {
+        commentaire: creerTraduire(langue)(
+          `${COMMENTAIRE_MAX} caractères au plus.`,
+          `${COMMENTAIRE_MAX} characters at most.`,
+        ),
+      },
+    };
   }
   return { ok: true, charge: t === "" ? {} : { commentaire: t } };
 }
@@ -130,13 +145,24 @@ export function optionsAnnees(
   horizon: number,
   exercices: readonly (number | null)[],
   avecOuverture = false,
+  langue: Langue = "fr",
 ): { valeur: string; libelle: string }[] {
+  const t = creerTraduire(langue);
   const annees = Array.from({ length: horizon }, (_, i) => ({
     valeur: String(i + 1),
-    libelle: `Année ${i + 1}${exercices[i] ? ` (${exercices[i]})` : ""}`,
+    libelle: `${t("Année", "Year")} ${i + 1}${exercices[i] ? ` (${exercices[i]})` : ""}`,
   }));
   return avecOuverture
-    ? [{ valeur: "0", libelle: "Année 0 : déjà en cours à l'ouverture" }, ...annees]
+    ? [
+        {
+          valeur: "0",
+          libelle: t(
+            "Année 0 : déjà en cours à l'ouverture",
+            "Year 0: already under way at opening",
+          ),
+        },
+        ...annees,
+      ]
     : annees;
 }
 

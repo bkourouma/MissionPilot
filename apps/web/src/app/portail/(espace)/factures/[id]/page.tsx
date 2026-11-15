@@ -9,6 +9,7 @@ import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { Icone } from "../../../../../components/ui/Icone";
 import { formaterDate } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import {
   designationFacturePortail,
   estIdentifiant,
@@ -19,53 +20,61 @@ import {
   type FacturePortail,
 } from "../../../../../lib/portail";
 import { CHEMIN_PORTAIL } from "../../../../../lib/portail-routes";
+import type { Langue, Traduire } from "@missionpilot/shared";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
 
-export const metadata: Metadata = { title: "Facture" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Facture", "Invoice") };
+}
 
 const CHEMIN_FACTURES = `${CHEMIN_PORTAIL}/factures`;
 
-function Totaux({ f }: { f: FacturePortail }) {
-  const m = (v: number) => montantPortail(v, f.devise);
+function Totaux({ f, t, langue }: { f: FacturePortail; t: Traduire; langue: Langue }) {
+  const m = (v: number) => montantPortail(v, f.devise, langue);
   return (
     <dl className="mp-totaux-facture">
       <div>
-        <dt>Total hors taxes</dt>
+        <dt>{t("Total hors taxes", "Total excluding tax")}</dt>
         <dd>{m(f.total_ht)}</dd>
       </div>
       <div>
-        <dt>TVA</dt>
+        <dt>{t("TVA", "VAT")}</dt>
         <dd>{m(f.total_tva)}</dd>
       </div>
       <div className="mp-totaux-facture__fort">
-        <dt>Total toutes taxes comprises</dt>
+        <dt>{t("Total toutes taxes comprises", "Total including tax")}</dt>
         <dd>{m(f.total_ttc)}</dd>
       </div>
       {f.total_retenues !== 0 ? (
         <div>
-          <dt>Retenues déduites</dt>
+          <dt>{t("Retenues déduites", "Withholdings deducted")}</dt>
           <dd>{m(f.total_retenues)}</dd>
         </div>
       ) : null}
       <div className="mp-totaux-facture__net">
-        <dt>{f.nature === "avoir" ? "Montant de l'avoir" : "Net à payer"}</dt>
+        <dt>
+          {f.nature === "avoir"
+            ? t("Montant de l'avoir", "Credit note amount")
+            : t("Net à payer", "Net payable")}
+        </dt>
         <dd>{m(f.net_a_payer)}</dd>
       </div>
     </dl>
   );
 }
 
-function Paiement({ f }: { f: FacturePortail }) {
+function Paiement({ f, t, langue }: { f: FacturePortail; t: Traduire; langue: Langue }) {
   if (!f.paiement) return null;
-  const m = (v: number) => montantPortail(v, f.devise);
+  const m = (v: number) => montantPortail(v, f.devise, langue);
   return (
     <dl className="mp-portail-paiement">
       <div>
-        <dt>Déjà réglé</dt>
+        <dt>{t("Déjà réglé", "Already paid")}</dt>
         <dd>{m(f.paiement.encaisse)}</dd>
       </div>
       <div>
-        <dt>Reste à payer</dt>
+        <dt>{t("Reste à payer", "Remaining to pay")}</dt>
         <dd>{m(f.paiement.solde)}</dd>
       </div>
     </dl>
@@ -74,8 +83,11 @@ function Paiement({ f }: { f: FacturePortail }) {
 
 /** Détail d'une facture émise : totaux, paiement et document imprimable. */
 export default async function FacturePortailPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSessionPortail();
-  if (!peut(utilisateur.roles, "portail.factures.lire")) return <NonDisponible titre="Facture" />;
+  if (!peut(utilisateur.roles, "portail.factures.lire"))
+    return <NonDisponible titre={t("Facture", "Invoice")} />;
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
 
@@ -84,9 +96,12 @@ export default async function FacturePortailPage({ params }: { params: Promise<{
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Facture" retour={{ href: CHEMIN_FACTURES, libelle: "Vos factures" }} />
+        <EnteteDePage
+          titre={t("Facture", "Invoice")}
+          retour={{ href: CHEMIN_FACTURES, libelle: t("Vos factures", "Your invoices") }}
+        />
         <EtatErreur
-          titre="Cette facture n'a pas pu être chargée."
+          titre={t("Cette facture n'a pas pu être chargée.", "This invoice could not be loaded.")}
           message={r.message}
           hrefReessayer={`${CHEMIN_FACTURES}/${id}`}
         />
@@ -95,14 +110,14 @@ export default async function FacturePortailPage({ params }: { params: Promise<{
   }
 
   const f = r.donnees;
-  const paiement = etatPaiement(f);
+  const paiement = etatPaiement(f, langue);
   const missionVisible = peut(utilisateur.roles, "portail.missions.lire");
 
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre={designationFacturePortail(f)}
-        retour={{ href: CHEMIN_FACTURES, libelle: "Vos factures" }}
+        titre={designationFacturePortail(f, langue)}
+        retour={{ href: CHEMIN_FACTURES, libelle: t("Vos factures", "Your invoices") }}
         badges={<BadgeStatut tonalite={paiement.tonalite}>{paiement.libelle}</BadgeStatut>}
         soustitre={f.objet ?? undefined}
         actions={
@@ -113,16 +128,16 @@ export default async function FacturePortailPage({ params }: { params: Promise<{
             className={classesBouton("primaire")}
           >
             <Icone nom="oeil" />
-            <span>Afficher la facture</span>
-            <span className="mp-visuellement-cache"> (nouvel onglet)</span>
+            <span>{t("Afficher la facture", "View the invoice")}</span>
+            <span className="mp-visuellement-cache"> {t("(nouvel onglet)", "(new tab)")}</span>
           </a>
         }
       />
 
-      <Carte titre="Informations">
+      <Carte titre={t("Informations", "Information")}>
         <dl className="mp-liste-def mp-liste-def--compacte">
           <div>
-            <dt>Mission</dt>
+            <dt>{t("Mission", "Engagement")}</dt>
             <dd>
               {missionVisible ? (
                 <Link href={`${CHEMIN_PORTAIL}/missions/${encodeURIComponent(f.mission.id)}`}>
@@ -134,21 +149,24 @@ export default async function FacturePortailPage({ params }: { params: Promise<{
             </dd>
           </div>
           <div>
-            <dt>Date d&apos;émission</dt>
-            <dd>{formaterDate(f.date_emission)}</dd>
+            <dt>{t("Date d'émission", "Issue date")}</dt>
+            <dd>{formaterDate(f.date_emission, "UTC", langue)}</dd>
           </div>
           {f.date_echeance ? (
             <div>
-              <dt>Date d&apos;échéance</dt>
-              <dd>{formaterDate(f.date_echeance)}</dd>
+              <dt>{t("Date d'échéance", "Due date")}</dt>
+              <dd>{formaterDate(f.date_echeance, "UTC", langue)}</dd>
             </div>
           ) : null}
           {f.nature === "avoir" && f.facture_origine_id ? (
             <div>
-              <dt>Facture concernée</dt>
+              <dt>{t("Facture concernée", "Related invoice")}</dt>
               <dd>
                 <Link href={`${CHEMIN_FACTURES}/${encodeURIComponent(f.facture_origine_id)}`}>
-                  Voir la facture annulée par cet avoir
+                  {t(
+                    "Voir la facture annulée par cet avoir",
+                    "View the invoice cancelled by this credit note",
+                  )}
                 </Link>
               </dd>
             </div>
@@ -156,23 +174,27 @@ export default async function FacturePortailPage({ params }: { params: Promise<{
         </dl>
       </Carte>
 
-      <Carte titre="Montants">
-        <Totaux f={f} />
+      <Carte titre={t("Montants", "Amounts")}>
+        <Totaux f={f} t={t} langue={langue} />
       </Carte>
 
       {f.paiement ? (
-        <Carte titre="Paiement">
-          <Paiement f={f} />
+        <Carte titre={t("Paiement", "Payment")}>
+          <Paiement f={f} t={t} langue={langue} />
           <p className="mp-portail-note">
-            Le suivi des règlements est tenu par votre cabinet. Un paiement récent peut mettre
-            quelques jours à apparaître.
+            {t(
+              "Le suivi des règlements est tenu par votre cabinet. Un paiement récent peut mettre quelques jours à apparaître.",
+              "Payments are tracked by your firm. A recent payment may take a few days to appear.",
+            )}
           </p>
         </Carte>
       ) : null}
 
       <p className="mp-portail-note">
-        Le document de la facture s&apos;ouvre dans un nouvel onglet : vous pouvez l&apos;imprimer
-        ou l&apos;enregistrer en PDF depuis votre navigateur.
+        {t(
+          "Le document de la facture s'ouvre dans un nouvel onglet : vous pouvez l'imprimer ou l'enregistrer en PDF depuis votre navigateur.",
+          "The invoice document opens in a new tab: you can print it or save it as a PDF from your browser.",
+        )}
       </p>
     </div>
   );

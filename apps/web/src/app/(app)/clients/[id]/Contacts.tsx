@@ -9,6 +9,7 @@ import { Bouton } from "../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import type { ContactCreation } from "@missionpilot/shared";
 import { api } from "../../../../lib/api";
 import {
@@ -39,6 +40,8 @@ function FormulaireContact({
   onSucces,
   titre,
 }: FormulaireContactProps) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState(saisieInitiale);
   const f = useFormulaire<ChampContact>();
   const maj = (k: Exclude<ChampContact, "principal">) => (e: { target: { value: string } }) =>
@@ -46,7 +49,7 @@ function FormulaireContact({
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerContact(s), envoyer, {
+    await f.envoyer(validerContact(s, langue), envoyer, {
       succes,
       apres: onSucces,
     });
@@ -63,7 +66,7 @@ function FormulaireContact({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Nom"
+          libelle={t("Nom", "Name")}
           name="nom"
           required
           maxLength={160}
@@ -73,16 +76,16 @@ function FormulaireContact({
           autoComplete="off"
         />
         <Champ
-          libelle="Fonction"
+          libelle={t("Fonction", "Job title")}
           name="fonction"
           maxLength={120}
           value={s.fonction}
           onChange={maj("fonction")}
           erreur={f.erreurs.fonction}
-          aide="Ex. Directeur administratif et financier."
+          aide={t("Ex. Directeur administratif et financier.", "E.g. Chief financial officer.")}
         />
         <Champ
-          libelle="Adresse e-mail"
+          libelle={t("Adresse e-mail", "Email address")}
           type="email"
           name="email"
           inputMode="email"
@@ -94,7 +97,7 @@ function FormulaireContact({
           erreur={f.erreurs.email}
         />
         <Champ
-          libelle="Téléphone"
+          libelle={t("Téléphone", "Phone")}
           type="tel"
           name="telephone"
           inputMode="tel"
@@ -103,21 +106,31 @@ function FormulaireContact({
           value={s.telephone}
           onChange={maj("telephone")}
           erreur={f.erreurs.telephone}
-          aide="Avec l'indicatif, ex. +225 07 00 00 00 00."
+          aide={t(
+            "Avec l'indicatif, ex. +225 07 00 00 00 00.",
+            "With the country code, e.g. +225 07 00 00 00 00.",
+          )}
         />
       </div>
       <CaseACocher
-        libelle="Contact principal"
-        aide="Un seul contact principal par client : cocher cette case retire ce statut aux autres."
+        libelle={t("Contact principal", "Primary contact")}
+        aide={t(
+          "Un seul contact principal par client : cocher cette case retire ce statut aux autres.",
+          "Only one primary contact per client: checking this box removes that status from the others.",
+        )}
         checked={s.principal}
         onChange={(e) => setS((x) => ({ ...x, principal: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
           {libelleEnvoi}
         </Bouton>
         <Bouton variante="discret" onClick={onAnnuler}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -125,6 +138,7 @@ function FormulaireContact({
 }
 
 export function AjoutContact({ clientId }: { clientId: string }) {
+  const t = useT();
   const [ouvert, setOuvert] = useState(false);
   const [cle, setCle] = useState(0);
   const [annonce, setAnnonce] = useState<string | null>(null);
@@ -145,25 +159,25 @@ export function AjoutContact({ clientId }: { clientId: string }) {
               setOuvert(true);
             }}
           >
-            Ajouter un contact
+            {t("Ajouter un contact", "Add a contact")}
           </Bouton>
         </div>
       </div>
     );
   }
   return (
-    <Carte titre="Nouveau contact" niveauTitre={3}>
+    <Carte titre={t("Nouveau contact", "New contact")} niveauTitre={3}>
       <FormulaireContact
         key={cle}
-        titre="Nouveau contact"
+        titre={t("Nouveau contact", "New contact")}
         saisieInitiale={SAISIE_CONTACT_VIDE}
-        libelleEnvoi="Ajouter le contact"
-        succes="Contact ajouté."
+        libelleEnvoi={t("Ajouter le contact", "Add the contact")}
+        succes={t("Contact ajouté.", "Contact added.")}
         envoyer={(c) => api.post(`/api/clients/${encodeURIComponent(clientId)}/contacts`, c)}
         onAnnuler={() => setOuvert(false)}
         onSucces={() => {
           setCle((k) => k + 1);
-          setAnnonce("Contact ajouté.");
+          setAnnonce(t("Contact ajouté.", "Contact added."));
           setOuvert(false);
         }}
       />
@@ -180,6 +194,7 @@ export function ContactModifiable({
   contact: Contact;
   peutEcrire: boolean;
 }) {
+  const t = useT();
   const [edition, setEdition] = useState(false);
   const suppression = useFormulaire<never>();
   const chemin = `/api/clients/${encodeURIComponent(clientId)}/contacts/${encodeURIComponent(contact.id)}`;
@@ -189,15 +204,17 @@ export function ContactModifiable({
       niveauTitre={3}
       titre={contact.nom}
       actions={
-        contact.principal ? <BadgeStatut tonalite="succes">Contact principal</BadgeStatut> : null
+        contact.principal ? (
+          <BadgeStatut tonalite="succes">{t("Contact principal", "Primary contact")}</BadgeStatut>
+        ) : null
       }
     >
       {edition ? (
         <FormulaireContact
-          titre={`Modifier ${contact.nom}`}
+          titre={`${t("Modifier", "Edit")} ${contact.nom}`}
           saisieInitiale={saisieDepuisContact(contact)}
-          libelleEnvoi="Enregistrer"
-          succes="Contact modifié."
+          libelleEnvoi={t("Enregistrer", "Save")}
+          succes={t("Contact modifié.", "Contact updated.")}
           envoyer={(c) => api.patch(chemin, c)}
           onAnnuler={() => setEdition(false)}
           onSucces={() => setEdition(false)}
@@ -206,17 +223,17 @@ export function ContactModifiable({
         <div className="mp-pile">
           <dl className="mp-liste-def mp-liste-def--compacte">
             <div>
-              <dt>Fonction</dt>
+              <dt>{t("Fonction", "Job title")}</dt>
               <dd>{contact.fonction ?? "—"}</dd>
             </div>
             <div>
-              <dt>E-mail</dt>
+              <dt>{t("E-mail", "Email")}</dt>
               <dd>
                 {contact.email ? <a href={`mailto:${contact.email}`}>{contact.email}</a> : "—"}
               </dd>
             </div>
             <div>
-              <dt>Téléphone</dt>
+              <dt>{t("Téléphone", "Phone")}</dt>
               <dd>
                 {contact.telephone ? (
                   <a href={`tel:${contact.telephone.replace(/[^+0-9]/g, "")}`}>
@@ -233,24 +250,33 @@ export function ContactModifiable({
               <RetourFormulaire
                 erreur={suppression.erreurGlobale}
                 refAlerte={suppression.refAlerte}
-                titreErreur="Suppression impossible"
+                titreErreur={t("Suppression impossible", "Deletion failed")}
               />
               <div className="mp-barre-actions">
                 <Bouton
                   variante="secondaire"
                   icone="crayon"
                   onClick={() => setEdition(true)}
-                  aria-label={`Modifier le contact ${contact.nom}`}
+                  aria-label={t(
+                    `Modifier le contact ${contact.nom}`,
+                    `Edit contact ${contact.nom}`,
+                  )}
                 >
-                  Modifier
+                  {t("Modifier", "Edit")}
                 </Bouton>
                 <BoutonConfirmation
-                  libelle="Supprimer"
+                  libelle={t("Supprimer", "Delete")}
                   icone="corbeille"
-                  ariaLabel={`Supprimer le contact ${contact.nom}`}
-                  question={`Supprimer le contact ${contact.nom} ?`}
-                  libelleConfirmation="Oui, supprimer"
-                  texteChargement="Suppression…"
+                  ariaLabel={t(
+                    `Supprimer le contact ${contact.nom}`,
+                    `Delete contact ${contact.nom}`,
+                  )}
+                  question={t(
+                    `Supprimer le contact ${contact.nom} ?`,
+                    `Delete contact ${contact.nom}?`,
+                  )}
+                  libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+                  texteChargement={t("Suppression…", "Deleting…")}
                   action={() =>
                     suppression.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin))
                   }

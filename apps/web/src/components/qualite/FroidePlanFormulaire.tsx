@@ -9,6 +9,7 @@ import {
   type SaisieAction,
 } from "../../lib/qualite-froide-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -36,6 +37,8 @@ export function FroidePlanFormulaire({
   responsables,
   constats,
 }: FroidePlanFormulaireProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampAction>();
   const [s, setS] = useState<SaisieAction>(VIDE);
   const maj = (p: Partial<SaisieAction>) => setS((x) => ({ ...x, ...p }));
@@ -48,11 +51,14 @@ export function FroidePlanFormulaire({
       onSubmit={async (e) => {
         e.preventDefault();
         await f.envoyer(
-          validerAction(s),
+          validerAction(s, langue),
           (charge) => api.post(cheminActionsCampagne(campagneId), charge),
           {
-            succes: "Action ajoutée au plan d'amélioration.",
-            messageSpecifique: messageFroide,
+            succes: t(
+              "Action ajoutée au plan d'amélioration.",
+              "Action added to the improvement plan.",
+            ),
+            messageSpecifique: (e) => messageFroide(e, langue),
             apres: () => setS(VIDE),
           },
         );
@@ -62,10 +68,10 @@ export function FroidePlanFormulaire({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Action non ajoutée"
+        titreErreur={t("Action non ajoutée", "Action not added")}
       />
       <Champ
-        libelle="Titre de l'action"
+        libelle={t("Titre de l'action", "Action title")}
         required
         maxLength={200}
         value={s.titre}
@@ -73,7 +79,7 @@ export function FroidePlanFormulaire({
         erreur={f.erreurs.titre}
       />
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={3}
         maxLength={2000}
         value={s.description}
@@ -82,30 +88,37 @@ export function FroidePlanFormulaire({
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Constat à l'origine de l'action"
+          libelle={t("Constat à l'origine de l'action", "Finding behind the action")}
           value={s.constat_id}
           onChange={(e) => maj({ constat_id: e.target.value })}
-          invite="Aucun constat lié"
+          invite={t("Aucun constat lié", "No linked finding")}
           options={constats}
           erreur={f.erreurs.constat_id}
-          aide={constats.length === 0 ? "Aucun constat enregistré pour l'instant." : undefined}
+          aide={
+            constats.length === 0
+              ? t("Aucun constat enregistré pour l'instant.", "No findings recorded yet.")
+              : undefined
+          }
         />
         <Select
-          libelle="Responsable"
+          libelle={t("Responsable", "Owner")}
           required
           value={s.responsable_id}
           onChange={(e) => maj({ responsable_id: e.target.value })}
-          invite="Choisir un responsable"
+          invite={t("Choisir un responsable", "Choose an owner")}
           options={responsables}
           erreur={f.erreurs.responsable_id}
           aide={
             responsables.length === 0
-              ? "La liste des personnes n'a pas pu être chargée."
+              ? t(
+                  "La liste des personnes n'a pas pu être chargée.",
+                  "The list of people could not be loaded.",
+                )
               : undefined
           }
         />
         <Champ
-          libelle="Échéance"
+          libelle={t("Échéance", "Due date")}
           type="date"
           required
           value={s.echeance}
@@ -114,8 +127,8 @@ export function FroidePlanFormulaire({
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter l&apos;action
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Ajout…", "Adding…")}>
+          {t("Ajouter l'action", "Add action")}
         </Bouton>
       </div>
     </form>

@@ -9,7 +9,9 @@
  */
 import {
   aPermission,
+  creerTraduire,
   STATUTS_GENERATION,
+  type Langue,
   type Role,
   type SourceIa,
   type StatutContenu,
@@ -128,6 +130,33 @@ export const STATUT_CONTENU_IA: Record<StatutContenu, PresentationStatut> = {
   },
 };
 
+const STATUT_CONTENU_IA_EN: Record<StatutContenu, PresentationStatut> = {
+  brouillon_ia: {
+    libelle: "AI draft",
+    tonalite: "attention",
+    icone: "attention",
+    aide: "Content proposed by AI or a template: to be reviewed and approved before anything is sent to the client.",
+  },
+  modifie: {
+    libelle: "Edited",
+    tonalite: "neutre",
+    icone: "crayon",
+    aide: "Reviewed and corrected by a person, awaiting approval.",
+  },
+  valide: {
+    libelle: "Approved",
+    tonalite: "succes",
+    icone: "succes",
+    aide: "Approved by a person: final content.",
+  },
+};
+
+/** Présentation d'un statut de contenu dans la langue demandée. */
+export const presentationStatutContenu = (
+  statut: StatutContenu,
+  langue: Langue = "fr",
+): PresentationStatut => (langue === "en" ? STATUT_CONTENU_IA_EN : STATUT_CONTENU_IA)[statut];
+
 export const STATUT_GENERATION_IA: Record<StatutGeneration, Omit<PresentationStatut, "aide">> = {
   en_file: { libelle: "En file d'attente", tonalite: "neutre", icone: "horloge" },
   en_cours: { libelle: "Génération en cours", tonalite: "neutre", icone: "historique" },
@@ -136,33 +165,70 @@ export const STATUT_GENERATION_IA: Record<StatutGeneration, Omit<PresentationSta
   annulee: { libelle: "Annulée", tonalite: "neutre", icone: "fermer" },
 };
 
+const STATUT_GENERATION_IA_EN: Record<StatutGeneration, Omit<PresentationStatut, "aide">> = {
+  en_file: { libelle: "Queued", tonalite: "neutre", icone: "horloge" },
+  en_cours: { libelle: "Generating", tonalite: "neutre", icone: "historique" },
+  terminee: { libelle: "Completed", tonalite: "succes", icone: "succes" },
+  echec: { libelle: "Failed", tonalite: "danger", icone: "danger" },
+  annulee: { libelle: "Cancelled", tonalite: "neutre", icone: "fermer" },
+};
+
+/** Présentation d'un statut de génération dans la langue demandée. */
+export const presentationStatutGeneration = (
+  statut: StatutGeneration,
+  langue: Langue = "fr",
+): Omit<PresentationStatut, "aide"> =>
+  (langue === "en" ? STATUT_GENERATION_IA_EN : STATUT_GENERATION_IA)[statut];
+
 /** Essai fait avec un prompt « exemple » : jamais livrable au client, même validé. */
 export const estEssai = (g: Pick<GenerationIa, "prompt">) => g.prompt.exemple === true;
 
 export const MESSAGE_ESSAI =
   "Contenu d'essai (prompt d'exemple) : il n'est jamais transmis au client, même validé.";
+export const MESSAGE_ESSAI_EN =
+  "Test content (example prompt): it is never sent to the client, even once approved.";
 
 /** Phrase de livraison d'un contenu validé, d'après `livrable_client` (seul juge : l'API). */
-function phraseLivraison(g: Pick<GenerationIa, "livrable_client" | "prompt">): string {
-  if (g.livrable_client) return "Il peut être transmis au client.";
+function phraseLivraison(
+  g: Pick<GenerationIa, "livrable_client" | "prompt">,
+  langue: Langue,
+): string {
+  const t = creerTraduire(langue);
+  if (g.livrable_client)
+    return t("Il peut être transmis au client.", "It can be sent to the client.");
   return estEssai(g)
-    ? "Contenu d'essai : il n'est jamais transmis au client."
-    : "Il n'est pas marqué livrable au client.";
+    ? t(
+        "Contenu d'essai : il n'est jamais transmis au client.",
+        "Test content: it is never sent to the client.",
+      )
+    : t(
+        "Il n'est pas marqué livrable au client.",
+        "It is not marked as deliverable to the client.",
+      );
 }
 
 /** Validé : livrable au client seulement si l'API le dit (jamais un essai). */
 export function messageValide(
   g: Pick<GenerationIa, "livrable_client" | "chiffres_acquittes" | "prompt">,
+  langue: Langue = "fr",
 ) {
+  const t = creerTraduire(langue);
   const acquit = g.chiffres_acquittes
-    ? " Les nombres signalés ont été attestés par le valideur."
+    ? t(
+        " Les nombres signalés ont été attestés par le valideur.",
+        " The flagged numbers were attested by the approver.",
+      )
     : "";
-  return `Validé par un humain : contenu définitif. ${phraseLivraison(g)}${acquit}`;
+  return `${t("Validé par un humain : contenu définitif.", "Approved by a person: final content.")} ${phraseLivraison(g, langue)}${acquit}`;
 }
 
 /** Message de réussite de la validation (réponse de POST …/valider). */
-export function messageSuccesValidation(g: Pick<GenerationIa, "livrable_client" | "prompt">) {
-  return `Contenu validé : il est définitif. ${phraseLivraison(g)}`;
+export function messageSuccesValidation(
+  g: Pick<GenerationIa, "livrable_client" | "prompt">,
+  langue: Langue = "fr",
+) {
+  const t = creerTraduire(langue);
+  return `${t("Contenu validé : il est définitif.", "Content approved: it is final.")} ${phraseLivraison(g, langue)}`;
 }
 
 /** Échec d'une génération : message de l'API complété de la conduite à tenir. */
@@ -176,9 +242,26 @@ const CONSEILS_ECHEC: Readonly<Record<string, string>> = {
   ERREUR_INTERNE: "Relancez la génération ; si l'échec se répète, prévenez le support.",
 };
 
-export function messageEchecGeneration(erreur: ErreurGenerationIa | null | undefined): string {
-  const base = erreur?.message?.trim() || "Échec de la génération.";
-  const conseil = erreur ? CONSEILS_ECHEC[erreur.code] : undefined;
+const CONSEILS_ECHEC_EN: Readonly<Record<string, string>> = {
+  DELAI_DEPASSE: "Run the generation again; the call may have been billed and still counts.",
+  REPONSE_INVALIDE: "Run the generation again; the call may have been billed and still counts.",
+  REPONSE_TROP_GRANDE: "Run the generation again; the call may have been billed and still counts.",
+  GENERATIONS_SIMULTANEES: "Run the generation again in a moment.",
+  PLAFOND_IA_ATTEINT:
+    "Run it again accepting the template, or wait for next month or for the ceiling to be raised.",
+  ERREUR_INTERNE: "Run the generation again; if the failure repeats, contact support.",
+};
+
+export function messageEchecGeneration(
+  erreur: ErreurGenerationIa | null | undefined,
+  langue: Langue = "fr",
+): string {
+  const base =
+    erreur?.message?.trim() ||
+    creerTraduire(langue)("Échec de la génération.", "Generation failed.");
+  const conseil = erreur
+    ? (langue === "en" ? CONSEILS_ECHEC_EN : CONSEILS_ECHEC)[erreur.code]
+    : undefined;
   return conseil ? `${base} ${conseil}` : base;
 }
 
@@ -186,11 +269,20 @@ export function messageEchecGeneration(erreur: ErreurGenerationIa | null | undef
 export const MESSAGE_GABARIT = "Contenu généré sans IA par un gabarit";
 export const AIDE_GABARIT =
   "Aucun modèle d'IA n'a été appelé : le texte vient d'un gabarit déterministe. Il suit la même relecture et la même validation humaine.";
+export const MESSAGE_GABARIT_EN = "Content generated without AI from a template";
+export const AIDE_GABARIT_EN =
+  "No AI model was called: the text comes from a deterministic template. It goes through the same review and the same human approval.";
 
 export const TYPE_SOURCE_LIBELLES: Record<string, string> = {
   mission: "Mission",
   mission_document: "Document de mission",
   moteur: "Moteur de calcul",
+};
+
+export const TYPE_SOURCE_IA_LIBELLES_EN: Record<string, string> = {
+  mission: "Engagement",
+  mission_document: "Engagement document",
+  moteur: "Calculation engine",
 };
 
 const TERMINAUX: readonly StatutGeneration[] = ["terminee", "echec", "annulee"];
@@ -205,10 +297,10 @@ export function statutConnu(statut: string): StatutGeneration {
 }
 
 /** « 1,2 s », « 850 ms ». */
-export function libelleDuree(ms: number | null | undefined): string {
+export function libelleDuree(ms: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return "—";
-  if (ms < 1000) return `${formaterNombre(ms, 0)}\u00a0ms`;
-  return `${formaterNombre(ms / 1000, 1)}\u00a0s`;
+  if (ms < 1000) return `${formaterNombre(ms, 0, langue)}\u00a0ms`;
+  return `${formaterNombre(ms / 1000, 1, langue)}\u00a0s`;
 }
 
 /**
@@ -217,44 +309,71 @@ export function libelleDuree(ms: number | null | undefined): string {
  */
 export function lignesTracabilite(
   g: Pick<GenerationIa, "prompt" | "gabarit" | "trace" | "termine_le">,
+  langue: Langue = "fr",
 ): [string, string][] {
+  const tr = creerTraduire(langue);
   const t = g.trace;
   const lignes: [string, string][] = [
-    ["Prompt", `« ${g.prompt.nom} », version ${g.prompt.version}`],
     [
-      "Production",
+      "Prompt",
+      tr(
+        `« ${g.prompt.nom} », version ${g.prompt.version}`,
+        `"${g.prompt.nom}", version ${g.prompt.version}`,
+      ),
+    ],
+    [
+      tr("Production", "Production"),
       g.gabarit
-        ? "Gabarit déterministe (aucun appel à un modèle)"
+        ? tr(
+            "Gabarit déterministe (aucun appel à un modèle)",
+            "Deterministic template (no model call)",
+          )
         : t
-          ? `Fournisseur ${t.fournisseur}`
+          ? tr(`Fournisseur ${t.fournisseur}`, `Provider ${t.fournisseur}`)
           : "—",
     ],
   ];
-  if (typeof t?.modele === "string" && t.modele !== "") lignes.push(["Modèle", t.modele]);
-  if (typeof t?.duree_ms === "number") lignes.push(["Durée", libelleDuree(t.duree_ms)]);
+  if (typeof t?.modele === "string" && t.modele !== "") {
+    lignes.push([tr("Modèle", "Model"), t.modele]);
+  }
+  if (typeof t?.duree_ms === "number") {
+    lignes.push([tr("Durée", "Duration"), libelleDuree(t.duree_ms, langue)]);
+  }
   if (typeof t?.tokens_entree === "number" && typeof t?.tokens_sortie === "number") {
     lignes.push([
-      "Jetons",
-      `${formaterNombre(t.tokens_entree, 0)} en entrée, ${formaterNombre(t.tokens_sortie, 0)} en sortie`,
+      tr("Jetons", "Tokens"),
+      tr(
+        `${formaterNombre(t.tokens_entree, 0)} en entrée, ${formaterNombre(t.tokens_sortie, 0)} en sortie`,
+        `${formaterNombre(t.tokens_entree, 0, langue)} in, ${formaterNombre(t.tokens_sortie, 0, langue)} out`,
+      ),
     ]);
   }
   if (typeof t?.cout_micro_usd === "number") {
-    lignes.push(["Coût estimé", formaterMicroUsd(t.cout_micro_usd)]);
+    lignes.push([tr("Coût estimé", "Estimated cost"), formaterMicroUsd(t.cout_micro_usd, langue)]);
   }
-  if (g.termine_le) lignes.push(["Terminée le", formaterDateHeure(g.termine_le)]);
+  if (g.termine_le) {
+    lignes.push([
+      tr("Terminée le", "Completed on"),
+      formaterDateHeure(g.termine_le, undefined, langue),
+    ]);
+  }
   return lignes;
 }
 
 /** « Version 2 · Modifié · par Awa Koné · 12 oct. 2026 à 14:05 ». */
-export function libelleVersion(v: VersionContenuIa): string {
-  const statut = STATUT_CONTENU_IA[v.statut_contenu]?.libelle ?? v.statut_contenu;
+export function libelleVersion(v: VersionContenuIa, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  const statut = presentationStatutContenu(v.statut_contenu, langue)?.libelle ?? v.statut_contenu;
   const auteur =
     v.version === 1 && v.fournisseur !== "humain"
       ? v.fournisseur === "gabarit"
-        ? "gabarit"
-        : "IA"
-      : (v.auteur_nom ?? "auteur inconnu");
-  return `Version ${v.version} · ${statut} · par ${auteur} · ${formaterDateHeure(v.cree_le)}`;
+        ? t("gabarit", "template")
+        : t("IA", "AI")
+      : (v.auteur_nom ?? t("auteur inconnu", "unknown author"));
+  return t(
+    `Version ${v.version} · ${statut} · par ${auteur} · ${formaterDateHeure(v.cree_le)}`,
+    `Version ${v.version} · ${statut} · by ${auteur} · ${formaterDateHeure(v.cree_le, undefined, langue)}`,
+  );
 }
 
 /** Version qui précède `version` dans l'historique (null pour la première). */
@@ -293,6 +412,10 @@ const VALIDATION_PAR_AUTRUI =
   "sa validation revient à une autre personne (responsable de la mission ou associé).";
 export const RAISON_DEMANDEUR = `Vous avez demandé ce contenu : ${VALIDATION_PAR_AUTRUI}`;
 export const RAISON_AUTEUR_VERSION = `Vous avez rédigé une version de ce contenu : ${VALIDATION_PAR_AUTRUI}`;
+const VALIDATION_PAR_AUTRUI_EN =
+  "it must be approved by someone else (engagement lead or partner).";
+export const RAISON_DEMANDEUR_EN = `You requested this content: ${VALIDATION_PAR_AUTRUI_EN}`;
+export const RAISON_AUTEUR_VERSION_EN = `You wrote a version of this content: ${VALIDATION_PAR_AUTRUI_EN}`;
 
 /**
  * Pourquoi l'API refuserait la validation à cet utilisateur (403 APPROBATION_REQUISE) : il est
@@ -303,10 +426,16 @@ export const RAISON_AUTEUR_VERSION = `Vous avez rédigé une version de ce conte
 export function raisonExclusionValidation(
   g: Pick<GenerationIa, "demandeur" | "versions">,
   u: UtilisateurIa | undefined,
+  langue: Langue = "fr",
 ): string | null {
   if (!u || u.roles.includes("associe")) return null;
-  if (g.demandeur.id === u.id) return RAISON_DEMANDEUR;
-  return (g.versions ?? []).some((v) => v.auteur_id === u.id) ? RAISON_AUTEUR_VERSION : null;
+  const en = langue === "en";
+  if (g.demandeur.id === u.id) return en ? RAISON_DEMANDEUR_EN : RAISON_DEMANDEUR;
+  return (g.versions ?? []).some((v) => v.auteur_id === u.id)
+    ? en
+      ? RAISON_AUTEUR_VERSION_EN
+      : RAISON_AUTEUR_VERSION
+    : null;
 }
 
 /** Contenu produit, non validé : il peut être relu, modifié puis validé. */
@@ -329,9 +458,10 @@ export function actionsGeneration(
   g: GenerationIa,
   u?: UtilisateurIa,
   refusValidation?: string | null,
+  langue: Langue = "fr",
 ): ActionsGeneration {
   const ouvert = contenuOuvert(g);
-  const raison = raisonExclusionValidation(g, u) ?? refusValidation ?? null;
+  const raison = raisonExclusionValidation(g, u, langue) ?? refusValidation ?? null;
   const enAttente = g.statut === "en_file" || g.statut === "en_cours";
   return {
     modifier: ouvert,
@@ -351,19 +481,36 @@ export const LONGUEUR_MAX_TEXTE_IA = 100_000;
 export function validerTexteModifie(
   texte: string,
   actuel: string | null | undefined,
+  langue: Langue = "fr",
 ): Resultat<{ texte: string }, "texte"> {
+  const tr = creerTraduire(langue);
   const t = texte.trim();
-  if (t === "") return { ok: false, erreurs: { texte: "Le contenu ne peut pas être vide." } };
+  if (t === "") {
+    return {
+      ok: false,
+      erreurs: { texte: tr("Le contenu ne peut pas être vide.", "The content cannot be empty.") },
+    };
+  }
   if (t.length > LONGUEUR_MAX_TEXTE_IA) {
     return {
       ok: false,
-      erreurs: { texte: "Le contenu ne doit pas dépasser 100 000 caractères." },
+      erreurs: {
+        texte: tr(
+          "Le contenu ne doit pas dépasser 100 000 caractères.",
+          "The content must not exceed 100,000 characters.",
+        ),
+      },
     };
   }
   if (t === (actuel ?? "").trim()) {
     return {
       ok: false,
-      erreurs: { texte: "Aucune modification : le texte est identique à la version actuelle." },
+      erreurs: {
+        texte: tr(
+          "Aucune modification : le texte est identique à la version actuelle.",
+          "No change: the text is identical to the current version.",
+        ),
+      },
     };
   }
   return { ok: true, charge: { texte: t } };
@@ -371,14 +518,22 @@ export function validerTexteModifie(
 
 export const ERREUR_ACQUITTEMENT =
   "Cochez la case pour attester que vous avez vérifié chacun des nombres signalés.";
+export const ERREUR_ACQUITTEMENT_EN =
+  "Tick the box to attest that you have checked each of the flagged numbers.";
 
 /** Validation : des chiffres non vérifiés exigent l'acquittement explicite de l'humain. */
 export function validerAcquittement(
   g: Pick<GenerationIa, "chiffres_non_verifies">,
   acquitte: boolean,
+  langue: Langue = "fr",
 ): Resultat<{ acquitte_chiffres?: true }, "acquittement"> {
   if (g.chiffres_non_verifies !== true) return { ok: true, charge: {} };
-  if (!acquitte) return { ok: false, erreurs: { acquittement: ERREUR_ACQUITTEMENT } };
+  if (!acquitte) {
+    return {
+      ok: false,
+      erreurs: { acquittement: langue === "en" ? ERREUR_ACQUITTEMENT_EN : ERREUR_ACQUITTEMENT },
+    };
+  }
   return { ok: true, charge: { acquitte_chiffres: true } };
 }
 
@@ -413,7 +568,11 @@ export function corpsGeneration(d: DemandeGenerationIa): Record<string, unknown>
 }
 
 /** Termes à masquer avant l'envoi au fournisseur : un par ligne, sans doublon ni ligne vide. */
-export function lireTermesSensibles(texte: string): Resultat<string[], "termes"> {
+export function lireTermesSensibles(
+  texte: string,
+  langue: Langue = "fr",
+): Resultat<string[], "termes"> {
+  const tr = creerTraduire(langue);
   const termes = [
     ...new Set(
       texte
@@ -423,10 +582,23 @@ export function lireTermesSensibles(texte: string): Resultat<string[], "termes">
     ),
   ];
   if (termes.length > 200) {
-    return { ok: false, erreurs: { termes: "200 termes au plus, un par ligne." } };
+    return {
+      ok: false,
+      erreurs: {
+        termes: tr("200 termes au plus, un par ligne.", "200 terms maximum, one per line."),
+      },
+    };
   }
   if (termes.some((t) => t.length > 200)) {
-    return { ok: false, erreurs: { termes: "Un terme ne doit pas dépasser 200 caractères." } };
+    return {
+      ok: false,
+      erreurs: {
+        termes: tr(
+          "Un terme ne doit pas dépasser 200 caractères.",
+          "A term must not exceed 200 characters.",
+        ),
+      },
+    };
   }
   return { ok: true, charge: termes };
 }

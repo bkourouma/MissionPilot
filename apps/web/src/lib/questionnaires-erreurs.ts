@@ -1,4 +1,5 @@
 /** Sous-module de `questionnaires.ts` : messages d'erreur et anomalies. */
+import { type Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import { type Anomalie } from "./questionnaires-definition";
 import { DELAI_RELANCE_HEURES } from "./questionnaires-types";
@@ -13,7 +14,7 @@ const ANOMALIE = /^([A-Z][A-Z0-9_]*) : ([\s\S]+)$/;
  * forme du schéma (clé `definition` ou `source`, message brut parfois en anglais) devient une
  * anomalie générique en français.
  */
-export function anomaliesDepuisErreur(e: unknown): Anomalie[] | null {
+export function anomaliesDepuisErreur(e: unknown, langue: Langue = "fr"): Anomalie[] | null {
   if (!(e instanceof ErreurApi) || e.code !== "REQUETE_INVALIDE") return null;
   const d = e.details as { fieldErrors?: Record<string, unknown> } | undefined;
   if (!d || typeof d !== "object" || !d.fieldErrors || typeof d.fieldErrors !== "object")
@@ -38,22 +39,32 @@ export function anomaliesDepuisErreur(e: unknown): Anomalie[] | null {
       code: "FORME_INVALIDE",
       chemin: "",
       message:
-        "Une partie de la définition a été refusée par le serveur : vérifiez les champs obligatoires et les longueurs.",
+        langue === "en"
+          ? "Part of the definition was rejected by the server: check the required fields and the lengths."
+          : "Une partie de la définition a été refusée par le serveur : vérifiez les champs obligatoires et les longueurs.",
     });
   }
   return anomalies.length > 0 ? anomalies : null;
 }
 
 /** Message propre aux questionnaires (sinon `null` : message générique de `messageErreur`). */
-export function messageQuestionnaire(e: unknown): string | null {
+export function messageQuestionnaire(e: unknown, langue: Langue = "fr"): string | null {
   if (!(e instanceof ErreurApi)) return null;
-  const anomalies = anomaliesDepuisErreur(e);
+  const anomalies = anomaliesDepuisErreur(e, langue);
   if (anomalies) {
+    if (langue === "en") {
+      return anomalies.length === 1
+        ? "The definition contains an issue: fix it, then save again."
+        : `The definition contains ${anomalies.length} issues: fix them, then save again.`;
+    }
     return anomalies.length === 1
       ? "La définition comporte une anomalie : corrigez-la puis enregistrez de nouveau."
       : `La définition comporte ${anomalies.length} anomalies : corrigez-les puis enregistrez de nouveau.`;
   }
   if (e.statut === 404) {
+    if (langue === "en") {
+      return "Questionnaire not found: it was removed, or you no longer have access to it.";
+    }
     return "Questionnaire introuvable : il a été retiré, ou vous n'y avez plus accès.";
   }
   // 409 (version figée, envoi clos, mission clôturée, brouillon existant, code déjà pris) et
@@ -63,12 +74,18 @@ export function messageQuestionnaire(e: unknown): string | null {
 }
 
 /** Message d'une relance refusée : 409 = déjà relancé il y a moins de 24 h, ou plus en attente. */
-export function messageRelance(e: unknown): string | null {
+export function messageRelance(e: unknown, langue: Langue = "fr"): string | null {
   if (e instanceof ErreurApi && e.statut === 409) {
+    if (langue === "en") {
+      const regleEn = /24\s*h/.test(e.message)
+        ? ""
+        : ` A respondent can only be reminded once per ${DELAI_RELANCE_HEURES}-hour period, and only until they have submitted.`;
+      return `Reminder refused: ${e.message}${regleEn}`;
+    }
     const regle = /24\s*h/.test(e.message)
       ? ""
       : ` Un répondant ne se relance qu'une fois par période de ${DELAI_RELANCE_HEURES} heures, et seulement tant qu'il n'a pas soumis.`;
     return `Relance refusée : ${e.message}${regle}`;
   }
-  return messageQuestionnaire(e);
+  return messageQuestionnaire(e, langue);
 }

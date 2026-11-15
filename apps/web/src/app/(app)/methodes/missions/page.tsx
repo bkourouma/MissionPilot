@@ -4,11 +4,15 @@ import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { hrefMissionMethode, lireCurseur } from "../../../../lib/methodes";
-import { STATUT_MISSION, type PageMissions } from "../../../../lib/missions";
+import { libelleStatutMission, STATUT_MISSION, type PageMissions } from "../../../../lib/missions";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Méthode des missions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Méthode des missions", "Engagement methods") };
+}
 
 const hrefPage = (curseur?: string | null) =>
   curseur ? `/methodes/missions?curseur=${encodeURIComponent(curseur)}` : "/methodes/missions";
@@ -20,6 +24,8 @@ export default async function PageMissionsMethodes({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("mission.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const curseur = lireCurseur((await searchParams).curseur);
   const r = await chargerServeur<PageMissions>(
     `/api/missions?limite=50${curseur ? `&curseur=${encodeURIComponent(curseur)}` : ""}`,
@@ -27,17 +33,23 @@ export default async function PageMissionsMethodes({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Méthode des missions"
-        soustitre="Chaque mission est figée sur une version de méthode, modulée par son contexte et ses dérogations."
+        titre={t("Méthode des missions", "Engagement methods")}
+        soustitre={t(
+          "Chaque mission est figée sur une version de méthode, modulée par son contexte et ses dérogations.",
+          "Each engagement is locked to a method version, modulated by its context and its waivers.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="Les missions n'ont pas pu être chargées."
+          titre={t(
+            "Les missions n'ont pas pu être chargées.",
+            "The engagements could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefPage(curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune mission visible." icone="dossier" />
+        <EtatVide titre={t("Aucune mission visible.", "No visible engagement.")} icone="dossier" />
       ) : (
         <ul className="mp-liste-lignes">
           {r.donnees.elements.map((m) => (
@@ -49,7 +61,7 @@ export default async function PageMissionsMethodes({
                 <span className="mp-texte-doux mp-texte-petit">{m.client_raison_sociale}</span>
               </div>
               <BadgeStatut tonalite={STATUT_MISSION[m.statut].tonalite}>
-                {STATUT_MISSION[m.statut].libelle}
+                {libelleStatutMission(m.statut, langue)}
               </BadgeStatut>
             </li>
           ))}
@@ -57,7 +69,7 @@ export default async function PageMissionsMethodes({
       )}
       {r.ok ? (
         <PaginationCurseur
-          libelle="Pages des missions"
+          libelle={t("Pages des missions", "Engagement pages")}
           hrefSuivante={r.donnees.suivant ? hrefPage(r.donnees.suivant) : null}
           hrefDebut={curseur ? hrefPage() : null}
         />

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { ChampsReconfirmation } from "../../../../components/securite/ChampsReconfirmation";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { Champ } from "../../../../components/ui/Champ";
@@ -19,6 +20,8 @@ type Ouvert = "cle" | "retrait" | null;
  * effacée après l'envoi, jamais réaffichée ni conservée par le navigateur.
  */
 export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
+  const t = useT();
+  const langue = useLangue();
   const [ouvert, setOuvert] = useState<Ouvert>(null);
   const [cle, setCle] = useState("");
   const e = useEnregistrementIa<"cle_api">();
@@ -42,8 +45,11 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
 
   async function enregistrerCle(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const ok = await e.enregistrer(validerCleApi(cle), {
-      succes: `${remplacer ? "Clé du cabinet remplacée" : "Clé du cabinet enregistrée"}. Les associés en sont avertis.`,
+    const ok = await e.enregistrer(validerCleApi(cle, langue), {
+      succes: t(
+        `${remplacer ? "Clé du cabinet remplacée" : "Clé du cabinet enregistrée"}. Les associés en sont avertis.`,
+        `${remplacer ? "Firm key replaced" : "Firm key saved"}. The partners have been notified.`,
+      ),
       exigerConfirmation: true,
     });
     if (ok) {
@@ -57,7 +63,13 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
     ev.preventDefault();
     const ok = await e.enregistrer(
       { ok: true, charge: { cle_api: null } },
-      { succes: "Clé du cabinet retirée. Les associés en sont avertis.", exigerConfirmation: true },
+      {
+        succes: t(
+          "Clé du cabinet retirée. Les associés en sont avertis.",
+          "Firm key removed. The partners have been notified.",
+        ),
+        exigerConfirmation: true,
+      },
     );
     if (ok) {
       setRendreFocus(true);
@@ -70,30 +82,38 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
       <RetourFormulaire erreur={e.f.erreurGlobale} succes={e.f.succes} refAlerte={e.f.refAlerte} />
       <dl className="mp-liste-def">
         <div>
-          <dt>Clé du cabinet</dt>
+          <dt>{t("Clé du cabinet", "Firm key")}</dt>
           <dd>
             {!parametres.cle_configuree
-              ? "Aucune"
-              : `Enregistrée${parametres.cle_modifiee_le ? ` le ${formaterDateHeure(parametres.cle_modifiee_le)}` : ""} ; chiffrée, elle n'est jamais réaffichée.`}
+              ? t("Aucune", "None")
+              : t(
+                  `Enregistrée${parametres.cle_modifiee_le ? ` le ${formaterDateHeure(parametres.cle_modifiee_le)}` : ""} ; chiffrée, elle n'est jamais réaffichée.`,
+                  `Saved${parametres.cle_modifiee_le ? ` on ${formaterDateHeure(parametres.cle_modifiee_le, undefined, langue)}` : ""}; encrypted, it is never shown again.`,
+                )}
           </dd>
         </div>
         <div>
-          <dt>Clé de la plateforme</dt>
+          <dt>{t("Clé de la plateforme", "Platform key")}</dt>
           <dd>
             {parametres.cle_plateforme_disponible
-              ? "Disponible : utilisée quand le cabinet n'a pas de clé."
-              : "Non fournie"}
+              ? t(
+                  "Disponible : utilisée quand le cabinet n'a pas de clé.",
+                  "Available: used when the firm has no key.",
+                )
+              : t("Non fournie", "Not provided")}
           </dd>
         </div>
         <div>
-          <dt>Clé utilisée</dt>
-          <dd>{libelleSourceCle(parametres.source_cle)}</dd>
+          <dt>{t("Clé utilisée", "Key used")}</dt>
+          <dd>{libelleSourceCle(parametres.source_cle, langue)}</dd>
         </div>
       </dl>
       {parametres.cle_configuree ? (
         <p className="mp-texte-petit mp-texte-doux">
-          Si le test de connexion ou une alerte signale une clé illisible, enregistrez-la de nouveau
-          : la clé de la plateforme ne la remplace jamais.
+          {t(
+            "Si le test de connexion ou une alerte signale une clé illisible, enregistrez-la de nouveau : la clé de la plateforme ne la remplace jamais.",
+            "If the connection test or an alert reports an unreadable key, save it again: the platform key never replaces it.",
+          )}
         </p>
       ) : null}
       {ouvert === "cle" ? (
@@ -107,8 +127,15 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
         >
           <Champ
             ref={refCle}
-            libelle={remplacer ? "Nouvelle clé API OpenRouter" : "Clé API OpenRouter"}
-            aide="Créée dans votre compte OpenRouter (rubrique « Keys »). Elle est chiffrée par le serveur et ne sera plus jamais affichée. Les associés sont avertis de tout changement."
+            libelle={
+              remplacer
+                ? t("Nouvelle clé API OpenRouter", "New OpenRouter API key")
+                : t("Clé API OpenRouter", "OpenRouter API key")
+            }
+            aide={t(
+              "Créée dans votre compte OpenRouter (rubrique « Keys »). Elle est chiffrée par le serveur et ne sera plus jamais affichée. Les associés sont avertis de tout changement.",
+              'Created in your OpenRouter account ("Keys" section). It is encrypted by the server and will never be shown again. The partners are notified of any change.',
+            )}
             type="password"
             required
             autoComplete="off"
@@ -129,13 +156,20 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
             motif={
               remplacer ? "remplacer la clé API du cabinet" : "enregistrer la clé API du cabinet"
             }
+            motifEn={remplacer ? "replace the firm's API key" : "save the firm's API key"}
           />
           <div className="mp-actions-formulaire">
-            <Bouton type="submit" chargement={e.f.enCours} texteChargement="Enregistrement…">
-              {remplacer ? "Remplacer la clé" : "Enregistrer la clé"}
+            <Bouton
+              type="submit"
+              chargement={e.f.enCours}
+              texteChargement={t("Enregistrement…", "Saving…")}
+            >
+              {remplacer
+                ? t("Remplacer la clé", "Replace the key")
+                : t("Enregistrer la clé", "Save the key")}
             </Bouton>
             <Bouton variante="secondaire" disabled={e.f.enCours} onClick={() => ouvrir(null)}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
@@ -147,40 +181,51 @@ export function CleApiIa({ parametres }: { parametres: ParametresIa }) {
           noValidate
           onSubmit={retirer}
         >
-          <p className="mp-confirmation__question">Retirer la clé API du cabinet ?</p>
+          <p className="mp-confirmation__question">
+            {t("Retirer la clé API du cabinet ?", "Remove the firm's API key?")}
+          </p>
           <p className="mp-texte-petit">
             {parametres.cle_plateforme_disponible
-              ? "L'IA utilisera alors la clé de la plateforme CabinetPilot."
-              : "Sans autre clé disponible, l'IA passera en mode gabarit."}
+              ? t(
+                  "L'IA utilisera alors la clé de la plateforme CabinetPilot.",
+                  "AI will then use the CabinetPilot platform key.",
+                )
+              : t(
+                  "Sans autre clé disponible, l'IA passera en mode gabarit.",
+                  "With no other key available, AI will switch to template mode.",
+                )}
           </p>
           <ChampsReconfirmation
             saisie={e.confirmation ?? SAISIE_CONFIRMATION_VIDE}
             onChange={e.setConfirmation}
             erreurs={e.f.erreurs}
             motif="retirer la clé API du cabinet"
+            motifEn="remove the firm's API key"
           />
           <div className="mp-actions-formulaire">
             <Bouton
               type="submit"
               variante="danger"
               chargement={e.f.enCours}
-              texteChargement="Retrait…"
+              texteChargement={t("Retrait…", "Removing…")}
             >
-              Oui, retirer la clé
+              {t("Oui, retirer la clé", "Yes, remove the key")}
             </Bouton>
             <Bouton variante="secondaire" disabled={e.f.enCours} onClick={() => ouvrir(null)}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>
       ) : (
         <div className="mp-actions-formulaire">
           <Bouton ref={refOuvrir} icone="cadenas" onClick={() => ouvrir("cle")}>
-            {remplacer ? "Remplacer la clé" : "Enregistrer une clé"}
+            {remplacer
+              ? t("Remplacer la clé", "Replace the key")
+              : t("Enregistrer une clé", "Save a key")}
           </Bouton>
           {parametres.cle_configuree ? (
             <Bouton variante="secondaire" icone="corbeille" onClick={() => ouvrir("retrait")}>
-              Retirer la clé du cabinet
+              {t("Retirer la clé du cabinet", "Remove the firm key")}
             </Bouton>
           ) : null}
         </div>

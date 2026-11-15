@@ -10,9 +10,9 @@ import { EnteteDePage } from "../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import {
   droitsBanqueAo,
+  libelleOrigine,
   libelleSection,
-  LIBELLES_ORIGINE,
-  LIBELLES_STATUT_OFFRE,
+  libelleStatutOffre,
   RACINE_BANQUES,
   SECTIONS_OFFRE_TECHNIQUE,
   tonaliteStatutOffre,
@@ -20,9 +20,13 @@ import {
 } from "../../../../../../lib/banque-ao";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { obtenirSession } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Offre technique" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Offre technique", "Technical bid") };
+}
 
 /** Offre technique : sections de la dernière version, modification, validation humaine. */
 export default async function PageDetailOffreTechnique({
@@ -30,21 +34,26 @@ export default async function PageDetailOffreTechnique({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await obtenirSession();
   const droits = droitsBanqueAo(utilisateur.roles);
   const r = await chargerServeur<OffreTechniqueDetail>(
     `/api/banque-ao/offres-techniques/${encodeURIComponent(id)}`,
   );
-  const retour = { href: `${RACINE_BANQUES}/offres-techniques`, libelle: "Offres techniques" };
+  const retour = {
+    href: `${RACINE_BANQUES}/offres-techniques`,
+    libelle: t("Offres techniques", "Technical bids"),
+  };
   if (!r.ok || !r.donnees.courante) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Offre technique" retour={retour} />
+        <EnteteDePage titre={t("Offre technique", "Technical bid")} retour={retour} />
         <EtatErreur
           hrefReessayer={`${RACINE_BANQUES}/offres-techniques/${encodeURIComponent(id)}`}
-          titre="Cette offre n'a pas pu être chargée."
-          message={r.ok ? "Offre sans version." : r.message}
+          titre={t("Cette offre n'a pas pu être chargée.", "This bid could not be loaded.")}
+          message={r.ok ? t("Offre sans version.", "Bid without a version.") : r.message}
         />
       </div>
     );
@@ -56,29 +65,35 @@ export default async function PageDetailOffreTechnique({
     <div className="mp-page">
       <EnteteDePage
         titre={o.titre}
-        soustitre={`Version ${v.version} — ${LIBELLES_ORIGINE[v.origine]}, ${formaterDate(v.cree_le)}`}
+        soustitre={`Version ${v.version} — ${libelleOrigine(v.origine, langue)}, ${formaterDate(v.cree_le, "UTC", langue)}`}
         retour={retour}
         badges={
           <BadgeStatut tonalite={tonaliteStatutOffre(o.statut)}>
-            {LIBELLES_STATUT_OFFRE[o.statut]}
+            {libelleStatutOffre(o.statut, langue)}
           </BadgeStatut>
         }
       />
       {o.statut !== "validee" ? (
-        <Alerte tonalite="attention" titre="À relire et valider">
-          Ce contenu n&apos;est pas encore validé : il ne doit pas être transmis au client.
+        <Alerte tonalite="attention" titre={t("À relire et valider", "To review and approve")}>
+          {t(
+            "Ce contenu n'est pas encore validé : il ne doit pas être transmis au client.",
+            "This content is not yet approved: it must not be sent to the client.",
+          )}
           {v.chiffres_non_verifies
-            ? ` Nombres cités par l'IA sans source vérifiée : ${v.nombres_non_verifies.join(", ")}.`
+            ? t(
+                ` Nombres cités par l'IA sans source vérifiée : ${v.nombres_non_verifies.join(", ")}.`,
+                ` Numbers cited by the AI without a verified source: ${v.nombres_non_verifies.join(", ")}.`,
+              )
             : ""}
         </Alerte>
       ) : null}
       {SECTIONS_OFFRE_TECHNIQUE.map((cle) => (
-        <Carte key={cle} titre={libelleSection(cle)}>
+        <Carte key={cle} titre={libelleSection(cle, langue)}>
           <p style={{ whiteSpace: "pre-wrap" }}>{v.sections[cle]}</p>
         </Carte>
       ))}
       {droits.gerer && o.statut !== "validee" ? (
-        <Carte titre="Valider la dernière version">
+        <Carte titre={t("Valider la dernière version", "Approve the latest version")}>
           <FormulaireValidationOffre
             offreId={o.id}
             version={v.version}
@@ -88,17 +103,23 @@ export default async function PageDetailOffreTechnique({
         </Carte>
       ) : null}
       {droits.gerer ? (
-        <Carte titre="Modifier (nouvelle version)">
+        <Carte titre={t("Modifier (nouvelle version)", "Edit (new version)")}>
           <FormulaireVersionOffre offreId={o.id} sections={v.sections} />
         </Carte>
       ) : null}
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ul>
           {o.versions.map((x) => (
             <li key={x.id}>
-              Version {x.version} — {LIBELLES_ORIGINE[x.origine]}, {formaterDate(x.cree_le)}
+              Version {x.version} — {libelleOrigine(x.origine, langue)},{" "}
+              {formaterDate(x.cree_le, "UTC", langue)}
               {x.motif ? ` : ${x.motif}` : ""}
-              {x.validation ? ` — validée le ${formaterDate(x.validation.valide_le)}` : ""}
+              {x.validation
+                ? t(
+                    ` — validée le ${formaterDate(x.validation.valide_le)}`,
+                    ` — approved on ${formaterDate(x.validation.valide_le, "UTC", langue)}`,
+                  )
+                : ""}
             </li>
           ))}
         </ul>

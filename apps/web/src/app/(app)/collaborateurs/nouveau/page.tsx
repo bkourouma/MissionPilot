@@ -4,12 +4,17 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import type { Grade } from "../../../../lib/collaborateurs";
+import { obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 import { FormulaireCollaborateur } from "../FormulaireCollaborateur";
 
-export const metadata: Metadata = { title: "Nouveau collaborateur" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Nouveau collaborateur", "New team member") };
+}
 
 export default async function PageNouveauCollaborateur() {
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("collaborateurs.ecrire");
   const grades = aPermission(utilisateur.roles, "catalogue.lire")
     ? await chargerServeur<{ elements: Grade[] }>("/api/grades")
@@ -17,8 +22,8 @@ export default async function PageNouveauCollaborateur() {
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre="Nouveau collaborateur"
-        retour={{ href: "/collaborateurs", libelle: "Collaborateurs" }}
+        titre={t("Nouveau collaborateur", "New team member")}
+        retour={{ href: "/collaborateurs", libelle: t("Collaborateurs", "Team members") }}
       />
       <Carte>
         <FormulaireCollaborateur

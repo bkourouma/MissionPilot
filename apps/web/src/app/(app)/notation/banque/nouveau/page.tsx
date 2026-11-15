@@ -7,11 +7,15 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import { cheminItemBanque, type ItemBanqueDetail } from "../../../../../lib/notation-augmentee";
 import { exigerLectureNotation } from "../../../../../lib/notation-serveur";
 
-export const metadata: Metadata = { title: "Nouvel item de la banque" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Nouvel item de la banque", "New bank item") };
+}
 
 /**
  * Rédaction d'un item (brouillon). Avec `?depuis=<id>`, nouvelle version d'un item existant : le
@@ -23,19 +27,26 @@ export default async function PageNouvelItemBanque({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
   await exigerLectureNotation();
   const q = await searchParams;
   const depuis = typeof q.depuis === "string" && estIdentifiant(q.depuis) ? q.depuis : null;
-  const retour = { href: "/notation/banque", libelle: "Banque d'items" };
+  const retour = { href: "/notation/banque", libelle: t("Banque d'items", "Item bank") };
 
   if (depuis) {
     const r = await chargerServeur<ItemBanqueDetail>(cheminItemBanque(depuis));
     if (!r.ok) {
       return (
         <div className="mp-page">
-          <EnteteDePage titre="Nouvelle version d'un item" retour={retour} />
+          <EnteteDePage
+            titre={t("Nouvelle version d'un item", "New version of an item")}
+            retour={retour}
+          />
           <EtatErreur
-            titre="L'item de départ n'a pas pu être chargé."
+            titre={t(
+              "L'item de départ n'a pas pu être chargé.",
+              "The starting item could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={`/notation/banque/nouveau?depuis=${depuis}`}
           />
@@ -46,11 +57,14 @@ export default async function PageNouvelItemBanque({
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre={`Nouvelle version de « ${item.code} »`}
+          titre={t(`Nouvelle version de « ${item.code} »`, `New version of "${item.code}"`)}
           retour={retour}
-          soustitre={`Préremplie depuis la version ${item.version}. La nouvelle version est un brouillon : un autre expert métier devra la valider, la version actuelle reste en service d'ici là.`}
+          soustitre={t(
+            `Préremplie depuis la version ${item.version}. La nouvelle version est un brouillon : un autre expert métier devra la valider, la version actuelle reste en service d'ici là.`,
+            `Prefilled from version ${item.version}. The new version is a draft: another business expert will have to approve it, and the current version stays in use until then.`,
+          )}
         />
-        <Carte titre="Contenu de la nouvelle version">
+        <Carte titre={t("Contenu de la nouvelle version", "Content of the new version")}>
           <FormulaireItemBanque
             itemId={null}
             base={item.contenu}
@@ -65,11 +79,14 @@ export default async function PageNouvelItemBanque({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Nouvel item"
+        titre={t("Nouvel item", "New item")}
         retour={retour}
-        soustitre="L'item est créé en brouillon. Il ne servira aux questionnaires adaptatifs qu'après validation par un expert métier qui n'en est ni l'auteur ni le dernier modificateur."
+        soustitre={t(
+          "L'item est créé en brouillon. Il ne servira aux questionnaires adaptatifs qu'après validation par un expert métier qui n'en est ni l'auteur ni le dernier modificateur.",
+          "The item is created as a draft. It will be used in adaptive questionnaires only after approval by a business expert who is neither its author nor its last editor.",
+        )}
       />
-      <Carte titre="Contenu de l'item">
+      <Carte titre={t("Contenu de l'item", "Item content")}>
         <FormulaireItemBanque
           itemId={null}
           base={null}

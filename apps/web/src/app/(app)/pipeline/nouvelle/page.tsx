@@ -7,13 +7,18 @@ import {
   chargerPersonnes,
   chargerTypesActifs,
 } from "../../../../lib/referentiels-serveur";
+import { obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 import { FormulaireOpportunite } from "../FormulaireOpportunite";
 
-export const metadata: Metadata = { title: "Nouvelle opportunité" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Nouvelle opportunité", "New opportunity") };
+}
 
 export default async function PageNouvelleOpportunite() {
   const { utilisateur } = await exigerPermission("pipeline.gerer");
+  const t = await obtenirT();
   const [clients, types, personnes] = await Promise.all([
     chargerClientsActifs(utilisateur.roles),
     chargerTypesActifs(utilisateur.roles),
@@ -22,9 +27,12 @@ export default async function PageNouvelleOpportunite() {
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre="Nouvelle opportunité"
-        retour={{ href: "/pipeline", libelle: "Pipeline" }}
-        soustitre="Une piste commerciale : client, montant estimé et probabilité de gain."
+        titre={t("Nouvelle opportunité", "New opportunity")}
+        retour={{ href: "/pipeline", libelle: t("Pipeline", "Pipeline") }}
+        soustitre={t(
+          "Une piste commerciale : client, montant estimé et probabilité de gain.",
+          "A sales lead: client, estimated amount and win probability.",
+        )}
       />
       <Carte>
         <FormulaireOpportunite

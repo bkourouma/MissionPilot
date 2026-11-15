@@ -7,13 +7,14 @@ import {
   telechargerDossierRevue,
   type FormatDossierRevue,
 } from "../../lib/kpi-pilotage";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { Bouton } from "../ui/Bouton";
 
-const FORMATS: readonly (readonly [FormatDossierRevue, string])[] = [
-  ["pdf", "Dossier (PDF)"],
-  ["docx", "Dossier (Word)"],
-  ["pptx", "Présentation (PowerPoint)"],
+const FORMATS: readonly (readonly [FormatDossierRevue, string, string])[] = [
+  ["pdf", "Dossier (PDF)", "File (PDF)"],
+  ["docx", "Dossier (Word)", "File (Word)"],
+  ["pptx", "Présentation (PowerPoint)", "Presentation (PowerPoint)"],
 ];
 
 /**
@@ -22,6 +23,8 @@ const FORMATS: readonly (readonly [FormatDossierRevue, string])[] = [
  * français au lieu d'un JSON brut. Le fichier est remis au navigateur sans être conservé.
  */
 export function BoutonDossierRevue({ revueId, numero }: { revueId: string; numero: number }) {
+  const t = useT();
+  const langue = useLangue();
   const [enCours, setEnCours] = useState<FormatDossierRevue | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -35,7 +38,7 @@ export function BoutonDossierRevue({ revueId, numero }: { revueId: string; numer
     setSucces(null);
     setEnCours(format);
     try {
-      const fichier = await telechargerDossierRevue(revueId, format);
+      const fichier = await telechargerDossierRevue(revueId, format, langue);
       const url = URL.createObjectURL(fichier);
       const lien = document.createElement("a");
       lien.href = url;
@@ -44,9 +47,9 @@ export function BoutonDossierRevue({ revueId, numero }: { revueId: string; numer
       lien.click();
       lien.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setSucces("Dossier téléchargé.");
+      setSucces(t("Dossier téléchargé.", "File downloaded."));
     } catch (e) {
-      setErreur(messagePilotage(e));
+      setErreur(messagePilotage(e, langue));
     } finally {
       setEnCours(null);
     }
@@ -58,20 +61,20 @@ export function BoutonDossierRevue({ revueId, numero }: { revueId: string; numer
         erreur={erreur}
         succes={succes}
         refAlerte={refAlerte}
-        titreErreur="Téléchargement impossible"
+        titreErreur={t("Téléchargement impossible", "Could not download")}
       />
       <div className="mp-actions-formulaire">
-        {FORMATS.map(([format, libelle]) => (
+        {FORMATS.map(([format, libelleFr, libelleEn]) => (
           <Bouton
             key={format}
             variante="secondaire"
             icone="telechargement"
             disabled={enCours !== null && enCours !== format}
             chargement={enCours === format}
-            texteChargement="Préparation…"
+            texteChargement={t("Préparation…", "Preparing…")}
             onClick={() => void telecharger(format)}
           >
-            {libelle}
+            {t(libelleFr, libelleEn)}
           </Bouton>
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLangue, useT } from "../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../components/ui/Alerte";
 import {
   CHEMIN_PLATEFORME,
@@ -9,6 +10,7 @@ import {
   connexionCompteReussie,
   ETAT_DEMO_INITIAL,
   MESSAGE_DEMO_REPONSE_INATTENDUE,
+  MESSAGE_DEMO_REPONSE_INATTENDUE_EN,
   messageErreurDemo,
   transitionDemo,
   type Demo,
@@ -44,6 +46,8 @@ export function ConnexionDemo({
   /** Réponse vérifiée de l'API, transmise à l'automate de la connexion normale. */
   surConnexion: (corps: unknown) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [etat, setEtat] = useState<EtatDemo>(ETAT_DEMO_INITIAL);
   const [filtre, setFiltre] = useState<FiltreComptesDemo>({ espace: "equipe", role: null });
   const [ouverture, setOuverture] = useState<OuvertureDemo>(null);
@@ -101,15 +105,23 @@ export function ConnexionDemo({
     if (occupe) return;
     setErreur(null);
     setOuverture({ type: "compte", email: compte.email });
-    setAnnonce(`Connexion au compte de ${compte.nom} en cours…`);
+    setAnnonce(
+      t(`Connexion au compte de ${compte.nom} en cours…`, `Signing in to ${compte.nom}'s account…`),
+    );
     let corps: unknown;
     try {
       corps = await connecterCompteDemo(cab.id, compte.email);
     } catch (e) {
-      return echec(messageErreurDemo(e));
+      return echec(messageErreurDemo(e, langue));
     }
-    if (!connexionCompteReussie(corps)) return echec(MESSAGE_DEMO_REPONSE_INATTENDUE);
-    setAnnonce(`Session ouverte pour ${compte.nom}. Ouverture de votre espace…`);
+    if (!connexionCompteReussie(corps))
+      return echec(t(MESSAGE_DEMO_REPONSE_INATTENDUE, MESSAGE_DEMO_REPONSE_INATTENDUE_EN));
+    setAnnonce(
+      t(
+        `Session ouverte pour ${compte.nom}. Ouverture de votre espace…`,
+        `Signed in as ${compte.nom}. Opening your workspace…`,
+      ),
+    );
     // La ligne reste en chargement jusqu'à la redirection.
     surConnexion(corps);
   }
@@ -118,29 +130,44 @@ export function ConnexionDemo({
     if (occupe || !demo.superAdmin) return;
     setErreur(null);
     setOuverture({ type: "super_admin" });
-    setAnnonce(`Connexion de ${demo.superAdmin.nom} en cours…`);
+    setAnnonce(
+      t(`Connexion de ${demo.superAdmin.nom} en cours…`, `Signing in ${demo.superAdmin.nom}…`),
+    );
     let reussie: boolean;
     try {
       reussie = await connecterSuperAdminDemo(demo.superAdmin.email);
     } catch (e) {
-      return echec(messageErreurDemo(e));
+      return echec(messageErreurDemo(e, langue));
     }
-    if (!reussie) return echec(MESSAGE_DEMO_REPONSE_INATTENDUE);
+    if (!reussie)
+      return echec(t(MESSAGE_DEMO_REPONSE_INATTENDUE, MESSAGE_DEMO_REPONSE_INATTENDUE_EN));
     setRedirection(true);
-    setAnnonce("Session ouverte. Ouverture de l'espace plateforme…");
+    setAnnonce(
+      t(
+        "Session ouverte. Ouverture de l'espace plateforme…",
+        "Signed in. Opening the platform space…",
+      ),
+    );
     window.location.assign(CHEMIN_PLATEFORME);
   }
 
   return (
     <section className="mp-demo" aria-labelledby="titre-demo" aria-busy={occupe}>
       <h2 id="titre-demo" className="mp-demo__titre">
-        Mode démonstration
+        {t("Mode démonstration", "Demo mode")}
       </h2>
       <p className="mp-texte-doux mp-demo__aide">
-        Un clic ouvre la session du compte choisi, sans mot de passe.
+        {t(
+          "Un clic ouvre la session du compte choisi, sans mot de passe.",
+          "One click opens the chosen account's session, no password needed.",
+        )}
       </p>
       {erreur ? (
-        <Alerte ref={alerte} tonalite="danger" titre="Connexion impossible">
+        <Alerte
+          ref={alerte}
+          tonalite="danger"
+          titre={t("Connexion impossible", "Unable to sign in")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}

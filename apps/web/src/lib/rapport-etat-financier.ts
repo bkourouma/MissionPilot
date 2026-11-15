@@ -6,6 +6,7 @@
  * du consultant, ajouté tel quel. Le rapport est un brouillon à relire avant diffusion. Rien
  * n'est conservé dans le navigateur.
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import { LIMITE_PAGE_MAX } from "./pagination";
 import { messageRapport, type RapportMission } from "./rapports";
@@ -20,6 +21,18 @@ export const FORMATS_ETAT_FINANCIER_LIBELLES: Record<
   pdf: { libelle: "PDF", aide: "Pour lire et imprimer. Rendu plus long : jusqu'à 30 secondes." },
   docx: { libelle: "Word (.docx)", aide: "Document modifiable avant diffusion." },
 };
+
+export const FORMATS_ETAT_FINANCIER_LIBELLES_EN: Record<
+  FormatEtatFinancier,
+  { libelle: string; aide: string }
+> = {
+  pdf: { libelle: "PDF", aide: "For reading and printing. Longer rendering: up to 30 seconds." },
+  docx: { libelle: "Word (.docx)", aide: "Editable document before distribution." },
+};
+
+/** Libellé et aide d'un format dans la langue demandée. */
+export const formatEtatFinancier = (f: FormatEtatFinancier, langue: Langue = "fr") =>
+  (langue === "en" ? FORMATS_ETAT_FINANCIER_LIBELLES_EN : FORMATS_ETAT_FINANCIER_LIBELLES)[f];
 
 export const estFormatEtatFinancier = (v: unknown): v is FormatEtatFinancier =>
   typeof v === "string" && (FORMATS_ETAT_FINANCIER as readonly string[]).includes(v);
@@ -62,6 +75,7 @@ export function lireExercices(saisie: string): number | null {
 }
 
 export const MESSAGE_EXERCICES = `Indiquez un nombre entier d'exercices entre ${EXERCICES_MIN} et ${EXERCICES_MAX}.`;
+export const MESSAGE_EXERCICES_EN = `Enter a whole number of fiscal years between ${EXERCICES_MIN} and ${EXERCICES_MAX}.`;
 
 /** Longueur du commentaire telle que l'API la compte (caractères Unicode, pas unités UTF-16). */
 export function longueurCommentaire(texte: string): number {
@@ -73,15 +87,18 @@ export function commentaireEnvoye(texte: string): string | undefined {
   return texte.trim() === "" ? undefined : texte;
 }
 
-export function erreurCommentaire(texte: string): string | null {
+export function erreurCommentaire(texte: string, langue: Langue = "fr"): string | null {
   return longueurCommentaire(texte) > COMMENTAIRE_MAX
-    ? `Le commentaire est limité à ${COMMENTAIRE_MAX} caractères.`
+    ? creerTraduire(langue)(
+        `Le commentaire est limité à ${COMMENTAIRE_MAX} caractères.`,
+        `The comment is limited to ${COMMENTAIRE_MAX} characters.`,
+      )
     : null;
 }
 
 /** Compteur annoncé : « 12 / 4000 caractères ». */
-export const compteurCommentaire = (texte: string) =>
-  `${longueurCommentaire(texte)} / ${COMMENTAIRE_MAX} caractères`;
+export const compteurCommentaire = (texte: string, langue: Langue = "fr") =>
+  `${longueurCommentaire(texte)} / ${COMMENTAIRE_MAX} ${langue === "en" ? "characters" : "caractères"}`;
 
 export interface DemandeEtatFinancier {
   missionId: string;
@@ -101,12 +118,21 @@ export type ResultatDemande =
   | { ok: false; erreurs: ErreursDemande };
 
 /** Valide la demande puis construit le chemin de POST et le corps. */
-export function construireDemande(clientId: string, d: DemandeEtatFinancier): ResultatDemande {
+export function construireDemande(
+  clientId: string,
+  d: DemandeEtatFinancier,
+  langue: Langue = "fr",
+): ResultatDemande {
+  const t = creerTraduire(langue);
   const erreurs: ErreursDemande = {};
-  if (!d.missionId) erreurs.mission = "Choisissez la mission à laquelle rattacher le rapport.";
+  if (!d.missionId)
+    erreurs.mission = t(
+      "Choisissez la mission à laquelle rattacher le rapport.",
+      "Choose the engagement to attach the report to.",
+    );
   const n = lireExercices(d.exercices);
-  if (n === null) erreurs.exercices = MESSAGE_EXERCICES;
-  const ec = erreurCommentaire(d.commentaire);
+  if (n === null) erreurs.exercices = t(MESSAGE_EXERCICES, MESSAGE_EXERCICES_EN);
+  const ec = erreurCommentaire(d.commentaire, langue);
   if (ec) erreurs.commentaire = ec;
   if (Object.keys(erreurs).length > 0 || n === null) return { ok: false, erreurs };
   const q = new URLSearchParams({
@@ -129,21 +155,38 @@ export const filtrerEtatsFinanciers = (rapports: readonly RapportMission[]): Rap
 export const MESSAGE_AUCUN_ETAT_ACCEPTE =
   "Aucun état financier accepté dans ce dossier : acceptez au moins un état avant de générer le rapport.";
 
+export const MESSAGE_AUCUN_ETAT_ACCEPTE_EN =
+  "No accepted financial statement in this file: accept at least one statement before generating the report.";
+
 /** Message français pour chaque refus de la génération d'un rapport d'état financier. */
-export function messageEtatFinancier(e: unknown): string {
+export function messageEtatFinancier(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
-    if (e.code === "AUCUN_ETAT_ACCEPTE") return MESSAGE_AUCUN_ETAT_ACCEPTE;
+    if (e.code === "AUCUN_ETAT_ACCEPTE")
+      return t(MESSAGE_AUCUN_ETAT_ACCEPTE, MESSAGE_AUCUN_ETAT_ACCEPTE_EN);
     if (e.statut === 400) {
-      return "Demande refusée : la mission choisie n'appartient pas à ce client, ou un paramètre est invalide. Rechargez la page puis réessayez.";
+      return t(
+        "Demande refusée : la mission choisie n'appartient pas à ce client, ou un paramètre est invalide. Rechargez la page puis réessayez.",
+        "Request refused: the chosen engagement does not belong to this client, or a parameter is invalid. Reload the page and try again.",
+      );
     }
     if (e.statut === 403) {
-      return "Votre rôle ne vous permet pas de générer ce rapport pour ce dossier et cette mission.";
+      return t(
+        "Votre rôle ne vous permet pas de générer ce rapport pour ce dossier et cette mission.",
+        "Your role does not allow you to generate this report for this file and engagement.",
+      );
     }
     if (e.statut === 404) {
-      return "Ce dossier ou cette mission est introuvable ou ne vous est plus accessible.";
+      return t(
+        "Ce dossier ou cette mission est introuvable ou ne vous est plus accessible.",
+        "This file or engagement cannot be found or is no longer accessible to you.",
+      );
     }
     if (e.statut === 409)
-      return "La mission est clôturée : plus aucun rapport ne peut être généré.";
+      return t(
+        "La mission est clôturée : plus aucun rapport ne peut être généré.",
+        "The engagement is closed: no more reports can be generated.",
+      );
   }
-  return messageRapport(e);
+  return messageRapport(e, langue);
 }

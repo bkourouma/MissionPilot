@@ -2,12 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { CadreApplication } from "../../components/shell/CadreApplication";
 import { Alerte } from "../../components/ui/Alerte";
+import { obtenirT } from "../../lib/i18n/serveur";
 import { CHEMIN_SECURITE_COMPTE, entreesAutorisees } from "../../lib/navigation";
 import { obtenirSession } from "../../lib/session";
 
 /** Garde serveur : toute page de ce groupe exige une session valide (sinon /connexion). */
 export default async function LayoutApplication({ children }: { children: ReactNode }) {
   const session = await obtenirSession();
+  const t = await obtenirT();
   const { utilisateur } = session;
   return (
     <CadreApplication
@@ -20,12 +22,14 @@ export default async function LayoutApplication({ children }: { children: ReactN
           <Alerte
             tonalite="attention"
             annonce="aucune"
-            titre="Configurez la double authentification"
+            titre={t("Configurez la double authentification", "Set up two-factor authentication")}
           >
             <p>
-              Votre cabinet l&apos;exige pour votre rôle : elle protège l&apos;accès aux données
-              financières et aux clients.{" "}
-              <Link href={CHEMIN_SECURITE_COMPTE}>Activer maintenant</Link>
+              {t(
+                "Votre cabinet l'exige pour votre rôle : elle protège l'accès aux données financières et aux clients.",
+                "Your firm requires it for your role: it protects access to financial and client data.",
+              )}{" "}
+              <Link href={CHEMIN_SECURITE_COMPTE}>{t("Activer maintenant", "Enable now")}</Link>
             </p>
           </Alerte>
         </div>

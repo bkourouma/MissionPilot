@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type Ref } from "react";
+import { useT } from "../../i18n/FournisseurLangue";
 import { Alerte } from "../../ui/Alerte";
 import { Bouton } from "../../ui/Bouton";
 import { Icone } from "../../ui/Icone";
@@ -39,6 +40,7 @@ export interface EnvoiQuestionnaireProps {
  * envoi en deux temps (confirmation explicite : après envoi, plus de modification possible).
  */
 export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
+  const t = useT();
   const idTitre = useId();
   const idConfirmation = useId();
   const refConfirmation = useRef<HTMLParagraphElement>(null);
@@ -54,7 +56,9 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
   return (
     <section className="mp-pq-envoi" aria-labelledby={idTitre}>
       <h2 id={idTitre} className="mp-section__titre">
-        {p.collectif ? "Envoyer la réponse de l'entreprise" : "Envoyer vos réponses"}
+        {p.collectif
+          ? t("Envoyer la réponse de l'entreprise", "Send the company's response")
+          : t("Envoyer vos réponses", "Send your responses")}
       </h2>
       <p className={p.etatAlerte ? "mp-pq-etat mp-pq-etat--alerte" : "mp-pq-etat"}>
         <Icone nom={p.etatAlerte ? "attention" : "nuage"} taille={16} />
@@ -63,7 +67,7 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
       {p.hrefReconnexion ? (
         <p>
           <a href={p.hrefReconnexion} target="_blank" rel="noopener">
-            Se reconnecter dans un nouvel onglet
+            {t("Se reconnecter dans un nouvel onglet", "Sign in again in a new tab")}
           </a>
         </p>
       ) : null}
@@ -73,8 +77,8 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
           annonce="aucune"
           titre={
             n === 1
-              ? "Une question demande votre attention"
-              : `${n} questions demandent votre attention`
+              ? t("Une question demande votre attention", "One question needs your attention")
+              : t(`${n} questions demandent votre attention`, `${n} questions need your attention`)
           }
         >
           <ol className="mp-pq-erreurs">
@@ -96,7 +100,11 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
         </Alerte>
       ) : null}
       {p.erreurEnvoi ? (
-        <Alerte ref={p.refErreurEnvoi} tonalite="danger" titre="Envoi impossible">
+        <Alerte
+          ref={p.refErreurEnvoi}
+          tonalite="danger"
+          titre={t("Envoi impossible", "Sending impossible")}
+        >
           <p>{p.erreurEnvoi}</p>
         </Alerte>
       ) : null}
@@ -108,26 +116,40 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
             tabIndex={-1}
             className="mp-pq-confirmation__titre"
           >
-            {p.collectif ? "Envoyer la réponse de votre entreprise ?" : "Envoyer vos réponses ?"}
+            {p.collectif
+              ? t("Envoyer la réponse de votre entreprise ?", "Send your company's response?")
+              : t("Envoyer vos réponses ?", "Send your responses?")}
           </p>
           <p>
             <strong>
               {p.collectif
-                ? "Après envoi, vous ne pourrez plus modifier la réponse de votre entreprise, vos collègues non plus."
-                : "Après envoi, vous ne pourrez plus modifier vos réponses."}
+                ? t(
+                    "Après envoi, vous ne pourrez plus modifier la réponse de votre entreprise, vos collègues non plus.",
+                    "After sending, you will no longer be able to edit your company's response, and neither will your colleagues.",
+                  )
+                : t(
+                    "Après envoi, vous ne pourrez plus modifier vos réponses.",
+                    "After sending, you will no longer be able to edit your responses.",
+                  )}
             </strong>{" "}
             {p.collectif
-              ? "Elle sera transmise au cabinet, datée et enregistrée à votre nom."
-              : "Elles seront transmises au cabinet, datées et enregistrées à votre nom."}
+              ? t(
+                  "Elle sera transmise au cabinet, datée et enregistrée à votre nom.",
+                  "It will be sent to the firm, dated and recorded in your name.",
+                )
+              : t(
+                  "Elles seront transmises au cabinet, datées et enregistrées à votre nom.",
+                  "They will be sent to the firm, dated and recorded in your name.",
+                )}
           </p>
           <div className="mp-barre-actions">
             <Bouton
               icone="envoyer"
               onClick={p.onConfirmer}
               chargement={p.envoi}
-              texteChargement="Envoi en cours…"
+              texteChargement={t("Envoi en cours…", "Sending…")}
             >
-              Oui, envoyer
+              {t("Oui, envoyer", "Yes, send")}
             </Bouton>
             <Bouton
               variante="secondaire"
@@ -137,7 +159,7 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
                 p.onAnnuler();
               }}
             >
-              Revenir au questionnaire
+              {t("Revenir au questionnaire", "Back to the questionnaire")}
             </Bouton>
           </div>
         </div>
@@ -151,15 +173,17 @@ export function EnvoiQuestionnaire(p: EnvoiQuestionnaireProps) {
               p.onDemander();
             }}
           >
-            {p.collectif ? "Envoyer la réponse…" : "Envoyer mes réponses…"}
+            {p.collectif
+              ? t("Envoyer la réponse…", "Send the response…")
+              : t("Envoyer mes réponses…", "Send my responses…")}
           </Bouton>
           <Bouton
             variante="secondaire"
             onClick={p.onEnregistrer}
             chargement={p.enregistrement}
-            texteChargement="Enregistrement…"
+            texteChargement={t("Enregistrement…", "Saving…")}
           >
-            Enregistrer le brouillon
+            {t("Enregistrer le brouillon", "Save draft")}
           </Bouton>
         </div>
       )}

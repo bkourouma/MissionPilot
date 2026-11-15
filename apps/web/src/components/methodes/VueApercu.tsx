@@ -1,5 +1,5 @@
 import { formaterJours } from "../../lib/format";
-import { libelleClasse, libelleNiveau, ORIGINE_ETAT_LIBELLES } from "../../lib/methodes";
+import { libelleClasse, libelleNiveau, libelleOrigineEtat } from "../../lib/methodes";
 import {
   briqueRelevee,
   creerLibelles,
@@ -17,6 +17,7 @@ import {
   type LibellesApercu,
   type SourcesLibelles,
 } from "../../lib/methodes-apercu";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import { JournalModulation } from "./ResultatModulation";
@@ -36,26 +37,47 @@ function Chiffre({ libelle, valeur }: { libelle: string; valeur: string }) {
 
 /** Synthèse chiffrée, calculée par le moteur : briques, durée type, classes de risque, gardes. */
 function SyntheseChiffree({ a, lib }: { a: ApercuMission; lib: LibellesApercu }) {
+  const t = useT();
+  const langue = useLangue();
   const s = a.synthese;
   const types = Object.entries(s.elements_actifs_par_type);
   return (
-    <Carte titre="Synthèse de la mission">
+    <Carte titre={t("Synthèse de la mission", "Engagement summary")}>
       <div className="mp-pile">
         <dl className="mp-apercu__chiffres">
-          <Chiffre libelle="Briques actives" valeur={String(s.briques_actives)} />
-          <Chiffre libelle="Briques inactives" valeur={String(s.briques_inactives)} />
-          <Chiffre libelle="Durée type totale" valeur={formaterJours(s.temps_type_total_jours)} />
           <Chiffre
-            libelle="Classe de risque la plus haute"
-            valeur={s.classe_max ? libelleClasse(s.classe_max) : "Aucune brique active"}
+            libelle={t("Briques actives", "Active building blocks")}
+            valeur={String(s.briques_actives)}
           />
-          <Chiffre libelle="Briques à quatre yeux" valeur={String(s.briques_quatre_yeux)} />
-          <Chiffre libelle="Briques à signature" valeur={String(s.briques_signature)} />
+          <Chiffre
+            libelle={t("Briques inactives", "Inactive building blocks")}
+            valeur={String(s.briques_inactives)}
+          />
+          <Chiffre
+            libelle={t("Durée type totale", "Total standard duration")}
+            valeur={formaterJours(s.temps_type_total_jours, langue)}
+          />
+          <Chiffre
+            libelle={t("Classe de risque la plus haute", "Highest risk class")}
+            valeur={
+              s.classe_max
+                ? libelleClasse(s.classe_max, langue)
+                : t("Aucune brique active", "No active building block")
+            }
+          />
+          <Chiffre
+            libelle={t("Briques à quatre yeux", "Four-eyes building blocks")}
+            valeur={String(s.briques_quatre_yeux)}
+          />
+          <Chiffre
+            libelle={t("Briques à signature", "Building blocks requiring signature")}
+            valeur={String(s.briques_signature)}
+          />
         </dl>
-        <p>{phraseTemps(s)}</p>
+        <p>{phraseTemps(s, langue)}</p>
         {s.briques_sans_temps.length > 0 ? (
           <p className="mp-texte-doux">
-            Sans temps estimé :{" "}
+            {t("Sans temps estimé :", "No estimated time:")}{" "}
             <span className="mp-methode__code">
               {s.briques_sans_temps.map(lib.brique).join(", ")}
             </span>
@@ -63,12 +85,14 @@ function SyntheseChiffree({ a, lib }: { a: ApercuMission; lib: LibellesApercu })
         ) : null}
         <section aria-labelledby="apercu-classes">
           <h3 id="apercu-classes" className="mp-section__titre">
-            Briques actives par classe de risque
+            {t("Briques actives par classe de risque", "Active building blocks by risk class")}
           </h3>
           <ul className="mp-liste-simple">
             {repartitionParClasse(s).map((c) => (
               <li key={c.classe}>
-                {libelleClasse(c.classe)} : {c.nombre}
+                {libelleClasse(c.classe, langue)}
+                {t(" : ", ": ")}
+                {c.nombre}
               </li>
             ))}
           </ul>
@@ -76,12 +100,14 @@ function SyntheseChiffree({ a, lib }: { a: ApercuMission; lib: LibellesApercu })
         {s.temps_par_etape.length > 0 ? (
           <section aria-labelledby="apercu-temps">
             <h3 id="apercu-temps" className="mp-section__titre">
-              Durée type par étape
+              {t("Durée type par étape", "Standard duration by step")}
             </h3>
             <ul className="mp-liste-simple">
-              {s.temps_par_etape.map((t) => (
-                <li key={t.etape_code}>
-                  {libelleEtapeApercu(a, t.etape_code)} : {formaterJours(t.jours)}
+              {s.temps_par_etape.map((e) => (
+                <li key={e.etape_code}>
+                  {libelleEtapeApercu(a, e.etape_code)}
+                  {t(" : ", ": ")}
+                  {formaterJours(e.jours, langue)}
                 </li>
               ))}
             </ul>
@@ -90,12 +116,14 @@ function SyntheseChiffree({ a, lib }: { a: ApercuMission; lib: LibellesApercu })
         {types.length > 0 ? (
           <section aria-labelledby="apercu-elements-types">
             <h3 id="apercu-elements-types" className="mp-section__titre">
-              Éléments actifs par type
+              {t("Éléments actifs par type", "Active elements by type")}
             </h3>
             <ul className="mp-liste-simple">
               {types.map(([type, n]) => (
                 <li key={type}>
-                  {libelleTypeElement(type)} : {n}
+                  {libelleTypeElement(type, langue)}
+                  {t(" : ", ": ")}
+                  {n}
                 </li>
               ))}
             </ul>
@@ -107,41 +135,45 @@ function SyntheseChiffree({ a, lib }: { a: ApercuMission; lib: LibellesApercu })
 }
 
 function CarteBrique({ b }: { b: BriqueApercu }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <li className={`mp-methode__brique${b.active ? "" : " mp-methode__brique--inactive"}`}>
       <h4 className="mp-methode__brique-titre">{b.libelle}</h4>
       <div className="mp-badges">
         <BadgeStatut tonalite={b.active ? "succes" : "neutre"}>
-          {b.active ? "Active" : "Inactive"}
+          {b.active ? t("Active", "Active") : t("Inactive", "Inactive")}
         </BadgeStatut>
-        <BadgeStatut tonalite="neutre">{ORIGINE_ETAT_LIBELLES[b.origine]}</BadgeStatut>
+        <BadgeStatut tonalite="neutre">{libelleOrigineEtat(b.origine, langue)}</BadgeStatut>
         <BadgeStatut tonalite={tonaliteClasse(b.classe_risque)}>
-          Classe {texteClasseEffective(b)}
+          {t("Classe", "Class")} {texteClasseEffective(b, langue)}
         </BadgeStatut>
       </div>
-      <p className="mp-apercu__explication">{explicationOrigine(b)}</p>
+      <p className="mp-apercu__explication">{explicationOrigine(b, langue)}</p>
       {briqueRelevee(b) ? (
         <p className="mp-apercu__explication">
-          Classe de risque relevée par une règle de contexte : {libelleClasse(b.classe_risque_base)}{" "}
-          par défaut, {libelleClasse(b.classe_risque)} dans ce contexte.
+          {t(
+            `Classe de risque relevée par une règle de contexte : ${libelleClasse(b.classe_risque_base, langue)} par défaut, ${libelleClasse(b.classe_risque, langue)} dans ce contexte.`,
+            `Risk class raised by a context rule: ${libelleClasse(b.classe_risque_base, langue)} by default, ${libelleClasse(b.classe_risque, langue)} in this context.`,
+          )}
         </p>
       ) : null}
       <dl className="mp-liste-def mp-liste-def--compacte">
         <div>
-          <dt>Garde requise</dt>
-          <dd>{texteGardeApercu(b.garde_requise)}</dd>
+          <dt>{t("Garde requise", "Required safeguard")}</dt>
+          <dd>{texteGardeApercu(b.garde_requise, langue)}</dd>
         </div>
         <div>
-          <dt>Autonomie de l&apos;IA au plus</dt>
-          <dd>{libelleNiveau(b.niveau_autonomie_max)}</dd>
+          <dt>{t("Autonomie de l'IA au plus", "AI autonomy at most")}</dt>
+          <dd>{libelleNiveau(b.niveau_autonomie_max, langue)}</dd>
         </div>
         <div>
-          <dt>Temps type</dt>
-          <dd>{texteTempsBrique(b.temps_type_jours)}</dd>
+          <dt>{t("Temps type", "Standard time")}</dt>
+          <dd>{texteTempsBrique(b.temps_type_jours, langue)}</dd>
         </div>
         {b.adaptations.map((x) => (
           <div key={x}>
-            <dt>Adaptation</dt>
+            <dt>{t("Adaptation", "Adaptation")}</dt>
             <dd>{x}</dd>
           </div>
         ))}
@@ -171,21 +203,25 @@ function EtapesEtBriques({ a }: { a: ApercuMission }) {
 }
 
 function ElementsEtAjustements({ a, lib }: { a: ApercuMission; lib: LibellesApercu }) {
+  const t = useT();
+  const langue = useLangue();
   const actifs = a.methode.elements.filter((e) => e.actif);
-  const ajustements = lignesAjustements(a.methode.ajustements, lib);
+  const ajustements = lignesAjustements(a.methode.ajustements, lib, langue);
   return (
     <div className="mp-pile">
       <section aria-labelledby="apercu-elements">
         <h3 id="apercu-elements" className="mp-section__titre">
-          Éléments actifs ({actifs.length})
+          {t(`Éléments actifs (${actifs.length})`, `Active elements (${actifs.length})`)}
         </h3>
-        {actifs.length === 0 ? <p>Aucun élément actif.</p> : null}
+        {actifs.length === 0 ? <p>{t("Aucun élément actif.", "No active element.")}</p> : null}
         <ul className="mp-liste-simple">
           {actifs.map((e) => (
             <li key={`${e.type}-${e.code}`}>
-              {libelleTypeElement(e.type)} — {e.libelle}
-              {e.essentiel ? " · essentiel" : ""}
-              {e.brique_code ? ` · brique ${lib.brique(e.brique_code)}` : ""}
+              {libelleTypeElement(e.type, langue)} — {e.libelle}
+              {e.essentiel ? t(" · essentiel", " · essential") : ""}
+              {e.brique_code
+                ? ` · ${t("brique", "building block")} ${lib.brique(e.brique_code)}`
+                : ""}
             </li>
           ))}
         </ul>
@@ -193,14 +229,17 @@ function ElementsEtAjustements({ a, lib }: { a: ApercuMission; lib: LibellesAper
       {ajustements.length > 0 || a.methode.recommandations_candidates.length > 0 ? (
         <section aria-labelledby="apercu-ajustements">
           <h3 id="apercu-ajustements" className="mp-section__titre">
-            Ajustements décidés par les règles
+            {t("Ajustements décidés par les règles", "Adjustments decided by the rules")}
           </h3>
           <ul className="mp-liste-simple">
             {ajustements.map((l) => (
               <li key={l}>{l}</li>
             ))}
             {a.methode.recommandations_candidates.map((r) => (
-              <li key={r}>Recommandation proposée : {lib.cible(r)}</li>
+              <li key={r}>
+                {t("Recommandation proposée : ", "Suggested recommendation: ")}
+                {lib.cible(r)}
+              </li>
             ))}
           </ul>
         </section>
@@ -210,26 +249,40 @@ function ElementsEtAjustements({ a, lib }: { a: ApercuMission; lib: LibellesAper
 }
 
 function ReglesEtConflits({ a, lib }: { a: ApercuMission; lib: LibellesApercu }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-pile">
       <p>
         {a.regles_declenchees.length === 0
-          ? "Aucune règle de contexte ne se déclenche : la méthode s'applique telle quelle."
-          : `Règles déclenchées (${a.regles_declenchees.length}) : ${a.regles_declenchees.map(lib.regle).join(", ")}.`}
+          ? t(
+              "Aucune règle de contexte ne se déclenche : la méthode s'applique telle quelle.",
+              "No context rule triggers: the method applies as is.",
+            )
+          : t(
+              `Règles déclenchées (${a.regles_declenchees.length}) : ${a.regles_declenchees.map(lib.regle).join(", ")}.`,
+              `Rules triggered (${a.regles_declenchees.length}): ${a.regles_declenchees.map(lib.regle).join(", ")}.`,
+            )}
       </p>
-      <JournalModulation r={a} libelles={lib} />
+      <JournalModulation r={a} libelles={lib} langue={langue} />
       {a.conflits.length > 0 ? (
         <section aria-labelledby="apercu-conflits">
           <h3 id="apercu-conflits" className="mp-section__titre">
-            Conflits entre règles
+            {t("Conflits entre règles", "Conflicts between rules")}
           </h3>
           <ul className="mp-liste-simple">
             {a.conflits.map((c) => (
               <li key={c.cle}>
                 <span className="mp-methode__code">{lib.cle(c.cle)}</span> —{" "}
                 {c.resolu
-                  ? `arbitré en faveur de la règle ${c.regle_retenue ? lib.regle(c.regle_retenue) : "?"}`
-                  : "non résolu : deux règles de même priorité se contredisent, à trancher"}
+                  ? t(
+                      `arbitré en faveur de la règle ${c.regle_retenue ? lib.regle(c.regle_retenue) : "?"}`,
+                      `resolved in favor of the rule ${c.regle_retenue ? lib.regle(c.regle_retenue) : "?"}`,
+                    )
+                  : t(
+                      "non résolu : deux règles de même priorité se contredisent, à trancher",
+                      "unresolved: two rules of the same priority contradict each other, to be decided",
+                    )}
               </li>
             ))}
           </ul>
@@ -249,22 +302,27 @@ export function VueApercu({
   facteurs?: SourcesLibelles["facteurs"];
   regles?: SourcesLibelles["regles"];
 }) {
-  const lib = creerLibelles({
-    briques: a.methode.etapes.flatMap((e) => e.briques),
-    elements: a.methode.elements,
-    facteurs,
-    regles,
-  });
+  const t = useT();
+  const langue = useLangue();
+  const lib = creerLibelles(
+    {
+      briques: a.methode.etapes.flatMap((e) => e.briques),
+      elements: a.methode.elements,
+      facteurs,
+      regles,
+    },
+    langue,
+  );
   return (
     <div className="mp-pile">
       <SyntheseChiffree a={a} lib={lib} />
-      <Carte titre="Étapes et briques">
+      <Carte titre={t("Étapes et briques", "Steps and building blocks")}>
         <EtapesEtBriques a={a} />
       </Carte>
-      <Carte titre="Éléments et ajustements">
+      <Carte titre={t("Éléments et ajustements", "Elements and adjustments")}>
         <ElementsEtAjustements a={a} lib={lib} />
       </Carte>
-      <Carte titre="Règles de contexte déclenchées">
+      <Carte titre={t("Règles de contexte déclenchées", "Context rules triggered")}>
         <ReglesEtConflits a={a} lib={lib} />
       </Carte>
     </div>

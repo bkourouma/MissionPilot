@@ -4,6 +4,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   ACCEPT_INGESTION,
   avecRequete,
@@ -44,11 +45,13 @@ export function TeleversementDocument({
   libelleBouton,
   onCree,
   avantEnvoi,
-  libelleFichier = "Fichier (PDF ou Excel)",
+  libelleFichier,
   children,
   desactive = false,
   usage = "autre",
 }: TeleversementDocumentProps) {
+  const t = useT();
+  const langue = useLangue();
   const [fichier, setFichier] = useState<File | null>(null);
   const [erreurFichier, setErreurFichier] = useState<string | undefined>();
   const [enCours, setEnCours] = useState(false);
@@ -62,7 +65,7 @@ export function TeleversementDocument({
     setEchec(null);
     setSucces(null);
     const champsOk = avantEnvoi ? avantEnvoi() : true;
-    const controle = controlerFichierIngestion(fichier);
+    const controle = controlerFichierIngestion(fichier, langue);
     setErreurFichier(controle.ok ? undefined : controle.message);
     if (!champsOk || !controle.ok || !fichier) return;
     setEnCours(true);
@@ -72,7 +75,10 @@ export function TeleversementDocument({
         onProgression: setProgression,
       });
       setSucces(
-        `« ${doc.nom} » est reçu. Sa lecture se fait en arrière-plan : le statut se met à jour tout seul.`,
+        t(
+          `« ${doc.nom} » est reçu. Sa lecture se fait en arrière-plan : le statut se met à jour tout seul.`,
+          `"${doc.nom}" has been received. It is read in the background: the status updates on its own.`,
+        ),
       );
       setFichier(null);
       setCle((c) => c + 1);
@@ -92,11 +98,11 @@ export function TeleversementDocument({
       {children}
       <Champ
         key={cle}
-        libelle={libelleFichier}
+        libelle={libelleFichier ?? t("Fichier (PDF ou Excel)", "File (PDF or Excel)")}
         type="file"
         required
         accept={ACCEPT_INGESTION}
-        aide={aideTeleversement(usage)}
+        aide={aideTeleversement(usage, langue)}
         onChange={(e) => {
           setFichier(e.target.files?.[0] ?? null);
           setErreurFichier(undefined);
@@ -104,12 +110,12 @@ export function TeleversementDocument({
         erreur={erreurFichier}
       />
       {echec ? (
-        <Alerte tonalite="danger" titre="Envoi refusé">
+        <Alerte tonalite="danger" titre={t("Envoi refusé", "Upload rejected")}>
           <p>{echec}</p>
         </Alerte>
       ) : null}
       {succes ? (
-        <Alerte tonalite="succes" titre="Document reçu">
+        <Alerte tonalite="succes" titre={t("Document reçu", "Document received")}>
           <p>{succes}</p>
         </Alerte>
       ) : null}
@@ -119,7 +125,7 @@ export function TeleversementDocument({
           icone="telechargement"
           disabled={desactive}
           chargement={enCours}
-          texteChargement={`Envoi en cours${pct}…`}
+          texteChargement={`${t("Envoi en cours", "Uploading")}${pct}…`}
         >
           {libelleBouton}
         </Bouton>

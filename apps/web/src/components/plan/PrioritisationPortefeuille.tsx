@@ -24,6 +24,7 @@ import {
   type ReponseProposition,
   type SaisieContraintes,
 } from "../../lib/plan-portefeuille";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher, GroupeCases } from "../ui/CaseACocher";
@@ -54,6 +55,8 @@ export function PrioritisationPortefeuille({
   initiatives,
   arbitrer,
 }: PrioritisationPortefeuilleProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieContraintes>(() => saisieContraintes(poidsDefaut));
   const [erreurs, setErreurs] = useState<Partial<Record<keyof SaisieContraintes, string>>>({});
@@ -88,7 +91,7 @@ export function PrioritisationPortefeuille({
     try {
       return await action();
     } catch (e) {
-      setErreur(messagePortefeuille(e));
+      setErreur(messagePortefeuille(e, langue));
       refErreur.current?.focus();
       return null;
     } finally {
@@ -97,7 +100,7 @@ export function PrioritisationPortefeuille({
   }
 
   async function proposer() {
-    const v = validerContraintes(s, devise);
+    const v = validerContraintes(s, devise, langue);
     setErreurs(v.erreurs);
     if (!v.corps) return;
     const corps = v.corps;
@@ -119,9 +122,12 @@ export function PrioritisationPortefeuille({
       // Erreur sous chaque champ « Motif » manquant, résumée au-dessus du bouton.
       setErreur(null);
       setSucces(null);
-      setErreursMotif(erreursMotifs(v.manquants));
+      setErreursMotif(erreursMotifs(v.manquants, langue));
       setErreurArbitrage(
-        `Motif à saisir pour : ${v.manquants.map((id) => titres.get(id) ?? id).join(", ")}.`,
+        t(
+          `Motif à saisir pour : ${v.manquants.map((id) => titres.get(id) ?? id).join(", ")}.`,
+          `Reason required for: ${v.manquants.map((id) => titres.get(id) ?? id).join(", ")}.`,
+        ),
       );
       const premier = v.manquants[0];
       if (premier) document.getElementById(idMotif(premier))?.focus();
@@ -132,7 +138,12 @@ export function PrioritisationPortefeuille({
     const corps = v.corps;
     const r = await appel(() => api.post(cheminArbitrer(planId), corps));
     if (r) {
-      setSucces("Arbitrage enregistré : proposition du moteur, décision et motifs sont tracés.");
+      setSucces(
+        t(
+          "Arbitrage enregistré : proposition du moteur, décision et motifs sont tracés.",
+          "Prioritization saved: the engine proposal, decision and reasons are recorded.",
+        ),
+      );
       rafraichir();
     }
   }
@@ -147,7 +158,11 @@ export function PrioritisationPortefeuille({
   return (
     <div className="mp-plan__section">
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Opération refusée">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Opération refusée", "Operation refused")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -158,41 +173,51 @@ export function PrioritisationPortefeuille({
       ) : null}
       <div className="mp-grille-champs">
         <Champ
-          libelle={`Budget maximal (${libelleDevise(devise)})`}
+          libelle={t(
+            `Budget maximal (${libelleDevise(devise)})`,
+            `Maximum budget (${libelleDevise(devise)})`,
+          )}
           inputMode="decimal"
-          aide="Vide : sans limite."
+          aide={t("Vide : sans limite.", "Empty: no limit.")}
           {...champ("budget_max")}
         />
         <Champ
-          libelle="Capacité maximale (jours-homme)"
+          libelle={t("Capacité maximale (jours-homme)", "Maximum capacity (person-days)")}
           inputMode="numeric"
-          aide="Vide : sans limite."
+          aide={t("Vide : sans limite.", "Empty: no limit.")}
           {...champ("capacite_max")}
         />
         <Champ
-          libelle="Poids de la valeur (0 à 10)"
+          libelle={t("Poids de la valeur (0 à 10)", "Value weight (0 to 10)")}
           inputMode="numeric"
           {...champ("poids_valeur")}
         />
         <Champ
-          libelle="Poids de l'effort (0 à 10)"
+          libelle={t("Poids de l'effort (0 à 10)", "Effort weight (0 to 10)")}
           inputMode="numeric"
           {...champ("poids_effort")}
         />
-        <Champ libelle="Poids du risque (0 à 10)" inputMode="numeric" {...champ("poids_risque")} />
+        <Champ
+          libelle={t("Poids du risque (0 à 10)", "Risk weight (0 to 10)")}
+          inputMode="numeric"
+          {...champ("poids_risque")}
+        />
       </div>
       {options.length ? (
         <>
           <GroupeCases
-            legende="Initiatives obligatoires"
-            aide="Les initiatives en cours sont retenues d'office."
+            legende={t("Initiatives obligatoires", "Mandatory initiatives")}
+            aide={t(
+              "Les initiatives en cours sont retenues d'office.",
+              "Initiatives in progress are selected by default.",
+            )}
             nom="obligatoires"
             options={options}
             valeurs={s.obligatoires}
             onChange={(v) => setS((x) => ({ ...x, obligatoires: v }))}
           />
           <GroupeCases
-            legende="Initiatives exclues"
+            legende={t("Initiatives exclues", "Excluded initiatives")}
             nom="exclues"
             erreur={erreurs.exclues}
             options={options}
@@ -204,27 +229,38 @@ export function PrioritisationPortefeuille({
       <div className="mp-barre-actions">
         <Bouton
           chargement={enCours}
-          texteChargement="Calcul…"
+          texteChargement={t("Calcul…", "Calculating…")}
           onClick={() => void proposer()}
           disabled={options.length === 0}
         >
-          Calculer la proposition
+          {t("Calculer la proposition", "Compute the proposal")}
         </Bouton>
       </div>
       {reponse ? (
-        <section className="mp-plan__section" aria-label="Proposition du moteur">
-          <h4 className="mp-plan__intertitre">Proposition du moteur</h4>
+        <section
+          className="mp-plan__section"
+          aria-label={t("Proposition du moteur", "Engine proposal")}
+        >
+          <h4 className="mp-plan__intertitre">{t("Proposition du moteur", "Engine proposal")}</h4>
           <p>
-            {`Score total ${formaterNombre(reponse.proposition.totaux.score)} · coût ${formaterMontantMineur(reponse.proposition.totaux.cout, devise)} · charge ${formaterNombre(reponse.proposition.totaux.charge)} j-h`}
+            {t(
+              `Score total ${formaterNombre(reponse.proposition.totaux.score)} · coût ${formaterMontantMineur(reponse.proposition.totaux.cout, devise)} · charge ${formaterNombre(reponse.proposition.totaux.charge)} j-h`,
+              `Total score ${formaterNombre(reponse.proposition.totaux.score, 2, langue)} · cost ${formaterMontantMineur(reponse.proposition.totaux.cout, devise, langue)} · workload ${formaterNombre(reponse.proposition.totaux.charge, 2, langue)} person-days`,
+            )}
             {reponse.proposition.optimal
               ? ""
-              : " · recherche interrompue : meilleure solution trouvée"}
+              : t(
+                  " · recherche interrompue : meilleure solution trouvée",
+                  " · search interrupted: best solution found",
+                )}
           </p>
           {reponse.proposition.realisable ? null : (
             <Alerte tonalite="attention" annonce="aucune">
               <p>
-                Les initiatives obligatoires dépassent une contrainte ou dépendent d&apos;une
-                initiative exclue.
+                {t(
+                  "Les initiatives obligatoires dépassent une contrainte ou dépendent d'une initiative exclue.",
+                  "Mandatory initiatives exceed a constraint or depend on an excluded initiative.",
+                )}
               </p>
             </Alerte>
           )}
@@ -233,8 +269,8 @@ export function PrioritisationPortefeuille({
               <li key={d.id}>
                 {arbitrer ? (
                   <CaseACocher
-                    libelle={`${titres.get(d.id) ?? d.id} — score ${d.score}`}
-                    aide={libelleMotifMoteur(d.motif)}
+                    libelle={`${titres.get(d.id) ?? d.id} — ${t("score", "score")} ${d.score}`}
+                    aide={libelleMotifMoteur(d.motif, langue)}
                     checked={choisies.includes(d.id)}
                     onChange={(e) =>
                       setChoisies((c) =>
@@ -243,12 +279,15 @@ export function PrioritisationPortefeuille({
                     }
                   />
                 ) : (
-                  `${titres.get(d.id) ?? d.id} — score ${d.score} — ${d.retenue ? "retenue" : "écartée"} (${libelleMotifMoteur(d.motif)})`
+                  `${titres.get(d.id) ?? d.id} — ${t("score", "score")} ${d.score} — ${d.retenue ? t("retenue", "selected") : t("écartée", "dropped")} (${libelleMotifMoteur(d.motif, langue)})`
                 )}
                 {arbitrer && ecarts.has(d.id) ? (
                   <Champ
                     id={idMotif(d.id)}
-                    libelle={`Motif de l'écart pour « ${titres.get(d.id) ?? d.id} »`}
+                    libelle={t(
+                      `Motif de l'écart pour « ${titres.get(d.id) ?? d.id} »`,
+                      `Reason for the deviation for \u201c${titres.get(d.id) ?? d.id}\u201d`,
+                    )}
                     required
                     maxLength={1000}
                     erreur={erreurMotif(erreursMotif, motifs, d.id)}
@@ -261,13 +300,16 @@ export function PrioritisationPortefeuille({
           </ul>
           {reponse.non_evaluees.length ? (
             <p className="mp-texte-doux mp-texte-petit">
-              {`Non évaluées, donc hors proposition : ${reponse.non_evaluees.map((id) => titres.get(id) ?? id).join(", ")}.`}
+              {t(
+                `Non évaluées, donc hors proposition : ${reponse.non_evaluees.map((id) => titres.get(id) ?? id).join(", ")}.`,
+                `Not assessed, so excluded from the proposal: ${reponse.non_evaluees.map((id) => titres.get(id) ?? id).join(", ")}.`,
+              )}
             </p>
           ) : null}
           {arbitrer ? (
             <>
               <ZoneTexte
-                libelle="Commentaire de l'arbitrage"
+                libelle={t("Commentaire de l'arbitrage", "Prioritization comment")}
                 rows={2}
                 maxLength={2000}
                 value={commentaire}
@@ -282,16 +324,19 @@ export function PrioritisationPortefeuille({
                 <Bouton
                   variante="primaire"
                   chargement={enCours}
-                  texteChargement="Enregistrement…"
+                  texteChargement={t("Enregistrement…", "Saving…")}
                   onClick={() => void enregistrer()}
                 >
-                  Enregistrer l&apos;arbitrage
+                  {t("Enregistrer l'arbitrage", "Save the prioritization")}
                 </Bouton>
               </div>
             </>
           ) : (
             <p className="mp-texte-doux mp-texte-petit">
-              L&apos;arbitrage est réservé aux responsables de la mission qui valident le plan.
+              {t(
+                "L'arbitrage est réservé aux responsables de la mission qui valident le plan.",
+                "Prioritization is restricted to engagement leads who approve the plan.",
+              )}
             </p>
           )}
         </section>

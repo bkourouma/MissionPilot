@@ -8,6 +8,7 @@
  * rechargement, il est repris tant que la feuille reste modifiable. Rien d'autre que la saisie
  * (identifiants de tâches et valeurs) n'est conservé dans le navigateur.
  */
+import type { Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 
 /** Sous-ensemble de `localStorage`, injectable pour les tests. */
@@ -127,3 +128,15 @@ export const MESSAGE_SYNCHRO: Record<EtatSynchro, string> = {
     "Hors connexion : votre saisie est gardée sur cet appareil et sera envoyée dès le retour du réseau.",
   refuse: "Enregistrement refusé : corrigez la saisie signalée.",
 };
+
+export const MESSAGE_SYNCHRO_EN: Record<EtatSynchro, string> = {
+  a_jour: "Draft saved.",
+  modifie: "Changes in progress…",
+  enregistrement: "Saving the draft…",
+  hors_ligne:
+    "Offline: your entry is kept on this device and will be sent as soon as the network returns.",
+  refuse: "Save refused: correct the flagged entry.",
+};
+
+export const messageSynchro = (e: EtatSynchro, langue: Langue = "fr") =>
+  (langue === "en" ? MESSAGE_SYNCHRO_EN : MESSAGE_SYNCHRO)[e];

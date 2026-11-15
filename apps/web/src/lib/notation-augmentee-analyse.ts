@@ -7,7 +7,13 @@ import type {
   CombinaisonsNotation,
   EtapeCombinaison,
 } from "./notation-augmentee-types";
-import { aPermission, type Role } from "@missionpilot/shared";
+import {
+  aPermission,
+  creerTraduire,
+  LOCALES_INTL,
+  type Langue,
+  type Role,
+} from "@missionpilot/shared";
 import { type Classe, type TonaliteNotation } from "./notation";
 import { type Resultat } from "./saisie";
 
@@ -63,10 +69,21 @@ export function lireStatutBanque(v: string | string[] | undefined): "brouillon" 
 }
 
 /** Saisie de la capacité avant l'enregistrement d'un plan. */
-export function validerCapacite(saisie: string): Resultat<{ capacite: number }, "capacite"> {
+export function validerCapacite(
+  saisie: string,
+  langue: Langue = "fr",
+): Resultat<{ capacite: number }, "capacite"> {
   const x = Number(saisie.trim());
   if (saisie.trim() === "" || !Number.isInteger(x) || x < 1 || x > 100) {
-    return { ok: false, erreurs: { capacite: "Entier de 1 à 100 attendu." } };
+    return {
+      ok: false,
+      erreurs: {
+        capacite: creerTraduire(langue)(
+          "Entier de 1 à 100 attendu.",
+          "Integer from 1 to 100 expected.",
+        ),
+      },
+    };
   }
   return { ok: true, charge: { capacite: x } };
 }
@@ -82,6 +99,18 @@ export const NIVEAUX_CONFIANCE: Record<
   insuffisante: { libelle: "Confiance insuffisante : publication impossible", tonalite: "danger" },
 };
 
+export const NIVEAUX_CONFIANCE_EN: Record<
+  NiveauConfiance,
+  { libelle: string; tonalite: TonaliteNotation }
+> = {
+  elevee: { libelle: "High confidence", tonalite: "succes" },
+  suffisante: { libelle: "Sufficient confidence", tonalite: "attention" },
+  insuffisante: { libelle: "Insufficient confidence: publication impossible", tonalite: "danger" },
+};
+
+export const detailNiveauConfiance = (n: NiveauConfiance, langue: Langue = "fr") =>
+  (langue === "en" ? NIVEAUX_CONFIANCE_EN : NIVEAUX_CONFIANCE)[n];
+
 export const GRAVITES_CONSTAT: Record<
   ConstatPerception["gravite"],
   { libelle: string; tonalite: TonaliteNotation }
@@ -90,6 +119,17 @@ export const GRAVITES_CONSTAT: Record<
   notable: { libelle: "Écart notable", tonalite: "attention" },
 };
 
+export const GRAVITES_CONSTAT_EN: Record<
+  ConstatPerception["gravite"],
+  { libelle: string; tonalite: TonaliteNotation }
+> = {
+  majeur: { libelle: "Major gap", tonalite: "danger" },
+  notable: { libelle: "Notable gap", tonalite: "attention" },
+};
+
+export const detailGraviteConstat = (g: ConstatPerception["gravite"], langue: Langue = "fr") =>
+  (langue === "en" ? GRAVITES_CONSTAT_EN : GRAVITES_CONSTAT)[g];
+
 export const SOURCES_IMPACT: Record<SourceImpact, string> = {
   contexte_semblable: "Contextes semblables (secteur et taille)",
   secteur: "Même secteur",
@@ -97,6 +137,17 @@ export const SOURCES_IMPACT: Record<SourceImpact, string> = {
   general: "Tous contextes",
   aucun: "Aucune observation",
 };
+
+export const SOURCES_IMPACT_EN: Record<SourceImpact, string> = {
+  contexte_semblable: "Similar contexts (sector and size)",
+  secteur: "Same sector",
+  taille: "Same size",
+  general: "All contexts",
+  aucun: "No observation",
+};
+
+export const libelleSourceImpact = (s: SourceImpact, langue: Langue = "fr") =>
+  (langue === "en" ? SOURCES_IMPACT_EN : SOURCES_IMPACT)[s];
 
 /** Ratio 0-1 affiché en pour-cent entier (« 81 % »). */
 export function formaterRatio(v: number | null | undefined): string {
@@ -108,9 +159,9 @@ export function formaterRatio(v: number | null | undefined): string {
  * Points signés au centième, en français (« +3,50 », « −1,20 », « 0,00 ») : arrondi d'abord, signe
  * ensuite (un écart de −0,004 s'affiche « 0,00 », jamais « −0,00 »).
  */
-export function formaterPointsSignes(v: number): string {
+export function formaterPointsSignes(v: number, langue: Langue = "fr"): string {
   const centiemes = Math.round(Math.abs(v) * 100);
-  const absolu = (centiemes / 100).toLocaleString("fr-FR", {
+  const absolu = (centiemes / 100).toLocaleString(LOCALES_INTL[langue], {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -119,16 +170,29 @@ export function formaterPointsSignes(v: number): string {
 }
 
 /** Phrase de synthèse du simulateur. */
-export function phraseSimulation(s: SimulationPassage): string {
-  if (s.deja_atteinte) return `La classe ${s.cible} est déjà atteinte.`;
+export function phraseSimulation(s: SimulationPassage, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  const nb = (v: number) => v.toLocaleString(LOCALES_INTL[langue]);
+  if (s.deja_atteinte) {
+    return t(`La classe ${s.cible} est déjà atteinte.`, `Class ${s.cible} is already reached.`);
+  }
   if (s.tronquee) {
-    return `La simulation a été interrompue (trop de paliers à relever) avant la classe ${s.cible} : score projeté ${s.score_projete.toLocaleString("fr-FR")}, résultat partiel.`;
+    return t(
+      `La simulation a été interrompue (trop de paliers à relever) avant la classe ${s.cible} : score projeté ${nb(s.score_projete)}, résultat partiel.`,
+      `The simulation was interrupted (too many steps to raise) before class ${s.cible}: projected score ${nb(s.score_projete)}, partial result.`,
+    );
   }
   if (!s.atteignable) {
-    return `La classe ${s.cible} n'est pas atteignable en relevant les seules pratiques répondues : score projeté ${s.score_projete.toLocaleString("fr-FR")}.`;
+    return t(
+      `La classe ${s.cible} n'est pas atteignable en relevant les seules pratiques répondues : score projeté ${nb(s.score_projete)}.`,
+      `Class ${s.cible} cannot be reached by raising only the practices already answered: projected score ${nb(s.score_projete)}.`,
+    );
   }
   const n = s.etapes.length;
-  return `Pour passer de ${s.classe_actuelle} à ${s.cible} (seuil ${s.seuil}), relever ${n} pratique${n > 1 ? "s" : ""} : score projeté ${s.score_projete.toLocaleString("fr-FR")} (classe ${s.classe_projetee}).`;
+  return t(
+    `Pour passer de ${s.classe_actuelle} à ${s.cible} (seuil ${s.seuil}), relever ${n} pratique${n > 1 ? "s" : ""} : score projeté ${nb(s.score_projete)} (classe ${s.classe_projetee}).`,
+    `To go from ${s.classe_actuelle} to ${s.cible} (threshold ${s.seuil}), raise ${n} practice${n > 1 ? "s" : ""}: projected score ${nb(s.score_projete)} (class ${s.classe_projetee}).`,
+  );
 }
 
 /** Avertissement quand la recherche de combinaisons a été interrompue par une borne. */
@@ -136,23 +200,43 @@ export const AVERTISSEMENT_RECHERCHE_TRONQUEE =
   "La recherche a été interrompue par une limite de calcul : la liste des combinaisons est " +
   "partielle et ne prouve pas qu'il n'en existe pas d'autre.";
 
+export const AVERTISSEMENT_RECHERCHE_TRONQUEE_EN =
+  "The search was interrupted by a computation limit: the list of combinations is " +
+  "partial and does not prove that no other exists.";
+
 /** Phrase de synthèse des combinaisons minimales ; jamais « impossible » quand la recherche est tronquée. */
-export function phraseCombinaisons(c: CombinaisonsNotation): string {
-  if (c.deja_atteinte) return `La classe ${c.cible} est déjà atteinte.`;
+export function phraseCombinaisons(c: CombinaisonsNotation, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  const nb = (v: number) => v.toLocaleString(LOCALES_INTL[langue]);
+  if (c.deja_atteinte) {
+    return t(`La classe ${c.cible} est déjà atteinte.`, `Class ${c.cible} is already reached.`);
+  }
   if (c.atteignable && c.nombre_minimal_pratiques !== null) {
     const n = c.nombre_minimal_pratiques;
-    return `Il suffit d'améliorer ${n} pratique${n > 1 ? "s" : ""} pour passer de ${c.classe_actuelle} à ${c.cible} (seuil ${c.seuil.toLocaleString("fr-FR")}, ${c.gain_necessaire.toLocaleString("fr-FR")} point${c.gain_necessaire >= 2 ? "s" : ""} à gagner).`;
+    return t(
+      `Il suffit d'améliorer ${n} pratique${n > 1 ? "s" : ""} pour passer de ${c.classe_actuelle} à ${c.cible} (seuil ${nb(c.seuil)}, ${nb(c.gain_necessaire)} point${c.gain_necessaire >= 2 ? "s" : ""} à gagner).`,
+      `Improving ${n} practice${n > 1 ? "s" : ""} is enough to go from ${c.classe_actuelle} to ${c.cible} (threshold ${nb(c.seuil)}, ${nb(c.gain_necessaire)} point${c.gain_necessaire >= 2 ? "s" : ""} to gain).`,
+    );
   }
   if (c.tronquee) {
-    return `Aucune combinaison n'a été trouvée vers la classe ${c.cible} dans les limites de la recherche : cela ne prouve pas que c'est impossible.`;
+    return t(
+      `Aucune combinaison n'a été trouvée vers la classe ${c.cible} dans les limites de la recherche : cela ne prouve pas que c'est impossible.`,
+      `No combination was found toward class ${c.cible} within the search limits: this does not prove it is impossible.`,
+    );
   }
-  return `Aucune combinaison de pratiques déjà répondues ne permet d'atteindre la classe ${c.cible}.`;
+  return t(
+    `Aucune combinaison de pratiques déjà répondues ne permet d'atteindre la classe ${c.cible}.`,
+    `No combination of practices already answered can reach class ${c.cible}.`,
+  );
 }
 
 /** Ligne d'une pratique d'une combinaison : « Question » : de 50 à 100 points (+1,33 sur la note). */
-export function libelleEtapeCombinaison(x: EtapeCombinaison): string {
-  const nombre = (v: number) => v.toLocaleString("fr-FR");
-  return `« ${x.question} » : de ${nombre(x.points_avant)} à ${nombre(x.points_apres)} points (${formaterPointsSignes(x.gain)} sur la note)`;
+export function libelleEtapeCombinaison(x: EtapeCombinaison, langue: Langue = "fr"): string {
+  const nombre = (v: number) => v.toLocaleString(LOCALES_INTL[langue]);
+  return creerTraduire(langue)(
+    `« ${x.question} » : de ${nombre(x.points_avant)} à ${nombre(x.points_apres)} points (${formaterPointsSignes(x.gain, langue)} sur la note)`,
+    `"${x.question}": from ${nombre(x.points_avant)} to ${nombre(x.points_apres)} points (${formaterPointsSignes(x.gain, langue)} on the score)`,
+  );
 }
 
 /** Génération d'un commentaire IA : `notation.gerer` ET `ia.utiliser`, mission non clôturée. */

@@ -10,17 +10,19 @@
  */
 import {
   aPermission,
+  creerTraduire,
   grilleNotationSchema,
   identifiantGrilleSchema,
   type GrilleNotationCreation,
   type GrilleNotationDonnees,
+  type Langue,
   type Role,
 } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import { formaterNombre } from "./format";
 import { estExpertPublieur, libelleFamille, messageNotation } from "./notation";
 import type { Personne } from "./personnes";
-import type { Resultat } from "./saisie";
+import { normaliserNombreSaisi, type Resultat } from "./saisie";
 
 // --- Types des réponses de l'API ------------------------------------------------------------
 
@@ -84,8 +86,15 @@ export const ORIGINES: Record<OrigineGrille, string> = {
   cabinet: "Saisie par le cabinet",
 };
 
-export const libelleOrigine = (o: string) =>
-  (ORIGINES as Record<string, string>)[o] ?? "Origine inconnue";
+export const ORIGINES_EN: Record<OrigineGrille, string> = {
+  generique: "Copy of the generic framework",
+  copie: "Copy of a firm framework",
+  cabinet: "Entered by the firm",
+};
+
+export const libelleOrigine = (o: string, langue: Langue = "fr") =>
+  ((langue === "en" ? ORIGINES_EN : ORIGINES) as Record<string, string>)[o] ??
+  (langue === "en" ? "Unknown origin" : "Origine inconnue");
 
 export const STATUTS_GRILLE: Record<
   StatutVersionGrille,
@@ -95,18 +104,32 @@ export const STATUTS_GRILLE: Record<
   valide: { libelle: "Validée (figée)", tonalite: "succes" },
 };
 
-export const libelleStatutGrille = (s: string) =>
-  (STATUTS_GRILLE as Record<string, { libelle: string }>)[s]?.libelle ?? "Statut inconnu";
+export const STATUTS_GRILLE_EN: Record<
+  StatutVersionGrille,
+  { libelle: string; tonalite: "succes" | "neutre" }
+> = {
+  brouillon: { libelle: "Draft", tonalite: "neutre" },
+  valide: { libelle: "Approved (locked)", tonalite: "succes" },
+};
+
+export const libelleStatutGrille = (s: string, langue: Langue = "fr") =>
+  ((langue === "en" ? STATUTS_GRILLE_EN : STATUTS_GRILLE) as Record<string, { libelle: string }>)[s]
+    ?.libelle ?? (langue === "en" ? "Unknown status" : "Statut inconnu");
 
 /** Auteur d'une version : « vous », le nom connu, sinon un libellé neutre. */
 export function nomAuteurGrille(
   id: string | null | undefined,
   moiId: string,
   personnes: readonly Personne[],
+  langue: Langue = "fr",
 ): string {
+  const t = creerTraduire(langue);
   if (!id) return "—";
-  if (id === moiId) return "vous";
-  return personnes.find((p) => p.utilisateur_id === id)?.nom ?? "un membre du cabinet";
+  if (id === moiId) return t("vous", "you");
+  return (
+    personnes.find((p) => p.utilisateur_id === id)?.nom ??
+    t("un membre du cabinet", "a firm member")
+  );
 }
 
 // --- Chemins ----------------------------------------------------------------------------------
@@ -157,18 +180,24 @@ export function droitsVersionGrille(
   roles: readonly Role[],
   utilisateurId: string,
   v: Pick<VersionGrilleResume, "statut" | "cree_par" | "modifie_par">,
+  langue: Langue = "fr",
 ): DroitsVersionGrille {
+  const t = creerTraduire(langue);
   const brouillon = v.statut === "brouillon";
   const redige = aPermission(roles, "notation.gerer") || aPermission(roles, "notation.publier");
   const expert = estExpertPublieur(roles);
   const auteur = v.cree_par === utilisateurId || v.modifie_par === utilisateurId;
   let explicationValidation: string | null = null;
   if (brouillon && !expert) {
-    explicationValidation =
-      "La validation d'une version de grille revient à un expert métier du cabinet : votre rôle permet de la préparer, pas de la valider.";
+    explicationValidation = t(
+      "La validation d'une version de grille revient à un expert métier du cabinet : votre rôle permet de la préparer, pas de la valider.",
+      "Approving a framework version is up to a business expert of the firm: your role allows you to prepare it, not to approve it.",
+    );
   } else if (brouillon && auteur) {
-    explicationValidation =
-      "Vous avez rédigé ou modifié ce brouillon : un autre expert métier doit le relire et le valider (séparation des tâches).";
+    explicationValidation = t(
+      "Vous avez rédigé ou modifié ce brouillon : un autre expert métier doit le relire et le valider (séparation des tâches).",
+      "You wrote or edited this draft: another business expert must review and approve it (separation of duties).",
+    );
   }
   return {
     modifier: brouillon && redige,
@@ -176,7 +205,10 @@ export function droitsVersionGrille(
     explicationValidation,
     avertissementModification:
       brouillon && expert && !auteur
-        ? "Si vous enregistrez une modification, vous en deviendrez le dernier modificateur : un autre expert métier devra alors valider cette version."
+        ? t(
+            "Si vous enregistrez une modification, vous en deviendrez le dernier modificateur : un autre expert métier devra alors valider cette version.",
+            "If you save a change, you become its last editor: another business expert will then have to approve this version.",
+          )
         : null,
   };
 }
@@ -193,6 +225,9 @@ export interface SaisieCreationGrille {
 export const MESSAGE_CODE_GRILLE =
   "Code : lettres minuscules sans accent, chiffres, « _ », « . » ou « - », 80 caractères au plus, en commençant par une lettre ou un chiffre (ex. grille_industrie).";
 
+export const MESSAGE_CODE_GRILLE_EN =
+  'Code: lowercase letters without accents, digits, "_", "." or "-", 80 characters at most, starting with a letter or a digit (e.g. industry_framework).';
+
 /** Code proposé à partir d'un titre : « Grille Industrie 2027 » → « grille_industrie_2027 ». */
 export function codeDepuisTitre(titre: string): string {
   return titre
@@ -206,15 +241,28 @@ export function codeDepuisTitre(titre: string): string {
 
 export function validerCreationGrille(
   s: SaisieCreationGrille,
+  langue: Langue = "fr",
 ): Resultat<GrilleNotationCreation, "code" | "titre" | "grilleId"> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"code" | "titre" | "grilleId", string>> = {};
   const code = s.code.trim();
-  if (code === "") erreurs.code = "Le code de la grille est obligatoire.";
-  else if (!identifiantGrilleSchema.safeParse(code).success) erreurs.code = MESSAGE_CODE_GRILLE;
+  if (code === "") {
+    erreurs.code = t("Le code de la grille est obligatoire.", "The framework code is required.");
+  } else if (!identifiantGrilleSchema.safeParse(code).success) {
+    erreurs.code = langue === "en" ? MESSAGE_CODE_GRILLE_EN : MESSAGE_CODE_GRILLE;
+  }
   const titre = s.titre.trim();
-  if (titre.length > 200) erreurs.titre = "Le titre ne doit pas dépasser 200 caractères.";
+  if (titre.length > 200) {
+    erreurs.titre = t(
+      "Le titre ne doit pas dépasser 200 caractères.",
+      "The title must not exceed 200 characters.",
+    );
+  }
   if (s.source === "copie" && s.grilleId === "") {
-    erreurs.grilleId = "Choisissez la grille du cabinet à copier.";
+    erreurs.grilleId = t(
+      "Choisissez la grille du cabinet à copier.",
+      "Choose the firm framework to copy.",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -271,7 +319,7 @@ export const POIDS_MAX = 10_000;
  * `Number.NaN` si invalide.
  */
 export function lirePoids(v: string): number | null {
-  const brut = v.replace(/\s/g, "").replace(",", ".");
+  const brut = normaliserNombreSaisi(v);
   if (brut === "") return null;
   if (!/^\d+(\.\d{1,2})?$/.test(brut)) return Number.NaN;
   const n = Number(brut);
@@ -306,13 +354,22 @@ export interface TotauxEdition {
 type DimensionsGrille = GrilleNotationDonnees["dimensions"];
 
 /** Sommes affichées en direct pendant la saisie. */
-export function totauxEdition(dimensions: DimensionsGrille, e: EditionGrille): TotauxEdition {
+export function totauxEdition(
+  dimensions: DimensionsGrille,
+  e: EditionGrille,
+  langue: Langue = "fr",
+): TotauxEdition {
   const defaut = (id: string) => lirePoids(e.poids[id] ?? "");
   const familles: TotalFamille[] = [];
   for (const d of dimensions) {
     let f = familles.find((x) => x.famille === d.famille);
     if (!f) {
-      f = { famille: d.famille, libelle: libelleFamille(d.famille), dimensions: [], total: 0 };
+      f = {
+        famille: d.famille,
+        libelle: libelleFamille(d.famille, langue),
+        dimensions: [],
+        total: 0,
+      };
       familles.push(f);
     }
     f.dimensions.push({ id: d.id, libelle: d.libelle });
@@ -344,18 +401,44 @@ export const SOMME_CIBLE = 100;
 export const sommeConforme = (total: number | null) => total !== null && total === SOMME_CIBLE;
 
 /** Texte de la somme affichée en direct (annoncé poliment aux lecteurs d'écran). */
-export function messageSomme(total: number | null, portee: string): string {
-  if (total === null) return `${portee} : somme incalculable, corrigez les poids signalés.`;
-  const texte = formaterNombre(total, 2);
-  if (sommeConforme(total)) return `${portee} : somme ${texte} sur 100, conforme.`;
-  return `${portee} : somme ${texte} au lieu de 100. Le moteur ramènera ces poids à 100 en proportion ; visez 100 pour une lecture directe.`;
+export function messageSomme(total: number | null, portee: string, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (total === null) {
+    return t(
+      `${portee} : somme incalculable, corrigez les poids signalés.`,
+      `${portee}: sum cannot be computed, fix the flagged weights.`,
+    );
+  }
+  const texte = formaterNombre(total, 2, langue);
+  if (sommeConforme(total)) {
+    return t(
+      `${portee} : somme ${texte} sur 100, conforme.`,
+      `${portee}: sum ${texte} out of 100, compliant.`,
+    );
+  }
+  return t(
+    `${portee} : somme ${texte} au lieu de 100. Le moteur ramènera ces poids à 100 en proportion ; visez 100 pour une lecture directe.`,
+    `${portee}: sum ${texte} instead of 100. The engine will scale these weights to 100 proportionally; aim for 100 for a direct reading.`,
+  );
 }
 
 /** Sous-total d'une famille : la part de la famille dans le total, sans cible propre. */
-export function messageSousTotal(total: number | null, famille: string): string {
-  if (total === null)
-    return `Sous-total « ${famille} » : incalculable, corrigez les poids signalés.`;
-  return `Sous-total « ${famille} » : ${formaterNombre(total, 2)}.`;
+export function messageSousTotal(
+  total: number | null,
+  famille: string,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  if (total === null) {
+    return t(
+      `Sous-total « ${famille} » : incalculable, corrigez les poids signalés.`,
+      `Subtotal "${famille}": cannot be computed, fix the flagged weights.`,
+    );
+  }
+  return t(
+    `Sous-total « ${famille} » : ${formaterNombre(total, 2)}.`,
+    `Subtotal "${famille}": ${formaterNombre(total, 2, langue)}.`,
+  );
 }
 
 export type CleErreurGrille = string;
@@ -369,41 +452,63 @@ export type CleErreurGrille = string;
 export function contenuDepuisEdition(
   origine: GrilleNotationDonnees,
   e: EditionGrille,
+  langue: Langue = "fr",
 ): Resultat<GrilleNotationDonnees, CleErreurGrille> {
+  const t = creerTraduire(langue);
+  const messagePoids = langue === "en" ? MESSAGE_POIDS_EN : MESSAGE_POIDS;
   const erreurs: Record<string, string> = {};
   const titre = e.titre.trim();
-  if (titre === "") erreurs.titre = "Le titre de la grille est obligatoire.";
-  else if (titre.length > 200) erreurs.titre = "Le titre ne doit pas dépasser 200 caractères.";
+  const titreTrop = t(
+    "Le titre ne doit pas dépasser 200 caractères.",
+    "The title must not exceed 200 characters.",
+  );
+  if (titre === "") {
+    erreurs.titre = t("Le titre de la grille est obligatoire.", "The framework title is required.");
+  } else if (titre.length > 200) erreurs.titre = titreTrop;
 
   const dimensions = origine.dimensions.map((d) => {
     const p = lirePoids(e.poids[d.id] ?? "");
-    if (p === null)
-      erreurs[`poids.${d.id}`] = "Poids obligatoire (0 si la dimension ne compte pas).";
-    else if (Number.isNaN(p)) erreurs[`poids.${d.id}`] = MESSAGE_POIDS;
+    if (p === null) {
+      erreurs[`poids.${d.id}`] = t(
+        "Poids obligatoire (0 si la dimension ne compte pas).",
+        "Weight required (0 if the dimension does not count).",
+      );
+    } else if (Number.isNaN(p)) erreurs[`poids.${d.id}`] = messagePoids;
     return { ...d, poids: p ?? 0 };
   });
   const total = sommePoids(dimensions.map((d) => d.poids));
   if (total !== null && total <= 0 && Object.keys(erreurs).length === 0) {
-    erreurs.global = "Au moins une dimension doit avoir un poids positif.";
+    erreurs.global = t(
+      "Au moins une dimension doit avoir un poids positif.",
+      "At least one dimension must have a positive weight.",
+    );
   }
 
   const codes = new Set<string>();
   const secteurs = e.secteurs.map((s, i) => {
     const code = s.secteur.trim();
     if (!identifiantGrilleSchema.safeParse(code).success) {
-      erreurs[`secteur.${i}.code`] = MESSAGE_CODE_SECTEUR;
-    } else if (codes.has(code))
-      erreurs[`secteur.${i}.code`] = "Ce code de secteur est déjà utilisé.";
+      erreurs[`secteur.${i}.code`] =
+        langue === "en" ? MESSAGE_CODE_SECTEUR_EN : MESSAGE_CODE_SECTEUR;
+    } else if (codes.has(code)) {
+      erreurs[`secteur.${i}.code`] = t(
+        "Ce code de secteur est déjà utilisé.",
+        "This sector code is already used.",
+      );
+    }
     codes.add(code);
     const libelle = s.libelle.trim();
     if (libelle.length > 200) {
-      erreurs[`secteur.${i}.libelle`] = "Le libellé ne doit pas dépasser 200 caractères.";
+      erreurs[`secteur.${i}.libelle`] = t(
+        "Le libellé ne doit pas dépasser 200 caractères.",
+        "The label must not exceed 200 characters.",
+      );
     }
     const poids = origine.dimensions.flatMap((d) => {
       const p = lirePoids(s.poids[d.id] ?? "");
       if (p === null) return [];
       if (Number.isNaN(p)) {
-        erreurs[`secteur.${i}.${d.id}`] = MESSAGE_POIDS;
+        erreurs[`secteur.${i}.${d.id}`] = messagePoids;
         return [];
       }
       return [{ dimension: d.id, poids: p }];
@@ -423,7 +528,10 @@ export function contenuDepuisEdition(
     return {
       ok: false,
       erreurs: {
-        global: "Le contenu de la grille est incomplet ou invalide : vérifiez les poids saisis.",
+        global: t(
+          "Le contenu de la grille est incomplet ou invalide : vérifiez les poids saisis.",
+          "The framework content is incomplete or invalid: check the weights entered.",
+        ),
       },
     };
   }
@@ -433,6 +541,12 @@ export function contenuDepuisEdition(
 export const MESSAGE_POIDS =
   "Poids invalide : un nombre positif de 0 à 10 000, deux décimales au plus (ex. 12 ou 7,5).";
 
+export const MESSAGE_POIDS_EN =
+  "Invalid weight: a positive number from 0 to 10,000, two decimals at most (e.g. 12 or 7.5).";
+
+export const MESSAGE_CODE_SECTEUR_EN =
+  'Sector code: lowercase letters without accents, digits, "_", "." or "-" (e.g. construction).';
+
 export const MESSAGE_CODE_SECTEUR =
   "Code du secteur : lettres minuscules sans accent, chiffres, « _ », « . » ou « - » (ex. btp).";
 
@@ -441,20 +555,46 @@ export function ajouterSecteur(
   e: EditionGrille,
   code: string,
   libelle: string,
+  langue: Langue = "fr",
 ): Resultat<EditionGrille, "code" | "libelle"> {
+  const t = creerTraduire(langue);
   const c = code.trim();
   if (!identifiantGrilleSchema.safeParse(c).success) {
-    return { ok: false, erreurs: { code: MESSAGE_CODE_SECTEUR } };
+    return {
+      ok: false,
+      erreurs: { code: langue === "en" ? MESSAGE_CODE_SECTEUR_EN : MESSAGE_CODE_SECTEUR },
+    };
   }
   if (e.secteurs.some((s) => s.secteur === c)) {
-    return { ok: false, erreurs: { code: "Ce code de secteur existe déjà dans la grille." } };
+    return {
+      ok: false,
+      erreurs: {
+        code: t(
+          "Ce code de secteur existe déjà dans la grille.",
+          "This sector code already exists in the framework.",
+        ),
+      },
+    };
   }
   const l = libelle.trim();
   if (l.length > 200) {
-    return { ok: false, erreurs: { libelle: "Le libellé ne doit pas dépasser 200 caractères." } };
+    return {
+      ok: false,
+      erreurs: {
+        libelle: t(
+          "Le libellé ne doit pas dépasser 200 caractères.",
+          "The label must not exceed 200 characters.",
+        ),
+      },
+    };
   }
   if (e.secteurs.length >= 50) {
-    return { ok: false, erreurs: { code: "Une grille compte 50 secteurs au plus." } };
+    return {
+      ok: false,
+      erreurs: {
+        code: t("Une grille compte 50 secteurs au plus.", "A framework has 50 sectors at most."),
+      },
+    };
   }
   return {
     ok: true,
@@ -489,10 +629,13 @@ export function anomaliesGrille(e: unknown): string[] {
 }
 
 /** Message français d'une erreur sur une grille (création, modification, validation). */
-export function messageGrille(e: unknown): string {
+export function messageGrille(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi && e.statut === 404) {
-    return "Cette grille ou cette version n'est plus accessible. Actualisez la page.";
+    return creerTraduire(langue)(
+      "Cette grille ou cette version n'est plus accessible. Actualisez la page.",
+      "This framework or version is no longer accessible. Refresh the page.",
+    );
   }
   if (e instanceof ErreurApi && e.statut === 409 && e.code === "CONFLIT") return e.message;
-  return messageNotation(e);
+  return messageNotation(e, langue);
 }

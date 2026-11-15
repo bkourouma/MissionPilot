@@ -3,9 +3,7 @@
 import { useState, type FormEvent } from "react";
 import {
   RED_DOMAINES,
-  RED_DOMAINE_LIBELLES,
   RED_VOLETS,
-  RED_VOLET_LIBELLES,
   type RedActionVue,
   type RedDefinitionLevierVue,
   type RedDomaine,
@@ -19,6 +17,8 @@ import {
   cheminAction,
   cheminActionsDossier,
   cheminSimulationLevier,
+  libelleDomaine,
+  libelleVolet,
   messageRedressement,
 } from "../../lib/redressement";
 import {
@@ -28,6 +28,7 @@ import {
   type ChampAction,
   type SaisieAction,
 } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -38,9 +39,6 @@ import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { ImpactLevier } from "./ImpactLevier";
 import { ChampsParametresLevier } from "./SimulateurLevier";
-
-const OPTIONS_VOLETS = RED_VOLETS.map((v) => ({ valeur: v, libelle: RED_VOLET_LIBELLES[v] }));
-const OPTIONS_DOMAINES = RED_DOMAINES.map((d) => ({ valeur: d, libelle: RED_DOMAINE_LIBELLES[d] }));
 
 export interface OptionResponsable {
   valeur: string;
@@ -75,6 +73,13 @@ export function FormulaireAction({
   levierInitial?: string;
   responsableParDefaut: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const OPTIONS_VOLETS = RED_VOLETS.map((v) => ({ valeur: v, libelle: libelleVolet(v, langue) }));
+  const OPTIONS_DOMAINES = RED_DOMAINES.map((d) => ({
+    valeur: d,
+    libelle: libelleDomaine(d, langue),
+  }));
   const f = useFormulaire<ChampAction>();
   const creation = action === undefined;
   const [s, setS] = useState<SaisieAction>(() => {
@@ -103,16 +108,18 @@ export function FormulaireAction({
   async function simuler() {
     setErreurSimulation(null);
     setImpact(null);
-    const v = corpsSimulationDepuisFormulaire(definition, s.parametres, devise);
+    const v = corpsSimulationDepuisFormulaire(definition, s.parametres, devise, langue);
     if (!v.ok) {
-      setErreurSimulation(v.erreurs.levier ?? v.erreurs.parametres ?? "Saisie invalide.");
+      setErreurSimulation(
+        v.erreurs.levier ?? v.erreurs.parametres ?? t("Saisie invalide.", "Invalid input."),
+      );
       return;
     }
     setSimulationEnCours(true);
     try {
       setImpact(await api.post<RedImpactLevierVue>(cheminSimulationLevier(dossierId), v.charge));
     } catch (e) {
-      setErreurSimulation(messageRedressement(e));
+      setErreurSimulation(messageRedressement(e, langue));
     } finally {
       setSimulationEnCours(false);
     }
@@ -122,11 +129,11 @@ export function FormulaireAction({
     e.preventDefault();
     if (creation) {
       await f.envoyer(
-        corpsActionDepuisFormulaire(s, devise, leviers, "creation"),
+        corpsActionDepuisFormulaire(s, devise, leviers, "creation", langue),
         (charge) => api.post<RedActionVue>(cheminActionsDossier(dossierId), charge),
         {
-          succes: "Action ajoutée au plan.",
-          messageSpecifique: messageRedressement,
+          succes: t("Action ajoutée au plan.", "Action added to the plan."),
+          messageSpecifique: (e) => messageRedressement(e, langue),
           apres: () => {
             setS((x) => ({ ...x, titre: "", description: "", creer_tache: false }));
             setImpact(null);
@@ -135,9 +142,12 @@ export function FormulaireAction({
       );
     } else {
       await f.envoyer(
-        corpsActionDepuisFormulaire(s, devise, leviers, "modification"),
+        corpsActionDepuisFormulaire(s, devise, leviers, "modification", langue),
         (charge) => api.patch<RedActionVue>(cheminAction(action.id), charge),
-        { succes: "Action modifiée.", messageSpecifique: messageRedressement },
+        {
+          succes: t("Action modifiée.", "Action updated."),
+          messageSpecifique: (e) => messageRedressement(e, langue),
+        },
       );
     }
   }
@@ -148,17 +158,25 @@ export function FormulaireAction({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={creation ? "Ajouter une action" : "Modifier l'action"}
+      aria-label={
+        creation
+          ? t("Ajouter une action", "Add an action")
+          : t("Modifier l'action", "Edit the action")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur={creation ? "Ajout impossible" : "Modification refusée"}
+        titreErreur={
+          creation
+            ? t("Ajout impossible", "Could not add")
+            : t("Modification refusée", "Edit refused")
+        }
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Titre de l'action"
+          libelle={t("Titre de l'action", "Action title")}
           required
           maxLength={200}
           autoComplete="off"
@@ -167,19 +185,19 @@ export function FormulaireAction({
           erreur={f.erreurs.titre}
         />
         <Select
-          libelle="Volet"
+          libelle={t("Volet", "Track")}
           value={s.volet}
           onChange={(e) => setS((x) => ({ ...x, volet: e.target.value as RedVolet }))}
           options={OPTIONS_VOLETS}
         />
         <Select
-          libelle="Domaine"
+          libelle={t("Domaine", "Domain")}
           value={s.domaine}
           onChange={(e) => setS((x) => ({ ...x, domaine: e.target.value as RedDomaine }))}
           options={OPTIONS_DOMAINES}
         />
         <Champ
-          libelle="Échéance"
+          libelle={t("Échéance", "Due date")}
           type="date"
           required
           value={s.echeance}
@@ -187,18 +205,21 @@ export function FormulaireAction({
           erreur={f.erreurs.echeance}
         />
         <Select
-          libelle="Responsable"
+          libelle={t("Responsable", "Owner")}
           required
           value={s.responsable_id}
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           onChange={(e) => setS((x) => ({ ...x, responsable_id: e.target.value }))}
           options={responsables}
           erreur={f.erreurs.responsable_id}
-          aide="Directeur, chef et équipe de la mission."
+          aide={t(
+            "Directeur, chef et équipe de la mission.",
+            "Engagement director, manager and team.",
+          )}
         />
       </div>
       <ZoneTexte
-        libelle="Description (facultatif)"
+        libelle={t("Description (facultatif)", "Description (optional)")}
         maxLength={2000}
         value={s.description}
         onChange={(e) => setS((x) => ({ ...x, description: e.target.value }))}
@@ -206,11 +227,11 @@ export function FormulaireAction({
       />
 
       <fieldset className="mp-red-fiche">
-        <legend>Levier (facultatif)</legend>
+        <legend>{t("Levier (facultatif)", "Lever (optional)")}</legend>
         <Select
-          libelle="Levier du catalogue"
+          libelle={t("Levier du catalogue", "Catalog lever")}
           value={s.levier_code}
-          invite="Aucun levier"
+          invite={t("Aucun levier", "No lever")}
           onChange={(e) => {
             setS((x) => ({ ...x, levier_code: e.target.value, parametres: {} }));
             setImpact(null);
@@ -238,10 +259,10 @@ export function FormulaireAction({
               <Bouton
                 variante="secondaire"
                 chargement={simulationEnCours}
-                texteChargement="Simulation…"
+                texteChargement={t("Simulation…", "Simulating…")}
                 onClick={() => void simuler()}
               >
-                Simuler
+                {t("Simuler", "Simulate")}
               </Bouton>
             </div>
             {erreurSimulation ? (
@@ -256,15 +277,24 @@ export function FormulaireAction({
 
       {creation && peutAssignerTache ? (
         <CaseACocher
-          libelle="Créer aussi une tâche dans Mes tâches"
-          aide="Le responsable la retrouve dans sa liste ; les statuts ne sont pas synchronisés."
+          libelle={t("Créer aussi une tâche dans Mes tâches", "Also create a task in My tasks")}
+          aide={t(
+            "Le responsable la retrouve dans sa liste ; les statuts ne sont pas synchronisés.",
+            "The owner finds it in their list; statuses are not synchronized.",
+          )}
           checked={s.creer_tache}
           onChange={(e) => setS((x) => ({ ...x, creer_tache: e.target.checked }))}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {creation ? "Ajouter l'action" : "Enregistrer l'action"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {creation
+            ? t("Ajouter l'action", "Add the action")
+            : t("Enregistrer l'action", "Save the action")}
         </Bouton>
       </div>
     </form>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { api, ErreurApi, messageErreur } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   cheminModeles,
   cheminSalle,
@@ -41,6 +42,8 @@ export interface NouvelleDemandeProps {
  */
 export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDemandeProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [ouvert, setOuvert] = useState(false);
   const [saisie, setSaisie] = useState<SaisieDemande>(SAISIE_DEMANDE_VIDE);
@@ -58,13 +61,16 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
       setModeles(r.elements);
     } catch (e) {
       setModeles([]);
-      setErreurModeles(messageErreur(e));
+      setErreurModeles(messageErreur(e, langue));
     }
   }
 
   const tries = modelesTries(modeles ?? [], methodes);
   const options: OptionSelect[] = [
-    ...tries.suggeres.map((m) => ({ valeur: m.id, libelle: `${m.nom} (méthode de la mission)` })),
+    ...tries.suggeres.map((m) => ({
+      valeur: m.id,
+      libelle: `${m.nom} ${t("(méthode de la mission)", "(engagement method)")}`,
+    })),
     ...tries.autres.map((m) => ({ valeur: m.id, libelle: m.nom })),
   ];
   const modeleChoisi = (modeles ?? []).find((m) => m.id === saisie.modeleId);
@@ -79,7 +85,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
 
   async function soumettre(ev: FormEvent) {
     ev.preventDefault();
-    const e = validerDemande(saisie, aujourdhui);
+    const e = validerDemande(saisie, aujourdhui, langue);
     setErreurs(e);
     setErreurServeur(null);
     if (Object.keys(e).length > 0) return;
@@ -93,11 +99,12 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
       rafraichir();
     } catch (err) {
       // Échéance refusée par le schéma : message sous le champ, pas une erreur générale.
-      const champ = erreurEcheanceApi(err);
+      const champ = erreurEcheanceApi(err, langue);
       if (champ) setErreurs({ echeance: champ });
       else {
         setErreurServeur(
-          (err instanceof ErreurApi ? messageSalle(err.code) : null) ?? messageErreur(err),
+          (err instanceof ErreurApi ? messageSalle(err.code, langue) : null) ??
+            messageErreur(err, langue),
         );
       }
       setEnvoi(false);
@@ -108,7 +115,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
     return (
       <div>
         <Bouton icone="plus" onClick={() => void ouvrir()}>
-          Nouvelle demande de documents
+          {t("Nouvelle demande de documents", "New document request")}
         </Bouton>
       </div>
     );
@@ -116,7 +123,9 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
 
   return (
     <form className="mp-formulaire mp-pile" onSubmit={(e) => void soumettre(e)} noValidate>
-      <h2 className="mp-section__titre">Nouvelle demande de documents</h2>
+      <h2 className="mp-section__titre">
+        {t("Nouvelle demande de documents", "New document request")}
+      </h2>
       {erreurServeur ? (
         <Alerte tonalite="danger" annonce="alert">
           <p>{erreurServeur}</p>
@@ -124,53 +133,77 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
       ) : null}
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Titre"
+          libelle={t("Titre", "Title")}
           value={saisie.titre}
           onChange={(e) => changer("titre", e.target.value)}
           erreur={erreurs.titre}
           maxLength={200}
           required
-          aide="Visible du client, par exemple « Pièces du diagnostic financier »."
+          aide={t(
+            "Visible du client, par exemple « Pièces du diagnostic financier ».",
+            'Visible to the client, for example "Financial diagnostic documents".',
+          )}
         />
         <Champ
-          libelle="Échéance"
+          libelle={t("Échéance", "Due date")}
           type="date"
           value={saisie.echeance}
           min={aujourdhui}
           max={ECHEANCE_MAX}
           onChange={(e) => changer("echeance", e.target.value)}
           erreur={erreurs.echeance}
-          aide="Obligatoire pour envoyer ; vous pourrez la repousser ensuite."
+          aide={t(
+            "Obligatoire pour envoyer ; vous pourrez la repousser ensuite.",
+            "Required to send; you can postpone it afterwards.",
+          )}
         />
       </div>
       <ZoneTexte
-        libelle="Message au client"
+        libelle={t("Message au client", "Message to the client")}
         value={saisie.message}
         onChange={(e) => changer("message", e.target.value)}
         maxLength={4000}
         rows={3}
-        aide="Facultatif. Le client le lit en tête de la demande."
+        aide={t(
+          "Facultatif. Le client le lit en tête de la demande.",
+          "Optional. The client reads it at the top of the request.",
+        )}
       />
       {erreurModeles ? (
         <Alerte tonalite="attention" annonce="status">
-          <p>Les modèles n&apos;ont pas pu être chargés : {erreurModeles}</p>
+          <p>
+            {t("Les modèles n'ont pas pu être chargés", "The templates could not be loaded")} :{" "}
+            {erreurModeles}
+          </p>
         </Alerte>
       ) : null}
       <Select
-        libelle="Modèle du cabinet"
+        libelle={t("Modèle du cabinet", "Firm template")}
         options={options}
-        invite={modeles === null ? "Chargement des modèles…" : "Aucun modèle (pièces saisies)"}
+        invite={
+          modeles === null
+            ? t("Chargement des modèles…", "Loading templates…")
+            : t("Aucun modèle (pièces saisies)", "No template (documents entered manually)")
+        }
         value={saisie.modeleId}
         onChange={(e) => changer("modeleId", e.target.value)}
         disabled={modeles === null}
         aide={
           modeleChoisi
-            ? `${modeleChoisi.pieces.length} pièce(s) reprise(s) : ${modeleChoisi.pieces.map((p) => p.libelle).join(", ")}.`
-            : "Les pièces du modèle sont copiées dans la demande ; vous pouvez en ajouter."
+            ? t(
+                `${modeleChoisi.pieces.length} pièce(s) reprise(s) : ${modeleChoisi.pieces.map((p) => p.libelle).join(", ")}.`,
+                `${modeleChoisi.pieces.length} document(s) carried over: ${modeleChoisi.pieces.map((p) => p.libelle).join(", ")}.`,
+              )
+            : t(
+                "Les pièces du modèle sont copiées dans la demande ; vous pouvez en ajouter.",
+                "The template's documents are copied into the request; you can add more.",
+              )
         }
       />
       <fieldset className="mp-pile">
-        <legend className="mp-champ__libelle">Pièces supplémentaires</legend>
+        <legend className="mp-champ__libelle">
+          {t("Pièces supplémentaires", "Additional documents")}
+        </legend>
         {erreurs.pieces ? (
           <p className="mp-champ__erreur" role="alert">
             {erreurs.pieces}
@@ -179,19 +212,19 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
         {saisie.pieces.map((p, i) => (
           <div className="mp-salle__ligne-piece" key={i}>
             <Champ
-              libelle={`Pièce ${i + 1}`}
+              libelle={t(`Pièce ${i + 1}`, `Document ${i + 1}`)}
               value={p.libelle}
               maxLength={200}
               onChange={(e) => changerPiece(i, { libelle: e.target.value })}
             />
             <Champ
-              libelle="Précision pour le client"
+              libelle={t("Précision pour le client", "Note for the client")}
               value={p.description}
               maxLength={2000}
               onChange={(e) => changerPiece(i, { description: e.target.value })}
             />
             <CaseACocher
-              libelle="Obligatoire"
+              libelle={t("Obligatoire", "Required")}
               checked={p.obligatoire}
               onChange={(e) => changerPiece(i, { obligatoire: e.target.checked })}
             />
@@ -203,7 +236,7 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
                 setSaisie((s) => ({ ...s, pieces: s.pieces.filter((_, j) => j !== i) }))
               }
             >
-              Retirer
+              {t("Retirer", "Remove")}
             </Bouton>
           </div>
         ))}
@@ -219,16 +252,16 @@ export function NouvelleDemande({ missionId, methodes, aujourdhui }: NouvelleDem
               }))
             }
           >
-            Ajouter une pièce
+            {t("Ajouter une pièce", "Add a document")}
           </Bouton>
         </div>
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={envoi} texteChargement="Création…">
-          Créer le brouillon
+        <Bouton type="submit" chargement={envoi} texteChargement={t("Création…", "Creating…")}>
+          {t("Créer le brouillon", "Create the draft")}
         </Bouton>
         <Bouton type="button" variante="discret" onClick={() => setOuvert(false)} disabled={envoi}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

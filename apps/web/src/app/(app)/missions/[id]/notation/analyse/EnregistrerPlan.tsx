@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../../../components/ui/Bouton";
 import { Champ } from "../../../../../../components/ui/Champ";
 import { api } from "../../../../../../lib/api";
@@ -22,18 +23,22 @@ export function EnregistrerPlan({
   numero: number;
   capaciteInitiale: number;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"capacite">();
   const [capacite, setCapacite] = useState(String(capaciteInitiale));
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerCapacite(capacite),
+      validerCapacite(capacite, langue),
       (charge) => api.post(cheminPlansAction(notationId), { ...charge, version: numero }),
       {
-        succes:
+        succes: t(
           "Plan d'action enregistré : la priorisation du moteur est figée pour cette version.",
-        messageSpecifique: messageNotation,
+          "Action plan saved: the engine's prioritization is locked for this version.",
+        ),
+        messageSpecifique: (err) => messageNotation(err, langue),
       },
     );
   }
@@ -44,18 +49,25 @@ export function EnregistrerPlan({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Plan non enregistré"
+        titreErreur={t("Plan non enregistré", "Plan not saved")}
       />
       <Champ
-        libelle="Capacité du client (somme des efforts, 1 à 100)"
+        libelle={t(
+          "Capacité du client (somme des efforts, 1 à 100)",
+          "Client capacity (sum of efforts, 1 to 100)",
+        )}
         inputMode="numeric"
         required
         value={capacite}
         onChange={(e) => setCapacite(e.target.value)}
         erreur={f.erreurs.capacite}
       />
-      <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-        Enregistrer le plan d&apos;action
+      <Bouton
+        type="submit"
+        chargement={f.enCours}
+        texteChargement={t("Enregistrement…", "Saving…")}
+      >
+        {t("Enregistrer le plan d'action", "Save the action plan")}
       </Bouton>
     </form>
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { descriptionAlerte, hrefKpi } from "../../lib/kpi";
 import { Icone } from "../ui/Icone";
 
@@ -19,23 +20,29 @@ export interface AlerteAffichee {
  * Alertes du moteur (dégradation continue, mesure en retard, seuils d'alerte, variation) :
  * chacune a un titre écrit et une phrase qui donne les chiffres ; l'icône est décorative.
  */
-export function ListeAlertesKpi({
+export async function ListeAlertesKpi({
   alertes,
   missionId,
 }: {
   alertes: readonly AlerteAffichee[];
   missionId: string;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <ul className="mp-kpi-alertes">
       {alertes.map((a) => {
-        const d = descriptionAlerte({ ...a.donnees, code: a.code, periode: a.periode }, a.unite);
+        const d = descriptionAlerte(
+          { ...a.donnees, code: a.code, periode: a.periode },
+          a.unite,
+          langue,
+        );
         return (
           <li key={a.cle} className={`mp-kpi-alerte mp-kpi-alerte--${d.tonalite}`}>
             <Icone nom={d.tonalite === "danger" ? "danger" : "attention"} taille={18} />
             <div className="mp-kpi-alerte__contenu">
               <p className="mp-kpi-alerte__titre">
-                <span className="mp-visuellement-cache">Alerte : </span>
+                <span className="mp-visuellement-cache">{t("Alerte : ", "Alert: ")}</span>
                 {d.titre}
                 {a.kpi ? (
                   <>

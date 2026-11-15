@@ -4,9 +4,12 @@ import { useState } from "react";
 import { api } from "../../lib/api";
 import {
   CONFIRMATION_ACTIVATION,
+  CONFIRMATION_ACTIVATION_EN,
   CONFIRMATION_DESACTIVATION,
+  CONFIRMATION_DESACTIVATION_EN,
   cheminOptionPortailDd,
 } from "../../lib/due-diligence-portail";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
@@ -21,6 +24,7 @@ export interface PartageInvestisseurOptionProps {
  * modification est confirmée explicitement avant l'envoi.
  */
 export function PartageInvestisseurOption({ actif }: PartageInvestisseurOptionProps) {
+  const t = useT();
   const p = usePartageInvestisseur();
   const [confirmation, setConfirmation] = useState(false);
   const cible = !actif;
@@ -28,7 +32,9 @@ export function PartageInvestisseurOption({ actif }: PartageInvestisseurOptionPr
   async function appliquer() {
     const ok = await p.executer(
       () => api.post(cheminOptionPortailDd, { actif: cible }),
-      cible ? "Le portail investisseur est activé." : "Le portail investisseur est désactivé.",
+      cible
+        ? t("Le portail investisseur est activé.", "The investor portal is enabled.")
+        : t("Le portail investisseur est désactivé.", "The investor portal is disabled."),
     );
     if (ok) setConfirmation(false);
   }
@@ -41,25 +47,31 @@ export function PartageInvestisseurOption({ actif }: PartageInvestisseurOptionPr
           tonalite="attention"
           annonce="aucune"
           titre={
-            cible ? "Activer le portail investisseur ?" : "Désactiver le portail investisseur ?"
+            cible
+              ? t("Activer le portail investisseur ?", "Enable the investor portal?")
+              : t("Désactiver le portail investisseur ?", "Disable the investor portal?")
           }
         >
-          <p>{cible ? CONFIRMATION_ACTIVATION : CONFIRMATION_DESACTIVATION}</p>
+          <p>
+            {cible
+              ? t(CONFIRMATION_ACTIVATION, CONFIRMATION_ACTIVATION_EN)
+              : t(CONFIRMATION_DESACTIVATION, CONFIRMATION_DESACTIVATION_EN)}
+          </p>
           <div className="mp-actions-formulaire">
             <Bouton
               variante={cible ? "primaire" : "danger"}
               chargement={p.enCours}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
               onClick={() => void appliquer()}
             >
-              {cible ? "Oui, activer" : "Oui, désactiver"}
+              {cible ? t("Oui, activer", "Yes, enable") : t("Oui, désactiver", "Yes, disable")}
             </Bouton>
             <Bouton
               variante="secondaire"
               disabled={p.enCours}
               onClick={() => setConfirmation(false)}
             >
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </Alerte>
@@ -69,7 +81,9 @@ export function PartageInvestisseurOption({ actif }: PartageInvestisseurOptionPr
             variante={cible ? "primaire" : "secondaire"}
             onClick={() => setConfirmation(true)}
           >
-            {cible ? "Activer le portail investisseur" : "Désactiver le portail investisseur"}
+            {cible
+              ? t("Activer le portail investisseur", "Enable the investor portal")
+              : t("Désactiver le portail investisseur", "Disable the investor portal")}
           </Bouton>
         </div>
       )}

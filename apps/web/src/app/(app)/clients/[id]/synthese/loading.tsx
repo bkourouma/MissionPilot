@@ -1,5 +1,11 @@
 import { SqueletteListe } from "../../../../../components/ui/SqueletteListe";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 
-export default function Chargement() {
-  return <SqueletteListe libelle="Calcul de l'aperçu de la synthèse…" />;
+export default async function Chargement() {
+  const t = await obtenirT();
+  return (
+    <SqueletteListe
+      libelle={t("Calcul de l'aperçu de la synthèse…", "Computing the summary preview…")}
+    />
+  );
 }

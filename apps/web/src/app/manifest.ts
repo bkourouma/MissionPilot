@@ -1,16 +1,20 @@
 import type { MetadataRoute } from "next";
+import { obtenirLangue } from "../lib/i18n/serveur";
 
 /**
  * Servi à /manifest.webmanifest. Le service worker (`public/sw.js`, enregistré par
  * `components/hors-ligne/HorsLigne.tsx`) ne garde que les ressources statiques et sert une page
  * « hors ligne » ; aucune page ni réponse d'API n'est mise en cache.
  */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const en = (await obtenirLangue()) === "en";
   return {
     name: "CabinetPilot",
     short_name: "CabinetPilot",
-    description: "Gestion des missions, du temps et de la facturation des cabinets de conseil.",
-    lang: "fr",
+    description: en
+      ? "Engagement, time and invoicing management for consulting firms."
+      : "Gestion des missions, du temps et de la facturation des cabinets de conseil.",
+    lang: en ? "en" : "fr",
     dir: "ltr",
     start_url: "/",
     scope: "/",

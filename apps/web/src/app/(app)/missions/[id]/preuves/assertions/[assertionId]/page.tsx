@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CLASSE_RISQUE_LIBELLES } from "@missionpilot/shared";
 import { FormulaireLier } from "../../../../../../../components/preuves/ActionsLiens";
 import { FormulaireAssertion } from "../../../../../../../components/preuves/FormulaireAssertion";
 import {
@@ -14,6 +13,7 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import { formaterDateHeure } from "../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import {
@@ -24,8 +24,9 @@ import {
   hrefAssertion,
   hrefAssertions,
   libelleAuteur,
-  RATTACHEMENTS,
-  STATUTS_ASSERTION,
+  libelleClasseRisque,
+  libelleRattachement,
+  libelleStatutAssertion,
   type DetailAssertion,
   type DimensionVue,
   type PageApi,
@@ -33,7 +34,10 @@ import {
 } from "../../../../../../../lib/preuves";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Assertion" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Assertion", "Assertion") };
+}
 
 /**
  * Détail d'une assertion : indice de solidité calculé par le moteur et son explication, preuves
@@ -45,6 +49,8 @@ export default async function PageDetailAssertion({
   params: Promise<{ id: string; assertionId: string }>;
 }) {
   const { id, assertionId } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(assertionId)) notFound();
   const { utilisateur } = await exigerPermission("preuve.lire");
   const r = await chargerMission(id);
@@ -61,7 +67,7 @@ export default async function PageDetailAssertion({
   if (!detail.ok) {
     return (
       <EtatErreur
-        titre="L'assertion n'a pas pu être chargée."
+        titre={t("L'assertion n'a pas pu être chargée.", "The assertion could not be loaded.")}
         message={detail.message}
         hrefReessayer={hrefAssertion(id, assertionId)}
       />
@@ -76,7 +82,7 @@ export default async function PageDetailAssertion({
   return (
     <>
       <Link href={hrefAssertions(id)} className="mp-lien-retour">
-        Revenir aux assertions
+        {t("Revenir aux assertions", "Back to the assertions")}
       </Link>
       <Carte
         titre={a.enonce}
@@ -90,33 +96,44 @@ export default async function PageDetailAssertion({
           <span className="mp-preuve-ligne__meta">
             <BadgeSolidite solidite={a.solidite} />
             <BadgeStatut tonalite="neutre" sansIcone>
-              {`${a.classe_risque} · ${CLASSE_RISQUE_LIBELLES[a.classe_risque]}`}
+              {libelleClasseRisque(a.classe_risque, langue)}
             </BadgeStatut>
             <BadgeStatut tonalite="neutre" sansIcone>
-              {STATUTS_ASSERTION[a.statut]}
+              {libelleStatutAssertion(a.statut, langue)}
             </BadgeStatut>
           </span>
           <ExplicationSolidite solidite={a.solidite} />
           <p className="mp-texte-doux mp-texte-petit">
             {a.rattachement
-              ? `${RATTACHEMENTS[a.rattachement.type]} : ${a.rattachement.code} · `
+              ? `${libelleRattachement(a.rattachement.type, langue)} : ${a.rattachement.code} · `
               : ""}
-            {a.livrable ? `Livrable : ${a.livrable} · ` : ""}
-            {`formulée par ${libelleAuteur(a.auteur)}`}
+            {a.livrable ? `${t("Livrable", "Deliverable")} : ${a.livrable} · ` : ""}
+            {t(
+              `formulée par ${libelleAuteur(a.auteur)}`,
+              `written by ${libelleAuteur(a.auteur, "en")}`,
+            )}
           </p>
           {a.avis_expert ? (
             <div className="mp-pile">
               <BadgeStatut tonalite={a.avis_expert.signe ? "succes" : "attention"}>
-                {a.avis_expert.signe ? "Avis d'expert signé" : "Avis d'expert non signé"}
+                {a.avis_expert.signe
+                  ? t("Avis d'expert signé", "Signed expert opinion")
+                  : t("Avis d'expert non signé", "Unsigned expert opinion")}
               </BadgeStatut>
               <p className="mp-texte-petit">{a.avis_expert.motif}</p>
               {a.avis_expert.signe && a.avis_expert.signe_par ? (
                 <p className="mp-texte-doux mp-texte-petit">
-                  {`Signé par ${libelleAuteur(a.avis_expert.signe_par)} le ${formaterDateHeure(a.avis_expert.signe_le)}`}
+                  {t(
+                    `Signé par ${libelleAuteur(a.avis_expert.signe_par)} le ${formaterDateHeure(a.avis_expert.signe_le)}`,
+                    `Signed by ${libelleAuteur(a.avis_expert.signe_par, "en")} on ${formaterDateHeure(a.avis_expert.signe_le, undefined, "en")}`,
+                  )}
                 </p>
               ) : (
                 <p className="mp-texte-doux mp-texte-petit">
-                  Sans signature, cet avis ne tient pas lieu de preuve pour un livrable R2 ou R3.
+                  {t(
+                    "Sans signature, cet avis ne tient pas lieu de preuve pour un livrable R2 ou R3.",
+                    "Without a signature, this opinion does not count as evidence for an R2 or R3 deliverable.",
+                  )}
                 </p>
               )}
             </div>
@@ -124,9 +141,19 @@ export default async function PageDetailAssertion({
         </div>
       </Carte>
 
-      <Carte titre={`Preuves en faveur (${a.preuves_pour.length})`}>
+      <Carte
+        titre={t(
+          `Preuves en faveur (${a.preuves_pour.length})`,
+          `Supporting evidence (${a.preuves_pour.length})`,
+        )}
+      >
         {a.preuves_pour.length === 0 ? (
-          <p className="mp-texte-doux">Aucune preuve ne va dans le sens de cette assertion.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "Aucune preuve ne va dans le sens de cette assertion.",
+              "No evidence supports this assertion.",
+            )}
+          </p>
         ) : (
           <ul className="mp-preuves-liste">
             {a.preuves_pour.map((p) => (
@@ -142,9 +169,19 @@ export default async function PageDetailAssertion({
         )}
       </Carte>
 
-      <Carte titre={`Preuves contraires (${a.preuves_contre.length})`}>
+      <Carte
+        titre={t(
+          `Preuves contraires (${a.preuves_contre.length})`,
+          `Opposing evidence (${a.preuves_contre.length})`,
+        )}
+      >
         {a.preuves_contre.length === 0 ? (
-          <p className="mp-texte-doux">Aucune preuve ne contredit cette assertion.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "Aucune preuve ne contredit cette assertion.",
+              "No evidence contradicts this assertion.",
+            )}
+          </p>
         ) : (
           <ul className="mp-preuves-liste">
             {a.preuves_contre.map((p) => (
@@ -162,14 +199,14 @@ export default async function PageDetailAssertion({
 
       {droits.ecrire ? (
         <>
-          <Carte titre="Lier une preuve">
+          <Carte titre={t("Lier une preuve", "Link evidence")}>
             {registre && !registre.ok ? (
               <p className="mp-texte-doux">{registre.message}</p>
             ) : (
               <FormulaireLier assertionId={a.id} candidates={candidates} />
             )}
           </Carte>
-          <Carte titre="Corriger l'assertion">
+          <Carte titre={t("Corriger l'assertion", "Correct the assertion")}>
             <FormulaireAssertion
               missionId={id}
               dimensions={dims}
@@ -180,14 +217,18 @@ export default async function PageDetailAssertion({
         </>
       ) : null}
 
-      <Carte titre="Historique des versions">
+      <Carte titre={t("Historique des versions", "Version history")}>
         <ol className="mp-liste-simple" reversed>
           {a.historique.map((v) => (
             <li key={v.version}>
               <strong>{`Version ${v.version}`}</strong>
-              {` · ${formaterDateHeure(v.cree_le)} · ${libelleAuteur(v.auteur)} · ${v.classe_risque} · ${STATUTS_ASSERTION[v.statut]}`}
-              {v.signe_par ? " · avis signé" : v.avis_expert ? " · avis non signé" : ""}
-              {v.motif ? ` · ${v.motif}` : " · formulation initiale"}
+              {` · ${formaterDateHeure(v.cree_le, undefined, langue)} · ${libelleAuteur(v.auteur, langue)} · ${v.classe_risque} · ${libelleStatutAssertion(v.statut, langue)}`}
+              {v.signe_par
+                ? t(" · avis signé", " · opinion signed")
+                : v.avis_expert
+                  ? t(" · avis non signé", " · opinion unsigned")
+                  : ""}
+              {v.motif ? ` · ${v.motif}` : t(" · formulation initiale", " · initial wording")}
             </li>
           ))}
         </ol>

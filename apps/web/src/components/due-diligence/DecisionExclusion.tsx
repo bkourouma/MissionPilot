@@ -2,14 +2,11 @@
 
 import { useState } from "react";
 import { api } from "../../lib/api";
-import {
-  cheminDecisionsFiltrage,
-  DECISION_EXCLUSION_LIBELLES,
-  messageDd,
-} from "../../lib/due-diligence";
+import { cheminDecisionsFiltrage, libellesDd, messageDd } from "../../lib/due-diligence";
 import { MOTIF_DECISION_MIN, validerDecisionExclusion } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
@@ -25,16 +22,22 @@ export interface DecisionExclusionProps {
  * revue ; l'API juge (séparation des tâches, doublée en base).
  */
 export function DecisionExclusion({ filtrageId, regleCode, libelleRegle }: DecisionExclusionProps) {
+  const t = useT();
+  const langue = useLangue();
+  const L = libellesDd(langue);
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
 
   async function decider(decision: "confirmee" | "ecartee") {
     await f.envoyer(
-      validerDecisionExclusion(regleCode, decision, motif),
+      validerDecisionExclusion(regleCode, decision, motif, langue),
       (charge) => api.post(cheminDecisionsFiltrage(filtrageId), charge),
       {
-        succes: `Décision enregistrée : ${DECISION_EXCLUSION_LIBELLES[decision].toLowerCase()}.`,
-        messageSpecifique: messageDd,
+        succes: t(
+          `Décision enregistrée : ${L.DECISION_EXCLUSION[decision].toLowerCase()}.`,
+          `Decision saved: ${L.DECISION_EXCLUSION[decision].toLowerCase()}.`,
+        ),
+        messageSpecifique: (e) => messageDd(e, langue),
         apres: () => setMotif(""),
       },
     );
@@ -46,23 +49,29 @@ export function DecisionExclusion({ filtrageId, regleCode, libelleRegle }: Decis
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Décision refusée"
+        titreErreur={t("Décision refusée", "Decision refused")}
       />
       <ZoneTexte
-        libelle={`Motif de la décision sur « ${libelleRegle} »`}
+        libelle={t(
+          `Motif de la décision sur « ${libelleRegle} »`,
+          `Reason for the decision on “${libelleRegle}”`,
+        )}
         required
         rows={2}
         value={motif}
         onChange={(e) => setMotif(e.target.value)}
         erreur={f.erreurs.motif}
-        aide={`${MOTIF_DECISION_MIN} caractères au moins ; conservé avec la décision.`}
+        aide={t(
+          `${MOTIF_DECISION_MIN} caractères au moins ; conservé avec la décision.`,
+          `At least ${MOTIF_DECISION_MIN} characters; kept with the decision.`,
+        )}
       />
       <div className="mp-barre-actions">
         <Bouton variante="danger" disabled={f.enCours} onClick={() => void decider("confirmee")}>
-          {DECISION_EXCLUSION_LIBELLES.confirmee}
+          {L.DECISION_EXCLUSION.confirmee}
         </Bouton>
         <Bouton variante="secondaire" disabled={f.enCours} onClick={() => void decider("ecartee")}>
-          Faux positif écarté
+          {t("Faux positif écarté", "False positive dismissed")}
         </Bouton>
       </div>
     </div>

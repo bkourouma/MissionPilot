@@ -7,6 +7,7 @@
  * rapport et aucun nom du cabinet n'est affiché. Le droit testé ici ne sert qu'à n'afficher que
  * ce qui sera accepté : l'API reste seule juge.
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import type {
   DdPortailPiece,
   DdPortailPublicationDetail,
@@ -48,6 +49,9 @@ export const MENTION_LECTURE_SEULE = "Lecture seule";
 export const MESSAGE_AUCUNE_NOTE = "Aucune note ne vous a été communiquée.";
 export const AIDE_AUCUNE_NOTE =
   "Quand le cabinet vous communiquera une note de due diligence validée, elle apparaîtra ici.";
+export const MESSAGE_AUCUNE_NOTE_EN = "No note has been shared with you.";
+export const AIDE_AUCUNE_NOTE_EN =
+  "When the firm shares an approved due diligence note with you, it will appear here.";
 
 const RECOMMANDATIONS: Record<
   RecommandationPubliee,
@@ -60,16 +64,29 @@ const RECOMMANDATIONS: Record<
 };
 
 /** Recommandation de la note ; une valeur inconnue reste neutre (jamais d'identifiant brut). */
-export function etatRecommandationPortail(recommandation: string): {
+const RECOMMANDATIONS_EN: Record<RecommandationPubliee, string> = {
+  favorable: "Favorable",
+  favorable_sous_conditions: "Favorable subject to conditions",
+  reservee: "Reserved",
+  defavorable: "Unfavorable",
+};
+
+export function etatRecommandationPortail(
+  recommandation: string,
+  langue: Langue = "fr",
+): {
   libelle: string;
   tonalite: TonaliteStatut;
 } {
-  return (
-    RECOMMANDATIONS[recommandation as RecommandationPubliee] ?? {
-      libelle: "Recommandation à préciser",
+  const base = RECOMMANDATIONS[recommandation as RecommandationPubliee];
+  if (!base)
+    return {
+      libelle: creerTraduire(langue)("Recommandation à préciser", "Recommendation to be confirmed"),
       tonalite: "neutre",
-    }
-  );
+    };
+  return langue === "en"
+    ? { ...base, libelle: RECOMMANDATIONS_EN[recommandation as RecommandationPubliee] }
+    : base;
 }
 
 const VARIANTES: Record<VarianteRapportDd, string> = {
@@ -79,30 +96,48 @@ const VARIANTES: Record<VarianteRapportDd, string> = {
 
 const FORMATS: Record<FormatRapportDd, string> = { pdf: "PDF", docx: "Word" };
 
-export function libellePieceDdPortail(p: Pick<DdPortailPiece, "variante" | "format">): string {
-  const variante = VARIANTES[p.variante] ?? "Document";
+const VARIANTES_EN: Record<VarianteRapportDd, string> = {
+  executive: "Executive version",
+  detaillee: "Detailed version",
+};
+
+export function libellePieceDdPortail(
+  p: Pick<DdPortailPiece, "variante" | "format">,
+  langue: Langue = "fr",
+): string {
+  const variante = (langue === "en" ? VARIANTES_EN : VARIANTES)[p.variante] ?? "Document";
   const format = FORMATS[p.format] ?? String(p.format).toUpperCase();
   return `${variante} (${format})`;
 }
 
-export function mentionValidation(valideLe: string): string {
-  return `Document validé par le cabinet le ${formaterDate(valideLe)}`;
+export function mentionValidation(valideLe: string, langue: Langue = "fr"): string {
+  return creerTraduire(langue)(
+    `Document validé par le cabinet le ${formaterDate(valideLe)}`,
+    `Document approved by the firm on ${formaterDate(valideLe, "UTC", langue)}`,
+  );
 }
 
-export function mentionPublication(publieLe: string): string {
-  return `Communiqué le ${formaterDate(publieLe)}`;
+export function mentionPublication(publieLe: string, langue: Langue = "fr"): string {
+  return creerTraduire(langue)(
+    `Communiqué le ${formaterDate(publieLe)}`,
+    `Shared on ${formaterDate(publieLe, "UTC", langue)}`,
+  );
 }
 
-export function libellePiecesResume(nb: number): string {
-  if (nb <= 0) return "Aucune pièce jointe";
-  return nb === 1 ? "1 pièce à télécharger" : `${nb} pièces à télécharger`;
+export function libellePiecesResume(nb: number, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (nb <= 0) return t("Aucune pièce jointe", "No attachments");
+  return nb === 1
+    ? t("1 pièce à télécharger", "1 file to download")
+    : t(`${nb} pièces à télécharger`, `${nb} files to download`);
 }
 
 /** Ligne de détail d'une note de la liste (dates et pièces). */
 export function resumeLigneDdPortail(
   p: Pick<DdPortailPublicationResume, "valide_le" | "publie_le" | "nb_pieces" | "version">,
+  langue: Langue = "fr",
 ): string {
-  return `${mentionValidation(p.valide_le)} · ${mentionPublication(p.publie_le)} · version ${p.version} · ${libellePiecesResume(p.nb_pieces)}`;
+  return `${mentionValidation(p.valide_le, langue)} · ${mentionPublication(p.publie_le, langue)} · ${creerTraduire(langue)("version", "version")} ${p.version} · ${libellePiecesResume(p.nb_pieces, langue)}`;
 }
 
 // --- Lecture défensive des réponses ----------------------------------------------------------

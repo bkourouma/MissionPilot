@@ -16,9 +16,13 @@ import {
   type DossierResume,
 } from "../../../lib/dossier";
 import { formaterDate, formaterNombre } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Dossiers clients" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Dossiers clients", "Client files") };
+}
 
 /** Dossiers clients visibles (clients dont on voit au moins une mission, ou tous). */
 export default async function PageDossiers({
@@ -27,6 +31,8 @@ export default async function PageDossiers({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const params = lireParametresDossiers(await searchParams);
   const page = await chargerServeur<{ elements: DossierResume[]; curseur_suivant: string | null }>(
     `/api/dossiers?${requeteDossiers(params)}`,
@@ -35,61 +41,74 @@ export default async function PageDossiers({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Dossiers clients"
-        soustitre="Ce que le cabinet sait de chaque client : faits datés et sourcés, finances contrôlées, fiabilité, frise."
+        titre={t("Dossiers clients", "Client files")}
+        soustitre={t(
+          "Ce que le cabinet sait de chaque client : faits datés et sourcés, finances contrôlées, fiabilité, frise.",
+          "What the firm knows about each client: dated, sourced facts, checked finances, reliability, timeline.",
+        )}
       />
       <form
         method="get"
         action="/dossiers"
         className="mp-filtres"
         role="search"
-        aria-label="Rechercher un dossier"
+        aria-label={t("Rechercher un dossier", "Search for a file")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Champ
-            libelle="Rechercher un dossier"
+            libelle={t("Rechercher un dossier", "Search for a file")}
             type="search"
             name="q"
             maxLength={100}
             defaultValue={params.q}
-            aide="Raison sociale ou secteur."
+            aide={t("Raison sociale ou secteur.", "Company name or sector.")}
             autoComplete="off"
           />
         </div>
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
             <Icone nom="recherche" />
-            <span>Rechercher</span>
+            <span>{t("Rechercher", "Search")}</span>
           </button>
         </div>
       </form>
       {!page.ok ? (
         <EtatErreur
-          titre="La liste des dossiers n'a pas pu être chargée."
+          titre={t(
+            "La liste des dossiers n'a pas pu être chargée.",
+            "The list of files could not be loaded.",
+          )}
           message={page.message}
           hrefReessayer={hrefDossiers(params)}
         />
       ) : page.donnees.elements.length === 0 ? (
         <EtatVide
           titre={
-            params.q ? "Aucun dossier ne correspond à votre recherche." : "Aucun dossier visible."
+            params.q
+              ? t("Aucun dossier ne correspond à votre recherche.", "No file matches your search.")
+              : t("Aucun dossier visible.", "No visible file.")
           }
           icone="trombone"
           action={
             params.q ? (
               <Link href="/dossiers" className={classesBouton("secondaire")}>
-                Effacer la recherche
+                {t("Effacer la recherche", "Clear the search")}
               </Link>
             ) : null
           }
         >
           {params.q ? null : (
-            <p>Un dossier s&apos;ouvre pour chaque client dont vous voyez au moins une mission.</p>
+            <p>
+              {t(
+                "Un dossier s'ouvre pour chaque client dont vous voyez au moins une mission.",
+                "A file is opened for each client for which you see at least one engagement.",
+              )}
+            </p>
           )}
         </EtatVide>
       ) : (
         <Tableau
-          legende="Dossiers clients"
+          legende={t("Dossiers clients", "Client files")}
           lignes={page.donnees.elements}
           cleLigne={(d) => d.id}
           colonnes={[
@@ -102,16 +121,16 @@ export default async function PageDossiers({
                 </Link>
               ),
             },
-            { cle: "secteur", entete: "Secteur", rendu: (d) => d.secteur ?? "—" },
-            { cle: "pays", entete: "Pays", rendu: (d) => nomPays(d.pays) },
+            { cle: "secteur", entete: t("Secteur", "Sector"), rendu: (d) => d.secteur ?? "—" },
+            { cle: "pays", entete: t("Pays", "Country"), rendu: (d) => nomPays(d.pays, langue) },
             {
               cle: "propositions",
-              entete: "Faits à confirmer",
+              entete: t("Faits à confirmer", "Facts to confirm"),
               alignement: "droite",
               rendu: (d) =>
                 d.propositions > 0 ? (
                   <BadgeStatut tonalite="attention">
-                    {formaterNombre(d.propositions, 0)}
+                    {formaterNombre(d.propositions, 0, langue)}
                   </BadgeStatut>
                 ) : (
                   "—"
@@ -119,12 +138,12 @@ export default async function PageDossiers({
             },
             {
               cle: "etats_en_revue",
-              entete: "États en revue",
+              entete: t("États en revue", "Statements under review"),
               alignement: "droite",
               rendu: (d) =>
                 d.etats_en_revue > 0 ? (
                   <BadgeStatut tonalite="attention">
-                    {formaterNombre(d.etats_en_revue, 0)}
+                    {formaterNombre(d.etats_en_revue, 0, langue)}
                   </BadgeStatut>
                 ) : (
                   "—"
@@ -132,15 +151,15 @@ export default async function PageDossiers({
             },
             {
               cle: "dernier_fait_le",
-              entete: "Dernier fait",
-              rendu: (d) => formaterDate(d.dernier_fait_le),
+              entete: t("Dernier fait", "Latest fact"),
+              rendu: (d) => formaterDate(d.dernier_fait_le, "UTC", langue),
             },
           ]}
         />
       )}
       {page.ok ? (
         <PaginationCurseur
-          libelle="Pagination des dossiers"
+          libelle={t("Pagination des dossiers", "Files pagination")}
           hrefDebut={params.curseur ? hrefDossiers({ ...params, curseur: undefined }) : null}
           hrefSuivante={
             page.donnees.curseur_suivant

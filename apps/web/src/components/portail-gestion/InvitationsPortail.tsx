@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
+import { messageSpecifiqueLangue } from "../../lib/double-authentification";
 import { formaterDate } from "../../lib/format";
 import {
   cheminInvitationPortail,
@@ -9,6 +10,7 @@ import {
   messageErreurPortailGestion,
   type InvitationPortail,
 } from "../../lib/portail-gestion";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
@@ -21,6 +23,7 @@ import { EtatVide } from "../ui/EtatListe";
  * la liste : la ligne disparaît au rafraîchissement, le message (et le focus) restent.
  */
 export function InvitationsPortail({ invitations }: { invitations: readonly InvitationPortail[] }) {
+  const t = useT();
   const [annonce, setAnnonce] = useState<string | null>(null);
   const refAnnonce = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -35,8 +38,16 @@ export function InvitationsPortail({ invitations }: { invitations: readonly Invi
         </Alerte>
       ) : null}
       {invitations.length === 0 ? (
-        <EtatVide titre="Aucune invitation en attente." icone="courrier">
-          <p>Les invitations acceptées, expirées ou révoquées n&apos;apparaissent plus ici.</p>
+        <EtatVide
+          titre={t("Aucune invitation en attente.", "No pending invitations.")}
+          icone="courrier"
+        >
+          <p>
+            {t(
+              "Les invitations acceptées, expirées ou révoquées n'apparaissent plus ici.",
+              "Accepted, expired or revoked invitations no longer appear here.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <ul className="mp-liste-lignes">
@@ -56,14 +67,22 @@ function LigneInvitation({
   invitation: InvitationPortail;
   onRevoquee: (message: string) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<never>();
   const [revoquee, setRevoquee] = useState(false);
   const revoquer = () =>
     f.envoyer({ ok: true, charge: undefined }, () => api.supprimer(cheminInvitationPortail(i.id)), {
-      messageSpecifique: (e) => messageErreurPortailGestion(e, "revocation"),
+      messageSpecifique: (e) =>
+        messageErreurPortailGestion(e, "revocation", langue) ?? messageSpecifiqueLangue(langue)(e),
       apres: () => {
         setRevoquee(true);
-        onRevoquee(`Invitation de ${i.email} révoquée : le lien reçu ne fonctionne plus.`);
+        onRevoquee(
+          t(
+            `Invitation de ${i.email} révoquée : le lien reçu ne fonctionne plus.`,
+            `Invitation of ${i.email} revoked: the link they received no longer works.`,
+          ),
+        );
       },
     });
 
@@ -72,20 +91,27 @@ function LigneInvitation({
       <div className="mp-liste-lignes__texte">
         <strong className="mp-coupure">{i.email}</strong>
         <span className="mp-texte-doux">
-          {libellesRolesPortail(i.roles)} · envoyée le {formaterDate(i.cree_le, "Africa/Abidjan")} ·
-          expire le {formaterDate(i.expire_le, "Africa/Abidjan")}
+          {libellesRolesPortail(i.roles, langue)} · {t("envoyée le", "sent on")}{" "}
+          {formaterDate(i.cree_le, "Africa/Abidjan", langue)} · {t("expire le", "expires on")}{" "}
+          {formaterDate(i.expire_le, "Africa/Abidjan", langue)}
         </span>
       </div>
       <div className="mp-liste-lignes__actions">
         {revoquee ? (
-          <BadgeStatut tonalite="neutre">Révoquée</BadgeStatut>
+          <BadgeStatut tonalite="neutre">{t("Révoquée", "Revoked")}</BadgeStatut>
         ) : (
           <BoutonConfirmation
-            libelle="Révoquer"
-            ariaLabel={`Révoquer l'invitation de ${i.email}`}
-            question={`Révoquer l'invitation de ${i.email} ? Le lien reçu cessera de fonctionner.`}
-            libelleConfirmation="Oui, révoquer"
-            texteChargement="Révocation…"
+            libelle={t("Révoquer", "Revoke")}
+            ariaLabel={t(
+              `Révoquer l'invitation de ${i.email}`,
+              `Revoke the invitation of ${i.email}`,
+            )}
+            question={t(
+              `Révoquer l'invitation de ${i.email} ? Le lien reçu cessera de fonctionner.`,
+              `Revoke the invitation of ${i.email}? The link they received will stop working.`,
+            )}
+            libelleConfirmation={t("Oui, révoquer", "Yes, revoke")}
+            texteChargement={t("Révocation…", "Revoking…")}
             action={revoquer}
           />
         )}
@@ -95,7 +121,7 @@ function LigneInvitation({
           <RetourFormulaire
             erreur={f.erreurGlobale}
             refAlerte={f.refAlerte}
-            titreErreur="Révocation impossible"
+            titreErreur={t("Révocation impossible", "Unable to revoke")}
           />
         </div>
       ) : null}

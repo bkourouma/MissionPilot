@@ -7,13 +7,14 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { api, messageErreur } from "../../lib/api";
 import type { DossierResume } from "../../lib/dossier";
 import {
   cheminApiParticipations,
   estFinDeDetention,
   formaterPart,
-  OPTIONS_SENS,
+  optionsSens,
   saisieParticipationVide,
   validerParticipation,
   type ChampParticipation,
@@ -40,6 +41,8 @@ export function FormulaireParticipation({
   dateParDefaut: string;
   actives: readonly ParticipationActive[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieParticipation>(saisieParticipationVide(dateParDefaut));
   const f = useFormulaire<ChampParticipation>();
   const [recherche, setRecherche] = useState("");
@@ -99,10 +102,12 @@ export function FormulaireParticipation({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerParticipation(clientId, s),
+      validerParticipation(clientId, s, langue),
       (charge) => api.post(cheminApiParticipations(clientId), charge),
       {
-        succes: fin ? "La fin de détention est enregistrée." : "La participation est enregistrée.",
+        succes: fin
+          ? t("La fin de détention est enregistrée.", "The end of the holding has been recorded.")
+          : t("La participation est enregistrée.", "The holding has been recorded."),
         apres: () => {
           setS(saisieParticipationVide(dateParDefaut));
           setChoisi(null);
@@ -115,7 +120,7 @@ export function FormulaireParticipation({
     <div className="mp-groupe">
       {actives.length > 0 ? (
         <div>
-          <h3 className="mp-carte__titre">Participations en vigueur</h3>
+          <h3 className="mp-carte__titre">{t("Participations en vigueur", "Current holdings")}</h3>
           <ul className="mp-groupe-actives">
             {actives.map((a) => {
               const detient = a.detenteurId === clientId;
@@ -123,12 +128,15 @@ export function FormulaireParticipation({
               return (
                 <li key={a.id}>
                   <span>
-                    {detient ? "Détient" : "Est détenu par"} <strong>{autre}</strong> à{" "}
-                    {formaterPart(a.points)}
+                    {detient ? t("Détient", "Holds") : t("Est détenu par", "Is held by")}{" "}
+                    <strong>{autre}</strong> {t("à", "at")} {formaterPart(a.points, langue)}
                   </span>
                   <Bouton variante="secondaire" onClick={() => preparerFin(a)}>
-                    Mettre fin à la détention
-                    <span className="mp-visuellement-cache"> avec {autre}</span>
+                    {t("Mettre fin à la détention", "End the holding")}
+                    <span className="mp-visuellement-cache">
+                      {" "}
+                      {t("avec", "with")} {autre}
+                    </span>
                   </Bouton>
                 </li>
               );
@@ -142,30 +150,33 @@ export function FormulaireParticipation({
         className="mp-formulaire"
         noValidate
         onSubmit={soumettre}
-        aria-label="Saisir une participation"
+        aria-label={t("Saisir une participation", "Enter a holding")}
       >
         <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
         <div className="mp-grille-champs">
           <Select
-            libelle="Sens de la détention"
-            options={OPTIONS_SENS}
+            libelle={t("Sens de la détention", "Direction of the holding")}
+            options={optionsSens(langue)}
             value={s.sens}
             onChange={(e) => maj("sens", e.target.value as SensParticipation)}
           />
           <Champ
-            libelle="Rechercher l'autre dossier"
+            libelle={t("Rechercher l'autre dossier", "Search for the other file")}
             type="search"
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             maxLength={100}
             autoComplete="off"
-            aide="Parmi les dossiers visibles avec vos droits."
+            aide={t(
+              "Parmi les dossiers visibles avec vos droits.",
+              "Among the files visible with your permissions.",
+            )}
             erreur={erreurRecherche ?? undefined}
           />
           <Select
-            libelle="Autre dossier"
+            libelle={t("Autre dossier", "Other file")}
             required
-            invite="Choisir…"
+            invite={t("Choisir…", "Choose…")}
             options={options}
             value={s.autre_id}
             onChange={(e) => choisirAutre(e.target.value)}
@@ -173,17 +184,20 @@ export function FormulaireParticipation({
           />
           <Champ
             ref={refPourcentage}
-            libelle="Pourcentage détenu"
+            libelle={t("Pourcentage détenu", "Percentage held")}
             required
             inputMode="decimal"
             value={s.pourcentage}
             onChange={(e) => maj("pourcentage", e.target.value)}
             erreur={f.erreurs.pourcentage}
-            aide="De 0 à 100, deux décimales au plus (ex. 33,33). 0 met fin à la détention."
+            aide={t(
+              "De 0 à 100, deux décimales au plus (ex. 33,33). 0 met fin à la détention.",
+              "From 0 to 100, at most two decimals (e.g. 33.33). 0 ends the holding.",
+            )}
             autoComplete="off"
           />
           <Champ
-            libelle="Date d'effet"
+            libelle={t("Date d'effet", "Effective date")}
             type="date"
             required
             value={s.date_effet}
@@ -192,7 +206,14 @@ export function FormulaireParticipation({
           />
         </div>
         <ZoneTexte
-          libelle={fin ? "Motif de la fin de détention (obligatoire)" : "Motif"}
+          libelle={
+            fin
+              ? t(
+                  "Motif de la fin de détention (obligatoire)",
+                  "Reason for ending the holding (required)",
+                )
+              : t("Motif", "Reason")
+          }
           required={fin}
           rows={2}
           maxLength={500}
@@ -201,8 +222,14 @@ export function FormulaireParticipation({
           erreur={f.erreurs.motif}
         />
         <div className="mp-actions-formulaire">
-          <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-            {fin ? "Enregistrer la fin de détention" : "Enregistrer la participation"}
+          <Bouton
+            type="submit"
+            chargement={f.enCours}
+            texteChargement={t("Enregistrement…", "Saving…")}
+          >
+            {fin
+              ? t("Enregistrer la fin de détention", "Save the end of the holding")
+              : t("Enregistrer la participation", "Save the holding")}
           </Bouton>
         </div>
       </form>

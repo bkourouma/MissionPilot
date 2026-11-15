@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { dateSaisieBrief, hrefBrief, libelleRejeuBrief } from "../../lib/brief";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { classesBouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 
@@ -13,6 +14,8 @@ import { Champ } from "../ui/Champ";
  * simple GET vers la même page. Une date hors 2000-2100 est refusée avant l'envoi.
  */
 export function SelecteurDateBrief({ date }: { date?: string }) {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const [saisie, setSaisie] = useState(date ?? "");
   const [erreur, setErreur] = useState<string | undefined>();
@@ -21,7 +24,12 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
     e.preventDefault();
     const valide = dateSaisieBrief(saisie);
     if (!valide) {
-      setErreur("Choisissez une date valide, entre 2000 et 2100.");
+      setErreur(
+        t(
+          "Choisissez une date valide, entre 2000 et 2100.",
+          "Choose a valid date, between 2000 and 2100.",
+        ),
+      );
       return;
     }
     setErreur(undefined);
@@ -29,11 +37,11 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
   }
 
   return (
-    <section className="mp-filtres" aria-label="Date du brief">
+    <section className="mp-filtres" aria-label={t("Date du brief", "Brief date")}>
       <form method="get" action="/brief" onSubmit={soumettre} noValidate>
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Champ
-            libelle="Rejouer le brief à la date du"
+            libelle={t("Rejouer le brief à la date du", "Replay the brief as of")}
             type="date"
             name="date"
             min="2000-01-01"
@@ -45,17 +53,17 @@ export function SelecteurDateBrief({ date }: { date?: string }) {
         </div>
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("primaire")}>
-            Afficher cette date
+            {t("Afficher cette date", "Show this date")}
           </button>
           {date ? (
             <Link href={hrefBrief()} className={classesBouton("secondaire")} prefetch={false}>
-              Revenir à aujourd&apos;hui
+              {t("Revenir à aujourd'hui", "Back to today")}
             </Link>
           ) : null}
         </div>
       </form>
       <p role="status" className={date ? "mp-champ__aide" : "mp-visuellement-cache"}>
-        {libelleRejeuBrief(date)}
+        {libelleRejeuBrief(date, langue)}
       </p>
     </section>
   );

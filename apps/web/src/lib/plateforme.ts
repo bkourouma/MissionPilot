@@ -6,12 +6,17 @@
  * Le super admin ne voit JAMAIS de donnée métier d'un cabinet : seulement cabinets et comptes.
  */
 import {
+  creerTraduire,
+  libelleRole,
+  LOCALES_INTL,
   MOT_DE_PASSE_MIN,
   ROLE_LIBELLES,
   ROLES_CABINET,
+  type Langue,
   type RoleCabinet,
 } from "@missionpilot/shared";
-import { CODE_ORIGINE_REFUSEE, ErreurApi, MESSAGE_ORIGINE_REFUSEE, messageErreur } from "./api";
+import { CODE_ORIGINE_REFUSEE, ErreurApi } from "./api";
+import { messageErreurLangue } from "./double-authentification";
 
 export const MOT_DE_PASSE_MAX = 200;
 export const NOM_MAX = 200;
@@ -182,26 +187,34 @@ export function lireUtilisateurModifie(corps: unknown): UtilisateurPlateforme | 
 export const ROLES_PROPOSES: readonly { valeur: RoleCabinet; libelle: string }[] =
   ROLES_CABINET.map((r) => ({ valeur: r, libelle: ROLE_LIBELLES[r] }));
 
-export function libelleRolesCabinet(roles: readonly string[]): string {
+/** Rôles du cabinet proposés à l'ajout d'un utilisateur, libellés dans la langue de l'interface. */
+export function rolesProposes(
+  langue: Langue = "fr",
+): readonly { valeur: RoleCabinet; libelle: string }[] {
+  return ROLES_CABINET.map((r) => ({ valeur: r, libelle: libelleRole(r, langue) }));
+}
+
+export function libelleRolesCabinet(roles: readonly string[], langue: Langue = "fr"): string {
   const libelles = roles
     .filter((r) => ROLES_CONNUS.includes(r))
-    .map((r) => ROLE_LIBELLES[r as RoleCabinet]);
-  return libelles.length > 0 ? libelles.join(", ") : "Aucun rôle";
+    .map((r) => libelleRole(r as RoleCabinet, langue));
+  return libelles.length > 0 ? libelles.join(", ") : creerTraduire(langue)("Aucun rôle", "No role");
 }
 
 /** Nom du pays en français (« Côte d'Ivoire »), le code brut si le navigateur ne le connaît pas. */
-export function libellePays(code: string): string {
+export function libellePays(code: string, langue: Langue = "fr"): string {
   try {
-    return new Intl.DisplayNames(["fr"], { type: "region" }).of(code) ?? code;
+    return new Intl.DisplayNames([LOCALES_INTL[langue]], { type: "region" }).of(code) ?? code;
   } catch {
     return code;
   }
 }
 
 /** « 1 utilisateur », « 12 utilisateurs », « Aucun utilisateur ». */
-export function libelleNombreUtilisateurs(n: number): string {
-  if (n <= 0) return "Aucun utilisateur";
-  return n === 1 ? "1 utilisateur" : `${n} utilisateurs`;
+export function libelleNombreUtilisateurs(n: number, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (n <= 0) return t("Aucun utilisateur", "No users");
+  return n === 1 ? t("1 utilisateur", "1 user") : t(`${n} utilisateurs`, `${n} users`);
 }
 
 // --- Validation des saisies -----------------------------------------------------
@@ -210,28 +223,45 @@ const FORMAT_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const aControle = (v: string) =>
   [...v].some((c) => c.charCodeAt(0) <= 0x1f || c.charCodeAt(0) === 0x7f);
 
-function erreurNom(valeur: string, libelle: string): string | undefined {
+function erreurNom(
+  valeur: string,
+  libelle: string,
+  libelleEn: string,
+  langue: Langue,
+): string | undefined {
+  const t = creerTraduire(langue);
   const v = valeur.trim();
-  if (v === "") return `Saisissez ${libelle}.`;
-  if (v.length > NOM_MAX) return `Maximum ${NOM_MAX} caractères.`;
-  if (aControle(v)) return "Caractères de contrôle interdits.";
+  if (v === "") return t(`Saisissez ${libelle}.`, `Enter ${libelleEn}.`);
+  if (v.length > NOM_MAX)
+    return t(`Maximum ${NOM_MAX} caractères.`, `Maximum ${NOM_MAX} characters.`);
+  if (aControle(v))
+    return t("Caractères de contrôle interdits.", "Control characters are not allowed.");
   return undefined;
 }
 
-function erreurEmail(valeur: string): string | undefined {
+function erreurEmail(valeur: string, langue: Langue): string | undefined {
+  const t = creerTraduire(langue);
   const v = valeur.trim();
-  if (v === "") return "Saisissez l'adresse e-mail.";
+  if (v === "") return t("Saisissez l'adresse e-mail.", "Enter the email address.");
   if (v.length > EMAIL_MAX || !FORMAT_EMAIL.test(v))
-    return "Adresse e-mail invalide. Exemple : prenom.nom@cabinet.ci";
+    return t(
+      "Adresse e-mail invalide. Exemple : prenom.nom@cabinet.ci",
+      "Invalid email address. Example: first.last@firm.ci",
+    );
   return undefined;
 }
 
 /** Mot de passe facultatif : vide = généré par le serveur. */
-function erreurMotDePasseFacultatif(valeur: string): string | undefined {
+function erreurMotDePasseFacultatif(valeur: string, langue: Langue): string | undefined {
+  const t = creerTraduire(langue);
   if (valeur === "") return undefined;
   if (valeur.length < MOT_DE_PASSE_MIN)
-    return `Au moins ${MOT_DE_PASSE_MIN} caractères, ou laissez vide pour en générer un.`;
-  if (valeur.length > MOT_DE_PASSE_MAX) return `Maximum ${MOT_DE_PASSE_MAX} caractères.`;
+    return t(
+      `Au moins ${MOT_DE_PASSE_MIN} caractères, ou laissez vide pour en générer un.`,
+      `At least ${MOT_DE_PASSE_MIN} characters, or leave empty to generate one.`,
+    );
+  if (valeur.length > MOT_DE_PASSE_MAX)
+    return t(`Maximum ${MOT_DE_PASSE_MAX} caractères.`, `Maximum ${MOT_DE_PASSE_MAX} characters.`);
   return undefined;
 }
 
@@ -244,16 +274,22 @@ export interface SaisieCabinet {
 }
 export type ErreursCabinet = Partial<Record<keyof SaisieCabinet, string>>;
 
-export function validerCabinet(s: SaisieCabinet): ErreursCabinet {
+export function validerCabinet(s: SaisieCabinet, langue: Langue = "fr"): ErreursCabinet {
   const e: ErreursCabinet = {};
-  const nom = erreurNom(s.nom, "le nom du cabinet");
+  const nom = erreurNom(s.nom, "le nom du cabinet", "the firm name", langue);
   if (nom) e.nom = nom;
-  if (!/^[A-Z]{2}$/.test(s.pays)) e.pays = "Choisissez un pays.";
-  const associeNom = erreurNom(s.associeNom, "le nom du premier associé");
+  if (!/^[A-Z]{2}$/.test(s.pays))
+    e.pays = creerTraduire(langue)("Choisissez un pays.", "Choose a country.");
+  const associeNom = erreurNom(
+    s.associeNom,
+    "le nom du premier associé",
+    "the first partner's name",
+    langue,
+  );
   if (associeNom) e.associeNom = associeNom;
-  const email = erreurEmail(s.associeEmail);
+  const email = erreurEmail(s.associeEmail, langue);
   if (email) e.associeEmail = email;
-  const mdp = erreurMotDePasseFacultatif(s.associeMotDePasse);
+  const mdp = erreurMotDePasseFacultatif(s.associeMotDePasse, langue);
   if (mdp) e.associeMotDePasse = mdp;
   return e;
 }
@@ -279,14 +315,18 @@ export interface SaisieUtilisateur {
 }
 export type ErreursUtilisateur = Partial<Record<keyof SaisieUtilisateur, string>>;
 
-export function validerUtilisateur(s: SaisieUtilisateur): ErreursUtilisateur {
+export function validerUtilisateur(
+  s: SaisieUtilisateur,
+  langue: Langue = "fr",
+): ErreursUtilisateur {
   const e: ErreursUtilisateur = {};
-  const nom = erreurNom(s.nom, "le nom de l'utilisateur");
+  const nom = erreurNom(s.nom, "le nom de l'utilisateur", "the user's name", langue);
   if (nom) e.nom = nom;
-  const email = erreurEmail(s.email);
+  const email = erreurEmail(s.email, langue);
   if (email) e.email = email;
-  if (s.roles.length === 0) e.roles = "Choisissez au moins un rôle.";
-  const mdp = erreurMotDePasseFacultatif(s.motDePasse);
+  if (s.roles.length === 0)
+    e.roles = creerTraduire(langue)("Choisissez au moins un rôle.", "Choose at least one role.");
+  const mdp = erreurMotDePasseFacultatif(s.motDePasse, langue);
   if (mdp) e.motDePasse = mdp;
   return e;
 }
@@ -302,8 +342,10 @@ export function corpsCreationUtilisateur(s: SaisieUtilisateur) {
 }
 
 /** Modification de rôles : 1 à 8 rôles. */
-export function validerRoles(roles: readonly string[]): string | undefined {
-  return roles.length === 0 ? "Choisissez au moins un rôle." : undefined;
+export function validerRoles(roles: readonly string[], langue: Langue = "fr"): string | undefined {
+  return roles.length === 0
+    ? creerTraduire(langue)("Choisissez au moins un rôle.", "Choose at least one role.")
+    : undefined;
 }
 
 // --- Messages d'erreur ----------------------------------------------------------
@@ -322,28 +364,61 @@ export const MESSAGE_UTILISATEUR_PEUT_ETRE_CREE =
   "Le serveur a répondu de façon inattendue : l'utilisateur a peut-être été créé. Rechargez la liste des utilisateurs avant de réessayer.";
 export const MESSAGE_IDENTIFIANTS_INVALIDES = "E-mail ou mot de passe incorrect.";
 
-/** Message affichable (français) pour une erreur de l'API plateforme. */
-export function messageErreurPlateforme(e: unknown): string {
+const MESSAGE_DERNIER_ASSOCIE_EN =
+  "Not possible: this is the last active partner of this firm. First activate or add another partner.";
+const MESSAGE_TROP_DE_TENTATIVES_EN = "Too many attempts. Wait a few minutes before trying again.";
+const MESSAGE_SESSION_EXPIREE_EN = "Your session has expired. Sign in again.";
+const MESSAGE_REPONSE_INATTENDUE_EN =
+  "Unexpected response from the server. Reload the page, then try again.";
+const MESSAGE_CABINET_PEUT_ETRE_CREE_EN =
+  "The server responded unexpectedly: the firm may have been created. Reload the list of firms before trying again.";
+const MESSAGE_UTILISATEUR_PEUT_ETRE_CREE_EN =
+  "The server responded unexpectedly: the user may have been created. Reload the list of users before trying again.";
+const MESSAGE_IDENTIFIANTS_INVALIDES_EN = "Incorrect email or password.";
+
+/** Message de réponse inattendue de la console, dans la langue de l'interface. */
+export function messageReponseInattendue(langue: Langue = "fr"): string {
+  return langue === "en" ? MESSAGE_REPONSE_INATTENDUE_EN : MESSAGE_REPONSE_INATTENDUE;
+}
+
+/** Message affichable pour une erreur de l'API plateforme (l'API traduit ses propres messages). */
+export function messageErreurPlateforme(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof Error && e.name === "ReponseInattendue") {
-    return e.message || MESSAGE_REPONSE_INATTENDUE;
+    const traduits: Record<string, string> = {
+      [MESSAGE_REPONSE_INATTENDUE]: MESSAGE_REPONSE_INATTENDUE_EN,
+      [MESSAGE_CABINET_PEUT_ETRE_CREE]: MESSAGE_CABINET_PEUT_ETRE_CREE_EN,
+      [MESSAGE_UTILISATEUR_PEUT_ETRE_CREE]: MESSAGE_UTILISATEUR_PEUT_ETRE_CREE_EN,
+    };
+    if (!e.message) return messageReponseInattendue(langue);
+    return langue === "en" ? (traduits[e.message] ?? e.message) : e.message;
   }
-  if (!(e instanceof ErreurApi)) return messageErreur(e);
+  if (!(e instanceof ErreurApi)) return messageErreurLangue(e, langue);
   // Garde d'origine (403) : avant le refus générique, sinon l'utilisateur ne saurait pas quoi faire.
-  if (e.code === CODE_ORIGINE_REFUSEE) return MESSAGE_ORIGINE_REFUSEE;
-  if (e.statut === 429 || e.code === "TROP_DE_TENTATIVES") return MESSAGE_TROP_DE_TENTATIVES;
+  if (e.code === CODE_ORIGINE_REFUSEE) return messageErreurLangue(e, langue);
+  if (e.statut === 429 || e.code === "TROP_DE_TENTATIVES")
+    return t(MESSAGE_TROP_DE_TENTATIVES, MESSAGE_TROP_DE_TENTATIVES_EN);
   if (e.statut === 401) {
     return e.code === "IDENTIFIANTS_INVALIDES"
-      ? MESSAGE_IDENTIFIANTS_INVALIDES
-      : MESSAGE_SESSION_EXPIREE;
+      ? t(MESSAGE_IDENTIFIANTS_INVALIDES, MESSAGE_IDENTIFIANTS_INVALIDES_EN)
+      : t(MESSAGE_SESSION_EXPIREE, MESSAGE_SESSION_EXPIREE_EN);
   }
-  if (e.code === "DERNIER_ASSOCIE") return MESSAGE_DERNIER_ASSOCIE;
+  if (e.code === "DERNIER_ASSOCIE") return t(MESSAGE_DERNIER_ASSOCIE, MESSAGE_DERNIER_ASSOCIE_EN);
   if (e.statut === 409) return e.message;
   if (e.statut === 400 || e.code === "REQUETE_INVALIDE") {
-    return "Certaines valeurs ont été refusées. Vérifiez les champs puis réessayez.";
+    return t(
+      "Certaines valeurs ont été refusées. Vérifiez les champs puis réessayez.",
+      "Some values were rejected. Check the fields, then try again.",
+    );
   }
-  if (e.statut === 403) return "Action refusée pour ce compte.";
-  if (e.statut === 404) return "Cabinet ou utilisateur introuvable. Rechargez la page.";
-  return messageErreur(e);
+  if (e.statut === 403)
+    return t("Action refusée pour ce compte.", "Action refused for this account.");
+  if (e.statut === 404)
+    return t(
+      "Cabinet ou utilisateur introuvable. Rechargez la page.",
+      "Firm or user not found. Reload the page.",
+    );
+  return messageErreurLangue(e, langue);
 }
 
 /** Session de la console expirée ou absente. */

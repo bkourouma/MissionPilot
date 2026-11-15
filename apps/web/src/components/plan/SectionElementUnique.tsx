@@ -5,6 +5,7 @@ import type { TypeElementPlan } from "@missionpilot/shared";
 import type { Devise } from "../../lib/format";
 import type { PersonnePlan } from "../../lib/plan-elements";
 import type { ElementPlan } from "../../lib/plan-strategique";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { EtatVide } from "../ui/EtatListe";
 import { AjoutElement } from "./AjoutElement";
@@ -41,6 +42,7 @@ export function SectionElementUnique({
   libelleAjout,
   texteVide,
 }: SectionElementUniqueProps) {
+  const t = useT();
   const [succes, setSucces] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -66,7 +68,7 @@ export function SectionElementUnique({
         />
       ) : (
         <>
-          <EtatVide titre="Pas encore rédigé." icone="crayon">
+          <EtatVide titre={t("Pas encore rédigé.", "Not written yet.")} icone="crayon">
             <p>{texteVide}</p>
           </EtatVide>
           {droits.rediger ? (

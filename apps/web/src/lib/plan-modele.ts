@@ -23,6 +23,7 @@
 export * from "./plan-modele-types";
 export * from "./plan-modele-format";
 export type { LigneEtat, EtatFinancier } from "./plan-modele-lignes-base";
+export { libelleLigne, groupeLigne, titreEtat } from "./plan-modele-lignes-base";
 export { LIGNES_BILAN, LIGNES_COMPTE_RESULTAT } from "./plan-modele-lignes-bilan";
 export { LIGNES_FLUX, LIGNES_INDICATEURS } from "./plan-modele-lignes-flux";
 export * from "./plan-modele-etats";

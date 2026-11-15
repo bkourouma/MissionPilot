@@ -22,6 +22,7 @@ import {
 import { joindreListe } from "../../lib/saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -46,6 +47,8 @@ export interface FormulaireEtapeProps {
 
 /** Étape de la chaîne de valeur : rang, acteurs, parts de coût et de marge (en %), contraintes. */
 export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: FormulaireEtapeProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampEtape>();
   const correction = etape !== undefined;
   const [s, setS] = useState<SaisieEtape>(
@@ -67,7 +70,7 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerEtape(s, correction),
+      validerEtape(s, correction, langue),
       (charge) =>
         etape
           ? api.post<ReponseEcriture>(cheminVersionsEtape(etape.id), {
@@ -76,8 +79,10 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
             })
           : api.post<ReponseEcriture>(cheminEtapes(dossierId), charge),
       {
-        succes: correction ? "Nouvelle version enregistrée." : "Étape ajoutée.",
-        messageSpecifique: messageDd,
+        succes: correction
+          ? t("Nouvelle version enregistrée.", "New version saved.")
+          : t("Étape ajoutée.", "Step added."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () =>
           correction ? maj({ motif: "" }) : setS(saisieEtapeVide(Number(s.ordre) + 1 || 1)),
       },
@@ -87,13 +92,16 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
   async function retirer() {
     if (!etape) return;
     await f.envoyer(
-      validerRetrait(s.motif, true),
+      validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<ReponseEcriture>(cheminVersionsEtape(etape.id), {
           ...charge,
           version_courante: etape.version,
         }),
-      { succes: "Étape retirée de la chaîne.", messageSpecifique: messageDd },
+      {
+        succes: t("Étape retirée de la chaîne.", "Step removed from the chain."),
+        messageSpecifique: (err) => messageDd(err, langue),
+      },
     );
   }
 
@@ -103,17 +111,21 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={correction ? `Corriger l'étape ${etape.libelle}` : "Nouvelle étape"}
+      aria-label={
+        correction
+          ? t(`Corriger l'étape ${etape.libelle}`, `Edit the step ${etape.libelle}`)
+          : t("Nouvelle étape", "New step")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Étape refusée"
+        titreErreur={t("Étape refusée", "Step refused")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Nom de l'étape"
+          libelle={t("Nom de l'étape", "Step name")}
           required
           maxLength={TITRE_MAX}
           value={s.libelle}
@@ -121,42 +133,45 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle="Rang dans la chaîne"
+          libelle={t("Rang dans la chaîne", "Rank in the chain")}
           required
           inputMode="numeric"
           value={s.ordre}
           onChange={(e) => maj({ ordre: e.target.value })}
           erreur={f.erreurs.ordre}
-          aide="1 pour la première étape."
+          aide={t("1 pour la première étape.", "1 for the first step.")}
         />
       </div>
       <div className="mp-grille-champs">
         <Champ
-          libelle="Part du coût total (%)"
+          libelle={t("Part du coût total (%)", "Share of total cost (%)")}
           inputMode="decimal"
           value={s.part_cout}
           onChange={(e) => maj({ part_cout: e.target.value })}
           erreur={f.erreurs.part_cout}
-          aide="Facultative. Le total des étapes doit tendre vers 100 %."
+          aide={t(
+            "Facultative. Le total des étapes doit tendre vers 100 %.",
+            "Optional. The total across steps should approach 100%.",
+          )}
         />
         <Champ
-          libelle="Part de la marge (%)"
+          libelle={t("Part de la marge (%)", "Share of margin (%)")}
           inputMode="decimal"
           value={s.part_marge}
           onChange={(e) => maj({ part_marge: e.target.value })}
           erreur={f.erreurs.part_marge}
-          aide="Facultative."
+          aide={t("Facultative.", "Optional.")}
         />
       </div>
       <Champ
-        libelle="Acteurs"
+        libelle={t("Acteurs", "Actors")}
         value={s.acteurs}
         onChange={(e) => maj({ acteurs: e.target.value })}
         erreur={f.erreurs.acteurs}
-        aide="Séparés par des virgules (12 au plus)."
+        aide={t("Séparés par des virgules (12 au plus).", "Separated by commas (12 at most).")}
       />
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={TEXTE_LONG_MAX}
         value={s.description}
@@ -164,7 +179,7 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
         erreur={f.erreurs.description}
       />
       <ZoneTexte
-        libelle="Contraintes"
+        libelle={t("Contraintes", "Constraints")}
         rows={2}
         value={s.contraintes}
         onChange={(e) => maj({ contraintes: e.target.value })}
@@ -172,23 +187,32 @@ export function FormulaireEtape({ dossierId, ordreSuivant = 1, etape }: Formulai
       />
       {correction ? (
         <ZoneTexte
-          libelle="Motif"
+          libelle={t("Motif", "Reason")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => maj({ motif: e.target.value })}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique. Obligatoire pour corriger comme pour retirer l'étape."
+          aide={t(
+            "Conservé dans l'historique. Obligatoire pour corriger comme pour retirer l'étape.",
+            "Kept in the history. Required to edit as well as to remove the step.",
+          )}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {correction ? "Enregistrer la correction" : "Ajouter l'étape"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {correction
+            ? t("Enregistrer la correction", "Save the correction")
+            : t("Ajouter l'étape", "Add the step")}
         </Bouton>
         {correction ? (
           <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-            Retirer cette étape
+            {t("Retirer cette étape", "Remove this step")}
           </Bouton>
         ) : null}
       </div>

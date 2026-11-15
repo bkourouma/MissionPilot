@@ -12,14 +12,16 @@ import {
   optionsEnvois,
   optionsGrillesCalcul,
   optionsSecteurs,
+  detailStrategie,
   SECTEURS_GENERIQUES,
-  STRATEGIES,
   validerCalcul,
   type EnvoiQuestionnaire,
   type ResumeNotation,
   type VueVersionNotation,
 } from "../../lib/notation";
 import { cheminVersionGrille, type VersionGrille } from "../../lib/notation-grilles";
+import { creerTraduire } from "@missionpilot/shared";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -63,6 +65,8 @@ export function FormulaireCalcul({
   grilles,
 }: FormulaireCalculProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const id = useId();
   const f = useFormulaire<"envoiId" | "strategie">();
   const premierNotable = envois.find((e) => e.reponses_soumises > 0)?.id ?? "";
@@ -93,12 +97,15 @@ export function FormulaireCalcul({
         if (e instanceof ErreurApi && e.code === "ANNULE") return;
         setSecteurs([]);
         setErreurSecteurs(
-          `Les secteurs de cette grille n'ont pas pu être chargés (${messageNotation(e)}) : le calcul utilisera ses pondérations par défaut.`,
+          creerTraduire(langue)(
+            `Les secteurs de cette grille n'ont pas pu être chargés (${messageNotation(e, langue)}) : le calcul utilisera ses pondérations par défaut.`,
+            `The sectors of this framework could not be loaded (${messageNotation(e, langue)}): the computation will use its default weightings.`,
+          ),
         );
       })
       .finally(() => setChargementSecteurs(false));
     return () => controleur.abort();
-  }, [grilleVersionId]);
+  }, [grilleVersionId, langue]);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -107,16 +114,16 @@ export function FormulaireCalcul({
     setAnnonce("");
     try {
       await f.envoyer(
-        validerCalcul({ envoiId, grilleVersionId, secteur, strategie }, envois),
+        validerCalcul({ envoiId, grilleVersionId, secteur, strategie }, envois, langue),
         async (charge) => {
           const idNotation = await notationDeLaMission(missionId, notationId);
           return api.post<VueVersionNotation>(cheminActionNotation(idNotation, "calculs"), charge);
         },
         {
           rafraichir: false,
-          messageSpecifique: messageNotation,
+          messageSpecifique: (err) => messageNotation(err, langue),
           apres: (vue) => {
-            setAnnonce(annonceCalcul(vue));
+            setAnnonce(annonceCalcul(vue, langue));
             router.push(hrefNotation(missionId, vue.numero));
           },
         },
@@ -126,7 +133,7 @@ export function FormulaireCalcul({
     }
   }
 
-  const grillesProposees = optionsGrillesCalcul(grilles);
+  const grillesProposees = optionsGrillesCalcul(grilles, langue);
   const nonValidees = grilles.filter((g) => g.version_validee_id === null).length;
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
@@ -136,7 +143,7 @@ export function FormulaireCalcul({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Calcul impossible"
+        titreErreur={t("Calcul impossible", "Computation failed")}
       />
       {annonce ? (
         <Alerte tonalite="succes" annonce="aucune">
@@ -144,43 +151,52 @@ export function FormulaireCalcul({
         </Alerte>
       ) : null}
       <Select
-        libelle="Questionnaire noté"
+        libelle={t("Questionnaire noté", "Rated questionnaire")}
         required
         value={envoiId}
         onChange={(e) => setEnvoiId(e.target.value)}
-        invite="Choisir un questionnaire…"
-        options={optionsEnvois(envois)}
+        invite={t("Choisir un questionnaire…", "Choose a questionnaire…")}
+        options={optionsEnvois(envois, langue)}
         erreur={f.erreurs.envoiId}
-        aide="Seules les réponses SOUMISES par le client sont notées ; les brouillons sont ignorés."
+        aide={t(
+          "Seules les réponses SOUMISES par le client sont notées ; les brouillons sont ignorés.",
+          "Only answers SUBMITTED by the client are rated; drafts are ignored.",
+        )}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Grille de notation"
+          libelle={t("Grille de notation", "Rating framework")}
           value={grilleVersionId}
           onChange={(e) => setGrilleVersionId(e.target.value)}
           options={grillesProposees}
           aide={
             nonValidees > 0
-              ? `Grilles du cabinet non proposées faute de version validée : ${nonValidees}. Une grille n'est proposée qu'une fois validée par un expert métier.`
-              : "Une grille du cabinet n'est proposée qu'une fois validée par un expert métier."
+              ? t(
+                  `Grilles du cabinet non proposées faute de version validée : ${nonValidees}. Une grille n'est proposée qu'une fois validée par un expert métier.`,
+                  `Firm frameworks not offered for lack of an approved version: ${nonValidees}. A framework is offered only once approved by a business expert.`,
+                )
+              : t(
+                  "Une grille du cabinet n'est proposée qu'une fois validée par un expert métier.",
+                  "A firm framework is offered only once approved by a business expert.",
+                )
           }
         />
         <Select
-          libelle="Pondérations par secteur"
+          libelle={t("Pondérations par secteur", "Weightings by sector")}
           value={secteur}
           onChange={(e) => setSecteur(e.target.value)}
-          options={optionsSecteurs(secteurs)}
+          options={optionsSecteurs(secteurs, langue)}
           disabled={chargementSecteurs}
           aria-busy={chargementSecteurs || undefined}
           aide={
             chargementSecteurs
-              ? "Chargement des secteurs de la grille…"
+              ? t("Chargement des secteurs de la grille…", "Loading the framework sectors…")
               : (erreurSecteurs ?? undefined)
           }
         />
       </div>
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Réponses manquantes</legend>
+        <legend className="mp-champ__libelle">{t("Réponses manquantes", "Missing answers")}</legend>
         <div className="mp-groupe__options">
           {(["ignorer", "penaliser"] as const).map((s) => (
             <div key={s} className="mp-case">
@@ -195,9 +211,9 @@ export function FormulaireCalcul({
                 aria-describedby={`${id}-${s}-aide`}
               />
               <label htmlFor={`${id}-${s}`} className="mp-case__libelle">
-                {STRATEGIES[s].libelle}
+                {detailStrategie(s, langue).libelle}
                 <span id={`${id}-${s}-aide`} className="mp-case__aide">
-                  {STRATEGIES[s].aide}
+                  {detailStrategie(s, langue).aide}
                 </span>
               </label>
             </div>
@@ -208,16 +224,17 @@ export function FormulaireCalcul({
         <Bouton
           type="submit"
           chargement={f.enCours}
-          texteChargement="Calcul en cours…"
+          texteChargement={t("Calcul en cours…", "Computing…")}
           disabled={chargementSecteurs}
         >
-          Lancer le calcul
+          {t("Lancer le calcul", "Run the computation")}
         </Bouton>
       </div>
       <p className="mp-texte-doux mp-texte-petit">
-        Chaque calcul crée une nouvelle version en brouillon, figée et horodatée ; les versions
-        précédentes restent consultables. Les ajustements d&apos;une version ne sont pas reportés
-        sur la suivante.
+        {t(
+          "Chaque calcul crée une nouvelle version en brouillon, figée et horodatée ; les versions précédentes restent consultables. Les ajustements d'une version ne sont pas reportés sur la suivante.",
+          "Each computation creates a new draft version, locked and timestamped; earlier versions remain viewable. Adjustments made to one version are not carried over to the next.",
+        )}
       </p>
     </form>
   );

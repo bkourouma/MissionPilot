@@ -12,6 +12,7 @@ import {
   NOMBRE_QUESTIONS_IA_DEFAUT,
   NOMBRE_QUESTIONS_IA_MAX,
   NOMBRE_QUESTIONS_IA_MIN,
+  type Langue,
   type QuestionnaireGenerationIa,
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
@@ -51,22 +52,48 @@ interface Libelle {
 }
 
 export const STATUT_CONTENU_IA: Record<StatutContenuIa, Libelle> = {
-  brouillon_ia: { libelle: "Brouillon IA, à relire", tonalite: "attention" },
+  brouillon_ia: {
+    libelle: "Brouillon IA, à relire",
+    tonalite: "attention",
+  },
   modifie: { libelle: "Modifié, à valider", tonalite: "attention" },
-  valide: { libelle: "Validé par un consultant", tonalite: "succes" },
+  valide: {
+    libelle: "Validé par un consultant",
+    tonalite: "succes",
+  },
+};
+
+const STATUT_CONTENU_IA_EN: Record<StatutContenuIa, string> = {
+  brouillon_ia: "AI draft, to be reviewed",
+  modifie: "Edited, pending approval",
+  valide: "Approved by a consultant",
 };
 
 const INCONNU: Libelle = { libelle: "Statut inconnu", tonalite: "neutre" };
 
-export function libelleContenuIa(statut: string): Libelle {
-  return Object.prototype.hasOwnProperty.call(STATUT_CONTENU_IA, statut)
-    ? STATUT_CONTENU_IA[statut as StatutContenuIa]
-    : INCONNU;
+export function libelleContenuIa(statut: string, langue: Langue = "fr"): Libelle {
+  if (!Object.prototype.hasOwnProperty.call(STATUT_CONTENU_IA, statut)) {
+    return langue === "en" ? { libelle: "Unknown status", tonalite: "neutre" } : INCONNU;
+  }
+  const l = STATUT_CONTENU_IA[statut as StatutContenuIa];
+  return langue === "en"
+    ? { libelle: STATUT_CONTENU_IA_EN[statut as StatutContenuIa], tonalite: l.tonalite }
+    : l;
 }
 
 /** Ligne d'historique : « Brouillon IA proposé par Awa Koné, le 8 oct. 2026 à 09:00 ». */
-export function ligneHistoriqueIa(r: RangHistoriqueIa): string {
-  const quand = formaterDateHeure(r.cree_le);
+export function ligneHistoriqueIa(r: RangHistoriqueIa, langue: Langue = "fr"): string {
+  const quand = formaterDateHeure(r.cree_le, undefined, langue);
+  if (langue === "en") {
+    switch (r.statut_contenu) {
+      case "brouillon_ia":
+        return `AI draft requested by ${r.auteur.nom}, on ${quand}`;
+      case "modifie":
+        return `Edited by ${r.auteur.nom}, on ${quand}`;
+      case "valide":
+        return `Approved by ${r.auteur.nom}, on ${quand}`;
+    }
+  }
   switch (r.statut_contenu) {
     case "brouillon_ia":
       return `Brouillon IA demandé par ${r.auteur.nom}, le ${quand}`;
@@ -78,7 +105,19 @@ export function ligneHistoriqueIa(r: RangHistoriqueIa): string {
 }
 
 /** Explication affichée selon le statut et l'origine du contenu. */
-export function aideContenuIa(ia: Pick<OrigineIa, "statut_contenu" | "gabarit">): string {
+export function aideContenuIa(
+  ia: Pick<OrigineIa, "statut_contenu" | "gabarit">,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    if (ia.statut_contenu === "valide") {
+      return "A consultant has reviewed and approved this questionnaire: it is locked and can be sent to the client's respondents.";
+    }
+    const origineEn = ia.gabarit
+      ? "The AI could not propose questions (disabled, unavailable or unusable response): this generic questionnaire was built by a deterministic template from your topic."
+      : "This questionnaire was proposed by the AI.";
+    return `${origineEn} It cannot be sent until a consultant other than its author has reviewed and approved it. AI proposes, the expert decides.`;
+  }
   if (ia.statut_contenu === "valide") {
     return "Un consultant a relu et validé ce questionnaire : il est figé et peut être envoyé aux répondants du client.";
   }
@@ -115,19 +154,28 @@ export const LONGUEURS_GENERATION_IA = { service: 200, population: 200, theme: 3
 
 export function validerGenerationIa(
   s: SaisieGenerationIa,
+  langue: Langue = "fr",
 ): Resultat<QuestionnaireGenerationIa, ChampGenerationIa> {
+  const en = langue === "en";
   const erreurs: Partial<Record<ChampGenerationIa, string>> = {};
   const code = s.code.trim();
-  if (code === "") erreurs.code = "Le code est obligatoire.";
+  if (code === "") erreurs.code = en ? "The code is required." : "Le code est obligatoire.";
   else if (!identifiantGrilleSchema.safeParse(code).success) {
-    erreurs.code =
-      "Code invalide : minuscules sans accent, chiffres, « _ », « . » ou « - » (80 caractères au plus).";
+    erreurs.code = en
+      ? 'Invalid code: lowercase letters without accents, digits, "_", "." or "-" (80 characters at most).'
+      : "Code invalide : minuscules sans accent, chiffres, « _ », « . » ou « - » (80 caractères au plus).";
   }
-  const obligatoires = {
-    service: "Le service est obligatoire.",
-    population: "La population interrogée est obligatoire.",
-    theme: "Le thème est obligatoire.",
-  } as const;
+  const obligatoires = en
+    ? ({
+        service: "The service is required.",
+        population: "The surveyed population is required.",
+        theme: "The topic is required.",
+      } as const)
+    : ({
+        service: "Le service est obligatoire.",
+        population: "La population interrogée est obligatoire.",
+        theme: "Le thème est obligatoire.",
+      } as const);
   const valeurs = {
     service: s.service.trim(),
     population: s.population.trim(),
@@ -136,7 +184,9 @@ export function validerGenerationIa(
   for (const champ of ["service", "population", "theme"] as const) {
     const max = LONGUEURS_GENERATION_IA[champ];
     if (valeurs[champ] === "") erreurs[champ] = obligatoires[champ];
-    else if (valeurs[champ].length > max) erreurs[champ] = `${max} caractères au plus.`;
+    else if (valeurs[champ].length > max) {
+      erreurs[champ] = en ? `${max} characters at most.` : `${max} caractères au plus.`;
+    }
   }
   const brut = s.nombre_questions.trim();
   const n = Number(brut);
@@ -146,12 +196,17 @@ export function validerGenerationIa(
     n < NOMBRE_QUESTIONS_IA_MIN ||
     n > NOMBRE_QUESTIONS_IA_MAX
   ) {
-    erreurs.nombre_questions = `Choisissez un nombre entier entre ${NOMBRE_QUESTIONS_IA_MIN} et ${NOMBRE_QUESTIONS_IA_MAX}.`;
+    erreurs.nombre_questions = en
+      ? `Choose a whole number between ${NOMBRE_QUESTIONS_IA_MIN} and ${NOMBRE_QUESTIONS_IA_MAX}.`
+      : `Choisissez un nombre entier entre ${NOMBRE_QUESTIONS_IA_MIN} et ${NOMBRE_QUESTIONS_IA_MAX}.`;
   }
   const termes = decouperListe(s.termes_sensibles.replace(/\r/g, ""));
-  if (termes.length > 200) erreurs.termes_sensibles = "200 termes au plus.";
+  if (termes.length > 200)
+    erreurs.termes_sensibles = en ? "200 terms at most." : "200 termes au plus.";
   else if (termes.some((t) => t.length > 200)) {
-    erreurs.termes_sensibles = "Chaque terme comporte 200 caractères au plus.";
+    erreurs.termes_sensibles = en
+      ? "Each term has 200 characters at most."
+      : "Chaque terme comporte 200 caractères au plus.";
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {

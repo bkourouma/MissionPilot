@@ -7,6 +7,7 @@ import {
   aPermission,
   TYPES_COLLABORATEUR,
   type CollaborateurCouts,
+  type Langue,
   type Role,
   type TypeCollaborateur,
 } from "@missionpilot/shared";
@@ -65,10 +66,22 @@ export const TYPE_LIBELLES: Record<TypeCollaborateur, string> = {
   sous_traitant: "Sous-traitant",
 };
 
+export const TYPE_LIBELLES_EN: Record<TypeCollaborateur, string> = {
+  interne: "Internal",
+  externe: "External expert",
+  sous_traitant: "Subcontractor",
+};
+
+export const libelleTypeCollaborateur = (t: TypeCollaborateur, langue: Langue = "fr"): string =>
+  langue === "en" ? TYPE_LIBELLES_EN[t] : TYPE_LIBELLES[t];
+
 export const OPTIONS_TYPES = TYPES_COLLABORATEUR.map((t) => ({
   valeur: t,
   libelle: TYPE_LIBELLES[t],
 }));
+
+export const optionsTypes = (langue: Langue = "fr") =>
+  TYPES_COLLABORATEUR.map((t) => ({ valeur: t, libelle: libelleTypeCollaborateur(t, langue) }));
 
 // --- Droits ---------------------------------------------------------------------
 
@@ -161,35 +174,55 @@ export interface ChargeCollaborateur {
   langues: string[];
 }
 
-function verifierListe(liste: string[], maxElements: number, maxLongueur: number) {
-  if (liste.length > maxElements) return `${maxElements} éléments au plus.`;
-  if (liste.some((e) => e.length > maxLongueur))
-    return `Chaque élément doit faire ${maxLongueur} caractères au plus.`;
+function verifierListe(
+  liste: string[],
+  maxElements: number,
+  maxLongueur: number,
+  langue: Langue = "fr",
+) {
+  const en = langue === "en";
+  if (liste.length > maxElements) {
+    return en ? `${maxElements} items at most.` : `${maxElements} éléments au plus.`;
+  }
+  if (liste.some((e) => e.length > maxLongueur)) {
+    return en
+      ? `Each item must be ${maxLongueur} characters at most.`
+      : `Chaque élément doit faire ${maxLongueur} caractères au plus.`;
+  }
   return undefined;
 }
 
 export function validerCollaborateur(
   s: SaisieCollaborateur,
+  langue: Langue = "fr",
 ): Resultat<ChargeCollaborateur, ChampCollaborateur> {
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const erreurs: Partial<Record<ChampCollaborateur, string>> = {};
   const nom = s.nom.trim();
-  if (nom === "") erreurs.nom = "Saisissez le nom du collaborateur.";
-  else if (nom.length > 160) erreurs.nom = "160 caractères au plus.";
+  if (nom === "")
+    erreurs.nom = t("Saisissez le nom du collaborateur.", "Enter the team member's name.");
+  else if (nom.length > 160) erreurs.nom = t("160 caractères au plus.", "160 characters at most.");
   if (!(TYPES_COLLABORATEUR as readonly string[]).includes(s.type))
-    erreurs.type = "Choisissez un type.";
+    erreurs.type = t("Choisissez un type.", "Choose a type.");
   const capacite = lireNombre(s.capacite_pct);
   if (capacite === null || Number.isNaN(capacite) || !Number.isInteger(capacite))
-    erreurs.capacite_pct = "Saisissez un nombre entier entre 0 et 100.";
+    erreurs.capacite_pct = t(
+      "Saisissez un nombre entier entre 0 et 100.",
+      "Enter a whole number between 0 and 100.",
+    );
   else if (capacite < 0 || capacite > 100)
-    erreurs.capacite_pct = "La capacité est comprise entre 0 et 100 %.";
+    erreurs.capacite_pct = t(
+      "La capacité est comprise entre 0 et 100 %.",
+      "Capacity is between 0 and 100%.",
+    );
   const competences = decouperListe(s.competences);
   const secteurs = decouperListe(s.secteurs);
   const langues = decouperListe(s.langues);
-  const ec = verifierListe(competences, 50, 80);
+  const ec = verifierListe(competences, 50, 80, langue);
   if (ec) erreurs.competences = ec;
-  const es = verifierListe(secteurs, 50, 80);
+  const es = verifierListe(secteurs, 50, 80, langue);
   if (es) erreurs.secteurs = es;
-  const el = verifierListe(langues, 20, 40);
+  const el = verifierListe(langues, 20, 40, langue);
   if (el) erreurs.langues = el;
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -218,10 +251,14 @@ export interface SaisieCouts {
 
 export type ChampCouts = keyof SaisieCouts;
 
-export function validerCouts(s: SaisieCouts): Resultat<CollaborateurCouts, ChampCouts | "global"> {
+export function validerCouts(
+  s: SaisieCouts,
+  langue: Langue = "fr",
+): Resultat<CollaborateurCouts, ChampCouts | "global"> {
+  const en = langue === "en";
   const erreurs: Partial<Record<ChampCouts | "global", string>> = {};
   if (!(DEVISES as readonly string[]).includes(s.devise)) {
-    erreurs.devise = "Choisissez une devise.";
+    erreurs.devise = en ? "Choose a currency." : "Choisissez une devise.";
     return { ok: false, erreurs };
   }
   const devise = s.devise as Devise;
@@ -232,19 +269,24 @@ export function validerCouts(s: SaisieCouts): Resultat<CollaborateurCouts, Champ
   };
   const msg =
     devise === "XOF" || devise === "XAF"
-      ? "Montant invalide : nombre entier positif attendu (ex. 150 000)."
-      : "Montant invalide : nombre positif, deux décimales au plus (ex. 1 500,50).";
+      ? en
+        ? "Invalid amount: positive whole number expected (e.g. 150,000)."
+        : "Montant invalide : nombre entier positif attendu (ex. 150 000)."
+      : en
+        ? "Invalid amount: positive number, up to two decimals (e.g. 1,500.50)."
+        : "Montant invalide : nombre positif, deux décimales au plus (ex. 1 500,50).";
   for (const [champ, v] of Object.entries(montants) as [ChampCouts, number | null][]) {
     if (v !== null && Number.isNaN(v)) erreurs[champ] = msg;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.depuis_le)) erreurs.depuis_le = "Choisissez la date d'effet.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.depuis_le))
+    erreurs.depuis_le = en ? "Choose the effective date." : "Choisissez la date d'effet.";
   if (
     Object.keys(erreurs).length === 0 &&
     montants.cout_journalier === null &&
     montants.taux_vente_specifique === null &&
     montants.cout_achat === null
   )
-    erreurs.global = "Renseignez au moins un montant.";
+    erreurs.global = en ? "Enter at least one amount." : "Renseignez au moins un montant.";
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -265,14 +307,21 @@ export type ChampGrade = keyof SaisieGrade;
 export function validerGrade(
   s: SaisieGrade,
   creation: boolean,
+  langue: Langue = "fr",
 ): Resultat<{ code?: string; libelle: string; ordre: number }, ChampGrade> {
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const erreurs: Partial<Record<ChampGrade, string>> = {};
   const code = s.code.trim();
   if (creation && !/^[a-z0-9_]{1,40}$/.test(code))
-    erreurs.code = "Code : minuscules, chiffres et tiret bas, 40 caractères au plus (ex. senior).";
+    erreurs.code = t(
+      "Code : minuscules, chiffres et tiret bas, 40 caractères au plus (ex. senior).",
+      "Code: lowercase letters, digits and underscore, 40 characters at most (e.g. senior).",
+    );
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Saisissez le libellé du grade.";
-  else if (libelle.length > 80) erreurs.libelle = "80 caractères au plus.";
+  if (libelle === "")
+    erreurs.libelle = t("Saisissez le libellé du grade.", "Enter the grade label.");
+  else if (libelle.length > 80)
+    erreurs.libelle = t("80 caractères au plus.", "80 characters at most.");
   const ordre = lireNombre(s.ordre);
   if (
     ordre === null ||
@@ -281,7 +330,10 @@ export function validerGrade(
     ordre < 0 ||
     ordre > 1000
   )
-    erreurs.ordre = "Saisissez un nombre entier entre 0 et 1000.";
+    erreurs.ordre = t(
+      "Saisissez un nombre entier entre 0 et 1000.",
+      "Enter a whole number between 0 and 1000.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -294,9 +346,11 @@ export function validerGrade(
 export function validerTauxGrade(
   saisie: string,
   devise: string,
+  langue: Langue = "fr",
 ): Resultat<{ taux_vente_standard: number | null; devise: Devise }, "taux" | "devise"> {
+  const en = langue === "en";
   if (!(DEVISES as readonly string[]).includes(devise))
-    return { ok: false, erreurs: { devise: "Choisissez une devise." } };
+    return { ok: false, erreurs: { devise: en ? "Choose a currency." : "Choisissez une devise." } };
   const d = devise as Devise;
   const v = lireMontant(saisie, d);
   if (v !== null && Number.isNaN(v))
@@ -305,8 +359,12 @@ export function validerTauxGrade(
       erreurs: {
         taux:
           d === "XOF" || d === "XAF"
-            ? "Nombre entier positif attendu (ex. 250 000)."
-            : "Nombre positif, deux décimales au plus.",
+            ? en
+              ? "Positive whole number expected (e.g. 250,000)."
+              : "Nombre entier positif attendu (ex. 250 000)."
+            : en
+              ? "Positive number, up to two decimals."
+              : "Nombre positif, deux décimales au plus.",
       },
     };
   return { ok: true, charge: { taux_vente_standard: v, devise: d } };

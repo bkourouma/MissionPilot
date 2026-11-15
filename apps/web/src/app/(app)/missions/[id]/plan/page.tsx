@@ -8,6 +8,7 @@ import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
 import { formaterDate, libelleDevise } from "../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import {
   cheminPlansMission,
@@ -20,7 +21,10 @@ import {
 } from "../../../../../lib/plan-strategique";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Plan stratégique de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Plan stratégique de la mission", "Engagement strategic plan") };
+}
 
 const TAILLE_PAGE = 20;
 
@@ -36,6 +40,8 @@ export default async function PagePlansMission({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const r = await chargerMission(id);
@@ -46,30 +52,45 @@ export default async function PagePlansMission({
   const droits = droitsPlan(ctx);
   const curseur = lireCurseur((await searchParams).curseur);
   const plans = await chargerServeur<PagePlans>(cheminPlansMission(m.id, TAILLE_PAGE, curseur));
-  const raison = raisonCreationImpossible(ctx);
+  const raison = raisonCreationImpossible(ctx, langue);
 
   return (
     <div className="mp-plan">
       <p className="mp-texte-doux">
-        Le plan stratégique réunit le diagnostic, l&apos;analyse SWOT, la vision, les axes, les
-        objectifs, les initiatives et le modèle financier prévisionnel. L&apos;expert dispose :
-        chaque contenu est validé par un responsable de la mission avant tout partage au client, et
-        les chiffres du modèle sont calculés par le moteur de CabinetPilot.
+        {t(
+          "Le plan stratégique réunit le diagnostic, l'analyse SWOT, la vision, les axes, les objectifs, les initiatives et le modèle financier prévisionnel. L'expert dispose : chaque contenu est validé par un responsable de la mission avant tout partage au client, et les chiffres du modèle sont calculés par le moteur de CabinetPilot.",
+          "The strategic plan brings together the diagnostic, SWOT analysis, vision, axes, objectives, initiatives and the projected financial model. The expert decides: each item is approved by an engagement lead before anything is shared with the client, and the model figures are computed by the CabinetPilot engine.",
+        )}
       </p>
 
-      <Carte titre="Plans de la mission">
+      <Carte titre={t("Plans de la mission", "Engagement plans")}>
         {!plans.ok ? (
           <EtatErreur
-            titre="Les plans de la mission n'ont pas pu être chargés."
+            titre={t(
+              "Les plans de la mission n'ont pas pu être chargés.",
+              "The engagement plans could not be loaded.",
+            )}
             message={plans.message}
             hrefReessayer={hrefPlans(m.id)}
           />
         ) : plans.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucun plan stratégique pour cette mission." icone="drapeau">
+          <EtatVide
+            titre={t(
+              "Aucun plan stratégique pour cette mission.",
+              "No strategic plan for this engagement.",
+            )}
+            icone="drapeau"
+          >
             <p>
               {droits.creer
-                ? "Créez le premier plan ci-dessous : vous pourrez ensuite en rédiger les contenus avec l'équipe."
-                : "Un responsable de la mission (directeur, chef de mission ou associé) doit d'abord créer le plan."}
+                ? t(
+                    "Créez le premier plan ci-dessous : vous pourrez ensuite en rédiger les contenus avec l'équipe.",
+                    "Create the first plan below: you can then write its content with the team.",
+                  )
+                : t(
+                    "Un responsable de la mission (directeur, chef de mission ou associé) doit d'abord créer le plan.",
+                    "An engagement lead (director, engagement manager or partner) must create the plan first.",
+                  )}
             </p>
           </EtatVide>
         ) : (
@@ -83,14 +104,17 @@ export default async function PagePlansMission({
                   <div className="mp-plan__badges">
                     <BadgePartage partage={p.partage_client} />
                     <span className="mp-texte-doux mp-texte-petit">
-                      {`Horizon ${p.horizon} ans · ${libelleDevise(p.devise)} · créé le ${formaterDate(p.cree_le, "Africa/Abidjan")}`}
+                      {t(
+                        `Horizon ${p.horizon} ans · ${libelleDevise(p.devise)} · créé le ${formaterDate(p.cree_le, "Africa/Abidjan")}`,
+                        `Horizon ${p.horizon} years · ${libelleDevise(p.devise)} · created on ${formaterDate(p.cree_le, "Africa/Abidjan", langue)}`,
+                      )}
                     </span>
                   </div>
                 </li>
               ))}
             </ul>
             <PaginationCurseur
-              libelle="Pages des plans"
+              libelle={t("Pages des plans", "Plan pages")}
               hrefSuivante={
                 plans.donnees.curseur_suivant
                   ? `${hrefPlans(m.id)}?curseur=${encodeURIComponent(plans.donnees.curseur_suivant)}`
@@ -102,7 +126,7 @@ export default async function PagePlansMission({
         )}
       </Carte>
 
-      <Carte titre="Nouveau plan stratégique">
+      <Carte titre={t("Nouveau plan stratégique", "New strategic plan")}>
         {droits.creer ? (
           <FormulaireCreationPlan missionId={m.id} deviseMission={m.devise} />
         ) : (

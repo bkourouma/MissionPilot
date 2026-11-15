@@ -1,5 +1,9 @@
+"use client";
+
 import type { RedResultatUrgenceVue } from "@missionpilot/shared";
 import { libelleDomaine } from "../../lib/redressement";
+import { libelleCompteur } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Voyant } from "./Voyant";
 
 /**
@@ -8,23 +12,31 @@ import { Voyant } from "./Voyant";
  * minimale de réponses n'est pas atteinte.
  */
 export function ResultatUrgence({ resultat }: { resultat: RedResultatUrgenceVue }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-red-carte-corps">
       <p>
-        <span className="mp-texte-doux">Voyant global : </span>
+        <span className="mp-texte-doux">{t("Voyant global :", "Overall indicator:")} </span>
         <Voyant voyant={resultat.voyant} />
       </p>
-      <ul className="mp-red-liste-voyants" aria-label="Voyants par domaine">
+      <ul
+        className="mp-red-liste-voyants"
+        aria-label={t("Voyants par domaine", "Indicators by domain")}
+      >
         {resultat.domaines.map((d) => (
           <li key={d.domaine}>
-            <span>{libelleDomaine(d.domaine)}</span>
+            <span>{libelleDomaine(d.domaine, langue)}</span>
             <span>
               <Voyant voyant={d.voyant} />{" "}
               {d.pourcentage !== null ? (
                 <span className="mp-red-pourcentage">{d.pourcentage} %</span>
               ) : (
                 <span className="mp-red-pourcentage">
-                  Domaine non évalué : trop peu de réponses
+                  {t(
+                    "Domaine non évalué : trop peu de réponses",
+                    "Domain not assessed: too few answers",
+                  )}
                 </span>
               )}
             </span>
@@ -32,9 +44,8 @@ export function ResultatUrgence({ resultat }: { resultat: RedResultatUrgenceVue 
         ))}
       </ul>
       <p className="mp-texte-doux mp-texte-petit">
-        {resultat.questions_repondues} question{resultat.questions_repondues > 1 ? "s" : ""}{" "}
-        renseignée{resultat.questions_repondues > 1 ? "s" : ""} sur {resultat.questions_total}
-        {resultat.complet ? "" : " : évaluation incomplète"}.
+        {libelleCompteur(resultat.questions_repondues, resultat.questions_total, langue)}
+        {resultat.complet ? "" : t(" : évaluation incomplète", ": incomplete assessment")}.
       </p>
     </div>
   );

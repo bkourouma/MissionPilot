@@ -2,11 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import {
-  RED_COVENANT_FREQUENCE_LIBELLES,
   RED_COVENANT_FREQUENCES,
-  RED_COVENANT_OPERATEUR_LIBELLES,
   RED_COVENANT_OPERATEURS,
-  RED_COVENANT_RATIO_LIBELLES,
   RED_COVENANT_RATIOS,
   RED_COVENANTS_PAR_VERSION_MAX,
   type RedCovenantFrequence,
@@ -16,7 +13,12 @@ import {
 } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import { messageRedressement } from "../../lib/redressement";
-import { cheminVersionsCovenants } from "../../lib/redressement-financement";
+import {
+  cheminVersionsCovenants,
+  libelleFrequenceCovenant,
+  libelleOperateurCovenant,
+  libelleRatioCovenant,
+} from "../../lib/redressement-financement";
 import {
   corpsCovenantsDepuisFormulaire,
   covenantVide,
@@ -28,17 +30,12 @@ import {
 } from "../../lib/redressement-financement-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-
-const options = <T extends string>(valeurs: readonly T[], libelles: Record<T, string>) =>
-  valeurs.map((v) => ({ valeur: v, libelle: libelles[v] }));
-const OPTIONS_RATIOS = options(RED_COVENANT_RATIOS, RED_COVENANT_RATIO_LIBELLES);
-const OPTIONS_OPERATEURS = options(RED_COVENANT_OPERATEURS, RED_COVENANT_OPERATEUR_LIBELLES);
-const OPTIONS_FREQUENCES = options(RED_COVENANT_FREQUENCES, RED_COVENANT_FREQUENCE_LIBELLES);
 
 /**
  * Nouvelle version de covenants (0 à 12 lignes) : ajout seul, la version précédente reste dans
@@ -52,8 +49,22 @@ export function CovenantsFormulaire({
   dossierId: string;
   version: RedCovenantsVersionVue | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampCovenants>();
   const [s, setS] = useState<SaisieCovenants>(() => saisieCovenantsDepuis(version));
+  const optionsRatios = RED_COVENANT_RATIOS.map((v) => ({
+    valeur: v,
+    libelle: libelleRatioCovenant(v, langue),
+  }));
+  const optionsOperateurs = RED_COVENANT_OPERATEURS.map((v) => ({
+    valeur: v,
+    libelle: libelleOperateurCovenant(v, langue),
+  }));
+  const optionsFrequences = RED_COVENANT_FREQUENCES.map((v) => ({
+    valeur: v,
+    libelle: libelleFrequenceCovenant(v, langue),
+  }));
 
   const maj = (cle: string, valeur: Partial<SaisieCovenant>) =>
     setS((x) => ({
@@ -64,11 +75,11 @@ export function CovenantsFormulaire({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsCovenantsDepuisFormulaire(s),
+      corpsCovenantsDepuisFormulaire(s, langue),
       (charge) => api.post(cheminVersionsCovenants(dossierId), charge),
       {
-        succes: "Nouvelle version de covenants enregistrée.",
-        messageSpecifique: messageRedressement,
+        succes: t("Nouvelle version de covenants enregistrée.", "New covenant version saved."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -79,13 +90,13 @@ export function CovenantsFormulaire({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvelle version de covenants"
+      aria-label={t("Nouvelle version de covenants", "New covenant version")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Saving not possible")}
       />
       {f.erreurs.covenants ? (
         <Alerte tonalite="danger" annonce="alert">
@@ -94,7 +105,10 @@ export function CovenantsFormulaire({
       ) : null}
       {s.covenants.length === 0 ? (
         <p className="mp-texte-doux">
-          Aucun covenant : enregistrer cette version retire tous les covenants de l&apos;évaluation.
+          {t(
+            "Aucun covenant : enregistrer cette version retire tous les covenants de l'évaluation.",
+            "No covenant: saving this version removes all covenants from the assessment.",
+          )}
         </p>
       ) : (
         <ul className="mp-red-lignes">
@@ -105,30 +119,33 @@ export function CovenantsFormulaire({
                 libelle="Ratio"
                 value={c.ratio}
                 onChange={(e) => maj(c.cle, { ratio: e.target.value as RedCovenantRatio })}
-                options={OPTIONS_RATIOS}
+                options={optionsRatios}
               />
               <Select
-                libelle="Opérateur"
+                libelle={t("Opérateur", "Operator")}
                 value={c.operateur}
                 onChange={(e) => maj(c.cle, { operateur: e.target.value as RedCovenantOperateur })}
-                options={OPTIONS_OPERATEURS}
+                options={optionsOperateurs}
               />
               <Champ
-                libelle="Seuil"
+                libelle={t("Seuil", "Threshold")}
                 inputMode="decimal"
                 autoComplete="off"
                 value={c.seuil}
                 onChange={(e) => maj(c.cle, { seuil: e.target.value })}
-                aide={`Unité : ${uniteSeuilCovenant(c.ratio)}.`}
+                aide={t(
+                  `Unité : ${uniteSeuilCovenant(c.ratio)}.`,
+                  `Unit: ${uniteSeuilCovenant(c.ratio, langue)}.`,
+                )}
               />
               <Select
-                libelle="Fréquence"
+                libelle={t("Fréquence", "Frequency")}
                 value={c.frequence}
                 onChange={(e) => maj(c.cle, { frequence: e.target.value as RedCovenantFrequence })}
-                options={OPTIONS_FREQUENCES}
+                options={optionsFrequences}
               />
               <Champ
-                libelle="Prêteur (facultatif)"
+                libelle={t("Prêteur (facultatif)", "Lender (optional)")}
                 maxLength={120}
                 autoComplete="off"
                 value={c.preteur}
@@ -136,12 +153,15 @@ export function CovenantsFormulaire({
               />
               <Bouton
                 variante="discret"
-                aria-label={`Retirer le covenant ${i + 1} (${RED_COVENANT_RATIO_LIBELLES[c.ratio]})`}
+                aria-label={t(
+                  `Retirer le covenant ${i + 1} (${libelleRatioCovenant(c.ratio)})`,
+                  `Remove covenant ${i + 1} (${libelleRatioCovenant(c.ratio, langue)})`,
+                )}
                 onClick={() =>
                   setS((x) => ({ ...x, covenants: x.covenants.filter((y) => y.cle !== c.cle) }))
                 }
               >
-                Retirer
+                {t("Retirer", "Remove")}
               </Bouton>
             </li>
           ))}
@@ -153,22 +173,29 @@ export function CovenantsFormulaire({
           disabled={s.covenants.length >= RED_COVENANTS_PAR_VERSION_MAX}
           onClick={() => setS((x) => ({ ...x, covenants: [...x.covenants, covenantVide()] }))}
         >
-          Ajouter un covenant
+          {t("Ajouter un covenant", "Add a covenant")}
         </Bouton>
         <span className="mp-texte-doux mp-texte-petit">
-          {s.covenants.length} sur {RED_COVENANTS_PAR_VERSION_MAX} au plus.
+          {t(
+            `${s.covenants.length} sur ${RED_COVENANTS_PAR_VERSION_MAX} au plus.`,
+            `${s.covenants.length} of ${RED_COVENANTS_PAR_VERSION_MAX} at most.`,
+          )}
         </span>
       </div>
       <ZoneTexte
-        libelle="Motif (facultatif)"
+        libelle={t("Motif (facultatif)", "Reason (optional)")}
         maxLength={500}
         value={s.motif}
         onChange={(e) => setS((x) => ({ ...x, motif: e.target.value }))}
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la nouvelle version
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la nouvelle version", "Save the new version")}
         </Bouton>
       </div>
     </form>

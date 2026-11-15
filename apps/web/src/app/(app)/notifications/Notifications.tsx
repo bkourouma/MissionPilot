@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useState } from "react";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { EVENEMENT_NOTIFICATIONS } from "../../../components/shell/ClocheNotifications";
 import { Alerte } from "../../../components/ui/Alerte";
 import { Bouton } from "../../../components/ui/Bouton";
@@ -17,6 +18,8 @@ function signaler() {
 
 /** « Tout marquer comme lu ». */
 export function ToutLire({ nonLues }: { nonLues: number }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [etat, setEtat] = useState<{
     enCours: boolean;
@@ -31,7 +34,7 @@ export function ToutLire({ nonLues }: { nonLues: number }) {
   return (
     <div className="mp-pile">
       {etat.erreur ? (
-        <Alerte tonalite="danger" titre="Action impossible">
+        <Alerte tonalite="danger" titre={t("Action impossible", "Action not possible")}>
           <p>{etat.erreur}</p>
         </Alerte>
       ) : null}
@@ -46,7 +49,7 @@ export function ToutLire({ nonLues }: { nonLues: number }) {
             variante="secondaire"
             icone="succes"
             chargement={etat.enCours}
-            texteChargement="En cours…"
+            texteChargement={t("En cours…", "In progress…")}
             onClick={async () => {
               setEtat({ enCours: true, message: null, erreur: null });
               try {
@@ -56,17 +59,20 @@ export function ToutLire({ nonLues }: { nonLues: number }) {
                   erreur: null,
                   message:
                     r.marquees > 1
-                      ? `${r.marquees} notifications marquées comme lues.`
-                      : "Notification marquée comme lue.",
+                      ? t(
+                          `${r.marquees} notifications marquées comme lues.`,
+                          `${r.marquees} notifications marked as read.`,
+                        )
+                      : t("Notification marquée comme lue.", "Notification marked as read."),
                 });
                 signaler();
                 rafraichir();
               } catch (e) {
-                setEtat({ enCours: false, message: null, erreur: messageErreur(e) });
+                setEtat({ enCours: false, message: null, erreur: messageErreur(e, langue) });
               }
             }}
           >
-            Tout marquer comme lu
+            {t("Tout marquer comme lu", "Mark all as read")}
           </Bouton>
         </div>
       ) : null}
@@ -79,6 +85,8 @@ export function ToutLire({ nonLues }: { nonLues: number }) {
  * interprété), lien interne seulement. Ouvrir le lien la marque comme lue.
  */
 export function ElementNotification({ n }: { n: Notification }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [lue, setLue] = useState(n.lue_le !== null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -93,7 +101,7 @@ export function ElementNotification({ n }: { n: Notification }) {
       signaler();
       return true;
     } catch (e) {
-      setErreur(messageErreur(e));
+      setErreur(messageErreur(e, langue));
       return false;
     }
   }
@@ -105,11 +113,11 @@ export function ElementNotification({ n }: { n: Notification }) {
     >
       <div className="mp-notification__entete">
         <h2 id={`notif-${n.id}`} className="mp-notification__titre">
-          {lue ? null : <span className="mp-notification__pastille">Non lue</span>}
+          {lue ? null : <span className="mp-notification__pastille">{t("Non lue", "Unread")}</span>}
           {n.titre}
         </h2>
         <time className="mp-texte-doux mp-texte-petit" dateTime={n.cree_le}>
-          {formaterDateHeure(n.cree_le)}
+          {formaterDateHeure(n.cree_le, undefined, langue)}
         </time>
       </div>
       {paragraphes(n.corps).map((p, i) => (
@@ -131,19 +139,19 @@ export function ElementNotification({ n }: { n: Notification }) {
               void marquer();
             }}
           >
-            <span>Ouvrir</span>
+            <span>{t("Ouvrir", "Open")}</span>
           </Link>
         ) : null}
         {lue ? null : (
           <Bouton
             variante="discret"
             icone="succes"
-            aria-label={`Marquer comme lue : ${n.titre}`}
+            aria-label={`${t("Marquer comme lue", "Mark as read")} : ${n.titre}`}
             onClick={async () => {
               if (await marquer()) rafraichir();
             }}
           >
-            Marquer comme lue
+            {t("Marquer comme lue", "Mark as read")}
           </Bouton>
         )}
       </div>

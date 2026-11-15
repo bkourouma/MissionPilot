@@ -24,9 +24,13 @@ import { EtatErreur, EtatVide } from "../../../../components/ui/EtatListe";
 import { Select } from "../../../../components/ui/Select";
 import { Tableau } from "../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Efficacité des recommandations" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Efficacité des recommandations", "Recommendation effectiveness") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -41,6 +45,8 @@ export default async function PageEfficacite({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("connaissance.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const roles = utilisateur.roles;
   const peutEcrire =
     aPermission(roles, "mission.planifier") &&
@@ -63,45 +69,58 @@ export default async function PageEfficacite({
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
-        titre="Efficacité des recommandations"
-        soustitre="Ce qui a réellement amélioré les KPI : recommandation, mise en oeuvre, effet mesuré, score par contexte."
+        titre={t("Efficacité des recommandations", "Recommendation effectiveness")}
+        soustitre={t(
+          "Ce qui a réellement amélioré les KPI : recommandation, mise en oeuvre, effet mesuré, score par contexte.",
+          "What actually improved the KPIs: recommendation, implementation, measured effect, score per context.",
+        )}
       />
-      <Carte titre="Scores par contexte" niveauTitre={2}>
+      <Carte titre={t("Scores par contexte", "Scores per context")} niveauTitre={2}>
         {!scores.ok ? (
           <EtatErreur
-            titre="Les scores n'ont pas pu être chargés."
+            titre={t("Les scores n'ont pas pu être chargés.", "The scores could not be loaded.")}
             message={scores.message}
             hrefReessayer="/connaissances/efficacite"
           />
         ) : scores.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune recommandation suivie pour l'instant." />
+          <EtatVide
+            titre={t(
+              "Aucune recommandation suivie pour l'instant.",
+              "No recommendation tracked yet.",
+            )}
+          />
         ) : (
           <>
             <p className="mp-texte-petit mp-texte-doux">
-              Un score n&apos;est affiché qu&apos;à partir de {scores.donnees.seuil} recommandations
-              évaluées dans le contexte. {scores.donnees.evaluees} évaluée(s) sur{" "}
-              {scores.donnees.recommandations_suivies} suivie(s).
+              {t(
+                `Un score n'est affiché qu'à partir de ${scores.donnees.seuil} recommandations évaluées dans le contexte. ${scores.donnees.evaluees} évaluée(s) sur ${scores.donnees.recommandations_suivies} suivie(s).`,
+                `A score is only shown from ${scores.donnees.seuil} recommendations assessed in the context. ${scores.donnees.evaluees} assessed out of ${scores.donnees.recommandations_suivies} tracked.`,
+              )}
             </p>
             <Tableau
-              legende="Scores d'efficacité par contexte"
+              legende={t("Scores d'efficacité par contexte", "Effectiveness scores per context")}
               cleLigne={(c) => c.cle}
               lignes={scores.donnees.elements}
               colonnes={[
-                { cle: "contexte", entete: "Contexte", rendu: (c) => libelleContexte(c) },
+                {
+                  cle: "contexte",
+                  entete: t("Contexte", "Context"),
+                  rendu: (c) => libelleContexte(c, langue),
+                },
                 {
                   cle: "effectif",
-                  entete: "Effectif",
+                  entete: t("Effectif", "Sample size"),
                   alignement: "droite",
                   rendu: (c) => (c.effectif === null ? "—" : c.effectif),
                 },
                 {
                   cle: "score_moyen",
-                  entete: "Score moyen",
-                  rendu: (c) => libelleScore(c, scores.donnees.seuil),
+                  entete: t("Score moyen", "Average score"),
+                  rendu: (c) => libelleScore(c, scores.donnees.seuil, langue),
                 },
                 {
                   cle: "mediane",
-                  entete: "Médiane",
+                  entete: t("Médiane", "Median"),
                   alignement: "droite",
                   rendu: (c) => (c.mediane === null ? "—" : `${c.mediane} / 100`),
                 },
@@ -111,34 +130,48 @@ export default async function PageEfficacite({
         )}
       </Carte>
 
-      <Carte titre="Recommandations" niveauTitre={2}>
+      <Carte titre={t("Recommandations", "Recommendations")} niveauTitre={2}>
         {!liste.ok ? (
           <EtatErreur
-            titre="Les recommandations n'ont pas pu être chargées."
+            titre={t(
+              "Les recommandations n'ont pas pu être chargées.",
+              "The recommendations could not be loaded.",
+            )}
             message={liste.message}
             hrefReessayer="/connaissances/efficacite"
           />
         ) : liste.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune recommandation enregistrée." />
+          <EtatVide
+            titre={t("Aucune recommandation enregistrée.", "No recommendation recorded.")}
+          />
         ) : (
           <ul className="mp-connaissances__resultats">
             {liste.donnees.elements.map((r) => (
               <li key={r.id}>
                 <Carte
-                  titre={r.libelle ?? "Recommandation d'une mission hors de votre périmètre"}
+                  titre={
+                    r.libelle ??
+                    t(
+                      "Recommandation d'une mission hors de votre périmètre",
+                      "Recommendation from an engagement outside your scope",
+                    )
+                  }
                   niveauTitre={3}
                   actions={
                     <BadgeStatut tonalite={tonaliteStatutEfficacite(r.statut)}>
-                      {libelleStatutEfficacite(r.statut)}
+                      {libelleStatutEfficacite(r.statut, langue)}
                     </BadgeStatut>
                   }
                 >
                   <p className="mp-texte-petit">
                     {r.type_initiative}
                     {r.mission_intitule ? ` · ${r.mission_intitule}` : ""}
-                    {libelleMiseEnOeuvre(r.mise_en_oeuvre_le)}
+                    {libelleMiseEnOeuvre(r.mise_en_oeuvre_le, langue)}
                   </p>
-                  <p>Score d&apos;efficacité : {libelleScoreRecommandation(r)}</p>
+                  <p>
+                    {t("Score d'efficacité :", "Effectiveness score:")}{" "}
+                    {libelleScoreRecommandation(r, langue)}
+                  </p>
                   {peutEcrire && r.visible ? (
                     <ActionsRecommandation id={r.id} statut={r.statut} />
                   ) : null}
@@ -150,13 +183,17 @@ export default async function PageEfficacite({
       </Carte>
 
       {peutEcrire ? (
-        <Carte titre="Recommander une initiative" niveauTitre={2}>
-          <form method="get" className="mp-formulaire" aria-label="Choix de la mission">
+        <Carte titre={t("Recommander une initiative", "Recommend an initiative")} niveauTitre={2}>
+          <form
+            method="get"
+            className="mp-formulaire"
+            aria-label={t("Choix de la mission", "Engagement choice")}
+          >
             {missions?.ok ? (
               <Select
-                libelle="Mission"
+                libelle={t("Mission", "Engagement")}
                 name="mission"
-                invite="Choisir une mission"
+                invite={t("Choisir une mission", "Choose an engagement")}
                 defaultValue={missionId ?? ""}
                 options={missions.donnees.elements.map((m) => ({
                   valeur: m.id,
@@ -166,19 +203,27 @@ export default async function PageEfficacite({
             ) : null}
             <div className="mp-actions-formulaire">
               <Bouton type="submit" variante="secondaire">
-                Charger les KPI et le plan
+                {t("Charger les KPI et le plan", "Load the KPIs and the plan")}
               </Bouton>
             </div>
           </form>
           {options && !options.ok ? (
             <EtatErreur
-              titre="Les KPI de la mission n'ont pas pu être chargés."
+              titre={t(
+                "Les KPI de la mission n'ont pas pu être chargés.",
+                "The engagement's KPIs could not be loaded.",
+              )}
               message={options.message}
               hrefReessayer={`/connaissances/efficacite?mission=${missionId}`}
             />
           ) : options?.ok && missionId ? (
             options.donnees.kpi.length === 0 ? (
-              <EtatVide titre="Cette mission n'a aucun KPI actif à observer." />
+              <EtatVide
+                titre={t(
+                  "Cette mission n'a aucun KPI actif à observer.",
+                  "This engagement has no active KPI to observe.",
+                )}
+              />
             ) : (
               <FormulaireRecommandation missionId={missionId} options={options.donnees} />
             )

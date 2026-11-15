@@ -10,6 +10,7 @@ import type { MembreEquipe } from "../../../../../lib/catalogue";
 import { formaterMontantMineur, formaterNombre, type Devise } from "../../../../../lib/format";
 import { validerEquipe, validerTaux } from "../../../../../lib/propositions";
 import { aideMontant, montantVersSaisie } from "../../../../../lib/saisie";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../../lib/api";
 
 interface GradeCourt {
@@ -36,37 +37,41 @@ export function EquipeEtTaux({
   equipe,
   taux,
 }: EquipeEtTauxProps) {
+  const t = useT();
+  const langue = useLangue();
   const chemin = `/api/propositions/${encodeURIComponent(propositionId)}`;
   const libelle = (code: string) => grades.find((g) => g.code === code)?.libelle ?? code;
   return (
     <div className="mp-grille-cartes">
-      <Carte titre="Équipe proposée">
+      <Carte titre={t("Équipe proposée", "Proposed team")}>
         {modifiable ? (
           <FormulaireEquipe chemin={chemin} grades={grades} equipe={equipe} />
         ) : equipe.length === 0 ? (
-          <p className="mp-texte-doux">Aucune équipe renseignée.</p>
+          <p className="mp-texte-doux">{t("Aucune équipe renseignée.", "No team entered.")}</p>
         ) : (
           <ul className="mp-liste-simple">
             {equipe.map((m) => (
               <li
                 key={m.grade_code}
-              >{`${formaterNombre(m.nombre, 0)} × ${libelle(m.grade_code)}`}</li>
+              >{`${formaterNombre(m.nombre, 0, langue)} × ${libelle(m.grade_code)}`}</li>
             ))}
           </ul>
         )}
       </Carte>
       {taux ? (
         <Carte
-          titre="Taux journaliers de vente"
-          actions={<span className="mp-mention-confidentielle">Confidentiel</span>}
+          titre={t("Taux journaliers de vente", "Daily selling rates")}
+          actions={
+            <span className="mp-mention-confidentielle">{t("Confidentiel", "Confidential")}</span>
+          }
         >
           {modifiable ? (
             <FormulaireTaux chemin={chemin} grades={grades} taux={taux} devise={devise} />
           ) : (
             <ul className="mp-liste-simple">
-              {Object.entries(taux).map(([code, t]) => (
+              {Object.entries(taux).map(([code, tx]) => (
                 <li key={code}>
-                  {`${libelle(code)} : ${t === null ? "à renseigner" : formaterMontantMineur(t, devise)}`}
+                  {`${libelle(code)} : ${tx === null ? t("à renseigner", "to be entered") : formaterMontantMineur(tx, devise, langue)}`}
                 </li>
               ))}
             </ul>
@@ -86,23 +91,32 @@ function FormulaireEquipe({
   grades: GradeCourt[];
   equipe: MembreEquipe[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<Record<string, string>>(() =>
     Object.fromEntries(equipe.map((m) => [m.grade_code, String(m.nombre)])),
   );
   const f = useFormulaire<string>();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerEquipe(s), (c) => api.patch(chemin, c), {
-      succes: "Équipe enregistrée.",
+    await f.envoyer(validerEquipe(s, langue), (c) => api.patch(chemin, c), {
+      succes: t("Équipe enregistrée.", "Team saved."),
     });
   }
   if (grades.length === 0)
-    return <p className="mp-texte-doux">Aucun grade défini dans le cabinet.</p>;
+    return (
+      <p className="mp-texte-doux">
+        {t("Aucun grade défini dans le cabinet.", "No grade defined in the firm.")}
+      </p>
+    );
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <p className="mp-champ__aide">
-        Nombre de personnes par grade ; laisser vide si le grade n&apos;intervient pas.
+        {t(
+          "Nombre de personnes par grade ; laisser vide si le grade n'intervient pas.",
+          "Number of people per grade; leave empty if the grade is not involved.",
+        )}
       </p>
       <div className="mp-grille-champs mp-grille-champs--serree">
         {grades.map((g) => (
@@ -123,9 +137,9 @@ function FormulaireEquipe({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer l&apos;équipe
+          {t("Enregistrer l'équipe", "Save the team")}
         </Bouton>
       </div>
     </form>
@@ -143,10 +157,12 @@ function FormulaireTaux({
   taux: Record<string, number | null>;
   devise: Devise;
 }) {
+  const t = useT();
+  const langue = useLangue();
   // Grades de la grille de la proposition d'abord, puis les autres grades du cabinet.
   const codes = [...new Set([...Object.keys(taux), ...grades.map((g) => g.code)])];
   const [s, setS] = useState<Record<string, string>>(() =>
-    Object.fromEntries(Object.entries(taux).map(([c, t]) => [c, montantVersSaisie(t, devise)])),
+    Object.fromEntries(Object.entries(taux).map(([c, tx]) => [c, montantVersSaisie(tx, devise)])),
   );
   const f = useFormulaire<string>();
   const libelle = (code: string) => grades.find((g) => g.code === code)?.libelle ?? code;
@@ -154,8 +170,8 @@ function FormulaireTaux({
     ev.preventDefault();
     // Seuls les grades saisis ou déjà présents sont envoyés (vide = taux retiré).
     const saisis = Object.fromEntries(codes.filter((c) => c in s).map((c) => [c, s[c] ?? ""]));
-    await f.envoyer(validerTaux(saisis, devise), (c) => api.put(`${chemin}/taux`, c), {
-      succes: "Taux enregistrés.",
+    await f.envoyer(validerTaux(saisis, devise, langue), (c) => api.put(`${chemin}/taux`, c), {
+      succes: t("Taux enregistrés.", "Rates saved."),
     });
   }
   return (
@@ -165,7 +181,7 @@ function FormulaireTaux({
         succes={f.succes}
         refAlerte={f.refAlerte}
       />
-      <p className="mp-champ__aide">{`En ${devise}, par jour. ${aideMontant(devise)}`}</p>
+      <p className="mp-champ__aide">{`${t(`En ${devise}, par jour.`, `In ${devise}, per day.`)} ${aideMontant(devise, langue)}`}</p>
       <div className="mp-grille-champs mp-grille-champs--serree">
         {codes.map((code) => (
           <Champ
@@ -185,9 +201,9 @@ function FormulaireTaux({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer les taux
+          {t("Enregistrer les taux", "Save the rates")}
         </Bouton>
       </div>
     </form>

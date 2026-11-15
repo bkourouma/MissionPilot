@@ -4,6 +4,7 @@ import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { messagePilotage } from "../../lib/kpi-pilotage";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
@@ -45,11 +46,15 @@ export function BoutonActionKpi({
   methode = "POST",
   corps = {},
   succes,
-  titreErreur = "Action impossible",
+  titreErreur,
   variante = "secondaire",
-  texteChargement = "En cours…",
+  texteChargement,
   confirmation,
 }: BoutonActionKpiProps) {
+  const t = useT();
+  const langue = useLangue();
+  const titreErr = titreErreur ?? t("Action impossible", "Action not possible");
+  const texteAttente = texteChargement ?? t("En cours…", "In progress…");
   const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -75,7 +80,7 @@ export function BoutonActionKpi({
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(messagePilotage(e));
+      setErreur(messagePilotage(e, langue));
       return false;
     } finally {
       setEnCours(false);
@@ -88,7 +93,7 @@ export function BoutonActionKpi({
         erreur={erreur}
         succes={reussi}
         refAlerte={refAlerte}
-        titreErreur={titreErreur}
+        titreErreur={titreErr}
       />
       <div className="mp-actions-formulaire">
         {confirmation ? (
@@ -97,14 +102,14 @@ export function BoutonActionKpi({
             question={confirmation.question}
             libelleConfirmation={confirmation.libelleConfirmation}
             variante={variante}
-            texteChargement={texteChargement}
+            texteChargement={texteAttente}
             action={lancer}
           />
         ) : (
           <Bouton
             variante={variante}
             chargement={enCours || enAttente}
-            texteChargement={texteChargement}
+            texteChargement={texteAttente}
             onClick={() => void lancer()}
           >
             {libelle}

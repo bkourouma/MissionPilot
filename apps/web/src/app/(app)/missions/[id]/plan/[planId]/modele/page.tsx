@@ -14,6 +14,7 @@ import { Alerte } from "../../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import {
   saisieDepuisHypotheses,
@@ -27,7 +28,7 @@ import {
   libelleVersionModele,
   lireComparaison,
   lireNumeroVersionModele,
-  MESSAGE_PLAFOND,
+  messagePlafond,
   messageVersionEnregistree,
   plafondAtteint,
   type ComparaisonModeles,
@@ -40,13 +41,16 @@ import {
   droitsPlan,
   hrefModele,
   lireCurseur,
-  MESSAGE_MISSION_CLOTUREE,
+  messageMissionCloturee,
   raisonValidationModele,
   type ContextePlan,
 } from "../../../../../../../lib/plan-strategique";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Modèle financier du plan" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Modèle financier du plan", "Plan financial model") };
+}
 
 const VERSIONS_PAR_PAGE = 10;
 
@@ -68,6 +72,8 @@ export default async function PageModelePlan({
   params: Promise<{ id: string; planId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, planId } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const sp = await searchParams;
@@ -83,7 +89,7 @@ export default async function PageModelePlan({
   const demandee = lireNumeroVersionModele(sp.version);
   const numero = demandee ?? derniere?.version ?? null;
   const curseur = lireCurseur(sp.curseur);
-  const comparaison = lireComparaison(sp.de, sp.a);
+  const comparaison = lireComparaison(sp.de, sp.a, langue);
   const plafond = plafondAtteint(derniere?.version);
 
   const [vue, versions, comp] = await Promise.all([
@@ -102,9 +108,9 @@ export default async function PageModelePlan({
   const roi = await chargerServeur<RoiPlan>(cheminRoi(plan.id, version?.version ?? null));
   const introuvable = demandee !== null && vue !== null && !vue.ok && vue.statut === 404;
   const raisonEnregistrement = droits.cloturee
-    ? MESSAGE_MISSION_CLOTUREE
+    ? messageMissionCloturee(langue)
     : plafond
-      ? MESSAGE_PLAFOND
+      ? messagePlafond(langue)
       : null;
   const initiale = version
     ? saisieDepuisHypotheses(version.hypotheses, version.ecarts, plan.devise, plan.horizon)
@@ -113,62 +119,99 @@ export default async function PageModelePlan({
   return (
     <>
       <p className="mp-texte-doux">
-        Compte de résultat, bilan et tableau des flux prévisionnels au format SYSCOHADA révisé
-        simplifié, indicateurs, scénarios et alertes : tous les chiffres sont calculés par le moteur
-        de CabinetPilot à partir des hypothèses saisies, jamais par l&apos;IA. Impôt sur les
-        sociétés (25 %) et taux d&apos;actualisation (12 %) sont des valeurs de départ, à faire
-        confirmer par un expert.
+        {t(
+          "Compte de résultat, bilan et tableau des flux prévisionnels au format SYSCOHADA révisé simplifié, indicateurs, scénarios et alertes : tous les chiffres sont calculés par le moteur de CabinetPilot à partir des hypothèses saisies, jamais par l'IA. Impôt sur les sociétés (25 %) et taux d'actualisation (12 %) sont des valeurs de départ, à faire confirmer par un expert.",
+          "Projected income statement, balance sheet and cash flow statement in simplified revised SYSCOHADA format, indicators, scenarios and alerts: all figures are computed by the CabinetPilot engine from the entered assumptions, never by the AI. Corporate income tax (25%) and the discount rate (12%) are starting values, to be confirmed by an expert.",
+        )}
       </p>
 
       {premier(sp.enregistree) === "1" && version ? (
         <Alerte tonalite="succes" annonce="status">
-          <p>{messageVersionEnregistree(version.version, premier(sp.partage_retire) === "1")}</p>
+          <p>
+            {messageVersionEnregistree(version.version, premier(sp.partage_retire) === "1", langue)}
+          </p>
         </Alerte>
       ) : null}
       {plafond ? (
-        <Alerte tonalite="attention" titre="Plafond de versions atteint" annonce="aucune">
-          <p>{MESSAGE_PLAFOND}</p>
+        <Alerte
+          tonalite="attention"
+          titre={t("Plafond de versions atteint", "Version limit reached")}
+          annonce="aucune"
+        >
+          <p>{messagePlafond(langue)}</p>
         </Alerte>
       ) : null}
       {introuvable ? (
-        <Alerte tonalite="attention" titre="Version introuvable" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Version introuvable", "Version not found")}
+          annonce="aucune"
+        >
           <p>
-            La version {demandee} n&apos;existe pas pour ce plan.{" "}
-            <Link href={hrefModele(m.id, plan.id)}>Afficher la dernière version</Link>
+            {t(
+              `La version ${demandee} n'existe pas pour ce plan.`,
+              `Version ${demandee} does not exist for this plan.`,
+            )}{" "}
+            <Link href={hrefModele(m.id, plan.id)}>
+              {t("Afficher la dernière version", "Show the latest version")}
+            </Link>
           </p>
         </Alerte>
       ) : null}
 
       <Carte
-        titre={version ? `Version ${version.version} du modèle financier` : "Modèle financier"}
+        titre={
+          version
+            ? t(
+                `Version ${version.version} du modèle financier`,
+                `Version ${version.version} of the financial model`,
+              )
+            : t("Modèle financier", "Financial model")
+        }
         niveauTitre={3}
       >
         {!derniere ? (
-          <EtatVide titre="Aucune version du modèle financier." icone="courbe">
+          <EtatVide
+            titre={t("Aucune version du modèle financier.", "No financial model version.")}
+            icone="courbe"
+          >
             <p>
               {peutSimuler
-                ? "Saisissez les hypothèses ci-dessous, simulez, puis enregistrez une première version : elle devra être validée par un responsable de la mission."
-                : "Les rédacteurs du plan n'ont pas encore enregistré de version du modèle financier."}
+                ? t(
+                    "Saisissez les hypothèses ci-dessous, simulez, puis enregistrez une première version : elle devra être validée par un responsable de la mission.",
+                    "Enter the assumptions below, simulate, then save a first version: it must be approved by an engagement lead.",
+                  )
+                : t(
+                    "Les rédacteurs du plan n'ont pas encore enregistré de version du modèle financier.",
+                    "The plan authors have not saved a financial model version yet.",
+                  )}
             </p>
           </EtatVide>
         ) : vue && !vue.ok && !introuvable ? (
           <EtatErreur
-            titre="Cette version du modèle n'a pas pu être chargée."
+            titre={t(
+              "Cette version du modèle n'a pas pu être chargée.",
+              "This model version could not be loaded.",
+            )}
             message={vue.message}
             hrefReessayer={hrefModele(m.id, plan.id, { version: numero })}
           />
         ) : version ? (
           <div className="mp-plan">
             <p className="mp-texte-doux mp-texte-petit">
-              {libelleVersionModele(version)}
-              {version.commentaire ? ` — « ${version.commentaire} »` : ""}
+              {libelleVersionModele(version, langue)}
+              {version.commentaire
+                ? langue === "en"
+                  ? ` — \u201c${version.commentaire}\u201d`
+                  : ` — « ${version.commentaire} »`
+                : ""}
             </p>
             <ValidationVersionModele
               planId={plan.id}
               version={version.version}
               validation={version.validation}
               peutValider={droits.valider}
-              raison={raisonValidationModele(version, ctx)}
+              raison={raisonValidationModele(version, ctx, langue)}
             />
             <ResultatModele
               resultat={version.resultat}
@@ -181,7 +224,13 @@ export default async function PageModelePlan({
       </Carte>
 
       {peutSimuler ? (
-        <Carte titre="Hypothèses : simuler ou enregistrer une version" niveauTitre={3}>
+        <Carte
+          titre={t(
+            "Hypothèses : simuler ou enregistrer une version",
+            "Assumptions: simulate or save a version",
+          )}
+          niveauTitre={3}
+        >
           <FormulaireHypotheses
             key={`hypotheses-${version?.version ?? 0}`}
             planId={plan.id}
@@ -197,12 +246,18 @@ export default async function PageModelePlan({
         </Carte>
       ) : null}
 
-      <Carte titre="Retour sur investissement par initiative" niveauTitre={3}>
+      <Carte
+        titre={t("Retour sur investissement par initiative", "Return on investment by initiative")}
+        niveauTitre={3}
+      >
         {roi.ok ? (
           <RoiInitiatives roi={roi.donnees} devise={plan.devise} />
         ) : (
           <EtatErreur
-            titre="Le ROI des initiatives n'a pas pu être chargé."
+            titre={t(
+              "Le ROI des initiatives n'a pas pu être chargé.",
+              "The initiatives' ROI could not be loaded.",
+            )}
             message={roi.message}
             hrefReessayer={hrefModele(m.id, plan.id, { version: numero })}
           />
@@ -210,7 +265,7 @@ export default async function PageModelePlan({
       </Carte>
 
       {derniere ? (
-        <Carte titre="Versions enregistrées" niveauTitre={3}>
+        <Carte titre={t("Versions enregistrées", "Saved versions")} niveauTitre={3}>
           {versions?.ok ? (
             <VersionsModele
               missionId={m.id}
@@ -222,7 +277,10 @@ export default async function PageModelePlan({
             />
           ) : versions ? (
             <EtatErreur
-              titre="Les versions du modèle n'ont pas pu être chargées."
+              titre={t(
+                "Les versions du modèle n'ont pas pu être chargées.",
+                "The model versions could not be loaded.",
+              )}
               message={versions.message}
               hrefReessayer={hrefModele(m.id, plan.id, { version: numero })}
             />
@@ -231,7 +289,7 @@ export default async function PageModelePlan({
       ) : null}
 
       {derniere && derniere.version > 1 ? (
-        <Carte titre="Comparer deux versions" niveauTitre={3}>
+        <Carte titre={t("Comparer deux versions", "Compare two versions")} niveauTitre={3}>
           <div className="mp-plan__section">
             <FormulaireComparaison
               action={hrefModele(m.id, plan.id)}
@@ -246,10 +304,17 @@ export default async function PageModelePlan({
               </Alerte>
             ) : null}
             {comp && !comp.ok ? (
-              <Alerte tonalite="danger" titre="Comparaison impossible" annonce="alert">
+              <Alerte
+                tonalite="danger"
+                titre={t("Comparaison impossible", "Comparison not possible")}
+                annonce="alert"
+              >
                 <p>
                   {comp.statut === 404
-                    ? "L'une des deux versions n'existe pas pour ce plan."
+                    ? t(
+                        "L'une des deux versions n'existe pas pour ce plan.",
+                        "One of the two versions does not exist for this plan.",
+                      )
                     : comp.message}
                 </p>
               </Alerte>

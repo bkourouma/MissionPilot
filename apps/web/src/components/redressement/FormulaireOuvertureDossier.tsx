@@ -3,13 +3,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { RedDossierVue, RedSecteur } from "@missionpilot/shared";
 import { api } from "../../lib/api";
-import {
-  cheminDossierMission,
-  messageRedressement,
-  OPTIONS_SECTEURS,
-} from "../../lib/redressement";
+import { cheminDossierMission, messageRedressement, optionsSecteurs } from "../../lib/redressement";
 import { secteurRedressementDepuisClient } from "../../lib/redressement-secteur";
 import { corpsDossierDepuisFormulaire, type ChampDossier } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -30,6 +27,8 @@ export function FormulaireOuvertureDossier({
   missionId: string;
   intituleInitial: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampDossier>();
   const [intitule, setIntitule] = useState(intituleInitial);
   const [secteur, setSecteur] = useState<RedSecteur>("general");
@@ -54,9 +53,12 @@ export function FormulaireOuvertureDossier({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsDossierDepuisFormulaire({ intitule, secteur }),
+      corpsDossierDepuisFormulaire({ intitule, secteur }, langue),
       (charge) => api.post<RedDossierVue>(cheminDossierMission(missionId), charge),
-      { succes: "Dossier de redressement ouvert.", messageSpecifique: messageRedressement },
+      {
+        succes: t("Dossier de redressement ouvert.", "Turnaround file opened."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
+      },
     );
   }
 
@@ -66,17 +68,17 @@ export function FormulaireOuvertureDossier({
       className="mp-formulaire mp-red-ouverture"
       noValidate
       onSubmit={soumettre}
-      aria-label="Ouvrir le dossier de redressement"
+      aria-label={t("Ouvrir le dossier de redressement", "Open the turnaround file")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Ouverture impossible"
+        titreErreur={t("Ouverture impossible", "Could not open")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Intitulé du dossier"
+          libelle={t("Intitulé du dossier", "File title")}
           required
           maxLength={200}
           autoComplete="off"
@@ -85,20 +87,23 @@ export function FormulaireOuvertureDossier({
           erreur={f.erreurs.intitule}
         />
         <Select
-          libelle="Secteur d'activité"
+          libelle={t("Secteur d'activité", "Business sector")}
           required
           value={secteur}
           onChange={(e) => {
             choisi.current = true;
             setSecteur(e.target.value as RedSecteur);
           }}
-          options={OPTIONS_SECTEURS}
-          aide="Proposé d'après le secteur du client, à ajuster si besoin. Les seuils d'alerte précoce dépendent du secteur."
+          options={optionsSecteurs(langue)}
+          aide={t(
+            "Proposé d'après le secteur du client, à ajuster si besoin. Les seuils d'alerte précoce dépendent du secteur.",
+            "Suggested from the client's sector, adjust if needed. Early-warning thresholds depend on the sector.",
+          )}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Ouverture…">
-          Ouvrir le dossier de redressement
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Ouverture…", "Opening…")}>
+          {t("Ouvrir le dossier de redressement", "Open the turnaround file")}
         </Bouton>
       </div>
     </form>

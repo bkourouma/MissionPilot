@@ -9,7 +9,9 @@
  */
 import {
   aPermission,
+  creerTraduire,
   CONTROLE_CLOTURE_LIBELLES,
+  type Langue,
   type ControleCloture,
   type EtatItemCloture,
   type Role,
@@ -77,17 +79,42 @@ export const ETAT_ITEM_CLOTURE: Record<
   bloque: { libelle: "Bloquant", tonalite: "danger" },
 };
 
+const LIBELLES_ETAT_ITEM_EN: Record<EtatItemCloture, string> = {
+  inactif: "Disabled",
+  conforme: "Compliant",
+  avertissement: "To address (non-blocking)",
+  deroge: "Waiver granted",
+  bloque: "Blocking",
+};
+
+/** Libellé de l'état d'un item dans la langue demandée. */
+export const libelleEtatItemCloture = (etat: EtatItemCloture, langue: Langue = "fr"): string =>
+  langue === "en" ? LIBELLES_ETAT_ITEM_EN[etat] : ETAT_ITEM_CLOTURE[etat].libelle;
+
 /** Libellé court des écarts d'un item, ou `null` s'il n'y a rien à dire. */
-export function libelleEcarts(item: Pick<ItemCloture, "etat" | "nombre_ecarts" | "controle">) {
+export function libelleEcarts(
+  item: Pick<ItemCloture, "etat" | "nombre_ecarts" | "controle">,
+  langue: Langue = "fr",
+) {
+  const t = creerTraduire(langue);
   if (item.etat === "inactif" || item.nombre_ecarts === 0) return null;
   // Champ absent : donnée financière non servie à ce rôle (jamais « undefined écarts »).
   if (item.nombre_ecarts === undefined) {
-    return item.etat === "conforme" ? null : "Nombre d'écarts réservé aux droits de facturation";
+    return item.etat === "conforme"
+      ? null
+      : t(
+          "Nombre d'écarts réservé aux droits de facturation",
+          "Number of discrepancies restricted to billing permissions",
+        );
   }
   if (item.nombre_ecarts === null) {
-    return item.controle === "capitalisation_faite" ? "Non attestée" : "Non vérifié";
+    return item.controle === "capitalisation_faite"
+      ? t("Non attestée", "Not attested")
+      : t("Non vérifié", "Not verified");
   }
-  return item.nombre_ecarts === 1 ? "1 écart" : `${item.nombre_ecarts} écarts`;
+  return item.nombre_ecarts === 1
+    ? t("1 écart", "1 discrepancy")
+    : t(`${item.nombre_ecarts} écarts`, `${item.nombre_ecarts} discrepancies`);
 }
 
 /** Écran qui permet de traiter l'item (lien de la check-list) ; `null` : traité sur place. */
@@ -112,8 +139,18 @@ export function hrefControleCloture(controle: ControleCloture, missionId: string
 
 export const HREF_PARAMETRAGE_CLOTURE = "/parametres/cloture-mission";
 
-export const libelleControle = (controle: ControleCloture): string =>
-  CONTROLE_CLOTURE_LIBELLES[controle];
+const CONTROLE_CLOTURE_LIBELLES_EN: Record<ControleCloture, string> = {
+  temps_valides: "Time entries approved",
+  debours_traites: "Expenses processed",
+  factures_emises: "Invoices issued",
+  livrables_signes: "Deliverables signed",
+  encaissements_soldes: "Payments received in full",
+  satisfaction_demandee: "Satisfaction requested",
+  capitalisation_faite: "Capitalization done",
+};
+
+export const libelleControle = (controle: ControleCloture, langue: Langue = "fr"): string =>
+  langue === "en" ? CONTROLE_CLOTURE_LIBELLES_EN[controle] : CONTROLE_CLOTURE_LIBELLES[controle];
 
 // --- Droits d'affichage ----------------------------------------------------------------------
 
@@ -152,14 +189,24 @@ export function clotureActivable(
 /** Phrase qui explique pourquoi la clôture n'est pas (encore) possible ; `null` si elle l'est. */
 export function raisonClotureImpossible(
   evaluation: Pick<EvaluationClotureVue, "autorisee" | "statut_mission" | "bloquants">,
+  langue: Langue = "fr",
 ): string | null {
-  if (evaluation.statut_mission === "cloturee") return "La mission est déjà clôturée.";
+  const t = creerTraduire(langue);
+  if (evaluation.statut_mission === "cloturee") {
+    return t("La mission est déjà clôturée.", "The engagement is already closed.");
+  }
   if (evaluation.statut_mission !== "a_cloturer") {
-    return "La mission doit d'abord passer au statut « À clôturer ».";
+    return t(
+      "La mission doit d'abord passer au statut « À clôturer ».",
+      'The engagement must first be set to the "To close" status.',
+    );
   }
   if (!evaluation.autorisee) {
-    const liste = evaluation.bloquants.map((c) => libelleControle(c)).join(", ");
-    return `Items bloquants à traiter ou à déroger : ${liste}.`;
+    const liste = evaluation.bloquants.map((c) => libelleControle(c, langue)).join(", ");
+    return t(
+      `Items bloquants à traiter ou à déroger : ${liste}.`,
+      `Blocking items to resolve or waive: ${liste}.`,
+    );
   }
   return null;
 }
@@ -187,27 +234,56 @@ export function derogationPossible(item: Pick<ItemCloture, "etat">): boolean {
 export const MOTIF_MIN = 10;
 export const MOTIF_MAX = 500;
 
-export function validerMotifDerogation(motif: string): Resultat<{ motif: string }, "motif"> {
+export function validerMotifDerogation(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
+  const t = creerTraduire(langue);
   const m = motif.trim();
-  if (m === "") return { ok: false, erreurs: { motif: "Indiquez le motif de la dérogation." } };
+  if (m === "") {
+    return {
+      ok: false,
+      erreurs: {
+        motif: t("Indiquez le motif de la dérogation.", "Enter the reason for the waiver."),
+      },
+    };
+  }
   if (m.length < MOTIF_MIN) {
     return {
       ok: false,
-      erreurs: { motif: `Le motif doit comporter au moins ${MOTIF_MIN} caractères.` },
+      erreurs: {
+        motif: t(
+          `Le motif doit comporter au moins ${MOTIF_MIN} caractères.`,
+          `The reason must be at least ${MOTIF_MIN} characters long.`,
+        ),
+      },
     };
   }
   if (m.length > MOTIF_MAX) {
-    return { ok: false, erreurs: { motif: `${MOTIF_MAX} caractères au plus.` } };
+    return {
+      ok: false,
+      erreurs: { motif: t(`${MOTIF_MAX} caractères au plus.`, `${MOTIF_MAX} characters at most.`) },
+    };
   }
   return { ok: true, charge: { motif: m } };
 }
 
 export function validerAttestation(
   note: string,
+  langue: Langue = "fr",
 ): Resultat<{ controle: "capitalisation_faite"; attestee: true; note?: string }, "note"> {
   const n = note.trim();
-  if (n.length > MOTIF_MAX)
-    return { ok: false, erreurs: { note: `${MOTIF_MAX} caractères au plus.` } };
+  if (n.length > MOTIF_MAX) {
+    return {
+      ok: false,
+      erreurs: {
+        note: creerTraduire(langue)(
+          `${MOTIF_MAX} caractères au plus.`,
+          `${MOTIF_MAX} characters at most.`,
+        ),
+      },
+    };
+  }
   return {
     ok: true,
     charge: { controle: "capitalisation_faite", attestee: true, ...(n === "" ? {} : { note: n }) },

@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
+import type { Langue } from "@missionpilot/shared";
 import { api, ErreurApi, messageErreur } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { formaterDate, formaterDateHeure } from "../../lib/format";
 import {
   actionsDemande,
@@ -15,9 +17,9 @@ import {
   erreurEcheance,
   erreurEcheanceApi,
   hrefSalle,
+  libellePalierRelance,
   messageSalle,
-  PALIER_RELANCE,
-  STATUT_DEMANDE,
+  statutDemande,
   type ContexteSalle,
   type DemandeDetail,
 } from "../../lib/salle-mission";
@@ -36,8 +38,8 @@ export interface DemandeCabinetProps {
   aujourdhui: string;
 }
 
-const message = (e: unknown) =>
-  (e instanceof ErreurApi ? messageSalle(e.code) : null) ?? messageErreur(e);
+const message = (e: unknown, langue: Langue) =>
+  (e instanceof ErreurApi ? messageSalle(e.code, langue) : null) ?? messageErreur(e, langue);
 
 /**
  * Vue d'une demande documentaire pour l'équipe : suivi des pièces, envoi au client,
@@ -45,6 +47,8 @@ const message = (e: unknown) =>
  */
 export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: DemandeCabinetProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const actions = actionsDemande(demande, contexte);
   const [occupe, setOccupe] = useState(false);
@@ -53,7 +57,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
   const [echeance, setEcheance] = useState(demande.echeance ?? "");
   const [erreurChampEcheance, setErreurChampEcheance] = useState<string | null>(null);
   const [nouvellePiece, setNouvellePiece] = useState("");
-  const statut = STATUT_DEMANDE[demande.statut];
+  const statut = statutDemande(demande.statut, langue);
   const chemin = cheminDemande(missionId, demande.id);
 
   async function agir(action: () => Promise<unknown>, succes?: string) {
@@ -66,7 +70,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
       rafraichir();
       return true;
     } catch (e) {
-      setErreur(message(e));
+      setErreur(message(e, langue));
       return false;
     } finally {
       setOccupe(false);
@@ -78,7 +82,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
    * revient à la valeur enregistrée et l'erreur du schéma s'affiche sous le champ.
    */
   async function enregistrerEcheance() {
-    const local = erreurEcheance(echeance, aujourdhui);
+    const local = erreurEcheance(echeance, aujourdhui, langue);
     setErreurChampEcheance(local);
     if (local) return;
     setOccupe(true);
@@ -86,12 +90,12 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
     setInfo(null);
     try {
       await api.patch(chemin, { echeance });
-      setInfo("Échéance enregistrée.");
+      setInfo(t("Échéance enregistrée.", "Due date saved."));
       rafraichir();
     } catch (e) {
-      const champ = erreurEcheanceApi(e);
+      const champ = erreurEcheanceApi(e, langue);
       if (champ) setErreurChampEcheance(champ);
-      else setErreur(message(e));
+      else setErreur(message(e, langue));
       setEcheance(demande.echeance ?? "");
     } finally {
       setOccupe(false);
@@ -104,17 +108,30 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
   }
 
   async function supprimer() {
-    if (!window.confirm("Supprimer ce brouillon et ses pièces ?")) return;
+    if (
+      !window.confirm(
+        t("Supprimer ce brouillon et ses pièces ?", "Delete this draft and its documents?"),
+      )
+    )
+      return;
     if (await agir(() => api.supprimer(chemin))) router.push(hrefSalle(missionId));
   }
 
   async function clore() {
-    if (!window.confirm("Clore la demande ? Le client ne pourra plus rien y déposer.")) return;
-    await agir(() => api.post(`${chemin}/cloturer`, {}), "Demande close.");
+    if (
+      !window.confirm(
+        t(
+          "Clore la demande ? Le client ne pourra plus rien y déposer.",
+          "Close the request? The client will no longer be able to upload anything to it.",
+        ),
+      )
+    )
+      return;
+    await agir(() => api.post(`${chemin}/cloturer`, {}), t("Demande close.", "Request closed."));
   }
 
   async function enregistrerModele() {
-    const nom = window.prompt("Nom du modèle", demande.titre);
+    const nom = window.prompt(t("Nom du modèle", "Template name"), demande.titre);
     if (!nom || nom.trim() === "") return;
     await agir(
       () =>
@@ -126,7 +143,10 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
             obligatoire: p.obligatoire,
           })),
         }),
-      "Modèle enregistré : il sera proposé pour vos prochaines demandes.",
+      t(
+        "Modèle enregistré : il sera proposé pour vos prochaines demandes.",
+        "Template saved: it will be offered for your next requests.",
+      ),
     );
   }
 
@@ -141,19 +161,26 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
         </div>
         <ul className="mp-salle__meta">
           <li>
-            {demande.echeance ? `Échéance : ${formaterDate(demande.echeance)}` : "Pas d'échéance"}
-            {depassee ? " (dépassée)" : ""}
+            {demande.echeance
+              ? `${t("Échéance", "Due date")} : ${formaterDate(demande.echeance, "UTC", langue)}`
+              : t("Pas d'échéance", "No due date")}
+            {depassee ? t(" (dépassée)", " (overdue)") : ""}
           </li>
-          <li>{avancement(demande.synthese)}</li>
-          {detailAvancement(demande.synthese) ? (
-            <li>{detailAvancement(demande.synthese)}</li>
+          <li>{avancement(demande.synthese, langue)}</li>
+          {detailAvancement(demande.synthese, langue) ? (
+            <li>{detailAvancement(demande.synthese, langue)}</li>
           ) : null}
-          {demande.envoyee_le ? <li>Envoyée le {formaterDateHeure(demande.envoyee_le)}</li> : null}
+          {demande.envoyee_le ? (
+            <li>
+              {t("Envoyée le", "Sent on")}{" "}
+              {formaterDateHeure(demande.envoyee_le, undefined, langue)}
+            </li>
+          ) : null}
           <li>
-            Destinataires :{" "}
+            {t("Destinataires", "Recipients")} :{" "}
             {demande.destinataires.length > 0
               ? demande.destinataires.map((d) => d.nom).join(", ")
-              : "aucun utilisateur actif du portail"}
+              : t("aucun utilisateur actif du portail", "no active portal user")}
           </li>
         </ul>
         {demande.message ? <p className="mp-salle__motif">{demande.message}</p> : null}
@@ -170,15 +197,17 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
         {actions.envoyer && demande.destinataires.length === 0 ? (
           <Alerte tonalite="attention" annonce="aucune">
             <p>
-              Aucun dirigeant ni contributeur du client n&apos;est actif sur le portail : invitez-en
-              un depuis la fiche du client avant d&apos;envoyer.
+              {t(
+                "Aucun dirigeant ni contributeur du client n'est actif sur le portail : invitez-en un depuis la fiche du client avant d'envoyer.",
+                "No executive or contributor of the client is active on the portal: invite one from the client record before sending.",
+              )}
             </p>
           </Alerte>
         ) : null}
         <div className="mp-salle__actions">
           {actions.modifier ? (
             <Champ
-              libelle="Échéance"
+              libelle={t("Échéance", "Due date")}
               type="date"
               value={echeance}
               min={aujourdhui}
@@ -189,7 +218,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
           ) : null}
           {actions.prolonger ? (
             <Champ
-              libelle="Nouvelle échéance"
+              libelle={t("Nouvelle échéance", "New due date")}
               type="date"
               value={echeance}
               min={aujourdhui}
@@ -204,7 +233,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               disabled={occupe || echeance === ""}
               onClick={() => void enregistrerEcheance()}
             >
-              Enregistrer l&apos;échéance
+              {t("Enregistrer l'échéance", "Save the due date")}
             </Bouton>
           ) : null}
         </div>
@@ -217,11 +246,14 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               onClick={() =>
                 void agir(
                   () => api.post(`${chemin}/envoyer`, {}),
-                  "Demande envoyée : le client est prévenu par notification et par e-mail.",
+                  t(
+                    "Demande envoyée : le client est prévenu par notification et par e-mail.",
+                    "Request sent: the client is notified by notification and by email.",
+                  ),
                 )
               }
             >
-              Envoyer au client
+              {t("Envoyer au client", "Send to client")}
             </Bouton>
           ) : null}
           {actions.relancer ? (
@@ -230,15 +262,21 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               icone="cloche"
               disabled={occupe}
               onClick={() =>
-                void agir(() => api.post(`${chemin}/relancer`, {}), "Relance envoyée au client.")
+                void agir(
+                  () => api.post(`${chemin}/relancer`, {}),
+                  t("Relance envoyée au client.", "Reminder sent to the client."),
+                )
               }
             >
-              Relancer maintenant
+              {t("Relancer maintenant", "Send reminder now")}
             </Bouton>
           ) : null}
           {actions.prolonger ? (
             <CaseACocher
-              libelle="Relances automatiques (J−3, J+1, J+7)"
+              libelle={t(
+                "Relances automatiques (J−3, J+1, J+7)",
+                "Automatic reminders (D−3, D+1, D+7)",
+              )}
               checked={demande.relances_auto}
               disabled={occupe}
               onChange={(e) =>
@@ -248,7 +286,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
           ) : null}
           {actions.clore ? (
             <Bouton variante="discret" disabled={occupe} onClick={() => void clore()}>
-              Clore la demande
+              {t("Clore la demande", "Close the request")}
             </Bouton>
           ) : null}
           {actions.supprimer ? (
@@ -258,7 +296,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               disabled={occupe}
               onClick={() => void supprimer()}
             >
-              Supprimer le brouillon
+              {t("Supprimer le brouillon", "Delete the draft")}
             </Bouton>
           ) : null}
           {contexte.gerer && demande.pieces.length > 0 ? (
@@ -268,7 +306,7 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
               disabled={occupe}
               onClick={() => void enregistrerModele()}
             >
-              Enregistrer comme modèle
+              {t("Enregistrer comme modèle", "Save as template")}
             </Bouton>
           ) : null}
         </div>
@@ -276,10 +314,10 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
 
       <section className="mp-pile" aria-labelledby="pieces-titre">
         <h2 className="mp-section__titre" id="pieces-titre">
-          Pièces demandées
+          {t("Pièces demandées", "Requested documents")}
         </h2>
         {demande.pieces.length === 0 ? (
-          <p className="mp-texte-doux">Aucune pièce pour l&apos;instant.</p>
+          <p className="mp-texte-doux">{t("Aucune pièce pour l'instant.", "No documents yet.")}</p>
         ) : (
           <ul className="mp-salle__pieces">
             {demande.pieces.map((p) => (
@@ -305,13 +343,13 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
             }}
           >
             <Champ
-              libelle="Ajouter une pièce"
+              libelle={t("Ajouter une pièce", "Add a document")}
               value={nouvellePiece}
               maxLength={200}
               onChange={(e) => setNouvellePiece(e.target.value)}
             />
             <Bouton type="submit" variante="secondaire" icone="plus" disabled={occupe}>
-              Ajouter
+              {t("Ajouter", "Add")}
             </Bouton>
           </form>
         ) : null}
@@ -320,14 +358,14 @@ export function DemandeCabinet({ missionId, demande, contexte, aujourdhui }: Dem
       {demande.relances.length > 0 ? (
         <section className="mp-pile" aria-labelledby="relances-titre">
           <h2 className="mp-section__titre" id="relances-titre">
-            Relances
+            {t("Relances", "Reminders")}
           </h2>
           <ul className="mp-salle__depots">
             {demande.relances.map((r, i) => (
               <li key={i}>
-                {formaterDateHeure(r.cree_le)} — {PALIER_RELANCE[r.palier]} à{" "}
-                {r.destinataire_nom ?? "—"}
-                {r.relance_par_nom ? ` (par ${r.relance_par_nom})` : ""}
+                {formaterDateHeure(r.cree_le, undefined, langue)} —{" "}
+                {libellePalierRelance(r.palier, langue)} {t("à", "to")} {r.destinataire_nom ?? "—"}
+                {r.relance_par_nom ? ` (${t("par", "by")} ${r.relance_par_nom})` : ""}
               </li>
             ))}
           </ul>

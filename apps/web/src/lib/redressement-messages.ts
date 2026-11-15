@@ -1,12 +1,18 @@
-/** Redressement : messages d'erreur affichables en français. */
+/** Redressement : messages d'erreur affichables (français, ou anglais selon la langue). */
+import type { Langue } from "@missionpilot/shared";
 import { ErreurApi, messageErreur, CODE_ORIGINE_REFUSEE, CODE_TFA_A_CONFIGURER } from "./api";
 import { libellePoste } from "./redressement-libelles";
 
 // --- Messages d'erreur ------------------------------------------------------------------------------
 
 /** « Il manque des postes dans la correspondance : Stocks, Créances clients. » */
-export function messageBaseIncomplete(manquants: readonly string[]): string {
-  const liste = manquants.map(libellePoste).join(", ");
+export function messageBaseIncomplete(manquants: readonly string[], langue: Langue = "fr"): string {
+  const liste = manquants.map((p) => libellePoste(p, langue)).join(", ");
+  if (langue === "en") {
+    return liste === ""
+      ? "Items are missing from the mapping."
+      : `Items are missing from the mapping: ${liste}.`;
+  }
   return liste === ""
     ? "Il manque des postes dans la correspondance."
     : `Il manque des postes dans la correspondance : ${liste}.`;
@@ -19,12 +25,14 @@ function manquantsDe(details: unknown): string[] {
 }
 
 /**
- * Message affichable (français). Un refus de l'API (400 métier, 403, 404, 409, 429) s'affiche tel
- * quel : ses messages sont en français et ne recopient ni montant ni nom (SPEC-3a §9.4).
+ * Message affichable. Un refus de l'API (400 métier, 403, 404, 409, 429) s'affiche tel
+ * quel : ses messages sont traduits côté API et ne recopient ni montant ni nom (SPEC-3a §9.4).
  */
-export function messageRedressement(e: unknown): string {
+export function messageRedressement(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    if (e.code === "RED_BASE_INCOMPLETE") return messageBaseIncomplete(manquantsDe(e.details));
+    if (e.code === "RED_BASE_INCOMPLETE") {
+      return messageBaseIncomplete(manquantsDe(e.details), langue);
+    }
     if (e.code === CODE_TFA_A_CONFIGURER || e.code === CODE_ORIGINE_REFUSEE) {
       return messageErreur(e);
     }

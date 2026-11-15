@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 import { cheminPorteur, messageCascade } from "../../lib/plan-cascade";
 import { optionsResponsables, type PersonnePlan } from "../../lib/plan-elements";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -29,6 +30,8 @@ export function FormulairePorteur({
   porteurId,
   personnes,
 }: FormulairePorteurProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"porteur_id">();
   const [valeur, setValeur] = useState(porteurId ?? "");
 
@@ -36,11 +39,14 @@ export function FormulairePorteur({
     e.preventDefault();
     const validation: Resultat<{ porteur_id: string | null }, "porteur_id"> =
       valeur === (porteurId ?? "")
-        ? { ok: false, erreurs: { porteur_id: "Choisissez un autre porteur." } }
+        ? {
+            ok: false,
+            erreurs: { porteur_id: t("Choisissez un autre porteur.", "Choose a different owner.") },
+          }
         : { ok: true, charge: { porteur_id: valeur || null } };
     await f.envoyer(validation, (charge) => api.put(cheminPorteur(planId, elementId), charge), {
-      succes: "Porteur enregistré.",
-      messageSpecifique: messageCascade,
+      succes: t("Porteur enregistré.", "Owner saved."),
+      messageSpecifique: (e) => messageCascade(e, langue),
     });
   }
 
@@ -50,18 +56,18 @@ export function FormulairePorteur({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Porteur de « ${titre} »`}
+      aria-label={t(`Porteur de « ${titre} »`, `Owner of \u201c${titre}\u201d`)}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Désignation refusée"
+        titreErreur={t("Désignation refusée", "Assignment refused")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Porteur"
-          options={optionsResponsables(personnes, porteurId)}
+          libelle={t("Porteur", "Owner")}
+          options={optionsResponsables(personnes, porteurId, langue)}
           value={valeur}
           onChange={(e) => setValeur(e.target.value)}
           erreur={f.erreurs.porteur_id}
@@ -72,9 +78,9 @@ export function FormulairePorteur({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Désigner
+          {t("Désigner", "Assign")}
         </Bouton>
       </div>
     </form>

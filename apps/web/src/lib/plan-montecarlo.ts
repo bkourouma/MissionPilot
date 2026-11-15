@@ -18,8 +18,11 @@ import {
   TIRAGES_MONTE_CARLO_MAX,
   TIRAGES_MONTE_CARLO_MIN,
   TYPES_LOI_MONTE_CARLO,
+  creerTraduire,
   type CibleMonteCarlo,
+  type Langue,
   type LoiMonteCarlo,
+  type Traduire,
   type TypeLoiMonteCarlo,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
@@ -135,11 +138,35 @@ export const MENTION_INDICATIVE =
   "du modèle financier, avec des lois que vous choisissez. Elle ne modifie ni le plan ni la " +
   "version du modèle, et ne remplace pas le jugement du consultant.";
 
+export const MENTION_INDICATIVE_EN =
+  "Indicative simulation: it explores the uncertainty of a few assumptions around a version " +
+  "of the financial model, with distributions you choose. It changes neither the plan nor the " +
+  "model version, and does not replace the consultant's judgment.";
+export const mentionIndicative = (langue: Langue = "fr") =>
+  langue === "en" ? MENTION_INDICATIVE_EN : MENTION_INDICATIVE;
+
 export const LIBELLE_TYPE_LOI: Record<TypeLoiMonteCarlo, string> = {
   uniforme: "Uniforme",
   triangulaire: "Triangulaire",
   normale: "Normale tronquée",
 };
+export const LIBELLE_TYPE_LOI_EN: Record<TypeLoiMonteCarlo, string> = {
+  uniforme: "Uniform",
+  triangulaire: "Triangular",
+  normale: "Truncated normal",
+};
+export const libelleTypeLoi = (t: TypeLoiMonteCarlo, langue: Langue = "fr") =>
+  (langue === "en" ? LIBELLE_TYPE_LOI_EN : LIBELLE_TYPE_LOI)[t];
+
+export const CIBLE_MONTE_CARLO_LIBELLES_EN: Record<CibleMonteCarlo, string> = {
+  croissanceChiffreAffaires: "Revenue growth",
+  tauxMargeBrute: "Gross margin rate",
+  tauxChargesVariables: "Variable cost rate",
+  chargesFixes: "Fixed costs",
+  delaiClientsJours: "Client payment terms",
+};
+export const libelleCible = (c: CibleMonteCarlo, langue: Langue = "fr") =>
+  (langue === "en" ? CIBLE_MONTE_CARLO_LIBELLES_EN : CIBLE_MONTE_CARLO_LIBELLES)[c];
 
 export const CENTILES = [
   ["p5", "5 %"],
@@ -150,13 +177,31 @@ export const CENTILES = [
   ["p90", "90 %"],
   ["p95", "95 %"],
 ] as const;
+export const CENTILES_EN: Record<(typeof CENTILES)[number][0], string> = {
+  p5: "5%",
+  p10: "10%",
+  p25: "25%",
+  p50: "50% (median)",
+  p75: "75%",
+  p90: "90%",
+  p95: "95%",
+};
+export const libelleCentile = (
+  cle: (typeof CENTILES)[number][0],
+  libelleFr: string,
+  langue: Langue = "fr",
+) => (langue === "en" ? CENTILES_EN[cle] : libelleFr);
 export type CleCentile = (typeof CENTILES)[number][0];
 
 /** Unité d'un paramètre de loi, pour l'aide à la saisie. */
-export const uniteCible = (cible: CibleMonteCarlo) => CIBLE_MONTE_CARLO_UNITES[cible];
+export const uniteCible = (cible: CibleMonteCarlo, langue: Langue = "fr") =>
+  langue === "en" && CIBLE_MONTE_CARLO_UNITES[cible] === "jours"
+    ? "days"
+    : CIBLE_MONTE_CARLO_UNITES[cible];
 
-export function libelleVersionProposee(v: VersionProposee): string {
-  return `Version ${v.version}${v.validee ? " (validée)" : " (non validée)"}`;
+export function libelleVersionProposee(v: VersionProposee, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  return `Version ${v.version}${v.validee ? t(" (validée)", " (approved)") : t(" (non validée)", " (not approved)")}`;
 }
 
 /** Version de départ : la dernière validée, sinon la dernière (liste de la plus récente à la plus ancienne). */
@@ -164,16 +209,30 @@ export function versionParDefaut(versions: readonly VersionProposee[]): number |
   return (versions.find((v) => v.validee) ?? versions[0])?.version ?? null;
 }
 
-export function libelleLoi(loi: LoiMonteCarlo, cible: CibleMonteCarlo): string {
-  const u = uniteCible(cible);
-  const n = (x: number) => formaterNombre(x, 2);
+export function libelleLoi(
+  loi: LoiMonteCarlo,
+  cible: CibleMonteCarlo,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  const u = uniteCible(cible, langue);
+  const n = (x: number) => formaterNombre(x, 2, langue);
   switch (loi.type) {
     case "uniforme":
-      return `Uniforme de ${n(loi.min)} à ${n(loi.max)} ${u}`;
+      return t(
+        `Uniforme de ${n(loi.min)} à ${n(loi.max)} ${u}`,
+        `Uniform from ${n(loi.min)} to ${n(loi.max)} ${u}`,
+      );
     case "triangulaire":
-      return `Triangulaire de ${n(loi.min)} à ${n(loi.max)} ${u}, le plus probable à ${n(loi.mode)}`;
+      return t(
+        `Triangulaire de ${n(loi.min)} à ${n(loi.max)} ${u}, le plus probable à ${n(loi.mode)}`,
+        `Triangular from ${n(loi.min)} to ${n(loi.max)} ${u}, most likely at ${n(loi.mode)}`,
+      );
     case "normale":
-      return `Normale de moyenne ${n(loi.moyenne)} et d'écart-type ${n(loi.ecartType)}, bornée de ${n(loi.min)} à ${n(loi.max)} ${u}`;
+      return t(
+        `Normale de moyenne ${n(loi.moyenne)} et d'écart-type ${n(loi.ecartType)}, bornée de ${n(loi.min)} à ${n(loi.max)} ${u}`,
+        `Normal with mean ${n(loi.moyenne)} and standard deviation ${n(loi.ecartType)}, bounded from ${n(loi.min)} to ${n(loi.max)} ${u}`,
+      );
   }
 }
 
@@ -256,16 +315,21 @@ function nombreLoi(v: string): number | null {
   return n !== null && Number.isFinite(n) && Math.abs(n) <= AMPLEUR_MAX_LOI_MONTE_CARLO ? n : null;
 }
 
-const MESSAGE_NOMBRE = `Nombre entre -${AMPLEUR_MAX_LOI_MONTE_CARLO} et ${AMPLEUR_MAX_LOI_MONTE_CARLO}.`;
+const messageNombre = (t: Traduire) =>
+  t(
+    `Nombre entre -${AMPLEUR_MAX_LOI_MONTE_CARLO} et ${AMPLEUR_MAX_LOI_MONTE_CARLO}.`,
+    `Number between -${AMPLEUR_MAX_LOI_MONTE_CARLO} and ${AMPLEUR_MAX_LOI_MONTE_CARLO}.`,
+  );
 
 function validerLoi(
   cible: CibleMonteCarlo,
   s: SaisieLoi,
   erreurs: Record<string, string>,
+  t: Traduire,
 ): LoiMonteCarlo | null {
   const lire = (champ: "min" | "mode" | "max" | "moyenne" | "ecartType") => {
     const n = nombreLoi(s[champ]);
-    if (n === null) erreurs[cleErreurLoi(cible, champ)] = MESSAGE_NOMBRE;
+    if (n === null) erreurs[cleErreurLoi(cible, champ)] = messageNombre(t);
     return n;
   };
   const min = lire("min");
@@ -281,17 +345,40 @@ function validerLoi(
     erreurs[cleErreurLoi(cible, champ)] = message;
     ok = false;
   };
-  if (!(min < max)) refuser("max", "Le maximum doit être strictement supérieur au minimum.");
+  if (!(min < max))
+    refuser(
+      "max",
+      t(
+        "Le maximum doit être strictement supérieur au minimum.",
+        "The maximum must be strictly greater than the minimum.",
+      ),
+    );
   if (s.type === "triangulaire" && (mode < min || mode > max)) {
     refuser(
       "mode",
-      "La valeur la plus probable doit être comprise entre le minimum et le maximum.",
+      t(
+        "La valeur la plus probable doit être comprise entre le minimum et le maximum.",
+        "The most likely value must be between the minimum and the maximum.",
+      ),
     );
   }
   if (s.type === "normale") {
-    if (!(ecartType > 0)) refuser("ecartType", "L'écart-type doit être strictement positif.");
+    if (!(ecartType > 0))
+      refuser(
+        "ecartType",
+        t(
+          "L'écart-type doit être strictement positif.",
+          "The standard deviation must be strictly positive.",
+        ),
+      );
     if (moyenne < min || moyenne > max) {
-      refuser("moyenne", "La moyenne doit être comprise entre le minimum et le maximum.");
+      refuser(
+        "moyenne",
+        t(
+          "La moyenne doit être comprise entre le minimum et le maximum.",
+          "The mean must be between the minimum and the maximum.",
+        ),
+      );
     }
   }
   if (!ok) return null;
@@ -308,31 +395,49 @@ export interface CorpsSimulation {
 }
 
 /** Contrôle de la saisie (mêmes bornes que l'API) ; `corps` est nul s'il reste une erreur. */
-export function validerSimulation(s: SaisieSimulation): {
+export function validerSimulation(
+  s: SaisieSimulation,
+  langue: Langue = "fr",
+): {
   erreurs: Record<string, string>;
   corps: CorpsSimulation | null;
 } {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const version = entier(s.version, 1, 100_000);
-  if (version === null) erreurs.version = "Choisissez une version du modèle financier.";
+  if (version === null)
+    erreurs.version = t(
+      "Choisissez une version du modèle financier.",
+      "Choose a version of the financial model.",
+    );
   const graineTexte = s.graine.trim();
   const graine = graineTexte === "" ? null : entier(graineTexte, 0, GRAINE_MONTE_CARLO_MAX);
   if (graineTexte !== "" && graine === null) {
-    erreurs.graine = `Entier de 0 à ${formaterNombre(GRAINE_MONTE_CARLO_MAX, 0)}, ou laisser vide.`;
+    erreurs.graine = t(
+      `Entier de 0 à ${formaterNombre(GRAINE_MONTE_CARLO_MAX, 0)}, ou laisser vide.`,
+      `Whole number from 0 to ${formaterNombre(GRAINE_MONTE_CARLO_MAX, 0, langue)}, or leave empty.`,
+    );
   }
   const tirages = entier(s.tirages, TIRAGES_MONTE_CARLO_MIN, TIRAGES_MONTE_CARLO_MAX);
   if (tirages === null) {
-    erreurs.tirages = `Entier de ${TIRAGES_MONTE_CARLO_MIN} à ${formaterNombre(TIRAGES_MONTE_CARLO_MAX, 0)}.`;
+    erreurs.tirages = t(
+      `Entier de ${TIRAGES_MONTE_CARLO_MIN} à ${formaterNombre(TIRAGES_MONTE_CARLO_MAX, 0)}.`,
+      `Whole number from ${TIRAGES_MONTE_CARLO_MIN} to ${formaterNombre(TIRAGES_MONTE_CARLO_MAX, 0, langue)}.`,
+    );
   }
   const hypotheses: HypotheseIncertaine[] = [];
   for (const cible of CIBLES_MONTE_CARLO) {
     const l = s.lois[cible];
     if (!l.actif) continue;
-    const loi = validerLoi(cible, l, erreurs);
+    const loi = validerLoi(cible, l, erreurs, t);
     if (loi) hypotheses.push({ cible, loi });
   }
   const actives = CIBLES_MONTE_CARLO.filter((c) => s.lois[c].actif).length;
-  if (actives === 0) erreurs.hypotheses = "Choisissez au moins une hypothèse incertaine.";
+  if (actives === 0)
+    erreurs.hypotheses = t(
+      "Choisissez au moins une hypothèse incertaine.",
+      "Choose at least one uncertain assumption.",
+    );
   if (Object.keys(erreurs).length || version === null || tirages === null) {
     return { erreurs, corps: null };
   }
@@ -432,18 +537,38 @@ export const LIBELLE_SIGNE: Record<BarreHistogramme["signe"], string> = {
   positive: "VAN positive",
   mixte: "classe à cheval sur zéro",
 };
+export const LIBELLE_SIGNE_EN: Record<BarreHistogramme["signe"], string> = {
+  negative: "negative NPV",
+  positive: "positive NPV",
+  mixte: "class straddling zero",
+};
+export const libelleSigne = (s: BarreHistogramme["signe"], langue: Langue = "fr") =>
+  (langue === "en" ? LIBELLE_SIGNE_EN : LIBELLE_SIGNE)[s];
 
 /** Lignes du tableau équivalent à l'histogramme (une par classe). */
-export function lignesHistogramme(h: HistogrammeVan, devise: Devise) {
+export function lignesHistogramme(h: HistogrammeVan, devise: Devise, langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   return h.effectifs.map((effectif, i) => ({
     cle: String(i),
-    classe: `De ${formaterMontantMineur(h.bornes[i], devise)} à ${formaterMontantMineur(h.bornes[i + 1], devise)}`,
+    classe: `${t("De", "From")} ${formaterMontantMineur(h.bornes[i], devise, langue)} ${t("à", "to")} ${formaterMontantMineur(h.bornes[i + 1], devise, langue)}`,
     effectif,
   }));
 }
 
 /** Alternative textuelle du graphique (résumé des valeurs du moteur). */
-export function descriptionHistogramme(r: ResultatMonteCarlo, devise: Devise): string {
+export function descriptionHistogramme(
+  r: ResultatMonteCarlo,
+  devise: Devise,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    return (
+      `Distribution of the net present value over ${formaterNombre(r.tiragesValides, 0, langue)} valid draws, ` +
+      `from ${formaterMontantMineur(r.van.minimum, devise, langue)} to ${formaterMontantMineur(r.van.maximum, devise, langue)}, ` +
+      `median ${formaterMontantMineur(r.van.percentiles.p50, devise, langue)}. ` +
+      `Probability of a negative NPV: ${formaterProbabilite(r.probabiliteVanNegative, langue)}.`
+    );
+  }
   return (
     `Répartition de la valeur actuelle nette sur ${formaterNombre(r.tiragesValides, 0)} tirages valides, ` +
     `de ${formaterMontantMineur(r.van.minimum, devise)} à ${formaterMontantMineur(r.van.maximum, devise)}, ` +
@@ -453,14 +578,15 @@ export function descriptionHistogramme(r: ResultatMonteCarlo, devise: Devise): s
 }
 
 /** Probabilité du moteur (fraction à 4 décimales) → « 12,3 % ». */
-export const formaterProbabilite = (p: number) => formaterPourcentage(p, 2);
+export const formaterProbabilite = (p: number, langue: Langue = "fr") =>
+  formaterPourcentage(p, 2, langue);
 
 // --- Tension de trésorerie par année ----------------------------------------------------------
 
-export function lignesTensionParAnnee(r: ResultatMonteCarlo) {
+export function lignesTensionParAnnee(r: ResultatMonteCarlo, langue: Langue = "fr") {
   return r.probabiliteTensionParAnnee.map((p, i) => ({
     cle: String(i + 1),
-    annee: `Année ${i + 1}`,
+    annee: `${langue === "en" ? "Year" : "Année"} ${i + 1}`,
     probabilite: p,
   }));
 }
@@ -506,18 +632,32 @@ export function lireIdSimulation(v: string | string[] | undefined): string | nul
 // --- Messages ---------------------------------------------------------------------------------
 
 /** Message français d'un refus de l'API. */
-export function messageMonteCarlo(e: unknown): string {
+export function messageMonteCarlo(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.code === "TROP_DE_SIMULATIONS") {
-      return "Trop de simulations lancées en peu de temps : patientez quelques minutes avant de recommencer.";
+      return t(
+        "Trop de simulations lancées en peu de temps : patientez quelques minutes avant de recommencer.",
+        "Too many simulations started in a short time: wait a few minutes before trying again.",
+      );
     }
     if (e.code === "SIMULATIONS_PLAFOND") {
-      return "Ce plan a atteint le nombre maximal de simulations enregistrées.";
+      return t(
+        "Ce plan a atteint le nombre maximal de simulations enregistrées.",
+        "This plan has reached the maximum number of saved simulations.",
+      );
     }
     if (e.code === "MONTE_CARLO_INVALIDE") return e.message;
-    if (e.statut === 403) return "Lancer une simulation est réservé aux rédacteurs du plan.";
+    if (e.statut === 403)
+      return t(
+        "Lancer une simulation est réservé aux rédacteurs du plan.",
+        "Running a simulation is reserved for the plan's editors.",
+      );
     if (e.statut === 404) {
-      return "Ce plan, cette version du modèle ou cette simulation est introuvable ou ne vous est plus accessible.";
+      return t(
+        "Ce plan, cette version du modèle ou cette simulation est introuvable ou ne vous est plus accessible.",
+        "This plan, model version or simulation cannot be found or is no longer accessible to you.",
+      );
     }
     if (e.statut === 409) return e.message;
     if (e.statut === 400 && e.code === "REQUETE_INVALIDE" && e.message !== "Données invalides.") {
@@ -528,7 +668,16 @@ export function messageMonteCarlo(e: unknown): string {
 }
 
 /** Phrase du résultat d'un rejeu : « identique » ou l'écart constaté. */
-export function messageRejeu(r: ReponseRejeu): string {
+export function messageRejeu(r: ReponseRejeu, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    if (r.identique) {
+      return `Identical replay: with the same seed, the same distributions and the same model version, the engine returns exactly the saved result (fingerprint ${r.empreinte_rejouee}).`;
+    }
+    if (r.empreinte_enregistree === r.empreinte_rejouee) {
+      return `Difference found: the fingerprints match (${r.empreinte_rejouee}) but the detailed replayed result differs from the saved one.`;
+    }
+    return `Difference found: saved fingerprint ${r.empreinte_enregistree}, replayed fingerprint ${r.empreinte_rejouee}.`;
+  }
   if (r.identique) {
     return `Rejeu identique : avec la même graine, les mêmes lois et la même version du modèle, le moteur redonne exactement le résultat enregistré (empreinte ${r.empreinte_rejouee}).`;
   }

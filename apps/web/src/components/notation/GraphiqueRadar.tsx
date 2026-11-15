@@ -1,3 +1,4 @@
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { formaterScore, type DonneesRapport } from "../../lib/notation";
 import { geometrieRadar } from "../../lib/notation-graphiques";
 
@@ -12,11 +13,16 @@ export interface GraphiqueRadarProps {
  * des classes. Les axes sont numérotés et renvoient à une légende écrite (libellés longs, écran
  * étroit) ; le tableau des dimensions porte toutes les valeurs (alternative accessible).
  */
-export function GraphiqueRadar({ radar, idPrefixe }: GraphiqueRadarProps) {
+export async function GraphiqueRadar({ radar, idPrefixe }: GraphiqueRadarProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (radar.length < 3) {
     return (
       <p className="mp-texte-doux">
-        Le radar demande au moins trois dimensions : consultez le tableau des scores ci-dessous.
+        {t(
+          "Le radar demande au moins trois dimensions : consultez le tableau des scores ci-dessous.",
+          "The radar needs at least three dimensions: see the scores table below.",
+        )}
       </p>
     );
   }
@@ -32,9 +38,14 @@ export function GraphiqueRadar({ radar, idPrefixe }: GraphiqueRadarProps) {
         role="img"
         aria-labelledby={`${idTitre} ${idDesc}`}
       >
-        <title id={idTitre}>Radar de maturité par dimension, sur 100</title>
+        <title id={idTitre}>
+          {t("Radar de maturité par dimension, sur 100", "Maturity radar by dimension, out of 100")}
+        </title>
         <desc id={idDesc}>
-          {`${notables} dimension${notables > 1 ? "s" : ""} notée${notables > 1 ? "s" : ""} sur ${radar.length}. Anneaux aux seuils des classes : 35, 50, 65, 80 et 100. Les valeurs sont détaillées dans la légende et dans le tableau des scores.`}
+          {t(
+            `${notables} dimension${notables > 1 ? "s" : ""} notée${notables > 1 ? "s" : ""} sur ${radar.length}. Anneaux aux seuils des classes : 35, 50, 65, 80 et 100. Les valeurs sont détaillées dans la légende et dans le tableau des scores.`,
+            `${notables} dimension${notables > 1 ? "s" : ""} rated out of ${radar.length}. Rings at the class thresholds: 35, 50, 65, 80 and 100. Values are detailed in the legend and in the scores table.`,
+          )}
         </desc>
         {g.anneaux.map((a) => (
           <polygon key={a.valeur} className="mp-notation-radar__grille" points={a.points} />
@@ -70,7 +81,7 @@ export function GraphiqueRadar({ radar, idPrefixe }: GraphiqueRadarProps) {
               cy={a.point.y}
               r={4}
             >
-              <title>{`${a.numero}. ${a.libelle} : ${formaterScore(a.score)} sur 100`}</title>
+              <title>{`${a.numero}. ${a.libelle} : ${formaterScore(a.score, langue)} ${t("sur 100", "out of 100")}`}</title>
             </circle>
           ) : null,
         )}
@@ -89,7 +100,7 @@ export function GraphiqueRadar({ radar, idPrefixe }: GraphiqueRadarProps) {
         ))}
       </svg>
       <figcaption>
-        <ol className="mp-notation-legende" aria-label="Légende du radar">
+        <ol className="mp-notation-legende" aria-label={t("Légende du radar", "Radar legend")}>
           {g.axes.map((a) => (
             <li key={a.dimension}>
               <span className="mp-notation-legende__numero" aria-hidden="true">
@@ -97,14 +108,17 @@ export function GraphiqueRadar({ radar, idPrefixe }: GraphiqueRadarProps) {
               </span>
               <span className="mp-notation-legende__libelle">{a.libelle}</span>
               <span className="mp-notation-legende__valeur">
-                {a.score === null ? "non notable" : formaterScore(a.score)}
+                {a.score === null ? t("non notable", "not rated") : formaterScore(a.score, langue)}
               </span>
             </li>
           ))}
         </ol>
         {g.nonNotables > 0 ? (
           <p className="mp-texte-doux mp-texte-petit">
-            Les dimensions non notables (réponses insuffisantes) ne sont pas tracées.
+            {t(
+              "Les dimensions non notables (réponses insuffisantes) ne sont pas tracées.",
+              "Dimensions not rated (insufficient answers) are not plotted.",
+            )}
           </p>
         ) : null}
       </figcaption>

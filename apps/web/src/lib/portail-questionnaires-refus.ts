@@ -1,5 +1,6 @@
 /** Questionnaires du portail : refus de l'API (issues, messages, erreurs par question). */
-import { CODE_TFA_A_CONFIGURER, ErreurApi, MESSAGE_INATTENDU } from "./api";
+import type { Langue } from "@missionpilot/shared";
+import { CODE_TFA_A_CONFIGURER, ErreurApi, messageInattendu } from "./api";
 
 // --- Refus de l'API ------------------------------------------------------------------------
 
@@ -57,8 +58,10 @@ export function messageRefus(
   mode: string,
   moment: "brouillon" | "envoi",
   e?: unknown,
+  langue: Langue = "fr",
 ): string {
   const collectif = mode === "collectif";
+  if (langue === "en") return messageRefusEn(issue, collectif, moment, e);
   switch (issue) {
     case "reseau":
       return moment === "brouillon"
@@ -89,7 +92,47 @@ export function messageRefus(
         ? "Certaines réponses ont été refusées : corrigez les questions signalées pour les enregistrer."
         : "Le questionnaire ne peut pas être envoyé en l'état : vérifiez les questions signalées.";
     case "autre":
-      return e instanceof ErreurApi && e.message ? e.message : MESSAGE_INATTENDU;
+      return e instanceof ErreurApi && e.message ? e.message : messageInattendu();
+  }
+}
+
+function messageRefusEn(
+  issue: IssueRefus,
+  collectif: boolean,
+  moment: "brouillon" | "envoi",
+  e?: unknown,
+): string {
+  switch (issue) {
+    case "reseau":
+      return moment === "brouillon"
+        ? "Connection lost: your responses stay displayed on this page and will be saved as soon as the network returns. Do not close the page."
+        : "The connection was interrupted: sending may not have succeeded. Check your network, then try again.";
+    case "indisponible":
+      return moment === "brouillon"
+        ? "The service is temporarily unavailable: saving will be retried in a few moments. Do not close the page."
+        : "The service is temporarily unavailable. Try again in a few moments.";
+    case "session":
+      return 'Your session has expired: your latest responses are not saved. Sign in again in a new tab, then come back to this page: your responses are still here, choose "Save draft".';
+    case "securite":
+      return 'Your firm requires two-factor authentication to be enabled: go to "Security" to continue.';
+    case "interdit":
+      return "Your access does not allow you to answer this questionnaire. For any question, contact your point of contact at the firm.";
+    case "introuvable":
+      return "This questionnaire is no longer accessible: it may have been removed by the firm.";
+    case "verrouille":
+      return collectif
+        ? "Your company's response has already been sent: it is locked and can no longer be edited."
+        : "Your responses have already been sent: they are locked and can no longer be edited.";
+    case "clos":
+      return "The firm has closed this questionnaire: it no longer accepts responses.";
+    case "echeance":
+      return "The due date of this questionnaire has passed: it no longer accepts responses. Contact your point of contact at the firm to request an extension.";
+    case "invalide":
+      return moment === "brouillon"
+        ? "Some responses were rejected: correct the flagged questions to save them."
+        : "The questionnaire cannot be sent as is: check the flagged questions.";
+    case "autre":
+      return e instanceof ErreurApi && e.message ? e.message : messageInattendu("en");
   }
 }
 
@@ -111,7 +154,21 @@ const MESSAGES_CODES: Record<string, string> = {
   DATE_INVALIDE: "Saisissez une date valide.",
 };
 
+const MESSAGES_CODES_EN: Record<string, string> = {
+  OBLIGATOIRE: "This question is required.",
+  TYPE_INVALIDE: "Response in an unexpected format: enter it again.",
+  HORS_ECHELLE: "Choose a level from the proposed scale.",
+  OPTION_INCONNUE: "This choice is no longer offered: choose among the displayed options.",
+  SELECTION_INSUFFISANTE: "Select more choices.",
+  SELECTION_EXCESSIVE: "Select fewer choices.",
+  HORS_BORNES: "Value outside the indicated limits.",
+  NON_ENTIER: "Enter a whole number.",
+  TROP_LONG: "Response too long: shorten it.",
+  DATE_INVALIDE: "Enter a valid date.",
+};
+
 export const MESSAGE_REFUS_SERVEUR = "Réponse refusée par le serveur : vérifiez-la.";
+export const MESSAGE_REFUS_SERVEUR_EN = "Response rejected by the server: check it.";
 
 /**
  * Erreurs par question renvoyées par l'API (400 REQUETE_INVALIDE, `details.fieldErrors`
@@ -121,6 +178,7 @@ export const MESSAGE_REFUS_SERVEUR = "Réponse refusée par le serveur : vérifi
 export function erreursQuestionsServeur(
   e: unknown,
   idsConnus: ReadonlySet<string>,
+  langue: Langue = "fr",
 ): Record<string, string> {
   if (!(e instanceof ErreurApi) || e.code !== "REQUETE_INVALIDE") return {};
   const details = e.details as DetailsValidation | undefined;
@@ -131,7 +189,10 @@ export function erreursQuestionsServeur(
     if (!idsConnus.has(id)) continue;
     const premier = Array.isArray(messages) ? messages[0] : undefined;
     const code = typeof premier === "string" ? (premier.split(" : ", 1)[0] ?? "") : "";
-    erreurs[id] = MESSAGES_CODES[code] ?? MESSAGE_REFUS_SERVEUR;
+    erreurs[id] =
+      langue === "en"
+        ? (MESSAGES_CODES_EN[code] ?? MESSAGE_REFUS_SERVEUR_EN)
+        : (MESSAGES_CODES[code] ?? MESSAGE_REFUS_SERVEUR);
   }
   return erreurs;
 }

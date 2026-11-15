@@ -1,3 +1,4 @@
+import { creerTraduire, type Langue, type Traduire } from "@missionpilot/shared";
 import { formaterDate, formaterNombre } from "../../lib/format";
 import {
   decrireCondition,
@@ -16,6 +17,8 @@ export interface ApercuQuestionnaireProps {
   prefixe?: string;
   /** Niveau des titres de section (2 par défaut). */
   niveauTitre?: 2 | 3;
+  /** Langue de l'aperçu (défaut "fr"), passée par l'appelant. */
+  langue?: Langue;
 }
 
 /** Note décrivant une condition d'affichage (texte + icône, jamais la couleur seule). */
@@ -28,61 +31,81 @@ function NoteCondition({ id, texte }: { id?: string; texte: string }) {
   );
 }
 
-function bornes(min: string | undefined, max: string | undefined, unite = ""): string | null {
-  if (min !== undefined && max !== undefined) return `Entre ${min}${unite} et ${max}${unite}.`;
-  if (min !== undefined) return `Au moins ${min}${unite}.`;
-  if (max !== undefined) return `Au plus ${max}${unite}.`;
+function bornes(
+  t: Traduire,
+  min: string | undefined,
+  max: string | undefined,
+  unite = "",
+): string | null {
+  if (min !== undefined && max !== undefined) {
+    return t(
+      `Entre ${min}${unite} et ${max}${unite}.`,
+      `Between ${min}${unite} and ${max}${unite}.`,
+    );
+  }
+  if (min !== undefined) return t(`Au moins ${min}${unite}.`, `At least ${min}${unite}.`);
+  if (max !== undefined) return t(`Au plus ${max}${unite}.`, `At most ${max}${unite}.`);
   return null;
 }
 
-function aideQuestion(q: Question): string | null {
+function aideQuestion(q: Question, langue: Langue): string | null {
+  const t = creerTraduire(langue);
   switch (q.type) {
     case "choix_multiple": {
       const { minSelections: min, maxSelections: max } = q;
       const s = (n: number) => (n > 1 ? "s" : "");
       const plage =
         min !== undefined && max !== undefined
-          ? ` De ${min} à ${max} réponses.`
+          ? t(` De ${min} à ${max} réponses.`, ` From ${min} to ${max} responses.`)
           : min !== undefined
-            ? ` Au moins ${min} réponse${s(min)}.`
+            ? t(` Au moins ${min} réponse${s(min)}.`, ` At least ${min} response${s(min)}.`)
             : max !== undefined
-              ? ` Au plus ${max} réponse${s(max)}.`
+              ? t(` Au plus ${max} réponse${s(max)}.`, ` At most ${max} response${s(max)}.`)
               : "";
-      return `Plusieurs réponses possibles.${plage}`;
+      return t(`Plusieurs réponses possibles.${plage}`, `Several responses possible.${plage}`);
     }
     case "numerique": {
       const u = q.unite ? `${ESPACE_INSECABLE}${q.unite}` : "";
       const b = bornes(
-        q.min === undefined ? undefined : formaterNombre(q.min, 4),
-        q.max === undefined ? undefined : formaterNombre(q.max, 4),
+        t,
+        q.min === undefined ? undefined : formaterNombre(q.min, 4, langue),
+        q.max === undefined ? undefined : formaterNombre(q.max, 4, langue),
         u,
       );
-      return [q.entier ? "Nombre entier." : null, b].filter(Boolean).join(" ") || null;
+      return (
+        [q.entier ? t("Nombre entier.", "Whole number.") : null, b].filter(Boolean).join(" ") ||
+        null
+      );
     }
     case "date":
       return bornes(
-        q.min === undefined ? undefined : formaterDate(q.min),
-        q.max === undefined ? undefined : formaterDate(q.max),
+        t,
+        q.min === undefined ? undefined : formaterDate(q.min, undefined, langue),
+        q.max === undefined ? undefined : formaterDate(q.max, undefined, langue),
       );
     case "texte":
-      return `${formaterNombre(q.longueurMax ?? LONGUEUR_TEXTE_DEFAUT)} caractères au plus.`;
+      return t(
+        `${formaterNombre(q.longueurMax ?? LONGUEUR_TEXTE_DEFAUT, 2, langue)} caractères au plus.`,
+        `${formaterNombre(q.longueurMax ?? LONGUEUR_TEXTE_DEFAUT, 2, langue)} characters at most.`,
+      );
     default:
       return null;
   }
 }
 
-function TitreQuestion({ q, numero }: { q: Question; numero: number }) {
+function TitreQuestion({ q, numero, langue }: { q: Question; numero: number; langue: Langue }) {
+  const t = creerTraduire(langue);
   return (
     <>
-      {`${numero}. ${q.libelle.trim() || "(question sans libellé)"}`}
+      {`${numero}. ${q.libelle.trim() || t("(question sans libellé)", "(question without label)")}`}
       {q.obligatoire ? (
         <span className="mp-champ__requis">
           {" "}
           <span aria-hidden="true">*</span>
-          <span className="mp-visuellement-cache">(obligatoire)</span>
+          <span className="mp-visuellement-cache">({t("obligatoire", "required")})</span>
         </span>
       ) : (
-        <span className="mp-texte-doux mp-texte-petit"> (facultative)</span>
+        <span className="mp-texte-doux mp-texte-petit"> ({t("facultative", "optional")})</span>
       )}
     </>
   );
@@ -90,15 +113,16 @@ function TitreQuestion({ q, numero }: { q: Question; numero: number }) {
 
 const CHOIX = new Set<Question["type"]>(["likert", "choix_unique", "choix_multiple", "oui_non"]);
 
-function ChoixQuestion({ q, nom }: { q: Question; nom: string }) {
+function ChoixQuestion({ q, nom, langue }: { q: Question; nom: string; langue: Langue }) {
+  const t = creerTraduire(langue);
   const options =
     q.type === "likert"
       ? q.libelles.map((l, i) => ({ v: String(i + 1), l: `${i + 1} — ${l}` }))
       : q.type === "choix_unique" || q.type === "choix_multiple"
         ? q.options.map((o) => ({ v: o.code, l: o.libelle }))
         : [
-            { v: "oui", l: "Oui" },
-            { v: "non", l: "Non" },
+            { v: "oui", l: t("Oui", "Yes") },
+            { v: "non", l: t("Non", "No") },
           ];
   const type = q.type === "choix_multiple" ? "checkbox" : "radio";
   return (
@@ -151,13 +175,16 @@ function ApercuQuestion({
   numero,
   id,
   questions,
+  langue,
 }: {
   q: Question;
   numero: number;
   id: string;
   questions: ReadonlyMap<string, Question>;
+  langue: Langue;
 }) {
-  const aide = [q.aide?.trim(), aideQuestion(q)].filter(Boolean).join(" ");
+  const t = creerTraduire(langue);
+  const aide = [q.aide?.trim(), aideQuestion(q, langue)].filter(Boolean).join(" ");
   const idAide = aide ? `${id}-aide` : undefined;
   const idCondition = q.condition ? `${id}-condition` : undefined;
   const decrit = [idAide, idCondition].filter(Boolean).join(" ") || undefined;
@@ -171,7 +198,10 @@ function ApercuQuestion({
       {q.condition ? (
         <NoteCondition
           id={idCondition}
-          texte={`Affichée seulement si ${decrireCondition(q.condition, questions)}.`}
+          texte={t(
+            `Affichée seulement si ${decrireCondition(q.condition, questions)}.`,
+            `Displayed only if ${decrireCondition(q.condition, questions, langue)}.`,
+          )}
         />
       ) : null}
     </>
@@ -180,17 +210,17 @@ function ApercuQuestion({
     return (
       <fieldset className="mp-apercu__question" disabled aria-describedby={decrit}>
         <legend className="mp-apercu__libelle">
-          <TitreQuestion q={q} numero={numero} />
+          <TitreQuestion q={q} numero={numero} langue={langue} />
         </legend>
         {notes}
-        <ChoixQuestion q={q} nom={`${id}-reponse`} />
+        <ChoixQuestion q={q} nom={`${id}-reponse`} langue={langue} />
       </fieldset>
     );
   }
   return (
     <div className="mp-apercu__question">
       <label className="mp-apercu__libelle" htmlFor={`${id}-champ`}>
-        <TitreQuestion q={q} numero={numero} />
+        <TitreQuestion q={q} numero={numero} langue={langue} />
       </label>
       {notes}
       <ChampQuestion q={q} id={`${id}-champ`} decrit={decrit} />
@@ -206,7 +236,9 @@ export function ApercuQuestionnaire({
   definition,
   prefixe = "apercu",
   niveauTitre = 2,
+  langue = "fr",
 }: ApercuQuestionnaireProps) {
+  const t = creerTraduire(langue);
   const questions = questionsParId(definition);
   const Titre = `h${niveauTitre}` as const;
   // Numérotation continue des questions d'une section à l'autre.
@@ -219,7 +251,10 @@ export function ApercuQuestionnaire({
   return (
     <div className="mp-apercu">
       <p className="mp-texte-doux mp-texte-petit">
-        {`Aperçu de « ${definition.titre.trim() || "questionnaire sans titre"} » : les champs sont inactifs, les conditions d'affichage sont décrites sous chaque élément concerné.`}
+        {t(
+          `Aperçu de « ${definition.titre.trim() || "questionnaire sans titre"} » : les champs sont inactifs, les conditions d'affichage sont décrites sous chaque élément concerné.`,
+          `Preview of "${definition.titre.trim() || "untitled questionnaire"}": fields are inactive, display conditions are described under each relevant item.`,
+        )}
       </p>
       {definition.sections.map((s, si) => (
         <section
@@ -228,12 +263,15 @@ export function ApercuQuestionnaire({
           aria-labelledby={`${prefixe}-s${si}`}
         >
           <Titre id={`${prefixe}-s${si}`} className="mp-qe-entete__titre">
-            {`${si + 1}. ${s.titre.trim() || "(section sans titre)"}`}
+            {`${si + 1}. ${s.titre.trim() || t("(section sans titre)", "(untitled section)")}`}
           </Titre>
           {s.description ? <p className="mp-texte-preserve">{s.description}</p> : null}
           {s.condition ? (
             <NoteCondition
-              texte={`Section affichée seulement si ${decrireCondition(s.condition, questions)}.`}
+              texte={t(
+                `Section affichée seulement si ${decrireCondition(s.condition, questions)}.`,
+                `Section displayed only if ${decrireCondition(s.condition, questions, langue)}.`,
+              )}
             />
           ) : null}
           <ol className="mp-apercu__questions">
@@ -244,6 +282,7 @@ export function ApercuQuestionnaire({
                   numero={(debuts[si] ?? 1) + qi}
                   id={`${prefixe}-s${si}-q${qi}`}
                   questions={questions}
+                  langue={langue}
                 />
               </li>
             ))}

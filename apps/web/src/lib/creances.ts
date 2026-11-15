@@ -2,7 +2,7 @@
  * Créances : balance âgée et relances (FIN-09). Logique pure, testée dans `creances.test.ts`.
  * Tranches, soldes et délais viennent de l'API (moteur) ; rien n'est recalculé ici.
  */
-import { DELAIS_RELANCE_DEPART } from "@missionpilot/shared";
+import { DELAIS_RELANCE_DEPART, type Langue } from "@missionpilot/shared";
 import { ErreurApi } from "./api";
 import type { Devise } from "./format";
 import { dateValide } from "./periode";
@@ -18,6 +18,20 @@ export const TRANCHES: readonly { cle: CleTranche; libelle: string }[] = [
   { cle: "j61_90", libelle: "61 à 90 jours" },
   { cle: "plus_90", libelle: "Plus de 90 jours" },
 ];
+
+/** Libellés anglais des tranches (le français reste dans `TRANCHES`). */
+export const TRANCHES_EN: Record<CleTranche, string> = {
+  non_echu: "Not yet due",
+  j0_30: "0 to 30 days",
+  j31_60: "31 to 60 days",
+  j61_90: "61 to 90 days",
+  plus_90: "Over 90 days",
+};
+
+export function libelleTranche(cle: CleTranche, langue: Langue = "fr"): string {
+  if (langue === "en") return TRANCHES_EN[cle];
+  return TRANCHES.find((t) => t.cle === cle)?.libelle ?? cle;
+}
 
 export type ValeursBalance = Record<CleTranche | "total", number>;
 
@@ -41,6 +55,11 @@ export interface BalanceAgee {
 export const BASE_LIBELLES: Record<BalanceAgee["base"], string> = {
   echeance: "date d'échéance",
   emission: "date d'émission",
+};
+
+export const BASE_LIBELLES_EN: Record<BalanceAgee["base"], string> = {
+  echeance: "due date",
+  emission: "issue date",
 };
 
 export interface FiltresBalance {
@@ -81,7 +100,16 @@ export const NIVEAU_RELANCE_LIBELLES: Record<number, string> = {
   3: "Dernière relance avant mise en demeure",
 };
 
-export const libelleNiveau = (n: number) => NIVEAU_RELANCE_LIBELLES[n] ?? `Relance de niveau ${n}`;
+export const NIVEAU_RELANCE_LIBELLES_EN: Record<number, string> = {
+  1: "Friendly reminder",
+  2: "Second reminder",
+  3: "Final reminder before formal notice",
+};
+
+export const libelleNiveau = (n: number, langue: Langue = "fr") =>
+  langue === "en"
+    ? (NIVEAU_RELANCE_LIBELLES_EN[n] ?? `Level ${n} reminder`)
+    : (NIVEAU_RELANCE_LIBELLES[n] ?? `Relance de niveau ${n}`);
 
 /** « J+7, J+15, J+30 ». */
 export function libelleDelais(delais: readonly number[]): string {
@@ -91,17 +119,32 @@ export function libelleDelais(delais: readonly number[]): string {
 export const DELAIS_DEPART_TEXTE = DELAIS_RELANCE_DEPART.join(", ");
 
 /** « 7, 15, 30 » → [7, 15, 30] : 1 à 3 délais entiers de 1 à 365, strictement croissants. */
-export function lireDelais(texte: string): number[] | string {
+export function lireDelais(texte: string, langue: Langue = "fr"): number[] | string {
+  const en = langue === "en";
   const morceaux = decouperListe(texte.replace(/j\s*\+?/gi, ""));
-  if (morceaux.length === 0) return "Saisissez au moins un délai (ex. 7, 15, 30).";
-  if (morceaux.length > 3) return "Trois délais au plus (un par niveau de relance).";
+  if (morceaux.length === 0)
+    return en
+      ? "Enter at least one delay (e.g. 7, 15, 30)."
+      : "Saisissez au moins un délai (ex. 7, 15, 30).";
+  if (morceaux.length > 3)
+    return en
+      ? "Three delays at most (one per reminder level)."
+      : "Trois délais au plus (un par niveau de relance).";
   const delais: number[] = [];
   for (const m of morceaux) {
-    if (!/^\d+$/.test(m)) return "Délais en jours entiers, séparés par des virgules.";
+    if (!/^\d+$/.test(m))
+      return en
+        ? "Delays in whole days, separated by commas."
+        : "Délais en jours entiers, séparés par des virgules.";
     const n = Number(m);
-    if (n < 1 || n > 365) return "Chaque délai va de 1 à 365 jours après l'échéance.";
+    if (n < 1 || n > 365)
+      return en
+        ? "Each delay ranges from 1 to 365 days after the due date."
+        : "Chaque délai va de 1 à 365 jours après l'échéance.";
     if (delais.length > 0 && n <= (delais[delais.length - 1] as number))
-      return "Délais strictement croissants (ex. 7, 15, 30).";
+      return en
+        ? "Strictly increasing delays (e.g. 7, 15, 30)."
+        : "Délais strictement croissants (ex. 7, 15, 30).";
     delais.push(n);
   }
   return delais;
@@ -119,8 +162,9 @@ export interface SaisieRelances {
  */
 export function validerParametresRelances(
   s: SaisieRelances,
+  langue: Langue = "fr",
 ): Resultat<Omit<ParametresRelances, "envoi_email_client">, "delais"> {
-  const delais = lireDelais(s.delais);
+  const delais = lireDelais(s.delais, langue);
   if (typeof delais === "string") return { ok: false, erreurs: { delais } };
   return {
     ok: true,
@@ -139,19 +183,27 @@ export interface SaisieRelanceManuelle {
 
 export function validerRelanceManuelle(
   s: SaisieRelanceManuelle,
+  langue: Langue = "fr",
 ): Resultat<{ envoyer_email: boolean; message: string | null }, "message"> {
   const message = s.message.trim();
   if (message.length > 1000)
-    return { ok: false, erreurs: { message: "1 000 caractères au plus." } };
+    return {
+      ok: false,
+      erreurs: {
+        message: langue === "en" ? "1,000 characters at most." : "1 000 caractères au plus.",
+      },
+    };
   return { ok: true, charge: { envoyer_email: s.envoyer_email, message: message || null } };
 }
 
 /** Message d'un refus de relance (facture soldée, contact sans e-mail…). */
-export function messageRelance(e: unknown): string | null {
+export function messageRelance(e: unknown, langue: Langue = "fr"): string | null {
   if (!(e instanceof ErreurApi)) return null;
   if (e.code === "CONFLIT") return e.message;
   if (e.code === "RELANCE_DEJA_ENVOYEE")
-    return "Un e-mail de relance est déjà parti chez le client aujourd'hui pour cette facture. Décochez l'envoi de l'e-mail pour enregistrer la relance seule, ou réessayez demain.";
+    return langue === "en"
+      ? "A reminder email has already been sent to the client today for this invoice. Untick the email option to record the reminder only, or try again tomorrow."
+      : "Un e-mail de relance est déjà parti chez le client aujourd'hui pour cette facture. Décochez l'envoi de l'e-mail pour enregistrer la relance seule, ou réessayez demain.";
   if (e.code === "REQUETE_INVALIDE" && e.message !== "Données invalides.") return e.message;
   return null;
 }

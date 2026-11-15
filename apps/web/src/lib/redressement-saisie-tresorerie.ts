@@ -1,7 +1,9 @@
 /** Redressement (saisie) : trésorerie (version, réalisé, point mort). */
 import {
+  creerTraduire,
   RED_CATEGORIES_DECAISSEMENT,
   RED_CATEGORIES_ENCAISSEMENT,
+  type Langue,
   type RedPointMortEntree,
   type RedRealiseCreation,
   type RedSensFlux,
@@ -13,8 +15,8 @@ import { dateValide } from "./periode";
 import { texteOuNull, type Resultat } from "./saisie";
 import {
   type Erreurs,
-  MSG_DATE,
-  MSG_MONTANT,
+  msgDate,
+  msgMontant,
   lireMontantRed,
   lireSolde,
   lireEntier,
@@ -111,16 +113,23 @@ export function saisieVersionDepuis(
 export function corpsVersionDepuisFormulaire(
   s: SaisieVersionTresorerie,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<RedTresorerieVersionCreation, ChampVersionTresorerie> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampVersionTresorerie> = {};
-  if (dateValide(s.date_debut) === null) erreurs.date_debut = MSG_DATE;
-  else if (!estLundi(s.date_debut)) erreurs.date_debut = "Un lundi est attendu.";
+  if (dateValide(s.date_debut) === null) erreurs.date_debut = msgDate(langue);
+  else if (!estLundi(s.date_debut))
+    erreurs.date_debut = t("Un lundi est attendu.", "A Monday is expected.");
   const soldeInitial = lireSolde(s.solde_initial, devise);
-  if (soldeInitial === null) erreurs.solde_initial = "Saisissez le solde bancaire initial.";
-  else if (Number.isNaN(soldeInitial)) erreurs.solde_initial = MSG_MONTANT(devise);
+  if (soldeInitial === null) {
+    erreurs.solde_initial = t(
+      "Saisissez le solde bancaire initial.",
+      "Enter the opening bank balance.",
+    );
+  } else if (Number.isNaN(soldeInitial)) erreurs.solde_initial = msgMontant(devise, langue);
   const seuilTexte = s.seuil_tension.trim() === "" ? "0" : s.seuil_tension;
   const seuil = lireMontantRed(seuilTexte, devise);
-  if (seuil === null || Number.isNaN(seuil)) erreurs.seuil_tension = MSG_MONTANT(devise);
+  if (seuil === null || Number.isNaN(seuil)) erreurs.seuil_tension = msgMontant(devise, langue);
 
   const lignes: RedTresorerieVersionCreation["lignes"] = [];
   s.lignes.forEach((l, i) => {
@@ -129,27 +138,39 @@ export function corpsVersionDepuisFormulaire(
     if (l.montant.trim() === "") return;
     const montant = lireMontantRed(l.montant, devise);
     if (montant === null || Number.isNaN(montant)) {
-      erreurs.lignes = `Ligne ${numero} : ${MSG_MONTANT(devise)}`;
+      erreurs.lignes = `${t("Ligne", "Line")} ${numero} : ${msgMontant(devise, langue)}`;
       return;
     }
     if (montant < 1) {
-      erreurs.lignes = `Ligne ${numero} : le montant doit être supérieur à zéro (laissez vide pour ne rien prévoir).`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : le montant doit être supérieur à zéro (laissez vide pour ne rien prévoir).`,
+        `Line ${numero}: the amount must be greater than zero (leave empty to forecast nothing).`,
+      );
       return;
     }
     const semaine = lireEntier(l.semaine, 1, 13);
     if (semaine === null || Number.isNaN(semaine)) {
-      erreurs.lignes = `Ligne ${numero} : choisissez une semaine de 1 à 13.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : choisissez une semaine de 1 à 13.`,
+        `Line ${numero}: choose a week from 1 to 13.`,
+      );
       return;
     }
     const liste: readonly string[] =
       l.sens === "encaissement" ? RED_CATEGORIES_ENCAISSEMENT : RED_CATEGORIES_DECAISSEMENT;
     if (!liste.includes(l.categorie)) {
-      erreurs.lignes = `Ligne ${numero} : choisissez une catégorie de ce sens.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : choisissez une catégorie de ce sens.`,
+        `Line ${numero}: choose a category for this direction.`,
+      );
       return;
     }
     const libelle = texteOuNull(l.libelle);
     if (libelle !== null && libelle.length > 200) {
-      erreurs.lignes = `Ligne ${numero} : le libellé compte 200 caractères au plus.`;
+      erreurs.lignes = t(
+        `Ligne ${numero} : le libellé compte 200 caractères au plus.`,
+        `Line ${numero}: the label is 200 characters at most.`,
+      );
       return;
     }
     const ligne: RedTresorerieVersionCreation["lignes"][number] = {
@@ -163,10 +184,16 @@ export function corpsVersionDepuisFormulaire(
     if (l.echeance_id) ligne.echeance_id = l.echeance_id;
     lignes.push(ligne);
   });
-  if (lignes.length > 600) erreurs.lignes = "600 lignes au plus par version.";
+  if (lignes.length > 600) {
+    erreurs.lignes = t("600 lignes au plus par version.", "600 lines at most per version.");
+  }
   const motif = texteOuNull(s.motif);
-  if (motif !== null && motif.length > 500)
-    erreurs.motif = "Le motif compte 500 caractères au plus.";
+  if (motif !== null && motif.length > 500) {
+    erreurs.motif = t(
+      "Le motif compte 500 caractères au plus.",
+      "The reason is 500 characters at most.",
+    );
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: RedTresorerieVersionCreation = {
     date_debut: s.date_debut,
@@ -202,13 +229,14 @@ function fluxDepuis(
   saisie: Record<string, string>,
   categories: readonly string[],
   devise: Devise,
+  langue: Langue,
 ): { flux: Record<string, number>; erreur: string | null } {
   const flux: Record<string, number> = {};
   for (const c of categories) {
     const t = saisie[c];
     if (t === undefined || t.trim() === "") continue;
     const m = lireMontantRed(t, devise);
-    if (m === null || Number.isNaN(m)) return { flux, erreur: MSG_MONTANT(devise) };
+    if (m === null || Number.isNaN(m)) return { flux, erreur: msgMontant(devise, langue) };
     flux[c] = m;
   }
   return { flux, erreur: null };
@@ -218,19 +246,26 @@ function fluxDepuis(
 export function corpsRealiseDepuisFormulaire(
   s: SaisieRealise,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<RedRealiseCreation, ChampRealise> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampRealise> = {};
-  if (dateValide(s.semaine_debut) === null) erreurs.semaine_debut = MSG_DATE;
-  else if (!estLundi(s.semaine_debut)) erreurs.semaine_debut = "Un lundi est attendu.";
-  const enc = fluxDepuis(s.encaissement, RED_CATEGORIES_ENCAISSEMENT, devise);
+  if (dateValide(s.semaine_debut) === null) erreurs.semaine_debut = msgDate(langue);
+  else if (!estLundi(s.semaine_debut)) {
+    erreurs.semaine_debut = t("Un lundi est attendu.", "A Monday is expected.");
+  }
+  const enc = fluxDepuis(s.encaissement, RED_CATEGORIES_ENCAISSEMENT, devise, langue);
   if (enc.erreur) erreurs.encaissement = enc.erreur;
-  const dec = fluxDepuis(s.decaissement, RED_CATEGORIES_DECAISSEMENT, devise);
+  const dec = fluxDepuis(s.decaissement, RED_CATEGORIES_DECAISSEMENT, devise, langue);
   if (dec.erreur) erreurs.decaissement = dec.erreur;
   const solde = lireSolde(s.solde_constate, devise);
-  if (solde !== null && Number.isNaN(solde)) erreurs.solde_constate = MSG_MONTANT(devise);
+  if (solde !== null && Number.isNaN(solde)) erreurs.solde_constate = msgMontant(devise, langue);
   const commentaire = texteOuNull(s.commentaire);
   if (commentaire !== null && commentaire.length > 1000) {
-    erreurs.commentaire = "Le commentaire compte 1 000 caractères au plus.";
+    erreurs.commentaire = t(
+      "Le commentaire compte 1 000 caractères au plus.",
+      "The comment is 1,000 characters at most.",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const flux: RedRealiseCreation["flux"] = {};
@@ -253,16 +288,18 @@ export type ChampPointMort = keyof SaisiePointMort;
 export function corpsPointMortDepuisFormulaire(
   s: SaisiePointMort,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<RedPointMortEntree, ChampPointMort> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampPointMort> = {};
   const lire = (cle: Exclude<ChampPointMort, "periode_jours">): number => {
     const m = lireMontantRed(s[cle], devise);
     if (m === null) {
-      erreurs[cle] = "Saisissez un montant.";
+      erreurs[cle] = t("Saisissez un montant.", "Enter an amount.");
       return 0;
     }
     if (Number.isNaN(m)) {
-      erreurs[cle] = MSG_MONTANT(devise);
+      erreurs[cle] = msgMontant(devise, langue);
       return 0;
     }
     return m;
@@ -272,7 +309,10 @@ export function corpsPointMortDepuisFormulaire(
   const cf = lire("charges_fixes");
   const periode = lireEntier(s.periode_jours, 1, 366);
   if (periode !== null && Number.isNaN(periode)) {
-    erreurs.periode_jours = "La période est un nombre entier de jours, de 1 à 366.";
+    erreurs.periode_jours = t(
+      "La période est un nombre entier de jours, de 1 à 366.",
+      "The period is a whole number of days, from 1 to 366.",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: RedPointMortEntree = {

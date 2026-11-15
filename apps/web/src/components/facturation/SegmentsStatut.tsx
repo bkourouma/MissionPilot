@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { T } from "../i18n/T";
 
 export interface SegmentsStatutProps {
   /** Statut courant ; "" = tous. */
@@ -13,14 +14,14 @@ export interface SegmentsStatutProps {
 export function SegmentsStatut({ statut, options, href, libelle }: SegmentsStatutProps) {
   return (
     <nav className="mp-filtre-segments" aria-label={libelle}>
-      {[{ valeur: "", libelle: "Tous" }, ...options].map((o) => (
+      {[{ valeur: "", libelle: null as string | null }, ...options].map((o) => (
         <Link
           key={o.valeur || "tous"}
           href={href(o.valeur)}
           aria-current={statut === o.valeur ? "page" : undefined}
           className="mp-onglets__lien"
         >
-          {o.libelle}
+          {o.libelle ?? <T fr="Tous" en="All" />}
         </Link>
       ))}
     </nav>

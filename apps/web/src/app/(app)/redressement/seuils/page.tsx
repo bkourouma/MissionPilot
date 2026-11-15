@@ -15,8 +15,10 @@ import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Select } from "../../../../components/ui/Select";
 import { Tableau } from "../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import {
   AVERTISSEMENT_SEUILS_DEFAUT,
+  AVERTISSEMENT_SEUILS_DEFAUT_EN,
   cheminSeuilsSecteur,
   formaterSeuil,
   hrefSeuilsSecteur,
@@ -24,13 +26,17 @@ import {
   libelleSensCritere,
   libelleSecteur,
   lireSecteur,
-  OPTIONS_SECTEURS,
+  optionsSecteurs,
   TEXTE_SEUILS_AUCUNE_VERSION,
+  TEXTE_SEUILS_AUCUNE_VERSION_EN,
 } from "../../../../lib/redressement";
 import { aPermission } from "@missionpilot/shared";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Seuils d'alerte" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Seuils d'alerte", "Alert thresholds") };
+}
 
 /**
  * Seuils d'alerte précoce par secteur : version en vigueur (ou valeurs par défaut du moteur,
@@ -43,6 +49,8 @@ export default async function PageSeuilsRedressement({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await exigerPermission("redressement.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const secteur = lireSecteur((await searchParams).secteur);
   const peutParametrer = aPermission(session.utilisateur.roles, "redressement.parametrer");
   const r = await chargerServeur<RedSeuilsEtatVue>(cheminSeuilsSecteur(secteur));
@@ -50,32 +58,38 @@ export default async function PageSeuilsRedressement({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Seuils d'alerte"
-        soustitre="Seuils et pondérations du score d'alerte précoce, par secteur d'activité."
+        titre={t("Seuils d'alerte", "Alert thresholds")}
+        soustitre={t(
+          "Seuils et pondérations du score d'alerte précoce, par secteur d'activité.",
+          "Thresholds and weightings of the early-warning score, by business sector.",
+        )}
       />
       <div className="mp-red">
         <form
           method="get"
           action="/redressement/seuils"
           className="mp-filtres"
-          aria-label="Choisir un secteur"
+          aria-label={t("Choisir un secteur", "Choose a sector")}
         >
           <div className="mp-grille-champs mp-grille-champs--filtres">
             <Select
-              libelle="Secteur"
+              libelle={t("Secteur", "Sector")}
               name="secteur"
               defaultValue={secteur}
-              options={OPTIONS_SECTEURS}
+              options={optionsSecteurs(langue)}
             />
           </div>
           <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            Afficher
+            {t("Afficher", "Show")}
           </button>
         </form>
 
         {!r.ok ? (
           <EtatErreur
-            titre="Les seuils d'alerte n'ont pas pu être chargés."
+            titre={t(
+              "Les seuils d'alerte n'ont pas pu être chargés.",
+              "The alert thresholds could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={hrefSeuilsSecteur(secteur)}
           />
@@ -87,7 +101,7 @@ export default async function PageSeuilsRedressement({
   );
 }
 
-function Seuils({
+async function Seuils({
   etat,
   secteur,
   peutParametrer,
@@ -96,6 +110,8 @@ function Seuils({
   secteur: ReturnType<typeof lireSecteur>;
   peutParametrer: boolean;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const s = etat.secteurs.find((x) => x.secteur === secteur);
   const enVigueur = s?.en_vigueur ?? null;
   const brouillon = s?.brouillon ?? null;
@@ -109,45 +125,48 @@ function Seuils({
       <Carte
         titre={
           enVigueur
-            ? `Secteur ${libelleSecteur(secteur)} : version ${enVigueur.version} en vigueur`
-            : `Secteur ${libelleSecteur(secteur)}`
+            ? t(
+                `Secteur ${libelleSecteur(secteur)} : version ${enVigueur.version} en vigueur`,
+                `Sector ${libelleSecteur(secteur, langue)}: version ${enVigueur.version} in force`,
+              )
+            : `${t("Secteur", "Sector")} ${libelleSecteur(secteur, langue)}`
         }
       >
         <div className="mp-red-carte-corps">
           {enVigueur === null ? (
             <Alerte tonalite="attention" annonce="aucune">
-              <p>{TEXTE_SEUILS_AUCUNE_VERSION}</p>
-              <p>{AVERTISSEMENT_SEUILS_DEFAUT}</p>
+              <p>{t(TEXTE_SEUILS_AUCUNE_VERSION, TEXTE_SEUILS_AUCUNE_VERSION_EN)}</p>
+              <p>{t(AVERTISSEMENT_SEUILS_DEFAUT, AVERTISSEMENT_SEUILS_DEFAUT_EN)}</p>
             </Alerte>
           ) : null}
           <Tableau
-            legende="Seuils en vigueur par critère"
+            legende={t("Seuils en vigueur par critère", "Thresholds in force by criterion")}
             colonnes={[
               {
                 cle: "critere",
-                entete: "Critère",
-                rendu: (c: (typeof RED_CRITERES_ALERTE)[number]) => libelleCritere(c),
+                entete: t("Critère", "Criterion"),
+                rendu: (c: (typeof RED_CRITERES_ALERTE)[number]) => libelleCritere(c, langue),
               },
               {
                 cle: "sens",
-                entete: "Sens de lecture",
-                rendu: (c) => libelleSensCritere(RED_CRITERE_ALERTE_SENS[c]),
+                entete: t("Sens de lecture", "Reading direction"),
+                rendu: (c) => libelleSensCritere(RED_CRITERE_ALERTE_SENS[c], langue),
               },
               {
                 cle: "orange",
-                entete: "Seuil orange",
+                entete: t("Seuil orange", "Orange threshold"),
                 alignement: "droite",
-                rendu: (c) => formaterSeuil(c, valeurs[c].orange),
+                rendu: (c) => formaterSeuil(c, valeurs[c].orange, langue),
               },
               {
                 cle: "rouge",
-                entete: "Seuil rouge",
+                entete: t("Seuil rouge", "Red threshold"),
                 alignement: "droite",
-                rendu: (c) => formaterSeuil(c, valeurs[c].rouge),
+                rendu: (c) => formaterSeuil(c, valeurs[c].rouge, langue),
               },
               {
                 cle: "poids",
-                entete: "Poids",
+                entete: t("Poids", "Weight"),
                 alignement: "droite",
                 rendu: (c) => valeurs[c].poids,
               },
@@ -158,7 +177,7 @@ function Seuils({
         </div>
       </Carte>
 
-      <Carte titre="Versions">
+      <Carte titre={t("Versions", "Versions")}>
         <VersionsSeuils
           versions={versions}
           peutPublier={s?.peut_publier ?? false}
@@ -167,9 +186,12 @@ function Seuils({
       </Carte>
 
       {peutParametrer ? (
-        <Carte titre="Rédiger un brouillon">
+        <Carte titre={t("Rédiger un brouillon", "Write a draft")}>
           <p className="mp-texte-doux">
-            Le formulaire part de la version en vigueur, ou des valeurs par défaut du moteur.
+            {t(
+              "Le formulaire part de la version en vigueur, ou des valeurs par défaut du moteur.",
+              "The form starts from the version in force, or from the engine default values.",
+            )}
           </p>
           <EditeurSeuils
             key={`${secteur}-${enVigueur?.id ?? "defaut"}`}
@@ -180,8 +202,10 @@ function Seuils({
       ) : (
         <Alerte tonalite="info" annonce="aucune">
           <p>
-            Lecture seule : la rédaction et la publication des seuils reviennent aux experts du
-            cabinet.
+            {t(
+              "Lecture seule : la rédaction et la publication des seuils reviennent aux experts du cabinet.",
+              "Read-only: drafting and publishing thresholds is up to the firm's experts.",
+            )}
           </p>
         </Alerte>
       )}

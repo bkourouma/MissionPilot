@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import {
   RED_CATEGORIES_CREANCIER,
-  RED_CATEGORIE_CREANCIER_LIBELLES,
   type RedCategorieCreancier,
   type RedCreancierVue,
 } from "@missionpilot/shared";
@@ -13,6 +12,7 @@ import {
   cheminCreancier,
   cheminCreances,
   cheminCreanciers,
+  libelleCategorieCreancier,
   messageRedressement,
 } from "../../lib/redressement";
 import {
@@ -25,6 +25,7 @@ import {
   type SaisieCreancier,
 } from "../../lib/redressement-saisie";
 import { aideMontant, type Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -32,11 +33,6 @@ import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-
-const OPTIONS_CATEGORIES = RED_CATEGORIES_CREANCIER.map((c) => ({
-  valeur: c,
-  libelle: RED_CATEGORIE_CREANCIER_LIBELLES[c],
-}));
 
 /** « Ajouter un créancier » : le créancier et sa créance n° 1 sont créés ensemble. */
 export function FormulaireCreancier({
@@ -48,6 +44,12 @@ export function FormulaireCreancier({
   devise: Devise;
   aujourdhui: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const OPTIONS_CATEGORIES = RED_CATEGORIES_CREANCIER.map((c) => ({
+    valeur: c,
+    libelle: libelleCategorieCreancier(c, langue),
+  }));
   const f = useFormulaire<ChampCreancier>();
   const [s, setS] = useState<SaisieCreancier>({
     nom: "",
@@ -64,11 +66,11 @@ export function FormulaireCreancier({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsCreancierDepuisFormulaire(s, devise),
+      corpsCreancierDepuisFormulaire(s, devise, langue),
       (charge) => api.post<RedCreancierVue>(cheminCreanciers(dossierId), charge),
       {
-        succes: "Créancier ajouté.",
-        messageSpecifique: messageRedressement,
+        succes: t("Créancier ajouté.", "Creditor added."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
         apres: () =>
           setS((x) => ({
             ...x,
@@ -89,18 +91,18 @@ export function FormulaireCreancier({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Ajouter un créancier"
+      aria-label={t("Ajouter un créancier", "Add a creditor")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Ajout impossible"
+        titreErreur={t("Ajout impossible", "Could not add")}
       />
-      <p className="mp-texte-doux">{aideMontant(devise)}</p>
+      <p className="mp-texte-doux">{aideMontant(devise, langue)}</p>
       <div className="mp-grille-champs">
         <Champ
-          libelle="Nom du créancier"
+          libelle={t("Nom du créancier", "Creditor name")}
           required
           maxLength={200}
           autoComplete="off"
@@ -109,7 +111,7 @@ export function FormulaireCreancier({
           erreur={f.erreurs.nom}
         />
         <Select
-          libelle="Catégorie"
+          libelle={t("Catégorie", "Category")}
           value={s.categorie}
           onChange={(e) =>
             setS((x) => ({ ...x, categorie: e.target.value as RedCategorieCreancier }))
@@ -117,7 +119,7 @@ export function FormulaireCreancier({
           options={OPTIONS_CATEGORIES}
         />
         <Champ
-          libelle="Référence (facultatif)"
+          libelle={t("Référence (facultatif)", "Reference (optional)")}
           maxLength={120}
           autoComplete="off"
           value={s.reference}
@@ -125,7 +127,7 @@ export function FormulaireCreancier({
           erreur={f.erreurs.reference}
         />
         <Champ
-          libelle="Principal dû"
+          libelle={t("Principal dû", "Principal due")}
           required
           inputMode="decimal"
           autoComplete="off"
@@ -134,7 +136,7 @@ export function FormulaireCreancier({
           erreur={f.erreurs.principal}
         />
         <Champ
-          libelle="Intérêts et pénalités"
+          libelle={t("Intérêts et pénalités", "Interest and penalties")}
           inputMode="decimal"
           autoComplete="off"
           value={s.interets}
@@ -142,7 +144,7 @@ export function FormulaireCreancier({
           erreur={f.erreurs.interets}
         />
         <Champ
-          libelle="Date d'arrêté de la créance"
+          libelle={t("Date d'arrêté de la créance", "Claim cut-off date")}
           type="date"
           required
           value={s.date_arrete}
@@ -150,14 +152,14 @@ export function FormulaireCreancier({
           erreur={f.erreurs.date_arrete}
         />
         <Champ
-          libelle="Échéance initiale (facultative)"
+          libelle={t("Échéance initiale (facultative)", "Initial due date (optional)")}
           type="date"
           value={s.echeance_initiale}
           onChange={(e) => setS((x) => ({ ...x, echeance_initiale: e.target.value }))}
           erreur={f.erreurs.echeance_initiale}
         />
         <Champ
-          libelle="Nature de la créance (facultatif)"
+          libelle={t("Nature de la créance (facultatif)", "Nature of the claim (optional)")}
           maxLength={200}
           autoComplete="off"
           value={s.nature}
@@ -166,13 +168,16 @@ export function FormulaireCreancier({
         />
       </div>
       <CaseACocher
-        libelle="Créance garantie (sûreté, hypothèque, caution…)"
+        libelle={t(
+          "Créance garantie (sûreté, hypothèque, caution…)",
+          "Secured claim (security, mortgage, guarantee…)",
+        )}
         checked={s.garanti}
         onChange={(e) => setS((x) => ({ ...x, garanti: e.target.checked }))}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter le créancier
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Ajout…", "Adding…")}>
+          {t("Ajouter le créancier", "Add the creditor")}
         </Bouton>
       </div>
     </form>
@@ -195,6 +200,8 @@ export function FormulaireCreance({
     nature: string | null;
   };
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampCreance>();
   const [s, setS] = useState<SaisieCreance>({
     principal: montantVersTexte(courante.principal, devise),
@@ -208,11 +215,14 @@ export function FormulaireCreance({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsCreanceDepuisFormulaire(s, devise),
+      corpsCreanceDepuisFormulaire(s, devise, langue),
       (charge) => api.post<RedCreancierVue>(cheminCreances(creancierId), charge),
       {
-        succes: "Créance mise à jour : l'ancienne version reste dans l'historique.",
-        messageSpecifique: messageRedressement,
+        succes: t(
+          "Créance mise à jour : l'ancienne version reste dans l'historique.",
+          "Claim updated: the previous version stays in the history.",
+        ),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -223,27 +233,27 @@ export function FormulaireCreance({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Mettre à jour la créance"
+      aria-label={t("Mettre à jour la créance", "Update the claim")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Mise à jour impossible"
+        titreErreur={t("Mise à jour impossible", "Could not update")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Principal dû"
+          libelle={t("Principal dû", "Principal due")}
           required
           inputMode="decimal"
           autoComplete="off"
           value={s.principal}
           onChange={(e) => setS((x) => ({ ...x, principal: e.target.value }))}
           erreur={f.erreurs.principal}
-          aide={aideMontant(devise)}
+          aide={aideMontant(devise, langue)}
         />
         <Champ
-          libelle="Intérêts et pénalités"
+          libelle={t("Intérêts et pénalités", "Interest and penalties")}
           inputMode="decimal"
           autoComplete="off"
           value={s.interets}
@@ -251,7 +261,7 @@ export function FormulaireCreance({
           erreur={f.erreurs.interets}
         />
         <Champ
-          libelle="Date d'arrêté"
+          libelle={t("Date d'arrêté", "Cut-off date")}
           type="date"
           required
           value={s.date_arrete}
@@ -259,14 +269,14 @@ export function FormulaireCreance({
           erreur={f.erreurs.date_arrete}
         />
         <Champ
-          libelle="Échéance initiale"
+          libelle={t("Échéance initiale", "Initial due date")}
           type="date"
           value={s.echeance_initiale}
           onChange={(e) => setS((x) => ({ ...x, echeance_initiale: e.target.value }))}
           erreur={f.erreurs.echeance_initiale}
         />
         <Champ
-          libelle="Nature"
+          libelle={t("Nature", "Nature")}
           maxLength={200}
           autoComplete="off"
           value={s.nature}
@@ -275,7 +285,7 @@ export function FormulaireCreance({
         />
       </div>
       <ZoneTexte
-        libelle="Commentaire (facultatif)"
+        libelle={t("Commentaire (facultatif)", "Comment (optional)")}
         maxLength={1000}
         value={s.commentaire}
         onChange={(e) => setS((x) => ({ ...x, commentaire: e.target.value }))}
@@ -286,9 +296,9 @@ export function FormulaireCreance({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Mise à jour…"
+          texteChargement={t("Mise à jour…", "Updating…")}
         >
-          Mettre à jour la créance
+          {t("Mettre à jour la créance", "Update the claim")}
         </Bouton>
       </div>
     </form>
@@ -309,6 +319,8 @@ export function FormulaireModificationCreancier({
   garanti: boolean;
   actif: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"nom">();
   const [s, setS] = useState({ nom, reference: reference ?? "", garanti, actif });
 
@@ -316,7 +328,15 @@ export function FormulaireModificationCreancier({
     e.preventDefault();
     const n = s.nom.trim();
     const validation: Resultat<Record<string, unknown>, "nom"> = n === "" || n.length > 200
-      ? { ok: false, erreurs: { nom: "Saisissez un nom de 200 caractères au plus." } }
+      ? {
+          ok: false,
+          erreurs: {
+            nom: t(
+              "Saisissez un nom de 200 caractères au plus.",
+              "Enter a name of 200 characters at most.",
+            ),
+          },
+        }
       : {
           ok: true,
           charge: {
@@ -330,8 +350,8 @@ export function FormulaireModificationCreancier({
       validation,
       (charge) => api.patch<RedCreancierVue>(cheminCreancier(creancierId), charge),
       {
-        succes: "Créancier modifié.",
-        messageSpecifique: messageRedressement,
+        succes: t("Créancier modifié.", "Creditor updated."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -342,17 +362,17 @@ export function FormulaireModificationCreancier({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Modifier le créancier"
+      aria-label={t("Modifier le créancier", "Edit the creditor")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Modification refusée"
+        titreErreur={t("Modification refusée", "Edit refused")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Nom du créancier"
+          libelle={t("Nom du créancier", "Creditor name")}
           required
           maxLength={200}
           autoComplete="off"
@@ -361,7 +381,7 @@ export function FormulaireModificationCreancier({
           erreur={f.erreurs.nom}
         />
         <Champ
-          libelle="Référence"
+          libelle={t("Référence", "Reference")}
           maxLength={120}
           autoComplete="off"
           value={s.reference}
@@ -369,13 +389,16 @@ export function FormulaireModificationCreancier({
         />
       </div>
       <CaseACocher
-        libelle="Créance garantie"
+        libelle={t("Créance garantie", "Secured claim")}
         checked={s.garanti}
         onChange={(e) => setS((x) => ({ ...x, garanti: e.target.checked }))}
       />
       <CaseACocher
-        libelle="Créancier actif"
-        aide="Un créancier inactif sort des totaux ; son historique est conservé."
+        libelle={t("Créancier actif", "Active creditor")}
+        aide={t(
+          "Un créancier inactif sort des totaux ; son historique est conservé.",
+          "An inactive creditor is left out of the totals; its history is kept.",
+        )}
         checked={s.actif}
         onChange={(e) => setS((x) => ({ ...x, actif: e.target.checked }))}
       />
@@ -384,9 +407,9 @@ export function FormulaireModificationCreancier({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer
+          {t("Enregistrer", "Save")}
         </Bouton>
       </div>
     </form>

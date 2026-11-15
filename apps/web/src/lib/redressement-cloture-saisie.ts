@@ -3,7 +3,7 @@
  * validation. Contrôles de forme avec messages en français ; l'API revalide tout. Aucun calcul
  * métier. Logique pure, testée dans `redressement-cloture.test.ts`.
  */
-import { RED_CLOTURE_MOTIF_MAX, type RedClotureResume } from "@missionpilot/shared";
+import { RED_CLOTURE_MOTIF_MAX, type Langue, type RedClotureResume } from "@missionpilot/shared";
 import { texteOuNull, type Resultat } from "./saisie";
 
 /**
@@ -27,12 +27,18 @@ export type ChampValidationCloture = "motif";
 /** Corps de la validation : le motif est facultatif. */
 export function corpsValidationCloture(
   motif: string,
+  langue: Langue = "fr",
 ): Resultat<{ motif?: string }, ChampValidationCloture> {
   const m = texteOuNull(motif);
   if (m !== null && m.length > RED_CLOTURE_MOTIF_MAX) {
     return {
       ok: false,
-      erreurs: { motif: `Motif trop long (${RED_CLOTURE_MOTIF_MAX} caractères au plus).` },
+      erreurs: {
+        motif:
+          langue === "en"
+            ? `Reason too long (${RED_CLOTURE_MOTIF_MAX} characters at most).`
+            : `Motif trop long (${RED_CLOTURE_MOTIF_MAX} caractères au plus).`,
+      },
     };
   }
   return { ok: true, charge: m === null ? {} : { motif: m } };

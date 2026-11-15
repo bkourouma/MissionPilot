@@ -36,6 +36,7 @@ import {
   type ThemeEs,
   type TypeOperationDd,
   type VerdictDd,
+  type Langue,
 } from "@missionpilot/shared";
 import { estIdentifiant } from "./identifiant";
 import { DEVISES, type Devise } from "./format";
@@ -261,7 +262,7 @@ export const saisieCadrageVide = (devise: string = "XOF"): SaisieCadrage => ({
 });
 
 /** Création d'un dossier ou correction (`correction` : motif exigé, version 2 et suivantes). */
-export function validerCadrage(
+function validerCadrageFr(
   s: SaisieCadrage,
   correction: boolean,
 ): Resultat<ChargeCadrage, ChampCadrage> {
@@ -338,7 +339,7 @@ export const saisiePointVide = (): SaisiePoint => ({
   niveau: "",
 });
 
-export function validerPoint(
+function validerPointFr(
   s: SaisiePoint,
   analyse: AnalyseDd,
   categorie: string,
@@ -379,7 +380,7 @@ export interface ChargeCorrectionPoint {
 }
 
 /** Correction d'un point : seuls les champs modifiés sont envoyés (au moins un). */
-export function validerCorrectionPoint(
+function validerCorrectionPointFr(
   s: SaisieCorrectionPoint,
   initial: { libelle: string | null; niveau: string | null; enonce: string },
 ): Resultat<ChargeCorrectionPoint, ChampCorrectionPoint> {
@@ -414,7 +415,7 @@ export function validerCorrectionPoint(
 }
 
 /** Retrait (ou rétablissement) d'un élément : un motif est exigé. */
-export function validerRetrait(
+function validerRetraitFr(
   motifSaisi: string,
   retire: boolean,
 ): Resultat<{ motif: string; retire: boolean }, "motif"> {
@@ -467,10 +468,7 @@ export const saisieEtapeVide = (ordre: number): SaisieEtape => ({
   motif: "",
 });
 
-export function validerEtape(
-  s: SaisieEtape,
-  correction: boolean,
-): Resultat<ChargeEtape, ChampEtape> {
+function validerEtapeFr(s: SaisieEtape, correction: boolean): Resultat<ChargeEtape, ChampEtape> {
   const e: Partial<Record<ChampEtape, string>> = {};
   const libelle = texteBorne(
     e,
@@ -568,7 +566,7 @@ export function ecartAvecSignal(
   );
 }
 
-export function validerRisque(
+function validerRisqueFr(
   s: SaisieRisque,
   graviteSignal: NiveauRisqueDd | null | undefined,
 ): Resultat<ChargeRisque, ChampRisque> {
@@ -627,7 +625,7 @@ export interface ChargeCorrectionRisque {
   motif_ecart?: string;
 }
 
-export function validerCorrectionRisque(
+function validerCorrectionRisqueFr(
   s: SaisieCorrectionRisque,
   initial: { niveau: string; libelle: string; enonce: string; etape_id: string | null },
   graviteSignal: NiveauRisqueDd | null | undefined,
@@ -689,7 +687,7 @@ export interface ChargeConstat {
 }
 
 /** « Écarté » exige un commentaire ; l'état et le risque lié viennent du bouton cliqué. */
-export function validerConstat(
+function validerConstatFr(
   etat: string,
   commentaire: string,
   risqueId: string | null,
@@ -739,7 +737,7 @@ export const saisieHypotheseVide = (parentId = ""): SaisieHypothese => ({
   parent_id: parentId,
 });
 
-export function validerHypothese(s: SaisieHypothese): Resultat<ChargeHypothese, ChampHypothese> {
+function validerHypotheseFr(s: SaisieHypothese): Resultat<ChargeHypothese, ChampHypothese> {
   const e: Partial<Record<ChampHypothese, string>> = {};
   const libelle = texteBorne(
     e,
@@ -783,7 +781,7 @@ export interface ChargeCorrectionHypothese {
   critere?: string | null;
 }
 
-export function validerCorrectionHypothese(
+function validerCorrectionHypotheseFr(
   s: SaisieCorrectionHypothese,
   initial: { libelle: string; description: string | null; critere: string | null },
 ): Resultat<ChargeCorrectionHypothese, ChampCorrectionHypothese> {
@@ -826,7 +824,7 @@ export interface ChargeLien {
   sens: SensLienDd | null;
 }
 
-export function validerLien(
+function validerLienFr(
   assertionId: string,
   sens: string,
 ): Resultat<ChargeLien, "assertion_id" | "sens"> {
@@ -848,7 +846,7 @@ export const saisieAssertionHypotheseVide = (): SaisieAssertionHypothese => ({
   sens: "",
 });
 
-export function validerAssertionHypothese(
+function validerAssertionHypotheseFr(
   s: SaisieAssertionHypothese,
 ): Resultat<ChargeAffirmation & { sens: SensLienDd }, ChampAssertionHypothese> {
   const e: Partial<Record<ChampAssertionHypothese, string>> = {};
@@ -880,7 +878,7 @@ export const ecartIndication = (
 ): boolean =>
   verdict !== "" && indication !== null && indication !== undefined && verdict !== indication;
 
-export function validerVerdict(
+function validerVerdictFr(
   s: SaisieVerdict,
   hypotheseVersion: number,
   indication: VerdictDd | null | undefined,
@@ -919,7 +917,7 @@ export interface ChargeValidation {
 }
 
 /** Validation ou rejet (verdict, note) : un rejet se motive. */
-export function validerDecision(
+function validerDecisionFr(
   decision: "valide" | "rejete",
   motifSaisi: string,
 ): Resultat<ChargeValidation, "motif"> {
@@ -978,7 +976,7 @@ export const saisieSignalVide = (): SaisieSignal => ({
 });
 
 /** Création (code tiré du libellé) ou correction motivée d'un signal. */
-export function validerSignal(
+function validerSignalFr(
   s: SaisieSignal,
   correction: boolean,
   codesExistants: readonly string[] = [],
@@ -1109,7 +1107,7 @@ export function lireValeurParametre(
  * Contrôle d'un dimensionnement. `exigerSources` : l'enregistrement exige une source par paramètre
  * (preuve de la mission ou avis d'expert motivé) ; le calcul à blanc (aperçu) l'admet.
  */
-export function validerDimensionnement(
+function validerDimensionnementFr(
   s: SaisieDimensionnement,
   devise: Devise,
   mode: "apercu" | "creation" | "version",
@@ -1233,7 +1231,7 @@ export const saisieThemesVides = (): SaisieTheme[] =>
 export const niveauEsExigeJustification = (niveau: string): boolean =>
   niveau === "modere" || niveau === "eleve" || niveau === "critique";
 
-export function validerFiltrage(s: SaisieFiltrage): Resultat<ChargeFiltrage, ChampFiltrage> {
+function validerFiltrageFr(s: SaisieFiltrage): Resultat<ChargeFiltrage, ChampFiltrage> {
   const e: Partial<Record<ChampFiltrage, string>> = {};
   if (!estIdentifiant(s.liste_id)) e.liste_id = "Choisissez la liste d'exclusion.";
   const activites = s.activites
@@ -1285,7 +1283,7 @@ export interface ChargeDecisionExclusion {
   motif: string;
 }
 
-export function validerDecisionExclusion(
+function validerDecisionExclusionFr(
   regleCode: string,
   decision: "confirmee" | "ecartee",
   motifSaisi: string,
@@ -1349,10 +1347,7 @@ export const saisieRegleVide = (): SaisieRegle => ({
 export const MOTS_CLES_REGLE_MAX = 10;
 export const MOT_CLE_LONGUEUR_MAX = 60;
 
-export function validerListe(
-  s: SaisieListe,
-  correction: boolean,
-): Resultat<ChargeListe, ChampListe> {
+function validerListeFr(s: SaisieListe, correction: boolean): Resultat<ChargeListe, ChampListe> {
   const e: Partial<Record<ChampListe, string>> = {};
   const nom = texteBorne(
     e,
@@ -1459,7 +1454,7 @@ export const saisieActionVide = (): SaisieAction => ({
   motif: "",
 });
 
-export function validerAction(
+function validerActionFr(
   s: SaisieAction,
   correction: boolean,
 ): Resultat<ChargeAction, ChampAction> {
@@ -1546,7 +1541,7 @@ export function lireConditions(v: string): string[] {
     .filter((c) => c !== "");
 }
 
-export function validerNote(
+function validerNoteFr(
   s: SaisieNote,
   mode: "creation" | "version",
 ): Resultat<ChargeNote, ChampNote> {
@@ -1652,3 +1647,224 @@ export function uniteDuParametre(
   const tous = [...PARAMETRES_DIMENSIONNEMENT.descendant, ...PARAMETRES_DIMENSIONNEMENT.ascendant];
   return tous.find((p) => p.code === code)?.unite ?? "nombre";
 }
+
+// --- Messages en anglais ------------------------------------------------------------------------
+// Les validateurs ci-dessus produisent des messages français (référence des tests) ; les versions
+// publiques acceptent un dernier argument `langue` et traduisent les messages produits.
+
+const MESSAGES_EN: Record<string, string> = {
+  "Ce champ est obligatoire.": "This field is required.",
+  "Rédigez l'affirmation.": "Write the statement.",
+  "Choisissez la classe de risque (R2 ou R3).": "Choose the risk class (R2 or R3).",
+  "Un avis d'expert se justifie.": "An expert opinion must be justified.",
+  "Donnez un titre au dossier.": "Give the file a title.",
+  "Choisissez le secteur.": "Choose the sector.",
+  "Choisissez le pays.": "Choose the country.",
+  "Choisissez le type d'opération.": "Choose the transaction type.",
+  "Choisissez la devise.": "Choose the currency.",
+  "Une acquisition désigne sa cible.": "An acquisition names its target.",
+  "Date invalide (entre 2000 et 2100).": "Invalid date (between 2000 and 2100).",
+  "Catégorie inconnue pour cette analyse.": "Unknown category for this analysis.",
+  "Importance inconnue.": "Unknown importance.",
+  "L'affirmation ne peut pas être vide.": "The statement cannot be empty.",
+  "Expliquez la correction.": "Explain the correction.",
+  "Aucune modification à enregistrer.": "No change to save.",
+  "Expliquez pourquoi.": "Explain why.",
+  "Nommez l'étape.": "Name the step.",
+  "Indiquez le rang de l'étape (de 1 à 200).": "Enter the step rank (1 to 200).",
+  "Un pourcentage entre 0 et 100.": "A percentage between 0 and 100.",
+  "Choisissez la famille de risque.": "Choose the risk family.",
+  "Choisissez le niveau.": "Choose the level.",
+  "Nommez le risque.": "Name the risk.",
+  "Étape invalide.": "Invalid step.",
+  "Signal invalide.": "Invalid signal.",
+  "Le niveau diffère de la gravité du signal : justifiez l'écart.":
+    "The level differs from the signal severity: justify the difference.",
+  "La justification ne peut pas être vide.": "The justification cannot be empty.",
+  "État inconnu.": "Unknown state.",
+  "Un signal écarté se justifie : ajoutez un commentaire.":
+    "A dismissed signal must be justified: add a comment.",
+  "Formulez l'hypothèse.": "State the hypothesis.",
+  "Hypothèse parente invalide.": "Invalid parent hypothesis.",
+  "Choisissez une assertion.": "Choose a statement.",
+  "Indiquez si elle soutient ou contredit l'hypothèse.":
+    "Indicate whether it supports or contradicts the hypothesis.",
+  "Choisissez le verdict.": "Choose the verdict.",
+  "Motivez le verdict.": "Give a reason for the verdict.",
+  "Un verdict confirmé ou infirmé cite au moins une assertion.":
+    "A confirmed or refuted verdict cites at least one statement.",
+  "Un rejet se motive.": "A rejection must be explained.",
+  "Nommez le signal.": "Name the signal.",
+  "Choisissez la famille.": "Choose the family.",
+  "Choisissez la gravité indicative.": "Choose the indicative severity.",
+  "Choisissez la méthode.": "Choose the method.",
+  "Nommez ce dimensionnement.": "Name this sizing.",
+  "Une valeur est illisible ou hors limites (pourcentage de 0 à 100).":
+    "A value is unreadable or out of range (percentage from 0 to 100).",
+  "Renseignez les trois valeurs (basse, centrale, haute) de chaque paramètre.":
+    "Enter the three values (low, base, high) of each parameter.",
+  "Les valeurs se suivent : basse ≤ centrale ≤ haute.":
+    "Values must be in order: low ≤ base ≤ high.",
+  "Choisissez la preuve qui source chaque paramètre.":
+    "Choose the evidence that sources each parameter.",
+  "Chaque paramètre cite une preuve de la mission ou un avis d'expert.":
+    "Each parameter cites evidence from the engagement or an expert opinion.",
+  "Nommez chaque ajustement (120 caractères au plus).":
+    "Name each adjustment (120 characters at most).",
+  "Le facteur d'un ajustement va de 0,01 % à 200 %.":
+    "An adjustment factor ranges from 0.01% to 200%.",
+  "Choisissez la liste d'exclusion.": "Choose the exclusion list.",
+  "Un niveau est inconnu.": "A level is unknown.",
+  "Un niveau modéré ou plus se justifie : renseignez la justification du thème.":
+    "A moderate or higher level must be justified: enter the theme justification.",
+  "Motivez la décision.": "Give a reason for the decision.",
+  "Nommez la liste.": "Name the list.",
+  "Investisseur invalide.": "Invalid investor.",
+  "Ajoutez au moins une règle.": "Add at least one rule.",
+  "Nommez chaque règle (200 caractères au plus).": "Name each rule (200 characters at most).",
+  "Chaque règle porte au moins un critère : un mot-clé, un secteur ou un pays.":
+    "Each rule has at least one criterion: a keyword, a sector or a country.",
+  "Une règle : 20 secteurs et 20 pays au plus.": "A rule: 20 sectors and 20 countries at most.",
+  "Un jour de 0 à 100.": "A day from 0 to 100.",
+  "Le jour de fin ne précède pas le jour de début.": "The end day cannot precede the start day.",
+  "Choisissez le statut.": "Choose the status.",
+  "Choix invalide.": "Invalid choice.",
+  "Nommez l'action.": "Name the action.",
+  "Donnez un titre à la note.": "Give the memo a title.",
+  "Choisissez la recommandation.": "Choose the recommendation.",
+  "Rédigez la synthèse.": "Write the summary.",
+  "Une recommandation sous conditions énonce au moins une condition.":
+    "A recommendation with conditions states at least one condition.",
+  "Expliquez la modification.": "Explain the change.",
+};
+
+const NOMS_AU_PLUS: Record<string, string> = {
+  acteurs: "actors",
+  activités: "activities",
+  secteurs: "sectors",
+  pays: "countries",
+  assertions: "statements",
+  ajustements: "adjustments",
+  règles: "rules",
+  conditions: "conditions",
+};
+
+/** Message de validation dans la langue demandée (le français est la référence). */
+export function messageSaisieEn(m: string): string {
+  const exact = MESSAGES_EN[m];
+  if (exact) return exact;
+  let r = /^(\d+) caractères au plus\.$/.exec(m);
+  if (r) return `${r[1]} characters at most.`;
+  r = /^(\d+) caractères au moins\.$/.exec(m);
+  if (r) return `${r[1]} characters at least.`;
+  r = /^(\d+) ([^ ]+) au plus\.$/.exec(m);
+  if (r && NOMS_AU_PLUS[r[2]!]) return `${r[1]} ${NOMS_AU_PLUS[r[2]!]} at most.`;
+  r = /^Chaque (acteur|activité|condition) : (.*)$/.exec(m);
+  if (r) {
+    const nom = { acteur: "actor", activité: "activity", condition: "condition" }[
+      r[1] as "acteur" | "activité" | "condition"
+    ];
+    return `Each ${nom}: ${messageSaisieEn(r[2]!)}`;
+  }
+  r = /^Une justification : (.*)$/.exec(m);
+  if (r) return `A justification: ${messageSaisieEn(r[1]!)}`;
+  r = /^Un avis d'expert se motive \((\d+) caractères au moins\)\.$/.exec(m);
+  if (r) return `An expert opinion must be reasoned (${r[1]} characters at least).`;
+  r = /^Un ajustement d'expert se motive \((\d+) caractères au moins\)\.$/.exec(m);
+  if (r) return `An expert adjustment must be reasoned (${r[1]} characters at least).`;
+  r = /^Une règle : (\d+) mots-clés au plus, de (\d+) caractères au plus\.$/.exec(m);
+  if (r) return `A rule: ${r[1]} keywords at most, ${r[2]} characters at most each.`;
+  return m;
+}
+
+function localiser<C, K extends string>(r: Resultat<C, K>, langue: Langue): Resultat<C, K> {
+  if (langue !== "en" || r.ok) return r;
+  const erreurs: Partial<Record<K, string>> = {};
+  for (const [cle, message] of Object.entries(r.erreurs) as [K, string][]) {
+    erreurs[cle] = messageSaisieEn(message);
+  }
+  return { ok: false, erreurs };
+}
+
+export const validerCadrage = (s: SaisieCadrage, correction: boolean, langue: Langue = "fr") =>
+  localiser(validerCadrageFr(s, correction), langue);
+export const validerPoint = (
+  s: SaisiePoint,
+  analyse: AnalyseDd,
+  categorie: string,
+  langue: Langue = "fr",
+) => localiser(validerPointFr(s, analyse, categorie), langue);
+export const validerCorrectionPoint = (
+  s: SaisieCorrectionPoint,
+  initial: { libelle: string | null; niveau: string | null; enonce: string },
+  langue: Langue = "fr",
+) => localiser(validerCorrectionPointFr(s, initial), langue);
+export const validerRetrait = (motifSaisi: string, retire: boolean, langue: Langue = "fr") =>
+  localiser(validerRetraitFr(motifSaisi, retire), langue);
+export const validerEtape = (s: SaisieEtape, correction: boolean, langue: Langue = "fr") =>
+  localiser(validerEtapeFr(s, correction), langue);
+export const validerRisque = (
+  s: SaisieRisque,
+  graviteSignal: NiveauRisqueDd | null | undefined,
+  langue: Langue = "fr",
+) => localiser(validerRisqueFr(s, graviteSignal), langue);
+export const validerCorrectionRisque = (
+  s: SaisieCorrectionRisque,
+  initial: { niveau: string; libelle: string; enonce: string; etape_id: string | null },
+  graviteSignal: NiveauRisqueDd | null | undefined,
+  langue: Langue = "fr",
+) => localiser(validerCorrectionRisqueFr(s, initial, graviteSignal), langue);
+export const validerConstat = (
+  etat: string,
+  commentaire: string,
+  risqueId: string | null,
+  langue: Langue = "fr",
+) => localiser(validerConstatFr(etat, commentaire, risqueId), langue);
+export const validerHypothese = (s: SaisieHypothese, langue: Langue = "fr") =>
+  localiser(validerHypotheseFr(s), langue);
+export const validerCorrectionHypothese = (
+  s: SaisieCorrectionHypothese,
+  initial: { libelle: string; description: string | null; critere: string | null },
+  langue: Langue = "fr",
+) => localiser(validerCorrectionHypotheseFr(s, initial), langue);
+export const validerLien = (assertionId: string, sens: string, langue: Langue = "fr") =>
+  localiser(validerLienFr(assertionId, sens), langue);
+export const validerAssertionHypothese = (s: SaisieAssertionHypothese, langue: Langue = "fr") =>
+  localiser(validerAssertionHypotheseFr(s), langue);
+export const validerVerdict = (
+  s: SaisieVerdict,
+  hypotheseVersion: number,
+  indication: VerdictDd | null | undefined,
+  langue: Langue = "fr",
+) => localiser(validerVerdictFr(s, hypotheseVersion, indication), langue);
+export const validerDecision = (
+  decision: "valide" | "rejete",
+  motifSaisi: string,
+  langue: Langue = "fr",
+) => localiser(validerDecisionFr(decision, motifSaisi), langue);
+export const validerSignal = (
+  s: SaisieSignal,
+  correction: boolean,
+  codesExistants: readonly string[] = [],
+  langue: Langue = "fr",
+) => localiser(validerSignalFr(s, correction, codesExistants), langue);
+export const validerDimensionnement = (
+  s: SaisieDimensionnement,
+  devise: Devise,
+  mode: "apercu" | "creation" | "version",
+  langue: Langue = "fr",
+) => localiser(validerDimensionnementFr(s, devise, mode), langue);
+export const validerFiltrage = (s: SaisieFiltrage, langue: Langue = "fr") =>
+  localiser(validerFiltrageFr(s), langue);
+export const validerDecisionExclusion = (
+  regleCode: string,
+  decision: "confirmee" | "ecartee",
+  motifSaisi: string,
+  langue: Langue = "fr",
+) => localiser(validerDecisionExclusionFr(regleCode, decision, motifSaisi), langue);
+export const validerListe = (s: SaisieListe, correction: boolean, langue: Langue = "fr") =>
+  localiser(validerListeFr(s, correction), langue);
+export const validerAction = (s: SaisieAction, correction: boolean, langue: Langue = "fr") =>
+  localiser(validerActionFr(s, correction), langue);
+export const validerNote = (s: SaisieNote, mode: "creation" | "version", langue: Langue = "fr") =>
+  localiser(validerNoteFr(s, mode), langue);

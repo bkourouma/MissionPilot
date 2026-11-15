@@ -4,6 +4,7 @@ import { NonDisponible } from "../../../../../components/portail/NonDisponible";
 import { DemandePortailVue } from "../../../../../components/portail/salle/DemandePortailVue";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 import { aujourdhui } from "../../../../../lib/periode";
 import { estIdentifiant, peut } from "../../../../../lib/portail";
 import { chargerPortail, obtenirSessionPortail } from "../../../../../lib/portail-serveur";
@@ -14,16 +15,20 @@ import {
   type DemandePortail,
 } from "../../../../../lib/salle-mission-portail";
 
-export const metadata: Metadata = { title: "Documents demandés" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Documents demandés", "Documents requested") };
+}
 
 /**
  * Demande de documents reçue : pièces à fournir et dépôt. Inexistante, d'une autre entreprise
  * ou pas encore envoyée : la même page « introuvable » (l'API répond le même 404).
  */
 export default async function DemandeSallePortail({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.salle.deposer")) {
-    return <NonDisponible titre="Documents demandés" />;
+    return <NonDisponible titre={t("Documents demandés", "Documents requested")} />;
   }
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
@@ -33,11 +38,14 @@ export default async function DemandeSallePortail({ params }: { params: Promise<
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Documents demandés"
-          retour={{ href: CHEMIN_SALLE_PORTAIL, libelle: "Documents à fournir" }}
+          titre={t("Documents demandés", "Documents requested")}
+          retour={{
+            href: CHEMIN_SALLE_PORTAIL,
+            libelle: t("Documents à fournir", "Documents to provide"),
+          }}
         />
         <EtatErreur
-          titre="Cette demande n'a pas pu être chargée."
+          titre={t("Cette demande n'a pas pu être chargée.", "This request could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefDemandePortail(id)}
         />
@@ -48,7 +56,10 @@ export default async function DemandeSallePortail({ params }: { params: Promise<
     <div className="mp-page">
       <EnteteDePage
         titre={r.donnees.titre}
-        retour={{ href: CHEMIN_SALLE_PORTAIL, libelle: "Documents à fournir" }}
+        retour={{
+          href: CHEMIN_SALLE_PORTAIL,
+          libelle: t("Documents à fournir", "Documents to provide"),
+        }}
       />
       <DemandePortailVue demande={r.donnees} aujourdhui={aujourdhui()} />
     </div>

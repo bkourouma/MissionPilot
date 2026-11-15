@@ -9,6 +9,7 @@ import {
   validerTerminaison,
 } from "../../lib/qualite-froide-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
@@ -19,6 +20,8 @@ import { ZoneTexte } from "../ui/ZoneTexte";
  * score et la conclusion sont fixés par le moteur à cet instant, pas par le relecteur.
  */
 export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"synthese">();
   const [synthese, setSynthese] = useState("");
   const [confirmation, setConfirmation] = useState(false);
@@ -28,7 +31,7 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
   // Idem pour le bandeau d'erreur de l'API (ex. « grille incomplète ») : périmé dès que la synthèse
   // change ou que la confirmation s'ouvre ; remis à faux avant chaque nouvel envoi.
   const [globalePerimee, setGlobalePerimee] = useState(false);
-  const validation = validerTerminaison(synthese);
+  const validation = validerTerminaison(synthese, langue);
 
   return (
     <form
@@ -54,7 +57,10 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
         const fait = await f.envoyer(
           validation,
           (charge) => api.post(cheminTerminer(echantillonId), charge),
-          { succes: "Revue terminée et figée.", messageSpecifique: messageFroide },
+          {
+            succes: t("Revue terminée et figée.", "Review completed and frozen."),
+            messageSpecifique: (e) => messageFroide(e, langue),
+          },
         );
         if (!fait) setConfirmation(false);
       }}
@@ -63,10 +69,10 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
         erreur={erreurGlobaleAffichee(f.erreurGlobale, globalePerimee)}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="La revue n'a pas pu être terminée"
+        titreErreur={t("La revue n'a pas pu être terminée", "The review could not be completed")}
       />
       <ZoneTexte
-        libelle="Synthèse de la revue"
+        libelle={t("Synthèse de la revue", "Review summary")}
         required
         rows={5}
         maxLength={4000}
@@ -78,13 +84,22 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
           setConfirmation(false);
         }}
         erreur={erreurChampAffichee(f.erreurs.synthese, erreurPerimee)}
-        aide="Votre appréciation d'ensemble, à l'attention de l'associé. Elle sera figée avec la revue."
+        aide={t(
+          "Votre appréciation d'ensemble, à l'attention de l'associé. Elle sera figée avec la revue.",
+          "Your overall assessment, for the partner. It will be frozen with the review.",
+        )}
       />
       {confirmation ? (
-        <Alerte tonalite="attention" titre="Terminer et figer cette revue ?" annonce="status">
+        <Alerte
+          tonalite="attention"
+          titre={t("Terminer et figer cette revue ?", "Complete and freeze this review?")}
+          annonce="status"
+        >
           <p>
-            Après confirmation, les notes, les constats et la synthèse ne pourront plus être
-            modifiés. Le score et la conclusion seront calculés par le moteur.
+            {t(
+              "Après confirmation, les notes, les constats et la synthèse ne pourront plus être modifiés. Le score et la conclusion seront calculés par le moteur.",
+              "After confirmation, the scores, findings and summary can no longer be edited. The score and conclusion will be computed by the engine.",
+            )}
           </p>
         </Alerte>
       ) : null}
@@ -93,13 +108,15 @@ export function FroideTerminer({ echantillonId }: { echantillonId: string }) {
           type="submit"
           variante={confirmation ? "danger" : "primaire"}
           chargement={f.enCours}
-          texteChargement="Clôture de la revue…"
+          texteChargement={t("Clôture de la revue…", "Closing the review…")}
         >
-          {confirmation ? "Oui, terminer la revue" : "Terminer la revue"}
+          {confirmation
+            ? t("Oui, terminer la revue", "Yes, complete the review")
+            : t("Terminer la revue", "Complete the review")}
         </Bouton>
         {confirmation ? (
           <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setConfirmation(false)}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         ) : null}
       </div>

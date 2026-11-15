@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { Langue } from "@missionpilot/shared";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../../components/ui/Alerte";
 import { Bouton } from "../../../components/ui/Bouton";
 import { Carte } from "../../../components/ui/Carte";
@@ -38,8 +40,8 @@ const ORDRE: readonly (keyof SaisieCabinet)[] = [
   "associeMotDePasse",
 ];
 
-export function optionsPays(): OptionSelect[] {
-  return PAYS_PROPOSES.map((code) => ({ valeur: code, libelle: libellePays(code) }));
+export function optionsPays(langue: Langue = "fr"): OptionSelect[] {
+  return PAYS_PROPOSES.map((code) => ({ valeur: code, libelle: libellePays(code, langue) }));
 }
 
 /** Premier champ en erreur selon l'ordre d'affichage, ou `undefined`. */
@@ -58,6 +60,8 @@ export function FormulaireCreationCabinet({
   surCree: (creation: CreationCabinet) => void;
   surAnnuler: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [saisie, setSaisie] = useState<SaisieCabinet>(SAISIE_VIDE);
   const [erreurs, setErreurs] = useState<ErreursCabinet>({});
   const [erreurGlobale, setErreurGlobale] = useState<string | null>(null);
@@ -96,7 +100,7 @@ export function FormulaireCreationCabinet({
     ev.preventDefault();
     if (enCours) return;
     setErreurGlobale(null);
-    const trouvees = validerCabinet(saisie);
+    const trouvees = validerCabinet(saisie, langue);
     setErreurs(trouvees);
     const premier = premierChampEnErreur(trouvees);
     if (premier) return focaliser(premier);
@@ -107,26 +111,30 @@ export function FormulaireCreationCabinet({
       setSaisie(SAISIE_VIDE);
       surCree(creation);
     } catch (e) {
-      setErreurGlobale(messageErreurPlateforme(e));
+      setErreurGlobale(messageErreurPlateforme(e, langue));
       setEnCours(false);
     }
   }
 
   return (
     <div id={ID_FORMULAIRE_CABINET}>
-      <Carte titre="Nouveau cabinet">
+      <Carte titre={t("Nouveau cabinet", "New firm")}>
         <form className="mp-formulaire" noValidate onSubmit={soumettre} aria-busy={enCours}>
           {erreurGlobale ? (
-            <Alerte ref={alerte} tonalite="danger" titre="Création impossible">
+            <Alerte
+              ref={alerte}
+              tonalite="danger"
+              titre={t("Création impossible", "Unable to create")}
+            >
               <p>{erreurGlobale}</p>
             </Alerte>
           ) : null}
           <fieldset className="mp-console__section">
-            <legend>Cabinet</legend>
+            <legend>{t("Cabinet", "Firm")}</legend>
             <div className="mp-console__grille">
               <Champ
                 ref={champNom}
-                libelle="Nom du cabinet"
+                libelle={t("Nom du cabinet", "Firm name")}
                 name="nom"
                 autoComplete="organization"
                 maxLength={200}
@@ -137,10 +145,10 @@ export function FormulaireCreationCabinet({
               />
               <Select
                 ref={champPays}
-                libelle="Pays"
+                libelle={t("Pays", "Country")}
                 name="pays"
                 required
-                options={optionsPays()}
+                options={optionsPays(langue)}
                 value={saisie.pays}
                 onChange={(e) => maj("pays", e.target.value)}
                 erreur={erreurs.pays}
@@ -148,11 +156,11 @@ export function FormulaireCreationCabinet({
             </div>
           </fieldset>
           <fieldset className="mp-console__section">
-            <legend>Premier associé</legend>
+            <legend>{t("Premier associé", "First partner")}</legend>
             <div className="mp-console__grille">
               <Champ
                 ref={champAssocieNom}
-                libelle="Nom de l'associé"
+                libelle={t("Nom de l'associé", "Partner name")}
                 name="associe_nom"
                 autoComplete="off"
                 maxLength={200}
@@ -163,7 +171,7 @@ export function FormulaireCreationCabinet({
               />
               <Champ
                 ref={champAssocieEmail}
-                libelle="Adresse e-mail de l'associé"
+                libelle={t("Adresse e-mail de l'associé", "Partner email address")}
                 type="email"
                 name="associe_email"
                 autoComplete="off"
@@ -180,12 +188,15 @@ export function FormulaireCreationCabinet({
             <div className="mp-champ-mdp">
               <Champ
                 ref={champAssocieMdp}
-                libelle="Mot de passe (facultatif)"
+                libelle={t("Mot de passe (facultatif)", "Password (optional)")}
                 type={afficherMdp ? "text" : "password"}
                 name="associe_mot_de_passe"
                 autoComplete="new-password"
                 maxLength={MOT_DE_PASSE_MAX}
-                aide="Laissez vide pour générer un mot de passe provisoire. Sinon, au moins 12 caractères."
+                aide={t(
+                  "Laissez vide pour générer un mot de passe provisoire. Sinon, au moins 12 caractères.",
+                  "Leave empty to generate a temporary password. Otherwise, at least 12 characters.",
+                )}
                 value={saisie.associeMotDePasse}
                 onChange={(e) => maj("associeMotDePasse", e.target.value)}
                 erreur={erreurs.associeMotDePasse}
@@ -197,16 +208,20 @@ export function FormulaireCreationCabinet({
                 aria-pressed={afficherMdp}
                 onClick={() => setAfficherMdp((v) => !v)}
               >
-                Afficher le mot de passe
+                {t("Afficher le mot de passe", "Show password")}
               </Bouton>
             </div>
           </fieldset>
           <div className="mp-actions-formulaire">
-            <Bouton type="submit" chargement={enCours} texteChargement="Création en cours…">
-              Créer le cabinet
+            <Bouton
+              type="submit"
+              chargement={enCours}
+              texteChargement={t("Création en cours…", "Creating…")}
+            >
+              {t("Créer le cabinet", "Create the firm")}
             </Bouton>
             <Bouton variante="secondaire" disabled={enCours} onClick={surAnnuler}>
-              Annuler
+              {t("Annuler", "Cancel")}
             </Bouton>
           </div>
         </form>

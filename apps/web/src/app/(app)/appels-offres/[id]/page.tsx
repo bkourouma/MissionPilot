@@ -21,17 +21,21 @@ import {
 } from "../../../../lib/appels-offres";
 import { exigerLectureAo } from "../../../../lib/appels-offres-serveur";
 import { formaterDate, formaterDateHeure, formaterMontantMineur } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 
-export const metadata: Metadata = { title: "Appel d'offres" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Appel d'offres", "Tender") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const COMPOSANTES: [keyof FicheDetail["rapprochement"]["composantes"], string][] = [
-  ["secteur", "Secteur"],
-  ["competences", "Compétences"],
-  ["references", "Références du secteur"],
-  ["pays", "Références dans le pays"],
-  ["bailleur", "Références du bailleur"],
+const COMPOSANTES: [keyof FicheDetail["rapprochement"]["composantes"], string, string][] = [
+  ["secteur", "Secteur", "Sector"],
+  ["competences", "Compétences", "Skills"],
+  ["references", "Références du secteur", "Sector references"],
+  ["pays", "Références dans le pays", "References in the country"],
+  ["bailleur", "Références du bailleur", "Donor references"],
 ];
 
 /**
@@ -40,6 +44,8 @@ const COMPOSANTES: [keyof FicheDetail["rapprochement"]["composantes"], string][]
  * go/no-go, à la matrice de conformité et au rétro-planning.
  */
 export default async function PageFicheAo({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const session = await exigerLectureAo();
   const droits = droitsAppelsOffres(session.utilisateur.roles);
   const { id } = await params;
@@ -50,11 +56,11 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Appel d'offres"
-          retour={{ href: "/appels-offres", libelle: "Appels d'offres" }}
+          titre={t("Appel d'offres", "Tender")}
+          retour={{ href: "/appels-offres", libelle: t("Appels d'offres", "Tenders") }}
         />
         <EtatErreur
-          titre="La fiche n'a pas pu être chargée."
+          titre={t("La fiche n'a pas pu être chargée.", "The record could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefFiche(id)}
         />
@@ -68,10 +74,10 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
     <div className="mp-page">
       <EnteteDePage
         titre={f.titre}
-        retour={{ href: "/appels-offres", libelle: "Appels d'offres" }}
+        retour={{ href: "/appels-offres", libelle: t("Appels d'offres", "Tenders") }}
         badges={
           <BadgeStatut tonalite={tonaliteStatutAo(f.statut)}>
-            {libelleStatutAo(f.statut)}
+            {libelleStatutAo(f.statut, langue)}
           </BadgeStatut>
         }
         actions={
@@ -80,10 +86,10 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
               Go/no-go
             </Link>
             <Link href={hrefMatrice(f.id)} className="mp-lien-ligne">
-              Matrice de conformité
+              {t("Matrice de conformité", "Compliance matrix")}
             </Link>
             <Link href={hrefRetroplanning(f.id)} className="mp-lien-ligne">
-              Rétro-planning
+              {t("Rétro-planning", "Backward schedule")}
             </Link>
           </>
         }
@@ -92,28 +98,30 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
       {droits.gerer ? <ActionsStatutAo id={f.id} statut={f.statut} /> : null}
 
       <div className="mp-grille-cartes">
-        <Carte titre="Avis">
+        <Carte titre={t("Avis", "Notice")}>
           <dl className="mp-ao__definition">
-            <dt>Référence</dt>
+            <dt>{t("Référence", "Reference")}</dt>
             <dd>{f.reference ?? "—"}</dd>
-            <dt>Bailleur</dt>
+            <dt>{t("Bailleur", "Donor")}</dt>
             <dd>{f.bailleur ?? "—"}</dd>
-            <dt>Pays · secteur</dt>
+            <dt>{t("Pays · secteur", "Country · sector")}</dt>
             <dd>{[f.pays, f.secteur].filter(Boolean).join(" · ") || "—"}</dd>
-            <dt>Montant estimé</dt>
+            <dt>{t("Montant estimé", "Estimated amount")}</dt>
             <dd>
-              {f.montant_estime === null ? "—" : formaterMontantMineur(f.montant_estime, f.devise)}
+              {f.montant_estime === null
+                ? "—"
+                : formaterMontantMineur(f.montant_estime, f.devise, langue)}
             </dd>
-            <dt>Date limite</dt>
-            <dd>{f.date_limite ? formaterDate(f.date_limite) : "—"}</dd>
+            <dt>{t("Date limite", "Deadline")}</dt>
+            <dd>{f.date_limite ? formaterDate(f.date_limite, "UTC", langue) : "—"}</dd>
             <dt>Source</dt>
             <dd>
-              {f.source === "import" ? "Import" : "Saisie"}
+              {f.source === "import" ? t("Import", "Import") : t("Saisie", "Manual entry")}
               {f.source_libelle ? ` · ${f.source_libelle}` : ""}
             </dd>
-            <dt>Responsable</dt>
+            <dt>{t("Responsable", "Owner")}</dt>
             <dd>{f.responsable_nom ?? "—"}</dd>
-            <dt>Avis en ligne</dt>
+            <dt>{t("Avis en ligne", "Online notice")}</dt>
             <dd>
               {f.url ? (
                 <a
@@ -122,7 +130,7 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
                   target="_blank"
                   className="mp-lien-ligne"
                 >
-                  Ouvrir l&apos;avis
+                  {t("Ouvrir l'avis", "Open the notice")}
                 </a>
               ) : (
                 "—"
@@ -132,39 +140,44 @@ export default async function PageFicheAo({ params }: { params: Promise<{ id: st
           {f.objet ? <p className="mp-texte-preserve">{f.objet}</p> : null}
         </Carte>
 
-        <Carte titre={`Rapprochement : ${rap.score}/100`}>
+        <Carte titre={t(`Rapprochement : ${rap.score}/100`, `Match: ${rap.score}/100`)}>
           <p className="mp-texte-doux mp-texte-petit">
-            Score déterministe calculé avec les compétences, secteurs et références du cabinet.
+            {t(
+              "Score déterministe calculé avec les compétences, secteurs et références du cabinet.",
+              "Deterministic score computed from the firm's skills, sectors and references.",
+            )}
           </p>
           <dl className="mp-ao__definition">
-            {COMPOSANTES.map(([cle, libelle]) => (
+            {COMPOSANTES.map(([cle, libelleFr, libelleEn]) => (
               <Fragment key={cle}>
-                <dt>{libelle}</dt>
+                <dt>{t(libelleFr, libelleEn)}</dt>
                 <dd>{rap.composantes[cle]}/100</dd>
               </Fragment>
             ))}
-            <dt>Compétences retrouvées</dt>
-            <dd>{rap.competencesTrouvees.join(", ") || "aucune"}</dd>
-            <dt>Références</dt>
+            <dt>{t("Compétences retrouvées", "Skills found")}</dt>
+            <dd>{rap.competencesTrouvees.join(", ") || t("aucune", "none")}</dd>
+            <dt>{t("Références", "References")}</dt>
             <dd>
-              {rap.referencesSecteur} du secteur, {rap.referencesPays} du pays,{" "}
-              {rap.referencesBailleur} du bailleur
+              {t(
+                `${rap.referencesSecteur} du secteur, ${rap.referencesPays} du pays, ${rap.referencesBailleur} du bailleur`,
+                `${rap.referencesSecteur} in the sector, ${rap.referencesPays} in the country, ${rap.referencesBailleur} with the donor`,
+              )}
             </dd>
           </dl>
         </Carte>
       </div>
 
-      <Carte titre="Historique">
+      <Carte titre={t("Historique", "History")}>
         <ul className="mp-liste-lignes">
           {f.evenements.map((e) => (
             <li key={e.id} className="mp-liste-lignes__ligne">
               <div className="mp-liste-lignes__texte">
                 <span>
-                  {e.de_statut ? `${libelleStatutAo(e.de_statut)} → ` : ""}
-                  {libelleStatutAo(e.vers_statut)}
+                  {e.de_statut ? `${libelleStatutAo(e.de_statut, langue)} → ` : ""}
+                  {libelleStatutAo(e.vers_statut, langue)}
                 </span>
                 <span className="mp-texte-doux mp-texte-petit">
-                  {e.auteur_nom} · {formaterDateHeure(e.cree_le)}
+                  {e.auteur_nom} · {formaterDateHeure(e.cree_le, undefined, langue)}
                   {e.motif ? ` · ${e.motif}` : ""}
                 </span>
               </div>

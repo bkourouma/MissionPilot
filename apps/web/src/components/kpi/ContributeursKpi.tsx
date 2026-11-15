@@ -10,6 +10,7 @@ import {
   type DetailKpi,
 } from "../../lib/kpi";
 import { validerContributeurs } from "../../lib/kpi-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -28,6 +29,8 @@ export interface ContributeursKpiProps {
  * la liste. Les alertes internes ne leur sont jamais envoyées.
  */
 export function ContributeursKpi({ kpiId, candidats, actuels }: ContributeursKpiProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"utilisateurs">();
   const [choisis, setChoisis] = useState<string[]>([...actuels]);
 
@@ -37,14 +40,21 @@ export function ContributeursKpi({ kpiId, candidats, actuels }: ContributeursKpi
       validerContributeurs(
         choisis,
         candidats.map((c) => c.id),
+        langue,
       ),
       (charge) => api.put<DetailKpi>(cheminContributeursKpi(kpiId), charge),
       {
         succes:
           choisis.length === 0
-            ? "Plus aucun contributeur du client ne peut saisir ce KPI."
-            : `Contributeurs enregistrés : ${choisis.length} personne${choisis.length > 1 ? "s" : ""} du client peu${choisis.length > 1 ? "vent" : "t"} saisir ce KPI depuis le portail.`,
-        messageSpecifique: messageKpi,
+            ? t(
+                "Plus aucun contributeur du client ne peut saisir ce KPI.",
+                "No client contributor can enter this KPI anymore.",
+              )
+            : t(
+                `Contributeurs enregistrés : ${choisis.length} personne${choisis.length > 1 ? "s" : ""} du client peu${choisis.length > 1 ? "vent" : "t"} saisir ce KPI depuis le portail.`,
+                `Contributors saved: ${choisis.length} client ${choisis.length > 1 ? "people" : "person"} can enter this KPI from the portal.`,
+              ),
+        messageSpecifique: (e) => messageKpi(e, langue),
       },
     );
   }
@@ -55,20 +65,21 @@ export function ContributeursKpi({ kpiId, candidats, actuels }: ContributeursKpi
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Contributeurs du client"
+      aria-label={t("Contributeurs du client", "Client contributors")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Contributeurs refusés"
+        titreErreur={t("Contributeurs refusés", "Contributors refused")}
       />
       <fieldset
         className={f.erreurs.utilisateurs ? "mp-groupe mp-groupe--erreur" : "mp-groupe"}
         aria-invalid={f.erreurs.utilisateurs ? true : undefined}
       >
         <legend className="mp-champ__libelle">
-          Comptes du portail du client ({MAX_CONTRIBUTEURS_KPI} au plus)
+          {t("Comptes du portail du client", "Client portal accounts")} ({MAX_CONTRIBUTEURS_KPI}{" "}
+          {t("au plus", "at most")})
         </legend>
         <div className="mp-groupe__options">
           {candidats.map((c) => (
@@ -76,7 +87,7 @@ export function ContributeursKpi({ kpiId, candidats, actuels }: ContributeursKpi
               key={c.id}
               name="contributeurs"
               value={c.id}
-              libelle={`${c.nom} — ${c.role}${c.desactive ? " (compte désactivé)" : ""}`}
+              libelle={`${c.nom} — ${c.role}${c.desactive ? t(" (compte désactivé)", " (account disabled)") : ""}`}
               aide={c.email}
               checked={choisis.includes(c.id)}
               onChange={(e) =>
@@ -90,8 +101,12 @@ export function ContributeursKpi({ kpiId, candidats, actuels }: ContributeursKpi
         ) : null}
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer les contributeurs
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer les contributeurs", "Save contributors")}
         </Bouton>
       </div>
     </form>

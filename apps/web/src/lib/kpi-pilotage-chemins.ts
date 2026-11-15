@@ -2,7 +2,8 @@
  * Chemins de l'API et des pages du pilotage augmenté des KPI, téléchargement du dossier de
  * revue. Voir `kpi-pilotage.ts`, point d'entrée du module.
  */
-import { ErreurApi, erreurDepuisReponse, MESSAGE_RESEAU } from "./api";
+import type { Langue } from "@missionpilot/shared";
+import { ErreurApi, erreurDepuisReponse, messageReseau } from "./api";
 
 // --- Chemins --------------------------------------------------------------------------------
 
@@ -48,6 +49,7 @@ export const nomFichierDossierRevue = (numero: number, format: FormatDossierRevu
 export async function telechargerDossierRevue(
   revueId: string,
   format: FormatDossierRevue,
+  langue: Langue = "fr",
 ): Promise<Blob> {
   let reponse: Response;
   try {
@@ -56,7 +58,7 @@ export async function telechargerDossierRevue(
       cache: "no-store",
     });
   } catch {
-    throw new ErreurApi("RESEAU_INDISPONIBLE", MESSAGE_RESEAU, 0);
+    throw new ErreurApi("RESEAU_INDISPONIBLE", messageReseau(langue), 0);
   }
   if (!reponse.ok) {
     let corps: unknown;
@@ -65,7 +67,7 @@ export async function telechargerDossierRevue(
     } catch {
       corps = undefined;
     }
-    throw erreurDepuisReponse(reponse.status, corps);
+    throw erreurDepuisReponse(reponse.status, corps, langue);
   }
   return reponse.blob();
 }

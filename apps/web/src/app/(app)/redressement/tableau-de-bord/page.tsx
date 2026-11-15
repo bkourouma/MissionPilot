@@ -10,21 +10,22 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { Select } from "../../../../components/ui/Select";
 import { formaterDate } from "../../../../lib/format";
-import { OPTIONS_SECTEURS, OPTIONS_STATUTS_DOSSIER } from "../../../../lib/redressement";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
+import { optionsSecteurs, optionsStatutsDossier } from "../../../../lib/redressement";
 import {
   HREF_TABLEAU_PORTEFEUILLE,
   hrefTableauPortefeuille,
   LIMITES_TABLEAU,
   lireFiltresTableau,
-  MENTION_TABLEAU,
-  TEXTE_PORTEFEUILLE_PAGE,
-  TEXTE_PORTEFEUILLE_VIDE,
-  TEXTE_TABLEAU_INTERNE,
+  textesTableau,
 } from "../../../../lib/redressement-tableau";
 import { chargerTableauPortefeuille } from "../../../../lib/redressement-tableau-serveur";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Tableau de bord du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Tableau de bord du redressement", "Turnaround dashboard") };
+}
 
 /**
  * Portefeuille de pilotage (RED-15, interne) : voyant, trois motifs au plus et indicateurs des
@@ -36,70 +37,86 @@ export default async function PagePortefeuilleTableau({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("redressement.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const tx = textesTableau(langue);
   const filtres = lireFiltresTableau(await searchParams);
   const r = await chargerTableauPortefeuille(filtres);
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Tableau de bord du redressement"
-        soustitre="Voyants de pilotage des dossiers de redressement que vous pouvez consulter."
+        titre={t("Tableau de bord du redressement", "Turnaround dashboard")}
+        soustitre={t(
+          "Voyants de pilotage des dossiers de redressement que vous pouvez consulter.",
+          "Steering lights of the turnaround files you can view.",
+        )}
       />
       <div className="mp-red">
-        <p className="mp-texte-doux">{TEXTE_TABLEAU_INTERNE}</p>
+        <p className="mp-texte-doux">{tx.interne}</p>
         <form
           method="get"
           action={HREF_TABLEAU_PORTEFEUILLE}
           className="mp-filtres"
-          aria-label="Filtrer les dossiers du tableau de bord"
+          aria-label={t("Filtrer les dossiers du tableau de bord", "Filter the dashboard files")}
         >
           <div className="mp-grille-champs mp-grille-champs--filtres">
             <Select
-              libelle="Statut"
+              libelle={t("Statut", "Status")}
               name="statut"
-              invite="Tous les statuts"
+              invite={t("Tous les statuts", "All statuses")}
               defaultValue={filtres.statut}
-              options={OPTIONS_STATUTS_DOSSIER}
+              options={optionsStatutsDossier(langue)}
             />
             <Select
-              libelle="Secteur"
+              libelle={t("Secteur", "Sector")}
               name="secteur"
-              invite="Tous les secteurs"
+              invite={t("Tous les secteurs", "All sectors")}
               defaultValue={filtres.secteur}
-              options={OPTIONS_SECTEURS}
+              options={optionsSecteurs(langue)}
             />
             <Select
-              libelle="Dossiers par page"
+              libelle={t("Dossiers par page", "Files per page")}
               name="limite"
               defaultValue={String(filtres.limite)}
               options={LIMITES_TABLEAU.map((n) => ({ valeur: String(n), libelle: String(n) }))}
             />
           </div>
           <button type="submit" className="mp-bouton mp-bouton--secondaire">
-            Filtrer
+            {t("Filtrer", "Filter")}
           </button>
         </form>
 
         {!r.ok ? (
           <EtatErreur
-            titre="Le tableau de bord n'a pas pu être chargé."
+            titre={t(
+              "Le tableau de bord n'a pas pu être chargé.",
+              "The dashboard could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={hrefTableauPortefeuille(filtres)}
           />
         ) : r.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucun dossier." icone="attention">
-            <p>{TEXTE_PORTEFEUILLE_VIDE}</p>
+          <EtatVide titre={t("Aucun dossier.", "No file.")} icone="attention">
+            <p>{tx.portefeuilleVide}</p>
           </EtatVide>
         ) : (
           <>
-            <section className="mp-red-section" aria-label="Synthèse de la page">
+            <section
+              className="mp-red-section"
+              aria-label={t("Synthèse de la page", "Page summary")}
+            >
               <p className="mp-texte-doux">
-                {TEXTE_PORTEFEUILLE_PAGE} Situation au {formaterDate(r.donnees.date_calcul)}.
+                {tx.portefeuillePage}{" "}
+                {t(
+                  `Situation au ${formaterDate(r.donnees.date_calcul)}.`,
+                  `Position as of ${formaterDate(r.donnees.date_calcul, "UTC", langue)}.`,
+                )}
               </p>
               <TableauSynthesePage synthese={r.donnees.synthese_page} />
             </section>
             <Alerte tonalite="info" annonce="aucune">
-              <p>{r.donnees.mention || MENTION_TABLEAU}</p>
+              <p>{r.donnees.mention || tx.mention}</p>
             </Alerte>
             <TableauPortefeuille elements={r.donnees.elements} />
           </>

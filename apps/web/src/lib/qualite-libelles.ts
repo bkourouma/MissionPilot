@@ -1,6 +1,9 @@
 /** Qualité : libellés, tonalités et messages d'erreur (module extrait de `qualite.ts`). */
 import type { CodeViolation, Parcours, Violation } from "./qualite-types";
 import {
+  creerTraduire,
+  FACTEURS_RISQUE_CLIENT,
+  type Langue,
   CLASSE_RISQUE_LIBELLES,
   DECISION_ACCEPTATION_LIBELLES,
   ETAPE_GARDE_LIBELLES,
@@ -21,16 +24,94 @@ import {
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi, messageErreur } from "./api";
 
-export const libelleClasse = (c: ClasseRisque) => `${c} · ${CLASSE_RISQUE_LIBELLES[c]}`;
-export const libelleStatutSuivi = (s: StatutSuivi) => STATUT_SUIVI_LIBELLES[s];
-export const libelleType = (t: TypeLivrable) => TYPE_LIVRABLE_LIBELLES[t];
-export const libelleEtape = (e: EtapeGardeQualite) => ETAPE_GARDE_LIBELLES[e];
-export const libelleKind = (k: KindElementRevue) => KIND_ELEMENT_LIBELLES[k];
-export const libelleDecision = (d: DecisionAcceptation) => DECISION_ACCEPTATION_LIBELLES[d];
-export const libelleNiveauRisque = (n: NiveauRisqueClient) => NIVEAU_RISQUE_LIBELLES[n];
+const TYPE_LIVRABLE_LIBELLES_EN: Record<TypeLivrable, string> = {
+  rapport: "Report",
+  notation: "Published rating",
+  plan: "Strategic plan",
+  questionnaire: "Questionnaire",
+  etat: "Financial statement",
+  autre: "Other deliverable",
+};
+const STATUT_SUIVI_LIBELLES_EN: Record<StatutSuivi, string> = {
+  brouillon: "Draft",
+  en_revue: "In review",
+  valide: "Approved",
+  signe: "Signed",
+};
+const ETAPE_GARDE_LIBELLES_EN: Record<EtapeGardeQualite, string> = {
+  validation_auteur: "Author approval",
+  validation_consultant: "Consultant approval",
+  relecture_chef_mission: "Engagement manager review",
+  revue_second_expert: "Second expert review (four eyes)",
+  signature_directeur_mission: "Engagement director signature",
+};
+const KIND_ELEMENT_LIBELLES_EN: Record<KindElementRevue, string> = {
+  assertion_fragile: "Weak assertion",
+  chiffre: "Figure",
+  recommandation: "Recommendation",
+};
+const DECISION_ACCEPTATION_LIBELLES_EN: Record<DecisionAcceptation, string> = {
+  en_attente: "Pending",
+  acceptee: "Accepted",
+  acceptee_sous_conditions: "Accepted with conditions",
+  refusee: "Declined",
+};
+const NIVEAU_RISQUE_LIBELLES_EN: Record<NiveauRisqueClient, string> = {
+  faible: "Low",
+  moyen: "Medium",
+  eleve: "High",
+};
+const STATUT_VERIFICATION_LIBELLES_EN: Record<StatutVerification, string> = {
+  conforme: "Compliant",
+  non_conforme: "Non-compliant",
+  non_evaluable: "To attest",
+  atteste: "Attested",
+};
+const CLASSE_RISQUE_LIBELLES_EN: Record<ClasseRisque, string> = {
+  R0: "Internal operations",
+  R1: "Internal analysis",
+  R2: "Client deliverable",
+  R3: "Binding",
+};
 
-export function libelleVerification(s: StatutVerification | "en_attente"): string {
-  return s === "en_attente" ? "À vérifier" : STATUT_VERIFICATION_LIBELLES[s];
+export const libelleClasse = (c: ClasseRisque, langue: Langue = "fr") =>
+  `${c} · ${langue === "en" ? CLASSE_RISQUE_LIBELLES_EN[c] : CLASSE_RISQUE_LIBELLES[c]}`;
+export const libelleStatutSuivi = (s: StatutSuivi, langue: Langue = "fr") =>
+  langue === "en" ? STATUT_SUIVI_LIBELLES_EN[s] : STATUT_SUIVI_LIBELLES[s];
+export const libelleType = (t: TypeLivrable, langue: Langue = "fr") =>
+  langue === "en" ? TYPE_LIVRABLE_LIBELLES_EN[t] : TYPE_LIVRABLE_LIBELLES[t];
+export const libelleEtape = (e: EtapeGardeQualite, langue: Langue = "fr") =>
+  langue === "en" ? ETAPE_GARDE_LIBELLES_EN[e] : ETAPE_GARDE_LIBELLES[e];
+export const libelleKind = (k: KindElementRevue, langue: Langue = "fr") =>
+  langue === "en" ? KIND_ELEMENT_LIBELLES_EN[k] : KIND_ELEMENT_LIBELLES[k];
+export const libelleDecision = (d: DecisionAcceptation, langue: Langue = "fr") =>
+  langue === "en" ? DECISION_ACCEPTATION_LIBELLES_EN[d] : DECISION_ACCEPTATION_LIBELLES[d];
+export const libelleNiveauRisque = (n: NiveauRisqueClient, langue: Langue = "fr") =>
+  langue === "en" ? NIVEAU_RISQUE_LIBELLES_EN[n] : NIVEAU_RISQUE_LIBELLES[n];
+
+const FACTEURS_RISQUE_EN: Record<string, string> = {
+  pays_a_risque: "Country or area at high risk",
+  personne_exposee: "Politically exposed executive or shareholder",
+  litige_en_cours: "Significant ongoing litigation",
+  client_en_difficulte: "Client in financial difficulty",
+  secteur_reglemente: "Heavily regulated sector",
+  gouvernance_opaque: "Opaque governance or shareholding",
+  information_incomplete: "Incomplete client information",
+  dependance_honoraires: "Firm's dependence on this client",
+};
+
+/** Libellé d'un facteur de risque du client (repli : le code lui-même). */
+export function libelleFacteurRisque(code: string, langue: Langue = "fr"): string {
+  if (langue === "en") return FACTEURS_RISQUE_EN[code] ?? code;
+  return FACTEURS_RISQUE_CLIENT.find((x) => x.code === code)?.libelle ?? code;
+}
+
+export function libelleVerification(
+  s: StatutVerification | "en_attente",
+  langue: Langue = "fr",
+): string {
+  if (s === "en_attente") return creerTraduire(langue)("À vérifier", "To verify");
+  return langue === "en" ? STATUT_VERIFICATION_LIBELLES_EN[s] : STATUT_VERIFICATION_LIBELLES[s];
 }
 
 export function tonaliteStatutSuivi(s: StatutSuivi): TonaliteStatut {
@@ -51,6 +132,14 @@ export function tonaliteNiveauRisque(n: NiveauRisqueClient): TonaliteStatut {
   return n === "eleve" ? "danger" : n === "moyen" ? "attention" : "succes";
 }
 
+const LIBELLES_VIOLATION_EN: Record<CodeViolation, string> = {
+  AUTEUR_ATTENDU: "The author's approval belongs to the content author.",
+  CUMUL_INTERDIT: "The same person cannot hold both of these roles.",
+  QUATRE_YEUX: "Four eyes: the second expert must be different from the author and the approver.",
+  ETAPE_EN_DOUBLE: "This step has already been completed.",
+  ACTEUR_NON_HABILITE: "You are not authorized to hold this role on this engagement.",
+};
+
 const LIBELLES_VIOLATION: Record<CodeViolation, string> = {
   AUTEUR_ATTENDU: "La validation de l'auteur revient à l'auteur du contenu.",
   CUMUL_INTERDIT: "Une même personne ne peut pas cumuler ces deux rôles.",
@@ -59,20 +148,29 @@ const LIBELLES_VIOLATION: Record<CodeViolation, string> = {
   ACTEUR_NON_HABILITE: "Vous n'êtes pas habilité à tenir ce rôle sur cette mission.",
 };
 
-export const libelleViolation = (v: Violation) =>
-  LIBELLES_VIOLATION[v.code] ?? "Garde non respectée.";
+export const libelleViolation = (v: Violation, langue: Langue = "fr") =>
+  (langue === "en" ? LIBELLES_VIOLATION_EN[v.code] : LIBELLES_VIOLATION[v.code]) ??
+  creerTraduire(langue)("Garde non respectée.", "Safeguard not met.");
 
 export const NATURES_CONFLIT: Record<string, string> = {
   meme_groupe: "Même groupe",
   investisseur_cible: "Investisseur et société cible",
   concurrent: "Concurrent déclaré",
 };
-export const libelleNatureConflit = (n: string) => NATURES_CONFLIT[n] ?? n;
+const NATURES_CONFLIT_EN: Record<string, string> = {
+  meme_groupe: "Same group",
+  investisseur_cible: "Investor and target company",
+  concurrent: "Declared competitor",
+};
+export const libelleNatureConflit = (n: string, langue: Langue = "fr") =>
+  (langue === "en" ? NATURES_CONFLIT_EN[n] : NATURES_CONFLIT[n]) ?? n;
 
 /** « 3 sur 5 » : progression du parcours de revue (les nombres viennent de l'API). */
-export function texteParcours(p: Parcours): string {
-  if (p.obligatoires === 0) return "Aucun élément obligatoire à parcourir";
-  return `${p.vus} sur ${p.obligatoires} parcourus`;
+export function texteParcours(p: Parcours, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (p.obligatoires === 0)
+    return t("Aucun élément obligatoire à parcourir", "No mandatory item to review");
+  return t(`${p.vus} sur ${p.obligatoires} parcourus`, `${p.vus} of ${p.obligatoires} reviewed`);
 }
 
 /** Durée en secondes → « 1 h 05 min », « 12 min 30 s », « 45 s ». Mise en forme seulement. */
@@ -93,9 +191,10 @@ export function empreinteCourte(e: string): string {
 }
 
 /** NPS « -33.3 » de l'API → affichage français « −33,3 » ; absence → « — ». */
-export function formaterNps(nps: string | null): string {
+export function formaterNps(nps: string | null, langue: Langue = "fr"): string {
   if (nps === null) return "—";
-  return nps.replace("-", "−").replace(".", ",");
+  const signe = nps.replace("-", "−");
+  return langue === "en" ? signe : signe.replace(".", ",");
 }
 
 // --- Erreurs ---------------------------------------------------------------------------------
@@ -119,11 +218,15 @@ const CODES_MESSAGE_API = new Set([
 
 export const MESSAGE_INTROUVABLE_QUALITE =
   "Ce livrable ou cette mission n'est plus accessible. Actualisez la page.";
+export const MESSAGE_INTROUVABLE_QUALITE_EN =
+  "This deliverable or engagement is no longer accessible. Refresh the page.";
 
-export function messageQualite(e: unknown): string {
+export function messageQualite(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     if (CODES_MESSAGE_API.has(e.code)) return e.message;
-    if (e.statut === 404) return MESSAGE_INTROUVABLE_QUALITE;
+    if (e.statut === 404) {
+      return langue === "en" ? MESSAGE_INTROUVABLE_QUALITE_EN : MESSAGE_INTROUVABLE_QUALITE;
+    }
     if (e.statut === 409) return e.message;
   }
   return messageErreur(e);

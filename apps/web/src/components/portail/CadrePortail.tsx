@@ -5,6 +5,8 @@ import { CHEMIN_PORTAIL, CHEMIN_SECURITE_PORTAIL } from "../../lib/portail-route
 import { BoutonDeconnexion } from "../shell/BoutonDeconnexion";
 import { Marque } from "../shell/Marque";
 import { Alerte } from "../ui/Alerte";
+import { obtenirT } from "../../lib/i18n/serveur";
+import { SelecteurLangue } from "../i18n/SelecteurLangue";
 import { NavigationPortail } from "./NavigationPortail";
 
 export interface CadrePortailProps {
@@ -18,26 +20,30 @@ export interface CadrePortailProps {
 }
 
 /** Cadre de l'espace client : en-tête sobre, navigation courte, contenu principal. */
-export function CadrePortail({
+export async function CadrePortail({
   nom,
   entreprise,
   entrees,
   tfaAConfigurer,
   children,
 }: CadrePortailProps) {
+  const t = await obtenirT();
   return (
     <div className="mp-portail">
       <a className="mp-lien-evitement" href="#contenu">
-        Aller au contenu principal
+        {t("Aller au contenu principal", "Skip to main content")}
       </a>
       <header className="mp-portail__entete">
         <Link href={CHEMIN_PORTAIL} className="mp-portail__marque">
           <Marque tailleSymbole={30} />
           <span className="mp-portail__espace">
-            {entreprise ? `Espace client · ${entreprise}` : "Espace client"}
+            {entreprise
+              ? `${t("Espace client", "Client space")} · ${entreprise}`
+              : t("Espace client", "Client space")}
           </span>
         </Link>
         <div className="mp-portail__compte">
+          <SelecteurLangue />
           <p className="mp-portail__nom">{nom}</p>
           <BoutonDeconnexion />
         </div>
@@ -49,12 +55,16 @@ export function CadrePortail({
             <Alerte
               tonalite="attention"
               annonce="aucune"
-              titre="Activez la double authentification"
+              titre={t("Activez la double authentification", "Turn on two-factor authentication")}
             >
               <p>
-                Votre cabinet la demande pour protéger vos documents et vos factures : une fois
-                activée, un code affiché sur votre téléphone vous sera demandé à la connexion.{" "}
-                <Link href={CHEMIN_SECURITE_PORTAIL}>L&apos;activer maintenant</Link>
+                {t(
+                  "Votre cabinet la demande pour protéger vos documents et vos factures : une fois activée, un code affiché sur votre téléphone vous sera demandé à la connexion.",
+                  "Your firm requires it to protect your documents and invoices: once it is on, you will be asked for a code shown on your phone when you sign in.",
+                )}{" "}
+                <Link href={CHEMIN_SECURITE_PORTAIL}>
+                  {t("L'activer maintenant", "Turn it on now")}
+                </Link>
               </p>
             </Alerte>
           </div>

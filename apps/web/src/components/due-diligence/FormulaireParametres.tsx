@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { PARAMETRES_DIMENSIONNEMENT, type MethodeDimensionnement } from "@missionpilot/shared";
+import {
+  PARAMETRES_DIMENSIONNEMENT,
+  type Langue,
+  type MethodeDimensionnement,
+} from "@missionpilot/shared";
 import { api, ErreurApi } from "../../lib/api";
 import {
   cheminCalculDimensionnement,
@@ -31,6 +35,7 @@ import { aideMontant } from "../../lib/saisie";
 import { libelleDevise, type Devise } from "../../lib/format";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -59,13 +64,23 @@ export interface FormulaireParametresProps {
   };
 }
 
-const tronquer = (t: string, max = 90) => (t.length > max ? `${t.slice(0, max - 1)}…` : t);
+const tronquer = (texte: string, max = 90) =>
+  texte.length > max ? `${texte.slice(0, max - 1)}…` : texte;
 
-function aideUnite(code: ParametreDimensionnement["code"], devise: Devise): string {
+function aideUnite(
+  code: ParametreDimensionnement["code"],
+  devise: Devise,
+  t: (fr: string, en: string) => string,
+  langue: Langue,
+): string {
   const unite = uniteParametre(code);
-  if (unite === "pourcentage_bp") return "En % (de 0 à 100), par exemple 25,5.";
-  if (unite === "montant") return `En ${libelleDevise(devise)}. ${aideMontant(devise)}`;
-  return "Nombre entier.";
+  if (unite === "pourcentage_bp") {
+    return t("En % (de 0 à 100), par exemple 25,5.", "In % (from 0 to 100), for example 25.5.");
+  }
+  if (unite === "montant") {
+    return `${t("En", "In")} ${libelleDevise(devise)}. ${aideMontant(devise, langue)}`;
+  }
+  return t("Nombre entier.", "Whole number.");
 }
 
 /**
@@ -82,6 +97,8 @@ export function FormulaireParametres({
   erreurPreuves,
   dimensionnement,
 }: FormulaireParametresProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampDimensionnement>();
   const version = dimensionnement !== undefined;
   const [s, setS] = useState<SaisieDimensionnement>(() =>
@@ -101,7 +118,10 @@ export function FormulaireParametres({
 
   const optionsSource = useMemo(
     () => [
-      { valeur: SOURCE_AVIS, libelle: "Avis d'expert (sans preuve)" },
+      {
+        valeur: SOURCE_AVIS,
+        libelle: langue === "en" ? "Expert opinion (no evidence)" : "Avis d'expert (sans preuve)",
+      },
       ...preuves.map((p) => ({
         valeur: p.id,
         libelle: tronquer(
@@ -109,12 +129,12 @@ export function FormulaireParametres({
         ),
       })),
     ],
-    [preuves],
+    [preuves, langue],
   );
 
   // Aperçu du moteur, avec anti-rebond : seulement quand la saisie est lisible.
   useEffect(() => {
-    const v = validerDimensionnement(s, devise, "apercu");
+    const v = validerDimensionnement(s, devise, "apercu", langue);
     if (!v.ok) {
       setApercu(null);
       setErreurApercu(null);
@@ -139,7 +159,7 @@ export function FormulaireParametres({
       } catch (e) {
         if (e instanceof ErreurApi && e.code === "ANNULE") return;
         setApercu(null);
-        setErreurApercu(messageDd(e));
+        setErreurApercu(messageDd(e, langue));
       } finally {
         if (!ctrl.signal.aborted) setCalcul(false);
       }
@@ -148,7 +168,7 @@ export function FormulaireParametres({
       clearTimeout(minuterie);
       ctrl.abort();
     };
-  }, [s, devise]);
+  }, [s, devise, langue]);
 
   const majParametre = (code: string, partiel: Partial<SaisieParametre>) =>
     setS((x) => ({
@@ -164,7 +184,7 @@ export function FormulaireParametres({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerDimensionnement(s, devise, version ? "version" : "creation"),
+      validerDimensionnement(s, devise, version ? "version" : "creation", langue),
       (charge) =>
         dimensionnement
           ? api.post<ReponseEcriture>(cheminVersionsDimensionnement(dimensionnement.id), {
@@ -182,9 +202,12 @@ export function FormulaireParametres({
             }),
       {
         succes: version
-          ? "Nouvelle version enregistrée ; l'ancienne reste dans l'historique."
-          : "Dimensionnement enregistré.",
-        messageSpecifique: messageDd,
+          ? t(
+              "Nouvelle version enregistrée ; l'ancienne reste dans l'historique.",
+              "New version saved; the previous one stays in the history.",
+            )
+          : t("Dimensionnement enregistré.", "Sizing saved."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () =>
           setS(
             version
@@ -207,64 +230,84 @@ export function FormulaireParametres({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={version ? "Nouvelle version du dimensionnement" : "Nouveau dimensionnement"}
+      aria-label={
+        version
+          ? t("Nouvelle version du dimensionnement", "New sizing version")
+          : t("Nouveau dimensionnement", "New sizing")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Dimensionnement refusé"
+        titreErreur={t("Dimensionnement refusé", "Sizing refused")}
       />
       {erreurPreuves ? (
-        <Alerte tonalite="attention" titre="Preuves indisponibles" annonce="aucune">
-          <p>{`${erreurPreuves} Seul l'avis d'expert motivé est proposé comme source.`}</p>
+        <Alerte
+          tonalite="attention"
+          titre={t("Preuves indisponibles", "Evidence unavailable")}
+          annonce="aucune"
+        >
+          <p>
+            {`${erreurPreuves} ${t(
+              "Seul l'avis d'expert motivé est proposé comme source.",
+              "Only a reasoned expert opinion is offered as a source.",
+            )}`}
+          </p>
         </Alerte>
       ) : null}
       <Champ
-        libelle="Intitulé du dimensionnement"
+        libelle={t("Intitulé du dimensionnement", "Sizing title")}
         required
         maxLength={TITRE_MAX}
         value={s.libelle}
         onChange={(e) => setS((x) => ({ ...x, libelle: e.target.value }))}
         erreur={f.erreurs.libelle}
-        aide="Par exemple « Marché du cacao transformé, hypothèse centrale »."
+        aide={t(
+          "Par exemple « Marché du cacao transformé, hypothèse centrale ».",
+          "For example “Processed cocoa market, central hypothesis”.",
+        )}
       />
       {f.erreurs.parametres ? (
-        <Alerte tonalite="danger" titre="Paramètres à corriger" annonce="alert">
+        <Alerte
+          tonalite="danger"
+          titre={t("Paramètres à corriger", "Parameters to fix")}
+          annonce="alert"
+        >
           <p>{f.erreurs.parametres}</p>
         </Alerte>
       ) : null}
       {PARAMETRES_DIMENSIONNEMENT[methode].map((def) => {
         const p = s.parametres.find((x) => x.code === def.code)!;
-        const nom = libelleParametre(def.code);
+        const nom = libelleParametre(def.code, langue);
         const valeurSource = p.source_type === "preuve" ? p.preuve_id : p.source_type;
         return (
           <fieldset key={def.code} className="mp-parametre">
             <legend>{nom}</legend>
-            <p className="mp-texte-doux mp-texte-petit">{aideUnite(def.code, devise)}</p>
+            <p className="mp-texte-doux mp-texte-petit">{aideUnite(def.code, devise, t, langue)}</p>
             <div className="mp-grille-champs mp-grille-champs--serree">
               <Champ
-                libelle="Valeur basse"
+                libelle={t("Valeur basse", "Low value")}
                 inputMode="decimal"
                 value={p.bas}
                 onChange={(e) => majParametre(def.code, { bas: e.target.value })}
               />
               <Champ
-                libelle="Valeur centrale"
+                libelle={t("Valeur centrale", "Base value")}
                 inputMode="decimal"
                 value={p.base}
                 onChange={(e) => majParametre(def.code, { base: e.target.value })}
               />
               <Champ
-                libelle="Valeur haute"
+                libelle={t("Valeur haute", "High value")}
                 inputMode="decimal"
                 value={p.haut}
                 onChange={(e) => majParametre(def.code, { haut: e.target.value })}
               />
             </div>
             <Select
-              libelle="Source"
-              invite="Choisir la source…"
+              libelle={t("Source", "Source")}
+              invite={t("Choisir la source…", "Choose the source…")}
               options={optionsSource}
               value={valeurSource}
               onChange={(e) => {
@@ -275,16 +318,22 @@ export function FormulaireParametres({
                 else
                   majParametre(def.code, { source_type: "preuve", preuve_id: v, avis_motif: "" });
               }}
-              aide="Une preuve de la mission, ou un avis d'expert motivé."
+              aide={t(
+                "Une preuve de la mission, ou un avis d'expert motivé.",
+                "Evidence from the engagement, or a reasoned expert opinion.",
+              )}
             />
             {p.source_type === "avis_expert" ? (
               <ZoneTexte
-                libelle={`Motif de l'avis d'expert : ${nom}`}
+                libelle={t(
+                  `Motif de l'avis d'expert : ${nom}`,
+                  `Reason for the expert opinion: ${nom}`,
+                )}
                 rows={2}
                 maxLength={MOTIF_MAX}
                 value={p.avis_motif}
                 onChange={(e) => majParametre(def.code, { avis_motif: e.target.value })}
-                aide="10 caractères au moins."
+                aide={t("10 caractères au moins.", "At least 10 characters.")}
               />
             ) : null}
           </fieldset>
@@ -292,10 +341,14 @@ export function FormulaireParametres({
       })}
 
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Ajustements d&apos;expert (facultatifs)</legend>
+        <legend className="mp-champ__libelle">
+          {t("Ajustements d'expert (facultatifs)", "Expert adjustments (optional)")}
+        </legend>
         <p className="mp-champ__aide">
-          Un facteur multiplicatif appliqué au résultat (90 % réduit de 10 %), motivé. Chaque
-          ajustement est tracé dans l&apos;onglet « Ajustements ».
+          {t(
+            "Un facteur multiplicatif appliqué au résultat (90 % réduit de 10 %), motivé. Chaque ajustement est tracé dans l'onglet « Ajustements ».",
+            "A multiplicative factor applied to the result (90% reduces it by 10%), with a reason. Each adjustment is traced in the “Adjustments” tab.",
+          )}
         </p>
         {f.erreurs.ajustements ? (
           <Alerte tonalite="danger" annonce="alert">
@@ -305,33 +358,33 @@ export function FormulaireParametres({
         {s.ajustements.map((a, i) => (
           <div key={i} className="mp-ajustement">
             <Champ
-              libelle="Libellé"
+              libelle={t("Libellé", "Label")}
               maxLength={120}
               value={a.libelle}
               onChange={(e) => majAjustement(i, { libelle: e.target.value })}
             />
             <Champ
-              libelle="Facteur (%)"
+              libelle={t("Facteur (%)", "Factor (%)")}
               inputMode="decimal"
               value={a.facteur}
               onChange={(e) => majAjustement(i, { facteur: e.target.value })}
-              aide="De 0,01 à 200."
+              aide={t("De 0,01 à 200.", "From 0.01 to 200.")}
             />
             <ZoneTexte
-              libelle="Motif"
+              libelle={t("Motif", "Reason")}
               rows={2}
               value={a.motif}
               onChange={(e) => majAjustement(i, { motif: e.target.value })}
-              aide="10 caractères au moins."
+              aide={t("10 caractères au moins.", "At least 10 characters.")}
             />
             <Bouton
               variante="discret"
               onClick={() =>
                 setS((x) => ({ ...x, ajustements: x.ajustements.filter((_, j) => j !== i) }))
               }
-              aria-label={`Retirer l'ajustement ${i + 1}`}
+              aria-label={t(`Retirer l'ajustement ${i + 1}`, `Remove adjustment ${i + 1}`)}
             >
-              Retirer
+              {t("Retirer", "Remove")}
             </Bouton>
           </div>
         ))}
@@ -347,7 +400,7 @@ export function FormulaireParametres({
                 }))
               }
             >
-              Ajouter un ajustement
+              {t("Ajouter un ajustement", "Add an adjustment")}
             </Bouton>
           </div>
         ) : null}
@@ -355,11 +408,15 @@ export function FormulaireParametres({
 
       <section className="mp-dd-pile" aria-labelledby={`apercu-${methode}`} aria-live="polite">
         <h4 id={`apercu-${methode}`} className="mp-sous-formulaire__titre">
-          Aperçu du moteur
+          {t("Aperçu du moteur", "Engine preview")}
         </h4>
-        {calcul ? <p className="mp-texte-doux">Calcul en cours…</p> : null}
+        {calcul ? <p className="mp-texte-doux">{t("Calcul en cours…", "Computing…")}</p> : null}
         {erreurApercu ? (
-          <Alerte tonalite="attention" titre="Aperçu indisponible" annonce="aucune">
+          <Alerte
+            tonalite="attention"
+            titre={t("Aperçu indisponible", "Preview unavailable")}
+            annonce="aucune"
+          >
             <p>{erreurApercu}</p>
           </Alerte>
         ) : null}
@@ -367,28 +424,35 @@ export function FormulaireParametres({
           <ResultatMarche resultat={apercu} devise={devise} />
         ) : !erreurApercu && !calcul ? (
           <p className="mp-texte-doux">
-            Renseignez les trois valeurs de chaque paramètre : le moteur calcule la fourchette, la
-            sensibilité et la couverture des sources. Les sources sont facultatives pour
-            l&apos;aperçu, exigées à l&apos;enregistrement.
+            {t(
+              "Renseignez les trois valeurs de chaque paramètre : le moteur calcule la fourchette, la sensibilité et la couverture des sources. Les sources sont facultatives pour l'aperçu, exigées à l'enregistrement.",
+              "Enter the three values of each parameter: the engine computes the range, the sensitivity and the source coverage. Sources are optional for the preview, required when saving.",
+            )}
           </p>
         ) : null}
       </section>
 
       {version ? (
         <ZoneTexte
-          libelle="Motif de la correction"
+          libelle={t("Motif de la correction", "Reason for the correction")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => setS((x) => ({ ...x, motif: e.target.value }))}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique des versions."
+          aide={t("Conservé dans l'historique des versions.", "Kept in the version history.")}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {version ? "Enregistrer la nouvelle version" : "Enregistrer le dimensionnement"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {version
+            ? t("Enregistrer la nouvelle version", "Save the new version")
+            : t("Enregistrer le dimensionnement", "Save the sizing")}
         </Bouton>
       </div>
     </form>

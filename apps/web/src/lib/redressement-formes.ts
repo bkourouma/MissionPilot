@@ -1,8 +1,10 @@
 /** Redressement : mise en forme des ratios, de l'alerte précoce, de la synthèse du dossier et de la trésorerie. Aucun recalcul. */
 import {
+  LOCALES_INTL,
   RED_RAISON_RATIO_LIBELLES,
   RED_SOURCE_SEUILS_LIBELLES,
   RED_STATUT_RATIO_LIBELLES,
+  type Langue,
   type RedCleRatio,
   type RedCritereAlerte,
   type RedDossierVue,
@@ -15,6 +17,8 @@ import {
 } from "@missionpilot/shared";
 import { formaterDate, formaterNombre, VALEUR_ABSENTE } from "./format";
 import { libelleSecteur, libellePoste } from "./redressement-libelles";
+
+const traducteur = (langue: Langue) => (fr: string, en: string) => (langue === "en" ? en : fr);
 
 // --- Ratios -----------------------------------------------------------------------------------------
 
@@ -63,35 +67,65 @@ export const FORMULES_RATIO: Record<RedCleRatio, string> = {
   bfr_jours: "(Stocks + créances clients − dettes fournisseurs) ÷ chiffre d'affaires × 360 jours",
 };
 
-const DEUX_DECIMALES = new Intl.NumberFormat("fr-FR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const POURCENTAGE = new Intl.NumberFormat("fr-FR", {
-  style: "percent",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+/** Version anglaise des formules (même clés). */
+export const FORMULES_RATIO_EN: Record<RedCleRatio, string> = {
+  liquidite_generale: "(Inventory + receivables + cash) ÷ short-term debt",
+  liquidite_reduite: "(Receivables + cash) ÷ short-term debt",
+  liquidite_immediate: "Cash ÷ short-term debt",
+  autonomie_financiere: "Equity ÷ total liabilities and equity",
+  solvabilite_generale: "Total assets ÷ debt (liabilities − equity)",
+  endettement: "Financial debt ÷ equity",
+  marge_brute: "(Revenue − cost of sales) ÷ revenue",
+  marge_nette: "Net income ÷ revenue",
+  couverture_charges_financieres: "Operating income ÷ financial expenses",
+  bfr_jours: "(Inventory + trade receivables − trade payables) ÷ revenue × 360 days",
+};
+
+/** Formule d'un ratio dans la langue demandée. */
+export const formuleRatio = (cle: RedCleRatio, langue: Langue = "fr"): string =>
+  (langue === "en" ? FORMULES_RATIO_EN : FORMULES_RATIO)[cle];
+
+const formatDeuxDecimales = (langue: Langue) =>
+  new Intl.NumberFormat(LOCALES_INTL[langue], {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+const formatPourcentage = (langue: Langue) =>
+  new Intl.NumberFormat(LOCALES_INTL[langue], {
+    style: "percent",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 /** Points de base (10 000 = 1) → « 1,36 » ou « 18,75 % » selon la forme ; `null` → « — ». */
 export function formaterPointsDeBase(
   valeur: number | null | undefined,
   forme: "ratio" | "pourcentage",
+  langue: Langue = "fr",
 ): string {
   if (typeof valeur !== "number" || !Number.isFinite(valeur)) return VALEUR_ABSENTE;
   return forme === "pourcentage"
-    ? POURCENTAGE.format(valeur / 10_000)
-    : DEUX_DECIMALES.format(valeur / 10_000);
+    ? formatPourcentage(langue).format(valeur / 10_000)
+    : formatDeuxDecimales(langue).format(valeur / 10_000);
 }
 
-function formaterSelonForme(forme: FormeValeur, valeur: number | null | undefined): string {
+function formaterSelonForme(
+  forme: FormeValeur,
+  valeur: number | null | undefined,
+  langue: Langue,
+): string {
+  const t = traducteur(langue);
   if (typeof valeur !== "number" || !Number.isFinite(valeur)) return VALEUR_ABSENTE;
-  if (forme === "ratio" || forme === "pourcentage") return formaterPointsDeBase(valeur, forme);
-  if (forme === "points") return formaterVariationPoints(valeur);
-  if (forme === "jours")
-    return `${formaterNombre(valeur, 0)} ${Math.abs(valeur) > 1 ? "jours" : "jour"}`;
-  if (forme === "oui_non") return valeur > 0 ? "Oui" : "Non";
-  return formaterNombre(valeur, 0);
+  if (forme === "ratio" || forme === "pourcentage") {
+    return formaterPointsDeBase(valeur, forme, langue);
+  }
+  if (forme === "points") return formaterVariationPoints(valeur, langue);
+  if (forme === "jours") {
+    const unite = Math.abs(valeur) > 1 ? t("jours", "days") : t("jour", "day");
+    return `${formaterNombre(valeur, 0, langue)} ${unite}`;
+  }
+  if (forme === "oui_non") return valeur > 0 ? t("Oui", "Yes") : t("Non", "No");
+  return formaterNombre(valeur, 0, langue);
 }
 
 /**
@@ -99,38 +133,64 @@ function formaterSelonForme(forme: FormeValeur, valeur: number | null | undefine
  * « 1,36 ») ; autonomie et marges en pourcentage (1875 → « 18,75 % ») ; BFR en jours (54 →
  * « 54 jours »).
  */
-export function formaterValeurRatio(cle: RedCleRatio, valeur: number | null | undefined): string {
-  return formaterSelonForme(FORME_RATIO[cle] ?? "nombre", valeur);
+export function formaterValeurRatio(
+  cle: RedCleRatio,
+  valeur: number | null | undefined,
+  langue: Langue = "fr",
+): string {
+  return formaterSelonForme(FORME_RATIO[cle] ?? "nombre", valeur, langue);
 }
 
 /** Valeur d'un critère de l'alerte précoce (même mise en forme que le ratio correspondant). */
 export function formaterValeurCritere(
   critere: RedCritereAlerte,
   valeur: number | null | undefined,
+  langue: Langue = "fr",
 ): string {
-  return formaterSelonForme(FORME_CRITERE[critere] ?? "nombre", valeur);
+  return formaterSelonForme(FORME_CRITERE[critere] ?? "nombre", valeur, langue);
 }
 
 /** Seuil d'un critère : même mise en forme que la valeur, sauf « oui / non » (valeur technique). */
 export function formaterSeuil(
   critere: RedCritereAlerte,
   valeur: number | null | undefined,
+  langue: Langue = "fr",
 ): string {
-  if (FORME_CRITERE[critere] === "oui_non") return formaterNombre(valeur, 0);
-  return formaterValeurCritere(critere, valeur);
+  if (FORME_CRITERE[critere] === "oui_non") return formaterNombre(valeur, 0, langue);
+  return formaterValeurCritere(critere, valeur, langue);
 }
 
 const enMinuscule = (t: string) => (t === "" ? t : t.charAt(0).toLowerCase() + t.slice(1));
+
+const RAISON_RATIO_EN: Record<RedRaisonRatio, string> = {
+  postes_manquants: "Items to fill in",
+  totaux_absents: "Balance sheet totals missing",
+  denominateur_non_positif: "Zero or negative denominator",
+  sans_dette: "No debt",
+  sans_charges_financieres: "No financial expenses",
+};
+const STATUT_RATIO_EN: Record<string, string> = {
+  calcule: "Computed",
+  sans_objet: "Not applicable",
+  non_calculable: "Not computable",
+  non_significatif: "Not meaningful",
+};
+const SOURCE_SEUILS_EN: Record<RedSourceSeuils, string> = {
+  cabinet: "Firm thresholds",
+  defaut_moteur: "Default thresholds (provisional)",
+};
 
 /** « Postes à renseigner : Stocks, Créances clients » ; les autres raisons gardent leur libellé. */
 export function libelleRaisonRatio(
   raison: RedRaisonRatio | null,
   manquants: readonly string[] = [],
+  langue: Langue = "fr",
 ): string {
   if (raison === null) return "";
-  const libelle = RED_RAISON_RATIO_LIBELLES[raison] ?? raison;
+  const libelle =
+    (langue === "en" ? RAISON_RATIO_EN[raison] : RED_RAISON_RATIO_LIBELLES[raison]) ?? raison;
   if (raison === "postes_manquants" && manquants.length > 0) {
-    return `${libelle} : ${manquants.map(libellePoste).join(", ")}`;
+    return `${libelle} : ${manquants.map((p) => libellePoste(p, langue)).join(", ")}`;
   }
   return libelle;
 }
@@ -140,35 +200,44 @@ export function libelleRaisonRatio(
  * (« Non calculable : postes à renseigner (Stocks, …) », « Non significatif : capitaux propres
  * négatifs ou nuls »).
  */
-export function libelleStatutRatio(cle: RedCleRatio, ratio: RedRatioVue): string {
-  if (ratio.statut === "calcule") return formaterValeurRatio(cle, ratio.valeur);
-  const statut = RED_STATUT_RATIO_LIBELLES[ratio.statut] ?? ratio.statut;
+export function libelleStatutRatio(
+  cle: RedCleRatio,
+  ratio: RedRatioVue,
+  langue: Langue = "fr",
+): string {
+  const t = traducteur(langue);
+  if (ratio.statut === "calcule") return formaterValeurRatio(cle, ratio.valeur, langue);
+  const statut =
+    (langue === "en" ? STATUT_RATIO_EN[ratio.statut] : RED_STATUT_RATIO_LIBELLES[ratio.statut]) ??
+    ratio.statut;
   if (ratio.statut === "non_significatif" && ratio.raison === "denominateur_non_positif") {
-    return `${statut} : capitaux propres négatifs ou nuls`;
+    return `${statut} : ${t("capitaux propres négatifs ou nuls", "negative or zero equity")}`;
   }
   if (ratio.raison === "postes_manquants") {
-    const noms = ratio.manquants.map(libellePoste).join(", ");
-    return `${statut} : postes à renseigner${noms ? ` (${noms})` : ""}`;
+    const noms = ratio.manquants.map((p) => libellePoste(p, langue)).join(", ");
+    return `${statut} : ${t("postes à renseigner", "items to fill in")}${noms ? ` (${noms})` : ""}`;
   }
   if (ratio.raison === null) return statut;
-  return `${statut} : ${enMinuscule(libelleRaisonRatio(ratio.raison))}`;
+  return `${statut} : ${enMinuscule(libelleRaisonRatio(ratio.raison, [], langue))}`;
 }
 
 /** Motif d'un critère de l'alerte précoce (« — » quand le critère est évalué normalement). */
 export function motifCritere(
   motif: "signal_critique" | "sans_objet" | "non_calculable" | "non_renseigne" | null,
+  langue: Langue = "fr",
 ): string {
-  if (motif === "signal_critique") return "Signal critique";
-  if (motif === "sans_objet") return "Sans objet";
-  if (motif === "non_calculable") return "Non calculable";
-  if (motif === "non_renseigne") return "Non renseigné";
+  const t = traducteur(langue);
+  if (motif === "signal_critique") return t("Signal critique", "Critical signal");
+  if (motif === "sans_objet") return t("Sans objet", "Not applicable");
+  if (motif === "non_calculable") return t("Non calculable", "Not computable");
+  if (motif === "non_renseigne") return t("Non renseigné", "Not provided");
   return VALEUR_ABSENTE;
 }
 
 /** Tendances : « +12,50 % » / « -3,00 % » (points de base de l'API) ; `null` → « — ». */
-export function formaterTendance(pb: number | null | undefined): string {
+export function formaterTendance(pb: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof pb !== "number" || !Number.isFinite(pb)) return VALEUR_ABSENTE;
-  const texte = formaterPointsDeBase(pb, "pourcentage");
+  const texte = formaterPointsDeBase(pb, "pourcentage", langue);
   return pb > 0 ? `+${texte}` : texte;
 }
 
@@ -177,10 +246,13 @@ export function formaterTendance(pb: number | null | undefined): string {
  * pourcentage et non en pourcentage : 250 points de base → « +2,5 points », -100 → « -1 point »,
  * 0 → « 0 point ». Une marge qui passe de 20 % à 22,5 % gagne 2,5 points (et non 12,5 %).
  */
-export function formaterVariationPoints(pb: number | null | undefined): string {
+export function formaterVariationPoints(
+  pb: number | null | undefined,
+  langue: Langue = "fr",
+): string {
   if (typeof pb !== "number" || !Number.isFinite(pb)) return VALEUR_ABSENTE;
   const points = pb / 100;
-  const texte = formaterNombre(points, 2);
+  const texte = formaterNombre(points, 2, langue);
   const unite = Math.abs(points) >= 2 ? "points" : "point";
   return `${points > 0 ? "+" : ""}${texte} ${unite}`;
 }
@@ -192,51 +264,85 @@ export function libelleSourceSeuils(
   source: RedSourceSeuils,
   secteur: RedSecteur | null,
   version: number | null,
+  langue: Langue = "fr",
 ): string {
-  if (source === "defaut_moteur") return "Seuils par défaut du moteur (provisoires)";
-  const base = RED_SOURCE_SEUILS_LIBELLES[source];
-  const sect = secteur ? `, secteur ${libelleSecteur(secteur)}` : "";
+  const t = traducteur(langue);
+  if (source === "defaut_moteur") {
+    return t(
+      "Seuils par défaut du moteur (provisoires)",
+      "Engine default thresholds (provisional)",
+    );
+  }
+  const base = (langue === "en" ? SOURCE_SEUILS_EN : RED_SOURCE_SEUILS_LIBELLES)[source];
+  const sect = secteur ? `, ${t("secteur", "sector")} ${libelleSecteur(secteur, langue)}` : "";
   const v = version !== null ? `, version ${version}` : "";
   return `${base}${sect}${v}`;
 }
 
 /** Score sur 100 ou « Données insuffisantes ». */
-export function libelleScore(score: number | null, niveau: RedNiveauAlerte): string {
-  if (score === null || niveau === "insuffisant") return "Données insuffisantes";
-  return `${formaterNombre(score, 0)} sur 100`;
+export function libelleScore(
+  score: number | null,
+  niveau: RedNiveauAlerte,
+  langue: Langue = "fr",
+): string {
+  const t = traducteur(langue);
+  if (score === null || niveau === "insuffisant") {
+    return t("Données insuffisantes", "Insufficient data");
+  }
+  return `${formaterNombre(score, 0, langue)} ${t("sur", "out of")} 100`;
 }
 
 /** Unité affichée à côté des seuils d'un critère (aide de l'éditeur). */
-export function uniteCritere(critere: RedCritereAlerte): string {
+export function uniteCritere(critere: RedCritereAlerte, langue: Langue = "fr"): string {
+  const t = traducteur(langue);
   const forme = FORME_CRITERE[critere];
-  if (forme === "ratio") return "rapport (1,00 = 100 %)";
-  if (forme === "pourcentage") return "pourcentage";
-  if (forme === "points") return "points de pourcentage";
-  if (forme === "jours") return "jours";
-  if (forme === "oui_non") return "0 : un arriéré déclaré suffit (valeur technique)";
-  return "nombre d'incidents";
+  if (forme === "ratio") return t("rapport (1,00 = 100 %)", "ratio (1.00 = 100%)");
+  if (forme === "pourcentage") return t("pourcentage", "percentage");
+  if (forme === "points") return t("points de pourcentage", "percentage points");
+  if (forme === "jours") return t("jours", "days");
+  if (forme === "oui_non") {
+    return t(
+      "0 : un arriéré déclaré suffit (valeur technique)",
+      "0: a single declared arrear is enough (technical value)",
+    );
+  }
+  return t("nombre d'incidents", "number of incidents");
 }
 
 /** Sens de lecture d'un critère, en français (affiché dans le tableau des seuils). */
-export function libelleSensCritere(sens: "bas_pire" | "haut_pire"): string {
+export function libelleSensCritere(sens: "bas_pire" | "haut_pire", langue: Langue = "fr"): string {
+  const t = traducteur(langue);
   return sens === "bas_pire"
-    ? "Plus la valeur est basse, plus c'est préoccupant"
-    : "Plus la valeur est haute, plus c'est préoccupant";
+    ? t(
+        "Plus la valeur est basse, plus c'est préoccupant",
+        "The lower the value, the more concerning",
+      )
+    : t(
+        "Plus la valeur est haute, plus c'est préoccupant",
+        "The higher the value, the more concerning",
+      );
 }
 
 // --- Synthèse du dossier ------------------------------------------------------------------------
 
 /** Libellé de la carte Trésorerie de la synthèse. */
-export function libellePremiereTension(t: RedDossierVue["tresorerie"]): string {
-  if (t === null) return "Aucune prévision";
-  if (t.premiere_semaine_tension === null) return "Aucune semaine de tension sur 13 semaines";
-  return `Première semaine de tension : semaine ${t.premiere_semaine_tension}`;
+export function libellePremiereTension(
+  tresorerie: RedDossierVue["tresorerie"],
+  langue: Langue = "fr",
+): string {
+  const t = traducteur(langue);
+  if (tresorerie === null) return t("Aucune prévision", "No forecast");
+  if (tresorerie.premiere_semaine_tension === null) {
+    return t("Aucune semaine de tension sur 13 semaines", "No tight week over the 13-week window");
+  }
+  return `${t("Première semaine de tension : semaine", "First tight week: week")} ${tresorerie.premiere_semaine_tension}`;
 }
 
 /** « 33 % » : avancement en points de base de l'API ; `null` → « Sans objet ». */
-export function libelleAvancement(pb: number | null | undefined): string {
-  if (typeof pb !== "number" || !Number.isFinite(pb)) return "Sans objet";
-  return `${formaterNombre(pb / 100, 0)} %`;
+export function libelleAvancement(pb: number | null | undefined, langue: Langue = "fr"): string {
+  if (typeof pb !== "number" || !Number.isFinite(pb))
+    return traducteur(langue)("Sans objet", "N/A");
+  return `${formaterNombre(pb / 100, 0, langue)} %`;
 }
 
 /** Largeur (0 à 100) d'une barre d'avancement ; la valeur est celle de l'API, bornée pour l'affichage. */
@@ -246,16 +352,20 @@ export function largeurBarre(pb: number | null | undefined): number {
 }
 
 /** « Écart avec la version validée : 1 ajoutée(s), 0 retirée(s), 2 modifiée(s) ». */
-export function libelleEcartPlan(e: RedEcartPlanVue): string {
+export function libelleEcartPlan(e: RedEcartPlanVue, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    return `Difference from the approved version: ${e.ajoutees.length} added, ${e.retirees.length} removed, ${e.modifiees.length} edited`;
+  }
   return `Écart avec la version validée : ${e.ajoutees.length} ajoutée(s), ${e.retirees.length} retirée(s), ${e.modifiees.length} modifiée(s)`;
 }
 
 // --- Trésorerie -----------------------------------------------------------------------------------
 
 /** « 2 nov. 2026 au 8 nov. 2026 » (dates de début et de fin d'une semaine de la fenêtre). */
-export function formaterSemaine(debut: string, fin: string): string {
-  return `${formaterDate(debut)} au ${formaterDate(fin)}`;
+export function formaterSemaine(debut: string, fin: string, langue: Langue = "fr"): string {
+  return `${formaterDate(debut, "UTC", langue)} ${langue === "en" ? "to" : "au"} ${formaterDate(fin, "UTC", langue)}`;
 }
 
-/** Abréviation d'une semaine : « S4 ». */
-export const abregerSemaine = (n: number) => `S${n}`;
+/** Abréviation d'une semaine : « S4 » (« W4 » en anglais). */
+export const abregerSemaine = (n: number, langue: Langue = "fr") =>
+  `${langue === "en" ? "W" : "S"}${n}`;

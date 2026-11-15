@@ -2,6 +2,7 @@
 
 import type { Ref } from "react";
 import { libelleViolation, type Violation } from "../../lib/qualite";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 
 export interface RetourActionProps {
@@ -18,17 +19,23 @@ export function RetourAction({
   succes,
   violations,
   refAlerte,
-  titreErreur = "Action refusée",
+  titreErreur,
 }: RetourActionProps) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <>
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre={titreErreur}>
+        <Alerte
+          ref={refAlerte}
+          tonalite="danger"
+          titre={titreErreur ?? t("Action refusée", "Action refused")}
+        >
           <p>{erreur}</p>
           {violations.length > 0 ? (
             <ul>
               {violations.map((v, i) => (
-                <li key={`${v.code}-${i}`}>{libelleViolation(v)}</li>
+                <li key={`${v.code}-${i}`}>{libelleViolation(v, langue)}</li>
               ))}
             </ul>
           ) : null}

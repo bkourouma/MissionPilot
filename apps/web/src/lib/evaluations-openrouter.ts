@@ -1,6 +1,7 @@
 import {
   aPermission,
   STATUTS_EVALUATION_OPENROUTER,
+  type Langue,
   type Role,
   type StatutEvaluationOpenRouter,
 } from "@missionpilot/shared";
@@ -135,8 +136,21 @@ const TONALITES_STATUT: Record<StatutDemande, TonaliteDemande> = {
   ignoree: "neutre",
 };
 
-export function libelleStatut(statut: string): string {
-  return (LIBELLES_STATUT as Record<string, string>)[statut] ?? "Statut inconnu";
+export const LIBELLES_STATUT_EN: Record<StatutDemande, string> = {
+  en_file: "Queued",
+  en_cours: "In progress",
+  reussie: "Passed",
+  echouee: "Failed",
+  incomplete: "Incomplete",
+  ignoree: "Skipped",
+};
+
+export function libelleStatut(statut: string, langue: Langue = "fr"): string {
+  const table = langue === "en" ? LIBELLES_STATUT_EN : LIBELLES_STATUT;
+  return (
+    (table as Record<string, string>)[statut] ??
+    (langue === "en" ? "Unknown status" : "Statut inconnu")
+  );
 }
 
 export function tonaliteStatut(statut: string): TonaliteDemande {
@@ -200,12 +214,60 @@ export const LIBELLES_CAUSE: Record<string, string> = {
     "La réponse du fournisseur d'IA était trop volumineuse : l'évaluation s'est arrêtée.",
 };
 
+export const LIBELLES_CAUSE_EN: Record<string, string> = {
+  CAS_ECHOUES: "At least one case in the test set did not pass.",
+  PLAFOND_EVALUATION:
+    "The cost cap for this evaluation was reached: the remaining cases were not replayed.",
+  PLAFOND_IA_ATTEINT:
+    "The firm's monthly AI cost cap was reached: the remaining cases were not replayed.",
+  GENERATIONS_SIMULTANEES:
+    "Too many AI generations were running at the same time: the evaluation stopped. Run it again later.",
+  DUREE_MAX_ATTEINTE:
+    "The maximum duration of a replay was reached: the remaining cases were not replayed.",
+  INTERROMPUE:
+    "The request stayed too long without progress (processing interrupted): run it again; the cost already incurred still counts.",
+  COUPE_CIRCUIT_IA:
+    "AI was turned off for the firm: the replay stopped before the next case (cases already replayed still count).",
+  AGENT_DESACTIVE:
+    "The agents that use this prompt were disabled: the replay stopped before the next case (cases already replayed still count).",
+  IA_NON_CONFIGUREE: "No AI API key was available at run time: no call was made.",
+  JEU_ESSAI_CHANGE:
+    "The test set changed between the request and the run: no call was made. Run the replay again.",
+  JEU_ESSAI_INVALIDE:
+    "The test set contains a case variable in the prompt's system instructions: fix the test set before running again (no call was made).",
+  MODELE_SERVI_DIFFERENT:
+    "The AI provider answered with a different model than the one requested: the evaluation proves nothing for this model and stopped.",
+  MODELE_NON_AUTORISE:
+    "The requested model is no longer allowed (unknown pricing): no call was made.",
+  FOURNISSEUR_NON_REEL: "The real AI provider was not available (local mode): no call was made.",
+  ERREUR_INTERNE:
+    "An internal error interrupted the replay. Run it again; the cost already incurred still counts.",
+  ERREUR_INATTENDUE:
+    "An unexpected AI provider error stopped the evaluation (only one attempt is made, a paid call is never repeated).",
+  CLE_REFUSEE: "The AI provider rejected the API key: check the key in the AI settings.",
+  CREDIT_FOURNISSEUR_INSUFFISANT:
+    "The account credit with the AI provider is insufficient: top it up, then run again.",
+  FOURNISSEUR_INDISPONIBLE:
+    "The AI provider was unavailable: the evaluation stopped (no automatic retry).",
+  DELAI_DEPASSE:
+    "The AI provider did not respond within the allotted time: the evaluation stopped (no automatic retry).",
+  REQUETE_REFUSEE: "The AI provider rejected the request (model or parameters not accepted).",
+  REPONSE_INVALIDE: "The AI provider's response was unreadable: the evaluation stopped.",
+  REPONSE_TROP_GRANDE: "The AI provider's response was too large: the evaluation stopped.",
+};
+
 /** Causes connues, pour les tests d'exhaustivité. */
 export const CAUSES_CONNUES: readonly string[] = Object.keys(LIBELLES_CAUSE);
 
 /** Texte de la cause d'une demande ; vide si la demande n'a pas de cause (réussie, en cours). */
-export function libelleCause(cause: string | null | undefined): string | null {
+export function libelleCause(
+  cause: string | null | undefined,
+  langue: Langue = "fr",
+): string | null {
   if (cause === null || cause === undefined || cause === "") return null;
+  if (langue === "en") {
+    return LIBELLES_CAUSE_EN[cause] ?? "The evaluation stopped for an unrecognized cause.";
+  }
   return LIBELLES_CAUSE[cause] ?? "L'évaluation s'est arrêtée pour une cause non reconnue.";
 }
 
@@ -213,7 +275,24 @@ export function libelleCause(cause: string | null | undefined): string | null {
  * Phrase qui résume ce que le statut permet : seule une évaluation RÉUSSIE débloque
  * l'activation en production.
  */
-export function consequenceStatut(statut: string): string {
+export function consequenceStatut(statut: string, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    switch (statut) {
+      case "reussie":
+        return "This prompt version, with this model, can be activated in production.";
+      case "echouee":
+        return "This version cannot be activated in production: fix it, then run the replay again.";
+      case "incomplete":
+        return "An incomplete evaluation unlocks nothing: run the replay again once the cause is resolved.";
+      case "ignoree":
+        return "No call was made: nothing is unlocked. Run the replay again once the cause is resolved.";
+      case "en_file":
+      case "en_cours":
+        return "The replay is in progress: the result appears here as soon as it is known.";
+      default:
+        return "";
+    }
+  }
   switch (statut) {
     case "reussie":
       return "Cette version de prompt, avec ce modèle, peut être activée en production.";
@@ -240,8 +319,25 @@ export const REGLE_PRODUCTION: readonly string[] = [
   "Un rejeu appelle réellement le modèle : il est facturé, plafonné par évaluation et il compte dans le plafond mensuel du cabinet.",
 ];
 
+export const REGLE_PRODUCTION_EN: readonly string[] = [
+  "In production, only a prompt whose OpenRouter evaluation passed can be activated and run by an agent.",
+  "A local evaluation is not enough, nor is a failed or incomplete one.",
+  "Changing the prompt, the model or the test set requires a new replay.",
+  "A replay really calls the model: it is billed, capped per evaluation and counts toward the firm's monthly cap.",
+];
+
 /** Question posée avant de lancer un rejeu payant : le plafond par évaluation, s'il est connu. */
-export function questionConfirmation(plafondMicroUsd: number | null | undefined): string {
+export function questionConfirmation(
+  plafondMicroUsd: number | null | undefined,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    const plafondEn =
+      typeof plafondMicroUsd === "number" && Number.isFinite(plafondMicroUsd)
+        ? `The cost of this evaluation is capped at ${formaterMicroUsd(plafondMicroUsd, langue)}`
+        : "A replay is billed: the cost of this evaluation is capped";
+    return `${plafondEn}, and it counts toward the firm's monthly cap. Run the real replay on OpenRouter?`;
+  }
   const plafond =
     typeof plafondMicroUsd === "number" && Number.isFinite(plafondMicroUsd)
       ? `Le coût de cette évaluation est plafonné à ${formaterMicroUsd(plafondMicroUsd)}`
@@ -268,7 +364,25 @@ export function possibiliteLancement(
   peutLancer: boolean,
   promptChoisi: boolean,
   derniere: Pick<DemandeEvaluationOpenRouter, "statut"> | null,
+  langue: Langue = "fr",
 ): PossibiliteLancement {
+  if (langue === "en") {
+    if (!peutLancer) {
+      return {
+        possible: false,
+        raison:
+          "Running a replay is reserved for roles that manage AI agents (subject-matter expert, partner).",
+      };
+    }
+    if (!promptChoisi) return { possible: false, raison: "First choose a prompt version." };
+    if (derniere && estEnAttente(derniere.statut)) {
+      return {
+        possible: false,
+        raison: "A replay is already queued or in progress for this firm: wait for it to finish.",
+      };
+    }
+    return { possible: true, raison: null };
+  }
   if (!peutLancer) {
     return {
       possible: false,
@@ -292,11 +406,22 @@ export function possibiliteLancement(
 const FORMAT_MODELE = /^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,99}$/;
 
 /** Modèle candidat facultatif : vide = modèle de la tâche (corps `{}`). */
-export function lireModeleCandidat(modele: string): Resultat<{ modele?: string }, "modele"> {
+export function lireModeleCandidat(
+  modele: string,
+  langue: Langue = "fr",
+): Resultat<{ modele?: string }, "modele"> {
   const m = modele.trim();
   if (m === "") return { ok: true, charge: {} };
   if (!FORMAT_MODELE.test(m)) {
-    return { ok: false, erreurs: { modele: "Format attendu : « fournisseur/modèle »." } };
+    return {
+      ok: false,
+      erreurs: {
+        modele:
+          langue === "en"
+            ? 'Expected format: "provider/model".'
+            : "Format attendu : « fournisseur/modèle ».",
+      },
+    };
   }
   return { ok: true, charge: { modele: m } };
 }
@@ -324,16 +449,39 @@ const MESSAGES_LANCEMENT: Record<string, string> = {
     "L'enregistrement de l'évaluation a été refusé par le contrôle d'intégrité : relancez le rejeu.",
 };
 
-export function messageLancementEvaluation(e: unknown): string {
-  if (e instanceof ErreurApi && MESSAGES_LANCEMENT[e.code])
-    return MESSAGES_LANCEMENT[e.code] as string;
+const MESSAGES_LANCEMENT_EN: Record<string, string> = {
+  JEU_ESSAI_ABSENT: 'No test set for this prompt: create one first ("Test sets" section).',
+  IA_DESACTIVEE:
+    "AI is turned off for the firm: enable it in the AI settings before running a real replay.",
+  IA_NON_CONFIGUREE:
+    "No AI API key is available (firm or platform): save a key in the AI settings.",
+  PLAFOND_IA_ATTEINT:
+    "The firm's monthly AI cost cap is reached: the replay is refused. Raise the cap or wait for next month.",
+  EVALUATION_EN_COURS:
+    "A replay is already queued or in progress for this firm: wait for it to finish before starting another.",
+  TROP_DE_REJEUX:
+    "The number of paid replays in the last 24 hours is reached for the firm: try again later.",
+  EVALUATION_DEJA_REUSSIE:
+    "This prompt version has already been evaluated successfully for this model and test set: a new replay is not needed.",
+  PLAFOND_EVALUATION_ESTIME:
+    "The estimated cost of this test set exceeds the per-evaluation cap: reduce the number of cases or the size of the variables.",
+  EVALUATION_INCOHERENTE:
+    "Saving the evaluation was refused by the integrity check: run the replay again.",
+};
+
+export function messageLancementEvaluation(e: unknown, langue: Langue = "fr"): string {
+  const en = langue === "en";
+  const table = en ? MESSAGES_LANCEMENT_EN : MESSAGES_LANCEMENT;
+  if (e instanceof ErreurApi && table[e.code]) return table[e.code] as string;
   if (e instanceof ErreurApi && e.statut === 400 && e.code === "REQUETE_INVALIDE") {
-    // « Modèle non autorisé » : le message de l'API est précis et français.
-    return e.message === "Données invalides."
-      ? "Le modèle saisi est refusé : choisissez un modèle au tarif connu (liste des paramètres IA)."
+    // « Modèle non autorisé » : le message de l'API est précis (traduit côté API).
+    return e.message === "Données invalides." || e.message === "Invalid data."
+      ? en
+        ? "The model entered is refused: choose a model with known pricing (AI settings list)."
+        : "Le modèle saisi est refusé : choisissez un modèle au tarif connu (liste des paramètres IA)."
       : e.message;
   }
-  return messageAgents(e);
+  return messageAgents(e, langue);
 }
 
 /* ----- Présentation d'une demande ----- */
@@ -343,23 +491,37 @@ const pluriel = (n: number, singulier: string, plur: string) => (n > 1 ? plur : 
 /** « 3 cas évalués sur 5 », « 1 cas évalué sur 1 », « 0 cas évalué sur 4 ». */
 export function libelleProgression(
   d: Pick<DemandeEvaluationOpenRouter, "cas_traites" | "cas_total">,
+  langue: Langue = "fr",
 ) {
   const n = d.cas_traites;
+  if (langue === "en") {
+    return `${formaterNombre(n, 0, langue)} ${pluriel(n, "case evaluated", "cases evaluated")} of ${formaterNombre(d.cas_total, 0, langue)}`;
+  }
   return `${formaterNombre(n, 0)} ${pluriel(n, "cas évalué", "cas évalués")} sur ${formaterNombre(d.cas_total, 0)}`;
 }
 
 /** « 4 cas réussis sur 5 » ; null tant qu'aucune évaluation n'est enregistrée. */
 export function libelleReussite(
   d: Pick<DemandeEvaluationOpenRouter, "cas_reussis" | "cas_total">,
+  langue: Langue = "fr",
 ): string | null {
   if (d.cas_reussis === null || d.cas_reussis === undefined) return null;
   const n = d.cas_reussis;
+  if (langue === "en") {
+    return `${formaterNombre(n, 0, langue)} ${pluriel(n, "case passed", "cases passed")} of ${formaterNombre(d.cas_total, 0, langue)}`;
+  }
   return `${formaterNombre(n, 0)} ${pluriel(n, "cas réussi", "cas réussis")} sur ${formaterNombre(d.cas_total, 0)}`;
 }
 
 /** « 1 régression », « 2 régressions » ; null s'il n'y en a pas ou si le compte est inconnu. */
-export function libelleRegressions(regressions: number | null | undefined): string | null {
+export function libelleRegressions(
+  regressions: number | null | undefined,
+  langue: Langue = "fr",
+): string | null {
   if (typeof regressions !== "number" || regressions <= 0) return null;
+  if (langue === "en") {
+    return `${formaterNombre(regressions, 0, langue)} ${pluriel(regressions, "regression", "regressions")}`;
+  }
   return `${formaterNombre(regressions, 0)} ${pluriel(regressions, "régression", "régressions")}`;
 }
 
@@ -376,6 +538,12 @@ export const LIBELLES_ETAT_CAS: Record<EtatCas, string> = {
   non_evalue: "Non évalué",
 };
 
+export const LIBELLES_ETAT_CAS_EN: Record<EtatCas, string> = {
+  reussi: "Passed",
+  echoue: "Failed",
+  non_evalue: "Not evaluated",
+};
+
 export const TONALITES_ETAT_CAS: Record<EtatCas, TonaliteDemande> = {
   reussi: "succes",
   echoue: "danger",
@@ -383,13 +551,24 @@ export const TONALITES_ETAT_CAS: Record<EtatCas, TonaliteDemande> = {
 };
 
 /** Raisons lisibles d'un cas (« NON_EVALUE » n'est pas une raison d'échec). */
-export function raisonsCas(c: Pick<ResultatCasOpenRouter, "raisons">): string[] {
-  return c.raisons.filter((r) => r !== "NON_EVALUE").map(libelleRaisonCas);
+export function raisonsCas(
+  c: Pick<ResultatCasOpenRouter, "raisons">,
+  langue: Langue = "fr",
+): string[] {
+  return c.raisons.filter((r) => r !== "NON_EVALUE").map((r) => libelleRaisonCas(r, langue));
 }
 
 /** Comparaison à la version active, pour un cas échoué seulement. */
-export function noteReference(c: Pick<ResultatCasOpenRouter, "reussi" | "reference_reussi">) {
+export function noteReference(
+  c: Pick<ResultatCasOpenRouter, "reussi" | "reference_reussi">,
+  langue: Langue = "fr",
+) {
   if (c.reussi || c.reference_reussi === null || c.reference_reussi === undefined) return null;
+  if (langue === "en") {
+    return c.reference_reussi
+      ? "The active version passed this case: regression."
+      : "The active version also failed this case.";
+  }
   return c.reference_reussi
     ? "La version active réussissait ce cas : régression."
     : "La version active échouait aussi ce cas.";
@@ -398,8 +577,13 @@ export function noteReference(c: Pick<ResultatCasOpenRouter, "reussi" | "referen
 /* ----- Coût et jetons : seulement si l'API les fournit ----- */
 
 /** Coût en dollars ; null (rien à afficher) si le champ est absent : jamais « 0 » par défaut. */
-export function formaterCoutDemande(micro: number | null | undefined): string | null {
-  return typeof micro === "number" && Number.isFinite(micro) ? formaterMicroUsd(micro) : null;
+export function formaterCoutDemande(
+  micro: number | null | undefined,
+  langue: Langue = "fr",
+): string | null {
+  return typeof micro === "number" && Number.isFinite(micro)
+    ? formaterMicroUsd(micro, langue)
+    : null;
 }
 
 export interface LigneCout {
@@ -408,34 +592,44 @@ export interface LigneCout {
 }
 
 /** Lignes « coût, estimation, plafond, jetons » : seuls les champs présents, vide sans `finance.lire`. */
-export function lignesCout(d: DemandeEvaluationOpenRouter): LigneCout[] {
+export function lignesCout(d: DemandeEvaluationOpenRouter, langue: Langue = "fr"): LigneCout[] {
+  const en = langue === "en";
   const lignes: LigneCout[] = [];
-  const cout = formaterCoutDemande(d.cout_micro_usd);
-  if (cout !== null) lignes.push({ libelle: "Coût réel", valeur: cout });
-  const estime = formaterCoutDemande(d.cout_estime_micro_usd);
-  if (estime !== null) lignes.push({ libelle: "Coût maximal estimé", valeur: estime });
-  const plafond = formaterCoutDemande(d.plafond_evaluation_micro_usd);
-  if (plafond !== null) lignes.push({ libelle: "Plafond de l'évaluation", valeur: plafond });
+  const cout = formaterCoutDemande(d.cout_micro_usd, langue);
+  if (cout !== null) lignes.push({ libelle: en ? "Actual cost" : "Coût réel", valeur: cout });
+  const estime = formaterCoutDemande(d.cout_estime_micro_usd, langue);
+  if (estime !== null)
+    lignes.push({ libelle: en ? "Estimated maximum cost" : "Coût maximal estimé", valeur: estime });
+  const plafond = formaterCoutDemande(d.plafond_evaluation_micro_usd, langue);
+  if (plafond !== null)
+    lignes.push({
+      libelle: en ? "Evaluation cap" : "Plafond de l'évaluation",
+      valeur: plafond,
+    });
   if (typeof d.tokens_entree === "number" || typeof d.tokens_sortie === "number") {
-    const e = typeof d.tokens_entree === "number" ? formaterNombre(d.tokens_entree, 0) : null;
-    const s = typeof d.tokens_sortie === "number" ? formaterNombre(d.tokens_sortie, 0) : null;
+    const e =
+      typeof d.tokens_entree === "number" ? formaterNombre(d.tokens_entree, 0, langue) : null;
+    const s =
+      typeof d.tokens_sortie === "number" ? formaterNombre(d.tokens_sortie, 0, langue) : null;
     const parts = [
-      e !== null ? `${e} en entrée` : null,
-      s !== null ? `${s} en sortie` : null,
+      e !== null ? (en ? `${e} input` : `${e} en entrée`) : null,
+      s !== null ? (en ? `${s} output` : `${s} en sortie`) : null,
     ].filter((x): x is string => x !== null);
-    lignes.push({ libelle: "Jetons", valeur: parts.join(" · ") });
+    lignes.push({ libelle: en ? "Tokens" : "Jetons", valeur: parts.join(" · ") });
   }
   return lignes;
 }
 
 /** Jetons et coût d'un cas, seulement s'ils sont présents. */
-export function detailCoutCas(c: ResultatCasOpenRouter): string | null {
+export function detailCoutCas(c: ResultatCasOpenRouter, langue: Langue = "fr"): string | null {
   const parts: string[] = [];
-  const cout = formaterCoutDemande(c.cout_micro_usd);
+  const cout = formaterCoutDemande(c.cout_micro_usd, langue);
   if (cout !== null) parts.push(cout);
   if (typeof c.tokens_entree === "number" && typeof c.tokens_sortie === "number") {
     parts.push(
-      `${formaterNombre(c.tokens_entree, 0)} jetons en entrée, ${formaterNombre(c.tokens_sortie, 0)} en sortie`,
+      langue === "en"
+        ? `${formaterNombre(c.tokens_entree, 0, langue)} input tokens, ${formaterNombre(c.tokens_sortie, 0, langue)} output`
+        : `${formaterNombre(c.tokens_entree, 0)} jetons en entrée, ${formaterNombre(c.tokens_sortie, 0)} en sortie`,
     );
   }
   return parts.length > 0 ? parts.join(" · ") : null;

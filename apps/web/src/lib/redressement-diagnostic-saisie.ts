@@ -5,6 +5,7 @@
  * `redressement-diagnostic-saisie.test.ts`.
  */
 import {
+  creerTraduire,
   RED_CAUSE_DESCRIPTION_MAX,
   RED_CAUSE_LIBELLE_MAX,
   RED_CAUSES_CONTEXTE_MAX,
@@ -19,6 +20,8 @@ import {
   RED_DOMAINES,
   RED_NIVEAUX_CONFIANCE_CAUSE,
   RED_SECTEURS,
+  type Langue,
+  type Traduire,
   type RedCauseEntree,
   type RedCauseVue,
   type RedChecklistItem,
@@ -32,6 +35,12 @@ import {
   type RedSecteur,
 } from "@missionpilot/shared";
 import { texteOuNull, type Resultat } from "./saisie";
+
+const tl = (t: Traduire, fr: string, en: string, max: number, fem = false) =>
+  t(
+    `${fr} trop long${fem ? "ue" : ""} (${max} caractères au plus).`,
+    `${en} too long (${max} characters at most).`,
+  );
 
 // --- Réponses d'une check-list ----------------------------------------------------------------------
 
@@ -76,7 +85,9 @@ export function corpsReponses(
   items: readonly RedChecklistItemVue[],
   saisie: SaisieReponses,
   courantes: readonly RedChecklistReponseVue[],
+  langue: Langue = "fr",
 ): Resultat<{ reponses: RedChecklistReponseSaisie[] }[]> {
+  const t = creerTraduire(langue);
   const parItem = new Map(courantes.map((r) => [r.item_id, r]));
   const erreurs: Record<string, string> = {};
   const modifiees: RedChecklistReponseSaisie[] = [];
@@ -85,16 +96,19 @@ export function corpsReponses(
     if (!s) continue;
     const commentaire = texteOuNull(s.commentaire);
     if (s.reponse === "") {
-      if (commentaire !== null) erreurs[item.id] = MSG_COMMENTAIRE_SANS_REPONSE;
+      if (commentaire !== null)
+        erreurs[item.id] = t(
+          MSG_COMMENTAIRE_SANS_REPONSE,
+          "Choose an answer before entering a comment.",
+        );
       continue;
     }
     if (!(RED_CHECKLIST_REPONSES as readonly string[]).includes(s.reponse)) {
-      erreurs[item.id] = "Réponse inconnue.";
+      erreurs[item.id] = t("Réponse inconnue.", "Unknown answer.");
       continue;
     }
     if (commentaire !== null && commentaire.length > RED_CHECKLIST_COMMENTAIRE_MAX) {
-      erreurs[item.id] =
-        `Commentaire trop long (${RED_CHECKLIST_COMMENTAIRE_MAX} caractères au plus).`;
+      erreurs[item.id] = tl(t, "Commentaire", "Comment", RED_CHECKLIST_COMMENTAIRE_MAX);
       continue;
     }
     const c = parItem.get(item.id);
@@ -107,7 +121,12 @@ export function corpsReponses(
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   if (modifiees.length === 0)
-    return { ok: false, erreurs: { global: MSG_AUCUNE_REPONSE_MODIFIEE } };
+    return {
+      ok: false,
+      erreurs: {
+        global: t(MSG_AUCUNE_REPONSE_MODIFIEE, "No answer has changed: nothing to save."),
+      },
+    };
   return {
     ok: true,
     charge: decouperEnLots(modifiees, RED_CHECKLIST_PLAFONDS.reponses_par_lot).map((reponses) => ({
@@ -146,33 +165,50 @@ export const causeVide = (): SaisieCause => ({
 /** Cartographie complète (elle remplace la précédente) ; erreurs « <index>.<champ> » ou « global ». */
 export function corpsCauses(
   saisie: readonly SaisieCause[],
+  langue: Langue = "fr",
 ): Resultat<{ causes: RedCauseEntree[] }> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
-  if (saisie.length === 0) erreurs.global = "Ajoutez au moins une cause.";
+  if (saisie.length === 0) {
+    erreurs.global = t("Ajoutez au moins une cause.", "Add at least one cause.");
+  }
   if (saisie.length > RED_CAUSES_MAX) {
-    erreurs.global = `Une cartographie compte ${RED_CAUSES_MAX} causes au plus.`;
+    erreurs.global = t(
+      `Une cartographie compte ${RED_CAUSES_MAX} causes au plus.`,
+      `A mapping has ${RED_CAUSES_MAX} causes at most.`,
+    );
   }
   const causes: RedCauseEntree[] = [];
   saisie.forEach((s, i) => {
     const libelle = s.libelle.trim();
     const description = s.description.trim();
-    if (libelle === "") erreurs[`${i}.libelle`] = "Le libellé est obligatoire.";
-    else if (libelle.length > RED_CAUSE_LIBELLE_MAX) {
-      erreurs[`${i}.libelle`] = `Libellé trop long (${RED_CAUSE_LIBELLE_MAX} caractères au plus).`;
+    if (libelle === "") {
+      erreurs[`${i}.libelle`] = t("Le libellé est obligatoire.", "The label is required.");
+    } else if (libelle.length > RED_CAUSE_LIBELLE_MAX) {
+      erreurs[`${i}.libelle`] = tl(t, "Libellé", "Label", RED_CAUSE_LIBELLE_MAX);
     }
-    if (description === "") erreurs[`${i}.description`] = "La description est obligatoire.";
-    else if (description.length > RED_CAUSE_DESCRIPTION_MAX) {
-      erreurs[`${i}.description`] =
-        `Description trop longue (${RED_CAUSE_DESCRIPTION_MAX} caractères au plus).`;
+    if (description === "") {
+      erreurs[`${i}.description`] = t(
+        "La description est obligatoire.",
+        "The description is required.",
+      );
+    } else if (description.length > RED_CAUSE_DESCRIPTION_MAX) {
+      erreurs[`${i}.description`] = tl(
+        t,
+        "Description",
+        "Description",
+        RED_CAUSE_DESCRIPTION_MAX,
+        true,
+      );
     }
     if (!(RED_DOMAINES as readonly string[]).includes(s.domaine)) {
-      erreurs[`${i}.domaine`] = "Domaine inconnu.";
+      erreurs[`${i}.domaine`] = t("Domaine inconnu.", "Unknown domain.");
     }
     if (
       s.confiance !== "" &&
       !(RED_NIVEAUX_CONFIANCE_CAUSE as readonly string[]).includes(s.confiance)
     ) {
-      erreurs[`${i}.confiance`] = "Niveau de confiance inconnu.";
+      erreurs[`${i}.confiance`] = t("Niveau de confiance inconnu.", "Unknown confidence level.");
     }
     causes.push({
       ...(s.id ? { id: s.id } : {}),
@@ -188,15 +224,17 @@ export function corpsCauses(
 }
 
 /** Corps de la demande de proposition : le contexte libre est facultatif. */
-export function corpsGenerationCauses(contexte: string): Resultat<{ contexte?: string }> {
-  const t = texteOuNull(contexte);
-  if (t !== null && t.length > RED_CAUSES_CONTEXTE_MAX) {
-    return {
-      ok: false,
-      erreurs: { contexte: `Contexte trop long (${RED_CAUSES_CONTEXTE_MAX} caractères au plus).` },
-    };
+export function corpsGenerationCauses(
+  contexte: string,
+  langue: Langue = "fr",
+): Resultat<{ contexte?: string }> {
+  const texte = texteOuNull(contexte);
+  if (texte !== null && texte.length > RED_CAUSES_CONTEXTE_MAX) {
+    const t = creerTraduire(langue);
+    const contexteTropLong = tl(t, "Contexte", "Context", RED_CAUSES_CONTEXTE_MAX);
+    return { ok: false, erreurs: { contexte: contexteTropLong } };
   }
-  return { ok: true, charge: t === null ? {} : { contexte: t } };
+  return { ok: true, charge: texte === null ? {} : { contexte: texte } };
 }
 
 // --- Modèles de check-list --------------------------------------------------------------------------
@@ -232,22 +270,29 @@ export const itemVide = (existants: readonly { id: string }[]): SaisieItemModele
 function itemsDepuisSaisie(
   saisie: readonly SaisieItemModele[],
   erreurs: Record<string, string>,
+  langue: Langue,
 ): RedChecklistItem[] {
-  if (saisie.length === 0) erreurs.global = "Ajoutez au moins un item.";
+  const t = creerTraduire(langue);
+  if (saisie.length === 0) {
+    erreurs.global = t("Ajoutez au moins un item.", "Add at least one item.");
+  }
   if (saisie.length > RED_CHECKLIST_ITEMS_MAX) {
-    erreurs.global = `Un modèle compte ${RED_CHECKLIST_ITEMS_MAX} items au plus.`;
+    erreurs.global = t(
+      `Un modèle compte ${RED_CHECKLIST_ITEMS_MAX} items au plus.`,
+      `A template has ${RED_CHECKLIST_ITEMS_MAX} items at most.`,
+    );
   }
   const items: RedChecklistItem[] = [];
   saisie.forEach((s, i) => {
     const libelle = s.libelle.trim();
     const aide = texteOuNull(s.aide);
-    if (libelle === "") erreurs[`${i}.libelle`] = "Le libellé est obligatoire.";
-    else if (libelle.length > RED_CHECKLIST_LIBELLE_MAX) {
-      erreurs[`${i}.libelle`] =
-        `Libellé trop long (${RED_CHECKLIST_LIBELLE_MAX} caractères au plus).`;
+    if (libelle === "") {
+      erreurs[`${i}.libelle`] = t("Le libellé est obligatoire.", "The label is required.");
+    } else if (libelle.length > RED_CHECKLIST_LIBELLE_MAX) {
+      erreurs[`${i}.libelle`] = tl(t, "Libellé", "Label", RED_CHECKLIST_LIBELLE_MAX);
     }
     if (aide !== null && aide.length > RED_CHECKLIST_AIDE_MAX) {
-      erreurs[`${i}.aide`] = `Aide trop longue (${RED_CHECKLIST_AIDE_MAX} caractères au plus).`;
+      erreurs[`${i}.aide`] = tl(t, "Aide", "Help text", RED_CHECKLIST_AIDE_MAX, true);
     }
     items.push({ id: s.id, domaine: s.domaine, libelle, ...(aide !== null ? { aide } : {}) });
   });
@@ -258,11 +303,17 @@ function itemsDepuisSaisie(
 export function corpsVersionModele(
   saisie: readonly SaisieItemModele[],
   motif: string,
+  langue: Langue = "fr",
 ): Resultat<{ items: RedChecklistItem[]; motif?: string }> {
   const erreurs: Record<string, string> = {};
-  const items = itemsDepuisSaisie(saisie, erreurs);
+  const items = itemsDepuisSaisie(saisie, erreurs, langue);
   const m = texteOuNull(motif);
-  if (m !== null && m.length > 500) erreurs.motif = "Motif trop long (500 caractères au plus).";
+  if (m !== null && m.length > 500) {
+    erreurs.motif = creerTraduire(langue)(
+      "Motif trop long (500 caractères au plus).",
+      "Reason too long (500 characters at most).",
+    );
+  }
   return Object.keys(erreurs).length > 0
     ? { ok: false, erreurs }
     : { ok: true, charge: { items, ...(m !== null ? { motif: m } : {}) } };
@@ -279,22 +330,37 @@ export interface SaisieNouveauModele {
 export function corpsNouveauModele(
   entete: SaisieNouveauModele,
   saisie: readonly SaisieItemModele[],
+  langue: Langue = "fr",
 ): Resultat<RedChecklistModeleCreation> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const code = entete.code.trim();
   const intitule = entete.intitule.trim();
   if (!RED_CHECKLIST_MOTIF_CODE.test(code)) {
-    erreurs.code =
-      "Code de 2 à 40 caractères : minuscules, chiffres, tiret ou tiret bas (ex. commerce-2026).";
+    erreurs.code = t(
+      "Code de 2 à 40 caractères : minuscules, chiffres, tiret ou tiret bas (ex. commerce-2026).",
+      "Code of 2 to 40 characters: lowercase letters, digits, hyphen or underscore (e.g. trade-2026).",
+    );
   }
-  if (intitule === "") erreurs.intitule = "L'intitulé est obligatoire.";
-  else if (intitule.length > 200) erreurs.intitule = "Intitulé trop long (200 caractères au plus).";
+  if (intitule === "") {
+    erreurs.intitule = t("L'intitulé est obligatoire.", "The title is required.");
+  } else if (intitule.length > 200) {
+    erreurs.intitule = t(
+      "Intitulé trop long (200 caractères au plus).",
+      "Title too long (200 characters at most).",
+    );
+  }
   if (!(RED_SECTEURS as readonly string[]).includes(entete.secteur)) {
-    erreurs.secteur = "Secteur inconnu.";
+    erreurs.secteur = t("Secteur inconnu.", "Unknown sector.");
   }
-  const items = itemsDepuisSaisie(saisie, erreurs);
+  const items = itemsDepuisSaisie(saisie, erreurs, langue);
   const m = texteOuNull(entete.motif);
-  if (m !== null && m.length > 500) erreurs.motif = "Motif trop long (500 caractères au plus).";
+  if (m !== null && m.length > 500) {
+    erreurs.motif = t(
+      "Motif trop long (500 caractères au plus).",
+      "Reason too long (500 characters at most).",
+    );
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -305,7 +371,10 @@ export function corpsNouveauModele(
 // --- Activation dans un dossier ---------------------------------------------------------------------
 
 /** Valeur d'option « depart:<code> » ou « modele:<id> » → corps d'activation ; vide ou inconnue → erreur. */
-export function corpsActivation(choix: string):
+export function corpsActivation(
+  choix: string,
+  langue: Langue = "fr",
+):
   | {
       ok: true;
       charge: { origine: "depart"; code: string } | { origine: "modele"; modele_id: string };
@@ -319,5 +388,9 @@ export function corpsActivation(choix: string):
   if (origine === "modele" && valeur !== "") {
     return { ok: true, charge: { origine: "modele", modele_id: valeur } };
   }
-  return { ok: false, erreur: "Choisissez une check-list à activer." };
+  const t = creerTraduire(langue);
+  return {
+    ok: false,
+    erreur: t("Choisissez une check-list à activer.", "Choose a checklist to activate."),
+  };
 }

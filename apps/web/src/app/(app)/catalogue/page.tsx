@@ -8,12 +8,16 @@ import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide } from "../../../components/ui/EtatListe";
 import { Icone } from "../../../components/ui/Icone";
 import { chargerServeur } from "../../../lib/api-serveur";
-import { MODE_LIBELLES, type TypeMission } from "../../../lib/catalogue";
+import { libelleMode, type TypeMission } from "../../../lib/catalogue";
 import { formaterNombre } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../lib/session";
 import { InstallationCatalogue } from "./InstallationCatalogue";
 
-export const metadata: Metadata = { title: "Catalogue des types de mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Catalogue des types de mission", "Engagement type catalog") };
+}
 
 export default async function PageCatalogue({
   searchParams,
@@ -21,6 +25,8 @@ export default async function PageCatalogue({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("catalogue.lire");
+  const tr = await obtenirT();
+  const langue = await obtenirLangue();
   const peutEcrire = aPermission(utilisateur.roles, "catalogue.ecrire");
   const peutInstaller = aPermission(utilisateur.roles, "cabinet.gerer");
   const archives = (await searchParams).statut === "archives";
@@ -31,61 +37,78 @@ export default async function PageCatalogue({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Types de mission"
-        soustitre="Modèles de missions du cabinet : découpage en phases, lots et tâches, jours types par grade."
+        titre={tr("Types de mission", "Engagement types")}
+        soustitre={tr(
+          "Modèles de missions du cabinet : découpage en phases, lots et tâches, jours types par grade.",
+          "The firm's engagement templates: breakdown into phases, work packages and tasks, typical days per grade.",
+        )}
         actions={
           peutEcrire ? (
             <Link href="/catalogue/nouveau" className={classesBouton("primaire")}>
               <Icone nom="plus" />
-              <span>Nouveau type</span>
+              <span>{tr("Nouveau type", "New type")}</span>
             </Link>
           ) : null
         }
       />
 
       {peutInstaller ? (
-        <Carte titre="Catalogue de conseil de départ" niveauTitre={2}>
+        <Carte
+          titre={tr("Catalogue de conseil de départ", "Starter consulting catalog")}
+          niveauTitre={2}
+        >
           <InstallationCatalogue />
         </Carte>
       ) : null}
 
-      <nav className="mp-filtre-segments" aria-label="Statut des types affichés">
+      <nav
+        className="mp-filtre-segments"
+        aria-label={tr("Statut des types affichés", "Status of the types shown")}
+      >
         <Link
           href="/catalogue"
           aria-current={archives ? undefined : "page"}
           className="mp-onglets__lien"
         >
-          Actifs
+          {tr("Actifs", "Active")}
         </Link>
         <Link
           href="/catalogue?statut=archives"
           aria-current={archives ? "page" : undefined}
           className="mp-onglets__lien"
         >
-          Archivés
+          {tr("Archivés", "Archived")}
         </Link>
       </nav>
 
       {!r.ok ? (
         <EtatErreur
-          titre="Le catalogue n'a pas pu être chargé."
+          titre={tr("Le catalogue n'a pas pu être chargé.", "The catalog could not be loaded.")}
           message={r.message}
           hrefReessayer={archives ? "/catalogue?statut=archives" : "/catalogue"}
         />
       ) : r.donnees.elements.length === 0 ? (
         <EtatVide
           titre={
-            archives ? "Aucun type de mission archivé." : "Aucun type de mission dans le catalogue."
+            archives
+              ? tr("Aucun type de mission archivé.", "No archived engagement type.")
+              : tr("Aucun type de mission dans le catalogue.", "No engagement type in the catalog.")
           }
           icone="livre"
         >
           {!archives ? (
             <p>
               {peutInstaller
-                ? "Installez le catalogue de conseil de départ, ou créez votre premier type."
+                ? tr(
+                    "Installez le catalogue de conseil de départ, ou créez votre premier type.",
+                    "Install the starter consulting catalog, or create your first type.",
+                  )
                 : peutEcrire
-                  ? "Créez votre premier type de mission."
-                  : "Un associé ou un expert métier doit d'abord le constituer."}
+                  ? tr("Créez votre premier type de mission.", "Create your first engagement type.")
+                  : tr(
+                      "Un associé ou un expert métier doit d'abord le constituer.",
+                      "A partner or a domain expert must build it first.",
+                    )}
             </p>
           ) : null}
         </EtatVide>
@@ -103,15 +126,21 @@ export default async function PageCatalogue({
                 }
                 actions={
                   t.a_valider ? (
-                    <BadgeStatut tonalite="attention">Valeurs de départ à valider</BadgeStatut>
+                    <BadgeStatut tonalite="attention">
+                      {tr("Valeurs de départ à valider", "Starting values pending approval")}
+                    </BadgeStatut>
                   ) : null
                 }
               >
                 <p className="mp-texte-doux">
-                  {[t.domaine, MODE_LIBELLES[t.mode_facturation]].filter(Boolean).join(" · ")}
+                  {[t.domaine, libelleMode(t.mode_facturation, langue)].filter(Boolean).join(" · ")}
                 </p>
                 {t.duree_type_jours !== null ? (
-                  <p>Durée type : {formaterNombre(t.duree_type_jours)} jours calendaires</p>
+                  <p>
+                    {tr("Durée type : ", "Typical duration: ")}
+                    {formaterNombre(t.duree_type_jours, 2, langue)}{" "}
+                    {tr("jours calendaires", "calendar days")}
+                  </p>
                 ) : null}
               </Carte>
             </li>

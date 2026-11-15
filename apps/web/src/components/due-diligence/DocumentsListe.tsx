@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useT } from "../i18n/FournisseurLangue";
 import { ListeDocumentsIngestion } from "../ingestion/ListeDocumentsIngestion";
 import { apiIngestionDd, hrefDocumentDd, type DocumentIngestion } from "../../lib/ingestion";
 
@@ -18,14 +19,18 @@ export function DocumentsListe({
   dossierId: string;
   documents: readonly DocumentIngestion[];
 }) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   return (
     <ListeDocumentsIngestion
       api={apiIngestionDd(dossierId)}
       documentsInitiaux={documents}
       afficherUsage
-      legende="Documents du dossier de due diligence"
-      messageVide="Aucun document importé pour ce dossier."
+      legende={t("Documents du dossier de due diligence", "Due diligence file documents")}
+      messageVide={t(
+        "Aucun document importé pour ce dossier.",
+        "No document imported for this file.",
+      )}
       hrefDocument={(d) => hrefDocumentDd(missionId, dossierId, d.id)}
       rendreLien={(href, libelle) => <Link href={href}>{libelle}</Link>}
       onTermine={() => rafraichir()}

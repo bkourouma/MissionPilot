@@ -14,9 +14,10 @@ import {
   etatVerdict,
   lectureMinimale,
   libelleRaisonVerdict,
-  VERDICT_DD_LIBELLES,
+  libellesDd,
   type NoeudArbre,
 } from "../../lib/due-diligence";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { BadgeLecture, BadgeVerdict } from "./BadgesDd";
 
@@ -43,6 +44,9 @@ const versNavigable = (n: NoeudArbre): NoeudNavigable => ({
 });
 
 function Noeud({ n, c }: { n: NoeudArbre; c: ContexteArbre }) {
+  const t = useT();
+  const langue = useLangue();
+  const L = libellesDd(langue);
   const { noeud } = n;
   const etat = etatVerdict(noeud);
   const nbLiens = noeud.liens.length;
@@ -71,25 +75,31 @@ function Noeud({ n, c }: { n: NoeudArbre; c: ContexteArbre }) {
         <span className="mp-dd-meta" id={idMeta}>
           <BadgeVerdict etat={etat} />
           <BadgeStatut tonalite="neutre" sansIcone>
-            {`Indication du moteur : ${VERDICT_DD_LIBELLES[noeud.indication.indication].toLowerCase()}`}
+            {`${t("Indication du moteur", "Engine indication")} : ${L.VERDICT[noeud.indication.indication].toLowerCase()}`}
           </BadgeStatut>
           <BadgeLecture lecture={lectureMinimale(noeud.liens)} />
           <span className="mp-texte-doux mp-texte-petit">
             {nbLiens === 0
-              ? "Aucune assertion liée"
+              ? t("Aucune assertion liée", "No linked statement")
               : nbLiens === 1
-                ? "1 assertion liée"
-                : `${nbLiens} assertions liées`}
+                ? t("1 assertion liée", "1 linked statement")
+                : t(`${nbLiens} assertions liées`, `${nbLiens} linked statements`)}
           </span>
         </span>
         {noeud.indication.conflit ? (
           <p className="mp-texte-petit" id={idConflit}>
-            {libelleRaisonVerdict("CONFLIT_SOLIDE")}
+            {libelleRaisonVerdict("CONFLIT_SOLIDE", langue)}
           </p>
         ) : null}
       </div>
       {deplie ? (
-        <ul role="group" aria-label={`Sous-hypothèses de ${noeud.libelle}`}>
+        <ul
+          role="group"
+          aria-label={t(
+            `Sous-hypothèses de ${noeud.libelle}`,
+            `Sub-hypotheses of ${noeud.libelle}`,
+          )}
+        >
           {n.enfants.map((e) => (
             <Noeud key={e.noeud.id} n={e} c={c} />
           ))}
@@ -112,6 +122,7 @@ export function ArbreHypotheses({
   arbre,
   selectionId,
 }: ArbreHypothesesProps) {
+  const t = useT();
   const prefixe = useId();
   const racine = useRef<HTMLUListElement>(null);
   const [replies, setReplies] = useState<ReadonlySet<string>>(new Set());
@@ -141,7 +152,7 @@ export function ArbreHypotheses({
       ref={racine}
       className="mp-arbre-dd"
       role="tree"
-      aria-label="Arbre des hypothèses"
+      aria-label={t("Arbre des hypothèses", "Hypothesis tree")}
       onKeyDown={surTouche}
       onFocus={(e) => {
         const id = (e.target as HTMLElement).dataset?.noeudId;

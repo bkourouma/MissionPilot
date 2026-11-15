@@ -12,7 +12,7 @@
  * Aucune réponse n'est gardée dans le navigateur (ni stockage local, ni cache) : le brouillon
  * vit côté serveur.
  */
-import type { QuestionQuestionnaire } from "@missionpilot/shared";
+import type { Langue, QuestionQuestionnaire } from "@missionpilot/shared";
 import { formaterDate, formaterDateHeure, formaterNombre } from "./format";
 import type { ValeurReponse } from "./portail-questionnaires-contrats";
 
@@ -24,12 +24,18 @@ export * from "./portail-questionnaires-refus";
 // --- Lecture seule -------------------------------------------------------------------------
 
 export const SANS_REPONSE = "Sans réponse";
+export const SANS_REPONSE_EN = "No response";
 
 /** Réponse lisible d'une question (lecture seule) : libellé d'option, « Oui », « 12 % »… */
+const SANS_REPONSE_FR = SANS_REPONSE;
+
 export function libelleReponse(
   q: QuestionQuestionnaire,
   v: ValeurReponse | null | undefined,
+  langue: Langue = "fr",
 ): string {
+  const en = langue === "en";
+  const SANS_REPONSE = en ? SANS_REPONSE_EN : SANS_REPONSE_FR;
   if (v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) {
     return SANS_REPONSE;
   }
@@ -37,7 +43,13 @@ export function libelleReponse(
     case "likert": {
       if (typeof v !== "number") return SANS_REPONSE;
       const texte = q.libelles[v - 1];
-      return texte ? `${v} sur ${q.points} : ${texte}` : `${v} sur ${q.points}`;
+      return en
+        ? texte
+          ? `${v} out of ${q.points}: ${texte}`
+          : `${v} out of ${q.points}`
+        : texte
+          ? `${v} sur ${q.points} : ${texte}`
+          : `${v} sur ${q.points}`;
     }
     case "choix_unique":
       return q.options.find((o) => o.code === v)?.libelle ?? String(v);
@@ -46,14 +58,14 @@ export function libelleReponse(
       return codes.map((c) => q.options.find((o) => o.code === c)?.libelle ?? c).join(", ");
     }
     case "oui_non":
-      return v === true ? "Oui" : v === false ? "Non" : SANS_REPONSE;
+      return v === true ? (en ? "Yes" : "Oui") : v === false ? (en ? "No" : "Non") : SANS_REPONSE;
     case "numerique": {
       if (typeof v !== "number") return SANS_REPONSE;
-      const nombre = formaterNombre(v, 4);
+      const nombre = formaterNombre(v, 4, langue);
       return q.unite ? `${nombre}\u00a0${q.unite}` : nombre;
     }
     case "date":
-      return typeof v === "string" ? formaterDate(v) : SANS_REPONSE;
+      return typeof v === "string" ? formaterDate(v, undefined, langue) : SANS_REPONSE;
     case "texte":
       return typeof v === "string" ? v : SANS_REPONSE;
   }
@@ -76,7 +88,30 @@ export function texteSauvegarde(
   etat: EtatSauvegarde,
   derniereSauvegarde: string | null,
   fuseau = "Africa/Abidjan",
+  langue: Langue = "fr",
 ): string {
+  if (langue === "en") {
+    switch (etat) {
+      case "a_jour":
+        return derniereSauvegarde
+          ? `Draft saved on ${formaterDateHeure(derniereSauvegarde, fuseau, langue)}.`
+          : "No changes to save.";
+      case "modifie":
+        return "Changes waiting to be saved…";
+      case "enregistrement":
+        return "Saving the draft…";
+      case "hors_ligne":
+        return "Connection lost: automatic retry as soon as the network returns.";
+      case "indisponible":
+        return "Service temporarily unavailable: automatic retry.";
+      case "session":
+        return "Session expired: sign in again to save.";
+      case "refuse":
+        return "Some responses are not saved: correct the flagged questions.";
+      case "bloque":
+        return "Entry impossible: this questionnaire no longer accepts changes.";
+    }
+  }
   switch (etat) {
     case "a_jour":
       return derniereSauvegarde
@@ -101,9 +136,32 @@ export function texteSauvegarde(
 
 /** Annonce aux lecteurs d'écran après un enregistrement réussi. */
 export const ANNONCE_BROUILLON = "Brouillon enregistré.";
+export const ANNONCE_BROUILLON_EN = "Draft saved.";
 
 /** Annonce des questions qui apparaissent ou disparaissent selon les réponses. */
-export function annonceVisibilite(apparues: number, masquees: number): string {
+export function annonceVisibilite(
+  apparues: number,
+  masquees: number,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    const partiesEn: string[] = [];
+    if (apparues > 0) {
+      partiesEn.push(
+        apparues === 1 ? "A new question is displayed" : `${apparues} new questions are displayed`,
+      );
+    }
+    if (masquees > 0) {
+      partiesEn.push(
+        masquees === 1
+          ? "a question is no longer displayed"
+          : `${masquees} questions are no longer displayed`,
+      );
+    }
+    if (partiesEn.length === 0) return "";
+    const phraseEn = partiesEn.join(" and ");
+    return `${phraseEn.charAt(0).toUpperCase()}${phraseEn.slice(1)}.`;
+  }
   const parties: string[] = [];
   if (apparues > 0) {
     parties.push(

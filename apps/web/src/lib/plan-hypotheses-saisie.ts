@@ -95,20 +95,45 @@ export type CleOuverture = (typeof CLES_OUVERTURE)[number];
 /** Libellés et nature des champs du bilan d'ouverture (année 0). */
 export const CHAMPS_OUVERTURE: Record<
   CleOuverture,
-  { libelle: string; nature: "montant" | "montant_signe" | "duree" }
+  { libelle: string; libelleEn: string; nature: "montant" | "montant_signe" | "duree" }
 > = {
-  immobilisationsNettes: { libelle: "Immobilisations nettes", nature: "montant" },
+  immobilisationsNettes: {
+    libelle: "Immobilisations nettes",
+    libelleEn: "Net fixed assets",
+    nature: "montant",
+  },
   dureeResiduelleImmobilisations: {
     libelle: "Durée d'amortissement restante (années)",
+    libelleEn: "Remaining depreciation period (years)",
     nature: "duree",
   },
-  stocks: { libelle: "Stocks", nature: "montant" },
-  creancesClients: { libelle: "Créances clients", nature: "montant" },
-  tresorerie: { libelle: "Trésorerie nette (négative : découvert)", nature: "montant_signe" },
-  capital: { libelle: "Capital social", nature: "montant" },
-  reserves: { libelle: "Réserves et report à nouveau", nature: "montant_signe" },
-  dettesFournisseurs: { libelle: "Dettes fournisseurs", nature: "montant" },
-  deficitsReportables: { libelle: "Déficits fiscaux reportables", nature: "montant" },
+  stocks: { libelle: "Stocks", libelleEn: "Inventory", nature: "montant" },
+  creancesClients: {
+    libelle: "Créances clients",
+    libelleEn: "Trade receivables",
+    nature: "montant",
+  },
+  tresorerie: {
+    libelle: "Trésorerie nette (négative : découvert)",
+    libelleEn: "Net cash (negative: overdraft)",
+    nature: "montant_signe",
+  },
+  capital: { libelle: "Capital social", libelleEn: "Share capital", nature: "montant" },
+  reserves: {
+    libelle: "Réserves et report à nouveau",
+    libelleEn: "Reserves and retained earnings",
+    nature: "montant_signe",
+  },
+  dettesFournisseurs: {
+    libelle: "Dettes fournisseurs",
+    libelleEn: "Trade payables",
+    nature: "montant",
+  },
+  deficitsReportables: {
+    libelle: "Déficits fiscaux reportables",
+    libelleEn: "Tax loss carryforwards",
+    nature: "montant",
+  },
 };
 
 export interface SaisieHypotheses {

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import type { AccuseSignatureApi } from "@missionpilot/shared";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { dateHeureCourte } from "../../lib/canaux";
 import {
   SAISIE_CONFIRMATION_VIDE,
@@ -16,7 +17,7 @@ import {
   messageErreurSignaturePortail,
 } from "../../lib/portail-canaux";
 import {
-  AVERTISSEMENT_SIGNATURE_SIMULEE,
+  avertissementSignatureSimulee,
   empreinteLisible,
   validerMotifSignature,
   validerSignature,
@@ -50,6 +51,8 @@ export function SignaturePortail({
   peutSigner,
   peutLire = true,
 }: SignaturePortailProps) {
+  const t = useT();
+  const langue = useLangue();
   const [panneau, setPanneau] = useState<Panneau>(null);
   const [accuse, setAccuse] = useState<AccuseSignatureApi | null>(null);
 
@@ -64,22 +67,34 @@ export function SignaturePortail({
             rel="noopener noreferrer"
           >
             <Icone nom="oeil" taille={18} />
-            <span>Lire le document (nouvel onglet)</span>
+            <span>{t("Lire le document (nouvel onglet)", "Read the document (new tab)")}</span>
           </a>{" "}
           <a className="mp-lien-action" href={hrefDocumentSignaturePortail(signatureId)} download>
-            <span>Télécharger</span>
+            <span>{t("Télécharger", "Download")}</span>
           </a>
         </p>
       ) : (
         <p className="mp-texte-doux">
-          Le document sera disponible dès que ce sera votre tour de signer.
+          {t(
+            "Le document sera disponible dès que ce sera votre tour de signer.",
+            "The document will be available as soon as it is your turn to sign.",
+          )}
         </p>
       )}
       {accuse ? (
-        <Alerte tonalite="succes" annonce="status" titre="Signature enregistrée">
-          <p>{`Signée le ${dateHeureCourte(accuse.signe_le)}.`}</p>
-          <p className="mp-canaux__empreinte">{`Empreinte du document : ${empreinteLisible(accuse.empreinte_document)}`}</p>
-          <p>{AVERTISSEMENT_SIGNATURE_SIMULEE}.</p>
+        <Alerte
+          tonalite="succes"
+          annonce="status"
+          titre={t("Signature enregistrée", "Signature saved")}
+        >
+          <p>
+            {t(
+              `Signée le ${dateHeureCourte(accuse.signe_le)}.`,
+              `Signed on ${dateHeureCourte(accuse.signe_le, "en")}.`,
+            )}
+          </p>
+          <p className="mp-canaux__empreinte">{`${t("Empreinte du document", "Document fingerprint")} : ${empreinteLisible(accuse.empreinte_document)}`}</p>
+          <p>{avertissementSignatureSimulee(langue)}.</p>
         </Alerte>
       ) : null}
       {peutSigner && !accuse ? (
@@ -90,14 +105,14 @@ export function SignaturePortail({
               aria-expanded={panneau === "signer"}
               onClick={() => setPanneau(panneau === "signer" ? null : "signer")}
             >
-              Signer
+              {t("Signer", "Sign")}
             </Bouton>
             <Bouton
               variante="secondaire"
               aria-expanded={panneau === "refuser"}
               onClick={() => setPanneau(panneau === "refuser" ? null : "refuser")}
             >
-              Refuser
+              {t("Refuser", "Decline")}
             </Bouton>
           </div>
           {panneau === "signer" ? (
@@ -119,6 +134,8 @@ function FormulaireSignaturePortail({
   signatureId: string;
   onAccuse: (a: AccuseSignatureApi) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [confirmation, setConfirmation] = useState<SaisieConfirmation>(SAISIE_CONFIRMATION_VIDE);
   const f = useFormulaire<ChampConfirmation>();
@@ -126,7 +143,7 @@ function FormulaireSignaturePortail({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerSignature(confirmation),
+      validerSignature(confirmation, langue),
       (charge) =>
         api.post<AccuseSignatureApi>(
           cheminApiActionSignaturePortail(signatureId, "signer"),
@@ -137,7 +154,7 @@ function FormulaireSignaturePortail({
         ),
       {
         rafraichir: false,
-        messageSpecifique: (e) => messageErreurSignaturePortail(e),
+        messageSpecifique: (e) => messageErreurSignaturePortail(e, langue),
         apres: (a) => {
           if (a && typeof a.signe_le === "string") onAccuse(a);
           rafraichir();
@@ -154,28 +171,31 @@ function FormulaireSignaturePortail({
       className="mp-canaux__panneau"
       noValidate
       onSubmit={soumettre}
-      aria-label="Signer le document"
+      aria-label={t("Signer le document", "Sign the document")}
     >
-      <Alerte tonalite="attention" annonce="aucune" titre={AVERTISSEMENT_SIGNATURE_SIMULEE}>
+      <Alerte tonalite="attention" annonce="aucune" titre={avertissementSignatureSimulee(langue)}>
         <p>
-          Lisez d&apos;abord le document. Pour signer, confirmez votre identité : mot de passe et
-          code de votre application de double authentification.
+          {t(
+            "Lisez d'abord le document. Pour signer, confirmez votre identité : mot de passe et code de votre application de double authentification.",
+            "Read the document first. To sign, confirm your identity: password and code from your two-factor authentication app.",
+          )}
         </p>
       </Alerte>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Signature impossible"
+        titreErreur={t("Signature impossible", "Could not sign")}
       />
       <ChampsReconfirmation
         saisie={confirmation}
         onChange={setConfirmation}
         erreurs={f.erreurs}
         motif="signer ce document"
+        motifEn="sign this document"
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Signature…">
-          Signer le document
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Signature…", "Signing…")}>
+          {t("Signer le document", "Sign the document")}
         </Bouton>
       </div>
     </form>
@@ -191,18 +211,20 @@ function FormulaireRefusPortail({
 }) {
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
+  const t = useT();
+  const langue = useLangue();
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerMotifSignature(motif, "refus"),
+      validerMotifSignature(motif, "refus", langue),
       (charge) =>
         api.post(cheminApiActionSignaturePortail(signatureId, "refuser"), charge, {
           redirigerSi401: false,
         }),
       {
-        succes: "Votre refus est enregistré.",
-        messageSpecifique: (e) => messageErreurSignaturePortail(e),
+        succes: t("Votre refus est enregistré.", "Your refusal has been recorded."),
+        messageSpecifique: (e) => messageErreurSignaturePortail(e, langue),
         apres: onFin,
       },
     );
@@ -214,11 +236,11 @@ function FormulaireRefusPortail({
       className="mp-canaux__panneau"
       noValidate
       onSubmit={soumettre}
-      aria-label="Refuser de signer"
+      aria-label={t("Refuser de signer", "Decline to sign")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <ZoneTexte
-        libelle="Motif du refus"
+        libelle={t("Motif du refus", "Reason for the refusal")}
         required
         maxLength={500}
         value={motif}
@@ -226,11 +248,16 @@ function FormulaireRefusPortail({
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="danger" chargement={f.enCours} texteChargement="Envoi…">
-          Refuser de signer
+        <Bouton
+          type="submit"
+          variante="danger"
+          chargement={f.enCours}
+          texteChargement={t("Envoi…", "Sending…")}
+        >
+          {t("Refuser de signer", "Decline to sign")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

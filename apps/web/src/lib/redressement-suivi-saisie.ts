@@ -5,6 +5,8 @@
  * flottant. Aucun calcul métier. Logique pure, testée dans `redressement-suivi.test.ts`.
  */
 import {
+  creerTraduire,
+  type Langue,
   RED_SUIVI_COMMENTAIRE_MAX,
   RED_SUIVI_JALONS_MAX,
   RED_SUIVI_LIBELLE_MAX,
@@ -65,11 +67,17 @@ export type ChampCreationSuivi = "jalons" | `mois.${string}` | `libelle.${string
 
 export function corpsCreationSuivi(
   jalons: readonly SaisieJalon[],
+  langue: Langue = "fr",
 ): Resultat<{ jalons: { mois: number; libelle?: string }[] }, ChampCreationSuivi> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampCreationSuivi, string>> = {};
-  if (jalons.length === 0) erreurs.jalons = "Au moins un jalon est attendu.";
+  if (jalons.length === 0)
+    erreurs.jalons = t("Au moins un jalon est attendu.", "At least one milestone is expected.");
   if (jalons.length > RED_SUIVI_JALONS_MAX) {
-    erreurs.jalons = `${RED_SUIVI_JALONS_MAX} jalons au plus.`;
+    erreurs.jalons = t(
+      `${RED_SUIVI_JALONS_MAX} jalons au plus.`,
+      `${RED_SUIVI_JALONS_MAX} milestones at most.`,
+    );
   }
   const charge: { mois: number; libelle?: string }[] = [];
   let precedent = 0;
@@ -77,19 +85,26 @@ export function corpsCreationSuivi(
     const brut = j.mois.trim();
     const mois = /^\d{1,3}$/.test(brut) ? Number(brut) : Number.NaN;
     if (Number.isNaN(mois) || mois < 1 || mois > RED_SUIVI_MOIS_MAX) {
-      erreurs[`mois.${j.cle}`] =
-        `Indiquez un nombre entier de mois entre 1 et ${RED_SUIVI_MOIS_MAX}.`;
+      erreurs[`mois.${j.cle}`] = t(
+        `Indiquez un nombre entier de mois entre 1 et ${RED_SUIVI_MOIS_MAX}.`,
+        `Enter a whole number of months between 1 and ${RED_SUIVI_MOIS_MAX}.`,
+      );
       continue;
     }
     if (mois <= precedent) {
-      erreurs[`mois.${j.cle}`] = "Les échéances sont strictement croissantes.";
+      erreurs[`mois.${j.cle}`] = t(
+        "Les échéances sont strictement croissantes.",
+        "Due dates must be strictly increasing.",
+      );
       continue;
     }
     precedent = mois;
     const libelle = texteOuNull(j.libelle);
     if (libelle !== null && libelle.length > RED_SUIVI_LIBELLE_MAX) {
-      erreurs[`libelle.${j.cle}`] =
-        `Libellé trop long (${RED_SUIVI_LIBELLE_MAX} caractères au plus).`;
+      erreurs[`libelle.${j.cle}`] = t(
+        `Libellé trop long (${RED_SUIVI_LIBELLE_MAX} caractères au plus).`,
+        `Label too long (${RED_SUIVI_LIBELLE_MAX} characters at most).`,
+      );
       continue;
     }
     charge.push(libelle === null ? { mois } : { mois, libelle });
@@ -147,15 +162,26 @@ export interface CorpsReleve {
   commentaire?: string;
 }
 
-export function corpsReleve(s: SaisieReleve): Resultat<CorpsReleve, ChampReleve> {
+export function corpsReleve(
+  s: SaisieReleve,
+  langue: Langue = "fr",
+): Resultat<CorpsReleve, ChampReleve> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampReleve, string>> = {};
-  if (s.jalon_id === "") erreurs.jalon_id = "Choisissez le jalon concerné.";
+  if (s.jalon_id === "")
+    erreurs.jalon_id = t("Choisissez le jalon concerné.", "Choose the relevant milestone.");
   if (!dateSuiviValide(s.date_releve)) {
-    erreurs.date_releve = "Indiquez une date valide, entre 2000 et 2100.";
+    erreurs.date_releve = t(
+      "Indiquez une date valide, entre 2000 et 2100.",
+      "Enter a valid date between 2000 and 2100.",
+    );
   }
   const commentaire = texteOuNull(s.commentaire);
   if (commentaire !== null && commentaire.length > RED_SUIVI_COMMENTAIRE_MAX) {
-    erreurs.commentaire = `Commentaire trop long (${RED_SUIVI_COMMENTAIRE_MAX} caractères au plus).`;
+    erreurs.commentaire = t(
+      `Commentaire trop long (${RED_SUIVI_COMMENTAIRE_MAX} caractères au plus).`,
+      `Comment too long (${RED_SUIVI_COMMENTAIRE_MAX} characters at most).`,
+    );
   }
   const ratios: Partial<Record<RedSuiviRatio, number>> = {};
   if (s.source === "saisie") {
@@ -163,13 +189,16 @@ export function corpsReleve(s: SaisieReleve): Resultat<CorpsReleve, ChampReleve>
       const pb = lireRatioPb(s.ratios[r] ?? "", r);
       if (pb === null) continue;
       if (Number.isNaN(pb)) {
-        erreurs[`ratio.${r}`] = "Valeur illisible, trop précise ou hors limites.";
+        erreurs[`ratio.${r}`] = t(
+          "Valeur illisible, trop précise ou hors limites.",
+          "Unreadable value, too precise or out of range.",
+        );
       } else {
         ratios[r] = pb;
       }
     }
     if (Object.keys(ratios).length === 0 && Object.keys(erreurs).length === 0) {
-      erreurs.ratios = "Saisissez au moins un ratio.";
+      erreurs.ratios = t("Saisissez au moins un ratio.", "Enter at least one ratio.");
     }
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
@@ -198,15 +227,24 @@ export type ChampEvenement = "date_effet" | "motif";
 /** Réalisé : date de réalisation ; reporté : nouvelle date prévue et motif obligatoire. */
 export function corpsEvenement(
   s: SaisieEvenement,
+  langue: Langue = "fr",
 ): Resultat<{ type: RedSuiviTypeEvenement; date_effet: string; motif?: string }, ChampEvenement> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampEvenement, string>> = {};
   if (!dateSuiviValide(s.date_effet)) {
-    erreurs.date_effet = "Indiquez une date valide, entre 2000 et 2100.";
+    erreurs.date_effet = t(
+      "Indiquez une date valide, entre 2000 et 2100.",
+      "Enter a valid date between 2000 and 2100.",
+    );
   }
   const motif = texteOuNull(s.motif);
-  if (s.type === "reporte" && motif === null) erreurs.motif = "Un report s'accompagne d'un motif.";
+  if (s.type === "reporte" && motif === null)
+    erreurs.motif = t("Un report s'accompagne d'un motif.", "A postponement requires a reason.");
   if (motif !== null && motif.length > RED_SUIVI_MOTIF_MAX) {
-    erreurs.motif = `Motif trop long (${RED_SUIVI_MOTIF_MAX} caractères au plus).`;
+    erreurs.motif = t(
+      `Motif trop long (${RED_SUIVI_MOTIF_MAX} caractères au plus).`,
+      `Reason too long (${RED_SUIVI_MOTIF_MAX} characters at most).`,
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {

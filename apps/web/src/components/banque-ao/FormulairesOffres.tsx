@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   libelleSection,
@@ -19,6 +20,7 @@ import { DEVISES, type Devise } from "../../lib/format";
 import { texteOuNull, type Resultat } from "../../lib/saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher, GroupeCases } from "../ui/CaseACocher";
@@ -52,19 +54,34 @@ type ChampCreation = keyof SaisieCreation;
 const CV_EQUIPE_MAX = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function lireCreation(s: SaisieCreation): Resultat<Record<string, unknown>, ChampCreation> {
+function lireCreation(
+  s: SaisieCreation,
+  langue: Langue,
+): Resultat<Record<string, unknown>, ChampCreation> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampCreation, string>> = {};
-  if (s.titre.trim() === "") erreurs.titre = "Le titre est obligatoire.";
-  if (s.client.trim() === "") erreurs.client = "Le client est obligatoire.";
+  if (s.titre.trim() === "")
+    erreurs.titre = t("Le titre est obligatoire.", "The title is required.");
+  if (s.client.trim() === "")
+    erreurs.client = t("Le client est obligatoire.", "The client is required.");
   if (s.termes_reference.trim() === "") {
-    erreurs.termes_reference = "Collez les termes de référence (ou leur résumé).";
+    erreurs.termes_reference = t(
+      "Collez les termes de référence (ou leur résumé).",
+      "Paste the terms of reference (or a summary).",
+    );
   }
-  if (s.pays.trim() !== "" && !/^[A-Za-z]{2}$/.test(s.pays.trim()))
-    erreurs.pays = "Code à deux lettres.";
+  if (s.pays.trim() !== "" && !/^[A-Za-z]{2}$/.test(s.pays.trim())) {
+    erreurs.pays = t("Code à deux lettres.", "Two-letter code.");
+  }
   const cvIds = [...new Set(s.cv_ids)];
-  if (cvIds.length > CV_EQUIPE_MAX) erreurs.cv_ids = `${CV_EQUIPE_MAX} CV au plus dans l'équipe.`;
+  if (cvIds.length > CV_EQUIPE_MAX) {
+    erreurs.cv_ids = t(
+      `${CV_EQUIPE_MAX} CV au plus dans l'équipe.`,
+      `${CV_EQUIPE_MAX} CVs at most in the team.`,
+    );
+  }
   if (s.methode_version_id.trim() !== "" && !UUID.test(s.methode_version_id.trim())) {
-    erreurs.methode_version_id = "Identifiant invalide.";
+    erreurs.methode_version_id = t("Identifiant invalide.", "Invalid identifier.");
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -102,6 +119,8 @@ export function FormulaireOffreTechnique({
   fichesChoix: readonly ChoixListe[];
   cvIdsProposes?: readonly string[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const f = useFormulaire<ChampCreation>();
   const [s, setS] = useState<SaisieCreation>({
@@ -123,10 +142,10 @@ export function FormulaireOffreTechnique({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      lireCreation(s),
+      lireCreation(s, langue),
       (c) => api.post<{ id: string }>("/api/banque-ao/offres-techniques", c, { delaiMs: 120_000 }),
       {
-        messageSpecifique: messageBanqueAo,
+        messageSpecifique: (err) => messageBanqueAo(err, langue),
         rafraichir: false,
         apres: (r) => router.push(`${RACINE_BANQUES}/offres-techniques/${r.id}`),
       },
@@ -138,7 +157,7 @@ export function FormulaireOffreTechnique({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Titre de l'offre"
+          libelle={t("Titre de l'offre", "Bid title")}
           required
           maxLength={300}
           value={s.titre}
@@ -146,7 +165,7 @@ export function FormulaireOffreTechnique({
           erreur={f.erreurs.titre}
         />
         <Champ
-          libelle="Client (autorité contractante)"
+          libelle={t("Client (autorité contractante)", "Client (contracting authority)")}
           required
           maxLength={200}
           value={s.client}
@@ -154,33 +173,53 @@ export function FormulaireOffreTechnique({
           erreur={f.erreurs.client}
         />
         <Champ
-          libelle="Pays"
+          libelle={t("Pays", "Country")}
           maxLength={2}
           value={s.pays}
           onChange={maj("pays")}
           erreur={f.erreurs.pays}
         />
-        <Champ libelle="Secteur" maxLength={120} value={s.secteur} onChange={maj("secteur")} />
-        <Champ libelle="Bailleur" maxLength={120} value={s.bailleur} onChange={maj("bailleur")} />
+        <Champ
+          libelle={t("Secteur", "Sector")}
+          maxLength={120}
+          value={s.secteur}
+          onChange={maj("secteur")}
+        />
+        <Champ
+          libelle={t("Bailleur", "Donor")}
+          maxLength={120}
+          value={s.bailleur}
+          onChange={maj("bailleur")}
+        />
         <Select
-          libelle="Rédaction"
+          libelle={t("Rédaction", "Drafting")}
           value={s.generation}
           onChange={maj("generation")}
           options={[
-            ...(redigerIa ? [{ valeur: "ia", libelle: "Brouillon par l'IA (à valider)" }] : []),
-            { valeur: "gabarit", libelle: "Gabarit déterministe" },
+            ...(redigerIa
+              ? [
+                  {
+                    valeur: "ia",
+                    libelle: t("Brouillon par l'IA (à valider)", "AI draft (pending approval)"),
+                  },
+                ]
+              : []),
+            { valeur: "gabarit", libelle: t("Gabarit déterministe", "Deterministic template") },
           ]}
         />
       </div>
       <ZoneTexte
-        libelle="Objectifs déclarés"
+        libelle={t("Objectifs déclarés", "Stated objectives")}
         maxLength={4000}
         value={s.objectifs}
         onChange={maj("objectifs")}
       />
       <ZoneTexte
-        libelle="Termes de référence"
-        aide="Données du client : l'IA les analyse, elle ne les suit jamais comme des consignes."
+        libelle={t("Termes de référence", "Terms of reference")}
+        aide={t(
+          "Données du client : l'IA les analyse, elle ne les suit jamais comme des consignes.",
+          "Client data: the AI analyzes it and never follows it as instructions.",
+        )}
         required
         rows={8}
         maxLength={20_000}
@@ -191,17 +230,23 @@ export function FormulaireOffreTechnique({
       <div className="mp-grille-champs">
         {lierMethode ? (
           <Champ
-            libelle="Version de méthode (identifiant)"
-            aide="Version publiée du référentiel ; vide : démarche générique."
+            libelle={t("Version de méthode (identifiant)", "Method version (identifier)")}
+            aide={t(
+              "Version publiée du référentiel ; vide : démarche générique.",
+              "Published framework version; empty: generic approach.",
+            )}
             value={s.methode_version_id}
             onChange={maj("methode_version_id")}
             erreur={f.erreurs.methode_version_id}
           />
         ) : null}
         <Select
-          libelle="Appel d'offres"
-          aide="Facultatif : rattache l'offre à une fiche."
-          invite="Aucun appel d'offres"
+          libelle={t("Appel d'offres", "Tender")}
+          aide={t(
+            "Facultatif : rattache l'offre à une fiche.",
+            "Optional: links the bid to a record.",
+          )}
+          invite={t("Aucun appel d'offres", "No tender")}
           value={s.appel_offres_id}
           onChange={maj("appel_offres_id")}
           options={fichesChoix}
@@ -210,13 +255,19 @@ export function FormulaireOffreTechnique({
       </div>
       {cvChoix.length === 0 ? (
         <p className="mp-texte-doux">
-          Aucun CV dans la banque : ajoutez d&apos;abord les CV de l&apos;équipe.
+          {t(
+            "Aucun CV dans la banque : ajoutez d'abord les CV de l'équipe.",
+            "No CVs in the bank: add the team's CVs first.",
+          )}
         </p>
       ) : (
         <div className="mp-ao__choix-defilant">
           <GroupeCases
-            legende="CV de l'équipe"
-            aide="Cochez les experts proposés : l'organisation de l'offre vient de leurs CV."
+            legende={t("CV de l'équipe", "Team CVs")}
+            aide={t(
+              "Cochez les experts proposés : l'organisation de l'offre vient de leurs CV.",
+              "Tick the proposed experts: the bid's organization comes from their CVs.",
+            )}
             nom="cv_ids"
             options={cvChoix}
             valeurs={s.cv_ids}
@@ -227,7 +278,7 @@ export function FormulaireOffreTechnique({
       )}
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours}>
-          Rédiger l&apos;offre
+          {t("Rédiger l'offre", "Draft the bid")}
         </Bouton>
       </div>
     </form>
@@ -241,15 +292,23 @@ export function FormulaireVersionOffre({
   offreId: string;
   sections: SectionsOffre;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<keyof SectionsOffre | "motif">();
   const [s, setS] = useState<SectionsOffre & { motif: string }>({ ...sections, motif: "" });
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      lireSectionsOffre(s),
+      lireSectionsOffre(s, langue),
       (c) => api.post(`/api/banque-ao/offres-techniques/${offreId}/versions`, c),
-      { succes: "Nouvelle version enregistrée : à valider.", messageSpecifique: messageBanqueAo },
+      {
+        succes: t(
+          "Nouvelle version enregistrée : à valider.",
+          "New version saved: pending approval.",
+        ),
+        messageSpecifique: (err) => messageBanqueAo(err, langue),
+      },
     );
   }
 
@@ -259,7 +318,7 @@ export function FormulaireVersionOffre({
       {SECTIONS_OFFRE_TECHNIQUE.map((cle) => (
         <ZoneTexte
           key={cle}
-          libelle={libelleSection(cle)}
+          libelle={libelleSection(cle, langue)}
           required
           rows={8}
           maxLength={20_000}
@@ -269,7 +328,7 @@ export function FormulaireVersionOffre({
         />
       ))}
       <Champ
-        libelle="Motif de la modification"
+        libelle={t("Motif de la modification", "Reason for the change")}
         required
         maxLength={500}
         value={s.motif}
@@ -278,7 +337,7 @@ export function FormulaireVersionOffre({
       />
       <div className="mp-actions-formulaire">
         <Bouton type="submit" variante="secondaire" chargement={f.enCours}>
-          Enregistrer la modification
+          {t("Enregistrer la modification", "Save the change")}
         </Bouton>
       </div>
     </form>
@@ -287,6 +346,9 @@ export function FormulaireVersionOffre({
 
 export const MESSAGE_VALIDATION_IMPOSSIBLE =
   "Vous avez demandé ou rédigé cette offre : elle doit être validée par un autre utilisateur ou par un associé (séparation des tâches).";
+
+export const MESSAGE_VALIDATION_IMPOSSIBLE_EN =
+  "You requested or drafted this bid: it must be approved by another user or by a partner (separation of duties).";
 
 export function FormulaireValidationOffre({
   offreId,
@@ -300,6 +362,8 @@ export function FormulaireValidationOffre({
   /** Faux : séparation des tâches, le bouton est désactivé et la raison affichée. */
   peutValider?: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"acquitte">();
   const [acquitte, setAcquitte] = useState(false);
 
@@ -307,7 +371,15 @@ export function FormulaireValidationOffre({
     e.preventDefault();
     const validation: Resultat<{ version: number; acquitte_chiffres?: boolean }, "acquitte"> =
       nombresAAcquitter.length > 0 && !acquitte
-        ? { ok: false, erreurs: { acquitte: "Relisez puis acquittez les nombres signalés." } }
+        ? {
+            ok: false,
+            erreurs: {
+              acquitte: t(
+                "Relisez puis acquittez les nombres signalés.",
+                "Review and acknowledge the flagged numbers.",
+              ),
+            },
+          }
         : {
             ok: true,
             charge: {
@@ -318,7 +390,10 @@ export function FormulaireValidationOffre({
     await f.envoyer(
       validation,
       (c) => api.post(`/api/banque-ao/offres-techniques/${offreId}/validation`, c),
-      { succes: "Version validée.", messageSpecifique: messageBanqueAo },
+      {
+        succes: t("Version validée.", "Version approved."),
+        messageSpecifique: (err) => messageBanqueAo(err, langue),
+      },
     );
   }
 
@@ -327,12 +402,15 @@ export function FormulaireValidationOffre({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       {peutValider ? null : (
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MESSAGE_VALIDATION_IMPOSSIBLE}</p>
+          <p>{t(MESSAGE_VALIDATION_IMPOSSIBLE, MESSAGE_VALIDATION_IMPOSSIBLE_EN)}</p>
         </Alerte>
       )}
       {nombresAAcquitter.length > 0 ? (
         <CaseACocher
-          libelle={`J'ai vérifié les nombres cités par l'IA : ${nombresAAcquitter.join(", ")}`}
+          libelle={t(
+            `J'ai vérifié les nombres cités par l'IA : ${nombresAAcquitter.join(", ")}`,
+            `I have verified the numbers cited by the AI: ${nombresAAcquitter.join(", ")}`,
+          )}
           checked={acquitte}
           onChange={(e) => setAcquitte(e.target.checked)}
           aide={f.erreurs.acquitte}
@@ -341,7 +419,7 @@ export function FormulaireValidationOffre({
       ) : null}
       <div className="mp-actions-formulaire">
         <Bouton type="submit" chargement={f.enCours} disabled={!peutValider}>
-          Valider la version {version}
+          {t(`Valider la version ${version}`, `Approve version ${version}`)}
         </Bouton>
       </div>
     </form>
@@ -364,6 +442,8 @@ export function FormulaireOffreFinanciere({
   offreId?: string;
   initial?: SaisieOffreFinanciere;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const router = useRouter();
   const f = useFormulaire<keyof SaisieOffreFinanciere | "motif">();
   const [s, setS] = useState<SaisieOffreFinanciere>(initial ?? SAISIE_FINANCIERE);
@@ -373,18 +453,22 @@ export function FormulaireOffreFinanciere({
     setS((x) => ({ ...x, [cle]: e.target.value }));
 
   async function simuler() {
-    const lu = lireOffreFinanciere({ ...s, titre: s.titre || "Aperçu" });
+    const lu = lireOffreFinanciere({ ...s, titre: s.titre || "Aperçu" }, langue);
     await f.envoyer(
       lu,
       (c) =>
         api.post<ResultatOffreFinanciere>("/api/banque-ao/offres-financieres/simulation", c.entree),
-      { rafraichir: false, apres: setApercu, messageSpecifique: messageBanqueAo },
+      {
+        rafraichir: false,
+        apres: setApercu,
+        messageSpecifique: (err) => messageBanqueAo(err, langue),
+      },
     );
   }
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const lu = lireOffreFinanciere({ ...s, titre: offreId ? s.titre || "—" : s.titre });
+    const lu = lireOffreFinanciere({ ...s, titre: offreId ? s.titre || "—" : s.titre }, langue);
     if (offreId) {
       const m = motif.trim();
       const validation: Resultat<
@@ -393,17 +477,23 @@ export function FormulaireOffreFinanciere({
       > = !lu.ok
         ? { ok: false, erreurs: lu.erreurs }
         : m === ""
-          ? { ok: false, erreurs: { motif: "Le motif est obligatoire." } }
+          ? {
+              ok: false,
+              erreurs: { motif: t("Le motif est obligatoire.", "The reason is required.") },
+            }
           : { ok: true, charge: { entree: lu.charge.entree, motif: m } };
       await f.envoyer(
         validation,
         (c) => api.post(`/api/banque-ao/offres-financieres/${offreId}/versions`, c),
-        { succes: "Nouvelle version enregistrée.", messageSpecifique: messageBanqueAo },
+        {
+          succes: t("Nouvelle version enregistrée.", "New version saved."),
+          messageSpecifique: (err) => messageBanqueAo(err, langue),
+        },
       );
       return;
     }
     await f.envoyer(lu, (c) => api.post<{ id: string }>("/api/banque-ao/offres-financieres", c), {
-      messageSpecifique: messageBanqueAo,
+      messageSpecifique: (err) => messageBanqueAo(err, langue),
       rafraichir: false,
       apres: (r) => router.push(`${RACINE_BANQUES}/offres-financieres/${r.id}`),
     });
@@ -415,7 +505,7 @@ export function FormulaireOffreFinanciere({
       <div className="mp-grille-champs">
         {offreId ? null : (
           <Champ
-            libelle="Titre de l'offre"
+            libelle={t("Titre de l'offre", "Bid title")}
             required
             maxLength={300}
             value={s.titre}
@@ -424,23 +514,26 @@ export function FormulaireOffreFinanciere({
           />
         )}
         <Select
-          libelle="Devise"
+          libelle={t("Devise", "Currency")}
           value={s.devise}
           onChange={(e) => setS((x) => ({ ...x, devise: e.target.value as Devise }))}
           options={DEVISES.map((d) => ({ valeur: d, libelle: d }))}
         />
         <Champ
-          libelle="TVA (%)"
+          libelle={t("TVA (%)", "VAT (%)")}
           inputMode="decimal"
-          aide="Vide ou 0 : offre hors taxes."
+          aide={t("Vide ou 0 : offre hors taxes.", "Empty or 0: bid excluding tax.")}
           value={s.tva}
           onChange={maj("tva")}
           erreur={f.erreurs.tva}
         />
       </div>
       <ZoneTexte
-        libelle="Honoraires"
-        aide="Une ligne par expert : clé | libellé | jours (0,5 j) | taux journalier."
+        libelle={t("Honoraires", "Fees")}
+        aide={t(
+          "Une ligne par expert : clé | libellé | jours (0,5 j) | taux journalier.",
+          "One line per expert: key | label | days (0.5 d) | daily rate.",
+        )}
         rows={5}
         value={s.honoraires}
         onChange={maj("honoraires")}
@@ -448,15 +541,21 @@ export function FormulaireOffreFinanciere({
       />
       <ZoneTexte
         libelle="Per diem"
-        aide="Une ligne : libellé | nombre de jours | montant journalier."
+        aide={t(
+          "Une ligne : libellé | nombre de jours | montant journalier.",
+          "One line: label | number of days | daily amount.",
+        )}
         rows={3}
         value={s.per_diem}
         onChange={maj("per_diem")}
         erreur={f.erreurs.per_diem}
       />
       <ZoneTexte
-        libelle="Débours"
-        aide="Une ligne : libellé | quantité | prix unitaire."
+        libelle={t("Débours", "Expenses")}
+        aide={t(
+          "Une ligne : libellé | quantité | prix unitaire.",
+          "One line: label | quantity | unit price.",
+        )}
         rows={3}
         value={s.debours}
         onChange={maj("debours")}
@@ -464,7 +563,7 @@ export function FormulaireOffreFinanciere({
       />
       {offreId ? (
         <Champ
-          libelle="Motif de la nouvelle version"
+          libelle={t("Motif de la nouvelle version", "Reason for the new version")}
           required
           maxLength={500}
           value={motif}
@@ -474,13 +573,21 @@ export function FormulaireOffreFinanciere({
       ) : null}
       <div className="mp-actions-formulaire">
         <Bouton type="button" variante="secondaire" chargement={f.enCours} onClick={simuler}>
-          Calculer l&apos;aperçu
+          {t("Calculer l'aperçu", "Compute the preview")}
         </Bouton>
         <Bouton type="submit" chargement={f.enCours}>
-          {offreId ? "Enregistrer la nouvelle version" : "Enregistrer l'offre"}
+          {offreId
+            ? t("Enregistrer la nouvelle version", "Save the new version")
+            : t("Enregistrer l'offre", "Save the bid")}
         </Bouton>
       </div>
-      {apercu ? <ResultatFinancier resultat={apercu} titre="Aperçu (non enregistré)" /> : null}
+      {apercu ? (
+        <ResultatFinancier
+          resultat={apercu}
+          titre={t("Aperçu (non enregistré)", "Preview (not saved)")}
+          langue={langue}
+        />
+      ) : null}
     </form>
   );
 }

@@ -1,6 +1,7 @@
 /** Missions : types du contrat de l'API, libellés des statuts et des types de document. */
 import {
   STATUTS_MISSION,
+  type Langue,
   TYPES_DOCUMENT,
   type ModeFacturation,
   type StatutMission,
@@ -61,10 +62,26 @@ export const STATUT_MISSION: Record<StatutMission, { libelle: string; tonalite: 
     cloturee: { libelle: "Clôturée", tonalite: "neutre" },
   };
 
+export const STATUT_MISSION_EN: Record<StatutMission, string> = {
+  opportunite: "Opportunity",
+  proposition: "Proposal",
+  signee: "Signed",
+  en_cours: "In progress",
+  a_cloturer: "To close",
+  cloturee: "Closed",
+};
+
+/** Libellé d'un statut de mission dans la langue demandée. */
+export const libelleStatutMission = (statut: StatutMission, langue: Langue = "fr") =>
+  langue === "en" ? STATUT_MISSION_EN[statut] : STATUT_MISSION[statut].libelle;
+
 export const OPTIONS_STATUTS_MISSION = STATUTS_MISSION.map((s) => ({
   valeur: s,
   libelle: STATUT_MISSION[s].libelle,
 }));
+
+export const optionsStatutsMission = (langue: Langue = "fr") =>
+  STATUTS_MISSION.map((s) => ({ valeur: s, libelle: libelleStatutMission(s, langue) }));
 
 export const TYPE_DOCUMENT_LIBELLES: Record<TypeDocument, string> = {
   proposition: "Proposition",
@@ -73,10 +90,24 @@ export const TYPE_DOCUMENT_LIBELLES: Record<TypeDocument, string> = {
   autre: "Autre document",
 };
 
+export const TYPE_DOCUMENT_LIBELLES_EN: Record<TypeDocument, string> = {
+  proposition: "Proposal",
+  lettre_de_mission: "Engagement letter",
+  livrable: "Deliverable",
+  autre: "Other document",
+};
+
+/** Libellé d'un type de document dans la langue demandée. */
+export const libelleTypeDocument = (type: TypeDocument, langue: Langue = "fr") =>
+  langue === "en" ? TYPE_DOCUMENT_LIBELLES_EN[type] : TYPE_DOCUMENT_LIBELLES[type];
+
 export const OPTIONS_TYPES_DOCUMENT = TYPES_DOCUMENT.map((t) => ({
   valeur: t,
   libelle: TYPE_DOCUMENT_LIBELLES[t],
 }));
+
+export const optionsTypesDocument = (langue: Langue = "fr") =>
+  TYPES_DOCUMENT.map((t) => ({ valeur: t, libelle: libelleTypeDocument(t, langue) }));
 
 /** Statuts où la lettre de mission est signée : budget initial figé, devise figée. */
 export const STATUTS_SIGNES: readonly StatutMission[] = [

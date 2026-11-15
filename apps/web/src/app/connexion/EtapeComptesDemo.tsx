@@ -1,4 +1,5 @@
 import type { Ref } from "react";
+import { useLangue, useT } from "../../components/i18n/FournisseurLangue";
 import { classesBouton } from "../../components/ui/Bouton";
 import { type DemoCabinet, type DemoCompte } from "../../lib/demo-connexion";
 import {
@@ -26,7 +27,8 @@ function nombreAffiches(groupes: { comptes: DemoCompte[] }[]): number {
 }
 
 /** « 1 compte affiché », « 12 comptes affichés ». */
-function libelleAffiches(n: number): string {
+function libelleAffiches(n: number, langue: "fr" | "en"): string {
+  if (langue === "en") return n === 1 ? `${n} account shown` : `${n} accounts shown`;
   return n <= 1 ? `${n} compte affiché` : `${n} comptes affichés`;
 }
 
@@ -49,9 +51,11 @@ export function EtapeComptes({
   surFiltre?: (ev: EvenementFiltreDemo) => void;
   surRetour?: () => void;
 }) {
-  const espaces = espacesDisponibles(cabinet.comptes);
-  const roles = optionsRoles(cabinet.comptes, filtre.espace);
-  const groupes = vueComptes(cabinet.comptes, filtre);
+  const t = useT();
+  const langue = useLangue();
+  const espaces = espacesDisponibles(cabinet.comptes, langue);
+  const roles = optionsRoles(cabinet.comptes, filtre.espace, langue);
+  const groupes = vueComptes(cabinet.comptes, filtre, langue);
   return (
     <div className="mp-demo__etape" aria-labelledby="titre-demo-cabinet" role="group">
       <div className="mp-demo__entete">
@@ -59,7 +63,7 @@ export function EtapeComptes({
           <h3 id="titre-demo-cabinet" ref={refTitre} tabIndex={-1} className="mp-demo__etape-titre">
             {cabinet.nom}
           </h3>
-          <span className="mp-demo__badge">Démonstration</span>
+          <span className="mp-demo__badge">{t("Démonstration", "Demo")}</span>
         </div>
         <button
           type="button"
@@ -67,19 +71,24 @@ export function EtapeComptes({
           disabled={occupe}
           onClick={() => surRetour?.()}
         >
-          Retour
+          {t("Retour", "Back")}
         </button>
       </div>
       {espaces.length === 0 ? (
-        <p className="mp-texte-doux">Ce cabinet n&apos;a aucun compte de démonstration.</p>
+        <p className="mp-texte-doux">
+          {t("Ce cabinet n'a aucun compte de démonstration.", "This firm has no demo accounts.")}
+        </p>
       ) : (
         <>
           <p className="mp-texte-doux mp-demo__aide">
-            {libelleDetailCabinet(cabinet.comptes)}. Cliquez sur un utilisateur pour ouvrir sa
-            session.
+            {libelleDetailCabinet(cabinet.comptes, langue)}.{" "}
+            {t(
+              "Cliquez sur un utilisateur pour ouvrir sa session.",
+              "Click a user to open their session.",
+            )}
           </p>
           {espaces.length > 1 ? (
-            <div className="mp-demo__filtre" role="group" aria-label="Espace">
+            <div className="mp-demo__filtre" role="group" aria-label={t("Espace", "Space")}>
               {espaces.map((e) => (
                 <button
                   key={e.espace}
@@ -94,7 +103,11 @@ export function EtapeComptes({
             </div>
           ) : null}
           {roles.length > 1 ? (
-            <div className="mp-demo__filtre mp-demo__filtre--roles" role="group" aria-label="Rôle">
+            <div
+              className="mp-demo__filtre mp-demo__filtre--roles"
+              role="group"
+              aria-label={t("Rôle", "Role")}
+            >
               {roles.map((r) => (
                 <button
                   key={r.cle}
@@ -109,7 +122,7 @@ export function EtapeComptes({
             </div>
           ) : null}
           <p className="mp-visuellement-cache" role="status" aria-live="polite">
-            {libelleAffiches(nombreAffiches(groupes))}
+            {libelleAffiches(nombreAffiches(groupes), langue)}
           </p>
           {groupes.map((groupe) => (
             <section
@@ -123,7 +136,7 @@ export function EtapeComptes({
               <ul className="mp-demo__liste mp-demo__liste--grille">
                 {groupe.comptes.map((compte) => {
                   const actif = ouverture?.type === "compte" && ouverture.email === compte.email;
-                  const autres = libelleAutresRoles(compte);
+                  const autres = libelleAutresRoles(compte, langue);
                   return (
                     <li key={compte.email}>
                       <button
@@ -138,7 +151,9 @@ export function EtapeComptes({
                         <span className="mp-demo__texte">
                           <span className="mp-demo__nom">{compte.nom}</span>
                           {actif ? (
-                            <span className="mp-demo__detail">Connexion en cours…</span>
+                            <span className="mp-demo__detail">
+                              {t("Connexion en cours…", "Signing in…")}
+                            </span>
                           ) : (
                             <>
                               {autres ? <span className="mp-demo__detail">{autres}</span> : null}

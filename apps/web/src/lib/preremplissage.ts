@@ -1,3 +1,4 @@
+import type { Langue } from "@missionpilot/shared";
 import {
   cleCase,
   cleTache,
@@ -44,6 +45,25 @@ export const LIBELLE_SOURCE: Record<SourceProposition, string> = {
   affectation_et_activite: "Affectation et activité",
 };
 
+export const LIBELLE_SOURCE_EN: Record<SourceProposition, string> = {
+  affectation: "Assignment",
+  activite: "Platform activity",
+  affectation_et_activite: "Assignment and activity",
+};
+
+export const LIBELLE_CONFIANCE_EN: Record<ConfianceProposition, string> = {
+  haute: "High confidence",
+  moyenne: "Medium confidence",
+  faible: "Low confidence",
+};
+
+export const LIBELLE_MOTIF_ECARTE_EN: Record<string, string> = {
+  jour_verrouille: "closed period",
+  jour_non_travaille: "non-working day",
+  deja_saisi: "already entered",
+  capacite_atteinte: "daily capacity reached",
+};
+
 export const LIBELLE_CONFIANCE: Record<ConfianceProposition, string> = {
   haute: "Confiance haute",
   moyenne: "Confiance moyenne",
@@ -86,6 +106,7 @@ export function appliquerPropositions(
   etat: EtatGrille,
   propositions: readonly PropositionTemps[],
   unite: UniteSaisie,
+  langue: Langue = "fr",
 ): ResultatApplication {
   const valeurs = { ...etat.valeurs };
   const rangees = [...etat.rangees];
@@ -98,8 +119,8 @@ export function appliquerPropositions(
         cle,
         type: "tache",
         id: p.tache_id,
-        libelle: p.tache_libelle ?? "Tâche",
-        groupe: p.mission_intitule ?? "Mission",
+        libelle: p.tache_libelle ?? (langue === "en" ? "Task" : "Tâche"),
+        groupe: p.mission_intitule ?? (langue === "en" ? "Engagement" : "Mission"),
         mission_id: p.mission_id,
       });
     }

@@ -4,6 +4,8 @@
  * `personnes.test.ts`.
  */
 
+import type { Langue } from "@missionpilot/shared";
+
 /** Collaborateur réduit au strict nécessaire pour un choix de personne (aucune donnée financière). */
 export interface Personne {
   utilisateur_id: string;
@@ -42,7 +44,14 @@ export function optionsPersonnes(personnes: readonly Personne[]) {
 }
 
 /** Nom affichable d'un utilisateur ; « — » si non désigné, libellé neutre s'il est inconnu. */
-export function nomPersonne(id: string | null | undefined, personnes: readonly Personne[]): string {
+export function nomPersonne(
+  id: string | null | undefined,
+  personnes: readonly Personne[],
+  langue: Langue = "fr",
+): string {
   if (!id) return "—";
-  return personnes.find((p) => p.utilisateur_id === id)?.nom ?? "Utilisateur du cabinet";
+  return (
+    personnes.find((p) => p.utilisateur_id === id)?.nom ??
+    (langue === "en" ? "Firm user" : "Utilisateur du cabinet")
+  );
 }

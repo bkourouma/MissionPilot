@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CommentairesRepliables } from "../../../../../components/collaboration/Commentaires";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { api } from "../../../../../lib/api";
@@ -31,35 +32,43 @@ export function NoeudTache({
   rang: number;
   ctx: Contexte;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [mode, setMode] = useState<Mode>("lecture");
   const base = `/api/missions/${encodeURIComponent(ctx.missionId)}`;
-  const nom = `la tâche ${tache.libelle}`;
+  const nom = t(`la tâche ${tache.libelle}`, `task ${tache.libelle}`);
   const deplacer = (sens: -1 | 1) => {
     const d = deplacementsEchange(freres, tache.id, sens, "tache", parentId);
     if (d)
-      void ctx.reorganiser(d, `Tâche « ${tache.libelle} » ${sens < 0 ? "montée" : "descendue"}.`);
+      void ctx.reorganiser(
+        d,
+        t(
+          `Tâche « ${tache.libelle} » ${sens < 0 ? "montée" : "descendue"}.`,
+          `Task "${tache.libelle}" moved ${sens < 0 ? "up" : "down"}.`,
+        ),
+      );
   };
   const libelleGrade = (id: string | null, code: string | null) =>
-    ctx.grades.find((g) => g.id === id)?.libelle ?? code ?? "Grade";
+    ctx.grades.find((g) => g.id === id)?.libelle ?? code ?? t("Grade", "Grade");
   return (
     <li className="mp-arbre__noeud mp-arbre__noeud--niveau-3">
       <div className="mp-arbre__element">
         <div className="mp-arbre__ligne">
           <p className="mp-arbre__titre">
-            <span className="mp-arbre__niveau">Tâche</span> {tache.libelle}
+            <span className="mp-arbre__niveau">{t("Tâche", "Task")}</span> {tache.libelle}
           </p>
           {ctx.droits.lireBudget ? <TotalJours valeur={ctx.budgets[tache.id]} /> : null}
         </div>
         <p className="mp-texte-doux mp-texte-petit">
-          {`${formaterNombre(tache.duree_jours_ouvres, 0)} jour(s) ouvré(s)`}
+          {`${formaterNombre(tache.duree_jours_ouvres, 0, langue)} ${t("jour(s) ouvré(s)", "working day(s)")}`}
           {tache.date_debut
-            ? ` · début souhaité le ${formaterDate(tache.date_debut)}`
-            : " · au plus tôt"}
+            ? ` · ${t("début souhaité le", "preferred start on")} ${formaterDate(tache.date_debut, "UTC", langue)}`
+            : ` · ${t("au plus tôt", "as early as possible")}`}
         </p>
         {tache.est_livrable ? (
           <p className="mp-badges">
             <BadgeStatut tonalite="neutre" sansIcone>
-              Livrable
+              {t("Livrable", "Deliverable")}
             </BadgeStatut>
           </p>
         ) : null}
@@ -69,10 +78,10 @@ export function NoeudTache({
               <div key={l.id} className="mp-jours__ligne">
                 <dt>
                   {l.collaborateur_id
-                    ? (l.collaborateur_nom ?? "Collaborateur")
+                    ? (l.collaborateur_nom ?? t("Collaborateur", "Team member"))
                     : libelleGrade(l.grade_id, l.grade_code)}
                 </dt>
-                <dd>{formaterJours(l.jours)}</dd>
+                <dd>{formaterJours(l.jours, langue)}</dd>
               </div>
             ))}
           </dl>
@@ -92,17 +101,20 @@ export function NoeudTache({
                   variante="discret"
                   icone="deplacer"
                   onClick={() => setMode("parent")}
-                  aria-label={`Déplacer ${nom} vers une autre phase ou un autre lot`}
+                  aria-label={t(
+                    `Déplacer ${nom} vers une autre phase ou un autre lot`,
+                    `Move ${nom} to another phase or work package`,
+                  )}
                 >
-                  Déplacer vers…
+                  {t("Déplacer vers…", "Move to…")}
                 </Bouton>
                 <Bouton
                   variante="discret"
                   icone="crayon"
                   onClick={() => setMode("edition")}
-                  aria-label={`Modifier ${nom}`}
+                  aria-label={`${t("Modifier", "Edit")} ${nom}`}
                 >
-                  Modifier
+                  {t("Modifier", "Edit")}
                 </Bouton>
               </>
             ) : null}
@@ -111,24 +123,27 @@ export function NoeudTache({
                 variante="discret"
                 icone="horloge"
                 onClick={() => setMode("budget")}
-                aria-label={`Budgéter ${nom} en jours`}
+                aria-label={t(`Budgéter ${nom} en jours`, `Budget ${nom} in days`)}
               >
-                Budget en jours
+                {t("Budget en jours", "Budget in days")}
               </Bouton>
             ) : null}
             {ctx.droits.planifier ? (
               <Suppression
                 libelle={nom}
                 chemin={`${base}/taches/${encodeURIComponent(tache.id)}`}
-                question={`Supprimer « ${tache.libelle} », son budget et ses dépendances ?`}
+                question={t(
+                  `Supprimer « ${tache.libelle} », son budget et ses dépendances ?`,
+                  `Delete "${tache.libelle}", its budget and its dependencies?`,
+                )}
               />
             ) : null}
           </div>
         ) : null}
         {mode === "edition" ? (
           <FormulaireTache
-            titre={`Modifier ${nom}`}
-            libelleEnvoi="Enregistrer"
+            titre={`${t("Modifier", "Edit")} ${nom}`}
+            libelleEnvoi={t("Enregistrer", "Save")}
             initial={saisieDepuisTache(tache)}
             onAnnuler={() => setMode("lecture")}
             envoyer={(c) => api.patch(`${base}/taches/${encodeURIComponent(tache.id)}`, c)}
@@ -144,8 +159,8 @@ export function NoeudTache({
         ) : null}
         {mode === "parent" ? (
           <FormulaireParent
-            titre={`Déplacer ${nom}`}
-            options={parentsDeTache(ctx.decoupage)}
+            titre={`${t("Déplacer", "Move")} ${nom}`}
+            options={parentsDeTache(ctx.decoupage, langue)}
             actuel={parentId}
             onAnnuler={() => setMode("lecture")}
             envoyer={(cible) => {
@@ -157,7 +172,11 @@ export function NoeudTache({
               );
               return api
                 .post(`${base}/reorganiser`, { deplacements: [d] })
-                .then(() => ctx.annoncer(`Tâche « ${tache.libelle} » déplacée.`));
+                .then(() =>
+                  ctx.annoncer(
+                    t(`Tâche « ${tache.libelle} » déplacée.`, `Task "${tache.libelle}" moved.`),
+                  ),
+                );
             }}
           />
         ) : null}

@@ -3,6 +3,7 @@
 import type { StatutAppelOffres } from "@missionpilot/shared";
 import { libelleStatutAo, statutsManuels } from "../../lib/appels-offres";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BoutonActionAo, seg } from "./ActionsAoBouton";
 
 /*
@@ -23,6 +24,8 @@ export { ActionsEtapeAo } from "./ActionsAoEtape";
 
 /** Dépôt, puis gagné ou perdu (« en réponse » et « no-go » relèvent de la décision). */
 export function ActionsStatutAo({ id, statut }: { id: string; statut: StatutAppelOffres }) {
+  const t = useT();
+  const langue = useLangue();
   const statuts = statutsManuels(statut);
   if (statuts.length === 0) return null;
   return (
@@ -31,10 +34,18 @@ export function ActionsStatutAo({ id, statut }: { id: string; statut: StatutAppe
         <BoutonActionAo
           key={s}
           variante={s === "perdu" ? "danger" : "primaire"}
-          confirmation={`Passer l'appel d'offres à « ${libelleStatutAo(s)} » ?`}
+          confirmation={t(
+            `Passer l'appel d'offres à « ${libelleStatutAo(s)} » ?`,
+            `Change the tender status to “${libelleStatutAo(s, langue)}”?`,
+          )}
           action={() => api.post(`/api/appels-offres/${seg(id)}/statut`, { statut: s })}
         >
-          {s === "depose" ? "Marquer déposé" : `Marquer ${libelleStatutAo(s).toLowerCase()}`}
+          {s === "depose"
+            ? t("Marquer déposé", "Mark as submitted")
+            : t(
+                `Marquer ${libelleStatutAo(s).toLowerCase()}`,
+                `Mark as ${libelleStatutAo(s, langue).toLowerCase()}`,
+              )}
         </BoutonActionAo>
       ))}
     </div>

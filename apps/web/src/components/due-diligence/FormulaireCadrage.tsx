@@ -8,9 +8,9 @@ import {
   cheminCadrage,
   cheminDossiers,
   hrefDossier,
+  libellesDd,
   messageDd,
   optionsDe,
-  TYPE_OPERATION_DD_LIBELLES,
   type EntreeTaxonomie,
   type ReponseEcriture,
 } from "../../lib/due-diligence";
@@ -27,13 +27,13 @@ import {
 import { DEVISES } from "../../lib/format";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
-const OPTIONS_TYPE = optionsDe(TYPES_OPERATION_DD, TYPE_OPERATION_DD_LIBELLES);
 const OPTIONS_DEVISE = DEVISES.map((d) => ({
   valeur: d,
   libelle: d === "XOF" || d === "XAF" ? `${d} (FCFA)` : d,
@@ -70,6 +70,9 @@ export function FormulaireCadrage({
   devise,
   correction,
 }: FormulaireCadrageProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsType = optionsDe(TYPES_OPERATION_DD, libellesDd(langue).TYPE_OPERATION);
   const router = useRouter();
   const f = useFormulaire<ChampCadrage>();
   const [s, setS] = useState<SaisieCadrage>(
@@ -82,7 +85,7 @@ export function FormulaireCadrage({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerCadrage(s, correction !== undefined),
+      validerCadrage(s, correction !== undefined, langue),
       (charge) =>
         correction
           ? api.post<ReponseEcriture>(cheminCadrage(correction.dossierId), {
@@ -92,9 +95,12 @@ export function FormulaireCadrage({
           : api.post<ReponseEcriture>(cheminDossiers(missionId), charge),
       {
         succes: correction
-          ? "Nouvelle version du cadrage enregistrée ; l'ancienne reste dans l'historique."
-          : "Dossier créé.",
-        messageSpecifique: messageDd,
+          ? t(
+              "Nouvelle version du cadrage enregistrée ; l'ancienne reste dans l'historique.",
+              "New scoping version saved; the previous one stays in the history.",
+            )
+          : t("Dossier créé.", "File created."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: (r) => {
           if (!correction && r.id) router.push(hrefDossier(missionId, r.id));
           else maj({ motif: "" });
@@ -110,24 +116,34 @@ export function FormulaireCadrage({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={correction ? "Corriger le cadrage" : "Cadrage de l'opération"}
+      aria-label={
+        correction
+          ? t("Corriger le cadrage", "Edit the scoping")
+          : t("Cadrage de l'opération", "Transaction scoping")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Cadrage refusé"
+        titreErreur={t("Cadrage refusé", "Scoping refused")}
       />
       {taxonomiesAbsentes ? (
-        <Alerte tonalite="attention" titre="Listes de choix incomplètes" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Listes de choix incomplètes", "Incomplete choice lists")}
+          annonce="aucune"
+        >
           <p>
-            Les secteurs ou les pays n&apos;ont pas pu être chargés. Rechargez la page ; si le
-            problème persiste, vérifiez que vous pouvez consulter le dictionnaire de données.
+            {t(
+              "Les secteurs ou les pays n'ont pas pu être chargés. Rechargez la page ; si le problème persiste, vérifiez que vous pouvez consulter le dictionnaire de données.",
+              "The sectors or countries could not be loaded. Reload the page; if the problem persists, check that you can view the data dictionary.",
+            )}
           </p>
         </Alerte>
       ) : null}
       <Champ
-        libelle="Titre du dossier"
+        libelle={t("Titre du dossier", "File title")}
         required
         maxLength={TITRE_MAX}
         value={s.titre}
@@ -136,18 +152,20 @@ export function FormulaireCadrage({
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Secteur"
+          libelle={t("Secteur", "Sector")}
           required
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           options={optionsTaxonomie(secteurs)}
           value={s.secteur_code}
           onChange={(e) => maj({ secteur_code: e.target.value, filiere_code: "" })}
           erreur={f.erreurs.secteur_code}
         />
         <Select
-          libelle="Filière"
+          libelle={t("Filière", "Subsector")}
           invite={
-            s.secteur_code === "" ? "Choisissez d'abord le secteur" : "Aucune filière précise"
+            s.secteur_code === ""
+              ? t("Choisissez d'abord le secteur", "Choose the sector first")
+              : t("Aucune filière précise", "No specific subsector")
           }
           options={optionsTaxonomie(filieresDuSecteur)}
           value={s.filiere_code}
@@ -156,14 +174,17 @@ export function FormulaireCadrage({
           erreur={f.erreurs.filiere_code}
           aide={
             s.secteur_code !== "" && filieresDuSecteur.length === 0
-              ? "Aucune filière n'est définie pour ce secteur."
+              ? t(
+                  "Aucune filière n'est définie pour ce secteur.",
+                  "No subsector is defined for this sector.",
+                )
               : undefined
           }
         />
         <Select
-          libelle="Pays"
+          libelle={t("Pays", "Country")}
           required
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           options={optionsTaxonomie(pays)}
           value={s.pays_code}
           onChange={(e) => maj({ pays_code: e.target.value })}
@@ -172,16 +193,16 @@ export function FormulaireCadrage({
       </div>
       <div className="mp-grille-champs">
         <Select
-          libelle="Type d'opération"
+          libelle={t("Type d'opération", "Transaction type")}
           required
-          invite="Choisir…"
-          options={OPTIONS_TYPE}
+          invite={t("Choisir…", "Choose…")}
+          options={optionsType}
           value={s.type_operation}
           onChange={(e) => maj({ type_operation: e.target.value })}
           erreur={f.erreurs.type_operation}
         />
         <Champ
-          libelle="Cible"
+          libelle={t("Cible", "Target")}
           required={s.type_operation === "acquisition"}
           maxLength={TITRE_MAX}
           value={s.cible_nom}
@@ -189,39 +210,51 @@ export function FormulaireCadrage({
           erreur={f.erreurs.cible_nom}
           aide={
             s.type_operation === "acquisition"
-              ? "Obligatoire pour une acquisition."
-              : "Facultatif : l'entreprise ou l'actif visé."
+              ? t("Obligatoire pour une acquisition.", "Required for an acquisition.")
+              : t(
+                  "Facultatif : l'entreprise ou l'actif visé.",
+                  "Optional: the targeted company or asset.",
+                )
           }
         />
         <Select
-          libelle="Devise du dossier"
+          libelle={t("Devise du dossier", "File currency")}
           required
           options={OPTIONS_DEVISE}
           value={s.devise}
           onChange={(e) => maj({ devise: e.target.value })}
           erreur={f.erreurs.devise}
-          aide="Les montants du marché sont saisis et affichés dans cette devise."
+          aide={t(
+            "Les montants du marché sont saisis et affichés dans cette devise.",
+            "Market amounts are entered and shown in this currency.",
+          )}
         />
         <Champ
-          libelle="Date d'opération prévue"
+          libelle={t("Date d'opération prévue", "Planned transaction date")}
           type="date"
           value={s.date_operation}
           onChange={(e) => maj({ date_operation: e.target.value })}
           erreur={f.erreurs.date_operation}
-          aide="Facultative ; nécessaire pour dater les actions du plan des 100 jours."
+          aide={t(
+            "Facultative ; nécessaire pour dater les actions du plan des 100 jours.",
+            "Optional; needed to date the actions of the 100-day plan.",
+          )}
         />
       </div>
       <ZoneTexte
-        libelle="Question d'investissement"
+        libelle={t("Question d'investissement", "Investment question")}
         rows={3}
         maxLength={ENONCE_MAX}
         value={s.question_investissement}
         onChange={(e) => maj({ question_investissement: e.target.value })}
         erreur={f.erreurs.question_investissement}
-        aide="La question à laquelle la note au comité répondra."
+        aide={t(
+          "La question à laquelle la note au comité répondra.",
+          "The question the committee memo will answer.",
+        )}
       />
       <ZoneTexte
-        libelle="Périmètre de l'étude"
+        libelle={t("Périmètre de l'étude", "Study scope")}
         rows={4}
         maxLength={TEXTE_LONG_MAX}
         value={s.perimetre}
@@ -230,23 +263,29 @@ export function FormulaireCadrage({
       />
       {correction ? (
         <ZoneTexte
-          libelle="Motif de la correction"
+          libelle={t("Motif de la correction", "Reason for the correction")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => maj({ motif: e.target.value })}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique du cadrage."
+          aide={t("Conservé dans l'historique du cadrage.", "Kept in the scoping history.")}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {correction ? "Enregistrer la nouvelle version" : "Créer le dossier"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {correction
+            ? t("Enregistrer la nouvelle version", "Save the new version")
+            : t("Créer le dossier", "Create the file")}
         </Bouton>
         {correction ? null : (
           <Bouton variante="secondaire" onClick={() => router.back()}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         )}
       </div>

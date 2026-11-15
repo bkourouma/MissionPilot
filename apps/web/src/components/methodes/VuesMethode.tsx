@@ -1,5 +1,6 @@
-import { MOTEURS_STANDARD } from "@missionpilot/shared";
+import { MOTEURS_STANDARD, type Langue, type Traduire } from "@missionpilot/shared";
 import { formaterNombre } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
   briquesParEtape,
   decrireCondition,
@@ -7,7 +8,7 @@ import {
   libelleClasse,
   libelleEtapeGarde,
   libelleNiveau,
-  ORIGINE_ETAT_LIBELLES,
+  libelleOrigineEtat,
   type BriqueEffective,
   type BriqueVersion,
   type Facteur,
@@ -24,32 +25,35 @@ import {
   SectionRubriques,
 } from "./SectionsMethode";
 
-const LIBELLES_AJUSTEMENT: Record<string, string> = {
-  ponderation: "Pondération",
-  seuil: "Seuil",
-  benchmark: "Benchmark",
-  gabarit: "Gabarit",
-  formulation: "Formulation",
+const LIBELLES_AJUSTEMENT: Record<string, [string, string]> = {
+  ponderation: ["Pondération", "Weighting"],
+  seuil: ["Seuil", "Threshold"],
+  benchmark: ["Benchmark", "Benchmark"],
+  gabarit: ["Gabarit", "Template"],
+  formulation: ["Formulation", "Wording"],
 };
 
-function Attributs({ b }: { b: BriqueVersion }) {
+function Attributs({ b, t, langue }: { b: BriqueVersion; t: Traduire; langue: Langue }) {
   const lignes: [string, string | null][] = [
-    ["Objet", b.objet],
-    ["Entrées", b.entrees],
+    [t("Objet", "Purpose"), b.objet],
+    [t("Entrées", "Inputs"), b.entrees],
     [
-      "Moteur",
+      t("Moteur", "Engine"),
       b.moteur ? (MOTEURS_STANDARD[b.moteur as keyof typeof MOTEURS_STANDARD] ?? b.moteur) : null,
     ],
-    ["Agent IA autorisé", b.agent],
-    ["Autonomie de l'IA au plus", libelleNiveau(b.niveau_autonomie_max)],
-    ["Garde", b.garde],
-    ["Sortie", b.sortie],
-    ["Définition de terminé", b.definition_termine],
+    [t("Agent IA autorisé", "Authorized AI agent"), b.agent],
     [
-      "Temps type",
+      t("Autonomie de l'IA au plus", "AI autonomy at most"),
+      libelleNiveau(b.niveau_autonomie_max, langue),
+    ],
+    [t("Garde", "Safeguard"), b.garde],
+    [t("Sortie", "Output"), b.sortie],
+    [t("Définition de terminé", "Definition of done"), b.definition_termine],
+    [
+      t("Temps type", "Standard time"),
       b.temps_type_jours === null
         ? null
-        : `${formaterNombre(b.temps_type_jours)} j${b.profil_temps ? ` · ${b.profil_temps}` : ""}`,
+        : `${formaterNombre(b.temps_type_jours, 2, langue)} ${t("j", "d")}${b.profil_temps ? ` · ${b.profil_temps}` : ""}`,
     ],
   ];
   return (
@@ -67,7 +71,7 @@ function Attributs({ b }: { b: BriqueVersion }) {
 }
 
 /** Contenu d'une version : étapes et briques, éléments, rubriques, règles, cas types. */
-export function ContenuVersion({
+export async function ContenuVersion({
   v,
   facteurs,
   editable,
@@ -76,6 +80,8 @@ export function ContenuVersion({
   facteurs: Facteur[];
   editable: boolean;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const base = `/api/methodes/versions/${v.version.id}`;
   return (
     <div className="mp-methode">
@@ -85,7 +91,9 @@ export function ContenuVersion({
             {etape.libelle} <span className="mp-methode__code">({etape.code})</span>
           </h3>
           {etape.description ? <p className="mp-texte-doux">{etape.description}</p> : null}
-          {briques.length === 0 ? <p>Aucune brique dans cette étape.</p> : null}
+          {briques.length === 0 ? (
+            <p>{t("Aucune brique dans cette étape.", "No building block in this step.")}</p>
+          ) : null}
           <ul className="mp-methode__briques">
             {briques.map((b) => (
               <li
@@ -104,24 +112,29 @@ export function ContenuVersion({
                           : "neutre"
                     }
                   >
-                    {libelleClasse(b.classe_risque)}
+                    {libelleClasse(b.classe_risque, langue)}
                   </BadgeStatut>
                   {b.active_par_defaut ? null : (
-                    <BadgeStatut tonalite="neutre">Inactive par défaut</BadgeStatut>
+                    <BadgeStatut tonalite="neutre">
+                      {t("Inactive par défaut", "Inactive by default")}
+                    </BadgeStatut>
                   )}
                 </div>
-                <Attributs b={b} />
+                <Attributs b={b} t={t} langue={langue} />
                 {editable ? <ModifierBrique v={v} brique={b} /> : null}
                 {editable ? (
                   <BoutonAction
-                    libelle="Supprimer la brique"
+                    libelle={t("Supprimer la brique", "Delete the building block")}
                     chemin={`${base}/briques/${b.id}`}
                     methode="DELETE"
                     variante="discret"
                     icone="corbeille"
                     confirmation={{
-                      question: `Supprimer la brique « ${b.libelle} » du brouillon ?`,
-                      libelleConfirmation: "Oui, supprimer",
+                      question: t(
+                        `Supprimer la brique « ${b.libelle} » du brouillon ?`,
+                        `Delete the building block "${b.libelle}" from the draft?`,
+                      ),
+                      libelleConfirmation: t("Oui, supprimer", "Yes, delete"),
                     }}
                   />
                 ) : null}
@@ -131,14 +144,20 @@ export function ContenuVersion({
           {editable ? <ModifierEtape v={v} etape={etape} /> : null}
           {editable ? (
             <BoutonAction
-              libelle="Supprimer l'étape et ses briques"
+              libelle={t(
+                "Supprimer l'étape et ses briques",
+                "Delete the step and its building blocks",
+              )}
               chemin={`${base}/etapes/${etape.id}`}
               methode="DELETE"
               variante="discret"
               icone="corbeille"
               confirmation={{
-                question: `Supprimer l'étape « ${etape.libelle} » et toutes ses briques ?`,
-                libelleConfirmation: "Oui, supprimer",
+                question: t(
+                  `Supprimer l'étape « ${etape.libelle} » et toutes ses briques ?`,
+                  `Delete the step "${etape.libelle}" and all its building blocks?`,
+                ),
+                libelleConfirmation: t("Oui, supprimer", "Yes, delete"),
               }}
             />
           ) : null}
@@ -147,10 +166,15 @@ export function ContenuVersion({
 
       <section className="mp-methode__etape" aria-labelledby="titre-regles">
         <h3 id="titre-regles" className="mp-section__titre">
-          Règles de modulation ({v.regles.length})
+          {t(`Règles de modulation (${v.regles.length})`, `Modulation rules (${v.regles.length})`)}
         </h3>
         {v.regles.length === 0 ? (
-          <p>Aucune règle : la méthode s&apos;applique telle quelle.</p>
+          <p>
+            {t(
+              "Aucune règle : la méthode s'applique telle quelle.",
+              "No rule: the method applies as is.",
+            )}
+          </p>
         ) : null}
         <ul className="mp-liste-simple">
           {v.regles.map((r) => (
@@ -158,25 +182,33 @@ export function ContenuVersion({
               <strong>
                 {r.regle.libelle ?? r.code}{" "}
                 <span className="mp-methode__code">
-                  ({r.code}, priorité {r.regle.priorite})
+                  ({r.code}, {t("priorité", "priority")} {r.regle.priorite})
                 </span>
               </strong>
-              <span>Si {decrireCondition(r.regle.condition, facteurs)}</span>
-              <span>Alors : {r.regle.effets.map(decrireEffet).join(" ; ")}</span>
+              <span>
+                {t("Si", "If")} {decrireCondition(r.regle.condition, facteurs, langue)}
+              </span>
+              <span>
+                {t("Alors : ", "Then: ")}
+                {r.regle.effets.map((e) => decrireEffet(e, langue)).join(t(" ; ", "; "))}
+              </span>
               {r.regle.active === false ? (
-                <BadgeStatut tonalite="neutre">Désactivée</BadgeStatut>
+                <BadgeStatut tonalite="neutre">{t("Désactivée", "Disabled")}</BadgeStatut>
               ) : null}
               {editable ? <ModifierRegle v={v} regle={r} facteurs={facteurs} /> : null}
               {editable ? (
                 <BoutonAction
-                  libelle="Supprimer la règle"
+                  libelle={t("Supprimer la règle", "Delete the rule")}
                   chemin={`${base}/regles/${r.id}`}
                   methode="DELETE"
                   variante="discret"
                   icone="corbeille"
                   confirmation={{
-                    question: `Supprimer la règle « ${r.code} » ?`,
-                    libelleConfirmation: "Oui, supprimer",
+                    question: t(
+                      `Supprimer la règle « ${r.code} » ?`,
+                      `Delete the rule "${r.code}"?`,
+                    ),
+                    libelleConfirmation: t("Oui, supprimer", "Yes, delete"),
                   }}
                 />
               ) : null}
@@ -193,11 +225,13 @@ export function ContenuVersion({
 }
 
 /** Méthode effective d'une mission : briques actives ou non, origine, classe et garde. */
-export function VueMethodeEffective({
+export async function VueMethodeEffective({
   etapes,
 }: {
   etapes: { code: string; libelle: string; briques: BriqueEffective[] }[];
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   return (
     <div className="mp-methode">
       {etapes.map((e) => (
@@ -214,9 +248,11 @@ export function VueMethodeEffective({
                 <h4 className="mp-methode__brique-titre">{b.libelle}</h4>
                 <div className="mp-badges">
                   <BadgeStatut tonalite={b.active ? "succes" : "neutre"}>
-                    {b.active ? "Active" : "Inactive"}
+                    {b.active ? t("Active", "Active") : t("Inactive", "Inactive")}
                   </BadgeStatut>
-                  <BadgeStatut tonalite="neutre">{ORIGINE_ETAT_LIBELLES[b.origine]}</BadgeStatut>
+                  <BadgeStatut tonalite="neutre">
+                    {libelleOrigineEtat(b.origine, langue)}
+                  </BadgeStatut>
                   <BadgeStatut
                     tonalite={
                       b.classe_risque === "R3"
@@ -226,36 +262,38 @@ export function VueMethodeEffective({
                           : "neutre"
                     }
                   >
-                    {libelleClasse(b.classe_risque)}
+                    {libelleClasse(b.classe_risque, langue)}
                     {b.classe_risque !== b.classe_risque_base
-                      ? ` (relevée depuis ${b.classe_risque_base})`
+                      ? ` (${t("relevée depuis", "raised from")} ${b.classe_risque_base})`
                       : ""}
                   </BadgeStatut>
                 </div>
                 <dl className="mp-liste-def mp-liste-def--compacte">
                   <div>
-                    <dt>Garde</dt>
+                    <dt>{t("Garde", "Safeguard")}</dt>
                     <dd>
                       {b.garde_requise.etapes.length === 0
-                        ? "Automatique, journalisée"
-                        : b.garde_requise.etapes.map(libelleEtapeGarde).join(" → ")}
+                        ? t("Automatique, journalisée", "Automatic, logged")
+                        : b.garde_requise.etapes
+                            .map((e) => libelleEtapeGarde(e, langue))
+                            .join(" → ")}
                     </dd>
                   </div>
                   <div>
-                    <dt>Autonomie de l&apos;IA au plus</dt>
-                    <dd>{libelleNiveau(b.niveau_autonomie_max)}</dd>
+                    <dt>{t("Autonomie de l'IA au plus", "AI autonomy at most")}</dt>
+                    <dd>{libelleNiveau(b.niveau_autonomie_max, langue)}</dd>
                   </div>
                   {Object.entries(b.ajustements)
                     .filter(([, v]) => v !== null)
                     .map(([k, v]) => (
                       <div key={k}>
-                        <dt>{LIBELLES_AJUSTEMENT[k] ?? k}</dt>
+                        <dt>{LIBELLES_AJUSTEMENT[k] ? t(...LIBELLES_AJUSTEMENT[k]) : k}</dt>
                         <dd>{String(v)}</dd>
                       </div>
                     ))}
                   {b.adaptations.map((a) => (
                     <div key={a}>
-                      <dt>Adaptation par dérogation</dt>
+                      <dt>{t("Adaptation par dérogation", "Adaptation by waiver")}</dt>
                       <dd>{a}</dd>
                     </div>
                   ))}

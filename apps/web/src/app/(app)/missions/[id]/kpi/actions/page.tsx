@@ -11,6 +11,7 @@ import { Tableau } from "../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import {
   cheminAlertesKpi,
   droitsKpi,
@@ -24,7 +25,7 @@ import {
   enRetard,
   hrefAction,
   hrefActions,
-  LIBELLES_STATUT_ACTION,
+  libelleStatutAction,
   optionsAlertes,
   texteVerdict,
   type PageActions,
@@ -38,7 +39,10 @@ import { aujourdhui } from "../../../../../../lib/periode";
 import { exigerPermission } from "../../../../../../lib/session";
 import { STATUTS_ACTION_KPI } from "@missionpilot/shared";
 
-export const metadata: Metadata = { title: "Actions correctives" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Actions correctives", "Corrective actions") };
+}
 
 const texte = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -58,6 +62,8 @@ export default async function PageActionsKpi({
 }) {
   const { id } = await params;
   const { utilisateur } = await exigerPermission("kpi.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = await chargerMission(id);
   if (!r.ok) return null;
   const m = r.donnees;
@@ -77,9 +83,9 @@ export default async function PageActionsKpi({
   requete.set("limite", "25");
   const [actions, options, choixDecisions] = await Promise.all([
     chargerServeur<PageActions>(cheminActionsMission(m.id, requete.toString())),
-    chargerOptionsPilotage(utilisateur.roles, m, m.id),
+    chargerOptionsPilotage(utilisateur.roles, m, m.id, langue),
     droits.saisir || droits.gerer
-      ? chargerDecisionsPourAction(m.id, revueProposee || undefined)
+      ? chargerDecisionsPourAction(m.id, revueProposee || undefined, langue)
       : Promise.resolve({ decisions: [], erreur: null }),
   ]);
   // Le KPI de la décision d'où l'on vient est proposé quand aucun KPI n'est imposé par l'adresse.
@@ -92,24 +98,28 @@ export default async function PageActionsKpi({
   const filtre = (s?: string) => {
     const p = new URLSearchParams();
     if (s) p.set("statut", s);
-    const t = p.toString();
-    return t ? `${hrefActions(m.id)}?${t}` : hrefActions(m.id);
+    const requeteStatut = p.toString();
+    return requeteStatut ? `${hrefActions(m.id)}?${requeteStatut}` : hrefActions(m.id);
   };
   return (
     <div className="mp-kpi">
       <div className="mp-actions-formulaire">
         <Link href={hrefTableauKpi(m.id)} className={classesBouton("secondaire")}>
-          Revenir au tableau de bord
+          {t("Revenir au tableau de bord", "Back to the dashboard")}
         </Link>
       </div>
       <p className="mp-texte-doux">
-        Une action corrective répond à une alerte ou à une décision de revue. Une fois terminée, le
-        moteur compare le KPI avant et après sa date d&apos;effet : c&apos;est une variation
-        observée, pas une preuve de causalité.
+        {t(
+          "Une action corrective répond à une alerte ou à une décision de revue. Une fois terminée, le moteur compare le KPI avant et après sa date d'effet : c'est une variation observée, pas une preuve de causalité.",
+          "A corrective action responds to an alert or a review decision. Once completed, the engine compares the KPI before and after its effective date: it is an observed change, not proof of causality.",
+        )}
       </p>
-      <nav aria-label="Filtrer par statut" className="mp-actions-formulaire">
+      <nav
+        aria-label={t("Filtrer par statut", "Filter by status")}
+        className="mp-actions-formulaire"
+      >
         <Link href={filtre()} className={classesBouton(statut ? "discret" : "secondaire")}>
-          Toutes
+          {t("Toutes", "All")}
         </Link>
         {STATUTS_ACTION_KPI.map((s) => (
           <Link
@@ -117,43 +127,48 @@ export default async function PageActionsKpi({
             href={filtre(s)}
             className={classesBouton(statut === s ? "secondaire" : "discret")}
           >
-            {LIBELLES_STATUT_ACTION[s]}
+            {libelleStatutAction(s, langue)}
           </Link>
         ))}
       </nav>
       {!actions.ok ? (
         <EtatErreur
-          titre="Les actions n'ont pas pu être chargées."
+          titre={t("Les actions n'ont pas pu être chargées.", "The actions could not be loaded.")}
           message={actions.message}
           hrefReessayer={filtre(statut)}
         />
       ) : actions.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune action corrective." icone="info">
-          <p>Enregistrez une action pour suivre ce qui est fait face à une alerte ou un écart.</p>
+        <EtatVide titre={t("Aucune action corrective.", "No corrective action.")} icone="info">
+          <p>
+            {t(
+              "Enregistrez une action pour suivre ce qui est fait face à une alerte ou un écart.",
+              "Record an action to track what is done in response to an alert or a variance.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <>
           <Tableau
-            legende="Actions correctives de la mission"
+            legende={t("Actions correctives de la mission", "The engagement's corrective actions")}
             colonnes={[
-              { cle: "numero", entete: "N°", alignement: "droite" },
+              { cle: "numero", entete: t("N°", "No."), alignement: "droite" },
               {
                 cle: "titre",
-                entete: "Action",
+                entete: t("Action", "Action"),
                 rendu: (a) => <Link href={hrefAction(m.id, a.id)}>{a.titre}</Link>,
               },
               { cle: "kpi_libelle", entete: "KPI" },
-              { cle: "responsable_nom", entete: "Responsable" },
+              { cle: "responsable_nom", entete: t("Responsable", "Owner") },
               {
                 cle: "echeance",
-                entete: "Échéance",
+                entete: t("Échéance", "Due date"),
                 rendu: (a) => (
                   <>
-                    {formaterDate(a.echeance)}
+                    {formaterDate(a.echeance, "UTC", langue)}
                     {enRetard(a.echeance, a.statut, jour) ? (
                       <>
                         {" "}
-                        <BadgeStatut tonalite="danger">En retard</BadgeStatut>
+                        <BadgeStatut tonalite="danger">{t("En retard", "Overdue")}</BadgeStatut>
                       </>
                     ) : null}
                   </>
@@ -161,13 +176,13 @@ export default async function PageActionsKpi({
               },
               {
                 cle: "statut",
-                entete: "Statut",
-                rendu: (a) => LIBELLES_STATUT_ACTION[a.statut],
+                entete: t("Statut", "Status"),
+                rendu: (a) => libelleStatutAction(a.statut, langue),
               },
               {
                 cle: "efficacite",
-                entete: "Efficacité mesurée",
-                rendu: (a) => (a.statut === "terminee" ? texteVerdict(a.efficacite) : "—"),
+                entete: t("Efficacité mesurée", "Measured effectiveness"),
+                rendu: (a) => (a.statut === "terminee" ? texteVerdict(a.efficacite, langue) : "—"),
               },
             ]}
             lignes={actions.donnees.elements}
@@ -184,9 +199,16 @@ export default async function PageActionsKpi({
         </>
       )}
       {droits.saisir || droits.gerer ? (
-        <Carte titre="Nouvelle action corrective" id="nouvelle-action">
+        <Carte
+          titre={t("Nouvelle action corrective", "New corrective action")}
+          id="nouvelle-action"
+        >
           {options.erreurKpis ? (
-            <Alerte tonalite="attention" titre="KPI indisponibles" annonce="aucune">
+            <Alerte
+              tonalite="attention"
+              titre={t("KPI indisponibles", "KPIs unavailable")}
+              annonce="aucune"
+            >
               <p>{options.erreurKpis}</p>
             </Alerte>
           ) : (
@@ -194,7 +216,9 @@ export default async function PageActionsKpi({
               key={`${kpiPropose}-${alertePropose}-${decisionPropose}`}
               missionId={m.id}
               kpis={options.kpisActifs}
-              alertes={alertes && alertes.ok ? optionsAlertes(alertes.donnees.elements) : []}
+              alertes={
+                alertes && alertes.ok ? optionsAlertes(alertes.donnees.elements, langue) : []
+              }
               decisions={choixDecisions.decisions}
               personnes={options.personnes}
               kpiId={kpiPropose}

@@ -9,6 +9,8 @@
  */
 import {
   aPermission,
+  AVERTISSEMENT_TRANSCRIPTION,
+  creerTraduire,
   EXTENSIONS_AUDIO,
   LANGUES_DEMANDEES_TRANSCRIPTION,
   LIBELLES_ERREUR_TRANSCRIPTION,
@@ -16,8 +18,10 @@ import {
   LIBELLES_NIVEAU_CONFIANCE,
   LIBELLES_ORIGINE_VERSION_TRANSCRIPTION,
   LIBELLES_STATUT_TRANSCRIPTION,
+  LOCALES_INTL,
   PLAFONDS_TRANSCRIPTION,
   TYPES_AUDIO,
+  type Langue,
   type LangueDemandeeTranscription,
   type Role,
   type SegmentTranscriptionApi,
@@ -67,23 +71,88 @@ export const LIMITE_LISTE_TRANSCRIPTIONS = PLAFONDS_TRANSCRIPTION.listeLimiteMax
 
 // --- Libellés --------------------------------------------------------------------------------
 
-export const libelleStatutTranscription = (s: string | null | undefined) =>
-  (s ? (LIBELLES_STATUT_TRANSCRIPTION as Record<string, string>)[s] : undefined) ?? "—";
+export const AVERTISSEMENT_TRANSCRIPTION_EN =
+  "Draft to review: a transcription that has not been approved is used nowhere else.";
+export const avertissementTranscription = (langue: Langue = "fr") =>
+  langue === "en" ? AVERTISSEMENT_TRANSCRIPTION_EN : AVERTISSEMENT_TRANSCRIPTION;
 
-export const libelleLangue = (l: string | null | undefined) =>
-  (l ? (LIBELLES_LANGUE_TRANSCRIPTION as Record<string, string>)[l] : undefined) ?? "—";
+const LIBELLES_STATUT_TRANSCRIPTION_EN: Record<string, string> = {
+  en_file: "Queued",
+  en_cours: "In progress",
+  a_relire: "To review",
+  validee: "Approved",
+  rejetee: "Rejected",
+  echec: "Failed",
+};
+const LIBELLES_LANGUE_TRANSCRIPTION_EN: Record<string, string> = {
+  fr: "French",
+  dyu: "Dyula",
+  wol: "Wolof",
+  bam: "Bambara",
+  lin: "Lingala",
+  auto: "Automatic detection",
+};
+const LIBELLES_ORIGINE_VERSION_TRANSCRIPTION_EN: Record<string, string> = {
+  automatique: "Automatic transcription",
+  humaine: "Human correction",
+};
+const LIBELLES_ERREUR_TRANSCRIPTION_EN: Record<string, string> = {
+  AUDIO_NON_SIMULE: "This audio is not a test recording accepted by the simulator.",
+  LANGUE_NON_PRISE_EN_CHARGE: "This language is not supported.",
+  AUDIO_ILLISIBLE: "The audio is unreadable.",
+  INDISPONIBLE: "The transcription service is unavailable.",
+};
+const LIBELLES_NIVEAU_CONFIANCE_EN: Record<string, string> = {
+  bon: "Good confidence",
+  moyen: "Medium confidence",
+  faible: "Low confidence",
+};
 
-export const libelleOrigineVersion = (o: string | null | undefined) =>
-  (o ? (LIBELLES_ORIGINE_VERSION_TRANSCRIPTION as Record<string, string>)[o] : undefined) ?? "—";
+export const libelleStatutTranscription = (s: string | null | undefined, langue: Langue = "fr") =>
+  (s
+    ? (
+        (langue === "en"
+          ? LIBELLES_STATUT_TRANSCRIPTION_EN
+          : LIBELLES_STATUT_TRANSCRIPTION) as Record<string, string>
+      )[s]
+    : undefined) ?? "—";
 
-export const libelleErreurTranscription = (c: string | null | undefined) =>
-  (c ? (LIBELLES_ERREUR_TRANSCRIPTION as Record<string, string>)[c] : undefined) ??
-  "La transcription a échoué.";
+export const libelleLangue = (l: string | null | undefined, langue: Langue = "fr") =>
+  (l
+    ? (
+        (langue === "en"
+          ? LIBELLES_LANGUE_TRANSCRIPTION_EN
+          : LIBELLES_LANGUE_TRANSCRIPTION) as Record<string, string>
+      )[l]
+    : undefined) ?? "—";
+
+export const libelleOrigineVersion = (o: string | null | undefined, langue: Langue = "fr") =>
+  (o
+    ? (
+        (langue === "en"
+          ? LIBELLES_ORIGINE_VERSION_TRANSCRIPTION_EN
+          : LIBELLES_ORIGINE_VERSION_TRANSCRIPTION) as Record<string, string>
+      )[o]
+    : undefined) ?? "—";
+
+export const libelleErreurTranscription = (c: string | null | undefined, langue: Langue = "fr") =>
+  (c
+    ? (
+        (langue === "en"
+          ? LIBELLES_ERREUR_TRANSCRIPTION_EN
+          : LIBELLES_ERREUR_TRANSCRIPTION) as Record<string, string>
+      )[c]
+    : undefined) ?? (langue === "en" ? "The transcription failed." : "La transcription a échoué.");
 
 export const OPTIONS_LANGUE_TRANSCRIPTION = LANGUES_DEMANDEES_TRANSCRIPTION.map((l) => ({
   valeur: l,
   libelle: LIBELLES_LANGUE_TRANSCRIPTION[l],
 }));
+export const optionsLangueTranscription = (langue: Langue = "fr") =>
+  LANGUES_DEMANDEES_TRANSCRIPTION.map((l) => ({
+    valeur: l,
+    libelle: libelleLangue(l, langue),
+  }));
 
 export function tonaliteStatutTranscription(s: StatutTranscription | string): TonaliteStatut {
   switch (s) {
@@ -131,8 +200,9 @@ export function niveauConfiancePm(pm: number | null | undefined): NiveauConfianc
   return pm >= 800 ? "bon" : pm >= 600 ? "moyen" : "faible";
 }
 
-export function libelleNiveauConfiance(n: NiveauConfiance | null): string {
-  return n ? LIBELLES_NIVEAU_CONFIANCE[n] : "Confiance inconnue";
+export function libelleNiveauConfiance(n: NiveauConfiance | null, langue: Langue = "fr"): string {
+  if (!n) return langue === "en" ? "Unknown confidence" : "Confiance inconnue";
+  return langue === "en" ? LIBELLES_NIVEAU_CONFIANCE_EN[n]! : LIBELLES_NIVEAU_CONFIANCE[n];
 }
 
 export function tonaliteConfiance(n: NiveauConfiance | null): TonaliteStatut {
@@ -143,9 +213,12 @@ export function tonaliteConfiance(n: NiveauConfiance | null): TonaliteStatut {
 }
 
 /** Confiance en pourcentage lisible : 850 (pour mille) → « 85 % ». */
-export function formaterConfiance(pm: number | null | undefined): string {
+export function formaterConfiance(pm: number | null | undefined, langue: Langue = "fr"): string {
   if (pm === null || pm === undefined || !Number.isFinite(pm)) return "—";
-  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 }).format(pm / 10)} %`;
+  const nombre = new Intl.NumberFormat(LOCALES_INTL[langue], { maximumFractionDigits: 1 }).format(
+    pm / 10,
+  );
+  return langue === "en" ? `${nombre}%` : `${nombre} %`;
 }
 
 // --- Versions --------------------------------------------------------------------------------
@@ -199,7 +272,9 @@ export function actionsTranscription(entree: {
   versions: readonly VersionTranscriptionApi[];
   roles: readonly Role[];
   utilisateurId: string;
+  langue?: Langue;
 }): ActionsTranscription {
+  const t = creerTraduire(entree.langue ?? "fr");
   const { transcription, versions, roles, utilisateurId } = entree;
   const aRelire = transcription.statut === "a_relire";
   const peutValider = aPermission(roles, "transcription.valider") && aRelire;
@@ -212,7 +287,10 @@ export function actionsTranscription(entree: {
     ecouter: aPermission(roles, "transcription.lire") && transcription.audio_disponible,
     motifValidationImpossible:
       peutValider && memePersonne
-        ? "Vous avez corrigé ce texte : une autre personne doit le valider (séparation des tâches)."
+        ? t(
+            "Vous avez corrigé ce texte : une autre personne doit le valider (séparation des tâches).",
+            "You corrected this text: someone else must approve it (separation of duties).",
+          )
         : null,
   };
 }
@@ -225,9 +303,9 @@ export function acceptAudio(): string {
 }
 
 /** « OGG, OGA, OPUS, MP3, M4A ou WAV ». */
-export function extensionsAudioLisibles(): string {
+export function extensionsAudioLisibles(langue: Langue = "fr"): string {
   const ext = TYPES_AUDIO.flatMap((t) => EXTENSIONS_AUDIO[t]).map((e) => e.toUpperCase());
-  return `${ext.slice(0, -1).join(", ")} ou ${ext[ext.length - 1]}`;
+  return `${ext.slice(0, -1).join(", ")} ${langue === "en" ? "or" : "ou"} ${ext[ext.length - 1]}`;
 }
 
 const MO_MAX = Math.floor(PLAFONDS_TRANSCRIPTION.tailleAudioMaxOctets / (1024 * 1024));
@@ -238,12 +316,26 @@ export type ControleAudio = { ok: true } | { ok: false; message: string };
  * Contrôle local d'un audio choisi : non vide, 15 Mo au plus, extension audio admise. Le serveur
  * reste seul juge (type par le contenu) ; en mode simulé il n'accepte qu'un enregistrement de test.
  */
-export function controlerAudio(f: { name: string; size: number }): ControleAudio {
-  if (f.size <= 0) return { ok: false, message: "Ce fichier est vide : choisissez-en un autre." };
+export function controlerAudio(
+  f: { name: string; size: number },
+  langue: Langue = "fr",
+): ControleAudio {
+  const t = creerTraduire(langue);
+  if (f.size <= 0)
+    return {
+      ok: false,
+      message: t(
+        "Ce fichier est vide : choisissez-en un autre.",
+        "This file is empty: choose another one.",
+      ),
+    };
   if (f.size > PLAFONDS_TRANSCRIPTION.tailleAudioMaxOctets) {
     return {
       ok: false,
-      message: `Fichier trop volumineux (${formaterTaille(f.size)}) : ${MO_MAX} Mo au plus.`,
+      message: t(
+        `Fichier trop volumineux (${formaterTaille(f.size)}) : ${MO_MAX} Mo au plus.`,
+        `File too large (${formaterTaille(f.size, langue)}): ${MO_MAX} MB at most.`,
+      ),
     };
   }
   const ext = extensionDe(f.name);
@@ -251,7 +343,10 @@ export function controlerAudio(f: { name: string; size: number }): ControleAudio
   if (!ext || !admises.includes(ext)) {
     return {
       ok: false,
-      message: `Type de fichier non accepté : choisissez un enregistrement ${extensionsAudioLisibles()}.`,
+      message: t(
+        `Type de fichier non accepté : choisissez un enregistrement ${extensionsAudioLisibles()}.`,
+        `File type not accepted: choose a ${extensionsAudioLisibles("en")} recording.`,
+      ),
     };
   }
   return { ok: true };
@@ -283,29 +378,45 @@ export interface ChargeTranscription {
  */
 export function validerTranscription(
   s: SaisieTranscription,
+  langueUi: Langue = "fr",
 ): Resultat<ChargeTranscription, ChampTranscription> {
+  const t = creerTraduire(langueUi);
   const erreurs: Partial<Record<ChampTranscription, string>> = {};
   const langue = (LANGUES_DEMANDEES_TRANSCRIPTION as readonly string[]).includes(s.langue)
     ? (s.langue as LangueDemandeeTranscription)
     : null;
-  if (!langue) erreurs.langue = "Choisissez la langue de l'enregistrement.";
+  if (!langue)
+    erreurs.langue = t(
+      "Choisissez la langue de l'enregistrement.",
+      "Choose the recording language.",
+    );
   if (!s.consenti) {
-    erreurs.consenti =
-      "Cochez la case : la transcription exige le consentement de la personne enregistrée.";
+    erreurs.consenti = t(
+      "Cochez la case : la transcription exige le consentement de la personne enregistrée.",
+      "Tick the box: transcription requires the consent of the person recorded.",
+    );
   }
   const reference = s.reference.trim();
   if (reference.length < 10) {
-    erreurs.reference =
-      "Indiquez comment le consentement a été recueilli, en 10 caractères au moins (ex. accord oral enregistré le 12/03/2027).";
+    erreurs.reference = t(
+      "Indiquez comment le consentement a été recueilli, en 10 caractères au moins (ex. accord oral enregistré le 12/03/2027).",
+      "State how consent was obtained, in at least 10 characters (e.g. oral agreement recorded on 12/03/2027).",
+    );
   } else if (reference.length > 500) {
-    erreurs.reference = "La référence ne doit pas dépasser 500 caractères.";
+    erreurs.reference = t(
+      "La référence ne doit pas dépasser 500 caractères.",
+      "The reference must not exceed 500 characters.",
+    );
   }
   let duree: number | undefined;
   const brut = s.dureeMinutes.trim();
   if (brut !== "") {
     const minutes = /^\d{1,3}$/.test(brut) ? Number(brut) : Number.NaN;
     if (Number.isNaN(minutes) || minutes < 1 || minutes > PLAFONDS_TRANSCRIPTION.dureeMaxMinutes) {
-      erreurs.dureeMinutes = `La durée annoncée est de 1 à ${PLAFONDS_TRANSCRIPTION.dureeMaxMinutes} minutes.`;
+      erreurs.dureeMinutes = t(
+        `La durée annoncée est de 1 à ${PLAFONDS_TRANSCRIPTION.dureeMaxMinutes} minutes.`,
+        `The stated duration is 1 to ${PLAFONDS_TRANSCRIPTION.dureeMaxMinutes} minutes.`,
+      );
     } else {
       duree = minutes * 60;
     }
@@ -323,48 +434,91 @@ export function validerTranscription(
 }
 
 /** Texte corrigé : non vide, 200 000 caractères au plus. */
-export function validerCorrectionTexte(texte: string): Resultat<{ texte: string }, "texte"> {
+export function validerCorrectionTexte(
+  texte: string,
+  langue: Langue = "fr",
+): Resultat<{ texte: string }, "texte"> {
+  const t = creerTraduire(langue);
   if (texte.trim() === "") {
-    return { ok: false, erreurs: { texte: "Le texte ne peut pas être vide." } };
+    return {
+      ok: false,
+      erreurs: { texte: t("Le texte ne peut pas être vide.", "The text cannot be empty.") },
+    };
   }
   if (texte.length > PLAFONDS_TRANSCRIPTION.texteMaxCaracteres) {
+    const max = PLAFONDS_TRANSCRIPTION.texteMaxCaracteres.toLocaleString(LOCALES_INTL[langue]);
     return {
       ok: false,
       erreurs: {
-        texte: `Le texte ne doit pas dépasser ${PLAFONDS_TRANSCRIPTION.texteMaxCaracteres.toLocaleString("fr-FR")} caractères.`,
+        texte: t(
+          `Le texte ne doit pas dépasser ${max} caractères.`,
+          `The text must not exceed ${max} characters.`,
+        ),
       },
     };
   }
   return { ok: true, charge: { texte } };
 }
 
-export function validerRejetTranscription(motif: string): Resultat<{ motif: string }, "motif"> {
-  const t = motif.trim();
-  if (t === "") return { ok: false, erreurs: { motif: "Indiquez le motif du rejet." } };
-  if (t.length > 500) {
-    return { ok: false, erreurs: { motif: "Le motif ne doit pas dépasser 500 caractères." } };
+export function validerRejetTranscription(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
+  const t = creerTraduire(langue);
+  const texte = motif.trim();
+  if (texte === "")
+    return {
+      ok: false,
+      erreurs: { motif: t("Indiquez le motif du rejet.", "Enter the reason for the rejection.") },
+    };
+  if (texte.length > 500) {
+    return {
+      ok: false,
+      erreurs: {
+        motif: t(
+          "Le motif ne doit pas dépasser 500 caractères.",
+          "The reason must not exceed 500 characters.",
+        ),
+      },
+    };
   }
-  return { ok: true, charge: { motif: t } };
+  return { ok: true, charge: { motif: texte } };
 }
 
 // --- Erreurs ---------------------------------------------------------------------------------
 
-export function messageErreurTranscription(e: unknown): string {
+export function messageErreurTranscription(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.code === "PLAFOND_TRANSCRIPTION") {
-      return "Le plafond de transcription est atteint (durée, minutes du mois ou transcriptions en attente). Réessayez plus tard.";
+      return t(
+        "Le plafond de transcription est atteint (durée, minutes du mois ou transcriptions en attente). Réessayez plus tard.",
+        "The transcription limit has been reached (duration, minutes for the month or pending transcriptions). Try again later.",
+      );
     }
     if (e.code === "TYPE_FICHIER_REFUSE") {
-      return "Fichier audio refusé par le serveur : en mode simulé, seul un enregistrement de test est accepté.";
+      return t(
+        "Fichier audio refusé par le serveur : en mode simulé, seul un enregistrement de test est accepté.",
+        "Audio file rejected by the server: in simulated mode, only a test recording is accepted.",
+      );
     }
     if (e.code === "FICHIER_TROP_VOLUMINEUX")
-      return `Fichier trop volumineux : ${MO_MAX} Mo au plus.`;
+      return t(
+        `Fichier trop volumineux : ${MO_MAX} Mo au plus.`,
+        `File too large: ${MO_MAX} MB at most.`,
+      );
     if (e.statut === 412 || e.code === "VERSION_PERIMEE") {
-      return "Le texte a été modifié depuis votre lecture. Rechargez la page pour repartir de la dernière version.";
+      return t(
+        "Le texte a été modifié depuis votre lecture. Rechargez la page pour repartir de la dernière version.",
+        "The text was modified since you read it. Reload the page to start from the latest version.",
+      );
     }
     if (e.code === "TROP_DE_REQUETES") {
-      return "Trop de demandes en peu de temps. Patientez quelques instants avant de réessayer.";
+      return t(
+        "Trop de demandes en peu de temps. Patientez quelques instants avant de réessayer.",
+        "Too many requests in a short time. Wait a moment before trying again.",
+      );
     }
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }

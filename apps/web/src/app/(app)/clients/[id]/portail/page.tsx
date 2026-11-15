@@ -18,6 +18,7 @@ import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../../components/ui/Onglets";
 import { chargerServeur, type Chargement } from "../../../../../lib/api-serveur";
 import type { ClientDetaille } from "../../../../../lib/clients";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import type { PageMissions } from "../../../../../lib/missions";
 import { chargerToutesLesPages, LIMITE_PAGE_MAX } from "../../../../../lib/pagination";
@@ -27,9 +28,10 @@ import {
   cheminPartagesPortail,
   cheminUtilisateursPortail,
   gereLeClient,
+  MESSAGE_CLIENT_NON_GERE,
+  MESSAGE_CLIENT_NON_GERE_EN,
   HREF_POLITIQUE_PORTAIL,
   hrefPortailClient,
-  MESSAGE_CLIENT_NON_GERE,
   missionGerable,
   missionsPartageables,
   modifiePolitiquePortail,
@@ -44,7 +46,10 @@ import {
 import { chargerPersonnes } from "../../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Portail client" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Portail client", "Client portal") };
+}
 
 /** Appels simultanés au plus vers l'API pour les documents des missions (charge bornée). */
 const LOT_DOCUMENTS = 6;
@@ -75,6 +80,8 @@ async function chargerDocuments(
  */
 export default async function PagePortailClient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("portail.gerer");
   const roles = utilisateur.roles;
@@ -92,12 +99,22 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
   const entete = (
     <>
       <EnteteDePage
-        titre={c?.raison_sociale ?? "Fiche client"}
-        retour={{ href: "/clients", libelle: "Clients" }}
-        badges={c && !c.actif ? <BadgeStatut tonalite="neutre">Archivé</BadgeStatut> : undefined}
-        soustitre="Qui accède au portail de ce client et ce qu'il y voit. Rien n'est partagé par défaut : chaque élément visible a été coché ici."
+        titre={c?.raison_sociale ?? t("Fiche client", "Client profile")}
+        retour={{ href: "/clients", libelle: t("Clients", "Clients") }}
+        badges={
+          c && !c.actif ? (
+            <BadgeStatut tonalite="neutre">{t("Archivé", "Archived")}</BadgeStatut>
+          ) : undefined
+        }
+        soustitre={t(
+          "Qui accède au portail de ce client et ce qu'il y voit. Rien n'est partagé par défaut : chaque élément visible a été coché ici.",
+          "Who accesses this client's portal and what they see there. Nothing is shared by default: every visible item has been checked here.",
+        )}
       />
-      <Onglets libelle="Sections de la fiche client" pages={ongletsClientAvecPortail(id, roles)} />
+      <Onglets
+        libelle={t("Sections de la fiche client", "Client profile sections")}
+        pages={ongletsClientAvecPortail(id, roles, langue)}
+      />
     </>
   );
 
@@ -106,7 +123,10 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
       <div className="mp-page">
         {entete}
         <EtatErreur
-          titre="Le portail de ce client n'a pas pu être chargé."
+          titre={t(
+            "Le portail de ce client n'a pas pu être chargé.",
+            "This client's portal could not be loaded.",
+          )}
           message={!client.ok ? client.message : !missions.ok ? missions.message : ""}
           hrefReessayer={hrefPortailClient(id)}
         />
@@ -120,8 +140,15 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
     return (
       <div className="mp-page">
         {entete}
-        <Alerte tonalite="info" annonce="aucune" titre="Vous ne gérez pas le portail de ce client">
-          <p>{MESSAGE_CLIENT_NON_GERE}</p>
+        <Alerte
+          tonalite="info"
+          annonce="aucune"
+          titre={t(
+            "Vous ne gérez pas le portail de ce client",
+            "You do not manage this client's portal",
+          )}
+        >
+          <p>{t(MESSAGE_CLIENT_NON_GERE, MESSAGE_CLIENT_NON_GERE_EN)}</p>
         </Alerte>
       </div>
     );
@@ -151,22 +178,40 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
     <div className="mp-page">
       {entete}
       {fiche.actif ? null : (
-        <Alerte tonalite="attention" annonce="aucune" titre="Client archivé">
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Client archivé", "Archived client")}
+        >
           <p>
-            Le portail est fermé à ce client : invitations et réactivations sont refusées tant que
-            sa fiche est archivée.
+            {t(
+              "Le portail est fermé à ce client : invitations et réactivations sont refusées tant que sa fiche est archivée.",
+              "The portal is closed to this client: invitations and reactivations are refused while its profile is archived.",
+            )}
           </p>
         </Alerte>
       )}
       {missions.donnees.tronquee ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Liste des missions incomplète">
-          <p>Ce client a trop de missions pour les afficher toutes : certaines manquent ici.</p>
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Liste des missions incomplète", "Incomplete list of engagements")}
+        >
+          <p>
+            {t(
+              "Ce client a trop de missions pour les afficher toutes : certaines manquent ici.",
+              "This client has too many engagements to display them all: some are missing here.",
+            )}
+          </p>
         </Alerte>
       ) : null}
       {!partages.ok ? (
         <>
           <EtatErreur
-            titre="Les partages de ce client n'ont pas pu être chargés."
+            titre={t(
+              "Les partages de ce client n'ont pas pu être chargés.",
+              "This client's sharing settings could not be loaded.",
+            )}
             message={partages.message}
             hrefReessayer={hrefPortailClient(id)}
           />
@@ -178,11 +223,13 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
           {acces}
           <section aria-labelledby="titre-partages" className="mp-pile">
             <h2 id="titre-partages" className="mp-section__titre">
-              Partages
+              {t("Partages", "Sharing")}
             </h2>
             <p className="mp-texte-doux">
-              Tout est décoché par défaut. Cochez ce que votre client peut voir, puis enregistrez :
-              rien ne lui est montré avant l&apos;enregistrement.
+              {t(
+                "Tout est décoché par défaut. Cochez ce que votre client peut voir, puis enregistrez : rien ne lui est montré avant l'enregistrement.",
+                "Everything is unchecked by default. Check what your client can see, then save: nothing is shown to them before saving.",
+              )}
             </p>
             <FormulairePartages
               clientId={id}
@@ -192,6 +239,7 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
                 documents,
                 utilisateurId: utilisateur.id,
                 roles,
+                langue,
               })}
               optionsContact={optionsContactPrincipal(
                 personnes,
@@ -205,7 +253,7 @@ export default async function PagePortailClient({ params }: { params: Promise<{ 
   );
 }
 
-function SectionAcces({
+async function SectionAcces({
   clientId,
   raisonSociale,
   clientActif,
@@ -220,44 +268,60 @@ function SectionAcces({
   parametres: Chargement<ParametresPortail>;
   peutModifierPolitique: boolean;
 }) {
+  const t = await obtenirT();
   const tfaObligatoire = parametres.ok && parametres.donnees.tfa_obligatoire;
   return (
     <section aria-labelledby="titre-acces" className="mp-pile">
       <h2 id="titre-acces" className="mp-section__titre">
-        Accès au portail
+        {t("Accès au portail", "Portal access")}
       </h2>
       {parametres.ok ? (
         <p className="mp-texte-doux">
           {tfaObligatoire
-            ? "La double authentification est exigée pour tous les utilisateurs du portail."
-            : "La double authentification est facultative pour les utilisateurs du portail."}
+            ? t(
+                "La double authentification est exigée pour tous les utilisateurs du portail.",
+                "Two-factor authentication is required for all portal users.",
+              )
+            : t(
+                "La double authentification est facultative pour les utilisateurs du portail.",
+                "Two-factor authentication is optional for portal users.",
+              )}
           {peutModifierPolitique ? (
             <>
               {" "}
-              <Link href={HREF_POLITIQUE_PORTAIL}>Modifier la politique du portail</Link>
+              <Link href={HREF_POLITIQUE_PORTAIL}>
+                {t("Modifier la politique du portail", "Change the portal policy")}
+              </Link>
             </>
           ) : null}
         </p>
       ) : null}
       {!utilisateurs.ok ? (
         <EtatErreur
-          titre="Les accès au portail n'ont pas pu être chargés."
+          titre={t(
+            "Les accès au portail n'ont pas pu être chargés.",
+            "The portal access list could not be loaded.",
+          )}
           message={utilisateurs.message}
           hrefReessayer={hrefPortailClient(clientId)}
         />
       ) : (
         <>
-          <h3 className="mp-sous-formulaire__titre">Personnes ayant un accès</h3>
+          <h3 className="mp-sous-formulaire__titre">
+            {t("Personnes ayant un accès", "People with access")}
+          </h3>
           <UtilisateursPortail
             utilisateurs={utilisateurs.donnees.utilisateurs}
             clientActif={clientActif}
             tfaObligatoire={tfaObligatoire}
           />
-          <h3 className="mp-sous-formulaire__titre">Invitations en attente</h3>
+          <h3 className="mp-sous-formulaire__titre">
+            {t("Invitations en attente", "Pending invitations")}
+          </h3>
           <InvitationsPortail invitations={utilisateurs.donnees.invitations} />
         </>
       )}
-      <Carte titre="Inviter une personne" niveauTitre={3}>
+      <Carte titre={t("Inviter une personne", "Invite a person")} niveauTitre={3}>
         <FormulaireInvitationClient
           clientId={clientId}
           raisonSociale={raisonSociale}

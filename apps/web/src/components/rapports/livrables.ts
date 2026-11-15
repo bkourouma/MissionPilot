@@ -6,6 +6,7 @@
  * `plan.ts`) : une notation n'est rendue que publiée ; un plan ne reproduit que ses contenus
  * validés. Rien n'est conservé dans le navigateur.
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { ErreurApi } from "../../lib/api";
 import type { FichierMeta } from "../../lib/fichiers";
 import { messageRapport } from "../../lib/rapports";
@@ -31,6 +32,22 @@ export const VARIANTES_LIVRABLE_LIBELLES: Record<
     aide: "Toutes les sections : analyses, chaîne de valeur, sensibilité, sources numérotées.",
   },
 };
+const VARIANTES_LIVRABLE_LIBELLES_EN: Record<VarianteLivrable, { libelle: string; aide: string }> =
+  {
+    executive: {
+      libelle: "Executive summary",
+      aide: "Recommendation, verdicts, high risks, market, E&S and plan: the essentials for a committee.",
+    },
+    detaillee: {
+      libelle: "Detailed version",
+      aide: "All sections: analyses, value chain, sensitivity, numbered sources.",
+    },
+  };
+
+/** Libellé et aide d'une variante dans la langue demandée. */
+export const varianteLivrable = (v: VarianteLivrable, langue: Langue = "fr") =>
+  (langue === "en" ? VARIANTES_LIVRABLE_LIBELLES_EN : VARIANTES_LIVRABLE_LIBELLES)[v];
+
 export const estVarianteLivrable = (v: unknown): v is VarianteLivrable =>
   typeof v === "string" && (VARIANTES_LIVRABLE as readonly string[]).includes(v);
 
@@ -125,6 +142,53 @@ export const LIVRABLES: Record<
   },
 };
 
+const LIVRABLES_EN: Record<
+  TypeLivrable,
+  { titre: string; bouton: string; explication: string; version: string }
+> = {
+  notation: {
+    titre: "Rating report",
+    bouton: "Generate the rating report",
+    explication:
+      "The report reproduces the latest version published after review by a domain expert: overall score, scores by pillar, strengths and weaknesses, justified adjustments and change since the previous rating. A draft or in-review version is never rendered.",
+    version: "Rating version",
+  },
+  plan: {
+    titre: "Strategic plan report",
+    bouton: "Generate the plan report",
+    explication:
+      "The report only reproduces approved content (diagnosis, SWOT, vision, axes, objectives, initiatives) and the financial model (scenarios, forecast statements, indicators). As long as some content or the model remains pending approval, the document carries the \u201cDraft\u201d status.",
+    version: "Financial model version",
+  },
+  dossier_bancaire: {
+    titre: "Bank file",
+    bouton: "Generate the bank file",
+    explication:
+      "The file reproduces the APPROVED version of the financial model: summary, banking ratios, financing plan, loan schedules and forecast statements. Ratios and thresholds are indicative. It is intended for a bank: it does not include the internal evidence register. Only a lead authorized to approve the plan can generate it.",
+    version: "Financial model version",
+  },
+  note_comite: {
+    titre: "Committee note",
+    bouton: "Generate the note report",
+    explication:
+      "The report reproduces the version of the note APPROVED by someone other than its author, and the figures base frozen at submission (assumptions, risks, market, E&S, 100-day plan). Both variants come from the same base: same verdicts, same figures.",
+    version: "Note version",
+  },
+};
+
+/** Textes d'un type de livrable (titre, bouton, explication, version) dans la langue demandée. */
+export const livrable = (type: TypeLivrable, langue: Langue = "fr") =>
+  langue === "en" ? { ...LIVRABLES[type], ...LIVRABLES_EN[type] } : LIVRABLES[type];
+
+const FORMATS_LIVRABLE_LIBELLES_EN: Record<FormatLivrable, { libelle: string; aide: string }> = {
+  pdf: { libelle: "PDF", aide: "For reading and printing. Longer rendering: up to 30 seconds." },
+  docx: { libelle: "Word (.docx)", aide: "Editable document before distribution." },
+};
+
+/** Libellé et aide d'un format dans la langue demandée. */
+export const formatLivrable = (f: FormatLivrable, langue: Langue = "fr") =>
+  (langue === "en" ? FORMATS_LIVRABLE_LIBELLES_EN : FORMATS_LIVRABLE_LIBELLES)[f];
+
 export const FORMATS_LIVRABLE_LIBELLES: Record<FormatLivrable, { libelle: string; aide: string }> =
   {
     pdf: { libelle: "PDF", aide: "Pour lire et imprimer. Rendu plus long : jusqu'à 30 secondes." },
@@ -172,51 +236,97 @@ export function hrefFacturePdf(factureId: string): string {
 }
 
 const STATUTS: Record<string, string> = { brouillon: "Brouillon", valide: "Validé" };
-export const libelleStatutLivrable = (s: string) => STATUTS[s] ?? "Statut non reconnu";
+const STATUTS_EN: Record<string, string> = { brouillon: "Draft", valide: "Approved" };
+export const libelleStatutLivrable = (s: string, langue: Langue = "fr") =>
+  (langue === "en" ? STATUTS_EN : STATUTS)[s] ??
+  (langue === "en" ? "Unrecognized status" : "Statut non reconnu");
 
-export const libelleFormatLivrable = (f: string) =>
-  estFormatLivrable(f) ? FORMATS_LIVRABLE_LIBELLES[f].libelle : "Fichier";
+export const libelleFormatLivrable = (f: string, langue: Langue = "fr") =>
+  estFormatLivrable(f) ? formatLivrable(f, langue).libelle : langue === "en" ? "File" : "Fichier";
 
 /** Phrase de succès après génération. */
-export function messageLivrableCree(type: TypeLivrable, cree: LivrableCree): string {
+export function messageLivrableCree(
+  type: TypeLivrable,
+  cree: LivrableCree,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
   const statut =
     cree.rapport.statut === "valide"
-      ? "au statut « Validé »"
-      : "au statut « Brouillon » : des contenus restent à valider, relisez-le avant toute diffusion";
-  return `${LIVRABLES[type].titre} au format ${libelleFormatLivrable(cree.rapport.format)}, ${statut}.`;
+      ? t("au statut « Validé »", "with the \u201cApproved\u201d status")
+      : t(
+          "au statut « Brouillon » : des contenus restent à valider, relisez-le avant toute diffusion",
+          "with the \u201cDraft\u201d status: some content remains to be approved, review it before any distribution",
+        );
+  const format = libelleFormatLivrable(cree.rapport.format, langue);
+  return t(
+    `${LIVRABLES[type].titre} au format ${format}, ${statut}.`,
+    `${livrable(type, langue).titre} in ${format} format, ${statut}.`,
+  );
 }
 
 /** Message français pour chaque refus de la génération d'un rapport de service. */
-export function messageLivrable(type: TypeLivrable, e: unknown): string {
+export function messageLivrable(type: TypeLivrable, e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.code === "NOTATION_NON_PUBLIEE") {
-      return "Aucune version publiée : la notation doit être soumise en revue puis publiée par un expert métier avant de produire son rapport.";
+      return t(
+        "Aucune version publiée : la notation doit être soumise en revue puis publiée par un expert métier avant de produire son rapport.",
+        "No published version: the rating must be submitted for review and then published by a domain expert before its report can be produced.",
+      );
     }
     if (e.code === "NOTE_NON_VALIDEE") {
-      return "Aucune version validée de la note : une autre personne que l'auteur doit la valider avant de produire son rapport.";
+      return t(
+        "Aucune version validée de la note : une autre personne que l'auteur doit la valider avant de produire son rapport.",
+        "No approved version of the note: someone other than the author must approve it before its report can be produced.",
+      );
     }
     if (e.code === "MODELE_NON_VALIDE") {
-      return "Le dossier bancaire se génère seulement depuis une version VALIDÉE du modèle financier : faites valider la version voulue dans l'onglet « Modèle financier ».";
+      return t(
+        "Le dossier bancaire se génère seulement depuis une version VALIDÉE du modèle financier : faites valider la version voulue dans l'onglet « Modèle financier ».",
+        "The bank file can only be generated from an APPROVED version of the financial model: have the desired version approved in the \u201cFinancial model\u201d tab.",
+      );
     }
     if (e.statut === 403) {
       if (type === "dossier_bancaire") {
-        return "Seul un responsable habilité à valider le plan peut générer son dossier bancaire.";
+        return t(
+          "Seul un responsable habilité à valider le plan peut générer son dossier bancaire.",
+          "Only a lead authorized to approve the plan can generate its bank file.",
+        );
       }
       if (type === "note_comite") {
-        return "Votre rôle ne vous permet pas de produire le rapport de cette note au comité.";
+        return t(
+          "Votre rôle ne vous permet pas de produire le rapport de cette note au comité.",
+          "Your role does not allow you to produce the report of this committee note.",
+        );
       }
       return type === "notation"
-        ? "Votre rôle ne vous permet pas de produire le rapport de cette notation."
-        : "Votre rôle ne vous permet pas de produire le rapport de ce plan.";
+        ? t(
+            "Votre rôle ne vous permet pas de produire le rapport de cette notation.",
+            "Your role does not allow you to produce the report of this rating.",
+          )
+        : t(
+            "Votre rôle ne vous permet pas de produire le rapport de ce plan.",
+            "Your role does not allow you to produce the report of this plan.",
+          );
     }
     if (e.statut === 404) {
       if (type === "note_comite") {
-        return "Cette note, ou la version demandée, est introuvable ou ne vous est plus accessible.";
+        return t(
+          "Cette note, ou la version demandée, est introuvable ou ne vous est plus accessible.",
+          "This note, or the requested version, cannot be found or is no longer accessible to you.",
+        );
       }
       return type === "notation"
-        ? "Cette notation, ou la version demandée, est introuvable ou ne vous est plus accessible."
-        : "Ce plan, ou la version du modèle demandée, est introuvable ou ne vous est plus accessible.";
+        ? t(
+            "Cette notation, ou la version demandée, est introuvable ou ne vous est plus accessible.",
+            "This rating, or the requested version, cannot be found or is no longer accessible to you.",
+          )
+        : t(
+            "Ce plan, ou la version du modèle demandée, est introuvable ou ne vous est plus accessible.",
+            "This plan, or the requested model version, cannot be found or is no longer accessible to you.",
+          );
     }
   }
-  return messageRapport(e);
+  return messageRapport(e, langue);
 }

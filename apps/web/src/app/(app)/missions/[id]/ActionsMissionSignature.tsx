@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../../../components/ui/Alerte";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../components/ui/CaseACocher";
@@ -37,6 +38,8 @@ export function Signature({
   peutSaisirTaux: boolean;
   onSignee: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [ouvert, setOuvert] = useState(false);
   const [s, setS] = useState<SaisieSignature>({
     date_signature: aujourdhuiIso(),
@@ -54,7 +57,7 @@ export function Signature({
 
   function preparer(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const v = validerSignature(s, devise, natures);
+    const v = validerSignature(s, devise, natures, langue);
     if (!v.ok) {
       setErreursLocales(v.erreurs);
       return;
@@ -84,7 +87,7 @@ export function Signature({
     return (
       <div>
         <Bouton icone="signature" onClick={() => setOuvert(true)}>
-          Signer la lettre de mission
+          {t("Signer la lettre de mission", "Sign the engagement letter")}
         </Bouton>
       </div>
     );
@@ -95,37 +98,58 @@ export function Signature({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={preparer}
-      aria-label="Signer la lettre de mission"
+      aria-label={t("Signer la lettre de mission", "Sign the engagement letter")}
     >
-      <p className="mp-sous-formulaire__titre">Signature de la lettre de mission</p>
-      <Alerte tonalite="attention" titre="Le budget initial sera figé" annonce="aucune">
+      <p className="mp-sous-formulaire__titre">
+        {t("Signature de la lettre de mission", "Signing the engagement letter")}
+      </p>
+      <Alerte
+        tonalite="attention"
+        titre={t("Le budget initial sera figé", "The initial budget will be locked")}
+        annonce="aucune"
+      >
         <p>
-          À la signature, le budget est calculé depuis les jours budgétés du découpage, puis{" "}
-          <strong>figé</strong> : il ne pourra plus être modifié. Toute évolution passera par une
-          révision motivée, validée par le directeur de mission.
+          {t(
+            "À la signature, le budget est calculé depuis les jours budgétés du découpage, puis ",
+            "On signing, the budget is computed from the days budgeted in the work breakdown, then ",
+          )}
+          <strong>{t("figé", "locked")}</strong>
+          {t(
+            " : il ne pourra plus être modifié. Toute évolution passera par une révision motivée, validée par le directeur de mission.",
+            ": it can no longer be modified. Any change will go through a justified revision, approved by the engagement director.",
+          )}
         </p>
       </Alerte>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Signature impossible"
+        titreErreur={t("Signature impossible", "Signing not possible")}
       />
       {deviseFlottante(devise) && !peutSaisirTaux ? (
         <Alerte tonalite="info" annonce="aucune">
           <p>
-            {`Le taux de change ${libelleDevise(devise)} est saisi par un associé ou un gestionnaire : demandez-lui de signer.`}
+            {t(
+              `Le taux de change ${libelleDevise(devise)} est saisi par un associé ou un gestionnaire : demandez-lui de signer.`,
+              `The ${libelleDevise(devise)} exchange rate is entered by a partner or a manager: ask them to sign.`,
+            )}
           </p>
         </Alerte>
       ) : !deviseFlottante(devise) ? (
         <p className="mp-texte-doux">
           {devise === "EUR"
-            ? "Parité légale euro / franc CFA (655,957) appliquée automatiquement."
-            : "Taux de change appliqué automatiquement (parité fixe)."}
+            ? t(
+                "Parité légale euro / franc CFA (655,957) appliquée automatiquement.",
+                "Legal euro / CFA franc parity (655.957) applied automatically.",
+              )
+            : t(
+                "Taux de change appliqué automatiquement (parité fixe).",
+                "Exchange rate applied automatically (fixed parity).",
+              )}
         </p>
       ) : null}
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Date de signature"
+          libelle={t("Date de signature", "Signature date")}
           name="date_signature"
           type="date"
           required
@@ -135,7 +159,10 @@ export function Signature({
         />
         {deviseFlottante(devise) && peutSaisirTaux ? (
           <Champ
-            libelle={`Taux de change : 1 ${libelleDevise(devise)} = … (devise du cabinet)`}
+            libelle={t(
+              `Taux de change : 1 ${libelleDevise(devise)} = … (devise du cabinet)`,
+              `Exchange rate: 1 ${libelleDevise(devise)} = … (firm currency)`,
+            )}
             name="taux_change"
             required
             inputMode="decimal"
@@ -143,35 +170,51 @@ export function Signature({
             value={s.taux_change}
             onChange={(e) => setS((x) => ({ ...x, taux_change: e.target.value }))}
             erreur={erreurs.taux_change}
-            aide="Figé à la signature pour toute la mission."
+            aide={t(
+              "Figé à la signature pour toute la mission.",
+              "Locked at signing for the whole engagement.",
+            )}
           />
         ) : null}
       </div>
       {natures.length > 0 ? (
         <fieldset className="mp-groupe">
-          <legend className="mp-champ__libelle">Lignes supplémentaires (facultatives)</legend>
-          <p className="mp-champ__aide">{`Débours${natures.includes("sous_traitance") ? " ou sous-traitance" : ""} prévus, au forfait. ${aideMontant(devise)}`}</p>
+          <legend className="mp-champ__libelle">
+            {t("Lignes supplémentaires (facultatives)", "Additional lines (optional)")}
+          </legend>
+          <p className="mp-champ__aide">
+            {t(
+              `Débours${natures.includes("sous_traitance") ? " ou sous-traitance" : ""} prévus, au forfait. ${aideMontant(devise)}`,
+              `Planned expenses${natures.includes("sous_traitance") ? " or subcontracting" : ""}, as a lump sum. ${aideMontant(devise, "en")}`,
+            )}
+          </p>
           {s.lignes.map((l, i) => (
             <div key={i} className="mp-ligne-saisie">
               <Select
-                libelle={`Nature (ligne ${i + 1})`}
+                libelle={t(`Nature (ligne ${i + 1})`, `Type (line ${i + 1})`)}
                 options={natures.map((n) => ({
                   valeur: n,
-                  libelle: n === "debours" ? "Débours" : "Sous-traitance",
+                  libelle:
+                    n === "debours"
+                      ? t("Débours", "Expenses")
+                      : t("Sous-traitance", "Subcontracting"),
                 }))}
                 value={l.nature}
                 onChange={(e) => majLigne(i, "nature", e.target.value)}
                 erreur={erreurs[`lignes.${i}.nature`]}
               />
               <Champ
-                libelle={`Libellé (ligne ${i + 1})`}
+                libelle={t(`Libellé (ligne ${i + 1})`, `Label (line ${i + 1})`)}
                 maxLength={200}
                 value={l.libelle}
                 onChange={(e) => majLigne(i, "libelle", e.target.value)}
                 erreur={erreurs[`lignes.${i}.libelle`]}
               />
               <Champ
-                libelle={`Montant en ${libelleDevise(devise)} (ligne ${i + 1})`}
+                libelle={t(
+                  `Montant en ${libelleDevise(devise)} (ligne ${i + 1})`,
+                  `Amount in ${libelleDevise(devise)} (line ${i + 1})`,
+                )}
                 inputMode="decimal"
                 autoComplete="off"
                 value={l.montant}
@@ -180,7 +223,7 @@ export function Signature({
               />
               {l.nature === "debours" ? (
                 <CaseACocher
-                  libelle="Refacturable au client"
+                  libelle={t("Refacturable au client", "Rebillable to the client")}
                   checked={l.refacturable}
                   onChange={(e) => majLigne(i, "refacturable", e.target.checked)}
                 />
@@ -193,7 +236,7 @@ export function Signature({
                     setS((x) => ({ ...x, lignes: x.lignes.filter((_, k) => k !== i) }))
                   }
                 >
-                  {`Retirer la ligne ${i + 1}`}
+                  {t(`Retirer la ligne ${i + 1}`, `Remove line ${i + 1}`)}
                 </Bouton>
               </div>
             </div>
@@ -218,16 +261,23 @@ export function Signature({
                 }))
               }
             >
-              Ajouter une ligne
+              {t("Ajouter une ligne", "Add a line")}
             </Bouton>
           </div>
         </fieldset>
       ) : null}
 
       {aConfirmer ? (
-        <div className="mp-confirmation" role="group" aria-label="Confirmer la signature">
+        <div
+          className="mp-confirmation"
+          role="group"
+          aria-label={t("Confirmer la signature", "Confirm the signature")}
+        >
           <p className="mp-confirmation__question">
-            Confirmer la signature ? Le budget initial sera FIGÉ et ne pourra plus être modifié.
+            {t(
+              "Confirmer la signature ? Le budget initial sera FIGÉ et ne pourra plus être modifié.",
+              "Confirm the signature? The initial budget will be LOCKED and can no longer be modified.",
+            )}
           </p>
           <div className="mp-confirmation__boutons">
             <Bouton
@@ -235,23 +285,23 @@ export function Signature({
               variante="danger"
               icone="cadenas"
               chargement={f.enCours}
-              texteChargement="Signature…"
+              texteChargement={t("Signature…", "Signing…")}
               onClick={signer}
             >
-              Oui, signer et figer le budget
+              {t("Oui, signer et figer le budget", "Yes, sign and lock the budget")}
             </Bouton>
             <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setAConfirmer(null)}>
-              Revenir à la saisie
+              {t("Revenir à la saisie", "Back to editing")}
             </Bouton>
           </div>
         </div>
       ) : (
         <div className="mp-actions-formulaire">
           <Bouton type="submit" icone="signature">
-            Continuer vers la confirmation
+            {t("Continuer vers la confirmation", "Continue to confirmation")}
           </Bouton>
           <Bouton variante="discret" onClick={() => setOuvert(false)}>
-            Annuler
+            {t("Annuler", "Cancel")}
           </Bouton>
         </div>
       )}

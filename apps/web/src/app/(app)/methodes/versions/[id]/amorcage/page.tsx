@@ -9,6 +9,7 @@ import { Carte } from "../../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import {
   apiIngestionStandard,
@@ -22,7 +23,10 @@ import { droitsIngestionStandard } from "../../../../../../lib/ingestion-extract
 import type { VersionDetail } from "../../../../../../lib/methodes";
 import { exigerPermission } from "../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Amorçage depuis des documents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Amorçage depuis des documents", "Bootstrap from documents") };
+}
 
 /**
  * Amorçage du standard à partir de documents historiques (STD-13) : téléversement vers le brouillon
@@ -32,6 +36,7 @@ export default async function PageAmorcage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("standard.gerer");
+  const t = await obtenirT();
   const api = apiIngestionStandard(id);
   const [version, liste] = await Promise.all([
     chargerServeur<VersionDetail>(`/api/methodes/versions/${id}`),
@@ -42,11 +47,14 @@ export default async function PageAmorcage({ params }: { params: Promise<{ id: s
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Amorçage depuis des documents"
-          retour={{ href: hrefEditeurVersion(id), libelle: "Version de la méthode" }}
+          titre={t("Amorçage depuis des documents", "Bootstrap from documents")}
+          retour={{
+            href: hrefEditeurVersion(id),
+            libelle: t("Version de la méthode", "Method version"),
+          }}
         />
         <EtatErreur
-          titre="La version n'a pas pu être chargée."
+          titre={t("La version n'a pas pu être chargée.", "The version could not be loaded.")}
           message={version.message}
           hrefReessayer={hrefAmorcage(id)}
         />
@@ -61,47 +69,67 @@ export default async function PageAmorcage({ params }: { params: Promise<{ id: s
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Amorçage depuis des documents"
-        soustitre={`${v.methode.libelle} — version ${v.version.version}`}
-        retour={{ href: hrefEditeurVersion(id), libelle: "Éditeur de la méthode" }}
+        titre={t("Amorçage depuis des documents", "Bootstrap from documents")}
+        soustitre={`${v.methode.libelle} — ${t("version", "version")} ${v.version.version}`}
+        retour={{
+          href: hrefEditeurVersion(id),
+          libelle: t("Éditeur de la méthode", "Method editor"),
+        }}
       />
 
       {!duCabinet ? (
-        <Alerte tonalite="info" titre="Méthode du standard" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("Méthode du standard", "Standard method")}
+          annonce="aucune"
+        >
           <p>
-            L&apos;amorçage s&apos;applique à une méthode du cabinet. Créez d&apos;abord une
-            variante du standard, puis revenez sur son brouillon.
+            {t(
+              "L'amorçage s'applique à une méthode du cabinet. Créez d'abord une variante du standard, puis revenez sur son brouillon.",
+              "Bootstrapping applies to a firm method. First create a variant of the standard, then come back to its draft.",
+            )}
           </p>
         </Alerte>
       ) : !brouillon ? (
-        <Alerte tonalite="attention" titre="Version publiée" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Version publiée", "Published version")}
+          annonce="aucune"
+        >
           <p>
-            Cette version est publiée : on ne peut plus y téléverser de document ni relancer une
-            lecture. Les documents déjà importés restent consultables ; pour amorcer, ouvrez le
-            brouillon de la méthode.
+            {t(
+              "Cette version est publiée : on ne peut plus y téléverser de document ni relancer une lecture. Les documents déjà importés restent consultables ; pour amorcer, ouvrez le brouillon de la méthode.",
+              "This version is published: you can no longer upload a document to it or rerun a reading. Documents already imported remain viewable; to bootstrap, open the method's draft.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       {droits.televerser ? (
-        <Carte titre="Importer un document historique">
+        <Carte titre={t("Importer un document historique", "Import a historical document")}>
           <AmorcageTeleversement versionId={id} />
         </Carte>
       ) : null}
 
-      <Carte titre="Documents importés">
+      <Carte titre={t("Documents importés", "Imported documents")}>
         {liste.ok ? (
           <>
             <AmorcageListe versionId={id} documents={liste.donnees.elements} />
             {liste.donnees.curseur_suivant ? (
               <p className="mp-texte-petit">
-                Seuls les 30 documents les plus récents sont affichés.
+                {t(
+                  "Seuls les 30 documents les plus récents sont affichés.",
+                  "Only the 30 most recent documents are shown.",
+                )}
               </p>
             ) : null}
           </>
         ) : (
           <EtatErreur
-            titre="Les documents n'ont pas pu être chargés."
+            titre={t(
+              "Les documents n'ont pas pu être chargés.",
+              "The documents could not be loaded.",
+            )}
             message={liste.message}
             hrefReessayer={hrefAmorcage(id)}
           />

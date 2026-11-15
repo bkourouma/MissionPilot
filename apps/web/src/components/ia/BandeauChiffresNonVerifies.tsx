@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type Ref } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Icone } from "../ui/Icone";
@@ -31,6 +32,7 @@ export function BandeauChiffresNonVerifies({
   desactive,
   refZone,
 }: BandeauChiffresNonVerifiesProps) {
+  const t = useT();
   const id = useId();
   const idErreur = erreur ? `${id}-erreur` : undefined;
   return (
@@ -38,15 +40,26 @@ export function BandeauChiffresNonVerifies({
       <Alerte
         tonalite="attention"
         annonce="aucune"
-        titre={<span id={`${id}-titre`}>Chiffres non vérifiés : validation bloquée</span>}
+        titre={
+          <span id={`${id}-titre`}>
+            {t(
+              "Chiffres non vérifiés : validation bloquée",
+              "Unverified figures: approval blocked",
+            )}
+          </span>
+        }
       >
         <p>
-          Ces nombres ne viennent pas des moteurs de calcul de CabinetPilot. Vérifiez chacun
-          d&apos;eux à la source ; corrigez ou retirez ceux qui sont faux en modifiant le texte,
-          puis attestez-les pour pouvoir valider.
+          {t(
+            "Ces nombres ne viennent pas des moteurs de calcul de CabinetPilot. Vérifiez chacun d'eux à la source ; corrigez ou retirez ceux qui sont faux en modifiant le texte, puis attestez-les pour pouvoir valider.",
+            "These numbers do not come from CabinetPilot's calculation engines. Check each one against its source; correct or remove any that are wrong by editing the text, then attest them to be able to approve.",
+          )}
         </p>
         {nombres.length > 0 ? (
-          <ul className="mp-chiffres-ia__liste" aria-label="Nombres signalés">
+          <ul
+            className="mp-chiffres-ia__liste"
+            aria-label={t("Nombres signalés", "Flagged numbers")}
+          >
             {nombres.map((n, i) => (
               <li key={`${i}-${n}`}>
                 <span className="mp-chiffres-ia__nombre">{n}</span>
@@ -57,7 +70,10 @@ export function BandeauChiffresNonVerifies({
       </Alerte>
       <div ref={refZone} className={erreur ? "mp-champ mp-champ--erreur" : "mp-champ"}>
         <CaseACocher
-          libelle="J'ai vérifié chacun de ces nombres et j'atteste leur exactitude."
+          libelle={t(
+            "J'ai vérifié chacun de ces nombres et j'atteste leur exactitude.",
+            "I have checked each of these numbers and attest to their accuracy.",
+          )}
           checked={acquitte}
           disabled={desactive}
           aria-invalid={erreur ? true : undefined}

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Ref } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 
 export interface RetourFormulaireProps {
@@ -15,12 +16,17 @@ export function RetourFormulaire({
   erreur,
   succes,
   refAlerte,
-  titreErreur = "Enregistrement impossible",
+  titreErreur,
 }: RetourFormulaireProps) {
+  const t = useT();
   return (
     <>
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre={titreErreur}>
+        <Alerte
+          ref={refAlerte}
+          tonalite="danger"
+          titre={titreErreur ?? t("Enregistrement impossible", "Could not save")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}

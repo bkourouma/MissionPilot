@@ -6,7 +6,9 @@
  */
 import {
   aPermission,
+  creerTraduire,
   TYPES_DOCUMENT,
+  type Langue,
   type Role,
   type StatutContenu,
   type TypeDocument,
@@ -73,6 +75,24 @@ export const STATUT_CONTENU: Record<
   },
 };
 
+/** Libellé et aide d'un statut de contenu dans la langue demandée. */
+export function statutContenu(statut: StatutContenu, langue: Langue = "fr") {
+  const base = STATUT_CONTENU[statut];
+  if (langue !== "en") return base;
+  const en: Record<StatutContenu, { libelle: string; aide: string }> = {
+    brouillon_ia: {
+      libelle: "AI draft",
+      aide: "Generated content, to be reviewed by a consultant before anything is sent to the client.",
+    },
+    modifie: {
+      libelle: "Edited",
+      aide: "Reviewed and corrected, pending approval by an engagement lead.",
+    },
+    valide: { libelle: "Approved", aide: "Approved: final content." },
+  };
+  return { ...base, ...en[statut] };
+}
+
 // --- Droits ----------------------------------------------------------------------------------
 
 export interface ContexteDocuments {
@@ -120,7 +140,9 @@ export function actionsDocument(
     "type" | "statut_contenu" | "est_version_courante" | "auteur_id" | "contenu_modifie_par"
   >,
   c: ContexteDocuments,
+  langue: Langue = "fr",
 ): ActionsDocument {
+  const t = creerTraduire(langue);
   const ecrire = peutEcrireType(d.type, c);
   const enCircuit =
     ecrire && d.est_version_courante && d.statut_contenu !== null && d.statut_contenu !== "valide";
@@ -129,9 +151,15 @@ export function actionsDocument(
   if (enCircuit) {
     const auteur = d.auteur_id === c.utilisateurId || d.contenu_modifie_par === c.utilisateurId;
     if (!responsableMission(c))
-      raison = "La validation revient au chef ou au directeur de la mission, ou à un associé.";
+      raison = t(
+        "La validation revient au chef ou au directeur de la mission, ou à un associé.",
+        "Approval is up to the engagement manager or director, or a partner.",
+      );
     else if (auteur && !estAssocie(c.roles))
-      raison = "Vous avez déposé ou modifié ce contenu : un autre responsable doit le valider.";
+      raison = t(
+        "Vous avez déposé ou modifié ce contenu : un autre responsable doit le valider.",
+        "You uploaded or edited this content: another lead must approve it.",
+      );
     else valider = true;
   }
   return {
@@ -143,13 +171,16 @@ export function actionsDocument(
 }
 
 /** Message propre aux documents : validation refusée, version non courante, contenu identique. */
-export function messageDocument(e: unknown): string {
+export function messageDocument(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
     if (e.code === "APPROBATION_REQUISE")
-      return `Validation refusée : ${e.message} Demandez à un autre responsable de la mission de valider.`;
+      return creerTraduire(langue)(
+        `Validation refusée : ${e.message} Demandez à un autre responsable de la mission de valider.`,
+        `Approval refused: ${e.message} Ask another engagement lead to approve.`,
+      );
     if (e.code === "STATUT_CONTENU") return e.message;
   }
-  return messageTeleversement(e);
+  return messageTeleversement(e, langue);
 }
 
 // --- Présentation ---------------------------------------------------------------------------
@@ -191,13 +222,15 @@ export function validerDepot(
   s: SaisieDepot,
   typesPermis: readonly TypeDocument[],
   erreurFichier: string | null,
+  langue: Langue = "fr",
 ): Resultat<ChargeDepot, ChampDepot> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampDepot, string>> = {};
   if (!(typesPermis as readonly string[]).includes(s.type))
-    erreurs.type = "Choisissez le type de document.";
+    erreurs.type = t("Choisissez le type de document.", "Choose the document type.");
   const nom = s.nom.trim();
-  if (nom === "") erreurs.nom = "Saisissez le nom du document.";
-  else if (nom.length > 200) erreurs.nom = "200 caractères au plus.";
+  if (nom === "") erreurs.nom = t("Saisissez le nom du document.", "Enter the document name.");
+  else if (nom.length > 200) erreurs.nom = t("200 caractères au plus.", "200 characters at most.");
   if (erreurFichier) erreurs.fichier = erreurFichier;
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {

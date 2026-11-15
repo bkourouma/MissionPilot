@@ -6,13 +6,15 @@ import { FroideListeActions } from "../../../../../components/qualite/FroideList
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
-import { STATUT_ACTION_FROIDE_LIBELLES, STATUTS_ACTION_FROIDE } from "@missionpilot/shared";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
+import { STATUTS_ACTION_FROIDE } from "@missionpilot/shared";
 import {
   cheminAction,
   cheminActions,
   droitsQualiteFroide,
   HREF_REVUE_FROIDE,
   hrefActions,
+  libelleStatutAction,
   lireFiltresActions,
   type ActionFroide,
   type PageActions,
@@ -20,7 +22,10 @@ import {
 import { chargerResponsables } from "../../../../../lib/qualite-froide-serveur";
 import { exigerConsultationQualite } from "../../../../../lib/qualite-serveur";
 
-export const metadata: Metadata = { title: "Mes actions d'amélioration" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Mes actions d'amélioration", "My improvement actions") };
+}
 
 /**
  * Actions d'amélioration issues des revues à froid : celles dont l'utilisateur est responsable,
@@ -33,6 +38,8 @@ export default async function PageActionsFroides({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await exigerConsultationQualite();
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const droits = droitsQualiteFroide(session.utilisateur.roles);
   const filtres = lireFiltresActions(await searchParams);
   const page = await chargerServeur<PageActions>(cheminActions(filtres));
@@ -51,22 +58,35 @@ export default async function PageActionsFroides({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre={droits.gerer ? "Actions d'amélioration" : "Mes actions d'amélioration"}
+        titre={
+          droits.gerer
+            ? t("Actions d'amélioration", "Improvement actions")
+            : t("Mes actions d'amélioration", "My improvement actions")
+        }
         soustitre={
           droits.gerer
-            ? "Toutes les actions des plans d'amélioration issus des revues à froid."
-            : "Les actions dont vous êtes responsable, issues des constats des revues à froid."
+            ? t(
+                "Toutes les actions des plans d'amélioration issus des revues à froid.",
+                "All actions of the improvement plans arising from cold reviews.",
+              )
+            : t(
+                "Les actions dont vous êtes responsable, issues des constats des revues à froid.",
+                "The actions you are responsible for, arising from cold review findings.",
+              )
         }
-        retour={{ href: HREF_REVUE_FROIDE, libelle: "Revue à froid" }}
+        retour={{ href: HREF_REVUE_FROIDE, libelle: t("Revue à froid", "Cold review") }}
       />
 
-      <nav className="mp-qualite__entete-liste" aria-label="Filtrer les actions">
+      <nav
+        className="mp-qualite__entete-liste"
+        aria-label={t("Filtrer les actions", "Filter actions")}
+      >
         <Link
           href={hrefActions({ campagne: filtres.campagne })}
           className="mp-qualite__filtre"
           aria-current={filtres.statut === "" && !filtres.enRetard ? "true" : undefined}
         >
-          Toutes
+          {t("Toutes", "All")}
         </Link>
         {STATUTS_ACTION_FROIDE.map((s) => (
           <Link
@@ -75,7 +95,7 @@ export default async function PageActionsFroides({
             className="mp-qualite__filtre"
             aria-current={filtres.statut === s ? "true" : undefined}
           >
-            {STATUT_ACTION_FROIDE_LIBELLES[s]}
+            {libelleStatutAction(s, langue)}
           </Link>
         ))}
         <Link
@@ -83,25 +103,32 @@ export default async function PageActionsFroides({
           className="mp-qualite__filtre"
           aria-current={filtres.enRetard ? "true" : undefined}
         >
-          En retard
+          {t("En retard", "Overdue")}
         </Link>
       </nav>
 
       {!page.ok ? (
         <EtatErreur
-          titre="Les actions n'ont pas pu être chargées."
+          titre={t("Les actions n'ont pas pu être chargées.", "The actions could not be loaded.")}
           message={page.message}
           hrefReessayer={hrefActions(filtres)}
         />
       ) : detaillees.length === 0 ? (
         <EtatVide
-          titre={filtres.curseur ? "Aucune autre action." : "Aucune action d'amélioration."}
+          titre={
+            filtres.curseur
+              ? t("Aucune autre action.", "No more actions.")
+              : t("Aucune action d'amélioration.", "No improvement action.")
+          }
           icone="signature"
         >
           <p>
             {filtres.statut || filtres.enRetard
-              ? "Aucune action ne correspond à ce filtre."
-              : "Les actions qui vous seront confiées après une revue à froid apparaîtront ici."}
+              ? t("Aucune action ne correspond à ce filtre.", "No action matches this filter.")
+              : t(
+                  "Les actions qui vous seront confiées après une revue à froid apparaîtront ici.",
+                  "Actions assigned to you after a cold review will appear here.",
+                )}
           </p>
         </EtatVide>
       ) : (

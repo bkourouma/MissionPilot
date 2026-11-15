@@ -5,8 +5,8 @@ import { api } from "../../lib/api";
 import { formaterDate } from "../../lib/format";
 import {
   cheminMesuresKpi,
+  libelleNature,
   messageKpi,
-  NATURE_LIBELLES,
   type DetailKpi,
   type MesureKpi,
 } from "../../lib/kpi";
@@ -18,6 +18,7 @@ import {
   type ChampMesure,
   type SaisieMesure as Saisie,
 } from "../../lib/kpi-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -37,6 +38,8 @@ const VIDE = { valeur: "", commentaire: "", justificatif: "", motif: "" };
  * L'API évalue ensuite les alertes du KPI.
  */
 export function SaisieMesure({ kpi, aujourdhui }: SaisieMesureProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampMesure>();
   const max = dateMesureMax(kpi, aujourdhui);
   const [s, setS] = useState<Saisie>({ date_mesure: max, ...VIDE });
@@ -46,11 +49,14 @@ export function SaisieMesure({ kpi, aujourdhui }: SaisieMesureProps) {
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      validerMesure(s, kpi, aujourdhui),
+      validerMesure(s, kpi, aujourdhui, langue),
       (charge) => api.post<MesureKpi>(cheminMesuresKpi(kpi.id), charge),
       {
-        succes: "Mesure enregistrée : le statut et les alertes du KPI ont été réévalués.",
-        messageSpecifique: messageKpi,
+        succes: t(
+          "Mesure enregistrée : le statut et les alertes du KPI ont été réévalués.",
+          "Measurement saved: the KPI's status and alerts have been reassessed.",
+        ),
+        messageSpecifique: (e) => messageKpi(e, langue),
       },
     );
     if (ok) setS((x) => ({ ...x, ...VIDE }));
@@ -59,7 +65,10 @@ export function SaisieMesure({ kpi, aujourdhui }: SaisieMesureProps) {
   if (kpi.debut_suivi > max) {
     return (
       <p className="mp-texte-doux">
-        {`Le suivi commence le ${formaterDate(kpi.debut_suivi)} : aucune mesure ne peut encore être datée.`}
+        {t(
+          `Le suivi commence le ${formaterDate(kpi.debut_suivi, "UTC", langue)} : aucune mesure ne peut encore être datée.`,
+          `Tracking starts on ${formaterDate(kpi.debut_suivi, "UTC", langue)}: no measurement can be dated yet.`,
+        )}
       </p>
     );
   }
@@ -70,18 +79,18 @@ export function SaisieMesure({ kpi, aujourdhui }: SaisieMesureProps) {
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Saisir une mesure"
+      aria-label={t("Saisir une mesure", "Enter a measurement")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Mesure refusée"
+        titreErreur={t("Mesure refusée", "Measurement refused")}
       />
-      <p className="mp-texte-doux">{NATURE_LIBELLES[kpi.nature]}.</p>
+      <p className="mp-texte-doux">{libelleNature(kpi.nature, langue)}.</p>
       <div className="mp-grille-champs">
         <Champ
-          libelle="Date de la mesure"
+          libelle={t("Date de la mesure", "Measurement date")}
           type="date"
           required
           min={kpi.debut_suivi}
@@ -89,21 +98,27 @@ export function SaisieMesure({ kpi, aujourdhui }: SaisieMesureProps) {
           value={s.date_mesure}
           onChange={maj("date_mesure")}
           erreur={f.erreurs.date_mesure}
-          aide={`Du ${formaterDate(kpi.debut_suivi)} au ${formaterDate(max)}.`}
+          aide={t(
+            `Du ${formaterDate(kpi.debut_suivi, "UTC", langue)} au ${formaterDate(max, "UTC", langue)}.`,
+            `From ${formaterDate(kpi.debut_suivi, "UTC", langue)} to ${formaterDate(max, "UTC", langue)}.`,
+          )}
         />
         <Champ
-          libelle={`Valeur (${kpi.unite})`}
+          libelle={`${t("Valeur", "Value")} (${kpi.unite})`}
           required
           inputMode="decimal"
           autoComplete="off"
           value={s.valeur}
           onChange={maj("valeur")}
           erreur={f.erreurs.valeur}
-          aide="15 chiffres significatifs et 6 décimales au plus (ex. 1 250,5)."
+          aide={t(
+            "15 chiffres significatifs et 6 décimales au plus (ex. 1 250,5).",
+            "15 significant digits and 6 decimals at most (e.g. 1250.5).",
+          )}
         />
       </div>
       <ZoneTexte
-        libelle="Commentaire"
+        libelle={t("Commentaire", "Comment")}
         rows={2}
         maxLength={COMMENTAIRE_MAX}
         value={s.commentaire}
@@ -111,16 +126,23 @@ export function SaisieMesure({ kpi, aujourdhui }: SaisieMesureProps) {
         erreur={f.erreurs.commentaire}
       />
       <Champ
-        libelle="Justificatif"
+        libelle={t("Justificatif", "Supporting document")}
         maxLength={JUSTIFICATIF_MAX}
         value={s.justificatif}
         onChange={maj("justificatif")}
         erreur={f.erreurs.justificatif}
-        aide="Référence de la pièce (ex. « Balance générale au 31/01 »)."
+        aide={t(
+          "Référence de la pièce (ex. « Balance générale au 31/01 »).",
+          'Reference of the document (e.g. "General ledger balance at 31/01").',
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la mesure
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la mesure", "Save the measurement")}
         </Bouton>
       </div>
     </form>

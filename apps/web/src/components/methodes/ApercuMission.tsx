@@ -6,8 +6,10 @@ import { messageMethodes, type Facteur, type SaisieContexte } from "../../lib/me
 import {
   construireCorpsApercu,
   MENTION_APERCU,
+  MENTION_APERCU_EN,
   type ApercuMission as Apercu,
 } from "../../lib/methodes-apercu";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
@@ -27,6 +29,9 @@ export function ApercuMission({
   facteurs: Facteur[];
   regles?: { code: string; libelle?: string | null }[];
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const mention = langue === "en" ? MENTION_APERCU_EN : MENTION_APERCU;
   const [contexte, setContexte] = useState<SaisieContexte>({});
   const [erreursChamps, setErreursChamps] = useState<Partial<Record<string, string>>>({});
   const [apercu, setApercu] = useState<Apercu | null>(null);
@@ -38,7 +43,7 @@ export function ApercuMission({
   async function generer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErreur(null);
-    const corps = construireCorpsApercu(contexte, facteurs);
+    const corps = construireCorpsApercu(contexte, facteurs, langue);
     setErreursChamps(corps.ok ? {} : corps.erreurs);
     if (!corps.ok) return;
     setEnCours(true);
@@ -48,7 +53,7 @@ export function ApercuMission({
       setTimeout(() => refResultat.current?.focus(), 0);
     } catch (err) {
       setApercu(null);
-      setErreur(messageMethodes(err) ?? messageErreur(err));
+      setErreur(messageMethodes(err, langue) ?? messageErreur(err));
       setTimeout(() => refErreur.current?.focus(), 0);
     } finally {
       setEnCours(false);
@@ -58,13 +63,15 @@ export function ApercuMission({
   return (
     <div className="mp-pile">
       <Alerte tonalite="info" annonce="aucune">
-        <p>{MENTION_APERCU}</p>
+        <p>{mention}</p>
       </Alerte>
       <form className="mp-pile" noValidate onSubmit={generer}>
-        <Carte titre="Contexte de la mission type">
+        <Carte titre={t("Contexte de la mission type", "Context of the sample engagement")}>
           <p className="mp-texte-doux">
-            Renseignez ce que vous savez du client : un champ laissé vide est « non renseigné », et
-            une règle ne se déclenche jamais sur une donnée inconnue.
+            {t(
+              "Renseignez ce que vous savez du client : un champ laissé vide est « non renseigné », et une règle ne se déclenche jamais sur une donnée inconnue.",
+              'Fill in what you know about the client: a blank field is "not provided", and a rule never triggers on unknown data.',
+            )}
           </p>
           <ChampsContexte
             prefixe="apercu"
@@ -75,20 +82,29 @@ export function ApercuMission({
           />
         </Carte>
         <div className="mp-actions-formulaire">
-          <Bouton type="submit" icone="courbe" chargement={enCours} texteChargement="Génération…">
-            Générer l&apos;aperçu
+          <Bouton
+            type="submit"
+            icone="courbe"
+            chargement={enCours}
+            texteChargement={t("Génération…", "Generating…")}
+          >
+            {t("Générer l'aperçu", "Generate the preview")}
           </Bouton>
         </div>
       </form>
       {erreur ? (
-        <Alerte ref={refErreur} tonalite="danger" titre="Aperçu impossible">
+        <Alerte
+          ref={refErreur}
+          tonalite="danger"
+          titre={t("Aperçu impossible", "Preview not possible")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
       {apercu ? (
         <div ref={refResultat} tabIndex={-1} className="mp-pile" aria-live="polite">
           <Alerte tonalite="info" annonce="aucune">
-            <p>{MENTION_APERCU}</p>
+            <p>{mention}</p>
           </Alerte>
           <VueApercu a={apercu} facteurs={facteurs} regles={regles} />
         </div>

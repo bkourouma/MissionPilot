@@ -2,7 +2,10 @@
 import { entier, FORMAT_IDENTIFIANT } from "./notation-augmentee-commun";
 import {
   aPermission,
+  creerTraduire,
+  PUBLIC_ITEM_LIBELLES,
   PUBLICS_ITEM_NOTATION,
+  type Langue,
   type ItemBanqueDonnees,
   type PublicItemNotation,
   type Role,
@@ -34,6 +37,9 @@ export const POIDS_ITEM_MAX = 100;
 
 export const MESSAGE_IDENTIFIANT =
   "Identifiant : minuscules sans accent, chiffres, « _ », « . » ou « - », 80 caractères au plus, en commençant par une lettre ou un chiffre.";
+
+export const MESSAGE_IDENTIFIANT_EN =
+  'Identifier: lowercase letters without accents, digits, "_", "." or "-", 80 characters at most, starting with a letter or a digit.';
 
 export interface VersionItemBanque {
   id: string;
@@ -77,9 +83,32 @@ export const STATUTS_ITEM: Record<
   valide: { libelle: "Validé", tonalite: "succes" },
 };
 
+const PUBLIC_ITEM_LIBELLES_EN: Record<PublicItemNotation, string> = {
+  tous: "All audiences",
+  dirigeant: "Executives",
+  manager: "Managers",
+  equipe: "Teams",
+  externe: "External parties",
+};
+
+/** Libellé d'un public visé par une formulation, dans la langue demandée. */
+export const libellePublicItem = (p: PublicItemNotation, langue: Langue = "fr") =>
+  langue === "en" ? PUBLIC_ITEM_LIBELLES_EN[p] : PUBLIC_ITEM_LIBELLES[p];
+
+export const STATUTS_ITEM_EN: Record<
+  ItemBanqueDetail["statut"],
+  { libelle: string; tonalite: TonaliteNotation }
+> = {
+  brouillon: { libelle: "Draft", tonalite: "neutre" },
+  valide: { libelle: "Approved", tonalite: "succes" },
+};
+
+export const detailStatutItem = (statut: ItemBanqueDetail["statut"], langue: Langue = "fr") =>
+  (langue === "en" ? STATUTS_ITEM_EN : STATUTS_ITEM)[statut];
+
 /** Compteur affiché sous un champ à longueur limitée (« 120 / 500 caractères »). */
-export const compteurCaracteres = (saisie: string, max: number) =>
-  `${saisie.trim().length} / ${max} caractères`;
+export const compteurCaracteres = (saisie: string, max: number, langue: Langue = "fr") =>
+  `${saisie.trim().length} / ${max} ${langue === "en" ? "characters" : "caractères"}`;
 
 /** Texte d'aide d'une question : ancrages par niveau croissant, comme le moteur les réunit. */
 export function aideDepuisAncrages(
@@ -168,7 +197,9 @@ export function saisieDepuisItem(c: ItemBanqueDonnees): SaisieItemBanque {
 export function validerSaisieItem(
   s: SaisieItemBanque,
   base: ItemBanqueDonnees | null = null,
+  langue: Langue = "fr",
 ): Resultat<{ contenu: ItemBanqueDonnees }, string> {
+  const t = creerTraduire(langue);
   const e: Record<string, string> = {};
   const code = s.code.trim();
   const dimension = s.dimension.trim();
@@ -178,35 +209,56 @@ export function validerSaisieItem(
     ["dimension", dimension],
     ["pratique", pratique],
   ] as const) {
-    if (!FORMAT_IDENTIFIANT.test(v)) e[cle] = MESSAGE_IDENTIFIANT;
+    if (!FORMAT_IDENTIFIANT.test(v))
+      e[cle] = langue === "en" ? MESSAGE_IDENTIFIANT_EN : MESSAGE_IDENTIFIANT;
   }
   const intitule = s.intitule.trim();
-  if (intitule === "") e.intitule = "L'intitulé de la pratique évaluée est obligatoire.";
-  else if (intitule.length > INTITULE_LONGUEUR_MAX) {
-    e.intitule = `Intitulé de ${INTITULE_LONGUEUR_MAX} caractères au plus.`;
+  if (intitule === "") {
+    e.intitule = t(
+      "L'intitulé de la pratique évaluée est obligatoire.",
+      "The title of the practice being assessed is required.",
+    );
+  } else if (intitule.length > INTITULE_LONGUEUR_MAX) {
+    e.intitule = t(
+      `Intitulé de ${INTITULE_LONGUEUR_MAX} caractères au plus.`,
+      `Title of ${INTITULE_LONGUEUR_MAX} characters at most.`,
+    );
   }
 
   const niveaux = entier(s.niveaux);
   const nombre =
     niveaux !== null && niveaux >= NIVEAUX_ITEM_MIN && niveaux <= NIVEAUX_ITEM_MAX ? niveaux : 0;
   if (nombre === 0) {
-    e.niveaux = `Nombre de niveaux : entier de ${NIVEAUX_ITEM_MIN} à ${NIVEAUX_ITEM_MAX}.`;
+    e.niveaux = t(
+      `Nombre de niveaux : entier de ${NIVEAUX_ITEM_MIN} à ${NIVEAUX_ITEM_MAX}.`,
+      `Number of levels: integer from ${NIVEAUX_ITEM_MIN} to ${NIVEAUX_ITEM_MAX}.`,
+    );
   }
   const libelles: string[] = [];
   const comportements: string[] = [];
   for (let i = 0; i < nombre; i++) {
     const rang = i + 1;
     const libelle = (s.libelles[i] ?? "").trim();
-    if (libelle === "") e[`libelle-${rang}`] = "Libellé du niveau obligatoire.";
-    else if (libelle.length > LIBELLE_NIVEAU_LONGUEUR_MAX) {
-      e[`libelle-${rang}`] = `Libellé de ${LIBELLE_NIVEAU_LONGUEUR_MAX} caractères au plus.`;
+    if (libelle === "") {
+      e[`libelle-${rang}`] = t("Libellé du niveau obligatoire.", "Level label is required.");
+    } else if (libelle.length > LIBELLE_NIVEAU_LONGUEUR_MAX) {
+      e[`libelle-${rang}`] = t(
+        `Libellé de ${LIBELLE_NIVEAU_LONGUEUR_MAX} caractères au plus.`,
+        `Label of ${LIBELLE_NIVEAU_LONGUEUR_MAX} characters at most.`,
+      );
     }
     libelles.push(libelle);
     const comportement = (s.ancrages[i] ?? "").trim();
     if (comportement === "") {
-      e[`ancrage-${rang}`] = "Un comportement observable est obligatoire pour chaque niveau.";
+      e[`ancrage-${rang}`] = t(
+        "Un comportement observable est obligatoire pour chaque niveau.",
+        "An observable behavior is required for each level.",
+      );
     } else if (comportement.length > ANCRAGE_LONGUEUR_MAX) {
-      e[`ancrage-${rang}`] = `Comportement de ${ANCRAGE_LONGUEUR_MAX} caractères au plus.`;
+      e[`ancrage-${rang}`] = t(
+        `Comportement de ${ANCRAGE_LONGUEUR_MAX} caractères au plus.`,
+        `Behavior of ${ANCRAGE_LONGUEUR_MAX} characters at most.`,
+      );
     }
     comportements.push(comportement);
   }
@@ -215,7 +267,10 @@ export function validerSaisieItem(
       comportements.map((comportement, i) => ({ niveau: i + 1, comportement })),
     ).length;
     if (reuni > AIDE_ANCRAGES_LONGUEUR_MAX) {
-      e.ancrages = `Ancrages trop longs : ${AIDE_ANCRAGES_LONGUEUR_MAX} caractères au plus une fois réunis (« niveau : comportement »), ${reuni} saisis.`;
+      e.ancrages = t(
+        `Ancrages trop longs : ${AIDE_ANCRAGES_LONGUEUR_MAX} caractères au plus une fois réunis (« niveau : comportement »), ${reuni} saisis.`,
+        `Anchors too long: ${AIDE_ANCRAGES_LONGUEUR_MAX} characters at most once combined ("level: behavior"), ${reuni} entered.`,
+      );
     }
   }
 
@@ -224,25 +279,40 @@ export function validerSaisieItem(
     const texte = s.formulations[p].trim();
     if (texte === "") continue;
     if (texte.length > FORMULATION_LONGUEUR_MAX) {
-      e[`formulation-${p}`] = `Formulation de ${FORMULATION_LONGUEUR_MAX} caractères au plus.`;
+      e[`formulation-${p}`] = t(
+        `Formulation de ${FORMULATION_LONGUEUR_MAX} caractères au plus.`,
+        `Wording of ${FORMULATION_LONGUEUR_MAX} characters at most.`,
+      );
     }
     formulations.push({ public: p, texte });
   }
   if (formulations.length === 0) {
-    e.formulations = "Au moins une formulation est obligatoire (idéalement « Tous publics »).";
+    e.formulations = t(
+      "Au moins une formulation est obligatoire (idéalement « Tous publics »).",
+      'At least one wording is required (ideally "All audiences").',
+    );
   }
 
   const poids = lireNombre(s.poids);
   if (poids === null || Number.isNaN(poids) || poids <= 0 || poids > POIDS_ITEM_MAX) {
-    e.poids = `Poids : nombre supérieur à 0 et au plus ${POIDS_ITEM_MAX}.`;
+    e.poids = t(
+      `Poids : nombre supérieur à 0 et au plus ${POIDS_ITEM_MAX}.`,
+      `Weight: number greater than 0 and at most ${POIDS_ITEM_MAX}.`,
+    );
   }
   const priorite = entier(s.priorite);
   if (priorite === null || priorite < 1 || priorite > PRIORITE_ITEM_MAX) {
-    e.priorite = `Priorité : entier de 1 (cœur de la dimension) à ${PRIORITE_ITEM_MAX}.`;
+    e.priorite = t(
+      `Priorité : entier de 1 (cœur de la dimension) à ${PRIORITE_ITEM_MAX}.`,
+      `Priority: integer from 1 (core of the dimension) to ${PRIORITE_ITEM_MAX}.`,
+    );
   }
   const duree = entier(s.duree);
   if (duree === null || duree < DUREE_ITEM_MIN_SECONDES || duree > DUREE_ITEM_MAX_SECONDES) {
-    e.duree = `Durée de réponse : entier de ${DUREE_ITEM_MIN_SECONDES} à ${DUREE_ITEM_MAX_SECONDES} secondes.`;
+    e.duree = t(
+      `Durée de réponse : entier de ${DUREE_ITEM_MIN_SECONDES} à ${DUREE_ITEM_MAX_SECONDES} secondes.`,
+      `Answer time: integer from ${DUREE_ITEM_MIN_SECONDES} to ${DUREE_ITEM_MAX_SECONDES} seconds.`,
+    );
   }
   if (Object.keys(e).length > 0) return { ok: false, erreurs: e };
 
@@ -287,18 +357,24 @@ export function droitsItemBanque(
   roles: readonly Role[],
   utilisateurId: string,
   item: { statut: "brouillon" | "valide"; cree_par: string; modifie_par: string },
+  langue: Langue = "fr",
 ): DroitsItemBanque {
+  const t = creerTraduire(langue);
   const brouillon = item.statut === "brouillon";
   const redige = aPermission(roles, "notation.gerer") || aPermission(roles, "notation.publier");
   const validerVisible = brouillon && aPermission(roles, "notation.publier");
   const auteur = item.cree_par === utilisateurId || item.modifie_par === utilisateurId;
   let explicationValidation: string | null = null;
   if (brouillon && !estExpertPublieur(roles)) {
-    explicationValidation =
-      "La validation d'un item revient à un expert métier du cabinet : votre rôle permet de le rédiger, pas de le valider.";
+    explicationValidation = t(
+      "La validation d'un item revient à un expert métier du cabinet : votre rôle permet de le rédiger, pas de le valider.",
+      "Approving an item is up to a business expert of the firm: your role allows you to write it, not to approve it.",
+    );
   } else if (brouillon && auteur) {
-    explicationValidation =
-      "Vous avez rédigé ou modifié ce brouillon : un autre expert métier doit le relire et le valider (séparation des tâches).";
+    explicationValidation = t(
+      "Vous avez rédigé ou modifié ce brouillon : un autre expert métier doit le relire et le valider (séparation des tâches).",
+      "You wrote or edited this draft: another business expert must review and approve it (separation of duties).",
+    );
   }
   return {
     modifier: brouillon && redige,

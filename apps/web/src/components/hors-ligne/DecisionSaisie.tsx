@@ -9,6 +9,7 @@ import {
   type SaisieEnAttente,
 } from "../../lib/hors-ligne/file-temps";
 import { libelleDateCourte } from "../../lib/semaine";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 
@@ -35,13 +36,18 @@ export function DecisionSaisie({
   onRenvoyer,
   onAbandonner,
   lienSemaine = false,
-  libelleRenvoyer = "Renvoyer ma saisie",
-  libelleAbandonner = "Abandonner ma saisie",
+  libelleRenvoyer,
+  libelleAbandonner,
 }: DecisionSaisieProps) {
+  const t = useT();
+  const langue = useLangue();
   const [confirmer, setConfirmer] = useState(false);
   const [enCours, setEnCours] = useState<"renvoyer" | "abandonner" | null>(null);
   const cases = casesRemplies(entree);
-  const titre = entree.etat === "refuse" ? "Saisie refusée" : "Saisie non appliquée";
+  const titre =
+    entree.etat === "refuse"
+      ? t("Saisie refusée", "Entry refused")
+      : t("Saisie non appliquée", "Entry not applied");
 
   async function agir(choix: "renvoyer" | "abandonner") {
     setEnCours(choix);
@@ -56,19 +62,35 @@ export function DecisionSaisie({
   return (
     <Alerte
       tonalite="attention"
-      titre={`${titre} — semaine du ${libelleDateCourte(entree.semaine)}`}
+      titre={t(
+        `${titre} — semaine du ${libelleDateCourte(entree.semaine, langue)}`,
+        `${titre} — week of ${libelleDateCourte(entree.semaine, langue)}`,
+      )}
     >
-      <p>{libelleMotif(entree.motif) || "Cette saisie attend votre décision."}</p>
-      <p>Votre saisie est gardée sur cet appareil tant que vous n&apos;avez pas choisi.</p>
+      <p>
+        {libelleMotif(entree.motif, langue) ||
+          t("Cette saisie attend votre décision.", "This entry is waiting for your decision.")}
+      </p>
+      <p>
+        {t(
+          "Votre saisie est gardée sur cet appareil tant que vous n'avez pas choisi.",
+          "Your entry is kept on this device until you choose.",
+        )}
+      </p>
       {cases.length > 0 ? (
         <details className="mp-hors-ligne__detail">
-          <summary>{`Voir ma saisie (${cases.length} case${cases.length > 1 ? "s" : ""})`}</summary>
+          <summary>
+            {t(
+              `Voir ma saisie (${cases.length} case${cases.length > 1 ? "s" : ""})`,
+              `View my entry (${cases.length} cell${cases.length > 1 ? "s" : ""})`,
+            )}
+          </summary>
           <ul className="mp-liste-simple">
             {cases.map((c) => {
               const rangee = libelleRangee?.(c.cle.slice(0, c.cle.lastIndexOf("|")));
               return (
                 <li key={c.cle}>
-                  {`${libelleDateCourte(c.date)}${rangee ? ` — ${rangee}` : ""} : ${c.valeur}`}
+                  {`${libelleDateCourte(c.date, langue)}${rangee ? ` — ${rangee}` : ""} : ${c.valeur}`}
                 </li>
               );
             })}
@@ -81,11 +103,11 @@ export function DecisionSaisie({
             variante="secondaire"
             icone="envoyer"
             chargement={enCours === "renvoyer"}
-            texteChargement="Envoi…"
+            texteChargement={t("Envoi…", "Sending…")}
             disabled={enCours !== null}
             onClick={() => void agir("renvoyer")}
           >
-            {libelleRenvoyer}
+            {libelleRenvoyer ?? t("Renvoyer ma saisie", "Resend my entry")}
           </Bouton>
         ) : null}
         {confirmer ? (
@@ -94,18 +116,18 @@ export function DecisionSaisie({
               variante="danger"
               icone="corbeille"
               chargement={enCours === "abandonner"}
-              texteChargement="Suppression…"
+              texteChargement={t("Suppression…", "Deleting…")}
               disabled={enCours !== null}
               onClick={() => void agir("abandonner")}
             >
-              Confirmer l&apos;abandon
+              {t("Confirmer l'abandon", "Confirm abandoning")}
             </Bouton>
             <Bouton
               variante="discret"
               disabled={enCours !== null}
               onClick={() => setConfirmer(false)}
             >
-              Garder ma saisie
+              {t("Garder ma saisie", "Keep my entry")}
             </Bouton>
           </>
         ) : (
@@ -115,15 +137,17 @@ export function DecisionSaisie({
             disabled={enCours !== null}
             onClick={() => setConfirmer(true)}
           >
-            {libelleAbandonner}
+            {libelleAbandonner ?? t("Abandonner ma saisie", "Abandon my entry")}
           </Bouton>
         )}
         {correctionPossible(entree.motif) ? (
-          <Link href="/temps/corrections">Faire une demande de correction</Link>
+          <Link href="/temps/corrections">
+            {t("Faire une demande de correction", "Make a correction request")}
+          </Link>
         ) : null}
         {lienSemaine ? (
           <Link href={`/temps?semaine=${encodeURIComponent(entree.semaine)}`}>
-            Ouvrir la semaine
+            {t("Ouvrir la semaine", "Open the week")}
           </Link>
         ) : null}
       </div>

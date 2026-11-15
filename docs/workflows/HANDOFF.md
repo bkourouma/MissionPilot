@@ -9,41 +9,49 @@ Le suivi anomalie par anomalie vit dans le bus d'agents (`.agent-bus/`).
 
 ---
 
-## Branche `feat/activite-demo-auto` — 2026-11-01 (tableau de bord hebdomadaire et activité de démonstration)
+## Branche `feat/application-bilingue` — 2026-11-13 (interface français / anglais)
 
-Worktree `D:\APP\MissionPilot-worktrees\activite-demo`, base `origin/main` @ `dfec1a3`.
+Copie principale `D:\APP\MissionPilot`, base `main` @ `e8ea7e6` (PR n° 26 fusionnée). Upstream retiré
+(`git branch --unset-upstream`) : pousser avec `git push -u origin feat/application-bilingue`, jamais vers `main`.
 
-**Demande.** Tableau de bord : période par défaut = semaine en cours (lundi → dimanche) au lieu du seul jour, au moins une
-mission hors budget, les 11 indicateurs renseignés, via un job d'arrière-plan qui ajoute chaque mois des données s'il n'y en a pas.
+**Demande.** « Rendre l'application bilingue » : français (référence, par défaut) et anglais.
 
 **Fait.**
-- Web : période ISO de la semaine, `date_reference = min(au, aujourd'hui)`, titre « Pilotage de la semaine », lien vers
-  `/indicateurs?du=…&au=…`, repli « semaine en cours » signalé quand la période dépasse 366 jours.
-- Job `activite_demo` (migration `0584`, `apps/api/src/activite-demo/`, moteur `packages/engines/src/activite-demo/`) : tâche
-  mensuelle le 1er à 04:00 UTC + suites le lundi à 05:00 UTC ; seulement dans les cabinets `est_demo` ET `actif` ; feuilles validées,
-  dérive d'une mission (reste à faire, bande ]80 ; 160] ‰), jalon, facture, encaissement, avenant mensuel de prolongation
-  (nouvelle version révisée validée, FIN-03 respecté) ; alertes sans notification ; marqueurs `activite_demo.*` au journal.
-  Activation `DEMO_ACTIVITE_AUTO` = `auto` (suit `DEMO_PUBLIQUE=oui`) | `oui` | `non` ; avertissement au démarrage.
-- Docs : DECISIONS (entrée « Activité de démonstration automatique (2026-11-01) », À VALIDER), SECURITY §3/§4/§10/§15,
-  RUNBOOK, DEPLOIEMENT (g), review-checklist, CODING_STANDARDS (0584 consommé ; démonstration libre `0585–0589`).
-- Correctifs après recette : besoin hebdomadaire de l'avenant ramené au pas de 0,5 j (affectation proratisée → 400
-  `REQUETE_INVALIDE` sur Kora) ; encaissement : facture du job échue avant la semaine suivante en tête (délai de paiement
-  raccourci par un visiteur → relances FIN-09) ; redéclaration du reste à faire : mission visible, verrouillée, non clôturée.
-- Vérifié : typecheck, lint, prettier, moteur 101/101, web 23/23, shared 4/4, suites API `activite-demo*` (108 avant les
-  correctifs) ; en application (base `mp_verif_actdemo`, Lagune) : 3 avenants, 0 échec, tableau de bord associé avec les
-  11 cartes, Kora « Dérive au-delà de 5 % » (127 j pour 113 j), période du 26 oct. au 1er nov. 2026.
+- Socle (commit `4b4a12e`) : ADR-014, `packages/shared/src/langue.ts` (cookie `mp_langue`, en-tête `x-mp-langue`,
+  `resoudreLangue`, `creerTraduire`, `libelleRole`), `useT`/`useLangue`/`<T>` (`components/i18n/`), `obtenirT`/`obtenirLangue`
+  (`lib/i18n/serveur.ts`), sélecteur FR/EN (en-tête, connexion, portail, console plateforme), formats `fr-FR`/`en-GB`,
+  gestionnaire d'erreurs de l'API traduit (`apps/api/src/i18n/`).
+- Traduction de ~1 190 fichiers web par 20 territoires (`t(fr, en)`, dernier paramètre `langue` des libs, `generateMetadata`,
+  composants serveur passés `async`), table anglaise de 1 402 messages d'erreur de l'API + ~200 motifs, passe d'intégration
+  (libellés croisés, `motifEn` des reconfirmations, indicateurs du tableau de bord, brief en anglais `libelleElementBrief`).
+- Saisie des nombres : `normaliserNombreSaisi` / `lireNombre(v, langue)` (`lib/saisie.ts`) ; en anglais la virgule n'est
+  admise que comme séparateur de milliers (« 150,000 » = 150 000, « 2,5 » refusé), jamais lue en silence comme une décimale.
+  `langueNavigateur()` déplacé dans `lib/langue-navigateur.ts` (réexporté par `lib/api.ts`).
+- Docs : AGENTS.md (règle Langue), CODING_STANDARDS §6, review-checklist (interface bilingue, recherche n° 29 → `layout.tsx:17/:52`).
+- Vérifié : typecheck web/API/shared, eslint `apps/web/src`, `pnpm format`, web 171 fichiers / 2 631 tests, shared 541,
+  API `i18n-messages`, `auth`, `import-temps` ; recette HTTP authentifiée (associé Lagune) de 27 pages en anglais (titres,
+  `lang`, contenus) et en français ; erreur d'API anglaise avec `x-mp-langue: en`. Contrôle par script : aucun composant
+  serveur `async` ni `obtenirT` atteignable depuis un fichier `"use client"`.
 
-**État.** PR bkourouma/MissionPilot#26 ouverte (2026-11-01), CI verte 5/5 (suite API complète en 4 partitions), Auto-fix
-activé sur la PR.
+**État.** Commits `4b4a12e` (socle), `911da1b` (traduction), `cb78ede` (test daté) poussés ; **PR n° 27 ouverte**
+(https://github.com/bkourouma/MissionPilot/pull/27), CI en cours au 2026-11-14. Suite API locale : 3 856 / 3 863 ; 6 échecs
+de charge (délais, réveil du worker) qui passent fichier seul, et `feuilles-temps.test.ts` « discipline de saisie », qui
+échouait depuis le 2026-11-08 quel que soit le code (horodatages réels de la soumission et de la création du collaborateur) :
+corrigé par `cb78ede`.
 
-**Reste.** Fusion et déploiement : accord explicite de l'utilisateur ; le serveur de démonstration a `DEMO_PUBLIQUE=oui`,
-donc le déploiement ACTIVE le job (`DEMO_ACTIVITE_AUTO=auto`) — poser `DEMO_ACTIVITE_AUTO=non` pour l'éviter.
-Non vérifié dans le navigateur : vue directeur (3 cartes « Réservé »), Tenant démo. Nettoyage local (accord requis pour
-supprimer) : API 4100 et web 3100 de vérification, bases `mp_verif_actdemo`, `mp_actdemo_test`, `mp_actdemo2_test`.
+**Reste.** Fusion de la PR n° 27 = accord de l'utilisateur (fusionner dans `main` déploie). Non vérifié à l'écran (le volet du
+navigateur ne dessinait pas) : sélecteur après connexion, écrans du portail client et de la console plateforme en anglais.
 
-**Pièges.** Tests API : base dédiée par agent (`mp_actdemo_test`, `mp_actdemo2_test`). `config.test` « ports simulés » et
-les tests de performance d'ingestion du moteur dépassent leur délai en local avec couverture (préexistant, environnement).
-Le job exige une saisie à la demi-journée (cabinet à l'heure : sauté, incident `activite_demo_granularite`).
+**Pièges et limites.**
+- Restent en français par nature (données) : contenus stockés ou produits par l'API (libellés de lignes de budget, grades et
+  noms saisis, catalogue des agents, textes des sources du brief hors gabarits connus, rapports, notifications, e-mails).
+- Ne jamais utiliser `langueNavigateur()` comme défaut d'un texte RENDU (désaccord d'hydratation) : passer `langue`.
+- `.map(fonctionAvecLangue)` passe l'index comme langue : écrire `.map((x) => f(x, langue))`.
+- Nouveau message d'erreur de l'API : l'ajouter à `apps/api/src/i18n/messages-en-tables.ts` (le test `i18n-messages`
+  vérifie que chaque clé existe encore dans le code).
+- `pnpm lint` échoue sur `apps/web/.impeccable/**` (scripts locaux ignorés par git, préexistant) ; `eslint src` est propre.
+- Recette locale : `tsx watch` de `pnpm dev` peut rester muet sous le volet d'aperçu ; lancer l'API par `tsx src/server.ts`
+  (`.claude/launch.json` local, non commité).
 
 ---
 

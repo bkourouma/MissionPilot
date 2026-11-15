@@ -175,8 +175,12 @@ tests. Quand une règle est implémentée, y ajouter le fichier qui l'illustre.
   révision crée une nouvelle version validée par le directeur de mission. Une
   période de temps clôturée est verrouillée et toute correction est tracée
   (PRD, FIN-03 et TPS-09).
-- **Langue et monnaie.** Interface 100 % française en V1 ; devises FCFA (XOF,
-  XAF), EUR, USD (PRD, « Localisation »).
+- **Langue et monnaie.** Interface bilingue français / anglais depuis le
+  2026-11-13 (ADR-014) : tout texte affiché porte ses deux versions, `t(fr, en)`
+  (`useT` côté client, `obtenirT` côté serveur, `<T>` partout), le français reste
+  la langue de référence et par défaut ; messages d'erreur de l'API traduits par
+  `apps/api/src/i18n/messages-en.ts`. Devises FCFA (XOF, XAF), EUR, USD (PRD,
+  « Localisation »).
 
 ## Pièges connus
 

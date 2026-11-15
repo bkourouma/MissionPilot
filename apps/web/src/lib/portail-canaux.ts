@@ -10,7 +10,9 @@
  * aucun montant. Les droits testés ici ne servent qu'à n'afficher que ce qui sera accepté.
  */
 import {
+  creerTraduire,
   MENTIONS_CONSENTEMENT,
+  type Langue,
   type AccuseSignatureApi,
   type CanalMessagerie,
   type DemandeSignaturePortailApi,
@@ -22,6 +24,7 @@ import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi } from "./api";
 import { messageErreurCanaux, listeDepuis } from "./canaux";
 import { messageErreurPortail } from "./portail";
+import { mentionPourCanal } from "./canaux-numeros";
 import { CHEMIN_PORTAIL } from "./portail-routes";
 import {
   avancement,
@@ -84,7 +87,12 @@ export function etapePreference(
 }
 
 /** Texte de la mention en vigueur, tel que le serveur l'a servi (repli : la mention du lot). */
-export function texteMention(moi: Pick<MoiCanalApi, "canal" | "mention">): string {
+export function texteMention(
+  moi: Pick<MoiCanalApi, "canal" | "mention">,
+  langue: Langue = "fr",
+): string {
+  // Anglais : traduction d'affichage de la mention du lot (la version envoyée reste celle du français).
+  if (langue === "en") return mentionPourCanal(moi.canal, "en").texte;
   return (
     moi.mention?.texte ??
     MENTIONS_CONSENTEMENT[moi.canal === "sms" ? "sms-v1" : "whatsapp-v1"].texte
@@ -113,20 +121,29 @@ export interface ChargePreference {
 export function validerPreference(
   s: SaisiePreference,
   mentionVersion: string,
+  langue: Langue = "fr",
 ):
   | { ok: true; charge: ChargePreference }
   | { ok: false; erreurs: Partial<Record<ChampPreference, string>> } {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampPreference, string>> = {};
   const numero = s.numero.trim();
   if (s.avecNumero) {
-    if (numero === "") erreurs.numero = "Saisissez votre numéro de téléphone.";
+    if (numero === "")
+      erreurs.numero = t("Saisissez votre numéro de téléphone.", "Enter your phone number.");
     // eslint-disable-next-line no-control-regex
     else if (numero.length < 5 || numero.length > 40 || /[\u0000-\u001f\u007f]/.test(numero)) {
-      erreurs.numero = "Numéro invalide : saisissez-le avec l'indicatif (ex. +225…).";
+      erreurs.numero = t(
+        "Numéro invalide : saisissez-le avec l'indicatif (ex. +225…).",
+        "Invalid number: enter it with the country code (e.g. +225…).",
+      );
     }
   }
   if (!s.mentionCochee) {
-    erreurs.mention = "Cochez la case pour accepter de recevoir des messages.";
+    erreurs.mention = t(
+      "Cochez la case pour accepter de recevoir des messages.",
+      "Check the box to agree to receive messages.",
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -140,18 +157,20 @@ export function validerPreference(
 }
 
 /** Message d'un refus de l'API sur les préférences (codes de ce lot, puis messages du portail). */
-export function messageErreurPreferences(e: unknown): string {
+export function messageErreurPreferences(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const specifique = messageErreurCanaux(e);
+    const specifique = messageErreurCanaux(e, "totp", langue);
     // `messageErreurCanaux` retombe sur un message cabinet pour un 403 : le portail a le sien.
-    if (e.statut === 403 || e.statut === 404) return messageErreurPortail(e);
+    if (e.statut === 403 || e.statut === 404) return messageErreurPortail(e, langue);
     return specifique;
   }
-  return messageErreurPortail(e);
+  return messageErreurPortail(e, langue);
 }
 
 export const MESSAGE_RETRAIT_IMMEDIAT =
   "Vous ne recevrez plus de messages sur ce canal. Le retrait est immédiat ; vous pourrez redonner votre accord à tout moment.";
+export const MESSAGE_RETRAIT_IMMEDIAT_EN =
+  "You will no longer receive messages on this channel. The withdrawal is immediate; you can give your consent again at any time.";
 
 // --- Signatures ------------------------------------------------------------------------------
 
@@ -162,13 +181,15 @@ export function demandesPortail(corps: unknown): DemandeSignaturePortailApi[] {
 /** Libellé de ce que la personne doit faire (ou a fait). */
 export function libelleMonStatut(
   d: Pick<DemandeSignaturePortailApi, "mon_statut" | "peut_signer">,
+  langue: Langue = "fr",
 ): {
   libelle: string;
   tonalite: TonaliteStatut;
 } {
-  if (d.peut_signer) return { libelle: "À signer", tonalite: "attention" };
+  if (d.peut_signer)
+    return { libelle: creerTraduire(langue)("À signer", "To sign"), tonalite: "attention" };
   return {
-    libelle: libelleStatutSignataire(d.mon_statut),
+    libelle: libelleStatutSignataire(d.mon_statut, langue),
     tonalite: tonaliteStatutSignataire(d.mon_statut),
   };
 }
@@ -178,21 +199,27 @@ export const tonaliteStatutPortail = tonaliteStatutDemande;
 export const libelleObjetPortail = libelleObjetSignature;
 
 /** « 1 sur 2 signatures » : l'avancement ne nomme jamais un membre du cabinet. */
-export function avancementPortail(d: {
-  signataires_signes: number;
-  signataires_total: number;
-}): string {
-  return `${avancement(d)} signature${d.signataires_total > 1 ? "s" : ""}`;
+export function avancementPortail(
+  d: {
+    signataires_signes: number;
+    signataires_total: number;
+  },
+  langue: Langue = "fr",
+): string {
+  return `${avancement(d, langue)} signature${d.signataires_total > 1 ? "s" : ""}`;
 }
 
-export function messageErreurSignaturePortail(e: unknown): string {
+export function messageErreurSignaturePortail(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi && e.code === "TFA_INACTIVE") {
-    return "Signer exige une double authentification active : activez-la dans la rubrique « Sécurité » de votre espace, puis réessayez.";
+    return creerTraduire(langue)(
+      "Signer exige une double authentification active : activez-la dans la rubrique « Sécurité » de votre espace, puis réessayez.",
+      "Signing requires active two-factor authentication: turn it on in the \u201cSecurity\u201d section of your space, then try again.",
+    );
   }
   if (e instanceof ErreurApi && e.statut !== 403 && e.statut !== 404) {
-    return messageErreurSignature(e);
+    return messageErreurSignature(e, "totp", langue);
   }
-  return messageErreurPortail(e);
+  return messageErreurPortail(e, langue);
 }
 
 // --- Synthèse du dirigeant -------------------------------------------------------------------
@@ -200,6 +227,11 @@ export function messageErreurSignaturePortail(e: unknown): string {
 export const LIBELLES_GROUPE_SYNTHESE: Record<SyntheseDirigeantSectionApi["groupe"], string> = {
   point_attention: "Points d'attention",
   decision: "Décisions attendues",
+};
+
+const LIBELLES_GROUPE_SYNTHESE_EN: Record<SyntheseDirigeantSectionApi["groupe"], string> = {
+  point_attention: "Points of attention",
+  decision: "Decisions needed",
 };
 
 export interface GroupeSynthese {
@@ -215,6 +247,7 @@ export interface GroupeSynthese {
  */
 export function grouperSynthese(
   s: Pick<SyntheseDirigeantApi, "points_attention" | "decisions_attendues" | "sections">,
+  langue: Langue = "fr",
 ): GroupeSynthese[] {
   const groupes: GroupeSynthese["groupe"][] = ["point_attention", "decision"];
   return groupes
@@ -222,7 +255,7 @@ export function grouperSynthese(
       const sections = s.sections.filter((x) => x.groupe === groupe && x.nombre > 0);
       return {
         groupe,
-        titre: LIBELLES_GROUPE_SYNTHESE[groupe],
+        titre: (langue === "en" ? LIBELLES_GROUPE_SYNTHESE_EN : LIBELLES_GROUPE_SYNTHESE)[groupe],
         total: groupe === "point_attention" ? s.points_attention : s.decisions_attendues,
         sections,
       };
@@ -243,7 +276,15 @@ export function lienSynthese(lien: string): string | null {
 }
 
 /** « 3 points d'attention », « 1 décision attendue ». */
-export function phraseCompteur(n: number, groupe: SyntheseDirigeantSectionApi["groupe"]): string {
+export function phraseCompteur(
+  n: number,
+  groupe: SyntheseDirigeantSectionApi["groupe"],
+  langue: Langue = "fr",
+): string {
+  if (langue === "en")
+    return groupe === "point_attention"
+      ? `${n} point${n > 1 ? "s" : ""} of attention`
+      : `${n} decision${n > 1 ? "s" : ""} needed`;
   if (groupe === "point_attention") return `${n} point${n > 1 ? "s" : ""} d'attention`;
   return `${n} décision${n > 1 ? "s" : ""} attendue${n > 1 ? "s" : ""}`;
 }

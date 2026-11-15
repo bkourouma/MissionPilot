@@ -12,10 +12,14 @@ import {
   type PageQuestionnaires,
   type SaisieModele,
 } from "../../../../lib/questionnaires";
+import { obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 import { FormulaireModele } from "../FormulaireModele";
 
-export const metadata: Metadata = { title: "Nouveau modèle de questionnaire" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Nouveau modèle de questionnaire", "New questionnaire template") };
+}
 
 const premier = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
@@ -25,6 +29,7 @@ export default async function PageNouveauModele({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
   await exigerPermission("questionnaire.gerer");
   const p = await searchParams;
   const [gabarits, modeles] = await Promise.all([
@@ -36,8 +41,18 @@ export default async function PageNouveauModele({
     ? modeles.donnees.elements.map((m) => ({ id: m.id, titre: m.titre, code: m.code }))
     : [];
   const echecs = [
-    gabarits.ok ? null : `Les gabarits n'ont pas pu être chargés : ${gabarits.message}`,
-    modeles.ok ? null : `Les modèles du cabinet n'ont pas pu être chargés : ${modeles.message}`,
+    gabarits.ok
+      ? null
+      : t(
+          `Les gabarits n'ont pas pu être chargés : ${gabarits.message}`,
+          `The templates could not be loaded: ${gabarits.message}`,
+        ),
+    modeles.ok
+      ? null
+      : t(
+          `Les modèles du cabinet n'ont pas pu être chargés : ${modeles.message}`,
+          `The firm templates could not be loaded: ${modeles.message}`,
+        ),
   ].filter((m): m is string => m !== null);
   const gabarit = premier(p.gabarit);
   const copie = premier(p.copie);
@@ -53,20 +68,25 @@ export default async function PageNouveauModele({
   return (
     <div className="mp-page mp-page--etroite">
       <EnteteDePage
-        titre="Nouveau modèle de questionnaire"
-        retour={{ href: "/questionnaires", libelle: "Questionnaires" }}
+        titre={t("Nouveau modèle de questionnaire", "New questionnaire template")}
+        retour={{ href: "/questionnaires", libelle: t("Questionnaires", "Questionnaires") }}
       />
       {echecs.length > 0 ? (
-        <Alerte tonalite="attention" titre="Choix incomplets">
+        <Alerte tonalite="attention" titre={t("Choix incomplets", "Incomplete choices")}>
           {echecs.map((m) => (
             <p key={m}>{m}</p>
           ))}
-          <p>Rechargez la page pour réessayer.</p>
+          <p>{t("Rechargez la page pour réessayer.", "Reload the page to try again.")}</p>
         </Alerte>
       ) : null}
       {modeles.ok && modeles.donnees.curseur_suivant ? (
         <Alerte tonalite="info">
-          <p>{`Seuls les ${TAILLE_PAGE_CHOIX} premiers modèles (par titre) sont proposés à la copie.`}</p>
+          <p>
+            {t(
+              `Seuls les ${TAILLE_PAGE_CHOIX} premiers modèles (par titre) sont proposés à la copie.`,
+              `Only the first ${TAILLE_PAGE_CHOIX} templates (by title) are offered for copying.`,
+            )}
+          </p>
         </Alerte>
       ) : null}
       <Carte>

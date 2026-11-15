@@ -1,6 +1,8 @@
 /** Redressement (saisie) : seuils d'alerte par secteur. */
 import {
+  creerTraduire,
   RED_CRITERES_ALERTE,
+  type Langue,
   type RedCritereAlerte,
   type RedSeuils,
   type RedSeuilsCreation,
@@ -87,36 +89,57 @@ export function sommeDesPoids(criteres: Record<RedCritereAlerte, { poids: string
 export function corpsSeuilsDepuisFormulaire(
   secteur: RedSeuilsCreation["secteur"],
   s: SaisieSeuils,
+  langue: Langue = "fr",
 ): Resultat<RedSeuilsCreation, ChampSeuils> {
+  const t = creerTraduire(langue);
   const erreurs: Erreurs<ChampSeuils> = {};
   const criteres = {} as RedSeuils["criteres"];
   for (const c of RED_CRITERES_ALERTE) {
     const orange = lireValeurCritere(c, s.criteres[c].orange);
     const rouge = lireValeurCritere(c, s.criteres[c].rouge);
     const poids = lireEntier(s.criteres[c].poids, 0, 1000);
-    if (Number.isNaN(orange)) erreurs[`${c}.orange`] = "Valeur illisible.";
-    if (Number.isNaN(rouge)) erreurs[`${c}.rouge`] = "Valeur illisible.";
-    if (poids === null || Number.isNaN(poids))
-      erreurs[`${c}.poids`] = "Poids : entier de 0 à 1 000.";
+    if (Number.isNaN(orange)) erreurs[`${c}.orange`] = t("Valeur illisible.", "Unreadable value.");
+    if (Number.isNaN(rouge)) erreurs[`${c}.rouge`] = t("Valeur illisible.", "Unreadable value.");
+    if (poids === null || Number.isNaN(poids)) {
+      erreurs[`${c}.poids`] = t(
+        "Poids : entier de 0 à 1 000.",
+        "Weight: whole number from 0 to 1,000.",
+      );
+    }
     criteres[c] = { orange, rouge, poids: poids ?? Number.NaN };
   }
   const modere = lireEntier(s.niveaux.modere, 0, 100);
   const eleve = lireEntier(s.niveaux.eleve, 0, 100);
   const critique = lireEntier(s.niveaux.critique, 0, 100);
   if ([modere, eleve, critique].some((n) => n === null || Number.isNaN(n))) {
-    erreurs.niveaux = "Les trois niveaux sont des entiers de 0 à 100.";
+    erreurs.niveaux = t(
+      "Les trois niveaux sont des entiers de 0 à 100.",
+      "The three levels are whole numbers from 0 to 100.",
+    );
   }
   const part = lireEntier(s.part_minimale_evaluee_pct, 0, 100);
-  if (part === null || Number.isNaN(part)) erreurs.part = "Part minimale : entier de 0 à 100.";
+  if (part === null || Number.isNaN(part)) {
+    erreurs.part = t(
+      "Part minimale : entier de 0 à 100.",
+      "Minimum share: whole number from 0 to 100.",
+    );
+  }
   if (!erreurs.poids && Object.keys(erreurs).every((k) => !k.endsWith(".poids"))) {
     const somme = sommeDesPoids(s.criteres);
     if (somme !== 100) {
-      erreurs.poids = `La somme des poids doit être égale à 100 (actuellement ${somme}).`;
+      erreurs.poids = t(
+        `La somme des poids doit être égale à 100 (actuellement ${somme}).`,
+        `The weights must add up to 100 (currently ${somme}).`,
+      );
     }
   }
   const motif = texteOuNull(s.motif);
-  if (motif !== null && motif.length > 500)
-    erreurs.motif = "Le motif compte 500 caractères au plus.";
+  if (motif !== null && motif.length > 500) {
+    erreurs.motif = t(
+      "Le motif compte 500 caractères au plus.",
+      "The reason is 500 characters at most.",
+    );
+  }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: RedSeuilsCreation = {
     secteur,

@@ -1,12 +1,15 @@
+import type { Langue } from "@missionpilot/shared";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { appelerApi, ErreurApi, messageErreur } from "./api";
+import { appelerApi, ErreurApi } from "./api";
 import { urlApi } from "./api-serveur";
+import { messageErreurLangue } from "./double-authentification";
+import { obtenirLangue } from "./i18n/serveur";
 import {
   lireCabinets,
   lireSuperAdmin,
   lireUtilisateurs,
-  MESSAGE_REPONSE_INATTENDUE,
+  messageReponseInattendue,
   type CabinetListe,
   type SuperAdmin,
   type UtilisateurPlateforme,
@@ -17,6 +20,15 @@ import { CHEMIN_CONNEXION_PLATEFORME, COOKIE_PLATEFORME } from "./plateforme-rou
  * Appels d'API plateforme depuis le serveur web : seul le cookie `mp_plateforme` est transmis
  * (jamais `mp_session`). À ne pas importer dans un composant client.
  */
+
+/** Langue de la requête ; français si elle ne peut pas être lue (hors contexte de requête). */
+async function langueRequete(): Promise<Langue> {
+  try {
+    return await obtenirLangue();
+  } catch {
+    return "fr";
+  }
+}
 
 async function cookiePlateforme(): Promise<string | undefined> {
   const jeton = (await cookies()).get(COOKIE_PLATEFORME)?.value;
@@ -61,7 +73,7 @@ async function charger<T>(
   try {
     const donnees = lire(await appeler<unknown>(chemin));
     return donnees === null
-      ? { ok: false, message: MESSAGE_REPONSE_INATTENDUE, statut: 200 }
+      ? { ok: false, message: messageReponseInattendue(await langueRequete()), statut: 200 }
       : { ok: true, donnees };
   } catch (e) {
     if (!(e instanceof ErreurApi)) throw e;
@@ -69,7 +81,11 @@ async function charger<T>(
   }
   // `redirect` lève une exception propre à Next : l'appeler hors du try.
   if (erreur.statut === 401) redirect(CHEMIN_CONNEXION_PLATEFORME);
-  return { ok: false, message: messageErreur(erreur), statut: erreur.statut };
+  return {
+    ok: false,
+    message: messageErreurLangue(erreur, await langueRequete()),
+    statut: erreur.statut,
+  };
 }
 
 export const chargerCabinets = (): Promise<ChargementPlateforme<CabinetListe[]>> =>

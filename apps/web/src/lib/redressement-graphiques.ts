@@ -6,6 +6,7 @@
  * échelle linéaire, bornes, marge, coordonnées SVG. Aucun solde n'est calculé ici ; le tableau
  * équivalent (`lignesTableauSoldes`) porte toutes les valeurs, pour l'accessibilité.
  */
+import { LOCALES_INTL, type Langue } from "@missionpilot/shared";
 
 export interface SemaineSolde {
   semaine: number;
@@ -48,13 +49,16 @@ export interface OptionsGeometrieSoldes {
   largeur?: number;
   hauteur?: number;
   graduations?: number;
+  /** Langue des libellés d'axe (français par défaut). */
+  langue?: Langue;
 }
 
-const COMPACT = new Intl.NumberFormat("fr-FR", { notation: "compact", maximumFractionDigits: 1 });
-
 /** Graduation en notation compacte (« 1,2 M », « -500 k ») : l'axe n'a pas besoin du détail. */
-export function libelleGraduation(valeur: number): string {
-  return COMPACT.format(valeur);
+export function libelleGraduation(valeur: number, langue: Langue = "fr"): string {
+  return new Intl.NumberFormat(LOCALES_INTL[langue], {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(valeur);
 }
 
 const arrondi = (n: number) => Math.round(n * 100) / 100;
@@ -69,6 +73,7 @@ export function geometrieSoldes(
   seuil: number | null,
   options: OptionsGeometrieSoldes = {},
 ): GeometrieSoldes {
+  const langue = options.langue ?? "fr";
   const largeur = options.largeur ?? 640;
   const hauteur = options.hauteur ?? 280;
   const zone = { gauche: 64, droite: largeur - 16, haut: 16, bas: hauteur - 36 };
@@ -110,7 +115,7 @@ export function geometrieSoldes(
   const nombre = Math.max(2, options.graduations ?? 4);
   const graduations = Array.from({ length: nombre + 1 }, (_, i) => {
     const valeur = Math.round(min + ((max - min) * i) / nombre);
-    return { valeur, y: y(valeur), libelle: libelleGraduation(valeur) };
+    return { valeur, y: y(valeur), libelle: libelleGraduation(valeur, langue) };
   });
 
   const points = semaines.map((s, i) => ({
@@ -125,7 +130,11 @@ export function geometrieSoldes(
     hauteur,
     zone,
     graduations,
-    abscisses: points.map((p) => ({ semaine: p.semaine, x: p.x, libelle: `S${p.semaine}` })),
+    abscisses: points.map((p) => ({
+      semaine: p.semaine,
+      x: p.x,
+      libelle: `${langue === "en" ? "W" : "S"}${p.semaine}`,
+    })),
     traitPrevu: points.map((p) => `${p.x},${p.yPrevu}`).join(" "),
     traitRetenu: points.map((p) => `${p.x},${p.yRetenu}`).join(" "),
     ySeuil: seuil !== null && Number.isFinite(seuil) ? y(seuil) : null,

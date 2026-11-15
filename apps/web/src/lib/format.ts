@@ -1,5 +1,7 @@
+import { LOCALES_INTL, type Langue } from "@missionpilot/shared";
+
 /**
- * Formatage d'affichage en fr-FR. Ces fonctions mettent en forme des valeurs déjà calculées
+ * Formatage d'affichage, en fr-FR par défaut (en-GB si `langue` vaut "en"). Ces fonctions mettent en forme des valeurs déjà calculées
  * (par l'API et ses moteurs) : elles ne calculent aucun chiffre métier.
  *
  * Les séparateurs sont insécables : espace fine insécable (U+202F) entre les milliers,
@@ -36,9 +38,15 @@ function nombreValide(v: number | null | undefined): v is number {
 }
 
 /** 1500000 → « 1 500 000 », 2.5 → « 2,5 » (au plus `decimalesMax` décimales). */
-export function formaterNombre(valeur: number | null | undefined, decimalesMax = 2): string {
+export function formaterNombre(
+  valeur: number | null | undefined,
+  decimalesMax = 2,
+  langue: Langue = "fr",
+): string {
   if (!nombreValide(valeur)) return VALEUR_ABSENTE;
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: decimalesMax }).format(valeur);
+  return new Intl.NumberFormat(LOCALES_INTL[langue], {
+    maximumFractionDigits: decimalesMax,
+  }).format(valeur);
 }
 
 /**
@@ -49,10 +57,11 @@ export function formaterNombre(valeur: number | null | undefined, decimalesMax =
 export function formaterMontantMineur(
   valeur: number | null | undefined,
   devise: Devise = "XOF",
+  langue: Langue = "fr",
 ): string {
   if (!nombreValide(valeur)) return VALEUR_ABSENTE;
   const decimales = DECIMALES[devise];
-  const nombre = new Intl.NumberFormat("fr-FR", {
+  const nombre = new Intl.NumberFormat(LOCALES_INTL[langue], {
     minimumFractionDigits: decimales,
     maximumFractionDigits: decimales,
   }).format(valeur / 10 ** decimales);
@@ -60,15 +69,19 @@ export function formaterMontantMineur(
 }
 
 /** Durées en jours de travail : 2.5 → « 2,5 j », 1 → « 1 j ». */
-export function formaterJours(valeur: number | null | undefined): string {
+export function formaterJours(valeur: number | null | undefined, langue: Langue = "fr"): string {
   if (!nombreValide(valeur)) return VALEUR_ABSENTE;
-  return `${formaterNombre(valeur, 2)}${NBSP}j`;
+  return `${formaterNombre(valeur, 2, langue)}${NBSP}${langue === "en" ? "d" : "j"}`;
 }
 
 /** Ratio 0..1 → « 12,5 % ». */
-export function formaterPourcentage(ratio: number | null | undefined, decimalesMax = 1): string {
+export function formaterPourcentage(
+  ratio: number | null | undefined,
+  decimalesMax = 1,
+  langue: Langue = "fr",
+): string {
   if (!nombreValide(ratio)) return VALEUR_ABSENTE;
-  return new Intl.NumberFormat("fr-FR", {
+  return new Intl.NumberFormat(LOCALES_INTL[langue], {
     style: "percent",
     maximumFractionDigits: decimalesMax,
   }).format(ratio);
@@ -91,10 +104,14 @@ export function lireDate(valeur: Date | string | null | undefined): Date | null 
  * « 12 janv. 2027 ». `fuseau` vaut UTC par défaut : les dates métier (échéances, périodes)
  * sont des jours calendaires, pas des instants.
  */
-export function formaterDate(valeur: Date | string | null | undefined, fuseau = "UTC"): string {
+export function formaterDate(
+  valeur: Date | string | null | undefined,
+  fuseau = "UTC",
+  langue: Langue = "fr",
+): string {
   const date = lireDate(valeur);
   if (!date) return VALEUR_ABSENTE;
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(LOCALES_INTL[langue], {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -106,14 +123,15 @@ export function formaterDate(valeur: Date | string | null | undefined, fuseau = 
 export function formaterDateHeure(
   valeur: Date | string | null | undefined,
   fuseau = "Africa/Abidjan",
+  langue: Langue = "fr",
 ): string {
   const date = lireDate(valeur);
   if (!date) return VALEUR_ABSENTE;
-  const jour = formaterDate(date, fuseau);
-  const heure = new Intl.DateTimeFormat("fr-FR", {
+  const jour = formaterDate(date, fuseau, langue);
+  const heure = new Intl.DateTimeFormat(LOCALES_INTL[langue], {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: fuseau,
   }).format(date);
-  return `${jour} à ${heure}`;
+  return `${jour} ${langue === "en" ? "at" : "à"} ${heure}`;
 }

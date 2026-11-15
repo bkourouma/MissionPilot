@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { TypeDocument } from "@missionpilot/shared";
 import { ChoixFichier } from "../../../../../components/fichiers/ChoixFichier";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
 import { Bouton } from "../../../../../components/ui/Bouton";
@@ -24,7 +25,7 @@ import {
   nomSansExtension,
   type FichierTeleverse,
 } from "../../../../../lib/fichiers";
-import { OPTIONS_TYPES_DOCUMENT } from "../../../../../lib/missions";
+import { optionsTypesDocument } from "../../../../../lib/missions";
 import { televerser } from "../../../../../lib/televersement";
 
 export interface DepotDocumentProps {
@@ -41,11 +42,18 @@ export interface DepotDocumentProps {
 
 const MESSAGE_IDENTIQUE =
   "Ce fichier est identique à la version courante du document : aucune nouvelle version n'a été créée.";
+const MESSAGE_IDENTIQUE_EN =
+  "This file is identical to the current version of the document: no new version was created.";
 
 const RAPPELS_FICHIER: Record<string, string> = {
   CONTENU_IDENTIQUE: "Fichier identique à la version courante : choisissez un autre fichier.",
   TYPE_FICHIER_REFUSE: "Fichier refusé par le serveur : choisissez-en un autre.",
   FICHIER_TROP_VOLUMINEUX: "Fichier trop volumineux : 15 Mo au plus.",
+};
+const RAPPELS_FICHIER_EN: Record<string, string> = {
+  CONTENU_IDENTIQUE: "File identical to the current version: choose another file.",
+  TYPE_FICHIER_REFUSE: "File refused by the server: choose another one.",
+  FICHIER_TROP_VOLUMINEUX: "File too large: 15 MB at most.",
 };
 
 /** Retire sans attendre un fichier téléversé resté sans rattachement (quota d'attente). */
@@ -68,6 +76,8 @@ export function DepotDocument({
   onFin,
   onDepose,
 }: DepotDocumentProps) {
+  const t = useT();
+  const langue = useLangue();
   const [type, setType] = useState<string>(
     version?.type ?? (typesPermis.includes("livrable") ? "livrable" : (typesPermis[0] ?? "")),
   );
@@ -91,7 +101,7 @@ export function DepotDocument({
     if (courante?.fichier) {
       const sha = await empreinteSha256(await f0.arrayBuffer());
       if (memeContenu(sha, courante))
-        throw new ErreurApi("CONTENU_IDENTIQUE", MESSAGE_IDENTIQUE, 409);
+        throw new ErreurApi("CONTENU_IDENTIQUE", t(MESSAGE_IDENTIQUE, MESSAGE_IDENTIQUE_EN), 409);
     }
     let fichierId = enAttente.current?.fichier === f0 ? enAttente.current.id : null;
     if (!fichierId) {
@@ -99,11 +109,11 @@ export function DepotDocument({
       enAttente.current = null;
       setProgression(0);
       try {
-        const t = await televerser<FichierTeleverse>("/api/fichiers", f0, f0.name, {
+        const tv = await televerser<FichierTeleverse>("/api/fichiers", f0, f0.name, {
           onProgression: setProgression,
         });
-        fichierId = t.id;
-        enAttente.current = { fichier: f0, id: t.id };
+        fichierId = tv.id;
+        enAttente.current = { fichier: f0, id: tv.id };
       } finally {
         setProgression(null);
       }
@@ -131,27 +141,33 @@ export function DepotDocument({
     const v = validerDepot(
       { type, nom, brouillonIa },
       typesPermis,
-      fichier ? null : "Choisissez le fichier à déposer.",
+      fichier ? null : t("Choisissez le fichier à déposer.", "Choose the file to upload."),
+      langue,
     );
     await f.envoyer(v, (c) => deposer(c, fichier as File), {
       messageSpecifique: (e) => {
-        const m = messageDocument(e);
+        const m = messageDocument(e, langue);
         // Rappel court sous le champ ; le détail est dans l'alerte (focalisée).
         if (e instanceof ErreurApi && e.code in RAPPELS_FICHIER)
-          setErreurFichier(RAPPELS_FICHIER[e.code]!);
+          setErreurFichier((langue === "en" ? RAPPELS_FICHIER_EN : RAPPELS_FICHIER)[e.code]!);
         return m;
       },
       apres: (d) => {
         onDepose(
           d.version > 1
-            ? `Version ${d.version} de « ${d.nom} » déposée.`
-            : `Document « ${d.nom} » déposé.`,
+            ? t(
+                `Version ${d.version} de « ${d.nom} » déposée.`,
+                `Version ${d.version} of "${d.nom}" uploaded.`,
+              )
+            : t(`Document « ${d.nom} » déposé.`, `Document "${d.nom}" uploaded.`),
         );
       },
     });
   }
 
-  const titre = version ? `Nouvelle version de « ${version.nom} »` : "Déposer un document";
+  const titre = version
+    ? t(`Nouvelle version de « ${version.nom} »`, `New version of "${version.nom}"`)
+    : t("Déposer un document", "Upload a document");
   const reprise = enAttente.current !== null && enAttente.current.fichier === fichier;
   return (
     <form
@@ -165,26 +181,29 @@ export function DepotDocument({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Dépôt impossible"
+        titreErreur={t("Dépôt impossible", "Upload not possible")}
       />
       {version ? (
         <p className="mp-texte-doux">
-          {`Le fichier deviendra la version ${version.version_courante + 1} ; les versions précédentes restent consultables.`}
+          {t(
+            `Le fichier deviendra la version ${version.version_courante + 1} ; les versions précédentes restent consultables.`,
+            `The file will become version ${version.version_courante + 1}; previous versions remain viewable.`,
+          )}
         </p>
       ) : null}
       <div className="mp-grille-champs mp-grille-champs--bas">
         {version ? null : (
           <>
             <Select
-              libelle="Type"
+              libelle={t("Type", "Type")}
               required
-              options={OPTIONS_TYPES_DOCUMENT.filter((o) => typesPermis.includes(o.valeur))}
+              options={optionsTypesDocument(langue).filter((o) => typesPermis.includes(o.valeur))}
               value={type}
               onChange={(e) => setType(e.target.value)}
               erreur={f.erreurs.type}
             />
             <Champ
-              libelle="Nom du document"
+              libelle={t("Nom du document", "Document name")}
               required
               maxLength={200}
               value={nom}
@@ -195,15 +214,21 @@ export function DepotDocument({
               erreur={f.erreurs.nom}
               aide={
                 courante
-                  ? `Un document de ce type porte déjà ce nom : le dépôt créera sa version ${courante.version_courante + 1}.`
-                  : "Même type et même nom qu'un document existant : nouvelle version de celui-ci."
+                  ? t(
+                      `Un document de ce type porte déjà ce nom : le dépôt créera sa version ${courante.version_courante + 1}.`,
+                      `A document of this type already has this name: the upload will create its version ${courante.version_courante + 1}.`,
+                    )
+                  : t(
+                      "Même type et même nom qu'un document existant : nouvelle version de celui-ci.",
+                      "Same type and name as an existing document: new version of it.",
+                    )
               }
             />
           </>
         )}
       </div>
       <ChoixFichier
-        libelle="Fichier"
+        libelle={t("Fichier", "File")}
         requis
         fichier={fichier}
         onChoix={(x) => {
@@ -216,8 +241,11 @@ export function DepotDocument({
       />
       {version ? null : (
         <CaseACocher
-          libelle="Contenu généré par l'IA, à relire"
-          aide="Le document portera le statut « Brouillon IA » : il devra être relu puis validé par un responsable de la mission avant tout envoi au client."
+          libelle={t("Contenu généré par l'IA, à relire", "AI-generated content, to be reviewed")}
+          aide={t(
+            "Le document portera le statut « Brouillon IA » : il devra être relu puis validé par un responsable de la mission avant tout envoi au client.",
+            "The document will carry the \u201cAI draft\u201d status: it must be reviewed and then approved by an engagement lead before anything is sent to the client.",
+          )}
           checked={brouillonIa}
           onChange={(e) => setBrouillonIa(e.target.checked)}
         />
@@ -227,12 +255,20 @@ export function DepotDocument({
           type="submit"
           icone={reprise ? "nuage" : "envoyer"}
           chargement={f.enCours}
-          texteChargement={progression !== null ? "Envoi du fichier…" : "Enregistrement…"}
+          texteChargement={
+            progression !== null
+              ? t("Envoi du fichier…", "Uploading file…")
+              : t("Enregistrement…", "Saving…")
+          }
         >
-          {reprise ? "Réessayer le dépôt" : version ? "Déposer la version" : "Déposer"}
+          {reprise
+            ? t("Réessayer le dépôt", "Retry the upload")
+            : version
+              ? t("Déposer la version", "Upload the version")
+              : t("Déposer", "Upload")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

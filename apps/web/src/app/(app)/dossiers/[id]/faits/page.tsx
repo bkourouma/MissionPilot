@@ -15,15 +15,19 @@ import {
   formaterSource,
   formaterValeurFait,
   grouperParCategorie,
-  STATUT_FAIT,
+  statutFait,
   type Fait,
   type VueDossier,
 } from "../../../../../lib/dossier";
 import { formaterDate, formaterDateHeure } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Faits du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Faits du dossier", "File facts") };
+}
 
 /** Tous les faits du dossier, historique compris ; ajout, confirmation, remplacement. */
 export default async function PageFaits({
@@ -36,6 +40,8 @@ export default async function PageFaits({
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const peutEcrire = aPermission(utilisateur.roles, "dossier.ecrire");
   const brut = (await searchParams).fait;
   const faitHistorique = typeof brut === "string" && estIdentifiant(brut) ? brut : null;
@@ -53,11 +59,14 @@ export default async function PageFaits({
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Faits du dossier"
-          retour={{ href: `/dossiers/${id}`, libelle: "Dossier" }}
+          titre={t("Faits du dossier", "File facts")}
+          retour={{ href: `/dossiers/${id}`, libelle: t("Dossier", "File") }}
         />
         <EtatErreur
-          titre="Les faits du dossier n'ont pas pu être chargés."
+          titre={t(
+            "Les faits du dossier n'ont pas pu être chargés.",
+            "The file facts could not be loaded.",
+          )}
           message={!dossier.ok ? dossier.message : !faits.ok ? faits.message : ""}
           hrefReessayer={`/dossiers/${id}/faits`}
         />
@@ -70,23 +79,25 @@ export default async function PageFaits({
       <EnteteDossier client={dossier.donnees.client} fiabilite={dossier.donnees.fiabilite} />
 
       {peutEcrire ? (
-        <Carte titre="Ajouter un fait">
+        <Carte titre={t("Ajouter un fait", "Add a fact")}>
           <FormulaireFait clientId={id} />
         </Carte>
       ) : null}
 
       {historique ? (
-        <Carte titre="Historique d'un fait">
+        <Carte titre={t("Historique d'un fait", "History of a fact")}>
           {historique.ok ? (
             <ol className="mp-pile">
               {historique.donnees.elements.map((f) => (
                 <li key={f.id}>
-                  <strong>{formaterValeurFait(f.valeur)}</strong> au {formaterDate(f.date_effet)}{" "}
-                  <BadgeStatut tonalite={STATUT_FAIT[f.statut].tonalite}>
-                    {STATUT_FAIT[f.statut].libelle}
+                  <strong>{formaterValeurFait(f.valeur, langue)}</strong> {t("au", "on")}{" "}
+                  {formaterDate(f.date_effet, "UTC", langue)}{" "}
+                  <BadgeStatut tonalite={statutFait(f.statut, langue).tonalite}>
+                    {statutFait(f.statut, langue).libelle}
                   </BadgeStatut>{" "}
-                  — enregistré le {formaterDateHeure(f.cree_le)} par {f.auteur.nom}
-                  {f.decision?.motif ? ` ; motif : ${f.decision.motif}` : ""}
+                  — {t("enregistré le", "recorded on")}{" "}
+                  {formaterDateHeure(f.cree_le, undefined, langue)} {t("par", "by")} {f.auteur.nom}
+                  {f.decision?.motif ? ` ${t("; motif :", "; reason:")} ${f.decision.motif}` : ""}
                 </li>
               ))}
             </ol>
@@ -97,45 +108,55 @@ export default async function PageFaits({
       ) : null}
 
       {faits.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucun fait dans ce dossier." icone="trombone">
+        <EtatVide
+          titre={t("Aucun fait dans ce dossier.", "No facts in this file.")}
+          icone="trombone"
+        >
           <p>
-            Ajoutez les faits datés et sourcés connus du client : effectif, actionnariat, marchés…
+            {t(
+              "Ajoutez les faits datés et sourcés connus du client : effectif, actionnariat, marchés…",
+              "Add the dated, sourced facts known about the client: headcount, shareholding, markets…",
+            )}
           </p>
         </EtatVide>
       ) : (
-        grouperParCategorie(faits.donnees.elements).map((g) => (
+        grouperParCategorie(faits.donnees.elements, langue).map((g) => (
           <Carte key={g.categorie} titre={g.libelle}>
             <Tableau
-              legende={`Faits : ${g.libelle}`}
+              legende={`${t("Faits", "Facts")}${t(" : ", ": ")}${g.libelle}`}
               lignes={g.faits}
               cleLigne={(f) => f.id}
               colonnes={[
                 {
                   cle: "cle",
-                  entete: "Fait",
+                  entete: t("Fait", "Fact"),
                   rendu: (f) => (
                     <Link href={`/dossiers/${id}/faits?fait=${f.id}`} className="mp-lien-ligne">
                       {f.cle}
                     </Link>
                   ),
                 },
-                { cle: "valeur", entete: "Valeur", rendu: (f) => formaterValeurFait(f.valeur) },
+                {
+                  cle: "valeur",
+                  entete: t("Valeur", "Value"),
+                  rendu: (f) => formaterValeurFait(f.valeur, langue),
+                },
                 {
                   cle: "date_effet",
-                  entete: "Date d'effet",
-                  rendu: (f) => formaterDate(f.date_effet),
+                  entete: t("Date d'effet", "Effective date"),
+                  rendu: (f) => formaterDate(f.date_effet, "UTC", langue),
                 },
                 {
                   cle: "source",
                   entete: "Source",
-                  rendu: (f) => `${formaterSource(f.source)} (${f.fiabilite})`,
+                  rendu: (f) => `${formaterSource(f.source, langue)} (${f.fiabilite})`,
                 },
                 {
                   cle: "statut",
-                  entete: "Statut",
+                  entete: t("Statut", "Status"),
                   rendu: (f) => (
-                    <BadgeStatut tonalite={STATUT_FAIT[f.statut].tonalite}>
-                      {STATUT_FAIT[f.statut].libelle}
+                    <BadgeStatut tonalite={statutFait(f.statut, langue).tonalite}>
+                      {statutFait(f.statut, langue).libelle}
                     </BadgeStatut>
                   ),
                 },

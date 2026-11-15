@@ -120,3 +120,91 @@ export const DEFINITIONS: readonly DefinitionIndicateur[] = [
 ];
 
 export const MESSAGE_RESERVE = "Réservé aux associés et gestionnaires.";
+
+export const MESSAGE_RESERVE_EN = "Reserved for partners and managers.";
+
+type TextesIndicateur = Pick<
+  DefinitionIndicateur,
+  "libelle" | "definition" | "niveaux" | "frequence"
+>;
+
+/** Textes anglais des définitions (le français reste dans `DEFINITIONS`). */
+export const DEFINITIONS_EN: Record<IdIndicateur, TextesIndicateur> = {
+  occupation: {
+    libelle: "Utilization rate",
+    definition: "Assigned days / available days",
+    niveaux: "Consultant, grade, firm",
+    frequence: "Weekly",
+  },
+  facturabilite: {
+    libelle: "Billability rate",
+    definition: "Billable days worked / available days",
+    niveaux: "Consultant, grade, firm",
+    frequence: "Monthly",
+  },
+  consommation: {
+    libelle: "Budget consumption",
+    definition: "Days worked / budgeted days",
+    niveaux: "Task, phase, engagement",
+    frequence: "Weekly",
+  },
+  ecart: {
+    libelle: "Variance at completion",
+    definition: "Landing − budget, in days and in FCFA",
+    niveaux: "Engagement, director's portfolio",
+    frequence: "Weekly",
+  },
+  marge: {
+    libelle: "Engagement margin",
+    definition: "(Fees − internal costs − non-rebilled expenses − subcontracting) / fees",
+    niveaux: "Engagement, client, type, partner",
+    frequence: "Monthly",
+  },
+  realisation: {
+    libelle: "Realization rate",
+    definition: "Fees invoiced / value of time at standard rate",
+    niveaux: "Engagement, partner",
+    frequence: "At close-out",
+  },
+  encours: {
+    libelle: "Work in progress",
+    definition: "Value of time worked not yet invoiced",
+    niveaux: "Engagement, firm",
+    frequence: "Monthly",
+  },
+  delai: {
+    libelle: "Average collection time",
+    definition: "Days between invoice issue and payment received",
+    niveaux: "Client, firm",
+    frequence: "Monthly",
+  },
+  carnet: {
+    libelle: "Order book",
+    definition: "Signed fees still to be produced",
+    niveaux: "Firm, partner",
+    frequence: "Monthly",
+  },
+  jalons: {
+    libelle: "Milestone compliance",
+    definition: "Milestones met / milestones planned",
+    niveaux: "Engagement",
+    frequence: "Monthly",
+  },
+  discipline: {
+    libelle: "Time entry discipline",
+    definition: "Timesheets submitted on time / timesheets expected",
+    niveaux: "Consultant, team",
+    frequence: "Weekly",
+  },
+};
+
+/** Définition d'un indicateur dans la langue demandée (français : inchangée). */
+export function definitionLocalisee(
+  d: DefinitionIndicateur,
+  langue: "fr" | "en" = "fr",
+): DefinitionIndicateur {
+  return langue === "en" ? { ...d, ...DEFINITIONS_EN[d.id] } : d;
+}
+
+export const messageReserve = (langue: "fr" | "en" = "fr") =>
+  langue === "en" ? MESSAGE_RESERVE_EN : MESSAGE_RESERVE;

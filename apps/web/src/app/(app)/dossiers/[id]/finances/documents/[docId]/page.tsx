@@ -11,7 +11,7 @@ import { Carte } from "../../../../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
-import { AVERTISSEMENT_OCR } from "../../../../../../../lib/dossier";
+import { AVERTISSEMENT_OCR, AVERTISSEMENT_OCR_EN } from "../../../../../../../lib/dossier";
 import { formaterDateHeure } from "../../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
 import {
@@ -28,9 +28,13 @@ import {
   type DetailDocumentIngestion,
 } from "../../../../../../../lib/ingestion";
 import { avertissementOcrPertinent } from "../../../../../../../lib/ingestion-detail";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Document importé" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Document importé", "Imported document") };
+}
 
 /** Détail d'un document d'état financier importé (DOS-03) : statut, résultat, erreur, pages lues. */
 export default async function PageDocumentEtat({
@@ -43,17 +47,22 @@ export default async function PageDocumentEtat({
   const { id, docId } = await params;
   if (!estIdentifiant(id) || !estIdentifiant(docId)) notFound();
   await exigerPermission("dossier.lire");
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const citee = pageCitee((await searchParams).page);
   const api = apiIngestionDossier(id);
   const r = await chargerServeur<DetailDocumentIngestion>(cheminDocument(api, docId));
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: `/dossiers/${id}/finances`, libelle: "Finances du client" };
+  const retour = {
+    href: `/dossiers/${id}/finances`,
+    libelle: t("Finances du client", "Client finances"),
+  };
   if (!r.ok) {
     return (
       <div className="mp-page">
-        <EnteteDePage titre="Document importé" retour={retour} />
+        <EnteteDePage titre={t("Document importé", "Imported document")} retour={retour} />
         <EtatErreur
-          titre="Le document n'a pas pu être chargé."
+          titre={t("Le document n'a pas pu être chargé.", "The document could not be loaded.")}
           message={r.message}
           hrefReessayer={`/dossiers/${id}/finances/documents/${docId}`}
         />
@@ -61,7 +70,7 @@ export default async function PageDocumentEtat({
     );
   }
   const d = r.donnees;
-  const erreur = erreurDocumentAvecAide(d);
+  const erreur = erreurDocumentAvecAide(d, langue);
   const enCours = documentEnCours(d);
 
   return (
@@ -69,50 +78,65 @@ export default async function PageDocumentEtat({
       <EnteteDePage
         titre={d.nom}
         retour={retour}
-        soustitre={`${LIBELLES_FORMAT[d.format]} · ${formaterTaille(d.taille)} · importé par ${d.cree_par.nom}${d.cree_le ? ` le ${formaterDateHeure(d.cree_le)}` : ""}`}
+        soustitre={`${LIBELLES_FORMAT[d.format]} · ${formaterTaille(d.taille, langue)} · ${t("importé par", "imported by")} ${d.cree_par.nom}${d.cree_le ? ` ${t("le", "on")} ${formaterDateHeure(d.cree_le, undefined, langue)}` : ""}`}
         badges={<StatutDocument statut={d.statut} />}
         actions={enCours ? <ActualiserPage /> : undefined}
       />
 
       {enCours ? (
-        <Alerte tonalite="info" titre="Lecture en cours" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("Lecture en cours", "Reading in progress")}
+          annonce="aucune"
+        >
           <p>
-            Le document est lu en arrière-plan. Actualisez la page pour suivre l&apos;avancement.
+            {t(
+              "Le document est lu en arrière-plan. Actualisez la page pour suivre l'avancement.",
+              "The document is being read in the background. Refresh the page to follow progress.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       {d.statut === "echec" ? (
-        <Alerte tonalite="danger" titre="La lecture a échoué" annonce="aucune">
-          <p>{erreur ?? "Erreur inconnue."}</p>
+        <Alerte
+          tonalite="danger"
+          titre={t("La lecture a échoué", "Reading failed")}
+          annonce="aucune"
+        >
+          <p>{erreur ?? t("Erreur inconnue.", "Unknown error.")}</p>
         </Alerte>
       ) : null}
 
       {avertissementOcrPertinent(d) ? (
-        <Alerte tonalite="attention" titre="Lu par reconnaissance de caractères" annonce="aucune">
-          <p>{AVERTISSEMENT_OCR}</p>
+        <Alerte
+          tonalite="attention"
+          titre={t("Lu par reconnaissance de caractères", "Read by character recognition")}
+          annonce="aucune"
+        >
+          <p>{langue === "en" ? AVERTISSEMENT_OCR_EN : AVERTISSEMENT_OCR}</p>
         </Alerte>
       ) : null}
 
-      <Carte titre="Résultat">
+      <Carte titre={t("Résultat", "Result")}>
         <dl className="mp-ing-definitions">
-          <dt>Résultat</dt>
-          <dd>{libelleResultat(d.resultat)}</dd>
-          <dt>Méthode de lecture</dt>
-          <dd>{libelleMethode(d.methode)}</dd>
-          <dt>Pages lues</dt>
+          <dt>{t("Résultat", "Result")}</dt>
+          <dd>{libelleResultat(d.resultat, langue)}</dd>
+          <dt>{t("Méthode de lecture", "Reading method")}</dt>
+          <dd>{libelleMethode(d.methode, langue)}</dd>
+          <dt>{t("Pages lues", "Pages read")}</dt>
           <dd>{d.nb_pages ?? "—"}</dd>
           {d.termine_le ? (
             <>
-              <dt>Terminé le</dt>
-              <dd>{formaterDateHeure(d.termine_le)}</dd>
+              <dt>{t("Terminé le", "Completed on")}</dt>
+              <dd>{formaterDateHeure(d.termine_le, undefined, langue)}</dd>
             </>
           ) : null}
         </dl>
         {d.etat_financier_id ? (
           <p>
             <Link href={hrefEtatFinancier(id, d.etat_financier_id)}>
-              Ouvrir l&apos;état financier créé
+              {t("Ouvrir l'état financier créé", "Open the financial statement created")}
             </Link>
           </p>
         ) : null}
@@ -120,7 +144,7 @@ export default async function PageDocumentEtat({
 
       <CorrectionsOcr corrections={d.corrections_ocr} />
 
-      <Carte titre="Pages lues">
+      <Carte titre={t("Pages lues", "Pages read")}>
         <VisionneusePages
           api={api}
           docId={d.id}

@@ -12,6 +12,7 @@ import {
   type SaisieEvaluation,
 } from "../../lib/plan-portefeuille";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -36,6 +37,8 @@ export function EvaluationInitiative({
   titre,
   evaluation,
 }: EvaluationInitiativeProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<keyof SaisieEvaluation>();
   const [ouvert, setOuvert] = useState(false);
   const [s, setS] = useState<SaisieEvaluation>(() => saisieEvaluation(evaluation));
@@ -47,14 +50,17 @@ export function EvaluationInitiative({
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const v = validerEvaluation(s);
+    const v = validerEvaluation(s, langue);
     const validation: Resultat<Record<string, unknown>, keyof SaisieEvaluation> = v.corps
       ? { ok: true, charge: v.corps }
       : { ok: false, erreurs: v.erreurs };
     const ok = await f.envoyer(
       validation,
       (corps) => api.put(cheminEvaluation(planId, initiativeId), corps),
-      { succes: "Évaluation enregistrée.", messageSpecifique: messagePortefeuille },
+      {
+        succes: t("Évaluation enregistrée.", "Assessment saved."),
+        messageSpecifique: (err) => messagePortefeuille(err, langue),
+      },
     );
     if (ok) setOuvert(false);
   }
@@ -65,7 +71,7 @@ export function EvaluationInitiative({
         <RetourFormulaire erreur={null} succes={f.succes} refAlerte={f.refAlerte} />
         <div className="mp-barre-actions">
           <Bouton variante="discret" icone="crayon" onClick={() => setOuvert(true)}>
-            {evaluation ? "Réévaluer" : "Évaluer"}
+            {evaluation ? t("Réévaluer", "Reassess") : t("Évaluer", "Assess")}
           </Bouton>
         </div>
       </div>
@@ -78,49 +84,53 @@ export function EvaluationInitiative({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Évaluer l'initiative ${titre}`}
+      aria-label={t(`Évaluer l'initiative ${titre}`, `Assess initiative ${titre}`)}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Évaluation refusée"
+        titreErreur={t("Évaluation refusée", "Assessment refused")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Valeur (5 = forte)"
+          libelle={t("Valeur (5 = forte)", "Value (5 = high)")}
           required
-          invite="Choisir"
+          invite={t("Choisir", "Choose")}
           options={OPTIONS_NOTE}
           {...champ("valeur")}
         />
         <Select
-          libelle="Effort (5 = lourd)"
+          libelle={t("Effort (5 = lourd)", "Effort (5 = heavy)")}
           required
-          invite="Choisir"
+          invite={t("Choisir", "Choose")}
           options={OPTIONS_NOTE}
           {...champ("effort")}
         />
         <Select
-          libelle="Risque (5 = élevé)"
+          libelle={t("Risque (5 = élevé)", "Risk (5 = high)")}
           required
-          invite="Choisir"
+          invite={t("Choisir", "Choose")}
           options={OPTIONS_NOTE}
           {...champ("risque")}
         />
         <Champ
-          libelle="Charge (jours-homme)"
+          libelle={t("Charge (jours-homme)", "Workload (person-days)")}
           required
           inputMode="numeric"
           {...champ("charge_jours")}
         />
-        <Champ libelle="Commentaire" maxLength={1000} {...champ("commentaire")} />
+        <Champ libelle={t("Commentaire", "Comment")} maxLength={1000} {...champ("commentaire")} />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer", "Save")}
         </Bouton>
         <Bouton variante="secondaire" disabled={f.enCours} onClick={() => setOuvert(false)}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

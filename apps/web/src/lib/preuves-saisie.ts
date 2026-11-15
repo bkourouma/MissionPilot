@@ -16,7 +16,9 @@ import {
   STATUTS_ASSERTION,
   TYPES_SOURCE_PREUVE,
   CLASSES_RISQUE,
+  creerTraduire,
   type DecisionArbitrage,
+  type Langue,
   type RattachementAssertion,
   type StatutAssertion,
   type TypeSourcePreuve,
@@ -101,36 +103,65 @@ const estDans = <T extends string>(liste: readonly T[], v: string): v is T =>
 export function validerPreuve(
   s: SaisiePreuve,
   correction: boolean,
+  langue: Langue = "fr",
 ): Resultat<ChargePreuve, ChampPreuve> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampPreuve, string>> = {};
   if (!estDans(TYPES_SOURCE_PREUVE, s.type_source))
-    erreurs.type_source = "Choisissez le type de source.";
+    erreurs.type_source = t("Choisissez le type de source.", "Choose the source type.");
   const source = s.source_precise.trim();
-  if (source === "") erreurs.source_precise = "Précisez la source (qui, quoi, où).";
-  else if (source.length > SOURCE_MAX) erreurs.source_precise = `${SOURCE_MAX} caractères au plus.`;
-  if (s.date_preuve === "") erreurs.date_preuve = "La date est obligatoire.";
-  else if (!dateValide(s.date_preuve)) erreurs.date_preuve = "Date invalide.";
+  if (source === "")
+    erreurs.source_precise = t(
+      "Précisez la source (qui, quoi, où).",
+      "Specify the source (who, what, where).",
+    );
+  else if (source.length > SOURCE_MAX)
+    erreurs.source_precise = t(
+      `${SOURCE_MAX} caractères au plus.`,
+      `${SOURCE_MAX} characters at most.`,
+    );
+  if (s.date_preuve === "")
+    erreurs.date_preuve = t("La date est obligatoire.", "The date is required.");
+  else if (!dateValide(s.date_preuve)) erreurs.date_preuve = t("Date invalide.", "Invalid date.");
   if (!estDans(FIABILITES_PREUVE, s.fiabilite))
-    erreurs.fiabilite = "Choisissez la fiabilité (A à D).";
+    erreurs.fiabilite = t("Choisissez la fiabilité (A à D).", "Choose the reliability (A to D).");
   const extrait = s.extrait.trim();
-  if (extrait.length > EXTRAIT_MAX) erreurs.extrait = `${EXTRAIT_MAX} caractères au plus.`;
-  if (s.auteur_id !== "" && !estIdentifiant(s.auteur_id)) erreurs.auteur_id = "Auteur invalide.";
+  if (extrait.length > EXTRAIT_MAX)
+    erreurs.extrait = t(`${EXTRAIT_MAX} caractères au plus.`, `${EXTRAIT_MAX} characters at most.`);
+  if (s.auteur_id !== "" && !estIdentifiant(s.auteur_id))
+    erreurs.auteur_id = t("Auteur invalide.", "Invalid author.");
   if (s.lien_type !== "aucun") {
     const id = s.lien_id.trim();
     if (id === "")
-      erreurs.lien_id = "Indiquez l'identifiant de l'élément lié, ou choisissez « Aucun ».";
-    else if (!estIdentifiant(id)) erreurs.lien_id = "Identifiant invalide.";
+      erreurs.lien_id = t(
+        "Indiquez l'identifiant de l'élément lié, ou choisissez « Aucun ».",
+        'Enter the ID of the linked item, or choose "None".',
+      );
+    else if (!estIdentifiant(id)) erreurs.lien_id = t("Identifiant invalide.", "Invalid ID.");
   }
   if (s.dimensions.length > DIMENSIONS_PAR_PREUVE_MAX) {
-    erreurs.dimensions = `${DIMENSIONS_PAR_PREUVE_MAX} dimensions au plus.`;
+    erreurs.dimensions = t(
+      `${DIMENSIONS_PAR_PREUVE_MAX} dimensions au plus.`,
+      `${DIMENSIONS_PAR_PREUVE_MAX} dimensions at most.`,
+    );
   }
   if (s.accord_nominatif && !s.nominatif) {
-    erreurs.accord_nominatif = "L'accord ne s'applique qu'à un extrait nominatif.";
+    erreurs.accord_nominatif = t(
+      "L'accord ne s'applique qu'à un extrait nominatif.",
+      "Consent only applies to a named excerpt.",
+    );
   }
   const motif = s.motif.trim();
-  if (correction && motif === "") erreurs.motif = "Expliquez pourquoi vous corrigez cette preuve.";
+  if (correction && motif === "")
+    erreurs.motif = t(
+      "Expliquez pourquoi vous corrigez cette preuve.",
+      "Explain why you are correcting this evidence.",
+    );
   else if (motif.length > MOTIF_PREUVE_MAX)
-    erreurs.motif = `${MOTIF_PREUVE_MAX} caractères au plus.`;
+    erreurs.motif = t(
+      `${MOTIF_PREUVE_MAX} caractères au plus.`,
+      `${MOTIF_PREUVE_MAX} characters at most.`,
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const lien = s.lien_id.trim();
   return {
@@ -202,37 +233,73 @@ export function saisieAssertionVide(): SaisieAssertion {
 export function validerAssertion(
   s: SaisieAssertion,
   correction: boolean,
+  langue: Langue = "fr",
 ): Resultat<ChargeAssertion, ChampAssertion> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampAssertion, string>> = {};
   const enonce = s.enonce.trim();
   if (enonce === "")
-    erreurs.enonce = "Formulez l'assertion (la conclusion à écrire dans le livrable).";
-  else if (enonce.length > ENONCE_MAX) erreurs.enonce = `${ENONCE_MAX} caractères au plus.`;
+    erreurs.enonce = t(
+      "Formulez l'assertion (la conclusion à écrire dans le livrable).",
+      "Write the assertion (the conclusion to put in the deliverable).",
+    );
+  else if (enonce.length > ENONCE_MAX)
+    erreurs.enonce = t(`${ENONCE_MAX} caractères au plus.`, `${ENONCE_MAX} characters at most.`);
   const code = s.rattachement_code.trim();
   if (s.rattachement_type !== "" && !estDans(RATTACHEMENTS_ASSERTION, s.rattachement_type)) {
-    erreurs.rattachement_type = "Rattachement inconnu.";
+    erreurs.rattachement_type = t("Rattachement inconnu.", "Unknown link target.");
   } else if (s.rattachement_type !== "" && code === "") {
-    erreurs.rattachement_code = "Indiquez la dimension, l'hypothèse ou le risque concerné.";
+    erreurs.rattachement_code = t(
+      "Indiquez la dimension, l'hypothèse ou le risque concerné.",
+      "Enter the dimension, hypothesis or risk concerned.",
+    );
   } else if (s.rattachement_type === "" && code !== "") {
-    erreurs.rattachement_type = "Choisissez le type de rattachement.";
+    erreurs.rattachement_type = t(
+      "Choisissez le type de rattachement.",
+      "Choose the link target type.",
+    );
   } else if (code.length > RATTACHEMENT_CODE_MAX) {
-    erreurs.rattachement_code = `${RATTACHEMENT_CODE_MAX} caractères au plus.`;
+    erreurs.rattachement_code = t(
+      `${RATTACHEMENT_CODE_MAX} caractères au plus.`,
+      `${RATTACHEMENT_CODE_MAX} characters at most.`,
+    );
   }
   const livrable = s.livrable.trim();
-  if (livrable.length > LIVRABLE_MAX) erreurs.livrable = `${LIVRABLE_MAX} caractères au plus.`;
+  if (livrable.length > LIVRABLE_MAX)
+    erreurs.livrable = t(
+      `${LIVRABLE_MAX} caractères au plus.`,
+      `${LIVRABLE_MAX} characters at most.`,
+    );
   if (!estDans(CLASSES_RISQUE, s.classe_risque)) {
-    erreurs.classe_risque = "Choisissez la classe de risque du livrable cible.";
+    erreurs.classe_risque = t(
+      "Choisissez la classe de risque du livrable cible.",
+      "Choose the risk class of the target deliverable.",
+    );
   }
-  if (!estDans(STATUTS_ASSERTION, s.statut)) erreurs.statut = "Statut inconnu.";
+  if (!estDans(STATUTS_ASSERTION, s.statut))
+    erreurs.statut = t("Statut inconnu.", "Unknown status.");
   const avis = s.avis_expert_motif.trim();
-  if (s.avis_expert && avis === "") erreurs.avis_expert_motif = "Un avis d'expert se justifie.";
+  if (s.avis_expert && avis === "")
+    erreurs.avis_expert_motif = t(
+      "Un avis d'expert se justifie.",
+      "An expert opinion must be justified.",
+    );
   else if (avis.length > AVIS_MOTIF_MAX)
-    erreurs.avis_expert_motif = `${AVIS_MOTIF_MAX} caractères au plus.`;
+    erreurs.avis_expert_motif = t(
+      `${AVIS_MOTIF_MAX} caractères au plus.`,
+      `${AVIS_MOTIF_MAX} characters at most.`,
+    );
   const motif = s.motif.trim();
   if (correction && motif === "")
-    erreurs.motif = "Expliquez pourquoi vous corrigez cette assertion.";
+    erreurs.motif = t(
+      "Expliquez pourquoi vous corrigez cette assertion.",
+      "Explain why you are correcting this assertion.",
+    );
   else if (motif.length > MOTIF_PREUVE_MAX)
-    erreurs.motif = `${MOTIF_PREUVE_MAX} caractères au plus.`;
+    erreurs.motif = t(
+      `${MOTIF_PREUVE_MAX} caractères au plus.`,
+      `${MOTIF_PREUVE_MAX} characters at most.`,
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -262,11 +329,17 @@ export type ChampLien = keyof SaisieLien;
 
 export function validerLien(
   s: SaisieLien,
+  langue: Langue = "fr",
 ): Resultat<{ preuve_id: string; sens: SensApi }, ChampLien> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampLien, string>> = {};
-  if (!estIdentifiant(s.preuve_id)) erreurs.preuve_id = "Choisissez la preuve à lier.";
+  if (!estIdentifiant(s.preuve_id))
+    erreurs.preuve_id = t("Choisissez la preuve à lier.", "Choose the evidence to link.");
   if (!estDans(SENS_PREUVE, s.sens))
-    erreurs.sens = "Indiquez si la preuve va dans le sens de l'assertion ou contre.";
+    erreurs.sens = t(
+      "Indiquez si la preuve va dans le sens de l'assertion ou contre.",
+      "Indicate whether the evidence supports the assertion or goes against it.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { preuve_id: s.preuve_id, sens: s.sens as SensApi } };
 }
@@ -280,13 +353,23 @@ export type ChampArbitrage = keyof SaisieArbitrage;
 export function validerArbitrage(
   s: SaisieArbitrage,
   preuveId: string,
+  langue: Langue = "fr",
 ): Resultat<{ preuve_id: string; decision: DecisionArbitrage; motif: string }, ChampArbitrage> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampArbitrage, string>> = {};
-  if (!estDans(DECISIONS_ARBITRAGE, s.decision)) erreurs.decision = "Choisissez votre décision.";
+  if (!estDans(DECISIONS_ARBITRAGE, s.decision))
+    erreurs.decision = t("Choisissez votre décision.", "Choose your decision.");
   const motif = s.motif.trim();
-  if (motif === "") erreurs.motif = "Motivez votre décision : elle est conservée avec votre nom.";
+  if (motif === "")
+    erreurs.motif = t(
+      "Motivez votre décision : elle est conservée avec votre nom.",
+      "Justify your decision: it is kept with your name.",
+    );
   else if (motif.length > ARBITRAGE_MOTIF_MAX)
-    erreurs.motif = `${ARBITRAGE_MOTIF_MAX} caractères au plus.`;
+    erreurs.motif = t(
+      `${ARBITRAGE_MOTIF_MAX} caractères au plus.`,
+      `${ARBITRAGE_MOTIF_MAX} characters at most.`,
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -315,15 +398,27 @@ export type ChampDimension = keyof SaisieDimension;
 
 export function validerDimension(
   s: SaisieDimension,
+  langue: Langue = "fr",
 ): Resultat<{ code: string; libelle: string }, ChampDimension> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampDimension, string>> = {};
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Nommez la dimension (axe d'analyse).";
+  if (libelle === "")
+    erreurs.libelle = t(
+      "Nommez la dimension (axe d'analyse).",
+      "Name the dimension (analysis axis).",
+    );
   else if (libelle.length > LIBELLE_DIMENSION_MAX)
-    erreurs.libelle = `${LIBELLE_DIMENSION_MAX} caractères au plus.`;
+    erreurs.libelle = t(
+      `${LIBELLE_DIMENSION_MAX} caractères au plus.`,
+      `${LIBELLE_DIMENSION_MAX} characters at most.`,
+    );
   const code = s.code.trim() === "" ? codeDepuisLibelle(libelle) : s.code.trim();
   if (libelle !== "" && !CODE_DIMENSION.test(code)) {
-    erreurs.code = "Code : minuscules, chiffres, « _ », « . » et « - », 120 caractères au plus.";
+    erreurs.code = t(
+      "Code : minuscules, chiffres, « _ », « . » et « - », 120 caractères au plus.",
+      'Code: lowercase letters, digits, "_", "." and "-", 120 characters at most.',
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { code, libelle } };

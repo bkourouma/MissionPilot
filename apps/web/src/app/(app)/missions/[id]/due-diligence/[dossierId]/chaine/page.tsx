@@ -13,10 +13,14 @@ import {
   messageCoherenceChaine,
   type ReponseChaine,
 } from "../../../../../../../lib/due-diligence";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Chaîne de valeur" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Chaîne de valeur", "Value chain") };
+}
 
 /**
  * Chaîne de valeur (DD-04) : étapes ordonnées, acteurs, parts de coût et de marge, contraintes. La
@@ -29,6 +33,8 @@ export default async function PageChaineDd({
   params: Promise<{ id: string; dossierId: string }>;
 }) {
   const { id, dossierId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -37,30 +43,46 @@ export default async function PageChaineDd({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="La chaîne de valeur n'a pas pu être chargée."
+        titre={t(
+          "La chaîne de valeur n'a pas pu être chargée.",
+          "The value chain could not be loaded.",
+        )}
         message={r.message}
         hrefReessayer={hrefEcranDossier(id, dossierId, "chaine")}
       />
     );
   }
   const etapes = etapesPourCarte(r.donnees);
-  const message = messageCoherenceChaine(r.donnees.synthese);
+  const message = messageCoherenceChaine(r.donnees.synthese, langue);
   const triees = [...r.donnees.etapes].sort((a, b) => a.ordre - b.ordre);
 
   return (
     <>
       {etapes.length === 0 ? (
-        <EtatVide titre="Aucune étape de chaîne de valeur." icone="barres">
+        <EtatVide
+          titre={t("Aucune étape de chaîne de valeur.", "No value chain step.")}
+          icone="barres"
+        >
           <p>
             {droits.ecrire
-              ? "Décrivez les étapes de la chaîne, de l'approvisionnement au client final, avec leurs acteurs et leurs parts de coût et de marge."
-              : "Les étapes apparaîtront ici dès qu'un consultant les aura saisies."}
+              ? t(
+                  "Décrivez les étapes de la chaîne, de l'approvisionnement au client final, avec leurs acteurs et leurs parts de coût et de marge.",
+                  "Describe the steps of the chain, from supply to the end client, with their actors and their cost and margin shares.",
+                )
+              : t(
+                  "Les étapes apparaîtront ici dès qu'un consultant les aura saisies.",
+                  "Steps will appear here as soon as a consultant has entered them.",
+                )}
           </p>
         </EtatVide>
       ) : (
         <>
           {message ? (
-            <Alerte tonalite="attention" titre="Parts à vérifier" annonce="aucune">
+            <Alerte
+              tonalite="attention"
+              titre={t("Parts à vérifier", "Shares to check")}
+              annonce="aucune"
+            >
               <p>{message}</p>
             </Alerte>
           ) : null}
@@ -69,18 +91,23 @@ export default async function PageChaineDd({
       )}
 
       {droits.ecrire ? (
-        <Carte titre="Étapes de la chaîne" niveauTitre={3}>
+        <Carte titre={t("Étapes de la chaîne", "Chain steps")} niveauTitre={3}>
           <div className="mp-dd-pile">
             {triees.map((e) => (
               <details key={e.id} className="mp-dd-details">
-                <summary>{`Corriger l'étape ${e.ordre} : ${e.libelle}`}</summary>
+                <summary>
+                  {t(
+                    `Corriger l'étape ${e.ordre} : ${e.libelle}`,
+                    `Edit step ${e.ordre}: ${e.libelle}`,
+                  )}
+                </summary>
                 <div className="mp-dd-details__corps">
                   <FormulaireEtape dossierId={dossierId} etape={e} />
                 </div>
               </details>
             ))}
             <details className="mp-dd-details" open={triees.length === 0}>
-              <summary>Ajouter une étape</summary>
+              <summary>{t("Ajouter une étape", "Add a step")}</summary>
               <div className="mp-dd-details__corps">
                 <FormulaireEtape
                   dossierId={dossierId}

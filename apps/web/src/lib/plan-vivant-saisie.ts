@@ -4,6 +4,8 @@ import {
   EXERCICE_PLAN_VIVANT,
   METHODES_REPREVISION_PLAN,
   SEUIL_REPREVISION_PLAN,
+  creerTraduire,
+  type Langue,
   type MethodeReprevisionPlan,
 } from "@missionpilot/shared";
 import type { Devise } from "./format";
@@ -48,10 +50,16 @@ export function lireMontantSigne(v: string, devise: Devise): number | null {
 }
 
 /** Aide à la saisie d'un montant de la devise du plan. */
-export const aideSaisieMontant = (devise: Devise) =>
+export const aideSaisieMontant = (devise: Devise, langue: Langue = "fr") =>
   FACTEUR_MINEUR[devise] === 1
-    ? "Montant entier, sans décimale (ex. 150 000)."
-    : "Deux décimales au plus (ex. 1 500,50).";
+    ? creerTraduire(langue)(
+        "Montant entier, sans décimale (ex. 150 000).",
+        "Whole amount, no decimals (e.g. 150,000).",
+      )
+    : creerTraduire(langue)(
+        "Deux décimales au plus (ex. 1 500,50).",
+        "Two decimals at most (e.g. 1,500.50).",
+      );
 
 /** Montant de l'API → texte modifiable à la française (« 150000 », « -1500,5 »). */
 export function realiseVersSaisie(mineur: number | null | undefined, devise: Devise): string {
@@ -69,34 +77,60 @@ export function saisieDepuisRealise(r: RealiseVersion | null, devise: Devise): S
   };
 }
 
-const MESSAGE_MONTANT = (devise: Devise) =>
+const MESSAGE_MONTANT = (devise: Devise, langue: Langue) =>
   FACTEUR_MINEUR[devise] === 1
-    ? "Montant entier, sans décimale (ex. 150 000)."
-    : "Montant avec deux décimales au plus (ex. 1 500,50).";
+    ? creerTraduire(langue)(
+        "Montant entier, sans décimale (ex. 150 000).",
+        "Whole amount, no decimals (e.g. 150,000).",
+      )
+    : creerTraduire(langue)(
+        "Montant avec deux décimales au plus (ex. 1 500,50).",
+        "Amount with two decimals at most (e.g. 1,500.50).",
+      );
 
 /** Contrôle d'un réalisé (mêmes règles que l'API) ; `corps` est nul s'il reste une erreur. */
 export function validerRealise(
   s: SaisieRealise,
   devise: Devise,
+  langue: Langue = "fr",
 ): { erreurs: Partial<Record<ChampRealise, string>>; corps: CorpsRealise | null } {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampRealise, string>> = {};
   const ca = lireMontantSigne(s.chiffre_affaires, devise);
-  if (ca === null) erreurs.chiffre_affaires = "Le chiffre d'affaires réalisé est obligatoire.";
-  else if (Number.isNaN(ca)) erreurs.chiffre_affaires = MESSAGE_MONTANT(devise);
-  else if (ca < 0) erreurs.chiffre_affaires = "Le chiffre d'affaires ne peut pas être négatif.";
+  if (ca === null)
+    erreurs.chiffre_affaires = t(
+      "Le chiffre d'affaires réalisé est obligatoire.",
+      "Actual revenue is required.",
+    );
+  else if (Number.isNaN(ca)) erreurs.chiffre_affaires = MESSAGE_MONTANT(devise, langue);
+  else if (ca < 0)
+    erreurs.chiffre_affaires = t(
+      "Le chiffre d'affaires ne peut pas être négatif.",
+      "Revenue cannot be negative.",
+    );
   const ebe = lireMontantSigne(s.ebe, devise);
-  if (ebe === null) erreurs.ebe = "L'EBE réalisé est obligatoire (négatif si perte).";
-  else if (Number.isNaN(ebe)) erreurs.ebe = MESSAGE_MONTANT(devise);
+  if (ebe === null)
+    erreurs.ebe = t(
+      "L'EBE réalisé est obligatoire (négatif si perte).",
+      "Actual EBITDA is required (negative if a loss).",
+    );
+  else if (Number.isNaN(ebe)) erreurs.ebe = MESSAGE_MONTANT(devise, langue);
   const rn = lireMontantSigne(s.resultat_net, devise);
-  if (rn !== null && Number.isNaN(rn)) erreurs.resultat_net = MESSAGE_MONTANT(devise);
+  if (rn !== null && Number.isNaN(rn)) erreurs.resultat_net = MESSAGE_MONTANT(devise, langue);
   const tr = lireMontantSigne(s.tresorerie_fin, devise);
-  if (tr !== null && Number.isNaN(tr)) erreurs.tresorerie_fin = MESSAGE_MONTANT(devise);
+  if (tr !== null && Number.isNaN(tr)) erreurs.tresorerie_fin = MESSAGE_MONTANT(devise, langue);
   const commentaire = s.commentaire.trim();
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(commentaire)) {
-    erreurs.commentaire = "Le commentaire contient un caractère de contrôle.";
+    erreurs.commentaire = t(
+      "Le commentaire contient un caractère de contrôle.",
+      "The comment contains a control character.",
+    );
   } else if (commentaire.length > COMMENTAIRE_REALISE_MAX) {
-    erreurs.commentaire = `Le commentaire compte au plus ${COMMENTAIRE_REALISE_MAX} caractères.`;
+    erreurs.commentaire = t(
+      `Le commentaire compte au plus ${COMMENTAIRE_REALISE_MAX} caractères.`,
+      `The comment is ${COMMENTAIRE_REALISE_MAX} characters at most.`,
+    );
   }
   if (Object.keys(erreurs).length > 0 || ca === null || ebe === null) {
     return { erreurs, corps: null };
@@ -141,14 +175,19 @@ export const SEUIL_DEFAUT_POURCENT = String(SEUIL_REPREVISION_PLAN.defaut / 10);
 export function validerReprevision(
   s: SaisieReprevision,
   exercice: number,
+  langue: Langue = "fr",
 ): { erreurs: Partial<Record<keyof SaisieReprevision, string>>; corps: CorpsReprevision | null } {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieReprevision, string>> = {};
   const version = lireNombre(s.version);
   if (version === null || !Number.isInteger(version) || version < 1) {
-    erreurs.version = "Choisissez une version validée du modèle financier.";
+    erreurs.version = t(
+      "Choisissez une version validée du modèle financier.",
+      "Choose an approved version of the financial model.",
+    );
   }
   if (!(METHODES_REPREVISION_PLAN as readonly string[]).includes(s.methode)) {
-    erreurs.methode = "Choisissez une méthode de re-prévision.";
+    erreurs.methode = t("Choisissez une méthode de re-prévision.", "Choose a re-forecast method.");
   }
   const pourcent = lireNombre(s.seuil);
   const pourMille = pourcent === null || Number.isNaN(pourcent) ? NaN : Math.round(pourcent * 10);
@@ -159,14 +198,17 @@ export function validerReprevision(
     pourMille < SEUIL_REPREVISION_PLAN.min ||
     pourMille > SEUIL_REPREVISION_PLAN.max
   ) {
-    erreurs.seuil = "Seuil de 0,1 % à 100 %, avec une décimale au plus.";
+    erreurs.seuil = t(
+      "Seuil de 0,1 % à 100 %, avec une décimale au plus.",
+      "Threshold from 0.1% to 100%, with one decimal at most.",
+    );
   }
   if (
     !Number.isInteger(exercice) ||
     exercice < EXERCICE_PLAN_VIVANT.min ||
     exercice > EXERCICE_PLAN_VIVANT.max
   ) {
-    erreurs.version = erreurs.version ?? "Choisissez un exercice.";
+    erreurs.version = erreurs.version ?? t("Choisissez un exercice.", "Choose a fiscal year.");
   }
   if (Object.keys(erreurs).length > 0 || version === null) return { erreurs, corps: null };
   return {

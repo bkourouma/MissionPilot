@@ -7,8 +7,8 @@ import {
   cheminPoints,
   cheminVersionsPoint,
   libelleCategorie,
+  libellesDd,
   messageDd,
-  NIVEAU_RISQUE_DD_LIBELLES,
   optionsDe,
 } from "../../lib/due-diligence";
 import {
@@ -26,13 +26,12 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { ChampsAffirmation } from "./ChampsAffirmation";
-
-const OPTIONS_IMPORTANCE = optionsDe(NIVEAUX_RISQUE_DD, NIVEAU_RISQUE_DD_LIBELLES);
 
 export interface FormulairePointProps {
   dossierId: string;
@@ -48,6 +47,9 @@ export function FormulairePoint({
   categorie,
   peutSigner,
 }: FormulairePointProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsImportance = optionsDe(NIVEAUX_RISQUE_DD, libellesDd(langue).NIVEAU_RISQUE);
   const f = useFormulaire<ChampPoint>();
   const [s, setS] = useState<SaisiePoint>(saisiePointVide());
   const maj = (p: Partial<SaisiePoint>) => setS((x) => ({ ...x, ...p }));
@@ -55,11 +57,14 @@ export function FormulairePoint({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerPoint(s, analyse, categorie),
+      validerPoint(s, analyse, categorie, langue),
       (charge) => api.post<{ id: string; assertion_id: string }>(cheminPoints(dossierId), charge),
       {
-        succes: "Point ajouté. Reliez-lui des sources depuis le bouton « Ajouter une source ».",
-        messageSpecifique: messageDd,
+        succes: t(
+          "Point ajouté. Reliez-lui des sources depuis le bouton « Ajouter une source ».",
+          "Item added. Link sources to it using the “Add a source” button.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => setS(saisiePointVide()),
       },
     );
@@ -71,36 +76,43 @@ export function FormulairePoint({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Nouveau point : ${libelleCategorie(categorie)}`}
+      aria-label={t(
+        `Nouveau point : ${libelleCategorie(categorie, langue)}`,
+        `New item: ${libelleCategorie(categorie, langue)}`,
+      )}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Point refusé"
+        titreErreur={t("Point refusé", "Item refused")}
       />
       <ChampsAffirmation valeur={s} onChange={maj} erreurs={f.erreurs} peutSigner={peutSigner} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Titre court"
+          libelle={t("Titre court", "Short title")}
           maxLength={TITRE_MAX}
           value={s.libelle}
           onChange={(e) => maj({ libelle: e.target.value })}
           erreur={f.erreurs.libelle}
-          aide="Facultatif."
+          aide={t("Facultatif.", "Optional.")}
         />
         <Select
-          libelle="Importance"
-          invite="Non précisée"
-          options={OPTIONS_IMPORTANCE}
+          libelle={t("Importance", "Importance")}
+          invite={t("Non précisée", "Not specified")}
+          options={optionsImportance}
           value={s.niveau}
           onChange={(e) => maj({ niveau: e.target.value })}
           erreur={f.erreurs.niveau}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Ajouter le point
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Ajouter le point", "Add the item")}
         </Bouton>
       </div>
     </form>
@@ -119,6 +131,9 @@ export interface CorrectionPointProps {
 
 /** Correction motivée d'un point (nouvelle version) ou retrait du point (l'assertion est abandonnée). */
 export function CorrectionPoint({ point }: CorrectionPointProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsImportance = optionsDe(NIVEAUX_RISQUE_DD, libellesDd(langue).NIVEAU_RISQUE);
   const f = useFormulaire<ChampCorrectionPoint>();
   const [s, setS] = useState<SaisieCorrectionPoint>({
     libelle: point.libelle ?? "",
@@ -131,15 +146,18 @@ export function CorrectionPoint({ point }: CorrectionPointProps) {
   async function corriger(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerCorrectionPoint(s, point),
+      validerCorrectionPoint(s, point, langue),
       (charge) =>
         api.post<{ version: number }>(cheminVersionsPoint(point.id), {
           ...charge,
           version_courante: point.version,
         }),
       {
-        succes: "Nouvelle version enregistrée ; l'ancienne reste dans l'historique.",
-        messageSpecifique: messageDd,
+        succes: t(
+          "Nouvelle version enregistrée ; l'ancienne reste dans l'historique.",
+          "New version saved; the previous one stays in the history.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => maj({ motif: "" }),
       },
     );
@@ -147,13 +165,19 @@ export function CorrectionPoint({ point }: CorrectionPointProps) {
 
   async function retirer() {
     await f.envoyer(
-      validerRetrait(s.motif, true),
+      validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<{ version: number }>(cheminVersionsPoint(point.id), {
           ...charge,
           version_courante: point.version,
         }),
-      { succes: "Point retiré ; l'assertion est abandonnée.", messageSpecifique: messageDd },
+      {
+        succes: t(
+          "Point retiré ; l'assertion est abandonnée.",
+          "Item removed; the statement is abandoned.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
+      },
     );
   }
 
@@ -163,16 +187,16 @@ export function CorrectionPoint({ point }: CorrectionPointProps) {
       className="mp-formulaire"
       noValidate
       onSubmit={corriger}
-      aria-label="Corriger le point"
+      aria-label={t("Corriger le point", "Edit the item")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Correction refusée"
+        titreErreur={t("Correction refusée", "Correction refused")}
       />
       <ZoneTexte
-        libelle="Affirmation"
+        libelle={t("Affirmation", "Statement")}
         required
         rows={3}
         maxLength={ENONCE_MAX}
@@ -182,37 +206,44 @@ export function CorrectionPoint({ point }: CorrectionPointProps) {
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Titre court"
+          libelle={t("Titre court", "Short title")}
           maxLength={TITRE_MAX}
           value={s.libelle}
           onChange={(e) => maj({ libelle: e.target.value })}
           erreur={f.erreurs.libelle}
         />
         <Select
-          libelle="Importance"
-          invite="Non précisée"
-          options={OPTIONS_IMPORTANCE}
+          libelle={t("Importance", "Importance")}
+          invite={t("Non précisée", "Not specified")}
+          options={optionsImportance}
           value={s.niveau}
           onChange={(e) => maj({ niveau: e.target.value })}
           erreur={f.erreurs.niveau}
         />
       </div>
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         required
         rows={2}
         maxLength={MOTIF_MAX}
         value={s.motif}
         onChange={(e) => maj({ motif: e.target.value })}
         erreur={f.erreurs.motif}
-        aide="Conservé dans l'historique. Obligatoire pour corriger comme pour retirer le point."
+        aide={t(
+          "Conservé dans l'historique. Obligatoire pour corriger comme pour retirer le point.",
+          "Kept in the history. Required to edit as well as to remove the item.",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la correction
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
         <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-          Retirer ce point
+          {t("Retirer ce point", "Remove this item")}
         </Bouton>
       </div>
     </form>

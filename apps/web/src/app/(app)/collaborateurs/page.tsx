@@ -9,6 +9,7 @@ import { Select } from "../../../components/ui/Select";
 import { Tableau } from "../../../components/ui/Tableau";
 import { BarreRecherche } from "../../../components/referentiels/BarreRecherche";
 import { chargerServeur } from "../../../lib/api-serveur";
+import { obtenirLangue } from "../../../lib/i18n/serveur";
 import {
   hrefListe,
   lireParametresListe,
@@ -18,14 +19,17 @@ import {
 import {
   droitsReferentiel,
   lireTypeFiltre,
-  OPTIONS_TYPES,
-  TYPE_LIBELLES,
+  libelleTypeCollaborateur,
+  optionsTypes,
   type Collaborateur,
 } from "../../../lib/collaborateurs";
 import { formaterPourcentage } from "../../../lib/format";
 import { exigerPermission } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Collaborateurs" };
+export async function generateMetadata(): Promise<Metadata> {
+  const langue = await obtenirLangue();
+  return { title: langue === "en" ? "Team members" : "Collaborateurs" };
+}
 
 export default async function PageCollaborateurs({
   searchParams,
@@ -33,6 +37,8 @@ export default async function PageCollaborateurs({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("collaborateurs.lire");
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const droits = droitsReferentiel(utilisateur.roles);
   const brut = await searchParams;
   const params = lireParametresListe(brut);
@@ -47,13 +53,16 @@ export default async function PageCollaborateurs({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Collaborateurs"
-        soustitre="Grade, compétences, langues et capacité de chaque membre de l'équipe."
+        titre={t("Collaborateurs", "Team members")}
+        soustitre={t(
+          "Grade, compétences, langues et capacité de chaque membre de l'équipe.",
+          "Grade, skills, languages and capacity of each team member.",
+        )}
         actions={
           droits.ecrireCollaborateurs ? (
             <Link href="/collaborateurs/nouveau" className={classesBouton("primaire")}>
               <Icone nom="plus" />
-              <span>Nouveau collaborateur</span>
+              <span>{t("Nouveau collaborateur", "New team member")}</span>
             </Link>
           ) : null
         }
@@ -62,14 +71,14 @@ export default async function PageCollaborateurs({
       <BarreRecherche
         action="/collaborateurs"
         params={params}
-        libelleRecherche="Rechercher un collaborateur"
-        aideRecherche="Nom, compétence ou secteur."
+        libelleRecherche={t("Rechercher un collaborateur", "Search for a team member")}
+        aideRecherche={t("Nom, compétence ou secteur.", "Name, skill or sector.")}
         autres={
           <Select
-            libelle="Type"
+            libelle={t("Type", "Type")}
             name="type"
-            invite="Tous"
-            options={OPTIONS_TYPES}
+            invite={t("Tous", "All")}
+            options={optionsTypes(langue)}
             defaultValue={type ?? ""}
           />
         }
@@ -77,7 +86,10 @@ export default async function PageCollaborateurs({
 
       {!page.ok ? (
         <EtatErreur
-          titre="La liste des collaborateurs n'a pas pu être chargée."
+          titre={t(
+            "La liste des collaborateurs n'a pas pu être chargée.",
+            "The list of team members could not be loaded.",
+          )}
           message={page.message}
           hrefReessayer={lien(params.curseur)}
         />
@@ -85,58 +97,65 @@ export default async function PageCollaborateurs({
         <EtatVide
           titre={
             filtre
-              ? "Aucun collaborateur ne correspond à votre recherche."
-              : "Aucun collaborateur pour l'instant."
+              ? t(
+                  "Aucun collaborateur ne correspond à votre recherche.",
+                  "No team member matches your search.",
+                )
+              : t("Aucun collaborateur pour l'instant.", "No team members yet.")
           }
           icone="personnes"
           action={
             filtre ? (
               <Link href="/collaborateurs" className={classesBouton("secondaire")}>
-                Effacer la recherche
+                {t("Effacer la recherche", "Clear search")}
               </Link>
             ) : droits.ecrireCollaborateurs ? (
               <Link href="/collaborateurs/nouveau" className={classesBouton("primaire")}>
-                Ajouter le premier collaborateur
+                {t("Ajouter le premier collaborateur", "Add the first team member")}
               </Link>
             ) : null
           }
         />
       ) : (
         <Tableau
-          legende="Liste des collaborateurs"
+          legende={t("Liste des collaborateurs", "List of team members")}
           lignes={page.donnees.elements}
           cleLigne={(c) => c.id}
           colonnes={[
             {
               cle: "nom",
-              entete: "Nom",
+              entete: t("Nom", "Name"),
               rendu: (c) => (
                 <Link href={`/collaborateurs/${c.id}`} className="mp-lien-ligne">
                   {c.nom}
                 </Link>
               ),
             },
-            { cle: "grade", entete: "Grade", rendu: (c) => c.grade_libelle ?? "—" },
-            { cle: "type", entete: "Type", rendu: (c) => TYPE_LIBELLES[c.type] },
+            { cle: "grade", entete: t("Grade", "Grade"), rendu: (c) => c.grade_libelle ?? "—" },
+            {
+              cle: "type",
+              entete: t("Type", "Type"),
+              rendu: (c) => libelleTypeCollaborateur(c.type, langue),
+            },
             {
               cle: "competences",
-              entete: "Compétences",
+              entete: t("Compétences", "Skills"),
               rendu: (c) => (c.competences.length ? c.competences.join(", ") : "—"),
             },
             {
               cle: "capacite",
-              entete: "Capacité",
+              entete: t("Capacité", "Capacity"),
               alignement: "droite",
-              rendu: (c) => formaterPourcentage(c.capacite_pct / 100),
+              rendu: (c) => formaterPourcentage(c.capacite_pct / 100, 1, langue),
             },
             {
               cle: "actif",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (c) =>
                 c.actif ? (
-                  <BadgeStatut tonalite="succes">Actif</BadgeStatut>
+                  <BadgeStatut tonalite="succes">{t("Actif", "Active")}</BadgeStatut>
                 ) : (
-                  <BadgeStatut tonalite="neutre">Archivé</BadgeStatut>
+                  <BadgeStatut tonalite="neutre">{t("Archivé", "Archived")}</BadgeStatut>
                 ),
             },
           ]}
@@ -145,7 +164,7 @@ export default async function PageCollaborateurs({
 
       {page.ok ? (
         <PaginationCurseur
-          libelle="Pagination des collaborateurs"
+          libelle={t("Pagination des collaborateurs", "Team member pagination")}
           hrefDebut={params.curseur ? lien() : null}
           hrefSuivante={page.donnees.curseur_suivant ? lien(page.donnees.curseur_suivant) : null}
         />

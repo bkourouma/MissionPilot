@@ -14,6 +14,7 @@ import {
 } from "../../lib/redressement-suivi-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 
@@ -23,6 +24,8 @@ import { Champ } from "../ui/Champ";
  * sont calculées par le serveur.
  */
 export function SuiviCreation({ dossierId }: { dossierId: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampCreationSuivi>();
   const [jalons, setJalons] = useState<SaisieJalon[]>(jalonsParDefaut);
   const verrou = useRef(false);
@@ -36,11 +39,11 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
     verrou.current = true;
     try {
       await f.envoyer(
-        corpsCreationSuivi(jalons),
+        corpsCreationSuivi(jalons, langue),
         (charge) => api.post(cheminSuivi(dossierId), charge),
         {
-          succes: "Suivi créé.",
-          messageSpecifique: messageSuivi,
+          succes: t("Suivi créé.", "Follow-up created."),
+          messageSpecifique: (e) => messageSuivi(e, langue),
         },
       );
     } finally {
@@ -54,13 +57,13 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Créer le suivi post-mission"
+      aria-label={t("Créer le suivi post-mission", "Create the post-engagement follow-up")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Création impossible"
+        titreErreur={t("Création impossible", "Creation not possible")}
       />
       {f.erreurs.jalons ? (
         <p className="mp-champ__erreur" role="alert">
@@ -71,7 +74,10 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
         {jalons.map((j, i) => (
           <li key={j.cle} className="mp-sui-ligne-jalon">
             <Champ
-              libelle={`Jalon ${i + 1} : mois après la clôture`}
+              libelle={t(
+                `Jalon ${i + 1} : mois après la clôture`,
+                `Milestone ${i + 1}: months after close-out`,
+              )}
               type="text"
               inputMode="numeric"
               value={j.mois}
@@ -80,7 +86,10 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
               required
             />
             <Champ
-              libelle={`Jalon ${i + 1} : libellé (facultatif)`}
+              libelle={t(
+                `Jalon ${i + 1} : libellé (facultatif)`,
+                `Milestone ${i + 1}: label (optional)`,
+              )}
               type="text"
               maxLength={RED_SUIVI_LIBELLE_MAX}
               value={j.libelle}
@@ -90,10 +99,10 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
             <Bouton
               variante="discret"
               disabled={jalons.length <= 1}
-              aria-label={`Retirer le jalon ${i + 1}`}
+              aria-label={t(`Retirer le jalon ${i + 1}`, `Remove milestone ${i + 1}`)}
               onClick={() => setJalons((l) => l.filter((x) => x.cle !== j.cle))}
             >
-              Retirer
+              {t("Retirer", "Remove")}
             </Bouton>
           </li>
         ))}
@@ -104,15 +113,15 @@ export function SuiviCreation({ dossierId }: { dossierId: string }) {
           disabled={jalons.length >= RED_SUIVI_JALONS_MAX}
           onClick={() => setJalons((l) => [...l, jalonVide(moisSuivant(l))])}
         >
-          Ajouter un jalon
+          {t("Ajouter un jalon", "Add a milestone")}
         </Bouton>
         <Bouton
           type="submit"
           variante="primaire"
           chargement={f.enCours}
-          texteChargement="Création…"
+          texteChargement={t("Création…", "Creating…")}
         >
-          Créer le suivi
+          {t("Créer le suivi", "Create the follow-up")}
         </Bouton>
       </div>
     </form>

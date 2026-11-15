@@ -19,11 +19,10 @@ import {
   cheminRisques,
   cheminSignauxDossier,
   droitsDd,
-  FAMILLE_RISQUE_DD_LIBELLES,
   hrefAssertionRegistre,
   hrefEcranDossier,
+  libellesDd,
   lireFiltresRisques,
-  NIVEAU_RISQUE_DD_LIBELLES,
   optionsDe,
   peutSignerAvisDd,
   requeteRisques,
@@ -33,10 +32,14 @@ import {
   type ReponseRisques,
   type SignalDossier,
 } from "../../../../../../../lib/due-diligence";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Risques du dossier" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Risques du dossier", "File risks") };
+}
 
 /**
  * Checklist de risques par famille (pays, change, opérationnel, réglementaire) et niveau (DD-06)
@@ -51,6 +54,9 @@ export default async function PageRisquesDd({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id, dossierId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
+  const L = libellesDd(langue);
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -84,27 +90,27 @@ export default async function PageRisquesDd({
         action={hrefEcranDossier(id, dossierId, "risques")}
         className="mp-filtres"
         role="search"
-        aria-label="Filtrer les risques"
+        aria-label={t("Filtrer les risques", "Filter the risks")}
       >
         <div className="mp-grille-champs mp-grille-champs--filtres">
           <Select
-            libelle="Famille"
+            libelle={t("Famille", "Family")}
             name="famille"
-            invite="Toutes"
-            options={optionsDe(FAMILLES_RISQUE_DD, FAMILLE_RISQUE_DD_LIBELLES)}
+            invite={t("Toutes", "All")}
+            options={optionsDe(FAMILLES_RISQUE_DD, L.FAMILLE)}
             defaultValue={filtres.famille}
           />
           <Select
-            libelle="Niveau"
+            libelle={t("Niveau", "Level")}
             name="niveau"
-            invite="Tous"
-            options={optionsDe(NIVEAUX_RISQUE_DD, NIVEAU_RISQUE_DD_LIBELLES)}
+            invite={t("Tous", "All")}
+            options={optionsDe(NIVEAUX_RISQUE_DD, L.NIVEAU_RISQUE)}
             defaultValue={filtres.niveau}
           />
           <Select
-            libelle="Étape de la chaîne"
+            libelle={t("Étape de la chaîne", "Value chain step")}
             name="etape_id"
-            invite="Toutes"
+            invite={t("Toutes", "All")}
             options={etapes}
             defaultValue={filtres.etape_id}
           />
@@ -112,29 +118,39 @@ export default async function PageRisquesDd({
         <div className="mp-actions-formulaire">
           <button type="submit" className={classesBouton("secondaire")}>
             <Icone nom="recherche" />
-            <span>Filtrer</span>
+            <span>{t("Filtrer", "Filter")}</span>
           </button>
         </div>
       </form>
 
       {!risques.ok ? (
         <EtatErreur
-          titre="Les risques n'ont pas pu être chargés."
+          titre={t("Les risques n'ont pas pu être chargés.", "The risks could not be loaded.")}
           message={risques.message}
           hrefReessayer={hrefEcranDossier(id, dossierId, "risques")}
         />
       ) : risques.donnees.risques.length === 0 ? (
         <p className="mp-texte-doux" role="status">
           {filtre
-            ? "Aucun risque ne correspond à ces filtres."
-            : "Aucun risque n'est enregistré : la checklist est vide."}
+            ? t("Aucun risque ne correspond à ces filtres.", "No risk matches these filters.")
+            : t(
+                "Aucun risque n'est enregistré : la checklist est vide.",
+                "No risk is recorded: the checklist is empty.",
+              )}
         </p>
       ) : (
         <>
           {risques.donnees.synthese.a_documenter.length > 0 ? (
-            <Alerte tonalite="attention" titre="Risques à documenter" annonce="aucune">
+            <Alerte
+              tonalite="attention"
+              titre={t("Risques à documenter", "Risks to document")}
+              annonce="aucune"
+            >
               <p>
-                {`${risques.donnees.synthese.a_documenter.length} risque(s) élevé(s) ou critique(s) n'ont aucune source ou une source fragile : ajoutez des preuves à leur justification.`}
+                {t(
+                  `${risques.donnees.synthese.a_documenter.length} risque(s) élevé(s) ou critique(s) n'ont aucune source ou une source fragile : ajoutez des preuves à leur justification.`,
+                  `${risques.donnees.synthese.a_documenter.length} high or critical risk(s) have no source or a weak source: add evidence to their justification.`,
+                )}
               </p>
             </Alerte>
           ) : null}
@@ -142,13 +158,15 @@ export default async function PageRisquesDd({
             ({ famille, risques: liste }) => (
               <Carte
                 key={famille}
-                titre={`${FAMILLE_RISQUE_DD_LIBELLES[famille]} (${liste.length})`}
+                titre={`${L.FAMILLE[famille]} (${liste.length})`}
                 niveauTitre={3}
               >
                 {liste.length === 0 ? (
-                  <p className="mp-texte-doux">Aucun risque de cette famille.</p>
+                  <p className="mp-texte-doux">
+                    {t("Aucun risque de cette famille.", "No risk in this family.")}
+                  </p>
                 ) : (
-                  <ul className="mp-dd-liste" aria-label={FAMILLE_RISQUE_DD_LIBELLES[famille]}>
+                  <ul className="mp-dd-liste" aria-label={L.FAMILLE[famille]}>
                     {trierParGravite(liste).map((r) => (
                       <li key={r.id} className="mp-dd-element">
                         <p className="mp-dd-element__titre">{r.libelle}</p>
@@ -156,10 +174,12 @@ export default async function PageRisquesDd({
                           <BadgeNiveauRisque niveau={r.niveau} />
                           <BadgeSolidite solidite={r.solidite ?? undefined} />
                           {aDocumenter.has(r.id) ? (
-                            <BadgeStatut tonalite="danger">À documenter</BadgeStatut>
+                            <BadgeStatut tonalite="danger">
+                              {t("À documenter", "To document")}
+                            </BadgeStatut>
                           ) : null}
                           {libelleEtape(r.etape_id) ? (
-                            <span className="mp-texte-doux mp-texte-petit">{`Étape : ${libelleEtape(r.etape_id)}`}</span>
+                            <span className="mp-texte-doux mp-texte-petit">{`${t("Étape", "Step")} : ${libelleEtape(r.etape_id)}`}</span>
                           ) : null}
                         </span>
                         <p className="mp-dd-texte">{r.enonce}</p>
@@ -168,12 +188,14 @@ export default async function PageRisquesDd({
                             className="mp-lien-action"
                             href={hrefAssertionRegistre(id, r.assertion_id)}
                           >
-                            Ajouter une source
+                            {t("Ajouter une source", "Add a source")}
                           </a>
                         </div>
                         {droits.ecrire ? (
                           <details className="mp-dd-details">
-                            <summary>Corriger ou retirer ce risque</summary>
+                            <summary>
+                              {t("Corriger ou retirer ce risque", "Edit or remove this risk")}
+                            </summary>
                             <div className="mp-dd-details__corps">
                               <CorrectionRisque
                                 risque={r}

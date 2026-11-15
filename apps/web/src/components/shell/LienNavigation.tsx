@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { EntreeNavigation } from "../../lib/navigation";
+import { libelleEntree, type EntreeNavigation } from "../../lib/navigation";
+import { T } from "../i18n/T";
+import { useLangue } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
 
 export interface LienNavigationProps {
@@ -24,14 +28,18 @@ export function LienNavigation({
   onNaviguer,
   pastille,
 }: LienNavigationProps) {
+  const langue = useLangue();
   const classe = `mp-nav__lien mp-nav__lien--${forme}`;
-  const libelle = forme === "barre" ? (entree.libelleCourt ?? entree.libelle) : entree.libelle;
+  const libelle = libelleEntree(entree, langue, forme === "barre");
   if (!entree.disponible) {
     return (
       <span className={`${classe} mp-nav__lien--indisponible`} role="link" aria-disabled="true">
         <Icone nom={entree.icone} />
         <span className="mp-nav__libelle">{libelle}</span>
-        <span className="mp-visuellement-cache"> (pas encore disponible)</span>
+        <span className="mp-visuellement-cache">
+          {" "}
+          <T fr="(pas encore disponible)" en="(not yet available)" />
+        </span>
       </span>
     );
   }

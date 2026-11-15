@@ -12,6 +12,7 @@ import {
   type SaisiePointMort,
 } from "../../lib/redressement-saisie";
 import { aideMontant } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -23,6 +24,13 @@ const STATUTS: Record<RedPointMortVue["statut"], string> = {
   deficitaire: "Déficitaire",
   non_calculable: "Non calculable",
   impossible: "Impossible : la marge sur coûts variables est nulle ou négative",
+};
+const STATUTS_EN: Record<RedPointMortVue["statut"], string> = {
+  beneficiaire: "Profitable",
+  equilibre: "Break-even",
+  deficitaire: "Loss-making",
+  non_calculable: "Not computable",
+  impossible: "Impossible: the contribution margin is zero or negative",
 };
 
 /**
@@ -41,6 +49,8 @@ export function PointMort({
   chiffreAffaires: number | null;
   chargesVariables: number | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampPointMort>();
   const [s, setS] = useState<SaisiePointMort>({
     chiffre_affaires: chiffreAffaires !== null ? montantVersTexte(chiffreAffaires, devise) : "",
@@ -49,15 +59,15 @@ export function PointMort({
     periode_jours: "360",
   });
   const [resultat, setResultat] = useState<RedPointMortVue | null>(null);
-  const m = (v: number | null) => formaterMontantMineur(v, devise);
+  const m = (v: number | null) => formaterMontantMineur(v, devise, langue);
 
   async function calculer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsPointMortDepuisFormulaire(s, devise),
+      corpsPointMortDepuisFormulaire(s, devise, langue),
       (charge) => api.post<RedPointMortVue>(cheminPointMort(dossierId), charge),
       {
-        messageSpecifique: messageRedressement,
+        messageSpecifique: (e) => messageRedressement(e, langue),
         rafraichir: false,
         apres: (r) => setResultat(r),
       },
@@ -71,17 +81,17 @@ export function PointMort({
         className="mp-formulaire"
         noValidate
         onSubmit={calculer}
-        aria-label="Point mort"
+        aria-label={t("Point mort", "Break-even point")}
       >
         <RetourFormulaire
           erreur={f.erreurGlobale}
           refAlerte={f.refAlerte}
-          titreErreur="Calcul impossible"
+          titreErreur={t("Calcul impossible", "Could not compute")}
         />
-        <p className="mp-texte-doux">{aideMontant(devise)}</p>
+        <p className="mp-texte-doux">{aideMontant(devise, langue)}</p>
         <div className="mp-grille-champs">
           <Champ
-            libelle="Chiffre d'affaires de la période"
+            libelle={t("Chiffre d'affaires de la période", "Revenue for the period")}
             required
             inputMode="decimal"
             autoComplete="off"
@@ -90,7 +100,7 @@ export function PointMort({
             erreur={f.erreurs.chiffre_affaires}
           />
           <Champ
-            libelle="Charges variables (coût des ventes)"
+            libelle={t("Charges variables (coût des ventes)", "Variable costs (cost of sales)")}
             required
             inputMode="decimal"
             autoComplete="off"
@@ -99,17 +109,20 @@ export function PointMort({
             erreur={f.erreurs.charges_variables}
           />
           <Champ
-            libelle="Charges fixes de la période"
+            libelle={t("Charges fixes de la période", "Fixed costs for the period")}
             required
             inputMode="decimal"
             autoComplete="off"
             value={s.charges_fixes}
             onChange={(e) => setS((x) => ({ ...x, charges_fixes: e.target.value }))}
             erreur={f.erreurs.charges_fixes}
-            aide="À saisir : loyers, salaires, assurances… hors coût des ventes."
+            aide={t(
+              "À saisir : loyers, salaires, assurances… hors coût des ventes.",
+              "To enter: rent, salaries, insurance… excluding cost of sales.",
+            )}
           />
           <Champ
-            libelle="Durée de la période (jours)"
+            libelle={t("Durée de la période (jours)", "Length of the period (days)")}
             inputMode="numeric"
             autoComplete="off"
             value={s.periode_jours}
@@ -122,47 +135,50 @@ export function PointMort({
             type="submit"
             variante="secondaire"
             chargement={f.enCours}
-            texteChargement="Calcul…"
+            texteChargement={t("Calcul…", "Computing…")}
           >
-            Calculer le point mort
+            {t("Calculer le point mort", "Compute the break-even point")}
           </Bouton>
         </div>
       </form>
       {resultat ? (
         <dl className="mp-liste-def" aria-live="polite">
           <div>
-            <dt>Statut</dt>
-            <dd>{STATUTS[resultat.statut] ?? resultat.statut}</dd>
+            <dt>{t("Statut", "Status")}</dt>
+            <dd>{(langue === "en" ? STATUTS_EN : STATUTS)[resultat.statut] ?? resultat.statut}</dd>
           </div>
           <div>
-            <dt>Marge sur coûts variables</dt>
+            <dt>{t("Marge sur coûts variables", "Contribution margin")}</dt>
             <dd className="mp-red-valeur">
               {m(resultat.marge_cout_variable)} (
-              {formaterPart(resultat.taux_marge_cout_variable_pb)})
+              {formaterPart(resultat.taux_marge_cout_variable_pb, langue)})
             </dd>
           </div>
           <div>
-            <dt>Résultat d&apos;exploitation</dt>
+            <dt>{t("Résultat d'exploitation", "Operating income")}</dt>
             <dd className="mp-red-valeur">{m(resultat.resultat_exploitation)}</dd>
           </div>
           <div>
-            <dt>Seuil de rentabilité</dt>
+            <dt>{t("Seuil de rentabilité", "Break-even revenue")}</dt>
             <dd className="mp-red-valeur">{m(resultat.seuil_rentabilite)}</dd>
           </div>
           <div>
-            <dt>Marge de sécurité</dt>
+            <dt>{t("Marge de sécurité", "Margin of safety")}</dt>
             <dd className="mp-red-valeur">
               {m(resultat.marge_securite)}
               {resultat.marge_securite_pb !== null
-                ? ` (${formaterPart(resultat.marge_securite_pb)})`
+                ? ` (${formaterPart(resultat.marge_securite_pb, langue)})`
                 : ""}
             </dd>
           </div>
           <div>
-            <dt>Point mort</dt>
+            <dt>{t("Point mort", "Break-even point")}</dt>
             <dd className="mp-red-valeur">
               {resultat.point_mort_jours !== null
-                ? `${formaterNombre(resultat.point_mort_jours, 0)} jours sur ${resultat.periode_jours}`
+                ? t(
+                    `${formaterNombre(resultat.point_mort_jours, 0)} jours sur ${resultat.periode_jours}`,
+                    `${formaterNombre(resultat.point_mort_jours, 0, langue)} days out of ${resultat.periode_jours}`,
+                  )
                 : "—"}
             </dd>
           </div>

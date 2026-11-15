@@ -7,7 +7,9 @@ import {
   libelleEtatVersionSeuils,
   tonaliteEtatVersionSeuils,
   TEXTE_PUBLICATION_SEUILS,
+  TEXTE_PUBLICATION_SEUILS_EN,
 } from "../../lib/redressement";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Tableau } from "../ui/Tableau";
 import { BoutonActionRed } from "./BoutonActionRed";
@@ -26,34 +28,46 @@ export function VersionsSeuils({
   peutPublier: boolean;
   peutParametrer: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-red-section">
       <Tableau
-        legende="Versions de seuils"
-        messageVide="Aucune version de seuils pour ce secteur."
+        legende={t("Versions de seuils", "Threshold versions")}
+        messageVide={t(
+          "Aucune version de seuils pour ce secteur.",
+          "No threshold version for this sector.",
+        )}
         colonnes={[
-          { cle: "version", entete: "Version", rendu: (v: RedSeuilsVersionVue) => v.version },
+          {
+            cle: "version",
+            entete: t("Version", "Version"),
+            rendu: (v: RedSeuilsVersionVue) => v.version,
+          },
           {
             cle: "statut",
-            entete: "Statut",
+            entete: t("Statut", "Status"),
             rendu: (v) => (
               <BadgeStatut tonalite={tonaliteEtatVersionSeuils(v)}>
-                {libelleEtatVersionSeuils(v)}
+                {libelleEtatVersionSeuils(v, langue)}
               </BadgeStatut>
             ),
           },
           {
             cle: "auteur",
-            entete: "Auteur",
-            rendu: (v) => `${v.cree_par.nom}, le ${formaterDateHeure(v.cree_le)}`,
+            entete: t("Auteur", "Author"),
+            rendu: (v) =>
+              `${v.cree_par.nom}, ${t("le", "on")} ${formaterDateHeure(v.cree_le, undefined, langue)}`,
           },
           {
             cle: "publication",
-            entete: "Publication",
+            entete: t("Publication", "Publication"),
             rendu: (v) =>
-              v.publiee_par ? `${v.publiee_par.nom}, le ${formaterDateHeure(v.publiee_le)}` : "—",
+              v.publiee_par
+                ? `${v.publiee_par.nom}, ${t("le", "on")} ${formaterDateHeure(v.publiee_le, undefined, langue)}`
+                : "—",
           },
-          { cle: "motif", entete: "Motif", rendu: (v) => v.motif ?? "—" },
+          { cle: "motif", entete: t("Motif", "Reason"), rendu: (v) => v.motif ?? "—" },
           {
             cle: "action",
             entete: "Action",
@@ -61,18 +75,26 @@ export function VersionsSeuils({
               v.statut === "brouillon" && peutParametrer ? (
                 peutPublier ? (
                   <BoutonActionRed
-                    libelle="Publier"
+                    libelle={t("Publier", "Publish")}
                     chemin={cheminPublicationSeuils(v.id)}
                     corps={{}}
-                    succes="Version publiée : elle s'applique aux prochains scores."
+                    succes={t(
+                      "Version publiée : elle s'applique aux prochains scores.",
+                      "Version published: it applies to the next scores.",
+                    )}
                     variante="primaire"
                     confirmation={{
-                      question: `Publier la version ${v.version} ? Elle s'appliquera aux prochains scores du secteur.`,
-                      libelleConfirmation: "Oui, publier",
+                      question: t(
+                        `Publier la version ${v.version} ? Elle s'appliquera aux prochains scores du secteur.`,
+                        `Publish version ${v.version}? It will apply to the sector's next scores.`,
+                      ),
+                      libelleConfirmation: t("Oui, publier", "Yes, publish"),
                     }}
                   />
                 ) : (
-                  <span className="mp-texte-doux mp-texte-petit">{TEXTE_PUBLICATION_SEUILS}</span>
+                  <span className="mp-texte-doux mp-texte-petit">
+                    {t(TEXTE_PUBLICATION_SEUILS, TEXTE_PUBLICATION_SEUILS_EN)}
+                  </span>
                 )
               ) : (
                 "—"

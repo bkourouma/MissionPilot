@@ -1,20 +1,24 @@
+"use client";
+
 import type { Devise } from "../../lib/format";
 import {
-  ALERTES_PLAN,
+  alertePlan,
   alertesParScenario,
   descriptionEcarts,
   ETATS_FINANCIERS,
   indicateursCles,
   lignesScenarios,
-  MENTION_RATIOS,
-  MENTION_SYSCOHADA,
+  libelleScenario,
+  mentionRatios,
+  mentionSyscohada,
   SCENARIOS,
-  SCENARIO_LIBELLES,
   texteAlerte,
+  titreEtat,
   titreAlertesScenario,
   type CodeAlertePlan,
   type ResultatScenarios,
 } from "../../lib/plan-modele";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { GraphiqueTresorerie } from "./GraphiqueTresorerie";
 import { TableauEtat } from "./TableauEtat";
@@ -29,13 +33,17 @@ export function AlertesModele({
   resultat: ResultatScenarios;
   devise: Devise;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const groupes = alertesParScenario(resultat);
   if (groupes.length === 0) {
     return (
-      <Alerte tonalite="succes" titre="Aucune alerte" annonce="aucune">
+      <Alerte tonalite="succes" titre={t("Aucune alerte", "No alerts")} annonce="aucune">
         <p>
-          Trésorerie, capitaux propres et équilibre du bilan restent dans les seuils pour les trois
-          scénarios.
+          {t(
+            "Trésorerie, capitaux propres et équilibre du bilan restent dans les seuils pour les trois scénarios.",
+            "Cash, equity and balance sheet balance stay within thresholds in all three scenarios.",
+          )}
         </p>
       </Alerte>
     );
@@ -49,19 +57,23 @@ export function AlertesModele({
           <Alerte
             key={scenario}
             tonalite={critique ? "danger" : "attention"}
-            titre={titreAlertesScenario(scenario, alertes)}
+            titre={titreAlertesScenario(scenario, alertes, langue)}
             annonce="aucune"
           >
             <ul className="mp-plan-alertes">
               {alertes.map((a) => (
-                <li key={`${a.code}-${a.annee}`}>{texteAlerte(a, devise)}</li>
+                <li key={`${a.code}-${a.annee}`}>{texteAlerte(a, devise, langue)}</li>
               ))}
             </ul>
             {codes.map((c) => {
-              const info = ALERTES_PLAN[c as CodeAlertePlan];
+              const info = alertePlan(c as CodeAlertePlan, langue);
               return info ? (
                 <p key={c} className="mp-texte-petit">
-                  <strong>{info.libelle} :</strong> {info.explication}
+                  <strong>
+                    {info.libelle}
+                    {langue === "en" ? ":" : " :"}
+                  </strong>{" "}
+                  {info.explication}
                 </p>
               ) : null;
             })}
@@ -80,9 +92,14 @@ export function IndicateursCles({
   resultat: ResultatScenarios;
   devise: Devise;
 }) {
-  const cles = indicateursCles(resultat.base.synthese, devise);
+  const t = useT();
+  const langue = useLangue();
+  const cles = indicateursCles(resultat.base.synthese, devise, langue);
   return (
-    <ul className="mp-plan-cles" aria-label="Indicateurs clés du scénario de base">
+    <ul
+      className="mp-plan-cles"
+      aria-label={t("Indicateurs clés du scénario de base", "Key indicators of the base scenario")}
+    >
       {cles.map(([libelle, valeur]) => (
         <li key={libelle}>
           <span className="mp-plan-cles__libelle">{libelle}</span>
@@ -103,18 +120,25 @@ export function TableauScenarios({
   devise: Devise;
   idPrefixe: string;
 }) {
-  const lignes = lignesScenarios(resultat.synthese, devise);
+  const t = useT();
+  const langue = useLangue();
+  const lignes = lignesScenarios(resultat.synthese, devise, langue);
   const id = `${idPrefixe}-scenarios`;
   return (
     <div className="mp-plan-etat" role="region" aria-labelledby={id} tabIndex={0}>
       <table>
-        <caption id={id}>Scénarios base, optimiste et pessimiste</caption>
+        <caption id={id}>
+          {t(
+            "Scénarios base, optimiste et pessimiste",
+            "Base, optimistic and pessimistic scenarios",
+          )}
+        </caption>
         <thead>
           <tr>
-            <th scope="col">Indicateur</th>
+            <th scope="col">{t("Indicateur", "Indicator")}</th>
             {SCENARIOS.map((s) => (
               <th key={s} scope="col">
-                {SCENARIO_LIBELLES[s]}
+                {libelleScenario(s, langue)}
               </th>
             ))}
           </tr>
@@ -129,11 +153,17 @@ export function TableauScenarios({
             </tr>
           ))}
           <tr>
-            <th scope="row">Écarts appliqués aux hypothèses</th>
-            <td className="mp-plan-etat__texte">Hypothèses saisies</td>
-            <td className="mp-plan-etat__texte">{descriptionEcarts(resultat.ecarts?.optimiste)}</td>
+            <th scope="row">
+              {t("Écarts appliqués aux hypothèses", "Deviations applied to the assumptions")}
+            </th>
             <td className="mp-plan-etat__texte">
-              {descriptionEcarts(resultat.ecarts?.pessimiste)}
+              {t("Hypothèses saisies", "Entered assumptions")}
+            </td>
+            <td className="mp-plan-etat__texte">
+              {descriptionEcarts(resultat.ecarts?.optimiste, langue)}
+            </td>
+            <td className="mp-plan-etat__texte">
+              {descriptionEcarts(resultat.ecarts?.pessimiste, langue)}
             </td>
           </tr>
         </tbody>
@@ -158,31 +188,33 @@ export function ResultatModele({
   idPrefixe: string;
   niveauTitre?: NiveauTitre;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const T = `h${niveauTitre}` as const;
   const base = resultat.base;
   return (
     <div className="mp-plan">
       <section className="mp-plan__section" aria-labelledby={`${idPrefixe}-t-alertes`}>
         <T id={`${idPrefixe}-t-alertes`} className="mp-plan__intertitre">
-          Alertes
+          {t("Alertes", "Alerts")}
         </T>
         <AlertesModele resultat={resultat} devise={devise} />
       </section>
       <section className="mp-plan__section" aria-labelledby={`${idPrefixe}-t-cles`}>
         <T id={`${idPrefixe}-t-cles`} className="mp-plan__intertitre">
-          Indicateurs clés (scénario de base)
+          {t("Indicateurs clés (scénario de base)", "Key indicators (base scenario)")}
         </T>
         <IndicateursCles resultat={resultat} devise={devise} />
       </section>
       <section className="mp-plan__section" aria-labelledby={`${idPrefixe}-t-scenarios`}>
         <T id={`${idPrefixe}-t-scenarios`} className="mp-plan__intertitre">
-          Trois scénarios côte à côte
+          {t("Trois scénarios côte à côte", "Three scenarios side by side")}
         </T>
         <TableauScenarios resultat={resultat} devise={devise} idPrefixe={idPrefixe} />
       </section>
       <section className="mp-plan__section" aria-labelledby={`${idPrefixe}-t-tresorerie`}>
         <T id={`${idPrefixe}-t-tresorerie`} className="mp-plan__intertitre">
-          Trésorerie
+          {t("Trésorerie", "Cash")}
         </T>
         <GraphiqueTresorerie
           resultat={resultat}
@@ -192,23 +224,29 @@ export function ResultatModele({
       </section>
       <section className="mp-plan__section" aria-labelledby={`${idPrefixe}-t-etats`}>
         <T id={`${idPrefixe}-t-etats`} className="mp-plan__intertitre">
-          États financiers prévisionnels (scénario de base)
+          {t(
+            "États financiers prévisionnels (scénario de base)",
+            "Projected financial statements (base scenario)",
+          )}
         </T>
-        <p className="mp-texte-doux mp-texte-petit">{MENTION_SYSCOHADA}</p>
+        <p className="mp-texte-doux mp-texte-petit">{mentionSyscohada(langue)}</p>
         {ETATS_FINANCIERS.map((e) => (
           <TableauEtat
             key={e.cle}
-            titre={e.titre}
+            titre={titreEtat(e, langue)}
             lignes={e.lignes}
             annees={base.annees}
             devise={devise}
             idPrefixe={`${idPrefixe}-${e.cle}`}
           />
         ))}
-        <p className="mp-texte-doux mp-texte-petit">{MENTION_RATIOS}</p>
+        <p className="mp-texte-doux mp-texte-petit">{mentionRatios(langue)}</p>
         {base.equilibre ? (
           <p className="mp-texte-doux mp-texte-petit">
-            Contrôle du moteur : le bilan est équilibré (actif égal au passif) à chaque clôture.
+            {t(
+              "Contrôle du moteur : le bilan est équilibré (actif égal au passif) à chaque clôture.",
+              "Engine check: the balance sheet balances (assets equal liabilities) at each closing.",
+            )}
           </p>
         ) : null}
       </section>

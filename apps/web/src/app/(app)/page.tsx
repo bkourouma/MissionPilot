@@ -24,13 +24,24 @@ import {
   type ElementMission,
   type ReponseIndicateurs,
 } from "../../lib/indicateurs";
-import { entreesAutorisees, grouperEntrees } from "../../lib/navigation";
+import { obtenirLangue } from "../../lib/i18n/serveur";
+import {
+  descriptionEntree,
+  entreesAutorisees,
+  grouperEntrees,
+  libelleEntree,
+} from "../../lib/navigation";
 import { aujourdhui } from "../../lib/periode";
 import { obtenirSession } from "../../lib/session";
 
-export const metadata: Metadata = { title: "Tableau de bord" };
+export async function generateMetadata(): Promise<Metadata> {
+  const langue = await obtenirLangue();
+  return { title: langue === "en" ? "Dashboard" : "Tableau de bord" };
+}
 
 export default async function TableauDeBord() {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const { utilisateur } = await obtenirSession();
   const modules = entreesAutorisees(utilisateur.roles).filter((e) => e.id !== "tableau-de-bord");
   // Semaine en cours (lundi au dimanche) ; jalons et feuilles évalués au plus tard aujourd'hui.
@@ -54,10 +65,13 @@ export default async function TableauDeBord() {
   return (
     <div className="mp-page">
       <header className="mp-page__entete">
-        <h1 className="mp-page__titre">Tableau de bord</h1>
+        <h1 className="mp-page__titre">{t("Tableau de bord", "Dashboard")}</h1>
         <p className="mp-page__soustitre">
-          Bonjour {utilisateur.nom}. Vous êtes connecté en tant que{" "}
-          {libellesRoles(utilisateur.roles)}.
+          {t(
+            `Bonjour ${utilisateur.nom}. Vous êtes connecté en tant que `,
+            `Hello ${utilisateur.nom}. You are signed in as `,
+          )}
+          {libellesRoles(utilisateur.roles, langue)}.
         </p>
       </header>
 
@@ -65,36 +79,53 @@ export default async function TableauDeBord() {
         brief.ok ? (
           <CarteBriefAccueil brief={brief.donnees} />
         ) : (
-          <CarteBriefIndisponible message={messageBriefIndisponible(brief.statut, brief.message)} />
+          <CarteBriefIndisponible
+            message={messageBriefIndisponible(brief.statut, brief.message, langue)}
+          />
         )
       ) : null}
 
       {pilotage ? (
         <section aria-labelledby="titre-pilotage" className="mp-pile">
           <h2 id="titre-pilotage" className="mp-section__titre">
-            Pilotage de la semaine
+            {t("Pilotage de la semaine", "This week's overview")}
           </h2>
           {pilotage.ok ? (
             <>
               <MissionsEnVol elements={pilotage.donnees.elements as ElementMission[]} />
-              <Carte titre="Alertes de dérive" niveauTitre={3}>
+              <Carte titre={t("Alertes de dérive", "Variance alerts")} niveauTitre={3}>
                 <ListeAlertesDerive
-                  alertes={alertesDerive(pilotage.donnees.elements as ElementMission[])}
+                  alertes={alertesDerive(pilotage.donnees.elements as ElementMission[], langue)}
                   limite={5}
+                  langue={langue}
                 />
               </Carte>
               <p className="mp-texte-doux">
-                {`Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${libelleDevise(pilotage.donnees.devise)}. `}
+                {t(
+                  `Du ${formaterDate(pilotage.donnees.du)} au ${formaterDate(pilotage.donnees.au)}, montants en ${libelleDevise(pilotage.donnees.devise)}. `,
+                  `From ${formaterDate(pilotage.donnees.du, "UTC", langue)} to ${formaterDate(pilotage.donnees.au, "UTC", langue)}, amounts in ${libelleDevise(pilotage.donnees.devise)}. `,
+                )}
                 <Link href={lienIndicateurs(periode)}>
-                  Changer de période ou de niveau de lecture
+                  {t(
+                    "Changer de période ou de niveau de lecture",
+                    "Change the period or reading level",
+                  )}
                 </Link>
               </p>
-              <GrilleIndicateurs indicateurs={indicateursAffiches(pilotage.donnees)} />
+              <GrilleIndicateurs
+                indicateurs={indicateursAffiches(pilotage.donnees, langue)}
+                langue={langue}
+              />
             </>
           ) : (
             <p className="mp-texte-doux">
-              {`Indicateurs indisponibles : ${pilotage.message}`}{" "}
-              <Link href={lienIndicateurs(periode)}>Ouvrir les indicateurs</Link>
+              {t(
+                `Indicateurs indisponibles : ${pilotage.message}`,
+                `KPIs unavailable: ${pilotage.message}`,
+              )}{" "}
+              <Link href={lienIndicateurs(periode)}>
+                {t("Ouvrir les indicateurs", "Open the KPIs")}
+              </Link>
             </p>
           )}
         </section>
@@ -102,16 +133,23 @@ export default async function TableauDeBord() {
 
       <section aria-labelledby="titre-modules">
         <h2 id="titre-modules" className="mp-section__titre">
-          Vos modules
+          {t("Vos modules", "Your modules")}
         </h2>
         <p className="mp-texte-doux">
-          Les modules accessibles avec votre rôle, regroupés par métier. Ceux marqués « Pas encore
-          disponible » seront ouverts au fil des livraisons.
+          {t(
+            "Les modules accessibles avec votre rôle, regroupés par métier. Ceux marqués « Pas encore disponible » seront ouverts au fil des livraisons.",
+            'The modules available with your role, grouped by function. Those marked "Not yet available" will open as releases are delivered.',
+          )}
         </p>
         {modules.length === 0 ? (
-          <p>Votre rôle ne donne accès à aucun module pour l&apos;instant.</p>
+          <p>
+            {t(
+              "Votre rôle ne donne accès à aucun module pour l'instant.",
+              "Your role does not give access to any module yet.",
+            )}
+          </p>
         ) : (
-          grouperEntrees(modules).map((g) => (
+          grouperEntrees(modules, langue).map((g) => (
             <div key={g.id} className="mp-modules-groupe">
               <h3 className="mp-modules-groupe__titre">{g.libelle}</h3>
               <ul className="mp-grille-modules">
@@ -125,20 +163,22 @@ export default async function TableauDeBord() {
                           <Icone nom={m.icone} />
                           {m.disponible ? (
                             <Link href={m.href} className="mp-lien-etendu">
-                              {m.libelle}
+                              {libelleEntree(m, langue)}
                             </Link>
                           ) : (
-                            m.libelle
+                            libelleEntree(m, langue)
                           )}
                         </span>
                       }
                       actions={
                         m.disponible ? null : (
-                          <BadgeStatut tonalite="neutre">Pas encore disponible</BadgeStatut>
+                          <BadgeStatut tonalite="neutre">
+                            {t("Pas encore disponible", "Not yet available")}
+                          </BadgeStatut>
                         )
                       }
                     >
-                      <p>{m.description}</p>
+                      <p>{descriptionEntree(m, langue)}</p>
                     </Carte>
                   </li>
                 ))}
@@ -148,19 +188,19 @@ export default async function TableauDeBord() {
         )}
       </section>
 
-      <Carte titre="Votre compte" className="mp-compte">
+      <Carte titre={t("Votre compte", "Your account")} className="mp-compte">
         <dl className="mp-liste-def">
           <div>
-            <dt>Nom</dt>
+            <dt>{t("Nom", "Name")}</dt>
             <dd>{utilisateur.nom}</dd>
           </div>
           <div>
-            <dt>Adresse e-mail</dt>
+            <dt>{t("Adresse e-mail", "Email address")}</dt>
             <dd>{utilisateur.email}</dd>
           </div>
           <div>
-            <dt>Rôle</dt>
-            <dd>{libellesRoles(utilisateur.roles)}</dd>
+            <dt>{t("Rôle", "Role")}</dt>
+            <dd>{libellesRoles(utilisateur.roles, langue)}</dd>
           </div>
         </dl>
       </Carte>

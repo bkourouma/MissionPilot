@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formaterDate, formaterDateHeure } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
   estClotureAction,
   hrefCampagne,
@@ -24,13 +25,16 @@ export interface FroideListeActionsProps {
 }
 
 /** Actions du plan d'amélioration : état, constat d'origine, historique et formulaire de suivi. */
-export function FroideListeActions({
+export async function FroideListeActions({
   actions,
   utilisateurId,
   peutGerer,
   responsables,
   afficherCampagne = false,
 }: FroideListeActionsProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
+  const d = (v: string | null | undefined) => formaterDate(v, "UTC", langue);
   return (
     <ul className="mp-froide__liste">
       {actions.map((a) => {
@@ -41,16 +45,21 @@ export function FroideListeActions({
             <div className="mp-froide__ligne">
               <strong>{a.titre}</strong>
               <BadgeStatut tonalite={tonaliteStatutAction(a)}>
-                {libelleStatutAction(a.statut)}
+                {libelleStatutAction(a.statut, langue)}
               </BadgeStatut>
-              {a.en_retard ? <BadgeStatut tonalite="danger">En retard</BadgeStatut> : null}
+              {a.en_retard ? (
+                <BadgeStatut tonalite="danger">{t("En retard", "Overdue")}</BadgeStatut>
+              ) : null}
             </div>
             <p className="mp-texte-doux mp-texte-petit">
-              Responsable : {a.responsable_nom ?? "—"} · échéance {formaterDate(a.echeance)}
-              {a.cloturee_le ? ` · clôturée le ${formaterDate(a.cloturee_le)}` : ""}
+              {t("Responsable", "Owner")} : {a.responsable_nom ?? "—"} · {t("échéance", "due")}{" "}
+              {d(a.echeance)}
+              {a.cloturee_le
+                ? t(` · clôturée le ${d(a.cloturee_le)}`, ` · closed on ${d(a.cloturee_le)}`)
+                : ""}
               {afficherCampagne && a.campagne_intitule ? (
                 <>
-                  {" · campagne "}
+                  {` · ${t("campagne", "campaign")} `}
                   {peutGerer ? (
                     <Link href={hrefCampagne(a.campagne_id)} className="mp-lien-ligne">
                       {a.campagne_intitule}
@@ -64,19 +73,24 @@ export function FroideListeActions({
             {a.description ? <p>{a.description}</p> : null}
             {a.constat ? (
               <p className="mp-texte-petit">
-                Constat lié ({libelleGravite(a.constat.gravite).toLowerCase()},{" "}
-                {libelleCritere(a.constat.critere)}) : {a.constat.description}
+                {t("Constat lié", "Linked finding")} (
+                {libelleGravite(a.constat.gravite, langue).toLowerCase()},{" "}
+                {libelleCritere(a.constat.critere, langue)}) : {a.constat.description}
               </p>
             ) : null}
             {a.historique && a.historique.length > 0 ? (
               <details>
-                <summary>Historique ({a.historique.length})</summary>
+                <summary>
+                  {t("Historique", "History")} ({a.historique.length})
+                </summary>
                 <ol>
                   {a.historique.map((h) => (
                     <li key={h.rang}>
-                      {formaterDateHeure(h.le)} : {h.auteur_nom ?? "—"},{" "}
-                      {h.de_statut ? `${libelleStatutAction(h.de_statut)} → ` : "création : "}
-                      {libelleStatutAction(h.vers_statut)}
+                      {formaterDateHeure(h.le, undefined, langue)} : {h.auteur_nom ?? "—"},{" "}
+                      {h.de_statut
+                        ? `${libelleStatutAction(h.de_statut, langue)} → `
+                        : t("création : ", "created: ")}
+                      {libelleStatutAction(h.vers_statut, langue)}
                       {h.commentaire ? ` · ${h.commentaire}` : ""}
                     </li>
                   ))}

@@ -4,10 +4,12 @@ import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { Carte } from "../../../../components/ui/Carte";
 import { Tableau } from "../../../../components/ui/Tableau";
 import {
-  MODE_LIBELLES,
-  ORIGINE_IMPUTATION,
+  libelleMode,
+  libelleOrigineImputation,
   type PaiementFacture as Paiement,
 } from "../../../../lib/encaissements";
+import { obtenirLangue } from "../../../../lib/i18n/serveur";
+import { creerTraduire } from "@missionpilot/shared";
 import { libelleNiveau } from "../../../../lib/creances";
 import { formaterDate, formaterDateHeure, formaterMontantMineur } from "../../../../lib/format";
 import type { Devise } from "../../../../lib/format";
@@ -17,7 +19,7 @@ import { RelanceManuelle } from "./RelanceManuelle";
  * Situation de paiement (dérivée par l'API), imputations et historique des relances d'une
  * facture émise. Aucun coût ni marge : seulement net à payer, encaissé et reste dû.
  */
-export function PaiementFacture({
+export async function PaiementFacture({
   paiement: p,
   devise,
   gererEncaissements,
@@ -26,6 +28,8 @@ export function PaiementFacture({
   devise: Devise;
   gererEncaissements: boolean;
 }) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   const d = p.devise ?? devise;
   const relancable =
     gererEncaissements &&
@@ -34,7 +38,7 @@ export function PaiementFacture({
     p.statut_paiement !== "annulee";
   return (
     <Carte
-      titre="Paiement et relances"
+      titre={t("Paiement et relances", "Payment and reminders")}
       actions={
         p.statut_paiement ? (
           <BadgePaiement statut={p.statut_paiement} joursRetard={p.jours_retard} />
@@ -43,90 +47,121 @@ export function PaiementFacture({
     >
       <div className="mp-pile">
         {p.statut_paiement ? (
-          <ul className="mp-totaux" aria-label="Situation de paiement">
+          <ul className="mp-totaux" aria-label={t("Situation de paiement", "Payment status")}>
             <li className="mp-totaux__element">
-              <span className="mp-totaux__libelle">Net à payer</span>
-              <span className="mp-totaux__valeur">{formaterMontantMineur(p.net_a_payer, d)}</span>
+              <span className="mp-totaux__libelle">{t("Net à payer", "Net payable")}</span>
+              <span className="mp-totaux__valeur">
+                {formaterMontantMineur(p.net_a_payer, d, langue)}
+              </span>
             </li>
             <li className="mp-totaux__element">
-              <span className="mp-totaux__libelle">Encaissé</span>
-              <span className="mp-totaux__valeur">{formaterMontantMineur(p.encaisse, d)}</span>
+              <span className="mp-totaux__libelle">{t("Encaissé", "Received")}</span>
+              <span className="mp-totaux__valeur">
+                {formaterMontantMineur(p.encaisse, d, langue)}
+              </span>
             </li>
             <li className="mp-totaux__element">
-              <span className="mp-totaux__libelle">Reste à payer</span>
-              <span className="mp-totaux__valeur">{formaterMontantMineur(p.solde, d)}</span>
+              <span className="mp-totaux__libelle">{t("Reste à payer", "Balance due")}</span>
+              <span className="mp-totaux__valeur">{formaterMontantMineur(p.solde, d, langue)}</span>
             </li>
           </ul>
         ) : (
-          <p className="mp-texte-doux">La situation de paiement est suivie dès l&apos;émission.</p>
+          <p className="mp-texte-doux">
+            {t(
+              "La situation de paiement est suivie dès l'émission.",
+              "The payment status is tracked from issuance.",
+            )}
+          </p>
         )}
         <Tableau
-          legende="Encaissements imputés sur la facture"
+          legende={t(
+            "Encaissements imputés sur la facture",
+            "Payments received allocated to the invoice",
+          )}
           legendeVisible
           lignes={p.imputations}
           cleLigne={(i) => i.id}
-          messageVide="Aucun encaissement imputé pour l'instant."
+          messageVide={t("Aucun encaissement imputé pour l'instant.", "No payment allocated yet.")}
           colonnes={[
-            { cle: "date", entete: "Date", rendu: (i) => formaterDate(i.date_imputation) },
+            {
+              cle: "date",
+              entete: t("Date", "Date"),
+              rendu: (i) => formaterDate(i.date_imputation, "UTC", langue),
+            },
             {
               cle: "mode",
-              entete: "Moyen",
+              entete: t("Moyen", "Method"),
               rendu: (i) =>
                 gererEncaissements ? (
                   <Link href={`/facturation/encaissements/${i.encaissement_id}`}>
-                    {MODE_LIBELLES[i.mode]}
+                    {libelleMode(i.mode, langue)}
                   </Link>
                 ) : (
-                  MODE_LIBELLES[i.mode]
+                  libelleMode(i.mode, langue)
                 ),
             },
-            { cle: "origine", entete: "Origine", rendu: (i) => ORIGINE_IMPUTATION[i.origine] },
+            {
+              cle: "origine",
+              entete: t("Origine", "Origin"),
+              rendu: (i) => libelleOrigineImputation(i.origine, langue),
+            },
             {
               cle: "montant",
-              entete: "Montant",
+              entete: t("Montant", "Amount"),
               alignement: "droite",
               rendu: (i) => (
-                <span className="mp-montant">{formaterMontantMineur(i.montant, d)}</span>
+                <span className="mp-montant">{formaterMontantMineur(i.montant, d, langue)}</span>
               ),
             },
           ]}
         />
         <Tableau
-          legende="Historique des relances"
+          legende={t("Historique des relances", "Reminder history")}
           legendeVisible
           lignes={p.relances}
           cleLigne={(r) => r.id}
-          messageVide="Aucune relance pour cette facture."
+          messageVide={t("Aucune relance pour cette facture.", "No reminders for this invoice.")}
           colonnes={[
-            { cle: "date", entete: "Date", rendu: (r) => formaterDate(r.date_relance) },
-            { cle: "niveau", entete: "Niveau", rendu: (r) => libelleNiveau(r.niveau) },
+            {
+              cle: "date",
+              entete: t("Date", "Date"),
+              rendu: (r) => formaterDate(r.date_relance, "UTC", langue),
+            },
+            {
+              cle: "niveau",
+              entete: t("Niveau", "Level"),
+              rendu: (r) => libelleNiveau(r.niveau, langue),
+            },
             {
               cle: "mode",
-              entete: "Déclenchement",
-              rendu: (r) => (r.mode === "automatique" ? "Automatique" : "Manuelle"),
+              entete: t("Déclenchement", "Triggered"),
+              rendu: (r) =>
+                r.mode === "automatique" ? t("Automatique", "Automatic") : t("Manuelle", "Manual"),
             },
             {
               cle: "retard",
-              entete: "Retard",
+              entete: t("Retard", "Delay"),
               alignement: "droite",
-              rendu: (r) => String(r.jours_retard) + " j",
+              rendu: (r) => String(r.jours_retard) + "\u00a0" + t("j", "d"),
             },
             {
               cle: "email",
-              entete: "E-mail au client",
+              entete: t("E-mail au client", "Email to client"),
               rendu: (r) =>
                 r.email_envoye ? (
-                  <BadgeStatut tonalite="succes">Envoyé</BadgeStatut>
+                  <BadgeStatut tonalite="succes">{t("Envoyé", "Sent")}</BadgeStatut>
                 ) : r.email_prepare ? (
-                  <BadgeStatut tonalite="neutre">Préparé, non envoyé</BadgeStatut>
+                  <BadgeStatut tonalite="neutre">
+                    {t("Préparé, non envoyé", "Prepared, not sent")}
+                  </BadgeStatut>
                 ) : (
-                  <BadgeStatut tonalite="neutre">Aucun</BadgeStatut>
+                  <BadgeStatut tonalite="neutre">{t("Aucun", "None")}</BadgeStatut>
                 ),
             },
             {
               cle: "cree",
-              entete: "Enregistrée le",
-              rendu: (r) => formaterDateHeure(r.cree_le),
+              entete: t("Enregistrée le", "Recorded on"),
+              rendu: (r) => formaterDateHeure(r.cree_le, undefined, langue),
             },
           ]}
         />

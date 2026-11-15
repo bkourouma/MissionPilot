@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../components/formulaires/useFormulaire";
 import { EVENEMENT_TACHES } from "../../../components/shell/PastilleTaches";
@@ -32,11 +33,18 @@ export interface FormulaireTacheProps {
 }
 
 /** Message d'une erreur métier : assigné inactif ou sans accès à l'élément lié. */
-function messageTache(e: unknown): string | null {
-  if (e instanceof ErreurApi && e.code === "REQUETE_INVALIDE" && e.message !== "Données invalides.")
+function messageTache(e: unknown, langue: "fr" | "en" = "fr"): string | null {
+  if (
+    e instanceof ErreurApi &&
+    e.code === "REQUETE_INVALIDE" &&
+    e.message !== "Données invalides." &&
+    e.message !== "Invalid data."
+  )
     return e.message;
   if (e instanceof ErreurApi && e.statut === 404)
-    return "L'élément lié n'est plus accessible : retirez-le ou choisissez-en un autre.";
+    return langue === "en"
+      ? "The linked item is no longer accessible: remove it or choose another one."
+      : "L'élément lié n'est plus accessible : retirez-le ou choisissez-en un autre.";
   return null;
 }
 
@@ -54,13 +62,15 @@ export function FormulaireTache({
   onAnnuler,
 }: FormulaireTacheProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieTache>(initial);
   const f = useFormulaire<ChampTache>();
   const maj = (champ: ChampTache) => (v: string) => setS((x) => ({ ...x, [champ]: v }));
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const v = validerTache(s);
+    const v = validerTache(s, langue);
     await f.envoyer(
       v,
       async (c) => {
@@ -73,12 +83,12 @@ export function FormulaireTache({
         );
       },
       {
-        messageSpecifique: messageTache,
+        messageSpecifique: (e) => messageTache(e, langue),
         rafraichir: Boolean(tache),
-        succes: tache ? "Tâche enregistrée." : undefined,
-        apres: (t) => {
+        succes: tache ? t("Tâche enregistrée.", "Task saved.") : undefined,
+        apres: (nouvelle) => {
           window.dispatchEvent(new Event(EVENEMENT_TACHES));
-          if (!tache) router.push(`/mes-taches/${t.id}?creee=1`);
+          if (!tache) router.push(`/mes-taches/${nouvelle.id}?creee=1`);
           else onAnnuler();
         },
       },
@@ -91,12 +101,12 @@ export function FormulaireTache({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={tache ? "Modifier la tâche" : "Nouvelle tâche"}
+      aria-label={tache ? t("Modifier la tâche", "Edit the task") : t("Nouvelle tâche", "New task")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Titre"
+          libelle={t("Titre", "Title")}
           required
           maxLength={200}
           value={s.titre}
@@ -104,17 +114,20 @@ export function FormulaireTache({
           erreur={f.erreurs.titre}
         />
         <Select
-          libelle="Assignée à"
+          libelle={t("Assignée à", "Assigned to")}
           required
           options={personnes}
-          invite="Choisir la personne…"
+          invite={t("Choisir la personne…", "Choose the person…")}
           value={s.assignee_id}
           onChange={(e) => maj("assignee_id")(e.target.value)}
           erreur={f.erreurs.assignee_id}
-          aide="Utilisateurs actifs du cabinet. La personne est notifiée."
+          aide={t(
+            "Utilisateurs actifs du cabinet. La personne est notifiée.",
+            "Active users of the firm. The person is notified.",
+          )}
         />
         <Champ
-          libelle="Échéance (facultative)"
+          libelle={t("Échéance (facultative)", "Due date (optional)")}
           type="date"
           min="2000-01-01"
           max="2100-12-31"
@@ -124,23 +137,26 @@ export function FormulaireTache({
         />
         {tache ? null : entiteImposee ? (
           <div className="mp-champ">
-            <p className="mp-champ__libelle">Élément lié</p>
+            <p className="mp-champ__libelle">{t("Élément lié", "Linked item")}</p>
             <p>{entiteImposee}</p>
           </div>
         ) : entites.length > 0 ? (
           <Select
-            libelle="Élément lié (facultatif)"
+            libelle={t("Élément lié (facultatif)", "Linked item (optional)")}
             options={entites}
-            invite="Aucun"
+            invite={t("Aucun", "None")}
             value={s.entite}
             onChange={(e) => maj("entite")(e.target.value)}
             erreur={f.erreurs.entite}
-            aide="La personne assignée doit avoir accès à cet élément."
+            aide={t(
+              "La personne assignée doit avoir accès à cet élément.",
+              "The assignee must have access to this item.",
+            )}
           />
         ) : null}
       </div>
       <ZoneTexte
-        libelle="Description (facultative)"
+        libelle={t("Description (facultative)", "Description (optional)")}
         maxLength={5000}
         rows={4}
         value={s.description}
@@ -148,11 +164,15 @@ export function FormulaireTache({
         erreur={f.erreurs.description}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {tache ? "Enregistrer" : "Créer la tâche"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {tache ? t("Enregistrer", "Save") : t("Créer la tâche", "Create task")}
         </Bouton>
         <Bouton variante="discret" onClick={onAnnuler} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

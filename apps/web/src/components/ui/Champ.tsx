@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
+import { T } from "../i18n/T";
 import { Icone } from "./Icone";
 
 /** Identifiants des textes d'aide et d'erreur liés à un champ par aria-describedby. */
@@ -29,7 +30,9 @@ export function CadreChamp({ id, libelle, aide, erreur, requis, children }: Cadr
           <span className="mp-champ__requis">
             {" "}
             <span aria-hidden="true">*</span>
-            <span className="mp-visuellement-cache">(obligatoire)</span>
+            <span className="mp-visuellement-cache">
+              <T fr="(obligatoire)" en="(required)" />
+            </span>
           </span>
         ) : null}
       </label>

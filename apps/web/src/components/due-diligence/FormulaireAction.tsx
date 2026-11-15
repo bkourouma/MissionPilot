@@ -6,9 +6,9 @@ import { api } from "../../lib/api";
 import {
   cheminActionsPlan,
   cheminVersionsAction,
+  libellesDd,
   messageDd,
   optionsDe,
-  STATUT_ACTION_100J_LIBELLES,
   type ActionPlan100j,
   type ReponseEcriture,
 } from "../../lib/due-diligence";
@@ -24,13 +24,12 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-
-const OPTIONS_STATUT = optionsDe(STATUTS_ACTION_100J, STATUT_ACTION_100J_LIBELLES);
 
 export interface ChoixAction {
   equipe: { valeur: string; libelle: string }[];
@@ -51,9 +50,10 @@ export interface FormulaireActionProps {
 function avecCourant(
   options: { valeur: string; libelle: string }[],
   courant: { id: string | null; libelle?: string | null } | null | undefined,
+  libelleDefaut: string,
 ) {
   if (!courant?.id || options.some((o) => o.valeur === courant.id)) return options;
-  return [{ valeur: courant.id, libelle: courant.libelle ?? "Élément lié" }, ...options];
+  return [{ valeur: courant.id, libelle: courant.libelle ?? libelleDefaut }, ...options];
 }
 
 /**
@@ -62,6 +62,9 @@ function avecCourant(
  * sont choisis par leur libellé ; l'API vérifie qu'ils appartiennent au même client (`MPZ30`).
  */
 export function FormulaireAction({ dossierId, choix, action }: FormulaireActionProps) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsStatut = optionsDe(STATUTS_ACTION_100J, libellesDd(langue).STATUT_ACTION);
   const f = useFormulaire<ChampAction>();
   const correction = action !== undefined;
   const [s, setS] = useState<SaisieAction>(
@@ -80,17 +83,19 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
       : saisieActionVide(),
   );
   const maj = (p: Partial<SaisieAction>) => setS((x) => ({ ...x, ...p }));
+  const libelleLie = t("Élément lié", "Linked item");
   const equipe = avecCourant(
     choix.equipe,
     action?.responsable ? { id: action.responsable.id, libelle: action.responsable.nom } : null,
+    libelleLie,
   );
-  const initiatives = avecCourant(choix.initiatives, action?.plan_element);
-  const indicateurs = avecCourant(choix.indicateurs, action?.kpi);
+  const initiatives = avecCourant(choix.initiatives, action?.plan_element, libelleLie);
+  const indicateurs = avecCourant(choix.indicateurs, action?.kpi, libelleLie);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerAction(s, correction),
+      validerAction(s, correction, langue),
       (charge) =>
         action
           ? api.post<ReponseEcriture>(cheminVersionsAction(action.id), {
@@ -99,8 +104,10 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
             })
           : api.post<ReponseEcriture>(cheminActionsPlan(dossierId), charge),
       {
-        succes: correction ? "Nouvelle version enregistrée." : "Action ajoutée.",
-        messageSpecifique: messageDd,
+        succes: correction
+          ? t("Nouvelle version enregistrée.", "New version saved.")
+          : t("Action ajoutée.", "Action added."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => (correction ? maj({ motif: "" }) : setS(saisieActionVide())),
       },
     );
@@ -109,13 +116,16 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
   async function retirer() {
     if (!action) return;
     await f.envoyer(
-      validerRetrait(s.motif, true),
+      validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<ReponseEcriture>(cheminVersionsAction(action.id), {
           ...charge,
           version_courante: action.version,
         }),
-      { succes: "Action retirée du plan.", messageSpecifique: messageDd },
+      {
+        succes: t("Action retirée du plan.", "Action removed from the plan."),
+        messageSpecifique: (err) => messageDd(err, langue),
+      },
     );
   }
 
@@ -125,16 +135,20 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label={correction ? `Corriger l'action ${action.libelle}` : "Nouvelle action du plan"}
+      aria-label={
+        correction
+          ? t(`Corriger l'action ${action.libelle}`, `Edit the action ${action.libelle}`)
+          : t("Nouvelle action du plan", "New plan action")
+      }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Action refusée"
+        titreErreur={t("Action refusée", "Action refused")}
       />
       <Champ
-        libelle="Action"
+        libelle={t("Action", "Action")}
         required
         maxLength={TITRE_MAX}
         value={s.libelle}
@@ -143,16 +157,19 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Jour de début"
+          libelle={t("Jour de début", "Start day")}
           required
           inputMode="numeric"
           value={s.jour_debut}
           onChange={(e) => maj({ jour_debut: e.target.value })}
           erreur={f.erreurs.jour_debut}
-          aide="De 0 à 100 jours après la date d'opération."
+          aide={t(
+            "De 0 à 100 jours après la date d'opération.",
+            "From 0 to 100 days after the transaction date.",
+          )}
         />
         <Champ
-          libelle="Jour de fin"
+          libelle={t("Jour de fin", "End day")}
           required
           inputMode="numeric"
           value={s.jour_fin}
@@ -160,53 +177,58 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
           erreur={f.erreurs.jour_fin}
         />
         <Select
-          libelle="Statut"
+          libelle={t("Statut", "Status")}
           required
-          options={OPTIONS_STATUT}
+          options={optionsStatut}
           value={s.statut_action}
           onChange={(e) => maj({ statut_action: e.target.value })}
           erreur={f.erreurs.statut_action}
         />
       </div>
       <Select
-        libelle="Responsable"
-        invite="Non désigné"
+        libelle={t("Responsable", "Owner")}
+        invite={t("Non désigné", "Not assigned")}
         options={equipe}
         value={s.responsable_id}
         onChange={(e) => maj({ responsable_id: e.target.value })}
         erreur={f.erreurs.responsable_id}
-        aide="Un membre de l'équipe de la mission."
+        aide={t("Un membre de l'équipe de la mission.", "A member of the engagement team.")}
       />
       {choix.partiel ? (
         <Alerte tonalite="info" annonce="aucune">
           <p>
-            Les listes d&apos;initiatives et d&apos;indicateurs peuvent être incomplètes : seuls les
-            éléments que vous pouvez consulter, des premières missions du client, sont proposés.
+            {t(
+              "Les listes d'initiatives et d'indicateurs peuvent être incomplètes : seuls les éléments que vous pouvez consulter, des premières missions du client, sont proposés.",
+              "The lists of initiatives and KPIs may be incomplete: only the items you can view, from the client's first engagements, are offered.",
+            )}
           </p>
         </Alerte>
       ) : null}
       <div className="mp-grille-champs">
         <Select
-          libelle="Initiative du plan stratégique"
-          invite="Aucune"
+          libelle={t("Initiative du plan stratégique", "Strategic plan initiative")}
+          invite={t("Aucune", "None")}
           options={initiatives}
           value={s.plan_element_id}
           onChange={(e) => maj({ plan_element_id: e.target.value })}
           erreur={f.erreurs.plan_element_id}
-          aide="Une initiative d'un plan du même client."
+          aide={t(
+            "Une initiative d'un plan du même client.",
+            "An initiative of a plan of the same client.",
+          )}
         />
         <Select
-          libelle="Indicateur de suivi"
-          invite="Aucun"
+          libelle={t("Indicateur de suivi", "Tracking KPI")}
+          invite={t("Aucun", "None")}
           options={indicateurs}
           value={s.kpi_id}
           onChange={(e) => maj({ kpi_id: e.target.value })}
           erreur={f.erreurs.kpi_id}
-          aide="Un indicateur du même client."
+          aide={t("Un indicateur du même client.", "A KPI of the same client.")}
         />
       </div>
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={TEXTE_LONG_MAX}
         value={s.description}
@@ -215,23 +237,32 @@ export function FormulaireAction({ dossierId, choix, action }: FormulaireActionP
       />
       {correction ? (
         <ZoneTexte
-          libelle="Motif"
+          libelle={t("Motif", "Reason")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => maj({ motif: e.target.value })}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique. Obligatoire pour corriger comme pour retirer l'action."
+          aide={t(
+            "Conservé dans l'historique. Obligatoire pour corriger comme pour retirer l'action.",
+            "Kept in the history. Required to edit as well as to remove the action.",
+          )}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {correction ? "Enregistrer la correction" : "Ajouter l'action"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {correction
+            ? t("Enregistrer la correction", "Save the correction")
+            : t("Ajouter l'action", "Add the action")}
         </Bouton>
         {correction ? (
           <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-            Retirer cette action
+            {t("Retirer cette action", "Remove this action")}
           </Bouton>
         ) : null}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Icone } from "../ui/Icone";
 import { Select, type OptionSelect } from "../ui/Select";
@@ -30,13 +31,14 @@ export function ChoixMultiple({
   onChange,
   aide,
   erreur,
-  libelleAjout = "Ajouter",
+  libelleAjout,
   max = 20,
 }: ChoixMultipleProps) {
+  const t = useT();
   const id = useId();
   const [courant, setCourant] = useState("");
   const libelleDe = (v: string) =>
-    options.find((o) => o.valeur === v)?.libelle ?? "Libellé indisponible";
+    options.find((o) => o.valeur === v)?.libelle ?? t("Libellé indisponible", "Label unavailable");
   const disponibles = options.filter((o) => !valeurs.includes(o.valeur));
 
   function ajouter() {
@@ -49,7 +51,7 @@ export function ChoixMultiple({
     <div className="mp-choix-multiple">
       <Select
         libelle={libelle}
-        invite="Choisir…"
+        invite={t("Choisir…", "Choose…")}
         options={disponibles}
         value={courant}
         onChange={(e) => setCourant(e.target.value)}
@@ -63,13 +65,13 @@ export function ChoixMultiple({
           disabled={courant === "" || valeurs.length >= max}
           onClick={ajouter}
         >
-          {libelleAjout}
+          {libelleAjout ?? t("Ajouter", "Add")}
         </Bouton>
       </div>
       {valeurs.length > 0 ? (
         <ul
           className="mp-choix-multiple__puces"
-          aria-label={`${libelle} : éléments retenus`}
+          aria-label={`${libelle} : ${t("éléments retenus", "selected items")}`}
           id={`${id}-liste`}
         >
           {valeurs.map((v) => (
@@ -77,7 +79,7 @@ export function ChoixMultiple({
               <span>{libelleDe(v)}</span>
               <button
                 type="button"
-                aria-label={`Retirer ${libelleDe(v)}`}
+                aria-label={t(`Retirer ${libelleDe(v)}`, `Remove ${libelleDe(v)}`)}
                 onClick={() => onChange(valeurs.filter((x) => x !== v))}
               >
                 <Icone nom="fermer" taille={14} />
@@ -86,7 +88,9 @@ export function ChoixMultiple({
           ))}
         </ul>
       ) : (
-        <p className="mp-texte-doux mp-texte-petit">Aucun élément retenu.</p>
+        <p className="mp-texte-doux mp-texte-petit">
+          {t("Aucun élément retenu.", "No item selected.")}
+        </p>
       )}
     </div>
   );

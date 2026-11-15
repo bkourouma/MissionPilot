@@ -22,6 +22,7 @@ import {
   type SaisieRealise as Saisie,
 } from "../../lib/redressement-saisie";
 import { aideMontant } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -46,6 +47,8 @@ export function SaisieRealise({
   semaines: { semaine: number; debut: string; fin: string; corrections: number | null }[];
   semaineParDefaut: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampRealise>();
   const [s, setS] = useState<Saisie>(() => saisieRealiseVide(semaineParDefaut));
   const courante = semaines.find((x) => x.debut === s.semaine_debut);
@@ -53,11 +56,14 @@ export function SaisieRealise({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsRealiseDepuisFormulaire(s, devise),
+      corpsRealiseDepuisFormulaire(s, devise, langue),
       (charge) => api.post<RedTresorerieVue>(cheminRealises(dossierId), charge),
       {
-        succes: "Réalisé enregistré : l'écart avec la prévision est recalculé.",
-        messageSpecifique: messageRedressement,
+        succes: t(
+          "Réalisé enregistré : l'écart avec la prévision est recalculé.",
+          "Actuals saved: the variance against the forecast is recomputed.",
+        ),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -68,33 +74,39 @@ export function SaisieRealise({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Saisie du réalisé"
+      aria-label={t("Saisie du réalisé", "Actuals entry")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Saisie impossible"
+        titreErreur={t("Saisie impossible", "Could not enter")}
       />
       <Select
-        libelle="Semaine"
+        libelle={t("Semaine", "Week")}
         required
         value={s.semaine_debut}
         onChange={(e) => setS((x) => ({ ...x, semaine_debut: e.target.value }))}
         options={semaines.map((w) => ({
           valeur: w.debut,
-          libelle: `${abregerSemaine(w.semaine)} : ${formaterSemaine(w.debut, w.fin)}`,
+          libelle: `${abregerSemaine(w.semaine, langue)} : ${formaterSemaine(w.debut, w.fin, langue)}`,
         }))}
         erreur={f.erreurs.semaine_debut}
         aide={
           courante && courante.corrections !== null && courante.corrections > 0
-            ? `Cette semaine a déjà un réalisé (${courante.corrections} correction(s)) : la nouvelle saisie le remplace.`
-            : "La semaine précédente doit avoir son réalisé avant celle-ci."
+            ? t(
+                `Cette semaine a déjà un réalisé (${courante.corrections} correction(s)) : la nouvelle saisie le remplace.`,
+                `This week already has actuals (${courante.corrections} correction(s)): the new entry replaces them.`,
+              )
+            : t(
+                "La semaine précédente doit avoir son réalisé avant celle-ci.",
+                "The previous week must have its actuals before this one.",
+              )
         }
       />
-      <p className="mp-texte-doux">{aideMontant(devise)}</p>
+      <p className="mp-texte-doux">{aideMontant(devise, langue)}</p>
       <fieldset className="mp-red-fiche">
-        <legend>Encaissements réalisés</legend>
+        <legend>{t("Encaissements réalisés", "Actual receipts")}</legend>
         {f.erreurs.encaissement ? (
           <p className="mp-champ__erreur">{f.erreurs.encaissement}</p>
         ) : null}
@@ -102,7 +114,7 @@ export function SaisieRealise({
           {RED_CATEGORIES_ENCAISSEMENT.map((c) => (
             <Champ
               key={c}
-              libelle={libelleCategorieFlux(c)}
+              libelle={libelleCategorieFlux(c, langue)}
               inputMode="decimal"
               autoComplete="off"
               value={s.encaissement[c] ?? ""}
@@ -114,7 +126,7 @@ export function SaisieRealise({
         </div>
       </fieldset>
       <fieldset className="mp-red-fiche">
-        <legend>Décaissements réalisés</legend>
+        <legend>{t("Décaissements réalisés", "Actual disbursements")}</legend>
         {f.erreurs.decaissement ? (
           <p className="mp-champ__erreur">{f.erreurs.decaissement}</p>
         ) : null}
@@ -122,7 +134,7 @@ export function SaisieRealise({
           {RED_CATEGORIES_DECAISSEMENT.map((c) => (
             <Champ
               key={c}
-              libelle={libelleCategorieFlux(c)}
+              libelle={libelleCategorieFlux(c, langue)}
               inputMode="decimal"
               autoComplete="off"
               value={s.decaissement[c] ?? ""}
@@ -134,24 +146,34 @@ export function SaisieRealise({
         </div>
       </fieldset>
       <Champ
-        libelle="Solde bancaire constaté en fin de semaine (facultatif)"
+        libelle={t(
+          "Solde bancaire constaté en fin de semaine (facultatif)",
+          "Recorded bank balance at the end of the week (optional)",
+        )}
         inputMode="decimal"
         autoComplete="off"
         value={s.solde_constate}
         onChange={(e) => setS((x) => ({ ...x, solde_constate: e.target.value }))}
         erreur={f.erreurs.solde_constate}
-        aide="Quand il est renseigné, il remplace le solde prévu comme point de départ de la semaine suivante."
+        aide={t(
+          "Quand il est renseigné, il remplace le solde prévu comme point de départ de la semaine suivante.",
+          "When provided, it replaces the projected balance as the starting point of the following week.",
+        )}
       />
       <ZoneTexte
-        libelle="Commentaire (facultatif)"
+        libelle={t("Commentaire (facultatif)", "Comment (optional)")}
         maxLength={1000}
         value={s.commentaire}
         onChange={(e) => setS((x) => ({ ...x, commentaire: e.target.value }))}
         erreur={f.erreurs.commentaire}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer le réalisé
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer le réalisé", "Save the actuals")}
         </Bouton>
       </div>
     </form>

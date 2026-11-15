@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { T } from "../../components/i18n/T";
 import { CHEMIN_CONNEXION_PLATEFORME } from "../../lib/plateforme-routes";
 import "./lien-administrateur.css";
 
@@ -9,7 +10,9 @@ import "./lien-administrateur.css";
 export function LienAdministrateur() {
   return (
     <p className="mp-connexion__admin">
-      <Link href={CHEMIN_CONNEXION_PLATEFORME}>Accès administrateur de la plateforme</Link>
+      <Link href={CHEMIN_CONNEXION_PLATEFORME}>
+        <T fr="Accès administrateur de la plateforme" en="Platform administrator access" />
+      </Link>
     </p>
   );
 }

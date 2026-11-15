@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { champsRefuses, messageErreur } from "../../lib/api";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue } from "../i18n/FournisseurLangue";
 import { useRafraichir } from "./useRafraichir";
 
 export const MESSAGE_CHAMP_REFUSE = "Valeur refusée par le serveur : vérifiez ce champ.";
+export const MESSAGE_CHAMP_REFUSE_EN = "Value rejected by the server: check this field.";
 
 export interface OptionsEnvoi<R> {
   /** Message de succès annoncé (role="status"). */
@@ -22,6 +24,7 @@ export interface OptionsEnvoi<R> {
  * sur le premier champ en erreur), appel, erreur globale focalisée, succès annoncé.
  */
 export function useFormulaire<K extends string>() {
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [erreurs, setErreurs] = useState<Partial<Record<K, string>>>({});
   const [erreurGlobale, setErreurGlobale] = useState<string | null>(null);
@@ -67,12 +70,15 @@ export function useFormulaire<K extends string>() {
       const refuses = champsRefuses(e);
       if (refuses.length > 0) {
         setErreurs(
-          Object.fromEntries(refuses.map((c) => [c, MESSAGE_CHAMP_REFUSE])) as Partial<
-            Record<K, string>
-          >,
+          Object.fromEntries(
+            refuses.map((c) => [
+              c,
+              langue === "en" ? MESSAGE_CHAMP_REFUSE_EN : MESSAGE_CHAMP_REFUSE,
+            ]),
+          ) as Partial<Record<K, string>>,
         );
       }
-      setErreurGlobale(options.messageSpecifique?.(e) ?? messageErreur(e));
+      setErreurGlobale(options.messageSpecifique?.(e) ?? messageErreur(e, langue));
       setTentative((t) => t + 1);
       return false;
     } finally {

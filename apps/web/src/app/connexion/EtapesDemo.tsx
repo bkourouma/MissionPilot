@@ -1,4 +1,5 @@
 import type { Ref } from "react";
+import { useLangue, useT } from "../../components/i18n/FournisseurLangue";
 import { classesBouton } from "../../components/ui/Bouton";
 import { CLE_SUPER_ADMIN_DEMO, type Demo, type DemoCabinet } from "../../lib/demo-connexion";
 import { libelleDetailCabinet } from "../../lib/demo-connexion-comptes";
@@ -33,23 +34,27 @@ export function EtapeChoix({
   surCabinet?: (cabinet: DemoCabinet) => void;
   surSuperAdmin?: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const vide = demo.superAdmin === null && demo.cabinets.length === 0;
   const superAdminEnCours = ouverture?.type === "super_admin";
   return (
     <div className="mp-demo__etape" aria-labelledby="titre-demo-choix" role="group">
       <h3 id="titre-demo-choix" ref={refTitre} tabIndex={-1} className="mp-demo__etape-titre">
-        Choisissez un espace
+        {t("Choisissez un espace", "Choose a space")}
       </h3>
       {vide ? (
         <p className="mp-texte-doux">
-          Aucun cabinet de démonstration pour le moment. Utilisez une adresse e-mail et un mot de
-          passe ci-dessous.
+          {t(
+            "Aucun cabinet de démonstration pour le moment. Utilisez une adresse e-mail et un mot de passe ci-dessous.",
+            "No demo firm for now. Use an email address and password below.",
+          )}
         </p>
       ) : null}
       {demo.cabinets.length > 0 ? (
         <section className="mp-demo__groupe" aria-labelledby="titre-demo-cabinets">
           <h4 id="titre-demo-cabinets" className="mp-demo__sous-titre">
-            Cabinets de démonstration
+            {t("Cabinets de démonstration", "Demo firms")}
           </h4>
           <ul className="mp-demo__liste mp-demo__liste--grille">
             {demo.cabinets.map((cabinet) => (
@@ -63,8 +68,10 @@ export function EtapeChoix({
                 >
                   <span className="mp-demo__texte">
                     <span className="mp-demo__nom">{cabinet.nom}</span>
-                    <span className="mp-demo__detail">{libelleDetailCabinet(cabinet.comptes)}</span>
-                    <span className="mp-demo__badge">Démonstration</span>
+                    <span className="mp-demo__detail">
+                      {libelleDetailCabinet(cabinet.comptes, langue)}
+                    </span>
+                    <span className="mp-demo__badge">{t("Démonstration", "Demo")}</span>
                   </span>
                 </button>
               </li>
@@ -75,7 +82,7 @@ export function EtapeChoix({
       {demo.superAdmin ? (
         <section className="mp-demo__groupe" aria-labelledby="titre-demo-plateforme">
           <h4 id="titre-demo-plateforme" className="mp-demo__sous-titre">
-            Plateforme
+            {t("Plateforme", "Platform")}
           </h4>
           <ul className="mp-demo__liste">
             <li>
@@ -90,13 +97,20 @@ export function EtapeChoix({
               >
                 {superAdminEnCours ? <Indicateur /> : null}
                 <span className="mp-demo__texte">
-                  <span className="mp-demo__nom">Super administrateur</span>
+                  <span className="mp-demo__nom">
+                    {t("Super administrateur", "Super administrator")}
+                  </span>
                   {superAdminEnCours ? (
-                    <span className="mp-demo__detail">Connexion en cours…</span>
+                    <span className="mp-demo__detail">
+                      {t("Connexion en cours…", "Signing in…")}
+                    </span>
                   ) : (
                     <>
                       <span className="mp-demo__detail">
-                        Créer des cabinets et gérer leurs comptes
+                        {t(
+                          "Créer des cabinets et gérer leurs comptes",
+                          "Create firms and manage their accounts",
+                        )}
                       </span>
                       <span className="mp-demo__email">{demo.superAdmin.nom}</span>
                     </>

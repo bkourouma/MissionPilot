@@ -25,10 +25,12 @@ import {
   formaterDateHeure,
   formaterMontantMineur,
 } from "../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
 import { aujourdhui as aujourdhuiIso } from "../../../../../../../lib/periode";
 import {
   BANDEAU_CONFIDENTIALITE,
+  BANDEAU_CONFIDENTIALITE_EN,
   cheminCreancier,
   hrefCreancierRed,
   hrefRedressement,
@@ -39,7 +41,10 @@ import {
 } from "../../../../../../../lib/redressement";
 import { chargerContexteRed } from "../../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Créancier du redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Créancier du redressement", "Turnaround creditor") };
+}
 
 /**
  * Fiche d'un créancier : créance courante et historique des versions, mise à jour de la créance,
@@ -52,6 +57,8 @@ export default async function PageCreancier({
   params: Promise<{ id: string; creancierId: string }>;
 }) {
   const { id, creancierId } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(creancierId)) notFound();
   const retour = hrefRedressement(id, "creanciers");
   const ctx = await chargerContexteRed(id);
@@ -70,7 +77,7 @@ export default async function PageCreancier({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="Le créancier n'a pas pu être chargé."
+        titre={t("Le créancier n'a pas pu être chargé.", "The creditor could not be loaded.")}
         message={r.message}
         hrefReessayer={hrefCreancierRed(id, creancierId)}
       />
@@ -78,7 +85,7 @@ export default async function PageCreancier({
   }
   const c = r.donnees;
   const devise = dossier.devise;
-  const m = (v: number) => formaterMontantMineur(v, devise);
+  const m = (v: number) => formaterMontantMineur(v, devise, langue);
   const jour = aujourdhuiIso();
   const accord = c.accord_en_vigueur;
   const restantes = c.situation.accord?.echeances_restantes ?? [];
@@ -87,52 +94,52 @@ export default async function PageCreancier({
     <div className="mp-red">
       <EnteteDePage
         titre={c.nom}
-        retour={{ href: retour, libelle: "Créanciers" }}
-        soustitre={`${libelleCategorieCreancier(c.categorie)}${c.garanti ? " · créance garantie" : ""}${c.reference ? ` · réf. ${c.reference}` : ""}`}
+        retour={{ href: retour, libelle: t("Créanciers", "Creditors") }}
+        soustitre={`${libelleCategorieCreancier(c.categorie, langue)}${c.garanti ? ` · ${t("créance garantie", "secured claim")}` : ""}${c.reference ? ` · ${t("réf.", "ref.")} ${c.reference}` : ""}`}
         badges={
           c.situation.accord ? (
             <BadgeStatut tonalite={tonaliteStatutAccord(c.situation.accord.statut)}>
-              Accord : {libelleStatutAccord(c.situation.accord.statut)}
+              {t("Accord :", "Agreement:")} {libelleStatutAccord(c.situation.accord.statut, langue)}
             </BadgeStatut>
           ) : null
         }
       />
       <Alerte tonalite="info" annonce="aucune">
-        <p>{BANDEAU_CONFIDENTIALITE}</p>
+        <p>{t(BANDEAU_CONFIDENTIALITE, BANDEAU_CONFIDENTIALITE_EN)}</p>
       </Alerte>
 
       <div className="mp-red-cartes">
-        <Carte titre="Encours restant" niveauTitre={3}>
+        <Carte titre={t("Encours restant", "Outstanding")} niveauTitre={3}>
           <p className="mp-red-chiffre mp-red-valeur">{m(c.situation.encours_restant)}</p>
           <p className="mp-texte-doux mp-texte-petit">
-            Encours initial : {m(c.situation.encours_initial)}
+            {t("Encours initial :", "Initial outstanding:")} {m(c.situation.encours_initial)}
           </p>
         </Carte>
-        <Carte titre="Dont échu" niveauTitre={3}>
+        <Carte titre={t("Dont échu", "Of which overdue")} niveauTitre={3}>
           <p className="mp-red-chiffre mp-red-valeur">{m(c.situation.echu)}</p>
         </Carte>
-        <Carte titre="Créance courante" niveauTitre={3}>
+        <Carte titre={t("Créance courante", "Current claim")} niveauTitre={3}>
           <dl className="mp-liste-def">
             <div>
               <dt>Version</dt>
               <dd>{c.version_creance}</dd>
             </div>
             <div>
-              <dt>Principal</dt>
+              <dt>{t("Principal", "Principal")}</dt>
               <dd className="mp-red-valeur">{m(c.principal)}</dd>
             </div>
             <div>
-              <dt>Intérêts et pénalités</dt>
+              <dt>{t("Intérêts et pénalités", "Interest and penalties")}</dt>
               <dd className="mp-red-valeur">{m(c.interets)}</dd>
             </div>
             <div>
-              <dt>Arrêtée au</dt>
-              <dd>{formaterDate(c.date_arrete)}</dd>
+              <dt>{t("Arrêtée au", "Cut off at")}</dt>
+              <dd>{formaterDate(c.date_arrete, "UTC", langue)}</dd>
             </div>
             {c.echeance_initiale ? (
               <div>
-                <dt>Échéance initiale</dt>
-                <dd>{formaterDate(c.echeance_initiale)}</dd>
+                <dt>{t("Échéance initiale", "Initial due date")}</dt>
+                <dd>{formaterDate(c.echeance_initiale, "UTC", langue)}</dd>
               </div>
             ) : null}
           </dl>
@@ -140,7 +147,7 @@ export default async function PageCreancier({
       </div>
 
       {accord ? (
-        <Carte titre="Accord en vigueur">
+        <Carte titre={t("Accord en vigueur", "Agreement in force")}>
           <EcheancierAccord
             accord={accord}
             situation={c.situation}
@@ -153,13 +160,13 @@ export default async function PageCreancier({
         </Carte>
       ) : null}
 
-      <Carte titre="Fil de négociation">
+      <Carte titre={t("Fil de négociation", "Negotiation timeline")}>
         <FilNegociation evenements={c.evenements} devise={devise} />
       </Carte>
 
       {droits.ecrire ? (
         <>
-          <Carte titre="Ajouter un événement">
+          <Carte titre={t("Ajouter un événement", "Add an event")}>
             <FormulaireEvenement
               key={`${c.evenements.length}-${accord?.id ?? "aucun"}`}
               creancierId={c.id}
@@ -168,7 +175,7 @@ export default async function PageCreancier({
               accord={accord ? { id: accord.id, restantes } : null}
             />
           </Carte>
-          <Carte titre="Mettre à jour la créance">
+          <Carte titre={t("Mettre à jour la créance", "Update the claim")}>
             <FormulaireCreance
               key={c.version_creance}
               creancierId={c.id}
@@ -176,7 +183,7 @@ export default async function PageCreancier({
               courante={c}
             />
           </Carte>
-          <Carte titre="Modifier le créancier">
+          <Carte titre={t("Modifier le créancier", "Edit the creditor")}>
             <FormulaireModificationCreancier
               key={`${c.nom}-${c.actif}-${c.garanti}`}
               creancierId={c.id}
@@ -189,41 +196,56 @@ export default async function PageCreancier({
         </>
       ) : (
         <p className="mp-texte-doux">
-          {raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles)}
+          {raisonSansEcriture(mission, dossier, ctx.session.utilisateur.roles, langue)}
         </p>
       )}
 
-      <Carte titre="Historique des versions de la créance">
+      <Carte titre={t("Historique des versions de la créance", "Claim version history")}>
         <Tableau
-          legende="Versions de la créance"
+          legende={t("Versions de la créance", "Claim versions")}
           colonnes={[
-            { cle: "version", entete: "Version", rendu: (v: RedCreanceVue) => v.version },
+            {
+              cle: "version",
+              entete: t("Version", "Version"),
+              rendu: (v: RedCreanceVue) => v.version,
+            },
             {
               cle: "principal",
-              entete: "Principal",
+              entete: t("Principal", "Principal"),
               alignement: "droite",
               rendu: (v) => <span className="mp-red-valeur">{m(v.principal)}</span>,
             },
             {
               cle: "interets",
-              entete: "Intérêts",
+              entete: t("Intérêts", "Interest"),
               alignement: "droite",
               rendu: (v) => <span className="mp-red-valeur">{m(v.interets)}</span>,
             },
-            { cle: "arrete", entete: "Arrêtée au", rendu: (v) => formaterDate(v.date_arrete) },
+            {
+              cle: "arrete",
+              entete: t("Arrêtée au", "Cut off at"),
+              rendu: (v) => formaterDate(v.date_arrete, "UTC", langue),
+            },
             {
               cle: "auteur",
-              entete: "Saisie par",
-              rendu: (v) => `${v.saisi_par.nom}, le ${formaterDateHeure(v.cree_le)}`,
+              entete: t("Saisie par", "Entered by"),
+              rendu: (v) =>
+                `${v.saisi_par.nom}, ${t("le", "on")} ${formaterDateHeure(v.cree_le, undefined, langue)}`,
             },
-            { cle: "commentaire", entete: "Commentaire", rendu: (v) => v.commentaire ?? "—" },
+            {
+              cle: "commentaire",
+              entete: t("Commentaire", "Comment"),
+              rendu: (v) => v.commentaire ?? "—",
+            },
           ]}
           lignes={c.creances}
           cleLigne={(v) => v.id}
         />
       </Carte>
       <p>
-        <Link href={retour}>Revenir au registre des créanciers</Link>
+        <Link href={retour}>
+          {t("Revenir au registre des créanciers", "Back to the creditor register")}
+        </Link>
       </p>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   cheminNoeuds,
   erreurEncoreValable,
   LIBELLES_RELATION,
+  libelleRelation,
   messagePilotage,
   validerArbre,
   validerNoeud,
@@ -20,6 +21,7 @@ import {
   type SaisieArbre,
   type SaisieNoeud,
 } from "../../lib/kpi-pilotage";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -45,19 +47,24 @@ export function FormulaireArbre({
   missionId: string;
   kpis: readonly OptionKpi[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampArbre>();
   const [s, setS] = useState<SaisieArbre>({ kpi_racine_id: "", libelle: "" });
   // Un message de saisie disparaît dès que la valeur redevient valide.
-  const validation = validerArbre(s);
+  const validation = validerArbre(s, langue);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      validerArbre(s),
+      validerArbre(s, langue),
       (charge) => api.post<DetailArbre>(cheminArbres(missionId), charge),
       {
-        succes: "Arbre créé : ajoutez maintenant les leviers.",
-        messageSpecifique: messagePilotage,
+        succes: t(
+          "Arbre créé : ajoutez maintenant les leviers.",
+          "Tree created: now add the drivers.",
+        ),
+        messageSpecifique: (e) => messagePilotage(e, langue),
       },
     );
     if (ok) setS({ kpi_racine_id: "", libelle: "" });
@@ -69,19 +76,19 @@ export function FormulaireArbre({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvel arbre d'indicateurs"
+      aria-label={t("Nouvel arbre d'indicateurs", "New KPI tree")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Création impossible"
+        titreErreur={t("Création impossible", "Could not create")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="KPI à décomposer"
+          libelle={t("KPI à décomposer", "KPI to break down")}
           required
-          invite="Choisir un KPI…"
+          invite={t("Choisir un KPI…", "Choose a KPI…")}
           options={kpis}
           value={s.kpi_racine_id}
           onChange={(e) => {
@@ -95,7 +102,7 @@ export function FormulaireArbre({
           erreur={erreurEncoreValable(f.erreurs, validation, "kpi_racine_id")}
         />
         <Champ
-          libelle="Libellé de l'arbre"
+          libelle={t("Libellé de l'arbre", "Tree label")}
           required
           maxLength={200}
           value={s.libelle}
@@ -104,8 +111,8 @@ export function FormulaireArbre({
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Création…">
-          Créer l&apos;arbre
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Création…", "Creating…")}>
+          {t("Créer l'arbre", "Create the tree")}
         </Bouton>
       </div>
     </form>
@@ -135,6 +142,8 @@ export function FormulaireNoeud({
   noeuds: readonly NoeudArbre[];
   kpis: readonly OptionKpi[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampNoeud>();
   const [s, setS] = useState<SaisieNoeud>({
     ...SAISIE_NOEUD_VIDE,
@@ -144,17 +153,17 @@ export function FormulaireNoeud({
   const parent = actifs.find((n) => n.id === s.parent_id);
   const uniteLevier = kpis.find((k) => k.valeur === s.kpi_id)?.unite;
   // Sous une somme, une unité différente de celle du parent n'a pas de sens : l'API refuserait.
-  const avertissementUnite = avertissementUniteLevier(parent, actifs, uniteLevier);
-  const validation = validerNoeud(s);
+  const avertissementUnite = avertissementUniteLevier(parent, actifs, uniteLevier, langue);
+  const validation = validerNoeud(s, langue);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      validerNoeud(s),
+      validerNoeud(s, langue),
       (charge) => api.post(cheminNoeuds(arbreId), charge),
       {
-        succes: "Levier ajouté.",
-        messageSpecifique: messagePilotage,
+        succes: t("Levier ajouté.", "Driver added."),
+        messageSpecifique: (e) => messagePilotage(e, langue),
       },
     );
     if (ok) setS((x) => ({ ...SAISIE_NOEUD_VIDE, parent_id: x.parent_id }));
@@ -166,30 +175,30 @@ export function FormulaireNoeud({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouveau levier"
+      aria-label={t("Nouveau levier", "New driver")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Ajout impossible"
+        titreErreur={t("Ajout impossible", "Could not add")}
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Sous le nœud"
+          libelle={t("Sous le nœud", "Under the node")}
           required
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           options={actifs.map((n) => ({
             valeur: n.id,
-            libelle: `${n.libelle} (${LIBELLES_RELATION[n.relation].toLowerCase()})`,
+            libelle: `${n.libelle} (${libelleRelation(n.relation, langue).toLowerCase()})`,
           }))}
           value={s.parent_id}
           onChange={(e) => setS((x) => ({ ...x, parent_id: e.target.value }))}
           erreur={erreurEncoreValable(f.erreurs, validation, "parent_id")}
         />
         <Select
-          libelle="KPI mesurant ce levier"
-          invite="Aucun (levier libre)"
+          libelle={t("KPI mesurant ce levier", "KPI measuring this driver")}
+          invite={t("Aucun (levier libre)", "None (free driver)")}
           options={kpis}
           value={s.kpi_id}
           onChange={(e) => {
@@ -200,10 +209,13 @@ export function FormulaireNoeud({
               libelle: x.libelle || (kpis.find((k) => k.valeur === id)?.libelle ?? ""),
             }));
           }}
-          aide="Sans KPI lié, la décomposition ne peut pas se calculer : le levier est signalé comme manquant."
+          aide={t(
+            "Sans KPI lié, la décomposition ne peut pas se calculer : le levier est signalé comme manquant.",
+            "Without a linked KPI, the breakdown cannot be computed: the driver is flagged as missing.",
+          )}
         />
         <Champ
-          libelle="Libellé du levier"
+          libelle={t("Libellé du levier", "Driver label")}
           required
           maxLength={200}
           value={s.libelle}
@@ -211,41 +223,51 @@ export function FormulaireNoeud({
           erreur={erreurEncoreValable(f.erreurs, validation, "libelle")}
         />
         <Select
-          libelle="Ses propres leviers se combinent en"
+          libelle={t("Ses propres leviers se combinent en", "Its own drivers combine as")}
           options={(Object.keys(LIBELLES_RELATION) as RelationArbre[]).map((r) => ({
             valeur: r,
-            libelle: LIBELLES_RELATION[r],
+            libelle: libelleRelation(r, langue),
           }))}
           value={s.relation}
           onChange={(e) => setS((x) => ({ ...x, relation: e.target.value as RelationArbre }))}
         />
         <Champ
-          libelle="Coefficient dans la somme du parent"
+          libelle={t("Coefficient dans la somme du parent", "Coefficient in the parent's sum")}
           inputMode="decimal"
           autoComplete="off"
           disabled={parent?.relation === "produit"}
           value={parent?.relation === "produit" ? "1" : s.coefficient}
           onChange={(e) => setS((x) => ({ ...x, coefficient: e.target.value }))}
           erreur={erreurEncoreValable(f.erreurs, validation, "coefficient")}
-          aide="1 par défaut ; -1 pour un coût qui se retranche. Toujours 1 sous un produit."
+          aide={t(
+            "1 par défaut ; -1 pour un coût qui se retranche. Toujours 1 sous un produit.",
+            "1 by default; -1 for a cost that is subtracted. Always 1 under a product.",
+          )}
         />
         <Champ
-          libelle="Rang parmi les frères"
+          libelle={t("Rang parmi les frères", "Rank among siblings")}
           inputMode="numeric"
           value={s.rang}
           onChange={(e) => setS((x) => ({ ...x, rang: e.target.value }))}
           erreur={erreurEncoreValable(f.erreurs, validation, "rang")}
-          aide="Ordre de la décomposition d'un produit : le premier rang passe en premier."
+          aide={t(
+            "Ordre de la décomposition d'un produit : le premier rang passe en premier.",
+            "Order of a product's breakdown: the first rank comes first.",
+          )}
         />
       </div>
       {avertissementUnite ? (
-        <Alerte tonalite="attention" titre="Unités différentes" annonce="status">
+        <Alerte
+          tonalite="attention"
+          titre={t("Unités différentes", "Different units")}
+          annonce="status"
+        >
           <p>{avertissementUnite}</p>
         </Alerte>
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Ajout…">
-          Ajouter le levier
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Ajout…", "Adding…")}>
+          {t("Ajouter le levier", "Add the driver")}
         </Bouton>
       </div>
     </form>
@@ -258,6 +280,8 @@ export function FormulaireNoeud({
  * combine en produit. L'API refuse un changement qui ferait additionner des unités différentes.
  */
 export function ChangerRelationNoeud({ noeud }: { noeud: Pick<NoeudArbre, "id" | "relation"> }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"relation">();
   const [relation, setRelation] = useState<RelationArbre>(noeud.relation);
 
@@ -266,7 +290,10 @@ export function ChangerRelationNoeud({ noeud }: { noeud: Pick<NoeudArbre, "id" |
     await f.envoyer(
       { ok: true as const, charge: { relation } },
       (charge) => api.patch(cheminNoeud(noeud.id), charge),
-      { succes: "Combinaison modifiée.", messageSpecifique: messagePilotage },
+      {
+        succes: t("Combinaison modifiée.", "Combination changed."),
+        messageSpecifique: (e) => messagePilotage(e, langue),
+      },
     );
   }
 
@@ -276,19 +303,19 @@ export function ChangerRelationNoeud({ noeud }: { noeud: Pick<NoeudArbre, "id" |
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Changer la combinaison des leviers"
+      aria-label={t("Changer la combinaison des leviers", "Change how the drivers combine")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Changement impossible"
+        titreErreur={t("Changement impossible", "Could not change")}
       />
       <Select
-        libelle="Combine ses leviers en"
+        libelle={t("Combine ses leviers en", "Combines its drivers as")}
         options={(Object.keys(LIBELLES_RELATION) as RelationArbre[]).map((r) => ({
           valeur: r,
-          libelle: LIBELLES_RELATION[r],
+          libelle: libelleRelation(r, langue),
         }))}
         value={relation}
         onChange={(e) => setRelation(e.target.value as RelationArbre)}
@@ -298,10 +325,10 @@ export function ChangerRelationNoeud({ noeud }: { noeud: Pick<NoeudArbre, "id" |
           type="submit"
           variante="discret"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
           disabled={relation === noeud.relation}
         >
-          Appliquer
+          {t("Appliquer", "Apply")}
         </Bouton>
       </div>
     </form>

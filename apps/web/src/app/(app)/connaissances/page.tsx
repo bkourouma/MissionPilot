@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { aPermission, TYPES_RESULTAT_RECHERCHE } from "@missionpilot/shared";
+import {
+  aPermission,
+  TYPES_RESULTAT_RECHERCHE,
+  type Langue,
+  type Traduire,
+} from "@missionpilot/shared";
 import { Surligne } from "../../../components/connaissances/Surligne";
 import { BadgeStatut } from "../../../components/ui/BadgeStatut";
 import { Bouton } from "../../../components/ui/Bouton";
@@ -19,9 +24,13 @@ import {
   type ReponseRecherche,
 } from "../../../lib/capitalisation";
 import { formaterDate } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { obtenirSession } from "../../../lib/session";
 
-export const metadata: Metadata = { title: "Recherche dans les connaissances" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Recherche dans les connaissances", "Knowledge search") };
+}
 
 /**
  * Recherche unifiée (CAP-07) : missions, livrables, rapports, preuves et retours d'expérience,
@@ -34,6 +43,8 @@ export default async function PageRecherche({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await obtenirSession();
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!aPermission(utilisateur.roles, "connaissance.lire")) redirect("/connaissances/competences");
   const critere = lireCritereRecherche(await searchParams);
   const r = critere.q ? await chargerServeur<ReponseRecherche>(cheminRecherche(critere)) : null;
@@ -41,8 +52,11 @@ export default async function PageRecherche({
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
-        titre="Recherche"
-        soustitre="Une seule recherche dans les missions, livrables, rapports, preuves et retours d'expérience que vous avez le droit de consulter."
+        titre={t("Recherche", "Search")}
+        soustitre={t(
+          "Une seule recherche dans les missions, livrables, rapports, preuves et retours d'expérience que vous avez le droit de consulter.",
+          "One search across the engagements, deliverables, reports, evidence and lessons-learned reviews you are allowed to view.",
+        )}
       />
       <Carte>
         <form
@@ -52,57 +66,78 @@ export default async function PageRecherche({
           role="search"
         >
           <Champ
-            libelle="Rechercher"
+            libelle={t("Rechercher", "Search")}
             type="search"
             name="q"
             minLength={2}
             maxLength={200}
             defaultValue={critere.q}
-            placeholder="Ex. atelier unique, relances clients…"
+            placeholder={t(
+              "Ex. atelier unique, relances clients…",
+              "E.g. single workshop, client reminders…",
+            )}
           />
           <fieldset className="mp-connaissances__types">
-            <legend className="mp-texte-petit">Limiter à</legend>
-            {TYPES_RESULTAT_RECHERCHE.map((t) => (
+            <legend className="mp-texte-petit">{t("Limiter à", "Limit to")}</legend>
+            {TYPES_RESULTAT_RECHERCHE.map((type) => (
               <CaseACocher
-                key={t}
-                libelle={libelleTypeResultat(t)}
+                key={type}
+                libelle={libelleTypeResultat(type, langue)}
                 name="types"
-                value={t}
-                defaultChecked={critere.types.includes(t)}
+                value={type}
+                defaultChecked={critere.types.includes(type)}
               />
             ))}
           </fieldset>
           <div>
             <Bouton type="submit" icone="recherche">
-              Rechercher
+              {t("Rechercher", "Search")}
             </Bouton>
           </div>
         </form>
       </Carte>
       {r === null ? (
-        <EtatVide titre="Saisissez au moins deux caractères." icone="info" />
+        <EtatVide
+          titre={t("Saisissez au moins deux caractères.", "Enter at least two characters.")}
+          icone="info"
+        />
       ) : !r.ok ? (
         <EtatErreur
-          titre="La recherche n'a pas abouti."
+          titre={t("La recherche n'a pas abouti.", "The search did not succeed.")}
           message={r.message}
           hrefReessayer="/connaissances"
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucun résultat dans vos droits." />
+        <EtatVide
+          titre={t("Aucun résultat dans vos droits.", "No result within your permissions.")}
+        />
       ) : (
-        <Resultats r={r.donnees} q={critere.q} />
+        <Resultats r={r.donnees} q={critere.q} t={t} langue={langue} />
       )}
     </div>
   );
 }
 
-function Resultats({ r, q }: { r: ReponseRecherche; q: string }) {
+function Resultats({
+  r,
+  q,
+  t,
+  langue,
+}: {
+  r: ReponseRecherche;
+  q: string;
+  t: Traduire;
+  langue: Langue;
+}) {
   const tronques = Object.entries(r.par_type).filter(([, v]) => v?.tronque);
   return (
     <>
       {tronques.length > 0 ? (
         <p className="mp-texte-petit mp-texte-doux" role="status">
-          D&apos;autres résultats existent : précisez la recherche ou limitez-la à un type.
+          {t(
+            "D'autres résultats existent : précisez la recherche ou limitez-la à un type.",
+            "More results exist: refine the search or limit it to one type.",
+          )}
         </p>
       ) : null}
       <ul className="mp-connaissances__resultats">
@@ -110,9 +145,11 @@ function Resultats({ r, q }: { r: ReponseRecherche; q: string }) {
           <li key={`${e.type}-${e.id}`} className="mp-connaissances__resultat">
             <div className="mp-badges">
               <BadgeStatut tonalite="neutre" sansIcone>
-                {libelleTypeResultat(e.type)}
+                {libelleTypeResultat(e.type, langue)}
               </BadgeStatut>
-              <span className="mp-texte-petit mp-texte-doux">{formaterDate(e.date)}</span>
+              <span className="mp-texte-petit mp-texte-doux">
+                {formaterDate(e.date, "UTC", langue)}
+              </span>
             </div>
             <Link href={hrefResultat(e)}>
               <strong>
@@ -125,7 +162,9 @@ function Resultats({ r, q }: { r: ReponseRecherche; q: string }) {
               </p>
             ) : null}
             {e.type !== "mission" ? (
-              <p className="mp-texte-petit mp-texte-doux">Mission : {e.mission_intitule}</p>
+              <p className="mp-texte-petit mp-texte-doux">
+                {t("Mission :", "Engagement:")} {e.mission_intitule}
+              </p>
             ) : null}
           </li>
         ))}

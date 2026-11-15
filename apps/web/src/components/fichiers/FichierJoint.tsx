@@ -1,3 +1,5 @@
+"use client";
+
 import {
   affichableEnLigne,
   formaterTaille,
@@ -5,6 +7,8 @@ import {
   libelleType,
   type FichierMeta,
 } from "../../lib/fichiers";
+import { useLangue } from "../i18n/FournisseurLangue";
+import { T } from "../i18n/T";
 import { Icone } from "../ui/Icone";
 
 export interface FichierJointProps {
@@ -22,6 +26,7 @@ export interface FichierJointProps {
  * sous la politique de sécurité « sandbox » de l'API.
  */
 export function FichierJoint({ fichier: f, prefixe, contexte }: FichierJointProps) {
+  const langue = useLangue();
   const suffixe = contexte ? ` ${contexte}` : "";
   return (
     <span className="mp-fichier-joint">
@@ -32,7 +37,7 @@ export function FichierJoint({ fichier: f, prefixe, contexte }: FichierJointProp
           {f.nom}
         </span>
         <span className="mp-texte-doux mp-texte-petit">
-          {`${libelleType(f.type_mime, f.nom)} · ${formaterTaille(f.taille)}`}
+          {`${libelleType(f.type_mime, f.nom, langue)} · ${formaterTaille(f.taille, langue)}`}
         </span>
       </span>
       <span className="mp-fichier-joint__liens">
@@ -42,10 +47,12 @@ export function FichierJoint({ fichier: f, prefixe, contexte }: FichierJointProp
             href={hrefFichier(f.id, "inline")}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={`Ouvrir ${f.nom}${suffixe} (nouvel onglet)`}
+            aria-label={`${langue === "en" ? "Open" : "Ouvrir"} ${f.nom}${suffixe} ${langue === "en" ? "(new tab)" : "(nouvel onglet)"}`}
           >
             <Icone nom="oeil" taille={18} />
-            <span>Ouvrir</span>
+            <span>
+              <T fr="Ouvrir" en="Open" />
+            </span>
           </a>
         ) : null}
         <a
@@ -54,10 +61,12 @@ export function FichierJoint({ fichier: f, prefixe, contexte }: FichierJointProp
           target="_blank"
           rel="noopener noreferrer"
           download={f.nom}
-          aria-label={`Télécharger ${f.nom}${suffixe}`}
+          aria-label={`${langue === "en" ? "Download" : "Télécharger"} ${f.nom}${suffixe}`}
         >
           <Icone nom="telechargement" taille={18} />
-          <span>Télécharger</span>
+          <span>
+            <T fr="Télécharger" en="Download" />
+          </span>
         </a>
       </span>
     </span>

@@ -4,13 +4,21 @@ import { EtatContexteRed } from "../../../../../../components/redressement/Etats
 import { SimulateurLevier } from "../../../../../../components/redressement/SimulateurLevier";
 import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
-import { hrefRedressement, TEXTE_LEVIERS } from "../../../../../../lib/redressement";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
+import {
+  hrefRedressement,
+  TEXTE_LEVIERS,
+  TEXTE_LEVIERS_EN,
+} from "../../../../../../lib/redressement";
 import {
   chargerContexteRed,
   chargerReferentielRed,
 } from "../../../../../../lib/redressement-serveur";
 
-export const metadata: Metadata = { title: "Leviers de redressement" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Leviers de redressement", "Turnaround levers") };
+}
 
 /**
  * Leviers (RED-14) : bibliothèque des six leviers du catalogue du moteur et simulateur. Les
@@ -18,6 +26,7 @@ export const metadata: Metadata = { title: "Leviers de redressement" };
  */
 export default async function PageLeviers({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const t = await obtenirT();
   const ctx = await chargerContexteRed(id);
   if (ctx.etat !== "ok") {
     return (
@@ -33,7 +42,10 @@ export default async function PageLeviers({ params }: { params: Promise<{ id: st
   if (!referentiel.ok) {
     return (
       <EtatErreur
-        titre="Le catalogue de leviers n'a pas pu être chargé."
+        titre={t(
+          "Le catalogue de leviers n'a pas pu être chargé.",
+          "The lever catalog could not be loaded.",
+        )}
         message={referentiel.message}
         hrefReessayer={hrefRedressement(id, "leviers")}
       />
@@ -42,8 +54,8 @@ export default async function PageLeviers({ params }: { params: Promise<{ id: st
   const leviers = referentiel.donnees.leviers;
   return (
     <div className="mp-red">
-      <p className="mp-texte-doux">{TEXTE_LEVIERS}</p>
-      <Carte titre="Simulateur">
+      <p className="mp-texte-doux">{t(TEXTE_LEVIERS, TEXTE_LEVIERS_EN)}</p>
+      <Carte titre={t("Simulateur", "Simulator")}>
         <SimulateurLevier
           missionId={id}
           dossierId={dossier.id}
@@ -53,7 +65,7 @@ export default async function PageLeviers({ params }: { params: Promise<{ id: st
       </Carte>
       <section className="mp-red-section" aria-labelledby="titre-bibliotheque">
         <h2 id="titre-bibliotheque" className="mp-red-section__titre">
-          Bibliothèque de leviers
+          {t("Bibliothèque de leviers", "Lever library")}
         </h2>
         <BibliothequeLeviers missionId={id} leviers={leviers} peutCreer={droits.ecrire} />
       </section>

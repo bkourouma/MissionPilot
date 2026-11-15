@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import type { NiveauAutonomie } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
+  libelleClasse,
   libelleNiveau,
   lireBrique,
   lireDecisionAutonomie,
@@ -12,6 +13,7 @@ import {
   messageAgents,
   niveauxDecidables,
 } from "../../lib/agents";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -37,6 +39,8 @@ export function FormulaireBrique({
   /** Classe R0 proposée (associé seulement). */
   r0?: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"brique_code" | "agent_code" | "classe_risque" | "niveau_max">();
   const [s, setS] = useState({
     brique_code: "",
@@ -48,9 +52,12 @@ export function FormulaireBrique({
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const ok = await f.envoyer(lireBrique(s), (c) => api.post("/api/agents/briques", c), {
-      succes: "Brique confiée à l'agent, au niveau N2 au plus.",
-      messageSpecifique: messageAgents,
+    const ok = await f.envoyer(lireBrique(s, langue), (c) => api.post("/api/agents/briques", c), {
+      succes: t(
+        "Brique confiée à l'agent, au niveau N2 au plus.",
+        "Building block assigned to the agent, at level N2 at most.",
+      ),
+      messageSpecifique: (e) => messageAgents(e, langue),
     });
     if (ok) setS((x) => ({ ...x, brique_code: "" }));
   }
@@ -60,8 +67,11 @@ export function FormulaireBrique({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Code de la brique"
-          aide="Code du référentiel de méthodes, par exemple « rapport.avancement »."
+          libelle={t("Code de la brique", "Building block code")}
+          aide={t(
+            "Code du référentiel de méthodes, par exemple « rapport.avancement ».",
+            'Code from the method framework, for example "rapport.avancement".',
+          )}
           required
           maxLength={120}
           value={s.brique_code}
@@ -69,40 +79,44 @@ export function FormulaireBrique({
           erreur={f.erreurs.brique_code}
         />
         <Select
-          libelle="Agent"
+          libelle={t("Agent", "Agent")}
           required
-          invite="Choisir un agent…"
+          invite={t("Choisir un agent…", "Choose an agent…")}
           value={s.agent_code}
           onChange={(e) => maj("agent_code")(e.target.value)}
           options={agents.map((a) => ({ valeur: a.code, libelle: a.nom }))}
           erreur={f.erreurs.agent_code}
         />
         <Select
-          libelle="Classe de risque"
+          libelle={t("Classe de risque", "Risk class")}
           required
           value={s.classe_risque}
           onChange={(e) => maj("classe_risque")(e.target.value)}
           options={[
-            ...(r0 ? [{ valeur: "R0", libelle: "R0 — Opérationnel interne" }] : []),
-            { valeur: "R1", libelle: "R1 — Analyse interne" },
-            { valeur: "R2", libelle: "R2 — Livrable client" },
-            { valeur: "R3", libelle: "R3 — Engageant" },
+            ...(r0 ? [{ valeur: "R0", libelle: libelleClasse("R0", langue) }] : []),
+            { valeur: "R1", libelle: libelleClasse("R1", langue) },
+            { valeur: "R2", libelle: libelleClasse("R2", langue) },
+            { valeur: "R3", libelle: libelleClasse("R3", langue) },
           ]}
           erreur={f.erreurs.classe_risque}
         />
         <Select
-          libelle="Niveau d'autonomie maximal"
-          aide="N4 seulement pour une brique R0."
+          libelle={t("Niveau d'autonomie maximal", "Maximum autonomy level")}
+          aide={t("N4 seulement pour une brique R0.", "N4 only for an R0 building block.")}
           required
           value={s.niveau_max}
           onChange={(e) => maj("niveau_max")(e.target.value)}
-          options={NIVEAUX.map((n) => ({ valeur: n, libelle: libelleNiveau(n) }))}
+          options={NIVEAUX.map((n) => ({ valeur: n, libelle: libelleNiveau(n, langue) }))}
           erreur={f.erreurs.niveau_max}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Confier la brique
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Confier la brique", "Assign the building block")}
         </Bouton>
       </div>
     </form>
@@ -118,6 +132,8 @@ export function FormulaireDecisionAutonomie({
   accorde: NiveauAutonomie;
   plafond: NiveauAutonomie;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"niveau" | "motif">();
   const choix = niveauxDecidables(accorde, plafond);
   const [niveau, setNiveau] = useState("");
@@ -126,9 +142,12 @@ export function FormulaireDecisionAutonomie({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      lireDecisionAutonomie({ niveau, motif }),
+      lireDecisionAutonomie({ niveau, motif }, langue),
       (c) => api.post(`/api/agents/briques/${encodeURIComponent(code)}/decisions`, c),
-      { succes: "Décision enregistrée et journalisée.", messageSpecifique: messageAgents },
+      {
+        succes: t("Décision enregistrée et journalisée.", "Decision saved and logged."),
+        messageSpecifique: (e) => messageAgents(e, langue),
+      },
     );
     if (ok) {
       setNiveau("");
@@ -140,17 +159,20 @@ export function FormulaireDecisionAutonomie({
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Select
-        libelle="Nouveau niveau accordé"
-        aide="Une hausse se fait d'un palier ; N3 et N4 exigent l'éligibilité calculée."
+        libelle={t("Nouveau niveau accordé", "New level granted")}
+        aide={t(
+          "Une hausse se fait d'un palier ; N3 et N4 exigent l'éligibilité calculée.",
+          "A raise goes up one step at a time; N3 and N4 require the computed eligibility.",
+        )}
         required
-        invite="Choisir un niveau…"
+        invite={t("Choisir un niveau…", "Choose a level…")}
         value={niveau}
         onChange={(e) => setNiveau(e.target.value)}
-        options={choix.map((n) => ({ valeur: n, libelle: libelleNiveau(n) }))}
+        options={choix.map((n) => ({ valeur: n, libelle: libelleNiveau(n, langue) }))}
         erreur={f.erreurs.niveau}
       />
       <ZoneTexte
-        libelle="Motif de la décision"
+        libelle={t("Motif de la décision", "Reason for the decision")}
         required
         maxLength={2000}
         value={motif}
@@ -158,8 +180,12 @@ export function FormulaireDecisionAutonomie({
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la décision
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la décision", "Save the decision")}
         </Bouton>
       </div>
     </form>
@@ -167,6 +193,8 @@ export function FormulaireDecisionAutonomie({
 }
 
 export function FormulaireIncident({ code, majeur }: { code: string; majeur: boolean }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"gravite" | "description">();
   const [gravite, setGravite] = useState("");
   const [description, setDescription] = useState("");
@@ -174,7 +202,7 @@ export function FormulaireIncident({ code, majeur }: { code: string; majeur: boo
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      lireIncident({ gravite, description }),
+      lireIncident({ gravite, description }, langue),
       (c) =>
         api.post<{ retrograde: boolean }>(
           `/api/agents/briques/${encodeURIComponent(code)}/incidents`,
@@ -183,9 +211,12 @@ export function FormulaireIncident({ code, majeur }: { code: string; majeur: boo
       {
         succes:
           gravite === "majeur"
-            ? "Incident majeur signalé : une brique en N3 ou N4 repasse en N2."
-            : "Incident signalé.",
-        messageSpecifique: messageAgents,
+            ? t(
+                "Incident majeur signalé : une brique en N3 ou N4 repasse en N2.",
+                "Major incident reported: a building block at N3 or N4 goes back to N2.",
+              )
+            : t("Incident signalé.", "Incident reported."),
+        messageSpecifique: (e) => messageAgents(e, langue),
       },
     );
     if (ok) {
@@ -198,15 +229,29 @@ export function FormulaireIncident({ code, majeur }: { code: string; majeur: boo
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <Select
-        libelle="Gravité"
+        libelle={t("Gravité", "Severity")}
         required
-        invite="Choisir…"
+        invite={t("Choisir…", "Choose…")}
         value={gravite}
         onChange={(e) => setGravite(e.target.value)}
         options={[
-          { valeur: "mineur", libelle: "Mineur (compté, sans effet immédiat)" },
+          {
+            valeur: "mineur",
+            libelle: t(
+              "Mineur (compté, sans effet immédiat)",
+              "Minor (counted, no immediate effect)",
+            ),
+          },
           ...(majeur
-            ? [{ valeur: "majeur", libelle: "Majeur (rétrogradation automatique en N2)" }]
+            ? [
+                {
+                  valeur: "majeur",
+                  libelle: t(
+                    "Majeur (rétrogradation automatique en N2)",
+                    "Major (automatic demotion to N2)",
+                  ),
+                },
+              ]
             : []),
         ]}
         erreur={f.erreurs.gravite}
@@ -220,8 +265,13 @@ export function FormulaireIncident({ code, majeur }: { code: string; majeur: boo
         erreur={f.erreurs.description}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="secondaire" chargement={f.enCours} texteChargement="Envoi…">
-          Signaler l&apos;incident
+        <Bouton
+          type="submit"
+          variante="secondaire"
+          chargement={f.enCours}
+          texteChargement={t("Envoi…", "Sending…")}
+        >
+          {t("Signaler l'incident", "Report the incident")}
         </Bouton>
       </div>
     </form>
@@ -237,6 +287,8 @@ export function FormulaireCoupeCircuit({
   peutCouper: boolean;
   peutLever: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif">();
   const [motif, setMotif] = useState("");
   const autorise = actif ? peutLever : peutCouper;
@@ -244,8 +296,14 @@ export function FormulaireCoupeCircuit({
     return (
       <p className="mp-texte-doux mp-texte-petit">
         {actif
-          ? "Seul un associé peut lever le coupe-circuit."
-          : "Couper N4 relève d'un expert métier ou d'un associé."}
+          ? t(
+              "Seul un associé peut lever le coupe-circuit.",
+              "Only a partner can lift the circuit breaker.",
+            )
+          : t(
+              "Couper N4 relève d'un expert métier ou d'un associé.",
+              "Cutting N4 is up to a subject-matter expert or a partner.",
+            )}
       </p>
     );
   }
@@ -253,11 +311,16 @@ export function FormulaireCoupeCircuit({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      lireMotif(motif),
+      lireMotif(motif, 1000, langue),
       (c) => api.put("/api/agents/coupe-circuit", { actif: !actif, motif: c.motif }),
       {
-        succes: actif ? "Coupe-circuit levé." : "Coupe-circuit activé : plus aucune exécution N4.",
-        messageSpecifique: messageAgents,
+        succes: actif
+          ? t("Coupe-circuit levé.", "Circuit breaker lifted.")
+          : t(
+              "Coupe-circuit activé : plus aucune exécution N4.",
+              "Circuit breaker on: no more N4 executions.",
+            ),
+        messageSpecifique: (e) => messageAgents(e, langue),
       },
     );
     if (ok) setMotif("");
@@ -267,7 +330,7 @@ export function FormulaireCoupeCircuit({
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         required
         maxLength={1000}
         value={motif}
@@ -279,9 +342,11 @@ export function FormulaireCoupeCircuit({
           type="submit"
           variante={actif ? "secondaire" : "danger"}
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          {actif ? "Lever le coupe-circuit" : "Couper l'exécution N4"}
+          {actif
+            ? t("Lever le coupe-circuit", "Lift the circuit breaker")
+            : t("Couper l'exécution N4", "Cut N4 execution")}
         </Bouton>
       </div>
     </form>

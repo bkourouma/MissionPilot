@@ -5,6 +5,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "chiffre_affaires",
     libelle: "Chiffre d'affaires",
+    libelleEn: "Revenue",
     code: "XB",
     format: "montant",
     valeur: (a) => cr(a).chiffreAffaires,
@@ -12,6 +13,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "achats_consommes",
     libelle: "Achats consommés",
+    libelleEn: "Purchases consumed",
     code: null,
     format: "montant",
     valeur: (a) => cr(a).achatsConsommes,
@@ -19,6 +21,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "marge_brute",
     libelle: "Marge brute",
+    libelleEn: "Gross margin",
     code: null,
     format: "montant",
     total: true,
@@ -27,6 +30,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "charges_externes_variables",
     libelle: "Charges externes variables",
+    libelleEn: "Variable external expenses",
     code: null,
     format: "montant",
     valeur: (a) => cr(a).chargesExternesVariables,
@@ -34,6 +38,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "charges_externes_fixes",
     libelle: "Charges externes fixes",
+    libelleEn: "Fixed external expenses",
     code: null,
     format: "montant",
     valeur: (a) => cr(a).chargesExternesFixes,
@@ -41,6 +46,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "valeur_ajoutee",
     libelle: "Valeur ajoutée",
+    libelleEn: "Value added",
     code: "XC",
     format: "montant",
     total: true,
@@ -49,6 +55,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "charges_personnel",
     libelle: "Charges de personnel",
+    libelleEn: "Personnel expenses",
     code: null,
     format: "montant",
     valeur: (a) => cr(a).chargesPersonnel,
@@ -56,6 +63,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "excedent_brut_exploitation",
     libelle: "Excédent brut d'exploitation (EBE)",
+    libelleEn: "Gross operating surplus (EBITDA)",
     code: "XD",
     format: "montant",
     total: true,
@@ -64,6 +72,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "dotations_amortissements",
     libelle: "Dotations aux amortissements",
+    libelleEn: "Depreciation and amortization",
     code: null,
     format: "montant",
     valeur: (a) => cr(a).dotationsAmortissements,
@@ -71,6 +80,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "resultat_exploitation",
     libelle: "Résultat d'exploitation",
+    libelleEn: "Operating income",
     code: "XE",
     format: "montant",
     total: true,
@@ -79,6 +89,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "frais_financiers",
     libelle: "Frais financiers",
+    libelleEn: "Financial expenses",
     code: null,
     format: "montant",
     valeur: (a) => cr(a).fraisFinanciers,
@@ -86,6 +97,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "resultat_financier",
     libelle: "Résultat financier",
+    libelleEn: "Financial result",
     code: "XF",
     format: "montant",
     valeur: (a) => cr(a).resultatFinancier,
@@ -93,6 +105,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "resultat_activites_ordinaires",
     libelle: "Résultat des activités ordinaires",
+    libelleEn: "Income from ordinary activities",
     code: "XG",
     format: "montant",
     total: true,
@@ -101,6 +114,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "impot_sur_resultat",
     libelle: "Impôt sur le résultat",
+    libelleEn: "Income tax",
     code: "RS",
     format: "montant",
     valeur: (a) => cr(a).impotSurResultat,
@@ -108,6 +122,7 @@ export const LIGNES_COMPTE_RESULTAT: readonly LigneEtat[] = [
   {
     cle: "resultat_net",
     libelle: "Résultat net",
+    libelleEn: "Net income",
     code: "XI",
     format: "montant",
     total: true,
@@ -119,15 +134,25 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "immobilisations_nettes",
     groupe: "Actif",
+    groupeEn: "Assets",
     libelle: "Immobilisations nettes",
+    libelleEn: "Net fixed assets",
     code: "AZ",
     format: "montant",
     valeur: (a) => bi(a).immobilisationsNettes,
   },
-  { cle: "stocks", libelle: "Stocks", code: "BB", format: "montant", valeur: (a) => bi(a).stocks },
+  {
+    cle: "stocks",
+    libelle: "Stocks",
+    libelleEn: "Inventory",
+    code: "BB",
+    format: "montant",
+    valeur: (a) => bi(a).stocks,
+  },
   {
     cle: "creances_clients",
     libelle: "Créances clients",
+    libelleEn: "Trade receivables",
     code: "BI",
     format: "montant",
     valeur: (a) => bi(a).creancesClients,
@@ -135,6 +160,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "tresorerie_actif",
     libelle: "Trésorerie-actif",
+    libelleEn: "Cash (asset)",
     code: "BT",
     format: "montant",
     valeur: (a) => bi(a).tresorerieActif,
@@ -142,6 +168,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "total_actif",
     libelle: "Total actif",
+    libelleEn: "Total assets",
     code: "BZ",
     format: "montant",
     total: true,
@@ -150,7 +177,9 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "capital",
     groupe: "Passif",
+    groupeEn: "Liabilities and equity",
     libelle: "Capital",
+    libelleEn: "Share capital",
     code: "CA",
     format: "montant",
     valeur: (a) => bi(a).capital,
@@ -158,6 +187,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "reserves",
     libelle: "Réserves et report à nouveau",
+    libelleEn: "Reserves and retained earnings",
     code: null,
     format: "montant",
     valeur: (a) => bi(a).reserves,
@@ -165,6 +195,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "resultat_exercice",
     libelle: "Résultat de l'exercice",
+    libelleEn: "Net income for the year",
     code: "CJ",
     format: "montant",
     valeur: (a) => bi(a).resultatExercice,
@@ -172,6 +203,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "capitaux_propres",
     libelle: "Capitaux propres",
+    libelleEn: "Equity",
     code: "CP",
     format: "montant",
     total: true,
@@ -180,6 +212,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "dettes_financieres",
     libelle: "Dettes financières",
+    libelleEn: "Financial debt",
     code: "DD",
     format: "montant",
     valeur: (a) => bi(a).dettesFinancieres,
@@ -187,6 +220,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "dettes_fournisseurs",
     libelle: "Dettes fournisseurs",
+    libelleEn: "Trade payables",
     code: "DJ",
     format: "montant",
     valeur: (a) => bi(a).dettesFournisseurs,
@@ -194,6 +228,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "tresorerie_passif",
     libelle: "Trésorerie-passif (concours bancaires)",
+    libelleEn: "Cash (liability, bank overdrafts)",
     code: "DT",
     format: "montant",
     valeur: (a) => bi(a).tresoreriePassif,
@@ -201,6 +236,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "total_passif",
     libelle: "Total passif",
+    libelleEn: "Total liabilities and equity",
     code: "DZ",
     format: "montant",
     total: true,
@@ -209,7 +245,9 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "tresorerie_nette",
     groupe: "Pour information",
+    groupeEn: "For information",
     libelle: "Trésorerie nette",
+    libelleEn: "Net cash",
     code: null,
     format: "montant",
     valeur: (a) => bi(a).tresorerieNette,
@@ -217,6 +255,7 @@ export const LIGNES_BILAN: readonly LigneEtat[] = [
   {
     cle: "besoin_fonds_roulement",
     libelle: "Besoin en fonds de roulement",
+    libelleEn: "Working capital requirement",
     code: null,
     format: "montant",
     valeur: (a) => bi(a).besoinFondsRoulement,

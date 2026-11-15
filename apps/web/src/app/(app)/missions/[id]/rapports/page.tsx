@@ -4,6 +4,7 @@ import { ListeRapports } from "../../../../../components/rapports/ListeRapports"
 import { Carte } from "../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import {
   cheminListeRapports,
@@ -16,7 +17,10 @@ import {
 import { chargerPersonnes } from "../../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Rapports de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Rapports de la mission", "Engagement reports") };
+}
 
 /**
  * Rapports de la mission (SOC-07) : génération de l'« État d'avancement » (PDF, Word,
@@ -31,6 +35,7 @@ export default async function PageRapportsMission({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("mission.lire");
   const r = await chargerMission(id);
   // L'en-tête (layout) affiche déjà l'erreur de chargement.
@@ -46,7 +51,7 @@ export default async function PageRapportsMission({
 
   return (
     <div className="mp-pile mp-pile--large">
-      <Carte titre="Générer un état d'avancement">
+      <Carte titre={t("Générer un état d'avancement", "Generate a progress report")}>
         <GenerationRapport
           missionId={m.id}
           niveau={niveauGenere(utilisateur.roles)}
@@ -57,27 +62,42 @@ export default async function PageRapportsMission({
 
       <section aria-labelledby="titre-rapports" className="mp-pile">
         <h2 id="titre-rapports" className="mp-section__titre">
-          Rapports générés
+          {t("Rapports générés", "Generated reports")}
         </h2>
         <p className="mp-texte-doux mp-texte-petit">
-          Du plus récent au plus ancien. Seuls les rapports que vos droits vous permettent
-          d&apos;ouvrir sont listés.
+          {t(
+            "Du plus récent au plus ancien. Seuls les rapports que vos droits vous permettent d'ouvrir sont listés.",
+            "Most recent first. Only the reports your rights allow you to open are listed.",
+          )}
         </p>
         {!liste.ok ? (
           <EtatErreur
-            titre="Les rapports n'ont pas pu être chargés."
+            titre={t("Les rapports n'ont pas pu être chargés.", "The reports could not be loaded.")}
             message={liste.message}
             hrefReessayer={hrefRapports(m.id)}
           />
         ) : liste.donnees.elements.length === 0 ? (
           <EtatVide
-            titre={curseur ? "Aucun autre rapport." : "Aucun rapport généré pour cette mission."}
+            titre={
+              curseur
+                ? t("Aucun autre rapport.", "No more reports.")
+                : t(
+                    "Aucun rapport généré pour cette mission.",
+                    "No report generated for this engagement.",
+                  )
+            }
             icone="dossier"
           >
             <p>
               {cloturee
-                ? "La mission est clôturée : aucun rapport ne peut plus être généré."
-                : "Générez un état d'avancement ci-dessus : il apparaîtra ici, prêt à télécharger."}
+                ? t(
+                    "La mission est clôturée : aucun rapport ne peut plus être généré.",
+                    "The engagement is closed: no more reports can be generated.",
+                  )
+                : t(
+                    "Générez un état d'avancement ci-dessus : il apparaîtra ici, prêt à télécharger.",
+                    "Generate a progress report above: it will appear here, ready to download.",
+                  )}
             </p>
           </EtatVide>
         ) : (
@@ -89,7 +109,7 @@ export default async function PageRapportsMission({
         )}
         {liste.ok ? (
           <PaginationCurseur
-            libelle="Pages des rapports"
+            libelle={t("Pages des rapports", "Report pages")}
             hrefSuivante={
               liste.donnees.curseur_suivant
                 ? hrefRapports(m.id, liste.donnees.curseur_suivant)

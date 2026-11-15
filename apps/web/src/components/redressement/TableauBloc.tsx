@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import { hrefRedressement } from "../../lib/redressement";
-import { BLOCS_VIDES, type BlocTableau } from "../../lib/redressement-tableau";
+import { blocVide, type BlocTableau } from "../../lib/redressement-tableau";
 import { Carte } from "../ui/Carte";
 
 /** Bloc du tableau : carte titrée, ou état vide explicatif avec lien vers l'onglet concerné. */
-export function TableauBloc({
+export async function TableauBloc({
   bloc,
   missionId,
   vide,
@@ -17,7 +18,7 @@ export function TableauBloc({
   vide: boolean;
   children?: ReactNode;
 }) {
-  const b = BLOCS_VIDES[bloc];
+  const b = blocVide(bloc, await obtenirLangue());
   return (
     <Carte titre={b.titre} niveauTitre={3} className="mp-tdb-bloc">
       {vide ? (

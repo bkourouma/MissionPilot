@@ -14,19 +14,22 @@ import { Bouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
 import { Champ } from "../../../../../components/ui/Champ";
 import { Select, type OptionSelect } from "../../../../../components/ui/Select";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../../lib/api";
 import {
   besoinGeneration,
   echeanceModifiable,
+  libellePeriodicite,
+  libelleStatutEcheance,
+  libelleTypeEcheance,
   messageEcheancier,
-  OPTIONS_STATUTS_ECHEANCE,
-  OPTIONS_TYPES_SAISIS,
+  optionsStatutsEcheance,
+  optionsTypesSaisis,
   PERIODICITE_LIBELLES,
   SAISIE_ECHEANCE_VIDE,
   SAISIE_GENERATION_VIDE,
   saisieDepuisEcheance,
   STATUT_ECHEANCE,
-  TYPE_ECHEANCE_LIBELLES,
   validerEcheance,
   validerGeneration,
   validerModificationEcheance,
@@ -63,39 +66,56 @@ export function EcheancierMission({
   jalons,
   gerer,
 }: EcheancierMissionProps) {
+  const t = useT();
+  const langue = useLangue();
   const [ajout, setAjout] = useState(false);
-  const m = (v: number | null) => formaterMontantMineur(v, e.devise);
+  const m = (v: number | null) => formaterMontantMineur(v, e.devise, langue);
   const contexte = { budget: e.budget_signe, devise: e.devise, jalons };
   return (
-    <Carte titre="Échéancier de facturation">
+    <Carte titre={t("Échéancier de facturation", "Billing schedule")}>
       <div className="mp-pile">
         <dl className="mp-totaux">
           <div className="mp-totaux__element">
-            <dt className="mp-totaux__libelle">Budget signé (honoraires)</dt>
+            <dt className="mp-totaux__libelle">
+              {t("Budget signé (honoraires)", "Signed budget (fees)")}
+            </dt>
             <dd className="mp-totaux__valeur">{m(e.budget_signe)}</dd>
           </div>
           <div className="mp-totaux__element">
-            <dt className="mp-totaux__libelle">Total de l&apos;échéancier</dt>
+            <dt className="mp-totaux__libelle">{t("Total de l'échéancier", "Schedule total")}</dt>
             <dd className="mp-totaux__valeur">{m(e.total)}</dd>
           </div>
           <div className="mp-totaux__element">
-            <dt className="mp-totaux__libelle">Reste à planifier</dt>
+            <dt className="mp-totaux__libelle">{t("Reste à planifier", "Left to schedule")}</dt>
             <dd className="mp-totaux__valeur">{m(e.reste_a_planifier)}</dd>
           </div>
         </dl>
         {e.depassement !== null && e.depassement > 0 ? (
-          <Alerte tonalite="danger" annonce="aucune" titre="Échéancier au-delà du budget signé">
-            <p>{`Dépassement : ${m(e.depassement)}. Faites valider une révision du budget ou réduisez les échéances.`}</p>
+          <Alerte
+            tonalite="danger"
+            annonce="aucune"
+            titre={t("Échéancier au-delà du budget signé", "Schedule exceeds the signed budget")}
+          >
+            <p>
+              {t(
+                `Dépassement : ${m(e.depassement)}. Faites valider une révision du budget ou réduisez les échéances.`,
+                `Overrun: ${m(e.depassement)}. Get a budget revision approved or reduce the due dates.`,
+              )}
+            </p>
           </Alerte>
         ) : null}
         <p className="mp-texte-doux mp-texte-petit">
-          Le total des échéances est plafonné par le budget signé : toute échéance qui le
-          dépasserait est refusée.
+          {t(
+            "Le total des échéances est plafonné par le budget signé : toute échéance qui le dépasserait est refusée.",
+            "The total of the due dates is capped by the signed budget: any due date that would exceed it is refused.",
+          )}
         </p>
         {e.echeances.length === 0 ? (
-          <p className="mp-texte-doux">Aucune échéance pour l&apos;instant.</p>
+          <p className="mp-texte-doux">
+            {t("Aucune échéance pour l'instant.", "No due dates yet.")}
+          </p>
         ) : (
-          <ul className="mp-liste-lignes" aria-label="Échéances">
+          <ul className="mp-liste-lignes" aria-label={t("Échéances", "Due dates")}>
             {e.echeances.map((x) => (
               <LigneEcheance key={x.id} echeance={x} gerer={gerer} {...contexte} />
             ))}
@@ -110,18 +130,18 @@ export function EcheancierMission({
         {gerer ? (
           ajout ? (
             <FormulaireEcheance
-              titre="Nouvelle échéance"
+              titre={t("Nouvelle échéance", "New due date")}
               initial={SAISIE_ECHEANCE_VIDE}
               creation
               {...contexte}
               onFin={() => setAjout(false)}
-              valider={(s) => validerEcheance(s, e.devise)}
+              valider={(s) => validerEcheance(s, e.devise, langue)}
               appel={(c) => api.post(`/api/missions/${encodeURIComponent(missionId)}/echeances`, c)}
             />
           ) : (
             <div>
               <Bouton variante="secondaire" icone="plus" onClick={() => setAjout(true)}>
-                Ajouter une échéance
+                {t("Ajouter une échéance", "Add a due date")}
               </Bouton>
             </div>
           )
@@ -144,6 +164,8 @@ function LigneEcheance({
   devise,
   jalons,
 }: { echeance: Echeance; gerer: boolean } & Contexte) {
+  const t = useT();
+  const langue = useLangue();
   const [edition, setEdition, fermerApresRafraichissement] = useFermetureDifferee<true>(
     `${x.statut}-${x.modifie_le ?? ""}`,
   );
@@ -152,7 +174,7 @@ function LigneEcheance({
   const chemin = `/api/echeances/${encodeURIComponent(x.id)}`;
   const modifiable = gerer && echeanceModifiable(x);
   const jalon = jalons.find((j) => j.valeur === x.jalon_id)?.libelle;
-  const msg = (err: unknown) => messageEcheancier(err, budget, devise);
+  const msg = (err: unknown) => messageEcheancier(err, budget, devise, langue);
   const basculer = () =>
     f.envoyer(
       { ok: true, charge: { statut: x.statut === "prevue" ? "a_facturer" : "prevue" } },
@@ -165,58 +187,74 @@ function LigneEcheance({
         <strong>{x.libelle}</strong>
         <span className="mp-texte-doux">
           {[
-            TYPE_ECHEANCE_LIBELLES[x.type],
-            `prévue le ${formaterDate(x.date_prevue)}`,
-            x.pourcentage !== null ? `${formaterNombre(x.pourcentage, 4)} % du budget` : null,
-            x.periode_debut && x.periode_fin
-              ? `temps du ${formaterDate(x.periode_debut)} au ${formaterDate(x.periode_fin)}`
+            libelleTypeEcheance(x.type, langue),
+            t(
+              `prévue le ${formaterDate(x.date_prevue)}`,
+              `planned on ${formaterDate(x.date_prevue, "UTC", langue)}`,
+            ),
+            x.pourcentage !== null
+              ? t(
+                  `${formaterNombre(x.pourcentage, 4)} % du budget`,
+                  `${formaterNombre(x.pourcentage, 4, langue)}% of the budget`,
+                )
               : null,
-            jalon ? `jalon : ${jalon}` : null,
+            x.periode_debut && x.periode_fin
+              ? t(
+                  `temps du ${formaterDate(x.periode_debut)} au ${formaterDate(x.periode_fin)}`,
+                  `time from ${formaterDate(x.periode_debut, "UTC", langue)} to ${formaterDate(x.periode_fin, "UTC", langue)}`,
+                )
+              : null,
+            jalon ? t(`jalon : ${jalon}`, `milestone: ${jalon}`) : null,
           ]
             .filter(Boolean)
             .join(" · ")}
         </span>
         {x.facture_id ? (
           <Link href={`/facturation/${x.facture_id}`} className="mp-texte-petit">
-            Rattachée à une facture en cours
+            {t("Rattachée à une facture en cours", "Linked to an invoice in progress")}
           </Link>
         ) : null}
       </span>
-      <span className="mp-montant">{formaterMontantMineur(x.montant, x.devise)}</span>
+      <span className="mp-montant">{formaterMontantMineur(x.montant, x.devise, langue)}</span>
       <BadgeStatut tonalite={STATUT_ECHEANCE[x.statut].tonalite}>
-        {STATUT_ECHEANCE[x.statut].libelle}
+        {libelleStatutEcheance(x.statut, langue)}
       </BadgeStatut>
       {modifiable && !edition ? (
         <div className="mp-barre-actions mp-barre-actions--compacte">
           <Bouton
             variante="secondaire"
             chargement={f.enCours || attente}
-            texteChargement="Enregistrement…"
+            texteChargement={t("Enregistrement…", "Saving…")}
             onClick={basculer}
             aria-label={
               x.statut === "prevue"
-                ? `Marquer ${x.libelle} à facturer`
-                : `Remettre ${x.libelle} en prévue`
+                ? t(`Marquer ${x.libelle} à facturer`, `Mark ${x.libelle} as to invoice`)
+                : t(`Remettre ${x.libelle} en prévue`, `Set ${x.libelle} back to planned`)
             }
           >
-            {x.statut === "prevue" ? "Marquer à facturer" : "Remettre en prévue"}
+            {x.statut === "prevue"
+              ? t("Marquer à facturer", "Mark as to invoice")
+              : t("Remettre en prévue", "Set back to planned")}
           </Bouton>
           <Bouton
             variante="discret"
             icone="crayon"
             onClick={() => setEdition(true)}
-            aria-label={`Modifier l'échéance ${x.libelle}`}
+            aria-label={t(`Modifier l'échéance ${x.libelle}`, `Edit due date ${x.libelle}`)}
           >
-            Modifier
+            {t("Modifier", "Edit")}
           </Bouton>
           <BoutonConfirmation
-            libelle="Supprimer"
+            libelle={t("Supprimer", "Delete")}
             variante="discret"
             icone="corbeille"
-            ariaLabel={`Supprimer l'échéance ${x.libelle}`}
-            question={`Supprimer l'échéance « ${x.libelle} » ?`}
-            libelleConfirmation="Oui, supprimer"
-            texteChargement="Suppression…"
+            ariaLabel={t(`Supprimer l'échéance ${x.libelle}`, `Delete due date ${x.libelle}`)}
+            question={t(
+              `Supprimer l'échéance « ${x.libelle} » ?`,
+              `Delete the due date "${x.libelle}"?`,
+            )}
+            libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+            texteChargement={t("Suppression…", "Deleting…")}
             action={() =>
               f.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin), {
                 messageSpecifique: msg,
@@ -228,11 +266,11 @@ function LigneEcheance({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
       {edition ? (
         <FormulaireEcheance
-          titre={`Modifier l'échéance ${x.libelle}`}
+          titre={t(`Modifier l'échéance ${x.libelle}`, `Edit due date ${x.libelle}`)}
           initial={saisieDepuisEcheance(x)}
           creation={false}
           regie={x.type === "regie"}
@@ -241,7 +279,7 @@ function LigneEcheance({
           jalons={jalons}
           onFin={() => setEdition(null)}
           onEnregistre={fermerApresRafraichissement}
-          valider={(s) => validerModificationEcheance(s, devise, x.type)}
+          valider={(s) => validerModificationEcheance(s, devise, x.type, langue)}
           appel={(c) => api.patch(chemin, c)}
         />
       ) : null}
@@ -272,6 +310,8 @@ function FormulaireEcheance({
   valider: (s: SaisieEcheance) => ReturnType<typeof validerEcheance>;
   appel: (c: Record<string, unknown>) => Promise<unknown>;
 } & Contexte) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieEcheance>(initial);
   const f = useFormulaire<ChampEcheance>();
   const maj = <K extends keyof SaisieEcheance>(k: K, v: SaisieEcheance[K]) =>
@@ -280,7 +320,7 @@ function FormulaireEcheance({
     ev.preventDefault();
     await f.envoyer(valider(s), appel, {
       apres: onEnregistre ?? onFin,
-      messageSpecifique: (e) => messageEcheancier(e, budget, devise),
+      messageSpecifique: (e) => messageEcheancier(e, budget, devise, langue),
     });
   }
   return (
@@ -296,8 +336,8 @@ function FormulaireEcheance({
       <div className="mp-grille-champs mp-grille-champs--bas">
         {creation ? (
           <Select
-            libelle="Type"
-            options={OPTIONS_TYPES_SAISIS}
+            libelle={t("Type", "Type")}
+            options={optionsTypesSaisis(langue)}
             required
             value={s.type}
             onChange={(e) => maj("type", e.target.value)}
@@ -305,7 +345,7 @@ function FormulaireEcheance({
           />
         ) : null}
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           required
           maxLength={200}
           value={s.libelle}
@@ -315,10 +355,19 @@ function FormulaireEcheance({
         {regie ? null : (
           <>
             <Select
-              libelle="Montant exprimé en"
+              libelle={t("Montant exprimé en", "Amount expressed as")}
               options={[
-                { valeur: "pourcentage", libelle: "Pourcentage du budget signé" },
-                { valeur: "montant", libelle: `Montant (${libelleDevise(devise)})` },
+                {
+                  valeur: "pourcentage",
+                  libelle: t("Pourcentage du budget signé", "Percentage of the signed budget"),
+                },
+                {
+                  valeur: "montant",
+                  libelle: t(
+                    `Montant (${libelleDevise(devise)})`,
+                    `Amount (${libelleDevise(devise)})`,
+                  ),
+                },
               ]}
               value={s.mode}
               onChange={(e) =>
@@ -327,12 +376,17 @@ function FormulaireEcheance({
             />
             <Champ
               libelle={
-                s.mode === "pourcentage" ? "Pourcentage (%)" : `Montant (${libelleDevise(devise)})`
+                s.mode === "pourcentage"
+                  ? t("Pourcentage (%)", "Percentage (%)")
+                  : t(`Montant (${libelleDevise(devise)})`, `Amount (${libelleDevise(devise)})`)
               }
               aide={
                 s.mode === "pourcentage"
-                  ? "Le montant est calculé par le serveur sur le budget signé."
-                  : aideMontant(devise)
+                  ? t(
+                      "Le montant est calculé par le serveur sur le budget signé.",
+                      "The amount is computed by the server on the signed budget.",
+                    )
+                  : aideMontant(devise, langue)
               }
               required
               inputMode="decimal"
@@ -343,7 +397,7 @@ function FormulaireEcheance({
           </>
         )}
         <Champ
-          libelle="Date prévue"
+          libelle={t("Date prévue", "Planned date")}
           type="date"
           required
           value={s.date_prevue}
@@ -351,16 +405,23 @@ function FormulaireEcheance({
           erreur={f.erreurs.date_prevue}
         />
         <Select
-          libelle="Jalon lié"
+          libelle={t("Jalon lié", "Linked milestone")}
           options={jalons}
-          invite={jalons.length ? "Aucun jalon" : "Aucun jalon défini (onglet Découpage)"}
+          invite={
+            jalons.length
+              ? t("Aucun jalon", "No milestone")
+              : t(
+                  "Aucun jalon défini (onglet Découpage)",
+                  "No milestone defined (Work breakdown tab)",
+                )
+          }
           value={s.jalon_id}
           onChange={(e) => maj("jalon_id", e.target.value)}
         />
         {creation ? null : (
           <Select
-            libelle="Statut"
-            options={OPTIONS_STATUTS_ECHEANCE}
+            libelle={t("Statut", "Status")}
+            options={optionsStatutsEcheance(langue)}
             value={s.statut}
             onChange={(e) => maj("statut", e.target.value)}
             erreur={f.erreurs.statut}
@@ -368,11 +429,15 @@ function FormulaireEcheance({
         )}
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer", "Save")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -385,6 +450,8 @@ function Generation({
   budget,
   devise,
 }: { missionId: string; mode: ModeFacturation } & Contexte) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieGeneration>(SAISIE_GENERATION_VIDE);
   const f = useFormulaire<ChampGeneration>();
   const besoin = besoinGeneration(mode);
@@ -406,11 +473,11 @@ function Generation({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerGeneration(mode, s, devise),
+      validerGeneration(mode, s, devise, langue),
       (c) => api.post(`/api/missions/${encodeURIComponent(missionId)}/echeancier/generer`, c),
       {
-        succes: "Échéancier généré.",
-        messageSpecifique: (e) => messageEcheancier(e, budget, devise),
+        succes: t("Échéancier généré.", "Schedule generated."),
+        messageSpecifique: (e) => messageEcheancier(e, budget, devise, langue),
       },
     );
   }
@@ -420,46 +487,70 @@ function Generation({
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Générer l'échéancier"
+      aria-label={t("Générer l'échéancier", "Generate the schedule")}
     >
-      <p className="mp-sous-formulaire__titre">Générer l&apos;échéancier</p>
+      <p className="mp-sous-formulaire__titre">
+        {t("Générer l'échéancier", "Generate the schedule")}
+      </p>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Génération impossible"
+        titreErreur={t("Génération impossible", "Generation not possible")}
       />
       {besoin === "aucun" ? (
         <p className="mp-texte-doux">
-          Forfait : 30 % à la signature, 70 % à la fin de la mission, calculés sur le budget signé.
-          Ajustez ensuite chaque échéance.
+          {t(
+            "Forfait : 30 % à la signature, 70 % à la fin de la mission, calculés sur le budget signé. Ajustez ensuite chaque échéance.",
+            "Fixed fee: 30% at signing, 70% at the end of the engagement, computed on the signed budget. Then adjust each due date.",
+          )}
         </p>
       ) : null}
       {besoin === "part_variable" ? (
         <div className="mp-grille-champs mp-grille-champs--bas">
-          {champ("pv_libelle", "Libellé de la part variable", { maxLength: 200 })}
-          {champ("pv_montant_maximum", `Montant maximum (${libelleDevise(devise)})`, {
-            inputMode: "decimal",
-            aide: aideMontant(devise),
+          {champ("pv_libelle", t("Libellé de la part variable", "Variable fee label"), {
+            maxLength: 200,
           })}
-          {champ("pv_atteinte", "Atteinte prévue (%)", { inputMode: "decimal" })}
-          {champ("pv_date", "Date de facturation", { type: "date" })}
+          {champ(
+            "pv_montant_maximum",
+            t(
+              `Montant maximum (${libelleDevise(devise)})`,
+              `Maximum amount (${libelleDevise(devise)})`,
+            ),
+            {
+              inputMode: "decimal",
+              aide: aideMontant(devise, langue),
+            },
+          )}
+          {champ("pv_atteinte", t("Atteinte prévue (%)", "Expected achievement (%)"), {
+            inputMode: "decimal",
+          })}
+          {champ("pv_date", t("Date de facturation", "Invoicing date"), { type: "date" })}
         </div>
       ) : null}
       {besoin === "abonnement" ? (
         <div className="mp-grille-champs mp-grille-champs--bas">
-          {champ("ab_libelle", "Libellé", { maxLength: 200 })}
-          {champ("ab_montant", `Montant par période (${libelleDevise(devise)})`, {
-            inputMode: "decimal",
-            aide: aideMontant(devise),
+          {champ("ab_libelle", t("Libellé", "Label"), { maxLength: 200 })}
+          {champ(
+            "ab_montant",
+            t(
+              `Montant par période (${libelleDevise(devise)})`,
+              `Amount per period (${libelleDevise(devise)})`,
+            ),
+            {
+              inputMode: "decimal",
+              aide: aideMontant(devise, langue),
+            },
+          )}
+          {champ("ab_date_debut", t("Première échéance", "First due date"), { type: "date" })}
+          {champ("ab_nombre", t("Nombre de périodes", "Number of periods"), {
+            inputMode: "numeric",
           })}
-          {champ("ab_date_debut", "Première échéance", { type: "date" })}
-          {champ("ab_nombre", "Nombre de périodes", { inputMode: "numeric" })}
           <Select
-            libelle="Périodicité"
-            options={Object.entries(PERIODICITE_LIBELLES).map(([valeur, libelle]) => ({
+            libelle={t("Périodicité", "Frequency")}
+            options={Object.keys(PERIODICITE_LIBELLES).map((valeur) => ({
               valeur,
-              libelle,
+              libelle: libellePeriodicite(valeur as keyof typeof PERIODICITE_LIBELLES, langue),
             }))}
             value={s.ab_periodicite}
             onChange={(e) => maj("ab_periodicite")(e.target.value)}
@@ -468,8 +559,12 @@ function Generation({
         </div>
       ) : null}
       <div>
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Génération…">
-          Générer l&apos;échéancier
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Génération…", "Generating…")}
+        >
+          {t("Générer l'échéancier", "Generate the schedule")}
         </Bouton>
       </div>
     </form>
@@ -477,20 +572,25 @@ function Generation({
 }
 
 function Regie({ missionId, budget, devise }: { missionId: string } & Contexte) {
+  const t = useT();
+  const langue = useLangue();
   const [jusquAu, setJusquAu] = useState("");
   const f = useFormulaire<"jusqu_au">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerRegie(jusquAu),
+      validerRegie(jusquAu, langue),
       (c) =>
         api.post<{ elements: unknown[] }>(
           `/api/missions/${encodeURIComponent(missionId)}/echeancier/regie`,
           c,
         ),
       {
-        succes: "Échéances de régie calculées sur les temps validés.",
-        messageSpecifique: (e) => messageEcheancier(e, budget, devise),
+        succes: t(
+          "Échéances de régie calculées sur les temps validés.",
+          "Time-and-materials due dates computed on approved time.",
+        ),
+        messageSpecifique: (e) => messageEcheancier(e, budget, devise, langue),
       },
     );
   }
@@ -500,30 +600,34 @@ function Regie({ missionId, budget, devise }: { missionId: string } & Contexte) 
       className="mp-formulaire mp-sous-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Régie sur temps validés"
+      aria-label={t("Régie sur temps validés", "Time and materials on approved time")}
     >
-      <p className="mp-sous-formulaire__titre">Régie sur les temps validés</p>
+      <p className="mp-sous-formulaire__titre">
+        {t("Régie sur les temps validés", "Time and materials on approved time")}
+      </p>
       <p className="mp-texte-doux">
-        Une échéance par mois, sur les temps validés pas encore facturés (calcul du serveur au taux
-        de la mission).
+        {t(
+          "Une échéance par mois, sur les temps validés pas encore facturés (calcul du serveur au taux de la mission).",
+          "One due date per month, on approved time not yet invoiced (computed by the server at the engagement rate).",
+        )}
       </p>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Calcul impossible"
+        titreErreur={t("Calcul impossible", "Calculation not possible")}
       />
       <Champ
-        libelle="Temps validés jusqu'au"
-        aide="Vide : jusqu'à aujourd'hui."
+        libelle={t("Temps validés jusqu'au", "Approved time up to")}
+        aide={t("Vide : jusqu'à aujourd'hui.", "Empty: up to today.")}
         type="date"
         value={jusquAu}
         onChange={(e) => setJusquAu(e.target.value)}
         erreur={f.erreurs.jusqu_au}
       />
       <div>
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Calcul…">
-          Calculer la régie
+        <Bouton type="submit" chargement={f.enCours} texteChargement={t("Calcul…", "Calculating…")}>
+          {t("Calculer la régie", "Compute time and materials")}
         </Bouton>
       </div>
     </form>

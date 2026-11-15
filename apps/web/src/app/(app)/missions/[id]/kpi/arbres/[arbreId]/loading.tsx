@@ -1,5 +1,13 @@
 import { Squelette } from "../../../../../../../components/ui/Squelette";
+import { obtenirT } from "../../../../../../../lib/i18n/serveur";
 
-export default function Chargement() {
-  return <Squelette avecTitre lignes={8} libelle="Calcul de la décomposition…" />;
+export default async function Chargement() {
+  const t = await obtenirT();
+  return (
+    <Squelette
+      avecTitre
+      lignes={8}
+      libelle={t("Calcul de la décomposition…", "Computing the breakdown…")}
+    />
+  );
 }

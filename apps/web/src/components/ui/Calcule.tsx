@@ -1,3 +1,6 @@
+"use client";
+
+import { useT } from "../i18n/FournisseurLangue";
 import { Icone } from "./Icone";
 
 /**
@@ -6,10 +9,17 @@ import { Icone } from "./Icone";
  * par l'IA (brouillon) ni avec un contenu validé par un expert.
  */
 export function Calcule() {
+  const t = useT();
   return (
-    <span className="mp-calcule" title="Calculé par le moteur de calcul du cabinet">
+    <span
+      className="mp-calcule"
+      title={t(
+        "Calculé par le moteur de calcul du cabinet",
+        "Computed by the firm's calculation engine",
+      )}
+    >
       <Icone nom="facture" taille={14} />
-      <span>Calculé</span>
+      <span>{t("Calculé", "Computed")}</span>
     </span>
   );
 }

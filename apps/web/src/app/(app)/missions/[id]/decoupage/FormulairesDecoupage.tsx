@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../../components/ui/CaseACocher";
 import { Champ } from "../../../../../components/ui/Champ";
@@ -45,13 +46,17 @@ export function FormulaireLibelle({
   avecLivrable: boolean;
   envoyer: (charge: { libelle: string; est_livrable?: boolean }) => Promise<unknown>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [libelle, setLibelle] = useState(initial.libelle);
   const [livrable, setLivrable] = useState(initial.est_livrable ?? false);
   const f = useFormulaire<"libelle">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      avecLivrable ? validerLot({ libelle, est_livrable: livrable }) : validerPhase(libelle),
+      avecLivrable
+        ? validerLot({ libelle, est_livrable: livrable }, langue)
+        : validerPhase(libelle, langue),
       envoyer,
       { apres: onAnnuler },
     );
@@ -67,7 +72,7 @@ export function FormulaireLibelle({
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <Champ
-        libelle="Libellé"
+        libelle={t("Libellé", "Label")}
         required
         maxLength={200}
         value={libelle}
@@ -76,8 +81,11 @@ export function FormulaireLibelle({
       />
       {avecLivrable ? (
         <CaseACocher
-          libelle="Livrable"
-          aide="Ce lot correspond à un livrable remis au client."
+          libelle={t("Livrable", "Deliverable")}
+          aide={t(
+            "Ce lot correspond à un livrable remis au client.",
+            "This work package corresponds to a deliverable handed to the client.",
+          )}
           checked={livrable}
           onChange={(e) => setLivrable(e.target.checked)}
         />
@@ -97,11 +105,13 @@ export function FormulaireTache({
   initial?: SaisieTache;
   envoyer: (charge: Record<string, unknown>) => Promise<unknown>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<SaisieTache>(initial);
   const f = useFormulaire<ChampTache>();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerTache(s), envoyer, { apres: onAnnuler });
+    await f.envoyer(validerTache(s, langue), envoyer, { apres: onAnnuler });
   }
   return (
     <form
@@ -114,7 +124,7 @@ export function FormulaireTache({
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <Champ
-        libelle="Libellé"
+        libelle={t("Libellé", "Label")}
         required
         maxLength={200}
         value={s.libelle}
@@ -123,15 +133,18 @@ export function FormulaireTache({
       />
       <div className="mp-grille-champs mp-grille-champs--bas">
         <Champ
-          libelle="Début souhaité"
+          libelle={t("Début souhaité", "Preferred start")}
           type="date"
           value={s.date_debut}
           onChange={(e) => setS((x) => ({ ...x, date_debut: e.target.value }))}
           erreur={f.erreurs.date_debut}
-          aide="Vide : au plus tôt (début de mission ou après les tâches précédentes)."
+          aide={t(
+            "Vide : au plus tôt (début de mission ou après les tâches précédentes).",
+            "Empty: as early as possible (engagement start or after preceding tasks).",
+          )}
         />
         <Champ
-          libelle="Durée (jours ouvrés)"
+          libelle={t("Durée (jours ouvrés)", "Duration (working days)")}
           required
           inputMode="numeric"
           autoComplete="off"
@@ -141,7 +154,7 @@ export function FormulaireTache({
         />
       </div>
       <CaseACocher
-        libelle="Livrable"
+        libelle={t("Livrable", "Deliverable")}
         checked={s.est_livrable}
         onChange={(e) => setS((x) => ({ ...x, est_livrable: e.target.checked }))}
       />
@@ -162,14 +175,21 @@ export function FormulaireBudgetTache({
   onAnnuler: () => void;
   envoyer: (charge: unknown) => Promise<unknown>;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState<Record<string, string>>(() => saisieBudgetDepuisTache(tache));
   const f = useFormulaire<string>();
   const nominatives = (tache.budget ?? []).filter((l) => l.collaborateur_id);
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerBudgetTache(s, tache.budget ?? []), envoyer, { apres: onAnnuler });
+    await f.envoyer(validerBudgetTache(s, tache.budget ?? [], langue), envoyer, {
+      apres: onAnnuler,
+    });
   }
-  const titre = `Budget en jours de la tâche ${tache.libelle}`;
+  const titre = t(
+    `Budget en jours de la tâche ${tache.libelle}`,
+    `Budget in days for task ${tache.libelle}`,
+  );
   return (
     <form
       ref={f.refFormulaire}
@@ -181,11 +201,18 @@ export function FormulaireBudgetTache({
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale ?? f.erreurs._ ?? null} refAlerte={f.refAlerte} />
       {grades.length === 0 ? (
-        <p className="mp-texte-doux">Aucun grade actif dans le cabinet.</p>
+        <p className="mp-texte-doux">
+          {t("Aucun grade actif dans le cabinet.", "No active grade in the firm.")}
+        </p>
       ) : (
         <fieldset className="mp-groupe">
-          <legend className="mp-champ__libelle">Jours par grade</legend>
-          <p className="mp-champ__aide">Au centième de jour (ex. 2,5). Vide : grade absent.</p>
+          <legend className="mp-champ__libelle">{t("Jours par grade", "Days by grade")}</legend>
+          <p className="mp-champ__aide">
+            {t(
+              "Au centième de jour (ex. 2,5). Vide : grade absent.",
+              "To the hundredth of a day (e.g. 2.5). Empty: grade not used.",
+            )}
+          </p>
           <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {grades.map((g) => (
               <Champ
@@ -203,12 +230,19 @@ export function FormulaireBudgetTache({
       )}
       {nominatives.length > 0 ? (
         <p className="mp-texte-doux">
-          {`Lignes nominatives conservées : ${nominatives
-            .map((l) => `${l.collaborateur_nom ?? "collaborateur"} ${formaterJours(l.jours)}`)
+          {`${t("Lignes nominatives conservées :", "Named lines kept:")} ${nominatives
+            .map(
+              (l) =>
+                `${l.collaborateur_nom ?? t("collaborateur", "team member")} ${formaterJours(l.jours, langue)}`,
+            )
             .join(", ")}.`}
         </p>
       ) : null}
-      <Actions enCours={f.enCours} libelleEnvoi="Enregistrer le budget" onAnnuler={onAnnuler} />
+      <Actions
+        enCours={f.enCours}
+        libelleEnvoi={t("Enregistrer le budget", "Save the budget")}
+        onAnnuler={onAnnuler}
+      />
     </form>
   );
 }
@@ -227,6 +261,7 @@ export function FormulaireParent({
   onAnnuler: () => void;
   envoyer: (parentId: string) => Promise<unknown>;
 }) {
+  const t = useT();
   const [parent, setParent] = useState(actuel);
   const f = useFormulaire<"parent">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
@@ -234,7 +269,10 @@ export function FormulaireParent({
     await f.envoyer(
       parent && parent !== actuel
         ? { ok: true, charge: parent }
-        : { ok: false, erreurs: { parent: "Choisissez un autre emplacement." } },
+        : {
+            ok: false,
+            erreurs: { parent: t("Choisissez un autre emplacement.", "Choose another location.") },
+          },
       envoyer,
       { apres: onAnnuler },
     );
@@ -250,14 +288,17 @@ export function FormulaireParent({
       <p className="mp-sous-formulaire__titre">{titre}</p>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <Select
-        libelle="Nouvel emplacement"
+        libelle={t("Nouvel emplacement", "New location")}
         options={options}
         value={parent}
         onChange={(e) => setParent(e.target.value)}
         erreur={f.erreurs.parent}
-        aide="L'élément est placé en dernière position de sa nouvelle phase ou de son nouveau lot."
+        aide={t(
+          "L'élément est placé en dernière position de sa nouvelle phase ou de son nouveau lot.",
+          "The item is placed last in its new phase or work package.",
+        )}
       />
-      <Actions enCours={f.enCours} libelleEnvoi="Déplacer" onAnnuler={onAnnuler} />
+      <Actions enCours={f.enCours} libelleEnvoi={t("Déplacer", "Move")} onAnnuler={onAnnuler} />
     </form>
   );
 }
@@ -271,13 +312,14 @@ function Actions({
   libelleEnvoi: string;
   onAnnuler: () => void;
 }) {
+  const t = useT();
   return (
     <div className="mp-actions-formulaire">
-      <Bouton type="submit" chargement={enCours} texteChargement="Enregistrement…">
+      <Bouton type="submit" chargement={enCours} texteChargement={t("Enregistrement…", "Saving…")}>
         {libelleEnvoi}
       </Bouton>
       <Bouton variante="discret" onClick={onAnnuler}>
-        Annuler
+        {t("Annuler", "Cancel")}
       </Bouton>
     </div>
   );

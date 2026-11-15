@@ -1,4 +1,7 @@
+"use client";
+
 import { formaterJours } from "../../lib/format";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 export interface TrajectoireProps {
   /** Jours budgétés (le cap prévu). */
@@ -27,12 +30,16 @@ export function Trajectoire({
   largeur = 168,
   hauteur = 24,
 }: TrajectoireProps) {
+  const langue = useLangue();
   const portee = Math.max(budget, realises, atterrissage, 1);
   const x = (jours: number) => MARGE + (jours / portee) * (largeur - 2 * MARGE - 6);
   const y = hauteur / 2;
   const xr = x(realises);
   const depasse = atterrissage > budget;
-  const libelle = `${formaterJours(realises)} réalisés sur ${formaterJours(budget)} budgétés, atterrissage estimé à ${formaterJours(atterrissage)}`;
+  const libelle =
+    langue === "en"
+      ? `${formaterJours(realises, langue)} done of ${formaterJours(budget, langue)} budgeted, estimated landing at ${formaterJours(atterrissage, langue)}`
+      : `${formaterJours(realises)} réalisés sur ${formaterJours(budget)} budgétés, atterrissage estimé à ${formaterJours(atterrissage)}`;
   return (
     <svg
       className="mp-trajectoire"

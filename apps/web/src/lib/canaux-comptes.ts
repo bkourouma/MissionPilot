@@ -1,8 +1,10 @@
 /** Sous-module de `canaux.ts` : droits d'affichage et comptes de canal. */
 import {
   aPermission,
+  creerTraduire,
   type CanalMessagerie,
   type CompteCanalApi,
+  type Langue,
   type Role,
 } from "@missionpilot/shared";
 import { avecReconfirmation, type SaisieConfirmation } from "./double-authentification";
@@ -65,6 +67,40 @@ export const LIBELLES_OPTIONS_COMPTE: Record<ChampOptionCompte, { libelle: strin
     },
   };
 
+export const LIBELLES_OPTIONS_COMPTE_EN: Record<
+  ChampOptionCompte,
+  { libelle: string; aide: string }
+> = {
+  repli_sms: {
+    libelle: "SMS fallback",
+    aide: "If WhatsApp rejects a message, a simulated SMS is attempted (subject to the person's separate SMS consent).",
+  },
+  relance_questionnaire_j10: {
+    libelle: "D+10 questionnaire reminder",
+    aide: "Ten days after a questionnaire is sent with no reply, a message points back to the portal.",
+  },
+  synthese_hebdo: {
+    libelle: "Weekly executive summary",
+    aide: "Every Monday, two counters and a link to the portal; nothing is sent if there is nothing to report.",
+  },
+  saisie_kpi: {
+    libelle: "KPI entry by message",
+    aide: "A proposed entry only goes into a KPI once a firm user has taken it up.",
+  },
+  alerte_kpi: {
+    libelle: "KPI alerts to firm managers",
+    aide: "A message with no figure notifies managers about a KPI (alert or late measure), provided they have a verified number and consent.",
+  },
+};
+
+/** Libellé et aide d'une option de compte dans la langue demandée. */
+export function libelleOptionCompte(
+  champ: ChampOptionCompte,
+  langue: Langue = "fr",
+): { libelle: string; aide: string } {
+  return (langue === "en" ? LIBELLES_OPTIONS_COMPTE_EN : LIBELLES_OPTIONS_COMPTE)[champ];
+}
+
 /** Valeurs modifiables d'un compte (état du formulaire d'une carte). */
 export interface EtatCompteEditable {
   actif: boolean;
@@ -89,7 +125,8 @@ export function etatEditableDepuisCompte(c: CompteCanalApi): EtatCompteEditable 
 /** Les options ne concernent que le compte WhatsApp (SMS : seulement « Activé »). */
 export const canalAvecOptions = (canal: CanalMessagerie) => canal === "whatsapp";
 
-export function libelleEtatCompte(c: Pick<CompteCanalApi, "actif">): string {
+export function libelleEtatCompte(c: Pick<CompteCanalApi, "actif">, langue: Langue = "fr"): string {
+  if (langue === "en") return c.actif ? "Enabled" : "Disabled";
   return c.actif ? "Activé" : "Désactivé";
 }
 
@@ -118,13 +155,18 @@ export function chargeModificationCompte(
   apres: EtatCompteEditable,
   droits: Pick<DroitsCanaux, "gerer" | "configurer">,
   confirmation: SaisieConfirmation | null,
+  langue: Langue = "fr",
 ): Resultat<ChargeCompte, ChampCompte> {
+  const t = creerTraduire(langue);
   const changes: Partial<EtatCompteEditable> = {};
   for (const champ of ["actif", ...CHAMPS_OPTIONS_COMPTE] as const) {
     if (avant[champ] !== apres[champ]) changes[champ] = apres[champ];
   }
   if (Object.keys(changes).length === 0) {
-    return { ok: false, erreurs: { aucun: "Aucune modification à enregistrer." } };
+    return {
+      ok: false,
+      erreurs: { aucun: t("Aucune modification à enregistrer.", "No changes to save.") },
+    };
   }
   const desactivationSeule = Object.keys(changes).length === 1 && changes.actif === false;
   if (!droits.configurer) {
@@ -132,8 +174,10 @@ export function chargeModificationCompte(
       return {
         ok: false,
         erreurs: {
-          aucun:
+          aucun: t(
             "Seul un associé peut activer un canal ou changer ses options ; vous pouvez seulement le désactiver.",
+            "Only a partner can enable a channel or change its options; you can only disable it.",
+          ),
         },
       };
     }

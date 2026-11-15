@@ -1,5 +1,5 @@
 /** Redressement (saisie) : contrôles de forme communs, montants, dates et codes de lignes. */
-import { RED_MONTANT_MAX } from "@missionpilot/shared";
+import { RED_MONTANT_MAX, type Langue } from "@missionpilot/shared";
 import type { Devise } from "./format";
 import { ajouterJoursIso } from "./kpi";
 import { lireMontant, lireNombre } from "./saisie";
@@ -11,6 +11,18 @@ export const MSG_MONTANT = (devise: Devise) =>
   devise === "XOF" || devise === "XAF"
     ? "Montant illisible : saisissez un nombre entier, sans décimale (ex. 1 200 000)."
     : "Montant illisible : saisissez un nombre positif, avec deux décimales au plus (ex. 1 500,50).";
+
+export const MSG_DATE_EN = "Unreadable date: enter a date between 2000 and 2100.";
+export function msgDate(langue: Langue = "fr"): string {
+  return langue === "en" ? MSG_DATE_EN : MSG_DATE;
+}
+/** Message d'un montant illisible, dans la langue demandée. */
+export function msgMontant(devise: Devise, langue: Langue = "fr"): string {
+  if (langue !== "en") return MSG_MONTANT(devise);
+  return devise === "XOF" || devise === "XAF"
+    ? "Unreadable amount: enter a whole number, without decimals (e.g. 1,200,000)."
+    : "Unreadable amount: enter a positive number with at most two decimals (e.g. 1,500.50).";
+}
 
 // --- Montants et dates ------------------------------------------------------------------------------
 

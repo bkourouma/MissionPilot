@@ -15,10 +15,14 @@ import {
 } from "../../../../../../../lib/due-diligence";
 import { chargerChoixLiensPlan } from "../../../../../../../lib/due-diligence-serveur";
 import { formaterDate } from "../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Plan des 100 jours" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Plan des 100 jours", "100-day plan") };
+}
 
 /**
  * Plan des 100 jours (DD-15) : actions réparties en trois phases, reliées à une initiative d'un
@@ -31,6 +35,8 @@ export default async function PagePlan100jDd({
   params: Promise<{ id: string; dossierId: string }>;
 }) {
   const { id, dossierId } = await params;
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
   const { utilisateur } = await exigerPermission("dd.lire");
   const mission = await chargerMission(id);
   if (!mission.ok) return null;
@@ -44,7 +50,10 @@ export default async function PagePlan100jDd({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="Le plan des 100 jours n'a pas pu être chargé."
+        titre={t(
+          "Le plan des 100 jours n'a pas pu être chargé.",
+          "The 100-day plan could not be loaded.",
+        )}
         message={r.message}
         hrefReessayer={hrefEcranDossier(id, dossierId, "plan-100-jours")}
       />
@@ -60,48 +69,77 @@ export default async function PagePlan100jDd({
       }
     : null;
   const libelleAction = (idAction: string) => actions.find((a) => a.id === idAction)?.libelle;
-  const nommer = (ids: string[]) => ids.map(libelleAction).filter(Boolean).join(", ");
+  const nommer = (ids: string[]) =>
+    ids
+      .map((i) => libelleAction(i))
+      .filter(Boolean)
+      .join(", ");
 
   return (
     <>
       {dateOperation === null ? (
-        <Alerte tonalite="info" titre="Date d'opération non précisée" annonce="aucune">
+        <Alerte
+          tonalite="info"
+          titre={t("Date d'opération non précisée", "Transaction date not specified")}
+          annonce="aucune"
+        >
           <p>
-            Les actions sont positionnées en jours après l&apos;opération. Renseignez la date
-            d&apos;opération dans le cadrage pour afficher les dates et repérer les retards.
+            {t(
+              "Les actions sont positionnées en jours après l'opération. Renseignez la date d'opération dans le cadrage pour afficher les dates et repérer les retards.",
+              "Actions are positioned in days after the transaction. Enter the transaction date in the scoping to show dates and spot delays.",
+            )}
           </p>
         </Alerte>
       ) : (
-        <p className="mp-texte-doux">{`Date d'opération : ${formaterDate(dateOperation)}.`}</p>
+        <p className="mp-texte-doux">
+          {t(
+            `Date d'opération : ${formaterDate(dateOperation)}.`,
+            `Transaction date: ${formaterDate(dateOperation, "UTC", langue)}.`,
+          )}
+        </p>
       )}
 
       {actions.length === 0 ? (
         <p className="mp-texte-doux" role="status">
           {droits.ecrire
-            ? "Aucune action n'est planifiée : ajoutez la première ci-dessous."
-            : "Aucune action n'est planifiée pour le moment."}
+            ? t(
+                "Aucune action n'est planifiée : ajoutez la première ci-dessous.",
+                "No action is planned: add the first one below.",
+              )
+            : t("Aucune action n'est planifiée pour le moment.", "No action is planned for now.")}
         </p>
       ) : (
         <>
-          <Carte titre="Avancement" niveauTitre={3}>
+          <Carte titre={t("Avancement", "Progress")} niveauTitre={3}>
             <div className="mp-dd-pile">
-              <p className="mp-dd-chiffre">{formaterBp(s.taux_realisation_bp)}</p>
+              <p className="mp-dd-chiffre">{formaterBp(s.taux_realisation_bp, langue)}</p>
               <p className="mp-texte-petit">
-                {`des actions sont terminées (${s.terminees} sur ${s.total}).`}
-                {phraseJourCourant(s.jour_courant)}
+                {t(
+                  `des actions sont terminées (${s.terminees} sur ${s.total}).`,
+                  `of actions are done (${s.terminees} out of ${s.total}).`,
+                )}
+                {phraseJourCourant(s.jour_courant, langue)}
               </p>
               {s.en_retard.length > 0 ? (
-                <Alerte tonalite="danger" titre="Actions en retard" annonce="aucune">
+                <Alerte
+                  tonalite="danger"
+                  titre={t("Actions en retard", "Overdue actions")}
+                  annonce="aucune"
+                >
                   <p>{nommer(s.en_retard)}</p>
                 </Alerte>
               ) : null}
               {s.sans_responsable.length > 0 || s.sans_indicateur.length > 0 ? (
-                <Alerte tonalite="attention" titre="Actions à compléter" annonce="aucune">
+                <Alerte
+                  tonalite="attention"
+                  titre={t("Actions à compléter", "Actions to complete")}
+                  annonce="aucune"
+                >
                   {s.sans_responsable.length > 0 ? (
-                    <p>{`Sans responsable : ${nommer(s.sans_responsable)}.`}</p>
+                    <p>{`${t("Sans responsable", "No owner")} : ${nommer(s.sans_responsable)}.`}</p>
                   ) : null}
                   {s.sans_indicateur.length > 0 ? (
-                    <p>{`Sans indicateur : ${nommer(s.sans_indicateur)}.`}</p>
+                    <p>{`${t("Sans indicateur", "No KPI")} : ${nommer(s.sans_indicateur)}.`}</p>
                   ) : null}
                 </Alerte>
               ) : null}
@@ -117,7 +155,7 @@ export default async function PagePlan100jDd({
       )}
 
       {droits.ecrire && choix ? (
-        <Carte titre="Nouvelle action" niveauTitre={3}>
+        <Carte titre={t("Nouvelle action", "New action")} niveauTitre={3}>
           <FormulaireAction dossierId={dossierId} choix={choix} />
         </Carte>
       ) : null}

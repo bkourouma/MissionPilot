@@ -8,11 +8,12 @@ import {
   conditionParDefaut,
   deplacer,
   ECHELLES_TYPES,
+  libelleEchelleType,
   estIdentifiantValide,
   estModeleQuestion,
   idAncreQuestion,
   LONGUEUR_TEXTE_PLAFOND,
-  MODELE_QUESTION,
+  modeleQuestionTexte,
   MODELES_QUESTION,
   modeleDeQuestion,
   nouvelleOption,
@@ -28,6 +29,7 @@ import {
   type Question,
   type QuestionIndexee,
 } from "../../lib/questionnaires-definition";
+import { useT, useLangue } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
@@ -73,9 +75,11 @@ export function EditeurQuestion({
   onDeplacer,
   onSupprimer,
 }: EditeurQuestionProps) {
+  const t = useT();
+  const langue = useLangue();
   const base = `sections[${si}].questions[${qi}]`;
   const idBase = idAncreQuestion(si, qi);
-  const nom = q.libelle.trim() || `question ${qi + 1}`;
+  const nom = q.libelle.trim() || t(`question ${qi + 1}`, `question ${qi + 1}`);
   const modele = modeleDeQuestion(q);
   const champs = new Set([`${base}.libelle`, `${base}.aide`, `${base}.id`]);
   const autres = anomalies.filter((a) => !champs.has(a.chemin));
@@ -91,7 +95,7 @@ export function EditeurQuestion({
         <h3 id={`${idBase}-titre`} className="mp-qe-repere">
           {`Question ${qi + 1}`}
           <span className="mp-visuellement-cache">{` : ${nom}`}</span>
-          <span aria-hidden="true">{` · ${MODELE_QUESTION[modele].libelle}`}</span>
+          <span aria-hidden="true">{` · ${modeleQuestionTexte(modele, langue).libelle}`}</span>
         </h3>
         <div className="mp-barre-actions mp-barre-actions--compacte">
           <Bouton
@@ -99,27 +103,30 @@ export function EditeurQuestion({
             icone="flecheHaut"
             disabled={qi === 0}
             onClick={() => onDeplacer(-1)}
-            aria-label={`Monter la question ${qi + 1}`}
+            aria-label={t(`Monter la question ${qi + 1}`, `Move up question ${qi + 1}`)}
           >
-            Monter
+            {t("Monter", "Move up")}
           </Bouton>
           <Bouton
             variante="discret"
             icone="flecheBas"
             disabled={qi === total - 1}
             onClick={() => onDeplacer(1)}
-            aria-label={`Descendre la question ${qi + 1}`}
+            aria-label={t(`Descendre la question ${qi + 1}`, `Move down question ${qi + 1}`)}
           >
-            Descendre
+            {t("Descendre", "Move down")}
           </Bouton>
           {total > 1 ? (
             <BoutonConfirmation
-              libelle="Supprimer"
+              libelle={t("Supprimer", "Delete")}
               icone="corbeille"
               variante="discret"
-              ariaLabel={`Supprimer la question ${qi + 1}`}
-              question={`Supprimer la question ${qi + 1} « ${nom} » ?`}
-              libelleConfirmation="Oui, supprimer"
+              ariaLabel={t(`Supprimer la question ${qi + 1}`, `Delete question ${qi + 1}`)}
+              question={t(
+                `Supprimer la question ${qi + 1} « ${nom} » ?`,
+                `Delete question ${qi + 1} "${nom}"?`,
+              )}
+              libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
               action={async () => onSupprimer()}
             />
           ) : null}
@@ -127,7 +134,10 @@ export function EditeurQuestion({
       </div>
 
       {autres.length > 0 ? (
-        <ul className="mp-qe-anomalies" aria-label={`Anomalies de la question ${qi + 1}`}>
+        <ul
+          className="mp-qe-anomalies"
+          aria-label={t(`Anomalies de la question ${qi + 1}`, `Issues in question ${qi + 1}`)}
+        >
           {autres.map((a, i) => (
             <li key={`${a.chemin}-${i}`} className="mp-champ__erreur">
               <Icone nom="attention" taille={16} />
@@ -138,7 +148,7 @@ export function EditeurQuestion({
       ) : null}
 
       <ZoneTexte
-        libelle="Libellé de la question"
+        libelle={t("Libellé de la question", "Question label")}
         name={`${idBase}-libelle`}
         required
         rows={2}
@@ -149,32 +159,38 @@ export function EditeurQuestion({
       />
       <div className="mp-grille-champs">
         <Select
-          libelle="Type de réponse"
+          libelle={t("Type de réponse", "Response type")}
           name={`${idBase}-type`}
           value={modele}
           options={MODELES_QUESTION.map((m) => ({
             valeur: m,
-            libelle: MODELE_QUESTION[m].libelle,
+            libelle: modeleQuestionTexte(m, langue).libelle,
           }))}
-          aide={MODELE_QUESTION[modele].aide}
+          aide={modeleQuestionTexte(modele, langue).aide}
           onChange={(e) => {
             if (estModeleQuestion(e.target.value)) onChange(changerModele(q, e.target.value));
           }}
         />
         <CaseACocher
-          libelle="Réponse obligatoire"
-          aide="Une question obligatoire masquée par sa condition n'est pas exigée."
+          libelle={t("Réponse obligatoire", "Required response")}
+          aide={t(
+            "Une question obligatoire masquée par sa condition n'est pas exigée.",
+            "A required question hidden by its condition is not required.",
+          )}
           checked={q.obligatoire}
           onChange={(e) => onChange({ ...q, obligatoire: e.target.checked })}
         />
       </div>
       <ZoneTexte
-        libelle="Aide pour le répondant"
+        libelle={t("Aide pour le répondant", "Help for the respondent")}
         name={`${idBase}-aide`}
         rows={2}
         maxLength={1_000}
         value={q.aide ?? ""}
-        aide="Facultative : précision affichée sous le libellé."
+        aide={t(
+          "Facultative : précision affichée sous le libellé.",
+          "Optional: clarification displayed under the label.",
+        )}
         erreur={erreurA(anomalies, `${base}.aide`)}
         onChange={(e) => onChange(avecChamp(q, "aide", texteFacultatif(e.target.value)))}
       />
@@ -182,11 +198,20 @@ export function EditeurQuestion({
       <ReglagesType q={q} idBase={idBase} onChange={onChange} />
 
       <CaseACocher
-        libelle="Afficher cette question seulement sous condition"
+        libelle={t(
+          "Afficher cette question seulement sous condition",
+          "Display this question only under a condition",
+        )}
         aide={
           candidates.length === 0
-            ? "Ajoutez d'abord une autre question à laquelle rattacher la condition."
-            : "La question n'apparaît au répondant que si la condition est vraie."
+            ? t(
+                "Ajoutez d'abord une autre question à laquelle rattacher la condition.",
+                "First add another question to attach the condition to.",
+              )
+            : t(
+                "La question n'apparaît au répondant que si la condition est vraie.",
+                "The question only appears to the respondent if the condition is true.",
+              )
         }
         disabled={candidates.length === 0 && q.condition === undefined}
         checked={q.condition !== undefined}
@@ -203,7 +228,7 @@ export function EditeurQuestion({
           candidates={candidates}
           questions={questions}
           idBase={`${idBase}-c`}
-          legende="Condition d'affichage"
+          legende={t("Condition d'affichage", "Display condition")}
         />
       ) : null}
 
@@ -231,17 +256,24 @@ export function ChampIdentifiant({
   onRenommer: (id: string) => void;
   objet?: "question" | "section";
 }) {
+  const t = useT();
   const [texte, setTexte] = useState(id);
   useEffect(() => setTexte(id), [id]);
   const invalide = texte.trim() !== "" && !estIdentifiantValide(texte.trim());
   return (
     <details className="mp-details">
       <summary>
-        {`Identifiant de la ${objet}`}
+        {t(
+          `Identifiant de la ${objet}`,
+          `${objet === "question" ? "Question" : "Section"} identifier`,
+        )}
         <span className="mp-visuellement-cache">{` (${id})`}</span>
       </summary>
       <Champ
-        libelle={`Identifiant de la ${objet}`}
+        libelle={t(
+          `Identifiant de la ${objet}`,
+          `${objet === "question" ? "Question" : "Section"} identifier`,
+        )}
         name={`${idBase}-id`}
         autoCapitalize="none"
         autoComplete="off"
@@ -250,20 +282,29 @@ export function ChampIdentifiant({
         value={texte}
         aide={
           objet === "question"
-            ? "Clé stable des réponses et des grilles de notation : minuscules, chiffres, « _ », « . » ou « - ». Les conditions qui citent la question sont mises à jour ; une grille de notation, elle, ne l'est pas."
-            : "Clé stable de la section : minuscules, chiffres, « _ », « . » ou « - »."
+            ? t(
+                "Clé stable des réponses et des grilles de notation : minuscules, chiffres, « _ », « . » ou « - ». Les conditions qui citent la question sont mises à jour ; une grille de notation, elle, ne l'est pas.",
+                'Stable key of responses and rating grids: lowercase letters, digits, "_", "." or "-". Conditions that cite the question are updated; a rating grid is not.',
+              )
+            : t(
+                "Clé stable de la section : minuscules, chiffres, « _ », « . » ou « - ».",
+                'Stable key of the section: lowercase letters, digits, "_", "." or "-".',
+              )
         }
         erreur={
           texte.trim() === ""
-            ? "L'identifiant est obligatoire."
+            ? t("L'identifiant est obligatoire.", "The identifier is required.")
             : invalide
-              ? "Identifiant invalide : minuscules sans accent, chiffres, « _ », « . » ou « - »."
+              ? t(
+                  "Identifiant invalide : minuscules sans accent, chiffres, « _ », « . » ou « - ».",
+                  'Invalid identifier: lowercase letters without accents, digits, "_", "." or "-".',
+                )
               : erreur
         }
         onChange={(e) => setTexte(e.target.value)}
         onBlur={() => {
-          const t = texte.trim();
-          if (t !== "" && t !== id && estIdentifiantValide(t)) onRenommer(t);
+          const saisi = texte.trim();
+          if (saisi !== "" && saisi !== id && estIdentifiantValide(saisi)) onRenommer(saisi);
           else setTexte(id);
         }}
       />
@@ -280,6 +321,7 @@ function ReglagesType({
   idBase: string;
   onChange: (q: Question) => void;
 }) {
+  const t = useT();
   switch (q.type) {
     case "likert":
       return <ReglagesLikert q={q} idBase={idBase} onChange={onChange} />;
@@ -290,11 +332,14 @@ function ReglagesType({
       return (
         <div className="mp-grille-champs">
           <ChampNombre
-            libelle="Longueur maximale (caractères)"
+            libelle={t("Longueur maximale (caractères)", "Maximum length (characters)")}
             name={`${idBase}-longueur`}
             entier
             valeur={q.longueurMax}
-            aide={`Facultative : 2 000 par défaut, ${LONGUEUR_TEXTE_PLAFOND.toLocaleString("fr-FR")} au plus.`}
+            aide={t(
+              `Facultative : 2 000 par défaut, ${LONGUEUR_TEXTE_PLAFOND.toLocaleString("fr-FR")} au plus.`,
+              `Optional: 2,000 by default, ${LONGUEUR_TEXTE_PLAFOND.toLocaleString("en-GB")} at most.`,
+            )}
             onChange={(v) => onChange(avecChamp(q, "longueurMax", v))}
           />
         </div>
@@ -306,11 +351,14 @@ function ReglagesType({
             <p className="mp-qe-resume">
               <Icone nom="info" taille={16} />
               <span>
-                Réponse de 0 à 100 %. Pour d'autres bornes, choisissez le type « Nombre ».
+                {t(
+                  "Réponse de 0 à 100 %. Pour d'autres bornes, choisissez le type « Nombre ».",
+                  'Response from 0 to 100%. For other bounds, choose the "Number" type.',
+                )}
               </span>
             </p>
             <CaseACocher
-              libelle="Nombre entier exigé"
+              libelle={t("Nombre entier exigé", "Whole number required")}
               checked={q.entier === true}
               onChange={(e) => onChange(avecChamp(q, "entier", e.target.checked || undefined))}
             />
@@ -320,29 +368,29 @@ function ReglagesType({
       return (
         <div className="mp-grille-champs">
           <ChampNombre
-            libelle="Minimum"
+            libelle={t("Minimum", "Minimum")}
             name={`${idBase}-min`}
             valeur={q.min}
-            aide="Facultatif."
+            aide={t("Facultatif.", "Optional.")}
             onChange={(v) => onChange(avecChamp(q, "min", v))}
           />
           <ChampNombre
-            libelle="Maximum"
+            libelle={t("Maximum", "Maximum")}
             name={`${idBase}-max`}
             valeur={q.max}
-            aide="Facultatif."
+            aide={t("Facultatif.", "Optional.")}
             onChange={(v) => onChange(avecChamp(q, "max", v))}
           />
           <Champ
-            libelle="Unité"
+            libelle={t("Unité", "Unit")}
             name={`${idBase}-unite`}
             maxLength={30}
             value={q.unite ?? ""}
-            aide="Facultative, ex. personnes, FCFA, %."
+            aide={t("Facultative, ex. personnes, FCFA, %.", "Optional, e.g. people, FCFA, %.")}
             onChange={(e) => onChange(avecChamp(q, "unite", texteFacultatif(e.target.value)))}
           />
           <CaseACocher
-            libelle="Nombre entier exigé"
+            libelle={t("Nombre entier exigé", "Whole number required")}
             checked={q.entier === true}
             onChange={(e) => onChange(avecChamp(q, "entier", e.target.checked || undefined))}
           />
@@ -352,19 +400,19 @@ function ReglagesType({
       return (
         <div className="mp-grille-champs">
           <Champ
-            libelle="Date au plus tôt"
+            libelle={t("Date au plus tôt", "Earliest date")}
             name={`${idBase}-min`}
             type="date"
             value={q.min ?? ""}
-            aide="Facultative."
+            aide={t("Facultative.", "Optional.")}
             onChange={(e) => onChange(avecChamp(q, "min", texteFacultatif(e.target.value)))}
           />
           <Champ
-            libelle="Date au plus tard"
+            libelle={t("Date au plus tard", "Latest date")}
             name={`${idBase}-max`}
             type="date"
             value={q.max ?? ""}
-            aide="Facultative."
+            aide={t("Facultative.", "Optional.")}
             onChange={(e) => onChange(avecChamp(q, "max", texteFacultatif(e.target.value)))}
           />
         </div>
@@ -373,7 +421,7 @@ function ReglagesType({
       return (
         <p className="mp-qe-resume">
           <Icone nom="info" taille={16} />
-          <span>Réponses proposées : Oui, Non.</span>
+          <span>{t("Réponses proposées : Oui, Non.", "Proposed responses: Yes, No.")}</span>
         </p>
       );
   }
@@ -388,16 +436,18 @@ function ReglagesLikert({
   idBase: string;
   onChange: (q: Question) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const points = Array.from(
     { length: POINTS_LIKERT_MAX - POINTS_LIKERT_MIN + 1 },
     (_, i) => POINTS_LIKERT_MIN + i,
   );
   return (
     <fieldset className="mp-groupe">
-      <legend className="mp-champ__libelle">Échelle de réponse</legend>
+      <legend className="mp-champ__libelle">{t("Échelle de réponse", "Response scale")}</legend>
       <div className="mp-ligne-action">
         <Select
-          libelle="Nombre de niveaux"
+          libelle={t("Nombre de niveaux", "Number of levels")}
           name={`${idBase}-points`}
           value={String(q.points)}
           options={points.map((p) => ({ valeur: String(p), libelle: String(p) }))}
@@ -412,7 +462,7 @@ function ReglagesLikert({
             variante="secondaire"
             onClick={() => onChange({ ...q, points: e.niveaux.length, libelles: [...e.niveaux] })}
           >
-            {`${e.libelle} (${e.niveaux.length} niveaux)`}
+            {`${libelleEchelleType(e.id, langue)} (${e.niveaux.length} ${t("niveaux", "levels")})`}
           </Bouton>
         ))}
       </div>
@@ -423,7 +473,7 @@ function ReglagesLikert({
               {i + 1}
             </span>
             <Champ
-              libelle={`Libellé du niveau ${i + 1}`}
+              libelle={t(`Libellé du niveau ${i + 1}`, `Label of level ${i + 1}`)}
               name={`${idBase}-niveau-${i}`}
               required
               maxLength={120}
@@ -448,18 +498,24 @@ function ReglagesChoix({
   idBase: string;
   onChange: (q: Question) => void;
 }) {
+  const t = useT();
   const options = (o: OptionChoix[]) => onChange({ ...q, options: o });
   return (
     <fieldset className="mp-groupe">
-      <legend className="mp-champ__libelle">{`Options (${q.options.length})`}</legend>
+      <legend className="mp-champ__libelle">
+        {t(`Options (${q.options.length})`, `Options (${q.options.length})`)}
+      </legend>
       <p className="mp-champ__aide">
-        {`De ${OPTIONS_MIN} à ${OPTIONS_MAX} options. Le code est la valeur enregistrée : gardez-le stable après un envoi.`}
+        {t(
+          `De ${OPTIONS_MIN} à ${OPTIONS_MAX} options. Le code est la valeur enregistrée : gardez-le stable après un envoi.`,
+          `From ${OPTIONS_MIN} to ${OPTIONS_MAX} options. The code is the stored value: keep it stable after sending.`,
+        )}
       </p>
       <ol className="mp-qe-elements">
         {q.options.map((o, i) => (
           <li key={i} className="mp-qe-element">
             <Champ
-              libelle={`Code de l'option ${i + 1}`}
+              libelle={t(`Code de l'option ${i + 1}`, `Code of option ${i + 1}`)}
               name={`${idBase}-option-${i}-code`}
               required
               autoCapitalize="none"
@@ -468,13 +524,16 @@ function ReglagesChoix({
               value={o.code}
               erreur={
                 o.code !== "" && !estIdentifiantValide(o.code)
-                  ? "Minuscules sans accent, chiffres, « _ », « . » ou « - »."
+                  ? t(
+                      "Minuscules sans accent, chiffres, « _ », « . » ou « - ».",
+                      'Lowercase letters without accents, digits, "_", "." or "-".',
+                    )
                   : undefined
               }
               onChange={(e) => options(remplacer(q.options, i, { ...o, code: e.target.value }))}
             />
             <Champ
-              libelle={`Libellé de l'option ${i + 1}`}
+              libelle={t(`Libellé de l'option ${i + 1}`, `Label of option ${i + 1}`)}
               name={`${idBase}-option-${i}-libelle`}
               required
               maxLength={200}
@@ -486,28 +545,28 @@ function ReglagesChoix({
                 variante="discret"
                 icone="flecheHaut"
                 disabled={i === 0}
-                aria-label={`Monter l'option ${i + 1}`}
+                aria-label={t(`Monter l'option ${i + 1}`, `Move up option ${i + 1}`)}
                 onClick={() => options(deplacer(q.options, i, -1))}
               >
-                <span className="mp-visuellement-cache">Monter</span>
+                <span className="mp-visuellement-cache">{t("Monter", "Move up")}</span>
               </Bouton>
               <Bouton
                 variante="discret"
                 icone="flecheBas"
                 disabled={i === q.options.length - 1}
-                aria-label={`Descendre l'option ${i + 1}`}
+                aria-label={t(`Descendre l'option ${i + 1}`, `Move down option ${i + 1}`)}
                 onClick={() => options(deplacer(q.options, i, 1))}
               >
-                <span className="mp-visuellement-cache">Descendre</span>
+                <span className="mp-visuellement-cache">{t("Descendre", "Move down")}</span>
               </Bouton>
               <Bouton
                 variante="discret"
                 icone="corbeille"
                 disabled={q.options.length <= OPTIONS_MIN}
-                aria-label={`Retirer l'option ${i + 1}`}
+                aria-label={t(`Retirer l'option ${i + 1}`, `Remove option ${i + 1}`)}
                 onClick={() => options(retirer(q.options, i))}
               >
-                <span className="mp-visuellement-cache">Retirer</span>
+                <span className="mp-visuellement-cache">{t("Retirer", "Remove")}</span>
               </Bouton>
             </div>
           </li>
@@ -520,25 +579,28 @@ function ReglagesChoix({
           disabled={q.options.length >= OPTIONS_MAX}
           onClick={() => options([...q.options, nouvelleOption(q.options)])}
         >
-          Ajouter une option
+          {t("Ajouter une option", "Add an option")}
         </Bouton>
       </div>
       {q.type === "choix_multiple" ? (
         <div className="mp-grille-champs">
           <ChampNombre
-            libelle="Nombre minimal de réponses"
+            libelle={t("Nombre minimal de réponses", "Minimum number of responses")}
             name={`${idBase}-min-selections`}
             entier
             valeur={q.minSelections}
-            aide="Facultatif : 1 par défaut."
+            aide={t("Facultatif : 1 par défaut.", "Optional: 1 by default.")}
             onChange={(v) => onChange(avecChamp(q, "minSelections", v))}
           />
           <ChampNombre
-            libelle="Nombre maximal de réponses"
+            libelle={t("Nombre maximal de réponses", "Maximum number of responses")}
             name={`${idBase}-max-selections`}
             entier
             valeur={q.maxSelections}
-            aide="Facultatif : toutes les options par défaut."
+            aide={t(
+              "Facultatif : toutes les options par défaut.",
+              "Optional: all options by default.",
+            )}
             onChange={(v) => onChange(avecChamp(q, "maxSelections", v))}
           />
         </div>

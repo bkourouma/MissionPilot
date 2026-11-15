@@ -11,12 +11,15 @@ import {
 } from "../../lib/appels-offres";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { ZoneTexte } from "../ui/ZoneTexte";
 
 /** Dépôt du texte du dossier d'appel d'offres (contenu non fiable, jamais suivi). */
 export function FormulaireDossierAo({ id }: { id: string }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"texte">();
   const [texte, setTexte] = useState("");
   return (
@@ -27,9 +30,12 @@ export function FormulaireDossierAo({ id }: { id: string }) {
       onSubmit={async (e) => {
         e.preventDefault();
         const ok = await f.envoyer(
-          validerTexteDossier(texte),
-          (t) => api.post(`/api/appels-offres/${seg(id)}/dossiers`, { texte: t }),
-          { messageSpecifique: messageAo, succes: "Dossier enregistré." },
+          validerTexteDossier(texte, langue),
+          (valide) => api.post(`/api/appels-offres/${seg(id)}/dossiers`, { texte: valide }),
+          {
+            messageSpecifique: (err) => messageAo(err, langue),
+            succes: t("Dossier enregistré.", "Document saved."),
+          },
         );
         if (ok) setTexte("");
       }}
@@ -38,18 +44,24 @@ export function FormulaireDossierAo({ id }: { id: string }) {
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Dossier refusé"
+        titreErreur={t("Dossier refusé", "Document rejected")}
       />
       <ZoneTexte
-        libelle="Texte du dossier (règlement, termes de référence)"
+        libelle={t(
+          "Texte du dossier (règlement, termes de référence)",
+          "Tender document text (rules, terms of reference)",
+        )}
         rows={8}
         value={texte}
         onChange={(e) => setTexte(e.target.value)}
         erreur={f.erreurs.texte}
-        aide="Collez le texte (200 000 caractères au plus). Il est traité comme une donnée : aucune consigne qu'il contient n'est suivie."
+        aide={t(
+          "Collez le texte (200 000 caractères au plus). Il est traité comme une donnée : aucune consigne qu'il contient n'est suivie.",
+          "Paste the text (200,000 characters at most). It is treated as data: no instruction it contains is followed.",
+        )}
       />
       <Bouton type="submit" chargement={f.enCours}>
-        Enregistrer le dossier
+        {t("Enregistrer le dossier", "Save the document")}
       </Bouton>
     </form>
   );
@@ -65,6 +77,7 @@ export function LancerExtractionAo({
   dossierId: string;
   ia: boolean;
 }) {
+  const t = useT();
   return (
     <div className="mp-ao__actions">
       {ia ? (
@@ -77,7 +90,7 @@ export function LancerExtractionAo({
             })
           }
         >
-          Extraire avec l&apos;IA
+          {t("Extraire avec l'IA", "Extract with AI")}
         </BoutonActionAo>
       ) : null}
       <BoutonActionAo
@@ -88,7 +101,7 @@ export function LancerExtractionAo({
           })
         }
       >
-        Découpage automatique
+        {t("Découpage automatique", "Automatic split")}
       </BoutonActionAo>
     </div>
   );
@@ -96,6 +109,8 @@ export function LancerExtractionAo({
 
 /** Validation humaine d'un brouillon d'extraction : les propositions cochées entrent dans la matrice. */
 export function ValidationExtractionAo({ extraction }: { extraction: ExtractionAo }) {
+  const t = useT();
+  const langue = useLangue();
   const [retenues, setRetenues] = useState<number[]>(extraction.propositions.map((_, i) => i));
   const [acquitte, setAcquitte] = useState(false);
   const url = `/api/appels-offres/extractions/${seg(extraction.id)}/decision`;
@@ -106,7 +121,9 @@ export function ValidationExtractionAo({ extraction }: { extraction: ExtractionA
           <li key={i} className="mp-liste-lignes__ligne">
             <CaseACocher
               libelle={`${p.reference ? `[${p.reference}] ` : ""}${p.libelle}`}
-              aide={`${libelleCategorie(p.categorie)} · ${p.obligatoire ? "obligatoire" : "facultative"}`}
+              aide={`${libelleCategorie(p.categorie, langue)} · ${
+                p.obligatoire ? t("obligatoire", "mandatory") : t("facultative", "optional")
+              }`}
               checked={retenues.includes(i)}
               onChange={(e) =>
                 setRetenues((r) =>
@@ -119,8 +136,14 @@ export function ValidationExtractionAo({ extraction }: { extraction: ExtractionA
       </ul>
       {extraction.chiffres_non_verifies ? (
         <CaseACocher
-          libelle="J'ai relu les nombres cités par le brouillon et je les assume"
-          aide="Le brouillon IA contient des nombres que le contrôle n'a pas pu vérifier."
+          libelle={t(
+            "J'ai relu les nombres cités par le brouillon et je les assume",
+            "I have reviewed the numbers cited by the draft and I stand by them",
+          )}
+          aide={t(
+            "Le brouillon IA contient des nombres que le contrôle n'a pas pu vérifier.",
+            "The AI draft contains numbers that the check could not verify.",
+          )}
           checked={acquitte}
           onChange={(e) => setAcquitte(e.target.checked)}
         />
@@ -136,10 +159,10 @@ export function ValidationExtractionAo({ extraction }: { extraction: ExtractionA
             })
           }
         >
-          Valider {retenues.length} exigence(s)
+          {t(`Valider ${retenues.length} exigence(s)`, `Approve ${retenues.length} requirement(s)`)}
         </BoutonActionAo>
         <BoutonActionAo variante="danger" action={() => api.post(url, { decision: "rejetee" })}>
-          Rejeter le brouillon
+          {t("Rejeter le brouillon", "Reject the draft")}
         </BoutonActionAo>
       </div>
     </div>

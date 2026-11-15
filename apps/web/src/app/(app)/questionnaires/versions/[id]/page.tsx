@@ -8,6 +8,7 @@ import { BadgeStatut } from "../../../../../components/ui/BadgeStatut";
 import { EnteteDePage } from "../../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { formaterDateHeure } from "../../../../../lib/format";
 import { estIdentifiant } from "../../../../../lib/identifiant";
 import {
@@ -20,13 +21,18 @@ import { libelleContenuIa } from "../../../../../lib/questionnaires-ia";
 import { exigerPermission } from "../../../../../lib/session";
 import { PanneauIa } from "./PanneauIa";
 
-export const metadata: Metadata = { title: "Version de questionnaire" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Version de questionnaire", "Questionnaire version") };
+}
 
 /**
  * Version d'un modèle de questionnaire : éditeur si c'est un brouillon et que l'utilisateur
  * rédige (`questionnaire.gerer`), aperçu en lecture seule sinon (version validée = figée).
  */
 export default async function PageVersion({ params }: { params: Promise<{ id: string }> }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   if (!estIdentifiant(id)) notFound();
   const { utilisateur } = await exigerPermission("questionnaire.lire");
@@ -36,11 +42,11 @@ export default async function PageVersion({ params }: { params: Promise<{ id: st
     return (
       <div className="mp-page">
         <EnteteDePage
-          titre="Version de questionnaire"
-          retour={{ href: "/questionnaires", libelle: "Questionnaires" }}
+          titre={t("Version de questionnaire", "Questionnaire version")}
+          retour={{ href: "/questionnaires", libelle: t("Questionnaires", "Questionnaires") }}
         />
         <EtatErreur
-          titre="La version n'a pas pu être chargée."
+          titre={t("La version n'a pas pu être chargée.", "The version could not be loaded.")}
           message={r.message}
           hrefReessayer={`/questionnaires/versions/${id}`}
         />
@@ -48,22 +54,32 @@ export default async function PageVersion({ params }: { params: Promise<{ id: st
     );
   }
   const v = r.donnees;
-  const statut = libelleStatut(STATUT_VERSION, v.statut);
+  const statut = libelleStatut(STATUT_VERSION, v.statut, langue);
   const editable = v.statut === "brouillon" && peutGererQuestionnaires(utilisateur.roles);
   const ia = v.ia ?? null;
-  const statutIa = ia ? libelleContenuIa(ia.statut_contenu) : null;
-  const retour = { href: `/questionnaires/${v.modele_id}`, libelle: "Modèle et versions" };
+  const statutIa = ia ? libelleContenuIa(ia.statut_contenu, langue) : null;
+  const retour = {
+    href: `/questionnaires/${v.modele_id}`,
+    libelle: t("Modèle et versions", "Template and versions"),
+  };
 
   return (
     <div className="mp-page">
       <EnteteDePage
         titre={v.definition.titre}
         retour={retour}
-        soustitre={`Code ${v.code} · version ${v.version} · ${
-          v.statut === "valide" && v.valide_le
-            ? `validée le ${formaterDateHeure(v.valide_le)}`
-            : `modifiée le ${formaterDateHeure(v.modifie_le)}`
-        }`}
+        soustitre={t(
+          `Code ${v.code} · version ${v.version} · ${
+            v.statut === "valide" && v.valide_le
+              ? `validée le ${formaterDateHeure(v.valide_le)}`
+              : `modifiée le ${formaterDateHeure(v.modifie_le)}`
+          }`,
+          `Code ${v.code} · version ${v.version} · ${
+            v.statut === "valide" && v.valide_le
+              ? `approved on ${formaterDateHeure(v.valide_le, undefined, langue)}`
+              : `edited on ${formaterDateHeure(v.modifie_le, undefined, langue)}`
+          }`,
+        )}
         badges={
           <>
             <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
@@ -81,16 +97,27 @@ export default async function PageVersion({ params }: { params: Promise<{ id: st
           <Alerte tonalite={v.statut === "valide" ? "succes" : "info"} annonce="status">
             <p>
               {v.statut === "valide"
-                ? "Version validée : elle est figée et peut être envoyée depuis l'onglet « Questionnaires » d'une mission. Pour la faire évoluer, créez une nouvelle version depuis le modèle."
-                : "Brouillon en cours de rédaction : votre rôle permet de le consulter, pas de le modifier."}
+                ? t(
+                    "Version validée : elle est figée et peut être envoyée depuis l'onglet « Questionnaires » d'une mission. Pour la faire évoluer, créez une nouvelle version depuis le modèle.",
+                    'Approved version: it is locked and can be sent from the "Questionnaires" tab of an engagement. To evolve it, create a new version from the template.',
+                  )
+                : t(
+                    "Brouillon en cours de rédaction : votre rôle permet de le consulter, pas de le modifier.",
+                    "Draft being written: your role lets you view it, not edit it.",
+                  )}
             </p>
             {v.statut === "valide" && peutGererQuestionnaires(utilisateur.roles) ? (
               <p>
-                <Link href={retour.href}>Aller au modèle pour créer une nouvelle version</Link>
+                <Link href={retour.href}>
+                  {t(
+                    "Aller au modèle pour créer une nouvelle version",
+                    "Go to the template to create a new version",
+                  )}
+                </Link>
               </p>
             ) : null}
           </Alerte>
-          <ApercuQuestionnaire definition={v.definition} />
+          <ApercuQuestionnaire definition={v.definition} langue={langue} />
         </>
       )}
     </div>

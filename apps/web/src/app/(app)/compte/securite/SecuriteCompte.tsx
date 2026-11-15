@@ -2,6 +2,7 @@
 
 import { useRafraichir } from "../../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { CodesSecours } from "../../../../components/securite/CodesSecours";
@@ -15,7 +16,7 @@ import { api } from "../../../../lib/api";
 import { formaterDate } from "../../../../lib/format";
 import {
   grouperSecret,
-  messageErreurGestion,
+  messageSpecifiqueGestion,
   validerConfirmation,
   validerFacteur,
   validerMotDePasse,
@@ -29,17 +30,21 @@ import {
  * le badge passe déjà à « Activée ».
  */
 export function CarteDoubleAuthentification({ etat, email }: { etat: EtatTfa; email: string }) {
+  const t = useT();
+  const langue = useLangue();
   const [activeeIci, setActiveeIci] = useState(false);
   const active = etat.active || activeeIci;
   return (
     <Carte
-      titre="Double authentification"
+      titre={t("Double authentification", "Two-factor authentication")}
       actions={
         active ? (
-          <BadgeStatut tonalite="succes">Activée</BadgeStatut>
+          <BadgeStatut tonalite="succes">{t("Activée", "Enabled")}</BadgeStatut>
         ) : (
           <BadgeStatut tonalite={etat.obligatoire ? "danger" : "neutre"}>
-            {etat.obligatoire ? "Désactivée – exigée par le cabinet" : "Désactivée"}
+            {etat.obligatoire
+              ? t("Désactivée – exigée par le cabinet", "Disabled – required by the firm")
+              : t("Désactivée", "Disabled")}
           </BadgeStatut>
         )
       }
@@ -48,12 +53,14 @@ export function CarteDoubleAuthentification({ etat, email }: { etat: EtatTfa; em
         <div className="mp-pile">
           <dl className="mp-liste-def">
             <div>
-              <dt>Activée le</dt>
-              <dd>{formaterDate(etat.activee_le, "Africa/Abidjan")}</dd>
+              <dt>{t("Activée le", "Enabled on")}</dt>
+              <dd>{formaterDate(etat.activee_le, "Africa/Abidjan", langue)}</dd>
             </div>
             <div>
-              <dt>Codes de secours restants</dt>
-              <dd>{`${etat.codes_secours_restants} sur 10`}</dd>
+              <dt>{t("Codes de secours restants", "Backup codes remaining")}</dt>
+              <dd>
+                {t(`${etat.codes_secours_restants} sur 10`, `${etat.codes_secours_restants} of 10`)}
+              </dd>
             </div>
           </dl>
           <GestionTfaActive
@@ -98,6 +105,7 @@ export function ActivationTfa({
   obligatoire: boolean;
   onActivee: () => void;
 }) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   const [etat, setEtat] = useState<EtapeActivation>({ etape: "repos" });
 
@@ -137,16 +145,24 @@ export function ActivationTfa({
     <div className="mp-pile">
       <p>
         {obligatoire
-          ? "Votre cabinet exige la double authentification pour votre rôle. Activez-la maintenant : cela prend deux minutes."
-          : "Recommandée : même si votre mot de passe fuit, personne ne peut se connecter sans votre téléphone."}
+          ? t(
+              "Votre cabinet exige la double authentification pour votre rôle. Activez-la maintenant : cela prend deux minutes.",
+              "Your firm requires two-factor authentication for your role. Turn it on now: it takes two minutes.",
+            )
+          : t(
+              "Recommandée : même si votre mot de passe fuit, personne ne peut se connecter sans votre téléphone.",
+              "Recommended: even if your password leaks, no one can sign in without your phone.",
+            )}
       </p>
       <p className="mp-texte-doux">
-        Il vous faut une application d&apos;authentification sur votre téléphone (Google
-        Authenticator, Microsoft Authenticator, FreeOTP…).
+        {t(
+          "Il vous faut une application d'authentification sur votre téléphone (Google Authenticator, Microsoft Authenticator, FreeOTP…).",
+          "You need an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, FreeOTP…).",
+        )}
       </p>
       <div>
         <Bouton icone="cadenas" onClick={() => setEtat({ etape: "mot_de_passe" })}>
-          Activer la double authentification
+          {t("Activer la double authentification", "Turn on two-factor authentication")}
         </Bouton>
       </div>
     </div>
@@ -160,23 +176,35 @@ function EtapeMotDePasse({
   onSecret: (s: Secret) => void;
   onAnnuler: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [motDePasse, setMotDePasse] = useState("");
   const f = useFormulaire<"mot_de_passe">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     const ok = await f.envoyer(
-      validerMotDePasse(motDePasse),
+      validerMotDePasse(motDePasse, langue),
       (c) => api.post<Secret>("/api/auth/2fa/initialiser", c, { redirigerSi401: false }),
-      { rafraichir: false, apres: onSecret, messageSpecifique: (e) => messageErreurGestion(e) },
+      {
+        rafraichir: false,
+        apres: onSecret,
+        messageSpecifique: messageSpecifiqueGestion("totp", langue),
+      },
     );
     if (!ok) setMotDePasse("");
   }
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
-      <p className="mp-sous-formulaire__titre">Étape 1 sur 3 : confirmez votre identité</p>
-      <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} titreErreur="Refusé" />
+      <p className="mp-sous-formulaire__titre">
+        {t("Étape 1 sur 3 : confirmez votre identité", "Step 1 of 3: confirm your identity")}
+      </p>
+      <RetourFormulaire
+        erreur={f.erreurGlobale}
+        refAlerte={f.refAlerte}
+        titreErreur={t("Refusé", "Refused")}
+      />
       <Champ
-        libelle="Mot de passe"
+        libelle={t("Mot de passe", "Password")}
         type="password"
         autoComplete="current-password"
         required
@@ -186,11 +214,15 @@ function EtapeMotDePasse({
         erreur={f.erreurs.mot_de_passe}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Vérification…">
-          Continuer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Vérification…", "Verifying…")}
+        >
+          {t("Continuer", "Continue")}
         </Bouton>
         <Bouton variante="discret" onClick={onAnnuler}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -206,11 +238,13 @@ function EtapeScan({
   onActivee: (codes: string[]) => void;
   onAnnuler: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [code, setCode] = useState("");
   const f = useFormulaire<"code">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    const v = validerFacteur(code, "totp");
+    const v = validerFacteur(code, "totp", langue);
     const ok = await f.envoyer(
       v,
       (c) =>
@@ -220,7 +254,7 @@ function EtapeScan({
       {
         rafraichir: false,
         apres: (r) => onActivee(r.codes_secours),
-        messageSpecifique: (e) => messageErreurGestion(e),
+        messageSpecifique: messageSpecifiqueGestion("totp", langue),
       },
     );
     if (!ok) setCode("");
@@ -228,29 +262,41 @@ function EtapeScan({
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <p className="mp-sous-formulaire__titre">
-        Étape 2 sur 3 : ajoutez CabinetPilot à votre application
+        {t(
+          "Étape 2 sur 3 : ajoutez CabinetPilot à votre application",
+          "Step 2 of 3: add CabinetPilot to your app",
+        )}
       </p>
       <div className="mp-qrcode-bloc">
         <QrCodeTotp uri={secret.uri} />
         <div className="mp-pile">
-          <p>Scannez ce QR code avec votre application d&apos;authentification.</p>
-          <p className="mp-texte-doux">Impossible de scanner ? Saisissez cette clé :</p>
+          <p>
+            {t(
+              "Scannez ce QR code avec votre application d'authentification.",
+              "Scan this QR code with your authenticator app.",
+            )}
+          </p>
+          <p className="mp-texte-doux">
+            {t("Impossible de scanner ? Saisissez cette clé :", "Can't scan? Enter this key:")}
+          </p>
           <p>
             <code className="mp-secret">{grouperSecret(secret.secret)}</code>
           </p>
           <p className="mp-texte-petit mp-texte-doux">
-            Type : basé sur le temps · 6 chiffres · 30 secondes. Cette clé n&apos;est affichée
-            qu&apos;une fois.
+            {t(
+              "Type : basé sur le temps · 6 chiffres · 30 secondes. Cette clé n'est affichée qu'une fois.",
+              "Type: time-based · 6 digits · 30 seconds. This key is shown only once.",
+            )}
           </p>
         </div>
       </div>
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Code refusé"
+        titreErreur={t("Code refusé", "Code rejected")}
       />
       <Champ
-        libelle="Code à 6 chiffres affiché par l'application"
+        libelle={t("Code à 6 chiffres affiché par l'application", "6-digit code shown by the app")}
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9 ]*"
@@ -262,11 +308,15 @@ function EtapeScan({
         erreur={f.erreurs.code}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Activation…">
-          Activer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Activation…", "Turning on…")}
+        >
+          {t("Activer", "Turn on")}
         </Bouton>
         <Bouton variante="discret" onClick={onAnnuler}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>
@@ -285,6 +335,7 @@ export function GestionTfaActive({
   obligatoire: boolean;
   codesRestants: number;
 }) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   const [action, setAction] = useState<ActionTfa | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -304,8 +355,17 @@ export function GestionTfaActive({
   return (
     <div className="mp-pile">
       {codesRestants <= 3 ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Peu de codes de secours restants">
-          <p>Régénérez vos codes pour ne pas risquer de perdre l&apos;accès à votre compte.</p>
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Peu de codes de secours restants", "Few backup codes left")}
+        >
+          <p>
+            {t(
+              "Régénérez vos codes pour ne pas risquer de perdre l'accès à votre compte.",
+              "Regenerate your codes so you do not risk losing access to your account.",
+            )}
+          </p>
         </Alerte>
       ) : null}
       {action ? (
@@ -321,10 +381,10 @@ export function GestionTfaActive({
       ) : (
         <div className="mp-barre-actions">
           <Bouton variante="secondaire" icone="copie" onClick={() => setAction("codes")}>
-            Régénérer les codes de secours
+            {t("Régénérer les codes de secours", "Regenerate backup codes")}
           </Bouton>
           <Bouton variante="secondaire" icone="cadenas" onClick={() => setAction("desactiver")}>
-            Désactiver la double authentification
+            {t("Désactiver la double authentification", "Turn off two-factor authentication")}
           </Bouton>
         </div>
       )}
@@ -343,6 +403,8 @@ function FormulaireConfirmation({
   onCodes: (codes: string[]) => void;
   onAnnuler: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [motDePasse, setMotDePasse] = useState("");
   const [code, setCode] = useState("");
   const [facteur, setFacteur] = useState<FacteurSaisi>("totp");
@@ -352,7 +414,7 @@ function FormulaireConfirmation({
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     const ok = await f.envoyer(
-      validerConfirmation({ motDePasse, code, facteur }),
+      validerConfirmation({ motDePasse, code, facteur }, langue),
       (c) =>
         desactiver
           ? api.post("/api/auth/2fa/desactiver", c, { redirigerSi401: false })
@@ -361,11 +423,13 @@ function FormulaireConfirmation({
             }),
       {
         rafraichir: desactiver,
-        succes: desactiver ? "Double authentification désactivée." : undefined,
+        succes: desactiver
+          ? t("Double authentification désactivée.", "Two-factor authentication turned off.")
+          : undefined,
         apres: (r) => {
           if (!desactiver) onCodes((r as { codes_secours: string[] }).codes_secours);
         },
-        messageSpecifique: (e) => messageErreurGestion(e, facteur),
+        messageSpecifique: messageSpecifiqueGestion(facteur, langue),
       },
     );
     setMotDePasse("");
@@ -380,27 +444,40 @@ function FormulaireConfirmation({
       onSubmit={soumettre}
     >
       <p className="mp-sous-formulaire__titre">
-        {desactiver ? "Désactiver la double authentification" : "Régénérer les codes de secours"}
+        {desactiver
+          ? t("Désactiver la double authentification", "Turn off two-factor authentication")
+          : t("Régénérer les codes de secours", "Regenerate backup codes")}
       </p>
       {desactiver ? (
         <Alerte tonalite="attention" annonce="aucune">
           <p>
             {obligatoire
-              ? "Votre cabinet exige la double authentification pour votre rôle : vous serez invité à la réactiver."
-              : "Votre compte ne sera plus protégé que par votre mot de passe."}
+              ? t(
+                  "Votre cabinet exige la double authentification pour votre rôle : vous serez invité à la réactiver.",
+                  "Your firm requires two-factor authentication for your role: you will be asked to turn it back on.",
+                )
+              : t(
+                  "Votre compte ne sera plus protégé que par votre mot de passe.",
+                  "Your account will only be protected by your password.",
+                )}
           </p>
         </Alerte>
       ) : (
-        <p className="mp-texte-doux">Vos anciens codes de secours cesseront de fonctionner.</p>
+        <p className="mp-texte-doux">
+          {t(
+            "Vos anciens codes de secours cesseront de fonctionner.",
+            "Your old backup codes will stop working.",
+          )}
+        </p>
       )}
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Refusé"
+        titreErreur={t("Refusé", "Refused")}
       />
       <Champ
-        libelle="Mot de passe"
+        libelle={t("Mot de passe", "Password")}
         type="password"
         autoComplete="current-password"
         required
@@ -410,7 +487,11 @@ function FormulaireConfirmation({
       />
       <Champ
         key={facteur}
-        libelle={facteur === "totp" ? "Code à 6 chiffres de l'application" : "Code de secours"}
+        libelle={
+          facteur === "totp"
+            ? t("Code à 6 chiffres de l'application", "6-digit code from the app")
+            : t("Code de secours", "Backup code")
+        }
         inputMode={facteur === "totp" ? "numeric" : "text"}
         autoComplete={facteur === "totp" ? "one-time-code" : "off"}
         maxLength={facteur === "totp" ? 7 : 40}
@@ -427,7 +508,9 @@ function FormulaireConfirmation({
             setCode("");
           }}
         >
-          {facteur === "totp" ? "Utiliser un code de secours" : "Utiliser le code de l'application"}
+          {facteur === "totp"
+            ? t("Utiliser un code de secours", "Use a backup code")
+            : t("Utiliser le code de l'application", "Use the app code")}
         </Bouton>
       </div>
       <div className="mp-actions-formulaire">
@@ -435,12 +518,14 @@ function FormulaireConfirmation({
           type="submit"
           variante={desactiver ? "danger" : "primaire"}
           chargement={f.enCours}
-          texteChargement="Vérification…"
+          texteChargement={t("Vérification…", "Verifying…")}
         >
-          {desactiver ? "Oui, désactiver" : "Générer de nouveaux codes"}
+          {desactiver
+            ? t("Oui, désactiver", "Yes, turn off")
+            : t("Générer de nouveaux codes", "Generate new codes")}
         </Bouton>
         <Bouton variante="discret" onClick={onAnnuler}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

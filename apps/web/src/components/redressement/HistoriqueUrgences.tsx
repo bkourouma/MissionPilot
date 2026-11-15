@@ -3,6 +3,7 @@
 import { RED_DOMAINES, type RedUrgenceVue } from "@missionpilot/shared";
 import { formaterDateHeure } from "../../lib/format";
 import { cheminUrgences, libelleDomaine } from "../../lib/redressement";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Tableau } from "../ui/Tableau";
@@ -19,29 +20,38 @@ export function HistoriqueUrgences({
   initial: RedUrgenceVue[];
   suivant: string | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const h = useChargerPlus<RedUrgenceVue>(initial, suivant, (c) => cheminUrgences(dossierId, c));
   return (
     <div className="mp-red-section">
       <Tableau
-        legende="Historique des évaluations d'urgence"
-        messageVide="Aucune évaluation d'urgence pour ce dossier."
+        legende={t("Historique des évaluations d'urgence", "Urgency assessment history")}
+        messageVide={t(
+          "Aucune évaluation d'urgence pour ce dossier.",
+          "No urgency assessment for this file.",
+        )}
         colonnes={[
           {
             cle: "date",
             entete: "Date",
-            rendu: (u: RedUrgenceVue) => formaterDateHeure(u.cree_le),
+            rendu: (u: RedUrgenceVue) => formaterDateHeure(u.cree_le, undefined, langue),
           },
-          { cle: "voyant", entete: "Voyant global", rendu: (u) => <Voyant voyant={u.voyant} /> },
+          {
+            cle: "voyant",
+            entete: t("Voyant global", "Overall indicator"),
+            rendu: (u) => <Voyant voyant={u.voyant} />,
+          },
           {
             cle: "domaines",
-            entete: "Voyants par domaine",
+            entete: t("Voyants par domaine", "Indicators by domain"),
             rendu: (u) => (
               <ul className="mp-red-liste-voyants">
                 {RED_DOMAINES.map((d) => {
                   const r = u.resultat.domaines.find((x) => x.domaine === d);
                   return (
                     <li key={d}>
-                      <span className="mp-texte-petit">{libelleDomaine(d)}</span>
+                      <span className="mp-texte-petit">{libelleDomaine(d, langue)}</span>
                       <Voyant voyant={r?.voyant ?? "non_evalue"} />
                     </li>
                   );
@@ -49,13 +59,17 @@ export function HistoriqueUrgences({
               </ul>
             ),
           },
-          { cle: "auteur", entete: "Auteur", rendu: (u) => u.saisi_par.nom },
+          { cle: "auteur", entete: t("Auteur", "Author"), rendu: (u) => u.saisi_par.nom },
         ]}
         lignes={h.elements}
         cleLigne={(u) => u.id}
       />
       {h.erreur ? (
-        <Alerte tonalite="danger" titre="Chargement impossible" annonce="alert">
+        <Alerte
+          tonalite="danger"
+          titre={t("Chargement impossible", "Could not load")}
+          annonce="alert"
+        >
           <p>{h.erreur}</p>
         </Alerte>
       ) : null}
@@ -64,10 +78,10 @@ export function HistoriqueUrgences({
           <Bouton
             variante="secondaire"
             chargement={h.enCours}
-            texteChargement="Chargement…"
+            texteChargement={t("Chargement…", "Loading…")}
             onClick={() => void h.chargerPlus()}
           >
-            Charger plus
+            {t("Charger plus", "Load more")}
           </Bouton>
         </div>
       ) : null}

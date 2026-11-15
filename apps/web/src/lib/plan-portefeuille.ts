@@ -7,6 +7,7 @@
  * l'arbitrage reste humain : chaque écart à la proposition exige un motif (refusé sinon par
  * l'API et par la base).
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import type { Devise } from "./format";
 import { cheminPlan, hrefPlan } from "./plan-strategique";
@@ -93,7 +94,17 @@ const MOTIFS: Record<MotifMoteur, string> = {
   contraintes: "Écartée : budget ou capacité insuffisants",
   score_nul: "Écartée : score nul",
 };
-export const libelleMotifMoteur = (m: string) => MOTIFS[m as MotifMoteur] ?? "Décision du moteur";
+const MOTIFS_EN: Record<MotifMoteur, string> = {
+  obligatoire: "Selected by default (mandatory or in progress)",
+  optimisation: "Selected by optimization",
+  exclue: "Excluded",
+  depend_d_une_exclue: "Depends on an excluded initiative",
+  contraintes: "Dropped: insufficient budget or capacity",
+  score_nul: "Dropped: zero score",
+};
+export const libelleMotifMoteur = (m: string, langue: Langue = "fr") =>
+  (langue === "en" ? MOTIFS_EN : MOTIFS)[m as MotifMoteur] ??
+  (langue === "en" ? "Engine decision" : "Décision du moteur");
 
 /* ----- Évaluation ----- */
 
@@ -126,17 +137,21 @@ function entier(v: string, max: number): number | null {
   return n !== null && Number.isInteger(n) && n >= 0 && n <= max ? n : null;
 }
 
-export function validerEvaluation(s: SaisieEvaluation) {
+export function validerEvaluation(s: SaisieEvaluation, langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieEvaluation, string>> = {};
   const valeur = note(s.valeur);
   const effort = note(s.effort);
   const risque = note(s.risque);
-  if (valeur === null) erreurs.valeur = "Note de 1 à 5.";
-  if (effort === null) erreurs.effort = "Note de 1 à 5.";
-  if (risque === null) erreurs.risque = "Note de 1 à 5.";
+  const noteMsg = t("Note de 1 à 5.", "Score from 1 to 5.");
+  if (valeur === null) erreurs.valeur = noteMsg;
+  if (effort === null) erreurs.effort = noteMsg;
+  if (risque === null) erreurs.risque = noteMsg;
   const charge = entier(s.charge_jours, 100_000);
-  if (charge === null) erreurs.charge_jours = "Nombre entier de jours-homme.";
-  if (s.commentaire.trim().length > 1000) erreurs.commentaire = "1 000 caractères au plus.";
+  if (charge === null)
+    erreurs.charge_jours = t("Nombre entier de jours-homme.", "Whole number of person-days.");
+  if (s.commentaire.trim().length > 1000)
+    erreurs.commentaire = t("1 000 caractères au plus.", "1,000 characters at most.");
   if (Object.keys(erreurs).length) return { erreurs, corps: null };
   return {
     erreurs,
@@ -174,13 +189,14 @@ export function saisieContraintes(poids: Poids): SaisieContraintes {
   };
 }
 
-export function validerContraintes(s: SaisieContraintes, devise: Devise) {
+export function validerContraintes(s: SaisieContraintes, devise: Devise, langue: Langue = "fr") {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieContraintes, string>> = {};
   const budget = lireMontant(s.budget_max, devise);
-  if (Number.isNaN(budget)) erreurs.budget_max = "Montant invalide.";
+  if (Number.isNaN(budget)) erreurs.budget_max = t("Montant invalide.", "Invalid amount.");
   const capacite = s.capacite_max.trim() === "" ? null : entier(s.capacite_max, 10_000_000);
   if (s.capacite_max.trim() !== "" && capacite === null) {
-    erreurs.capacite_max = "Nombre entier de jours-homme.";
+    erreurs.capacite_max = t("Nombre entier de jours-homme.", "Whole number of person-days.");
   }
   const poids = {
     valeur: entier(s.poids_valeur, 10),
@@ -188,12 +204,15 @@ export function validerContraintes(s: SaisieContraintes, devise: Devise) {
     risque: entier(s.poids_risque, 10),
   };
   if (poids.valeur === null || poids.effort === null || poids.risque === null) {
-    erreurs.poids_valeur = "Poids entiers de 0 à 10.";
+    erreurs.poids_valeur = t("Poids entiers de 0 à 10.", "Whole-number weights from 0 to 10.");
   } else if (poids.valeur === 0 && poids.effort === 0 && poids.risque === 0) {
-    erreurs.poids_valeur = "Au moins un poids non nul.";
+    erreurs.poids_valeur = t("Au moins un poids non nul.", "At least one weight must be non-zero.");
   }
   if (s.obligatoires.some((id) => s.exclues.includes(id))) {
-    erreurs.exclues = "Une initiative n'est pas à la fois obligatoire et exclue.";
+    erreurs.exclues = t(
+      "Une initiative n'est pas à la fois obligatoire et exclue.",
+      "An initiative cannot be both mandatory and excluded.",
+    );
   }
   if (Object.keys(erreurs).length) return { erreurs, corps: null };
   return {
@@ -247,9 +266,17 @@ export function validerArbitrage(
 export const MESSAGE_MOTIF_REQUIS =
   "Le motif de cet écart à la proposition du moteur est obligatoire.";
 
+export const messageMotifRequis = (langue: Langue = "fr") =>
+  langue === "en"
+    ? "The reason for this deviation from the engine's proposal is required."
+    : MESSAGE_MOTIF_REQUIS;
+
 /** Erreur à afficher sous chaque champ « Motif » manquant (initiative → message). */
-export function erreursMotifs(manquants: readonly string[]): Record<string, string> {
-  return Object.fromEntries(manquants.map((id) => [id, MESSAGE_MOTIF_REQUIS]));
+export function erreursMotifs(
+  manquants: readonly string[],
+  langue: Langue = "fr",
+): Record<string, string> {
+  return Object.fromEntries(manquants.map((id) => [id, messageMotifRequis(langue)]));
 }
 
 /** Erreur d'un motif : retirée dès que le motif n'est plus vide (sans attendre un nouvel envoi). */
@@ -262,17 +289,33 @@ export function erreurMotif(
 }
 
 /** Message français d'un refus. */
-export function messagePortefeuille(e: unknown): string {
+export function messagePortefeuille(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
-    if (e.code === "MOTIF_REQUIS") return "Chaque écart à la proposition du moteur exige un motif.";
+    if (e.code === "MOTIF_REQUIS") {
+      return t(
+        "Chaque écart à la proposition du moteur exige un motif.",
+        "Each deviation from the engine's proposal requires a reason.",
+      );
+    }
     if (e.code === "TROP_DE_PROPOSITIONS") {
-      return "Trop de propositions calculées en peu de temps : patientez quelques minutes avant de recommencer.";
+      return t(
+        "Trop de propositions calculées en peu de temps : patientez quelques minutes avant de recommencer.",
+        "Too many proposals computed in a short time: wait a few minutes before trying again.",
+      );
     }
     if (e.statut === 403) {
-      return "Arbitrer le portefeuille est réservé aux responsables de la mission qui valident le plan.";
+      return t(
+        "Arbitrer le portefeuille est réservé aux responsables de la mission qui valident le plan.",
+        "Prioritizing the portfolio is restricted to engagement leads who approve the plan.",
+      );
     }
-    if (e.statut === 404)
-      return "Ce plan ou cette initiative est introuvable ou ne vous est plus accessible.";
+    if (e.statut === 404) {
+      return t(
+        "Ce plan ou cette initiative est introuvable ou ne vous est plus accessible.",
+        "This plan or initiative cannot be found or is no longer accessible to you.",
+      );
+    }
     if (e.statut === 409) return e.message;
     if (e.statut === 400 && e.code === "REQUETE_INVALIDE" && e.message !== "Données invalides.") {
       return e.message;

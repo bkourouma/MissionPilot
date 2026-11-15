@@ -23,18 +23,22 @@ import {
   hrefEcranDossier,
   hrefNote,
   libelleRecommandation,
+  libellesDd,
   peutValiderSansConflit,
   versionValidee,
-  VERDICT_DD_LIBELLES,
   type NoteDetail,
 } from "../../../../../../../../lib/due-diligence";
 import { formaterDateHeure, formaterMontantMineur } from "../../../../../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../../../lib/identifiant";
 import { chargerDossier } from "../../../../../../../../lib/due-diligence-serveur";
 import { chargerMission } from "../../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Note au comité" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Note au comité", "Committee memo") };
+}
 
 /**
  * Une note au comité (DD-13) : versions, contrôle du moteur, soumission, validation par un tiers
@@ -50,6 +54,9 @@ export default async function PageNoteDd({
 }) {
   const { id, dossierId, noteId } = await params;
   if (!estIdentifiant(noteId)) notFound();
+  const langue = await obtenirLangue();
+  const t = await obtenirT();
+  const L = libellesDd(langue);
   const { utilisateur } = await exigerPermission("dd.lire");
   const [mission, dossier] = await Promise.all([chargerMission(id), chargerDossier(dossierId)]);
   if (!mission.ok || !dossier.ok) return null;
@@ -63,7 +70,7 @@ export default async function PageNoteDd({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="La note n'a pas pu être chargée."
+        titre={t("La note n'a pas pu être chargée.", "The memo could not be loaded.")}
         message={r.message}
         hrefReessayer={hrefNote(id, dossierId, noteId)}
       />
@@ -92,7 +99,9 @@ export default async function PageNoteDd({
     <>
       <section className="mp-dd-pile" aria-labelledby="titre-note">
         <p className="mp-texte-petit">
-          <Link href={hrefEcranDossier(id, dossierId, "note")}>Toutes les notes</Link>
+          <Link href={hrefEcranDossier(id, dossierId, "note")}>
+            {t("Toutes les notes", "All memos")}
+          </Link>
         </p>
         <h3 id="titre-note" className="mp-section__titre">
           {n.titre}
@@ -100,7 +109,9 @@ export default async function PageNoteDd({
         <div className="mp-dd-meta">
           <BadgeEtatNote etat={etat} />
           {validee ? (
-            <BadgeStatut tonalite="succes">{`Version ${validee} validée`}</BadgeStatut>
+            <BadgeStatut tonalite="succes">
+              {t(`Version ${validee} validée`, `Version ${validee} approved`)}
+            </BadgeStatut>
           ) : null}
         </div>
       </section>
@@ -108,39 +119,50 @@ export default async function PageNoteDd({
       <div className="mp-note-corps">
         <div className="mp-dd-pile">
           <Carte
-            titre={`Version ${n.contenu.version}${n.contenu.etat === "soumise" ? " (soumise)" : " (brouillon)"}`}
+            titre={`Version ${n.contenu.version}${n.contenu.etat === "soumise" ? t(" (soumise)", " (submitted)") : t(" (brouillon)", " (draft)")}`}
             niveauTitre={3}
           >
             <div className="mp-dd-pile">
               <p>
-                <strong>{`Recommandation : ${libelleRecommandation(n.contenu.recommandation)}`}</strong>
+                <strong>{`${t("Recommandation", "Recommendation")} : ${libelleRecommandation(n.contenu.recommandation, langue)}`}</strong>
               </p>
               <p className="mp-dd-texte">{n.contenu.synthese}</p>
               {n.contenu.conditions.length > 0 ? (
-                <ul className="mp-liste-simple" aria-label="Conditions">
+                <ul className="mp-liste-simple" aria-label={t("Conditions", "Conditions")}>
                   {n.contenu.conditions.map((c) => (
                     <li key={c}>{c}</li>
                   ))}
                 </ul>
               ) : null}
               {n.contenu.soumise_le ? (
-                <p className="mp-texte-doux mp-texte-petit">{`Soumise le ${formaterDateHeure(n.contenu.soumise_le)}`}</p>
+                <p className="mp-texte-doux mp-texte-petit">
+                  {t(
+                    `Soumise le ${formaterDateHeure(n.contenu.soumise_le)}`,
+                    `Submitted on ${formaterDateHeure(n.contenu.soumise_le, undefined, langue)}`,
+                  )}
+                </p>
               ) : null}
             </div>
           </Carte>
 
           {base ? (
-            <Carte titre="Base figée à la soumission" niveauTitre={3}>
+            <Carte
+              titre={t("Base figée à la soumission", "Base frozen at submission")}
+              niveauTitre={3}
+            >
               <div className="mp-dd-pile">
                 <p className="mp-texte-doux mp-texte-petit">
-                  {`Calculée par les moteurs le ${base.genere_le}; elle ne change plus.`}
+                  {t(
+                    `Calculée par les moteurs le ${base.genere_le}; elle ne change plus.`,
+                    `Computed by the engines on ${base.genere_le}; it no longer changes.`,
+                  )}
                 </p>
-                <ul className="mp-dd-liste" aria-label="Verdicts validés">
+                <ul className="mp-dd-liste" aria-label={t("Verdicts validés", "Approved verdicts")}>
                   {base.hypotheses.map((h) => (
                     <li key={h.id} className="mp-dd-element">
                       <p className="mp-dd-element__titre">{h.libelle}</p>
                       <p className="mp-texte-petit">
-                        {h.verdict ? VERDICT_DD_LIBELLES[h.verdict] : "Sans verdict"}
+                        {h.verdict ? L.VERDICT[h.verdict] : t("Sans verdict", "No verdict")}
                       </p>
                     </li>
                   ))}
@@ -148,21 +170,30 @@ export default async function PageNoteDd({
                 {base.marche.present
                   ? base.marche.dimensionnements.map((d) => (
                       <p key={`${d.methode}-${d.libelle}`} className="mp-texte-petit">
-                        {`${d.libelle} : ${formaterMontantMineur(d.resultat.bas, devise)} à ${formaterMontantMineur(d.resultat.haut, devise)} (central ${formaterMontantMineur(d.resultat.base, devise)})`}
+                        {t(
+                          `${d.libelle} : ${formaterMontantMineur(d.resultat.bas, devise)} à ${formaterMontantMineur(d.resultat.haut, devise)} (central ${formaterMontantMineur(d.resultat.base, devise)})`,
+                          `${d.libelle}: ${formaterMontantMineur(d.resultat.bas, devise, langue)} to ${formaterMontantMineur(d.resultat.haut, devise, langue)} (base ${formaterMontantMineur(d.resultat.base, devise, langue)})`,
+                        )}
                       </p>
                     ))
                   : null}
                 <p className="mp-texte-petit">
-                  {`${base.risques.length} risque(s), ${base.plan_100j.total} action(s) du plan, ${base.ajustements.length} ajustement(s) tracé(s).`}
+                  {t(
+                    `${base.risques.length} risque(s), ${base.plan_100j.total} action(s) du plan, ${base.ajustements.length} ajustement(s) tracé(s).`,
+                    `${base.risques.length} risk(s), ${base.plan_100j.total} plan action(s), ${base.ajustements.length} adjustment(s) traced.`,
+                  )}
                 </p>
               </div>
             </Carte>
           ) : null}
 
-          <Carte titre="Versions" niveauTitre={3}>
+          <Carte titre={t("Versions", "Versions")} niveauTitre={3}>
             <ol
               className="mp-dd-liste"
-              aria-label="Versions de la note, de la plus récente à la plus ancienne"
+              aria-label={t(
+                "Versions de la note, de la plus récente à la plus ancienne",
+                "Memo versions, from newest to oldest",
+              )}
             >
               {versions.map((v) => (
                 <li key={v.version} className="mp-dd-element">
@@ -171,20 +202,22 @@ export default async function PageNoteDd({
                       {`Version ${v.version}`}
                     </Link>
                     <BadgeStatut tonalite={v.etat === "soumise" ? "attention" : "neutre"} sansIcone>
-                      {v.etat === "soumise" ? "Soumise" : "Brouillon"}
+                      {v.etat === "soumise" ? t("Soumise", "Submitted") : t("Brouillon", "Draft")}
                     </BadgeStatut>
                     <span className="mp-texte-doux mp-texte-petit">
-                      {formaterDateHeure(v.cree_le)}
+                      {formaterDateHeure(v.cree_le, undefined, langue)}
                     </span>
                   </span>
-                  {v.motif ? <p className="mp-dd-texte">{`Motif : ${v.motif}`}</p> : null}
+                  {v.motif ? (
+                    <p className="mp-dd-texte">{`${t("Motif", "Reason")} : ${v.motif}`}</p>
+                  ) : null}
                 </li>
               ))}
             </ol>
           </Carte>
 
           {n.validations.length > 0 ? (
-            <Carte titre="Décisions" niveauTitre={3}>
+            <Carte titre={t("Décisions", "Decisions")} niveauTitre={3}>
               <ul className="mp-dd-liste">
                 {n.validations.map((v) => (
                   <li
@@ -192,10 +225,14 @@ export default async function PageNoteDd({
                     className="mp-dd-element"
                   >
                     <BadgeStatut tonalite={v.decision === "valide" ? "succes" : "danger"}>
-                      {`Version ${v.note_version ?? v.version} : ${v.decision === "valide" ? "validée" : "rejetée"}`}
+                      {`Version ${v.note_version ?? v.version} : ${v.decision === "valide" ? t("validée", "approved") : t("rejetée", "rejected")}`}
                     </BadgeStatut>
-                    <p className="mp-texte-doux mp-texte-petit">{formaterDateHeure(v.valide_le)}</p>
-                    {v.motif ? <p className="mp-dd-texte">{`Motif : ${v.motif}`}</p> : null}
+                    <p className="mp-texte-doux mp-texte-petit">
+                      {formaterDateHeure(v.valide_le, undefined, langue)}
+                    </p>
+                    {v.motif ? (
+                      <p className="mp-dd-texte">{`${t("Motif", "Reason")} : ${v.motif}`}</p>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -210,12 +247,12 @@ export default async function PageNoteDd({
             controle={n.controle}
             titre={
               n.contenu.etat === "soumise"
-                ? "Contrôle figé à la soumission"
-                : "Contrôle du brouillon"
+                ? t("Contrôle figé à la soumission", "Check frozen at submission")
+                : t("Contrôle du brouillon", "Draft check")
             }
           />
           {peutSoumettre && derniere ? (
-            <Carte titre="Soumettre pour validation" niveauTitre={3}>
+            <Carte titre={t("Soumettre pour validation", "Submit for approval")} niveauTitre={3}>
               <SoumettreNote
                 noteId={noteId}
                 version={derniere.version}
@@ -224,21 +261,33 @@ export default async function PageNoteDd({
             </Carte>
           ) : null}
           {aSoumise && !decisionRendue ? (
-            <Carte titre="Validation" niveauTitre={3}>
+            <Carte titre={t("Validation", "Approval")} niveauTitre={3}>
               {peutDecider ? (
                 <ValidationDecision
                   chemin={cheminValidationNote(noteId)}
                   corps={{ version: aSoumise.version }}
-                  objet="cette version de la note"
-                  succesValide="Note validée : le rapport peut être généré."
-                  succesRejete="Note rejetée : rédigez un nouveau brouillon."
+                  objet={t("cette version de la note", "this version of the memo")}
+                  succesValide={t(
+                    "Note validée : le rapport peut être généré.",
+                    "Memo approved: the report can be generated.",
+                  )}
+                  succesRejete={t(
+                    "Note rejetée : rédigez un nouveau brouillon.",
+                    "Memo rejected: write a new draft.",
+                  )}
                 />
               ) : (
                 <Alerte tonalite="info" annonce="aucune">
                   <p>
                     {droits.valider
-                      ? "Vous avez contribué à cette note : une autre personne doit la valider (un associé peut le faire)."
-                      : "La version soumise attend la validation d'une autre personne."}
+                      ? t(
+                          "Vous avez contribué à cette note : une autre personne doit la valider (un associé peut le faire).",
+                          "You contributed to this memo: someone else must approve it (a partner can do it).",
+                        )
+                      : t(
+                          "La version soumise attend la validation d'une autre personne.",
+                          "The submitted version is awaiting approval by another person.",
+                        )}
                   </p>
                 </Alerte>
               )}
@@ -246,7 +295,7 @@ export default async function PageNoteDd({
           ) : null}
           {droits.ecrire && derniere && etat !== "soumise" ? (
             <details className="mp-dd-details">
-              <summary>Nouvelle version (brouillon)</summary>
+              <summary>{t("Nouvelle version (brouillon)", "New version (draft)")}</summary>
               <div className="mp-dd-details__corps">
                 <EditeurNote
                   missionId={id}
@@ -265,7 +314,7 @@ export default async function PageNoteDd({
         </div>
       </div>
 
-      <Carte titre="Rapport" niveauTitre={3}>
+      <Carte titre={t("Rapport", "Report")} niveauTitre={3}>
         <GenerationLivrable
           type="note_comite"
           id={noteId}
@@ -273,7 +322,10 @@ export default async function PageNoteDd({
           cloturee={mission.donnees.statut === "cloturee"}
           indisponible={
             validee === null
-              ? "Le rapport n'est généré qu'à partir d'une version validée par une autre personne que l'auteur. Soumettez la note, puis faites-la valider."
+              ? t(
+                  "Le rapport n'est généré qu'à partir d'une version validée par une autre personne que l'auteur. Soumettez la note, puis faites-la valider.",
+                  "The report is generated only from a version approved by someone other than the author. Submit the memo, then have it approved.",
+                )
               : undefined
           }
         />

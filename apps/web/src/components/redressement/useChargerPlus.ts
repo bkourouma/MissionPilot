@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 import { messageRedressement } from "../../lib/redressement";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 export interface PageRed<T> {
   elements: T[];
@@ -19,6 +20,7 @@ export function useChargerPlus<T>(
   suivantInitial: string | null,
   chemin: (curseur: string) => string,
 ) {
+  const langue = useLangue();
   const [elements, setElements] = useState<T[]>([...initial]);
   const [suivant, setSuivant] = useState<string | null>(suivantInitial);
   const [enCours, setEnCours] = useState(false);
@@ -33,7 +35,7 @@ export function useChargerPlus<T>(
       setElements((x) => [...x, ...page.elements]);
       setSuivant(page.suivant ?? null);
     } catch (e) {
-      setErreur(messageRedressement(e));
+      setErreur(messageRedressement(e, langue));
     } finally {
       setEnCours(false);
     }

@@ -15,6 +15,7 @@ import {
   type LignePortailAvancement,
 } from "../../../../lib/avancement";
 import { formaterDate } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import {
   hrefPage,
   lireCurseur,
@@ -24,7 +25,10 @@ import {
 } from "../../../../lib/portail";
 import { chargerPortail, obtenirSessionPortail } from "../../../../lib/portail-serveur";
 
-export const metadata: Metadata = { title: "Avancement de vos missions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Avancement de vos missions", "Progress of your engagements") };
+}
 
 /** Rapports d'avancement hebdomadaires validés par le cabinet, du plus récent au plus ancien. */
 export default async function AvancementPortail({
@@ -32,9 +36,11 @@ export default async function AvancementPortail({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await obtenirSessionPortail();
   if (!peut(utilisateur.roles, "portail.avancement.lire")) {
-    return <NonDisponible titre="Avancement" />;
+    return <NonDisponible titre={t("Avancement", "Progress")} />;
   }
   const curseur = lireCurseur((await searchParams).curseur);
   const r = await chargerPortail<PagePortail<LignePortailAvancement>>(
@@ -44,23 +50,37 @@ export default async function AvancementPortail({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Avancement de vos missions"
-        soustitre="Le point hebdomadaire que votre cabinet a relu et validé : avancement, jalons, indicateurs et documents partagés."
+        titre={t("Avancement de vos missions", "Progress of your engagements")}
+        soustitre={t(
+          "Le point hebdomadaire que votre cabinet a relu et validé : avancement, jalons, indicateurs et documents partagés.",
+          "The weekly update your firm has reviewed and approved: progress, milestones, KPIs and shared documents.",
+        )}
         badges={
           <BadgeStatut tonalite="neutre" sansIcone>
-            Lecture seule
+            {t("Lecture seule", "Read-only")}
           </BadgeStatut>
         }
       />
       {!r.ok ? (
         <EtatErreur
-          titre="La liste des rapports n'a pas pu être chargée."
+          titre={t(
+            "La liste des rapports n'a pas pu être chargée.",
+            "The list of reports could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefPage(CHEMIN_AVANCEMENT_PORTAIL, curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre={aucunRapportPortail.titre} icone="calendrier">
-          <p>{aucunRapportPortail.aide}</p>
+        <EtatVide
+          titre={langue === "en" ? "No progress report yet." : aucunRapportPortail.titre}
+          icone="calendrier"
+        >
+          <p>
+            {t(
+              aucunRapportPortail.aide,
+              "Your firm publishes a weekly update here on the progress of your engagements, once it has reviewed and approved it. It will appear on this page.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <ul className="mp-liste-cartes">
@@ -71,17 +91,23 @@ export default async function AvancementPortail({
                 niveauTitre={2}
                 titre={
                   <Link href={hrefRapportPortail(l.id)} className="mp-lien-etendu">
-                    {libelleSemaineRapport(l)}
+                    {libelleSemaineRapport(l, langue)}
                   </Link>
                 }
                 actions={
                   <BadgeStatut tonalite="neutre" sansIcone>
-                    {`Avancement : ${formaterAvancement(l.avancement_pourcentage)}`}
+                    {t(
+                      `Avancement : ${formaterAvancement(l.avancement_pourcentage)}`,
+                      `Progress: ${formaterAvancement(l.avancement_pourcentage, langue)}`,
+                    )}
                   </BadgeStatut>
                 }
               >
                 <p className="mp-texte-doux">
-                  {`${l.mission_intitule} · publié le ${formaterDate(l.valide_le, "Africa/Abidjan")}`}
+                  {t(
+                    `${l.mission_intitule} · publié le ${formaterDate(l.valide_le, "Africa/Abidjan")}`,
+                    `${l.mission_intitule} · published on ${formaterDate(l.valide_le, "Africa/Abidjan", langue)}`,
+                  )}
                 </p>
               </Carte>
             </li>
@@ -96,7 +122,7 @@ export default async function AvancementPortail({
               : null
           }
           hrefDebut={curseur ? CHEMIN_AVANCEMENT_PORTAIL : null}
-          libelle="Pages des rapports d'avancement"
+          libelle={t("Pages des rapports d'avancement", "Progress report pages")}
         />
       ) : null}
     </div>

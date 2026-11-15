@@ -4,7 +4,7 @@
  * les champs monétaires sont ABSENTS sans « finance.lire ».
  */
 import { INDICATEURS_MAX_JOURS, NIVEAUX_RENTABILITE } from "@missionpilot/shared";
-import type { StatutMission } from "@missionpilot/shared";
+import type { Langue, StatutMission } from "@missionpilot/shared";
 import type { Devise } from "./format";
 import { aujourdhui, debutDAnnee, lirePeriode, type Periode } from "./periode";
 
@@ -46,10 +46,23 @@ export const NIVEAU_RENTABILITE_LIBELLES: Record<NiveauRentabilite, string> = {
   associe: "Associé ou directeur",
 };
 
+export const NIVEAU_RENTABILITE_LIBELLES_EN: Record<NiveauRentabilite, string> = {
+  mission: "Engagement",
+  client: "Client",
+  type: "Engagement type",
+  associe: "Partner or director",
+};
+
+export const libelleNiveauRentabilite = (n: NiveauRentabilite, langue: Langue = "fr") =>
+  (langue === "en" ? NIVEAU_RENTABILITE_LIBELLES_EN : NIVEAU_RENTABILITE_LIBELLES)[n];
+
 export const OPTIONS_NIVEAUX_RENTABILITE = NIVEAUX_RENTABILITE.map((n) => ({
   valeur: n,
   libelle: NIVEAU_RENTABILITE_LIBELLES[n],
 }));
+
+export const optionsNiveauxRentabilite = (langue: Langue = "fr") =>
+  NIVEAUX_RENTABILITE.map((n) => ({ valeur: n, libelle: libelleNiveauRentabilite(n, langue) }));
 
 export interface FiltresRentabilite extends Periode {
   niveau: NiveauRentabilite;
@@ -79,6 +92,11 @@ export function requeteRentabilite(f: Periode & { niveau: NiveauRentabilite }): 
 export const RAISON_EXCLUSION: Record<string, string> = {
   TAUX_CHANGE_ABSENT:
     "taux de change non figé : montants non convertibles dans la devise du cabinet",
+};
+
+export const RAISON_EXCLUSION_EN: Record<string, string> = {
+  TAUX_CHANGE_ABSENT:
+    "exchange rate not locked: amounts cannot be converted into the firm's currency",
 };
 
 // --- Encours de production -----------------------------------------------------------------

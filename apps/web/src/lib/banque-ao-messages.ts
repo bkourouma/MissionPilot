@@ -1,3 +1,4 @@
+import type { Langue } from "@missionpilot/shared";
 import { lireMotif } from "./agents";
 import { ErreurApi, messageErreur } from "./api";
 import type { CvResume, ResultatOffreFinanciere } from "./banque-ao-types";
@@ -26,6 +27,21 @@ const MESSAGES: Record<string, string> = {
   GENERATION_IA_ECHEC: "La rédaction par l'IA a échoué : réessayez ou partez du gabarit.",
 };
 
+const MESSAGES_EN: Record<string, string> = {
+  CV_EXISTANT: "This consultant already has a CV: add a new version to it.",
+  GABARIT_EXISTANT: "A firm template already uses this code.",
+  FICHIER_DEJA_RATTACHE: "This file is already attached to a document.",
+  VERSION_CONCURRENTE: "Another version was just saved: reload the page.",
+  CV_ANONYME: "This CV is anonymized: it can no longer be used (no export, no new version).",
+  VERSION_PERIMEE: "A more recent version exists: reload the page before approving.",
+  VERSION_DEJA_VALIDEE: "This version is already approved.",
+  CHIFFRES_A_ACQUITTER:
+    "The AI draft cites unverified numbers: review them, then tick the acknowledgement.",
+  TROP_D_EXPORTS_CV: "Too many recent CV exports: try again in a few minutes.",
+  RENDU_PDF_INDISPONIBLE: "PDF rendering is unavailable on this server: export to Word.",
+  GENERATION_IA_ECHEC: "AI drafting failed: try again or start from the template.",
+};
+
 /**
  * Refus 403 dont l'API explique la raison précise (séparation des tâches, retrait d'une pièce
  * d'autrui) : le message de l'API est affiché tel quel, au lieu du refus générique de rôle.
@@ -35,12 +51,13 @@ const CODES_REFUS_EXPLICITES: ReadonlySet<string> = new Set([
   "RETRAIT_PIECE_INTERDIT",
 ]);
 
-export function messageBanqueAo(e: unknown): string {
+export function messageBanqueAo(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    if (MESSAGES[e.code]) return MESSAGES[e.code] as string;
+    const table = langue === "en" ? MESSAGES_EN : MESSAGES;
+    if (table[e.code]) return table[e.code] as string;
     if (CODES_REFUS_EXPLICITES.has(e.code) && e.message.trim() !== "") return e.message;
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }
 
 /** Motif d'une anonymisation (obligatoire) et reconfirmation d'identité, jointe sous `confirmation`. */
@@ -49,9 +66,10 @@ export const MOTIF_ANONYMISATION_MAX = 500;
 export function lireAnonymisationCv(
   motif: string,
   confirmation: SaisieConfirmation,
+  langue: Langue = "fr",
 ): Resultat<{ motif: string; confirmation: Record<string, string> }, "motif" | ChampConfirmation> {
-  const m = lireMotif(motif, MOTIF_ANONYMISATION_MAX);
-  const c = validerReconfirmation(confirmation);
+  const m = lireMotif(motif, MOTIF_ANONYMISATION_MAX, langue);
+  const c = validerReconfirmation(confirmation, langue);
   if (m.ok && c.ok) {
     return { ok: true, charge: { motif: m.charge.motif, confirmation: { ...c.charge } } };
   }

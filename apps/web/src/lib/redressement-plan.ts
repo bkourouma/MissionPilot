@@ -2,9 +2,11 @@
 import {
   RED_STATUT_ACTION_LIBELLES,
   RED_STATUTS_ACTION,
+  type Langue,
   type RedStatutAction,
 } from "@missionpilot/shared";
 import { formaterPointsDeBase } from "./redressement-formes";
+import { libelleStatutAction } from "./redressement-libelles";
 
 // --- Plan et kanban -------------------------------------------------------------------------------
 
@@ -21,10 +23,13 @@ export const TRANSITIONS_SUGGEREES: Readonly<Record<RedStatutAction, readonly Re
     abandonnee: [],
   };
 
-export function statutsSuggeres(statut: RedStatutAction): { valeur: string; libelle: string }[] {
+export function statutsSuggeres(
+  statut: RedStatutAction,
+  langue: Langue = "fr",
+): { valeur: string; libelle: string }[] {
   return (TRANSITIONS_SUGGEREES[statut] ?? []).map((s) => ({
     valeur: s,
-    libelle: RED_STATUT_ACTION_LIBELLES[s],
+    libelle: libelleStatutAction(s, langue),
   }));
 }
 
@@ -79,18 +84,22 @@ export const STATUTS_ACTION_OPTIONS = RED_STATUTS_ACTION.map((s) => ({
   libelle: RED_STATUT_ACTION_LIBELLES[s],
 }));
 
+export const statutsActionOptions = (langue: Langue = "fr") =>
+  RED_STATUTS_ACTION.map((s) => ({ valeur: s, libelle: libelleStatutAction(s, langue) }));
+
 // --- Créanciers ----------------------------------------------------------------------------------
 
 /** Part garantie ou concentration (points de base de l'API) : « 12,50 % » ; `null` → « — ». */
-export function formaterPart(pb: number | null | undefined): string {
-  return formaterPointsDeBase(pb, "pourcentage");
+export function formaterPart(pb: number | null | undefined, langue: Langue = "fr"): string {
+  return formaterPointsDeBase(pb, "pourcentage", langue);
 }
 
 // --- Liste tronquée ---------------------------------------------------------------------------------
 
 /** Avertissement quand une liste chargée page par page a été coupée par le garde-fou. */
-export function avertissementTronque(tronquee: boolean): string | null {
-  return tronquee
-    ? "La liste est trop longue pour être affichée en entier : affinez les filtres ou ouvrez un élément précis."
-    : null;
+export function avertissementTronque(tronquee: boolean, langue: Langue = "fr"): string | null {
+  if (!tronquee) return null;
+  return langue === "en"
+    ? "The list is too long to be displayed in full: refine the filters or open a specific item."
+    : "La liste est trop longue pour être affichée en entier : affinez les filtres ou ouvrez un élément précis.";
 }

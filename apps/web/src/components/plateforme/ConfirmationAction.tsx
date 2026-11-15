@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import "./plateforme-commun.css";
@@ -33,6 +34,7 @@ export function ConfirmationAction({
   surConfirmer,
   surAnnuler,
 }: ConfirmationActionProps) {
+  const t = useT();
   const idTitre = useId();
   const annuler = useRef<HTMLButtonElement>(null);
 
@@ -54,7 +56,7 @@ export function ConfirmationAction({
       </p>
       <div className="mp-confirmation-plateforme__texte">{children}</div>
       {erreur ? (
-        <Alerte tonalite="danger" titre="Action impossible">
+        <Alerte tonalite="danger" titre={t("Action impossible", "Action not possible")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -62,13 +64,13 @@ export function ConfirmationAction({
         <Bouton
           variante={danger ? "danger" : "primaire"}
           chargement={enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
           onClick={surConfirmer}
         >
           {libelleConfirmer}
         </Bouton>
         <Bouton ref={annuler} variante="secondaire" disabled={enCours} onClick={surAnnuler}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </div>

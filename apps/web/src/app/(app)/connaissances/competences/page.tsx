@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { Langue, Traduire } from "@missionpilot/shared";
 import {
   BadgeAttente,
   DecisionDeclaration,
@@ -19,9 +20,13 @@ import {
   type MatriceCompetences,
 } from "../../../../lib/capitalisation";
 import { formaterDate } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Compétences" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Compétences", "Skills") };
+}
 
 /**
  * Compétences (CAP-06) : ses niveaux et ses preuves d'usage ; pour les responsables, la
@@ -31,6 +36,8 @@ export const metadata: Metadata = { title: "Compétences" };
 export default async function PageCompetences() {
   const { utilisateur } = await exigerPermission("temps.saisir");
   const droits = droitsConnaissances(utilisateur.roles);
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const moi = await chargerServeur<{
     collaborateur_id: string | null;
     competences: { id: string; code: string; libelle: string }[];
@@ -46,58 +53,73 @@ export default async function PageCompetences() {
   return (
     <div className="mp-page mp-connaissances">
       <EnteteDePage
-        titre="Compétences"
-        soustitre="Niveaux déclarés puis validés par un responsable, et preuves d'usage relevées sur les missions et les revues."
+        titre={t("Compétences", "Skills")}
+        soustitre={t(
+          "Niveaux déclarés puis validés par un responsable, et preuves d'usage relevées sur les missions et les revues.",
+          "Levels declared then approved by a manager, and evidence of use gathered from engagements and reviews.",
+        )}
       />
-      <Carte titre="Mes compétences">
+      <Carte titre={t("Mes compétences", "My skills")}>
         {!moi.ok ? (
           <EtatErreur
-            titre="Vos compétences n'ont pas pu être chargées."
+            titre={t(
+              "Vos compétences n'ont pas pu être chargées.",
+              "Your skills could not be loaded.",
+            )}
             message={moi.message}
             hrefReessayer="/connaissances/competences"
           />
         ) : moi.donnees.collaborateur_id === null ? (
-          <EtatVide titre="Votre compte n'est rattaché à aucune fiche collaborateur." />
+          <EtatVide
+            titre={t(
+              "Votre compte n'est rattaché à aucune fiche collaborateur.",
+              "Your account is not linked to any staff record.",
+            )}
+          />
         ) : moi.donnees.competences.length === 0 ? (
-          <EtatVide titre="Le référentiel des compétences est vide." />
+          <EtatVide
+            titre={t("Le référentiel des compétences est vide.", "The skills framework is empty.")}
+          />
         ) : (
           <>
             <Tableau
-              legende="Mes niveaux et preuves d'usage"
+              legende={t("Mes niveaux et preuves d'usage", "My levels and evidence of use")}
               cleLigne={(l) => l.competence_id}
               lignes={moi.donnees.cellules}
               colonnes={[
                 {
                   cle: "competence",
-                  entete: "Compétence",
+                  entete: t("Compétence", "Skill"),
                   rendu: (l) =>
                     moi.donnees.competences.find((c) => c.id === l.competence_id)?.libelle ?? "—",
                 },
                 {
                   cle: "niveau",
-                  entete: "Niveau validé",
-                  rendu: (l) => libelleNiveauCompetence(l.niveau_valide),
+                  entete: t("Niveau validé", "Approved level"),
+                  rendu: (l) => libelleNiveauCompetence(l.niveau_valide, langue),
                 },
                 {
                   cle: "attente",
-                  entete: "En attente",
+                  entete: t("En attente", "Pending"),
                   rendu: (l) =>
                     l.niveau_en_attente ? (
-                      <BadgeAttente libelle={libelleNiveauCompetence(l.niveau_en_attente)} />
+                      <BadgeAttente
+                        libelle={libelleNiveauCompetence(l.niveau_en_attente, langue)}
+                      />
                     ) : (
                       "—"
                     ),
                 },
                 {
                   cle: "preuves",
-                  entete: "Preuves d'usage",
+                  entete: t("Preuves d'usage", "Evidence of use"),
                   alignement: "droite",
                   rendu: (l) => `${l.preuves ?? 0} · ${l.jours ?? "—"}`,
                 },
                 {
                   cle: "derniere",
-                  entete: "Dernier usage",
-                  rendu: (l) => formaterDate(l.derniere_preuve),
+                  entete: t("Dernier usage", "Last use"),
+                  rendu: (l) => formaterDate(l.derniere_preuve, "UTC", langue),
                 },
               ]}
             />
@@ -105,12 +127,17 @@ export default async function PageCompetences() {
           </>
         )}
       </Carte>
-      {matrice ? <Matrice r={matrice} valider={droits.gererCompetences} /> : null}
+      {matrice ? (
+        <Matrice r={matrice} valider={droits.gererCompetences} t={t} langue={langue} />
+      ) : null}
       {referentiel ? (
-        <Carte titre="Référentiel des compétences">
+        <Carte titre={t("Référentiel des compétences", "Skills framework")}>
           {!referentiel.ok ? (
             <EtatErreur
-              titre="Le référentiel n'a pas pu être chargé."
+              titre={t(
+                "Le référentiel n'a pas pu être chargé.",
+                "The framework could not be loaded.",
+              )}
               message={referentiel.message}
               hrefReessayer="/connaissances/competences"
             />
@@ -122,11 +149,16 @@ export default async function PageCompetences() {
                     <strong>{c.libelle}</strong>{" "}
                     <span className="mp-texte-doux mp-texte-petit">
                       {c.code}
-                      {c.briques.length > 0 ? ` · briques : ${c.briques.join(", ")}` : ""}
+                      {c.briques.length > 0
+                        ? t(
+                            ` · briques : ${c.briques.join(", ")}`,
+                            ` · building blocks: ${c.briques.join(", ")}`,
+                          )
+                        : ""}
                     </span>
                   </span>
                   <BadgeStatut tonalite={c.active ? "succes" : "neutre"}>
-                    {c.active ? "Active" : "Désactivée"}
+                    {c.active ? t("Active", "Active") : t("Désactivée", "Disabled")}
                   </BadgeStatut>
                 </li>
               ))}
@@ -139,11 +171,21 @@ export default async function PageCompetences() {
   );
 }
 
-function Matrice({ r, valider }: { r: Chargement<MatriceCompetences>; valider: boolean }) {
+function Matrice({
+  r,
+  valider,
+  t,
+  langue,
+}: {
+  r: Chargement<MatriceCompetences>;
+  valider: boolean;
+  t: Traduire;
+  langue: Langue;
+}) {
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="La matrice n'a pas pu être chargée."
+        titre={t("La matrice n'a pas pu être chargée.", "The matrix could not be loaded.")}
         message={r.message}
         hrefReessayer="/connaissances/competences"
       />
@@ -157,28 +199,38 @@ function Matrice({ r, valider }: { r: Chargement<MatriceCompetences>; valider: b
   );
   return (
     <>
-      <Carte titre="Matrice de l'équipe" className="mp-connaissances__matrice">
+      <Carte titre={t("Matrice de l'équipe", "Team matrix")} className="mp-connaissances__matrice">
         <Tableau
-          legende="Niveaux validés par collaborateur et compétence"
+          legende={t(
+            "Niveaux validés par collaborateur et compétence",
+            "Approved levels per staff member and skill",
+          )}
           cleLigne={(l) => l.collaborateur.id}
           lignes={lignes}
-          messageVide="Aucun collaborateur actif."
+          messageVide={t("Aucun collaborateur actif.", "No active staff member.")}
           colonnes={[
-            { cle: "nom", entete: "Collaborateur", rendu: (l) => l.collaborateur.nom },
+            {
+              cle: "nom",
+              entete: t("Collaborateur", "Staff member"),
+              rendu: (l) => l.collaborateur.nom,
+            },
             ...competences.map((k, i) => ({
               cle: k.id,
               entete: k.libelle,
               rendu: (l: MatriceCompetences["lignes"][number]) => {
                 const c = l.cellules[i] as CelluleCompetence;
-                const preuves = c.preuves === undefined ? "" : ` (${c.preuves} preuves)`;
-                return `${libelleNiveauCompetence(c.niveau_valide)}${c.a_revoir ? " · à revoir" : ""}${preuves}`;
+                const preuves =
+                  c.preuves === undefined
+                    ? ""
+                    : t(` (${c.preuves} preuves)`, ` (${c.preuves} pieces of evidence)`);
+                return `${libelleNiveauCompetence(c.niveau_valide, langue)}${c.a_revoir ? t(" · à revoir", " · to review") : ""}${preuves}`;
               },
             })),
           ]}
         />
       </Carte>
       {valider && enAttente.length > 0 ? (
-        <Carte titre="Niveaux à valider">
+        <Carte titre={t("Niveaux à valider", "Levels to approve")}>
           <ul className="mp-connaissances__resultats">
             {enAttente.map((e) => (
               <li key={e.cellule.declaration_en_attente_id} className="mp-connaissances__resultat">

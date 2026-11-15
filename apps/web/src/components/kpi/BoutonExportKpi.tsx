@@ -8,6 +8,7 @@ import {
   messageKpi,
   nomFichierExportKpi,
 } from "../../lib/kpi";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { Bouton } from "../ui/Bouton";
 
@@ -25,6 +26,8 @@ export interface BoutonExportKpiProps {
  * navigateur sans être conservé (URL temporaire révoquée aussitôt).
  */
 export function BoutonExportKpi({ missionId, date, intitule }: BoutonExportKpiProps) {
+  const t = useT();
+  const langue = useLangue();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -53,11 +56,15 @@ export function BoutonExportKpi({ missionId, date, intitule }: BoutonExportKpiPr
       lien.click();
       lien.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const arrete = formaterDate(donnees.date_reference, "UTC", langue);
       setSucces(
-        `Export téléchargé (format ${FORMAT_EXPORT_KPI}, arrêté au ${formaterDate(donnees.date_reference)}, ${donnees.kpis.length} KPI).`,
+        t(
+          `Export téléchargé (format ${FORMAT_EXPORT_KPI}, arrêté au ${arrete}, ${donnees.kpis.length} KPI).`,
+          `Export downloaded (format ${FORMAT_EXPORT_KPI}, as of ${arrete}, ${donnees.kpis.length} KPIs).`,
+        ),
       );
     } catch (e) {
-      setErreur(messageKpi(e));
+      setErreur(messageKpi(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -69,17 +76,17 @@ export function BoutonExportKpi({ missionId, date, intitule }: BoutonExportKpiPr
         erreur={erreur}
         succes={succes}
         refAlerte={refAlerte}
-        titreErreur="Export impossible"
+        titreErreur={t("Export impossible", "Could not export")}
       />
       <div className="mp-actions-formulaire">
         <Bouton
           variante="secondaire"
           icone="telechargement"
           chargement={enCours}
-          texteChargement="Préparation de l'export…"
+          texteChargement={t("Préparation de l'export…", "Preparing the export…")}
           onClick={exporter}
         >
-          Exporter les données (JSON)
+          {t("Exporter les données (JSON)", "Export data (JSON)")}
         </Bouton>
       </div>
     </div>

@@ -17,7 +17,7 @@ import {
   libelleCategorieFlux,
   messageRedressement,
   optionsCategories,
-  RED_SENS_OPTIONS,
+  optionsSensFlux,
 } from "../../lib/redressement";
 import {
   corpsVersionDepuisFormulaire,
@@ -29,6 +29,7 @@ import {
   type SaisieLigneTresorerie,
   type SaisieVersionTresorerie,
 } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -36,11 +37,6 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-
-const SEMAINES = Array.from({ length: 13 }, (_, i) => ({
-  valeur: String(i + 1),
-  libelle: abregerSemaine(i + 1),
-}));
 
 /**
  * « Nouvelle version de la prévision » (RED-11) : fenêtre (lundi de début, solde bancaire
@@ -60,6 +56,12 @@ export function FormulaireVersionTresorerie({
   version: RedTresorerieVersionVue | null;
   aujourdhui: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const SEMAINES = Array.from({ length: 13 }, (_, i) => ({
+    valeur: String(i + 1),
+    libelle: abregerSemaine(i + 1, langue),
+  }));
   const f = useFormulaire<ChampVersionTresorerie>();
   const [s, setS] = useState<SaisieVersionTresorerie>(() =>
     saisieVersionDepuis(version, devise, aujourdhui),
@@ -92,7 +94,7 @@ export function FormulaireVersionTresorerie({
             sens: l.sens,
             categorie: l.categorie,
             semaine: String(l.semaine),
-            libelle: "Échéance d'accord",
+            libelle: t("Échéance d'accord", "Agreement installment"),
             montant: montantVersTexte(l.montant, devise),
             creancier_id: l.creancier_id,
             echeance_id: l.echeance_id,
@@ -101,14 +103,20 @@ export function FormulaireVersionTresorerie({
       }));
       const ignorees =
         p.anterieures + p.ulterieures > 0
-          ? ` ${p.anterieures} échéance(s) antérieure(s) et ${p.ulterieures} postérieure(s) à la fenêtre ne sont pas reprises.`
+          ? t(
+              ` ${p.anterieures} échéance(s) antérieure(s) et ${p.ulterieures} postérieure(s) à la fenêtre ne sont pas reprises.`,
+              ` ${p.anterieures} installment(s) before and ${p.ulterieures} after the window are not included.`,
+            )
           : "";
       setRetourImport({
         ton: "info",
-        texte: `${nouvelles.length} ligne(s) ajoutée(s) au brouillon, non enregistrée(s).${ignorees}`,
+        texte: t(
+          `${nouvelles.length} ligne(s) ajoutée(s) au brouillon, non enregistrée(s).${ignorees}`,
+          `${nouvelles.length} line(s) added to the draft, not saved.${ignorees}`,
+        ),
       });
     } catch (e) {
-      setRetourImport({ ton: "danger", texte: messageRedressement(e) });
+      setRetourImport({ ton: "danger", texte: messageRedressement(e, langue) });
     } finally {
       setImportEnCours(false);
     }
@@ -117,11 +125,11 @@ export function FormulaireVersionTresorerie({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsVersionDepuisFormulaire(s, devise),
+      corpsVersionDepuisFormulaire(s, devise, langue),
       (charge) => api.post<RedTresorerieVue>(cheminVersionsTresorerie(dossierId), charge),
       {
-        succes: "Nouvelle version de la prévision enregistrée.",
-        messageSpecifique: messageRedressement,
+        succes: t("Nouvelle version de la prévision enregistrée.", "New forecast version saved."),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -132,47 +140,56 @@ export function FormulaireVersionTresorerie({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvelle version de la prévision"
+      aria-label={t("Nouvelle version de la prévision", "New forecast version")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Could not save")}
       />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Date de début (un lundi)"
+          libelle={t("Date de début (un lundi)", "Start date (a Monday)")}
           type="date"
           required
           value={s.date_debut}
           onChange={(e) => setS((x) => ({ ...x, date_debut: e.target.value }))}
           erreur={f.erreurs.date_debut}
-          aide="Première semaine de la fenêtre de 13 semaines."
+          aide={t(
+            "Première semaine de la fenêtre de 13 semaines.",
+            "First week of the 13-week window.",
+          )}
         />
         <Champ
-          libelle="Solde bancaire initial"
+          libelle={t("Solde bancaire initial", "Opening bank balance")}
           required
           inputMode="decimal"
           autoComplete="off"
           value={s.solde_initial}
           onChange={(e) => setS((x) => ({ ...x, solde_initial: e.target.value }))}
           erreur={f.erreurs.solde_initial}
-          aide={`${aideMontant(devise)} Un solde négatif s'écrit avec « - ».`}
+          aide={t(
+            `${aideMontant(devise)} Un solde négatif s'écrit avec « - ».`,
+            `${aideMontant(devise, langue)} A negative balance is written with "-".`,
+          )}
         />
         <Champ
-          libelle="Seuil de tension"
+          libelle={t("Seuil de tension", "Tension threshold")}
           inputMode="decimal"
           autoComplete="off"
           value={s.seuil_tension}
           onChange={(e) => setS((x) => ({ ...x, seuil_tension: e.target.value }))}
           erreur={f.erreurs.seuil_tension}
-          aide="Une semaine est en tension quand le solde projeté passe sous ce seuil."
+          aide={t(
+            "Une semaine est en tension quand le solde projeté passe sous ce seuil.",
+            "A week is tight when the projected balance falls below this threshold.",
+          )}
         />
       </div>
 
       <div className="mp-red-section">
-        <h3 className="mp-red-section__titre">Lignes de la prévision</h3>
+        <h3 className="mp-red-section__titre">{t("Lignes de la prévision", "Forecast lines")}</h3>
         {f.erreurs.lignes ? (
           <Alerte tonalite="danger" annonce="alert">
             <p>{f.erreurs.lignes}</p>
@@ -180,7 +197,10 @@ export function FormulaireVersionTresorerie({
         ) : null}
         {s.lignes.length === 0 ? (
           <p className="mp-texte-doux">
-            Aucune ligne : ajoutez les encaissements et décaissements attendus.
+            {t(
+              "Aucune ligne : ajoutez les encaissements et décaissements attendus.",
+              "No line: add the expected receipts and disbursements.",
+            )}
           </p>
         ) : (
           <ul className="mp-red-lignes">
@@ -189,44 +209,49 @@ export function FormulaireVersionTresorerie({
               return (
                 <li key={l.cle} className="mp-red-ligne">
                   <p className="mp-red-ligne__reference">
-                    Ligne {i + 1}
-                    {rattachee ? " : rattachée à l'échéance d'un accord" : ""}
+                    {t("Ligne", "Line")} {i + 1}
+                    {rattachee
+                      ? t(
+                          " : rattachée à l'échéance d'un accord",
+                          ": linked to an agreement installment",
+                        )
+                      : ""}
                   </p>
                   <Select
-                    libelle="Sens"
+                    libelle={t("Sens", "Direction")}
                     value={l.sens}
                     disabled={rattachee}
                     onChange={(e) => {
                       const sens = e.target.value as RedSensFlux;
                       majLigne(l.cle, {
                         sens,
-                        categorie: optionsCategories(sens)[0]?.valeur ?? "",
+                        categorie: optionsCategories(sens, langue)[0]?.valeur ?? "",
                       });
                     }}
-                    options={RED_SENS_OPTIONS}
+                    options={optionsSensFlux(langue)}
                   />
                   <Select
-                    libelle="Catégorie"
+                    libelle={t("Catégorie", "Category")}
                     value={l.categorie}
                     disabled={rattachee}
                     onChange={(e) => majLigne(l.cle, { categorie: e.target.value })}
-                    options={optionsCategories(l.sens)}
+                    options={optionsCategories(l.sens, langue)}
                   />
                   <Select
-                    libelle="Semaine"
+                    libelle={t("Semaine", "Week")}
                     value={l.semaine}
                     onChange={(e) => majLigne(l.cle, { semaine: e.target.value })}
                     options={SEMAINES}
                   />
                   <Champ
-                    libelle="Montant"
+                    libelle={t("Montant", "Amount")}
                     inputMode="decimal"
                     autoComplete="off"
                     value={l.montant}
                     onChange={(e) => majLigne(l.cle, { montant: e.target.value })}
                   />
                   <Champ
-                    libelle="Libellé (facultatif)"
+                    libelle={t("Libellé (facultatif)", "Label (optional)")}
                     maxLength={200}
                     autoComplete="off"
                     value={l.libelle}
@@ -234,12 +259,15 @@ export function FormulaireVersionTresorerie({
                   />
                   <Bouton
                     variante="discret"
-                    aria-label={`Retirer la ligne ${i + 1} (${libelleCategorieFlux(l.categorie)}, ${abregerSemaine(Number(l.semaine))})`}
+                    aria-label={t(
+                      `Retirer la ligne ${i + 1} (${libelleCategorieFlux(l.categorie)}, ${abregerSemaine(Number(l.semaine))})`,
+                      `Remove line ${i + 1} (${libelleCategorieFlux(l.categorie, langue)}, ${abregerSemaine(Number(l.semaine), langue)})`,
+                    )}
                     onClick={() =>
                       setS((x) => ({ ...x, lignes: x.lignes.filter((y) => y.cle !== l.cle) }))
                     }
                   >
-                    Retirer
+                    {t("Retirer", "Remove")}
                   </Bouton>
                 </li>
               );
@@ -251,15 +279,15 @@ export function FormulaireVersionTresorerie({
             variante="secondaire"
             onClick={() => setS((x) => ({ ...x, lignes: [...x.lignes, ligneVide()] }))}
           >
-            Ajouter une ligne
+            {t("Ajouter une ligne", "Add a line")}
           </Bouton>
           <Bouton
             variante="secondaire"
             chargement={importEnCours}
-            texteChargement="Import…"
+            texteChargement={t("Import…", "Importing…")}
             onClick={() => void importer()}
           >
-            Importer les échéances des accords
+            {t("Importer les échéances des accords", "Import agreement installments")}
           </Bouton>
         </div>
         {retourImport ? (
@@ -270,15 +298,19 @@ export function FormulaireVersionTresorerie({
       </div>
 
       <ZoneTexte
-        libelle="Motif (facultatif)"
+        libelle={t("Motif (facultatif)", "Reason (optional)")}
         maxLength={500}
         value={s.motif}
         onChange={(e) => setS((x) => ({ ...x, motif: e.target.value }))}
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la nouvelle version
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la nouvelle version", "Save the new version")}
         </Bouton>
       </div>
     </form>

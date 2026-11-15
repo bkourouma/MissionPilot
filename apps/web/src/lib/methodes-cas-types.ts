@@ -5,7 +5,9 @@
 import {
   casTypeCreationSchema,
   codeReferentielSchema,
+  creerTraduire,
   type CasTypeCreation,
+  type Langue,
 } from "@missionpilot/shared";
 import {
   construireContexte,
@@ -14,7 +16,7 @@ import {
   type Facteur,
   type SaisieContexte,
 } from "./methodes";
-import { aDesErreurs, MESSAGE_CODE } from "./methodes-editeur";
+import { aDesErreurs, messageCode } from "./methodes-editeur";
 import { lireNombre, type Resultat } from "./saisie";
 
 // --- Cas type --------------------------------------------------------------------------------
@@ -59,23 +61,28 @@ export function construireCasType(
   facteurs: readonly Facteur[],
   reglesConnues: readonly string[],
   existant?: CasTypeVersion["cas"],
+  langue: Langue = "fr",
 ): Resultat<CasTypeCreation, ChampCasType> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampCasType, string>> = {};
-  if (!s.libelle.trim()) erreurs.libelle = "Libellé obligatoire.";
-  if (!codeReferentielSchema.safeParse(s.code.trim()).success) erreurs.code = MESSAGE_CODE;
-  const contexte = construireContexte(s.contexte, facteurs);
+  if (!s.libelle.trim()) erreurs.libelle = t("Libellé obligatoire.", "Label required.");
+  if (!codeReferentielSchema.safeParse(s.code.trim()).success) erreurs.code = messageCode(langue);
+  const contexte = construireContexte(s.contexte, facteurs, langue);
   if (!contexte.ok) Object.assign(erreurs, contexte.erreurs);
   const conflits = s.conflits.trim() === "" ? null : lireNombre(s.conflits);
   if (
     conflits !== null &&
     (Number.isNaN(conflits) || !Number.isInteger(conflits) || conflits < 0)
   ) {
-    erreurs.conflits = "Nombre entier, 0 ou plus.";
+    erreurs.conflits = t("Nombre entier, 0 ou plus.", "Whole number, 0 or more.");
   }
   const regles = s.regles.filter((r) => reglesConnues.includes(r));
   const autresAttentes = existant?.attendu.presents?.length || existant?.attendu.absents?.length;
   if (regles.length === 0 && conflits === null && !autresAttentes) {
-    erreurs.regles = "Cocher au moins une règle attendue, ou indiquer le nombre de conflits.";
+    erreurs.regles = t(
+      "Cocher au moins une règle attendue, ou indiquer le nombre de conflits.",
+      "Select at least one expected rule, or give the number of conflicts.",
+    );
   }
   if (aDesErreurs(erreurs) || !contexte.ok) return { ok: false, erreurs };
   const p = casTypeCreationSchema.safeParse({
@@ -92,5 +99,13 @@ export function construireCasType(
   });
   return p.success
     ? { ok: true, charge: p.data }
-    : { ok: false, erreurs: { regles: "Cas type refusé : vérifier les champs." } };
+    : {
+        ok: false,
+        erreurs: {
+          regles: t(
+            "Cas type refusé : vérifier les champs.",
+            "Test case rejected: check the fields.",
+          ),
+        },
+      };
 }

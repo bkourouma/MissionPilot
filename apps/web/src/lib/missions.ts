@@ -6,7 +6,13 @@
  * Sous-modules ré-exportés ici : `missions-types` (contrat et libellés), `missions-filtres`,
  * `missions-droits`, `missions-saisie` (formulaire mission) et `missions-signature`.
  */
-import { cheminStockageSur, TYPES_DOCUMENT, type TypeDocument } from "@missionpilot/shared";
+import {
+  cheminStockageSur,
+  creerTraduire,
+  TYPES_DOCUMENT,
+  type Langue,
+  type TypeDocument,
+} from "@missionpilot/shared";
 import { UUID } from "./missions-motifs";
 import { texteOuNull, type Resultat } from "./saisie";
 
@@ -21,12 +27,17 @@ export * from "./missions-signature";
 export function validerDuplication(
   intitule: string,
   clientId: string,
+  langue: Langue = "fr",
 ): Resultat<{ intitule: string; client_id?: string }, "intitule" | "client_id"> {
+  const t = creerTraduire(langue);
   const i = intitule.trim();
   const erreurs: Partial<Record<"intitule" | "client_id", string>> = {};
-  if (i === "") erreurs.intitule = "Saisissez l'intitulé de la copie.";
-  else if (i.length > 200) erreurs.intitule = "200 caractères au plus.";
-  if (clientId !== "" && !UUID.test(clientId)) erreurs.client_id = "Choisissez dans la liste.";
+  if (i === "")
+    erreurs.intitule = t("Saisissez l'intitulé de la copie.", "Enter the title of the copy.");
+  else if (i.length > 200)
+    erreurs.intitule = t("200 caractères au plus.", "200 characters at most.");
+  if (clientId !== "" && !UUID.test(clientId))
+    erreurs.client_id = t("Choisissez dans la liste.", "Choose from the list.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { intitule: i, ...(clientId ? { client_id: clientId } : {}) } };
 }
@@ -36,14 +47,24 @@ const CODE = /^[a-z0-9_]{1,40}$/;
 export function validerModele(
   code: string,
   libelle: string,
+  langue: Langue = "fr",
 ): Resultat<{ code: string; libelle: string }, "code" | "libelle"> {
+  const t = creerTraduire(langue);
   const c = code.trim();
   const l = libelle.trim();
   const erreurs: Partial<Record<"code" | "libelle", string>> = {};
   if (!CODE.test(c))
-    erreurs.code = "Minuscules, chiffres et tiret bas, 40 caractères au plus (ex. audit_agences).";
-  if (l === "") erreurs.libelle = "Saisissez le libellé du type de mission.";
-  else if (l.length > 160) erreurs.libelle = "160 caractères au plus.";
+    erreurs.code = t(
+      "Minuscules, chiffres et tiret bas, 40 caractères au plus (ex. audit_agences).",
+      "Lowercase letters, digits and underscores, 40 characters at most (e.g. audit_agences).",
+    );
+  if (l === "")
+    erreurs.libelle = t(
+      "Saisissez le libellé du type de mission.",
+      "Enter the engagement type label.",
+    );
+  else if (l.length > 160)
+    erreurs.libelle = t("160 caractères au plus.", "160 characters at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { code: c, libelle: l } };
 }
@@ -71,21 +92,26 @@ export interface SaisieDocument {
 export function validerDocument(
   s: SaisieDocument,
   typesPermis: readonly TypeDocument[] = TYPES_DOCUMENT,
+  langue: Langue = "fr",
 ): Resultat<
   { type: TypeDocument; nom: string; chemin_stockage: string | null },
   keyof SaisieDocument
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieDocument, string>> = {};
   if (!(typesPermis as readonly string[]).includes(s.type))
-    erreurs.type = "Choisissez le type de document.";
+    erreurs.type = t("Choisissez le type de document.", "Choose the document type.");
   const nom = s.nom.trim();
-  if (nom === "") erreurs.nom = "Saisissez le nom du document.";
-  else if (nom.length > 200) erreurs.nom = "200 caractères au plus.";
+  if (nom === "") erreurs.nom = t("Saisissez le nom du document.", "Enter the document name.");
+  else if (nom.length > 200) erreurs.nom = t("200 caractères au plus.", "200 characters at most.");
   const chemin = s.chemin_stockage.trim();
-  if (chemin.length > 500) erreurs.chemin_stockage = "500 caractères au plus.";
+  if (chemin.length > 500)
+    erreurs.chemin_stockage = t("500 caractères au plus.", "500 characters at most.");
   else if (chemin !== "" && !cheminStockageSur(chemin))
-    erreurs.chemin_stockage =
-      "Chemin relatif uniquement (ex. livrables/rapport-v2.pdf), sans « .. », barre oblique inverse ni adresse web.";
+    erreurs.chemin_stockage = t(
+      "Chemin relatif uniquement (ex. livrables/rapport-v2.pdf), sans « .. », barre oblique inverse ni adresse web.",
+      "Relative path only (e.g. livrables/rapport-v2.pdf), with no \u201c..\u201d, backslash or web address.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

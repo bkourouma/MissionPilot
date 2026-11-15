@@ -9,6 +9,7 @@ import { Bouton } from "../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Champ } from "../../../../components/ui/Champ";
 import { EtatVide } from "../../../../components/ui/EtatListe";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../lib/api";
 import {
   joursAffiches,
@@ -44,15 +45,29 @@ export interface ArbreModeleProps extends ContexteArbre {
  * lecteurs d'écran et au clavier, sans widget d'arbre ARIA à gérer).
  */
 export function ArbreModele({ arbre, ...ctx }: ArbreModeleProps) {
+  const t = useT();
   const [ajoutPhase, setAjoutPhase] = useState(false);
   return (
     <div className="mp-pile">
       {arbre.length === 0 ? (
-        <EtatVide titre="Ce type de mission n'a pas encore de découpage." icone="livre">
-          {ctx.peutEcrire ? <p>Ajoutez une première phase, puis ses lots et ses tâches.</p> : null}
+        <EtatVide
+          titre={t(
+            "Ce type de mission n'a pas encore de découpage.",
+            "This engagement type has no work breakdown yet.",
+          )}
+          icone="livre"
+        >
+          {ctx.peutEcrire ? (
+            <p>
+              {t(
+                "Ajoutez une première phase, puis ses lots et ses tâches.",
+                "Add a first phase, then its work packages and tasks.",
+              )}
+            </p>
+          ) : null}
         </EtatVide>
       ) : (
-        <ol className="mp-arbre" aria-label="Découpage type">
+        <ol className="mp-arbre" aria-label={t("Découpage type", "Typical work breakdown")}>
           {arbre.map((n) => (
             <Noeud key={n.id} noeud={n} ctx={ctx} />
           ))}
@@ -62,7 +77,7 @@ export function ArbreModele({ arbre, ...ctx }: ArbreModeleProps) {
         ajoutPhase ? (
           <FormulaireElement
             ctx={ctx}
-            titre="Nouvelle phase"
+            titre={t("Nouvelle phase", "New phase")}
             saisieInitiale={{
               ...SAISIE_ELEMENT_VIDE,
               ordre: String((arbre.at(-1)?.ordre ?? 0) + 10),
@@ -74,12 +89,12 @@ export function ArbreModele({ arbre, ...ctx }: ArbreModeleProps) {
               })
             }
             onFin={() => setAjoutPhase(false)}
-            libelleEnvoi="Ajouter la phase"
+            libelleEnvoi={t("Ajouter la phase", "Add the phase")}
           />
         ) : (
           <div>
             <Bouton variante="secondaire" icone="plus" onClick={() => setAjoutPhase(true)}>
-              Ajouter une phase
+              {t("Ajouter une phase", "Add a phase")}
             </Bouton>
           </div>
         )
@@ -89,11 +104,13 @@ export function ArbreModele({ arbre, ...ctx }: ArbreModeleProps) {
 }
 
 function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
+  const t = useT();
+  const langue = useLangue();
   const [mode, setMode] = useState<"lecture" | "edition" | "ajout">("lecture");
   const suppression = useFormulaire<never>();
   const jours = joursAffiches(noeud.jours_par_grade, ctx.grades);
-  const niveau = libelleNiveau(noeud.niveau);
-  const enfant = libelleEnfant(noeud.niveau);
+  const niveau = libelleNiveau(noeud.niveau, langue);
+  const enfant = libelleEnfant(noeud.niveau, langue);
   const chemin = `/api/types-mission/${encodeURIComponent(ctx.typeId)}/elements/${encodeURIComponent(noeud.id)}`;
 
   return (
@@ -106,12 +123,12 @@ function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
           <p className="mp-badges">
             {noeud.est_livrable ? (
               <BadgeStatut tonalite="neutre" sansIcone>
-                Livrable
+                {t("Livrable", "Deliverable")}
               </BadgeStatut>
             ) : null}
             {noeud.est_jalon ? (
               <BadgeStatut tonalite="neutre" sansIcone>
-                Jalon
+                {t("Jalon", "Milestone")}
               </BadgeStatut>
             ) : null}
           </p>
@@ -121,7 +138,7 @@ function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
             {jours.map((j) => (
               <div key={j.code} className="mp-jours__ligne">
                 <dt>{j.libelle}</dt>
-                <dd>{formaterJours(j.jours)}</dd>
+                <dd>{formaterJours(j.jours, langue)}</dd>
               </div>
             ))}
           </dl>
@@ -131,39 +148,42 @@ function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
             <RetourFormulaire
               erreur={suppression.erreurGlobale}
               refAlerte={suppression.refAlerte}
-              titreErreur="Suppression impossible"
+              titreErreur={t("Suppression impossible", "Deletion failed")}
             />
             <div className="mp-barre-actions mp-barre-actions--compacte">
               <Bouton
                 variante="discret"
                 icone="crayon"
                 onClick={() => setMode("edition")}
-                aria-label={`Modifier ${niveau.toLowerCase()} ${noeud.libelle}`}
+                aria-label={`${t("Modifier", "Edit")} ${niveau.toLowerCase()} ${noeud.libelle}`}
               >
-                Modifier
+                {t("Modifier", "Edit")}
               </Bouton>
               {enfant ? (
                 <Bouton
                   variante="discret"
                   icone="plus"
                   onClick={() => setMode("ajout")}
-                  aria-label={`Ajouter ${enfant} dans ${noeud.libelle}`}
+                  aria-label={`${t("Ajouter", "Add")} ${enfant} ${t("dans", "to")} ${noeud.libelle}`}
                 >
-                  {`Ajouter ${enfant}`}
+                  {`${t("Ajouter", "Add")} ${enfant}`}
                 </Bouton>
               ) : null}
               <BoutonConfirmation
-                libelle="Supprimer"
+                libelle={t("Supprimer", "Delete")}
                 variante="discret"
                 icone="corbeille"
-                ariaLabel={`Supprimer ${niveau.toLowerCase()} ${noeud.libelle}`}
+                ariaLabel={`${t("Supprimer", "Delete")} ${niveau.toLowerCase()} ${noeud.libelle}`}
                 question={
                   noeud.enfants.length > 0
-                    ? `Supprimer « ${noeud.libelle} » et tout ce qu'il contient ?`
-                    : `Supprimer « ${noeud.libelle} » ?`
+                    ? t(
+                        `Supprimer « ${noeud.libelle} » et tout ce qu'il contient ?`,
+                        `Delete "${noeud.libelle}" and everything it contains?`,
+                      )
+                    : t(`Supprimer « ${noeud.libelle} » ?`, `Delete "${noeud.libelle}"?`)
                 }
-                libelleConfirmation="Oui, supprimer"
-                texteChargement="Suppression…"
+                libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+                texteChargement={t("Suppression…", "Deleting…")}
                 action={() =>
                   suppression.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin))
                 }
@@ -174,16 +194,19 @@ function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
         {mode === "edition" ? (
           <FormulaireElement
             ctx={ctx}
-            titre={`Modifier ${niveau.toLowerCase()} ${noeud.libelle}`}
+            titre={`${t("Modifier", "Edit")} ${niveau.toLowerCase()} ${noeud.libelle}`}
             saisieInitiale={saisieDepuisElement(noeud)}
             envoyer={(c) => api.patch(chemin, c)}
             onFin={() => setMode("lecture")}
-            libelleEnvoi="Enregistrer"
+            libelleEnvoi={t("Enregistrer", "Save")}
           />
         ) : null}
       </div>
       {noeud.enfants.length > 0 || mode === "ajout" ? (
-        <ol className="mp-arbre" aria-label={`Contenu de ${noeud.libelle}`}>
+        <ol
+          className="mp-arbre"
+          aria-label={t(`Contenu de ${noeud.libelle}`, `Contents of ${noeud.libelle}`)}
+        >
           {noeud.enfants.map((e) => (
             <Noeud key={e.id} noeud={e} ctx={ctx} />
           ))}
@@ -191,7 +214,7 @@ function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
             <li className="mp-arbre__noeud">
               <FormulaireElement
                 ctx={ctx}
-                titre={`Ajouter ${enfant} dans ${noeud.libelle}`}
+                titre={`${t("Ajouter", "Add")} ${enfant} ${t("dans", "to")} ${noeud.libelle}`}
                 saisieInitiale={{
                   ...SAISIE_ELEMENT_VIDE,
                   ordre: String((noeud.enfants.at(-1)?.ordre ?? 0) + 10),
@@ -203,7 +226,7 @@ function Noeud({ noeud, ctx }: { noeud: NoeudArbre; ctx: ContexteArbre }) {
                   })
                 }
                 onFin={() => setMode("lecture")}
-                libelleEnvoi="Ajouter"
+                libelleEnvoi={t("Ajouter", "Add")}
               />
             </li>
           ) : null}
@@ -228,12 +251,14 @@ function FormulaireElement({
   onFin: () => void;
   libelleEnvoi: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [s, setS] = useState(saisieInitiale);
   const f = useFormulaire<ChampElement>();
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerElement(s), envoyer, { apres: onFin });
+    await f.envoyer(validerElement(s, langue), envoyer, { apres: onFin });
   }
 
   return (
@@ -248,7 +273,7 @@ function FormulaireElement({
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Libellé"
+          libelle={t("Libellé", "Label")}
           name="libelle"
           required
           maxLength={200}
@@ -257,22 +282,29 @@ function FormulaireElement({
           erreur={f.erreurs.libelle}
         />
         <Champ
-          libelle="Ordre"
+          libelle={t("Ordre", "Order")}
           name="ordre"
           required
           inputMode="numeric"
           value={s.ordre}
           onChange={(e) => setS((x) => ({ ...x, ordre: e.target.value }))}
           erreur={f.erreurs.ordre}
-          aide="Position parmi les éléments de même niveau (10, 20, 30…)."
+          aide={t(
+            "Position parmi les éléments de même niveau (10, 20, 30…).",
+            "Position among items of the same level (10, 20, 30…).",
+          )}
         />
       </div>
       {ctx.grades.length > 0 ? (
         <fieldset className="mp-groupe">
-          <legend className="mp-champ__libelle">Jours types par grade</legend>
+          <legend className="mp-champ__libelle">
+            {t("Jours types par grade", "Typical days per grade")}
+          </legend>
           <p className="mp-champ__aide">
-            Au pas de la demi-journée (ex. 2 ou 2,5). Laisser vide si le grade n&apos;intervient
-            pas.
+            {t(
+              "Au pas de la demi-journée (ex. 2 ou 2,5). Laisser vide si le grade n'intervient pas.",
+              "In half-day steps (e.g. 2 or 2.5). Leave empty if the grade is not involved.",
+            )}
           </p>
           <div className="mp-grille-champs mp-grille-champs--serree">
             {ctx.grades.map((g) => (
@@ -294,22 +326,26 @@ function FormulaireElement({
       ) : null}
       <div className="mp-groupe__options mp-groupe__options--ligne">
         <CaseACocher
-          libelle="Livrable"
+          libelle={t("Livrable", "Deliverable")}
           checked={s.est_livrable}
           onChange={(e) => setS((x) => ({ ...x, est_livrable: e.target.checked }))}
         />
         <CaseACocher
-          libelle="Jalon"
+          libelle={t("Jalon", "Milestone")}
           checked={s.est_jalon}
           onChange={(e) => setS((x) => ({ ...x, est_jalon: e.target.checked }))}
         />
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
           {libelleEnvoi}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

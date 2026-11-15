@@ -10,6 +10,7 @@ import {
   validerPublication,
 } from "../../lib/due-diligence-portail";
 import { formaterDate } from "../../lib/format";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { PartageInvestisseurRetour } from "./PartageInvestisseurRetour";
@@ -22,10 +23,12 @@ function NotePubliable({
   note: DdPortailNotePubliable;
   optionActive: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const p = usePartageInvestisseur();
   const [choisis, setChoisis] = useState<string[]>([]);
   const [erreurChoix, setErreurChoix] = useState<string | null>(null);
-  const etat = publicationPossible(note, optionActive);
+  const etat = publicationPossible(note, optionActive, langue);
 
   function basculer(id: string) {
     setErreurChoix(null);
@@ -33,14 +36,19 @@ function NotePubliable({
   }
 
   async function publier() {
-    const v = validerPublication(note.version, choisis, note.rapports);
+    const v = validerPublication(note.version, choisis, note.rapports, langue);
     if (!v.ok) {
-      setErreurChoix(v.erreurs.rapports ?? "Choix de rapports invalide.");
+      setErreurChoix(
+        v.erreurs.rapports ?? t("Choix de rapports invalide.", "Invalid report selection."),
+      );
       return;
     }
     await p.executer(
       () => api.post(cheminPublicationsNote(note.note_id), v.charge),
-      "Note publiée : les investisseurs invités peuvent la consulter.",
+      t(
+        "Note publiée : les investisseurs invités peuvent la consulter.",
+        "Memo published: invited investors can view it.",
+      ),
     );
   }
 
@@ -48,7 +56,10 @@ function NotePubliable({
     <li className="mp-dd-element">
       <h4 className="mp-dd-element__titre">{note.titre}</h4>
       <p className="mp-texte-doux mp-texte-petit">
-        {`Version ${note.version} · validée le ${formaterDate(note.valide_le)}`}
+        {t(
+          `Version ${note.version} · validée le ${formaterDate(note.valide_le)}`,
+          `Version ${note.version} · approved on ${formaterDate(note.valide_le, "UTC", langue)}`,
+        )}
       </p>
       <PartageInvestisseurRetour erreur={p.erreur ?? erreurChoix} succes={p.succes} />
       {!etat.possible ? (
@@ -56,17 +67,22 @@ function NotePubliable({
       ) : (
         <>
           <fieldset className="mp-dd-pile" style={{ border: 0, padding: 0, margin: 0 }}>
-            <legend>Rapports à joindre (facultatif)</legend>
+            <legend>{t("Rapports à joindre (facultatif)", "Reports to attach (optional)")}</legend>
             {note.rapports.length === 0 ? (
               <p className="mp-texte-doux">
-                Aucun rapport n&apos;a été généré pour cette version : seule la note
-                (recommandation, synthèse et conditions) sera publiée.
+                {t(
+                  "Aucun rapport n'a été généré pour cette version : seule la note (recommandation, synthèse et conditions) sera publiée.",
+                  "No report has been generated for this version: only the memo (recommendation, summary and conditions) will be published.",
+                )}
               </p>
             ) : (
               note.rapports.map((r) => (
                 <CaseACocher
                   key={r.id}
-                  libelle={`${libelleRapport(r)} · généré le ${formaterDate(r.genere_le)}`}
+                  libelle={t(
+                    `${libelleRapport(r)} · généré le ${formaterDate(r.genere_le)}`,
+                    `${libelleRapport(r, langue)} · generated on ${formaterDate(r.genere_le, "UTC", langue)}`,
+                  )}
                   checked={choisis.includes(r.id)}
                   onChange={() => basculer(r.id)}
                 />
@@ -75,11 +91,11 @@ function NotePubliable({
           </fieldset>
           <Bouton
             chargement={p.enCours}
-            texteChargement="Publication…"
-            aria-label={`Publier ${note.titre}`}
+            texteChargement={t("Publication…", "Publishing…")}
+            aria-label={t(`Publier ${note.titre}`, `Publish ${note.titre}`)}
             onClick={() => void publier()}
           >
-            Publier
+            {t("Publier", "Publish")}
           </Bouton>
         </>
       )}
@@ -94,16 +110,19 @@ export interface PartageInvestisseurNotesProps {
 
 /** Notes dont la dernière version soumise est validée : choix des rapports puis publication. */
 export function PartageInvestisseurNotes({ notes, optionActive }: PartageInvestisseurNotesProps) {
+  const t = useT();
   if (notes.length === 0) {
     return (
       <p className="mp-texte-doux">
-        Aucune note validée n&apos;est publiable. Une note le devient quand sa dernière version
-        soumise est validée par un tiers.
+        {t(
+          "Aucune note validée n'est publiable. Une note le devient quand sa dernière version soumise est validée par un tiers.",
+          "No approved memo can be published. A memo becomes publishable when its latest submitted version is approved by a third party.",
+        )}
       </p>
     );
   }
   return (
-    <ul className="mp-dd-liste" aria-label="Notes publiables">
+    <ul className="mp-dd-liste" aria-label={t("Notes publiables", "Publishable memos")}>
       {notes.map((n) => (
         <NotePubliable key={n.note_id} note={n} optionActive={optionActive} />
       ))}

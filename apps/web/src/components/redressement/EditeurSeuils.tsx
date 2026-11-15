@@ -23,6 +23,7 @@ import {
   type ChampSeuils,
   type SaisieSeuils,
 } from "../../lib/redressement-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -37,6 +38,8 @@ import { ZoneTexte } from "../ui/ZoneTexte";
  * « Enregistrer un brouillon » ne change aucun score : la publication est une étape séparée.
  */
 export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart: RedSeuils }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampSeuils>();
   const [s, setS] = useState<SaisieSeuils>(() => saisieSeuilsDepuis(depart));
   const somme = sommeDesPoids(s.criteres);
@@ -44,11 +47,14 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      corpsSeuilsDepuisFormulaire(secteur, s),
+      corpsSeuilsDepuisFormulaire(secteur, s, langue),
       (charge) => api.post<RedSeuilsVersionVue>(CHEMIN_SEUILS_RED, charge),
       {
-        succes: "Brouillon enregistré : publiez-le depuis la liste des versions.",
-        messageSpecifique: messageRedressement,
+        succes: t(
+          "Brouillon enregistré : publiez-le depuis la liste des versions.",
+          "Draft saved: publish it from the version list.",
+        ),
+        messageSpecifique: (e) => messageRedressement(e, langue),
       },
     );
   }
@@ -59,24 +65,25 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Rédiger un brouillon de seuils"
+      aria-label={t("Rédiger un brouillon de seuils", "Write a draft of thresholds")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Could not save")}
       />
       <div className="mp-red-seuils">
         {RED_CRITERES_ALERTE.map((c) => (
           <fieldset key={c} className="mp-red-seuil">
-            <legend className="mp-red-seuil__titre">{libelleCritere(c)}</legend>
+            <legend className="mp-red-seuil__titre">{libelleCritere(c, langue)}</legend>
             <p className="mp-texte-doux mp-texte-petit">
-              {libelleSensCritere(RED_CRITERE_ALERTE_SENS[c])}. Unité : {uniteCritere(c)}.
+              {libelleSensCritere(RED_CRITERE_ALERTE_SENS[c], langue)}. {t("Unité :", "Unit:")}{" "}
+              {uniteCritere(c, langue)}.
             </p>
             <div className="mp-grille-champs mp-grille-champs--serree">
               <Champ
-                libelle="Seuil orange"
+                libelle={t("Seuil orange", "Orange threshold")}
                 inputMode="decimal"
                 autoComplete="off"
                 value={s.criteres[c].orange}
@@ -89,7 +96,7 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
                 erreur={f.erreurs[`${c}.orange`]}
               />
               <Champ
-                libelle="Seuil rouge"
+                libelle={t("Seuil rouge", "Red threshold")}
                 inputMode="decimal"
                 autoComplete="off"
                 value={s.criteres[c].rouge}
@@ -102,7 +109,7 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
                 erreur={f.erreurs[`${c}.rouge`]}
               />
               <Champ
-                libelle="Poids"
+                libelle={t("Poids", "Weight")}
                 inputMode="numeric"
                 autoComplete="off"
                 value={s.criteres[c].poids}
@@ -120,8 +127,8 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
       </div>
 
       <p role="status" aria-live="polite" className={somme === 100 ? "mp-texte-doux" : undefined}>
-        Somme des poids : {somme} sur 100
-        {somme === 100 ? "" : " : à corriger avant l'enregistrement"}.
+        {t("Somme des poids :", "Sum of weights:")} {somme} {t("sur", "out of")} 100
+        {somme === 100 ? "" : t(" : à corriger avant l'enregistrement", ": fix before saving")}.
       </p>
       {f.erreurs.poids ? (
         <Alerte tonalite="danger" annonce="alert">
@@ -131,7 +138,10 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
 
       <div className="mp-grille-champs">
         <Champ
-          libelle="Niveau « Modéré » à partir de (sur 100)"
+          libelle={t(
+            "Niveau « Modéré » à partir de (sur 100)",
+            '"Moderate" level from (out of 100)',
+          )}
           inputMode="numeric"
           autoComplete="off"
           value={s.niveaux.modere}
@@ -140,7 +150,7 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
           }
         />
         <Champ
-          libelle="Niveau « Élevé » à partir de (sur 100)"
+          libelle={t("Niveau « Élevé » à partir de (sur 100)", '"High" level from (out of 100)')}
           inputMode="numeric"
           autoComplete="off"
           value={s.niveaux.eleve}
@@ -149,7 +159,10 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
           }
         />
         <Champ
-          libelle="Niveau « Critique » à partir de (sur 100)"
+          libelle={t(
+            "Niveau « Critique » à partir de (sur 100)",
+            '"Critical" level from (out of 100)',
+          )}
           inputMode="numeric"
           autoComplete="off"
           value={s.niveaux.critique}
@@ -159,25 +172,32 @@ export function EditeurSeuils({ secteur, depart }: { secteur: RedSecteur; depart
           erreur={f.erreurs.niveaux}
         />
         <Champ
-          libelle="Part minimale de poids évalué (%)"
+          libelle={t("Part minimale de poids évalué (%)", "Minimum share of weight assessed (%)")}
           inputMode="numeric"
           autoComplete="off"
           value={s.part_minimale_evaluee_pct}
           onChange={(e) => setS((x) => ({ ...x, part_minimale_evaluee_pct: e.target.value }))}
           erreur={f.erreurs.part}
-          aide="Sous cette part de poids évalué, le score est « Données insuffisantes »."
+          aide={t(
+            "Sous cette part de poids évalué, le score est « Données insuffisantes ».",
+            'Below this share of assessed weight, the score is "Insufficient data".',
+          )}
         />
       </div>
       <ZoneTexte
-        libelle="Motif (facultatif)"
+        libelle={t("Motif (facultatif)", "Reason (optional)")}
         maxLength={500}
         value={s.motif}
         onChange={(e) => setS((x) => ({ ...x, motif: e.target.value }))}
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer un brouillon
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer un brouillon", "Save a draft")}
         </Bouton>
       </div>
     </form>

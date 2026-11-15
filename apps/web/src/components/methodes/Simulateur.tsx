@@ -9,6 +9,7 @@ import {
   type SaisieContexte,
   type Simulation,
 } from "../../lib/methodes";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
@@ -21,6 +22,8 @@ import { JournalModulation, VueDifferentiel } from "./ResultatModulation";
  * moteur, par l'API. Rien n'est enregistré.
  */
 export function Simulateur({ versionId, facteurs }: { versionId: string; facteurs: Facteur[] }) {
+  const t = useT();
+  const langue = useLangue();
   const [avant, setAvant] = useState<SaisieContexte>({});
   const [apres, setApres] = useState<SaisieContexte>({});
   const [erreursAvant, setErreursAvant] = useState<Partial<Record<string, string>>>({});
@@ -33,8 +36,8 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
   async function simuler(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErreur(null);
-    const a = construireContexte(avant, facteurs);
-    const b = construireContexte(apres, facteurs);
+    const a = construireContexte(avant, facteurs, langue);
+    const b = construireContexte(apres, facteurs, langue);
     setErreursAvant(a.ok ? {} : a.erreurs);
     setErreursApres(b.ok ? {} : b.erreurs);
     if (!a.ok || !b.ok) return;
@@ -47,7 +50,7 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
       setResultat(r);
       setTimeout(() => refResultat.current?.focus(), 0);
     } catch (err) {
-      setErreur(messageMethodes(err) ?? messageErreur(err));
+      setErreur(messageMethodes(err, langue) ?? messageErreur(err));
     } finally {
       setEnCours(false);
     }
@@ -56,7 +59,7 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
   return (
     <form className="mp-pile" noValidate onSubmit={simuler}>
       <div className="mp-grille-cartes">
-        <Carte titre="Contexte A">
+        <Carte titre={t("Contexte A", "Context A")}>
           <ChampsContexte
             prefixe="a"
             facteurs={facteurs}
@@ -65,7 +68,7 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
             erreurs={erreursAvant}
           />
         </Carte>
-        <Carte titre="Contexte B">
+        <Carte titre={t("Contexte B", "Context B")}>
           <ChampsContexte
             prefixe="b"
             facteurs={facteurs}
@@ -76,26 +79,31 @@ export function Simulateur({ versionId, facteurs }: { versionId: string; facteur
         </Carte>
       </div>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="courbe" chargement={enCours} texteChargement="Simulation…">
-          Comparer les deux contextes
+        <Bouton
+          type="submit"
+          icone="courbe"
+          chargement={enCours}
+          texteChargement={t("Simulation…", "Simulating…")}
+        >
+          {t("Comparer les deux contextes", "Compare the two contexts")}
         </Bouton>
       </div>
       {erreur ? (
-        <Alerte tonalite="danger" titre="Simulation impossible">
+        <Alerte tonalite="danger" titre={t("Simulation impossible", "Simulation not possible")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
       {resultat ? (
         <div ref={refResultat} tabIndex={-1} className="mp-pile" aria-live="polite">
-          <Carte titre="Différentiel de A à B">
-            <VueDifferentiel d={resultat.differentiel} />
+          <Carte titre={t("Différentiel de A à B", "Difference from A to B")}>
+            <VueDifferentiel d={resultat.differentiel} langue={langue} />
           </Carte>
           <div className="mp-grille-cartes">
-            <Carte titre="Journal du contexte A">
-              <JournalModulation r={resultat.avant} />
+            <Carte titre={t("Journal du contexte A", "Log of context A")}>
+              <JournalModulation r={resultat.avant} langue={langue} />
             </Carte>
-            <Carte titre="Journal du contexte B">
-              <JournalModulation r={resultat.apres} />
+            <Carte titre={t("Journal du contexte B", "Log of context B")}>
+              <JournalModulation r={resultat.apres} langue={langue} />
             </Carte>
           </div>
         </div>

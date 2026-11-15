@@ -9,10 +9,11 @@ import { EtatErreur, EtatVide } from "../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../components/ui/Tableau";
 import { chargerToutesPagesCanaux } from "../../../../../lib/canaux-serveur";
 import { dateHeureCourte } from "../../../../../lib/canaux";
+import { obtenirLangue, obtenirT } from "../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../lib/session";
 import {
-  AVERTISSEMENT_TRANSCRIPTION,
+  avertissementTranscription,
   cheminApiTranscriptions,
   formaterConfiance,
   formaterDuree,
@@ -25,7 +26,10 @@ import {
   type TranscriptionApi,
 } from "../../../../../lib/transcriptions";
 
-export const metadata: Metadata = { title: "Transcriptions de la mission" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Transcriptions de la mission", "Engagement transcriptions") };
+}
 
 /**
  * Transcriptions des enregistrements de la mission (AGT-11) : brouillons à relire, jamais utilisés
@@ -37,6 +41,8 @@ export default async function PageTranscriptionsMission({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { utilisateur } = await exigerPermission("transcription.lire");
   const m = await chargerMission(id);
   // L'en-tête (layout) affiche déjà l'erreur de chargement de la mission.
@@ -53,61 +59,79 @@ export default async function PageTranscriptionsMission({
     <div className="mp-pile">
       <BandeauSimule>
         <p>
-          Le service de transcription est simulé : il ne décode que des enregistrements de test.
+          {t(
+            "Le service de transcription est simulé : il ne décode que des enregistrements de test.",
+            "The transcription service is simulated: it only decodes test recordings.",
+          )}
         </p>
       </BandeauSimule>
       <Alerte tonalite="info" annonce="aucune">
-        <p>{AVERTISSEMENT_TRANSCRIPTION}</p>
+        <p>{avertissementTranscription(langue)}</p>
       </Alerte>
       {peutCreer ? <NouvelleTranscription missionId={mission.id} /> : null}
       {!r.ok ? (
         <EtatErreur
-          titre="Les transcriptions n'ont pas pu être chargées."
+          titre={t(
+            "Les transcriptions n'ont pas pu être chargées.",
+            "The transcriptions could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={hrefTranscriptions(mission.id)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune transcription pour cette mission." icone="bulle">
+        <EtatVide
+          titre={t(
+            "Aucune transcription pour cette mission.",
+            "No transcription for this engagement.",
+          )}
+          icone="bulle"
+        >
           <p>
-            Envoyez un enregistrement (entretien, réunion) : le texte proposé est à relire avant
-            validation.
+            {t(
+              "Envoyez un enregistrement (entretien, réunion) : le texte proposé est à relire avant validation.",
+              "Upload a recording (interview, meeting): the proposed text must be reviewed before approval.",
+            )}
           </p>
         </EtatVide>
       ) : (
         <Tableau<TranscriptionApi>
-          legende="Transcriptions de la mission"
+          legende={t("Transcriptions de la mission", "Engagement transcriptions")}
           legendeVisible
-          cleLigne={(t) => t.id}
+          cleLigne={(tr) => tr.id}
           colonnes={[
             {
               cle: "date",
-              entete: "Envoyée le",
-              rendu: (t) => (
-                <Link href={hrefTranscription(mission.id, t.id)} prefetch={false}>
-                  {dateHeureCourte(t.cree_le)}
+              entete: t("Envoyée le", "Uploaded on"),
+              rendu: (tr) => (
+                <Link href={hrefTranscription(mission.id, tr.id)} prefetch={false}>
+                  {dateHeureCourte(tr.cree_le, langue)}
                 </Link>
               ),
             },
             {
               cle: "langue",
-              entete: "Langue",
-              rendu: (t) => libelleLangue(t.langue_detectee ?? t.langue_demandee),
+              entete: t("Langue", "Language"),
+              rendu: (tr) => libelleLangue(tr.langue_detectee ?? tr.langue_demandee, langue),
             },
-            { cle: "duree", entete: "Durée", rendu: (t) => formaterDuree(t.duree_audio_ms) },
+            {
+              cle: "duree",
+              entete: t("Durée", "Duration"),
+              rendu: (tr) => formaterDuree(tr.duree_audio_ms),
+            },
             {
               cle: "statut",
-              entete: "Statut",
-              rendu: (t) => (
-                <BadgeStatut tonalite={tonaliteStatutTranscription(t.statut)}>
-                  {libelleStatutTranscription(t.statut)}
+              entete: t("Statut", "Status"),
+              rendu: (tr) => (
+                <BadgeStatut tonalite={tonaliteStatutTranscription(tr.statut)}>
+                  {libelleStatutTranscription(tr.statut, langue)}
                 </BadgeStatut>
               ),
             },
             {
               cle: "confiance",
-              entete: "Confiance",
+              entete: t("Confiance", "Confidence"),
               alignement: "droite",
-              rendu: (t) => formaterConfiance(t.confiance_pm),
+              rendu: (tr) => formaterConfiance(tr.confiance_pm, langue),
             },
           ]}
           lignes={r.donnees.elements}
@@ -115,7 +139,10 @@ export default async function PageTranscriptionsMission({
       )}
       {r.ok && r.donnees.tronquee ? (
         <p className="mp-texte-doux mp-texte-petit">
-          La liste est partielle : seules les transcriptions les plus récentes sont affichées.
+          {t(
+            "La liste est partielle : seules les transcriptions les plus récentes sont affichées.",
+            "The list is partial: only the most recent transcriptions are shown.",
+          )}
         </p>
       ) : null}
     </div>

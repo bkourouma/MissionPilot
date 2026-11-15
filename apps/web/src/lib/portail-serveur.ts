@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { appelerApi, ErreurApi } from "./api";
 import { cookieSession, urlApi } from "./api-serveur";
+import { obtenirLangue } from "./i18n/serveur";
 import { cheminDeRetour, ENTETE_CHEMIN } from "./connexion";
 import {
   issueErreurPortail,
@@ -58,7 +59,7 @@ async function appelPortail<T>(chemin: string): Promise<ChargementPortail<T>> {
     ok: false,
     statut: erreur.statut,
     code: erreur.code,
-    message: messageErreurPortail(erreur),
+    message: messageErreurPortail(erreur, await obtenirLangue()),
   };
 }
 

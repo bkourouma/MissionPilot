@@ -8,7 +8,12 @@
  * réception par le serveur peut être renvoyé sans risque : l'API reconnaît le même fichier et
  * ne crée pas de second dépôt (réponse 200).
  */
-import type { StatutDemandeSalle, StatutPieceSalle } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  type Langue,
+  type StatutDemandeSalle,
+  type StatutPieceSalle,
+} from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi } from "./api";
 import { erreurReprenable, messageTeleversement } from "./fichiers";
@@ -90,8 +95,21 @@ export const STATUT_PIECE_PORTAIL: Record<StatutPieceSalle, Libelle> = {
   rejetee: { libelle: "À fournir de nouveau", tonalite: "danger" },
 };
 
-export function statutPiece(statut: string): Libelle {
-  return STATUT_PIECE_PORTAIL[statut as StatutPieceSalle] ?? { libelle: "—", tonalite: "neutre" };
+const STATUT_PIECE_PORTAIL_EN: Record<StatutPieceSalle, string> = {
+  demandee: "To provide",
+  recue: "Received, under review",
+  acceptee: "Accepted",
+  rejetee: "To provide again",
+};
+
+export function statutPiece(statut: string, langue: Langue = "fr"): Libelle {
+  const base = STATUT_PIECE_PORTAIL[statut as StatutPieceSalle] ?? {
+    libelle: "—",
+    tonalite: "neutre",
+  };
+  return langue === "en"
+    ? { ...base, libelle: STATUT_PIECE_PORTAIL_EN[statut as StatutPieceSalle] ?? base.libelle }
+    : base;
 }
 
 /** Le client peut-il déposer sur cette pièce ? (demande ouverte, pièce non acceptée) */
@@ -111,19 +129,30 @@ export function piecesAFournir(d: Pick<DemandePortail, "pieces">): PiecePortail[
 export function libelleEcheance(
   d: Pick<DemandePortailResume, "statut" | "echeance">,
   aujourdhui: string,
+  langue: Langue = "fr",
 ): { texte: string; tonalite: TonaliteStatut } {
-  if (d.statut === "close") return { texte: "Demande close", tonalite: "neutre" };
+  const t = creerTraduire(langue);
+  const date = formaterDate(d.echeance, "UTC", langue);
+  if (d.statut === "close")
+    return { texte: t("Demande close", "Request closed"), tonalite: "neutre" };
   if (d.echeance < aujourdhui) {
-    return { texte: `Échéance passée (${formaterDate(d.echeance)})`, tonalite: "danger" };
+    return { texte: t(`Échéance passée (${date})`, `Past due (${date})`), tonalite: "danger" };
   }
-  return { texte: `Avant le ${formaterDate(d.echeance)}`, tonalite: "neutre" };
+  return { texte: t(`Avant le ${date}`, `Before ${date}`), tonalite: "neutre" };
 }
 
 /** « 2 pièces à fournir », « Tout est fourni ». */
-export function resumePourClient(s: SynthesePortail): string {
+export function resumePourClient(s: SynthesePortail, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   const aFournir = s.demandee + s.rejetee;
-  if (aFournir === 0) return s.recue > 0 ? "Tout est fourni, en cours d'examen" : "Tout est fourni";
-  return `${aFournir} pièce${aFournir > 1 ? "s" : ""} à fournir`;
+  if (aFournir === 0)
+    return s.recue > 0
+      ? t("Tout est fourni, en cours d'examen", "Everything provided, under review")
+      : t("Tout est fourni", "Everything provided");
+  return t(
+    `${aFournir} pièce${aFournir > 1 ? "s" : ""} à fournir`,
+    `${aFournir} file${aFournir > 1 ? "s" : ""} to provide`,
+  );
 }
 
 // --- File d'envoi tolérante à la perte de réseau ---------------------------------------------
@@ -145,9 +174,13 @@ export type EvenementEnvoi =
 
 export const MESSAGE_ATTENTE_RESEAU =
   "Vous êtes hors connexion : le fichier est gardé sur cette page et partira automatiquement au retour du réseau. Ne fermez pas cette page d'ici là.";
+const MESSAGE_ATTENTE_RESEAU_EN =
+  "You are offline: the file is kept on this page and will be sent automatically when the network returns. Do not close this page until then.";
 
 /** Transition de l'état d'envoi d'un dépôt (réducteur pur). */
-export function etatSuivant(etat: EtatEnvoi, e: EvenementEnvoi): EtatEnvoi {
+export function etatSuivant(etat: EtatEnvoi, e: EvenementEnvoi, langue: Langue = "fr"): EtatEnvoi {
+  const t = creerTraduire(langue);
+  const attenteReseau = t(MESSAGE_ATTENTE_RESEAU, MESSAGE_ATTENTE_RESEAU_EN);
   switch (e.type) {
     case "demarrer":
       return { etape: "envoi", progression: 0 };
@@ -158,7 +191,7 @@ export function etatSuivant(etat: EtatEnvoi, e: EvenementEnvoi): EtatEnvoi {
     case "succes":
       return { etape: "reussi", rejoue: !e.nouveau };
     case "hors_ligne":
-      return { etape: "attente_reseau", message: MESSAGE_ATTENTE_RESEAU };
+      return { etape: "attente_reseau", message: attenteReseau };
     case "erreur":
       // Réseau perdu ou serveur momentanément indisponible : on garde le fichier et on
       // réessaie au retour du réseau (le serveur ne crée jamais de doublon).
@@ -166,12 +199,14 @@ export function etatSuivant(etat: EtatEnvoi, e: EvenementEnvoi): EtatEnvoi {
         return e.enLigne
           ? {
               etape: "attente_reseau",
-              message:
+              message: t(
                 "L'envoi a été interrompu. Le fichier est gardé sur cette page : réessayez dans un instant.",
+                "The upload was interrupted. The file is kept on this page: try again in a moment.",
+              ),
             }
-          : { etape: "attente_reseau", message: MESSAGE_ATTENTE_RESEAU };
+          : { etape: "attente_reseau", message: attenteReseau };
       }
-      return { etape: "echec", message: messageDepot(e.erreur) };
+      return { etape: "echec", message: messageDepot(e.erreur, langue) };
     case "annuler":
       return { etape: "inactif" };
   }
@@ -181,20 +216,33 @@ export function etatSuivant(etat: EtatEnvoi, e: EvenementEnvoi): EtatEnvoi {
 export const relancerAuRetour = (etat: EtatEnvoi): boolean => etat.etape === "attente_reseau";
 
 /** Message d'un refus de dépôt, en termes simples pour le client. */
-export function messageDepot(e: unknown): string {
+export function messageDepot(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.statut === 404) {
-      return "Cette pièce n'est plus disponible : rechargez la page.";
+      return t(
+        "Cette pièce n'est plus disponible : rechargez la page.",
+        "This item is no longer available: reload the page.",
+      );
     }
     if (e.code === "CONTENU_IDENTIQUE") {
-      return "Ce fichier est identique à celui déjà examiné : déposez une version corrigée.";
+      return t(
+        "Ce fichier est identique à celui déjà examiné : déposez une version corrigée.",
+        "This file is identical to the one already reviewed: upload a corrected version.",
+      );
     }
     if (e.code === "CONFLIT" || e.code === "DEPOT_REFUSE") {
-      return `${e.message} Rechargez la page pour voir l'état à jour.`;
+      return t(
+        `${e.message} Rechargez la page pour voir l'état à jour.`,
+        `${e.message} Reload the page to see the current status.`,
+      );
     }
     if (e.code === "FICHIERS_OCCUPE") {
-      return "Le service reçoit beaucoup de fichiers en ce moment : réessayez dans quelques instants.";
+      return t(
+        "Le service reçoit beaucoup de fichiers en ce moment : réessayez dans quelques instants.",
+        "The service is receiving a lot of files right now: try again in a few moments.",
+      );
     }
   }
-  return messageTeleversement(e);
+  return messageTeleversement(e, langue);
 }

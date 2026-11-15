@@ -17,6 +17,8 @@ export type { RapportImport } from "./temps-admin";
 export type { FormatImport } from "./import-temps-fichier";
 export {
   AIDE_FICHIER_IMPORT,
+  aideFichierImport,
+  libelleLimite,
   controlerFichierImport,
   formatDe,
   IMPORT_CSV_MAX_OCTETS,

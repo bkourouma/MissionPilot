@@ -8,6 +8,7 @@ import { cheminExplication } from "../../lib/plan-vivant";
 import { PanneauContenuIa } from "../ia/PanneauContenuIa";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 /**
  * Explication de l'IA sur les écarts d'une re-prévision (PLA-18) : un BROUILLON qui commente les
@@ -28,6 +29,8 @@ export function ExplicationReprevision({
   peutGenerer: boolean;
   utilisateur: UtilisateurIa;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [generation, setGeneration] = useState<GenerationIa | null>(initiale);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -36,16 +39,21 @@ export function ExplicationReprevision({
   async function generer() {
     setEnCours(true);
     setErreur(null);
-    setAnnonce("Génération du brouillon en cours.");
+    setAnnonce(t("Génération du brouillon en cours.", "Generating the draft."));
     try {
       const r = await api.post<{ explication: GenerationIa }>(
         cheminExplication(planId, reprevisionId),
         {},
       );
       setGeneration(r.explication);
-      setAnnonce("Brouillon généré : à relire et valider avant tout usage.");
+      setAnnonce(
+        t(
+          "Brouillon généré : à relire et valider avant tout usage.",
+          "Draft generated: review and approve it before any use.",
+        ),
+      );
     } catch (e) {
-      setErreur(messageErreurIa(e));
+      setErreur(messageErreurIa(e, langue));
       setAnnonce("");
     } finally {
       setEnCours(false);
@@ -56,16 +64,17 @@ export function ExplicationReprevision({
     <div className="mp-pv">
       <Alerte tonalite="info" annonce="aucune">
         <p>
-          Brouillon de l&apos;IA : il commente les chiffres du moteur sans en calculer aucun. Il
-          n&apos;est ni transmis au client ni repris dans un rapport tant qu&apos;un consultant ne
-          l&apos;a pas validé.
+          {t(
+            "Brouillon de l'IA : il commente les chiffres du moteur sans en calculer aucun. Il n'est ni transmis au client ni repris dans un rapport tant qu'un consultant ne l'a pas validé.",
+            "AI draft: it comments on the engine figures without computing any. It is neither sent to the client nor included in a report until a consultant has approved it.",
+          )}
         </p>
       </Alerte>
       <p className="mp-visuellement-cache" role="status">
         {annonce}
       </p>
       {erreur ? (
-        <Alerte tonalite="danger" titre="Explication non générée">
+        <Alerte tonalite="danger" titre={t("Explication non générée", "Explanation not generated")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -74,12 +83,15 @@ export function ExplicationReprevision({
           key={generation.id}
           generation={generation}
           utilisateur={utilisateur}
-          titre="Explication de l'IA (brouillon)"
+          titre={t("Explication de l'IA (brouillon)", "AI explanation (draft)")}
           niveauTitre={4}
         />
       ) : (
         <p className="mp-texte-doux">
-          Aucune explication n&apos;a encore été générée pour cette re-prévision.
+          {t(
+            "Aucune explication n'a encore été générée pour cette re-prévision.",
+            "No explanation has been generated for this re-forecast yet.",
+          )}
         </p>
       )}
       {peutGenerer ? (
@@ -88,10 +100,12 @@ export function ExplicationReprevision({
             type="button"
             variante={generation ? "secondaire" : "primaire"}
             chargement={enCours}
-            texteChargement="Génération…"
+            texteChargement={t("Génération…", "Generating…")}
             onClick={generer}
           >
-            {generation ? "Générer un nouveau brouillon" : "Générer un brouillon d'explication"}
+            {generation
+              ? t("Générer un nouveau brouillon", "Generate a new draft")
+              : t("Générer un brouillon d'explication", "Generate an explanation draft")}
           </Bouton>
         </div>
       ) : null}

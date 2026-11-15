@@ -12,10 +12,14 @@ import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDate } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { lireCurseur, peutGerer, type PageMethodes } from "../../../../lib/methodes";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Comité méthode" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Comité méthode", "Method committee") };
+}
 
 interface Proposition {
   id: string;
@@ -41,6 +45,14 @@ const TONALITES: Record<StatutPropositionStandard, "succes" | "attention" | "dan
   publiee: "succes",
 };
 
+const STATUT_PROPOSITION_LIBELLES_EN: Record<StatutPropositionStandard, string> = {
+  proposee: "Proposed",
+  en_revue: "Under review",
+  acceptee: "Accepted",
+  refusee: "Refused",
+  publiee: "Published",
+};
+
 const href = (curseur?: string | null) =>
   curseur ? `/methodes/comite?curseur=${encodeURIComponent(curseur)}` : "/methodes/comite";
 
@@ -54,6 +66,8 @@ export default async function PageComite({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("standard.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const curseur = lireCurseur((await searchParams).curseur);
   const gerer = peutGerer(utilisateur.roles);
   const [r, m] = await Promise.all([
@@ -67,17 +81,20 @@ export default async function PageComite({
     .filter((x) => x.origine !== "standard" && x.derniere_publiee)
     .map((x) => ({
       id: x.derniere_publiee!.id,
-      libelle: `${x.libelle} — version ${x.derniere_publiee!.version}`,
+      libelle: `${x.libelle} — ${t("version", "version")} ${x.derniere_publiee!.version}`,
     }));
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Comité méthode"
-        soustitre="Circuit de proposition, revue et publication des évolutions du référentiel. Le standard CabinetPilot lui-même évolue par ACC ; une proposition acceptée se publie dans la variante du cabinet."
+        titre={t("Comité méthode", "Method committee")}
+        soustitre={t(
+          "Circuit de proposition, revue et publication des évolutions du référentiel. Le standard CabinetPilot lui-même évolue par ACC ; une proposition acceptée se publie dans la variante du cabinet.",
+          "Process for proposing, reviewing and publishing changes to the framework. The CabinetPilot standard itself evolves through ACC; an accepted proposal is published in the firm's variant.",
+        )}
       />
       {gerer ? (
-        <Carte titre="Proposer une évolution">
+        <Carte titre={t("Proposer une évolution", "Propose a change")}>
           <FormulaireProposition
             methodes={methodes.map((x) => ({ id: x.id, libelle: x.libelle }))}
           />
@@ -85,12 +102,15 @@ export default async function PageComite({
       ) : null}
       {!r.ok ? (
         <EtatErreur
-          titre="Les propositions n'ont pas pu être chargées."
+          titre={t(
+            "Les propositions n'ont pas pu être chargées.",
+            "The proposals could not be loaded.",
+          )}
           message={r.message}
           hrefReessayer={href(curseur)}
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune proposition." icone="bulle" />
+        <EtatVide titre={t("Aucune proposition.", "No proposal.")} icone="bulle" />
       ) : (
         <ul className="mp-liste-cartes">
           {r.donnees.elements.map((p) => (
@@ -99,7 +119,11 @@ export default async function PageComite({
                 <div className="mp-pile">
                   <div className="mp-badges">
                     <BadgeStatut tonalite={TONALITES[p.statut]}>
-                      {STATUT_PROPOSITION_LIBELLES[p.statut]}
+                      {
+                        (langue === "en"
+                          ? STATUT_PROPOSITION_LIBELLES_EN
+                          : STATUT_PROPOSITION_LIBELLES)[p.statut]
+                      }
                     </BadgeStatut>
                     {p.methode_libelle ? (
                       <BadgeStatut tonalite="neutre">
@@ -107,19 +131,29 @@ export default async function PageComite({
                         {p.methode_standard ? " (standard)" : ""}
                       </BadgeStatut>
                     ) : (
-                      <BadgeStatut tonalite="neutre">Nouvelle méthode</BadgeStatut>
+                      <BadgeStatut tonalite="neutre">
+                        {t("Nouvelle méthode", "New method")}
+                      </BadgeStatut>
                     )}
                   </div>
                   <p>{p.description}</p>
                   <p className="mp-texte-doux mp-texte-petit">
-                    Proposée le {formaterDate(p.cree_le)}
-                    {p.auteur_nom ? ` par ${p.auteur_nom}` : ""}
-                    {p.relecteur_nom ? ` · relecteur : ${p.relecteur_nom}` : ""}
+                    {t("Proposée le ", "Proposed on ")}
+                    {formaterDate(p.cree_le, undefined, langue)}
+                    {p.auteur_nom ? t(` par ${p.auteur_nom}`, ` by ${p.auteur_nom}`) : ""}
+                    {p.relecteur_nom
+                      ? t(` · relecteur : ${p.relecteur_nom}`, ` · reviewer: ${p.relecteur_nom}`)
+                      : ""}
                   </p>
-                  {p.avis ? <p>Avis : {p.avis}</p> : null}
+                  {p.avis ? (
+                    <p>
+                      {t("Avis : ", "Opinion: ")}
+                      {p.avis}
+                    </p>
+                  ) : null}
                   {gerer && p.statut === "proposee" && p.auteur_id !== utilisateur.id ? (
                     <BoutonAction
-                      libelle="Prendre en revue"
+                      libelle={t("Prendre en revue", "Take for review")}
                       chemin={`/api/standard/propositions/${p.id}/revue`}
                       corps={{ action: "prendre_en_revue" }}
                     />
@@ -132,7 +166,10 @@ export default async function PageComite({
                       <PublicationProposition propositionId={p.id} versions={versionsCabinet} />
                     ) : (
                       <p>
-                        Publiez d&apos;abord une version de la variante qui porte cette évolution.
+                        {t(
+                          "Publiez d'abord une version de la variante qui porte cette évolution.",
+                          "First publish a version of the variant that carries this change.",
+                        )}
                       </p>
                     )
                   ) : null}
@@ -144,7 +181,7 @@ export default async function PageComite({
       )}
       {r.ok ? (
         <PaginationCurseur
-          libelle="Pages des propositions"
+          libelle={t("Pages des propositions", "Proposal pages")}
           hrefSuivante={r.donnees.curseur_suivant ? href(r.donnees.curseur_suivant) : null}
           hrefDebut={curseur ? href() : null}
         />

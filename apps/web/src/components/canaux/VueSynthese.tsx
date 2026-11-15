@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { grouperSynthese, lienSynthese, phraseCompteur } from "../../lib/portail-canaux";
 import type { SyntheseDirigeantApi } from "@missionpilot/shared";
 import "./canaux.css";
@@ -14,27 +17,36 @@ export interface VueSyntheseProps {
  * Jamais un montant : seuls des compteurs et des liens vers l'espace client.
  */
 export function VueSynthese({ synthese, avecLiens }: VueSyntheseProps) {
-  const groupes = grouperSynthese(synthese);
+  const t = useT();
+  const langue = useLangue();
+  const groupes = grouperSynthese(synthese, langue);
   return (
     <div className="mp-pile">
-      <ul className="mp-canaux__compteurs" aria-label="Résumé de la semaine">
+      <ul
+        className="mp-canaux__compteurs"
+        aria-label={t("Résumé de la semaine", "Summary of the week")}
+      >
         <li className="mp-canaux__compteur">
           <span className="mp-canaux__compteur-valeur">{synthese.points_attention}</span>
           <span className="mp-canaux__compteur-libelle">
-            {synthese.points_attention > 1 ? "points d'attention" : "point d'attention"}
+            {synthese.points_attention > 1
+              ? t("points d'attention", "points of attention")
+              : t("point d'attention", "point of attention")}
           </span>
         </li>
         <li className="mp-canaux__compteur">
           <span className="mp-canaux__compteur-valeur">{synthese.decisions_attendues}</span>
           <span className="mp-canaux__compteur-libelle">
-            {synthese.decisions_attendues > 1 ? "décisions attendues" : "décision attendue"}
+            {synthese.decisions_attendues > 1
+              ? t("décisions attendues", "decisions needed")
+              : t("décision attendue", "decision needed")}
           </span>
         </li>
       </ul>
       {groupes.map((g) => (
         <section key={g.groupe} aria-labelledby={`synthese-${g.groupe}`} className="mp-pile">
           <h2 id={`synthese-${g.groupe}`} className="mp-section__titre">
-            {`${g.titre} (${phraseCompteur(g.total, g.groupe)})`}
+            {`${g.titre} (${phraseCompteur(g.total, g.groupe, langue)})`}
           </h2>
           <ul className="mp-canaux__sections">
             {g.sections.map((s) => {

@@ -5,12 +5,18 @@ import {
   OBJETS_ENVOI_CANAL,
   STATUTS_ENVOI_CANAL,
   type EnvoiCanalApi,
+  type Langue,
   type ObjetEnvoiCanal,
   type StatutEnvoiCanal,
 } from "@missionpilot/shared";
 import { un } from "./canaux-utilitaires";
 import { CHEMIN_CANAUX_JOURNAL, API_CANAUX_ENVOIS } from "./canaux-chemins";
-import { libelleMotifBlocage, libelleCodeRefus, libelleObjetEnvoi } from "./canaux-libelles";
+import {
+  libelleMotifBlocage,
+  libelleCodeRefus,
+  libelleObjetEnvoi,
+  libelleStatutEnvoi,
+} from "./canaux-libelles";
 
 // --- Journal des envois ----------------------------------------------------------------------
 
@@ -77,17 +83,25 @@ export const OPTIONS_OBJET_ENVOI = OBJETS_ENVOI_CANAL.map((o) => ({
   libelle: LIBELLES_OBJET_ENVOI_CANAL[o],
 }));
 
+/** Options des filtres du journal dans la langue demandée. */
+export const optionsStatutEnvoi = (langue: Langue = "fr") =>
+  STATUTS_ENVOI_CANAL.map((s) => ({ valeur: s, libelle: libelleStatutEnvoi(s, langue) }));
+export const optionsObjetEnvoi = (langue: Langue = "fr") =>
+  OBJETS_ENVOI_CANAL.map((o) => ({ valeur: o, libelle: libelleObjetEnvoi(o, langue) }));
+
 /** Précision sous le statut : motif du blocage ou du refus, sinon rien. Jamais un contenu. */
 export function precisionEnvoi(
   e: Pick<EnvoiCanalApi, "statut" | "motif_blocage" | "code_refus">,
+  langue: Langue = "fr",
 ): string | null {
-  if (e.motif_blocage) return libelleMotifBlocage(e.motif_blocage);
-  if (e.code_refus) return libelleCodeRefus(e.code_refus);
+  if (e.motif_blocage) return libelleMotifBlocage(e.motif_blocage, langue);
+  if (e.code_refus) return libelleCodeRefus(e.code_refus, langue);
   return null;
 }
 
 /** Libellé de l'objet lié : « Questionnaire », « Demande de signature »… */
-export const objetLie = (e: Pick<EnvoiCanalApi, "objet_type">) => libelleObjetEnvoi(e.objet_type);
+export const objetLie = (e: Pick<EnvoiCanalApi, "objet_type">, langue: Langue = "fr") =>
+  libelleObjetEnvoi(e.objet_type, langue);
 
 /** Un coût estimé n'existe qu'avec le droit financier : champ absent sinon (FIN-02). */
 export function aUnCoutEstime(e: Pick<EnvoiCanalApi, "cout_estime_micro_usd">): boolean {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { Alerte } from "../../../components/ui/Alerte";
 import { Bouton } from "../../../components/ui/Bouton";
 import { Champ } from "../../../components/ui/Champ";
@@ -18,6 +19,8 @@ import {
  * dans l'URL ni le stockage du navigateur ; le mot de passe est vidé dès l'envoi.
  */
 export function FormulaireConnexionPlateforme() {
+  const t = useT();
+  const langue = useLangue();
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [afficherMdp, setAfficherMdp] = useState(false);
@@ -39,7 +42,7 @@ export function FormulaireConnexionPlateforme() {
     ev.preventDefault();
     if (enCours || connecte) return;
     setErreurGlobale(null);
-    const trouvees = validerConnexionPlateforme({ email, motDePasse });
+    const trouvees = validerConnexionPlateforme({ email, motDePasse }, langue);
     setErreurs(trouvees);
     if (trouvees.email) return champEmail.current?.focus();
     if (trouvees.motDePasse) return champMdp.current?.focus();
@@ -54,7 +57,7 @@ export function FormulaireConnexionPlateforme() {
       // Rechargement complet : change d'espace et vide l'état client.
       window.location.assign(CHEMIN_PLATEFORME);
     } catch (e) {
-      setErreurGlobale(messageConnexion(e));
+      setErreurGlobale(messageConnexion(e, langue));
       setRefus((n) => n + 1);
       setEnCours(false);
     }
@@ -63,13 +66,17 @@ export function FormulaireConnexionPlateforme() {
   return (
     <form className="mp-formulaire" noValidate onSubmit={soumettre} aria-busy={enCours}>
       {erreurGlobale ? (
-        <Alerte ref={alerte} tonalite="danger" titre="Connexion impossible">
+        <Alerte
+          ref={alerte}
+          tonalite="danger"
+          titre={t("Connexion impossible", "Unable to sign in")}
+        >
           <p>{erreurGlobale}</p>
         </Alerte>
       ) : null}
       <Champ
         ref={champEmail}
-        libelle="Adresse e-mail"
+        libelle={t("Adresse e-mail", "Email address")}
         type="email"
         name="email"
         autoComplete="username"
@@ -84,7 +91,7 @@ export function FormulaireConnexionPlateforme() {
       <div className="mp-champ-mdp">
         <Champ
           ref={champMdp}
-          libelle="Mot de passe"
+          libelle={t("Mot de passe", "Password")}
           type={afficherMdp ? "text" : "password"}
           name="mot_de_passe"
           autoComplete="current-password"
@@ -100,19 +107,23 @@ export function FormulaireConnexionPlateforme() {
           aria-pressed={afficherMdp}
           onClick={() => setAfficherMdp((v) => !v)}
         >
-          Afficher le mot de passe
+          {t("Afficher le mot de passe", "Show password")}
         </Bouton>
       </div>
       <Bouton
         type="submit"
         pleineLargeur
         chargement={enCours || connecte}
-        texteChargement={connecte ? "Ouverture de la console…" : "Connexion en cours…"}
+        texteChargement={
+          connecte
+            ? t("Ouverture de la console…", "Opening the console…")
+            : t("Connexion en cours…", "Signing in…")
+        }
       >
-        Se connecter
+        {t("Se connecter", "Sign in")}
       </Bouton>
       <p className="mp-texte-doux">
-        <Link href="/connexion">Connexion à un cabinet</Link>
+        <Link href="/connexion">{t("Connexion à un cabinet", "Sign in to a firm")}</Link>
       </p>
     </form>
   );

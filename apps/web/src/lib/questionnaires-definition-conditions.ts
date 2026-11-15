@@ -1,5 +1,5 @@
 /** Sous-module de `questionnaires-definition.ts` : conditions d'affichage. */
-import { type ValeurConditionAffichage } from "@missionpilot/shared";
+import { type Langue, type ValeurConditionAffichage } from "@missionpilot/shared";
 import { formaterDate, formaterNombre } from "./format";
 import { tronquer } from "./questionnaires-definition-utilitaires";
 import {
@@ -87,8 +87,36 @@ const LIBELLES_OPERATEUR: Record<OperateurCondition, string> = {
   non: "La condition suivante est fausse (non)",
 };
 
+const LIBELLES_OPERATEUR_EN: Record<OperateurCondition, string> = {
+  egal: "equals",
+  different: "is different from",
+  dans: "is one of the values",
+  superieur: "is greater than",
+  inferieur: "is less than",
+  vide: "has no answer",
+  et: "All of the following conditions (and)",
+  ou: "At least one of the following conditions (or)",
+  non: "The following condition is false (not)",
+};
+
 /** Libellé d'un opérateur ; sur un choix multiple, « égal » signifie « contient » (moteur). */
-export function libelleOperateur(op: OperateurCondition, q?: Question): string {
+export function libelleOperateur(
+  op: OperateurCondition,
+  q?: Question,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    if (q?.type === "choix_multiple") {
+      if (op === "egal") return "contains";
+      if (op === "different") return "does not contain";
+      if (op === "dans") return "contains one of the values";
+    }
+    if (q?.type === "date") {
+      if (op === "superieur") return "is after";
+      if (op === "inferieur") return "is before";
+    }
+    return LIBELLES_OPERATEUR_EN[op];
+  }
   if (q?.type === "choix_multiple") {
     if (op === "egal") return "contient";
     if (op === "different") return "ne contient pas";
@@ -215,7 +243,28 @@ export function profondeurCondition(c: Condition, plafond = PROFONDEUR_MAX_CONDI
 export const combinaisonPossible = (niveau: number) => niveau < PROFONDEUR_MAX_CONDITION;
 
 /** Valeur citée dans une condition, en clair (« Plutôt d'accord (4) », « Oui »…). */
-export function decrireValeur(q: Question | undefined, v: ValeurConditionAffichage): string {
+export function decrireValeur(
+  q: Question | undefined,
+  v: ValeurConditionAffichage,
+  langue: Langue = "fr",
+): string {
+  if (langue === "en") {
+    if (q?.type === "likert" && typeof v === "number") {
+      const l = q.libelles[v - 1];
+      return l ? `${l} (${v})` : String(v);
+    }
+    if ((q?.type === "choix_unique" || q?.type === "choix_multiple") && typeof v === "string") {
+      return q.options.find((o) => o.code === v)?.libelle ?? v;
+    }
+    if (typeof v === "boolean") return v ? "Yes" : "No";
+    if (q?.type === "date" && typeof v === "string") {
+      return v === "" ? "(date to choose)" : formaterDate(v, undefined, langue);
+    }
+    if (typeof v === "number") {
+      return `${formaterNombre(v, 4, langue)}${q?.type === "numerique" && q.unite ? `${ESPACE_INSECABLE}${q.unite}` : ""}`;
+    }
+    return v === "" ? "(value to enter)" : v;
+  }
   if (q?.type === "likert" && typeof v === "number") {
     const l = q.libelles[v - 1];
     return l ? `${l} (${v})` : String(v);
@@ -232,28 +281,33 @@ export function decrireValeur(q: Question | undefined, v: ValeurConditionAfficha
 }
 
 /** Condition en clair : « « Effectif » est supérieure à 50 et « Secteur » est l'une des… ». */
-export function decrireCondition(c: Condition, questions: ReadonlyMap<string, Question>): string {
+export function decrireCondition(
+  c: Condition,
+  questions: ReadonlyMap<string, Question>,
+  langue: Langue = "fr",
+): string {
+  const en = langue === "en";
   switch (c.op) {
     case "et":
     case "ou": {
       const parties = c.conditions.map((s) => {
-        const t = decrireCondition(s, questions);
+        const t = decrireCondition(s, questions, langue);
         return estComparaison(s) ? t : `(${t})`;
       });
-      return parties.join(c.op === "et" ? " et " : " ou ");
+      return parties.join(c.op === "et" ? (en ? " and " : " et ") : en ? " or " : " ou ");
     }
     case "non":
-      return `non (${decrireCondition(c.condition, questions)})`;
+      return `${en ? "not" : "non"} (${decrireCondition(c.condition, questions, langue)})`;
     default: {
       const q = questions.get(c.question);
       const nom = q
         ? `« ${tronquer(q.libelle.trim() || q.id)} »`
-        : `« ${c.question} » (question inconnue)`;
-      const op = libelleOperateur(c.op, q);
+        : `« ${c.question} » ${en ? "(unknown question)" : "(question inconnue)"}`;
+      const op = libelleOperateur(c.op, q, langue);
       if (c.op === "vide") return `${nom} ${op}`;
       if (c.op === "dans")
-        return `${nom} ${op} : ${c.valeurs.map((v) => decrireValeur(q, v)).join(", ")}`;
-      return `${nom} ${op} ${decrireValeur(q, c.valeur)}`;
+        return `${nom} ${op} : ${c.valeurs.map((v) => decrireValeur(q, v, langue)).join(", ")}`;
+      return `${nom} ${op} ${decrireValeur(q, c.valeur, langue)}`;
     }
   }
 }

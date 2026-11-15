@@ -6,25 +6,29 @@ import { Alerte } from "../../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import {
   cheminFeuilleDeRoute,
   hrefFeuilleDeRoute,
   initiativesARecaler,
   lirePas,
-  PAS_FEUILLE_DE_ROUTE,
+  optionsPasFeuilleDeRoute,
   resumeRecalage,
   type FeuilleDeRoute as Feuille,
 } from "../../../../../../../lib/plan-feuille-de-route";
 import { chargerPlan } from "../../../../../../../lib/plan-serveur";
 import {
   droitsPlan,
-  MESSAGE_MISSION_CLOTUREE,
+  messageMissionCloturee,
   type ContextePlan,
 } from "../../../../../../../lib/plan-strategique";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Feuille de route du plan" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Feuille de route du plan", "Plan roadmap") };
+}
 
 /**
  * Feuille de route du plan (PLA-05) : initiatives par trimestre ou semestre, dépendances
@@ -39,6 +43,8 @@ export default async function PageFeuilleDeRoute({
   params: Promise<{ id: string; planId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, planId } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const pas = lirePas((await searchParams).pas);
@@ -55,13 +61,16 @@ export default async function PageFeuilleDeRoute({
     <>
       {droits.cloturee ? (
         <Alerte tonalite="info" annonce="aucune">
-          <p>{MESSAGE_MISSION_CLOTUREE}</p>
+          <p>{messageMissionCloturee(langue)}</p>
         </Alerte>
       ) : null}
-      <Carte titre="Feuille de route" niveauTitre={3}>
+      <Carte titre={t("Feuille de route", "Roadmap")} niveauTitre={3}>
         <div className="mp-plan__section">
-          <nav aria-label="Pas de la feuille de route" className="mp-plan__badges">
-            {PAS_FEUILLE_DE_ROUTE.map((p) =>
+          <nav
+            aria-label={t("Pas de la feuille de route", "Roadmap granularity")}
+            className="mp-plan__badges"
+          >
+            {optionsPasFeuilleDeRoute(langue).map((p) =>
               p.valeur === pas ? (
                 <span key={p.valeur} aria-current="page" className="mp-texte-petit">
                   <strong>{p.libelle}</strong>
@@ -79,25 +88,33 @@ export default async function PageFeuilleDeRoute({
           </nav>
           {!f.ok ? (
             <EtatErreur
-              titre="La feuille de route n'a pas pu être calculée."
+              titre={t(
+                "La feuille de route n'a pas pu être calculée.",
+                "The roadmap could not be computed.",
+              )}
               message={f.message}
               hrefReessayer={hrefFeuilleDeRoute(id, plan.id, pas)}
             />
           ) : f.donnees.initiatives.length === 0 ? (
-            <EtatVide titre="Aucune initiative active." icone="calendrier">
+            <EtatVide
+              titre={t("Aucune initiative active.", "No active initiatives.")}
+              icone="calendrier"
+            >
               <p>
-                Ajoutez des initiatives (avec leur échéance) dans l&apos;onglet « Contenus » ;
-                indiquez pour chacune les initiatives dont elle dépend.
+                {t(
+                  "Ajoutez des initiatives (avec leur échéance) dans l'onglet « Contenus » ; indiquez pour chacune les initiatives dont elle dépend.",
+                  "Add initiatives (with their due date) in the \u201cContent\u201d tab; for each, indicate the initiatives it depends on.",
+                )}
               </p>
             </EtatVide>
           ) : (
             <>
-              <p>{resumeRecalage(f.donnees)}</p>
+              <p>{resumeRecalage(f.donnees, langue)}</p>
               <p className="mp-texte-doux mp-texte-petit">
-                Une initiative ne commence qu&apos;au lendemain de la fin de celles dont elle
-                dépend. Les initiatives à lancer ou suspendues sont recalées automatiquement ;
-                celles en cours ou terminées gardent leurs dates et le conflit est signalé. Le
-                chemin critique est la chaîne d&apos;initiatives qui fixe la fin du plan.
+                {t(
+                  "Une initiative ne commence qu'au lendemain de la fin de celles dont elle dépend. Les initiatives à lancer ou suspendues sont recalées automatiquement ; celles en cours ou terminées gardent leurs dates et le conflit est signalé. Le chemin critique est la chaîne d'initiatives qui fixe la fin du plan.",
+                  "An initiative only starts the day after those it depends on end. Initiatives to launch or on hold are rescheduled automatically; those in progress or completed keep their dates and the conflict is flagged. The critical path is the chain of initiatives that sets the end of the plan.",
+                )}
               </p>
               {droits.rediger && initiativesARecaler(f.donnees).length ? (
                 <RecalageFeuilleDeRoute

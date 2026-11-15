@@ -9,7 +9,9 @@
 import {
   DELAI_MODIFICATION_COMMENTAIRE_MINUTES,
   MENTIONS_MAX,
+  LOCALES_INTL,
   TAILLE_COMMENTAIRE_MAX,
+  type Langue,
   type TypeEntiteCollaboration,
 } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
@@ -60,8 +62,13 @@ export function secondesRestantes(modifiableJusquAu: string, maintenant: number)
 }
 
 /** « Modifiable encore 12 min » / « … 45 s » ; null une fois la fenêtre close. */
-export function libelleDelaiModification(secondes: number): string | null {
+export function libelleDelaiModification(secondes: number, langue: Langue = "fr"): string | null {
   if (secondes <= 0) return null;
+  if (langue === "en") {
+    return secondes < 60
+      ? `Editable for ${secondes} s more`
+      : `Editable for ${Math.ceil(secondes / 60)} min more`;
+  }
   if (secondes < 60) return `Modifiable encore ${secondes} s`;
   return `Modifiable encore ${Math.ceil(secondes / 60)} min`;
 }
@@ -97,28 +104,59 @@ export function actionsCommentaire(
 const CONTROLES = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 
 /** Texte d'un commentaire : 1 à 5 000 caractères, sans caractère de contrôle. */
-export function validerTexteCommentaire(texte: string): Resultat<string, "texte"> {
+export function validerTexteCommentaire(
+  texte: string,
+  langue: Langue = "fr",
+): Resultat<string, "texte"> {
+  const en = langue === "en";
   const t = texte.trim();
-  if (t === "") return { ok: false, erreurs: { texte: "Écrivez votre commentaire." } };
+  if (t === "") {
+    return {
+      ok: false,
+      erreurs: { texte: en ? "Write your comment." : "Écrivez votre commentaire." },
+    };
+  }
   if (t.length > TAILLE_COMMENTAIRE_MAX)
     return {
       ok: false,
-      erreurs: { texte: `${TAILLE_COMMENTAIRE_MAX.toLocaleString("fr-FR")} caractères au plus.` },
+      erreurs: {
+        texte: en
+          ? `${TAILLE_COMMENTAIRE_MAX.toLocaleString(LOCALES_INTL[langue])} characters at most.`
+          : `${TAILLE_COMMENTAIRE_MAX.toLocaleString("fr-FR")} caractères au plus.`,
+      },
     };
   if (CONTROLES.test(t))
-    return { ok: false, erreurs: { texte: "Le texte contient un caractère non autorisé." } };
+    return {
+      ok: false,
+      erreurs: {
+        texte: en
+          ? "The text contains a character that is not allowed."
+          : "Le texte contient un caractère non autorisé.",
+      },
+    };
   return { ok: true, charge: t };
 }
 
 /** Message d'erreur propre aux commentaires (fenêtre dépassée, commentaire figé). */
-export function messageCommentaire(e: unknown): string {
+export function messageCommentaire(e: unknown, langue: Langue = "fr"): string {
+  const en = langue === "en";
   if (e instanceof ErreurApi) {
     if (e.code === "DELAI_MODIFICATION_DEPASSE")
-      return `Le délai de ${DELAI_MODIFICATION_COMMENTAIRE_MINUTES} minutes est dépassé : ce commentaire ne peut plus être modifié.`;
-    if (e.code === "COMMENTAIRE_FIGE") return "Ce commentaire ne peut plus être modifié.";
-    if (e.statut === 404) return "Ce commentaire ou l'élément commenté n'est plus accessible.";
+      return en
+        ? `The ${DELAI_MODIFICATION_COMMENTAIRE_MINUTES}-minute window has passed: this comment can no longer be edited.`
+        : `Le délai de ${DELAI_MODIFICATION_COMMENTAIRE_MINUTES} minutes est dépassé : ce commentaire ne peut plus être modifié.`;
+    if (e.code === "COMMENTAIRE_FIGE") {
+      return en
+        ? "This comment can no longer be edited."
+        : "Ce commentaire ne peut plus être modifié.";
+    }
+    if (e.statut === 404) {
+      return en
+        ? "This comment or the commented item is no longer accessible."
+        : "Ce commentaire ou l'élément commenté n'est plus accessible.";
+    }
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }
 
 // --- Mentions -------------------------------------------------------------------------------

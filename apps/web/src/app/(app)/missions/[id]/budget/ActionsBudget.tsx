@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useLangue, useT } from "../../../../../components/i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../../../../../components/formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
@@ -24,6 +25,8 @@ export function ActionsBudget({
   enCoursId,
   enCoursLibelle,
 }: ActionsBudgetProps) {
+  const t = useT();
+  const langue = useLangue();
   const [ouvert, setOuvert] = useState(false);
   const [motif, setMotif] = useState("");
   const [depuisDecoupage, setDepuisDecoupage] = useState(true);
@@ -34,10 +37,13 @@ export function ActionsBudget({
   async function creer(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerRevision({ motif, depuis_decoupage: depuisDecoupage }),
+      validerRevision({ motif, depuis_decoupage: depuisDecoupage }, langue),
       (c) => api.post(`${base}/revisions`, c),
       {
-        succes: "Révision créée : elle attend la validation du directeur de mission.",
+        succes: t(
+          "Révision créée : elle attend la validation du directeur de mission.",
+          "Revision created: it is awaiting approval by the engagement director.",
+        ),
         apres: () => {
           setOuvert(false);
           setMotif("");
@@ -52,40 +58,49 @@ export function ActionsBudget({
         erreur={g.erreurGlobale}
         succes={g.succes}
         refAlerte={g.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
       <RetourFormulaire erreur={null} succes={f.succes} refAlerte={f.refAlerte} />
       {enCoursId && (actions.valider || actions.abandonner) ? (
         <div className="mp-barre-actions">
           {actions.valider ? (
             <BoutonConfirmation
-              libelle={`Valider ${enCoursLibelle ?? "la révision"}`}
+              libelle={t(
+                `Valider ${enCoursLibelle ?? "la révision"}`,
+                `Approve ${enCoursLibelle ?? "the revision"}`,
+              )}
               variante="primaire"
               icone="cadenas"
-              question="Valider et figer cette révision ? Elle deviendra le budget de référence ; l'initial reste dans l'historique."
-              libelleConfirmation="Oui, valider et figer"
-              texteChargement="Validation…"
+              question={t(
+                "Valider et figer cette révision ? Elle deviendra le budget de référence ; l'initial reste dans l'historique.",
+                "Approve and freeze this revision? It will become the baseline budget; the initial one stays in the history.",
+              )}
+              libelleConfirmation={t("Oui, valider et figer", "Yes, approve and freeze")}
+              texteChargement={t("Validation…", "Approving…")}
               action={() =>
                 g.envoyer(
                   { ok: true, charge: null },
                   () => api.post(`${base}/versions/${encodeURIComponent(enCoursId)}/valider`),
-                  { succes: "Révision validée et figée." },
+                  { succes: t("Révision validée et figée.", "Revision approved and frozen.") },
                 )
               }
             />
           ) : null}
           {actions.abandonner ? (
             <BoutonConfirmation
-              libelle="Abandonner la révision"
+              libelle={t("Abandonner la révision", "Abandon the revision")}
               icone="corbeille"
-              question="Abandonner cette révision en cours ? Elle sera supprimée ; les versions figées ne changent pas."
-              libelleConfirmation="Oui, abandonner"
-              texteChargement="Abandon…"
+              question={t(
+                "Abandonner cette révision en cours ? Elle sera supprimée ; les versions figées ne changent pas.",
+                "Abandon this revision in progress? It will be deleted; frozen versions do not change.",
+              )}
+              libelleConfirmation={t("Oui, abandonner", "Yes, abandon")}
+              texteChargement={t("Abandon…", "Abandoning…")}
               action={() =>
                 g.envoyer(
                   { ok: true, charge: null },
                   () => api.supprimer(`${base}/versions/${encodeURIComponent(enCoursId)}`),
-                  { succes: "Révision abandonnée." },
+                  { succes: t("Révision abandonnée.", "Revision abandoned.") },
                 )
               }
             />
@@ -102,43 +117,58 @@ export function ActionsBudget({
             className="mp-formulaire mp-sous-formulaire"
             noValidate
             onSubmit={creer}
-            aria-label="Demander une révision du budget"
+            aria-label={t("Demander une révision du budget", "Request a budget revision")}
           >
-            <p className="mp-sous-formulaire__titre">Nouvelle révision du budget</p>
+            <p className="mp-sous-formulaire__titre">
+              {t("Nouvelle révision du budget", "New budget revision")}
+            </p>
             <RetourFormulaire
               erreur={f.erreurGlobale}
               refAlerte={f.refAlerte}
-              titreErreur="Révision impossible"
+              titreErreur={t("Révision impossible", "Revision not possible")}
             />
             <ZoneTexte
-              libelle="Motif de la révision"
+              libelle={t("Motif de la révision", "Reason for the revision")}
               required
               maxLength={2000}
               rows={4}
               value={motif}
               onChange={(e) => setMotif(e.target.value)}
               erreur={f.erreurs.motif}
-              aide="Obligatoire : avenant client, réallocation entre phases, dérive constatée…"
+              aide={t(
+                "Obligatoire : avenant client, réallocation entre phases, dérive constatée…",
+                "Required: client amendment, reallocation between phases, observed drift…",
+              )}
             />
             <CaseACocher
-              libelle="Recalculer depuis le découpage actuel"
-              aide="Les jours budgétés des tâches remplacent ceux de la référence (prix de la référence conservés). Sinon, la référence est reprise telle quelle."
+              libelle={t(
+                "Recalculer depuis le découpage actuel",
+                "Recalculate from the current work breakdown",
+              )}
+              aide={t(
+                "Les jours budgétés des tâches remplacent ceux de la référence (prix de la référence conservés). Sinon, la référence est reprise telle quelle.",
+                "The budgeted days of the tasks replace those of the baseline (baseline prices kept). Otherwise, the baseline is carried over as is.",
+              )}
               checked={depuisDecoupage}
               onChange={(e) => setDepuisDecoupage(e.target.checked)}
             />
             <div className="mp-actions-formulaire">
-              <Bouton type="submit" chargement={f.enCours} texteChargement="Création…">
-                Créer la révision
+              <Bouton
+                type="submit"
+                chargement={f.enCours}
+                texteChargement={t("Création…", "Creating…")}
+              >
+                {t("Créer la révision", "Create the revision")}
               </Bouton>
               <Bouton variante="discret" onClick={() => setOuvert(false)}>
-                Annuler
+                {t("Annuler", "Cancel")}
               </Bouton>
             </div>
           </form>
         ) : (
           <div>
             <Bouton variante="secondaire" icone="crayon" onClick={() => setOuvert(true)}>
-              Demander une révision
+              {t("Demander une révision", "Request a revision")}
             </Bouton>
           </div>
         )

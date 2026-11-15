@@ -2,9 +2,12 @@
 import type { MissionClient, StatutUtilisateurPortail } from "./portail-gestion-types";
 import {
   aPermission,
+  creerTraduire,
   estRoleClient,
+  libelleRole,
   ROLE_LIBELLES,
   ROLES_CLIENT,
+  type Langue,
   type Role,
   type RoleClient,
 } from "@missionpilot/shared";
@@ -42,11 +45,21 @@ const gereToutesLesMissions = (roles: readonly Role[]) =>
   aPermission(roles, "mission.modifier_toutes");
 
 /** Onglets de la fiche client, complétés de « Portail client » pour qui gère le portail. */
-export function ongletsClientAvecPortail(id: string, roles: readonly Role[]) {
+export function ongletsClientAvecPortail(
+  id: string,
+  roles: readonly Role[],
+  langue: Langue = "fr",
+) {
   return [
-    ...ongletsClient(id, roles),
+    ...ongletsClient(id, roles, langue),
     ...(gerePortail(roles)
-      ? [{ id: "portail", libelle: "Portail client", href: hrefPortailClient(id) }]
+      ? [
+          {
+            id: "portail",
+            libelle: creerTraduire(langue)("Portail client", "Client portal"),
+            href: hrefPortailClient(id),
+          },
+        ]
       : []),
   ];
 }
@@ -95,10 +108,30 @@ export const OPTIONS_ROLES_PORTAIL = ROLES_CLIENT.map((r) => ({
   aide: ROLE_PORTAIL_DESCRIPTIONS[r],
 }));
 
+const ROLE_PORTAIL_DESCRIPTIONS_EN: Record<RoleClient, string> = {
+  client_dirigeant:
+    "Sees the shared engagements, approves their milestones and views the shared issued invoices.",
+  client_contributeur:
+    "Sees the shared engagements, milestones and deliverables and answers questionnaires; does not see invoices.",
+  client_investisseur:
+    "Views the due diligence notes the firm shares with them, read-only; sees no engagements, milestones, deliverables or invoices.",
+};
+
+/** Options des rôles du portail, dans la langue de l'interface. */
+export function optionsRolesPortail(langue: Langue = "fr") {
+  return ROLES_CLIENT.map((r) => ({
+    valeur: r,
+    libelle: libelleRole(r, langue),
+    aide: (langue === "en" ? ROLE_PORTAIL_DESCRIPTIONS_EN : ROLE_PORTAIL_DESCRIPTIONS)[r],
+  }));
+}
+
 /** Libellés des rôles du portail d'un compte (un rôle interne n'est jamais affiché ici). */
-export function libellesRolesPortail(roles: readonly string[]): string {
-  const libelles = roles.filter(estRoleClient).map((r) => ROLE_LIBELLES[r]);
-  return libelles.length === 0 ? "Aucun rôle du portail" : libelles.join(", ");
+export function libellesRolesPortail(roles: readonly string[], langue: Langue = "fr"): string {
+  const libelles = roles.filter(estRoleClient).map((r) => libelleRole(r, langue));
+  return libelles.length === 0
+    ? creerTraduire(langue)("Aucun rôle du portail", "No portal role")
+    : libelles.join(", ");
 }
 
 export const STATUT_UTILISATEUR_PORTAIL: Record<
@@ -109,16 +142,27 @@ export const STATUT_UTILISATEUR_PORTAIL: Record<
   desactive: { libelle: "Accès désactivé", tonalite: "neutre" },
 };
 
-export function statutUtilisateurPortail(statut: string): {
+const STATUT_UTILISATEUR_PORTAIL_EN: Record<StatutUtilisateurPortail, string> = {
+  actif: "Access active",
+  desactive: "Access deactivated",
+};
+
+export function statutUtilisateurPortail(
+  statut: string,
+  langue: Langue = "fr",
+): {
   libelle: string;
   tonalite: TonaliteStatut;
 } {
-  return (
-    STATUT_UTILISATEUR_PORTAIL[statut as StatutUtilisateurPortail] ?? {
-      libelle: "Statut inconnu",
+  const base = STATUT_UTILISATEUR_PORTAIL[statut as StatutUtilisateurPortail];
+  if (!base)
+    return {
+      libelle: creerTraduire(langue)("Statut inconnu", "Unknown status"),
       tonalite: "neutre",
-    }
-  );
+    };
+  return langue === "en"
+    ? { ...base, libelle: STATUT_UTILISATEUR_PORTAIL_EN[statut as StatutUtilisateurPortail] }
+    : base;
 }
 
 // --- Invitation ------------------------------------------------------------------------------
@@ -140,13 +184,26 @@ export interface ChargeInvitationPortail {
 export function validerInvitationPortail(
   s: SaisieInvitationPortail,
   clientId: string,
+  langue: Langue = "fr",
 ): Resultat<ChargeInvitationPortail, ChampInvitationPortail> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampInvitationPortail, string>> = {};
   const email = s.email.trim().toLowerCase();
-  if (email === "") erreurs.email = "Saisissez l'adresse e-mail de la personne à inviter.";
+  if (email === "")
+    erreurs.email = t(
+      "Saisissez l'adresse e-mail de la personne à inviter.",
+      "Enter the email address of the person to invite.",
+    );
   else if (!FORMAT_EMAIL.test(email) || email.length > 254)
-    erreurs.email = "Adresse e-mail invalide. Exemple : prenom.nom@entreprise.ci";
-  if (!estRoleClient(s.role)) erreurs.role = "Choisissez le rôle de la personne sur le portail.";
+    erreurs.email = t(
+      "Adresse e-mail invalide. Exemple : prenom.nom@entreprise.ci",
+      "Invalid email address. Example: first.last@company.ci",
+    );
+  if (!estRoleClient(s.role))
+    erreurs.role = t(
+      "Choisissez le rôle de la personne sur le portail.",
+      "Choose the person's role on the portal.",
+    );
   if (Object.keys(erreurs).length > 0 || !estRoleClient(s.role)) return { ok: false, erreurs };
   return { ok: true, charge: { email, client_id: clientId, roles: [s.role] } };
 }

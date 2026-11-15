@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { lireNombre } from "../../lib/saisie";
+import { useT } from "../i18n/FournisseurLangue";
 import { Champ } from "../ui/Champ";
 
 export interface ChampNombreProps {
@@ -32,14 +33,15 @@ export function ChampNombre({
   requis,
   name,
 }: ChampNombreProps) {
+  const t = useT();
   const [texte, setTexte] = useState(() => versTexte(valeur));
   const [probleme, setProbleme] = useState<"illisible" | "vide" | null>(null);
 
   // Valeur changée de l'extérieur (changement de type, échelle type) : on la reprend.
   useEffect(() => {
-    setTexte((t) => {
-      const lu = lireNombre(t);
-      return lu === (valeur ?? null) ? t : versTexte(valeur);
+    setTexte((courant) => {
+      const lu = lireNombre(courant);
+      return lu === (valeur ?? null) ? courant : versTexte(valeur);
     });
   }, [valeur]);
 
@@ -54,17 +56,17 @@ export function ChampNombre({
       aide={aide}
       erreur={
         probleme === "vide"
-          ? "Une valeur est obligatoire."
+          ? t("Une valeur est obligatoire.", "A value is required.")
           : probleme === "illisible"
             ? entier
-              ? "Nombre entier attendu (ex. 12)."
-              : "Nombre attendu (ex. 12 ou 2,5)."
+              ? t("Nombre entier attendu (ex. 12).", "Whole number expected (e.g. 12).")
+              : t("Nombre attendu (ex. 12 ou 2,5).", "Number expected (e.g. 12 or 2.5).")
             : erreur
       }
       onChange={(e) => {
-        const t = e.target.value;
-        setTexte(t);
-        const n = lireNombre(t);
+        const saisi = e.target.value;
+        setTexte(saisi);
+        const n = lireNombre(saisi);
         if (n === null) {
           // Champ obligatoire vidé : la dernière valeur est gardée, le manque est signalé.
           setProbleme(requis ? "vide" : null);

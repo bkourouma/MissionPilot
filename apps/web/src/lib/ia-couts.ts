@@ -1,5 +1,12 @@
 /** IA : coûts (ia.configurer ET finance.lire), mois affichés et état du plafond. */
-import { aPermission, SEUILS_ALERTE_PLAFOND_IA, type Role } from "@missionpilot/shared";
+import {
+  aPermission,
+  creerTraduire,
+  LOCALES_INTL,
+  SEUILS_ALERTE_PLAFOND_IA,
+  type Langue,
+  type Role,
+} from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import type { Devise } from "./format";
 
@@ -59,9 +66,12 @@ export const moisDe = (d: Date) =>
  * Générations servies par le cache des réponses (AGT-06) : sans appel au fournisseur, à coût nul.
  * Une réponse plus ancienne de l'API (sans le compteur) est lue comme zéro.
  */
-export function libelleServiesCache(n: number | null | undefined): string {
+export function libelleServiesCache(n: number | null | undefined, langue: Langue = "fr"): string {
   const v = typeof n === "number" && Number.isInteger(n) && n > 0 ? n : 0;
-  const nombre = new Intl.NumberFormat("fr-FR").format(v).replace(/\p{Zs}/gu, NBSP);
+  const nombre = new Intl.NumberFormat(LOCALES_INTL[langue]).format(v).replace(/\p{Zs}/gu, NBSP);
+  if (langue === "en") {
+    return `${nombre}${NBSP}${v === 1 ? "generation" : "generations"} served from the cache, at no cost`;
+  }
   return `${nombre}${NBSP}${v > 1 ? "générations reprises" : "génération reprise"} du cache, sans coût`;
 }
 
@@ -77,10 +87,10 @@ export function decalerMois(mois: string, delta: number): string {
 }
 
 /** « 2026-10 » → « octobre 2026 ». */
-export function libelleMois(mois: string): string {
+export function libelleMois(mois: string, langue: Langue = "fr"): string {
   if (!FORMAT_MOIS.test(mois)) return mois;
   const [a, m] = mois.split("-").map(Number);
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(LOCALES_INTL[langue], {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
@@ -88,18 +98,31 @@ export function libelleMois(mois: string): string {
 }
 
 /** État du plafond d'après la part consommée calculée par l'API (seuils d'alerte 80 et 100 %). */
-export function etatPlafond(part: number | null | undefined): {
+export function etatPlafond(
+  part: number | null | undefined,
+  langue: Langue = "fr",
+): {
   libelle: string;
   tonalite: TonaliteStatut;
 } {
+  const t = creerTraduire(langue);
   if (typeof part !== "number" || !Number.isFinite(part)) {
-    return { libelle: "Plafond nul : aucun appel facturé", tonalite: "neutre" };
+    return {
+      libelle: t("Plafond nul : aucun appel facturé", "Zero ceiling: no billed call"),
+      tonalite: "neutre",
+    };
   }
   const [alerte = 80, atteint = 100] = SEUILS_ALERTE_PLAFOND_IA;
-  if (part * 100 >= atteint) return { libelle: "Plafond atteint", tonalite: "danger" };
-  if (part * 100 >= alerte)
-    return { libelle: `Plus de ${alerte} % consommés`, tonalite: "attention" };
-  return { libelle: "Sous le plafond", tonalite: "succes" };
+  if (part * 100 >= atteint) {
+    return { libelle: t("Plafond atteint", "Ceiling reached"), tonalite: "danger" };
+  }
+  if (part * 100 >= alerte) {
+    return {
+      libelle: t(`Plus de ${alerte} % consommés`, `Over ${alerte}% used`),
+      tonalite: "attention",
+    };
+  }
+  return { libelle: t("Sous le plafond", "Below the ceiling"), tonalite: "succes" };
 }
 
 export function hrefCoutsIa(mois: string, curseurMissions?: string | null): string {

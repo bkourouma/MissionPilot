@@ -1,5 +1,11 @@
 /** Espace client : navigation du portail et droits d'affichage (l'API reste seule juge). */
-import { aPermission, TOUS_LES_ROLES, type Permission, type Role } from "@missionpilot/shared";
+import {
+  aPermission,
+  TOUS_LES_ROLES,
+  type Langue,
+  type Permission,
+  type Role,
+} from "@missionpilot/shared";
 import type { NomIcone } from "../components/ui/Icone";
 import { CHEMIN_PORTAIL, CHEMIN_SECURITE_PORTAIL } from "./portail-routes";
 
@@ -130,6 +136,30 @@ export const NAVIGATION_PORTAIL: readonly EntreePortail[] = [
 ];
 
 /** Rôles connus de cette version du web (un rôle inconnu ne donne rien). */
+const LIBELLES_PORTAIL_EN: Record<EntreePortail["id"], string> = {
+  accueil: "Home",
+  missions: "Engagements",
+  questionnaires: "Question\u00adnaires",
+  salle: "Documents",
+  kpi: "KPIs",
+  avancement: "Progress",
+  factures: "Invoices",
+  signatures: "Signatures",
+  ateliers: "Workshops",
+  "due-diligence": "Due diligence",
+  synthese: "Summary",
+  preferences: "Messages",
+  securite: "Security",
+};
+
+/** Libellé d'une entrée du menu du portail dans la langue de l'interface. */
+export function libelleEntreePortail(
+  entree: Pick<EntreePortail, "id" | "libelle">,
+  langue: Langue = "fr",
+): string {
+  return langue === "en" ? (LIBELLES_PORTAIL_EN[entree.id] ?? entree.libelle) : entree.libelle;
+}
+
 function rolesConnus(roles: readonly string[]): Role[] {
   return roles.filter((r): r is Role => (TOUS_LES_ROLES as readonly string[]).includes(r));
 }

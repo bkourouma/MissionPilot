@@ -10,6 +10,7 @@ import {
   type Commentaire,
   type Mentionnable,
 } from "../../lib/commentaires";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -26,6 +27,8 @@ export function NouveauCommentaire({
   nomElement?: string;
   onPublie: (c: Commentaire) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [texte, setTexte] = useState("");
   const [choisies, setChoisies] = useState<Mentionnable[]>([]);
   const [erreur, setErreur] = useState<string | undefined>();
@@ -37,7 +40,7 @@ export function NouveauCommentaire({
     ev?.preventDefault();
     if (enCours) return;
     setErreurEnvoi(null);
-    const v = validerTexteCommentaire(texte);
+    const v = validerTexteCommentaire(texte, langue);
     if (!v.ok) {
       setErreur(v.erreurs.texte);
       return;
@@ -54,10 +57,10 @@ export function NouveauCommentaire({
       onPublie(c);
       setTexte("");
       setChoisies([]);
-      setAnnonce("Commentaire publié.");
+      setAnnonce(t("Commentaire publié.", "Comment published."));
     } catch (e) {
       // Le texte reste dans la zone : rien n'est perdu après une coupure.
-      setErreurEnvoi(messageCommentaire(e));
+      setErreurEnvoi(messageCommentaire(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -68,16 +71,25 @@ export function NouveauCommentaire({
       className="mp-formulaire mp-commentaires__saisie"
       noValidate
       onSubmit={publier}
-      aria-label={nomElement ? `Commenter ${nomElement}` : "Nouveau commentaire"}
+      aria-label={
+        nomElement
+          ? t(`Commenter ${nomElement}`, `Comment on ${nomElement}`)
+          : t("Nouveau commentaire", "New comment")
+      }
     >
       {erreurEnvoi ? (
-        <Alerte tonalite="danger" titre="Commentaire non publié">
-          <p>{erreurEnvoi} Votre texte est conservé.</p>
+        <Alerte tonalite="danger" titre={t("Commentaire non publié", "Comment not published")}>
+          <p>
+            {erreurEnvoi} {t("Votre texte est conservé.", "Your text is kept.")}
+          </p>
         </Alerte>
       ) : null}
       <SaisieMentions
-        libelle="Votre commentaire"
-        aide="Texte simple. « @ » suivi d'un nom pour mentionner un collègue (il sera notifié). Ctrl+Entrée pour publier."
+        libelle={t("Votre commentaire", "Your comment")}
+        aide={t(
+          "Texte simple. « @ » suivi d'un nom pour mentionner un collègue (il sera notifié). Ctrl+Entrée pour publier.",
+          'Plain text. "@" followed by a name to mention a colleague (they will be notified). Ctrl+Enter to publish.',
+        )}
         valeur={texte}
         onChange={setTexte}
         onMention={(m) => setChoisies((l) => (l.some((x) => x.id === m.id) ? l : [...l, m]))}
@@ -87,8 +99,13 @@ export function NouveauCommentaire({
         onValider={() => void publier()}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" icone="envoyer" chargement={enCours} texteChargement="Publication…">
-          Publier
+        <Bouton
+          type="submit"
+          icone="envoyer"
+          chargement={enCours}
+          texteChargement={t("Publication…", "Publishing…")}
+        >
+          {t("Publier", "Publish")}
         </Bouton>
       </div>
       <span className="mp-visuellement-cache" role="status">
@@ -105,6 +122,8 @@ export function EditionCommentaire({
   c: Commentaire;
   onFin: (c: Commentaire | null) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [texte, setTexte] = useState(c.texte ?? "");
   const [erreur, setErreur] = useState<string | undefined>();
   const [erreurEnvoi, setErreurEnvoi] = useState<string | null>(null);
@@ -113,7 +132,7 @@ export function EditionCommentaire({
   async function enregistrer(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     setErreurEnvoi(null);
-    const v = validerTexteCommentaire(texte);
+    const v = validerTexteCommentaire(texte, langue);
     if (!v.ok) return setErreur(v.erreurs.texte);
     setErreur(undefined);
     if (v.charge === (c.texte ?? "").trim()) return onFin(null);
@@ -125,7 +144,7 @@ export function EditionCommentaire({
         }),
       );
     } catch (e) {
-      setErreurEnvoi(messageCommentaire(e));
+      setErreurEnvoi(messageCommentaire(e, langue));
     } finally {
       setEnCours(false);
     }
@@ -136,15 +155,15 @@ export function EditionCommentaire({
       className="mp-formulaire"
       noValidate
       onSubmit={enregistrer}
-      aria-label="Modifier le commentaire"
+      aria-label={t("Modifier le commentaire", "Edit the comment")}
     >
       {erreurEnvoi ? (
-        <Alerte tonalite="danger" titre="Modification impossible">
+        <Alerte tonalite="danger" titre={t("Modification impossible", "Could not edit")}>
           <p>{erreurEnvoi}</p>
         </Alerte>
       ) : null}
       <ZoneTexte
-        libelle="Texte du commentaire"
+        libelle={t("Texte du commentaire", "Comment text")}
         maxLength={5000}
         value={texte}
         onChange={(e) => setTexte(e.target.value)}
@@ -152,11 +171,15 @@ export function EditionCommentaire({
         autoFocus
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={enCours} texteChargement="Enregistrement…">
-          Enregistrer
+        <Bouton
+          type="submit"
+          chargement={enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer", "Save")}
         </Bouton>
         <Bouton variante="discret" onClick={() => onFin(null)} disabled={enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

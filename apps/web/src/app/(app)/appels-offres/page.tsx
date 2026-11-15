@@ -28,9 +28,13 @@ import {
 } from "../../../lib/appels-offres";
 import { exigerLectureAo } from "../../../lib/appels-offres-serveur";
 import { formaterDate, formaterMontantMineur } from "../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../lib/i18n/serveur";
 import { STATUTS_APPEL_OFFRES } from "@missionpilot/shared";
 
-export const metadata: Metadata = { title: "Appels d'offres" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Appels d'offres", "Tenders") };
+}
 
 /**
  * Pipeline des appels d'offres (AO-01, AO-08) : fiches saisies ou importées à la main, rangées par
@@ -42,6 +46,8 @@ export default async function PageAppelsOffres({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const session = await exigerLectureAo();
   const droits = droitsAppelsOffres(session.utilisateur.roles);
   const filtres = lireFiltresAo(await searchParams);
@@ -53,17 +59,20 @@ export default async function PageAppelsOffres({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Appels d'offres"
-        soustitre="Détection, go/no-go de l'associé, matrice de conformité et rétro-planning jusqu'au dépôt."
+        titre={t("Appels d'offres", "Tenders")}
+        soustitre={t(
+          "Détection, go/no-go de l'associé, matrice de conformité et rétro-planning jusqu'au dépôt.",
+          "Detection, partner go/no-go, compliance matrix and backward schedule through submission.",
+        )}
         actions={
           <Link href="/appels-offres/veille" className="mp-lien-ligne">
-            Veille
+            {t("Veille", "Monitoring")}
           </Link>
         }
       />
 
       {alertes.ok && alertes.donnees.alertes.length > 0 ? (
-        <Carte titre="Échéances à surveiller">
+        <Carte titre={t("Échéances à surveiller", "Deadlines to watch")}>
           <ul className="mp-liste-lignes">
             {alertes.donnees.alertes.slice(0, 20).map((a, i) => (
               <li key={`${a.ao_id}-${i}`} className="mp-liste-lignes__ligne">
@@ -72,15 +81,18 @@ export default async function PageAppelsOffres({
                     {a.titre}
                   </Link>
                   <span className="mp-texte-doux mp-texte-petit">
-                    {texteAlerte({
-                      type: a.type,
-                      joursRestants: a.jours_restants,
-                      etapeLibelle: a.etape_libelle,
-                    })}
+                    {texteAlerte(
+                      {
+                        type: a.type,
+                        joursRestants: a.jours_restants,
+                        etapeLibelle: a.etape_libelle,
+                      },
+                      langue,
+                    )}
                   </span>
                 </div>
                 <BadgeStatut tonalite={tonaliteAlerte(a.jours_restants)}>
-                  {a.jours_restants < 0 ? "En retard" : `J-${a.jours_restants}`}
+                  {a.jours_restants < 0 ? t("En retard", "Late") : `J-${a.jours_restants}`}
                 </BadgeStatut>
               </li>
             ))}
@@ -90,10 +102,10 @@ export default async function PageAppelsOffres({
 
       {droits.gerer ? (
         <div className="mp-grille-cartes">
-          <Carte titre="Nouvelle fiche">
+          <Carte titre={t("Nouvelle fiche", "New record")}>
             <FormulaireFicheAo />
           </Carte>
-          <Carte titre="Importer des fiches">
+          <Carte titre={t("Importer des fiches", "Import records")}>
             <ImportCsvAo />
           </Carte>
         </div>
@@ -107,39 +119,49 @@ export default async function PageAppelsOffres({
           method="get"
           action="/appels-offres"
           className="mp-filtres"
-          aria-label="Filtrer les appels d'offres"
+          aria-label={t("Filtrer les appels d'offres", "Filter tenders")}
         >
           <div className="mp-grille-champs mp-grille-champs--filtres">
-            <Champ libelle="Rechercher" name="q" defaultValue={filtres.q} maxLength={100} />
+            <Champ
+              libelle={t("Rechercher", "Search")}
+              name="q"
+              defaultValue={filtres.q}
+              maxLength={100}
+            />
             <Select
-              libelle="Statut"
+              libelle={t("Statut", "Status")}
               name="statut"
-              invite="Tous les statuts"
+              invite={t("Tous les statuts", "All statuses")}
               defaultValue={filtres.statut}
               options={STATUTS_APPEL_OFFRES.map((s) => ({
                 valeur: s,
-                libelle: libelleStatutAo(s),
+                libelle: libelleStatutAo(s, langue),
               }))}
             />
           </div>
           <div className="mp-actions-formulaire">
             <button type="submit" className="mp-bouton mp-bouton--secondaire">
-              Filtrer
+              {t("Filtrer", "Filter")}
             </button>
           </div>
         </form>
 
         {!r.ok ? (
           <EtatErreur
-            titre="Les appels d'offres n'ont pas pu être chargés."
+            titre={t(
+              "Les appels d'offres n'ont pas pu être chargés.",
+              "The tenders could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={hrefAppelsOffres(filtres)}
           />
         ) : r.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucun appel d'offres." icone="drapeau">
+          <EtatVide titre={t("Aucun appel d'offres.", "No tenders.")} icone="drapeau">
             <p>
-              Saisissez ou importez les avis repérés : le rapprochement avec le cabinet est
-              immédiat.
+              {t(
+                "Saisissez ou importez les avis repérés : le rapprochement avec le cabinet est immédiat.",
+                "Enter or import the notices you found: matching against the firm is immediate.",
+              )}
             </p>
           </EtatVide>
         ) : (
@@ -150,10 +172,10 @@ export default async function PageAppelsOffres({
                 <section
                   key={c.statut}
                   className="mp-ao__colonne"
-                  aria-label={libelleStatutAo(c.statut)}
+                  aria-label={libelleStatutAo(c.statut, langue)}
                 >
                   <h3>
-                    {libelleStatutAo(c.statut)} ({c.fiches.length})
+                    {libelleStatutAo(c.statut, langue)} ({c.fiches.length})
                   </h3>
                   <ul>
                     {c.fiches.map((f) => (
@@ -165,14 +187,16 @@ export default async function PageAppelsOffres({
                           {[f.bailleur, f.pays, f.secteur].filter(Boolean).join(" · ") || "—"}
                         </span>
                         <span className="mp-texte-doux mp-texte-petit">
-                          Rapprochement {f.score_rapprochement}/100
-                          {f.date_limite ? ` · limite ${formaterDate(f.date_limite)}` : ""}
+                          {t("Rapprochement", "Match")} {f.score_rapprochement}/100
+                          {f.date_limite
+                            ? ` · ${t("limite", "deadline")} ${formaterDate(f.date_limite, "UTC", langue)}`
+                            : ""}
                           {f.montant_estime !== null
-                            ? ` · ${formaterMontantMineur(f.montant_estime, f.devise)}`
+                            ? ` · ${formaterMontantMineur(f.montant_estime, f.devise, langue)}`
                             : ""}
                         </span>
                         <BadgeStatut tonalite={tonaliteStatutAo(f.statut)}>
-                          {libelleStatutAo(f.statut)}
+                          {libelleStatutAo(f.statut, langue)}
                         </BadgeStatut>
                       </li>
                     ))}

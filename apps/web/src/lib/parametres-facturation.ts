@@ -6,7 +6,14 @@
  * - identité légale, coordonnées de paiement (IBAN) et numérotation : « cabinet.gerer » ;
  * - délai de paiement, TVA, retenue et validation des valeurs de départ : « facture.emettre ».
  */
-import { aPermission, BASES_RETENUE, type BaseRetenue, type Role } from "@missionpilot/shared";
+import {
+  aPermission,
+  BASES_RETENUE,
+  creerTraduire,
+  type BaseRetenue,
+  type Langue,
+  type Role,
+} from "@missionpilot/shared";
 import { FORMAT_EMAIL, lireNombre, texteOuNull, type Resultat } from "./saisie";
 
 export interface ParametresFacturation {
@@ -61,6 +68,17 @@ export const BASE_RETENUE_LIBELLES: Record<BaseRetenue, string> = {
   HT: "Montant hors taxes (HT)",
   TTC: "Montant toutes taxes comprises (TTC)",
 };
+
+export const BASE_RETENUE_LIBELLES_EN: Record<BaseRetenue, string> = {
+  HT: "Amount excluding tax (excl. VAT)",
+  TTC: "Amount including tax (incl. VAT)",
+};
+
+export const optionsBasesRetenue = (langue: Langue = "fr") =>
+  BASES_RETENUE.map((b) => ({
+    valeur: b,
+    libelle: (langue === "en" ? BASE_RETENUE_LIBELLES_EN : BASE_RETENUE_LIBELLES)[b],
+  }));
 
 export const OPTIONS_BASES_RETENUE = BASES_RETENUE.map((b) => ({
   valeur: b,
@@ -137,33 +155,59 @@ export function saisieIdentite(p: ParametresFacturation): SaisieIdentite {
 /** IBAN saisi « CI93 CI00 … » → « CI93CI00… » (comme l'API). */
 export const normaliserIban = (v: string) => v.replace(/\s+/g, "").toUpperCase();
 
-function verifierTextes(s: SaisieIdentite, erreurs: Partial<Record<ChampIdentite, string>>) {
+function verifierTextes(
+  s: SaisieIdentite,
+  erreurs: Partial<Record<ChampIdentite, string>>,
+  langue: Langue,
+) {
+  const t = creerTraduire(langue);
   for (const [champ, max] of LIGNES) {
     const v = s[champ].trim();
-    if (/[\r\n]/.test(v)) erreurs[champ] = "Une seule ligne attendue.";
-    else if (v.length > max) erreurs[champ] = `${max} caractères au plus.`;
+    if (/[\r\n]/.test(v))
+      erreurs[champ] = t("Une seule ligne attendue.", "A single line is expected.");
+    else if (v.length > max)
+      erreurs[champ] = t(`${max} caractères au plus.`, `${max} characters at most.`);
   }
   for (const [champ, max] of BLOCS) {
-    if (s[champ].trim().length > max) erreurs[champ] = `${max} caractères au plus.`;
+    if (s[champ].trim().length > max)
+      erreurs[champ] = t(`${max} caractères au plus.`, `${max} characters at most.`);
   }
   const email = s.email.trim();
   if (email !== "" && !erreurs.email && !FORMAT_EMAIL.test(email))
-    erreurs.email = "Adresse e-mail invalide. Exemple : facturation@cabinet.ci";
+    erreurs.email = t(
+      "Adresse e-mail invalide. Exemple : facturation@cabinet.ci",
+      "Invalid email address. Example: facturation@cabinet.ci",
+    );
   const iban = normaliserIban(s.iban);
   if (iban !== "" && !IBAN.test(iban))
-    erreurs.iban = "IBAN invalide : 2 lettres puis 10 à 32 lettres ou chiffres (ex. CI93 CI00 …).";
+    erreurs.iban = t(
+      "IBAN invalide : 2 lettres puis 10 à 32 lettres ou chiffres (ex. CI93 CI00 …).",
+      "Invalid IBAN: 2 letters then 10 to 32 letters or digits (e.g. CI93 CI00 …).",
+    );
 }
 
-function verifierNumerotation(s: SaisieIdentite, erreurs: Partial<Record<ChampIdentite, string>>) {
+function verifierNumerotation(
+  s: SaisieIdentite,
+  erreurs: Partial<Record<ChampIdentite, string>>,
+  langue: Langue,
+) {
+  const t = creerTraduire(langue);
   const pf = s.prefixe_facture.trim().toUpperCase();
   const pa = s.prefixe_avoir.trim().toUpperCase();
-  if (!PREFIXE.test(pf)) erreurs.prefixe_facture = "Majuscules et chiffres, 10 caractères au plus.";
-  if (!PREFIXE.test(pa)) erreurs.prefixe_avoir = "Majuscules et chiffres, 10 caractères au plus.";
+  const format = t(
+    "Majuscules et chiffres, 10 caractères au plus.",
+    "Capital letters and digits, 10 characters at most.",
+  );
+  if (!PREFIXE.test(pf)) erreurs.prefixe_facture = format;
+  if (!PREFIXE.test(pa)) erreurs.prefixe_avoir = format;
   if (!erreurs.prefixe_facture && !erreurs.prefixe_avoir && pf === pa)
-    erreurs.prefixe_avoir = "Le préfixe des avoirs doit différer de celui des factures.";
+    erreurs.prefixe_avoir = t(
+      "Le préfixe des avoirs doit différer de celui des factures.",
+      "The credit note prefix must differ from the invoice prefix.",
+    );
   const c = lireNombre(s.chiffres_numero);
   if (c === null || Number.isNaN(c) || !Number.isInteger(c) || c < 3 || c > 8)
-    erreurs.chiffres_numero = "Nombre entier de 3 à 8.";
+    erreurs.chiffres_numero = t("Nombre entier de 3 à 8.", "Whole number from 3 to 8.");
 }
 
 /** IBAN masqué reçu de l'API (à ne jamais renvoyer), ou null s'il est en clair. */
@@ -186,13 +230,14 @@ export function validerIdentite(
   s: SaisieIdentite,
   ibanMasque: string | null = null,
   autresMasquees: string | null = null,
+  langue: Langue = "fr",
 ): Resultat<Record<string, string | number | null>, ChampIdentite> {
   const erreurs: Partial<Record<ChampIdentite, string>> = {};
   const ibanInchange = ibanMasque !== null && s.iban.trim() === ibanMasque;
   const autresInchangees =
     autresMasquees !== null && s.autres_coordonnees.trim() === autresMasquees.trim();
-  verifierTextes(ibanInchange ? { ...s, iban: "" } : s, erreurs);
-  verifierNumerotation(s, erreurs);
+  verifierTextes(ibanInchange ? { ...s, iban: "" } : s, erreurs, langue);
+  verifierNumerotation(s, erreurs, langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const charge: Record<string, string | number | null> = {};
   for (const [champ] of [...LIGNES, ...BLOCS]) charge[champ] = texteOuNull(s[champ]);
@@ -205,11 +250,12 @@ export function validerIdentite(
 }
 
 /** Mentions exigées par l'API avant toute émission de facture. */
-export function mentionsManquantes(p: ParametresFacturation): string[] {
+export function mentionsManquantes(p: ParametresFacturation, langue: Langue = "fr"): string[] {
+  const t = creerTraduire(langue);
   const manquantes: string[] = [];
-  if (!p.rccm) manquantes.push("numéro RCCM");
-  if (!p.compte_contribuable) manquantes.push("compte contribuable");
-  if (!p.adresse) manquantes.push("adresse");
+  if (!p.rccm) manquantes.push(t("numéro RCCM", "RCCM number"));
+  if (!p.compte_contribuable) manquantes.push(t("compte contribuable", "taxpayer account number"));
+  if (!p.adresse) manquantes.push(t("adresse", "address"));
   return manquantes;
 }
 
@@ -267,30 +313,62 @@ export function lireTauxAutorises(v: string): number[] | null {
 
 export function validerOperationnel(
   s: SaisieOperationnelle,
+  langue: Langue = "fr",
 ): Resultat<Record<string, unknown>, ChampOperationnel> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampOperationnel, string>> = {};
   const delai = lireNombre(s.delai_paiement_jours);
   if (delai === null || Number.isNaN(delai) || !Number.isInteger(delai) || delai < 0 || delai > 365)
-    erreurs.delai_paiement_jours = "Nombre entier de jours, de 0 à 365.";
+    erreurs.delai_paiement_jours = t(
+      "Nombre entier de jours, de 0 à 365.",
+      "Whole number of days, from 0 to 365.",
+    );
   const autorises = lireTauxAutorises(s.taux_tva_autorises);
+  const tauxDeuxDecimales = t(
+    "Taux entre 0 et 100, deux décimales au plus.",
+    "Rate between 0 and 100, two decimal places at most.",
+  );
   if (!autorises)
-    erreurs.taux_tva_autorises = "De 1 à 10 taux entre 0 et 100, séparés par « ; » (ex. 0 ; 18).";
+    erreurs.taux_tva_autorises = t(
+      "De 1 à 10 taux entre 0 et 100, séparés par « ; » (ex. 0 ; 18).",
+      '1 to 10 rates between 0 and 100, separated by ";" (e.g. 0 ; 18).',
+    );
   const defaut = lirePourcentage(s.taux_tva_defaut, 2);
-  if (defaut === null) erreurs.taux_tva_defaut = "Taux entre 0 et 100, deux décimales au plus.";
+  if (defaut === null) erreurs.taux_tva_defaut = tauxDeuxDecimales;
   else if (autorises && !autorises.includes(defaut))
-    erreurs.taux_tva_defaut = "Le taux par défaut doit figurer parmi les taux autorisés.";
+    erreurs.taux_tva_defaut = t(
+      "Le taux par défaut doit figurer parmi les taux autorisés.",
+      "The default rate must be among the allowed rates.",
+    );
   const debours = lirePourcentage(s.taux_tva_debours, 2);
-  if (debours === null) erreurs.taux_tva_debours = "Taux entre 0 et 100, deux décimales au plus.";
+  if (debours === null) erreurs.taux_tva_debours = tauxDeuxDecimales;
   else if (autorises && !autorises.includes(debours))
-    erreurs.taux_tva_debours = "Le taux des débours doit figurer parmi les taux autorisés.";
+    erreurs.taux_tva_debours = t(
+      "Le taux des débours doit figurer parmi les taux autorisés.",
+      "The expenses rate must be among the allowed rates.",
+    );
   const retenue = lirePourcentage(s.retenue_taux, 4);
-  if (retenue === null) erreurs.retenue_taux = "Taux entre 0 et 100, quatre décimales au plus.";
+  if (retenue === null)
+    erreurs.retenue_taux = t(
+      "Taux entre 0 et 100, quatre décimales au plus.",
+      "Rate between 0 and 100, four decimal places at most.",
+    );
   if (!(BASES_RETENUE as readonly string[]).includes(s.retenue_base))
-    erreurs.retenue_base = "Choisissez l'assiette de la retenue.";
+    erreurs.retenue_base = t(
+      "Choisissez l'assiette de la retenue.",
+      "Choose the withholding base.",
+    );
   const libelle = s.retenue_libelle.trim();
-  if (libelle === "") erreurs.retenue_libelle = "Saisissez le libellé de la retenue.";
+  if (libelle === "")
+    erreurs.retenue_libelle = t(
+      "Saisissez le libellé de la retenue.",
+      "Enter the withholding label.",
+    );
   else if (libelle.length > 120 || /[\r\n]/.test(libelle))
-    erreurs.retenue_libelle = "Une seule ligne de 120 caractères au plus.";
+    erreurs.retenue_libelle = t(
+      "Une seule ligne de 120 caractères au plus.",
+      "A single line of 120 characters at most.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

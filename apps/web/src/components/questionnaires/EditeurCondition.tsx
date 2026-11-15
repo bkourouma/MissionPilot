@@ -1,6 +1,6 @@
 "use client";
 
-import type { ValeurConditionAffichage } from "@missionpilot/shared";
+import type { Langue, ValeurConditionAffichage } from "@missionpilot/shared";
 import {
   changerOperateur,
   changerQuestionCible,
@@ -19,6 +19,7 @@ import {
   type Question,
   type QuestionIndexee,
 } from "../../lib/questionnaires-definition";
+import { useT, useLangue } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { CaseACocher } from "../ui/CaseACocher";
 import { Champ } from "../ui/Champ";
@@ -31,11 +32,27 @@ const ELEMENTS_MAX = 20;
 
 type Forme = "comparaison" | "et" | "ou" | "non";
 
-const FORMES: { valeur: Forme; libelle: string }[] = [
-  { valeur: "comparaison", libelle: "Comparer la réponse à une question" },
-  { valeur: "et", libelle: "Toutes les conditions suivantes (et)" },
-  { valeur: "ou", libelle: "Au moins une des conditions suivantes (ou)" },
-  { valeur: "non", libelle: "La condition suivante est fausse (non)" },
+const FORMES: { valeur: Forme; libelle: string; en: string }[] = [
+  {
+    valeur: "comparaison",
+    libelle: "Comparer la réponse à une question",
+    en: "Compare the response to a question",
+  },
+  {
+    valeur: "et",
+    libelle: "Toutes les conditions suivantes (et)",
+    en: "All of the following conditions (and)",
+  },
+  {
+    valeur: "ou",
+    libelle: "Au moins une des conditions suivantes (ou)",
+    en: "At least one of the following conditions (or)",
+  },
+  {
+    valeur: "non",
+    libelle: "La condition suivante est fausse (non)",
+    en: "The following condition is false (not)",
+  },
 ];
 
 export interface EditeurConditionProps {
@@ -68,6 +85,8 @@ export function EditeurCondition({
   legende,
   onRetirer,
 }: EditeurConditionProps) {
+  const t = useT();
+  const langue = useLangue();
   const parDefaut = candidates[0]?.question;
   const forme: Forme = estComparaison(condition) ? "comparaison" : condition.op;
   const combinaisonOk = combinaisonPossible(niveau);
@@ -87,18 +106,22 @@ export function EditeurCondition({
       <legend>{legende}</legend>
       <div className="mp-grille-champs">
         <Select
-          libelle="Forme de la condition"
+          libelle={t("Forme de la condition", "Condition type")}
           name={`${idBase}-forme`}
           value={forme}
           options={FORMES.map((f) => ({
-            ...f,
+            valeur: f.valeur,
+            libelle: langue === "en" ? f.en : f.libelle,
             desactivee: f.valeur !== "comparaison" && f.valeur !== forme && !combinaisonOk,
           }))}
           onChange={(e) => changerForme(e.target.value as Forme)}
           aide={
             combinaisonOk
               ? undefined
-              : `Profondeur maximale atteinte (${PROFONDEUR_MAX_CONDITION} niveaux) : seules des comparaisons sont possibles ici.`
+              : t(
+                  `Profondeur maximale atteinte (${PROFONDEUR_MAX_CONDITION} niveaux) : seules des comparaisons sont possibles ici.`,
+                  `Maximum depth reached (${PROFONDEUR_MAX_CONDITION} levels): only comparisons are possible here.`,
+                )
           }
         />
       </div>
@@ -118,7 +141,7 @@ export function EditeurCondition({
           questions={questions}
           niveau={niveau + 1}
           idBase={`${idBase}-n`}
-          legende="Condition inversée"
+          legende={t("Condition inversée", "Inverted condition")}
         />
       ) : (
         <ElementsCombinaison
@@ -133,13 +156,18 @@ export function EditeurCondition({
       {niveau === 1 ? (
         <p className="mp-qe-resume">
           <Icone nom="info" taille={16} />
-          <span>{`Résumé : affichée si ${decrireCondition(condition, questions)}.`}</span>
+          <span>
+            {t(
+              `Résumé : affichée si ${decrireCondition(condition, questions)}.`,
+              `Summary: displayed if ${decrireCondition(condition, questions, langue)}.`,
+            )}
+          </span>
         </p>
       ) : null}
       {onRetirer ? (
         <div>
           <Bouton variante="discret" icone="corbeille" onClick={onRetirer}>
-            {`Retirer : ${legende.toLowerCase()}`}
+            {t(`Retirer : ${legende.toLowerCase()}`, `Remove: ${legende.toLowerCase()}`)}
           </Bouton>
         </div>
       ) : null}
@@ -162,6 +190,7 @@ function ElementsCombinaison({
   niveau: number;
   idBase: string;
 }) {
+  const t = useT();
   const parDefaut = candidates[0]?.question;
   return (
     <>
@@ -180,7 +209,7 @@ function ElementsCombinaison({
               questions={questions}
               niveau={niveau + 1}
               idBase={`${idBase}-${i}`}
-              legende={`Condition ${i + 1}`}
+              legende={t(`Condition ${i + 1}`, `Condition ${i + 1}`)}
             />
           </li>
         ))}
@@ -195,7 +224,7 @@ function ElementsCombinaison({
               onChange({ op: c.op, conditions: [...c.conditions, conditionParDefaut(parDefaut)] })
             }
           >
-            Ajouter une condition
+            {t("Ajouter une condition", "Add a condition")}
           </Bouton>
         </div>
       ) : null}
@@ -218,6 +247,8 @@ function EditeurComparaison({
   questions: ReadonlyMap<string, Question>;
   idBase: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const q = questions.get(c.question);
   const connue = candidates.some((x) => x.question.id === c.question);
   const optionsQuestions = [
@@ -230,7 +261,10 @@ function EditeurComparaison({
       : [
           {
             valeur: c.question,
-            libelle: `Question introuvable : « ${c.question} »`,
+            libelle: t(
+              `Question introuvable : « ${c.question} »`,
+              `Question not found: "${c.question}"`,
+            ),
             desactivee: true,
           },
         ]),
@@ -239,21 +273,28 @@ function EditeurComparaison({
   return (
     <div className="mp-grille-champs">
       <Select
-        libelle="Question citée"
+        libelle={t("Question citée", "Referenced question")}
         name={`${idBase}-question`}
         value={c.question}
         options={optionsQuestions}
-        erreur={connue ? undefined : "Cette question n'existe plus : choisissez-en une autre."}
+        erreur={
+          connue
+            ? undefined
+            : t(
+                "Cette question n'existe plus : choisissez-en une autre.",
+                "This question no longer exists: choose another one.",
+              )
+        }
         onChange={(e) => {
           const cible = questions.get(e.target.value);
           if (cible) onChange(changerQuestionCible(c, cible));
         }}
       />
       <Select
-        libelle="Opérateur"
+        libelle={t("Opérateur", "Operator")}
         name={`${idBase}-operateur`}
         value={c.op}
-        options={ops.map((op) => ({ valeur: op, libelle: libelleOperateur(op, q) }))}
+        options={ops.map((op) => ({ valeur: op, libelle: libelleOperateur(op, q, langue) }))}
         onChange={(e) => {
           if (q) onChange(changerOperateur(c, e.target.value as Comparaison["op"], questions, q));
         }}
@@ -273,11 +314,14 @@ function EditeurComparaison({
 }
 
 /** Valeurs proposées pour une question à choix ou à échelle. */
-function valeursProposees(q: Question | undefined): { valeur: string; libelle: string }[] {
+function valeursProposees(
+  q: Question | undefined,
+  langue: Langue = "fr",
+): { valeur: string; libelle: string }[] {
   if (q?.type === "likert") {
     return q.libelles.map((l, i) => ({
       valeur: String(i + 1),
-      libelle: `${i + 1} — ${l || "(sans libellé)"}`,
+      libelle: `${i + 1} — ${l || (langue === "en" ? "(no label)" : "(sans libellé)")}`,
     }));
   }
   if (q?.type === "choix_unique" || q?.type === "choix_multiple") {
@@ -297,13 +341,15 @@ function ValeursMultiples({
   onChange: (c: Condition) => void;
   idBase: string;
 }) {
-  const proposees = valeursProposees(q);
+  const t = useT();
+  const langue = useLangue();
+  const proposees = valeursProposees(q, langue);
   const choisies = c.valeurs.map(String);
   const versValeur = (v: string): ValeurConditionAffichage =>
     q?.type === "likert" ? Number(v) : v;
   return (
     <fieldset className="mp-groupe" aria-invalid={choisies.length === 0 || undefined}>
-      <legend className="mp-champ__libelle">Valeurs acceptées</legend>
+      <legend className="mp-champ__libelle">{t("Valeurs acceptées", "Accepted values")}</legend>
       <div className="mp-groupe__options">
         {proposees.map((o) => (
           <CaseACocher
@@ -325,7 +371,7 @@ function ValeursMultiples({
       {choisies.length === 0 ? (
         <p className="mp-champ__erreur">
           <Icone nom="attention" taille={16} />
-          <span>Cochez au moins une valeur.</span>
+          <span>{t("Cochez au moins une valeur.", "Select at least one value.")}</span>
         </p>
       ) : null}
     </fieldset>
@@ -343,6 +389,8 @@ function ValeurSimple({
   onChange: (v: ValeurConditionAffichage) => void;
   idBase: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const nom = `${idBase}-valeur`;
   switch (q?.type) {
     case "likert":
@@ -350,22 +398,22 @@ function ValeurSimple({
     case "choix_multiple":
       return (
         <Select
-          libelle="Valeur"
+          libelle={t("Valeur", "Value")}
           name={nom}
           value={String(valeur)}
-          options={valeursProposees(q)}
+          options={valeursProposees(q, langue)}
           onChange={(e) => onChange(q.type === "likert" ? Number(e.target.value) : e.target.value)}
         />
       );
     case "oui_non":
       return (
         <Select
-          libelle="Valeur"
+          libelle={t("Valeur", "Value")}
           name={nom}
           value={valeur === false ? "non" : "oui"}
           options={[
-            { valeur: "oui", libelle: "Oui" },
-            { valeur: "non", libelle: "Non" },
+            { valeur: "oui", libelle: t("Oui", "Yes") },
+            { valeur: "non", libelle: t("Non", "No") },
           ]}
           onChange={(e) => onChange(e.target.value === "oui")}
         />
@@ -373,7 +421,7 @@ function ValeurSimple({
     case "numerique":
       return (
         <ChampNombre
-          libelle={q.unite ? `Valeur (${q.unite})` : "Valeur"}
+          libelle={q.unite ? t(`Valeur (${q.unite})`, `Value (${q.unite})`) : t("Valeur", "Value")}
           name={nom}
           valeur={typeof valeur === "number" ? valeur : undefined}
           entier={q.entier}
@@ -386,19 +434,19 @@ function ValeurSimple({
     case "date":
       return (
         <Champ
-          libelle="Date"
+          libelle={t("Date", "Date")}
           name={nom}
           type="date"
           required
           value={typeof valeur === "string" ? valeur : ""}
-          erreur={valeur === "" ? "Choisissez une date." : undefined}
+          erreur={valeur === "" ? t("Choisissez une date.", "Choose a date.") : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       );
     default:
       return (
         <Champ
-          libelle="Valeur (texte exact)"
+          libelle={t("Valeur (texte exact)", "Value (exact text)")}
           name={nom}
           maxLength={200}
           value={String(valeur)}

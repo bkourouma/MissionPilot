@@ -8,7 +8,10 @@
  * pas telle quelle. L'API reste seule juge (droits, états, versions).
  */
 import {
+  creerTraduire,
+  LOCALES_INTL,
   TAILLE_COMMENTAIRE_AVANCEMENT,
+  type Langue,
   TAILLE_INTRODUCTION_AVANCEMENT,
   type ContenuAvancement,
   type ContenuAvancementPortail,
@@ -17,7 +20,7 @@ import {
 } from "@missionpilot/shared";
 import type { TonaliteStatut } from "../components/ui/BadgeStatut";
 import { ErreurApi, messageErreur } from "./api";
-import { formaterNombre } from "./format";
+import { formaterNombre, lireDate } from "./format";
 import { CHEMIN_PORTAIL } from "./portail-routes";
 import { estDateIso, libelleSemaine } from "./semaine";
 
@@ -175,20 +178,77 @@ export const aucunRapportPortail = {
   aide: "Votre cabinet publie ici un point hebdomadaire sur l'avancement de vos missions, dès qu'il l'a relu et validé. Il apparaîtra sur cette page.",
 };
 
-/** « Semaine du 5 au 11 octobre 2026 ». */
-export const libelleSemaineRapport = (r: { semaine: string; semaine_fin: string }): string =>
-  libelleSemaine(r.semaine, r.semaine_fin);
+/** Versions anglaises des libellés ci-dessus, regroupées pour les appelants. */
+export function libellesAvancement(langue: Langue = "fr") {
+  if (langue !== "en") {
+    return {
+      mentionVisibiliteClient: MENTION_VISIBILITE_CLIENT,
+      libelleBrouillonIa: LIBELLE_BROUILLON_IA,
+      mentionBrouillonIa: MENTION_BROUILLON_IA,
+      mentionChiffresMoteur: MENTION_CHIFFRES_MOTEUR,
+      libelleEnvoiEmail: LIBELLE_ENVOI_EMAIL,
+      aideEnvoiEmail: AIDE_ENVOI_EMAIL,
+      aucunRapportCabinet,
+      aucunRapportPortail,
+    };
+  }
+  return {
+    mentionVisibiliteClient:
+      "The client only sees this report once it is approved. No email is sent to the client.",
+    libelleBrouillonIa: "AI draft to review",
+    mentionBrouillonIa:
+      "The comment below was proposed by the AI. Review it, correct it or clear it: a report cannot be approved until this draft has been reviewed.",
+    mentionChiffresMoteur:
+      "These figures are computed by CabinetPilot from the engagement data. They cannot be edited here; \u201cRegenerate figures\u201d recomputes them as of today.",
+    libelleEnvoiEmail: "Send to the client by email",
+    aideEnvoiEmail: "Not available: no automatic sending to the client",
+    aucunRapportCabinet: {
+      titre: "No progress report for this engagement.",
+      aide: "Prepare this week's report: the figures are computed, then you complete the introduction and the comment before approving.",
+    },
+    aucunRapportPortail: {
+      titre: "No progress report yet.",
+      aide: "Your firm publishes a weekly update here on the progress of your engagements, once it has reviewed and approved it. It will appear on this page.",
+    },
+  };
+}
+
+/** « Semaine du 5 au 11 octobre 2026 » / « Week of 5 to 11 October 2026 ». */
+export const libelleSemaineRapport = (
+  r: { semaine: string; semaine_fin: string },
+  langue: Langue = "fr",
+): string => {
+  const d = lireDate(r.semaine);
+  const f = lireDate(r.semaine_fin);
+  if (langue !== "en" || !d || !f) return libelleSemaine(r.semaine, r.semaine_fin);
+  const fmt = (o: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(LOCALES_INTL.en, { ...o, timeZone: "UTC" });
+  const memeMois = d.getUTCMonth() === f.getUTCMonth() && d.getUTCFullYear() === f.getUTCFullYear();
+  const memeAnnee = d.getUTCFullYear() === f.getUTCFullYear();
+  const jourMois = fmt({ day: "numeric", month: "long" });
+  const gauche = memeMois
+    ? String(d.getUTCDate())
+    : memeAnnee
+      ? jourMois.format(d)
+      : `${jourMois.format(d)} ${d.getUTCFullYear()}`;
+  return `Week of ${gauche} to ${jourMois.format(f)} ${f.getUTCFullYear()}`;
+};
 
 /** Pourcentage d'avancement fourni par le moteur : « 62 % », ou « Non calculé ». */
-export function formaterAvancement(pourcentage: number | null | undefined): string {
-  if (typeof pourcentage !== "number" || !Number.isFinite(pourcentage)) return "Non calculé";
-  return `${formaterNombre(pourcentage, 0)}${NBSP}%`;
+export function formaterAvancement(
+  pourcentage: number | null | undefined,
+  langue: Langue = "fr",
+): string {
+  if (typeof pourcentage !== "number" || !Number.isFinite(pourcentage))
+    return creerTraduire(langue)("Non calculé", "Not computed");
+  return `${formaterNombre(pourcentage, 0, langue)}${NBSP}%`;
 }
 
 /** « 3 éléments » / « 1 élément » / « Aucun élément ». */
-export function libelleElements(n: number): string {
-  if (n <= 0) return "Aucun élément";
-  return `${formaterNombre(n, 0)} élément${n > 1 ? "s" : ""}`;
+export function libelleElements(n: number, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (n <= 0) return t("Aucun élément", "No items");
+  return `${formaterNombre(n, 0, langue)} ${n > 1 ? t("éléments", "items") : t("élément", "item")}`;
 }
 
 /** Espace insécable (jamais de coupure avant l'unité). */
@@ -196,15 +256,22 @@ const NBSP = " ";
 
 type Libelle = { libelle: string; tonalite: TonaliteStatut };
 
-export function etatRapport(statut: StatutAvancementRapport): Libelle {
+export function etatRapport(statut: StatutAvancementRapport, langue: Langue = "fr"): Libelle {
+  const t = creerTraduire(langue);
   return statut === "valide"
-    ? { libelle: "Validé", tonalite: "succes" }
-    : { libelle: "Brouillon", tonalite: "attention" };
+    ? { libelle: t("Validé", "Approved"), tonalite: "succes" }
+    : { libelle: t("Brouillon", "Draft"), tonalite: "attention" };
 }
 
-export function etatCommentaire(statut: StatutCommentaireAvancement): Libelle | null {
-  if (statut === "brouillon_ia") return { libelle: LIBELLE_BROUILLON_IA, tonalite: "attention" };
-  if (statut === "redige") return { libelle: "Commentaire rédigé", tonalite: "neutre" };
+export function etatCommentaire(
+  statut: StatutCommentaireAvancement,
+  langue: Langue = "fr",
+): Libelle | null {
+  const t = creerTraduire(langue);
+  if (statut === "brouillon_ia")
+    return { libelle: libellesAvancement(langue).libelleBrouillonIa, tonalite: "attention" };
+  if (statut === "redige")
+    return { libelle: t("Commentaire rédigé", "Comment written"), tonalite: "neutre" };
   return null;
 }
 
@@ -218,6 +285,22 @@ export const STATUT_KPI_AVANCEMENT: Record<
   non_evalue: { libelle: "Non évalué", tonalite: "neutre" },
 };
 
+const LIBELLES_KPI_EN: Record<keyof typeof STATUT_KPI_AVANCEMENT, string> = {
+  vert: "On target",
+  orange: "Watch",
+  rouge: "Off target",
+  non_evalue: "Not rated",
+};
+
+/** Libellé et tonalité d'un statut de KPI dans la langue demandée. */
+export function statutKpiAvancement(
+  statut: keyof typeof STATUT_KPI_AVANCEMENT,
+  langue: Langue = "fr",
+): Libelle {
+  const base = STATUT_KPI_AVANCEMENT[statut];
+  return langue === "en" ? { ...base, libelle: LIBELLES_KPI_EN[statut] } : base;
+}
+
 export const LIBELLES_FAIT_SAILLANT: Record<
   ContenuAvancement["faits_saillants"][number]["code"],
   string
@@ -230,21 +313,48 @@ export const LIBELLES_FAIT_SAILLANT: Record<
   livrables: "Livrables",
 };
 
+export const LIBELLES_FAIT_SAILLANT_EN: Record<keyof typeof LIBELLES_FAIT_SAILLANT, string> = {
+  avancement: "Progress",
+  jalons_atteints: "Milestones reached",
+  jalons_en_retard: "Overdue milestones",
+  jalons_a_venir: "Upcoming milestones",
+  kpis: "KPIs",
+  livrables: "Deliverables",
+};
+
+/** Libellé d'un fait saillant dans la langue demandée. */
+export const libelleFaitSaillant = (
+  code: keyof typeof LIBELLES_FAIT_SAILLANT,
+  langue: Langue = "fr",
+): string => (langue === "en" ? LIBELLES_FAIT_SAILLANT_EN[code] : LIBELLES_FAIT_SAILLANT[code]);
+
 /** Valeur de KPI avec son unité, « — » si absente. */
-export function formaterValeurKpi(valeur: number | null, unite: string): string {
+export function formaterValeurKpi(
+  valeur: number | null,
+  unite: string,
+  langue: Langue = "fr",
+): string {
   if (valeur === null) return "—";
-  const n = formaterNombre(valeur, 2);
+  const n = formaterNombre(valeur, 2, langue);
   return unite.trim() === "" ? n : `${n}${NBSP}${unite.trim()}`;
 }
 
-export function resumeKpis(k: ContenuAvancement["kpis"]): string {
-  if (k.total === 0) return "Aucun indicateur suivi";
-  return `${k.vert} dans la cible, ${k.orange} à surveiller, ${k.rouge} hors cible, ${k.non_evalue} non évalué${k.non_evalue > 1 ? "s" : ""}`;
+export function resumeKpis(k: ContenuAvancement["kpis"], langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (k.total === 0) return t("Aucun indicateur suivi", "No KPI tracked");
+  return t(
+    `${k.vert} dans la cible, ${k.orange} à surveiller, ${k.rouge} hors cible, ${k.non_evalue} non évalué${k.non_evalue > 1 ? "s" : ""}`,
+    `${k.vert} on target, ${k.orange} to watch, ${k.rouge} off target, ${k.non_evalue} not rated`,
+  );
 }
 
-export function resumeLivrables(l: ContenuAvancement["livrables"]): string {
-  if (l.total === 0) return "Aucun livrable";
-  return `${l.partages} partagé${l.partages > 1 ? "s" : ""} avec le client sur ${l.total}`;
+export function resumeLivrables(l: ContenuAvancement["livrables"], langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
+  if (l.total === 0) return t("Aucun livrable", "No deliverables");
+  return t(
+    `${l.partages} partagé${l.partages > 1 ? "s" : ""} avec le client sur ${l.total}`,
+    `${l.partages} of ${l.total} shared with the client`,
+  );
 }
 
 // --- Règles d'édition -----------------------------------------------------------------------
@@ -256,14 +366,27 @@ export const estFige = (r: Pick<RapportAvancement, "statut">): boolean => r.stat
 export function raisonValidationImpossible(
   r: Pick<RapportAvancement, "statut" | "peut_valider" | "statut_commentaire">,
   modifie: boolean,
+  langue: Langue = "fr",
 ): string | null {
-  if (r.statut === "valide") return "Ce rapport est déjà validé.";
+  const t = creerTraduire(langue);
+  if (r.statut === "valide")
+    return t("Ce rapport est déjà validé.", "This report is already approved.");
   if (!r.peut_valider) {
-    return "Seuls un associé, le directeur ou le chef de la mission peuvent valider, et la mission ne doit pas être clôturée.";
+    return t(
+      "Seuls un associé, le directeur ou le chef de la mission peuvent valider, et la mission ne doit pas être clôturée.",
+      "Only a partner, the director or the manager of the engagement can approve, and the engagement must not be closed.",
+    );
   }
-  if (modifie) return "Enregistrez vos modifications avant de valider.";
+  if (modifie)
+    return t(
+      "Enregistrez vos modifications avant de valider.",
+      "Save your changes before approving.",
+    );
   if (r.statut_commentaire === "brouillon_ia") {
-    return "Relisez le commentaire proposé par l'IA (réécrivez-le ou effacez-le) avant de valider.";
+    return t(
+      "Relisez le commentaire proposé par l'IA (réécrivez-le ou effacez-le) avant de valider.",
+      "Review the comment proposed by the AI (rewrite or clear it) before approving.",
+    );
   }
   return null;
 }
@@ -312,10 +435,18 @@ export const modifie = (depart: ChampsEdition, actuel: ChampsEdition): boolean =
   actuel.introduction !== depart.introduction || actuel.commentaire !== depart.commentaire;
 
 /** Erreur de longueur d'un champ, ou `undefined`. */
-export function erreurLongueur(valeur: string, max: number, nom: string): string | undefined {
+export function erreurLongueur(
+  valeur: string,
+  max: number,
+  nom: string,
+  langue: Langue = "fr",
+): string | undefined {
   const n = valeur.trim().length;
   return n > max
-    ? `${nom} : ${formaterNombre(n, 0)} caractères pour ${formaterNombre(max, 0)} au plus.`
+    ? creerTraduire(langue)(
+        `${nom} : ${formaterNombre(n, 0)} caractères pour ${formaterNombre(max, 0)} au plus.`,
+        `${nom}: ${formaterNombre(n, 0, langue)} characters, ${formaterNombre(max, 0, langue)} at most.`,
+      )
     : undefined;
 }
 
@@ -337,6 +468,30 @@ export const MESSAGES_AVANCEMENT: Record<string, string> = {
     "Le commentaire proposé par l'IA doit être relu (réécrit ou effacé) avant la validation.",
 };
 
+export const MESSAGES_AVANCEMENT_EN: Record<string, string> = {
+  VERSION_CONFLIT:
+    "This report was modified by someone else since you opened it. Reload the latest version before continuing.",
+  RAPPORT_VALIDE: "This report is approved: it is locked and can no longer be edited.",
+  MISSION_NON_ACTIVE:
+    "The engagement is neither signed nor in progress: no report can be prepared.",
+  FONCTION_DESACTIVEE:
+    "Progress reports are disabled for your firm. A manager can re-enable them in the settings.",
+  COMMENTAIRE_DEJA_REDIGE:
+    "A comment is already written: clear it before asking the AI for a suggestion.",
+  COMMENTAIRE_IA_A_RELIRE:
+    "The comment proposed by the AI must be reviewed (rewritten or cleared) before approval.",
+};
+
+export const LIBELLES_RAISON_SUGGESTION_EN: Record<RaisonSuggestionAvancement, string> = {
+  ia_desactivee: "AI is not enabled for your firm.",
+  non_autorisee: "Your role does not allow the use of AI.",
+  indisponible: "AI is currently unavailable (missing key or limit reached).",
+  sortie_rejetee:
+    "The AI did not produce usable text (non-compliant number or format): nothing was saved.",
+  echec: "The AI did not respond: nothing was saved.",
+  sans_utilisateur: "No user is assigned to this engagement.",
+};
+
 export const LIBELLES_RAISON_SUGGESTION: Record<RaisonSuggestionAvancement, string> = {
   ia_desactivee: "L'IA n'est pas activée pour votre cabinet.",
   non_autorisee: "Votre rôle n'autorise pas l'usage de l'IA.",
@@ -351,9 +506,9 @@ export const estConflitVersion = (e: unknown): boolean =>
   e instanceof ErreurApi && e.code === CODE_VERSION_CONFLIT;
 
 /** Message affichable (français) pour une erreur d'appel. */
-export function messageAvancement(e: unknown): string {
+export function messageAvancement(e: unknown, langue: Langue = "fr"): string {
   if (e instanceof ErreurApi) {
-    const connu = MESSAGES_AVANCEMENT[e.code];
+    const connu = (langue === "en" ? MESSAGES_AVANCEMENT_EN : MESSAGES_AVANCEMENT)[e.code];
     if (connu) return connu;
   }
   return messageErreur(e);

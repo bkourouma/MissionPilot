@@ -1,10 +1,12 @@
+import { LOCALES_INTL } from "@missionpilot/shared";
 import Link from "next/link";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import {
-  FREQUENCE_LIBELLES,
   formaterValeurKpi,
   hrefKpi,
+  libelleFrequence,
   libellePeriode,
-  SENS_LIBELLES,
+  libelleSens,
   texteAtteinte,
   texteEcart,
   type KpiTableau,
@@ -28,7 +30,14 @@ export interface CarteKpiProps {
  * icône), dernière période close mesurée (valeur, cible, atteinte, écart), tendance, période
  * en cours (réalisé partiel, projection, statut projeté) et alertes.
  */
-export function CarteKpi({ kpi, missionId, niveauTitre = 3, avecLien = true }: CarteKpiProps) {
+export async function CarteKpi({
+  kpi,
+  missionId,
+  niveauTitre = 3,
+  avecLien = true,
+}: CarteKpiProps) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const Titre = `h${niveauTitre}` as const;
   const d = kpi.derniere_periode;
   const e = kpi.periode_en_cours;
@@ -38,62 +47,84 @@ export function CarteKpi({ kpi, missionId, niveauTitre = 3, avecLien = true }: C
         <Titre className="mp-kpi-carte__titre">
           {avecLien ? <Link href={hrefKpi(missionId, kpi.id)}>{kpi.libelle}</Link> : kpi.libelle}
         </Titre>
-        <BadgeStatutKpi statut={kpi.statut} />
+        <BadgeStatutKpi statut={kpi.statut} langue={langue} />
       </header>
       <p className="mp-kpi-carte__valeur">
         {d ? (
           <>
-            <span className="mp-kpi-carte__chiffre">{formaterValeurKpi(d.valeur, kpi.unite)}</span>
-            <span className="mp-texte-doux"> en {libellePeriode(d.periode)}</span>
+            <span className="mp-kpi-carte__chiffre">
+              {formaterValeurKpi(d.valeur, kpi.unite, langue)}
+            </span>
+            <span className="mp-texte-doux">
+              {" "}
+              {t("en", "in")} {libellePeriode(d.periode, langue)}
+            </span>
           </>
         ) : (
-          <span className="mp-texte-doux">Aucune période close mesurée à cette date.</span>
+          <span className="mp-texte-doux">
+            {t(
+              "Aucune période close mesurée à cette date.",
+              "No closed period measured at this date.",
+            )}
+          </span>
         )}
       </p>
       <dl className="mp-kpi-mesures">
         <div>
-          <dt>Cible</dt>
+          <dt>{t("Cible", "Target")}</dt>
           <dd>
             {d
               ? d.cible === null
-                ? "Aucune cible pour cette période"
-                : formaterValeurKpi(d.cible, kpi.unite)
+                ? t("Aucune cible pour cette période", "No target for this period")
+                : formaterValeurKpi(d.cible, kpi.unite, langue)
               : kpi.cible_actuelle === null
-                ? "Aucune cible en vigueur"
-                : `${formaterValeurKpi(kpi.cible_actuelle, kpi.unite)} (en vigueur)`}
+                ? t("Aucune cible en vigueur", "No target in effect")
+                : `${formaterValeurKpi(kpi.cible_actuelle, kpi.unite, langue)} ${t("(en vigueur)", "(in effect)")}`}
           </dd>
         </div>
         {d?.atteinte ? (
           <div>
-            <dt>Atteinte</dt>
-            <dd>{texteAtteinte(d.atteinte)}</dd>
+            <dt>{t("Atteinte", "Attainment")}</dt>
+            <dd>{texteAtteinte(d.atteinte, langue)}</dd>
           </div>
         ) : null}
         {d?.ecart ? (
           <div>
-            <dt>Écart à la cible</dt>
-            <dd>{texteEcart(d.ecart, kpi.unite)}</dd>
+            <dt>{t("Écart à la cible", "Gap to target")}</dt>
+            <dd>{texteEcart(d.ecart, kpi.unite, langue)}</dd>
           </div>
         ) : null}
         <div>
-          <dt>Tendance</dt>
+          <dt>{t("Tendance", "Trend")}</dt>
           <dd>
             <TendanceKpi tendance={kpi.tendance} />
           </dd>
         </div>
         {e ? (
           <div>
-            <dt>Période en cours ({libellePeriode(e.periode)})</dt>
+            <dt>
+              {t("Période en cours", "Current period")} ({libellePeriode(e.periode, langue)})
+            </dt>
             <dd className="mp-kpi-mesures__pile">
               <span>
-                Réalisé à date :{" "}
+                {t("Réalisé à date :", "Actual to date:")}{" "}
                 {e.valeur === null
-                  ? "aucune mesure"
-                  : `${formaterValeurKpi(e.valeur, kpi.unite)} (${e.nombre_mesures} mesure${e.nombre_mesures > 1 ? "s" : ""})`}
+                  ? t("aucune mesure", "no measurement")
+                  : t(
+                      `${formaterValeurKpi(e.valeur, kpi.unite, langue)} (${e.nombre_mesures} mesure${e.nombre_mesures > 1 ? "s" : ""})`,
+                      `${formaterValeurKpi(e.valeur, kpi.unite, langue)} (${e.nombre_mesures} measurement${e.nombre_mesures > 1 ? "s" : ""})`,
+                    )}
               </span>
-              <span>Projection : {texteProjectionArrondie(e.projection, kpi.unite)}</span>
               <span>
-                <BadgeStatutKpi statut={e.statut_projete} prefixe="Statut projeté : " />
+                {t("Projection :", "Projection:")}{" "}
+                {texteProjectionArrondie(e.projection, kpi.unite, langue)}
+              </span>
+              <span>
+                <BadgeStatutKpi
+                  statut={e.statut_projete}
+                  prefixe={t("Statut projeté : ", "Projected status: ")}
+                  langue={langue}
+                />
               </span>
             </dd>
           </div>
@@ -112,9 +143,11 @@ export function CarteKpi({ kpi, missionId, niveauTitre = 3, avecLien = true }: C
         />
       ) : null}
       <p className="mp-texte-doux mp-texte-petit">
-        {SENS_LIBELLES[kpi.sens]} · {FREQUENCE_LIBELLES[kpi.frequence]} ·{" "}
-        {kpi.nature === "flux" ? "flux (somme de la période)" : "stock (dernière valeur)"} · poids{" "}
-        {kpi.ponderation.toLocaleString("fr-FR")}
+        {libelleSens(kpi.sens, langue)} · {libelleFrequence(kpi.frequence, langue)} ·{" "}
+        {kpi.nature === "flux"
+          ? t("flux (somme de la période)", "flow (sum of the period)")
+          : t("stock (dernière valeur)", "stock (last value)")}{" "}
+        · {t("poids", "weight")} {kpi.ponderation.toLocaleString(LOCALES_INTL[langue])}
       </p>
     </article>
   );

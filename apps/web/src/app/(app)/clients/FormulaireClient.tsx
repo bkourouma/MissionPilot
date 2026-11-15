@@ -9,10 +9,11 @@ import { Bouton, classesBouton } from "../../../components/ui/Bouton";
 import { Champ } from "../../../components/ui/Champ";
 import { Select } from "../../../components/ui/Select";
 import { ZoneTexte } from "../../../components/ui/ZoneTexte";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { api } from "../../../lib/api";
-import { PAYS } from "../../../lib/cabinet";
+import { optionsPays } from "../../../lib/cabinet";
 import {
-  OPTIONS_TAILLES,
+  optionsTailles,
   SAISIE_CLIENT_VIDE,
   saisieDepuisClient,
   validerClient,
@@ -21,11 +22,12 @@ import {
   type SaisieClient,
 } from "../../../lib/clients";
 
-const OPTIONS_PAYS = PAYS.map((p) => ({ valeur: p.code, libelle: p.nom }));
-
 /** Création (sans `client`) ou modification d'une fiche client. */
 export function FormulaireClient({ client }: { client?: Client }) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
+  const OPTIONS_PAYS = optionsPays(langue);
   const [saisie, setSaisie] = useState<SaisieClient>(() =>
     client ? saisieDepuisClient(client) : SAISIE_CLIENT_VIDE,
   );
@@ -37,7 +39,7 @@ export function FormulaireClient({ client }: { client?: Client }) {
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerClient(saisie),
+      validerClient(saisie, langue),
       (charge) =>
         client
           ? api.patch<Client>(`/api/clients/${encodeURIComponent(client.id)}`, charge)
@@ -50,10 +52,12 @@ export function FormulaireClient({ client }: { client?: Client }) {
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Identité légale</legend>
+        <legend className="mp-groupe-section__titre">
+          {t("Identité légale", "Legal identity")}
+        </legend>
         <div className="mp-grille-champs">
           <Champ
-            libelle="Raison sociale"
+            libelle={t("Raison sociale", "Company name")}
             name="raison_sociale"
             required
             maxLength={200}
@@ -62,51 +66,60 @@ export function FormulaireClient({ client }: { client?: Client }) {
             erreur={f.erreurs.raison_sociale}
           />
           <Champ
-            libelle="Forme juridique"
+            libelle={t("Forme juridique", "Legal form")}
             name="forme_juridique"
             maxLength={60}
             value={saisie.forme_juridique}
             onChange={maj("forme_juridique")}
             erreur={f.erreurs.forme_juridique}
-            aide="Ex. SA, SARL, SAS, GIE."
+            aide={t("Ex. SA, SARL, SAS, GIE.", "E.g. SA, SARL, SAS, GIE.")}
           />
           <Champ
-            libelle="Numéro RCCM"
+            libelle={t("Numéro RCCM", "RCCM number")}
             name="rccm"
             maxLength={60}
             value={saisie.rccm}
             onChange={maj("rccm")}
             erreur={f.erreurs.rccm}
-            aide="Registre du commerce et du crédit mobilier, ex. CI-ABJ-2015-B-12345."
+            aide={t(
+              "Registre du commerce et du crédit mobilier, ex. CI-ABJ-2015-B-12345.",
+              "Trade and personal property credit register, e.g. CI-ABJ-2015-B-12345.",
+            )}
             autoCapitalize="characters"
             spellCheck={false}
           />
           <Champ
-            libelle="Compte contribuable"
+            libelle={t("Compte contribuable", "Taxpayer account")}
             name="compte_contribuable"
             maxLength={60}
             value={saisie.compte_contribuable}
             onChange={maj("compte_contribuable")}
             erreur={f.erreurs.compte_contribuable}
-            aide="Numéro d'identification fiscale (NCC, NINEA, IFU…)."
+            aide={t(
+              "Numéro d'identification fiscale (NCC, NINEA, IFU…).",
+              "Tax identification number (NCC, NINEA, IFU…).",
+            )}
             spellCheck={false}
           />
         </div>
       </fieldset>
       <fieldset className="mp-groupe-section">
-        <legend className="mp-groupe-section__titre">Profil</legend>
+        <legend className="mp-groupe-section__titre">{t("Profil", "Profile")}</legend>
         <div className="mp-grille-champs">
           <Champ
-            libelle="Secteur d'activité"
+            libelle={t("Secteur d'activité", "Industry")}
             name="secteur"
             maxLength={120}
             value={saisie.secteur}
             onChange={maj("secteur")}
             erreur={f.erreurs.secteur}
-            aide="Ex. Agro-industrie, Banque, Télécommunications."
+            aide={t(
+              "Ex. Agro-industrie, Banque, Télécommunications.",
+              "E.g. Agribusiness, Banking, Telecommunications.",
+            )}
           />
           <Select
-            libelle="Pays"
+            libelle={t("Pays", "Country")}
             name="pays"
             required
             options={
@@ -119,17 +132,17 @@ export function FormulaireClient({ client }: { client?: Client }) {
             erreur={f.erreurs.pays}
           />
           <Select
-            libelle="Taille"
+            libelle={t("Taille", "Size")}
             name="taille"
-            invite="Non renseignée"
-            options={OPTIONS_TAILLES}
+            invite={t("Non renseignée", "Not specified")}
+            options={optionsTailles(langue)}
             value={saisie.taille}
             onChange={maj("taille")}
             erreur={f.erreurs.taille}
           />
         </div>
         <ZoneTexte
-          libelle="Adresse"
+          libelle={t("Adresse", "Address")}
           name="adresse"
           maxLength={500}
           value={saisie.adresse}
@@ -138,11 +151,17 @@ export function FormulaireClient({ client }: { client?: Client }) {
         />
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {client ? "Enregistrer les modifications" : "Créer le client"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {client
+            ? t("Enregistrer les modifications", "Save changes")
+            : t("Créer le client", "Create client")}
         </Bouton>
         <Link href={retour} className={classesBouton("discret")}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Link>
       </div>
     </form>

@@ -21,10 +21,14 @@ import {
   lirePromptPreselectionne,
 } from "../../../../lib/evaluations-openrouter";
 import { formaterDateHeure } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { chargerFacultatif } from "../../../../lib/ia-serveur";
 import { obtenirSession } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Évaluations des agents" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Évaluations des agents", "Agent evaluations") };
+}
 
 interface VersionPrompt {
   id: string;
@@ -47,6 +51,8 @@ export default async function PageEvaluations({
 }) {
   const { utilisateur } = await obtenirSession();
   const droits = droitsAgents(utilisateur.roles);
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const droitsOr = droitsEvaluationOpenRouter(utilisateur.roles);
   const q = await searchParams;
   const [jeux, evaluations] = await Promise.all([
@@ -69,7 +75,7 @@ export default async function PageEvaluations({
     for (const p of v.donnees.elements) {
       versions.push({
         id: p.id,
-        libelle: `${p.nom} v${p.version}${p.actif ? " (active)" : ""}`,
+        libelle: `${p.nom} v${p.version}${p.actif ? t(" (active)", " (active)") : ""}`,
       });
     }
   }
@@ -77,12 +83,20 @@ export default async function PageEvaluations({
   return (
     <div className="mp-page mp-agents">
       <EnteteDePage
-        titre="Évaluations de non-régression"
-        soustitre="Tout changement de prompt ou de modèle rejoue le jeu d'essai de référence avant activation : la base refuse d'activer une version ou un modèle sans évaluation réussie."
+        titre={t("Évaluations de non-régression", "Non-regression evaluations")}
+        soustitre={t(
+          "Tout changement de prompt ou de modèle rejoue le jeu d'essai de référence avant activation : la base refuse d'activer une version ou un modèle sans évaluation réussie.",
+          "Any change of prompt or model replays the reference test set before activation: the database refuses to activate a version or a model without a successful evaluation.",
+        )}
       />
 
       {droitsOr.lire ? (
-        <Carte titre="Évaluation de non-régression sur OpenRouter">
+        <Carte
+          titre={t(
+            "Évaluation de non-régression sur OpenRouter",
+            "Non-regression evaluation on OpenRouter",
+          )}
+        >
           <EvaluationOpenRouter
             versions={versions}
             idInitial={lirePromptPreselectionne(q.prompt)}
@@ -92,12 +106,15 @@ export default async function PageEvaluations({
       ) : null}
 
       {droits.gerer ? (
-        <Carte titre="Évaluation locale (hors production)">
+        <Carte
+          titre={t("Évaluation locale (hors production)", "Local evaluation (non-production)")}
+        >
           <div className="mp-pile">
             <p className="mp-texte-petit mp-texte-doux">
-              L&apos;évaluation locale n&apos;appelle aucun modèle : elle sert à préparer un jeu
-              d&apos;essai sans frais. Elle ne suffit pas pour activer un prompt en production, où
-              seul un rejeu réussi sur OpenRouter est accepté.
+              {t(
+                "L'évaluation locale n'appelle aucun modèle : elle sert à préparer un jeu d'essai sans frais. Elle ne suffit pas pour activer un prompt en production, où seul un rejeu réussi sur OpenRouter est accepté.",
+                "The local evaluation calls no model: it is used to prepare a test set at no cost. It is not enough to activate a prompt in production, where only a successful replay on OpenRouter is accepted.",
+              )}
             </p>
             <FormulaireEvaluation versions={versions} />
           </div>
@@ -106,16 +123,19 @@ export default async function PageEvaluations({
 
       <section aria-labelledby="titre-evaluations" className="mp-pile">
         <h2 id="titre-evaluations" className="mp-section__titre">
-          Dernières évaluations
+          {t("Dernières évaluations", "Latest evaluations")}
         </h2>
         {!evaluations.ok ? (
           <EtatErreur
-            titre="Les évaluations n'ont pas pu être chargées."
+            titre={t(
+              "Les évaluations n'ont pas pu être chargées.",
+              "The evaluations could not be loaded.",
+            )}
             message={evaluations.message}
             hrefReessayer="/agents/evaluations"
           />
         ) : evaluations.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucune évaluation pour l'instant." />
+          <EtatVide titre={t("Aucune évaluation pour l'instant.", "No evaluation yet.")} />
         ) : (
           <ul className="mp-liste-lignes">
             {evaluations.donnees.elements.map((e) => (
@@ -124,31 +144,46 @@ export default async function PageEvaluations({
                   <strong>
                     {e.prompt_nom} v{e.prompt_version}
                     {e.prompt_reference_version !== null
-                      ? ` comparée à v${e.prompt_reference_version}`
+                      ? t(
+                          ` comparée à v${e.prompt_reference_version}`,
+                          ` compared with v${e.prompt_reference_version}`,
+                        )
                       : ""}
                   </strong>
                   <span className="mp-texte-doux mp-texte-petit">
-                    Jeu v{e.jeu_version} · {e.modele} ·{" "}
-                    {e.fournisseur === "local" ? "fournisseur local" : "OpenRouter"} ·{" "}
-                    {e.lance_par_nom} · {formaterDateHeure(e.cree_le)}
+                    {t("Jeu", "Set")} v{e.jeu_version} · {e.modele} ·{" "}
+                    {e.fournisseur === "local"
+                      ? t("fournisseur local", "local provider")
+                      : "OpenRouter"}{" "}
+                    · {e.lance_par_nom} · {formaterDateHeure(e.cree_le, undefined, langue)}
                   </span>
                   {e.resultats.some((c) => !c.reussi) ? (
                     <span className="mp-texte-petit">
-                      Échecs :{" "}
+                      {t("Échecs :", "Failures:")}{" "}
                       {e.resultats
                         .filter((c) => !c.reussi)
-                        .map((c) => `${c.code} (${c.raisons.map(libelleRaisonCas).join(", ")})`)
+                        .map(
+                          (c) =>
+                            `${c.code} (${c.raisons.map((r) => libelleRaisonCas(r, langue)).join(", ")})`,
+                        )
                         .join(" ; ")}
                     </span>
                   ) : null}
                 </div>
                 <div className="mp-badges">
                   <BadgeStatut tonalite={e.reussie ? "succes" : "danger"}>
-                    {e.reussie ? "Réussie" : "Échouée"}
+                    {e.reussie ? t("Réussie", "Passed") : t("Échouée", "Failed")}
                   </BadgeStatut>
-                  <BadgeStatut tonalite="neutre">{`${e.cas_reussis} / ${e.cas_total} cas`}</BadgeStatut>
+                  <BadgeStatut tonalite="neutre">
+                    {t(
+                      `${e.cas_reussis} / ${e.cas_total} cas`,
+                      `${e.cas_reussis} / ${e.cas_total} cases`,
+                    )}
+                  </BadgeStatut>
                   {e.regressions > 0 ? (
-                    <BadgeStatut tonalite="danger">{`${e.regressions} régression(s)`}</BadgeStatut>
+                    <BadgeStatut tonalite="danger">
+                      {t(`${e.regressions} régression(s)`, `${e.regressions} regression(s)`)}
+                    </BadgeStatut>
                   ) : null}
                 </div>
               </li>
@@ -159,18 +194,24 @@ export default async function PageEvaluations({
 
       <section aria-labelledby="titre-jeux" className="mp-pile">
         <h2 id="titre-jeux" className="mp-section__titre">
-          Jeux d&apos;essai
+          {t("Jeux d'essai", "Test sets")}
         </h2>
         {!jeux.ok ? (
           <EtatErreur
-            titre="Les jeux d'essai n'ont pas pu être chargés."
+            titre={t(
+              "Les jeux d'essai n'ont pas pu être chargés.",
+              "The test sets could not be loaded.",
+            )}
             message={jeux.message}
             hrefReessayer="/agents/evaluations"
           />
         ) : jeux.donnees.elements.length === 0 ? (
-          <EtatVide titre="Aucun jeu d'essai.">
+          <EtatVide titre={t("Aucun jeu d'essai.", "No test set.")}>
             <p>
-              Un jeu d&apos;essai protège un prompt : ses nouvelles versions doivent le réussir.
+              {t(
+                "Un jeu d'essai protège un prompt : ses nouvelles versions doivent le réussir.",
+                "A test set protects a prompt: its new versions must pass it.",
+              )}
             </p>
           </EtatVide>
         ) : (
@@ -179,11 +220,14 @@ export default async function PageEvaluations({
               <li key={j.id} className="mp-liste-lignes__ligne">
                 <div className="mp-liste-lignes__texte">
                   <strong>
-                    {j.prompt_nom} — jeu v{j.version}
+                    {j.prompt_nom} — {t("jeu", "set")} v{j.version}
                   </strong>
                   <span className="mp-texte-doux mp-texte-petit">
-                    {j.cas.length} cas{j.brique_code ? ` · brique ${j.brique_code}` : ""} ·{" "}
-                    {j.auteur_nom} · {formaterDateHeure(j.cree_le)}
+                    {t(`${j.cas.length} cas`, `${j.cas.length} cases`)}
+                    {j.brique_code
+                      ? t(` · brique ${j.brique_code}`, ` · building block ${j.brique_code}`)
+                      : ""}{" "}
+                    · {j.auteur_nom} · {formaterDateHeure(j.cree_le, undefined, langue)}
                     {j.description ? ` · ${j.description}` : ""}
                   </span>
                 </div>
@@ -194,7 +238,7 @@ export default async function PageEvaluations({
       </section>
 
       {droits.gerer ? (
-        <Carte titre="Nouveau jeu d'essai">
+        <Carte titre={t("Nouveau jeu d'essai", "New test set")}>
           <FormulaireJeuEssai />
         </Carte>
       ) : null}

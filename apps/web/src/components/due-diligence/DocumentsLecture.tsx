@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useEffect, useState } from "react";
 import type { ContenuLecture } from "@missionpilot/shared";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -43,6 +44,8 @@ export interface DocumentsLectureProps {
 /** Texte du bandeau « brouillon » : affiché tant que le brouillon n'est pas tranché. */
 export const BANDEAU_BROUILLON_LECTURE =
   "Brouillon produit par l'IA : rien n'est repris dans les analyses, verdicts ou preuves tant qu'il n'est pas validé.";
+export const BANDEAU_BROUILLON_LECTURE_EN =
+  "Draft produced by AI: nothing is carried into the analyses, verdicts or evidence until it is approved.";
 
 /**
  * Lecture IA d'un document de due diligence (DD-02, DD-10) : résumé et éléments, chacun avec sa page
@@ -57,6 +60,8 @@ export function DocumentsLecture({
   peutCorriger,
   peutDecider,
 }: DocumentsLectureProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [x, setX] = useState<ExtractionLecture>(initiale);
   const [occupe, setOccupe] = useState(false);
@@ -85,7 +90,7 @@ export function DocumentsLecture({
       setEdition(null);
       rafraichir();
     } catch (e) {
-      setEchec(messageErreur(e));
+      setEchec(messageErreur(e, langue));
     } finally {
       setOccupe(false);
     }
@@ -102,49 +107,67 @@ export function DocumentsLecture({
         <StatutExtraction statut={x.statut} />
         {x.modifie_par ? (
           <span className="mp-texte-petit">
-            {`Corrigé par ${x.modifie_par.nom}${x.modifie_le ? ` le ${formaterDateHeure(x.modifie_le)}` : ""}`}
+            {`${t("Corrigé par", "Edited by")} ${x.modifie_par.nom}${x.modifie_le ? ` ${t("le", "on")} ${formaterDateHeure(x.modifie_le, undefined, langue)}` : ""}`}
           </span>
         ) : null}
         {x.valide_par ? (
           <span className="mp-texte-petit">
-            {`${x.statut === "rejete" ? "Rejeté" : "Validé"} par ${x.valide_par.nom}${x.valide_le ? ` le ${formaterDateHeure(x.valide_le)}` : ""}`}
+            {`${x.statut === "rejete" ? t("Rejeté", "Rejected") : t("Validé", "Approved")} ${t("par", "by")} ${x.valide_par.nom}${x.valide_le ? ` ${t("le", "on")} ${formaterDateHeure(x.valide_le, undefined, langue)}` : ""}`}
           </span>
         ) : null}
       </div>
 
       {ouvert ? (
-        <Alerte tonalite="attention" titre="Brouillon IA à relire" annonce="aucune">
-          <p>{BANDEAU_BROUILLON_LECTURE}</p>
+        <Alerte
+          tonalite="attention"
+          titre={t("Brouillon IA à relire", "AI draft to review")}
+          annonce="aucune"
+        >
+          <p>{t(BANDEAU_BROUILLON_LECTURE, BANDEAU_BROUILLON_LECTURE_EN)}</p>
         </Alerte>
       ) : x.statut === "valide" ? (
-        <Alerte tonalite="succes" titre="Lecture validée" annonce="aucune">
+        <Alerte tonalite="succes" titre={t("Lecture validée", "Reading approved")} annonce="aucune">
           <p>
-            Cette lecture est validée et reste consultable ici. Valider ne reprend rien
-            automatiquement dans les analyses, les verdicts ou les preuves.
+            {t(
+              "Cette lecture est validée et reste consultable ici. Valider ne reprend rien automatiquement dans les analyses, les verdicts ou les preuves.",
+              "This reading is approved and remains available here. Approving does not automatically carry anything into the analyses, verdicts or evidence.",
+            )}
           </p>
         </Alerte>
       ) : (
-        <Alerte tonalite="info" titre="Lecture rejetée" annonce="aucune">
-          <p>{`Motif : ${x.motif_rejet ?? "non précisé"}. Rien n'a été repris dans le dossier.`}</p>
+        <Alerte tonalite="info" titre={t("Lecture rejetée", "Reading rejected")} annonce="aucune">
+          <p>
+            {t(
+              `Motif : ${x.motif_rejet ?? "non précisé"}. Rien n'a été repris dans le dossier.`,
+              `Reason: ${x.motif_rejet ?? "not specified"}. Nothing was carried into the file.`,
+            )}
+          </p>
         </Alerte>
       )}
 
       {c.tronque ? (
-        <Alerte tonalite="attention" titre="Document lu en partie" annonce="aucune">
+        <Alerte
+          tonalite="attention"
+          titre={t("Document lu en partie", "Document partly read")}
+          annonce="aucune"
+        >
           <p>
-            Le texte transmis à l&apos;IA a été limité : la fin du document n&apos;a pas été lue.
+            {t(
+              "Le texte transmis à l'IA a été limité : la fin du document n'a pas été lue.",
+              "The text sent to the AI was limited: the end of the document was not read.",
+            )}
           </p>
         </Alerte>
       ) : null}
 
       <section aria-labelledby="titre-resume" className="mp-ing-pile">
         <h3 id="titre-resume" className="mp-carte__titre">
-          Résumé
+          {t("Résumé", "Summary")}
         </h3>
         {c.resume.length === 0 ? (
-          <p className="mp-texte-doux">Aucun résumé produit.</p>
+          <p className="mp-texte-doux">{t("Aucun résumé produit.", "No summary produced.")}</p>
         ) : (
-          <ul className="mp-ing-liste" aria-label="Résumé par page">
+          <ul className="mp-ing-liste" aria-label={t("Résumé par page", "Summary by page")}>
             {c.resume.map((r) => (
               <li key={`${r.page}-${r.texte}`}>
                 {r.texte}{" "}
@@ -157,18 +180,29 @@ export function DocumentsLecture({
 
       <section aria-labelledby="titre-elements" className="mp-ing-pile">
         <h3 id="titre-elements" className="mp-carte__titre">
-          {`Éléments relevés (${c.elements.length})`}
+          {t(`Éléments relevés (${c.elements.length})`, `Items identified (${c.elements.length})`)}
         </h3>
         {ouvert && nonVerifies > 0 ? (
           <p>
-            <strong>{`${nonVerifies} élément(s) NON retrouvé(s) dans la page citée.`}</strong>{" "}
-            Relisez-les dans la page avant de valider.
+            <strong>
+              {t(
+                `${nonVerifies} élément(s) NON retrouvé(s) dans la page citée.`,
+                `${nonVerifies} item(s) NOT found in the cited page.`,
+              )}
+            </strong>{" "}
+            {t(
+              "Relisez-les dans la page avant de valider.",
+              "Review them in the page before approving.",
+            )}
           </p>
         ) : null}
         {c.elements.length === 0 ? (
-          <p className="mp-texte-doux">Aucun élément.</p>
+          <p className="mp-texte-doux">{t("Aucun élément.", "No items.")}</p>
         ) : (
-          <ol className="mp-ing-liste" aria-label="Éléments relevés par l'IA">
+          <ol
+            className="mp-ing-liste"
+            aria-label={t("Éléments relevés par l'IA", "Items identified by the AI")}
+          >
             {c.elements.map((e, i) => (
               <li
                 key={`${i}-${e.page}-${e.enonce}`}
@@ -176,7 +210,7 @@ export function DocumentsLecture({
               >
                 <div className="mp-ing-entete">
                   <BadgeStatut tonalite="neutre" sansIcone>
-                    {libelleTypeElementLecture(e.type)}
+                    {libelleTypeElementLecture(e.type, langue)}
                   </BadgeStatut>
                   <BadgeVerification verifie={e.verifie} />
                   <Link href={hrefPageCitee(hrefDocument, e.page)}>{`Page ${e.page}`}</Link>
@@ -184,7 +218,7 @@ export function DocumentsLecture({
                 {edition?.index === i ? (
                   <div className="mp-ing-pile">
                     <ZoneTexte
-                      libelle="Énoncé"
+                      libelle={t("Énoncé", "Statement")}
                       value={edition.texte}
                       maxLength={ENONCE_MAX}
                       disabled={occupe}
@@ -197,19 +231,22 @@ export function DocumentsLecture({
                     <div className="mp-ing-actions">
                       <Bouton
                         chargement={occupe}
-                        texteChargement="Enregistrement…"
+                        texteChargement={t("Enregistrement…", "Saving…")}
                         onClick={() => {
-                          const err = erreurEnonce(edition.texte);
+                          const err = erreurEnonce(edition.texte, langue);
                           setErreurEdition(err ?? undefined);
                           if (!err) {
                             void enregistrer(
                               modifierEnonceLecture(c, i, edition.texte),
-                              "Énoncé enregistré ; les vérifications ont été recalculées.",
+                              t(
+                                "Énoncé enregistré ; les vérifications ont été recalculées.",
+                                "Statement saved; the checks have been recomputed.",
+                              ),
                             );
                           }
                         }}
                       >
-                        Enregistrer l&apos;énoncé
+                        {t("Enregistrer l'énoncé", "Save statement")}
                       </Bouton>
                       <Bouton
                         variante="discret"
@@ -219,14 +256,16 @@ export function DocumentsLecture({
                           setErreurEdition(undefined);
                         }}
                       >
-                        Annuler
+                        {t("Annuler", "Cancel")}
                       </Bouton>
                     </div>
                   </div>
                 ) : (
                   <p className="mp-ing-enonce">{e.enonce}</p>
                 )}
-                <p className="mp-ing-meta mp-texte-petit">Extrait recopié de la page :</p>
+                <p className="mp-ing-meta mp-texte-petit">
+                  {t("Extrait recopié de la page :", "Excerpt copied from the page:")}
+                </p>
                 <blockquote className="mp-ing-extrait">{e.extrait}</blockquote>
                 {ouvert && peutCorriger && edition?.index !== i ? (
                   <div className="mp-ing-actions">
@@ -238,31 +277,34 @@ export function DocumentsLecture({
                         setARetirer(null);
                       }}
                     >
-                      Modifier l&apos;énoncé
+                      {t("Modifier l'énoncé", "Edit statement")}
                     </Bouton>
                     {aRetirer === i ? (
                       <>
                         <Bouton
                           variante="danger"
                           chargement={occupe}
-                          texteChargement="Retrait…"
+                          texteChargement={t("Retrait…", "Removing…")}
                           onClick={() =>
-                            void enregistrer(retirerElementLecture(c, i), "Élément retiré.")
+                            void enregistrer(
+                              retirerElementLecture(c, i),
+                              t("Élément retiré.", "Item removed."),
+                            )
                           }
                         >
-                          Confirmer le retrait
+                          {t("Confirmer le retrait", "Confirm removal")}
                         </Bouton>
                         <Bouton
                           variante="discret"
                           disabled={occupe}
                           onClick={() => setARetirer(null)}
                         >
-                          Garder
+                          {t("Garder", "Keep")}
                         </Bouton>
                       </>
                     ) : (
                       <Bouton variante="discret" disabled={occupe} onClick={() => setARetirer(i)}>
-                        Retirer cet élément
+                        {t("Retirer cet élément", "Remove this item")}
                       </Bouton>
                     )}
                   </div>
@@ -275,7 +317,7 @@ export function DocumentsLecture({
           {annonce}
         </p>
         {echec ? (
-          <Alerte tonalite="danger" titre="Correction refusée">
+          <Alerte tonalite="danger" titre={t("Correction refusée", "Correction refused")}>
             <p>{echec}</p>
           </Alerte>
         ) : null}
@@ -284,21 +326,26 @@ export function DocumentsLecture({
       {ouvert && peutDecider ? (
         <section aria-labelledby="titre-decision" className="mp-ing-pile">
           <h3 id="titre-decision" className="mp-carte__titre">
-            Décision
+            {t("Décision", "Decision")}
           </h3>
           <DecisionExtraction
             api={api}
             extraction={x}
             nonVerifies={x.chiffres_non_verifies}
-            libelleValider="Valider la lecture"
-            aide="Le dernier à avoir corrigé le brouillon ne le valide pas lui-même (sauf un associé) : demandez à un autre membre habilité."
+            libelleValider={t("Valider la lecture", "Approve the reading")}
+            aide={t(
+              "Le dernier à avoir corrigé le brouillon ne le valide pas lui-même (sauf un associé) : demandez à un autre membre habilité.",
+              "The last person to edit the draft does not approve it themselves (except a partner): ask another authorized member.",
+            )}
             onDecide={apresDecision}
           />
         </section>
       ) : ouvert ? (
         <p className="mp-texte-doux">
-          Seul un détenteur du droit de validation de la due diligence peut valider ou rejeter ce
-          brouillon.
+          {t(
+            "Seul un détenteur du droit de validation de la due diligence peut valider ou rejeter ce brouillon.",
+            "Only someone with the due diligence approval right can approve or reject this draft.",
+          )}
         </p>
       ) : null}
     </div>

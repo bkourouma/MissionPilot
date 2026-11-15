@@ -16,6 +16,7 @@ import {
 } from "../../lib/plan-cascade";
 import { optionsResponsables, type PersonnePlan } from "../../lib/plan-elements";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -46,6 +47,8 @@ export function FormulaireNoeudCascade({
   noeud,
   libelleOuverture,
 }: FormulaireNoeudCascadeProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<keyof SaisieNoeud>();
   const [ouvert, setOuvert] = useState(false);
   const initiale = () => (noeud ? saisieDepuisNoeud(noeud) : SAISIE_NOEUD_VIDE);
@@ -53,7 +56,7 @@ export function FormulaireNoeudCascade({
   // Champs modifiés depuis le dernier envoi : leur erreur disparaît dès que la valeur redevient
   // valide, sans attendre un nouvel envoi du formulaire.
   const [modifies, setModifies] = useState<ReadonlySet<keyof SaisieNoeud>>(new Set());
-  const controle = validerNoeud(type, s).erreurs;
+  const controle = validerNoeud(type, s, langue).erreurs;
   const champ = (cle: keyof SaisieNoeud) => ({
     value: s[cle],
     onChange: (e: { target: { value: string } }) => {
@@ -65,7 +68,7 @@ export function FormulaireNoeudCascade({
 
   async function enregistrer(retire: boolean) {
     setModifies(new Set());
-    const v = validerNoeud(type, s);
+    const v = validerNoeud(type, s, langue);
     const validation: Resultat<Record<string, unknown>, keyof SaisieNoeud> = v.donnees
       ? { ok: true, charge: v.donnees }
       : { ok: false, erreurs: v.erreurs };
@@ -76,8 +79,10 @@ export function FormulaireNoeudCascade({
           ? api.post(cheminVersionNoeud(planId, noeud.id), { donnees, retire })
           : api.post(cheminNoeuds(planId), { type, parent_id: parentId, donnees }),
       {
-        succes: retire ? "Retiré de la cascade." : "Enregistré.",
-        messageSpecifique: messageCascade,
+        succes: retire
+          ? t("Retiré de la cascade.", "Removed from the cascade.")
+          : t("Enregistré.", "Saved."),
+        messageSpecifique: (err) => messageCascade(err, langue),
       },
     );
     if (ok) {
@@ -119,32 +124,47 @@ export function FormulaireNoeudCascade({
       <RetourFormulaire
         erreur={f.erreurGlobale}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement refusé"
+        titreErreur={t("Enregistrement refusé", "Save refused")}
       />
       <div className="mp-grille-champs">
-        <Champ libelle="Titre" required maxLength={200} {...champ("titre")} />
+        <Champ libelle={t("Titre", "Title")} required maxLength={200} {...champ("titre")} />
         <Select
-          libelle="Porteur"
-          options={optionsResponsables(personnes, noeud?.porteur_id)}
+          libelle={t("Porteur", "Owner")}
+          options={optionsResponsables(personnes, noeud?.porteur_id, langue)}
           {...champ("porteur_id")}
         />
-        {type === "projet" ? <Champ libelle="Début" type="date" {...champ("debut")} /> : null}
-        <Champ libelle="Échéance" type="date" required {...champ("echeance")} />
+        {type === "projet" ? (
+          <Champ libelle={t("Début", "Start")} type="date" {...champ("debut")} />
+        ) : null}
+        <Champ libelle={t("Échéance", "Due date")} type="date" required {...champ("echeance")} />
         <Select
-          libelle="Statut"
-          invite={type === "projet" ? "À lancer (par défaut)" : "Prévu (par défaut)"}
-          options={optionsStatut(type)}
+          libelle={t("Statut", "Status")}
+          invite={
+            type === "projet"
+              ? t("À lancer (par défaut)", "To launch (default)")
+              : t("Prévu (par défaut)", "Planned (default)")
+          }
+          options={optionsStatut(type, langue)}
           {...champ("statut")}
         />
       </div>
-      <ZoneTexte libelle="Description" rows={2} maxLength={5000} {...champ("description")} />
+      <ZoneTexte
+        libelle={t("Description", "Description")}
+        rows={2}
+        maxLength={5000}
+        {...champ("description")}
+      />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer", "Save")}
         </Bouton>
         {noeud ? (
           <Bouton variante="danger" disabled={f.enCours} onClick={() => void enregistrer(true)}>
-            Retirer
+            {t("Retirer", "Remove")}
           </Bouton>
         ) : null}
         <Bouton
@@ -155,7 +175,7 @@ export function FormulaireNoeudCascade({
             setS(initiale());
           }}
         >
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

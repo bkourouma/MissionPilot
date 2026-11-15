@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { T } from "../i18n/T";
 import { Icone } from "./Icone";
 
 export interface CaseACocherProps extends Omit<
@@ -83,7 +84,9 @@ export function GroupeCases({
           <span className="mp-champ__requis">
             {" "}
             <span aria-hidden="true">*</span>
-            <span className="mp-visuellement-cache">(obligatoire)</span>
+            <span className="mp-visuellement-cache">
+              <T fr="(obligatoire)" en="(required)" />
+            </span>
           </span>
         ) : null}
       </legend>

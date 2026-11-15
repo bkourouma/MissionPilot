@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import {
-  FAMILLE_RISQUE_DD_LIBELLES,
-  hrefEcranDossier,
-  type EtapeCarte,
-} from "../../lib/due-diligence";
+import { hrefEcranDossier, libellesDd, type EtapeCarte } from "../../lib/due-diligence";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { BadgeLecture, BadgeNiveauRisque } from "./BadgesDd";
 
@@ -17,8 +14,12 @@ export interface CarteChaineProps {
   etapes: EtapeCarte[];
 }
 
-const libelleRisques = (n: number) =>
-  n === 0 ? "Aucun risque" : n === 1 ? "1 risque" : `${n} risques`;
+const libelleRisques = (n: number, t: (fr: string, en: string) => string) =>
+  n === 0
+    ? t("Aucun risque", "No risk")
+    : n === 1
+      ? t("1 risque", "1 risk")
+      : t(`${n} risques`, `${n} risks`);
 
 /**
  * Carte de la chaîne de valeur (DD-04) : les étapes en séquence (horizontale sur grand écran,
@@ -26,13 +27,18 @@ const libelleRisques = (n: number) =>
  * risques dans le panneau voisin. Les parts de coût et de marge sont celles formatées par l'API.
  */
 export function CarteChaine({ missionId, dossierId, etapes }: CarteChaineProps) {
+  const t = useT();
+  const L = libellesDd(useLangue());
   const [selection, setSelection] = useState<string | null>(null);
   const choisie = etapes.find((e) => e.id === selection) ?? null;
   const hrefRisques = hrefEcranDossier(missionId, dossierId, "risques");
 
   return (
     <div className="mp-chaine-zone">
-      <ol className="mp-chaine" aria-label="Étapes de la chaîne de valeur, dans l'ordre">
+      <ol
+        className="mp-chaine"
+        aria-label={t("Étapes de la chaîne de valeur, dans l'ordre", "Value chain steps, in order")}
+      >
         {etapes.map((e, i) => (
           <li key={e.id} className="mp-chaine__item">
             <button
@@ -42,20 +48,26 @@ export function CarteChaine({ missionId, dossierId, etapes }: CarteChaineProps) 
               aria-controls="panneau-etape"
               onClick={() => setSelection(selection === e.id ? null : e.id)}
             >
-              <span className="mp-chaine__rang">{`Étape ${e.ordre}`}</span>
+              <span className="mp-chaine__rang">{t(`Étape ${e.ordre}`, `Step ${e.ordre}`)}</span>
               <span className="mp-chaine__nom">{e.libelle}</span>
               {e.acteurs.length > 0 ? (
-                <span className="mp-texte-doux mp-texte-petit">{`Acteurs : ${e.acteurs.join(", ")}`}</span>
+                <span className="mp-texte-doux mp-texte-petit">
+                  {`${t("Acteurs", "Actors")} : ${e.acteurs.join(", ")}`}
+                </span>
               ) : null}
               <span className="mp-chaine__parts">
-                <span>{`Coût : ${e.partCoutAffichee}`}</span>
-                <span>{`Marge : ${e.partMargeAffichee}`}</span>
+                <span>{`${t("Coût", "Cost")} : ${e.partCoutAffichee}`}</span>
+                <span>{`${t("Marge", "Margin")} : ${e.partMargeAffichee}`}</span>
               </span>
               <span className="mp-dd-meta">
                 <BadgeStatut tonalite={e.risques.length > 0 ? "attention" : "neutre"} sansIcone>
-                  {libelleRisques(e.risques.length)}
+                  {libelleRisques(e.risques.length, t)}
                 </BadgeStatut>
-                {e.margeMax ? <BadgeStatut tonalite="succes">Plus forte marge</BadgeStatut> : null}
+                {e.margeMax ? (
+                  <BadgeStatut tonalite="succes">
+                    {t("Plus forte marge", "Highest margin")}
+                  </BadgeStatut>
+                ) : null}
               </span>
             </button>
             {i < etapes.length - 1 ? (
@@ -83,19 +95,24 @@ export function CarteChaine({ missionId, dossierId, etapes }: CarteChaineProps) 
         id="panneau-etape"
         className="mp-chaine__panneau"
         aria-live="polite"
-        aria-label="Risques de l'étape choisie"
+        aria-label={t("Risques de l'étape choisie", "Risks of the selected step")}
       >
         {choisie === null ? (
           <p className="mp-texte-doux">
-            Choisissez une étape pour afficher ses risques (niveau, famille, solidité).
+            {t(
+              "Choisissez une étape pour afficher ses risques (niveau, famille, solidité).",
+              "Choose a step to show its risks (level, family, strength).",
+            )}
           </p>
         ) : (
           <>
-            <h3 className="mp-carte__titre">{`Risques : ${choisie.libelle}`}</h3>
+            <h3 className="mp-carte__titre">{`${t("Risques", "Risks")} : ${choisie.libelle}`}</h3>
             {choisie.risques.length === 0 ? (
               <p className="mp-texte-doux">
-                Aucun risque n&apos;est rattaché à cette étape. Rattachez-en depuis l&apos;onglet «
-                Risques ».
+                {t(
+                  "Aucun risque n'est rattaché à cette étape. Rattachez-en depuis l'onglet « Risques ».",
+                  "No risk is attached to this step. Attach some from the “Risks” tab.",
+                )}
               </p>
             ) : (
               <ul className="mp-dd-liste">
@@ -109,7 +126,7 @@ export function CarteChaine({ missionId, dossierId, etapes }: CarteChaineProps) 
                     <span className="mp-dd-meta">
                       <BadgeNiveauRisque niveau={r.niveau} />
                       <BadgeStatut tonalite="neutre" sansIcone>
-                        {FAMILLE_RISQUE_DD_LIBELLES[r.famille]}
+                        {L.FAMILLE[r.famille]}
                       </BadgeStatut>
                       <BadgeLecture lecture={r.lecture} />
                     </span>

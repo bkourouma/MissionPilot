@@ -6,11 +6,12 @@ import { useRafraichir } from "../../../components/formulaires/useRafraichir";
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../components/formulaires/useFormulaire";
+import { useLangue, useT } from "../../../components/i18n/FournisseurLangue";
 import { Bouton, classesBouton } from "../../../components/ui/Bouton";
 import { Champ } from "../../../components/ui/Champ";
 import { Select, type OptionSelect } from "../../../components/ui/Select";
 import { api } from "../../../lib/api";
-import { OPTIONS_MODES } from "../../../lib/catalogue";
+import { optionsModes } from "../../../lib/catalogue";
 import {
   SAISIE_MISSION_VIDE,
   validerCreationMission,
@@ -19,7 +20,7 @@ import {
   type Mission,
   type SaisieMission,
 } from "../../../lib/missions";
-import { OPTIONS_DEVISES } from "../../../lib/pipeline";
+import { optionsDevises } from "../../../lib/pipeline";
 
 export interface FormulaireMissionProps {
   clients: readonly OptionSelect[];
@@ -51,12 +52,14 @@ export function FormulaireMission({
   designerDirecteur = false,
 }: FormulaireMissionProps) {
   const router = useRouter();
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const creation = !mission;
   const [s, setS] = useState<SaisieMission>(saisieInitiale);
   const f = useFormulaire<ChampMission>();
   const maj = (champ: ChampMission) => (v: string) => setS((x) => ({ ...x, [champ]: v }));
-  const modeDuType = types.find((t) => t.valeur === s.type_mission_id)?.mode;
+  const modeDuType = types.find((ty) => ty.valeur === s.type_mission_id)?.mode;
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
@@ -65,13 +68,17 @@ export function FormulaireMission({
       rafraichir();
     };
     if (creation) {
-      await f.envoyer(validerCreationMission(s), (c) => api.post<Mission>("/api/missions", c), {
-        rafraichir: false,
-        apres,
-      });
+      await f.envoyer(
+        validerCreationMission(s, langue),
+        (c) => api.post<Mission>("/api/missions", c),
+        {
+          rafraichir: false,
+          apres,
+        },
+      );
     } else {
       await f.envoyer(
-        validerModificationMission(s, { signee, reaffecter, designerDirecteur }),
+        validerModificationMission(s, { signee, reaffecter, designerDirecteur }, langue),
         (c) => api.patch<Mission>(`/api/missions/${encodeURIComponent(mission.id)}`, c),
         { rafraichir: false, apres },
       );
@@ -82,7 +89,7 @@ export function FormulaireMission({
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <Champ
-        libelle="Intitulé"
+        libelle={t("Intitulé", "Title")}
         name="intitule"
         required
         maxLength={200}
@@ -94,76 +101,115 @@ export function FormulaireMission({
         {creation ? (
           <>
             <Select
-              libelle="Client"
+              libelle={t("Client", "Client")}
               name="client_id"
               required
               options={clients}
-              invite={clients.length ? "Choisir le client…" : "Aucun client actif disponible"}
+              invite={
+                clients.length
+                  ? t("Choisir le client…", "Choose the client…")
+                  : t("Aucun client actif disponible", "No active client available")
+              }
               value={s.client_id}
               onChange={(e) => maj("client_id")(e.target.value)}
               erreur={f.erreurs.client_id}
             />
             <Select
-              libelle="Type de mission"
+              libelle={t("Type de mission", "Engagement type")}
               name="type_mission_id"
               options={types}
-              invite="Mission vierge (sans modèle)"
+              invite={t("Mission vierge (sans modèle)", "Blank engagement (no template)")}
               value={s.type_mission_id}
               onChange={(e) => maj("type_mission_id")(e.target.value)}
               erreur={f.erreurs.type_mission_id}
-              aide="Le découpage et les jours types du modèle sont recopiés."
+              aide={t(
+                "Le découpage et les jours types du modèle sont recopiés.",
+                "The template's work breakdown and standard days are copied.",
+              )}
             />
           </>
         ) : null}
         <Select
-          libelle="Mode de facturation"
+          libelle={t("Mode de facturation", "Billing mode")}
           name="mode_facturation"
           required={!creation || !s.type_mission_id}
           disabled={signee}
-          options={OPTIONS_MODES}
-          invite={creation && modeDuType ? "Celui du type de mission" : "Choisir…"}
+          options={optionsModes(langue)}
+          invite={
+            creation && modeDuType
+              ? t("Celui du type de mission", "The engagement type's mode")
+              : t("Choisir…", "Choose…")
+          }
           value={s.mode_facturation}
           onChange={(e) => maj("mode_facturation")(e.target.value)}
           erreur={f.erreurs.mode_facturation}
-          aide={signee ? "Figé à la signature de la lettre de mission." : undefined}
+          aide={
+            signee
+              ? t(
+                  "Figé à la signature de la lettre de mission.",
+                  "Locked once the engagement letter is signed.",
+                )
+              : undefined
+          }
         />
         <Select
-          libelle="Devise"
+          libelle={t("Devise", "Currency")}
           name="devise"
           required
-          options={OPTIONS_DEVISES}
+          options={optionsDevises(langue)}
           value={s.devise}
           disabled={signee}
           onChange={(e) => maj("devise")(e.target.value)}
           erreur={f.erreurs.devise}
-          aide={signee ? "Figée à la signature de la lettre de mission." : undefined}
+          aide={
+            signee
+              ? t(
+                  "Figée à la signature de la lettre de mission.",
+                  "Locked once the engagement letter is signed.",
+                )
+              : undefined
+          }
         />
         {creation || designerDirecteur ? (
           <Select
-            libelle="Directeur de mission"
+            libelle={t("Directeur de mission", "Engagement director")}
             name="directeur_id"
             options={personnes}
-            invite="À désigner"
+            invite={t("À désigner", "To be assigned")}
             value={s.directeur_id}
             onChange={(e) => maj("directeur_id")(e.target.value)}
             erreur={f.erreurs.directeur_id}
-            aide="Associé ou directeur de mission : il signe la lettre et valide les révisions."
+            aide={t(
+              "Associé ou directeur de mission : il signe la lettre et valide les révisions.",
+              "Partner or engagement director: signs the letter and approves revisions.",
+            )}
           />
         ) : null}
         {creation || reaffecter ? (
           <Select
-            libelle="Chef de mission"
+            libelle={t("Chef de mission", "Engagement manager")}
             name="chef_id"
             options={personnes}
-            invite={voitToutes || !creation ? "À désigner" : "Vous-même"}
+            invite={
+              voitToutes || !creation
+                ? t("À désigner", "To be assigned")
+                : t("Vous-même", "Yourself")
+            }
             value={s.chef_id}
             onChange={(e) => maj("chef_id")(e.target.value)}
             erreur={f.erreurs.chef_id}
-            aide={voitToutes || !creation ? undefined : "Vous serez chef de la mission créée."}
+            aide={
+              voitToutes || !creation
+                ? undefined
+                : t(
+                    "Vous serez chef de la mission créée.",
+                    "You will be the manager of the created engagement.",
+                  )
+            }
           />
         ) : null}
         <Champ
-          libelle="Date de début"
+          libelle={t("Date de début", "Start date")}
           name="date_debut"
           type="date"
           value={s.date_debut}
@@ -171,7 +217,7 @@ export function FormulaireMission({
           erreur={f.erreurs.date_debut}
         />
         <Champ
-          libelle="Date de fin"
+          libelle={t("Date de fin", "End date")}
           name="date_fin"
           type="date"
           value={s.date_fin}
@@ -180,10 +226,12 @@ export function FormulaireMission({
         />
       </div>
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Axes analytiques (facultatifs)</legend>
+        <legend className="mp-champ__libelle">
+          {t("Axes analytiques (facultatifs)", "Analytical dimensions (optional)")}
+        </legend>
         <div className="mp-grille-champs mp-grille-champs--bas">
           <Champ
-            libelle="Activité"
+            libelle={t("Activité", "Activity")}
             name="activite"
             maxLength={120}
             value={s.activite}
@@ -191,7 +239,7 @@ export function FormulaireMission({
             erreur={f.erreurs.activite}
           />
           <Champ
-            libelle="Secteur"
+            libelle={t("Secteur", "Sector")}
             name="secteur"
             maxLength={120}
             value={s.secteur}
@@ -199,7 +247,7 @@ export function FormulaireMission({
             erreur={f.erreurs.secteur}
           />
           <Champ
-            libelle="Bureau"
+            libelle={t("Bureau", "Office")}
             name="bureau"
             maxLength={120}
             value={s.bureau}
@@ -209,14 +257,18 @@ export function FormulaireMission({
         </div>
       </fieldset>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {creation ? "Créer la mission" : "Enregistrer"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {creation ? t("Créer la mission", "Create the engagement") : t("Enregistrer", "Save")}
         </Bouton>
         <Link
           href={creation ? "/missions" : `/missions/${mission.id}`}
           className={classesBouton("discret")}
         >
-          Annuler
+          {t("Annuler", "Cancel")}
         </Link>
       </div>
     </form>

@@ -6,10 +6,13 @@
  * simplement des points de base divisés par 100 (10 000 points de base = 100 %).
  */
 import {
+  INDICATEUR_GROUPE_LIBELLES,
+  creerTraduire,
   MOTIF_DETENTION_MAX,
   MOTIF_EXCLUSION_GROUPE_LIBELLES,
   participationCreationSchema,
   type IndicateurGroupe,
+  type Langue,
   type MotifExclusionGroupe,
   type VueGroupe,
 } from "@missionpilot/shared";
@@ -122,22 +125,54 @@ const NNBSP = String.fromCharCode(0x202f);
 export const AVERTISSEMENT_GROUPE = "Lecture indicative, pas une consolidation comptable légale";
 export const LIBELLE_NON_VISIBLE = "Dossier non visible avec vos droits";
 
+export const AVERTISSEMENT_GROUPE_EN = "Indicative reading, not a statutory consolidation";
+export const LIBELLE_NON_VISIBLE_EN = "File not visible with your permissions";
+
 export const LIBELLES_VUES: Record<VueGroupe, string> = {
   tete: "Depuis la société de tête",
   client: "Depuis ce dossier",
 };
+export const LIBELLES_VUES_EN: Record<VueGroupe, string> = {
+  tete: "From the parent company",
+  client: "From this file",
+};
+export const libelleVue = (v: VueGroupe, langue: Langue = "fr") =>
+  (langue === "en" ? LIBELLES_VUES_EN : LIBELLES_VUES)[v];
 
-export function libelleMotifExclusion(motif: MotifExclusionGroupe): string {
-  return MOTIF_EXCLUSION_GROUPE_LIBELLES[motif] ?? motif;
+const MOTIF_EXCLUSION_EN: Record<MotifExclusionGroupe, string> = {
+  ETAT_ABSENT: "No accepted financial statement for the fiscal year",
+  DEVISE_DIFFERENTE: "Currency without a validated conversion rate (USD): not converted",
+  NON_VISIBLE: "File not visible with your permissions",
+  EXERCICE_DIFFERENT: "Different fiscal year",
+};
+
+export function libelleMotifExclusion(motif: MotifExclusionGroupe, langue: Langue = "fr"): string {
+  return (langue === "en" ? MOTIF_EXCLUSION_EN : MOTIF_EXCLUSION_GROUPE_LIBELLES)[motif] ?? motif;
 }
+
+const INDICATEUR_GROUPE_LIBELLES_EN: Record<IndicateurGroupe, string> = {
+  actif: "Total assets",
+  passif: "Total liabilities",
+  charges: "Total expenses",
+  produits: "Total income",
+  resultat: "Result",
+  marge_nette: "Net margin",
+};
+/** Libellés des six indicateurs de consolidation dans la langue demandée. */
+export const libellesIndicateurs = (langue: Langue = "fr"): Record<IndicateurGroupe, string> =>
+  langue === "en" ? INDICATEUR_GROUPE_LIBELLES_EN : INDICATEUR_GROUPE_LIBELLES;
 
 /** Nom d'un noeud ou d'une partie ; un dossier non visible n'a jamais de nom. */
-export function libelleNoeud(n: { visible: boolean; nom?: string }): string {
-  return n.visible && n.nom ? n.nom : LIBELLE_NON_VISIBLE;
+export function libelleNoeud(n: { visible: boolean; nom?: string }, langue: Langue = "fr"): string {
+  return n.visible && n.nom
+    ? n.nom
+    : langue === "en"
+      ? LIBELLE_NON_VISIBLE_EN
+      : LIBELLE_NON_VISIBLE;
 }
 
-export function libellePartie(p: PartieParticipation): string {
-  return p.visible ? p.nom : LIBELLE_NON_VISIBLE;
+export function libellePartie(p: PartieParticipation, langue: Langue = "fr"): string {
+  return p.visible ? p.nom : langue === "en" ? LIBELLE_NON_VISIBLE_EN : LIBELLE_NON_VISIBLE;
 }
 
 // --- Dates ---------------------------------------------------------------------------------
@@ -167,9 +202,9 @@ export function pointsVersPourcentage(points: number): number {
 }
 
 /** Part affichée : 6000 → « 60 % », 3333 → « 33,33 % », null → « — ». Espace insécable avant « % ». */
-export function formaterPart(points: number | null | undefined): string {
+export function formaterPart(points: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof points !== "number" || !Number.isFinite(points)) return VALEUR_ABSENTE;
-  return `${formaterNombre(pointsVersPourcentage(points), 2)}${NBSP}%`;
+  return `${formaterNombre(pointsVersPourcentage(points), 2, langue)}${NBSP}%`;
 }
 
 /** Valeur à remettre dans un champ de saisie : 3333 → « 33,33 ». */
@@ -179,16 +214,27 @@ export function pointsVersSaisie(points: number): string {
 
 export const MESSAGE_POURCENTAGE =
   "Pourcentage attendu entre 0 et 100, avec au plus deux décimales (ex. 33,33).";
+export const MESSAGE_POURCENTAGE_EN =
+  "Percentage expected between 0 and 100, with at most two decimals (e.g. 33.33).";
 
 /** Pourcentage saisi (« 33,33 », « 60 % ») → points de base entiers, ou message d'erreur. */
 export function lirePourcentage(
   saisie: string,
+  langue: Langue = "fr",
 ): { ok: true; points: number } | { ok: false; erreur: string } {
+  const message = langue === "en" ? MESSAGE_POURCENTAGE_EN : MESSAGE_POURCENTAGE;
   const n = lireNombre(saisie.replace(/%/g, ""));
-  if (n === null) return { ok: false, erreur: "Indiquez le pourcentage détenu." };
-  if (Number.isNaN(n) || n < 0 || n > 100) return { ok: false, erreur: MESSAGE_POURCENTAGE };
+  if (n === null)
+    return {
+      ok: false,
+      erreur: creerTraduire(langue)(
+        "Indiquez le pourcentage détenu.",
+        "Enter the percentage held.",
+      ),
+    };
+  if (Number.isNaN(n) || n < 0 || n > 100) return { ok: false, erreur: message };
   const points = Math.round(n * 100);
-  if (Math.abs(n * 100 - points) > 1e-6) return { ok: false, erreur: MESSAGE_POURCENTAGE };
+  if (Math.abs(n * 100 - points) > 1e-6) return { ok: false, erreur: message };
   return { ok: true, points };
 }
 
@@ -199,9 +245,10 @@ export function formaterIndicateur(
   cle: IndicateurGroupe,
   valeurs: IndicateursConsolides,
   devise: Devise | null,
+  langue: Langue = "fr",
 ): string {
-  if (cle === "marge_nette") return formaterPart(valeurs.marge_nette_bps);
-  return devise === null ? VALEUR_ABSENTE : formaterMontantMineur(valeurs[cle], devise);
+  if (cle === "marge_nette") return formaterPart(valeurs.marge_nette_bps, langue);
+  return devise === null ? VALEUR_ABSENTE : formaterMontantMineur(valeurs[cle], devise, langue);
 }
 
 export interface LigneIndicateur {
@@ -224,23 +271,31 @@ export function lignesIndicateurs(
   valeurs: IndicateursConsolides,
   devise: Devise | null,
   libelles: Record<IndicateurGroupe, string>,
+  langue: Langue = "fr",
 ): LigneIndicateur[] {
   return ORDRE_INDICATEURS.map((cle) => ({
     cle,
     libelle: libelles[cle],
-    valeur: formaterIndicateur(cle, valeurs, devise),
+    valeur: formaterIndicateur(cle, valeurs, devise, langue),
   }));
 }
 
 /** Indice de fiabilité pondéré (0..1000) → « 640 sur 1 000 ». */
-export function formaterFiabiliteGroupe(points: number | null): string {
-  return points === null ? VALEUR_ABSENTE : `${formaterNombre(points, 0)} sur 1${NNBSP}000`;
+export function formaterFiabiliteGroupe(points: number | null, langue: Langue = "fr"): string {
+  if (points === null) return VALEUR_ABSENTE;
+  return langue === "en"
+    ? `${formaterNombre(points, 0, langue)} out of 1,000`
+    : `${formaterNombre(points, 0)} sur 1${NNBSP}000`;
 }
 
-export function libelleControle(controlee: boolean): string {
+export function libelleControle(controlee: boolean, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   return controlee
-    ? "Contrôlée (part cumulée supérieure à 50 %)"
-    : "Non contrôlée (comptée seulement en proportionnelle)";
+    ? t("Contrôlée (part cumulée supérieure à 50 %)", "Controlled (cumulative share above 50%)")
+    : t(
+        "Non contrôlée (comptée seulement en proportionnelle)",
+        "Not controlled (counted in proportional consolidation only)",
+      );
 }
 
 // --- Arbre --------------------------------------------------------------------------------
@@ -260,21 +315,27 @@ export interface BlocArbre {
   lignes: LigneArbre[];
 }
 
-function trier(noeuds: readonly NoeudGroupe[]): NoeudGroupe[] {
+function trier(noeuds: readonly NoeudGroupe[], langue: Langue = "fr"): NoeudGroupe[] {
   return [...noeuds].sort(
     (a, b) =>
       a.niveau - b.niveau ||
       b.part_cumulee_bps - a.part_cumulee_bps ||
-      libelleNoeud(a).localeCompare(libelleNoeud(b), "fr"),
+      libelleNoeud(a, langue).localeCompare(libelleNoeud(b, langue), langue),
   );
 }
 
-function ligne(n: NoeudGroupe, i: number, profondeur: number, clientId: string): LigneArbre {
+function ligne(
+  n: NoeudGroupe,
+  i: number,
+  profondeur: number,
+  clientId: string,
+  langue: Langue = "fr",
+): LigneArbre {
   return {
     cle: `${n.id ?? "anonyme"}-${n.niveau}-${i}`,
     noeud: n,
     profondeur,
-    libelle: libelleNoeud(n),
+    libelle: libelleNoeud(n, langue),
     estDossier: n.visible && n.id === clientId,
   };
 }
@@ -283,7 +344,8 @@ function ligne(n: NoeudGroupe, i: number, profondeur: number, clientId: string):
  * Aplatit la structure en blocs lisibles, indentés selon le niveau. Vue « tête » : la société de
  * tête puis tout son arbre ; vue « dossier » : détenteurs (au-dessus), dossier, filiales.
  */
-export function aplatirStructure(g: GroupeApi): BlocArbre[] {
+export function aplatirStructure(g: GroupeApi, langue: Langue = "fr"): BlocArbre[] {
+  const t = creerTraduire(langue);
   const s = g.structure;
   const clientId = g.client.id;
   if (g.vue === "tete" && s.arbre_tete) {
@@ -295,12 +357,15 @@ export function aplatirStructure(g: GroupeApi): BlocArbre[] {
       part_directe_bps: null,
       part_cumulee_bps: 10_000,
     };
-    const noeuds = [tete, ...trier(s.arbre_tete)];
+    const noeuds = [tete, ...trier(s.arbre_tete, langue)];
     return [
       {
         id: "tete",
-        titre: "Structure du groupe depuis la société de tête",
-        lignes: noeuds.map((n, i) => ligne(n, i, n.niveau, clientId)),
+        titre: t(
+          "Structure du groupe depuis la société de tête",
+          "Group structure from the parent company",
+        ),
+        lignes: noeuds.map((n, i) => ligne(n, i, n.niveau, clientId, langue)),
       },
     ];
   }
@@ -308,22 +373,24 @@ export function aplatirStructure(g: GroupeApi): BlocArbre[] {
   if (s.detenteurs.length > 0) {
     blocs.push({
       id: "detenteurs",
-      titre: "Détenteurs (au-dessus du dossier)",
-      lignes: trier(s.detenteurs)
+      titre: t("Détenteurs (au-dessus du dossier)", "Holders (above the file)"),
+      lignes: trier(s.detenteurs, langue)
         .reverse()
-        .map((n, i) => ligne(n, i, 0, clientId)),
+        .map((n, i) => ligne(n, i, 0, clientId, langue)),
     });
   }
   blocs.push({
     id: "dossier",
-    titre: "Ce dossier",
-    lignes: [ligne({ ...s.racine, id: clientId, nom: g.client.nom }, 0, 0, clientId)],
+    titre: t("Ce dossier", "This file"),
+    lignes: [ligne({ ...s.racine, id: clientId, nom: g.client.nom }, 0, 0, clientId, langue)],
   });
   if (s.filiales.length > 0) {
     blocs.push({
       id: "filiales",
-      titre: "Filiales (en dessous du dossier)",
-      lignes: trier(s.filiales).map((n, i) => ligne(n, i, Math.max(0, n.niveau - 1), clientId)),
+      titre: t("Filiales (en dessous du dossier)", "Subsidiaries (below the file)"),
+      lignes: trier(s.filiales, langue).map((n, i) =>
+        ligne(n, i, Math.max(0, n.niveau - 1), clientId, langue),
+      ),
     });
   }
   return blocs;
@@ -378,8 +445,13 @@ export function participationsActives(
 }
 
 /** Libellé d'une ligne d'historique : « 60 % » ou « Fin de détention ». */
-export function libelleParticipation(p: Pick<ParticipationApi, "points_base">): string {
-  return p.points_base === 0 ? "Fin de détention" : formaterPart(p.points_base);
+export function libelleParticipation(
+  p: Pick<ParticipationApi, "points_base">,
+  langue: Langue = "fr",
+): string {
+  return p.points_base === 0
+    ? creerTraduire(langue)("Fin de détention", "End of holding")
+    : formaterPart(p.points_base, langue);
 }
 
 // --- Paramètres de l'écran -----------------------------------------------------------------
@@ -423,6 +495,28 @@ export const cheminGroupe = (id: string, p?: ParametresGroupe) =>
 // --- Saisie d'une participation --------------------------------------------------------------
 
 export type SensParticipation = "detient" | "detenu";
+
+export const optionsSens = (
+  langue: Langue = "fr",
+): { valeur: SensParticipation; libelle: string }[] => {
+  const t = creerTraduire(langue);
+  return [
+    {
+      valeur: "detient",
+      libelle: t(
+        "Ce dossier détient l'autre dossier (l'autre est sa filiale)",
+        "This file holds the other file (the other is its subsidiary)",
+      ),
+    },
+    {
+      valeur: "detenu",
+      libelle: t(
+        "Ce dossier est détenu par l'autre dossier (l'autre est détenteur)",
+        "This file is held by the other file (the other is the holder)",
+      ),
+    },
+  ];
+};
 
 export const OPTIONS_SENS: { valeur: SensParticipation; libelle: string }[] = [
   { valeur: "detient", libelle: "Ce dossier détient l'autre dossier (l'autre est sa filiale)" },
@@ -472,23 +566,38 @@ export function estFinDeDetention(s: SaisieParticipation): boolean {
 export function validerParticipation(
   clientId: string,
   s: SaisieParticipation,
+  langue: Langue = "fr",
 ): Resultat<ChargeParticipation, ChampParticipation> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampParticipation, string>> = {};
-  if (!s.autre_id) erreurs.autre_id = "Choisissez l'autre dossier.";
+  if (!s.autre_id) erreurs.autre_id = t("Choisissez l'autre dossier.", "Choose the other file.");
   else if (s.autre_id === clientId)
-    erreurs.autre_id = "Un dossier ne peut pas se détenir lui-même.";
-  const pct = lirePourcentage(s.pourcentage);
+    erreurs.autre_id = t(
+      "Un dossier ne peut pas se détenir lui-même.",
+      "A file cannot hold itself.",
+    );
+  const pct = lirePourcentage(s.pourcentage, langue);
   if (!pct.ok) erreurs.pourcentage = pct.erreur;
-  if (!estDateIso(s.date_effet)) erreurs.date_effet = "Date d'effet attendue.";
+  if (!estDateIso(s.date_effet))
+    erreurs.date_effet = t("Date d'effet attendue.", "Effective date expected.");
   else if (s.date_effet < "2000-01-01" || s.date_effet > "2100-12-31") {
-    erreurs.date_effet = "Date comprise entre 2000 et 2100 attendue.";
+    erreurs.date_effet = t(
+      "Date comprise entre 2000 et 2100 attendue.",
+      "Date between 2000 and 2100 expected.",
+    );
   }
   const motif = texteOuNull(s.motif);
   if (motif && motif.length > MOTIF_DETENTION_MAX) {
-    erreurs.motif = `${MOTIF_DETENTION_MAX} caractères au plus.`;
+    erreurs.motif = t(
+      `${MOTIF_DETENTION_MAX} caractères au plus.`,
+      `${MOTIF_DETENTION_MAX} characters at most.`,
+    );
   }
   if (pct.ok && pct.points === 0 && !motif) {
-    erreurs.motif = "Le motif est obligatoire pour mettre fin à une détention.";
+    erreurs.motif = t(
+      "Le motif est obligatoire pour mettre fin à une détention.",
+      "A reason is required to end a holding.",
+    );
   }
   if (Object.keys(erreurs).length > 0 || !pct.ok) return { ok: false, erreurs };
   const charge: ChargeParticipation = {
@@ -504,7 +613,12 @@ export function validerParticipation(
     const champ = verif.error.issues[0]?.path[0];
     const cible: ChampParticipation =
       champ === "motif" ? "motif" : champ === "date_effet" ? "date_effet" : "pourcentage";
-    return { ok: false, erreurs: { [cible]: verif.error.issues[0]?.message ?? "Saisie refusée." } };
+    return {
+      ok: false,
+      erreurs: {
+        [cible]: verif.error.issues[0]?.message ?? t("Saisie refusée.", "Entry rejected."),
+      },
+    };
   }
   return { ok: true, charge };
 }

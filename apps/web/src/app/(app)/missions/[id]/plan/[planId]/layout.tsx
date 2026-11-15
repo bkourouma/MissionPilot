@@ -8,6 +8,7 @@ import { BadgeStatut } from "../../../../../../components/ui/BadgeStatut";
 import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Onglets } from "../../../../../../components/ui/Onglets";
 import { libelleDevise } from "../../../../../../lib/format";
+import { obtenirT } from "../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import { hrefBancabilite } from "../../../../../../lib/plan-bancabilite";
@@ -39,6 +40,7 @@ export default async function LayoutPlan({
   children: ReactNode;
   params: Promise<{ id: string; planId: string }>;
 }) {
+  const t = await obtenirT();
   const { id, planId } = await params;
   if (!estIdentifiant(planId)) notFound();
   const { utilisateur } = await exigerPermission("plan.lire");
@@ -50,7 +52,10 @@ export default async function LayoutPlan({
   if (!r.ok) {
     return (
       <EtatErreur
-        titre="Le plan stratégique n'a pas pu être chargé."
+        titre={t(
+          "Le plan stratégique n'a pas pu être chargé.",
+          "The strategic plan could not be loaded.",
+        )}
         message={r.message}
         hrefReessayer={hrefPlan(id, planId)}
       />
@@ -60,17 +65,49 @@ export default async function LayoutPlan({
   if (plan.mission_id !== mission.donnees.id) notFound();
   const d = decompteStatuts(plan.elements);
   const pages = [
-    { id: "contenus", libelle: "Contenus", href: hrefPlan(id, plan.id) },
-    { id: "feuille", libelle: "Feuille de route", href: hrefFeuilleDeRoute(id, plan.id) },
-    { id: "cascade", libelle: "Cascade", href: hrefCascade(id, plan.id) },
-    { id: "bibliotheque", libelle: "Bibliothèque", href: hrefBibliothequePlan(id, plan.id) },
-    { id: "portefeuille", libelle: "Portefeuille", href: hrefPortefeuille(id, plan.id) },
-    { id: "modele", libelle: "Modèle financier", href: hrefModele(id, plan.id) },
-    { id: "bancabilite", libelle: "Bancabilité", href: hrefBancabilite(id, plan.id) },
+    { id: "contenus", libelle: t("Contenus", "Content"), href: hrefPlan(id, plan.id) },
+    {
+      id: "feuille",
+      libelle: t("Feuille de route", "Roadmap"),
+      href: hrefFeuilleDeRoute(id, plan.id),
+    },
+    { id: "cascade", libelle: t("Cascade", "Cascade"), href: hrefCascade(id, plan.id) },
+    {
+      id: "bibliotheque",
+      libelle: t("Bibliothèque", "Library"),
+      href: hrefBibliothequePlan(id, plan.id),
+    },
+    {
+      id: "portefeuille",
+      libelle: t("Portefeuille", "Portfolio"),
+      href: hrefPortefeuille(id, plan.id),
+    },
+    {
+      id: "modele",
+      libelle: t("Modèle financier", "Financial model"),
+      href: hrefModele(id, plan.id),
+    },
+    {
+      id: "bancabilite",
+      libelle: t("Bancabilité", "Bankability"),
+      href: hrefBancabilite(id, plan.id),
+    },
     // Lot 5a : ateliers (PLA-15), simulation de Monte-Carlo (PLA-16), plan vivant (PLA-18).
-    { id: "ateliers", libelle: "Ateliers", href: `${hrefPlan(id, plan.id)}/ateliers` },
-    { id: "simulation", libelle: "Simulation", href: `${hrefPlan(id, plan.id)}/simulation` },
-    { id: "plan-vivant", libelle: "Plan vivant", href: `${hrefPlan(id, plan.id)}/plan-vivant` },
+    {
+      id: "ateliers",
+      libelle: t("Ateliers", "Workshops"),
+      href: `${hrefPlan(id, plan.id)}/ateliers`,
+    },
+    {
+      id: "simulation",
+      libelle: t("Simulation", "Simulation"),
+      href: `${hrefPlan(id, plan.id)}/simulation`,
+    },
+    {
+      id: "plan-vivant",
+      libelle: t("Plan vivant", "Living plan"),
+      href: `${hrefPlan(id, plan.id)}/plan-vivant`,
+    },
     ...(aPermission(utilisateur.roles, "kpi.lire")
       ? [{ id: "kpi", libelle: "KPI", href: hrefKpiPlan(id, plan.id) }]
       : []),
@@ -79,7 +116,9 @@ export default async function LayoutPlan({
     <div className="mp-plan">
       <section className="mp-plan__section" aria-labelledby="titre-plan">
         <p className="mp-texte-petit">
-          <Link href={hrefPlans(id)}>Tous les plans de la mission</Link>
+          <Link href={hrefPlans(id)}>
+            {t("Tous les plans de la mission", "All engagement plans")}
+          </Link>
         </p>
         <h2 id="titre-plan" className="mp-section__titre">
           {plan.titre}
@@ -88,15 +127,24 @@ export default async function LayoutPlan({
           <BadgePartage partage={plan.partage_client} />
           <BadgeStatut tonalite={d.total > 0 && d.aValider === 0 ? "succes" : "neutre"}>
             {d.total === 0
-              ? "Aucun contenu"
-              : `${d.valides} contenu${d.valides > 1 ? "s" : ""} validé${d.valides > 1 ? "s" : ""} sur ${d.total}`}
+              ? t("Aucun contenu", "No content")
+              : t(
+                  `${d.valides} contenu${d.valides > 1 ? "s" : ""} validé${d.valides > 1 ? "s" : ""} sur ${d.total}`,
+                  `${d.valides} of ${d.total} item${d.total > 1 ? "s" : ""} approved`,
+                )}
           </BadgeStatut>
           <span className="mp-texte-doux mp-texte-petit">
-            {`Horizon ${plan.horizon} ans · montants en ${libelleDevise(plan.devise)}`}
+            {t(
+              `Horizon ${plan.horizon} ans · montants en ${libelleDevise(plan.devise)}`,
+              `Horizon ${plan.horizon} years · amounts in ${libelleDevise(plan.devise)}`,
+            )}
           </span>
         </div>
       </section>
-      <Onglets libelle="Sections du plan stratégique" pages={pages} />
+      <Onglets
+        libelle={t("Sections du plan stratégique", "Strategic plan sections")}
+        pages={pages}
+      />
       {children}
     </div>
   );

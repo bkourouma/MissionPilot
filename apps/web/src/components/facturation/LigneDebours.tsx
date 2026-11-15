@@ -4,8 +4,9 @@ import { useState, type FormEvent } from "react";
 import { api } from "../../lib/api";
 import {
   actionsDebours,
-  CATEGORIE_LIBELLES,
+  libelleCategorie,
   saisieDepuisDebours,
+  statutDebours,
   STATUT_DEBOURS,
   type ContexteDebours,
   type Debours,
@@ -13,6 +14,7 @@ import {
 import { validerMotif } from "../../lib/factures";
 import { formaterDate, formaterMontantMineur } from "../../lib/format";
 import { CommentairesRepliables } from "../collaboration/Commentaires";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { FichierJoint } from "../fichiers/FichierJoint";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
@@ -41,6 +43,8 @@ export function LigneDebours({
   missionIntitule,
   avecAuteur,
 }: LigneDeboursProps) {
+  const t = useT();
+  const langue = useLangue();
   const [edition, setEdition, fermerApresRafraichissement] = useFermetureDifferee<true>(
     d.modifie_le,
   );
@@ -61,11 +65,13 @@ export function LigneDebours({
         <strong>{d.libelle}</strong>
         <span className="mp-texte-doux">
           {[
-            formaterDate(d.date),
-            CATEGORIE_LIBELLES[d.categorie],
+            formaterDate(d.date, "UTC", langue),
+            libelleCategorie(d.categorie, langue),
             missionIntitule,
             avecAuteur ? d.collaborateur_nom : null,
-            d.refacturable ? "refacturable" : "non refacturable",
+            d.refacturable
+              ? t("refacturable", "re-billable")
+              : t("non refacturable", "non-re-billable"),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -73,24 +79,31 @@ export function LigneDebours({
         {d.justificatif_fichier ? (
           <FichierJoint
             fichier={d.justificatif_fichier}
-            prefixe="Justificatif"
-            contexte={`du débours ${d.libelle}`}
+            prefixe={t("Justificatif", "Supporting document")}
+            contexte={t(`du débours ${d.libelle}`, `of expense ${d.libelle}`)}
           />
         ) : d.justificatif ? (
-          <span className="mp-texte-petit mp-coupure">{`Ancienne référence de justificatif : ${d.justificatif}`}</span>
+          <span className="mp-texte-petit mp-coupure">
+            {t(
+              `Ancienne référence de justificatif : ${d.justificatif}`,
+              `Previous supporting document reference: ${d.justificatif}`,
+            )}
+          </span>
         ) : (
           <span className="mp-indice mp-texte-petit mp-texte-doux">
             <Icone nom="attention" taille={14} />
-            <span>Sans justificatif joint</span>
+            <span>{t("Sans justificatif joint", "No supporting document attached")}</span>
           </span>
         )}
         {d.statut === "rejete" && d.motif_rejet ? (
-          <span className="mp-texte-petit">{`Motif du rejet : ${d.motif_rejet}`}</span>
+          <span className="mp-texte-petit">
+            {t(`Motif du rejet : ${d.motif_rejet}`, `Reason for rejection: ${d.motif_rejet}`)}
+          </span>
         ) : null}
       </span>
-      <span className="mp-montant">{formaterMontantMineur(d.montant, d.devise)}</span>
+      <span className="mp-montant">{formaterMontantMineur(d.montant, d.devise, langue)}</span>
       <BadgeStatut tonalite={STATUT_DEBOURS[d.statut].tonalite}>
-        {STATUT_DEBOURS[d.statut].libelle}
+        {statutDebours(d.statut, langue).libelle}
       </BadgeStatut>
       <div className="mp-barre-actions mp-barre-actions--compacte">
         {a.soumettre && !edition ? (
@@ -98,11 +111,16 @@ export function LigneDebours({
             variante="secondaire"
             icone="envoyer"
             chargement={f.enCours || attente}
-            texteChargement="Envoi…"
-            onClick={() => agir("soumettre", "Débours soumis à validation.")}
-            aria-label={`Soumettre le débours ${d.libelle}`}
+            texteChargement={t("Envoi…", "Sending…")}
+            onClick={() =>
+              agir(
+                "soumettre",
+                t("Débours soumis à validation.", "Expense submitted for approval."),
+              )
+            }
+            aria-label={t(`Soumettre le débours ${d.libelle}`, `Submit expense ${d.libelle}`)}
           >
-            Soumettre
+            {t("Soumettre", "Submit")}
           </Bouton>
         ) : null}
         {a.modifier && !edition ? (
@@ -110,20 +128,23 @@ export function LigneDebours({
             variante="discret"
             icone="crayon"
             onClick={() => setEdition(true)}
-            aria-label={`Modifier le débours ${d.libelle}`}
+            aria-label={t(`Modifier le débours ${d.libelle}`, `Edit expense ${d.libelle}`)}
           >
-            Modifier
+            {t("Modifier", "Edit")}
           </Bouton>
         ) : null}
         {a.supprimer && !edition ? (
           <BoutonConfirmation
-            libelle="Supprimer"
+            libelle={t("Supprimer", "Delete")}
             variante="discret"
             icone="corbeille"
-            ariaLabel={`Supprimer le débours ${d.libelle}`}
-            question={`Supprimer le débours « ${d.libelle} » ?`}
-            libelleConfirmation="Oui, supprimer"
-            texteChargement="Suppression…"
+            ariaLabel={t(`Supprimer le débours ${d.libelle}`, `Delete expense ${d.libelle}`)}
+            question={t(
+              `Supprimer le débours « ${d.libelle} » ?`,
+              `Delete the expense "${d.libelle}"?`,
+            )}
+            libelleConfirmation={t("Oui, supprimer", "Yes, delete")}
+            texteChargement={t("Suppression…", "Deleting…")}
             action={() => f.envoyer({ ok: true, charge: null }, () => api.supprimer(chemin))}
           />
         ) : null}
@@ -131,20 +152,20 @@ export function LigneDebours({
           <Bouton
             icone="succes"
             chargement={f.enCours || attente}
-            texteChargement="Validation…"
-            onClick={() => agir("valider", "Débours validé.")}
-            aria-label={`Valider le débours ${d.libelle}`}
+            texteChargement={t("Validation…", "Approving…")}
+            onClick={() => agir("valider", t("Débours validé.", "Expense approved."))}
+            aria-label={t(`Valider le débours ${d.libelle}`, `Approve expense ${d.libelle}`)}
           >
-            Valider
+            {t("Valider", "Approve")}
           </Bouton>
         ) : null}
         {a.rejeter && !rejet ? (
           <Bouton
             variante="secondaire"
             onClick={() => setRejet(true)}
-            aria-label={`Rejeter le débours ${d.libelle}`}
+            aria-label={t(`Rejeter le débours ${d.libelle}`, `Reject expense ${d.libelle}`)}
           >
-            Rejeter
+            {t("Rejeter", "Reject")}
           </Bouton>
         ) : null}
       </div>
@@ -152,14 +173,14 @@ export function LigneDebours({
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Action impossible"
+        titreErreur={t("Action impossible", "Action not possible")}
       />
       {rejet ? (
         <FormulaireRejet chemin={chemin} libelle={d.libelle} onFin={() => setRejet(false)} />
       ) : null}
       {edition ? (
         <FormulaireDebours
-          titre={`Modifier le débours ${d.libelle}`}
+          titre={t(`Modifier le débours ${d.libelle}`, `Edit expense ${d.libelle}`)}
           initial={saisieDepuisDebours(d)}
           missions={[{ id: d.mission_id, intitule: missionIntitule ?? "", devise: d.devise }]}
           deboursId={d.id}
@@ -175,7 +196,7 @@ export function LigneDebours({
           entiteId={d.id}
           utilisateurId={contexte.utilisateurId}
           associe={contexte.roles.includes("associe")}
-          nomElement={`le débours ${d.libelle}`}
+          nomElement={t(`le débours ${d.libelle}`, `expense ${d.libelle}`)}
         />
       </div>
     </li>
@@ -191,11 +212,15 @@ function FormulaireRejet({
   libelle: string;
   onFin: () => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    await f.envoyer(validerMotif(motif), (c) => api.post(`${chemin}/rejeter`, c), { apres: onFin });
+    await f.envoyer(validerMotif(motif, langue), (c) => api.post(`${chemin}/rejeter`, c), {
+      apres: onFin,
+    });
   }
   return (
     <form
@@ -203,12 +228,15 @@ function FormulaireRejet({
       className="mp-formulaire mp-sous-formulaire mp-pleine-largeur"
       noValidate
       onSubmit={soumettre}
-      aria-label={`Rejeter le débours ${libelle}`}
+      aria-label={t(`Rejeter le débours ${libelle}`, `Reject expense ${libelle}`)}
     >
       <RetourFormulaire erreur={f.erreurGlobale} refAlerte={f.refAlerte} />
       <ZoneTexte
-        libelle="Motif du rejet"
-        aide="Visible par l'auteur, qui pourra corriger et soumettre à nouveau."
+        libelle={t("Motif du rejet", "Reason for rejection")}
+        aide={t(
+          "Visible par l'auteur, qui pourra corriger et soumettre à nouveau.",
+          "Visible to the author, who can correct and resubmit.",
+        )}
         required
         maxLength={500}
         value={motif}
@@ -216,11 +244,16 @@ function FormulaireRejet({
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="danger" chargement={f.enCours} texteChargement="Rejet…">
-          Rejeter le débours
+        <Bouton
+          type="submit"
+          variante="danger"
+          chargement={f.enCours}
+          texteChargement={t("Rejet…", "Rejecting…")}
+        >
+          {t("Rejeter le débours", "Reject the expense")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

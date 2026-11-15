@@ -5,6 +5,8 @@
  */
 import {
   aPermission,
+  creerTraduire,
+  type Langue,
   type Permission,
   type Role,
   type StatutProposition,
@@ -77,6 +79,21 @@ export const STATUT_PROPOSITION: Record<
   refusee: { libelle: "Refusée", tonalite: "danger" },
 };
 
+export const STATUT_PROPOSITION_EN: Record<
+  StatutProposition,
+  { libelle: string; tonalite: TonaliteStatut }
+> = {
+  brouillon: { libelle: "Draft", tonalite: "neutre" },
+  a_valider: { libelle: "Pending approval", tonalite: "attention" },
+  validee: { libelle: "Approved", tonalite: "succes" },
+  envoyee: { libelle: "Sent to client", tonalite: "neutre" },
+  acceptee: { libelle: "Accepted", tonalite: "succes" },
+  refusee: { libelle: "Declined", tonalite: "danger" },
+};
+
+export const statutProposition = (s: StatutProposition, langue: Langue = "fr") =>
+  (langue === "en" ? STATUT_PROPOSITION_EN : STATUT_PROPOSITION)[s];
+
 /** Transitions autorisées par l'API et permission exigée (miroir de `routes/propositions.ts`). */
 export const TRANSITIONS_PROPOSITION: Record<
   StatutProposition,
@@ -99,6 +116,15 @@ const LIBELLES_ACTION: Partial<Record<StatutProposition, string>> = {
   refusee: "Refusée par le client",
 };
 
+const LIBELLES_ACTION_EN: Partial<Record<StatutProposition, string>> = {
+  a_valider: "Submit for approval",
+  validee: "Approve the proposal",
+  brouillon: "Send back to draft",
+  envoyee: "Mark as sent",
+  acceptee: "Accepted by the client",
+  refusee: "Declined by the client",
+};
+
 export interface ActionStatut {
   cible: StatutProposition;
   libelle: string;
@@ -110,12 +136,14 @@ export interface ActionStatut {
 export function actionsStatutProposition(
   statut: StatutProposition,
   roles: readonly Role[],
+  langue: Langue = "fr",
 ): ActionStatut[] {
+  const libelles = langue === "en" ? LIBELLES_ACTION_EN : LIBELLES_ACTION;
   return Object.entries(TRANSITIONS_PROPOSITION[statut])
     .filter(([, permission]) => aPermission(roles, permission as Permission))
     .map(([cible]) => ({
       cible: cible as StatutProposition,
-      libelle: LIBELLES_ACTION[cible as StatutProposition] ?? cible,
+      libelle: libelles[cible as StatutProposition] ?? cible,
       confirmer: cible === "validee" || cible === "acceptee" || cible === "refusee",
     }));
 }
@@ -187,14 +215,19 @@ export function propositionVisible(
 /** Jours par grade d'un élément (texte saisi) → charge `jours_par_grade`, au centième. */
 export function validerJoursParGrade(
   saisie: Record<string, string>,
+  langue: Langue = "fr",
 ): Resultat<{ jours_par_grade: Record<string, number> }, string> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const jours: Record<string, number> = {};
   for (const [grade, texte] of Object.entries(saisie)) {
     const n = lireNombre(texte);
     if (n === null) continue;
     if (Number.isNaN(n) || n < 0 || n > 1000 || Math.abs(n * 100 - Math.round(n * 100)) > 1e-9)
-      erreurs[grade] = "Entre 0 et 1000 jours, au centième au plus (ex. 2,25).";
+      erreurs[grade] = t(
+        "Entre 0 et 1000 jours, au centième au plus (ex. 2,25).",
+        "Between 0 and 1000 days, two decimals at most (e.g. 2.25).",
+      );
     else if (n > 0) jours[grade] = n;
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
@@ -204,17 +237,19 @@ export function validerJoursParGrade(
 /** Équipe proposée : nombre de personnes par grade (1 à 50), vide = grade absent. */
 export function validerEquipe(
   saisie: Record<string, string>,
+  langue: Langue = "fr",
 ): Resultat<{ equipe: MembreEquipe[] }, string> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const equipe: MembreEquipe[] = [];
   for (const [grade, texte] of Object.entries(saisie)) {
     const n = lireNombre(texte);
     if (n === null || n === 0) continue;
     if (Number.isNaN(n) || !Number.isInteger(n) || n < 0 || n > 50)
-      erreurs[grade] = "Nombre entier entre 0 et 50.";
+      erreurs[grade] = t("Nombre entier entre 0 et 50.", "Whole number between 0 and 50.");
     else equipe.push({ grade_code: grade, nombre: n });
   }
-  if (equipe.length > 20) erreurs._ = "20 grades au plus.";
+  if (equipe.length > 20) erreurs._ = t("20 grades au plus.", "20 grades at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { equipe } };
 }
@@ -223,7 +258,9 @@ export function validerEquipe(
 export function validerTaux(
   saisie: Record<string, string>,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<{ taux: Record<string, number | null> }, string> {
+  const t = creerTraduire(langue);
   const erreurs: Record<string, string> = {};
   const taux: Record<string, number | null> = {};
   for (const [grade, texte] of Object.entries(saisie)) {
@@ -231,12 +268,12 @@ export function validerTaux(
     if (m !== null && Number.isNaN(m))
       erreurs[grade] =
         devise === "XOF" || devise === "XAF"
-          ? "Montant entier positif (ex. 350 000)."
-          : "Montant positif, deux décimales au plus.";
+          ? t("Montant entier positif (ex. 350 000).", "Positive whole amount (e.g. 350,000).")
+          : t("Montant positif, deux décimales au plus.", "Positive amount, two decimals at most.");
     else taux[grade] = m;
   }
   if (Object.keys(taux).length === 0 && Object.keys(erreurs).length === 0)
-    erreurs._ = "Aucun taux à enregistrer.";
+    erreurs._ = t("Aucun taux à enregistrer.", "No rate to save.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { taux } };
 }
@@ -251,12 +288,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Génération d'une proposition depuis un type du catalogue (type requis, intitulé facultatif). */
 export function validerGeneration(
   s: SaisieGeneration,
+  langue: Langue = "fr",
 ): Resultat<{ type_mission_id: string; intitule?: string }, keyof SaisieGeneration> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieGeneration, string>> = {};
   if (!UUID.test(s.type_mission_id))
-    erreurs.type_mission_id = "Choisissez le type de mission du catalogue.";
+    erreurs.type_mission_id = t(
+      "Choisissez le type de mission du catalogue.",
+      "Choose the engagement type from the catalog.",
+    );
   const intitule = s.intitule.trim();
-  if (intitule.length > 200) erreurs.intitule = "200 caractères au plus.";
+  if (intitule.length > 200)
+    erreurs.intitule = t("200 caractères au plus.", "200 characters at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,

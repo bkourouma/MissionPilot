@@ -8,6 +8,7 @@ import { cheminSynthese } from "../../lib/plan-ateliers";
 import { PanneauContenuIa } from "../ia/PanneauContenuIa";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface SyntheseAtelierProps {
   planId: string;
@@ -30,6 +31,8 @@ export function SyntheseAtelier({
   peutGenerer,
   utilisateur,
 }: SyntheseAtelierProps) {
+  const t = useT();
+  const langue = useLangue();
   const [generation, setGeneration] = useState<GenerationIa | null>(initiale);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -38,13 +41,18 @@ export function SyntheseAtelier({
   async function generer() {
     setEnCours(true);
     setErreur(null);
-    setAnnonce("Génération du brouillon en cours.");
+    setAnnonce(t("Génération du brouillon en cours.", "Generating the draft."));
     try {
       const r = await api.post<{ synthese: GenerationIa }>(cheminSynthese(planId, atelierId));
       setGeneration(r.synthese);
-      setAnnonce("Brouillon généré : à relire et valider avant tout usage.");
+      setAnnonce(
+        t(
+          "Brouillon généré : à relire et valider avant tout usage.",
+          "Draft generated: review and approve it before any use.",
+        ),
+      );
     } catch (e) {
-      setErreur(messageErreurIa(e));
+      setErreur(messageErreurIa(e, langue));
       setAnnonce("");
     } finally {
       setEnCours(false);
@@ -55,17 +63,17 @@ export function SyntheseAtelier({
     <div className="mp-pile">
       <Alerte tonalite="info" annonce="aucune">
         <p>
-          Brouillon de l&apos;IA : il commente les résultats du moteur sans calculer aucun chiffre.
-          Il n&apos;est ni transmis au client ni repris dans un rapport tant qu&apos;un consultant
-          ne l&apos;a pas validé. Les libellés des options et la consigne sont traités comme des
-          données.
+          {t(
+            "Brouillon de l'IA : il commente les résultats du moteur sans calculer aucun chiffre. Il n'est ni transmis au client ni repris dans un rapport tant qu'un consultant ne l'a pas validé. Les libellés des options et la consigne sont traités comme des données.",
+            "AI draft: it comments on the engine results without computing any figure. It is neither sent to the client nor included in a report until a consultant has approved it. Option labels and the brief are treated as data.",
+          )}
         </p>
       </Alerte>
       <p className="mp-visuellement-cache" role="status">
         {annonce}
       </p>
       {erreur ? (
-        <Alerte tonalite="danger" titre="Synthèse non générée">
+        <Alerte tonalite="danger" titre={t("Synthèse non générée", "Summary not generated")}>
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -74,12 +82,15 @@ export function SyntheseAtelier({
           key={generation.id}
           generation={generation}
           utilisateur={utilisateur}
-          titre="Synthèse de l'atelier (brouillon)"
+          titre={t("Synthèse de l'atelier (brouillon)", "Workshop summary (draft)")}
           niveauTitre={3}
         />
       ) : (
         <p className="mp-texte-doux">
-          Aucune synthèse n&apos;a encore été générée pour cet atelier.
+          {t(
+            "Aucune synthèse n'a encore été générée pour cet atelier.",
+            "No summary has been generated for this workshop yet.",
+          )}
         </p>
       )}
       {peutGenerer ? (
@@ -87,10 +98,12 @@ export function SyntheseAtelier({
           <Bouton
             variante={generation ? "secondaire" : "primaire"}
             chargement={enCours}
-            texteChargement="Génération…"
+            texteChargement={t("Génération…", "Generating…")}
             onClick={generer}
           >
-            {generation ? "Générer un nouveau brouillon" : "Générer une synthèse"}
+            {generation
+              ? t("Générer un nouveau brouillon", "Generate a new draft")
+              : t("Générer une synthèse", "Generate a summary")}
           </Bouton>
         </div>
       ) : null}

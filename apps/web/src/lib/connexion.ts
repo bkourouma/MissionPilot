@@ -1,4 +1,5 @@
 /** Logique pure de la connexion (sans React), testée dans `connexion.test.ts`. */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 
 /** Nom du cookie de session posé par l'API (`apps/api/src/auth/session.ts`). */
 export const COOKIE_SESSION = "mp_session";
@@ -38,14 +39,23 @@ export type ErreursConnexion = Partial<Record<keyof SaisieConnexion, string>>;
 
 const FORMAT_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validerConnexion(saisie: SaisieConnexion): ErreursConnexion {
+export function validerConnexion(saisie: SaisieConnexion, langue: Langue = "fr"): ErreursConnexion {
+  const t = creerTraduire(langue);
   const erreurs: ErreursConnexion = {};
   const email = saisie.email.trim();
-  if (email === "") erreurs.email = "Saisissez votre adresse e-mail.";
+  if (email === "")
+    erreurs.email = t("Saisissez votre adresse e-mail.", "Enter your email address.");
   else if (!FORMAT_EMAIL.test(email) || email.length > 254)
-    erreurs.email = "Adresse e-mail invalide. Exemple : prenom.nom@cabinet.ci";
-  if (saisie.motDePasse === "") erreurs.motDePasse = "Saisissez votre mot de passe.";
+    erreurs.email = t(
+      "Adresse e-mail invalide. Exemple : prenom.nom@cabinet.ci",
+      "Invalid email address. Example: first.last@firm.ci",
+    );
+  if (saisie.motDePasse === "")
+    erreurs.motDePasse = t("Saisissez votre mot de passe.", "Enter your password.");
   else if (saisie.motDePasse.length > 200)
-    erreurs.motDePasse = "Le mot de passe ne doit pas dépasser 200 caractères.";
+    erreurs.motDePasse = t(
+      "Le mot de passe ne doit pas dépasser 200 caractères.",
+      "The password must not exceed 200 characters.",
+    );
   return erreurs;
 }

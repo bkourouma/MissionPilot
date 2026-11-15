@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import {
   cheminEvaluations,
+  libelleCritere,
   messageFroide,
-  NOTES_REVUE_FROIDE,
+  notesRevueFroide,
   type EvaluationCritere,
 } from "../../lib/qualite-froide";
 import {
@@ -14,6 +16,7 @@ import {
   type SaisieEvaluation,
 } from "../../lib/qualite-froide-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
@@ -26,12 +29,13 @@ export interface FroideGrilleProps {
   modifiable: boolean;
 }
 
-const texteNote = (e: EvaluationCritere | undefined) =>
-  e === undefined
-    ? "Pas encore évalué"
-    : e.note === null
-      ? "Sans objet"
-      : `${e.note} sur 5 (${NOTES_REVUE_FROIDE.find((n) => n.valeur === e.note)?.libelle ?? ""})`;
+const texteNote = (e: EvaluationCritere | undefined, langue: Langue) => {
+  const t = creerTraduire(langue);
+  if (e === undefined) return t("Pas encore évalué", "Not yet assessed");
+  if (e.note === null) return t("Sans objet", "Not applicable");
+  const libelle = notesRevueFroide(langue).find((n) => n.valeur === e.note)?.libelle ?? "";
+  return t(`${e.note} sur 5 (${libelle})`, `${e.note} out of 5 (${libelle})`);
+};
 
 interface CritereProps {
   echantillonId: string;
@@ -41,6 +45,9 @@ interface CritereProps {
 }
 
 function CritereGrille({ echantillonId, critere, evaluation, modifiable }: CritereProps) {
+  const t = useT();
+  const langue = useLangue();
+  const libelleCrit = libelleCritere(critere.code, langue);
   const f = useFormulaire<"note" | "commentaire">();
   const [s, setS] = useState<SaisieEvaluation>({
     critere: critere.code,
@@ -53,7 +60,8 @@ function CritereGrille({ echantillonId, critere, evaluation, modifiable }: Crite
     return (
       <li className="mp-froide-critere">
         <p>
-          <strong>{critere.libelle}</strong> (poids {critere.poids}) : {texteNote(evaluation)}
+          <strong>{libelleCrit}</strong> ({t("poids", "weight")} {critere.poids}) :{" "}
+          {texteNote(evaluation, langue)}
         </p>
         {evaluation?.commentaire ? (
           <p className="mp-texte-petit">{evaluation.commentaire}</p>
@@ -70,9 +78,12 @@ function CritereGrille({ echantillonId, critere, evaluation, modifiable }: Crite
         onSubmit={async (e) => {
           e.preventDefault();
           await f.envoyer(
-            validerEvaluation(s),
+            validerEvaluation(s, langue),
             (charge) => api.put(cheminEvaluations(echantillonId), charge),
-            { succes: "Critère enregistré.", messageSpecifique: messageFroide },
+            {
+              succes: t("Critère enregistré.", "Criterion saved."),
+              messageSpecifique: (e) => messageFroide(e, langue),
+            },
           );
         }}
       >
@@ -82,9 +93,9 @@ function CritereGrille({ echantillonId, critere, evaluation, modifiable }: Crite
           aria-describedby={f.erreurs.note ? `${nom}-erreur` : undefined}
         >
           <legend>
-            {critere.libelle} (poids {critere.poids})
+            {libelleCrit} ({t("poids", "weight")} {critere.poids})
           </legend>
-          {NOTES_REVUE_FROIDE.map((n) => (
+          {notesRevueFroide(langue).map((n) => (
             <div key={n.valeur} className="mp-froide-note">
               <input
                 type="radio"
@@ -108,7 +119,7 @@ function CritereGrille({ echantillonId, critere, evaluation, modifiable }: Crite
               checked={s.note === NOTE_SANS_OBJET}
               onChange={() => setS((x) => ({ ...x, note: NOTE_SANS_OBJET }))}
             />
-            <label htmlFor={`${nom}-so`}>Sans objet</label>
+            <label htmlFor={`${nom}-so`}>{t("Sans objet", "Not applicable")}</label>
           </div>
         </fieldset>
         {f.erreurs.note ? (
@@ -117,29 +128,32 @@ function CritereGrille({ echantillonId, critere, evaluation, modifiable }: Crite
           </p>
         ) : null}
         <ZoneTexte
-          libelle={`Commentaire sur « ${critere.libelle} »`}
+          libelle={t(`Commentaire sur « ${libelleCrit} »`, `Comment on "${libelleCrit}"`)}
           rows={2}
           maxLength={2000}
           required={s.note === NOTE_SANS_OBJET}
           value={s.commentaire}
           onChange={(e) => setS((x) => ({ ...x, commentaire: e.target.value }))}
           erreur={f.erreurs.commentaire}
-          aide="Obligatoire pour un critère sans objet : expliquez pourquoi."
+          aide={t(
+            "Obligatoire pour un critère sans objet : expliquez pourquoi.",
+            "Required for a criterion marked not applicable: explain why.",
+          )}
         />
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Critère non enregistré"
+          titreErreur={t("Critère non enregistré", "Criterion not saved")}
         />
         <div className="mp-actions-formulaire">
           <Bouton
             type="submit"
             variante="secondaire"
             chargement={f.enCours}
-            texteChargement="Enregistrement…"
+            texteChargement={t("Enregistrement…", "Saving…")}
           >
-            Enregistrer ce critère
+            {t("Enregistrer ce critère", "Save this criterion")}
           </Bouton>
         </div>
       </form>

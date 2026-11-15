@@ -5,6 +5,8 @@
  * jours alloués viennent toujours de l'API.
  */
 
+import { LOCALES_INTL, type Langue } from "@missionpilot/shared";
+
 const DATE_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 const JOUR_MS = 86_400_000;
 
@@ -54,18 +56,24 @@ export function lundiDe(date: string): string {
 export const aujourdhuiIso = (maintenant: Date = new Date()) =>
   maintenant.toISOString().slice(0, 10);
 
-const NOM_JOUR = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" });
-const NOM_JOUR_COURT = new Intl.DateTimeFormat("fr-FR", { weekday: "short", timeZone: "UTC" });
-const JOUR_MOIS = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
+const formateurs = (langue: Langue) => ({
+  NOM_JOUR: new Intl.DateTimeFormat(LOCALES_INTL[langue], { weekday: "long", timeZone: "UTC" }),
+  NOM_JOUR_COURT: new Intl.DateTimeFormat(LOCALES_INTL[langue], {
+    weekday: "short",
+    timeZone: "UTC",
+  }),
+  JOUR_MOIS: new Intl.DateTimeFormat(LOCALES_INTL[langue], {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }),
+  JOUR_MOIS_COURT: new Intl.DateTimeFormat(LOCALES_INTL[langue], {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }),
 });
-const JOUR_MOIS_COURT = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
+const FORMATEURS = { fr: formateurs("fr"), en: formateurs("en") };
 
 function versDate(date: string): Date | null {
   const m = DATE_ISO.exec(date);
@@ -75,23 +83,26 @@ function versDate(date: string): Date | null {
 const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** « Lundi 5 octobre » (titre d'un jour, nom accessible d'un champ). */
-export function libelleJourLong(date: string): string {
+export function libelleJourLong(date: string, langue: Langue = "fr"): string {
   const d = versDate(date);
+  const { NOM_JOUR, JOUR_MOIS } = FORMATEURS[langue];
   return d ? majuscule(`${NOM_JOUR.format(d)} ${JOUR_MOIS.format(d)}`) : date;
 }
 
 /** « lun. 5 » (en-tête compact d'une colonne). */
-export function libelleJourCourt(date: string): string {
+export function libelleJourCourt(date: string, langue: Langue = "fr"): string {
   const d = versDate(date);
   if (!d) return date;
-  return `${NOM_JOUR_COURT.format(d)} ${d.getUTCDate()}`;
+  return `${FORMATEURS[langue].NOM_JOUR_COURT.format(d)} ${d.getUTCDate()}`;
 }
 
 /** « Semaine du 5 au 11 octobre 2026 » (mois et année répétés seulement s'ils changent). */
-export function libelleSemaine(debut: string, fin: string): string {
+export function libelleSemaine(debut: string, fin: string, langue: Langue = "fr"): string {
   const d = versDate(debut);
   const f = versDate(fin);
-  if (!d || !f) return `Semaine du ${debut} au ${fin}`;
+  const en = langue === "en";
+  const { JOUR_MOIS } = FORMATEURS[langue];
+  if (!d || !f) return en ? `Week of ${debut} to ${fin}` : `Semaine du ${debut} au ${fin}`;
   const memeMois = d.getUTCMonth() === f.getUTCMonth() && d.getUTCFullYear() === f.getUTCFullYear();
   const memeAnnee = d.getUTCFullYear() === f.getUTCFullYear();
   const gauche = memeMois
@@ -99,13 +110,14 @@ export function libelleSemaine(debut: string, fin: string): string {
     : memeAnnee
       ? JOUR_MOIS.format(d)
       : `${JOUR_MOIS.format(d)} ${d.getUTCFullYear()}`;
-  return `Semaine du ${gauche} au ${JOUR_MOIS.format(f)} ${f.getUTCFullYear()}`;
+  const droite = `${JOUR_MOIS.format(f)} ${f.getUTCFullYear()}`;
+  return en ? `Week of ${gauche} to ${droite}` : `Semaine du ${gauche} au ${droite}`;
 }
 
 /** « 5 oct. » : date courte sans année. */
-export function libelleDateCourte(date: string): string {
+export function libelleDateCourte(date: string, langue: Langue = "fr"): string {
   const d = versDate(date);
-  return d ? JOUR_MOIS_COURT.format(d) : date;
+  return d ? FORMATEURS[langue].JOUR_MOIS_COURT.format(d) : date;
 }
 
 /** Vrai si la date tombe dans la période [debut ; fin] (bornes incluses). */

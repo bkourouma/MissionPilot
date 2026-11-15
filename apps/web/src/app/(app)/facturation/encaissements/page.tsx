@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { creerTraduire } from "@missionpilot/shared";
 import { BadgeStatut } from "../../../../components/ui/BadgeStatut";
 import { classesBouton } from "../../../../components/ui/Bouton";
 import { Carte } from "../../../../components/ui/Carte";
@@ -21,13 +22,17 @@ import {
   type Encaissement,
 } from "../../../../lib/encaissements";
 import { formaterDate, formaterMontantMineur } from "../../../../lib/format";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { aujourdhui } from "../../../../lib/periode";
 import { chargerClientsActifs } from "../../../../lib/referentiels-serveur";
 import { exigerPermission } from "../../../../lib/session";
 import { ContrePassationsEnAttente } from "./ContrePassations";
 import { FormulaireEncaissement } from "./FormulaireEncaissement";
 
-export const metadata: Metadata = { title: "Encaissements" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Encaissements", "Payments received") };
+}
 
 interface Page<T> {
   elements: T[];
@@ -40,6 +45,8 @@ export default async function PageEncaissements({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("encaissement.gerer");
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   const filtres = lireFiltresEncaissements(await searchParams);
   const [r, demandes, clients] = await Promise.all([
     chargerServeur<Page<Encaissement>>(
@@ -55,8 +62,11 @@ export default async function PageEncaissements({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Encaissements"
-        soustitre="Paiements reçus des clients (virement, chèque, espèces, Mobile Money) et leur imputation sur les factures. Un encaissement ne se modifie pas : une erreur se corrige par une contre-passation validée par une autre personne."
+        titre={t("Encaissements", "Payments received")}
+        soustitre={t(
+          "Paiements reçus des clients (virement, chèque, espèces, Mobile Money) et leur imputation sur les factures. Un encaissement ne se modifie pas : une erreur se corrige par une contre-passation validée par une autre personne.",
+          "Payments received from clients (bank transfer, check, cash, Mobile Money) and their allocation to invoices. A payment cannot be edited: an error is corrected by a reversal approved by another person.",
+        )}
       />
 
       {demandes.ok && demandes.donnees.elements.length > 0 ? (
@@ -67,7 +77,7 @@ export default async function PageEncaissements({
         />
       ) : null}
 
-      <Carte titre="Saisir un encaissement">
+      <Carte titre={t("Saisir un encaissement", "Record a payment")}>
         <FormulaireEncaissement
           clients={clients}
           dateDuJour={aujourdhui()}
@@ -77,36 +87,36 @@ export default async function PageEncaissements({
 
       <section aria-labelledby="titre-liste-encaissements" className="mp-pile">
         <h2 id="titre-liste-encaissements" className="mp-section__titre">
-          Encaissements enregistrés
+          {t("Encaissements enregistrés", "Recorded payments")}
         </h2>
         <form
           method="get"
           action="/facturation/encaissements"
           className="mp-filtres"
           role="search"
-          aria-label="Filtrer les encaissements"
+          aria-label={t("Filtrer les encaissements", "Filter payments")}
         >
           <div className="mp-grille-champs mp-grille-champs--filtres">
             {clients.length > 0 ? (
               <Select
-                libelle="Client"
+                libelle={t("Client", "Client")}
                 name="client_id"
                 options={clients}
-                invite="Tous les clients"
+                invite={t("Tous les clients", "All clients")}
                 defaultValue={filtres.client_id}
               />
             ) : null}
-            <Champ libelle="Du" type="date" name="du" defaultValue={filtres.du} />
-            <Champ libelle="Au" type="date" name="au" defaultValue={filtres.au} />
+            <Champ libelle={t("Du", "From")} type="date" name="du" defaultValue={filtres.du} />
+            <Champ libelle={t("Au", "To")} type="date" name="au" defaultValue={filtres.au} />
           </div>
           <div className="mp-actions-formulaire">
             <button type="submit" className={classesBouton("primaire")}>
               <Icone nom="entonnoir" />
-              <span>Filtrer</span>
+              <span>{t("Filtrer", "Filter")}</span>
             </button>
             {filtresEncaissementsActifs(filtres) ? (
               <Link href="/facturation/encaissements" className={classesBouton("discret")}>
-                Effacer les filtres
+                {t("Effacer les filtres", "Clear filters")}
               </Link>
             ) : null}
           </div>
@@ -114,7 +124,10 @@ export default async function PageEncaissements({
 
         {!r.ok ? (
           <EtatErreur
-            titre="Les encaissements n'ont pas pu être chargés."
+            titre={t(
+              "Les encaissements n'ont pas pu être chargés.",
+              "The payments could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={hrefEncaissements(filtres)}
           />
@@ -122,44 +135,69 @@ export default async function PageEncaissements({
           <EtatVide
             titre={
               filtresEncaissementsActifs(filtres)
-                ? "Aucun encaissement ne correspond à ces filtres."
-                : "Aucun encaissement enregistré pour l'instant."
+                ? t(
+                    "Aucun encaissement ne correspond à ces filtres.",
+                    "No payment matches these filters.",
+                  )
+                : t("Aucun encaissement enregistré pour l'instant.", "No payment recorded yet.")
             }
             icone="monnaie"
           >
-            <p>Saisissez le premier paiement reçu avec le formulaire ci-dessus.</p>
+            <p>
+              {t(
+                "Saisissez le premier paiement reçu avec le formulaire ci-dessus.",
+                "Record the first payment received using the form above.",
+              )}
+            </p>
           </EtatVide>
         ) : (
           <Tableau
-            legende="Encaissements, du plus récent au plus ancien"
+            legende={t(
+              "Encaissements, du plus récent au plus ancien",
+              "Payments, from most recent to oldest",
+            )}
             lignes={encaissements}
             cleLigne={(e) => e.id}
             colonnes={[
               {
                 cle: "date",
-                entete: "Date",
+                entete: t("Date", "Date"),
                 rendu: (e) => (
                   <Link href={`/facturation/encaissements/${e.id}`} className="mp-sans-coupure">
-                    {formaterDate(e.date_encaissement)}
+                    {formaterDate(e.date_encaissement, "UTC", langue)}
                   </Link>
                 ),
               },
-              { cle: "client", entete: "Client", rendu: (e) => e.client_raison_sociale },
-              { cle: "moyen", entete: "Moyen", rendu: libelleMoyen },
-              { cle: "reference", entete: "Référence", rendu: (e) => e.reference ?? "—" },
+              {
+                cle: "client",
+                entete: t("Client", "Client"),
+                rendu: (e) => e.client_raison_sociale,
+              },
+              {
+                cle: "moyen",
+                entete: t("Moyen", "Method"),
+                rendu: (e) => libelleMoyen(e, langue),
+              },
+              {
+                cle: "reference",
+                entete: t("Référence", "Reference"),
+                rendu: (e) => e.reference ?? "—",
+              },
               {
                 cle: "montant",
-                entete: "Montant",
+                entete: t("Montant", "Amount"),
                 alignement: "droite",
                 rendu: (e) => (
-                  <span className="mp-montant">{formaterMontantMineur(e.montant, e.devise)}</span>
+                  <span className="mp-montant">
+                    {formaterMontantMineur(e.montant, e.devise, langue)}
+                  </span>
                 ),
               },
               {
                 cle: "etat",
-                entete: "État",
+                entete: t("État", "Status"),
                 rendu: (e) => {
-                  const s = etatEncaissement(e);
+                  const s = etatEncaissement(e, langue);
                   return <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>;
                 },
               },
@@ -174,7 +212,7 @@ export default async function PageEncaissements({
                 : null
             }
             hrefDebut={filtres.curseur ? hrefEncaissements(filtres, null) : null}
-            libelle="Pages des encaissements"
+            libelle={t("Pages des encaissements", "Payment pages")}
           />
         ) : null}
       </section>

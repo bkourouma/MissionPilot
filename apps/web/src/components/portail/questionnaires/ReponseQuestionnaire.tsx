@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useT, useLangue } from "../../i18n/FournisseurLangue";
 import { Alerte } from "../../ui/Alerte";
 import { BadgeStatut } from "../../ui/BadgeStatut";
 import { EnteteDePage } from "../../ui/EnteteDePage";
@@ -33,9 +34,13 @@ export interface ReponseQuestionnaireProps {
  * verrouillé ou clos. La vue du serveur la plus récente alimente l'en-tête et la progression.
  */
 export function ReponseQuestionnaire({ questionnaire, aujourdhui }: ReponseQuestionnaireProps) {
+  const t = useT();
+  const langue = useLangue();
   const [vue, setVue] = useState<QuestionnairePortail>(questionnaire);
   const [fin, setFin] = useState<FinSaisie | null>(() =>
-    estModifiable(questionnaire, aujourdhui) ? null : finLectureSeule(questionnaire, 0, aujourdhui),
+    estModifiable(questionnaire, aujourdhui)
+      ? null
+      : finLectureSeule(questionnaire, 0, aujourdhui, langue),
   );
   const [focaliserFin, setFocaliserFin] = useState(false);
   const refFin = useRef<HTMLDivElement>(null);
@@ -50,24 +55,27 @@ export function ReponseQuestionnaire({ questionnaire, aujourdhui }: ReponseQuest
     setFocaliserFin(true);
   }
 
-  const etat = etatQuestionnaire(vue, aujourdhui);
-  const ech = echeance(vue.date_limite, aujourdhui);
+  const etat = etatQuestionnaire(vue, aujourdhui, langue);
+  const ech = echeance(vue.date_limite, aujourdhui, langue);
   const definition = aDefinition(vue) ? vue.definition : questionnaire.definition;
 
   return (
     <div className="mp-page">
       <EnteteDePage
         titre={vue.titre}
-        retour={{ href: CHEMIN_QUESTIONNAIRES_PORTAIL, libelle: "Vos questionnaires" }}
+        retour={{
+          href: CHEMIN_QUESTIONNAIRES_PORTAIL,
+          libelle: t("Vos questionnaires", "Your questionnaires"),
+        }}
         badges={
           <>
             <BadgeStatut tonalite={etat.tonalite}>{etat.libelle}</BadgeStatut>
             <BadgeStatut tonalite="neutre" sansIcone>
-              {libelleMode(vue.mode, vue.fonction)}
+              {libelleMode(vue.mode, vue.fonction, langue)}
             </BadgeStatut>
           </>
         }
-        soustitre={ech ? ech.texte : "Sans date limite"}
+        soustitre={ech ? ech.texte : t("Sans date limite", "No due date")}
       />
       {fin ? (
         <>
@@ -88,7 +96,9 @@ export function ReponseQuestionnaire({ questionnaire, aujourdhui }: ReponseQuest
             <>
               <LectureQuestionnaire definition={definition} reponses={vue.reponse.reponses ?? {}} />
               <p>
-                <Link href={CHEMIN_QUESTIONNAIRES_PORTAIL}>Retour à vos questionnaires</Link>
+                <Link href={CHEMIN_QUESTIONNAIRES_PORTAIL}>
+                  {t("Retour à vos questionnaires", "Back to your questionnaires")}
+                </Link>
               </p>
             </>
           ) : null}

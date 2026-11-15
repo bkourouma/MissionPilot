@@ -8,6 +8,7 @@ import {
   type ViolationIndependance,
 } from "../../lib/qualite-froide";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue } from "../i18n/FournisseurLangue";
 
 /**
  * Action de la revue à froid (vérifier, affecter, clore, supprimer un constat…) : un appel à
@@ -16,6 +17,7 @@ import { useRafraichir } from "../formulaires/useRafraichir";
  * page est rafraîchie aussi.
  */
 export function useActionFroide() {
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export function useActionFroide() {
       if (options.rafraichir !== false) rafraichir();
       return { ok: true, valeur };
     } catch (e) {
-      setErreur(messageFroide(e));
+      setErreur(messageFroide(e, langue));
       setViolations(violationsIndependance(e));
       if (etatFroideChange(e)) rafraichir();
       return { ok: false };

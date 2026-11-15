@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { ChampsReconfirmation } from "../../../../components/securite/ChampsReconfirmation";
 import { Bouton } from "../../../../components/ui/Bouton";
 import { Champ } from "../../../../components/ui/Champ";
@@ -21,23 +22,28 @@ import { useEnregistrementIa } from "./useEnregistrementIa";
  * refusées. Une hausse engage une dépense : l'identité de l'auteur est redemandée.
  */
 export function PlafondIa({ parametres }: { parametres: ParametresIa }) {
+  const t = useT();
+  const langue = useLangue();
   const actuel = parametres.plafond_mensuel_micro_usd;
   const [saisie, setSaisie] = useState(() => plafondVersSaisie(actuel));
   const [info, setInfo] = useState<string | null>(null);
   const e = useEnregistrementIa<"plafond">();
-  const lu = lirePlafond(saisie);
+  const lu = lirePlafond(saisie, langue);
   const hausse = lu.ok && hausseDePlafond(lu.charge.plafond_mensuel_micro_usd, actuel);
   const afficherConfirmation = hausse || e.confirmation !== null;
-  const plateforme = textePlafondPlateforme(parametres);
+  const plateforme = textePlafondPlateforme(parametres, langue);
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     setInfo(null);
     if (lu.ok && lu.charge.plafond_mensuel_micro_usd === actuel) {
-      setInfo("Plafond inchangé : rien à enregistrer.");
+      setInfo(t("Plafond inchangé : rien à enregistrer.", "Ceiling unchanged: nothing to save."));
       return;
     }
-    await e.enregistrer(lu, { succes: "Plafond mensuel enregistré.", exigerConfirmation: hausse });
+    await e.enregistrer(lu, {
+      succes: t("Plafond mensuel enregistré.", "Monthly ceiling saved."),
+      exigerConfirmation: hausse,
+    });
   }
 
   return (
@@ -56,8 +62,11 @@ export function PlafondIa({ parametres }: { parametres: ParametresIa }) {
       ) : null}
       <div className="mp-grille-champs">
         <Champ
-          libelle="Plafond mensuel (dollars US)"
-          aide={`Actuellement ${formaterMicroUsd(actuel)}. 0 bloque tout appel facturé. Une hausse demande de confirmer votre identité.`}
+          libelle={t("Plafond mensuel (dollars US)", "Monthly ceiling (US dollars)")}
+          aide={t(
+            `Actuellement ${formaterMicroUsd(actuel)}. 0 bloque tout appel facturé. Une hausse demande de confirmer votre identité.`,
+            `Currently ${formaterMicroUsd(actuel, langue)}. 0 blocks any billed call. An increase requires confirming your identity.`,
+          )}
           inputMode="decimal"
           required
           maxLength={12}
@@ -76,11 +85,16 @@ export function PlafondIa({ parametres }: { parametres: ParametresIa }) {
           onChange={e.setConfirmation}
           erreurs={e.f.erreurs}
           motif="relever le plafond mensuel de coût IA"
+          motifEn="raise the monthly AI cost ceiling"
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={e.f.enCours} texteChargement="Enregistrement…">
-          Enregistrer le plafond
+        <Bouton
+          type="submit"
+          chargement={e.f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer le plafond", "Save the ceiling")}
         </Bouton>
       </div>
     </form>

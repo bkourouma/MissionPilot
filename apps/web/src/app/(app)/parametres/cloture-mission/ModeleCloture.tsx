@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useT } from "../../../../components/i18n/FournisseurLangue";
 import { RetourFormulaire } from "../../../../components/formulaires/RetourFormulaire";
 import { useFormulaire } from "../../../../components/formulaires/useFormulaire";
 import { Bouton } from "../../../../components/ui/Bouton";
@@ -15,6 +16,7 @@ import {
 
 /** Paramétrage du modèle de check-list de clôture du cabinet (activer, rendre bloquant). */
 export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
+  const t = useT();
   const f = useFormulaire<never>();
   const [reglages, setReglages] = useState<ReglageItem[]>(
     items.map((i) => ({ controle: i.controle, actif: i.actif, bloquant: i.bloquant })),
@@ -36,7 +38,7 @@ export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
     await f.envoyer(
       { ok: true, charge: chargeModele(reglages) },
       (c) => api.put("/api/cloture/modele", c),
-      { succes: "Modèle de check-list enregistré." },
+      { succes: t("Modèle de check-list enregistré.", "Checklist template saved.") },
     );
   }
 
@@ -46,9 +48,12 @@ export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Enregistrement impossible"
+        titreErreur={t("Enregistrement impossible", "Saving failed")}
       />
-      <ul className="mp-liste-lignes" aria-label="Items du modèle de clôture">
+      <ul
+        className="mp-liste-lignes"
+        aria-label={t("Items du modèle de clôture", "Close-out template items")}
+      >
         {items.map((item) => {
           const r = reglages.find((x) => x.controle === item.controle);
           if (!r) return null;
@@ -60,12 +65,12 @@ export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
               </span>
               <div className="mp-pile">
                 <CaseACocher
-                  libelle="Actif"
+                  libelle={t("Actif", "Active")}
                   checked={r.actif}
                   onChange={(e) => changer(item.controle, "actif", e.target.checked)}
                 />
                 <CaseACocher
-                  libelle="Bloquant"
+                  libelle={t("Bloquant", "Blocking")}
                   checked={r.bloquant}
                   disabled={!r.actif}
                   onChange={(e) => changer(item.controle, "bloquant", e.target.checked)}
@@ -79,10 +84,10 @@ export function ModeleCloture({ items }: { items: ItemModeleCloture[] }) {
         <Bouton
           type="submit"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
           disabled={!modeleModifie(items, reglages)}
         >
-          Enregistrer le modèle
+          {t("Enregistrer le modèle", "Save template")}
         </Bouton>
       </div>
     </form>

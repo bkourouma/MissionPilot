@@ -16,6 +16,7 @@ import {
 import { lireParametresTemps } from "../temps/outils.js";
 import { evaluerAlertes } from "../temps/suivi.js";
 import { gardeTailleMultipart } from "./fichiers.js";
+import { langueDeRequete } from "../i18n/langue.js";
 
 /**
  * Import de l'historique des temps (TPS-10), depuis un CSV (corps JSON) ou un
@@ -62,7 +63,10 @@ async function importer(
     return reply.status(400).send({
       erreur: {
         code: "IMPORT_INVALIDE",
-        message: `${rapport.erreurs.length} ligne(s) en erreur : rien n'a été importé.`,
+        message:
+          langueDeRequete(request) === "en"
+            ? `${rapport.erreurs.length} row(s) with errors: nothing was imported.`
+            : `${rapport.erreurs.length} ligne(s) en erreur : rien n'a été importé.`,
       },
       rapport,
     });

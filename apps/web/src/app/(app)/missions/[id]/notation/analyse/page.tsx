@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { aPermission } from "@missionpilot/shared";
+import { aPermission, creerTraduire, type Langue } from "@missionpilot/shared";
 import { BadgeClasse } from "../../../../../../components/notation/BadgeClasse";
 import "../../../../../../components/notation/notation.css";
 import { Alerte } from "../../../../../../components/ui/Alerte";
@@ -9,6 +9,7 @@ import { Carte } from "../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../lib/missions-serveur";
 import {
   LISTE_CLASSES,
@@ -20,19 +21,20 @@ import {
   type ResumeNotation,
 } from "../../../../../../lib/notation";
 import {
-  GRAVITES_CONSTAT,
-  NIVEAUX_CONFIANCE,
-  SOURCES_IMPACT,
+  AVERTISSEMENT_RECHERCHE_TRONQUEE,
+  AVERTISSEMENT_RECHERCHE_TRONQUEE_EN,
   cheminConfiance,
   cheminCommentaireExplication,
   cheminConstats,
   cheminExplication,
   cheminPropositionPlan,
+  detailGraviteConstat,
+  detailNiveauConfiance,
   formaterPointsSignes,
-  AVERTISSEMENT_RECHERCHE_TRONQUEE,
   formaterRatio,
   hrefAnalyseNotation,
   libelleEtapeCombinaison,
+  libelleSourceImpact,
   lireCapacite,
   lireCible,
   peutGenererCommentaire,
@@ -49,7 +51,10 @@ import { exigerLectureNotation } from "../../../../../../lib/notation-serveur";
 import { CommentaireIa } from "./CommentaireIa";
 import { EnregistrerPlan } from "./EnregistrerPlan";
 
-export const metadata: Metadata = { title: "Analyse de la notation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Analyse de la notation", "Rating analysis") };
+}
 
 /**
  * Notation augmentée d'une version (PRD complémentaire §11.1) : indice de confiance (NOT-11),
@@ -64,6 +69,8 @@ export default async function PageAnalyseNotation({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id } = await params;
   const { utilisateur } = await exigerLectureNotation();
   const r = await chargerMission(id);
@@ -75,12 +82,20 @@ export default async function PageAnalyseNotation({
   const resume = await chargerServeur<ResumeNotation>(cheminNotationMission(m.id));
   if (!resume.ok) {
     return resume.statut === 404 ? (
-      <EtatVide titre="Aucune notation pour cette mission." icone="barres">
-        <p>Lancez d&apos;abord un calcul depuis l&apos;onglet Notation.</p>
+      <EtatVide
+        titre={t("Aucune notation pour cette mission.", "No rating for this engagement.")}
+        icone="barres"
+      >
+        <p>
+          {t(
+            "Lancez d'abord un calcul depuis l'onglet Notation.",
+            "First run a computation from the Rating tab.",
+          )}
+        </p>
       </EtatVide>
     ) : (
       <EtatErreur
-        titre="La notation n'a pas pu être chargée."
+        titre={t("La notation n'a pas pu être chargée.", "The rating could not be loaded.")}
         message={resume.message}
         hrefReessayer={hrefNotation(m.id)}
       />
@@ -90,9 +105,10 @@ export default async function PageAnalyseNotation({
   const choix = versionAffichee(notation.versions, lireNumeroVersion(q.version));
   if (choix.numero === null) {
     return (
-      <EtatVide titre="Aucune version calculée." icone="barres">
+      <EtatVide titre={t("Aucune version calculée.", "No version computed.")} icone="barres">
         <p>
-          <Link href={hrefNotation(m.id)}>Revenir à la notation</Link> pour lancer un calcul.
+          <Link href={hrefNotation(m.id)}>{t("Revenir à la notation", "Back to the rating")}</Link>{" "}
+          {t("pour lancer un calcul.", "to run a computation.")}
         </p>
       </EtatVide>
     );
@@ -111,63 +127,78 @@ export default async function PageAnalyseNotation({
   return (
     <div className="mp-notation">
       <p className="mp-texte-doux">
-        Analyse de la version {numero} : fiabilité de la note, écarts de perception, explication de
-        la note et plan d&apos;action.{" "}
-        <Link href={hrefNotation(m.id, numero)}>Retour à la notation</Link>
+        {t(
+          `Analyse de la version ${numero} : fiabilité de la note, écarts de perception, explication de la note et plan d'action.`,
+          `Analysis of version ${numero}: score reliability, perception gaps, score explanation and action plan.`,
+        )}{" "}
+        <Link href={hrefNotation(m.id, numero)}>
+          {t("Retour à la notation", "Back to the rating")}
+        </Link>
       </p>
 
-      <Carte titre="Indice de confiance">
+      <Carte titre={t("Indice de confiance", "Confidence index")}>
         {confiance.ok ? (
           <div className="mp-notation__section">
             <p>
-              <strong>{formaterRatio(confiance.donnees.indice)}</strong> (seuil du cabinet :{" "}
+              <strong>{formaterRatio(confiance.donnees.indice)}</strong>{" "}
+              {t("(seuil du cabinet :", "(firm threshold:")}{" "}
               {formaterRatio(confiance.donnees.seuil)}){" "}
-              <BadgeStatut tonalite={NIVEAUX_CONFIANCE[confiance.donnees.niveau].tonalite}>
-                {NIVEAUX_CONFIANCE[confiance.donnees.niveau].libelle}
+              <BadgeStatut
+                tonalite={detailNiveauConfiance(confiance.donnees.niveau, langue).tonalite}
+              >
+                {detailNiveauConfiance(confiance.donnees.niveau, langue).libelle}
               </BadgeStatut>
             </p>
             <ul>
               <li>
-                Couverture des items : {formaterRatio(confiance.donnees.couverture.valeur)} (poids{" "}
-                {confiance.donnees.couverture.poids} %)
+                {t(
+                  `Couverture des items : ${formaterRatio(confiance.donnees.couverture.valeur)} (poids ${confiance.donnees.couverture.poids} %)`,
+                  `Item coverage: ${formaterRatio(confiance.donnees.couverture.valeur)} (weight ${confiance.donnees.couverture.poids}%)`,
+                )}
               </li>
               <li>
-                Répondants : {confiance.donnees.repondants.nombre} pour une cible de{" "}
-                {confiance.donnees.repondants.cible} (poids {confiance.donnees.repondants.poids} %)
+                {t(
+                  `Répondants : ${confiance.donnees.repondants.nombre} pour une cible de ${confiance.donnees.repondants.cible} (poids ${confiance.donnees.repondants.poids} %)`,
+                  `Respondents: ${confiance.donnees.repondants.nombre} for a target of ${confiance.donnees.repondants.cible} (weight ${confiance.donnees.repondants.poids}%)`,
+                )}
               </li>
               <li>
-                Solidité des preuves : {formaterRatio(confiance.donnees.preuves.valeur)},{" "}
-                {confiance.donnees.preuves.dimensions_etayees} dimension(s) étayée(s) sur{" "}
-                {confiance.donnees.preuves.dimensions} (poids {confiance.donnees.preuves.poids} %)
+                {t(
+                  `Solidité des preuves : ${formaterRatio(confiance.donnees.preuves.valeur)}, ${confiance.donnees.preuves.dimensions_etayees} dimension(s) étayée(s) sur ${confiance.donnees.preuves.dimensions} (poids ${confiance.donnees.preuves.poids} %)`,
+                  `Evidence strength: ${formaterRatio(confiance.donnees.preuves.valeur)}, ${confiance.donnees.preuves.dimensions_etayees} dimension(s) supported out of ${confiance.donnees.preuves.dimensions} (weight ${confiance.donnees.preuves.poids}%)`,
+                )}
               </li>
             </ul>
           </div>
         ) : (
           <EtatErreur
-            titre="Indice indisponible."
+            titre={t("Indice indisponible.", "Index unavailable.")}
             message={confiance.message}
             hrefReessayer={reessayer}
           />
         )}
       </Carte>
 
-      <Carte titre="Constats de perception">
+      <Carte titre={t("Constats de perception", "Perception findings")}>
         {!constats.ok ? (
           <EtatErreur
-            titre="Constats indisponibles."
+            titre={t("Constats indisponibles.", "Findings unavailable.")}
             message={constats.message}
             hrefReessayer={reessayer}
           />
         ) : constats.donnees.constats.length === 0 ? (
           <p className="mp-texte-doux">
-            Aucun écart de perception significatif entre répondants (ou questionnaire collectif).
+            {t(
+              "Aucun écart de perception significatif entre répondants (ou questionnaire collectif).",
+              "No significant perception gap between respondents (or collective questionnaire).",
+            )}
           </p>
         ) : (
           <ul className="mp-notation__section">
             {constats.donnees.constats.map((c) => (
               <li key={c.question}>
-                <BadgeStatut tonalite={GRAVITES_CONSTAT[c.gravite].tonalite}>
-                  {GRAVITES_CONSTAT[c.gravite].libelle}
+                <BadgeStatut tonalite={detailGraviteConstat(c.gravite, langue).tonalite}>
+                  {detailGraviteConstat(c.gravite, langue).libelle}
                 </BadgeStatut>{" "}
                 {c.enonce}
               </li>
@@ -176,7 +207,7 @@ export default async function PageAnalyseNotation({
         )}
       </Carte>
 
-      <Carte titre="Explication de la note">
+      <Carte titre={t("Explication de la note", "Score explanation")}>
         {!explication.ok ? (
           <Alerte tonalite="info" annonce="aucune">
             <p>{explication.message}</p>
@@ -184,6 +215,7 @@ export default async function PageAnalyseNotation({
         ) : (
           <ExplicationNote
             e={explication.donnees}
+            langue={langue}
             hrefCible={(c) =>
               `${hrefAnalyseNotation(m.id, numero)}&cible=${c}&capacite=${capacite}`
             }
@@ -191,7 +223,7 @@ export default async function PageAnalyseNotation({
         )}
       </Carte>
 
-      <Carte titre="Commentaire de l'IA (brouillon)">
+      <Carte titre={t("Commentaire de l'IA (brouillon)", "AI comment (draft)")}>
         {!commentaire.ok ? (
           <Alerte tonalite="info" annonce="aucune">
             <p>{commentaire.message}</p>
@@ -209,39 +241,46 @@ export default async function PageAnalyseNotation({
         )}
       </Carte>
 
-      <Carte titre="Plan d'action priorisé">
+      <Carte titre={t("Plan d'action priorisé", "Prioritized action plan")}>
         {!plan.ok ? (
           <Alerte tonalite="info" annonce="aucune">
             <p>{plan.message}</p>
           </Alerte>
         ) : plan.donnees.initiatives.length === 0 ? (
           <p className="mp-texte-doux">
-            La bibliothèque d&apos;initiatives du cabinet est vide : ajoutez des initiatives types
-            et leurs impacts observés.
+            {t(
+              "La bibliothèque d'initiatives du cabinet est vide : ajoutez des initiatives types et leurs impacts observés.",
+              "The firm's initiative library is empty: add standard initiatives and their observed impacts.",
+            )}
           </p>
         ) : (
           <div className="mp-notation__section">
             <p className="mp-texte-doux">
-              Priorité = besoin de la note × impact observé dans des contextes semblables ÷ effort ;
-              capacité du client : {plan.donnees.capacite} (utilisée :{" "}
-              {plan.donnees.capacite_utilisee}).
+              {t(
+                `Priorité = besoin de la note × impact observé dans des contextes semblables ÷ effort ; capacité du client : ${plan.donnees.capacite} (utilisée : ${plan.donnees.capacite_utilisee}).`,
+                `Priority = score need × impact observed in similar contexts ÷ effort; client capacity: ${plan.donnees.capacite} (used: ${plan.donnees.capacite_utilisee}).`,
+              )}
             </p>
             <Tableau
-              legende="Initiatives priorisées"
+              legende={t("Initiatives priorisées", "Prioritized initiatives")}
               cleLigne={(i) => i.code}
               lignes={plan.donnees.initiatives}
               colonnes={[
-                { cle: "rang", entete: "Rang", alignement: "droite" },
-                { cle: "titre", entete: "Initiative" },
-                { cle: "priorite", entete: "Priorité", alignement: "droite" },
+                { cle: "rang", entete: t("Rang", "Rank"), alignement: "droite" },
+                { cle: "titre", entete: t("Initiative", "Initiative") },
+                { cle: "priorite", entete: t("Priorité", "Priority"), alignement: "droite" },
                 {
                   cle: "impact",
-                  entete: "Impact observé",
+                  entete: t("Impact observé", "Observed impact"),
                   rendu: (i) =>
-                    `${formaterScore(i.impact)} pt (${SOURCES_IMPACT[i.source_impact]})`,
+                    `${formaterScore(i.impact, langue)} ${t("pt", "pt")} (${libelleSourceImpact(i.source_impact, langue)})`,
                 },
-                { cle: "effort", entete: "Effort", alignement: "droite" },
-                { cle: "retenue", entete: "Retenue", rendu: (i) => (i.retenue ? "Oui" : i.motif) },
+                { cle: "effort", entete: t("Effort", "Effort"), alignement: "droite" },
+                {
+                  cle: "retenue",
+                  entete: t("Retenue", "Selected"),
+                  rendu: (i) => (i.retenue ? t("Oui", "Yes") : i.motif),
+                },
               ]}
             />
             {gerer ? (
@@ -261,47 +300,54 @@ export default async function PageAnalyseNotation({
 function ExplicationNote({
   e,
   hrefCible,
+  langue,
 }: {
   e: ExplicationNotation;
   hrefCible: (c: string) => string;
+  langue: Langue;
 }) {
+  const t = creerTraduire(langue);
   return (
     <div className="mp-notation__section">
       <p>
-        Score {formaterScore(e.score)} <BadgeClasse classe={e.classe} /> : somme des contributions{" "}
-        {formaterScore(e.somme_contributions)}.
+        {t("Score", "Score")} {formaterScore(e.score, langue)} <BadgeClasse classe={e.classe} /> :{" "}
+        {t("somme des contributions", "sum of contributions")}{" "}
+        {formaterScore(e.somme_contributions, langue)}.
       </p>
       <Tableau
-        legende="Contribution de chaque dimension à la note"
+        legende={t(
+          "Contribution de chaque dimension à la note",
+          "Contribution of each dimension to the score",
+        )}
         cleLigne={(d) => d.dimension}
         lignes={e.dimensions}
         colonnes={[
-          { cle: "libelle", entete: "Dimension" },
+          { cle: "libelle", entete: t("Dimension", "Dimension") },
           {
             cle: "score",
-            entete: "Score",
+            entete: t("Score", "Score"),
             alignement: "droite",
-            rendu: (d) => formaterScore(d.score),
+            rendu: (d) => formaterScore(d.score, langue),
           },
           {
             cle: "contribution",
-            entete: "Contribution",
+            entete: t("Contribution", "Contribution"),
             alignement: "droite",
-            rendu: (d) => formaterPointsSignes(d.contribution),
+            rendu: (d) => formaterPointsSignes(d.contribution, langue),
           },
           {
             cle: "ajustement",
-            entete: "dont ajustement",
+            entete: t("dont ajustement", "of which adjustment"),
             alignement: "droite",
-            rendu: (d) => formaterPointsSignes(d.ajustement),
+            rendu: (d) => formaterPointsSignes(d.ajustement, langue),
           },
           {
             cle: "pratiques",
-            entete: "Pratiques (contribution)",
+            entete: t("Pratiques (contribution)", "Practices (contribution)"),
             rendu: (d) =>
               d.pratiques
                 .filter((p) => p.statut === "repondu")
-                .map((p) => `${p.indicateur} ${formaterPointsSignes(p.contribution)}`)
+                .map((p) => `${p.indicateur} ${formaterPointsSignes(p.contribution, langue)}`)
                 .join(" ; ") || "—",
           },
         ]}
@@ -309,46 +355,55 @@ function ExplicationNote({
       {e.simulation ? (
         <>
           <p>
-            <strong>{phraseSimulation(e.simulation)}</strong>
+            <strong>{phraseSimulation(e.simulation, langue)}</strong>
           </p>
           {e.simulation.etapes.length > 0 ? (
             <Tableau
-              legende="Pratiques à relever"
+              legende={t("Pratiques à relever", "Practices to raise")}
               cleLigne={(x) => `${x.dimension}/${x.indicateur}`}
               lignes={e.simulation.etapes}
               colonnes={[
-                { cle: "libelle", entete: "Dimension" },
-                { cle: "question", entete: "Question" },
+                { cle: "libelle", entete: t("Dimension", "Dimension") },
+                { cle: "question", entete: t("Question", "Question") },
                 {
                   cle: "points",
-                  entete: "Points",
+                  entete: t("Points", "Points"),
                   rendu: (x) =>
-                    `${formaterScore(x.points_avant)} → ${formaterScore(x.points_apres)}`,
+                    `${formaterScore(x.points_avant, langue)} → ${formaterScore(x.points_apres, langue)}`,
                 },
-                { cle: "paliers", entete: "Paliers", alignement: "droite" },
+                { cle: "paliers", entete: t("Paliers", "Steps"), alignement: "droite" },
                 {
                   cle: "gain",
-                  entete: "Gain sur la note",
+                  entete: t("Gain sur la note", "Gain on the score"),
                   alignement: "droite",
-                  rendu: (x) => formaterPointsSignes(x.gain),
+                  rendu: (x) => formaterPointsSignes(x.gain, langue),
                 },
               ]}
             />
           ) : null}
         </>
       ) : (
-        <p className="mp-texte-doux">Classe A atteinte : aucune simulation proposée.</p>
+        <p className="mp-texte-doux">
+          {t(
+            "Classe A atteinte : aucune simulation proposée.",
+            "Class A reached: no simulation offered.",
+          )}
+        </p>
       )}
-      {e.combinaisons ? <CombinaisonsMinimales c={e.combinaisons} /> : null}
+      {e.combinaisons ? <CombinaisonsMinimales c={e.combinaisons} langue={langue} /> : null}
       <p className="mp-texte-doux mp-texte-petit">
-        Simuler une autre classe :{" "}
+        {t("Simuler une autre classe :", "Simulate another class:")}{" "}
         {LISTE_CLASSES.filter((c) => c !== "E").map((c, i) => (
           <span key={c}>
             {i > 0 ? " · " : ""}
             <Link href={hrefCible(c)}>{c}</Link>
           </span>
         ))}
-        . Projection indicative calculée par le moteur ; elle ne crée aucune note.
+        .{" "}
+        {t(
+          "Projection indicative calculée par le moteur ; elle ne crée aucune note.",
+          "Indicative projection computed by the engine; it creates no score.",
+        )}
       </p>
     </div>
   );
@@ -359,58 +414,86 @@ function ExplicationNote({
  * pratiques à relever, puis le moins de paliers. Une recherche tronquée est signalée, jamais
  * présentée comme une impossibilité.
  */
-function CombinaisonsMinimales({ c }: { c: CombinaisonsNotation }) {
+function CombinaisonsMinimales({ c, langue }: { c: CombinaisonsNotation; langue: Langue }) {
+  const t = creerTraduire(langue);
   return (
-    <section className="mp-notation__section" aria-label="Combinaisons minimales d'améliorations">
-      <h3>Chemin le plus court vers la classe {c.cible}</h3>
+    <section
+      className="mp-notation__section"
+      aria-label={t(
+        "Combinaisons minimales d'améliorations",
+        "Minimal combinations of improvements",
+      )}
+    >
+      <h3>
+        {t(`Chemin le plus court vers la classe ${c.cible}`, `Shortest path to class ${c.cible}`)}
+      </h3>
       <p>
-        <strong>{phraseCombinaisons(c)}</strong>
+        <strong>{phraseCombinaisons(c, langue)}</strong>
       </p>
       {c.tronquee ? (
-        <Alerte tonalite="attention" titre="Recherche interrompue" annonce="aucune">
-          <p>{AVERTISSEMENT_RECHERCHE_TRONQUEE}</p>
+        <Alerte
+          tonalite="attention"
+          titre={t("Recherche interrompue", "Search interrupted")}
+          annonce="aucune"
+        >
+          <p>
+            {langue === "en"
+              ? AVERTISSEMENT_RECHERCHE_TRONQUEE_EN
+              : AVERTISSEMENT_RECHERCHE_TRONQUEE}
+          </p>
         </Alerte>
       ) : null}
       {c.combinaisons.length > 0 ? (
         <>
           <Tableau
-            legende={`Combinaisons minimales vers la classe ${c.cible} (la première est la plus économe en paliers)`}
+            legende={t(
+              `Combinaisons minimales vers la classe ${c.cible} (la première est la plus économe en paliers)`,
+              `Minimal combinations toward class ${c.cible} (the first uses the fewest steps)`,
+            )}
             cleLigne={(x) => String(x.rang)}
             lignes={c.combinaisons.map((k, i) => ({ ...k, rang: i + 1 }))}
             colonnes={[
               {
                 cle: "rang",
-                entete: "Option",
+                entete: t("Option", "Option"),
                 alignement: "droite",
-                rendu: (k) => (k.rang === 1 ? "1 (recommandée)" : String(k.rang)),
+                rendu: (k) =>
+                  k.rang === 1 ? t("1 (recommandée)", "1 (recommended)") : String(k.rang),
               },
               {
                 cle: "etapes",
-                entete: "Pratiques à relever",
+                entete: t("Pratiques à relever", "Practices to raise"),
                 rendu: (k) => (
                   <ul>
                     {k.etapes.map((x) => (
                       <li key={`${x.dimension}/${x.indicateur}`}>
-                        {x.libelle} — {libelleEtapeCombinaison(x)}
+                        {x.libelle} — {libelleEtapeCombinaison(x, langue)}
                       </li>
                     ))}
                   </ul>
                 ),
               },
-              { cle: "nombre_paliers", entete: "Paliers", alignement: "droite" },
+              { cle: "nombre_paliers", entete: t("Paliers", "Steps"), alignement: "droite" },
               {
                 cle: "score_projete",
-                entete: "Score projeté",
+                entete: t("Score projeté", "Projected score"),
                 alignement: "droite",
-                rendu: (k) => `${formaterScore(k.score_projete)} (classe ${k.classe_projetee})`,
+                rendu: (k) =>
+                  `${formaterScore(k.score_projete, langue)} (${t("classe", "class")} ${k.classe_projetee})`,
               },
             ]}
           />
           <p className="mp-texte-doux mp-texte-petit">
             {c.exhaustive
-              ? "Liste complète des combinaisons de cette taille (dans la limite demandée)."
-              : "Liste partielle."}{" "}
-            Projection indicative calculée par le moteur ; elle ne crée aucune note.
+              ? t(
+                  "Liste complète des combinaisons de cette taille (dans la limite demandée).",
+                  "Complete list of combinations of this size (within the requested limit).",
+                )
+              : t("Liste partielle.", "Partial list.")}{" "}
+            {t(
+              "Projection indicative calculée par le moteur ; elle ne crée aucune note.",
+              "Indicative projection computed by the engine; it creates no score.",
+            )}
           </p>
         </>
       ) : null}

@@ -18,6 +18,7 @@ import { Tableau } from "../../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
 import { formaterDate } from "../../../../../../../lib/format";
 import { estIdentifiant } from "../../../../../../../lib/identifiant";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { droitsKpi } from "../../../../../../../lib/kpi";
 import {
   avertissementTronque,
@@ -29,9 +30,9 @@ import {
   hrefNouvelleAction,
   hrefRevue,
   hrefRevues,
-  LIBELLES_POINT_REVUE,
-  LIBELLES_STATUT_ACTION,
-  LIBELLES_STATUT_DECISION,
+  libellePointRevue,
+  libelleStatutAction,
+  libelleStatutDecision,
   libelleEcheance,
   libelleOrigineOrdreDuJour,
   texteVerdict,
@@ -44,7 +45,10 @@ import { chargerOptionsPilotage } from "../../../../../../../lib/kpi-pilotage-se
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Revue de performance" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Revue de performance", "Performance review") };
+}
 
 /**
  * Une revue de performance : ordre du jour (proposé par le moteur, déterministe), dossier et
@@ -60,18 +64,20 @@ export default async function PageRevueKpi({
   const { id, revueId } = await params;
   if (!estIdentifiant(revueId)) notFound();
   const { utilisateur } = await exigerPermission("kpi.lire");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const r = await chargerMission(id);
   if (!r.ok) return null;
   const m = r.donnees;
   const [revue, options] = await Promise.all([
     chargerServeur<DetailRevue>(cheminRevue(revueId)),
-    chargerOptionsPilotage(utilisateur.roles, m, m.id),
+    chargerOptionsPilotage(utilisateur.roles, m, m.id, langue),
   ]);
   if (!revue.ok && revue.statut === 404) notFound();
   if (!revue.ok) {
     return (
       <EtatErreur
-        titre="La revue n'a pas pu être chargée."
+        titre={t("La revue n'a pas pu être chargée.", "The review could not be loaded.")}
         message={revue.message}
         hrefReessayer={hrefRevue(m.id, revueId)}
       />
@@ -92,53 +98,63 @@ export default async function PageRevueKpi({
     <div className="mp-kpi">
       <div className="mp-actions-formulaire">
         <Link href={hrefRevues(m.id)} className={classesBouton("secondaire")}>
-          Revenir aux revues
+          {t("Revenir aux revues", "Back to the reviews")}
         </Link>
       </div>
       <h2 className="mp-kpi-section__titre">
-        Revue {v.numero} — {v.titre}
+        {t("Revue", "Review")} {v.numero} — {v.titre}
       </h2>
-      <Carte titre="Situation">
+      <Carte titre={t("Situation", "Situation")}>
         <dl className="mp-kpi-mesures">
           <div>
-            <dt>Statut</dt>
-            <dd>{LIBELLES_STATUT_REVUE_TEXTE[v.statut]}</dd>
+            <dt>{t("Statut", "Status")}</dt>
+            <dd>
+              {t(
+                LIBELLES_STATUT_REVUE_TEXTE[v.statut][0],
+                LIBELLES_STATUT_REVUE_TEXTE[v.statut][1],
+              )}
+            </dd>
           </div>
           <div>
-            <dt>Date de la revue</dt>
-            <dd>{formaterDate(v.date_prevue)}</dd>
+            <dt>{t("Date de la revue", "Review date")}</dt>
+            <dd>{formaterDate(v.date_prevue, "UTC", langue)}</dd>
           </div>
           <div>
-            <dt>Arrêté des KPI examinés</dt>
-            <dd>{formaterDate(v.date_reference)}</dd>
+            <dt>{t("Arrêté des KPI examinés", "Cut-off of the KPIs reviewed")}</dt>
+            <dd>{formaterDate(v.date_reference, "UTC", langue)}</dd>
           </div>
           <div>
-            <dt>Animateur</dt>
-            <dd>{v.animateur_nom ?? "À désigner"}</dd>
+            <dt>{t("Animateur", "Facilitator")}</dt>
+            <dd>{v.animateur_nom ?? t("À désigner", "To be assigned")}</dd>
           </div>
         </dl>
         {v.dossier_fige ? (
           <p className="mp-texte-doux">
-            Le dossier examiné est figé : les mesures saisies après la tenue n&apos;y changent rien.
+            {t(
+              "Le dossier examiné est figé : les mesures saisies après la tenue n'y changent rien.",
+              "The file reviewed is frozen: measurements entered after the review changes nothing in it.",
+            )}
           </p>
         ) : null}
       </Carte>
 
-      <Carte titre="Ordre du jour">
+      <Carte titre={t("Ordre du jour", "Agenda")}>
         {v.ordre_du_jour.length === 0 ? (
           <p className="mp-texte-doux">
-            Aucun ordre du jour. Le moteur le propose d&apos;après les KPI en rouge ou en
-            dégradation, les actions en retard, les décisions ouvertes et la qualité des données.
+            {t(
+              "Aucun ordre du jour. Le moteur le propose d'après les KPI en rouge ou en dégradation, les actions en retard, les décisions ouvertes et la qualité des données.",
+              "No agenda. The engine proposes one based on red or deteriorating KPIs, overdue actions, open decisions and data quality.",
+            )}
           </p>
         ) : (
           <>
             <Tableau<PointOrdreDuJour>
-              legende="Ordre du jour de la revue"
+              legende={t("Ordre du jour de la revue", "Review agenda")}
               colonnes={[
-                { cle: "rang", entete: "N°", alignement: "droite" },
+                { cle: "rang", entete: t("N°", "No."), alignement: "droite" },
                 {
                   cle: "libelle",
-                  entete: "Point",
+                  entete: t("Point", "Item"),
                   rendu: (p) => (
                     <>
                       {p.libelle}
@@ -150,12 +166,12 @@ export default async function PageRevueKpi({
                 },
                 {
                   cle: "code",
-                  entete: "Nature",
-                  rendu: (p) => LIBELLES_POINT_REVUE[p.code] ?? p.code,
+                  entete: t("Nature", "Type"),
+                  rendu: (p) => libellePointRevue(p.code, langue),
                 },
                 {
                   cle: "duree",
-                  entete: "Durée",
+                  entete: t("Durée", "Duration"),
                   alignement: "droite",
                   rendu: (p) => `${p.duree_minutes} min`,
                 },
@@ -164,7 +180,11 @@ export default async function PageRevueKpi({
               cleLigne={(p) => String(p.rang)}
             />
             <p className="mp-texte-doux">
-              {libelleOrigineOrdreDuJour(v.ordre_du_jour)} · durée prévue : {totalMinutes} minutes.
+              {libelleOrigineOrdreDuJour(v.ordre_du_jour, langue)} ·{" "}
+              {t(
+                `durée prévue : ${totalMinutes} minutes.`,
+                `planned duration: ${totalMinutes} minutes.`,
+              )}
             </p>
           </>
         )}
@@ -173,18 +193,21 @@ export default async function PageRevueKpi({
             <BoutonActionKpi
               libelle={
                 v.ordre_du_jour.length === 0
-                  ? "Proposer l'ordre du jour"
-                  : "Régénérer l'ordre du jour"
+                  ? t("Proposer l'ordre du jour", "Propose the agenda")
+                  : t("Régénérer l'ordre du jour", "Regenerate the agenda")
               }
               chemin={cheminGenererOrdreDuJour(v.id)}
-              succes="Ordre du jour proposé par le moteur."
-              texteChargement="Calcul…"
+              succes={t("Ordre du jour proposé par le moteur.", "Agenda proposed by the engine.")}
+              texteChargement={t("Calcul…", "Computing…")}
               confirmation={
                 v.ordre_du_jour.length === 0
                   ? undefined
                   : {
-                      question: "Régénérer l'ordre du jour ? La liste actuelle sera remplacée.",
-                      libelleConfirmation: "Oui, régénérer",
+                      question: t(
+                        "Régénérer l'ordre du jour ? La liste actuelle sera remplacée.",
+                        "Regenerate the agenda? The current list will be replaced.",
+                      ),
+                      libelleConfirmation: t("Oui, régénérer", "Yes, regenerate"),
                     }
               }
             />
@@ -193,52 +216,62 @@ export default async function PageRevueKpi({
         ) : null}
       </Carte>
 
-      <Carte titre="Dossier et présentation">
+      <Carte titre={t("Dossier et présentation", "File and presentation")}>
         <p className="mp-texte-doux">
-          Généré à chaque demande depuis les données de la mission (document : PDF ou Word ;
-          présentation : PowerPoint).{" "}
-          {planifiee ? "Tant que la revue n'est pas tenue, le dossier est un brouillon." : ""}
+          {t(
+            "Généré à chaque demande depuis les données de la mission (document : PDF ou Word ; présentation : PowerPoint).",
+            "Generated on each request from the engagement's data (document: PDF or Word; presentation: PowerPoint).",
+          )}{" "}
+          {planifiee
+            ? t(
+                "Tant que la revue n'est pas tenue, le dossier est un brouillon.",
+                "Until the review is held, the file is a draft.",
+              )
+            : ""}
         </p>
         <BoutonDossierRevue revueId={v.id} numero={v.numero} />
       </Carte>
 
       {planifiee && droits.gerer ? (
-        <Carte titre="Tenir ou annuler la revue">
+        <Carte titre={t("Tenir ou annuler la revue", "Hold or cancel the review")}>
           <p className="mp-texte-doux">
-            Tenir la revue fige le dossier tel qu&apos;il est aujourd&apos;hui, l&apos;ordre du jour
-            et le compte rendu, puis ouvre l&apos;enregistrement des décisions. L&apos;ordre du jour
-            doit être établi. Le dossier reste un brouillon confidentiel : il n&apos;est jamais
-            marqué « validé ».
+            {t(
+              "Tenir la revue fige le dossier tel qu'il est aujourd'hui, l'ordre du jour et le compte rendu, puis ouvre l'enregistrement des décisions. L'ordre du jour doit être établi. Le dossier reste un brouillon confidentiel : il n'est jamais marqué « validé ».",
+              'Holding the review freezes the file as it is today, the agenda and the minutes, then opens the recording of decisions. The agenda must be established. The file remains a confidential draft: it is never marked "approved".',
+            )}
           </p>
           <FormulaireTenueRevue revueId={v.id} />
           <BoutonActionKpi
-            libelle="Annuler la revue"
+            libelle={t("Annuler la revue", "Cancel the review")}
             chemin={cheminActionRevue(v.id, "annuler")}
-            succes="Revue annulée."
+            succes={t("Revue annulée.", "Review cancelled.")}
             variante="danger"
             confirmation={{
-              question: "Annuler cette revue ? Une revue annulée ne se rouvre pas.",
-              libelleConfirmation: "Oui, annuler la revue",
+              question: t(
+                "Annuler cette revue ? Une revue annulée ne se rouvre pas.",
+                "Cancel this review? A cancelled review cannot be reopened.",
+              ),
+              libelleConfirmation: t("Oui, annuler la revue", "Yes, cancel the review"),
             }}
           />
         </Carte>
       ) : null}
 
       {(tenue || v.statut === "cloturee") && (
-        <Carte titre={`Décisions (${v.decisions.length})`}>
+        <Carte titre={t(`Décisions (${v.decisions.length})`, `Decisions (${v.decisions.length})`)}>
           <Tableau<DecisionKpi>
-            legende="Décisions de la revue"
-            messageVide="Aucune décision enregistrée."
+            legende={t("Décisions de la revue", "Review decisions")}
+            messageVide={t("Aucune décision enregistrée.", "No decision recorded.")}
             colonnes={[
-              { cle: "numero", entete: "N°", alignement: "droite" },
+              { cle: "numero", entete: t("N°", "No."), alignement: "droite" },
               {
                 cle: "libelle",
-                entete: "Décision",
+                entete: t("Décision", "Decision"),
                 rendu: (d) => (
                   <>
                     {d.libelle}
                     {d.motif ? <span className="mp-texte-doux"> — {d.motif}</span> : null}
-                    {commentairesDecision(v.evenements_decisions, d.id).map((c) => (
+                    {commentairesDecision(v.evenements_decisions, d.id, langue).map((c) => (
                       <p key={c.cle} className="mp-texte-doux mp-texte-petit">
                         {c.texte} : {c.commentaire}
                       </p>
@@ -246,16 +279,20 @@ export default async function PageRevueKpi({
                   </>
                 ),
               },
-              { cle: "responsable_nom", entete: "Responsable" },
-              { cle: "echeance", entete: "Échéance", rendu: (d) => libelleEcheance(d.echeance) },
+              { cle: "responsable_nom", entete: t("Responsable", "Owner") },
+              {
+                cle: "echeance",
+                entete: t("Échéance", "Due date"),
+                rendu: (d) => libelleEcheance(d.echeance, langue),
+              },
               {
                 cle: "statut",
-                entete: "Statut",
-                rendu: (d) => LIBELLES_STATUT_DECISION[d.statut],
+                entete: t("Statut", "Status"),
+                rendu: (d) => libelleStatutDecision(d.statut, langue),
               },
               {
                 cle: "suivi",
-                entete: "Suivi",
+                entete: t("Suivi", "Follow-up"),
                 rendu: (d) =>
                   tenue && (droits.gerer || d.responsable_id === utilisateur.id) ? (
                     <div className="mp-pile">
@@ -268,7 +305,7 @@ export default async function PageRevueKpi({
                           })}
                           className={classesBouton("discret")}
                         >
-                          Créer une action
+                          {t("Créer une action", "Create an action")}
                         </Link>
                       ) : null}
                       <SuiviDecision decision={d} />
@@ -281,7 +318,10 @@ export default async function PageRevueKpi({
             lignes={v.decisions}
             cleLigne={(d) => d.id}
           />
-          <Tronque message={avertissementTronque(v.decisions_tronque, "décisions")} />
+          <Tronque
+            message={avertissementTronque(v.decisions_tronque, t("décisions", "decisions"), langue)}
+            titre={t("Liste incomplète", "Incomplete list")}
+          />
           {tenue && droits.gerer ? (
             <FormulaireDecision revueId={v.id} kpis={options.kpis} personnes={options.personnes} />
           ) : null}
@@ -289,59 +329,90 @@ export default async function PageRevueKpi({
       )}
 
       {(tenue || v.statut === "cloturee") && (
-        <Carte titre={`Actions issues de la revue (${v.actions.length})`}>
+        <Carte
+          titre={t(
+            `Actions issues de la revue (${v.actions.length})`,
+            `Actions from the review (${v.actions.length})`,
+          )}
+        >
           <Tableau<ActionKpi>
-            legende="Actions correctives décidées en revue"
-            messageVide="Aucune action rattachée à cette revue. Utilisez « Créer une action » sur une décision, ou le registre des actions."
+            legende={t(
+              "Actions correctives décidées en revue",
+              "Corrective actions decided in the review",
+            )}
+            messageVide={t(
+              "Aucune action rattachée à cette revue. Utilisez « Créer une action » sur une décision, ou le registre des actions.",
+              'No action linked to this review. Use "Create an action" on a decision, or the action register.',
+            )}
             colonnes={[
               {
                 cle: "titre",
-                entete: "Action",
+                entete: t("Action", "Action"),
                 rendu: (a) => <Link href={hrefAction(m.id, a.id)}>{a.titre}</Link>,
               },
               { cle: "kpi_libelle", entete: "KPI" },
-              { cle: "responsable_nom", entete: "Responsable" },
-              { cle: "echeance", entete: "Échéance", rendu: (a) => formaterDate(a.echeance) },
-              { cle: "statut", entete: "Statut", rendu: (a) => LIBELLES_STATUT_ACTION[a.statut] },
+              { cle: "responsable_nom", entete: t("Responsable", "Owner") },
+              {
+                cle: "echeance",
+                entete: t("Échéance", "Due date"),
+                rendu: (a) => formaterDate(a.echeance, "UTC", langue),
+              },
+              {
+                cle: "statut",
+                entete: t("Statut", "Status"),
+                rendu: (a) => libelleStatutAction(a.statut, langue),
+              },
               {
                 cle: "efficacite",
-                entete: "Efficacité mesurée",
-                rendu: (a) => (a.statut === "terminee" ? texteVerdict(a.efficacite) : "—"),
+                entete: t("Efficacité mesurée", "Measured effectiveness"),
+                rendu: (a) => (a.statut === "terminee" ? texteVerdict(a.efficacite, langue) : "—"),
               },
             ]}
             lignes={v.actions}
             cleLigne={(a) => a.id}
           />
-          <Tronque message={avertissementTronque(v.actions_tronque, "actions")} />
+          <Tronque
+            message={avertissementTronque(v.actions_tronque, t("actions", "actions"), langue)}
+            titre={t("Liste incomplète", "Incomplete list")}
+          />
         </Carte>
       )}
 
       {tenue && droits.gerer ? (
-        <Carte titre="Clôturer la revue">
+        <Carte titre={t("Clôturer la revue", "Close the review")}>
           {ouvertes > 0 ? (
-            <Alerte tonalite="attention" titre="Suivi en cours" annonce="aucune">
+            <Alerte
+              tonalite="attention"
+              titre={t("Suivi en cours", "Follow-up in progress")}
+              annonce="aucune"
+            >
               <p>
-                {ouvertes} décision(s) ou action(s) restent ouvertes : terminez-les, ou
-                abandonnez-les avec un motif, avant de clôturer.
+                {t(
+                  `${ouvertes} décision(s) ou action(s) restent ouvertes : terminez-les, ou abandonnez-les avec un motif, avant de clôturer.`,
+                  `${ouvertes} decision(s) or action(s) remain open: complete them, or abandon them with a reason, before closing.`,
+                )}
               </p>
             </Alerte>
           ) : null}
           <BoutonActionKpi
-            libelle="Clôturer la revue"
+            libelle={t("Clôturer la revue", "Close the review")}
             chemin={cheminActionRevue(v.id, "cloturer")}
-            succes="Revue clôturée."
+            succes={t("Revue clôturée.", "Review closed.")}
             variante="primaire"
-            titreErreur="Clôture impossible"
+            titreErreur={t("Clôture impossible", "Could not close")}
             confirmation={{
-              question: "Clôturer cette revue ? Une revue clôturée ne se rouvre pas.",
-              libelleConfirmation: "Oui, clôturer la revue",
+              question: t(
+                "Clôturer cette revue ? Une revue clôturée ne se rouvre pas.",
+                "Close this review? A closed review cannot be reopened.",
+              ),
+              libelleConfirmation: t("Oui, clôturer la revue", "Yes, close the review"),
             }}
           />
         </Carte>
       ) : null}
 
       {v.compte_rendu ? (
-        <Carte titre="Compte rendu">
+        <Carte titre={t("Compte rendu", "Minutes")}>
           <p className="mp-kpi-texte-libre">{v.compte_rendu}</p>
         </Carte>
       ) : null}
@@ -350,17 +421,20 @@ export default async function PageRevueKpi({
 }
 
 /** Liste plafonnée par l'API : jamais de troncature silencieuse. */
-function Tronque({ message }: { message: string | null }) {
+function Tronque({ message, titre }: { message: string | null; titre: string }) {
   return message ? (
-    <Alerte tonalite="attention" titre="Liste incomplète" annonce="aucune">
+    <Alerte tonalite="attention" titre={titre} annonce="aucune">
       <p>{message}</p>
     </Alerte>
   ) : null;
 }
 
 const LIBELLES_STATUT_REVUE_TEXTE = {
-  planifiee: "Planifiée : ordre du jour en préparation",
-  tenue: "Tenue : décisions et actions en suivi",
-  cloturee: "Clôturée : tout est terminé ou abandonné",
-  annulee: "Annulée",
+  planifiee: ["Planifiée : ordre du jour en préparation", "Scheduled: agenda in preparation"],
+  tenue: ["Tenue : décisions et actions en suivi", "Held: decisions and actions being followed"],
+  cloturee: [
+    "Clôturée : tout est terminé ou abandonné",
+    "Closed: everything is completed or abandoned",
+  ],
+  annulee: ["Annulée", "Cancelled"],
 } as const;

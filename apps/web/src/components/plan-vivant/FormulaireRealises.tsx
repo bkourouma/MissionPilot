@@ -21,6 +21,7 @@ import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 
 export interface FormulaireRealisesProps {
   planId: string;
@@ -41,22 +42,24 @@ export function FormulaireRealises({
   devise,
   realises,
 }: FormulaireRealisesProps) {
+  const t = useT();
   const trimestres = trimestresSaisissables(realises.map((g) => g.trimestre));
   return (
     <div className="mp-pv">
       <p className="mp-texte-doux">
-        Saisissez les montants réalisés de chaque trimestre dans l&apos;ordre. Le résultat net et la
-        trésorerie de fin de trimestre sont facultatifs : sans eux, les projections qui en dépendent
-        ne sont pas calculées.
+        {t(
+          "Saisissez les montants réalisés de chaque trimestre dans l'ordre. Le résultat net et la trésorerie de fin de trimestre sont facultatifs : sans eux, les projections qui en dépendent ne sont pas calculées.",
+          "Enter the actual amounts for each quarter in order. Net income and quarter-end cash are optional: without them, the projections that depend on them are not computed.",
+        )}
       </p>
-      {trimestres.map((t) => (
+      {trimestres.map((tri) => (
         <FormulaireTrimestre
-          key={`${exercice}-${t}`}
+          key={`${exercice}-${tri}`}
           planId={planId}
           exercice={exercice}
           devise={devise}
-          trimestre={t}
-          groupe={realises.find((g) => g.trimestre === t) ?? null}
+          trimestre={tri}
+          groupe={realises.find((g) => g.trimestre === tri) ?? null}
         />
       ))}
     </div>
@@ -76,6 +79,9 @@ function FormulaireTrimestre({
   trimestre: number;
   groupe: GroupeRealise | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const libTrimestre = LIBELLE_TRIMESTRE(trimestre, langue);
   const { rafraichir, enAttente } = useRafraichir();
   const [s, setS] = useState<SaisieRealise>(() =>
     saisieDepuisRealise(groupe?.courant ?? null, devise),
@@ -102,7 +108,7 @@ function FormulaireTrimestre({
     e.preventDefault();
     setErreur(null);
     setConfirmation("");
-    const v = validerRealise(s, devise);
+    const v = validerRealise(s, devise, langue);
     setErreurs(v.erreurs);
     if (!v.corps) {
       const premier = (Object.keys(v.erreurs) as ChampRealise[])[0];
@@ -115,10 +121,14 @@ function FormulaireTrimestre({
         cheminRealise(planId, exercice, trimestre),
         v.corps,
       );
-      setConfirmation(`${LIBELLE_TRIMESTRE(trimestre)} enregistré (version ${r.version}).`);
+      setConfirmation(
+        langue === "en"
+          ? `${libTrimestre} saved (version ${r.version}).`
+          : `${libTrimestre} enregistré (version ${r.version}).`,
+      );
       rafraichir();
     } catch (err) {
-      setErreur(messagePlanVivant(err));
+      setErreur(messagePlanVivant(err, langue));
       refErreur.current?.focus();
     } finally {
       setEnCours(false);
@@ -129,58 +139,72 @@ function FormulaireTrimestre({
     <form
       onSubmit={enregistrer}
       noValidate
-      aria-label={`Réalisé du ${LIBELLE_TRIMESTRE(trimestre).toLowerCase()}`}
+      aria-label={`${t("Réalisé du", "Actuals for")} ${libTrimestre.toLowerCase()}`}
     >
       <fieldset className="mp-pv__trimestre">
-        <legend>{LIBELLE_TRIMESTRE(trimestre)}</legend>
+        <legend>{libTrimestre}</legend>
         {groupe ? (
           <p className="mp-texte-doux">
-            Version {groupe.courant.version} saisie par {groupe.courant.auteur_nom} le{" "}
-            {formaterDateHeure(groupe.courant.cree_le)}. Enregistrer une correction crée une
-            nouvelle version.
+            {t("Version", "Version")} {groupe.courant.version} {t("saisie par", "entered by")}{" "}
+            {groupe.courant.auteur_nom} {t("le", "on")}{" "}
+            {formaterDateHeure(groupe.courant.cree_le, undefined, langue)}.{" "}
+            {t(
+              "Enregistrer une correction crée une nouvelle version.",
+              "Saving a correction creates a new version.",
+            )}
           </p>
         ) : null}
         {erreur ? (
-          <Alerte ref={refErreur} tonalite="danger" titre="Réalisé refusé">
+          <Alerte ref={refErreur} tonalite="danger" titre={t("Réalisé refusé", "Actuals rejected")}>
             <p>{erreur}</p>
           </Alerte>
         ) : null}
         <div className="mp-grille-champs">
           <Champ
-            libelle={`Chiffre d'affaires réalisé (${unite})`}
-            aide={aideSaisieMontant(devise)}
+            libelle={`${t("Chiffre d'affaires réalisé", "Actual revenue")} (${unite})`}
+            aide={aideSaisieMontant(devise, langue)}
             required
             {...champ("chiffre_affaires")}
           />
           <Champ
-            libelle={`EBE réalisé (${unite})`}
-            aide="Négatif en cas de perte d'exploitation."
+            libelle={`${t("EBE réalisé", "Actual EBITDA")} (${unite})`}
+            aide={t(
+              "Négatif en cas de perte d'exploitation.",
+              "Negative in case of an operating loss.",
+            )}
             required
             {...champ("ebe")}
           />
           <Champ
-            libelle={`Résultat net réalisé (${unite}), facultatif`}
+            libelle={`${t("Résultat net réalisé", "Actual net income")} (${unite}), ${t("facultatif", "optional")}`}
             {...champ("resultat_net")}
           />
           <Champ
-            libelle={`Trésorerie de fin de trimestre (${unite}), facultative`}
+            libelle={`${t("Trésorerie de fin de trimestre", "Quarter-end cash")} (${unite}), ${t("facultative", "optional")}`}
             {...champ("tresorerie_fin")}
           />
         </div>
         <ZoneTexte
           id={`${p}-commentaire`}
-          libelle="Commentaire (facultatif)"
-          aide="Contexte utile à la lecture des écarts. Texte libre, 1 000 caractères au plus."
+          libelle={t("Commentaire (facultatif)", "Comment (optional)")}
+          aide={t(
+            "Contexte utile à la lecture des écarts. Texte libre, 1 000 caractères au plus.",
+            "Context useful for reading the variances. Free text, 1,000 characters at most.",
+          )}
           value={s.commentaire}
           onChange={(e) => setS((x) => ({ ...x, commentaire: e.target.value }))}
           erreur={erreurs.commentaire}
           rows={2}
         />
         <div>
-          <Bouton type="submit" chargement={enCours} texteChargement="Enregistrement…">
+          <Bouton
+            type="submit"
+            chargement={enCours}
+            texteChargement={t("Enregistrement…", "Saving…")}
+          >
             {groupe
-              ? `Corriger le ${LIBELLE_TRIMESTRE(trimestre).toLowerCase()}`
-              : `Enregistrer le ${LIBELLE_TRIMESTRE(trimestre).toLowerCase()}`}
+              ? `${t("Corriger le", "Correct")} ${libTrimestre.toLowerCase()}`
+              : `${t("Enregistrer le", "Save")} ${libTrimestre.toLowerCase()}`}
           </Bouton>
         </div>
         <p className="mp-texte-doux" role="status">
@@ -188,15 +212,19 @@ function FormulaireTrimestre({
         </p>
         {groupe && groupe.versions.length > 1 ? (
           <details>
-            <summary>Historique des versions ({groupe.versions.length})</summary>
+            <summary>
+              {t("Historique des versions", "Version history")} ({groupe.versions.length})
+            </summary>
             <ul className="mp-pv__historique">
               {groupe.versions.map((v) => (
                 <li key={v.id}>
-                  Version {v.version}, {formaterDateHeure(v.cree_le)}, {v.auteur_nom} : chiffre
-                  d&apos;affaires {montantOuNonSaisi(v.chiffre_affaires, devise)}, EBE{" "}
-                  {montantOuNonSaisi(v.ebe, devise)}, résultat net{" "}
-                  {montantOuNonSaisi(v.resultat_net, devise)}, trésorerie{" "}
-                  {montantOuNonSaisi(v.tresorerie_fin, devise)}
+                  {t("Version", "Version")} {v.version},{" "}
+                  {formaterDateHeure(v.cree_le, undefined, langue)}, {v.auteur_nom} :{" "}
+                  {t("chiffre d'affaires", "revenue")}{" "}
+                  {montantOuNonSaisi(v.chiffre_affaires, devise, langue)}, EBE{" "}
+                  {montantOuNonSaisi(v.ebe, devise, langue)}, {t("résultat net", "net income")}{" "}
+                  {montantOuNonSaisi(v.resultat_net, devise, langue)}, {t("trésorerie", "cash")}{" "}
+                  {montantOuNonSaisi(v.tresorerie_fin, devise, langue)}
                 </li>
               ))}
             </ul>

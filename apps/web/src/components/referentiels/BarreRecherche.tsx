@@ -3,13 +3,8 @@ import { classesBouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Icone } from "../ui/Icone";
 import { Select } from "../ui/Select";
+import { obtenirT } from "../../lib/i18n/serveur";
 import type { ParametresListe } from "../../lib/clients";
-
-const OPTIONS_STATUT = [
-  { valeur: "actifs", libelle: "Actifs" },
-  { valeur: "archives", libelle: "Archivés" },
-  { valeur: "tous", libelle: "Tous" },
-];
 
 export interface BarreRechercheProps {
   action: string;
@@ -25,14 +20,20 @@ export interface BarreRechercheProps {
  * Recherche et filtre par statut en formulaire GET : fonctionne sans JavaScript, l'état est
  * dans l'URL (partage, retour arrière, reprise après coupure).
  */
-export function BarreRecherche({
+export async function BarreRecherche({
   action,
   params,
   libelleRecherche,
   aideRecherche,
-  libelleStatut = "Statut",
+  libelleStatut,
   autres,
 }: BarreRechercheProps) {
+  const t = await obtenirT();
+  const optionsStatut = [
+    { valeur: "actifs", libelle: t("Actifs", "Active") },
+    { valeur: "archives", libelle: t("Archivés", "Archived") },
+    { valeur: "tous", libelle: t("Tous", "All") },
+  ];
   return (
     <form
       method="get"
@@ -52,9 +53,9 @@ export function BarreRecherche({
           autoComplete="off"
         />
         <Select
-          libelle={libelleStatut}
+          libelle={libelleStatut ?? t("Statut", "Status")}
           name="statut"
-          options={OPTIONS_STATUT}
+          options={optionsStatut}
           defaultValue={params.statut}
         />
         {autres}
@@ -62,7 +63,7 @@ export function BarreRecherche({
       <div className="mp-actions-formulaire">
         <button type="submit" className={classesBouton("primaire")}>
           <Icone nom="recherche" />
-          <span>Rechercher</span>
+          <span>{t("Rechercher", "Search")}</span>
         </button>
       </div>
     </form>

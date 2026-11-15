@@ -9,6 +9,7 @@ import { useAttenteRafraichissement } from "../../../../../components/formulaire
 import { useFormulaire } from "../../../../../components/formulaires/useFormulaire";
 import { Bouton } from "../../../../../components/ui/Bouton";
 import { Carte } from "../../../../../components/ui/Carte";
+import { useT } from "../../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../../lib/api";
 import type { ActionStatut, Proposition } from "../../../../../lib/propositions";
 
@@ -22,15 +23,6 @@ export interface ActionsPropositionProps {
   tauxManquants: string[];
 }
 
-const AIDE: Partial<Record<StatutProposition, string>> = {
-  brouillon: "Ajustez l'équipe et les jours, puis soumettez la proposition à un associé.",
-  a_valider: "Un associé valide la proposition, ou la renvoie en brouillon.",
-  validee: "Envoyez la proposition au client, puis enregistrez sa réponse.",
-  envoyee: "Enregistrez la réponse du client.",
-  acceptee: "Le client a accepté : créez la mission depuis cette proposition.",
-  refusee: "Le client a refusé cette version : créez-en une nouvelle si la négociation continue.",
-};
-
 /** Cycle brouillon → à valider → validée → envoyée → acceptée / refusée, et nouvelle version. */
 export function ActionsProposition({
   propositionId,
@@ -40,31 +32,55 @@ export function ActionsProposition({
   tauxManquants,
 }: ActionsPropositionProps) {
   const router = useRouter();
+  const t = useT();
+  const AIDE: Partial<Record<StatutProposition, string>> = {
+    brouillon: t(
+      "Ajustez l'équipe et les jours, puis soumettez la proposition à un associé.",
+      "Adjust the team and days, then submit the proposal to a partner.",
+    ),
+    a_valider: t(
+      "Un associé valide la proposition, ou la renvoie en brouillon.",
+      "A partner approves the proposal, or sends it back to draft.",
+    ),
+    validee: t(
+      "Envoyez la proposition au client, puis enregistrez sa réponse.",
+      "Send the proposal to the client, then record its response.",
+    ),
+    envoyee: t("Enregistrez la réponse du client.", "Record the client's response."),
+    acceptee: t(
+      "Le client a accepté : créez la mission depuis cette proposition.",
+      "The client accepted: create the engagement from this proposal.",
+    ),
+    refusee: t(
+      "Le client a refusé cette version : créez-en une nouvelle si la négociation continue.",
+      "The client declined this version: create a new one if the negotiation continues.",
+    ),
+  };
   const { rafraichir } = useRafraichir();
   const f = useFormulaire<never>();
   const [attente, marquerAttente] = useAttenteRafraichissement(statut);
   const chemin = `/api/propositions/${encodeURIComponent(propositionId)}`;
   const changer = (cible: StatutProposition) =>
     f.envoyer({ ok: true, charge: { statut: cible } }, (c) => api.post(`${chemin}/statut`, c), {
-      succes: "Statut mis à jour.",
+      succes: t("Statut mis à jour.", "Status updated."),
       apres: marquerAttente,
     });
   const bloqueValidation = tauxManquants.length > 0;
 
   if (actions.length === 0 && !nouvelleVersion) return null;
   return (
-    <Carte titre="Étapes de la proposition">
+    <Carte titre={t("Étapes de la proposition", "Proposal steps")}>
       <div className="mp-pile">
         {AIDE[statut] ? <p className="mp-texte-doux">{AIDE[statut]}</p> : null}
         <RetourFormulaire
           erreur={f.erreurGlobale}
           succes={f.succes}
           refAlerte={f.refAlerte}
-          titreErreur="Action impossible"
+          titreErreur={t("Action impossible", "Action failed")}
         />
         {attente ? (
           <p className="mp-texte-doux" role="status">
-            Mise à jour de la page…
+            {t("Mise à jour de la page…", "Updating the page…")}
           </p>
         ) : (
           <div className="mp-barre-actions">
@@ -80,13 +96,22 @@ export function ActionsProposition({
                   variante={a.cible === "refusee" ? "secondaire" : "primaire"}
                   question={
                     a.cible === "validee"
-                      ? "Valider cette proposition ? Elle ne sera plus modifiable."
+                      ? t(
+                          "Valider cette proposition ? Elle ne sera plus modifiable.",
+                          "Approve this proposal? It can no longer be edited.",
+                        )
                       : a.cible === "acceptee"
-                        ? "Enregistrer l'acceptation du client ? L'opportunité sera marquée gagnée."
-                        : "Enregistrer le refus du client pour cette version ?"
+                        ? t(
+                            "Enregistrer l'acceptation du client ? L'opportunité sera marquée gagnée.",
+                            "Record the client's acceptance? The opportunity will be marked as won.",
+                          )
+                        : t(
+                            "Enregistrer le refus du client pour cette version ?",
+                            "Record the client's refusal for this version?",
+                          )
                   }
-                  libelleConfirmation="Oui, confirmer"
-                  texteChargement="Enregistrement…"
+                  libelleConfirmation={t("Oui, confirmer", "Yes, confirm")}
+                  texteChargement={t("Enregistrement…", "Saving…")}
                   action={() => changer(a.cible)}
                 />
               ) : (
@@ -94,7 +119,7 @@ export function ActionsProposition({
                   key={a.cible}
                   variante={a.cible === "brouillon" ? "secondaire" : "primaire"}
                   chargement={f.enCours}
-                  texteChargement="Enregistrement…"
+                  texteChargement={t("Enregistrement…", "Saving…")}
                   onClick={() => changer(a.cible)}
                 >
                   {a.libelle}
@@ -120,14 +145,17 @@ export function ActionsProposition({
                   )
                 }
               >
-                Nouvelle version
+                {t("Nouvelle version", "New version")}
               </Bouton>
             ) : null}
           </div>
         )}
         {bloqueValidation && actions.some((a) => a.cible === "validee") ? (
           <p id="aide-validation" className="mp-champ__aide">
-            {`Validation impossible : taux de vente manquant pour ${tauxManquants.join(", ")}.`}
+            {t(
+              `Validation impossible : taux de vente manquant pour ${tauxManquants.join(", ")}.`,
+              `Approval impossible: selling rate missing for ${tauxManquants.join(", ")}.`,
+            )}
           </p>
         ) : null}
       </div>

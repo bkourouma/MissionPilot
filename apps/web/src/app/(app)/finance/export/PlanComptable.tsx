@@ -9,9 +9,10 @@ import { Bouton } from "../../../../components/ui/Bouton";
 import { CaseACocher } from "../../../../components/ui/CaseACocher";
 import { Carte } from "../../../../components/ui/Carte";
 import { Champ } from "../../../../components/ui/Champ";
+import { useLangue, useT } from "../../../../components/i18n/FournisseurLangue";
 import { api } from "../../../../lib/api";
 import {
-  JOURNAL_LIBELLES,
+  libelleJournal,
   validerPlan,
   type PlanComptable as Plan,
   type SaisiePlan,
@@ -25,6 +26,8 @@ const saisieDepuis = (p: Plan): SaisiePlan => ({
 
 /** Plan comptable du cabinet (comptes SYSCOHADA de départ, modifiables) et codes journaux. */
 export function PlanComptable({ plan: p }: { plan: Plan }) {
+  const t = useT();
+  const langue = useLangue();
   const cle = JSON.stringify(saisieDepuis(p));
   const [s, setS] = useState<SaisiePlan>(() => saisieDepuis(p));
   const [info, setInfo] = useState<string | null>(null);
@@ -34,40 +37,53 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     setInfo(null);
-    const v = validerPlan(s, p);
+    const v = validerPlan(s, p, langue);
     if (v.ok && v.inchange) {
-      setInfo("Aucune modification à enregistrer.");
+      setInfo(t("Aucune modification à enregistrer.", "No changes to save."));
       return;
     }
     await form.envoyer(v, (c) => api.patch("/api/finance/plan-comptable", c), {
-      succes: "Plan comptable enregistré.",
+      succes: t("Plan comptable enregistré.", "Chart of accounts saved."),
       apres: marquer,
     });
   }
 
   return (
-    <Carte titre="Plan comptable du cabinet">
+    <Carte titre={t("Plan comptable du cabinet", "Firm's chart of accounts")}>
       <form
         ref={form.refFormulaire}
         className="mp-formulaire"
         noValidate
         onSubmit={soumettre}
-        aria-label="Plan comptable du cabinet"
+        aria-label={t("Plan comptable du cabinet", "Firm's chart of accounts")}
       >
         {p.valeurs_validees ? (
-          <Alerte tonalite="succes" annonce="aucune" titre="Plan validé par le cabinet">
-            <p>Les comptes ont été confirmés par l&apos;expert-comptable du cabinet.</p>
+          <Alerte
+            tonalite="succes"
+            annonce="aucune"
+            titre={t("Plan validé par le cabinet", "Chart approved by the firm")}
+          >
+            <p>
+              {t(
+                "Les comptes ont été confirmés par l'expert-comptable du cabinet.",
+                "The accounts were confirmed by the firm's chartered accountant.",
+              )}
+            </p>
           </Alerte>
         ) : (
           <Alerte
             tonalite="attention"
             annonce="aucune"
-            titre="Valeurs de départ à valider par un expert-comptable"
+            titre={t(
+              "Valeurs de départ à valider par un expert-comptable",
+              "Starting values to be approved by a chartered accountant",
+            )}
           >
             <p>
-              Comptes proposés selon le SYSCOHADA révisé. Faites-les vérifier par
-              l&apos;expert-comptable du cabinet (notamment les débours refacturés et les retenues à
-              la source), puis cochez « Plan validé ».
+              {t(
+                "Comptes proposés selon le SYSCOHADA révisé. Faites-les vérifier par l'expert-comptable du cabinet (notamment les débours refacturés et les retenues à la source), puis cochez « Plan validé ».",
+                'Accounts proposed according to the revised SYSCOHADA. Have them checked by the firm\'s chartered accountant (in particular re-billed expenses and withholding taxes), then tick "Chart approved".',
+              )}
             </p>
           </Alerte>
         )}
@@ -77,13 +93,16 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
           refAlerte={form.refAlerte}
         />
         <fieldset className="mp-groupe">
-          <legend className="mp-champ__libelle">Comptes</legend>
+          <legend className="mp-champ__libelle">{t("Comptes", "Accounts")}</legend>
           <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {p.comptes.map((c) => (
               <Champ
                 key={c.cle}
                 libelle={c.libelle}
-                aide={`Valeur de départ : ${c.valeur_de_depart}`}
+                aide={t(
+                  `Valeur de départ : ${c.valeur_de_depart}`,
+                  `Starting value: ${c.valeur_de_depart}`,
+                )}
                 autoCapitalize="characters"
                 maxLength={12}
                 value={s.comptes[c.cle] ?? ""}
@@ -96,13 +115,16 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
           </div>
         </fieldset>
         <fieldset className="mp-groupe">
-          <legend className="mp-champ__libelle">Codes journaux</legend>
+          <legend className="mp-champ__libelle">{t("Codes journaux", "Journal codes")}</legend>
           <div className="mp-grille-champs mp-grille-champs--serree mp-grille-champs--bas">
             {p.journaux.map((j) => (
               <Champ
                 key={j.cle}
-                libelle={JOURNAL_LIBELLES[j.cle]}
-                aide={`Valeur de départ : ${j.valeur_de_depart}`}
+                libelle={libelleJournal(j.cle, langue)}
+                aide={t(
+                  `Valeur de départ : ${j.valeur_de_depart}`,
+                  `Starting value: ${j.valeur_de_depart}`,
+                )}
                 autoCapitalize="characters"
                 maxLength={6}
                 value={s.journaux[j.cle] ?? ""}
@@ -115,7 +137,10 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
           </div>
         </fieldset>
         <CaseACocher
-          libelle="Plan validé par l'expert-comptable du cabinet"
+          libelle={t(
+            "Plan validé par l'expert-comptable du cabinet",
+            "Chart approved by the firm's chartered accountant",
+          )}
           checked={s.valeurs_validees}
           onChange={(e) => setS((x) => ({ ...x, valeurs_validees: e.target.checked }))}
         />
@@ -123,9 +148,9 @@ export function PlanComptable({ plan: p }: { plan: Plan }) {
           <Bouton
             type="submit"
             chargement={form.enCours || attente}
-            texteChargement="Enregistrement…"
+            texteChargement={t("Enregistrement…", "Saving…")}
           >
-            Enregistrer le plan comptable
+            {t("Enregistrer le plan comptable", "Save the chart of accounts")}
           </Bouton>
         </div>
       </form>

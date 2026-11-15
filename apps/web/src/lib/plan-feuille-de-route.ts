@@ -7,6 +7,7 @@
  * initiatives à lancer ou suspendues décalées, conflits des initiatives en cours ou terminées,
  * chemin critique) vient TEL QUEL du moteur de l'API ; ce module le met en forme.
  */
+import { creerTraduire, type Langue } from "@missionpilot/shared";
 import { ErreurApi, messageErreur } from "./api";
 import { formaterDate, formaterNombre } from "./format";
 import { cheminPlan, hrefPlan } from "./plan-strategique";
@@ -17,6 +18,14 @@ export const PAS_FEUILLE_DE_ROUTE: readonly { valeur: PasFeuilleDeRoute; libelle
   { valeur: "trimestre", libelle: "Par trimestre" },
   { valeur: "semestre", libelle: "Par semestre" },
 ];
+
+export const optionsPasFeuilleDeRoute = (langue: Langue = "fr") =>
+  langue === "en"
+    ? [
+        { valeur: "trimestre" as PasFeuilleDeRoute, libelle: "By quarter" },
+        { valeur: "semestre" as PasFeuilleDeRoute, libelle: "By half-year" },
+      ]
+    : PAS_FEUILLE_DE_ROUTE;
 
 export interface InitiativeFeuilleDeRoute {
   id: string;
@@ -74,13 +83,18 @@ export function lirePas(v: string | string[] | undefined): PasFeuilleDeRoute {
 }
 
 /** « 2027-T1 » → « T1 2027 » ; « 2027-S2 » → « S2 2027 ». */
-export function libellePeriodeFeuille(cle: string): string {
+export function libellePeriodeFeuille(cle: string, langue: Langue = "fr"): string {
   const m = /^(\d{4})-([TS])(\d)$/.exec(cle);
-  return m ? `${m[2]}${m[3]} ${m[1]}` : cle;
+  if (!m) return cle;
+  const lettre = langue === "en" ? (m[2] === "T" ? "Q" : "H") : m[2];
+  return `${lettre}${m[3]} ${m[1]}`;
 }
 
 /** « +46 jours », « +1 jour », « aucun ». */
-export function libelleDecalage(jours: number): string {
+export function libelleDecalage(jours: number, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    return jours <= 0 ? "none" : `+${formaterNombre(jours, 0, langue)} day${jours > 1 ? "s" : ""}`;
+  }
   if (jours <= 0) return "aucun";
   return `+${formaterNombre(jours, 0)} jour${jours > 1 ? "s" : ""}`;
 }
@@ -88,7 +102,13 @@ export function libelleDecalage(jours: number): string {
 /** Période affichée d'une initiative, aux dates recalées (« Du 16/04/2027 au 16/05/2027 »). */
 export function periodeInitiative(
   i: Pick<InitiativeFeuilleDeRoute, "debut_recale" | "echeance_recalee">,
+  langue: Langue = "fr",
 ): string {
+  if (langue === "en") {
+    return i.debut_recale
+      ? `From ${formaterDate(i.debut_recale, "UTC", langue)} to ${formaterDate(i.echeance_recalee, "UTC", langue)}`
+      : `Milestone on ${formaterDate(i.echeance_recalee, "UTC", langue)}`;
+  }
   return i.debut_recale
     ? `Du ${formaterDate(i.debut_recale)} au ${formaterDate(i.echeance_recalee)}`
     : `Jalon au ${formaterDate(i.echeance_recalee)}`;
@@ -97,25 +117,58 @@ export function periodeInitiative(
 /** Dates prévues d'une initiative recalée (« prévue du … au … »), null sans décalage. */
 export function datesPrevues(
   i: Pick<InitiativeFeuilleDeRoute, "recalee" | "debut" | "echeance">,
+  langue: Langue = "fr",
 ): string | null {
   if (!i.recalee) return null;
+  if (langue === "en") {
+    return i.debut
+      ? `planned from ${formaterDate(i.debut, "UTC", langue)} to ${formaterDate(i.echeance, "UTC", langue)}`
+      : `planned on ${formaterDate(i.echeance, "UTC", langue)}`;
+  }
   return i.debut
     ? `prévue du ${formaterDate(i.debut)} au ${formaterDate(i.echeance)}`
     : `prévue au ${formaterDate(i.echeance)}`;
 }
 
 /** Titre d'une initiative de la feuille de route, ou « initiative retirée du plan ». */
-export function titreInitiative(id: string, f: Pick<FeuilleDeRoute, "initiatives">): string {
-  return f.initiatives.find((i) => i.id === id)?.titre ?? "initiative retirée du plan";
+export function titreInitiative(
+  id: string,
+  f: Pick<FeuilleDeRoute, "initiatives">,
+  langue: Langue = "fr",
+): string {
+  return (
+    f.initiatives.find((i) => i.id === id)?.titre ??
+    (langue === "en" ? "initiative removed from the plan" : "initiative retirée du plan")
+  );
 }
 
 /** Phrases d'explication d'une initiative : contrainte, conflits, dépendances ignorées. */
 export function explicationsInitiative(
   i: InitiativeFeuilleDeRoute,
   f: Pick<FeuilleDeRoute, "initiatives">,
+  langue: Langue = "fr",
 ): string[] {
-  const nom = (id: string) => `« ${titreInitiative(id, f)} »`;
   const lignes: string[] = [];
+  if (langue === "en") {
+    const nomEn = (id: string) => `\u201c${titreInitiative(id, f, langue)}\u201d`;
+    if (i.recalee && i.contrainte_par) {
+      lignes.push(
+        `Rescheduled by ${libelleDecalage(i.decalage_jours, langue)}: it waits for ${nomEn(i.contrainte_par)} to finish.`,
+      );
+    }
+    if (i.conflits.length) {
+      lignes.push(
+        `Conflict: ${i.conflits.map(nomEn).join(", ")} ${i.conflits.length > 1 ? "end" : "ends"} after its start; its dates are not rescheduled because it is ${i.statut_libelle.toLowerCase()}.`,
+      );
+    }
+    if (i.dependances_ignorees.length) {
+      lignes.push(
+        `Dependenc${i.dependances_ignorees.length > 1 ? "ies" : "y"} with no effect (initiative removed or abandoned): ${i.dependances_ignorees.map(nomEn).join(", ")}.`,
+      );
+    }
+    return lignes;
+  }
+  const nom = (id: string) => `« ${titreInitiative(id, f)} »`;
   if (i.recalee && i.contrainte_par) {
     lignes.push(
       `Recalée de ${libelleDecalage(i.decalage_jours)} : elle attend la fin de ${nom(i.contrainte_par)}.`,
@@ -151,8 +204,20 @@ export function initiativesARecaler(f: Pick<FeuilleDeRoute, "initiatives">): str
 }
 
 /** Résumé du recalage (« 2 initiatives recalées, 1 conflit ; fin du plan au 17/05/2027 »). */
-export function resumeRecalage(f: Pick<FeuilleDeRoute, "recalage">): string {
+export function resumeRecalage(f: Pick<FeuilleDeRoute, "recalage">, langue: Langue = "fr"): string {
   const r = f.recalage;
+  if (langue === "en") {
+    const recaleesEn =
+      r.nombre_recalees === 0
+        ? "No initiatives to reschedule"
+        : `${r.nombre_recalees} initiative${r.nombre_recalees > 1 ? "s" : ""} to reschedule`;
+    const conflitsEn =
+      r.nombre_conflits === 0
+        ? "no conflicts"
+        : `${r.nombre_conflits} conflict${r.nombre_conflits > 1 ? "s" : ""}`;
+    const finEn = r.fin ? `; initiatives end on ${formaterDate(r.fin, "UTC", langue)}` : "";
+    return `${recaleesEn}, ${conflitsEn}${finEn}.`;
+  }
   const recalees =
     r.nombre_recalees === 0
       ? "Aucune initiative à recaler"
@@ -166,20 +231,42 @@ export function resumeRecalage(f: Pick<FeuilleDeRoute, "recalage">): string {
 }
 
 /** Message d'un recalage appliqué. */
-export function messageRecalage(r: ResultatRecalage, partage: boolean): string {
+export function messageRecalage(
+  r: ResultatRecalage,
+  partage: boolean,
+  langue: Langue = "fr",
+): string {
   const n = r.appliquees.length;
+  if (langue === "en") {
+    const baseEn = `${n} initiative${n > 1 ? "s" : ""} rescheduled: new version${n > 1 ? "s" : ""} to be approved.`;
+    return partage ? `${baseEn} Sharing with the client was withdrawn.` : baseEn;
+  }
   const base = `${n} initiative${n > 1 ? "s" : ""} recalée${n > 1 ? "s" : ""} : nouvelle${n > 1 ? "s" : ""} version${n > 1 ? "s" : ""} à faire valider.`;
   return partage ? `${base} Le partage au client a été retiré.` : base;
 }
 
 /** Message français d'un refus de recalage. */
-export function messageFeuilleDeRoute(e: unknown): string {
+export function messageFeuilleDeRoute(e: unknown, langue: Langue = "fr"): string {
+  const t = creerTraduire(langue);
   if (e instanceof ErreurApi) {
     if (e.statut === 409) {
-      return "La feuille de route a changé depuis son affichage : rechargez la page puis réessayez.";
+      return t(
+        "La feuille de route a changé depuis son affichage : rechargez la page puis réessayez.",
+        "The roadmap has changed since it was displayed: reload the page and try again.",
+      );
     }
-    if (e.statut === 403) return "Votre rôle ne vous permet pas de modifier ce plan.";
-    if (e.statut === 404) return "Ce plan est introuvable ou ne vous est plus accessible.";
+    if (e.statut === 403) {
+      return t(
+        "Votre rôle ne vous permet pas de modifier ce plan.",
+        "Your role does not allow you to edit this plan.",
+      );
+    }
+    if (e.statut === 404) {
+      return t(
+        "Ce plan est introuvable ou ne vous est plus accessible.",
+        "This plan cannot be found or is no longer accessible to you.",
+      );
+    }
   }
   return messageErreur(e);
 }

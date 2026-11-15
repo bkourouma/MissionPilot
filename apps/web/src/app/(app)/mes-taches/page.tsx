@@ -7,18 +7,22 @@ import { EnteteDePage } from "../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../components/ui/EtatListe";
 import { Icone } from "../../../components/ui/Icone";
 import { chargerServeur } from "../../../lib/api-serveur";
+import { obtenirLangue } from "../../../lib/i18n/serveur";
 import { obtenirSession } from "../../../lib/session";
 import {
   hrefTaches,
   lireFiltresTaches,
-  OPTIONS_STATUTS_TACHE,
+  libelleStatutTache,
+  optionsStatutsTache,
   requeteTaches,
-  STATUT_TACHE,
   type PageTaches,
 } from "../../../lib/taches-collaboration";
 import { CarteTache } from "./CarteTache";
 
-export const metadata: Metadata = { title: "Mes tâches" };
+export async function generateMetadata(): Promise<Metadata> {
+  const langue = await obtenirLangue();
+  return { title: langue === "en" ? "My tasks" : "Mes tâches" };
+}
 
 /**
  * « Mes tâches » (SOC-08) : tâches qui me sont assignées ou que j'ai créées, ouvertes d'abord
@@ -29,28 +33,35 @@ export default async function PageMesTaches({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
   const { utilisateur } = await obtenirSession();
   const filtres = lireFiltresTaches(await searchParams);
   const r = await chargerServeur<PageTaches>(requeteTaches(filtres));
   const assigner = aPermission(utilisateur.roles, "tache.assigner");
   const vueCreees = filtres.vue === "creees";
-  const libelleStatut = filtres.statut ? STATUT_TACHE[filtres.statut].libelle.toLowerCase() : "";
+  const libelleStatut = filtres.statut
+    ? libelleStatutTache(filtres.statut, langue).toLowerCase()
+    : "";
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Mes tâches"
-        soustitre="Les tâches qui vous sont confiées par vos collègues et celles que vous leur avez assignées."
+        titre={t("Mes tâches", "My tasks")}
+        soustitre={t(
+          "Les tâches qui vous sont confiées par vos collègues et celles que vous leur avez assignées.",
+          "Tasks your colleagues have given you and those you have assigned to them.",
+        )}
         actions={
           assigner ? (
             <Link href="/mes-taches/nouvelle" className={classesBouton()}>
               <Icone nom="plus" />
-              <span>Nouvelle tâche</span>
+              <span>{t("Nouvelle tâche", "New task")}</span>
             </Link>
           ) : null
         }
       />
-      <nav className="mp-onglets" aria-label="Tâches affichées">
+      <nav className="mp-onglets" aria-label={t("Tâches affichées", "Tasks shown")}>
         <ul className="mp-onglets__liste">
           <li>
             <Link
@@ -58,7 +69,7 @@ export default async function PageMesTaches({
               href={hrefTaches({ vue: "assignees", statut: filtres.statut })}
               aria-current={vueCreees ? undefined : "page"}
             >
-              Qui m&apos;est assigné
+              {t("Qui m'est assigné", "Assigned to me")}
             </Link>
           </li>
           <li>
@@ -67,20 +78,20 @@ export default async function PageMesTaches({
               href={hrefTaches({ vue: "creees", statut: filtres.statut })}
               aria-current={vueCreees ? "page" : undefined}
             >
-              Que j&apos;ai créées
+              {t("Que j'ai créées", "Created by me")}
             </Link>
           </li>
         </ul>
       </nav>
       <SegmentsStatut
         statut={filtres.statut}
-        options={OPTIONS_STATUTS_TACHE}
+        options={optionsStatutsTache(langue)}
         href={(s) => hrefTaches({ vue: filtres.vue, statut: s as (typeof filtres)["statut"] })}
-        libelle="Statut des tâches affichées"
+        libelle={t("Statut des tâches affichées", "Status of tasks shown")}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="Les tâches n'ont pas pu être chargées."
+          titre={t("Les tâches n'ont pas pu être chargées.", "The tasks could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefTaches(filtres)}
         />
@@ -88,28 +99,41 @@ export default async function PageMesTaches({
         <EtatVide
           titre={
             filtres.statut
-              ? `Aucune tâche « ${libelleStatut} ».`
+              ? t(`Aucune tâche « ${libelleStatut} ».`, `No "${libelleStatut}" tasks.`)
               : vueCreees
-                ? "Vous n'avez assigné aucune tâche."
-                : "Aucune tâche ne vous est assignée."
+                ? t("Vous n'avez assigné aucune tâche.", "You have not assigned any tasks.")
+                : t("Aucune tâche ne vous est assignée.", "No tasks are assigned to you.")
           }
           icone="taches"
           action={
             vueCreees && assigner ? (
               <Link href="/mes-taches/nouvelle" className={classesBouton("secondaire")}>
-                Assigner une tâche
+                {t("Assigner une tâche", "Assign a task")}
               </Link>
             ) : null
           }
         >
           <p>
             {vueCreees
-              ? "Les tâches que vous confiez à un collègue apparaîtront ici, avec leur avancement."
-              : "Quand un collègue vous confie une tâche, elle apparaît ici et vous êtes notifié."}
+              ? t(
+                  "Les tâches que vous confiez à un collègue apparaîtront ici, avec leur avancement.",
+                  "Tasks you give to a colleague will appear here, with their progress.",
+                )
+              : t(
+                  "Quand un collègue vous confie une tâche, elle apparaît ici et vous êtes notifié.",
+                  "When a colleague gives you a task, it appears here and you are notified.",
+                )}
           </p>
         </EtatVide>
       ) : (
-        <ul className="mp-taches" aria-label={vueCreees ? "Tâches créées" : "Tâches assignées"}>
+        <ul
+          className="mp-taches"
+          aria-label={
+            vueCreees
+              ? t("Tâches créées", "Tasks created")
+              : t("Tâches assignées", "Tasks assigned")
+          }
+        >
           {r.donnees.elements.map((t) => (
             <CarteTache
               key={t.id}
@@ -129,7 +153,7 @@ export default async function PageMesTaches({
               : null
           }
           hrefDebut={filtres.curseur ? hrefTaches({ ...filtres, curseur: "" }) : null}
-          libelle="Pages des tâches"
+          libelle={t("Pages des tâches", "Task pages")}
         />
       ) : null}
     </div>

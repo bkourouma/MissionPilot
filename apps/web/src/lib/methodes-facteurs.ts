@@ -6,8 +6,10 @@
 import {
   codeReferentielSchema,
   facteurModificationSchema,
+  creerTraduire,
   VALEURS_LISTE_MAX,
   type FacteurModification,
+  type Langue,
 } from "@missionpilot/shared";
 import type { Facteur } from "./methodes";
 import { aDesErreurs, vide } from "./methodes-editeur";
@@ -46,17 +48,33 @@ export function lireNouvellesValeurs(texte: string): { code: string; libelle: st
     });
 }
 
-function erreurValeurs(f: Facteur, nouvelles: readonly { code: string }[]): string | undefined {
+function erreurValeurs(
+  f: Facteur,
+  nouvelles: readonly { code: string }[],
+  langue: Langue = "fr",
+): string | undefined {
+  const t = creerTraduire(langue);
   const codes = (f.valeurs ?? []).map((v) => v.code);
   if (nouvelles.some((v) => !codeReferentielSchema.safeParse(v.code).success)) {
-    return "Une valeur par ligne, « code : libellé », code en minuscules.";
+    return t(
+      "Une valeur par ligne, « code : libellé », code en minuscules.",
+      'One value per line, "code: label", code in lowercase.',
+    );
   }
   const doublon = nouvelles.find(
     (v, i) => codes.includes(v.code) || nouvelles.findIndex((x) => x.code === v.code) !== i,
   );
-  if (doublon) return `La valeur « ${doublon.code} » existe déjà.`;
+  if (doublon) {
+    return t(
+      `La valeur « ${doublon.code} » existe déjà.`,
+      `The value "${doublon.code}" already exists.`,
+    );
+  }
   if (codes.length + nouvelles.length > VALEURS_LISTE_MAX) {
-    return `Une liste compte ${VALEURS_LISTE_MAX} valeurs au plus.`;
+    return t(
+      `Une liste compte ${VALEURS_LISTE_MAX} valeurs au plus.`,
+      `A list holds at most ${VALEURS_LISTE_MAX} values.`,
+    );
   }
   return undefined;
 }
@@ -66,18 +84,29 @@ function erreurBorne(
   nom: "minimale" | "maximale",
   actuelle: number | null,
   saisie: string,
+  langue: Langue = "fr",
 ): { erreur?: string; valeur?: number | null } {
+  const t = creerTraduire(langue);
   const brut = saisie.trim() === "" ? null : lireNombre(saisie);
-  if (brut !== null && Number.isNaN(brut)) return { erreur: "Nombre attendu." };
+  if (brut !== null && Number.isNaN(brut))
+    return { erreur: t("Nombre attendu.", "Number expected.") };
   if (brut === actuelle) return {};
   if (actuelle === null) {
-    return { erreur: `Pas de borne ${nom} aujourd'hui : en poser une resserrerait le facteur.` };
+    return {
+      erreur: t(
+        `Pas de borne ${nom} aujourd'hui : en poser une resserrerait le facteur.`,
+        `There is no ${nom === "minimale" ? "minimum" : "maximum"} bound today: adding one would narrow the factor.`,
+      ),
+    };
   }
   if (brut === null) return { valeur: null };
   const resserre = nom === "minimale" ? brut > actuelle : brut < actuelle;
   return resserre
     ? {
-        erreur: `La borne ${nom} ne peut que s'élargir (actuellement ${String(actuelle).replace(".", ",")}).`,
+        erreur: t(
+          `La borne ${nom} ne peut que s'élargir (actuellement ${String(actuelle).replace(".", ",")}).`,
+          `The ${nom === "minimale" ? "minimum" : "maximum"} bound can only be widened (currently ${actuelle}).`,
+        ),
       }
     : { valeur: brut };
 }
@@ -86,15 +115,17 @@ function erreurBorne(
 export function construireModificationFacteur(
   f: Facteur,
   s: SaisieModificationFacteur,
+  langue: Langue = "fr",
 ): Resultat<FacteurModification, ChampModificationFacteur> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampModificationFacteur, string>> = {};
-  if (!s.libelle.trim()) erreurs.libelle = "Libellé obligatoire.";
+  if (!s.libelle.trim()) erreurs.libelle = t("Libellé obligatoire.", "Label required.");
   const avecValeurs = f.type === "enumeration" || f.type === "liste";
   const nouvelles = avecValeurs ? lireNouvellesValeurs(s.nouvelles) : [];
-  const ev = erreurValeurs(f, nouvelles);
+  const ev = erreurValeurs(f, nouvelles, langue);
   if (ev) erreurs.nouvelles = ev;
-  const min = f.type === "nombre" ? erreurBorne("minimale", f.min, s.min) : {};
-  const max = f.type === "nombre" ? erreurBorne("maximale", f.max, s.max) : {};
+  const min = f.type === "nombre" ? erreurBorne("minimale", f.min, s.min, langue) : {};
+  const max = f.type === "nombre" ? erreurBorne("maximale", f.max, s.max, langue) : {};
   if (min.erreur) erreurs.min = min.erreur;
   if (max.erreur) erreurs.max = max.erreur;
   if (aDesErreurs(erreurs)) return { ok: false, erreurs };
@@ -107,5 +138,13 @@ export function construireModificationFacteur(
   });
   return p.success
     ? { ok: true, charge: p.data }
-    : { ok: false, erreurs: { libelle: "Modification refusée : vérifier les champs." } };
+    : {
+        ok: false,
+        erreurs: {
+          libelle: t(
+            "Modification refusée : vérifier les champs.",
+            "Change rejected: check the fields.",
+          ),
+        },
+      };
 }

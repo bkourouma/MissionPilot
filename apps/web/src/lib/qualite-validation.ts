@@ -2,6 +2,8 @@
 import { UUID } from "./qualite-uuid";
 import type { Violation } from "./qualite-types";
 import {
+  creerTraduire,
+  type Langue,
   CLASSES_RISQUE,
   DECISION_ACCEPTATION_LIBELLES,
   FACTEURS_RISQUE_CLIENT,
@@ -38,24 +40,37 @@ export type ChargeOuverture = {
 export function validerOuverture(
   s: SaisieOuverture,
   genererId: () => string,
+  langue: Langue = "fr",
 ): Resultat<ChargeOuverture, keyof SaisieOuverture> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<keyof SaisieOuverture, string>> = {};
-  if (!UUID.test(s.mission_id)) erreurs.mission_id = "Choisissez la mission du livrable.";
+  if (!UUID.test(s.mission_id))
+    erreurs.mission_id = t(
+      "Choisissez la mission du livrable.",
+      "Choose the deliverable's engagement.",
+    );
   if (!(TYPES_LIVRABLE as readonly string[]).includes(s.type_livrable)) {
-    erreurs.type_livrable = "Choisissez le type de livrable.";
+    erreurs.type_livrable = t("Choisissez le type de livrable.", "Choose the deliverable type.");
   }
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Donnez un nom au livrable.";
+  if (libelle === "")
+    erreurs.libelle = t("Donnez un nom au livrable.", "Give the deliverable a name.");
   else if (libelle.length > LIBELLE_MAX) {
-    erreurs.libelle = `Le nom ne doit pas dépasser ${LIBELLE_MAX} caractères.`;
+    erreurs.libelle = t(
+      `Le nom ne doit pas dépasser ${LIBELLE_MAX} caractères.`,
+      `The name must not exceed ${LIBELLE_MAX} characters.`,
+    );
   }
   const id = s.livrable_id.trim();
   const identifiantGenere = s.type_livrable === "autre" && id === "";
   if (!identifiantGenere && !UUID.test(id)) {
-    erreurs.livrable_id = "Saisissez l'identifiant du livrable (UUID affiché par son module).";
+    erreurs.livrable_id = t(
+      "Saisissez l'identifiant du livrable (UUID affiché par son module).",
+      "Enter the deliverable ID (UUID shown by its module).",
+    );
   }
   if (s.classe !== "" && !(CLASSES_RISQUE as readonly string[]).includes(s.classe)) {
-    erreurs.classe = "Classe inconnue.";
+    erreurs.classe = t("Classe inconnue.", "Unknown class.");
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -73,16 +88,29 @@ export function validerOuverture(
 export function validerCommentaire(
   texte: string,
   { obligatoire }: { obligatoire: boolean },
+  langue: Langue = "fr",
 ): Resultat<{ commentaire: string | null }, "commentaire"> {
+  const tr = creerTraduire(langue);
   const t = texte.trim();
   if (obligatoire && t === "") {
-    return { ok: false, erreurs: { commentaire: "Un commentaire motivé est obligatoire." } };
+    return {
+      ok: false,
+      erreurs: {
+        commentaire: tr(
+          "Un commentaire motivé est obligatoire.",
+          "A reasoned comment is required.",
+        ),
+      },
+    };
   }
   if (t.length > COMMENTAIRE_MAX) {
     return {
       ok: false,
       erreurs: {
-        commentaire: `Le commentaire ne doit pas dépasser ${COMMENTAIRE_MAX} caractères.`,
+        commentaire: tr(
+          `Le commentaire ne doit pas dépasser ${COMMENTAIRE_MAX} caractères.`,
+          `The comment must not exceed ${COMMENTAIRE_MAX} characters.`,
+        ),
       },
     };
   }
@@ -93,14 +121,23 @@ export function validerRelevement(
   classe: string,
   motif: string,
   actuelle: ClasseRisque,
+  langue: Langue = "fr",
 ): Resultat<{ classe: ClasseRisque; motif: string }, "classe" | "motif"> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"classe" | "motif", string>> = {};
   const rang = (CLASSES_RISQUE as readonly string[]).indexOf(classe);
-  if (rang < 0) erreurs.classe = "Choisissez la nouvelle classe.";
+  if (rang < 0) erreurs.classe = t("Choisissez la nouvelle classe.", "Choose the new class.");
   else if (rang <= CLASSES_RISQUE.indexOf(actuelle)) {
-    erreurs.classe = "La classe se relève : choisissez une classe supérieure à l'actuelle.";
+    erreurs.classe = t(
+      "La classe se relève : choisissez une classe supérieure à l'actuelle.",
+      "The class can only be raised: choose a class above the current one.",
+    );
   }
-  if (motif.trim() === "") erreurs.motif = "Indiquez pourquoi la classe est relevée.";
+  if (motif.trim() === "")
+    erreurs.motif = t(
+      "Indiquez pourquoi la classe est relevée.",
+      "Explain why the class is being raised.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { classe: classe as ClasseRisque, motif: motif.trim() } };
 }
@@ -115,6 +152,7 @@ export interface SaisieAcceptation {
 export function validerAcceptation(
   s: SaisieAcceptation,
   { conflits }: { conflits: number },
+  langue: Langue = "fr",
 ): Resultat<
   {
     facteurs: string[];
@@ -124,9 +162,11 @@ export function validerAcceptation(
   },
   "decision" | "motif" | "niveau_retenu"
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"decision" | "motif" | "niveau_retenu", string>> = {};
   const decisions = Object.keys(DECISION_ACCEPTATION_LIBELLES);
-  if (!decisions.includes(s.decision)) erreurs.decision = "Choisissez une décision.";
+  if (!decisions.includes(s.decision))
+    erreurs.decision = t("Choisissez une décision.", "Choose a decision.");
   const motif = s.motif.trim();
   const exigeMotif =
     s.decision === "refusee" ||
@@ -135,14 +175,23 @@ export function validerAcceptation(
   if (exigeMotif && motif === "") {
     erreurs.motif =
       s.decision === "acceptee"
-        ? "Un conflit d'intérêts est détecté : motivez l'acceptation."
-        : "Un motif est obligatoire pour refuser ou accepter sous conditions.";
+        ? t(
+            "Un conflit d'intérêts est détecté : motivez l'acceptation.",
+            "A conflict of interest was detected: give a reason for accepting.",
+          )
+        : t(
+            "Un motif est obligatoire pour refuser ou accepter sous conditions.",
+            "A reason is required to decline or accept with conditions.",
+          );
   }
   if (motif.length > COMMENTAIRE_MAX) {
-    erreurs.motif = `Le motif ne doit pas dépasser ${COMMENTAIRE_MAX} caractères.`;
+    erreurs.motif = t(
+      `Le motif ne doit pas dépasser ${COMMENTAIRE_MAX} caractères.`,
+      `The reason must not exceed ${COMMENTAIRE_MAX} characters.`,
+    );
   }
   if (s.niveau_retenu !== "" && !(s.niveau_retenu in NIVEAU_RISQUE_LIBELLES)) {
-    erreurs.niveau_retenu = "Niveau inconnu.";
+    erreurs.niveau_retenu = t("Niveau inconnu.", "Unknown level.");
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
@@ -164,7 +213,10 @@ export interface SaisieSatisfaction {
   repondant: string;
 }
 
-export function validerSatisfaction(s: SaisieSatisfaction): Resultat<
+export function validerSatisfaction(
+  s: SaisieSatisfaction,
+  langue: Langue = "fr",
+): Resultat<
   {
     moment: "jalon" | "cloture";
     jalon_id?: string;
@@ -174,15 +226,23 @@ export function validerSatisfaction(s: SaisieSatisfaction): Resultat<
   },
   "moment" | "jalon_id" | "note" | "commentaire"
 > {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<"moment" | "jalon_id" | "note" | "commentaire", string>> = {};
-  if (s.moment !== "jalon" && s.moment !== "cloture") erreurs.moment = "Choisissez le moment.";
-  if (s.moment === "jalon" && !UUID.test(s.jalon_id)) erreurs.jalon_id = "Choisissez le jalon.";
+  if (s.moment !== "jalon" && s.moment !== "cloture") {
+    erreurs.moment = t("Choisissez le moment.", "Choose the timing.");
+  }
+  if (s.moment === "jalon" && !UUID.test(s.jalon_id)) {
+    erreurs.jalon_id = t("Choisissez le jalon.", "Choose the milestone.");
+  }
   const note = s.note.trim() === "" ? Number.NaN : Number(s.note.trim());
   if (!Number.isInteger(note) || note < 0 || note > 10) {
-    erreurs.note = "La note est un entier de 0 à 10.";
+    erreurs.note = t("La note est un entier de 0 à 10.", "The score is an integer from 0 to 10.");
   }
   if (s.commentaire.trim().length > COMMENTAIRE_MAX) {
-    erreurs.commentaire = `Le commentaire ne doit pas dépasser ${COMMENTAIRE_MAX} caractères.`;
+    erreurs.commentaire = t(
+      `Le commentaire ne doit pas dépasser ${COMMENTAIRE_MAX} caractères.`,
+      `The comment must not exceed ${COMMENTAIRE_MAX} characters.`,
+    );
   }
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   const commentaire = s.commentaire.trim();

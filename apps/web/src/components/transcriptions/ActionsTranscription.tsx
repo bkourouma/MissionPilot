@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { api } from "../../lib/api";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import {
   cheminApiActionTranscription,
   cheminApiTexteTranscription,
@@ -40,6 +41,8 @@ export function ActionsTranscription({
   versionNumero,
   droits,
 }: ActionsTranscriptionProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [rejet, setRejet] = useState(false);
   const [erreurValidation, setErreurValidation] = useState<string | null>(null);
@@ -55,7 +58,7 @@ export function ActionsTranscription({
       rafraichir();
       return true;
     } catch (e) {
-      setErreurValidation(messageErreurTranscription(e));
+      setErreurValidation(messageErreurTranscription(e, langue));
       return false;
     }
   }
@@ -75,7 +78,7 @@ export function ActionsTranscription({
         </Alerte>
       ) : null}
       {erreurValidation ? (
-        <Alerte tonalite="danger" titre="Validation impossible">
+        <Alerte tonalite="danger" titre={t("Validation impossible", "Could not approve")}>
           <p>{erreurValidation}</p>
         </Alerte>
       ) : null}
@@ -83,18 +86,21 @@ export function ActionsTranscription({
         <div className="mp-canaux__actions-ligne">
           {droits.valider ? (
             <BoutonConfirmation
-              libelle="Valider la transcription"
-              question="Valider ce texte ? Il deviendra la version de référence de la transcription."
-              libelleConfirmation="Oui, valider"
+              libelle={t("Valider la transcription", "Approve the transcription")}
+              question={t(
+                "Valider ce texte ? Il deviendra la version de référence de la transcription.",
+                "Approve this text? It will become the reference version of the transcription.",
+              )}
+              libelleConfirmation={t("Oui, valider", "Yes, approve")}
               variante="primaire"
               icone="succes"
-              texteChargement="Validation…"
+              texteChargement={t("Validation…", "Approving…")}
               action={valider}
             />
           ) : null}
           {droits.rejeter ? (
             <Bouton variante="secondaire" aria-expanded={rejet} onClick={() => setRejet((r) => !r)}>
-              Rejeter
+              {t("Rejeter", "Reject")}
             </Bouton>
           ) : null}
         </div>
@@ -117,26 +123,34 @@ function FormulaireCorrection({
 }) {
   const [valeur, setValeur] = useState(texte);
   const f = useFormulaire<"texte">();
+  const t = useT();
+  const langue = useLangue();
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     if (valeur === texte) {
       await f.envoyer(
-        { ok: false, erreurs: { texte: "Aucune correction à enregistrer." } },
+        {
+          ok: false,
+          erreurs: { texte: t("Aucune correction à enregistrer.", "No correction to save.") },
+        },
         async () => null,
       );
       return;
     }
     await f.envoyer(
-      validerCorrectionTexte(valeur),
+      validerCorrectionTexte(valeur, langue),
       (charge) =>
         api.put(cheminApiTexteTranscription(transcriptionId), charge, {
           redirigerSi401: false,
           entetes: { "If-Match": enteteIfMatch(versionNumero) },
         }),
       {
-        succes: "Correction enregistrée : une nouvelle version humaine a été ajoutée.",
-        messageSpecifique: (e) => messageErreurTranscription(e),
+        succes: t(
+          "Correction enregistrée : une nouvelle version humaine a été ajoutée.",
+          "Correction saved: a new human version was added.",
+        ),
+        messageSpecifique: (e) => messageErreurTranscription(e, langue),
       },
     );
   }
@@ -147,21 +161,28 @@ function FormulaireCorrection({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Corriger le texte"
+      aria-label={t("Corriger le texte", "Correct the text")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <ZoneTexte
-        libelle="Texte à corriger"
+        libelle={t("Texte à corriger", "Text to correct")}
         rows={10}
         maxLength={PLAFONDS_TRANSCRIPTION.texteMaxCaracteres}
         value={valeur}
         onChange={(e) => setValeur(e.target.value)}
         erreur={f.erreurs.texte}
-        aide="Chaque enregistrement ajoute une version ; les versions précédentes restent consultables."
+        aide={t(
+          "Chaque enregistrement ajoute une version ; les versions précédentes restent consultables.",
+          "Each save adds a version; previous versions remain available.",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la correction
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
       </div>
     </form>
@@ -177,18 +198,20 @@ function FormulaireRejet({
 }) {
   const [motif, setMotif] = useState("");
   const f = useFormulaire<"motif">();
+  const t = useT();
+  const langue = useLangue();
 
   async function soumettre(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
     await f.envoyer(
-      validerRejetTranscription(motif),
+      validerRejetTranscription(motif, langue),
       (charge) =>
         api.post(cheminApiActionTranscription(transcriptionId, "rejeter"), charge, {
           redirigerSi401: false,
         }),
       {
-        succes: "Transcription rejetée.",
-        messageSpecifique: (e) => messageErreurTranscription(e),
+        succes: t("Transcription rejetée.", "Transcription rejected."),
+        messageSpecifique: (e) => messageErreurTranscription(e, langue),
         apres: onFin,
       },
     );
@@ -200,11 +223,11 @@ function FormulaireRejet({
       className="mp-canaux__panneau"
       noValidate
       onSubmit={soumettre}
-      aria-label="Rejeter la transcription"
+      aria-label={t("Rejeter la transcription", "Reject the transcription")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <ZoneTexte
-        libelle="Motif du rejet"
+        libelle={t("Motif du rejet", "Reason for the rejection")}
         required
         maxLength={500}
         value={motif}
@@ -212,11 +235,16 @@ function FormulaireRejet({
         erreur={f.erreurs.motif}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" variante="danger" chargement={f.enCours} texteChargement="Rejet…">
-          Rejeter la transcription
+        <Bouton
+          type="submit"
+          variante="danger"
+          chargement={f.enCours}
+          texteChargement={t("Rejet…", "Rejecting…")}
+        >
+          {t("Rejeter la transcription", "Reject the transcription")}
         </Bouton>
         <Bouton variante="discret" onClick={onFin} disabled={f.enCours}>
-          Annuler
+          {t("Annuler", "Cancel")}
         </Bouton>
       </div>
     </form>

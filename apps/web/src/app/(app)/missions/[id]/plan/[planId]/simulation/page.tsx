@@ -9,6 +9,7 @@ import { Alerte } from "../../../../../../../components/ui/Alerte";
 import { Carte } from "../../../../../../../components/ui/Carte";
 import { EtatErreur, EtatVide } from "../../../../../../../components/ui/EtatListe";
 import { chargerServeur } from "../../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../../lib/i18n/serveur";
 import { chargerMission } from "../../../../../../../lib/missions-serveur";
 import { cheminListeModeles, type PageVersionsModele } from "../../../../../../../lib/plan-modele";
 import {
@@ -17,7 +18,7 @@ import {
   cheminSimulation,
   hrefSimulation,
   lireIdSimulation,
-  MENTION_INDICATIVE,
+  mentionIndicative,
   versionParDefaut,
   type DefautsMonteCarlo,
   type PageSimulations,
@@ -29,12 +30,15 @@ import {
   droitsPlan,
   hrefModele,
   lireCurseur,
-  MESSAGE_MISSION_CLOTUREE,
+  messageMissionCloturee,
   type ContextePlan,
 } from "../../../../../../../lib/plan-strategique";
 import { exigerPermission } from "../../../../../../../lib/session";
 
-export const metadata: Metadata = { title: "Simulation de Monte-Carlo du plan" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Simulation de Monte-Carlo du plan", "Plan Monte Carlo simulation") };
+}
 
 const SIMULATIONS_PAR_PAGE = 10;
 /** Versions proposées au choix : les 100 plus récentes (maximum d'une page de l'API). */
@@ -53,6 +57,8 @@ export default async function PageSimulationPlan({
   params: Promise<{ id: string; planId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { id, planId } = await params;
   const { utilisateur } = await exigerPermission("plan.lire");
   const sp = await searchParams;
@@ -95,21 +101,33 @@ export default async function PageSimulationPlan({
   const lancement = droits.rediger
     ? null
     : droits.cloturee
-      ? MESSAGE_MISSION_CLOTUREE
-      : "Lancer une simulation est réservé aux rédacteurs du plan.";
+      ? messageMissionCloturee(langue)
+      : t(
+          "Lancer une simulation est réservé aux rédacteurs du plan.",
+          "Running a simulation is restricted to plan authors.",
+        );
 
   return (
     <>
       <Alerte tonalite="info" annonce="aucune">
-        <p>{MENTION_INDICATIVE}</p>
+        <p>{mentionIndicative(langue)}</p>
       </Alerte>
 
-      <Carte titre="Lancer une simulation" niveauTitre={3}>
+      <Carte titre={t("Lancer une simulation", "Run a simulation")} niveauTitre={3}>
         {!plan.modele ? (
-          <EtatVide titre="Aucune version du modèle financier à simuler." icone="courbe">
+          <EtatVide
+            titre={t(
+              "Aucune version du modèle financier à simuler.",
+              "No financial model version to simulate.",
+            )}
+            icone="courbe"
+          >
             <p>
-              Enregistrez d&apos;abord une version dans l&apos;onglet{" "}
-              <Link href={hrefModele(m.id, plan.id)}>Modèle financier</Link>.
+              {t("Enregistrez d'abord une version dans l'onglet", "First save a version in the")}{" "}
+              <Link href={hrefModele(m.id, plan.id)}>
+                {t("Modèle financier", "Financial model")}
+              </Link>
+              {t(".", " tab.")}
             </p>
           </EtatVide>
         ) : lancement ? (
@@ -118,13 +136,19 @@ export default async function PageSimulationPlan({
           </Alerte>
         ) : modeles && !modeles.ok ? (
           <EtatErreur
-            titre="Les versions du modèle n'ont pas pu être chargées."
+            titre={t(
+              "Les versions du modèle n'ont pas pu être chargées.",
+              "The model versions could not be loaded.",
+            )}
             message={modeles.message}
             hrefReessayer={hrefSimulation(m.id, plan.id, { simulation: demandee, curseur })}
           />
         ) : defauts && !defauts.ok ? (
           <EtatErreur
-            titre="Les lois de départ n'ont pas pu être chargées."
+            titre={t(
+              "Les lois de départ n'ont pas pu être chargées.",
+              "The starting distributions could not be loaded.",
+            )}
             message={defauts.message}
             hrefReessayer={hrefSimulation(m.id, plan.id, { simulation: demandee, curseur })}
           />
@@ -139,34 +163,55 @@ export default async function PageSimulationPlan({
         ) : null}
       </Carte>
 
-      <Carte titre="Résultat" niveauTitre={3}>
+      <Carte titre={t("Résultat", "Result")} niveauTitre={3}>
         {introuvable ? (
-          <Alerte tonalite="attention" titre="Simulation introuvable" annonce="aucune">
+          <Alerte
+            tonalite="attention"
+            titre={t("Simulation introuvable", "Simulation not found")}
+            annonce="aucune"
+          >
             <p>
-              Cette simulation n&apos;existe pas pour ce plan.{" "}
-              <Link href={hrefSimulation(m.id, plan.id)}>Afficher la plus récente</Link>
+              {t(
+                "Cette simulation n'existe pas pour ce plan.",
+                "This simulation does not exist for this plan.",
+              )}{" "}
+              <Link href={hrefSimulation(m.id, plan.id)}>
+                {t("Afficher la plus récente", "Show the most recent")}
+              </Link>
             </p>
           </Alerte>
         ) : detail && !detail.ok ? (
           <EtatErreur
-            titre="Cette simulation n'a pas pu être chargée."
+            titre={t(
+              "Cette simulation n'a pas pu être chargée.",
+              "This simulation could not be loaded.",
+            )}
             message={detail.message}
             hrefReessayer={hrefSimulation(m.id, plan.id, { simulation: demandee, curseur })}
           />
         ) : simulation ? (
           <ResultatSimulation simulation={simulation} devise={plan.devise} />
         ) : (
-          <EtatVide titre="Aucune simulation pour ce plan." icone="courbe">
+          <EtatVide
+            titre={t("Aucune simulation pour ce plan.", "No simulation for this plan.")}
+            icone="courbe"
+          >
             <p>
               {peutEcrire
-                ? "Choisissez les hypothèses incertaines ci-dessus, puis lancez une simulation : la distribution de la VAN et le risque de tension de trésorerie s'afficheront ici."
-                : "Les rédacteurs du plan n'ont pas encore lancé de simulation."}
+                ? t(
+                    "Choisissez les hypothèses incertaines ci-dessus, puis lancez une simulation : la distribution de la VAN et le risque de tension de trésorerie s'afficheront ici.",
+                    "Choose the uncertain assumptions above, then run a simulation: the NPV distribution and the cash shortfall risk will appear here.",
+                  )
+                : t(
+                    "Les rédacteurs du plan n'ont pas encore lancé de simulation.",
+                    "The plan authors have not run a simulation yet.",
+                  )}
             </p>
           </EtatVide>
         )}
       </Carte>
 
-      <Carte titre="Simulations passées" niveauTitre={3}>
+      <Carte titre={t("Simulations passées", "Past simulations")} niveauTitre={3}>
         {liste.ok ? (
           <ListeSimulations
             missionId={m.id}
@@ -178,7 +223,10 @@ export default async function PageSimulationPlan({
           />
         ) : (
           <EtatErreur
-            titre="Les simulations n'ont pas pu être chargées."
+            titre={t(
+              "Les simulations n'ont pas pu être chargées.",
+              "The simulations could not be loaded.",
+            )}
             message={liste.message}
             hrefReessayer={hrefSimulation(m.id, plan.id, { simulation: demandee, curseur })}
           />

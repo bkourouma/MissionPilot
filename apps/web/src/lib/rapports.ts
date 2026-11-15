@@ -12,8 +12,20 @@
  * local, ni cache) : la liste vient du serveur à chaque affichage, le fichier se télécharge par
  * le lien authentifié de `lib/fichiers.ts` (réponse `no-store` de l'API).
  */
-import { aPermission, type Permission, type Role } from "@missionpilot/shared";
-import { CODE_TFA_A_CONFIGURER, ErreurApi, MESSAGE_TFA_A_CONFIGURER, messageErreur } from "./api";
+import {
+  aPermission,
+  creerTraduire,
+  type Langue,
+  type Permission,
+  type Role,
+} from "@missionpilot/shared";
+import {
+  CODE_TFA_A_CONFIGURER,
+  ErreurApi,
+  MESSAGE_TFA_A_CONFIGURER,
+  MESSAGE_TFA_A_CONFIGURER_EN,
+  messageErreur,
+} from "./api";
 import type { FichierMeta } from "./fichiers";
 import { nomPersonne, type Personne } from "./personnes";
 
@@ -73,11 +85,37 @@ export const FORMATS: Record<FormatRapport, { libelle: string; court: string; ai
   },
 };
 
+const FORMATS_EN: Record<FormatRapport, { libelle: string; court: string; aide: string }> = {
+  pdf: {
+    libelle: "PDF",
+    court: "PDF",
+    aide: "For reading and printing. Longer rendering: up to 30 seconds.",
+  },
+  docx: {
+    libelle: "Word (.docx)",
+    court: "Word",
+    aide: "Editable document before distribution.",
+  },
+  pptx: {
+    libelle: "PowerPoint (.pptx)",
+    court: "PowerPoint",
+    aide: "Presentation to project in meetings.",
+  },
+};
+
+/** Libellés d'un format dans la langue demandée. */
+export const formatRapport = (f: FormatRapport, langue: Langue = "fr") =>
+  langue === "en" ? FORMATS_EN[f] : FORMATS[f];
+
 export const estFormatRapport = (v: unknown): v is FormatRapport =>
   typeof v === "string" && (FORMATS_RAPPORT as readonly string[]).includes(v);
 
 /** Libellé court d'un format reçu de l'API ; repli neutre si inconnu. */
 export const libelleFormat = (f: string) => (estFormatRapport(f) ? FORMATS[f].court : "Fichier");
+
+/** Idem, dans la langue demandée (fonction à part : `libelleFormat` sert de rappel à `map`). */
+export const libelleFormatRapport = (f: string, langue: Langue = "fr") =>
+  estFormatRapport(f) ? formatRapport(f, langue).court : langue === "en" ? "File" : "Fichier";
 
 // --- Niveaux -----------------------------------------------------------------------------
 
@@ -161,6 +199,53 @@ export const NIVEAUX: Record<
   },
 };
 
+const NIVEAUX_EN: Record<NiveauAffichable, { libelle: string; explication: string }> = {
+  base: {
+    libelle: "Progress",
+    explication:
+      "With your rights, the report presents the progress and milestones of the engagement, without days or financial data.",
+  },
+  jours: {
+    libelle: "Progress and days",
+    explication:
+      "With your rights, the report adds the budget and time spent in days. It contains no financial data.",
+  },
+  finance: {
+    libelle: "Confidential: with financials",
+    explication:
+      "With your rights, the report also includes the firm's internal financial data. Only people authorized to read financials will be able to open it.",
+  },
+  notation: {
+    libelle: "Rating",
+    explication:
+      "Report of the published rating. Only people authorized to read the rating will be able to open it.",
+  },
+  plan: {
+    libelle: "Strategic plan",
+    explication:
+      "Strategic plan report, including the client's financial model. Only people authorized to read plans will be able to open it.",
+  },
+  dd: {
+    libelle: "Due diligence",
+    explication:
+      "Due diligence committee note: analyses, verdicts, market and plan of the transaction under review. Only people authorized to read due diligence will be able to open it.",
+  },
+  red: {
+    libelle: "Turnaround",
+    explication:
+      "Turnaround close-out report: the client's figures. Only people authorized to read turnarounds will be able to open it.",
+  },
+  dossier: {
+    libelle: "Client file",
+    explication:
+      "The report reproduces the accepted financial statements of the client's file; it contains no financial data of the firm.",
+  },
+};
+
+/** Niveau d'un rapport (libellé, icône, tonalité, explication) dans la langue demandée. */
+export const niveauRapport = (n: NiveauAffichable, langue: Langue = "fr") =>
+  langue === "en" ? { ...NIVEAUX[n], ...NIVEAUX_EN[n] } : NIVEAUX[n];
+
 export const estNiveauRapport = (v: unknown): v is NiveauAffichable =>
   typeof v === "string" && (TOUS_NIVEAUX as readonly string[]).includes(v);
 
@@ -193,17 +278,44 @@ const SECTIONS: Record<NiveauRapport, readonly string[]> = {
   ],
 };
 
+const SECTIONS_EN: Record<NiveauRapport, readonly string[]> = {
+  base: [
+    "Summary: engagement status and physical progress",
+    "Engagement sheet: client, dates, director and engagement manager",
+    "Milestones and their status (reached, upcoming, overdue)",
+    "Method used to compute the indicators",
+  ],
+  jours: [
+    "Budget, actual, remaining work and landing, in days",
+    "Budget in days by phase",
+    "Time spent by team member",
+  ],
+  finance: [
+    "Confidential financial data: fees, value produced, internal costs, subcontracting, expenses, margins",
+  ],
+};
+
 const ABSENTS: Record<Exclude<NiveauRapport, "base">, string> = {
   jours: "Jours : budget, réalisé, temps consommé",
   finance: "Données financières : coûts, taux, marges",
 };
 
+const ABSENTS_EN: Record<Exclude<NiveauRapport, "base">, string> = {
+  jours: "Days: budget, actual, time spent",
+  finance: "Financial data: costs, rates, margins",
+};
+
 /** Sections incluses à ce niveau, et ce qui en est exclu (sans aucun chiffre). */
-export function contenuRapport(niveau: NiveauRapport): { inclus: string[]; exclus: string[] } {
+export function contenuRapport(
+  niveau: NiveauRapport,
+  langue: Langue = "fr",
+): { inclus: string[]; exclus: string[] } {
   const rang = NIVEAUX_RAPPORT.indexOf(niveau);
-  const inclus = NIVEAUX_RAPPORT.slice(0, rang + 1).flatMap((n) => SECTIONS[n]);
+  const sections = langue === "en" ? SECTIONS_EN : SECTIONS;
+  const absents = langue === "en" ? ABSENTS_EN : ABSENTS;
+  const inclus = NIVEAUX_RAPPORT.slice(0, rang + 1).flatMap((n) => sections[n]);
   const exclus = NIVEAUX_RAPPORT.slice(rang + 1).map(
-    (n) => ABSENTS[n as Exclude<NiveauRapport, "base">],
+    (n) => absents[n as Exclude<NiveauRapport, "base">],
   );
   return { inclus, exclus };
 }
@@ -219,13 +331,28 @@ const MODELES: Record<string, string> = {
   cloture_redressement: "Rapport de clôture du redressement",
   etat_financier: "Rapport d'état financier",
 };
-export const libelleModele = (m: string) => MODELES[m] ?? "Rapport";
+const MODELES_EN: Record<string, string> = {
+  etat_avancement: "Progress report",
+  notation: "Rating report",
+  plan_strategique: "Strategic plan",
+  dossier_bancaire: "Bank file",
+  note_comite: "Committee note",
+  cloture_redressement: "Turnaround close-out report",
+  etat_financier: "Financial statement report",
+};
+export const libelleModele = (m: string, langue: Langue = "fr") =>
+  (langue === "en" ? MODELES_EN : MODELES)[m] ?? (langue === "en" ? "Report" : "Rapport");
 
 /** Libellé d'un rapport avec sa variante éventuelle : « Note au comité (synthèse exécutive) ». */
-export function libelleModeleVariante(modele: string, variante?: string | null): string {
-  const base = libelleModele(modele);
-  if (variante === "executive") return `${base} (synthèse exécutive)`;
-  if (variante === "detaillee") return `${base} (version détaillée)`;
+export function libelleModeleVariante(
+  modele: string,
+  variante?: string | null,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
+  const base = libelleModele(modele, langue);
+  if (variante === "executive") return `${base} (${t("synthèse exécutive", "executive summary")})`;
+  if (variante === "detaillee") return `${base} (${t("version détaillée", "detailed version")})`;
   return base;
 }
 
@@ -233,7 +360,13 @@ const STATUTS: Record<string, string> = {
   brouillon: "Brouillon",
   valide: "Validé",
 };
-export const libelleStatutRapport = (s: string) => STATUTS[s] ?? "Statut non reconnu";
+const STATUTS_EN: Record<string, string> = {
+  brouillon: "Draft",
+  valide: "Approved",
+};
+export const libelleStatutRapport = (s: string, langue: Langue = "fr") =>
+  (langue === "en" ? STATUTS_EN : STATUTS)[s] ??
+  (langue === "en" ? "Unrecognized status" : "Statut non reconnu");
 
 /** Personnes dont le nom est connu : référentiel du cabinet puis équipe de la mission. */
 export function personnesConnues(
@@ -250,8 +383,13 @@ export function personnesConnues(
 }
 
 /** Auteur affichable : « Vous », le nom connu, sinon un libellé neutre. */
-export function nomAuteur(id: string, moiId: string, personnes: readonly Personne[]): string {
-  return id === moiId ? "Vous" : nomPersonne(id, personnes);
+export function nomAuteur(
+  id: string,
+  moiId: string,
+  personnes: readonly Personne[],
+  langue: Langue = "fr",
+): string {
+  return id === moiId ? creerTraduire(langue)("Vous", "You") : nomPersonne(id, personnes, langue);
 }
 
 // --- Chemins et pagination ---------------------------------------------------------------
@@ -299,14 +437,29 @@ export const DELAI_GENERATION_MS = 60_000;
  * Message d'attente annoncé aux lecteurs d'écran. Il ne change qu'à quelques paliers (et non à
  * chaque seconde) pour ne pas saturer l'annonce.
  */
-export function messageAttente(format: FormatRapport, secondes: number): string {
+export function messageAttente(
+  format: FormatRapport,
+  secondes: number,
+  langue: Langue = "fr",
+): string {
+  const t = creerTraduire(langue);
   if (secondes < 10) {
     return format === "pdf"
-      ? "Génération du rapport PDF en cours. Le rendu peut prendre jusqu'à 30 secondes : ne fermez pas la page."
-      : `Génération du rapport ${FORMATS[format].court} en cours : ne fermez pas la page.`;
+      ? t(
+          "Génération du rapport PDF en cours. Le rendu peut prendre jusqu'à 30 secondes : ne fermez pas la page.",
+          "Generating the PDF report. Rendering can take up to 30 seconds: do not close the page.",
+        )
+      : t(
+          `Génération du rapport ${FORMATS[format].court} en cours : ne fermez pas la page.`,
+          `Generating the ${FORMATS[format].court} report: do not close the page.`,
+        );
   }
-  if (secondes < 25) return "Génération toujours en cours, merci de patienter.";
-  return "La génération prend plus de temps que d'habitude : encore quelques instants.";
+  if (secondes < 25)
+    return t("Génération toujours en cours, merci de patienter.", "Still generating, please wait.");
+  return t(
+    "La génération prend plus de temps que d'habitude : encore quelques instants.",
+    "Generation is taking longer than usual: a few more moments.",
+  );
 }
 
 /** Durée écoulée lisible : « 8 s », « 1 min 05 s ». */
@@ -319,8 +472,13 @@ export function formaterDuree(secondes: number): string {
 export const MESSAGE_LIMITE_RAPPORTS =
   "Vous avez atteint la limite de 10 rapports par 10 minutes. Patientez quelques minutes avant d'en générer un nouveau.";
 
+export const MESSAGE_LIMITE_RAPPORTS_EN =
+  "You have reached the limit of 10 reports per 10 minutes. Wait a few minutes before generating a new one.";
+
 const PEUT_ETRE_CREE =
   "Le rapport a peut-être été créé malgré tout : actualisez la liste avant de réessayer.";
+const PEUT_ETRE_CREE_EN =
+  "The report may have been created anyway: refresh the list before trying again.";
 
 /**
  * La requête a pu aboutir côté serveur sans que la réponse arrive (délai du navigateur ou du
@@ -350,51 +508,103 @@ export function etatMissionChange(e: unknown): boolean {
 }
 
 /** Message français pour chaque refus de la génération (POST /api/missions/:id/rapports). */
-export function messageRapport(e: unknown): string {
-  if (!(e instanceof ErreurApi)) return messageErreur(e);
-  if (e.code === CODE_TFA_A_CONFIGURER) return MESSAGE_TFA_A_CONFIGURER;
+export function messageRapport(e: unknown, langue: Langue = "fr"): string {
+  if (!(e instanceof ErreurApi)) return messageErreur(e, langue);
+  if (e.code === CODE_TFA_A_CONFIGURER) {
+    return langue === "en" ? MESSAGE_TFA_A_CONFIGURER_EN : MESSAGE_TFA_A_CONFIGURER;
+  }
+  const t = creerTraduire(langue);
+  const limite = t(MESSAGE_LIMITE_RAPPORTS, MESSAGE_LIMITE_RAPPORTS_EN);
+  const peutEtre = t(PEUT_ETRE_CREE, PEUT_ETRE_CREE_EN);
+  const tropVolumineux = t(
+    "Le rapport produit dépasse la taille de fichier autorisée. Essayez un autre format, ou contactez un associé.",
+    "The generated report exceeds the allowed file size. Try another format, or contact a partner.",
+  );
+  const tropLong = t(
+    "Délai dépassé : le rendu du rapport a pris trop de temps. Réessayez, ou choisissez Word ou PowerPoint, plus rapides à produire.",
+    "Timed out: rendering the report took too long. Try again, or choose Word or PowerPoint, which are faster to produce.",
+  );
   switch (e.code) {
     case "TROP_DE_RAPPORTS":
-      return MESSAGE_LIMITE_RAPPORTS;
+      return limite;
     case "RENDU_OCCUPE":
-      return "Trop de rapports sont en cours de rendu en ce moment. Réessayez dans quelques instants.";
+      return t(
+        "Trop de rapports sont en cours de rendu en ce moment. Réessayez dans quelques instants.",
+        "Too many reports are being rendered right now. Try again in a few moments.",
+      );
     case "RENDU_PDF_INDISPONIBLE":
-      return "Le rendu PDF est indisponible pour le moment. Choisissez Word ou PowerPoint, ou réessayez plus tard.";
+      return t(
+        "Le rendu PDF est indisponible pour le moment. Choisissez Word ou PowerPoint, ou réessayez plus tard.",
+        "PDF rendering is currently unavailable. Choose Word or PowerPoint, or try again later.",
+      );
     case "RENDU_TROP_LONG":
-      return "Délai dépassé : le rendu du rapport a pris trop de temps. Réessayez, ou choisissez Word ou PowerPoint, plus rapides à produire.";
+      return tropLong;
     case "RAPPORT_TROP_VOLUMINEUX":
     case "FICHIER_TROP_VOLUMINEUX":
-      return "Le rapport produit dépasse la taille de fichier autorisée. Essayez un autre format, ou contactez un associé.";
+      return tropVolumineux;
     case "QUOTA_STOCKAGE_ATTEINT":
-      return "L'espace de stockage du cabinet est plein : contactez un associé pour libérer de la place.";
+      return t(
+        "L'espace de stockage du cabinet est plein : contactez un associé pour libérer de la place.",
+        "The firm's storage space is full: contact a partner to free up space.",
+      );
     case "DELAI_DEPASSE":
-      return `Le serveur met trop de temps à répondre. ${PEUT_ETRE_CREE}`;
+      return t(
+        `Le serveur met trop de temps à répondre. ${peutEtre}`,
+        `The server is taking too long to respond. ${peutEtre}`,
+      );
     case "RESEAU_INDISPONIBLE":
-      return `Connexion au serveur interrompue. Vérifiez votre réseau. ${PEUT_ETRE_CREE}`;
+      return t(
+        `Connexion au serveur interrompue. Vérifiez votre réseau. ${peutEtre}`,
+        `Connection to the server was interrupted. Check your network. ${peutEtre}`,
+      );
     case "SERVICE_INDISPONIBLE":
-      return `Le serveur n'a pas répondu à temps ou est momentanément indisponible. ${PEUT_ETRE_CREE}`;
+      return t(
+        `Le serveur n'a pas répondu à temps ou est momentanément indisponible. ${peutEtre}`,
+        `The server did not respond in time or is temporarily unavailable. ${peutEtre}`,
+      );
     case "ANNULE":
-      return "Génération interrompue avant la réponse du serveur.";
+      return t(
+        "Génération interrompue avant la réponse du serveur.",
+        "Generation interrupted before the server responded.",
+      );
   }
   switch (e.statut) {
     case 400:
-      return "Demande refusée par le serveur (format ou paramètre invalide). Rechargez la page puis réessayez.";
+      return t(
+        "Demande refusée par le serveur (format ou paramètre invalide). Rechargez la page puis réessayez.",
+        "Request refused by the server (invalid format or parameter). Reload the page and try again.",
+      );
     case 401:
-      return "Votre session a expiré. Reconnectez-vous.";
+      return t(
+        "Votre session a expiré. Reconnectez-vous.",
+        "Your session has expired. Sign in again.",
+      );
     case 403:
-      return "Votre rôle ne vous permet pas de générer de rapport pour cette mission.";
+      return t(
+        "Votre rôle ne vous permet pas de générer de rapport pour cette mission.",
+        "Your role does not allow you to generate a report for this engagement.",
+      );
     case 404:
-      return "Cette mission est introuvable ou ne vous est plus accessible.";
+      return t(
+        "Cette mission est introuvable ou ne vous est plus accessible.",
+        "This engagement cannot be found or is no longer accessible to you.",
+      );
     case 409:
-      return "La mission est clôturée : plus aucun rapport ne peut être généré.";
+      return t(
+        "La mission est clôturée : plus aucun rapport ne peut être généré.",
+        "The engagement is closed: no more reports can be generated.",
+      );
     case 413:
-      return "Le rapport produit dépasse la taille de fichier autorisée. Essayez un autre format, ou contactez un associé.";
+      return tropVolumineux;
     case 429:
-      return MESSAGE_LIMITE_RAPPORTS;
+      return limite;
     case 503:
-      return "Le service de rendu des rapports est momentanément indisponible. Réessayez dans quelques instants.";
+      return t(
+        "Le service de rendu des rapports est momentanément indisponible. Réessayez dans quelques instants.",
+        "The report rendering service is temporarily unavailable. Try again in a few moments.",
+      );
     case 504:
-      return "Délai dépassé : le rendu du rapport a pris trop de temps. Réessayez, ou choisissez Word ou PowerPoint, plus rapides à produire.";
+      return tropLong;
   }
-  return messageErreur(e);
+  return messageErreur(e, langue);
 }

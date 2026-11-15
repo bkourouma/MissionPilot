@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { api, messageErreur } from "../../lib/api";
 import { hrefVersion, messageMethodes } from "../../lib/methodes";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { Alerte } from "../ui/Alerte";
 import { Bouton, type VarianteBouton } from "../ui/Bouton";
@@ -41,8 +42,11 @@ export function BoutonAction({
   versionDans,
   variante = "secondaire",
   icone,
-  texteChargement = "En cours…",
+  texteChargement: texteChargementProp,
 }: BoutonActionProps) {
+  const t = useT();
+  const langue = useLangue();
+  const texteChargement = texteChargementProp ?? t("En cours…", "In progress…");
   const router = useRouter();
   const { rafraichir, enAttente } = useRafraichir();
   const [erreur, setErreur] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export function BoutonAction({
       else rafraichir();
       return true;
     } catch (e) {
-      setErreur(messageMethodes(e) ?? messageErreur(e));
+      setErreur(messageMethodes(e, langue) ?? messageErreur(e));
       setTimeout(() => refAlerte.current?.focus(), 0);
       return false;
     } finally {
@@ -97,7 +101,11 @@ export function BoutonAction({
         </Bouton>
       )}
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre="Action impossible">
+        <Alerte
+          ref={refAlerte}
+          tonalite="danger"
+          titre={t("Action impossible", "Action not possible")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}

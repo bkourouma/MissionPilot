@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { BadgeStatut, type TonaliteStatut } from "../ui/BadgeStatut";
 import { Bouton } from "../ui/Bouton";
@@ -9,8 +10,11 @@ import { api, messageErreur } from "../../lib/api";
 import {
   clePropositionTemps,
   LIBELLE_CONFIANCE,
+  LIBELLE_CONFIANCE_EN,
   LIBELLE_MOTIF_ECARTE,
+  LIBELLE_MOTIF_ECARTE_EN,
   LIBELLE_SOURCE,
+  LIBELLE_SOURCE_EN,
   selectionParDefaut,
   type ConfianceProposition,
   type PropositionTemps,
@@ -40,6 +44,9 @@ export interface PreRemplissageProps {
  * ensuite comme d'habitude, après relecture.
  */
 export function PreRemplissage({ semaine, unite, onAppliquer }: PreRemplissageProps) {
+  const t = useT();
+  const langue = useLangue();
+  const en = langue === "en";
   const [etat, setEtat] = useState<
     | { phase: "repos" }
     | { phase: "chargement" }
@@ -60,7 +67,7 @@ export function PreRemplissage({ semaine, unite, onAppliquer }: PreRemplissagePr
       setEtat({ phase: "proposition", reponse });
       queueMicrotask(() => refTitre.current?.focus());
     } catch (e) {
-      setEtat({ phase: "erreur", message: messageErreur(e) });
+      setEtat({ phase: "erreur", message: messageErreur(e, langue) });
     }
   }
 
@@ -80,23 +87,31 @@ export function PreRemplissage({ semaine, unite, onAppliquer }: PreRemplissagePr
           variante="secondaire"
           icone="horloge"
           chargement={etat.phase === "chargement"}
-          texteChargement="Recherche…"
+          texteChargement={t("Recherche…", "Searching…")}
           onClick={proposer}
         >
-          Pré-remplir
+          {t("Pré-remplir", "Pre-fill")}
         </Bouton>
       </div>
       {etat.phase === "erreur" ? (
-        <Alerte tonalite="danger" titre="Proposition indisponible">
+        <Alerte tonalite="danger" titre={t("Proposition indisponible", "Suggestion unavailable")}>
           <p>{etat.message}</p>
         </Alerte>
       ) : null}
       {etat.phase === "applique" ? (
-        <Alerte tonalite="succes" titre="Proposition appliquée à la grille">
+        <Alerte
+          tonalite="succes"
+          titre={t("Proposition appliquée à la grille", "Suggestion applied to the grid")}
+        >
           <p>
-            {`${etat.appliquees} case(s) remplie(s)${
-              etat.conservees > 0 ? `, ${etat.conservees} déjà renseignée(s) conservée(s)` : ""
-            }. Relisez et ajustez la grille : le brouillon est sauvegardé automatiquement, mais la feuille n'est soumise que lorsque vous la soumettez.`}
+            {t(
+              `${etat.appliquees} case(s) remplie(s)${
+                etat.conservees > 0 ? `, ${etat.conservees} déjà renseignée(s) conservée(s)` : ""
+              }. Relisez et ajustez la grille : le brouillon est sauvegardé automatiquement, mais la feuille n'est soumise que lorsque vous la soumettez.`,
+              `${etat.appliquees} cell(s) filled${
+                etat.conservees > 0 ? `, ${etat.conservees} already filled cell(s) kept` : ""
+              }. Review and adjust the grid: the draft is saved automatically, but the timesheet is only submitted when you submit it.`,
+            )}
           </p>
         </Alerte>
       ) : null}
@@ -104,35 +119,48 @@ export function PreRemplissage({ semaine, unite, onAppliquer }: PreRemplissagePr
         <section className="mp-carte" aria-labelledby="titre-preremplissage">
           <header className="mp-carte__entete">
             <h2 id="titre-preremplissage" className="mp-carte__titre" ref={refTitre} tabIndex={-1}>
-              Proposition de saisie
+              {t("Proposition de saisie", "Entry suggestion")}
             </h2>
           </header>
           <div className="mp-pile">
             <p className="mp-texte-doux">
-              Établie depuis vos affectations et votre activité sur la plateforme (aucun agenda
-              n&apos;est connecté). Cochez ce que vous confirmez : rien n&apos;est appliqué à la
-              grille avant votre confirmation, et la feuille n&apos;est soumise que par vous.
+              {t(
+                "Établie depuis vos affectations et votre activité sur la plateforme (aucun agenda n'est connecté). Cochez ce que vous confirmez : rien n'est appliqué à la grille avant votre confirmation, et la feuille n'est soumise que par vous.",
+                "Based on your assignments and your activity on the platform (no calendar is connected). Tick what you confirm: nothing is applied to the grid before your confirmation, and the timesheet is only submitted by you.",
+              )}
             </p>
             {!etat.reponse.feuille_modifiable ? (
-              <Alerte tonalite="info" annonce="aucune" titre="Feuille non modifiable">
-                <p>Cette feuille est soumise, validée ou verrouillée : aucune proposition.</p>
+              <Alerte
+                tonalite="info"
+                annonce="aucune"
+                titre={t("Feuille non modifiable", "Timesheet cannot be edited")}
+              >
+                <p>
+                  {t(
+                    "Cette feuille est soumise, validée ou verrouillée : aucune proposition.",
+                    "This timesheet is submitted, approved or locked: no suggestion.",
+                  )}
+                </p>
               </Alerte>
             ) : etat.reponse.propositions.length === 0 ? (
-              <p role="status">Rien à proposer pour cette semaine.</p>
+              <p role="status">
+                {t("Rien à proposer pour cette semaine.", "Nothing to suggest for this week.")}
+              </p>
             ) : (
-              <ul className="mp-pile" aria-label="Lignes proposées">
+              <ul className="mp-pile" aria-label={t("Lignes proposées", "Suggested rows")}>
                 {etat.reponse.propositions.map((p) => {
                   const cle = clePropositionTemps(p);
                   return (
                     <li key={cle}>
                       <CaseACocher
-                        libelle={`${libelleJourLong(p.date)} — ${p.tache_libelle ?? "Tâche"} (${p.mission_intitule ?? "Mission"}) : ${formaterValeur(unite === "heure" ? p.heures : p.jours, unite)}`}
+                        libelle={`${libelleJourLong(p.date, langue)} — ${p.tache_libelle ?? t("Tâche", "Task")} (${p.mission_intitule ?? t("Mission", "Engagement")}) : ${formaterValeur(unite === "heure" ? p.heures : p.jours, unite, langue)}`}
                         aide={
                           <>
                             <BadgeStatut tonalite={TONALITE[p.confiance]} sansIcone>
-                              {LIBELLE_CONFIANCE[p.confiance]}
+                              {(en ? LIBELLE_CONFIANCE_EN : LIBELLE_CONFIANCE)[p.confiance]}
                             </BadgeStatut>{" "}
-                            {LIBELLE_SOURCE[p.source]}. {p.raisons.join(" ")}
+                            {(en ? LIBELLE_SOURCE_EN : LIBELLE_SOURCE)[p.source]}.{" "}
+                            {p.raisons.join(" ")}
                           </>
                         }
                         checked={retenues.has(cle)}
@@ -145,17 +173,20 @@ export function PreRemplissage({ semaine, unite, onAppliquer }: PreRemplissagePr
             )}
             {etat.reponse.ecartees.length > 0 ? (
               <p className="mp-texte-doux">
-                {`Non proposé : ${etat.reponse.ecartees
+                {`${t("Non proposé : ", "Not suggested: ")}${etat.reponse.ecartees
                   .map(
                     (e) =>
-                      `${libelleJourLong(e.date)} (${LIBELLE_MOTIF_ECARTE[e.motif] ?? e.motif})`,
+                      `${libelleJourLong(e.date, langue)} (${(en ? LIBELLE_MOTIF_ECARTE_EN : LIBELLE_MOTIF_ECARTE)[e.motif] ?? e.motif})`,
                   )
                   .join(", ")}.`}
               </p>
             ) : null}
             {(etat.reponse.activite_ignoree ?? 0) > 0 ? (
               <p className="mp-texte-doux">
-                {`${etat.reponse.activite_ignoree} activité(s) sur des tâches qui ne vous sont pas affectées : ignorée(s).`}
+                {t(
+                  `${etat.reponse.activite_ignoree} activité(s) sur des tâches qui ne vous sont pas affectées : ignorée(s).`,
+                  `${etat.reponse.activite_ignoree} activity(ies) on tasks not assigned to you: ignored.`,
+                )}
               </p>
             ) : null}
             <div className="mp-ligne-action">
@@ -169,10 +200,10 @@ export function PreRemplissage({ semaine, unite, onAppliquer }: PreRemplissagePr
                   setEtat({ phase: "applique", ...onAppliquer(choisies) });
                 }}
               >
-                Appliquer à la grille
+                {t("Appliquer à la grille", "Apply to the grid")}
               </Bouton>
               <Bouton variante="discret" onClick={() => setEtat({ phase: "repos" })}>
-                Ignorer
+                {t("Ignorer", "Dismiss")}
               </Bouton>
             </div>
           </div>

@@ -9,7 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../../lib/api";
-import { STATUT_MISSION, TYPE_DOCUMENT_LIBELLES } from "../../lib/missions";
+import { messageSpecifiqueLangue } from "../../lib/double-authentification";
+import { libelleStatutMission, libelleTypeDocument, STATUT_MISSION } from "../../lib/missions";
 import {
   basculerDocument,
   basculerMission,
@@ -27,6 +28,7 @@ import {
   type MissionPartageable,
   type PartagesClient,
 } from "../../lib/portail-gestion";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Alerte } from "../ui/Alerte";
@@ -36,6 +38,7 @@ import { Carte } from "../ui/Carte";
 import { CaseACocher } from "../ui/CaseACocher";
 import { EtatVide } from "../ui/EtatListe";
 import { Select, type OptionSelect } from "../ui/Select";
+import type { Langue, Traduire } from "@missionpilot/shared";
 import "./portail-gestion.css";
 
 /** Ancre du formulaire des partages (lien depuis le résumé). */
@@ -95,28 +98,41 @@ export function FournisseurPartages({
 
 /** « Ce que voit votre client » : état ENREGISTRÉ, rien par défaut. */
 export function ResumePartages({ voitToutesLesMissions }: { voitToutesLesMissions: boolean }) {
+  const t = useT();
+  const langue = useLangue();
   const { enregistre, modifie } = usePartages();
   const r = resumePartages(enregistre);
   return (
-    <Carte titre="Ce que voit votre client">
+    <Carte titre={t("Ce que voit votre client", "What your client sees")}>
       <div className="mp-pile">
         {r.rien ? (
           <Alerte
             tonalite="info"
             annonce="aucune"
-            titre="Votre client ne voit encore aucune mission."
+            titre={t(
+              "Votre client ne voit encore aucune mission.",
+              "Your client does not see any engagement yet.",
+            )}
           >
             <p>
-              Rien n&apos;est partagé par défaut. Cochez plus bas les missions, jalons, factures et
-              documents à lui montrer, puis enregistrez.
+              {t(
+                "Rien n'est partagé par défaut. Cochez plus bas les missions, jalons, factures et documents à lui montrer, puis enregistrez.",
+                "Nothing is shared by default. Check below the engagements, milestones, invoices and documents to show them, then save.",
+              )}
             </p>
           </Alerte>
         ) : (
-          <ul className="mp-resume-portail" aria-label="Missions partagées avec le client">
+          <ul
+            className="mp-resume-portail"
+            aria-label={t(
+              "Missions partagées avec le client",
+              "Engagements shared with the client",
+            )}
+          >
             {r.missions.map((m) => (
               <li key={m.id} className="mp-resume-portail__element">
                 <strong className="mp-coupure">{m.intitule}</strong>
-                <span className="mp-texte-doux">{detailMissionPartagee(m)}</span>
+                <span className="mp-texte-doux">{detailMissionPartagee(m, langue)}</span>
               </li>
             ))}
           </ul>
@@ -124,27 +140,39 @@ export function ResumePartages({ voitToutesLesMissions }: { voitToutesLesMission
         <p>
           {r.contact ? (
             <>
-              Contact du cabinet affiché : <strong>{r.contact}</strong>.
+              {t("Contact du cabinet affiché :", "Firm contact shown:")}{" "}
+              <strong>{r.contact}</strong>.
             </>
           ) : (
-            "Aucun contact du cabinet n'est affiché à votre client."
+            t(
+              "Aucun contact du cabinet n'est affiché à votre client.",
+              "No firm contact is shown to your client.",
+            )
           )}
         </p>
         <p className="mp-texte-doux">
-          Selon son rôle, le contributeur ne voit pas les factures et l&apos;investisseur ne voit
-          aucune mission. Le budget, les temps, les coûts et les échanges internes ne font pas
-          partie des partages.
+          {t(
+            "Selon son rôle, le contributeur ne voit pas les factures et l'investisseur ne voit aucune mission. Le budget, les temps, les coûts et les échanges internes ne font pas partie des partages.",
+            "Depending on their role, the contributor does not see invoices and the investor does not see any engagement. The budget, time entries, costs and internal discussions are not part of the shared items.",
+          )}
         </p>
         {voitToutesLesMissions ? null : (
           <p className="mp-texte-doux">
-            Seules les missions que vous pouvez consulter apparaissent : d&apos;autres missions de
-            ce client peuvent être partagées par leurs responsables.
+            {t(
+              "Seules les missions que vous pouvez consulter apparaissent : d'autres missions de ce client peuvent être partagées par leurs responsables.",
+              "Only the engagements you can view appear: other engagements of this client may be shared by their managers.",
+            )}
           </p>
         )}
         {modifie ? (
           <p className="mp-partages__etat mp-partages__etat--modifie">
-            <a href={`#${ID_FORMULAIRE_PARTAGES}`}>Des modifications ne sont pas enregistrées</a> :
-            ce résumé montre ce que votre client voit actuellement.
+            <a href={`#${ID_FORMULAIRE_PARTAGES}`}>
+              {t("Des modifications ne sont pas enregistrées", "Some changes are not saved")}
+            </a>
+            {t(
+              " : ce résumé montre ce que votre client voit actuellement.",
+              ": this summary shows what your client currently sees.",
+            )}
           </p>
         ) : null}
       </div>
@@ -170,6 +198,8 @@ export function FormulairePartages({
   missions,
   optionsContact,
 }: FormulairePartagesProps) {
+  const t = useT();
+  const langue = useLangue();
   const { brouillon, initial, modifie, setBrouillon, enregistrer } = usePartages();
   const f = useFormulaire<never>();
   const [succes, setSucces] = useState<string | null>(null);
@@ -189,7 +219,7 @@ export function FormulairePartages({
     setSucces(null);
     setInfo(null);
     if (!modifie) {
-      setInfo("Aucune modification à enregistrer.");
+      setInfo(t("Aucune modification à enregistrer.", "No changes to save."));
       return;
     }
     await f.envoyer(
@@ -197,10 +227,13 @@ export function FormulairePartages({
       (c) => api.put<PartagesClient>(cheminPartagesPortail(clientId), c),
       {
         rafraichir: false,
-        messageSpecifique: (e) => messageErreurPortailGestion(e, "partages"),
+        messageSpecifique: (e) =>
+          messageErreurPortailGestion(e, "partages", langue) ?? messageSpecifiqueLangue(langue)(e),
         apres: (r) => {
           enregistrer(r);
-          setSucces(`Partages enregistrés. ${phraseResume(resumePartages(r))}`);
+          setSucces(
+            `${t("Partages enregistrés.", "Sharing saved.")} ${phraseResume(resumePartages(r), langue)}`,
+          );
         },
       },
     );
@@ -213,20 +246,34 @@ export function FormulairePartages({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Partages avec le client"
+      aria-label={t("Partages avec le client", "Sharing with the client")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={succes} refAlerte={f.refAlerte} />
       <Select
-        libelle="Contact principal affiché au client"
+        libelle={t("Contact principal affiché au client", "Main contact shown to the client")}
         options={optionsContact}
-        invite="Aucun contact affiché"
+        invite={t("Aucun contact affiché", "No contact shown")}
         value={brouillon.contact}
         onChange={(e) => changer({ ...brouillon, contact: e.target.value })}
-        aide="Seul nom du cabinet que votre client voit sur le portail, comme interlocuteur."
+        aide={t(
+          "Seul nom du cabinet que votre client voit sur le portail, comme interlocuteur.",
+          "The only firm name your client sees on the portal, as their contact person.",
+        )}
       />
       {missions.length === 0 ? (
-        <EtatVide titre="Ce client n'a encore aucune mission à partager." icone="dossier">
-          <p>Les missions créées pour ce client apparaîtront ici, non partagées.</p>
+        <EtatVide
+          titre={t(
+            "Ce client n'a encore aucune mission à partager.",
+            "This client has no engagement to share yet.",
+          )}
+          icone="dossier"
+        >
+          <p>
+            {t(
+              "Les missions créées pour ce client apparaîtront ici, non partagées.",
+              "Engagements created for this client will appear here, not shared.",
+            )}
+          </p>
         </EtatVide>
       ) : (
         <ul className="mp-partages-missions">
@@ -244,8 +291,11 @@ export function FormulairePartages({
         >
           {info ??
             (modifie
-              ? "Modifications non enregistrées : votre client ne les voit pas encore."
-              : "Aucune modification en attente.")}
+              ? t(
+                  "Modifications non enregistrées : votre client ne les voit pas encore.",
+                  "Unsaved changes: your client does not see them yet.",
+                )
+              : t("Aucune modification en attente.", "No pending changes."))}
         </p>
         <div className="mp-actions-formulaire">
           <Bouton
@@ -253,10 +303,14 @@ export function FormulairePartages({
             disabled={!modifie || f.enCours}
             onClick={() => changer(initial)}
           >
-            Annuler les modifications
+            {t("Annuler les modifications", "Cancel changes")}
           </Bouton>
-          <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-            Enregistrer les partages
+          <Bouton
+            type="submit"
+            chargement={f.enCours}
+            texteChargement={t("Enregistrement…", "Saving…")}
+          >
+            {t("Enregistrer les partages", "Save sharing")}
           </Bouton>
         </div>
       </div>
@@ -273,9 +327,15 @@ function PartageMission({
   brouillon: BrouillonPartages;
   onChange: (b: BrouillonPartages) => void;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const options = brouillon.missions[m.id];
   const partagee = options !== undefined;
-  const statut = STATUT_MISSION[m.statut] ?? { libelle: m.statut, tonalite: "neutre" as const };
+  const statutBase = STATUT_MISSION[m.statut] ?? { libelle: m.statut, tonalite: "neutre" as const };
+  const statut = {
+    ...statutBase,
+    libelle: STATUT_MISSION[m.statut] ? libelleStatutMission(m.statut, langue) : statutBase.libelle,
+  };
   // Nom accessible complet hors du groupe (liste des champs d'un lecteur d'écran).
   const pour = <span className="mp-visuellement-cache">{` — ${m.intitule}`}</span>;
   return (
@@ -290,31 +350,58 @@ function PartageMission({
           <span>{m.intitule}</span>
           <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
           <BadgeStatut tonalite={partagee ? "succes" : "neutre"}>
-            {partagee ? "Partagée" : "Non partagée"}
+            {partagee ? t("Partagée", "Shared") : t("Non partagée", "Not shared")}
           </BadgeStatut>
         </span>
       </legend>
       {m.gerable ? null : (
         <p className="mp-texte-doux mp-texte-petit">
-          Partages gérés par le directeur ou le chef de cette mission : lecture seule.
+          {t(
+            "Partages gérés par le directeur ou le chef de cette mission : lecture seule.",
+            "Sharing is managed by the director or manager of this engagement: read-only.",
+          )}
         </p>
       )}
       <CaseACocher
-        libelle={<>Partager la mission{pour}</>}
-        aide="Le client voit son intitulé, son statut et ses dates. Cocher un élément ci-dessous la partage aussi."
+        libelle={
+          <>
+            {t("Partager la mission", "Share the engagement")}
+            {pour}
+          </>
+        }
+        aide={t(
+          "Le client voit son intitulé, son statut et ses dates. Cocher un élément ci-dessous la partage aussi.",
+          "The client sees its title, status and dates. Checking an item below also shares it.",
+        )}
         checked={partagee}
         onChange={(e) => onChange(basculerMission(brouillon, m.id, e.target.checked))}
       />
       <div className="mp-partage-mission__options">
         <CaseACocher
-          libelle={<>Jalons{pour}</>}
-          aide="Le dirigeant client peut les valider."
+          libelle={
+            <>
+              {t("Jalons", "Milestones")}
+              {pour}
+            </>
+          }
+          aide={t(
+            "Le dirigeant client peut les valider.",
+            "The client executive can approve them.",
+          )}
           checked={options?.jalons ?? false}
           onChange={(e) => onChange(basculerOption(brouillon, m.id, "jalons", e.target.checked))}
         />
         <CaseACocher
-          libelle={<>Factures émises{pour}</>}
-          aide="Visibles du dirigeant client, avec leur état de paiement."
+          libelle={
+            <>
+              {t("Factures émises", "Issued invoices")}
+              {pour}
+            </>
+          }
+          aide={t(
+            "Visibles du dirigeant client, avec leur état de paiement.",
+            "Visible to the client executive, with their payment status.",
+          )}
           checked={options?.factures ?? false}
           onChange={(e) => onChange(basculerOption(brouillon, m.id, "factures", e.target.checked))}
         />
@@ -324,8 +411,8 @@ function PartageMission({
   );
 }
 
-const libelleDocument = (d: LigneDocumentPartage) =>
-  `${TYPE_DOCUMENT_LIBELLES[d.type] ?? "Document"} — ${d.nom} (version ${d.version})`;
+const libelleDocument = (d: LigneDocumentPartage, langue: Langue, t: Traduire) =>
+  `${libelleTypeDocument(d.type, langue) ?? t("Document", "Document")} — ${d.nom} (version ${d.version})`;
 
 function DocumentsMission({
   mission: m,
@@ -338,22 +425,32 @@ function DocumentsMission({
   onChange: (b: BrouillonPartages) => void;
   pour: ReactNode;
 }) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-pile">
-      <p className="mp-partage-mission__sous-titre">Livrables et lettres de mission{pour}</p>
+      <p className="mp-partage-mission__sous-titre">
+        {t("Livrables et lettres de mission", "Deliverables and engagement letters")}
+        {pour}
+      </p>
       {m.documentsIndisponibles ? (
         <Alerte tonalite="attention" annonce="aucune">
           <p>
-            La liste des documents de cette mission n&apos;a pas pu être chargée : seuls ceux déjà
-            partagés figurent ici. Rechargez la page pour en partager d&apos;autres.
+            {t(
+              "La liste des documents de cette mission n'a pas pu être chargée : seuls ceux déjà partagés figurent ici. Rechargez la page pour en partager d'autres.",
+              "The list of documents of this engagement could not be loaded: only those already shared appear here. Reload the page to share others.",
+            )}
           </p>
         </Alerte>
       ) : null}
       {m.documents.length === 0 ? (
         <p className="mp-texte-doux mp-texte-petit">
           {m.gerable
-            ? "Aucun livrable ni lettre de mission déposé pour cette mission."
-            : "Aucun document partagé."}
+            ? t(
+                "Aucun livrable ni lettre de mission déposé pour cette mission.",
+                "No deliverable or engagement letter uploaded for this engagement.",
+              )
+            : t("Aucun document partagé.", "No document shared.")}
         </p>
       ) : (
         <ul className="mp-partage-mission__documents">
@@ -361,10 +458,13 @@ function DocumentsMission({
             <li key={d.id}>
               {d.partageable ? (
                 <CaseACocher
-                  libelle={libelleDocument(d)}
+                  libelle={libelleDocument(d, langue, t)}
                   aide={
                     d.versionPlusRecente
-                      ? `Version ${d.versionPlusRecente} disponible : partagez-la pour remplacer celle-ci.`
+                      ? t(
+                          `Version ${d.versionPlusRecente} disponible : partagez-la pour remplacer celle-ci.`,
+                          `Version ${d.versionPlusRecente} available: share it to replace this one.`,
+                        )
                       : undefined
                   }
                   checked={d.id in brouillon.documents}
@@ -374,8 +474,10 @@ function DocumentsMission({
                 />
               ) : (
                 <p className="mp-partage-mission__indisponible">
-                  <span className="mp-coupure">{libelleDocument(d)}</span>
-                  <BadgeStatut tonalite="attention">Non partageable</BadgeStatut>
+                  <span className="mp-coupure">{libelleDocument(d, langue, t)}</span>
+                  <BadgeStatut tonalite="attention">
+                    {t("Non partageable", "Not shareable")}
+                  </BadgeStatut>
                   <span className="mp-texte-petit">{d.raison}</span>
                 </p>
               )}

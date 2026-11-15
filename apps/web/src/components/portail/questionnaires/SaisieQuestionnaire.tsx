@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { QuestionQuestionnaire } from "@missionpilot/shared";
 import { api } from "../../../lib/api";
+import { useT, useLangue } from "../../i18n/FournisseurLangue";
 import {
   annonceVisibilite,
   cheminApiQuestionnaire,
@@ -49,6 +50,7 @@ import {
   finParLecture,
   listeErreursQuestionnaire,
   MESSAGE_ENVOI_SUSPENDU,
+  MESSAGE_ENVOI_SUSPENDU_EN,
   sansCle,
   useAnnonces,
   type Courant,
@@ -78,6 +80,8 @@ export function SaisieQuestionnaire({
   onVue,
   onFin,
 }: SaisieQuestionnaireProps) {
+  const t = useT();
+  const langue = useLangue();
   const def = questionnaire.definition;
   const { id, mode } = questionnaire;
   const collectif = mode === "collectif";
@@ -134,7 +138,7 @@ export function SaisieQuestionnaire({
     });
     if (r.misesAJour.length > 0) setMajCollegues((prev) => new Set([...prev, ...r.misesAJour]));
     const ecart = ecartVisibilite(avant, visiblesDepuisSaisies(def, r.saisies));
-    annoncer(annonceIntegration(r.misesAJour.length, nouveaux.length, ecart));
+    annoncer(annonceIntegration(r.misesAJour.length, nouveaux.length, ecart, langue));
     onVue(vue);
     return { misesAJour: r.misesAJour.length, conflits: nouveaux.length };
   }
@@ -144,17 +148,17 @@ export function SaisieQuestionnaire({
     if (issue === "verrouille" || issue === "clos" || issue === "echeance") {
       const perdues = nonEnregistrees();
       sauvegarde.bloquer();
-      const r = await finParLecture(issue, mode, id, perdues);
+      const r = await finParLecture(issue, mode, id, perdues, langue);
       onFin(r.fin, r.vue);
       return;
     }
     if (issueBloquante(issue) || issue === "securite") {
       const perdues = nonEnregistrees();
       sauvegarde.bloquer();
-      onFin(finInaccessible(issue, mode, perdues));
+      onFin(finInaccessible(issue, mode, perdues, langue));
       return;
     }
-    const message = messageRefus(issue, mode, moment, e);
+    const message = messageRefus(issue, mode, moment, e, langue);
     if (moment === "envoi") {
       setSessionEnvoi(issue === "session");
       setErreurEnvoi((prev) => ({ message, n: (prev?.n ?? 0) + 1 }));
@@ -165,10 +169,15 @@ export function SaisieQuestionnaire({
 
   function refuser(e: unknown, issue: IssueRefus): boolean {
     if (issue === "invalide") {
-      const champs = erreursQuestionsServeur(e, ids);
+      const champs = erreursQuestionsServeur(e, ids, langue);
       if (Object.keys(champs).length > 0) {
         mettreAJour({ refusees: { ...courant.current.refusees, ...champs } });
-        annoncer("Certaines réponses ont été refusées : corrigez les questions signalées.");
+        annoncer(
+          t(
+            "Certaines réponses ont été refusées : corrigez les questions signalées.",
+            "Some responses were rejected: correct the flagged questions.",
+          ),
+        );
         return true;
       }
     }
@@ -215,7 +224,7 @@ export function SaisieQuestionnaire({
       setMajCollegues((prev) => new Set([...prev].filter((x) => x !== qid)));
     }
     const ecart = ecartVisibilite(avant, visiblesDepuisSaisies(def, suivantes));
-    annoncer(annonceVisibilite(ecart.apparues, ecart.masquees));
+    annoncer(annonceVisibilite(ecart.apparues, ecart.masquees, langue));
     sauvegarde.signaler();
   }
 
@@ -246,19 +255,24 @@ export function SaisieQuestionnaire({
         if (!estModifiable(vue, aujourdhui)) {
           const perdues = nonEnregistrees();
           sauvegarde.bloquer();
-          onFin(finLectureSeule(vue, perdues, aujourdhui), vue);
+          onFin(finLectureSeule(vue, perdues, aujourdhui, langue), vue);
           return;
         }
         const bilan = integrer(vue, {});
         if (bilan.misesAJour === 0 && bilan.conflits === 0) {
-          annoncer("Aucune nouvelle réponse de vos collègues.");
+          annoncer(
+            t(
+              "Aucune nouvelle réponse de vos collègues.",
+              "No new responses from your colleagues.",
+            ),
+          );
         }
       });
       if (!estVideCharge(preparer())) sauvegarde.signaler();
     } catch (e) {
       const issue = issueRefus(e);
       if (issueBloquante(issue) || issue === "securite") await terminer(issue, e, "brouillon");
-      else setErreurGlobale(messageActualisation(issue, e));
+      else setErreurGlobale(messageActualisation(issue, e, langue));
     } finally {
       setActualisation(false);
     }
@@ -266,13 +280,13 @@ export function SaisieQuestionnaire({
 
   /** Erreurs à reprendre, dans l'ordre du questionnaire (refus du serveur d'abord). */
   function listeErreurs(c: Courant, refus: Record<string, string>): ErreurAffichee[] {
-    return listeErreursQuestionnaire(def, c, refus);
+    return listeErreursQuestionnaire(def, c, refus, langue);
   }
 
   function signalerErreurs(erreurs: readonly ErreurAffichee[]) {
     setTentative(true);
     setConfirmation(false);
-    annoncer(annonceEnvoiImpossible(erreurs.length));
+    annoncer(annonceEnvoiImpossible(erreurs.length, langue));
     if (erreurs[0]) allerA(erreurs[0].id);
   }
 
@@ -294,7 +308,7 @@ export function SaisieQuestionnaire({
       if (!(await sauvegarde.envoyer())) {
         setConfirmation(false);
         setErreurEnvoi({
-          message: MESSAGE_ENVOI_SUSPENDU,
+          message: langue === "en" ? MESSAGE_ENVOI_SUSPENDU_EN : MESSAGE_ENVOI_SUSPENDU,
           n: Date.now(),
         });
         return;
@@ -311,11 +325,11 @@ export function SaisieQuestionnaire({
         }),
       );
       sauvegarde.bloquer();
-      onFin(finApresEnvoi(vue), vue);
+      onFin(finApresEnvoi(vue, langue), vue);
     } catch (e) {
       const issue = issueRefus(e);
       setConfirmation(false);
-      const champs = issue === "invalide" ? erreursQuestionsServeur(e, ids) : {};
+      const champs = issue === "invalide" ? erreursQuestionsServeur(e, ids, langue) : {};
       if (Object.keys(champs).length > 0) {
         setRefusEnvoi(champs);
         const liste = listeErreurs(courant.current, champs);
@@ -335,19 +349,19 @@ export function SaisieQuestionnaire({
   const erreursEnvoi = useMemo(
     () =>
       tentative
-        ? new Map(erreursAvantEnvoi(def, saisies, conflits).map((e) => [e.id, e.message]))
+        ? new Map(erreursAvantEnvoi(def, saisies, conflits, langue).map((e) => [e.id, e.message]))
         : null,
-    [def, saisies, conflits, tentative],
+    [def, saisies, conflits, tentative, langue],
   );
 
   function erreurDe(q: QuestionQuestionnaire): string | undefined {
-    return erreurQuestion(q, { refusees, refusEnvoi, erreursEnvoi, touchees, saisies });
+    return erreurQuestion(q, { refusees, refusEnvoi, erreursEnvoi, touchees, saisies }, langue);
   }
 
   function conflitDe(q: QuestionQuestionnaire) {
     if (!possede(conflits, q.id)) return null;
     return {
-      leur: libelleReponse(q, propre(conflits, q.id)),
+      leur: libelleReponse(q, propre(conflits, q.id), langue),
       onGarder: () => trancher(q.id, "garder"),
       onReprendre: () => trancher(q.id, "reprendre"),
     };

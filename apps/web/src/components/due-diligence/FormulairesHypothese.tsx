@@ -19,6 +19,7 @@ import {
 } from "../../lib/due-diligence-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
@@ -32,6 +33,8 @@ export interface FormulaireHypotheseProps {
 
 /** Ajout d'une hypothèse (racine ou sous-hypothèse). Un verdict n'est jamais saisi ici. */
 export function FormulaireHypothese({ dossierId, parents }: FormulaireHypotheseProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampHypothese>();
   const [s, setS] = useState<SaisieHypothese>(saisieHypotheseVide());
   const maj = (p: Partial<SaisieHypothese>) => setS((x) => ({ ...x, ...p }));
@@ -39,11 +42,11 @@ export function FormulaireHypothese({ dossierId, parents }: FormulaireHypotheseP
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerHypothese(s),
+      validerHypothese(s, langue),
       (charge) => api.post<{ id: string }>(cheminHypotheses(dossierId), charge),
       {
-        succes: "Hypothèse ajoutée.",
-        messageSpecifique: messageDd,
+        succes: t("Hypothèse ajoutée.", "Hypothesis added."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => setS(saisieHypotheseVide()),
       },
     );
@@ -55,43 +58,49 @@ export function FormulaireHypothese({ dossierId, parents }: FormulaireHypotheseP
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Nouvelle hypothèse"
+      aria-label={t("Nouvelle hypothèse", "New hypothesis")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Hypothèse refusée"
+        titreErreur={t("Hypothèse refusée", "Hypothesis refused")}
       />
       <Champ
-        libelle="Hypothèse"
+        libelle={t("Hypothèse", "Hypothesis")}
         required
         maxLength={TITRE_MAX}
         value={s.libelle}
         onChange={(e) => maj({ libelle: e.target.value })}
         erreur={f.erreurs.libelle}
-        aide="Une proposition qui se confirme ou s'infirme : « Le marché croît de plus de 8 % par an »."
+        aide={t(
+          "Une proposition qui se confirme ou s'infirme : « Le marché croît de plus de 8 % par an ».",
+          "A proposition that can be confirmed or refuted: “The market grows by more than 8% a year”.",
+        )}
       />
       <Select
-        libelle="Hypothèse parente"
-        invite="Aucune : hypothèse principale"
+        libelle={t("Hypothèse parente", "Parent hypothesis")}
+        invite={t("Aucune : hypothèse principale", "None: main hypothesis")}
         options={parents}
         value={s.parent_id}
         onChange={(e) => maj({ parent_id: e.target.value })}
         erreur={f.erreurs.parent_id}
-        aide="L'arbre compte quatre niveaux au plus."
+        aide={t("L'arbre compte quatre niveaux au plus.", "The tree has four levels at most.")}
       />
       <ZoneTexte
-        libelle="Critère de décision"
+        libelle={t("Critère de décision", "Decision criterion")}
         rows={2}
         maxLength={CRITERE_MAX}
         value={s.critere}
         onChange={(e) => maj({ critere: e.target.value })}
         erreur={f.erreurs.critere}
-        aide="Facultatif : ce qui permettra de la confirmer ou de l'infirmer."
+        aide={t(
+          "Facultatif : ce qui permettra de la confirmer ou de l'infirmer.",
+          "Optional: what will make it possible to confirm or refute it.",
+        )}
       />
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={TEXTE_LONG_MAX}
         value={s.description}
@@ -99,8 +108,12 @@ export function FormulaireHypothese({ dossierId, parents }: FormulaireHypotheseP
         erreur={f.erreurs.description}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Ajouter l&apos;hypothèse
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Ajouter l'hypothèse", "Add the hypothesis")}
         </Bouton>
       </div>
     </form>
@@ -119,6 +132,8 @@ export interface CorrectionHypotheseProps {
 
 /** Correction motivée d'une hypothèse (nouvelle version) ou retrait ; le verdict en attente l'interdit. */
 export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampCorrectionHypothese>();
   const [s, setS] = useState<SaisieCorrectionHypothese>({
     libelle: hypothese.libelle,
@@ -131,15 +146,18 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
   async function corriger(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerCorrectionHypothese(s, hypothese),
+      validerCorrectionHypothese(s, hypothese, langue),
       (charge) =>
         api.post<{ version: number }>(cheminVersionsHypothese(hypothese.id), {
           ...charge,
           version_courante: hypothese.version,
         }),
       {
-        succes: "Nouvelle version enregistrée ; l'ancienne reste dans l'historique.",
-        messageSpecifique: messageDd,
+        succes: t(
+          "Nouvelle version enregistrée ; l'ancienne reste dans l'historique.",
+          "New version saved; the previous one stays in the history.",
+        ),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () => maj({ motif: "" }),
       },
     );
@@ -147,13 +165,16 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
 
   async function retirer() {
     await f.envoyer(
-      validerRetrait(s.motif, true),
+      validerRetrait(s.motif, true, langue),
       (charge) =>
         api.post<{ version: number }>(cheminVersionsHypothese(hypothese.id), {
           ...charge,
           version_courante: hypothese.version,
         }),
-      { succes: "Hypothèse retirée de l'arbre.", messageSpecifique: messageDd },
+      {
+        succes: t("Hypothèse retirée de l'arbre.", "Hypothesis removed from the tree."),
+        messageSpecifique: (err) => messageDd(err, langue),
+      },
     );
   }
 
@@ -163,16 +184,16 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
       className="mp-formulaire"
       noValidate
       onSubmit={corriger}
-      aria-label="Corriger l'hypothèse"
+      aria-label={t("Corriger l'hypothèse", "Edit the hypothesis")}
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Correction refusée"
+        titreErreur={t("Correction refusée", "Correction refused")}
       />
       <Champ
-        libelle="Hypothèse"
+        libelle={t("Hypothèse", "Hypothesis")}
         required
         maxLength={TITRE_MAX}
         value={s.libelle}
@@ -180,7 +201,7 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
         erreur={f.erreurs.libelle}
       />
       <ZoneTexte
-        libelle="Critère de décision"
+        libelle={t("Critère de décision", "Decision criterion")}
         rows={2}
         maxLength={CRITERE_MAX}
         value={s.critere}
@@ -188,7 +209,7 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
         erreur={f.erreurs.critere}
       />
       <ZoneTexte
-        libelle="Description"
+        libelle={t("Description", "Description")}
         rows={2}
         maxLength={TEXTE_LONG_MAX}
         value={s.description}
@@ -196,21 +217,28 @@ export function CorrectionHypothese({ hypothese }: CorrectionHypotheseProps) {
         erreur={f.erreurs.description}
       />
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         required
         rows={2}
         maxLength={MOTIF_MAX}
         value={s.motif}
         onChange={(e) => maj({ motif: e.target.value })}
         erreur={f.erreurs.motif}
-        aide="Conservé dans l'historique. Obligatoire pour corriger comme pour retirer l'hypothèse."
+        aide={t(
+          "Conservé dans l'historique. Obligatoire pour corriger comme pour retirer l'hypothèse.",
+          "Kept in the history. Required to edit as well as to remove the hypothesis.",
+        )}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer la correction
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer la correction", "Save the correction")}
         </Bouton>
         <Bouton variante="danger" onClick={() => void retirer()} disabled={f.enCours}>
-          Retirer cette hypothèse
+          {t("Retirer cette hypothèse", "Remove this hypothesis")}
         </Bouton>
       </div>
     </form>

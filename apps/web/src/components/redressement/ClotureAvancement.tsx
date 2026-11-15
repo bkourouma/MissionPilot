@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { RedClotureContenu } from "@missionpilot/shared";
 import { formaterMontantMineur, formaterNombre } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { formaterPart, libelleAvancement, libelleVolet } from "../../lib/redressement";
 import { libelleSurTotal } from "../../lib/redressement-cloture";
 import { BadgeStatut } from "../ui/BadgeStatut";
@@ -23,83 +24,111 @@ function Liste({ lignes, legende }: { lignes: [string, ReactNode][]; legende: st
  * Plan, créanciers, covenants, check-lists et causes racines du bilan : décomptes, montants et
  * parts déjà calculés par le serveur, mis en forme sans aucune addition.
  */
-export function ClotureAvancement({ contenu }: { contenu: RedClotureContenu }) {
+export async function ClotureAvancement({ contenu }: { contenu: RedClotureContenu }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const { plan, creanciers: cr, covenants, checklists, causes, devise } = contenu;
-  const mt = (v: number) => formaterMontantMineur(v, devise);
+  const mt = (v: number) => formaterMontantMineur(v, devise, langue);
+  const nb = (v: number) => formaterNombre(v, 0, langue);
+  const sur = (n: number, total: number) => libelleSurTotal(n, total, langue);
   return (
     <div className="mp-red-cartes">
-      <Carte titre="Plan d'action" niveauTitre={3}>
+      <Carte titre={t("Plan d'action", "Action plan")} niveauTitre={3}>
         <Liste
-          legende="Avancement du plan"
+          legende={t("Avancement du plan", "Plan progress")}
           lignes={[
-            ["Actions terminées", libelleSurTotal(plan.terminees, plan.total)],
-            ["Actions abandonnées", formaterNombre(plan.abandonnees, 0)],
-            ["Actions en retard", formaterNombre(plan.en_retard, 0)],
-            ["Avancement", libelleAvancement(plan.avancement_pb)],
+            [t("Actions terminées", "Completed actions"), sur(plan.terminees, plan.total)],
+            [t("Actions abandonnées", "Abandoned actions"), nb(plan.abandonnees)],
+            [t("Actions en retard", "Overdue actions"), nb(plan.en_retard)],
+            [t("Avancement", "Progress"), libelleAvancement(plan.avancement_pb, langue)],
             [
-              `Volet ${libelleVolet("quick_win")}`,
-              libelleSurTotal(plan.par_volet.quick_win.terminees, plan.par_volet.quick_win.total),
+              `${t("Volet", "Track")} ${libelleVolet("quick_win", langue)}`,
+              sur(plan.par_volet.quick_win.terminees, plan.par_volet.quick_win.total),
             ],
             [
-              `Volet ${libelleVolet("restructuration")}`,
-              libelleSurTotal(
-                plan.par_volet.restructuration.terminees,
-                plan.par_volet.restructuration.total,
-              ),
+              `${t("Volet", "Track")} ${libelleVolet("restructuration", langue)}`,
+              sur(plan.par_volet.restructuration.terminees, plan.par_volet.restructuration.total),
             ],
-            ["Impact retenu sur la trésorerie", mt(plan.leviers.impact_tresorerie_unique_retenu)],
-            ["Impact réalisé sur la trésorerie", mt(plan.leviers.impact_tresorerie_unique_realise)],
             [
-              "Impact retenu sur le résultat annuel",
+              t("Impact retenu sur la trésorerie", "Retained impact on cash"),
+              mt(plan.leviers.impact_tresorerie_unique_retenu),
+            ],
+            [
+              t("Impact réalisé sur la trésorerie", "Realized impact on cash"),
+              mt(plan.leviers.impact_tresorerie_unique_realise),
+            ],
+            [
+              t("Impact retenu sur le résultat annuel", "Retained impact on annual result"),
               mt(plan.leviers.impact_resultat_annuel_retenu),
             ],
             [
-              "Impact réalisé sur le résultat annuel",
+              t("Impact réalisé sur le résultat annuel", "Realized impact on annual result"),
               mt(plan.leviers.impact_resultat_annuel_realise),
             ],
           ]}
         />
       </Carte>
-      <Carte titre="Créanciers" niveauTitre={3}>
+      <Carte titre={t("Créanciers", "Creditors")} niveauTitre={3}>
         <Liste
-          legende="Situation des créanciers"
+          legende={t("Situation des créanciers", "Creditor position")}
           lignes={[
-            ["Créanciers suivis", formaterNombre(cr.nombre, 0)],
-            ["Encours initial", mt(cr.encours_initial)],
-            ["Encours restant", mt(cr.encours_restant)],
-            ["Montant échu", mt(cr.echu)],
-            ["Remises obtenues", mt(cr.remises_obtenues)],
-            ["Total payé", mt(cr.total_paye)],
-            ["Apurement", formaterPart(cr.apurement_pb)],
-            ["Accords respectés", libelleSurTotal(cr.accords.respectes, cr.accords.total)],
-            ["Accords en retard", formaterNombre(cr.accords.en_retard, 0)],
-            ["Accords soldés", formaterNombre(cr.accords.soldes, 0)],
-            ["Accords rompus", formaterNombre(cr.accords.rompus, 0)],
+            [t("Créanciers suivis", "Creditors tracked"), nb(cr.nombre)],
+            [t("Encours initial", "Initial outstanding"), mt(cr.encours_initial)],
+            [t("Encours restant", "Remaining outstanding"), mt(cr.encours_restant)],
+            [t("Montant échu", "Amount past due"), mt(cr.echu)],
+            [t("Remises obtenues", "Write-offs obtained"), mt(cr.remises_obtenues)],
+            [t("Total payé", "Total paid"), mt(cr.total_paye)],
+            [t("Apurement", "Settlement"), formaterPart(cr.apurement_pb, langue)],
+            [
+              t("Accords respectés", "Agreements honored"),
+              sur(cr.accords.respectes, cr.accords.total),
+            ],
+            [t("Accords en retard", "Agreements overdue"), nb(cr.accords.en_retard)],
+            [t("Accords soldés", "Agreements settled"), nb(cr.accords.soldes)],
+            [t("Accords rompus", "Agreements broken"), nb(cr.accords.rompus)],
           ]}
         />
       </Carte>
-      <Carte titre="Covenants, check-lists et causes" niveauTitre={3}>
+      <Carte
+        titre={t("Covenants, check-lists et causes", "Covenants, checklists and causes")}
+        niveauTitre={3}
+      >
         <Liste
-          legende="Covenants, check-lists et causes racines"
+          legende={t(
+            "Covenants, check-lists et causes racines",
+            "Covenants, checklists and root causes",
+          )}
           lignes={[
             [
-              "Covenants non respectés",
+              t("Covenants non respectés", "Covenants not met"),
               covenants.en_defaut === null
-                ? "Aucun covenant défini"
-                : formaterNombre(covenants.en_defaut, 0),
+                ? t("Aucun covenant défini", "No covenant defined")
+                : nb(covenants.en_defaut),
             ],
-            ["Check-lists complètes", libelleSurTotal(checklists.completes, checklists.nombre)],
-            ["Complétude moyenne", formaterPart(checklists.completude_moyenne_pb)],
-            ["Conformité moyenne", formaterPart(checklists.conformite_moyenne_pb)],
-            ["Conformité minimale", formaterPart(checklists.conformite_minimale_pb)],
             [
-              "Causes racines",
+              t("Check-lists complètes", "Complete checklists"),
+              sur(checklists.completes, checklists.nombre),
+            ],
+            [
+              t("Complétude moyenne", "Average completeness"),
+              formaterPart(checklists.completude_moyenne_pb, langue),
+            ],
+            [
+              t("Conformité moyenne", "Average compliance"),
+              formaterPart(checklists.conformite_moyenne_pb, langue),
+            ],
+            [
+              t("Conformité minimale", "Minimum compliance"),
+              formaterPart(checklists.conformite_minimale_pb, langue),
+            ],
+            [
+              t("Causes racines", "Root causes"),
               causes.validee ? (
                 <BadgeStatut tonalite="succes">
-                  {`Validées (${formaterNombre(causes.nombre, 0)})`}
+                  {t(`Validées (${nb(causes.nombre)})`, `Approved (${nb(causes.nombre)})`)}
                 </BadgeStatut>
               ) : (
-                <BadgeStatut tonalite="attention">Non validées</BadgeStatut>
+                <BadgeStatut tonalite="attention">{t("Non validées", "Not approved")}</BadgeStatut>
               ),
             ],
           ]}

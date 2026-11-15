@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formaterJours, formaterPourcentage } from "../../lib/format";
+import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { statutEcart, type ElementMission } from "../../lib/indicateurs";
 import { BadgeStatut } from "../ui/BadgeStatut";
 import { Calcule } from "../ui/Calcule";
@@ -20,30 +21,33 @@ function parDerive(a: ElementMission, b: ElementMission): number {
  * atterrissage estimé (chiffres du moteur, jamais recalculés ici). La marge n'apparaît que si
  * l'API la sert (FIN-02).
  */
-export function MissionsEnVol({
+export async function MissionsEnVol({
   elements,
   limite = 8,
 }: {
   elements: readonly ElementMission[];
   limite?: number;
 }) {
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const lignes = [...elements].sort(parDerive).slice(0, limite);
   const avecMarge = lignes.some((m) => typeof m.marge?.taux_marge === "number");
   const colonnes: ColonneTableau<ElementMission>[] = [
     {
       cle: "mission",
-      entete: "Mission",
+      entete: t("Mission", "Engagement"),
       rendu: (m) => <Link href={`/missions/${m.mission_id}`}>{m.intitule}</Link>,
     },
     {
       cle: "jours",
-      entete: "Réalisés / budgétés",
+      entete: t("Réalisés / budgétés", "Worked / budgeted"),
       alignement: "droite",
-      rendu: (m) => `${formaterJours(m.jours_realises)} / ${formaterJours(m.jours_budget)}`,
+      rendu: (m) =>
+        `${formaterJours(m.jours_realises, langue)} / ${formaterJours(m.jours_budget, langue)}`,
     },
     {
       cle: "trajectoire",
-      entete: "Trajectoire",
+      entete: t("Trajectoire", "Trajectory"),
       rendu: (m) => (
         <Trajectoire
           budget={m.jours_budget}
@@ -56,11 +60,11 @@ export function MissionsEnVol({
       ? [
           {
             cle: "marge",
-            entete: "Marge",
+            entete: t("Marge", "Margin"),
             alignement: "droite" as const,
             rendu: (m: ElementMission) =>
               typeof m.marge?.taux_marge === "number" ? (
-                formaterPourcentage(m.marge.taux_marge)
+                formaterPourcentage(m.marge.taux_marge, 1, langue)
               ) : (
                 <span data-vide>—</span>
               ),
@@ -69,9 +73,9 @@ export function MissionsEnVol({
       : []),
     {
       cle: "ecart",
-      entete: "Écart de cap",
+      entete: t("Écart de cap", "Course variance"),
       rendu: (m) => {
-        const s = statutEcart(m.ecart_terminaison.relatif_jours, m.ecart_terminaison.jours);
+        const s = statutEcart(m.ecart_terminaison.relatif_jours, m.ecart_terminaison.jours, langue);
         return <BadgeStatut tonalite={s.tonalite}>{s.libelle}</BadgeStatut>;
       },
     },
@@ -80,21 +84,35 @@ export function MissionsEnVol({
     <section className="mp-missions-en-vol" aria-labelledby="titre-missions-en-vol">
       <div className="mp-missions-en-vol__entete">
         <h3 id="titre-missions-en-vol" className="mp-missions-en-vol__titre">
-          Missions en vol
+          {t("Missions en vol", "Engagements in flight")}
         </h3>
         <Calcule />
       </div>
       <Tableau
-        legende="Missions en vol, classées par écart de cap"
+        legende={t(
+          "Missions en vol, classées par écart de cap",
+          "Engagements in flight, ranked by course variance",
+        )}
         colonnes={colonnes}
         lignes={lignes}
         cleLigne={(m) => m.mission_id}
-        messageVide="Aucune mission en cours sur la période."
+        messageVide={t(
+          "Aucune mission en cours sur la période.",
+          "No engagement in progress during the period.",
+        )}
       />
       {elements.length > lignes.length ? (
         <p className="mp-texte-doux">
-          {`${lignes.length} missions sur ${elements.length}. `}
-          <Link href="/indicateurs">Voir toutes les missions dans les indicateurs</Link>
+          {t(
+            `${lignes.length} missions sur ${elements.length}. `,
+            `${lignes.length} engagements out of ${elements.length}. `,
+          )}
+          <Link href="/indicateurs">
+            {t(
+              "Voir toutes les missions dans les indicateurs",
+              "See all engagements in the indicators",
+            )}
+          </Link>
         </p>
       ) : null}
     </section>

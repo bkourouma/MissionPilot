@@ -5,7 +5,9 @@
  */
 import {
   aPermission,
+  creerTraduire,
   SALLE_PIECES_PAR_DEMANDE_MAX,
+  type Langue,
   type PalierRelanceSalle,
   type Role,
   type StatutDemandeSalle,
@@ -134,6 +136,37 @@ export const PALIER_RELANCE: Record<PalierRelanceSalle, string> = {
 
 // --- Chemins -------------------------------------------------------------------------------
 
+const STATUT_DEMANDE_EN: Record<StatutDemandeSalle, string> = {
+  brouillon: "Draft",
+  envoyee: "Sent to client",
+  close: "Closed",
+};
+const STATUT_PIECE_EN: Record<StatutPieceSalle, string> = {
+  demandee: "Requested",
+  recue: "Received, to review",
+  acceptee: "Accepted",
+  rejetee: "Rejected",
+};
+const PALIER_RELANCE_EN: Record<PalierRelanceSalle, string> = {
+  rappel_j_moins_3: "Reminder three days before the due date",
+  relance_j_plus_1: "Reminder the day after the due date",
+  relance_j_plus_7: "Firm reminder seven days after the due date",
+  manuelle: "Manual reminder",
+};
+
+/** Libellé et tonalité d'un statut de demande, dans la langue demandée. */
+export function statutDemande(s: StatutDemandeSalle, langue: Langue = "fr"): Libelle {
+  const base = STATUT_DEMANDE[s];
+  return langue === "en" ? { ...base, libelle: STATUT_DEMANDE_EN[s] } : base;
+}
+/** Libellé et tonalité d'un statut de pièce, dans la langue demandée. */
+export function statutPiece(s: StatutPieceSalle, langue: Langue = "fr"): Libelle {
+  const base = STATUT_PIECE[s];
+  return langue === "en" ? { ...base, libelle: STATUT_PIECE_EN[s] } : base;
+}
+export const libellePalierRelance = (p: PalierRelanceSalle, langue: Langue = "fr") =>
+  (langue === "en" ? PALIER_RELANCE_EN : PALIER_RELANCE)[p];
+
 export const cheminSalle = (missionId: string) =>
   `/api/missions/${encodeURIComponent(missionId)}/salle`;
 export const cheminDemande = (missionId: string, demandeId: string) =>
@@ -246,6 +279,10 @@ export function acceptationParDeposant(
 /** Texte affiché à la place du bouton « Accepter » (voir `acceptationParDeposant`). */
 export const MESSAGE_ACCEPTATION_PAR_DEPOSANT =
   "Vous avez déposé ce fichier : un autre membre de l'équipe (ou un associé) doit l'accepter. Vous pouvez le rejeter.";
+export const MESSAGE_ACCEPTATION_PAR_DEPOSANT_EN =
+  "You uploaded this file: another team member (or a partner) must accept it. You can reject it.";
+export const messageAcceptationParDeposant = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_ACCEPTATION_PAR_DEPOSANT_EN : MESSAGE_ACCEPTATION_PAR_DEPOSANT;
 
 /**
  * Un dépôt non retenu (ni accepté, ni versé au dossier) dont le fichier est encore là peut être
@@ -267,12 +304,23 @@ export function peutRetirerDepot(
 export const ECHEANCE_MIN = "2000-01-01";
 export const ECHEANCE_MAX = "2100-12-31";
 export const MESSAGE_ECHEANCE_BORNEE = "Date comprise entre 2000 et 2100 attendue.";
+export const MESSAGE_ECHEANCE_BORNEE_EN = "A date between 2000 and 2100 is expected.";
 
 /** Contrôle local d'une échéance saisie (`""` : pas d'échéance) ; message ou `null`. */
-export function erreurEcheance(echeance: string, aujourdhui: string): string | null {
+export function erreurEcheance(
+  echeance: string,
+  aujourdhui: string,
+  langue: Langue = "fr",
+): string | null {
+  const t = creerTraduire(langue);
   if (echeance === "") return null;
-  if (echeance < ECHEANCE_MIN || echeance > ECHEANCE_MAX) return MESSAGE_ECHEANCE_BORNEE;
-  if (echeance < aujourdhui) return "L'échéance doit être aujourd'hui ou plus tard.";
+  if (echeance < ECHEANCE_MIN || echeance > ECHEANCE_MAX)
+    return t(MESSAGE_ECHEANCE_BORNEE, MESSAGE_ECHEANCE_BORNEE_EN);
+  if (echeance < aujourdhui)
+    return t(
+      "L'échéance doit être aujourd'hui ou plus tard.",
+      "The due date must be today or later.",
+    );
   return null;
 }
 
@@ -281,29 +329,48 @@ export function erreurEcheance(echeance: string, aujourdhui: string): string | n
  * REQUETE_INVALIDE, `details.fieldErrors.echeance`), sinon `null`. Les messages du schéma sont
  * en français.
  */
-export function erreurEcheanceApi(e: unknown): string | null {
+export function erreurEcheanceApi(e: unknown, langue: Langue = "fr"): string | null {
   if (!(e instanceof ErreurApi) || e.code !== "REQUETE_INVALIDE") return null;
   const details = e.details as { fieldErrors?: Record<string, unknown> } | undefined;
   const champ = details?.fieldErrors?.echeance;
   if (!Array.isArray(champ)) return null;
   const premier = champ.find((m): m is string => typeof m === "string" && m.trim() !== "");
-  return premier ?? "Échéance invalide : saisissez une date valide.";
+  return (
+    premier ??
+    creerTraduire(langue)(
+      "Échéance invalide : saisissez une date valide.",
+      "Invalid due date: enter a valid date.",
+    )
+  );
 }
 
 // --- Textes -----------------------------------------------------------------------------------
 
 /** « 3 sur 7 pièces acceptées » (ou « Aucune pièce »). */
-export function avancement(s: SynthesePieces): string {
+export function avancement(s: SynthesePieces, langue: Langue = "fr"): string {
+  if (langue === "en") {
+    if (s.total === 0) return "No documents";
+    return `${s.acceptee} of ${s.total} document${s.total > 1 ? "s" : ""} accepted`;
+  }
   if (s.total === 0) return "Aucune pièce";
   return `${s.acceptee} sur ${s.total} pièce${s.total > 1 ? "s" : ""} acceptée${s.acceptee > 1 ? "s" : ""}`;
 }
 
 /** Détail court : « 2 à examiner · 1 rejetée · 4 attendues ». */
-export function detailAvancement(s: SynthesePieces): string {
+export function detailAvancement(s: SynthesePieces, langue: Langue = "fr"): string {
+  const en = langue === "en";
   const morceaux = [
-    s.recue > 0 ? `${s.recue} à examiner` : null,
-    s.rejetee > 0 ? `${s.rejetee} rejetée${s.rejetee > 1 ? "s" : ""}` : null,
-    s.demandee > 0 ? `${s.demandee} attendue${s.demandee > 1 ? "s" : ""}` : null,
+    s.recue > 0 ? (en ? `${s.recue} to review` : `${s.recue} à examiner`) : null,
+    s.rejetee > 0
+      ? en
+        ? `${s.rejetee} rejected`
+        : `${s.rejetee} rejetée${s.rejetee > 1 ? "s" : ""}`
+      : null,
+    s.demandee > 0
+      ? en
+        ? `${s.demandee} awaited`
+        : `${s.demandee} attendue${s.demandee > 1 ? "s" : ""}`
+      : null,
   ].filter((x): x is string => x !== null);
   return morceaux.join(" · ");
 }
@@ -343,17 +410,30 @@ export const SAISIE_DEMANDE_VIDE: SaisieDemande = {
 export type ErreursDemande = Partial<Record<"titre" | "echeance" | "pieces", string>>;
 
 /** Contrôles locaux avant l'appel (l'API revalide tout). */
-export function validerDemande(s: SaisieDemande, aujourdhui: string): ErreursDemande {
+export function validerDemande(
+  s: SaisieDemande,
+  aujourdhui: string,
+  langue: Langue = "fr",
+): ErreursDemande {
+  const t = creerTraduire(langue);
   const erreurs: ErreursDemande = {};
-  if (s.titre.trim() === "") erreurs.titre = "Donnez un titre à la demande.";
-  else if (s.titre.trim().length > 200) erreurs.titre = "200 caractères au plus.";
-  const echeance = erreurEcheance(s.echeance, aujourdhui);
+  if (s.titre.trim() === "")
+    erreurs.titre = t("Donnez un titre à la demande.", "Give the request a title.");
+  else if (s.titre.trim().length > 200)
+    erreurs.titre = t("200 caractères au plus.", "200 characters at most.");
+  const echeance = erreurEcheance(s.echeance, aujourdhui, langue);
   if (echeance) erreurs.echeance = echeance;
   const pieces = s.pieces.filter((p) => p.libelle.trim() !== "");
   if (s.modeleId === "" && pieces.length === 0) {
-    erreurs.pieces = "Choisissez un modèle ou ajoutez au moins une pièce.";
+    erreurs.pieces = t(
+      "Choisissez un modèle ou ajoutez au moins une pièce.",
+      "Choose a template or add at least one document.",
+    );
   } else if (pieces.length > SALLE_PIECES_PAR_DEMANDE_MAX) {
-    erreurs.pieces = `${SALLE_PIECES_PAR_DEMANDE_MAX} pièces au plus.`;
+    erreurs.pieces = t(
+      `${SALLE_PIECES_PAR_DEMANDE_MAX} pièces au plus.`,
+      `${SALLE_PIECES_PAR_DEMANDE_MAX} documents at most.`,
+    );
   }
   return erreurs;
 }
@@ -387,16 +467,29 @@ export function modelesTries(
 }
 
 /** Message d'erreur propre à la salle (codes de l'API), sinon `null` (message générique). */
-export function messageSalle(code: string | undefined): string | null {
+export function messageSalle(code: string | undefined, langue: Langue = "fr"): string | null {
+  const t = creerTraduire(langue);
   switch (code) {
     case "SALLE_SANS_DESTINATAIRE":
-      return "Aucun dirigeant ni contributeur du client n'est actif sur le portail : invitez-en un depuis la fiche du client, puis envoyez.";
+      return t(
+        "Aucun dirigeant ni contributeur du client n'est actif sur le portail : invitez-en un depuis la fiche du client, puis envoyez.",
+        "No executive or contributor of the client is active on the portal: invite one from the client record, then send.",
+      );
     case "DEMANDE_FIGEE":
-      return "Cette demande a changé d'état (envoyée ou close) : rechargez la page.";
+      return t(
+        "Cette demande a changé d'état (envoyée ou close) : rechargez la page.",
+        "This request changed state (sent or closed): reload the page.",
+      );
     case "TRANSITION_REFUSEE":
-      return "Cette pièce a changé d'état entre-temps : rechargez la page.";
+      return t(
+        "Cette pièce a changé d'état entre-temps : rechargez la page.",
+        "This document changed state in the meantime: reload the page.",
+      );
     case "CONTENU_IDENTIQUE":
-      return "Ce fichier est identique à la version déjà présente : aucune nouvelle version n'a été créée.";
+      return t(
+        "Ce fichier est identique à la version déjà présente : aucune nouvelle version n'a été créée.",
+        "This file is identical to the existing version: no new version was created.",
+      );
     default:
       return null;
   }

@@ -28,6 +28,7 @@ import { Bouton } from "../ui/Bouton";
 import { Carte } from "../ui/Carte";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import "./plan-ateliers.css";
 
 interface OptionSaisie {
@@ -67,16 +68,18 @@ export function ContributionAtelier({
   initiale,
   cheminBase,
 }: ContributionAtelierProps) {
+  const t = useT();
+  const langue = useLangue();
   return (
     <div className="mp-pile">
       {methodes.map((m) => (
         <Carte
           key={m}
-          titre={libelleMethode(m)}
+          titre={libelleMethode(m, langue)}
           niveauTitre={3}
           actions={
             initiale[m] ? (
-              <span className="mp-texte-doux mp-texte-petit">{`Version ${initiale[m]?.version} déposée`}</span>
+              <span className="mp-texte-doux mp-texte-petit">{`${t("Version", "Version")} ${initiale[m]?.version} ${t("déposée", "submitted")}`}</span>
             ) : null
           }
         >
@@ -121,6 +124,8 @@ function FormulaireVote({
   initiale: MesContributions["vote"];
   chemin: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [s, setS] = useState<SaisieVote>(() => saisieVote(options, initiale));
   const [global, setGlobal] = useState<string | null>(null);
@@ -128,14 +133,17 @@ function FormulaireVote({
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const v = validerVote(s, budget, plafond);
+    const v = validerVote(s, budget, plafond, langue);
     setGlobal(v.global);
     const validation: Resultat<NonNullable<typeof v.corps>, string> = v.corps
       ? { ok: true, charge: v.corps }
       : { ok: false, erreurs: v.erreurs };
     await f.envoyer(validation, (corps) => api.put(chemin, corps), {
-      succes: "Votre vote est enregistré. Vous pouvez le modifier tant que l'atelier est ouvert.",
-      messageSpecifique: messageAtelier,
+      succes: t(
+        "Votre vote est enregistré. Vous pouvez le modifier tant que l'atelier est ouvert.",
+        "Your vote is saved. You can change it as long as the workshop is open.",
+      ),
+      messageSpecifique: (e) => messageAtelier(e, langue),
     });
   }
 
@@ -145,12 +153,17 @@ function FormulaireVote({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Vote par points"
+      aria-label={t("Vote par points", "Point voting")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <p className="mp-atelier__reste" role="status">
-        {`${repartis} point${repartis > 1 ? "s" : ""} répartis sur ${budget}${
-          plafond === null ? "" : ` (${plafond} au plus par option)`
+        {`${t(
+          `${repartis} point${repartis > 1 ? "s" : ""} répartis sur ${budget}`,
+          `${repartis} point${repartis > 1 ? "s" : ""} allocated out of ${budget}`,
+        )}${
+          plafond === null
+            ? ""
+            : t(` (${plafond} au plus par option)`, ` (${plafond} at most per option)`)
         }.`}
       </p>
       {global ? (
@@ -169,7 +182,7 @@ function FormulaireVote({
             </div>
             <div className="mp-atelier__saisie">
               <Champ
-                libelle={`Points pour « ${o.libelle} »`}
+                libelle={`${t("Points pour", "Points for")} « ${o.libelle} »`}
                 inputMode="numeric"
                 value={s[o.id] ?? ""}
                 onChange={(e) => setS((x) => ({ ...x, [o.id]: e.target.value }))}
@@ -180,8 +193,14 @@ function FormulaireVote({
         ))}
       </ul>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {initiale ? "Remplacer mon vote" : "Enregistrer mon vote"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {initiale
+            ? t("Remplacer mon vote", "Replace my vote")
+            : t("Enregistrer mon vote", "Save my vote")}
         </Bouton>
       </div>
     </form>
@@ -197,6 +216,8 @@ function FormulaireClassement({
   initiale: MesContributions["priorisation"];
   chemin: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [ordre, setOrdre] = useState<string[]>(() => ordreInitial(options, initiale));
   const [annonce, setAnnonce] = useState("");
@@ -205,19 +226,29 @@ function FormulaireClassement({
   function bouger(i: number, delta: number) {
     const id = ordre[i] as string;
     setOrdre((o) => deplacer(o, i, delta));
-    setAnnonce(`« ${parId.get(id)?.libelle ?? ""} » passe au rang ${i + delta + 1}.`);
+    setAnnonce(
+      t(
+        `« ${parId.get(id)?.libelle ?? ""} » passe au rang ${i + delta + 1}.`,
+        `"${parId.get(id)?.libelle ?? ""}" moves to rank ${i + delta + 1}.`,
+      ),
+    );
   }
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const v = validerClassement(ordre);
+    const v = validerClassement(ordre, langue);
     const validation: Resultat<NonNullable<typeof v.corps>, string> = v.corps
       ? { ok: true, charge: v.corps }
-      : { ok: false, erreurs: { classement: v.global ?? "Classement invalide." } };
+      : {
+          ok: false,
+          erreurs: { classement: v.global ?? t("Classement invalide.", "Invalid ranking.") },
+        };
     await f.envoyer(validation, (corps) => api.put(chemin, corps), {
-      succes:
+      succes: t(
         "Votre classement est enregistré. Vous pouvez le modifier tant que l'atelier est ouvert.",
-      messageSpecifique: messageAtelier,
+        "Your ranking is saved. You can change it as long as the workshop is open.",
+      ),
+      messageSpecifique: (e) => messageAtelier(e, langue),
     });
   }
 
@@ -227,11 +258,14 @@ function FormulaireClassement({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Priorisation par classement"
+      aria-label={t("Priorisation par classement", "Ranking")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <p className="mp-texte-doux">
-        Classez les options de la plus importante (1) à la moins importante.
+        {t(
+          "Classez les options de la plus importante (1) à la moins importante.",
+          "Rank the options from most important (1) to least important.",
+        )}
       </p>
       <p className="mp-visuellement-cache" role="status">
         {annonce}
@@ -252,26 +286,38 @@ function FormulaireClassement({
               <Bouton
                 variante="discret"
                 disabled={i === 0}
-                aria-label={`Monter « ${parId.get(id)?.libelle} » au rang ${i}`}
+                aria-label={t(
+                  `Monter « ${parId.get(id)?.libelle} » au rang ${i}`,
+                  `Move "${parId.get(id)?.libelle}" up to rank ${i}`,
+                )}
                 onClick={() => bouger(i, -1)}
               >
-                Monter
+                {t("Monter", "Move up")}
               </Bouton>
               <Bouton
                 variante="discret"
                 disabled={i === ordre.length - 1}
-                aria-label={`Descendre « ${parId.get(id)?.libelle} » au rang ${i + 2}`}
+                aria-label={t(
+                  `Descendre « ${parId.get(id)?.libelle} » au rang ${i + 2}`,
+                  `Move "${parId.get(id)?.libelle}" down to rank ${i + 2}`,
+                )}
                 onClick={() => bouger(i, 1)}
               >
-                Descendre
+                {t("Descendre", "Move down")}
               </Bouton>
             </div>
           </li>
         ))}
       </ol>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {initiale ? "Remplacer mon classement" : "Enregistrer mon classement"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {initiale
+            ? t("Remplacer mon classement", "Replace my ranking")
+            : t("Enregistrer mon classement", "Save my ranking")}
         </Bouton>
       </div>
     </form>
@@ -289,27 +335,34 @@ function FormulaireMatrice({
   initiale: MesContributions["matrice"];
   chemin: string;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<string>();
   const [s, setS] = useState<SaisieMatrice>(() => saisieMatrice(options, initiale));
   const [global, setGlobal] = useState<string | null>(null);
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const v = validerMatrice(s);
+    const v = validerMatrice(s, langue);
     setGlobal(v.global);
     const validation: Resultat<NonNullable<typeof v.corps>, string> = v.corps
       ? { ok: true, charge: v.corps }
       : { ok: false, erreurs: v.erreurs };
     await f.envoyer(validation, (corps) => api.put(chemin, corps), {
-      succes:
+      succes: t(
         "Vos notes sont enregistrées. Vous pouvez les modifier tant que l'atelier est ouvert.",
-      messageSpecifique: messageAtelier,
+        "Your scores are saved. You can change them as long as the workshop is open.",
+      ),
+      messageSpecifique: (e) => messageAtelier(e, langue),
     });
   }
   const aide = (a: { libelle: string; inverse: boolean }) =>
     a.inverse
-      ? `${a.libelle} : 1 = faible (favorable), 5 = élevé`
-      : `${a.libelle} : 1 = faible, 5 = élevé`;
+      ? t(
+          `${a.libelle} : 1 = faible (favorable), 5 = élevé`,
+          `${a.libelle}: 1 = low (favorable), 5 = high`,
+        )
+      : t(`${a.libelle} : 1 = faible, 5 = élevé`, `${a.libelle}: 1 = low, 5 = high`);
 
   return (
     <form
@@ -317,11 +370,14 @@ function FormulaireMatrice({
       className="mp-formulaire"
       noValidate
       onSubmit={soumettre}
-      aria-label="Matrice"
+      aria-label={t("Matrice", "Matrix")}
     >
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <p className="mp-texte-doux">
-        {`Notez chaque option de 1 à 5 sur les deux axes. ${aide(axes.x)}. ${aide(axes.y)}. Laissez vide une option que vous ne souhaitez pas placer.`}
+        {t(
+          `Notez chaque option de 1 à 5 sur les deux axes. ${aide(axes.x)}. ${aide(axes.y)}. Laissez vide une option que vous ne souhaitez pas placer.`,
+          `Score each option from 1 to 5 on both axes. ${aide(axes.x)}. ${aide(axes.y)}. Leave an option empty if you do not want to place it.`,
+        )}
       </p>
       {global ? (
         <Alerte tonalite="danger" annonce="alert">
@@ -340,7 +396,7 @@ function FormulaireMatrice({
             </div>
             <div className="mp-atelier__saisie">
               <Select
-                libelle={`${axes.x.libelle} de « ${o.libelle} »`}
+                libelle={`${axes.x.libelle} ${t("de", "of")} « ${o.libelle} »`}
                 invite="—"
                 options={OPTIONS_NOTE_MATRICE}
                 value={s[o.id]?.x ?? ""}
@@ -349,7 +405,7 @@ function FormulaireMatrice({
                 }
               />
               <Select
-                libelle={`${axes.y.libelle} de « ${o.libelle} »`}
+                libelle={`${axes.y.libelle} ${t("de", "of")} « ${o.libelle} »`}
                 invite="—"
                 options={OPTIONS_NOTE_MATRICE}
                 value={s[o.id]?.y ?? ""}
@@ -362,8 +418,14 @@ function FormulaireMatrice({
         ))}
       </ul>
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {initiale ? "Remplacer mes notes" : "Enregistrer mes notes"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {initiale
+            ? t("Remplacer mes notes", "Replace my scores")
+            : t("Enregistrer mes notes", "Save my scores")}
         </Bouton>
       </div>
     </form>

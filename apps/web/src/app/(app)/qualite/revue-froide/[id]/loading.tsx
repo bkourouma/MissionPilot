@@ -1,5 +1,13 @@
 import { Squelette } from "../../../../../components/ui/Squelette";
+import { obtenirT } from "../../../../../lib/i18n/serveur";
 
-export default function Chargement() {
-  return <Squelette avecTitre lignes={6} libelle="Chargement de la campagne…" />;
+export default async function Chargement() {
+  const t = await obtenirT();
+  return (
+    <Squelette
+      avecTitre
+      lignes={6}
+      libelle={t("Chargement de la campagne…", "Loading the campaign…")}
+    />
+  );
 }

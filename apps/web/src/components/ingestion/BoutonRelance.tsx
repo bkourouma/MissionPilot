@@ -5,6 +5,7 @@ import "./ingestion.css";
 import { useRafraichir } from "../formulaires/useRafraichir";
 import { useState } from "react";
 import { Bouton } from "../ui/Bouton";
+import { useT } from "../i18n/FournisseurLangue";
 import { messageErreur, relancerDocumentIngestion, type ApiIngestion } from "../../lib/ingestion";
 
 export interface BoutonRelanceProps {
@@ -18,6 +19,7 @@ export interface BoutonRelanceProps {
  * recharge ensuite et suit l'avancement toute seule ; l'erreur éventuelle est annoncée.
  */
 export function BoutonRelance({ api, docId, libelle }: BoutonRelanceProps) {
+  const t = useT();
   const { rafraichir } = useRafraichir();
   const [occupe, setOccupe] = useState(false);
   const [message, setMessage] = useState("");
@@ -29,7 +31,12 @@ export function BoutonRelance({ api, docId, libelle }: BoutonRelanceProps) {
     setMessage("");
     try {
       await relancerDocumentIngestion(api, docId);
-      setMessage("Lecture relancée : le statut se met à jour tout seul.");
+      setMessage(
+        t(
+          "Lecture relancée : le statut se met à jour tout seul.",
+          "Reading restarted: the status updates on its own.",
+        ),
+      );
       rafraichir();
     } catch (e) {
       setEchec(messageErreur(e));
@@ -45,7 +52,7 @@ export function BoutonRelance({ api, docId, libelle }: BoutonRelanceProps) {
           variante="secondaire"
           icone="historique"
           chargement={occupe}
-          texteChargement="Relance en cours…"
+          texteChargement={t("Relance en cours…", "Restarting…")}
           onClick={() => void relancer()}
         >
           {libelle}

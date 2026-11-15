@@ -9,6 +9,7 @@ import {
   type EligibiliteRelecteurs,
 } from "../../lib/qualite-froide";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Select } from "../ui/Select";
 import { useActionFroide } from "./useActionFroide";
@@ -25,6 +26,8 @@ export interface FroideAffectationProps {
  * désactivés, avec la raison.
  */
 export function FroideAffectation({ echantillonId, mission }: FroideAffectationProps) {
+  const t = useT();
+  const langue = useLangue();
   const a = useActionFroide();
   const [liste, setListe] = useState<EligibiliteRelecteurs | null>(null);
   const [choix, setChoix] = useState("");
@@ -36,8 +39,11 @@ export function FroideAffectation({ echantillonId, mission }: FroideAffectationP
         <Bouton
           variante="secondaire"
           chargement={a.enCours}
-          texteChargement="Chargement…"
-          aria-label={`Choisir un relecteur pour la mission ${mission}`}
+          texteChargement={t("Chargement…", "Loading…")}
+          aria-label={t(
+            `Choisir un relecteur pour la mission ${mission}`,
+            `Choose a reviewer for the engagement ${mission}`,
+          )}
           onClick={async () => {
             const r = await a.agir(
               () => api.get<EligibiliteRelecteurs>(cheminEligibles(echantillonId)),
@@ -46,12 +52,12 @@ export function FroideAffectation({ echantillonId, mission }: FroideAffectationP
             if (r.ok) setListe(r.valeur);
           }}
         >
-          Choisir un relecteur
+          {t("Choisir un relecteur", "Choose a reviewer")}
         </Bouton>
         <RetourFormulaire
           erreur={a.erreur}
           refAlerte={a.refAlerte}
-          titreErreur="Liste indisponible"
+          titreErreur={t("Liste indisponible", "List unavailable")}
         />
       </div>
     );
@@ -65,12 +71,12 @@ export function FroideAffectation({ echantillonId, mission }: FroideAffectationP
       onSubmit={async (e) => {
         e.preventDefault();
         if (choix === "") {
-          setErreurChoix("Choisissez un relecteur éligible.");
+          setErreurChoix(t("Choisissez un relecteur éligible.", "Choose an eligible reviewer."));
           return;
         }
         setErreurChoix(undefined);
         await a.agir(() => api.post(cheminAffectation(echantillonId), { relecteur_id: choix }), {
-          succes: "Relecteur affecté.",
+          succes: t("Relecteur affecté.", "Reviewer assigned."),
         });
       }}
     >
@@ -78,37 +84,50 @@ export function FroideAffectation({ echantillonId, mission }: FroideAffectationP
         erreur={a.erreur}
         succes={a.succes}
         refAlerte={a.refAlerte}
-        titreErreur="Affectation refusée"
+        titreErreur={t("Affectation refusée", "Assignment refused")}
       />
       {a.violations.length > 0 ? (
         <ul className="mp-froide-ineligibles">
           {a.violations.map((v, i) => (
-            <li key={`${v.code}-${i}`}>{libelleViolationIndependance(v)}</li>
+            <li key={`${v.code}-${i}`}>{libelleViolationIndependance(v, langue)}</li>
           ))}
         </ul>
       ) : null}
       <Select
-        libelle={`Relecteur indépendant pour la mission ${mission}`}
+        libelle={t(
+          `Relecteur indépendant pour la mission ${mission}`,
+          `Independent reviewer for the engagement ${mission}`,
+        )}
         value={choix}
         onChange={(e) => setChoix(e.target.value)}
-        invite="Choisir un relecteur"
+        invite={t("Choisir un relecteur", "Choose a reviewer")}
         options={liste.relecteurs.map((r) => ({
           valeur: r.id,
           libelle: r.eligible
             ? r.nom
-            : `${r.nom} (non éligible : ${r.violations.map(libelleViolationIndependance).join(", ")})`,
+            : t(
+                `${r.nom} (non éligible : ${r.violations.map((v) => libelleViolationIndependance(v, langue)).join(", ")})`,
+                `${r.nom} (not eligible: ${r.violations.map((v) => libelleViolationIndependance(v, langue)).join(", ")})`,
+              ),
           desactivee: !r.eligible,
         }))}
         erreur={erreurChoix}
         aide={
           ineligibles.length > 0
-            ? "Les personnes grisées ne sont pas indépendantes de cette mission."
+            ? t(
+                "Les personnes grisées ne sont pas indépendantes de cette mission.",
+                "People shown in gray are not independent of this engagement.",
+              )
             : undefined
         }
       />
       <div>
-        <Bouton type="submit" chargement={a.enCours} texteChargement="Affectation…">
-          Affecter
+        <Bouton
+          type="submit"
+          chargement={a.enCours}
+          texteChargement={t("Affectation…", "Assigning…")}
+        >
+          {t("Affecter", "Assign")}
         </Bouton>
       </div>
     </form>

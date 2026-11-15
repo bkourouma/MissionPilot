@@ -1,4 +1,4 @@
-import type { Role } from "@missionpilot/shared";
+import type { Langue, Role } from "@missionpilot/shared";
 import { chargerServeur } from "./api-serveur";
 import {
   candidatsProprietaire,
@@ -42,6 +42,7 @@ export async function chargerOptionsPilotage(
   roles: readonly Role[],
   mission: Pick<MissionDetaillee, "directeur_id" | "chef_id" | "equipe">,
   missionId: string,
+  langue: Langue = "fr",
 ): Promise<OptionsPilotage> {
   const [definitions, personnes] = await Promise.all([
     chargerServeur<{ elements: DefinitionKpi[] }>(cheminKpiMission(missionId)),
@@ -62,7 +63,7 @@ export async function chargerOptionsPilotage(
     kpisActifs: kpis
       .filter((k) => k.actif)
       .map(({ valeur, libelle, unite }) => ({ valeur, libelle, unite })),
-    personnes: candidatsProprietaire(mission, noms),
+    personnes: candidatsProprietaire(mission, noms, langue),
     erreurKpis: definitions.ok ? null : definitions.message,
   };
 }
@@ -79,6 +80,7 @@ const REVUES_TENUES_PROPOSEES = 10;
 export async function chargerDecisionsPourAction(
   missionId: string,
   revueSupplementaire?: string,
+  langue: Langue = "fr",
 ): Promise<{ decisions: OptionDecision[]; erreur: string | null }> {
   const liste = await chargerServeur<PageRevues>(
     cheminRevues(missionId, `statut=tenue&limite=${REVUES_TENUES_PROPOSEES}`),
@@ -94,7 +96,11 @@ export async function chargerDecisionsPourAction(
   lisibles.sort((a, b) => b.numero - a.numero);
   const incomplet = !liste.ok || details.some((d) => !d.ok);
   return {
-    decisions: optionsDecisions(lisibles),
-    erreur: incomplet ? "Certaines décisions de revue n'ont pas pu être chargées." : null,
+    decisions: optionsDecisions(lisibles, langue),
+    erreur: incomplet
+      ? langue === "en"
+        ? "Some review decisions could not be loaded."
+        : "Certaines décisions de revue n'ont pas pu être chargées."
+      : null,
   };
 }

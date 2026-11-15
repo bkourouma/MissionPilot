@@ -1,14 +1,14 @@
 "use client";
 
-import { RED_CAUSES_MAX, RED_DOMAINE_LIBELLES, RED_DOMAINES } from "@missionpilot/shared";
-import { OPTIONS_CONFIANCE_CAUSE } from "../../lib/redressement-diagnostic";
+import { RED_CAUSES_MAX, RED_DOMAINES } from "@missionpilot/shared";
+import { optionsConfianceCause } from "../../lib/redressement-diagnostic";
+import { libelleDomaine } from "../../lib/redressement";
 import { causeVide, type SaisieCause } from "../../lib/redressement-diagnostic-saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
 import { Select } from "../ui/Select";
 import { ZoneTexte } from "../ui/ZoneTexte";
-
-const OPTIONS_DOMAINES = RED_DOMAINES.map((d) => ({ valeur: d, libelle: RED_DOMAINE_LIBELLES[d] }));
 
 /**
  * Édition des causes d'un brouillon : libellé, description, domaine et confiance (libellé fixe,
@@ -25,15 +25,24 @@ export function CausesEditeur({
   erreurs: Partial<Record<string, string>>;
   desactive?: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
+  const optionsDomaines = RED_DOMAINES.map((d) => ({
+    valeur: d,
+    libelle: libelleDomaine(d, langue),
+  }));
   const maj = (i: number, patch: Partial<SaisieCause>) =>
     onChange(causes.map((c, k) => (k === i ? { ...c, ...patch } : c)));
   return (
     <div className="mp-pile">
-      <ul className="mp-diag-liste" aria-label="Causes racines à modifier">
+      <ul
+        className="mp-diag-liste"
+        aria-label={t("Causes racines à modifier", "Root causes to edit")}
+      >
         {causes.map((c, i) => (
           <li key={c.id ?? `nouvelle-${i}`} className="mp-diag-cause">
             <Champ
-              libelle={`Libellé de la cause ${i + 1}`}
+              libelle={t(`Libellé de la cause ${i + 1}`, `Label of cause ${i + 1}`)}
               autoComplete="off"
               value={c.libelle}
               disabled={desactive}
@@ -49,19 +58,19 @@ export function CausesEditeur({
             />
             <div className="mp-grille-champs">
               <Select
-                libelle="Domaine"
+                libelle={t("Domaine", "Area")}
                 value={c.domaine}
                 disabled={desactive}
-                options={OPTIONS_DOMAINES}
+                options={optionsDomaines}
                 onChange={(e) => maj(i, { domaine: e.target.value as SaisieCause["domaine"] })}
                 erreur={erreurs[`${i}.domaine`]}
               />
               <Select
-                libelle="Niveau de confiance"
+                libelle={t("Niveau de confiance", "Confidence level")}
                 value={c.confiance}
                 disabled={desactive}
-                invite="Non indiqué"
-                options={OPTIONS_CONFIANCE_CAUSE}
+                invite={t("Non indiqué", "Not specified")}
+                options={optionsConfianceCause(langue)}
                 onChange={(e) => maj(i, { confiance: e.target.value as SaisieCause["confiance"] })}
                 erreur={erreurs[`${i}.confiance`]}
               />
@@ -71,9 +80,9 @@ export function CausesEditeur({
                 variante="discret"
                 disabled={desactive || causes.length <= 1}
                 onClick={() => onChange(causes.filter((_, k) => k !== i))}
-                aria-label={`Retirer la cause ${i + 1}`}
+                aria-label={t(`Retirer la cause ${i + 1}`, `Remove cause ${i + 1}`)}
               >
-                Retirer
+                {t("Retirer", "Remove")}
               </Bouton>
             </div>
           </li>
@@ -85,11 +94,14 @@ export function CausesEditeur({
           disabled={desactive || causes.length >= RED_CAUSES_MAX}
           onClick={() => onChange([...causes, causeVide()])}
         >
-          Ajouter une cause
+          {t("Ajouter une cause", "Add a cause")}
         </Bouton>
         {causes.length >= RED_CAUSES_MAX ? (
           <span className="mp-texte-doux mp-texte-petit">
-            {RED_CAUSES_MAX} causes au plus par cartographie.
+            {t(
+              `${RED_CAUSES_MAX} causes au plus par cartographie.`,
+              `${RED_CAUSES_MAX} causes at most per map.`,
+            )}
           </span>
         ) : null}
       </div>

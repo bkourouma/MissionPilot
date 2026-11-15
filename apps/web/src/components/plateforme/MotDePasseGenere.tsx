@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import "./plateforme-commun.css";
@@ -19,6 +20,7 @@ export interface MotDePasseGenereProps {
  * disparaît quand le parent le retire de son état (bouton « J'ai noté le mot de passe »).
  */
 export function MotDePasseGenere({ motDePasse, compte, surTermine }: MotDePasseGenereProps) {
+  const t = useT();
   const [copie, setCopie] = useState<"non" | "oui" | "echec">("non");
   const champ = useRef<HTMLInputElement>(null);
 
@@ -47,16 +49,23 @@ export function MotDePasseGenere({ motDePasse, compte, surTermine }: MotDePasseG
       <Alerte
         tonalite="attention"
         annonce="alert"
-        titre="Mot de passe provisoire : à noter maintenant"
+        titre={t(
+          "Mot de passe provisoire : à noter maintenant",
+          "Temporary password: write it down now",
+        )}
       >
         <p id="titre-mdp-genere">
-          {compte}. Ce mot de passe ne sera <strong>plus jamais affiché</strong> : copiez-le et
-          transmettez-le de façon sécurisée avant de fermer ce message.
+          {compte}. {t("Ce mot de passe ne sera ", "This password will ")}
+          <strong>{t("plus jamais affiché", "never be shown again")}</strong>
+          {t(
+            " : copiez-le et transmettez-le de façon sécurisée avant de fermer ce message.",
+            ": copy it and pass it on securely before closing this message.",
+          )}
         </p>
       </Alerte>
       <div className="mp-mdp-genere__ligne">
         <label className="mp-visuellement-cache" htmlFor="mdp-genere-valeur">
-          Mot de passe généré
+          {t("Mot de passe généré", "Generated password")}
         </label>
         <input
           ref={champ}
@@ -70,23 +79,30 @@ export function MotDePasseGenere({ motDePasse, compte, surTermine }: MotDePasseG
           onFocus={(e) => e.currentTarget.select()}
         />
         <Bouton variante="secondaire" icone="copie" onClick={() => void copier()}>
-          Copier
+          {t("Copier", "Copy")}
         </Bouton>
       </div>
       <p className="mp-visuellement-cache" role="status" aria-live="polite">
-        {copie === "oui" ? "Mot de passe copié dans le presse-papiers." : ""}
+        {copie === "oui"
+          ? t("Mot de passe copié dans le presse-papiers.", "Password copied to the clipboard.")
+          : ""}
       </p>
       {copie === "oui" ? (
         <p className="mp-texte-doux" aria-hidden="true">
-          Copié dans le presse-papiers.
+          {t("Copié dans le presse-papiers.", "Copied to the clipboard.")}
         </p>
       ) : null}
       {copie === "echec" ? (
         <p className="mp-texte-doux">
-          Copie automatique impossible : le texte est sélectionné, copiez-le avec Ctrl+C.
+          {t(
+            "Copie automatique impossible : le texte est sélectionné, copiez-le avec Ctrl+C.",
+            "Automatic copy is not possible: the text is selected, copy it with Ctrl+C.",
+          )}
         </p>
       ) : null}
-      <Bouton onClick={surTermine}>J&apos;ai noté le mot de passe</Bouton>
+      <Bouton onClick={surTermine}>
+        {t("J'ai noté le mot de passe", "I have noted the password")}
+      </Bouton>
     </section>
   );
 }

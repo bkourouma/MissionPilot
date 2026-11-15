@@ -1,11 +1,14 @@
 import {
   aPermission,
+  creerTraduire,
+  LOCALES_INTL,
   OBSERVATOIRE_SECTEUR_LIBELLES,
   OBSERVATOIRE_TAILLE_LIBELLES,
   type ObservatoireAgregats,
   type ObservatoireCasePubliee,
   type ObservatoireEtatAdhesion,
   type ObservatoireSecteurCode,
+  type Langue,
   type ObservatoireTailleCode,
   type Role,
 } from "@missionpilot/shared";
@@ -38,6 +41,18 @@ export const PRINCIPES_OBSERVATOIRE: readonly string[] = [
   "Seuls les cabinets contributeurs consultent l'observatoire. Vous pouvez vous retirer et retirer vos contributions à tout moment.",
 ];
 
+export const PRINCIPES_OBSERVATOIRE_EN: readonly string[] = [
+  "Membership is voluntary: it stays disabled until a partner decides otherwise.",
+  "Only anonymous aggregates are shared: never the name of a client, a firm or an engagement.",
+  "A cell (sector and size) is only published from 5 companies coming from at least 3 firms; below that, it stays hidden.",
+  "Aggregates are frozen every month: a contribution only appears the following month.",
+  "Only contributing firms can view the observatory. You can withdraw and remove your contributions at any time.",
+];
+
+/** Principes de l'observatoire dans la langue demandée. */
+export const principesObservatoire = (langue: Langue = "fr"): readonly string[] =>
+  langue === "en" ? PRINCIPES_OBSERVATOIRE_EN : PRINCIPES_OBSERVATOIRE;
+
 /* ----- Droits et états ----- */
 
 export function peutConsulterObservatoire(roles: readonly Role[]): boolean {
@@ -61,30 +76,54 @@ export function etatPageObservatoire(
 
 /* ----- Libellés et mise en forme ----- */
 
-export function libelleSecteur(code: ObservatoireSecteurCode): string {
-  return OBSERVATOIRE_SECTEUR_LIBELLES[code] ?? code;
+const SECTEUR_LIBELLES_EN: Record<ObservatoireSecteurCode, string> = {
+  agriculture: "Agriculture and agribusiness",
+  industrie: "Industry, mining and energy",
+  btp: "Construction and real estate",
+  commerce: "Trade and distribution",
+  services: "Services",
+  numerique: "Digital and telecommunications",
+  finance: "Banking, insurance and microfinance",
+  autres: "Other sectors",
+};
+
+const TAILLE_LIBELLES_EN: Record<ObservatoireTailleCode, string> = {
+  tpe: "Very small business",
+  pme: "SME",
+  eti: "Mid-size company",
+  grande_entreprise: "Large company",
+};
+
+export function libelleSecteur(code: ObservatoireSecteurCode, langue: Langue = "fr"): string {
+  return (langue === "en" ? SECTEUR_LIBELLES_EN : OBSERVATOIRE_SECTEUR_LIBELLES)[code] ?? code;
 }
 
-export function libelleTaille(code: ObservatoireTailleCode): string {
-  return OBSERVATOIRE_TAILLE_LIBELLES[code] ?? code;
+export function libelleTaille(code: ObservatoireTailleCode, langue: Langue = "fr"): string {
+  return (langue === "en" ? TAILLE_LIBELLES_EN : OBSERVATOIRE_TAILLE_LIBELLES)[code] ?? code;
 }
 
-const MOIS = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+const MOIS: Record<Langue, Intl.DateTimeFormat> = {
+  fr: new Intl.DateTimeFormat(LOCALES_INTL.fr, { month: "long", year: "numeric", timeZone: "UTC" }),
+  en: new Intl.DateTimeFormat(LOCALES_INTL.en, { month: "long", year: "numeric", timeZone: "UTC" }),
+};
 
 /** « 2026-10-01 » → « octobre 2026 » ; chaîne illisible rendue telle quelle. */
-export function formaterPeriode(periode: string | null | undefined): string {
+export function formaterPeriode(periode: string | null | undefined, langue: Langue = "fr"): string {
   if (!periode) return "—";
   const d = new Date(`${periode.slice(0, 10)}T00:00:00Z`);
-  return Number.isNaN(d.getTime()) ? periode : MOIS.format(d);
+  return Number.isNaN(d.getTime()) ? periode : MOIS[langue].format(d);
 }
 
 /** « au moins 15 entreprises » (effectif arrondi par l'API à la tranche de 5 inférieure). */
-export function libelleEffectifMinimum(n: number): string {
-  return `au moins ${n} ${n > 1 ? "entreprises" : "entreprise"}`;
+export function libelleEffectifMinimum(n: number, langue: Langue = "fr"): string {
+  return creerTraduire(langue)(
+    `au moins ${n} ${n > 1 ? "entreprises" : "entreprise"}`,
+    `at least ${n} ${n > 1 ? "companies" : "company"}`,
+  );
 }
 
-export function formaterEntier(n: number): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n);
+export function formaterEntier(n: number, langue: Langue = "fr"): string {
+  return new Intl.NumberFormat(LOCALES_INTL[langue], { maximumFractionDigits: 0 }).format(n);
 }
 
 /** Tranches de la répartition (« 0-10 », … « 90-100 » pour 10 tranches). */
@@ -105,8 +144,11 @@ export function lignesRepartition(repartition: readonly number[]): LigneRepartit
 }
 
 /** Libellé d'une case pour les lecteurs d'écran. */
-export function libelleCase(c: Pick<ObservatoireCasePubliee, "secteur" | "taille">): string {
-  return `${libelleSecteur(c.secteur)}, ${libelleTaille(c.taille)}`;
+export function libelleCase(
+  c: Pick<ObservatoireCasePubliee, "secteur" | "taille">,
+  langue: Langue = "fr",
+): string {
+  return `${libelleSecteur(c.secteur, langue)}, ${libelleTaille(c.taille, langue)}`;
 }
 
 /** Index secteur|taille → case, pour dessiner la grille complète fournie par l'API. */
@@ -133,19 +175,36 @@ export function nombreCasesPubliees(a: Pick<ObservatoireAgregats, "cases">): num
 export type ChampAdhesion = "consentement" | "motif";
 
 /** Adhésion : le consentement explicite est obligatoire ; motif facultatif. */
-export function lireAdhesion(s: {
-  consentement: boolean;
-  motif: string;
-}): Resultat<{ consentement: true; motif?: string }, ChampAdhesion> {
+export function lireAdhesion(
+  s: {
+    consentement: boolean;
+    motif: string;
+  },
+  langue: Langue = "fr",
+): Resultat<{ consentement: true; motif?: string }, ChampAdhesion> {
+  const t = creerTraduire(langue);
   if (!s.consentement) {
     return {
       ok: false,
-      erreurs: { consentement: "Cochez la case pour confirmer l'adhésion de votre cabinet." },
+      erreurs: {
+        consentement: t(
+          "Cochez la case pour confirmer l'adhésion de votre cabinet.",
+          "Tick the box to confirm your firm's membership.",
+        ),
+      },
     };
   }
   const motif = s.motif.trim();
   if (motif.length > MOTIF_MAX) {
-    return { ok: false, erreurs: { motif: `Le motif ne dépasse pas ${MOTIF_MAX} caractères.` } };
+    return {
+      ok: false,
+      erreurs: {
+        motif: t(
+          `Le motif ne dépasse pas ${MOTIF_MAX} caractères.`,
+          `The reason must not exceed ${MOTIF_MAX} characters.`,
+        ),
+      },
+    };
   }
   return {
     ok: true,
@@ -153,10 +212,21 @@ export function lireAdhesion(s: {
   };
 }
 
-export function lireRetrait(s: { motif: string }): Resultat<{ motif?: string }, "motif"> {
+export function lireRetrait(
+  s: { motif: string },
+  langue: Langue = "fr",
+): Resultat<{ motif?: string }, "motif"> {
   const motif = s.motif.trim();
   if (motif.length > MOTIF_MAX) {
-    return { ok: false, erreurs: { motif: `Le motif ne dépasse pas ${MOTIF_MAX} caractères.` } };
+    return {
+      ok: false,
+      erreurs: {
+        motif: creerTraduire(langue)(
+          `Le motif ne dépasse pas ${MOTIF_MAX} caractères.`,
+          `The reason must not exceed ${MOTIF_MAX} characters.`,
+        ),
+      },
+    };
   }
   return { ok: true, charge: motif === "" ? {} : { motif } };
 }
@@ -170,9 +240,19 @@ const MESSAGES: Record<string, string> = {
   OBSERVATOIRE_NON_ADHERENT: "Votre cabinet n'est pas adhérent de l'observatoire.",
 };
 
-export function messageObservatoire(e: unknown): string {
-  if (e instanceof ErreurApi && MESSAGES[e.code]) return MESSAGES[e.code] as string;
-  return messageErreur(e);
+const MESSAGES_EN: Record<string, string> = {
+  OBSERVATOIRE_RESERVE_ADHERENTS:
+    "The observatory is reserved for contributing firms: a partner must join first.",
+  OBSERVATOIRE_ADHESION_INACTIVE:
+    "Your firm's membership is not active: join before contributing data.",
+  OBSERVATOIRE_DEJA_ADHERENT: "Your firm has already joined the observatory.",
+  OBSERVATOIRE_NON_ADHERENT: "Your firm is not a member of the observatory.",
+};
+
+export function messageObservatoire(e: unknown, langue: Langue = "fr"): string {
+  const table = langue === "en" ? MESSAGES_EN : MESSAGES;
+  if (e instanceof ErreurApi && table[e.code]) return table[e.code] as string;
+  return messageErreur(e, langue);
 }
 
 /* ----- 403 métier des agrégats ----- */

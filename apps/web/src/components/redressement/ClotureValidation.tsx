@@ -11,6 +11,7 @@ import {
 import { corpsValidationCloture } from "../../lib/redressement-cloture-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useRafraichir } from "../formulaires/useRafraichir";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Bouton } from "../ui/Bouton";
 import { ZoneTexte } from "../ui/ZoneTexte";
 import { BoutonActionRed } from "./BoutonActionRed";
@@ -31,6 +32,8 @@ export function ClotureValidation({
   /** L'utilisateur peut établir un nouveau bilan (proposé si celui-ci est périmé). */
   peutEtablir: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir, enAttente } = useRafraichir();
   const [motif, setMotif] = useState("");
   const [erreurChamp, setErreurChamp] = useState<string | undefined>();
@@ -52,7 +55,7 @@ export function ClotureValidation({
     setErreur(null);
     setSucces(null);
     setPerimee(false);
-    const corps = corpsValidationCloture(motif);
+    const corps = corpsValidationCloture(motif, langue);
     if (!corps.ok) {
       setErreurChamp(corps.erreurs.motif);
       return;
@@ -62,10 +65,10 @@ export function ClotureValidation({
     setEnCours(true);
     try {
       await api.post(cheminValidationCloture(clotureId), corps.charge);
-      setSucces("Bilan validé : il est figé.");
+      setSucces(t("Bilan validé : il est figé.", "Review approved: it is frozen."));
       rafraichir();
     } catch (err) {
-      setErreur(messageCloture(err));
+      setErreur(messageCloture(err, langue));
       setPerimee(clotureEstPerimee(err));
     } finally {
       verrou.current = false;
@@ -74,15 +77,23 @@ export function ClotureValidation({
   }
 
   return (
-    <form className="mp-formulaire" noValidate onSubmit={soumettre} aria-label="Valider le bilan">
+    <form
+      className="mp-formulaire"
+      noValidate
+      onSubmit={soumettre}
+      aria-label={t("Valider le bilan", "Approve the review")}
+    >
       <RetourFormulaire
         erreur={erreur}
         succes={succes}
         refAlerte={refAlerte}
-        titreErreur="Validation impossible"
+        titreErreur={t("Validation impossible", "Approval not possible")}
       />
       <ZoneTexte
-        libelle="Motif ou commentaire de validation (facultatif)"
+        libelle={t(
+          "Motif ou commentaire de validation (facultatif)",
+          "Reason or approval comment (optional)",
+        )}
         value={motif}
         onChange={(e) => setMotif(e.target.value)}
         erreur={erreurChamp}
@@ -92,18 +103,21 @@ export function ClotureValidation({
           type="submit"
           variante="primaire"
           chargement={enCours}
-          texteChargement="Validation…"
+          texteChargement={t("Validation…", "Approving…")}
         >
-          Valider le bilan
+          {t("Valider le bilan", "Approve the review")}
         </Bouton>
       </div>
       {perimee && peutEtablir ? (
         <BoutonActionRed
-          libelle="Établir un nouveau bilan"
+          libelle={t("Établir un nouveau bilan", "Create a new review")}
           chemin={cheminClotures(dossierId)}
-          succes="Nouveau bilan établi depuis l'état courant du dossier."
-          titreErreur="Établissement impossible"
-          texteChargement="Établissement…"
+          succes={t(
+            "Nouveau bilan établi depuis l'état courant du dossier.",
+            "New review created from the current state of the file.",
+          )}
+          titreErreur={t("Établissement impossible", "Creation not possible")}
+          texteChargement={t("Établissement…", "Creating…")}
         />
       ) : null}
     </form>

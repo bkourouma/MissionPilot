@@ -14,6 +14,7 @@ import { EtatErreur } from "../../../../../../components/ui/EtatListe";
 import { Icone } from "../../../../../../components/ui/Icone";
 import { Tableau } from "../../../../../../components/ui/Tableau";
 import { chargerServeur } from "../../../../../../lib/api-serveur";
+import { obtenirLangue, obtenirT } from "../../../../../../lib/i18n/serveur";
 import { estIdentifiant } from "../../../../../../lib/identifiant";
 import { exigerPermission } from "../../../../../../lib/session";
 import {
@@ -39,7 +40,10 @@ import {
   type SignataireSignatureApi,
 } from "../../../../../../lib/signatures";
 
-export const metadata: Metadata = { title: "Demande de signature" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Demande de signature", "Signature request") };
+}
 
 /**
  * Détail d'une demande de signature : document et empreinte, signataires, frise des preuves et
@@ -52,16 +56,21 @@ export default async function PageDetailSignature({
   params: Promise<{ id: string; signatureId: string }>;
 }) {
   const { id, signatureId } = await params;
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   if (!estIdentifiant(id) || !estIdentifiant(signatureId)) notFound();
   const session = await exigerPermission("signature.lire");
   const r = await chargerServeur<DossierPreuveApi>(cheminApiPreuvesSignature(signatureId));
   if (!r.ok && r.statut === 404) notFound();
-  const retour = { href: hrefSignatures(id), libelle: "Signatures de la mission" };
+  const retour = {
+    href: hrefSignatures(id),
+    libelle: t("Signatures de la mission", "Engagement signatures"),
+  };
   if (!r.ok) {
     return (
       <div className="mp-pile">
         <EtatErreur
-          titre="La demande n'a pas pu être chargée."
+          titre={t("La demande n'a pas pu être chargée.", "The request could not be loaded.")}
           message={r.message}
           hrefReessayer={hrefSignature(id, signatureId)}
         />
@@ -75,7 +84,7 @@ export default async function PageDetailSignature({
     roles: session.utilisateur.roles,
     utilisateurId: session.utilisateur.id,
   });
-  const verif = libelleVerification(verification);
+  const verif = libelleVerification(verification, langue);
 
   return (
     <div className="mp-pile">
@@ -85,34 +94,34 @@ export default async function PageDetailSignature({
       </Link>
       <h2 className="mp-section__titre">{demande.document_nom}</h2>
       <p className="mp-texte-doux">
-        {`${libelleObjetSignature(demande.objet)} · ${libelleOrdreSignature(demande.ordre)} `}
+        {`${libelleObjetSignature(demande.objet, langue)} · ${libelleOrdreSignature(demande.ordre, langue)} `}
         <BadgeStatut tonalite={tonaliteStatutDemande(demande.statut)}>
-          {libelleStatutDemande(demande.statut)}
+          {libelleStatutDemande(demande.statut, langue)}
         </BadgeStatut>
       </p>
       <AvertissementSignature />
-      <Carte titre="Demande" niveauTitre={2}>
+      <Carte titre={t("Demande", "Request")} niveauTitre={2}>
         <dl className="mp-liste-def">
           <div>
-            <dt>Avancement</dt>
-            <dd>{`${avancement(demande)} signatures`}</dd>
+            <dt>{t("Avancement", "Progress")}</dt>
+            <dd>{`${avancement(demande, langue)} ${t("signatures", "signatures")}`}</dd>
           </div>
           <div>
-            <dt>Échéance</dt>
-            <dd>{libelleEcheance(demande.expire_le)}</dd>
+            <dt>{t("Échéance", "Due date")}</dt>
+            <dd>{libelleEcheance(demande.expire_le, langue)}</dd>
           </div>
           <div>
-            <dt>Créée le</dt>
-            <dd>{dateCourte(demande.cree_le)}</dd>
+            <dt>{t("Créée le", "Created on")}</dt>
+            <dd>{dateCourte(demande.cree_le, langue)}</dd>
           </div>
           {demande.budget_version ? (
             <div>
-              <dt>Avenant à la version de budget</dt>
-              <dd>{`n° ${demande.budget_version.numero} (${demande.budget_version.type})`}</dd>
+              <dt>{t("Avenant à la version de budget", "Amendment to the budget version")}</dt>
+              <dd>{`${t("n°", "no.")} ${demande.budget_version.numero} (${demande.budget_version.type})`}</dd>
             </div>
           ) : null}
           <div>
-            <dt>Empreinte du document (SHA-256)</dt>
+            <dt>{t("Empreinte du document (SHA-256)", "Document fingerprint (SHA-256)")}</dt>
             <dd className="mp-canaux__empreinte">{empreinteLisible(demande.empreinte_document)}</dd>
           </div>
         </dl>
@@ -124,10 +133,15 @@ export default async function PageDetailSignature({
             rel="noopener noreferrer"
           >
             <Icone nom="oeil" taille={18} />
-            <span>Lire le document (la lecture est inscrite dans les preuves)</span>
+            <span>
+              {t(
+                "Lire le document (la lecture est inscrite dans les preuves)",
+                "Read the document (the reading is recorded in the evidence)",
+              )}
+            </span>
           </a>{" "}
           <a className="mp-lien-action" href={hrefDocumentSignature(demande.id)} download>
-            <span>Télécharger</span>
+            <span>{t("Télécharger", "Download")}</span>
           </a>
         </p>
         {demandeTerminee(demande.statut) ? null : (
@@ -138,30 +152,38 @@ export default async function PageDetailSignature({
           />
         )}
       </Carte>
-      <Carte titre="Signataires" niveauTitre={2}>
+      <Carte titre={t("Signataires", "Signatories")} niveauTitre={2}>
         <Tableau<SignataireSignatureApi>
-          legende="Signataires de la demande"
+          legende={t("Signataires de la demande", "Request signatories")}
           cleLigne={(s) => s.id}
           colonnes={[
-            { cle: "rang", entete: "Rang", rendu: (s) => String(s.rang) },
-            { cle: "nom", entete: "Nom", rendu: (s) => s.nom },
-            { cle: "partie", entete: "Partie", rendu: (s) => libellePartie(s.partie) },
+            { cle: "rang", entete: t("Rang", "Order"), rendu: (s) => String(s.rang) },
+            { cle: "nom", entete: t("Nom", "Name"), rendu: (s) => s.nom },
+            {
+              cle: "partie",
+              entete: t("Partie", "Party"),
+              rendu: (s) => libellePartie(s.partie, langue),
+            },
             {
               cle: "statut",
-              entete: "Statut",
+              entete: t("Statut", "Status"),
               rendu: (s) => (
                 <BadgeStatut tonalite={tonaliteStatutSignataire(s.statut)}>
-                  {libelleStatutSignataire(s.statut)}
+                  {libelleStatutSignataire(s.statut, langue)}
                 </BadgeStatut>
               ),
             },
-            { cle: "decide", entete: "Décision", rendu: (s) => dateHeureCourte(s.decide_le) },
+            {
+              cle: "decide",
+              entete: t("Décision", "Decision"),
+              rendu: (s) => dateHeureCourte(s.decide_le, langue),
+            },
           ]}
           lignes={signataires}
         />
       </Carte>
       <Carte
-        titre="Preuves"
+        titre={t("Preuves", "Evidence")}
         niveauTitre={2}
         actions={
           actions.exporter ? (
@@ -175,14 +197,16 @@ export default async function PageDetailSignature({
         <Alerte
           tonalite={verif.tonalite === "danger" ? "danger" : "succes"}
           annonce={verif.tonalite === "danger" ? "alert" : "aucune"}
-          titre="Vérification de la chaîne de preuves"
+          titre={t("Vérification de la chaîne de preuves", "Evidence chain verification")}
         >
           <p>{verif.libelle}</p>
         </Alerte>
         <FriseSignature preuves={preuves} signataires={signataires} />
         <p className="mp-texte-doux mp-texte-petit">
-          Les dates viennent de l&apos;horloge de CabinetPilot : ce n&apos;est pas un horodatage
-          qualifié.
+          {t(
+            "Les dates viennent de l'horloge de CabinetPilot : ce n'est pas un horodatage qualifié.",
+            "Dates come from the CabinetPilot clock: this is not a qualified timestamp.",
+          )}
         </p>
       </Carte>
     </div>

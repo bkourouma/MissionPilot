@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import { creerTraduire } from "@missionpilot/shared";
 import { BadgeStatut, type TonaliteStatut } from "../../../../components/ui/BadgeStatut";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur, EtatVide, PaginationCurseur } from "../../../../components/ui/EtatListe";
 import { Tableau } from "../../../../components/ui/Tableau";
+import { obtenirLangue } from "../../../../lib/i18n/serveur";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { formaterDate, formaterPourcentage } from "../../../../lib/format";
 import { libelleDateCourte } from "../../../../lib/semaine";
 import { exigerPermission } from "../../../../lib/session";
 
-export const metadata: Metadata = { title: "Discipline de saisie" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = creerTraduire(await obtenirLangue());
+  return { title: t("Discipline de saisie", "Time entry discipline") };
+}
 
 interface Ratio {
   reussis: number;
@@ -39,6 +44,15 @@ const ETAT_SEMAINE: Record<string, { libelle: string; tonalite: TonaliteStatut }
   verrouillee: { libelle: "Verrouillée", tonalite: "succes" },
 };
 
+const ETAT_SEMAINE_EN: Record<string, string> = {
+  absente: "Not submitted",
+  brouillon: "Draft",
+  soumise: "Submitted",
+  validee: "Approved",
+  rejetee: "Rejected",
+  verrouillee: "Locked",
+};
+
 /** Indicateur « Discipline de saisie » : feuilles soumises dans les délais / attendues. */
 export default async function PageDiscipline({
   searchParams,
@@ -46,6 +60,8 @@ export default async function PageDiscipline({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await exigerPermission("temps.saisir");
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   const brut = (await searchParams).curseur;
   const curseur = typeof brut === "string" && CURSEUR.test(brut) ? brut : "";
   const r = await chargerServeur<Discipline>(
@@ -53,57 +69,92 @@ export default async function PageDiscipline({
   );
   const ratio = (x: Ratio) =>
     x.taux === null
-      ? "Rien d'attendu"
-      : `${formaterPourcentage(x.taux)} (${x.reussis} sur ${x.attendus})`;
+      ? t("Rien d'attendu", "Nothing expected")
+      : `${formaterPourcentage(x.taux, 1, langue)} (${x.reussis} ${t("sur", "of")} ${x.attendus})`;
 
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Discipline de saisie"
-        soustitre="Feuilles soumises dans les délais (au plus tard le dimanche de la semaine) sur les feuilles attendues, quatre dernières semaines. Votre équipe si vous validez des temps, tout le cabinet pour la direction."
+        titre={t("Discipline de saisie", "Time entry discipline")}
+        soustitre={t(
+          "Feuilles soumises dans les délais (au plus tard le dimanche de la semaine) sur les feuilles attendues, quatre dernières semaines. Votre équipe si vous validez des temps, tout le cabinet pour la direction.",
+          "Timesheets submitted on time (by Sunday of the week at the latest) out of the timesheets expected, last four weeks. Your team if you approve time, the whole firm for management.",
+        )}
       />
       {!r.ok ? (
         <EtatErreur
-          titre="L'indicateur n'a pas pu être calculé."
+          titre={t("L'indicateur n'a pas pu être calculé.", "The indicator could not be computed.")}
           message={r.message}
           hrefReessayer="/temps/discipline"
         />
       ) : r.donnees.elements.length === 0 ? (
-        <EtatVide titre="Aucune feuille attendue sur la période." icone="horloge" />
+        <EtatVide
+          titre={t(
+            "Aucune feuille attendue sur la période.",
+            "No timesheet expected in the period.",
+          )}
+          icone="horloge"
+        />
       ) : (
         <>
           <ul className="mp-totaux">
             <li className="mp-totaux__element">
-              <span className="mp-totaux__libelle">{`Ensemble, du ${formaterDate(r.donnees.debut)} au ${formaterDate(r.donnees.fin)}`}</span>
+              <span className="mp-totaux__libelle">
+                {t(
+                  `Ensemble, du ${formaterDate(r.donnees.debut, "UTC", langue)} au ${formaterDate(r.donnees.fin, "UTC", langue)}`,
+                  `Overall, from ${formaterDate(r.donnees.debut, "UTC", langue)} to ${formaterDate(r.donnees.fin, "UTC", langue)}`,
+                )}
+              </span>
               <span className="mp-totaux__valeur">{ratio(r.donnees.total)}</span>
             </li>
           </ul>
           <Tableau
-            legende="Discipline de saisie par collaborateur"
+            legende={t(
+              "Discipline de saisie par collaborateur",
+              "Time entry discipline by employee",
+            )}
             lignes={r.donnees.elements}
             cleLigne={(e) => e.collaborateur.id}
             colonnes={[
-              { cle: "nom", entete: "Collaborateur", rendu: (e) => e.collaborateur.nom },
-              { cle: "ratio", entete: "Dans les délais", alignement: "droite", rendu: ratio },
+              {
+                cle: "nom",
+                entete: t("Collaborateur", "Employee"),
+                rendu: (e) => e.collaborateur.nom,
+              },
+              {
+                cle: "ratio",
+                entete: t("Dans les délais", "On time"),
+                alignement: "droite",
+                rendu: ratio,
+              },
               {
                 cle: "semaines",
-                entete: "Semaines",
+                entete: t("Semaines", "Weeks"),
                 rendu: (e) => (
                   <ul className="mp-badges">
                     {e.semaines.map((s) => {
                       const enCours =
                         (s.statut === "absente" || s.statut === "brouillon") &&
                         s.date_limite >= r.donnees.date_reference;
+                      const connu = ETAT_SEMAINE[s.statut];
                       const etat = enCours
-                        ? { libelle: "À soumettre d'ici dimanche", tonalite: "neutre" as const }
-                        : (ETAT_SEMAINE[s.statut] ?? {
-                            libelle: s.statut,
+                        ? {
+                            libelle: t("À soumettre d'ici dimanche", "To submit by Sunday"),
                             tonalite: "neutre" as const,
-                          });
+                          }
+                        : connu
+                          ? {
+                              libelle:
+                                langue === "en"
+                                  ? (ETAT_SEMAINE_EN[s.statut] ?? s.statut)
+                                  : connu.libelle,
+                              tonalite: connu.tonalite,
+                            }
+                          : { libelle: s.statut, tonalite: "neutre" as const };
                       return (
                         <li key={s.semaine}>
                           <BadgeStatut tonalite={etat.tonalite}>
-                            {`${libelleDateCourte(s.semaine)} : ${etat.libelle}`}
+                            {`${libelleDateCourte(s.semaine, langue)} : ${etat.libelle}`}
                           </BadgeStatut>
                         </li>
                       );
@@ -114,7 +165,7 @@ export default async function PageDiscipline({
             ]}
           />
           <PaginationCurseur
-            libelle="Pages de collaborateurs"
+            libelle={t("Pages de collaborateurs", "Employee pages")}
             hrefSuivante={
               r.donnees.curseur_suivant
                 ? `/temps/discipline?curseur=${encodeURIComponent(r.donnees.curseur_suivant)}`

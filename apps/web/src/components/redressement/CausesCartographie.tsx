@@ -17,7 +17,10 @@ import {
   raisonValidationBloquee,
   TEXTE_CAUSES_GABARIT,
   TEXTE_CAUSES_GABARIT_AIDE,
+  TEXTE_CAUSES_GABARIT_AIDE_EN,
+  TEXTE_CAUSES_GABARIT_EN,
   TEXTE_CAUSES_LECTURE_SEULE,
+  TEXTE_CAUSES_LECTURE_SEULE_EN,
   validationProposee,
 } from "../../lib/redressement-diagnostic";
 import {
@@ -27,6 +30,7 @@ import {
 } from "../../lib/redressement-diagnostic-saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { BadgeContenuIa } from "../ia/BadgeContenuIa";
 import { BandeauChiffresNonVerifies } from "../ia/BandeauChiffresNonVerifies";
 import { Alerte } from "../ui/Alerte";
@@ -52,6 +56,8 @@ export function CausesCartographie({
   /** Valider est affiché mais désactivé : explication visible (séparation des tâches). */
   raisonValidation?: string | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const modifiable = cartographieModifiable(v, peutEcrire);
   const validable = validationProposee(v, peutValider);
   const [causes, setCauses] = useState<SaisieCause[]>(() => saisieCausesDepuis(v.causes));
@@ -59,14 +65,18 @@ export function CausesCartographie({
   const enregistrement = useFormulaire<string>();
   const validation = useFormulaire<"acquittement">();
   const modifie = JSON.stringify(causes) !== JSON.stringify(saisieCausesDepuis(v.causes));
-  const raison = raisonValidationBloquee(v, coche);
+  const raison = raisonValidationBloquee(v, coche, langue);
+  const aideGabarit = t(TEXTE_CAUSES_GABARIT_AIDE, TEXTE_CAUSES_GABARIT_AIDE_EN);
 
   async function enregistrer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await enregistrement.envoyer(
-      corpsCauses(causes),
+      corpsCauses(causes, langue),
       (charge) => api.patch(cheminCartographie(v.id), charge),
-      { succes: "Modifications enregistrées.", messageSpecifique: messageDiagnostic },
+      {
+        succes: t("Modifications enregistrées.", "Changes saved."),
+        messageSpecifique: (e) => messageDiagnostic(e, langue),
+      },
     );
   }
 
@@ -76,7 +86,10 @@ export function CausesCartographie({
         ? { ok: false as const, erreurs: { acquittement: raison } }
         : { ok: true as const, charge: corpsValidationCauses(v, coche) },
       (charge) => api.post(cheminValidationCauses(v.id), charge),
-      { succes: "Cartographie validée.", messageSpecifique: messageDiagnostic },
+      {
+        succes: t("Cartographie validée.", "Map approved."),
+        messageSpecifique: (e) => messageDiagnostic(e, langue),
+      },
     );
   }
 
@@ -86,23 +99,31 @@ export function CausesCartographie({
         <strong>Version {v.version}</strong>
         <BadgeContenuIa statut={v.statut_contenu} />
         {v.gabarit ? (
-          <span title={TEXTE_CAUSES_GABARIT_AIDE}>
-            <BadgeStatut tonalite="neutre">{TEXTE_CAUSES_GABARIT}</BadgeStatut>
+          <span title={aideGabarit}>
+            <BadgeStatut tonalite="neutre">
+              {t(TEXTE_CAUSES_GABARIT, TEXTE_CAUSES_GABARIT_EN)}
+            </BadgeStatut>
           </span>
         ) : null}
         <span className="mp-texte-doux">
-          Proposée par {v.cree_par.nom}, le {formaterDateHeure(v.cree_le)}
+          {t(
+            `Proposée par ${v.cree_par.nom}, le ${formaterDateHeure(v.cree_le)}`,
+            `Proposed by ${v.cree_par.nom}, on ${formaterDateHeure(v.cree_le, undefined, langue)}`,
+          )}
         </span>
         {v.valide_par ? (
           <span className="mp-texte-doux">
-            Validée par {v.valide_par.nom}, le {formaterDateHeure(v.valide_le)}
+            {t(
+              `Validée par ${v.valide_par.nom}, le ${formaterDateHeure(v.valide_le)}`,
+              `Approved by ${v.valide_par.nom}, on ${formaterDateHeure(v.valide_le, undefined, langue)}`,
+            )}
           </span>
         ) : null}
       </div>
 
       {v.gabarit ? (
         <Alerte tonalite="attention" annonce="aucune">
-          <p>{TEXTE_CAUSES_GABARIT_AIDE}</p>
+          <p>{aideGabarit}</p>
         </Alerte>
       ) : null}
 
@@ -115,11 +136,21 @@ export function CausesCartographie({
           erreur={validation.erreurs.acquittement}
         />
       ) : v.chiffres_non_verifies ? (
-        <Alerte tonalite="attention" annonce="aucune" titre="Nombres non vérifiés">
+        <Alerte
+          tonalite="attention"
+          annonce="aucune"
+          titre={t("Nombres non vérifiés", "Unverified numbers")}
+        >
           <p>
             {acquittementRequis(v)
-              ? "Des nombres de la proposition ne viennent pas d'un moteur de calcul : ils doivent être vérifiés avant la validation."
-              : "Les nombres de la proposition ont été vérifiés et attestés."}
+              ? t(
+                  "Des nombres de la proposition ne viennent pas d'un moteur de calcul : ils doivent être vérifiés avant la validation.",
+                  "Some numbers in the proposal do not come from a calculation engine: they must be verified before approval.",
+                )
+              : t(
+                  "Les nombres de la proposition ont été vérifiés et attestés.",
+                  "The numbers in the proposal have been verified and attested.",
+                )}
           </p>
         </Alerte>
       ) : null}
@@ -130,13 +161,16 @@ export function CausesCartographie({
           className="mp-formulaire"
           noValidate
           onSubmit={enregistrer}
-          aria-label={`Modifier la cartographie, version ${v.version}`}
+          aria-label={t(
+            `Modifier la cartographie, version ${v.version}`,
+            `Edit the map, version ${v.version}`,
+          )}
         >
           <RetourFormulaire
             erreur={enregistrement.erreurGlobale}
             succes={enregistrement.succes}
             refAlerte={enregistrement.refAlerte}
-            titreErreur="Enregistrement impossible"
+            titreErreur={t("Enregistrement impossible", "Saving not possible")}
           />
           {enregistrement.erreurs.global ? (
             <Alerte tonalite="danger" annonce="alert">
@@ -149,30 +183,36 @@ export function CausesCartographie({
               type="submit"
               variante="secondaire"
               chargement={enregistrement.enCours}
-              texteChargement="Enregistrement…"
+              texteChargement={t("Enregistrement…", "Saving…")}
               disabled={!modifie}
             >
-              Enregistrer les modifications
+              {t("Enregistrer les modifications", "Save changes")}
             </Bouton>
             {!modifie ? (
               <span className="mp-texte-doux mp-texte-petit">
-                Aucune modification à enregistrer.
+                {t("Aucune modification à enregistrer.", "No changes to save.")}
               </span>
             ) : null}
           </div>
         </form>
       ) : (
         <>
-          <ul className="mp-diag-liste" aria-label={`Causes racines, version ${v.version}`}>
+          <ul
+            className="mp-diag-liste"
+            aria-label={t(
+              `Causes racines, version ${v.version}`,
+              `Root causes, version ${v.version}`,
+            )}
+          >
             {v.causes.map((c) => (
               <li key={c.id} className="mp-diag-cause">
                 <div className="mp-diag-cause__entete">
                   <strong>{c.libelle}</strong>
                   <BadgeStatut tonalite="neutre" sansIcone>
-                    {libelleDomaine(c.domaine)}
+                    {libelleDomaine(c.domaine, langue)}
                   </BadgeStatut>
                   <span className="mp-texte-doux mp-texte-petit">
-                    {libelleConfianceCause(c.confiance)}
+                    {libelleConfianceCause(c.confiance, langue)}
                   </span>
                 </div>
                 <p className="mp-diag-cause__texte">{c.description}</p>
@@ -180,7 +220,9 @@ export function CausesCartographie({
             ))}
           </ul>
           {v.statut === "valide" ? (
-            <p className="mp-texte-doux">{TEXTE_CAUSES_LECTURE_SEULE}</p>
+            <p className="mp-texte-doux">
+              {t(TEXTE_CAUSES_LECTURE_SEULE, TEXTE_CAUSES_LECTURE_SEULE_EN)}
+            </p>
           ) : null}
         </>
       )}
@@ -191,24 +233,27 @@ export function CausesCartographie({
             erreur={validation.erreurGlobale}
             succes={validation.succes}
             refAlerte={validation.refAlerte}
-            titreErreur="Validation impossible"
+            titreErreur={t("Validation impossible", "Approval not possible")}
           />
           <div className="mp-actions-formulaire">
             <Bouton
               variante="primaire"
               chargement={validation.enCours}
-              texteChargement="Validation…"
+              texteChargement={t("Validation…", "Approving…")}
               disabled={modifie || raisonValidation !== null}
               onClick={() => void valider()}
             >
-              Valider
+              {t("Valider", "Approve")}
             </Bouton>
             {raisonValidation ? (
               <span className="mp-texte-doux mp-texte-petit">{raisonValidation}</span>
             ) : null}
             {modifie ? (
               <span className="mp-texte-doux mp-texte-petit">
-                Enregistrez vos modifications avant de valider.
+                {t(
+                  "Enregistrez vos modifications avant de valider.",
+                  "Save your changes before approving.",
+                )}
               </span>
             ) : null}
           </div>
@@ -216,11 +261,15 @@ export function CausesCartographie({
       ) : null}
 
       <details className="mp-diag-details">
-        <summary>Historique ({v.historique.length})</summary>
-        <ol className="mp-diag-historique" aria-label="Historique des rangs">
+        <summary>
+          {t("Historique", "History")} ({v.historique.length})
+        </summary>
+        <ol className="mp-diag-historique" aria-label={t("Historique des rangs", "Rank history")}>
           {v.historique.map((r) => (
             <li key={r.rang}>
-              {libelleRangHistorique(r)}, le {formaterDateHeure(r.cree_le)}
+              {libelleRangHistorique(r, langue)}
+              {t(", le ", ", on ")}
+              {formaterDateHeure(r.cree_le, undefined, langue)}
             </li>
           ))}
         </ol>

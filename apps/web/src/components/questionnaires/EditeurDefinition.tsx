@@ -26,6 +26,7 @@ import {
   type Anomalie,
   type Definition,
 } from "../../lib/questionnaires-definition";
+import { useT, useLangue } from "../i18n/FournisseurLangue";
 import { BoutonConfirmation } from "../formulaires/BoutonConfirmation";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
@@ -56,6 +57,8 @@ type Vue = "edition" | "apercu";
  * La définition en cours d'édition ne vit que dans l'état de la page.
  */
 export function EditeurDefinition({ version }: EditeurDefinitionProps) {
+  const t = useT();
+  const langue = useLangue();
   const { rafraichir } = useRafraichir();
   const [def, setDef] = useState<Definition>(version.definition);
   const [modifie, setModifie] = useState(false);
@@ -95,24 +98,24 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
   }
 
   function echec(e: unknown) {
-    const a = anomaliesDepuisErreur(e);
+    const a = anomaliesDepuisErreur(e, langue);
     if (a) {
       setAnomalies({ liste: a, origine: "serveur" });
       setVue("edition");
     } else {
-      setErreur(messageQuestionnaire(e) ?? messageErreur(e));
+      setErreur(messageQuestionnaire(e, langue) ?? messageErreur(e));
     }
-    setTentative((t) => t + 1);
+    setTentative((n) => n + 1);
   }
 
   async function enregistrer(): Promise<boolean> {
     setErreur(null);
     setSucces(null);
-    const locales = verifierForme(def);
+    const locales = verifierForme(def, langue);
     if (locales.length > 0) {
       setAnomalies({ liste: locales, origine: "locale" });
       setVue("edition");
-      setTentative((t) => t + 1);
+      setTentative((n) => n + 1);
       return false;
     }
     setEnCours("enregistrement");
@@ -125,7 +128,10 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       setAnomalies(null);
       setModifie(false);
       setSucces(
-        "Brouillon enregistré : la définition a passé le contrôle de cohérence du moteur CabinetPilot.",
+        t(
+          "Brouillon enregistré : la définition a passé le contrôle de cohérence du moteur CabinetPilot.",
+          "Draft saved: the definition passed the consistency check of the CabinetPilot engine.",
+        ),
       );
       rafraichir();
       return true;
@@ -140,9 +146,12 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
   async function valider(): Promise<boolean> {
     if (chiffresAAcquitter && !acquitte) {
       setErreur(
-        "Des nombres du questionnaire ne viennent pas d'un moteur de calcul : vérifiez-les, puis cochez la case d'acquittement avant de valider.",
+        t(
+          "Des nombres du questionnaire ne viennent pas d'un moteur de calcul : vérifiez-les, puis cochez la case d'acquittement avant de valider.",
+          "Some numbers in the questionnaire do not come from a calculation engine: check them, then tick the acknowledgement box before approving.",
+        ),
       );
-      setTentative((t) => t + 1);
+      setTentative((n) => n + 1);
       return false;
     }
     if (modifie && !(await enregistrer())) return false;
@@ -153,7 +162,12 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
         `/api/questionnaires/versions/${encodeURIComponent(version.id)}/valider`,
         chiffresAAcquitter ? { acquitte_chiffres: true } : undefined,
       );
-      setSucces(`Version ${version.version} validée : elle est figée et peut être envoyée.`);
+      setSucces(
+        t(
+          `Version ${version.version} validée : elle est figée et peut être envoyée.`,
+          `Version ${version.version} approved: it is locked and can be sent.`,
+        ),
+      );
       rafraichir();
       return true;
     } catch (e) {
@@ -168,8 +182,14 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
     <div className="mp-barre-actions">
       {!bas && chiffresAAcquitter ? (
         <CaseACocher
-          libelle="J'ai vérifié les nombres cités dans ce questionnaire"
-          aide={`Nombres signalés : ${(version.ia?.nombres_non_verifies ?? []).join(", ") || "voir le texte des questions"}.`}
+          libelle={t(
+            "J'ai vérifié les nombres cités dans ce questionnaire",
+            "I have checked the numbers cited in this questionnaire",
+          )}
+          aide={t(
+            `Nombres signalés : ${(version.ia?.nombres_non_verifies ?? []).join(", ") || "voir le texte des questions"}.`,
+            `Flagged numbers: ${(version.ia?.nombres_non_verifies ?? []).join(", ") || "see the question text"}.`,
+          )}
           checked={acquitte}
           onChange={(e) => setAcquitte(e.target.checked)}
         />
@@ -177,20 +197,23 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       <Bouton
         icone="succes"
         chargement={enCours === "enregistrement"}
-        texteChargement="Contrôle et enregistrement…"
+        texteChargement={t("Contrôle et enregistrement…", "Checking and saving…")}
         disabled={enCours !== null}
         onClick={() => void enregistrer()}
         aria-describedby={bas ? undefined : "qe-etat"}
       >
-        Enregistrer le brouillon
+        {t("Enregistrer le brouillon", "Save draft")}
       </Bouton>
       {bas ? null : (
         <BoutonConfirmation
-          libelle="Valider la version"
+          libelle={t("Valider la version", "Approve the version")}
           icone="cadenas"
-          question={`Valider la version ${version.version} ? Elle sera figée : envoyable aux répondants, mais plus modifiable (une nouvelle version la remplacera).${modifie ? " Les modifications en cours seront d'abord enregistrées." : ""}`}
-          libelleConfirmation="Oui, valider"
-          texteChargement="Validation…"
+          question={t(
+            `Valider la version ${version.version} ? Elle sera figée : envoyable aux répondants, mais plus modifiable (une nouvelle version la remplacera).${modifie ? " Les modifications en cours seront d'abord enregistrées." : ""}`,
+            `Approve version ${version.version}? It will be locked: it can be sent to respondents, but no longer edited (a new version will replace it).${modifie ? " Pending changes will be saved first." : ""}`,
+          )}
+          libelleConfirmation={t("Oui, valider", "Yes, approve")}
+          texteChargement={t("Validation…", "Approving…")}
           action={valider}
         />
       )}
@@ -201,14 +224,18 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
     <div className="mp-qe">
       <div className="mp-pile">
         <div className="mp-qe-entete">
-          <div className="mp-qe-bascule" role="group" aria-label="Affichage de la définition">
+          <div
+            className="mp-qe-bascule"
+            role="group"
+            aria-label={t("Affichage de la définition", "Definition view")}
+          >
             <Bouton
               variante="discret"
               icone="crayon"
               aria-pressed={vue === "edition"}
               onClick={() => setVue("edition")}
             >
-              Modifier
+              {t("Modifier", "Edit")}
             </Bouton>
             <Bouton
               variante="discret"
@@ -216,7 +243,7 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
               aria-pressed={vue === "apercu"}
               onClick={() => setVue("apercu")}
             >
-              Aperçu
+              {t("Aperçu", "Preview")}
             </Bouton>
           </div>
           <p
@@ -227,8 +254,11 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
             <Icone nom={modifie ? "attention" : "succes"} taille={16} />
             <span>
               {modifie
-                ? "Modifications non enregistrées (elles ne sont conservées que dans cette page)"
-                : "Aucune modification en attente"}
+                ? t(
+                    "Modifications non enregistrées (elles ne sont conservées que dans cette page)",
+                    "Unsaved changes (they are only kept in this page)",
+                  )
+                : t("Aucune modification en attente", "No pending changes")}
             </span>
           </p>
         </div>
@@ -236,7 +266,11 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       </div>
 
       {erreur ? (
-        <Alerte ref={refAlerte} tonalite="danger" titre="Action impossible">
+        <Alerte
+          ref={refAlerte}
+          tonalite="danger"
+          titre={t("Action impossible", "Action not possible")}
+        >
           <p>{erreur}</p>
         </Alerte>
       ) : null}
@@ -256,23 +290,29 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
       ) : null}
 
       {vue === "apercu" ? (
-        <ApercuQuestionnaire definition={def} prefixe="qe-apercu" />
+        <ApercuQuestionnaire definition={def} prefixe="qe-apercu" langue={langue} />
       ) : (
         <>
           <Champ
-            libelle="Titre du questionnaire"
+            libelle={t("Titre du questionnaire", "Questionnaire title")}
             name="qe-titre"
             required
             maxLength={200}
             value={def.titre}
             erreur={erreurA(liste, "titre")}
-            aide="Vu par les répondants et repris dans les e-mails d'invitation et de relance."
+            aide={t(
+              "Vu par les répondants et repris dans les e-mails d'invitation et de relance.",
+              "Seen by respondents and reused in invitation and reminder emails.",
+            )}
             onChange={(e) => {
               const titre = e.target.value;
               maj((d) => ({ ...d, titre }));
             }}
           />
-          <ol className="mp-qe-liste" aria-label="Sections du questionnaire">
+          <ol
+            className="mp-qe-liste"
+            aria-label={t("Sections du questionnaire", "Questionnaire sections")}
+          >
             {def.sections.map((s, si) => (
               <li key={si}>
                 <EditeurSection
@@ -317,7 +357,7 @@ export function EditeurDefinition({ version }: EditeurDefinitionProps) {
               disabled={def.sections.length >= SECTIONS_MAX}
               onClick={() => maj(ajouterSection, idAncreSection(def.sections.length))}
             >
-              Ajouter une section
+              {t("Ajouter une section", "Add a section")}
             </Bouton>
           </div>
         </>

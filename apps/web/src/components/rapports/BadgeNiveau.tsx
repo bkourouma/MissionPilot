@@ -1,4 +1,5 @@
-import { estNiveauRapport, NIVEAUX } from "../../lib/rapports";
+import { estNiveauRapport, niveauRapport } from "../../lib/rapports";
+import { T } from "../i18n/T";
 import { Icone } from "../ui/Icone";
 
 /**
@@ -10,15 +11,19 @@ export function BadgeNiveau({ niveau }: { niveau: string }) {
     return (
       <span className="mp-badge mp-badge--neutre">
         <Icone nom="neutre" taille={14} />
-        <span>Niveau non reconnu</span>
+        <span>
+          <T fr="Niveau non reconnu" en="Unrecognized level" />
+        </span>
       </span>
     );
   }
-  const n = NIVEAUX[niveau];
+  const n = niveauRapport(niveau);
   return (
     <span className={`mp-badge mp-badge--${n.tonalite}`}>
       <Icone nom={n.icone} taille={14} />
-      <span>{n.libelle}</span>
+      <span>
+        <T fr={n.libelle} en={niveauRapport(niveau, "en").libelle} />
+      </span>
     </span>
   );
 }

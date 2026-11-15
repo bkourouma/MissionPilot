@@ -5,6 +5,7 @@ import type { NiveauAutonomie } from "@missionpilot/shared";
 import { api } from "../../lib/api";
 import { libelleNiveau, lireJeuEssai, lireMotif, messageAgents } from "../../lib/agents";
 import type { Resultat } from "../../lib/saisie";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
 import { Bouton } from "../ui/Bouton";
@@ -31,6 +32,8 @@ export function FormulaireRestriction({
   standard: NiveauAutonomie;
   cabinet: NiveauAutonomie | null;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"motif">();
   const [etat, setEtat] = useState(actif ? "actif" : "inactif");
   const [niveau, setNiveau] = useState(cabinet ?? "");
@@ -40,14 +43,17 @@ export function FormulaireRestriction({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const ok = await f.envoyer(
-      lireMotif(motif),
+      lireMotif(motif, 1000, langue),
       (c) =>
         api.put(`/api/agents/${code}/restriction`, {
           actif: etat === "actif",
           niveau_max: niveau === "" ? null : niveau,
           motif: c.motif,
         }),
-      { succes: "Restriction enregistrée.", messageSpecifique: messageAgents },
+      {
+        succes: t("Restriction enregistrée.", "Restriction saved."),
+        messageSpecifique: (e) => messageAgents(e, langue),
+      },
     );
     if (ok) setMotif("");
   }
@@ -57,26 +63,29 @@ export function FormulaireRestriction({
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Select
-          libelle="État pour le cabinet"
+          libelle={t("État pour le cabinet", "Status for the firm")}
           value={etat}
           onChange={(e) => setEtat(e.target.value)}
           options={[
-            { valeur: "actif", libelle: "Actif" },
-            { valeur: "inactif", libelle: "Désactivé (niveau N0)" },
+            { valeur: "actif", libelle: t("Actif", "Active") },
+            { valeur: "inactif", libelle: t("Désactivé (niveau N0)", "Disabled (level N0)") },
           ]}
         />
         <Select
-          libelle="Niveau maximal du cabinet"
+          libelle={t("Niveau maximal du cabinet", "Firm's maximum level")}
           value={niveau}
           onChange={(e) => setNiveau(e.target.value)}
           options={[
-            { valeur: "", libelle: `Celui du standard (${standard})` },
-            ...niveaux.map((n) => ({ valeur: n, libelle: libelleNiveau(n) })),
+            {
+              valeur: "",
+              libelle: t(`Celui du standard (${standard})`, `The standard's (${standard})`),
+            },
+            ...niveaux.map((n) => ({ valeur: n, libelle: libelleNiveau(n, langue) })),
           ]}
         />
       </div>
       <ZoneTexte
-        libelle="Motif"
+        libelle={t("Motif", "Reason")}
         required
         maxLength={1000}
         value={motif}
@@ -88,9 +97,9 @@ export function FormulaireRestriction({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Enregistrement…"
+          texteChargement={t("Enregistrement…", "Saving…")}
         >
-          Enregistrer la restriction
+          {t("Enregistrer la restriction", "Save the restriction")}
         </Bouton>
       </div>
     </form>
@@ -110,14 +119,19 @@ const EXEMPLE_CAS = JSON.stringify(
 );
 
 export function FormulaireJeuEssai() {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"prompt_nom" | "cas">();
   const [s, setS] = useState({ prompt_nom: "", description: "", cas: EXEMPLE_CAS });
 
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    await f.envoyer(lireJeuEssai(s), (c) => api.post("/api/agents/jeux-essai", c), {
-      succes: "Jeu d'essai enregistré : il s'applique à toute nouvelle version du prompt.",
-      messageSpecifique: messageAgents,
+    await f.envoyer(lireJeuEssai(s, langue), (c) => api.post("/api/agents/jeux-essai", c), {
+      succes: t(
+        "Jeu d'essai enregistré : il s'applique à toute nouvelle version du prompt.",
+        "Test set saved: it applies to every new version of the prompt.",
+      ),
+      messageSpecifique: (e) => messageAgents(e, langue),
     });
   }
 
@@ -126,7 +140,7 @@ export function FormulaireJeuEssai() {
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Champ
-          libelle="Nom du prompt"
+          libelle={t("Nom du prompt", "Prompt name")}
           required
           maxLength={60}
           value={s.prompt_nom}
@@ -141,8 +155,11 @@ export function FormulaireJeuEssai() {
         />
       </div>
       <ZoneTexte
-        libelle="Cas d'essai (JSON)"
-        aide="Chaque cas : un code, les variables du prompt, les chiffres qu'un moteur fournirait, et des critères (contient, ne_contient_pas, champs)."
+        libelle={t("Cas d'essai (JSON)", "Test cases (JSON)")}
+        aide={t(
+          "Chaque cas : un code, les variables du prompt, les chiffres qu'un moteur fournirait, et des critères (contient, ne_contient_pas, champs).",
+          "Each case: a code, the prompt variables, the figures an engine would provide, and criteria (contient, ne_contient_pas, champs).",
+        )}
         required
         rows={10}
         value={s.cas}
@@ -150,8 +167,12 @@ export function FormulaireJeuEssai() {
         erreur={f.erreurs.cas}
       />
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          Enregistrer le jeu d&apos;essai
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {t("Enregistrer le jeu d'essai", "Save the test set")}
         </Bouton>
       </div>
     </form>
@@ -163,15 +184,30 @@ export function FormulaireEvaluation({
 }: {
   versions: { id: string; libelle: string }[];
 }) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<"prompt_id" | "modele">();
   const [promptId, setPromptId] = useState("");
   const [modele, setModele] = useState("");
 
   function lire(): Resultat<{ prompt_id: string; modele?: string }, "prompt_id" | "modele"> {
-    if (promptId === "") return { ok: false, erreurs: { prompt_id: "Choisissez une version." } };
+    if (promptId === "") {
+      return {
+        ok: false,
+        erreurs: { prompt_id: t("Choisissez une version.", "Choose a version.") },
+      };
+    }
     const m = modele.trim();
     if (m !== "" && !/^[a-z0-9][a-z0-9._-]{0,63}\/[a-z0-9][a-z0-9._-]{0,99}$/.test(m)) {
-      return { ok: false, erreurs: { modele: "Format attendu : « fournisseur/modèle »." } };
+      return {
+        ok: false,
+        erreurs: {
+          modele: t(
+            "Format attendu : « fournisseur/modèle ».",
+            'Expected format: "provider/model".',
+          ),
+        },
+      };
     }
     return {
       ok: true,
@@ -182,30 +218,40 @@ export function FormulaireEvaluation({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(lire(), (c) => api.post("/api/agents/evaluations", c), {
-      succes: "Évaluation terminée : voir son résultat ci-dessous.",
-      messageSpecifique: messageAgents,
+      succes: t(
+        "Évaluation terminée : voir son résultat ci-dessous.",
+        "Evaluation completed: see its result below.",
+      ),
+      messageSpecifique: (e) => messageAgents(e, langue),
     });
   }
 
   if (versions.length === 0) {
-    return <p className="mp-texte-doux">Aucun prompt doté d&apos;un jeu d&apos;essai à évaluer.</p>;
+    return (
+      <p className="mp-texte-doux">
+        {t(
+          "Aucun prompt doté d'un jeu d'essai à évaluer.",
+          "No prompt with a test set to evaluate.",
+        )}
+      </p>
+    );
   }
   return (
     <form ref={f.refFormulaire} className="mp-formulaire" noValidate onSubmit={soumettre}>
       <RetourFormulaire erreur={f.erreurGlobale} succes={f.succes} refAlerte={f.refAlerte} />
       <div className="mp-grille-champs">
         <Select
-          libelle="Version du prompt à évaluer"
+          libelle={t("Version du prompt à évaluer", "Prompt version to evaluate")}
           required
-          invite="Choisir…"
+          invite={t("Choisir…", "Choose…")}
           value={promptId}
           onChange={(e) => setPromptId(e.target.value)}
           options={versions.map((v) => ({ valeur: v.id, libelle: v.libelle }))}
           erreur={f.erreurs.prompt_id}
         />
         <Champ
-          libelle="Modèle candidat (facultatif)"
-          aide="Par défaut, le modèle de la tâche."
+          libelle={t("Modèle candidat (facultatif)", "Candidate model (optional)")}
+          aide={t("Par défaut, le modèle de la tâche.", "By default, the task's model.")}
           maxLength={170}
           value={modele}
           onChange={(e) => setModele(e.target.value)}
@@ -217,9 +263,9 @@ export function FormulaireEvaluation({
           type="submit"
           variante="secondaire"
           chargement={f.enCours}
-          texteChargement="Évaluation…"
+          texteChargement={t("Évaluation…", "Evaluating…")}
         >
-          Lancer l&apos;évaluation
+          {t("Lancer l'évaluation", "Run the evaluation")}
         </Bouton>
       </div>
     </form>

@@ -2,9 +2,10 @@ import { BadgeStatut } from "../ui/BadgeStatut";
 import { Carte } from "../ui/Carte";
 import { Tableau, type ColonneTableau } from "../ui/Tableau";
 import { formaterJours, formaterMontantMineur, formaterPourcentage } from "../../lib/format";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import {
   etatMois,
-  LIBELLE_ETAPE,
+  libelleEtape,
   libelleMois,
   type EtapePrevision,
   type MoisPrevision,
@@ -12,25 +13,32 @@ import {
 } from "../../lib/previsions";
 
 /** Chiffre d'affaires prévu par mois (carnet signé, pipeline pondéré) et charge contre capacité. */
-export function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevisions }) {
-  const m = (v: number) => formaterMontantMineur(v, r.devise);
+export async function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevisions }) {
+  const langue = await obtenirLangue();
+  const t = (fr: string, en: string) => (langue === "en" ? en : fr);
+  const m = (v: number) => formaterMontantMineur(v, r.devise, langue);
 
   const colonnesCa: ColonneTableau<MoisPrevision>[] = [
     {
       cle: "mois",
-      entete: "Mois",
-      rendu: (l) => <span className="mp-sans-coupure">{libelleMois(l.mois)}</span>,
+      entete: t("Mois", "Month"),
+      rendu: (l) => <span className="mp-sans-coupure">{libelleMois(l.mois, langue)}</span>,
     },
-    { cle: "carnet", entete: "Carnet signé", alignement: "droite", rendu: (l) => m(l.ca_carnet) },
+    {
+      cle: "carnet",
+      entete: t("Carnet signé", "Signed backlog"),
+      alignement: "droite",
+      rendu: (l) => m(l.ca_carnet),
+    },
     {
       cle: "pipeline",
-      entete: "Pipeline pondéré",
+      entete: t("Pipeline pondéré", "Weighted pipeline"),
       alignement: "droite",
       rendu: (l) => m(l.ca_pipeline),
     },
     {
       cle: "total",
-      entete: "Total prévu",
+      entete: t("Total prévu", "Total forecast"),
       alignement: "droite",
       rendu: (l) => <strong>{m(l.ca_total)}</strong>,
     },
@@ -39,68 +47,73 @@ export function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevisions 
   const colonnesCharge: ColonneTableau<MoisPrevision>[] = [
     {
       cle: "mois",
-      entete: "Mois",
-      rendu: (l) => <span className="mp-sans-coupure">{libelleMois(l.mois)}</span>,
+      entete: t("Mois", "Month"),
+      rendu: (l) => <span className="mp-sans-coupure">{libelleMois(l.mois, langue)}</span>,
     },
     {
       cle: "capacite",
-      entete: "Capacité",
+      entete: t("Capacité", "Capacity"),
       alignement: "droite",
-      rendu: (l) => formaterJours(l.capacite_jours),
+      rendu: (l) => formaterJours(l.capacite_jours, langue),
     },
     {
       cle: "carnet",
-      entete: "Carnet (affecté)",
+      entete: t("Carnet (affecté)", "Backlog (assigned)"),
       alignement: "droite",
-      rendu: (l) => formaterJours(l.charge_carnet_jours),
+      rendu: (l) => formaterJours(l.charge_carnet_jours, langue),
     },
     {
       cle: "pourvoir",
-      entete: "À pourvoir",
+      entete: t("À pourvoir", "To be staffed"),
       alignement: "droite",
-      rendu: (l) => formaterJours(l.charge_a_pourvoir_jours),
+      rendu: (l) => formaterJours(l.charge_a_pourvoir_jours, langue),
     },
     {
       cle: "pipeline",
-      entete: "Pipeline pondéré",
+      entete: t("Pipeline pondéré", "Weighted pipeline"),
       alignement: "droite",
-      rendu: (l) => formaterJours(l.charge_pipeline_jours),
+      rendu: (l) => formaterJours(l.charge_pipeline_jours, langue),
     },
     {
       cle: "total",
-      entete: "Charge totale",
+      entete: t("Charge totale", "Total workload"),
       alignement: "droite",
-      rendu: (l) => <strong>{formaterJours(l.charge_totale_jours)}</strong>,
+      rendu: (l) => <strong>{formaterJours(l.charge_totale_jours, langue)}</strong>,
     },
     {
       cle: "ecart",
-      entete: "Capacité restante",
+      entete: t("Capacité restante", "Remaining capacity"),
       alignement: "droite",
-      rendu: (l) => formaterJours(l.ecart_jours),
+      rendu: (l) => formaterJours(l.ecart_jours, langue),
     },
     {
       cle: "occupation",
-      entete: "Occupation",
+      entete: t("Occupation", "Utilization"),
       alignement: "droite",
-      rendu: (l) => formaterPourcentage(l.taux_occupation, 0),
+      rendu: (l) => formaterPourcentage(l.taux_occupation, 0, langue),
     },
     {
       cle: "etat",
-      entete: "État",
+      entete: t("État", "Status"),
       rendu: (l) => {
-        const e = etatMois(l);
+        const e = etatMois(l, langue);
         return <BadgeStatut tonalite={e.tonalite}>{e.court}</BadgeStatut>;
       },
     },
   ];
 
   const colonnesEtapes: ColonneTableau<EtapePrevision>[] = [
-    { cle: "etape", entete: "Étape", rendu: (e) => LIBELLE_ETAPE[e.etape] },
-    { cle: "nombre", entete: "Opportunités", alignement: "droite" },
-    { cle: "montant", entete: "Montant estimé", alignement: "droite", rendu: (e) => m(e.montant) },
+    { cle: "etape", entete: t("Étape", "Stage"), rendu: (e) => libelleEtape(e.etape, langue) },
+    { cle: "nombre", entete: t("Opportunités", "Opportunities"), alignement: "droite" },
+    {
+      cle: "montant",
+      entete: t("Montant estimé", "Estimated amount"),
+      alignement: "droite",
+      rendu: (e) => m(e.montant),
+    },
     {
       cle: "pondere",
-      entete: "Montant pondéré",
+      entete: t("Montant pondéré", "Weighted amount"),
       alignement: "droite",
       rendu: (e) => <strong>{m(e.montant_pondere)}</strong>,
     },
@@ -108,25 +121,28 @@ export function TableauxPrevisions({ donnees: r }: { donnees: ReponsePrevisions 
 
   return (
     <>
-      <Carte titre="Chiffre d'affaires prévu">
+      <Carte titre={t("Chiffre d'affaires prévu", "Forecast revenue")}>
         <Tableau
-          legende="Chiffre d'affaires prévu par mois"
+          legende={t("Chiffre d'affaires prévu par mois", "Forecast revenue by month")}
           lignes={r.mois}
           cleLigne={(l) => l.mois}
           colonnes={colonnesCa}
         />
       </Carte>
-      <Carte titre="Charge et capacité">
+      <Carte titre={t("Charge et capacité", "Workload and capacity")}>
         <Tableau
-          legende="Charge en jours contre capacité, par mois"
+          legende={t(
+            "Charge en jours contre capacité, par mois",
+            "Workload in days against capacity, by month",
+          )}
           lignes={r.mois}
           cleLigne={(l) => l.mois}
           colonnes={colonnesCharge}
         />
       </Carte>
-      <Carte titre="Pipeline par étape">
+      <Carte titre={t("Pipeline par étape", "Pipeline by stage")}>
         <Tableau
-          legende="Pipeline ouvert par étape"
+          legende={t("Pipeline ouvert par étape", "Open pipeline by stage")}
           lignes={r.par_etape}
           cleLigne={(e) => e.etape}
           colonnes={colonnesEtapes}

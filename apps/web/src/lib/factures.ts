@@ -7,8 +7,10 @@
  */
 import {
   aPermission,
+  creerTraduire,
   NATURES_FACTURE,
   STATUTS_FACTURE,
+  type Langue,
   type NatureFacture,
   type Role,
   type StatutFacture,
@@ -126,19 +128,49 @@ export const ROLE_APPROBATEUR_LIBELLES: Record<RoleApprobateur, string> = {
   associe: "un associé",
 };
 
-export const OPTIONS_STATUTS_FACTURE = STATUTS_FACTURE.map((s) => ({
-  valeur: s,
-  libelle: STATUT_FACTURE[s].libelle,
-}));
-export const OPTIONS_NATURES = NATURES_FACTURE.map((n) => ({
-  valeur: n,
-  libelle: NATURE_LIBELLES[n],
-}));
+export const STATUT_FACTURE_LIBELLES_EN: Record<StatutFacture, string> = {
+  brouillon: "Draft",
+  a_approuver: "Pending approval",
+  approuvee: "Approved",
+  emise: "Issued",
+  annulee: "Cancelled by credit note",
+};
+
+export const NATURE_LIBELLES_EN: Record<NatureFacture, string> = {
+  facture: "Invoice",
+  avoir: "Credit note",
+};
+
+export const ROLE_APPROBATEUR_LIBELLES_EN: Record<RoleApprobateur, string> = {
+  chef_mission: "the engagement director or a partner",
+  directeur_mission: "the engagement director or a partner",
+  associe: "a partner",
+};
+
+export const libelleStatutFacture = (s: StatutFacture, langue: Langue = "fr") =>
+  langue === "en" ? STATUT_FACTURE_LIBELLES_EN[s] : STATUT_FACTURE[s].libelle;
+
+export const libelleNature = (n: NatureFacture, langue: Langue = "fr") =>
+  (langue === "en" ? NATURE_LIBELLES_EN : NATURE_LIBELLES)[n];
+
+export const optionsStatutsFacture = (langue: Langue = "fr") =>
+  STATUTS_FACTURE.map((s) => ({ valeur: s, libelle: libelleStatutFacture(s, langue) }));
+export const optionsNatures = (langue: Langue = "fr") =>
+  NATURES_FACTURE.map((n) => ({ valeur: n, libelle: libelleNature(n, langue) }));
+
+export const OPTIONS_STATUTS_FACTURE = optionsStatutsFacture();
+export const OPTIONS_NATURES = optionsNatures();
 
 /** Désignation d'une facture : numéro définitif, sinon « Brouillon » ou « Avoir (brouillon) ». */
-export function designationFacture(f: Pick<Facture, "nature" | "numero" | "statut">): string {
-  if (f.numero) return `${NATURE_LIBELLES[f.nature]} ${f.numero}`;
-  return f.nature === "avoir" ? "Avoir (sans numéro)" : "Facture (sans numéro)";
+export function designationFacture(
+  f: Pick<Facture, "nature" | "numero" | "statut">,
+  langue: Langue = "fr",
+): string {
+  if (f.numero) return `${libelleNature(f.nature, langue)} ${f.numero}`;
+  const t = creerTraduire(langue);
+  return f.nature === "avoir"
+    ? t("Avoir (sans numéro)", "Credit note (no number)")
+    : t("Facture (sans numéro)", "Invoice (no number)");
 }
 
 // --- Champs affichés (défense en profondeur) ---------------------------------------------
@@ -257,30 +289,46 @@ const RANG: Record<RoleApprobateur, readonly Role[]> = {
   associe: ["associe"],
 };
 
-function refusApprobation(f: Facture, c: ContexteFacture): string | null {
+function refusApprobation(f: Facture, c: ContexteFacture, langue: Langue): string | null {
+  const t = creerTraduire(langue);
   const associe = c.roles.includes("associe");
   const requis = f.role_approbateur ?? "associe";
+  const approbateur = (langue === "en" ? ROLE_APPROBATEUR_LIBELLES_EN : ROLE_APPROBATEUR_LIBELLES)[
+    requis
+  ];
+  const refusRole = t(
+    `Cette facture est approuvée par ${approbateur}.`,
+    `This invoice is approved by ${approbateur}.`,
+  );
   if (!aPermission(c.roles, "facture.valider"))
-    return "Votre rôle ne permet pas d'approuver une facture.";
-  if (!associe && c.directeurId !== c.utilisateurId)
-    return `Cette facture est approuvée par ${ROLE_APPROBATEUR_LIBELLES[requis]}.`;
+    return t(
+      "Votre rôle ne permet pas d'approuver une facture.",
+      "Your role does not allow approving an invoice.",
+    );
+  if (!associe && c.directeurId !== c.utilisateurId) return refusRole;
   const auteur =
     f.cree_par === c.utilisateurId ||
     f.soumise_par === c.utilisateurId ||
     (f.modifie_par ?? []).includes(c.utilisateurId);
   if (!associe && auteur)
-    return "Vous avez préparé ou soumis cette facture : elle est approuvée par un associé.";
-  if (!c.roles.some((r) => RANG[requis].includes(r)))
-    return `Cette facture est approuvée par ${ROLE_APPROBATEUR_LIBELLES[requis]}.`;
+    return t(
+      "Vous avez préparé ou soumis cette facture : elle est approuvée par un associé.",
+      "You prepared or submitted this invoice: it is approved by a partner.",
+    );
+  if (!c.roles.some((r) => RANG[requis].includes(r))) return refusRole;
   return null;
 }
 
-export function actionsFacture(f: Facture, c: ContexteFacture): ActionsFacture {
+export function actionsFacture(
+  f: Facture,
+  c: ContexteFacture,
+  langue: Langue = "fr",
+): ActionsFacture {
   const emettre = aPermission(c.roles, "facture.emettre");
   const associe = c.roles.includes("associe");
   const brouillon = f.statut === "brouillon";
   const aApprouver = f.statut === "a_approuver";
-  const refus = aApprouver ? refusApprobation(f, c) : null;
+  const refus = aApprouver ? refusApprobation(f, c, langue) : null;
   const decideur =
     aPermission(c.roles, "facture.valider") && (associe || c.directeurId === c.utilisateurId);
   const emise = f.statut === "emise";
@@ -382,6 +430,10 @@ export function lireRemise(
 
 export const MESSAGE_REMISE =
   "Remise invalide : pourcentage de 0 à 100, ou montant positif dans la devise de la facture.";
+export const MESSAGE_REMISE_EN =
+  "Invalid discount: a percentage from 0 to 100, or a positive amount in the invoice currency.";
+export const messageRemise = (langue: Langue = "fr") =>
+  langue === "en" ? MESSAGE_REMISE_EN : MESSAGE_REMISE;
 
 export interface SaisieEnTete {
   objet: string;
@@ -394,15 +446,21 @@ export type ChampEnTete = "objet" | "remise" | "delai_paiement_jours";
 export function validerEnTete(
   s: SaisieEnTete,
   devise: Devise,
+  langue: Langue = "fr",
 ): Resultat<Record<string, unknown>, ChampEnTete> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampEnTete, string>> = {};
   const objet = texteOuNull(s.objet);
-  if (objet && objet.length > 300) erreurs.objet = "300 caractères au plus.";
+  if (objet && objet.length > 300)
+    erreurs.objet = t("300 caractères au plus.", "300 characters at most.");
   const remise = lireRemise(s.remise, devise);
-  if (remise === undefined) erreurs.remise = MESSAGE_REMISE;
+  if (remise === undefined) erreurs.remise = messageRemise(langue);
   const delai = lireNombre(s.delai_paiement_jours);
   if (delai === null || Number.isNaN(delai) || !Number.isInteger(delai) || delai < 0 || delai > 365)
-    erreurs.delai_paiement_jours = "Nombre entier de jours, de 0 à 365.";
+    erreurs.delai_paiement_jours = t(
+      "Nombre entier de jours, de 0 à 365.",
+      "Whole number of days, from 0 to 365.",
+    );
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return {
     ok: true,
@@ -426,56 +484,86 @@ export function validerLigne(
   s: SaisieLigne,
   devise: Devise,
   tauxAutorises: readonly number[],
+  langue: Langue = "fr",
 ): Resultat<Record<string, unknown>, ChampLigne> {
+  const t = creerTraduire(langue);
   const erreurs: Partial<Record<ChampLigne, string>> = {};
   const libelle = s.libelle.trim();
-  if (libelle === "") erreurs.libelle = "Saisissez le libellé de la ligne.";
-  else if (libelle.length > 300) erreurs.libelle = "300 caractères au plus.";
+  if (libelle === "")
+    erreurs.libelle = t("Saisissez le libellé de la ligne.", "Enter the line label.");
+  else if (libelle.length > 300)
+    erreurs.libelle = t("300 caractères au plus.", "300 characters at most.");
   const taux = lireNombre(s.taux_tva);
   if (taux === null || Number.isNaN(taux) || !tauxAutorises.includes(taux))
-    erreurs.taux_tva = "Choisissez un taux de TVA autorisé par le cabinet.";
+    erreurs.taux_tva = t(
+      "Choisissez un taux de TVA autorisé par le cabinet.",
+      "Choose a VAT rate allowed by the firm.",
+    );
   const remise = lireRemise(s.remise, devise);
-  if (remise === undefined) erreurs.remise = MESSAGE_REMISE;
+  if (remise === undefined) erreurs.remise = messageRemise(langue);
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { libelle, taux_tva: taux, remise } };
 }
 
 /** Motif d'un rejet ou d'un avoir : 1 à 500 caractères. */
-export function validerMotif(motif: string): Resultat<{ motif: string }, "motif"> {
+export function validerMotif(
+  motif: string,
+  langue: Langue = "fr",
+): Resultat<{ motif: string }, "motif"> {
+  const t = creerTraduire(langue);
   const m = motif.trim();
-  if (m === "") return { ok: false, erreurs: { motif: "Saisissez un motif." } };
-  if (m.length > 500) return { ok: false, erreurs: { motif: "500 caractères au plus." } };
+  if (m === "")
+    return { ok: false, erreurs: { motif: t("Saisissez un motif.", "Enter a reason.") } };
+  if (m.length > 500)
+    return {
+      ok: false,
+      erreurs: { motif: t("500 caractères au plus.", "500 characters at most.") },
+    };
   return { ok: true, charge: { motif: m } };
 }
 
 /** Création d'un brouillon depuis des échéances et des débours (au moins un élément). */
-export function validerCreationFacture(s: {
-  echeance_ids: readonly string[];
-  debours_ids: readonly string[];
-  objet: string;
-}): Resultat<
+export function validerCreationFacture(
+  s: {
+    echeance_ids: readonly string[];
+    debours_ids: readonly string[];
+    objet: string;
+  },
+  langue: Langue = "fr",
+): Resultat<
   { echeance_ids: string[]; debours_ids: string[]; objet: string | null },
   "elements" | "objet"
 > {
   const echeance_ids = [...new Set(s.echeance_ids)];
   const debours_ids = [...new Set(s.debours_ids)];
+  const t = creerTraduire(langue);
   const objet = texteOuNull(s.objet);
   const erreurs: Partial<Record<"elements" | "objet", string>> = {};
   if (echeance_ids.length + debours_ids.length === 0)
-    erreurs.elements = "Cochez au moins une échéance à facturer ou un débours refacturable.";
+    erreurs.elements = t(
+      "Cochez au moins une échéance à facturer ou un débours refacturable.",
+      "Tick at least one due date to invoice or one re-billable expense.",
+    );
   else if (echeance_ids.length > 50 || debours_ids.length > 200)
-    erreurs.elements = "50 échéances et 200 débours au plus par facture.";
-  if (objet && objet.length > 300) erreurs.objet = "300 caractères au plus.";
+    erreurs.elements = t(
+      "50 échéances et 200 débours au plus par facture.",
+      "50 due dates and 200 expenses at most per invoice.",
+    );
+  if (objet && objet.length > 300)
+    erreurs.objet = t("300 caractères au plus.", "300 characters at most.");
   if (Object.keys(erreurs).length > 0) return { ok: false, erreurs };
   return { ok: true, charge: { echeance_ids, debours_ids, objet } };
 }
 
 /** Message d'un refus métier de la facturation, en français et actionnable. */
-export function messageFacture(e: unknown): string | null {
+export function messageFacture(e: unknown, langue: Langue = "fr"): string | null {
   if (!(e instanceof ErreurApi)) return null;
   switch (e.code) {
     case "MENTIONS_INCOMPLETES":
-      return `${e.message} Complétez-les dans Paramètres > Facturation.`;
+      return `${e.message} ${creerTraduire(langue)(
+        "Complétez-les dans Paramètres > Facturation.",
+        "Complete them in Settings > Billing.",
+      )}`;
     case "APPROBATION_REQUISE":
     case "FACTURE_FIGEE":
     case "NUMEROTATION":

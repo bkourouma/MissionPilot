@@ -1,7 +1,9 @@
+import { creerTraduire } from "@missionpilot/shared";
 import { formaterDateHeure } from "../../lib/format";
+import { obtenirLangue } from "../../lib/i18n/serveur";
 import type { Personne } from "../../lib/personnes";
 import {
-  libelleFormat,
+  libelleFormatRapport,
   libelleModeleVariante,
   libelleStatutRapport,
   nomAuteur,
@@ -25,51 +27,56 @@ export interface ListeRapportsProps {
  * authentifiés d'ouverture et de téléchargement (`FichierJoint`, revérifiés par l'API à chaque
  * appel). La liste ne contient que ce que l'API a jugé lisible par l'utilisateur.
  */
-export function ListeRapports({ rapports, utilisateurId, personnes }: ListeRapportsProps) {
+export async function ListeRapports({ rapports, utilisateurId, personnes }: ListeRapportsProps) {
+  const langue = await obtenirLangue();
+  const t = creerTraduire(langue);
   return (
-    <ul className="mp-liste-lignes" aria-label="Rapports générés">
+    <ul className="mp-liste-lignes" aria-label={t("Rapports générés", "Generated reports")}>
       {rapports.map((r) => {
-        const date = formaterDateHeure(r.genere_le);
-        const modele = libelleModeleVariante(r.modele, r.variante);
-        const format = libelleFormat(r.format);
+        const date = formaterDateHeure(r.genere_le, undefined, langue);
+        const modele = libelleModeleVariante(r.modele, r.variante, langue);
+        const format = libelleFormatRapport(r.format, langue);
         return (
           <li key={r.id} className="mp-liste-lignes__ligne mp-rapport">
             <div className="mp-rapport__texte">
               <h3 className="mp-rapport__titre">
                 {modele}
-                <span className="mp-visuellement-cache">{` du ${date}`}</span>
+                <span className="mp-visuellement-cache">{` ${t("du", "on")} ${date}`}</span>
               </h3>
               <dl className="mp-rapport__meta">
                 <div>
-                  <dt>Généré le</dt>
+                  <dt>{t("Généré le", "Generated on")}</dt>
                   <dd>{date}</dd>
                 </div>
                 <div>
-                  <dt>Par</dt>
+                  <dt>{t("Par", "By")}</dt>
                   <dd className="mp-coupure">
-                    {nomAuteur(r.genere_par, utilisateurId, personnes)}
+                    {nomAuteur(r.genere_par, utilisateurId, personnes, langue)}
                   </dd>
                 </div>
                 <div>
-                  <dt>Format</dt>
+                  <dt>{t("Format", "Format")}</dt>
                   <dd>{format}</dd>
                 </div>
                 <div>
-                  <dt>Niveau</dt>
+                  <dt>{t("Niveau", "Level")}</dt>
                   <dd>
                     <BadgeNiveau niveau={r.niveau} />
                   </dd>
                 </div>
                 <div>
-                  <dt>Statut</dt>
+                  <dt>{t("Statut", "Status")}</dt>
                   <dd>
                     <BadgeStatut tonalite="neutre" sansIcone>
-                      {libelleStatutRapport(r.statut)}
+                      {libelleStatutRapport(r.statut, langue)}
                     </BadgeStatut>
                   </dd>
                 </div>
               </dl>
-              <FichierJoint fichier={r.fichier} contexte={`(${modele} du ${date}, ${format})`} />
+              <FichierJoint
+                fichier={r.fichier}
+                contexte={`(${modele} ${t("du", "on")} ${date}, ${format})`}
+              />
             </div>
           </li>
         );

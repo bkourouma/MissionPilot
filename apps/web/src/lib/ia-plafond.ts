@@ -1,5 +1,11 @@
 /** IA : clé API, plafond mensuel (micro-dollars US) et reconfirmation d'identité. */
-import { cleApiIaSchema, PLAFOND_IA_MAX_MICRO_USD } from "@missionpilot/shared";
+import {
+  cleApiIaSchema,
+  creerTraduire,
+  LOCALES_INTL,
+  PLAFOND_IA_MAX_MICRO_USD,
+  type Langue,
+} from "@missionpilot/shared";
 import {
   validerReconfirmation,
   type ChampConfirmation,
@@ -14,13 +20,24 @@ import { lireNombre, type Resultat } from "./saisie";
 export const ERREUR_CLE_VIDE = "Saisissez la clé API fournie par OpenRouter.";
 export const ERREUR_CLE_FORMAT =
   "Clé API : 20 à 200 lettres, chiffres, tirets ou tirets bas, sans espace.";
+export const ERREUR_CLE_VIDE_EN = "Enter the API key provided by OpenRouter.";
+export const ERREUR_CLE_FORMAT_EN =
+  "API key: 20 to 200 letters, digits, hyphens or underscores, no spaces.";
 
 /** Clé saisie (copier-coller : espaces de bord retirés). */
-export function validerCleApi(saisie: string): Resultat<{ cle_api: string }, "cle_api"> {
+export function validerCleApi(
+  saisie: string,
+  langue: Langue = "fr",
+): Resultat<{ cle_api: string }, "cle_api"> {
+  const en = langue === "en";
   const cle = saisie.trim();
-  if (cle === "") return { ok: false, erreurs: { cle_api: ERREUR_CLE_VIDE } };
+  if (cle === "") {
+    return { ok: false, erreurs: { cle_api: en ? ERREUR_CLE_VIDE_EN : ERREUR_CLE_VIDE } };
+  }
   const r = cleApiIaSchema.safeParse(cle);
-  if (!r.success) return { ok: false, erreurs: { cle_api: ERREUR_CLE_FORMAT } };
+  if (!r.success) {
+    return { ok: false, erreurs: { cle_api: en ? ERREUR_CLE_FORMAT_EN : ERREUR_CLE_FORMAT } };
+  }
   return { ok: true, charge: { cle_api: r.data } };
 }
 
@@ -30,15 +47,15 @@ const MICRO_PAR_USD = 1_000_000;
 const NBSP = "\u00a0";
 
 /** 8100 µUSD → « 0,0081 $US » ; 50 000 000 → « 50,00 $US ». Mise en forme seulement. */
-export function formaterMicroUsd(micro: number | null | undefined): string {
+export function formaterMicroUsd(micro: number | null | undefined, langue: Langue = "fr"): string {
   if (typeof micro !== "number" || !Number.isFinite(micro)) return "—";
   const usd = micro / MICRO_PAR_USD;
   const petit = usd !== 0 && Math.abs(usd) < 0.01;
-  const nombre = new Intl.NumberFormat("fr-FR", {
+  const nombre = new Intl.NumberFormat(LOCALES_INTL[langue], {
     minimumFractionDigits: 2,
     maximumFractionDigits: petit ? 6 : 2,
   }).format(usd);
-  return `${nombre}${NBSP}$US`;
+  return `${nombre}${NBSP}${langue === "en" ? "USD" : "$US"}`;
 }
 
 /** Plafond de l'API → texte modifiable (« 50 », « 49,9 »). */
@@ -52,21 +69,30 @@ export const ERREUR_PLAFOND_VIDE =
 export const ERREUR_PLAFOND_FORMAT =
   "Plafond invalide : nombre positif, deux décimales au plus (ex. 50 ou 49,90).";
 export const ERREUR_PLAFOND_MAX = "Le plafond mensuel est limité à 100 000 $US.";
+export const ERREUR_PLAFOND_VIDE_EN = "Enter a ceiling in US dollars (0 blocks any billed call).";
+export const ERREUR_PLAFOND_FORMAT_EN =
+  "Invalid ceiling: positive number, two decimals at most (e.g. 50 or 49.90).";
+export const ERREUR_PLAFOND_MAX_EN = "The monthly ceiling is limited to 100,000 USD.";
 
 /** Plafond saisi en dollars US → micro-dollars entiers attendus par l'API. */
 export function lirePlafond(
   saisie: string,
+  langue: Langue = "fr",
 ): Resultat<{ plafond_mensuel_micro_usd: number }, "plafond"> {
+  const en = langue === "en";
   const n = lireNombre(saisie);
-  if (n === null) return { ok: false, erreurs: { plafond: ERREUR_PLAFOND_VIDE } };
-  if (Number.isNaN(n) || n < 0) return { ok: false, erreurs: { plafond: ERREUR_PLAFOND_FORMAT } };
+  if (n === null) {
+    return { ok: false, erreurs: { plafond: en ? ERREUR_PLAFOND_VIDE_EN : ERREUR_PLAFOND_VIDE } };
+  }
+  const format = en ? ERREUR_PLAFOND_FORMAT_EN : ERREUR_PLAFOND_FORMAT;
+  if (Number.isNaN(n) || n < 0) return { ok: false, erreurs: { plafond: format } };
   const centimes = Math.round(n * 100);
   if (Math.abs(n * 100 - centimes) > 1e-6) {
-    return { ok: false, erreurs: { plafond: ERREUR_PLAFOND_FORMAT } };
+    return { ok: false, erreurs: { plafond: format } };
   }
   const micro = centimes * (MICRO_PAR_USD / 100);
   if (!Number.isSafeInteger(micro) || micro > PLAFOND_IA_MAX_MICRO_USD) {
-    return { ok: false, erreurs: { plafond: ERREUR_PLAFOND_MAX } };
+    return { ok: false, erreurs: { plafond: en ? ERREUR_PLAFOND_MAX_EN : ERREUR_PLAFOND_MAX } };
   }
   return { ok: true, charge: { plafond_mensuel_micro_usd: micro } };
 }
@@ -94,14 +120,25 @@ export function textePlafondPlateforme(
     | "plafond_plateforme_micro_usd"
     | "plafond_effectif_micro_usd"
   >,
+  langue: Langue = "fr",
 ): string | null {
   if (p.source_cle !== "plateforme" || typeof p.plafond_plateforme_micro_usd !== "number") {
     return null;
   }
-  const limite = `Avec la clé de la plateforme, l'opérateur limite le plafond à ${formaterMicroUsd(p.plafond_plateforme_micro_usd)} par mois`;
+  const t = creerTraduire(langue);
+  const limite = t(
+    `Avec la clé de la plateforme, l'opérateur limite le plafond à ${formaterMicroUsd(p.plafond_plateforme_micro_usd)} par mois`,
+    `With the platform key, the operator limits the ceiling to ${formaterMicroUsd(p.plafond_plateforme_micro_usd, langue)} per month`,
+  );
   return plafondBorne(p)
-    ? `${limite} : le plafond appliqué est donc de ${formaterMicroUsd(p.plafond_effectif_micro_usd)}, quel que soit celui du cabinet.`
-    : `${limite} ; le plafond du cabinet reste en deçà et s'applique.`;
+    ? t(
+        `${limite} : le plafond appliqué est donc de ${formaterMicroUsd(p.plafond_effectif_micro_usd)}, quel que soit celui du cabinet.`,
+        `${limite}: the ceiling applied is therefore ${formaterMicroUsd(p.plafond_effectif_micro_usd, langue)}, whatever the firm's ceiling.`,
+      )
+    : t(
+        `${limite} ; le plafond du cabinet reste en deçà et s'applique.`,
+        `${limite}; the firm's ceiling stays below it and applies.`,
+      );
 }
 
 /** Une hausse du plafond engage une dépense : l'API redemande l'identité de l'auteur. */

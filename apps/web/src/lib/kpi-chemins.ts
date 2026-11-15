@@ -2,7 +2,12 @@
  * Chemins de l'API et des pages KPI, paramètres d'URL et date d'arrêté. Voir `kpi.ts`, point
  * d'entrée du module.
  */
-import { DATE_SUIVI_KPI_MIN, HORIZON_ARRETE_KPI_JOURS } from "@missionpilot/shared";
+import {
+  creerTraduire,
+  DATE_SUIVI_KPI_MIN,
+  HORIZON_ARRETE_KPI_JOURS,
+  type Langue,
+} from "@missionpilot/shared";
 import { formaterDate } from "./format";
 import { dateValide } from "./periode";
 
@@ -83,20 +88,33 @@ export interface DateArrete {
 }
 
 /** Date d'arrêté lue dans l'URL (`?date=`), contrôlée AVANT l'appel (l'API la refuserait). */
-export function lireDateArrete(v: string | string[] | undefined, aujourdhui: string): DateArrete {
+export function lireDateArrete(
+  v: string | string[] | undefined,
+  aujourdhui: string,
+  langue: Langue = "fr",
+): DateArrete {
+  const t = creerTraduire(langue);
   const brut = Array.isArray(v) ? v[0] : v;
   if (brut === undefined || brut === "") return { date: null, erreur: null };
   const { min, max } = bornesDateArrete(aujourdhui);
   if (!dateValide(brut)) {
     return {
       date: null,
-      erreur: "Date d'arrêté illisible : le tableau de bord est arrêté à aujourd'hui.",
+      erreur: t(
+        "Date d'arrêté illisible : le tableau de bord est arrêté à aujourd'hui.",
+        "Unreadable cut-off date: the dashboard is cut off at today.",
+      ),
     };
   }
   if (brut < min || brut > max) {
+    const du = formaterDate(min, "UTC", langue);
+    const au = formaterDate(max, "UTC", langue);
     return {
       date: null,
-      erreur: `Date d'arrêté hors bornes (du ${formaterDate(min)} au ${formaterDate(max)}) : le tableau de bord est arrêté à aujourd'hui.`,
+      erreur: t(
+        `Date d'arrêté hors bornes (du ${du} au ${au}) : le tableau de bord est arrêté à aujourd'hui.`,
+        `Cut-off date out of range (from ${du} to ${au}): the dashboard is cut off at today.`,
+      ),
     };
   }
   return { date: brut, erreur: null };

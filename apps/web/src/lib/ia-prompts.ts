@@ -1,5 +1,11 @@
 /** IA : prompts versionnés (contrat de l'API, chemins, résumé du format de sortie). */
-import { VARIABLE_CHIFFRES, type SchemaSortie, type TacheIa } from "@missionpilot/shared";
+import {
+  LOCALES_INTL,
+  VARIABLE_CHIFFRES,
+  type Langue,
+  type SchemaSortie,
+  type TacheIa,
+} from "@missionpilot/shared";
 
 // --- Prompts versionnés ----------------------------------------------------------------------
 
@@ -42,25 +48,32 @@ export const variablesASaisir = (p: Pick<PromptIa, "variables">) =>
   p.variables.filter((v) => v !== VARIABLE_CHIFFRES);
 
 /** Résumé lisible du format de sortie attendu. */
-export function resumeSchemaSortie(s: SchemaSortie): string {
+export function resumeSchemaSortie(s: SchemaSortie, langue: Langue = "fr"): string {
+  const en = langue === "en";
   if (s.type === "texte") {
     return s.longueur_max
-      ? `Texte libre (${new Intl.NumberFormat("fr-FR").format(s.longueur_max)} caractères au plus)`
-      : "Texte libre";
+      ? en
+        ? `Free text (${new Intl.NumberFormat(LOCALES_INTL[langue]).format(s.longueur_max)} characters maximum)`
+        : `Texte libre (${new Intl.NumberFormat("fr-FR").format(s.longueur_max)} caractères au plus)`
+      : en
+        ? "Free text"
+        : "Texte libre";
   }
   const champs = Object.entries(s.champs).map(([nom, c]) => {
     switch (c.type) {
       case "texte":
-        return `${nom} (texte)`;
+        return en ? `${nom} (text)` : `${nom} (texte)`;
       case "liste_texte":
-        return `${nom} (liste de textes)`;
+        return en ? `${nom} (list of texts)` : `${nom} (liste de textes)`;
       case "booleen":
-        return `${nom} (oui ou non)`;
+        return en ? `${nom} (yes or no)` : `${nom} (oui ou non)`;
       case "choix":
-        return `${nom} (choix : ${c.valeurs.join(", ")})`;
+        return en
+          ? `${nom} (choice: ${c.valeurs.join(", ")})`
+          : `${nom} (choix : ${c.valeurs.join(", ")})`;
     }
   });
-  return `Objet JSON : ${champs.join(" ; ")}`;
+  return `${en ? "JSON object:" : "Objet JSON :"} ${champs.join(" ; ")}`;
 }
 
 /** Après activation d'une version : elle seule est active parmi les versions de son nom. */

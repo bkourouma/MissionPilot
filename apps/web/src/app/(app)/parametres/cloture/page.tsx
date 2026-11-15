@@ -5,6 +5,7 @@ import { Carte } from "../../../../components/ui/Carte";
 import { EnteteDePage } from "../../../../components/ui/EnteteDePage";
 import { EtatErreur } from "../../../../components/ui/EtatListe";
 import { Icone } from "../../../../components/ui/Icone";
+import { obtenirLangue, obtenirT } from "../../../../lib/i18n/serveur";
 import { chargerServeur } from "../../../../lib/api-serveur";
 import { anneeDemandee } from "../../../../lib/cabinet";
 import { formaterDateHeure } from "../../../../lib/format";
@@ -13,12 +14,15 @@ import { exigerPermission } from "../../../../lib/session";
 import {
   actionsPeriode,
   libelleMois,
-  STATUT_PERIODE,
+  statutPeriode,
   type PeriodeTemps,
 } from "../../../../lib/temps-admin";
 import { ActionsPeriode } from "./Cloture";
 
-export const metadata: Metadata = { title: "Clôture des temps" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await obtenirT();
+  return { title: t("Clôture des temps", "Time close-out") };
+}
 
 export default async function PageCloture({
   searchParams,
@@ -26,6 +30,8 @@ export default async function PageCloture({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { utilisateur } = await exigerPermission("temps.cloturer");
+  const t = await obtenirT();
+  const langue = await obtenirLangue();
   const annee = anneeDemandee((await searchParams).annee, new Date().getUTCFullYear());
   const r = await chargerServeur<{ annee: number; elements: PeriodeTemps[] }>(
     `/api/temps/periodes?annee=${annee}`,
@@ -35,13 +41,16 @@ export default async function PageCloture({
   return (
     <div className="mp-page">
       <EnteteDePage
-        titre="Clôture mensuelle des temps"
-        soustitre="Un mois terminé se clôture quand toutes ses feuilles sont validées : ses temps sont alors verrouillés et toute correction est tracée. Seul un associé rouvre une période, avec un motif."
+        titre={t("Clôture mensuelle des temps", "Monthly time close-out")}
+        soustitre={t(
+          "Un mois terminé se clôture quand toutes ses feuilles sont validées : ses temps sont alors verrouillés et toute correction est tracée. Seul un associé rouvre une période, avec un motif.",
+          "A finished month is closed once all its timesheets are approved: its time entries are then locked and every correction is tracked. Only a partner can reopen a period, with a reason.",
+        )}
       />
       <Carte
-        titre={`Périodes ${annee}`}
+        titre={t(`Périodes ${annee}`, `${annee} periods`)}
         actions={
-          <nav className="mp-navigation-annee" aria-label="Changer d'année">
+          <nav className="mp-navigation-annee" aria-label={t("Changer d'année", "Change year")}>
             <Link className="mp-pagination__lien" href={`/parametres/cloture?annee=${annee - 1}`}>
               <Icone nom="chevronGauche" taille={18} />
               <span>{annee - 1}</span>
@@ -55,32 +64,43 @@ export default async function PageCloture({
       >
         {!r.ok ? (
           <EtatErreur
-            titre="Les périodes n'ont pas pu être chargées."
+            titre={t(
+              "Les périodes n'ont pas pu être chargées.",
+              "The periods could not be loaded.",
+            )}
             message={r.message}
             hrefReessayer={`/parametres/cloture?annee=${annee}`}
           />
         ) : (
-          <ul className="mp-liste-lignes" aria-label={`Mois de ${annee}`}>
+          <ul className="mp-liste-lignes" aria-label={t(`Mois de ${annee}`, `Months of ${annee}`)}>
             {r.donnees.elements.map((p) => {
               const a = actionsPeriode(p, utilisateur.roles, aujourdhui);
-              const libelle = libelleMois(p.mois);
+              const libelle = libelleMois(p.mois, langue);
+              const statut = statutPeriode(p.statut, langue);
               return (
                 <li key={p.mois} className="mp-liste-lignes__ligne">
                   <span className="mp-liste-lignes__texte">
                     <strong>{libelle}</strong>
                     <span className="mp-texte-doux">
                       {p.statut === "cloturee" && p.cloturee_le
-                        ? `Clôturé le ${formaterDateHeure(p.cloturee_le)}`
+                        ? t(
+                            `Clôturé le ${formaterDateHeure(p.cloturee_le, undefined, langue)}`,
+                            `Closed on ${formaterDateHeure(p.cloturee_le, undefined, langue)}`,
+                          )
                         : p.rouverte_le
-                          ? `Rouvert le ${formaterDateHeure(p.rouverte_le)}${p.motif_reouverture ? ` : ${p.motif_reouverture}` : ""}`
+                          ? t(
+                              `Rouvert le ${formaterDateHeure(p.rouverte_le, undefined, langue)}${p.motif_reouverture ? ` : ${p.motif_reouverture}` : ""}`,
+                              `Reopened on ${formaterDateHeure(p.rouverte_le, undefined, langue)}${p.motif_reouverture ? `: ${p.motif_reouverture}` : ""}`,
+                            )
                           : a.cloturer
-                            ? "Mois terminé, prêt à clôturer si toutes les feuilles sont validées"
-                            : "Mois en cours ou à venir"}
+                            ? t(
+                                "Mois terminé, prêt à clôturer si toutes les feuilles sont validées",
+                                "Month finished, ready to close if all timesheets are approved",
+                              )
+                            : t("Mois en cours ou à venir", "Current or upcoming month")}
                     </span>
                   </span>
-                  <BadgeStatut tonalite={STATUT_PERIODE[p.statut].tonalite}>
-                    {STATUT_PERIODE[p.statut].libelle}
-                  </BadgeStatut>
+                  <BadgeStatut tonalite={statut.tonalite}>{statut.libelle}</BadgeStatut>
                   {a.cloturer || a.rouvrir ? (
                     <ActionsPeriode
                       mois={p.mois}
@@ -96,8 +116,14 @@ export default async function PageCloture({
         )}
       </Carte>
       <p className="mp-texte-doux">
-        Les demandes de correction des temps verrouillés se décident dans{" "}
-        <Link href="/temps/corrections">Feuille de temps › Corrections</Link>.
+        {t(
+          "Les demandes de correction des temps verrouillés se décident dans",
+          "Correction requests for locked time entries are decided in",
+        )}{" "}
+        <Link href="/temps/corrections">
+          {t("Feuille de temps › Corrections", "Timesheet › Corrections")}
+        </Link>
+        .
       </p>
     </div>
   );

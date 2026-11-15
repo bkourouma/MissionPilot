@@ -23,6 +23,7 @@ import {
 import { joindreListe } from "../../lib/saisie";
 import { RetourFormulaire } from "../formulaires/RetourFormulaire";
 import { useFormulaire } from "../formulaires/useFormulaire";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Alerte } from "../ui/Alerte";
 import { Bouton } from "../ui/Bouton";
 import { Champ } from "../ui/Champ";
@@ -53,6 +54,8 @@ export function FormulaireListeExclusion({
   investisseurs,
   liste,
 }: FormulaireListeExclusionProps) {
+  const t = useT();
+  const langue = useLangue();
   const f = useFormulaire<ChampListe>();
   const correction = liste !== undefined;
   const [s, setS] = useState<SaisieListe>(
@@ -79,7 +82,7 @@ export function FormulaireListeExclusion({
   async function soumettre(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await f.envoyer(
-      validerListe(s, correction),
+      validerListe(s, correction, langue),
       (charge) =>
         liste
           ? api.post<ReponseEcriture>(cheminVersionsListe(liste.liste.id), {
@@ -90,8 +93,10 @@ export function FormulaireListeExclusion({
             })
           : api.post<ReponseEcriture>(cheminListesExclusion(), charge),
       {
-        succes: correction ? "Nouvelle version enregistrée." : "Liste créée.",
-        messageSpecifique: messageDd,
+        succes: correction
+          ? t("Nouvelle version enregistrée.", "New version saved.")
+          : t("Liste créée.", "List created."),
+        messageSpecifique: (err) => messageDd(err, langue),
         apres: () =>
           correction
             ? maj({ motif: "" })
@@ -113,19 +118,21 @@ export function FormulaireListeExclusion({
       noValidate
       onSubmit={soumettre}
       aria-label={
-        correction ? `Corriger la liste ${liste.liste.nom}` : "Nouvelle liste d'exclusion"
+        correction
+          ? t(`Corriger la liste ${liste.liste.nom}`, `Edit the list ${liste.liste.nom}`)
+          : t("Nouvelle liste d'exclusion", "New exclusion list")
       }
     >
       <RetourFormulaire
         erreur={f.erreurGlobale}
         succes={f.succes}
         refAlerte={f.refAlerte}
-        titreErreur="Liste refusée"
+        titreErreur={t("Liste refusée", "List refused")}
       />
       {correction ? null : (
         <div className="mp-grille-champs">
           <Champ
-            libelle="Nom de la liste"
+            libelle={t("Nom de la liste", "List name")}
             required
             maxLength={TITRE_MAX}
             value={s.nom}
@@ -133,8 +140,8 @@ export function FormulaireListeExclusion({
             erreur={f.erreurs.nom}
           />
           <Select
-            libelle="Investisseur concerné"
-            invite="Liste générale (tous les investisseurs)"
+            libelle={t("Investisseur concerné", "Investor concerned")}
+            invite={t("Liste générale (tous les investisseurs)", "General list (all investors)")}
             options={investisseurs}
             value={s.client_id}
             onChange={(e) => maj({ client_id: e.target.value })}
@@ -143,57 +150,63 @@ export function FormulaireListeExclusion({
         </div>
       )}
       <Champ
-        libelle="Cadre public de référence"
+        libelle={t("Cadre public de référence", "Public reference framework")}
         maxLength={300}
         value={s.reference_cadre}
         onChange={(e) => maj({ reference_cadre: e.target.value })}
         erreur={f.erreurs.reference_cadre}
-        aide="Le nom d'un document public dont la liste s'inspire (par exemple « Normes de performance de la SFI »). Aucun extrait."
+        aide={t(
+          "Le nom d'un document public dont la liste s'inspire (par exemple « Normes de performance de la SFI »). Aucun extrait.",
+          "The name of a public document the list draws on (for example “IFC Performance Standards”). No excerpt.",
+        )}
       />
       {f.erreurs.regles ? (
-        <Alerte tonalite="danger" titre="Règles à corriger" annonce="alert">
+        <Alerte tonalite="danger" titre={t("Règles à corriger", "Rules to fix")} annonce="alert">
           <p>{f.erreurs.regles}</p>
         </Alerte>
       ) : null}
       <fieldset className="mp-groupe">
-        <legend className="mp-champ__libelle">Règles d&apos;exclusion</legend>
+        <legend className="mp-champ__libelle">{t("Règles d'exclusion", "Exclusion rules")}</legend>
         {s.regles.map((r, i) => (
           <div key={r.code !== "" ? r.code : `nouvelle-${i}`} className="mp-regle">
             <Champ
-              libelle={`Règle ${i + 1} : libellé`}
+              libelle={t(`Règle ${i + 1} : libellé`, `Rule ${i + 1}: label`)}
               maxLength={TITRE_MAX}
               value={r.libelle}
               onChange={(e) => majRegle(i, { libelle: e.target.value })}
             />
             <Champ
-              libelle="Mots-clés"
+              libelle={t("Mots-clés", "Keywords")}
               value={r.mots_cles}
               onChange={(e) => majRegle(i, { mots_cles: e.target.value })}
-              aide="Séparés par des virgules (10 au plus, de 60 caractères au plus). Un mot-clé correspond aussi à ses dérivés (« casino » : « casinos »)."
+              aide={t(
+                "Séparés par des virgules (10 au plus, de 60 caractères au plus). Un mot-clé correspond aussi à ses dérivés (« casino » : « casinos »).",
+                "Separated by commas (10 at most, 60 characters at most each). A keyword also matches its derived forms (“casino”: “casinos”).",
+              )}
             />
             <div className="mp-grille-champs">
               <ChoixMultiple
-                libelle="Secteurs concernés"
+                libelle={t("Secteurs concernés", "Sectors concerned")}
                 options={optionsTaxonomie(secteurs)}
                 valeurs={r.secteur_codes}
                 onChange={(v) => majRegle(i, { secteur_codes: v })}
-                libelleAjout="Ajouter le secteur"
+                libelleAjout={t("Ajouter le secteur", "Add the sector")}
               />
               <ChoixMultiple
-                libelle="Pays concernés"
+                libelle={t("Pays concernés", "Countries concerned")}
                 options={optionsTaxonomie(pays)}
                 valeurs={r.pays_codes}
                 onChange={(v) => majRegle(i, { pays_codes: v })}
-                libelleAjout="Ajouter le pays"
+                libelleAjout={t("Ajouter le pays", "Add the country")}
               />
             </div>
             <div>
               <Bouton
                 variante="discret"
                 onClick={() => setS((x) => ({ ...x, regles: x.regles.filter((_, j) => j !== i) }))}
-                aria-label={`Retirer la règle ${i + 1}`}
+                aria-label={t(`Retirer la règle ${i + 1}`, `Remove rule ${i + 1}`)}
               >
-                Retirer la règle
+                {t("Retirer la règle", "Remove the rule")}
               </Bouton>
             </div>
           </div>
@@ -204,25 +217,31 @@ export function FormulaireListeExclusion({
             icone="plus"
             onClick={() => setS((x) => ({ ...x, regles: [...x.regles, saisieRegleVide()] }))}
           >
-            Ajouter une règle
+            {t("Ajouter une règle", "Add a rule")}
           </Bouton>
         </div>
       </fieldset>
       {correction ? (
         <ZoneTexte
-          libelle="Motif de la correction"
+          libelle={t("Motif de la correction", "Reason for the correction")}
           required
           rows={2}
           maxLength={MOTIF_MAX}
           value={s.motif}
           onChange={(e) => maj({ motif: e.target.value })}
           erreur={f.erreurs.motif}
-          aide="Conservé dans l'historique des versions."
+          aide={t("Conservé dans l'historique des versions.", "Kept in the version history.")}
         />
       ) : null}
       <div className="mp-actions-formulaire">
-        <Bouton type="submit" chargement={f.enCours} texteChargement="Enregistrement…">
-          {correction ? "Enregistrer la nouvelle version" : "Créer la liste"}
+        <Bouton
+          type="submit"
+          chargement={f.enCours}
+          texteChargement={t("Enregistrement…", "Saving…")}
+        >
+          {correction
+            ? t("Enregistrer la nouvelle version", "Save the new version")
+            : t("Créer la liste", "Create the list")}
         </Bouton>
       </div>
     </form>

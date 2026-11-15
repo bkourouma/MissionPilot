@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { api, ErreurApi, MESSAGE_INATTENDU } from "../../lib/api";
+import { api } from "../../lib/api";
+import { messageErreurLangue } from "../../lib/double-authentification";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { effacerConversation, stockageSession } from "../../lib/copilote-session";
 import { purgerDonneesHorsLigne } from "../../lib/hors-ligne/magasins";
 import { Bouton } from "../ui/Bouton";
@@ -15,6 +17,8 @@ export function BoutonDeconnexion({
   /** Pied du rail : un bouton carré avec icône, le nom accessible reste « Se déconnecter ». */
   iconeSeule?: boolean;
 }) {
+  const t = useT();
+  const langue = useLangue();
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -36,7 +40,7 @@ export function BoutonDeconnexion({
       // Rechargement complet : vide l'état client et le cache du routeur.
       window.location.assign("/connexion");
     } catch (e) {
-      setErreur(e instanceof ErreurApi ? e.message : MESSAGE_INATTENDU);
+      setErreur(messageErreurLangue(e, langue));
       setEnCours(false);
     }
   }
@@ -47,8 +51,10 @@ export function BoutonDeconnexion({
         <button
           type="button"
           className="mp-rail__icone"
-          aria-label={enCours ? "Déconnexion en cours" : "Se déconnecter"}
-          title="Se déconnecter"
+          aria-label={
+            enCours ? t("Déconnexion en cours", "Signing out") : t("Se déconnecter", "Sign out")
+          }
+          title={t("Se déconnecter", "Sign out")}
           aria-busy={enCours || undefined}
           disabled={enCours}
           onClick={deconnecter}
@@ -57,7 +63,8 @@ export function BoutonDeconnexion({
         </button>
         {erreur ? (
           <p className="mp-deconnexion__erreur" role="alert">
-            Déconnexion impossible : {erreur}
+            {t("Déconnexion impossible : ", "Unable to sign out: ")}
+            {erreur}
           </p>
         ) : null}
       </div>
@@ -70,15 +77,16 @@ export function BoutonDeconnexion({
         variante="secondaire"
         icone="deconnexion"
         chargement={enCours}
-        texteChargement="Déconnexion…"
+        texteChargement={t("Déconnexion…", "Signing out…")}
         pleineLargeur={pleineLargeur}
         onClick={deconnecter}
       >
-        Se déconnecter
+        {t("Se déconnecter", "Sign out")}
       </Bouton>
       {erreur ? (
         <p className="mp-deconnexion__erreur" role="alert">
-          Déconnexion impossible : {erreur}
+          {t("Déconnexion impossible : ", "Unable to sign out: ")}
+          {erreur}
         </p>
       ) : null}
     </div>
