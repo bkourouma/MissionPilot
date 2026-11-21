@@ -24,6 +24,17 @@ import {
 } from "../../lib/format";
 import { obtenirLangue, obtenirT } from "../../lib/i18n/serveur";
 import { Tableau, type ColonneTableau } from "../ui/Tableau";
+import "./tableau-de-bord.css";
+
+/** Valeur absente : le tiret reste visuel, les lecteurs d'écran lisent « Non disponible ». */
+function tiret(t: Traduire) {
+  return (
+    <>
+      <span aria-hidden="true">—</span>
+      <span className="mp-visuellement-cache">{t("Non disponible", "Not available")}</span>
+    </>
+  );
+}
 
 /** Colonnes de charge (occupation, facturabilité, discipline) : sans aucune donnée financière. */
 function colonnesCharge<T extends VueCharge>(t: Traduire, langue: Langue): ColonneTableau<T>[] {
@@ -96,7 +107,7 @@ function colonnesMissions<T extends VueMissions>(
         rendu: (l) =>
           l.marge
             ? `${formaterMontantMineur(l.marge.marge, devise, langue)} (${formaterPourcentage(l.marge.taux_marge, 1, langue)})`
-            : "—",
+            : tiret(t),
       },
       {
         cle: "realisation",
@@ -109,7 +120,9 @@ function colonnesMissions<T extends VueMissions>(
         entete: t("Encours", "Work in progress"),
         alignement: "droite",
         rendu: (l) =>
-          l.encours ? formaterMontantMineur(l.encours.encours_production, devise, langue) : "—",
+          l.encours
+            ? formaterMontantMineur(l.encours.encours_production, devise, langue)
+            : tiret(t),
       },
     );
   }
@@ -123,7 +136,7 @@ function colonnesMissions<T extends VueMissions>(
       alignement: "droite",
       rendu: (l) => {
         const carnet = lireCarnet(l, langue);
-        return carnet ? formaterMontantMineur(carnet.valeur, devise, langue) : "—";
+        return carnet ? formaterMontantMineur(carnet.valeur, devise, langue) : tiret(t);
       },
     });
   }
@@ -133,6 +146,12 @@ function colonnesMissions<T extends VueMissions>(
 export async function TableauNiveau({ reponse: r }: { reponse: ReponseIndicateurs }) {
   const t = await obtenirT();
   const langue = await obtenirLangue();
+  const tableau = tableauParNiveau(r, t, langue);
+  // Chiffres tabulaires alignés à droite (classe `mp-tdb-niveau`, tableau-de-bord.css).
+  return tableau ? <div className="mp-tdb-niveau">{tableau}</div> : null;
+}
+
+function tableauParNiveau(r: ReponseIndicateurs, t: Traduire, langue: Langue) {
   const nomNiveau = (langue === "en" ? NIVEAU_LIBELLES_EN : NIVEAU_LIBELLES)[r.niveau];
   const legende = t(
     `Indicateurs par ${nomNiveau.toLowerCase()}`,
@@ -150,7 +169,7 @@ export async function TableauNiveau({ reponse: r }: { reponse: ReponseIndicateur
           messageVide={t("Aucun collaborateur interne actif.", "No active internal consultant.")}
           colonnes={[
             { cle: "nom", entete: t("Collaborateur", "Consultant"), rendu: (l) => l.nom },
-            { cle: "grade", entete: t("Grade", "Grade"), rendu: (l) => l.grade_code ?? "—" },
+            { cle: "grade", entete: t("Grade", "Grade"), rendu: (l) => l.grade_code ?? tiret(t) },
             ...colonnesCharge<ElementCollaborateur>(t, langue),
           ]}
         />
@@ -248,7 +267,7 @@ export async function TableauNiveau({ reponse: r }: { reponse: ReponseIndicateur
                     rendu: (l: ElementClient) =>
                       l.marge
                         ? `${formaterMontantMineur(l.marge.marge, r.devise, langue)} (${formaterPourcentage(l.marge.taux_marge, 1, langue)})`
-                        : "—",
+                        : tiret(t),
                   },
                 ]
               : []),

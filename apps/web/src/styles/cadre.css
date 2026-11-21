@@ -2,10 +2,13 @@
 
 /* ---------- Lien d'évitement ---------- */
 .mp-lien-evitement {
-  position: absolute;
-  top: var(--mp-esp-2);
-  left: var(--mp-esp-2);
-  z-index: 100;
+  position: fixed;
+  top: max(var(--mp-esp-2), env(safe-area-inset-top));
+  left: max(var(--mp-esp-2), env(safe-area-inset-left));
+  z-index: var(--mp-z-toast);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
   padding: var(--mp-esp-2) var(--mp-esp-4);
   background: var(--mp-primaire);
   color: var(--mp-sur-primaire);
@@ -13,9 +16,12 @@
   font-weight: 600;
   transform: translateY(-200%);
 }
+/* Visible au focus, au-dessus de la barre nuit : anneau blanc. */
 .mp-lien-evitement:focus {
   transform: none;
   color: var(--mp-sur-primaire);
+  outline: var(--mp-focus-largeur) solid var(--mp-focus-nuit);
+  outline-offset: 0;
 }
 
 /* ---------- Cadre ---------- */
@@ -23,6 +29,8 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* Jamais de défilement horizontal de la page (les tableaux défilent dans leur cadre). */
+  overflow-x: clip;
 }
 
 .mp-cadre__corps {
@@ -34,11 +42,20 @@
 .mp-contenu {
   flex: 1;
   min-width: 0;
-  padding: var(--mp-esp-5) var(--mp-esp-4);
+  padding: var(--mp-esp-5) max(var(--mp-esp-4), env(safe-area-inset-right)) var(--mp-esp-5)
+    max(var(--mp-esp-4), env(safe-area-inset-left));
   /* Place pour la barre basse sur téléphone. */
   padding-bottom: calc(
     var(--mp-hauteur-barre-basse) + var(--mp-esp-5) + env(safe-area-inset-bottom)
   );
+}
+
+/* Tablette : marge de 24 px. */
+@media (min-width: 600px) and (max-width: 959px) {
+  .mp-contenu {
+    padding-inline: max(var(--mp-esp-5), env(safe-area-inset-left))
+      max(var(--mp-esp-5), env(safe-area-inset-right));
+  }
 }
 
 .mp-contenu:focus {
@@ -68,13 +85,14 @@
 .mp-entete {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: var(--mp-z-entete);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--mp-esp-3);
   min-height: var(--mp-hauteur-entete);
-  padding: var(--mp-esp-2) var(--mp-esp-4);
+  padding: var(--mp-esp-2) max(var(--mp-esp-4), env(safe-area-inset-right)) var(--mp-esp-2)
+    max(var(--mp-esp-4), env(safe-area-inset-left));
   padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
   background: var(--mp-nuit);
   color: var(--mp-sur-nuit);
@@ -83,6 +101,7 @@
 .mp-entete__marque {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
   min-height: var(--mp-cible);
   color: var(--mp-sur-nuit);
   text-decoration: none;
@@ -97,6 +116,9 @@
 }
 
 .mp-entete .mp-cloche {
+  flex: none;
+  width: var(--mp-cible);
+  height: var(--mp-cible);
   color: var(--mp-sur-nuit);
 }
 .mp-entete .mp-cloche:hover,
@@ -105,7 +127,13 @@
   background: var(--mp-nuit-actif);
 }
 .mp-entete .mp-cloche__pastille {
+  top: 1px;
+  right: -1px;
+  min-width: 1.375rem;
+  height: 1.375rem;
   border-color: var(--mp-nuit);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
 }
 
 .mp-deconnexion {
@@ -195,10 +223,10 @@ button.mp-nav__lien:hover {
 .mp-barre-basse {
   position: fixed;
   inset: auto 0 0 0;
-  z-index: 30;
+  z-index: var(--mp-z-entete);
   background: var(--mp-surface);
   border-top: 1px solid var(--mp-bordure);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .mp-barre-basse__liste {
@@ -221,6 +249,18 @@ button.mp-nav__lien:hover {
   text-align: center;
 }
 
+/* Tablette : la barre garde des cases de largeur raisonnable au lieu de s'étirer. */
+@media (min-width: 600px) {
+  .mp-barre-basse__liste {
+    max-width: 40rem;
+    margin-inline: auto;
+  }
+}
+
+.mp-nav__lien--barre:focus-visible {
+  outline-offset: -3px;
+}
+
 .mp-nav__lien--barre .mp-nav__libelle {
   max-width: 100%;
   overflow: hidden;
@@ -228,9 +268,12 @@ button.mp-nav__lien:hover {
   white-space: nowrap;
 }
 
-/* Entrée active : repère or sur le bord haut, texte violet. */
-.mp-nav__lien--barre[aria-current="page"] {
+/* Entrée active : repère or sur le bord haut, texte violet. « Menu » porte le même repère quand la
+   page courante n'a pas sa place dans la barre. */
+.mp-nav__lien--barre[aria-current="page"],
+.mp-nav__lien--barre[data-page-courante="oui"] {
   background: none;
+  color: var(--mp-primaire);
   box-shadow: inset 0 3px 0 var(--mp-or);
 }
 
@@ -294,16 +337,17 @@ button.mp-nav__lien:hover {
     color: var(--mp-sur-nuit);
   }
   .mp-nav-laterale .mp-nav__lien[aria-current="page"] {
-    background: var(--mp-nuit-actif);
+    background: var(--mp-rail-actif-fond);
     color: var(--mp-sur-nuit);
+    font-weight: 700;
   }
   /* Repère de l'entrée active : pastille or inscrite dans la ligne, jamais une bordure. */
   .mp-nav-laterale .mp-nav__lien[aria-current="page"]::before {
     content: "";
     position: absolute;
     left: 0;
-    top: 22%;
-    bottom: 22%;
+    top: 18%;
+    bottom: 18%;
     width: 3px;
     border-radius: 0 3px 3px 0;
     background: var(--mp-or);
@@ -312,18 +356,33 @@ button.mp-nav__lien:hover {
     color: var(--mp-sur-nuit-doux);
   }
   .mp-nav-laterale .mp-nav__pastille {
+    min-width: 1.375rem;
+    height: 1.375rem;
     color: var(--mp-nuit);
     background: var(--mp-or);
+    font-size: var(--mp-taille-xs);
+    line-height: 1.375rem;
   }
   .mp-barre-basse,
-  .mp-menu {
+  .mp-menu,
+  .mp-entete .mp-entete__langue {
     display: none;
+  }
+  /* Le logo et la cloche tiennent dans la colonne de 248 px. */
+  .mp-entete .mp-marque__mot {
+    font-size: 1.125rem;
   }
 }
 
 @media (min-width: 960px) and (pointer: coarse) {
-  .mp-nav-laterale .mp-nav__lien {
+  .mp-nav-laterale .mp-nav__lien,
+  .mp-nav__groupe-bouton,
+  .mp-nav__tout {
     min-height: var(--mp-cible);
+  }
+  .mp-rail__icone {
+    width: var(--mp-cible);
+    height: var(--mp-cible);
   }
 }
 
@@ -355,8 +414,20 @@ button.mp-nav__lien:hover {
   font-size: var(--mp-taille-xs);
 }
 
+/* Jetons locaux du rail. Rouge clair lisible sur le violet nuit (≥ 9:1), identique en clair et en
+   sombre ; entrée active : nuit-actif éclairci pour se détacher du fond nuit (blanc dessus ≥ 7:1). */
+.mp-rail {
+  --mp-rail-erreur: #ffd2d4;
+  --mp-rail-actif-fond: var(--mp-nuit-actif);
+}
+@supports (background: color-mix(in srgb, red, blue)) {
+  .mp-rail {
+    --mp-rail-actif-fond: color-mix(in srgb, var(--mp-nuit-actif) 84%, #ffffff);
+  }
+}
+
 .mp-rail .mp-deconnexion__erreur {
-  color: #ffd2d4;
+  color: var(--mp-rail-erreur);
 }
 
 /* ---------- Menu (téléphone) ---------- */
@@ -371,6 +442,37 @@ button.mp-nav__lien:hover {
   background: var(--mp-surface);
   color: var(--mp-texte);
   box-shadow: var(--mp-ombre-l);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mp-menu[open] {
+  animation: mp-tiroir-entree var(--mp-duree) var(--mp-sortie);
+}
+
+@keyframes mp-tiroir-entree {
+  from {
+    transform: translateX(1rem);
+    opacity: 0;
+  }
+}
+
+/* Page figée derrière le tiroir ouvert. */
+html[data-menu-ouvert] {
+  overflow: hidden;
+}
+
+/* Tablette : tiroir plus large, rubriques sur deux colonnes. */
+@media (min-width: 600px) {
+  .mp-menu {
+    width: min(100%, 36rem);
+  }
+  .mp-menu .mp-nav__groupes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--mp-esp-4) var(--mp-esp-5);
+    align-items: start;
+  }
 }
 
 .mp-menu::backdrop {
@@ -382,8 +484,16 @@ button.mp-nav__lien:hover {
   flex-direction: column;
   gap: var(--mp-esp-4);
   min-height: 100%;
-  padding: var(--mp-esp-4);
-  padding-bottom: calc(var(--mp-esp-4) + env(safe-area-inset-bottom));
+  padding: var(--mp-esp-4) max(var(--mp-esp-4), env(safe-area-inset-right))
+    calc(var(--mp-esp-4) + env(safe-area-inset-bottom))
+    max(var(--mp-esp-4), env(safe-area-inset-left));
+  padding-top: calc(var(--mp-esp-4) + env(safe-area-inset-top));
+}
+
+.mp-menu__pied {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
 }
 
 .mp-menu__entete {
@@ -451,6 +561,126 @@ button.mp-nav__lien:hover {
   gap: var(--mp-esp-4);
   max-width: 40rem;
   padding-top: var(--mp-esp-5);
+}
+
+/* Erreur : référence copiable et actions (réessayer, recharger, retour). */
+.mp-erreur__reference {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+  margin-top: var(--mp-esp-3);
+}
+.mp-erreur__reference code {
+  overflow-wrap: anywhere;
+}
+.mp-erreur__copier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+  min-height: var(--mp-cible);
+  padding: 0 var(--mp-esp-3);
+  border: 1px solid var(--mp-bordure-controle);
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface);
+  color: var(--mp-texte);
+  font: inherit;
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mp-erreur__copier:hover {
+  background: var(--mp-surface-2);
+}
+.mp-erreur__copie {
+  font-size: var(--mp-taille-s);
+  font-weight: 600;
+}
+.mp-erreur__copie:empty {
+  display: none;
+}
+.mp-erreur__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mp-esp-2) var(--mp-esp-3);
+}
+@media (max-width: 639px) {
+  .mp-erreur__actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* Bandeau « double authentification » : aligné sur la colonne de page. */
+.mp-bandeau-tfa {
+  max-width: var(--mp-largeur-contenu);
+  margin-inline: auto;
+}
+
+/* ---------- Squelette de page (app/(app)/loading.tsx) ---------- */
+.mp-chargement__forme {
+  display: block;
+  border-radius: var(--mp-rayon);
+  background: var(--mp-surface-2);
+  animation: mp-chargement-pouls 1.4s ease-in-out infinite;
+}
+@keyframes mp-chargement-pouls {
+  50% {
+    opacity: 0.55;
+  }
+}
+.mp-chargement__entete {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-2);
+}
+.mp-chargement__titre {
+  width: min(24rem, 60%);
+  height: 2rem;
+}
+.mp-chargement__soustitre {
+  width: min(32rem, 80%);
+  height: 1rem;
+}
+.mp-chargement__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-esp-3);
+}
+.mp-chargement__bouton {
+  width: 9rem;
+  height: var(--mp-cible);
+}
+.mp-chargement__bouton--court {
+  width: 6rem;
+}
+.mp-chargement__cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--mp-esp-4);
+}
+.mp-chargement__carte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-esp-3);
+  padding: var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface);
+}
+.mp-chargement__carte-titre {
+  width: 50%;
+  height: 1rem;
+}
+.mp-chargement__carte-chiffre {
+  width: 35%;
+  height: 1.75rem;
+}
+.mp-chargement__liste {
+  padding: var(--mp-esp-4);
+  border: 1px solid var(--mp-bordure);
+  border-radius: var(--mp-rayon-l);
+  background: var(--mp-surface);
 }
 
 .mp-page--isolee {
@@ -543,6 +773,7 @@ button.mp-nav__lien:hover {
 }
 .mp-liste-def dd {
   overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (min-width: 640px) {
@@ -677,6 +908,10 @@ button.mp-nav__lien:hover {
 }
 
 /* Pied du rail : une ligne, identité à gauche, actions en icônes. */
+.mp-rail__langue {
+  align-self: flex-start;
+}
+
 .mp-rail__ligne {
   display: flex;
   align-items: center;
@@ -715,6 +950,31 @@ button.mp-nav__lien:hover {
   display: none;
 }
 
+/* « Tout replier / Tout déplier » : petit bouton texte en tête du rail. */
+.mp-nav__outils {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: calc(var(--mp-esp-2) * -1);
+}
+.mp-nav__tout {
+  min-height: 32px;
+  padding: 0 var(--mp-esp-3);
+  border: 0;
+  border-radius: var(--mp-rayon);
+  background: none;
+  color: var(--mp-sur-nuit-doux);
+  font: inherit;
+  font-size: var(--mp-taille-xs);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.mp-nav__tout:hover {
+  background: var(--mp-nuit-survol);
+  color: var(--mp-sur-nuit);
+}
+
 .mp-nav__groupe-titre--repliable {
   padding: 0;
 }
@@ -739,6 +999,30 @@ button.mp-nav__lien:hover {
   background: var(--mp-nuit-survol);
 }
 
+.mp-nav__groupe-texte {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mp-esp-2);
+}
+
+/* Le groupe de la page courante se reconnaît même replié : point or inscrit après son titre. */
+.mp-nav__repere {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--mp-or);
+}
+
+/* Entrée pas encore disponible : mention visible en plus de l'infobulle. */
+.mp-nav__bientot {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
 .mp-nav__chevron {
   transition: transform var(--mp-duree) var(--mp-sortie);
 }
@@ -761,7 +1045,7 @@ button.mp-nav__lien:hover {
 }
 .mp-langue__choix {
   min-width: 2.5rem;
-  min-height: 2.25rem;
+  min-height: 2.5rem;
   padding: 0 var(--mp-esp-2);
   border: 0;
   background: transparent;
@@ -775,6 +1059,14 @@ button.mp-nav__lien:hover {
 .mp-langue__choix[aria-pressed="true"] {
   background: var(--mp-primaire);
   color: var(--mp-sur-primaire);
+  font-weight: 700;
+}
+/* Le conteneur rogne l'anneau de focus : il se dessine en dedans, d'une couleur qui tranche. */
+.mp-langue__choix:focus-visible {
+  outline-offset: -3px;
+}
+.mp-langue__choix[aria-pressed="true"]:focus-visible {
+  outline-color: var(--mp-sur-primaire);
 }
 .mp-langue__choix:not([aria-pressed="true"]):hover {
   background: var(--mp-primaire-pale);
@@ -788,6 +1080,9 @@ button.mp-nav__lien:hover {
 .mp-langue--nuit .mp-langue__choix[aria-pressed="true"] {
   background: var(--mp-sur-nuit);
   color: var(--mp-nuit);
+}
+.mp-langue--nuit .mp-langue__choix[aria-pressed="true"]:focus-visible {
+  outline-color: var(--mp-nuit);
 }
 .mp-langue--nuit .mp-langue__choix:not([aria-pressed="true"]):hover {
   background: var(--mp-nuit-actif);

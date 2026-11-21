@@ -3,7 +3,11 @@
 import { LANGUES, LIBELLES_LANGUES } from "@missionpilot/shared";
 import { changerLangue, useLangue, useT } from "./FournisseurLangue";
 
-/** Bascule français / anglais : deux boutons, l'actif est marqué `aria-pressed`. */
+/**
+ * Bascule français / anglais : deux boutons (cible tactile de 40 px au moins), l'actif est marqué
+ * `aria-pressed` et se lit aussi sans la couleur (graisse, aplat plein). Le nom accessible est la
+ * langue en toutes lettres, dans sa propre langue.
+ */
 export function SelecteurLangue({ className }: { className?: string }) {
   const langue = useLangue();
   const t = useT();
@@ -21,6 +25,7 @@ export function SelecteurLangue({ className }: { className?: string }) {
           className="mp-langue__choix"
           aria-pressed={l === langue}
           title={LIBELLES_LANGUES[l]}
+          aria-label={LIBELLES_LANGUES[l]}
           onClick={() => {
             if (l !== langue) changerLangue(l);
           }}

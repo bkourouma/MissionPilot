@@ -19,9 +19,24 @@
 
 /* Les noms de mission se lisent comme du texte, le lien se révèle au survol et au focus. */
 .mp-missions-en-vol .mp-tableau a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
   color: var(--mp-texte);
   font-weight: 600;
   text-decoration: none;
+}
+
+/* Nombres : chiffres tabulaires, alignés à droite. */
+.mp-missions-en-vol .mp-tableau .mp-aligne-droite {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lien « voir tout » : cible de 44 px. */
+.mp-missions-en-vol > p > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--mp-cible);
 }
 .mp-missions-en-vol .mp-tableau a:hover,
 .mp-missions-en-vol .mp-tableau a:focus-visible {
@@ -89,6 +104,7 @@
 
 .mp-cap__chiffres dd {
   margin: 0;
+  overflow-wrap: anywhere;
   font-family: var(--mp-police-chiffres);
   font-size: var(--mp-taille-xl);
   font-weight: 700;
@@ -123,21 +139,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--mp-esp-2);
-}
-
-/* Marque « Calculé » : valeur issue d'un moteur de calcul testé, jamais du modèle de langage. */
-.mp-calcule {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mp-esp-1);
-  padding: 0.125rem var(--mp-esp-2);
-  border-radius: 999px;
-  background: var(--mp-neutre-fond);
-  color: var(--mp-neutre);
-  font-size: var(--mp-taille-xs);
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
 }
 
 /* Téléphone : chaque mission tient sur deux lignes (nom ; jours et écart) puis sa trajectoire. */
@@ -181,7 +182,7 @@
     font-size: var(--mp-taille-s);
   }
   .mp-missions-en-vol .mp-tableau td:nth-child(4):not(:last-child)::before {
-    content: "Marge : ";
+    content: attr(data-libelle) " : ";
     display: inline;
   }
   /* Une marge absente n'occupe pas de ligne sur téléphone. */
@@ -192,5 +193,28 @@
     width: 100%;
     max-width: 12rem;
     height: auto;
+  }
+}
+
+/* Cap de la mission sur petit écran : une ligne par chiffre, valeur tabulaire alignée à droite. */
+@media (max-width: 479px) {
+  .mp-cap__chiffres {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .mp-cap__chiffres > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--mp-esp-3);
+    padding: var(--mp-esp-2) 0;
+    border-top: 1px solid var(--mp-bordure);
+  }
+  .mp-cap__chiffres > div:first-child {
+    border-top: 0;
+  }
+  .mp-cap__chiffres dd {
+    font-size: var(--mp-taille-l);
+    text-align: right;
   }
 }

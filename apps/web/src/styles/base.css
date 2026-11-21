@@ -8,6 +8,33 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Le focus et les ancres ne passent pas sous l'en-tête collant ni sous la barre basse. */
+  scroll-padding-top: calc(var(--mp-hauteur-entete) + var(--mp-esp-4));
+  scroll-padding-bottom: var(--mp-esp-4);
+}
+
+@media (max-width: 959px) {
+  html {
+    scroll-padding-bottom: calc(var(--mp-hauteur-barre-basse) + var(--mp-esp-4));
+  }
+}
+
+/* Pas de zoom au double toucher sur les contrôles ; le pincement reste possible. */
+a,
+button,
+input,
+select,
+textarea,
+summary,
+label,
+[role="button"],
+[role="tab"] {
+  touch-action: manipulation;
+}
+
+/* Garanti : `hidden` l'emporte sur un `display` posé par une classe. */
+[hidden] {
+  display: none !important;
 }
 
 body {
@@ -67,6 +94,11 @@ textarea {
   caret-color: var(--mp-primaire);
 }
 
+::placeholder {
+  color: var(--mp-placeholder);
+  opacity: 1;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--mp-bordure-controle) transparent;
@@ -88,11 +120,14 @@ textarea {
 
 a {
   color: var(--mp-primaire);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
 }
 
 a:hover {
   color: var(--mp-primaire-survol);
+  text-decoration-thickness: 2px;
 }
 
 code {
@@ -102,9 +137,21 @@ code {
 
 /* Focus clavier toujours visible, jamais supprimé. */
 :focus-visible {
-  outline: 3px solid var(--mp-focus);
-  outline-offset: 2px;
+  outline: var(--mp-focus-largeur) solid var(--mp-focus);
+  outline-offset: var(--mp-focus-decalage);
   border-radius: 2px;
+}
+
+/* Contrôles arrondis : l'anneau suit le rayon. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  border-radius: var(--mp-rayon);
+}
+
+/* Fond nuit (rail, barre haute du téléphone) : anneau blanc. */
+:where(.mp-rail, .mp-entete, [data-surface="nuit"]) :focus-visible {
+  outline-color: var(--mp-focus-nuit);
 }
 
 [tabindex="-1"]:focus:not(:focus-visible) {
@@ -133,6 +180,10 @@ code {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
@@ -140,5 +191,12 @@ code {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* L'indicateur de chargement reste perceptible : anneau fixe (le texte « en cours » reste affiché). */
+  .mp-bouton__indicateur {
+    animation: none !important;
+    border-right-color: currentColor;
+    border-style: dotted;
   }
 }

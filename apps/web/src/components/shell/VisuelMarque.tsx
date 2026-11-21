@@ -31,13 +31,13 @@ export function VisuelMarque({ titre, texte }: { titre: string; texte: string })
         <path
           d="M-10 262C120 286 290 280 450 210C570 156 650 110 722 52"
           fill="none"
-          stroke="#e5a72f"
+          stroke="var(--mp-or)"
           strokeWidth="6"
           strokeLinecap="round"
         />
-        <path d="M741 28L704 36 735 79z" fill="#e5a72f" />
-        <circle cx="300" cy="271" r="13" fill="#e5a72f" />
-        <circle cx="300" cy="271" r="21" fill="#e5a72f" fillOpacity="0.22" />
+        <path d="M741 28L704 36 735 79z" fill="var(--mp-or)" />
+        <circle cx="300" cy="271" r="13" fill="var(--mp-or)" />
+        <circle cx="300" cy="271" r="21" fill="var(--mp-or)" fillOpacity="0.22" />
       </svg>
     </aside>
   );

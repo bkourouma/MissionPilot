@@ -28,6 +28,9 @@
   --mp-sur-primaire: #ffffff;
   --mp-primaire-pale: #efeafa;
   --mp-focus: #5b2fc4;
+  /* Anneau de focus : épaisseur et décalage communs à tous les contrôles. */
+  --mp-focus-largeur: 3px;
+  --mp-focus-decalage: 2px;
 
   /* Or : action principale, trajectoire réelle, repère actif du rail */
   --mp-or: #e5a72f;
@@ -57,6 +60,25 @@
   --mp-neutre-fond: #efeaf7;
   --mp-info: #4a22a6;
   --mp-info-fond: #efeaf7;
+
+  /* Bouton danger : texte (7,3:1) et survol plus soutenu (blanc dessus : 9,3:1) */
+  --mp-sur-danger: #ffffff;
+  --mp-danger-survol: #861c22;
+
+  /* Champs : placeholder (5,3:1 sur surface), survol, lecture seule */
+  --mp-placeholder: #6f6590;
+  --mp-bordure-controle-survol: #4a4268;
+  --mp-fond-lecture-seule: #f8f6fd;
+
+  /* Survol d'une ligne de tableau ou de liste cliquable */
+  --mp-survol-ligne: #f7f4fd;
+
+  /* Couches (z-index) : à utiliser plutôt que des nombres en dur */
+  --mp-z-collant: 10;
+  --mp-z-entete: 20;
+  --mp-z-tiroir: 40;
+  --mp-z-modale: 60;
+  --mp-z-toast: 80;
 
   /* Typographie : Figtree (texte) et Sora (titres, chiffres de tête), fichiers locaux. */
   --mp-police:
@@ -102,6 +124,8 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+
   --mp-fond: #130d26;
   --mp-surface: #1b1336;
   --mp-surface-2: #251b47;
@@ -127,6 +151,14 @@
   --mp-neutre-fond: #2a2147;
   --mp-info: #b9a2f5;
   --mp-info-fond: #2a1f52;
+
+  --mp-sur-danger: #2b0a0d;
+  --mp-danger-survol: #f8b9bc;
+
+  --mp-placeholder: #8c80b4;
+  --mp-bordure-controle-survol: #b3a8d6;
+  --mp-fond-lecture-seule: #170f2e;
+  --mp-survol-ligne: #211941;
 
   --mp-ombre-l: 0 12px 32px rgb(0 0 0 / 0.55);
 }

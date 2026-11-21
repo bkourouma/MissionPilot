@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { libelleEntree, type EntreeNavigation } from "../../lib/navigation";
 import { T } from "../i18n/T";
-import { useLangue } from "../i18n/FournisseurLangue";
+import { useLangue, useT } from "../i18n/FournisseurLangue";
 import { Icone } from "../ui/Icone";
 
 export interface LienNavigationProps {
@@ -29,13 +29,26 @@ export function LienNavigation({
   pastille,
 }: LienNavigationProps) {
   const langue = useLangue();
+  const t = useT();
   const classe = `mp-nav__lien mp-nav__lien--${forme}`;
   const libelle = libelleEntree(entree, langue, forme === "barre");
   if (!entree.disponible) {
+    // Pas un lien : hors de l'ordre de tabulation, mais expliqué (infobulle, mention visible dans la
+    // liste, texte pour lecteur d'écran).
     return (
-      <span className={`${classe} mp-nav__lien--indisponible`} role="link" aria-disabled="true">
+      <span
+        className={`${classe} mp-nav__lien--indisponible`}
+        role="link"
+        aria-disabled="true"
+        title={t("Pas encore disponible", "Not yet available")}
+      >
         <Icone nom={entree.icone} />
         <span className="mp-nav__libelle">{libelle}</span>
+        {forme === "liste" ? (
+          <span className="mp-nav__bientot" aria-hidden="true">
+            {t("Bientôt", "Soon")}
+          </span>
+        ) : null}
         <span className="mp-visuellement-cache">
           {" "}
           <T fr="(pas encore disponible)" en="(not yet available)" />

@@ -4,7 +4,8 @@
  */
 /* En tête de page, dans le flux : ne recouvre ni l'en-tête ni la barre d'envoi de la feuille. */
 .mp-reseau {
-  padding: var(--mp-esp-2) var(--mp-esp-4);
+  padding: var(--mp-esp-2) max(var(--mp-esp-4), env(safe-area-inset-right)) var(--mp-esp-2)
+    max(var(--mp-esp-4), env(safe-area-inset-left));
   padding-top: calc(var(--mp-esp-2) + env(safe-area-inset-top));
   border-bottom: 1px solid var(--mp-bordure);
   font-size: var(--mp-taille-s);
@@ -28,9 +29,18 @@
   color: var(--mp-succes);
 }
 
+/* Icône + texte : l'état ne dépend pas de la seule couleur. */
 .mp-reseau__texte {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mp-esp-2);
   max-width: var(--mp-largeur-contenu);
   margin: 0 auto;
+  line-height: 1.4;
+}
+.mp-reseau__texte svg {
+  flex: none;
+  margin-top: 1px;
 }
 
 .mp-hors-ligne__detail {
@@ -46,8 +56,8 @@
 }
 
 .mp-hors-ligne__detail summary:focus-visible {
-  outline: 3px solid var(--mp-focus);
-  outline-offset: 2px;
+  outline: var(--mp-focus-largeur) solid var(--mp-focus);
+  outline-offset: var(--mp-focus-decalage);
 }
 
 .mp-hors-ligne__actions {
