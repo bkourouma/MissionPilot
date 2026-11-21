@@ -323,6 +323,7 @@ function EtapeCode({
           maxLength={7}
           spellCheck={false}
           required
+          aide={t("Le code change toutes les 30 secondes.", "The code changes every 30 seconds.")}
           className="mp-champ-code"
           value={saisie}
           onChange={(e) => setSaisie(e.target.value.replace(/[^\d ]/g, ""))}

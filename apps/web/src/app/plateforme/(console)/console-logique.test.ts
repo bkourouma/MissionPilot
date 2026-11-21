@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   destinationApresDeconnexion,
+  filtrerCabinets,
   libelleComptePremierAssocie,
   libelleUtilisateursCabinet,
   texteActionEtat,
@@ -54,5 +55,30 @@ describe("libelleComptePremierAssocie", () => {
     expect(libelleComptePremierAssocie("Akwaba", { nom: "Awa Koné", email: "awa@akwaba.ci" })).toBe(
       "Premier associé de Akwaba : Awa Koné (awa@akwaba.ci)",
     );
+  });
+});
+
+describe("filtrerCabinets", () => {
+  const liste = [
+    { nom: "Cabinet Akwaba", actif: true },
+    { nom: "Éclair & Associés", actif: true },
+    { nom: "Cabinet Dormant", actif: false },
+  ];
+  it("sans critère, garde tout", () => {
+    expect(filtrerCabinets(liste, "", "tous")).toHaveLength(3);
+    expect(filtrerCabinets(liste, "   ", "tous")).toHaveLength(3);
+  });
+  it("cherche sans tenir compte des accents ni de la casse", () => {
+    expect(filtrerCabinets(liste, "eclair", "tous").map((c) => c.nom)).toEqual([
+      "Éclair & Associés",
+    ]);
+    expect(filtrerCabinets(liste, "CABINET", "tous")).toHaveLength(2);
+  });
+  it("filtre par état et combine avec la recherche", () => {
+    expect(filtrerCabinets(liste, "", "desactives").map((c) => c.nom)).toEqual(["Cabinet Dormant"]);
+    expect(filtrerCabinets(liste, "cabinet", "actifs").map((c) => c.nom)).toEqual([
+      "Cabinet Akwaba",
+    ]);
+    expect(filtrerCabinets(liste, "zzz", "tous")).toEqual([]);
   });
 });

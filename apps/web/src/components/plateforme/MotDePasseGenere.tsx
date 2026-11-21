@@ -78,8 +78,12 @@ export function MotDePasseGenere({ motDePasse, compte, surTermine }: MotDePasseG
           spellCheck={false}
           onFocus={(e) => e.currentTarget.select()}
         />
-        <Bouton variante="secondaire" icone="copie" onClick={() => void copier()}>
-          {t("Copier", "Copy")}
+        <Bouton
+          variante={copie === "oui" ? "discret" : "secondaire"}
+          icone={copie === "oui" ? "succes" : "copie"}
+          onClick={() => void copier()}
+        >
+          {copie === "oui" ? t("Copié", "Copied") : t("Copier", "Copy")}
         </Bouton>
       </div>
       <p className="mp-visuellement-cache" role="status" aria-live="polite">
@@ -87,11 +91,6 @@ export function MotDePasseGenere({ motDePasse, compte, surTermine }: MotDePasseG
           ? t("Mot de passe copié dans le presse-papiers.", "Password copied to the clipboard.")
           : ""}
       </p>
-      {copie === "oui" ? (
-        <p className="mp-texte-doux" aria-hidden="true">
-          {t("Copié dans le presse-papiers.", "Copied to the clipboard.")}
-        </p>
-      ) : null}
       {copie === "echec" ? (
         <p className="mp-texte-doux">
           {t(

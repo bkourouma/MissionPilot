@@ -514,10 +514,13 @@ export function GestionUtilisateurs({
                     onChange={(e) => setSaisie({ ...saisie, motDePasse: e.target.value })}
                     erreur={erreurs.motDePasse}
                   />
-                  <Bouton variante="discret" onClick={() => setMdpVisible((v) => !v)}>
-                    {mdpVisible
-                      ? t("Masquer le mot de passe", "Hide password")
-                      : t("Afficher le mot de passe", "Show password")}
+                  <Bouton
+                    variante="discret"
+                    icone="oeil"
+                    aria-pressed={mdpVisible}
+                    onClick={() => setMdpVisible((v) => !v)}
+                  >
+                    {t("Afficher le mot de passe", "Show password")}
                   </Bouton>
                 </div>
                 <div className="mp-gu__barre">

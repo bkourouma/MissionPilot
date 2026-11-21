@@ -105,10 +105,15 @@ export function CodesSecours({ codes, email, onTerminer }: CodesSecoursProps) {
         checked={note}
         onChange={(e) => setNote(e.target.checked)}
       />
-      <div>
-        <Bouton disabled={!note} onClick={onTerminer}>
+      <div className="mp-actions-formulaire">
+        <Bouton disabled={!note} aria-describedby="codes-secours-aide" onClick={onTerminer}>
           {t("Terminer", "Done")}
         </Bouton>
+        {note ? null : (
+          <p id="codes-secours-aide" className="mp-texte-doux mp-texte-petit">
+            {t("Cochez la case ci-dessus pour continuer.", "Tick the box above to continue.")}
+          </p>
+        )}
       </div>
     </div>
   );
